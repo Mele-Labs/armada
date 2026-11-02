@@ -26,10 +26,18 @@ const NONE: readonly never[] = [];
 
 type Reads = StateSource & Pick<BridgeApi, "listIssues" | "getIssue" | "getPullRequest">;
 
-type Issues = { at: number; loading: boolean; hits: readonly NumberedHit[] };
+type Issues = {
+  at: number;
+  loading: boolean;
+  hits: readonly NumberedHit[];
+};
 
 /** The answer `open` last gave a repository, kept while neither of its two parts moved. */
-type Joined = { issues: readonly NumberedHit[]; pulls: readonly HubPullRequest[] | undefined; hits: readonly NumberedHit[] };
+type Joined = {
+  issues: readonly NumberedHit[];
+  pulls: readonly HubPullRequest[] | undefined;
+  hits: readonly NumberedHit[];
+};
 
 /** The store behind one window's `#`. Exported for a test that holds it without a window. */
 export class FleetNumbered {
@@ -60,16 +68,22 @@ export class FleetNumbered {
 
   /** Follow the repositories and the merge lines; tell the boxes only when a repository they asked for has other pull requests. */
   take(state: Pick<BridgeState, "holds" | "mergeLines">): void {
-    const was = [...this.issues.keys()].map((id) => this.pullsOf(id));
+    const was = [
+      ...this.issues.keys(),
+    ].map((id) => this.pullsOf(id));
     this.repositories = state.holds.repositories ?? NONE;
     this.lines = state.mergeLines;
-    const now = [...this.issues.keys()].map((id) => this.pullsOf(id));
+    const now = [
+      ...this.issues.keys(),
+    ].map((id) => this.pullsOf(id));
     if (was.some((pulls, at) => pulls !== now[at])) this.changed();
   }
 
   private pullsOf(manifestId: string): readonly HubPullRequest[] | undefined {
     const root = this.repositories.find((one) => jobIdOf(one) === manifestId)?.root;
-    return root === undefined ? undefined : this.lines?.lines.find((one) => one.root === root)?.hub?.pull_requests;
+    return root === undefined
+      ? undefined
+      : this.lines?.lines.find((one) => one.root === root)?.hub?.pull_requests;
   }
 
   private changed(): void {
@@ -79,7 +93,11 @@ export class FleetNumbered {
 
   /** The issues of a repository: asked for the first time here, and once more when what is held has gone stale. */
   private ask(manifestId: string): Issues {
-    const held = this.issues.get(manifestId) ?? { at: Number.NEGATIVE_INFINITY, loading: false, hits: NONE };
+    const held = this.issues.get(manifestId) ?? {
+      at: Number.NEGATIVE_INFINITY,
+      loading: false,
+      hits: NONE,
+    };
     if (held.loading || this.now() - held.at <= STALE_MS) return held;
     held.at = this.now();
     held.loading = true;
@@ -104,12 +122,22 @@ export class FleetNumbered {
     const pulls = this.pullsOf(manifestId);
     const kept = this.joined.get(manifestId);
     if (kept !== undefined && kept.issues === issues && kept.pulls === pulls) return kept.hits;
-    const hits = [...issues, ...(pulls ?? NONE).map(pullRequestHit)];
-    this.joined.set(manifestId, { issues, pulls, hits });
+    const hits = [
+      ...issues,
+      ...(pulls ?? NONE).map(pullRequestHit),
+    ];
+    this.joined.set(manifestId, {
+      issues,
+      pulls,
+      hits,
+    });
     return hits;
   };
 
-  private readonly find = async (manifestId: string | undefined, number: number): Promise<NumberedHit | undefined> => {
+  private readonly find = async (
+    manifestId: string | undefined,
+    number: number,
+  ): Promise<NumberedHit | undefined> => {
     if (manifestId === undefined) return undefined;
     // A pull request first, open, merged or closed; a number the forge has no pull request for is tried as an issue.
     const pull = await this.api.getPullRequest(manifestId, number).catch(() => undefined);
@@ -117,7 +145,12 @@ export class FleetNumbered {
     const issue = await this.api.getIssue(manifestId, `#${number}`).catch(() => undefined);
     if (issue?.ok !== true) return undefined;
     const hit = issueHit(issue.value);
-    return issue.value.state === "closed" ? { ...hit, standing: "Closed" } : hit;
+    return issue.value.state === "closed"
+      ? {
+          ...hit,
+          standing: "Closed",
+        }
+      : hit;
   };
 
   readonly source: NumberedSource = {
@@ -134,6 +167,11 @@ export class FleetNumbered {
 /** `#` over a real Fleet, for the window the app mounts. The mock mounts its own. */
 export function WiredNumbered({ children }: { children: ReactNode }) {
   const store = useMemo(() => new FleetNumbered(withState(window.armada)), []);
-  useEffect(() => store.attach(), [store]);
+  useEffect(
+    () => store.attach(),
+    [
+      store,
+    ],
+  );
   return <NumberedFrom held={store.source}>{children}</NumberedFrom>;
 }

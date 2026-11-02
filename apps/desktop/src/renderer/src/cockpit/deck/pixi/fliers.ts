@@ -12,7 +12,13 @@ import { project, type View } from "./project";
 import type { DroneSpec, PixiSceneIn } from "./scene";
 import type { Clock } from "./clock";
 
-type Flier = { spec: DroneSpec; sig: string; root: Container; parts: DroneParts; pillar: Sprite | undefined };
+type Flier = {
+  spec: DroneSpec;
+  sig: string;
+  root: Container;
+  parts: DroneParts;
+  pillar: Sprite | undefined;
+};
 
 const clamp = (n: number) => Math.min(1, Math.max(0, n));
 
@@ -25,7 +31,9 @@ export class Fliers {
 
   /** The specs as they stand now, for what draws the ground under them. */
   get specs(): readonly DroneSpec[] {
-    return [...this.nodes.values()].map((one) => one.spec);
+    return [
+      ...this.nodes.values(),
+    ].map((one) => one.spec);
   }
 
   sync(scene: PixiSceneIn, palette: Palette, fonts: number): void {
@@ -40,20 +48,35 @@ export class Fliers {
         next.set(spec.drone.key, kept);
         continue;
       }
-      kept?.root.destroy({ children: true });
+      kept?.root.destroy({
+        children: true,
+      });
       const parts = drawDrone(spec, scene.big, palette);
       const root = new Container();
       root.eventMode = "none";
       const tone = spec.call;
-      const pillar = tone === undefined ? undefined : pillarSprite(12, 100, tone === "bad" ? palette.bad : palette.ask);
+      const pillar =
+        tone === undefined
+          ? undefined
+          : pillarSprite(12, 100, tone === "bad" ? palette.bad : palette.ask);
       if (pillar !== undefined) root.addChild(pillar);
       root.addChild(parts.body);
       if (parts.mark !== undefined) root.addChild(parts.mark);
       for (const one of parts.clashes) root.addChild(one);
       this.layer.addChild(root);
-      next.set(spec.drone.key, { spec, sig, root, parts, pillar });
+      next.set(spec.drone.key, {
+        spec,
+        sig,
+        root,
+        parts,
+        pillar,
+      });
     }
-    for (const [key, one] of this.nodes) if (!next.has(key)) one.root.destroy({ children: true });
+    for (const [key, one] of this.nodes)
+      if (!next.has(key))
+        one.root.destroy({
+          children: true,
+        });
     this.nodes = next;
   }
 
@@ -61,7 +84,11 @@ export class Fliers {
   place(view: View, floorOf: (tile: string | undefined) => number, clock: Clock): void {
     if (view.width === 0) return;
     for (const { spec, root, parts, pillar } of this.nodes.values()) {
-      const at = { x: spec.at.x, y: spec.at.y, z: spec.alt };
+      const at = {
+        x: spec.at.x,
+        y: spec.at.y,
+        z: spec.alt,
+      };
       let seen = 1;
       let arrived = 1;
       if (spec.launch !== undefined && clock.pulse > 0) {
@@ -78,7 +105,10 @@ export class Fliers {
       }
       if (spec.dock !== undefined) {
         // Back along an arc into the drone that sent it, fading as it arrives; gone at once where nothing moves.
-        const t = clock.pulse > 0 ? clamp(clock.since(spec.dock.id, spec.dock.delay) / (clock.pulse * 1.2)) : 1;
+        const t =
+          clock.pulse > 0
+            ? clamp(clock.since(spec.dock.id, spec.dock.delay) / (clock.pulse * 1.2))
+            : 1;
         const back = alongOf(at, spec.dock.to, 30, t);
         at.x = back.x;
         at.y = back.y;
@@ -96,14 +126,25 @@ export class Fliers {
         parts.mark.scale.set(here.scale);
       }
       parts.clashes.forEach((one, i) => {
-        one.position.set(here.x + (32 + 30 * i) * here.scale, here.y - parts.head * view.eye * here.scale);
+        one.position.set(
+          here.x + (32 + 30 * i) * here.scale,
+          here.y - parts.head * view.eye * here.scale,
+        );
         one.scale.set(here.scale);
       });
       if (pillar !== undefined) {
         const floor = floorOf(spec.tile);
         const up = Math.max(0, spec.alt - floor) + parts.head;
-        const foot = project(view, { x: spec.at.x, y: spec.at.y, z: floor });
-        const head = project(view, { x: spec.at.x, y: spec.at.y, z: floor + up + 90 / view.eye });
+        const foot = project(view, {
+          x: spec.at.x,
+          y: spec.at.y,
+          z: floor,
+        });
+        const head = project(view, {
+          x: spec.at.x,
+          y: spec.at.y,
+          z: floor + up + 90 / view.eye,
+        });
         pillar.position.set(foot.x, foot.y);
         pillar.rotation = Math.atan2(head.x - foot.x, foot.y - head.y);
         pillar.height = Math.hypot(head.x - foot.x, head.y - foot.y);
@@ -114,7 +155,10 @@ export class Fliers {
   }
 
   destroy(): void {
-    for (const one of this.nodes.values()) one.root.destroy({ children: true });
+    for (const one of this.nodes.values())
+      one.root.destroy({
+        children: true,
+      });
     this.nodes.clear();
   }
 }

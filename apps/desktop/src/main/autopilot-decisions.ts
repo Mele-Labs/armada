@@ -6,7 +6,10 @@ import type { AutopilotDecisions, Outcome } from "@armada/protocol";
 import type { AutopilotDecisionsActed } from "../shared/api/autopilot-decisions";
 import { ask } from "./request";
 
-const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
+const NOT_CONNECTED: Outcome = {
+  ok: false,
+  why: "not_connected",
+};
 
 export class AutopilotDecisionsHost {
   private readonly port: () => number | null;
@@ -31,18 +34,38 @@ export class AutopilotDecisionsHost {
   }
 
   async override(id: string, text: string): Promise<AutopilotDecisionsActed> {
-    return await this.act("POST", "/autopilot/decisions/override", { id, text });
+    return await this.act("POST", "/autopilot/decisions/override", {
+      id,
+      text,
+    });
   }
 
   async review(id: string): Promise<AutopilotDecisionsActed> {
-    return await this.act("POST", "/autopilot/decisions/review", { id });
+    return await this.act("POST", "/autopilot/decisions/review", {
+      id,
+    });
   }
 
-  private async act(method: "GET" | "POST", path: string, body?: unknown): Promise<AutopilotDecisionsActed> {
+  private async act(
+    method: "GET" | "POST",
+    path: string,
+    body?: unknown,
+  ): Promise<AutopilotDecisionsActed> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: NOT_CONNECTED,
+      };
     const answer = await ask(port, method, path, body);
-    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-    return { ok: true, value: answer.body as AutopilotDecisions };
+    if (answer.ok !== true)
+      return {
+        ok: false,
+        outcome: answer.outcome,
+      };
+    return {
+      ok: true,
+      value: answer.body as AutopilotDecisions,
+    };
   }
 }

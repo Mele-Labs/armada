@@ -51,7 +51,8 @@ if (script !== undefined) {
 }
 
 // `?step=<n>` starts a walk on step n, the steps before it run straight through: what Back does.
-const startStep = (of: number) => Math.min(Math.max(Number(query.get("step") ?? 1) || 1, 1), of) - 1;
+const startStep = (of: number) =>
+  Math.min(Math.max(Number(query.get("step") ?? 1) || 1, 1), of) - 1;
 
 const root = document.getElementById("root");
 const picker = document.getElementById("picker");
@@ -60,7 +61,8 @@ if (root !== null && picker !== null) {
   const runner = query.get("runner");
   if (runner === null) mountApp(scenario, root);
   else mountRunner(root, JSON.parse(runner) as RunnerPage);
-  if (walking !== null && script !== undefined) mountWalk(walking, script, query.has("autoplay"), picker, startStep(script.steps.length));
+  if (walking !== null && script !== undefined)
+    mountWalk(walking, script, query.has("autoplay"), picker, startStep(script.steps.length));
   else if (walking !== null) mountNoWalk(walking, picker);
   else if (!framing) mountPicker(scenario.name, picker);
   // A walk page keeps the picker, on a host of its own: the walk's card holds `#picker`, and one
@@ -75,4 +77,5 @@ if (root !== null && picker !== null) {
 // The annotation layer (#1226), saving through this dev server's `annotationsServer`. Not in a
 // frame, and not inside a walk window's stand-in (`?walked`), whose own capture takes
 // ⌥⌘A there as main's walk window does.
-if (!framing && !query.has("walked") && !annotatesWith(scenario.name)) void import("../annotate/mount").then(({ mount }) => mount(storyFile));
+if (!framing && !query.has("walked") && !annotatesWith(scenario.name))
+  void import("../annotate/mount").then(({ mount }) => mount(storyFile));

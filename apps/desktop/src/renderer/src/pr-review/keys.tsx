@@ -13,23 +13,38 @@ import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
 import { useReviewStore, useReviews, type ReviewStore } from "./store";
 
-const ZONES = [".pr-list", ".pr-reader", ".deck-controls"] as const;
-const zoneOf = (target: Element): (typeof ZONES)[number] | undefined => ZONES.find((one) => target.closest(one) !== null);
+const ZONES = [
+  ".pr-list",
+  ".pr-reader",
+  ".deck-controls",
+] as const;
+const zoneOf = (target: Element): (typeof ZONES)[number] | undefined =>
+  ZONES.find((one) => target.closest(one) !== null);
 
 /** What the arrows move between in the reader, in the order it is drawn. */
-const STOPS = '.pr-asked__words, .pr-desc > header button, article[data-stop]';
+const STOPS = ".pr-asked__words, .pr-desc > header button, article[data-stop]";
 
-const all = (selector: string, within: ParentNode = document) => [...within.querySelectorAll<HTMLElement>(selector)].filter((one) => !one.hasAttribute("disabled"));
+const all = (selector: string, within: ParentNode = document) =>
+  [
+    ...within.querySelectorAll<HTMLElement>(selector),
+  ].filter((one) => !one.hasAttribute("disabled"));
 
 /** Moves focus along `items` from the one holding it (or the one the key was pressed on), without wrapping. */
 function step(items: HTMLElement[], from: Element, by: 1 | -1): void {
   const at = items.findIndex((one) => one === from || one.contains(from));
-  items[at < 0 ? (by === 1 ? 0 : items.length - 1) : Math.min(items.length - 1, Math.max(0, at + by))]?.focus();
+  items[
+    at < 0 ? (by === 1 ? 0 : items.length - 1) : Math.min(items.length - 1, Math.max(0, at + by))
+  ]?.focus();
 }
 
 function focusList(): void {
   const rows = all(".pr-list .pr-row");
-  (rows.find((one) => one.hasAttribute("data-selected")) ?? rows[0] ?? document.querySelector<HTMLElement>(".pr-list .pr-list__pick button") ?? document.querySelector<HTMLElement>(".pr-list"))?.focus();
+  (
+    rows.find((one) => one.hasAttribute("data-selected")) ??
+    rows[0] ??
+    document.querySelector<HTMLElement>(".pr-list .pr-list__pick button") ??
+    document.querySelector<HTMLElement>(".pr-list")
+  )?.focus();
 }
 function focusReader(): void {
   document.querySelector<HTMLElement>(".pr-reader")?.focus();
@@ -43,7 +58,11 @@ function focusTools(): void {
   const tiles = all(".deck-controls .pr-tool");
   (tiles.find((one) => one.getAttribute("aria-pressed") === "true") ?? tiles[0])?.focus();
 }
-const FOCUS = { ".pr-list": focusList, ".pr-reader": focusReader, ".deck-controls": focusTools } as const;
+const FOCUS = {
+  ".pr-list": focusList,
+  ".pr-reader": focusReader,
+  ".deck-controls": focusTools,
+} as const;
 
 /**
  * The keys of the review surface, mounted with its foot tools, which are on screen wherever the review is. Takes a press in the
@@ -56,11 +75,18 @@ export function ReviewKeys() {
     const listen = (event: KeyboardEvent) => press(event, store);
     window.addEventListener("keydown", listen, true);
     return () => window.removeEventListener("keydown", listen, true);
-  }, [store]);
+  }, [
+    store,
+  ]);
   // Natural Search takes focus in its box when it is put up.
   useEffect(() => {
-    if (reviews.searching) window.requestAnimationFrame(() => document.querySelector<HTMLElement>('.pr-find textarea')?.focus());
-  }, [reviews.searching]);
+    if (reviews.searching)
+      window.requestAnimationFrame(() =>
+        document.querySelector<HTMLElement>(".pr-find textarea")?.focus(),
+      );
+  }, [
+    reviews.searching,
+  ]);
   return null;
 }
 
@@ -108,7 +134,11 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
       take();
       return document.querySelector<HTMLElement>(".pr-reader")?.focus();
     }
-    if (pr !== undefined && (snap.work[pr.key]?.view ?? "explanation") !== "explanation" && here !== ".pr-list") {
+    if (
+      pr !== undefined &&
+      (snap.work[pr.key]?.view ?? "explanation") !== "explanation" &&
+      here !== ".pr-list"
+    ) {
       take();
       return store.setView(pr.key, "explanation");
     }
@@ -128,9 +158,9 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
 
   // Which part: the same letters the deck uses for the same places.
   const part = pressedSlot("review_panel", event);
-  if (part === 0) return take(), focusList();
-  if (part === 1) return take(), focusReader();
-  if (part === 2) return take(), focusTools();
+  if (part === 0) return (take(), focusList());
+  if (part === 1) return (take(), focusReader());
+  if (part === 2) return (take(), focusTools());
   if (isPressed("review_lists", event)) {
     take();
     return document.querySelector<HTMLElement>(".pr-list__pick button")?.click();
@@ -197,7 +227,8 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
       const at = run.indexOf(asked);
       if (vertical) {
         take();
-        if (at + by >= run.length) return document.querySelector<HTMLElement>(".pr-desc > header button")?.focus();
+        if (at + by >= run.length)
+          return document.querySelector<HTMLElement>(".pr-desc > header button")?.focus();
         return run[Math.max(0, at + by)]?.focus();
       }
       if (event.key === "Enter" || event.key === " " || isPressed("open", event)) {
@@ -220,7 +251,8 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
     if (vertical) {
       take();
       // A question's own buttons stand for its row.
-      const from = target.closest(".pr-asked__row")?.querySelector<HTMLElement>(".pr-asked__words") ?? target;
+      const from =
+        target.closest(".pr-asked__row")?.querySelector<HTMLElement>(".pr-asked__words") ?? target;
       return step(all(STOPS), from, by);
     }
     if (event.key === "Enter" || event.key === " ") {

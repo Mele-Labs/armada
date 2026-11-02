@@ -116,7 +116,10 @@ function describedBy(target: Element, bubbleId: string): string {
   const already = (target.getAttribute("aria-describedby") ?? "")
     .split(" ")
     .filter((id) => id !== "" && id !== bubbleId);
-  return [...already, bubbleId].join(" ");
+  return [
+    ...already,
+    bubbleId,
+  ].join(" ");
 }
 
 export function Tooltip({
@@ -170,8 +173,12 @@ export function Tooltip({
     // concept annotated on part of a control is read by hovering it — the
     // control's own description is what a keyboard gets.
     if (held.closest(FOCUSABLE) === null) held.tabIndex = 0;
-  // Not on `children`, which is new on every render: that rewrote the attribute on every tooltip in the window each time anything drew.
-  }, [bubbleId, decorative, asChild]);
+    // Not on `children`, which is new on every render: that rewrote the attribute on every tooltip in the window each time anything drew.
+  }, [
+    bubbleId,
+    decorative,
+    asChild,
+  ]);
 
   // **The top layer, not a z-index.** The bubble is drawn inside its trigger,
   // so any `z-index` it carries is only ever compared against the trigger's own
@@ -187,7 +194,9 @@ export function Tooltip({
     const lifted = node.matches(":popover-open");
     if (open && !lifted) node.showPopover();
     else if (!open && lifted) node.hidePopover();
-  }, [open]);
+  }, [
+    open,
+  ]);
 
   const show = useCallback(() => {
     window.clearTimeout(timer.current);
@@ -198,10 +207,13 @@ export function Tooltip({
       setOpen(true);
       return;
     }
-    timer.current = window.setTimeout(() => {
-      shown.current = true;
-      setOpen(true);
-    }, readMs("--tooltip-delay", 400));
+    timer.current = window.setTimeout(
+      () => {
+        shown.current = true;
+        setOpen(true);
+      },
+      readMs("--tooltip-delay", 400),
+    );
   }, []);
 
   const hide = useCallback(() => {
@@ -267,7 +279,12 @@ export function Tooltip({
   const child = children as ReactElement<HTMLAttributes<HTMLElement>>;
   return cloneElement(child, {
     ...handlers,
-    className: [child.props.className, "armada-tooltip-on"].filter(Boolean).join(" "),
+    className: [
+      child.props.className,
+      "armada-tooltip-on",
+    ]
+      .filter(Boolean)
+      .join(" "),
     ref: hold,
     children: (
       <>

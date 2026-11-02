@@ -37,9 +37,18 @@ type Story = StoryObj<typeof BranchPicker>;
 /** The repository's branches as the draft derives them: base first, then Jobs. */
 function BRANCHES(): BranchOption[] {
   return [
-    { name: "main", base: true },
-    { name: "armada/18-fold-the-capacity-read", job: "Fold the capacity read into one query" },
-    { name: "armada/19-give-the-rail-its-own-scroll", job: "Give the rail its own scroll" },
+    {
+      name: "main",
+      base: true,
+    },
+    {
+      name: "armada/18-fold-the-capacity-read",
+      job: "Fold the capacity read into one query",
+    },
+    {
+      name: "armada/19-give-the-rail-its-own-scroll",
+      job: "Give the rail its own scroll",
+    },
   ];
 }
 
@@ -66,10 +75,17 @@ function Picking(props: ComponentProps<typeof BranchPicker>) {
  * would say the repository has no branches, and nothing has asked it.
  */
 export const NothingListed: Story = {
-  args: { branches: null, value: "" },
+  args: {
+    branches: null,
+    value: "",
+  },
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("combobox")).toBeNull();
-    await expect(canvas.getByRole("textbox", { name: "Lands in" })).toBeVisible();
+    await expect(
+      canvas.getByRole("textbox", {
+        name: "Lands in",
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -84,11 +100,17 @@ export const Offering: Story = {
    * Enter takes the row, and the field holds what was taken.
    */
   play: async ({ args, canvas, userEvent, step }) => {
-    const field = canvas.getByRole("combobox", { name: "Lands in" });
+    const field = canvas.getByRole("combobox", {
+      name: "Lands in",
+    });
 
     await step("the list opens under the field and says what each branch is", async () => {
       await userEvent.click(field);
-      await expect(canvas.getByRole("option", { name: /^main base$/ })).toBeVisible();
+      await expect(
+        canvas.getByRole("option", {
+          name: /^main base$/,
+        }),
+      ).toBeVisible();
       await expect(
         canvas.getByRole("option", {
           name: "armada/18-fold-the-capacity-read Fold the capacity read into one query",
@@ -114,12 +136,20 @@ export const Offering: Story = {
  * them rather than on the one row a person already has.
  */
 export const Narrowed: Story = {
-  args: { value: "rail" },
+  args: {
+    value: "rail",
+  },
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("combobox", { name: "Lands in" }));
+    await userEvent.click(
+      canvas.getByRole("combobox", {
+        name: "Lands in",
+      }),
+    );
     await expect(canvas.getAllByRole("option")).toHaveLength(2);
     await expect(
-      canvas.getByRole("option", { name: /armada\/19-give-the-rail-its-own-scroll/ }),
+      canvas.getByRole("option", {
+        name: /armada\/19-give-the-rail-its-own-scroll/,
+      }),
     ).toBeVisible();
   },
 };
@@ -132,11 +162,19 @@ export const Narrowed: Story = {
  * that.
  */
 export const ANameThatIsNotThereYet: Story = {
-  args: { value: "release/16" },
+  args: {
+    value: "release/16",
+  },
   render: Picking,
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("combobox", { name: "Lands in" }));
-    const made = canvas.getByRole("option", { name: "release/16 new branch" });
+    await userEvent.click(
+      canvas.getByRole("combobox", {
+        name: "Lands in",
+      }),
+    );
+    const made = canvas.getByRole("option", {
+      name: "release/16 new branch",
+    });
     await expect(made).toBeVisible();
 
     await userEvent.click(made);
@@ -157,9 +195,15 @@ export const ANameThatIsNotThereYet: Story = {
  * list already tags that row with.
  */
 export const StartingFromSomethingUnlisted: Story = {
-  args: { label: "Base branch", value: "release/16", offerNew: false },
+  args: {
+    label: "Base branch",
+    value: "release/16",
+    offerNew: false,
+  },
   play: async ({ canvas, userEvent }) => {
-    const field = canvas.getByRole("combobox", { name: "Base branch" });
+    const field = canvas.getByRole("combobox", {
+      name: "Base branch",
+    });
     await userEvent.click(field);
 
     await expect(canvas.queryByRole("option")).toBeNull();
@@ -186,14 +230,21 @@ export const EscapeClosesTheListAndNothingElse: Story = {
     };
     window.addEventListener("keydown", watch);
     try {
-      await userEvent.click(canvas.getByRole("combobox", { name: "Lands in" }));
+      await userEvent.click(
+        canvas.getByRole("combobox", {
+          name: "Lands in",
+        }),
+      );
       await expect(canvas.getAllByRole("option")).toHaveLength(3);
 
       await userEvent.keyboard("{Escape}");
       await expect(canvas.queryByRole("option")).toBeNull();
 
       await userEvent.keyboard("{Escape}");
-      await expect(seen).toEqual([true, false]);
+      await expect(seen).toEqual([
+        true,
+        false,
+      ]);
     } finally {
       window.removeEventListener("keydown", watch);
     }

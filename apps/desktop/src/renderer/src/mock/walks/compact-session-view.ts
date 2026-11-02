@@ -3,18 +3,53 @@
 
 import { button, deckRow, inside, region, role, walk } from "../walk";
 
-const key = (name: string) => button(name, { exact: true });
+const key = (name: string) =>
+  button(name, {
+    exact: true,
+  });
 
 const compactSessionView = walk("compact-session-view", [
-  { press: deckRow("Retry the slot lease"), say: "A Job open keeps the Jobs list, the thread, the right column's Done, Now and Open, the Field under the Jobs list, and Flight control. Nothing else" },
-  { look: region("Build", { exact: true }), say: "The workflow's name heads the story and each of its steps is a zone below it; the current step holds the plan. A finished step is folded to a check" },
-  { hover: deckRow("Prune the stale branches"), say: "Another Job is calling him, so its row pulses. Hovering the row names the call" },
-  { look: button("Needs you", { exact: true }), say: "What waits on him is the Needs you panel on the composer, the question answered where it stands" },
-  { press: key("Artifacts"), say: "Artifacts (8) opens everything the Job made or used, over the thread: pull requests, commits, pages, files, docs, sketches, subagents, commands and the Jobs it started" },
-  { type: "lease", into: inside(region("Artifacts"), role("searchbox", "Search artifacts")), say: "Typing narrows the groups at once. Esc is Back" },
-  { press: key("Subagents"), say: "Subagents (9) lists every one. Now lists only those at work" },
-  { later: inside(region("Subagents"), button("Back")), say: "Time passes. Slot 3 is left stranded" },
-  { press: inside(region("Subagents"), button("Back")), say: "Back returns to the thread where it was. The Bays key is lit and the thread has the call" },
+  {
+    press: deckRow("Retry the slot lease"),
+    say: "A Job open keeps the Jobs list, the thread, the right column's Done, Now and Open, the Field under the Jobs list, and Flight control. Nothing else",
+  },
+  {
+    look: region("Build", {
+      exact: true,
+    }),
+    say: "The workflow's name heads the story and each of its steps is a zone below it; the current step holds the plan. A finished step is folded to a check",
+  },
+  {
+    hover: deckRow("Prune the stale branches"),
+    say: "Another Job is calling him, so its row pulses. Hovering the row names the call",
+  },
+  {
+    look: button("Needs you", {
+      exact: true,
+    }),
+    say: "What waits on him is the Needs you panel on the composer, the question answered where it stands",
+  },
+  {
+    press: key("Artifacts"),
+    say: "Artifacts (8) opens everything the Job made or used, over the thread: pull requests, commits, pages, files, docs, sketches, subagents, commands and the Jobs it started",
+  },
+  {
+    type: "lease",
+    into: inside(region("Artifacts"), role("searchbox", "Search artifacts")),
+    say: "Typing narrows the groups at once. Esc is Back",
+  },
+  {
+    press: key("Subagents"),
+    say: "Subagents (9) lists every one. Now lists only those at work",
+  },
+  {
+    later: inside(region("Subagents"), button("Back")),
+    say: "Time passes. Slot 3 is left stranded",
+  },
+  {
+    press: inside(region("Subagents"), button("Back")),
+    say: "Back returns to the thread where it was. The Bays key is lit and the thread has the call",
+  },
 ]);
 
 export { compactSessionView };

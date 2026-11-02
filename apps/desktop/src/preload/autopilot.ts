@@ -8,13 +8,17 @@ import type { AutopilotApi } from "../shared/api/autopilot";
 import { CHANNELS } from "../shared/bridge";
 
 export const autopilotPreload: AutopilotApi = {
-  proposeAutopilot: (manifestId, sentence, localNow) => ipcRenderer.invoke(CHANNELS.proposeAutopilot, manifestId, sentence, localNow),
-  startAutopilot: (manifestId, settings: AutopilotSettings) => ipcRenderer.invoke(CHANNELS.startAutopilot, manifestId, settings),
+  proposeAutopilot: (manifestId, sentence, localNow) =>
+    ipcRenderer.invoke(CHANNELS.proposeAutopilot, manifestId, sentence, localNow),
+  startAutopilot: (manifestId, settings: AutopilotSettings) =>
+    ipcRenderer.invoke(CHANNELS.startAutopilot, manifestId, settings),
   stopAutopilot: (manifestId) => ipcRenderer.invoke(CHANNELS.stopAutopilot, manifestId),
   listAutopilots: () => ipcRenderer.invoke(CHANNELS.listAutopilots),
   getAutopilot: (manifestId) => ipcRenderer.invoke(CHANNELS.getAutopilot, manifestId),
-  dispatchSetAside: (manifestId, pickId) => ipcRenderer.invoke(CHANNELS.dispatchSetAside, manifestId, pickId),
-  dismissSetAside: (manifestId, pickId) => ipcRenderer.invoke(CHANNELS.dismissSetAside, manifestId, pickId),
+  dispatchSetAside: (manifestId, pickId) =>
+    ipcRenderer.invoke(CHANNELS.dispatchSetAside, manifestId, pickId),
+  dismissSetAside: (manifestId, pickId) =>
+    ipcRenderer.invoke(CHANNELS.dismissSetAside, manifestId, pickId),
   onAutopilotChanged: (onChanged) => {
     const handler = (_event: unknown, autopilot: Autopilot): void => onChanged(autopilot);
     ipcRenderer.on(CHANNELS.autopilotChanged, handler);

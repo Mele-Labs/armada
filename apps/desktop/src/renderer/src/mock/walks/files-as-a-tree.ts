@@ -11,14 +11,40 @@ const files = role("dialog", "Files");
 
 const filesAsATree = walk("session-pr-panel", [
   toSessions,
-  { press: inside(region("Jobs", { exact: true }), button("Store migration spike")), say: "A Job holding a pull request" },
+  {
+    press: inside(
+      region("Jobs", {
+        exact: true,
+      }),
+      button("Store migration spike"),
+    ),
+    say: "A Job holding a pull request",
+  },
   ...row(/^Pull request #2209 /, "Its pull request"),
-  { press: inside(queued, tab("Files")), say: "Files" },
-  { look: inside(files, role("list", "Files")), say: "The changed files as a tree of folders, each file by its name with its lines added and removed" },
-  { press: inside(files, button("Fold every folder")), say: "One press folds every folder" },
-  { look: inside(files, button(/^packages\/components\/src\/compositions\//)), say: "Only the top folders are left, each says it is closed" },
-  { press: inside(files, button(/^packages\/components\/src\/compositions\//)), say: "A folder opens by itself" },
-  { look: inside(files, button(/PullRequestCard\//)), say: "Its folders are folded as they were left" },
+  {
+    press: inside(queued, tab("Files")),
+    say: "Files",
+  },
+  {
+    look: inside(files, role("list", "Files")),
+    say: "The changed files as a tree of folders, each file by its name with its lines added and removed",
+  },
+  {
+    press: inside(files, button("Fold every folder")),
+    say: "One press folds every folder",
+  },
+  {
+    look: inside(files, button(/^packages\/components\/src\/compositions\//)),
+    say: "Only the top folders are left, each says it is closed",
+  },
+  {
+    press: inside(files, button(/^packages\/components\/src\/compositions\//)),
+    say: "A folder opens by itself",
+  },
+  {
+    look: inside(files, button(/PullRequestCard\//)),
+    say: "Its folders are folded as they were left",
+  },
 ]);
 
 export { filesAsATree };

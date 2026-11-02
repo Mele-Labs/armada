@@ -14,7 +14,11 @@ import type { VerifyPanelStep } from "../VerifyPanel/VerifyPanel";
 const meta: Meta<typeof VerifySheet> = {
   title: "Compositions/Verify sheet",
   component: VerifySheet,
-  args: { open: true, file: "armada.yml", onClose: fn() },
+  args: {
+    open: true,
+    file: "armada.yml",
+    onClose: fn(),
+  },
   decorators: [
     (Story) => (
       <div
@@ -33,11 +37,26 @@ export default meta;
 
 type Story = StoryObj<typeof VerifySheet>;
 
-function step(group: string, name: string, run: string, state: VerifyPanelStep["state"]): VerifyPanelStep {
-  return { id: `${group}:${name}`, group, name, run, state };
+function step(
+  group: string,
+  name: string,
+  run: string,
+  state: VerifyPanelStep["state"],
+): VerifyPanelStep {
+  return {
+    id: `${group}:${name}`,
+    group,
+    name,
+    run,
+    state,
+  };
 }
 
-const ran = (result: string, duration: string): VerifyPanelStep["state"] => ({ kind: "ran", result, duration });
+const ran = (result: string, duration: string): VerifyPanelStep["state"] => ({
+  kind: "ran",
+  result,
+  duration,
+});
 
 /**
  * **Opening the layer presses nothing.** Journey 9's rule is that Verify runs
@@ -46,13 +65,23 @@ const ran = (result: string, duration: string): VerifyPanelStep["state"] => ({ k
  */
 export const OpeningRunsNothing: Story = {
   name: "Opening runs nothing",
-  args: { onVerify: fn() },
+  args: {
+    onVerify: fn(),
+  },
   play: async ({ args, canvas, userEvent }) => {
     await expect(args.onVerify).not.toHaveBeenCalled();
-    await userEvent.click(canvas.getByRole("button", { name: "Verify" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Verify",
+      }),
+    );
     await expect(args.onVerify).toHaveBeenCalledTimes(1);
     // The layer carries the one heading; the panel's own title is off.
-    await expect(canvas.getAllByRole("heading", { name: "Verify" })).toHaveLength(1);
+    await expect(
+      canvas.getAllByRole("heading", {
+        name: "Verify",
+      }),
+    ).toHaveLength(1);
   },
 };
 
@@ -61,8 +90,18 @@ export const AnEndedRun: Story = {
   name: "An ended run",
   args: {
     steps: [
-      step("Setup", "bootstrap", "pnpm install --frozen-lockfile", ran("exit 0 (expects 0)", "8.2s")),
-      step("Checks", "build", "cargo build --workspace --locked", ran("exit 0 (expects 0)", "41.0s")),
+      step(
+        "Setup",
+        "bootstrap",
+        "pnpm install --frozen-lockfile",
+        ran("exit 0 (expects 0)", "8.2s"),
+      ),
+      step(
+        "Checks",
+        "build",
+        "cargo build --workspace --locked",
+        ran("exit 0 (expects 0)", "41.0s"),
+      ),
       step("Checks", "typecheck", "pnpm typecheck", ran("exit 2 (expects 0)", "9.4s")),
       step("Checks", "format", "cargo fmt --all --check", ran("exit 0 (expects 0)", "1.8s")),
     ],
@@ -76,9 +115,19 @@ export const AnEndedRun: Story = {
 export const Underway: Story = {
   args: {
     steps: [
-      step("Setup", "bootstrap", "pnpm install --frozen-lockfile", ran("exit 0 (expects 0)", "8.2s")),
-      step("Checks", "build", "cargo build --workspace --locked", { kind: "running", elapsed: "0:42" }),
-      step("Checks", "test", "cargo nextest run --workspace --exclude acceptance", { kind: "waiting" }),
+      step(
+        "Setup",
+        "bootstrap",
+        "pnpm install --frozen-lockfile",
+        ran("exit 0 (expects 0)", "8.2s"),
+      ),
+      step("Checks", "build", "cargo build --workspace --locked", {
+        kind: "running",
+        elapsed: "0:42",
+      }),
+      step("Checks", "test", "cargo nextest run --workspace --exclude acceptance", {
+        kind: "waiting",
+      }),
     ],
     onStop: fn(),
   },
@@ -86,5 +135,8 @@ export const Underway: Story = {
 
 /** At `--window-floor`: flush to both edges, no file in the subtitle, icon close. */
 export const AtTheFloor: Story = {
-  args: { onVerify: fn(), floor: true },
+  args: {
+    onVerify: fn(),
+    floor: true,
+  },
 };

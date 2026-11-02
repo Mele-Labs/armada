@@ -2,7 +2,13 @@
 // panel, by name, in the window's own storage, so a panel comes back as it was left after the view is left and entered again.
 // A viewer's convenience, so a blocked store only forgets it. Whether a Job's flight control is expanded is kept the same way.
 
-import { useCallback, useState, type HTMLAttributes, type KeyboardEvent, type MouseEvent } from "react";
+import {
+  useCallback,
+  useState,
+  type HTMLAttributes,
+  type KeyboardEvent,
+  type MouseEvent,
+} from "react";
 
 const keyOf = (id: string) => `armada.panel-collapsed.${id}`;
 const FLIGHT_EXPANDED = "armada.flight-expanded";
@@ -27,14 +33,19 @@ function keep(key: string, on: boolean) {
 const OWN_PRESS = "button, a, input, select, textarea, label";
 
 /** Whether the panel is folded, and what its band needs to fold it: pressed or with Enter or Space, and read as a button by a screen reader. */
-export function useCollapse(id: string): { collapsed: boolean; band: HTMLAttributes<HTMLElement> } {
+export function useCollapse(id: string): {
+  collapsed: boolean;
+  band: HTMLAttributes<HTMLElement>;
+} {
   const [collapsed, set] = useState(() => read(keyOf(id)));
   const toggle = useCallback(() => {
     set((was) => {
       keep(keyOf(id), !was);
       return !was;
     });
-  }, [id]);
+  }, [
+    id,
+  ]);
   return {
     collapsed,
     band: {
@@ -46,7 +57,8 @@ export function useCollapse(id: string): { collapsed: boolean; band: HTMLAttribu
         if (inside === null || inside === event.currentTarget) toggle();
       },
       onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
-        if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
+        if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " "))
+          return;
         event.preventDefault();
         toggle();
       },
@@ -55,7 +67,10 @@ export function useCollapse(id: string): { collapsed: boolean; band: HTMLAttribu
 }
 
 /** Whether a Job's flight control lays its tiles six to a row rather than in one row that scrolls. One choice for every Job, kept as a fold is. */
-export function useFlightExpanded(): { expanded: boolean; toggle: () => void } {
+export function useFlightExpanded(): {
+  expanded: boolean;
+  toggle: () => void;
+} {
   const [expanded, set] = useState(() => read(FLIGHT_EXPANDED));
   const toggle = useCallback(() => {
     set((was) => {
@@ -63,5 +78,8 @@ export function useFlightExpanded(): { expanded: boolean; toggle: () => void } {
       return !was;
     });
   }, []);
-  return { expanded, toggle };
+  return {
+    expanded,
+    toggle,
+  };
 }

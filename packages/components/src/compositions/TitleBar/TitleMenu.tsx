@@ -20,9 +20,14 @@ export type TitleMenuProps = {
   /** Opens the account, a page or a panel. Absent draws no account entry. */
   onAccount?: () => void;
   /** Opens the Settings page. Absent draws no entry. */
-  settings?: { onOpen: () => void; shortcut?: string };
+  settings?: {
+    onOpen: () => void;
+    shortcut?: string;
+  };
   /** Opens the Doctor page. Absent draws no entry. */
-  doctor?: { onOpen: () => void };
+  doctor?: {
+    onOpen: () => void;
+  };
   /** The row's own controls, listed under the entries where the row is narrow. */
   narrow?: ReactNode;
 };
@@ -54,14 +59,30 @@ export function TitleMenu({ settings, doctor, onAccount, narrow }: TitleMenuProp
       window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("mousedown", onDown);
     };
-  }, [open]);
+  }, [
+    open,
+  ]);
 
-  if (account === undefined && settings === undefined && doctor === undefined && narrow === undefined) return null;
+  if (
+    account === undefined &&
+    settings === undefined &&
+    doctor === undefined &&
+    narrow === undefined
+  )
+    return null;
 
   const said = [
     "Menu",
-    ...(signedOut ? ["signed out"] : []),
-    ...(need === undefined ? [] : [`${need.said.slice(0, 1).toLowerCase()}${need.said.slice(1)}`]),
+    ...(signedOut
+      ? [
+          "signed out",
+        ]
+      : []),
+    ...(need === undefined
+      ? []
+      : [
+          `${need.said.slice(0, 1).toLowerCase()}${need.said.slice(1)}`,
+        ]),
   ].join(", ");
   return (
     <div className="armada-title-bar__menu armada-popover" ref={root}>
@@ -89,75 +110,83 @@ export function TitleMenu({ settings, doctor, onAccount, narrow }: TitleMenuProp
         </span>
       </span>
       {open ? (
-        <div className="armada-popover__panel armada-popover__panel--end armada-title-menu__panel" role="dialog" aria-label="Menu">
+        <div
+          className="armada-popover__panel armada-popover__panel--end armada-title-menu__panel"
+          role="dialog"
+          aria-label="Menu"
+        >
           <div className="armada-title-menu__entries">
-              {account === undefined || onAccount === undefined ? null : (
-                <button
-                  type="button"
-                  className="armada-title-menu__item"
-                  aria-label={signedOut ? "Sign in" : "Account"}
-                  onClick={() => {
-                    onAccount();
-                    away.current();
-                  }}
-                >
-                  <span className="armada-title-menu__glyph">
-                    <UserCheck size={16} strokeWidth={2} aria-hidden />
+            {account === undefined || onAccount === undefined ? null : (
+              <button
+                type="button"
+                className="armada-title-menu__item"
+                aria-label={signedOut ? "Sign in" : "Account"}
+                onClick={() => {
+                  onAccount();
+                  away.current();
+                }}
+              >
+                <span className="armada-title-menu__glyph">
+                  <UserCheck size={16} strokeWidth={2} aria-hidden />
+                </span>
+                <span>{signedOut ? "Sign in" : "Account"}</span>
+                {need !== undefined ? (
+                  <span className="armada-title-menu__need">
+                    <AccountMark account={account} />
                   </span>
-                  <span>{signedOut ? "Sign in" : "Account"}</span>
-                  {need !== undefined ? (
-                    <span className="armada-title-menu__need">
-                      <AccountMark account={account} />
-                    </span>
-                  ) : signedOut ? (
-                    <span className="armada-title-menu__attention armada-title-menu__attention--row" aria-hidden />
-                  ) : null}
-                </button>
-              )}
-              {settings === undefined ? null : (
-                <button
-                  type="button"
-                  className="armada-title-menu__item"
-                  aria-label="Settings"
-                  onClick={() => {
-                    settings.onOpen();
+                ) : signedOut ? (
+                  <span
+                    className="armada-title-menu__attention armada-title-menu__attention--row"
+                    aria-hidden
+                  />
+                ) : null}
+              </button>
+            )}
+            {settings === undefined ? null : (
+              <button
+                type="button"
+                className="armada-title-menu__item"
+                aria-label="Settings"
+                onClick={() => {
+                  settings.onOpen();
+                  away.current();
+                }}
+              >
+                <span className="armada-title-menu__glyph">
+                  <Settings size={16} strokeWidth={2} aria-hidden />
+                </span>
+                <span>Settings</span>
+                {settings.shortcut === undefined ? null : <KbdCmd shortcut={settings.shortcut} />}
+              </button>
+            )}
+            {doctor === undefined ? null : (
+              <button
+                type="button"
+                className="armada-title-menu__item"
+                aria-label="Doctor"
+                onClick={() => {
+                  doctor.onOpen();
+                  away.current();
+                }}
+              >
+                <span className="armada-title-menu__glyph">
+                  <Stethoscope size={16} strokeWidth={2} aria-hidden />
+                </span>
+                <span>Doctor</span>
+              </button>
+            )}
+            {narrow === undefined ? null : (
+              <div
+                className="armada-title-menu__narrow"
+                // Any act closes the panel.
+                onClick={(event) => {
+                  if ((event.target as Element).closest("button:not(:disabled)") !== null)
                     away.current();
-                  }}
-                >
-                  <span className="armada-title-menu__glyph">
-                    <Settings size={16} strokeWidth={2} aria-hidden />
-                  </span>
-                  <span>Settings</span>
-                  {settings.shortcut === undefined ? null : <KbdCmd shortcut={settings.shortcut} />}
-                </button>
-              )}
-              {doctor === undefined ? null : (
-                <button
-                  type="button"
-                  className="armada-title-menu__item"
-                  aria-label="Doctor"
-                  onClick={() => {
-                    doctor.onOpen();
-                    away.current();
-                  }}
-                >
-                  <span className="armada-title-menu__glyph">
-                    <Stethoscope size={16} strokeWidth={2} aria-hidden />
-                  </span>
-                  <span>Doctor</span>
-                </button>
-              )}
-              {narrow === undefined ? null : (
-                <div
-                  className="armada-title-menu__narrow"
-                  // Any act closes the panel.
-                  onClick={(event) => {
-                    if ((event.target as Element).closest("button:not(:disabled)") !== null) away.current();
-                  }}
-                >
-                  {narrow}
-                </div>
-              )}
+                }}
+              >
+                {narrow}
+              </div>
+            )}
           </div>
         </div>
       ) : null}

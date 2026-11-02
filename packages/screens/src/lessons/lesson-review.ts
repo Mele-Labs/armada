@@ -17,34 +17,70 @@ export type QueueEntry = {
 };
 
 /** One item the review left out, with the model's reason. */
-export type AsideEntry = { lesson: Lesson; why: string };
+export type AsideEntry = {
+  lesson: Lesson;
+  why: string;
+};
 
 /**
  * The review against the page's open items. **An id the page does not hold is
  * left out** (answered since, or read again): the review was made a moment
  * ago, and a card the page cannot draw is no card.
  */
-export function resolved(review: LessonReview, lessons: readonly Lesson[]): { queue: QueueEntry[]; aside: AsideEntry[] } {
-  const held = new Map(lessons.map((one) => [one.id, one]));
+export function resolved(
+  review: LessonReview,
+  lessons: readonly Lesson[],
+): {
+  queue: QueueEntry[];
+  aside: AsideEntry[];
+} {
+  const held = new Map(
+    lessons.map((one) => [
+      one.id,
+      one,
+    ]),
+  );
   const queue = review.entries.flatMap((entry) => {
     const lesson = held.get(entry.lesson_id);
     if (lesson === undefined) return [];
     const merged = entry.merged_ids.flatMap((id) => {
       const twin = held.get(id);
-      return twin === undefined ? [] : [twin];
+      return twin === undefined
+        ? []
+        : [
+            twin,
+          ];
     });
-    return [{ lesson, reason: reasonOf(entry.reason), merged }];
+    return [
+      {
+        lesson,
+        reason: reasonOf(entry.reason),
+        merged,
+      },
+    ];
   });
   const aside = review.set_aside.flatMap((one) => {
     const lesson = held.get(one.lesson_id);
-    return lesson === undefined ? [] : [{ lesson, why: one.why }];
+    return lesson === undefined
+      ? []
+      : [
+          {
+            lesson,
+            why: one.why,
+          },
+        ];
   });
-  return { queue, aside };
+  return {
+    queue,
+    aside,
+  };
 }
 
 /** Fleet appends an item the model left out of every list with `not ranked`. Say that in words. */
 export function reasonOf(reason: string): string {
-  return reason.trim().toLowerCase() === "not ranked" ? "The review did not rank this one." : reason;
+  return reason.trim().toLowerCase() === "not ranked"
+    ? "The review did not rank this one."
+    : reason;
 }
 
 /**

@@ -11,16 +11,32 @@ import { PageFrame, PageSnapshot } from "../session-artifact";
 import { useSessionsDraft } from "../sessions-draft";
 
 /** Whether the page is open large, and what opens it. */
-export type LiveOpen = { open: boolean; onOpen: (url: string) => void };
+export type LiveOpen = {
+  open: boolean;
+  onOpen: (url: string) => void;
+};
 
 /** The small frame has nothing to close: Esc there is the sheet's. */
 const NO_CLOSE = (): void => undefined;
 
 /** The size the page is laid out at; the frame draws all of it, scaled down to the width the panel gives. */
-const DESIGN = { width: 800, height: 440 } as const;
+const DESIGN = {
+  width: 800,
+  height: 440,
+} as const;
 
 /** The whole page at its design size, scaled to the frame's width so nothing is cut off and the frame's height follows. The press over it opens the page. */
-function ScaledPage({ shown, title, onOpen, children }: { shown: boolean; title: string; onOpen: () => void; children: ReactNode }) {
+function ScaledPage({
+  shown,
+  title,
+  onOpen,
+  children,
+}: {
+  shown: boolean;
+  title: string;
+  onOpen: () => void;
+  children: ReactNode;
+}) {
   const box = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   useLayoutEffect(() => {
@@ -34,13 +50,32 @@ function ScaledPage({ shown, title, onOpen, children }: { shown: boolean; title:
   }, []);
   const scale = width / DESIGN.width;
   return (
-    <div ref={box} className="sv-account__scaled" style={{ height: DESIGN.height * scale }}>
+    <div
+      ref={box}
+      className="sv-account__scaled"
+      style={{
+        height: DESIGN.height * scale,
+      }}
+    >
       {shown ? (
-        <div className="sv-account__frame" inert style={{ width: DESIGN.width, height: DESIGN.height, transform: `scale(${scale})` }}>
+        <div
+          className="sv-account__frame"
+          inert
+          style={{
+            width: DESIGN.width,
+            height: DESIGN.height,
+            transform: `scale(${scale})`,
+          }}
+        >
           {children}
         </div>
       ) : null}
-      <button type="button" className="sv-account__open" aria-label={`Open ${title}`} onClick={onOpen}>
+      <button
+        type="button"
+        className="sv-account__open"
+        aria-label={`Open ${title}`}
+        onClick={onOpen}
+      >
         <span className="sv-account__open-corner">
           <Tooltip label="Open">
             <span className="sv-account__open-mark" aria-hidden>
@@ -53,7 +88,15 @@ function ScaledPage({ shown, title, onOpen, children }: { shown: boolean; title:
   );
 }
 
-export function TurnAccountBlock({ session, lines, live }: { session: Session; lines?: TurnAccount | undefined; live: LiveOpen | undefined }) {
+export function TurnAccountBlock({
+  session,
+  lines,
+  live,
+}: {
+  session: Session;
+  lines?: TurnAccount | undefined;
+  live: LiveOpen | undefined;
+}) {
   const draft = useSessionsDraft();
   const page = session.live;
   // A real window holds the page out of sight and sends pictures of it; the mock has no second view and scales a frame of its own page.
@@ -67,11 +110,26 @@ export function TurnAccountBlock({ session, lines, live }: { session: Session; l
             live={{
               title: page.title,
               view: (
-                <ScaledPage shown={!live.open} title={page.title} onOpen={() => live.onOpen(page.url)}>
+                <ScaledPage
+                  shown={!live.open}
+                  title={page.title}
+                  onOpen={() => live.onOpen(page.url)}
+                >
                   {snapshot === undefined ? (
-                    <PageFrame draft={draft} sessionId={session.id} address={page.url} label={page.title} onClose={NO_CLOSE} />
+                    <PageFrame
+                      draft={draft}
+                      sessionId={session.id}
+                      address={page.url}
+                      label={page.title}
+                      onClose={NO_CLOSE}
+                    />
                   ) : (
-                    <PageSnapshot snapshot={snapshot} sessionId={session.id} address={page.url} label={page.title} />
+                    <PageSnapshot
+                      snapshot={snapshot}
+                      sessionId={session.id}
+                      address={page.url}
+                      label={page.title}
+                    />
                   )}
                 </ScaledPage>
               ),

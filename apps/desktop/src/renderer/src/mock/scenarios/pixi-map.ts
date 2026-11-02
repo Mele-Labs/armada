@@ -15,13 +15,56 @@ type Work = NonNullable<Session["work"]>;
 const WORK: Record<string, Pick<Work, "files" | "field">> = {
   // Pin the store clock: writing now.
   r1: {
-    files: [{ path: "crates/store/tests/clock.rs", act: "write" }, { path: "crates/store/tests/pool.rs", act: "edit" }, { path: "crates/store/src/clock.rs" }],
-    field: [{ id: "main", path: "crates/store", doing: "write", file: "crates/store/tests/clock.rs" }],
+    files: [
+      {
+        path: "crates/store/tests/clock.rs",
+        act: "write",
+      },
+      {
+        path: "crates/store/tests/pool.rs",
+        act: "edit",
+      },
+      {
+        path: "crates/store/src/clock.rs",
+      },
+    ],
+    field: [
+      {
+        id: "main",
+        path: "crates/store",
+        doing: "write",
+        file: "crates/store/tests/clock.rs",
+      },
+    ],
   },
   // Migration notes: reading.
-  w1: { files: [{ path: "crates/store/migrations/0044.sql" }, { path: "crates/store/migrations/0043.sql" }] },
+  w1: {
+    files: [
+      {
+        path: "crates/store/migrations/0044.sql",
+      },
+      {
+        path: "crates/store/migrations/0043.sql",
+      },
+    ],
+  },
   // Gate policy on every run: edits the gate. Where it and the clock Session both name a file, the stronger act stands.
-  p1: { files: [{ path: "crates/gate/src/policy.rs", act: "edit" }, { path: "crates/fleet/src/gate.rs", act: "edit" }, { path: "crates/store/tests/pool.rs", act: "write" }] },
+  p1: {
+    files: [
+      {
+        path: "crates/gate/src/policy.rs",
+        act: "edit",
+      },
+      {
+        path: "crates/fleet/src/gate.rs",
+        act: "edit",
+      },
+      {
+        path: "crates/store/tests/pool.rs",
+        act: "write",
+      },
+    ],
+  },
 };
 
 const held = ship.draft?.events ?? [];
@@ -31,7 +74,23 @@ const writer = held.find((event) => event.subject.kind === "session" && event.su
 const WRITING: TimelineEvent[] =
   writer === undefined
     ? []
-    : [{ id: 9001, at: new Date().toISOString(), kind: "session.edited", subject: writer.subject, title: writer.title, tone: "run", says: "Edited 1 file", manifest_id: writer.manifest_id, detail: "crates/store/tests/clock.rs", items: ["crates/store/tests/clock.rs"], live: true }];
+    : [
+        {
+          id: 9001,
+          at: new Date().toISOString(),
+          kind: "session.edited",
+          subject: writer.subject,
+          title: writer.title,
+          tone: "run",
+          says: "Edited 1 file",
+          manifest_id: writer.manifest_id,
+          detail: "crates/store/tests/clock.rs",
+          items: [
+            "crates/store/tests/clock.rs",
+          ],
+          live: true,
+        },
+      ];
 
 function build(): Scenario {
   const draft = ship.draft!;
@@ -42,7 +101,10 @@ function build(): Scenario {
     draft: {
       ...draft,
       areas: mockRooms,
-      events: [...held, ...WRITING],
+      events: [
+        ...held,
+        ...WRITING,
+      ],
       sessions: (control) => {
         const store = draft.sessions!(control);
         let from: readonly Session[] | undefined;
@@ -53,7 +115,17 @@ function build(): Scenario {
             const all = store.get();
             if (all !== from) {
               from = all;
-              shown = all.map((one) => (WORK[one.id] === undefined ? one : { ...one, work: { ...one.work, ...WORK[one.id] } }));
+              shown = all.map((one) =>
+                WORK[one.id] === undefined
+                  ? one
+                  : {
+                      ...one,
+                      work: {
+                        ...one.work,
+                        ...WORK[one.id],
+                      },
+                    },
+              );
             }
             return shown;
           },

@@ -29,5 +29,12 @@ it("still sends what arrives after a flush", async () => {
   publish("later");
   await vi.advanceTimersByTimeAsync(FRAME_MS);
 
-  expect(send.mock.calls).toEqual([["first"], ["later"]]);
+  expect(send.mock.calls).toEqual([
+    [
+      "first",
+    ],
+    [
+      "later",
+    ],
+  ]);
 });

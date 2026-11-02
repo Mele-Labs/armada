@@ -17,7 +17,10 @@ type Story = StoryObj<typeof ErrorCode>;
  * `--status-completed-failed` under an alias rather than a ninth hue.
  */
 export const Fault: Story = {
-  args: { kind: "fault", code: "fleet.approve.refused" },
+  args: {
+    kind: "fault",
+    code: "fleet.approve.refused",
+  },
 };
 
 /**
@@ -26,7 +29,10 @@ export const Fault: Story = {
  * both classes — but neutral, because only a fault is red.
  */
 export const Degraded: Story = {
-  args: { kind: "degraded", code: "bridge.stream.dropped" },
+  args: {
+    kind: "degraded",
+    code: "bridge.stream.dropped",
+  },
 };
 
 /**
@@ -37,7 +43,13 @@ export const Degraded: Story = {
  */
 export const AgainstAStatusBadge: Story = {
   render: () => (
-    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "var(--space-3)",
+      }}
+    >
       <Badge status="completed-failed" icon={X}>
         Failed
       </Badge>

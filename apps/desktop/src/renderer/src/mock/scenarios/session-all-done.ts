@@ -25,12 +25,40 @@ const more = [
 const finished: Session = {
   id: "s14",
   title: "Pin the store clock",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: minutesAgo(2),
-  work: { workflow: { name: "Feature", steps: ["Plan the change", "Implement", "Review the change"], at: 2 } },
+  work: {
+    workflow: {
+      name: "Feature",
+      steps: [
+        "Plan the change",
+        "Implement",
+        "Review the change",
+      ],
+      at: 2,
+    },
+  },
   rows: [
-    { id: "d1", at: "14:38:02", kind: "message", from: { kind: "you" }, text: "Pin the clock in the store tests." },
-    { id: "d2", at: "14:40:11", kind: "message", from: { kind: "agent" }, text: "The change is merged." },
+    {
+      id: "d1",
+      at: "14:38:02",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Pin the clock in the store tests.",
+    },
+    {
+      id: "d2",
+      at: "14:40:11",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "The change is merged.",
+    },
   ],
   attachments: [
     {
@@ -39,7 +67,9 @@ const finished: Session = {
       title: "Pin the store clock",
       branch: "fix/pin-store-clock",
       address: "https://example.com/pull/1843",
-      checks: { state: "passed" },
+      checks: {
+        state: "passed",
+      },
       state: "merged",
       auto: false,
     },
@@ -49,7 +79,9 @@ const finished: Session = {
       title: "Name the clock in the store log",
       branch: "fix/store-log-clock",
       address: "https://example.com/pull/1844",
-      checks: { state: "passed" },
+      checks: {
+        state: "passed",
+      },
       state: "merged",
       auto: false,
     },
@@ -59,7 +91,9 @@ const finished: Session = {
       title,
       branch: `fix/store-clock-${i + 1}`,
       address: `https://example.com/pull/${1846 + i}`,
-      checks: { state: "passed" as const },
+      checks: {
+        state: "passed" as const,
+      },
       state: "merged" as const,
       auto: false,
     })),
@@ -69,17 +103,28 @@ const finished: Session = {
       title: "Drop the retry shim",
       branch: "fix/drop-retry-shim",
       address: "https://example.com/pull/1845",
-      checks: { state: "pending" },
+      checks: {
+        state: "pending",
+      },
       state: "open",
       auto: false,
     },
   ],
-  done: { since: minutesAgo(2), summary: "Tests that read the clock now read one pinned clock, so they stop failing on slow machines" },
+  done: {
+    since: minutesAgo(2),
+    summary:
+      "Tests that read the clock now read one pinned clock, so they stop failing on slow machines",
+  },
 };
 
 export const s207SessionAllDone: Scenario = {
   ...s200Sessions,
   name: "session-all-done",
   says: "A Session whose agent says it has nothing left to do",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [finished]) },
+  draft: {
+    sessions: (board) =>
+      s200Sessions.draft!.sessions!(board, [
+        finished,
+      ]),
+  },
 };

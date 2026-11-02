@@ -17,7 +17,10 @@ export function namesKitPath(setup: KitInventory, path: string): boolean {
       one.read.what === "read" &&
       one.read.items.some((item) => {
         const source = kitSourcePath(item.source, setup.home);
-        return source !== null && (source === path || (one.kind === "skills" && `${source}/${SKILL_FILE}` === path));
+        return (
+          source !== null &&
+          (source === path || (one.kind === "skills" && `${source}/${SKILL_FILE}` === path))
+        );
       }),
   );
 }

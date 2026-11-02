@@ -31,17 +31,26 @@ export type NoteArtifact = {
   sent: string;
 };
 
-const STATUSES: readonly string[] = ["open", "done", "returned"];
+const STATUSES: readonly string[] = [
+  "open",
+  "done",
+  "returned",
+];
 
 /** The note an attachment keeps, or null where it is not a note artifact. */
 export function noteArtifactOf(attachment: Attachment): NoteArtifact | null {
   const detail = attachment.detail ?? {};
   if (attachment.kind !== "artifact" || detail["form"] !== NOTE_FORM) return null;
   const { note, title, text, tag, status, sent } = detail;
-  if (note === undefined || text === undefined || tag === undefined || sent === undefined) return null;
+  if (note === undefined || text === undefined || tag === undefined || sent === undefined)
+    return null;
   if (status === undefined || !STATUSES.includes(status)) return null;
   const optional = (key: "component" | "screen" | "address" | "file" | "picture") =>
-    detail[key] === undefined ? {} : { [key]: detail[key] };
+    detail[key] === undefined
+      ? {}
+      : {
+          [key]: detail[key],
+        };
   return {
     note,
     title: title ?? text,

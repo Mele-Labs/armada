@@ -18,22 +18,34 @@ const unanswered: Scenario = {
   draft: {
     sessions: (board) => {
       const draft = s207SessionAllDone.draft!.sessions!(board);
-      return Object.assign(Object.create(draft) as typeof draft, { close: () => undefined });
+      return Object.assign(Object.create(draft) as typeof draft, {
+        close: () => undefined,
+      });
     },
   },
 };
 
-const job = () => page.getByRole("region", { name: /^Job: / });
+const job = () =>
+  page.getByRole("region", {
+    name: /^Job: /,
+  });
 /** The stage's own pane: the Job's, or the timeline's with none open. A copy leaving is in a `.deck-ghost`, not here. */
-const stagePane = () => document.querySelector(".deck-stage > .deck-pane")?.getAttribute("aria-label") ?? "";
+const stagePane = () =>
+  document.querySelector(".deck-stage > .deck-pane")?.getAttribute("aria-label") ?? "";
 const ghost = () => document.querySelector<HTMLElement>(".deck-ghost");
 /** Every copy laid over the stage from now on, kept even after it is gone: with reduced motion the tokens are 0ms and a copy would be removed within a frame. */
 function laidCopies() {
   const laid: HTMLElement[] = [];
   const watch = new MutationObserver((changes) => {
-    for (const one of changes) for (const added of one.addedNodes) if (added instanceof HTMLElement && added.classList.contains("deck-ghost")) laid.push(added);
+    for (const one of changes)
+      for (const added of one.addedNodes)
+        if (added instanceof HTMLElement && added.classList.contains("deck-ghost"))
+          laid.push(added);
   });
-  watch.observe(document.body, { childList: true, subtree: true });
+  watch.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
   onTestFinished(() => watch.disconnect());
   return laid;
 }
@@ -46,17 +58,57 @@ async function open(title: string) {
 }
 
 const endFromHead = async () => {
-  await userEvent.click(job().getByRole("button", { name: "More" }));
-  await userEvent.click(page.getByRole("menuitem", { name: "End job" }));
+  await userEvent.click(
+    job().getByRole("button", {
+      name: "More",
+    }),
+  );
+  await userEvent.click(
+    page.getByRole("menuitem", {
+      name: "End job",
+    }),
+  );
 };
 
-const endFromBand = () => userEvent.click(page.getByRole("region", { name: "Nothing left to do" }).getByRole("button", { name: "End job" }));
+const endFromBand = () =>
+  userEvent.click(
+    page
+      .getByRole("region", {
+        name: "Nothing left to do",
+      })
+      .getByRole("button", {
+        name: "End job",
+      }),
+  );
 
 const endFromRow = async (title: string) => {
-  const row = page.getByRole("region", { name: "Jobs", exact: true }).getByRole("button", { name: title, exact: true }).element();
+  const row = page
+    .getByRole("region", {
+      name: "Jobs",
+      exact: true,
+    })
+    .getByRole("button", {
+      name: title,
+      exact: true,
+    })
+    .element();
   const box = row.getBoundingClientRect();
-  row.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, composed: true, view: window, clientX: box.x + 4, clientY: box.y + 4, button: 2 }));
-  await userEvent.click(page.getByRole("menuitem", { name: "Close" }));
+  row.dispatchEvent(
+    new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      view: window,
+      clientX: box.x + 4,
+      clientY: box.y + 4,
+      button: 2,
+    }),
+  );
+  await userEvent.click(
+    page.getByRole("menuitem", {
+      name: "Close",
+    }),
+  );
 };
 
 test("End from the Job head's More menu clears the stage at once, without Fleet's answer", async () => {

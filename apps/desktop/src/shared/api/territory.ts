@@ -5,10 +5,26 @@
 import type { Outcome, RepositoryAreas, SlotTouches } from "@armada/protocol";
 
 /** What reading the areas came to: every served repository's, or the refusal to word. */
-export type RepositoryAreasRead = { ok: true; value: RepositoryAreas } | { ok: false; outcome: Outcome };
+export type RepositoryAreasRead =
+  | {
+      ok: true;
+      value: RepositoryAreas;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** What reading the touches came to: every holder's, or the refusal to word. */
-export type SlotTouchesRead = { ok: true; value: SlotTouches } | { ok: false; outcome: Outcome };
+export type SlotTouchesRead =
+  | {
+      ok: true;
+      value: SlotTouches;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 export type TerritoryApi = {
   /** `GET /repository_areas`. A Fleet that has no such route answers none rather than a refusal. */

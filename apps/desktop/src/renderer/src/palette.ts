@@ -37,14 +37,22 @@ export const FLEET_DOWN = "Fleet is not connected";
 const NOT_DEV = "needs Bridge under pnpm dev";
 
 /** The acts the palette never offers: they act on a focused row, which it has none of. */
-const ON_A_ROW = ["open", "close"] as const;
+const ON_A_ROW = [
+  "open",
+  "close",
+] as const;
 
 /**
  * The acts the palette leaves out rather than dims: an act on a focused row; and Copy debug info with no
  * failure on screen, which the owner had out of the way on 12 Oct 2026 so that "debug" ↵ is Debug Bridge.
  */
 export function absentIn(where: { failing?: boolean }): readonly string[] {
-  return where.failing === false ? [...ON_A_ROW, "copy_debug_info"] : ON_A_ROW;
+  return where.failing === false
+    ? [
+        ...ON_A_ROW,
+        "copy_debug_info",
+      ]
+    : ON_A_ROW;
 }
 
 /**

@@ -1,5 +1,15 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type FocusEvent } from "react";
-import { ArrowUpToLine, Ban, SquareTerminal, ChevronRight, ChevronUp, GitBranch, GitCommitHorizontal, GitMerge, type LucideIcon } from "lucide-react";
+import {
+  ArrowUpToLine,
+  Ban,
+  SquareTerminal,
+  ChevronRight,
+  ChevronUp,
+  GitBranch,
+  GitCommitHorizontal,
+  GitMerge,
+  type LucideIcon,
+} from "lucide-react";
 import type { HeldCheckout } from "@armada/protocol";
 
 import { CHECK_OUTCOME, LAND_STATE, QUEUED_REASON } from "../../generated/vocabulary";
@@ -13,7 +23,11 @@ import { GUIDE_MERGE_LINE } from "../../guides";
 import { OwnerChip, useChipOwner, type OwnerChipRef } from "../OwnerChip/OwnerChip";
 import { RegisteredOwnerOf, repositoryOfAddress } from "../RegisteredOwner/RegisteredOwner";
 import { GuideMark } from "../GuideMark/GuideMark";
-import { GroupBoundary, type GroupBoundaryCheck, type GroupBoundaryCheckReads } from "../GroupBoundary/GroupBoundary";
+import {
+  GroupBoundary,
+  type GroupBoundaryCheck,
+  type GroupBoundaryCheckReads,
+} from "../GroupBoundary/GroupBoundary";
 import {
   MainMark,
   MainRedBand,
@@ -72,7 +86,11 @@ export type MergeLineEntry = {
     number: number;
     url: string;
     /** How it ended, as a pull request badge reads it. Absent is nothing known. */
-    settled?: { status: string; icon: LucideIcon; label: string };
+    settled?: {
+      status: string;
+      icon: LucideIcon;
+      label: string;
+    };
   };
   state: MergeLineState;
   /** Waiting only: why it is not in the running turn. Absent draws nothing. */
@@ -87,7 +105,11 @@ export type MergeLineEntry = {
    * Landed: the CI run on the merge commit, on main itself, apart from the pull request's own
    * checks. Absent where nothing ran. `branch` is the Check log's address for its failed jobs.
    */
-  mainRun?: { state: "passed" | "running" | "failed"; failed?: readonly string[]; branch: string };
+  mainRun?: {
+    state: "passed" | "running" | "failed";
+    failed?: readonly string[];
+    branch: string;
+  };
   /** Red: the Checks that failed. */
   failed?: readonly string[];
   /** Conflict: the files main did not merge into. */
@@ -135,7 +157,16 @@ export type HubPull = {
   /** Absent where nothing has run on it: no mark. */
   ci?: "passed" | "running" | "failed" | "waiting_on_main";
   /** Where the merge queue holds it. Absent where it is not in the queue: the `ci` mark stands. */
-  queue?: { state: "waiting_for_ci" | "in_queue" | "queued" | "awaiting_checks" | "mergeable" | "unmergeable"; position?: number };
+  queue?: {
+    state:
+      | "waiting_for_ci"
+      | "in_queue"
+      | "queued"
+      | "awaiting_checks"
+      | "mergeable"
+      | "unmergeable";
+    position?: number;
+  };
   /** The login that opened it. Absent where the forge named none. */
   author?: string;
   /** When it was opened and last moved, RFC 3339. Absent from a Fleet before the pull request carried them. */
@@ -213,7 +244,11 @@ export type MergeLineProps = {
 const HEADING = "Merge line";
 
 /** The states the runner is working in. Their mark pulses. */
-const LIVE: ReadonlySet<MergeLineState> = new Set(["preparing", "gating", "merging"]);
+const LIVE: ReadonlySet<MergeLineState> = new Set([
+  "preparing",
+  "gating",
+  "merging",
+]);
 
 /** 12px at strokeWidth 2, the badge's own geometry. */
 const MARK = 12;
@@ -221,21 +256,50 @@ const STROKE = 2;
 
 /** The lists under the line, in the order they draw. */
 const LEFT = [
-  { heading: "Recently landed", pick: (props: MergeLineProps) => props.landed ?? [] },
-  { heading: "Sent back", pick: (props: MergeLineProps) => props.sentBack ?? [] },
+  {
+    heading: "Recently landed",
+    pick: (props: MergeLineProps) => props.landed ?? [],
+  },
+  {
+    heading: "Sent back",
+    pick: (props: MergeLineProps) => props.sentBack ?? [],
+  },
 ] as const;
 
 export function MergeLine(props: MergeLineProps) {
-  const { name, line, notice, hub, open, onOpenChange, onOpenPullRequest, onOpenCheck, onOpenSession, onFix, id, focus, pinned } = props;
+  const {
+    name,
+    line,
+    notice,
+    hub,
+    open,
+    onOpenChange,
+    onOpenPullRequest,
+    onOpenCheck,
+    onOpenSession,
+    onFix,
+    id,
+    focus,
+    pinned,
+  } = props;
   const acts = {
     onOpenPullRequest,
-    ...(onOpenCheck === undefined ? {} : { onOpenCheck }),
-    ...(focus === undefined ? {} : { focus }),
+    ...(onOpenCheck === undefined
+      ? {}
+      : {
+          onOpenCheck,
+        }),
+    ...(focus === undefined
+      ? {}
+      : {
+          focus,
+        }),
   };
   const named = name === undefined ? HEADING : `${HEADING}, ${name}`;
-  const left = LEFT.map((one) => ({ heading: one.heading, entries: one.pick(props) })).filter(
-    (one) => one.entries.length > 0,
-  );
+  const left = LEFT.map((one) => ({
+    heading: one.heading,
+    entries: one.pick(props),
+  })).filter((one) => one.entries.length > 0);
   // The tile under the cursor, so its dot on the horizon lights with it.
   const [on, setOn] = useState<string>();
   const lane = notice !== undefined || line.length > 0 || (hub?.pulls.length ?? 0) > 0;
@@ -247,7 +311,9 @@ export function MergeLine(props: MergeLineProps) {
       aria-label={named}
       data-red={hub?.main?.state === "red" || undefined}
       data-pinned={open ? pinned : undefined}
-      onFocus={(event: FocusEvent) => setOn((event.target as HTMLElement).closest<HTMLElement>("[data-branch]")?.dataset.branch)}
+      onFocus={(event: FocusEvent) =>
+        setOn((event.target as HTMLElement).closest<HTMLElement>("[data-branch]")?.dataset.branch)
+      }
       onBlur={() => setOn(undefined)}
     >
       <div className="armada-merge-line__top">
@@ -281,14 +347,32 @@ export function MergeLine(props: MergeLineProps) {
         {hub?.main?.state !== "red" ? null : (
           <MainRedBand
             main={hub.main}
-            {...(hub.recentSessions === undefined ? {} : { recentSessions: hub.recentSessions })}
+            {...(hub.recentSessions === undefined
+              ? {}
+              : {
+                  recentSessions: hub.recentSessions,
+                })}
             onOpenLink={onOpenPullRequest}
-            {...(onOpenCheck === undefined ? {} : { onOpenCheck: (check: string) => onOpenCheck("main", check) })}
-            {...(onOpenSession === undefined ? {} : { onOpenSession })}
-            {...(onFix === undefined ? {} : { onFix })}
+            {...(onOpenCheck === undefined
+              ? {}
+              : {
+                  onOpenCheck: (check: string) => onOpenCheck("main", check),
+                })}
+            {...(onOpenSession === undefined
+              ? {}
+              : {
+                  onOpenSession,
+                })}
+            {...(onFix === undefined
+              ? {}
+              : {
+                  onFix,
+                })}
           />
         )}
-        {!open || empty || (line.length === 0 && hub?.main === undefined) ? null : <Horizon line={line} main={hub?.main} on={on ?? focus} />}
+        {!open || empty || (line.length === 0 && hub?.main === undefined) ? null : (
+          <Horizon line={line} main={hub?.main} on={on ?? focus} />
+        )}
       </div>
       {!open ? null : empty ? (
         <div className="armada-merge-line__empty">
@@ -300,7 +384,19 @@ export function MergeLine(props: MergeLineProps) {
             {!lane ? null : (
               <div className="armada-merge-line__lane">
                 {notice === undefined ? null : (
-                  <Notice notice={notice} {...(name === undefined ? {} : { repository: name })} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
+                  <Notice
+                    notice={notice}
+                    {...(name === undefined
+                      ? {}
+                      : {
+                          repository: name,
+                        })}
+                    {...(onOpenCheck === undefined
+                      ? {}
+                      : {
+                          onOpenCheck,
+                        })}
+                  />
                 )}
                 {line.length === 0 ? null : (
                   <>
@@ -331,7 +427,17 @@ export function MergeLine(props: MergeLineProps) {
                     <h3 className="armada-merge-line__subheading">Open pull requests</h3>
                     <ul className="armada-merge-line__list" aria-label="Open pull requests">
                       {hub.pulls.map((pull) => (
-                        <Pull key={pull.number} pull={pull} fixing={hub.main?.state === "red" ? hub.main.takenBySession : undefined} onOpenPullRequest={onOpenPullRequest} {...(focus === undefined ? {} : { focus })} />
+                        <Pull
+                          key={pull.number}
+                          pull={pull}
+                          fixing={hub.main?.state === "red" ? hub.main.takenBySession : undefined}
+                          onOpenPullRequest={onOpenPullRequest}
+                          {...(focus === undefined
+                            ? {}
+                            : {
+                                focus,
+                              })}
+                        />
                       ))}
                     </ul>
                   </>
@@ -400,7 +506,9 @@ function Notice({
         </span>
       </Tooltip>
     );
-  const branches = notice.branches ?? [notice.branch];
+  const branches = notice.branches ?? [
+    notice.branch,
+  ];
   return (
     <div className="armada-merge-line__notice">
       <Alert
@@ -455,14 +563,26 @@ function Notice({
 }
 
 /** The states a branch is in the turn in, or held in it: a solid dot. Waiting is a ring. */
-const IN_TURN: ReadonlySet<MergeLineState> = new Set(["preparing", "gating", "merging", "held"]);
+const IN_TURN: ReadonlySet<MergeLineState> = new Set([
+  "preparing",
+  "gating",
+  "merging",
+  "held",
+]);
 
 /** Off the line and wanting the owner: the tile is lit, as a call on the cockpit's glass is. */
-const LIT: ReadonlySet<MergeLineState> = new Set(["red", "conflict"]);
+const LIT: ReadonlySet<MergeLineState> = new Set([
+  "red",
+  "conflict",
+]);
 
 /** A row's frame in its state's own status token, never one chosen here. */
 function hueOf(token: string | null | undefined): CSSProperties | undefined {
-  return token ? ({ "--hue": `var(${token})` } as CSSProperties) : undefined;
+  return token
+    ? ({
+        "--hue": `var(${token})`,
+      } as CSSProperties)
+    : undefined;
 }
 
 /**
@@ -474,7 +594,15 @@ function hueOf(token: string | null | undefined): CSSProperties | undefined {
  * a static rule ending in a dot, and the owner asked for it to move or go (12 Oct 2026). Where there
  * are dots, the dashes flow toward main. **The light is main's one stop on the horizon**, its card what the panel holds of it.
  */
-function Horizon({ line, main, on }: { line: readonly MergeLineEntry[]; main: MainState | undefined; on: string | undefined }) {
+function Horizon({
+  line,
+  main,
+  on,
+}: {
+  line: readonly MergeLineEntry[];
+  main: MainState | undefined;
+  on: string | undefined;
+}) {
   return (
     <div className="armada-merge-line__horizon" data-empty={line.length === 0 || undefined}>
       {line.length === 0 ? null : (
@@ -511,26 +639,105 @@ function mainSays(main: MainState | undefined): string {
  */
 function MainLight({ main }: { main: MainState | undefined }) {
   const said = mainSays(main);
-  const reading = main === undefined ? undefined : CHECK_OUTCOME[main.state === "green" ? "passed" : "failed"];
+  const reading =
+    main === undefined ? undefined : CHECK_OUTCOME[main.state === "green" ? "passed" : "failed"];
   const Icon = reading?.icon ?? null;
   const red = main?.state === "red" ? main : undefined;
-  const failed = red === undefined ? [] : [red.red, ...(red.red.also ?? [])];
+  const failed =
+    red === undefined
+      ? []
+      : [
+          red.red,
+          ...(red.red.also ?? []),
+        ];
   const facts: InspectFact[] = [
     ...failed.flatMap((one): InspectFact[] => [
-      { label: one.unmapped === true ? "CI job" : "Check", value: one.check, mono: true },
-      ...(one.test === undefined ? [] : [{ label: "Test", value: one.test, mono: true }]),
+      {
+        label: one.unmapped === true ? "CI job" : "Check",
+        value: one.check,
+        mono: true,
+      },
+      ...(one.test === undefined
+        ? []
+        : [
+            {
+              label: "Test",
+              value: one.test,
+              mono: true,
+            },
+          ]),
     ]),
-    ...(red?.red.merge === undefined ? [] : [{ label: "Broke in", value: [`#${red.red.merge.number}`, red.red.merge.branch].filter(Boolean).join(" "), mono: true }]),
-    ...(red?.takenBySession === undefined ? [] : [{ label: "Fixing", value: red.takenBySession.title }]),
-    ...((main?.checking?.length ?? 0) === 0 ? [] : [{ label: "Checking", value: main!.checking!.map((one) => (one.number === undefined ? one.commit.slice(0, 10) : `#${one.number}`)).join(" "), mono: true }]),
+    ...(red?.red.merge === undefined
+      ? []
+      : [
+          {
+            label: "Broke in",
+            value: [
+              `#${red.red.merge.number}`,
+              red.red.merge.branch,
+            ]
+              .filter(Boolean)
+              .join(" "),
+            mono: true,
+          },
+        ]),
+    ...(red?.takenBySession === undefined
+      ? []
+      : [
+          {
+            label: "Fixing",
+            value: red.takenBySession.title,
+          },
+        ]),
+    ...((main?.checking?.length ?? 0) === 0
+      ? []
+      : [
+          {
+            label: "Checking",
+            value: main!
+              .checking!.map((one) =>
+                one.number === undefined ? one.commit.slice(0, 10) : `#${one.number}`,
+              )
+              .join(" "),
+            mono: true,
+          },
+        ]),
   ];
   return (
     <Inspect
       name={`main: ${said}`}
       pin={false}
-      card={<InspectCard kind={{ Glyph: GitMerge, label: "Main" }} title="main" state={{ ...(Icon === null ? {} : { Glyph: Icon }), said, ...(reading?.statusToken ? { tone: `var(${reading.statusToken})` } : {}) }} facts={facts} />}
+      card={
+        <InspectCard
+          kind={{
+            Glyph: GitMerge,
+            label: "Main",
+          }}
+          title="main"
+          state={{
+            ...(Icon === null
+              ? {}
+              : {
+                  Glyph: Icon,
+                }),
+            said,
+            ...(reading?.statusToken
+              ? {
+                  tone: `var(${reading.statusToken})`,
+                }
+              : {}),
+          }}
+          facts={facts}
+        />
+      }
     >
-      <span className="armada-merge-line__main" data-state={main?.state} role="img" aria-label={`main: ${said}`} tabIndex={0} />
+      <span
+        className="armada-merge-line__main"
+        data-state={main?.state}
+        role="img"
+        aria-label={`main: ${said}`}
+        tabIndex={0}
+      />
     </Inspect>
   );
 }
@@ -557,8 +764,12 @@ function batched(line: readonly MergeLineEntry[]): MergeLineEntry[][] {
   const runs: MergeLineEntry[][] = [];
   for (const entry of line) {
     const last = runs[runs.length - 1];
-    if (entry.batch !== undefined && last !== undefined && last[0]!.batch === entry.batch) last.push(entry);
-    else runs.push([entry]);
+    if (entry.batch !== undefined && last !== undefined && last[0]!.batch === entry.batch)
+      last.push(entry);
+    else
+      runs.push([
+        entry,
+      ]);
   }
   return runs;
 }
@@ -577,8 +788,13 @@ function Entry({
   const row = useRef<HTMLLIElement>(null);
   const focused = focus === entry.branch;
   useEffect(() => {
-    if (focused) row.current?.scrollIntoView?.({ block: "center" });
-  }, [focused]);
+    if (focused)
+      row.current?.scrollIntoView?.({
+        block: "center",
+      });
+  }, [
+    focused,
+  ]);
   const reading = LAND_STATE[entry.state];
   const Icon = reading?.icon ?? null;
   const said = reading?.verb ?? entry.state;
@@ -607,7 +823,13 @@ function Entry({
           className="armada-merge-line__mark"
           data-pulsing={LIVE.has(entry.state) || undefined}
           data-state={entry.state}
-          style={reading?.statusToken ? { color: `var(${reading.statusToken})` } : undefined}
+          style={
+            reading?.statusToken
+              ? {
+                  color: `var(${reading.statusToken})`,
+                }
+              : undefined
+          }
           role="img"
           aria-label={said}
         >
@@ -637,7 +859,14 @@ function Entry({
         <EntryOwner entry={entry} />
       </span>
       <span className="armada-merge-line__detail">
-        <Detail entry={entry} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
+        <Detail
+          entry={entry}
+          {...(onOpenCheck === undefined
+            ? {}
+            : {
+                onOpenCheck,
+              })}
+        />
       </span>
     </li>
   );
@@ -648,8 +877,17 @@ function Entry({
  * chip draws it everywhere (hover for the card, press to keep it). Nobody known draws nothing.
  */
 function EntryOwner({ entry }: { entry: Pick<MergeLineEntry, "branch" | "pr"> }) {
-  const branch: OwnerChipRef = { kind: "branch", name: entry.branch };
-  const pull: OwnerChipRef | undefined = entry.pr === undefined ? undefined : { kind: "pull_request", number: entry.pr.number };
+  const branch: OwnerChipRef = {
+    kind: "branch",
+    name: entry.branch,
+  };
+  const pull: OwnerChipRef | undefined =
+    entry.pr === undefined
+      ? undefined
+      : {
+          kind: "pull_request",
+          number: entry.pr.number,
+        };
   const byBranch = useChipOwner(branch);
   const byPull = useChipOwner(pull ?? branch);
   const session = pull === undefined ? byBranch : (byPull ?? byBranch);
@@ -658,18 +896,43 @@ function EntryOwner({ entry }: { entry: Pick<MergeLineEntry, "branch" | "pr"> })
     <OwnerChip chip={pull !== undefined && byPull !== undefined ? pull : branch}>
       <span className="armada-merge-line__owner">
         <SquareTerminal size={MARK} strokeWidth={STROKE} aria-hidden />
-        <span className="armada-merge-line__owner-name">{session.title ?? session.address ?? session.id}</span>
+        <span className="armada-merge-line__owner-name">
+          {session.title ?? session.address ?? session.id}
+        </span>
       </span>
     </OwnerChip>
   );
 }
 
 /** The `ci` marks on an open pull request, from the Check outcomes and the queue's own reason for waiting. */
-const CI: Record<NonNullable<HubPull["ci"]>, { reading: { icon: LucideIcon | null; statusToken: string | null } | undefined; says: string }> = {
-  passed: { reading: CHECK_OUTCOME.passed, says: "ci passed" },
-  running: { reading: LAND_STATE.gating, says: "ci running" },
-  failed: { reading: CHECK_OUTCOME.failed, says: "ci failed" },
-  waiting_on_main: { reading: QUEUED_REASON.blocked_by_dependency, says: "ci red because main is" },
+const CI: Record<
+  NonNullable<HubPull["ci"]>,
+  {
+    reading:
+      | {
+          icon: LucideIcon | null;
+          statusToken: string | null;
+        }
+      | undefined;
+    says: string;
+  }
+> = {
+  passed: {
+    reading: CHECK_OUTCOME.passed,
+    says: "ci passed",
+  },
+  running: {
+    reading: LAND_STATE.gating,
+    says: "ci running",
+  },
+  failed: {
+    reading: CHECK_OUTCOME.failed,
+    says: "ci failed",
+  },
+  waiting_on_main: {
+    reading: QUEUED_REASON.blocked_by_dependency,
+    says: "ci red because main is",
+  },
 };
 
 /**
@@ -677,13 +940,49 @@ const CI: Record<NonNullable<HubPull["ci"]>, { reading: { icon: LucideIcon | nul
  * one: a pull request in the queue has passed `ci`. `waiting_for_ci` is auto-merge on and `ci` still
  * running, before any entry.
  */
-const QUEUE: Record<NonNullable<HubPull["queue"]>["state"], { reading: { icon: LucideIcon | null; statusToken: string | null } | undefined; says: string; pulsing: boolean }> = {
-  waiting_for_ci: { reading: LAND_STATE.preparing, says: "Waiting for ci to join the merge queue", pulsing: true },
-  in_queue: { reading: LAND_STATE.waiting, says: "In the merge queue", pulsing: false },
-  queued: { reading: LAND_STATE.waiting, says: "In the merge queue, waiting its turn", pulsing: false },
-  awaiting_checks: { reading: LAND_STATE.gating, says: "In the merge queue, running its checks", pulsing: true },
-  mergeable: { reading: LAND_STATE.merging, says: "In the merge queue, ready to merge", pulsing: true },
-  unmergeable: { reading: LAND_STATE.conflict, says: "In the merge queue, cannot merge", pulsing: false },
+const QUEUE: Record<
+  NonNullable<HubPull["queue"]>["state"],
+  {
+    reading:
+      | {
+          icon: LucideIcon | null;
+          statusToken: string | null;
+        }
+      | undefined;
+    says: string;
+    pulsing: boolean;
+  }
+> = {
+  waiting_for_ci: {
+    reading: LAND_STATE.preparing,
+    says: "Waiting for ci to join the merge queue",
+    pulsing: true,
+  },
+  in_queue: {
+    reading: LAND_STATE.waiting,
+    says: "In the merge queue",
+    pulsing: false,
+  },
+  queued: {
+    reading: LAND_STATE.waiting,
+    says: "In the merge queue, waiting its turn",
+    pulsing: false,
+  },
+  awaiting_checks: {
+    reading: LAND_STATE.gating,
+    says: "In the merge queue, running its checks",
+    pulsing: true,
+  },
+  mergeable: {
+    reading: LAND_STATE.merging,
+    says: "In the merge queue, ready to merge",
+    pulsing: true,
+  },
+  unmergeable: {
+    reading: LAND_STATE.conflict,
+    says: "In the merge queue, cannot merge",
+    pulsing: false,
+  },
 };
 
 /**
@@ -691,7 +990,13 @@ const QUEUE: Record<NonNullable<HubPull["queue"]>["state"], { reading: { icon: L
  * `ci` takes. **Apart from the pull request's own checks**, which passed before it merged. A failed
  * run opens its first failed job's log, as main's band does.
  */
-function MainRunMark({ run, onOpen }: { run: NonNullable<MergeLineEntry["mainRun"]>; onOpen?: (check: string) => void }) {
+function MainRunMark({
+  run,
+  onOpen,
+}: {
+  run: NonNullable<MergeLineEntry["mainRun"]>;
+  onOpen?: (check: string) => void;
+}) {
   const mark = CI[run.state];
   const Icon = mark.reading?.icon ?? null;
   const said = `${mark.says} on main`;
@@ -701,7 +1006,13 @@ function MainRunMark({ run, onOpen }: { run: NonNullable<MergeLineEntry["mainRun
       className="armada-merge-line__mark"
       data-pulsing={run.state === "running" || undefined}
       data-state={run.state === "running" ? "gating" : undefined}
-      style={mark.reading?.statusToken ? { color: `var(${mark.reading.statusToken})` } : undefined}
+      style={
+        mark.reading?.statusToken
+          ? {
+              color: `var(${mark.reading.statusToken})`,
+            }
+          : undefined
+      }
       role="img"
       aria-label={said}
     >
@@ -717,7 +1028,12 @@ function MainRunMark({ run, onOpen }: { run: NonNullable<MergeLineEntry["mainRun
   }
   return (
     <Tooltip label={said} asChild>
-      <button type="button" className="armada-merge-line__run" aria-label={`${said}, open its log`} onClick={() => onOpen(first)}>
+      <button
+        type="button"
+        className="armada-merge-line__run"
+        aria-label={`${said}, open its log`}
+        onClick={() => onOpen(first)}
+      >
         {glyph}
       </button>
     </Tooltip>
@@ -735,21 +1051,43 @@ function Pull({
   /** A branch another surface asked for, as an `Entry` takes it. */
   focus?: string;
   /** The Session working on main's red, named on a pull request that waits for it. */
-  fixing: { title: string } | undefined;
+  fixing:
+    | {
+        title: string;
+      }
+    | undefined;
   onOpenPullRequest: (url: string) => void;
 }) {
   const row = useRef<HTMLLIElement>(null);
   const focused = focus === pull.branch;
   useEffect(() => {
-    if (focused) row.current?.scrollIntoView?.({ block: "center" });
-  }, [focused]);
+    if (focused)
+      row.current?.scrollIntoView?.({
+        block: "center",
+      });
+  }, [
+    focused,
+  ]);
   const queued = pull.queue === undefined ? undefined : QUEUE[pull.queue.state];
   const mark = queued ?? (pull.ci === undefined ? undefined : CI[pull.ci]);
   const Icon = mark?.reading?.icon ?? null;
   const pulsing = queued === undefined ? pull.ci === "running" : queued.pulsing;
-  const state = queued === undefined ? (pull.ci === "running" ? "gating" : undefined) : pull.queue?.state === "waiting_for_ci" ? "preparing" : queued.pulsing ? "gating" : undefined;
+  const state =
+    queued === undefined
+      ? pull.ci === "running"
+        ? "gating"
+        : undefined
+      : pull.queue?.state === "waiting_for_ci"
+        ? "preparing"
+        : queued.pulsing
+          ? "gating"
+          : undefined;
   const said =
-    mark === undefined ? undefined : queued === undefined && pull.ci === "waiting_on_main" && fixing !== undefined ? `${mark.says}, waiting on the fix: ${fixing.title}` : mark.says;
+    mark === undefined
+      ? undefined
+      : queued === undefined && pull.ci === "waiting_on_main" && fixing !== undefined
+        ? `${mark.says}, waiting on the fix: ${fixing.title}`
+        : mark.says;
   const position = pull.queue?.position;
   return (
     <li
@@ -760,7 +1098,11 @@ function Pull({
       tabIndex={0}
       data-merge-item=""
       data-branch={pull.branch}
-      data-lit={pull.queue?.state === "unmergeable" || (queued === undefined && pull.ci === "failed") || undefined}
+      data-lit={
+        pull.queue?.state === "unmergeable" ||
+        (queued === undefined && pull.ci === "failed") ||
+        undefined
+      }
       style={hueOf(mark?.reading?.statusToken)}
     >
       {position === undefined ? (
@@ -778,7 +1120,13 @@ function Pull({
             className="armada-merge-line__mark"
             data-pulsing={pulsing || undefined}
             data-state={state}
-            style={mark?.reading?.statusToken ? { color: `var(${mark.reading.statusToken})` } : undefined}
+            style={
+              mark?.reading?.statusToken
+                ? {
+                    color: `var(${mark.reading.statusToken})`,
+                  }
+                : undefined
+            }
             role="img"
             aria-label={said}
           >
@@ -803,7 +1151,13 @@ function Pull({
       <span className="armada-merge-line__detail">
         <RegisteredOwnerOf repository={repositoryOfAddress(pull.url)} number={pull.number} />
         <EntryOwner
-          entry={{ branch: pull.branch, pr: { number: pull.number, url: pull.url } }}
+          entry={{
+            branch: pull.branch,
+            pr: {
+              number: pull.number,
+              url: pull.url,
+            },
+          }}
         />
       </span>
     </li>
@@ -820,7 +1174,15 @@ export type PlaceRow = {
   title: string;
   number?: number;
   url?: string;
-  mark: { line: "queue"; state: NonNullable<HubPull["queue"]>["state"] } | { line: "land"; state: MergeLineState };
+  mark:
+    | {
+        line: "queue";
+        state: NonNullable<HubPull["queue"]>["state"];
+      }
+    | {
+        line: "land";
+        state: MergeLineState;
+      };
   /** The pull request the place is drawn for. */
   current?: true;
 };
@@ -830,7 +1192,13 @@ export type PlaceRow = {
  * title opening the pull request. **No count**: the rows are the answer. The row the panel is for
  * is `aria-current` and takes the selected fill the merge line's focused tile does.
  */
-export function MergeLinePlace({ rows, onOpenPullRequest }: { rows: readonly PlaceRow[]; onOpenPullRequest: (url: string) => void }) {
+export function MergeLinePlace({
+  rows,
+  onOpenPullRequest,
+}: {
+  rows: readonly PlaceRow[];
+  onOpenPullRequest: (url: string) => void;
+}) {
   const queue = rows[0]?.mark.line !== "land";
   return (
     <section className="armada-merge-line__placed" aria-label="Merge line">
@@ -845,11 +1213,15 @@ export function MergeLinePlace({ rows, onOpenPullRequest }: { rows: readonly Pla
           const glyph = reading?.reading ?? landed;
           const Icon = glyph?.icon ?? null;
           const said = reading?.says ?? landed?.verb ?? undefined;
-          const pulsing = reading?.pulsing ?? (row.mark.line === "land" && LIVE.has(row.mark.state));
-          const lit = row.mark.line === "queue" ? row.mark.state === "unmergeable" : LIT.has(row.mark.state);
+          const pulsing =
+            reading?.pulsing ?? (row.mark.line === "land" && LIVE.has(row.mark.state));
+          const lit =
+            row.mark.line === "queue" ? row.mark.state === "unmergeable" : LIT.has(row.mark.state);
           const name = (
             <>
-              {row.number === undefined ? null : <span className="armada-merge-line__queue-number mono">#{row.number}</span>}
+              {row.number === undefined ? null : (
+                <span className="armada-merge-line__queue-number mono">#{row.number}</span>
+              )}
               <span>{row.title}</span>
             </>
           );
@@ -872,8 +1244,20 @@ export function MergeLinePlace({ rows, onOpenPullRequest }: { rows: readonly Pla
                   <span
                     className="armada-merge-line__mark"
                     data-pulsing={pulsing || undefined}
-                    data-state={row.mark.line === "land" ? row.mark.state : reading?.pulsing ? "gating" : undefined}
-                    style={glyph?.statusToken ? { color: `var(${glyph.statusToken})` } : undefined}
+                    data-state={
+                      row.mark.line === "land"
+                        ? row.mark.state
+                        : reading?.pulsing
+                          ? "gating"
+                          : undefined
+                    }
+                    style={
+                      glyph?.statusToken
+                        ? {
+                            color: `var(${glyph.statusToken})`,
+                          }
+                        : undefined
+                    }
                     role="img"
                     aria-label={said}
                   >
@@ -904,11 +1288,29 @@ export function MergeLinePlace({ rows, onOpenPullRequest }: { rows: readonly Pla
 }
 
 /** A waiting branch's reason as a registry glyph and the tooltip that names it. */
-const WHY: Record<MergeLineWaiting, { Glyph: LucideIcon; says: string }> = {
-  member: { Glyph: GitBranch, says: "Left out of this turn: clashes with another branch in it" },
-  main: { Glyph: Ban, says: "Left out of this turn: clashes with main" },
-  kept: { Glyph: ArrowUpToLine, says: "Kept its place after a red, next up" },
-  late: { Glyph: GitCommitHorizontal, says: "Joined after the turn began" },
+const WHY: Record<
+  MergeLineWaiting,
+  {
+    Glyph: LucideIcon;
+    says: string;
+  }
+> = {
+  member: {
+    Glyph: GitBranch,
+    says: "Left out of this turn: clashes with another branch in it",
+  },
+  main: {
+    Glyph: Ban,
+    says: "Left out of this turn: clashes with main",
+  },
+  kept: {
+    Glyph: ArrowUpToLine,
+    says: "Kept its place after a red, next up",
+  },
+  late: {
+    Glyph: GitCommitHorizontal,
+    says: "Joined after the turn began",
+  },
 };
 
 /** A Check of the turn on the boundary strip's own readings. A timeout is a failure there, and says so. */
@@ -921,13 +1323,24 @@ const READS: Record<MergeLineCheck["state"], GroupBoundaryCheckReads> = {
 };
 
 /** A Check of the turn, opening its log where it has one: every one but a Check still waiting. */
-function boundaryCheck(check: MergeLineCheck, onOpen: ((check: string) => void) | undefined): GroupBoundaryCheck {
+function boundaryCheck(
+  check: MergeLineCheck,
+  onOpen: ((check: string) => void) | undefined,
+): GroupBoundaryCheck {
   const timedOut = CHECK_OUTCOME.timed_out?.verb;
   return {
     name: check.name,
     reads: READS[check.state],
-    ...(check.state === "timed_out" && typeof timedOut === "string" ? { result: timedOut } : {}),
-    ...(onOpen === undefined || check.state === "waiting" ? {} : { onOpen: () => onOpen(check.name) }),
+    ...(check.state === "timed_out" && typeof timedOut === "string"
+      ? {
+          result: timedOut,
+        }
+      : {}),
+    ...(onOpen === undefined || check.state === "waiting"
+      ? {}
+      : {
+          onOpen: () => onOpen(check.name),
+        }),
   };
 }
 
@@ -942,7 +1355,8 @@ function Detail({
   entry: MergeLineEntry;
   onOpenCheck?: (branch: string, check: string) => void;
 }) {
-  const onOpen = onOpenCheck === undefined ? undefined : (check: string) => onOpenCheck(entry.branch, check);
+  const onOpen =
+    onOpenCheck === undefined ? undefined : (check: string) => onOpenCheck(entry.branch, check);
   const strip =
     entry.checks === undefined || entry.checks.length === 0 ? null : (
       <GroupBoundary checks={entry.checks.map((check) => boundaryCheck(check, onOpen))} />
@@ -970,7 +1384,16 @@ function Detail({
   if (entry.state === "landed" && (entry.merge !== undefined || entry.mainRun !== undefined)) {
     return (
       <>
-        {entry.mainRun === undefined ? null : <MainRunMark run={entry.mainRun} {...(onOpenCheck === undefined ? {} : { onOpen: (check: string) => onOpenCheck(entry.mainRun!.branch, check) })} />}
+        {entry.mainRun === undefined ? null : (
+          <MainRunMark
+            run={entry.mainRun}
+            {...(onOpenCheck === undefined
+              ? {}
+              : {
+                  onOpen: (check: string) => onOpenCheck(entry.mainRun!.branch, check),
+                })}
+          />
+        )}
         {entry.merge === undefined ? null : (
           <Tooltip label="Merge commit">
             <span className="mono">{entry.merge}</span>
@@ -991,7 +1414,13 @@ function Detail({
                 size={MARK}
                 strokeWidth={STROKE}
                 aria-hidden
-                style={failed?.statusToken ? { color: `var(${failed.statusToken})` } : undefined}
+                style={
+                  failed?.statusToken
+                    ? {
+                        color: `var(${failed.statusToken})`,
+                      }
+                    : undefined
+                }
               />
             )}
             <span className="mono">{name}</span>

@@ -8,20 +8,51 @@
 
 /** What kind of value a setting holds, with its bounds or its choices. Tagged on `kind`. */
 export type SettingKind =
-  | { kind: "integer"; min: number; max: number; unit?: string | null }
+  | {
+      kind: "integer";
+      min: number;
+      max: number;
+      unit?: string | null;
+    }
   /** Stored in seconds; Bridge reads it out in minutes or hours as well. */
-  | { kind: "seconds"; min: number; max: number }
-  | { kind: "boolean" }
-  | { kind: "choice"; options: string[] }
-  | { kind: "text" }
+  | {
+      kind: "seconds";
+      min: number;
+      max: number;
+    }
+  | {
+      kind: "boolean";
+    }
+  | {
+      kind: "choice";
+      options: string[];
+    }
+  | {
+      kind: "text";
+    }
   /** Several lines of text, whose default is the prompt Armada ships. */
-  | { kind: "prompt" }
-  | { kind: "text_list" }
+  | {
+      kind: "prompt";
+    }
+  | {
+      kind: "text_list";
+    }
   /** A value Bridge owns and draws on its own pane, never in the generic form. */
-  | { kind: "json" };
+  | {
+      kind: "json";
+    };
 
 /** A setting's value as JSON carries it. Its kind says which of these it is. */
-export type SettingValue = number | boolean | string | string[] | { [key: string]: unknown } | unknown[] | null;
+export type SettingValue =
+  | number
+  | boolean
+  | string
+  | string[]
+  | {
+      [key: string]: unknown;
+    }
+  | unknown[]
+  | null;
 
 /** One setting, as Fleet resolved it. */
 export type Setting = {
@@ -68,4 +99,6 @@ export type SettingsList = {
  * value out of range or a key Fleet does not know is a 422 `fleet.unacceptable_settings`, whose
  * `key` field names the setting at fault, and nothing is saved.
  */
-export type SaveSettings = { changes: Record<string, SettingValue | null> };
+export type SaveSettings = {
+  changes: Record<string, SettingValue | null>;
+};

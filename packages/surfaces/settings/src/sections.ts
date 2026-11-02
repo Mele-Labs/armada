@@ -27,7 +27,10 @@ export type SettingsSection = {
 
 /** A settings.json section, by the id its name makes: `Limits` is `limits`. */
 export function sectionId(section: string): SettingsSectionId {
-  return section.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return section
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 /**
@@ -36,43 +39,472 @@ export function sectionId(section: string): SettingsSectionId {
  * setting's own title, key and description instead.
  */
 const SCHEMA_SECTIONS: readonly SettingsSection[] = [
-  { id: "limits", label: "Limits", palette: "Fleet limits", schema: true, settings: [["Drones at once", "concurrency", "parallel", "memory", "disk", "checks at once", "ports"]] },
-  { id: "timeouts", label: "Timeouts", palette: "Timeouts", schema: true, settings: [["Timeouts", "time limit", "seconds", "wait", "reconnect"]] },
-  { id: "retention", label: "Retention", palette: "Retention", schema: true, settings: [["Retention", "keep", "days", "history", "clean up"]] },
-  { id: "machine", label: "Machine", palette: "Machine name", schema: true, settings: [["Machine name", "host", "computer", "name"]] },
-  { id: "account", label: "Account", palette: "Sign-in app", schema: true, settings: [["Sign-in app", "account", "sign in", "client id", "oauth", "forge"]] },
-  { id: "store", label: "Store", palette: "Store address", schema: true, settings: [["Store address", "store", "central store", "sign in", "url"]] },
-  { id: "harness", label: "Harness", palette: "Harness", schema: true, settings: [["Harness", "agent", "program", "binary", "path"]] },
-  { id: "model", label: "Model", palette: "Models", schema: true, settings: [["Models", "model", "roster", "opus", "sonnet", "haiku"]] },
-  { id: "effort", label: "Effort", palette: "Effort", schema: true, settings: [["Effort", "reasoning", "low", "medium", "high"]] },
-  { id: "plan", label: "Plan", palette: "Plan step down", schema: true, settings: [["Plan", "weekly", "limit", "downshift", "lower default", "step down", "percent"]] },
-  { id: "prompts", label: "Prompts", palette: "Drone prompts", schema: true, settings: [["Prompts", "brief", "baseline", "instructions"]] },
-  { id: "features", label: "Features", palette: "Features", schema: true, settings: [["Features", "switch", "helm", "draft pull requests"]] },
-  { id: "editor", label: "Editor", palette: "Editor", schema: true, settings: [["Editor", "open", "code", "vscode", "visual"]] },
-  { id: "terminal", label: "Terminal", palette: "Terminal", schema: true, settings: [["Terminal", "iterm", "ghostty", "warp", "wezterm", "shell"]] },
-  { id: "links", label: "Links", palette: "Links", schema: true, settings: [["Open pull requests in", "pull request", "link", "browser", "panel"]] },
-  { id: "spacing", label: "Spacing", palette: "Spacing", schema: true, settings: [["Spacing", "density", "compact", "default", "roomy", "room", "dense"]] },
+  {
+    id: "limits",
+    label: "Limits",
+    palette: "Fleet limits",
+    schema: true,
+    settings: [
+      [
+        "Drones at once",
+        "concurrency",
+        "parallel",
+        "memory",
+        "disk",
+        "checks at once",
+        "ports",
+      ],
+    ],
+  },
+  {
+    id: "timeouts",
+    label: "Timeouts",
+    palette: "Timeouts",
+    schema: true,
+    settings: [
+      [
+        "Timeouts",
+        "time limit",
+        "seconds",
+        "wait",
+        "reconnect",
+      ],
+    ],
+  },
+  {
+    id: "retention",
+    label: "Retention",
+    palette: "Retention",
+    schema: true,
+    settings: [
+      [
+        "Retention",
+        "keep",
+        "days",
+        "history",
+        "clean up",
+      ],
+    ],
+  },
+  {
+    id: "machine",
+    label: "Machine",
+    palette: "Machine name",
+    schema: true,
+    settings: [
+      [
+        "Machine name",
+        "host",
+        "computer",
+        "name",
+      ],
+    ],
+  },
+  {
+    id: "account",
+    label: "Account",
+    palette: "Sign-in app",
+    schema: true,
+    settings: [
+      [
+        "Sign-in app",
+        "account",
+        "sign in",
+        "client id",
+        "oauth",
+        "forge",
+      ],
+    ],
+  },
+  {
+    id: "store",
+    label: "Store",
+    palette: "Store address",
+    schema: true,
+    settings: [
+      [
+        "Store address",
+        "store",
+        "central store",
+        "sign in",
+        "url",
+      ],
+    ],
+  },
+  {
+    id: "harness",
+    label: "Harness",
+    palette: "Harness",
+    schema: true,
+    settings: [
+      [
+        "Harness",
+        "agent",
+        "program",
+        "binary",
+        "path",
+      ],
+    ],
+  },
+  {
+    id: "model",
+    label: "Model",
+    palette: "Models",
+    schema: true,
+    settings: [
+      [
+        "Models",
+        "model",
+        "roster",
+        "opus",
+        "sonnet",
+        "haiku",
+      ],
+    ],
+  },
+  {
+    id: "effort",
+    label: "Effort",
+    palette: "Effort",
+    schema: true,
+    settings: [
+      [
+        "Effort",
+        "reasoning",
+        "low",
+        "medium",
+        "high",
+      ],
+    ],
+  },
+  {
+    id: "plan",
+    label: "Plan",
+    palette: "Plan step down",
+    schema: true,
+    settings: [
+      [
+        "Plan",
+        "weekly",
+        "limit",
+        "downshift",
+        "lower default",
+        "step down",
+        "percent",
+      ],
+    ],
+  },
+  {
+    id: "prompts",
+    label: "Prompts",
+    palette: "Drone prompts",
+    schema: true,
+    settings: [
+      [
+        "Prompts",
+        "brief",
+        "baseline",
+        "instructions",
+      ],
+    ],
+  },
+  {
+    id: "features",
+    label: "Features",
+    palette: "Features",
+    schema: true,
+    settings: [
+      [
+        "Features",
+        "switch",
+        "helm",
+        "draft pull requests",
+      ],
+    ],
+  },
+  {
+    id: "editor",
+    label: "Editor",
+    palette: "Editor",
+    schema: true,
+    settings: [
+      [
+        "Editor",
+        "open",
+        "code",
+        "vscode",
+        "visual",
+      ],
+    ],
+  },
+  {
+    id: "terminal",
+    label: "Terminal",
+    palette: "Terminal",
+    schema: true,
+    settings: [
+      [
+        "Terminal",
+        "iterm",
+        "ghostty",
+        "warp",
+        "wezterm",
+        "shell",
+      ],
+    ],
+  },
+  {
+    id: "links",
+    label: "Links",
+    palette: "Links",
+    schema: true,
+    settings: [
+      [
+        "Open pull requests in",
+        "pull request",
+        "link",
+        "browser",
+        "panel",
+      ],
+    ],
+  },
+  {
+    id: "spacing",
+    label: "Spacing",
+    palette: "Spacing",
+    schema: true,
+    settings: [
+      [
+        "Spacing",
+        "density",
+        "compact",
+        "default",
+        "roomy",
+        "room",
+        "dense",
+      ],
+    ],
+  },
 ];
 
 /** Bridge's own panes: their values live in settings.json too, and each is drawn by its own pane. */
 const PANES: readonly SettingsSection[] = [
-  { id: "phone", label: "Phone", palette: "Phone pairing", settings: [["Phone access", "phone", "mobile", "pocket", "gateway", "port"], ["Pair a phone", "mobile", "gateway", "device", "unpair"]] },
-  { id: "mods-all", label: "All", palette: "All mods", settings: [["All", "mods", "applied", "every", "list", "taught", "switch", "promote"]] },
-  { id: "theme", label: "Theme", palette: "Theme", settings: [["Theme", "colours", "colors", "dark", "light", "appearance", "mods"]] },
-  { id: "layout", label: "Layout", palette: "Layout", settings: [["Layout", "tabs", "panels", "rail", "hide", "order", "reset"]] },
-  { id: "words", label: "Words", palette: "Words mods", settings: [["Words", "mods", "teach", "taught", "jira", "links", "keys", "switch"]] },
-  { id: "trackers", label: "Tracker", palette: "Tracker mods", settings: [["Tracker", "mods", "issue tracker", "tried", "valid", "stale", "try", "switch", "promote"]] },
-  { id: "fleet-mods", label: "Fleet", palette: "Fleet mods", settings: [["Fleet", "mods", "teach", "taught", "notices", "batch", "quiet", "switch"]] },
-  { id: "thread", label: "Thread", palette: "Thread look", settings: [["Thread", "agent name", "times", "text size", "spacing", "quick replies", "learn", "voice", "talk", "whisper", "dictation"]] },
-  { id: "time", label: "Time", palette: "Time", settings: [["Time", "clock", "24-hour", "12-hour", "seconds", "date", "timestamp", "stamp", "format"]] },
+  {
+    id: "phone",
+    label: "Phone",
+    palette: "Phone pairing",
+    settings: [
+      [
+        "Phone access",
+        "phone",
+        "mobile",
+        "pocket",
+        "gateway",
+        "port",
+      ],
+      [
+        "Pair a phone",
+        "mobile",
+        "gateway",
+        "device",
+        "unpair",
+      ],
+    ],
+  },
+  {
+    id: "mods-all",
+    label: "All",
+    palette: "All mods",
+    settings: [
+      [
+        "All",
+        "mods",
+        "applied",
+        "every",
+        "list",
+        "taught",
+        "switch",
+        "promote",
+      ],
+    ],
+  },
+  {
+    id: "theme",
+    label: "Theme",
+    palette: "Theme",
+    settings: [
+      [
+        "Theme",
+        "colours",
+        "colors",
+        "dark",
+        "light",
+        "appearance",
+        "mods",
+      ],
+    ],
+  },
+  {
+    id: "layout",
+    label: "Layout",
+    palette: "Layout",
+    settings: [
+      [
+        "Layout",
+        "tabs",
+        "panels",
+        "rail",
+        "hide",
+        "order",
+        "reset",
+      ],
+    ],
+  },
+  {
+    id: "words",
+    label: "Words",
+    palette: "Words mods",
+    settings: [
+      [
+        "Words",
+        "mods",
+        "teach",
+        "taught",
+        "jira",
+        "links",
+        "keys",
+        "switch",
+      ],
+    ],
+  },
+  {
+    id: "trackers",
+    label: "Tracker",
+    palette: "Tracker mods",
+    settings: [
+      [
+        "Tracker",
+        "mods",
+        "issue tracker",
+        "tried",
+        "valid",
+        "stale",
+        "try",
+        "switch",
+        "promote",
+      ],
+    ],
+  },
+  {
+    id: "fleet-mods",
+    label: "Fleet",
+    palette: "Fleet mods",
+    settings: [
+      [
+        "Fleet",
+        "mods",
+        "teach",
+        "taught",
+        "notices",
+        "batch",
+        "quiet",
+        "switch",
+      ],
+    ],
+  },
+  {
+    id: "thread",
+    label: "Thread",
+    palette: "Thread look",
+    settings: [
+      [
+        "Thread",
+        "agent name",
+        "times",
+        "text size",
+        "spacing",
+        "quick replies",
+        "learn",
+        "voice",
+        "talk",
+        "whisper",
+        "dictation",
+      ],
+    ],
+  },
+  {
+    id: "time",
+    label: "Time",
+    palette: "Time",
+    settings: [
+      [
+        "Time",
+        "clock",
+        "24-hour",
+        "12-hour",
+        "seconds",
+        "date",
+        "timestamp",
+        "stamp",
+        "format",
+      ],
+    ],
+  },
   // The keyboard's own matches are the acts, counted by `KeyboardSettings`; these find the category.
-  { id: "keyboard", label: "Keyboard shortcuts", palette: "Keyboard shortcuts", settings: [["Keyboard shortcuts", "keys", "key bindings", "hotkeys", "keymap", "rebind", "controls"]] },
-  { id: "palette", label: "Command palette", palette: "Command palette aliases and hotkeys", settings: [["Command palette", "alias", "hotkey", "pinned", "pins", "recent", "opens with", "empty", "everything"]] },
-  { id: "guides", label: "Guides", palette: "Guide settings", settings: [["Open a guide the first time I meet a piece", "help", "tutorial", "onboarding"]] },
+  {
+    id: "keyboard",
+    label: "Keyboard shortcuts",
+    palette: "Keyboard shortcuts",
+    settings: [
+      [
+        "Keyboard shortcuts",
+        "keys",
+        "key bindings",
+        "hotkeys",
+        "keymap",
+        "rebind",
+        "controls",
+      ],
+    ],
+  },
+  {
+    id: "palette",
+    label: "Command palette",
+    palette: "Command palette aliases and hotkeys",
+    settings: [
+      [
+        "Command palette",
+        "alias",
+        "hotkey",
+        "pinned",
+        "pins",
+        "recent",
+        "opens with",
+        "empty",
+        "everything",
+      ],
+    ],
+  },
+  {
+    id: "guides",
+    label: "Guides",
+    palette: "Guide settings",
+    settings: [
+      [
+        "Open a guide the first time I meet a piece",
+        "help",
+        "tutorial",
+        "onboarding",
+      ],
+    ],
+  },
 ];
 
 /** Every category the palette knows, whether or not Fleet has answered. */
-export const SETTINGS_SECTIONS: readonly SettingsSection[] = [...SCHEMA_SECTIONS, ...PANES];
+export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
+  ...SCHEMA_SECTIONS,
+  ...PANES,
+];
 
 /** A setting the generic form draws. A Json value is Bridge's own, drawn by its pane. */
 export function drawn(setting: Setting): boolean {
@@ -97,9 +529,20 @@ export function sectionsFor(list: SettingsList | null): readonly SettingsSection
   }
   const schema = order.map((id): SettingsSection => {
     const shipped = SCHEMA_SECTIONS.find((one) => one.id === id);
-    return shipped ?? { id, label: names.get(id) ?? id, palette: names.get(id) ?? id, settings: [], schema: true };
+    return (
+      shipped ?? {
+        id,
+        label: names.get(id) ?? id,
+        palette: names.get(id) ?? id,
+        settings: [],
+        schema: true,
+      }
+    );
   });
-  return [...schema, ...PANES];
+  return [
+    ...schema,
+    ...PANES,
+  ];
 }
 
 /** The settings in one schema section, as the generic form draws them. */
@@ -108,21 +551,93 @@ export function settingsIn(list: SettingsList, id: SettingsSectionId): Setting[]
 }
 
 /** One entry of Settings' index: a group of sections, drawn together on one page. */
-export type SettingsGroup = { id: string; label: string; sections: readonly SettingsSection[] };
+export type SettingsGroup = {
+  id: string;
+  label: string;
+  sections: readonly SettingsSection[];
+};
 
 /**
  * The groups Bridge ships, in the index's order, and the sections each holds. A setting's own `group`
  * wins; this places the panes, and every section before Fleet has answered.
  */
-const SHIPPED_GROUPS: readonly { id: string; label: string; sections: readonly string[] }[] = [
-  { id: "agents", label: "Agents", sections: ["harness", "model", "effort", "plan"] },
-  { id: "prompts", label: "Prompts", sections: ["prompts"] },
-  { id: "fleet", label: "Fleet", sections: ["limits", "timeouts", "retention", "machine", "account", "store"] },
-  { id: "features", label: "Features", sections: ["features"] },
-  { id: "tools", label: "Tools", sections: ["editor", "terminal", "links"] },
-  { id: "appearance", label: "Appearance", sections: ["theme", "spacing", "layout", "thread", "time", "keyboard", "palette"] },
-  { id: "phone", label: "Phone", sections: ["phone"] },
-  { id: "guides", label: "Guides", sections: ["guides"] },
+const SHIPPED_GROUPS: readonly {
+  id: string;
+  label: string;
+  sections: readonly string[];
+}[] = [
+  {
+    id: "agents",
+    label: "Agents",
+    sections: [
+      "harness",
+      "model",
+      "effort",
+      "plan",
+    ],
+  },
+  {
+    id: "prompts",
+    label: "Prompts",
+    sections: [
+      "prompts",
+    ],
+  },
+  {
+    id: "fleet",
+    label: "Fleet",
+    sections: [
+      "limits",
+      "timeouts",
+      "retention",
+      "machine",
+      "account",
+      "store",
+    ],
+  },
+  {
+    id: "features",
+    label: "Features",
+    sections: [
+      "features",
+    ],
+  },
+  {
+    id: "tools",
+    label: "Tools",
+    sections: [
+      "editor",
+      "terminal",
+      "links",
+    ],
+  },
+  {
+    id: "appearance",
+    label: "Appearance",
+    sections: [
+      "theme",
+      "spacing",
+      "layout",
+      "thread",
+      "time",
+      "keyboard",
+      "palette",
+    ],
+  },
+  {
+    id: "phone",
+    label: "Phone",
+    sections: [
+      "phone",
+    ],
+  },
+  {
+    id: "guides",
+    label: "Guides",
+    sections: [
+      "guides",
+    ],
+  },
 ];
 
 /** The shipped group a section is under, or `undefined` for one Bridge does not know. */
@@ -136,19 +651,40 @@ function shippedGroupOf(section: SettingsSectionId): string | undefined {
  * section in it is not offered.
  */
 export function groupsFor(list: SettingsList | null): readonly SettingsGroup[] {
-  const named = new Map<SettingsSectionId, { id: string; label: string }>();
+  const named = new Map<
+    SettingsSectionId,
+    {
+      id: string;
+      label: string;
+    }
+  >();
   for (const one of list?.settings.filter(drawn) ?? []) {
     const section = sectionId(one.section);
     if (named.has(section) || one.group === "") continue;
-    named.set(section, { id: sectionId(one.group), label: one.group });
+    named.set(section, {
+      id: sectionId(one.group),
+      label: one.group,
+    });
   }
-  const groups: { id: string; label: string; sections: SettingsSection[] }[] = SHIPPED_GROUPS.map((one) => ({ id: one.id, label: one.label, sections: [] }));
+  const groups: {
+    id: string;
+    label: string;
+    sections: SettingsSection[];
+  }[] = SHIPPED_GROUPS.map((one) => ({
+    id: one.id,
+    label: one.label,
+    sections: [],
+  }));
   for (const section of sectionsFor(list)) {
     const wire = named.get(section.id);
     const id = wire?.id ?? shippedGroupOf(section.id) ?? section.id;
     let group = groups.find((one) => one.id === id);
     if (group === undefined) {
-      group = { id, label: wire?.label ?? section.label, sections: [] };
+      group = {
+        id,
+        label: wire?.label ?? section.label,
+        sections: [],
+      };
       groups.push(group);
     }
     group.sections.push(section);
@@ -158,7 +694,12 @@ export function groupsFor(list: SettingsList | null): readonly SettingsGroup[] {
 
 /** The words a search reads for one setting: its title, its key, its description and its section. */
 export function wordsOf(setting: Setting): string[] {
-  return [setting.title, setting.key, setting.description, setting.section];
+  return [
+    setting.title,
+    setting.key,
+    setting.description,
+    setting.section,
+  ];
 }
 
 /** Whether one setting's words hold every word of a search. */
@@ -175,11 +716,23 @@ export function matches(words: readonly string[], query: string): boolean {
  * How many of a category's settings a search finds. A schema section, once settings.json is read,
  * counts its own settings; before that, and for a pane, its words.
  */
-export function matchesIn(section: SettingsSection, query: string, list: SettingsList | null = null): number {
+export function matchesIn(
+  section: SettingsSection,
+  query: string,
+  list: SettingsList | null = null,
+): number {
   if (section.schema === true && list !== null) {
     return settingsIn(list, section.id).filter((one) => matches(wordsOf(one), query)).length;
   }
-  return section.settings.filter((words) => matches([section.label, ...words], query)).length;
+  return section.settings.filter((words) =>
+    matches(
+      [
+        section.label,
+        ...words,
+      ],
+      query,
+    ),
+  ).length;
 }
 
 // ---- Which group is open --------------------------------------------------------------------
@@ -233,7 +786,10 @@ export function useSettingsAsked(): number {
 }
 
 /** The group Settings draws, and the way to choose another. */
-export function useSettingsSection(): [string, (id: string) => void] {
+export function useSettingsSection(): [
+  string,
+  (id: string) => void,
+] {
   const now = useSyncExternalStore(
     (on) => {
       listeners.add(on);
@@ -242,16 +798,28 @@ export function useSettingsSection(): [string, (id: string) => void] {
     () => open,
     () => open,
   );
-  return [now, setSettingsSection];
+  return [
+    now,
+    setSettingsSection,
+  ];
 }
 
 /**
  * The palette's Settings rows: one that opens Settings, and one per category. A category's own words
  * are its aliases, so `hotkeys` finds Keyboard shortcuts without the word ever being drawn.
  */
-export const SETTINGS_PALETTE: readonly { id: string; label: string; aliases: readonly string[] }[] = SETTINGS_SECTIONS.map((one) => ({
+export const SETTINGS_PALETTE: readonly {
+  id: string;
+  label: string;
+  aliases: readonly string[];
+}[] = SETTINGS_SECTIONS.map((one) => ({
   // `fleet_settings` is the id the palette has always carried for its first row.
   id: one.id === "limits" ? "fleet_settings" : `settings:${one.id}`,
   label: one.palette,
-  aliases: ["settings", "preferences", one.label, ...one.settings.flat()],
+  aliases: [
+    "settings",
+    "preferences",
+    one.label,
+    ...one.settings.flat(),
+  ],
 }));

@@ -6,7 +6,8 @@ import { drawnOf } from "@armada/screens/src/drawn-patch";
 import type { CheckoutDiffRead } from "@armada/screens/src/draft/sessions";
 
 /** What a diff cut in the window says. Where Fleet cut it first, the line is `First N lines`; `git diff` in the repository has the rest. */
-const cutSentence = (drawnLines: number, total: number): string => `The first ${drawnLines.toLocaleString()} of ${total.toLocaleString()} lines.`;
+const cutSentence = (drawnLines: number, total: number): string =>
+  `The first ${drawnLines.toLocaleString()} of ${total.toLocaleString()} lines.`;
 
 const NO_CHANGE = "No lines changed in this file.";
 
@@ -15,10 +16,32 @@ const NO_CHANGE = "No lines changed in this file.";
  * finds no difference in says there is none.
  */
 export function checkoutDiffOf(read: CheckoutDiffRead | undefined): UnifiedDiffProps {
-  if (read === undefined) return { files: [] };
-  if (!read.ok) return { files: [], emptyNote: read.said };
+  if (read === undefined)
+    return {
+      files: [],
+    };
+  if (!read.ok)
+    return {
+      files: [],
+      emptyNote: read.said,
+    };
   const drawn = drawnOf(read.diff, cutSentence);
-  if (drawn.files.length === 0) return { files: [], emptyNote: NO_CHANGE };
-  const cut = drawn.cut ?? (read.cut === true ? `First ${drawn.files.reduce((sum, file) => sum + file.lines.length, 0).toLocaleString()} lines` : undefined);
-  return { files: drawn.files, ...(cut === undefined ? {} : { cut }) };
+  if (drawn.files.length === 0)
+    return {
+      files: [],
+      emptyNote: NO_CHANGE,
+    };
+  const cut =
+    drawn.cut ??
+    (read.cut === true
+      ? `First ${drawn.files.reduce((sum, file) => sum + file.lines.length, 0).toLocaleString()} lines`
+      : undefined);
+  return {
+    files: drawn.files,
+    ...(cut === undefined
+      ? {}
+      : {
+          cut,
+        }),
+  };
 }

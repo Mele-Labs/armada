@@ -4,7 +4,15 @@
 import type { BugReport, BugReportDropped, BugReports, Outcome } from "@armada/protocol";
 
 /** What a read or an act on a report came to: what Fleet answered with, or the refusal to word. */
-export type BugReportActed<T> = { ok: true; value: T } | { ok: false; outcome: Outcome };
+export type BugReportActed<T> =
+  | {
+      ok: true;
+      value: T;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 export type BugReportsApi = {
   /** Every report on this Mac, newest first. */

@@ -26,7 +26,10 @@ export type SessionPlanTask = {
 };
 
 /** Why a task in progress looks left behind (`why`, one line), and `since` when it was last touched. */
-export type TaskStale = { why: string; since: string };
+export type TaskStale = {
+  why: string;
+  since: string;
+};
 
 /** One group of the plan: the tasks a single subagent takes. */
 export type SessionPlanGroup = {
@@ -56,20 +59,36 @@ export type PlanLandsIn = {
   pull_request?: PlanLandsInPr;
 };
 
-export type PlanLandsInPr = { number: number; title: string; state: "open" | "draft" | "merged" | "closed" };
+export type PlanLandsInPr = {
+  number: number;
+  title: string;
+  state: "open" | "draft" | "merged" | "closed";
+};
 
 /** What the agent changed when it recorded the plan again. */
 export type PlanChanges = {
   /** Ids of groups and tasks that are new. */
   added: string[];
-  renamed: { id: string; from: string }[];
-  moved: { id: string; from: string }[];
+  renamed: {
+    id: string;
+    from: string;
+  }[];
+  moved: {
+    id: string;
+    from: string;
+  }[];
   /** `group` is the group it was in, or its own id for a group. */
-  removed: { group: string; text: string }[];
+  removed: {
+    group: string;
+    text: string;
+  }[];
 };
 
 /** The sketch drawn with the plan. Its scene is the Session's ledger artifact `id`. */
-export type PlanSketch = { id: string; title: string };
+export type PlanSketch = {
+  id: string;
+  title: string;
+};
 
 /** A Session's plan as it stands. Absent on the record until the agent records one. */
 export type SessionPlan = {
@@ -96,32 +115,83 @@ export type SessionPlan = {
 };
 
 /** A window that holds a pending plan back, and why: what settles it. */
-export type PlanHold = { url: string; why: "unapproved" | "changing" | "changed" | "walk" };
+export type PlanHold = {
+  url: string;
+  why: "unapproved" | "changing" | "changed" | "walk";
+};
 
 /**
  * One change the person marks on the plan, against the version he read. Nothing changes the plan until
  * the agent records it again. `group` and `task` are ids from that version.
  */
 export type PlanMark =
-  | { kind: "rename"; group: string; task?: string; from: string; to: string }
-  | { kind: "remove"; group: string; task?: string }
-  | { kind: "add_task"; group: string; id: string; text: string }
-  | { kind: "add_group"; id: string; text: string }
-  | { kind: "move_task"; task: string; from: string; to: string }
-  | { kind: "subagent"; group: string; from: string; to: string }
-  | { kind: "note"; id: string; group: string; task?: string; text: string };
+  | {
+      kind: "rename";
+      group: string;
+      task?: string;
+      from: string;
+      to: string;
+    }
+  | {
+      kind: "remove";
+      group: string;
+      task?: string;
+    }
+  | {
+      kind: "add_task";
+      group: string;
+      id: string;
+      text: string;
+    }
+  | {
+      kind: "add_group";
+      id: string;
+      text: string;
+    }
+  | {
+      kind: "move_task";
+      task: string;
+      from: string;
+      to: string;
+    }
+  | {
+      kind: "subagent";
+      group: string;
+      from: string;
+      to: string;
+    }
+  | {
+      kind: "note";
+      id: string;
+      group: string;
+      task?: string;
+      text: string;
+    };
 
 /** `POST /sessions/plan/approve`: the person approves the plan. `version` is the one he read. */
-export type ApprovePlan = { session_id: string; version: number };
+export type ApprovePlan = {
+  session_id: string;
+  version: number;
+};
 
 /**
  * `POST /sessions/plan/changes`: the marks go to the agent as one message. `approve` approves the plan
  * with them.
  */
-export type SendPlanChanges = { session_id: string; version: number; marks: PlanMark[]; approve?: boolean };
+export type SendPlanChanges = {
+  session_id: string;
+  version: number;
+  marks: PlanMark[];
+  approve?: boolean;
+};
 
 /** One line of the changes the person sent. `verb`: Renamed, Removed, Added, Moved, Subagent or Note. */
-export type PlanChangeLine = { verb: string; place: string; from?: string; text?: string };
+export type PlanChangeLine = {
+  verb: string;
+  place: string;
+  from?: string;
+  text?: string;
+};
 
 /**
  * `POST /sessions/plan`, the agent's. Recording again replaces the plan as a new version. A task or
@@ -142,9 +212,15 @@ export type RecordPlan = {
     lands_in?: string;
     /** The group goes to a Job of its own, which the caller starts with `start_another_job` naming the group. Absent is false. */
     own_job?: boolean;
-    tasks: { id?: string; title: string }[];
+    tasks: {
+      id?: string;
+      title: string;
+    }[];
   }[];
-  sketch?: { title: string; scene: unknown };
+  sketch?: {
+    title: string;
+    scene: unknown;
+  };
   /** The page the plan depends on: it is put to the person after he approves that walk. */
   walk?: string;
   session_id?: string;
@@ -155,7 +231,10 @@ export type TouchAct = "write" | "edit" | "remove";
 
 /** One file touch Fleet saw, for the Field. `by` is absent where the Session's own agent touched it. */
 export type FileTouch = {
-  by?: { agent: string; id: string };
+  by?: {
+    agent: string;
+    id: string;
+  };
   path: string;
   act: TouchAct;
   at: string;

@@ -4,7 +4,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import type { FleetBuild, FleetBuildChoice, FleetBuildLeftOut, FleetBuildPosition, FleetBuildStage } from "@armada/components";
+import type {
+  FleetBuild,
+  FleetBuildChoice,
+  FleetBuildLeftOut,
+  FleetBuildPosition,
+  FleetBuildStage,
+} from "@armada/components";
 
 import { FleetBuildFrom } from "../fleet-build";
 import { onTimePassing } from "./time-passes";
@@ -25,47 +31,119 @@ const STAGE_MS = 1_000;
 
 /** The stages a restart onto each build passes through, in order. */
 const STAGES: Record<FleetBuildChoice, readonly FleetBuildStage[]> = {
-  main: ["fetching_main", "building_fleet", "building_bridge", "restarting_fleet", "reopening_bridge"],
-  preview: ["merging", "building_fleet", "building_bridge", "restarting_fleet", "reopening_bridge"],
+  main: [
+    "fetching_main",
+    "building_fleet",
+    "building_bridge",
+    "restarting_fleet",
+    "reopening_bridge",
+  ],
+  preview: [
+    "merging",
+    "building_fleet",
+    "building_bridge",
+    "restarting_fleet",
+    "reopening_bridge",
+  ],
 };
 
 const SEEDS: Record<string, Seed> = {
-  "fleet/build-aligned": { on: "main", position: { ahead: 0, behind: 0 }, working: null },
-  "fleet/build-behind": { on: "main", position: { ahead: 0, behind: 3 }, working: null },
-  "fleet/build-preview-ahead": { on: "preview", position: { ahead: PREVIEW_AHEAD, behind: 0 }, working: null },
+  "fleet/build-aligned": {
+    on: "main",
+    position: {
+      ahead: 0,
+      behind: 0,
+    },
+    working: null,
+  },
+  "fleet/build-behind": {
+    on: "main",
+    position: {
+      ahead: 0,
+      behind: 3,
+    },
+    working: null,
+  },
+  "fleet/build-preview-ahead": {
+    on: "preview",
+    position: {
+      ahead: PREVIEW_AHEAD,
+      behind: 0,
+    },
+    working: null,
+  },
   // A frame to look at: its restart is not timed. Each `later` step of its walk moves it on a stage,
   // and it holds at the last, so it does not finish on its own.
-  "fleet/build-refreshing": { on: "preview", position: { ahead: PREVIEW_AHEAD, behind: 0 }, working: "preview", stage: "merging" },
+  "fleet/build-refreshing": {
+    on: "preview",
+    position: {
+      ahead: PREVIEW_AHEAD,
+      behind: 0,
+    },
+    working: "preview",
+    stage: "merging",
+  },
   "fleet/build-failed": {
     on: "main",
-    position: { ahead: 0, behind: 3 },
+    position: {
+      ahead: 0,
+      behind: 3,
+    },
     working: null,
-    failed: "main cannot fast-forward to origin/main — it has diverged or a local change is in the way",
+    failed:
+      "main cannot fast-forward to origin/main — it has diverged or a local change is in the way",
   },
   // The preview as the last refresh left it: two in-flight branches it could not take.
   "fleet/preview-left-out": {
     on: "preview",
-    position: { ahead: PREVIEW_AHEAD, behind: 0 },
+    position: {
+      ahead: PREVIEW_AHEAD,
+      behind: 0,
+    },
     working: null,
     leftOut: [
-      { branch: "armada/projects-span-repos", why: "breaking migration projects.span_repositories is not on main" },
-      { branch: "armada/issues-list-filters", why: "conflict: apps/desktop/src/renderer/src/issues-tab/list.tsx, packages/shell/src/Palette.tsx" },
+      {
+        branch: "armada/projects-span-repos",
+        why: "breaking migration projects.span_repositories is not on main",
+      },
+      {
+        branch: "armada/issues-list-filters",
+        why: "conflict: apps/desktop/src/renderer/src/issues-tab/list.tsx, packages/shell/src/Palette.tsx",
+      },
     ],
   },
   // Two branches left out, one with commits since: `scenarios/preview-offer.ts`.
   "preview-offer": {
     on: "preview",
-    position: { ahead: PREVIEW_AHEAD, behind: 0 },
+    position: {
+      ahead: PREVIEW_AHEAD,
+      behind: 0,
+    },
     working: null,
     leftOut: [
-      { branch: "feat/billing-export", why: "merge conflict with feat/ledger", moved: true },
-      { branch: "feat/invoice-pdf", why: "breaking migration invoices.pdf_path is not on main" },
+      {
+        branch: "feat/billing-export",
+        why: "merge conflict with feat/ledger",
+        moved: true,
+      },
+      {
+        branch: "feat/invoice-pdf",
+        why: "breaking migration invoices.pdf_path is not on main",
+      },
     ],
   },
 };
 
 const levelWith = (on: FleetBuildChoice): FleetBuildPosition =>
-  on === "main" ? { ahead: 0, behind: 0 } : { ahead: PREVIEW_AHEAD, behind: 0 };
+  on === "main"
+    ? {
+        ahead: 0,
+        behind: 0,
+      }
+    : {
+        ahead: PREVIEW_AHEAD,
+        behind: 0,
+      };
 
 function Seeded({ seed, children }: { seed: Seed; children: ReactNode }) {
   const [now, setNow] = useState(seed);
@@ -77,7 +155,12 @@ function Seeded({ seed, children }: { seed: Seed; children: ReactNode }) {
         if (was.working === null || was.stage === undefined) return was;
         const stages = STAGES[was.working];
         const next = stages[stages.indexOf(was.stage) + 1];
-        return next === undefined ? was : { ...was, stage: next };
+        return next === undefined
+          ? was
+          : {
+              ...was,
+              stage: next,
+            };
       }),
     );
     return () => {
@@ -90,10 +173,18 @@ function Seeded({ seed, children }: { seed: Seed; children: ReactNode }) {
     const reach = (at: number) => {
       const stage = stages[at];
       if (stage === undefined) {
-        setNow({ on: onto, position: levelWith(onto), working: null });
+        setNow({
+          on: onto,
+          position: levelWith(onto),
+          working: null,
+        });
         return;
       }
-      setNow(({ failed: _gone, ...was }) => ({ ...was, working: onto, stage }));
+      setNow(({ failed: _gone, ...was }) => ({
+        ...was,
+        working: onto,
+        stage,
+      }));
       timer.current = setTimeout(() => reach(at + 1), STAGE_MS);
     };
     reach(0);
@@ -102,11 +193,27 @@ function Seeded({ seed, children }: { seed: Seed; children: ReactNode }) {
     on: now.on,
     position: now.position,
     working: now.working,
-    ...(now.stage === undefined ? {} : { stage: now.stage }),
+    ...(now.stage === undefined
+      ? {}
+      : {
+          stage: now.stage,
+        }),
     drones: [],
-    ...(now.failed === undefined ? {} : { failed: now.failed }),
-    ...(now.leftOut === undefined ? {} : { leftOut: now.leftOut }),
-    ...(now.leftOut === undefined ? {} : { leftOut: now.leftOut }),
+    ...(now.failed === undefined
+      ? {}
+      : {
+          failed: now.failed,
+        }),
+    ...(now.leftOut === undefined
+      ? {}
+      : {
+          leftOut: now.leftOut,
+        }),
+    ...(now.leftOut === undefined
+      ? {}
+      : {
+          leftOut: now.leftOut,
+        }),
     onChoose: (on) => restart(on),
     onRestart: () => restart(now.on),
   };

@@ -13,7 +13,11 @@ type Standing = "going" | "settled" | "dropped";
 
 type Answer = void | boolean | Promise<void | boolean>;
 
-type Entry = { key: PressedKey; want: boolean; state: Standing };
+type Entry = {
+  key: PressedKey;
+  want: boolean;
+  state: Standing;
+};
 
 /** Whether Fleet's own row already says what was pressed for. */
 const carries = (session: Session, entry: Entry): boolean => {
@@ -26,13 +30,34 @@ const carries = (session: Session, entry: Entry): boolean => {
 const patched = (session: Session, entry: Entry): Session => {
   if (entry.key === "paused") {
     const { paused: _, ...rest } = session;
-    return entry.want ? { ...rest, paused: true } : rest;
+    return entry.want
+      ? {
+          ...rest,
+          paused: true,
+        }
+      : rest;
   }
   if (entry.key === "autoLand") {
     const { autoLand: _, ...rest } = session;
-    return entry.want ? { ...rest, autoLand: true } : rest;
+    return entry.want
+      ? {
+          ...rest,
+          autoLand: true,
+        }
+      : rest;
   }
-  return session.work?.plan === undefined ? session : { ...session, work: { ...session.work, plan: { ...session.work.plan, approved: true } } };
+  return session.work?.plan === undefined
+    ? session
+    : {
+        ...session,
+        work: {
+          ...session.work,
+          plan: {
+            ...session.work.plan,
+            approved: true,
+          },
+        },
+      };
 };
 
 export type Pressed = {
@@ -60,14 +85,22 @@ export function pressed(): Pressed {
     listeners.forEach((one) => one());
   };
 
-  const live = (id: string): Entry[] => (entries.get(id) ?? []).filter((one) => one.state !== "dropped");
+  const live = (id: string): Entry[] =>
+    (entries.get(id) ?? []).filter((one) => one.state !== "dropped");
 
   return {
     press: (id, key, want, how) => {
       // A second press on the same control replaces the first: the later expectation is the one drawn.
       for (const one of live(id)) if (one.key === key) one.state = "dropped";
-      const entry: Entry = { key, want, state: "going" };
-      entries.set(id, [...live(id), entry]);
+      const entry: Entry = {
+        key,
+        want,
+        state: "going",
+      };
+      entries.set(id, [
+        ...live(id),
+        entry,
+      ]);
       changed(id);
       let answer: Answer;
       try {
@@ -106,7 +139,12 @@ export function pressed(): Pressed {
         if (entry.state === "going") going.push(entry.key);
       }
       if (out === session) return session;
-      return going.length === 0 ? out : { ...out, pressed: going };
+      return going.length === 0
+        ? out
+        : {
+            ...out,
+            pressed: going,
+          };
     },
     has: (id) => live(id).length > 0,
     version: (id) => versions.get(id) ?? 0,
@@ -120,8 +158,21 @@ export function pressed(): Pressed {
 
 export function withPressed(draft: SessionsDraft): SessionsDraft {
   const held = pressed();
-  const cached = new Map<string, { session: Session; version: number; out: Session }>();
-  let last: { base: readonly Session[]; version: number; out: readonly Session[] } | undefined;
+  const cached = new Map<
+    string,
+    {
+      session: Session;
+      version: number;
+      out: Session;
+    }
+  >();
+  let last:
+    | {
+        base: readonly Session[];
+        version: number;
+        out: readonly Session[];
+      }
+    | undefined;
   let touched = false;
 
   const overlay = (session: Session): Session => {
@@ -130,7 +181,11 @@ export function withPressed(draft: SessionsDraft): SessionsDraft {
     const was = cached.get(session.id);
     if (was !== undefined && was.session === session && was.version === have) return was.out;
     const out = held.overlay(session);
-    cached.set(session.id, { session, version: have, out });
+    cached.set(session.id, {
+      session,
+      version: have,
+      out,
+    });
     return out;
   };
 
@@ -139,11 +194,19 @@ export function withPressed(draft: SessionsDraft): SessionsDraft {
     get: (): readonly Session[] => {
       const base = draft.get();
       if (!touched) return base;
-      if (last !== undefined && last.base === base && last.version === held.total()) return last.out;
+      if (last !== undefined && last.base === base && last.version === held.total())
+        return last.out;
       const out = base.map(overlay);
       // Nothing of ours changed what is drawn: the same list, so what reads it does not draw again.
-      const kept = last !== undefined && last.out.length === out.length && out.every((one, at) => one === last!.out[at]);
-      last = { base, version: held.total(), out: kept ? last!.out : out };
+      const kept =
+        last !== undefined &&
+        last.out.length === out.length &&
+        out.every((one, at) => one === last!.out[at]);
+      last = {
+        base,
+        version: held.total(),
+        out: kept ? last!.out : out,
+      };
       return last.out;
     },
     subscribe: (listener: () => void): (() => void) => {

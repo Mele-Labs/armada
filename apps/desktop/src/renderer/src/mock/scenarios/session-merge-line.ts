@@ -11,13 +11,22 @@ import { s200Sessions } from "./sessions";
 const PULL = "https://example.com/pull/";
 
 function line(): MergeLine {
-  const pull = (number: number, title: string, branch: string, position: number, state: string) => ({
+  const pull = (
+    number: number,
+    title: string,
+    branch: string,
+    position: number,
+    state: string,
+  ) => ({
     number,
     title,
     branch,
     url: `${PULL}${number}`,
     ci: "passed",
-    queue: { state, position },
+    queue: {
+      state,
+      position,
+    },
   });
   return {
     root: repository().root,
@@ -31,7 +40,12 @@ function line(): MergeLine {
         pull(1850, "Record each migration once", "spike/store-migrations-record", 3, "queued"),
         pull(1843, "Retry the forge read on a reset", "fix/forge-read-retry", 1, "awaiting_checks"),
         pull(1846, "Cap the log reader's buffer", "fix/cap-log-reader", 2, "queued"),
-        { number: 1849, title: "Apply named migrations in order", branch: "spike/store-migrations", url: `${PULL}1849` },
+        {
+          number: 1849,
+          title: "Apply named migrations in order",
+          branch: "spike/store-migrations",
+          url: `${PULL}1849`,
+        },
       ],
     },
   };
@@ -41,5 +55,12 @@ export const s205SessionMergeLine: Scenario = {
   ...s200Sessions,
   name: "session-merge-line",
   says: "A Session's pull request in the merge queue, with others ahead and behind it",
-  state: { ...s200Sessions.state, mergeLines: { lines: [line()] } },
+  state: {
+    ...s200Sessions.state,
+    mergeLines: {
+      lines: [
+        line(),
+      ],
+    },
+  },
 };

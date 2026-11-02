@@ -17,32 +17,87 @@ async function open() {
   return fleet;
 }
 
-const chip = () => page.getByRole("region", { name: "Merge queue" }).getByRole("button", { name: /^#2290 / });
+const chip = () =>
+  page
+    .getByRole("region", {
+      name: "Merge queue",
+    })
+    .getByRole("button", {
+      name: /^#2290 /,
+    });
 
 function rightPress(target: Element): void {
   const box = target.getBoundingClientRect();
-  target.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, composed: true, view: window, clientX: box.x + 4, clientY: box.y + 4, button: 2 }));
+  target.dispatchEvent(
+    new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      view: window,
+      clientX: box.x + 4,
+      clientY: box.y + 4,
+      button: 2,
+    }),
+  );
 }
 
-const toast = (headline: string) => page.getByText(headline, { exact: true }).first();
+const toast = (headline: string) =>
+  page
+    .getByText(headline, {
+      exact: true,
+    })
+    .first();
 
 test("a right press on the merge line chip offers Refresh, Open in browser and Copy link under the pull request's number, and nothing else", async () => {
   await open();
   await expect.element(chip()).toBeVisible();
   rightPress(chip().element());
-  await expect.element(page.getByRole("menu").getByText("Pull request #2290", { exact: true })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("menu").getByText("Pull request #2290", {
+        exact: true,
+      }),
+    )
+    .toBeVisible();
   await expect.element(page.getByRole("menuitem")).toHaveLength(3);
-  await expect.element(page.getByRole("menuitem", { name: "Refresh" })).toBeVisible();
-  await expect.element(page.getByRole("menuitem", { name: "Open in browser" })).toBeVisible();
-  await expect.element(page.getByRole("menuitem", { name: "Copy link" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("menuitem", {
+        name: "Refresh",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByRole("menuitem", {
+        name: "Open in browser",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByRole("menuitem", {
+        name: "Copy link",
+      }),
+    )
+    .toBeVisible();
 });
 
 test("Refresh on the merge line chip asks Fleet once, by the repository's Manifest, and the chip reads failed from Fleet's events", async () => {
   const fleet = await open();
   await expect.element(chip()).toHaveAccessibleName(/ci running/);
   rightPress(chip().element());
-  await userEvent.click(page.getByRole("menuitem", { name: "Refresh" }));
-  expect(fleet.calls.refreshed).toEqual([{ manifestId: "armada", number: CONFIG_PR }]);
+  await userEvent.click(
+    page.getByRole("menuitem", {
+      name: "Refresh",
+    }),
+  );
+  expect(fleet.calls.refreshed).toEqual([
+    {
+      manifestId: "armada",
+      number: CONFIG_PR,
+    },
+  ]);
   await expect.element(chip()).toHaveAccessibleName(/ci failed/);
 });
 
@@ -51,45 +106,108 @@ test("Shift+F10 on the focused chip opens the same menu", async () => {
   await expect.element(chip()).toBeVisible();
   chip().element().focus();
   await userEvent.keyboard("{Shift>}{F10}{/Shift}");
-  await expect.element(page.getByRole("menuitem", { name: "Refresh" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("menuitem", {
+        name: "Refresh",
+      }),
+    )
+    .toBeVisible();
 });
 
 test("a refused Refresh is a toast in Fleet's words, and the chip stays as it was", async () => {
   const fleet = await open();
-  fleet.refusesRefresh = { code: "fleet.pull_request_unreadable", message: "The forge did not answer." };
+  fleet.refusesRefresh = {
+    code: "fleet.pull_request_unreadable",
+    message: "The forge did not answer.",
+  };
   await expect.element(chip()).toBeVisible();
   rightPress(chip().element());
-  await userEvent.click(page.getByRole("menuitem", { name: "Refresh" }));
+  await userEvent.click(
+    page.getByRole("menuitem", {
+      name: "Refresh",
+    }),
+  );
   await expect.element(toast("The forge did not answer.")).toBeVisible();
   await expect.element(chip()).toHaveAccessibleName(/ci running/);
 });
 
 // Done is folded until pressed, and a press toggles it: a fold an earlier test opened stays open, so press only a folded one.
 const openDone = async () => {
-  const done = page.getByRole("region", { name: "Done", exact: true });
-  if (done.element().hasAttribute("data-collapsed")) await userEvent.click(done.getByRole("heading", { name: "Done" }));
+  const done = page.getByRole("region", {
+    name: "Done",
+    exact: true,
+  });
+  if (done.element().hasAttribute("data-collapsed"))
+    await userEvent.click(
+      done.getByRole("heading", {
+        name: "Done",
+      }),
+    );
 };
-const landingChip = () => page.getByRole("region", { name: "Done", exact: true }).getByRole("button", { name: /^Pull request #2290 / });
+const landingChip = () =>
+  page
+    .getByRole("region", {
+      name: "Done",
+      exact: true,
+    })
+    .getByRole("button", {
+      name: /^Pull request #2290 /,
+    });
 
 test("Refresh on the pull request in Done asks Fleet once, and its Checks mark reads failed from Fleet's events", async () => {
   const fleet = await open();
   await toSession("Who sees your config");
   await openDone();
-  await expect.element(landingChip().getByRole("img", { name: /^Checks running/ })).toBeVisible();
+  await expect
+    .element(
+      landingChip().getByRole("img", {
+        name: /^Checks running/,
+      }),
+    )
+    .toBeVisible();
   rightPress(landingChip().element());
-  await expect.element(page.getByRole("menu").getByText("Pull request #2290", { exact: true })).toBeVisible();
-  await userEvent.click(page.getByRole("menuitem", { name: "Refresh" }));
-  expect(fleet.calls.refreshed).toEqual([{ manifestId: "armada", number: CONFIG_PR }]);
-  await expect.element(landingChip().getByRole("img", { name: "Checks failed: ci / test" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("menu").getByText("Pull request #2290", {
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  await userEvent.click(
+    page.getByRole("menuitem", {
+      name: "Refresh",
+    }),
+  );
+  expect(fleet.calls.refreshed).toEqual([
+    {
+      manifestId: "armada",
+      number: CONFIG_PR,
+    },
+  ]);
+  await expect
+    .element(
+      landingChip().getByRole("img", {
+        name: "Checks failed: ci / test",
+      }),
+    )
+    .toBeVisible();
 });
 
 test("a refused Refresh in Done is a toast too", async () => {
   const fleet = await open();
   await toSession("Who sees your config");
   await openDone();
-  fleet.refusesRefresh = { code: "fleet.pull_request_unreadable", message: "The forge did not answer." };
+  fleet.refusesRefresh = {
+    code: "fleet.pull_request_unreadable",
+    message: "The forge did not answer.",
+  };
   rightPress(landingChip().element());
-  await userEvent.click(page.getByRole("menuitem", { name: "Refresh" }));
+  await userEvent.click(
+    page.getByRole("menuitem", {
+      name: "Refresh",
+    }),
+  );
   await expect.element(toast("The forge did not answer.")).toBeVisible();
 });
 
@@ -98,18 +216,40 @@ const card = () => page.getByRole("tooltip");
 test("the Job row on the merge line chip's card opens the Job that holds the pull request", async () => {
   await open();
   await userEvent.hover(chip());
-  const job = card().getByRole("button", { name: "Open Job Who sees your config" });
+  const job = card().getByRole("button", {
+    name: "Open Job Who sees your config",
+  });
   await expect.element(job).toBeVisible();
   await userEvent.click(job);
-  await expect.element(page.getByRole("region", { name: /^Job: Who sees your config/ })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: /^Job: Who sees your config/,
+      }),
+    )
+    .toBeVisible();
   await expect.element(card()).not.toBeInTheDocument();
 });
 
 test("a pull request no Job here holds has no Job row on its card", async () => {
   await open();
-  await userEvent.hover(page.getByRole("region", { name: "Merge queue" }).getByRole("button", { name: /^#2291 / }));
+  await userEvent.hover(
+    page
+      .getByRole("region", {
+        name: "Merge queue",
+      })
+      .getByRole("button", {
+        name: /^#2291 /,
+      }),
+  );
   await expect.element(card().getByText("Bump the lockfile")).toBeVisible();
-  await expect.element(card().getByText("Job", { exact: true })).not.toBeInTheDocument();
+  await expect
+    .element(
+      card().getByText("Job", {
+        exact: true,
+      }),
+    )
+    .not.toBeInTheDocument();
   await expect.element(card().getByRole("button")).not.toBeInTheDocument();
 });
 
@@ -118,12 +258,20 @@ test("a failure read by Refresh is told to the Job that holds it once, however o
   for (let time = 0; time < 2; time += 1) {
     await expect.element(chip()).toBeVisible();
     rightPress(chip().element());
-    await userEvent.click(page.getByRole("menuitem", { name: "Refresh" }));
+    await userEvent.click(
+      page.getByRole("menuitem", {
+        name: "Refresh",
+      }),
+    );
     await expect.element(chip()).toHaveAccessibleName(/ci failed/);
   }
   await toSession("Who sees your config");
-  const told = page.getByRole("region", { name: "Fleet turn" });
+  const told = page.getByRole("region", {
+    name: "Fleet turn",
+  });
   await userEvent.click(told.getByRole("button"));
-  await expect.element(told.getByRole("paragraph").first()).toHaveTextContent(/failed its checks at 4be1c07/);
+  await expect
+    .element(told.getByRole("paragraph").first())
+    .toHaveTextContent(/failed its checks at 4be1c07/);
   await expect.element(told).toHaveLength(1);
 });

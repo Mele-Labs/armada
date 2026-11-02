@@ -17,13 +17,18 @@ export type FleetAgentSignIn = {
   onAgentSignInChanged: (on: (state: Wire) => void) => () => void;
 };
 
-const SIGNED_IN: AgentSignIn = { signing_in: false };
+const SIGNED_IN: AgentSignIn = {
+  signing_in: false,
+};
 
 /** The wire leaves empty fields out; the alert reads them whole. */
 const shown = (wire: Wire): AgentSignIn =>
   wire.signed_out_since === undefined
     ? SIGNED_IN
-    : { signed_out_since: wire.signed_out_since, signing_in: wire.signing_in === true };
+    : {
+        signed_out_since: wire.signed_out_since,
+        signing_in: wire.signing_in === true,
+      };
 
 export function createFleetAgentSignIn(fleet: FleetAgentSignIn): AgentSignInSource {
   let state: AgentSignIn = SIGNED_IN;

@@ -11,7 +11,11 @@ import { startModJob } from "./mod-job";
 import { askToReport, canReport } from "./report";
 
 export function PointMenu() {
-  const [at, setAt] = useState<{ x: number; y: number; element: Element } | null>(null);
+  const [at, setAt] = useState<{
+    x: number;
+    y: number;
+    element: Element;
+  } | null>(null);
   useEffect(() => {
     function pressed(event: MouseEvent): void {
       // A press the app handled has its own menu, which gets Mod and Report from `PointActs`.
@@ -19,31 +23,52 @@ export function PointMenu() {
       const element = targetOf(event.target);
       if (element === null) return;
       event.preventDefault();
-      setAt({ x: event.clientX, y: event.clientY, element });
+      setAt({
+        x: event.clientX,
+        y: event.clientY,
+        element,
+      });
     }
     window.addEventListener("contextmenu", pressed);
     return () => window.removeEventListener("contextmenu", pressed);
   }, []);
   if (at === null) return null;
   const entries: DropdownMenuEntry[] = [
-    { kind: "item", id: "mod", label: "Mod", icon: Puzzle },
-    ...(canReport() ? [{ kind: "item" as const, id: "report", label: "Report", icon: Flag }] : []),
+    {
+      kind: "item",
+      id: "mod",
+      label: "Mod",
+      icon: Puzzle,
+    },
+    ...(canReport()
+      ? [
+          {
+            kind: "item" as const,
+            id: "report",
+            label: "Report",
+            icon: Flag,
+          },
+        ]
+      : []),
   ];
   return (
     <PointActs.Provider value={null}>
-    <DropdownMenu
-      triggerLabel="Element"
-      at={{ x: at.x, y: at.y }}
-      open
-      entries={entries}
-      onOpenChange={(open) => {
-        if (!open) setAt(null);
-      }}
-      onSelect={(chosen) => {
-        if (chosen === "mod") void startModJob(at.element);
-        if (chosen === "report") askToReport(at.element);
-      }}
-    />
+      <DropdownMenu
+        triggerLabel="Element"
+        at={{
+          x: at.x,
+          y: at.y,
+        }}
+        open
+        entries={entries}
+        onOpenChange={(open) => {
+          if (!open) setAt(null);
+        }}
+        onSelect={(chosen) => {
+          if (chosen === "mod") void startModJob(at.element);
+          if (chosen === "report") askToReport(at.element);
+        }}
+      />
     </PointActs.Provider>
   );
 }

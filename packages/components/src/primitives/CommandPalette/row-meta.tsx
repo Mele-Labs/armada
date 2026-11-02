@@ -12,7 +12,11 @@ export type PaletteMeta = {
   /** `#2911`, a pull request's, an issue's or the one a Job holds. Searched as well as drawn. */
   number?: string;
   /** A Job's state: a registry glyph and the tooltip that names it, in the glyph's place. Never a phrase. */
-  state?: { icon: LucideIcon; said: string; pulsing?: true };
+  state?: {
+    icon: LucideIcon;
+    said: string;
+    pulsing?: true;
+  };
 };
 
 /** The state, drawn where another row draws its glyph, so every row starts on one column. */
@@ -20,7 +24,12 @@ export function StateGlyph({ state }: { state: NonNullable<PaletteMeta["state"]>
   const Glyph = state.icon;
   return (
     <Tooltip label={state.said}>
-      <span className="armada-session-mark" role="img" aria-label={state.said} data-pulsing={state.pulsing}>
+      <span
+        className="armada-session-mark"
+        role="img"
+        aria-label={state.said}
+        data-pulsing={state.pulsing}
+      >
         <Glyph size={16} strokeWidth={2} aria-hidden />
       </span>
     </Tooltip>
@@ -28,7 +37,17 @@ export function StateGlyph({ state }: { state: NonNullable<PaletteMeta["state"]>
 }
 
 /** After the label, muted: the repository, then the number. */
-export function Subtitle({ meta, detail, value, dormant }: { meta: PaletteMeta | undefined; detail?: string | undefined; value: string | undefined; dormant: string | undefined }) {
+export function Subtitle({
+  meta,
+  detail,
+  value,
+  dormant,
+}: {
+  meta: PaletteMeta | undefined;
+  detail?: string | undefined;
+  value: string | undefined;
+  dormant: string | undefined;
+}) {
   const parts = [
     meta?.repo === undefined ? null : <span key="repo">{meta.repo}</span>,
     meta?.number === undefined ? null : <span key="number">{meta.number}</span>,

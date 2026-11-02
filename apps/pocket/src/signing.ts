@@ -9,11 +9,20 @@ export async function bodyHash(body: string): Promise<string> {
   return hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body)));
 }
 
-export async function signedMessage(method: string, target: string, time: number, body: string): Promise<string> {
+export async function signedMessage(
+  method: string,
+  target: string,
+  time: number,
+  body: string,
+): Promise<string> {
   return `${method}${target}${time}${await bodyHash(body)}`;
 }
 
-export type Signed = { "X-Pocket-Device": string; "X-Pocket-Time": string; "X-Pocket-Signature": string };
+export type Signed = {
+  "X-Pocket-Device": string;
+  "X-Pocket-Time": string;
+  "X-Pocket-Signature": string;
+};
 
 export async function signHeaders(
   key: CryptoKey,
@@ -24,6 +33,17 @@ export async function signHeaders(
   time = Math.floor(Date.now() / 1000),
 ): Promise<Signed> {
   const message = await signedMessage(method, target, time, body);
-  const signature = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(message));
-  return { "X-Pocket-Device": deviceId, "X-Pocket-Time": String(time), "X-Pocket-Signature": hex(signature) };
+  const signature = await crypto.subtle.sign(
+    {
+      name: "ECDSA",
+      hash: "SHA-256",
+    },
+    key,
+    new TextEncoder().encode(message),
+  );
+  return {
+    "X-Pocket-Device": deviceId,
+    "X-Pocket-Time": String(time),
+    "X-Pocket-Signature": hex(signature),
+  };
 }

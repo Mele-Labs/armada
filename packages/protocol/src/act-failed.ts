@@ -6,7 +6,10 @@
 import type { WireError } from "./index";
 
 /** The acts that finish after their reply. */
-export type BackgroundAct = "checkout_to_pull_request" | "commit_to_repository" | "pull_request_press";
+export type BackgroundAct =
+  | "checkout_to_pull_request"
+  | "commit_to_repository"
+  | "pull_request_press";
 
 /** `act.failed`: what failed, for which repository or Job, and the refusal. */
 export type ActFailed = {

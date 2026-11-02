@@ -4,7 +4,15 @@
 import type { AutopilotDecisions, Outcome } from "@armada/protocol";
 
 /** What an act on the answers came to: the list as Fleet answered with it, or the refusal to word. */
-export type AutopilotDecisionsActed = { ok: true; value: AutopilotDecisions } | { ok: false; outcome: Outcome };
+export type AutopilotDecisionsActed =
+  | {
+      ok: true;
+      value: AutopilotDecisions;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 export type AutopilotDecisionsApi = {
   /** Every repository's answers not yet reviewed, in the order they were given. */

@@ -35,7 +35,14 @@ export function createSearchActs(source: ReviewSource, hold: StoreHold): SearchA
 
   const upsert = (next: Find) => {
     const finds = get().finds;
-    set({ finds: finds.some((one) => one.id === next.id) ? finds.map((one) => (one.id === next.id ? next : one)) : [...finds, next] });
+    set({
+      finds: finds.some((one) => one.id === next.id)
+        ? finds.map((one) => (one.id === next.id ? next : one))
+        : [
+            ...finds,
+            next,
+          ],
+    });
   };
 
   const applySearch = (run: ReviewRun) => {
@@ -43,18 +50,52 @@ export function createSearchActs(source: ReviewSource, hold: StoreHold): SearchA
     const was = wire.get(run.name);
     if (was !== undefined && staler(was, run)) return;
     wire.set(run.name, run);
-    const hits = matchesOf(run).map((one) => ({ key: adopt(one.pull), reason: one.reason }));
-    upsert({ id: searchId(run.name), words: typed.get(run.name) ?? run.name, run: agentRunOf(run), hits });
+    const hits = matchesOf(run).map((one) => ({
+      key: adopt(one.pull),
+      reason: one.reason,
+    }));
+    upsert({
+      id: searchId(run.name),
+      words: typed.get(run.name) ?? run.name,
+      run: agentRunOf(run),
+      hits,
+    });
   };
 
   const begin = (name: string, words: string, again: boolean) => {
     const id = searchId(name);
-    upsert({ id, words, run: { state: "running", since: Date.now() }, hits: [] });
-    void source.startSearch({ words, ...(again ? { again: true } : {}) }).then((answer) => {
-      if (answer.ok) return applySearch(answer.value);
-      const one = get().finds.find((it) => it.id === id);
-      if (one !== undefined) upsert({ ...one, run: { state: "failed", said: answer.said, at: Date.now(), head: "" } });
+    upsert({
+      id,
+      words,
+      run: {
+        state: "running",
+        since: Date.now(),
+      },
+      hits: [],
     });
+    void source
+      .startSearch({
+        words,
+        ...(again
+          ? {
+              again: true,
+            }
+          : {}),
+      })
+      .then((answer) => {
+        if (answer.ok) return applySearch(answer.value);
+        const one = get().finds.find((it) => it.id === id);
+        if (one !== undefined)
+          upsert({
+            ...one,
+            run: {
+              state: "failed",
+              said: answer.said,
+              at: Date.now(),
+              head: "",
+            },
+          });
+      });
   };
 
   return {
@@ -65,28 +106,45 @@ export function createSearchActs(source: ReviewSource, hold: StoreHold): SearchA
       typed.set(name, asked);
       dropped.delete(name);
       const had = get().finds.find((one) => one.id === searchId(name));
-      set({ tab: searchId(name) });
+      set({
+        tab: searchId(name),
+      });
       if (had?.run.state !== "running") begin(name, asked, false);
     },
     rerunFind: (id) => {
       const one = get().finds.find((it) => it.id === id);
-      if (one !== undefined && one.run.state !== "running") begin(searchName(one.words), one.words, true);
+      if (one !== undefined && one.run.state !== "running")
+        begin(searchName(one.words), one.words, true);
     },
     removeFind: (id) => {
       const one = get().finds.find((it) => it.id === id);
       if (one === undefined || one.run.state === "running") return;
-      void source.forgetSearch({ words: one.words }).then((answer) => {
-        if (!answer.ok) return set({ failed: answer.said });
-        const name = searchName(one.words);
-        dropped.add(name);
-        wire.delete(name);
-        set({ finds: get().finds.filter((it) => it.id !== id), tab: get().tab === id ? "requested" : get().tab, failed: undefined });
-      });
+      void source
+        .forgetSearch({
+          words: one.words,
+        })
+        .then((answer) => {
+          if (!answer.ok)
+            return set({
+              failed: answer.said,
+            });
+          const name = searchName(one.words);
+          dropped.add(name);
+          wire.delete(name);
+          set({
+            finds: get().finds.filter((it) => it.id !== id),
+            tab: get().tab === id ? "requested" : get().tab,
+            failed: undefined,
+          });
+        });
     },
     readSearches: () => {
       void source.searches().then((answer) => {
         if (!answer.ok) return;
-        for (const run of [...answer.value.runs].reverse()) applySearch(run);
+        for (const run of [
+          ...answer.value.runs,
+        ].reverse())
+          applySearch(run);
       });
     },
     applySearch,

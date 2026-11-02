@@ -7,26 +7,83 @@ import type { ProjectRow as WireRow, Projects, TaskIssue, TaskPull } from "@arma
 import type { IssueRow, Linked, LinkedPull, Project, ProjectRow, TaskRow } from "./model";
 
 /** An issue as the tracker names it: a bare number is `#7`, any other reference as it is. */
-export const referenceOf = (issue: string): string => (/^\d+$/.test(issue.trim()) ? `#${issue.trim()}` : issue.trim());
+export const referenceOf = (issue: string): string =>
+  /^\d+$/.test(issue.trim()) ? `#${issue.trim()}` : issue.trim();
 
 // A link names the repository it was linked in; one that does not is the task's own.
-const linked = (one: TaskIssue, manifestId: string): Linked => ({ reference: referenceOf(one.issue), title: one.title ?? "", url: "", state: one.state ?? "open", manifestId: one.manifest_id ?? manifestId });
-const pulled = (one: TaskPull, manifestId: string): LinkedPull => ({ number: one.number, title: one.title ?? "", url: "", state: one.state ?? "open", manifestId: one.manifest_id ?? manifestId });
+const linked = (one: TaskIssue, manifestId: string): Linked => ({
+  reference: referenceOf(one.issue),
+  title: one.title ?? "",
+  url: "",
+  state: one.state ?? "open",
+  manifestId: one.manifest_id ?? manifestId,
+});
+const pulled = (one: TaskPull, manifestId: string): LinkedPull => ({
+  number: one.number,
+  title: one.title ?? "",
+  url: "",
+  state: one.state ?? "open",
+  manifestId: one.manifest_id ?? manifestId,
+});
 
 function rowOf(row: WireRow): ProjectRow {
   const manifestId = row.manifest_id;
-  if (row.kind === "issue") return { kind: "issue", id: row.id, ...linked({ issue: row.issue, ...(row.title === undefined ? {} : { title: row.title }), ...(row.state === undefined ? {} : { state: row.state }) }, manifestId), manifestId } satisfies IssueRow;
+  if (row.kind === "issue")
+    return {
+      kind: "issue",
+      id: row.id,
+      ...linked(
+        {
+          issue: row.issue,
+          ...(row.title === undefined
+            ? {}
+            : {
+                title: row.title,
+              }),
+          ...(row.state === undefined
+            ? {}
+            : {
+                state: row.state,
+              }),
+        },
+        manifestId,
+      ),
+      manifestId,
+    } satisfies IssueRow;
   return {
     kind: "task",
     id: row.id,
     manifestId,
     title: row.title,
-    ...(row.notes === "" ? {} : { notes: row.notes }),
+    ...(row.notes === ""
+      ? {}
+      : {
+          notes: row.notes,
+        }),
     done: row.state === "done",
-    ...(row.state === "asked" ? { asked: true } : {}),
-    ...(row.held_by === undefined ? {} : { job: { id: row.held_by.session_id, title: row.held_by.title ?? "Job" } }),
-    ...((row.issues ?? []).length === 0 ? {} : { issues: (row.issues ?? []).map((one) => linked(one, manifestId)) }),
-    ...((row.pulls ?? []).length === 0 ? {} : { pulls: (row.pulls ?? []).map((one) => pulled(one, manifestId)) }),
+    ...(row.state === "asked"
+      ? {
+          asked: true,
+        }
+      : {}),
+    ...(row.held_by === undefined
+      ? {}
+      : {
+          job: {
+            id: row.held_by.session_id,
+            title: row.held_by.title ?? "Job",
+          },
+        }),
+    ...((row.issues ?? []).length === 0
+      ? {}
+      : {
+          issues: (row.issues ?? []).map((one) => linked(one, manifestId)),
+        }),
+    ...((row.pulls ?? []).length === 0
+      ? {}
+      : {
+          pulls: (row.pulls ?? []).map((one) => pulled(one, manifestId)),
+        }),
   } satisfies TaskRow;
 }
 
@@ -43,14 +100,23 @@ function rowsOf(rows: readonly WireRow[]): ProjectRow[] {
   for (const row of rows) {
     if (row.kind !== "task" || row.parent === undefined) continue;
     const parent = tops.get(row.parent);
-    if (parent !== undefined) parent.subtasks = [...(parent.subtasks ?? []), rowOf(row) as TaskRow];
+    if (parent !== undefined)
+      parent.subtasks = [
+        ...(parent.subtasks ?? []),
+        rowOf(row) as TaskRow,
+      ];
   }
   return out;
 }
 
 /** His projects, in his order. `used` is when each project was last used on this Mac, by id. */
 export function projectsOf(wire: Projects, used: ReadonlyMap<string, number>): Project[] {
-  return wire.projects.map((project) => ({ id: project.id, name: project.name, rows: rowsOf(project.rows), usedAt: used.get(project.id) ?? 0 }));
+  return wire.projects.map((project) => ({
+    id: project.id,
+    name: project.name,
+    rows: rowsOf(project.rows),
+    usedAt: used.get(project.id) ?? 0,
+  }));
 }
 
 /** The tasks in no project, of every repository. */

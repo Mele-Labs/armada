@@ -17,31 +17,82 @@ const OWED = "The Studio icon tooltip is still owed.";
 const SESSION: Session = {
   id: "lk-1",
   title: "Read the Studio registry on start",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: ago(2),
-  work: { proposal: { workflow: null } },
+  work: {
+    proposal: {
+      workflow: null,
+    },
+  },
   attachments: [],
   rows: [
-    { id: "lk-u", at: "14:02:00", kind: "message", from: { kind: "you" }, text: "Read the Studio registry when Studio starts." },
-    { id: "lk-a", at: "14:19:40", kind: "message", from: { kind: "agent" }, text: `The registry is read in Studio start and the Studio tests pass. This is done.\n\n${FILED}\n${OWED}` },
+    {
+      id: "lk-u",
+      at: "14:02:00",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Read the Studio registry when Studio starts.",
+    },
+    {
+      id: "lk-a",
+      at: "14:19:40",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: `The registry is read in Studio start and the Studio tests pass. This is done.\n\n${FILED}\n${OWED}`,
+    },
     {
       id: "lk-f",
       at: "14:19:41",
       kind: "message",
-      from: { kind: "session", id: "fleet", title: "Fleet" },
+      from: {
+        kind: "session",
+        id: "fleet",
+        title: "Fleet",
+      },
       text: `all_done refused. Still open under Later:\n\n- ${FILED}\n- ${OWED}\n\nDo each, file it, or drop it with a reason.`,
     },
-    { id: "lk-b", at: "14:21:10", kind: "message", from: { kind: "agent" }, text: "Filed #2731 for the slow fixture load." },
+    {
+      id: "lk-b",
+      at: "14:21:10",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "Filed #2731 for the slow fixture load.",
+    },
   ],
-  later: [{ id: "later-2", text: OWED, at: ago(2) }],
+  later: [
+    {
+      id: "later-2",
+      text: OWED,
+      at: ago(2),
+    },
+  ],
 };
 
 function build(): Scenario {
-  const base = holding("later-kept", "A Job told all_done is refused while follow-ups are open: Fleet's notice in the thread, one follow-up settled, and the one left under Later with Remind and Drop");
+  const base = holding(
+    "later-kept",
+    "A Job told all_done is refused while follow-ups are open: Fleet's notice in the thread, one follow-up settled, and the one left under Later with Remind and Drop",
+  );
   return {
     ...base,
-    state: { ...base.state, repository: repository().root },
-    draft: { sessions: () => sessionsStore([SESSION]) },
+    state: {
+      ...base.state,
+      repository: repository().root,
+    },
+    draft: {
+      sessions: () =>
+        sessionsStore([
+          SESSION,
+        ]),
+    },
   };
 }
 

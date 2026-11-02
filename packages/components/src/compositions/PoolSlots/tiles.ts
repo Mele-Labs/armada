@@ -21,6 +21,7 @@ export type TileRow = {
   acting?: boolean;
 };
 
-export const keyOf = (row: TileRow): string => row.key ?? `${row.slot.manifest_id}/${row.slot.slot}`;
+export const keyOf = (row: TileRow): string =>
+  row.key ?? `${row.slot.manifest_id}/${row.slot.slot}`;
 
 export const nameOf = (row: TileRow): string => row.name ?? `slot-${row.slot.slot}`;

@@ -42,10 +42,18 @@ export type StepsPanelProps = {
 };
 
 /** What the person changed: new words by step index, steps dropped, and steps added after the last. */
-export type StepFixes = { edited: Record<number, string>; dropped: number[]; added: string[] };
+export type StepFixes = {
+  edited: Record<number, string>;
+  dropped: number[];
+  added: string[];
+};
 
 const NO_TICKS: number[] = [];
-const NO_FIXES: StepFixes = { edited: {}, dropped: [], added: [] };
+const NO_FIXES: StepFixes = {
+  edited: {},
+  dropped: [],
+  added: [],
+};
 
 /** What the key sends when the box is empty: the item is finished, whatever was ticked. */
 const DONE = "Done";
@@ -56,17 +64,33 @@ export function messageOf(reply: string, steps: readonly string[], fixes: StepFi
     ...steps.flatMap((was, at) => {
       const now = fixes.edited[at];
       return [
-        ...(now === undefined ? [] : [`Step ${at + 1} changed: "${was}" → "${now}"`]),
-        ...(fixes.dropped.includes(at) ? [`Step ${at + 1} dropped: "${was}"`] : []),
+        ...(now === undefined
+          ? []
+          : [
+              `Step ${at + 1} changed: "${was}" → "${now}"`,
+            ]),
+        ...(fixes.dropped.includes(at)
+          ? [
+              `Step ${at + 1} dropped: "${was}"`,
+            ]
+          : []),
       ];
     }),
     ...fixes.added.map((now, at) => `Added after step ${steps.length + at}: "${now}"`),
   ];
-  return [reply.trim(), lines.join("\n")].filter((one) => one !== "").join("\n\n");
+  return [
+    reply.trim(),
+    lines.join("\n"),
+  ]
+    .filter((one) => one !== "")
+    .join("\n\n");
 }
 
 /** A step's words with each `backticked` span set as code, and the spans themselves: each is a command to copy. */
-export function partsOf(line: string): { words: ReactNode[]; commands: string[] } {
+export function partsOf(line: string): {
+  words: ReactNode[];
+  commands: string[];
+} {
   const words: ReactNode[] = [];
   const commands: string[] = [];
   line.split(/`([^`]+)`/).forEach((part, at) => {
@@ -81,11 +105,22 @@ export function partsOf(line: string): { words: ReactNode[]; commands: string[] 
       </code>,
     );
   });
-  return { words, commands };
+  return {
+    words,
+    commands,
+  };
 }
 
 /** The command, wrapped rather than cut, with the keys that run and copy it over the block's corner as a fenced block's are. */
-function CommandToCopy({ command, label, runner }: { command: string; label: string; runner?: CodeRunner | undefined }) {
+function CommandToCopy({
+  command,
+  label,
+  runner,
+}: {
+  command: string;
+  label: string;
+  runner?: CodeRunner | undefined;
+}) {
   const block = (
     <pre className="armada-prose__block" data-acts="1">
       <code>{command}</code>
@@ -110,16 +145,34 @@ function CommandToCopy({ command, label, runner }: { command: string; label: str
   );
 }
 
-export function StepsPanel({ name, address, command, steps, keep, onOpenAddress, onOpenInBrowser, onSend, runner }: StepsPanelProps) {
+export function StepsPanel({
+  name,
+  address,
+  command,
+  steps,
+  keep,
+  onOpenAddress,
+  onOpenInBrowser,
+  onSend,
+  runner,
+}: StepsPanelProps) {
   const [ticked, setTicked] = useKept<number[]>(`${keep}:ticked`, NO_TICKS);
   const [fixes, setFixes] = useKept<StepFixes>(`${keep}:fixes`, NO_FIXES);
   const [text, setText] = useState("");
   // The step being worded: an index into the original steps then the added ones.
-  const [editing, setEditing] = useState<{ at: number; draft: string } | undefined>();
+  const [editing, setEditing] = useState<
+    | {
+        at: number;
+        draft: string;
+      }
+    | undefined
+  >();
   const total = steps.length + fixes.added.length;
-  const lineOf = (at: number) => (at < steps.length ? (fixes.edited[at] ?? steps[at]!) : fixes.added[at - steps.length]!);
+  const lineOf = (at: number) =>
+    at < steps.length ? (fixes.edited[at] ?? steps[at]!) : fixes.added[at - steps.length]!;
   // A command a step already names is copied there, so the top does not say it twice.
-  const named = command !== undefined && steps.some((step) => partsOf(step).commands.includes(command));
+  const named =
+    command !== undefined && steps.some((step) => partsOf(step).commands.includes(command));
 
   /** The runner for one command: a clean exit ticks the step it is in. */
   const watched = (command: string, at?: number): CodeRunner | undefined => {
@@ -128,7 +181,15 @@ export function StepsPanel({ name, address, command, steps, keep, onOpenAddress,
       return runner(
         command,
         (event) => {
-          if (event.kind === "end" && event.code === 0 && at !== undefined) setTicked((was) => (was.includes(at) ? was : [...was, at]));
+          if (event.kind === "end" && event.code === 0 && at !== undefined)
+            setTicked((was) =>
+              was.includes(at)
+                ? was
+                : [
+                    ...was,
+                    at,
+                  ],
+            );
           on(event);
         },
         size,
@@ -151,28 +212,52 @@ export function StepsPanel({ name, address, command, steps, keep, onOpenAddress,
     setEditing(undefined);
     if (at >= steps.length) {
       const place = at - steps.length;
-      setFixes((was) => ({ ...was, added: words === "" ? was.added.filter((_, one) => one !== place) : was.added.map((one, here) => (here === place ? words : one)) }));
+      setFixes((was) => ({
+        ...was,
+        added:
+          words === ""
+            ? was.added.filter((_, one) => one !== place)
+            : was.added.map((one, here) => (here === place ? words : one)),
+      }));
       return;
     }
     setFixes((was) => {
-      const edited = { ...was.edited };
+      const edited = {
+        ...was.edited,
+      };
       if (words === "" || words === steps[at]) delete edited[at];
       else edited[at] = words;
-      return { ...was, edited };
+      return {
+        ...was,
+        edited,
+      };
     });
   };
   const cancel = () => {
     // An added step that was never worded goes with the edit.
     if (editing !== undefined && editing.at >= steps.length && lineOf(editing.at) === "") {
-      setFixes((was) => ({ ...was, added: was.added.slice(0, -1) }));
+      setFixes((was) => ({
+        ...was,
+        added: was.added.slice(0, -1),
+      }));
     }
     setEditing(undefined);
   };
   const drop = (at: number) => {
-    setFixes((was) => ({ ...was, dropped: [...was.dropped, at] }));
+    setFixes((was) => ({
+      ...was,
+      dropped: [
+        ...was.dropped,
+        at,
+      ],
+    }));
     setTicked((was) => was.filter((one) => one !== at));
   };
-  const remove = (at: number) => setFixes((was) => ({ ...was, added: was.added.filter((_, one) => one !== at - steps.length) }));
+  const remove = (at: number) =>
+    setFixes((was) => ({
+      ...was,
+      added: was.added.filter((_, one) => one !== at - steps.length),
+    }));
 
   return (
     <div className="armada-step-list">
@@ -184,100 +269,164 @@ export function StepsPanel({ name, address, command, steps, keep, onOpenAddress,
             </Button>
           </Tooltip>
           <Tooltip label="Open in browser">
-            <Button variant="ghost" size="sm" iconOnly aria-label="Open in browser" onClick={() => onOpenInBrowser(address)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Open in browser"
+              onClick={() => onOpenInBrowser(address)}
+            >
               <ExternalLink size={12} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>
         </div>
       )}
-      {command === undefined || named ? null : <CommandToCopy command={command} label="Copy command" runner={watched(command)} />}
+      {command === undefined || named ? null : (
+        <CommandToCopy command={command} label="Copy command" runner={watched(command)} />
+      )}
       <ol className="armada-guide-steps armada-step-list__list">
-        {Array.from({ length: total }, (_, at) => {
-          const line = lineOf(at);
-          const dropped = fixes.dropped.includes(at);
-          const changed = at < steps.length && fixes.edited[at] !== undefined;
-          const own = at >= steps.length;
-          const parts = partsOf(line);
-          return (
-            <li
-              key={at}
-              className="armada-guide-steps__step armada-step-list__step"
-              data-ticked={ticked.includes(at) || undefined}
-              data-dropped={dropped || undefined}
-            >
-              <span className="armada-guide-steps__ordinal armada-step-list__ordinal mono">{at + 1}</span>
-              {editing?.at === at ? (
-                <Input
-                  autoFocus
-                  aria-label={`Step ${at + 1}`}
-                  value={editing.draft}
-                  onChange={(event) => setEditing({ at, draft: event.target.value })}
-                  onBlur={save}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      cancel();
-                    } else if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-                      event.preventDefault();
-                      save();
-                    }
-                  }}
-                />
-              ) : (
-                <div className="armada-step-list__body">
-                  <Checkbox
-                    checked={ticked.includes(at)}
-                    disabled={dropped}
-                    onChange={() => setTicked((was) => (was.includes(at) ? was.filter((one) => one !== at) : [...was, at]))}
-                  >
-                    {parts.words}
-                  </Checkbox>
-                  {dropped ? null : parts.commands.map((command, which) => <CommandToCopy key={which} command={command} label={`Copy step ${at + 1} command`} runner={watched(command, at)} />)}
-                </div>
-              )}
-              {editing?.at === at ? null : (
-                <span className="armada-step-list__acts">
-                  {!changed ? null : (
-                    <Tooltip label={steps[at]!}>
-                      <span className="armada-step-list__changed" role="img" aria-label={`Step ${at + 1} was ${steps[at]!}`}>
-                        <UserPen size={12} strokeWidth={2} aria-hidden />
-                      </span>
-                    </Tooltip>
-                  )}
-                  <span className="armada-step-list__keys">
-                    {dropped ? (
-                      <Tooltip label="Bring back">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          iconOnly
-                          aria-label={`Bring back step ${at + 1}`}
-                          onClick={() => setFixes((was) => ({ ...was, dropped: was.dropped.filter((one) => one !== at) }))}
-                        >
-                          <Undo2 size={12} strokeWidth={2} aria-hidden />
-                        </Button>
-                      </Tooltip>
-                    ) : (
-                      <>
-                        <Tooltip label="Edit step">
-                          <Button variant="ghost" size="sm" iconOnly aria-label={`Edit step ${at + 1}`} onClick={() => setEditing({ at, draft: line })}>
-                            <SquarePen size={12} strokeWidth={2} aria-hidden />
-                          </Button>
-                        </Tooltip>
-                        <Tooltip label="Drop step">
-                          <Button variant="ghost" size="sm" iconOnly aria-label={`Drop step ${at + 1}`} onClick={() => (own ? remove(at) : drop(at))}>
-                            <Trash2 size={12} strokeWidth={2} aria-hidden />
-                          </Button>
-                        </Tooltip>
-                      </>
-                    )}
-                  </span>
+        {Array.from(
+          {
+            length: total,
+          },
+          (_, at) => {
+            const line = lineOf(at);
+            const dropped = fixes.dropped.includes(at);
+            const changed = at < steps.length && fixes.edited[at] !== undefined;
+            const own = at >= steps.length;
+            const parts = partsOf(line);
+            return (
+              <li
+                key={at}
+                className="armada-guide-steps__step armada-step-list__step"
+                data-ticked={ticked.includes(at) || undefined}
+                data-dropped={dropped || undefined}
+              >
+                <span className="armada-guide-steps__ordinal armada-step-list__ordinal mono">
+                  {at + 1}
                 </span>
-              )}
-            </li>
-          );
-        })}
+                {editing?.at === at ? (
+                  <Input
+                    autoFocus
+                    aria-label={`Step ${at + 1}`}
+                    value={editing.draft}
+                    onChange={(event) =>
+                      setEditing({
+                        at,
+                        draft: event.target.value,
+                      })
+                    }
+                    onBlur={save}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        cancel();
+                      } else if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                        event.preventDefault();
+                        save();
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="armada-step-list__body">
+                    <Checkbox
+                      checked={ticked.includes(at)}
+                      disabled={dropped}
+                      onChange={() =>
+                        setTicked((was) =>
+                          was.includes(at)
+                            ? was.filter((one) => one !== at)
+                            : [
+                                ...was,
+                                at,
+                              ],
+                        )
+                      }
+                    >
+                      {parts.words}
+                    </Checkbox>
+                    {dropped
+                      ? null
+                      : parts.commands.map((command, which) => (
+                          <CommandToCopy
+                            key={which}
+                            command={command}
+                            label={`Copy step ${at + 1} command`}
+                            runner={watched(command, at)}
+                          />
+                        ))}
+                  </div>
+                )}
+                {editing?.at === at ? null : (
+                  <span className="armada-step-list__acts">
+                    {!changed ? null : (
+                      <Tooltip label={steps[at]!}>
+                        <span
+                          className="armada-step-list__changed"
+                          role="img"
+                          aria-label={`Step ${at + 1} was ${steps[at]!}`}
+                        >
+                          <UserPen size={12} strokeWidth={2} aria-hidden />
+                        </span>
+                      </Tooltip>
+                    )}
+                    <span className="armada-step-list__keys">
+                      {dropped ? (
+                        <Tooltip label="Bring back">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            iconOnly
+                            aria-label={`Bring back step ${at + 1}`}
+                            onClick={() =>
+                              setFixes((was) => ({
+                                ...was,
+                                dropped: was.dropped.filter((one) => one !== at),
+                              }))
+                            }
+                          >
+                            <Undo2 size={12} strokeWidth={2} aria-hidden />
+                          </Button>
+                        </Tooltip>
+                      ) : (
+                        <>
+                          <Tooltip label="Edit step">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              iconOnly
+                              aria-label={`Edit step ${at + 1}`}
+                              onClick={() =>
+                                setEditing({
+                                  at,
+                                  draft: line,
+                                })
+                              }
+                            >
+                              <SquarePen size={12} strokeWidth={2} aria-hidden />
+                            </Button>
+                          </Tooltip>
+                          <Tooltip label="Drop step">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              iconOnly
+                              aria-label={`Drop step ${at + 1}`}
+                              onClick={() => (own ? remove(at) : drop(at))}
+                            >
+                              <Trash2 size={12} strokeWidth={2} aria-hidden />
+                            </Button>
+                          </Tooltip>
+                        </>
+                      )}
+                    </span>
+                  </span>
+                )}
+              </li>
+            );
+          },
+        )}
       </ol>
       <div className="armada-step-list__add">
         <Tooltip label="Add step">
@@ -287,8 +436,17 @@ export function StepsPanel({ name, address, command, steps, keep, onOpenAddress,
             iconOnly
             aria-label="Add step"
             onClick={() => {
-              setFixes((was) => ({ ...was, added: [...was.added, ""] }));
-              setEditing({ at: total, draft: "" });
+              setFixes((was) => ({
+                ...was,
+                added: [
+                  ...was.added,
+                  "",
+                ],
+              }));
+              setEditing({
+                at: total,
+                draft: "",
+              });
             }}
           >
             <Plus size={12} strokeWidth={2} aria-hidden />

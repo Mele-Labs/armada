@@ -14,7 +14,10 @@ export type RegisteredOwnerRow = {
   kind: "session";
   /** The short id, as the machine that claimed it names it. */
   id: string;
-  machine: { name: string; here: boolean };
+  machine: {
+    name: string;
+    here: boolean;
+  };
 };
 
 /** What the window holds of the registry. Absent, nothing is registered and nothing is drawn. */
@@ -28,7 +31,13 @@ export type PrOwnerRegistry = {
 
 const Held = createContext<PrOwnerRegistry | undefined>(undefined);
 
-export function PrOwnerRegistryProvider({ value, children }: { value: PrOwnerRegistry; children: ReactNode }) {
+export function PrOwnerRegistryProvider({
+  value,
+  children,
+}: {
+  value: PrOwnerRegistry;
+  children: ReactNode;
+}) {
   return <Held.Provider value={value}>{children}</Held.Provider>;
 }
 
@@ -46,7 +55,10 @@ export function repositoryOfAddress(address: string): string | undefined {
 }
 
 const KIND = {
-  session: { Glyph: SquareTerminal, said: "Job" },
+  session: {
+    Glyph: SquareTerminal,
+    said: "Job",
+  },
 } as const;
 
 /**
@@ -60,7 +72,11 @@ export function RegisteredOwner({ row }: { row: RegisteredOwnerRow }) {
   const Machine = row.machine.here ? Laptop : Monitor;
   const machine = row.machine.here ? "This machine" : row.machine.name;
   return (
-    <span className="armada-registered-owner" role="group" aria-label={`${said} ${row.id}, ${machine}`}>
+    <span
+      className="armada-registered-owner"
+      role="group"
+      aria-label={`${said} ${row.id}, ${machine}`}
+    >
       <Tooltip label={said}>
         <span className="armada-registered-owner__who">
           <Glyph size={12} strokeWidth={2} aria-hidden />
@@ -68,7 +84,12 @@ export function RegisteredOwner({ row }: { row: RegisteredOwnerRow }) {
         </span>
       </Tooltip>
       <Tooltip label={machine}>
-        <span className="armada-registered-owner__machine" data-here={row.machine.here || undefined} role="img" aria-label={machine}>
+        <span
+          className="armada-registered-owner__machine"
+          data-here={row.machine.here || undefined}
+          role="img"
+          aria-label={machine}
+        >
           <Machine size={12} strokeWidth={2} aria-hidden />
         </span>
       </Tooltip>
@@ -77,7 +98,13 @@ export function RegisteredOwner({ row }: { row: RegisteredOwnerRow }) {
 }
 
 /** The chip for a pull request, where the window holds a row for it. Nothing otherwise. */
-export function RegisteredOwnerOf({ repository, number }: { repository: string | undefined; number: number }) {
+export function RegisteredOwnerOf({
+  repository,
+  number,
+}: {
+  repository: string | undefined;
+  number: number;
+}) {
   const row = usePrOwnerRegistry()?.ownerOf(repository ?? "", number);
   return row === undefined ? null : <RegisteredOwner row={row} />;
 }

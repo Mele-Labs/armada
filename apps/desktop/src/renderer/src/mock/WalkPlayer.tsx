@@ -12,10 +12,27 @@
 // page, and hides the card there. The real window would reach it by main running
 // script in the page, as it does for capture.
 
-import { StrictMode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  StrictMode,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
 import { createRoot } from "react-dom/client";
-import { Alert, Button, Card, Kbd, Switch, Tooltip, WalkPressMark, type WalkPress } from "@armada/components";
+import {
+  Alert,
+  Button,
+  Card,
+  Kbd,
+  Switch,
+  Tooltip,
+  WalkPressMark,
+  type WalkPress,
+} from "@armada/components";
 import type { WalkHandle, WalkState } from "@armada/screens/src/fixtures/walk-window";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 
@@ -32,10 +49,22 @@ const DWELL_MS = 3_000;
  * `stopped` is a target that never came, and `done` is past the last step.
  */
 type Phase =
-  | { is: "seeking"; at: number }
-  | { is: "ready"; at: number; element: HTMLElement }
-  | { is: "stopped"; at: number }
-  | { is: "done" };
+  | {
+      is: "seeking";
+      at: number;
+    }
+  | {
+      is: "ready";
+      at: number;
+      element: HTMLElement;
+    }
+  | {
+      is: "stopped";
+      at: number;
+    }
+  | {
+      is: "done";
+    };
 
 /** Frames the box must hold still before it is no longer looked at. A slide settles inside this. */
 const STILL_FRAMES = 30;
@@ -59,7 +88,12 @@ function useBox(element: HTMLElement | null): DOMRect | null {
     const follow = () => {
       frame = 0;
       const now = element.getBoundingClientRect();
-      const moved = last === null || last.x !== now.x || last.y !== now.y || last.width !== now.width || last.height !== now.height;
+      const moved =
+        last === null ||
+        last.x !== now.x ||
+        last.y !== now.y ||
+        last.width !== now.width ||
+        last.height !== now.height;
       if (moved) {
         last = now;
         setBox(now);
@@ -75,16 +109,30 @@ function useBox(element: HTMLElement | null): DOMRect | null {
     const resized = new ResizeObserver(wake);
     resized.observe(element);
     resized.observe(document.body);
-    const events = ["scroll", "resize", "transitionrun", "animationstart"] as const;
-    for (const one of events) window.addEventListener(one, wake, { capture: true, passive: true });
+    const events = [
+      "scroll",
+      "resize",
+      "transitionrun",
+      "animationstart",
+    ] as const;
+    for (const one of events)
+      window.addEventListener(one, wake, {
+        capture: true,
+        passive: true,
+      });
     document.addEventListener("visibilitychange", wake);
     return () => {
       cancelAnimationFrame(frame);
       resized.disconnect();
-      for (const one of events) window.removeEventListener(one, wake, { capture: true });
+      for (const one of events)
+        window.removeEventListener(one, wake, {
+          capture: true,
+        });
       document.removeEventListener("visibilitychange", wake);
     };
-  }, [element]);
+  }, [
+    element,
+  ]);
   return box;
 }
 
@@ -94,10 +142,18 @@ const TOP = 60;
 
 /** The spot a person dragged the card to, kept for the session. */
 const SPOT = "armada.mock.walk-card";
-const savedSpot = (): { x: number; y: number } | null => {
+const savedSpot = (): {
+  x: number;
+  y: number;
+} | null => {
   try {
     const raw = window.sessionStorage.getItem(SPOT);
-    return raw === null ? null : (JSON.parse(raw) as { x: number; y: number });
+    return raw === null
+      ? null
+      : (JSON.parse(raw) as {
+          x: number;
+          y: number;
+        });
   } catch {
     return null;
   }
@@ -111,28 +167,72 @@ const saveSpot = (spot: { x: number; y: number }) => {
 };
 
 /** Which edge the card rests on, from where the ring is: `placeCard`. */
-function useEdge(card: HTMLElement | null, ring: DOMRect | null, placed: boolean, folded: boolean): "bottom" | "top" {
+function useEdge(
+  card: HTMLElement | null,
+  ring: DOMRect | null,
+  placed: boolean,
+  folded: boolean,
+): "bottom" | "top" {
   const [edge, setEdge] = useState<"bottom" | "top">("bottom");
   useLayoutEffect(() => {
     if (card === null || placed) return;
     const { width, height } = card.getBoundingClientRect();
-    setEdge(placeCard(ring, { width, height }, { width: window.innerWidth, height: window.innerHeight }, GAP, TOP));
-  }, [card, ring, placed, folded]);
+    setEdge(
+      placeCard(
+        ring,
+        {
+          width,
+          height,
+        },
+        {
+          width: window.innerWidth,
+          height: window.innerHeight,
+        },
+        GAP,
+        TOP,
+      ),
+    );
+  }, [
+    card,
+    ring,
+    placed,
+    folded,
+  ]);
   return edge;
 }
 
 /** Whether a key is going into something a person types in, which `.` must leave alone. */
 const typing = (target: EventTarget | null) =>
-  target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+  target instanceof HTMLElement &&
+  (target.isContentEditable ||
+    [
+      "INPUT",
+      "TEXTAREA",
+      "SELECT",
+    ].includes(target.tagName));
 
 /** The walk window's stand-in frames this page, and draws the controls itself. */
-const framed = () => window.parent !== window && new URLSearchParams(window.location.search).has("walked");
+const framed = () =>
+  window.parent !== window && new URLSearchParams(window.location.search).has("walked");
 
 /** How long the cursor takes to arrive before a press, as the bar's walk waits in `stepwalk.ts`. */
 const GLIDE_MS = 300;
 
-export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: { name: string; script: WalkScript; autoplay: boolean; from?: number }) {
-  const [phase, setPhase] = useState<Phase>({ is: "seeking", at: 0 });
+export function WalkPlayer({
+  name,
+  script,
+  autoplay: startPlaying,
+  from = 0,
+}: {
+  name: string;
+  script: WalkScript;
+  autoplay: boolean;
+  from?: number;
+}) {
+  const [phase, setPhase] = useState<Phase>({
+    is: "seeking",
+    at: 0,
+  });
   // The bar of a window that frames this page draws the controls: the card steps aside, the ring stays.
   const [hosted, setHosted] = useState(framed);
   const [autoplay, setAutoplay] = useState(startPlaying);
@@ -152,36 +252,73 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
     let gone = false;
     void arrive(steps[at]!).then(async (element) => {
       if (gone) return;
-      if (element === null) setPhase({ is: "stopped", at });
+      if (element === null)
+        setPhase({
+          is: "stopped",
+          at,
+        });
       // A step before the one asked to start on runs straight through, once what it did has landed.
       else if (at < from) {
         await act(steps[at]!, element, steps[at + 1]);
-        if (!gone) setPhase({ is: "seeking", at: at + 1 });
-      } else setPhase({ is: "ready", at, element });
+        if (!gone)
+          setPhase({
+            is: "seeking",
+            at: at + 1,
+          });
+      } else
+        setPhase({
+          is: "ready",
+          at,
+          element,
+        });
     });
     return () => {
       gone = true;
     };
-  }, [phase.is, at, steps, from]);
+  }, [
+    phase.is,
+    at,
+    steps,
+    from,
+  ]);
 
   const next = useCallback(() => {
     if (phase.is !== "ready") return;
     // A bar that folds its tabs to icons as it measures replaces them after the step found its target, and a press on the
     // old one reaches nothing. Looked for again, as `arrive` does for one that went while it was waited on.
     if (acting.current) return;
-    const element = phase.element.isConnected ? phase.element : (find(targetOf(steps[phase.at]!)) ?? phase.element);
+    const element = phase.element.isConnected
+      ? phase.element
+      : (find(targetOf(steps[phase.at]!)) ?? phase.element);
     const step = steps[phase.at]!;
     const go = () => {
       acting.current = false;
       act(step, element, steps[phase.at + 1]);
-      setPhase(phase.at + 1 < steps.length ? { is: "seeking", at: phase.at + 1 } : { is: "done" });
+      setPhase(
+        phase.at + 1 < steps.length
+          ? {
+              is: "seeking",
+              at: phase.at + 1,
+            }
+          : {
+              is: "done",
+            },
+      );
     };
-    if (!("press" in step) || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return go();
+    if (!("press" in step) || window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+      return go();
     const here = element.getBoundingClientRect();
-    setPressed((was) => ({ x: Math.round(here.left + here.width / 2), y: Math.round(here.top + here.height / 2), n: (was?.n ?? 0) + 1 }));
+    setPressed((was) => ({
+      x: Math.round(here.left + here.width / 2),
+      y: Math.round(here.top + here.height / 2),
+      n: (was?.n ?? 0) + 1,
+    }));
     acting.current = true;
     window.setTimeout(go, GLIDE_MS);
-  }, [phase, steps]);
+  }, [
+    phase,
+    steps,
+  ]);
 
   /** The page again on step `to`, counted from 1: the steps before it run straight through. */
   const goTo = useCallback(
@@ -193,15 +330,36 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
       else url.searchParams.delete("autoplay");
       window.location.assign(url);
     },
-    [autoplay, steps.length],
+    [
+      autoplay,
+      steps.length,
+    ],
   );
   const back = useCallback(() => {
     if (at > 0) goTo(at);
-  }, [at, goTo]);
-  const replay = useCallback(() => goTo(1), [goTo]);
+  }, [
+    at,
+    goTo,
+  ]);
+  const replay = useCallback(
+    () => goTo(1),
+    [
+      goTo,
+    ],
+  );
 
-  const controls = useRef({ next, back, replay, setAutoplay });
-  controls.current = { next, back, replay, setAutoplay };
+  const controls = useRef({
+    next,
+    back,
+    replay,
+    setAutoplay,
+  });
+  controls.current = {
+    next,
+    back,
+    replay,
+    setAutoplay,
+  };
 
   // **Heard by the bar as well as the card.** Not a key a walk's own step sent: those are synthetic,
   // and a step that presses `r` is not asking to replay.
@@ -215,7 +373,12 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
       if (!event.isTrusted) return;
       const key = event.key.toLowerCase();
       // Enter on one of the card's own buttons presses it.
-      if (key === "enter" && event.target instanceof HTMLElement && event.target.closest(`[${WALK_UI}] button`) !== null) return;
+      if (
+        key === "enter" &&
+        event.target instanceof HTMLElement &&
+        event.target.closest(`[${WALK_UI}] button`) !== null
+      )
+        return;
       if (event.repeat && (key === "a" || key === "r")) return;
       const run = controls.current;
       const act =
@@ -237,17 +400,38 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
     return () => window.removeEventListener("keydown", keys);
   }, []);
 
-  const said = phase.is === "stopped" ? stopped(phase.at, steps[phase.at]!) : steps[Math.min(at, steps.length - 1)]!.say;
+  const said =
+    phase.is === "stopped"
+      ? stopped(phase.at, steps[phase.at]!)
+      : steps[Math.min(at, steps.length - 1)]!.say;
   const state = useMemo<WalkState>(
-    () => ({ name, at: Math.min(at + 1, steps.length), of: steps.length, said, autoplay, ready: phase.is === "ready", done: phase.is === "done", stopped: phase.is === "stopped" }),
-    [name, at, steps.length, said, autoplay, phase.is],
+    () => ({
+      name,
+      at: Math.min(at + 1, steps.length),
+      of: steps.length,
+      said,
+      autoplay,
+      ready: phase.is === "ready",
+      done: phase.is === "done",
+      stopped: phase.is === "stopped",
+    }),
+    [
+      name,
+      at,
+      steps.length,
+      said,
+      autoplay,
+      phase.is,
+    ],
   );
   const latest = useRef(state);
   latest.current = state;
   const listeners = useRef(new Set<() => void>());
   useEffect(() => {
     for (const hear of listeners.current) hear();
-  }, [state]);
+  }, [
+    state,
+  ]);
   useEffect(() => {
     const handle: WalkHandle = {
       state: () => latest.current,
@@ -269,16 +453,49 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
 
   /** Drags the card by its header, and keeps the spot it is dropped on. */
   const drag = (event: ReactPointerEvent<HTMLElement>) => {
-    if (card === null || event.button !== 0 || (event.target as HTMLElement).closest("button") !== null) return;
+    if (
+      card === null ||
+      event.button !== 0 ||
+      (event.target as HTMLElement).closest("button") !== null
+    )
+      return;
     const here = card.getBoundingClientRect();
-    const grab = { x: event.clientX - here.left, y: event.clientY - here.top };
-    const size = { width: here.width, height: here.height };
-    const view = () => ({ width: window.innerWidth, height: window.innerHeight });
-    const move = (to: PointerEvent) => setSpot(keepInside({ x: to.clientX - grab.x, y: to.clientY - grab.y }, size, view()));
+    const grab = {
+      x: event.clientX - here.left,
+      y: event.clientY - here.top,
+    };
+    const size = {
+      width: here.width,
+      height: here.height,
+    };
+    const view = () => ({
+      width: window.innerWidth,
+      height: window.innerHeight,
+    });
+    const move = (to: PointerEvent) =>
+      setSpot(
+        keepInside(
+          {
+            x: to.clientX - grab.x,
+            y: to.clientY - grab.y,
+          },
+          size,
+          view(),
+        ),
+      );
     const drop = (to: PointerEvent) => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", drop);
-      saveSpot(keepInside({ x: to.clientX - grab.x, y: to.clientY - grab.y }, size, view()));
+      saveSpot(
+        keepInside(
+          {
+            x: to.clientX - grab.x,
+            y: to.clientY - grab.y,
+          },
+          size,
+          view(),
+        ),
+      );
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", drop);
@@ -289,7 +506,11 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
     if (!autoplay || phase.is !== "ready") return;
     later.current = window.setTimeout(next, DWELL_MS);
     return () => window.clearTimeout(later.current);
-  }, [autoplay, phase, next]);
+  }, [
+    autoplay,
+    phase,
+    next,
+  ]);
 
   const ring =
     box === null
@@ -307,11 +528,18 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
     // palette the step before had opened. Stopped at this root, it never
     // reaches the window the palette listens on. A card that closes on a press outside (`useCardOpen`)
     // listens for `pointerdown`, which Next would close the same way, so that one stops here too.
-    <div {...{ [WALK_UI]: "" }} className="armada-mock-walk" onPointerDown={(event) => event.stopPropagation()} onMouseDown={(event) => {
+    <div
+      {...{
+        [WALK_UI]: "",
+      }}
+      className="armada-mock-walk"
+      onPointerDown={(event) => event.stopPropagation()}
+      onMouseDown={(event) => {
         event.stopPropagation();
         // Nor does it take focus: a field the step before opened is still the one the next step types into.
         event.preventDefault();
-      }}>
+      }}
+    >
       {ring !== undefined && <div className="armada-mock-walk__ring" style={ring} />}
       <WalkPressMark press={pressed} />
       {!hosted && (
@@ -320,7 +548,16 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
           className="armada-mock-walk__card"
           data-edge={edge}
           data-folded={folded || undefined}
-          style={spot === null ? undefined : { left: spot.x, top: spot.y, right: "auto", bottom: "auto" }}
+          style={
+            spot === null
+              ? undefined
+              : {
+                  left: spot.x,
+                  top: spot.y,
+                  right: "auto",
+                  bottom: "auto",
+                }
+          }
           data-walk-state={phase.is}
           data-walk-step={at + 1}
         >
@@ -338,7 +575,13 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
               </span>
               <span className="armada-mock-walk__keyed">
                 <Tooltip label="Unfold the card">
-                  <Button variant="ghost" size="sm" iconOnly aria-label="Unfold the card" onClick={() => setFolded(false)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    aria-label="Unfold the card"
+                    onClick={() => setFolded(false)}
+                  >
                     <ChevronUp size={14} aria-hidden="true" />
                   </Button>
                 </Tooltip>
@@ -362,13 +605,25 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
                 </p>
                 <span className="armada-mock-walk__keyed">
                   <Tooltip label="Replay from step 1">
-                    <Button variant="ghost" size="sm" iconOnly aria-label="Replay from step 1" onClick={replay}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      aria-label="Replay from step 1"
+                      onClick={replay}
+                    >
                       <RotateCcw size={14} aria-hidden="true" />
                     </Button>
                   </Tooltip>
                   <Kbd>R</Kbd>
                   <Tooltip label="Fold the card">
-                    <Button variant="ghost" size="sm" iconOnly aria-label="Fold the card" onClick={() => setFolded(true)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      aria-label="Fold the card"
+                      onClick={() => setFolded(true)}
+                    >
                       <ChevronDown size={14} aria-hidden="true" />
                     </Button>
                   </Tooltip>
@@ -394,7 +649,11 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
                   </span>
                   <span className="armada-mock-walk__keyed">
                     <Tooltip label="Go on by itself">
-                      <Switch size="sm" checked={autoplay} onChange={(event) => setAutoplay(event.target.checked)}>
+                      <Switch
+                        size="sm"
+                        checked={autoplay}
+                        onChange={(event) => setAutoplay(event.target.checked)}
+                      >
                         Autoplay
                       </Switch>
                     </Tooltip>
@@ -402,7 +661,12 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
                   </span>
                   <span className="armada-mock-walk__keyed">
                     <Tooltip label="Act on the ringed target and go on">
-                      <Button variant="primary" size="sm" disabled={phase.is !== "ready"} onClick={next}>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        disabled={phase.is !== "ready"}
+                        onClick={next}
+                      >
                         Next
                       </Button>
                     </Tooltip>
@@ -419,7 +683,13 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
 }
 
 /** The walk's card and ring, in their own root over the app's. */
-export function mountWalk(name: string, script: WalkScript, autoplay: boolean, host: HTMLElement, from = 0): void {
+export function mountWalk(
+  name: string,
+  script: WalkScript,
+  autoplay: boolean,
+  host: HTMLElement,
+  from = 0,
+): void {
   createRoot(host).render(
     <StrictMode>
       <WalkPlayer name={name} script={script} autoplay={autoplay} from={from} />
@@ -434,7 +704,16 @@ export function mountWalk(name: string, script: WalkScript, autoplay: boolean, h
 function NoWalk({ name }: { name: string }) {
   const [hosted, setHosted] = useState(false);
   useEffect(() => {
-    const state: WalkState = { name, at: 1, of: 1, said: `No walk named ${name}.`, autoplay: false, ready: false, done: false, stopped: true };
+    const state: WalkState = {
+      name,
+      at: 1,
+      of: 1,
+      said: `No walk named ${name}.`,
+      autoplay: false,
+      ready: false,
+      done: false,
+      stopped: true,
+    };
     const handle: WalkHandle = {
       state: () => state,
       subscribe: () => () => {},
@@ -448,9 +727,16 @@ function NoWalk({ name }: { name: string }) {
     return () => {
       if (window.__armadaWalk === handle) delete window.__armadaWalk;
     };
-  }, [name]);
+  }, [
+    name,
+  ]);
   return (
-    <div {...{ [WALK_UI]: "" }} className="armada-mock-walk">
+    <div
+      {...{
+        [WALK_UI]: "",
+      }}
+      className="armada-mock-walk"
+    >
       {hosted ? null : (
         <div className="armada-mock-walk__card" data-edge="bottom" data-walk-state="stopped">
           <Card>

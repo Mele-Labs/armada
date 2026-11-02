@@ -29,18 +29,39 @@ export function realThreadScenario(one: RealThread): Scenario {
   const job = (): Session => ({
     id: one.id,
     title: one.title,
-    turn: { state: "idle" },
+    turn: {
+      state: "idle",
+    },
     lastTurnAt: last,
-    rows: [...one.rows],
-    attachments: [{ kind: "slot", slot: one.slot }, { kind: "branch", name: one.branch, slot: one.slot }],
-    ...(one.ask === undefined ? {} : { asked: one.ask }),
+    rows: [
+      ...one.rows,
+    ],
+    attachments: [
+      {
+        kind: "slot",
+        slot: one.slot,
+      },
+      {
+        kind: "branch",
+        name: one.branch,
+        slot: one.slot,
+      },
+    ],
+    ...(one.ask === undefined
+      ? {}
+      : {
+          asked: one.ask,
+        }),
   });
   return {
     ...s200Sessions,
     name: one.name,
     says: one.says,
     draft: {
-      sessions: (board) => s200Sessions.draft!.sessions!(board, [job()]),
+      sessions: (board) =>
+        s200Sessions.draft!.sessions!(board, [
+          job(),
+        ]),
       threadLook: {
         look: {
           agentName: "",
@@ -49,9 +70,21 @@ export function realThreadScenario(one: RealThread): Scenario {
           textSize: "base",
           spacing: "default",
           quick: [
-            { id: "learnt:done", text: "Just get it done", kind: "learnt" },
-            { id: "learnt:walk", text: "Walk me through it", kind: "learnt" },
-            { id: "saved:land", text: "Land it", kind: "saved" },
+            {
+              id: "learnt:done",
+              text: "Just get it done",
+              kind: "learnt",
+            },
+            {
+              id: "learnt:walk",
+              text: "Walk me through it",
+              kind: "learnt",
+            },
+            {
+              id: "saved:land",
+              text: "Land it",
+              kind: "saved",
+            },
           ],
           learn: true,
           forgotten: [],
@@ -60,7 +93,9 @@ export function realThreadScenario(one: RealThread): Scenario {
           quickOffFor: [],
           responses: DEFAULT_RESPONSES,
         },
-        asked: { [one.id]: one.asked },
+        asked: {
+          [one.id]: one.asked,
+        },
         heard: "Go ahead",
       },
     },

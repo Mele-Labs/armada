@@ -16,8 +16,24 @@ const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOSt
 const OWNER = repository().manifest!.id;
 const ROOT = repository().root;
 
-const you = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "you" }, text });
-const agent = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "agent" }, text });
+const you = (id: string, at: string, text: string): SessionRow => ({
+  id,
+  at,
+  kind: "message",
+  from: {
+    kind: "you",
+  },
+  text,
+});
+const agent = (id: string, at: string, text: string): SessionRow => ({
+  id,
+  at,
+  kind: "message",
+  from: {
+    kind: "agent",
+  },
+  text,
+});
 
 const SESSION: Session = {
   id: "msg-1",
@@ -27,8 +43,13 @@ const SESSION: Session = {
   model: "opus",
   effort: "high",
   mode: "auto",
-  context: { tokens: 62_000, window: 200_000 },
-  turn: { state: "idle" },
+  context: {
+    tokens: 62_000,
+    window: 200_000,
+  },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: ago(4),
   standing: "idle",
   rows: [
@@ -39,16 +60,35 @@ const SESSION: Session = {
 };
 
 function build(): Scenario {
-  const base = holding("session-message-sending", "The flight deck with one Session open, to which Fleet takes a message slowly, refuses one, and takes it when it is sent again");
+  const base = holding(
+    "session-message-sending",
+    "The flight deck with one Session open, to which Fleet takes a message slowly, refuses one, and takes it when it is sent again",
+  );
   return {
     ...base,
-    state: { ...base.state, repository: null },
+    state: {
+      ...base.state,
+      repository: null,
+    },
     // Each moment is a step of the walk that lets Fleet answer the message waiting on it.
-    later: [{}, {}, {}],
+    later: [
+      {},
+      {},
+      {},
+    ],
     draft: {
       sessions: () => {
-        const store = sessionsStore([SESSION]);
-        const delivery = { gate: gate(), outcomes: ["taken", "refused", "taken"] as ("taken" | "refused")[] };
+        const store = sessionsStore([
+          SESSION,
+        ]);
+        const delivery = {
+          gate: gate(),
+          outcomes: [
+            "taken",
+            "refused",
+            "taken",
+          ] as ("taken" | "refused")[],
+        };
         store.delivery = delivery;
         // The ship holds this Session alone; the mock's own first Session is spent.
         store.start();

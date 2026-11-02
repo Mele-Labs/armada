@@ -34,31 +34,97 @@ const TEXT = [
   "3. A fourth failure shows the error and keeps the photo picked",
 ].join("\n");
 
-const call: WaitingItem = { id: ITEM, text: TITLE, since: new Date().toISOString(), source: "draft", act: { kind: "answer", target: ITEM }, options: [{ label: "Approve" }] };
-const note: WaitingItem = { id: `draft:${NOTE_ROW}`, text: "Release note for #412", since: new Date().toISOString(), source: "draft", act: { kind: "answer", target: `draft:${NOTE_ROW}` }, options: [{ label: "Approve" }] };
+const call: WaitingItem = {
+  id: ITEM,
+  text: TITLE,
+  since: new Date().toISOString(),
+  source: "draft",
+  act: {
+    kind: "answer",
+    target: ITEM,
+  },
+  options: [
+    {
+      label: "Approve",
+    },
+  ],
+};
+const note: WaitingItem = {
+  id: `draft:${NOTE_ROW}`,
+  text: "Release note for #412",
+  since: new Date().toISOString(),
+  source: "draft",
+  act: {
+    kind: "answer",
+    target: `draft:${NOTE_ROW}`,
+  },
+  options: [
+    {
+      label: "Approve",
+    },
+  ],
+};
 
 const job: Session = {
   id: JOB,
   title: "Retry dropped uploads",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   standing: "replied",
   lastTurnAt: new Date().toISOString(),
   rows: [
-    { id: "d-1", at: "10:02:00", kind: "message", from: { kind: "you" }, text: "Update the description of pull request #412 so it says why uploads now retry." },
+    {
+      id: "d-1",
+      at: "10:02:00",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Update the description of pull request #412 so it says why uploads now retry.",
+    },
     {
       id: "d-2",
       at: "10:03:10",
       kind: "draft",
       title: "Description for #412, first try",
       text: "Retries dropped uploads.",
-      settled: { how: "sent_back", words: "Too short. Say what failed before, and what you ran.", at: "10:03:50" },
+      settled: {
+        how: "sent_back",
+        words: "Too short. Say what failed before, and what you ran.",
+        at: "10:03:50",
+      },
     },
-    { id: OPEN, at: "10:05:00", kind: "draft", title: TITLE, text: TEXT, before: BEFORE },
-    { id: "d-4", at: "10:05:20", kind: "message", from: { kind: "agent" }, text: "I drafted the new description for #412." },
-    { id: NOTE_ROW, at: "10:05:40", kind: "draft", title: "Release note for #412", text: "Photo uploads retry when the connection drops." },
+    {
+      id: OPEN,
+      at: "10:05:00",
+      kind: "draft",
+      title: TITLE,
+      text: TEXT,
+      before: BEFORE,
+    },
+    {
+      id: "d-4",
+      at: "10:05:20",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "I drafted the new description for #412.",
+    },
+    {
+      id: NOTE_ROW,
+      at: "10:05:40",
+      kind: "draft",
+      title: "Release note for #412",
+      text: "Photo uploads retry when the connection drops.",
+    },
   ],
   attachments: [],
-  waitingFor: [call, note],
+  waitingFor: [
+    call,
+    note,
+  ],
 };
 
 export const draftCard: Scenario = {
@@ -67,24 +133,53 @@ export const draftCard: Scenario = {
   says: "A Job whose agent drafted a pull request description and a release note: a card in its thread is approved, fixed and approved, sent back, or withdrawn, and settles where it stands",
   draft: {
     sessions: (board) => {
-      const store = s200Sessions.draft!.sessions!(board, [job]);
+      const store = s200Sessions.draft!.sessions!(board, [
+        job,
+      ]);
       return {
         ...store,
         answerWaiting: (id, itemId, given) => {
           if (itemId !== ITEM) return store.answerWaiting?.(id, itemId, given);
-          const how: DraftHow = given.fixed !== undefined ? "fixed" : given.text !== undefined ? "sent_back" : "approved";
+          const how: DraftHow =
+            given.fixed !== undefined
+              ? "fixed"
+              : given.text !== undefined
+                ? "sent_back"
+                : "approved";
           const words = given.fixed ?? given.text;
           const at = new Date().toISOString();
           store.edit(id, (one) => ({
             ...one,
             rows: [
-              ...one.rows.map((row) => (row.id === OPEN && row.kind === "draft" ? { ...row, settled: { how, ...(words === undefined ? {} : { words }), at } } : row)),
+              ...one.rows.map((row) =>
+                row.id === OPEN && row.kind === "draft"
+                  ? {
+                      ...row,
+                      settled: {
+                        how,
+                        ...(words === undefined
+                          ? {}
+                          : {
+                              words,
+                            }),
+                        at,
+                      },
+                    }
+                  : row,
+              ),
               {
                 id: "d-5",
                 at: "10:06:00",
                 kind: "message",
-                from: { kind: "agent" },
-                text: how === "sent_back" ? "Understood. I will redraft #412." : how === "fixed" ? "Updated #412 with your text." : "Updated #412 with the description as drafted.",
+                from: {
+                  kind: "agent",
+                },
+                text:
+                  how === "sent_back"
+                    ? "Understood. I will redraft #412."
+                    : how === "fixed"
+                      ? "Updated #412 with your text."
+                      : "Updated #412 with the description as drafted.",
               },
             ],
             waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== ITEM),

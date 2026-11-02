@@ -15,7 +15,8 @@ export function useHolders(ids: readonly string[] | undefined): Session[] {
   return (ids ?? []).flatMap((id) => sessions.filter((one) => one.id === id));
 }
 
-export const jobTitle = (session: Session): string => session.title ?? session.address ?? session.id;
+export const jobTitle = (session: Session): string =>
+  session.title ?? session.address ?? session.id;
 
 export function JobMark({ session }: { session: Session }) {
   const { state, said } = stateOf(session);
@@ -23,13 +24,41 @@ export function JobMark({ session }: { session: Session }) {
 }
 
 /** The Job as the shared card: its state, title, the last line it said and its age. The issue's repository is the Job's, so no chip. */
-export function IssueJobCard({ session, onOpen }: { session: Session; onOpen: (id: string) => void }) {
+export function IssueJobCard({
+  session,
+  onOpen,
+}: {
+  session: Session;
+  onOpen: (id: string) => void;
+}) {
   const { state, said } = stateOf(session);
   const says = peekOfSession(session).at(-1);
-  return <JobCard title={jobTitle(session)} state={state} said={said} {...(says === undefined ? {} : { says })} {...(session.lastTurnAt === undefined ? {} : { at: session.lastTurnAt })} onOpen={() => onOpen(session.id)} />;
+  return (
+    <JobCard
+      title={jobTitle(session)}
+      state={state}
+      said={said}
+      {...(says === undefined
+        ? {}
+        : {
+            says,
+          })}
+      {...(session.lastTurnAt === undefined
+        ? {}
+        : {
+            at: session.lastTurnAt,
+          })}
+      onOpen={() => onOpen(session.id)}
+    />
+  );
 }
 
-const LOUD: readonly JobTone[] = ["ask", "live", "wait", "calm"];
+const LOUD: readonly JobTone[] = [
+  "ask",
+  "live",
+  "wait",
+  "calm",
+];
 
 /** The hue an issue's row wears: the loudest state among the Jobs working it. None working, none. */
 export function toneOfHolders(holders: readonly Session[]): JobTone | undefined {
@@ -103,7 +132,12 @@ export function FixedMark({ pullRequest }: { pullRequest: number }) {
 export function ReportedMark({ onOpen }: { onOpen: () => void }) {
   return (
     <Tooltip label="Reported a bug" asChild>
-      <button type="button" className="deck-row__reported-mark" aria-label="Reported a bug" onClick={onOpen}>
+      <button
+        type="button"
+        className="deck-row__reported-mark"
+        aria-label="Reported a bug"
+        onClick={onOpen}
+      >
         <Bug size={12} strokeWidth={2} aria-hidden />
       </button>
     </Tooltip>

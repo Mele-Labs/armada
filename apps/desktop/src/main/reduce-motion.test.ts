@@ -3,13 +3,31 @@
 
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-type Fake = { webContents: { isDestroyed: () => boolean; debugger: { isAttached: () => boolean; attach: () => void; detach: () => void; sendCommand: ReturnType<typeof vi.fn> } } };
+type Fake = {
+  webContents: {
+    isDestroyed: () => boolean;
+    debugger: {
+      isAttached: () => boolean;
+      attach: () => void;
+      detach: () => void;
+      sendCommand: ReturnType<typeof vi.fn>;
+    };
+  };
+};
 
-const made = vi.hoisted(() => ({ windows: [] as unknown[], created: [] as ((event: unknown, window: unknown) => void)[] }));
+const made = vi.hoisted(() => ({
+  windows: [] as unknown[],
+  created: [] as ((event: unknown, window: unknown) => void)[],
+}));
 
 vi.mock("electron", () => ({
-  app: { on: (_name: string, listener: (event: unknown, window: unknown) => void) => made.created.push(listener) },
-  BrowserWindow: { getAllWindows: () => made.windows },
+  app: {
+    on: (_name: string, listener: (event: unknown, window: unknown) => void) =>
+      made.created.push(listener),
+  },
+  BrowserWindow: {
+    getAllWindows: () => made.windows,
+  },
 }));
 
 const windowOf = (): Fake => {
@@ -31,7 +49,17 @@ const windowOf = (): Fake => {
   };
 };
 
-const REDUCE = ["Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] }];
+const REDUCE = [
+  "Emulation.setEmulatedMedia",
+  {
+    features: [
+      {
+        name: "prefers-reduced-motion",
+        value: "reduce",
+      },
+    ],
+  },
+];
 
 let follow: (on: boolean) => void;
 

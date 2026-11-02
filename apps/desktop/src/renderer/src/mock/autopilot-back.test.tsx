@@ -13,19 +13,43 @@ import { timePasses } from "./time-passes";
 
 unmountAfterEach();
 
-const hardware = () => page.getByRole("region", { name: "Autopilot switch" });
-const lever = () => hardware().getByRole("switch", { name: "Autopilot" });
-const lamp = () => hardware().getByRole("button", { name: "What Autopilot answered" });
-const asking = () => page.getByRole("dialog", { name: "Autopilot is running" });
-const hud = () => page.getByRole("dialog", { name: "What Autopilot answered" });
-const answer = (job: string) => hud().getByRole("group", { name: job, exact: true });
+const hardware = () =>
+  page.getByRole("region", {
+    name: "Autopilot switch",
+  });
+const lever = () =>
+  hardware().getByRole("switch", {
+    name: "Autopilot",
+  });
+const lamp = () =>
+  hardware().getByRole("button", {
+    name: "What Autopilot answered",
+  });
+const asking = () =>
+  page.getByRole("dialog", {
+    name: "Autopilot is running",
+  });
+const hud = () =>
+  page.getByRole("dialog", {
+    name: "What Autopilot answered",
+  });
+const answer = (job: string) =>
+  hud().getByRole("group", {
+    name: job,
+    exact: true,
+  });
 const isOn = () => lever().element().getAttribute("aria-checked") === "true";
-const stage = () => document.querySelector(".deck-stage > .deck-pane")?.getAttribute("aria-label") ?? "";
+const stage = () =>
+  document.querySelector(".deck-stage > .deck-pane")?.getAttribute("aria-label") ?? "";
 /** The answers the list holds, by Job. */
-const listed = () => [...document.querySelectorAll('[data-hud="autopilot-answers"] .console-ap__row')].map((one) => one.getAttribute("aria-label"));
+const listed = () =>
+  [
+    ...document.querySelectorAll('[data-hud="autopilot-answers"] .console-ap__row'),
+  ].map((one) => one.getAttribute("aria-label"));
 
 /** Two frames: what a press set off a frame later has happened, so a test that says nothing followed has waited for it. */
-const frames = () => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done())));
+const frames = () =>
+  new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done())));
 
 /** Back at the window: Autopilot running with four answers waiting, and ten minutes passed with nobody there. */
 async function away() {
@@ -59,12 +83,27 @@ const focusRow = async (job: string) => {
 test("after ten minutes the first press asks and does not open what was under it; Keep it on opens the answers", async () => {
   await away();
   // Forced, because the press that asks is eaten before the page sees it, which Playwright's own check for where a press lands takes for a press that missed.
-  await page.getByRole("region", { name: "Jobs", exact: true }).getByRole("button", { name: "Friday lunch", exact: true }).click({ force: true });
+  await page
+    .getByRole("region", {
+      name: "Jobs",
+      exact: true,
+    })
+    .getByRole("button", {
+      name: "Friday lunch",
+      exact: true,
+    })
+    .click({
+      force: true,
+    });
   await expect.element(asking()).toBeVisible();
   await frames();
   expect(stage()).toBe("Flight map");
 
-  await asking().getByRole("button", { name: "Keep it on" }).click();
+  await asking()
+    .getByRole("button", {
+      name: "Keep it on",
+    })
+    .click();
   await expect.element(asking()).not.toBeInTheDocument();
   // Either answer opens the answers where any wait.
   await expect.element(hud()).toBeVisible();
@@ -115,7 +154,12 @@ test("a walk's own bar is not input: it does not ask, and it does not count as b
   bar.innerHTML = "<button>Reload</button>";
   document.body.append(bar);
   try {
-    await page.getByRole("button", { name: "Reload", exact: true }).click();
+    await page
+      .getByRole("button", {
+        name: "Reload",
+        exact: true,
+      })
+      .click();
     await frames();
     await expect.element(asking()).not.toBeInTheDocument();
     (document.activeElement as HTMLElement | null)?.blur();
@@ -131,8 +175,19 @@ test("back with nothing answered, Keep it on opens no list", async () => {
   mount("autopilot-why");
   await onScreen();
   await expect.element(lever()).toBeInTheDocument();
-  await hardware().getByRole("button", { name: "Lift guard" }).click();
-  await page.getByRole("region", { name: "Autopilot setup" }).getByRole("button", { name: "Start Autopilot" }).click();
+  await hardware()
+    .getByRole("button", {
+      name: "Lift guard",
+    })
+    .click();
+  await page
+    .getByRole("region", {
+      name: "Autopilot setup",
+    })
+    .getByRole("button", {
+      name: "Start Autopilot",
+    })
+    .click();
   await expect.poll(isOn).toBe(true);
   await frames();
   // His keys were in the setup, which is his using Autopilot and so never the first press back.
@@ -140,7 +195,11 @@ test("back with nothing answered, Keep it on opens no list", async () => {
   minutesPass(10 * 60_000);
   await anyKey();
   await expect.element(asking()).toBeVisible();
-  await asking().getByRole("button", { name: "Keep it on" }).click();
+  await asking()
+    .getByRole("button", {
+      name: "Keep it on",
+    })
+    .click();
   await expect.element(asking()).not.toBeInTheDocument();
   await frames();
   expect(document.querySelector('[data-hud="autopilot-answers"]')).toBeNull();
@@ -152,12 +211,18 @@ test("a row shows the Job, what was asked, what was chosen, why and when; Enter 
   const row = answer("Friday lunch");
   await expect.element(row).toHaveTextContent("Which size should the order be?");
   await expect.element(row).toHaveTextContent("Large");
-  await expect.element(row).toHaveTextContent("The Job recommended Large, and the request names no size.");
+  await expect
+    .element(row)
+    .toHaveTextContent("The Job recommended Large, and the request names no size.");
   expect(row.element().querySelector(".console-ap__age")?.textContent?.trim()).not.toBe("");
 
   await focusRow("Friday lunch");
   await userEvent.keyboard("{Enter}");
-  await expect.poll(listed).toEqual(["Reconnect fix", "Release notes", "Pull request 1894"]);
+  await expect.poll(listed).toEqual([
+    "Reconnect fix",
+    "Release notes",
+    "Pull request 1894",
+  ]);
   expect(agree).toHaveBeenCalledTimes(1);
 });
 
@@ -166,35 +231,79 @@ test("t opens a box on the row, and sending corrects the Job and the row leaves"
   const send = vi.spyOn(withState(app.api), "overrideAutopilotDecision");
   await focusRow("Reconnect fix");
   await userEvent.keyboard("t");
-  const box = hud().getByRole("textbox", { name: "Change" });
+  const box = hud().getByRole("textbox", {
+    name: "Change",
+  });
   await expect.element(box).toBeVisible();
   await box.fill("feat");
   await userEvent.keyboard("{Enter}");
   await expect.poll(() => send.mock.calls.length).toBe(1);
   expect(send.mock.calls[0]![1]).toBe("feat");
-  await expect.poll(listed).toEqual(["Friday lunch", "Release notes", "Pull request 1894"]);
+  await expect.poll(listed).toEqual([
+    "Friday lunch",
+    "Release notes",
+    "Pull request 1894",
+  ]);
 });
 
 test("o opens the Job, and Back comes to the same row", async () => {
   await answers();
   await focusRow("Release notes");
   await userEvent.keyboard("o");
-  await expect.element(page.getByRole("region", { name: "Job: Release notes" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Job: Release notes",
+      }),
+    )
+    .toBeVisible();
   await userEvent.keyboard("{Escape}");
   await expect.element(answer("Release notes")).toBeVisible();
-  await expect.poll(() => (document.activeElement as HTMLElement | null)?.getAttribute("aria-label")).toBe("Release notes");
+  await expect
+    .poll(() => (document.activeElement as HTMLElement | null)?.getAttribute("aria-label"))
+    .toBe("Release notes");
 });
 
 test("a row that cannot be corrected offers only Agree", async () => {
   await answers();
   const landed = answer("Pull request 1894");
-  await expect.element(landed.getByRole("button", { name: "Agree" })).toBeVisible();
-  await expect.element(landed.getByRole("button", { name: "Change" })).not.toBeInTheDocument();
-  await expect.element(landed.getByRole("button", { name: "Open the Job" })).not.toBeInTheDocument();
+  await expect
+    .element(
+      landed.getByRole("button", {
+        name: "Agree",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      landed.getByRole("button", {
+        name: "Change",
+      }),
+    )
+    .not.toBeInTheDocument();
+  await expect
+    .element(
+      landed.getByRole("button", {
+        name: "Open the Job",
+      }),
+    )
+    .not.toBeInTheDocument();
   // A row with a Job offers all three.
   const lunch = answer("Friday lunch");
-  await expect.element(lunch.getByRole("button", { name: "Change" })).toBeVisible();
-  await expect.element(lunch.getByRole("button", { name: "Open the Job" })).toBeVisible();
+  await expect
+    .element(
+      lunch.getByRole("button", {
+        name: "Change",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      lunch.getByRole("button", {
+        name: "Open the Job",
+      }),
+    )
+    .toBeVisible();
 });
 
 test("the lamp lights while answers wait, carries no count, and answers are not calls", async () => {
@@ -218,7 +327,9 @@ test("answers waiting light the lamp with no number, pulse no row, and are not r
   expect(document.querySelectorAll(".deck-row[data-calling]")).toHaveLength(0);
   await lamp().click();
   await expect.element(hud()).toBeVisible();
-  expect(hud().element().querySelector(".console-hud__name, h2")?.textContent ?? "").not.toMatch(/\d/);
+  expect(hud().element().querySelector(".console-hud__name, h2")?.textContent ?? "").not.toMatch(
+    /\d/,
+  );
   // `w` brings a waiting call back, and there is none to bring.
   (document.activeElement as HTMLElement | null)?.blur();
   await userEvent.keyboard("{Escape}");

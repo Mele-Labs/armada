@@ -11,12 +11,18 @@ import { s252CockpitShipFlightdeck as base } from "./cockpit-ship";
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 const held = base.draft?.events ?? [];
 
-type Who = { subject: TimelineSubject; title: string };
+type Who = {
+  subject: TimelineSubject;
+  title: string;
+};
 /** A Session the ship already has, found by the title its own events carry. */
 function who(title: string): Who {
   const one = held.find((event) => event.title === title && event.subject.kind === "session");
   if (one === undefined) throw new Error(`activity-graph: nothing on the ship is called ${title}`);
-  return { subject: one.subject, title };
+  return {
+    subject: one.subject,
+    title,
+  };
 }
 
 const clock = who("Pin the store clock");
@@ -34,28 +40,76 @@ const random = () => {
 };
 
 let count = 6000;
-function entry(minutes: number, one: Who, kind: TimelineEvent["kind"], tone: TimelineEvent["tone"], says: string, detail?: string): TimelineEvent {
+function entry(
+  minutes: number,
+  one: Who,
+  kind: TimelineEvent["kind"],
+  tone: TimelineEvent["tone"],
+  says: string,
+  detail?: string,
+): TimelineEvent {
   count += 1;
-  return { id: count, at: ago(minutes), kind, subject: one.subject, title: one.title, tone, says, manifest_id: "armada", live: tone === "run", ...(detail === undefined ? {} : { detail }) };
+  return {
+    id: count,
+    at: ago(minutes),
+    kind,
+    subject: one.subject,
+    title: one.title,
+    tone,
+    says,
+    manifest_id: "armada",
+    live: tone === "run",
+    ...(detail === undefined
+      ? {}
+      : {
+          detail,
+        }),
+  };
 }
 
-const TURNS = ["Reading the tests", "Editing the module", "Writing the test", "Checking the diff", "Reading the notes"];
-const FILES = ["crates/store/src/clock.rs", "crates/fleet/src/gate.rs", "migrations/0046_drop_legacy.sql", "apps/desktop/src/renderer/src/cockpit/reconnect.ts"];
-const COMMANDS = ["cargo test -p store", "cargo clippy -p fleet", "git diff --stat main"];
+const TURNS = [
+  "Reading the tests",
+  "Editing the module",
+  "Writing the test",
+  "Checking the diff",
+  "Reading the notes",
+];
+const FILES = [
+  "crates/store/src/clock.rs",
+  "crates/fleet/src/gate.rs",
+  "migrations/0046_drop_legacy.sql",
+  "apps/desktop/src/renderer/src/cockpit/reconnect.ts",
+];
+const COMMANDS = [
+  "cargo test -p store",
+  "cargo clippy -p fleet",
+  "git diff --stat main",
+];
 
 /** `n` events across the minutes from `from` to `to` ago, `quiet` of them as a share the coalesced reads, edits and commands. */
 function stretch(one: Who, from: number, to: number, n: number, quiet: number): TimelineEvent[] {
-  return Array.from({ length: n }, (_, i) => {
-    const minutes = from + (to - from) * ((i + random()) / n);
-    const pick = <T>(list: readonly T[]) => list[Math.floor(random() * list.length)]!;
-    if (i < Math.round(n * quiet)) {
-      const act = Math.floor(random() * 3);
-      const kind = (["session.read", "session.edited", "session.ran"] as const)[act]!;
-      const says = act === 0 ? "Read 3 files" : act === 1 ? "Edited 2 files" : "Ran 1 command";
-      return entry(minutes, one, kind, "run", says, act === 2 ? pick(COMMANDS) : pick(FILES));
-    }
-    return entry(minutes, one, "session.turn", "run", pick(TURNS));
-  });
+  return Array.from(
+    {
+      length: n,
+    },
+    (_, i) => {
+      const minutes = from + (to - from) * ((i + random()) / n);
+      const pick = <T>(list: readonly T[]) => list[Math.floor(random() * list.length)]!;
+      if (i < Math.round(n * quiet)) {
+        const act = Math.floor(random() * 3);
+        const kind = (
+          [
+            "session.read",
+            "session.edited",
+            "session.ran",
+          ] as const
+        )[act]!;
+        const says = act === 0 ? "Read 3 files" : act === 1 ? "Edited 2 files" : "Ran 1 command";
+        return entry(minutes, one, kind, "run", says, act === 2 ? pick(COMMANDS) : pick(FILES));
+      }
+      return entry(minutes, one, "session.turn", "run", pick(TURNS));
+    },
+  );
 }
 
 const MORE: TimelineEvent[] = [
@@ -76,13 +130,29 @@ const MORE: TimelineEvent[] = [
   entry(24.6, notes, "session.waiting", "ask", "Waiting: drop the legacy migration?", "Decision"),
 ];
 
-const EVERY = [clock, notes, gate, fix, cacheKey, audit];
+const EVERY = [
+  clock,
+  notes,
+  gate,
+  fix,
+  cacheKey,
+  audit,
+];
 // One event in each minute of the hour, so a point of the chart is never empty.
-for (let minute = 0; minute < 60; minute += 1) MORE.push(...stretch(EVERY[minute % EVERY.length]!, minute, minute + 1, 1, minute % 3 === 0 ? 1 : 0));
+for (let minute = 0; minute < 60; minute += 1)
+  MORE.push(
+    ...stretch(EVERY[minute % EVERY.length]!, minute, minute + 1, 1, minute % 3 === 0 ? 1 : 0),
+  );
 
 export const s252ActivityBeeswarm: Scenario = {
   ...base,
   name: "activity-beeswarm",
   says: "The flight deck with the last hour of events across six Sessions, for the Activity beeswarm",
-  draft: { ...base.draft, events: [...held, ...MORE] },
+  draft: {
+    ...base.draft,
+    events: [
+      ...held,
+      ...MORE,
+    ],
+  },
 };

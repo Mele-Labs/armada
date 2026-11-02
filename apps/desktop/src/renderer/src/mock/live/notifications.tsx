@@ -11,9 +11,18 @@ import "./live.css";
 import { onStage, stageNow } from "./stage";
 
 const ROWS = [
-  { name: "Comments", says: "Email me when someone comments on my posts" },
-  { name: "Mentions", says: "Email me when someone mentions me" },
-  { name: "Weekly digest", says: "Email me a summary every Monday" },
+  {
+    name: "Comments",
+    says: "Email me when someone comments on my posts",
+  },
+  {
+    name: "Mentions",
+    says: "Email me when someone mentions me",
+  },
+  {
+    name: "Weekly digest",
+    says: "Email me a summary every Monday",
+  },
 ];
 
 function NotificationsPage() {
@@ -25,7 +34,15 @@ function NotificationsPage() {
       <h1 className="page__title">Email notifications</h1>
       <div className="page__rows">
         {rows.map((row) => (
-          <Switch key={row.name} defaultChecked={row.name !== "Weekly digest"} {...(stage >= 2 ? { description: row.says } : {})}>
+          <Switch
+            key={row.name}
+            defaultChecked={row.name !== "Weekly digest"}
+            {...(stage >= 2
+              ? {
+                  description: row.says,
+                }
+              : {})}
+          >
             {row.name}
           </Switch>
         ))}

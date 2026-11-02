@@ -14,7 +14,11 @@ export function withBridgeProtocol(text: string, bridgeProtocol: string): string
   return lines.join("\n");
 }
 
-export function createFleetDebugReport(api: Pick<BridgeApi, "getDebugReport" | "runArmadaReport">, state: StateSource, bridgeProtocol: string = spoken(PROTOCOL_ID)): DebugRead {
+export function createFleetDebugReport(
+  api: Pick<BridgeApi, "getDebugReport" | "runArmadaReport">,
+  state: StateSource,
+  bridgeProtocol: string = spoken(PROTOCOL_ID),
+): DebugRead {
   return async () => {
     // The pick is main's, as the other reads take it, and `null` is All repositories.
     const { repository } = await state.state();

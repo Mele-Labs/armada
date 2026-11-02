@@ -42,7 +42,13 @@ function score(at: number[]): number {
 }
 
 /** A scenario or a walk that matched, and where — the marks the row draws it with. */
-type Hit = { name: string; label: string; says: string; at: number[]; walk: boolean };
+type Hit = {
+  name: string;
+  label: string;
+  says: string;
+  at: number[];
+  walk: boolean;
+};
 
 /** A walk's export name in words: `backFromADrone` reads `back from a drone`. */
 function words(name: string): string {
@@ -57,22 +63,40 @@ function words(name: string): string {
  * cannot type an address**, which is Bridge's own window on a mock —
  * `docs/practices/capture-window.md` gives it no address field.
  */
-const WALK_ROWS = [...EVERY_WALK].map(([name, one]) => ({
+const WALK_ROWS = [
+  ...EVERY_WALK,
+].map(([name, one]) => ({
   name,
   label: words(name),
   says: `A walk of ${one.steps.length} steps over ${one.scenario}`,
   walk: true,
 }));
-const SCENARIO_ROWS = SCENARIOS.map((one) => ({ name: one.name, label: one.name, says: one.says, walk: false }));
+const SCENARIO_ROWS = SCENARIOS.map((one) => ({
+  name: one.name,
+  label: one.name,
+  says: one.says,
+  walk: false,
+}));
 
 /** Each group the query reaches, best first within it. The empty query is all of them, in roster order. */
 function hits(query: string, rows: readonly Omit<Hit, "at">[]): Hit[] {
   const wanted = query.trim().toLowerCase();
-  if (wanted === "") return rows.map((one) => ({ ...one, at: [] }));
+  if (wanted === "")
+    return rows.map((one) => ({
+      ...one,
+      at: [],
+    }));
   return rows
     .flatMap((one) => {
       const at = fuzzy(one.label.toLowerCase(), wanted);
-      return at === null ? [] : [{ ...one, at }];
+      return at === null
+        ? []
+        : [
+            {
+              ...one,
+              at,
+            },
+          ];
     })
     .sort((a, b) => score(a.at) - score(b.at) || a.label.length - b.label.length);
 }
@@ -81,7 +105,9 @@ function hits(query: string, rows: readonly Omit<Hit, "at">[]): Hit[] {
 function marked(name: string, at: number[]): ReactNode {
   if (at.length === 0) return name;
   const held = new Set(at);
-  return [...name].map((letter, i) =>
+  return [
+    ...name,
+  ].map((letter, i) =>
     held.has(i) ? (
       <b className="armada-mock-picker__hit" key={i}>
         {letter}
@@ -127,16 +153,42 @@ export function Picker({ current, walk = false }: { current: string; walk?: bool
 
   // Walks first and then scenarios: the walks are the few things worth demoing, and a hundred
   // scenarios ahead of them hid them. Enter on a query both reach is a walk.
-  const found = useMemo(() => [...hits(query, WALK_ROWS), ...hits(query, SCENARIO_ROWS)], [query]);
+  const found = useMemo(
+    () => [
+      ...hits(query, WALK_ROWS),
+      ...hits(query, SCENARIO_ROWS),
+    ],
+    [
+      query,
+    ],
+  );
   // The first row is always the one Enter takes, so a query narrowed to one
   // scenario is a two-key act. Reset with the query rather than clamped: a
   // cursor left at row nine of a list that now has two is nowhere he put it.
-  useEffect(() => setAt(0), [query]);
-  useEffect(() => setPaletteExtras([{ id: "mock-scenario", label: "Mock scenario", icon: FlaskConical, run: () => setOpen(true) }]), []);
+  useEffect(
+    () => setAt(0),
+    [
+      query,
+    ],
+  );
+  useEffect(
+    () =>
+      setPaletteExtras([
+        {
+          id: "mock-scenario",
+          label: "Mock scenario",
+          icon: FlaskConical,
+          run: () => setOpen(true),
+        },
+      ]),
+    [],
+  );
   useEffect(() => {
     if (open) field.current?.focus();
     else setQuery("");
-  }, [open]);
+  }, [
+    open,
+  ]);
 
   // Esc and a press outside give it up, `Popover`'s own two rules — spelled
   // here because that primitive's panel is `position: absolute` and this one
@@ -158,7 +210,9 @@ export function Picker({ current, walk = false }: { current: string; walk?: bool
       window.removeEventListener("keydown", key, true);
       window.removeEventListener("mousedown", down);
     };
-  }, [open]);
+  }, [
+    open,
+  ]);
 
   function keyDown(event: KeyboardEvent<HTMLInputElement>): void {
     if (event.key === "ArrowDown") setAt((held) => Math.min(held + 1, found.length - 1));
@@ -174,7 +228,7 @@ export function Picker({ current, walk = false }: { current: string; walk?: bool
 
   return (
     <div className="armada-mock-picker" ref={root}>
-      {(
+      {
         <div className="armada-mock-picker__layer" role="dialog" aria-label="Mock scenario">
           <Input
             ref={field}
@@ -206,7 +260,7 @@ export function Picker({ current, walk = false }: { current: string; walk?: bool
             ))}
           </div>
         </div>
-      )}
+      }
     </div>
   );
 }

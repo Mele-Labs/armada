@@ -19,7 +19,9 @@ export type FleetAutopilotDecisions = {
 
 const NOTHING: readonly AutopilotDecided[] = [];
 
-export function createFleetAutopilotDecisions(fleet: FleetAutopilotDecisions): AutopilotDecisionsSource {
+export function createFleetAutopilotDecisions(
+  fleet: FleetAutopilotDecisions,
+): AutopilotDecisionsSource {
   let state = NOTHING;
   let wasConnected = false;
   const listeners = new Set<() => void>();
@@ -74,7 +76,8 @@ export function createFleetAutopilotDecisions(fleet: FleetAutopilotDecisions): A
     // After a correction the row is already gone, and one Fleet refused stays for the owner.
     review: (id) =>
       void (correcting.get(id) ?? Promise.resolve(true)).then((taken) => {
-        if (taken && state.some((one) => one.id === id)) void fleet.reviewAutopilotDecision(id).then(took);
+        if (taken && state.some((one) => one.id === id))
+          void fleet.reviewAutopilotDecision(id).then(took);
       }),
   };
 }

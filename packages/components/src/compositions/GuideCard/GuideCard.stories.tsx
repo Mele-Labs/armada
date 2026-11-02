@@ -7,7 +7,10 @@ import { GuideCard } from "./GuideCard";
 const meta: Meta<typeof GuideCard> = {
   title: "Compositions/Guide card",
   component: GuideCard,
-  args: { guide: GUIDE_MERGE_LINE, onClose: fn() },
+  args: {
+    guide: GUIDE_MERGE_LINE,
+    onClose: fn(),
+  },
 };
 export default meta;
 
@@ -18,12 +21,16 @@ export const Asked: Story = {};
 
 /** Ten steps rather than eight. The list is the part that gives. */
 export const Longer: Story = {
-  args: { guide: GUIDE_DRONE },
+  args: {
+    guide: GUIDE_DRONE,
+  },
 };
 
 /** A guide that carries a drawing, in the narrowest layer it is drawn in. */
 export const WithAFigure: Story = {
-  args: { guide: GUIDE_PLAN },
+  args: {
+    guide: GUIDE_PLAN,
+  },
 };
 
 /**
@@ -32,7 +39,9 @@ export const WithAFigure: Story = {
  * reach it.
  */
 export const Uninvited: Story = {
-  args: { invited: false },
+  args: {
+    invited: false,
+  },
 };
 
 /**
@@ -40,7 +49,12 @@ export const Uninvited: Story = {
  * the card arriving uninvited at all, and it is the only card that draws one.
  */
 export const TheFirstOneEver: Story = {
-  args: { invited: false, off: false, onOff: fn(), onReadAll: fn() },
+  args: {
+    invited: false,
+    off: false,
+    onOff: fn(),
+    onReadAll: fn(),
+  },
   play: async ({ args }) => {
     const card = within(document.body).getByRole("dialog", {
       name: `Guide ${GUIDE_MERGE_LINE.number}, ${GUIDE_MERGE_LINE.title}`,
@@ -57,7 +71,10 @@ export const TheFirstOneEver: Story = {
 
 /** The switch, once it has been turned off. The card says what still works. */
 export const TurnedOff: Story = {
-  args: { off: true, onOff: fn() },
+  args: {
+    off: true,
+    onOff: fn(),
+  },
 };
 
 /**
@@ -65,7 +82,9 @@ export const TurnedOff: Story = {
  * and Settings is where it lives afterwards.
  */
 export const EverySubsequentCard: Story = {
-  args: { onReadAll: fn() },
+  args: {
+    onReadAll: fn(),
+  },
   play: async () => {
     const card = within(document.body).getByRole("dialog", {
       name: `Guide ${GUIDE_MERGE_LINE.number}, ${GUIDE_MERGE_LINE.title}`,

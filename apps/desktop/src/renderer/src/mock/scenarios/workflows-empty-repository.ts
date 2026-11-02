@@ -17,28 +17,50 @@ const HARBOR: RepositorySummary = {
   ...BASE,
   root: "/Users/user/harbor",
   records_root: "/Users/user/Library/Application Support/Armada/records/harbor",
-  manifest: { ...BASE.manifest!, repository: "harbor", path: "harbor/armada.yml" },
+  manifest: {
+    ...BASE.manifest!,
+    repository: "harbor",
+    path: "harbor/armada.yml",
+  },
 };
 
 const LIGHTHOUSE: RepositorySummary = {
   root: "/Users/user/lighthouse",
   records_root: "/Users/user/Library/Application Support/Armada/records/lighthouse",
-  manifest: { ...BASE.manifest!, id: "01M1CNPKTV0018H2M1CXDNBK0L", repository: "lighthouse", path: "lighthouse/armada.yml" },
+  manifest: {
+    ...BASE.manifest!,
+    id: "01M1CNPKTV0018H2M1CXDNBK0L",
+    repository: "lighthouse",
+    path: "lighthouse/armada.yml",
+  },
 };
 
-const REPOSITORIES = [HARBOR, LIGHTHOUSE];
+const REPOSITORIES = [
+  HARBOR,
+  LIGHTHOUSE,
+];
 
 const state = connected([], REPOSITORIES);
 
 export const workflowsEmptyRepository: Scenario = {
   name: "workflows-empty-repository",
   says: "All repositories picked: harbor keeps its own workflow copies, lighthouse keeps none and lists what runs there",
-  state: { ...state, repository: null },
+  state: {
+    ...state,
+    repository: null,
+  },
   behaves: (fleet) => ({
-    ...workflowsServed(() => fleet.state().holds.repositories?.find((one) => one.root === fleet.state().repository)?.manifest?.id ?? null, {
-      served: REPOSITORIES.map((one) => one.manifest!.id),
-    }),
+    ...workflowsServed(
+      () =>
+        fleet.state().holds.repositories?.find((one) => one.root === fleet.state().repository)
+          ?.manifest?.id ?? null,
+      {
+        served: REPOSITORIES.map((one) => one.manifest!.id),
+      },
+    ),
     readManifestFile: manifesting().behaves?.(fleet).readManifestFile!,
   }),
-  draft: { pieces: builtInPieces() },
+  draft: {
+    pieces: builtInPieces(),
+  },
 };

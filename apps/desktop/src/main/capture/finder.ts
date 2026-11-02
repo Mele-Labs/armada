@@ -24,10 +24,20 @@ const SLACK_MS = 2000;
 /** What the held element is, for the keys that must reach it. */
 export type HeldKind = "field" | "select" | "other";
 
-const whole = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) ? Math.round(value) : 0);
+const whole = (value: unknown): number =>
+  typeof value === "number" && Number.isFinite(value) ? Math.round(value) : 0;
 
 /** A point inside the viewport, re-bounded. */
-function pointOf(value: unknown, viewport: { width: number; height: number }): { x: number; y: number } | null {
+function pointOf(
+  value: unknown,
+  viewport: {
+    width: number;
+    height: number;
+  },
+): {
+  x: number;
+  y: number;
+} | null {
   if (typeof value !== "object" || value === null) return null;
   const at = value as Record<string, unknown>;
   return {
@@ -38,10 +48,19 @@ function pointOf(value: unknown, viewport: { width: number; height: number }): {
 
 export class PageFinder {
   private readonly contents: () => WebContents | null;
-  private readonly viewport: () => { width: number; height: number };
+  private readonly viewport: () => {
+    width: number;
+    height: number;
+  };
 
   /** `contents` is the page, or `null` where it may not be asked: gone, or off the origin it is pinned to. */
-  constructor(contents: () => WebContents | null, viewport: () => { width: number; height: number }) {
+  constructor(
+    contents: () => WebContents | null,
+    viewport: () => {
+      width: number;
+      height: number;
+    },
+  ) {
     this.contents = contents;
     this.viewport = viewport;
   }
@@ -55,12 +74,25 @@ export class PageFinder {
       return await Promise.race([
         (async () => {
           const installed = await contents.executeJavaScriptInIsolatedWorld(FINDER_WORLD, [
-            { code: 'typeof ArmadaFinder === "object"' },
+            {
+              code: 'typeof ArmadaFinder === "object"',
+            },
           ]);
-          if (installed !== true) await contents.executeJavaScriptInIsolatedWorld(FINDER_WORLD, [{ code: source }]);
-          return await contents.executeJavaScriptInIsolatedWorld(FINDER_WORLD, [{ code: expression }]);
+          if (installed !== true)
+            await contents.executeJavaScriptInIsolatedWorld(FINDER_WORLD, [
+              {
+                code: source,
+              },
+            ]);
+          return await contents.executeJavaScriptInIsolatedWorld(FINDER_WORLD, [
+            {
+              code: expression,
+            },
+          ]);
         })(),
-        new Promise<null>((resolve) => (giveUp = setTimeout(() => resolve(null), patience + SLACK_MS))),
+        new Promise<null>(
+          (resolve) => (giveUp = setTimeout(() => resolve(null), patience + SLACK_MS)),
+        ),
       ]);
     } catch {
       // A page that navigated under the ask, or threw, answers nothing.
@@ -78,7 +110,12 @@ export class PageFinder {
 
   /** Look for the target, scroll it into view and wait for it to hold still. The page holds it for what follows. */
   async arrive(target: WalkTarget, patience: number): Promise<CaptureRect | null> {
-    return this.seen(await this.run(`ArmadaFinder.finder.arrive(${JSON.stringify(target)}, ${Math.round(patience)})`, patience));
+    return this.seen(
+      await this.run(
+        `ArmadaFinder.finder.arrive(${JSON.stringify(target)}, ${Math.round(patience)})`,
+        patience,
+      ),
+    );
   }
 
   /** Where the held element is now, or `null` where it left the page. */
@@ -93,13 +130,27 @@ export class PageFinder {
   }
 
   /** Where `words` start and end inside the held element, for a pointer to drag across. */
-  async words(words: string): Promise<{ from: { x: number; y: number }; to: { x: number; y: number } } | null> {
+  async words(words: string): Promise<{
+    from: {
+      x: number;
+      y: number;
+    };
+    to: {
+      x: number;
+      y: number;
+    };
+  } | null> {
     const answer = await this.run(`ArmadaFinder.finder.words(${JSON.stringify(words)})`, 0);
     if (typeof answer !== "object" || answer === null) return null;
     const said = answer as Record<string, unknown>;
     const from = pointOf(said["from"], this.viewport());
     const to = pointOf(said["to"], this.viewport());
-    return from === null || to === null ? null : { from, to };
+    return from === null || to === null
+      ? null
+      : {
+          from,
+          to,
+        };
   }
 
   /** Let the page's finder go of the element. */

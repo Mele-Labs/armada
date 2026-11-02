@@ -21,5 +21,8 @@ export const GUIDE_PLAN: Guide = {
     "The plan changes only when the agent records it again, as a new version.",
   ],
   // Under the line that names the groups, because the group is the relation.
-  figure: { id: "group-order", at: 3 },
+  figure: {
+    id: "group-order",
+    at: 3,
+  },
 };

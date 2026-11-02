@@ -58,28 +58,64 @@ export type ScannedWorkspace = {
   not_read: NotRead[];
 };
 
-export type WorkspaceGlob = { file: string; entry: string };
+export type WorkspaceGlob = {
+  file: string;
+  entry: string;
+};
 
 /** A file and the tool it belongs to. `tool` is rendered, never matched on. */
-export type ToolFile = { file: string; tool: string };
+export type ToolFile = {
+  file: string;
+  tool: string;
+};
 
 /** `key` is where in the file — `scripts.test`, `alias.xtask`. */
-export type Runnable = { file: string; key: string; name: string; run: string };
+export type Runnable = {
+  file: string;
+  key: string;
+  name: string;
+  run: string;
+};
 
-export type ToolSection = { file: string; key: string; tool: string };
+export type ToolSection = {
+  file: string;
+  key: string;
+  tool: string;
+};
 
-export type ComposeService = { file: string; key: string; name: string };
+export type ComposeService = {
+  file: string;
+  key: string;
+  name: string;
+};
 
 /** `container` is the port inside the container, or the one a process listens on. */
-export type DeclaredPort = { file: string; key: string; name: string; container: number };
+export type DeclaredPort = {
+  file: string;
+  key: string;
+  name: string;
+  container: number;
+};
 
-export type MissingName = { name: string; declared_in: string[] };
+export type MissingName = {
+  name: string;
+  declared_in: string[];
+};
 
 /**
  * `key` is where in the file — `jobs.test.steps[2].run`. `cell` names the one
  * matrix cell it was read as, never one finding per cell; rendered, never matched on.
  */
-export type CiCommand = { file: string; job: string; key: string; run: string; cell?: string };
+export type CiCommand = {
+  file: string;
+  job: string;
+  key: string;
+  run: string;
+  cell?: string;
+};
 
 /** `why` is rendered, never matched on. */
-export type NotRead = { file: string; why: string };
+export type NotRead = {
+  file: string;
+  why: string;
+};

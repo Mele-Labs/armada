@@ -153,7 +153,17 @@ export type DriftGone = {
  * check an answer against.
  */
 export type ManifestDriftRead =
-  | { state: "none" }
-  | { state: "reading" }
-  | { state: "read"; drift: ManifestDrift }
-  | { state: "failed"; outcome: Outcome };
+  | {
+      state: "none";
+    }
+  | {
+      state: "reading";
+    }
+  | {
+      state: "read";
+      drift: ManifestDrift;
+    }
+  | {
+      state: "failed";
+      outcome: Outcome;
+    };

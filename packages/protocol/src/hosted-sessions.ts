@@ -27,7 +27,11 @@ export type LinkedEvent = "needs" | "done" | "merged" | "started";
 export type DraftHow = "approved" | "fixed" | "sent_back" | "withdrawn";
 
 /** A draft's settling. `words` is the fixed text for `fixed`, the note for `sent_back` and the reason for `withdrawn` where one was given; absent for `approved`. */
-export type DraftSettled = { how: DraftHow; words?: string; at: string };
+export type DraftSettled = {
+  how: DraftHow;
+  words?: string;
+  at: string;
+};
 
 /** `POST /sessions/start`. The row holds no slot and no branch until the agent writes. */
 export type StartSession = {
@@ -44,7 +48,10 @@ export type StartSession = {
    * `at`, since 23.79, is the thread row the copy ends at, included; with it the old session may be live and
    * is left as it was. Refused 422 `fleet.fork_point_unwritten` where no message has that id.
    */
-  fork?: { session_id: string; at?: string };
+  fork?: {
+    session_id: string;
+    at?: string;
+  };
   /**
    * Start Setup's session in a served repository with no `armada.yml` yet. It runs in `root`, carries no
    * Manifest, and `manifest_id` is not read. A root that has one by now starts as a plain start on it.
@@ -89,7 +96,11 @@ export type SessionTag = {
 };
 
 /** A picture or file sent with a message. `data` is base64. */
-export type SessionUpload = { name: string; media_type: string; data: string };
+export type SessionUpload = {
+  name: string;
+  media_type: string;
+  data: string;
+};
 
 /** `POST /sessions/message`. Answered 202 with the `SessionRecord`. */
 export type SendSessionMessage = {
@@ -127,7 +138,10 @@ export type TuneSession = {
  * `POST /sessions/held`. The mod in a terminal session asks what a person sent it. Since 23.53.
  * `wait_ms` lets Fleet hold the ask while nothing is held, up to 25 seconds; left out, it is answered at once.
  */
-export type TakeHeld = { session_id: string; wait_ms?: number };
+export type TakeHeld = {
+  session_id: string;
+  wait_ms?: number;
+};
 
 /**
  * `POST /sessions/ask/terminal`. The mod in a terminal session puts its `AskUserQuestion` to Bridge (`asks`,
@@ -135,64 +149,122 @@ export type TakeHeld = { session_id: string; wait_ms?: number };
  * prompt ended first (`settled`).
  */
 export type TerminalAsk =
-  | { kind: "asks"; session_id: string; input: unknown }
-  | { kind: "settled"; session_id: string; answered: boolean }
-  | { kind: "wait"; session_id: string; call: string };
+  | {
+      kind: "asks";
+      session_id: string;
+      input: unknown;
+    }
+  | {
+      kind: "settled";
+      session_id: string;
+      answered: boolean;
+    }
+  | {
+      kind: "wait";
+      session_id: string;
+      call: string;
+    };
 
 /** What Fleet answers it with: the call, no answer yet, or how the question ended. */
 export type TerminalAsked =
-  | { outcome: "asked"; call: string }
-  | { outcome: "waiting" }
-  | { outcome: "answered"; updated_input: unknown }
-  | { outcome: "refused"; message: string }
-  | { outcome: "gone" };
+  | {
+      outcome: "asked";
+      call: string;
+    }
+  | {
+      outcome: "waiting";
+    }
+  | {
+      outcome: "answered";
+      updated_input: unknown;
+    }
+  | {
+      outcome: "refused";
+      message: string;
+    }
+  | {
+      outcome: "gone";
+    };
 
 /** What a person sent a terminal session, oldest first, handed over once. Since 23.53. */
 /** A command a person chose in Bridge for a terminal session, run there as typed. Since 23.53. */
-export type HeldCommand = { command: string; args: string };
+export type HeldCommand = {
+  command: string;
+  args: string;
+};
 
 /** `end`: Close pressed in Bridge; the mod runs `/exit` after the messages. Absent when not asked. */
-export type MessagesHeld = { messages: string[]; commands?: HeldCommand[]; end?: true };
+export type MessagesHeld = {
+  messages: string[];
+  commands?: HeldCommand[];
+  end?: true;
+};
 
 /** `POST /sessions/command`: a slash command written whole, run in a terminal session as typed. */
-export type RunSessionCommand = { session_id: string; command: string };
+export type RunSessionCommand = {
+  session_id: string;
+  command: string;
+};
 
 /** `POST /sessions/close`. A terminal session is ended by its mod, and the row ends when the terminal says so. */
-export type CloseSession = { session_id: string };
+export type CloseSession = {
+  session_id: string;
+};
 
 /** `POST /sessions/move`: ends the session and continues its conversation in another served repository. Answers the new session's record. */
-export type MoveSession = { session_id: string; manifest_id: string };
+export type MoveSession = {
+  session_id: string;
+  manifest_id: string;
+};
 
 /** `POST /sessions/stop`: ends the turn that is running. The session stays live and its next message resumes it. Since 23.84. */
-export type StopSession = { session_id: string };
+export type StopSession = {
+  session_id: string;
+};
 
 /** `POST /sessions/handoff/retry`: runs again the hand off that failed on this Job (a standing `handoff_failed` row). Answers the new Job's record; refused 409 `fleet.handoff_not_failed` where none stands and `fleet.handoff_running` while one runs, and 422 `fleet.handoff_failed` with the reason where it fails again (a fresh row replaces the old). */
-export type RetryHandoff = { session_id: string };
+export type RetryHandoff = {
+  session_id: string;
+};
 
 /** `POST /sessions/pause`: ends the turn, parks the slot's work on its branch and gives the slot back. Answers the record with `hosted.paused` set. Since 23.92. */
-export type PauseSession = { session_id: string };
+export type PauseSession = {
+  session_id: string;
+};
 
 /**
  * `POST /sessions/tools/mend`: fills Fleet's copy of the mod and restarts the Job's agent so it loads it. Answers the record once the
  * restart is under way; `tools_missing` stays until the new process's `init` replaces it. 422 `fleet.session_tools_unmendable` for a
  * terminal Job, 422 `fleet.session_mod_not_filled` (the script's words), 409 `fleet.session_closed`, 422 `fleet.no_such_session`.
  */
-export type MendSessionTools = { session_id: string };
+export type MendSessionTools = {
+  session_id: string;
+};
 
 /** `POST /sessions/resume`: takes a slot again at the branch tip, or waits for one (`hosted.paused.resuming`). The kept turns go once it holds a slot again. Only a person resumes. Since 23.92. */
-export type ResumeSession = { session_id: string };
+export type ResumeSession = {
+  session_id: string;
+};
 
 /** `POST /sessions/start_again`: sends again the turns a Job's process would not start for. Answers the `SessionRecord`. */
-export type StartAgain = { session_id: string };
+export type StartAgain = {
+  session_id: string;
+};
 
 /**
  * `POST /sessions/auto_land`: Auto land on or off for a hosted Job. Answers the `SessionRecord`, whose `auto_land` reads the flag.
  * The flag changes first, so a 409 `fleet.auto_merge_refused` (the forge's words) leaves it set; 422 `fleet.session_command_refused` for a terminal or ended Job leaves it as it was.
  */
-export type SetSessionAutoLand = { id: string; on: boolean };
+export type SetSessionAutoLand = {
+  id: string;
+  on: boolean;
+};
 
 /** The marker on a paused hosted Session. Not a state: `state` stays `live`. Since 23.92. */
-export type SessionPaused = { at: string; resuming: boolean };
+export type SessionPaused = {
+  at: string;
+  resuming: boolean;
+};
 
 /**
  * `POST /sessions/workflow`: the person picked the Session's workflow in a panel, or cleared it. Since 23.91.
@@ -209,20 +281,34 @@ export type SetSessionWorkflow = {
  * `POST /sessions/step-skip`: the person skipped a step of the Session's workflow, or undid it with `skipped` false.
  * Answers the `SessionRecord`, whose `skipped_steps` reads it; skipping the current step moves `workflow_step` past it. Refused for the last, delivering step.
  */
-export type SkipSessionStep = { session_id: string; step: number; skipped: boolean };
+export type SkipSessionStep = {
+  session_id: string;
+  step: number;
+  skipped: boolean;
+};
 
 /**
  * `POST /sessions/step-jump`: the person moved the Session straight to a step to come, `step` counted from zero as `workflow_step`.
  * Fleet skips every step from the current one up to the one before it. Answers the `SessionRecord`.
  * Refused with `fleet.session_step_not_ahead` for a step at or before the current one, or past the last.
  */
-export type JumpSessionStep = { session_id: string; step: number };
+export type JumpSessionStep = {
+  session_id: string;
+  step: number;
+};
 
 /** `POST /sessions/release_holds`: give back the slots, branches, pull requests, Jobs and needs a Session holds, or hand them to `to_session_id`. `rows` absent is every one. */
-export type ReleaseSessionHolds = { session_id: string; to_session_id?: string; rows?: ChosenHold[] };
+export type ReleaseSessionHolds = {
+  session_id: string;
+  to_session_id?: string;
+  rows?: ChosenHold[];
+};
 
 /** One row the person ticked: its kind and target as the ledger names them. */
-export type ChosenHold = { kind: string; target: string };
+export type ChosenHold = {
+  kind: string;
+  target: string;
+};
 
 /** What `release_session_holds` moved, and what stayed with why. */
 export type SessionHoldsReleased = {
@@ -232,15 +318,31 @@ export type SessionHoldsReleased = {
 };
 
 /** One row given back or handed over. `released` is a slot's branch and what was committed to it. */
-export type HoldMoved = { kind: string; target: string; released?: SlotReleased };
+export type HoldMoved = {
+  kind: string;
+  target: string;
+  released?: SlotReleased;
+};
 
 /** One row that stayed the Session's. */
-export type HoldKept = { kind: string; target: string; why: string };
+export type HoldKept = {
+  kind: string;
+  target: string;
+  why: string;
+};
 
 /** A turn running, or none. A message from another session starts one, so `working` may have no author. */
 export type SessionTurn =
-  | { state: "idle" }
-  | { state: "working"; woken_by?: { id: string; title: string } };
+  | {
+      state: "idle";
+    }
+  | {
+      state: "working";
+      woken_by?: {
+        id: string;
+        title: string;
+      };
+    };
 
 /** What a hosted session carries beyond a terminal's row. */
 export type HostedFacts = {
@@ -272,7 +374,10 @@ export type HostedFacts = {
 };
 
 /** Why a Job's process would not start. `log` is the last lines the agent wrote to its error output, oldest first; empty is omitted. */
-export type StartFailed = { cause: string; log?: string[] };
+export type StartFailed = {
+  cause: string;
+  log?: string[];
+};
 
 /** A Job that waits on its start card: the person settles it and presses Start. */
 export type StartHeld = {
@@ -290,7 +395,10 @@ export type StartHeld = {
 };
 
 /** A landing the start card has ready, and where it came from. */
-export type DeliveryPicked = { choice: DeliveryChoice; from: DeliveryPickedFrom };
+export type DeliveryPicked = {
+  choice: DeliveryChoice;
+  from: DeliveryPickedFrom;
+};
 
 /** `usual`: what the person most often picks for this kind of work in this repository. `named`: the first message says how it lands. `default`: neither, so Fleet picked Auto land; Bridge marks only the other two. */
 export type DeliveryPickedFrom = "usual" | "named" | "default";
@@ -310,12 +418,24 @@ export type BeginSession = {
 
 /** Who said a row. Another session that wrote to this one is named. */
 export type SessionVoice =
-  | { kind: "you" }
-  | { kind: "agent" }
-  | { kind: "session"; id: string; title: string };
+  | {
+      kind: "you";
+    }
+  | {
+      kind: "agent";
+    }
+  | {
+      kind: "session";
+      id: string;
+      title: string;
+    };
 
 /** A file or picture a message carried, kept by Fleet. `get_session_file` serves it. */
-export type SentFile = { id: string; name: string; media_type: string };
+export type SentFile = {
+  id: string;
+  name: string;
+  media_type: string;
+};
 
 export type SessionAskState =
   | "waiting"
@@ -350,10 +470,18 @@ export type PartialRetroItem = {
 };
 
 /** The `retro` row of a hosted Session's thread. Since 23.78. */
-export type RetroRow = Extract<SessionRow, { kind: "retro" }>;
+export type RetroRow = Extract<
+  SessionRow,
+  {
+    kind: "retro";
+  }
+>;
 
 /** Where a failed check's log says it failed: a path relative to the slot, and its 1-based line where the log names one. */
-export type CheckBlame = { path: string; line?: number };
+export type CheckBlame = {
+  path: string;
+  line?: number;
+};
 
 /**
  * The subagent an `Agent` call started, foreground or background. `id` is its ledger attachment's, which
@@ -399,35 +527,93 @@ export type SessionRow =
       tags?: SessionTag[];
     }
   /** A tool call, one line. `subagent` where the call is an `Agent` call whose subagent started. */
-  | { kind: "tool"; id: string; at: string; text: string; subagent?: ToolSubagent }
+  | {
+      kind: "tool";
+      id: string;
+      at: string;
+      text: string;
+      subagent?: ToolSubagent;
+    }
   /** A command the person ran in the terminal, as typed, with no output. Since 23.56. */
-  | { kind: "command"; id: string; at: string; text: string }
+  | {
+      kind: "command";
+      id: string;
+      at: string;
+      text: string;
+    }
   /** The summary the CLI wrote where it compacted the conversation. Not the person's words. Since 23.56. */
-  | { kind: "compaction"; id: string; at: string; text: string }
+  | {
+      kind: "compaction";
+      id: string;
+      at: string;
+      text: string;
+    }
   /**
    * The agent disputed a notice Fleet sent it. `notice` is the id of Fleet's `message` row; `why` is the agent's reason.
    * `spotted` is `called` where the agent said so itself, `read` where Fleet read it from the agent's replies after
    * 10 minutes. `review` is the review Job's session id; absent where no review was started.
    */
-  | { kind: "disputed"; id: string; at: string; notice: string; why: string; spotted: "called" | "read"; review?: string }
+  | {
+      kind: "disputed";
+      id: string;
+      at: string;
+      notice: string;
+      why: string;
+      spotted: "called" | "read";
+      review?: string;
+    }
   /** The agent reached for a browser outside Bridge, as its mod told: `tool` as the person reads it, such as `cmux` or `Playwright`, and the address without its query, fragment or sign-in. */
-  | { kind: "browser_reminder"; id: string; at: string; tool: string; address?: string }
+  | {
+      kind: "browser_reminder";
+      id: string;
+      at: string;
+      tool: string;
+      address?: string;
+    }
   /** The first write: the slot leased and the branch cut. */
-  | { kind: "lease"; id: string; at: string; slot: number; branch: string }
+  | {
+      kind: "lease";
+      id: string;
+      at: string;
+      slot: number;
+      branch: string;
+    }
   /** The slot given back, with the branch it was on. */
-  | { kind: "release"; id: string; at: string; slot: number; branch: string }
+  | {
+      kind: "release";
+      id: string;
+      at: string;
+      slot: number;
+      branch: string;
+    }
   /**
    * An `armada check` the agent ran in its slot, replaced by id as it ends. `run` is the id `GET /sessions/checks/:run/output` reads. Since 23.75.
    * `target` is what the run was narrowed to, the filter it was given or the crates `--changed` narrowed to; absent, it ran whole.
    * `blame` is where a failed run's log says it failed, read by Fleet as the run ends; absent while running, on a pass, and where the log names no file.
    */
-  | { kind: "check"; id: string; at: string; name: string; run: number; state: "running" | "passed" | "failed"; target?: string; blame?: CheckBlame }
+  | {
+      kind: "check";
+      id: string;
+      at: string;
+      name: string;
+      run: number;
+      state: "running" | "passed" | "failed";
+      target?: string;
+      blame?: CheckBlame;
+    }
   /**
    * A command the person ran from the thread or the Needs-you band, ended, and what the Session was told of it, in place
    * of a message from Fleet. `code` is absent where the run was stopped or a signal ended it; `tail` is the last lines it
    * printed as plain text, the same the agent was sent. Since 23.89.
    */
-  | { kind: "ran"; id: string; at: string; command: string; code?: number; tail: string }
+  | {
+      kind: "ran";
+      id: string;
+      at: string;
+      command: string;
+      code?: number;
+      tail: string;
+    }
   /**
    * An HTTP request sent from Requests by the owner with this Job open, or by the Job's agent, and how it
    * was answered. The request half is whole, so a row reopens to edit and send again: `url` and `headers` as sent, filled.
@@ -454,7 +640,15 @@ export type SessionRow =
    * A request the Job's agent saved into a collection with `save_request_to_collection`. `collection_id` and `request` are
    * the ids Requests opens it by; `name` and `collection` are what the row says. Since Requests.
    */
-  | { kind: "saved"; id: string; at: string; name: string; collection: string; collection_id: string; request: string }
+  | {
+      kind: "saved";
+      id: string;
+      at: string;
+      name: string;
+      collection: string;
+      collection_id: string;
+      request: string;
+    }
   /**
    * A Session's retro being written, replaced by id as it goes and kept when done. `items` settle while
    * the model writes (`stage` `writing`) and are empty otherwise; `retro` is the kept retro's number for
@@ -497,19 +691,51 @@ export type SessionRow =
    * This session's agent started a session, or forked its own conversation into one, when the person
    * asked it to. Written in the starting session's thread; `session` is the new one.
    */
-  | { kind: "started"; id: string; at: string; session: { id: string; title: string }; fork: boolean }
+  | {
+      kind: "started";
+      id: string;
+      at: string;
+      session: {
+        id: string;
+        title: string;
+      };
+      fork: boolean;
+    }
   /**
    * A Session this one follows needs the person, ended, or had a pull request merged. Written in the followed
    * Session's parent's thread where it happened, and the parent's agent is told the same moment; `session` is the linked one.
    */
-  | { kind: "linked"; id: string; at: string; session: { id: string; title: string }; event: LinkedEvent }
+  | {
+      kind: "linked";
+      id: string;
+      at: string;
+      session: {
+        id: string;
+        title: string;
+      };
+      event: LinkedEvent;
+    }
   /**
    * A Session waits on this one, its condition changed, or it started. Written in this Session's thread (`side` absent,
    * `session` the one that waits), and in the waiting Session's thread where the condition changed (`side` `waiting`,
    * `session` the one it waits on). `says` is what the waiting Session needs or where it started from; `from` and `to` are
    * the condition as it was and as it is, and `by` who changed it.
    */
-  | { kind: "waiter"; id: string; at: string; session: { id: string; title: string }; event: WaiterEvent; side?: WaiterSide; says?: string; from?: string; to?: string; by?: WaitBy }
+  | {
+      kind: "waiter";
+      id: string;
+      at: string;
+      session: {
+        id: string;
+        title: string;
+      };
+      event: WaiterEvent;
+      side?: WaiterSide;
+      says?: string;
+      from?: string;
+      to?: string;
+      by?: WaitBy;
+    }
   /**
    * A question the session asked in its walk window, `ask_in_window`. `window` is the address it was
    * asked in. **Replaced by id once answered**, with `answer` set to what the person chose and said.
@@ -529,30 +755,67 @@ export type SessionRow =
    * is the draft in markdown, `before` the text it replaces. **Replaced by id once settled**, with `settled` saying how. `change` names the
    * workflow change a proposed workflow is: Approve saves it, Dismiss drops it, `text` is its definition.
    */
-  | { kind: "draft"; id: string; at: string; title: string; text: string; before?: string; settled?: DraftSettled; change?: number }
+  | {
+      kind: "draft";
+      id: string;
+      at: string;
+      title: string;
+      text: string;
+      before?: string;
+      settled?: DraftSettled;
+      change?: number;
+    }
   /** A call put to the person. Replaced as it is answered. */
-  | { kind: "ask"; id: string; at: string; ask: HelmCallInFlight; state: SessionAskState; via?: string }
+  | {
+      kind: "ask";
+      id: string;
+      at: string;
+      ask: HelmCallInFlight;
+      state: SessionAskState;
+      via?: string;
+    }
   /**
    * The agent recorded a plan, or recorded it again. The plan is `SessionRecord.plan`; this row is where
    * in the thread it was recorded.
    */
-  | { kind: "plan"; id: string; at: string; version: number }
+  | {
+      kind: "plan";
+      id: string;
+      at: string;
+      version: number;
+    }
   /**
    * What the person sent the agent against a version of the plan, as Fleet worded it. The plan does not
    * change until the agent records it again. `approved`: the plan was approved with them.
    */
-  | { kind: "plan_changes"; id: string; at: string; version: number; approved?: boolean; lines: PlanChangeLine[] }
+  | {
+      kind: "plan_changes";
+      id: string;
+      at: string;
+      version: number;
+      approved?: boolean;
+      lines: PlanChangeLine[];
+    }
   /**
    * How the Job's work is delivered. Replaced as the owner answers; `named` is set where the first message
    * already said and nothing was asked. `choice` is absent while the question stands.
    */
-  | { kind: "delivery"; id: string; at: string; choice?: DeliveryChoice; named?: boolean };
+  | {
+      kind: "delivery";
+      id: string;
+      at: string;
+      choice?: DeliveryChoice;
+      named?: boolean;
+    };
 
 /** What happens to a Job's work once it is done: open a pull request and merge it, stop at the pull request, or stop at the local commit. */
 export type DeliveryChoice = "auto_land" | "open_pr" | "keep_local";
 
 /** `get_session`: the row and its thread, oldest first. */
-export type SessionThread = { session: SessionRecord; rows: SessionRow[] };
+export type SessionThread = {
+  session: SessionRecord;
+  rows: SessionRow[];
+};
 
 /** `get_session_subagent`: one subagent's own thread. A client reads it again while the subagent runs. */
 export type SessionSubagent = {
@@ -567,4 +830,7 @@ export type SessionSubagent = {
 };
 
 /** `session.row`: one row appended, or replaced where `row.id` is held. */
-export type SessionRowChanged = { session_id: string; row: SessionRow };
+export type SessionRowChanged = {
+  session_id: string;
+  row: SessionRow;
+};

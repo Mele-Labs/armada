@@ -11,7 +11,20 @@ import { WiredStore } from "../sessions-wired";
 
 const AT = "2026-10-16T09:00:00Z";
 
-const FEATURE = { id: "feature", name: "Feature", version: 1, manifest_id: "armada", steps: [{ step_id: "plan", label: "Plan", checks: [], judge_checks: [] }] } as unknown as WorkflowSummary;
+const FEATURE = {
+  id: "feature",
+  name: "Feature",
+  version: 1,
+  manifest_id: "armada",
+  steps: [
+    {
+      step_id: "plan",
+      label: "Plan",
+      checks: [],
+      judge_checks: [],
+    },
+  ],
+} as unknown as WorkflowSummary;
 
 const record = (change: Partial<SessionRecord> = {}): SessionRecord => ({
   id: "s1",
@@ -24,26 +37,74 @@ const record = (change: Partial<SessionRecord> = {}): SessionRecord => ({
   last_seen_at: AT,
   usage: {},
   attachments: [],
-  hosted: { turn: { state: "idle" }, mode: "auto", running: false },
+  hosted: {
+    turn: {
+      state: "idle",
+    },
+    mode: "auto",
+    running: false,
+  },
   workflow: "feature",
-  proposal: { picked: ["workflow", "model", "effort"] },
-  plan: { version: 3, recorded_at: AT, summary: "", approved: false, scope: [], groups: [{ id: "g1", agent: "rust-engineer", title: "Retry", paths: [], lands_in: { label: "PR 1" }, tasks: [{ id: "t1", text: "Back off", state: "open" }] }] },
+  proposal: {
+    picked: [
+      "workflow",
+      "model",
+      "effort",
+    ],
+  },
+  plan: {
+    version: 3,
+    recorded_at: AT,
+    summary: "",
+    approved: false,
+    scope: [],
+    groups: [
+      {
+        id: "g1",
+        agent: "rust-engineer",
+        title: "Retry",
+        paths: [],
+        lands_in: {
+          label: "PR 1",
+        },
+        tasks: [
+          {
+            id: "t1",
+            text: "Back off",
+            state: "open",
+          },
+        ],
+      },
+    ],
+  },
   ...change,
 });
 
-const ok = { ok: true, value: {} };
+const ok = {
+  ok: true,
+  value: {},
+};
 
 // The store reads its queued ideas from the window's storage and listens for another window writing them; none is queued here.
 beforeEach(() => {
   vi.stubGlobal("window", {
-    localStorage: { getItem: () => null, setItem: () => undefined, removeItem: () => undefined },
+    localStorage: {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => undefined,
+    },
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
   });
 });
 afterEach(() => vi.unstubAllGlobals());
 
-function held(sessions: SessionRecord[] = [record()], settings: unknown = null) {
+function held(
+  sessions: SessionRecord[] = [
+    record(),
+  ],
+  settings: unknown = null,
+) {
   const api = {
     approvePlan: vi.fn(async () => ok),
     sendPlanChanges: vi.fn(async () => ok),
@@ -55,13 +116,35 @@ function held(sessions: SessionRecord[] = [record()], settings: unknown = null) 
   };
   const state = {
     ...NOTHING_YET,
-    sessions: { state: "read", sessions },
-    holds: { ...NOTHING_YET.holds, workflows: [FEATURE], manifests: [], models: null, repositories: [] },
+    sessions: {
+      state: "read",
+      sessions,
+    },
+    holds: {
+      ...NOTHING_YET.holds,
+      workflows: [
+        FEATURE,
+      ],
+      manifests: [],
+      models: null,
+      repositories: [],
+    },
     settings,
   } as unknown as BridgeState;
-  const store = new WiredStore({ ...api, syncState: async () => ({ full: state, seq: 0 }), subscribeChanges: () => () => undefined } as unknown as BridgeApi);
+  const store = new WiredStore({
+    ...api,
+    syncState: async () => ({
+      full: state,
+      seq: 0,
+    }),
+    subscribeChanges: () => () => undefined,
+  } as unknown as BridgeApi);
   const stop = store.attach();
-  return { api, store, stop };
+  return {
+    api,
+    store,
+    stop,
+  };
 }
 
 const ready = async (sessions?: SessionRecord[], settings?: unknown) => {
@@ -74,25 +157,74 @@ describe("a Session's plan, over Fleet", () => {
   it("approves the version he read", async () => {
     const { api, store, stop } = await ready();
     store.draft.work!.approve("s1");
-    expect(api.approvePlan).toHaveBeenCalledWith({ session_id: "s1", version: 3 });
+    expect(api.approvePlan).toHaveBeenCalledWith({
+      session_id: "s1",
+      version: 3,
+    });
     stop();
   });
 
   it("sends his marks as Fleet takes them, and approves with them when asked", async () => {
     const { api, store, stop } = await ready();
-    store.draft.work!.suggest("s1", [{ kind: "add", group: "g1", task: "t-new-1", id: "t-new-1", text: "Log it" }, { kind: "agent", group: "g1", from: "rust-engineer", to: "general-purpose" }]);
+    store.draft.work!.suggest("s1", [
+      {
+        kind: "add",
+        group: "g1",
+        task: "t-new-1",
+        id: "t-new-1",
+        text: "Log it",
+      },
+      {
+        kind: "agent",
+        group: "g1",
+        from: "rust-engineer",
+        to: "general-purpose",
+      },
+    ]);
     expect(api.sendPlanChanges).toHaveBeenLastCalledWith({
       session_id: "s1",
       version: 3,
-      marks: [{ kind: "add_task", group: "g1", id: "t-new-1", text: "Log it" }, { kind: "subagent", group: "g1", from: "rust-engineer", to: "general-purpose" }],
+      marks: [
+        {
+          kind: "add_task",
+          group: "g1",
+          id: "t-new-1",
+          text: "Log it",
+        },
+        {
+          kind: "subagent",
+          group: "g1",
+          from: "rust-engineer",
+          to: "general-purpose",
+        },
+      ],
     });
-    store.draft.work!.suggest("s1", [{ kind: "note", id: "n1", group: "g1", text: "Why?" }], true);
-    expect(api.sendPlanChanges).toHaveBeenLastCalledWith(expect.objectContaining({ approve: true }));
+    store.draft.work!.suggest(
+      "s1",
+      [
+        {
+          kind: "note",
+          id: "n1",
+          group: "g1",
+          text: "Why?",
+        },
+      ],
+      true,
+    );
+    expect(api.sendPlanChanges).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        approve: true,
+      }),
+    );
     stop();
   });
 
   it("sends nothing for a Session with no plan", async () => {
-    const { api, store, stop } = await ready([record({ plan: undefined })]);
+    const { api, store, stop } = await ready([
+      record({
+        plan: undefined,
+      }),
+    ]);
     store.draft.work!.approve("s1");
     store.draft.work!.suggest("s1", []);
     expect(api.approvePlan).not.toHaveBeenCalled();
@@ -102,12 +234,20 @@ describe("a Session's plan, over Fleet", () => {
 });
 
 describe("a Judge, over Fleet", () => {
-  const artifact = { kind: "plan" as const, id: "3", title: "Plan v3" };
+  const artifact = {
+    kind: "plan" as const,
+    id: "3",
+    title: "Plan v3",
+  };
 
   it("asks for a reading of an artifact of the Job, with what to verify", async () => {
     const { api, store, stop } = await ready();
     store.draft.judge!.ask("s1", artifact, "tokens survive");
-    expect(api.askJudge).toHaveBeenCalledWith({ session_id: "s1", artifact, prompt: "tokens survive" });
+    expect(api.askJudge).toHaveBeenCalledWith({
+      session_id: "s1",
+      artifact,
+      prompt: "tokens survive",
+    });
     stop();
   });
 
@@ -116,16 +256,43 @@ describe("a Judge, over Fleet", () => {
     store.draft.judge!.send("s1", "r1", "n1");
     store.draft.judge!.dismiss("s1", "r1", "n2");
     store.draft.judge!.markRead("s1", "r1");
-    expect(api.sendJudgeNote).toHaveBeenCalledWith({ session_id: "s1", reading: "r1", note: "n1" });
-    expect(api.dismissJudgeNote).toHaveBeenCalledWith({ session_id: "s1", reading: "r1", note: "n2" });
-    expect(api.markJudgeRead).toHaveBeenCalledWith({ session_id: "s1", reading: "r1" });
+    expect(api.sendJudgeNote).toHaveBeenCalledWith({
+      session_id: "s1",
+      reading: "r1",
+      note: "n1",
+    });
+    expect(api.dismissJudgeNote).toHaveBeenCalledWith({
+      session_id: "s1",
+      reading: "r1",
+      note: "n2",
+    });
+    expect(api.markJudgeRead).toHaveBeenCalledWith({
+      session_id: "s1",
+      reading: "r1",
+    });
     stop();
   });
 
   it("draws a Job's readings from its record", async () => {
-    const reading = { id: "r1", artifact, prompt: "", state: "done" as const, asked_at: "2026-10-26T13:00:00Z", read: false, notes: [] };
-    const { store, stop } = await ready([record({ judge_readings: [reading] })]);
-    expect(store.draft.get()[0]!.judgeReadings).toEqual([reading]);
+    const reading = {
+      id: "r1",
+      artifact,
+      prompt: "",
+      state: "done" as const,
+      asked_at: "2026-10-26T13:00:00Z",
+      read: false,
+      notes: [],
+    };
+    const { store, stop } = await ready([
+      record({
+        judge_readings: [
+          reading,
+        ],
+      }),
+    ]);
+    expect(store.draft.get()[0]!.judgeReadings).toEqual([
+      reading,
+    ]);
     stop();
   });
 });
@@ -134,7 +301,16 @@ describe("the workflow and the proposer's picks, over Fleet", () => {
   it("lists Fleet's workflows by id, the same array until Fleet's list changes", async () => {
     const { store, stop } = await ready();
     const first = store.draft.work!.workflows;
-    expect(first).toEqual([{ id: "feature", name: "Feature", steps: ["Plan"], manifestId: "armada" }]);
+    expect(first).toEqual([
+      {
+        id: "feature",
+        name: "Feature",
+        steps: [
+          "Plan",
+        ],
+        manifestId: "armada",
+      },
+    ]);
     expect(store.draft.work!.workflows).toBe(first);
     stop();
   });
@@ -150,25 +326,65 @@ describe("the workflow and the proposer's picks, over Fleet", () => {
 
   it("marks the picks until he changes one, and a workflow he sets loses its mark at once", async () => {
     const { store, stop } = await ready();
-    expect(store.draft.get()[0]?.work?.proposal?.picked).toEqual(["workflow", "model", "effort"]);
+    expect(store.draft.get()[0]?.work?.proposal?.picked).toEqual([
+      "workflow",
+      "model",
+      "effort",
+    ]);
     store.draft.work!.unpick("s1", "model");
-    expect(store.draft.get()[0]?.work?.proposal?.picked).toEqual(["workflow", "effort"]);
+    expect(store.draft.get()[0]?.work?.proposal?.picked).toEqual([
+      "workflow",
+      "effort",
+    ]);
     store.draft.work!.choose("s1", "feature");
-    expect(store.draft.get()[0]?.work?.proposal?.picked).toEqual(["effort"]);
+    expect(store.draft.get()[0]?.work?.proposal?.picked).toEqual([
+      "effort",
+    ]);
     stop();
   });
 
   it("takes a value he changed off the timeline into the thread, and ignores the rest", async () => {
-    const { store, stop } = await ready([record({ plan: undefined })]);
-    const change = { id: 4, at: "2026-10-16T09:05:00Z", kind: "session.model", subject: { kind: "session", id: "s1" }, tone: "idle", says: "model: opus → sonnet" } as TimelineEvent;
-    const noise = { id: 5, at: "2026-10-16T09:06:00Z", kind: "session.edited", subject: { kind: "session", id: "s1" }, tone: "run", says: "Edited 1 file" } as TimelineEvent;
+    const { store, stop } = await ready([
+      record({
+        plan: undefined,
+      }),
+    ]);
+    const change = {
+      id: 4,
+      at: "2026-10-16T09:05:00Z",
+      kind: "session.model",
+      subject: {
+        kind: "session",
+        id: "s1",
+      },
+      tone: "idle",
+      says: "model: opus → sonnet",
+    } as TimelineEvent;
+    const noise = {
+      id: 5,
+      at: "2026-10-16T09:06:00Z",
+      kind: "session.edited",
+      subject: {
+        kind: "session",
+        id: "s1",
+      },
+      tone: "run",
+      says: "Edited 1 file",
+    } as TimelineEvent;
     let heard = 0;
     const off = store.subscribe(() => (heard += 1));
-    store.setEvents([noise]);
+    store.setEvents([
+      noise,
+    ]);
     expect(heard).toBe(0);
-    store.setEvents([change, noise]);
+    store.setEvents([
+      change,
+      noise,
+    ]);
     expect(heard).toBe(1);
-    store.setEvents([change]);
+    store.setEvents([
+      change,
+    ]);
     expect(heard).toBe(1);
     off();
     stop();
@@ -176,11 +392,29 @@ describe("the workflow and the proposer's picks, over Fleet", () => {
 });
 
 describe("the setting that turns workflows off, over Fleet", () => {
-  const setting = (value: boolean) => ({ settings: [{ key: "features.workflows", value, saved: null }] });
+  const setting = (value: boolean) => ({
+    settings: [
+      {
+        key: "features.workflows",
+        value,
+        saved: null,
+      },
+    ],
+  });
 
   it("draws the rail while it is on, or Fleet has not said", async () => {
-    for (const settings of [null, setting(true)]) {
-      const { store, stop } = await ready([record({ workflow_step: 0 })], settings);
+    for (const settings of [
+      null,
+      setting(true),
+    ]) {
+      const { store, stop } = await ready(
+        [
+          record({
+            workflow_step: 0,
+          }),
+        ],
+        settings,
+      );
       expect(store.draft.get()[0]?.work?.workflow?.at).toBe(0);
       expect(store.draft.get()[0]?.work?.railOff).toBeUndefined();
       stop();
@@ -188,11 +422,21 @@ describe("the setting that turns workflows off, over Fleet", () => {
   });
 
   it("hides the steps, the picker and the proposer's mark for a workflow while it is off", async () => {
-    const { store, stop } = await ready([record({ workflow_step: 0 })], setting(false));
+    const { store, stop } = await ready(
+      [
+        record({
+          workflow_step: 0,
+        }),
+      ],
+      setting(false),
+    );
     const work = store.draft.get()[0]?.work;
     expect(work?.railOff).toBe(true);
     expect(work?.workflow).toBeUndefined();
-    expect(work?.proposal?.picked).toEqual(["model", "effort"]);
+    expect(work?.proposal?.picked).toEqual([
+      "model",
+      "effort",
+    ]);
     stop();
   });
 });

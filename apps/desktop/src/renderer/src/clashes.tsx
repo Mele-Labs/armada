@@ -17,9 +17,19 @@ export function clashingOf(clashes: readonly WriteClash[]): Clashing["of"] {
   return (kind, id) =>
     clashes.flatMap((clash) =>
       clash.one.kind === kind && clash.one.id === id
-        ? [{ with: clash.other, paths: clash.paths }]
+        ? [
+            {
+              with: clash.other,
+              paths: clash.paths,
+            },
+          ]
         : clash.other.kind === kind && clash.other.id === id
-          ? [{ with: clash.one, paths: clash.paths }]
+          ? [
+              {
+                with: clash.one,
+                paths: clash.paths,
+              },
+            ]
           : [],
     );
 }
@@ -31,13 +41,39 @@ const Written = createContext<readonly WriteClash[]>(NONE);
 export const useWriteClashes = (): readonly WriteClash[] => useContext(Written);
 
 /** Hands the window what Fleet said clashes. Nothing handed, nothing is marked. */
-export function ClashesFrom({ clashes, children }: { clashes: readonly WriteClash[] | undefined; children: ReactNode }) {
-  const value = useMemo<Clashing>(() => ({ of: clashingOf(clashes ?? []), open: askToOpenHolder }), [clashes]);
-  return clashes === undefined ? <>{children}</> : <Written.Provider value={clashes}><ClashesProvider value={value}>{children}</ClashesProvider></Written.Provider>;
+export function ClashesFrom({
+  clashes,
+  children,
+}: {
+  clashes: readonly WriteClash[] | undefined;
+  children: ReactNode;
+}) {
+  const value = useMemo<Clashing>(
+    () => ({
+      of: clashingOf(clashes ?? []),
+      open: askToOpenHolder,
+    }),
+    [
+      clashes,
+    ],
+  );
+  return clashes === undefined ? (
+    <>{children}</>
+  ) : (
+    <Written.Provider value={clashes}>
+      <ClashesProvider value={value}>{children}</ClashesProvider>
+    </Written.Provider>
+  );
 }
 
 /** The clashes Fleet reports, kept current by `source`. The provider is always there, so a read landing does not remount the app. */
-export function ClashesFromFleet({ source, children }: { source: ClashesSource; children: ReactNode }) {
+export function ClashesFromFleet({
+  source,
+  children,
+}: {
+  source: ClashesSource;
+  children: ReactNode;
+}) {
   const clashes = useSyncExternalStore(source.subscribe, source.get);
   return <ClashesFrom clashes={clashes}>{children}</ClashesFrom>;
 }

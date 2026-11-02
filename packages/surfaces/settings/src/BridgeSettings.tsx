@@ -8,7 +8,15 @@
 // **`BridgeSettings`, not `Settings`.** `./settings.tsx` is a Job's own — `SettingsSheet`, its caps
 // and its choices — and the two would collide by name and, on a case-insensitive filesystem, by file.
 
-import { Button, Card, CardContent, CardHeader, CardTitle, GuidesSetting, SettingsIndex } from "@armada/components";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  GuidesSetting,
+  SettingsIndex,
+} from "@armada/components";
 import type { Outcome, SaveSettings, SettingsList } from "@armada/protocol";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -52,7 +60,15 @@ export type BridgeSettingsProps = {
   onCopied?: (value: string) => void;
 };
 
-export function BridgeSettings({ settings, live, onSaveSettings, onOpenSettingsFile, onReadGuides, onOpenAccount, onCopied }: BridgeSettingsProps) {
+export function BridgeSettings({
+  settings,
+  live,
+  onSaveSettings,
+  onOpenSettingsFile,
+  onReadGuides,
+  onOpenAccount,
+  onCopied,
+}: BridgeSettingsProps) {
   const [chosen, setCurrent] = useSettingsSection();
   const asked = useSettingsAsked();
   const [query, setQuery] = useState("");
@@ -69,14 +85,30 @@ export function BridgeSettings({ settings, live, onSaveSettings, onOpenSettingsF
   }));
   // While a search is on, every group with a match, and in each only the sections holding one.
   const shown = searching
-    ? groups.flatMap((group) => group.sections.filter((section) => found(section) > 0).map((section) => ({ group, section })))
-    : (groups.find((one) => one.id === current)?.sections ?? []).map((section) => ({ group: undefined, section }));
+    ? groups.flatMap((group) =>
+        group.sections
+          .filter((section) => found(section) > 0)
+          .map((section) => ({
+            group,
+            section,
+          })),
+      )
+    : (groups.find((one) => one.id === current)?.sections ?? []).map((section) => ({
+        group: undefined,
+        section,
+      }));
 
   // The palette opened a section: its group is drawn, so scroll it into view.
   useEffect(() => {
     const wanted = takeSettingsFocus();
-    if (wanted !== null) document.getElementById(anchorOf(wanted))?.scrollIntoView({ block: "start" });
-  }, [asked, current]);
+    if (wanted !== null)
+      document.getElementById(anchorOf(wanted))?.scrollIntoView({
+        block: "start",
+      });
+  }, [
+    asked,
+    current,
+  ]);
 
   const card = (title: string, body: ReactNode) => (
     <Card>
@@ -88,22 +120,46 @@ export function BridgeSettings({ settings, live, onSaveSettings, onOpenSettingsF
   );
 
   const panes: Record<string, (title: string) => ReactNode> = {
-    phone: () => <PhoneSettings {...(onCopied === undefined ? {} : { onCopied })} />,
+    phone: () => (
+      <PhoneSettings
+        {...(onCopied === undefined
+          ? {}
+          : {
+              onCopied,
+            })}
+      />
+    ),
     theme: (title) => card(title, <ThemeSettings />),
     layout: (title) => card(title, <LayoutSettings />),
     time: (title) => card(title, <TimeSettings />),
     keyboard: (title) => card(title, <KeyboardSettings query={query} />),
-    guides: (title) => card(title, <GuidesSetting {...(onReadGuides === undefined ? {} : { onReadGuides })} />),
+    guides: (title) =>
+      card(
+        title,
+        <GuidesSetting
+          {...(onReadGuides === undefined
+            ? {}
+            : {
+                onReadGuides,
+              })}
+        />,
+      ),
   };
 
   /** One section under its heading: `Group › Section` while searching, since matches from several groups share the page. */
   const body = (section: SettingsSection, group: string | undefined): ReactNode => {
-    const title = group === undefined || group === section.label ? section.label : `${group} › ${section.label}`;
+    const title =
+      group === undefined || group === section.label
+        ? section.label
+        : `${group} › ${section.label}`;
     const own = panes[section.id];
     if (section.schema !== true && own !== undefined) return own(title);
     const all = settings === null ? null : settingsIn(settings, section.id);
-    const hits = all === null || !searching ? all : all.filter((one) => matches(wordsOf(one), query));
-    const schema = <SchemaSection label={title} settings={hits} live={live} onSave={onSaveSettings} />;
+    const hits =
+      all === null || !searching ? all : all.filter((one) => matches(wordsOf(one), query));
+    const schema = (
+      <SchemaSection label={title} settings={hits} live={live} onSave={onSaveSettings} />
+    );
     // The folder list is JSON, which the schema's form does not draw.
     if (section.id === "features") {
       return (
@@ -128,7 +184,13 @@ export function BridgeSettings({ settings, live, onSaveSettings, onOpenSettingsF
 
   return (
     <div className="armada-screen__pane">
-      <SettingsIndex sections={counted} current={current} onSection={setCurrent} query={query} onQuery={setQuery}>
+      <SettingsIndex
+        sections={counted}
+        current={current}
+        onSection={setCurrent}
+        query={query}
+        onQuery={setQuery}
+      >
         <SettingsFile settings={settings} onOpen={onOpenSettingsFile} />
         {shown.map(({ group, section }) => (
           <div key={section.id} id={anchorOf(section.id)}>

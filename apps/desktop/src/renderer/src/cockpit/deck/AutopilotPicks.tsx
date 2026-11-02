@@ -20,23 +20,43 @@ function useIssues(on: readonly Autopilot[]): ReadonlyMap<string, IssueList> {
     if (typeof window.armada?.listIssues !== "function") return;
     let current = true;
     for (const one of on) {
-      void window.armada.listIssues(one.manifest_id, false).then((read) => current && read.ok && setLists((was) => new Map(was).set(one.manifest_id, read.value)));
+      void window.armada
+        .listIssues(one.manifest_id, false)
+        .then(
+          (read) =>
+            current && read.ok && setLists((was) => new Map(was).set(one.manifest_id, read.value)),
+        );
     }
     return () => {
       current = false;
     };
-  }, [asked]);
+  }, [
+    asked,
+  ]);
   return lists;
 }
 
 /** The lists of each Autopilot that is on. A refusal is said by `onRefused`. */
-export function AutopilotPicks({ on, state, onRefused }: { on: readonly Autopilot[]; state: BridgeState; onRefused: (why: string) => void }) {
+export function AutopilotPicks({
+  on,
+  state,
+  onRefused,
+}: {
+  on: readonly Autopilot[];
+  state: BridgeState;
+  onRefused: (why: string) => void;
+}) {
   const issues = useIssues(on);
   const [pending, setPending] = useState<SidingPress>();
-  const nameOf = (manifest: string) => state.holds.repositories?.find((one) => one.manifest?.id === manifest)?.manifest?.repository ?? manifest;
+  const nameOf = (manifest: string) =>
+    state.holds.repositories?.find((one) => one.manifest?.id === manifest)?.manifest?.repository ??
+    manifest;
 
   const press = async (manifest: string, pick: AutopilotPick, which: "run" | "dismiss") => {
-    setPending({ pickId: pick.pick_id, act: which });
+    setPending({
+      pickId: pick.pick_id,
+      act: which,
+    });
     const send = which === "run" ? window.armada.dispatchSetAside : window.armada.dismissSetAside;
     const answer = await send(manifest, pick.pick_id);
     setPending(undefined);
@@ -50,5 +70,12 @@ export function AutopilotPicks({ on, state, onRefused }: { on: readonly Autopilo
     nextUp: nextUpOf(autopilot, issues.get(autopilot.manifest_id)),
     asides: setAsideOf(autopilot),
   }));
-  return <AutopilotSidings sidings={sidings} pending={pending} onRun={(manifest, pick) => void press(manifest, pick, "run")} onDismiss={(manifest, pick) => void press(manifest, pick, "dismiss")} />;
+  return (
+    <AutopilotSidings
+      sidings={sidings}
+      pending={pending}
+      onRun={(manifest, pick) => void press(manifest, pick, "run")}
+      onDismiss={(manifest, pick) => void press(manifest, pick, "dismiss")}
+    />
+  );
 }

@@ -21,13 +21,30 @@ export type PaletteMemory = {
 
 export const PALETTE_KEY = "armada.bridge.palette";
 
-const EMPTY: PaletteMemory = { pinned: [], recent: [], opens: "pinned", aliases: {}, hotkeys: {} };
+const EMPTY: PaletteMemory = {
+  pinned: [],
+  recent: [],
+  opens: "pinned",
+  aliases: {},
+  hotkeys: {},
+};
 const RECENT_KEPT = 6;
 
 const words = (value: unknown): value is string => typeof value === "string" && value !== "";
 const listOf = (value: unknown): string[] => (Array.isArray(value) ? value.filter(words) : []);
 const mapOf = (value: unknown): Record<string, string> =>
-  value !== null && typeof value === "object" && !Array.isArray(value) ? Object.fromEntries(Object.entries(value).filter((one): one is [string, string] => words(one[1]))) : {};
+  value !== null && typeof value === "object" && !Array.isArray(value)
+    ? Object.fromEntries(
+        Object.entries(value).filter(
+          (
+            one,
+          ): one is [
+            string,
+            string,
+          ] => words(one[1]),
+        ),
+      )
+    : {};
 
 /** What was stored, a part at a time: a part that is not whole is the default and leaves the rest alone. */
 function readStored(): PaletteMemory {
@@ -36,7 +53,13 @@ function readStored(): PaletteMemory {
     if (raw === null || typeof raw !== "object") return EMPTY;
     const stored = raw as Record<string, unknown>;
     const opens = PALETTE_OPENS.find((one) => one.id === stored.opens)?.id ?? EMPTY.opens;
-    return { pinned: listOf(stored.pinned), recent: listOf(stored.recent).slice(0, RECENT_KEPT), opens, aliases: mapOf(stored.aliases), hotkeys: mapOf(stored.hotkeys) };
+    return {
+      pinned: listOf(stored.pinned),
+      recent: listOf(stored.recent).slice(0, RECENT_KEPT),
+      opens,
+      aliases: mapOf(stored.aliases),
+      hotkeys: mapOf(stored.hotkeys),
+    };
   } catch {
     return EMPTY;
   }
@@ -71,60 +94,115 @@ export function forgetPaletteMemory(): void {
 }
 
 export function usePaletteMemory(): PaletteMemory {
-  return useSyncExternalStore(
-    (on) => {
-      listeners.add(on);
-      const heard = (event: StorageEvent) => event.key === PALETTE_KEY && forgetPaletteMemory();
-      window.addEventListener("storage", heard);
-      return () => {
-        listeners.delete(on);
-        window.removeEventListener("storage", heard);
-      };
-    },
-    paletteMemory,
-  );
+  return useSyncExternalStore((on) => {
+    listeners.add(on);
+    const heard = (event: StorageEvent) => event.key === PALETTE_KEY && forgetPaletteMemory();
+    window.addEventListener("storage", heard);
+    return () => {
+      listeners.delete(on);
+      window.removeEventListener("storage", heard);
+    };
+  }, paletteMemory);
 }
 
 /** A mock window starts with what its scenario says was pinned and opened, or with nothing. Never written: the storage is the Mac's. */
 export function seedPaletteMemory(seed?: Partial<PaletteMemory>): void {
-  held = { ...EMPTY, ...seed };
+  held = {
+    ...EMPTY,
+    ...seed,
+  };
   notify();
 }
 
 export const togglePin = (id: string): void => {
   const was = paletteMemory();
-  set({ ...was, pinned: was.pinned.includes(id) ? was.pinned.filter((one) => one !== id) : [...was.pinned, id] });
+  set({
+    ...was,
+    pinned: was.pinned.includes(id)
+      ? was.pinned.filter((one) => one !== id)
+      : [
+          ...was.pinned,
+          id,
+        ],
+  });
 };
 
 /** The row that was opened or run goes to the head of Recent. */
 export const remember = (id: string): void => {
   const was = paletteMemory();
-  set({ ...was, recent: [id, ...was.recent.filter((one) => one !== id)].slice(0, RECENT_KEPT) });
+  set({
+    ...was,
+    recent: [
+      id,
+      ...was.recent.filter((one) => one !== id),
+    ].slice(0, RECENT_KEPT),
+  });
 };
 
 /** What the empty query shows, chosen in Settings. */
-export const setOpens = (opens: PaletteOpens): void => set({ ...paletteMemory(), opens });
+export const setOpens = (opens: PaletteOpens): void =>
+  set({
+    ...paletteMemory(),
+    opens,
+  });
 
-const without = (from: Readonly<Record<string, string>>, id: string): Record<string, string> => Object.fromEntries(Object.entries(from).filter(([key]) => key !== id));
+const without = (from: Readonly<Record<string, string>>, id: string): Record<string, string> =>
+  Object.fromEntries(Object.entries(from).filter(([key]) => key !== id));
 
 /** The word that finds a row. Nothing, or only spaces, lets it go. */
 export const setAlias = (id: string, alias: string): void => {
   const was = paletteMemory();
   const word = alias.trim();
-  set({ ...was, aliases: word === "" ? without(was.aliases, id) : { ...was.aliases, [id]: word } });
+  set({
+    ...was,
+    aliases:
+      word === ""
+        ? without(was.aliases, id)
+        : {
+            ...was.aliases,
+            [id]: word,
+          },
+  });
 };
 
 /** The key that opens a row. Nothing lets it go. */
 export const setHotkey = (id: string, chord: string): void => {
   const was = paletteMemory();
-  set({ ...was, hotkeys: chord === "" ? without(was.hotkeys, id) : { ...was.hotkeys, [id]: chord } });
+  set({
+    ...was,
+    hotkeys:
+      chord === ""
+        ? without(was.hotkeys, id)
+        : {
+            ...was.hotkeys,
+            [id]: chord,
+          },
+  });
 };
 
-const PREFIX: Partial<Record<PaletteChoice["of"], string>> = { session: "session", pull: "pull", issue: "issue", task: "task", command: "cmd", surface: "nav", setting: "set" };
+const PREFIX: Partial<Record<PaletteChoice["of"], string>> = {
+  session: "session",
+  pull: "pull",
+  issue: "issue",
+  task: "task",
+  command: "cmd",
+  surface: "nav",
+  setting: "set",
+};
 
 /** The id of the row a choice was made on, for the kinds Recent keeps. */
 export function rowOf(choice: PaletteChoice): string | undefined {
-  if (choice.of === "on") return ["pin", "unpin", "alias", "remove-alias", "hotkey", "remove-hotkey"].includes(choice.action) ? undefined : choice.target;
+  if (choice.of === "on")
+    return [
+      "pin",
+      "unpin",
+      "alias",
+      "remove-alias",
+      "hotkey",
+      "remove-hotkey",
+    ].includes(choice.action)
+      ? undefined
+      : choice.target;
   const prefix = PREFIX[choice.of];
   return prefix === undefined || !("id" in choice) ? undefined : `${prefix}:${choice.id}`;
 }

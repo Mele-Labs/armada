@@ -10,7 +10,13 @@ export const territory: Slice<TerritoryApi, Record<string, never>> = {
   name: "territory",
   state: {},
   api: () => ({
-    getRepositoryAreas: async () => ({ ok: false, outcome: unanswered("/repository_areas") }),
-    getSlotTouches: async () => ({ ok: false, outcome: unanswered("/slot_touches") }),
+    getRepositoryAreas: async () => ({
+      ok: false,
+      outcome: unanswered("/repository_areas"),
+    }),
+    getSlotTouches: async () => ({
+      ok: false,
+      outcome: unanswered("/slot_touches"),
+    }),
   }),
 };

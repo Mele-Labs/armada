@@ -11,18 +11,60 @@ const hud = dialog("What Autopilot answered");
 const answer = (job: string) => inside(hud, role("group", job));
 
 const autopilotBack = walk("autopilot-back", [
-  { later: hardware, say: "Autopilot is running, and ten minutes pass with nobody at the window" },
-  { press: deckRow("Friday lunch"), say: "The first press asks. It does not open the Job under it" },
-  { press: inside(asking, button("Keep it on")), say: "Keep it on, and Autopilot runs on. Turn it off would do the same here" },
-  { look: hud, say: "Everything it answered that he has not reviewed: the Job, what was asked, what it chose and why, and when. The keys are in the list" },
-  { key: "Enter", on: answer("Friday lunch"), say: "Enter agrees with the row under the cursor, and it leaves the list" },
-  { key: "t", on: answer("Reconnect fix"), say: "t opens a box on the row to change the answer" },
-  { type: "feat\n", into: inside(hud, role("textbox", "Change")), say: "Enter sends the Job his words, and the row leaves" },
-  { key: "o", on: answer("Release notes"), say: "o opens the Job the answer was given in" },
-  { key: "Escape", on: region("Job: Release notes"), say: "Esc is Back, and it comes to the row he left" },
-  { look: answer("Release notes"), say: "Same row, same place. A landed pull request has no Job, so it offers only Agree" },
-  { key: "Escape", on: hud, say: "Esc puts the list away" },
-  { look: inside(hardware, button("What Autopilot answered")), say: "The lamp on the switch's plate stays lit while an answer waits. Pressing it opens the list again" },
+  {
+    later: hardware,
+    say: "Autopilot is running, and ten minutes pass with nobody at the window",
+  },
+  {
+    press: deckRow("Friday lunch"),
+    say: "The first press asks. It does not open the Job under it",
+  },
+  {
+    press: inside(asking, button("Keep it on")),
+    say: "Keep it on, and Autopilot runs on. Turn it off would do the same here",
+  },
+  {
+    look: hud,
+    say: "Everything it answered that he has not reviewed: the Job, what was asked, what it chose and why, and when. The keys are in the list",
+  },
+  {
+    key: "Enter",
+    on: answer("Friday lunch"),
+    say: "Enter agrees with the row under the cursor, and it leaves the list",
+  },
+  {
+    key: "t",
+    on: answer("Reconnect fix"),
+    say: "t opens a box on the row to change the answer",
+  },
+  {
+    type: "feat\n",
+    into: inside(hud, role("textbox", "Change")),
+    say: "Enter sends the Job his words, and the row leaves",
+  },
+  {
+    key: "o",
+    on: answer("Release notes"),
+    say: "o opens the Job the answer was given in",
+  },
+  {
+    key: "Escape",
+    on: region("Job: Release notes"),
+    say: "Esc is Back, and it comes to the row he left",
+  },
+  {
+    look: answer("Release notes"),
+    say: "Same row, same place. A landed pull request has no Job, so it offers only Agree",
+  },
+  {
+    key: "Escape",
+    on: hud,
+    say: "Esc puts the list away",
+  },
+  {
+    look: inside(hardware, button("What Autopilot answered")),
+    say: "The lamp on the switch's plate stays lit while an answer waits. Pressing it opens the list again",
+  },
 ]);
 
 export { autopilotBack as "autopilot-back" };

@@ -6,18 +6,54 @@ import { button, inside, place, region, role, text, walk } from "../walk";
 const PROPOSAL = region("Proposal");
 
 const logbookOrganize = walk("logbook-organize", [
-  { press: place("Logbook"), say: "The Logbook" },
-  { look: button("Organize"), say: "Organize replaces Tidy, with three looks through the entries" },
-  { press: button("Organize"), say: "Open the menu, or press O" },
-  { press: role("menuitem", "Merge duplicates"), say: "Near-duplicate entries, folded into the one confirmed most. Fleet starts the look at once and the button waits while it runs" },
-  { look: inside(PROPOSAL, button("Apply all")), say: "The result stays on the page until it is applied or dismissed, also after leaving the tab. Each card names the entry it keeps and the ones it replaces, with Apply for that card and Apply all for the lot" },
-  { press: button("Organize"), say: "Next look" },
-  { press: role("menuitem", "Find stale entries"), say: "Entries no recent Job has confirmed or tripped" },
-  { look: inside(PROPOSAL, button("Archive all")), say: "Stale entries, each with when it was last confirmed" },
-  { press: button("Organize"), say: "Last look" },
-  { press: role("menuitem", "Find Armada bugs"), say: "Entries that work around a fault in Armada itself" },
-  { look: inside(PROPOSAL, button("Report all")), say: "Each names the fault, so it can be fixed at the source" },
-  { look: inside(PROPOSAL, text(/start_server/)), say: "A finding he does not want is dismissed with its own Dismiss" },
+  {
+    press: place("Logbook"),
+    say: "The Logbook",
+  },
+  {
+    look: button("Organize"),
+    say: "Organize replaces Tidy, with three looks through the entries",
+  },
+  {
+    press: button("Organize"),
+    say: "Open the menu, or press O",
+  },
+  {
+    press: role("menuitem", "Merge duplicates"),
+    say: "Near-duplicate entries, folded into the one confirmed most. Fleet starts the look at once and the button waits while it runs",
+  },
+  {
+    look: inside(PROPOSAL, button("Apply all")),
+    say: "The result stays on the page until it is applied or dismissed, also after leaving the tab. Each card names the entry it keeps and the ones it replaces, with Apply for that card and Apply all for the lot",
+  },
+  {
+    press: button("Organize"),
+    say: "Next look",
+  },
+  {
+    press: role("menuitem", "Find stale entries"),
+    say: "Entries no recent Job has confirmed or tripped",
+  },
+  {
+    look: inside(PROPOSAL, button("Archive all")),
+    say: "Stale entries, each with when it was last confirmed",
+  },
+  {
+    press: button("Organize"),
+    say: "Last look",
+  },
+  {
+    press: role("menuitem", "Find Armada bugs"),
+    say: "Entries that work around a fault in Armada itself",
+  },
+  {
+    look: inside(PROPOSAL, button("Report all")),
+    say: "Each names the fault, so it can be fixed at the source",
+  },
+  {
+    look: inside(PROPOSAL, text(/start_server/)),
+    say: "A finding he does not want is dismissed with its own Dismiss",
+  },
 ]);
 
 export { logbookOrganize as "logbook-organize" };

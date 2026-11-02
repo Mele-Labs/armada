@@ -5,7 +5,16 @@
 
 import { useEffect, type ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
-import { Alert, Button, Card, CardContent, CardHeader, CardTitle, Skeleton, Tooltip } from "@armada/components";
+import {
+  Alert,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Skeleton,
+  Tooltip,
+} from "@armada/components";
 
 import type { ChangeSlotPool, HeldWorktrees, Outcome, RescueSlot } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
@@ -47,7 +56,14 @@ export type WorktreesProps = {
   onRescueSlot?: (manifestId: string, rescue: RescueSlot) => Promise<RescueOutcome>;
 };
 
-const PENDING_BAYS = [0, 1, 2, 3, 4, 5];
+const PENDING_BAYS = [
+  0,
+  1,
+  2,
+  3,
+  4,
+  5,
+];
 
 /** How often the pool is read again while a Scout reads a slot, so its files arrive as it goes. */
 const RESCUE_READ_MS = 1_000;
@@ -74,7 +90,9 @@ export function Worktrees({
     if (!scouting) return;
     const timer = setInterval(() => onWant(true), RESCUE_READ_MS);
     return () => clearInterval(timer);
-  }, [scouting]);
+  }, [
+    scouting,
+  ]);
 
   /** The way out, in the strip of the first panel in every state — #1090 moved it here from the
    *  page head that used to carry it. The caller's bulk sweeps sit beside it. */
@@ -152,8 +170,16 @@ export function Worktrees({
         slots={held.held.slots ?? []}
         now={now}
         onCopied={onCopied}
-        {...(onChangeSlotPool === undefined ? {} : { onChange: onChangeSlotPool })}
-        {...(onRescueSlot === undefined ? {} : { onRescue: onRescueSlot })}
+        {...(onChangeSlotPool === undefined
+          ? {}
+          : {
+              onChange: onChangeSlotPool,
+            })}
+        {...(onRescueSlot === undefined
+          ? {}
+          : {
+              onRescue: onRescueSlot,
+            })}
       />
     </div>
   );

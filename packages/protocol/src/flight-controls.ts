@@ -51,8 +51,14 @@ export type FlightControls = {
  * `not_read` with why, and is never drawn as the defaults.
  */
 export type FlightControlsRead =
-  | { what: "read"; controls: FlightControls }
-  | { what: "not_read"; why: string };
+  | {
+      what: "read";
+      controls: FlightControls;
+    }
+  | {
+      what: "not_read";
+      why: string;
+    };
 
 /**
  * `get_repository_flight_controls` (`GET /repositories/flight_controls?repository=&session_id=`), and
@@ -127,7 +133,11 @@ export type SaveRepositoryFlightControls = {
  * `fleet.tile_not_approved` whose `fields` carry `repository`, `tile_id`, `command` (the repository's) and
  * `command_hash`, and a 422 `fleet.tile_not_in_repository` for an id the repository does not hold.
  */
-export type RunSessionShell = { session_id: string; command: string; repository_tile?: RepositoryTile };
+export type RunSessionShell = {
+  session_id: string;
+  command: string;
+  repository_tile?: RepositoryTile;
+};
 
 /** `run_session_shell`, answered 200. */
 export type SessionShellRan = {

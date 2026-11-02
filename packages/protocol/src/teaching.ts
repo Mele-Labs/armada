@@ -15,7 +15,17 @@ import type { Outcome } from "./reads";
 export type TeachingReach = "repository" | "everywhere";
 
 /** What Teach was pressed on. `panel`, `row` and `title_bar` are Bridge's own interface, where no agent was in the room. */
-export type TeachingSourceKind = "words" | "command" | "notice" | "task" | "check" | "pull_request" | "ticket" | "panel" | "row" | "title_bar";
+export type TeachingSourceKind =
+  | "words"
+  | "command"
+  | "notice"
+  | "task"
+  | "check"
+  | "pull_request"
+  | "ticket"
+  | "panel"
+  | "row"
+  | "title_bar";
 
 /** The thing Teach was pressed on, as a short text and the ids that name it. */
 export type TeachingSource = {
@@ -201,13 +211,39 @@ export type WordRule = {
 };
 
 /** `list_word_rules`' answer (`GET /teachings/words?repository=&session_id=`): the patterns that have an address for the repository asked for. */
-export type WordRules = { rules: WordRule[] };
+export type WordRules = {
+  rules: WordRule[];
+};
 
 /** Bridge's envelope over `read_teaching`: the proposal, or why it could not be read. */
-export type TeachingRead = { ok: true; value: TeachingProposal } | { ok: false; outcome: Outcome };
+export type TeachingRead =
+  | {
+      ok: true;
+      value: TeachingProposal;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** Bridge's envelope over `save_teaching`: what was kept, or the refusal. */
-export type TeachingSaved = { ok: true; value: SavedTeaching } | { ok: false; outcome: Outcome };
+export type TeachingSaved =
+  | {
+      ok: true;
+      value: SavedTeaching;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** Bridge's envelope over `list_word_rules`: the rules, or why they could not be read. */
-export type WordRulesRead = { ok: true; value: WordRules } | { ok: false; outcome: Outcome };
+export type WordRulesRead =
+  | {
+      ok: true;
+      value: WordRules;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };

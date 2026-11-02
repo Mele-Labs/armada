@@ -7,10 +7,21 @@ import { HandoffBand } from "./HandoffBand";
 const meta: Meta<typeof HandoffBand> = {
   title: "Compositions/Handoff band",
   component: HandoffBand,
-  args: { onDismiss: fn(), onRetry: fn(), onDispatch: fn() },
+  args: {
+    onDismiss: fn(),
+    onRetry: fn(),
+    onDispatch: fn(),
+  },
   decorators: [
     (Story) => (
-      <div className="armada-session-frame__centre" style={{ position: "relative", marginBlockStart: "calc(var(--space-12) * 3)", width: "calc(var(--space-12) * 10)" }}>
+      <div
+        className="armada-session-frame__centre"
+        style={{
+          position: "relative",
+          marginBlockStart: "calc(var(--space-12) * 3)",
+          width: "calc(var(--space-12) * 10)",
+        }}
+      >
         <Story />
         <textarea aria-label="Message" />
       </div>
@@ -21,7 +32,11 @@ export default meta;
 
 type Story = StoryObj<typeof HandoffBand>;
 
-export const WithReason: Story = { args: { reason: "old job did not end: the close was refused" } };
+export const WithReason: Story = {
+  args: {
+    reason: "old job did not end: the close was refused",
+  },
+};
 
 /** Where Fleet recorded no reason the band says only that it failed. */
 export const WithoutReason: Story = {};

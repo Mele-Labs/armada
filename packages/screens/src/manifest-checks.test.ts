@@ -4,73 +4,291 @@ import type { CheckoutRunRecord, CheckoutRunSheet } from "@armada/protocol";
 
 import { askerOf, checkDetailsOf, checkEntriesOf, checkRowOf } from "./manifest-checks";
 
-const entry = (name: string) => ({ name, run: name, narrows: false, requires: [], expect_exit_code: 0, destructive: false, frozen: true });
+const entry = (name: string) => ({
+  name,
+  run: name,
+  narrows: false,
+  requires: [],
+  expect_exit_code: 0,
+  destructive: false,
+  frozen: true,
+});
 
 function ran(name: string, at: string, over: Partial<CheckoutRunRecord> = {}): CheckoutRunRecord {
   return {
-    id: `crun_${name}`, name, command: name, required: [], started_at: at, ended_at: at, duration_ms: 2000,
-    exit_code: 0, expect_exit_code: 0, ended: "exited 0", stopped: false, changed: [], undoable: false, log: "x", ...over,
+    id: `crun_${name}`,
+    name,
+    command: name,
+    required: [],
+    started_at: at,
+    ended_at: at,
+    duration_ms: 2000,
+    exit_code: 0,
+    expect_exit_code: 0,
+    ended: "exited 0",
+    stopped: false,
+    changed: [],
+    undoable: false,
+    log: "x",
+    ...over,
   };
 }
 
 const sheet: CheckoutRunSheet = {
-  setup: [entry("bootstrap")],
-  checks: [entry("build"), entry("test"), entry("format")],
-  commands: [entry("fmt")],
-  running: { id: "crun_test", name: "test", command: "test", started_at: "2026-10-06T14:00:00Z" },
+  setup: [
+    entry("bootstrap"),
+  ],
+  checks: [
+    entry("build"),
+    entry("test"),
+    entry("format"),
+  ],
+  commands: [
+    entry("fmt"),
+  ],
+  running: {
+    id: "crun_test",
+    name: "test",
+    command: "test",
+    started_at: "2026-10-06T14:00:00Z",
+  },
   verify: {
     id: "v",
     started_at: "2026-10-06T13:59:00Z",
     steps: [
-      { group: "checks", name: "test", run: "test", state: "running", run_id: "crun_test" },
-      { group: "checks", name: "format", run: "format", state: "waiting" },
+      {
+        group: "checks",
+        name: "test",
+        run: "test",
+        state: "running",
+        run_id: "crun_test",
+      },
+      {
+        group: "checks",
+        name: "format",
+        run: "format",
+        state: "waiting",
+      },
     ],
   },
 };
 
 test("Checks are listed by when each was requested, and a Command or Setup entry is not", () => {
-  const runs = [ran("fmt", "2026-10-06T14:05:00Z"), ran("build", "2026-10-06T13:00:00Z"), ran("bootstrap", "2026-10-06T12:00:00Z"), ran("build", "2026-10-06T13:30:00Z", { id: "crun_build2", exit_code: 1 })];
+  const runs = [
+    ran("fmt", "2026-10-06T14:05:00Z"),
+    ran("build", "2026-10-06T13:00:00Z"),
+    ran("bootstrap", "2026-10-06T12:00:00Z"),
+    ran("build", "2026-10-06T13:30:00Z", {
+      id: "crun_build2",
+      exit_code: 1,
+    }),
+  ];
   const rows = checkEntriesOf(sheet, runs).map((one) => checkRowOf(one));
-  expect(rows.map((one) => [one.name, one.status])).toEqual([
-    ["test", "running"],
-    ["format", "waiting"],
-    ["build", "failed"],
-    ["build", "passed"],
+  expect(
+    rows.map((one) => [
+      one.name,
+      one.status,
+    ]),
+  ).toEqual([
+    [
+      "test",
+      "running",
+    ],
+    [
+      "format",
+      "waiting",
+    ],
+    [
+      "build",
+      "failed",
+    ],
+    [
+      "build",
+      "passed",
+    ],
   ]);
 });
 
 test("a Check nobody asked for has no row", () => {
-  expect(checkEntriesOf({ ...sheet, running: undefined, verify: undefined }, [])).toEqual([]);
+  expect(
+    checkEntriesOf(
+      {
+        ...sheet,
+        running: undefined,
+        verify: undefined,
+      },
+      [],
+    ),
+  ).toEqual([]);
 });
 
 test("a stopped run is stopped, and a run with no exit code says what ended it", () => {
-  const [one] = checkEntriesOf({ ...sheet, running: undefined, verify: undefined }, [ran("build", "2026-10-06T13:00:00Z", { exit_code: undefined, stopped: true, ended: "stopped" })]);
+  const [one] = checkEntriesOf(
+    {
+      ...sheet,
+      running: undefined,
+      verify: undefined,
+    },
+    [
+      ran("build", "2026-10-06T13:00:00Z", {
+        exit_code: undefined,
+        stopped: true,
+        ended: "stopped",
+      }),
+    ],
+  );
   expect(checkRowOf(one!).status).toBe("stopped");
   expect(checkDetailsOf(one!).map((fact) => fact.label)).toContain("Ended by");
 });
 
 test("only the merge line opens its requester, and the rest are plain words", () => {
-  expect(askerOf({ kind: "session", session_id: "s1", slot: 2 })).toEqual({ label: "Job" });
-  expect(askerOf({ kind: "merge_line", branch: "b" })).toEqual({ label: "Merge line · b", opens: { to: "merge-line", branch: "b" } });
-  expect(askerOf({ kind: "outside" })).toEqual({ label: "Started outside a Job" });
+  expect(
+    askerOf({
+      kind: "session",
+      session_id: "s1",
+      slot: 2,
+    }),
+  ).toEqual({
+    label: "Job",
+  });
+  expect(
+    askerOf({
+      kind: "merge_line",
+      branch: "b",
+    }),
+  ).toEqual({
+    label: "Merge line · b",
+    opens: {
+      to: "merge-line",
+      branch: "b",
+    },
+  });
+  expect(
+    askerOf({
+      kind: "outside",
+    }),
+  ).toEqual({
+    label: "Started outside a Job",
+  });
 });
 
 test("the checkout's runs and the merge line's Checks sort newest request first in one list", () => {
-  const line = { root: "/r", line: [{ branch: "b", place: 1, state: "gating", checks: [{ name: "lint", state: "running", started_at: "2026-10-06T14:00:30Z", requester: { kind: "merge_line", branch: "b" } }, { name: "slow", state: "waiting", requester: { kind: "merge_line", branch: "b" } }] }], off: [], landed: [], sent_back: [] };
-  const rows = checkEntriesOf(sheet, [ran("build", "2026-10-06T13:30:00Z")], [line]).map((one) => checkRowOf(one));
+  const line = {
+    root: "/r",
+    line: [
+      {
+        branch: "b",
+        place: 1,
+        state: "gating",
+        checks: [
+          {
+            name: "lint",
+            state: "running",
+            started_at: "2026-10-06T14:00:30Z",
+            requester: {
+              kind: "merge_line",
+              branch: "b",
+            },
+          },
+          {
+            name: "slow",
+            state: "waiting",
+            requester: {
+              kind: "merge_line",
+              branch: "b",
+            },
+          },
+        ],
+      },
+    ],
+    off: [],
+    landed: [],
+    sent_back: [],
+  };
+  const rows = checkEntriesOf(
+    sheet,
+    [
+      ran("build", "2026-10-06T13:30:00Z"),
+    ],
+    [
+      line,
+    ],
+  ).map((one) => checkRowOf(one));
   // The line's waiting Check takes its turn's start.
-  expect(rows.map((one) => [one.name, one.by, one.says])).toEqual([
-    ["lint", "Merge line · b", "running"],
-    ["slow", "Merge line · b", "waiting"],
-    ["test", "Started outside a Job", "running"],
-    ["format", "Started outside a Job", "waiting"],
-    ["build", "Started outside a Job", "passed"],
+  expect(
+    rows.map((one) => [
+      one.name,
+      one.by,
+      one.says,
+    ]),
+  ).toEqual([
+    [
+      "lint",
+      "Merge line · b",
+      "running",
+    ],
+    [
+      "slow",
+      "Merge line · b",
+      "waiting",
+    ],
+    [
+      "test",
+      "Started outside a Job",
+      "running",
+    ],
+    [
+      "format",
+      "Started outside a Job",
+      "waiting",
+    ],
+    [
+      "build",
+      "Started outside a Job",
+      "passed",
+    ],
   ]);
 });
 
 test("a merge line Check is a row with the line's requester and the names its log is asked by", () => {
-  const line = { root: "/r", line: [{ branch: "b", place: 1, state: "gating", checks: [{ name: "test", state: "timed_out", requester: { kind: "merge_line", branch: "b" } }] }], off: [], landed: [], sent_back: [] };
-  const [one] = checkEntriesOf(undefined, [], [line]);
-  expect(one?.land).toEqual({ root: "/r", branch: "b", check: "test" });
-  expect(checkRowOf(one!)).toMatchObject({ status: "failed", says: "timed out", by: "Merge line · b" });
+  const line = {
+    root: "/r",
+    line: [
+      {
+        branch: "b",
+        place: 1,
+        state: "gating",
+        checks: [
+          {
+            name: "test",
+            state: "timed_out",
+            requester: {
+              kind: "merge_line",
+              branch: "b",
+            },
+          },
+        ],
+      },
+    ],
+    off: [],
+    landed: [],
+    sent_back: [],
+  };
+  const [one] = checkEntriesOf(
+    undefined,
+    [],
+    [
+      line,
+    ],
+  );
+  expect(one?.land).toEqual({
+    root: "/r",
+    branch: "b",
+    check: "test",
+  });
+  expect(checkRowOf(one!)).toMatchObject({
+    status: "failed",
+    says: "timed out",
+    by: "Merge line · b",
+  });
 });

@@ -12,27 +12,101 @@ import { PAUSE_KEY } from "./session-tiles";
 import { toggleField, useRowView, viewEntries, viewFieldOf } from "./row-view";
 
 /** `viewOnly`: no Job is under the press (a pull request's row, or the list's empty room), so the menu is the View group alone. */
-export type RowMenuAt = { id: string; root: string; title: string; x: number; y: number; row: HTMLElement | null; viewOnly?: true };
+export type RowMenuAt = {
+  id: string;
+  root: string;
+  title: string;
+  x: number;
+  y: number;
+  row: HTMLElement | null;
+  viewOnly?: true;
+};
 
-export function RowMenu({ at, onClose, onKeep, onAutopilot }: { at: RowMenuAt | undefined; onClose: () => void; onKeep?: (at: RowMenuAt) => void; onAutopilot: (root: string) => void }) {
+export function RowMenu({
+  at,
+  onClose,
+  onKeep,
+  onAutopilot,
+}: {
+  at: RowMenuAt | undefined;
+  onClose: () => void;
+  onKeep?: (at: RowMenuAt) => void;
+  onAutopilot: (root: string) => void;
+}) {
   const draft = useSessionsDraft();
   const teach = useTeachBridge();
   const paused = useSessions().find((one) => one.id === at?.id)?.paused === true;
   const view = useRowView();
   if (at === undefined) return null;
   const acts: DropdownMenuEntry[] = [
-    ...(draft?.pause === undefined ? [] : [{ kind: "item" as const, id: "pause", label: paused ? "Resume" : "Pause", shortcut: PAUSE_KEY, icon: paused ? Play : CirclePause }]),
-    { kind: "item", id: "autopilot", label: "Auto Pilot", icon: Plane },
-    ...(draft?.nameForMe === undefined ? [] : [{ kind: "item" as const, id: "name", label: "Name it for me", icon: WandSparkles }]),
-    ...(teach === undefined ? [] : [{ kind: "item" as const, id: "teach", label: "Teach", icon: GraduationCap }]),
-    ...(draft?.close === undefined ? [] : [{ kind: "item" as const, id: "close", label: "Close", danger: true, icon: X }]),
+    ...(draft?.pause === undefined
+      ? []
+      : [
+          {
+            kind: "item" as const,
+            id: "pause",
+            label: paused ? "Resume" : "Pause",
+            shortcut: PAUSE_KEY,
+            icon: paused ? Play : CirclePause,
+          },
+        ]),
+    {
+      kind: "item",
+      id: "autopilot",
+      label: "Auto Pilot",
+      icon: Plane,
+    },
+    ...(draft?.nameForMe === undefined
+      ? []
+      : [
+          {
+            kind: "item" as const,
+            id: "name",
+            label: "Name it for me",
+            icon: WandSparkles,
+          },
+        ]),
+    ...(teach === undefined
+      ? []
+      : [
+          {
+            kind: "item" as const,
+            id: "teach",
+            label: "Teach",
+            icon: GraduationCap,
+          },
+        ]),
+    ...(draft?.close === undefined
+      ? []
+      : [
+          {
+            kind: "item" as const,
+            id: "close",
+            label: "Close",
+            danger: true,
+            icon: X,
+          },
+        ]),
   ];
   // The View group (`row-view.tsx`) comes after the Job's own acts, and is all of the menu where no Job is under the press.
-  const entries: DropdownMenuEntry[] = at.viewOnly === true ? viewEntries(view) : [...acts, { kind: "separator", id: "view-rule" }, ...viewEntries(view)];
+  const entries: DropdownMenuEntry[] =
+    at.viewOnly === true
+      ? viewEntries(view)
+      : [
+          ...acts,
+          {
+            kind: "separator",
+            id: "view-rule",
+          },
+          ...viewEntries(view),
+        ];
   return (
     <DropdownMenu
       triggerLabel="Job"
-      at={{ x: at.x, y: at.y }}
+      at={{
+        x: at.x,
+        y: at.y,
+      }}
       open
       entries={entries}
       onOpenChange={(open) => {
@@ -42,7 +116,7 @@ export function RowMenu({ at, onClose, onKeep, onAutopilot }: { at: RowMenuAt | 
       }}
       onSelect={(chosen) => {
         const field = viewFieldOf(chosen);
-        if (field !== undefined) return toggleField(field), onKeep?.(at);
+        if (field !== undefined) return (toggleField(field), onKeep?.(at));
         if (chosen === "pause") void toggleSessionPause(draft, at.id, paused);
         if (chosen === "autopilot") onAutopilot(at.root);
         if (chosen === "name") void draft?.nameForMe?.(at.id);

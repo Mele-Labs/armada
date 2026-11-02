@@ -4,30 +4,87 @@
 
 import { button, dialog, inside, region, role, text, toSystemPage, walk } from "../walk";
 
-const MARK = (kind: string, said: string) => inside(region(kind), role("img", said, { exact: true }));
+const MARK = (kind: string, said: string) =>
+  inside(
+    region(kind),
+    role("img", said, {
+      exact: true,
+    }),
+  );
 
 const sharedHome = walk("shared-home", [
   ...toSystemPage("Kit", "Kit"),
-  { look: region("Skills"), say: "A long list scrolls inside its tile" },
-  { look: text("nickmele"), say: "The GitHub account the home belongs to, and Sync beside it" },
-  { hover: text("nickmele"), say: "The home" },
-  { look: MARK("Skills", "Same as the home"), say: "The skills match: a mark that recedes" },
+  {
+    look: region("Skills"),
+    say: "A long list scrolls inside its tile",
+  },
+  {
+    look: text("nickmele"),
+    say: "The GitHub account the home belongs to, and Sync beside it",
+  },
+  {
+    hover: text("nickmele"),
+    say: "The home",
+  },
+  {
+    look: MARK("Skills", "Same as the home"),
+    say: "The skills match: a mark that recedes",
+  },
   ...toSystemPage("Servers", "Servers"),
-  { hover: MARK("Servers", "Needs its key on this machine"), say: "A server with no key on this machine" },
+  {
+    hover: MARK("Servers", "Needs its key on this machine"),
+    say: "A server with no key on this machine",
+  },
   ...toSystemPage("Allowlist", "Allowlist"),
-  { look: MARK("Allowlist", "Only on this machine"), say: "A command only this machine allows" },
-  { look: MARK("Allowlist", "Only in the home"), say: "A command only the home has" },
-  { press: inside(region("Allowlist"), button(/^gh run view/)), say: "gh run view, only in the home" },
-  { press: inside(region("Detail"), button("Add to this machine")), say: "Add to this machine" },
-  { look: MARK("Allowlist", "Same as the home"), say: "It settles to the same" },
+  {
+    look: MARK("Allowlist", "Only on this machine"),
+    say: "A command only this machine allows",
+  },
+  {
+    look: MARK("Allowlist", "Only in the home"),
+    say: "A command only the home has",
+  },
+  {
+    press: inside(region("Allowlist"), button(/^gh run view/)),
+    say: "gh run view, only in the home",
+  },
+  {
+    press: inside(region("Detail"), button("Add to this machine")),
+    say: "Add to this machine",
+  },
+  {
+    look: MARK("Allowlist", "Same as the home"),
+    say: "It settles to the same",
+  },
   ...toSystemPage("Instructions", "Instructions"),
-  { press: MARK("Instructions", "Differs from the home"), say: "The global instructions differ" },
-  { press: inside(region("Detail"), button("Compare with the home")), say: "Open both versions" },
-  { look: inside(dialog("AGENTS.md"), region("This machine")), say: "This machine's version" },
-  { look: inside(dialog("AGENTS.md"), region("The home")), say: "The home's, with the lines that differ lit on each side" },
-  { press: inside(dialog("AGENTS.md"), button(/^Use the home.s$/)), say: "Pick a side" },
-  { look: MARK("Instructions", "Same as the home"), say: "The row is the same" },
-  { press: button("Sync"), say: "Sync" },
+  {
+    press: MARK("Instructions", "Differs from the home"),
+    say: "The global instructions differ",
+  },
+  {
+    press: inside(region("Detail"), button("Compare with the home")),
+    say: "Open both versions",
+  },
+  {
+    look: inside(dialog("AGENTS.md"), region("This machine")),
+    say: "This machine's version",
+  },
+  {
+    look: inside(dialog("AGENTS.md"), region("The home")),
+    say: "The home's, with the lines that differ lit on each side",
+  },
+  {
+    press: inside(dialog("AGENTS.md"), button(/^Use the home.s$/)),
+    say: "Pick a side",
+  },
+  {
+    look: MARK("Instructions", "Same as the home"),
+    say: "The row is the same",
+  },
+  {
+    press: button("Sync"),
+    say: "Sync",
+  },
 ]);
 
 export { sharedHome as "shared-home" };

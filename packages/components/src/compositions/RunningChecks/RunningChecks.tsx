@@ -5,12 +5,24 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { StepActivityMark } from "../StepActivityMark/StepActivityMark";
 
 /** A Check the Session has out: its run on the Checks page, its key, what it was narrowed to, and the clock time it started. */
-export type RunningCheck = { run: number; name: string; target?: string; at: string };
+export type RunningCheck = {
+  run: number;
+  name: string;
+  target?: string;
+  at: string;
+};
 
 /** "14:23:10" or "14:23" as seconds into a day; undefined for anything else. */
 function clockSeconds(at: string): number | undefined {
   const [h, m, s] = at.split(":").map(Number);
-  if (h === undefined || m === undefined || Number.isNaN(h) || Number.isNaN(m) || Number.isNaN(s ?? 0)) return undefined;
+  if (
+    h === undefined ||
+    m === undefined ||
+    Number.isNaN(h) ||
+    Number.isNaN(m) ||
+    Number.isNaN(s ?? 0)
+  )
+    return undefined;
   return h * 3600 + m * 60 + (s ?? 0);
 }
 
@@ -29,14 +41,22 @@ export function ranFor(at: string, now: Date): string | undefined {
 const saidOf = (count: number): string => `${count} ${count === 1 ? "check" : "checks"} running`;
 
 /** The list's items, in the order drawn. */
-const itemsOf = (panel: HTMLElement | null): HTMLElement[] => [...(panel?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+const itemsOf = (panel: HTMLElement | null): HTMLElement[] => [
+  ...(panel?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []),
+];
 
 /**
  * The Checks a Session has out, in the header: the running glyph the thread's check rows wear and the count in mono, named
  * by its tooltip. **A press opens a list of them**, each with how long it has run, and a press on one opens that run.
  * ↑ and ↓ walk the list, Enter opens a Check, Esc closes it and returns focus to the mark. Nothing is drawn at none.
  */
-export function RunningChecks({ checks, onOpenCheck }: { checks: readonly RunningCheck[]; onOpenCheck?: (run: number) => void }) {
+export function RunningChecks({
+  checks,
+  onOpenCheck,
+}: {
+  checks: readonly RunningCheck[];
+  onOpenCheck?: (run: number) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const host = useRef<HTMLSpanElement>(null);
@@ -55,12 +75,16 @@ export function RunningChecks({ checks, onOpenCheck }: { checks: readonly Runnin
       clearInterval(tick);
       document.removeEventListener("pointerdown", outside);
     };
-  }, [open]);
+  }, [
+    open,
+  ]);
 
   // The last Check ending leaves nothing to list, so the list goes with the mark.
   useEffect(() => {
     if (checks.length === 0) setOpen(false);
-  }, [checks.length]);
+  }, [
+    checks.length,
+  ]);
 
   if (checks.length === 0) return null;
   const said = saidOf(checks.length);
@@ -77,7 +101,16 @@ export function RunningChecks({ checks, onOpenCheck }: { checks: readonly Runnin
     if (!open || panel.current?.contains(document.activeElement) !== true) return;
     const items = itemsOf(panel.current);
     const at = items.indexOf(document.activeElement as HTMLElement);
-    const to = event.key === "ArrowDown" ? (at + 1) % items.length : event.key === "ArrowUp" ? (at <= 0 ? items.length : at) - 1 : event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : null;
+    const to =
+      event.key === "ArrowDown"
+        ? (at + 1) % items.length
+        : event.key === "ArrowUp"
+          ? (at <= 0 ? items.length : at) - 1
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? items.length - 1
+              : null;
     if (to === null) return;
     event.preventDefault();
     items[to]?.focus();
@@ -86,7 +119,14 @@ export function RunningChecks({ checks, onOpenCheck }: { checks: readonly Runnin
   return (
     <span ref={host} className="armada-running-checks" onKeyDown={onKeyDown}>
       <Tooltip asChild label={said}>
-        <button type="button" className="armada-running-checks__mark" aria-label={said} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((on) => !on)}>
+        <button
+          type="button"
+          className="armada-running-checks__mark"
+          aria-label={said}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen((on) => !on)}
+        >
           <span className="armada-session-mark">
             <CircleDot size={16} strokeWidth={2} aria-hidden />
           </span>
@@ -109,7 +149,9 @@ export function RunningChecks({ checks, onOpenCheck }: { checks: readonly Runnin
             >
               <StepActivityMark activity="running" label="running" pulsing />
               <span className="armada-running-checks__name">{one.name}</span>
-              {one.target === undefined ? null : <span className="armada-running-checks__target">{one.target}</span>}
+              {one.target === undefined ? null : (
+                <span className="armada-running-checks__target">{one.target}</span>
+              )}
               <span className="armada-running-checks__ran">{ranFor(one.at, now)}</span>
             </button>
           ))}

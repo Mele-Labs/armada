@@ -13,19 +13,48 @@ import { saveSetting, useSetting } from "../../use-setting";
 import type { Subject } from "./ship";
 
 export const VIEW_FIELDS = [
-  { id: "pr", label: "Active PRs" },
-  { id: "issue", label: "Issues" },
-  { id: "now", label: "Now" },
-  { id: "time", label: "Time" },
-  { id: "conflicts", label: "Conflicts" },
-  { id: "status", label: "Status" },
-  { id: "workflow", label: "Workflow" },
+  {
+    id: "pr",
+    label: "Active PRs",
+  },
+  {
+    id: "issue",
+    label: "Issues",
+  },
+  {
+    id: "now",
+    label: "Now",
+  },
+  {
+    id: "time",
+    label: "Time",
+  },
+  {
+    id: "conflicts",
+    label: "Conflicts",
+  },
+  {
+    id: "status",
+    label: "Status",
+  },
+  {
+    id: "workflow",
+    label: "Workflow",
+  },
 ] as const;
 
 export type ViewField = (typeof VIEW_FIELDS)[number]["id"];
 export type RowView = Readonly<Record<ViewField, boolean>>;
 
-export const DEFAULT_VIEW: RowView = { pr: false, issue: false, now: false, time: false, conflicts: true, status: true, workflow: false };
+export const DEFAULT_VIEW: RowView = {
+  pr: false,
+  issue: false,
+  now: false,
+  time: false,
+  conflicts: true,
+  status: true,
+  workflow: false,
+};
 
 const KEY = "bridge.rowView";
 const listeners = new Set<() => void>();
@@ -36,7 +65,12 @@ let kept: RowView = DEFAULT_VIEW;
 const parse = (value: SettingValue | undefined): RowView => {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return DEFAULT_VIEW;
   const got = value as Partial<Record<ViewField, unknown>>;
-  return Object.fromEntries(VIEW_FIELDS.map(({ id }) => [id, typeof got[id] === "boolean" ? got[id] : DEFAULT_VIEW[id]])) as RowView;
+  return Object.fromEntries(
+    VIEW_FIELDS.map(({ id }) => [
+      id,
+      typeof got[id] === "boolean" ? got[id] : DEFAULT_VIEW[id],
+    ]),
+  ) as RowView;
 };
 
 const same = (a: RowView, b: RowView) => VIEW_FIELDS.every(({ id }) => a[id] === b[id]);
@@ -58,34 +92,70 @@ export function useRowView(): RowView {
   useEffect(() => {
     kept = parse(saved);
     hold(kept);
-  }, [saved]);
+  }, [
+    saved,
+  ]);
   return useSyncExternalStore(subscribe, () => held);
 }
 
 /** Drawn now and saved; a save Fleet refuses puts the choice back as Fleet has it. */
 export function toggleField(field: ViewField): void {
-  const next = { ...held, [field]: !held[field] };
+  const next = {
+    ...held,
+    [field]: !held[field],
+  };
   hold(next);
   void saveSetting(KEY, next).then((outcome) => outcome.ok || hold(kept));
 }
 
-const FIELD_OF = new Map<string, ViewField>(VIEW_FIELDS.map(({ id }) => [`view:${id}`, id]));
+const FIELD_OF = new Map<string, ViewField>(
+  VIEW_FIELDS.map(({ id }) => [
+    `view:${id}`,
+    id,
+  ]),
+);
 
 /** The pick a menu item makes, where it is one of the View group's. */
 export const viewFieldOf = (id: string): ViewField | undefined => FIELD_OF.get(id);
 
 /** The View group of the row menu: a heading and seven checkable items. */
 export const viewEntries = (view: RowView): DropdownMenuEntry[] => [
-  { kind: "label", id: "view" , label: "View" },
-  ...VIEW_FIELDS.map(({ id, label }): DropdownMenuEntry => ({ kind: "item", id: `view:${id}`, label, selected: view[id] })),
+  {
+    kind: "label",
+    id: "view",
+    label: "View",
+  },
+  ...VIEW_FIELDS.map(
+    ({ id, label }): DropdownMenuEntry => ({
+      kind: "item",
+      id: `view:${id}`,
+      label,
+      selected: view[id],
+    }),
+  ),
 ];
 
 /** Each place in the card's corner, its width in px and its order. The other fields are on the card's lines. The places are the same for every row, so none shifts. */
-const COLUMNS: readonly { field: "conflicts" | "status" | "tools" | "reported"; width: number }[] = [
-  { field: "conflicts", width: 16 },
-  { field: "tools", width: 16 },
-  { field: "reported", width: 16 },
-  { field: "status", width: 36 },
+const COLUMNS: readonly {
+  field: "conflicts" | "status" | "tools" | "reported";
+  width: number;
+}[] = [
+  {
+    field: "conflicts",
+    width: 16,
+  },
+  {
+    field: "tools",
+    width: 16,
+  },
+  {
+    field: "reported",
+    width: 16,
+  },
+  {
+    field: "status",
+    width: 36,
+  },
 ];
 /** The gap between columns, `--space-1`. */
 const GAP = 4;
@@ -96,13 +166,30 @@ const TITLE_GIVES = 96;
 
 /** The tools column is not a View field: it is kept while a row in the list has the mark, as the conflicts column is for the earlier-Job mark. */
 const columnsOn = (view: RowView, earlier: boolean, tools: boolean, reported: boolean) =>
-  COLUMNS.filter(({ field }) => (field === "conflicts" ? view.conflicts || earlier : field === "tools" ? tools : field === "reported" ? reported : view[field]));
+  COLUMNS.filter(({ field }) =>
+    field === "conflicts"
+      ? view.conflicts || earlier
+      : field === "tools"
+        ? tools
+        : field === "reported"
+          ? reported
+          : view[field],
+  );
 
 /**
  * The row's columns: the title, then each field that is on. The conflicts column is kept while a row in the list carries the earlier-Job mark, which stands in the same place.
  * `clashRight` is where that column's own mark sits from the row's trailing edge, since the mark is drawn over the row and not in it.
  */
-export function columnsOf(view: RowView, earlier: boolean, tools = false, reported = false): { clashRight: string; toolsRight: string; reportedRight: string } {
+export function columnsOf(
+  view: RowView,
+  earlier: boolean,
+  tools = false,
+  reported = false,
+): {
+  clashRight: string;
+  toolsRight: string;
+  reportedRight: string;
+} {
   const on = columnsOn(view, earlier, tools, reported);
   const after = on.slice(on.findIndex(({ field }) => field === "conflicts") + 1);
   // The tools mark is a button, so it too is drawn over the row, in its column's place.
@@ -123,31 +210,79 @@ export function restBonus(view: RowView, earlier: boolean, tools = false): numbe
   return Math.max(0, takes - DEFAULT_TAKES - TITLE_GIVES);
 }
 
-const issueOf = (session: Session | undefined) => session?.attachments.find((one) => one.kind === "issue");
+const issueOf = (session: Session | undefined) =>
+  session?.attachments.find((one) => one.kind === "issue");
 
 /** The step the Job's workflow is at, or the workflow's name where Fleet gives no step. Absent where the Job follows no workflow. */
-const workflowOf = (session: Session | undefined): { name: string; step: string } | undefined => {
+const workflowOf = (
+  session: Session | undefined,
+):
+  | {
+      name: string;
+      step: string;
+    }
+  | undefined => {
   const flow = session?.work?.workflow;
   if (flow === undefined) return undefined;
-  return { name: flow.name, step: (flow.at === undefined ? undefined : flow.steps[flow.at]) ?? flow.name };
+  return {
+    name: flow.name,
+    step: (flow.at === undefined ? undefined : flow.steps[flow.at]) ?? flow.name,
+  };
 };
 
 /**
  * What a row draws on its card: the corner's marks, the tag line and the lines under, each from the fields that are on. `status` and `hit` are the row's own: the state marks it drew before,
  * and what a search matched in place of its age.
  */
-export function rowParts({ view, earlier, tools, reported, one, session, hit, status }: { view: RowView; earlier: boolean; tools: boolean; reported: boolean; one: Subject; session: Session | undefined; hit: { short: string; whole: string } | undefined; status: ReactNode }): { marks?: ReactNode; tag?: ReactNode; at?: ReactNode; lines?: ReactNode } {
+export function rowParts({
+  view,
+  earlier,
+  tools,
+  reported,
+  one,
+  session,
+  hit,
+  status,
+}: {
+  view: RowView;
+  earlier: boolean;
+  tools: boolean;
+  reported: boolean;
+  one: Subject;
+  session: Session | undefined;
+  hit:
+    | {
+        short: string;
+        whole: string;
+      }
+    | undefined;
+  status: ReactNode;
+}): {
+  marks?: ReactNode;
+  tag?: ReactNode;
+  at?: ReactNode;
+  lines?: ReactNode;
+} {
   const issue = issueOf(session);
-  const issueText = issue === undefined ? undefined : /^\d+$/.test(issue.number) ? `#${issue.number}` : issue.number;
+  const issueText =
+    issue === undefined
+      ? undefined
+      : /^\d+$/.test(issue.number)
+        ? `#${issue.number}`
+        : issue.number;
   const flow = workflowOf(session);
   const open = one.pr !== undefined && one.pr.stage !== "landed" ? one.pr : undefined;
   const shownIssue = view.issue && issue !== undefined && issueText !== undefined;
   const shownPr = view.pr && open !== undefined;
-  const at =
-    !view.time ? undefined
-    : hit !== undefined && hit.short !== "" ? <Tooltip label={hit.whole}><span className="deck-row__said" data-found="">{hit.short}</span></Tooltip>
-    : one.at === undefined ? undefined
-    : <ListCardTime at={one.at} said="Last turn" />;
+  const at = !view.time ? undefined : hit !== undefined && hit.short !== "" ? (
+    <Tooltip label={hit.whole}>
+      <span className="deck-row__said" data-found="">
+        {hit.short}
+      </span>
+    </Tooltip>
+  ) : one.at === undefined ? undefined : (
+    <ListCardTime at={one.at} said="Last turn" />
+  );
   const shownFlow = view.workflow && flow !== undefined;
   return {
     // The clash, tools, reported and earlier marks are buttons, drawn over their empty places from `Deck.tsx`.
@@ -167,18 +302,38 @@ export function rowParts({ view, earlier, tools, reported, one, session, hit, st
       ? {
           tag: (
             <>
-              {shownIssue ? <Tooltip label={`Issue ${issueText}: ${issue!.title}`}><span><ListCardChip>{issueText}</ListCardChip></span></Tooltip> : null}
-              {shownPr ? <Tooltip label={`Pull request #${open!.number}`}><span><ListCardChip>#{open!.number}</ListCardChip></span></Tooltip> : null}
+              {shownIssue ? (
+                <Tooltip label={`Issue ${issueText}: ${issue!.title}`}>
+                  <span>
+                    <ListCardChip>{issueText}</ListCardChip>
+                  </span>
+                </Tooltip>
+              ) : null}
+              {shownPr ? (
+                <Tooltip label={`Pull request #${open!.number}`}>
+                  <span>
+                    <ListCardChip>#{open!.number}</ListCardChip>
+                  </span>
+                </Tooltip>
+              ) : null}
             </>
           ),
         }
       : {}),
-    ...(at === undefined ? {} : { at }),
+    ...(at === undefined
+      ? {}
+      : {
+          at,
+        }),
     ...(view.now || shownFlow
       ? {
           lines: (
             <>
-              {shownFlow ? <Tooltip label={`${flow!.name}: ${flow!.step}`}><span className="deck-row__flow">{flow!.step}</span></Tooltip> : null}
+              {shownFlow ? (
+                <Tooltip label={`${flow!.name}: ${flow!.step}`}>
+                  <span className="deck-row__flow">{flow!.step}</span>
+                </Tooltip>
+              ) : null}
               {view.now ? <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span> : null}
             </>
           ),

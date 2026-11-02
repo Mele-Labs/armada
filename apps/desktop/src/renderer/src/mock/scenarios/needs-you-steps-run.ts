@@ -12,15 +12,40 @@ const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).
 const waiting: Session = {
   id: "s16",
   title: "Central store",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: minutesAgo(4),
   rows: [
-    { id: "w1", at: "14:02:10", kind: "message", from: { kind: "you" }, text: "Put the store up." },
-    { id: "w2", at: "14:40:31", kind: "message", from: { kind: "agent" }, text: "The Worker is built. It deploys once from a machine signed in to Cloudflare." },
+    {
+      id: "w1",
+      at: "14:02:10",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Put the store up.",
+    },
+    {
+      id: "w2",
+      at: "14:40:31",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "The Worker is built. It deploys once from a machine signed in to Cloudflare.",
+    },
   ],
   attachments: [
-    { kind: "slot", slot: 2 },
-    { kind: "branch", name: "feat/central-store", slot: 2 },
+    {
+      kind: "slot",
+      slot: 2,
+    },
+    {
+      kind: "branch",
+      name: "feat/central-store",
+      slot: 2,
+    },
   ],
   waitingFor: [
     {
@@ -28,7 +53,11 @@ const waiting: Session = {
       text: "Deploy the store Worker once, from this machine",
       since: minutesAgo(4),
       source: "agent",
-      act: { kind: "run", target: "cd ~/Development/armada/apps/store && pnpm exec wrangler login && pnpm exec wrangler deploy" },
+      act: {
+        kind: "run",
+        target:
+          "cd ~/Development/armada/apps/store && pnpm exec wrangler login && pnpm exec wrangler deploy",
+      },
       steps: [
         "Run the command; approve Cloudflare in the browser",
         "Copy the workers.dev address it prints",
@@ -40,7 +69,10 @@ const waiting: Session = {
       text: "Deploy the store Worker, a command a step",
       since: minutesAgo(3),
       source: "agent",
-      act: { kind: "run", target: "cd ~/Development/armada/apps/store && pnpm exec wrangler login" },
+      act: {
+        kind: "run",
+        target: "cd ~/Development/armada/apps/store && pnpm exec wrangler login",
+      },
       steps: [
         "Sign in to Cloudflare and approve it in the browser: `cd ~/Development/armada/apps/store && pnpm exec wrangler login`",
         "Deploy the Worker: `pnpm exec wrangler deploy`",
@@ -54,14 +86,26 @@ const waiting: Session = {
       text: "Put the backlog on this Mac",
       since: minutesAgo(2),
       source: "agent",
-      act: { kind: "run", target: "scripts/beads-setup" },
+      act: {
+        kind: "run",
+        target: "scripts/beads-setup",
+      },
       steps: [
         "Fetch main: `git fetch origin`",
         "Run the store tests, which fail here: `pnpm exec vitest run`",
         "It ends with a count of the issues on this machine",
       ],
     },
-    { id: "store-tests", text: "Run the store tests", since: minutesAgo(3), source: "agent", act: { kind: "run", target: "pnpm -C apps/store test" } },
+    {
+      id: "store-tests",
+      text: "Run the store tests",
+      since: minutesAgo(3),
+      source: "agent",
+      act: {
+        kind: "run",
+        target: "pnpm -C apps/store test",
+      },
+    },
   ],
 };
 
@@ -69,5 +113,10 @@ export const s255NeedsYouStepsRun: Scenario = {
   ...s200Sessions,
   name: "needs-you-steps-run",
   says: "A Session waiting on the person for a command with steps, beside a command with none",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [waiting]) },
+  draft: {
+    sessions: (board) =>
+      s200Sessions.draft!.sessions!(board, [
+        waiting,
+      ]),
+  },
 };

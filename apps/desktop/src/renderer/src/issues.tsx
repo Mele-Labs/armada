@@ -22,12 +22,31 @@ import {
 } from "@armada/components";
 import { said } from "@armada/screens/src/copy";
 
-type Read = { state: "reading" } | { state: "read"; list: IssueList } | { state: "failed"; why: string };
+type Read =
+  | {
+      state: "reading";
+    }
+  | {
+      state: "read";
+      list: IssueList;
+    }
+  | {
+      state: "failed";
+      why: string;
+    };
 
 /** Asked of Fleet, never of the forge: Bridge talks to Fleet and nothing else. */
 async function read(manifestId: string, refresh: boolean): Promise<Read> {
   const answer = await window.armada.listIssues(manifestId, refresh);
-  return answer.ok ? { state: "read", list: answer.value } : { state: "failed", why: said(answer.outcome) };
+  return answer.ok
+    ? {
+        state: "read",
+        list: answer.value,
+      }
+    : {
+        state: "failed",
+        why: said(answer.outcome),
+      };
 }
 
 export function OpenIssues({
@@ -41,7 +60,9 @@ export function OpenIssues({
   /** The composer's own press, with the issue's address as the request. */
   onDispatch: (url: string) => void;
 }) {
-  const [shown, setShown] = useState<Read>({ state: "reading" });
+  const [shown, setShown] = useState<Read>({
+    state: "reading",
+  });
   const load = useCallback(
     (refresh: boolean) => {
       let current = true;
@@ -52,23 +73,40 @@ export function OpenIssues({
         current = false;
       };
     },
-    [manifestId],
+    [
+      manifestId,
+    ],
   );
-  useEffect(() => load(false), [load]);
+  useEffect(
+    () => load(false),
+    [
+      load,
+    ],
+  );
   // Nothing to choose from is not worth a card on the composer.
-  if (shown.state === "read" && shown.list.issues.length === 0 && shown.list.stale === undefined) return null;
+  if (shown.state === "read" && shown.list.issues.length === 0 && shown.list.stale === undefined)
+    return null;
   return (
     <Card aria-label="Open issues">
       <CardHeader>
         <CardTitle>Open issues</CardTitle>
         <CardDescription>
-          {shown.state === "failed"
-            ? `The issues could not be read. ${shown.why}`
-            : shown.state === "read" && shown.list.stale !== undefined
-              ? <>This is the list from <Stamp at={shown.list.fetched_at} />. {shown.list.stale}</>
-              : "Dispatch one and Fleet reads the issue as the request. Its pull request closes the issue when it merges."}
+          {shown.state === "failed" ? (
+            `The issues could not be read. ${shown.why}`
+          ) : shown.state === "read" && shown.list.stale !== undefined ? (
+            <>
+              This is the list from <Stamp at={shown.list.fetched_at} />. {shown.list.stale}
+            </>
+          ) : (
+            "Dispatch one and Fleet reads the issue as the request. Its pull request closes the issue when it merges."
+          )}
         </CardDescription>
-        <Button size="sm" variant="ghost" onClick={() => void load(true)} disabled={shown.state === "reading"}>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => void load(true)}
+          disabled={shown.state === "reading"}
+        >
           Refresh
         </Button>
       </CardHeader>
@@ -81,7 +119,9 @@ export function OpenIssues({
                   <TableCell variant="mono">{issue.reference}</TableCell>
                   <TableCell>{issue.title}</TableCell>
                   <TableCell variant="metadata">
-                    {issue.linked_pull_request ? "A pull request names it" : issue.labels.join(", ")}
+                    {issue.linked_pull_request
+                      ? "A pull request names it"
+                      : issue.labels.join(", ")}
                   </TableCell>
                   <TableCell>
                     <Button

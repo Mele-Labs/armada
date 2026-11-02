@@ -12,8 +12,32 @@ export const besideOf = (origin: string): string => {
 export async function seed(): Promise<void> {
   if ((await machines()).length > 0) return;
   const here = window.location.origin;
-  for (const [origin, name] of [[here, "studio"], [besideOf(here), "laptop"]] as const) {
-    const pair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"]);
-    await keepMachine({ origin, name, deviceId: `fixture-${name}`, key: pair.privateKey });
+  for (const [origin, name] of [
+    [
+      here,
+      "studio",
+    ],
+    [
+      besideOf(here),
+      "laptop",
+    ],
+  ] as const) {
+    const pair = await crypto.subtle.generateKey(
+      {
+        name: "ECDSA",
+        namedCurve: "P-256",
+      },
+      false,
+      [
+        "sign",
+        "verify",
+      ],
+    );
+    await keepMachine({
+      origin,
+      name,
+      deviceId: `fixture-${name}`,
+      key: pair.privateKey,
+    });
   }
 }

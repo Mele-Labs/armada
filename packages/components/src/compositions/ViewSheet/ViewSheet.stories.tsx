@@ -34,9 +34,18 @@ const STEPS: ViewSheetStep[] = [
     summary: "Removes CPU as a way to be short of room.",
     tieToNext: "admitting.rs turned a CPU shortage into a hold, and nothing produces one now.",
     lines: [
-      { kind: "hunk", text: "@@ -40,6 +40,4 @@ pub enum Short {" },
-      { kind: "context", text: "     Memory," },
-      { kind: "removed", text: "-    Cpu," },
+      {
+        kind: "hunk",
+        text: "@@ -40,6 +40,4 @@ pub enum Short {",
+      },
+      {
+        kind: "context",
+        text: "     Memory,",
+      },
+      {
+        kind: "removed",
+        text: "-    Cpu,",
+      },
     ],
   },
   {
@@ -44,10 +53,22 @@ const STEPS: ViewSheetStep[] = [
     summary: "The arm that turned a CPU shortage into a CPU hold goes.",
     tieToNext: "fields.rs defines that hold, and nothing produces it now.",
     lines: [
-      { kind: "hunk", text: "@@ -212,7 +212,6 @@" },
-      { kind: "context", text: "     Room::Bound => Some(AdmissionHold::ConcurrencyBound)," },
-      { kind: "removed", text: "-    Room::Machine(Short::Cpu) => Some(AdmissionHold::Cpu)," },
-      { kind: "context", text: "     Room::Machine(Short::Memory) => Some(AdmissionHold::Memory)," },
+      {
+        kind: "hunk",
+        text: "@@ -212,7 +212,6 @@",
+      },
+      {
+        kind: "context",
+        text: "     Room::Bound => Some(AdmissionHold::ConcurrencyBound),",
+      },
+      {
+        kind: "removed",
+        text: "-    Room::Machine(Short::Cpu) => Some(AdmissionHold::Cpu),",
+      },
+      {
+        kind: "context",
+        text: "     Room::Machine(Short::Memory) => Some(AdmissionHold::Memory),",
+      },
     ],
   },
   {
@@ -67,7 +88,9 @@ export const AChain: Story = {
     onClose: fn(),
   },
   play: async ({ args, canvas, userEvent }) => {
-    const first = canvas.getByRole("button", { name: /Removes CPU/ });
+    const first = canvas.getByRole("button", {
+      name: /Removes CPU/,
+    });
     await expect(first).toHaveAttribute("aria-expanded", "false");
     await expect(canvas.getByText(/^-\s+Cpu,$/)).not.toBeVisible();
 
@@ -76,13 +99,23 @@ export const AChain: Story = {
     await expect(canvas.getByText(/^-\s+Cpu,$/)).toBeVisible();
     await expect(canvas.getByText(/^Next: admitting\.rs/)).toBeVisible();
 
-    const [openFile] = canvas.getAllByRole("button", { name: "Open the whole file" });
+    const [openFile] = canvas.getAllByRole("button", {
+      name: "Open the whole file",
+    });
     await userEvent.click(openFile!);
     await expect(args.onOpenFile).toHaveBeenCalledWith("crates/fleet/src/headroom.rs");
 
-    await userEvent.click(canvas.getByRole("button", { name: "Open all" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Open all",
+      }),
+    );
     await expect(canvas.getByText(/This hunk is not in the patch any more/)).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Fold all" })).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Fold all",
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -96,7 +129,9 @@ export const ANoteForTheDrone: Story = {
     onClose: fn(),
   },
   play: async ({ args, canvas, userEvent }) => {
-    const add = canvas.getByRole("button", { name: "Add to What should change" });
+    const add = canvas.getByRole("button", {
+      name: "Add to What should change",
+    });
     await expect(add).toBeDisabled();
     const field = canvas.getByLabelText("Note for the drone");
     await userEvent.type(field, "Say in the status bar that CPU never holds a Job.");
@@ -105,7 +140,9 @@ export const ANoteForTheDrone: Story = {
       "Say in the status bar that CPU never holds a Job.",
     );
     await expect(field).toHaveValue("");
-    await expect(canvas.getByRole("status")).toHaveTextContent("1 note added to What should change.");
+    await expect(canvas.getByRole("status")).toHaveTextContent(
+      "1 note added to What should change.",
+    );
   },
 };
 
@@ -120,14 +157,18 @@ export const DismissingAFinding: Story = {
     onClose: fn(),
   },
   play: async ({ args, canvas, userEvent }) => {
-    const dismiss = canvas.getByRole("button", { name: "Dismiss this finding" });
+    const dismiss = canvas.getByRole("button", {
+      name: "Dismiss this finding",
+    });
     await expect(dismiss).toBeDisabled();
     await userEvent.type(
       canvas.getByLabelText("Note for the drone"),
       "Saving takes one lock, so there is no order.",
     );
     await userEvent.click(dismiss);
-    await expect(args.onDismiss).toHaveBeenCalledWith("Saving takes one lock, so there is no order.");
+    await expect(args.onDismiss).toHaveBeenCalledWith(
+      "Saving takes one lock, so there is no order.",
+    );
     await expect(args.onAddNote).not.toHaveBeenCalled();
   },
 };
@@ -154,6 +195,10 @@ export const DismissDisabledByAnotherDecision: Story = {
       canvas.getByLabelText("Note for the drone"),
       "Saving takes one lock, so there is no order.",
     );
-    await expect(canvas.getByRole("button", { name: "Dismiss this finding" })).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Dismiss this finding",
+      }),
+    ).toBeDisabled();
   },
 };

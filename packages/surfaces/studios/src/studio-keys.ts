@@ -16,15 +16,34 @@ import { isPressed, type Press, type StudioNodeByHandKind } from "@armada/compon
 import { holdsText } from "@armada/screens/src/keys";
 
 /** Each kind's binding, from the registry. The one place a key is written is there. */
-const ADD: readonly (readonly [string, StudioNodeByHandKind])[] = [
-  ["add_note", "note"],
-  ["add_link", "link"],
-  ["add_sketch", "sketch"],
-  ["add_zone", "zone"],
+const ADD: readonly (readonly [
+  string,
+  StudioNodeByHandKind,
+])[] = [
+  [
+    "add_note",
+    "note",
+  ],
+  [
+    "add_link",
+    "link",
+  ],
+  [
+    "add_sketch",
+    "sketch",
+  ],
+  [
+    "add_zone",
+    "zone",
+  ],
 ];
 
 /** What a press means on an open Studio, or `null` where it means nothing here. */
-export function addPressOf(event: Press & { target: EventTarget | null }): StudioNodeByHandKind | null {
+export function addPressOf(
+  event: Press & {
+    target: EventTarget | null;
+  },
+): StudioNodeByHandKind | null {
   if (holdsText(event.target)) return null;
   return ADD.find(([id]) => isPressed(id, event))?.[1] ?? null;
 }
@@ -35,7 +54,10 @@ export function addPressOf(event: Press & { target: EventTarget | null }): Studi
  * **Bound only while `editable`**, so a Studio reopened read-only answers no
  * key — the same rule its controls draw, rather than a second one.
  */
-export function useAddNodeKeys(editable: boolean, onAdding: (kind: StudioNodeByHandKind) => void): void {
+export function useAddNodeKeys(
+  editable: boolean,
+  onAdding: (kind: StudioNodeByHandKind) => void,
+): void {
   useEffect(() => {
     if (!editable) return;
     function pressed(event: KeyboardEvent): void {
@@ -46,7 +68,10 @@ export function useAddNodeKeys(editable: boolean, onAdding: (kind: StudioNodeByH
     }
     window.addEventListener("keydown", pressed);
     return () => window.removeEventListener("keydown", pressed);
-  }, [editable, onAdding]);
+  }, [
+    editable,
+    onAdding,
+  ]);
 }
 
 /** Run's binding, from the registry. */
@@ -68,5 +93,8 @@ export function useRunKey(on: boolean, onRun: () => void): void {
     }
     window.addEventListener("keydown", pressed);
     return () => window.removeEventListener("keydown", pressed);
-  }, [on, onRun]);
+  }, [
+    on,
+    onRun,
+  ]);
 }

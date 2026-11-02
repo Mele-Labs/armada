@@ -3,7 +3,12 @@
 
 import { useEffect, useState, useSyncExternalStore, type RefObject } from "react";
 
-type Zoomed = { jobId: string; paneId: string } | undefined;
+type Zoomed =
+  | {
+      jobId: string;
+      paneId: string;
+    }
+  | undefined;
 
 let pane: Zoomed;
 let panel: HTMLElement | undefined;
@@ -23,7 +28,13 @@ export function usePaneZoomed(jobId: string): string | undefined {
 
 export function toggleZoom(jobId: string, paneId: string): void {
   unfit();
-  pane = pane?.jobId === jobId && pane.paneId === paneId ? undefined : { jobId, paneId };
+  pane =
+    pane?.jobId === jobId && pane.paneId === paneId
+      ? undefined
+      : {
+          jobId,
+          paneId,
+        };
   tell();
 }
 
@@ -39,18 +50,50 @@ function unfit(): void {
   const was = panel;
   panel = undefined;
   was.removeAttribute("data-zoomed");
-  for (const name of ["position", "left", "top", "width", "height", "z-index"]) was.style.removeProperty(name);
+  for (const name of [
+    "position",
+    "left",
+    "top",
+    "width",
+    "height",
+    "z-index",
+  ])
+    was.style.removeProperty(name);
 }
 
 /** The box the zoomed thing fills, in the window's pixels, kept as the Cockpit is resized: the element `within` holds, else the Cockpit's body. `pad` is what to grow it by on every side. */
-export function useZoomBox(on: boolean, pad: number, within?: RefObject<HTMLElement | null>): { left: number; top: number; width: number; height: number } | undefined {
-  const [box, setBox] = useState<{ left: number; top: number; width: number; height: number } | undefined>(undefined);
+export function useZoomBox(
+  on: boolean,
+  pad: number,
+  within?: RefObject<HTMLElement | null>,
+):
+  | {
+      left: number;
+      top: number;
+      width: number;
+      height: number;
+    }
+  | undefined {
+  const [box, setBox] = useState<
+    | {
+        left: number;
+        top: number;
+        width: number;
+        height: number;
+      }
+    | undefined
+  >(undefined);
   useEffect(() => {
     const body = on ? (within?.current ?? bodyOf()) : null;
     if (body === null) return setBox(undefined);
     const measure = () => {
       const at = body.getBoundingClientRect();
-      setBox({ left: at.left - pad, top: at.top - pad, width: at.width + pad * 2, height: at.height + pad * 2 });
+      setBox({
+        left: at.left - pad,
+        top: at.top - pad,
+        width: at.width + pad * 2,
+        height: at.height + pad * 2,
+      });
     };
     measure();
     const watch = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(measure);
@@ -60,7 +103,10 @@ export function useZoomBox(on: boolean, pad: number, within?: RefObject<HTMLElem
       watch?.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [on, pad]);
+  }, [
+    on,
+    pad,
+  ]);
   return box;
 }
 
@@ -84,7 +130,10 @@ export function toggleZoomPanel(element: HTMLElement): void {
     element.style.zIndex = "20";
   };
   fit();
-  const watch = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(() => (panel === element ? fit() : watch?.disconnect()));
+  const watch =
+    typeof ResizeObserver === "undefined"
+      ? undefined
+      : new ResizeObserver(() => (panel === element ? fit() : watch?.disconnect()));
   watch?.observe(body);
   tell();
 }
@@ -94,9 +143,14 @@ export function usePanelZoom(): void {
   useEffect(() => {
     const on = (event: MouseEvent) => {
       const target = event.target;
-      if (!(target instanceof Element) || target.closest("button, a, input, select, textarea, [role=menu]") !== null) return;
+      if (
+        !(target instanceof Element) ||
+        target.closest("button, a, input, select, textarea, [role=menu]") !== null
+      )
+        return;
       const band = target.closest(".deck-band, .sv-panel__band");
-      if (band === null || band.closest(".deck") === null || band.closest(".job-pane") !== null) return;
+      if (band === null || band.closest(".deck") === null || band.closest(".job-pane") !== null)
+        return;
       const panel = band.closest<HTMLElement>(".deck-panel, .sv-panel");
       if (panel !== null) toggleZoomPanel(panel);
     };

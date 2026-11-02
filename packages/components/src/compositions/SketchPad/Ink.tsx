@@ -42,7 +42,10 @@ function further(points: readonly SketchPoint[], point: SketchPoint): readonly S
   if (last !== undefined && Math.hypot(point.x - last.x, point.y - last.y) < A_STEP) {
     return points;
   }
-  return [...points, point];
+  return [
+    ...points,
+    point,
+  ];
 }
 
 export function Ink({
@@ -61,10 +64,18 @@ export function Ink({
 
   const at = useCallback(
     (event: { clientX: number; clientY: number }): SketchPoint => {
-      const point = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
-      return { x: Math.round(point.x), y: Math.round(point.y) };
+      const point = flow.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      return {
+        x: Math.round(point.x),
+        y: Math.round(point.y),
+      };
     },
-    [flow],
+    [
+      flow,
+    ],
   );
 
   const drop = useCallback(() => {
@@ -83,7 +94,9 @@ export function Ink({
    */
   const begin = (first: SketchPoint) => {
     stop.current?.();
-    going.current = [first];
+    going.current = [
+      first,
+    ];
     setLine(going.current);
     const moved = (event: PointerEvent) => {
       const next = further(going.current ?? [], at(event));
@@ -110,7 +123,10 @@ export function Ink({
   useEffect(() => {
     if (!pen) drop();
     return drop;
-  }, [pen, drop]);
+  }, [
+    pen,
+    drop,
+  ]);
 
   return (
     <>

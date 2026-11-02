@@ -10,7 +10,12 @@
 // panel. The two `…SaidOf` functions below are what those acts carry, so the
 // surface still says a file drifted without spending 196px saying it did not.
 
-import type { DriftPanelProps, DriftPanelRow, VerifyPanelProps, VerifyPanelStep } from "@armada/components";
+import type {
+  DriftPanelProps,
+  DriftPanelRow,
+  VerifyPanelProps,
+  VerifyPanelStep,
+} from "@armada/components";
 import type {
   CheckoutRunRecord,
   CheckoutRunSheetRead,
@@ -30,9 +35,13 @@ export function driftPanelOf(read: ManifestDriftRead): DriftPanelProps {
     case "reading":
       return {};
     case "failed":
-      return { note: `Drift could not be read. ${said(read.outcome)}` };
+      return {
+        note: `Drift could not be read. ${said(read.outcome)}`,
+      };
     case "read":
-      return { rows: read.drift.declarations.map(driftRowOf) };
+      return {
+        rows: read.drift.declarations.map(driftRowOf),
+      };
   }
 }
 
@@ -43,7 +52,11 @@ function driftRowOf(line: Declaration, at: number): DriftPanelRow {
     where,
     run: line.run,
     verdict: line.drift.verdict === "gone" ? "gone" : "current",
-    ...(line.drift.verdict === "gone" ? { missing: line.drift.missing } : {}),
+    ...(line.drift.verdict === "gone"
+      ? {
+          missing: line.drift.missing,
+        }
+      : {}),
     unfollowed: line.unfollowed,
   };
 }
@@ -64,7 +77,9 @@ function driftRowOf(line: Declaration, at: number): DriftPanelRow {
 export function driftGoneOf(read: ManifestDriftRead): ReadonlySet<string> {
   if (read.state !== "read") return new Set();
   return new Set(
-    read.drift.declarations.filter((line) => line.drift.verdict === "gone").map((line) => line.name),
+    read.drift.declarations
+      .filter((line) => line.drift.verdict === "gone")
+      .map((line) => line.name),
   );
 }
 
@@ -92,9 +107,13 @@ export type VerifyInputs = {
  * The Verify this file's reading is about, where the checkout holds one for it.
  * **The checkout holds one Verify**, so another file's is not this one's.
  */
-function verifyHeldOf(inputs: Pick<VerifyInputs, "sheet" | "workspace">): CheckoutVerify | undefined {
+function verifyHeldOf(
+  inputs: Pick<VerifyInputs, "sheet" | "workspace">,
+): CheckoutVerify | undefined {
   const held = inputs.sheet.state === "read" ? inputs.sheet.sheet.verify : undefined;
-  return held !== undefined && fileOf(held.workspace) === fileOf(inputs.workspace) ? held : undefined;
+  return held !== undefined && fileOf(held.workspace) === fileOf(inputs.workspace)
+    ? held
+    : undefined;
 }
 
 /**
@@ -117,35 +136,60 @@ export function verifyPanelOf(inputs: VerifyInputs): VerifyPanelProps {
   const data = inputs.sheet.state === "read" ? inputs.sheet.sheet : undefined;
   const held = data?.verify;
   const verify = verifyHeldOf(inputs);
-  const other = held !== undefined && verify === undefined && held.ended_at === undefined ? held : undefined;
+  const other =
+    held !== undefined && verify === undefined && held.ended_at === undefined ? held : undefined;
   const underway = verify !== undefined && verify.ended_at === undefined;
   const shown = verify !== undefined && verify.id !== inputs.dismissed ? verify : undefined;
   const out = verify?.steps.find((step) => step.state === "running");
 
-  let offer: Pick<VerifyPanelProps, "onVerify" | "unavailable"> = { onVerify: inputs.onVerify };
-  if (data === undefined) offer = { unavailable: "Verify can start once this Manifest has been read." };
+  let offer: Pick<VerifyPanelProps, "onVerify" | "unavailable"> = {
+    onVerify: inputs.onVerify,
+  };
+  if (data === undefined)
+    offer = {
+      unavailable: "Verify can start once this Manifest has been read.",
+    };
   else if (underway) offer = {};
   else if (other !== undefined)
-    offer = { unavailable: `Verify is running ${fileOf(other.workspace)} in this checkout. This file can be verified once it ends.` };
+    offer = {
+      unavailable: `Verify is running ${fileOf(other.workspace)} in this checkout. This file can be verified once it ends.`,
+    };
   else if (data.running !== undefined)
-    offer = { unavailable: `\`${data.running.name}\` is running in this checkout. Verify can start once it ends.` };
+    offer = {
+      unavailable: `\`${data.running.name}\` is running in this checkout. Verify can start once it ends.`,
+    };
 
   return {
     ...offer,
     ...(shown === undefined
       ? {}
-      : { steps: shown.steps.map((step, at) => verifyStepOf(step, at, data?.running, inputs.now)) }),
+      : {
+          steps: shown.steps.map((step, at) => verifyStepOf(step, at, data?.running, inputs.now)),
+        }),
     ...(shown?.ended_at === undefined
       ? {}
-      : { ended: endedOf(shown), onDismiss: () => inputs.onDismiss(shown.id) }),
-    ...(inputs.refused === null ? {} : { refused: inputs.refused }),
-    ...(out?.state === "running" ? { onStop: () => inputs.onStopRun(out.run_id) } : {}),
+      : {
+          ended: endedOf(shown),
+          onDismiss: () => inputs.onDismiss(shown.id),
+        }),
+    ...(inputs.refused === null
+      ? {}
+      : {
+          refused: inputs.refused,
+        }),
+    ...(out?.state === "running"
+      ? {
+          onStop: () => inputs.onStopRun(out.run_id),
+        }
+      : {}),
   };
 }
 
 /** The file a Verify runs, as the repository names it. */
 export function fileOf(workspace: string | undefined): string {
-  return workspace === undefined || workspace === "" || workspace === "." ? "armada.yml" : `${workspace}/armada.yml`;
+  return workspace === undefined || workspace === "" || workspace === "."
+    ? "armada.yml"
+    : `${workspace}/armada.yml`;
 }
 
 function verifyStepOf(
@@ -162,10 +206,21 @@ function verifyStepOf(
   };
   switch (step.state) {
     case "waiting":
-      return { ...drawn, state: { kind: "waiting" } };
+      return {
+        ...drawn,
+        state: {
+          kind: "waiting",
+        },
+      };
     case "running": {
       const since = running?.id === step.run_id ? span(running.started_at, now) : undefined;
-      return { ...drawn, state: { kind: "running", elapsed: since ?? "just started" } };
+      return {
+        ...drawn,
+        state: {
+          kind: "running",
+          elapsed: since ?? "just started",
+        },
+      };
     }
     case "ran":
       return {
@@ -177,7 +232,13 @@ function verifyStepOf(
         },
       };
     case "not_run":
-      return { ...drawn, state: { kind: "not_run", why: step.why } };
+      return {
+        ...drawn,
+        state: {
+          kind: "not_run",
+          why: step.why,
+        },
+      };
   }
 }
 

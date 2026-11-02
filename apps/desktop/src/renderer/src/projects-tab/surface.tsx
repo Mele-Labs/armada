@@ -33,8 +33,14 @@ type Props = {
 /** Rows split by the repository they are in, in the order each is first met. */
 const byRepository = (rows: readonly ProjectRow[]): ProjectRow[][] => {
   const out = new Map<string, ProjectRow[]>();
-  for (const row of rows) out.set(row.manifestId, [...(out.get(row.manifestId) ?? []), row]);
-  return [...out.values()];
+  for (const row of rows)
+    out.set(row.manifestId, [
+      ...(out.get(row.manifestId) ?? []),
+      row,
+    ]);
+  return [
+    ...out.values(),
+  ];
 };
 
 export function ProjectsSurface({ picked, repositories, onOpenSession, onOpenLink }: Props) {
@@ -77,25 +83,74 @@ export function ProjectsSurface({ picked, repositories, onOpenSession, onOpenLin
     const first = rows[0];
     if (first === undefined) return undefined;
     const root = bands.find((one) => one.manifestId === first.manifestId)?.root;
-    const issues = rows.flatMap((row) => (row.kind === "issue" ? [row] : (parentOf(snap, row.id)?.issues ?? row.issues ?? [])));
-    const tags = [...new Map(issues.map((one) => [one.reference, issueHit({ reference: one.reference, title: one.title, url: one.url }).tag] as const)).values()];
+    const issues = rows.flatMap((row) =>
+      row.kind === "issue"
+        ? [
+            row,
+          ]
+        : (parentOf(snap, row.id)?.issues ?? row.issues ?? []),
+    );
+    const tags = [
+      ...new Map(
+        issues.map(
+          (one) =>
+            [
+              one.reference,
+              issueHit({
+                reference: one.reference,
+                title: one.title,
+                url: one.url,
+              }).tag,
+            ] as const,
+        ),
+      ).values(),
+    ];
     const lines = rows.flatMap((row) => {
       if (row.kind !== "task") return [];
       const parent = parentOf(snap, row.id);
-      if (parent === undefined) return [row.title, ...(row.subtasks ?? []).map((one) => `  - ${one.title}`)];
+      if (parent === undefined)
+        return [
+          row.title,
+          ...(row.subtasks ?? []).map((one) => `  - ${one.title}`),
+        ];
       const notes = parent.notes?.trim() ?? "";
-      return [row.title, `Part of: ${parent.title}`, ...(notes === "" ? [] : [notes]), "Only the subtask is to be done."];
+      return [
+        row.title,
+        `Part of: ${parent.title}`,
+        ...(notes === ""
+          ? []
+          : [
+              notes,
+            ]),
+        "Only the subtask is to be done.",
+      ];
     });
-    const words = [...lines, ...tags.map((tag) => tag.title)].join("\n");
-    return { words: `${words} `, root, tags, rows: rows.flatMap((row) => store.refOf(row.id) ?? []) };
+    const words = [
+      ...lines,
+      ...tags.map((tag) => tag.title),
+    ].join("\n");
+    return {
+      words: `${words} `,
+      root,
+      tags,
+      rows: rows.flatMap((row) => store.refOf(row.id) ?? []),
+    };
   };
   // One request for each repository, queued in the dispatching provider: it outlives this page, which the Cockpit replaces once the first Job starts.
   const dispatch = (rows: readonly ProjectRow[]) => {
     dispatching?.openSheets(byRepository(rows).flatMap((one) => requestOf(one) ?? []));
   };
   const dispatchRow = (rowId: string) => {
-    const row = allRows({ rows: [...snap.loose, ...snap.projects.flatMap((one) => one.rows)] }).find((one) => one.id === rowId);
-    if (row !== undefined) dispatch([row]);
+    const row = allRows({
+      rows: [
+        ...snap.loose,
+        ...snap.projects.flatMap((one) => one.rows),
+      ],
+    }).find((one) => one.id === rowId);
+    if (row !== undefined)
+      dispatch([
+        row,
+      ]);
   };
 
   // A task the palette chose: its list is open already (`showRow`), so All tasks stands for a task in no project. Its card is scrolled to and takes the focus once drawn.
@@ -108,36 +163,117 @@ export function ProjectsSurface({ picked, repositories, onOpenSession, onOpenLin
     store.shownRow();
     let tries = 0;
     const bring = () => {
-      const card = document.querySelector<HTMLElement>(`.projects-row[data-row="${CSS.escape(rowId)}"]`);
+      const card = document.querySelector<HTMLElement>(
+        `.projects-row[data-row="${CSS.escape(rowId)}"]`,
+      );
       if (card !== null) {
-        card.scrollIntoView({ block: "center" });
+        card.scrollIntoView({
+          block: "center",
+        });
         card.focus();
       } else if ((tries += 1) < 30) window.requestAnimationFrame(bring);
     };
     window.requestAnimationFrame(bring);
-  }, [snap.reveal, store]);
+  }, [
+    snap.reveal,
+    store,
+  ]);
 
-  const hosts = { onOpenSession, onOpenLink, onDispatch: dispatch };
+  const hosts = {
+    onOpenSession,
+    onOpenLink,
+    onDispatch: dispatch,
+  };
   const repository = bands.find((one) => one.manifestId === repo);
   // A task added on Needs you or In a Job would not show there, so those panes have no field.
-  const pane =
-    searching ? (
-      <Pane key="search" {...hosts} label="Search results" title="Search" groups={searchGroupsOf(snap, query)} bands={bands} scope={undefined} />
-    ) : project !== undefined ? (
-      <Pane key={`project:${project.id}`} {...hosts} label={`Project ${project.name}`} title={project.name} groups={groupOf(project, snap.showDone)} bands={bands} scope={{ key: project.id, project: project.id }} />
-    ) : repository !== undefined ? (
-      <Pane key={`repo:${repository.manifestId}`} {...hosts} label={`Repository ${repository.label}`} title={repository.label} groups={groupsOf(snap, "all", repository.manifestId)} bands={bands} scope={{ key: `repo:${repository.manifestId}`, repo: repository.manifestId }} />
-    ) : (
-      <Pane key={`view:${view}`} {...hosts} label={`View ${VIEW_MARKS[view].said}`} title={VIEW_MARKS[view].said} groups={groupsOf(snap, view, undefined)} bands={bands} scope={view === "all" ? { key: "all" } : undefined} />
-    );
-  const widths = columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as React.CSSProperties);
+  const pane = searching ? (
+    <Pane
+      key="search"
+      {...hosts}
+      label="Search results"
+      title="Search"
+      groups={searchGroupsOf(snap, query)}
+      bands={bands}
+      scope={undefined}
+    />
+  ) : project !== undefined ? (
+    <Pane
+      key={`project:${project.id}`}
+      {...hosts}
+      label={`Project ${project.name}`}
+      title={project.name}
+      groups={groupOf(project, snap.showDone)}
+      bands={bands}
+      scope={{
+        key: project.id,
+        project: project.id,
+      }}
+    />
+  ) : repository !== undefined ? (
+    <Pane
+      key={`repo:${repository.manifestId}`}
+      {...hosts}
+      label={`Repository ${repository.label}`}
+      title={repository.label}
+      groups={groupsOf(snap, "all", repository.manifestId)}
+      bands={bands}
+      scope={{
+        key: `repo:${repository.manifestId}`,
+        repo: repository.manifestId,
+      }}
+    />
+  ) : (
+    <Pane
+      key={`view:${view}`}
+      {...hosts}
+      label={`View ${VIEW_MARKS[view].said}`}
+      title={VIEW_MARKS[view].said}
+      groups={groupsOf(snap, view, undefined)}
+      bands={bands}
+      scope={
+        view === "all"
+          ? {
+              key: "all",
+            }
+          : undefined
+      }
+    />
+  );
+  const widths =
+    columns === undefined
+      ? undefined
+      : ({
+          "--deck-left": `${columns.left}px`,
+          "--deck-right": `${columns.right}px`,
+        } as React.CSSProperties);
 
   return (
     <div className="armada-cockpit deck projects-surface">
       <div ref={grid} className="deck-grid" data-projects style={widths}>
         <div className="deck-left">
-          <Column bands={bands} view={view} repo={repo} query={query} searching={searching} onQuery={setQuery} onView={chooseView} onRepo={chooseRepo} onProject={chooseProject} />
-          {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
+          <Column
+            bands={bands}
+            view={view}
+            repo={repo}
+            query={query}
+            searching={searching}
+            onQuery={setQuery}
+            onView={chooseView}
+            onRepo={chooseRepo}
+            onProject={chooseProject}
+          />
+          {columns === undefined ? null : (
+            <DockHandle
+              quiet
+              className="deck-handle"
+              grows="right"
+              label="the left column"
+              width={columns.left}
+              {...columns.range.left}
+              onResize={(width) => resize("left", width)}
+              onReset={() => reset("left")}
+            />
+          )}
         </div>
         <div className="deck-centre">
           <div className="deck-stage">{pane}</div>

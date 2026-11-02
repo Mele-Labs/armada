@@ -9,4 +9,14 @@ import type { Outcome, SlotRescued } from "@armada/protocol";
  * which a receipt would widen for every command: a Scrap's `branch_kept` is not
  * derivable from `ok`.
  */
-export type RescueOutcome = Exclude<Outcome, { ok: true }> | { ok: true; rescued: SlotRescued };
+export type RescueOutcome =
+  | Exclude<
+      Outcome,
+      {
+        ok: true;
+      }
+    >
+  | {
+      ok: true;
+      rescued: SlotRescued;
+    };

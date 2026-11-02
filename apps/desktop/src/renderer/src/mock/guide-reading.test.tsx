@@ -9,12 +9,7 @@
 
 import { expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
-import {
-  GUIDES,
-  GUIDE_MERGE_LINE,
-  GUIDE_PLAN,
-  RETIRED_GUIDE_NUMBERS,
-} from "@armada/components";
+import { GUIDES, GUIDE_MERGE_LINE, GUIDE_PLAN, RETIRED_GUIDE_NUMBERS } from "@armada/components";
 import type { Guide } from "@armada/components";
 
 import { motion, mount, toSystemPage, unmountAfterEach } from "./testing";
@@ -32,10 +27,15 @@ async function catalogue(): Promise<void> {
 
 /** A guide's row in the list. */
 const rowFor = (guide: Guide) =>
-  page.getByRole("button", { name: `Guide ${guide.number}, ${guide.title}` });
+  page.getByRole("button", {
+    name: `Guide ${guide.number}, ${guide.title}`,
+  });
 
 /** The panel beside the list, holding one guide. */
-const panelFor = (guide: Guide) => page.getByRole("article", { name: guide.title });
+const panelFor = (guide: Guide) =>
+  page.getByRole("article", {
+    name: guide.title,
+  });
 
 /** Every numbered step drawn in one region, as its text. */
 const drawnSteps = (where: ReturnType<typeof panelFor>) =>
@@ -54,7 +54,9 @@ async function readsAsSteps(where: ReturnType<typeof panelFor>, guide: Guide): P
   const drawn = drawnSteps(where);
   for (const [index, line] of guide.steps.entries()) {
     const step = drawn[index] ?? "";
-    expect(step.startsWith(String(index + 1)), `step ${index + 1} is not numbered: ${step}`).toBe(true);
+    expect(step.startsWith(String(index + 1)), `step ${index + 1} is not numbered: ${step}`).toBe(
+      true,
+    );
     expect(step).toContain(line);
   }
 }
@@ -82,7 +84,9 @@ test("a guide with a relation draws it under the step that names it, from the re
   const panel = panelFor(GUIDE_PLAN);
   await readsAsSteps(panel, GUIDE_PLAN);
 
-  const figure = panel.getByRole("img", { name: /Two groups of a plan/ });
+  const figure = panel.getByRole("img", {
+    name: /Two groups of a plan/,
+  });
   await expect.element(figure).toBeVisible();
 
   // Inside the step that names the order, not floating beside the list.
@@ -91,13 +95,17 @@ test("a guide with a relation draws it under the step that names it, from the re
 
   // It is the cards the real screen draws, so a change to how a group reads changes this guide,
   // which is the binding the owner took over a diagram that would have drifted in silence.
-  for (const said of ["Group 1", "Group 2"]) {
+  for (const said of [
+    "Group 1",
+    "Group 2",
+  ]) {
     expect(figure.element().textContent).toContain(said);
   }
 
   // Nothing in a figure is a control: the drawing is hidden from the accessibility tree and inert, so a
   // real card's tooltip marks are no focus stop there.
-  for (const one of figure.element().querySelectorAll("button, a, input, [tabindex]")) expect(one.closest("[inert]")).not.toBeNull();
+  for (const one of figure.element().querySelectorAll("button, a, input, [tabindex]"))
+    expect(one.closest("[inert]")).not.toBeNull();
 });
 
 test("a guide with no relation draws no figure, and holds no frame where one would go", async () => {
@@ -117,12 +125,16 @@ test("the drawing animates once when the guide is opened, and never on a loop", 
   await motion();
   await catalogue();
   await rowFor(GUIDE_PLAN).click();
-  const figure = panelFor(GUIDE_PLAN).getByRole("img", { name: /Two groups of a plan/ });
+  const figure = panelFor(GUIDE_PLAN).getByRole("img", {
+    name: /Two groups of a plan/,
+  });
   await expect.element(figure).toBeVisible();
 
   // A loop is what says *still working*, and a guide is not working —
   // `docs/contracts/design-system.md`.
-  const running = figure.element().getAnimations({ subtree: true });
+  const running = figure.element().getAnimations({
+    subtree: true,
+  });
   expect(running.length).toBeGreaterThan(0);
   for (const one of running) {
     expect(one.effect?.getTiming().iterations).toBe(1);
@@ -139,13 +151,28 @@ test("under prefers-reduced-motion the figure holds still and still reads", asyn
 
   await catalogue();
   await rowFor(GUIDE_PLAN).click();
-  const figure = panelFor(GUIDE_PLAN).getByRole("img", { name: /Two groups of a plan/ });
+  const figure = panelFor(GUIDE_PLAN).getByRole("img", {
+    name: /Two groups of a plan/,
+  });
   await expect.element(figure).toBeVisible();
 
-  expect(figure.element().getAnimations({ subtree: true })).toHaveLength(0);
+  expect(
+    figure.element().getAnimations({
+      subtree: true,
+    }),
+  ).toHaveLength(0);
   // Held still it is the finished drawing: both groups, in order. Nothing was carried by the movement.
-  for (const word of ["Group 1", "Group 2"]) {
-    await expect.element(figure.getByText(word, { exact: true })).toBeVisible();
+  for (const word of [
+    "Group 1",
+    "Group 2",
+  ]) {
+    await expect
+      .element(
+        figure.getByText(word, {
+          exact: true,
+        }),
+      )
+      .toBeVisible();
   }
 });
 
@@ -158,7 +185,9 @@ test("a retired number is gone from the catalogue and is never handed out again"
   expect(RETIRED_GUIDE_NUMBERS).toContain(11);
   for (const retired of RETIRED_GUIDE_NUMBERS) {
     expect(GUIDES.map((guide) => guide.number)).not.toContain(retired);
-    const row = page.getByRole("button", { name: new RegExp(`^Guide ${retired},`) });
+    const row = page.getByRole("button", {
+      name: new RegExp(`^Guide ${retired},`),
+    });
     expect(row.elements()).toHaveLength(0);
   }
 });

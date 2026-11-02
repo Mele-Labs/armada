@@ -15,20 +15,56 @@ export const TEAMMATE_PR = 2291;
 const AT = "2026-10-21T09:12:00.000Z";
 const FORGE = "https://forge.example/armada/pull/";
 
-const OURS = { title: "Who sees your config", branch: "fix/config-readers", address: `${FORGE}${CONFIG_PR}` };
+const OURS = {
+  title: "Who sees your config",
+  branch: "fix/config-readers",
+  address: `${FORGE}${CONFIG_PR}`,
+};
 
 export const configSessions = () => [
   hosted(CONFIG_JOB, {
     title: "Who sees your config",
-    attachments: [held("slot", "3"), held("branch", OURS.branch), pullRequest(CONFIG_PR, { ...OURS, checks: "pending" })],
+    attachments: [
+      held("slot", "3"),
+      held("branch", OURS.branch),
+      pullRequest(CONFIG_PR, {
+        ...OURS,
+        checks: "pending",
+      }),
+    ],
   }),
 ];
 
 export const configThreads = (): Record<string, SessionRow[]> => ({
-  [CONFIG_JOB]: [{ kind: "message", id: "m1", at: AT, from: { kind: "you" }, text: "List who can read the config file, and open a pull request." }],
+  [CONFIG_JOB]: [
+    {
+      kind: "message",
+      id: "m1",
+      at: AT,
+      from: {
+        kind: "you",
+      },
+      text: "List who can read the config file, and open a pull request.",
+    },
+  ],
 });
 
-const hub = (number: number, title: string, branch: string, ci: string, rest: Partial<HubPullRequest> = {}): HubPullRequest => ({ number, title, branch, url: `${FORGE}${number}`, ci, opened_at: AT, updated_at: AT, ...rest });
+const hub = (
+  number: number,
+  title: string,
+  branch: string,
+  ci: string,
+  rest: Partial<HubPullRequest> = {},
+): HubPullRequest => ({
+  number,
+  title,
+  branch,
+  url: `${FORGE}${number}`,
+  ci,
+  opened_at: AT,
+  updated_at: AT,
+  ...rest,
+});
 
 export const configLine = (): MergeLine => ({
   root: repository().root,
@@ -37,16 +73,36 @@ export const configLine = (): MergeLine => ({
   landed: [],
   sent_back: [],
   hub: {
-    pull_requests: [hub(CONFIG_PR, OURS.title, OURS.branch, "running"), hub(TEAMMATE_PR, "Bump the lockfile", "chore/lockfile", "passed", { author: "dana" })],
+    pull_requests: [
+      hub(CONFIG_PR, OURS.title, OURS.branch, "running"),
+      hub(TEAMMATE_PR, "Bump the lockfile", "chore/lockfile", "passed", {
+        author: "dana",
+      }),
+    ],
   },
 });
 
 /** What the forge says of #2290 when Refresh reads it: the test job failed. */
 export const configFailed = (): Record<number, ForgeReading> => ({
-  [CONFIG_PR]: { checks: "failed", head: "4be1c07d2a", failing: [{ name: "ci / test", log: "https://forge.example/armada/actions/runs/88/job/3" }] },
+  [CONFIG_PR]: {
+    checks: "failed",
+    head: "4be1c07d2a",
+    failing: [
+      {
+        name: "ci / test",
+        log: "https://forge.example/armada/actions/runs/88/job/3",
+      },
+    ],
+  },
 });
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 
 /** A Fleet holding the Job, with the forge's next reading of #2290 failed. */
 export function configFleet(): FakeSessionsFleet {
@@ -57,6 +113,21 @@ export function configFleet(): FakeSessionsFleet {
 
 /** One repository, its merge line holding both pull requests, served by `fleet`, for a test that reads what it was asked. */
 export function configScenario(fleet: FakeSessionsFleet): Scenario {
-  const board = onBoard({ repositories: [ARMADA], picked: ARMADA.root });
-  return fleet.scenario({ ...board, state: { ...board.state, mergeLines: { lines: [configLine()] } } });
+  const board = onBoard({
+    repositories: [
+      ARMADA,
+    ],
+    picked: ARMADA.root,
+  });
+  return fleet.scenario({
+    ...board,
+    state: {
+      ...board.state,
+      mergeLines: {
+        lines: [
+          configLine(),
+        ],
+      },
+    },
+  });
 }

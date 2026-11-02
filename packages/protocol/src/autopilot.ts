@@ -16,13 +16,26 @@ export type AutopilotCap = "until" | "spend" | "sessions";
 export type AutopilotPickState = "started" | "set_aside" | "withdrawn" | "dismissed";
 
 /** What a person put on Autopilot. A body without it reads as the backlog alone. */
-export type AutopilotWork = { backlog: boolean; running: boolean };
+export type AutopilotWork = {
+  backlog: boolean;
+  running: boolean;
+};
 
 /**
  * A kind of decision a helper may answer. The set is closed, and there is no destructive one: that
  * always waits for a person, and Fleet refuses a body naming it.
  */
-export type AutopilotDecision = "recommended" | "open" | "plan" | "draft" | "walk" | "land" | "unsure" | "red" | "reads" | "writes";
+export type AutopilotDecision =
+  | "recommended"
+  | "open"
+  | "plan"
+  | "draft"
+  | "walk"
+  | "land"
+  | "unsure"
+  | "red"
+  | "reads"
+  | "writes";
 
 /** One pick. `workflow_id` is absent where the picker was unsure of that too. */
 export type AutopilotPick = {
@@ -71,10 +84,15 @@ export type Autopilot = {
 };
 
 /** `GET /autopilots`: every repository's, stopped ones included. */
-export type AutopilotList = { autopilots: Autopilot[] };
+export type AutopilotList = {
+  autopilots: Autopilot[];
+};
 
 /** `POST /autopilots/:repository/proposal`: the sentence, and the person's own clock with its offset. */
-export type ProposeAutopilot = { sentence: string; local_now?: string };
+export type ProposeAutopilot = {
+  sentence: string;
+  local_now?: string;
+};
 
 /**
  * What one sentence was read as, for the person to confirm or change, and the body of
@@ -110,7 +128,9 @@ export type AutopilotQuoted = {
  * `POST /autopilots/:repository/proposal`'s answer: the settings, flattened in, and the words each
  * was read from. A start sends back the settings alone. #2105.
  */
-export type AutopilotProposal = AutopilotSettings & { quoted: AutopilotQuoted };
+export type AutopilotProposal = AutopilotSettings & {
+  quoted: AutopilotQuoted;
+};
 
 /**
  * One answer Autopilot gave while the person was away. `id` is `<job>:<item>` for a Job's item, so an
@@ -135,10 +155,17 @@ export type AutopilotDecided = {
  * `autopilot.decisions_changed` published whole: every repository's answers not yet reviewed, in the
  * order they were given.
  */
-export type AutopilotDecisions = { to_review: AutopilotDecided[] };
+export type AutopilotDecisions = {
+  to_review: AutopilotDecided[];
+};
 
 /** `POST /autopilot/decisions/review`: the person kept one answer as it was. */
-export type ReviewAutopilotDecision = { id: string };
+export type ReviewAutopilotDecision = {
+  id: string;
+};
 
 /** `POST /autopilot/decisions/override`: the person's correction, sent to the Job the answer was for. */
-export type OverrideAutopilotDecision = { id: string; text: string };
+export type OverrideAutopilotDecision = {
+  id: string;
+  text: string;
+};

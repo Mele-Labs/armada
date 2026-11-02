@@ -46,7 +46,9 @@
   color: var(--fg-muted);
   line-height: 1;
   cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+  transition:
+    background-color var(--duration-fast) var(--ease),
+    color var(--duration-fast) var(--ease);
 }
 
 .armada-attachment-chip__remove:hover {

@@ -40,27 +40,52 @@ export function LandCheckLogSheet({
 }) {
   const { root, branch, check } = at;
   useEffect(() => {
-    onFollow({ root, branch, check });
+    onFollow({
+      root,
+      branch,
+      check,
+    });
     return () => onFollow(null);
-  }, [root, branch, check, onFollow]);
+  }, [
+    root,
+    branch,
+    check,
+    onFollow,
+  ]);
 
   const ours =
-    followed.state !== "none" && followed.root === root && followed.branch === branch && followed.check === check
+    followed.state !== "none" &&
+    followed.root === root &&
+    followed.branch === branch &&
+    followed.check === check
       ? followed
       : undefined;
   const following = ours?.state === "following" ? ours : undefined;
   const rows: ConsoleRow[] =
     following === undefined
       ? []
-      : following.lines.map((text, n) => ({ row: "line" as const, at: following.fromLine + n, text }));
-  const note = ours === undefined ? undefined : followFailedNote(ours.state === "failed", following?.ended);
+      : following.lines.map((text, n) => ({
+          row: "line" as const,
+          at: following.fromLine + n,
+          text,
+        }));
+  const note =
+    ours === undefined ? undefined : followFailedNote(ours.state === "failed", following?.ended);
   return (
     <CheckLogPanel
       about={`${check} · ${branch}`}
       live={following !== undefined && following.ended === undefined}
       rows={rows}
-      {...(note === undefined ? {} : { emptyNote: note })}
-      {...(bands === undefined ? {} : { bands })}
+      {...(note === undefined
+        ? {}
+        : {
+            emptyNote: note,
+          })}
+      {...(bands === undefined
+        ? {}
+        : {
+            bands,
+          })}
       floor={floor}
       onClose={onClose}
     />
@@ -95,12 +120,28 @@ function CheckLogPanel({
       live={live}
       grows={rows.length}
       bleed
-      wrap={{ wrap, onToggle: () => setWrap((was) => !was) }}
-      {...(bands === undefined ? {} : { bands })}
+      wrap={{
+        wrap,
+        onToggle: () => setWrap((was) => !was),
+      }}
+      {...(bands === undefined
+        ? {}
+        : {
+            bands,
+          })}
       floor={floor}
       onClose={onClose}
     >
-      <ConsoleOutput rows={rows} following={live} {...(emptyNote === undefined ? {} : { emptyNote })} wrap={wrap} />
+      <ConsoleOutput
+        rows={rows}
+        following={live}
+        {...(emptyNote === undefined
+          ? {}
+          : {
+              emptyNote,
+            })}
+        wrap={wrap}
+      />
     </LogSheet>
   );
 }

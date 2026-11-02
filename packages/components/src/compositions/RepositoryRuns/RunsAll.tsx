@@ -13,16 +13,35 @@ import type { RunsPlace } from "./RunsPlaces";
 /** The root of the repository has no folder to name it by. */
 const ROOT = "Root";
 
-type Workspace = { key: string; name: string; rows: readonly RunsRow[]; kinds: string };
+type Workspace = {
+  key: string;
+  name: string;
+  rows: readonly RunsRow[];
+  kinds: string;
+};
 
 /** The workspaces the commands ran in, in the order they were first seen, each with the kinds of command it has. */
 function workspacesOf(rows: readonly RunsRow[]): Workspace[] {
   const seen = new Map<string, RunsRow[]>();
-  for (const one of rows) seen.set(one.workspace ?? "", [...(seen.get(one.workspace ?? "") ?? []), one]);
-  return [...seen].map(([key, held]) => ({ key, name: key === "" ? ROOT : key, rows: held, kinds: [...new Set(held.map((one) => one.job))].join(", ") }));
+  for (const one of rows)
+    seen.set(one.workspace ?? "", [
+      ...(seen.get(one.workspace ?? "") ?? []),
+      one,
+    ]);
+  return [
+    ...seen,
+  ].map(([key, held]) => ({
+    key,
+    name: key === "" ? ROOT : key,
+    rows: held,
+    kinds: [
+      ...new Set(held.map((one) => one.job)),
+    ].join(", "),
+  }));
 }
 
-const has = (said: string, filter: string) => said.toLowerCase().includes(filter.trim().toLowerCase());
+const has = (said: string, filter: string) =>
+  said.toLowerCase().includes(filter.trim().toLowerCase());
 
 /**
  * All of how a repository runs, as a layer over the Cockpit: the workspaces, each with the kinds of command it has, and a workspace's commands
@@ -56,9 +75,16 @@ export function RunsAll({
   said?: string | undefined;
   onClose: () => void;
 }) {
-  const workspaces = useMemo(() => workspacesOf(rows), [rows]);
+  const workspaces = useMemo(
+    () => workspacesOf(rows),
+    [
+      rows,
+    ],
+  );
   // A repository with a single workspace opens at its commands, and Esc closes the layer from there.
-  const [open, setOpen] = useState<string | null>(() => (workspaces.length === 1 ? workspaces[0]!.key : null));
+  const [open, setOpen] = useState<string | null>(() =>
+    workspaces.length === 1 ? workspaces[0]!.key : null,
+  );
   const [filter, setFilter] = useState("");
   const root = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLInputElement>(null);
@@ -69,7 +95,9 @@ export function RunsAll({
   const Keep = PLACE_GLYPH[place.id];
   const back = workspaces.length > 1;
 
-  const items = () => [...(root.current?.querySelectorAll<HTMLElement>("button[data-item], li[data-row]") ?? [])];
+  const items = () => [
+    ...(root.current?.querySelectorAll<HTMLElement>("button[data-item], li[data-row]") ?? []),
+  ];
   const go = (key: string | null) => {
     setOpen(key);
     setFilter("");
@@ -101,7 +129,9 @@ export function RunsAll({
       event.stopPropagation();
       const all = items();
       const at = all.indexOf(document.activeElement as HTMLElement);
-      all[at < 0 ? (down ? 0 : all.length - 1) : (at + (down ? 1 : all.length - 1)) % all.length]?.focus();
+      all[
+        at < 0 ? (down ? 0 : all.length - 1) : (at + (down ? 1 : all.length - 1)) % all.length
+      ]?.focus();
       return;
     }
     if (event.key === "/" && !typing) {
@@ -139,7 +169,13 @@ export function RunsAll({
         )}
         <span className="armada-runs__source">{source}</span>
         <Tooltip label={`Kept ${placePhrase(place)}`} shortcut="⌥P">
-          <button type="button" className="armada-runs__keep" aria-label={`Kept ${placePhrase(place)}`} aria-expanded={changing === true} onClick={onChange}>
+          <button
+            type="button"
+            className="armada-runs__keep"
+            aria-label={`Kept ${placePhrase(place)}`}
+            aria-expanded={changing === true}
+            onClick={onChange}
+          >
             <Keep size={12} strokeWidth={2} aria-hidden />
           </button>
         </Tooltip>
@@ -164,7 +200,12 @@ export function RunsAll({
         <ul className="armada-runs__rows armada-runs-all__list" aria-label="Workspaces">
           {listed.map((it) => (
             <li key={it.key} className="armada-runs-all__item">
-              <button type="button" className="armada-runs-all__workspace" data-item={it.key} onClick={() => go(it.key)}>
+              <button
+                type="button"
+                className="armada-runs-all__workspace"
+                data-item={it.key}
+                onClick={() => go(it.key)}
+              >
                 <code className="armada-runs-all__name">{it.name}</code>
                 <span className="armada-runs-all__kinds">{it.kinds}</span>
               </button>
@@ -174,7 +215,14 @@ export function RunsAll({
       ) : (
         <ul className="armada-runs__rows" aria-label={`Commands in ${one.name}`}>
           {commands.map((it, at) => (
-            <RunLine key={it.id} row={it} place={place} workspaces={false} tabIndex={at === 0 ? 0 : -1} onDrop={() => onDrop(it.id)} />
+            <RunLine
+              key={it.id}
+              row={it}
+              place={place}
+              workspaces={false}
+              tabIndex={at === 0 ? 0 : -1}
+              onDrop={() => onDrop(it.id)}
+            />
           ))}
         </ul>
       )}

@@ -7,7 +7,12 @@ import { FakeSessionsFleet } from "../sessions-fleet";
 import { SHEET_READ, settingUp } from "../setup-fake";
 
 function build(): Scenario {
-  const setting = settingUp({ sheet: SHEET_READ, unreadable: ["test/bats"] });
+  const setting = settingUp({
+    sheet: SHEET_READ,
+    unreadable: [
+      "test/bats",
+    ],
+  });
   const served = new FakeSessionsFleet().scenario(setting);
   return {
     ...served,
@@ -23,8 +28,20 @@ function build(): Scenario {
         // A Session Fleet starts takes its title from the start, so the fake names it here.
         startSession: async (title, root) => {
           const started = await own.startSession!(title, root);
-          if (started.ok && title !== undefined) await own.renameSession!({ session_id: started.value.id, title });
-          return started.ok && title !== undefined ? { ...started, value: { ...started.value, title } } : started;
+          if (started.ok && title !== undefined)
+            await own.renameSession!({
+              session_id: started.value.id,
+              title,
+            });
+          return started.ok && title !== undefined
+            ? {
+                ...started,
+                value: {
+                  ...started.value,
+                  title,
+                },
+              }
+            : started;
         },
         // A thread is held before the message lands in it, which a window opening the Session does later.
         sendSessionMessage: async (send) => {

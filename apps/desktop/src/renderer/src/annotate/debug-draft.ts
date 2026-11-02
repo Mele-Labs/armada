@@ -11,12 +11,49 @@ import type { Sink } from "./sink";
 const keptFor = (sessionId: string): string => `session:${sessionId}`;
 
 /** `text` and `picture` in the box kept for the Session, as though typed and attached there. */
-function leaveDraft(sessionId: string, text: string, picture: ArrayBuffer | null, name: string): void {
+function leaveDraft(
+  sessionId: string,
+  text: string,
+  picture: ArrayBuffer | null,
+  name: string,
+): void {
   // A line break that ends the box is only where the last line stops, so one more keeps a blank line under the state.
   const seeded = `${text}\n\n`;
-  const file = picture === null ? undefined : new File([picture], name, { type: "image/png" });
-  const files: ComposerFile[] = file === undefined ? [] : [{ id: "debug-shot", name, file, src: URL.createObjectURL(file) }];
-  writeKept(keptFor(sessionId), { text: seeded, tags: [], files }, { text: seeded, tags: [] });
+  const file =
+    picture === null
+      ? undefined
+      : new File(
+          [
+            picture,
+          ],
+          name,
+          {
+            type: "image/png",
+          },
+        );
+  const files: ComposerFile[] =
+    file === undefined
+      ? []
+      : [
+          {
+            id: "debug-shot",
+            name,
+            file,
+            src: URL.createObjectURL(file),
+          },
+        ];
+  writeKept(
+    keptFor(sessionId),
+    {
+      text: seeded,
+      tags: [],
+      files,
+    },
+    {
+      text: seeded,
+      tags: [],
+    },
+  );
 }
 
 /**
@@ -28,15 +65,37 @@ export async function startWithDraft(
   box: Box | null,
   sink: Sink,
   fleet: Pick<SessionSender, "startSession">,
-): Promise<Extract<SendAnswer, { ok: false }> | { ok: true; sessionId: string }> {
+): Promise<
+  | Extract<
+      SendAnswer,
+      {
+        ok: false;
+      }
+    >
+  | {
+      ok: true;
+      sessionId: string;
+    }
+> {
   const root = await sink.root();
-  if (root === null) return { ok: false, saying: "Job not started: no repository found above Bridge" };
+  if (root === null)
+    return {
+      ok: false,
+      saying: "Job not started: no repository found above Bridge",
+    };
   // A whole-window note: its box is the window.
   const picture = await pictureOf(note, box, sink, box);
   const words = requestOf(note);
   // Held on its start card, with the note's words as the request so Fleet's proposer reads them at the start.
   const started = await fleet.startSession(undefined, root, words, undefined, undefined, true);
-  if (!started.ok) return { ok: false, saying: `Job not started: ${refusal(started.outcome)}` };
+  if (!started.ok)
+    return {
+      ok: false,
+      saying: `Job not started: ${refusal(started.outcome)}`,
+    };
   leaveDraft(started.value.id, words, picture?.png ?? null, `annotation-${note.id}.png`);
-  return { ok: true, sessionId: started.value.id };
+  return {
+    ok: true,
+    sessionId: started.value.id,
+  };
 }

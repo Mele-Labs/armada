@@ -14,7 +14,10 @@ import { TerminalWindow } from "./TerminalWindow";
 // A Job's shell in a window of its own, a fourth renderer entry beside Bridge's, the bar's and the walk panel's: a Bridge
 // document with Bridge's preload, which main loads on `?session=` and closes when the shell moves back (`main/terminal-windows.ts`).
 
-const THEMES = createFleetThemes(withState(window.armada), CATALOGUE, { builtIn: BUILT_IN_SWATCHES, ofMod: modSwatch });
+const THEMES = createFleetThemes(withState(window.armada), CATALOGUE, {
+  builtIn: BUILT_IN_SWATCHES,
+  ofMod: modSwatch,
+});
 const SESSION = new URLSearchParams(window.location.search).get("session") ?? "";
 
 function Root() {
@@ -24,7 +27,9 @@ function Root() {
   }, []);
   return (
     <Boundary region="the terminal window" usable={false} bridge={bridge}>
-      <Themed source={THEMES}>{SESSION === "" ? null : <TerminalWindow api={window.armada} sessionId={SESSION} />}</Themed>
+      <Themed source={THEMES}>
+        {SESSION === "" ? null : <TerminalWindow api={window.armada} sessionId={SESSION} />}
+      </Themed>
     </Boundary>
   );
 }

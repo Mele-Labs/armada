@@ -20,11 +20,23 @@ function addressable(address: string): boolean {
 }
 
 export async function openLink(address: string): Promise<Followed> {
-  if (!addressable(address)) return { ok: false, why: "not_addressable", address };
+  if (!addressable(address))
+    return {
+      ok: false,
+      why: "not_addressable",
+      address,
+    };
   try {
     await shell.openExternal(address);
-    return { ok: true };
+    return {
+      ok: true,
+    };
   } catch (error) {
-    return { ok: false, why: "refused", address, detail: String(error) };
+    return {
+      ok: false,
+      why: "refused",
+      address,
+      detail: String(error),
+    };
   }
 }

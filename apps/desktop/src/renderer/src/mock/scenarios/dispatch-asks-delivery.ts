@@ -17,8 +17,21 @@ const DELIVERY: NonNullable<Session["waitingFor"]>[number] = {
   text: "How should this work be delivered?",
   since: "2026-10-19T14:12:00.000Z",
   source: "delivery",
-  act: { kind: "answer", target: "delivery" },
-  options: [{ label: "Auto land" }, { label: "Open PR only" }, { label: "Keep local" }],
+  act: {
+    kind: "answer",
+    target: "delivery",
+  },
+  options: [
+    {
+      label: "Auto land",
+    },
+    {
+      label: "Open PR only",
+    },
+    {
+      label: "Keep local",
+    },
+  ],
 };
 
 export const s299DispatchAsksDelivery: Scenario = {
@@ -28,20 +41,42 @@ export const s299DispatchAsksDelivery: Scenario = {
   draft: {
     ...s210QuickDispatch.draft,
     sessions: () => {
-      const store = sessionsStore([], [], new Map([[repository().root, repository().manifest!.id]]), others().filter((one) => one.id !== MINE));
+      const store = sessionsStore(
+        [],
+        [],
+        new Map([
+          [
+            repository().root,
+            repository().manifest!.id,
+          ],
+        ]),
+        others().filter((one) => one.id !== MINE),
+      );
       return {
         ...store,
         // The Job's first turn ends on the delivery question: it goes idle with the question held, and the agent says it in the thread.
         later: () =>
           store.edit(MINE, (one: Session) => ({
             ...one,
-            turn: { state: "idle" },
+            turn: {
+              state: "idle",
+            },
             lastTurnAt: new Date().toISOString(),
             rows: [
               ...one.rows,
-              { id: "d1", at: "14:12:00", kind: "message", from: { kind: "agent" }, text: "The change is in. How should this work be delivered?" },
+              {
+                id: "d1",
+                at: "14:12:00",
+                kind: "message",
+                from: {
+                  kind: "agent",
+                },
+                text: "The change is in. How should this work be delivered?",
+              },
             ],
-            waitingFor: [DELIVERY],
+            waitingFor: [
+              DELIVERY,
+            ],
           })),
       };
     },

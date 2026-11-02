@@ -8,14 +8,37 @@ import { FakeSessionsFleet, asking, hosted } from "../sessions-fleet";
 
 const SESSION = "01SESSIONPHONEDOORSAAAAAAA";
 
-const base = holding("phone-doors", "A Session ask answered from the phone beside the same act in Bridge");
+const base = holding(
+  "phone-doors",
+  "A Session ask answered from the phone beside the same act in Bridge",
+);
 
 const AT = "2026-10-11T09:00:00.000Z";
 const thread = {
   [SESSION]: [
-    { kind: "ask" as const, id: "ask-1", at: AT, ask: asking("rm -rf build", "call-1"), state: "allowed_once" as const, via: "phone" },
-    { kind: "ask" as const, id: "ask-2", at: AT, ask: asking("rm -rf dist", "call-2"), state: "allowed_once" as const },
+    {
+      kind: "ask" as const,
+      id: "ask-1",
+      at: AT,
+      ask: asking("rm -rf build", "call-1"),
+      state: "allowed_once" as const,
+      via: "phone",
+    },
+    {
+      kind: "ask" as const,
+      id: "ask-2",
+      at: AT,
+      ask: asking("rm -rf dist", "call-2"),
+      state: "allowed_once" as const,
+    },
   ],
 };
 
-export const s224PhoneDoors = new FakeSessionsFleet([hosted(SESSION, { title: "Fix the flaky store test" })], thread).scenario(base);
+export const s224PhoneDoors = new FakeSessionsFleet(
+  [
+    hosted(SESSION, {
+      title: "Fix the flaky store test",
+    }),
+  ],
+  thread,
+).scenario(base);

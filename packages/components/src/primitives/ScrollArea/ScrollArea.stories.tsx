@@ -16,11 +16,16 @@ export default meta;
 
 type Story = StoryObj<typeof ScrollArea>;
 
-const jobs = Array.from({ length: 18 }, (_, i) => ({
-  id: `job_${(i + 1).toString().padStart(4, "0")}`,
-  branch: `feat/step-${i + 1}`,
-  elapsed: `${i + 2}m`,
-}));
+const jobs = Array.from(
+  {
+    length: 18,
+  },
+  (_, i) => ({
+    id: `job_${(i + 1).toString().padStart(4, "0")}`,
+    branch: `feat/step-${i + 1}`,
+    elapsed: `${i + 2}m`,
+  }),
+);
 
 /** Content past the bound: the scrollbar is the only thing that says so. */
 export const Scrolling: Story = {

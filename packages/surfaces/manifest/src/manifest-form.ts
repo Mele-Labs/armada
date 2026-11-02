@@ -29,21 +29,44 @@ export type ManifestFormSlice = {
 
 /** The forms, as the screen draws them. */
 export type ManifestForming =
-  | { state: "reading" }
-  | { state: "failed"; saying: string }
+  | {
+      state: "reading";
+    }
+  | {
+      state: "failed";
+      saying: string;
+    }
   /** The file does not load, so there is no form to draw; the file view corrects it. */
-  | { state: "unloadable"; path: string }
+  | {
+      state: "unloadable";
+      path: string;
+    }
   /** `frozen` is what the file declares, not the draft: the page says what is in force. */
-  | { state: "open"; props: ManifestFormProps; frozen: boolean };
+  | {
+      state: "open";
+      props: ManifestFormProps;
+      frozen: boolean;
+    };
 
 type Refused = NonNullable<ManifestFormProps["refused"]>;
 
 export type Held =
-  | { state: "none" }
+  | {
+      state: "none";
+    }
   /** `saved` rides a read that follows a save, so its receipt is not lost. */
-  | { state: "reading"; saved?: string }
-  | { state: "failed"; saying: string }
-  | { state: "unloadable"; path: string }
+  | {
+      state: "reading";
+      saved?: string;
+    }
+  | {
+      state: "failed";
+      saying: string;
+    }
+  | {
+      state: "unloadable";
+      path: string;
+    }
   | {
       state: "open";
       path: string;
@@ -55,7 +78,9 @@ export type Held =
       /** When the last save landed, an RFC 3339 instant. */
       saved?: string;
       refused?: Refused;
-      moved?: { onDisk: string | null };
+      moved?: {
+        onDisk: string | null;
+      };
     };
 
 /**
@@ -65,14 +90,23 @@ export type Held =
 export function formAnswered(held: Held, answer: ManifestFileRead): Held {
   const saved = held.state === "open" || held.state === "reading" ? held.saved : undefined;
   if (!answer.ok) {
-    return held.state === "open" ? held : { state: "failed", saying: unlandedSaying(answer.outcome) };
+    return held.state === "open"
+      ? held
+      : {
+          state: "failed",
+          saying: unlandedSaying(answer.outcome),
+        };
   }
   if (held.state === "open") {
     const touched = editsOf(held.declared, held.draft).length > 0;
     if (held.saving || held.moved !== undefined || touched) return held;
   }
   const { path, text, declared } = answer.file;
-  if (declared === undefined) return { state: "unloadable", path };
+  if (declared === undefined)
+    return {
+      state: "unloadable",
+      path,
+    };
   return {
     state: "open",
     path,
@@ -80,7 +114,11 @@ export function formAnswered(held: Held, answer: ManifestFileRead): Held {
     declared,
     draft: draftOf(declared),
     saving: false,
-    ...(saved === undefined ? {} : { saved }),
+    ...(saved === undefined
+      ? {}
+      : {
+          saved,
+        }),
   };
 }
 
@@ -91,7 +129,11 @@ export function editAnswered(held: Held, answer: ManifestEditAnswer): Held {
     case "edited": {
       const { edited } = answer;
       // An older Fleet does not say what it wrote, so the form reads the file again.
-      if (edited.declared === undefined) return { state: "reading", saved: edited.at };
+      if (edited.declared === undefined)
+        return {
+          state: "reading",
+          saved: edited.at,
+        };
       return {
         state: "open",
         path: edited.path,
@@ -103,11 +145,33 @@ export function editAnswered(held: Held, answer: ManifestEditAnswer): Held {
       };
     }
     case "moved":
-      return { ...held, saving: false, saved: undefined, refused: undefined, moved: { onDisk: answer.onDisk } };
+      return {
+        ...held,
+        saving: false,
+        saved: undefined,
+        refused: undefined,
+        moved: {
+          onDisk: answer.onDisk,
+        },
+      };
     case "refused":
-      return { ...held, saving: false, refused: { saying: answer.saying, faults: answer.faults } };
+      return {
+        ...held,
+        saving: false,
+        refused: {
+          saying: answer.saying,
+          faults: answer.faults,
+        },
+      };
     case "failed":
-      return { ...held, saving: false, refused: { saying: unlandedSaying(answer.outcome), faults: [] } };
+      return {
+        ...held,
+        saving: false,
+        refused: {
+          saying: unlandedSaying(answer.outcome),
+          faults: [],
+        },
+      };
   }
 }
 
@@ -119,11 +183,15 @@ export function useManifestForm({
   repository,
   mergeByHand,
 }: ManifestFormSlice): ManifestForming {
-  const [held, setHeld] = useState<Held>({ state: "none" });
+  const [held, setHeld] = useState<Held>({
+    state: "none",
+  });
   const [heldFor, setHeldFor] = useState(repository);
   if (heldFor !== repository) {
     setHeldFor(repository);
-    setHeld({ state: "none" });
+    setHeld({
+      state: "none",
+    });
   }
   // What a press reads, and one save at a time — `manifest-file.ts`'s two refs.
   const current = useRef(held);
@@ -131,18 +199,30 @@ export function useManifestForm({
   const out = useRef(false);
 
   function read(): void {
-    setHeld((prev) => (prev.state === "open" ? prev : { state: "reading" }));
+    setHeld((prev) =>
+      prev.state === "open"
+        ? prev
+        : {
+            state: "reading",
+          },
+    );
     void onReadFile().then((answer) => setHeld((prev) => formAnswered(prev, answer)));
   }
 
   function readAgain(): void {
-    setHeld({ state: "reading" });
+    setHeld({
+      state: "reading",
+    });
     void onReadFile().then((answer) => setHeld((prev) => formAnswered(prev, answer)));
   }
 
   useEffect(() => {
     if (showing) read();
-  }, [showing, reading?.at, repository]);
+  }, [
+    showing,
+    reading?.at,
+    repository,
+  ]);
 
   function save(over: boolean): void {
     const at = current.current;
@@ -151,11 +231,21 @@ export function useManifestForm({
     // what they touch is still only what the form changed.
     const against = over ? at.moved?.onDisk : at.read;
     if (against === undefined || against === null) return;
-    const sent: EditManifest = { read: against, edits: editsOf(at.declared, at.draft) };
+    const sent: EditManifest = {
+      read: against,
+      edits: editsOf(at.declared, at.draft),
+    };
     if (sent.edits.length === 0) return;
     out.current = true;
     setHeld((prev) =>
-      prev.state === "open" ? { ...prev, saving: true, refused: undefined, moved: undefined } : prev,
+      prev.state === "open"
+        ? {
+            ...prev,
+            saving: true,
+            refused: undefined,
+            moved: undefined,
+          }
+        : prev,
     );
     void onEditManifest(sent).then((answer) => {
       out.current = false;
@@ -166,9 +256,20 @@ export function useManifestForm({
     });
   }
 
-  if (held.state === "failed") return { state: "failed", saying: held.saying };
-  if (held.state === "unloadable") return { state: "unloadable", path: held.path };
-  if (held.state !== "open") return { state: "reading" };
+  if (held.state === "failed")
+    return {
+      state: "failed",
+      saying: held.saying,
+    };
+  if (held.state === "unloadable")
+    return {
+      state: "unloadable",
+      path: held.path,
+    };
+  if (held.state !== "open")
+    return {
+      state: "reading",
+    };
 
   const { draft, declared, saved, refused, moved } = held;
   const changed = editsOf(declared, draft).length > 0;
@@ -179,29 +280,64 @@ export function useManifestForm({
       path: held.path,
       ...(declared.id === undefined || declared.version === undefined
         ? {}
-        : { identity: { id: declared.id, version: declared.version } }),
+        : {
+            identity: {
+              id: declared.id,
+              version: declared.version,
+            },
+          }),
       draft,
-      onDraft: (next) => setHeld((prev) => (prev.state === "open" ? { ...prev, draft: next } : prev)),
+      onDraft: (next) =>
+        setHeld((prev) =>
+          prev.state === "open"
+            ? {
+                ...prev,
+                draft: next,
+              }
+            : prev,
+        ),
       autoMergeWords: declared.auto_merge.offered,
       reviewGateWords: declared.review_gate.offered,
       problems: problemsOf(draft),
       changed,
       saving: held.saving,
       onSave: () => save(false),
-      ...(mergeByHand === undefined ? {} : { mergeByHand }),
+      ...(mergeByHand === undefined
+        ? {}
+        : {
+            mergeByHand,
+          }),
       onDiscard: () =>
         setHeld((prev) =>
-          prev.state === "open" ? { ...prev, draft: draftOf(prev.declared), refused: undefined } : prev,
+          prev.state === "open"
+            ? {
+                ...prev,
+                draft: draftOf(prev.declared),
+                refused: undefined,
+              }
+            : prev,
         ),
-      ...(saved === undefined ? {} : { saved }),
-      ...(refused === undefined ? {} : { refused }),
+      ...(saved === undefined
+        ? {}
+        : {
+            saved,
+          }),
+      ...(refused === undefined
+        ? {}
+        : {
+            refused,
+          }),
       ...(moved === undefined
         ? {}
         : {
             moved: {
               gone: moved.onDisk === null,
               onReadAgain: readAgain,
-              ...(moved.onDisk === null ? {} : { onSaveOver: () => save(true) }),
+              ...(moved.onDisk === null
+                ? {}
+                : {
+                    onSaveOver: () => save(true),
+                  }),
             },
           }),
     },

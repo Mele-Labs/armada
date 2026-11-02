@@ -17,7 +17,12 @@ import { promisify } from "node:util";
 import type { VoiceWhy, WhisperState } from "../shared/api/voice";
 
 /** One file Install fetches: where from, how big, and the SHA-256 it must have. */
-export type WhisperPart = { name: "library" | "model"; url: string; bytes: number; sha256: string };
+export type WhisperPart = {
+  name: "library" | "model";
+  url: string;
+  bytes: number;
+  sha256: string;
+};
 
 export const WHISPER_RELEASE = "b5454";
 export const WHISPER_MODEL = "ggml-base.en-q5_1.bin";
@@ -38,7 +43,8 @@ export const WHISPER_PARTS: readonly WhisperPart[] = [
 ];
 
 /** Inside the release's zip: the macOS framework, the only slice the helper loads. */
-export const FRAMEWORK_IN_ZIP = "build-apple/whisper.xcframework/macos-arm64_x86_64/whisper.framework";
+export const FRAMEWORK_IN_ZIP =
+  "build-apple/whisper.xcframework/macos-arm64_x86_64/whisper.framework";
 
 /** What Install does to the disk, so a test can hand it a fake. Paths are inside `dir`. */
 export type WhisperDisk = {
@@ -58,7 +64,17 @@ const STEP = 0.01;
 
 export class WhisperInstall {
   private state: WhisperState;
-  private running: Promise<{ ok: true } | { ok: false; why: VoiceWhy }> | undefined;
+  private running:
+    | Promise<
+        | {
+            ok: true;
+          }
+        | {
+            ok: false;
+            why: VoiceWhy;
+          }
+      >
+    | undefined;
 
   constructor(
     private readonly dir: string,
@@ -66,7 +82,13 @@ export class WhisperInstall {
     private readonly onChange: (state: WhisperState) => void,
     private readonly parts: readonly WhisperPart[] = WHISPER_PARTS,
   ) {
-    this.state = disk.marked() ? { state: "installed" } : { state: "absent" };
+    this.state = disk.marked()
+      ? {
+          state: "installed",
+        }
+      : {
+          state: "absent",
+        };
   }
 
   get current(): WhisperState {
@@ -74,14 +96,31 @@ export class WhisperInstall {
   }
 
   /** The library and model the helper loads, once installed. */
-  paths(): { library: string; model: string } | null {
+  paths(): {
+    library: string;
+    model: string;
+  } | null {
     if (this.state.state !== "installed") return null;
-    return { library: `${this.dir}/whisper.framework/Versions/A/whisper`, model: `${this.dir}/${WHISPER_MODEL}` };
+    return {
+      library: `${this.dir}/whisper.framework/Versions/A/whisper`,
+      model: `${this.dir}/${WHISPER_MODEL}`,
+    };
   }
 
   /** Starts the install, or joins the one under way; installed already, it does nothing. */
-  install(): Promise<{ ok: true } | { ok: false; why: VoiceWhy }> {
-    if (this.state.state === "installed") return Promise.resolve({ ok: true });
+  install(): Promise<
+    | {
+        ok: true;
+      }
+    | {
+        ok: false;
+        why: VoiceWhy;
+      }
+  > {
+    if (this.state.state === "installed")
+      return Promise.resolve({
+        ok: true,
+      });
     this.running ??= this.run().finally(() => {
       this.running = undefined;
     });
@@ -93,12 +132,26 @@ export class WhisperInstall {
     this.onChange(state);
   }
 
-  private async run(): Promise<{ ok: true } | { ok: false; why: VoiceWhy }> {
+  private async run(): Promise<
+    | {
+        ok: true;
+      }
+    | {
+        ok: false;
+        why: VoiceWhy;
+      }
+  > {
     const total = this.parts.reduce((sum, part) => sum + part.bytes, 0);
     let done = 0;
     let told = 0;
-    this.set({ state: "installing", progress: 0 });
-    const files: Record<WhisperPart["name"], string> = { library: `${this.dir}/whisper.zip`, model: `${this.dir}/${WHISPER_MODEL}` };
+    this.set({
+      state: "installing",
+      progress: 0,
+    });
+    const files: Record<WhisperPart["name"], string> = {
+      library: `${this.dir}/whisper.zip`,
+      model: `${this.dir}/${WHISPER_MODEL}`,
+    };
     for (const part of this.parts) {
       const hash = createHash("sha256");
       try {
@@ -109,7 +162,10 @@ export class WhisperInstall {
           const progress = Math.min(done / total, 0.99);
           if (progress - told < STEP) return;
           told = progress;
-          this.set({ state: "installing", progress });
+          this.set({
+            state: "installing",
+            progress,
+          });
         });
       } catch {
         return this.stop("download_failed");
@@ -122,25 +178,42 @@ export class WhisperInstall {
     } catch {
       return this.stop("unpack_failed");
     }
-    this.set({ state: "installed" });
-    return { ok: true };
+    this.set({
+      state: "installed",
+    });
+    return {
+      ok: true,
+    };
   }
 
-  private async stop(why: VoiceWhy): Promise<{ ok: false; why: VoiceWhy }> {
+  private async stop(why: VoiceWhy): Promise<{
+    ok: false;
+    why: VoiceWhy;
+  }> {
     await this.disk.clear().catch(() => {});
-    this.set({ state: "absent" });
-    return { ok: false, why };
+    this.set({
+      state: "absent",
+    });
+    return {
+      ok: false,
+      why,
+    };
   }
 }
 
-const MARK = JSON.stringify({ release: WHISPER_RELEASE, model: WHISPER_MODEL });
+const MARK = JSON.stringify({
+  release: WHISPER_RELEASE,
+  model: WHISPER_MODEL,
+});
 
 /** The disk Install writes: `dir` holds nothing but Whisper, so a stopped install clears the whole of it. */
 export function whisperDisk(dir: string, fetcher: (url: string) => Promise<Response>): WhisperDisk {
   const marker = join(dir, "installed.json");
   return {
     download: async (url, file, onChunk) => {
-      await mkdir(dir, { recursive: true });
+      await mkdir(dir, {
+        recursive: true,
+      });
       const response = await fetcher(url);
       if (!response.ok || response.body === null) throw new Error(`${url}: ${response.status}`);
       const out = createWriteStream(file);
@@ -154,13 +227,30 @@ export function whisperDisk(dir: string, fetcher: (url: string) => Promise<Respo
     },
     unpack: async (zip, inner, to) => {
       const staging = join(dir, "unpacking");
-      await rm(staging, { recursive: true, force: true });
+      await rm(staging, {
+        recursive: true,
+        force: true,
+      });
       // `unzip` keeps the framework's symlinks, and takes one slice of a zip that holds every Apple platform.
-      await promisify(execFile)("/usr/bin/unzip", ["-q", zip, `${inner}/*`, "-d", staging]);
-      await rm(to, { recursive: true, force: true });
+      await promisify(execFile)("/usr/bin/unzip", [
+        "-q",
+        zip,
+        `${inner}/*`,
+        "-d",
+        staging,
+      ]);
+      await rm(to, {
+        recursive: true,
+        force: true,
+      });
       await rename(join(staging, inner), to);
-      await rm(staging, { recursive: true, force: true });
-      await rm(zip, { force: true });
+      await rm(staging, {
+        recursive: true,
+        force: true,
+      });
+      await rm(zip, {
+        force: true,
+      });
     },
     marked: () => {
       try {
@@ -170,6 +260,10 @@ export function whisperDisk(dir: string, fetcher: (url: string) => Promise<Respo
       }
     },
     mark: () => writeFile(marker, MARK),
-    clear: () => rm(dir, { recursive: true, force: true }),
+    clear: () =>
+      rm(dir, {
+        recursive: true,
+        force: true,
+      }),
   };
 }

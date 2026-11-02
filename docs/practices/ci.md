@@ -86,7 +86,7 @@ changed paths ──> armada covers ──> plan.py ──> checks (JSON array o
                                                                           ci  (needs plan + every Check job + the grouped jobs)
 ```
 
-**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `hooks_test`, `preview_test`, `sync_mod_test`).
+**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `hooks_test`, `preview_test`, `sync_mod_test`, `format_catch_up_test`).
 A workspace Check is `<dir>:<name>` (`bridge_build` of `apps/desktop`, `storybook` of `packages/components`), as `armada covers` prints it and `armada check <key>` takes it.
 
 **The plan job builds `armada` and pipes the changed paths into `armada covers`.**
@@ -117,7 +117,7 @@ Each of those six jobs spent 2.0 minutes building it again, the median of 48 mer
 
 | Name | Passes when | Failed by |
 |---|---|---|
-| `ci` | The plan succeeded and no Check job, `test_compile` or `foundations` failed or was cancelled | A failed Check, a cancelled one, a failed plan, test code that does not compile, a new failing foundations line |
+| `ci` | The plan succeeded and no Check job, `test_compile`, `format` or `foundations` failed or was cancelled | A failed Check, a cancelled one, a failed plan, test code that does not compile, an unformatted file, a new failing foundations line |
 | `desktop_test` | The plan succeeded and the unit job did not fail or get cancelled | A failed unit job, a failed plan |
 
 `ci` needs `workspace_check`, the matrix job, whose entries are the groups below.
@@ -139,7 +139,9 @@ requires for the Checks below. `desktop_test` is to be added.
 | `hooks_test` | `ubuntu-latest` | `python3 .claude/hooks/test_guard_merge.py` | none |
 | `preview_test` | `ubuntu-latest` | `python3 scripts/test_preview.py` | none |
 | `sync_mod_test` | `ubuntu-latest` | `python3 scripts/test_sync_mod.py` | none |
+| `format_catch_up_test` | `ubuntu-latest` | `python3 scripts/test_format_catch_up.py` | none |
 | `xtask_test` of `apps/desktop` | `ubuntu-latest`, job `xtask_test` | `cargo nextest run -p xtask --test-threads $WIDTH`, direct, since the plan's `armada` is not built there. Runs the xtask tests that read `apps/` and `packages/` | rust-cache, cargo-nextest |
+| `format` | `ubuntu-latest` | `pnpm format:check`, on every change | node_modules |
 | `foundations` | `ubuntu-latest` | `cargo xtask verify-foundations`, on the candidate and on `main`'s tip, read as a delta | rust-cache, `main`'s reading per commit |
 | `desktop_test` of `apps/desktop/unit` | `ubuntu-latest`, job `desktop_unit` | `vitest run --maxWorkers=$WIDTH --project 'desktop*'`, direct. `armada check` runs the same from the manifest | node_modules, Playwright |
 
@@ -204,6 +206,40 @@ The author runs them locally and pushes.
 | The privacy rule bans the name the gate runs as, which on a runner is `runner`, an ordinary word in many files | `USER` unset for the job. The rule's paths convention still runs |
 
 **On a merge group, and on `workflow_dispatch`, main's tip is `HEAD^1`**, the commit before the one tested. In a queue of several, that is the previous entry rather than `main`.
+
+## Formatting
+
+**`format` refuses a change to `apps/` or `packages/` the formatter would lay out differently.**
+It runs `pnpm format:check`, which is `biome ci`, over the whole tree, so a file the change did not touch fails it too.
+Like `foundations`, it is a job of its own and runs on every change: a root Check never sees the paths a workspace owns, and the formatter reads them all in about a second.
+
+**To fix a red `format`, run `pnpm format` and commit what it changes.**
+A Drone is refused a bare `pnpm`, so it runs `armada run format`.
+`biome.jsonc` says what is formatted and what is left alone, and `docs/practices/bridge.md`, *The formatter*, says why.
+
+### Catching a branch up
+
+**After a reformat lands, an open branch runs `scripts/format-catch-up` instead of merging `main`.**
+A plain merge conflicts on every line the branch changed, because the reformat changed those lines too.
+
+```
+scripts/format-catch-up FETCH_HEAD     after fetching main; origin/main when none is given
+```
+
+For each reformat `.git-blame-ignore-revs` lists that the branch has not merged, the script:
+
+1. merges `main` as it was just before the reformat, so any conflict left is a real one;
+2. formats the branch and commits that;
+3. merges the reformat, taking the branch's side of each conflict, which loses nothing because the reformat changed only layout;
+4. then merges `main` and formats once more.
+
+A conflict stops the script with the merge open.
+Resolve it, commit, and run the script again; what is already merged is skipped.
+`format_catch_up_test` runs it against a throwaway repository.
+
+**A reformat lands with the merge queue empty.**
+A pull request queued ahead of it would put unformatted lines into its merge group and fail it.
+Its commit is regenerated on the latest `main` just before it is queued, rather than merged, since it is nothing but the formatter's output.
 
 ## Adding a Check
 

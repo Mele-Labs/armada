@@ -56,9 +56,13 @@ export class FleetBuilds {
   async read(port: number): Promise<void> {
     const answer = await this.ask(port, "GET", "/fleet/build");
     if (answer.ok === true) {
-      this.wiring.publish({ fleetBuild: answer.body as FleetBuildReport });
+      this.wiring.publish({
+        fleetBuild: answer.body as FleetBuildReport,
+      });
     } else if (answer.outcome.ok === false && answer.outcome.why === "refused") {
-      this.wiring.publish({ fleetBuild: null });
+      this.wiring.publish({
+        fleetBuild: null,
+      });
     }
   }
 
@@ -79,22 +83,47 @@ export class FleetBuilds {
    */
   async change(build: BuildSource, adopt: boolean): Promise<Outcome> {
     const port = this.wiring.port();
-    if (port === null) return { ok: false, why: "not_connected" };
-    const answer = await this.ask(port, "POST", "/fleet/build/change", { build, adopt });
+    if (port === null)
+      return {
+        ok: false,
+        why: "not_connected",
+      };
+    const answer = await this.ask(port, "POST", "/fleet/build/change", {
+      build,
+      adopt,
+    });
     const held = this.wiring.current().fleetBuild;
     if (answer.ok !== true) {
       // Said where the panel already says why a restart did not take.
       const said = answer.outcome;
-      const why = said.ok === false && said.why === "refused" ? said.error.message : said.ok === false && said.why === "transport" ? said.detail : "Fleet did not answer";
-      if (held !== null) this.wiring.publish({ fleetBuild: { ...held, failed: why } });
+      const why =
+        said.ok === false && said.why === "refused"
+          ? said.error.message
+          : said.ok === false && said.why === "transport"
+            ? said.detail
+            : "Fleet did not answer";
+      if (held !== null)
+        this.wiring.publish({
+          fleetBuild: {
+            ...held,
+            failed: why,
+          },
+        });
       return said;
     }
     if (held !== null) {
       const { failed: _gone, ...rest } = held;
-      this.wiring.publish({ fleetBuild: { ...rest, restarting: build } });
+      this.wiring.publish({
+        fleetBuild: {
+          ...rest,
+          restarting: build,
+        },
+      });
     }
     this.follow();
-    return { ok: true };
+    return {
+      ok: true,
+    };
   }
 
   private follow(): void {

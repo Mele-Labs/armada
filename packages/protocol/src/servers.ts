@@ -15,7 +15,10 @@ export type ServerLink = {
 };
 
 /** A declared port a server's fields name, and the number it resolved to. */
-export type ServerPort = { name: string; port: number };
+export type ServerPort = {
+  name: string;
+  port: number;
+};
 
 /**
  * Which checkout a server serves, and whether what it serves is still what
@@ -75,7 +78,9 @@ export type ServerState = {
 };
 
 /** `GET /servers` — every server held, and the last of each that ended. */
-export type ServerList = { servers: ServerState[] };
+export type ServerList = {
+  servers: ServerState[];
+};
 
 /**
  * `POST /servers/start`'s body. A name, never a command line or a port. Which
@@ -91,7 +96,9 @@ export type StartServer = {
 };
 
 /** `POST /servers/stop`'s body. */
-export type NamedServer = { id: string };
+export type NamedServer = {
+  id: string;
+};
 
 /** One declared server, as the run sheet lists it beside the Commands. */
 export type ServerEntry = {
@@ -109,10 +116,24 @@ export type ServerEntry = {
 
 /** One message on `GET /servers/:server_id/observe` — the run socket's four. */
 export type ServerMessage =
-  | ({ message: "opened" } & ServerOpened)
-  | ({ message: "lines" } & { lines: string[] })
-  | ({ message: "missed" } & { dropped: number })
-  | ({ message: "closed" } & { because: string });
+  | ({
+      message: "opened";
+    } & ServerOpened)
+  | ({
+      message: "lines";
+    } & {
+      lines: string[];
+    })
+  | ({
+      message: "missed";
+    } & {
+      dropped: number;
+    })
+  | ({
+      message: "closed";
+    } & {
+      because: string;
+    });
 
 export type ServerOpened = {
   protocol_id: ProtocolId;

@@ -24,11 +24,25 @@ function titleOf(said: string): string {
   return (cut.includes(" ") ? cut.slice(0, cut.lastIndexOf(" ")) : cut).trimEnd();
 }
 
-function Describe({ tabId, jobId, manifestId }: { tabId: string; jobId: string; manifestId: string | undefined }) {
+function Describe({
+  tabId,
+  jobId,
+  manifestId,
+}: {
+  tabId: string;
+  jobId: string;
+  manifestId: string | undefined;
+}) {
   const numbered = useNumbered(manifestId);
   const keep = `custom:${tabId}`;
   const send = async (sent: SentFromComposer): Promise<boolean> => {
-    const started = await window.armada.startModSession({ title: `Mod ${titleOf(sent.text)}`, said: sent.text, aim: "tab", from_job: jobId, from_tab: tabId });
+    const started = await window.armada.startModSession({
+      title: `Mod ${titleOf(sent.text)}`,
+      said: sent.text,
+      aim: "tab",
+      from_job: jobId,
+      from_tab: tabId,
+    });
     if (!started.ok) {
       askToTell(`Mod Job not started: ${refusal(started.outcome)}`);
       return false;
@@ -50,7 +64,11 @@ function Describe({ tabId, jobId, manifestId }: { tabId: string; jobId: string; 
       commands={NONE}
       taggable={NONE}
       searchFiles={(query) => searchFiles(query, manifestId)}
-      {...(numbered === undefined ? {} : { numbered })}
+      {...(numbered === undefined
+        ? {}
+        : {
+            numbered,
+          })}
       tags={NONE}
       onTags={NOBODY}
       drawn={NONE}
@@ -64,13 +82,31 @@ function Describe({ tabId, jobId, manifestId }: { tabId: string; jobId: string; 
   );
 }
 
-export function CustomBody({ tabId, jobId, manifestId, onOpenSession }: { tabId: string; /** The Job the tab is open in. */ jobId: string; manifestId: string | undefined; onOpenSession: (id: string) => void }) {
+export function CustomBody({
+  tabId,
+  jobId,
+  manifestId,
+  onOpenSession,
+}: {
+  tabId: string /** The Job the tab is open in. */;
+  jobId: string;
+  manifestId: string | undefined;
+  onOpenSession: (id: string) => void;
+}) {
   const custom = useCustom(tabId, true);
   const job = useSessions().find((one) => one.id === custom.job);
   if (custom.stage === "building") {
     return (
       <div className="job-custom__thread">
-        {job === undefined ? null : <SessionThread sessionId={job.id} rows={threadRowsOf(job)} working={job.turn.state === "working"} onAnswer={NOBODY} onOpenSession={onOpenSession} />}
+        {job === undefined ? null : (
+          <SessionThread
+            sessionId={job.id}
+            rows={threadRowsOf(job)}
+            working={job.turn.state === "working"}
+            onAnswer={NOBODY}
+            onOpenSession={onOpenSession}
+          />
+        )}
       </div>
     );
   }

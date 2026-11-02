@@ -1,7 +1,15 @@
 // What a panel shows while the deck powers on (`cockpit/boot.ts`), over its hidden body: its own glyph from the registry, dim in the
 // middle, lit once as the panel comes online (`power.css`). No text, nothing to press, and nothing drawn once the deck is live.
 
-import { ClipboardList, Gauge, Merge, NotebookText, Rows3, Send, type LucideIcon } from "lucide-react";
+import {
+  ClipboardList,
+  Gauge,
+  Merge,
+  NotebookText,
+  Rows3,
+  Send,
+  type LucideIcon,
+} from "lucide-react";
 
 import { powering, usePowerOn } from "../boot";
 

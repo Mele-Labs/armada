@@ -7,7 +7,12 @@ export function SentTo({ target, onOpen }: { target: ThoughtTarget; onOpen: () =
   return (
     <div className="armada-helm-sent">
       <span className="armada-helm-sent__label">Sent to</span>
-      <button type="button" className="armada-helm-sent__chip" aria-label={`Sent to ${said} ${target.title}`} onClick={onOpen}>
+      <button
+        type="button"
+        className="armada-helm-sent__chip"
+        aria-label={`Sent to ${said} ${target.title}`}
+        onClick={onOpen}
+      >
         <Glyph size={12} strokeWidth={2} aria-hidden />
         <span className="armada-helm-sent__title">{target.title}</span>
         <span className="armada-helm-sent__repository mono">{target.repository}</span>

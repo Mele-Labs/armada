@@ -16,8 +16,16 @@ async function opened(): Promise<HTMLElement> {
   const script = WALKS.get("job-document")!;
   mount(script.scenario);
   await onScreen();
-  await walkThrough(script.steps.slice(0, script.steps.findIndex((one) => one.say.startsWith("A press opens the page")) + 1));
-  const article = page.getByRole("article", { name: LEASE_DOC_TITLE, exact: true });
+  await walkThrough(
+    script.steps.slice(
+      0,
+      script.steps.findIndex((one) => one.say.startsWith("A press opens the page")) + 1,
+    ),
+  );
+  const article = page.getByRole("article", {
+    name: LEASE_DOC_TITLE,
+    exact: true,
+  });
   await expect.element(article).toBeVisible();
   return article.element() as HTMLElement;
 }
@@ -28,9 +36,27 @@ test("a bulleted list shows discs, a nested one circles, a numbered list numbers
   const nested = bulleted.querySelector("li ul")!;
   const numbered = article.querySelector("ol")!;
   expect.soft(getComputedStyle(bulleted).listStyleType, "a bulleted list shows discs").toBe("disc");
-  expect.soft(getComputedStyle(nested).listStyleType, "a nested bulleted list shows circles").toBe("circle");
-  expect.soft(getComputedStyle(numbered).listStyleType, "a numbered list shows numbers").toBe("decimal");
-  for (const [said, list] of [["bulleted", bulleted], ["numbered", numbered]] as const) {
-    expect.soft(Number.parseFloat(getComputedStyle(list).paddingInlineStart), `the ${said} list is indented`).toBeGreaterThan(0);
+  expect
+    .soft(getComputedStyle(nested).listStyleType, "a nested bulleted list shows circles")
+    .toBe("circle");
+  expect
+    .soft(getComputedStyle(numbered).listStyleType, "a numbered list shows numbers")
+    .toBe("decimal");
+  for (const [said, list] of [
+    [
+      "bulleted",
+      bulleted,
+    ],
+    [
+      "numbered",
+      numbered,
+    ],
+  ] as const) {
+    expect
+      .soft(
+        Number.parseFloat(getComputedStyle(list).paddingInlineStart),
+        `the ${said} list is indented`,
+      )
+      .toBeGreaterThan(0);
   }
 }, 60_000);

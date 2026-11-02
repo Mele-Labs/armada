@@ -8,7 +8,11 @@ const meta: Meta<typeof SearchField> = {
   component: SearchField,
   decorators: [
     (Story) => (
-      <div style={{ width: "var(--w-settings-index)" }}>
+      <div
+        style={{
+          width: "var(--w-settings-index)",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -23,6 +27,10 @@ function Held({ start }: { start: string }) {
   return <SearchField label="Search the list" value={value} onValue={setValue} />;
 }
 
-export const Empty: Story = { render: () => <Held start="" /> };
+export const Empty: Story = {
+  render: () => <Held start="" />,
+};
 
-export const Holding: Story = { render: () => <Held start="deploy" /> };
+export const Holding: Story = {
+  render: () => <Held start="deploy" />,
+};

@@ -89,8 +89,15 @@
   padding: var(--space-4);
   list-style: none;
   background:
-    linear-gradient(color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width)),
-    linear-gradient(90deg, color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width));
+    linear-gradient(
+      color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width),
+      transparent var(--border-width)
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width),
+      transparent var(--border-width)
+    );
   background-size: var(--space-6) var(--space-6);
 }
 
@@ -106,7 +113,8 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border: calc(var(--border-width) * 2) solid
+    color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
   overflow: hidden;
@@ -338,7 +346,9 @@
 }
 
 @keyframes armada-account-turn {
-  to { transform: rotate(1turn); }
+  to {
+    transform: rotate(1turn);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

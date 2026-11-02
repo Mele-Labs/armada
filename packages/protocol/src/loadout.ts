@@ -3,7 +3,14 @@
 // `LoadoutItemBody`, which is one row's contents read when a person opens it.
 
 /** Where an item came from. `kit` is the person's harness home; `managed` is set by an organisation. */
-export type LoadoutSource = "kit" | "armada" | "repository" | "plugin" | "mcp" | "built_in" | "managed";
+export type LoadoutSource =
+  | "kit"
+  | "armada"
+  | "repository"
+  | "plugin"
+  | "mcp"
+  | "built_in"
+  | "managed";
 
 /** What an item is. The first five are what the agent knows; the last three what it was told. */
 export type LoadoutKind =
@@ -32,7 +39,9 @@ export type LoadoutItem = {
 };
 
 /** The whole list, as the `equipped` fact carries it. */
-export type LoadoutItems = { items: LoadoutItem[] };
+export type LoadoutItems = {
+  items: LoadoutItem[];
+};
 
 export type LoadoutUseKind = "skill" | "tool" | "subagent";
 
@@ -53,7 +62,10 @@ export type LoadoutUse = {
 };
 
 /** The uses of one turn, in the order they were reported. A use repeated in its turn is one, with its `count`. */
-export type LoadoutTurn = { started_at: string; used: LoadoutUse[] };
+export type LoadoutTurn = {
+  started_at: string;
+  used: LoadoutUse[];
+};
 
 /** On every `SessionRecord`, for the header mark and its hover card. */
 export type LoadoutSummary = {
@@ -98,4 +110,7 @@ export type LoadoutItemBody =
       /** The body stops at `LOADOUT_ITEM_CAP` and the file goes on. */
       truncated?: true;
     }
-  | { what: "not_read"; why: string };
+  | {
+      what: "not_read";
+      why: string;
+    };

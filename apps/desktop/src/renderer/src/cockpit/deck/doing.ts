@@ -27,8 +27,16 @@ const DOING: Partial<Record<TimelineKind, Doing>> = {
 export const FRESH_MS = 2 * 60_000 + 15_000;
 
 export const doingOfEvent = (event: TimelineEvent): Doing | undefined => DOING[event.kind];
-export const WORD: Record<Doing, string> = { read: "Reading", write: "Writing", run: "Running" };
-export const GLYPH: Record<Doing, LucideIcon> = { read: ScanSearch, write: PencilLine, run: Radar };
+export const WORD: Record<Doing, string> = {
+  read: "Reading",
+  write: "Writing",
+  run: "Running",
+};
+export const GLYPH: Record<Doing, LucideIcon> = {
+  read: ScanSearch,
+  write: PencilLine,
+  run: Radar,
+};
 /** The most action loops that run at once; the rest of the working drones show the same form still. */
 export const MOST_LOOPS = 8;
 
@@ -45,14 +53,18 @@ export function withDoing(
   events: readonly TimelineEvent[],
   clock: number,
   ownerOf: (number: number) => string | undefined,
-  held?: { key: string; event: TimelineEvent },
+  held?: {
+    key: string;
+    event: TimelineEvent;
+  },
 ): DroneIn[] {
   const latest = new Map<string, TimelineEvent>();
   for (const event of events) {
     if (doingOfEvent(event) === undefined || when(event) > clock) continue;
     const key = droneOfEvent(event, ownerOf);
     const was = key === undefined ? undefined : latest.get(key);
-    if (key !== undefined && (was === undefined || when(event) >= when(was))) latest.set(key, event);
+    if (key !== undefined && (was === undefined || when(event) >= when(was)))
+      latest.set(key, event);
   }
   return drones.map((drone) => {
     const picked = held?.key === drone.key ? held.event : undefined;
@@ -61,7 +73,17 @@ export function withDoing(
     const event = picked ?? (drone.working ? fresh : undefined);
     const doing = event === undefined ? undefined : doingOfEvent(event);
     if (event === undefined || doing === undefined) return drone;
-    const check: Check = drone.flare || event.tone === "bad" ? "bad" : event.tone === "ok" ? "ok" : "run";
-    return { ...drone, doing, check, ...(event.detail === undefined ? {} : { via: event.detail }) };
+    const check: Check =
+      drone.flare || event.tone === "bad" ? "bad" : event.tone === "ok" ? "ok" : "run";
+    return {
+      ...drone,
+      doing,
+      check,
+      ...(event.detail === undefined
+        ? {}
+        : {
+            via: event.detail,
+          }),
+    };
   });
 }

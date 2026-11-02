@@ -9,7 +9,9 @@
    glow. A state is a registry glyph in the hue it already carried. Every rule starts `:root[data-look="new"]`, which
    `look.ts` sets; the page title is hidden where the root does not carry it. */
 
-.armada-page__title { display: none; }
+.armada-page__title {
+  display: none;
+}
 
 /* ---- The page title and its row ---------------------------------------------------------------------------- */
 :root[data-look="new"] .armada-page__title {
@@ -24,10 +26,7 @@
 }
 
 /* A panel is the Cockpit's: raised, hairline, rest shadow. */
-:root[data-look="new"] :is(
-  .armada-lessons-page .armada-lessons,
-  .armada-studio__board
-) {
+:root[data-look="new"] :is(.armada-lessons-page .armada-lessons, .armada-studio__board) {
   border: var(--border-width) solid var(--edge-rest);
   border-radius: var(--radius-lg);
   background: var(--bg-raised);
@@ -35,9 +34,7 @@
 }
 
 /* A section head inside a panel: tracked caps, one solid hairline under it. */
-:root[data-look="new"] :is(
-  .armada-lesson__fix-label
-) {
+:root[data-look="new"] :is(.armada-lesson__fix-label) {
   color: var(--fg-muted);
   font-family: var(--font-display);
   font-size: var(--text-head);
@@ -54,14 +51,24 @@
   gap: var(--gap-panel);
   padding: 0 0 var(--pad-page);
 }
-:root[data-look="new"] .armada-lessons-page > :is(.armada-page__title, .armada-lessons__bar, .armada-lessons, .armada-alert) {
+:root[data-look="new"]
+  .armada-lessons-page
+  > :is(.armada-page__title, .armada-lessons__bar, .armada-lessons, .armada-alert) {
   width: min(100%, 56rem);
   align-self: center;
 }
-:root[data-look="new"] .armada-lessons__bar { justify-content: flex-start; gap: var(--space-3); }
-:root[data-look="new"] .armada-lessons__bar > .armada-button:last-child { margin-left: auto; }
+:root[data-look="new"] .armada-lessons__bar {
+  justify-content: flex-start;
+  gap: var(--space-3);
+}
+:root[data-look="new"] .armada-lessons__bar > .armada-button:last-child {
+  margin-left: auto;
+}
 
-:root[data-look="new"] .armada-lessons-page .armada-lessons { gap: 0; overflow: hidden; }
+:root[data-look="new"] .armada-lessons-page .armada-lessons {
+  gap: 0;
+  overflow: hidden;
+}
 :root[data-look="new"] .armada-lessons > .armada-lesson {
   gap: var(--space-3);
   padding: var(--space-4) var(--space-6);
@@ -70,7 +77,9 @@
   border-radius: 0;
   background: transparent;
 }
-:root[data-look="new"] .armada-lessons > .armada-lesson:last-child { border-bottom: 0; }
+:root[data-look="new"] .armada-lessons > .armada-lesson:last-child {
+  border-bottom: 0;
+}
 
 /* The lesson: a firm headline, then what happened in a measure a person reads at, then what would change. */
 :root[data-look="new"] .armada-lesson__headline {
@@ -86,8 +95,15 @@
   line-height: calc(var(--space-6) - var(--border-width) * 2);
 }
 :root[data-look="new"] .armada-lesson__from,
-:root[data-look="new"] .armada-lesson__job { font-size: var(--size-meta); line-height: var(--leading-sm); font-variant-numeric: tabular-nums; }
-:root[data-look="new"] .armada-lesson__label { border-radius: var(--radius-sm); font-weight: var(--weight-head); }
+:root[data-look="new"] .armada-lesson__job {
+  font-size: var(--size-meta);
+  line-height: var(--leading-sm);
+  font-variant-numeric: tabular-nums;
+}
+:root[data-look="new"] .armada-lesson__label {
+  border-radius: var(--radius-sm);
+  font-weight: var(--weight-head);
+}
 
 /* The change is the lesson's one conclusion: a flat step, a 2px bar, the same measure. */
 :root[data-look="new"] .armada-lesson__fix {
@@ -97,7 +113,11 @@
   border-radius: var(--radius-sm);
   background: var(--bg-step);
 }
-:root[data-look="new"] .armada-lesson__fix-said { font-size: var(--text-row); line-height: calc(var(--space-6) - var(--border-width) * 2); max-width: 68ch; }
+:root[data-look="new"] .armada-lesson__fix-said {
+  font-size: var(--text-row);
+  line-height: calc(var(--space-6) - var(--border-width) * 2);
+  max-width: 68ch;
+}
 
 /* Its evidence is a different kind of thing, so it is drawn as one: a sunken well, the mono face, a caps label. */
 :root[data-look="new"] .armada-lesson > .armada-retro__cites {
@@ -127,8 +147,13 @@
   line-height: var(--leading-sm);
   font-variant-numeric: tabular-nums;
 }
-:root[data-look="new"] .armada-lesson > .armada-retro__cites .armada-retro__name { color: var(--fg-default); }
-:root[data-look="new"] .armada-lesson > .armada-retro__cites .armada-retro__when { margin-left: auto; color: var(--fg-subtle); }
+:root[data-look="new"] .armada-lesson > .armada-retro__cites .armada-retro__name {
+  color: var(--fg-default);
+}
+:root[data-look="new"] .armada-lesson > .armada-retro__cites .armada-retro__when {
+  margin-left: auto;
+  color: var(--fg-subtle);
+}
 
 /* ================================================================ Studios ==================================== */
 /* The list: the page's title, then one panel for each repository that keeps Studios. A panel is the Cockpit's: a header band
@@ -154,29 +179,59 @@
   overflow: hidden;
   clip-path: inset(50%);
 }
-:root[data-look="new"] .armada-studios-page .armada-card > .armada-card-header + .armada-card-content { padding: 0; }
-:root[data-look="new"] .armada-studios-page .armada-card-content > .armada-alert { margin: var(--space-3); }
-:root[data-look="new"] .armada-studio-list { border-collapse: separate; border-spacing: 0; overflow: hidden; width: 100%; background: transparent; }
+:root[data-look="new"]
+  .armada-studios-page
+  .armada-card
+  > .armada-card-header
+  + .armada-card-content {
+  padding: 0;
+}
+:root[data-look="new"] .armada-studios-page .armada-card-content > .armada-alert {
+  margin: var(--space-3);
+}
+:root[data-look="new"] .armada-studio-list {
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  width: 100%;
+  background: transparent;
+}
 :root[data-look="new"] .armada-studio-list .armada-table-cell {
   padding: 0 var(--space-3);
   height: var(--h-row);
   border-bottom: var(--border-width) solid var(--head-rule);
   font-size: var(--text-row);
 }
-:root[data-look="new"] .armada-studio-list .armada-table-body .armada-table-row:last-child .armada-table-cell { border-bottom: 0; }
+:root[data-look="new"]
+  .armada-studio-list
+  .armada-table-body
+  .armada-table-row:last-child
+  .armada-table-cell {
+  border-bottom: 0;
+}
 :root[data-look="new"] .armada-studio-list .armada-table-cell:nth-child(2) {
   color: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: var(--size-meta);
   font-variant-numeric: tabular-nums;
 }
-:root[data-look="new"] .armada-studio-list .armada-table-body .armada-table-row { transition: background-color var(--duration-fast) var(--ease); }
-:root[data-look="new"] .armada-studio-list .armada-table-body .armada-table-row:hover { background: var(--bg-step); }
+:root[data-look="new"] .armada-studio-list .armada-table-body .armada-table-row {
+  transition: background-color var(--duration-fast) var(--ease);
+}
+:root[data-look="new"] .armada-studio-list .armada-table-body .armada-table-row:hover {
+  background: var(--bg-step);
+}
 
 /* One Studio open: the title row, then the board in a panel. The canvas is untouched; its rail and the layers over it
    are the overlay level already. */
-:root[data-look="new"] .armada-studio { padding: var(--space-2) var(--space-4) var(--space-4); gap: var(--space-4); }
-:root[data-look="new"] .armada-studio__head:not(.armada-card-header) { gap: var(--space-3); min-height: var(--leading-title); }
+:root[data-look="new"] .armada-studio {
+  padding: var(--space-2) var(--space-4) var(--space-4);
+  gap: var(--space-4);
+}
+:root[data-look="new"] .armada-studio__head:not(.armada-card-header) {
+  gap: var(--space-3);
+  min-height: var(--leading-title);
+}
 :root[data-look="new"] .armada-studio-name__heading {
   font-family: var(--font-title);
   font-size: var(--text-title);
@@ -189,7 +244,10 @@
   font-size: var(--size-meta);
   letter-spacing: 0;
 }
-:root[data-look="new"] .armada-studio__board { overflow: hidden; background: var(--bg-sunken); }
+:root[data-look="new"] .armada-studio__board {
+  overflow: hidden;
+  background: var(--bg-sunken);
+}
 
 /* ================================================================ Doctor ===================================== */
 /* The viewscreen's frame, glow and ruled glass go; what is left is a page: a panel of instruments, its acts in its own strip,
@@ -202,7 +260,10 @@
   box-shadow: none;
   overflow: hidden;
 }
-:root[data-look="new"] .armada-doctor .armada-view { padding: 0 0 var(--pad-page); gap: var(--gap-panel); }
+:root[data-look="new"] .armada-doctor .armada-view {
+  padding: 0 0 var(--pad-page);
+  gap: var(--gap-panel);
+}
 /* The glyphs on the tiles say it; the line of words is not drawn. */
 :root[data-look="new"] .armada-doctor__summary {
   position: absolute;
@@ -212,15 +273,45 @@
   clip-path: inset(50%);
 }
 /* The instruments and the pane run to the panel beneath, and what they do not fill stays inside their frames. */
-:root[data-look="new"] .armada-doctor .armada-view__stage { flex: 1 1 auto; min-height: 0; overflow: visible; }
-:root[data-look="new"] .armada-doctor .armada-view__horizon { flex: none; }
-:root[data-look="new"] .armada-doctor .armada-view__body { flex: 1 1 auto; gap: var(--gap-panel); align-items: stretch; grid-template-rows: minmax(0, 1fr); padding: 0; border: 0; }
-:root[data-look="new"] .armada-doctor .armada-view__body[data-pane] { grid-template-columns: minmax(0, 1fr) calc(var(--space-12) * 7); }
-:root[data-look="new"] .armada-doctor .armada-view__pane { display: flex; flex-direction: column; padding: 0; overflow: visible; }
-:root[data-look="new"] .armada-doctor .armada-view__pane > .armada-doctor-pane { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+:root[data-look="new"] .armada-doctor .armada-view__stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: visible;
+}
+:root[data-look="new"] .armada-doctor .armada-view__horizon {
+  flex: none;
+}
+:root[data-look="new"] .armada-doctor .armada-view__body {
+  flex: 1 1 auto;
+  gap: var(--gap-panel);
+  align-items: stretch;
+  grid-template-rows: minmax(0, 1fr);
+  padding: 0;
+  border: 0;
+}
+:root[data-look="new"] .armada-doctor .armada-view__body[data-pane] {
+  grid-template-columns: minmax(0, 1fr) calc(var(--space-12) * 7);
+}
+:root[data-look="new"] .armada-doctor .armada-view__pane {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: visible;
+}
+:root[data-look="new"] .armada-doctor .armada-view__pane > .armada-doctor-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
 
 /* The instruments' panel: the legend strip over a dense grid of wells, a glyph then the name, the reading in the mono figures. */
-:root[data-look="new"] .armada-doctor__modules { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+:root[data-look="new"] .armada-doctor__modules {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
 :root[data-look="new"] .armada-doctor .armada-tiles.armada-view__grid {
   flex: 1 1 auto;
   background: none;
@@ -242,27 +333,53 @@
 :root[data-look="new"] .armada-doctor-tile:is([data-result="warn"], [data-result="fail"]) {
   border-color: color-mix(in srgb, var(--hue) 55%, var(--border-subtle));
 }
-:root[data-look="new"] .armada-doctor-tile:hover { background: color-mix(in srgb, var(--fg-default) 6%, var(--bg-sunken)); }
+:root[data-look="new"] .armada-doctor-tile:hover {
+  background: color-mix(in srgb, var(--fg-default) 6%, var(--bg-sunken));
+}
 :root[data-look="new"] .armada-doctor-tile[aria-selected="true"] {
   border-color: transparent;
   background: var(--select-ground);
   box-shadow: var(--select-frame);
 }
-:root[data-look="new"] .armada-doctor-tile[data-lit] { box-shadow: none; }
-:root[data-look="new"] .armada-tiles:focus-visible .armada-doctor-tile[aria-selected="true"] { box-shadow: var(--select-frame), 0 0 0 var(--border-width) var(--border-strong); }
+:root[data-look="new"] .armada-doctor-tile[data-lit] {
+  box-shadow: none;
+}
+:root[data-look="new"] .armada-tiles:focus-visible .armada-doctor-tile[aria-selected="true"] {
+  box-shadow:
+    var(--select-frame),
+    0 0 0 var(--border-width) var(--border-strong);
+}
 
-:root[data-look="new"] .armada-doctor-tile .armada-tile__head { justify-content: flex-start; gap: var(--space-2); }
-:root[data-look="new"] .armada-doctor-tile__module { font-size: var(--text-row); font-weight: var(--weight-row); }
-:root[data-look="new"] .armada-doctor-tile__checks { display: none; }
-:root[data-look="new"] .armada-doctor-tile .armada-doctor-reading { gap: var(--space-1); padding-top: 0; border-top: 0; }
-:root[data-look="new"] .armada-doctor-reading__line { font-size: var(--size-meta); line-height: var(--leading-sm); color: var(--fg-muted); }
+:root[data-look="new"] .armada-doctor-tile .armada-tile__head {
+  justify-content: flex-start;
+  gap: var(--space-2);
+}
+:root[data-look="new"] .armada-doctor-tile__module {
+  font-size: var(--text-row);
+  font-weight: var(--weight-row);
+}
+:root[data-look="new"] .armada-doctor-tile__checks {
+  display: none;
+}
+:root[data-look="new"] .armada-doctor-tile .armada-doctor-reading {
+  gap: var(--space-1);
+  padding-top: 0;
+  border-top: 0;
+}
+:root[data-look="new"] .armada-doctor-reading__line {
+  font-size: var(--size-meta);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+}
 :root[data-look="new"] .armada-doctor-reading__facts dt,
 :root[data-look="new"] .armada-doctor-reading__facts dd {
   font-family: var(--font-mono);
   font-size: var(--size-meta);
   font-variant-numeric: tabular-nums;
 }
-:root[data-look="new"] .armada-doctor-tile .armada-tile__foot { margin-top: auto; }
+:root[data-look="new"] .armada-doctor-tile .armada-tile__foot {
+  margin-top: auto;
+}
 :root[data-look="new"] .armada-doctor-tile__owner {
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
@@ -271,18 +388,32 @@
 
 /* A result is its glyph in the hue it already carries; the word stays for a screen reader. */
 .armada-doctor__glyph,
-.armada-tooltip:has(> .armada-doctor__glyph) { display: none; }
-:root[data-look="new"] .armada-tooltip:has(> .armada-doctor__glyph) { display: inline-flex; }
+.armada-tooltip:has(> .armada-doctor__glyph) {
+  display: none;
+}
+:root[data-look="new"] .armada-tooltip:has(> .armada-doctor__glyph) {
+  display: inline-flex;
+}
 :root[data-look="new"] .armada-doctor__glyph {
   display: inline-flex;
   flex: none;
   color: var(--hue, var(--fg-subtle));
 }
-:root[data-look="new"] .armada-doctor__glyph[data-result="pass"] { --hue: var(--status-completed-success); }
-:root[data-look="new"] .armada-doctor__glyph[data-result="warn"] { --hue: var(--status-awaiting-review); }
-:root[data-look="new"] .armada-doctor__glyph[data-result="fail"] { --hue: var(--status-completed-failed); }
-:root[data-look="new"] .armada-doctor__glyph[data-result="reading"] svg { animation: armada-dot-breathe var(--duration-pulse) var(--ease) infinite; }
-:root[data-look="new"] :is(.armada-doctor-tile .armada-tile__head, .armada-doctor-pane__head) > .armada-doctor__result {
+:root[data-look="new"] .armada-doctor__glyph[data-result="pass"] {
+  --hue: var(--status-completed-success);
+}
+:root[data-look="new"] .armada-doctor__glyph[data-result="warn"] {
+  --hue: var(--status-awaiting-review);
+}
+:root[data-look="new"] .armada-doctor__glyph[data-result="fail"] {
+  --hue: var(--status-completed-failed);
+}
+:root[data-look="new"] .armada-doctor__glyph[data-result="reading"] svg {
+  animation: armada-dot-breathe var(--duration-pulse) var(--ease) infinite;
+}
+:root[data-look="new"]
+  :is(.armada-doctor-tile .armada-tile__head, .armada-doctor-pane__head)
+  > .armada-doctor__result {
   position: absolute;
   width: var(--border-width);
   height: var(--border-width);
@@ -290,12 +421,21 @@
   clip-path: inset(50%);
 }
 @media (prefers-reduced-motion: reduce) {
-  :root[data-look="new"] .armada-doctor__glyph[data-result="reading"] svg { animation: none; }
+  :root[data-look="new"] .armada-doctor__glyph[data-result="reading"] svg {
+    animation: none;
+  }
 }
 
 /* The one picked, whole: a panel, a title row of its own, hairlines between its parts. */
-:root[data-look="new"] .armada-doctor-pane { gap: var(--space-4); padding: var(--space-4); }
-:root[data-look="new"] .armada-doctor-pane__head { justify-content: flex-start; align-items: center; gap: var(--space-2); }
+:root[data-look="new"] .armada-doctor-pane {
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+:root[data-look="new"] .armada-doctor-pane__head {
+  justify-content: flex-start;
+  align-items: center;
+  gap: var(--space-2);
+}
 :root[data-look="new"] .armada-doctor-pane__head h2 {
   font-family: var(--font-title);
   font-size: var(--text-row);
@@ -303,10 +443,20 @@
   font-weight: var(--weight-title);
   letter-spacing: var(--tracking-title);
 }
-:root[data-look="new"] .armada-doctor-pane__facts dt { color: var(--fg-muted); font-size: var(--size-meta); }
-:root[data-look="new"] .armada-doctor-pane__facts dd { font-size: var(--size-meta); }
-:root[data-look="new"] .armada-doctor-pane__words { border-top-color: var(--head-rule); }
-:root[data-look="new"] .armada-doctor-pane__words > li[data-current] { background: var(--bg-step); box-shadow: inset var(--bar) 0 0 var(--hue); }
+:root[data-look="new"] .armada-doctor-pane__facts dt {
+  color: var(--fg-muted);
+  font-size: var(--size-meta);
+}
+:root[data-look="new"] .armada-doctor-pane__facts dd {
+  font-size: var(--size-meta);
+}
+:root[data-look="new"] .armada-doctor-pane__words {
+  border-top-color: var(--head-rule);
+}
+:root[data-look="new"] .armada-doctor-pane__words > li[data-current] {
+  background: var(--bg-step);
+  box-shadow: inset var(--bar) 0 0 var(--hue);
+}
 
 /* What nothing probes yet: a panel of its own with a caps head. */
 :root[data-look="new"] .armada-doctor__gaps {
@@ -314,8 +464,13 @@
   padding: var(--space-3) var(--space-4);
   color: var(--fg-muted);
 }
-:root[data-look="new"] .armada-doctor__gap-owner { font-family: var(--font-mono); font-size: var(--size-meta); }
-:root[data-look="new"] .armada-doctor__gap-because { font-size: var(--size-meta); }
+:root[data-look="new"] .armada-doctor__gap-owner {
+  font-family: var(--font-mono);
+  font-size: var(--size-meta);
+}
+:root[data-look="new"] .armada-doctor__gap-because {
+  font-size: var(--size-meta);
+}
 
 /* ================================================================ System ===================================== */
 /* Settings, Guides, Workflows and the Worktrees slots: the same panels, heads and rows. The System sidebar is the page
@@ -334,36 +489,78 @@
   text-transform: uppercase;
 }
 /* A figure beside what it counts is not drawn. */
-:root[data-look="new"] :is(.armada-guides__count, .armada-settings-index__count) { display: none; }
+:root[data-look="new"] :is(.armada-guides__count, .armada-settings-index__count) {
+  display: none;
+}
 
 /* A row is a row: the pointer is one flat step, the pick is a frame (`depth.css`). */
-:root[data-look="new"] :is(.armada-settings-index__tab, .armada-guides__row, .armada-wf-row > button) {
+:root[data-look="new"]
+  :is(.armada-settings-index__tab, .armada-guides__row, .armada-wf-row > button) {
   border: 0;
   border-radius: var(--radius-inset);
   transition: background-color var(--duration-fast) var(--ease);
 }
-:root[data-look="new"] :is(.armada-settings-index__tab, .armada-guides__row, .armada-wf-row > button):hover { background: var(--bg-step); }
-:root[data-look="new"] :is(.armada-settings-index__tab[aria-selected="true"], .armada-guides__row[aria-current], .armada-wf-row > button[aria-current]) {
+:root[data-look="new"]
+  :is(.armada-settings-index__tab, .armada-guides__row, .armada-wf-row > button):hover {
+  background: var(--bg-step);
+}
+:root[data-look="new"]
+  :is(
+    .armada-settings-index__tab[aria-selected="true"],
+    .armada-guides__row[aria-current],
+    .armada-wf-row > button[aria-current]
+  ) {
   background: var(--select-ground);
   box-shadow: var(--select-frame);
   color: var(--fg-default);
 }
-:root[data-look="new"] :is(.armada-settings-index__tab[aria-selected="true"], .armada-guides__row[aria-current]) { font-weight: var(--weight-heading); }
-:root[data-look="new"] .armada-settings-index__tab { font-size: var(--text-row); }
-:root[data-look="new"] .armada-guides__row-title { font-size: var(--text-row); }
-:root[data-look="new"] .armada-guides__number { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+:root[data-look="new"]
+  :is(.armada-settings-index__tab[aria-selected="true"], .armada-guides__row[aria-current]) {
+  font-weight: var(--weight-heading);
+}
+:root[data-look="new"] .armada-settings-index__tab {
+  font-size: var(--text-row);
+}
+:root[data-look="new"] .armada-guides__row-title {
+  font-size: var(--text-row);
+}
+:root[data-look="new"] .armada-guides__number {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
 
 /* Settings: a field is a row on a hairline, its key in the mono, its meaning quiet. */
-:root[data-look="new"] .armada-setting-field { border-top-color: var(--head-rule); }
-:root[data-look="new"] .armada-setting-field__title { font-size: var(--text-row); font-weight: var(--weight-row); }
-:root[data-look="new"] .armada-setting-field__key { font-size: var(--size-meta); }
+:root[data-look="new"] .armada-setting-field {
+  border-top-color: var(--head-rule);
+}
+:root[data-look="new"] .armada-setting-field__title {
+  font-size: var(--text-row);
+  font-weight: var(--weight-row);
+}
+:root[data-look="new"] .armada-setting-field__key {
+  font-size: var(--size-meta);
+}
 :root[data-look="new"] .armada-setting-field__means,
 :root[data-look="new"] .armada-setting-field__ships,
-:root[data-look="new"] .armada-setting-field__note { font-size: var(--size-meta); line-height: var(--leading-sm); }
-:root[data-look="new"] .armada-setting-fields__file .armada-setting-field__key { font-size: var(--size-meta); color: var(--fg-muted); }
+:root[data-look="new"] .armada-setting-field__note {
+  font-size: var(--size-meta);
+  line-height: var(--leading-sm);
+}
+:root[data-look="new"] .armada-setting-fields__file .armada-setting-field__key {
+  font-size: var(--size-meta);
+  color: var(--fg-muted);
+}
 /* The file's path in a strip: the readout gives way to the title, and cuts with an ellipsis before it wraps. */
-:root[data-look="new"] .armada-card-readout[data-path] { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-:root[data-look="new"] .armada-settings-index__body { gap: var(--space-4); }
+:root[data-look="new"] .armada-card-readout[data-path] {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:root[data-look="new"] .armada-settings-index__body {
+  gap: var(--space-4);
+}
 
 /* Guides: the reader is a panel; its head is the title and eyebrow, in the thread's type (`GuideCatalogue.css`). */
 :root[data-look="new"] .armada-guides__panel-title {
@@ -372,36 +569,86 @@
 }
 
 /* Workflows: the list is a panel of rows. */
-:root[data-look="new"] .armada-wf__list { padding: var(--space-3); gap: var(--space-3); }
+:root[data-look="new"] .armada-wf__list {
+  padding: var(--space-3);
+  gap: var(--space-3);
+}
 
 /* Worktrees: the pool's glass, hatch, shutters and glow go. A bay is a well with a hairline in its state's hue. */
-:root[data-look="new"] .armada-pool-slots__view { overflow: hidden; }
+:root[data-look="new"] .armada-pool-slots__view {
+  overflow: hidden;
+}
 /* The pool's panel runs to the foot, the bays scroll inside it and what they do not fill stays in its frame. */
-:root[data-look="new"] .armada-screen__pane:has(> .armada-pool-slots__pool) { padding-bottom: var(--pad-page); overflow: hidden; }
-:root[data-look="new"] .armada-screen__pane > .armada-pool-slots__pool { flex: 1 1 auto; min-height: 0; }
-:root[data-look="new"] .armada-screen__pane > .armada-pool-slots__pool > .armada-pool-slots__views { flex: 1 1 auto; min-height: 0; }
-:root[data-look="new"] .armada-screen__pane .armada-pool-slots__view { flex: 1 1 auto; min-height: 0; }
-:root[data-look="new"] .armada-screen__pane .armada-pool-slots__view > .armada-pool-slots { flex: 1 1 auto; align-content: start; min-height: 0; overflow-y: auto; }
-:root[data-look="new"] .armada-pool-slots__band { gap: var(--space-3); min-height: 0; }
-:root[data-look="new"] .armada-pool-slots { background: none; padding: var(--space-4); }
+:root[data-look="new"] .armada-screen__pane:has(> .armada-pool-slots__pool) {
+  padding-bottom: var(--pad-page);
+  overflow: hidden;
+}
+:root[data-look="new"] .armada-screen__pane > .armada-pool-slots__pool {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+:root[data-look="new"] .armada-screen__pane > .armada-pool-slots__pool > .armada-pool-slots__views {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+:root[data-look="new"] .armada-screen__pane .armada-pool-slots__view {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+:root[data-look="new"] .armada-screen__pane .armada-pool-slots__view > .armada-pool-slots {
+  flex: 1 1 auto;
+  align-content: start;
+  min-height: 0;
+  overflow-y: auto;
+}
+:root[data-look="new"] .armada-pool-slots__band {
+  gap: var(--space-3);
+  min-height: 0;
+}
+:root[data-look="new"] .armada-pool-slots {
+  background: none;
+  padding: var(--space-4);
+}
 :root[data-look="new"] .armada-bay {
   border-width: var(--border-width);
   border-radius: var(--radius-md);
   background: var(--bg-sunken);
   box-shadow: none;
 }
-:root[data-look="new"] .armada-bay:is([data-bay="held"], [data-bay="busy"], [data-bay="kept"], [data-bay="stranded"]) {
+:root[data-look="new"]
+  .armada-bay:is([data-bay="held"], [data-bay="busy"], [data-bay="kept"], [data-bay="stranded"]) {
   border-color: color-mix(in srgb, var(--hue) 55%, var(--border-subtle));
 }
-:root[data-look="new"] .armada-bay[data-bay="stranded"] { background: color-mix(in srgb, var(--hue) 8%, var(--bg-sunken)); box-shadow: none; }
-:root[data-look="new"] .armada-bay[data-bay="closed"] { background: var(--bg-sunken); border-color: var(--border-subtle); }
-:root[data-look="new"] .armada-bay[data-closed]::after { display: none; }
-:root[data-look="new"] .armada-bay:is([data-bay="held"], [data-bay="busy"], [data-bay="kept"]):hover { background: color-mix(in srgb, var(--fg-default) 6%, var(--bg-sunken)); }
+:root[data-look="new"] .armada-bay[data-bay="stranded"] {
+  background: color-mix(in srgb, var(--hue) 8%, var(--bg-sunken));
+  box-shadow: none;
+}
+:root[data-look="new"] .armada-bay[data-bay="closed"] {
+  background: var(--bg-sunken);
+  border-color: var(--border-subtle);
+}
+:root[data-look="new"] .armada-bay[data-closed]::after {
+  display: none;
+}
+:root[data-look="new"]
+  .armada-bay:is([data-bay="held"], [data-bay="busy"], [data-bay="kept"]):hover {
+  background: color-mix(in srgb, var(--fg-default) 6%, var(--bg-sunken));
+}
 :root[data-look="new"] .armada-bay__name,
 :root[data-look="new"] .armada-bay__branch,
-:root[data-look="new"] .armada-bay__foot { font-family: var(--font-mono); font-size: var(--size-meta); font-variant-numeric: tabular-nums; }
+:root[data-look="new"] .armada-bay__foot {
+  font-family: var(--font-mono);
+  font-size: var(--size-meta);
+  font-variant-numeric: tabular-nums;
+}
 
 /* Each repository's table has the same columns, so Last touched lines up from one panel to the next. */
-:root[data-look="new"] .armada-studio-list { table-layout: fixed; }
-:root[data-look="new"] .armada-studio-list .armada-table-cell:nth-child(2) { width: calc(var(--space-12) * 5 + var(--space-6) - var(--space-1)); }
-:root[data-look="new"] .armada-studio-list .armada-table-cell:nth-child(3) { width: calc(var(--space-12) * 3 - var(--space-1)); }
+:root[data-look="new"] .armada-studio-list {
+  table-layout: fixed;
+}
+:root[data-look="new"] .armada-studio-list .armada-table-cell:nth-child(2) {
+  width: calc(var(--space-12) * 5 + var(--space-6) - var(--space-1));
+}
+:root[data-look="new"] .armada-studio-list .armada-table-cell:nth-child(3) {
+  width: calc(var(--space-12) * 3 - var(--space-1));
+}

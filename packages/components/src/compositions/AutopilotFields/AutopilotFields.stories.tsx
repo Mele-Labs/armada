@@ -2,9 +2,18 @@ import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect } from "storybook/test";
 
-import { AutopilotFieldInputs, type AutopilotFields, type AutopilotReading } from "./AutopilotFields";
+import {
+  AutopilotFieldInputs,
+  type AutopilotFields,
+  type AutopilotReading,
+} from "./AutopilotFields";
 
-const FIELDS: AutopilotFields = { atOnce: "2", until: "07:00", spend: "30", sessions: "" };
+const FIELDS: AutopilotFields = {
+  atOnce: "2",
+  until: "07:00",
+  spend: "30",
+  sessions: "",
+};
 
 const meta: Meta<typeof AutopilotFieldInputs> = {
   title: "Compositions/Autopilot fields",
@@ -16,7 +25,17 @@ type Story = StoryObj<typeof AutopilotFieldInputs>;
 
 function Editable({ quoted }: { quoted?: AutopilotReading["quoted"] }) {
   const [fields, setFields] = useState(FIELDS);
-  return <AutopilotFieldInputs fields={fields} onChange={setFields} {...(quoted === undefined ? {} : { quoted })} />;
+  return (
+    <AutopilotFieldInputs
+      fields={fields}
+      onChange={setFields}
+      {...(quoted === undefined
+        ? {}
+        : {
+            quoted,
+          })}
+    />
+  );
 }
 
 /** The four settings, each editable. */
@@ -30,7 +49,15 @@ export const Plain: Story = {
 
 /** Fleet's reading of a sentence: each setting over the words it came from, and "not said" where the sentence did not say it. */
 export const Quoted: Story = {
-  render: () => <Editable quoted={{ atOnce: "two at a time", until: "until 7am", spend: "$30 max" }} />,
+  render: () => (
+    <Editable
+      quoted={{
+        atOnce: "two at a time",
+        until: "until 7am",
+        spend: "$30 max",
+      }}
+    />
+  ),
   play: async ({ canvas }) => {
     await expect(canvas.getByText("“two at a time”")).toBeInTheDocument();
     await expect(canvas.getByText("not said")).toBeInTheDocument();

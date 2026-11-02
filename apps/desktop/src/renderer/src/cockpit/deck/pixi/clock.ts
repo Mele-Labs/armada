@@ -13,7 +13,8 @@ export type Clock = {
 };
 
 /** The position of `now` in a loop of `period` milliseconds, 0 to 1. */
-export const turn = (now: number, period: number): number => (((now % period) + period) % period) / period;
+export const turn = (now: number, period: number): number =>
+  (((now % period) + period) % period) / period;
 
 /** A triangle wave of that position: 0 to 1 and back, as an `alternate` animation does. */
 export const there = (t: number): number => (t < 0.5 ? t * 2 : 2 - t * 2);
@@ -22,15 +23,45 @@ export const there = (t: number): number => (t < 0.5 ? t * 2 : 2 - t * 2);
 export const soft = (t: number): number => t * t * (3 - 2 * t);
 
 /** How long after its delay each kind of play still moves, in pulses of the loop and then plain milliseconds. */
-const LIFE: Record<PlayKind, [pulses: number, ms: number]> = {
-  launch: [2.6, 1000],
-  sweep: [2.1, 300],
-  payload: [1.5, 0],
-  capture: [1.7, 1350],
-  tracer: [2.6, 300],
-  blip: [1.8, 0],
-  flare: [0, 0],
-  dock: [1.2, 0],
+const LIFE: Record<
+  PlayKind,
+  [
+    pulses: number,
+    ms: number,
+  ]
+> = {
+  launch: [
+    2.6,
+    1000,
+  ],
+  sweep: [
+    2.1,
+    300,
+  ],
+  payload: [
+    1.5,
+    0,
+  ],
+  capture: [
+    1.7,
+    1350,
+  ],
+  tracer: [
+    2.6,
+    300,
+  ],
+  blip: [
+    1.8,
+    0,
+  ],
+  flare: [
+    0,
+    0,
+  ],
+  dock: [
+    1.2,
+    0,
+  ],
 };
 
 /** Whether the play has finished by `ms` after it began. */

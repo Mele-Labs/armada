@@ -28,17 +28,38 @@ export function briefOf(session: Session): string | undefined {
 export function Brief({ text }: { text: string }) {
   const [whole, setWhole] = useState(false);
   return (
-    <button type="button" className="sv-flight__brief" aria-expanded={whole} aria-label="Brief" data-whole={whole || undefined} onClick={() => setWhole(!whole)}>
+    <button
+      type="button"
+      className="sv-flight__brief"
+      aria-expanded={whole}
+      aria-label="Brief"
+      data-whole={whole || undefined}
+      onClick={() => setWhole(!whole)}
+    >
       {text}
     </button>
   );
 }
 
 /** The brief, then the workflow picker and its steps. Draws nothing the Job does not hold: no brief and no workflow leave it out. */
-export function FlightHead({ session, work, id, manifestId, acts }: { session: Session; work: SessionWork; id: string; manifestId: string | undefined; acts: SessionWorkActs | undefined }) {
+export function FlightHead({
+  session,
+  work,
+  id,
+  manifestId,
+  acts,
+}: {
+  session: Session;
+  work: SessionWork;
+  id: string;
+  manifestId: string | undefined;
+  acts: SessionWorkActs | undefined;
+}) {
   const flow = work.workflow;
   const brief = briefOf(session);
-  const flows = work.railOff !== true && (flow !== undefined || (work.proposal !== undefined && acts !== undefined));
+  const flows =
+    work.railOff !== true &&
+    (flow !== undefined || (work.proposal !== undefined && acts !== undefined));
   if (brief === undefined && !flows) return null;
   return (
     <div className="sv-flight__head">
@@ -58,7 +79,12 @@ export function TaskTrack({ tasks }: { tasks: ViewGroup["tasks"] }) {
   if (tasks.length === 0) return null;
   return (
     <Tooltip asChild label="Tasks in this group, done and to do">
-      <span className="sv-track" role="img" aria-label="Tasks in this group, done and to do" data-many={tasks.length > 12 || undefined}>
+      <span
+        className="sv-track"
+        role="img"
+        aria-label="Tasks in this group, done and to do"
+        data-many={tasks.length > 12 || undefined}
+      >
         {tasks.map((task) => (
           <span key={task.id} className="sv-track__seg" data-state={task.state} />
         ))}
@@ -67,7 +93,25 @@ export function TaskTrack({ tasks }: { tasks: ViewGroup["tasks"] }) {
   );
 }
 
-export function FlightGroup({ group, step, open, flip, now, parent, manifestId, onOpenSession }: { group: ViewGroup; step: Step; open: boolean; flip: () => void; now: string | undefined; parent: Session; manifestId: string | undefined; onOpenSession: (id: string) => void }) {
+export function FlightGroup({
+  group,
+  step,
+  open,
+  flip,
+  now,
+  parent,
+  manifestId,
+  onOpenSession,
+}: {
+  group: ViewGroup;
+  step: Step;
+  open: boolean;
+  flip: () => void;
+  now: string | undefined;
+  parent: Session;
+  manifestId: string | undefined;
+  onOpenSession: (id: string) => void;
+}) {
   const sessions = useSessions();
   const child = childrenOf(sessions, parent).find((one) => one.group === group.id)?.session;
   const named = issueOfGroup(parent, group.issue);
@@ -76,11 +120,20 @@ export function FlightGroup({ group, step, open, flip, now, parent, manifestId, 
   if (child !== undefined) {
     return (
       <li className="sv-flight__group" data-group={group.id} data-step={step} data-handed="">
-        <ChildJob child={child} group={group.title} issue={named?.issue} manifestId={manifestId} onOpen={onOpenSession} />
+        <ChildJob
+          child={child}
+          group={group.title}
+          issue={named?.issue}
+          manifestId={manifestId}
+          onOpen={onOpenSession}
+        />
       </li>
     );
   }
-  const prs = named === undefined || group.issue === undefined || named.prs.length === 0 ? null : <GroupPullRequests prs={named.prs} issue={group.issue} manifestId={manifestId} />;
+  const prs =
+    named === undefined || group.issue === undefined || named.prs.length === 0 ? null : (
+      <GroupPullRequests prs={named.prs} issue={group.issue} manifestId={manifestId} />
+    );
   // A group that goes to a Job of its own and has none yet is the placeholder Job card alone, open or shut, its issue a chip in it, where the Job's card stands once it is
   // handed. Its tasks are the Job's own to plan, so they are not drawn.
   if (group.ownJob === true) {
@@ -94,8 +147,20 @@ export function FlightGroup({ group, step, open, flip, now, parent, manifestId, 
     );
   }
   return (
-    <li className="sv-flight__group" data-group={group.id} data-step={step} data-open={open || undefined}>
-      <button type="button" className="sv-flight__row" aria-expanded={open} aria-label={group.title} data-nav="" onClick={flip}>
+    <li
+      className="sv-flight__group"
+      data-group={group.id}
+      data-step={step}
+      data-open={open || undefined}
+    >
+      <button
+        type="button"
+        className="sv-flight__row"
+        aria-expanded={open}
+        aria-label={group.title}
+        data-nav=""
+        onClick={flip}
+      >
         <StepMark step={step} />
         <span className="sv-flight__title">{group.title}</span>
         {open ? null : <TaskTrack tasks={group.tasks} />}
@@ -119,19 +184,65 @@ export function FlightGroup({ group, step, open, flip, now, parent, manifestId, 
  * A row for each group of an approved plan. The group being worked is open, else the first not yet done, so a Job just started shows where it begins;
  * a press opens or shuts any group and holds until the group being worked moves on.
  */
-export function FlightRows({ groups, workingGroup, now, session, manifestId, onOpenSession, calm = false, all = false }: { calm?: boolean; /** Whole plan: every group open. */ all?: boolean; groups: readonly ViewGroup[]; workingGroup: string | undefined; now: string | undefined; session: Session; manifestId: string | undefined; onOpenSession: (id: string) => void }) {
+export function FlightRows({
+  groups,
+  workingGroup,
+  now,
+  session,
+  manifestId,
+  onOpenSession,
+  calm = false,
+  all = false,
+}: {
+  calm?: boolean /** Whole plan: every group open. */;
+  all?: boolean;
+  groups: readonly ViewGroup[];
+  workingGroup: string | undefined;
+  now: string | undefined;
+  session: Session;
+  manifestId: string | undefined;
+  onOpenSession: (id: string) => void;
+}) {
   const [pressed, setPressed] = useState<Readonly<Record<string, boolean>>>({});
   const sessions = useSessions();
   const steps = stepsOf(groups, true, workingGroup, inHandOf(sessions, session));
   // `calm` opens none by default: the groups still to come, which are read as titles.
   // Every group being worked stands open, since marks that lag can leave several in progress at once.
   const current = calm ? [] : groups.filter((group) => steps.get(group.id) === "current");
-  const lit = new Set(all ? groups.map((group) => group.id) : calm ? [] : current.length > 0 ? current.map((group) => group.id) : groups.filter((group) => steps.get(group.id) !== "done").slice(0, 1).map((group) => group.id));
+  const lit = new Set(
+    all
+      ? groups.map((group) => group.id)
+      : calm
+        ? []
+        : current.length > 0
+          ? current.map((group) => group.id)
+          : groups
+              .filter((group) => steps.get(group.id) !== "done")
+              .slice(0, 1)
+              .map((group) => group.id),
+  );
   return (
     <ul className="sv-flight__groups" aria-label="Groups">
       {groups.map((group) => {
         const open = pressed[group.id] ?? lit.has(group.id);
-        return <FlightGroup key={group.id} group={group} step={steps.get(group.id) ?? "upcoming"} open={open} flip={() => setPressed({ ...pressed, [group.id]: !open })} now={group.id === workingGroup ? now : undefined} parent={session} manifestId={manifestId} onOpenSession={onOpenSession} />;
+        return (
+          <FlightGroup
+            key={group.id}
+            group={group}
+            step={steps.get(group.id) ?? "upcoming"}
+            open={open}
+            flip={() =>
+              setPressed({
+                ...pressed,
+                [group.id]: !open,
+              })
+            }
+            now={group.id === workingGroup ? now : undefined}
+            parent={session}
+            manifestId={manifestId}
+            onOpenSession={onOpenSession}
+          />
+        );
       })}
     </ul>
   );

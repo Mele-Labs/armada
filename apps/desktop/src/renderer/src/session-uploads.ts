@@ -4,20 +4,30 @@
 // words in its boxes and the joins between them, so a sketch is never silently dropped.
 
 import type { SessionTag as WireTag, SessionUpload } from "@armada/protocol";
-import type { DrawnSketch, SentFile, SessionSketch, SessionTag } from "@armada/screens/src/draft/sessions";
+import type {
+  DrawnSketch,
+  SentFile,
+  SessionSketch,
+  SessionTag,
+} from "@armada/screens/src/draft/sessions";
 
 /** A tag as the wire has it: an issue or a pull request carries the forge's address. */
 export const wireTagOf = (tag: SessionTag): WireTag => ({
   kind: tag.kind,
   id: tag.id,
   title: tag.title,
-  ...(tag.url === undefined ? {} : { url: tag.url }),
+  ...(tag.url === undefined
+    ? {}
+    : {
+        url: tag.url,
+      }),
 });
 
 /** Base64 of bytes, in slices so a large picture does not overflow the argument list. */
 export function base64Of(bytes: Uint8Array): string {
   let text = "";
-  for (let at = 0; at < bytes.length; at += 0x8000) text += String.fromCharCode(...bytes.subarray(at, at + 0x8000));
+  for (let at = 0; at < bytes.length; at += 0x8000)
+    text += String.fromCharCode(...bytes.subarray(at, at + 0x8000));
   return btoa(text);
 }
 
@@ -47,16 +57,32 @@ function wrapped(context: CanvasRenderingContext2D, body: string): string[] {
       line = word;
     } else line = next;
   }
-  return line === "" ? lines : [...lines, line];
+  return line === ""
+    ? lines
+    : [
+        ...lines,
+        line,
+      ];
 }
 
 /** The sketch as words: each box, and what it joins. What a window with no canvas sends. */
 export function describeSketch(drawing: SessionSketch): string {
-  const said = new Map(drawing.boxes.map((box) => [box.id, box.body.trim() === "" ? "(empty box)" : box.body.trim()]));
+  const said = new Map(
+    drawing.boxes.map((box) => [
+      box.id,
+      box.body.trim() === "" ? "(empty box)" : box.body.trim(),
+    ]),
+  );
   return [
     ...drawing.boxes.map((box) => `Box: ${said.get(box.id)}`),
-    ...drawing.lines.map((join) => `Join: ${said.get(join.from) ?? join.from} -> ${said.get(join.to) ?? join.to}`),
-    ...((drawing.strokes ?? []).length === 0 ? [] : [`${drawing.strokes!.length} lines drawn by hand`]),
+    ...drawing.lines.map(
+      (join) => `Join: ${said.get(join.from) ?? join.from} -> ${said.get(join.to) ?? join.to}`,
+    ),
+    ...((drawing.strokes ?? []).length === 0
+      ? []
+      : [
+          `${drawing.strokes!.length} lines drawn by hand`,
+        ]),
   ].join("\n");
 }
 
@@ -67,10 +93,23 @@ async function pictureOf(drawing: SessionSketch): Promise<Uint8Array | undefined
   probe.font = "small sans-serif";
   const boxes = drawing.boxes.map((box) => {
     const lines = wrapped(probe, box.body);
-    return { ...box, lines, height: PAD * 2 + Math.max(lines.length, 1) * LINE };
+    return {
+      ...box,
+      lines,
+      height: PAD * 2 + Math.max(lines.length, 1) * LINE,
+    };
   });
   const points = [
-    ...boxes.flatMap((box) => [{ x: box.x, y: box.y }, { x: box.x + BOX_WIDTH, y: box.y + box.height }]),
+    ...boxes.flatMap((box) => [
+      {
+        x: box.x,
+        y: box.y,
+      },
+      {
+        x: box.x + BOX_WIDTH,
+        y: box.y + box.height,
+      },
+    ]),
     ...(drawing.strokes ?? []).flatMap((stroke) => stroke.points),
   ];
   if (points.length === 0) return undefined;
@@ -89,7 +128,12 @@ async function pictureOf(drawing: SessionSketch): Promise<Uint8Array | undefined
   context.lineWidth = 1.5;
   const centre = (id: string) => {
     const box = boxes.find((one) => one.id === id);
-    return box === undefined ? undefined : { x: box.x + BOX_WIDTH / 2 - left, y: box.y + box.height / 2 - top };
+    return box === undefined
+      ? undefined
+      : {
+          x: box.x + BOX_WIDTH / 2 - left,
+          y: box.y + box.height / 2 - top,
+        };
   };
   for (const join of drawing.lines) {
     const from = centre(join.from);
@@ -102,7 +146,11 @@ async function pictureOf(drawing: SessionSketch): Promise<Uint8Array | undefined
   }
   for (const stroke of drawing.strokes ?? []) {
     context.beginPath();
-    stroke.points.forEach((point, at) => (at === 0 ? context.moveTo(point.x - left, point.y - top) : context.lineTo(point.x - left, point.y - top)));
+    stroke.points.forEach((point, at) =>
+      at === 0
+        ? context.moveTo(point.x - left, point.y - top)
+        : context.lineTo(point.x - left, point.y - top),
+    );
     context.stroke();
   }
   for (const box of boxes) {
@@ -110,7 +158,9 @@ async function pictureOf(drawing: SessionSketch): Promise<Uint8Array | undefined
     context.fillRect(box.x - left, box.y - top, BOX_WIDTH, box.height);
     context.strokeRect(box.x - left, box.y - top, BOX_WIDTH, box.height);
     context.fillStyle = "black";
-    box.lines.forEach((line, at) => context.fillText(line, box.x - left + PAD, box.y - top + PAD + (at + 1) * LINE - 4));
+    box.lines.forEach((line, at) =>
+      context.fillText(line, box.x - left + PAD, box.y - top + PAD + (at + 1) * LINE - 4),
+    );
   }
   const blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, "image/png"));
   return blob === null ? undefined : new Uint8Array(await blob.arrayBuffer());
@@ -121,6 +171,14 @@ export async function uploadOfSketch(sketch: DrawnSketch): Promise<SessionUpload
   const picture = await pictureOf(sketch.drawing).catch(() => undefined);
   const name = sketch.title.replace(/[^\w .-]/g, "_");
   return picture === undefined
-    ? { name: `${name}.txt`, media_type: "text/plain", data: base64Of(new TextEncoder().encode(describeSketch(sketch.drawing))) }
-    : { name: `${name}.png`, media_type: "image/png", data: base64Of(picture) };
+    ? {
+        name: `${name}.txt`,
+        media_type: "text/plain",
+        data: base64Of(new TextEncoder().encode(describeSketch(sketch.drawing))),
+      }
+    : {
+        name: `${name}.png`,
+        media_type: "image/png",
+        data: base64Of(picture),
+      };
 }

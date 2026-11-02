@@ -12,7 +12,16 @@ function hold(contents: WebContents): void {
   if (contents.isDestroyed()) return;
   try {
     if (!contents.debugger.isAttached()) contents.debugger.attach();
-    void contents.debugger.sendCommand(COMMAND, { features: [{ name: "prefers-reduced-motion", value: "reduce" }] }).catch(() => undefined);
+    void contents.debugger
+      .sendCommand(COMMAND, {
+        features: [
+          {
+            name: "prefers-reduced-motion",
+            value: "reduce",
+          },
+        ],
+      })
+      .catch(() => undefined);
   } catch {
     // A window with another debugger on it keeps its motion until the next change of the setting.
   }

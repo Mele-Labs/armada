@@ -5,7 +5,9 @@ import { deckRow, region } from "./walk";
 import type { Step } from "./walk";
 
 /** The Cockpit's list of Sessions: a keystroke has somewhere on the deck to land. */
-export const dashboard = region("Jobs", { exact: true });
+export const dashboard = region("Jobs", {
+  exact: true,
+});
 
 /**
  * Calls standing in front of a pane, put off. A call on the deck is a pane of its own, chosen from Incoming, and is never in front of
@@ -17,5 +19,10 @@ export function putOff(_calls: number): Step[] {
 
 /** A row of the list picked, its page on the stage with its acts. */
 export function pick(title: RegExp | string, say: string): Step[] {
-  return [{ press: deckRow(title), say }];
+  return [
+    {
+      press: deckRow(title),
+      say,
+    },
+  ];
 }

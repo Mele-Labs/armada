@@ -10,15 +10,41 @@ import { Button, Textarea, Tooltip } from "@armada/components";
 import { showLayer } from "../session-view/layers";
 import { useSessions } from "../sessions-draft";
 import { openAtNotes } from "./artifacts";
-import { askForNotes, keyOf, registerOpener, useJudgeApi, useJudgeRecord, type JudgeArtifact } from "./store";
+import {
+  askForNotes,
+  keyOf,
+  registerOpener,
+  useJudgeApi,
+  useJudgeRecord,
+  type JudgeArtifact,
+} from "./store";
 import "./judge.css";
 
 const PLACEHOLDER = "existing sign-ins survive the switch";
 
-type Place = { top: number; left: number };
+type Place = {
+  top: number;
+  left: number;
+};
 
 /** The popover, drawn on the body so a glass pane cannot clip it (or in `into`, over a sheet that lies above the body), under the act and lined up with its right edge. */
-function JudgePopover({ job, artifact, anchor, into, noted, onRun, onClose }: { job: string; artifact: JudgeArtifact; anchor: HTMLElement; into?: HTMLElement | null; noted: boolean; onRun: (prompt: string) => void; onClose: () => void }) {
+function JudgePopover({
+  job,
+  artifact,
+  anchor,
+  into,
+  noted,
+  onRun,
+  onClose,
+}: {
+  job: string;
+  artifact: JudgeArtifact;
+  anchor: HTMLElement;
+  into?: HTMLElement | null;
+  noted: boolean;
+  onRun: (prompt: string) => void;
+  onClose: () => void;
+}) {
   const session = useSessions().find((one) => one.id === job);
   const [text, setText] = useState("");
   const [place, setPlace] = useState<Place | undefined>();
@@ -27,9 +53,18 @@ function JudgePopover({ job, artifact, anchor, into, noted, onRun, onClose }: { 
     const at = anchor.getBoundingClientRect();
     const width = panel.current?.offsetWidth ?? 0;
     // An act a narrow head has put in its ellipsis menu has no box to stand under, so the popover opens in the middle of the window.
-    if (at.width === 0) return setPlace({ top: window.innerHeight / 4, left: (window.innerWidth - width) / 2 });
-    setPlace({ top: at.bottom + 4, left: Math.max(8, Math.min(at.right - width, window.innerWidth - width - 8)) });
-  }, [anchor]);
+    if (at.width === 0)
+      return setPlace({
+        top: window.innerHeight / 4,
+        left: (window.innerWidth - width) / 2,
+      });
+    setPlace({
+      top: at.bottom + 4,
+      left: Math.max(8, Math.min(at.right - width, window.innerWidth - width - 8)),
+    });
+  }, [
+    anchor,
+  ]);
   useEffect(() => {
     const field = panel.current?.querySelector("textarea");
     field?.focus();
@@ -50,14 +85,31 @@ function JudgePopover({ job, artifact, anchor, into, noted, onRun, onClose }: { 
       window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("mousedown", onDown);
     };
-  }, [anchor, onClose]);
+  }, [
+    anchor,
+    onClose,
+  ]);
   const run = () => {
     onRun(text.trim());
     setText("");
   };
   return createPortal(
     // A portal's events bubble through the React tree to the card or row that holds the act, which must not hear a key or a press made in the popover.
-    <div ref={panel} className="judge-pop" role="dialog" aria-label="Judge" style={place === undefined ? { visibility: "hidden" } : place} onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+    <div
+      ref={panel}
+      className="judge-pop"
+      role="dialog"
+      aria-label="Judge"
+      style={
+        place === undefined
+          ? {
+              visibility: "hidden",
+            }
+          : place
+      }
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
       <Textarea
         label="Verify that"
         keep={`judge:${job}:${keyOf(artifact)}`}
@@ -98,7 +150,21 @@ function JudgePopover({ job, artifact, anchor, into, noted, onRun, onClose }: { 
  * `label` names the press for a reader of the screen (`Judge #2390`); `size` is the glyph's. `shortcut` is the key that opens the popover, shown in the tooltip. `into` is where the popover is drawn when the body lies under the act.
  * A window with no judge to ask draws nothing.
  */
-export function JudgeAct({ job, artifact, label = "Judge", size = 16, shortcut, into }: { job: string; artifact: JudgeArtifact; label?: string; size?: number; shortcut?: string; into?: HTMLElement | null }) {
+export function JudgeAct({
+  job,
+  artifact,
+  label = "Judge",
+  size = 16,
+  shortcut,
+  into,
+}: {
+  job: string;
+  artifact: JudgeArtifact;
+  label?: string;
+  size?: number;
+  shortcut?: string;
+  into?: HTMLElement | null;
+}) {
   const api = useJudgeApi();
   const record = useJudgeRecord(job, artifact);
   const [open, setOpen] = useState(false);
@@ -111,33 +177,85 @@ export function JudgeAct({ job, artifact, label = "Judge", size = 16, shortcut, 
     askForNotes(job, artifact);
     showLayer(job, "judge");
   };
-  useEffect(() => registerOpener(job, artifact, () => (whole ? toTab() : setOpen(true))), [job, artifact.kind, artifact.id]);
+  useEffect(
+    () => registerOpener(job, artifact, () => (whole ? toTab() : setOpen(true))),
+    [
+      job,
+      artifact.kind,
+      artifact.id,
+    ],
+  );
   if (api === undefined) return null;
   const reading = record?.state === "reading";
-  const unread = record?.state === "done" && !record.read && record.notes.some((one) => one.settled === undefined);
+  const unread =
+    record?.state === "done" &&
+    !record.read &&
+    record.notes.some((one) => one.settled === undefined);
   const clean = record?.state === "done" && record.notes.length === 0;
   const close = () => {
     setOpen(false);
     button()?.focus();
   };
-  const said = reading ? "Judge reading" : unread ? "Notes to read" : clean ? "Nothing missed" : record?.state === "failed" && record.failed !== undefined ? record.failed : "Send a judge to read it";
+  const said = reading
+    ? "Judge reading"
+    : unread
+      ? "Notes to read"
+      : clean
+        ? "Nothing missed"
+        : record?.state === "failed" && record.failed !== undefined
+          ? record.failed
+          : "Send a judge to read it";
   const anchor = open ? button() : null;
   return (
     <span ref={wrap} className="judge-act">
-      <Tooltip label={said} {...(shortcut === undefined ? {} : { shortcut })} asChild>
-        <Button variant="ghost" size="sm" iconOnly aria-label={label} {...(whole ? {} : { "aria-haspopup": "dialog" as const, "aria-expanded": open })} aria-busy={reading || undefined} data-running={reading || undefined} data-judge={artifact.kind} onClick={() => (whole ? toTab() : setOpen(!open))}>
+      <Tooltip
+        label={said}
+        {...(shortcut === undefined
+          ? {}
+          : {
+              shortcut,
+            })}
+        asChild
+      >
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          aria-label={label}
+          {...(whole
+            ? {}
+            : {
+                "aria-haspopup": "dialog" as const,
+                "aria-expanded": open,
+              })}
+          aria-busy={reading || undefined}
+          data-running={reading || undefined}
+          data-judge={artifact.kind}
+          onClick={() => (whole ? toTab() : setOpen(!open))}
+        >
           {reading ? (
-            <span className="armada-session-mark" role="img" aria-label="Judge reading" data-pulsing>
+            <span
+              className="armada-session-mark"
+              role="img"
+              aria-label="Judge reading"
+              data-pulsing
+            >
               <CircleDot size={size} strokeWidth={2} aria-hidden="true" />
             </span>
           ) : clean ? (
-            <span className="armada-session-mark judge-act__clean" role="img" aria-label="Nothing missed">
+            <span
+              className="armada-session-mark judge-act__clean"
+              role="img"
+              aria-label="Nothing missed"
+            >
               <CircleCheck size={size} strokeWidth={2} aria-hidden="true" />
             </span>
           ) : (
             <Scale size={size} strokeWidth={2} aria-hidden="true" />
           )}
-          {unread ? <span className="judge-act__dot" role="img" aria-label="Notes to read" /> : null}
+          {unread ? (
+            <span className="judge-act__dot" role="img" aria-label="Notes to read" />
+          ) : null}
         </Button>
       </Tooltip>
       {anchor !== null ? (
@@ -145,11 +263,19 @@ export function JudgeAct({ job, artifact, label = "Judge", size = 16, shortcut, 
           job={job}
           artifact={artifact}
           anchor={anchor}
-          {...(into === undefined ? {} : { into })}
+          {...(into === undefined
+            ? {}
+            : {
+                into,
+              })}
           noted={record?.state === "done" && record.notes.length > 0}
           onClose={close}
           onRun={(prompt) => {
-            api.ask({ job, artifact, prompt });
+            api.ask({
+              job,
+              artifact,
+              prompt,
+            });
             close();
           }}
         />

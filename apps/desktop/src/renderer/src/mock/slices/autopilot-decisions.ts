@@ -5,7 +5,10 @@
 import { repository } from "@armada/screens/src/fixtures/repository";
 import type { AutopilotDecided, AutopilotDecisions, Outcome } from "@armada/protocol";
 
-import type { AutopilotDecisionsActed, AutopilotDecisionsApi } from "../../../../shared/api/autopilot-decisions";
+import type {
+  AutopilotDecisionsActed,
+  AutopilotDecisionsApi,
+} from "../../../../shared/api/autopilot-decisions";
 import type { Slice } from "../fake-context";
 
 /** The Sessions the answers were given in; the scenario `autopilot-back` opens them. */
@@ -61,12 +64,30 @@ const LANDED: AutopilotDecided = {
   at: minutesAgo(95),
 };
 
-const noDecision = (): { ok: false; outcome: Outcome } => ({
+const noDecision = (): {
+  ok: false;
+  outcome: Outcome;
+} => ({
   ok: false,
-  outcome: { ok: false, why: "refused", error: { code: "fleet.autopilot_no_decision", message: "No such answer", run_id: "", fields: {}, chain: [] } },
+  outcome: {
+    ok: false,
+    why: "refused",
+    error: {
+      code: "fleet.autopilot_no_decision",
+      message: "No such answer",
+      run_id: "",
+      fields: {},
+      chain: [],
+    },
+  },
 });
 
-const BACK: readonly AutopilotDecided[] = [LUNCH, BRANCH, NOTES, LANDED];
+const BACK: readonly AutopilotDecided[] = [
+  LUNCH,
+  BRANCH,
+  NOTES,
+  LANDED,
+];
 
 export const autopilotDecisions: Slice<AutopilotDecisionsApi, Record<string, never>> = {
   name: "autopilotDecisions",
@@ -74,15 +95,25 @@ export const autopilotDecisions: Slice<AutopilotDecisionsApi, Record<string, nev
   api: (scenario) => {
     let kept: readonly AutopilotDecided[] = scenario.name === "autopilot-back" ? BACK : [];
     const told = new Set<(decisions: AutopilotDecisions) => void>();
-    const whole = (): AutopilotDecisions => ({ to_review: [...kept] });
+    const whole = (): AutopilotDecisions => ({
+      to_review: [
+        ...kept,
+      ],
+    });
     const taken = (id: string): AutopilotDecisionsActed => {
       if (!kept.some((one) => one.id === id)) return noDecision();
       kept = kept.filter((one) => one.id !== id);
       told.forEach((one) => one(whole()));
-      return { ok: true, value: whole() };
+      return {
+        ok: true,
+        value: whole(),
+      };
     };
     return {
-      getAutopilotDecisions: async () => ({ ok: true, value: whole() }),
+      getAutopilotDecisions: async () => ({
+        ok: true,
+        value: whole(),
+      }),
       reviewAutopilotDecision: async (id) => taken(id),
       overrideAutopilotDecision: async (id, _text) => taken(id),
       onAutopilotDecisionsChanged: (onChanged) => {

@@ -30,7 +30,13 @@ export type StudioFrameSheetProps = {
   onClose?: () => void;
 };
 
-export function StudioFrameSheet({ open, said, frame, picture = false, onClose }: StudioFrameSheetProps) {
+export function StudioFrameSheet({
+  open,
+  said,
+  frame,
+  picture = false,
+  onClose,
+}: StudioFrameSheetProps) {
   return (
     // Contained, so the layer belongs to the Studios surface rather than
     // covering the shell's rail, which nothing asked it to.
@@ -40,7 +46,11 @@ export function StudioFrameSheet({ open, said, frame, picture = false, onClose }
       contained
       size="widest"
       title={picture ? STUDIO_NODE_KIND.picture : STUDIO_NODE_KIND.note}
-      {...(said === undefined ? {} : { subtitle: said })}
+      {...(said === undefined
+        ? {}
+        : {
+            subtitle: said,
+          })}
       onClose={onClose}
     >
       {frame.src === undefined ? (

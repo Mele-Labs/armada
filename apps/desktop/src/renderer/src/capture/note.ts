@@ -80,16 +80,36 @@ export function captureOf(
 ): StudioCapture {
   const pointed = pointedAt(element, now, win);
   return {
-    ...(pointed.component === null ? {} : { component: pointed.component }),
-    ...(pointed.owners.length === 0 ? {} : { owners: pointed.owners }),
+    ...(pointed.component === null
+      ? {}
+      : {
+          component: pointed.component,
+        }),
+    ...(pointed.owners.length === 0
+      ? {}
+      : {
+          owners: pointed.owners,
+        }),
     selector: pointed.selector,
     element: {
       tag: pointed.element.tag,
       text: pointed.element.text,
-      ...(pointed.element.label === null ? {} : { label: pointed.element.label }),
+      ...(pointed.element.label === null
+        ? {}
+        : {
+            label: pointed.element.label,
+          }),
     },
-    ...(pointed.screen === null ? {} : { screen: pointed.screen }),
-    ...(pointed.layer === null ? {} : { layer: pointed.layer }),
+    ...(pointed.screen === null
+      ? {}
+      : {
+          screen: pointed.screen,
+        }),
+    ...(pointed.layer === null
+      ? {}
+      : {
+          layer: pointed.layer,
+        }),
     location: pointed.location,
     bounds: pointed.box,
     window: pointed.window,
@@ -106,7 +126,10 @@ export function captureOf(
  * typing into off the card; the Note keeps the selector whole either way.
  */
 export function chainOf(capture: StudioCapture): string {
-  const names = [capture.component, ...(capture.owners ?? [])].filter((name): name is string => name !== undefined);
+  const names = [
+    capture.component,
+    ...(capture.owners ?? []),
+  ].filter((name): name is string => name !== undefined);
   const steps = capture.selector.split(" > ");
   const shown = steps.length > 2 ? `… > ${steps.slice(-2).join(" > ")}` : capture.selector;
   return `${names.length > 0 ? names.slice(0, 4).join(" ← ") : capture.element.tag} · ${shown}`;

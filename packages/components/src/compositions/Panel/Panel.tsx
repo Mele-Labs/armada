@@ -72,13 +72,23 @@ export function Panel({
 }: PanelProps) {
   if (narrow) {
     return (
-      <section className="armada-panel" data-narrow aria-label={typeof label === "string" ? label : undefined}>
+      <section
+        className="armada-panel"
+        data-narrow
+        aria-label={typeof label === "string" ? label : undefined}
+      >
         {/* The head carries the name, and the dot keeps its `aria-hidden`: a
             6px `title` target is one a person misses, and the region's own
             name has to stay put rather than follow a status. */}
         <div
           className="armada-panel__head"
-          {...(dotLabel === undefined ? {} : { role: "img", "aria-label": dotLabel, title: dotLabel })}
+          {...(dotLabel === undefined
+            ? {}
+            : {
+                role: "img",
+                "aria-label": dotLabel,
+                title: dotLabel,
+              })}
         >
           {dotMark ?? <span className="armada-panel__dot" data-tone={dotTone} aria-hidden />}
         </div>

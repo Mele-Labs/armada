@@ -10,8 +10,12 @@ afterEach(() => scopeToWorkspace(null));
 test("a Workspace is held until none is, and each change is heard", () => {
   const heard = vi.fn();
   const off = onWorkspaceScope(heard);
-  scopeToWorkspace([repository()]);
-  expect(workspaceScope()).toEqual([repository()]);
+  scopeToWorkspace([
+    repository(),
+  ]);
+  expect(workspaceScope()).toEqual([
+    repository(),
+  ]);
   scopeToWorkspace(null);
   expect(workspaceScope()).toBeNull();
   expect(heard).toHaveBeenCalledTimes(2);
@@ -19,10 +23,14 @@ test("a Workspace is held until none is, and each change is heard", () => {
 });
 
 test("the same repositories again is not a change", () => {
-  scopeToWorkspace([repository()]);
+  scopeToWorkspace([
+    repository(),
+  ]);
   const heard = vi.fn();
   const off = onWorkspaceScope(heard);
-  scopeToWorkspace([repository()]);
+  scopeToWorkspace([
+    repository(),
+  ]);
   expect(heard).not.toHaveBeenCalled();
   off();
 });

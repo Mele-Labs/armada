@@ -11,7 +11,11 @@ export type Stage = "blueprint" | "field" | "landing";
 /** The three zones the right column tells a Job in: what it made (drawn as Done), what it is doing, what comes (`StoryColumn.tsx`). */
 export type Zone = "done" | "now" | "next";
 export type Area = Stage | Zone;
-export type Fold = { open: boolean; toggle: () => void; /** The stage is at this panel: it takes the larger share of the column. */ current: boolean };
+export type Fold = {
+  open: boolean;
+  toggle: () => void /** The stage is at this panel: it takes the larger share of the column. */;
+  current: boolean;
+};
 
 const done = (state: string) => state === "done" || state === "handed_in";
 
@@ -24,7 +28,10 @@ export function stageOf(session: Session): Stage {
   const plan = session.work?.plan;
   if (plan !== undefined && !plan.approved) return "blueprint";
   const landed = attachmentsOf(session, "pull_request").some((pr) => pr.state !== "draft");
-  const built = plan !== undefined && plan.groups.length > 0 && plan.groups.every((group) => group.tasks.every((task) => done(task.state)));
+  const built =
+    plan !== undefined &&
+    plan.groups.length > 0 &&
+    plan.groups.every((group) => group.tasks.every((task) => done(task.state)));
   const delivering = session.work?.workflow?.phase === "delivery";
   if (landed || built || delivering) return "landing";
   if (plan === undefined) return session.turn.state === "working" ? "field" : "blueprint";
@@ -46,8 +53,18 @@ const changed = () => hear.forEach((one) => one());
 // What was pressed is kept per Job in the window's storage, so a Job comes back as it was left. A viewer's
 // convenience, so a blocked store only forgets it. The first look at a Job reads it; the maps are the truth after that.
 const KEPT = "armada.session-folds";
-type Kept = { folds: Partial<Record<Area, boolean>>; whole: boolean };
-const STAGES: readonly Area[] = ["blueprint", "field", "landing", "done", "now", "next"];
+type Kept = {
+  folds: Partial<Record<Area, boolean>>;
+  whole: boolean;
+};
+const STAGES: readonly Area[] = [
+  "blueprint",
+  "field",
+  "landing",
+  "done",
+  "now",
+  "next",
+];
 const loaded = new Set<string>();
 
 function load(session: string): void {
@@ -72,7 +89,10 @@ function save(session: string): void {
     const fold = forced.get(keyOf(session, area));
     if (fold !== undefined) folds[area] = fold;
   }
-  const kept: Kept = { folds, whole: whole.get(session) === true };
+  const kept: Kept = {
+    folds,
+    whole: whole.get(session) === true,
+  };
   try {
     localStorage.setItem(`${KEPT}.${session}`, JSON.stringify(kept));
   } catch {
@@ -103,8 +123,16 @@ export function useFold(session: Session, area: Area, shut = false): Fold {
   const toggle = useCallback(() => {
     forced.set(keyOf(id, area), !open);
     touched(id);
-  }, [id, area, open]);
-  return { open, toggle, current: area === "now" || stageOf(session) === area };
+  }, [
+    id,
+    area,
+    open,
+  ]);
+  return {
+    open,
+    toggle,
+    current: area === "now" || stageOf(session) === area,
+  };
 }
 
 /** A press of a panel's key: opens it if folded, folds it if open. */
@@ -117,7 +145,9 @@ export function pressBand(session: Session, area: Area): void {
 /** Forgets what was opened or folded by hand, and the Blueprint's whole-plan view: every panel open again, on its Now view. */
 export function resetFolds(session: string): void {
   let any = false;
-  for (const key of [...forced.keys()]) {
+  for (const key of [
+    ...forced.keys(),
+  ]) {
     if (key.startsWith(`${session}:`)) {
       forced.delete(key);
       any = true;
@@ -137,7 +167,10 @@ export function resetFolds(session: string): void {
 const whole = new Map<string, boolean>();
 
 /** Whether an approved Blueprint shows every group and task rather than the Now view. Drafting always shows the whole. */
-export function useWhole(session: string): { whole: boolean; toggle: () => void } {
+export function useWhole(session: string): {
+  whole: boolean;
+  toggle: () => void;
+} {
   const now = useSyncExternalStore(
     (listener) => (hear.add(listener), () => void hear.delete(listener)),
     () => heldWhole(session),
@@ -145,8 +178,13 @@ export function useWhole(session: string): { whole: boolean; toggle: () => void 
   const toggle = useCallback(() => {
     whole.set(session, !heldWhole(session));
     touched(session);
-  }, [session]);
-  return { whole: now, toggle };
+  }, [
+    session,
+  ]);
+  return {
+    whole: now,
+    toggle,
+  };
 }
 
 /** A press of the whole-blueprint key: opens the Blueprint if it is folded, and swaps its Now view for the whole plan or back. */
@@ -164,35 +202,94 @@ export function pressWhole(session: Session): void {
 // ---- Keys ---------------------------------------------------------------------------------------------------
 
 /** One key opens each band. Not acts of the registry, which is Fleet's to generate: Bridge reads these where the Job is open. `code` is the physical key, since ⌥ changes the letter. */
-export const BAND_KEYS: readonly { area: Area | "workflow"; code: string; cap: string }[] = [
-  { area: "workflow", code: "KeyW", cap: "⌥W" },
-  { area: "done", code: "Digit1", cap: "⌥1" },
-  { area: "now", code: "Digit2", cap: "⌥2" },
-  { area: "next", code: "Digit3", cap: "⌥3" },
-  { area: "field", code: "KeyF", cap: "⌥F" },
+export const BAND_KEYS: readonly {
+  area: Area | "workflow";
+  code: string;
+  cap: string;
+}[] = [
+  {
+    area: "workflow",
+    code: "KeyW",
+    cap: "⌥W",
+  },
+  {
+    area: "done",
+    code: "Digit1",
+    cap: "⌥1",
+  },
+  {
+    area: "now",
+    code: "Digit2",
+    cap: "⌥2",
+  },
+  {
+    area: "next",
+    code: "Digit3",
+    cap: "⌥3",
+  },
+  {
+    area: "field",
+    code: "KeyF",
+    cap: "⌥F",
+  },
 ];
 
-export const bandKeyFor = (area: string): string | undefined => BAND_KEYS.find((one) => one.area === area)?.cap;
+export const bandKeyFor = (area: string): string | undefined =>
+  BAND_KEYS.find((one) => one.area === area)?.cap;
 
 /** Swaps the approved Blueprint between its Now view and the whole plan. */
-export const WHOLE_KEY = { code: "KeyN", cap: "⌥N" } as const;
+export const WHOLE_KEY = {
+  code: "KeyN",
+  cap: "⌥N",
+} as const;
 
 /** Swaps Done between By step and By kind. */
-export const LEDGER_KEY = { code: "KeyL", cap: "⌥L" } as const;
+export const LEDGER_KEY = {
+  code: "KeyL",
+  cap: "⌥L",
+} as const;
 
 /** Artifacts over the right column. */
-export const ARTIFACTS_KEY = { code: "KeyA", cap: "⇧⌘A" } as const;
+export const ARTIFACTS_KEY = {
+  code: "KeyA",
+  cap: "⇧⌘A",
+} as const;
 
 /** Lanes over the stage. */
-export const LANES_KEY = { code: "KeyL", cap: "⌥⇧L" } as const;
+export const LANES_KEY = {
+  code: "KeyL",
+  cap: "⌥⇧L",
+} as const;
 
 export const bandOf = (event: KeyboardEvent): (typeof BAND_KEYS)[number] | undefined =>
-  event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey ? BAND_KEYS.find((one) => one.code === event.code) : undefined;
+  event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey
+    ? BAND_KEYS.find((one) => one.code === event.code)
+    : undefined;
 
-export const isWholeKey = (event: KeyboardEvent): boolean => event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey && event.code === WHOLE_KEY.code;
+export const isWholeKey = (event: KeyboardEvent): boolean =>
+  event.altKey &&
+  !event.metaKey &&
+  !event.ctrlKey &&
+  !event.shiftKey &&
+  event.code === WHOLE_KEY.code;
 
-export const isLedgerKey = (event: KeyboardEvent): boolean => event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey && event.code === LEDGER_KEY.code;
+export const isLedgerKey = (event: KeyboardEvent): boolean =>
+  event.altKey &&
+  !event.metaKey &&
+  !event.ctrlKey &&
+  !event.shiftKey &&
+  event.code === LEDGER_KEY.code;
 
-export const isArtifactsKey = (event: KeyboardEvent): boolean => event.metaKey && event.shiftKey && !event.altKey && !event.ctrlKey && event.code === ARTIFACTS_KEY.code;
+export const isArtifactsKey = (event: KeyboardEvent): boolean =>
+  event.metaKey &&
+  event.shiftKey &&
+  !event.altKey &&
+  !event.ctrlKey &&
+  event.code === ARTIFACTS_KEY.code;
 
-export const isLanesKey = (event: KeyboardEvent): boolean => event.altKey && event.shiftKey && !event.metaKey && !event.ctrlKey && event.code === LANES_KEY.code;
+export const isLanesKey = (event: KeyboardEvent): boolean =>
+  event.altKey &&
+  event.shiftKey &&
+  !event.metaKey &&
+  !event.ctrlKey &&
+  event.code === LANES_KEY.code;

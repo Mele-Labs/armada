@@ -24,7 +24,10 @@ export type BuildFailed = {
   line: string;
 };
 
-const NAME: Record<BuildSource, string> = { main: "Main", preview: "Preview" };
+const NAME: Record<BuildSource, string> = {
+  main: "Main",
+  preview: "Preview",
+};
 
 /** The headline a failed restart is raised under. */
 export function buildFailedHeadline({ build, line }: BuildFailed): string {
@@ -40,18 +43,64 @@ export function buildFailedHeadline({ build, line }: BuildFailed): string {
 export function buildFailedFailure(failed: BuildFailed, bridge: BridgeIdentity): Failure {
   const headline = buildFailedHeadline(failed);
   const facts = [
-    ...(failed.build === undefined ? [] : [{ key: "build", value: failed.build }]),
-    { key: "running", value: failed.running },
-    ...(failed.commit === undefined ? [] : [{ key: "commit", value: failed.commit }]),
-    { key: "failed", value: failed.line },
-    { key: "log", value: RESTART_BUILD_LOG },
+    ...(failed.build === undefined
+      ? []
+      : [
+          {
+            key: "build",
+            value: failed.build,
+          },
+        ]),
+    {
+      key: "running",
+      value: failed.running,
+    },
+    ...(failed.commit === undefined
+      ? []
+      : [
+          {
+            key: "commit",
+            value: failed.commit,
+          },
+        ]),
+    {
+      key: "failed",
+      value: failed.line,
+    },
+    {
+      key: "log",
+      value: RESTART_BUILD_LOG,
+    },
   ];
   const details: FailureDetail[] = [
-    ...(failed.build === undefined ? [] : [{ label: "Build", value: failed.build }]),
-    { label: "Running", value: failed.running },
-    ...(failed.commit === undefined ? [] : [{ label: "Commit", value: failed.commit.slice(0, 9) }]),
-    { label: "Failed", value: failed.line },
-    { label: "Log", value: RESTART_BUILD_LOG },
+    ...(failed.build === undefined
+      ? []
+      : [
+          {
+            label: "Build",
+            value: failed.build,
+          },
+        ]),
+    {
+      label: "Running",
+      value: failed.running,
+    },
+    ...(failed.commit === undefined
+      ? []
+      : [
+          {
+            label: "Commit",
+            value: failed.commit.slice(0, 9),
+          },
+        ]),
+    {
+      label: "Failed",
+      value: failed.line,
+    },
+    {
+      label: "Log",
+      value: RESTART_BUILD_LOG,
+    },
   ];
   return {
     kind: "fault",
@@ -65,7 +114,10 @@ export function buildFailedFailure(failed: BuildFailed, bridge: BridgeIdentity):
     payload: {
       code: FLEET_BUILD_FAILED,
       message: headline,
-      fields: [...facts, ...logField(bridge)],
+      fields: [
+        ...facts,
+        ...logField(bridge),
+      ],
       ...versions(bridge),
     },
   };

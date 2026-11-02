@@ -92,7 +92,9 @@ function QuestionCard({
   const [pressedId, setPressedId] = useState<string | null>(null);
   useEffect(() => {
     if (answering !== true) setPressedId(null);
-  }, [answering]);
+  }, [
+    answering,
+  ]);
   const stillWaiting = useStillWaiting(answering === true);
   // `flat` because the questions zone is a well on the dock's own glass, and a
   // well is the one ground the card treatment's ancestry cannot see (#1353).
@@ -101,9 +103,7 @@ function QuestionCard({
   return (
     <Card className="armada-dock-question" flat role="article" aria-label={`${label} — ${where}`}>
       <div className="armada-dock-question__where">
-        <span className="armada-dock-question__place mono">
-          {repository} · helm
-        </span>
+        <span className="armada-dock-question__place mono">{repository} · helm</span>
         {waiting === undefined ? null : typeof waiting === "string" ? (
           <span className="armada-dock-question__waiting mono">{waiting}</span>
         ) : (
@@ -166,5 +166,7 @@ function QuestionCard({
 /** The wait, read off the clock here so a tick draws this span and not the dock. */
 function Waited({ of }: { of: (now: number) => string | undefined }) {
   const waited = of(useNow());
-  return waited === undefined ? null : <span className="armada-dock-question__waiting mono">{waited}</span>;
+  return waited === undefined ? null : (
+    <span className="armada-dock-question__waiting mono">{waited}</span>
+  );
 }

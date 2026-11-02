@@ -21,7 +21,15 @@ const OFF_KEY = "t";
 /** The owner's own controls for Autopilot: nothing pressed inside them is the first use of the window. */
 const OWN = `[data-keeps-autopilot], [data-hud="autopilot"], .ap-hud`;
 
-const watching: { on: boolean; asking: boolean; ask: () => void } = { on: false, asking: false, ask: () => undefined };
+const watching: {
+  on: boolean;
+  asking: boolean;
+  ask: () => void;
+} = {
+  on: false,
+  asking: false,
+  ask: () => undefined,
+};
 let lastInput = Date.now();
 
 /** Time passing with nobody at the window, for a mock that cannot wait ten minutes. */
@@ -56,7 +64,20 @@ function used(event: Event): void {
   watching.asking = true;
   event.preventDefault();
   event.stopImmediatePropagation();
-  eatRest(event.type === "keydown" ? ["keypress", "keyup"] : ["mousedown", "pointerup", "mouseup", "click"], event.type === "keydown" ? "keyup" : "click");
+  eatRest(
+    event.type === "keydown"
+      ? [
+          "keypress",
+          "keyup",
+        ]
+      : [
+          "mousedown",
+          "pointerup",
+          "mouseup",
+          "click",
+        ],
+    event.type === "keydown" ? "keyup" : "click",
+  );
   watching.ask();
 }
 
@@ -85,7 +106,9 @@ export function AutopilotBack({ repositories }: { repositories: readonly Reposit
     return () => {
       watching.on = false;
     };
-  }, [on]);
+  }, [
+    on,
+  ]);
 
   // A frame later, so the key that answered has been heard and the question has given its focus back before the list takes it.
   const review = () => {
@@ -115,11 +138,22 @@ export function AutopilotBack({ repositories }: { repositories: readonly Reposit
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [asking]);
+  }, [
+    asking,
+  ]);
 
-  const nameOf = (manifest: string) => repositories.find((one) => one.manifest?.id === manifest)?.manifest?.repository ?? manifest;
+  const nameOf = (manifest: string) =>
+    repositories.find((one) => one.manifest?.id === manifest)?.manifest?.repository ?? manifest;
   return (
-    <Dialog open={asking && on} title="Autopilot is running" tone="neutral" confirmLabel="Turn it off" cancelLabel="Keep it on" onConfirm={off} onCancel={keep}>
+    <Dialog
+      open={asking && on}
+      title="Autopilot is running"
+      tone="neutral"
+      confirmLabel="Turn it off"
+      cancelLabel="Keep it on"
+      onConfirm={off}
+      onCancel={keep}
+    >
       <ul>
         {running.map((one) => (
           <li key={one.manifest_id}>{nameOf(one.manifest_id)}</li>

@@ -10,7 +10,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const openExternal = vi.fn(async (_url: string) => undefined);
-vi.mock("electron", () => ({ shell: { openExternal: (url: string) => openExternal(url) } }));
+vi.mock("electron", () => ({
+  shell: {
+    openExternal: (url: string) => openExternal(url),
+  },
+}));
 
 const { openStudioNode } = await import("./forge");
 
@@ -32,7 +36,13 @@ function holdingStudio(nodes: StudioNode[]): BridgeState {
     nodes,
     edges: [],
   };
-  return { ...NOTHING_YET, studio: { state: "read", studio } };
+  return {
+    ...NOTHING_YET,
+    studio: {
+      state: "read",
+      studio,
+    },
+  };
 }
 
 const ISSUE = "https://forge.invalid/NickMele/armada/issues/1406";
@@ -40,16 +50,38 @@ const ISSUE = "https://forge.invalid/NickMele/armada/issues/1406";
 describe("opening what a Studio node points at", () => {
   it("hands over the address the node carries, and nothing else", async () => {
     const state = holdingStudio([
-      { id: "n1", kind: "issue", address: ISSUE, number: "1406", state: "open", position: { x: 0, y: 0 }, created_at: "2026-09-17T09:00:00Z" },
+      {
+        id: "n1",
+        kind: "issue",
+        address: ISSUE,
+        number: "1406",
+        state: "open",
+        position: {
+          x: 0,
+          y: 0,
+        },
+        created_at: "2026-09-17T09:00:00Z",
+      },
     ]);
-    await expect(openStudioNode(state, STUDIO_ID, "n1")).resolves.toEqual({ ok: true });
+    await expect(openStudioNode(state, STUDIO_ID, "n1")).resolves.toEqual({
+      ok: true,
+    });
     expect(openExternal).toHaveBeenCalledWith(ISSUE);
   });
 
   it("refuses an address that is not a web address, by name", async () => {
     const address = "file:///Users/user/.ssh/id_ed25519";
     const state = holdingStudio([
-      { id: "n1", kind: "link", address, position: { x: 0, y: 0 }, created_at: "2026-09-17T09:00:00Z" },
+      {
+        id: "n1",
+        kind: "link",
+        address,
+        position: {
+          x: 0,
+          y: 0,
+        },
+        created_at: "2026-09-17T09:00:00Z",
+      },
     ]);
     await expect(openStudioNode(state, STUDIO_ID, "n1")).resolves.toEqual({
       ok: false,
@@ -61,9 +93,21 @@ describe("opening what a Studio node points at", () => {
 
   it("opens nothing for a node that carries no address, or a Studio it is not holding", async () => {
     const state = holdingStudio([
-      { id: "n1", kind: "note", said: "The legend is unreadable", position: { x: 0, y: 0 }, created_at: "2026-09-17T09:00:00Z" },
+      {
+        id: "n1",
+        kind: "note",
+        said: "The legend is unreadable",
+        position: {
+          x: 0,
+          y: 0,
+        },
+        created_at: "2026-09-17T09:00:00Z",
+      },
     ]);
-    await expect(openStudioNode(state, STUDIO_ID, "n1")).resolves.toEqual({ ok: false, why: "no_address" });
+    await expect(openStudioNode(state, STUDIO_ID, "n1")).resolves.toEqual({
+      ok: false,
+      why: "no_address",
+    });
     await expect(openStudioNode(state, "01M1STUDIO000000000000002", "n1")).resolves.toEqual({
       ok: false,
       why: "no_address",

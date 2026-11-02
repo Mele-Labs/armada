@@ -28,14 +28,24 @@ export function SearchField({ label, value, onValue, cap = "/" }: SearchFieldPro
   useEffect(() => {
     const reach = (event: KeyboardEvent) => {
       const input = field.current;
-      if (event.key !== cap || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || document.activeElement !== document.body) return;
+      if (
+        event.key !== cap ||
+        event.defaultPrevented ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        document.activeElement !== document.body
+      )
+        return;
       if (input === null || input.getClientRects().length === 0) return;
       event.preventDefault();
       input.focus();
     };
     document.addEventListener("keydown", reach);
     return () => document.removeEventListener("keydown", reach);
-  }, [cap]);
+  }, [
+    cap,
+  ]);
   return (
     <Input
       ref={field}

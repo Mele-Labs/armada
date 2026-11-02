@@ -14,22 +14,60 @@ const RED = {
   commit: "a".repeat(40),
   read_at: new Date().toISOString(),
   red_since: new Date().toISOString(),
-  failed: [{ name: "desktop_test", check: "desktop_test" }],
+  failed: [
+    {
+      name: "desktop_test",
+      check: "desktop_test",
+    },
+  ],
 };
 
 /** The scenario at its first moment, or after the forge went quiet; `red` has main fail the same way in both. */
 function standing(quiet: boolean, red = false): Scenario {
   const base = scenarioNamed("merge-line-freshness")!;
-  const state = quiet ? { ...base.state, ...base.later![0]! } : base.state;
-  if (!red) return { ...base, state, later: [] };
+  const state = quiet
+    ? {
+        ...base.state,
+        ...base.later![0]!,
+      }
+    : base.state;
+  if (!red)
+    return {
+      ...base,
+      state,
+      later: [],
+    };
   const [line] = state.mergeLines!.lines;
-  return { ...base, state: { ...state, mergeLines: { lines: [{ ...line!, hub: { ...line!.hub!, main: RED } }] } }, later: [] };
+  return {
+    ...base,
+    state: {
+      ...state,
+      mergeLines: {
+        lines: [
+          {
+            ...line!,
+            hub: {
+              ...line!.hub!,
+              main: RED,
+            },
+          },
+        ],
+      },
+    },
+    later: [],
+  };
 }
 
 async function deck(scenario: Scenario) {
   mount(scenario);
   await onScreen();
-  await expect.element(page.getByRole("region", { name: "Merge queue" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Merge queue",
+      }),
+    )
+    .toBeVisible();
 }
 
 const chip = () => document.querySelector<HTMLElement>(".deck-queue [data-main]")!;
@@ -44,7 +82,9 @@ test("main's chip adds how long ago Fleet read the forge, and shows no glyph whi
 
 test("a quiet forge marks the chip with a glyph naming the time and dims the dot, and the age stays in the tooltip", async () => {
   await deck(standing(true));
-  const glyph = page.getByRole("img", { name: /^.+ not answering since \d\d:\d\d$/ });
+  const glyph = page.getByRole("img", {
+    name: /^.+ not answering since \d\d:\d\d$/,
+  });
   await expect.element(glyph).toBeVisible();
   expect(chip().querySelector(".deck-chip__dot")!.hasAttribute("data-stale")).toBe(true);
   expect(bubble()).toMatch(/^Main is green\. Read 6m ago/);
@@ -52,9 +92,13 @@ test("a quiet forge marks the chip with a glyph naming the time and dims the dot
 
 test("a red main's inspect card says the same, with the age and the quiet forge among its facts", async () => {
   await deck(standing(true, true));
-  const light = page.getByRole("button", { name: /^Main is red in/ });
+  const light = page.getByRole("button", {
+    name: /^Main is red in/,
+  });
   await expect.element(light).toBeVisible();
-  expect(document.querySelector(".deck-queue [data-main] .deck-chip__dot")!.hasAttribute("data-stale")).toBe(true);
+  expect(
+    document.querySelector(".deck-queue [data-main] .deck-chip__dot")!.hasAttribute("data-stale"),
+  ).toBe(true);
   await light.hover();
   // Hovered, not pressed, so the one inspect card is a tooltip, not yet a pinned dialog.
   const card = page.getByRole("tooltip");

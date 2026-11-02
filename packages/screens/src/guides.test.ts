@@ -16,9 +16,11 @@ import { describe, expect, test } from "vitest";
  */
 const CONCEPTS = new Set(
   Object.keys(
-    (import.meta as unknown as { glob: (pattern: string) => Record<string, unknown> }).glob(
-      "../../../docs/concepts/*.md",
-    ),
+    (
+      import.meta as unknown as {
+        glob: (pattern: string) => Record<string, unknown>;
+      }
+    ).glob("../../../docs/concepts/*.md"),
   ).map((path) => path.replace("../../../", "")),
 );
 
@@ -45,8 +47,29 @@ describe("the guides", () => {
     // under a plan group, which lost its last screen with the Jobs deletion; 1, 2,
     // 3, 4, 6, 7, 9, 10, 12, 13, 14 and 21 explained pieces of the Job screens,
     // the plan board, the run sheet and the Pulse, which went with it.
-    const retiredNumbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 20, 21];
-    expect([...RETIRED_GUIDE_NUMBERS].sort((a, b) => a - b)).toEqual(retiredNumbers);
+    const retiredNumbers = [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      20,
+      21,
+    ];
+    expect(
+      [
+        ...RETIRED_GUIDE_NUMBERS,
+      ].sort((a, b) => a - b),
+    ).toEqual(retiredNumbers);
     for (const retired of retiredNumbers) {
       expect(GUIDES.some((guide) => guide.number === retired)).toBe(false);
     }
@@ -62,8 +85,18 @@ describe("the guides", () => {
     // one to the highest is one or the other, and nothing is skipped.
     const numbers = GUIDES.map((guide) => guide.number);
     const ceiling = Math.max(...numbers, ...RETIRED_GUIDE_NUMBERS);
-    const issued = [...numbers, ...RETIRED_GUIDE_NUMBERS].sort((a, b) => a - b);
-    expect(issued).toEqual(Array.from({ length: ceiling }, (_, at) => at + 1));
+    const issued = [
+      ...numbers,
+      ...RETIRED_GUIDE_NUMBERS,
+    ].sort((a, b) => a - b);
+    expect(issued).toEqual(
+      Array.from(
+        {
+          length: ceiling,
+        },
+        (_, at) => at + 1,
+      ),
+    );
   });
 
   test("each explain one piece, and no two claim the same one", () => {
@@ -81,7 +114,11 @@ describe("the guides", () => {
     // put a plan guide in the middle of the job ones.
     const order = GUIDE_GROUPS.map((group) => group.id);
     const met = GUIDES.map((guide) => order.indexOf(guide.group));
-    expect(met).toEqual([...met].sort((a, b) => a - b));
+    expect(met).toEqual(
+      [
+        ...met,
+      ].sort((a, b) => a - b),
+    );
   });
 
   test("name a concepts page that exists", () => {
@@ -91,7 +128,9 @@ describe("the guides", () => {
     // is a page renamed or deleted out from under a guide.
     for (const guide of GUIDES) {
       if (guide.concept === undefined) continue;
-      expect([...CONCEPTS]).toContain(guide.concept);
+      expect([
+        ...CONCEPTS,
+      ]).toContain(guide.concept);
     }
   });
 

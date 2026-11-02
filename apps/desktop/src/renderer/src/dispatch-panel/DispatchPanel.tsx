@@ -15,9 +15,41 @@
 // Once the repository is known the same `@` also offers its files, and `#` its open issues and pull requests by number, as the composer's do; what is
 // chosen is written into the words, and an issue or pull request is sent with them (`PanelTags`).
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+  type Ref,
+} from "react";
 import { Cpu, FolderGit2, LoaderCircle, Zap } from "lucide-react";
-import { AttachmentChip, Button, DropdownMenu, isLargePaste, Kbd, useMarking, type Mark, KbdChord, Pick, Select, SendKbd, Tabs, Tooltip, boundKeyFor, digitKeyFor, isPressed, pressedDigit, sendsOn, useShortcutReveal, type DispatchKind, type DropdownMenuEntry } from "@armada/components";
+import {
+  AttachmentChip,
+  Button,
+  DropdownMenu,
+  isLargePaste,
+  Kbd,
+  useMarking,
+  type Mark,
+  KbdChord,
+  Pick,
+  Select,
+  SendKbd,
+  Tabs,
+  Tooltip,
+  boundKeyFor,
+  digitKeyFor,
+  isPressed,
+  pressedDigit,
+  sendsOn,
+  useShortcutReveal,
+  type DispatchKind,
+  type DropdownMenuEntry,
+} from "@armada/components";
 import { FIND_A_REPOSITORY, rootOf } from "@armada/shell";
 
 import { KIND_ICON, KIND_LABEL } from "./kinds";
@@ -28,11 +60,20 @@ import "./dispatch-panel.css";
 
 /** What the chip says about the repository. A name is a repository; the rest are the ways there is none yet. */
 export type PanelReading =
-  | { state: "idle" }
-  | { state: "detecting" }
-  | { state: "unresolved" }
+  | {
+      state: "idle";
+    }
+  | {
+      state: "detecting";
+    }
+  | {
+      state: "unresolved";
+    }
   /** Read from the words, picked by hand, or the one the rail is on. */
-  | { state: "detected" | "picked" | "scoped"; name: string };
+  | {
+      state: "detected" | "picked" | "scoped";
+      name: string;
+    };
 
 export type RepositoryOption = {
   root: string;
@@ -51,13 +92,37 @@ export type RepositoryChip = {
 /** How many chips carry a key. Past them a trailing menu holds the rest. */
 const KEYED = 9;
 
-const WHAT: Record<PanelReading["state"], { name: string; tip: string }> = {
-  idle: { name: "Repository", tip: "Repository" },
-  detecting: { name: "Repository, finding", tip: "Finding the repository" },
-  unresolved: { name: "Repository, not found", tip: "No repository found" },
-  detected: { name: "Repository", tip: "Found in the request" },
-  picked: { name: "Repository", tip: "Picked by you" },
-  scoped: { name: "Repository", tip: "The one the rail is on" },
+const WHAT: Record<
+  PanelReading["state"],
+  {
+    name: string;
+    tip: string;
+  }
+> = {
+  idle: {
+    name: "Repository",
+    tip: "Repository",
+  },
+  detecting: {
+    name: "Repository, finding",
+    tip: "Finding the repository",
+  },
+  unresolved: {
+    name: "Repository, not found",
+    tip: "No repository found",
+  },
+  detected: {
+    name: "Repository",
+    tip: "Found in the request",
+  },
+  picked: {
+    name: "Repository",
+    tip: "Picked by you",
+  },
+  scoped: {
+    name: "Repository",
+    tip: "The one the rail is on",
+  },
 };
 
 /** A Session's Model and Effort as the composer offers them. `null` is Auto. */
@@ -85,11 +150,18 @@ function QueueKbd({ available }: { available: boolean }) {
   const revealing = useShortcutReveal();
   const bound = boundKeyFor("queue_session");
   if (!revealing || !available || bound === "") return null;
-  const mods = [...bound].filter((one, at) => "⌃⌥⇧⌘".includes(one) && at < 4);
+  const mods = [
+    ...bound,
+  ].filter((one, at) => "⌃⌥⇧⌘".includes(one) && at < 4);
   const key = bound.slice(mods.length);
   return (
     <span aria-hidden>
-      <KbdChord keys={[...mods, key === "Enter" ? "↵" : key]} />
+      <KbdChord
+        keys={[
+          ...mods,
+          key === "Enter" ? "↵" : key,
+        ]}
+      />
     </span>
   );
 }
@@ -136,7 +208,12 @@ export type PanelProps = {
   /** The host's keys on the request: Tab's kind and a Session's Enter. */
   onFieldKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
   /** Pastes too big to send as words, kept as files for the Session to start with. Absent where the kind takes none. */
-  snippets?: { files: readonly File[]; onPaste: (words: string) => void; onFiles: (files: readonly File[]) => void; onRemove: (file: File) => void };
+  snippets?: {
+    files: readonly File[];
+    onPaste: (words: string) => void;
+    onFiles: (files: readonly File[]) => void;
+    onRemove: (file: File) => void;
+  };
   /** Under the band: an Autopilot's read settings. Absent for a Session. */
   body?: ReactNode;
   fieldRef?: Ref<HTMLTextAreaElement>;
@@ -158,7 +235,12 @@ function tagged(words: string, title: string | undefined): ReactNode {
 }
 
 /** `dispatch-panel.css` lifts the menus portalled onto the body above the panel while it is open. */
-const DISPATCHING: readonly Mark[] = [{ of: "body", as: "data-dispatching" }];
+const DISPATCHING: readonly Mark[] = [
+  {
+    of: "body",
+    as: "data-dispatching",
+  },
+];
 
 export function DispatchPanel({
   open,
@@ -202,10 +284,16 @@ export function DispatchPanel({
 
   // The row takes the keys when the act asks, and gives them back to the request when it stops.
   useEffect(() => {
-    if (asking) (row.current?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]') ?? row.current?.querySelector<HTMLElement>('[role="radio"]'))?.focus();
+    if (asking)
+      (
+        row.current?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]') ??
+        row.current?.querySelector<HTMLElement>('[role="radio"]')
+      )?.focus();
     else if (asked.current) field.current?.focus();
     asked.current = asking;
-  }, [asking]);
+  }, [
+    asking,
+  ]);
 
   const pick = (root: string) => {
     onPick(root);
@@ -216,7 +304,19 @@ export function DispatchPanel({
   const worded = words.trim() !== "" || (snippets?.files.length ?? 0) > 0;
 
   const sessions = wait?.sessions ?? [];
-  const at = useAtMenu(words, onWords, kind === "session" ? { ...tags, sessions } : { sessions: [] }, `${useId()}-at`);
+  const at = useAtMenu(
+    words,
+    onWords,
+    kind === "session"
+      ? {
+          ...tags,
+          sessions,
+        }
+      : {
+          sessions: [],
+        },
+    `${useId()}-at`,
+  );
 
   // ⌥A pressed outside the sheet left an `@` at the end of the request: the caret goes after it and the menu opens.
   useEffect(() => {
@@ -244,7 +344,8 @@ export function DispatchPanel({
   };
 
   /** Shift+Tab from the request goes to the sentence above it. */
-  const toChip = () => frame.current?.querySelector<HTMLElement>(".armada-wait__part:not(:disabled)")?.focus();
+  const toChip = () =>
+    frame.current?.querySelector<HTMLElement>(".armada-wait__part:not(:disabled)")?.focus();
 
   const keys = (event: KeyboardEvent<HTMLElement>) => {
     // `dispatch_after`, read by the key's place on the keyboard since Option changes the character A types.
@@ -278,7 +379,9 @@ export function DispatchPanel({
     const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
     if (step === 0) return;
     event.preventDefault();
-    const all = [...event.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]')];
+    const all = [
+      ...event.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]'),
+    ];
     const at = all.indexOf(document.activeElement as HTMLElement);
     all[(at + step + all.length) % all.length]?.focus();
   };
@@ -299,8 +402,17 @@ export function DispatchPanel({
       onKeyDown={onRow}
     >
       <Tooltip label={what.tip}>
-        <span className="armada-dispatch-panel__reading" role="img" aria-label={"name" in reading ? `${what.name} ${reading.name}` : what.name} data-reading={reading.state}>
-          {reading.state === "detecting" ? <LoaderCircle size={12} aria-hidden /> : <FolderGit2 size={12} aria-hidden />}
+        <span
+          className="armada-dispatch-panel__reading"
+          role="img"
+          aria-label={"name" in reading ? `${what.name} ${reading.name}` : what.name}
+          data-reading={reading.state}
+        >
+          {reading.state === "detecting" ? (
+            <LoaderCircle size={12} aria-hidden />
+          ) : (
+            <FolderGit2 size={12} aria-hidden />
+          )}
         </span>
       </Tooltip>
       {keyed.map((one, at) => (
@@ -321,14 +433,21 @@ export function DispatchPanel({
         </button>
       ))}
       {rest.length === 0 ? null : (
-        <span className="armada-dispatch-panel__more" data-mark={hidden === undefined ? undefined : "chosen"}>
+        <span
+          className="armada-dispatch-panel__more"
+          data-mark={hidden === undefined ? undefined : "chosen"}
+        >
           <DropdownMenu
             align="start"
             portal
             triggerLabel={hidden?.name ?? "More"}
-            triggerAriaLabel={hidden === undefined ? "More repositories" : `Repository ${hidden.name}`}
+            triggerAriaLabel={
+              hidden === undefined ? "More repositories" : `Repository ${hidden.name}`
+            }
             searchLabel={FIND_A_REPOSITORY}
-            entries={[...entries]}
+            entries={[
+              ...entries,
+            ]}
             disabled={disabled}
             onSelect={(id) => pick(rootOf(id))}
           />
@@ -348,14 +467,23 @@ export function DispatchPanel({
       data-asking={asking || undefined}
       onKeyDown={keys}
     >
-      {kind !== "session" || wait?.chip === undefined ? null : <WaitChip chip={wait.chip} sessions={sessions} disabled={disabled} onLeave={() => field.current?.focus()} />}
+      {kind !== "session" || wait?.chip === undefined ? null : (
+        <WaitChip
+          chip={wait.chip}
+          sessions={sessions}
+          disabled={disabled}
+          onLeave={() => field.current?.focus()}
+        />
+      )}
       <div
         className="armada-dispatch-panel__line"
         onDragOver={(event) => snippets !== undefined && event.preventDefault()}
         onDrop={(event) => {
           if (snippets === undefined) return;
           event.preventDefault();
-          snippets.onFiles([...event.dataTransfer.files]);
+          snippets.onFiles([
+            ...event.dataTransfer.files,
+          ]);
         }}
       >
         <Tooltip label={KIND_LABEL[kind]}>
@@ -389,7 +517,9 @@ export function DispatchPanel({
             onBlur={at.onBlur}
             onPaste={(event) => {
               if (snippets === undefined) return;
-              const picked = [...event.clipboardData.files];
+              const picked = [
+                ...event.clipboardData.files,
+              ];
               if (picked.length > 0) {
                 event.preventDefault();
                 return snippets.onFiles(picked);
@@ -399,10 +529,17 @@ export function DispatchPanel({
               event.preventDefault();
               snippets.onPaste(pasted);
             }}
-            onScroll={(event) => mirror.current !== null && (mirror.current.scrollTop = event.currentTarget.scrollTop)}
+            onScroll={(event) =>
+              mirror.current !== null && (mirror.current.scrollTop = event.currentTarget.scrollTop)
+            }
             onKeyDown={(event) => {
               if (at.onKeyDown(event)) return;
-              if (event.key === "Tab" && event.shiftKey && kind === "session" && wait?.chip !== undefined) {
+              if (
+                event.key === "Tab" &&
+                event.shiftKey &&
+                kind === "session" &&
+                wait?.chip !== undefined
+              ) {
                 event.preventDefault();
                 return toChip();
               }
@@ -426,12 +563,26 @@ export function DispatchPanel({
       {snippets === undefined || snippets.files.length === 0 ? null : (
         <div className="armada-dispatch-panel__snippets" role="group" aria-label="Attached">
           {snippets.files.map((file, at) => (
-            <AttachmentChip key={`${file.name}-${at}`} filename={file.name} onRemove={() => snippets.onRemove(file)} />
+            <AttachmentChip
+              key={`${file.name}-${at}`}
+              filename={file.name}
+              onRemove={() => snippets.onRemove(file)}
+            />
           ))}
         </div>
       )}
 
-      {!at.open ? null : <SessionMenu id={at.listId} label={at.label} numbered={at.numbered} rows={at.offered} active={at.active} onHover={at.setActive} onChoose={at.choose} />}
+      {!at.open ? null : (
+        <SessionMenu
+          id={at.listId}
+          label={at.label}
+          numbered={at.numbered}
+          rows={at.offered}
+          active={at.active}
+          onHover={at.setActive}
+          onChoose={at.choose}
+        />
+      )}
 
       <div className="armada-dispatch-panel__drawer" inert={!open}>
         <div className="armada-dispatch-panel__drawer-body">
@@ -439,13 +590,30 @@ export function DispatchPanel({
 
           <div className="armada-dispatch-panel__band">
             {kinds.length < 2 ? null : (
-              <Tabs items={kinds.map((one) => ({ id: one, label: KIND_LABEL[one] }))} value={kind} onChange={(id) => onKind(id as DispatchKind)} />
+              <Tabs
+                items={kinds.map((one) => ({
+                  id: one,
+                  label: KIND_LABEL[one],
+                }))}
+                value={kind}
+                onChange={(id) => onKind(id as DispatchKind)}
+              />
             )}
             <span className="armada-dispatch-panel__send">
               {tuning === undefined ? null : (
                 <span className="armada-dispatch-panel__picks">
                   <Pick Glyph={Cpu} compact label="Model">
-                    <Select aria-label="Model" value={tuning.model ?? ""} disabled={disabled} onChange={(event) => tuning.onTune({ model: event.target.value === "" ? null : event.target.value, effort: tuning.effort })}>
+                    <Select
+                      aria-label="Model"
+                      value={tuning.model ?? ""}
+                      disabled={disabled}
+                      onChange={(event) =>
+                        tuning.onTune({
+                          model: event.target.value === "" ? null : event.target.value,
+                          effort: tuning.effort,
+                        })
+                      }
+                    >
                       <option value="">{tuning.defaultModel ?? "Auto"}</option>
                       {tuning.models.map((one) => (
                         <option key={one} value={one}>
@@ -455,7 +623,17 @@ export function DispatchPanel({
                     </Select>
                   </Pick>
                   <Pick Glyph={Zap} compact label="Effort">
-                    <Select aria-label="Effort" value={tuning.effort ?? ""} disabled={disabled} onChange={(event) => tuning.onTune({ model: tuning.model, effort: event.target.value === "" ? null : event.target.value })}>
+                    <Select
+                      aria-label="Effort"
+                      value={tuning.effort ?? ""}
+                      disabled={disabled}
+                      onChange={(event) =>
+                        tuning.onTune({
+                          model: tuning.model,
+                          effort: event.target.value === "" ? null : event.target.value,
+                        })
+                      }
+                    >
                       <option value="">Auto</option>
                       {tuning.efforts.map((one) => (
                         <option key={one} value={one}>
@@ -469,19 +647,33 @@ export function DispatchPanel({
               {onQueue === undefined ? null : (
                 <>
                   <QueueKbd available={words.trim() !== ""} />
-                  <Button variant="secondary" size="sm" pending={queueing} disabled={disabled || sending || words.trim() === ""} onClick={onQueue}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    pending={queueing}
+                    disabled={disabled || sending || words.trim() === ""}
+                    onClick={onQueue}
+                  >
                     Queue for later
                   </Button>
                 </>
               )}
               <SendKbd available={worded} />
-              <Button variant="primary" size="sm" pending={sending} disabled={disabled || queueing || !worded} onClick={onAct}>
+              <Button
+                variant="primary"
+                size="sm"
+                pending={sending}
+                disabled={disabled || queueing || !worded}
+                onClick={onAct}
+              >
                 {act}
               </Button>
             </span>
           </div>
 
-          {body === undefined ? null : <div className="armada-dispatch-panel__settings">{body}</div>}
+          {body === undefined ? null : (
+            <div className="armada-dispatch-panel__settings">{body}</div>
+          )}
         </div>
       </div>
     </section>
@@ -506,9 +698,20 @@ export function DispatchPanel({
 export function useHung(on: boolean, anchor: string | undefined): CSSProperties | undefined {
   const [place, setPlace] = useState<CSSProperties>();
   useLayoutEffect(() => {
-    const box = !on || anchor === undefined ? undefined : document.querySelector(anchor)?.getBoundingClientRect();
+    const box =
+      !on || anchor === undefined
+        ? undefined
+        : document.querySelector(anchor)?.getBoundingClientRect();
     if (box === undefined || box.width === 0) return setPlace(undefined);
-    setPlace({ ["--hung-top" as string]: `${box.top}px`, ["--hung-left" as string]: `${box.left}px`, ["--hung-width" as string]: `${box.width}px`, ["--hung-height" as string]: `${box.height}px` });
-  }, [on, anchor]);
+    setPlace({
+      ["--hung-top" as string]: `${box.top}px`,
+      ["--hung-left" as string]: `${box.left}px`,
+      ["--hung-width" as string]: `${box.width}px`,
+      ["--hung-height" as string]: `${box.height}px`,
+    });
+  }, [
+    on,
+    anchor,
+  ]);
   return place;
 }

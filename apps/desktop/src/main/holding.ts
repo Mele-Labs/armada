@@ -65,9 +65,20 @@ export class HeldReader {
   async want(port: number | null, want: boolean): Promise<void> {
     this.open = want;
     if (!want) return;
-    if (this.last !== null) this.publish({ state: "read", held: this.last });
+    if (this.last !== null)
+      this.publish({
+        state: "read",
+        held: this.last,
+      });
     if (port === null) {
-      if (this.last === null) this.publish({ state: "failed", outcome: { ok: false, why: "not_connected" } });
+      if (this.last === null)
+        this.publish({
+          state: "failed",
+          outcome: {
+            ok: false,
+            why: "not_connected",
+          },
+        });
       return;
     }
     await this.again(port);
@@ -93,7 +104,10 @@ export class HeldReader {
 
   private async read(port: number): Promise<void> {
     const mine = ++this.generation;
-    if (this.open && this.last === null) this.publish({ state: "reading" });
+    if (this.open && this.last === null)
+      this.publish({
+        state: "reading",
+      });
     const answer = await ask(port, "GET", "/worktrees");
     if (mine !== this.generation) return;
     if (answer.ok === true) this.last = answer.body as WorktreesHeld;
@@ -101,8 +115,16 @@ export class HeldReader {
     // answer and publishing it would draw a list onto a screen that is gone.
     // It is kept: the next surface to open starts from it.
     if (!this.open) return;
-    if (this.last !== null) this.publish({ state: "read", held: this.last });
-    else if (answer.ok !== true) this.publish({ state: "failed", outcome: answer.outcome });
+    if (this.last !== null)
+      this.publish({
+        state: "read",
+        held: this.last,
+      });
+    else if (answer.ok !== true)
+      this.publish({
+        state: "failed",
+        outcome: answer.outcome,
+      });
   }
 
   /** The read ends with the window. Nothing is published: the surface is gone. */

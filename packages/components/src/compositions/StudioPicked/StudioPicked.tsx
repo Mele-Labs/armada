@@ -67,8 +67,16 @@ export function StudioPicked({ acts, onAct, disabled = false }: StudioPickedProp
         <GraphCanvasNodeAct
           key={act.id}
           name={act.label}
-          {...(act.icon === undefined ? {} : { icon: act.icon })}
-          {...(act.danger === undefined ? {} : { danger: act.danger })}
+          {...(act.icon === undefined
+            ? {}
+            : {
+                icon: act.icon,
+              })}
+          {...(act.danger === undefined
+            ? {}
+            : {
+                danger: act.danger,
+              })}
           disabled={disabled}
           onPress={() => onAct(act.id)}
         />

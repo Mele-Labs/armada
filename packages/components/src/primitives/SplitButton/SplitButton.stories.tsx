@@ -32,9 +32,16 @@ function Row({ children }: { children: React.ReactNode }) {
 }
 
 const reviewActions = [
-  { label: "Reject" },
-  { label: "Redispatch with notes" },
-  { label: "Open diff", shortcut: "d" },
+  {
+    label: "Reject",
+  },
+  {
+    label: "Redispatch with notes",
+  },
+  {
+    label: "Open diff",
+    shortcut: "d",
+  },
 ];
 
 /** Closed — the default. Two segments in one control: the label commits, the
@@ -69,7 +76,16 @@ export const EscalatedRow: Story = {
       <SplitButton
         ground="sunken"
         defaultOpen
-        items={[{ label: "Kill & Redispatch" }, { label: "Kill", danger: true, shortcut: "x" }]}
+        items={[
+          {
+            label: "Kill & Redispatch",
+          },
+          {
+            label: "Kill",
+            danger: true,
+            shortcut: "x",
+          },
+        ]}
       >
         Pilot
       </SplitButton>
@@ -86,7 +102,12 @@ export const EscalatedRow: Story = {
  *  `:focus-visible`, which a static story cannot reach. */
 export const Focused: Story = {
   render: () => (
-    <div style={{ display: "flex", gap: "var(--space-4)" }}>
+    <div
+      style={{
+        display: "flex",
+        gap: "var(--space-4)",
+      }}
+    >
       <div data-preview-focus="action">
         <Row>
           <SplitButton items={reviewActions} ground="sunken">
@@ -138,10 +159,16 @@ export const Pending: Story = {
     </Row>
   ),
   play: async ({ args, canvas, userEvent }) => {
-    const face = canvas.getByRole("button", { name: "Killing job…" });
+    const face = canvas.getByRole("button", {
+      name: "Killing job…",
+    });
     await expect(face).toHaveAttribute("aria-busy", "true");
     await expect(face).not.toBeDisabled();
-    await expect(canvas.getByRole("button", { name: "More actions" })).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: "More actions",
+      }),
+    ).toBeDisabled();
 
     // `[aria-disabled="true"]` carries `pointer-events: none` — the global
     // rule refuses the pointer before a click ever reaches this control's own
@@ -155,13 +182,20 @@ export const Pending: Story = {
 };
 
 /** Every variant, each on the ground it is drawn against in the stories above. */
-const EVERY: SplitButtonProps["variant"][] = ["secondary", "primary", "destructive", "tonal"];
+const EVERY: SplitButtonProps["variant"][] = [
+  "secondary",
+  "primary",
+  "destructive",
+  "tonal",
+];
 
 /** One row holding a split button per variant, wrapped for a preview attribute. */
 function EveryVariant({
   preview,
   ...props
-}: Omit<SplitButtonProps, "children" | "items"> & { preview?: Record<string, string> }) {
+}: Omit<SplitButtonProps, "children" | "items"> & {
+  preview?: Record<string, string>;
+}) {
   return (
     <div {...preview}>
       <Row>
@@ -185,10 +219,26 @@ const DISABLED_VARIANTS: {
   label: string;
   menuLabel: string;
 }[] = [
-  { variant: "secondary", label: "Approve", menuLabel: "More for approve" },
-  { variant: "primary", label: "Approve all", menuLabel: "More for approve all" },
-  { variant: "destructive", label: "Kill job", menuLabel: "More for kill job" },
-  { variant: "tonal", label: "Dispatch", menuLabel: "More for dispatch" },
+  {
+    variant: "secondary",
+    label: "Approve",
+    menuLabel: "More for approve",
+  },
+  {
+    variant: "primary",
+    label: "Approve all",
+    menuLabel: "More for approve all",
+  },
+  {
+    variant: "destructive",
+    label: "Kill job",
+    menuLabel: "More for kill job",
+  },
+  {
+    variant: "tonal",
+    label: "Dispatch",
+    menuLabel: "More for dispatch",
+  },
 ];
 
 /**
@@ -237,11 +287,27 @@ export const DisabledEveryVariant: Story = {
   play: async ({ canvas, canvasElement }) => {
     const subtle = tokenColour(canvasElement, "--fg-subtle");
 
-    const drawn: Record<string, { label: string; chevron: string }> = {};
-    const disabled: Record<string, { face: boolean; caret: boolean }> = {};
+    const drawn: Record<
+      string,
+      {
+        label: string;
+        chevron: string;
+      }
+    > = {};
+    const disabled: Record<
+      string,
+      {
+        face: boolean;
+        caret: boolean;
+      }
+    > = {};
     for (const { variant, label, menuLabel } of DISABLED_VARIANTS) {
-      const face = canvas.getByRole("button", { name: label });
-      const caret = canvas.getByRole("button", { name: menuLabel });
+      const face = canvas.getByRole("button", {
+        name: label,
+      });
+      const caret = canvas.getByRole("button", {
+        name: menuLabel,
+      });
       // The chevron is drawn in `currentColor`, so its own computed colour is
       // what a person sees, not the colour the button was asked for.
       const chevron = caret.querySelector("svg");
@@ -260,12 +326,24 @@ export const DisabledEveryVariant: Story = {
     // its live colour rather than stopping at the first.
     await expect(drawn).toEqual(
       Object.fromEntries(
-        DISABLED_VARIANTS.map(({ variant }) => [variant, { label: subtle, chevron: subtle }]),
+        DISABLED_VARIANTS.map(({ variant }) => [
+          variant,
+          {
+            label: subtle,
+            chevron: subtle,
+          },
+        ]),
       ),
     );
     await expect(disabled).toEqual(
       Object.fromEntries(
-        DISABLED_VARIANTS.map(({ variant }) => [variant, { face: true, caret: true }]),
+        DISABLED_VARIANTS.map(({ variant }) => [
+          variant,
+          {
+            face: true,
+            caret: true,
+          },
+        ]),
       ),
     );
   },
@@ -279,9 +357,23 @@ export const DisabledEveryVariant: Story = {
  */
 export const Pressed: Story = {
   render: () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-      <EveryVariant preview={{ "data-preview-press": "action" }} />
-      <EveryVariant preview={{ "data-preview-press": "caret" }} />
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--space-3)",
+      }}
+    >
+      <EveryVariant
+        preview={{
+          "data-preview-press": "action",
+        }}
+      />
+      <EveryVariant
+        preview={{
+          "data-preview-press": "caret",
+        }}
+      />
     </div>
   ),
 };
@@ -297,12 +389,26 @@ export const PendingEveryVariant: Story = {
  * held for `--duration-answer` in the app and on a loop here.
  */
 export const Accepted: Story = {
-  render: () => <EveryVariant answer="accepted" preview={{ "data-preview-held": "" }} />,
+  render: () => (
+    <EveryVariant
+      answer="accepted"
+      preview={{
+        "data-preview-held": "",
+      }}
+    />
+  ),
 };
 
 /** Fleet refused, every variant. The line retracts in `--status-escalated`; nothing else moves. */
 export const Refused: Story = {
-  render: () => <EveryVariant answer="refused" preview={{ "data-preview-held": "" }} />,
+  render: () => (
+    <EveryVariant
+      answer="refused"
+      preview={{
+        "data-preview-held": "",
+      }}
+    />
+  ),
 };
 
 /**
@@ -323,11 +429,17 @@ export const RefusedTakesAPressAgain: Story = {
     </Row>
   ),
   play: async ({ args, canvas, userEvent }) => {
-    const face = canvas.getByRole("button", { name: "Kill job" });
+    const face = canvas.getByRole("button", {
+      name: "Kill job",
+    });
     await expect(face).not.toHaveAttribute("aria-busy");
     await userEvent.click(face);
     await expect(args.onAction).toHaveBeenCalledTimes(1);
-    await userEvent.click(canvas.getByRole("button", { name: "More actions" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "More actions",
+      }),
+    );
     await expect(canvas.getByRole("menu")).toBeVisible();
   },
 };
@@ -436,16 +548,29 @@ export const TonalNoMenu: Story = {
    *  the same handler the label does. Asserted by call count and by the
    *  menu's absence, never by reading `noMenu` off the markup. */
   play: async ({ canvas, userEvent, args }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Dispatch a job" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Dispatch a job",
+      }),
+    );
     await expect(args.onAction).toHaveBeenCalledTimes(1);
     expect(canvas.queryByRole("menu")).toBeNull();
 
-    await userEvent.click(canvas.getByRole("button", { name: "Dispatch" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Dispatch",
+      }),
+    );
     await expect(args.onAction).toHaveBeenCalledTimes(2);
   },
 };
 
-const killActions = [{ label: "Kill job, it ends here", danger: true }];
+const killActions = [
+  {
+    label: "Kill job, it ends here",
+    danger: true,
+  },
+];
 
 const holdArgs = {
   items: killActions,
@@ -453,7 +578,8 @@ const holdArgs = {
   onAction: fn(),
   hold: {
     label: "Hold to kill drone",
-    description: "Kills the drone once held until it fills. Letting go sooner kills nothing. The job stays open.",
+    description:
+      "Kills the drone once held until it fills. Letting go sooner kills nothing. The job stays open.",
     onCommit: fn(),
   },
   children: "Kill drone",
@@ -468,24 +594,42 @@ const holdArgs = {
 export const HoldFace: Story = {
   args: holdArgs,
   // The hold is the claim, and the test run's reduced motion does not offer one.
-  parameters: { motion: "on" },
+  parameters: {
+    motion: "on",
+  },
   render: (args) => (
     <Row>
       <SplitButton {...args} />
     </Row>
   ),
   play: async ({ args, canvas, userEvent }) => {
-    const face = canvas.getByRole("button", { name: "Hold to kill drone" });
+    const face = canvas.getByRole("button", {
+      name: "Hold to kill drone",
+    });
     await expect(face).toHaveAccessibleDescription(args.hold?.description ?? "");
     const hold = holdDurationOf(face) ?? 0;
     await expect(hold).toBeGreaterThan(0);
 
     await userEvent.click(face);
-    const caret = canvas.getByRole("button", { name: "Everything else this job can do" });
+    const caret = canvas.getByRole("button", {
+      name: "Everything else this job can do",
+    });
     // Pressed and held past the hold's length: a caret that armed would commit here.
-    caret.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, isPrimary: true }));
+    caret.dispatchEvent(
+      new PointerEvent("pointerdown", {
+        bubbles: true,
+        button: 0,
+        isPrimary: true,
+      }),
+    );
     await new Promise((resolve) => setTimeout(resolve, hold + 100));
-    caret.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, button: 0, isPrimary: true }));
+    caret.dispatchEvent(
+      new PointerEvent("pointerup", {
+        bubbles: true,
+        button: 0,
+        isPrimary: true,
+      }),
+    );
     await userEvent.click(caret);
     await expect(args.hold?.onCommit).not.toHaveBeenCalled();
     await expect(args.onAction).not.toHaveBeenCalled();
@@ -518,7 +662,11 @@ export const HoldFaceReducedMotion: Story = {
       if (!query.includes("prefers-reduced-motion")) return real.call(window, query);
       // A preference that never changes, so nothing is ever dispatched to a listener.
       const reduced = new EventTarget() as MediaQueryList;
-      return Object.assign(reduced, { matches: true, media: query, onchange: null });
+      return Object.assign(reduced, {
+        matches: true,
+        media: query,
+        onchange: null,
+      });
     };
     return () => {
       window.matchMedia = real;
@@ -530,7 +678,11 @@ export const HoldFaceReducedMotion: Story = {
     </Row>
   ),
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Kill drone" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Kill drone",
+      }),
+    );
     await expect(args.onAction).toHaveBeenCalledTimes(1);
     await expect(args.hold?.onCommit).not.toHaveBeenCalled();
   },
@@ -548,7 +700,12 @@ export const EveryActSaysWhatItDoes: Story = {
       <SplitButton
         variant="primary"
         note="Merges the pull request on its code host."
-        items={[{ label: "Approve the work", note: "Takes the work as the drone left it." }]}
+        items={[
+          {
+            label: "Approve the work",
+            note: "Takes the work as the drone left it.",
+          },
+        ]}
         menuLabel="The other way to take this work"
       >
         Merge pull request
@@ -557,14 +714,24 @@ export const EveryActSaysWhatItDoes: Story = {
   ),
   /** The face's hover names the face, and the entry's names the entry. */
   play: async ({ canvas, userEvent }) => {
-    const face = canvas.getByRole("button", { name: "Merge pull request" });
+    const face = canvas.getByRole("button", {
+      name: "Merge pull request",
+    });
     await userEvent.hover(face);
     // `--tooltip-delay` holds the bubble hidden, so this waits rather than reads.
     await waitFor(() => expect(canvas.getByText(/^Merges the pull request/)).toBeVisible());
     await userEvent.unhover(face);
 
-    await userEvent.click(canvas.getByRole("button", { name: "The other way to take this work" }));
-    await userEvent.hover(canvas.getByRole("menuitem", { name: "Approve the work" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "The other way to take this work",
+      }),
+    );
+    await userEvent.hover(
+      canvas.getByRole("menuitem", {
+        name: "Approve the work",
+      }),
+    );
     await waitFor(() =>
       expect(canvas.getByText("Takes the work as the drone left it.")).toBeVisible(),
     );
@@ -584,7 +751,12 @@ export const TheFaceIsOffAndTheCaretIsNot: Story = {
       <SplitButton
         variant="primary"
         faceDisabled
-        items={[{ label: "Approve the work", onSelect: fn() }]}
+        items={[
+          {
+            label: "Approve the work",
+            onSelect: fn(),
+          },
+        ]}
         menuLabel="The other way to take this work"
       >
         Merge pull request
@@ -593,11 +765,21 @@ export const TheFaceIsOffAndTheCaretIsNot: Story = {
   ),
   /** A rendering cannot show that one segment of a dead-looking control still opens. */
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("button", { name: "Merge pull request" })).toBeDisabled();
-    const caret = canvas.getByRole("button", { name: "The other way to take this work" });
+    await expect(
+      canvas.getByRole("button", {
+        name: "Merge pull request",
+      }),
+    ).toBeDisabled();
+    const caret = canvas.getByRole("button", {
+      name: "The other way to take this work",
+    });
     await expect(caret).toBeEnabled();
     await userEvent.click(caret);
-    await expect(canvas.getByRole("menuitem", { name: "Approve the work" })).toBeVisible();
+    await expect(
+      canvas.getByRole("menuitem", {
+        name: "Approve the work",
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -615,7 +797,15 @@ export const TheFaceIsOffAndThereIsNoMenu: Story = {
     </Row>
   ),
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: "Merge pull request" })).toBeDisabled();
-    await expect(canvas.getByRole("button", { name: "More actions" })).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Merge pull request",
+      }),
+    ).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: "More actions",
+      }),
+    ).toBeDisabled();
   },
 };

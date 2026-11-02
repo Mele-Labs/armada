@@ -80,7 +80,10 @@ import { BUILT_IN_SWATCHES, modSwatch } from "./swatches";
 // when everything under it has gone.
 
 /** The themes this window offers: Fleet's mods and the saved preference, and the catalogue Bridge ships. */
-const THEMES = createFleetThemes(withState(window.armada), CATALOGUE, { builtIn: BUILT_IN_SWATCHES, ofMod: modSwatch });
+const THEMES = createFleetThemes(withState(window.armada), CATALOGUE, {
+  builtIn: BUILT_IN_SWATCHES,
+  ofMod: modSwatch,
+});
 
 /** The layout this window draws: Fleet's layout mods and the owner's saved choices, or the shipped layout in safe mode. */
 const LAYOUT = skipsMods() ? createLayoutSource() : createFleetLayout(withState(window.armada));
@@ -126,7 +129,9 @@ const PROJECTS = createProjectsStore(window.armada);
 /** The text Copy debug report shows: Fleet's where it answers, and `armada report` run by main where it does not. */
 const DEBUG_REPORT = createFleetDebugReport(window.armada, withState(window.armada));
 /** The title menu's account entry: the profiles, the sign-in and What syncs, over Fleet. A kind switched reads the home again. */
-const ACCOUNT = createFleetAccount(withState(window.armada), undefined, { kindSwitched: (login) => HOME.readAgain(login) });
+const ACCOUNT = createFleetAccount(withState(window.armada), undefined, {
+  kindSwitched: (login) => HOME.readAgain(login),
+});
 /** Kit and the Theme rows against the chosen profile's shared home, over Fleet. */
 const HOME = createFleetSharedHome(window.armada, ACCOUNT);
 
@@ -142,56 +147,52 @@ function Root() {
   }, []);
 
   return (
-    <Boundary
-      region="the window"
-      usable={false}
-      bridge={bridge}
-    >
+    <Boundary region="the window" usable={false} bridge={bridge}>
       {/* Here rather than in `App`, which the mock mounts: only a real Bridge reaches a trackpad. */}
       <HapticsProvider perform={window.armada.tap}>
         <Themed source={THEMES}>
           <LayoutSourceProvider value={LAYOUT}>
             <TaughtSourceProvider value={TAUGHT}>
-            <TweakSourceProvider source={TWEAKS}>
-            <PhoneSourceProvider value={PHONE}>
-              <AutopilotDecisionsSourceProvider value={AUTOPILOT_DECISIONS}>
-                <WiredNumbered>
-                  <PlanUsageSourceProvider value={PLAN_USAGE}>
-                    <DownshiftSourceProvider value={DOWNSHIFT}>
-                    <AgentSignInSourceProvider value={AGENT_SIGN_IN}>
-                      <WiredSessions events={TIMELINE}>
-                        <ClashesFromFleet source={CLASHES}>
-                          <TerritoryFromFleet source={TERRITORY}>
-                            <AccountFromFleet source={ACCOUNT} home={HOME}>
-                              <FleetEventsOver source={TIMELINE}>
-                                <ReviewsFrom store={REVIEWS}>
-                                  <IssuesFrom store={ISSUES}>
-                                    <ProjectsFrom store={PROJECTS}>
-                                      <ThreadLookSaved>
-                                        <MockStylesContext.Provider value={MOCK_STYLES}>
-                                          <DebugReportFrom read={DEBUG_REPORT}>
-                                            <WiredSharedPanel>
-                                              <App />
-                                              <TweaksApplied />
-                                            </WiredSharedPanel>
-                                          </DebugReportFrom>
-                                        </MockStylesContext.Provider>
-                                      </ThreadLookSaved>
-                                    </ProjectsFrom>
-                                  </IssuesFrom>
-                                </ReviewsFrom>
-                              </FleetEventsOver>
-                            </AccountFromFleet>
-                          </TerritoryFromFleet>
-                        </ClashesFromFleet>
-                      </WiredSessions>
-                    </AgentSignInSourceProvider>
-                    </DownshiftSourceProvider>
-                  </PlanUsageSourceProvider>
-                </WiredNumbered>
-              </AutopilotDecisionsSourceProvider>
-            </PhoneSourceProvider>
-            </TweakSourceProvider>
+              <TweakSourceProvider source={TWEAKS}>
+                <PhoneSourceProvider value={PHONE}>
+                  <AutopilotDecisionsSourceProvider value={AUTOPILOT_DECISIONS}>
+                    <WiredNumbered>
+                      <PlanUsageSourceProvider value={PLAN_USAGE}>
+                        <DownshiftSourceProvider value={DOWNSHIFT}>
+                          <AgentSignInSourceProvider value={AGENT_SIGN_IN}>
+                            <WiredSessions events={TIMELINE}>
+                              <ClashesFromFleet source={CLASHES}>
+                                <TerritoryFromFleet source={TERRITORY}>
+                                  <AccountFromFleet source={ACCOUNT} home={HOME}>
+                                    <FleetEventsOver source={TIMELINE}>
+                                      <ReviewsFrom store={REVIEWS}>
+                                        <IssuesFrom store={ISSUES}>
+                                          <ProjectsFrom store={PROJECTS}>
+                                            <ThreadLookSaved>
+                                              <MockStylesContext.Provider value={MOCK_STYLES}>
+                                                <DebugReportFrom read={DEBUG_REPORT}>
+                                                  <WiredSharedPanel>
+                                                    <App />
+                                                    <TweaksApplied />
+                                                  </WiredSharedPanel>
+                                                </DebugReportFrom>
+                                              </MockStylesContext.Provider>
+                                            </ThreadLookSaved>
+                                          </ProjectsFrom>
+                                        </IssuesFrom>
+                                      </ReviewsFrom>
+                                    </FleetEventsOver>
+                                  </AccountFromFleet>
+                                </TerritoryFromFleet>
+                              </ClashesFromFleet>
+                            </WiredSessions>
+                          </AgentSignInSourceProvider>
+                        </DownshiftSourceProvider>
+                      </PlanUsageSourceProvider>
+                    </WiredNumbered>
+                  </AutopilotDecisionsSourceProvider>
+                </PhoneSourceProvider>
+              </TweakSourceProvider>
             </TaughtSourceProvider>
           </LayoutSourceProvider>
         </Themed>

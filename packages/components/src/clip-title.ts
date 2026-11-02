@@ -5,8 +5,6 @@
 
 const OURS = "data-clip-title";
 
-
-
 let canvas: CanvasRenderingContext2D | null = null;
 
 function widthOf(words: string, style: CSSStyleDeclaration): number {
@@ -27,9 +25,13 @@ function cutWords(el: Element): string | undefined {
   const oneLine = style.textOverflow === "ellipsis";
   const lines = style.getPropertyValue("-webkit-line-clamp");
   if (!oneLine && (lines === "" || lines === "none")) return undefined;
-  const clipped = oneLine ? el.scrollWidth > el.clientWidth + 1 : el.scrollHeight > el.clientHeight + 1;
+  const clipped = oneLine
+    ? el.scrollWidth > el.clientWidth + 1
+    : el.scrollHeight > el.clientHeight + 1;
   if (!clipped) return undefined;
-  const words = (el instanceof HTMLElement ? el.innerText : (el.textContent ?? "")).replace(/\s+/g, " ").trim();
+  const words = (el instanceof HTMLElement ? el.innerText : (el.textContent ?? ""))
+    .replace(/\s+/g, " ")
+    .trim();
   return words === "" ? undefined : words;
 }
 
@@ -37,7 +39,11 @@ function cutWords(el: Element): string | undefined {
 export function watchClippedText(): () => void {
   const over = (event: Event): void => {
     let el = event.target instanceof Element ? event.target : null;
-    for (let depth = 0; el !== null && el !== document.body && depth < 6; depth += 1, el = el.parentElement) {
+    for (
+      let depth = 0;
+      el !== null && el !== document.body && depth < 6;
+      depth += 1, el = el.parentElement
+    ) {
       if (el.hasAttribute("title") && !el.hasAttribute(OURS)) return;
       const words = cutWords(el);
       if (words !== undefined) {

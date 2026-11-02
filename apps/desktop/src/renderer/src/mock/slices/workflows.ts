@@ -8,13 +8,30 @@ import { doctoring, workflowing, workflowingOnAll, workflowsServed } from "../wo
 export const workflows: Slice<WorkflowsApi, WorkflowsState> = {
   name: "workflows",
   state: WORKFLOWS_NOTHING_YET,
-  scenarios: () => [workflowing(), workflowingOnAll(), doctoring()],
+  scenarios: () => [
+    workflowing(),
+    workflowingOnAll(),
+    doctoring(),
+  ],
   api: (_scenario, { state, publish }) =>
-    workflowsServed(() => state().holds.repositories?.find((one) => one.root === state().repository)?.manifest?.id ?? null, {
-      // A job started to build what a change lacks is listed as Fleet would list it.
-      started: (record) => {
-        const was = state().sessions;
-        publish({ sessions: { state: "read", sessions: [...(was.state === "read" ? was.sessions : []), record] } });
+    workflowsServed(
+      () =>
+        state().holds.repositories?.find((one) => one.root === state().repository)?.manifest?.id ??
+        null,
+      {
+        // A job started to build what a change lacks is listed as Fleet would list it.
+        started: (record) => {
+          const was = state().sessions;
+          publish({
+            sessions: {
+              state: "read",
+              sessions: [
+                ...(was.state === "read" ? was.sessions : []),
+                record,
+              ],
+            },
+          });
+        },
       },
-    }),
+    ),
 };

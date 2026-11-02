@@ -4,7 +4,15 @@
 import type { Outcome, PlanUsage } from "@armada/protocol";
 
 /** What reading the plan came to: Fleet's reading, or the refusal to word. */
-export type PlanUsageRead = { ok: true; value: PlanUsage } | { ok: false; outcome: Outcome };
+export type PlanUsageRead =
+  | {
+      ok: true;
+      value: PlanUsage;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 export type PlanUsageApi = {
   /** The newest reading of the account's windows. */

@@ -1,19 +1,21 @@
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
-import { build } from 'vite'
-import type { Plugin } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
-import { readFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { protocolId } from './codegen/protocol-id.mjs'
+import { defineConfig, externalizeDepsPlugin } from "electron-vite";
+import { build } from "vite";
+import type { Plugin } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { protocolId } from "./codegen/protocol-id.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // The wire surface's hash, read where Bridge's code reads `PROTOCOL_ID`. Not a
 // checked-in file: see `codegen/protocol-id.mjs`.
-const PROTOCOL_ID = { __PROTOCOL_ID__: JSON.stringify(protocolId()) }
+const PROTOCOL_ID = {
+  __PROTOCOL_ID__: JSON.stringify(protocolId()),
+};
 
 // The app tile, emitted beside the main bundle — twice, in two formats, for
 // two different readers.
@@ -46,22 +48,29 @@ const PROTOCOL_ID = { __PROTOCOL_ID__: JSON.stringify(protocolId()) }
 // **These carry the dark-bodied variant, not the accent one, and always have.**
 // `packages/icons/icons/` permits an accent fill on the `armada-mark` row —
 // "on the macOS app tile alone" — and permitted is all it is. Nothing took it up.
-const APP_ICONS = ['AppIcon.icns', 'AppIcon.png'] as const
+const APP_ICONS = [
+  "AppIcon.icns",
+  "AppIcon.png",
+] as const;
 
 function appIcon(): Plugin {
-  const require = createRequire(import.meta.url)
+  const require = createRequire(import.meta.url);
   return {
-    name: 'armada-app-icon',
+    name: "armada-app-icon",
     generateBundle() {
       for (const fileName of APP_ICONS) {
         // Resolved through the package's own `exports`, so `packages/brand`
         // says the tile is part of its surface rather than this build reaching
         // into its directory layout.
-        const source = readFileSync(require.resolve(`@armada/brand/${fileName}`))
-        this.emitFile({ type: 'asset', fileName, source })
+        const source = readFileSync(require.resolve(`@armada/brand/${fileName}`));
+        this.emitFile({
+          type: "asset",
+          fileName,
+          source,
+        });
       }
     },
-  }
+  };
 }
 
 // What the capture window runs in a page to play a walk's steps, built into one string.
@@ -72,34 +81,47 @@ function appIcon(): Plugin {
 // page's own scripts cannot see it. Built here, in the main build, so there is no second file to keep
 // in step and nothing checked in.
 function walkFinder(): Plugin {
-  const id = 'virtual:armada-walk-finder'
-  const resolved = `\0${id}`
-  const entry = resolve(__dirname, 'src/renderer/src/walk-find-page.ts')
+  const id = "virtual:armada-walk-finder";
+  const resolved = `\0${id}`;
+  const entry = resolve(__dirname, "src/renderer/src/walk-find-page.ts");
   return {
-    name: 'armada-walk-finder',
+    name: "armada-walk-finder",
     resolveId(source) {
-      return source === id ? resolved : null
+      return source === id ? resolved : null;
     },
     async load(file) {
-      if (file !== resolved) return null
-      this.addWatchFile(entry)
+      if (file !== resolved) return null;
+      this.addWatchFile(entry);
       const built = await build({
         configFile: false,
-        logLevel: 'silent',
+        logLevel: "silent",
         build: {
           write: false,
           minify: true,
-          target: 'es2022',
-          lib: { entry, name: 'ArmadaFinder', formats: ['iife'] },
+          target: "es2022",
+          lib: {
+            entry,
+            name: "ArmadaFinder",
+            formats: [
+              "iife",
+            ],
+          },
         },
-      })
-      const chunk = (Array.isArray(built) ? built : [built])
-        .flatMap((one) => ('output' in one ? one.output : []))
-        .find((one) => one.type === 'chunk')
-      if (chunk === undefined || chunk.type !== 'chunk') throw new Error('the walk finder built to nothing')
-      return `export default ${JSON.stringify(chunk.code)}`
+      });
+      const chunk = (
+        Array.isArray(built)
+          ? built
+          : [
+              built,
+            ]
+      )
+        .flatMap((one) => ("output" in one ? one.output : []))
+        .find((one) => one.type === "chunk");
+      if (chunk === undefined || chunk.type !== "chunk")
+        throw new Error("the walk finder built to nothing");
+      return `export default ${JSON.stringify(chunk.code)}`;
     },
-  }
+  };
 }
 
 /* Every workspace package, read off this app's own package.json rather than
@@ -107,10 +129,11 @@ function walkFinder(): Plugin {
    nothing to keep in step. They sit in `devDependencies`, as everything bundled
    does: electron-builder ships `dependencies` again inside the app, and only
    what main loads at runtime belongs there. */
-const MANIFEST = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
-const WORKSPACE = Object.keys({ ...MANIFEST.dependencies, ...MANIFEST.devDependencies }).filter((name) =>
-  name.startsWith('@armada/'),
-)
+const MANIFEST = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
+const WORKSPACE = Object.keys({
+  ...MANIFEST.dependencies,
+  ...MANIFEST.devDependencies,
+}).filter((name) => name.startsWith("@armada/"));
 
 // Three builds from one config: the main process, the preload bridge, and the
 // renderer. The preload is the only thing that crosses between them, which is
@@ -132,8 +155,14 @@ export default defineConfig({
     // icon library it never calls. Measured: the require is there with the
     // default and gone with this.
     build: {
-      lib: { entry: 'src/main/index.ts' },
-      rollupOptions: { treeshake: { moduleSideEffects: 'no-external' } },
+      lib: {
+        entry: "src/main/index.ts",
+      },
+      rollupOptions: {
+        treeshake: {
+          moduleSideEffects: "no-external",
+        },
+      },
     },
     // **No workspace package is external.** `externalizeDepsPlugin` leaves a
     // dependency for Node to resolve at runtime, which is right for something
@@ -144,15 +173,29 @@ export default defineConfig({
     // It cost a broken `pnpm dev` to learn where the seam is. `bridge_build`
     // was green throughout, because building the main bundle never resolves
     // what it externalised — only running it does.
-    plugins: [externalizeDepsPlugin({ exclude: WORKSPACE }), appIcon(), walkFinder()],
+    plugins: [
+      externalizeDepsPlugin({
+        exclude: WORKSPACE,
+      }),
+      appIcon(),
+      walkFinder(),
+    ],
   },
   // The preload externalises by default too, and gets the same treatment for
   // the same reason: it imports the wire's channel names, and a `require` for
   // a workspace package fails in the preload exactly as it does in main.
   preload: {
     define: PROTOCOL_ID,
-    plugins: [externalizeDepsPlugin({ exclude: WORKSPACE })],
-    build: { lib: { entry: 'src/preload/index.ts' } },
+    plugins: [
+      externalizeDepsPlugin({
+        exclude: WORKSPACE,
+      }),
+    ],
+    build: {
+      lib: {
+        entry: "src/preload/index.ts",
+      },
+    },
   },
   // Tailwind v4 has no JS config: the theme is packages/tokens/tokens.theme.css,
   // generated by `cargo xtask verify-tokens` and imported by the renderer's
@@ -165,7 +208,7 @@ export default defineConfig({
   // Each carries its own `default-src 'self'`, and none loads another's script.
   renderer: {
     define: PROTOCOL_ID,
-    root: 'src/renderer',
+    root: "src/renderer",
     // **CSS that does not parse fails the build.** Tailwind's optimize pass
     // runs Lightning CSS with `errorRecovery` on, which turns a parse error
     // into a warning and drops the rule. On 1 Oct 2026 a `**/packages` in a
@@ -178,19 +221,28 @@ export default defineConfig({
     // logs. electron-vite leaves the renderer unminified, so this is also the
     // first pass that minifies it. Measured against the build before: the
     // same rules and selectors, less Safari 16.4 prefixes Chromium never reads.
-    plugins: [react(), tailwindcss({ optimize: false })],
-    css: { lightningcss: { errorRecovery: false } },
+    plugins: [
+      react(),
+      tailwindcss({
+        optimize: false,
+      }),
+    ],
+    css: {
+      lightningcss: {
+        errorRecovery: false,
+      },
+    },
     build: {
-      cssMinify: 'lightningcss',
+      cssMinify: "lightningcss",
       rollupOptions: {
         input: {
-          index: resolve(__dirname, 'src/renderer/index.html'),
-          capture: resolve(__dirname, 'src/renderer/capture.html'),
-          'walk-panel': resolve(__dirname, 'src/renderer/walk-panel.html'),
-          'terminal-window': resolve(__dirname, 'src/renderer/terminal-window.html'),
-          'browser-window': resolve(__dirname, 'src/renderer/browser-window.html'),
+          index: resolve(__dirname, "src/renderer/index.html"),
+          capture: resolve(__dirname, "src/renderer/capture.html"),
+          "walk-panel": resolve(__dirname, "src/renderer/walk-panel.html"),
+          "terminal-window": resolve(__dirname, "src/renderer/terminal-window.html"),
+          "browser-window": resolve(__dirname, "src/renderer/browser-window.html"),
         },
       },
     },
   },
-})
+});

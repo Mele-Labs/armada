@@ -11,6 +11,21 @@ import type { Scenario } from "./moment";
  * A connected Fleet serving these repositories, the base one unless named. **Every repository
  * given is set up**, so one nobody set up can only arrive through `state.holds` by hand.
  */
-export function holding(name: string, says: string, repositories: RepositorySummary[] = [repository()]): Scenario {
-  return { name, says, state: connected([workflow()], repositories) };
+export function holding(
+  name: string,
+  says: string,
+  repositories: RepositorySummary[] = [
+    repository(),
+  ],
+): Scenario {
+  return {
+    name,
+    says,
+    state: connected(
+      [
+        workflow(),
+      ],
+      repositories,
+    ),
+  };
 }

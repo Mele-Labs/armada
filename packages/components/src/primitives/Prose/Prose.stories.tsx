@@ -2,7 +2,16 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, waitFor, within } from "storybook/test";
 import { Clamped } from "../../compositions/Clamped/Clamped";
 import { Card } from "../Card/Card";
-import { CopyAct, Prose, ProseAttachments, ProseCommand, ProseLinks, ProseRefs, ProseRunner, isSlashCommand } from "./Prose";
+import {
+  CopyAct,
+  Prose,
+  ProseAttachments,
+  ProseCommand,
+  ProseLinks,
+  ProseRefs,
+  ProseRunner,
+  isSlashCommand,
+} from "./Prose";
 import { readsAsShell } from "./RunnableBlock";
 import type { CodeRunner, ProseReference } from "./Prose";
 
@@ -39,7 +48,7 @@ export const AJudgesConsequence: Story = {
       "assertion that every operation is served passes without ever reading the one operation " +
       "the step was about.\n\n" +
       "The skip is in `crates/api/src/tests/served.rs` and reads:\n\n" +
-      "```rust\nif route.operation == \"forget_job\" { continue; }\n```\n\n" +
+      '```rust\nif route.operation == "forget_job" { continue; }\n```\n\n' +
       "Nothing else in the file narrows the set, so the count the assertion compares against " +
       "was lowered by the same edit that made it pass.",
   },
@@ -63,7 +72,7 @@ export const AFlagsCitation: Story = {
     text:
       "`crates/api/src/tests/served.rs:214` — the `served_every_operation` assertion counts " +
       "`ROUTES.len()` after the filter rather than before it:\n\n" +
-      "```\nlet routes: Vec<&Route> = ROUTES.iter().filter(|r| r.operation != \"forget_job\").collect();\n" +
+      '```\nlet routes: Vec<&Route> = ROUTES.iter().filter(|r| r.operation != "forget_job").collect();\n' +
       "assert_eq!(routes.len(), served.len());\n```",
   },
 };
@@ -191,13 +200,33 @@ export const Links: Story = {
       "![the failing render](https://example.com/render.png)",
   },
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("link", { name: "tokio#7012" }));
+    await userEvent.click(
+      canvas.getByRole("link", {
+        name: "tokio#7012",
+      }),
+    );
     await expect(opened).toHaveBeenCalledWith("https://forge.invalid/tokio-rs/tokio/pull/7012");
-    await expect(canvas.getByRole("link", { name: "https://docs.rs/tokio" })).toBeVisible();
-    await expect(canvas.getByRole("link", { name: "the failing render" })).toBeVisible();
+    await expect(
+      canvas.getByRole("link", {
+        name: "https://docs.rs/tokio",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("link", {
+        name: "the failing render",
+      }),
+    ).toBeVisible();
     await expect(canvas.queryByRole("img")).toBeNull();
-    await expect(canvas.queryByRole("link", { name: "This one" })).toBeNull();
-    await expect(canvas.queryByRole("link", { name: "this one" })).toBeNull();
+    await expect(
+      canvas.queryByRole("link", {
+        name: "This one",
+      }),
+    ).toBeNull();
+    await expect(
+      canvas.queryByRole("link", {
+        name: "this one",
+      }),
+    ).toBeNull();
     await expect(canvas.getByText("This one and this one are not links.")).toBeVisible();
     await expect(opened).toHaveBeenCalledTimes(1);
   },
@@ -224,10 +253,16 @@ export const LinksWithNowhereToOpen: Story = {
 /** What a host's `scan` hands back: every `#N` and every `s-` id, wherever it stands, code included. */
 const pressed = fn();
 const scan = (text: string) =>
-  [...text.matchAll(/#\d+|s-[0-9a-f]{8}/g)].map((one) => ({
+  [
+    ...text.matchAll(/#\d+|s-[0-9a-f]{8}/g),
+  ].map((one) => ({
     from: one.index,
     to: one.index + one[0].length,
-    ref: { kind: one[0].startsWith("#") ? "issue" : "session", id: one[0], title: one[0] } satisfies ProseReference,
+    ref: {
+      kind: one[0].startsWith("#") ? "issue" : "session",
+      id: one[0],
+      title: one[0],
+    } satisfies ProseReference,
   }));
 
 /**
@@ -240,7 +275,12 @@ export const AReferenceInCode: Story = {
   },
   decorators: [
     (Story) => (
-      <ProseRefs.Provider value={{ scan, open: pressed }}>
+      <ProseRefs.Provider
+        value={{
+          scan,
+          open: pressed,
+        }}
+      >
         <Story />
       </ProseRefs.Provider>
     ),
@@ -250,13 +290,37 @@ export const AReferenceInCode: Story = {
   },
   play: async ({ canvas, userEvent }) => {
     // The sentence's `#2209` links; the one in backticks stays plain.
-    await expect(canvas.getAllByRole("link", { name: "#2209" })).toHaveLength(1);
-    await expect(canvas.getByText("#2209", { selector: "code" })).toBeVisible();
+    await expect(
+      canvas.getAllByRole("link", {
+        name: "#2209",
+      }),
+    ).toHaveLength(1);
+    await expect(
+      canvas.getByText("#2209", {
+        selector: "code",
+      }),
+    ).toBeVisible();
     // A span that is exactly a Job id links, and is still code.
-    await userEvent.click(canvas.getByRole("link", { name: "s-9e2e41a1" }));
-    await expect(pressed).toHaveBeenCalledWith({ kind: "session", id: "s-9e2e41a1", title: "s-9e2e41a1" });
-    await expect(canvas.queryByRole("link", { name: "s-9e2e41a1 --resume" })).toBeNull();
-    await expect(canvas.getByText("s-9e2e41a1 --resume", { selector: "code" })).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("link", {
+        name: "s-9e2e41a1",
+      }),
+    );
+    await expect(pressed).toHaveBeenCalledWith({
+      kind: "session",
+      id: "s-9e2e41a1",
+      title: "s-9e2e41a1",
+    });
+    await expect(
+      canvas.queryByRole("link", {
+        name: "s-9e2e41a1 --resume",
+      }),
+    ).toBeNull();
+    await expect(
+      canvas.getByText("s-9e2e41a1 --resume", {
+        selector: "code",
+      }),
+    ).toBeVisible();
     await expect(canvas.getAllByRole("link")).toHaveLength(2);
   },
 };
@@ -265,7 +329,17 @@ export const AReferenceInCode: Story = {
 const PAGE = "/repos/armada/.armada/documents/bridge-pricing-schema.html";
 const scanPage = (text: string) =>
   text === PAGE || text === ".armada/documents/bridge-pricing-schema.html"
-    ? [{ from: 0, to: text.length, ref: { kind: "document", id: PAGE, title: "Bridge pricing schema" } satisfies ProseReference }]
+    ? [
+        {
+          from: 0,
+          to: text.length,
+          ref: {
+            kind: "document",
+            id: PAGE,
+            title: "Bridge pricing schema",
+          } satisfies ProseReference,
+        },
+      ]
     : [];
 
 /** The Job's own document, named by its path in code, draws as the page's title and opens the page, wherever in the line it stands. */
@@ -275,7 +349,12 @@ export const ADocumentReference: Story = {
   },
   decorators: [
     (Story) => (
-      <ProseRefs.Provider value={{ scan: scanPage, open: pressed }}>
+      <ProseRefs.Provider
+        value={{
+          scan: scanPage,
+          open: pressed,
+        }}
+      >
         <Story />
       </ProseRefs.Provider>
     ),
@@ -286,17 +365,35 @@ export const ADocumentReference: Story = {
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.getAllByRole("link")).toHaveLength(1);
     await expect(canvas.queryByText(".armada/documents/bridge-pricing-schema.html")).toBeNull();
-    await userEvent.click(canvas.getByRole("link", { name: "Bridge pricing schema" }));
-    await expect(pressed).toHaveBeenCalledWith({ kind: "document", id: PAGE, title: "Bridge pricing schema" });
+    await userEvent.click(
+      canvas.getByRole("link", {
+        name: "Bridge pricing schema",
+      }),
+    );
+    await expect(pressed).toHaveBeenCalledWith({
+      kind: "document",
+      id: PAGE,
+      title: "Bridge pricing schema",
+    });
   },
 };
 
 /** What a host that knows #2772 hands back: its number, and its address said alone. */
 const PULL = "https://github.com/o/r/pull/2772";
 const scanPull = (text: string) =>
-  [...text.matchAll(/#2772|https:\/\/github\.com\/o\/r\/pull\/2772/g)]
+  [
+    ...text.matchAll(/#2772|https:\/\/github\.com\/o\/r\/pull\/2772/g),
+  ]
     .filter((one) => !one[0].startsWith("h") || (one.index === 0 && one[0].length === text.length))
-    .map((one) => ({ from: one.index, to: one.index + one[0].length, ref: { kind: "pull_request", id: "2772", title: "Describe the Logbook" } satisfies ProseReference }));
+    .map((one) => ({
+      from: one.index,
+      to: one.index + one[0].length,
+      ref: {
+        kind: "pull_request",
+        id: "2772",
+        title: "Describe the Logbook",
+      } satisfies ProseReference,
+    }));
 
 /**
  * A link a model writes is the one link it wrote: a reference inside its words is not a second. One whose address is a
@@ -308,7 +405,12 @@ export const AReferenceInsideALink: Story = {
   },
   decorators: [
     (Story) => (
-      <ProseRefs.Provider value={{ scan: scanPull, open: pressed }}>
+      <ProseRefs.Provider
+        value={{
+          scan: scanPull,
+          open: pressed,
+        }}
+      >
         <Story />
       </ProseRefs.Provider>
     ),
@@ -319,9 +421,21 @@ export const AReferenceInsideALink: Story = {
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.queryByText(/\[|\]\(/)).toBeNull();
     await expect(canvas.getAllByRole("link")).toHaveLength(2);
-    await userEvent.click(canvas.getByRole("link", { name: "#2772" }));
-    await expect(pressed).toHaveBeenCalledWith({ kind: "pull_request", id: "2772", title: "Describe the Logbook" });
-    await userEvent.click(canvas.getByRole("link", { name: "the #2772 notes" }));
+    await userEvent.click(
+      canvas.getByRole("link", {
+        name: "#2772",
+      }),
+    );
+    await expect(pressed).toHaveBeenCalledWith({
+      kind: "pull_request",
+      id: "2772",
+      title: "Describe the Logbook",
+    });
+    await userEvent.click(
+      canvas.getByRole("link", {
+        name: "the #2772 notes",
+      }),
+    );
     await expect(opened).toHaveBeenCalledWith("https://example.com/notes");
   },
 };
@@ -329,10 +443,16 @@ export const AReferenceInsideALink: Story = {
 /** Raw HTML is the characters it was written as. This text arrives from a model. */
 /** What a host that knows `docs/plan.md` is a file in the Job's checkout hands back: it finds it anywhere, plain words included. */
 const scanFile = (text: string) =>
-  [...text.matchAll(/docs\/plan\.md/g)].map((one) => ({
+  [
+    ...text.matchAll(/docs\/plan\.md/g),
+  ].map((one) => ({
     from: one.index,
     to: one.index + one[0].length,
-    ref: { kind: "file", id: "docs/plan.md", title: "docs/plan.md" } satisfies ProseReference,
+    ref: {
+      kind: "file",
+      id: "docs/plan.md",
+      title: "docs/plan.md",
+    } satisfies ProseReference,
   }));
 
 /**
@@ -345,7 +465,12 @@ export const AFileInCode: Story = {
   },
   decorators: [
     (Story) => (
-      <ProseRefs.Provider value={{ scan: scanFile, open: pressed }}>
+      <ProseRefs.Provider
+        value={{
+          scan: scanFile,
+          open: pressed,
+        }}
+      >
         <Story />
       </ProseRefs.Provider>
     ),
@@ -354,9 +479,21 @@ export const AFileInCode: Story = {
     pressed.mockClear();
   },
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("link", { name: "docs/plan.md" }));
-    await expect(pressed).toHaveBeenCalledWith({ kind: "file", id: "docs/plan.md", title: "docs/plan.md" });
-    await expect(canvas.getByText("docs/plan.md --draft", { selector: "code" })).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("link", {
+        name: "docs/plan.md",
+      }),
+    );
+    await expect(pressed).toHaveBeenCalledWith({
+      kind: "file",
+      id: "docs/plan.md",
+      title: "docs/plan.md",
+    });
+    await expect(
+      canvas.getByText("docs/plan.md --draft", {
+        selector: "code",
+      }),
+    ).toBeVisible();
     await expect(canvas.getAllByRole("link")).toHaveLength(1);
   },
 };
@@ -377,7 +514,9 @@ export const RawHtml: Story = {
 
 /** Empty text draws nothing rather than an empty block. */
 export const Empty: Story = {
-  args: { text: "  \n\n" },
+  args: {
+    text: "  \n\n",
+  },
   play: async ({ canvasElement }) => {
     await expect(canvasElement).toBeEmptyDOMElement();
   },
@@ -415,7 +554,11 @@ export const ClampedThroughAList: Story = {
     </Clamped>
   ),
   play: async ({ canvas }) => {
-    await expect(await canvas.findByRole("button", { name: "View more" })).toBeVisible();
+    await expect(
+      await canvas.findByRole("button", {
+        name: "View more",
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -456,7 +599,9 @@ const VERDICT =
  * the fenced block.
  */
 export const AJudgesVerdict: Story = {
-  args: { text: VERDICT },
+  args: {
+    text: VERDICT,
+  },
   render: (args) => (
     <Card>
       <Prose {...args} />
@@ -474,11 +619,17 @@ export const AJudgesVerdict: Story = {
     await expect(canvas.getByRole("emphasis")).toHaveTextContent("404");
     await expect(canvas.getByRole("deletion")).toHaveTextContent("The handler exists");
     await expect(canvas.getAllByText("served_every_operation")).toHaveLength(2);
-    const [opening] = canvas.getAllByRole("paragraph").filter((one) => one.textContent?.startsWith("The Drone"));
+    const [opening] = canvas
+      .getAllByRole("paragraph")
+      .filter((one) => one.textContent?.startsWith("The Drone"));
     await expect(opening?.innerText).toContain("live Fleet.\nChecked against");
     // An ordered list with a list inside it, and a task list.
     const lists = canvas.getAllByRole("list");
-    await expect(lists.map((one) => one.tagName)).toEqual(["OL", "UL", "UL"]);
+    await expect(lists.map((one) => one.tagName)).toEqual([
+      "OL",
+      "UL",
+      "UL",
+    ]);
     const tasks = canvas.getAllByRole("checkbox");
     await expect(tasks).toHaveLength(3);
     await expect(tasks[0]).toBeChecked();
@@ -493,25 +644,53 @@ export const AJudgesVerdict: Story = {
     );
     await expect(canvas.getByText(/assert_eq!\(routes\.len\(\), served\.len\(\)\);/)).toBeVisible();
     // The link hands its address over.
-    await userEvent.click(canvas.getByRole("link", { name: "the M4 acceptance test" }));
+    await userEvent.click(
+      canvas.getByRole("link", {
+        name: "the M4 acceptance test",
+      }),
+    );
     await expect(opened).toHaveBeenCalledWith("https://forge.invalid/armada/blob/main/docs/m4.md");
   },
 };
 
-const SHELL_BLOCK = "Check it:\n\n```sh\npnpm -C apps/desktop typecheck\n```\n\n```ts\nconst unrelated = 1;\n```";
+const SHELL_BLOCK =
+  "Check it:\n\n```sh\npnpm -C apps/desktop typecheck\n```\n\n```ts\nconst unrelated = 1;\n```";
 
 /** A runner that prints two lines and exits with `code`, or never exits where `code` is `"hang"`. */
-const runnerOf = (code: number | "hang"): CodeRunner => (_command, on) => {
-  on({ kind: "out", text: "checking\n" });
-  if (code === "hang") return { stop: () => on({ kind: "end", code: null, stopped: true }) };
-  on({ kind: "out", text: "done\n" });
-  on({ kind: "end", code });
-  return { stop: () => {} };
-};
+const runnerOf =
+  (code: number | "hang"): CodeRunner =>
+  (_command, on) => {
+    on({
+      kind: "out",
+      text: "checking\n",
+    });
+    if (code === "hang")
+      return {
+        stop: () =>
+          on({
+            kind: "end",
+            code: null,
+            stopped: true,
+          }),
+      };
+    on({
+      kind: "out",
+      text: "done\n",
+    });
+    on({
+      kind: "end",
+      code,
+    });
+    return {
+      stop: () => {},
+    };
+  };
 
 /** **Run on a shell block only**, and its output under the block, with the exit on a mark. */
 export const ARunnableShellBlock: Story = {
-  args: { text: SHELL_BLOCK },
+  args: {
+    text: SHELL_BLOCK,
+  },
   decorators: [
     (Story) => (
       <ProseRunner.Provider value={runnerOf(0)}>
@@ -521,17 +700,39 @@ export const ARunnableShellBlock: Story = {
   ],
   play: async ({ canvas, userEvent }) => {
     // One block is a shell block; the TypeScript one has no Run.
-    await expect(canvas.getAllByRole("button", { name: "Run" })).toHaveLength(1);
-    await userEvent.click(canvas.getByRole("button", { name: "Run" }));
-    await expect(canvas.getByRole("log", { name: "Output" })).toHaveTextContent("done");
-    await expect(canvas.getByRole("img", { name: "Passed" })).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Run again" })).toBeVisible();
+    await expect(
+      canvas.getAllByRole("button", {
+        name: "Run",
+      }),
+    ).toHaveLength(1);
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Run",
+      }),
+    );
+    await expect(
+      canvas.getByRole("log", {
+        name: "Output",
+      }),
+    ).toHaveTextContent("done");
+    await expect(
+      canvas.getByRole("img", {
+        name: "Passed",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Run again",
+      }),
+    ).toBeVisible();
   },
 };
 
 /** A run that does not end offers Stop, and a stopped run reads as stopped, with no exit code. */
 export const AStoppedRun: Story = {
-  args: { text: SHELL_BLOCK },
+  args: {
+    text: SHELL_BLOCK,
+  },
   decorators: [
     (Story) => (
       <ProseRunner.Provider value={runnerOf("hang")}>
@@ -540,18 +741,40 @@ export const AStoppedRun: Story = {
     ),
   ],
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Run" }));
-    await userEvent.click(canvas.getByRole("button", { name: "Stop" }));
-    await expect(canvas.getByRole("img", { name: "Stopped" })).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Run again" })).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Run",
+      }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Stop",
+      }),
+    );
+    await expect(
+      canvas.getByRole("img", {
+        name: "Stopped",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Run again",
+      }),
+    ).toBeVisible();
   },
 };
 
 /** Without a runner a shell block draws as any other block. */
 export const NoRunnerNoRun: Story = {
-  args: { text: SHELL_BLOCK },
+  args: {
+    text: SHELL_BLOCK,
+  },
   play: async ({ canvas }) => {
-    await expect(canvas.queryByRole("button", { name: "Run" })).toBeNull();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Run",
+      }),
+    ).toBeNull();
   },
 };
 
@@ -585,7 +808,9 @@ const UNTAGGED = [
 
 /** **A block with no language gets Run where it reads as shell**, and a file list, code, a diagram and prose do not. */
 export const AnUntaggedBlockThatReadsAsShell: Story = {
-  args: { text: UNTAGGED },
+  args: {
+    text: UNTAGGED,
+  },
   decorators: [
     (Story) => (
       <ProseRunner.Provider value={runnerOf(0)}>
@@ -594,15 +819,29 @@ export const AnUntaggedBlockThatReadsAsShell: Story = {
     ),
   ],
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getAllByRole("button", { name: "Run" })).toHaveLength(1);
-    await userEvent.click(canvas.getByRole("button", { name: "Run" }));
-    await expect(canvas.getByRole("img", { name: "Passed" })).toBeVisible();
+    await expect(
+      canvas.getAllByRole("button", {
+        name: "Run",
+      }),
+    ).toHaveLength(1);
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Run",
+      }),
+    );
+    await expect(
+      canvas.getByRole("img", {
+        name: "Passed",
+      }),
+    ).toBeVisible();
   },
 };
 
 /** What `readsAsShell` takes for shell and what it does not. A doubt is no Run. */
 export const ReadsAsShell: Story = {
-  args: { text: "" },
+  args: {
+    text: "",
+  },
   play: async () => {
     const shell = [
       "cd ~/Development/armada && \\\n  rm -r x && \\\n  git branch -D y",
@@ -649,26 +888,57 @@ export const ReadsAsShell: Story = {
 
 /** Which inline code is a command the Session lists: its name, with or without arguments, and nothing that is only shaped like one. */
 export const WhichCodeIsASlashCommand: Story = {
-  args: { text: "" },
+  args: {
+    text: "",
+  },
   play: async () => {
-    const names = new Set(["update-armada", "reload-plugins", "model", "claude-md-management:revise-claude-md"]);
-    for (const one of ["/update-armada", "/reload-plugins", "/model opus", "/claude-md-management:revise-claude-md"]) {
+    const names = new Set([
+      "update-armada",
+      "reload-plugins",
+      "model",
+      "claude-md-management:revise-claude-md",
+    ]);
+    for (const one of [
+      "/update-armada",
+      "/reload-plugins",
+      "/model opus",
+      "/claude-md-management:revise-claude-md",
+    ]) {
       await expect(isSlashCommand(one, names), one).toBe(true);
     }
-    for (const one of ["/tmp", "/usr/bin", "/Update-armada", "/update-armada/x", "update-armada", "/", "/model\nx"]) {
+    for (const one of [
+      "/tmp",
+      "/usr/bin",
+      "/Update-armada",
+      "/update-armada/x",
+      "update-armada",
+      "/",
+      "/model\nx",
+    ]) {
       await expect(isSlashCommand(one, names), one).toBe(false);
     }
   },
 };
 
-const SLASH = "Run `/update-armada`, then `/reload-plugins`, and keep scratch in `/tmp`.\n\n```\n/update-armada\n```";
+const SLASH =
+  "Run `/update-armada`, then `/reload-plugins`, and keep scratch in `/tmp`.\n\n```\n/update-armada\n```";
 
 /** **A listed slash command in inline code is pressable**, says Sent, and sends what is written; `/tmp` and a fenced one are not. */
 export const ASlashCommandInTheThread: Story = {
-  args: { text: SLASH },
+  args: {
+    text: SLASH,
+  },
   decorators: [
     (Story) => (
-      <ProseCommand.Provider value={{ send: opened, names: new Set(["update-armada", "reload-plugins"]) }}>
+      <ProseCommand.Provider
+        value={{
+          send: opened,
+          names: new Set([
+            "update-armada",
+            "reload-plugins",
+          ]),
+        }}
+      >
         <Story />
       </ProseCommand.Provider>
     ),
@@ -676,37 +946,65 @@ export const ASlashCommandInTheThread: Story = {
   play: async ({ canvas, userEvent }) => {
     // The two commands in code, and Copy on the fenced block.
     await expect(canvas.getAllByRole("button")).toHaveLength(3);
-    await expect(canvas.getAllByRole("button", { name: "Copy" })).toHaveLength(1);
-    await userEvent.click(canvas.getByRole("button", { name: "/update-armada" }));
+    await expect(
+      canvas.getAllByRole("button", {
+        name: "Copy",
+      }),
+    ).toHaveLength(1);
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "/update-armada",
+      }),
+    );
     await expect(opened).toHaveBeenCalledWith("/update-armada");
-    await expect(canvas.getByRole("img", { name: "Sent" })).toBeVisible();
+    await expect(
+      canvas.getByRole("img", {
+        name: "Sent",
+      }),
+    ).toBeVisible();
   },
 };
 
 /** Where the Session is not a terminal one there is no command to send to, and the code is plain. */
 export const NoTerminalNoSlashCommand: Story = {
-  args: { text: SLASH },
+  args: {
+    text: SLASH,
+  },
   play: async ({ canvas }) => {
     // Only the fenced block's Copy: nothing to send to.
-    await expect(canvas.getAllByRole("button").map((one) => one.getAttribute("aria-label"))).toEqual(["Copy"]);
+    await expect(
+      canvas.getAllByRole("button").map((one) => one.getAttribute("aria-label")),
+    ).toEqual([
+      "Copy",
+    ]);
   },
 };
 
-const FENCED = "Run it:\n\n```bash\npnpm -C apps/desktop typecheck\n```\n\nThe readings:\n\n```\nread 1 -> 12:00:00.99\nread 2 -> 12:00:01.01\n```";
+const FENCED =
+  "Run it:\n\n```bash\npnpm -C apps/desktop typecheck\n```\n\nThe readings:\n\n```\nread 1 -> 12:00:00.99\nread 2 -> 12:00:01.01\n```";
 
 /** The page's clipboard, replaced by one that keeps what it was given (or refuses it), and the way back. */
 function stubClipboard(refuse = false) {
   const written: string[] = [];
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
-    value: { writeText: (text: string) => (written.push(text), refuse ? Promise.reject(new Error("refused")) : Promise.resolve()) },
+    value: {
+      writeText: (text: string) => (
+        written.push(text), refuse ? Promise.reject(new Error("refused")) : Promise.resolve()
+      ),
+    },
   });
-  return { written, restore: () => void Reflect.deleteProperty(navigator, "clipboard") };
+  return {
+    written,
+    restore: () => void Reflect.deleteProperty(navigator, "clipboard"),
+  };
 }
 
 /** **Every fenced block has Copy**, beside Run on a command; it writes the source less the fence's closing newline, then says Copied. */
 export const CopyOnEveryFencedBlock: Story = {
-  args: { text: FENCED },
+  args: {
+    text: FENCED,
+  },
   decorators: [
     (Story) => (
       <ProseRunner.Provider value={runnerOf(0)}>
@@ -717,16 +1015,52 @@ export const CopyOnEveryFencedBlock: Story = {
   play: async ({ canvas, userEvent }) => {
     const { written, restore } = stubClipboard();
     try {
-      const command = within(canvas.getByRole("group", { name: "pnpm -C apps/desktop typecheck" }));
-      await expect(command.getByRole("button", { name: "Run" })).toBeInTheDocument();
-      await expect(canvas.getAllByRole("button", { name: "Copy" })).toHaveLength(2);
-      await userEvent.click(command.getByRole("button", { name: "Copy" }));
-      await expect(written).toEqual(["pnpm -C apps/desktop typecheck"]);
-      await expect(command.getByRole("button", { name: "Copied" })).toBeVisible();
+      const command = within(
+        canvas.getByRole("group", {
+          name: "pnpm -C apps/desktop typecheck",
+        }),
+      );
+      await expect(
+        command.getByRole("button", {
+          name: "Run",
+        }),
+      ).toBeInTheDocument();
+      await expect(
+        canvas.getAllByRole("button", {
+          name: "Copy",
+        }),
+      ).toHaveLength(2);
+      await userEvent.click(
+        command.getByRole("button", {
+          name: "Copy",
+        }),
+      );
+      await expect(written).toEqual([
+        "pnpm -C apps/desktop typecheck",
+      ]);
+      await expect(
+        command.getByRole("button", {
+          name: "Copied",
+        }),
+      ).toBeVisible();
       // The plain block has no Run, and Copy is the one button on it.
-      await userEvent.click(canvas.getAllByRole("button", { name: "Copy" })[0]!);
+      await userEvent.click(
+        canvas.getAllByRole("button", {
+          name: "Copy",
+        })[0]!,
+      );
       await expect(written[1]).toBe("read 1 -> 12:00:00.99\nread 2 -> 12:00:01.01");
-      await waitFor(() => expect(canvas.getAllByRole("button", { name: "Copy" })).toHaveLength(2), { timeout: 3000 });
+      await waitFor(
+        () =>
+          expect(
+            canvas.getAllByRole("button", {
+              name: "Copy",
+            }),
+          ).toHaveLength(2),
+        {
+          timeout: 3000,
+        },
+      );
     } finally {
       restore();
     }
@@ -735,13 +1069,23 @@ export const CopyOnEveryFencedBlock: Story = {
 
 /** A write the clipboard refuses is not a copy: the button stays Copy. */
 export const CopyRefused: Story = {
-  args: { text: FENCED },
+  args: {
+    text: FENCED,
+  },
   play: async ({ canvas, userEvent }) => {
     const { written, restore } = stubClipboard(true);
     try {
-      await userEvent.click(canvas.getAllByRole("button", { name: "Copy" })[0]!);
+      await userEvent.click(
+        canvas.getAllByRole("button", {
+          name: "Copy",
+        })[0]!,
+      );
       await expect(written).toHaveLength(1);
-      await expect(canvas.queryByRole("button", { name: "Copied" })).toBeNull();
+      await expect(
+        canvas.queryByRole("button", {
+          name: "Copied",
+        }),
+      ).toBeNull();
     } finally {
       restore();
     }
@@ -754,8 +1098,16 @@ export const ACopyActWithALabel: Story = {
   play: async ({ canvas, userEvent }) => {
     const { restore } = stubClipboard();
     try {
-      await userEvent.click(canvas.getByRole("button", { name: "Copy step 2 command" }));
-      await expect(canvas.getByRole("button", { name: "Copied" })).toBeVisible();
+      await userEvent.click(
+        canvas.getByRole("button", {
+          name: "Copy step 2 command",
+        }),
+      );
+      await expect(
+        canvas.getByRole("button", {
+          name: "Copied",
+        }),
+      ).toBeVisible();
     } finally {
       restore();
     }
@@ -767,10 +1119,20 @@ export const ACopyActWithALabel: Story = {
  * to the block a line is in. A list is one block, started on its first item's line.
  */
 export const StartsOnItsLine: Story = {
-  args: { text: "a\n\n# b\n\n- one\n- two\n\n```sh\nls\n```", lines: true },
+  args: {
+    text: "a\n\n# b\n\n- one\n- two\n\n```sh\nls\n```",
+    lines: true,
+  },
   play: async ({ canvasElement }) => {
-    const starts = [...canvasElement.querySelectorAll("[data-line]")].map((block) => block.getAttribute("data-line"));
-    await expect(starts).toEqual(["1", "3", "5", "8"]);
+    const starts = [
+      ...canvasElement.querySelectorAll("[data-line]"),
+    ].map((block) => block.getAttribute("data-line"));
+    await expect(starts).toEqual([
+      "1",
+      "3",
+      "5",
+      "8",
+    ]);
   },
 };
 
@@ -779,7 +1141,9 @@ export const StartsOnItsLine: Story = {
  * numbers and bullets do not stand against it.
  */
 export const ListsSitInset: Story = {
-  args: { text: "1. First step\n2. Second step\n\n- A bullet\n- Another bullet" },
+  args: {
+    text: "1. First step\n2. Second step\n\n- A bullet\n- Another bullet",
+  },
   play: async ({ canvasElement }) => {
     const root = canvasElement.querySelector<HTMLElement>(".armada-prose")!;
     const edge = root.getBoundingClientRect().left;
@@ -791,7 +1155,9 @@ export const ListsSitInset: Story = {
 
 /** Without `lines` nothing is marked: every other Prose is drawn as it was. */
 export const NoLinesByDefault: Story = {
-  args: { text: "a\n\n# b" },
+  args: {
+    text: "a\n\n# b",
+  },
   play: async ({ canvasElement }) => {
     await expect(canvasElement.querySelectorAll("[data-line]")).toHaveLength(0);
   },
@@ -801,26 +1167,58 @@ const CLIP = "https://github.com/user-attachments/assets/0b7c1f0e-2f1e-4d52-9a6e
 const SHOT = "https://github.com/user-attachments/assets/0b7c1f0e-2f1e-4d52-9a6e-000000000002";
 
 /** What main's fetch hands back; the bytes are never decoded, so they need not be a real file. */
-const fetched = fn(async (_address: string) => ({ bytes: new Uint8Array([1, 2, 3]), mime: "video/mp4" }));
+const fetched = fn(async (_address: string) => ({
+  bytes: new Uint8Array([
+    1,
+    2,
+    3,
+  ]),
+  mime: "video/mp4",
+}));
 
-const withAttachments = (fetch: ((address: string) => Promise<{ bytes: Uint8Array; mime: string } | null>) | null) => (Story: () => React.ReactElement) => (
-  <ProseAttachments.Provider value={fetch}>
-    <Story />
-  </ProseAttachments.Provider>
-);
+const withAttachments =
+  (
+    fetch:
+      | ((address: string) => Promise<{
+          bytes: Uint8Array;
+          mime: string;
+        } | null>)
+      | null,
+  ) =>
+  (Story: () => React.ReactElement) => (
+    <ProseAttachments.Provider value={fetch}>
+      <Story />
+    </ProseAttachments.Provider>
+  );
 
 /** **A line of only a forge attachment address is a video**, asked for on Play and not before; the same address inside a sentence stays a link. */
 export const AVideoOnALineOfItsOwn: Story = {
-  args: { text: `Demo:\n\n${CLIP}\n\nSee also ${SHOT} in a sentence.` },
-  decorators: [withAttachments(fetched)],
+  args: {
+    text: `Demo:\n\n${CLIP}\n\nSee also ${SHOT} in a sentence.`,
+  },
+  decorators: [
+    withAttachments(fetched),
+  ],
   beforeEach: () => {
     fetched.mockClear();
   },
   play: async ({ canvas, canvasElement, userEvent }) => {
-    await expect(canvas.getAllByRole("button", { name: "Play video" })).toHaveLength(1);
-    await expect(canvas.getByRole("link", { name: SHOT })).toBeVisible();
+    await expect(
+      canvas.getAllByRole("button", {
+        name: "Play video",
+      }),
+    ).toHaveLength(1);
+    await expect(
+      canvas.getByRole("link", {
+        name: SHOT,
+      }),
+    ).toBeVisible();
     await expect(fetched).not.toHaveBeenCalled();
-    await userEvent.click(canvas.getByRole("button", { name: "Play video" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Play video",
+      }),
+    );
     await waitFor(() => expect(canvasElement.querySelector("video")).not.toBeNull());
     await expect(fetched).toHaveBeenCalledTimes(1);
     await expect(fetched).toHaveBeenCalledWith(CLIP);
@@ -829,33 +1227,80 @@ export const AVideoOnALineOfItsOwn: Story = {
 
 /** A video whose fetch comes to nothing says so and offers the press again. */
 export const AVideoThatCouldNotLoad: Story = {
-  args: { text: CLIP },
-  decorators: [withAttachments(async () => null)],
+  args: {
+    text: CLIP,
+  },
+  decorators: [
+    withAttachments(async () => null),
+  ],
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Play video" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Play video",
+      }),
+    );
     await expect(await canvas.findByText("Could not load. Press to retry")).toBeVisible();
   },
 };
 
 /** **A forge image is drawn from its bytes** and opens larger; an image on another host stays a link, and so does one the fetch lost. */
 export const AForgeImage: Story = {
-  args: { text: `![the failing render](${SHOT})\n\n![elsewhere](https://example.com/render.png)\n\n![lost](https://github.com/user-attachments/assets/lost)` },
-  decorators: [withAttachments(async (address) => (address.endsWith("/lost") ? null : { bytes: new Uint8Array([1]), mime: "image/png" }))],
+  args: {
+    text: `![the failing render](${SHOT})\n\n![elsewhere](https://example.com/render.png)\n\n![lost](https://github.com/user-attachments/assets/lost)`,
+  },
+  decorators: [
+    withAttachments(async (address) =>
+      address.endsWith("/lost")
+        ? null
+        : {
+            bytes: new Uint8Array([
+              1,
+            ]),
+            mime: "image/png",
+          },
+    ),
+  ],
   play: async ({ canvas }) => {
-    await expect(await canvas.findByRole("button", { name: "the failing render" })).toBeVisible();
-    await expect(canvas.getByRole("link", { name: "elsewhere" })).toBeVisible();
-    await waitFor(() => expect(canvas.getByRole("link", { name: "lost" })).toBeVisible());
+    await expect(
+      await canvas.findByRole("button", {
+        name: "the failing render",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("link", {
+        name: "elsewhere",
+      }),
+    ).toBeVisible();
+    await waitFor(() =>
+      expect(
+        canvas.getByRole("link", {
+          name: "lost",
+        }),
+      ).toBeVisible(),
+    );
     await expect(canvas.getAllByRole("button")).toHaveLength(1);
   },
 };
 
 /** **Without a fetcher Prose is as it was**: the attachment address is a link, the image is a link, and nothing is a button. */
 export const NoFetcherNoAttachments: Story = {
-  args: { text: `${CLIP}\n\n![the failing render](${SHOT})` },
-  decorators: [withAttachments(null)],
+  args: {
+    text: `${CLIP}\n\n![the failing render](${SHOT})`,
+  },
+  decorators: [
+    withAttachments(null),
+  ],
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("button")).toBeNull();
-    await expect(canvas.getByRole("link", { name: CLIP })).toBeVisible();
-    await expect(canvas.getByRole("link", { name: "the failing render" })).toBeVisible();
+    await expect(
+      canvas.getByRole("link", {
+        name: CLIP,
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("link", {
+        name: "the failing render",
+      }),
+    ).toBeVisible();
   },
 };

@@ -10,12 +10,33 @@ import { jobIdOf, repositoryLabel } from "@armada/shell";
 import { useProjectsStore } from "./store";
 
 /** A repository's panel: its Manifest id, its checkout, and the name it is shown by. */
-export type Band = { manifestId: string; root: string; label: string };
+export type Band = {
+  manifestId: string;
+  root: string;
+  label: string;
+};
 
-export function bandsIn(picked: RepositorySummary | null, repositories: readonly RepositorySummary[]): Band[] {
-  return (picked === null ? repositories : [picked]).flatMap((one) => {
+export function bandsIn(
+  picked: RepositorySummary | null,
+  repositories: readonly RepositorySummary[],
+): Band[] {
+  return (
+    picked === null
+      ? repositories
+      : [
+          picked,
+        ]
+  ).flatMap((one) => {
     const id = jobIdOf(one);
-    return id === undefined ? [] : [{ manifestId: id, root: one.root, label: repositoryLabel(one, repositories) }];
+    return id === undefined
+      ? []
+      : [
+          {
+            manifestId: id,
+            root: one.root,
+            label: repositoryLabel(one, repositories),
+          },
+        ];
   });
 }
 
@@ -24,7 +45,11 @@ export function RenameProject({ id, name }: { id: string; name: string }) {
   const store = useProjectsStore()!;
   const [words, setWords] = useState(name);
   return (
-    <form className="projects-rename projects-item" aria-label={`Rename ${name}`} onSubmit={(event) => event.preventDefault()}>
+    <form
+      className="projects-rename projects-item"
+      aria-label={`Rename ${name}`}
+      onSubmit={(event) => event.preventDefault()}
+    >
       <Folder size={16} strokeWidth={2} aria-hidden />
       <input
         className="projects-rename__input"
@@ -38,7 +63,11 @@ export function RenameProject({ id, name }: { id: string; name: string }) {
             event.preventDefault();
             if (words.trim() === "") store.renaming(undefined);
             else store.renameProject(id, words.trim());
-            window.requestAnimationFrame(() => document.querySelector<HTMLElement>(`.projects-item[data-project="${CSS.escape(id)}"]`)?.focus());
+            window.requestAnimationFrame(() =>
+              document
+                .querySelector<HTMLElement>(`.projects-item[data-project="${CSS.escape(id)}"]`)
+                ?.focus(),
+            );
           }
         }}
       />

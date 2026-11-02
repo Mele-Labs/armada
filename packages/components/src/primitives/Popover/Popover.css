@@ -81,7 +81,10 @@
   .armada-popover__panel {
     position: fixed;
     position-anchor: --armada-popover-trigger;
-    position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline;
+    position-try-fallbacks:
+      flip-inline,
+      flip-block,
+      flip-block flip-inline;
     margin-block-start: var(--space-1);
   }
 

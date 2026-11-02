@@ -22,11 +22,30 @@ const SENT_MS = 15_000;
 const MOST_BODY = 100_000;
 
 /** What came back for a request, in the words the page draws. `status` 0 is no answer at all, and `error` says why. */
-export type Sent = { status: number; ms: number; body: string; error?: string };
+export type Sent = {
+  status: number;
+  ms: number;
+  body: string;
+  error?: string;
+};
 
-export type Runner = { url: string; stop: () => Promise<void> };
+export type Runner = {
+  url: string;
+  stop: () => Promise<void>;
+};
 
-const escaped = (text: string): string => text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
+const escaped = (text: string): string =>
+  text.replace(
+    /[&<>"']/g,
+    (c) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[c] ?? c,
+  );
 
 /** Whether `base` is an http or https address with a host, and the one request address it makes for `path`, or `null` where it would leave the base's origin. */
 export function addressOf(base: string, path: string): string | null {
@@ -53,26 +72,66 @@ function drawn(text: string): string {
 }
 
 /** Sends request `at` of the walk to `base`. Never throws: a request that got no answer is a `Sent` that says so. */
-export async function send(base: string, request: ReviewRequest, through: typeof fetch = fetch): Promise<Sent> {
+export async function send(
+  base: string,
+  request: ReviewRequest,
+  through: typeof fetch = fetch,
+): Promise<Sent> {
   const address = addressOf(base, request.path);
   const began = Date.now();
-  if (address === null) return { status: 0, ms: 0, body: "", error: `${request.path} is not a path on ${base}` };
+  if (address === null)
+    return {
+      status: 0,
+      ms: 0,
+      body: "",
+      error: `${request.path} is not a path on ${base}`,
+    };
   try {
     const answer = await through(address, {
       method: request.method,
-      headers: request.body === undefined ? {} : { "content-type": "application/json" },
-      ...(request.body === undefined || request.method === "GET" ? {} : { body: request.body }),
+      headers:
+        request.body === undefined
+          ? {}
+          : {
+              "content-type": "application/json",
+            },
+      ...(request.body === undefined || request.method === "GET"
+        ? {}
+        : {
+            body: request.body,
+          }),
       redirect: "manual",
       signal: AbortSignal.timeout(SENT_MS),
     });
-    return { status: answer.status, ms: Date.now() - began, body: drawn(await answer.text()) };
+    return {
+      status: answer.status,
+      ms: Date.now() - began,
+      body: drawn(await answer.text()),
+    };
   } catch (cause) {
-    return { status: 0, ms: Date.now() - began, body: "", error: cause instanceof Error ? cause.message : String(cause) };
+    return {
+      status: 0,
+      ms: Date.now() - began,
+      body: "",
+      error: cause instanceof Error ? cause.message : String(cause),
+    };
   }
 }
 
 /** The tokens the page spells its lengths with: it is served on its own, so `tokens.css` is not there to read. */
-const USED = ["--text-xs", "--leading-xs", "--space-1", "--space-2", "--space-3", "--space-4", "--space-8", "--border-width", "--radius-md", "--radius-lg", "--layout-breakpoint-narrow"];
+const USED = [
+  "--text-xs",
+  "--leading-xs",
+  "--space-1",
+  "--space-2",
+  "--space-3",
+  "--space-4",
+  "--space-8",
+  "--border-width",
+  "--radius-md",
+  "--radius-lg",
+  "--layout-breakpoint-narrow",
+];
 const VARS = tokens.tokens
   .filter((one) => USED.includes(one.name))
   .map((one) => `${one.name}: ${one.value};`)
@@ -121,11 +180,18 @@ document.querySelectorAll("button[data-n]").forEach((button) => {
 `;
 
 /** The page, as HTML. Pure, so it is read without a server. */
-export function runnerPage(base: string, requests: readonly ReviewRequest[], token: string): string {
+export function runnerPage(
+  base: string,
+  requests: readonly ReviewRequest[],
+  token: string,
+): string {
   const items = requests
     .map((request, at) => {
       const name = escaped(sendName(request, at));
-      const body = request.body === undefined ? "" : `<pre aria-label="Request body">${escaped(drawn(request.body))}</pre>`;
+      const body =
+        request.body === undefined
+          ? ""
+          : `<pre aria-label="Request body">${escaped(drawn(request.body))}</pre>`;
       return (
         `<li><section aria-label="Request ${at + 1}"><header><span class="n">${at + 1}</span><code>${escaped(request.method)}</code>` +
         `<code class="path">${escaped(request.path)}</code><button type="button" data-n="${at}" aria-label="${name}">Send</button></header>${body}` +
@@ -142,7 +208,8 @@ export function runnerPage(base: string, requests: readonly ReviewRequest[], tok
 }
 
 const SECURITY = {
-  "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'",
+  "content-security-policy":
+    "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'",
   "x-content-type-options": "nosniff",
   "cache-control": "no-store",
 } as const;
@@ -151,25 +218,39 @@ const SECURITY = {
  * Starts the runner for one walk. `through` is the fetch that reaches the API, which a test hands its own.
  * The server listens on loopback only and answers three reads and one send.
  */
-export async function startRunner(base: string, requests: readonly ReviewRequest[], through: typeof fetch = fetch): Promise<Runner> {
+export async function startRunner(
+  base: string,
+  requests: readonly ReviewRequest[],
+  through: typeof fetch = fetch,
+): Promise<Runner> {
   const token = randomBytes(24).toString("hex");
   const page = runnerPage(base, requests, token);
   let port = 0;
   const reply = (res: ServerResponse, status: number, type: string, body: string): void => {
-    res.writeHead(status, { "content-type": `${type}; charset=utf-8`, ...SECURITY });
+    res.writeHead(status, {
+      "content-type": `${type}; charset=utf-8`,
+      ...SECURITY,
+    });
     res.end(body);
   };
   const handle = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     // A page on another origin that was pointed at this port arrives with its own Host, or with no token.
     if (req.headers.host !== `127.0.0.1:${port}`) return reply(res, 403, "text/plain", "");
     if (req.method === "GET" && req.url === "/") return reply(res, 200, "text/html", page);
-    if (req.method === "GET" && req.url === "/runner.css") return reply(res, 200, "text/css", STYLE);
-    if (req.method === "GET" && req.url === "/runner.js") return reply(res, 200, "text/javascript", SCRIPT);
+    if (req.method === "GET" && req.url === "/runner.css")
+      return reply(res, 200, "text/css", STYLE);
+    if (req.method === "GET" && req.url === "/runner.js")
+      return reply(res, 200, "text/javascript", SCRIPT);
     const sending = /^\/send\/(\d+)$/.exec(req.url ?? "");
     if (req.method === "POST" && sending !== null && req.headers["x-armada-runner"] === token) {
       const request = requests[Number(sending[1])];
       if (request === undefined) return reply(res, 404, "text/plain", "");
-      return reply(res, 200, "application/json", JSON.stringify(await send(base, request, through)));
+      return reply(
+        res,
+        200,
+        "application/json",
+        JSON.stringify(await send(base, request, through)),
+      );
     }
     return reply(res, 404, "text/plain", "");
   };

@@ -21,7 +21,9 @@ const slot = (n: number, over: Partial<WorktreeSlot> = {}): WorktreeSlot => ({
   path: `/r/.armada/slots/slot-${n}`,
   base: "main",
   warm: false,
-  held: { state: "free" },
+  held: {
+    state: "free",
+  },
   ...over,
 });
 
@@ -30,10 +32,26 @@ function screen(sent: ChangeSlotPool[], now = NOW) {
   return (
     <Worktrees
       onWant={WANT}
-      held={{ state: "read", held: { slots: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => slot(n)) } }}
+      held={{
+        state: "read",
+        held: {
+          slots: [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+          ].map((n) => slot(n)),
+        },
+      }}
       onChangeSlotPool={(_, change) => {
         sent.push(change);
-        return Promise.resolve({ ok: true });
+        return Promise.resolve({
+          ok: true,
+        });
       }}
       now={now}
       onClose={() => {}}
@@ -49,11 +67,19 @@ function pool(): ChangeSlotPool[] {
   return sent;
 }
 
-const name = (n: number) => page.getByRole("button", { name: `slot-${n}`, exact: true });
+const name = (n: number) =>
+  page.getByRole("button", {
+    name: `slot-${n}`,
+    exact: true,
+  });
 
 /** How many tiles a row of the grid holds, as drawn. */
 function columns(): number {
-  const list = page.getByRole("list", { name: "Worktree slots" }).element();
+  const list = page
+    .getByRole("list", {
+      name: "Worktree slots",
+    })
+    .element();
   return getComputedStyle(list).gridTemplateColumns.split(" ").length;
 }
 
@@ -62,7 +88,11 @@ test("the grid is one Tab stop: Tab enters one tile and leaves without visiting 
   await expect.element(name(1)).toBeInTheDocument();
   // The clock moves and every tile draws again: a tooltip's trigger re-takes its Tab stop then, and must not keep it.
   rerender(screen(sent, NOW + 60_000));
-  const list = page.getByRole("list", { name: "Worktree slots" }).element();
+  const list = page
+    .getByRole("list", {
+      name: "Worktree slots",
+    })
+    .element();
   const visited = new Set<string | null>();
   let entered = false;
   for (let tab = 0; tab < 30; tab++) {
@@ -74,11 +104,22 @@ test("the grid is one Tab stop: Tab enters one tile and leaves without visiting 
     } else if (entered) break;
   }
   expect(entered).toBe(true);
-  expect([...visited]).toEqual(["slot-1"]);
+  expect([
+    ...visited,
+  ]).toEqual([
+    "slot-1",
+  ]);
 
   // Shift+Tab comes back into the same tile, at its last control, and Esc goes to the tile's name.
   await userEvent.keyboard("{Shift>}{Tab}{/Shift}");
-  expect(page.getByRole("listitem", { name: "slot-1" }).element().contains(document.activeElement)).toBe(true);
+  expect(
+    page
+      .getByRole("listitem", {
+        name: "slot-1",
+      })
+      .element()
+      .contains(document.activeElement),
+  ).toBe(true);
   await userEvent.keyboard("{Escape}");
   await expect.element(name(1)).toHaveFocus();
   // The tile Tab enters at is the one last chosen, not always the first.
@@ -123,19 +164,33 @@ test("o and Enter open the focused tile's panel, its acts are sent from the keyb
   await userEvent.keyboard("jj");
   await expect.element(name(2)).toHaveFocus();
   await userEvent.keyboard("o");
-  const panel = page.getByRole("dialog", { name: "slot-2" });
+  const panel = page.getByRole("dialog", {
+    name: "slot-2",
+  });
   await expect.element(panel).toBeVisible();
   await userEvent.keyboard("{Escape}");
   await expect.element(panel).not.toBeInTheDocument();
   await expect.element(name(2)).toHaveFocus();
 
   await userEvent.keyboard("{ArrowRight}{Enter}");
-  const third = page.getByRole("dialog", { name: "slot-3" });
+  const third = page.getByRole("dialog", {
+    name: "slot-3",
+  });
   await expect.element(third).toBeVisible();
   // Tab walks the panel's acts; Enter on one sends it.
-  const close = third.getByRole("button", { name: "Close slot" });
-  for (let tab = 0; tab < 6 && document.activeElement !== close.element(); tab++) await userEvent.keyboard("{Tab}");
+  const close = third.getByRole("button", {
+    name: "Close slot",
+  });
+  for (let tab = 0; tab < 6 && document.activeElement !== close.element(); tab++)
+    await userEvent.keyboard("{Tab}");
   await expect.element(close).toHaveFocus();
   await userEvent.keyboard("{Enter}");
-  await expect.poll(() => sent).toEqual([{ act: "close", slot: 3 }]);
+  await expect
+    .poll(() => sent)
+    .toEqual([
+      {
+        act: "close",
+        slot: 3,
+      },
+    ]);
 });

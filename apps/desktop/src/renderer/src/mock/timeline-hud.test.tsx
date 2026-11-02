@@ -11,38 +11,79 @@ unmountAfterEach();
 
 const key = () => document.querySelector<HTMLElement>('.deck-tile[data-tile="timeline"]');
 const lamp = () => key()?.hasAttribute("data-lamp") ?? false;
-const hud = () => page.getByRole("dialog", { name: "Timeline" });
+const hud = () =>
+  page.getByRole("dialog", {
+    name: "Timeline",
+  });
 const rowsIn = (name: string | RegExp) =>
-  [...(hud().getByRole("list", { name }).query()?.querySelectorAll<HTMLElement>(".console-tl__row") ?? [])].map((one) => one.querySelector(".console-tl__title")?.textContent);
-const focused = () => (document.activeElement as HTMLElement | null)?.querySelector(".console-tl__title")?.textContent;
+  [
+    ...(hud()
+      .getByRole("list", {
+        name,
+      })
+      .query()
+      ?.querySelectorAll<HTMLElement>(".console-tl__row") ?? []),
+  ].map((one) => one.querySelector(".console-tl__title")?.textContent);
+const focused = () =>
+  (document.activeElement as HTMLElement | null)?.querySelector(".console-tl__title")?.textContent;
 
 async function opened() {
   mount("timeline-hud");
   await onScreen();
   await expect.poll(lamp).toBe(true);
-  await page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Timeline" }).click();
+  await page
+    .getByRole("region", {
+      name: "Flight controls",
+    })
+    .getByRole("button", {
+      name: "Timeline",
+    })
+    .click();
   await expect.element(hud()).toBeVisible();
 }
 
 test("the stuck Jobs come first, then one row for each other that came to something, the newest first", async () => {
   await opened();
-  await expect.poll(() => rowsIn("Stuck")).toEqual(["Cache key", "Changelog script", "Service worker audit", "Fix the reconnect wait"]);
-  expect(rowsIn(/^Since /)).toEqual(["Migration notes", "armada main", "Release notes"]);
+  await expect
+    .poll(() => rowsIn("Stuck"))
+    .toEqual([
+      "Cache key",
+      "Changelog script",
+      "Service worker audit",
+      "Fix the reconnect wait",
+    ]);
+  expect(rowsIn(/^Since /)).toEqual([
+    "Migration notes",
+    "armada main",
+    "Release notes",
+  ]);
   await expect.poll(focused).toBe("Cache key");
 });
 
 test("each row says what it came to, and a quiet Job says when it was last heard from", async () => {
   await opened();
-  const row = (title: string) => [...document.querySelectorAll<HTMLElement>(".console-tl__row")].find((one) => one.querySelector(".console-tl__title")?.textContent === title);
-  await expect.poll(() => row("Migration notes")?.querySelector(".console-tl__fact")?.textContent).toBe("#1892 merged");
-  expect(row("armada main")?.querySelector(".console-tl__fact")?.textContent).toMatch(/^red .*, green /);
-  expect(row("Service worker audit")?.querySelector(".console-tl__age")?.textContent).toContain("ago");
+  const row = (title: string) =>
+    [
+      ...document.querySelectorAll<HTMLElement>(".console-tl__row"),
+    ].find((one) => one.querySelector(".console-tl__title")?.textContent === title);
+  await expect
+    .poll(() => row("Migration notes")?.querySelector(".console-tl__fact")?.textContent)
+    .toBe("#1892 merged");
+  expect(row("armada main")?.querySelector(".console-tl__fact")?.textContent).toMatch(
+    /^red .*, green /,
+  );
+  expect(row("Service worker audit")?.querySelector(".console-tl__age")?.textContent).toContain(
+    "ago",
+  );
 });
 
 test("main and a Job already gone have no press, and the keys pass them by", async () => {
   await opened();
   await expect.poll(() => rowsIn(/^Since /).length).toBe(3);
-  const presses = () => [...document.querySelectorAll<HTMLElement>("button.console-tl__row")].map((one) => one.querySelector(".console-tl__title")?.textContent);
+  const presses = () =>
+    [
+      ...document.querySelectorAll<HTMLElement>("button.console-tl__row"),
+    ].map((one) => one.querySelector(".console-tl__title")?.textContent);
   expect(presses()).not.toContain("armada main");
   expect(presses()).not.toContain("Release notes");
   await userEvent.keyboard("{End}");
@@ -59,7 +100,13 @@ test("Enter opens the row's Job, with focus in it, and Esc comes back on that ro
   await userEvent.keyboard("{End}");
   await expect.poll(focused).toBe("Migration notes");
   await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("region", { name: "Job: Migration notes" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Job: Migration notes",
+      }),
+    )
+    .toBeVisible();
   expect(hud().query()).toBeNull();
   await expect.poll(() => document.activeElement?.closest(".deck-stage") != null).toBe(true);
 
@@ -82,7 +129,13 @@ test("closing it marks the list read: the lamp goes out, focus is back on the ke
   await userEvent.keyboard("t");
   await expect.element(hud()).toBeVisible();
   await expect.poll(() => rowsIn("Stuck").length).toBe(4);
-  expect(hud().getByRole("list", { name: /^Since / }).query()).toBeNull();
+  expect(
+    hud()
+      .getByRole("list", {
+        name: /^Since /,
+      })
+      .query(),
+  ).toBeNull();
 });
 
 test("its own key closes it, and t over a Job puts the Job away and opens it", async () => {
@@ -90,8 +143,22 @@ test("its own key closes it, and t over a Job puts the Job away and opens it", a
   await userEvent.keyboard("t");
   await expect.poll(() => hud().query()).toBeNull();
 
-  await page.getByRole("region", { name: "Jobs", exact: true }).getByRole("button", { name: "Migration notes" }).click();
-  await expect.element(page.getByRole("region", { name: "Job: Migration notes" })).toBeVisible();
+  await page
+    .getByRole("region", {
+      name: "Jobs",
+      exact: true,
+    })
+    .getByRole("button", {
+      name: "Migration notes",
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Job: Migration notes",
+      }),
+    )
+    .toBeVisible();
   (document.activeElement as HTMLElement | null)?.blur();
   await userEvent.keyboard("t");
   await expect.element(hud()).toBeVisible();

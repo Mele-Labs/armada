@@ -80,7 +80,9 @@ type PageElement = {
   parentNode: unknown;
   previousElementSibling: PageElement | null;
   children: ArrayLike<PageElement>;
-  attributes: ArrayLike<{ name: string }>;
+  attributes: ArrayLike<{
+    name: string;
+  }>;
   getAttribute: (name: string) => string | null;
   removeAttribute: (name: string) => void;
   closest: (selector: string) => PageElement | null;
@@ -88,7 +90,12 @@ type PageElement = {
   cloneNode: (deep: boolean) => PageElement;
   /** Called with no argument only: what it does here is empty a field. */
   replaceChildren: () => void;
-  getBoundingClientRect: () => { x: number; y: number; width: number; height: number };
+  getBoundingClientRect: () => {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 };
 
 declare const document: {
@@ -99,8 +106,14 @@ declare const document: {
 };
 
 declare const window: {
-  getComputedStyle: (element: PageElement) => { getPropertyValue: (property: string) => string };
-  location: { pathname: string; search: string; hash: string };
+  getComputedStyle: (element: PageElement) => {
+    getPropertyValue: (property: string) => string;
+  };
+  location: {
+    pathname: string;
+    search: string;
+    hash: string;
+  };
   innerWidth: number;
   innerHeight: number;
 };
@@ -133,27 +146,44 @@ export function readsThePage(x: number, y: number, take: boolean, bounds: AskBou
 
   // React's own expando, walked up to the nearest node that carries one.
   function fiberOf(node: unknown): Record<string, unknown> | null {
-    let at = node as { parentNode?: unknown } | null;
+    let at = node as {
+      parentNode?: unknown;
+    } | null;
     while (at !== null && at !== undefined) {
       for (const key of Object.keys(at)) {
         if (key.startsWith("__reactFiber$")) {
           return ((at as Record<string, unknown>)[key] ?? null) as Record<string, unknown> | null;
         }
       }
-      at = (at as { parentNode?: unknown }).parentNode as { parentNode?: unknown } | null;
+      at = (
+        at as {
+          parentNode?: unknown;
+        }
+      ).parentNode as {
+        parentNode?: unknown;
+      } | null;
     }
     return null;
   }
 
   function nameOf(type: unknown): string | null {
     if (typeof type === "function") {
-      const named = type as { displayName?: unknown; name?: unknown };
+      const named = type as {
+        displayName?: unknown;
+        name?: unknown;
+      };
       const name = typeof named.displayName === "string" ? named.displayName : named.name;
       return typeof name === "string" && name !== "" ? name : null;
     }
     if (typeof type === "object" && type !== null) {
-      const wrapped = type as { $$typeof?: unknown; displayName?: unknown; type?: unknown; render?: unknown };
-      if (typeof wrapped.displayName === "string" && wrapped.displayName !== "") return wrapped.displayName;
+      const wrapped = type as {
+        $$typeof?: unknown;
+        displayName?: unknown;
+        type?: unknown;
+        render?: unknown;
+      };
+      if (typeof wrapped.displayName === "string" && wrapped.displayName !== "")
+        return wrapped.displayName;
       if (wrapped.$$typeof === Symbol.for("react.memo")) return nameOf(wrapped.type);
       if (wrapped.$$typeof === Symbol.for("react.forward_ref")) return nameOf(wrapped.render);
     }
@@ -187,8 +217,10 @@ export function readsThePage(x: number, y: number, take: boolean, bounds: AskBou
     const label = node.getAttribute("aria-label");
     const role = node.getAttribute("role");
     let part = node.tagName.toLowerCase();
-    if (testid !== null && testid !== "" && testid.length <= 60) part += `[data-testid=${quote(testid)}]`;
-    else if (label !== null && label !== "" && label.length <= 60) part += `[aria-label=${quote(label)}]`;
+    if (testid !== null && testid !== "" && testid.length <= 60)
+      part += `[data-testid=${quote(testid)}]`;
+    else if (label !== null && label !== "" && label.length <= 60)
+      part += `[aria-label=${quote(label)}]`;
     else if (role !== null && role !== "") part += `[role=${quote(role)}]`;
     return part;
   }
@@ -226,7 +258,11 @@ export function readsThePage(x: number, y: number, take: boolean, bounds: AskBou
     if (dialog === null) return null;
     const by = dialog.getAttribute("aria-labelledby");
     const named = by === null ? null : doc.getElementById(by);
-    return dialog.getAttribute("aria-label") ?? (named === null ? null : short(named.textContent, 60)) ?? "dialog";
+    return (
+      dialog.getAttribute("aria-label") ??
+      (named === null ? null : short(named.textContent, 60)) ??
+      "dialog"
+    );
   }
 
   /**
@@ -239,12 +275,17 @@ export function readsThePage(x: number, y: number, take: boolean, bounds: AskBou
    */
   function markupOf(node: PageElement): string {
     const clone = node.cloneNode(true);
-    for (const one of [clone, ...Array.from<PageElement>(clone.querySelectorAll("*"))]) {
+    for (const one of [
+      clone,
+      ...Array.from<PageElement>(clone.querySelectorAll("*")),
+    ]) {
       const tag = one.tagName.toLowerCase();
       const type = (one.getAttribute("type") ?? "").toLowerCase();
       if (tag === "input" || tag === "textarea" || tag === "select") one.replaceChildren();
       if (tag === "input" && type === "password") {
-        for (const attribute of Array.from<{ name: string }>(one.attributes)) {
+        for (const attribute of Array.from<{
+          name: string;
+        }>(one.attributes)) {
           if (attribute.name.toLowerCase() !== "type") one.removeAttribute(attribute.name);
         }
       } else {
@@ -252,7 +293,9 @@ export function readsThePage(x: number, y: number, take: boolean, bounds: AskBou
       }
     }
     const collapsed = clone.outerHTML.replace(/\s+/g, " ").trim();
-    return collapsed.length > bounds.markup ? `${collapsed.slice(0, bounds.markup - 1)}…` : collapsed;
+    return collapsed.length > bounds.markup
+      ? `${collapsed.slice(0, bounds.markup - 1)}…`
+      : collapsed;
   }
 
   // The roles a tag has without a `role` attribute, as far as a note needs them.
@@ -284,8 +327,25 @@ export function readsThePage(x: number, y: number, take: boolean, bounds: AskBou
   };
   // Landmarks, lists, sections and dialogs: what `nearby` names when it is named.
   const ENCLOSING = [
-    "banner", "navigation", "main", "complementary", "contentinfo", "region", "form", "search", "article",
-    "list", "listbox", "menu", "menubar", "tablist", "tree", "grid", "table", "dialog", "alertdialog",
+    "banner",
+    "navigation",
+    "main",
+    "complementary",
+    "contentinfo",
+    "region",
+    "form",
+    "search",
+    "article",
+    "list",
+    "listbox",
+    "menu",
+    "menubar",
+    "tablist",
+    "tree",
+    "grid",
+    "table",
+    "dialog",
+    "alertdialog",
   ];
   const HEADINGS = 'h1, h2, h3, h4, h5, h6, [role="heading"]';
   const MARKED =
@@ -318,7 +378,9 @@ export function readsThePage(x: number, y: number, take: boolean, bounds: AskBou
     const label = labelOf(node);
     if (label !== "") return label;
     if (node.tagName.toLowerCase() === "details") {
-      const summary = Array.from<PageElement>(node.children).find((one) => one.tagName.toLowerCase() === "summary");
+      const summary = Array.from<PageElement>(node.children).find(
+        (one) => one.tagName.toLowerCase() === "summary",
+      );
       if (summary !== undefined) return short(summary.textContent, bounds.text);
     }
     return short(node.textContent, bounds.text);
@@ -334,8 +396,14 @@ export function readsThePage(x: number, y: number, take: boolean, bounds: AskBou
     let at: PageElement = start;
     while (names.length < 8) {
       // The nearest heading above is the last one before this level, looked for until one is found.
-      for (let before = at.previousElementSibling; before !== null && !headed; before = before.previousElementSibling) {
-        const inside = Array.from<PageElement>(before.querySelectorAll(HEADINGS)).filter((one) => roleOf(one) === "heading");
+      for (
+        let before = at.previousElementSibling;
+        before !== null && !headed;
+        before = before.previousElementSibling
+      ) {
+        const inside = Array.from<PageElement>(before.querySelectorAll(HEADINGS)).filter(
+          (one) => roleOf(one) === "heading",
+        );
         const hit = roleOf(before) === "heading" ? before : inside[inside.length - 1];
         if (hit !== undefined) {
           headed = true;
@@ -362,8 +430,12 @@ export function readsThePage(x: number, y: number, take: boolean, bounds: AskBou
       const tag = one.tagName.toLowerCase();
       const open = (tag === "dialog" || tag === "details") && one.getAttribute("open") !== null;
       const marked =
-        is("aria-selected") || (current !== null && current !== "" && current !== "false") || is("aria-pressed") ||
-        is("aria-checked") || is("aria-expanded") || open;
+        is("aria-selected") ||
+        (current !== null && current !== "" && current !== "false") ||
+        is("aria-pressed") ||
+        is("aria-checked") ||
+        is("aria-expanded") ||
+        open;
       if (!marked) continue;
       const name = nameOfNode(one);
       const line = name === "" ? roleOf(one) : `${roleOf(one)} "${name}"`;
@@ -390,7 +462,11 @@ export function readsThePage(x: number, y: number, take: boolean, bounds: AskBou
   };
   const chain = chainOf(element);
   const named = chain[0] ?? element.tagName.toLowerCase();
-  if (!take) return { box, named };
+  if (!take)
+    return {
+      box,
+      named,
+    };
 
   const styles: Record<string, string> = {};
   const resolved = window.getComputedStyle(element);
@@ -407,24 +483,53 @@ export function readsThePage(x: number, y: number, take: boolean, bounds: AskBou
     box,
     named,
     capture: {
-      ...(chain[0] === undefined ? {} : { component: chain[0] }),
-      ...(chain.length > 1 ? { owners: chain.slice(1) } : {}),
+      ...(chain[0] === undefined
+        ? {}
+        : {
+            component: chain[0],
+          }),
+      ...(chain.length > 1
+        ? {
+            owners: chain.slice(1),
+          }
+        : {}),
       selector: selectorOf(element),
       element: {
         tag: element.tagName.toLowerCase(),
         text: short(element.textContent, bounds.text),
-        ...(label === null ? {} : { label: short(label, bounds.text) }),
+        ...(label === null
+          ? {}
+          : {
+              label: short(label, bounds.text),
+            }),
       },
-      ...(current === null ? {} : { screen: short(current.getAttribute("aria-label") ?? current.textContent, 60) }),
-      ...(layer === null ? {} : { layer }),
+      ...(current === null
+        ? {}
+        : {
+            screen: short(current.getAttribute("aria-label") ?? current.textContent, 60),
+          }),
+      ...(layer === null
+        ? {}
+        : {
+            layer,
+          }),
       location: `${window.location.pathname}${window.location.search}${window.location.hash}`,
       bounds: box,
-      window: { width: window.innerWidth, height: window.innerHeight },
+      window: {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      },
       styles,
       markup: markupOf(element),
-      ...(stamp === null ? {} : { stamp }),
+      ...(stamp === null
+        ? {}
+        : {
+            stamp,
+          }),
       nearby: nearbyOf(element),
-      state: { selected: selectedIn() },
+      state: {
+        selected: selectedIn(),
+      },
     },
   };
 }
@@ -437,7 +542,19 @@ export function readsThePage(x: number, y: number, take: boolean, bounds: AskBou
  * the page has to main. Every argument is serialised rather than named, so
  * nothing the page holds can change what is asked.
  */
-export function askSource(x: number, y: number, take: boolean, bounds: AskBounds = ASK_BOUNDS): string {
-  const args = [x, y, take, bounds].map((value) => JSON.stringify(value)).join(", ");
+export function askSource(
+  x: number,
+  y: number,
+  take: boolean,
+  bounds: AskBounds = ASK_BOUNDS,
+): string {
+  const args = [
+    x,
+    y,
+    take,
+    bounds,
+  ]
+    .map((value) => JSON.stringify(value))
+    .join(", ");
   return `(${readsThePage.toString()})(${args})`;
 }

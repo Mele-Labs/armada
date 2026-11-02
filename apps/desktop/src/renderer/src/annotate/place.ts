@@ -14,21 +14,32 @@ import type { Box } from "../../../shared/annotations";
 export type CardSide = "below" | "above" | "beside" | "over";
 
 /** How big the card wants to be, uncapped — what it would draw given the whole window. */
-export type CardSize = { width: number; height: number };
+export type CardSize = {
+  width: number;
+  height: number;
+};
 
 /**
  * The window the card is placed inside. `floor` is the lowest edge it may
  * reach: the layer's own status bar is pinned to the bottom, over everything,
  * and a card drawn under it is on screen but cannot be read or pressed.
  */
-export type Viewport = { width: number; height: number; floor: number };
+export type Viewport = {
+  width: number;
+  height: number;
+  floor: number;
+};
 
 /**
  * The layer's own geometry, declared once in `annotate.css` as tokens and read
  * back through {@link metricsOf}. Zero is a safe reading: the card still lands
  * inside the window, just flush against its edges.
  */
-export type Metrics = { gap: number; pinSize: number; pinInset: number };
+export type Metrics = {
+  gap: number;
+  pinSize: number;
+  pinInset: number;
+};
 
 export type Placement = {
   x: number;
@@ -38,20 +49,38 @@ export type Placement = {
   side: CardSide;
 };
 
-export const NO_CARD: CardSize = { width: 0, height: 0 };
-export const NO_METRICS: Metrics = { gap: 0, pinSize: 0, pinInset: 0 };
+export const NO_CARD: CardSize = {
+  width: 0,
+  height: 0,
+};
+export const NO_METRICS: Metrics = {
+  gap: 0,
+  pinSize: 0,
+  pinInset: 0,
+};
 
 /** CSS `clamp()`: the floor wins where the window is too small for both bounds. */
-const clamp = (low: number, value: number, high: number): number => Math.max(low, Math.min(value, high));
+const clamp = (low: number, value: number, high: number): number =>
+  Math.max(low, Math.min(value, high));
 
 /**
  * The pin's top and bottom, as `.armada-annotate__pin` draws them: centred on
  * the element's top-trailing corner and kept inside the window. The card is
  * placed around this, so a note's own pin is never the thing it hides.
  */
-function pinSpan(box: Box, view: Viewport, m: Metrics): { top: number; bottom: number } {
+function pinSpan(
+  box: Box,
+  view: Viewport,
+  m: Metrics,
+): {
+  top: number;
+  bottom: number;
+} {
   const centre = clamp(m.pinInset, box.y, view.height - m.pinInset);
-  return { top: centre - m.pinSize / 2, bottom: centre + m.pinSize / 2 };
+  return {
+    top: centre - m.pinSize / 2,
+    bottom: centre + m.pinSize / 2,
+  };
 }
 
 /**
@@ -69,16 +98,40 @@ export function placeCard(box: Box, card: CardSize, view: Viewport, m: Metrics):
   const below = Math.max(box.y + box.height, pin.bottom) + m.gap;
   const above = Math.min(box.y, pin.top) - m.gap - card.height;
   const fits = (y: number): boolean => y >= m.gap && y + card.height <= view.floor - m.gap;
-  if (fits(below)) return { x, y: below, maxHeight: full, side: "below" };
-  if (fits(above)) return { x, y: above, maxHeight: full, side: "above" };
+  if (fits(below))
+    return {
+      x,
+      y: below,
+      maxHeight: full,
+      side: "below",
+    };
+  if (fits(above))
+    return {
+      x,
+      y: above,
+      maxHeight: full,
+      side: "above",
+    };
 
   // Beside it next, so a card whose tools restyle the element never hides the change: trailing
   // first, clearing the pin on the element's trailing corner, then leading.
   const top = clamp(m.gap, box.y, view.floor - m.gap - card.height);
   const trailing = box.x + box.width + m.pinSize / 2 + m.gap;
-  if (trailing + card.width <= view.width - m.gap) return { x: trailing, y: top, maxHeight: full, side: "beside" };
+  if (trailing + card.width <= view.width - m.gap)
+    return {
+      x: trailing,
+      y: top,
+      maxHeight: full,
+      side: "beside",
+    };
   const leading = box.x - m.gap - card.width;
-  if (leading >= m.gap) return { x: leading, y: top, maxHeight: full, side: "beside" };
+  if (leading >= m.gap)
+    return {
+      x: leading,
+      y: top,
+      maxHeight: full,
+      side: "beside",
+    };
 
   // No side has room — the element is most of the window, which is what a
   // full-height sheet is. Covering it is then unavoidable, so the card takes
@@ -87,7 +140,12 @@ export function placeCard(box: Box, card: CardSize, view: Viewport, m: Metrics):
   const overPin = Math.max(pin.top - m.gap * 2, 0);
   const underPin = Math.max(view.floor - pin.bottom - m.gap * 2, 0);
   const maxHeight = Math.max(overPin, underPin);
-  return { x, y: overPin >= underPin ? m.gap : pin.bottom + m.gap, maxHeight, side: "over" };
+  return {
+    x,
+    y: overPin >= underPin ? m.gap : pin.bottom + m.gap,
+    maxHeight,
+    side: "over",
+  };
 }
 
 const pixels = (style: CSSStyleDeclaration, name: string): number => {
@@ -118,10 +176,22 @@ export function metricsOf(element: Element): Metrics {
 export function sizeOf(node: HTMLElement): CardSize {
   const tiles = node.querySelector("[data-tiles]");
   const inTiles = tiles === null ? 0 : tiles.scrollHeight - tiles.clientHeight;
-  return { width: node.offsetWidth, height: node.scrollHeight + inTiles + node.offsetHeight - node.clientHeight };
+  return {
+    width: node.offsetWidth,
+    height: node.scrollHeight + inTiles + node.offsetHeight - node.clientHeight,
+  };
 }
 
-export function samePlacementInput(a: { size: CardSize; metrics: Metrics }, b: { size: CardSize; metrics: Metrics }): boolean {
+export function samePlacementInput(
+  a: {
+    size: CardSize;
+    metrics: Metrics;
+  },
+  b: {
+    size: CardSize;
+    metrics: Metrics;
+  },
+): boolean {
   return (
     a.size.width === b.size.width &&
     a.size.height === b.size.height &&

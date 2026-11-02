@@ -12,19 +12,52 @@ import { TerminalWindow, windowTitleOf } from "../terminal-window/TerminalWindow
 import { closeTerminalWindow, onTerminalWindowRaised } from "./scenarios/session-shell";
 import "./mock.css";
 
-function Frame({ api, sessionId, front, raised }: { api: BridgeApi; sessionId: string; front: boolean; raised: number }) {
+function Frame({
+  api,
+  sessionId,
+  front,
+  raised,
+}: {
+  api: BridgeApi;
+  sessionId: string;
+  front: boolean;
+  raised: number;
+}) {
   const title = windowTitleOf(useSessions().find((one) => one.id === sessionId)?.title);
   // A store of its own, as a window's document has.
-  const own = useMemo(() => ({ ...api }), [api]);
+  const own = useMemo(
+    () => ({
+      ...api,
+    }),
+    [
+      api,
+    ],
+  );
   const frame = useRef<HTMLElement>(null);
   // The page's title comes back with the window, which sets the document's.
   const [was] = useState(() => document.title);
-  useEffect(() => () => void (document.title = was), [was]);
+  useEffect(
+    () => () => void (document.title = was),
+    [
+      was,
+    ],
+  );
   useEffect(() => {
-    if (raised > 0) frame.current?.querySelector("textarea")?.focus({ preventScroll: true });
-  }, [raised]);
+    if (raised > 0)
+      frame.current?.querySelector("textarea")?.focus({
+        preventScroll: true,
+      });
+  }, [
+    raised,
+  ]);
   return (
-    <section ref={frame} role="dialog" aria-label={title} className="armada-mock-terminal-window" data-front={front ? "" : undefined}>
+    <section
+      ref={frame}
+      role="dialog"
+      aria-label={title}
+      className="armada-mock-terminal-window"
+      data-front={front ? "" : undefined}
+    >
       <div className="armada-mock-terminal-window__strip">
         <span>{title}</span>
         <Button variant="secondary" size="sm" onClick={() => closeTerminalWindow(sessionId)}>
@@ -66,18 +99,29 @@ export function TerminalWindows({ api }: { api: BridgeApi }) {
     });
     const offRaised = onTerminalWindowRaised((sessionId) => {
       setFront(sessionId);
-      setRaised((was) => ({ ...was, [sessionId]: (was[sessionId] ?? 0) + 1 }));
+      setRaised((was) => ({
+        ...was,
+        [sessionId]: (was[sessionId] ?? 0) + 1,
+      }));
     });
     return () => {
       live = false;
       off();
       offRaised();
     };
-  }, [api]);
+  }, [
+    api,
+  ]);
   return (
     <>
       {open.map((sessionId) => (
-        <Frame key={sessionId} api={api} sessionId={sessionId} front={front === sessionId} raised={raised[sessionId] ?? 0} />
+        <Frame
+          key={sessionId}
+          api={api}
+          sessionId={sessionId}
+          front={front === sessionId}
+          raised={raised[sessionId] ?? 0}
+        />
       ))}
     </>
   );

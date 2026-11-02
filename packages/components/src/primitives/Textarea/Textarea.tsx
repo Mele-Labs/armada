@@ -72,10 +72,16 @@ export function Textarea({
     const kept = readKept<string>(keep);
     if (kept === undefined || kept === "") return;
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set?.call(box, kept);
-    box.dispatchEvent(new Event("input", { bubbles: true }));
+    box.dispatchEvent(
+      new Event("input", {
+        bubbles: true,
+      }),
+    );
     box.setSelectionRange(kept.length, kept.length);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keep]);
+  }, [
+    keep,
+  ]);
 
   const firstRun = useRef(true);
   const remember = (text: string) => {
@@ -90,7 +96,9 @@ export function Textarea({
     }
     if (rest.value !== undefined) remember(String(rest.value));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rest.value]);
+  }, [
+    rest.value,
+  ]);
 
   useLayoutEffect(() => {
     const box = field.current;
@@ -100,7 +108,10 @@ export function Textarea({
     const natural = box.scrollHeight + box.offsetHeight - box.clientHeight;
     const cap = bound ? bound.clientHeight / 2 : Infinity;
     box.style.height = `${Math.max(Math.min(natural, cap), box.offsetHeight)}px`;
-  }, [grow, rest.value]);
+  }, [
+    grow,
+    rest.value,
+  ]);
 
   return (
     <div className="armada-textarea-field">

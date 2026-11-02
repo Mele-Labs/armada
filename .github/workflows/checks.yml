@@ -456,6 +456,19 @@ jobs:
           name: sync_mod_test
           cmd: python3 scripts/test_sync_mod.py
 
+  format_catch_up_test:
+    name: format_catch_up_test
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'format_catch_up_test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/run-check
+        with:
+          name: format_catch_up_test
+          cmd: python3 scripts/test_format_catch_up.py
+
   # The desktop tests that read no surface: main and the renderer's own modules,
   # mostly node. Linux, one job, no shards: the files add up to 44 seconds.
   desktop_unit:
@@ -489,6 +502,22 @@ jobs:
         run: |
           echo "$NEEDS" | jq -r 'to_entries[] | "\(.key) \(.value.result)"'
           echo "$NEEDS" | jq -e '.plan.result == "success" and ([.[] | .result] | all(. == "success" or . == "skipped"))'
+
+  # Not chosen by `armada covers`, for the reason `foundations` is not: a root
+  # Check never sees the paths a workspace owns, and the formatter covers them
+  # all. It reads the whole tree in about a second. docs/practices/ci.md,
+  # *Formatting*.
+  format:
+    name: format
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/node-setup
+      - uses: ./.github/actions/run-check
+        with:
+          name: format
+          cmd: pnpm format:check
 
   # Not chosen by `armada covers`: the foundations apply to every change, docs
   # included. Read as the merge line read it, docs/practices/ci.md, *Foundations*:
@@ -715,8 +744,10 @@ jobs:
       - hooks_test
       - preview_test
       - sync_mod_test
+      - format_catch_up_test
       - xtask_test
       - test_compile
+      - format
       - foundations
     runs-on: ubuntu-latest
     timeout-minutes: 45

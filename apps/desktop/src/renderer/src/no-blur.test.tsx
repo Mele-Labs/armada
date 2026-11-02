@@ -9,7 +9,14 @@ test("no rule in Bridge's stylesheets blurs what is behind it", () => {
   const blurring: string[] = [];
   const walk = (rules: CSSRuleList): void => {
     for (const rule of Array.from(rules)) {
-      if (rule instanceof CSSStyleRule && !["", "none"].includes(rule.style.backdropFilter)) blurring.push(rule.selectorText);
+      if (
+        rule instanceof CSSStyleRule &&
+        ![
+          "",
+          "none",
+        ].includes(rule.style.backdropFilter)
+      )
+        blurring.push(rule.selectorText);
       if ("cssRules" in rule) walk((rule as CSSGroupingRule).cssRules);
     }
   };

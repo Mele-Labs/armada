@@ -3,7 +3,12 @@ import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { useMarking, type Mark } from "./marking";
 
 /** What `TheShell.css` reads in place of `:has(.armada-dock-handle)` on the work area. */
-const HANDLED: readonly Mark[] = [{ of: ".armada-shell__work", as: "data-handle" }];
+const HANDLED: readonly Mark[] = [
+  {
+    of: ".armada-shell__work",
+    as: "data-handle",
+  },
+];
 
 /**
  * A panel's inner-edge resize handle, and the range it drags in. **One
@@ -45,17 +50,35 @@ export function tokenPx(name: string): number {
  * has no token**: it is `room` minus `--w-work-min`, what always stays
  * uncovered so a dock dragged wide never leaves the content a sliver.
  */
-export function dockWidthRange(room: number): { min: number; max: number } {
+export function dockWidthRange(room: number): {
+  min: number;
+  max: number;
+} {
   const min = tokenPx("--w-dock-min");
   const floor = Number.isFinite(min) ? min : DOCK_WIDTH_MIN_FALLBACK;
   const workMin = tokenPx("--w-work-min");
   if (!Number.isFinite(room) || !Number.isFinite(workMin)) {
-    return { min: floor, max: DOCK_WIDTH_MAX_FALLBACK };
+    return {
+      min: floor,
+      max: DOCK_WIDTH_MAX_FALLBACK,
+    };
   }
-  return { min: floor, max: Math.max(floor, room - workMin) };
+  return {
+    min: floor,
+    max: Math.max(floor, room - workMin),
+  };
 }
 
-export function clampToRange(width: number, { min, max }: { min: number; max: number }): number {
+export function clampToRange(
+  width: number,
+  {
+    min,
+    max,
+  }: {
+    min: number;
+    max: number;
+  },
+): number {
   return Math.min(max, Math.max(min, width));
 }
 
@@ -98,14 +121,32 @@ export type DockHandleProps = {
   className?: string;
 };
 
-export function DockHandle({ width, min, max, label, grows = "left", onResize, onReset, quiet, axis = "x", className }: DockHandleProps) {
+export function DockHandle({
+  width,
+  min,
+  max,
+  label,
+  grows = "left",
+  onResize,
+  onReset,
+  quiet,
+  axis = "x",
+  className,
+}: DockHandleProps) {
   const handled = useMarking(HANDLED);
-  const drag = useRef<{ pointerId: number; startAt: number; startWidth: number } | null>(null);
+  const drag = useRef<{
+    pointerId: number;
+    startAt: number;
+    startWidth: number;
+  } | null>(null);
   // Only for the line's own intensified colour while dragging — `:hover` drops
   // the moment the cursor leaves the 8px hit area, which a fast drag does
   // almost at once, and the grip going dim mid-drag would read as let go.
   const [dragging, setDragging] = useState(false);
-  const range = { min, max };
+  const range = {
+    min,
+    max,
+  };
   const sign = grows === "left" ? 1 : -1;
   const across = axis === "y";
   const at = (event: PointerEvent<HTMLDivElement>) => (across ? event.clientY : event.clientX);
@@ -117,7 +158,11 @@ export function DockHandle({ width, min, max, label, grows = "left", onResize, o
     } catch {
       // A pointer sent by a script has nothing to capture; its moves are sent to the handle as well.
     }
-    drag.current = { pointerId: event.pointerId, startAt: at(event), startWidth: width };
+    drag.current = {
+      pointerId: event.pointerId,
+      startAt: at(event),
+      startWidth: width,
+    };
     setDragging(true);
     document.body.style.cursor = across ? "row-resize" : "col-resize";
     document.body.style.userSelect = "none";
@@ -143,8 +188,10 @@ export function DockHandle({ width, min, max, label, grows = "left", onResize, o
   }
 
   function keyDown(event: KeyboardEvent<HTMLDivElement>): void {
-    if (event.key === (across ? "ArrowUp" : "ArrowLeft")) onResize(clampToRange(width + sign * DOCK_WIDTH_STEP, range));
-    else if (event.key === (across ? "ArrowDown" : "ArrowRight")) onResize(clampToRange(width - sign * DOCK_WIDTH_STEP, range));
+    if (event.key === (across ? "ArrowUp" : "ArrowLeft"))
+      onResize(clampToRange(width + sign * DOCK_WIDTH_STEP, range));
+    else if (event.key === (across ? "ArrowDown" : "ArrowRight"))
+      onResize(clampToRange(width - sign * DOCK_WIDTH_STEP, range));
     else if (event.key === "Home" && onReset !== undefined) onReset();
     else if (event.key === "Home") onResize(sign > 0 ? max : min);
     else if (event.key === "End") onResize(sign > 0 ? min : max);

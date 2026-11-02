@@ -17,14 +17,37 @@ export type SettingFieldValue = number | boolean | string | readonly string[];
 /** The control a setting is drawn with, chosen from its kind, with the value in force. */
 export type SettingFieldControl =
   /** `seconds` reads the figure out in minutes or hours beneath the field. */
-  | { kind: "number"; value: number; min: number; max: number; unit?: string; seconds?: boolean }
-  | { kind: "switch"; value: boolean }
-  | { kind: "choice"; value: string; options: readonly string[] }
-  | { kind: "text"; value: string }
+  | {
+      kind: "number";
+      value: number;
+      min: number;
+      max: number;
+      unit?: string;
+      seconds?: boolean;
+    }
+  | {
+      kind: "switch";
+      value: boolean;
+    }
+  | {
+      kind: "choice";
+      value: string;
+      options: readonly string[];
+    }
+  | {
+      kind: "text";
+      value: string;
+    }
   /** One entry a line. */
-  | { kind: "list"; value: readonly string[] }
+  | {
+      kind: "list";
+      value: readonly string[];
+    }
   /** Several lines of prose, whose way back is the text Armada ships. */
-  | { kind: "prompt"; value: string };
+  | {
+      kind: "prompt";
+      value: string;
+    };
 
 /**
  * One setting from settings.json, drawn from its kind — **the generic row every setting but Bridge's
@@ -96,7 +119,12 @@ export function SettingField({
   const [typed, setTyped] = useState<string | null>(null);
   const held = asText(control);
   // A republished value is the answer to a save: what was typed has gone, so the field reads it.
-  useEffect(() => setTyped(null), [held]);
+  useEffect(
+    () => setTyped(null),
+    [
+      held,
+    ],
+  );
   const off = disabled || saving;
   // A setting with no sentence draws none; its control carries a name in a tooltip.
   const described = description !== "";
@@ -105,11 +133,21 @@ export function SettingField({
 
   const asked = Number(field);
   const inRange =
-    control.kind !== "number" || (field.trim() !== "" && Number.isInteger(asked) && asked >= control.min && asked <= control.max);
+    control.kind !== "number" ||
+    (field.trim() !== "" &&
+      Number.isInteger(asked) &&
+      asked >= control.min &&
+      asked <= control.max);
 
   function save(): void {
     if (control.kind === "number") onSave(asked);
-    else if (control.kind === "list") onSave(field.split("\n").map((one) => one.trim()).filter((one) => one !== ""));
+    else if (control.kind === "list")
+      onSave(
+        field
+          .split("\n")
+          .map((one) => one.trim())
+          .filter((one) => one !== ""),
+      );
     else onSave(field);
   }
 
@@ -119,18 +157,30 @@ export function SettingField({
   const marks = modified ? (
     <>
       <span className="armada-setting-field__modified">Modified</span>
-      <Button variant="ghost" size="sm" disabled={off} aria-label={`${resetLabel}: ${title}`} onClick={onReset}>
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={off}
+        aria-label={`${resetLabel}: ${title}`}
+        onClick={onReset}
+      >
         {resetLabel}
       </Button>
     </>
   ) : null;
 
   const notes: ReactNode[] = [];
-  if (restart) notes.push(<p key="restart" className="armada-setting-field__note">Restart Fleet to apply.</p>);
+  if (restart)
+    notes.push(
+      <p key="restart" className="armada-setting-field__note">
+        Restart Fleet to apply.
+      </p>,
+    );
   if (overriddenBy !== undefined) {
     notes.push(
       <p key="env" className="armada-setting-field__note">
-        Overridden by <code>${overriddenBy}</code> where Fleet runs, so the value here is not the one in force.
+        Overridden by <code>${overriddenBy}</code> where Fleet runs, so the value here is not the
+        one in force.
       </p>,
     );
   }
@@ -138,16 +188,27 @@ export function SettingField({
   if (control.kind === "switch") {
     return (
       <div className="armada-setting-field" data-modified={modified || undefined}>
-        <Switch checked={control.value} disabled={off} description={description} onChange={(event) => onSave(event.currentTarget.checked)}>
+        <Switch
+          checked={control.value}
+          disabled={off}
+          description={description}
+          onChange={(event) => onSave(event.currentTarget.checked)}
+        >
           {title}
         </Switch>
         <div className="armada-setting-field__meta">
           {marks}
           {keyed}
         </div>
-        {shipped === undefined ? null : <p className="armada-setting-field__ships">{`Ships ${shipped}.`}</p>}
+        {shipped === undefined ? null : (
+          <p className="armada-setting-field__ships">{`Ships ${shipped}.`}</p>
+        )}
         {notes}
-        {refused === undefined ? null : <p className="armada-setting-field__refused" role="alert">{refused}</p>}
+        {refused === undefined ? null : (
+          <p className="armada-setting-field__refused" role="alert">
+            {refused}
+          </p>
+        )}
       </div>
     );
   }
@@ -155,24 +216,35 @@ export function SettingField({
   // A figure or a line is saved from inside its own frame, so the field and Save share one height and one bezel.
   const inFrame = control.kind === "number" || control.kind === "text";
   // Save is drawn only while the field holds a change: an unchanged one has nothing to send.
-  const saveButton = !dirty && !saving ? null : (
-    <Button
-      variant="ghost"
-      size="sm"
-      pending={saving}
-      disabled={off || !dirty || !inRange}
-      aria-label={`Save ${title}`}
-      onClick={save}
-    >
-      {saving ? "Saving…" : "Save"}
-    </Button>
-  );
+  const saveButton =
+    !dirty && !saving ? null : (
+      <Button
+        variant="ghost"
+        size="sm"
+        pending={saving}
+        disabled={off || !dirty || !inRange}
+        aria-label={`Save ${title}`}
+        onClick={save}
+      >
+        {saving ? "Saving…" : "Save"}
+      </Button>
+    );
 
   const typedField =
     control.kind === "choice" ? (
       (() => {
         const select = (
-          <Select id={id} {...(described ? { "aria-describedby": meansId } : {})} value={control.value} disabled={off} onChange={(event) => onSave(event.target.value)}>
+          <Select
+            id={id}
+            {...(described
+              ? {
+                  "aria-describedby": meansId,
+                }
+              : {})}
+            value={control.value}
+            disabled={off}
+            onChange={(event) => onSave(event.target.value)}
+          >
             {control.options.map((one) => (
               <option key={one} value={one}>
                 {one}
@@ -181,7 +253,9 @@ export function SettingField({
           </Select>
         );
         // On a wrapper of its own: a bubble put inside a `select` is never drawn.
-        return described ? select : (
+        return described ? (
+          select
+        ) : (
           <Tooltip label={tip ?? title} asChild>
             <span className="armada-setting-field__choice">{select}</span>
           </Tooltip>
@@ -208,23 +282,35 @@ export function SettingField({
         off={off}
         onType={setTyped}
       >
-      <Input
-        id={id}
-        mono
-        aria-describedby={meansId}
-        {...(control.kind === "number" ? { inputMode: "numeric" as const } : {})}
-        {...(control.kind === "number" && (control.seconds || control.unit !== undefined) ? { unit: control.seconds ? "s" : control.unit } : {})}
-        trailing={saveButton}
-        value={field}
-        disabled={off}
-        invalid={(dirty && !inRange) || refused !== undefined}
-        {...(control.kind === "number" && dirty && !inRange
-          ? { message: `Between ${control.min} and ${control.max}.` }
-          : refused !== undefined
-            ? { message: refused }
+        <Input
+          id={id}
+          mono
+          aria-describedby={meansId}
+          {...(control.kind === "number"
+            ? {
+                inputMode: "numeric" as const,
+              }
             : {})}
-        onChange={(event) => setTyped(event.target.value)}
-      />
+          {...(control.kind === "number" && (control.seconds || control.unit !== undefined)
+            ? {
+                unit: control.seconds ? "s" : control.unit,
+              }
+            : {})}
+          trailing={saveButton}
+          value={field}
+          disabled={off}
+          invalid={(dirty && !inRange) || refused !== undefined}
+          {...(control.kind === "number" && dirty && !inRange
+            ? {
+                message: `Between ${control.min} and ${control.max}.`,
+              }
+            : refused !== undefined
+              ? {
+                  message: refused,
+                }
+              : {})}
+          onChange={(event) => setTyped(event.target.value)}
+        />
       </Entry>
     );
 
@@ -242,14 +328,19 @@ export function SettingField({
           {description}
         </p>
       ) : null}
-      <div className="armada-setting-field__row" data-wide={control.kind === "prompt" || control.kind === "list" || undefined}>
+      <div
+        className="armada-setting-field__row"
+        data-wide={control.kind === "prompt" || control.kind === "list" || undefined}
+      >
         {typedField}
         {control.kind === "choice" || inFrame ? null : saveButton}
       </div>
       {control.kind === "number" && control.seconds && inRange ? (
         <p className="armada-setting-field__ships">{inWords(asked)}</p>
       ) : null}
-      {shipped === undefined ? null : <p className="armada-setting-field__ships">{`Ships at ${shipped}.`}</p>}
+      {shipped === undefined ? null : (
+        <p className="armada-setting-field__ships">{`Ships at ${shipped}.`}</p>
+      )}
       {notes}
       {refused !== undefined && control.kind !== "number" && control.kind !== "text" ? (
         <p className="armada-setting-field__refused" role="alert">
@@ -266,7 +357,16 @@ const DRAGGED_SPAN = 1000;
 const MARKED_STEPS = 32;
 
 /** A figure's field, with a slider beside it where the range is narrow enough to drag. The slider moves what is typed; Save sends it. */
-function Entry({ control, title, field, asked, inRange, off, onType, children }: {
+function Entry({
+  control,
+  title,
+  field,
+  asked,
+  inRange,
+  off,
+  onType,
+  children,
+}: {
   control: SettingFieldControl;
   title: string;
   field: string;
@@ -284,13 +384,22 @@ function Entry({ control, title, field, asked, inRange, off, onType, children }:
       <span
         className="armada-setting-field__track"
         data-marked={steps <= MARKED_STEPS || undefined}
-        style={{ "--fill": (at - control.min) / (control.max - control.min) } as CSSProperties}
+        style={
+          {
+            "--fill": (at - control.min) / (control.max - control.min),
+          } as CSSProperties
+        }
       >
         {steps > MARKED_STEPS ? null : (
           <span className="armada-setting-field__marks" aria-hidden="true">
-            {Array.from({ length: steps }, (_, step) => (
-              <span key={step} data-on={control.min + step <= at || undefined} />
-            ))}
+            {Array.from(
+              {
+                length: steps,
+              },
+              (_, step) => (
+                <span key={step} data-on={control.min + step <= at || undefined} />
+              ),
+            )}
           </span>
         )}
         <input
@@ -314,7 +423,15 @@ function Entry({ control, title, field, asked, inRange, off, onType, children }:
  * A section's settings, under a line saying why nothing can be sent where nothing can. The rows are
  * `SettingField`s.
  */
-export function SettingFieldList({ lead, note, children }: { lead?: ReactNode; note?: ReactNode; children: ReactNode }) {
+export function SettingFieldList({
+  lead,
+  note,
+  children,
+}: {
+  lead?: ReactNode;
+  note?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <div className="armada-setting-fields">
       {lead === undefined && note === undefined ? null : (
@@ -329,7 +446,10 @@ export function SettingFieldList({ lead, note, children }: { lead?: ReactNode; n
 }
 
 /** Why Fleet refused settings.json: the key at fault, where there is one, and why. */
-export type SettingsFileRefusal = { key?: string | null; reason: string };
+export type SettingsFileRefusal = {
+  key?: string | null;
+  reason: string;
+};
 
 /**
  * settings.json itself, above every section: **a refusal first**, since every value below is the
@@ -346,7 +466,13 @@ export type SettingsFileBarProps = {
   onOpen: () => void;
 };
 
-export function SettingsFileBar({ path, refused, opening = false, said, onOpen }: SettingsFileBarProps) {
+export function SettingsFileBar({
+  path,
+  refused,
+  opening = false,
+  said,
+  onOpen,
+}: SettingsFileBarProps) {
   return (
     <div className="armada-setting-fields__opening">
       {refused === null ? null : (
@@ -362,7 +488,14 @@ export function SettingsFileBar({ path, refused, opening = false, said, onOpen }
       )}
       <div className="armada-setting-fields__file">
         <code className="armada-setting-field__key">{path ?? "settings.json"}</code>
-        <Button variant="secondary" size="sm" ground="card" pending={opening} disabled={path === null} onClick={onOpen}>
+        <Button
+          variant="secondary"
+          size="sm"
+          ground="card"
+          pending={opening}
+          disabled={path === null}
+          onClick={onOpen}
+        >
           Open settings.json
         </Button>
       </div>
@@ -376,12 +509,23 @@ export function SettingsFileBar({ path, refused, opening = false, said, onOpen }
 }
 
 /** settings.json's path and its open act as a card's legend strip draws them: the path as the readout, the act a ghost icon button. */
-export function SettingsFileStrip({ path, opening = false, onOpen }: Pick<SettingsFileBarProps, "path" | "opening" | "onOpen">) {
+export function SettingsFileStrip({
+  path,
+  opening = false,
+  onOpen,
+}: Pick<SettingsFileBarProps, "path" | "opening" | "onOpen">) {
   return (
     <>
       <CardReadout data-path="">{path ?? "settings.json"}</CardReadout>
       <Tooltip label="Open settings.json">
-        <Button variant="ghost" iconOnly aria-label="Open settings.json" pending={opening} disabled={path === null} onClick={onOpen}>
+        <Button
+          variant="ghost"
+          iconOnly
+          aria-label="Open settings.json"
+          pending={opening}
+          disabled={path === null}
+          onClick={onOpen}
+        >
           <FileText size={16} aria-hidden="true" />
         </Button>
       </Tooltip>
@@ -390,7 +534,10 @@ export function SettingsFileStrip({ path, opening = false, onOpen }: Pick<Settin
 }
 
 /** What the strip has no room for: a refusal of settings.json, and why the last press did not open it. Drawn at the top of the card. */
-export function SettingsFileNote({ refused, said }: Pick<SettingsFileBarProps, "refused" | "said">) {
+export function SettingsFileNote({
+  refused,
+  said,
+}: Pick<SettingsFileBarProps, "refused" | "said">) {
   if (refused === null && said === undefined) return null;
   return (
     <div className="armada-setting-fields__opening">

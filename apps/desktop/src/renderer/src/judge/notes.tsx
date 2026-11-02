@@ -4,7 +4,14 @@
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { FindingNotes, useFindingKeys, type DiffFile, type Finding } from "@armada/components";
 
-import { notesBrought, useJudgeApi, useJudgeRecord, useNotesAsked, type JudgeArtifact, type JudgeNote } from "./store";
+import {
+  notesBrought,
+  useJudgeApi,
+  useJudgeRecord,
+  useNotesAsked,
+  type JudgeArtifact,
+  type JudgeNote,
+} from "./store";
 
 const NONE: readonly JudgeNote[] = [];
 
@@ -12,9 +19,23 @@ const NONE: readonly JudgeNote[] = [];
 export const findingOf = (note: JudgeNote): Finding => ({
   id: note.id,
   consequence: note.claim,
-  ...(note.where === undefined ? {} : { cites: [note.where] }),
-  ...(note.about === undefined ? {} : { about: note.about }),
-  ...(note.settled === undefined ? {} : { settled: note.settled }),
+  ...(note.where === undefined
+    ? {}
+    : {
+        cites: [
+          note.where,
+        ],
+      }),
+  ...(note.about === undefined
+    ? {}
+    : {
+        about: note.about,
+      }),
+  ...(note.settled === undefined
+    ? {}
+    : {
+        settled: note.settled,
+      }),
 });
 
 /** The reading of one artifact, with the acts on its notes. The notes are read once something draws them: `markRead` is the caller's to call. */
@@ -33,22 +54,45 @@ export function useJudgeNotes(job: string, artifact: Pick<JudgeArtifact, "kind" 
 }
 
 /** Keeps the reading's notes read for as long as something draws them. */
-export function useNotesRead(job: string, artifact: Pick<JudgeArtifact, "kind" | "id">, drawn: boolean): void {
+export function useNotesRead(
+  job: string,
+  artifact: Pick<JudgeArtifact, "kind" | "id">,
+  drawn: boolean,
+): void {
   const { record, markRead } = useJudgeNotes(job, artifact);
   const unread = record !== undefined && !record.read;
   useEffect(() => {
     if (drawn && unread) markRead();
     // The record is the thing that changes; the act is made fresh each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drawn, unread, record?.id]);
+  }, [
+    drawn,
+    unread,
+    record?.id,
+  ]);
 }
 
 /** The notes of a reading that stand under one part, as a list in the artifact. Draws nothing where the part has none. */
-export function JudgeNotes({ job, artifact, label, only, draws = true }: { job: string; artifact: Pick<JudgeArtifact, "kind" | "id">; label: string; /** Which notes stand here. Absent, every one. */ only?: (note: JudgeNote) => boolean; draws?: boolean }) {
+export function JudgeNotes({
+  job,
+  artifact,
+  label,
+  only,
+  draws = true,
+}: {
+  job: string;
+  artifact: Pick<JudgeArtifact, "kind" | "id">;
+  label: string /** Which notes stand here. Absent, every one. */;
+  only?: (note: JudgeNote) => boolean;
+  draws?: boolean;
+}) {
   const { notes, send, dismiss } = useJudgeNotes(job, artifact);
   const here = notes.filter((one) => only?.(one) ?? true);
   const findings = here.map(findingOf);
-  const keys = useFindingKeys(findings, { onSend: send, onDismiss: dismiss });
+  const keys = useFindingKeys(findings, {
+    onSend: send,
+    onDismiss: dismiss,
+  });
   useNotesRead(job, artifact, draws && here.length > 0);
   if (here.length === 0) return null;
   return (
@@ -79,7 +123,10 @@ export function newLineAt(file: DiffFile, index: number): number | undefined {
 }
 
 /** The `under` of a diff: the notes whose `path:line` is the line drawn, under it. Absent where the reading has no note on a line, so a diff draws as it did. */
-export function useDiffUnder(job: string, artifact: Pick<JudgeArtifact, "kind" | "id">): ((file: DiffFile, index: number) => ReactNode) | undefined {
+export function useDiffUnder(
+  job: string,
+  artifact: Pick<JudgeArtifact, "kind" | "id">,
+): ((file: DiffFile, index: number) => ReactNode) | undefined {
   const { notes } = useJudgeNotes(job, artifact);
   const { kind, id } = artifact;
   return useMemo(() => {
@@ -88,26 +135,57 @@ export function useDiffUnder(job: string, artifact: Pick<JudgeArtifact, "kind" |
       const line = newLineAt(file, index);
       const about = line === undefined ? undefined : `${file.path}:${line}`;
       if (about === undefined || !notes.some((one) => one.about === about)) return null;
-      return <JudgeNotes job={job} artifact={{ kind, id }} label={`Notes on ${about}`} only={(note) => note.about === about} />;
+      return (
+        <JudgeNotes
+          job={job}
+          artifact={{
+            kind,
+            id,
+          }}
+          label={`Notes on ${about}`}
+          only={(note) => note.about === about}
+        />
+      );
     };
-  }, [notes, job, kind, id]);
+  }, [
+    notes,
+    job,
+    kind,
+    id,
+  ]);
 }
 
 /** The artifacts a judge's notes are drawn inside elsewhere: the plan on its card, a pull request on its Files tab, a document on its page, the whole Job on the Judge tab. */
-const OWN_VIEW: ReadonlySet<string> = new Set(["job", "plan", "pull_request", "doc"]);
+const OWN_VIEW: ReadonlySet<string> = new Set([
+  "job",
+  "plan",
+  "pull_request",
+  "doc",
+]);
 
 /** Whether a reading of this artifact stands under its row in the Job's artifacts. */
-export const notedUnderRow = (artifact: Pick<JudgeArtifact, "kind">): boolean => !OWN_VIEW.has(artifact.kind);
+export const notedUnderRow = (artifact: Pick<JudgeArtifact, "kind">): boolean =>
+  !OWN_VIEW.has(artifact.kind);
 
 /** The notes of an artifact with no view of its own, under its row: every note of the reading, each saying where it is. A press that asked for them brings them into view. */
-export function JudgeRowNotes({ job, artifact }: { job: string; artifact: Pick<JudgeArtifact, "kind" | "id"> }) {
+export function JudgeRowNotes({
+  job,
+  artifact,
+}: {
+  job: string;
+  artifact: Pick<JudgeArtifact, "kind" | "id">;
+}) {
   const asked = useNotesAsked(job, artifact);
   const place = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!asked) return;
-    place.current?.scrollIntoView({ block: "center" });
+    place.current?.scrollIntoView({
+      block: "center",
+    });
     notesBrought();
-  }, [asked]);
+  }, [
+    asked,
+  ]);
   return (
     <div ref={place}>
       <JudgeNotes job={job} artifact={artifact} label="Notes from the judge" />

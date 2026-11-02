@@ -11,7 +11,9 @@ import "./debug-report.css";
 export type DebugRead = () => Promise<string>;
 
 /** What a window offers: open the sheet, and give back focus to `from` when it closes. */
-type Offer = { open: (from?: HTMLElement | null) => void };
+type Offer = {
+  open: (from?: HTMLElement | null) => void;
+};
 
 const Offered = createContext<Offer | null>(null);
 
@@ -19,19 +21,51 @@ const Offered = createContext<Offer | null>(null);
 export const useDebugReport = (): Offer | null => useContext(Offered);
 
 /** Each opening reads once. Absent offers nothing. */
-export function DebugReportFrom({ read, children }: { read: DebugRead | undefined; children: ReactNode }) {
+export function DebugReportFrom({
+  read,
+  children,
+}: {
+  read: DebugRead | undefined;
+  children: ReactNode;
+}) {
   return read === undefined ? <>{children}</> : <Held read={read}>{children}</Held>;
 }
 
 // The widths of a report's lines, so the placeholder has the shape of what lands.
-const SHAPE = ["32%", "54%", "62%", "48%", "58%", "40%", "64%", "36%", "52%", "60%", "44%", "56%"];
+const SHAPE = [
+  "32%",
+  "54%",
+  "62%",
+  "48%",
+  "58%",
+  "40%",
+  "64%",
+  "36%",
+  "52%",
+  "60%",
+  "44%",
+  "56%",
+];
 
 /** The sheet's reading: waiting, the text, or why there is none. */
-type Reading = { state: "reading" } | { state: "read"; text: string } | { state: "failed"; why: string };
+type Reading =
+  | {
+      state: "reading";
+    }
+  | {
+      state: "read";
+      text: string;
+    }
+  | {
+      state: "failed";
+      why: string;
+    };
 
 function Held({ read, children }: { read: DebugRead; children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const [reading, setReading] = useState<Reading>({ state: "reading" });
+  const [reading, setReading] = useState<Reading>({
+    state: "reading",
+  });
   const from = useRef<HTMLElement | null>(null);
   // An answer that arrives after the sheet closed, or after another opening began, is not the one on screen.
   const opening = useRef(0);
@@ -40,17 +74,29 @@ function Held({ read, children }: { read: DebugRead; children: ReactNode }) {
     (trigger?: HTMLElement | null) => {
       const mine = ++opening.current;
       from.current = trigger ?? null;
-      setReading({ state: "reading" });
+      setReading({
+        state: "reading",
+      });
       setOpen(true);
       const settle = (next: Reading) => {
         if (opening.current === mine) setReading(next);
       };
       read().then(
-        (text) => settle({ state: "read", text }),
-        (error: unknown) => settle({ state: "failed", why: error instanceof Error ? error.message : String(error) }),
+        (text) =>
+          settle({
+            state: "read",
+            text,
+          }),
+        (error: unknown) =>
+          settle({
+            state: "failed",
+            why: error instanceof Error ? error.message : String(error),
+          }),
       );
     },
-    [read],
+    [
+      read,
+    ],
   );
 
   const close = useCallback(() => {
@@ -60,7 +106,11 @@ function Held({ read, children }: { read: DebugRead; children: ReactNode }) {
   }, []);
 
   return (
-    <Offered.Provider value={{ open: show }}>
+    <Offered.Provider
+      value={{
+        open: show,
+      }}
+    >
       {children}
       <Sheet
         kind="debug-report"

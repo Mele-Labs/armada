@@ -9,10 +9,27 @@ const thread = region("Thread");
 
 const yourWordsAndActs = walk("session-your-words-and-acts", [
   toSessions,
-  { press: inside(region("Jobs", { exact: true }), button(/Store clock reply/)), say: "A thread with the agent, and then the person" },
-  { look: inside(thread, region("Your message")), say: "The person's message, under a band of its own" },
-  { look: inside(thread, region("You approved")), say: "An Approve, as one line with the page it was on" },
-  { look: inside(thread, region("You answered")), say: "An answer, with the item it answered" },
+  {
+    press: inside(
+      region("Jobs", {
+        exact: true,
+      }),
+      button(/Store clock reply/),
+    ),
+    say: "A thread with the agent, and then the person",
+  },
+  {
+    look: inside(thread, region("Your message")),
+    say: "The person's message, under a band of its own",
+  },
+  {
+    look: inside(thread, region("You approved")),
+    say: "An Approve, as one line with the page it was on",
+  },
+  {
+    look: inside(thread, region("You answered")),
+    say: "An answer, with the item it answered",
+  },
 ]);
 
 export { yourWordsAndActs as "your-words-and-acts" };

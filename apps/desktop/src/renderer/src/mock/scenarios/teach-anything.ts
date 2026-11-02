@@ -3,31 +3,64 @@
 // found in a pull request; the third's cannot be found, so Fleet asks. The mock Fleet in `../teach` reads and keeps what is taught,
 // over the same wire a real one has. The walk `teach-anything` plays it.
 
-import type { LogbookAnswer, LogbookEntry, LogbookForgotten, RepositorySummary } from "@armada/protocol";
+import type {
+  LogbookAnswer,
+  LogbookEntry,
+  LogbookForgotten,
+  RepositorySummary,
+} from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import type { BridgeApi } from "../../../../shared/api";
 import { onBoard, unanswered } from "../moment";
 import type { Scenario } from "../moment";
 import { FakeSessionsFleet } from "../sessions-fleet";
-import { ARMADA_JOB, BEHIND_AT, LATER_NOTICES, SITE_ASK, ledgerRecord, paymentsRecord, teachSessions, teachThreads } from "../sessions/teach";
+import {
+  ARMADA_JOB,
+  BEHIND_AT,
+  LATER_NOTICES,
+  SITE_ASK,
+  ledgerRecord,
+  paymentsRecord,
+  teachSessions,
+  teachThreads,
+} from "../sessions/teach";
 import { bindTeachFleet, entryOf, forgetTaught, siteAnswered, teachedMods } from "../teach";
 import { lessonsNow, taughtId } from "../../teach";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 const PAYMENTS: RepositorySummary = {
   root: "/Users/user/code/payments",
   records_root: "/records/payments",
-  manifest: { ...repository().manifest!, id: "payments", repository: "payments", path: "payments/armada.yml" },
+  manifest: {
+    ...repository().manifest!,
+    id: "payments",
+    repository: "payments",
+    path: "payments/armada.yml",
+  },
 };
 const LEDGER: RepositorySummary = {
   root: "/Users/user/code/ledger",
   records_root: "/records/ledger",
-  manifest: { ...repository().manifest!, id: "ledger", repository: "ledger", path: "ledger/armada.yml" },
+  manifest: {
+    ...repository().manifest!,
+    id: "ledger",
+    repository: "ledger",
+    path: "ledger/armada.yml",
+  },
 };
 
 const AT = "2026-10-20T10:00:00.000Z";
-const entry = (id: string, fields: Pick<LogbookEntry, "section" | "kind" | "text"> & Partial<LogbookEntry>): LogbookEntry => ({
+const entry = (
+  id: string,
+  fields: Pick<LogbookEntry, "section" | "kind" | "text"> & Partial<LogbookEntry>,
+): LogbookEntry => ({
   id,
   evidence: [],
   confirmed_by: 3,
@@ -42,9 +75,23 @@ const entry = (id: string, fields: Pick<LogbookEntry, "section" | "kind" | "text
 
 /** What the Logbook held before anything was taught. */
 const BASE = (): LogbookEntry[] => [
-  entry("lb-vitest", { section: "repo", repository: ARMADA.root, kind: "command", text: "Run `pnpm exec vitest run <touched files>`. Never the whole desktop suite." }),
-  entry("lb-lease", { section: "repo", repository: ARMADA.root, kind: "gotcha", text: "Lease a slot before the first write. Writes before it are refused." }),
-  entry("lb-fmt", { section: "habits", kind: "habit", text: "Never run rustfmt or cargo fmt." }),
+  entry("lb-vitest", {
+    section: "repo",
+    repository: ARMADA.root,
+    kind: "command",
+    text: "Run `pnpm exec vitest run <touched files>`. Never the whole desktop suite.",
+  }),
+  entry("lb-lease", {
+    section: "repo",
+    repository: ARMADA.root,
+    kind: "gotcha",
+    text: "Lease a slot before the first write. Writes before it are refused.",
+  }),
+  entry("lb-fmt", {
+    section: "habits",
+    kind: "habit",
+    text: "Never run rustfmt or cargo fmt.",
+  }),
 ];
 
 /** The second repository's Job asking the person, as `teach-mods` starts: a row that needs him, for Teach to be pressed on. */
@@ -62,8 +109,18 @@ const sessionsOf = (asking: boolean) => () =>
                   text: ROUNDING_ASK,
                   since: new Date().toISOString(),
                   source: "agent" as const,
-                  act: { kind: "answer" as const, target: "" },
-                  options: [{ label: "Half up" }, { label: "To even" }],
+                  act: {
+                    kind: "answer" as const,
+                    target: "",
+                  },
+                  options: [
+                    {
+                      label: "Half up",
+                    },
+                    {
+                      label: "To even",
+                    },
+                  ],
                 },
               ],
             }
@@ -77,7 +134,13 @@ const sessionsOf = (asking: boolean) => () =>
  */
 export function build(asking = false, wordsAsk = false): Scenario {
   const sessions = sessionsOf(asking);
-  const board = onBoard({ repositories: [ARMADA, PAYMENTS, LEDGER] });
+  const board = onBoard({
+    repositories: [
+      ARMADA,
+      PAYMENTS,
+      LEDGER,
+    ],
+  });
   const served = new FakeSessionsFleet(sessions(), teachThreads()).scenario(board);
   return {
     ...served,
@@ -88,65 +151,151 @@ export function build(asking = false, wordsAsk = false): Scenario {
       const fleet = new FakeSessionsFleet(sessions(), teachThreads());
       fleet.keepsRows = true;
       const own = fleet.scenario(board).behaves!(handle);
-      bindTeachFleet({
-        ask: (manifestId, repository, sites) => {
-          if (manifestId !== "ledger") return;
-          fleet.changed({
-            ...ledgerRecord(),
-            waiting_for: [
-              {
-                id: SITE_ASK,
-                text: `Which Jira site does ${repository} use?`,
-                since: new Date().toISOString(),
-                ...(wordsAsk ? { source: "words_address" as const, act: { kind: "answer" as const, target: SITE_ASK } } : { source: "agent" as const, act: { kind: "answer" as const, target: "" } }),
-                // Fleet offers an `Other` after the sites it knows, which the deck draws as its own free text.
-                options: [...sites, ...(wordsAsk ? ["Other"] : [])].map((label) => ({ label })),
-              },
-            ],
-          });
+      bindTeachFleet(
+        {
+          ask: (manifestId, repository, sites) => {
+            if (manifestId !== "ledger") return;
+            fleet.changed({
+              ...ledgerRecord(),
+              waiting_for: [
+                {
+                  id: SITE_ASK,
+                  text: `Which Jira site does ${repository} use?`,
+                  since: new Date().toISOString(),
+                  ...(wordsAsk
+                    ? {
+                        source: "words_address" as const,
+                        act: {
+                          kind: "answer" as const,
+                          target: SITE_ASK,
+                        },
+                      }
+                    : {
+                        source: "agent" as const,
+                        act: {
+                          kind: "answer" as const,
+                          target: "",
+                        },
+                      }),
+                  // Fleet offers an `Other` after the sites it knows, which the deck draws as its own free text.
+                  options: [
+                    ...sites,
+                    ...(wordsAsk
+                      ? [
+                          "Other",
+                        ]
+                      : []),
+                  ].map((label) => ({
+                    label,
+                  })),
+                },
+              ],
+            });
+          },
+          // Fleet sends two more slot notices once it is taught to batch them, each later than the one taught from.
+          kept: (lesson) => {
+            if (lesson.answer.fleet === undefined || lesson.teaching.sessionId !== ARMADA_JOB)
+              return;
+            LATER_NOTICES.forEach(({ text, minute }, at) =>
+              window.setTimeout(
+                () =>
+                  fleet.row(ARMADA_JOB, {
+                    kind: "message",
+                    id: `later-${at}`,
+                    at: new Date(Date.parse(BEHIND_AT) + (minute - 40) * 60_000).toISOString(),
+                    from: {
+                      kind: "session",
+                      id: "fleet",
+                      title: "Fleet",
+                    },
+                    text,
+                    notice: "behind_base",
+                  }),
+                600 + at * 100,
+              ),
+            );
+          },
         },
-        // Fleet sends two more slot notices once it is taught to batch them, each later than the one taught from.
-        kept: (lesson) => {
-          if (lesson.answer.fleet === undefined || lesson.teaching.sessionId !== ARMADA_JOB) return;
-          LATER_NOTICES.forEach(({ text, minute }, at) =>
-            window.setTimeout(
-              () =>
-                fleet.row(ARMADA_JOB, {
-                  kind: "message",
-                  id: `later-${at}`,
-                  at: new Date(Date.parse(BEHIND_AT) + (minute - 40) * 60_000).toISOString(),
-                  from: { kind: "session", id: "fleet", title: "Fleet" },
-                  text,
-                  notice: "behind_base",
-                }),
-              600 + at * 100,
-            ),
-          );
-        },
-      }, handle);
+        handle,
+      );
 
       // The Logbook: what it held, and the entries taught since. An edit or a lock on a taught entry is held here.
       let base = BASE();
       const changed = new Map<string, Partial<LogbookEntry>>();
-      const all = (): LogbookEntry[] => [...base, ...lessonsNow().flatMap((one) => entryOf(one) ?? [])].map((one) => ({ ...one, ...changed.get(one.id) }));
-      const change = (id: string, how: (was: LogbookEntry) => Partial<LogbookEntry>): LogbookAnswer => {
+      const all = (): LogbookEntry[] =>
+        [
+          ...base,
+          ...lessonsNow().flatMap((one) => entryOf(one) ?? []),
+        ].map((one) => ({
+          ...one,
+          ...changed.get(one.id),
+        }));
+      const change = (
+        id: string,
+        how: (was: LogbookEntry) => Partial<LogbookEntry>,
+      ): LogbookAnswer => {
         const was = all().find((one) => one.id === id);
-        if (was === undefined) return { ok: false, outcome: unanswered(`/logbook/${id}`) };
-        changed.set(id, { ...changed.get(id), ...how(was) });
-        return { ok: true, entry: { ...was, ...how(was) } };
+        if (was === undefined)
+          return {
+            ok: false,
+            outcome: unanswered(`/logbook/${id}`),
+          };
+        changed.set(id, {
+          ...changed.get(id),
+          ...how(was),
+        });
+        return {
+          ok: true,
+          entry: {
+            ...was,
+            ...how(was),
+          },
+        };
       };
-      const logbook: Pick<BridgeApi, "readLogbook" | "editLogbookEntry" | "lockLogbookEntry" | "forgetLogbookEntry"> = {
-        readLogbook: async () => ({ ok: true, entries: all(), tidy: { running: false }, organize: { running: false } }),
+      const logbook: Pick<
+        BridgeApi,
+        "readLogbook" | "editLogbookEntry" | "lockLogbookEntry" | "forgetLogbookEntry"
+      > = {
+        readLogbook: async () => ({
+          ok: true,
+          entries: all(),
+          tidy: {
+            running: false,
+          },
+          organize: {
+            running: false,
+          },
+        }),
         editLogbookEntry: async (id, text) =>
-          change(id, (was) => ({ text, edited: true, history: [{ text: was.text, until: new Date().toISOString(), by: "person" as const }, ...was.history] })),
-        lockLogbookEntry: async (id, locked) => change(id, () => ({ locked })),
+          change(id, (was) => ({
+            text,
+            edited: true,
+            history: [
+              {
+                text: was.text,
+                until: new Date().toISOString(),
+                by: "person" as const,
+              },
+              ...was.history,
+            ],
+          })),
+        lockLogbookEntry: async (id, locked) =>
+          change(id, () => ({
+            locked,
+          })),
         forgetLogbookEntry: async (id): Promise<LogbookForgotten> => {
           const lesson = lessonsNow().find((one) => taughtId(one) === id);
           // Forgetting a taught entry takes back everything the lesson changed: the note, the links and what Fleet does.
           if (lesson !== undefined) forgetTaught(lesson.id);
           else if (base.some((one) => one.id === id)) base = base.filter((one) => one.id !== id);
-          else return { ok: false, outcome: unanswered(`/logbook/${id}/forget`) };
-          return { ok: true };
+          else
+            return {
+              ok: false,
+              outcome: unanswered(`/logbook/${id}/forget`),
+            };
+          return {
+            ok: true,
+          };
         },
       };
 
@@ -158,7 +307,10 @@ export function build(asking = false, wordsAsk = false): Scenario {
         answerWaiting: async (answer) => {
           const done = await own.answerWaiting!(answer);
           if (answer.item_id === SITE_ASK) {
-            const options = ["acme.atlassian.net", "acme-payments.atlassian.net"];
+            const options = [
+              "acme.atlassian.net",
+              "acme-payments.atlassian.net",
+            ];
             const host = answer.text ?? options[answer.choice ?? 0];
             if (host !== undefined) siteAnswered("ledger", host.replace(/^https?:\/\//, ""));
           }

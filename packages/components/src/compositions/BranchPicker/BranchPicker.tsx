@@ -69,8 +69,19 @@ export function BranchPicker({
   required = false,
 }: BranchPickerProps) {
   const labelled = {
-    ...(labelledByRow ? { "aria-label": label } : { label }),
-    ...(required ? { required: true, invalid: value.trim() === "" } : {}),
+    ...(labelledByRow
+      ? {
+          "aria-label": label,
+        }
+      : {
+          label,
+        }),
+    ...(required
+      ? {
+          required: true,
+          invalid: value.trim() === "",
+        }
+      : {}),
   };
   const listId = useId();
   const optionId = (index: number): string => `${listId}-${index}`;
@@ -160,7 +171,9 @@ export function BranchPicker({
         aria-activedescendant={open && rows > 0 ? optionId(active) : undefined}
         aria-autocomplete="list"
         autoComplete="off"
-        trailing={<ChevronDown className="armada-branch__caret" size={16} strokeWidth={2} aria-hidden />}
+        trailing={
+          <ChevronDown className="armada-branch__caret" size={16} strokeWidth={2} aria-hidden />
+        }
         onChange={(event) => {
           onValue(event.target.value);
           setOpen(true);
@@ -184,8 +197,16 @@ export function BranchPicker({
                   id={optionId(index)}
                   active={index === active}
                   name={branch.name}
-                  {...(branch.base === true ? { tag: BASE } : {})}
-                  {...(branch.base !== true && branch.job !== undefined ? { job: branch.job } : {})}
+                  {...(branch.base === true
+                    ? {
+                        tag: BASE,
+                      }
+                    : {})}
+                  {...(branch.base !== true && branch.job !== undefined
+                    ? {
+                        job: branch.job,
+                      }
+                    : {})}
                   onHover={() => setActive(index)}
                   onChoose={() => choose(index)}
                 />

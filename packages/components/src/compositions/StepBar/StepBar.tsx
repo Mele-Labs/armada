@@ -95,7 +95,10 @@ export type StepBarProps =
     };
 
 /** One segment's press, and the name it carries: its tooltip and its label. */
-export type StepBarPress = { label: string; onPress: () => void };
+export type StepBarPress = {
+  label: string;
+  onPress: () => void;
+};
 
 export function StepBar(props: StepBarProps) {
   const { label } = props;
@@ -115,14 +118,24 @@ export function StepBar(props: StepBarProps) {
                 ? ("failed" as const)
                 : undefined,
         }))
-      : Array.from({ length: props.total }, (_, i) => {
-          const position = i + 1;
-          const state = position < props.current ? "past" : position === props.current ? "current" : "remaining";
-          return {
-            state: state as "past" | "current" | "remaining",
-            activity: state === "current" ? (props.activity ?? "not_started") : undefined,
-          };
-        });
+      : Array.from(
+          {
+            length: props.total,
+          },
+          (_, i) => {
+            const position = i + 1;
+            const state =
+              position < props.current
+                ? "past"
+                : position === props.current
+                  ? "current"
+                  : "remaining";
+            return {
+              state: state as "past" | "current" | "remaining",
+              activity: state === "current" ? (props.activity ?? "not_started") : undefined,
+            };
+          },
+        );
 
   const fallbackLabel =
     props.tasks !== undefined
@@ -133,7 +146,11 @@ export function StepBar(props: StepBarProps) {
   const pressable = presses !== undefined && presses.some((press) => press !== undefined);
   const bar = (
     // A bar any segment of which is a button is a group of them, not a picture.
-    <span className="armada-step-bar" role={pressable ? "group" : "img"} aria-label={label ?? fallbackLabel}>
+    <span
+      className="armada-step-bar"
+      role={pressable ? "group" : "img"}
+      aria-label={label ?? fallbackLabel}
+    >
       {segments.map((segment, i) => {
         const press = presses?.[i];
         return press === undefined ? (

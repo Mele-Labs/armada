@@ -30,10 +30,19 @@ const DWELL_MS = 2_500;
 /** Longer than the walk's own five seconds for a target, so the walk is what says it stopped. */
 const STEP_TIMEOUT_MS = 30_000;
 
-const USAGE = "usage: pnpm -C apps/desktop walk <name> [--video] [--narrow] [--size 1440x900] [--url http://localhost:<port>] [--query take=marked]";
+const USAGE =
+  "usage: pnpm -C apps/desktop walk <name> [--video] [--narrow] [--size 1440x900] [--url http://localhost:<port>] [--query take=marked]";
 
 function parse(argv) {
-  const asked = { name: undefined, video: false, size: { width: 1440, height: 900 }, url: undefined };
+  const asked = {
+    name: undefined,
+    video: false,
+    size: {
+      width: 1440,
+      height: 900,
+    },
+    url: undefined,
+  };
   for (let at = 0; at < argv.length; at += 1) {
     const one = argv[at];
     if (one === "--video") asked.video = true;
@@ -43,7 +52,10 @@ function parse(argv) {
     else if (one === "--size") {
       const match = /^(\d+)x(\d+)$/.exec(argv[(at += 1)] ?? "");
       if (match === null) throw new Error(`--size takes WIDTHxHEIGHT\n${USAGE}`);
-      asked.size = { width: Number(match[1]), height: Number(match[2]) };
+      asked.size = {
+        width: Number(match[1]),
+        height: Number(match[2]),
+      };
     } else if (one.startsWith("--")) throw new Error(`no option ${one}\n${USAGE}`);
     else asked.name = one;
   }
@@ -51,7 +63,11 @@ function parse(argv) {
   // A walk told below the layout breakpoint is its own walk, `<name>-narrow`, in its own window.
   if (asked.narrow) {
     asked.name = `${asked.name}-narrow`;
-    if (!argv.includes("--size")) asked.size = { width: 900, height: 900 };
+    if (!argv.includes("--size"))
+      asked.size = {
+        width: 900,
+        height: 900,
+      };
   }
   return asked;
 }
@@ -86,22 +102,36 @@ async function settled(page, at) {
       const card = document.querySelector("[data-walk-state]");
       if (card === null) return false;
       const state = card.getAttribute("data-walk-state");
-      return state === "stopped" || state === "done" || (state === "ready" && card.getAttribute("data-walk-step") === String(step));
+      return (
+        state === "stopped" ||
+        state === "done" ||
+        (state === "ready" && card.getAttribute("data-walk-step") === String(step))
+      );
     },
     at,
-    { timeout: STEP_TIMEOUT_MS },
+    {
+      timeout: STEP_TIMEOUT_MS,
+    },
   );
   const card = page.locator("[data-walk-state]");
   return {
     state: await card.getAttribute("data-walk-state"),
-    said: (await page.locator(".armada-mock-walk__said").textContent().catch(() => null))?.trim() ?? "",
+    said:
+      (
+        await page
+          .locator(".armada-mock-walk__said")
+          .textContent()
+          .catch(() => null)
+      )?.trim() ?? "",
   };
 }
 
 async function main() {
   const asked = parse(process.argv.slice(2));
   const out = join(REPOSITORY, ".armada", "walks", `${asked.name}-${stamp()}`);
-  mkdirSync(out, { recursive: true });
+  mkdirSync(out, {
+    recursive: true,
+  });
 
   let server;
   let base = asked.url;
@@ -109,7 +139,11 @@ async function main() {
     const chosen = await port();
     server = await createServer({
       configFile: join(DESKTOP, "vite.mock.config.ts"),
-      server: { port: chosen, strictPort: true, host: "127.0.0.1" },
+      server: {
+        port: chosen,
+        strictPort: true,
+        host: "127.0.0.1",
+      },
       logLevel: "error",
     });
     await server.listen();
@@ -119,7 +153,14 @@ async function main() {
   const browser = await chromium.launch();
   const context = await browser.newContext({
     viewport: asked.size,
-    ...(asked.video ? { recordVideo: { dir: out, size: asked.size } } : {}),
+    ...(asked.video
+      ? {
+          recordVideo: {
+            dir: out,
+            size: asked.size,
+          },
+        }
+      : {}),
   });
   const page = await context.newPage();
   // A throw is a failure even where the walk went on: Bridge draws one as a
@@ -141,12 +182,16 @@ async function main() {
         // The last press's own result, which the last step's picture was taken before.
         await page.waitForTimeout(600);
         const file = join(out, `${pad(at)}-where-it-ended.png`);
-        await page.screenshot({ path: file });
+        await page.screenshot({
+          path: file,
+        });
         written.push(file);
         break;
       }
       const file = join(out, `${pad(at)}-${state === "stopped" ? "stopped" : slug(said)}.png`);
-      await page.screenshot({ path: file });
+      await page.screenshot({
+        path: file,
+      });
       written.push(file);
       if (state === "stopped") {
         stop = said;
@@ -154,7 +199,13 @@ async function main() {
         break;
       }
       if (asked.video) await page.waitForTimeout(DWELL_MS);
-      await page.locator("[data-walk-ui]").getByRole("button", { name: "Next", exact: true }).click();
+      await page
+        .locator("[data-walk-ui]")
+        .getByRole("button", {
+          name: "Next",
+          exact: true,
+        })
+        .click();
     }
   } finally {
     const video = page.video();

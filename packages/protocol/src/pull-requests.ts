@@ -14,7 +14,18 @@ export type PullRequestStanding = "draft" | "open" | "merged" | "closed";
  * What the forge's own checks have come to. Not Armada's Checks. A repository
  * that runs nothing reads `pending`, because nothing passed.
  */
-export type ForgeChecks = { state: "pending" } | { state: "passed" } | { state: "failed"; failing: string[]; weight?: FailureWeight };
+export type ForgeChecks =
+  | {
+      state: "pending";
+    }
+  | {
+      state: "passed";
+    }
+  | {
+      state: "failed";
+      failing: string[];
+      weight?: FailureWeight;
+    };
 
 /** How much a failed check decides: with a gate named, only the gate does. Fleet refuses a merge on any of them. */
 export type FailureWeight = "required" | "while_running" | "after_required";
@@ -61,12 +72,30 @@ export type PullRequestMergeable = "mergeable" | "conflicting" | "unknown";
 export type PullRequestReviewState = "approved" | "changes_requested" | "required" | "none";
 
 /** Somebody asked to review, or who reviewed and is no longer asked. `verdict` is their latest review; absent for a team. `name` and `url` are a person's full name and profile address where the forge gave them; never set for a team. */
-export type PullRequestReviewer = { login: string; kind: "person" | "team"; verdict?: "approved" | "changes_requested" | "commented"; name?: string; url?: string; team?: string };
+export type PullRequestReviewer = {
+  login: string;
+  kind: "person" | "team";
+  verdict?: "approved" | "changes_requested" | "commented";
+  name?: string;
+  url?: string;
+  team?: string;
+};
 
 /** One thing said on the pull request, in the order it was said. */
 export type PullRequestEntry =
-  | { kind: "comment"; author: string; at: string; body: string }
-  | { kind: "review"; author: string; at: string; verdict: "approved" | "changes_requested" | "commented"; body: string };
+  | {
+      kind: "comment";
+      author: string;
+      at: string;
+      body: string;
+    }
+  | {
+      kind: "review";
+      author: string;
+      at: string;
+      verdict: "approved" | "changes_requested" | "commented";
+      body: string;
+    };
 
 /** One of the forge's checks, with how long it ran where the forge said. */
 export type PullRequestCheckRow = {
@@ -142,7 +171,9 @@ export type PullRequestFilePatch = {
  * `get_pull_request_file` answers it, from one forge read. `GET /pull_request_patches/:repository/:number`.
  */
 export type PullRequestFilePatches = {
-  files: readonly ({ path: string } & PullRequestFilePatch)[];
+  files: readonly ({
+    path: string;
+  } & PullRequestFilePatch)[];
 };
 
 /** What the panel's comment box writes. `POST /pull_request_writes/:repository`. */

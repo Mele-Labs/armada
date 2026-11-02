@@ -11,7 +11,13 @@ import type { Scenario } from "../moment";
 import { FakeSessionsFleet, held, hosted } from "../sessions-fleet";
 import { onTimePassing } from "../time-passes";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 const JOB = "01SESSIONCALLSLIKETHISAAAA";
 const AT = "2026-10-26T15:20:00.000Z";
 const SHOT = "/Users/user/Desktop/shot.png";
@@ -27,40 +33,105 @@ const call = (id: string, command: string, reaches: string, script: string): Hel
   detail: command,
   truncated: false,
   rule: "Bash(node:*)",
-  offers: ["allow_once", "refuse", "always_allow", "allow_for_session", "allow_like_this_for_session", "always_block"],
+  offers: [
+    "allow_once",
+    "refuse",
+    "always_allow",
+    "allow_for_session",
+    "allow_like_this_for_session",
+    "always_block",
+  ],
   holding_for_seconds: 300,
   reaches,
   reaches_to: "write",
-  kind: { program: "node", script },
+  kind: {
+    program: "node",
+    script,
+  },
 });
 
 const driving = call("helm-21", DRIVING, SHOT, "drive.mjs");
 const cleaning = call("helm-22", CLEANUP, "/Users/user/code/other-repo", "cleanup.mjs");
 
 function fleet(): FakeSessionsFleet {
-  const records = [hosted(JOB, { title: "Browser checks", attachments: [held("slot", "6")], hosted: { turn: { state: "working" }, mode: "auto", running: true, asked: driving } })];
+  const records = [
+    hosted(JOB, {
+      title: "Browser checks",
+      attachments: [
+        held("slot", "6"),
+      ],
+      hosted: {
+        turn: {
+          state: "working",
+        },
+        mode: "auto",
+        running: true,
+        asked: driving,
+      },
+    }),
+  ];
   const thread = {
     [JOB]: [
-      { kind: "message" as const, id: "m1", at: AT, from: { kind: "you" as const }, text: "Run the browser checks and save a screenshot to my Desktop." },
-      { kind: "ask" as const, id: `ask-${driving.call}-${JOB}`, at: AT, ask: driving, state: "waiting" as const },
+      {
+        kind: "message" as const,
+        id: "m1",
+        at: AT,
+        from: {
+          kind: "you" as const,
+        },
+        text: "Run the browser checks and save a screenshot to my Desktop.",
+      },
+      {
+        kind: "ask" as const,
+        id: `ask-${driving.call}-${JOB}`,
+        at: AT,
+        ask: driving,
+        state: "waiting" as const,
+      },
     ],
   };
   const served = new FakeSessionsFleet(records, thread);
   served.onAnswer = (answer) => {
-    if (answer.session_id !== JOB || answer.call !== driving.call || answer.answer !== "allow_like_this_for_session") return;
+    if (
+      answer.session_id !== JOB ||
+      answer.call !== driving.call ||
+      answer.answer !== "allow_like_this_for_session"
+    )
+      return;
     // The script's kind covers the next drive.mjs call and not cleanup.mjs; the program's covers both.
     const wide = answer.kind?.script === undefined;
-    const ran = { kind: "tool", id: "t1", at: AT, text: `Bash ${BROWSER}` } as const;
-    if (wide) void served.agentTurn(JOB, [ran, { kind: "tool", id: "t2", at: AT, text: `Bash ${CLEANUP}` }]);
+    const ran = {
+      kind: "tool",
+      id: "t1",
+      at: AT,
+      text: `Bash ${BROWSER}`,
+    } as const;
+    if (wide)
+      void served.agentTurn(JOB, [
+        ran,
+        {
+          kind: "tool",
+          id: "t2",
+          at: AT,
+          text: `Bash ${CLEANUP}`,
+        },
+      ]);
     // Held for a walk's `later` step, so the call that ran is read before a new card covers the thread.
-    else void served.agentTurn(JOB, [ran]).then(() => onTimePassing(() => served.asks(JOB, cleaning)));
+    else
+      void served
+        .agentTurn(JOB, [
+          ran,
+        ])
+        .then(() => onTimePassing(() => served.asks(JOB, cleaning)));
   };
   return served;
 }
 
 function build(): Scenario {
   const board = onBoard({
-    repositories: [ARMADA],
+    repositories: [
+      ARMADA,
+    ],
     picked: ARMADA.root,
   });
   return {

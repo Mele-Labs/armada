@@ -9,8 +9,17 @@ export const clashes: Slice<ClashesApi, Record<string, never>> = {
   name: "clashes",
   state: {},
   api: () => ({
-    getWriteClashes: async () => ({ ok: false, outcome: unanswered("/clashes") }),
-    readClashFile: async () => ({ ok: false, outcome: unanswered("/clashes/file") }),
-    readSessionFileChange: async () => ({ ok: false, outcome: unanswered("/sessions/file_change") }),
+    getWriteClashes: async () => ({
+      ok: false,
+      outcome: unanswered("/clashes"),
+    }),
+    readClashFile: async () => ({
+      ok: false,
+      outcome: unanswered("/clashes/file"),
+    }),
+    readSessionFileChange: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/file_change"),
+    }),
   }),
 };

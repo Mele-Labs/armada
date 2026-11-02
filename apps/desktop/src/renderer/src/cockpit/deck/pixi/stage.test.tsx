@@ -12,12 +12,22 @@ import "../../../styles/index.css";
 import { PANE, sceneFor } from "./scene-fixture";
 import { Stage } from "./stage";
 
-const CAM = { x: 0, y: 0, eye: 1, tilt: false };
+const CAM = {
+  x: 0,
+  y: 0,
+  eye: 1,
+  tilt: false,
+};
 const wait = (ms: number) => new Promise((done) => window.setTimeout(done, ms));
 
 let host: HTMLElement;
 let stage: Stage;
-const app = () => (stage as unknown as { app: Application | undefined }).app!;
+const app = () =>
+  (
+    stage as unknown as {
+      app: Application | undefined;
+    }
+  ).app!;
 const started = () => app().ticker.started;
 /** The frames the application has drawn since this was called. */
 const counting = () => {
@@ -34,7 +44,11 @@ beforeEach(async () => {
   host.style.cssText = `position:relative;width:${PANE.width}px;height:${PANE.height}px`;
   document.body.append(host);
   stage = Stage.start(host);
-  await expect.poll(() => host.querySelector("canvas") !== null, { timeout: 60_000 }).toBe(true);
+  await expect
+    .poll(() => host.querySelector("canvas") !== null, {
+      timeout: 60_000,
+    })
+    .toBe(true);
   stage.setSize(PANE);
   stage.setCamera(CAM, true);
 });
@@ -51,11 +65,41 @@ afterEach(async () => {
 const working = () => {
   const scene = sceneFor();
   const tile = scene.layout.territories[0]!.tiles[0]!;
-  return { ...scene, drones: scene.drones.map((one) => (one.drone.key === "session:Writer" ? { ...one, loop: true, aim: { tile: tile.path, at: { x: tile.cx, y: tile.cy }, wide: 40, deep: 20 } } : one)) };
+  return {
+    ...scene,
+    drones: scene.drones.map((one) =>
+      one.drone.key === "session:Writer"
+        ? {
+            ...one,
+            loop: true,
+            aim: {
+              tile: tile.path,
+              at: {
+                x: tile.cx,
+                y: tile.cy,
+              },
+              wide: 40,
+              deep: 20,
+            },
+          }
+        : one,
+    ),
+  };
 };
 
 /** A scene with a play still waiting on its delay: the ticker runs for as long as a test needs it to. */
-const playing = () => sceneFor({ plays: [{ id: "held", kind: "launch", key: "session:Writer", at: 0, delay: 60_000 }] });
+const playing = () =>
+  sceneFor({
+    plays: [
+      {
+        id: "held",
+        kind: "launch",
+        key: "session:Writer",
+        at: 0,
+        delay: 60_000,
+      },
+    ],
+  });
 
 test("a map nobody is touching has its ticker stopped, and an unchanged scene draws nothing", async () => {
   stage.setScene(sceneFor());
@@ -71,7 +115,11 @@ test("a map nobody is touching has its ticker stopped, and an unchanged scene dr
   expect(started()).toBe(false);
 
   // One that changed is drawn once, on the next animation frame, and the ticker stays stopped.
-  stage.setScene(sceneFor({ hotTile: sceneFor().layout.territories[0]!.tiles[0]!.path }));
+  stage.setScene(
+    sceneFor({
+      hotTile: sceneFor().layout.territories[0]!.tiles[0]!.path,
+    }),
+  );
   await expect.poll(drawn).toBe(1);
   await wait(200);
   expect(drawn()).toBe(1);
@@ -115,7 +163,11 @@ test("under reduced motion the clock draws a working drone no frames", async () 
   await commands.motion(false);
   stage.destroy();
   stage = Stage.start(host);
-  await expect.poll(() => host.querySelector("canvas") !== null, { timeout: 60_000 }).toBe(true);
+  await expect
+    .poll(() => host.querySelector("canvas") !== null, {
+      timeout: 60_000,
+    })
+    .toBe(true);
   stage.setSize(PANE);
   stage.setCamera(CAM, true);
   const stopClock = startLoopClock();
@@ -138,7 +190,11 @@ test("a play starts the ticker, and it stops itself once nothing plays", async (
   await expect.poll(drawn).toBeGreaterThan(2);
 
   stage.setScene(sceneFor());
-  await expect.poll(started, { timeout: 5_000 }).toBe(false);
+  await expect
+    .poll(started, {
+      timeout: 5_000,
+    })
+    .toBe(false);
   const after = counting();
   await wait(300);
   expect(after()).toBe(0);
@@ -151,7 +207,11 @@ test("a window nobody is looking at holds: the ticker stops and a changed scene 
   document.documentElement.setAttribute("data-idle", "");
   await expect.poll(started).toBe(false);
   const drawn = counting();
-  stage.setScene(sceneFor({ hotTile: sceneFor().layout.territories[0]!.tiles[0]!.path }));
+  stage.setScene(
+    sceneFor({
+      hotTile: sceneFor().layout.territories[0]!.tiles[0]!.path,
+    }),
+  );
   stage.setScene(playing());
   await wait(300);
   expect(drawn()).toBe(0);
@@ -175,7 +235,13 @@ test("a camera that moves by hand is drawn once for each move and then the ticke
   stage.setScene(sceneFor());
   await wait(200);
   const drawn = counting();
-  stage.setCamera({ ...CAM, x: 120 }, true);
+  stage.setCamera(
+    {
+      ...CAM,
+      x: 120,
+    },
+    true,
+  );
   await expect.poll(drawn).toBeGreaterThan(0);
   await wait(200);
   expect(started()).toBe(false);
@@ -187,8 +253,17 @@ test("a folded pane draws nothing and builds nothing, and draws what it was hand
   stage.setHidden(true);
   await expect.poll(started).toBe(false);
   const drawn = counting();
-  const built = vi.spyOn(stage as unknown as { sync: (force: boolean) => void }, "sync");
-  stage.setScene(sceneFor({ hotTile: sceneFor().layout.territories[0]!.tiles[0]!.path }));
+  const built = vi.spyOn(
+    stage as unknown as {
+      sync: (force: boolean) => void;
+    },
+    "sync",
+  );
+  stage.setScene(
+    sceneFor({
+      hotTile: sceneFor().layout.territories[0]!.tiles[0]!.path,
+    }),
+  );
   stage.setScene(playing());
   await wait(300);
   expect(drawn()).toBe(0);
@@ -203,7 +278,12 @@ test("a theme put on, or fonts arriving, while the pane is folded builds nothing
   await expect.poll(started).toBe(true);
   stage.setHidden(true);
   await expect.poll(started).toBe(false);
-  const built = vi.spyOn(stage as unknown as { sync: (force: boolean) => void }, "sync");
+  const built = vi.spyOn(
+    stage as unknown as {
+      sync: (force: boolean) => void;
+    },
+    "sync",
+  );
   const root = document.documentElement;
   const theme = root.getAttribute("data-theme");
   root.setAttribute("data-theme", theme ?? "dark");
@@ -218,10 +298,34 @@ test("a glow or a bar that moves draws the bars again and leaves the plots as th
   const scene = sceneFor();
   stage.setScene(scene);
   await wait(200);
-  const layers = stage as unknown as { tiles: { set: () => void }; marks: { set: () => void } };
-  const [plots, bars] = [vi.spyOn(layers.tiles, "set"), vi.spyOn(layers.marks, "set")];
+  const layers = stage as unknown as {
+    tiles: {
+      set: () => void;
+    };
+    marks: {
+      set: () => void;
+    };
+  };
+  const [plots, bars] = [
+    vi.spyOn(layers.tiles, "set"),
+    vi.spyOn(layers.marks, "set"),
+  ];
   const path = scene.layout.territories[0]!.tiles[0]!.path;
-  stage.setScene({ ...scene, glow: new Map([[`${path}/lib.rs`, { act: "write", v: 0.5 }]]), touched: new Set([path]) });
+  stage.setScene({
+    ...scene,
+    glow: new Map([
+      [
+        `${path}/lib.rs`,
+        {
+          act: "write",
+          v: 0.5,
+        },
+      ],
+    ]),
+    touched: new Set([
+      path,
+    ]),
+  });
   await wait(200);
   expect(bars).toHaveBeenCalledTimes(1);
   expect(plots).not.toHaveBeenCalled();
@@ -233,7 +337,17 @@ test("a drone handed twice in one scene is drawn once, and the map keeps drawing
   await wait(200);
   const writer = scene.drones.find((one) => one.drone.key === "session:Writer")!;
   // A subagent that left twice within its return: the second copy as it was drawn, the first changed.
-  const twice = { ...scene, drones: [...scene.drones.filter((one) => one !== writer), { ...writer, selected: true }, writer] };
+  const twice = {
+    ...scene,
+    drones: [
+      ...scene.drones.filter((one) => one !== writer),
+      {
+        ...writer,
+        selected: true,
+      },
+      writer,
+    ],
+  };
   expect(() => stage.setScene(twice)).not.toThrow();
   expect(stage.drones.children.length).toBe(scene.drones.length);
 });

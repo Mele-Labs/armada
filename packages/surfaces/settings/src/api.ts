@@ -22,39 +22,86 @@ import type {
  * runs the Gateway itself, so the switch is Fleet's. The rest go to the Gateway.
  */
 export type PhoneRequest =
-  | { op: "access" }
-  | { op: "turn"; on: boolean }
-  | { op: "start" }
-  | { op: "pending" }
-  | { op: "confirm"; code: string }
-  | { op: "devices" }
-  | { op: "unpair"; id: string }
-  | { op: "status" }
+  | {
+      op: "access";
+    }
+  | {
+      op: "turn";
+      on: boolean;
+    }
+  | {
+      op: "start";
+    }
+  | {
+      op: "pending";
+    }
+  | {
+      op: "confirm";
+      code: string;
+    }
+  | {
+      op: "devices";
+    }
+  | {
+      op: "unpair";
+      id: string;
+    }
+  | {
+      op: "status";
+    }
   /** How far this Mac is along the way in: Tailscale installed, signed in, and Funnel on. */
-  | { op: "setup" }
+  | {
+      op: "setup";
+    }
   /** Turn Funnel on in front of the Gateway. */
-  | { op: "funnel" };
+  | {
+      op: "funnel";
+    };
 
 /** Fleet's answer on `/phone`. `why` is Fleet's sentence where access is on and nothing listens. */
-export type PhoneAccess = { on: boolean; port: number; listening: boolean; why?: string };
+export type PhoneAccess = {
+  on: boolean;
+  port: number;
+  listening: boolean;
+  why?: string;
+};
 
 /**
  * `body` is the route's JSON, or `null` for a 204. `unreachable` is a refused connection to the
  * Gateway. A refusal from Fleet arrives as `refused`, in Fleet's words.
  */
 export type PhoneAnswer =
-  | { ok: true; body: unknown }
-  | { ok: false; why: "unreachable" }
-  | { ok: false; why: "refused"; said: string };
+  | {
+      ok: true;
+      body: unknown;
+    }
+  | {
+      ok: false;
+      why: "unreachable";
+    }
+  | {
+      ok: false;
+      why: "refused";
+      said: string;
+    };
 
 /**
  * What happened to a press of "Open settings.json". `not_read` is Fleet not having said where the
  * file is yet; `refused` carries the sentence the editor or the OS gave.
  */
 export type SettingsFileOpened =
-  | { ok: true }
-  | { ok: false; why: "not_read" }
-  | { ok: false; why: "refused"; detail: string };
+  | {
+      ok: true;
+    }
+  | {
+      ok: false;
+      why: "not_read";
+    }
+  | {
+      ok: false;
+      why: "refused";
+      detail: string;
+    };
 
 export type SettingsApi = {
   /**
@@ -132,7 +179,9 @@ export type SettingsState = {
 export const SETTINGS_NOTHING_YET: SettingsState = {
   settings: null,
   limits: null,
-  preferences: { where_things_are_open: false },
+  preferences: {
+    where_things_are_open: false,
+  },
   mods: null,
 };
 

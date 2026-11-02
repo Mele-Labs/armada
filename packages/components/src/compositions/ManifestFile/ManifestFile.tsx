@@ -257,6 +257,10 @@ function receiptOf(
   // `worthSaying` the notice asks — this is the one place that says the save
   // was read at all.
   const quiet = reading === undefined || !worthSaying(reading);
-  const read = quiet ? <>{landed} Fleet read it, and nothing it reads while running changed.</> : landed;
+  const read = quiet ? (
+    <>{landed} Fleet read it, and nothing it reads while running changed.</>
+  ) : (
+    landed
+  );
   return changed ? <>{read} Edited since.</> : read;
 }

@@ -8,7 +8,10 @@ import type { SessionRecord } from "@armada/protocol";
 import type { CaptureReadiness } from "../../shared/capture-window";
 
 /** The Session's window at `address`: `working` when its artifact says so, else `ready`; `undefined` where the ledger shows no such window. */
-export function sessionReadiness(record: SessionRecord | undefined, address: string): CaptureReadiness | undefined {
+export function sessionReadiness(
+  record: SessionRecord | undefined,
+  address: string,
+): CaptureReadiness | undefined {
   const shown = record?.attachments.find(
     (one) => one.kind === "artifact" && one.target === address && one.detail?.["form"] === "window",
   );

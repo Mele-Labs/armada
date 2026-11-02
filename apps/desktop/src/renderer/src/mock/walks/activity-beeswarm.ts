@@ -9,12 +9,31 @@ const chart = inside(activity, role("group", "Last hour"));
 const newest = inside(activity, button(/: /));
 
 const activityBeeswarm = walk("activity-beeswarm", [
-  { press: inside(region("Flight controls"), button("Activity")), say: "Activity's bay opens its HUD over the field" },
-  { look: chart, say: "A dot for each event at its time, the newest at the right, packed up and down a centre line so none overlap. A dot is the colour of its tone. Reads, edits and commands are smaller and fainter" },
-  { hover: newest, say: "Hovering a dot lists the events within a minute and a half of it, the hovered one first" },
-  { press: newest, say: "Pressing a dot picks its event. The map rings the drone and dims the rest" },
-  { key: "ArrowLeft", on: newest, say: "The left and right arrows move from dot to dot in time order" },
-  { look: newest, say: "The picked event's dot is ringed" },
+  {
+    press: inside(region("Flight controls"), button("Activity")),
+    say: "Activity's bay opens its HUD over the field",
+  },
+  {
+    look: chart,
+    say: "A dot for each event at its time, the newest at the right, packed up and down a centre line so none overlap. A dot is the colour of its tone. Reads, edits and commands are smaller and fainter",
+  },
+  {
+    hover: newest,
+    say: "Hovering a dot lists the events within a minute and a half of it, the hovered one first",
+  },
+  {
+    press: newest,
+    say: "Pressing a dot picks its event. The map rings the drone and dims the rest",
+  },
+  {
+    key: "ArrowLeft",
+    on: newest,
+    say: "The left and right arrows move from dot to dot in time order",
+  },
+  {
+    look: newest,
+    say: "The picked event's dot is ringed",
+  },
 ]);
 
 export { activityBeeswarm as "activity-beeswarm" };

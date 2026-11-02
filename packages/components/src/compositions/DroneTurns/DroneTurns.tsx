@@ -163,7 +163,10 @@ export function DroneTurns({ turns, emptyNote, live = false, steps = true }: Dro
     if (list === null || seeded.current) return;
     seeded.current = true;
     following.current = live;
-  }, [list, live]);
+  }, [
+    list,
+    live,
+  ]);
 
   // The pane owns no scroller: it is drawn inside one, so it reads the ancestor
   // that scrolls rather than declaring a height no drawing gives it.
@@ -177,9 +180,13 @@ export function DroneTurns({ turns, emptyNote, live = false, steps = true }: Dro
     const read = (): void => {
       following.current = atBottom(found);
     };
-    target.addEventListener("scroll", read, { passive: true });
+    target.addEventListener("scroll", read, {
+      passive: true,
+    });
     return () => target.removeEventListener("scroll", read);
-  }, [list]);
+  }, [
+    list,
+  ]);
 
   // **The scroller's own bottom, not the list's.** `scrollIntoView` would stop
   // at the list's last row, leaving the region's padding below it — which the
@@ -192,7 +199,10 @@ export function DroneTurns({ turns, emptyNote, live = false, steps = true }: Dro
     const pane = scroller.current;
     if (!following.current || pane === null) return;
     pane.scrollTop = pane.scrollHeight;
-  }, [list, turns.length]);
+  }, [
+    list,
+    turns.length,
+  ]);
 
   if (turns.length === 0) {
     return emptyNote === undefined ? null : (
@@ -261,7 +271,10 @@ const MARK_STROKE = 2;
 
 type QuietRunProps = {
   /** Non-empty, for `Entry`'s reason: the head's instant is the line's title. */
-  turns: [DroneTurn, ...DroneTurn[]];
+  turns: [
+    DroneTurn,
+    ...DroneTurn[],
+  ];
   working: boolean;
 };
 
@@ -283,19 +296,28 @@ function QuietRun({ turns, working }: QuietRunProps) {
       {/* Pointer only: the word is beside it for a screen reader, so no tab stop. */}
       <Tooltip asChild decorative label={said}>
         <span className="armada-turns__mark" data-working={working || undefined} aria-hidden>
-          {working ? <WorkingMark size={MARK} /> : <CircleDot size={MARK} strokeWidth={MARK_STROKE} />}
+          {working ? (
+            <WorkingMark size={MARK} />
+          ) : (
+            <CircleDot size={MARK} strokeWidth={MARK_STROKE} />
+          )}
         </span>
       </Tooltip>
       <span className="armada-turns__quiet-body">
         <span className="armada-turns__thought">{said}</span>
-        {tokens === undefined ? null : <span className="armada-turns__figure">{tokensSaid(tokens)}</span>}
+        {tokens === undefined ? null : (
+          <span className="armada-turns__figure">{tokensSaid(tokens)}</span>
+        )}
       </span>
     </li>
   );
 }
 
 type CallsProps = {
-  members: [Member, ...Member[]];
+  members: [
+    Member,
+    ...Member[],
+  ];
   /** The block is the transcript's last item while a Drone writes. */
   live: boolean;
 };
@@ -308,7 +330,14 @@ function Calls({ members, live }: CallsProps) {
   const named = members.some((member) => member.of === "call");
   return (
     <li className="armada-turns__calls">
-      <ol className="armada-turns__call-rows" {...(named ? { "aria-label": "Tool calls" } : {})}>
+      <ol
+        className="armada-turns__call-rows"
+        {...(named
+          ? {
+              "aria-label": "Tool calls",
+            }
+          : {})}
+      >
         {members.map((member, at) =>
           member.of === "call" ? (
             <Row key={member.turn.id} turn={member.turn} />
@@ -336,7 +365,14 @@ function Card({ card, children }: { card: CardEntry; children: ReactNode }) {
   const named = useId();
   return (
     <li className="armada-turns__card">
-      <div role="group" {...(card.who === undefined ? {} : { "aria-labelledby": named })}>
+      <div
+        role="group"
+        {...(card.who === undefined
+          ? {}
+          : {
+              "aria-labelledby": named,
+            })}
+      >
         {card.who === undefined ? null : (
           <div className="armada-turns__card-head">
             <span className="armada-turns__who" id={named}>
@@ -405,7 +441,11 @@ function Row({ turn }: { turn: DroneTurn }) {
         )}
         {turn.said === undefined ? null : (
           <div className="armada-turns__said">
-            {turn.kind === "said" && typeof turn.said === "string" ? <Prose text={turn.said} /> : turn.said}
+            {turn.kind === "said" && typeof turn.said === "string" ? (
+              <Prose text={turn.said} />
+            ) : (
+              turn.said
+            )}
           </div>
         )}
       </div>

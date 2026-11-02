@@ -16,7 +16,9 @@ export const modOpened = {
     opened = name;
     heardOpened.forEach((on) => on());
   },
-  subscribe: (on: () => void): (() => void) => (heardOpened.add(on), () => void heardOpened.delete(on)),
+  subscribe: (on: () => void): (() => void) => (
+    heardOpened.add(on), () => void heardOpened.delete(on)
+  ),
 };
 
 /** The kinds of mod a Logbook entry can name: the others are taught on Bridge itself and have no entry. */
@@ -25,7 +27,11 @@ export type OpenedKind = "words" | "fleet";
 /** Shows the mod open, and asks the app to go to the page that lists its kind. */
 export function askToOpenMod(name: string, kind: OpenedKind): void {
   modOpened.set(name);
-  window.dispatchEvent(new CustomEvent<OpenedKind>(OPEN_MOD, { detail: kind }));
+  window.dispatchEvent(
+    new CustomEvent<OpenedKind>(OPEN_MOD, {
+      detail: kind,
+    }),
+  );
 }
 
 export function useOpenModAsked(open: (kind: OpenedKind) => void): void {
@@ -33,5 +39,7 @@ export function useOpenModAsked(open: (kind: OpenedKind) => void): void {
     const heard = (event: Event) => open((event as CustomEvent<OpenedKind>).detail);
     window.addEventListener(OPEN_MOD, heard);
     return () => window.removeEventListener(OPEN_MOD, heard);
-  }, [open]);
+  }, [
+    open,
+  ]);
 }

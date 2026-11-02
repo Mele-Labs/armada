@@ -8,13 +8,29 @@ import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
 import { FakeSessionsFleet, held, hosted } from "../sessions-fleet";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 
-const sessions = () => [hosted("01SESSIONAAAAAAAAAAAAAAAAA", { title: "Fix the flaky store test", attachments: [held("slot", "3"), held("branch", "fix/flaky-store")] })];
+const sessions = () => [
+  hosted("01SESSIONAAAAAAAAAAAAAAAAA", {
+    title: "Fix the flaky store test",
+    attachments: [
+      held("slot", "3"),
+      held("branch", "fix/flaky-store"),
+    ],
+  }),
+];
 
 function build(): Scenario {
   const board = onBoard({
-    repositories: [ARMADA],
+    repositories: [
+      ARMADA,
+    ],
     picked: ARMADA.root,
   });
   const served = new FakeSessionsFleet(sessions()).scenario(board);

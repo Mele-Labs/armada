@@ -1,6 +1,14 @@
 import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
-import { GitBranch, GitPullRequest, KeyRound, ShieldCheck, ShieldEllipsis, ShieldX, SquareTerminal } from "lucide-react";
+import {
+  GitBranch,
+  GitPullRequest,
+  KeyRound,
+  ShieldCheck,
+  ShieldEllipsis,
+  ShieldX,
+  SquareTerminal,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -21,9 +29,18 @@ import type { SessionState } from "../SessionFrame/SessionFrame";
  * what a Session is.
  */
 export type OwnerChipRef =
-  | { kind: "branch"; name: string }
-  | { kind: "pull_request"; number: number }
-  | { kind: "slot"; slot: number };
+  | {
+      kind: "branch";
+      name: string;
+    }
+  | {
+      kind: "pull_request";
+      number: number;
+    }
+  | {
+      kind: "slot";
+      slot: number;
+    };
 
 /** What the card says of the owner: its title, slot, pull requests and last turn. */
 export type OwnerSummary = {
@@ -35,7 +52,12 @@ export type OwnerSummary = {
   /** What the state's mark says on hover. */
   said: string;
   slots: readonly number[];
-  pullRequests: readonly { number: number; checks: "pending" | "passed" | "failed"; said: string; red?: RedChecks }[];
+  pullRequests: readonly {
+    number: number;
+    checks: "pending" | "passed" | "failed";
+    said: string;
+    red?: RedChecks;
+  }[];
   /** When its last turn ended, an RFC 3339 instant. */
   lastTurnAt?: string;
 };
@@ -84,22 +106,48 @@ const TEXT = (chip: OwnerChipRef): string => {
 /** A check red that does not decide the pull request: while the run goes on, or after the required ones passed. */
 export type RedChecks = "running" | "advisory";
 
-const CHECKS: Record<"pending" | "passed" | "failed", LucideIcon> = { pending: ShieldEllipsis, passed: ShieldCheck, failed: ShieldX };
+const CHECKS: Record<"pending" | "passed" | "failed", LucideIcon> = {
+  pending: ShieldEllipsis,
+  passed: ShieldCheck,
+  failed: ShieldX,
+};
 
 /**
  * A chip drawn whole: its glyph and its figure, named for what it is. Never a bare figure.
  * **A pull request's Checks sit inside it**, at its right end past a divider, coloured by how they stand.
  */
-export function Chip({ chip, matched = false, checks }: { chip: OwnerChipRef; matched?: boolean; checks?: { state: "pending" | "passed" | "failed"; said: string; red?: RedChecks } }) {
+export function Chip({
+  chip,
+  matched = false,
+  checks,
+}: {
+  chip: OwnerChipRef;
+  matched?: boolean;
+  checks?: {
+    state: "pending" | "passed" | "failed";
+    said: string;
+    red?: RedChecks;
+  };
+}) {
   const Glyph = GLYPH[chip.kind];
-  const Shield = checks === undefined || chip.kind !== "pull_request" ? undefined : CHECKS[checks.state];
+  const Shield =
+    checks === undefined || chip.kind !== "pull_request" ? undefined : CHECKS[checks.state];
   return (
-    <span className="armada-ref-chip" data-matched={matched || undefined} role="img" aria-label={`${matched ? "Matched " : ""}${NAME(chip)}${Shield === undefined || checks === undefined ? "" : `, ${checks.said}`}`}>
+    <span
+      className="armada-ref-chip"
+      data-matched={matched || undefined}
+      role="img"
+      aria-label={`${matched ? "Matched " : ""}${NAME(chip)}${Shield === undefined || checks === undefined ? "" : `, ${checks.said}`}`}
+    >
       <Glyph size={12} strokeWidth={2} aria-hidden />
       {TEXT(chip)}
       {Shield === undefined || checks === undefined ? null : (
         <Tooltip label={checks.said}>
-          <span className="armada-ref-chip__checks" data-checks={checks.state} data-red={checks.red}>
+          <span
+            className="armada-ref-chip__checks"
+            data-checks={checks.state}
+            data-red={checks.red}
+          >
             <Shield size={12} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>
@@ -124,22 +172,67 @@ export function OwnerCard({ owner, onOpen }: { owner: OwnerSummary; onOpen: () =
   const tone = STATE_TONE[owner.state];
   return (
     <InspectCard
-      kind={{ Glyph: SquareTerminal, label: "Job" }}
+      kind={{
+        Glyph: SquareTerminal,
+        label: "Job",
+      }}
       where={owner.address ?? owner.id}
       title={owner.title}
-      state={{ Glyph: sessionGlyphOf(owner.state), said: owner.said, ...(tone === undefined ? {} : { tone }) }}
-      facts={owner.lastTurnAt === undefined ? [] : [{ label: "Last turn", value: <Stamp at={owner.lastTurnAt} />, mono: true }]}
-      keys={[{ key: "Enter", verb: "Keep open" }]}
+      state={{
+        Glyph: sessionGlyphOf(owner.state),
+        said: owner.said,
+        ...(tone === undefined
+          ? {}
+          : {
+              tone,
+            }),
+      }}
+      facts={
+        owner.lastTurnAt === undefined
+          ? []
+          : [
+              {
+                label: "Last turn",
+                value: <Stamp at={owner.lastTurnAt} />,
+                mono: true,
+              },
+            ]
+      }
+      keys={[
+        {
+          key: "Enter",
+          verb: "Keep open",
+        },
+      ]}
     >
       <ul className="armada-owner-card__facts">
         {owner.slots.map((slot) => (
           <li key={slot}>
-            <Chip chip={{ kind: "slot", slot }} />
+            <Chip
+              chip={{
+                kind: "slot",
+                slot,
+              }}
+            />
           </li>
         ))}
         {owner.pullRequests.map((pr) => (
           <li key={pr.number}>
-            <Chip chip={{ kind: "pull_request", number: pr.number }} checks={{ state: pr.checks, said: pr.said, ...(pr.red === undefined ? {} : { red: pr.red }) }} />
+            <Chip
+              chip={{
+                kind: "pull_request",
+                number: pr.number,
+              }}
+              checks={{
+                state: pr.checks,
+                said: pr.said,
+                ...(pr.red === undefined
+                  ? {}
+                  : {
+                      red: pr.red,
+                    }),
+              }}
+            />
           </li>
         ))}
       </ul>
@@ -164,9 +257,17 @@ export function OwnerChip({ chip, children, plain }: OwnerChipProps) {
   if (owner === undefined || ownership === null) return <>{plain ?? children}</>;
   return (
     <span className="armada-owner-chip">
-      <Inspect card={<OwnerCard owner={owner} onOpen={() => ownership.open(owner.id)} />} name={`Owned by ${owner.title ?? owner.address ?? owner.id}`}>
+      <Inspect
+        card={<OwnerCard owner={owner} onOpen={() => ownership.open(owner.id)} />}
+        name={`Owned by ${owner.title ?? owner.address ?? owner.id}`}
+      >
         {/* A press keeps the card; it must not also reach a row that opens on press. */}
-        <button type="button" className="armada-owner-chip__press" aria-label={NAME(chip)} onClick={(event) => event.stopPropagation()}>
+        <button
+          type="button"
+          className="armada-owner-chip__press"
+          aria-label={NAME(chip)}
+          onClick={(event) => event.stopPropagation()}
+        >
           {children}
         </button>
       </Inspect>

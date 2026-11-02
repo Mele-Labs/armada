@@ -2,7 +2,11 @@
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
 import type { LessonAnswer, LessonsRead, RetroRead, RetroSubject } from "@armada/protocol";
-import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
+import type {
+  AskLessonRead,
+  AskTurn,
+  LessonReviewRead,
+} from "@armada/screens/src/lessons/review-wire";
 import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
 
 export type LessonsApi = {

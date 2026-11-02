@@ -1,15 +1,29 @@
 // The Calls HUD. The panels in it are the Job's own: `SessionPane` for the thread and its Needs you card, `StoryColumn` for Now. What is
 // here is which Job they show, its summary where it has one, and what moves him to the next: the order is the Jobs list's.
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { Button, Kbd } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 
 import { deckNow } from "./store";
 import { ConsoleHud, type Box } from "./ConsoleHud";
 
-type Hud = { open: boolean; key: string | undefined };
-const CLOSED: Hud = { open: false, key: undefined };
+type Hud = {
+  open: boolean;
+  key: string | undefined;
+};
+const CLOSED: Hud = {
+  open: false,
+  key: undefined,
+};
 let hud: Hud = CLOSED;
 const heard = new Set<() => void>();
 const set = (next: Hud) => {
@@ -21,28 +35,60 @@ export const useCallsHud = (): Hud =>
     (hear) => (heard.add(hear), () => void heard.delete(hear)),
     () => hud,
   );
-const facetEl = () => document.querySelector<HTMLElement>('.console-bay .deck-tile[data-tile="needs"]');
+const facetEl = () =>
+  document.querySelector<HTMLElement>('.console-bay .deck-tile[data-tile="needs"]');
 const closeCalls = () => {
   set(CLOSED);
   facetEl()?.focus();
 };
-export const toggleCalls = () => (hud.open ? closeCalls() : set({ open: true, key: undefined }));
+export const toggleCalls = () =>
+  hud.open
+    ? closeCalls()
+    : set({
+        open: true,
+        key: undefined,
+      });
 /** Bring a calling Job into the HUD. */
-export const showCall = (key: string) => set({ open: true, key });
+export const showCall = (key: string) =>
+  set({
+    open: true,
+    key,
+  });
 
 /** All the stage's height, for the question to stand whole: the brackets clear of the title bar above and the beam's collar clear of the console below. */
 const placeOf = (stage: Box): Box => {
   // A narrow stage has no width to give up: the box's selects need all of it.
   const inset = stage.width < 800 ? 0 : Math.min(56, stage.width * 0.05);
-  return { left: Math.round(stage.left + inset), top: Math.round(stage.top + 6), width: Math.round(stage.width - inset * 2), height: Math.round(stage.height - 14) };
+  return {
+    left: Math.round(stage.left + inset),
+    top: Math.round(stage.top + 6),
+    width: Math.round(stage.width - inset * 2),
+    height: Math.round(stage.height - 14),
+  };
 };
 
 /** ⌥N, the family of the Needs you card's own ⌥E, ⌥X and ⌥↵. By the key's place: Option changes the character N types. */
-const isNextKey = (event: KeyboardEvent) => event.altKey && !event.metaKey && !event.ctrlKey && event.code === "KeyN";
+const isNextKey = (event: KeyboardEvent) =>
+  event.altKey && !event.metaKey && !event.ctrlKey && event.code === "KeyN";
 /** Enter on anything that does not take Enter itself opens the Job. */
-const TAKES_ENTER = "button, a[href], input, textarea, select, [role='textbox'], [role='radio'], [role='checkbox'], [role='menuitem'], [role='option']";
+const TAKES_ENTER =
+  "button, a[href], input, textarea, select, [role='textbox'], [role='radio'], [role='checkbox'], [role='menuitem'], [role='option']";
 
-export function CallsHud({ keys, calls, nameOf, summaryOf, pane, onOpen }: { keys: readonly string[]; calls: readonly string[]; nameOf: (key: string) => string | undefined; summaryOf: (key: string) => string | undefined; pane: (key: string, side: HTMLElement | null) => ReactNode; onOpen: (key: string) => void }) {
+export function CallsHud({
+  keys,
+  calls,
+  nameOf,
+  summaryOf,
+  pane,
+  onOpen,
+}: {
+  keys: readonly string[];
+  calls: readonly string[];
+  nameOf: (key: string) => string | undefined;
+  summaryOf: (key: string) => string | undefined;
+  pane: (key: string, side: HTMLElement | null) => ReactNode;
+  onOpen: (key: string) => void;
+}) {
   const { open, key } = useCallsHud();
   const facet = useRef<Element | null>(null);
   facet.current = open ? facetEl() : null;
@@ -61,10 +107,24 @@ export function CallsHud({ keys, calls, nameOf, summaryOf, pane, onOpen }: { key
     }
     const cursor = deckNow().cursor;
     const from = shown.current === undefined ? -1 : keys.indexOf(shown.current);
-    const next = from === -1 ? (cursor !== undefined && calls.includes(cursor) ? cursor : calls[0]) : (calls.find((one) => keys.indexOf(one) > from) ?? calls[0]);
+    const next =
+      from === -1
+        ? cursor !== undefined && calls.includes(cursor)
+          ? cursor
+          : calls[0]
+        : (calls.find((one) => keys.indexOf(one) > from) ?? calls[0]);
     shown.current = next;
-    if (next !== key) set({ open: true, key: next });
-  }, [open, key, calls, keys]);
+    if (next !== key)
+      set({
+        open: true,
+        key: next,
+      });
+  }, [
+    open,
+    key,
+    calls,
+    keys,
+  ]);
   // Going into a Job puts the HUD away with the Cockpit it stood over.
   useEffect(() => {
     if (open && facetEl() === null) set(CLOSED);
@@ -81,11 +141,17 @@ export function CallsHud({ keys, calls, nameOf, summaryOf, pane, onOpen }: { key
       const panel = document.querySelector<HTMLElement>('[data-hud="calls"] .console-hud__panel');
       if (tries++ === 0 && panel?.contains(document.activeElement) !== true) panel?.focus();
       const card = within?.querySelector(".armada-needs-panel");
-      if (tries > 20 || card?.contains(document.activeElement) === true) return window.clearInterval(land);
-      card?.querySelector<HTMLElement>(":is([role='radio'], [role='checkbox'], input, textarea)")?.focus();
+      if (tries > 20 || card?.contains(document.activeElement) === true)
+        return window.clearInterval(land);
+      card
+        ?.querySelector<HTMLElement>(":is([role='radio'], [role='checkbox'], input, textarea)")
+        ?.focus();
     }, 100);
     return () => window.clearInterval(land);
-  }, [open, key]);
+  }, [
+    open,
+    key,
+  ]);
   // The card takes its height from the thread here, which a thread at its end does not hear of: it keeps its latest line in view as it shrinks.
   useEffect(() => {
     if (!open) return;
@@ -103,22 +169,38 @@ export function CallsHud({ keys, calls, nameOf, summaryOf, pane, onOpen }: { key
       was = rows.scrollTop;
     };
     follow();
-    rows.addEventListener("scroll", read, { passive: true });
+    rows.addEventListener("scroll", read, {
+      passive: true,
+    });
     const watch = new ResizeObserver(follow);
     watch.observe(rows);
     return () => {
       rows.removeEventListener("scroll", read);
       watch.disconnect();
     };
-  }, [open, key]);
+  }, [
+    open,
+    key,
+  ]);
   const next = useCallback(() => {
     const at = key === undefined ? -1 : keys.indexOf(key);
     const to = calls.find((one) => keys.indexOf(one) > at) ?? calls[0];
-    if (to !== undefined && to !== key) set({ open: true, key: to });
-  }, [calls, key, keys]);
+    if (to !== undefined && to !== key)
+      set({
+        open: true,
+        key: to,
+      });
+  }, [
+    calls,
+    key,
+    keys,
+  ]);
   const openJob = useCallback(() => {
     if (key !== undefined) onOpen(key);
-  }, [key, onOpen]);
+  }, [
+    key,
+    onOpen,
+  ]);
   const onKey = useCallback(
     (event: KeyboardEvent) => {
       if (isNextKey(event)) {
@@ -128,7 +210,13 @@ export function CallsHud({ keys, calls, nameOf, summaryOf, pane, onOpen }: { key
         return true;
       }
       const target = event.target;
-      if (event.key === "Enter" && !event.altKey && !event.metaKey && !event.shiftKey && !(target instanceof Element && (holdsText(target) || target.closest(TAKES_ENTER) !== null))) {
+      if (
+        event.key === "Enter" &&
+        !event.altKey &&
+        !event.metaKey &&
+        !event.shiftKey &&
+        !(target instanceof Element && (holdsText(target) || target.closest(TAKES_ENTER) !== null))
+      ) {
         event.preventDefault();
         event.stopPropagation();
         openJob();
@@ -136,7 +224,10 @@ export function CallsHud({ keys, calls, nameOf, summaryOf, pane, onOpen }: { key
       }
       return false;
     },
-    [next, openJob],
+    [
+      next,
+      openJob,
+    ],
   );
   if (!open) return null;
   const others = calls.some((one) => one !== key);

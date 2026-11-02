@@ -17,16 +17,34 @@ const FILE = /\.armada\.toml$/i;
 const TEXT = /^\s*version\s*=\s*\d+\s*$/m;
 
 /** Whether pasted text is a package: its version line and at least one piece. */
-export const isPackageText = (text: string): boolean => TEXT.test(text) && text.includes("[[piece]]");
+export const isPackageText = (text: string): boolean =>
+  TEXT.test(text) && text.includes("[[piece]]");
 
-const LANDED: Record<PieceAdded["landed"], PieceState> = { added: "added", replaced: "replaced", unbound: "waiting" };
+const LANDED: Record<PieceAdded["landed"], PieceState> = {
+  added: "added",
+  replaced: "replaced",
+  unbound: "waiting",
+};
 
-const typing = (target: EventTarget | null): boolean => target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+const typing = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable ||
+    [
+      "INPUT",
+      "TEXTAREA",
+      "SELECT",
+    ].includes(target.tagName));
 
 /** Claims a package dropped or pasted anywhere in the window but a field being typed in, and hands its text on. Heard at the shell: `paste-and-drop.ts`. */
 export function usePackageArrivals(open: (text: string) => void): void {
-  const fileOf = (event: DragEvent): File | undefined => [...(event.dataTransfer?.files ?? [])].find((one) => FILE.test(one.name));
-  const named = (event: DragEvent): boolean => [...(event.dataTransfer?.items ?? [])].some((one) => one.kind === "file") || fileOf(event) !== undefined;
+  const fileOf = (event: DragEvent): File | undefined =>
+    [
+      ...(event.dataTransfer?.files ?? []),
+    ].find((one) => FILE.test(one.name));
+  const named = (event: DragEvent): boolean =>
+    [
+      ...(event.dataTransfer?.items ?? []),
+    ].some((one) => one.kind === "file") || fileOf(event) !== undefined;
   useClaim("package", {
     over: (event) => {
       if (!named(event)) return false;
@@ -50,21 +68,48 @@ export function usePackageArrivals(open: (text: string) => void): void {
   });
 }
 
-const nameOf = (repositories: readonly RepositorySummary[], root: string | undefined): string | undefined =>
-  root === undefined ? undefined : (repositories.find((one) => one.root === root)?.manifest?.repository ?? root);
+const nameOf = (
+  repositories: readonly RepositorySummary[],
+  root: string | undefined,
+): string | undefined =>
+  root === undefined
+    ? undefined
+    : (repositories.find((one) => one.root === root)?.manifest?.repository ?? root);
 
 /** One piece as the list draws it: the piece as it will look, where it lands, and where it stands. */
-function PieceRow({ piece, repositories, state }: { piece: Previewed & { remote?: string | undefined; repository?: string | undefined }; repositories: readonly RepositorySummary[]; state: PieceState }) {
+function PieceRow({
+  piece,
+  repositories,
+  state,
+}: {
+  piece: Previewed & {
+    remote?: string | undefined;
+    repository?: string | undefined;
+  };
+  repositories: readonly RepositorySummary[];
+  state: PieceState;
+}) {
   const where = nameOf(repositories, piece.repository) ?? piece.remote ?? "No repository";
   return <PieceCard piece={piece} where={where} state={state} />;
 }
 
 /** A piece waiting for a repository, and where to choose one. */
-function Unbound({ piece, repositories, onBound }: { piece: UnboundPiece; repositories: readonly RepositorySummary[]; onBound: (added: PieceAdded) => void }) {
+function Unbound({
+  piece,
+  repositories,
+  onBound,
+}: {
+  piece: UnboundPiece;
+  repositories: readonly RepositorySummary[];
+  onBound: (added: PieceAdded) => void;
+}) {
   const [root, setRoot] = useState(repositories[0]?.root ?? "");
   const [said, setSaid] = useState<ActSaid>();
   const bind = async () => {
-    const answer = await window.armada.bindUnboundPiece({ unbound_id: piece.unbound_id, repository: root });
+    const answer = await window.armada.bindUnboundPiece({
+      unbound_id: piece.unbound_id,
+      repository: root,
+    });
     if (!answer.ok) return setSaid(failedSaid(answer.outcome));
     onBound(answer.value);
   };
@@ -91,21 +136,56 @@ function Unbound({ piece, repositories, onBound }: { piece: UnboundPiece; reposi
   );
 }
 
-type Shown = { what: "reading" } | { what: "read"; pieces: readonly PackagePiece[] } | { what: "added"; pieces: readonly (PieceAdded & Partial<Pick<PackagePiece, "action" | "commands">>)[]; unbound: readonly UnboundPiece[] } | { what: "refused"; said: string };
+type Shown =
+  | {
+      what: "reading";
+    }
+  | {
+      what: "read";
+      pieces: readonly PackagePiece[];
+    }
+  | {
+      what: "added";
+      pieces: readonly (PieceAdded & Partial<Pick<PackagePiece, "action" | "commands">>)[];
+      unbound: readonly UnboundPiece[];
+    }
+  | {
+      what: "refused";
+      said: string;
+    };
 
 /** The sheet over a package's text: what it would add, then Add. */
-export function ImportSheet({ text, repositories, onClose }: { text: string; repositories: readonly RepositorySummary[]; onClose: () => void }) {
-  const [shown, setShown] = useState<Shown>({ what: "reading" });
+export function ImportSheet({
+  text,
+  repositories,
+  onClose,
+}: {
+  text: string;
+  repositories: readonly RepositorySummary[];
+  onClose: () => void;
+}) {
+  const [shown, setShown] = useState<Shown>({
+    what: "reading",
+  });
   const [busy, setBusy] = useState(false);
   const refusedOr = (outcome: Parameters<typeof failedSaid>[0]): Shown | undefined => {
     const said = failedSaid(outcome);
-    return said === undefined ? undefined : { what: "refused", said: said.said };
+    return said === undefined
+      ? undefined
+      : {
+          what: "refused",
+          said: said.said,
+        };
   };
   useEffect(() => {
     let current = true;
     void window.armada.readPackage(text).then((answer) => {
       if (!current) return;
-      if (answer.ok) setShown({ what: "read", pieces: answer.value.pieces });
+      if (answer.ok)
+        setShown({
+          what: "read",
+          pieces: answer.value.pieces,
+        });
       else {
         const next = refusedOr(answer.outcome);
         if (next === undefined) onClose();
@@ -116,7 +196,9 @@ export function ImportSheet({ text, repositories, onClose }: { text: string; rep
       current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text]);
+  }, [
+    text,
+  ]);
   const unboundNow = async (): Promise<readonly UnboundPiece[]> => {
     const answer = await window.armada.listUnboundPieces();
     return answer.ok ? answer.value.pieces : [];
@@ -126,7 +208,14 @@ export function ImportSheet({ text, repositories, onClose }: { text: string; rep
     if (busy) return;
     setBusy(true);
     try {
-      const answer = await window.armada.addPackage({ text, ...(replacing ? { replace: true } : {}) });
+      const answer = await window.armada.addPackage({
+        text,
+        ...(replacing
+          ? {
+              replace: true,
+            }
+          : {}),
+      });
       if (!answer.ok) {
         const next = refusedOr(answer.outcome);
         if (next !== undefined) setShown(next);
@@ -136,9 +225,23 @@ export function ImportSheet({ text, repositories, onClose }: { text: string; rep
       const read = shown.what === "read" ? shown.pieces : [];
       const pieces = answer.value.pieces.map((one) => {
         const was = read.find((it) => it.kind === one.kind && it.id === one.id);
-        return was === undefined ? one : { ...one, ...(was.action === undefined ? {} : { action: was.action }), commands: was.commands };
+        return was === undefined
+          ? one
+          : {
+              ...one,
+              ...(was.action === undefined
+                ? {}
+                : {
+                    action: was.action,
+                  }),
+              commands: was.commands,
+            };
       });
-      setShown({ what: "added", pieces, unbound: pieces.some((one) => one.landed === "unbound") ? await unboundNow() : [] });
+      setShown({
+        what: "added",
+        pieces,
+        unbound: pieces.some((one) => one.landed === "unbound") ? await unboundNow() : [],
+      });
     } finally {
       setBusy(false);
     }
@@ -146,7 +249,11 @@ export function ImportSheet({ text, repositories, onClose }: { text: string; rep
   const rebound = async (unboundId: string, added: PieceAdded) => {
     if (shown.what !== "added") return;
     const pieces = shown.pieces.map((one) => (one.unbound_id === unboundId ? added : one));
-    setShown({ what: "added", pieces, unbound: await unboundNow() });
+    setShown({
+      what: "added",
+      pieces,
+      unbound: await unboundNow(),
+    });
   };
   const footer =
     shown.what === "read" ? (
@@ -167,18 +274,37 @@ export function ImportSheet({ text, repositories, onClose }: { text: string; rep
       ) : shown.what === "read" ? (
         <ul className="import-cards" aria-label="Pieces">
           {shown.pieces.map((one) => (
-            <PieceRow key={`${one.kind}:${one.id}:${one.repository ?? one.remote ?? ""}`} piece={one} repositories={repositories} state={one.exists ? "replaces" : "new"} />
+            <PieceRow
+              key={`${one.kind}:${one.id}:${one.repository ?? one.remote ?? ""}`}
+              piece={one}
+              repositories={repositories}
+              state={one.exists ? "replaces" : "new"}
+            />
           ))}
         </ul>
       ) : shown.what === "added" ? (
         <ul className="import-cards" aria-label="Pieces">
           {shown.pieces
-            .filter((one) => one.landed !== "unbound" || !shown.unbound.some((it) => it.unbound_id === one.unbound_id))
+            .filter(
+              (one) =>
+                one.landed !== "unbound" ||
+                !shown.unbound.some((it) => it.unbound_id === one.unbound_id),
+            )
             .map((one) => (
-              <PieceRow key={`${one.kind}:${one.id}:${one.repository ?? one.remote ?? ""}`} piece={one} repositories={repositories} state={LANDED[one.landed]} />
+              <PieceRow
+                key={`${one.kind}:${one.id}:${one.repository ?? one.remote ?? ""}`}
+                piece={one}
+                repositories={repositories}
+                state={LANDED[one.landed]}
+              />
             ))}
           {shown.unbound.map((one) => (
-            <Unbound key={one.unbound_id} piece={one} repositories={repositories} onBound={(added) => void rebound(one.unbound_id, added)} />
+            <Unbound
+              key={one.unbound_id}
+              piece={one}
+              repositories={repositories}
+              onBound={(added) => void rebound(one.unbound_id, added)}
+            />
           ))}
         </ul>
       ) : null}
@@ -190,5 +316,12 @@ export function ImportSheet({ text, repositories, onClose }: { text: string; rep
 export function ImportPackage({ repositories }: { repositories: readonly RepositorySummary[] }) {
   const [text, setText] = useState<string | undefined>();
   usePackageArrivals(setText);
-  return text === undefined ? null : <ImportSheet key={text} text={text} repositories={repositories} onClose={() => setText(undefined)} />;
+  return text === undefined ? null : (
+    <ImportSheet
+      key={text}
+      text={text}
+      repositories={repositories}
+      onClose={() => setText(undefined)}
+    />
+  );
 }

@@ -15,13 +15,18 @@ export function useClock(step: number): number {
   useEffect(() => {
     let timer: number;
     const arm = () => {
-      timer = window.setTimeout(() => {
-        setNow(quantized(Date.now(), step));
-        arm();
-      }, step - (Date.now() % step) + 5);
+      timer = window.setTimeout(
+        () => {
+          setNow(quantized(Date.now(), step));
+          arm();
+        },
+        step - (Date.now() % step) + 5,
+      );
     };
     arm();
     return () => window.clearTimeout(timer);
-  }, [step]);
+  }, [
+    step,
+  ]);
   return now;
 }

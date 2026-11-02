@@ -12,17 +12,38 @@ const asking: Session[] = [
   {
     id: "s13",
     title: "Pick the checks",
-    turn: { state: "idle" },
+    turn: {
+      state: "idle",
+    },
     lastTurnAt: minutesAgo(1),
     rows: [
-      { id: "p1", at: "14:29:40", kind: "message", from: { kind: "you" }, text: "Set up the checks for the three services." },
-      { id: "p2", at: "14:30:01", kind: "message", from: { kind: "agent" }, text: "I have two lists in mind." },
+      {
+        id: "p1",
+        at: "14:29:40",
+        kind: "message",
+        from: {
+          kind: "you",
+        },
+        text: "Set up the checks for the three services.",
+      },
+      {
+        id: "p2",
+        at: "14:30:01",
+        kind: "message",
+        from: {
+          kind: "agent",
+        },
+        text: "I have two lists in mind.",
+      },
     ],
     attachments: [],
     asked: {
       command: "Use these checks for ops, consumer and api-gateway?",
       call: "q-13",
-      offers: ["allow_once", "refuse"],
+      offers: [
+        "allow_once",
+        "refuse",
+      ],
       questions: [
         {
           question: "Use these checks for ops, consumer and api-gateway?",
@@ -32,14 +53,19 @@ const asking: Session[] = [
             {
               label: "The shared set",
               description: "The same three for each",
-              preview: "ops          cargo test -p ops\nconsumer     cargo test -p consumer\napi-gateway  cargo test -p api-gateway",
+              preview:
+                "ops          cargo test -p ops\nconsumer     cargo test -p consumer\napi-gateway  cargo test -p api-gateway",
             },
             {
               label: "Per service",
               description: "Each runs what it owns",
-              preview: "ops          cargo test -p ops && cargo clippy -p ops\nconsumer     pnpm test --filter consumer\napi-gateway  go test ./...",
+              preview:
+                "ops          cargo test -p ops && cargo clippy -p ops\nconsumer     pnpm test --filter consumer\napi-gateway  go test ./...",
             },
-            { label: "None yet", description: "Leave them for later" },
+            {
+              label: "None yet",
+              description: "Leave them for later",
+            },
           ],
         },
       ],
@@ -51,5 +77,7 @@ export const s244SessionQuestionPreview: Scenario = {
   ...s200Sessions,
   name: "session-question-preview",
   says: "A Session whose question's options each show the checks they mean",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, asking) },
+  draft: {
+    sessions: (board) => s200Sessions.draft!.sessions!(board, asking),
+  },
 };

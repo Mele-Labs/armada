@@ -37,7 +37,14 @@ export type GuideCardProps = {
   onReadAll?: () => void;
 };
 
-export function GuideCard({ guide, invited = true, onClose, off, onOff, onReadAll }: GuideCardProps) {
+export function GuideCard({
+  guide,
+  invited = true,
+  onClose,
+  off,
+  onOff,
+  onReadAll,
+}: GuideCardProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   // Close holds initial focus, `Dialog`'s own rule: the safe control is the
@@ -53,7 +60,9 @@ export function GuideCard({ guide, invited = true, onClose, off, onOff, onReadAl
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [
+    onClose,
+  ]);
 
   const offered = off !== undefined && onOff !== undefined;
 
@@ -101,7 +110,12 @@ export function GuideCard({ guide, invited = true, onClose, off, onOff, onReadAl
               Read all guides
             </button>
           )}
-          <button ref={closeRef} type="button" className="armada-guide-card__close" onClick={onClose}>
+          <button
+            ref={closeRef}
+            type="button"
+            className="armada-guide-card__close"
+            onClick={onClose}
+          >
             Close
           </button>
         </div>

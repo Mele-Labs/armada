@@ -18,13 +18,24 @@ import { Textarea } from "../../primitives/Textarea/Textarea";
  */
 
 /** A rectangle in the window, in CSS pixels. */
-export type CaptureBox = { x: number; y: number; width: number; height: number };
+export type CaptureBox = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 
 export type StudioCaptureProps = {
   /** What the pointer is over, and what to call it. Absent once one is held. */
-  hovered?: { box: CaptureBox; named: string };
+  hovered?: {
+    box: CaptureBox;
+    named: string;
+  };
   /** The element the note is being written on, and the chain that found it. */
-  held?: { box: CaptureBox; chain: string };
+  held?: {
+    box: CaptureBox;
+    chain: string;
+  };
   /** What is being typed. Controlled: the layer owns the draft. */
   note: string;
   onNote: (note: string) => void;
@@ -50,9 +61,14 @@ const place = (box: CaptureBox): CSSProperties =>
     "--capture-h": `${box.height}px`,
   }) as CSSProperties;
 
-type Spot = { left: number; top: number; side: "below" | "above" };
+type Spot = {
+  left: number;
+  top: number;
+  side: "below" | "above";
+};
 
-const within = (low: number, wanted: number, high: number): number => Math.max(low, Math.min(wanted, Math.max(low, high)));
+const within = (low: number, wanted: number, high: number): number =>
+  Math.max(low, Math.min(wanted, Math.max(low, high)));
 
 /**
  * Under the element where the box it is drawn in has room below it, over it
@@ -60,7 +76,18 @@ const within = (low: number, wanted: number, high: number): number => Math.max(l
  * Everything is in the box's own pixels: the element's box was measured there,
  * and the window the box sits in is not the room the card has.
  */
-function cardSpot(box: CaptureBox, card: { width: number; height: number }, room: { width: number; height: number }, gap: number): Spot {
+function cardSpot(
+  box: CaptureBox,
+  card: {
+    width: number;
+    height: number;
+  },
+  room: {
+    width: number;
+    height: number;
+  },
+  gap: number,
+): Spot {
   const below = box.y + box.height + gap;
   const above = box.y - gap - card.height;
   const fitsBelow = below + card.height + gap <= room.height;
@@ -77,7 +104,19 @@ function cardSpot(box: CaptureBox, card: { width: number; height: number }, room
 }
 
 export function StudioCapture(props: StudioCaptureProps) {
-  const { hovered, held, note, onNote, onSave, onCancel, saving = false, refused, aim, aimed, binding } = props;
+  const {
+    hovered,
+    held,
+    note,
+    onNote,
+    onSave,
+    onCancel,
+    saving = false,
+    refused,
+    aim,
+    aimed,
+    binding,
+  } = props;
   const savable = aimed && !saving && note.trim() !== "";
 
   function keyed(event: KeyboardEvent<HTMLDivElement>): void {
@@ -106,13 +145,25 @@ export function StudioCapture(props: StudioCaptureProps) {
       const gap = Number.parseFloat(getComputedStyle(card).marginTop) || 0;
       const next = cardSpot(
         box,
-        { width: card.offsetWidth, height: card.offsetHeight },
-        { width: layer.clientWidth, height: layer.clientHeight },
+        {
+          width: card.offsetWidth,
+          height: card.offsetHeight,
+        },
+        {
+          width: layer.clientWidth,
+          height: layer.clientHeight,
+        },
         gap,
       );
       // The card's margin is part of its offset, so the spot is where its margin edge goes.
-      const at = { left: next.left - gap, top: next.top - gap, side: next.side };
-      setSpot((was) => (was?.left === at.left && was.top === at.top && was.side === at.side ? was : at));
+      const at = {
+        left: next.left - gap,
+        top: next.top - gap,
+        side: next.side,
+      };
+      setSpot((was) =>
+        was?.left === at.left && was.top === at.top && was.side === at.side ? was : at,
+      );
     };
     settle();
     if (typeof ResizeObserver === "undefined") return;
@@ -120,7 +171,13 @@ export function StudioCapture(props: StudioCaptureProps) {
     watch.observe(layer);
     watch.observe(card);
     return () => watch.disconnect();
-  }, [held !== undefined, box?.x, box?.y, box?.width, box?.height]);
+  }, [
+    held !== undefined,
+    box?.x,
+    box?.y,
+    box?.width,
+    box?.height,
+  ]);
 
   // The card opens on a press, so the cursor belongs in the note without a
   // second one. Not `autoFocus`: the card is hidden until placed, and a hidden
@@ -128,7 +185,9 @@ export function StudioCapture(props: StudioCaptureProps) {
   const placed = held !== undefined && spot !== null;
   useLayoutEffect(() => {
     if (placed) cardRef.current?.querySelector("textarea")?.focus();
-  }, [placed]);
+  }, [
+    placed,
+  ]);
 
   return (
     <div ref={root} className="armada-capture" data-armada-capture="" onKeyDown={keyed}>
@@ -146,7 +205,16 @@ export function StudioCapture(props: StudioCaptureProps) {
             className="armada-capture__card"
             role="dialog"
             aria-label="Capture a note"
-            style={spot === null ? { visibility: "hidden" } : { left: spot.left, top: spot.top }}
+            style={
+              spot === null
+                ? {
+                    visibility: "hidden",
+                  }
+                : {
+                    left: spot.left,
+                    top: spot.top,
+                  }
+            }
             data-side={spot?.side}
           >
             <p className="armada-capture__chain">{held.chain}</p>
@@ -156,7 +224,13 @@ export function StudioCapture(props: StudioCaptureProps) {
               <Button variant="ghost" size="sm" onClick={onCancel}>
                 Cancel
               </Button>
-              <Button variant="primary" size="sm" pending={saving} disabled={!savable} onClick={onSave}>
+              <Button
+                variant="primary"
+                size="sm"
+                pending={saving}
+                disabled={!savable}
+                onClick={onSave}
+              >
                 {saving ? "Capturing" : "Capture"}
               </Button>
             </div>
@@ -167,7 +241,12 @@ export function StudioCapture(props: StudioCaptureProps) {
       <div className="armada-capture__bar" role="status">
         <span>Capturing</span>
         <span>{aim}</span>
-        <KbdChord keys={[...binding]} aria-label={`${binding.join(" ")} turns capturing off`} />
+        <KbdChord
+          keys={[
+            ...binding,
+          ]}
+          aria-label={`${binding.join(" ")} turns capturing off`}
+        />
       </div>
     </div>
   );

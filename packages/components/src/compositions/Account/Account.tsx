@@ -44,10 +44,19 @@ export type SyncKindWord =
   | "memory"
   | "mods";
 
-export type SyncItem = { name: string; scope: Scope; repo: string };
+export type SyncItem = {
+  name: string;
+  scope: Scope;
+  repo: string;
+};
 
 /** One kind in What syncs: off until turned on, pulling while it fills in, then its items. */
-export type SyncChoice = { kind: SyncKindWord; on: boolean; pulling: boolean; items: readonly SyncItem[] };
+export type SyncChoice = {
+  kind: SyncKindWord;
+  on: boolean;
+  pulling: boolean;
+  items: readonly SyncItem[];
+};
 
 export type Profile = {
   /** The forge's numeric id, which names the profile in every act on it. */
@@ -60,7 +69,11 @@ export type Profile = {
   /** The repository of the shared home it set up, once there is one. */
   repository?: string;
   /** Where its shared home is, or will be made: the owner (the login or an organisation) and the name, and whether this machine holds it. Absent falls back to the choice kept on this window. */
-  home?: { account: string; repository: string; made: boolean };
+  home?: {
+    account: string;
+    repository: string;
+    made: boolean;
+  };
   /** The organisations the login belongs to, read at sign-in: the owners a shared home can be made under, beside the login. */
   orgs?: readonly string[];
   /** The repositories bound to this profile, each marked for how it came to be. */
@@ -70,42 +83,79 @@ export type Profile = {
 /** How a repository came to be bound: its owner is the account or one of its organisations, or the person chose it. */
 export type Binding = "matched" | "chosen";
 /** `root` names the repository in every act and is never drawn: two checkouts can share a folder name. */
-export type BoundRepository = { root: string; name: string; by: Binding };
+export type BoundRepository = {
+  root: string;
+  name: string;
+  by: Binding;
+};
 
 /** A repository no profile owns: no profile matched it, or two both did. `none` once the person chose that it claims and syncs nothing. */
-export type UnboundRepository = { root: string; name: string; none?: boolean };
+export type UnboundRepository = {
+  root: string;
+  name: string;
+  none?: boolean;
+};
 
 export type SetUpId = "identity" | "store" | "home";
 export type SetUpState = "waiting" | "working" | "done";
 
 export type AccountFlow =
-  | { phase: "idle" }
+  | {
+      phase: "idle";
+    }
   /** The device code, shown until it is typed at GitHub. `expiresIn` is the seconds it had left at this reading. */
-  | { phase: "code"; code: string; expiresIn?: number }
+  | {
+      phase: "code";
+      code: string;
+      expiresIn?: number;
+    }
   /** What signing in set up, row by row. */
-  | { phase: "setup"; login: string; repository: string; steps: Readonly<Record<SetUpId, SetUpState>> };
+  | {
+      phase: "setup";
+      login: string;
+      repository: string;
+      steps: Readonly<Record<SetUpId, SetUpState>>;
+    };
 
 /** How a sign-in came to nothing. A sign-in that signed in has no end to show. */
 export type EndedOutcome = "denied" | "expired" | "unreachable" | "refused";
 
 /** The last sign-in that ended without signing in. `said` is Fleet's own sentence, drawn as it comes. */
-export type SignInEnd = { outcome: EndedOutcome; said: string };
+export type SignInEnd = {
+  outcome: EndedOutcome;
+  said: string;
+};
 
 /** The Settings category a blank setting lives in: the sign-in app, or the store address. */
 export type BlankSetting = "account" | "store";
 
 /** Sign-in refused before it began, because a setting it needs is blank. `said` is Fleet's sentence naming which. */
-export type SignInUnavailable = { said: string; blank: readonly BlankSetting[] };
+export type SignInUnavailable = {
+  said: string;
+  blank: readonly BlankSetting[];
+};
 
 /** A profile signed out, held until the panel is put away. `storeRowRemains`: the store could not be asked to forget the device. */
-export type SignedOutNote = { login: string; storeRowRemains: boolean; said?: string };
+export type SignedOutNote = {
+  login: string;
+  storeRowRemains: boolean;
+  said?: string;
+};
 
 export type AccountRead = {
   /** Empty is signed out. */
   profiles: readonly Profile[];
   flow: AccountFlow;
   /** The profile whose What syncs is open. */
-  syncs: { login: string; kinds: readonly SyncChoice[]; home: { account?: string; repository: string; made: boolean } } | null;
+  syncs: {
+    login: string;
+    kinds: readonly SyncChoice[];
+    home: {
+      account?: string;
+      repository: string;
+      made: boolean;
+    };
+  } | null;
   /** The last sign-in ended without signing in. Absent while one is in flight or none has ended. */
   ended?: SignInEnd;
   /** Starting a sign-in was refused for a blank setting. */
@@ -150,7 +200,13 @@ export type Account = AccountRead & AccountActs;
 const Held = createContext<Account | undefined>(undefined);
 
 /** `undefined` offers none, and keeps the tree where an account arrives later from remounting. */
-export function AccountProvider({ value, children }: { value: Account | undefined; children: ReactNode }) {
+export function AccountProvider({
+  value,
+  children,
+}: {
+  value: Account | undefined;
+  children: ReactNode;
+}) {
   return <Held.Provider value={value}>{children}</Held.Provider>;
 }
 
@@ -160,25 +216,83 @@ export function useAccount(): Account | undefined {
 }
 
 const SCOPE = {
-  global: { Glyph: Globe, said: "Global" },
-  repo: { Glyph: FolderGit2, said: "Repository" },
-  private: { Glyph: Laptop, said: "Private" },
+  global: {
+    Glyph: Globe,
+    said: "Global",
+  },
+  repo: {
+    Glyph: FolderGit2,
+    said: "Repository",
+  },
+  private: {
+    Glyph: Laptop,
+    said: "Private",
+  },
 } as const;
 
-const ALL_SCOPES: readonly Scope[] = ["global", "repo", "private"];
+const ALL_SCOPES: readonly Scope[] = [
+  "global",
+  "repo",
+  "private",
+];
 
-const KIND: Record<SyncKindWord, { label: string; scopes: readonly Scope[] }> = {
-  skills: { label: "Skills", scopes: ALL_SCOPES },
-  plugins: { label: "Plugins", scopes: ["global", "private"] },
-  global_instructions: { label: "Global instructions", scopes: ["global", "private"] },
-  sub_agents: { label: "Sub agents", scopes: ALL_SCOPES },
-  commands: { label: "Commands", scopes: ALL_SCOPES },
-  mcp_servers: { label: "MCP servers", scopes: ALL_SCOPES },
-  allowlist: { label: "Allowlist", scopes: ALL_SCOPES },
-  workflows: { label: "Workflows", scopes: ALL_SCOPES },
-  memory: { label: "Memory", scopes: ALL_SCOPES },
+const KIND: Record<
+  SyncKindWord,
+  {
+    label: string;
+    scopes: readonly Scope[];
+  }
+> = {
+  skills: {
+    label: "Skills",
+    scopes: ALL_SCOPES,
+  },
+  plugins: {
+    label: "Plugins",
+    scopes: [
+      "global",
+      "private",
+    ],
+  },
+  global_instructions: {
+    label: "Global instructions",
+    scopes: [
+      "global",
+      "private",
+    ],
+  },
+  sub_agents: {
+    label: "Sub agents",
+    scopes: ALL_SCOPES,
+  },
+  commands: {
+    label: "Commands",
+    scopes: ALL_SCOPES,
+  },
+  mcp_servers: {
+    label: "MCP servers",
+    scopes: ALL_SCOPES,
+  },
+  allowlist: {
+    label: "Allowlist",
+    scopes: ALL_SCOPES,
+  },
+  workflows: {
+    label: "Workflows",
+    scopes: ALL_SCOPES,
+  },
+  memory: {
+    label: "Memory",
+    scopes: ALL_SCOPES,
+  },
   // A mod is the machine's, read from Bridge's mod folder: it travels everywhere or stays here.
-  mods: { label: "Mods", scopes: ["global", "private"] },
+  mods: {
+    label: "Mods",
+    scopes: [
+      "global",
+      "private",
+    ],
+  },
 };
 
 /** The kinds in the order What syncs lists them. */
@@ -217,16 +331,39 @@ export function Turning({ said }: { said: string }) {
  * failed. **Nothing for a signed-out machine or a settled one.** Each place draws the glyph, so the way
  * back to a sign-in that is not in front of them is a mark they can find.
  */
-export type Need = { Glyph: LucideIcon; said: string; turning: boolean };
+export type Need = {
+  Glyph: LucideIcon;
+  said: string;
+  turning: boolean;
+};
 
 export function accountNeed(account: Account): Need | undefined {
   const { flow, ended, unavailable } = account;
-  if (flow.phase === "code") return { Glyph: RotateCw, said: "Waiting for GitHub", turning: true };
+  if (flow.phase === "code")
+    return {
+      Glyph: RotateCw,
+      said: "Waiting for GitHub",
+      turning: true,
+    };
   if (flow.phase === "setup" && Object.values(flow.steps).some((one) => one !== "done")) {
-    return { Glyph: RotateCw, said: "Setting up", turning: true };
+    return {
+      Glyph: RotateCw,
+      said: "Setting up",
+      turning: true,
+    };
   }
-  if (ended !== undefined) return { Glyph: ENDED[ended.outcome].Glyph, said: ENDED[ended.outcome].said, turning: false };
-  if (unavailable !== undefined) return { Glyph: CircleDashed, said: "Not set up", turning: false };
+  if (ended !== undefined)
+    return {
+      Glyph: ENDED[ended.outcome].Glyph,
+      said: ENDED[ended.outcome].said,
+      turning: false,
+    };
+  if (unavailable !== undefined)
+    return {
+      Glyph: CircleDashed,
+      said: "Not set up",
+      turning: false,
+    };
   return undefined;
 }
 
@@ -249,7 +386,11 @@ export function AccountBadge({ account }: { account: Account }) {
   const need = accountNeed(account);
   if (need === undefined) return null;
   return (
-    <span className="armada-account__badge" data-turning={need.turning ? "" : undefined} aria-hidden="true">
+    <span
+      className="armada-account__badge"
+      data-turning={need.turning ? "" : undefined}
+      aria-hidden="true"
+    >
       <need.Glyph size={12} strokeWidth={2} />
     </span>
   );
@@ -257,14 +398,29 @@ export function AccountBadge({ account }: { account: Account }) {
 
 /** One glyph per way a sign-in ended, and the word its tooltip gives it. */
 export const ENDED = {
-  denied: { Glyph: Ban, said: "Turned down" },
-  expired: { Glyph: Clock, said: "Expired" },
-  unreachable: { Glyph: Unplug, said: "Not reached" },
-  refused: { Glyph: X, said: "Refused" },
+  denied: {
+    Glyph: Ban,
+    said: "Turned down",
+  },
+  expired: {
+    Glyph: Clock,
+    said: "Expired",
+  },
+  unreachable: {
+    Glyph: Unplug,
+    said: "Not reached",
+  },
+  refused: {
+    Glyph: X,
+    said: "Refused",
+  },
 } as const;
 
 /** The setting each blank category names, as Settings calls it. */
-export const SETTING: Record<BlankSetting, string> = { account: "Sign-in app", store: "Store address" };
+export const SETTING: Record<BlankSetting, string> = {
+  account: "Sign-in app",
+  store: "Store address",
+};
 
 /** The next scope in the order a kind offers, wrapping. */
 function nextScope(kind: SyncKindWord, now: Scope): Scope {
@@ -287,7 +443,13 @@ export function WhatSyncsSheet() {
       open
       floating
       title="What syncs"
-      subtitle={<SharedHomeChip account={home.account ?? login} repository={home.repository} made={home.made} />}
+      subtitle={
+        <SharedHomeChip
+          account={home.account ?? login}
+          repository={home.repository}
+          made={home.made}
+        />
+      }
       closeLabel="Close panel"
       closeBinding="Esc"
       onClose={account.closeSyncs}
@@ -295,7 +457,10 @@ export function WhatSyncsSheet() {
       <ul className="armada-syncs">
         {kinds.map((one) => (
           <li key={one.kind} className="armada-syncs__kind" data-on={one.on ? "" : undefined}>
-            <Switch checked={one.on} onChange={(event) => account.setKind(one.kind, event.target.checked)}>
+            <Switch
+              checked={one.on}
+              onChange={(event) => account.setKind(one.kind, event.target.checked)}
+            >
               {KIND[one.kind].label}
             </Switch>
             {!one.on ? null : one.pulling ? (
@@ -305,9 +470,19 @@ export function WhatSyncsSheet() {
             ) : (
               <ol className="armada-syncs__items" aria-label={`${KIND[one.kind].label} synced`}>
                 {one.items.map((item, at) => (
-                  <li key={item.name} className="armada-syncs__item" style={{ "--fill": at } as CSSProperties}>
+                  <li
+                    key={item.name}
+                    className="armada-syncs__item"
+                    style={
+                      {
+                        "--fill": at,
+                      } as CSSProperties
+                    }
+                  >
                     <span className="armada-syncs__name">{item.name}</span>
-                    {item.scope === "repo" ? <span className="armada-syncs__repo">{item.repo}</span> : null}
+                    {item.scope === "repo" ? (
+                      <span className="armada-syncs__repo">{item.repo}</span>
+                    ) : null}
                     <ScopeMark kind={one.kind} item={item} onPress={account.setScope} />
                   </li>
                 ))}
@@ -320,7 +495,15 @@ export function WhatSyncsSheet() {
   );
 }
 
-function ScopeMark({ kind, item, onPress }: { kind: SyncKindWord; item: SyncItem; onPress: AccountActs["setScope"] }) {
+function ScopeMark({
+  kind,
+  item,
+  onPress,
+}: {
+  kind: SyncKindWord;
+  item: SyncItem;
+  onPress: AccountActs["setScope"];
+}) {
   const { Glyph, said } = SCOPE[item.scope];
   return (
     <Tooltip beside label={said}>

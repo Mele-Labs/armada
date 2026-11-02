@@ -93,13 +93,17 @@
 
 /* The bar's menus and icon buttons carry no ground or edge of their own, so they sit on the box's. The ground the
    ghost button takes on hover is all that marks one, and focus keeps its ring. */
-.armada-session-composer .armada-session-composer__bar :is(.armada-select, .armada-button:not([type="submit"])) {
+.armada-session-composer
+  .armada-session-composer__bar
+  :is(.armada-select, .armada-button:not([type="submit"])) {
   border-color: transparent;
   background: transparent;
   color: var(--fg-muted);
 }
 
-.armada-session-composer .armada-session-composer__bar :is(.armada-select, .armada-button:not([type="submit"])):hover:not(:disabled),
+.armada-session-composer
+  .armada-session-composer__bar
+  :is(.armada-select, .armada-button:not([type="submit"])):hover:not(:disabled),
 .armada-session-composer .armada-session-composer__bar .armada-select:focus-visible {
   background: var(--bg-hover);
   color: var(--fg-default);
@@ -182,12 +186,20 @@
 
 /* In a thread too narrow for three menus beside the buttons, the menus give up their floor before Send does. The box measures
    itself, so a thread beside the browser answers to its own width and not the window's. */
-.armada-session-composer { container-type: inline-size; }
+.armada-session-composer {
+  container-type: inline-size;
+}
 @container (max-width: 400px) {
-  .armada-session-composer__bar { gap: var(--space-1); }
-  .armada-session-composer__pick { min-width: 0; }
+  .armada-session-composer__bar {
+    gap: var(--space-1);
+  }
+  .armada-session-composer__pick {
+    min-width: 0;
+  }
   /* Just the caret's own room on the right, which is what a menu keeps when it has no words to spare. */
-  .armada-session-composer__bar .armada-select { padding-inline: var(--space-1) var(--space-6); }
+  .armada-session-composer__bar .armada-select {
+    padding-inline: var(--space-1) var(--space-6);
+  }
 }
 
 .armada-session-composer__bar .armada-select-field {
@@ -350,7 +362,13 @@ a.armada-inline-tag--link > svg {
 }
 
 /* A value the proposer picked, until the person changes it. */
-.armada-session-composer__proposed { display: inline-flex; flex: none; align-self: center; margin-left: var(--space-1); color: var(--accent); }
+.armada-session-composer__proposed {
+  display: inline-flex;
+  flex: none;
+  align-self: center;
+  margin-left: var(--space-1);
+  color: var(--accent);
+}
 
 /* The quick bar is the box's top row, inside its border, so a band over the box frames both. */
 .armada-session-composer > .armada-quick {

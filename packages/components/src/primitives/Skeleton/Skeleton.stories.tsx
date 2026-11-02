@@ -12,7 +12,11 @@ const meta: Meta<typeof Skeleton> = {
   component: Skeleton,
   decorators: [
     (Story) => (
-      <div style={{ maxWidth: "56ch" }}>
+      <div
+        style={{
+          maxWidth: "56ch",
+        }}
+      >
         <Story />
       </div>
     ),

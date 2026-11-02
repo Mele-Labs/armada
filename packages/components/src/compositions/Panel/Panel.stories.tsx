@@ -29,7 +29,11 @@ export const Open: Story = {
   render: () => <Held defaultOpen />,
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.getByText("Six things worth a glance.")).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { expanded: true }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        expanded: true,
+      }),
+    );
     await expect(canvas.queryByText("Six things worth a glance.")).toBeNull();
   },
 };

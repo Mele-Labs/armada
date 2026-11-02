@@ -17,7 +17,12 @@ import { ThreadKbd, useThreadCard } from "./thread-keys";
 
 const BEHIND = 3;
 
-type Held = { front: number; picked: readonly (readonly string[])[]; using: readonly boolean[]; words: readonly string[] };
+type Held = {
+  front: number;
+  picked: readonly (readonly string[])[];
+  using: readonly boolean[];
+  words: readonly string[];
+};
 
 const GAP = 8;
 const MIN_BESIDE = 160;
@@ -29,22 +34,58 @@ const MIN_BESIDE = 160;
  */
 function PreviewCard({ text, row, frame }: { text: string; row: DOMRect; frame: DOMRect }) {
   const card = useRef<HTMLPreElement>(null);
-  const [place, setPlace] = useState<CSSProperties>({ visibility: "hidden", insetBlockStart: 0, insetInlineStart: 0 });
+  const [place, setPlace] = useState<CSSProperties>({
+    visibility: "hidden",
+    insetBlockStart: 0,
+    insetInlineStart: 0,
+  });
   useLayoutEffect(() => {
     const width = card.current?.offsetWidth ?? 0;
-    const down = row.top > window.innerHeight / 2 ? { insetBlockEnd: window.innerHeight - row.bottom } : { insetBlockStart: row.top };
+    const down =
+      row.top > window.innerHeight / 2
+        ? {
+            insetBlockEnd: window.innerHeight - row.bottom,
+          }
+        : {
+            insetBlockStart: row.top,
+          };
     const right = window.innerWidth - frame.right - 2 * GAP;
     const left = frame.left - 2 * GAP;
-    const toRight = { ...down, insetInlineStart: frame.right + GAP };
-    const toLeft = { ...down, insetInlineEnd: window.innerWidth - frame.left + GAP };
+    const toRight = {
+      ...down,
+      insetInlineStart: frame.right + GAP,
+    };
+    const toLeft = {
+      ...down,
+      insetInlineEnd: window.innerWidth - frame.left + GAP,
+    };
     if (right >= width) setPlace(toRight);
     else if (left >= width) setPlace(toLeft);
     // Beside the panel but too tight for the longest line: the card narrows and its lines wrap, rather than lie over an answer.
-    else if (Math.max(right, left) >= MIN_BESIDE) setPlace({ ...(right >= left ? toRight : toLeft), maxWidth: Math.max(right, left), whiteSpace: "pre-wrap" });
-    else setPlace({ ...down, insetInlineEnd: window.innerWidth - row.right + GAP });
-  }, [text, row, frame]);
+    else if (Math.max(right, left) >= MIN_BESIDE)
+      setPlace({
+        ...(right >= left ? toRight : toLeft),
+        maxWidth: Math.max(right, left),
+        whiteSpace: "pre-wrap",
+      });
+    else
+      setPlace({
+        ...down,
+        insetInlineEnd: window.innerWidth - row.right + GAP,
+      });
+  }, [
+    text,
+    row,
+    frame,
+  ]);
   return createPortal(
-    <pre ref={card} className="armada-question-deck__preview" role="region" aria-label="Preview" style={place}>
+    <pre
+      ref={card}
+      className="armada-question-deck__preview"
+      role="region"
+      aria-label="Preview"
+      style={place}
+    >
       {text}
     </pre>,
     document.body,
@@ -67,45 +108,112 @@ export function QuestionDeck({
   /** What these questions are about: the picks and the question in front are kept under it, as a message not yet sent is, and go when it is answered or skipped. */
   keep?: string;
 }) {
-  const [held, setHeld, clearHeld] = useKept<Held>(keep === undefined ? undefined : `question:${keep}`, {
-    front: 0,
-    picked: questions.map(() => []),
-    using: questions.map(() => false),
-    words: questions.map(() => ""),
-  });
+  const [held, setHeld, clearHeld] = useKept<Held>(
+    keep === undefined ? undefined : `question:${keep}`,
+    {
+      front: 0,
+      picked: questions.map(() => []),
+      using: questions.map(() => false),
+      words: questions.map(() => ""),
+    },
+  );
   const { front, picked, using, words } = held;
   // Only what was kept is let go: a deck kept nowhere stays as it is while Fleet takes the answer.
   const letGo = () => (keep === undefined ? undefined : clearHeld());
-  const patch = (change: Partial<Held>) => setHeld((was) => ({ ...was, ...change }));
-  const setFront = (next: number) => patch({ front: next });
-  const setPicked = (next: readonly (readonly string[])[]) => patch({ picked: next });
-  const setUsing = (next: readonly boolean[]) => patch({ using: next });
-  const setWords = (next: readonly string[]) => patch({ words: next });
+  const patch = (change: Partial<Held>) =>
+    setHeld((was) => ({
+      ...was,
+      ...change,
+    }));
+  const setFront = (next: number) =>
+    patch({
+      front: next,
+    });
+  const setPicked = (next: readonly (readonly string[])[]) =>
+    patch({
+      picked: next,
+    });
+  const setUsing = (next: readonly boolean[]) =>
+    patch({
+      using: next,
+    });
+  const setWords = (next: readonly string[]) =>
+    patch({
+      words: next,
+    });
   const [open, setOpen] = useState(true);
   // The option the person is pointing at or has focused, on the card it was on, and where its row and the box it sits in are, so the preview can stand beside that box.
-  const [looking, setLooking] = useState<{ at: number; label: string; row: DOMRect; frame: DOMRect } | null>(null);
+  const [looking, setLooking] = useState<{
+    at: number;
+    label: string;
+    row: DOMRect;
+    frame: DOMRect;
+  } | null>(null);
   const [sending, setSending] = useState(false);
-  const at = <T,>(list: readonly T[], index: number, value: T): T[] => list.map((one, i) => (i === index ? value : one));
+  const at = <T,>(list: readonly T[], index: number, value: T): T[] =>
+    list.map((one, i) => (i === index ? value : one));
   const chosenFor = (index: number): string[] => {
     const typed = words[index]?.trim() ?? "";
-    return [...(picked[index] ?? []), ...(using[index] === true && typed !== "" ? [typed] : [])];
+    return [
+      ...(picked[index] ?? []),
+      ...(using[index] === true && typed !== ""
+        ? [
+            typed,
+          ]
+        : []),
+    ];
   };
   const last = front === questions.length - 1;
   const complete = questions.every((_, index) => chosenFor(index).length > 0);
   const one = questions[front]!;
-  const previewed = looking?.at === front ? one.options.find((option) => option.label === looking.label) : undefined;
-  const look = (option: { label: string; preview?: string }, event: SyntheticEvent<HTMLElement>) =>
-    option.preview === undefined || option.preview === "" ? undefined : setLooking({ at: front, label: option.label, row: event.currentTarget.getBoundingClientRect(), frame: (event.currentTarget.closest(".armada-needs-panel") ?? event.currentTarget.closest(".armada-question-deck") ?? event.currentTarget).getBoundingClientRect() });
+  const previewed =
+    looking?.at === front
+      ? one.options.find((option) => option.label === looking.label)
+      : undefined;
+  const look = (
+    option: {
+      label: string;
+      preview?: string;
+    },
+    event: SyntheticEvent<HTMLElement>,
+  ) =>
+    option.preview === undefined || option.preview === ""
+      ? undefined
+      : setLooking({
+          at: front,
+          label: option.label,
+          row: event.currentTarget.getBoundingClientRect(),
+          frame: (
+            event.currentTarget.closest(".armada-needs-panel") ??
+            event.currentTarget.closest(".armada-question-deck") ??
+            event.currentTarget
+          ).getBoundingClientRect(),
+        });
   // Flat, there is no card for the strips to stand behind.
   const behind = flat ? [] : questions.slice(front + 1, front + 1 + BEHIND);
 
   const choose = (label: string) => {
     const mine = picked[front] ?? [];
     if (one.multi_select) {
-      setPicked(at(picked, front, mine.includes(label) ? mine.filter((x) => x !== label) : [...mine, label]));
+      setPicked(
+        at(
+          picked,
+          front,
+          mine.includes(label)
+            ? mine.filter((x) => x !== label)
+            : [
+                ...mine,
+                label,
+              ],
+        ),
+      );
       return;
     }
-    setPicked(at(picked, front, [label]));
+    setPicked(
+      at(picked, front, [
+        label,
+      ]),
+    );
     setUsing(at(using, front, false));
     if (!last) setFront(front + 1);
   };
@@ -114,7 +222,13 @@ export function QuestionDeck({
     if (!one.multi_select) setPicked(at(picked, front, []));
   };
   const answer = () => {
-    const sent = onAnswer("allow_once", questions.map((q, index) => ({ question: q.question, chosen: chosenFor(index) })));
+    const sent = onAnswer(
+      "allow_once",
+      questions.map((q, index) => ({
+        question: q.question,
+        chosen: chosenFor(index),
+      })),
+    );
     if (sent === undefined) return letGo();
     setSending(true);
     void sent.then(letGo, () => undefined).finally(() => setSending(false));
@@ -128,7 +242,9 @@ export function QuestionDeck({
   const openOther = () => {
     setOpen(true);
     if (using[front] !== true) other();
-    window.requestAnimationFrame(() => home.current?.querySelector<HTMLInputElement>('input[aria-label="Other"]')?.focus());
+    window.requestAnimationFrame(() =>
+      home.current?.querySelector<HTMLInputElement>('input[aria-label="Other"]')?.focus(),
+    );
   };
   // One of the Job's waiting cards (`thread-keys.tsx`): `⌥↵` Answer once every question has one, `⌥E` Other, `⌥X` Skip.
   const { target, bind } = useThreadCard({
@@ -136,9 +252,26 @@ export function QuestionDeck({
     kind: "Question",
     title: one.header === "" ? one.question : `${one.header}: ${one.question}`,
     acts: {
-      ...(last && complete && !sending ? { yes: { verb: "Answer", run: answer } } : {}),
-      change: { verb: "Other", run: openOther },
-      ...(canSkip ? { no: { verb: "Skip", run: skip } } : {}),
+      ...(last && complete && !sending
+        ? {
+            yes: {
+              verb: "Answer",
+              run: answer,
+            },
+          }
+        : {}),
+      change: {
+        verb: "Other",
+        run: openOther,
+      },
+      ...(canSkip
+        ? {
+            no: {
+              verb: "Skip",
+              run: skip,
+            },
+          }
+        : {}),
     },
   });
   const keyed = (element: HTMLDivElement | null) => {
@@ -158,49 +291,81 @@ export function QuestionDeck({
   };
 
   // Flat, in the panel there is no band to hold the pips: a node per question beside the buttons, the answered ones checked and named, the one in front ringed.
-  const steps = !flat || questions.length === 1 ? null : (
-    <div className="armada-question-deck__steps" role="group" aria-label="Questions">
-      {questions.map((q, index) => {
-        const name = q.header === "" ? q.question : q.header;
-        const done = index !== front && chosenFor(index).length > 0;
-        const said = done ? `${name}: ${chosenFor(index).join(", ")}` : name;
-        return (
-          <Fragment key={q.question}>
-            {index === 0 ? null : <span className="armada-question-deck__link" data-done={done || chosenFor(index - 1).length > 0 || undefined} aria-hidden />}
-            <Tooltip label={said}>
-              <button
-                type="button"
-                className="armada-question-deck__step"
-                aria-label={said}
-                aria-current={index === front ? "step" : undefined}
-                data-done={done || undefined}
-                onClick={() => setFront(index)}
-              >
-                {done ? <Check size={12} strokeWidth={3} aria-hidden /> : index + 1}
-              </button>
-            </Tooltip>
-          </Fragment>
-        );
-      })}
-    </div>
-  );
+  const steps =
+    !flat || questions.length === 1 ? null : (
+      <div className="armada-question-deck__steps" role="group" aria-label="Questions">
+        {questions.map((q, index) => {
+          const name = q.header === "" ? q.question : q.header;
+          const done = index !== front && chosenFor(index).length > 0;
+          const said = done ? `${name}: ${chosenFor(index).join(", ")}` : name;
+          return (
+            <Fragment key={q.question}>
+              {index === 0 ? null : (
+                <span
+                  className="armada-question-deck__link"
+                  data-done={done || chosenFor(index - 1).length > 0 || undefined}
+                  aria-hidden
+                />
+              )}
+              <Tooltip label={said}>
+                <button
+                  type="button"
+                  className="armada-question-deck__step"
+                  aria-label={said}
+                  aria-current={index === front ? "step" : undefined}
+                  data-done={done || undefined}
+                  onClick={() => setFront(index)}
+                >
+                  {done ? <Check size={12} strokeWidth={3} aria-hidden /> : index + 1}
+                </button>
+              </Tooltip>
+            </Fragment>
+          );
+        })}
+      </div>
+    );
 
   return (
     <div className="armada-question-deck" data-flat={flat || undefined} {...bind} ref={keyed}>
       {flat ? null : front === 0 ? null : (
         <div className="armada-question-deck__done" role="group" aria-label="Answered">
           {questions.slice(0, front).map((q, index) => (
-            <Button key={q.question} size="sm" variant="ghost" title={q.question} onClick={() => setFront(index)}>
+            <Button
+              key={q.question}
+              size="sm"
+              variant="ghost"
+              title={q.question}
+              onClick={() => setFront(index)}
+            >
               {q.header === "" ? q.question : q.header}: {chosenFor(index).join(", ")}
             </Button>
           ))}
         </div>
       )}
-      <div className="armada-question-deck__stack" style={{ ["--behind" as string]: behind.length }}>
+      <div
+        className="armada-question-deck__stack"
+        style={{
+          ["--behind" as string]: behind.length,
+        }}
+      >
         {behind.map((q, index) => (
-          <div key={q.question} className="armada-question-deck__behind" style={{ ["--i" as string]: index }} title={q.question} aria-hidden />
+          <div
+            key={q.question}
+            className="armada-question-deck__behind"
+            style={{
+              ["--i" as string]: index,
+            }}
+            title={q.question}
+            aria-hidden
+          />
         ))}
-        <div key={one.question} className="armada-question-deck__card" role="group" aria-label={one.question} onKeyDown={key}>
+        <div
+          key={one.question}
+          className="armada-question-deck__card"
+          role="group"
+          aria-label={one.question}
+          onKeyDown={key}
+        >
           <header className="armada-question-deck__band">
             <button
               type="button"
@@ -210,20 +375,40 @@ export function QuestionDeck({
               onClick={() => setOpen(!open)}
             >
               <MessageCircleQuestion size={16} aria-hidden />
-              <span className="armada-question-deck__title">{one.header === "" ? "Question" : one.header}</span>
+              <span className="armada-question-deck__title">
+                {one.header === "" ? "Question" : one.header}
+              </span>
               {questions.length === 1 ? null : (
-                <span className="armada-question-deck__pips" title={`${front + 1} of ${questions.length}`}>
+                <span
+                  className="armada-question-deck__pips"
+                  title={`${front + 1} of ${questions.length}`}
+                >
                   {questions.map((q, index) => (
-                    <span key={q.question} className="armada-question-deck__pip" data-here={index === front || undefined} data-done={index < front || undefined} />
+                    <span
+                      key={q.question}
+                      className="armada-question-deck__pip"
+                      data-here={index === front || undefined}
+                      data-done={index < front || undefined}
+                    />
                   ))}
                 </span>
               )}
-              {open ? <ChevronDown size={16} aria-hidden /> : <ChevronRight size={16} aria-hidden />}
+              {open ? (
+                <ChevronDown size={16} aria-hidden />
+              ) : (
+                <ChevronRight size={16} aria-hidden />
+              )}
             </button>
           </header>
           <div className="armada-question-deck__body" hidden={flat ? false : !open}>
-            <p className="armada-question-deck__ask"><RefText text={one.question} /></p>
-            <div className="armada-question-deck__answers" role={one.multi_select ? "group" : "radiogroup"} aria-label="Options">
+            <p className="armada-question-deck__ask">
+              <RefText text={one.question} />
+            </p>
+            <div
+              className="armada-question-deck__answers"
+              role={one.multi_select ? "group" : "radiogroup"}
+              aria-label="Options"
+            >
               {one.options.map((option, index) => {
                 const on = (picked[front] ?? []).includes(option.label);
                 return (
@@ -245,7 +430,11 @@ export function QuestionDeck({
                     <kbd>{index + 1}</kbd>
                     <span className="armada-question-deck__option">
                       <span>{option.label}</span>
-                      {option.description === "" ? null : <span className="armada-question-deck__description"><RefText text={option.description} /></span>}
+                      {option.description === "" ? null : (
+                        <span className="armada-question-deck__description">
+                          <RefText text={option.description} />
+                        </span>
+                      )}
                     </span>
                   </button>
                 );
@@ -266,9 +455,16 @@ export function QuestionDeck({
                 <ThreadKbd act="change" on={target} />
               </button>
             </div>
-            {previewed?.preview === undefined || looking === null ? null : <PreviewCard text={previewed.preview} row={looking.row} frame={looking.frame} />}
+            {previewed?.preview === undefined || looking === null ? null : (
+              <PreviewCard text={previewed.preview} row={looking.row} frame={looking.frame} />
+            )}
             {using[front] === true ? (
-              <Input aria-label="Other" autoFocus value={words[front] ?? ""} onChange={(event) => setWords(at(words, front, event.target.value))} />
+              <Input
+                aria-label="Other"
+                autoFocus
+                value={words[front] ?? ""}
+                onChange={(event) => setWords(at(words, front, event.target.value))}
+              />
             ) : null}
             <div className="armada-session-thread__answers" role="group" aria-label="Answers">
               {last ? (
@@ -282,7 +478,12 @@ export function QuestionDeck({
                   <ThreadKbd act="yes" on={target} />
                 </Button>
               ) : (
-                <Button size="sm" variant="secondary" disabled={chosenFor(front).length === 0} onClick={() => setFront(front + 1)}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={chosenFor(front).length === 0}
+                  onClick={() => setFront(front + 1)}
+                >
                   Next
                 </Button>
               )}

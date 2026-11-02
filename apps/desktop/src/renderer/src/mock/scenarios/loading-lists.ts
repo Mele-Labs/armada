@@ -14,7 +14,10 @@ function build(): Scenario {
     says: "Issues and Reviews while the forge and the trackers have not answered: skeleton rows, nothing landing",
     draft: {
       ...base.draft,
-      issuesTab: (base.draft?.issuesTab ?? []).map((one) => ({ ...one, unanswered: "run" as const })),
+      issuesTab: (base.draft?.issuesTab ?? []).map((one) => ({
+        ...one,
+        unanswered: "run" as const,
+      })),
       prReview: reviewSeed(),
     },
     behaves: (...args) => ({

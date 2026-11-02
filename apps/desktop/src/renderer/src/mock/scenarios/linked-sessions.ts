@@ -3,4 +3,7 @@
 
 import { linkedSessions } from "../sessions/linked";
 
-export const s270LinkedSessions = linkedSessions("linked-sessions", "A Session and the Sessions its plan groups were handed to, drawn on the Plan and in its Ledger");
+export const s270LinkedSessions = linkedSessions(
+  "linked-sessions",
+  "A Session and the Sessions its plan groups were handed to, drawn on the Plan and in its Ledger",
+);

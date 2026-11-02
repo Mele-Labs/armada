@@ -26,5 +26,8 @@ export const GUIDE_JOB: Guide = {
   ],
   // Under the line that names the steps: the relation is a job running them in
   // order, which is the same drawing guide 19 leads with.
-  figure: { id: "workflow-steps", at: 5 },
+  figure: {
+    id: "workflow-steps",
+    at: 5,
+  },
 };

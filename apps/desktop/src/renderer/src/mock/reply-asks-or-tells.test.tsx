@@ -10,8 +10,16 @@ import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const work = () => page.getByRole("region", { name: "Jobs", exact: true });
-const row = (title: string) => work().getByRole("button", { name: title, exact: true });
+const work = () =>
+  page.getByRole("region", {
+    name: "Jobs",
+    exact: true,
+  });
+const row = (title: string) =>
+  work().getByRole("button", {
+    name: title,
+    exact: true,
+  });
 const flagged = (title: string, flag: string) => row(title).element().matches(`[${flag}]`);
 
 test("the asking reply is a calling row under Needs you, and the replies that only tell are not", async () => {
@@ -22,16 +30,37 @@ test("the asking reply is a calling row under Needs you, and the replies that on
   expect(flagged("Retry cap", "data-needs")).toBe(true);
   expect(flagged("Retry cap", "data-calling")).toBe(true);
   expect(flagged("Retry cap", "data-reply")).toBe(false);
-  for (const title of ["Pin the store clock", "Trim the log lines"]) {
-    await expect.element(row(title).getByRole("img", { name: "Unread reply" })).toBeVisible();
+  for (const title of [
+    "Pin the store clock",
+    "Trim the log lines",
+  ]) {
+    await expect
+      .element(
+        row(title).getByRole("img", {
+          name: "Unread reply",
+        }),
+      )
+      .toBeVisible();
     expect(flagged(title, "data-reply")).toBe(true);
     expect(flagged(title, "data-needs")).toBe(false);
     expect(flagged(title, "data-calling")).toBe(false);
   }
   expect(flagged("Migration notes", "data-calling")).toBe(false);
-  expect(row("Migration notes").getByRole("img", { name: "Unread reply" }).query()).toBeNull();
+  expect(
+    row("Migration notes")
+      .getByRole("img", {
+        name: "Unread reply",
+      })
+      .query(),
+  ).toBeNull();
 
-  expect(page.getByRole("region", { name: "Incoming calls" }).query()).toBeNull();
+  expect(
+    page
+      .getByRole("region", {
+        name: "Incoming calls",
+      })
+      .query(),
+  ).toBeNull();
 });
 
 test("answering the asking line sends the reply and the row stops calling", async () => {
@@ -41,9 +70,30 @@ test("answering the asking line sends the reply and the row stops calling", asyn
   await expect.element(row("Retry cap")).toBeVisible();
   expect(flagged("Retry cap", "data-calling")).toBe(true);
 
-  expect((await app.api.answerWaiting({ session_id: "q1", item_id: ASKED_ITEM, text: "Ten." })).ok).toBe(true);
-  expect(answer).toHaveBeenLastCalledWith({ session_id: "q1", item_id: ASKED_ITEM, text: "Ten." });
+  expect(
+    (
+      await app.api.answerWaiting({
+        session_id: "q1",
+        item_id: ASKED_ITEM,
+        text: "Ten.",
+      })
+    ).ok,
+  ).toBe(true);
+  expect(answer).toHaveBeenLastCalledWith({
+    session_id: "q1",
+    item_id: ASKED_ITEM,
+    text: "Ten.",
+  });
   await expect.poll(() => flagged("Retry cap", "data-calling")).toBe(false);
   await toSession(/Retry cap/);
-  await expect.element(page.getByRole("region", { name: "Thread" }).getByText(/Ten\./).first()).toBeVisible();
+  await expect
+    .element(
+      page
+        .getByRole("region", {
+          name: "Thread",
+        })
+        .getByText(/Ten\./)
+        .first(),
+    )
+    .toBeVisible();
 });

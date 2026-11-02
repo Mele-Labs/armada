@@ -15,7 +15,8 @@ const set = (next: ReadonlyMap<string, Autopilot>) => {
   heard.forEach((one) => one());
 };
 /** One repository's Autopilot, whole, as Fleet answered or published it. */
-export const fold = (autopilot: Autopilot) => set(new Map(held).set(autopilot.manifest_id, autopilot));
+export const fold = (autopilot: Autopilot) =>
+  set(new Map(held).set(autopilot.manifest_id, autopilot));
 
 /** A window whose Fleet serves no Autopilot (a fake without the slice) has none to read. */
 const served = () => typeof window.armada?.listAutopilots === "function";
@@ -24,7 +25,9 @@ function begin(): () => void {
   if (!served()) return () => undefined;
   let current = true;
   const off = window.armada.onAutopilotChanged(fold);
-  void window.armada.listAutopilots().then((read) => current && read.ok && read.value.autopilots.forEach(fold));
+  void window.armada
+    .listAutopilots()
+    .then((read) => current && read.ok && read.value.autopilots.forEach(fold));
   return () => {
     current = false;
     off();
@@ -43,22 +46,43 @@ function subscribe(hear: () => void): () => void {
   };
 }
 
-const runningIn = (all: ReadonlyMap<string, Autopilot>): Autopilot[] => [...all.values()].filter((one) => one.state === "running");
+const runningIn = (all: ReadonlyMap<string, Autopilot>): Autopilot[] =>
+  [
+    ...all.values(),
+  ].filter((one) => one.state === "running");
 
 /** The Autopilots that are running now. Paused and stopped ones are not. */
 export function useRunning(): Autopilot[] {
   const all = useSyncExternalStore(subscribe, () => held);
-  return useMemo(() => runningIn(all), [all]);
+  return useMemo(
+    () => runningIn(all),
+    [
+      all,
+    ],
+  );
 }
 
 /** The Autopilots that have not ended: running, or paused with picks still to settle. */
 export function useAlive(): Autopilot[] {
   const all = useSyncExternalStore(subscribe, () => held);
-  return useMemo(() => [...all.values()].filter((one) => one.state !== "stopped"), [all]);
+  return useMemo(
+    () =>
+      [
+        ...all.values(),
+      ].filter((one) => one.state !== "stopped"),
+    [
+      all,
+    ],
+  );
 }
 
 /** The repositories whose Autopilot a cap paused, read where a component is not. */
-export const pausedIds = (): string[] => [...held.values()].filter((one) => one.state === "paused").map((one) => one.manifest_id);
+export const pausedIds = (): string[] =>
+  [
+    ...held.values(),
+  ]
+    .filter((one) => one.state === "paused")
+    .map((one) => one.manifest_id);
 
 /** Ends a paused Autopilot, which Fleet requires before a start over it. */
 export async function stopPaused(manifest: string): Promise<void> {

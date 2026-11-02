@@ -19,15 +19,26 @@ export { slotsHeld };
  * Files written into a slot after the read, which its remove then meets: what
  * the walk's refusal shows. Slot 5 reads free and cold, and is not empty.
  */
-const WRITTEN_SINCE_READ: Record<number, string> = { 5: "notes.md" };
+const WRITTEN_SINCE_READ: Record<number, string> = {
+  5: "notes.md",
+};
 
 /** Hosted Sessions mid-turn, which Fleet will not release the slot of: the walk's refusal on a hosted bay. */
-export const WORKING_SESSIONS: ReadonlySet<string> = new Set(["s9", "s-pr-panel"]);
+export const WORKING_SESSIONS: ReadonlySet<string> = new Set([
+  "s9",
+  "s-pr-panel",
+]);
 
 const refusedAs = (code: string, message: string): Outcome => ({
   ok: false,
   why: "refused",
-  error: { code, message, run_id: "mock", fields: {}, chain: [] },
+  error: {
+    code,
+    message,
+    run_id: "mock",
+    fields: {},
+    chain: [],
+  },
 });
 
 /**
@@ -39,39 +50,94 @@ export function reshaped(
   held: WorktreesHeld,
   manifestId: string,
   change: ChangeSlotPool,
-): { held: WorktreesHeld; outcome: Outcome } {
+): {
+  held: WorktreesHeld;
+  outcome: Outcome;
+} {
   const all = held.slots ?? [];
   const pool = all.filter((one) => one.manifest_id === manifestId);
   const others = all.filter((one) => one.manifest_id !== manifestId);
   const answer = (slots: WorktreeSlot[]) => ({
-    held: { ...held, slots: [...others, ...slots].sort((a, b) => a.slot - b.slot) },
-    outcome: { ok: true } as Outcome,
+    held: {
+      ...held,
+      slots: [
+        ...others,
+        ...slots,
+      ].sort((a, b) => a.slot - b.slot),
+    },
+    outcome: {
+      ok: true,
+    } as Outcome,
   });
   if (change.act === "add") {
     let n = 1;
     while (pool.some((one) => one.slot === n)) n += 1;
-    return answer([...pool, { ...slot(n, { held: { state: "unmade" } }), manifest_id: manifestId }]);
+    return answer([
+      ...pool,
+      {
+        ...slot(n, {
+          held: {
+            state: "unmade",
+          },
+        }),
+        manifest_id: manifestId,
+      },
+    ]);
   }
   const target = pool.find((one) => one.slot === change.slot);
   if (target === undefined) {
-    return { held, outcome: refusedAs("fleet.no_such_slot", `no slot-${change.slot ?? "?"}`) };
+    return {
+      held,
+      outcome: refusedAs("fleet.no_such_slot", `no slot-${change.slot ?? "?"}`),
+    };
   }
   if (change.act === "close" || change.act === "open") {
     const closed = change.act === "close";
-    return answer(pool.map((one) => (one === target ? { ...one, closed } : one)));
+    return answer(
+      pool.map((one) =>
+        one === target
+          ? {
+              ...one,
+              closed,
+            }
+          : one,
+      ),
+    );
   }
   if (change.act === "release") {
-    const holder = target.held.state === "session" ? target.held.holder : target.held.state === "hosted_session" ? target.held.session_id : undefined;
+    const holder =
+      target.held.state === "session"
+        ? target.held.holder
+        : target.held.state === "hosted_session"
+          ? target.held.session_id
+          : undefined;
     if (holder === undefined || holder !== change.holder) {
       const now = holder ?? "someone else";
-      return { held, outcome: refusedAs("fleet.slot_holder_changed", `it is held by ${now} now, not by the holder that was shown`) };
+      return {
+        held,
+        outcome: refusedAs(
+          "fleet.slot_holder_changed",
+          `it is held by ${now} now, not by the holder that was shown`,
+        ),
+      };
     }
     if (target.held.state === "hosted_session" && WORKING_SESSIONS.has(target.held.session_id)) {
-      return { held, outcome: refusedAs("fleet.slot_session_working", `${target.held.session_title ?? target.held.session_id} is working`) };
+      return {
+        held,
+        outcome: refusedAs(
+          "fleet.slot_session_working",
+          `${target.held.session_title ?? target.held.session_id} is working`,
+        ),
+      };
     }
     const files = target.stranded?.uncommitted ?? [];
     const { stranded: _s, branch: _b, since: _since, ...rest } = target;
-    const released = { ...rest, held: { state: "free" as const } };
+    const released = {
+      ...rest,
+      held: {
+        state: "free" as const,
+      },
+    };
     return {
       ...answer(pool.map((one) => (one === target ? released : one))),
       outcome: {
@@ -81,7 +147,14 @@ export function reshaped(
           slot: target.slot,
           released: {
             branch: target.branch ?? "",
-            ...(files.length === 0 ? {} : { saved: { commit: "d41f8a6c20be", files } }),
+            ...(files.length === 0
+              ? {}
+              : {
+                  saved: {
+                    commit: "d41f8a6c20be",
+                    files,
+                  },
+                }),
           },
         },
       },
@@ -104,20 +177,34 @@ export function reshaped(
     }
     if (pool.length === 1) return refusedAs("fleet.slot_last", "the last slot");
     const written = WRITTEN_SINCE_READ[target.slot];
-    return written === undefined ? null : refusedAs("fleet.slot_dirty", `1 uncommitted, first ${written}`);
+    return written === undefined
+      ? null
+      : refusedAs("fleet.slot_dirty", `1 uncommitted, first ${written}`);
   })();
-  return why === null ? answer(pool.filter((one) => one !== target)) : { held, outcome: why };
+  return why === null
+    ? answer(pool.filter((one) => one !== target))
+    : {
+        held,
+        outcome: why,
+      };
 }
 
 /** What a rescue Scout reads of one stranded slot, a file to a poll, and what it concludes. */
-type Scouted = Pick<SlotFinding, "commit" | "uncommitted" | "read" | "searched" | "verdict" | "items">;
+type Scouted = Pick<
+  SlotFinding,
+  "commit" | "uncommitted" | "read" | "searched" | "verdict" | "items"
+>;
 
 const SCOUTED: Record<number, Scouted> = {
   8: {
     commit: "b61d3a0e94",
     uncommitted: true,
-    read: ["crates/api/src/routes.rs"],
-    searched: ["read_manifest in crates/"],
+    read: [
+      "crates/api/src/routes.rs",
+    ],
+    searched: [
+      "read_manifest in crates/",
+    ],
     verdict: "unfinished",
     items: [
       "crates/api/src/routes.rs is edited and not committed",
@@ -127,25 +214,46 @@ const SCOUTED: Record<number, Scouted> = {
   4: {
     commit: "9d41e07b2c",
     uncommitted: true,
-    read: ["src/reader/retry.rs", "src/lib.rs"],
-    searched: ["retry_short_read in src/"],
+    read: [
+      "src/reader/retry.rs",
+      "src/lib.rs",
+    ],
+    searched: [
+      "retry_short_read in src/",
+    ],
     verdict: "unfinished",
-    items: ["src/lib.rs still calls the old read loop", "src/reader/retry.rs has no test"],
+    items: [
+      "src/lib.rs still calls the old read loop",
+      "src/reader/retry.rs has no test",
+    ],
   },
   7: {
     commit: "e08c4d1a77",
     uncommitted: true,
-    read: ["crates/fleet/src/slots.rs", "crates/fleet/src/leasing.rs"],
-    searched: ["LeaseRecord in crates/"],
+    read: [
+      "crates/fleet/src/slots.rs",
+      "crates/fleet/src/leasing.rs",
+    ],
+    searched: [
+      "LeaseRecord in crates/",
+    ],
     verdict: "scraps",
-    items: ["A draft note in notes/lease.md and a renamed local in slots.rs"],
+    items: [
+      "A draft note in notes/lease.md and a renamed local in slots.rs",
+    ],
   },
 };
 
 /** The slot a stranded one becomes once rescued: free, with nothing of its holder left. */
 function freed(one: WorktreeSlot): WorktreeSlot {
   const { branch: _b, since: _s, stranded: _t, rescue: _r, ...rest } = one;
-  return { ...rest, held: { state: "free" }, warm: false };
+  return {
+    ...rest,
+    held: {
+      state: "free",
+    },
+    warm: false,
+  };
 }
 
 /**
@@ -158,19 +266,32 @@ export function rescued(
   held: WorktreesHeld,
   manifestId: string,
   rescue: RescueSlot,
-): { held: WorktreesHeld; outcome: RescueOutcome } {
+): {
+  held: WorktreesHeld;
+  outcome: RescueOutcome;
+} {
   const slots = held.slots ?? [];
   const target = slots.find((one) => one.manifest_id === manifestId && one.slot === rescue.slot);
   const answer = (change: WorktreeSlot, outcome: RescueOutcome) => ({
-    held: { ...held, slots: slots.map((one) => (one === target ? change : one)) },
+    held: {
+      ...held,
+      slots: slots.map((one) => (one === target ? change : one)),
+    },
     outcome,
   });
-  const refuse = (code: string, message: string) => ({ held, outcome: refusedAs(code, message) as RescueOutcome });
+  const refuse = (code: string, message: string) => ({
+    held,
+    outcome: refusedAs(code, message) as RescueOutcome,
+  });
   if (target === undefined) return refuse("fleet.no_such_slot", `no slot-${rescue.slot}`);
   if (target.held.state === "busy") return refuse("fleet.slot_busy", "a lease is under way");
-  if (target.held.state !== "stranded") return refuse("fleet.slot_not_stranded", `slot-${target.slot} is not stranded`);
+  if (target.held.state !== "stranded")
+    return refuse("fleet.slot_not_stranded", `slot-${target.slot} is not stranded`);
   const reading = target.rescue?.state === "reading";
-  const receipt = { manifest_id: manifestId, slot: target.slot };
+  const receipt = {
+    manifest_id: manifestId,
+    slot: target.slot,
+  };
   switch (rescue.act) {
     case "start": {
       const script = SCOUTED[target.slot];
@@ -183,31 +304,77 @@ export function rescued(
         read: [],
         searched: [],
       };
-      return answer({ ...target, rescue: finding }, { ok: true, rescued: receipt });
+      return answer(
+        {
+          ...target,
+          rescue: finding,
+        },
+        {
+          ok: true,
+          rescued: receipt,
+        },
+      );
     }
     case "stop":
-      if (!reading || target.rescue === undefined) return refuse("fleet.rescue_not_running", "no Scout is reading it");
-      return answer({ ...target, rescue: { ...target.rescue, state: "stopped" } }, { ok: true, rescued: receipt });
+      if (!reading || target.rescue === undefined)
+        return refuse("fleet.rescue_not_running", "no Scout is reading it");
+      return answer(
+        {
+          ...target,
+          rescue: {
+            ...target.rescue,
+            state: "stopped",
+          },
+        },
+        {
+          ok: true,
+          rescued: receipt,
+        },
+      );
     case "scrap":
     case "stash":
     case "pick_up": {
       if (reading) return refuse("fleet.rescue_reading", "a Scout is reading it");
       const found = target.rescue;
       if (rescue.act === "pick_up") {
-        if (found === undefined || ((found.items ?? []).length === 0 && found.summary === undefined)) {
-          return refuse("fleet.rescue_unread", `no Finding of slot-${target.slot} to continue from`);
+        if (
+          found === undefined ||
+          ((found.items ?? []).length === 0 && found.summary === undefined)
+        ) {
+          return refuse(
+            "fleet.rescue_unread",
+            `no Finding of slot-${target.slot} to continue from`,
+          );
         }
         if (found.verdict === "scraps") {
-          return refuse("fleet.rescue_nothing_left", `the Finding on slot-${target.slot} says nothing is left to do`);
+          return refuse(
+            "fleet.rescue_nothing_left",
+            `the Finding on slot-${target.slot} says nothing is left to do`,
+          );
         }
       }
       if (target.branch === undefined) return refuse("fleet.rescue_on_no_branch", "no branch");
-      if (target.branch === target.base) return refuse("fleet.rescue_on_the_base", `on ${target.base}`);
+      if (target.branch === target.base)
+        return refuse("fleet.rescue_on_the_base", `on ${target.base}`);
       const { branch } = target;
       const outcome: RescueOutcome =
         rescue.act === "scrap"
-          ? { ok: true, rescued: { ...receipt, branch, branch_kept: (target.stranded?.unpushed ?? 0) > 0 } }
-          : { ok: true, rescued: { ...receipt, branch, committed: "c0ffee1a4d" } };
+          ? {
+              ok: true,
+              rescued: {
+                ...receipt,
+                branch,
+                branch_kept: (target.stranded?.unpushed ?? 0) > 0,
+              },
+            }
+          : {
+              ok: true,
+              rescued: {
+                ...receipt,
+                branch,
+                committed: "c0ffee1a4d",
+              },
+            };
       return answer(freed(target), outcome);
     }
   }
@@ -230,9 +397,24 @@ export function scoutRead(held: WorktreesHeld): WorktreesHeld {
       const next = script.read[finding.read.length];
       const rescue: SlotFinding =
         next !== undefined
-          ? { ...finding, read: [...finding.read, next] }
-          : { ...finding, state: "answered", searched: script.searched, verdict: script.verdict, items: script.items };
-      return { ...one, rescue };
+          ? {
+              ...finding,
+              read: [
+                ...finding.read,
+                next,
+              ],
+            }
+          : {
+              ...finding,
+              state: "answered",
+              searched: script.searched,
+              verdict: script.verdict,
+              items: script.items,
+            };
+      return {
+        ...one,
+        rescue,
+      };
     }),
   };
 }

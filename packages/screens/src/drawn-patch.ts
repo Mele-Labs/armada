@@ -21,7 +21,10 @@ import type { DiffFile, DiffLine } from "@armada/components";
 export const DRAWN_LINES = 2000;
 
 /** What the drawn files are, and what was left off the end of them. */
-export type Drawn = { files: DiffFile[]; cut?: string };
+export type Drawn = {
+  files: DiffFile[];
+  cut?: string;
+};
 
 /**
  * Any patch Fleet served, split and bounded — with the sentence for a cut
@@ -32,15 +35,27 @@ export type Drawn = { files: DiffFile[]; cut?: string };
  * checkout has no worktree to name. The split and the bound are one, so the
  * Manifest surface's diff cannot draw a patch differently from a Job's.
  */
-export function drawnOf(patch: string, cutSaid: (drawnLines: number, total: number) => string): Drawn {
+export function drawnOf(
+  patch: string,
+  cutSaid: (drawnLines: number, total: number) => string,
+): Drawn {
   const parsed = split(patch);
   return parsed.cutAt === undefined
-    ? { files: parsed.files }
-    : { files: parsed.files, cut: cutSaid(parsed.cutAt, parsed.total) };
+    ? {
+        files: parsed.files,
+      }
+    : {
+        files: parsed.files,
+        cut: cutSaid(parsed.cutAt, parsed.total),
+      };
 }
 
 /** One file being built as the patch is walked. */
-type Building = { path: string; meta?: string; lines: DiffLine[] };
+type Building = {
+  path: string;
+  meta?: string;
+  lines: DiffLine[];
+};
 
 /** The prefix git writes before every file's block. */
 const FILE_HEADER = "diff --git ";
@@ -79,7 +94,11 @@ const UNNAMED = "(the patch names no file)";
  * least allowed to be in, since the reader would be deciding on a file
  * attributed to the wrong path.
  */
-function split(patch: string): { files: DiffFile[]; cutAt?: number; total: number } {
+function split(patch: string): {
+  files: DiffFile[];
+  cutAt?: number;
+  total: number;
+} {
   const rows = patch.split("\n");
   const files: Building[] = [];
   let open: Building | null = null;
@@ -90,7 +109,10 @@ function split(patch: string): { files: DiffFile[]; cutAt?: number; total: numbe
 
   for (const row of rows) {
     if (row.startsWith(FILE_HEADER)) {
-      open = { path: pathOf(row) ?? UNNAMED, lines: [] };
+      open = {
+        path: pathOf(row) ?? UNNAMED,
+        lines: [],
+      };
       files.push(open);
       inHunk = false;
       continue;
@@ -119,7 +141,10 @@ function split(patch: string): { files: DiffFile[]; cutAt?: number; total: numbe
       continue;
     }
     if (open === null) {
-      open = { path: UNNAMED, lines: [] };
+      open = {
+        path: UNNAMED,
+        lines: [],
+      };
       files.push(open);
     }
     open.lines.push(line);
@@ -131,7 +156,11 @@ function split(patch: string): { files: DiffFile[]; cutAt?: number; total: numbe
     // as an empty block: a header with nothing under it reads as a file that
     // changed in no way, which is a claim the patch does not make.
     files: files.filter((file) => file.lines.length > 0),
-    ...(cut ? { cutAt: drawnSoFar } : {}),
+    ...(cut
+      ? {
+          cutAt: drawnSoFar,
+        }
+      : {}),
     total,
   };
 }
@@ -144,10 +173,26 @@ function split(patch: string): { files: DiffFile[]; cutAt?: number; total: numbe
  * way every other one does.
  */
 function lineOf(row: string): DiffLine | undefined {
-  if (row.startsWith("@@")) return { kind: "hunk", text: row };
-  if (row.startsWith("+")) return { kind: "added", text: row };
-  if (row.startsWith("-")) return { kind: "removed", text: row };
-  if (row.startsWith(" ") || row.startsWith("\\")) return { kind: "context", text: row };
+  if (row.startsWith("@@"))
+    return {
+      kind: "hunk",
+      text: row,
+    };
+  if (row.startsWith("+"))
+    return {
+      kind: "added",
+      text: row,
+    };
+  if (row.startsWith("-"))
+    return {
+      kind: "removed",
+      text: row,
+    };
+  if (row.startsWith(" ") || row.startsWith("\\"))
+    return {
+      kind: "context",
+      text: row,
+    };
   return undefined;
 }
 

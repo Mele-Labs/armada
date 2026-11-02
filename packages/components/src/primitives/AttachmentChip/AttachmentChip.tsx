@@ -63,14 +63,20 @@ const KIND: Record<AttachmentKind, string | null> = {
   node: "Studio node",
 };
 
-export function AttachmentChip({ filename, from, kind = "file", preview, onRemove }: AttachmentChipProps) {
+export function AttachmentChip({
+  filename,
+  from,
+  kind = "file",
+  preview,
+  onRemove,
+}: AttachmentChipProps) {
   const said = KIND[kind];
   return (
     <span className="armada-attachment-chip">
-      {preview === undefined ? null : <img className="armada-attachment-chip__preview" src={preview} alt="" />}
-      {from === undefined ? null : (
-        <span className="armada-attachment-chip__from">{from}</span>
+      {preview === undefined ? null : (
+        <img className="armada-attachment-chip__preview" src={preview} alt="" />
       )}
+      {from === undefined ? null : <span className="armada-attachment-chip__from">{from}</span>}
       <span className="armada-attachment-chip__name">{filename}</span>
       {said === null ? null : <span className="armada-attachment-chip__kind">{said}</span>}
       {onRemove !== undefined && (

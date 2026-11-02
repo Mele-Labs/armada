@@ -6,18 +6,35 @@
 import { KEY } from "./wrangler";
 
 const ESC = "\x1b";
-const sgr = (open: string, close: number) => (text: string) => `${ESC}[${open}m${text}${ESC}[${close}m`;
+const sgr = (open: string, close: number) => (text: string) =>
+  `${ESC}[${open}m${text}${ESC}[${close}m`;
 const dim = sgr("2", 22);
 const cyan = sgr("36", 39);
 const green = sgr("32", 39);
 const folder = sgr("1;34", 0);
 
-const LISTING = ["ARCHITECTURE.md", "CONTRIBUTING.md", "Cargo.toml", "README.md", folder("apps"), folder("crates"), folder("docs"), "package.json", folder("packages"), folder("xtask")];
+const LISTING = [
+  "ARCHITECTURE.md",
+  "CONTRIBUTING.md",
+  "Cargo.toml",
+  "README.md",
+  folder("apps"),
+  folder("crates"),
+  folder("docs"),
+  "package.json",
+  folder("packages"),
+  folder("xtask"),
+];
 
 /** How often the dev server prints while it serves, and the most it prints before it goes quiet. */
 const SERVED_EVERY = 1200;
 const SERVED_MOST = 30;
-const RELOADED = ["src/App.tsx", "src/sessions.tsx", "src/styles/index.css", "src/sessions-wired.tsx"];
+const RELOADED = [
+  "src/App.tsx",
+  "src/sessions.tsx",
+  "src/styles/index.css",
+  "src/sessions-wired.tsx",
+];
 
 export type FakeShell = {
   /** Bytes from the keyboard, the person's or the agent's. */
@@ -26,10 +43,19 @@ export type FakeShell = {
   stop: () => void;
 };
 
-const clock = () => new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" });
+const clock = () =>
+  new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 
 /** Starts the shell in `dir`, which the prompt names by its last part. `print` writes to the terminal; `end` is its exit. */
-export function startShell(dir: string, print: (text: string) => void, end: (code: number | null) => void): FakeShell {
+export function startShell(
+  dir: string,
+  print: (text: string) => void,
+  end: (code: number | null) => void,
+): FakeShell {
   const prompt = `${folder(dir.split("/").pop() ?? dir)} % `;
   let typed = "";
   let ended = false;
@@ -55,10 +81,14 @@ export function startShell(dir: string, print: (text: string) => void, end: (cod
     serving = true;
     out(`\r\n> armada@0.0.0 dev ${dir}\r\n> pnpm -C apps/desktop dev\r\n\r\n`);
     out(`  ${green("VITE v6.3.5")}  ${dim("ready in")} 412 ms\r\n\r\n`);
-    out(`  ${green("➜")}  Local:   ${cyan("http://localhost:5173/")}\r\n  ${green("➜")}  ${dim("Network: use --host to expose")}\r\n`);
+    out(
+      `  ${green("➜")}  Local:   ${cyan("http://localhost:5173/")}\r\n  ${green("➜")}  ${dim("Network: use --host to expose")}\r\n`,
+    );
     let printed = 0;
     ticking = window.setInterval(() => {
-      out(`${dim(clock())} ${cyan("[vite]")} ${green("hmr update")} ${dim(`/${RELOADED[printed % RELOADED.length]}`)}\r\n`);
+      out(
+        `${dim(clock())} ${cyan("[vite]")} ${green("hmr update")} ${dim(`/${RELOADED[printed % RELOADED.length]}`)}\r\n`,
+      );
       printed += 1;
       // Quiet after a while, and still in the foreground: Ctrl-C is what gives the prompt back.
       if (printed >= SERVED_MOST) quiet();

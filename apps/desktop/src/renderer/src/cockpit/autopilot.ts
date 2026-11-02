@@ -3,7 +3,14 @@
 // fields both ways. Pure, so the words and the arithmetic are checked without a window.
 // #2092, #2105, `docs/concepts/autopilot.md`.
 
-import type { Autopilot, AutopilotDecision, AutopilotPick, AutopilotQuoted, AutopilotSettings, IssueList } from "@armada/protocol";
+import type {
+  Autopilot,
+  AutopilotDecision,
+  AutopilotPick,
+  AutopilotQuoted,
+  AutopilotSettings,
+  IssueList,
+} from "@armada/protocol";
 import type { AutopilotFields, AutopilotReading } from "@armada/components";
 
 const two = (n: number) => String(n).padStart(2, "0");
@@ -23,18 +30,31 @@ export function clockOf(iso: string): string {
 /** Which cap paused it: `Job cap reached`. */
 export function cappedOf(autopilot: Autopilot): string | undefined {
   if (autopilot.state !== "paused" || autopilot.capped_by === undefined) return undefined;
-  const reached: Record<NonNullable<Autopilot["capped_by"]>, string> = { sessions: "Job cap reached", spend: "spend cap reached", until: "time to stop passed" };
+  const reached: Record<NonNullable<Autopilot["capped_by"]>, string> = {
+    sessions: "Job cap reached",
+    spend: "spend cap reached",
+    until: "time to stop passed",
+  };
   return reached[autopilot.capped_by];
 }
 
 /** What to tell him about one that is not working by itself: the cap that paused it, else why its last pass picked nothing. Nothing where there is nothing to say. */
 export function whyOf(autopilot: Autopilot): string | undefined {
   if (autopilot.state === "stopped") return undefined;
-  return cappedOf(autopilot) ?? (autopilot.fault === undefined ? undefined : `Last pass picked nothing: ${autopilot.fault}`);
+  return (
+    cappedOf(autopilot) ??
+    (autopilot.fault === undefined ? undefined : `Last pass picked nothing: ${autopilot.fault}`)
+  );
 }
 
 /** One row of Next up: its place in the order, or none where Autopilot will pass it over, and why. */
-export type NextUp = { order: number | undefined; reference: string; title: string; url: string; note: string | undefined };
+export type NextUp = {
+  order: number | undefined;
+  reference: string;
+  title: string;
+  url: string;
+  note: string | undefined;
+};
 
 /** The most Next up lists, so a long backlog never draws as a long list. */
 export const NEXT_UP_ROWS = 8;
@@ -49,32 +69,66 @@ export function nextUpOf(autopilot: Autopilot, issues: IssueList | undefined): N
   const picked = new Set(autopilot.picks.map((pick) => pick.issue_reference));
   const open = issues.issues.filter((issue) => !picked.has(issue.reference));
   const choosable = open.filter((issue) => !issue.linked_pull_request).slice(0, NEXT_UP_ROWS);
-  const passed = open.filter((issue) => issue.linked_pull_request).slice(0, Math.max(0, NEXT_UP_ROWS - choosable.length));
+  const passed = open
+    .filter((issue) => issue.linked_pull_request)
+    .slice(0, Math.max(0, NEXT_UP_ROWS - choosable.length));
   return [
-    ...choosable.map((issue, at): NextUp => ({ order: at + 1, reference: issue.reference, title: issue.title, url: issue.url, note: undefined })),
-    ...passed.map((issue): NextUp => ({ order: undefined, reference: issue.reference, title: issue.title, url: issue.url, note: "has a pull request" })),
+    ...choosable.map(
+      (issue, at): NextUp => ({
+        order: at + 1,
+        reference: issue.reference,
+        title: issue.title,
+        url: issue.url,
+        note: undefined,
+      }),
+    ),
+    ...passed.map(
+      (issue): NextUp => ({
+        order: undefined,
+        reference: issue.reference,
+        title: issue.title,
+        url: issue.url,
+        note: "has a pull request",
+      }),
+    ),
   ];
 }
 
 /** The picks it was unsure of, waiting on the person. */
-export const setAsideOf = (autopilot: Autopilot): AutopilotPick[] => autopilot.picks.filter((pick) => pick.state === "set_aside");
+export const setAsideOf = (autopilot: Autopilot): AutopilotPick[] =>
+  autopilot.picks.filter((pick) => pick.state === "set_aside");
 
 /** Settings as the start form's fields, which Edit caps opens on too. A cap not set is blank. */
 export function fieldsOf(settings: AutopilotSettings): AutopilotFields {
   return {
     atOnce: String(settings.at_once),
     until: settings.until === undefined ? "" : clockOf(settings.until),
-    spend: settings.spend_cap_micros === undefined ? "" : dollars(settings.spend_cap_micros).slice(1),
+    spend:
+      settings.spend_cap_micros === undefined ? "" : dollars(settings.spend_cap_micros).slice(1),
     sessions: settings.session_cap === undefined ? "" : String(settings.session_cap),
   };
 }
 
 /** Fleet's reading of a sentence: the fields, and the words each was read from, keyed as the fields are. */
-export function readingOf(proposal: AutopilotSettings & { quoted?: AutopilotQuoted }): AutopilotReading {
+export function readingOf(
+  proposal: AutopilotSettings & {
+    quoted?: AutopilotQuoted;
+  },
+): AutopilotReading {
   const { at_once, until, spend_cap_micros, session_cap } = proposal.quoted ?? {};
-  const quoted = { atOnce: at_once, until, spend: spend_cap_micros, sessions: session_cap };
-  const said = Object.fromEntries(Object.entries(quoted).filter(([, words]) => words !== undefined && words.trim() !== ""));
-  return { fields: fieldsOf(proposal), quoted: said };
+  const quoted = {
+    atOnce: at_once,
+    until,
+    spend: spend_cap_micros,
+    sessions: session_cap,
+  };
+  const said = Object.fromEntries(
+    Object.entries(quoted).filter(([, words]) => words !== undefined && words.trim() !== ""),
+  );
+  return {
+    fields: fieldsOf(proposal),
+    quoted: said,
+  };
 }
 
 const whole = (text: string) => (/^\d+$/.test(text.trim()) ? Number(text.trim()) : NaN);
@@ -97,36 +151,88 @@ function nextAt(text: string, now: number): string | undefined {
 }
 
 /** The kinds of decision Fleet knows. A box checked for any other word is not sent. */
-const DECISIONS: readonly AutopilotDecision[] = ["recommended", "open", "plan", "draft", "walk", "land", "unsure", "red", "reads", "writes"];
+const DECISIONS: readonly AutopilotDecision[] = [
+  "recommended",
+  "open",
+  "plan",
+  "draft",
+  "walk",
+  "land",
+  "unsure",
+  "red",
+  "reads",
+  "writes",
+];
 
 /**
  * The fields the person confirmed, as the start Fleet takes, or what is wrong with one of them.
  * `boxes` are the checked work and decisions, sent as they were; without them Fleet reads the backlog alone.
  */
-export function settingsFrom(instruction: string, fields: AutopilotFields, now: number, boxes?: { work: ReadonlySet<string>; decisions: ReadonlySet<string> }): { ok: true; settings: AutopilotSettings } | { ok: false; why: string } {
+export function settingsFrom(
+  instruction: string,
+  fields: AutopilotFields,
+  now: number,
+  boxes?: {
+    work: ReadonlySet<string>;
+    decisions: ReadonlySet<string>;
+  },
+):
+  | {
+      ok: true;
+      settings: AutopilotSettings;
+    }
+  | {
+      ok: false;
+      why: string;
+    } {
   const atOnce = whole(fields.atOnce);
-  if (!(atOnce >= 1)) return { ok: false, why: "At once is a whole number of Jobs, 1 or more." };
-  const settings: AutopilotSettings = { instruction: instruction.trim(), at_once: atOnce };
+  if (!(atOnce >= 1))
+    return {
+      ok: false,
+      why: "At once is a whole number of Jobs, 1 or more.",
+    };
+  const settings: AutopilotSettings = {
+    instruction: instruction.trim(),
+    at_once: atOnce,
+  };
   if (fields.until.trim() !== "") {
     const until = nextAt(fields.until, now);
-    if (until === undefined) return { ok: false, why: "Until is a time of day, like 07:00." };
+    if (until === undefined)
+      return {
+        ok: false,
+        why: "Until is a time of day, like 07:00.",
+      };
     settings.until = until;
   }
   if (fields.spend.trim() !== "") {
     const spend = Number(fields.spend.trim().replace(/^\$/, "").replace(/,/g, ""));
-    if (!(spend > 0)) return { ok: false, why: "Spend is an amount in dollars, like 30." };
+    if (!(spend > 0))
+      return {
+        ok: false,
+        why: "Spend is an amount in dollars, like 30.",
+      };
     settings.spend_cap_micros = Math.round(spend * 1_000_000);
   }
   if (fields.sessions.trim() !== "") {
     const sessions = whole(fields.sessions);
-    if (!(sessions >= 1)) return { ok: false, why: "Jobs is a whole number, 1 or more, or blank for no cap." };
+    if (!(sessions >= 1))
+      return {
+        ok: false,
+        why: "Jobs is a whole number, 1 or more, or blank for no cap.",
+      };
     settings.session_cap = sessions;
   }
   if (boxes !== undefined) {
-    settings.on_autopilot = { backlog: boxes.work.has("backlog"), running: boxes.work.has("running") };
+    settings.on_autopilot = {
+      backlog: boxes.work.has("backlog"),
+      running: boxes.work.has("running"),
+    };
     settings.decisions = DECISIONS.filter((kind) => boxes.decisions.has(kind));
   }
-  return { ok: true, settings };
+  return {
+    ok: true,
+    settings,
+  };
 }
 
 /** The person's clock and its offset, which Fleet reads "until 7am" against: 2026-10-11T23:00:00+01:00. */

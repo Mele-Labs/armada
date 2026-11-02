@@ -9,7 +9,13 @@ import { SlotTouchesFrom } from "./cockpit/deck/touches-source";
 import type { TerritorySource } from "./fleet-territory";
 
 /** The territory Fleet reports, kept current by `source`. The provider is always there, so a read landing does not remount the app. */
-export function TerritoryFromFleet({ source, children }: { source: TerritorySource; children: ReactNode }) {
+export function TerritoryFromFleet({
+  source,
+  children,
+}: {
+  source: TerritorySource;
+  children: ReactNode;
+}) {
   const territory = useSyncExternalStore(source.subscribe, source.get);
   return (
     <AreasFrom source={territory.areas}>

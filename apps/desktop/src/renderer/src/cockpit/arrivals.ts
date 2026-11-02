@@ -32,7 +32,12 @@ export type Alert = {
 function oldestFirst(a: Item, b: Item): number {
   const left = Date.parse(a.at ?? "");
   const right = Date.parse(b.at ?? "");
-  if (Number.isNaN(left) || Number.isNaN(right)) return Number.isNaN(left) === Number.isNaN(right) ? a.key.localeCompare(b.key) : Number.isNaN(left) ? 1 : -1;
+  if (Number.isNaN(left) || Number.isNaN(right))
+    return Number.isNaN(left) === Number.isNaN(right)
+      ? a.key.localeCompare(b.key)
+      : Number.isNaN(left)
+        ? 1
+        : -1;
   return left === right ? a.key.localeCompare(b.key) : left - right;
 }
 
@@ -45,11 +50,14 @@ function oldestFirst(a: Item, b: Item): number {
  */
 export function alertOf(fresh: readonly Item[]): Alert | null {
   if (fresh.length === 0) return null;
-  const ordered = [...fresh].sort(oldestFirst);
+  const ordered = [
+    ...fresh,
+  ].sort(oldestFirst);
   const first = ordered[0]!;
   return {
     key: first.key,
     keys: ordered.map((one) => one.key),
-    sentence: ordered.length === 1 ? `“${first.title}” needs you.` : `${ordered.length} calls need you.`,
+    sentence:
+      ordered.length === 1 ? `“${first.title}” needs you.` : `${ordered.length} calls need you.`,
   };
 }

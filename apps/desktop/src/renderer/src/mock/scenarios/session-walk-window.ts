@@ -11,8 +11,20 @@ import { s200Sessions } from "./sessions";
 const shower: Session = {
   id: SHOWER,
   title: "Store clock findings",
-  turn: { state: "idle" },
-  rows: [{ id: "w1", at: "14:36:10", kind: "message", from: { kind: "agent" }, text: "The clock reads are all in one place now." }],
+  turn: {
+    state: "idle",
+  },
+  rows: [
+    {
+      id: "w1",
+      at: "14:36:10",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "The clock reads are all in one place now.",
+    },
+  ],
   attachments: [],
 };
 
@@ -20,5 +32,10 @@ export const s205SessionWalkWindow: Scenario = {
   ...s200Sessions,
   name: "session-walk-window",
   says: "A Session that shows a page in a window, which the ledger and the thread keep",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [shower]) },
+  draft: {
+    sessions: (board) =>
+      s200Sessions.draft!.sessions!(board, [
+        shower,
+      ]),
+  },
 };

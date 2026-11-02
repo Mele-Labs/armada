@@ -37,21 +37,41 @@ export class ServerCommands {
    */
   async startServer(name: string, picked: Picked = this.board.picked): Promise<Outcome> {
     const port = this.board.port();
-    if (port === null) return { ok: false, why: "not_connected" };
-    const body: StartServer = { name };
+    if (port === null)
+      return {
+        ok: false,
+        why: "not_connected",
+      };
+    const body: StartServer = {
+      name,
+    };
     const path = picked.manifest("/servers/start");
     if (path === null) return NOT_SET_UP;
     const answer = await ask(port, "POST", path, body);
-    return answer.ok === true ? { ok: true } : answer.outcome;
+    return answer.ok === true
+      ? {
+          ok: true,
+        }
+      : answer.outcome;
   }
 
   /** End a server's process group. Its log keeps what printed. */
   async stopServer(id: string): Promise<Outcome> {
     const port = this.board.port();
-    if (port === null) return { ok: false, why: "not_connected" };
-    const body: NamedServer = { id };
+    if (port === null)
+      return {
+        ok: false,
+        why: "not_connected",
+      };
+    const body: NamedServer = {
+      id,
+    };
     const answer = await ask(port, "POST", "/servers/stop", body);
-    return answer.ok === true ? { ok: true } : answer.outcome;
+    return answer.ok === true
+      ? {
+          ok: true,
+        }
+      : answer.outcome;
   }
 }
 
@@ -77,14 +97,30 @@ export async function openServerLink(
 ): Promise<Followed> {
   const server = state.servers.servers.find((row) => row.id === serverId);
   const known = server?.links.some((link) => link.url === url) ?? false;
-  if (!known) return { ok: false, why: "no_address" };
-  if (!addressable(url)) return { ok: false, why: "not_addressable", address: url };
+  if (!known)
+    return {
+      ok: false,
+      why: "no_address",
+    };
+  if (!addressable(url))
+    return {
+      ok: false,
+      why: "not_addressable",
+      address: url,
+    };
 
   try {
     await shell.openExternal(url);
-    return { ok: true };
+    return {
+      ok: true,
+    };
   } catch (error) {
-    return { ok: false, why: "refused", address: url, detail: String(error) };
+    return {
+      ok: false,
+      why: "refused",
+      address: url,
+      detail: String(error),
+    };
   }
 }
 

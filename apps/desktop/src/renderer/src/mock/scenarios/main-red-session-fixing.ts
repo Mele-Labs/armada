@@ -10,13 +10,21 @@ import type { Scenario } from "../moment";
 import { s200Sessions } from "./sessions";
 
 function fixing(): Scenario {
-  const base = holding("main-red-session-fixing", "Main red from a Session's pull request, and that Session holding the red");
+  const base = holding(
+    "main-red-session-fixing",
+    "Main red from a Session's pull request, and that Session holding the red",
+  );
   const { first, later } = sessionFixing(repository().root);
   return {
     ...base,
-    state: { ...base.state, ...first },
+    state: {
+      ...base.state,
+      ...first,
+    },
     later,
-    draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, SESSION_REGISTRY) },
+    draft: {
+      sessions: (board) => s200Sessions.draft!.sessions!(board, SESSION_REGISTRY),
+    },
     behaves: (fleet) => writingMainsLogs(fleet),
   };
 }

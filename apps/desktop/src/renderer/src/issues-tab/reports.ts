@@ -11,35 +11,65 @@ import type { ReportedBug } from "./model";
 const ARMADA = "armada";
 
 /** The armada repository among those served, whether or not it is picked. */
-export const armadaIn = (repositories: readonly RepositorySummary[]): { root: string; label: string } | undefined => {
+export const armadaIn = (
+  repositories: readonly RepositorySummary[],
+):
+  | {
+      root: string;
+      label: string;
+    }
+  | undefined => {
   const one = repositories.find((it) => jobIdOf(it) === ARMADA);
-  return one === undefined ? undefined : { root: one.root, label: repositoryLabel(one, repositories) };
+  return one === undefined
+    ? undefined
+    : {
+        root: one.root,
+        label: repositoryLabel(one, repositories),
+      };
 };
 
 /** Whether the band is drawn: under All, and with the armada repository picked. */
-export const reportsShown = (picked: RepositorySummary | null, repositories: readonly RepositorySummary[]): boolean => {
+export const reportsShown = (
+  picked: RepositorySummary | null,
+  repositories: readonly RepositorySummary[],
+): boolean => {
   const armada = armadaIn(repositories);
   return armada !== undefined && (picked === null || picked.root === armada.root);
 };
 
 /** A kept report as the brief of a Job: the title, what went wrong, then each part the agent gave. */
 export function briefOf(report: ReportedBug): string {
-  const part = (name: string, lines: readonly string[]) => (lines.length === 0 ? [] : ["", name, ...lines]);
+  const part = (name: string, lines: readonly string[]) =>
+    lines.length === 0
+      ? []
+      : [
+          "",
+          name,
+          ...lines,
+        ];
   return [
     report.title,
     "",
     report.what,
-    ...part("Steps", report.steps.map((one, at) => `${at + 1}. ${one}`)),
+    ...part(
+      "Steps",
+      report.steps.map((one, at) => `${at + 1}. ${one}`),
+    ),
     ...part("Errors", report.errors),
     ...part("Logs", report.logs),
   ].join("\n");
 }
 
 /** The report a Job's mark opens: the first one not yet opened, else the first. */
-export function reportOfJob(reports: readonly ReportedBug[], seen: readonly string[], sessionId: string): ReportedBug | undefined {
+export function reportOfJob(
+  reports: readonly ReportedBug[],
+  seen: readonly string[],
+  sessionId: string,
+): ReportedBug | undefined {
   const own = reports.filter((one) => one.session_id === sessionId);
   return own.find((one) => !seen.includes(one.id)) ?? own[0];
 }
 
 /** The Job started on a report: the one holding a standing report row for it. A Job that ended without merging gave the row back. */
-export const jobOfReport = (sessions: readonly Session[], reportId: string): Session | undefined => sessions.find((one) => attachmentsOf(one, "report").some((row) => row.id === reportId));
+export const jobOfReport = (sessions: readonly Session[], reportId: string): Session | undefined =>
+  sessions.find((one) => attachmentsOf(one, "report").some((row) => row.id === reportId));

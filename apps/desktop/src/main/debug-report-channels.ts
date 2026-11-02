@@ -17,16 +17,37 @@ type Hosts = {
   run?: Exec;
 };
 
-const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } } as const;
+const unsent = {
+  ok: false,
+  outcome: {
+    ok: false,
+    why: "not_connected",
+  },
+} as const;
 
-export function handleDebugReport({ ipc, connection, bundled, locate = (held) => locateArmada(held), run }: Hosts): void {
-  ipc.handle(CHANNELS.getDebugReport, (_event, root: unknown) => connection()?.debugReport.get(rootOf(root)) ?? unsent);
+export function handleDebugReport({
+  ipc,
+  connection,
+  bundled,
+  locate = (held) => locateArmada(held),
+  run,
+}: Hosts): void {
+  ipc.handle(
+    CHANNELS.getDebugReport,
+    (_event, root: unknown) => connection()?.debugReport.get(rootOf(root)) ?? unsent,
+  );
   ipc.handle(CHANNELS.runArmadaReport, async (_event, root: unknown) => {
     const where = rootOf(root);
     try {
-      return { ok: true, text: await armadaReport(await locate(bundled), whereToRun(where), run) };
+      return {
+        ok: true,
+        text: await armadaReport(await locate(bundled), whereToRun(where), run),
+      };
     } catch (failure) {
-      return { ok: false, why: failure instanceof Error ? failure.message : String(failure) };
+      return {
+        ok: false,
+        why: failure instanceof Error ? failure.message : String(failure),
+      };
     }
   });
 }

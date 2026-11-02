@@ -9,14 +9,28 @@ import { chainOf } from "./bounds";
 import type { ReviewWalkOwner } from "./layout";
 
 /** The take on screen: its letter on the bar and the name the Session gave it. */
-export type Take = { letter: string; name: string };
+export type Take = {
+  letter: string;
+  name: string;
+};
 
 /**
  * A note taken in a pull request's walk window no Session holds the pull request of. **It stays in Armada** as a note on the
  * pull request: never a comment on the forge, not even a draft one. With a holder the window sends it as a pinned note.
  */
-export function reviewNoteOf(review: ReviewWalkOwner, said: string, capture: StudioCapture, now: string): ReviewWalkNote {
-  return { manifestId: review.manifestId, number: review.number, at: now, text: said.trim(), location: `${chainOf(capture)}, ${capture.location}` };
+export function reviewNoteOf(
+  review: ReviewWalkOwner,
+  said: string,
+  capture: StudioCapture,
+  now: string,
+): ReviewWalkNote {
+  return {
+    manifestId: review.manifestId,
+    number: review.number,
+    at: now,
+    text: said.trim(),
+    location: `${chainOf(capture)}, ${capture.location}`,
+  };
 }
 
 /** What Approve sends. **Fleet reads the walk's end off this**: `walking.rs`'s `approved_address`. */

@@ -178,11 +178,16 @@
   color: var(--fg-inverse);
 }
 
-.armada-split-button__control[data-variant="primary"] .armada-split-button__action:hover:not(:disabled),
-.armada-split-button__control[data-variant="primary"] .armada-split-button__caret:hover:not(:disabled),
-.armada-split-button__control[data-variant="primary"] .armada-split-button__action[data-preview-hover],
-.armada-split-button__control[data-variant="primary"] .armada-split-button__caret[data-preview-hover],
-.armada-split-button__control[data-variant="primary"] .armada-split-button__caret[aria-expanded="true"] {
+.armada-split-button__control[data-variant="primary"]
+  .armada-split-button__action:hover:not(:disabled),
+.armada-split-button__control[data-variant="primary"]
+  .armada-split-button__caret:hover:not(:disabled),
+.armada-split-button__control[data-variant="primary"]
+  .armada-split-button__action[data-preview-hover],
+.armada-split-button__control[data-variant="primary"]
+  .armada-split-button__caret[data-preview-hover],
+.armada-split-button__control[data-variant="primary"]
+  .armada-split-button__caret[aria-expanded="true"] {
   background: var(--accent-hover);
   color: var(--fg-inverse);
 }
@@ -196,10 +201,16 @@
 
 /* Pressed, a segment steps down off the accent, so the line along the face
  * reads (Accent: a status mark never sits on an accent fill). */
-.armada-split-button__control[data-variant="primary"] .armada-split-button__action:active:not(:disabled):not([data-pending]),
-.armada-split-button__control[data-variant="primary"] .armada-split-button__caret:active:not(:disabled),
-[data-preview-press="action"] .armada-split-button__control[data-variant="primary"] .armada-split-button__action,
-[data-preview-press="caret"] .armada-split-button__control[data-variant="primary"] .armada-split-button__caret {
+.armada-split-button__control[data-variant="primary"]
+  .armada-split-button__action:active:not(:disabled):not([data-pending]),
+.armada-split-button__control[data-variant="primary"]
+  .armada-split-button__caret:active:not(:disabled),
+[data-preview-press="action"]
+  .armada-split-button__control[data-variant="primary"]
+  .armada-split-button__action,
+[data-preview-press="caret"]
+  .armada-split-button__control[data-variant="primary"]
+  .armada-split-button__caret {
   background: var(--accent-muted);
   color: var(--fg-default);
 }
@@ -213,26 +224,39 @@
   border-color: var(--status-completed-failed);
 }
 
-.armada-split-button__control[data-variant="destructive"] .armada-split-button__action:not(:disabled),
-.armada-split-button__control[data-variant="destructive"] .armada-split-button__caret:not(:disabled) {
+.armada-split-button__control[data-variant="destructive"]
+  .armada-split-button__action:not(:disabled),
+.armada-split-button__control[data-variant="destructive"]
+  .armada-split-button__caret:not(:disabled) {
   color: var(--status-completed-failed);
   border-inline-start-color: var(--status-completed-failed);
 }
 
-.armada-split-button__control[data-variant="destructive"] .armada-split-button__action:hover:not(:disabled),
-.armada-split-button__control[data-variant="destructive"] .armada-split-button__caret:hover:not(:disabled),
-.armada-split-button__control[data-variant="destructive"] .armada-split-button__action[data-preview-hover],
-.armada-split-button__control[data-variant="destructive"] .armada-split-button__caret[data-preview-hover],
-.armada-split-button__control[data-variant="destructive"] .armada-split-button__caret[aria-expanded="true"] {
+.armada-split-button__control[data-variant="destructive"]
+  .armada-split-button__action:hover:not(:disabled),
+.armada-split-button__control[data-variant="destructive"]
+  .armada-split-button__caret:hover:not(:disabled),
+.armada-split-button__control[data-variant="destructive"]
+  .armada-split-button__action[data-preview-hover],
+.armada-split-button__control[data-variant="destructive"]
+  .armada-split-button__caret[data-preview-hover],
+.armada-split-button__control[data-variant="destructive"]
+  .armada-split-button__caret[aria-expanded="true"] {
   background: var(--status-completed-failed-bg);
   color: var(--status-completed-failed);
 }
 
 /* One step past the 12% hover fill, as `Button`'s destructive press. */
-.armada-split-button__control[data-variant="destructive"] .armada-split-button__action:active:not(:disabled):not([data-pending]),
-.armada-split-button__control[data-variant="destructive"] .armada-split-button__caret:active:not(:disabled),
-[data-preview-press="action"] .armada-split-button__control[data-variant="destructive"] .armada-split-button__action,
-[data-preview-press="caret"] .armada-split-button__control[data-variant="destructive"] .armada-split-button__caret {
+.armada-split-button__control[data-variant="destructive"]
+  .armada-split-button__action:active:not(:disabled):not([data-pending]),
+.armada-split-button__control[data-variant="destructive"]
+  .armada-split-button__caret:active:not(:disabled),
+[data-preview-press="action"]
+  .armada-split-button__control[data-variant="destructive"]
+  .armada-split-button__action,
+[data-preview-press="caret"]
+  .armada-split-button__control[data-variant="destructive"]
+  .armada-split-button__caret {
   background: color-mix(in srgb, var(--status-completed-failed) 24%, transparent);
   color: var(--status-completed-failed);
 }
@@ -263,18 +287,28 @@
   border-inline-start-color: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
-.armada-split-button__control[data-variant="tonal"] .armada-split-button__action:hover:not(:disabled),
-.armada-split-button__control[data-variant="tonal"] .armada-split-button__action[data-preview-hover],
-.armada-split-button__control[data-variant="tonal"] .armada-split-button__caret:hover:not(:disabled),
+.armada-split-button__control[data-variant="tonal"]
+  .armada-split-button__action:hover:not(:disabled),
+.armada-split-button__control[data-variant="tonal"]
+  .armada-split-button__action[data-preview-hover],
+.armada-split-button__control[data-variant="tonal"]
+  .armada-split-button__caret:hover:not(:disabled),
 .armada-split-button__control[data-variant="tonal"] .armada-split-button__caret[data-preview-hover],
-.armada-split-button__control[data-variant="tonal"] .armada-split-button__caret[aria-expanded="true"] {
+.armada-split-button__control[data-variant="tonal"]
+  .armada-split-button__caret[aria-expanded="true"] {
   background: color-mix(in srgb, var(--accent) 24%, var(--accent-muted));
 }
 
-.armada-split-button__control[data-variant="tonal"] .armada-split-button__action:active:not(:disabled):not([data-pending]),
-.armada-split-button__control[data-variant="tonal"] .armada-split-button__caret:active:not(:disabled),
-[data-preview-press="action"] .armada-split-button__control[data-variant="tonal"] .armada-split-button__action,
-[data-preview-press="caret"] .armada-split-button__control[data-variant="tonal"] .armada-split-button__caret {
+.armada-split-button__control[data-variant="tonal"]
+  .armada-split-button__action:active:not(:disabled):not([data-pending]),
+.armada-split-button__control[data-variant="tonal"]
+  .armada-split-button__caret:active:not(:disabled),
+[data-preview-press="action"]
+  .armada-split-button__control[data-variant="tonal"]
+  .armada-split-button__action,
+[data-preview-press="caret"]
+  .armada-split-button__control[data-variant="tonal"]
+  .armada-split-button__caret {
   /* Back down to the --accent-muted rest, as `Button`'s tonal press. */
   background: var(--accent-muted);
   color: var(--accent-hover);
@@ -296,11 +330,15 @@
   border-inline-start-color: var(--border-subtle);
 }
 
-.armada-split-button__control[data-variant="ghost"] .armada-split-button__action:hover:not(:disabled),
-.armada-split-button__control[data-variant="ghost"] .armada-split-button__action[data-preview-hover],
-.armada-split-button__control[data-variant="ghost"] .armada-split-button__caret:hover:not(:disabled),
+.armada-split-button__control[data-variant="ghost"]
+  .armada-split-button__action:hover:not(:disabled),
+.armada-split-button__control[data-variant="ghost"]
+  .armada-split-button__action[data-preview-hover],
+.armada-split-button__control[data-variant="ghost"]
+  .armada-split-button__caret:hover:not(:disabled),
 .armada-split-button__control[data-variant="ghost"] .armada-split-button__caret[data-preview-hover],
-.armada-split-button__control[data-variant="ghost"] .armada-split-button__caret[aria-expanded="true"] {
+.armada-split-button__control[data-variant="ghost"]
+  .armada-split-button__caret[aria-expanded="true"] {
   background: var(--bg-hover);
   color: var(--fg-default);
 }
@@ -549,7 +587,10 @@
     position-anchor: --armada-split-button-control;
     /* Below, leading edges aligned — what `inset-inline-start: 0` drew. */
     position-area: block-end span-inline-end;
-    position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline;
+    position-try-fallbacks:
+      flip-inline,
+      flip-block,
+      flip-block flip-inline;
     inset: auto;
   }
 }

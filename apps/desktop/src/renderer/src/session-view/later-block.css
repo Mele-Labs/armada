@@ -1,18 +1,90 @@
 /* Progress: the follow-ups the agent kept, folded. Set as a plan group is: a raised frame, a row that toggles, tokens only. Deferred is periwinkle, the soft
    hue of looking ahead, in its frame, its edge and its label. */
-.sv-later { --hue: var(--tool-look); display: flex; flex-direction: column; border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--hue) 6%, var(--bg-raised)); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--hue); }
-.sv-later__row { display: flex; align-items: center; gap: var(--space-2); width: 100%; padding: var(--space-2) var(--space-3); border: 0; background: none; color: var(--hue); font: inherit; text-align: left; cursor: pointer; }
-.sv-later__row:hover { background: color-mix(in srgb, var(--hue) 10%, transparent); }
-.sv-later__row:focus-visible { outline: var(--border-width) solid var(--accent); outline-offset: calc(var(--border-width) * -1); }
-.sv-later__label { font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-medium); }
-.sv-later__chevron { margin-left: auto; transition: rotate calc(var(--duration-sheet)) var(--ease); }
-.sv-later[data-open] .sv-later__chevron { rotate: 180deg; }
-.sv-later__list { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0 var(--space-3) var(--space-2); list-style: none; border-top: var(--border-width) solid color-mix(in srgb, var(--hue) 30%, var(--border-subtle)); }
-.sv-later__item { display: flex; align-items: center; gap: var(--space-1); padding-top: var(--space-2); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-default); }
-.sv-later__item > .sv-row { flex: 1; min-width: 0; }
-.sv-later__text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.sv-later {
+  --hue: var(--tool-look);
+  display: flex;
+  flex-direction: column;
+  border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 6%, var(--bg-raised));
+  box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--hue);
+}
+.sv-later__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  background: none;
+  color: var(--hue);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sv-later__row:hover {
+  background: color-mix(in srgb, var(--hue) 10%, transparent);
+}
+.sv-later__row:focus-visible {
+  outline: var(--border-width) solid var(--accent);
+  outline-offset: calc(var(--border-width) * -1);
+}
+.sv-later__label {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+}
+.sv-later__chevron {
+  margin-left: auto;
+  transition: rotate calc(var(--duration-sheet)) var(--ease);
+}
+.sv-later[data-open] .sv-later__chevron {
+  rotate: 180deg;
+}
+.sv-later__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-2);
+  list-style: none;
+  border-top: var(--border-width) solid color-mix(in srgb, var(--hue) 30%, var(--border-subtle));
+}
+.sv-later__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+}
+.sv-later__item > .sv-row {
+  flex: 1;
+  min-width: 0;
+}
+.sv-later__text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 /* Remind and the thumbs keep a column each down the list, a row that lacks them leaving its place empty. */
-.sv-later__remind, .sv-later__thumbs { display: flex; align-items: center; flex: none; }
-.sv-later__remind { width: var(--space-6); }
-.sv-later__thumbs { width: calc(var(--space-6) * 2 + var(--space-1)); gap: var(--space-1); }
-.sv-later__item .armada-button[data-icon-only="true"] { width: var(--space-6); height: var(--space-6); }
+.sv-later__remind,
+.sv-later__thumbs {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+.sv-later__remind {
+  width: var(--space-6);
+}
+.sv-later__thumbs {
+  width: calc(var(--space-6) * 2 + var(--space-1));
+  gap: var(--space-1);
+}
+.sv-later__item .armada-button[data-icon-only="true"] {
+  width: var(--space-6);
+  height: var(--space-6);
+}

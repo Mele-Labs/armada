@@ -10,9 +10,20 @@ import type { PrOwnerRegistry } from "@armada/components";
 import { stateOf } from "../state-feed";
 import type { MockDraft } from "./moment";
 
-function Held({ owners, children }: { owners: NonNullable<MockDraft["prOwners"]>; children: ReactNode }) {
+function Held({
+  owners,
+  children,
+}: {
+  owners: NonNullable<MockDraft["prOwners"]>;
+  children: ReactNode;
+}) {
   const [registering, setRegistering] = useState<Readonly<Record<string, boolean>>>(() =>
-    Object.fromEntries(owners.repositories.map((one) => [one.root, one.registering])),
+    Object.fromEntries(
+      owners.repositories.map((one) => [
+        one.root,
+        one.registering,
+      ]),
+    ),
   );
   // The switch is the open Manifest's, so it follows the repository the window has picked.
   const [picked, setPicked] = useState<string | null>(null);
@@ -27,19 +38,34 @@ function Held({ owners, children }: { owners: NonNullable<MockDraft["prOwners"]>
       ownerOf: (repository, number) => {
         const served = owners.repositories.find((one) => one.name === repository);
         if (served === undefined || registering[served.root] !== true) return undefined;
-        return owners.rows.find((one) => one.repository === repository && one.number === number)?.owner;
+        return owners.rows.find((one) => one.repository === repository && one.number === number)
+          ?.owner;
       },
       registering: picked !== null && registering[picked] === true,
       setRegistering: (on) => {
-        if (picked !== null) setRegistering((was) => ({ ...was, [picked]: on }));
+        if (picked !== null)
+          setRegistering((was) => ({
+            ...was,
+            [picked]: on,
+          }));
       },
     }),
-    [owners, registering, picked],
+    [
+      owners,
+      registering,
+      picked,
+    ],
   );
   return <PrOwnerRegistryProvider value={value}>{children}</PrOwnerRegistryProvider>;
 }
 
 /** Hands the window the registry a scenario carries. Nothing carried, nothing is drawn. */
-export function PrOwnersFrom({ owners, children }: { owners: MockDraft["prOwners"]; children: ReactNode }) {
+export function PrOwnersFrom({
+  owners,
+  children,
+}: {
+  owners: MockDraft["prOwners"];
+  children: ReactNode;
+}) {
   return owners === undefined ? <>{children}</> : <Held owners={owners}>{children}</Held>;
 }

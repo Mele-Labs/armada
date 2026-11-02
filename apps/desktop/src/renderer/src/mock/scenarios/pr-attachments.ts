@@ -18,7 +18,18 @@ const withDemo = (lines: MergeLines): MergeLines => ({
           ...line,
           hub: {
             ...line.hub,
-            pull_requests: [...(line.hub.pull_requests ?? []), { number: ADDED, title: "Show the pause marker in the list", branch: "bridge/pause-marker-row", url: `${FORGE}${ADDED}`, ci: "passed", author: "claude", opened_at: new Date(Date.now() - 20 * 60_000).toISOString() }],
+            pull_requests: [
+              ...(line.hub.pull_requests ?? []),
+              {
+                number: ADDED,
+                title: "Show the pause marker in the list",
+                branch: "bridge/pause-marker-row",
+                url: `${FORGE}${ADDED}`,
+                ci: "passed",
+                author: "claude",
+                opened_at: new Date(Date.now() - 20 * 60_000).toISOString(),
+              },
+            ],
           },
         },
   ),
@@ -28,6 +39,19 @@ export const s265PrAttachments: Scenario = {
   ...base,
   name: "pr-attachments",
   says: "A pull request's description plays its demo video inline and draws its picture",
-  state: { ...base.state, mergeLines: base.state.mergeLines === null || base.state.mergeLines === undefined ? null : withDemo(base.state.mergeLines) },
-  later: (base.later ?? []).map((one) => (one.mergeLines === undefined || one.mergeLines === null ? one : { ...one, mergeLines: withDemo(one.mergeLines) })),
+  state: {
+    ...base.state,
+    mergeLines:
+      base.state.mergeLines === null || base.state.mergeLines === undefined
+        ? null
+        : withDemo(base.state.mergeLines),
+  },
+  later: (base.later ?? []).map((one) =>
+    one.mergeLines === undefined || one.mergeLines === null
+      ? one
+      : {
+          ...one,
+          mergeLines: withDemo(one.mergeLines),
+        },
+  ),
 };

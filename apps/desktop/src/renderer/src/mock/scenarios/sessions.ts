@@ -14,7 +14,12 @@ import type { BayControl } from "../sessions/script";
 const AT = "/Users/user/armada/.armada/slots";
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-const bay = (n: number, branch: string, held: WorktreeSlot["held"], minutes: number): WorktreeSlot => ({
+const bay = (
+  n: number,
+  branch: string,
+  held: WorktreeSlot["held"],
+  minutes: number,
+): WorktreeSlot => ({
   manifest_id: "armada",
   slot: n,
   path: `${AT}/slot-${n}`,
@@ -28,19 +33,58 @@ const bay = (n: number, branch: string, held: WorktreeSlot["held"], minutes: num
 
 const held = (): WorktreesHeld => ({
   slots: [
-    { manifest_id: "armada", slot: 2, path: `${AT}/slot-2`, base: "main", warm: true, behind: 0, held: { state: "free" } },
-    bay(3, "fix/flaky-store", { state: "session", holder: "Session s7" }, 6),
-    bay(5, "rel/notes-script", { state: "session", holder: "Session s2" }, 40),
-    bay(7, "spike/store-migrations", { state: "session", holder: "Session s3" }, 120),
+    {
+      manifest_id: "armada",
+      slot: 2,
+      path: `${AT}/slot-2`,
+      base: "main",
+      warm: true,
+      behind: 0,
+      held: {
+        state: "free",
+      },
+    },
+    bay(
+      3,
+      "fix/flaky-store",
+      {
+        state: "session",
+        holder: "Session s7",
+      },
+      6,
+    ),
+    bay(
+      5,
+      "rel/notes-script",
+      {
+        state: "session",
+        holder: "Session s2",
+      },
+      40,
+    ),
+    bay(
+      7,
+      "spike/store-migrations",
+      {
+        state: "session",
+        holder: "Session s3",
+      },
+      120,
+    ),
   ],
 });
 
-const base = holding("sessions", "Sessions beside Helm: a blank one, its first write, and what it accumulates");
+const base = holding(
+  "sessions",
+  "Sessions beside Helm: a blank one, its first write, and what it accumulates",
+);
 
 export const s200Sessions: Scenario = {
   ...base,
   held: held(),
-  draft: { sessions: sessionsOf },
+  draft: {
+    sessions: sessionsOf,
+  },
 };
 
 /** The walk's Sessions store, with `more` Sessions open beside the usual ones. */

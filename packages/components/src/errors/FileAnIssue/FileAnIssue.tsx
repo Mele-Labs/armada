@@ -5,7 +5,14 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
 import { Checkbox } from "../../primitives/Checkbox/Checkbox";
 import { Dialog } from "../../primitives/Dialog/Dialog";
-import { COPY_THE_ISSUE, copyIssue, FILE_AN_ISSUE, issueBody, NO_SCRUB, OPENS_NOTHING } from "./issue";
+import {
+  COPY_THE_ISSUE,
+  copyIssue,
+  FILE_AN_ISSUE,
+  issueBody,
+  NO_SCRUB,
+  OPENS_NOTHING,
+} from "./issue";
 import type { Filing } from "./issue";
 
 // The producer is re-exported through the control it belongs to, the way the
@@ -110,7 +117,10 @@ export function FileAnIssue(props: FileAnIssueProps) {
  * review, and does nothing else; `review` is the dialog, to be drawn wherever
  * it stays mounted once the entry that opened it has closed.
  */
-export function useFileAnIssue({ compose, onCopied }: FileAnIssueProps): { open: () => void; review: ReactNode } {
+export function useFileAnIssue({ compose, onCopied }: FileAnIssueProps): {
+  open: () => void;
+  review: ReactNode;
+} {
   /**
    * What is under review, frozen at the moment the control was pressed. `null`
    * is closed — one piece of state rather than a flag beside a value, so there
@@ -221,10 +231,7 @@ export function FilingReview({ offered, removed, onToggle, onCancel, onCopy }: F
                       <span className="armada-filing__always">{ALWAYS}</span>
                     </>
                   ) : (
-                    <Checkbox
-                      checked={!removed.has(item.id)}
-                      onChange={() => onToggle(item.id)}
-                    >
+                    <Checkbox checked={!removed.has(item.id)} onChange={() => onToggle(item.id)}>
                       {item.label}
                     </Checkbox>
                   )}
@@ -249,8 +256,8 @@ export function FilingReview({ offered, removed, onToggle, onCancel, onCopy }: F
           {offered.withheld === undefined || offered.withheld.length === 0 ? null : (
             <div className="armada-filing__withheld">
               <p className="armada-filing__says">
-                Not offered, and the issue body says so too — a reader who finds none of this
-                cannot otherwise tell it was left out on purpose.
+                Not offered, and the issue body says so too — a reader who finds none of this cannot
+                otherwise tell it was left out on purpose.
               </p>
               <ul className="armada-filing__rows">
                 {offered.withheld.map((item) => (

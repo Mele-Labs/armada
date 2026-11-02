@@ -11,14 +11,32 @@ export type Place = {
   studioNode: string | null;
 };
 
-export type History = { back: Place[]; at: Place; forward: Place[] };
+export type History = {
+  back: Place[];
+  at: Place;
+  forward: Place[];
+};
 
-export type Event = { kind: "visited"; place: Place } | { kind: "back" } | { kind: "forward" };
+export type Event =
+  | {
+      kind: "visited";
+      place: Place;
+    }
+  | {
+      kind: "back";
+    }
+  | {
+      kind: "forward";
+    };
 
 export const CAP = 50;
 
 export function start(at: Place): History {
-  return { back: [], at, forward: [] };
+  return {
+    back: [],
+    at,
+    forward: [],
+  };
 }
 
 export function same(a: Place, b: Place): boolean {
@@ -29,16 +47,37 @@ export function fold(history: History, event: Event): History {
   switch (event.kind) {
     case "visited":
       if (same(event.place, history.at)) return history;
-      return { back: [...history.back, history.at].slice(-CAP), at: event.place, forward: [] };
+      return {
+        back: [
+          ...history.back,
+          history.at,
+        ].slice(-CAP),
+        at: event.place,
+        forward: [],
+      };
     case "back": {
       const to = history.back[history.back.length - 1];
       if (to === undefined) return history;
-      return { back: history.back.slice(0, -1), at: to, forward: [history.at, ...history.forward] };
+      return {
+        back: history.back.slice(0, -1),
+        at: to,
+        forward: [
+          history.at,
+          ...history.forward,
+        ],
+      };
     }
     case "forward": {
       const [to, ...rest] = history.forward;
       if (to === undefined) return history;
-      return { back: [...history.back, history.at].slice(-CAP), at: to, forward: rest };
+      return {
+        back: [
+          ...history.back,
+          history.at,
+        ].slice(-CAP),
+        at: to,
+        forward: rest,
+      };
     }
   }
 }
@@ -51,11 +90,22 @@ export function fold(history: History, event: Event): History {
  */
 export function collapse(history: History, place: Place): History {
   const cockpit = (one: Place) => one.surface === "overview";
-  const trail = [...history.back, history.at];
+  const trail = [
+    ...history.back,
+    history.at,
+  ];
   let at = trail.length - 1;
   while (at >= 0 && !cockpit(trail[at]!)) at -= 1;
-  if (at < 0) return fold(history, { kind: "visited", place });
-  return { back: trail.slice(0, cockpit(place) ? at : at + 1), at: place, forward: [] };
+  if (at < 0)
+    return fold(history, {
+      kind: "visited",
+      place,
+    });
+  return {
+    back: trail.slice(0, cockpit(place) ? at : at + 1),
+    at: place,
+    forward: [],
+  };
 }
 
 /**
@@ -64,10 +114,20 @@ export function collapse(history: History, place: Place): History {
  * `back`, and `replaceNext`, which makes the next place visited replace the layers over the Cockpit (`collapse`)
  * instead of stacking on them.
  */
-export function useHistory(current: Place, restore: (place: Place) => void): { back: () => void; replaceNext: () => void } {
+export function useHistory(
+  current: Place,
+  restore: (place: Place) => void,
+): {
+  back: () => void;
+  replaceNext: () => void;
+} {
   const held = useRef<History>(start(current));
-  const latest = useRef({ restore });
-  latest.current = { restore };
+  const latest = useRef({
+    restore,
+  });
+  latest.current = {
+    restore,
+  };
 
   // Restoring sets `held.at` first, so the render it causes finds `current` equal to it.
   const replacing = useRef(false);
@@ -77,16 +137,28 @@ export function useHistory(current: Place, restore: (place: Place) => void): { b
       held.current = collapse(held.current, current);
       return;
     }
-    held.current = fold(held.current, { kind: "visited", place: current });
-  }, [current.surface, current.studio, current.studioNode]); // eslint-disable-line react-hooks/exhaustive-deps
+    held.current = fold(held.current, {
+      kind: "visited",
+      place: current,
+    });
+  }, [
+    current.surface,
+    current.studio,
+    current.studioNode,
+  ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function go(kind: "back" | "forward"): void {
     // With nowhere to go the current place is restored all the same: it lets go of a layer over it, as the reports are.
-    const next = fold(held.current, { kind });
+    const next = fold(held.current, {
+      kind,
+    });
     held.current = next;
     latest.current.restore(next.at);
   }
-  useHistoryKeys(() => go("back"), () => go("forward"));
+  useHistoryKeys(
+    () => go("back"),
+    () => go("forward"),
+  );
   // A swipe or browser key only main hears.
   useEffect(() => window.armada.onHistory((step) => go(step)), []); // eslint-disable-line react-hooks/exhaustive-deps
   return {

@@ -15,15 +15,35 @@ export function headTake(): HeadTake {
   return document.documentElement.dataset.headTake === "overflow" ? "overflow" : "rows";
 }
 
-export type JobAct = { id: string; label: string; icon?: LucideIcon; /** `on` is a switch that is on, `running` a thing that is running: the glyph is blue, and pulses while it runs. */ state?: "on" | "running"; /** Why it cannot be pressed, where it cannot. */ off: string | undefined; run: () => void };
+export type JobAct = {
+  id: string;
+  label: string;
+  icon?: LucideIcon /** `on` is a switch that is on, `running` a thing that is running: the glyph is blue, and pulses while it runs. */;
+  state?: "on" | "running" /** Why it cannot be pressed, where it cannot. */;
+  off: string | undefined;
+  run: () => void;
+};
 
 /** What a head with a take has given up: the acts that moved into the ellipsis menu, by id, and whether the repository is its icon alone. */
-type Place = { slot: HTMLElement | null; away: readonly string[]; chip: boolean };
-const NOWHERE: Place = { slot: null, away: [], chip: false };
+type Place = {
+  slot: HTMLElement | null;
+  away: readonly string[];
+  chip: boolean;
+};
+const NOWHERE: Place = {
+  slot: null,
+  away: [],
+  chip: false,
+};
 let place: Place = NOWHERE;
 const placeListeners = new Set<() => void>();
 const setPlace = (next: Place) => {
-  if (next.slot === place.slot && next.chip === place.chip && next.away.join("\n") === place.away.join("\n")) return;
+  if (
+    next.slot === place.slot &&
+    next.chip === place.chip &&
+    next.away.join("\n") === place.away.join("\n")
+  )
+    return;
   place = next;
   placeListeners.forEach((one) => one());
 };
@@ -38,11 +58,16 @@ const actsListeners = new Set<() => void>();
  * draws the acts' own parent cannot be drawn again by them, and each `run` goes to the closure offered last.
  */
 export function publishActs(next: readonly JobAct[]): void {
-  const key = next.map((one) => `${one.id}|${one.label}|${one.state ?? ""}|${one.off ?? ""}`).join("\n");
+  const key = next
+    .map((one) => `${one.id}|${one.label}|${one.state ?? ""}|${one.off ?? ""}`)
+    .join("\n");
   latest = next;
   if (key === actsKey) return;
   actsKey = key;
-  acts = next.map((one) => ({ ...one, run: () => latest.find((other) => other.id === one.id)?.run() }));
+  acts = next.map((one) => ({
+    ...one,
+    run: () => latest.find((other) => other.id === one.id)?.run(),
+  }));
   actsListeners.forEach((one) => one());
 }
 
@@ -52,9 +77,21 @@ export const clearActs = () => publishActs([]);
  * The order acts leave a head in, the first named going first: what the owner reads at a glance (a Job's pause, its auto land,
  * its Checks) stays longest, and what he reaches for once in a while goes first. An act not named here, which is one of his own, goes before all of them.
  */
-const LEAVES = ["requests", "release", "report", "subagents", "judge", "checks", "land", "pause"];
+const LEAVES = [
+  "requests",
+  "release",
+  "report",
+  "subagents",
+  "judge",
+  "checks",
+  "land",
+  "pause",
+];
 const leaveRank = (id: string) => LEAVES.indexOf(id);
-const leaveOrder = (ids: readonly string[]) => [...ids].sort((a, b) => leaveRank(a) - leaveRank(b));
+const leaveOrder = (ids: readonly string[]) =>
+  [
+    ...ids,
+  ].sort((a, b) => leaveRank(a) - leaveRank(b));
 
 /** The ellipsis menu's id for an act. */
 const ENTRY = "act:";
@@ -63,7 +100,29 @@ const ENTRY = "act:";
 export const actEntries = (all: readonly JobAct[], away: readonly string[]): DropdownMenuEntry[] =>
   all
     .filter((one) => away.includes(one.id))
-    .map((one): DropdownMenuEntry => ({ kind: "item", id: `${ENTRY}${one.id}`, label: one.label, ...(one.icon === undefined ? {} : { icon: one.icon }), ...(one.state === undefined ? {} : { state: one.state }), disabled: one.off !== undefined, ...(one.off === undefined ? {} : { hint: one.off }) }));
+    .map(
+      (one): DropdownMenuEntry => ({
+        kind: "item",
+        id: `${ENTRY}${one.id}`,
+        label: one.label,
+        ...(one.icon === undefined
+          ? {}
+          : {
+              icon: one.icon,
+            }),
+        ...(one.state === undefined
+          ? {}
+          : {
+              state: one.state,
+            }),
+        disabled: one.off !== undefined,
+        ...(one.off === undefined
+          ? {}
+          : {
+              hint: one.off,
+            }),
+      }),
+    );
 
 /** Runs the act a row of `actEntries` names. False for any other row. */
 export function runActEntry(all: readonly JobAct[], id: string): boolean {
@@ -87,7 +146,12 @@ export function useActs(): readonly JobAct[] {
 }
 
 /** What one head has taught the measuring, which no re-render forgets. */
-type Widths = { icon: number; chipFull: number; chipIcon: number; ch18: number };
+type Widths = {
+  icon: number;
+  chipFull: number;
+  chipIcon: number;
+  ch18: number;
+};
 
 const px = (value: string) => Number.parseFloat(value) || 0;
 /** An element's width as it asks for it, not as its flex row has squeezed it. */
@@ -103,7 +167,13 @@ function floorOf(title: HTMLElement, widths: Widths): number {
     probe.remove();
   }
   const gap = px(getComputedStyle(title).columnGap);
-  const beside = [...title.children].filter((one) => one.querySelector(".armada-session-frame__title-text, input") === null && !one.matches(".armada-session-frame__title-text"));
+  const beside = [
+    ...title.children,
+  ].filter(
+    (one) =>
+      one.querySelector(".armada-session-frame__title-text, input") === null &&
+      !one.matches(".armada-session-frame__title-text"),
+  );
   return widths.ch18 + beside.reduce((sum, one) => sum + gap + asked(one), 0);
 }
 
@@ -112,12 +182,26 @@ function floorOf(title: HTMLElement, widths: Widths): number {
  * acts go one at a time in `LEAVES` order; going wider the same steps come back in reverse. Widths are read off what is drawn, so the row's own padding and
  * gap, a longer context figure or a mark that appears are all counted, and no step is guessed from the window.
  */
-function settle(row: HTMLElement, slot: HTMLElement, widths: Widths, count: number, now: { away: number; chip: boolean }): { away: number; chip: boolean } {
+function settle(
+  row: HTMLElement,
+  slot: HTMLElement,
+  widths: Widths,
+  count: number,
+  now: {
+    away: number;
+    chip: boolean;
+  },
+): {
+  away: number;
+  chip: boolean;
+} {
   const style = getComputedStyle(row);
   const gap = px(style.columnGap);
   const inner = px(getComputedStyle(slot).columnGap);
   const avail = row.clientWidth - px(style.paddingLeft) - px(style.paddingRight);
-  const drawn = [...row.children].filter((one) => getComputedStyle(one).display !== "none") as HTMLElement[];
+  const drawn = [
+    ...row.children,
+  ].filter((one) => getComputedStyle(one).display !== "none") as HTMLElement[];
   const chipEl = row.querySelector<HTMLElement>(".armada-session-repository");
   const first = slot.firstElementChild;
   if (first !== null) widths.icon = asked(first);
@@ -126,11 +210,14 @@ function settle(row: HTMLElement, slot: HTMLElement, widths: Widths, count: numb
     else widths.chipFull = chipEl.getBoundingClientRect().width;
   }
   const title = drawn.find((one) => one.classList.contains("armada-session-frame__title"));
-  const slotAt = (shown: number) => (shown <= 0 ? 0 : shown * widths.icon + (shown - 1) * inner + gap);
-  const chipAt = (icon: boolean) => (chipEl === null ? 0 : icon ? (widths.chipIcon || widths.icon) : widths.chipFull);
+  const slotAt = (shown: number) =>
+    shown <= 0 ? 0 : shown * widths.icon + (shown - 1) * inner + gap;
+  const chipAt = (icon: boolean) =>
+    chipEl === null ? 0 : icon ? widths.chipIcon || widths.icon : widths.chipFull;
   let need = gap * Math.max(drawn.length - 1, 0);
   for (const one of drawn) need += one === title ? floorOf(title, widths) : asked(one);
-  const total = (away: number, chip: boolean) => need - slotAt(count - now.away) + slotAt(count - away) - chipAt(now.chip) + chipAt(chip);
+  const total = (away: number, chip: boolean) =>
+    need - slotAt(count - now.away) + slotAt(count - away) - chipAt(now.chip) + chipAt(chip);
   const fits = (away: number, chip: boolean) => total(away, chip) <= avail;
   let { away, chip } = now;
   while (!fits(away, chip)) {
@@ -140,31 +227,59 @@ function settle(row: HTMLElement, slot: HTMLElement, widths: Widths, count: numb
   }
   while (away > 0 && fits(away - 1, chip)) away -= 1;
   if (away === 0 && chip && fits(0, false)) chip = false;
-  return { away, chip };
+  return {
+    away,
+    chip,
+  };
 }
 
 /** The place in a Thread head the acts are drawn into. */
 export function JobActsSlot() {
   const element = useRef<HTMLSpanElement>(null);
-  const widths = useRef<Widths>({ icon: 24, chipFull: 0, chipIcon: 0, ch18: 0 });
+  const widths = useRef<Widths>({
+    icon: 24,
+    chipFull: 0,
+    chipIcon: 0,
+    ch18: 0,
+  });
   const measuring = useRef<(() => void) | undefined>(undefined);
   // Each change of what is drawn is measured again, a step at a time until the row fits.
   const here = useActsPlace();
   const offered = useActs();
-  useLayoutEffect(() => measuring.current?.(), [here, offered]);
+  useLayoutEffect(
+    () => measuring.current?.(),
+    [
+      here,
+      offered,
+    ],
+  );
   useLayoutEffect(() => {
     const slot = element.current;
     if (slot === null) return;
     const head = slot.closest("[data-room]");
     const measure = () => {
-      if (!(head instanceof HTMLElement)) return setPlace({ ...NOWHERE, slot });
+      if (!(head instanceof HTMLElement))
+        return setPlace({
+          ...NOWHERE,
+          slot,
+        });
       const leaving = leaveOrder(acts.map((one) => one.id));
-      const next = settle(head, slot, widths.current, leaving.length, { away: place.away.length, chip: place.chip });
-      setPlace({ slot, away: leaving.slice(0, next.away), chip: next.chip });
+      const next = settle(head, slot, widths.current, leaving.length, {
+        away: place.away.length,
+        chip: place.chip,
+      });
+      setPlace({
+        slot,
+        away: leaving.slice(0, next.away),
+        chip: next.chip,
+      });
     };
     measuring.current = measure;
     measure();
-    const watch = typeof ResizeObserver === "undefined" || head === null ? undefined : new ResizeObserver(measure);
+    const watch =
+      typeof ResizeObserver === "undefined" || head === null
+        ? undefined
+        : new ResizeObserver(measure);
     if (head !== null) watch?.observe(head);
     return () => {
       measuring.current = undefined;

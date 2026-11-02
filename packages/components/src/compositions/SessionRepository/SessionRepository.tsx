@@ -8,7 +8,10 @@ import { Popover } from "../../primitives/Popover/Popover";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /** A repository a Session can be moved to, by its Manifest id. */
-export type SessionRepositoryTarget = { id: string; name: string };
+export type SessionRepositoryTarget = {
+  id: string;
+  name: string;
+};
 
 export type SessionRepositoryProps = {
   /** The repository the Session is in now. */
@@ -18,7 +21,9 @@ export type SessionRepositoryProps = {
   /** Why none can be picked, said on each. Absent, they can. */
   held?: string;
   /** What the Session leaves behind: its branch where it has one, and its files. Absent, nothing. */
-  stays?: { branch?: string };
+  stays?: {
+    branch?: string;
+  };
   /** Moving ends the Session, because it is live. */
   ends?: boolean;
   /** Resolves when the move is done; the host opens the new Session. */
@@ -32,11 +37,29 @@ export type SessionRepositoryProps = {
  * repository glyph, and a pick shows its facts in the same layer: where it goes and what stays behind. Move
  * is the one press that acts. Where there is no other repository the name is text and nothing opens.
  */
-export function SessionRepository({ name, to = [], held, stays, ends = false, onMove, icon = false }: SessionRepositoryProps) {
+export function SessionRepository({
+  name,
+  to = [],
+  held,
+  stays,
+  ends = false,
+  onMove,
+  icon = false,
+}: SessionRepositoryProps) {
   if (to.length === 0) {
     return (
       <Tooltip label={icon ? name : "Repository"}>
-        <span className="armada-session-repository" data-plain {...(icon ? { "data-icon": "" } : {})} role="img" aria-label={`Repository ${name}`}>
+        <span
+          className="armada-session-repository"
+          data-plain
+          {...(icon
+            ? {
+                "data-icon": "",
+              }
+            : {})}
+          role="img"
+          aria-label={`Repository ${name}`}
+        >
           <FolderGit2 size={12} strokeWidth={2} aria-hidden />
           <span className="armada-session-repository__name">{name}</span>
         </span>
@@ -49,7 +72,17 @@ export function SessionRepository({ name, to = [], held, stays, ends = false, on
       label="Move to another repository"
       trigger={
         <Tooltip label={icon ? name : "Move to another repository"}>
-          <button type="button" className="armada-session-repository" {...(icon ? { "data-icon": "" } : {})} aria-haspopup="dialog" aria-label={`Repository ${name}`}>
+          <button
+            type="button"
+            className="armada-session-repository"
+            {...(icon
+              ? {
+                  "data-icon": "",
+                }
+              : {})}
+            aria-haspopup="dialog"
+            aria-label={`Repository ${name}`}
+          >
             <FolderGit2 size={12} strokeWidth={2} aria-hidden />
             <span className="armada-session-repository__name">{name}</span>
             <ChevronDown size={12} strokeWidth={2} aria-hidden />
@@ -57,29 +90,70 @@ export function SessionRepository({ name, to = [], held, stays, ends = false, on
         </Tooltip>
       }
     >
-      {(close) => <MovePanel from={name} to={to} held={held} stays={stays} ends={ends} onMove={onMove} close={close} />}
+      {(close) => (
+        <MovePanel
+          from={name}
+          to={to}
+          held={held}
+          stays={stays}
+          ends={ends}
+          onMove={onMove}
+          close={close}
+        />
+      )}
     </Popover>
   );
 }
 
-function MovePanel({ from, to, held, stays, ends, onMove, close }: { from: string; to: readonly SessionRepositoryTarget[]; held: string | undefined; stays: SessionRepositoryProps["stays"]; ends: boolean; onMove: SessionRepositoryProps["onMove"]; close: () => void }) {
+function MovePanel({
+  from,
+  to,
+  held,
+  stays,
+  ends,
+  onMove,
+  close,
+}: {
+  from: string;
+  to: readonly SessionRepositoryTarget[];
+  held: string | undefined;
+  stays: SessionRepositoryProps["stays"];
+  ends: boolean;
+  onMove: SessionRepositoryProps["onMove"];
+  close: () => void;
+}) {
   const [picked, setPicked] = useState<SessionRepositoryTarget | undefined>();
   const [moving, setMoving] = useState(false);
   const step = (event: KeyboardEvent<HTMLElement>) => {
     const by = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
     if (by === 0) return;
     event.preventDefault();
-    const all = [...event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]')];
-    all[(all.indexOf(document.activeElement as HTMLElement) + by + all.length) % all.length]?.focus();
+    const all = [
+      ...event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+    ];
+    all[
+      (all.indexOf(document.activeElement as HTMLElement) + by + all.length) % all.length
+    ]?.focus();
   };
   if (picked !== undefined) {
-    const files = stays?.branch === undefined ? <>Its files</> : <><code>{stays.branch}</code> and its files</>;
+    const files =
+      stays?.branch === undefined ? (
+        <>Its files</>
+      ) : (
+        <>
+          <code>{stays.branch}</code> and its files
+        </>
+      );
     return (
       <div className="armada-session-repository__confirm">
         {stays === undefined && !ends ? null : (
           <Alert tone="caution" icon={<TriangleAlert size={16} strokeWidth={2} aria-hidden />}>
             <span className="armada-session-repository__warning">
-              {stays === undefined ? null : <span>{files} stay in {from}</span>}
+              {stays === undefined ? null : (
+                <span>
+                  {files} stay in {from}
+                </span>
+              )}
               {ends ? <span>Ends this Job</span> : null}
             </span>
           </Alert>
@@ -105,7 +179,12 @@ function MovePanel({ from, to, held, stays, ends, onMove, close }: { from: strin
     );
   }
   return (
-    <div className="armada-session-repository__menu" role="menu" aria-label="Repositories" onKeyDown={step}>
+    <div
+      className="armada-session-repository__menu"
+      role="menu"
+      aria-label="Repositories"
+      onKeyDown={step}
+    >
       {to.map((one, at) => {
         const item = (
           <button
@@ -121,7 +200,9 @@ function MovePanel({ from, to, held, stays, ends, onMove, close }: { from: strin
             <span className="armada-session-repository__name">{one.name}</span>
           </button>
         );
-        return held === undefined ? item : (
+        return held === undefined ? (
+          item
+        ) : (
           <Tooltip key={one.id} label={held}>
             {item}
           </Tooltip>

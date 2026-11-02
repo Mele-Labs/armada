@@ -16,7 +16,15 @@ import { BareChanges, ThemeBlock } from "./themes";
 import { PieceActs } from "../sharing/PieceActs";
 import { useRootFor } from "./piece-root";
 
-export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; send: ReturnType<typeof useSendFindings> }) {
+export function ToolResults({
+  pr,
+  tool,
+  send,
+}: {
+  pr: ReviewPr;
+  tool: ToolDef;
+  send: ReturnType<typeof useSendFindings>;
+}) {
   const store = useReviewStore()!;
   const work = useReviews().work[pr.key] ?? NO_WORK;
   const run = work.runs[tool.id];
@@ -31,10 +39,22 @@ export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; s
   // A tool of the person's own can be committed to the repository by a Job of its own, or shared.
   const root = useRootFor(pr.manifestId);
   return (
-    <div className="pr-results" aria-label={`${tool.name} results`} role="region" data-tool={tool.mark} data-source={tool.source}>
+    <div
+      className="pr-results"
+      aria-label={`${tool.name} results`}
+      role="region"
+      data-tool={tool.mark}
+      data-source={tool.source}
+    >
       <header className="pr-results__head">
         <Tooltip label="Back to the overview">
-          <Button variant="ghost" size="sm" iconOnly aria-label="Back to the overview" onClick={() => store.setView(pr.key, "explanation")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label="Back to the overview"
+            onClick={() => store.setView(pr.key, "explanation")}
+          >
             <ArrowLeft size={16} strokeWidth={2} aria-hidden />
           </Button>
         </Tooltip>
@@ -43,7 +63,14 @@ export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; s
         <PrMark Glyph={source.Glyph} said={source.said} />
         <span className="pr-results__acts">
           <Tooltip label="Run again, for this pull request">
-            <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={running} onClick={() => store.spend(tool.name, () => store.rerun(pr.key, tool))}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Run again"
+              disabled={running}
+              onClick={() => store.spend(tool.name, () => store.rerun(pr.key, tool))}
+            >
               <RotateCw size={16} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>
@@ -51,7 +78,13 @@ export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; s
       </header>
       {tool.source !== "kit" || root === undefined ? null : (
         <div className="pr-results__piece">
-          <PieceActs repository={root} piece={{ kind: "review_tool", id: tool.id }} />
+          <PieceActs
+            repository={root}
+            piece={{
+              kind: "review_tool",
+              id: tool.id,
+            }}
+          />
         </div>
       )}
       {run?.state === "done" && stale ? (
@@ -73,9 +106,26 @@ export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; s
       ) : (
         <div className="pr-results__themes">
           {isExplained(work)
-            ? pr.explanation.themes.map((theme, at) => <ThemeBlock key={theme.id} pr={pr} theme={theme} number={at + 1} mode="result" tool={tool.id} send={send} quiet={quiet} />)
+            ? pr.explanation.themes.map((theme, at) => (
+                <ThemeBlock
+                  key={theme.id}
+                  pr={pr}
+                  theme={theme}
+                  number={at + 1}
+                  mode="result"
+                  tool={tool.id}
+                  send={send}
+                  quiet={quiet}
+                />
+              ))
             : null}
-          <BareChanges pr={pr} mode="result" tool={tool.id} send={send} quiet={(one) => !isFile(one) || quiet(one)} />
+          <BareChanges
+            pr={pr}
+            mode="result"
+            tool={tool.id}
+            send={send}
+            quiet={(one) => !isFile(one) || quiet(one)}
+          />
         </div>
       )}
     </div>

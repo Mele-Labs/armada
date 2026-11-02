@@ -9,7 +9,12 @@ const meta: Meta<typeof LandsMark> = {
   component: LandsMark,
   decorators: [
     (Story) => (
-      <div style={{ padding: "var(--space-6)", background: "var(--surface-canvas)" }}>
+      <div
+        style={{
+          padding: "var(--space-6)",
+          background: "var(--surface-canvas)",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -22,12 +27,28 @@ type Story = StoryObj<typeof LandsMark>;
 /** A bare glyph, named by its tooltip and by nothing drawn. */
 export const Armada: Story = {
   name: "A retro fix that lands in Armada",
-  args: { lands: "armada" },
+  args: {
+    lands: "armada",
+  },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("img", { name: "Lands in Armada" })).toBeVisible();
+    await expect(
+      canvas.getByRole("img", {
+        name: "Lands in Armada",
+      }),
+    ).toBeVisible();
   },
 };
 
-export const Kit: Story = { name: "A retro fix that lands in Kit", args: { lands: "kit" } };
+export const Kit: Story = {
+  name: "A retro fix that lands in Kit",
+  args: {
+    lands: "kit",
+  },
+};
 
-export const Manifest: Story = { name: "A retro fix that lands in the Manifest", args: { lands: "manifest" } };
+export const Manifest: Story = {
+  name: "A retro fix that lands in the Manifest",
+  args: {
+    lands: "manifest",
+  },
+};

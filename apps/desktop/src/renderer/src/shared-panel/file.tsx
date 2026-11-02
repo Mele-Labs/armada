@@ -10,7 +10,13 @@ import { useAtFloor } from "@armada/shell";
 import type { PanelFileItem, PanelFileRead } from "../../../shared/api/files";
 import { openSessionIn } from "../open-session";
 import { useBack } from "./panels";
-import { closePanel, filePreviewing, openInPanel, useFilesBeside, type PanelFileMarked } from "./store";
+import {
+  closePanel,
+  filePreviewing,
+  openInPanel,
+  useFilesBeside,
+  type PanelFileMarked,
+} from "./store";
 
 /** What a read was refused for, as a fact. */
 const NOT_OPENED = {
@@ -20,7 +26,12 @@ const NOT_OPENED = {
   unreadable: "Could not be read",
 } as const;
 
-type Loaded = { text?: string; bytes?: Uint8Array; type: string; version: string };
+type Loaded = {
+  text?: string;
+  bytes?: Uint8Array;
+  type: string;
+  version: string;
+};
 
 const nameOf = (path: string): string => path.split("/").pop() ?? path;
 
@@ -43,7 +54,10 @@ export function useOpenFileKey(): void {
 function useFile(item: PanelFileItem): Omit<FilePanelProps, "onClose" | "floor" | "back"> {
   const [loaded, setLoaded] = useState<Loaded | undefined>(undefined);
   const [refused, setRefused] = useState<string | undefined>(undefined);
-  const [moved, setMoved] = useState<{ onDisk: string; version: string } | null>(null);
+  const [moved, setMoved] = useState<{
+    onDisk: string;
+    version: string;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | undefined>(undefined);
   // The edit, by path. Null is no edit: the text is what was read.
@@ -57,11 +71,31 @@ function useFile(item: PanelFileItem): Omit<FilePanelProps, "onClose" | "floor" 
         return;
       }
       if (!silently) setRefused(undefined);
-      setLoaded({ ...(answer.text === undefined ? {} : { text: answer.text }), ...(answer.bytes === undefined ? {} : { bytes: answer.bytes }), type: answer.type, version: answer.version });
+      setLoaded({
+        ...(answer.text === undefined
+          ? {}
+          : {
+              text: answer.text,
+            }),
+        ...(answer.bytes === undefined
+          ? {}
+          : {
+              bytes: answer.bytes,
+            }),
+        type: answer.type,
+        version: answer.version,
+      });
     },
-    [item],
+    [
+      item,
+    ],
   );
-  useEffect(() => void read(false), [read]);
+  useEffect(
+    () => void read(false),
+    [
+      read,
+    ],
+  );
 
   const text = draft ?? loaded?.text;
   const dirty = draft !== null && draft !== loaded?.text;
@@ -70,28 +104,53 @@ function useFile(item: PanelFileItem): Omit<FilePanelProps, "onClose" | "floor" 
   useEffect(
     () =>
       window.armada.onPanelFileChanged((changed) => {
-        if (changed.path === item.path && readKept<string | null>(`file:${item.path}`) == null) void read(true);
+        if (changed.path === item.path && readKept<string | null>(`file:${item.path}`) == null)
+          void read(true);
       }),
-    [item.path, read],
+    [
+      item.path,
+      read,
+    ],
   );
 
   const bytes = loaded?.bytes;
   const type = loaded?.type;
   useEffect(() => {
     if (bytes === undefined || type === undefined || !type.startsWith("image/")) return;
-    const address = URL.createObjectURL(new Blob([bytes.slice().buffer], { type }));
+    const address = URL.createObjectURL(
+      new Blob(
+        [
+          bytes.slice().buffer,
+        ],
+        {
+          type,
+        },
+      ),
+    );
     setImageSrc(address);
     return () => URL.revokeObjectURL(address);
-  }, [bytes, type]);
+  }, [
+    bytes,
+    type,
+  ]);
 
   const land = (answer: Awaited<ReturnType<typeof window.armada.savePanelFile>>, wrote: string) => {
     if (answer.state === "saved") {
-      setLoaded((was) => ({ ...(was ?? { type: "text/plain" }), text: wrote, version: answer.version }));
+      setLoaded((was) => ({
+        ...(was ?? {
+          type: "text/plain",
+        }),
+        text: wrote,
+        version: answer.version,
+      }));
       clearDraft();
       setMoved(null);
       setRefused(undefined);
     } else if (answer.state === "moved") {
-      setMoved({ onDisk: answer.onDisk, version: answer.version });
+      setMoved({
+        onDisk: answer.onDisk,
+        version: answer.version,
+      });
     } else {
       setRefused(answer.detail);
     }
@@ -107,33 +166,64 @@ function useFile(item: PanelFileItem): Omit<FilePanelProps, "onClose" | "floor" 
   };
 
   const openIn = (where: "editor" | "finder") =>
-    void window.armada.openPanelFileIn(item, where).then((opened) => setRefused(opened.ok ? undefined : opened.detail));
+    void window.armada
+      .openPanelFileIn(item, where)
+      .then((opened) => setRefused(opened.ok ? undefined : opened.detail));
 
   return {
     name: nameOf(item.path),
     path: item.path,
     type: loaded?.type ?? "text/plain",
-    ...(text === undefined ? {} : { text }),
-    ...(imageSrc === undefined ? {} : { imageSrc }),
+    ...(text === undefined
+      ? {}
+      : {
+          text,
+        }),
+    ...(imageSrc === undefined
+      ? {}
+      : {
+          imageSrc,
+        }),
     dirty,
     saving,
     onChange: (next) => (next === loaded?.text ? clearDraft() : setDraft(next)),
     onSave: () => save(loaded?.version),
     onOpenInEditor: () => openIn("editor"),
     onShowInFinder: () => openIn("finder"),
-    moved: moved === null ? null : { onDisk: moved.onDisk },
+    moved:
+      moved === null
+        ? null
+        : {
+            onDisk: moved.onDisk,
+          },
     onKeepMine: () => save(moved?.version),
     onTakeDisk: () => {
       if (moved === null) return;
-      setLoaded((was) => ({ ...(was ?? { type: "text/plain" }), text: moved.onDisk, version: moved.version }));
+      setLoaded((was) => ({
+        ...(was ?? {
+          type: "text/plain",
+        }),
+        text: moved.onDisk,
+        version: moved.version,
+      }));
       clearDraft();
       setMoved(null);
     },
-    ...(refused === undefined ? {} : { refused }),
+    ...(refused === undefined
+      ? {}
+      : {
+          refused,
+        }),
   };
 }
 
-export function FileSide({ item }: { item: PanelFileItem & { marked?: PanelFileMarked } }) {
+export function FileSide({
+  item,
+}: {
+  item: PanelFileItem & {
+    marked?: PanelFileMarked;
+  };
+}) {
   const floor = useAtFloor();
   const back = useBack();
   const beside = useFilesBeside();
@@ -145,17 +235,57 @@ export function FileSide({ item }: { item: PanelFileItem & { marked?: PanelFileM
       {...file}
       onClose={closePanel}
       floor={floor}
-      {...(back === undefined ? {} : { back: { label: back.label, onBack: back.onBack } })}
-      {...(beside === undefined ? {} : { beside })}
+      {...(back === undefined
+        ? {}
+        : {
+            back: {
+              label: back.label,
+              onBack: back.onBack,
+            },
+          })}
+      {...(beside === undefined
+        ? {}
+        : {
+            beside,
+          })}
       onPreviewing={filePreviewing}
-      notes={{ key: `file:${item.path}`, ...(job === undefined ? {} : { job }) }}
-      {...(item.marked === undefined ? {} : { marked: item.marked })}
+      notes={{
+        key: `file:${item.path}`,
+        ...(job === undefined
+          ? {}
+          : {
+              job,
+            }),
+      }}
+      {...(item.marked === undefined
+        ? {}
+        : {
+            marked: item.marked,
+          })}
     />
   );
 }
 
 /** The same file in the page, under `head`, for a surface that edits a file where it shows it. Nothing here closes. The path is the file, so a new path is a new view. */
-export function FileInline({ path, from, head }: { path: string; from: PanelFileItem["from"]; head: ReactNode }) {
-  const item = useMemo<PanelFileItem>(() => ({ kind: "file", path, from }), [path, from]);
+export function FileInline({
+  path,
+  from,
+  head,
+}: {
+  path: string;
+  from: PanelFileItem["from"];
+  head: ReactNode;
+}) {
+  const item = useMemo<PanelFileItem>(
+    () => ({
+      kind: "file",
+      path,
+      from,
+    }),
+    [
+      path,
+      from,
+    ],
+  );
   return <FileView {...useFile(item)} head={head} />;
 }

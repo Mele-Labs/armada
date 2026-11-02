@@ -63,7 +63,11 @@ export function actSource(act: WalkAct): string {
 
 /** A line of the page's words, on one line and no longer than `max`. */
 function line(said: string, max: number): string {
-  return [...said.replace(/\s+/g, " ").trim()].slice(0, max).join("");
+  return [
+    ...said.replace(/\s+/g, " ").trim(),
+  ]
+    .slice(0, max)
+    .join("");
 }
 
 /**
@@ -84,10 +88,31 @@ export function readWalk(answer: unknown): CaptureWalk | null {
   const read = parsed as Record<string, unknown>;
   const { name, said, at, of, autoplay, ready, done, stopped = false } = read;
   if (typeof name !== "string" || typeof said !== "string") return null;
-  if (typeof autoplay !== "boolean" || typeof ready !== "boolean" || typeof done !== "boolean" || typeof stopped !== "boolean") return null;
-  if (typeof at !== "number" || typeof of !== "number" || !Number.isInteger(at) || !Number.isInteger(of)) return null;
+  if (
+    typeof autoplay !== "boolean" ||
+    typeof ready !== "boolean" ||
+    typeof done !== "boolean" ||
+    typeof stopped !== "boolean"
+  )
+    return null;
+  if (
+    typeof at !== "number" ||
+    typeof of !== "number" ||
+    !Number.isInteger(at) ||
+    !Number.isInteger(of)
+  )
+    return null;
   if (of < 1 || of > WALK_STEPS_MAX || at < 1 || at > of) return null;
-  return { name: line(name, NAME_MAX), at, of, said: line(said, SAID_MAX), autoplay, ready, done, stopped };
+  return {
+    name: line(name, NAME_MAX),
+    at,
+    of,
+    said: line(said, SAID_MAX),
+    autoplay,
+    ready,
+    done,
+    stopped,
+  };
 }
 
 /**
@@ -116,8 +141,17 @@ function sameGuide(a: CaptureWalk["guide"], b: CaptureWalk["guide"]): boolean {
   if (a === undefined || b === undefined) return a === b;
   const at = a.box;
   const to = b.box;
-  const same = at === null || to === null ? at === to : at.x === to.x && at.y === to.y && at.width === to.width && at.height === to.height;
-  return same && a.folded === b.folded && a.stopped === b.stopped && a.signingIn === b.signingIn && a.waiting === b.waiting;
+  const same =
+    at === null || to === null
+      ? at === to
+      : at.x === to.x && at.y === to.y && at.width === to.width && at.height === to.height;
+  return (
+    same &&
+    a.folded === b.folded &&
+    a.stopped === b.stopped &&
+    a.signingIn === b.signingIn &&
+    a.waiting === b.waiting
+  );
 }
 
 /** Whether two states draw the same, so the bar is told only of a change. */

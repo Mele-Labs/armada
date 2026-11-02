@@ -42,7 +42,11 @@ export const Confirmation: Story = {
    * both calls are asserted, not just the one that should have happened.
    */
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.getByRole("button", { name: "Cancel" })).toHaveFocus();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Cancel",
+      }),
+    ).toHaveFocus();
 
     await userEvent.keyboard("{Enter}");
     await expect(args.onCancel).toHaveBeenCalled();
@@ -222,7 +226,11 @@ export const MergeThePullRequest: Story = {
    * the confirm for accent-filled dialogs would leave that story green.
    */
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.getByRole("button", { name: "Cancel" })).toHaveFocus();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Cancel",
+      }),
+    ).toHaveFocus();
 
     await userEvent.keyboard("{Enter}");
     await expect(args.onCancel).toHaveBeenCalled();
@@ -322,7 +330,11 @@ export const WaitingOnAField: Story = {
    * work while the way through does not.
    */
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.getByRole("button", { name: "Overrule the flag" })).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Overrule the flag",
+      }),
+    ).toBeDisabled();
 
     await userEvent.keyboard("{Enter}");
     await expect(args.onConfirm).not.toHaveBeenCalled();
@@ -372,8 +384,12 @@ export const TheReasonSatisfiesIt: Story = {
    * which reads as filled and records nothing.
    */
   play: async ({ canvas, userEvent }) => {
-    const confirm = canvas.getByRole("button", { name: "Overrule the flag" });
-    const field = canvas.getByRole("textbox", { name: "Why the flag is wrong" });
+    const confirm = canvas.getByRole("button", {
+      name: "Overrule the flag",
+    });
+    const field = canvas.getByRole("textbox", {
+      name: "Why the flag is wrong",
+    });
     await expect(confirm).toBeDisabled();
 
     await userEvent.type(field, "   ");

@@ -28,14 +28,24 @@ import type { Manifesting } from "@armada/desktop/mock";
 unmountAfterEach();
 
 // Core and Manifest only: the surface's own members, and the scenario answers the rest.
-const SLICES = { slices: ["core", "manifest"] } as const;
+const SLICES = {
+  slices: [
+    "core",
+    "manifest",
+  ],
+} as const;
 
 /** The Manifest surface, by the rail. */
 async function manifest(options: Manifesting = {}): Promise<void> {
   mount(manifesting(options), SLICES);
   // The rail row went when Navigation split in two; the control beside the
   // title row's picker is how the surface is reached now (#1595).
-  await page.getByRole("button", { name: "Open the Manifest", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "Open the Manifest",
+      exact: true,
+    })
+    .click();
 }
 
 /**
@@ -51,8 +61,16 @@ async function manifest(options: Manifesting = {}): Promise<void> {
  * press reached no element at all.
  */
 async function reading(which: "Drift" | "Verify"): Promise<void> {
-  await page.getByRole("button", { name: new RegExp(`^${which}`) }).click();
-  await entered(page.getByRole("dialog", { name: which }));
+  await page
+    .getByRole("button", {
+      name: new RegExp(`^${which}`),
+    })
+    .click();
+  await entered(
+    page.getByRole("dialog", {
+      name: which,
+    }),
+  );
 }
 
 /** What `fmt` rewrote, as `checkout_run.finished` reported it. */
@@ -69,9 +87,18 @@ const REFORMATTED: CheckoutRunRecord = {
   ended: "exited",
   stopped: false,
   changed: [
-    { path: "crates/fleet/src/rehearsing/checkout.rs", change: "modified" },
-    { path: "crates/api/src/rehearsing.rs", change: "modified" },
-    { path: "crates/ipc/src/rehearsal.rs", change: "modified" },
+    {
+      path: "crates/fleet/src/rehearsing/checkout.rs",
+      change: "modified",
+    },
+    {
+      path: "crates/api/src/rehearsing.rs",
+      change: "modified",
+    },
+    {
+      path: "crates/ipc/src/rehearsal.rs",
+      change: "modified",
+    },
   ],
   undoable: true,
   log: "runs/crun_3ba0/output.log",
@@ -129,11 +156,27 @@ const FORMAT_CHECKED: CheckoutRunRecord = {
   log: "runs/crun_4d02/output.log",
 };
 
-const diffSheet = () => page.getByRole("dialog", { name: "What this run changed" });
+const diffSheet = () =>
+  page.getByRole("dialog", {
+    name: "What this run changed",
+  });
 
 test("Open the diff reads the run's own patch, against the checkout just before it", async () => {
-  await manifest({ runs: { runs: [REFORMATTED, EARLIER], unreadable: [] }, diff: FMT_DIFF });
-  await page.getByRole("button", { name: "Open the diff" }).click();
+  await manifest({
+    runs: {
+      runs: [
+        REFORMATTED,
+        EARLIER,
+      ],
+      unreadable: [],
+    },
+    diff: FMT_DIFF,
+  });
+  await page
+    .getByRole("button", {
+      name: "Open the diff",
+    })
+    .click();
   await expect.element(diffSheet()).toHaveTextContent(/against the checkout just before the run/);
   await expect.element(diffSheet().getByText("crates/ipc/src/rehearsal.rs").first()).toBeVisible();
   await expect.element(diffSheet().getByText(/never against HEAD/)).toBeVisible();
@@ -141,172 +184,484 @@ test("Open the diff reads the run's own patch, against the checkout just before 
 
 test("an undone run's diff is still shown, marked undone, and Undo is gone", async () => {
   await manifest({
-    runs: { runs: [{ ...REFORMATTED, undone_at: "2026-09-12T14:19:30Z" }, EARLIER], unreadable: [] },
+    runs: {
+      runs: [
+        {
+          ...REFORMATTED,
+          undone_at: "2026-09-12T14:19:30Z",
+        },
+        EARLIER,
+      ],
+      unreadable: [],
+    },
     diff: FMT_DIFF,
   });
   await expect.element(page.getByText(/These files are back as they were/)).toBeVisible();
-  expect(page.getByRole("button", { name: "Undo this run" }).query()).toBeNull();
-  await page.getByRole("button", { name: "Open the diff" }).click();
+  expect(
+    page
+      .getByRole("button", {
+        name: "Undo this run",
+      })
+      .query(),
+  ).toBeNull();
+  await page
+    .getByRole("button", {
+      name: "Open the diff",
+    })
+    .click();
   await expect.element(diffSheet().getByRole("note")).toHaveTextContent(/Undone at/);
   await expect.element(diffSheet().getByText("crates/ipc/src/rehearsal.rs").first()).toBeVisible();
 });
 
 test("a snapshot that is gone is said plainly, and no patch stands in for it", async () => {
   await manifest({
-    runs: { runs: [REFORMATTED, EARLIER], unreadable: [] },
+    runs: {
+      runs: [
+        REFORMATTED,
+        EARLIER,
+      ],
+      unreadable: [],
+    },
     diff: {
       id: REFORMATTED.id,
       against: "run_snapshot",
-      reading: { state: "gone", why: "the snapshot this run kept is no longer in the repository" },
+      reading: {
+        state: "gone",
+        why: "the snapshot this run kept is no longer in the repository",
+      },
     },
   });
-  await page.getByRole("button", { name: "Open the diff" }).click();
+  await page
+    .getByRole("button", {
+      name: "Open the diff",
+    })
+    .click();
   await expect.element(diffSheet().getByText(/no longer in the repository/)).toBeVisible();
   expect(diffSheet().getByText("crates/ipc/src/rehearsal.rs").query()).toBeNull();
 });
 
 test("the newest run changed nothing, so the panel offers neither the diff nor Undo", async () => {
-  await manifest({ runs: { runs: [FORMAT_CHECKED, REFORMATTED], unreadable: [] }, diff: FMT_DIFF });
+  await manifest({
+    runs: {
+      runs: [
+        FORMAT_CHECKED,
+        REFORMATTED,
+      ],
+      unreadable: [],
+    },
+    diff: FMT_DIFF,
+  });
   await expect.element(page.getByText("This run changed nothing.")).toBeVisible();
-  expect(page.getByRole("button", { name: "Open the diff" }).query()).toBeNull();
-  expect(page.getByRole("button", { name: "Undo this run" }).query()).toBeNull();
+  expect(
+    page
+      .getByRole("button", {
+        name: "Open the diff",
+      })
+      .query(),
+  ).toBeNull();
+  expect(
+    page
+      .getByRole("button", {
+        name: "Undo this run",
+      })
+      .query(),
+  ).toBeNull();
   expect(page.getByText("crates/fleet/src/rehearsing/checkout.rs").query()).toBeNull();
 });
 
 test("an older run opened from Earlier runs shows its files and diff, and no Undo", async () => {
-  await manifest({ runs: { runs: [FORMAT_CHECKED, REFORMATTED], unreadable: [] }, diff: FMT_DIFF });
+  await manifest({
+    runs: {
+      runs: [
+        FORMAT_CHECKED,
+        REFORMATTED,
+      ],
+      unreadable: [],
+    },
+    diff: FMT_DIFF,
+  });
   await expect.element(page.getByText("This run changed nothing.")).toBeVisible();
-  const logs = page.getByRole("button", { name: /log/ }).elements();
+  const logs = page
+    .getByRole("button", {
+      name: /log/,
+    })
+    .elements();
   await userEvent.click(logs[logs.length - 1]!);
   await expect.element(page.getByText("crates/fleet/src/rehearsing/checkout.rs")).toBeVisible();
-  await expect.element(page.getByRole("button", { name: "Open the diff" })).toBeVisible();
-  expect(page.getByRole("button", { name: "Undo this run" }).query()).toBeNull();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Open the diff",
+      }),
+    )
+    .toBeVisible();
+  expect(
+    page
+      .getByRole("button", {
+        name: "Undo this run",
+      })
+      .query(),
+  ).toBeNull();
 });
 
 test("a repository-wide always-allow is listed, and removed from here", async () => {
-  await manifest({ alwaysAllowed: [GH_ISSUE_VIEW] });
+  await manifest({
+    alwaysAllowed: [
+      GH_ISSUE_VIEW,
+    ],
+  });
   await expect.element(page.getByText("gh issue view")).toBeVisible();
-  await page.getByRole("button", { name: "Remove gh issue view" }).click();
+  await page
+    .getByRole("button", {
+      name: "Remove gh issue view",
+    })
+    .click();
   // The last one gone, the group goes with it: no label over nothing, and no sentence.
   await expect.element(page.getByText("gh issue view")).not.toBeInTheDocument();
-  expect(page.getByText("Always allowed", { exact: true }).query()).toBeNull();
+  expect(
+    page
+      .getByText("Always allowed", {
+        exact: true,
+      })
+      .query(),
+  ).toBeNull();
   expect(page.getByText(/allowed yet/).query()).toBeNull();
 });
 
 test("the file sits behind a tab named by its path, and the head moves with the tab", async () => {
   await manifest();
-  await page.getByRole("tab", { name: "armada.yml" }).click();
-  await expect.element(page.getByRole("tab", { name: "armada.yml" })).toHaveAttribute("aria-selected", "true");
-  await expect.element(page.getByRole("textbox", { name: /armada\.yml$/ })).toHaveValue(MANIFEST_TEXT);
-  await expect.element(page.getByRole("button", { name: "Save" })).toBeDisabled();
+  await page
+    .getByRole("tab", {
+      name: "armada.yml",
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("tab", {
+        name: "armada.yml",
+      }),
+    )
+    .toHaveAttribute("aria-selected", "true");
+  await expect
+    .element(
+      page.getByRole("textbox", {
+        name: /armada\.yml$/,
+      }),
+    )
+    .toHaveValue(MANIFEST_TEXT);
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Save",
+      }),
+    )
+    .toBeDisabled();
   await expect.element(page.getByText(/Save writes the file to disk and stops/)).toBeVisible();
-  await page.getByRole("tab", { name: "Checks and Commands" }).click();
-  await expect.poll(() => page.getByText(/Save writes the file to disk and stops/).query()).toBeNull();
+  await page
+    .getByRole("tab", {
+      name: "Checks and Commands",
+    })
+    .click();
+  await expect
+    .poll(() => page.getByText(/Save writes the file to disk and stops/).query())
+    .toBeNull();
 });
 
 test("a save Fleet would not adopt draws the refusal, the values in force, and every key", async () => {
-  await manifest({ save: "refused" });
-  await page.getByRole("tab", { name: "armada.yml" }).click();
-  const file = page.getByRole("textbox", { name: /armada\.yml$/ });
+  await manifest({
+    save: "refused",
+  });
+  await page
+    .getByRole("tab", {
+      name: "armada.yml",
+    })
+    .click();
+  const file = page.getByRole("textbox", {
+    name: /armada\.yml$/,
+  });
   await expect.element(file).toHaveValue(MANIFEST_TEXT);
   await file.clear();
   await userEvent.type(file, MANIFEST_TEXT.replace("poke_limit: 3", "poke_limit: five"));
-  await page.getByRole("button", { name: "Save" }).click();
+  await page
+    .getByRole("button", {
+      name: "Save",
+    })
+    .click();
   await expect.element(page.getByText("Manifest refused")).toBeVisible();
   await expect.element(page.getByText("drone.poke_limit")).toBeVisible();
   await expect.element(page.getByText(/The values in force are unchanged/)).toBeVisible();
 });
 
 test("a save over a file that moved draws both texts, so neither is lost", async () => {
-  await manifest({ save: "moved" });
-  await page.getByRole("tab", { name: "armada.yml" }).click();
-  const file = page.getByRole("textbox", { name: /armada\.yml$/ });
+  await manifest({
+    save: "moved",
+  });
+  await page
+    .getByRole("tab", {
+      name: "armada.yml",
+    })
+    .click();
+  const file = page.getByRole("textbox", {
+    name: /armada\.yml$/,
+  });
   await expect.element(file).toHaveValue(MANIFEST_TEXT);
   // Typed at the end of the file, where a person appending a note puts the cursor.
   const text = file.element() as HTMLTextAreaElement;
   text.focus();
   text.setSelectionRange(text.value.length, text.value.length);
   await userEvent.keyboard("# a note{Enter}");
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect.element(page.getByRole("textbox", { name: "On disk now" })).toHaveValue(PULLED_TEXT);
-  await expect.element(page.getByRole("textbox", { name: "Your edit" })).toHaveValue(`${MANIFEST_TEXT}# a note\n`);
+  await page
+    .getByRole("button", {
+      name: "Save",
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("textbox", {
+        name: "On disk now",
+      }),
+    )
+    .toHaveValue(PULLED_TEXT);
+  await expect
+    .element(
+      page.getByRole("textbox", {
+        name: "Your edit",
+      }),
+    )
+    .toHaveValue(`${MANIFEST_TEXT}# a note\n`);
 });
 
 test("the surface opens on the Checks, and says a file drifted without drawing the reading", async () => {
-  await manifest({ drift: DRIFT_GONE });
+  await manifest({
+    drift: DRIFT_GONE,
+  });
   // Neither reading is on the surface. They took 45% of the window's height
   // between them, and the Checks this page exists to run started below them.
-  expect(page.getByRole("region", { name: "Drift" }).elements()).toHaveLength(0);
-  expect(page.getByRole("region", { name: "Verify" }).elements()).toHaveLength(0);
+  expect(
+    page
+      .getByRole("region", {
+        name: "Drift",
+      })
+      .elements(),
+  ).toHaveLength(0);
+  expect(
+    page
+      .getByRole("region", {
+        name: "Verify",
+      })
+      .elements(),
+  ).toHaveLength(0);
   // Tucked away is not dismissed: the act carries what the read found.
-  await expect.element(page.getByRole("button", { name: "Drift 1 gone" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Drift 1 gone",
+      }),
+    )
+    .toBeVisible();
   // And the Checks are what the panel under the tabs holds.
-  await expect.element(page.getByRole("button", { name: /^build/ })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: /^build/,
+      }),
+    )
+    .toBeVisible();
 });
 
 test("drift with a gone line names what is missing, and offers nothing to press on the row", async () => {
-  await manifest({ drift: DRIFT_GONE });
+  await manifest({
+    drift: DRIFT_GONE,
+  });
   await reading("Drift");
-  const drift = page.getByRole("region", { name: "Drift" });
-  await expect.element(drift.getByText("gone", { exact: true })).toBeVisible();
+  const drift = page.getByRole("region", {
+    name: "Drift",
+  });
+  await expect
+    .element(
+      drift.getByText("gone", {
+        exact: true,
+      }),
+    )
+    .toBeVisible();
   await expect.element(drift.getByText("package.json: scripts.bridge-test")).toBeVisible();
-  expect(drift.getByRole("button").elements().map((button) => button.textContent)).toEqual(["Show the 2 lines still current"]);
+  expect(
+    drift
+      .getByRole("button")
+      .elements()
+      .map((button) => button.textContent),
+  ).toEqual([
+    "Show the 2 lines still current",
+  ]);
 });
 
 test("a Verify underway: build streams, and no second Verify can start", async () => {
-  await manifest({ sheet: { state: "read", sheet: sheet({ running: BUILD_OUT, verify: VERIFY_UNDERWAY }) }, followed: BUILD_FOLLOWED });
+  await manifest({
+    sheet: {
+      state: "read",
+      sheet: sheet({
+        running: BUILD_OUT,
+        verify: VERIFY_UNDERWAY,
+      }),
+    },
+    followed: BUILD_FOLLOWED,
+  });
   // The act says one is out before it is opened, so nothing has to be pressed
   // to find out.
-  await expect.element(page.getByRole("button", { name: "Verify running" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Verify running",
+      }),
+    )
+    .toBeVisible();
   await reading("Verify");
-  const verify = page.getByRole("region", { name: "Verify" });
-  await expect.element(verify.getByRole("button", { name: "Verify" })).toBeDisabled();
+  const verify = page.getByRole("region", {
+    name: "Verify",
+  });
+  await expect
+    .element(
+      verify.getByRole("button", {
+        name: "Verify",
+      }),
+    )
+    .toBeDisabled();
   await expect.element(verify.getByText(/running now/)).toBeVisible();
-  await expect.element(verify.getByRole("button", { name: "Stop" })).toBeVisible();
+  await expect
+    .element(
+      verify.getByRole("button", {
+        name: "Stop",
+      }),
+    )
+    .toBeVisible();
 });
 
 test("a Verify with a failure: the exit code is a fact, and the Check after it still ran", async () => {
-  await manifest({ sheet: { state: "read", sheet: sheet({ verify: VERIFY_ENDED }) } });
-  await expect.element(page.getByRole("button", { name: "Verify ran 4 of 4" })).toBeVisible();
+  await manifest({
+    sheet: {
+      state: "read",
+      sheet: sheet({
+        verify: VERIFY_ENDED,
+      }),
+    },
+  });
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Verify ran 4 of 4",
+      }),
+    )
+    .toBeVisible();
   await reading("Verify");
-  const verify = page.getByRole("region", { name: "Verify" });
+  const verify = page.getByRole("region", {
+    name: "Verify",
+  });
   await expect.element(verify.getByText("exit 2 (expects 0)")).toBeVisible();
-  await expect.element(verify.getByText(/Ran 4 of 4\. 1 ended with a code other than the one it expects\./)).toBeVisible();
-  await expect.element(verify.getByRole("button", { name: "Verify" })).toBeEnabled();
+  await expect
+    .element(verify.getByText(/Ran 4 of 4\. 1 ended with a code other than the one it expects\./))
+    .toBeVisible();
+  await expect
+    .element(
+      verify.getByRole("button", {
+        name: "Verify",
+      }),
+    )
+    .toBeEnabled();
 });
 
 test("opening Verify's reading starts nothing — the button inside it is what runs", async () => {
   const started = vi.fn();
-  await manifest({ onStartVerify: started });
+  await manifest({
+    onStartVerify: started,
+  });
   await reading("Verify");
   expect(started).not.toHaveBeenCalled();
-  await page.getByRole("region", { name: "Verify" }).getByRole("button", { name: "Verify" }).click();
+  await page
+    .getByRole("region", {
+      name: "Verify",
+    })
+    .getByRole("button", {
+      name: "Verify",
+    })
+    .click();
   expect(started).toHaveBeenCalledTimes(1);
 });
 
 test("a frozen repository says so, and the notice leads to the switch that lifts it", async () => {
-  await manifest({ frozen: true });
+  await manifest({
+    frozen: true,
+  });
   await expect.element(page.getByText("This repository is frozen")).toBeVisible();
-  await page.getByRole("button", { name: "Unfreeze on the form" }).click();
-  await expect.element(page.getByRole("tab", { name: "Edit" })).toHaveAttribute("aria-selected", "true");
-  const freeze = page.getByRole("region", { name: "Freeze" });
-  await expect.element(freeze.getByRole("switch", { name: /Freeze this repository/ })).toBeChecked();
+  await page
+    .getByRole("button", {
+      name: "Unfreeze on the form",
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("tab", {
+        name: "Edit",
+      }),
+    )
+    .toHaveAttribute("aria-selected", "true");
+  const freeze = page.getByRole("region", {
+    name: "Freeze",
+  });
+  await expect
+    .element(
+      freeze.getByRole("switch", {
+        name: /Freeze this repository/,
+      }),
+    )
+    .toBeChecked();
   await expect.element(page.getByText("This repository is frozen")).toBeVisible();
-  expect(page.getByRole("button", { name: "Unfreeze on the form" }).query()).toBeNull();
+  expect(
+    page
+      .getByRole("button", {
+        name: "Unfreeze on the form",
+      })
+      .query(),
+  ).toBeNull();
 });
 
 test("a workspace's Command with no root Manifest: listed alone, no Edit, and Run names the workspace", async () => {
   const onStartRun = vi.fn();
   await manifest({
-    sheet: { state: "read", sheet: rootlessSheet() },
+    sheet: {
+      state: "read",
+      sheet: rootlessSheet(),
+    },
     setUp: false,
-    runs: { runs: [WEB_DEV_RUN], unreadable: [] },
+    runs: {
+      runs: [
+        WEB_DEV_RUN,
+      ],
+      unreadable: [],
+    },
     onStartRun,
   });
   await expect.element(page.getByText("In apps/web.")).toBeVisible();
-  expect(page.getByRole("tab", { name: "Edit" }).query()).toBeNull();
+  expect(
+    page
+      .getByRole("tab", {
+        name: "Edit",
+      })
+      .query(),
+  ).toBeNull();
   await expect.element(page.getByText("dev in apps/web").first()).toBeVisible();
-  await page.getByRole("button", { name: /^dev/ }).click();
-  await page.getByRole("button", { name: "Run", exact: true }).click();
-  expect(onStartRun).toHaveBeenCalledWith({ name: "dev", workspace: "apps/web" });
+  await page
+    .getByRole("button", {
+      name: /^dev/,
+    })
+    .click();
+  await page
+    .getByRole("button", {
+      name: "Run",
+      exact: true,
+    })
+    .click();
+  expect(onStartRun).toHaveBeenCalledWith({
+    name: "dev",
+    workspace: "apps/web",
+  });
 });

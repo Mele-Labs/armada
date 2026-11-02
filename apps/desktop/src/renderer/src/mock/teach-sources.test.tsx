@@ -20,23 +20,164 @@ unmountAfterEach();
 afterEach(() => forgetPanel());
 
 const panel = dialog("Teach");
-const section = (name: string) => inside(panel, region(name, { exact: true }));
+const section = (name: string) =>
+  inside(
+    panel,
+    region(name, {
+      exact: true,
+    }),
+  );
 const menuItem = role("menuitem", "Teach");
 
 /** The steps from the Cockpit to the thing Teach is pressed on, and the caption the panel opens with. */
-function reaching(): [string, Step[], string][] {
+function reaching(): [
+  string,
+  Step[],
+  string,
+][] {
   const { thread } = kit(false);
   const key = inside(thread, text(KEY_MESSAGE.slice(0, 40)));
-  const now = region("Now", { exact: true });
-  const first: Step[] = [toSessions, { press: deckRow(ARMADA_TITLE), say: "" }];
+  const now = region("Now", {
+    exact: true,
+  });
+  const first: Step[] = [
+    toSessions,
+    {
+      press: deckRow(ARMADA_TITLE),
+      say: "",
+    },
+  ];
   return [
-    ["words", [...first, { select: "STORE-1234", in: key, say: "" }, { press: inside(role("toolbar", "Selection"), button("Teach")), say: "" }], "Words"],
-    ["command", [...first, { press: inside(thread, button(/Tool calls/)), say: "" }, { context: inside(thread, text(INSTALL)), say: "" }, { press: menuItem, say: "" }], "Command"],
-    ["notice", [...first, { key: "Shift+F10", on: inside(thread, button(/commits behind main/)), say: "" }, { press: menuItem, say: "" }], "Notice"],
-    ["task", [...first, { press: inside(now, button("Whole plan")), say: "" }, { press: inside(now, button("Show the clock", { exact: true })), say: "" }, { hover: inside(now, text(TASK)), say: "" }, { press: inside(now, button(`Teach on task ${TASK}`)), say: "" }], "Task"],
-    ["check", [...first, { context: inside(thread, button(/Check desktop_unit, failed/)), say: "" }, { press: menuItem, say: "" }], "Check"],
-    ["panel", [...first, { key: "Shift+F10", on: inside(region("Field", { exact: true }), button("Expand")), say: "" }, { press: menuItem, say: "" }], "Panel Field"],
-    ["row", [toSessions, { context: deckRow(PAYMENTS_TITLE), say: "" }, { press: menuItem, say: "" }], "Row"],
+    [
+      "words",
+      [
+        ...first,
+        {
+          select: "STORE-1234",
+          in: key,
+          say: "",
+        },
+        {
+          press: inside(role("toolbar", "Selection"), button("Teach")),
+          say: "",
+        },
+      ],
+      "Words",
+    ],
+    [
+      "command",
+      [
+        ...first,
+        {
+          press: inside(thread, button(/Tool calls/)),
+          say: "",
+        },
+        {
+          context: inside(thread, text(INSTALL)),
+          say: "",
+        },
+        {
+          press: menuItem,
+          say: "",
+        },
+      ],
+      "Command",
+    ],
+    [
+      "notice",
+      [
+        ...first,
+        {
+          key: "Shift+F10",
+          on: inside(thread, button(/commits behind main/)),
+          say: "",
+        },
+        {
+          press: menuItem,
+          say: "",
+        },
+      ],
+      "Notice",
+    ],
+    [
+      "task",
+      [
+        ...first,
+        {
+          press: inside(now, button("Whole plan")),
+          say: "",
+        },
+        {
+          press: inside(
+            now,
+            button("Show the clock", {
+              exact: true,
+            }),
+          ),
+          say: "",
+        },
+        {
+          hover: inside(now, text(TASK)),
+          say: "",
+        },
+        {
+          press: inside(now, button(`Teach on task ${TASK}`)),
+          say: "",
+        },
+      ],
+      "Task",
+    ],
+    [
+      "check",
+      [
+        ...first,
+        {
+          context: inside(thread, button(/Check desktop_unit, failed/)),
+          say: "",
+        },
+        {
+          press: menuItem,
+          say: "",
+        },
+      ],
+      "Check",
+    ],
+    [
+      "panel",
+      [
+        ...first,
+        {
+          key: "Shift+F10",
+          on: inside(
+            region("Field", {
+              exact: true,
+            }),
+            button("Expand"),
+          ),
+          say: "",
+        },
+        {
+          press: menuItem,
+          say: "",
+        },
+      ],
+      "Panel Field",
+    ],
+    [
+      "row",
+      [
+        toSessions,
+        {
+          context: deckRow(PAYMENTS_TITLE),
+          say: "",
+        },
+        {
+          press: menuItem,
+          say: "",
+        },
+      ],
+      "Row",
+    ],
   ];
 }
 
@@ -44,21 +185,48 @@ for (const [source, steps, caption] of reaching()) {
   test(`Teach on ${source} opens the Teach panel on it`, async () => {
     mount("teach-anything");
     await onScreen();
-    await walkThrough([...steps, { look: section(caption), say: "" }]);
+    await walkThrough([
+      ...steps,
+      {
+        look: section(caption),
+        say: "",
+      },
+    ]);
   });
 }
 
 const rightPressTitleBar = (): void => {
   const bar = document.querySelector(".armada-title-bar")!;
-  bar.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, composed: true, view: window, clientX: 40, clientY: 10, button: 2 }));
+  bar.dispatchEvent(
+    new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      view: window,
+      clientX: 40,
+      clientY: 10,
+      button: 2,
+    }),
+  );
 };
 
 test("Teach on the title bar opens the Teach panel on it", async () => {
   mount("teach-anything");
   await onScreen();
   rightPressTitleBar();
-  await userEvent.click(page.getByRole("menuitem", { name: "Teach" }));
-  await expect.element(page.getByRole("region", { name: "Title bar", exact: true })).toBeVisible();
+  await userEvent.click(
+    page.getByRole("menuitem", {
+      name: "Teach",
+    }),
+  );
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Title bar",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
 });
 
 test("a window that offers no Teach has no entry on the title bar", async () => {
@@ -66,7 +234,13 @@ test("a window that offers no Teach has no entry on the title bar", async () => 
   await onScreen();
   act(() => provideTeaching(false));
   rightPressTitleBar();
-  await expect.element(page.getByRole("menuitem", { name: "Teach" })).not.toBeInTheDocument();
+  await expect
+    .element(
+      page.getByRole("menuitem", {
+        name: "Teach",
+      }),
+    )
+    .not.toBeInTheDocument();
 });
 
 test("Teach on a pull request opens the Teach panel on it, in the Job's repository", async () => {
@@ -88,14 +262,47 @@ test("Teach on a pull request opens the Teach panel on it, in the Job's reposito
   const root = createRoot(host);
   await act(async () =>
     root.render(
-      <TeachHereContext.Provider value={{ sessionId: "01JOB", jobTitle: "Round", manifestId: "armada", root: "/code/armada", repository: "armada" }}>
+      <TeachHereContext.Provider
+        value={{
+          sessionId: "01JOB",
+          jobTitle: "Round",
+          manifestId: "armada",
+          root: "/code/armada",
+          repository: "armada",
+        }}
+      >
         <Probe />
       </TeachHereContext.Provider>,
     ),
   );
-  await act(async () => void host.querySelector("button")!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, composed: true, view: window, clientX: 20, clientY: 20, button: 2 })));
-  await userEvent.click(page.getByRole("menuitem", { name: "Teach" }));
-  await vi.waitFor(() => expect(shown.at(-1)).toMatchObject({ kind: "teach", source: "pull_request", sessionId: "01JOB", manifestId: "armada", root: "/code/armada" }));
+  await act(
+    async () =>
+      void host.querySelector("button")!.dispatchEvent(
+        new MouseEvent("contextmenu", {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          view: window,
+          clientX: 20,
+          clientY: 20,
+          button: 2,
+        }),
+      ),
+  );
+  await userEvent.click(
+    page.getByRole("menuitem", {
+      name: "Teach",
+    }),
+  );
+  await vi.waitFor(() =>
+    expect(shown.at(-1)).toMatchObject({
+      kind: "teach",
+      source: "pull_request",
+      sessionId: "01JOB",
+      manifestId: "armada",
+      root: "/code/armada",
+    }),
+  );
   await act(async () => root.unmount());
   host.remove();
 });
@@ -106,12 +313,44 @@ test("Teach on a ticket in a Job's lanes opens the Teach panel on it, in the sid
   act(() => provideTeaching(true));
   const lanes = inside(dialog("Workflow"), role("group", "Workflow"));
   await walkThrough([
-    { press: deckRow("Add gift cards to the cart"), say: "" },
-    { press: inside(role("toolbar", "Views"), button("Workflow", { exact: true })), say: "" },
-    { later: lanes, say: "" },
-    { key: "Shift+F10", on: inside(lanes, button(/^Ticket ARM-41/)), say: "" },
-    { press: menuItem, say: "" },
-    { look: inside(panel, region("Ticket", { exact: true })), say: "" },
-    { look: inside(panel, text(/ARM-41/)), say: "" },
+    {
+      press: deckRow("Add gift cards to the cart"),
+      say: "",
+    },
+    {
+      press: inside(
+        role("toolbar", "Views"),
+        button("Workflow", {
+          exact: true,
+        }),
+      ),
+      say: "",
+    },
+    {
+      later: lanes,
+      say: "",
+    },
+    {
+      key: "Shift+F10",
+      on: inside(lanes, button(/^Ticket ARM-41/)),
+      say: "",
+    },
+    {
+      press: menuItem,
+      say: "",
+    },
+    {
+      look: inside(
+        panel,
+        region("Ticket", {
+          exact: true,
+        }),
+      ),
+      say: "",
+    },
+    {
+      look: inside(panel, text(/ARM-41/)),
+      say: "",
+    },
   ]);
 });

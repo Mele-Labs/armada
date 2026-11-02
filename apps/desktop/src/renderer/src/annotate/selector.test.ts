@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { selectorFor, type NodeLike } from "./selector";
 
-type Spec = { tag: string; id?: string; classes?: string[]; attrs?: Record<string, string>; children?: Spec[] };
+type Spec = {
+  tag: string;
+  id?: string;
+  classes?: string[];
+  attrs?: Record<string, string>;
+  children?: Spec[];
+};
 
 /** Builds a tree of `NodeLike`s and returns every node by a path of child indexes. */
 function build(spec: Spec, parent: NodeLike | null = null): NodeLike {
@@ -29,7 +35,20 @@ describe("selectorFor", () => {
         {
           tag: "div",
           id: "root",
-          children: [{ tag: "div", classes: ["armada-shell", "flex"], children: [{ tag: "span" }] }],
+          children: [
+            {
+              tag: "div",
+              classes: [
+                "armada-shell",
+                "flex",
+              ],
+              children: [
+                {
+                  tag: "span",
+                },
+              ],
+            },
+          ],
         },
       ],
     });
@@ -37,7 +56,20 @@ describe("selectorFor", () => {
   });
 
   it("skips an id React generated, which changes between renders", () => {
-    const body = build({ tag: "body", children: [{ tag: "div", id: "«r3»", children: [{ tag: "p" }] }] });
+    const body = build({
+      tag: "body",
+      children: [
+        {
+          tag: "div",
+          id: "«r3»",
+          children: [
+            {
+              tag: "p",
+            },
+          ],
+        },
+      ],
+    });
     expect(selectorFor(at(body, 0, 0))).toBe("div > p");
   });
 
@@ -48,7 +80,23 @@ describe("selectorFor", () => {
         {
           tag: "ul",
           id: "list",
-          children: [{ tag: "li", classes: ["armada-row"] }, { tag: "li", classes: ["armada-row"] }, { tag: "p" }],
+          children: [
+            {
+              tag: "li",
+              classes: [
+                "armada-row",
+              ],
+            },
+            {
+              tag: "li",
+              classes: [
+                "armada-row",
+              ],
+            },
+            {
+              tag: "p",
+            },
+          ],
         },
       ],
     });
@@ -64,8 +112,18 @@ describe("selectorFor", () => {
           tag: "nav",
           id: "rail",
           children: [
-            { tag: "button", attrs: { "aria-label": 'Job "Board"' } },
-            { tag: "button", attrs: { "aria-label": "Alerts" } },
+            {
+              tag: "button",
+              attrs: {
+                "aria-label": 'Job "Board"',
+              },
+            },
+            {
+              tag: "button",
+              attrs: {
+                "aria-label": "Alerts",
+              },
+            },
           ],
         },
       ],
@@ -74,9 +132,25 @@ describe("selectorFor", () => {
   });
 
   it("shortens a deep chain to its two outer steps and the steps nearest the element", () => {
-    let spec: Spec = { tag: "b" };
-    for (let i = 0; i < 12; i++) spec = { tag: "div", classes: [`armada-d${i}`], children: [spec] };
-    const body = build({ tag: "body", children: [spec] });
+    let spec: Spec = {
+      tag: "b",
+    };
+    for (let i = 0; i < 12; i++)
+      spec = {
+        tag: "div",
+        classes: [
+          `armada-d${i}`,
+        ],
+        children: [
+          spec,
+        ],
+      };
+    const body = build({
+      tag: "body",
+      children: [
+        spec,
+      ],
+    });
     let leaf = at(body, 0);
     while (leaf.children.length > 0) leaf = at(leaf, 0);
     const short = selectorFor(leaf);

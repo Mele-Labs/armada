@@ -52,7 +52,15 @@ export type TabsProps = {
   compact?: boolean;
 };
 
-export function Tabs({ items, value, defaultValue, onChange, iconsOnly = false, icons = false, compact = false }: TabsProps) {
+export function Tabs({
+  items,
+  value,
+  defaultValue,
+  onChange,
+  iconsOnly = false,
+  icons = false,
+  compact = false,
+}: TabsProps) {
   const [internal, setInternal] = useState(defaultValue ?? items[0]?.id);
   const active = value ?? internal;
   const { strip, fill } = useSelectedFill(active, items.map((item) => item.id).join("\u0000"));
@@ -84,7 +92,12 @@ export function Tabs({ items, value, defaultValue, onChange, iconsOnly = false, 
   }
 
   return (
-    <div ref={strip} className={compact ? "armada-tabs armada-tabs--compact" : "armada-tabs"} role="tablist" onKeyDown={onKey}>
+    <div
+      ref={strip}
+      className={compact ? "armada-tabs armada-tabs--compact" : "armada-tabs"}
+      role="tablist"
+      onKeyDown={onKey}
+    >
       {items.map((item) => {
         const Icon = iconsOnly ? item.icon : undefined;
         const hint = Icon === undefined ? item.hint : (item.hint ?? item.label);
@@ -99,7 +112,12 @@ export function Tabs({ items, value, defaultValue, onChange, iconsOnly = false, 
               item.id === active ? "armada-tabs__tab armada-tabs__tab--active" : "armada-tabs__tab"
             }
             onClick={() => select(item.id)}
-            {...(Icon === undefined ? {} : { "aria-label": item.label, "data-icon-only": "" })}
+            {...(Icon === undefined
+              ? {}
+              : {
+                  "aria-label": item.label,
+                  "data-icon-only": "",
+                })}
           >
             {Icon !== undefined ? (
               <Icon size={16} strokeWidth={2} aria-hidden />
@@ -167,7 +185,9 @@ export function TabPanel({ tab, className, children, ...rest }: TabPanelProps) {
     // Forces the style flush that makes the re-added attribute a new animation.
     void el.offsetWidth;
     el.setAttribute("data-switched", "");
-  }, [tab]);
+  }, [
+    tab,
+  ]);
 
   return (
     <div

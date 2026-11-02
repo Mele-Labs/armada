@@ -9,13 +9,34 @@ import { startLoopClock } from "../../../loop-clock";
 import "../../../styles/index.css";
 import { ConsoleStage } from "./console-stage";
 
-const PLAN = { widths: [1, 1, 1.9, 1, 1], depths: [1, 1, 1.9, 1, 1], keyed: 2 };
+const PLAN = {
+  widths: [
+    1,
+    1,
+    1.9,
+    1,
+    1,
+  ],
+  depths: [
+    1,
+    1,
+    1.9,
+    1,
+    1,
+  ],
+  keyed: 2,
+};
 const wait = (ms: number) => new Promise((done) => window.setTimeout(done, ms));
 
 let host: HTMLElement;
 let stage: ConsoleStage;
 let stopClock: () => void = () => undefined;
-const app = () => (stage as unknown as { app: Application | undefined }).app;
+const app = () =>
+  (
+    stage as unknown as {
+      app: Application | undefined;
+    }
+  ).app;
 /** The frames drawn to the screen since this was called: a frame also renders each facet to its own texture first. */
 const counting = () => {
   const render = vi.spyOn(app()!.renderer, "render");
@@ -26,7 +47,11 @@ const counting = () => {
 async function start(): Promise<void> {
   stage = ConsoleStage.start(host, PLAN, () => undefined);
   stage.resize(1000);
-  await expect.poll(() => app() !== undefined && host.querySelector("canvas") !== null, { timeout: 60_000 }).toBe(true);
+  await expect
+    .poll(() => app() !== undefined && host.querySelector("canvas") !== null, {
+      timeout: 60_000,
+    })
+    .toBe(true);
   stopClock = startLoopClock();
   await wait(300);
 }
@@ -68,7 +93,19 @@ test("reduced motion, turned on while it runs, stops the lamps and leaves the sc
   await start();
 
   await commands.motion(false);
-  await expect.poll(() => (stage as unknown as { still: boolean }).still, { timeout: 5_000 }).toBe(true);
+  await expect
+    .poll(
+      () =>
+        (
+          stage as unknown as {
+            still: boolean;
+          }
+        ).still,
+      {
+        timeout: 5_000,
+      },
+    )
+    .toBe(true);
   const drawn = counting();
   await wait(2100);
   expect(drawn()).toBeGreaterThanOrEqual(1);

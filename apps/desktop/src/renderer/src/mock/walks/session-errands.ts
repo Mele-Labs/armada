@@ -9,19 +9,54 @@ import { toSessions } from "../sessions/walk-kit";
 
 const needs = region("Needs you");
 const slash = inside(needs, role("group", "/land 2109 2118 2119"));
-const shell = inside(needs, role("group", "kill $(lsof -ti tcp:5788) && scripts/preview --restart --adopt"));
+const shell = inside(
+  needs,
+  role("group", "kill $(lsof -ti tcp:5788) && scripts/preview --restart --adopt"),
+);
 
 const sessionErrands = walk("session-errands", [
   toSessions,
-  { press: inside(region("Jobs", { exact: true }), button(/Land the speed fixes/)), say: "A Job with five lines waiting on him" },
-  { press: inside(needs, button(/^Needs you/)), say: "Needs you, raised from the composer" },
-  { look: inside(slash, button("Run")), say: "Under Commands, a slash command is for the Job itself: Run sends it as the reply" },
-  { look: shell, say: "A shell command is for him: the command itself, in the case it was written" },
-  { look: inside(shell, button("Run")), say: "Run runs it where the Job works, in one press" },
-  { look: inside(needs, button("Open Approve #2118")), say: "A pull request to approve: the line opens it" },
-  { look: inside(needs, role("img", "Opens the pull request")), say: "Marked as one that opens" },
-  { look: inside(needs, button(/^Open Which branch should the migration rebase onto/)), say: "A plain line opens the Job's own box" },
-  { look: inside(needs, role("img", "Reply")), say: "Marked as a reply, with no standing answers" },
+  {
+    press: inside(
+      region("Jobs", {
+        exact: true,
+      }),
+      button(/Land the speed fixes/),
+    ),
+    say: "A Job with five lines waiting on him",
+  },
+  {
+    press: inside(needs, button(/^Needs you/)),
+    say: "Needs you, raised from the composer",
+  },
+  {
+    look: inside(slash, button("Run")),
+    say: "Under Commands, a slash command is for the Job itself: Run sends it as the reply",
+  },
+  {
+    look: shell,
+    say: "A shell command is for him: the command itself, in the case it was written",
+  },
+  {
+    look: inside(shell, button("Run")),
+    say: "Run runs it where the Job works, in one press",
+  },
+  {
+    look: inside(needs, button("Open Approve #2118")),
+    say: "A pull request to approve: the line opens it",
+  },
+  {
+    look: inside(needs, role("img", "Opens the pull request")),
+    say: "Marked as one that opens",
+  },
+  {
+    look: inside(needs, button(/^Open Which branch should the migration rebase onto/)),
+    say: "A plain line opens the Job's own box",
+  },
+  {
+    look: inside(needs, role("img", "Reply")),
+    say: "Marked as a reply, with no standing answers",
+  },
 ]);
 
 export { sessionErrands as "session-errands" };

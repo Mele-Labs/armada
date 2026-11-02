@@ -4,10 +4,25 @@ export { ModList } from "./ModList";
 export type { ModOpened } from "./ModList";
 export { SettingsSectionsView } from "./SectionsView";
 export type { SettingsSectionsViewProps } from "./SectionsView";
-export { BUILT_IN_THEMES, ThemeSourceProvider, createThemeSource, offered, useThemes, withoutMods } from "./theme-source";
+export {
+  BUILT_IN_THEMES,
+  ThemeSourceProvider,
+  createThemeSource,
+  offered,
+  useThemes,
+  withoutMods,
+} from "./theme-source";
 export type { CatalogueTheme, ModsSource, ThemeMod, ThemeSource, ThemeState } from "./theme-source";
 export { TaughtSourceProvider, taughtOf, trackerOf, useTaught } from "./taught-source";
-export type { TaughtDetail, TaughtFact, TaughtKind, TaughtMod, TaughtPart, TaughtSource, TaughtState } from "./taught-source";
+export type {
+  TaughtDetail,
+  TaughtFact,
+  TaughtKind,
+  TaughtMod,
+  TaughtPart,
+  TaughtSource,
+  TaughtState,
+} from "./taught-source";
 export { PhoneSourceProvider } from "./phone-source";
 export type { PhoneGateway, PhoneSetup, PhoneSource, PhoneState } from "./phone-source";
 export { reachable } from "./phone-source";
@@ -15,7 +30,14 @@ export { createPhoneGatewaySource } from "./phone-gateway-source";
 export type { PhoneAsk } from "./phone-gateway-source";
 export { KeyboardSettings } from "./KeyboardSettings";
 export type { PaletteSettingsProps } from "./PaletteSettings";
-export { openSettingsAt, SETTINGS_PALETTE, SETTINGS_SECTIONS, settingsIn, useSettingsSection, wordsOf as settingWords } from "./sections";
+export {
+  openSettingsAt,
+  SETTINGS_PALETTE,
+  SETTINGS_SECTIONS,
+  settingsIn,
+  useSettingsSection,
+  wordsOf as settingWords,
+} from "./sections";
 export { SettingsFile, useSettingsFile } from "./SchemaSettings";
 export type { SettingsSectionId } from "./sections";
 export type { SettingsFileOpened } from "./api";

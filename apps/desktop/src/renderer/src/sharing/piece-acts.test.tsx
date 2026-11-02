@@ -9,27 +9,74 @@ import type { Outcome } from "@armada/protocol";
 
 import { PieceActs } from "./PieceActs";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 const ROOT = "/Users/user/widgets";
-const refused = (code: string, message: string): Outcome => ({ ok: false, why: "refused", error: { code, message, run_id: "", fields: {}, chain: [] } });
+const refused = (code: string, message: string): Outcome => ({
+  ok: false,
+  why: "refused",
+  error: {
+    code,
+    message,
+    run_id: "",
+    fields: {},
+    chain: [],
+  },
+});
 
-const JOB = { repository: ROOT, session_id: "c1", branch: "armada/commit-run-tests", paths: [".armada/flight-controls.toml"] };
+const JOB = {
+  repository: ROOT,
+  session_id: "c1",
+  branch: "armada/commit-run-tests",
+  paths: [
+    ".armada/flight-controls.toml",
+  ],
+};
 
 function fleet(commit: Outcome | undefined = undefined, answered: Record<string, unknown> = JOB) {
   const armada = {
     commitToRepository: vi.fn(async (body: { overwrite?: boolean }) =>
-      commit !== undefined && body.overwrite !== true ? { ok: false, outcome: commit } : { ok: true, value: answered },
+      commit !== undefined && body.overwrite !== true
+        ? {
+            ok: false,
+            outcome: commit,
+          }
+        : {
+            ok: true,
+            value: answered,
+          },
     ),
-    openLink: vi.fn(async () => ({ ok: true })),
-    sharePackage: vi.fn(async () => ({ ok: true, value: { file_name: "run-tests.armada.toml", text: "version = 1\n" } })),
-    savePackageFile: vi.fn(async (name: string) => ({ saved: true, name })),
+    openLink: vi.fn(async () => ({
+      ok: true,
+    })),
+    sharePackage: vi.fn(async () => ({
+      ok: true,
+      value: {
+        file_name: "run-tests.armada.toml",
+        text: "version = 1\n",
+      },
+    })),
+    savePackageFile: vi.fn(async (name: string) => ({
+      saved: true,
+      name,
+    })),
   };
-  (window as unknown as { armada: unknown }).armada = armada;
+  (
+    window as unknown as {
+      armada: unknown;
+    }
+  ).armada = armada;
   return armada;
 }
 
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 afterEach(() => {
   for (const { root, host } of roots.splice(0)) {
     act(() => root.unmount());
@@ -43,13 +90,34 @@ async function mount() {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  act(() => root.render(<PieceActs repository={ROOT} piece={{ kind: "flight_controls", job: ["run-tests"] }} />));
-  roots.push({ root, host });
+  act(() =>
+    root.render(
+      <PieceActs
+        repository={ROOT}
+        piece={{
+          kind: "flight_controls",
+          job: [
+            "run-tests",
+          ],
+        }}
+      />,
+    ),
+  );
+  roots.push({
+    root,
+    host,
+  });
   return host;
 }
 
 const press = async (host: HTMLElement, name: string) => {
-  await act(async () => [...host.querySelectorAll("button")].find((one) => one.textContent?.trim() === name)!.click());
+  await act(async () =>
+    [
+      ...host.querySelectorAll("button"),
+    ]
+      .find((one) => one.textContent?.trim() === name)!
+      .click(),
+  );
   await flush();
 };
 const said = (host: HTMLElement) => host.querySelector('[role="status"]')?.textContent;
@@ -60,7 +128,15 @@ test("Commit names no Job, and offers the Job it started", async () => {
   window.addEventListener("armada:open-session-in-cockpit", opened);
   const host = await mount();
   await press(host, "Commit to repository");
-  expect(armada.commitToRepository).toHaveBeenCalledWith({ repository: ROOT, piece: { kind: "flight_controls", job: ["run-tests"] } });
+  expect(armada.commitToRepository).toHaveBeenCalledWith({
+    repository: ROOT,
+    piece: {
+      kind: "flight_controls",
+      job: [
+        "run-tests",
+      ],
+    },
+  });
   expect(said(host)).toContain("Job started");
   await press(host, "Open the Job");
   window.removeEventListener("armada:open-session-in-cockpit", opened);
@@ -70,15 +146,26 @@ test("Commit names no Job, and offers the Job it started", async () => {
 test("Commit holds the buttons until Fleet's reply, then frees them and shows Job started with Open the Job at once", async () => {
   const armada = fleet();
   let reply: (answer: { ok: true; value: typeof JOB }) => void = () => undefined;
-  armada.commitToRepository.mockImplementationOnce(() => new Promise((done) => (reply = done as typeof reply)));
+  armada.commitToRepository.mockImplementationOnce(
+    () => new Promise((done) => (reply = done as typeof reply)),
+  );
   const host = await mount();
-  const buttons = () => [...host.querySelectorAll("button")];
+  const buttons = () => [
+    ...host.querySelectorAll("button"),
+  ];
   await press(host, "Commit to repository");
   expect(buttons().every((one) => one.disabled)).toBe(true);
   expect(said(host)).toBeUndefined();
-  await act(async () => reply({ ok: true, value: JOB }));
+  await act(async () =>
+    reply({
+      ok: true,
+      value: JOB,
+    }),
+  );
   await flush();
-  expect(buttons().find((one) => one.textContent?.trim() === "Commit to repository")!.disabled).toBe(false);
+  expect(
+    buttons().find((one) => one.textContent?.trim() === "Commit to repository")!.disabled,
+  ).toBe(false);
   expect(said(host)).toContain("Job started");
   expect(buttons().some((one) => one.textContent?.trim() === "Open the Job")).toBe(true);
 });
@@ -89,17 +176,38 @@ test("an id main holds offers Replace, which commits over it", async () => {
   await press(host, "Commit to repository");
   expect(said(host)).toContain("Main already holds run-tests");
   await press(host, "Replace");
-  expect(armada.commitToRepository).toHaveBeenLastCalledWith(expect.objectContaining({ overwrite: true }));
+  expect(armada.commitToRepository).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      overwrite: true,
+    }),
+  );
   expect(said(host)).toContain("Job started");
 });
 
 test("Share saves the package Fleet made, and Copy puts the same text on the clipboard", async () => {
   const armada = fleet();
   const written = vi.fn(async (_text: string) => undefined);
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: written } });
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: {
+      writeText: written,
+    },
+  });
   const host = await mount();
   await press(host, "Share");
-  expect(armada.sharePackage).toHaveBeenCalledWith({ pieces: [{ repository: ROOT, piece: { kind: "flight_controls", job: ["run-tests"] } }] });
+  expect(armada.sharePackage).toHaveBeenCalledWith({
+    pieces: [
+      {
+        repository: ROOT,
+        piece: {
+          kind: "flight_controls",
+          job: [
+            "run-tests",
+          ],
+        },
+      },
+    ],
+  });
   expect(armada.savePackageFile).toHaveBeenCalledWith("run-tests.armada.toml", "version = 1\n");
   expect(said(host)).toBe("Saved run-tests.armada.toml");
   await press(host, "Copy");
@@ -109,7 +217,20 @@ test("Share saves the package Fleet made, and Copy puts the same text on the cli
 
 test("a route this Fleet does not serve is raised as the window's toast, and says nothing beside the buttons", async () => {
   const armada = fleet();
-  armada.sharePackage.mockResolvedValueOnce({ ok: false, outcome: { ok: false, why: "transport", detail: "404", fault: { method: "POST", path: "/share/package", why: "unanswerable", status: 404 } } } as never);
+  armada.sharePackage.mockResolvedValueOnce({
+    ok: false,
+    outcome: {
+      ok: false,
+      why: "transport",
+      detail: "404",
+      fault: {
+        method: "POST",
+        path: "/share/package",
+        why: "unanswerable",
+        status: 404,
+      },
+    },
+  } as never);
   const raised = vi.fn();
   window.addEventListener("armada:raise-outcome", raised);
   const host = await mount();

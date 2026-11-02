@@ -9,26 +9,45 @@ import { DeepLinks } from "./deep-link";
 function links() {
   const said: string[] = [];
   const delivered: PullLink[] = [];
-  const deep = new DeepLinks({ claim: () => said.push("claim"), release: () => said.push("release"), deliver: (link) => delivered.push(link) });
-  return { deep, said, delivered };
+  const deep = new DeepLinks({
+    claim: () => said.push("claim"),
+    release: () => said.push("release"),
+    deliver: (link) => delivered.push(link),
+  });
+  return {
+    deep,
+    said,
+    delivered,
+  };
 }
 
 const LINK = "armada://pull/Mele-Labs/armada/2899";
-const PULL = { owner: "Mele-Labs", name: "armada", number: 2899 };
+const PULL = {
+  owner: "Mele-Labs",
+  name: "armada",
+  number: 2899,
+};
 
 test("while the setting is on, Armada claims the scheme and a link is handed to the window", () => {
   const { deep, said, delivered } = links();
   deep.follow(true);
-  expect(said).toEqual(["claim"]);
+  expect(said).toEqual([
+    "claim",
+  ]);
   expect(deep.arrive(LINK)).toBe(true);
-  expect(delivered).toEqual([PULL]);
+  expect(delivered).toEqual([
+    PULL,
+  ]);
 });
 
 test("while the setting is off, Armada lets go of the scheme and ignores a link", () => {
   const { deep, said, delivered } = links();
   deep.follow(true);
   deep.follow(false);
-  expect(said).toEqual(["claim", "release"]);
+  expect(said).toEqual([
+    "claim",
+    "release",
+  ]);
   expect(deep.arrive(LINK)).toBe(false);
   expect(delivered).toEqual([]);
 });
@@ -39,7 +58,10 @@ test("turning it back on claims the scheme again, and a repeated reading of the 
   deep.follow(false);
   deep.follow(true);
   deep.follow(true);
-  expect(said).toEqual(["release", "claim"]);
+  expect(said).toEqual([
+    "release",
+    "claim",
+  ]);
 });
 
 test("a link that arrives before the settings are read waits, and is followed or dropped by what they say", () => {
@@ -47,7 +69,9 @@ test("a link that arrives before the settings are read waits, and is followed or
   expect(followed.deep.arrive(LINK)).toBe(true);
   expect(followed.delivered).toEqual([]);
   followed.deep.follow(true);
-  expect(followed.delivered).toEqual([PULL]);
+  expect(followed.delivered).toEqual([
+    PULL,
+  ]);
 
   const dropped = links();
   dropped.deep.arrive(LINK);
@@ -58,7 +82,11 @@ test("a link that arrives before the settings are read waits, and is followed or
 test("an address that is not Armada's link to a pull request is ignored, whatever the setting", () => {
   const { deep, delivered } = links();
   deep.follow(true);
-  for (const address of ["armada://issue/Mele-Labs/armada/1", "armada://pull/Mele-Labs/armada", "https://forge.example/Mele-Labs/armada/pull/1"]) {
+  for (const address of [
+    "armada://issue/Mele-Labs/armada/1",
+    "armada://pull/Mele-Labs/armada",
+    "https://forge.example/Mele-Labs/armada/pull/1",
+  ]) {
     expect(deep.arrive(address), address).toBe(false);
   }
   expect(delivered).toEqual([]);

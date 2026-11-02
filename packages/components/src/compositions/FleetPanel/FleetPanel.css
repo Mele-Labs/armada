@@ -47,7 +47,9 @@
 }
 
 @keyframes armada-fleet-starting {
-  50% { opacity: 0.35; }
+  50% {
+    opacity: 0.35;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -114,14 +116,30 @@
   cursor: pointer;
 }
 
-.armada-fleet-panel__doctor[data-link]:hover { color: var(--fg-default); }
-.armada-fleet-panel__doctor[data-link]:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-.armada-fleet-panel__doctor[data-link] { flex-wrap: wrap; }
-.armada-fleet-panel__doctor-go { flex: none; margin-left: auto; color: var(--fg-subtle); }
-.armada-fleet-panel__doctor-outcome ~ .armada-fleet-panel__doctor-go { margin-left: 0; }
+.armada-fleet-panel__doctor[data-link]:hover {
+  color: var(--fg-default);
+}
+.armada-fleet-panel__doctor[data-link]:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.armada-fleet-panel__doctor[data-link] {
+  flex-wrap: wrap;
+}
+.armada-fleet-panel__doctor-go {
+  flex: none;
+  margin-left: auto;
+  color: var(--fg-subtle);
+}
+.armada-fleet-panel__doctor-outcome ~ .armada-fleet-panel__doctor-go {
+  margin-left: 0;
+}
 
 /* What it read, under the row rather than squeezed beside the word: the column is narrow. */
-.armada-fleet-panel__doctor[data-link] .armada-fleet-panel__meta { order: 1; flex-basis: 100%; }
+.armada-fleet-panel__doctor[data-link] .armada-fleet-panel__meta {
+  order: 1;
+  flex-basis: 100%;
+}
 
 .armada-fleet-panel__doctor-outcome {
   margin-left: auto;

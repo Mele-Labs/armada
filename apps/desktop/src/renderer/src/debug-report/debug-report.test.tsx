@@ -13,7 +13,12 @@ const writeText = vi.fn(async (_text: string) => {});
 
 beforeEach(() => {
   writeText.mockClear();
-  Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+  Object.defineProperty(navigator, "clipboard", {
+    value: {
+      writeText,
+    },
+    configurable: true,
+  });
 });
 afterEach(unmount);
 
@@ -36,50 +41,114 @@ const sheet = (read: DebugRead | undefined) => (
   </DebugReportFrom>
 );
 
-const TEXT = "Armada debug report\n\nInstall\n  armada   0.14.2\n\nbridge protocol 5.2  fleet protocol 5.2  taken 2026-11-02T09:31:12Z";
+const TEXT =
+  "Armada debug report\n\nInstall\n  armada   0.14.2\n\nbridge protocol 5.2  fleet protocol 5.2  taken 2026-11-02T09:31:12Z";
 
-const shown = () => page.getByRole("dialog", { name: "Debug report" }).element().querySelector("pre")?.textContent;
+const shown = () =>
+  page
+    .getByRole("dialog", {
+      name: "Debug report",
+    })
+    .element()
+    .querySelector("pre")?.textContent;
 
 test("the reader's text is what shows, and exactly what Copy writes", async () => {
   mount(sheet(async () => TEXT));
-  await userEvent.click(page.getByRole("button", { name: "Open report" }));
+  await userEvent.click(
+    page.getByRole("button", {
+      name: "Open report",
+    }),
+  );
   await expect.poll(shown).toBe(TEXT);
-  await userEvent.click(page.getByRole("dialog", { name: "Debug report" }).getByRole("button", { name: "Copy", exact: true }));
+  await userEvent.click(
+    page
+      .getByRole("dialog", {
+        name: "Debug report",
+      })
+      .getByRole("button", {
+        name: "Copy",
+        exact: true,
+      }),
+  );
   await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(TEXT));
   expect(writeText).toHaveBeenCalledTimes(1);
 });
 
 test("a read that has not answered shows the placeholder and offers no Copy", async () => {
   mount(sheet(() => new Promise<string>(() => undefined)));
-  await userEvent.click(page.getByRole("button", { name: "Open report" }));
-  const dialog = page.getByRole("dialog", { name: "Debug report" });
+  await userEvent.click(
+    page.getByRole("button", {
+      name: "Open report",
+    }),
+  );
+  const dialog = page.getByRole("dialog", {
+    name: "Debug report",
+  });
   await expect.element(dialog.getByLabelText("Reading the report")).toBeVisible();
-  await expect.element(dialog.getByRole("button", { name: "Copy", exact: true })).not.toBeInTheDocument();
+  await expect
+    .element(
+      dialog.getByRole("button", {
+        name: "Copy",
+        exact: true,
+      }),
+    )
+    .not.toBeInTheDocument();
 });
 
 test("Esc closes the sheet and focus is back on the control that opened it", async () => {
   mount(sheet(async () => TEXT));
-  const opener = page.getByRole("button", { name: "Open report" });
+  const opener = page.getByRole("button", {
+    name: "Open report",
+  });
   await userEvent.click(opener);
-  await expect.element(page.getByRole("dialog", { name: "Debug report" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("dialog", {
+        name: "Debug report",
+      }),
+    )
+    .toBeVisible();
   await userEvent.keyboard("{Escape}");
-  await expect.element(page.getByRole("dialog", { name: "Debug report" })).not.toBeInTheDocument();
+  await expect
+    .element(
+      page.getByRole("dialog", {
+        name: "Debug report",
+      }),
+    )
+    .not.toBeInTheDocument();
   await expect.element(opener).toHaveFocus();
 });
 
 test("a reader that rejects shows one line saying why, and no Copy", async () => {
   mount(sheet(async () => Promise.reject(new Error("no armada binary was found"))));
-  await userEvent.click(page.getByRole("button", { name: "Open report" }));
-  const dialog = page.getByRole("dialog", { name: "Debug report" });
-  await expect.element(dialog.getByRole("alert")).toHaveTextContent("The report could not be read: no armada binary was found");
-  await expect.element(dialog.getByRole("button", { name: "Copy", exact: true })).not.toBeInTheDocument();
+  await userEvent.click(
+    page.getByRole("button", {
+      name: "Open report",
+    }),
+  );
+  const dialog = page.getByRole("dialog", {
+    name: "Debug report",
+  });
+  await expect
+    .element(dialog.getByRole("alert"))
+    .toHaveTextContent("The report could not be read: no armada binary was found");
+  await expect
+    .element(
+      dialog.getByRole("button", {
+        name: "Copy",
+        exact: true,
+      }),
+    )
+    .not.toBeInTheDocument();
   expect(shown()).toBeUndefined();
 });
 
 test("each opening reads again", async () => {
   const read = vi.fn<DebugRead>().mockResolvedValueOnce("first").mockResolvedValueOnce("second");
   mount(sheet(read));
-  const opener = page.getByRole("button", { name: "Open report" });
+  const opener = page.getByRole("button", {
+    name: "Open report",
+  });
   await userEvent.click(opener);
   await expect.poll(shown).toBe("first");
   await userEvent.keyboard("{Escape}");

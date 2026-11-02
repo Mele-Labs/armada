@@ -6,26 +6,57 @@ import type { PieceScope } from "./lifecycles";
 /** Which of the person's own pieces is copied, by the id its concept already uses. */
 export type PieceToCommit =
   /** Tiles of the person's own for this repository, by `id` in each list, into `.armada/flight-controls.toml`. */
-  | { kind: "flight_controls"; job?: string[]; deck?: string[] }
+  | {
+      kind: "flight_controls";
+      job?: string[];
+      deck?: string[];
+    }
   /** A workflow from Kit's `~/.armada/workflows/`, into `.armada/workflows/`. */
-  | { kind: "workflow"; workflow_id: string }
+  | {
+      kind: "workflow";
+      workflow_id: string;
+    }
   /** A review tool from Kit's `~/.armada/review-tools/`, by its dashed id, into `.armada/review-tools/`. */
-  | { kind: "review_tool"; id: string }
+  | {
+      kind: "review_tool";
+      id: string;
+    }
   /** The person's own `armada.yml` for the repository, from where their Kit keeps it, to the workspace root. */
-  | { kind: "manifest" }
+  | {
+      kind: "manifest";
+    }
   /**
    * Requests' collections of the person's own for this repository by `id`, and environments by `name`, into
    * `.armada/requests.toml`. A secret goes as its name and `secret = true`, never its value.
    */
-  | { kind: "requests"; collections?: string[]; environments?: string[] }
+  | {
+      kind: "requests";
+      collections?: string[];
+      environments?: string[];
+    }
   /** A lifecycle from Kit's `~/.armada/lifecycles/`, found by the id and scope its file declares, into `.armada/lifecycles/`. `scope` is everywhere where absent. */
-  | { kind: "lifecycle"; id: string; scope?: PieceScope }
+  | {
+      kind: "lifecycle";
+      id: string;
+      scope?: PieceScope;
+    }
   /** A lifecycle rule from Kit's `~/.armada/rules/`, into `.armada/rules/`. */
-  | { kind: "lifecycle_rule"; id: string; scope?: PieceScope }
+  | {
+      kind: "lifecycle_rule";
+      id: string;
+      scope?: PieceScope;
+    }
   /** A Workspace from Kit's `~/.armada/workspaces/`, into `.armada/workspaces/`. Its id is its identity, so it has no scope. */
-  | { kind: "workspace"; id: string }
+  | {
+      kind: "workspace";
+      id: string;
+    }
   /** A layer of autonomy defaults from Kit's `~/.armada/autonomy/`, into `.armada/autonomy/`. */
-  | { kind: "autonomy"; id: string; scope?: PieceScope };
+  | {
+      kind: "autonomy";
+      id: string;
+      scope?: PieceScope;
+    };
 
 /**
  * `commit_to_repository`'s body (`POST /repositories/commit`): start a Job of its own that copies one piece onto its

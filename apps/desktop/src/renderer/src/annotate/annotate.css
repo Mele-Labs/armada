@@ -118,7 +118,11 @@
  * placed around the pin rather than over it. */
 .armada-annotate__pin {
   position: fixed;
-  left: clamp(var(--annotate-pin-inset), calc(var(--annotate-x) + var(--annotate-w)), calc(100vw - var(--annotate-pin-inset)));
+  left: clamp(
+    var(--annotate-pin-inset),
+    calc(var(--annotate-x) + var(--annotate-w)),
+    calc(100vw - var(--annotate-pin-inset))
+  );
   top: clamp(var(--annotate-pin-inset), var(--annotate-y), calc(100vh - var(--annotate-pin-inset)));
   transform: translate(-50%, -50%);
   min-width: var(--annotate-pin-size);
@@ -819,7 +823,9 @@
 }
 
 .armada-annotate .armada-annotate__toolbar .armada-button[aria-pressed="true"]:not(:disabled),
-.armada-annotate .armada-annotate__picker-steps > .armada-button[aria-pressed="true"]:not(:disabled) {
+.armada-annotate
+  .armada-annotate__picker-steps
+  > .armada-button[aria-pressed="true"]:not(:disabled) {
   border-color: var(--hue);
   background: var(--hue);
   color: var(--text-on-accent);

@@ -8,7 +8,12 @@
 import type { Studio, StudioNode, StudioPosition } from "@armada/protocol";
 
 /** The kinds a rung writes up. `docs/concepts/studio.md`, Promotion. */
-const WRITABLE_UP = ["note", "cluster", "contradiction", "outline"] as const;
+const WRITABLE_UP = [
+  "note",
+  "cluster",
+  "contradiction",
+  "outline",
+] as const;
 
 /**
  * The kinds that keep an address — #1394. **Read off the kind, never off the
@@ -16,7 +21,12 @@ const WRITABLE_UP = ["note", "cluster", "contradiction", "outline"] as const;
  * refuses its name here, so a rule about forge links written in this file could
  * not be written at all.
  */
-const KEEPS_AN_ADDRESS = ["link", "issue", "pull_request", "epic"] as const;
+const KEEPS_AN_ADDRESS = [
+  "link",
+  "issue",
+  "pull_request",
+  "epic",
+] as const;
 
 const isOneOf = (kinds: readonly string[], node: StudioNode) => kinds.includes(node.kind);
 
@@ -99,7 +109,11 @@ const ACROSS = 320;
  */
 export function placedBeside(studio: Studio, selected: readonly string[]): StudioPosition {
   const nodes = selectedNodes(studio, selected);
-  if (nodes.length === 0) return { x: 0, y: 0 };
+  if (nodes.length === 0)
+    return {
+      x: 0,
+      y: 0,
+    };
   return {
     x: Math.max(...nodes.map((node) => node.position.x)) + ACROSS,
     y: Math.min(...nodes.map((node) => node.position.y)),
@@ -139,13 +153,23 @@ export function saidBy(node: StudioNode): string {
  * not a summary** — nothing here shortens what was captured, because what is filed has to be
  * what the person read.
  */
-export function aWriteUp(studio: Studio, node: StudioNode): { title: string; body: string } {
+export function aWriteUp(
+  studio: Studio,
+  node: StudioNode,
+): {
+  title: string;
+  body: string;
+} {
   const said = saidBy(node);
   const from = studio.edges
     .filter((edge) => edge.kind === "produced" && edge.to === node.id)
     .flatMap((edge) => studio.nodes.filter((one) => one.id === edge.from))
     .map(saidBy)
     .filter((words) => words !== "");
-  const body = from.length === 0 ? said : `${said}\n\n${from.map((words) => `- ${words}`).join("\n")}\n`;
-  return { title: firstLine(said), body };
+  const body =
+    from.length === 0 ? said : `${said}\n\n${from.map((words) => `- ${words}`).join("\n")}\n`;
+  return {
+    title: firstLine(said),
+    body,
+  };
 }

@@ -20,8 +20,11 @@ export const dispatch: Slice<DispatchApi, Record<string, never>> = {
   name: "dispatch",
   state: {},
   api: (_scenario, { state }) => ({
-    stageAttachment: async (_bytes, filename) => ({ path: filename }),
-    searchFiles: async (query) => FILES.filter((path) => path.toLowerCase().includes(query.toLowerCase())),
+    stageAttachment: async (_bytes, filename) => ({
+      path: filename,
+    }),
+    searchFiles: async (query) =>
+      FILES.filter((path) => path.toLowerCase().includes(query.toLowerCase())),
     readRequestRepository: async (words) => {
       await new Promise((resume) => setTimeout(resume, READ_MS));
       return requestRepositoryRead(words, state().holds.repositories ?? []);

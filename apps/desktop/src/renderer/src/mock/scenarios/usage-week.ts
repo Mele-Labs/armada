@@ -10,30 +10,68 @@ import { hosted } from "../sessions-fleet";
 import { usageRulesNow } from "../usage-rules";
 import { JOBS, usageSummaryNow } from "../usage-summary";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 
 const plan = (): PlanUsage => {
   const later = (hours: number) => new Date(Date.now() + hours * 3_600_000).toISOString();
   return {
     windows: [
-      { kind: "five_hour", percent_used: 4, resets_at: later(4) },
-      { kind: "seven_day", percent_used: 66, resets_at: later(5 * 24) },
+      {
+        kind: "five_hour",
+        percent_used: 4,
+        resets_at: later(4),
+      },
+      {
+        kind: "seven_day",
+        percent_used: 66,
+        resets_at: later(5 * 24),
+      },
     ],
     read_at: new Date().toISOString(),
   };
 };
 
 function build(): Scenario {
-  const board = onBoard({ repositories: [ARMADA], picked: ARMADA.root });
+  const board = onBoard({
+    repositories: [
+      ARMADA,
+    ],
+    picked: ARMADA.root,
+  });
   return {
     ...board,
     name: "usage/week",
     says: "The Usage page over a week of burn, with six titled Jobs and the plan's weekly window at 66%",
-    state: { ...board.state, sessions: { state: "read", sessions: JOBS.map((job) => hosted(job.id, { title: job.title })) } },
+    state: {
+      ...board.state,
+      sessions: {
+        state: "read",
+        sessions: JOBS.map((job) =>
+          hosted(job.id, {
+            title: job.title,
+          }),
+        ),
+      },
+    },
     behaves: () => ({
-      getUsageSummary: async (tzOffsetMinutes) => ({ ok: true, value: usageSummaryNow(tzOffsetMinutes) }),
-      getUsageRules: async () => ({ ok: true, value: usageRulesNow() }),
-      getPlanUsage: async () => ({ ok: true, value: plan() }),
+      getUsageSummary: async (tzOffsetMinutes) => ({
+        ok: true,
+        value: usageSummaryNow(tzOffsetMinutes),
+      }),
+      getUsageRules: async () => ({
+        ok: true,
+        value: usageRulesNow(),
+      }),
+      getPlanUsage: async () => ({
+        ok: true,
+        value: plan(),
+      }),
       onPlanUsageChanged: () => () => {},
     }),
   };

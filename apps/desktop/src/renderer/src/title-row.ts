@@ -6,7 +6,13 @@ import type { PlanUsage } from "@armada/components";
 import { useDownshiftOffer } from "./downshift";
 import { usePlanUsage } from "./plan-usage";
 
-export function useTitleRow(openModelSetting: () => void): { planUsage?: PlanUsage[] } {
+export function useTitleRow(openModelSetting: () => void): {
+  planUsage?: PlanUsage[];
+} {
   const planUsage = useDownshiftOffer(usePlanUsage(), openModelSetting);
-  return planUsage === undefined ? {} : { planUsage };
+  return planUsage === undefined
+    ? {}
+    : {
+        planUsage,
+      };
 }

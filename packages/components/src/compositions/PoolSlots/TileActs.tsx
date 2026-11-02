@@ -105,7 +105,15 @@ export function TileActs({ row, waiting, onAct, onRescue, onRelease }: TileActsP
       />
     ) : null,
     onRescue !== undefined && rescuable(slot) && rescue?.state === "reading" ? (
-      <Act key="stop" label="Stop" said={rescueTipsOf(row).stop} Glyph={Power} tone="neutral" waiting={waiting} onPress={() => onRescue("stop", slot.slot)} />
+      <Act
+        key="stop"
+        label="Stop"
+        said={rescueTipsOf(row).stop}
+        Glyph={Power}
+        tone="neutral"
+        waiting={waiting}
+        onPress={() => onRescue("stop", slot.slot)}
+      />
     ) : null,
     onRelease !== undefined && releasable(slot) ? (
       <Act

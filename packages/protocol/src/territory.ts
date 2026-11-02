@@ -4,7 +4,9 @@
 // The header rules in `protocol.ts` hold here.
 
 /** `list_repository_areas`: `GET /repository_areas`. A repository whose base git could not read is absent. */
-export type RepositoryAreas = { repositories: AreasOfRepository[] };
+export type RepositoryAreas = {
+  repositories: AreasOfRepository[];
+};
 
 /** One repository's directories, read at the head of its base. */
 export type AreasOfRepository = {
@@ -43,9 +45,14 @@ export type AreaKid = {
 };
 
 /** `list_slot_touches`: `GET /slot_touches`. A holder with no slot, or no change in it, is absent. */
-export type SlotTouches = { repositories: TouchesInRepository[] };
+export type SlotTouches = {
+  repositories: TouchesInRepository[];
+};
 
-export type TouchesInRepository = { manifest_id: string; holders: HolderTouches[] };
+export type TouchesInRepository = {
+  manifest_id: string;
+  holders: HolderTouches[];
+};
 
 /** What one hosted Session has changed in its slot since the slot met the base branch. */
 export type HolderTouches = {

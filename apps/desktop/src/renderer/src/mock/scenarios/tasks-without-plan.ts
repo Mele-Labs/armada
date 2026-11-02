@@ -9,20 +9,52 @@ import { s261OneSessionView as base } from "./one-session-view";
 const QUIET = "one-view-2";
 
 const TODOS: readonly SessionTodo[] = [
-  { text: "Read the migration runner", state: "done" },
-  { text: "List the migration files", state: "done" },
-  { text: "Rename the files to their order", state: "doing" },
-  { text: "Update the loader tests", state: "todo" },
-  { text: "Run the store checks", state: "todo" },
+  {
+    text: "Read the migration runner",
+    state: "done",
+  },
+  {
+    text: "List the migration files",
+    state: "done",
+  },
+  {
+    text: "Rename the files to their order",
+    state: "doing",
+  },
+  {
+    text: "Update the loader tests",
+    state: "todo",
+  },
+  {
+    text: "Run the store checks",
+    state: "todo",
+  },
 ];
 
 const working = (one: Session): Session => ({
   ...one,
-  turn: { state: "working" },
+  turn: {
+    state: "working",
+  },
   standing: "working",
-  attachments: [...one.attachments, { kind: "subagent", id: "sa-loader", task: "Find names the loader hardcodes", state: "running", agentType: "bridge-engineer" }],
-  work: { proposal: { workflow: null } },
-  activity: { todos: TODOS },
+  attachments: [
+    ...one.attachments,
+    {
+      kind: "subagent",
+      id: "sa-loader",
+      task: "Find names the loader hardcodes",
+      state: "running",
+      agentType: "bridge-engineer",
+    },
+  ],
+  work: {
+    proposal: {
+      workflow: null,
+    },
+  },
+  activity: {
+    todos: TODOS,
+  },
 });
 
 export const s281TasksWithoutPlan: Scenario = {

@@ -8,7 +8,15 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 /** A commit's short form: seven characters, as `git log --oneline` draws it. */
 const short = (sha: string) => sha.slice(0, 7);
 
-function Names({ label, items, mono = true }: { label: string; items: readonly string[]; mono?: boolean }) {
+function Names({
+  label,
+  items,
+  mono = true,
+}: {
+  label: string;
+  items: readonly string[];
+  mono?: boolean;
+}) {
   if (items.length === 0) return null;
   return (
     <div className="armada-finding__group">
@@ -25,10 +33,25 @@ function Names({ label, items, mono = true }: { label: string; items: readonly s
 }
 
 /** What a commit's tag says, and what its tooltip adds. Tags name the base, which is the bay's own. */
-const HOMES: Record<CommitHome, (base: string) => { tag: string; said: string }> = {
-  only_here: (base) => ({ tag: "Only here", said: `On no remote branch and not on ${base}` }),
-  on_remote: () => ({ tag: "On the remote", said: "On a remote branch" }),
-  on_main: (base) => ({ tag: `On ${base}`, said: `On local ${base}, not pushed` }),
+const HOMES: Record<
+  CommitHome,
+  (base: string) => {
+    tag: string;
+    said: string;
+  }
+> = {
+  only_here: (base) => ({
+    tag: "Only here",
+    said: `On no remote branch and not on ${base}`,
+  }),
+  on_remote: () => ({
+    tag: "On the remote",
+    said: "On a remote branch",
+  }),
+  on_main: (base) => ({
+    tag: `On ${base}`,
+    said: `On local ${base}, not pushed`,
+  }),
 };
 
 /**
@@ -38,7 +61,10 @@ const HOMES: Record<CommitHome, (base: string) => { tag: string; said: string }>
 function Commits({ commits, base }: { commits: readonly SlotCommit[]; base: string }) {
   if (commits.length === 0) return null;
   const only = (one: SlotCommit) => one.home === "only_here";
-  const sorted = [...commits.filter(only), ...commits.filter((one) => !only(one))];
+  const sorted = [
+    ...commits.filter(only),
+    ...commits.filter((one) => !only(one)),
+  ];
   return (
     <div className="armada-finding__group">
       <span className="armada-finding__label" aria-hidden>
@@ -123,7 +149,10 @@ export function SlotFinding({ slot }: { slot: WorktreeSlot }) {
           </Mark>
         ) : null}
         <Tooltip label="Commit it read">
-          <span className="armada-finding__commit" aria-label={`Commit it read: ${short(rescue.commit)}`}>
+          <span
+            className="armada-finding__commit"
+            aria-label={`Commit it read: ${short(rescue.commit)}`}
+          >
             <GitCommitHorizontal size={12} strokeWidth={2} aria-hidden />
             <span aria-hidden>{short(rescue.commit)}</span>
           </span>
@@ -147,7 +176,9 @@ export function SlotFinding({ slot }: { slot: WorktreeSlot }) {
       {rescue.state === "failed" && rescue.why !== undefined ? (
         <p className="armada-finding__failed">{rescue.why}</p>
       ) : null}
-      {rescue.summary === undefined ? null : <p className="armada-finding__summary">{rescue.summary}</p>}
+      {rescue.summary === undefined ? null : (
+        <p className="armada-finding__summary">{rescue.summary}</p>
+      )}
       <div className="armada-finding__lists">
         <Names label="Read" items={rescue.read} />
         <Names label="Searched" items={rescue.searched} />
@@ -173,10 +204,18 @@ export function ScrapConfirm({
   const stranded = slot.stranded;
   const unpushed = (stranded?.commits ?? []).filter((one) => one.home === "only_here");
   return (
-    <div className="armada-finding armada-finding--confirm" role="group" aria-label={`Scrap slot-${slot.slot}`}>
+    <div
+      className="armada-finding armada-finding--confirm"
+      role="group"
+      aria-label={`Scrap slot-${slot.slot}`}
+    >
       <div className="armada-finding__lists">
         <Names label="Uncommitted" items={stranded?.uncommitted ?? []} />
-        <Names label="Unpushed" items={unpushed.map((one) => `${short(one.sha)} ${one.subject}`)} mono={false} />
+        <Names
+          label="Unpushed"
+          items={unpushed.map((one) => `${short(one.sha)} ${one.subject}`)}
+          mono={false}
+        />
       </div>
       <div className="armada-finding__choice">
         <Button variant="destructive" size="sm" onClick={onScrap}>

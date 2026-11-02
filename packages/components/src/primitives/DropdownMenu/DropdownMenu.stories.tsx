@@ -25,11 +25,33 @@ export const RowMenu: Story = {
     defaultOpen: true,
     triggerLabel: "More",
     entries: [
-      { kind: "item", id: "worktree", label: "Open the worktree" },
-      { kind: "item", id: "copy", label: "Copy job ID", shortcut: "⌘C" },
-      { kind: "item", id: "board", label: "Send back to the Job Board" },
-      { kind: "separator", id: "rule" },
-      { kind: "item", id: "kill", label: "Kill job", shortcut: "x", danger: true },
+      {
+        kind: "item",
+        id: "worktree",
+        label: "Open the worktree",
+      },
+      {
+        kind: "item",
+        id: "copy",
+        label: "Copy job ID",
+        shortcut: "⌘C",
+      },
+      {
+        kind: "item",
+        id: "board",
+        label: "Send back to the Job Board",
+      },
+      {
+        kind: "separator",
+        id: "rule",
+      },
+      {
+        kind: "item",
+        id: "kill",
+        label: "Kill job",
+        shortcut: "x",
+        danger: true,
+      },
     ],
     onSelect: fn(),
   },
@@ -52,22 +74,50 @@ export const RowMenu: Story = {
     await userEvent.keyboard("{Escape}");
     await expect(canvas.queryByRole("menu")).toBeNull();
 
-    await userEvent.click(canvas.getByRole("button", { name: "More" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "More",
+      }),
+    );
     await waitFor(() => expect(canvas.getByRole("menu")).toBeVisible());
 
     // Focus goes into the menu as it opens, the arrows step and wrap, and Esc
     // hands focus back to the trigger rather than dropping it on the page.
-    await expect(canvas.getByRole("menuitem", { name: /Open the worktree/ })).toHaveFocus();
+    await expect(
+      canvas.getByRole("menuitem", {
+        name: /Open the worktree/,
+      }),
+    ).toHaveFocus();
     await userEvent.keyboard("{ArrowUp}");
-    await expect(canvas.getByRole("menuitem", { name: /Kill job/ })).toHaveFocus();
+    await expect(
+      canvas.getByRole("menuitem", {
+        name: /Kill job/,
+      }),
+    ).toHaveFocus();
     await userEvent.keyboard("{ArrowDown}{ArrowDown}");
-    await expect(canvas.getByRole("menuitem", { name: /Copy job ID/ })).toHaveFocus();
+    await expect(
+      canvas.getByRole("menuitem", {
+        name: /Copy job ID/,
+      }),
+    ).toHaveFocus();
     await userEvent.keyboard("{Escape}");
-    await expect(canvas.getByRole("button", { name: "More" })).toHaveFocus();
+    await expect(
+      canvas.getByRole("button", {
+        name: "More",
+      }),
+    ).toHaveFocus();
 
-    await userEvent.click(canvas.getByRole("button", { name: "More" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "More",
+      }),
+    );
     await waitFor(() => expect(canvas.getByRole("menu")).toBeVisible());
-    await userEvent.click(canvas.getByRole("menuitem", { name: /Copy job ID/ }));
+    await userEvent.click(
+      canvas.getByRole("menuitem", {
+        name: /Copy job ID/,
+      }),
+    );
     await expect(args.onSelect).toHaveBeenCalledWith("copy");
     await expect(canvas.queryByRole("menu")).toBeNull();
   },
@@ -90,14 +140,32 @@ export const WithSelectedItem: Story = {
     defaultOpen: true,
     triggerLabel: "All repositories",
     entries: [
-      { kind: "item", id: "all", label: "All repositories", selected: true },
-      { kind: "separator", id: "rule" },
-      { kind: "item", id: "armada", label: "armada" },
-      { kind: "item", id: "bridge", label: "bridge" },
+      {
+        kind: "item",
+        id: "all",
+        label: "All repositories",
+        selected: true,
+      },
+      {
+        kind: "separator",
+        id: "rule",
+      },
+      {
+        kind: "item",
+        id: "armada",
+        label: "armada",
+      },
+      {
+        kind: "item",
+        id: "bridge",
+        label: "bridge",
+      },
     ],
   },
   play: async ({ canvas }) => {
-    const trigger = canvas.getByRole("button", { name: "All repositories" });
+    const trigger = canvas.getByRole("button", {
+      name: "All repositories",
+    });
     await expect(trigger).toHaveAttribute("aria-haspopup", "menu");
     await expect(trigger).toHaveAccessibleName("All repositories");
     // The mark trails the label: drawn, hidden from the tree, and to its right.
@@ -107,13 +175,20 @@ export const WithSelectedItem: Story = {
     await expect(mark).toHaveAttribute("aria-hidden", "true");
     const label = document.createRange();
     label.selectNodeContents(trigger.firstChild!);
-    await expect(mark!.getBoundingClientRect().left).toBeGreaterThanOrEqual(label.getBoundingClientRect().right);
-
-    await expect(canvas.getByRole("menuitem", { name: "All repositories" })).toHaveAttribute(
-      "aria-current",
-      "true",
+    await expect(mark!.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+      label.getBoundingClientRect().right,
     );
-    await expect(canvas.getByRole("menuitem", { name: "armada" })).not.toHaveAttribute("aria-current");
+
+    await expect(
+      canvas.getByRole("menuitem", {
+        name: "All repositories",
+      }),
+    ).toHaveAttribute("aria-current", "true");
+    await expect(
+      canvas.getByRole("menuitem", {
+        name: "armada",
+      }),
+    ).not.toHaveAttribute("aria-current");
   },
 };
 
@@ -132,15 +207,43 @@ export const Counted: Story = {
     triggerLabel: "All",
     triggerCount: 34,
     entries: [
-      { kind: "item", id: "all", label: "All", count: 34, selected: true },
-      { kind: "item", id: "checks", label: "Checks", count: 12 },
-      { kind: "item", id: "judges", label: "Judges", count: 0 },
+      {
+        kind: "item",
+        id: "all",
+        label: "All",
+        count: 34,
+        selected: true,
+      },
+      {
+        kind: "item",
+        id: "checks",
+        label: "Checks",
+        count: 12,
+      },
+      {
+        kind: "item",
+        id: "judges",
+        label: "Judges",
+        count: 0,
+      },
     ],
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: "All 34" })).toHaveAttribute("aria-haspopup", "menu");
-    await expect(canvas.getByRole("menuitem", { name: "Checks 12" })).toBeInTheDocument();
-    await expect(canvas.getByRole("menuitem", { name: "Judges" })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", {
+        name: "All 34",
+      }),
+    ).toHaveAttribute("aria-haspopup", "menu");
+    await expect(
+      canvas.getByRole("menuitem", {
+        name: "Checks 12",
+      }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("menuitem", {
+        name: "Judges",
+      }),
+    ).toBeInTheDocument();
   },
 };
 
@@ -155,16 +258,31 @@ export const WithASubmenu: Story = {
     defaultOpen: true,
     triggerLabel: "Layout",
     entries: [
-      { kind: "item", id: "reset", label: "Reset", act: true },
-      { kind: "separator", id: "rule" },
+      {
+        kind: "item",
+        id: "reset",
+        label: "Reset",
+        act: true,
+      },
+      {
+        kind: "separator",
+        id: "rule",
+      },
       {
         kind: "item",
         id: "new",
         label: "New Jobs open on",
         detail: "Default",
         submenu: [
-          { id: "new:Default", label: "Default", selected: true },
-          { id: "new:Review", label: "Review" },
+          {
+            id: "new:Default",
+            label: "Default",
+            selected: true,
+          },
+          {
+            id: "new:Review",
+            label: "Review",
+          },
         ],
       },
     ],
@@ -172,16 +290,30 @@ export const WithASubmenu: Story = {
   },
   play: async ({ args, canvas, userEvent }) => {
     await waitFor(() => expect(canvas.getByRole("menu")).toBeVisible());
-    const row = canvas.getByRole("menuitem", { name: /^New Jobs open on/ });
+    const row = canvas.getByRole("menuitem", {
+      name: /^New Jobs open on/,
+    });
     await expect(row).toHaveTextContent("Default");
     row.focus();
 
     await userEvent.keyboard("{ArrowRight}");
-    await expect(canvas.getByRole("menuitemradio", { name: "Default" })).toHaveFocus();
-    await expect(canvas.getByRole("menuitemradio", { name: "Default" })).toHaveAttribute("aria-checked", "true");
+    await expect(
+      canvas.getByRole("menuitemradio", {
+        name: "Default",
+      }),
+    ).toHaveFocus();
+    await expect(
+      canvas.getByRole("menuitemradio", {
+        name: "Default",
+      }),
+    ).toHaveAttribute("aria-checked", "true");
     await userEvent.keyboard("{ArrowLeft}");
     await expect(row).toHaveFocus();
-    await expect(canvas.queryByRole("menuitemradio", { name: "Default" })).toBeNull();
+    await expect(
+      canvas.queryByRole("menuitemradio", {
+        name: "Default",
+      }),
+    ).toBeNull();
 
     await userEvent.keyboard("{ArrowRight}");
     await userEvent.keyboard("{Escape}");
@@ -210,33 +342,75 @@ export const WithDetails: Story = {
     triggerAriaLabel: "Show the change on the Field: Writing FieldPanel.tsx",
     triggerTooltip: "Drones",
     entries: [
-      { kind: "item", id: "newest", label: "Newest writer" },
-      { kind: "separator", id: "rule" },
-      { kind: "item", id: "job", label: "Show the change on the Field", detail: "Writing FieldPanel.tsx", selected: true },
-      { kind: "item", id: "wire", label: "Check the wire types", detail: "Writing wire.ts" },
-      { kind: "item", id: "docs", label: "Write the lens into the docs", detail: "Done", muted: true },
+      {
+        kind: "item",
+        id: "newest",
+        label: "Newest writer",
+      },
+      {
+        kind: "separator",
+        id: "rule",
+      },
+      {
+        kind: "item",
+        id: "job",
+        label: "Show the change on the Field",
+        detail: "Writing FieldPanel.tsx",
+        selected: true,
+      },
+      {
+        kind: "item",
+        id: "wire",
+        label: "Check the wire types",
+        detail: "Writing wire.ts",
+      },
+      {
+        kind: "item",
+        id: "docs",
+        label: "Write the lens into the docs",
+        detail: "Done",
+        muted: true,
+      },
     ],
     onSelect: fn(),
   },
   render: (args) => (
-    <div style={{ width: "var(--w-boundary-check)" }}>
+    <div
+      style={{
+        width: "var(--w-boundary-check)",
+      }}
+    >
       <DropdownMenu {...args} />
     </div>
   ),
   play: async ({ args, canvas, userEvent }) => {
-    const trigger = canvas.getByRole("button", { name: "Show the change on the Field: Writing FieldPanel.tsx" });
+    const trigger = canvas.getByRole("button", {
+      name: "Show the change on the Field: Writing FieldPanel.tsx",
+    });
     // The frame is narrower than the trigger's words: it fits, and the detail is drawn whole.
     const frame = trigger.closest(".armada-dropdown-menu")!.parentElement!;
-    await expect(trigger.getBoundingClientRect().right).toBeLessThanOrEqual(frame.getBoundingClientRect().right);
+    await expect(trigger.getBoundingClientRect().right).toBeLessThanOrEqual(
+      frame.getBoundingClientRect().right,
+    );
     const detail = canvas.getAllByText("Writing FieldPanel.tsx")[0]!;
     await expect(detail.scrollWidth).toBeLessThanOrEqual(detail.clientWidth);
 
     trigger.focus();
     await userEvent.keyboard("{ArrowDown}");
     await waitFor(() => expect(canvas.getByRole("menu")).toBeVisible());
-    await expect(canvas.getByRole("menuitem", { name: "Newest writer" })).toHaveFocus();
-    await expect(canvas.getByRole("menuitem", { name: /^Show the change on the Field/ })).toHaveAttribute("aria-current", "true");
-    const done = canvas.getByRole("menuitem", { name: /^Write the lens into the docs/ });
+    await expect(
+      canvas.getByRole("menuitem", {
+        name: "Newest writer",
+      }),
+    ).toHaveFocus();
+    await expect(
+      canvas.getByRole("menuitem", {
+        name: /^Show the change on the Field/,
+      }),
+    ).toHaveAttribute("aria-current", "true");
+    const done = canvas.getByRole("menuitem", {
+      name: /^Write the lens into the docs/,
+    });
     await expect(done).not.toHaveAttribute("aria-disabled");
 
     await userEvent.keyboard("{End}{Enter}");
@@ -253,19 +427,43 @@ export const WithHints: Story = {
     align: "start",
     triggerLabel: "More",
     entries: [
-      { kind: "item", id: "new", label: "New Job", hint: "Starts with a short handoff from this one" },
-      { kind: "item", id: "wait", label: "Retro", disabled: true, hint: "Writing" },
+      {
+        kind: "item",
+        id: "new",
+        label: "New Job",
+        hint: "Starts with a short handoff from this one",
+      },
+      {
+        kind: "item",
+        id: "wait",
+        label: "Retro",
+        disabled: true,
+        hint: "Writing",
+      },
     ],
   },
   play: async ({ canvas, userEvent }) => {
-    const plain = canvas.getByRole("menuitem", { name: /^New Job/ });
+    const plain = canvas.getByRole("menuitem", {
+      name: /^New Job/,
+    });
     await expect(plain).toHaveAccessibleDescription("Starts with a short handoff from this one");
     await expect(canvas.getByText("Starts with a short handoff from this one")).not.toBeVisible();
     await userEvent.hover(plain);
-    await waitFor(() => expect(canvas.getByText("Starts with a short handoff from this one")).toBeVisible(), { timeout: 3000 });
+    await waitFor(
+      () => expect(canvas.getByText("Starts with a short handoff from this one")).toBeVisible(),
+      {
+        timeout: 3000,
+      },
+    );
     // A disabled item takes no pointer, so its hint is reached by focus.
-    canvas.getByRole("menuitem", { name: /^Retro/ }).focus();
-    await waitFor(() => expect(canvas.getByText("Writing")).toBeVisible(), { timeout: 3000 });
+    canvas
+      .getByRole("menuitem", {
+        name: /^Retro/,
+      })
+      .focus();
+    await waitFor(() => expect(canvas.getByText("Writing")).toBeVisible(), {
+      timeout: 3000,
+    });
   },
 };
 
@@ -275,13 +473,43 @@ export const WithSectionLabels: Story = {
     defaultOpen: true,
     triggerLabel: "More",
     entries: [
-      { kind: "label", id: "l-job", label: "This job" },
-      { kind: "item", id: "worktree", label: "Open the worktree" },
-      { kind: "item", id: "copy", label: "Copy job ID", shortcut: "⌘C" },
-      { kind: "separator", id: "rule" },
-      { kind: "label", id: "l-fleet", label: "Fleet" },
-      { kind: "item", id: "pause", label: "Freeze dispatch" },
-      { kind: "item", id: "kill", label: "Kill job", shortcut: "x", danger: true },
+      {
+        kind: "label",
+        id: "l-job",
+        label: "This job",
+      },
+      {
+        kind: "item",
+        id: "worktree",
+        label: "Open the worktree",
+      },
+      {
+        kind: "item",
+        id: "copy",
+        label: "Copy job ID",
+        shortcut: "⌘C",
+      },
+      {
+        kind: "separator",
+        id: "rule",
+      },
+      {
+        kind: "label",
+        id: "l-fleet",
+        label: "Fleet",
+      },
+      {
+        kind: "item",
+        id: "pause",
+        label: "Freeze dispatch",
+      },
+      {
+        kind: "item",
+        id: "kill",
+        label: "Kill job",
+        shortcut: "x",
+        danger: true,
+      },
     ],
   },
 };
@@ -297,19 +525,53 @@ export const Disabled: Story = {
     triggerLabel: "Stop and wait for me",
     disabled: true,
     entries: [
-      { kind: "item", id: "refuse_and_hold", label: "Stop and wait for me" },
-      { kind: "item", id: "ask_me", label: "Ask me first" },
-      { kind: "item", id: "allow_all", label: "Run it" },
+      {
+        kind: "item",
+        id: "refuse_and_hold",
+        label: "Stop and wait for me",
+      },
+      {
+        kind: "item",
+        id: "ask_me",
+        label: "Ask me first",
+      },
+      {
+        kind: "item",
+        id: "allow_all",
+        label: "Run it",
+      },
     ],
   },
 };
 
 const rowActions: DropdownMenuEntry[] = [
-  { kind: "item", id: "worktree", label: "Open the worktree" },
-  { kind: "item", id: "copy", label: "Copy job ID", shortcut: "⌘C" },
-  { kind: "item", id: "board", label: "Send back to the Job Board" },
-  { kind: "separator", id: "rule" },
-  { kind: "item", id: "kill", label: "Kill job", shortcut: "x", danger: true },
+  {
+    kind: "item",
+    id: "worktree",
+    label: "Open the worktree",
+  },
+  {
+    kind: "item",
+    id: "copy",
+    label: "Copy job ID",
+    shortcut: "⌘C",
+  },
+  {
+    kind: "item",
+    id: "board",
+    label: "Send back to the Job Board",
+  },
+  {
+    kind: "separator",
+    id: "rule",
+  },
+  {
+    kind: "item",
+    id: "kill",
+    label: "Kill job",
+    shortcut: "x",
+    danger: true,
+  },
 ];
 
 /**
@@ -318,7 +580,13 @@ const rowActions: DropdownMenuEntry[] = [
  * makes the frame that block — so the story shows the same flip a window edge
  * produces, at a size that fits on the page.
  */
-function Frame({ edge, children }: { edge: "left" | "right" | "bottom"; children: React.ReactNode }) {
+function Frame({
+  edge,
+  children,
+}: {
+  edge: "left" | "right" | "bottom";
+  children: React.ReactNode;
+}) {
   return (
     <div className={`armada-dropdown-menu-frame armada-dropdown-menu-frame--${edge}`}>
       {children}
@@ -376,23 +644,61 @@ export const Searchable: Story = {
     triggerLabel: "All repositories",
     searchLabel: "Find a repository",
     entries: [
-      { kind: "label", id: "recent", label: "Recent" },
-      { kind: "item", id: "recent:/code/billing-api", label: "billing-api" },
-      { kind: "separator", id: "rule" },
-      { kind: "item", id: "/code/armada", label: "armada" },
-      { kind: "label", id: "not-set-up", label: "Not set up" },
-      { kind: "item", id: "/code/billing-web", label: "billing-web — Set it up first", disabled: true },
-      { kind: "item", id: "/code/checkout", label: "checkout" },
+      {
+        kind: "label",
+        id: "recent",
+        label: "Recent",
+      },
+      {
+        kind: "item",
+        id: "recent:/code/billing-api",
+        label: "billing-api",
+      },
+      {
+        kind: "separator",
+        id: "rule",
+      },
+      {
+        kind: "item",
+        id: "/code/armada",
+        label: "armada",
+      },
+      {
+        kind: "label",
+        id: "not-set-up",
+        label: "Not set up",
+      },
+      {
+        kind: "item",
+        id: "/code/billing-web",
+        label: "billing-web — Set it up first",
+        disabled: true,
+      },
+      {
+        kind: "item",
+        id: "/code/checkout",
+        label: "checkout",
+      },
     ],
     onSelect: fn(),
   },
   play: async ({ args, canvas, userEvent }) => {
-    await waitFor(() => expect(canvas.getByRole("searchbox", { name: "Find a repository" })).toHaveFocus());
+    await waitFor(() =>
+      expect(
+        canvas.getByRole("searchbox", {
+          name: "Find a repository",
+        }),
+      ).toHaveFocus(),
+    );
 
     // Narrowing takes the rows that fall out and the heading over a group left empty.
     await userEvent.keyboard("check");
     await expect(canvas.getAllByRole("menuitem")).toHaveLength(1);
-    await expect(canvas.getByRole("menuitem", { name: "checkout" })).toBeVisible();
+    await expect(
+      canvas.getByRole("menuitem", {
+        name: "checkout",
+      }),
+    ).toBeVisible();
     await expect(canvas.queryByText("Recent")).toBeNull();
 
     await userEvent.clear(canvas.getByRole("searchbox"));
@@ -403,7 +709,11 @@ export const Searchable: Story = {
     // the only match left is the one that cannot be chosen, so nothing is picked and the menu stays.
     await userEvent.clear(canvas.getByRole("searchbox"));
     await userEvent.keyboard("billing-w{Enter}");
-    await expect(canvas.getByRole("menuitem", { name: /billing-web/ })).toHaveAttribute("aria-disabled", "true");
+    await expect(
+      canvas.getByRole("menuitem", {
+        name: /billing-web/,
+      }),
+    ).toHaveAttribute("aria-disabled", "true");
     await expect(args.onSelect).not.toHaveBeenCalled();
     await expect(canvas.getByRole("menu")).toBeVisible();
 
@@ -417,8 +727,17 @@ export const Searchable: Story = {
 };
 
 const scopes: DropdownMenuEntry[] = [
-  { kind: "item", id: "active", label: "Active", selected: true },
-  { kind: "item", id: "ended", label: "Ended" },
+  {
+    kind: "item",
+    id: "active",
+    label: "Active",
+    selected: true,
+  },
+  {
+    kind: "item",
+    id: "ended",
+    label: "Ended",
+  },
 ];
 
 /**
@@ -432,26 +751,52 @@ export const SearchClears: Story = {
     triggerLabel: "Filter",
     searchLabel: "Search Work",
     entries: [
-      { kind: "item", id: "active", label: "Active" },
-      { kind: "item", id: "ended", label: "Ended" },
+      {
+        kind: "item",
+        id: "active",
+        label: "Active",
+      },
+      {
+        kind: "item",
+        id: "ended",
+        label: "Ended",
+      },
     ],
     onSelect: fn(),
   },
   play: async ({ canvas, userEvent }) => {
-    const field = canvas.getByRole("searchbox", { name: "Search Work" });
+    const field = canvas.getByRole("searchbox", {
+      name: "Search Work",
+    });
     await waitFor(() => expect(field).toHaveFocus());
-    await expect(canvas.queryByRole("button", { name: "Clear search" })).toBeNull();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Clear search",
+      }),
+    ).toBeNull();
 
     await userEvent.keyboard("end");
-    await expect(canvas.getByRole("button", { name: "Clear search" })).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Clear search",
+      }),
+    ).toBeVisible();
     await expect(canvas.getAllByRole("menuitem")).toHaveLength(1);
 
     // The press empties the field and returns the caret to it, and the button goes with the text.
-    await userEvent.click(canvas.getByRole("button", { name: "Clear search" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Clear search",
+      }),
+    );
     await expect(field).toHaveValue("");
     await expect(field).toHaveFocus();
     await expect(canvas.getAllByRole("menuitem")).toHaveLength(2);
-    await expect(canvas.queryByRole("button", { name: "Clear search" })).toBeNull();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Clear search",
+      }),
+    ).toBeNull();
   },
 };
 
@@ -483,21 +828,39 @@ export const SearchClearsHeldByTheCaller: Story = {
   render: () => <HeldSearch />,
   play: async ({ canvas, userEvent }) => {
     held.mockClear();
-    const field = canvas.getByRole("searchbox", { name: "Search Work" });
+    const field = canvas.getByRole("searchbox", {
+      name: "Search Work",
+    });
     await waitFor(() => expect(field).toHaveFocus());
-    await expect(canvas.queryByRole("button", { name: "Clear search" })).toBeNull();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Clear search",
+      }),
+    ).toBeNull();
 
     await userEvent.keyboard("17");
     await expect(field).toHaveValue("17");
-    await expect(canvas.getByRole("button", { name: "Clear search" })).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Clear search",
+      }),
+    ).toBeVisible();
     // The rows are the caller's to narrow: typing leaves both of them.
     await expect(canvas.getAllByRole("menuitem")).toHaveLength(2);
 
-    await userEvent.click(canvas.getByRole("button", { name: "Clear search" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Clear search",
+      }),
+    );
     await expect(held).toHaveBeenLastCalledWith("");
     await expect(field).toHaveValue("");
     await expect(field).toHaveFocus();
-    await expect(canvas.queryByRole("button", { name: "Clear search" })).toBeNull();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Clear search",
+      }),
+    ).toBeNull();
   },
 };
 
@@ -505,8 +868,16 @@ const ownChosen = fn();
 const pointChosen = fn();
 const pointActs = {
   entries: [
-    { kind: "item" as const, id: "point-mod", label: "Mod" },
-    { kind: "item" as const, id: "point-report", label: "Report" },
+    {
+      kind: "item" as const,
+      id: "point-mod",
+      label: "Mod",
+    },
+    {
+      kind: "item" as const,
+      id: "point-report",
+      label: "Report",
+    },
   ],
   onSelect: pointChosen,
 };
@@ -524,11 +895,22 @@ export const AtAPointWithTheAppsActs: Story = {
     <PointActs.Provider value={pointActs}>
       <DropdownMenu
         open
-        at={{ x: 40, y: 40 }}
+        at={{
+          x: 40,
+          y: 40,
+        }}
         triggerLabel="Job"
         entries={[
-          { kind: "item", id: "pause", label: "Pause" },
-          { kind: "item", id: "close", label: "Close" },
+          {
+            kind: "item",
+            id: "pause",
+            label: "Pause",
+          },
+          {
+            kind: "item",
+            id: "close",
+            label: "Close",
+          },
         ]}
         onSelect={ownChosen}
       />
@@ -539,14 +921,31 @@ export const AtAPointWithTheAppsActs: Story = {
     pointChosen.mockClear();
     await waitFor(() => expect(screen().getByRole("menu")).toBeVisible());
     // The menu's own, then one rule, then the app's.
-    await expect(screen().getAllByRole("menuitem").map((one) => one.textContent?.trim())).toEqual(["Pause", "Close", "Mod", "Report"]);
+    await expect(
+      screen()
+        .getAllByRole("menuitem")
+        .map((one) => one.textContent?.trim()),
+    ).toEqual([
+      "Pause",
+      "Close",
+      "Mod",
+      "Report",
+    ]);
     await expect(screen().getAllByRole("separator")).toHaveLength(1);
 
-    await userEvent.click(screen().getByRole("menuitem", { name: "Report" }));
+    await userEvent.click(
+      screen().getByRole("menuitem", {
+        name: "Report",
+      }),
+    );
     await expect(pointChosen).toHaveBeenCalledWith("point-report");
     await expect(ownChosen).not.toHaveBeenCalled();
 
-    await userEvent.click(screen().getByRole("menuitem", { name: "Pause" }));
+    await userEvent.click(
+      screen().getByRole("menuitem", {
+        name: "Pause",
+      }),
+    );
     await expect(ownChosen).toHaveBeenCalledWith("pause");
     await expect(pointChosen).toHaveBeenCalledTimes(1);
   },
@@ -556,12 +955,28 @@ export const AtAPointWithTheAppsActs: Story = {
 export const AtAPointWithNothingButTheAppsActs: Story = {
   render: () => (
     <PointActs.Provider value={pointActs}>
-      <DropdownMenu open at={{ x: 40, y: 40 }} triggerLabel="Element" entries={[]} onSelect={ownChosen} />
+      <DropdownMenu
+        open
+        at={{
+          x: 40,
+          y: 40,
+        }}
+        triggerLabel="Element"
+        entries={[]}
+        onSelect={ownChosen}
+      />
     </PointActs.Provider>
   ),
   play: async () => {
     await waitFor(() => expect(screen().getByRole("menu")).toBeVisible());
-    await expect(screen().getAllByRole("menuitem").map((one) => one.textContent?.trim())).toEqual(["Mod", "Report"]);
+    await expect(
+      screen()
+        .getAllByRole("menuitem")
+        .map((one) => one.textContent?.trim()),
+    ).toEqual([
+      "Mod",
+      "Report",
+    ]);
     await expect(screen().queryByRole("separator")).toBeNull();
   },
 };
@@ -570,7 +985,18 @@ export const AtAPointWithNothingButTheAppsActs: Story = {
 export const FromATriggerWithoutTheAppsActs: Story = {
   render: () => (
     <PointActs.Provider value={pointActs}>
-      <DropdownMenu defaultOpen triggerLabel="More" entries={[{ kind: "item", id: "pause", label: "Pause" }]} onSelect={ownChosen} />
+      <DropdownMenu
+        defaultOpen
+        triggerLabel="More"
+        entries={[
+          {
+            kind: "item",
+            id: "pause",
+            label: "Pause",
+          },
+        ]}
+        onSelect={ownChosen}
+      />
     </PointActs.Provider>
   ),
   play: async ({ canvas, userEvent }) => {
@@ -578,7 +1004,11 @@ export const FromATriggerWithoutTheAppsActs: Story = {
     pointChosen.mockClear();
     await waitFor(() => expect(canvas.getByRole("menu")).toBeVisible());
     await expect(canvas.getAllByRole("menuitem")).toHaveLength(1);
-    await userEvent.click(canvas.getByRole("menuitem", { name: "Pause" }));
+    await userEvent.click(
+      canvas.getByRole("menuitem", {
+        name: "Pause",
+      }),
+    );
     await expect(ownChosen).toHaveBeenCalledWith("pause");
     await expect(pointChosen).not.toHaveBeenCalled();
   },
@@ -586,7 +1016,24 @@ export const FromATriggerWithoutTheAppsActs: Story = {
 
 /** An app that provides none, as a menu outside it, draws the menu's own entries and nothing more. */
 export const AtAPointWithNoAppActs: Story = {
-  render: () => <DropdownMenu open at={{ x: 40, y: 40 }} triggerLabel="Job" entries={[{ kind: "item", id: "pause", label: "Pause" }]} onSelect={ownChosen} />,
+  render: () => (
+    <DropdownMenu
+      open
+      at={{
+        x: 40,
+        y: 40,
+      }}
+      triggerLabel="Job"
+      entries={[
+        {
+          kind: "item",
+          id: "pause",
+          label: "Pause",
+        },
+      ]}
+      onSelect={ownChosen}
+    />
+  ),
   play: async () => {
     await waitFor(() => expect(screen().getByRole("menu")).toBeVisible());
     await expect(screen().getAllByRole("menuitem")).toHaveLength(1);

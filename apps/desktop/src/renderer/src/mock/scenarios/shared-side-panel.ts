@@ -22,38 +22,98 @@ const withMarta = (lines: MergeLines): MergeLines => ({
           ...line,
           hub: {
             ...line.hub,
-            merged: (line.hub.merged ?? []).map((one) => ({ ...one, commit: one.commit ?? String(one.number).padStart(40, "0") })),
-            pull_requests: [...(line.hub.pull_requests ?? []), { number: 1899, title: "Cache the plan windows for a minute", branch: "marta/plan-window-cache", url: `${FORGE}1899`, ci: "passed", author: "marta", opened_at: new Date(Date.now() - 35 * 60_000).toISOString() }],
+            merged: (line.hub.merged ?? []).map((one) => ({
+              ...one,
+              commit: one.commit ?? String(one.number).padStart(40, "0"),
+            })),
+            pull_requests: [
+              ...(line.hub.pull_requests ?? []),
+              {
+                number: 1899,
+                title: "Cache the plan windows for a minute",
+                branch: "marta/plan-window-cache",
+                url: `${FORGE}1899`,
+                ci: "passed",
+                author: "marta",
+                opened_at: new Date(Date.now() - 35 * 60_000).toISOString(),
+              },
+            ],
           },
         },
   ),
 });
 
-const LINES = withMarta(base.state.mergeLines ?? { lines: [] });
+const LINES = withMarta(
+  base.state.mergeLines ?? {
+    lines: [],
+  },
+);
 
 /** The reads, with #1892's answering late. */
 const SLOW = 1892;
 const READ_MS = 1500;
 const slowReads = () => {
   const reads = sharedPanelReads(LINES);
-  return { ...reads, pullRequest: (item: Parameters<typeof reads.pullRequest>[0]) => (item.number === SLOW ? new Promise<void>((resolve) => setTimeout(resolve, READ_MS)).then(() => reads.pullRequest(item)) : reads.pullRequest(item)) };
+  return {
+    ...reads,
+    pullRequest: (item: Parameters<typeof reads.pullRequest>[0]) =>
+      item.number === SLOW
+        ? new Promise<void>((resolve) => setTimeout(resolve, READ_MS)).then(() =>
+            reads.pullRequest(item),
+          )
+        : reads.pullRequest(item),
+  };
 };
 
 export const s263SharedSidePanel: Scenario = {
   ...base,
   name: "shared-side-panel",
   says: "A pull request, an issue, a bay and a Check, each opened in the one side panel from two places",
-  state: { ...base.state, mergeLines: LINES },
-  later: (base.later ?? []).map((one) => (one.mergeLines === undefined || one.mergeLines === null ? one : { ...one, mergeLines: withMarta(one.mergeLines) })),
+  state: {
+    ...base.state,
+    mergeLines: LINES,
+  },
+  later: (base.later ?? []).map((one) =>
+    one.mergeLines === undefined || one.mergeLines === null
+      ? one
+      : {
+          ...one,
+          mergeLines: withMarta(one.mergeLines),
+        },
+  ),
   draft: {
     ...base.draft,
     // A Job's thread names an issue; the Job holding a bay is on a workflow, so its stage draws Flight control.
     sessions: (board, more) => {
       const store = base.draft!.sessions!(board, more);
-      store.edit("p1", (one) => ({ ...one, work: { workflow: { name: "Feature", steps: ["Plan the change", "Implement", "Review the change"], at: 1 } } }));
+      store.edit("p1", (one) => ({
+        ...one,
+        work: {
+          workflow: {
+            name: "Feature",
+            steps: [
+              "Plan the change",
+              "Implement",
+              "Review the change",
+            ],
+            at: 1,
+          },
+        },
+      }));
       store.edit("q1", (one) => ({
         ...one,
-        rows: [...one.rows, { id: "q1-b", at: "14:10:10", kind: "message", from: { kind: "agent" }, text: "It has the shape of #2214: a list rebuilt from recent writes." }],
+        rows: [
+          ...one.rows,
+          {
+            id: "q1-b",
+            at: "14:10:10",
+            kind: "message",
+            from: {
+              kind: "agent",
+            },
+            text: "It has the shape of #2214: a list rebuilt from recent writes.",
+          },
+        ],
       }));
       return store;
     },

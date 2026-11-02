@@ -35,6 +35,10 @@ export function forgetHowItWasRead(): void {
 export function meetEveryGuide(): void {
   window.localStorage.setItem(
     GUIDES_KEY,
-    JSON.stringify({ off: false, cardSeen: true, met: GUIDES.map((guide) => guide.piece) }),
+    JSON.stringify({
+      off: false,
+      cardSeen: true,
+      met: GUIDES.map((guide) => guide.piece),
+    }),
   );
 }

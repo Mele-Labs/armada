@@ -9,8 +9,14 @@ import { said } from "./copy";
  * with a Session to open: the Session holding the slot is mid-turn,
  * `fleet.slot_session_working`.
  */
-export function releaseRefusal(outcome: Outcome): { said: string; working: boolean } {
+export function releaseRefusal(outcome: Outcome): {
+  said: string;
+  working: boolean;
+} {
   const refused = !outcome.ok && outcome.why === "refused";
   const why = refused ? outcome.error.message : said(outcome);
-  return { said: `Slot not released: ${why}`, working: refused && outcome.error.code === "fleet.slot_session_working" };
+  return {
+    said: `Slot not released: ${why}`,
+    working: refused && outcome.error.code === "fleet.slot_session_working",
+  };
 }

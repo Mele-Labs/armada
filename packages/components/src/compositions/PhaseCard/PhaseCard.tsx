@@ -229,9 +229,14 @@ const CLOSES_WITH: Record<PhaseStageKind, string | undefined> = {
  * keeping — the common tier says the standing line without any caller retyping
  * it. These differ because the facts differ, not because one is worse.
  */
-const WHEN: Record<"said" | "closesWith", Partial<Record<PhaseStageKind, Partial<Record<PhaseStageState, string>>>>> = {
+const WHEN: Record<
+  "said" | "closesWith",
+  Partial<Record<PhaseStageKind, Partial<Record<PhaseStageState, string>>>>
+> = {
   said: {
-    human: { never: "The human gate, which this step's workflow does not use." },
+    human: {
+      never: "The human gate, which this step's workflow does not use.",
+    },
   },
   closesWith: {
     human: {
@@ -399,12 +404,15 @@ export function PhaseCard({
     >
       <div className="armada-phase-card__head">
         {Head === undefined ? null : (
-          <Head size={HEAD_GLYPH} strokeWidth={STROKE} className="armada-phase-card__mark" aria-hidden />
+          <Head
+            size={HEAD_GLYPH}
+            strokeWidth={STROKE}
+            className="armada-phase-card__mark"
+            aria-hidden
+          />
         )}
         <span className="armada-phase-card__name">{name}</span>
-        {stands === undefined ? null : (
-          <span className="armada-phase-card__stands">{stands}</span>
-        )}
+        {stands === undefined ? null : <span className="armada-phase-card__stands">{stands}</span>}
       </div>
 
       {says === null || says === undefined ? null : (

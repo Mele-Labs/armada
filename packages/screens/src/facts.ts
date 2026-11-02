@@ -20,19 +20,41 @@ const LANDED: Record<string, string | undefined> = {
  * merge line's edge already draws. **Closed without merging is neutral**: nothing on the wire says
  * why it closed, and a refusal's or a failure's hue would say what nobody recorded.
  */
-const LANDED_BADGE: Record<string, { status: string; icon: LucideIcon } | undefined> = {
-  merged: { status: "completed-success", icon: GitMerge },
-  closed_unmerged: { status: "not-started", icon: GitPullRequestClosed },
+const LANDED_BADGE: Record<
+  string,
+  | {
+      status: string;
+      icon: LucideIcon;
+    }
+  | undefined
+> = {
+  merged: {
+    status: "completed-success",
+    icon: GitMerge,
+  },
+  closed_unmerged: {
+    status: "not-started",
+    icon: GitPullRequestClosed,
+  },
 };
 
 /** A settled pull request's badge: the word and the hue beside it. */
-type Settled = { status: string; icon: LucideIcon; label: string };
+type Settled = {
+  status: string;
+  icon: LucideIcon;
+  label: string;
+};
 
 /** What a settled pull request reads as, as a badge. Sentence case. */
 export function settledBadgeOf(landed: string | undefined): Settled | undefined {
   const label = LANDED[landed ?? ""];
   const badge = LANDED_BADGE[landed ?? ""];
-  return label === undefined || badge === undefined ? undefined : { ...badge, label };
+  return label === undefined || badge === undefined
+    ? undefined
+    : {
+        ...badge,
+        label,
+      };
 }
 
 /**

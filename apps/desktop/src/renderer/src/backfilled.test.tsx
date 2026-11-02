@@ -6,7 +6,10 @@ import { afterEach, expect, test } from "vitest";
 
 import { FIRST_ROWS, useBackfilled } from "./backfilled";
 
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 
 afterEach(() => {
   for (const { root, host } of roots.splice(0)) {
@@ -15,20 +18,34 @@ afterEach(() => {
   }
 });
 
-const rows = (count: number): number[] => Array.from({ length: count }, (_, at) => at);
+const rows = (count: number): number[] =>
+  Array.from(
+    {
+      length: count,
+    },
+    (_, at) => at,
+  );
 
 function Probe({ of, k }: { of: number[]; k: string }) {
   const drawn = useBackfilled(of, k);
-  return <output data-first={drawn[0]} data-count={drawn.length} data-last={drawn[drawn.length - 1]} />;
+  return (
+    <output data-first={drawn[0]} data-count={drawn.length} data-last={drawn[drawn.length - 1]} />
+  );
 }
 
 function mount() {
   const host = document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);
-  roots.push({ root, host });
+  roots.push({
+    root,
+    host,
+  });
   const show = (of: number[], k = "a") => flushSync(() => root.render(<Probe of={of} k={k} />));
   const out = () => host.querySelector("output")!.dataset;
-  return { show, out };
+  return {
+    show,
+    out,
+  };
 }
 
 test("draws the newest rows on the first frame and every row a few frames later", async () => {

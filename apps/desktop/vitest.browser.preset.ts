@@ -15,27 +15,45 @@ import type { TestProjectInlineConfiguration } from "vitest/config";
 import type { BrowserCommand } from "vitest/node";
 
 /** Motion on or off for the page a test runs in, where every test starts with it reduced. */
-const motion: BrowserCommand<[on: boolean]> = ({ page }, on) =>
-  page.emulateMedia({ reducedMotion: on ? "no-preference" : "reduce" });
+const motion: BrowserCommand<
+  [
+    on: boolean,
+  ]
+> = ({ page }, on) =>
+  page.emulateMedia({
+    reducedMotion: on ? "no-preference" : "reduce",
+  });
 
 /** Absolute, because a surface's project root is not this directory. */
-const ownStorage = fileURLToPath(new URL("./src/renderer/src/mock/own-storage.ts", import.meta.url));
+const ownStorage = fileURLToPath(
+  new URL("./src/renderer/src/mock/own-storage.ts", import.meta.url),
+);
 const guidesMet = fileURLToPath(new URL("./src/renderer/src/mock/guides-met.ts", import.meta.url));
 
 /** One browser project: Chromium on the mock Fleet, with every setting below. */
 export function browserProject(name: string, include: string[]): TestProjectInlineConfiguration {
   return {
     // The app's stylesheet imports Tailwind, so the plugin that compiles it is here too.
-    plugins: [tailwindcss()],
+    plugins: [
+      tailwindcss(),
+    ],
     // Found only once a test renders JSX, and Vite reloads the test when it finds it.
-    optimizeDeps: { include: ["react/jsx-dev-runtime", "react-dom/server"] },
+    optimizeDeps: {
+      include: [
+        "react/jsx-dev-runtime",
+        "react-dom/server",
+      ],
+    },
     test: {
       name,
       include,
       // Every guide already met, so a card opening on a piece nobody has
       // seen does not sit over the press a test about something else is
       // making. `mock/guides-met.ts` carries the reasoning.
-      setupFiles: [ownStorage, guidesMet],
+      setupFiles: [
+        ownStorage,
+        guidesMet,
+      ],
       // **Five seconds for a poll, not vitest's one.** Every
       // `expect.poll` and `expect.element` here waits for a render, and
       // one second is the budget on a quiet machine — the merge line runs
@@ -46,7 +64,11 @@ export function browserProject(name: string, include: string[]): TestProjectInli
       // in the five heaviest files measures 1,573ms. What it does cost is
       // a genuinely failing poll, which now waits five seconds instead of
       // one — rare enough to be worth the trade against a red merge line.
-      expect: { poll: { timeout: 5_000 } },
+      expect: {
+        poll: {
+          timeout: 5_000,
+        },
+      },
       browser: {
         enabled: true,
         headless: true,
@@ -78,10 +100,23 @@ export function browserProject(name: string, include: string[]): TestProjectInli
         // numbers, lower it again and write the measurement down — and
         // re-measure the slowest passing test first, which is the step
         // this comment exists because I skipped.
-        provider: playwright({ contextOptions: { reducedMotion: "reduce" } }),
-        commands: { motion },
-        instances: [{ browser: "chromium" }],
-        viewport: { width: 1440, height: 900 },
+        provider: playwright({
+          contextOptions: {
+            reducedMotion: "reduce",
+          },
+        }),
+        commands: {
+          motion,
+        },
+        instances: [
+          {
+            browser: "chromium",
+          },
+        ],
+        viewport: {
+          width: 1440,
+          height: 900,
+        },
       },
     },
   };

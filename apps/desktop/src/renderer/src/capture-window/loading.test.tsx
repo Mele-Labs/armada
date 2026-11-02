@@ -10,15 +10,43 @@ import "../styles/index.css";
 import { CaptureWindow, type CaptureWindowApi } from "./CaptureWindow";
 
 const state = (loading: boolean, queued: boolean): CaptureWindowState => ({
-  served: { run: "session:a", name: "Findings", address: "http://localhost:5173" },
-  shown: { name: "Findings", address: "http://localhost:5173" },
+  served: {
+    run: "session:a",
+    name: "Findings",
+    address: "http://localhost:5173",
+  },
+  shown: {
+    name: "Findings",
+    address: "http://localhost:5173",
+  },
   studio: null,
-  session: { id: "a", title: "Store clock findings" },
+  session: {
+    id: "a",
+    title: "Store clock findings",
+  },
   serving: true,
   armed: false,
   framesRefused: 0,
-  ...(queued ? { queue: { entries: [{ id: "a", name: "Store clock findings", title: "Findings", address: "http://localhost:5173" }], at: 0 } } : {}),
-  ...(loading ? { loading: true as const } : {}),
+  ...(queued
+    ? {
+        queue: {
+          entries: [
+            {
+              id: "a",
+              name: "Store clock findings",
+              title: "Findings",
+              address: "http://localhost:5173",
+            },
+          ],
+          at: 0,
+        },
+      }
+    : {}),
+  ...(loading
+    ? {
+        loading: true as const,
+      }
+    : {}),
 });
 
 function drawn(queued: boolean) {
@@ -34,14 +62,22 @@ function drawn(queued: boolean) {
     aim: none,
     hold: none,
     release: async () => {},
-    save: async () => ({ ok: true }),
+    save: async () => ({
+      ok: true,
+    }),
     reload: async () => {},
     followRefused: async () => {},
-    approve: async () => ({ ok: true }),
-    sendNotes: async () => ({ ok: true }),
+    approve: async () => ({
+      ok: true,
+    }),
+    sendNotes: async () => ({
+      ok: true,
+    }),
     scroll: () => {},
     showAsk: async () => {},
-    answerAsk: async () => ({ ok: true }),
+    answerAsk: async () => ({
+      ok: true,
+    }),
     pick: async () => {},
     panel: async (_open: boolean) => {},
     openOwner: async () => {},
@@ -55,15 +91,33 @@ function drawn(queued: boolean) {
   const host = document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);
   root.render(<CaptureWindow api={api} />);
-  return { push: (next: CaptureWindowState) => push(next), done: () => (root.unmount(), host.remove()) };
+  return {
+    push: (next: CaptureWindowState) => push(next),
+    done: () => (root.unmount(), host.remove()),
+  };
 }
 
-for (const queued of [true, false]) {
+for (const queued of [
+  true,
+  false,
+]) {
   test(`the ${queued ? "queued" : "one walk's"} bar says Loading while the page loads, and stops once it has`, async () => {
     const bar = drawn(queued);
-    await expect.element(page.getByText("Loading", { exact: true })).toBeVisible();
+    await expect
+      .element(
+        page.getByText("Loading", {
+          exact: true,
+        }),
+      )
+      .toBeVisible();
     bar.push(state(false, queued));
-    await expect.element(page.getByText("Loading", { exact: true })).not.toBeInTheDocument();
+    await expect
+      .element(
+        page.getByText("Loading", {
+          exact: true,
+        }),
+      )
+      .not.toBeInTheDocument();
     bar.done();
   });
 }

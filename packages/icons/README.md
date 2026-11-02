@@ -7,10 +7,10 @@ database is the record of the decision and the reasoning that produced it,
 not the authority on the current assignment — a row there that disagrees
 with this registry is stale, not right.
 
-| Path | What it is |
-|---|---|
-| `icons/` | The registry. One file a glyph, `<name>.toml`, holding its `[icons.<name>]` table and the `[[icons.<name>.usage]]` entries for each context it is used in. The name is the kebab-case lucide-react name, and the gate refuses a file whose table is not named for it. `icons/_header.toml` says what the fields are |
-| `conventions/` | `[conventions.<name>]`, one file a rule, for the rules that name several glyphs at once rather than assigning one its own meaning |
+| Path           | What it is                                                                                                                                                                                                                                                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `icons/`       | The registry. One file a glyph, `<name>.toml`, holding its `[icons.<name>]` table and the `[[icons.<name>.usage]]` entries for each context it is used in. The name is the kebab-case lucide-react name, and the gate refuses a file whose table is not named for it. `icons/_header.toml` says what the fields are |
+| `conventions/` | `[conventions.<name>]`, one file a rule, for the rules that name several glyphs at once rather than assigning one its own meaning                                                                                                                                                                                   |
 
 A glyph is a file so two branches that each add one touch two files: a pull request is merged without `.gitattributes`, and a shared file conflicts. `docs/practices/list-files.md`.
 

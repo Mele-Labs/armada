@@ -29,7 +29,11 @@ export function viewsOf({ mergeLines, repository, holds }: Lined): readonly Merg
 
 /** The surfaces the rail and the palette leave off: the merge line's, until Fleet serves one. */
 export function hiddenSurfaces(state: Lined): readonly string[] {
-  return viewsOf(state).length === 0 ? [SURFACE.mergeLine] : [];
+  return viewsOf(state).length === 0
+    ? [
+        SURFACE.mergeLine,
+      ]
+    : [];
 }
 
 /** A panel for each line there is. A Check on any of them opens in the side panel. */
@@ -61,12 +65,40 @@ export function MergeLinePanel({
         <OneLine
           key={view.root}
           view={view}
-          {...(pinned === undefined ? {} : { pinned })}
-          {...(focus === undefined ? {} : { focus })}
-          {...(onOpenSession === undefined ? {} : { onOpenSession })}
-          {...(onSendToSession === undefined ? {} : { onSendToSession })}
+          {...(pinned === undefined
+            ? {}
+            : {
+                pinned,
+              })}
+          {...(focus === undefined
+            ? {}
+            : {
+                focus,
+              })}
+          {...(onOpenSession === undefined
+            ? {}
+            : {
+                onOpenSession,
+              })}
+          {...(onSendToSession === undefined
+            ? {}
+            : {
+                onSendToSession,
+              })}
           onOpenLink={onOpenLink}
-          onOpenCheck={(branch, check) => void openInPanel({ kind: "check", id: `land:${view.root}:${branch}:${check}`, name: check, branch, land: { root: view.root, branch, check } })}
+          onOpenCheck={(branch, check) =>
+            void openInPanel({
+              kind: "check",
+              id: `land:${view.root}:${branch}:${check}`,
+              name: check,
+              branch,
+              land: {
+                root: view.root,
+                branch,
+                check,
+              },
+            })
+          }
         />
       ))}
     </PrOwnersOnTheWire>
@@ -114,13 +146,36 @@ function OneLine({
   const sessions = useSessions();
   const fix = useFixChoice(view.root, onSendToSession);
   const culprit = view.hub?.main?.state === "red" ? view.hub.main.red.merge?.session : undefined;
-  const hub = useMemo(() => (view.hub === undefined ? undefined : { ...view.hub, recentSessions: recentSessionsOf(sessions, culprit) }), [view.hub, sessions, culprit]);
-  const holds = focus !== undefined && [...view.line, ...view.landed, ...view.sentBack, ...(view.hub?.pulls ?? [])].some((one) => one.branch === focus);
+  const hub = useMemo(
+    () =>
+      view.hub === undefined
+        ? undefined
+        : {
+            ...view.hub,
+            recentSessions: recentSessionsOf(sessions, culprit),
+          },
+    [
+      view.hub,
+      sessions,
+      culprit,
+    ],
+  );
+  const holds =
+    focus !== undefined &&
+    [
+      ...view.line,
+      ...view.landed,
+      ...view.sentBack,
+      ...(view.hub?.pulls ?? []),
+    ].some((one) => one.branch === focus);
   useEffect(() => {
     // Only when the ask arrives: `setOpen` is not stable, and a fold the person closes stays closed.
     if (holds) setOpen(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [holds, focus]);
+  }, [
+    holds,
+    focus,
+  ]);
   return (
     <MergeLine
       name={view.name}
@@ -128,12 +183,32 @@ function OneLine({
       landed={view.landed}
       sentBack={view.sentBack}
       notice={view.notice}
-      {...(hub === undefined ? {} : { hub })}
-      {...(onOpenSession === undefined ? {} : { onOpenSession })}
+      {...(hub === undefined
+        ? {}
+        : {
+            hub,
+          })}
+      {...(onOpenSession === undefined
+        ? {}
+        : {
+            onOpenSession,
+          })}
       open={open}
-      {...(pinned === undefined ? {} : { pinned })}
-      {...(holds ? { focus } : {})}
-      {...(fix === undefined ? {} : { onFix: fix })}
+      {...(pinned === undefined
+        ? {}
+        : {
+            pinned,
+          })}
+      {...(holds
+        ? {
+            focus,
+          }
+        : {})}
+      {...(fix === undefined
+        ? {}
+        : {
+            onFix: fix,
+          })}
       onOpenChange={setOpen}
       onOpenPullRequest={(address) => {
         if (!openAddressInPanel(address)) onOpenLink(address);
@@ -163,7 +238,10 @@ export function MergeLineSurface({
 }) {
   // One Tab stop for every repository's tiles, the arrows across them all. Enter on a tile leaves the press alone.
   const scope = useRef<HTMLDivElement>(null);
-  useTileGrid(scope, { tile: "[data-merge-item]", onOpen: () => false });
+  useTileGrid(scope, {
+    tile: "[data-merge-item]",
+    onOpen: () => false,
+  });
   return (
     <Boundary region="Merge line" bridge={bridge} onCopied={onCopied}>
       <div className="armada-screen__overview" ref={scope}>
@@ -171,9 +249,21 @@ export function MergeLineSurface({
           surface
           state={state}
           onOpenLink={onOpenLink}
-          {...(onOpenSession === undefined ? {} : { onOpenSession })}
-          {...(onSendToSession === undefined ? {} : { onSendToSession })}
-          {...(focus === undefined ? {} : { focus })}
+          {...(onOpenSession === undefined
+            ? {}
+            : {
+                onOpenSession,
+              })}
+          {...(onSendToSession === undefined
+            ? {}
+            : {
+                onSendToSession,
+              })}
+          {...(focus === undefined
+            ? {}
+            : {
+                focus,
+              })}
         />
       </div>
     </Boundary>

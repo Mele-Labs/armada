@@ -6,7 +6,14 @@
 import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src/draft/sessions";
 
-import { VIDEO_SCRIPT_1, VIDEO_SCRIPT_2, VIDEO_SCRIPT_PATH, VIDEO_SCRIPT_R1, VIDEO_SCRIPT_R2, VIDEO_SCRIPT_TITLE } from "./document-pages";
+import {
+  VIDEO_SCRIPT_1,
+  VIDEO_SCRIPT_2,
+  VIDEO_SCRIPT_PATH,
+  VIDEO_SCRIPT_R1,
+  VIDEO_SCRIPT_R2,
+  VIDEO_SCRIPT_TITLE,
+} from "./document-pages";
 import { holding } from "./holding";
 import type { Scenario } from "./moment";
 import { sessionsStore } from "./sessions/script";
@@ -17,16 +24,60 @@ const ID = "s58";
 const ITEM = `document:${VIDEO_SCRIPT_PATH}`;
 
 const FIRST: readonly SessionRow[] = [
-  { id: "v1", at: "10:02:00", kind: "message", from: { kind: "you" }, text: "Write the script for a 60 second demo video of Armada for the landing page." },
-  { id: "v1a", at: "10:02:06", kind: "tool", text: "Read docs/scope.md" },
-  { id: "v1b", at: "10:02:12", kind: "tool", text: "Read docs/journeys/first-job.md" },
-  { id: "v1c", at: "10:02:30", kind: "message", from: { kind: "agent" }, text: "Four shots: the Board, a plan card, a walk and the merge queue, with a line of voice over each." },
-  { id: "v1d", at: "10:03:10", kind: "tool", text: "Write .armada/documents/video-script.html" },
+  {
+    id: "v1",
+    at: "10:02:00",
+    kind: "message",
+    from: {
+      kind: "you",
+    },
+    text: "Write the script for a 60 second demo video of Armada for the landing page.",
+  },
+  {
+    id: "v1a",
+    at: "10:02:06",
+    kind: "tool",
+    text: "Read docs/scope.md",
+  },
+  {
+    id: "v1b",
+    at: "10:02:12",
+    kind: "tool",
+    text: "Read docs/journeys/first-job.md",
+  },
+  {
+    id: "v1c",
+    at: "10:02:30",
+    kind: "message",
+    from: {
+      kind: "agent",
+    },
+    text: "Four shots: the Board, a plan card, a walk and the merge queue, with a line of voice over each.",
+  },
+  {
+    id: "v1d",
+    at: "10:03:10",
+    kind: "tool",
+    text: "Write .armada/documents/video-script.html",
+  },
 ];
 
 const SECOND: readonly SessionRow[] = [
-  { id: "v2", at: "10:09:00", kind: "message", from: { kind: "you" }, text: "Make the close shorter." },
-  { id: "v2a", at: "10:09:40", kind: "tool", text: "Write .armada/documents/video-script.html" },
+  {
+    id: "v2",
+    at: "10:09:00",
+    kind: "message",
+    from: {
+      kind: "you",
+    },
+    text: "Make the close shorter.",
+  },
+  {
+    id: "v2a",
+    at: "10:09:40",
+    kind: "tool",
+    text: "Write .armada/documents/video-script.html",
+  },
 ];
 
 function job(stage: 1 | 2): Session {
@@ -35,7 +86,15 @@ function job(stage: 1 | 2): Session {
     form: "document",
     id: VIDEO_SCRIPT_PATH,
     title: VIDEO_SCRIPT_TITLE,
-    revisions: stage === 1 ? [VIDEO_SCRIPT_R1] : [VIDEO_SCRIPT_R1, VIDEO_SCRIPT_R2],
+    revisions:
+      stage === 1
+        ? [
+            VIDEO_SCRIPT_R1,
+          ]
+        : [
+            VIDEO_SCRIPT_R1,
+            VIDEO_SCRIPT_R2,
+          ],
     asked: true,
     revision: String(stage),
     kept: ago(1),
@@ -43,13 +102,36 @@ function job(stage: 1 | 2): Session {
   return {
     id: ID,
     title: "Demo marketing video",
-    turn: { state: "idle" },
+    turn: {
+      state: "idle",
+    },
     standing: "idle",
     lastTurnAt: ago(1),
-    work: { landing: "document" },
-    rows: stage === 1 ? FIRST : [...FIRST, ...SECOND],
-    attachments: [page],
-    waitingFor: [{ id: ITEM, text: VIDEO_SCRIPT_TITLE, since: ago(1), source: "document", act: { kind: "message", target: ID } }],
+    work: {
+      landing: "document",
+    },
+    rows:
+      stage === 1
+        ? FIRST
+        : [
+            ...FIRST,
+            ...SECOND,
+          ],
+    attachments: [
+      page,
+    ],
+    waitingFor: [
+      {
+        id: ITEM,
+        text: VIDEO_SCRIPT_TITLE,
+        since: ago(1),
+        source: "document",
+        act: {
+          kind: "message",
+          target: ID,
+        },
+      },
+    ],
   };
 }
 
@@ -58,41 +140,116 @@ function handedOn(): Session {
   return {
     id: ID,
     title: "Demo marketing video",
-    turn: { state: "idle" },
+    turn: {
+      state: "idle",
+    },
     standing: "idle",
     lastTurnAt: ago(1),
-    work: { landing: "document" },
+    work: {
+      landing: "document",
+    },
     rows: [
-      { id: "h1", at: ago(3), kind: "tool", text: "Read .armada/documents/video-script.html" },
-      { id: "h2", at: ago(2), kind: "message", from: { kind: "agent" }, text: "The script stands as approved. The shot list is next." },
+      {
+        id: "h1",
+        at: ago(3),
+        kind: "tool",
+        text: "Read .armada/documents/video-script.html",
+      },
+      {
+        id: "h2",
+        at: ago(2),
+        kind: "message",
+        from: {
+          kind: "agent",
+        },
+        text: "The script stands as approved. The shot list is next.",
+      },
     ],
-    attachments: [{ kind: "artifact", form: "document", id: VIDEO_SCRIPT_PATH, title: VIDEO_SCRIPT_TITLE, revisions: [VIDEO_SCRIPT_R1, VIDEO_SCRIPT_R2], asked: true, revision: "2", kept: ago(180), settled: { how: "approved", at: ago(170) } }],
+    attachments: [
+      {
+        kind: "artifact",
+        form: "document",
+        id: VIDEO_SCRIPT_PATH,
+        title: VIDEO_SCRIPT_TITLE,
+        revisions: [
+          VIDEO_SCRIPT_R1,
+          VIDEO_SCRIPT_R2,
+        ],
+        asked: true,
+        revision: "2",
+        kept: ago(180),
+        settled: {
+          how: "approved",
+          at: ago(170),
+        },
+      },
+    ],
     waitingFor: [],
   };
 }
 
-export function videoScriptScenario(name: string, says: string, stage: 1 | 2 | "handed_on"): Scenario {
+export function videoScriptScenario(
+  name: string,
+  says: string,
+  stage: 1 | 2 | "handed_on",
+): Scenario {
   const base = holding(name, says);
   return {
     ...base,
-    state: { ...base.state, repository: repository().root },
+    state: {
+      ...base.state,
+      repository: repository().root,
+    },
     draft: {
       sessions: () => {
-        const store = sessionsStore([stage === "handed_on" ? handedOn() : job(stage)]);
+        const store = sessionsStore([
+          stage === "handed_on" ? handedOn() : job(stage),
+        ]);
         return {
           ...store,
           // Each revision is a file Fleet keeps, which the reading layer draws.
           readArtifact: async (id: string, path: string) => {
-            const html = path === VIDEO_SCRIPT_R1 ? VIDEO_SCRIPT_1 : path === VIDEO_SCRIPT_R2 ? VIDEO_SCRIPT_2 : undefined;
-            return html === undefined ? (store.readArtifact?.(id, path) ?? { ok: false as const, why: "unreadable" as const }) : { ok: true as const, bytes: new TextEncoder().encode(html), type: "text/html" };
+            const html =
+              path === VIDEO_SCRIPT_R1
+                ? VIDEO_SCRIPT_1
+                : path === VIDEO_SCRIPT_R2
+                  ? VIDEO_SCRIPT_2
+                  : undefined;
+            return html === undefined
+              ? (store.readArtifact?.(id, path) ?? {
+                  ok: false as const,
+                  why: "unreadable" as const,
+                })
+              : {
+                  ok: true as const,
+                  bytes: new TextEncoder().encode(html),
+                  type: "text/html",
+                };
           },
           // Fleet settles the revision he was shown on the page's artifact and takes the item off, as `answerSketch` does for a sketch.
           answerDocument: ({ session_id: id, document, revision, how, words }) => {
             const at = new Date().toISOString();
-            const settled = how === "sent_back" ? { how, words: words ?? "", at } : { how, at };
+            const settled =
+              how === "sent_back"
+                ? {
+                    how,
+                    words: words ?? "",
+                    at,
+                  }
+                : {
+                    how,
+                    at,
+                  };
             store.edit(id, (one) => ({
               ...one,
-              attachments: one.attachments.map((a) => (a.kind === "artifact" && `document:${a.id}` === document && a.revision === revision ? { ...a, settled } : a)),
+              attachments: one.attachments.map((a) =>
+                a.kind === "artifact" && `document:${a.id}` === document && a.revision === revision
+                  ? {
+                      ...a,
+                      settled,
+                    }
+                  : a,
+              ),
               waitingFor: (one.waitingFor ?? []).filter((item) => item.id !== document),
             }));
           },

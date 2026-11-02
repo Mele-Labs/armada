@@ -6,19 +6,35 @@ import { join } from "node:path";
 
 import type { Rect } from "./window-state";
 
-export type Size = { width: number; height: number };
+export type Size = {
+  width: number;
+  height: number;
+};
 
 /** What the window tells its holder: the size the person gave it, and that it closed. */
-export type TerminalWindowTold = { resized: (size: Size) => void; closed: () => void };
+export type TerminalWindowTold = {
+  resized: (size: Size) => void;
+  closed: () => void;
+};
 
 /** One Job's terminal window, as `TerminalWindows` drives it. */
-export type TerminalWindow = { focus: () => void; close: () => void };
+export type TerminalWindow = {
+  focus: () => void;
+  close: () => void;
+};
 
 /** Makes a Job's window at `bounds`: Electron's in the app, a fake in a test. */
-export type MakeTerminalWindow = (sessionId: string, bounds: Partial<Rect> & Size, told: TerminalWindowTold) => TerminalWindow;
+export type MakeTerminalWindow = (
+  sessionId: string,
+  bounds: Partial<Rect> & Size,
+  told: TerminalWindowTold,
+) => TerminalWindow;
 
 /** About a docked shell's width, and tall enough for a screen of output. */
-export const TERMINAL_WINDOW_SIZE: Size = { width: 900, height: 560 };
+export const TERMINAL_WINDOW_SIZE: Size = {
+  width: 900,
+  height: 560,
+};
 
 /** Each window open after the first sits this far down and right, so none hides another whole. */
 const CASCADE = 24;
@@ -67,7 +83,9 @@ export class TerminalWindows {
 
   /** The Jobs with a window open now. */
   sessionIds(): readonly string[] {
-    return [...this.open.keys()];
+    return [
+      ...this.open.keys(),
+    ];
   }
 
   /** Hears the Jobs with a window, whole, each time one opens or closes. Returns its remover. */
@@ -78,7 +96,10 @@ export class TerminalWindows {
 
   private boundsOf(): Partial<Rect> & Size {
     const over = this.over();
-    if (over === null) return { ...this.size };
+    if (over === null)
+      return {
+        ...this.size,
+      };
     const step = CASCADE * this.open.size;
     return {
       ...this.size,
@@ -107,15 +128,25 @@ export const makeTerminalWindow: MakeTerminalWindow = (sessionId, bounds, told) 
       nodeIntegration: false,
     },
   });
-  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.setWindowOpenHandler(() => ({
+    action: "deny",
+  }));
   window.webContents.on("will-navigate", (event) => event.preventDefault());
   window.on("ready-to-show", () => window.show());
   window.on("resize", () => {
     const [width, height] = window.getSize();
-    if (width !== undefined && height !== undefined) told.resized({ width, height });
+    if (width !== undefined && height !== undefined)
+      told.resized({
+        width,
+        height,
+      });
   });
   window.on("closed", told.closed);
-  void window.loadFile(join(__dirname, "../renderer/terminal-window.html"), { query: { session: sessionId } });
+  void window.loadFile(join(__dirname, "../renderer/terminal-window.html"), {
+    query: {
+      session: sessionId,
+    },
+  });
   return {
     focus: () => {
       if (window.isDestroyed()) return;

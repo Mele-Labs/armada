@@ -33,7 +33,9 @@ export function DriftSheet({ open, file, floor = false, onClose, ...reading }: D
       floor={floor}
       title="Drift"
       subtitle={
-        file === undefined || floor ? undefined : <span className="armada-drift-sheet__file">{file}</span>
+        file === undefined || floor ? undefined : (
+          <span className="armada-drift-sheet__file">{file}</span>
+        )
       }
       closeLabel="Close"
       closeBinding="Esc"

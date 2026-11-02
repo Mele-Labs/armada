@@ -14,7 +14,10 @@ import type { DebugReportRead } from "../shared/api/debug-report";
 import { ask } from "./request";
 import { labelOf, launchctl, type Run } from "./restart-fleet";
 
-const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
+const NOT_CONNECTED: Outcome = {
+  ok: false,
+  why: "not_connected",
+};
 
 /** How long `armada report` has. It reads a log file and asks Fleet once, so a longer wait is a hang. */
 export const REPORT_MS = 15_000;
@@ -33,16 +36,41 @@ export class DebugReportHost {
 
   async get(root: string | null): Promise<DebugReportRead> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: NOT_CONNECTED,
+      };
     const answer = await ask(port, "GET", debugReportPath(root));
-    return answer.ok === true ? { ok: true, value: answer.body as DebugReport } : { ok: false, outcome: answer.outcome };
+    return answer.ok === true
+      ? {
+          ok: true,
+          value: answer.body as DebugReport,
+        }
+      : {
+          ok: false,
+          outcome: answer.outcome,
+        };
   }
 }
 
 /** `execFile` as this file uses it, so a test hands in its own. */
-export type Exec = (file: string, args: string[], options: { cwd: string; timeout: number }) => Promise<{ stdout: string }>;
+export type Exec = (
+  file: string,
+  args: string[],
+  options: {
+    cwd: string;
+    timeout: number;
+  },
+) => Promise<{
+  stdout: string;
+}>;
 
-const exec: Exec = (file, args, options) => promisify(execFile)(file, args, { ...options, encoding: "utf8" });
+const exec: Exec = (file, args, options) =>
+  promisify(execFile)(file, args, {
+    ...options,
+    encoding: "utf8",
+  });
 
 const runnable = (path: string): Promise<boolean> =>
   access(path, constants.X_OK).then(
@@ -61,8 +89,12 @@ export async function locateArmada(
   uid: number = process.getuid?.() ?? 0,
   runs: (path: string) => Promise<boolean> = runnable,
 ): Promise<string | null> {
-  const held = await launchd(["print", `gui/${uid}/${labelOf(env)}`]);
-  const program = held.code === 0 ? /^\s*program = (.+)$/m.exec(held.stdout)?.[1]?.trim() : undefined;
+  const held = await launchd([
+    "print",
+    `gui/${uid}/${labelOf(env)}`,
+  ]);
+  const program =
+    held.code === 0 ? /^\s*program = (.+)$/m.exec(held.stdout)?.[1]?.trim() : undefined;
   if (program !== undefined && (await runs(program))) return program;
   return bundled !== null && (await runs(bundled)) ? bundled : null;
 }
@@ -71,15 +103,35 @@ export async function locateArmada(
  * What `armada report` prints, run in `cwd` with no shell. **Rejects with the sentence the sheet shows**: no binary, no answer
  * within `REPORT_MS`, a failed run, or nothing printed.
  */
-export async function armadaReport(program: string | null, cwd: string, run: Exec = exec): Promise<string> {
+export async function armadaReport(
+  program: string | null,
+  cwd: string,
+  run: Exec = exec,
+): Promise<string> {
   if (program === null) throw new Error("no armada binary was found");
   let stdout: string;
   try {
-    ({ stdout } = await run(program, ["report"], { cwd, timeout: REPORT_MS }));
+    ({ stdout } = await run(
+      program,
+      [
+        "report",
+      ],
+      {
+        cwd,
+        timeout: REPORT_MS,
+      },
+    ));
   } catch (cause) {
-    const failure = cause as { killed?: boolean; stderr?: string; message?: string };
-    if (failure.killed === true) throw new Error(`armada report did not finish in ${REPORT_MS / 1000} seconds`);
-    throw new Error(`armada report failed: ${failure.stderr?.trim().split("\n")[0] || failure.message || "it failed"}`);
+    const failure = cause as {
+      killed?: boolean;
+      stderr?: string;
+      message?: string;
+    };
+    if (failure.killed === true)
+      throw new Error(`armada report did not finish in ${REPORT_MS / 1000} seconds`);
+    throw new Error(
+      `armada report failed: ${failure.stderr?.trim().split("\n")[0] || failure.message || "it failed"}`,
+    );
   }
   const text = stdout.trimEnd();
   if (text === "") throw new Error("armada report printed nothing");

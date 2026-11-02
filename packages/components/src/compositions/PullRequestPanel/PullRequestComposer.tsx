@@ -27,14 +27,36 @@ export type PullRequestComposerProps = {
 };
 
 const KINDS = [
-  { id: "comment", label: "Comment" },
-  { id: "approve", label: "Approve" },
-  { id: "request_changes", label: "Request changes" },
+  {
+    id: "comment",
+    label: "Comment",
+  },
+  {
+    id: "approve",
+    label: "Approve",
+  },
+  {
+    id: "request_changes",
+    label: "Request changes",
+  },
 ];
 
-const UNDERWAY = { comment: "Commenting", approve: "Approving", request_changes: "Requesting changes" } as const;
+const UNDERWAY = {
+  comment: "Commenting",
+  approve: "Approving",
+  request_changes: "Requesting changes",
+} as const;
 
-export function PullRequestComposer({ kind, onKind, value, onChange, keep, pending = false, said, onSend }: PullRequestComposerProps) {
+export function PullRequestComposer({
+  kind,
+  onKind,
+  value,
+  onChange,
+  keep,
+  pending = false,
+  said,
+  onSend,
+}: PullRequestComposerProps) {
   const ready = mayWrite(kind, value);
   const label = KINDS.find((one) => one.id === kind)!.label;
   return (
@@ -66,7 +88,11 @@ export function PullRequestComposer({ kind, onKind, value, onChange, keep, pendi
         </p>
       )}
       <div className="armada-pr-composer__bar">
-        <Tabs items={KINDS} value={kind} onChange={(id) => onKind(id as WritePullRequest["kind"])} />
+        <Tabs
+          items={KINDS}
+          value={kind}
+          onChange={(id) => onKind(id as WritePullRequest["kind"])}
+        />
         <Button variant="primary" type="submit" pending={pending} disabled={!ready}>
           {pending ? UNDERWAY[kind] : label}
           <SendKbd available={ready && !pending} />

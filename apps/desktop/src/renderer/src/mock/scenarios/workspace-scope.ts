@@ -9,11 +9,23 @@ import { FakeSessionsFleet, hosted } from "../sessions-fleet";
 import { REPOSITORIES, workspacesAndAutonomy } from "./workspaces-and-autonomy";
 
 const now = () => new Date().toISOString();
-const working = { turn: { state: "working" as const }, mode: "auto" as const, running: true };
+const working = {
+  turn: {
+    state: "working" as const,
+  },
+  mode: "auto" as const,
+  running: true,
+};
 
 const job = (id: string, name: string, title: string) => {
   const repo = REPOSITORIES.find((one) => one.manifest?.repository === name)!;
-  return hosted(id, { manifest_id: repo.manifest!.id, cwd: repo.root, title, last_turn_at: now(), hosted: working });
+  return hosted(id, {
+    manifest_id: repo.manifest!.id,
+    cwd: repo.root,
+    title,
+    last_turn_at: now(),
+    hosted: working,
+  });
 };
 
 const records = () => [
@@ -29,7 +41,15 @@ let minted = 0;
 const studio = (name: string, repo: string): Studio => {
   const at = "2026-10-29T09:00:00Z";
   minted += 1;
-  return { id: `01SCOPESTUDIO${String(minted).padStart(13, "0")}`, manifest_id: REPOSITORIES.find((one) => one.manifest?.repository === repo)!.manifest!.id, name, created_at: at, touched_at: at, nodes: [], edges: [] };
+  return {
+    id: `01SCOPESTUDIO${String(minted).padStart(13, "0")}`,
+    manifest_id: REPOSITORIES.find((one) => one.manifest?.repository === repo)!.manifest!.id,
+    name,
+    created_at: at,
+    touched_at: at,
+    nodes: [],
+    edges: [],
+  };
 };
 
 const studios = keeping([
@@ -40,11 +60,23 @@ const studios = keeping([
   studio("Parser sketches", "scratch"),
 ]);
 
-const sessions = new FakeSessionsFleet(records(), {}).scenario({ ...workspacesAndAutonomy, state: { ...workspacesAndAutonomy.state, repository: null }, draft: { workspace: workspacesAndAutonomy.draft!.workspace } });
+const sessions = new FakeSessionsFleet(records(), {}).scenario({
+  ...workspacesAndAutonomy,
+  state: {
+    ...workspacesAndAutonomy.state,
+    repository: null,
+  },
+  draft: {
+    workspace: workspacesAndAutonomy.draft!.workspace,
+  },
+});
 
 export const workspaceScope: Scenario = {
   ...sessions,
   name: "workspace-scope",
   says: "Six repositories on All repositories; my-store holds store-web and store-api. Picking it narrows Cockpit and Studios to those two",
-  behaves: (fleet) => ({ ...sessions.behaves!(fleet), ...studios.routes(fleet as never) }),
+  behaves: (fleet) => ({
+    ...sessions.behaves!(fleet),
+    ...studios.routes(fleet as never),
+  }),
 };

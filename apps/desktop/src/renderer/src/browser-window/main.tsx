@@ -18,7 +18,10 @@ import { Themed } from "../theme";
 // `?session=` and `&tab=` and closes when the page moves back to its pane (`main/job-browsers.ts`). The page is main's view, placed over
 // the pane's frame here as it is over the tab's pane.
 
-const THEMES = createFleetThemes(withState(window.armada), CATALOGUE, { builtIn: BUILT_IN_SWATCHES, ofMod: modSwatch });
+const THEMES = createFleetThemes(withState(window.armada), CATALOGUE, {
+  builtIn: BUILT_IN_SWATCHES,
+  ofMod: modSwatch,
+});
 const SESSION = new URLSearchParams(window.location.search).get("session") ?? "";
 const TAB = new URLSearchParams(window.location.search).get("tab") ?? "";
 if (window.armada.jobBrowser !== undefined) wireJobBrowsers(window.armada.jobBrowser);
@@ -32,7 +35,11 @@ function Root() {
     <Boundary region="the Job browser's window" usable={false} bridge={bridge}>
       <HapticsProvider perform={window.armada.tap}>
         <Themed source={THEMES}>
-          <WiredSessions>{SESSION === "" || TAB === "" ? null : <JobBrowserWindow sessionId={SESSION} tabId={TAB} />}</WiredSessions>
+          <WiredSessions>
+            {SESSION === "" || TAB === "" ? null : (
+              <JobBrowserWindow sessionId={SESSION} tabId={TAB} />
+            )}
+          </WiredSessions>
         </Themed>
       </HapticsProvider>
     </Boundary>

@@ -8,13 +8,28 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const job = () => page.getByRole("region", { name: /^Job: / });
-const approve = () => page.getByRole("button", { name: "Approve", exact: true });
+const job = () =>
+  page.getByRole("region", {
+    name: /^Job: /,
+  });
+const approve = () =>
+  page.getByRole("button", {
+    name: "Approve",
+    exact: true,
+  });
 
 async function open(scenario: string, title: string) {
   mount(scenario);
   await onScreen();
-  await page.getByRole("region", { name: "Jobs", exact: true }).getByRole("button", { name: title }).click();
+  await page
+    .getByRole("region", {
+      name: "Jobs",
+      exact: true,
+    })
+    .getByRole("button", {
+      name: title,
+    })
+    .click();
   await expect.element(job()).toBeVisible();
 }
 

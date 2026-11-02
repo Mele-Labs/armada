@@ -8,5 +8,11 @@ export const s342TalkRefused: Scenario = {
   ...s341LivelierThread,
   name: "talk-refused",
   says: "Talk refused by macOS: the guide over the box names the microphone and opens its Settings pane",
-  draft: { ...s341LivelierThread.draft, threadLook: { ...s341LivelierThread.draft!.threadLook!, heard: "" } },
+  draft: {
+    ...s341LivelierThread.draft,
+    threadLook: {
+      ...s341LivelierThread.draft!.threadLook!,
+      heard: "",
+    },
+  },
 };

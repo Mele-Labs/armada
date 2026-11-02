@@ -10,16 +10,30 @@ import { inOrder } from "./replay";
 export type Act = "read" | "write";
 
 /** One burst of reads or writes: when it began, and the files it named, newest first, as the repository spells them. */
-export type Burst = { at: number; act: Act; paths: readonly string[] };
+export type Burst = {
+  at: number;
+  act: Act;
+  paths: readonly string[];
+};
 
 /** How a file's bar glows: from what was done to it last that still shows, and how much of that is left, 0 to 1. */
-export type Glow = { act: Act; v: number };
+export type Glow = {
+  act: Act;
+  v: number;
+};
 
 /** A stop of the route: its number from the first stop, the file the drone was at, and whether it read or wrote it. */
-export type Stop = { n: number; path: string; act: Act };
+export type Stop = {
+  n: number;
+  path: string;
+  act: Act;
+};
 
 /** How long a glow takes to fade, in milliseconds. */
-export const GLOW_MS: Readonly<Record<Act, number>> = { write: 10 * 60_000, read: 5 * 60_000 };
+export const GLOW_MS: Readonly<Record<Act, number>> = {
+  write: 10 * 60_000,
+  read: 5 * 60_000,
+};
 
 /** A glow is held to fortieths, so a clock that moves while nothing new happens redraws the Field only when a glow has visibly moved. */
 const STEPS = 40;
@@ -31,18 +45,38 @@ export const MOST_STOPS = 12;
  * The Job's bursts, oldest first, with each path made relative to the checkouts it may be spelled under. A path Fleet cut short is the
  * one file of `known` it can only be, else left out, since no bar has its name.
  */
-export function burstsOf(events: readonly TimelineEvent[], session: string, roots: readonly string[], known: readonly string[] = []): Burst[] {
+export function burstsOf(
+  events: readonly TimelineEvent[],
+  session: string,
+  roots: readonly string[],
+  known: readonly string[] = [],
+): Burst[] {
   const out: Burst[] = [];
   for (const event of inOrder(events)) {
     if (event.subject.kind !== "session" || event.subject.id !== session) continue;
     if (event.kind !== "session.read" && event.kind !== "session.edited") continue;
-    const named = event.items ?? (event.detail === undefined ? [] : [event.detail]);
+    const named =
+      event.items ??
+      (event.detail === undefined
+        ? []
+        : [
+            event.detail,
+          ]);
     const paths = named.flatMap((path) => {
       const inside = insideOf(path, roots);
       const one = inside === undefined ? undefined : uncut(inside, known);
-      return one === undefined || one === "" ? [] : [one];
+      return one === undefined || one === ""
+        ? []
+        : [
+            one,
+          ];
     });
-    if (paths.length > 0) out.push({ at: Date.parse(event.at), act: event.kind === "session.read" ? "read" : "write", paths });
+    if (paths.length > 0)
+      out.push({
+        at: Date.parse(event.at),
+        act: event.kind === "session.read" ? "read" : "write",
+        paths,
+      });
   }
   return out;
 }
@@ -56,7 +90,11 @@ export function glowAt(bursts: readonly Burst[], at: number): Map<string, Glow> 
     if (v <= 0) continue;
     for (const path of burst.paths) {
       const was = out.get(path);
-      if (was === undefined || was.v < v) out.set(path, { act: burst.act, v });
+      if (was === undefined || was.v < v)
+        out.set(path, {
+          act: burst.act,
+          v,
+        });
     }
   }
   return out;
@@ -70,17 +108,34 @@ export function routeAt(bursts: readonly Burst[], at: number, most: number = MOS
     const path = burst.paths[0]!;
     const last = stops.at(-1);
     if (last !== undefined && last.path === path && last.act === burst.act) continue;
-    stops.push({ n: stops.length + 1, path, act: burst.act });
+    stops.push({
+      n: stops.length + 1,
+      path,
+      act: burst.act,
+    });
   }
   return stops.slice(-most);
 }
 
 /** Where the Job's drone was at `at`: the newest file of its last burst before then, and what it was doing there. None before its first. */
-export function droneAt(bursts: readonly Burst[], at: number): { path: string; act: Act } | undefined {
+export function droneAt(
+  bursts: readonly Burst[],
+  at: number,
+):
+  | {
+      path: string;
+      act: Act;
+    }
+  | undefined {
   let last: Burst | undefined;
   for (const burst of bursts) {
     if (burst.at > at) break;
     last = burst;
   }
-  return last === undefined ? undefined : { path: last.paths[0]!, act: last.act };
+  return last === undefined
+    ? undefined
+    : {
+        path: last.paths[0]!,
+        act: last.act,
+      };
 }

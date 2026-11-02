@@ -11,12 +11,20 @@ export type Claimant = {
   drop?: (event: DragEvent) => boolean;
 };
 
-const ORDER = ["package", "pull", "issue", "link"] as const;
+const ORDER = [
+  "package",
+  "pull",
+  "issue",
+  "link",
+] as const;
 type ClaimantName = (typeof ORDER)[number];
 
 const claimants = new Map<ClaimantName, Claimant>();
 
-function handOut<E extends Event>(event: E, each: (one: Claimant) => ((event: E) => boolean) | undefined): void {
+function handOut<E extends Event>(
+  event: E,
+  each: (one: Claimant) => ((event: E) => boolean) | undefined,
+): void {
   // A field or a component that took it first keeps it.
   if (event.defaultPrevented) return;
   for (const name of ORDER) {
@@ -55,5 +63,7 @@ export function useClaim(name: ClaimantName, claimant: Claimant): void {
     return () => {
       claimants.delete(name);
     };
-  }, [name]);
+  }, [
+    name,
+  ]);
 }

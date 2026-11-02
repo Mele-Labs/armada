@@ -13,26 +13,54 @@ const note = (sessionId: string, said: string): SendSessionNote => ({
   session_id: sessionId,
   said,
   address: "http://localhost:5173/",
-  place: { selector: "main > button", element: { tag: "button", text: "Reload" }, location: "/" },
+  place: {
+    selector: "main > button",
+    element: {
+      tag: "button",
+      text: "Reload",
+    },
+    location: "/",
+  },
   state: {},
-  crop: { media_type: "image/png", data: "iVBORw0KGgo=" },
+  crop: {
+    media_type: "image/png",
+    data: "iVBORw0KGgo=",
+  },
 });
 
 const file = () => join(mkdtempSync(join(tmpdir(), "held-notes-")), "held-notes.json");
 
 let minted = 0;
 const store = (at: string | null, changed: (sessionId: string) => void = () => {}) =>
-  new HeldNotes(at, changed, () => `n${(minted += 1)}`, () => "2026-10-19T14:00:00.000Z");
+  new HeldNotes(
+    at,
+    changed,
+    () => `n${(minted += 1)}`,
+    () => "2026-10-19T14:00:00.000Z",
+  );
 
 it("holds each note on its Job with an id and a time, the crop with it, and none on another Job", () => {
   const held = store(null);
   const first = held.hold(note("a", "Too tight"));
   held.hold(note("a", "Wrong colour"));
   held.hold(note("b", "Elsewhere"));
-  expect(held.of("a").map((one) => one.note.said)).toEqual(["Too tight", "Wrong colour"]);
-  expect(held.of("a")[0]).toEqual({ id: first.id, at: "2026-10-19T14:00:00.000Z", note: { ...note("a", "Too tight"), session_id: undefined } });
+  expect(held.of("a").map((one) => one.note.said)).toEqual([
+    "Too tight",
+    "Wrong colour",
+  ]);
+  expect(held.of("a")[0]).toEqual({
+    id: first.id,
+    at: "2026-10-19T14:00:00.000Z",
+    note: {
+      ...note("a", "Too tight"),
+      session_id: undefined,
+    },
+  });
   expect(held.of("a")[0]!.note).not.toHaveProperty("session_id");
-  expect(held.of("a")[0]!.note.crop).toEqual({ media_type: "image/png", data: "iVBORw0KGgo=" });
+  expect(held.of("a")[0]!.note.crop).toEqual({
+    media_type: "image/png",
+    data: "iVBORw0KGgo=",
+  });
   expect(held.of("c")).toEqual([]);
 });
 
@@ -45,8 +73,19 @@ it("keeps them across a restart: a second store on the same file reads what the 
   expect(before.edit("a", one.id, "  Too tight on the left  ")).toBe(true);
   expect(before.remove("a", two.id)).toBe(true);
   const after = store(at);
-  expect(after.of("a")).toEqual([{ id: one.id, at: one.at, note: { ...one.note, said: "Too tight on the left" } }]);
-  expect(after.of("b").map((held) => held.note.said)).toEqual(["Elsewhere"]);
+  expect(after.of("a")).toEqual([
+    {
+      id: one.id,
+      at: one.at,
+      note: {
+        ...one.note,
+        said: "Too tight on the left",
+      },
+    },
+  ]);
+  expect(after.of("b").map((held) => held.note.said)).toEqual([
+    "Elsewhere",
+  ]);
 });
 
 it("drops only the notes it was told were sent, and a Job left with none leaves the file", () => {
@@ -54,10 +93,18 @@ it("drops only the notes it was told were sent, and a Job left with none leaves 
   const held = store(at);
   const one = held.hold(note("a", "Too tight"));
   const two = held.hold(note("a", "Wrong colour"));
-  held.drop("a", [one.id]);
-  expect(held.of("a").map((left) => left.id)).toEqual([two.id]);
-  held.drop("a", [two.id]);
-  expect(JSON.parse(readFileSync(at, "utf8"))).toEqual({ jobs: {} });
+  held.drop("a", [
+    one.id,
+  ]);
+  expect(held.of("a").map((left) => left.id)).toEqual([
+    two.id,
+  ]);
+  held.drop("a", [
+    two.id,
+  ]);
+  expect(JSON.parse(readFileSync(at, "utf8"))).toEqual({
+    jobs: {},
+  });
 });
 
 it("refuses an edit to nothing and an id it does not hold on that Job, and tells nobody", () => {
@@ -79,8 +126,27 @@ it("tells which Job changed on every hold, edit, remove and drop", () => {
   held.edit("a", one.id, "Looser");
   held.remove("a", one.id);
   held.hold(note("b", "Elsewhere"));
-  held.drop("b", held.of("b").map((left) => left.id));
-  expect(changed.mock.calls).toEqual([["a"], ["a"], ["a"], ["b"], ["b"]]);
+  held.drop(
+    "b",
+    held.of("b").map((left) => left.id),
+  );
+  expect(changed.mock.calls).toEqual([
+    [
+      "a",
+    ],
+    [
+      "a",
+    ],
+    [
+      "a",
+    ],
+    [
+      "b",
+    ],
+    [
+      "b",
+    ],
+  ]);
 });
 
 it("starts empty on a file that is missing or not its own, and holds from there", () => {
@@ -88,32 +154,130 @@ it("starts empty on a file that is missing or not its own, and holds from there"
   expect(store(at).of("a")).toEqual([]);
   writeFileSync(at, "{ not json");
   expect(store(at).of("a")).toEqual([]);
-  writeFileSync(at, JSON.stringify({ jobs: { a: [{ id: 1 }] } }));
+  writeFileSync(
+    at,
+    JSON.stringify({
+      jobs: {
+        a: [
+          {
+            id: 1,
+          },
+        ],
+      },
+    }),
+  );
   const held = store(at);
   expect(held.of("a")).toEqual([]);
   held.hold(note("a", "Too tight"));
-  expect(store(at).of("a").map((one) => one.note.said)).toEqual(["Too tight"]);
+  expect(
+    store(at)
+      .of("a")
+      .map((one) => one.note.said),
+  ).toEqual([
+    "Too tight",
+  ]);
 });
 
 it("holds a note saved on a Job's walk, and on a review's walk its Job holds, at the address the note names; sends the rest as before", () => {
-  const review = { walkId: "w1", manifestId: "armada", number: 12, title: "#12 Take a draft out", address: "https://pr-12.preview.invalid/app" };
-  expect(heldOn({ session: { id: "a", title: "Retry backoff cap" } }, "http://localhost:5173/table")).toEqual({ sessionId: "a", address: "http://localhost:5173/table" });
-  expect(heldOn({ review: { ...review, holder: { id: "d", title: "Take a draft out" } } }, "http://localhost:41311/")).toEqual({ sessionId: "d", address: "https://pr-12.preview.invalid/app" });
-  expect(heldOn({ review }, "http://localhost:41311/")).toBeNull();
-  expect(heldOn({ studio: { id: "s1", name: "Ledger" } }, "http://localhost:5173/")).toBeNull();
+  const review = {
+    walkId: "w1",
+    manifestId: "armada",
+    number: 12,
+    title: "#12 Take a draft out",
+    address: "https://pr-12.preview.invalid/app",
+  };
+  expect(
+    heldOn(
+      {
+        session: {
+          id: "a",
+          title: "Retry backoff cap",
+        },
+      },
+      "http://localhost:5173/table",
+    ),
+  ).toEqual({
+    sessionId: "a",
+    address: "http://localhost:5173/table",
+  });
+  expect(
+    heldOn(
+      {
+        review: {
+          ...review,
+          holder: {
+            id: "d",
+            title: "Take a draft out",
+          },
+        },
+      },
+      "http://localhost:41311/",
+    ),
+  ).toEqual({
+    sessionId: "d",
+    address: "https://pr-12.preview.invalid/app",
+  });
+  expect(
+    heldOn(
+      {
+        review,
+      },
+      "http://localhost:41311/",
+    ),
+  ).toBeNull();
+  expect(
+    heldOn(
+      {
+        studio: {
+          id: "s1",
+          name: "Ledger",
+        },
+      },
+      "http://localhost:5173/",
+    ),
+  ).toBeNull();
 });
 
 it("keeps the box a note's picture is ringed at beside it, across a restart, and none on a note with no picture", () => {
   const at = file();
-  const ring = { x: 508, y: 368, width: 1114, height: 400, scale: 2 };
+  const ring = {
+    x: 508,
+    y: 368,
+    width: 1114,
+    height: 400,
+    scale: 2,
+  };
   const before = store(at);
   const ringed = before.hold(note("a", "Too tight"), ring);
   const { crop: _none, ...bare } = note("a", "No picture");
   before.hold(bare, ring);
   expect(ringed.ring).toEqual(ring);
   expect(ringed.note).not.toHaveProperty("ring");
-  expect(store(at).of("a").map((one) => one.ring)).toEqual([ring, undefined]);
+  expect(
+    store(at)
+      .of("a")
+      .map((one) => one.ring),
+  ).toEqual([
+    ring,
+    undefined,
+  ]);
   // A ring that is not one is not read as a note.
-  writeFileSync(at, JSON.stringify({ jobs: { a: [{ id: "x", at: "t", note: note("a", "Bad"), ring: { x: "1" } }] } }));
+  writeFileSync(
+    at,
+    JSON.stringify({
+      jobs: {
+        a: [
+          {
+            id: "x",
+            at: "t",
+            note: note("a", "Bad"),
+            ring: {
+              x: "1",
+            },
+          },
+        ],
+      },
+    }),
+  );
   expect(store(at).of("a")).toEqual([]);
 });

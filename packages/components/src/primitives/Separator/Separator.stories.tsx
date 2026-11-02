@@ -14,7 +14,11 @@ const meta: Meta<typeof Separator> = {
   component: Separator,
   decorators: [
     (Story) => (
-      <div style={{ maxWidth: "56ch" }}>
+      <div
+        style={{
+          maxWidth: "56ch",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -37,13 +41,29 @@ export const Horizontal: Story = {
         fontSize: "var(--text-sm)",
       }}
     >
-      <span style={{ height: "var(--h-menu-item)", padding: "0 var(--space-3)", lineHeight: "var(--h-menu-item)" }}>
+      <span
+        style={{
+          height: "var(--h-menu-item)",
+          padding: "0 var(--space-3)",
+          lineHeight: "var(--h-menu-item)",
+        }}
+      >
         Open the worktree
       </span>
-      <span style={{ height: "var(--h-menu-item)", padding: "0 var(--space-3)", lineHeight: "var(--h-menu-item)" }}>
+      <span
+        style={{
+          height: "var(--h-menu-item)",
+          padding: "0 var(--space-3)",
+          lineHeight: "var(--h-menu-item)",
+        }}
+      >
         Send back to the Job Board
       </span>
-      <div style={{ margin: "var(--space-1) 0" }}>
+      <div
+        style={{
+          margin: "var(--space-1) 0",
+        }}
+      >
         <Separator />
       </div>
       <span
@@ -91,5 +111,7 @@ export const Vertical: Story = {
  * thing stating Bridge's surfaces end and Helm begins.
  */
 export const Announced: Story = {
-  args: { decorative: false },
+  args: {
+    decorative: false,
+  },
 };

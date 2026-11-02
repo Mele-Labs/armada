@@ -31,19 +31,34 @@ function bump(target: Element, name: string, by: 1 | -1): void {
 
 /** A `ref` that marks the ancestors `marks` name for as long as the element is mounted. Pass a constant list. */
 export function useMarking(marks: readonly Mark[]): (element: Element | null) => void {
-  const held = useRef<{ target: Element; name: string }[]>([]);
+  const held = useRef<
+    {
+      target: Element;
+      name: string;
+    }[]
+  >([]);
   return useCallback(
     (element: Element | null) => {
       for (const one of held.current) bump(one.target, one.name, -1);
       held.current = [];
       if (element === null) return;
       for (const mark of marks) {
-        const target = mark.parent === true ? (element.parentElement?.matches(mark.of) ? element.parentElement : null) : element.parentElement?.closest(mark.of);
+        const target =
+          mark.parent === true
+            ? element.parentElement?.matches(mark.of)
+              ? element.parentElement
+              : null
+            : element.parentElement?.closest(mark.of);
         if (target === null || target === undefined) continue;
         bump(target, mark.as, 1);
-        held.current.push({ target, name: mark.as });
+        held.current.push({
+          target,
+          name: mark.as,
+        });
       }
     },
-    [marks],
+    [
+      marks,
+    ],
   );
 }

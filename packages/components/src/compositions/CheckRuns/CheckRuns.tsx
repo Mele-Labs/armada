@@ -142,7 +142,11 @@ export type CheckRunsProps = {
 /** What a folded list says on its one row. */
 export type CheckRunsSummary = {
   /** What the list came to, as a badge. Absent where it has not settled. */
-  outcome?: { status: string; icon: LucideIcon; label: string };
+  outcome?: {
+    status: string;
+    icon: LucideIcon;
+    label: string;
+  };
   /** The counts, in one line. */
   reading: ReactNode;
 };

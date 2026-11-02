@@ -23,7 +23,9 @@ export function motionEmulated(): boolean {
 }
 
 /** Motion on for a story that asks for it, and the cleanup that puts reduced motion back. */
-export async function motionFor(parameters: { motion?: "on" }): Promise<(() => Promise<void>) | undefined> {
+export async function motionFor(parameters: {
+  motion?: "on";
+}): Promise<(() => Promise<void>) | undefined> {
   const switchTo = emulate;
   if (parameters.motion !== "on" || switchTo === null) return undefined;
   await switchTo(true);

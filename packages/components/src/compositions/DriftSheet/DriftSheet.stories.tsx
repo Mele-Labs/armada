@@ -14,7 +14,11 @@ import type { DriftPanelRow } from "../DriftPanel/DriftPanel";
 const meta: Meta<typeof DriftSheet> = {
   title: "Compositions/Drift sheet",
   component: DriftSheet,
-  args: { open: true, file: "armada.yml", onClose: fn() },
+  args: {
+    open: true,
+    file: "armada.yml",
+    onClose: fn(),
+  },
   decorators: [
     (Story) => (
       <div
@@ -34,8 +38,18 @@ export default meta;
 type Story = StoryObj<typeof DriftSheet>;
 
 const CURRENT: DriftPanelRow[] = [
-  { id: "checks.build.run", where: "checks.build.run", run: "cargo build --workspace --locked", verdict: "current" },
-  { id: "checks.typecheck.run", where: "checks.typecheck.run", run: "pnpm typecheck", verdict: "current" },
+  {
+    id: "checks.build.run",
+    where: "checks.build.run",
+    run: "cargo build --workspace --locked",
+    verdict: "current",
+  },
+  {
+    id: "checks.typecheck.run",
+    where: "checks.typecheck.run",
+    run: "pnpm typecheck",
+    verdict: "current",
+  },
 ];
 
 const GONE: DriftPanelRow = {
@@ -43,7 +57,9 @@ const GONE: DriftPanelRow = {
   where: "checks.bridge_test.run",
   run: "pnpm run bridge-test",
   verdict: "gone",
-  missing: ["package.json: scripts.bridge-test"],
+  missing: [
+    "package.json: scripts.bridge-test",
+  ],
 };
 
 /**
@@ -53,7 +69,13 @@ const GONE: DriftPanelRow = {
  */
 export const ALineThatIsGone: Story = {
   name: "A line that is gone",
-  args: { rows: [CURRENT[0]!, GONE, CURRENT[1]!] },
+  args: {
+    rows: [
+      CURRENT[0]!,
+      GONE,
+      CURRENT[1]!,
+    ],
+  },
   /**
    * **The rows came with the reading.** Nothing about a sheet drawn open says
    * whether the props reached the panel inside it — a wrapper that stopped
@@ -71,7 +93,9 @@ export const ALineThatIsGone: Story = {
 /** Everything still current — the answer this reading usually gives. */
 export const EveryLineCurrent: Story = {
   name: "Every line current",
-  args: { rows: CURRENT },
+  args: {
+    rows: CURRENT,
+  },
 };
 
 /** Before the read has answered. Free, so it is already underway on opening — and **nothing stands in** for it. */
@@ -84,5 +108,11 @@ export const Reading: Story = {
 
 /** At `--window-floor`: flush to both edges, no file in the subtitle, icon close. */
 export const AtTheFloor: Story = {
-  args: { rows: [GONE, ...CURRENT], floor: true },
+  args: {
+    rows: [
+      GONE,
+      ...CURRENT,
+    ],
+    floor: true,
+  },
 };

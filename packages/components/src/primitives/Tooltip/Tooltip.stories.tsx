@@ -1,14 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, waitFor } from "storybook/test";
 import { ACTION } from "../../actions";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableRow,
-} from "../Table/Table";
+import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "../Table/Table";
 import { Tooltip } from "./Tooltip";
 
 /**
@@ -83,10 +76,14 @@ const longPath = "crates/api/src/session/refresh_coalescing.rs";
  * flips against is the viewport's and not the frame's: the frame places the
  * trigger, and the flip is only seen where the viewport's edge is the frame's.
  */
-function Frame({ edge, children }: { edge: "left" | "right" | "bottom"; children: React.ReactNode }) {
-  return (
-    <div className={`armada-tooltip-frame armada-tooltip-frame--${edge}`}>{children}</div>
-  );
+function Frame({
+  edge,
+  children,
+}: {
+  edge: "left" | "right" | "bottom";
+  children: React.ReactNode;
+}) {
+  return <div className={`armada-tooltip-frame armada-tooltip-frame--${edge}`}>{children}</div>;
 }
 
 /**
@@ -136,19 +133,34 @@ export const WithNoRoomBelow: Story = {
  */
 export const InTheTopLayer: Story = {
   render: () => (
-    <div style={{ paddingBlock: "var(--space-8)", paddingInline: "var(--space-8)" }}>
+    <div
+      style={{
+        paddingBlock: "var(--space-8)",
+        paddingInline: "var(--space-8)",
+      }}
+    >
       <Tooltip defaultOpen label={longPath} asChild>
-        <button type="button" aria-label="Narrow trigger" style={{ inlineSize: "var(--space-6)" }}>
+        <button
+          type="button"
+          aria-label="Narrow trigger"
+          style={{
+            inlineSize: "var(--space-6)",
+          }}
+        >
           i
         </button>
       </Tooltip>
     </div>
   ),
   play: async ({ canvas }) => {
-    const trigger = canvas.getByRole("button", { name: "Narrow trigger" });
+    const trigger = canvas.getByRole("button", {
+      name: "Narrow trigger",
+    });
     const bubble = trigger.querySelector<HTMLElement>(".armada-tooltip__bubble")!;
     await expect(bubble.matches(":popover-open")).toBe(true);
-    await expect(bubble.getBoundingClientRect().width).toBeGreaterThan(trigger.getBoundingClientRect().width * 3);
+    await expect(bubble.getBoundingClientRect().width).toBeGreaterThan(
+      trigger.getBoundingClientRect().width * 3,
+    );
   },
 };
 
@@ -216,7 +228,9 @@ export const ReachedByKeyboardAndAnnounced: Story = {
     </div>
   ),
   play: async ({ canvas, userEvent }) => {
-    const approve = canvas.getByRole("button", { name: "Approve" });
+    const approve = canvas.getByRole("button", {
+      name: "Approve",
+    });
     // The description is on the button, not on a wrapper around it: on an
     // ancestor it is announced by nothing.
     await expect(approve).toHaveAccessibleDescription(/Approve dispatch/);
@@ -228,9 +242,7 @@ export const ReachedByKeyboardAndAnnounced: Story = {
     // The value is not a control and still has to be reachable, so the wrapper
     // takes the stop. One stop per tooltip either way.
     await userEvent.tab();
-    await waitFor(() =>
-      expect(canvas.getByText("Click to copy the worktree name")).toBeVisible(),
-    );
+    await waitFor(() => expect(canvas.getByText("Click to copy the worktree name")).toBeVisible());
   },
 };
 
@@ -264,7 +276,9 @@ export const OnATableCell: Story = {
     </Table>
   ),
   play: async ({ canvas, userEvent }) => {
-    const header = canvas.getByRole("columnheader", { name: /#/ });
+    const header = canvas.getByRole("columnheader", {
+      name: /#/,
+    });
     // Still a cell of the table. A wrapper here would have put a span inside
     // the row and taken the column out of the grid.
     await expect(header.tagName).toBe("TH");

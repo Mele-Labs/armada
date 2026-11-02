@@ -21,19 +21,32 @@ body { margin: 0; padding: var(--space-8) var(--space-6); }
 `;
 
 /** The custom properties a stylesheet reads, by name. */
-export const variablesIn = (css: string): string[] => [...new Set([...css.matchAll(/var\(\s*(--[\w-]+)/g)].map((one) => one[1]!))];
+export const variablesIn = (css: string): string[] => [
+  ...new Set(
+    [
+      ...css.matchAll(/var\(\s*(--[\w-]+)/g),
+    ].map((one) => one[1]!),
+  ),
+];
 
 /**
  * The page as one self-contained HTML file. `drawn` is each sketch's markup by its place in the page: one that gave none (a scene that does not
  * draw) is left as its caption. `values` is each custom property's value in the theme in force, which `valuesOf` reads.
  */
-export function savedPage(page: Page, drawn: readonly (string | undefined)[], values: Readonly<Record<string, string>>): string {
+export function savedPage(
+  page: Page,
+  drawn: readonly (string | undefined)[],
+  values: Readonly<Record<string, string>>,
+): string {
   const body = document.createElement("div");
   body.className = PAGE_ROOT;
   for (const one of Array.from(page.root.childNodes)) body.appendChild(one.cloneNode(true));
-  for (const figure of Array.from(body.querySelectorAll<HTMLElement>("figure.armada-doc__sketch"))) {
+  for (const figure of Array.from(
+    body.querySelectorAll<HTMLElement>("figure.armada-doc__sketch"),
+  )) {
     const svg = drawn[Number(figure.dataset.sketch)];
-    if (svg !== undefined) figure.querySelector(".armada-doc__sketch-mount")?.insertAdjacentHTML("beforeend", svg);
+    if (svg !== undefined)
+      figure.querySelector(".armada-doc__sketch-mount")?.insertAdjacentHTML("beforeend", svg);
   }
   const title = page.title.replace(/&/g, "&amp;").replace(/</g, "&lt;");
   return [
@@ -57,5 +70,10 @@ export function savedPage(page: Page, drawn: readonly (string | undefined)[], va
 /** The value of each custom property the file's rules read, as the element has it now. Those the sketches carry for themselves are not needed. */
 export function valuesOf(page: Page, from: Element): Record<string, string> {
   const style = getComputedStyle(from);
-  return Object.fromEntries(variablesIn(`${FILE_CSS}${page.css}`).map((name) => [name, style.getPropertyValue(name).trim()]));
+  return Object.fromEntries(
+    variablesIn(`${FILE_CSS}${page.css}`).map((name) => [
+      name,
+      style.getPropertyValue(name).trim(),
+    ]),
+  );
 }

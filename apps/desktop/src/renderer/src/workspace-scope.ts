@@ -10,7 +10,14 @@ export const workspaceScope = (): readonly RepositorySummary[] | null => scope;
 
 /** `null` is no Workspace. A list with the same repositories as the one held is not a change. */
 export function scopeToWorkspace(members: readonly RepositorySummary[] | null): void {
-  if (members === null ? scope === null : scope !== null && scope.length === members.length && scope.every((one, at) => one.root === members[at]!.root)) return;
+  if (
+    members === null
+      ? scope === null
+      : scope !== null &&
+        scope.length === members.length &&
+        scope.every((one, at) => one.root === members[at]!.root)
+  )
+    return;
   scope = members;
   listeners.forEach((listener) => listener());
 }

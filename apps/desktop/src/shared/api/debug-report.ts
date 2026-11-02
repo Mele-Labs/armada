@@ -4,10 +4,26 @@
 import type { DebugReport, Outcome } from "@armada/protocol";
 
 /** What asking Fleet for the report came to: its text, or the refusal to word. */
-export type DebugReportRead = { ok: true; value: DebugReport } | { ok: false; outcome: Outcome };
+export type DebugReportRead =
+  | {
+      ok: true;
+      value: DebugReport;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** What running `armada report` came to: what it printed, or one sentence on why it printed none. */
-export type ArmadaReportRun = { ok: true; text: string } | { ok: false; why: string };
+export type ArmadaReportRun =
+  | {
+      ok: true;
+      text: string;
+    }
+  | {
+      ok: false;
+      why: string;
+    };
 
 export type DebugReportApi = {
   /** `GET /debug_report`, with `root` the repository selected in the window, or `null` for All repositories. */

@@ -9,17 +9,65 @@ import { layoutBetween, sameGeometry, useGlide } from "./glide";
 import { bigOf, layoutOf, type Layout, type RepoIn } from "./layout";
 import { motion } from "../../mock/testing";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
-const SIZE = { width: 1000, height: 700 };
+const SIZE = {
+  width: 1000,
+  height: 700,
+};
 const BIG = bigOf(SIZE);
-const repo = (root: string): RepoIn => ({ root, name: root, pads: ["slot-1"], goal: true, areas: [{ dir: "crates", kids: [["fleet", 40], ["store", 20]] }] });
+const repo = (root: string): RepoIn => ({
+  root,
+  name: root,
+  pads: [
+    "slot-1",
+  ],
+  goal: true,
+  areas: [
+    {
+      dir: "crates",
+      kids: [
+        [
+          "fleet",
+          40,
+        ],
+        [
+          "store",
+          20,
+        ],
+      ],
+    },
+  ],
+});
 /** One repository across the whole field, then a second beside it, which moves the first. */
-const ONE = layoutOf([repo("/a")], [], SIZE, BIG);
-const TWO = layoutOf([repo("/a"), repo("/b")], [], SIZE, BIG);
-const rectOf = (layout: Layout, root: string) => layout.territories.find((one) => one.root === root)!.rect;
+const ONE = layoutOf(
+  [
+    repo("/a"),
+  ],
+  [],
+  SIZE,
+  BIG,
+);
+const TWO = layoutOf(
+  [
+    repo("/a"),
+    repo("/b"),
+  ],
+  [],
+  SIZE,
+  BIG,
+);
+const rectOf = (layout: Layout, root: string) =>
+  layout.territories.find((one) => one.root === root)!.rect;
 
-const mounted: { root: Root; host: HTMLElement }[] = [];
+const mounted: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 afterEach(() => {
   for (const { root, host } of mounted.splice(0)) {
     act(() => root.unmount());
@@ -32,15 +80,25 @@ function glide(first: Layout) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  mounted.push({ root, host });
-  const drawn: { last: Layout } = { last: first };
+  mounted.push({
+    root,
+    host,
+  });
+  const drawn: {
+    last: Layout;
+  } = {
+    last: first,
+  };
   function Probe({ target }: { target: Layout }) {
     drawn.last = useGlide(target, "1000x700", true);
     return null;
   }
   const show = (target: Layout) => act(() => root.render(<Probe target={target} />));
   show(first);
-  return { drawn, show };
+  return {
+    drawn,
+    show,
+  };
 }
 
 test("a territory is drawn between its old and new rects on the way", () => {
@@ -71,7 +129,14 @@ test("a layout that moved is not drawn in its new place at once", async () => {
 
 test("a layout where nothing moved is drawn at once", async () => {
   await motion();
-  const again = layoutOf([repo("/a")], [], SIZE, BIG);
+  const again = layoutOf(
+    [
+      repo("/a"),
+    ],
+    [],
+    SIZE,
+    BIG,
+  );
   expect(again).not.toBe(ONE);
   expect(sameGeometry(ONE, again)).toBe(true);
   const { drawn, show } = glide(ONE);

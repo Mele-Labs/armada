@@ -41,14 +41,25 @@
  * appear on.
  */
 /** Every answer, for a process that checks one before sending it on. */
-export const HELM_CALL_ANSWERS = ["allow_once", "allow_and_remember", "refuse", "always_allow", "allow_for_session", "allow_like_this_for_session", "always_block"] as const;
+export const HELM_CALL_ANSWERS = [
+  "allow_once",
+  "allow_and_remember",
+  "refuse",
+  "always_allow",
+  "allow_for_session",
+  "allow_like_this_for_session",
+  "always_block",
+] as const;
 export type HelmCallAnswer = (typeof HELM_CALL_ANSWERS)[number];
 
 /** Whether a call past a session's slots reads what it names, writes to it, or runs something the guard cannot class as either. */
 export type ReachesTo = "read" | "write" | "run";
 
 /** The kind of a shell call: its program, and for an interpreter the script it runs. */
-export type CallKind = { program: string; script?: string };
+export type CallKind = {
+  program: string;
+  script?: string;
+};
 
 /**
  * One call a helm session is waiting on a person to answer, right now. Since
@@ -104,7 +115,10 @@ export type AskedChoice = {
 };
 
 /** What a person chose for one question: option labels, and their own words where they chose Other. Since protocol 23.71. */
-export type QuestionAnswer = { question: string; chosen: string[] };
+export type QuestionAnswer = {
+  question: string;
+  chosen: string[];
+};
 
 /** The request half of `answer_helm_call`. Since protocol 14.18. */
 export type AnswerHelmCall = {
@@ -172,4 +186,8 @@ export const HANDOFF_QUIET = "Stay, don't ask again this Job";
 export const HANDOFF_REMIND = "Remind me at a higher limit";
 /** The question Fleet puts on the card after `HANDOFF_REMIND` (`ipc::HANDOFF_REMIND_QUESTION`), and its figures in tokens, labelled `450k`. */
 export const HANDOFF_REMIND_QUESTION = "Ask again at";
-export const HANDOFF_REMIND_AT = [450_000, 500_000, 600_000] as const;
+export const HANDOFF_REMIND_AT = [
+  450_000,
+  500_000,
+  600_000,
+] as const;

@@ -4,12 +4,20 @@
 import { inside, region, role, text, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const sessions = region("Jobs", { exact: true });
+const sessions = region("Jobs", {
+  exact: true,
+});
 
 const sessionLists = walk("session-loadout", [
   toSessions,
-  { press: inside(sessions, role("button", /Why did the mechanic skip/)), say: "The Job" },
-  { look: text("Two things let the push through:"), say: "The reply's numbered list and its bullets, in from the column's edge" },
+  {
+    press: inside(sessions, role("button", /Why did the mechanic skip/)),
+    say: "The Job",
+  },
+  {
+    look: text("Two things let the push through:"),
+    say: "The reply's numbered list and its bullets, in from the column's edge",
+  },
 ]);
 
 export { sessionLists as "session-lists" };
