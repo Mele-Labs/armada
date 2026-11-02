@@ -40,12 +40,6 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
-    // Sleep mode after any change, whole.
-    Route {
-        operation: "sleep.changed",
-        method: "GET",
-        path: "/events",
-    },
     // The plan's windows after a session read them moving, whole.
     Route {
         operation: "plan_usage.changed",
@@ -85,6 +79,12 @@ pub(super) const ROUTES: &[Route] = &[
     // A repository's Autopilot after any change to it, whole. #2092.
     Route {
         operation: "autopilot.changed",
+        method: "GET",
+        path: "/events",
+    },
+    // The answers Autopilot gave and the person has not reviewed, whole.
+    Route {
+        operation: "autopilot.decisions_changed",
         method: "GET",
         path: "/events",
     },

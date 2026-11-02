@@ -7,13 +7,24 @@ import type { Notice } from "./downshift-notice";
 import { AgentSignInNotice } from "./agent-sign-in-notice";
 import { soundOf } from "./telling";
 
-const out = (since: string, signing_in = false): AgentSignIn => ({ signed_out_since: since, signing_in });
+const out = (since: string, signing_in = false): AgentSignIn => ({
+  signed_out_since: since,
+  signing_in,
+});
 const SPELL = "2026-10-25T09:00:00Z";
 const IN: AgentSignIn = {};
 
-function watching(): { notice: AgentSignInNotice; shown: Notice[] } {
+function watching(): {
+  notice: AgentSignInNotice;
+  shown: Notice[];
+} {
   const shown: Notice[] = [];
-  return { notice: new AgentSignInNotice({ show: (one) => shown.push(one) }), shown };
+  return {
+    notice: new AgentSignInNotice({
+      show: (one) => shown.push(one),
+    }),
+    shown,
+  };
 }
 
 describe("the signed-out notification", () => {
@@ -21,7 +32,13 @@ describe("the signed-out notification", () => {
     const { notice, shown } = watching();
     notice.read(IN);
     notice.read(out(SPELL));
-    expect(shown).toEqual([{ title: "Claude is signed out", body: "", sound: soundOf("blocked") }]);
+    expect(shown).toEqual([
+      {
+        title: "Claude is signed out",
+        body: "",
+        sound: soundOf("blocked"),
+      },
+    ]);
   });
 
   it("is not told again for the same spell: the press, a failed attempt, or a repeated event", () => {

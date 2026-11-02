@@ -86,7 +86,9 @@ export const OverviewNoJobs: Story = {
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.getByText("No jobs.")).toBeVisible();
     await expect(canvas.getByText("Propose one.")).toBeVisible();
-    const dispatch = canvas.getByRole("button", { name: "Dispatch" });
+    const dispatch = canvas.getByRole("button", {
+      name: "Dispatch",
+    });
     await expect(dispatch).toHaveTextContent("⌘N");
     compose.mockClear();
     await userEvent.click(dispatch);

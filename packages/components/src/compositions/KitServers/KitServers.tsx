@@ -39,7 +39,10 @@ export const KIT_HERE_LABEL: Record<"kit" | "extended" | "restricted", string> =
 };
 
 /** The add row: a name, a kind and an address. Adding turns nothing on. */
-export function KitServerAddForm({ onAdd, keep }: {
+export function KitServerAddForm({
+  onAdd,
+  keep,
+}: {
   onAdd?: ((adding: { name: string; kind: KitServerKind; address: string }) => void) | undefined;
   /** What the fields are kept under, so a half-typed server survives leaving the panel. Absent keeps nothing. */
   keep?: string;
@@ -47,12 +50,19 @@ export function KitServerAddForm({ onAdd, keep }: {
   const group = useId();
   const [name, setName, clearName] = useKept(keep === undefined ? undefined : `${keep}:name`, "");
   const [kind, setKind] = useState<KitServerKind>("stdio");
-  const [address, setAddress, clearAddress] = useKept(keep === undefined ? undefined : `${keep}:address`, "");
+  const [address, setAddress, clearAddress] = useKept(
+    keep === undefined ? undefined : `${keep}:address`,
+    "",
+  );
 
   function add(event: FormEvent): void {
     event.preventDefault();
     if (name.trim() === "" || address.trim() === "") return;
-    onAdd?.({ name: name.trim(), kind, address: address.trim() });
+    onAdd?.({
+      name: name.trim(),
+      kind,
+      address: address.trim(),
+    });
     clearName();
     clearAddress();
   }

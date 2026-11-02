@@ -9,16 +9,32 @@ import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
 import { FakeSessionsFleet, held, hosted, terminal } from "../sessions-fleet";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 
 const sessions = () => [
-  hosted("01SESSIONAAAAAAAAAAAAAAAAA", { title: "Fix the flaky store test", attachments: [held("slot", "3"), held("branch", "fix/flaky-store")] }),
-  terminal("01TERMINALBBBBBBBBBBBBBBBB", { title: "Release notes script" }),
+  hosted("01SESSIONAAAAAAAAAAAAAAAAA", {
+    title: "Fix the flaky store test",
+    attachments: [
+      held("slot", "3"),
+      held("branch", "fix/flaky-store"),
+    ],
+  }),
+  terminal("01TERMINALBBBBBBBBBBBBBBBB", {
+    title: "Release notes script",
+  }),
 ];
 
 function build(): Scenario {
   const board = onBoard({
-    repositories: [ARMADA],
+    repositories: [
+      ARMADA,
+    ],
     picked: ARMADA.root,
   });
   const served = new FakeSessionsFleet(sessions()).scenario(board);
@@ -38,13 +54,32 @@ function build(): Scenario {
         startSession: async (title) => {
           if (!refused) {
             refused = true;
-            return { ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.refused", message: "", run_id: "", fields: {}, chain: [] } } };
+            return {
+              ok: false,
+              outcome: {
+                ok: false,
+                why: "refused",
+                error: {
+                  code: "fleet.refused",
+                  message: "",
+                  run_id: "",
+                  fields: {},
+                  chain: [],
+                },
+              },
+            };
           }
           const started = await own.startSession!(title);
-          if (started.ok && title !== undefined) await own.renameSession!({ session_id: started.value.id, title });
+          if (started.ok && title !== undefined)
+            await own.renameSession!({
+              session_id: started.value.id,
+              title,
+            });
           return started;
         },
-        stageAttachment: async (_bytes, filename) => ({ path: `/tmp/${filename}` }),
+        stageAttachment: async (_bytes, filename) => ({
+          path: `/tmp/${filename}`,
+        }),
         sendSessionMessage: async (send) => {
           await own.watchSession!(send.session_id);
           return own.sendSessionMessage!(send);
@@ -53,8 +88,20 @@ function build(): Scenario {
         sendSessionNotes: async (send) => {
           await own.watchSession!(send.session_id);
           const said = send.notes.map(({ note }) => note.said);
-          const sent = await own.sendSessionMessage!({ session_id: send.session_id, text: said.length === 1 ? said[0]! : said.map((one, at) => `${at + 1}. ${one}`).join("\n") });
-          return sent.ok ? { ok: true, value: { session: sent.value, candidates: said.map(() => []) } } : sent;
+          const sent = await own.sendSessionMessage!({
+            session_id: send.session_id,
+            text:
+              said.length === 1 ? said[0]! : said.map((one, at) => `${at + 1}. ${one}`).join("\n"),
+          });
+          return sent.ok
+            ? {
+                ok: true,
+                value: {
+                  session: sent.value,
+                  candidates: said.map(() => []),
+                },
+              }
+            : sent;
         },
       };
     },

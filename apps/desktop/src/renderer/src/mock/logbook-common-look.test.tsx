@@ -10,19 +10,30 @@ import { mount, onScreen, toPlace, toSystemPage, unmountAfterEach } from "./test
 unmountAfterEach();
 
 const FOOT = 12;
-const SLICES = { slices: ["core", "lessons"] } as const;
+const SLICES = {
+  slices: [
+    "core",
+    "lessons",
+  ],
+} as const;
 
 const px = (n: number) => Math.round(n);
 /** The window the app is drawn in, which the stylesheet sizes. */
 const windowRect = () => document.getElementById("root")!.getBoundingClientRect();
 
 /** The panels of the open page: the list and the open item or entry beside it. */
-function panels(): { list: DOMRect; detail: DOMRect } {
+function panels(): {
+  list: DOMRect;
+  detail: DOMRect;
+} {
   const list = document.querySelector(".armada-logbook__log");
   const detail = document.querySelector(".armada-logbook__detail");
   expect(list, "the list's panel").not.toBeNull();
   expect(detail, "the open one's panel").not.toBeNull();
-  return { list: list!.getBoundingClientRect(), detail: detail!.getBoundingClientRect() };
+  return {
+    list: list!.getBoundingClientRect(),
+    detail: detail!.getBoundingClientRect(),
+  };
 }
 
 function sharedEdges() {
@@ -37,8 +48,20 @@ test("the Logbook's list and entry share one top and one bottom, 12px from the w
   mount("logbook");
   await onScreen();
   await toPlace("Logbook");
-  await expect.element(page.getByRole("grid", { name: "Entries" })).toBeVisible();
-  await expect.element(page.getByRole("region", { name: "Entry" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("grid", {
+        name: "Entries",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Entry",
+      }),
+    )
+    .toBeVisible();
   sharedEdges();
 });
 
@@ -46,8 +69,20 @@ test("Retros' list and item share one top and one bottom, 12px from the window's
   mount("retro/lessons", SLICES);
   await onScreen();
   await toSystemPage("Retros");
-  await expect.element(page.getByRole("grid", { name: "Retros" })).toBeVisible();
-  await expect.element(page.getByRole("region", { name: "Retro item" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("grid", {
+        name: "Retros",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Retro item",
+      }),
+    )
+    .toBeVisible();
   sharedEdges();
 });
 
@@ -55,8 +90,20 @@ test("the key caps on an entry's acts are not drawn until ⌘ is held", async ()
   mount("logbook");
   await onScreen();
   await toPlace("Logbook");
-  await expect.element(page.getByRole("region", { name: "Entry" }).getByRole("button", { name: /^Edit/ })).toBeVisible();
-  const caps = () => [...document.querySelectorAll<HTMLElement>(".armada-logbook__detail .armada-kbd")];
+  await expect
+    .element(
+      page
+        .getByRole("region", {
+          name: "Entry",
+        })
+        .getByRole("button", {
+          name: /^Edit/,
+        }),
+    )
+    .toBeVisible();
+  const caps = () => [
+    ...document.querySelectorAll<HTMLElement>(".armada-logbook__detail .armada-kbd"),
+  ];
   const drawn = (cap: HTMLElement) => getComputedStyle(cap).display !== "none";
   // Edit, Lock and Forget each hold one.
   expect(caps().length).toBeGreaterThanOrEqual(3);

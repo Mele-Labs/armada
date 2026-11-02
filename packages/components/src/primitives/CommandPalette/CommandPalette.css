@@ -463,7 +463,9 @@ button.armada-palette__chip {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: filter var(--duration-fast) var(--ease), opacity var(--duration-fast) var(--ease);
+  transition:
+    filter var(--duration-fast) var(--ease),
+    opacity var(--duration-fast) var(--ease);
 }
 
 /* While ⌘ is held, the kind blurs and the digit that opens the row sits over its right edge, as Raycast draws it. */

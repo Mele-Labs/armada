@@ -18,7 +18,11 @@ import type { FrameRead } from "@armada/protocol";
  * and not a global**, which is `ReadFrame`'s rule: the bytes come from the
  * process that can reach Fleet, and a story passes its own.
  */
-export type ReadStudioFrame = (studioId: string, nodeId: string, picture?: string) => Promise<FrameRead>;
+export type ReadStudioFrame = (
+  studioId: string,
+  nodeId: string,
+  picture?: string,
+) => Promise<FrameRead>;
 
 /**
  * What one frame is held under: the node's id, and on a Sketch the picture's
@@ -53,7 +57,9 @@ export function useStudioFrames(read: ReadStudioFrame, studioId: string): Studio
       for (const src of minted.current) URL.revokeObjectURL(src);
       minted.current = [];
     };
-  }, [studioId]);
+  }, [
+    studioId,
+  ]);
 
   // One key in, the node and the picture out — `frameKey`, the other way.
   const byKey = useCallback(
@@ -61,7 +67,9 @@ export function useStudioFrames(read: ReadStudioFrame, studioId: string): Studio
       const at = key.indexOf("/");
       return at < 0 ? read(scope, key) : read(scope, key.slice(0, at), key.slice(at + 1));
     },
-    [read],
+    [
+      read,
+    ],
   );
   const { of, fetch } = useHeldReads<FrameRead, StudioNodeFrame>({
     read: byKey,
@@ -70,17 +78,24 @@ export function useStudioFrames(read: ReadStudioFrame, studioId: string): Studio
     settle: (answer) => drawn(answer, minted),
     asking: READING,
     // A rejected invoke is main gone, which is the window closing.
-    failed: { why: NOT_ANSWERED },
+    failed: {
+      why: NOT_ANSWERED,
+    },
   });
 
   const want = useCallback(
     (nodeIds: readonly string[]) => {
       for (const nodeId of nodeIds) fetch(nodeId);
     },
-    [fetch],
+    [
+      fetch,
+    ],
   );
 
-  return { of, want };
+  return {
+    of,
+    want,
+  };
 }
 
 /**
@@ -88,15 +103,36 @@ export function useStudioFrames(read: ReadStudioFrame, studioId: string): Studio
  * recorded in the same breath**, so there is one place a `blob:` comes into
  * existence and one list to revoke.
  */
-function drawn(read: FrameRead, minted: { current: string[] }): StudioNodeFrame {
+function drawn(
+  read: FrameRead,
+  minted: {
+    current: string[];
+  },
+): StudioNodeFrame {
   if (!read.ok) {
     const refused = !read.outcome.ok && read.outcome.why === "refused";
-    return { why: refused ? NOT_ON_DISK : NOT_ANSWERED };
+    return {
+      why: refused ? NOT_ON_DISK : NOT_ANSWERED,
+    };
   }
-  if (!read.type.startsWith("image/")) return { why: CANNOT_DRAW };
-  const src = URL.createObjectURL(new Blob([read.bytes as BlobPart], { type: read.type }));
+  if (!read.type.startsWith("image/"))
+    return {
+      why: CANNOT_DRAW,
+    };
+  const src = URL.createObjectURL(
+    new Blob(
+      [
+        read.bytes as BlobPart,
+      ],
+      {
+        type: read.type,
+      },
+    ),
+  );
   minted.current.push(src);
-  return { src };
+  return {
+    src,
+  };
 }
 
 /** Asked for, nothing back yet. The node draws its box and says it is reading. */

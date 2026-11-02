@@ -1,16 +1,21 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { Bell, ClipboardList, FileCog, HardDrive, LayoutDashboard, Settings, Stethoscope, Trash2 } from "lucide-react";
+import {
+  Bell,
+  ClipboardList,
+  FileCog,
+  HardDrive,
+  LayoutDashboard,
+  Settings,
+  Stethoscope,
+  Trash2,
+} from "lucide-react";
 import { expect, fn, waitFor, within } from "storybook/test";
 
 import { actsIn, ALIASES, globalActs, type Action } from "../../actions";
 import { Dialog } from "../Dialog/Dialog";
 import { Sheet } from "../Sheet/Sheet";
-import {
-  CommandPalette,
-  type PaletteEntry,
-  type PaletteSection,
-} from "./CommandPalette";
+import { CommandPalette, type PaletteEntry, type PaletteSection } from "./CommandPalette";
 
 const meta: Meta<typeof CommandPalette> = {
   title: "Primitives/CommandPalette",
@@ -38,7 +43,10 @@ const DESTRUCTIVE: PaletteEntry = {
   label: "Delete",
   shortcut: "x",
   icon: Trash2,
-  aliases: ["remove", "terminate"],
+  aliases: [
+    "remove",
+    "terminate",
+  ],
   destructive: true,
 };
 
@@ -62,26 +70,73 @@ const DESTRUCTIVE: PaletteEntry = {
  * to the Manifest surface and the file.
  */
 const RAIL: PaletteEntry[] = [
-  { id: "nav-overview", section: "navigation", label: "Overview", shortcut: "⌘1", icon: LayoutDashboard },
-  { id: "nav-board", section: "navigation", label: "Job Board", shortcut: "⌘2", icon: ClipboardList },
-  { id: "nav-alerts", section: "navigation", label: "Alerts", shortcut: "⌘3", icon: Bell },
-  { id: "nav-doctor", section: "navigation", label: "Doctor", shortcut: "⌘4", icon: Stethoscope },
-  { id: "nav-manifest", section: "navigation", label: "Manifest", shortcut: "⌘5", icon: FileCog },
+  {
+    id: "nav-overview",
+    section: "navigation",
+    label: "Overview",
+    shortcut: "⌘1",
+    icon: LayoutDashboard,
+  },
+  {
+    id: "nav-board",
+    section: "navigation",
+    label: "Job Board",
+    shortcut: "⌘2",
+    icon: ClipboardList,
+  },
+  {
+    id: "nav-alerts",
+    section: "navigation",
+    label: "Alerts",
+    shortcut: "⌘3",
+    icon: Bell,
+  },
+  {
+    id: "nav-doctor",
+    section: "navigation",
+    label: "Doctor",
+    shortcut: "⌘4",
+    icon: Stethoscope,
+  },
+  {
+    id: "nav-manifest",
+    section: "navigation",
+    label: "Manifest",
+    shortcut: "⌘5",
+    icon: FileCog,
+  },
   {
     id: "nav-worktrees",
     section: "navigation",
     label: "Worktree Slots",
     shortcut: "⌘6",
-    aliases: ["cleanup", "held worktrees", "disk", "held disk"],
+    aliases: [
+      "cleanup",
+      "held worktrees",
+      "disk",
+      "held disk",
+    ],
     icon: HardDrive,
   },
 ];
 
 /** Sessions carry no key. Opening a specific session is a search result, not an act. */
 const SESSIONS: PaletteEntry[] = [
-  { id: "s-2d90bb", section: "sessions", label: "s-2d90bb — coalesce the session refresh" },
-  { id: "s-8f2a1c", section: "sessions", label: "s-8f2a1c — split the settings reducer" },
-  { id: "s-41c07e", section: "sessions", label: "s-41c07e — drop the stale socket on reconnect" },
+  {
+    id: "s-2d90bb",
+    section: "sessions",
+    label: "s-2d90bb — coalesce the session refresh",
+  },
+  {
+    id: "s-8f2a1c",
+    section: "sessions",
+    label: "s-8f2a1c — split the settings reducer",
+  },
+  {
+    id: "s-41c07e",
+    section: "sessions",
+    label: "s-41c07e — drop the stale socket on reconnect",
+  },
 ];
 
 /**
@@ -90,11 +145,40 @@ const SESSIONS: PaletteEntry[] = [
  * than stating a field, so the row carries a label and nothing to its right.
  */
 const SETTINGS: PaletteEntry[] = [
-  { id: "set-fleet", section: "settings", label: "Fleet settings", icon: Settings },
-  { id: "set-model", section: "settings", label: "Default model", value: "sonnet", icon: Settings },
-  { id: "set-headroom", section: "settings", label: "Concurrent drones", value: "4", icon: Settings },
-  { id: "set-history", section: "settings", label: "Session history kept", value: "30 days", icon: Settings },
-  { id: "set-theme", section: "settings", label: "Appearance", value: "dark", icon: Settings },
+  {
+    id: "set-fleet",
+    section: "settings",
+    label: "Fleet settings",
+    icon: Settings,
+  },
+  {
+    id: "set-model",
+    section: "settings",
+    label: "Default model",
+    value: "sonnet",
+    icon: Settings,
+  },
+  {
+    id: "set-headroom",
+    section: "settings",
+    label: "Concurrent drones",
+    value: "4",
+    icon: Settings,
+  },
+  {
+    id: "set-history",
+    section: "settings",
+    label: "Session history kept",
+    value: "30 days",
+    icon: Settings,
+  },
+  {
+    id: "set-theme",
+    section: "settings",
+    label: "Appearance",
+    value: "dark",
+    icon: Settings,
+  },
 ];
 
 /** One registry row, as a palette entry. Nothing is re-spelled on the way. */
@@ -104,19 +188,47 @@ function asEntry(section: string) {
     section,
     label: action.verb,
     shortcut: action.shortcut,
-    ...(action.icon === null ? {} : { icon: action.icon }),
-    ...(ALIASES[action.id] === undefined ? {} : { aliases: ALIASES[action.id] }),
-    ...(action.destructive ? { destructive: true } : {}),
-    ...(action.unbuilt === null ? {} : { dormant: `not built · ${action.unbuilt}` }),
+    ...(action.icon === null
+      ? {}
+      : {
+          icon: action.icon,
+        }),
+    ...(ALIASES[action.id] === undefined
+      ? {}
+      : {
+          aliases: ALIASES[action.id],
+        }),
+    ...(action.destructive
+      ? {
+          destructive: true,
+        }
+      : {}),
+    ...(action.unbuilt === null
+      ? {}
+      : {
+          dormant: `not built · ${action.unbuilt}`,
+        }),
   });
 }
 
 function sections(title: string): PaletteSection[] {
   return [
-    { id: "context", title },
-    { id: "navigation", title: "Navigation" },
-    { id: "sessions", title: "Sessions" },
-    { id: "settings", title: "Settings" },
+    {
+      id: "context",
+      title,
+    },
+    {
+      id: "navigation",
+      title: "Navigation",
+    },
+    {
+      id: "sessions",
+      title: "Sessions",
+    },
+    {
+      id: "settings",
+      title: "Settings",
+    },
   ];
 }
 
@@ -233,14 +345,22 @@ export const TopAnchoredAtTwoCounts: Story = {
  * title carries the letter from the setting that decides how long sessions are kept.
  */
 export const MatchingAcrossSections: Story = {
-  args: { ...board, defaultQuery: "e" },
+  args: {
+    ...board,
+    defaultQuery: "e",
+  },
   /**
    * The claim is about the heads, not the rows: four kinds of result under
    * four names. A palette that dropped the heads would pass any assertion
    * counting matches and would be the flat list this state exists to refuse.
    */
   play: async ({ canvas }) => {
-    for (const title of [CONTEXT, "Navigation", "Sessions", "Settings"]) {
+    for (const title of [
+      CONTEXT,
+      "Navigation",
+      "Sessions",
+      "Settings",
+    ]) {
       await expect(canvas.getAllByText(title)[0]).toBeVisible();
     }
   },
@@ -253,7 +373,10 @@ export const MatchingAcrossSections: Story = {
  * alias.
  */
 export const AnAliasFindsTheLexiconTerm: Story = {
-  args: { ...board, defaultQuery: "terminate" },
+  args: {
+    ...board,
+    defaultQuery: "terminate",
+  },
   /**
    * Read off the row, which is the only place the rule can be seen. An alias
    * that leaked into what renders would teach the person the word Armada does
@@ -264,7 +387,9 @@ export const AnAliasFindsTheLexiconTerm: Story = {
    * The mark assertion is scoped to Delete's own row rather than to the list.
    */
   play: async ({ canvas }) => {
-    const row = canvas.getByRole("option", { name: /^Delete/ });
+    const row = canvas.getByRole("option", {
+      name: /^Delete/,
+    });
     await expect(row).toHaveAccessibleName("Delete");
     await expect(row.querySelector("mark")).toBeNull();
     await expect(canvas.queryByText("terminate")).toBeNull();
@@ -280,7 +405,10 @@ export const AnAliasFindsTheLexiconTerm: Story = {
  * `Worktree Slots`, the screen's own title, and the word is not in it.
  */
 export const CmdNumbersTheResults: Story = {
-  args: { ...board, defaultQuery: "disk" },
+  args: {
+    ...board,
+    defaultQuery: "disk",
+  },
   /**
    * Two things a rendering cannot state: the row was reached by a word that is not in its label, and the digits are the
    * positions of the rows rather than anything about the rows. Both are read with the query cleared, because "disk"
@@ -290,14 +418,19 @@ export const CmdNumbersTheResults: Story = {
    * drawing the digits, and by drawing them with ⌘ up.
    */
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("option", { name: /Worktree Slots/ })).toBeVisible();
+    await expect(
+      canvas.getByRole("option", {
+        name: /Worktree Slots/,
+      }),
+    ).toBeVisible();
 
     await userEvent.clear(canvas.getByRole("combobox"));
     const rows = canvas.getAllByRole("option");
     await expect(within(rows[0]!).queryByText("1")).toBeNull();
     // Pressed and held: the digits show for as long as ⌘ is down.
     await userEvent.keyboard("{Meta>}");
-    for (const [at, row] of rows.slice(0, 3).entries()) await expect(within(row).getByText(String(at + 1))).toBeInTheDocument();
+    for (const [at, row] of rows.slice(0, 3).entries())
+      await expect(within(row).getByText(String(at + 1))).toBeInTheDocument();
     await userEvent.keyboard("{/Meta}");
     await expect(within(rows[0]!).queryByText("1")).toBeNull();
   },
@@ -309,7 +442,10 @@ export const CmdNumbersTheResults: Story = {
  * passes `searched`, and it is not drawn.
  */
 export const MatchingNothing: Story = {
-  args: { ...board, defaultQuery: "zzz" },
+  args: {
+    ...board,
+    defaultQuery: "zzz",
+  },
   play: async ({ canvas }) => {
     await expect(canvas.queryAllByRole("option")).toHaveLength(0);
     await expect(canvas.getByText("Nothing matches “zzz”.")).toBeVisible();
@@ -326,17 +462,30 @@ export const NothingMatchesSoTheWorkLeads: Story = {
   args: {
     ...board,
     defaultQuery: "retire the sleep calls",
-    dispatch: { kind: "session", kinds: ["session", "autopilot"], onDispatch: fn(), onKind: fn() },
+    dispatch: {
+      kind: "session",
+      kinds: [
+        "session",
+        "autopilot",
+      ],
+      onDispatch: fn(),
+      onKind: fn(),
+    },
   },
   play: async ({ args, canvas, userEvent }) => {
-    const row = canvas.getByRole("option", { name: /^Start a Job with “retire the sleep calls”/ });
+    const row = canvas.getByRole("option", {
+      name: /^Start a Job with “retire the sleep calls”/,
+    });
     await expect(row).toHaveAttribute("aria-selected", "true");
     // The miss is still named, beside the row that sends the words.
     await expect(canvas.getByText(/Nothing matches “retire the sleep calls”/)).toBeVisible();
     await userEvent.keyboard("{Tab}");
     await expect(args.dispatch!.onKind).toHaveBeenCalledWith("autopilot");
     await userEvent.keyboard("{Enter}");
-    await expect(args.dispatch!.onDispatch).toHaveBeenCalledWith("retire the sleep calls", "session");
+    await expect(args.dispatch!.onDispatch).toHaveBeenCalledWith(
+      "retire the sleep calls",
+      "session",
+    );
   },
 };
 
@@ -348,7 +497,10 @@ export const AMatchKeepsEnter: Story = {
   args: {
     ...board,
     defaultQuery: "delete",
-    dispatch: { kind: "session", onDispatch: fn() },
+    dispatch: {
+      kind: "session",
+      onDispatch: fn(),
+    },
   },
   play: async ({ canvas }) => {
     const options = canvas.getAllByRole("option");
@@ -362,12 +514,23 @@ export const AMatchKeepsEnter: Story = {
  * is pinned to the list's bottom edge, so it is in view before any scrolling.
  */
 export const TheDispatchRowStaysInView: Story = {
-  args: { ...board, defaultQuery: "e", dispatch: { kind: "session", onDispatch: fn() } },
+  args: {
+    ...board,
+    defaultQuery: "e",
+    dispatch: {
+      kind: "session",
+      onDispatch: fn(),
+    },
+  },
   play: async ({ canvas }) => {
-    const row = canvas.getByRole("option", { name: /^Start a Job with “e”/ });
+    const row = canvas.getByRole("option", {
+      name: /^Start a Job with “e”/,
+    });
     const list = canvas.getByRole("listbox");
     await expect(list.scrollHeight).toBeGreaterThan(list.clientHeight);
-    await expect(row.getBoundingClientRect().bottom).toBeLessThanOrEqual(list.getBoundingClientRect().bottom + 1);
+    await expect(row.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      list.getBoundingClientRect().bottom + 1,
+    );
   },
 };
 
@@ -376,19 +539,28 @@ export const TheDispatchRowStaysInView: Story = {
  * two-key act: type enough, press Enter.
  */
 export const TheFirstRowIsActive: Story = {
-  args: { ...board, defaultQuery: "d" },
+  args: {
+    ...board,
+    defaultQuery: "d",
+  },
   /**
    * Asserted after a change to the query and not only on the resting state,
    * because the regression is a cursor left at position four in a list that
    * now holds two — which reads as a palette that ignored what was typed.
    */
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("option", { selected: true })).toHaveAccessibleName(/^Copy debug info/);
+    await expect(
+      canvas.getByRole("option", {
+        selected: true,
+      }),
+    ).toHaveAccessibleName(/^Copy debug info/);
 
     await userEvent.keyboard("{ArrowDown}");
-    await expect(canvas.getByRole("option", { selected: true })).not.toHaveAccessibleName(
-      /^Copy debug info/,
-    );
+    await expect(
+      canvas.getByRole("option", {
+        selected: true,
+      }),
+    ).not.toHaveAccessibleName(/^Copy debug info/);
 
     await userEvent.clear(canvas.getByRole("combobox"));
     await userEvent.type(canvas.getByRole("combobox"), "delete");
@@ -435,18 +607,44 @@ export const DestructiveEntryConfirms: Story = {
    * the wrong one: the way back from a confirmation is the list you chose from.
    */
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("option", { selected: true })).toHaveAccessibleName(/^Delete/);
-    await expect(canvas.queryByRole("dialog", { name: "Delete session 12?" })).toBeNull();
+    await expect(
+      canvas.getByRole("option", {
+        selected: true,
+      }),
+    ).toHaveAccessibleName(/^Delete/);
+    await expect(
+      canvas.queryByRole("dialog", {
+        name: "Delete session 12?",
+      }),
+    ).toBeNull();
 
     await userEvent.keyboard("{Enter}");
 
-    await waitFor(() => expect(canvas.getByRole("dialog", { name: "Delete session 12?" })).toBeVisible());
-    await expect(canvas.getByRole("dialog", { name: "Command palette" })).toBeVisible();
+    await waitFor(() =>
+      expect(
+        canvas.getByRole("dialog", {
+          name: "Delete session 12?",
+        }),
+      ).toBeVisible(),
+    );
+    await expect(
+      canvas.getByRole("dialog", {
+        name: "Command palette",
+      }),
+    ).toBeVisible();
 
     // `Esc` answers the top layer: the confirmation goes, and the list chosen from stays.
     await userEvent.keyboard("{Escape}");
-    await expect(canvas.queryByRole("dialog", { name: "Delete session 12?" })).toBeNull();
-    await expect(canvas.getByRole("dialog", { name: "Command palette" })).toBeVisible();
+    await expect(
+      canvas.queryByRole("dialog", {
+        name: "Delete session 12?",
+      }),
+    ).toBeNull();
+    await expect(
+      canvas.getByRole("dialog", {
+        name: "Command palette",
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -492,7 +690,11 @@ export const EscapeClosesOnlyThePalette: Story = {
   play: async ({ canvas, userEvent }) => {
     leaveJob.mockClear();
     await userEvent.keyboard("{Escape}");
-    await expect(canvas.queryByRole("dialog", { name: "Command palette" })).toBeNull();
+    await expect(
+      canvas.queryByRole("dialog", {
+        name: "Command palette",
+      }),
+    ).toBeNull();
     await expect(leaveJob).not.toHaveBeenCalled();
   },
 };
@@ -510,7 +712,11 @@ export const EscapeClosesAfterAClickInside: Story = {
     await expect(canvas.getByRole("combobox")).not.toHaveFocus();
 
     await userEvent.keyboard("{Escape}");
-    await expect(canvas.queryByRole("dialog", { name: "Command palette" })).toBeNull();
+    await expect(
+      canvas.queryByRole("dialog", {
+        name: "Command palette",
+      }),
+    ).toBeNull();
   },
 };
 
@@ -532,7 +738,11 @@ export const EscapeOverASheet: Story = {
   },
   play: async ({ canvas, userEvent }) => {
     await userEvent.keyboard("{Escape}");
-    await expect(canvas.queryByRole("dialog", { name: "Command palette" })).toBeNull();
+    await expect(
+      canvas.queryByRole("dialog", {
+        name: "Command palette",
+      }),
+    ).toBeNull();
     await expect(canvas.getByText("1676 entries.")).toBeVisible();
 
     await userEvent.keyboard("{Escape}");
@@ -549,12 +759,18 @@ export const EscapeOverASheet: Story = {
 export const ClickOutsideClosesThePalette: Story = {
   render: () => <Closable />,
   play: async ({ canvas, userEvent }) => {
-    const panel = canvas.getByRole("dialog", { name: "Command palette" });
+    const panel = canvas.getByRole("dialog", {
+      name: "Command palette",
+    });
     const layer = panel.parentElement as HTMLElement;
 
     await userEvent.click(layer);
 
-    await expect(canvas.queryByRole("dialog", { name: "Command palette" })).toBeNull();
+    await expect(
+      canvas.queryByRole("dialog", {
+        name: "Command palette",
+      }),
+    ).toBeNull();
   },
 };
 
@@ -569,7 +785,11 @@ export const ClickInsidePaletteStaysOpen: Story = {
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByText("Navigation"));
 
-    await expect(canvas.getByRole("dialog", { name: "Command palette" })).toBeVisible();
+    await expect(
+      canvas.getByRole("dialog", {
+        name: "Command palette",
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -607,17 +827,40 @@ export const ClickInsideAConfirmationDoesNotClose: Story = {
   },
   play: async ({ canvas, userEvent }) => {
     await userEvent.keyboard("{Enter}");
-    await waitFor(() => expect(canvas.getByRole("dialog", { name: "Delete session 12?" })).toBeVisible());
+    await waitFor(() =>
+      expect(
+        canvas.getByRole("dialog", {
+          name: "Delete session 12?",
+        }),
+      ).toBeVisible(),
+    );
 
-    await userEvent.click(canvas.getByRole("button", { name: "Cancel" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Cancel",
+      }),
+    );
 
-    await expect(canvas.queryByRole("dialog", { name: "Delete session 12?" })).toBeNull();
-    await expect(canvas.getByRole("dialog", { name: "Command palette" })).toBeVisible();
+    await expect(
+      canvas.queryByRole("dialog", {
+        name: "Delete session 12?",
+      }),
+    ).toBeNull();
+    await expect(
+      canvas.getByRole("dialog", {
+        name: "Command palette",
+      }),
+    ).toBeVisible();
   },
 };
 
 const forgeLink = {
-  kindOf: (typed: string) => (/\/pull\/\d+/.test(typed) ? ("pull" as const) : /\/issues\/\d+/.test(typed) ? ("issue" as const) : null),
+  kindOf: (typed: string) =>
+    /\/pull\/\d+/.test(typed)
+      ? ("pull" as const)
+      : /\/issues\/\d+/.test(typed)
+        ? ("issue" as const)
+        : null,
   onOpen: fn(),
 };
 
@@ -626,26 +869,55 @@ const forgeLink = {
  * for the address. Any other words get no such row.
  */
 export const APastedPullLinkLeadsWithOpenReview: Story = {
-  args: { ...board, defaultQuery: "https://forge.example/Mele-Labs/armada/pull/2899", link: forgeLink },
+  args: {
+    ...board,
+    defaultQuery: "https://forge.example/Mele-Labs/armada/pull/2899",
+    link: forgeLink,
+  },
   play: async ({ args, canvas, userEvent }) => {
-    const row = canvas.getByRole("option", { name: /^Open review/ });
+    const row = canvas.getByRole("option", {
+      name: /^Open review/,
+    });
     await expect(row).toHaveAttribute("aria-selected", "true");
     await userEvent.keyboard("{Enter}");
-    await expect(args.link!.onOpen).toHaveBeenCalledWith("https://forge.example/Mele-Labs/armada/pull/2899", "pull");
+    await expect(args.link!.onOpen).toHaveBeenCalledWith(
+      "https://forge.example/Mele-Labs/armada/pull/2899",
+      "pull",
+    );
   },
 };
 
 export const APastedIssueLinkLeadsWithOpenIssue: Story = {
-  args: { ...board, defaultQuery: "https://forge.example/Mele-Labs/armada/issues/2214", link: forgeLink },
+  args: {
+    ...board,
+    defaultQuery: "https://forge.example/Mele-Labs/armada/issues/2214",
+    link: forgeLink,
+  },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("option", { name: /^Open issue/ })).toHaveAttribute("aria-selected", "true");
-    await expect(canvas.queryByRole("option", { name: /^Open review/ })).toBeNull();
+    await expect(
+      canvas.getByRole("option", {
+        name: /^Open issue/,
+      }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(
+      canvas.queryByRole("option", {
+        name: /^Open review/,
+      }),
+    ).toBeNull();
   },
 };
 
 export const WordsThatAreNoLinkGetNoOpenRow: Story = {
-  args: { ...board, defaultQuery: "delete", link: forgeLink },
+  args: {
+    ...board,
+    defaultQuery: "delete",
+    link: forgeLink,
+  },
   play: async ({ canvas }) => {
-    await expect(canvas.queryByRole("option", { name: /^Open (review|issue)/ })).toBeNull();
+    await expect(
+      canvas.queryByRole("option", {
+        name: /^Open (review|issue)/,
+      }),
+    ).toBeNull();
   },
 };

@@ -19,7 +19,9 @@ export type ReportBug = {
 };
 
 /** What `report_bug` kept. */
-export type BugReported = { report_id: string };
+export type BugReported = {
+  report_id: string;
+};
 
 /** One kept report, as `list_bug_reports` and `bug_reports.changed` carry it. */
 export type BugReport = {
@@ -50,7 +52,9 @@ export type BugFixed = {
 };
 
 /** `list_bug_reports` (`GET /bug_reports`): every report on this Mac, newest first. */
-export type BugReports = { reports: BugReport[] };
+export type BugReports = {
+  reports: BugReport[];
+};
 
 /** `bug_reports.changed`: every report now, whole, after one was made, kept or dropped. */
 export type BugReportsChanged = BugReports;
@@ -58,4 +62,6 @@ export type BugReportsChanged = BugReports;
 /** `keep_bug_report` (`POST /bug_reports/:report_id/keep`, no body) answers the `BugReport`, `kept` set. 404 `fleet.no_such_bug_report`. */
 
 /** `drop_bug_report` (`POST /bug_reports/:report_id/drop`, no body): the report is deleted. 404 `fleet.no_such_bug_report`, a second drop too. */
-export type BugReportDropped = { id: string };
+export type BugReportDropped = {
+  id: string;
+};

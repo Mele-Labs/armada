@@ -8,7 +8,13 @@ import { join } from "node:path";
 
 import { STUDIO_PROMOTIONS } from "@armada/protocol";
 import type { PanelGo } from "@armada/studios/api";
-import type { StagedFrame, StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
+import type {
+  StagedFrame,
+  StudioCapture,
+  StudioNodeByHand,
+  StudioPosition,
+  StudioPromotion,
+} from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { BridgeState, Summons } from "../shared/bridge";
 import type { CaptureWindows } from "./capture/windows";
@@ -30,19 +36,45 @@ type Hosts = {
 /** What a panel asked Bridge's window to open, or `null` for anything that is not one of the five. */
 function panelGoOf(value: unknown): PanelGo | null {
   const said = (value ?? {}) as Record<string, unknown>;
-  const text = (key: string): string | null => (typeof said[key] === "string" && said[key] !== "" ? (said[key] as string) : null);
-  const [id, address] = [text("id"), text("address")];
+  const text = (key: string): string | null =>
+    typeof said[key] === "string" && said[key] !== "" ? (said[key] as string) : null;
+  const [id, address] = [
+    text("id"),
+    text("address"),
+  ];
   switch (said.kind) {
     case "surface":
-      return id === null ? null : { kind: "surface", id };
+      return id === null
+        ? null
+        : {
+            kind: "surface",
+            id,
+          };
     case "session":
-      return id === null ? null : { kind: "session", id };
+      return id === null
+        ? null
+        : {
+            kind: "session",
+            id,
+          };
     case "link":
-      return address === null ? null : { kind: "link", address };
+      return address === null
+        ? null
+        : {
+            kind: "link",
+            address,
+          };
     case "check":
-      return typeof said.run === "number" && Number.isInteger(said.run) ? { kind: "check", run: said.run } : null;
+      return typeof said.run === "number" && Number.isInteger(said.run)
+        ? {
+            kind: "check",
+            run: said.run,
+          }
+        : null;
     case "loadout":
-      return { kind: "loadout" };
+      return {
+        kind: "loadout",
+      };
     default:
       return null;
   }
@@ -65,30 +97,51 @@ async function stagedFrame(event: Electron.IpcMainInvokeEvent): Promise<StagedFr
   const png = image.toPNG();
   if (png.byteLength === 0) return null;
   const dir = join(app.getPath("temp"), "armada-frames", randomUUID());
-  await mkdir(dir, { recursive: true });
+  await mkdir(dir, {
+    recursive: true,
+  });
   const staged = join(dir, "frame.png");
   await writeFile(staged, png);
   const size = image.getSize();
-  return { staged_path: staged, width: size.width, height: size.height };
+  return {
+    staged_path: staged,
+    width: size.width,
+    height: size.height,
+  };
 }
 
 export function handleStudios({ ipc, connection, published, captureWindows, summon }: Hosts): void {
   // A repository's Studios and the one open — #1287. An id that is not a string, or a position that
   // is not two whole numbers, is not put on a route: the call answers nothing, as a typo would.
   const text = (value: unknown): value is string => typeof value === "string" && value !== "";
-  const unsent = { ok: false, why: "not_connected" } as const;
+  const unsent = {
+    ok: false,
+    why: "not_connected",
+  } as const;
   // #1291: one channel across six operations, so the tag is what is checked —
   // it picks the route. The body is Fleet's to decode and refuse, as every
   // other act's body already is.
   const promoted = (value: unknown): value is StudioPromotion =>
     typeof value === "object" &&
     value !== null &&
-    (STUDIO_PROMOTIONS as readonly string[]).includes((value as { act?: unknown }).act as string);
+    (STUDIO_PROMOTIONS as readonly string[]).includes(
+      (
+        value as {
+          act?: unknown;
+        }
+      ).act as string,
+    );
   /** A position in whole canvas units, or `null` where it is not one. */
   const whole = (value: unknown): StudioPosition | null => {
-    const at = (value ?? {}) as { x?: unknown; y?: unknown };
+    const at = (value ?? {}) as {
+      x?: unknown;
+      y?: unknown;
+    };
     return Number.isInteger(at.x) && Number.isInteger(at.y)
-      ? { x: at.x as number, y: at.y as number }
+      ? {
+          x: at.x as number,
+          y: at.y as number,
+        }
       : null;
   };
   /**
@@ -96,7 +149,12 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
    * whose staged files only main names.
    */
   const byHand = (value: unknown): value is StudioNodeByHand => {
-    const node = (value ?? {}) as { kind?: unknown; said?: unknown; address?: unknown; path?: unknown };
+    const node = (value ?? {}) as {
+      kind?: unknown;
+      said?: unknown;
+      address?: unknown;
+      path?: unknown;
+    };
     if (node.kind === "note") return text(node.said);
     if (node.kind === "link") return text(node.address);
     return node.kind === "file" && text(node.path);
@@ -111,11 +169,16 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
   );
   ipc.handle(CHANNELS.createStudio, async (_event, manifestId: unknown) =>
     text(manifestId)
-      ? ((await connection()?.studios.create(manifestId)) ?? { ok: false, outcome: unsent })
+      ? ((await connection()?.studios.create(manifestId)) ?? {
+          ok: false,
+          outcome: unsent,
+        })
       : undefined,
   );
   ipc.handle(CHANNELS.renameStudio, async (_event, studioId: unknown, name: unknown) =>
-    text(studioId) && text(name) ? ((await connection()?.studios.rename(studioId, name)) ?? unsent) : undefined,
+    text(studioId) && text(name)
+      ? ((await connection()?.studios.rename(studioId, name)) ?? unsent)
+      : undefined,
   );
   // A node by hand — #1364. **The kind is checked here, not only typed**: the
   // preload is the boundary, and a renderer that sent `finding` would otherwise
@@ -125,24 +188,43 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
     CHANNELS.addStudioNode,
     async (_event, studioId: unknown, node: unknown, position: unknown, within: unknown) => {
       const at = whole(position);
-      if (!text(studioId) || at === null || !byHand(node) || !(within === null || text(within))) return undefined;
+      if (!text(studioId) || at === null || !byHand(node) || !(within === null || text(within)))
+        return undefined;
       return (await connection()?.studios.addNode(studioId, node, at, within)) ?? unsent;
     },
   );
   // A pasted picture — 1 Oct 2026. Bytes in; main stages them (`staging.ts`).
-  ipc.handle(CHANNELS.addStudioPicture, async (_event, studioId: unknown, bytes: unknown, position: unknown) => {
-    const at = whole(position);
-    if (!text(studioId) || at === null || !(bytes instanceof Uint8Array)) return undefined;
-    const staged = await stagedPicture(bytes);
-    if (staged === null) return undefined;
-    return (await connection()?.studios.addNode(studioId, { kind: "picture", staged }, at)) ?? unsent;
+  ipc.handle(
+    CHANNELS.addStudioPicture,
+    async (_event, studioId: unknown, bytes: unknown, position: unknown) => {
+      const at = whole(position);
+      if (!text(studioId) || at === null || !(bytes instanceof Uint8Array)) return undefined;
+      const staged = await stagedPicture(bytes);
+      if (staged === null) return undefined;
+      return (
+        (await connection()?.studios.addNode(
+          studioId,
+          {
+            kind: "picture",
+            staged,
+          },
+          at,
+        )) ?? unsent
+      );
+    },
+  );
+  handleSketches({
+    ipc,
+    studios: () => connection()?.studios,
+    whole,
+    unsent,
   });
-  handleSketches({ ipc, studios: () => connection()?.studios, whole, unsent });
   ipc.handle(
     CHANNELS.moveStudioNode,
     async (_event, studioId: unknown, nodeId: unknown, position: unknown, within: unknown) => {
       const at = whole(position);
-      if (!text(studioId) || !text(nodeId) || at === null || !(within === null || text(within))) return undefined;
+      if (!text(studioId) || !text(nodeId) || at === null || !(within === null || text(within)))
+        return undefined;
       return (await connection()?.studios.moveNode(studioId, nodeId, at, within)) ?? unsent;
     },
   );
@@ -150,34 +232,46 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
   // here before any of them crosses**, so a list carrying one thing that is not
   // a node reaches no route at all rather than half a delete.
   ipc.handle(CHANNELS.removeStudioNodes, async (_event, studioId: unknown, nodeIds: unknown) => {
-    if (!text(studioId) || !Array.isArray(nodeIds) || nodeIds.length === 0 || !nodeIds.every(text)) return undefined;
+    if (!text(studioId) || !Array.isArray(nodeIds) || nodeIds.length === 0 || !nodeIds.every(text))
+      return undefined;
     return (await connection()?.studios.removeNodes(studioId, nodeIds)) ?? unsent;
   });
   // Studio capture — #1290. **Main takes the frame, of the sender's own window
   // and no other**, so the one capability the preload gains is a Note on a
   // Studio rather than a screenshot the renderer could ask for and keep.
-  ipc.handle(CHANNELS.captureStudioNote, async (event, studioId: unknown, said: unknown, capture: unknown) => {
-    if (!text(studioId) || !text(said) || !isCapture(capture)) return undefined;
-    const frame = await stagedFrame(event as Electron.IpcMainInvokeEvent).catch(() => null);
-    return (await connection()?.studios.captureNote(studioId, said, capture, frame)) ?? unsent;
-  });
+  ipc.handle(
+    CHANNELS.captureStudioNote,
+    async (event, studioId: unknown, said: unknown, capture: unknown) => {
+      if (!text(studioId) || !text(said) || !isCapture(capture)) return undefined;
+      const frame = await stagedFrame(event as Electron.IpcMainInvokeEvent).catch(() => null);
+      return (await connection()?.studios.captureNote(studioId, said, capture, frame)) ?? unsent;
+    },
+  );
   // The other half of the capture: the bytes of the picture one Note kept, read
   // by main and handed over for a `blob:`. **No new scheme and no CSP change** —
   // `img-src 'self' blob:` already draws one — and no path crosses either way.
   // A Sketch's picture is named by `picture`, its id on the drawing — 20.0.
-  ipc.handle(CHANNELS.readStudioFrame, async (_event, studioId: unknown, nodeId: unknown, picture: unknown) =>
-    text(studioId) && text(nodeId) && (picture === undefined || text(picture))
-      ? ((await connection()?.studios.frameOf(studioId, nodeId, picture)) ?? { ok: false, outcome: unsent })
-      : undefined,
+  ipc.handle(
+    CHANNELS.readStudioFrame,
+    async (_event, studioId: unknown, nodeId: unknown, picture: unknown) =>
+      text(studioId) && text(nodeId) && (picture === undefined || text(picture))
+        ? ((await connection()?.studios.frameOf(studioId, nodeId, picture)) ?? {
+            ok: false,
+            outcome: unsent,
+          })
+        : undefined,
   );
   // Starting one entry from a Studio — #1289, #1345. **The position is checked
   // here**, as `addStudioNode`'s is: a node lands where the person is looking,
   // and a body without one would put it at the origin.
-  ipc.handle(CHANNELS.startStudioRun, async (_event, studioId: unknown, name: unknown, position: unknown) => {
-    const at = whole(position);
-    if (!text(studioId) || !text(name) || at === null) return undefined;
-    return (await connection()?.studios.startRun(studioId, name, at)) ?? unsent;
-  });
+  ipc.handle(
+    CHANNELS.startStudioRun,
+    async (_event, studioId: unknown, name: unknown, position: unknown) => {
+      const at = whole(position);
+      if (!text(studioId) || !text(name) || at === null) return undefined;
+      return (await connection()?.studios.startRun(studioId, name, at)) ?? unsent;
+    },
+  );
   ipc.handle(
     CHANNELS.startStudioServer,
     async (_event, studioId: unknown, name: unknown, position: unknown) => {
@@ -196,16 +290,21 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
   });
   // The rest are the window's own bar, answered for the window the call came
   // from. A bar names no window, and the page below it holds no preload.
-  const barred = (event: Electron.IpcMainInvokeEvent | Electron.IpcMainEvent) => captureWindows.from(event.sender);
+  const barred = (event: Electron.IpcMainInvokeEvent | Electron.IpcMainEvent) =>
+    captureWindows.from(event.sender);
   ipc.handle(CHANNELS.captureWindowRead, (event) => barred(event)?.state() ?? null);
   ipc.handle(CHANNELS.captureWindowArm, (event, on: unknown) =>
     typeof on === "boolean" ? (barred(event)?.arm(on) ?? null) : null,
   );
   ipc.handle(CHANNELS.captureWindowAim, async (event, x: unknown, y: unknown) =>
-    typeof x === "number" && typeof y === "number" ? ((await barred(event)?.aim(x, y)) ?? null) : null,
+    typeof x === "number" && typeof y === "number"
+      ? ((await barred(event)?.aim(x, y)) ?? null)
+      : null,
   );
   ipc.handle(CHANNELS.captureWindowHold, async (event, x: unknown, y: unknown) =>
-    typeof x === "number" && typeof y === "number" ? ((await barred(event)?.hold(x, y)) ?? null) : null,
+    typeof x === "number" && typeof y === "number"
+      ? ((await barred(event)?.hold(x, y)) ?? null)
+      : null,
   );
   ipc.handle(CHANNELS.captureWindowRelease, (event) => barred(event)?.release());
   ipc.handle(CHANNELS.captureWindowSave, async (event, said: unknown) =>
@@ -215,20 +314,35 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
   ipc.handle(CHANNELS.captureWindowFollowRefused, async (event) => {
     await barred(event)?.followRefused();
   });
-  ipc.handle(CHANNELS.captureWindowApprove, async (event) => (await barred(event)?.approve()) ?? unsent);
+  ipc.handle(
+    CHANNELS.captureWindowApprove,
+    async (event) => (await barred(event)?.approve()) ?? unsent,
+  );
   ipc.handle(CHANNELS.captureWindowShowAsk, (event, on: unknown) => {
     if (typeof on === "boolean") barred(event)?.showAsk(on);
   });
   // The Session's question, answered: an index into its options, words of the person's own, or both.
   ipc.handle(CHANNELS.captureWindowAnswerAsk, async (event, answer: unknown) => {
     const said = (answer ?? {}) as Record<string, unknown>;
-    const choice = typeof said["choice"] === "number" && Number.isInteger(said["choice"]) ? said["choice"] : undefined;
-    const words = typeof said["text"] === "string" && said["text"].trim() !== "" ? said["text"] : undefined;
+    const choice =
+      typeof said["choice"] === "number" && Number.isInteger(said["choice"])
+        ? said["choice"]
+        : undefined;
+    const words =
+      typeof said["text"] === "string" && said["text"].trim() !== "" ? said["text"] : undefined;
     if (choice === undefined && words === undefined) return undefined;
     return (
       (await barred(event)?.answerAsk({
-        ...(choice === undefined ? {} : { choice }),
-        ...(words === undefined ? {} : { text: words }),
+        ...(choice === undefined
+          ? {}
+          : {
+              choice,
+            }),
+        ...(words === undefined
+          ? {}
+          : {
+              text: words,
+            }),
       })) ?? unsent
     );
   });
@@ -244,29 +358,56 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
     if (typeof at === "number" && Number.isInteger(at)) captureWindows.walkTo(event.sender, at);
   });
   // The Job the panel draws, which follows the walk on screen: main reads it off the panel that asked.
-  ipc.handle(CHANNELS.walkPanelSubject, (event) => captureWindows.panelFrom(event.sender)?.id ?? null);
+  ipc.handle(
+    CHANNELS.walkPanelSubject,
+    (event) => captureWindows.panelFrom(event.sender)?.id ?? null,
+  );
   // The panel beside the page. **Main names the Session**, off the panel that asked; the
   // call carries nothing, so a panel cannot name another and no other document is answered.
   ipc.handle(CHANNELS.walkPanelOpenInBridge, (event) => {
     const subject = captureWindows.panelFrom(event.sender);
-    if (subject !== null) summon({ sessionId: subject.id });
+    if (subject !== null)
+      summon({
+        sessionId: subject.id,
+      });
   });
   // What a press in the panel's Job view opens. The Session is main's, off the panel, but for `session`, which is another the view opened.
   ipc.handle(CHANNELS.walkPanelGoInBridge, (event, to: unknown) => {
     const subject = captureWindows.panelFrom(event.sender);
     const go = subject === null ? null : panelGoOf(to);
     if (subject === null || go === null) return;
-    summon(go.kind === "session" ? { sessionId: go.id } : { sessionId: subject.id, then: go });
+    summon(
+      go.kind === "session"
+        ? {
+            sessionId: go.id,
+          }
+        : {
+            sessionId: subject.id,
+            then: go,
+          },
+    );
   });
   // The owner named on the bar, the same act as the panel's: main reads it off the window, never the bar.
   ipc.handle(CHANNELS.captureWindowOpenOwner, (event) => {
     const owner = barred(event)?.owner ?? null;
-    if (owner !== null) summon({ sessionId: owner.id });
+    if (owner !== null)
+      summon({
+        sessionId: owner.id,
+      });
   });
   // The walk the page plays: four entries and one boolean, each a call main makes on the page's walk handle.
-  ipc.handle(CHANNELS.captureWindowWalkNext, async (event) => void (await barred(event)?.walkAct("next")));
-  ipc.handle(CHANNELS.captureWindowWalkBack, async (event) => void (await barred(event)?.walkAct("back")));
-  ipc.handle(CHANNELS.captureWindowWalkReplay, async (event) => void (await barred(event)?.walkAct("replay")));
+  ipc.handle(
+    CHANNELS.captureWindowWalkNext,
+    async (event) => void (await barred(event)?.walkAct("next")),
+  );
+  ipc.handle(
+    CHANNELS.captureWindowWalkBack,
+    async (event) => void (await barred(event)?.walkAct("back")),
+  );
+  ipc.handle(
+    CHANNELS.captureWindowWalkReplay,
+    async (event) => void (await barred(event)?.walkAct("replay")),
+  );
   ipc.handle(CHANNELS.captureWindowWalkAutoplay, async (event, on: unknown) => {
     if (typeof on === "boolean") await barred(event)?.walkAct(on ? "autoplay_on" : "autoplay_off");
   });
@@ -276,12 +417,18 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
   });
   // How far down the bar's open menu or tooltip draws, or null when none is: a height, which main caps at the window's.
   ipc.on(CHANNELS.captureWindowOverhang, (event, height: unknown) => {
-    if (height === null || (typeof height === "number" && Number.isFinite(height) && height >= 0)) barred(event)?.overhang(height);
+    if (height === null || (typeof height === "number" && Number.isFinite(height) && height >= 0))
+      barred(event)?.overhang(height);
   });
   ipc.on(CHANNELS.captureWindowScroll, (event, wheel: unknown) => {
     const said = (wheel ?? {}) as Record<string, unknown>;
     const at = (key: string): number => (typeof said[key] === "number" ? (said[key] as number) : 0);
-    barred(event)?.scroll({ x: at("x"), y: at("y"), deltaX: at("deltaX"), deltaY: at("deltaY") });
+    barred(event)?.scroll({
+      x: at("x"),
+      y: at("y"),
+      deltaX: at("deltaX"),
+      deltaY: at("deltaY"),
+    });
   });
   ipc.handle(CHANNELS.promoteOnStudio, async (_event, studioId: unknown, promotion: unknown) => {
     // The tag is checked here because it picks the route; the body Fleet
@@ -289,9 +436,11 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
     if (!text(studioId) || !promoted(promotion)) return undefined;
     return (await connection()?.studios.promote(studioId, promotion)) ?? unsent;
   });
-  ipc.handle(CHANNELS.decideStudioEdge, async (_event, studioId: unknown, edgeId: unknown, accepted: unknown) =>
-    text(studioId) && text(edgeId) && typeof accepted === "boolean"
-      ? ((await connection()?.studios.decideEdge(studioId, edgeId, accepted)) ?? unsent)
-      : undefined,
+  ipc.handle(
+    CHANNELS.decideStudioEdge,
+    async (_event, studioId: unknown, edgeId: unknown, accepted: unknown) =>
+      text(studioId) && text(edgeId) && typeof accepted === "boolean"
+        ? ((await connection()?.studios.decideEdge(studioId, edgeId, accepted)) ?? unsent)
+        : undefined,
   );
 }

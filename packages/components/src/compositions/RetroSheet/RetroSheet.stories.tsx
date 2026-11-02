@@ -15,10 +15,21 @@ import { RetroSheet, type RetroSheetItem } from "./RetroSheet";
 const meta: Meta<typeof RetroSheet> = {
   title: "Compositions/Retro sheet",
   component: RetroSheet,
-  args: { open: true, session: "Retire two guides · s-01K6Q3", items: [], onClose: fn() },
+  args: {
+    open: true,
+    session: "Retire two guides · s-01K6Q3",
+    items: [],
+    onClose: fn(),
+  },
   decorators: [
     (Story) => (
-      <div style={{ position: "relative", height: "var(--palette-max-height)", background: "var(--bg-base)" }}>
+      <div
+        style={{
+          position: "relative",
+          height: "var(--palette-max-height)",
+          background: "var(--bg-base)",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -29,10 +40,24 @@ export default meta;
 type Story = StoryObj<typeof RetroSheet>;
 
 const answers = (agree?: { label: string; tip: string }) => ({
-  ...(agree === undefined ? {} : { agree: { ...agree, onAgree: fn() } }),
+  ...(agree === undefined
+    ? {}
+    : {
+        agree: {
+          ...agree,
+          onAgree: fn(),
+        },
+      }),
   disagreeTip: "Discards it.",
   onDisagree: fn(),
-  ...(agree === undefined ? { startSession: { tip: "Starts a Job on this repository and sends it this request now. It begins work at once.", onStart: fn() } } : {}),
+  ...(agree === undefined
+    ? {
+        startSession: {
+          tip: "Starts a Job on this repository and sends it this request now. It begins work at once.",
+          onStart: fn(),
+        },
+      }
+    : {}),
 });
 
 const ITEMS: RetroSheetItem[] = [
@@ -63,8 +88,18 @@ const ITEMS: RetroSheetItem[] = [
     title: "A Drone had to wait for grep to be allowed",
     what: "It asked to run grep on a check log, and the step waited until you allowed it.",
     fix: "Add grep on .armada/checks to the allowlist.",
-    answers: answers({ label: "Accept", tip: "Saves it under Accepted." }),
-    cites: [{ id: "asked:1", name: "Allow grep on .armada/checks?", detail: "Allow", at: "2026-10-02T21:10:00Z" }],
+    answers: answers({
+      label: "Accept",
+      tip: "Saves it under Accepted.",
+    }),
+    cites: [
+      {
+        id: "asked:1",
+        name: "Allow grep on .armada/checks?",
+        detail: "Allow",
+        at: "2026-10-02T21:10:00Z",
+      },
+    ],
   },
   {
     id: "dock",
@@ -84,27 +119,45 @@ export const Written: Story = {
     items: ITEMS,
   },
   play: async ({ canvas }) => {
-    const sheet = canvas.getByRole("dialog", { name: "Retro" });
+    const sheet = canvas.getByRole("dialog", {
+      name: "Retro",
+    });
     await expect(sheet).toBeVisible();
-    await expect(canvas.getAllByRole("button", { name: "Start Job" })).toHaveLength(1);
+    await expect(
+      canvas.getAllByRole("button", {
+        name: "Start Job",
+      }),
+    ).toHaveLength(1);
     // Collapsed until asked for.
     await expect(canvas.queryByText("out_of_bounds")).toBeNull();
-    await userEvent.click(canvas.getAllByRole("button", { name: "Evidence" })[0]!);
+    await userEvent.click(
+      canvas.getAllByRole("button", {
+        name: "Evidence",
+      })[0]!,
+    );
     await expect(canvas.getByText("out_of_bounds")).toBeVisible();
-    await expect(canvas.getByRole("img", { name: "Lands in Armada" })).toBeVisible();
+    await expect(
+      canvas.getByRole("img", {
+        name: "Lands in Armada",
+      }),
+    ).toBeVisible();
   },
 };
 
 /** The retro is not written yet. */
 export const Pending: Story = {
   name: "A retro not written yet",
-  args: { status: "Not written yet" },
+  args: {
+    status: "Not written yet",
+  },
 };
 
 /** Written, and nothing got in the way. An empty slot stays empty. */
 export const NothingInTheWay: Story = {
   name: "A retro with nothing in the way",
-  args: { items: [] },
+  args: {
+    items: [],
+  },
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("list")).toBeNull();
   },
@@ -113,7 +166,10 @@ export const NothingInTheWay: Story = {
 /** The read itself failed: Fleet's words, in place of everything else. */
 export const ReadFailed: Story = {
   name: "A retro that could not be read",
-  args: { failure: "Fleet is not running", items: ITEMS },
+  args: {
+    failure: "Fleet is not running",
+    items: ITEMS,
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("The retro could not be read")).toBeVisible();
     await expect(canvas.queryByText("out_of_bounds")).toBeNull();
@@ -123,5 +179,8 @@ export const ReadFailed: Story = {
 /** At `--window-floor`: flush to both edges, icon close. */
 export const AtTheFloor: Story = {
   name: "A retro at the floor",
-  args: { items: ITEMS, floor: true },
+  args: {
+    items: ITEMS,
+    floor: true,
+  },
 };

@@ -4,7 +4,12 @@
 import { useSyncExternalStore } from "react";
 import type { LucideIcon } from "lucide-react";
 
-export type PaletteExtra = { id: string; label: string; icon: LucideIcon; run: () => void };
+export type PaletteExtra = {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  run: () => void;
+};
 
 let rows: readonly PaletteExtra[] = [];
 const listeners = new Set<() => void>();

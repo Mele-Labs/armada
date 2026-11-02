@@ -20,9 +20,17 @@ export type Mac = {
   live: PhoneSession[];
 };
 
-type Fleet = { macs: Mac[]; loaded: boolean; at: number };
+type Fleet = {
+  macs: Mac[];
+  loaded: boolean;
+  at: number;
+};
 
-let fleet: Fleet = { macs: [], loaded: false, at: Date.now() };
+let fleet: Fleet = {
+  macs: [],
+  loaded: false,
+  at: Date.now(),
+};
 const watchers = new Set<() => void>();
 const emit = () => watchers.forEach((watch) => watch());
 const watching = (watch: () => void) => {
@@ -31,11 +39,22 @@ const watching = (watch: () => void) => {
 };
 
 function setMac(origin: string, change: (mac: Mac) => Partial<Mac>) {
-  fleet = { ...fleet, macs: fleet.macs.map((mac) => (mac.machine.origin === origin ? { ...mac, ...change(mac) } : mac)) };
+  fleet = {
+    ...fleet,
+    macs: fleet.macs.map((mac) =>
+      mac.machine.origin === origin
+        ? {
+            ...mac,
+            ...change(mac),
+          }
+        : mac,
+    ),
+  };
   emit();
 }
 
-export const macOf = (origin: string): Mac | undefined => fleet.macs.find((mac) => mac.machine.origin === origin);
+export const macOf = (origin: string): Mac | undefined =>
+  fleet.macs.find((mac) => mac.machine.origin === origin);
 
 /** A change a Mac's stream reported, for an open Job to read itself again. `session_id` absent is a resync. */
 const heard = new Set<(origin: string, sessionId?: string) => void>();
@@ -43,7 +62,8 @@ export function onChange(listen: (origin: string, sessionId?: string) => void): 
   heard.add(listen);
   return () => heard.delete(listen);
 }
-const tell = (origin: string, sessionId?: string) => heard.forEach((listen) => listen(origin, sessionId));
+const tell = (origin: string, sessionId?: string) =>
+  heard.forEach((listen) => listen(origin, sessionId));
 
 export async function loadLists(origin: string): Promise<void> {
   const mac = macOf(origin);
@@ -51,9 +71,18 @@ export async function loadLists(origin: string): Promise<void> {
   const machine = mac.machine;
   try {
     const { sessions: live } = await getJson<SessionsBody>(machine, "/api/sessions");
-    setMac(origin, () => ({ paired: true, why: undefined, error: undefined, needs: live.filter((session) => session.waiting), live }));
+    setMac(origin, () => ({
+      paired: true,
+      why: undefined,
+      error: undefined,
+      needs: live.filter((session) => session.waiting),
+      live,
+    }));
   } catch (why) {
-    if (!(why instanceof Refused && why.status === 401)) setMac(origin, () => ({ error: refusal(why, machine) }));
+    if (!(why instanceof Refused && why.status === 401))
+      setMac(origin, () => ({
+        error: refusal(why, machine),
+      }));
   }
 }
 
@@ -61,10 +90,17 @@ export async function loadLists(origin: string): Promise<void> {
 async function name(machine: Machine): Promise<void> {
   if (machine.name !== "") return;
   try {
-    const { name: said } = await getJson<{ name: string }>(machine, "/api/machine");
-    const named = { ...machine, name: said };
+    const { name: said } = await getJson<{
+      name: string;
+    }>(machine, "/api/machine");
+    const named = {
+      ...machine,
+      name: said,
+    };
     await keepMachine(named);
-    setMac(machine.origin, () => ({ machine: named }));
+    setMac(machine.origin, () => ({
+      machine: named,
+    }));
   } catch {
     // Unnamed, the Mac's rows go without its name until it answers.
   }
@@ -101,7 +137,9 @@ async function stream(origin: string): Promise<void> {
     let connected = false;
     let since = 0;
     try {
-      const response = await call(mac.machine, "/api/live", { signal: connection.signal });
+      const response = await call(mac.machine, "/api/live", {
+        signal: connection.signal,
+      });
       if (response.body === null) throw new Refused(0, "");
       connected = true;
       since = Date.now();
@@ -116,7 +154,9 @@ async function stream(origin: string): Promise<void> {
     } catch (why) {
       if (why instanceof Refused && why.status === 401) break;
       if (!connected && !connection.signal.aborted) {
-        setMac(origin, (one) => ({ error: refusal(why, one.machine) }));
+        setMac(origin, (one) => ({
+          error: refusal(why, one.machine),
+        }));
         await new Promise((resolve) => setTimeout(resolve, 3000));
       }
     } finally {
@@ -125,7 +165,8 @@ async function stream(origin: string): Promise<void> {
       if (open.get(origin) === connection) open.delete(origin);
     }
     // A stream that closed on its own moments after opening would otherwise be opened again in a tight loop.
-    if (connected && !connection.signal.aborted && Date.now() - since < BRIEF_MS) await new Promise((resolve) => setTimeout(resolve, 1000));
+    if (connected && !connection.signal.aborted && Date.now() - since < BRIEF_MS)
+      await new Promise((resolve) => setTimeout(resolve, 1000));
   }
   streaming.delete(origin);
 }
@@ -143,11 +184,28 @@ let started: Promise<void> | undefined;
 /** Reads the paired Macs and starts each one's lists. Once per app. */
 export function start(): Promise<void> {
   started ??= (async () => {
-    whenUnpaired((origin, why) => setMac(origin, () => ({ paired: false, why })));
-    document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && reconnectAll());
+    whenUnpaired((origin, why) =>
+      setMac(origin, () => ({
+        paired: false,
+        why,
+      })),
+    );
+    document.addEventListener(
+      "visibilitychange",
+      () => document.visibilityState === "visible" && reconnectAll(),
+    );
     window.addEventListener("online", reconnectAll);
     const held = await machines();
-    fleet = { ...fleet, loaded: true, macs: held.map((machine) => ({ machine, paired: true, needs: [], live: [] })) };
+    fleet = {
+      ...fleet,
+      loaded: true,
+      macs: held.map((machine) => ({
+        machine,
+        paired: true,
+        needs: [],
+        live: [],
+      })),
+    };
     emit();
     held.forEach(watch);
   })();
@@ -158,8 +216,34 @@ export function start(): Promise<void> {
 export async function addMac(machine: Machine): Promise<void> {
   await keepMachine(machine);
   const was = macOf(machine.origin);
-  if (was === undefined) fleet = { ...fleet, macs: [...fleet.macs, { machine, paired: true, needs: [], live: [] }] };
-  else fleet = { ...fleet, macs: fleet.macs.map((mac) => (mac === was ? { ...mac, machine, paired: true, why: undefined, error: undefined } : mac)) };
+  if (was === undefined)
+    fleet = {
+      ...fleet,
+      macs: [
+        ...fleet.macs,
+        {
+          machine,
+          paired: true,
+          needs: [],
+          live: [],
+        },
+      ],
+    };
+  else
+    fleet = {
+      ...fleet,
+      macs: fleet.macs.map((mac) =>
+        mac === was
+          ? {
+              ...mac,
+              machine,
+              paired: true,
+              why: undefined,
+              error: undefined,
+            }
+          : mac,
+      ),
+    };
   emit();
   watch(machine);
 }
@@ -168,7 +252,10 @@ export function useFleet(): Fleet {
   // The ages tick once a minute.
   useEffect(() => {
     const tick = setInterval(() => {
-      fleet = { ...fleet, at: Date.now() };
+      fleet = {
+        ...fleet,
+        at: Date.now(),
+      };
       emit();
     }, 60_000);
     return () => clearInterval(tick);
@@ -176,7 +263,10 @@ export function useFleet(): Fleet {
   return useSyncExternalStore(watching, () => fleet);
 }
 
-export type Item = { mac: Mac; session: PhoneSession };
+export type Item = {
+  mac: Mac;
+  session: PhoneSession;
+};
 
 export type Home = {
   /** More than one Mac is paired, so each row names its Mac. */
@@ -195,13 +285,33 @@ const time = (at: string | undefined) => (at === undefined ? 0 : Date.parse(at))
 
 export function homeOf({ macs }: Pick<Fleet, "macs">): Home {
   const paired = macs.filter((mac) => mac.paired);
-  const all = (pick: (mac: Mac) => PhoneSession[]) => paired.flatMap((mac) => pick(mac).map((session) => ({ mac, session })));
+  const all = (pick: (mac: Mac) => PhoneSession[]) =>
+    paired.flatMap((mac) =>
+      pick(mac).map((session) => ({
+        mac,
+        session,
+      })),
+    );
   return {
     several: macs.length > 1,
-    drafts: all((mac) => mac.live.filter((session) => session.held)).sort((a, b) => time(b.session.started_at) - time(a.session.started_at)),
-    needs: all((mac) => mac.needs.filter((session) => !session.held)).sort((a, b) => time(a.session.waiting_since ?? a.session.started_at) - time(b.session.waiting_since ?? b.session.started_at)),
-    done: all((mac) => mac.live.filter((session) => session.done_since !== undefined && !session.waiting && !session.held)).sort((a, b) => time(b.session.done_since) - time(a.session.done_since)),
-    running: all((mac) => mac.live.filter((session) => !session.waiting && !session.held && session.done_since === undefined)).sort((a, b) => time(b.session.started_at) - time(a.session.started_at)),
+    drafts: all((mac) => mac.live.filter((session) => session.held)).sort(
+      (a, b) => time(b.session.started_at) - time(a.session.started_at),
+    ),
+    needs: all((mac) => mac.needs.filter((session) => !session.held)).sort(
+      (a, b) =>
+        time(a.session.waiting_since ?? a.session.started_at) -
+        time(b.session.waiting_since ?? b.session.started_at),
+    ),
+    done: all((mac) =>
+      mac.live.filter(
+        (session) => session.done_since !== undefined && !session.waiting && !session.held,
+      ),
+    ).sort((a, b) => time(b.session.done_since) - time(a.session.done_since)),
+    running: all((mac) =>
+      mac.live.filter(
+        (session) => !session.waiting && !session.held && session.done_since === undefined,
+      ),
+    ).sort((a, b) => time(b.session.started_at) - time(a.session.started_at)),
     troubled: macs.filter((mac) => !mac.paired || mac.error !== undefined),
   };
 }
@@ -209,7 +319,12 @@ export function homeOf({ macs }: Pick<Fleet, "macs">): Home {
 /** The Mac that holds a Job a push named without saying where: the one listing it, else the first that can read it. */
 export async function holderOf(sessionId: string): Promise<Mac | undefined> {
   await start();
-  const listing = fleet.macs.find((mac) => [...mac.needs, ...mac.live].some((one) => one.id === sessionId));
+  const listing = fleet.macs.find((mac) =>
+    [
+      ...mac.needs,
+      ...mac.live,
+    ].some((one) => one.id === sessionId),
+  );
   if (listing !== undefined) return listing;
   for (const mac of fleet.macs.filter((one) => one.paired)) {
     try {

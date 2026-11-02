@@ -13,7 +13,21 @@ test("revision 2 asks again on its card", async () => {
   mount(documentAsksAgain);
   await onScreen();
   await toSession("Demo marketing video");
-  const card = page.getByRole("article", { name: "Document: Video script, Revision 2" });
-  await expect.element(card.getByRole("button", { name: "Approve" })).toBeVisible();
-  await expect.element(card.getByRole("button", { name: "Send back" })).toBeVisible();
+  const card = page.getByRole("article", {
+    name: "Document: Video script, Revision 2",
+  });
+  await expect
+    .element(
+      card.getByRole("button", {
+        name: "Approve",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      card.getByRole("button", {
+        name: "Send back",
+      }),
+    )
+    .toBeVisible();
 });

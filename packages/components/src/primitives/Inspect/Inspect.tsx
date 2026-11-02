@@ -48,24 +48,45 @@ import { KbdBinding } from "../Kbd/Kbd";
  * One fact: its label, its value, and whether the system made the value. A `tone` is a CSS colour, a status token. `open` makes the
  * value a press that opens what it names, drawn as a link; it is named "Open <label> <value>" where the value is words.
  */
-export type InspectFact = { label: string; value: ReactNode; mono?: boolean; tone?: string; open?: () => void };
+export type InspectFact = {
+  label: string;
+  value: ReactNode;
+  mono?: boolean;
+  tone?: string;
+  open?: () => void;
+};
 
 /**
  * A key that works on the item now. `act` reads the key from the shortcut registry, so Settings → Keyboard moves
  * it here too, and its verb is the registry's unless one is given. `key` is for a press the browser itself
  * answers, such as Enter on a focused button, which is not an act of the registry's.
  */
-export type InspectKey = { act: string; verb?: string } | { key: string; verb: string };
+export type InspectKey =
+  | {
+      act: string;
+      verb?: string;
+    }
+  | {
+      key: string;
+      verb: string;
+    };
 
 export type InspectCardProps = Omit<HTMLAttributes<HTMLDivElement>, "title"> & {
   /** The kind of thing: its glyph from the icon registry and its name. */
-  kind: { Glyph: LucideIcon; label: string };
+  kind: {
+    Glyph: LucideIcon;
+    label: string;
+  };
   /** The item's id, or where it is. Mono, on the head's right. */
   where?: ReactNode;
   /** The item's name. */
   title?: ReactNode;
   /** Its state in the registry's glyph and words, in its status tone. */
-  state?: { Glyph?: LucideIcon; said: ReactNode; tone?: string };
+  state?: {
+    Glyph?: LucideIcon;
+    said: ReactNode;
+    tone?: string;
+  };
   /** The colour of the thin top edge: a status token. Defaults to the state's, else none. */
   tone?: string;
   facts?: readonly InspectFact[];
@@ -86,11 +107,27 @@ export function InspectFacts({ facts }: { facts: readonly InspectFact[] }) {
       {facts.map((fact, at) => (
         <div key={`${at}:${fact.label}`}>
           <dt>{fact.label}</dt>
-          <dd data-mono={fact.mono || undefined} style={fact.tone === undefined ? undefined : { color: fact.tone }}>
+          <dd
+            data-mono={fact.mono || undefined}
+            style={
+              fact.tone === undefined
+                ? undefined
+                : {
+                    color: fact.tone,
+                  }
+            }
+          >
             {fact.open === undefined ? (
               fact.value
             ) : (
-              <button type="button" className="armada-inspect-card__open" aria-label={typeof fact.value === "string" ? `Open ${fact.label} ${fact.value}` : undefined} onClick={fact.open}>
+              <button
+                type="button"
+                className="armada-inspect-card__open"
+                aria-label={
+                  typeof fact.value === "string" ? `Open ${fact.label} ${fact.value}` : undefined
+                }
+                onClick={fact.open}
+              >
                 {fact.value}
               </button>
             )}
@@ -102,7 +139,13 @@ export function InspectFacts({ facts }: { facts: readonly InspectFact[] }) {
 }
 
 /** A muted heading over a list of facts, for a section of a card. An empty list draws nothing. */
-export function InspectSection({ heading, facts }: { heading: string; facts: readonly InspectFact[] }) {
+export function InspectSection({
+  heading,
+  facts,
+}: {
+  heading: string;
+  facts: readonly InspectFact[];
+}) {
   if (facts.length === 0) return null;
   return (
     <>
@@ -124,14 +167,42 @@ function KeyChip({ one }: { one: InspectKey }) {
   );
 }
 
-export function InspectCard({ kind, where, title, state, tone, facts = [], keys = [], width = "narrow", className, style, children, ref, ...rest }: InspectCardProps) {
+export function InspectCard({
+  kind,
+  where,
+  title,
+  state,
+  tone,
+  facts = [],
+  keys = [],
+  width = "narrow",
+  className,
+  style,
+  children,
+  ref,
+  ...rest
+}: InspectCardProps) {
   const edge = tone ?? state?.tone;
   return (
     <div
       ref={ref}
-      className={["armada-inspect-card", className].filter(Boolean).join(" ")}
+      className={[
+        "armada-inspect-card",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
       data-width={width}
-      style={{ ...(edge === undefined ? {} : { "--inspect-tone": edge }), ...style } as CSSProperties}
+      style={
+        {
+          ...(edge === undefined
+            ? {}
+            : {
+                "--inspect-tone": edge,
+              }),
+          ...style,
+        } as CSSProperties
+      }
       {...rest}
     >
       <div className="armada-inspect-card__head">
@@ -141,7 +212,16 @@ export function InspectCard({ kind, where, title, state, tone, facts = [], keys 
       </div>
       {title === undefined ? null : <div className="armada-inspect-card__title">{title}</div>}
       {state === undefined ? null : (
-        <div className="armada-inspect-card__state" style={state.tone === undefined ? undefined : ({ "--inspect-state": state.tone } as CSSProperties)}>
+        <div
+          className="armada-inspect-card__state"
+          style={
+            state.tone === undefined
+              ? undefined
+              : ({
+                  "--inspect-state": state.tone,
+                } as CSSProperties)
+          }
+        >
           {state.Glyph === undefined ? null : <state.Glyph size={16} strokeWidth={2} aria-hidden />}
           {state.said}
         </div>
@@ -152,7 +232,11 @@ export function InspectCard({ kind, where, title, state, tone, facts = [], keys 
         {keys.map((one, at) => (
           <KeyChip key={at} one={one} />
         ))}
-        <KeyChip one={{ act: "close" }} />
+        <KeyChip
+          one={{
+            act: "close",
+          }}
+        />
       </ul>
     </div>
   );
@@ -166,13 +250,20 @@ let closedAt = 0;
 let active: (() => void) | undefined;
 
 function readMs(name: string, fallback: number): number {
-  const parsed = Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue(name), 10);
+  const parsed = Number.parseInt(
+    getComputedStyle(document.documentElement).getPropertyValue(name),
+    10,
+  );
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
-const ANCHORS = typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("anchor-name", "--a");
+const ANCHORS =
+  typeof CSS !== "undefined" &&
+  typeof CSS.supports === "function" &&
+  CSS.supports("anchor-name", "--a");
 
-const FOCUSABLE = "button:not([disabled]),a[href],input,select,textarea,[tabindex]:not([tabindex='-1'])";
+const FOCUSABLE =
+  "button:not([disabled]),a[href],input,select,textarea,[tabindex]:not([tabindex='-1'])";
 
 export type InspectProps = {
   /** The card. A function is given the way to put it away and whether it is pinned, for an act inside it that takes the reader elsewhere. */
@@ -198,7 +289,18 @@ export type InspectProps = {
   onSummoned?: () => void;
 };
 
-export function Inspect({ card, name, children, side = "below", pin = true, around, held = false, summoned = false, to, onSummoned }: InspectProps) {
+export function Inspect({
+  card,
+  name,
+  children,
+  side = "below",
+  pin = true,
+  around,
+  held = false,
+  summoned = false,
+  to,
+  onSummoned,
+}: InspectProps) {
   const [hover, setHover] = useState(false);
   const [focus, setFocus] = useState(false);
   const [pinned, setPinned] = useState(false);
@@ -206,7 +308,9 @@ export function Inspect({ card, name, children, side = "below", pin = true, arou
   const [released, setReleased] = useState(false);
   useEffect(() => {
     if (!held) setReleased(false);
-  }, [held]);
+  }, [
+    held,
+  ]);
   const open = hover || focus || pinned || (held && !released);
   const id = useId();
   const anchor = `--inspect-${id.replace(/\W/g, "")}`;
@@ -225,10 +329,13 @@ export function Inspect({ card, name, children, side = "below", pin = true, arou
     setFocus(false);
     setPinned(false);
   }, []);
-  useEffect(() => () => {
-    window.clearTimeout(waiting.current);
-    window.clearTimeout(leaving.current);
-  }, []);
+  useEffect(
+    () => () => {
+      window.clearTimeout(waiting.current);
+      window.clearTimeout(leaving.current);
+    },
+    [],
+  );
 
   // One open at a time, and the next opens at once while the last has only just closed.
   useEffect(() => {
@@ -239,13 +346,17 @@ export function Inspect({ card, name, children, side = "below", pin = true, arou
       if (active === away) active = undefined;
       closedAt = Date.now();
     };
-  }, [open, away]);
+  }, [
+    open,
+    away,
+  ]);
 
   const show = (via: "hover" | "focus") => {
     window.clearTimeout(leaving.current);
     if (dismissed.current) return;
     const set = via === "hover" ? setHover : setFocus;
-    if (open || active !== undefined || Date.now() - closedAt < readMs("--tooltip-grace", 300)) return set(true);
+    if (open || active !== undefined || Date.now() - closedAt < readMs("--tooltip-grace", 300))
+      return set(true);
     window.clearTimeout(waiting.current);
     waiting.current = window.setTimeout(() => set(true), readMs("--tooltip-delay", 400));
   };
@@ -255,7 +366,9 @@ export function Inspect({ card, name, children, side = "below", pin = true, arou
     if (via === "hover") leaving.current = window.setTimeout(() => setHover(false), LEAVE_MS);
     else setFocus(false);
   };
-  const inside = (node: EventTarget | null) => node instanceof Node && (trigger.current?.contains(node) === true || shell.current?.contains(node) === true);
+  const inside = (node: EventTarget | null) =>
+    node instanceof Node &&
+    (trigger.current?.contains(node) === true || shell.current?.contains(node) === true);
 
   // Top layer, so the card clears every sheet; and, where anchor positioning is missing, placed by hand.
   useLayoutEffect(() => {
@@ -266,14 +379,22 @@ export function Inspect({ card, name, children, side = "below", pin = true, arou
     } catch {
       // Already showing, or no popover in this renderer: the stylesheet's fixed layer stands.
     }
-    const from = (around === undefined ? trigger.current : trigger.current?.closest(around))?.getBoundingClientRect();
+    const from = (
+      around === undefined ? trigger.current : trigger.current?.closest(around)
+    )?.getBoundingClientRect();
     if (ANCHORS || from === undefined) return;
     const gap = 8;
     const own = el.getBoundingClientRect();
     const right = side === "beside" ? from.left - gap - own.width : from.left;
-    const left = Math.max(gap, Math.min(right < gap ? from.right + gap : right, window.innerWidth - own.width - gap));
+    const left = Math.max(
+      gap,
+      Math.min(right < gap ? from.right + gap : right, window.innerWidth - own.width - gap),
+    );
     const below = side === "beside" ? from.top : from.bottom + gap;
-    const top = side === "above" || below + own.height > window.innerHeight ? Math.max(gap, from.top - gap - own.height) : below;
+    const top =
+      side === "above" || below + own.height > window.innerHeight
+        ? Math.max(gap, from.top - gap - own.height)
+        : below;
     el.style.left = `${left}px`;
     el.style.top = `${top}px`;
   });
@@ -285,7 +406,11 @@ export function Inspect({ card, name, children, side = "below", pin = true, arou
     if (host === null || host === undefined) return;
     host.style.setProperty("anchor-name", anchor);
     return () => void host.style.removeProperty("anchor-name");
-  }, [open, around, anchor]);
+  }, [
+    open,
+    around,
+    anchor,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -297,14 +422,18 @@ export function Inspect({ card, name, children, side = "below", pin = true, arou
         event.preventDefault();
         event.stopPropagation();
       }
-      if (within) trigger.current?.focus({ preventScroll: true });
+      if (within)
+        trigger.current?.focus({
+          preventScroll: true,
+        });
       dismissed.current = true;
       setReleased(true);
       away();
     };
     const onDown = (event: PointerEvent) => {
       // A walk's own card is not the page: pressing its Next leaves the card a step opened as it was.
-      if (event.target instanceof Element && event.target.closest("[data-walk-ui]") !== null) return;
+      if (event.target instanceof Element && event.target.closest("[data-walk-ui]") !== null)
+        return;
       if (!inside(event.target)) away();
     };
     window.addEventListener("keydown", onKey, true);
@@ -325,23 +454,54 @@ export function Inspect({ card, name, children, side = "below", pin = true, arou
     const el = shell.current;
     if (el === null) return;
     const aim = to === undefined ? null : el.querySelector<HTMLElement>(to);
-    (aim ?? el.querySelector<HTMLElement>(FOCUSABLE) ?? el).focus({ preventScroll: true });
-  }, [pinned, to]);
+    (aim ?? el.querySelector<HTMLElement>(FOCUSABLE) ?? el).focus({
+      preventScroll: true,
+    });
+  }, [
+    pinned,
+    to,
+  ]);
   useEffect(() => {
     if (!summoned) return;
     pinNow();
     onSummoned?.();
-  }, [summoned]);
+  }, [
+    summoned,
+  ]);
 
   if (!isValidElement(children)) throw new Error("Inspect takes exactly one element");
-  const child = children as ReactElement<HTMLAttributes<HTMLElement> & { ref?: Ref<HTMLElement> }>;
+  const child = children as ReactElement<
+    HTMLAttributes<HTMLElement> & {
+      ref?: Ref<HTMLElement>;
+    }
+  >;
   const own = child.props;
   const cardId = `${id}-card`;
-  const described = open && !pinned ? [own["aria-describedby"], cardId].filter(Boolean).join(" ") : own["aria-describedby"];
+  const described =
+    open && !pinned
+      ? [
+          own["aria-describedby"],
+          cardId,
+        ]
+          .filter(Boolean)
+          .join(" ")
+      : own["aria-describedby"];
 
   const trigged = cloneElement(child, {
-    className: [own.className, "armada-inspect-on"].filter(Boolean).join(" "),
-    style: { ...own.style, ...(around === undefined ? { anchorName: anchor } : {}) } as CSSProperties,
+    className: [
+      own.className,
+      "armada-inspect-on",
+    ]
+      .filter(Boolean)
+      .join(" "),
+    style: {
+      ...own.style,
+      ...(around === undefined
+        ? {
+            anchorName: anchor,
+          }
+        : {}),
+    } as CSSProperties,
     "aria-describedby": described,
     onMouseEnter: (event: ReactMouseEvent<HTMLElement>) => {
       own.onMouseEnter?.(event);
@@ -360,7 +520,8 @@ export function Inspect({ card, name, children, side = "below", pin = true, arou
     onBlur: (event: ReactFocusEvent<HTMLElement>) => {
       own.onBlur?.(event);
       dismissed.current = false;
-      if (inside(event.relatedTarget) || (event.relatedTarget === null && !document.hasFocus())) return;
+      if (inside(event.relatedTarget) || (event.relatedTarget === null && !document.hasFocus()))
+        return;
       hide("focus");
       if (event.relatedTarget !== null) setPinned(false);
     },
@@ -384,7 +545,12 @@ export function Inspect({ card, name, children, side = "below", pin = true, arou
       trigger.current = node;
       const held = own.ref;
       if (typeof held === "function") held(node);
-      else if (held !== null && held !== undefined) (held as { current: HTMLElement | null }).current = node;
+      else if (held !== null && held !== undefined)
+        (
+          held as {
+            current: HTMLElement | null;
+          }
+        ).current = node;
     },
   } as HTMLAttributes<HTMLElement>);
 
@@ -403,7 +569,11 @@ export function Inspect({ card, name, children, side = "below", pin = true, arou
               data-pinned={pinned || undefined}
               role={pinned ? "dialog" : "tooltip"}
               aria-label={pinned ? name : undefined}
-              style={{ positionAnchor: anchor } as CSSProperties}
+              style={
+                {
+                  positionAnchor: anchor,
+                } as CSSProperties
+              }
               // Drawn in the body but a child of its trigger in the tree, so a press or a key in it would reach a row that opens on one.
               onClick={(event) => event.stopPropagation()}
               onKeyDown={(event) => event.stopPropagation()}
@@ -412,12 +582,21 @@ export function Inspect({ card, name, children, side = "below", pin = true, arou
               onFocus={() => setFocus(true)}
               onBlur={(event) => {
                 // The window losing focus is not the reader leaving the card: the focus comes back to it.
-                if (inside(event.relatedTarget) || (event.relatedTarget === null && !document.hasFocus())) return;
+                if (
+                  inside(event.relatedTarget) ||
+                  (event.relatedTarget === null && !document.hasFocus())
+                )
+                  return;
                 setFocus(false);
                 if (event.relatedTarget !== null) setPinned(false);
               }}
             >
-              {typeof card === "function" ? card({ close: away, pinned }) : card}
+              {typeof card === "function"
+                ? card({
+                    close: away,
+                    pinned,
+                  })
+                : card}
             </div>,
             document.body,
           )

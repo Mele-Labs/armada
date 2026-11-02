@@ -1,4 +1,4 @@
-// The title row with one menu: the account, Sleep and Settings behind a single button, the plan's
+// The title row with one menu: the account and Settings behind a single button, the plan's
 // meters beside the search bar, and the repository picker in a panel at the top of the left column.
 // Over two repositories, opening on All repositories, and signed out so the button carries its mark.
 // The walk `title-bar-menu` plays it.
@@ -16,8 +16,16 @@ function build(): Scenario {
     draft: {
       ...(prOwners.draft ?? {}),
       account: {
-        signIn: { login: "nickmele", code: "WDJB-MJHT", repository: "armada-home" },
-        add: { login: "mele-work", code: "KQXP-4N7D", items: PERSONAL_ITEMS },
+        signIn: {
+          login: "nickmele",
+          code: "WDJB-MJHT",
+          repository: "armada-home",
+        },
+        add: {
+          login: "mele-work",
+          code: "KQXP-4N7D",
+          items: PERSONAL_ITEMS,
+        },
       },
     },
   };

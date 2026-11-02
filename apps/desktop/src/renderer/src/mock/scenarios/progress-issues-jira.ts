@@ -14,50 +14,131 @@ import { sessionsStore } from "../sessions/script";
 const BARE = "https://git.example/armada/pull/";
 const TRACKER = "https://tracker.invalid/browse/";
 
-type PullRequest = Extract<SessionAttachment, { kind: "pull_request" }>;
+type PullRequest = Extract<
+  SessionAttachment,
+  {
+    kind: "pull_request";
+  }
+>;
 
-const pr = (number: number, title: string, branch: string, rest: Partial<PullRequest> = {}): PullRequest => ({
+const pr = (
+  number: number,
+  title: string,
+  branch: string,
+  rest: Partial<PullRequest> = {},
+): PullRequest => ({
   kind: "pull_request",
   number,
   title,
   branch,
   address: `${BARE}${number}`,
-  checks: { state: "passed" },
+  checks: {
+    state: "passed",
+  },
   state: "open",
   auto: false,
   ...rest,
 });
 
-const ticket = (key: string, title: string, pulls: number[], state: "open" | "closed" = "open"): SessionAttachment => ({ kind: "issue", number: key, title, address: `${TRACKER}${key}`, state, pull_requests: pulls });
+const ticket = (
+  key: string,
+  title: string,
+  pulls: number[],
+  state: "open" | "closed" = "open",
+): SessionAttachment => ({
+  kind: "issue",
+  number: key,
+  title,
+  address: `${TRACKER}${key}`,
+  state,
+  pull_requests: pulls,
+});
 
 const tickets: Session = {
   id: "pi-j",
   title: "Work two checkout tickets",
   manifestId: repository().manifest!.id,
   cwd: repository().root,
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: new Date(Date.now() - 4 * 60_000).toISOString(),
   standing: "idle",
-  rows: [{ id: "pi-j-1", at: "13:40:00", kind: "message", from: { kind: "you" }, text: "Work ABC-41 and ABC-42." }],
+  rows: [
+    {
+      id: "pi-j-1",
+      at: "13:40:00",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Work ABC-41 and ABC-42.",
+    },
+  ],
   attachments: [
-    ticket("ABC-41", "Checkout total rounds twice", [2301, 2303]),
-    ticket("ABC-42", "Coupon field drops its code on a resize", [2302], "closed"),
-    { kind: "branch", name: "checkout/round-once", slot: 7 },
-    pr(2301, "Round the checkout total once", "checkout/round-once", { checks: { state: "pending" } }),
-    pr(2302, "Keep the coupon code through a resize", "checkout/keep-coupon", { state: "merged" }),
+    ticket(
+      "ABC-41",
+      "Checkout total rounds twice",
+      [
+        2301,
+        2303,
+      ],
+    ),
+    ticket(
+      "ABC-42",
+      "Coupon field drops its code on a resize",
+      [
+        2302,
+      ],
+      "closed",
+    ),
+    {
+      kind: "branch",
+      name: "checkout/round-once",
+      slot: 7,
+    },
+    pr(2301, "Round the checkout total once", "checkout/round-once", {
+      checks: {
+        state: "pending",
+      },
+    }),
+    pr(2302, "Keep the coupon code through a resize", "checkout/keep-coupon", {
+      state: "merged",
+    }),
     pr(2303, "Show the rounded total in the receipt", "checkout/receipt-total"),
   ],
-  work: { proposal: { workflow: null } },
+  work: {
+    proposal: {
+      workflow: null,
+    },
+  },
 };
 
-const base = holding("progress-issues-jira", "A Session's tickets by their tracker's key stand in Deferred, and the pull requests their rows name in Delivery");
+const base = holding(
+  "progress-issues-jira",
+  "A Session's tickets by their tracker's key stand in Deferred, and the pull requests their rows name in Delivery",
+);
 
 export const s311ProgressIssuesJira: Scenario = {
   ...base,
-  state: { ...base.state, repository: null },
+  state: {
+    ...base.state,
+    repository: null,
+  },
   draft: {
-    sessions: () => sessionsStore([tickets], [], new Map(), []),
+    sessions: () =>
+      sessionsStore(
+        [
+          tickets,
+        ],
+        [],
+        new Map(),
+        [],
+      ),
     areas: () => mockAreas("/armada"),
-    sharedPanel: () => sharedPanelReads({ lines: [] }),
+    sharedPanel: () =>
+      sharedPanelReads({
+        lines: [],
+      }),
   },
 };

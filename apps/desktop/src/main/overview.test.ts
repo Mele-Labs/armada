@@ -10,7 +10,13 @@ import type { BridgeState } from "../shared/bridge";
 import { OverviewReads } from "./overview";
 
 const HEALTH = {
-  probes: [{ module: "Fleet", outcome: "pass", detail: "answering" }],
+  probes: [
+    {
+      module: "Fleet",
+      outcome: "pass",
+      detail: "answering",
+    },
+  ],
   not_probed: [],
   helm_action_authority: "acting",
 };
@@ -26,7 +32,9 @@ async function fleet(asked: string[]): Promise<number> {
   const server = createServer((request, response) => {
     const url = request.url ?? "";
     asked.push(url);
-    response.writeHead(200, { "content-type": "application/json" });
+    response.writeHead(200, {
+      "content-type": "application/json",
+    });
     response.end(JSON.stringify(HEALTH));
   });
   listening = server;
@@ -37,8 +45,18 @@ async function fleet(asked: string[]): Promise<number> {
 
 function reading(port: number | null) {
   let held: Partial<BridgeState> = {};
-  const overview = new OverviewReads({ publish: (change) => (held = { ...held, ...change }), port: () => port });
-  return { overview, held: () => held };
+  const overview = new OverviewReads({
+    publish: (change) =>
+      (held = {
+        ...held,
+        ...change,
+      }),
+    port: () => port,
+  });
+  return {
+    overview,
+    held: () => held,
+  };
 }
 
 describe("Overview's reads", () => {
@@ -56,8 +74,13 @@ describe("Overview's reads", () => {
     const port = await fleet(asked);
     const { overview, held } = reading(port);
     await overview.watch(true);
-    expect(asked).toEqual(["/health"]);
-    expect(held().health).toEqual({ state: "read", health: HEALTH });
+    expect(asked).toEqual([
+      "/health",
+    ]);
+    expect(held().health).toEqual({
+      state: "read",
+      health: HEALTH,
+    });
   });
 
   it("drop what they held when the surface closes, and an answer that lands after", async () => {
@@ -67,12 +90,22 @@ describe("Overview's reads", () => {
     const opened = overview.watch(true);
     await overview.watch(false);
     await opened;
-    expect(held()).toEqual({ health: { state: "none" } });
+    expect(held()).toEqual({
+      health: {
+        state: "none",
+      },
+    });
   });
 
   it("fail without a connection", async () => {
     const { overview, held } = reading(null);
     await overview.watch(true);
-    expect(held().health).toEqual({ state: "failed", outcome: { ok: false, why: "not_connected" } });
+    expect(held().health).toEqual({
+      state: "failed",
+      outcome: {
+        ok: false,
+        why: "not_connected",
+      },
+    });
   });
 });

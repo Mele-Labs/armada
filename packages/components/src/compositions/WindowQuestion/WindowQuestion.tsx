@@ -18,7 +18,10 @@ import type { CaptureBox } from "../StudioCapture/StudioCapture";
  * alone go with Send. Look around folds the card into the bar so the page takes presses again.
  */
 
-export type WindowQuestionOption = { label: string; description?: string };
+export type WindowQuestionOption = {
+  label: string;
+  description?: string;
+};
 
 export type WindowQuestionProps = {
   /** Who asks: the Session's title. */
@@ -55,15 +58,47 @@ const place = (box: CaptureBox): CSSProperties =>
  * of the page where it is too tall for either: a card over a place that starts near the top was
  * drawn off the window.
  */
-function cardAt(box: CaptureBox, height: number): { style: CSSProperties; side: "below" | "above" | "top" } {
+function cardAt(
+  box: CaptureBox,
+  height: number,
+): {
+  style: CSSProperties;
+  side: "below" | "above" | "top";
+} {
   const room = height * 0.4;
-  if (height - (box.y + box.height) >= room) return { style: place({ ...box, y: box.y + box.height }), side: "below" };
-  if (box.y >= room) return { style: place(box), side: "above" };
-  return { style: {}, side: "top" };
+  if (height - (box.y + box.height) >= room)
+    return {
+      style: place({
+        ...box,
+        y: box.y + box.height,
+      }),
+      side: "below",
+    };
+  if (box.y >= room)
+    return {
+      style: place(box),
+      side: "above",
+    };
+  return {
+    style: {},
+    side: "top",
+  };
 }
 
 export function WindowQuestion(props: WindowQuestionProps) {
-  const { from, question, options, box, answer, onAnswer, onChoose, onSend, onFold, sending = false, refused } = props;
+  const {
+    from,
+    question,
+    options,
+    box,
+    answer,
+    onAnswer,
+    onChoose,
+    onSend,
+    onFold,
+    sending = false,
+    refused,
+  } = props;
   const sendable = !sending && answer.trim() !== "";
   const card = box === undefined || box === null ? null : cardAt(box, window.innerHeight);
 
@@ -83,17 +118,33 @@ export function WindowQuestion(props: WindowQuestionProps) {
       {/* A press beside the card is a person reaching for the page: the card folds and lets them. */}
       <div className="armada-window-question__catch" aria-hidden onClick={onFold} />
       {box === undefined || box === null ? null : (
-        <div className="armada-window-question__outline" role="img" aria-label="The place asked about" style={place(box)} />
+        <div
+          className="armada-window-question__outline"
+          role="img"
+          aria-label="The place asked about"
+          style={place(box)}
+        />
       )}
       <div
         className="armada-window-question__card"
         role="dialog"
         aria-label={`Question from ${from}`}
-        {...(card === null ? { "data-side": "top" } : { style: card.style, "data-side": card.side })}
+        {...(card === null
+          ? {
+              "data-side": "top",
+            }
+          : {
+              style: card.style,
+              "data-side": card.side,
+            })}
       >
         <p className="armada-window-question__from">{from} asks</p>
         <p className="armada-window-question__question">{question}</p>
-        {box === null ? <p className="armada-window-question__lost">The place it asks about is not on this page.</p> : null}
+        {box === null ? (
+          <p className="armada-window-question__lost">
+            The place it asks about is not on this page.
+          </p>
+        ) : null}
         {options.length === 0 ? null : (
           <div className="armada-window-question__options" role="group" aria-label="Options">
             {options.map((one, at) => (
@@ -118,12 +169,20 @@ export function WindowQuestion(props: WindowQuestionProps) {
           value={answer}
           onChange={(event) => onAnswer(event.target.value)}
         />
-        {refused === undefined ? null : <p className="armada-window-question__refused">{refused}</p>}
+        {refused === undefined ? null : (
+          <p className="armada-window-question__refused">{refused}</p>
+        )}
         <div className="armada-window-question__acts">
           <Button variant="ghost" size="sm" onClick={onFold}>
             Look around
           </Button>
-          <Button variant="primary" size="sm" pending={sending} disabled={!sendable} onClick={onSend}>
+          <Button
+            variant="primary"
+            size="sm"
+            pending={sending}
+            disabled={!sendable}
+            onClick={onSend}
+          >
             {sending ? "Sending" : "Send"}
           </Button>
         </div>

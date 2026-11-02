@@ -7,7 +7,11 @@ import { KEY, type Deploy } from "./wrangler";
 const PROMPT = "Passphrase: ";
 
 /** Starts the program. `print` is what it writes to the terminal; `end` is how it exits, with null for a stop. */
-export function startUnlock(command: string, print: (text: string) => void, end: (code: number | null) => void): Deploy {
+export function startUnlock(
+  command: string,
+  print: (text: string) => void,
+  end: (code: number | null) => void,
+): Deploy {
   let typed = "";
   let asking = false;
   let ended = false;

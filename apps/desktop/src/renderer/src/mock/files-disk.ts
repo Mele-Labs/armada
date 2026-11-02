@@ -8,10 +8,26 @@ export const NOTES_PATH = "/Users/user/Development/armada/docs/notes/store-clock
 export const CLOCK_PATH = "/Users/user/Development/armada/crates/store/src/clock.rs";
 export const PICTURE_PATH = "/Users/user/Development/armada/docs/notes/clock-blocks.png";
 
-export const SETTINGS_FILE: PanelFileItem = { kind: "file", path: SETTINGS_PATH, from: "settings" };
-export const NOTES_FILE: PanelFileItem = { kind: "file", path: NOTES_PATH, from: "session" };
-export const CLOCK_FILE: PanelFileItem = { kind: "file", path: CLOCK_PATH, from: "picked" };
-export const PICTURE_FILE: PanelFileItem = { kind: "file", path: PICTURE_PATH, from: "picked" };
+export const SETTINGS_FILE: PanelFileItem = {
+  kind: "file",
+  path: SETTINGS_PATH,
+  from: "settings",
+};
+export const NOTES_FILE: PanelFileItem = {
+  kind: "file",
+  path: NOTES_PATH,
+  from: "session",
+};
+export const CLOCK_FILE: PanelFileItem = {
+  kind: "file",
+  path: CLOCK_PATH,
+  from: "picked",
+};
+export const PICTURE_FILE: PanelFileItem = {
+  kind: "file",
+  path: PICTURE_PATH,
+  from: "picked",
+};
 
 const SETTINGS = `{
   "limits": {
@@ -83,7 +99,8 @@ impl Clock for FixedClock {
 export const SKILL_PATH = "/Users/user/.agent/skills/humanizer/SKILL.md";
 /** The skill the walk `session-loadout` edits from its Loadout row. */
 export const DEEP_RESEARCH_PATH = "/Users/user/.harness/skills/deep-research/SKILL.md";
-export const IMPLEMENTER_PATH = "/Users/user/.agent/plugins/cache/armada/1.0.0/agents/implementer.md";
+export const IMPLEMENTER_PATH =
+  "/Users/user/.agent/plugins/cache/armada/1.0.0/agents/implementer.md";
 export const AGENT_PATH = "/Users/user/.agent/agents/reviewer.md";
 
 const DEEP_RESEARCH = `---
@@ -149,7 +166,8 @@ Report each place the diff does not do what the brief says, with the file and li
 Do not suggest changes the brief did not ask for.
 `;
 
-const PNG = "iVBORw0KGgoAAAANSUhEUgAAAPAAAACgCAIAAAC9uXYyAAACc0lEQVR42u3TMQ2AQBREwfNDRUnoEYAsKBCBBTCAi3ODjE3uT7IKNvPaNC+RXXePrJ9vZOu2R/Y9R2QpVw1ooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBro4aEcLeKSAgQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmigq4N2tIBHChhooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBro6aEcLeKSAgQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmigi4P+AUj4x8OnQEduAAAAAElFTkSuQmCC";
+const PNG =
+  "iVBORw0KGgoAAAANSUhEUgAAAPAAAACgCAIAAAC9uXYyAAACc0lEQVR42u3TMQ2AQBREwfNDRUnoEYAsKBCBBTCAi3ODjE3uT7IKNvPaNC+RXXePrJ9vZOu2R/Y9R2QpVw1ooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBro4aEcLeKSAgQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmigq4N2tIBHChhooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBro6aEcLeKSAgQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmigi4P+AUj4x8OnQEduAAAAAElFTkSuQmCC";
 
 /** The report the `job-story` investigation wrote, as the Landing panel reads its conclusion and the side panel opens it whole. */
 export const LEASE_REPORT_PATH = "docs/reports/slot-lease-expiry.md";
@@ -169,24 +187,102 @@ Seven leases expired before the Job finished. Five of them had a Check running i
 Whether a renewal on every event adds load to the pool. The log holds no figure for it.
 `;
 
-const bytesOf = (base64: string): Uint8Array => Uint8Array.from(atob(base64), (one) => one.charCodeAt(0));
+const bytesOf = (base64: string): Uint8Array =>
+  Uint8Array.from(atob(base64), (one) => one.charCodeAt(0));
 
-export type DiskFile = { text?: string; bytes?: Uint8Array; type: string; version: number; elsewhere?: string };
+export type DiskFile = {
+  text?: string;
+  bytes?: Uint8Array;
+  type: string;
+  version: number;
+  elsewhere?: string;
+};
 
 /** A fresh disk for one window: the settings file, a note, a Rust file, a picture, and a skill and a sub agent from Kit. */
 export function pretendDisk(): Map<string, DiskFile> {
   return new Map<string, DiskFile>([
-    [SETTINGS_PATH, { text: SETTINGS, type: "text/json", version: 1, elsewhere: SETTINGS_ELSEWHERE }],
-    [NOTES_PATH, { text: NOTES, type: "text/markdown", version: 1 }],
+    [
+      SETTINGS_PATH,
+      {
+        text: SETTINGS,
+        type: "text/json",
+        version: 1,
+        elsewhere: SETTINGS_ELSEWHERE,
+      },
+    ],
+    [
+      NOTES_PATH,
+      {
+        text: NOTES,
+        type: "text/markdown",
+        version: 1,
+      },
+    ],
     // The file the `session-ledger` Session wrote.
-    ["/Users/user/armada/docs/spikes/store-clock.md", { text: "# Store clock\n\nThe store reads the clock once per write.\n", type: "text/markdown", version: 1 }],
+    [
+      "/Users/user/armada/docs/spikes/store-clock.md",
+      {
+        text: "# Store clock\n\nThe store reads the clock once per write.\n",
+        type: "text/markdown",
+        version: 1,
+      },
+    ],
     // The report the `job-story` investigation wrote.
-    [`/Users/user/armada/${LEASE_REPORT_PATH}`, { text: LEASE_REPORT, type: "text/markdown", version: 1 }],
-    [SKILL_PATH, { text: SKILL, type: "text/markdown", version: 1 }],
-    [DEEP_RESEARCH_PATH, { text: DEEP_RESEARCH, type: "text/markdown", version: 1 }],
-    [IMPLEMENTER_PATH, { text: IMPLEMENTER, type: "text/markdown", version: 1 }],
-    [AGENT_PATH, { text: AGENT, type: "text/markdown", version: 1 }],
-    [CLOCK_PATH, { text: CLOCK, type: "text/x-rust", version: 1 }],
-    [PICTURE_PATH, { bytes: bytesOf(PNG), type: "image/png", version: 1 }],
+    [
+      `/Users/user/armada/${LEASE_REPORT_PATH}`,
+      {
+        text: LEASE_REPORT,
+        type: "text/markdown",
+        version: 1,
+      },
+    ],
+    [
+      SKILL_PATH,
+      {
+        text: SKILL,
+        type: "text/markdown",
+        version: 1,
+      },
+    ],
+    [
+      DEEP_RESEARCH_PATH,
+      {
+        text: DEEP_RESEARCH,
+        type: "text/markdown",
+        version: 1,
+      },
+    ],
+    [
+      IMPLEMENTER_PATH,
+      {
+        text: IMPLEMENTER,
+        type: "text/markdown",
+        version: 1,
+      },
+    ],
+    [
+      AGENT_PATH,
+      {
+        text: AGENT,
+        type: "text/markdown",
+        version: 1,
+      },
+    ],
+    [
+      CLOCK_PATH,
+      {
+        text: CLOCK,
+        type: "text/x-rust",
+        version: 1,
+      },
+    ],
+    [
+      PICTURE_PATH,
+      {
+        bytes: bytesOf(PNG),
+        type: "image/png",
+        version: 1,
+      },
+    ],
   ]);
 }

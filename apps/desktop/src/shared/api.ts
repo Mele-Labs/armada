@@ -23,7 +23,7 @@ import type { DispatchApi } from "./api/dispatch";
 import type { ChecksApi } from "./api/checks";
 import type { LessonsApi } from "./api/lessons";
 import type { SessionsApi } from "./api/sessions";
-import type { SleepApi } from "./api/sleep";
+import type { AutopilotDecisionsApi } from "./api/autopilot-decisions";
 import type { AccountsApi } from "./api/accounts";
 import type { PlanUsageApi } from "./api/plan-usage";
 import type { ModelDownshiftApi } from "./api/model-downshift";
@@ -39,6 +39,7 @@ import type { ActFailedApi } from "./api/act-failed";
 import type { BayHistoryApi } from "./api/bay-history";
 import type { SessionSystemApi } from "./api/session-system";
 import type { UsageSummaryApi } from "./api/usage-summary";
+import type { DebugReportApi } from "./api/debug-report";
 import type { IssuesApi } from "./api/issues";
 import type { AutopilotApi } from "./api/autopilot";
 import type { SketchShareApi } from "./api/sketch-share";
@@ -69,7 +70,7 @@ export type BridgeApi = CoreApi<BridgeState> &
   ChecksApi &
   LessonsApi &
   SessionsApi &
-  SleepApi &
+  AutopilotDecisionsApi &
   AccountsApi &
   PlanUsageApi &
   ModelDownshiftApi &
@@ -85,6 +86,7 @@ export type BridgeApi = CoreApi<BridgeState> &
   BayHistoryApi &
   SessionSystemApi &
   UsageSummaryApi &
+  DebugReportApi &
   IssuesApi &
   AutopilotApi &
   SketchShareApi &

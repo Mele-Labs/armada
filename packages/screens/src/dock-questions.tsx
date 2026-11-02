@@ -25,7 +25,9 @@ export function askedAt(question: Outstanding): string {
 
 /** How long it has waited: a figure at `now`, or where the window has no time to give, a card that reads the clock where it is drawn. */
 const waitingOf = (question: Outstanding, now: number | null): DockQuestion["waiting"] =>
-  now === null ? (at: number) => span(askedAt(question), at) ?? undefined : (span(askedAt(question), now) ?? undefined);
+  now === null
+    ? (at: number) => span(askedAt(question), at) ?? undefined
+    : (span(askedAt(question), now) ?? undefined);
 
 /**
  * The cards, oldest first. **A call is drawn without any board behind it**: it names its repository
@@ -37,7 +39,9 @@ export function dockQuestionsOf(
   now: number | null,
   acts: DockActs = {},
 ): DockQuestion[] {
-  return [...questions]
+  return [
+    ...questions,
+  ]
     .sort((a, b) => Date.parse(askedAt(a)) - Date.parse(askedAt(b)))
     .map((question) => {
       const { onAnswer, answering, refusalFor } = acts;
@@ -47,12 +51,22 @@ export function dockQuestionsOf(
         repository: manifestLabel(question.call.manifest_id, repositories),
         waiting: waitingOf(question, now),
         label: "Helm needs your permission",
-        asked: detail === "" ? `Helm wants to use ${tool}.` : <span className="mono">{detail}</span>,
+        asked:
+          detail === "" ? `Helm wants to use ${tool}.` : <span className="mono">{detail}</span>,
         detail: `Your settings would have to allow ${rule}.`,
-        answers: helmOfferedOf(offers).map(({ offer, label, means }) => ({ id: offer, label, consequence: means })),
+        answers: helmOfferedOf(offers).map(({ offer, label, means }) => ({
+          id: offer,
+          label,
+          consequence: means,
+        })),
         ...(onAnswer === undefined
-          ? { note: "Open Armada on this machine to answer." }
-          : { onAnswer: (answer: string) => onAnswer(question, answer), answering: answering?.(question) }),
+          ? {
+              note: "Open Armada on this machine to answer.",
+            }
+          : {
+              onAnswer: (answer: string) => onAnswer(question, answer),
+              answering: answering?.(question),
+            }),
         refusal: refusalFor?.(question),
       };
     });

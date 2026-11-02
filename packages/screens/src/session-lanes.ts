@@ -6,10 +6,33 @@
 // **The wire has no columns.** A step is placed by its order and a state by the longest run of expected moves before it, each at a column of its own in its
 // lane, so a lane reads left to right and the layout does not move when an instance does.
 
-import type { AppliedRule, HeldInstance, InstanceMove, JobLifecycles, LifecycleDefinition, LifecycleRule, RuleActReading, RuleTarget } from "@armada/protocol";
+import type {
+  AppliedRule,
+  HeldInstance,
+  InstanceMove,
+  JobLifecycles,
+  LifecycleDefinition,
+  LifecycleRule,
+  RuleActReading,
+  RuleTarget,
+} from "@armada/protocol";
 import type { SessionLanes } from "@armada/components/src/compositions/LaneCanvas/build";
 import { CURRENT_STEP } from "@armada/components/src/compositions/LaneCanvas/model";
-import type { Autonomy, CarriedTicket, Fired, FiredAct, Instance, JobChange, JobLanes, Kept, LaneStep, Lifecycle, LifecycleKind, LifecycleState, Rule } from "@armada/components/src/compositions/LaneCanvas/model";
+import type {
+  Autonomy,
+  CarriedTicket,
+  Fired,
+  FiredAct,
+  Instance,
+  JobChange,
+  JobLanes,
+  Kept,
+  LaneStep,
+  Lifecycle,
+  LifecycleKind,
+  LifecycleState,
+  Rule,
+} from "@armada/components/src/compositions/LaneCanvas/model";
 
 /** What the lanes are read from. */
 export type LaneInput = {
@@ -18,14 +41,20 @@ export type LaneInput = {
   /** The workflow the Job follows and where it stands, as the rail reads it. Absent for a Job with none: its lanes have no top lane. */
   workflow?: {
     name: string;
-    steps: readonly { id: string; label: string }[];
+    steps: readonly {
+      id: string;
+      label: string;
+    }[];
     /** The step the Job is on. Absent where Fleet names none. */
     at?: number;
     /** Whether any step has begun, so a Job past its last step reads as done and not as not begun. */
     began: boolean;
     skipped?: readonly number[];
     /** When each step began, as the record has it, so an act is placed on the step the Job was on when it was planned. */
-    visits?: readonly { step: number; since: string }[];
+    visits?: readonly {
+      step: number;
+      since: string;
+    }[];
   };
   /**
    * The rules that apply to the Job's repository (`list_lifecycle_rules`). Without them the acts that were planned have no edge to be drawn on.
@@ -49,30 +78,68 @@ export type LaneInput = {
 };
 
 /** The id an instance is drawn under: its lifecycle's, and its key as its source calls it. A key can hold a slash, which a node id cannot. */
-export const instanceId = (lifecycle: string, key: string): string => `${lifecycle}:${encodeURIComponent(key)}`;
+export const instanceId = (lifecycle: string, key: string): string =>
+  `${lifecycle}:${encodeURIComponent(key)}`;
 
 /** The key an instance's id was made of: `ARM-41` for `ticket:ARM-41`. */
-export const instanceKey = (id: string): string => decodeURIComponent(id.slice(id.indexOf(":") + 1));
+export const instanceKey = (id: string): string =>
+  decodeURIComponent(id.slice(id.indexOf(":") + 1));
 
 /** Where a lifecycle's states are read from, in a word under the lane's title. */
-const SOURCE: Readonly<Record<string, { kind: LifecycleKind; said: string }>> = {
-  tracker: { kind: "tracker", said: "Tracker" },
-  forge: { kind: "forge", said: "Forge" },
-  watch: { kind: "watch", said: "Watch" },
-  fleet: { kind: "job", said: "Fleet" },
+const SOURCE: Readonly<
+  Record<
+    string,
+    {
+      kind: LifecycleKind;
+      said: string;
+    }
+  >
+> = {
+  tracker: {
+    kind: "tracker",
+    said: "Tracker",
+  },
+  forge: {
+    kind: "forge",
+    said: "Forge",
+  },
+  watch: {
+    kind: "watch",
+    said: "Watch",
+  },
+  fleet: {
+    kind: "job",
+    said: "Fleet",
+  },
 };
 
 /**
  * The column of each state: after the states that lead to it, and never beside another in its lane. States are taken in the order the definition lists them, so a
  * move back to an earlier state leads nowhere new, and one nothing leads to follows the states before it.
  */
-export function columnsOf(lifecycle: Pick<LifecycleDefinition, "states" | "transitions">): ReadonlyMap<string, number> {
-  const order = new Map(lifecycle.states.map((state, at) => [state.id, at] as const));
+export function columnsOf(
+  lifecycle: Pick<LifecycleDefinition, "states" | "transitions">,
+): ReadonlyMap<string, number> {
+  const order = new Map(
+    lifecycle.states.map(
+      (state, at) =>
+        [
+          state.id,
+          at,
+        ] as const,
+    ),
+  );
   const cols = new Map<string, number>();
   const taken = new Set<number>();
   let last = -1;
   for (const [at, state] of lifecycle.states.entries()) {
-    const behind = lifecycle.transitions.flatMap((move) => (move.to === state.id && (order.get(move.from) ?? at) < at ? [cols.get(move.from)!] : []));
+    const behind = lifecycle.transitions.flatMap((move) =>
+      move.to === state.id && (order.get(move.from) ?? at) < at
+        ? [
+            cols.get(move.from)!,
+          ]
+        : [],
+    );
     let col = behind.length > 0 ? Math.max(...behind) + 1 : at === 0 ? 0 : last + 1;
     while (taken.has(col)) col += 1;
     taken.add(col);
@@ -85,8 +152,33 @@ export function columnsOf(lifecycle: Pick<LifecycleDefinition, "states" | "trans
 function lifecycleOf(wire: LifecycleDefinition): Lifecycle {
   const cols = columnsOf(wire);
   const from = SOURCE[wire.states[0]?.read.source ?? "tracker"] ?? SOURCE["tracker"]!;
-  const states = wire.states.map((state): LifecycleState => ({ id: state.id, label: state.label, reads: [], col: cols.get(state.id)!, ...(wire.ends.includes(state.id) ? { end: true as const } : {}) }));
-  return { id: wire.id, label: wire.name, from: from.said, kind: from.kind, states, next: wire.transitions.map((move) => [move.from, move.to] as const) };
+  const states = wire.states.map(
+    (state): LifecycleState => ({
+      id: state.id,
+      label: state.label,
+      reads: [],
+      col: cols.get(state.id)!,
+      ...(wire.ends.includes(state.id)
+        ? {
+            end: true as const,
+          }
+        : {}),
+    }),
+  );
+  return {
+    id: wire.id,
+    label: wire.name,
+    from: from.said,
+    kind: from.kind,
+    states,
+    next: wire.transitions.map(
+      (move) =>
+        [
+          move.from,
+          move.to,
+        ] as const,
+    ),
+  };
 }
 
 /** The states an instance stood in, in the order it moved through them, the one it is in last. */
@@ -103,21 +195,41 @@ function visitedBy(held: HeldInstance, moves: readonly InstanceMove[]): string[]
   return seen;
 }
 
-function instanceOf(held: HeldInstance, moves: readonly InstanceMove[], ticket?: CarriedTicket): Instance {
+function instanceOf(
+  held: HeldInstance,
+  moves: readonly InstanceMove[],
+  ticket?: CarriedTicket,
+): Instance {
   return {
     id: instanceId(held.lifecycle, held.key),
     lifecycle: held.lifecycle,
     label: held.label,
     state: held.standing.kind === "in" ? held.standing.state : "",
     visited: visitedBy(held, moves),
-    ...(held.standing.kind === "unmapped" ? { title: `Unmapped: ${held.standing.said}`, unmapped: held.standing.said } : {}),
-    ...(held.ended_at === undefined ? {} : { ended: true as const }),
-    ...(ticket === undefined ? {} : { ticket }),
+    ...(held.standing.kind === "unmapped"
+      ? {
+          title: `Unmapped: ${held.standing.said}`,
+          unmapped: held.standing.said,
+        }
+      : {}),
+    ...(held.ended_at === undefined
+      ? {}
+      : {
+          ended: true as const,
+        }),
+    ...(ticket === undefined
+      ? {}
+      : {
+          ticket,
+        }),
   };
 }
 
 /** What reads a lifecycle's states, by the lifecycle's id among those a Job holds. */
-const kindOf = (lifecycles: readonly LifecycleDefinition[], id: string): LifecycleKind | undefined => {
+const kindOf = (
+  lifecycles: readonly LifecycleDefinition[],
+  id: string,
+): LifecycleKind | undefined => {
   const source = lifecycles.find((one) => one.id === id)?.states[0]?.read.source;
   return source === undefined ? undefined : SOURCE[source]?.kind;
 };
@@ -131,7 +243,13 @@ function handedOf(held: JobLifecycles): ReadonlyMap<HeldInstance, HeldInstance> 
   for (const job of held.instances) {
     if (kindOf(held.lifecycles, job.lifecycle) !== "job") continue;
     for (const link of job.links) {
-      const ticket = held.instances.find((one) => one.lifecycle === link.lifecycle && one.key === link.key && one.ended_at !== undefined && kindOf(held.lifecycles, one.lifecycle) === "tracker");
+      const ticket = held.instances.find(
+        (one) =>
+          one.lifecycle === link.lifecycle &&
+          one.key === link.key &&
+          one.ended_at !== undefined &&
+          kindOf(held.lifecycles, one.lifecycle) === "tracker",
+      );
       if (ticket !== undefined) {
         handed.set(job, ticket);
         break;
@@ -145,30 +263,70 @@ function handedOf(held: JobLifecycles): ReadonlyMap<HeldInstance, HeldInstance> 
  * A handed ticket as the card of the Job that holds it draws it: the state **the started Job reads it in**, named as that Job's lifecycle names it. Not read there yet, it has none; a status no
  * state lists keeps the word the source said, and no glyph names it.
  */
-function carriedOf(ticket: HeldInstance, started: JobLifecycles | undefined, held: JobLifecycles, title: string | undefined): CarriedTicket {
-  const there = started?.instances.find((one) => one.lifecycle === ticket.lifecycle && one.key === ticket.key);
+function carriedOf(
+  ticket: HeldInstance,
+  started: JobLifecycles | undefined,
+  held: JobLifecycles,
+  title: string | undefined,
+): CarriedTicket {
+  const there = started?.instances.find(
+    (one) => one.lifecycle === ticket.lifecycle && one.key === ticket.key,
+  );
   const label = there?.label ?? ticket.label;
   const standing = there?.standing;
-  const titled = title === undefined || title === "" ? {} : { title };
+  const titled =
+    title === undefined || title === ""
+      ? {}
+      : {
+          title,
+        };
   if (standing?.kind === "in") {
-    const named = [...(started?.lifecycles ?? []), ...held.lifecycles].find((one) => one.id === ticket.lifecycle)?.states.find((one) => one.id === standing.state)?.label;
-    return { label, ...titled, state: named ?? standing.state, stateId: standing.state };
+    const named = [
+      ...(started?.lifecycles ?? []),
+      ...held.lifecycles,
+    ]
+      .find((one) => one.id === ticket.lifecycle)
+      ?.states.find((one) => one.id === standing.state)?.label;
+    return {
+      label,
+      ...titled,
+      state: named ?? standing.state,
+      stateId: standing.state,
+    };
   }
-  return { label, ...titled, state: standing?.kind === "unmapped" ? standing.said : "", stateId: "" };
+  return {
+    label,
+    ...titled,
+    state: standing?.kind === "unmapped" ? standing.said : "",
+    stateId: "",
+  };
 }
 
 // ---- Rules and what they did -----------------------------------------------------------------------------------------------
 
 /** The lifecycle a rule's target is of: the one named, or the one whose entering set the rule off. */
 function laneOfTarget(target: RuleTarget, rule: LifecycleRule): string | undefined {
-  return target.among.kind === "entered" ? (rule.when.kind === "enters" ? rule.when.lifecycle : undefined) : target.among.lifecycle;
+  return target.among.kind === "entered"
+    ? rule.when.kind === "enters"
+      ? rule.when.lifecycle
+      : undefined
+    : target.among.lifecycle;
 }
 
-const KEPT: Readonly<Record<string, Kept>> = { armada: "armada", kit: "yours", repository: "repository" };
+const KEPT: Readonly<Record<string, Kept>> = {
+  armada: "armada",
+  kit: "yours",
+  repository: "repository",
+};
 
 /** The strongest word among a rule's acts: any that asks makes it Asks, and all of them off make it Off. */
 function autonomyOf(rule: LifecycleRule): Autonomy {
-  const words = rule.autonomy === undefined ? rule.does.map((one) => one.autonomy) : [rule.autonomy];
+  const words =
+    rule.autonomy === undefined
+      ? rule.does.map((one) => one.autonomy)
+      : [
+          rule.autonomy,
+        ];
   if (words.includes("asks")) return "asks";
   return words.length > 0 && words.every((one) => one === "off") ? "off" : "acts";
 }
@@ -182,28 +340,81 @@ const DEPLOY = "deploy";
  * and where none of these names a place, the step the Job was on when it fired. A rule a step sets off leaves from that step. A rule a Job event sets off (`started`,
  * `landed`, `ended`) has no node to leave from, and is not drawn.
  */
-function readRule(applied: AppliedRule, lifecycles: readonly LifecycleDefinition[]): { rule: Rule; landsOn?: string } | undefined {
+function readRule(
+  applied: AppliedRule,
+  lifecycles: readonly LifecycleDefinition[],
+):
+  | {
+      rule: Rule;
+      landsOn?: string;
+    }
+  | undefined {
   const { rule, kept } = applied;
   const when = rule.when;
   if (when.kind === "job") return undefined;
-  const from = when.kind === "enters" ? { lane: when.lifecycle, item: when.state } : { lane: "workflow", item: when.step };
-  const move = rule.does.flatMap((one) => (one.what.act === "tracker_move" ? [{ lane: laneOfTarget(one.what.target, rule), item: one.what.to }] : []))[0];
-  const deploy = rule.does.flatMap((one) => (one.what.act === "start_watch" && one.what.deploy !== undefined && one.what.deploy !== "" ? [one.what.deploy] : []))[0];
-  const atStep = rule.conditions.flatMap((one) => (one.kind === "at_step" ? [one.step] : []))[0];
+  const from =
+    when.kind === "enters"
+      ? {
+          lane: when.lifecycle,
+          item: when.state,
+        }
+      : {
+          lane: "workflow",
+          item: when.step,
+        };
+  const move = rule.does.flatMap((one) =>
+    one.what.act === "tracker_move"
+      ? [
+          {
+            lane: laneOfTarget(one.what.target, rule),
+            item: one.what.to,
+          },
+        ]
+      : [],
+  )[0];
+  const deploy = rule.does.flatMap((one) =>
+    one.what.act === "start_watch" && one.what.deploy !== undefined && one.what.deploy !== ""
+      ? [
+          one.what.deploy,
+        ]
+      : [],
+  )[0];
+  const atStep = rule.conditions.flatMap((one) =>
+    one.kind === "at_step"
+      ? [
+          one.step,
+        ]
+      : [],
+  )[0];
   const first = lifecycles.find((one) => one.id === DEPLOY)?.states[0]?.id;
   // A deploy's lane has no state to land on until the deploy is held, so the edge waits for it.
   const to =
     move?.lane !== undefined
-      ? { lane: move.lane, item: move.item }
+      ? {
+          lane: move.lane,
+          item: move.item,
+        }
       : deploy !== undefined
-        ? { lane: DEPLOY, item: first ?? "" }
-        : { lane: "workflow", item: atStep ?? CURRENT_STEP };
+        ? {
+            lane: DEPLOY,
+            item: first ?? "",
+          }
+        : {
+            lane: "workflow",
+            item: atStep ?? CURRENT_STEP,
+          };
   return {
     rule: {
       id: rule.id,
       label: rule.name,
       from,
-      ...(when.kind === "enters" ? { at: "enters" as const } : { at: when.kind === "step_ends" ? ("ends" as const) : ("starts" as const) }),
+      ...(when.kind === "enters"
+        ? {
+            at: "enters" as const,
+          }
+        : {
+            at: when.kind === "step_ends" ? ("ends" as const) : ("starts" as const),
+          }),
       to,
       ifs: [],
       does: [],
@@ -211,18 +422,36 @@ function readRule(applied: AppliedRule, lifecycles: readonly LifecycleDefinition
       kept: KEPT[kept.rank.source] ?? "repository",
       scope: "default",
     },
-    ...(deploy === undefined || move?.lane !== undefined ? {} : { landsOn: instanceId(DEPLOY, deploy) }),
+    ...(deploy === undefined || move?.lane !== undefined
+      ? {}
+      : {
+          landsOn: instanceId(DEPLOY, deploy),
+        }),
   };
 }
 
 /** A rule as a Job's lanes draw it, or none where it has no node to leave from. `lifecycles` are the Job's, which say where a deploy's lane begins. */
-export const ruleOfWire = (applied: AppliedRule, lifecycles: readonly LifecycleDefinition[] = []): Rule | undefined => readRule(applied, lifecycles)?.rule;
+export const ruleOfWire = (
+  applied: AppliedRule,
+  lifecycles: readonly LifecycleDefinition[] = [],
+): Rule | undefined => readRule(applied, lifecycles)?.rule;
 
 /** How an act stands, in the words a person reads. Done reads as the act itself. */
-const STANDING: Readonly<Record<string, string>> = { planned: "Planned", asked: "Asked", stuck: "Stuck", skipped: "Skipped", told: "Told the agent", not_carried: "Not carried" };
+const STANDING: Readonly<Record<string, string>> = {
+  planned: "Planned",
+  asked: "Asked",
+  stuck: "Stuck",
+  skipped: "Skipped",
+  told: "Told the agent",
+  not_carried: "Not carried",
+};
 
 /** A time of day, 24-hour, as the lanes' chips read it. */
-const clock = (at: string): string => new Date(at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+const clock = (at: string): string =>
+  new Date(at).toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
 /** How the acts of one rule on one instance end together: any that waits on the person asks, any still to be done waits, and all of them set aside is set aside. */
 function outcomeOf(acts: readonly RuleActReading[]): Fired["outcome"] {
@@ -234,11 +463,19 @@ function outcomeOf(acts: readonly RuleActReading[]): Fired["outcome"] {
 
 const sayAct = (one: RuleActReading): string => {
   const word = STANDING[one.standing];
-  return word === undefined ? one.text : `${one.text} · ${word}${one.said === undefined || one.said === "" ? "" : `: ${one.said}`}`;
+  return word === undefined
+    ? one.text
+    : `${one.text} · ${word}${one.said === undefined || one.said === "" ? "" : `: ${one.said}`}`;
 };
 
 /** The index of the step the Job was on at `at`: the last one begun by then. */
-function stepWhen(at: string, visits: readonly { step: number; since: string }[]): number | undefined {
+function stepWhen(
+  at: string,
+  visits: readonly {
+    step: number;
+    since: string;
+  }[],
+): number | undefined {
   const by = Date.parse(at);
   return visits.filter((one) => Date.parse(one.since) <= by).at(-1)?.step;
 }
@@ -249,20 +486,49 @@ function firedOf(
   rules: readonly Rule[],
   landsOn: ReadonlyMap<string, string>,
   steps: readonly LaneStep[],
-  visits: readonly { step: number; since: string }[],
+  visits: readonly {
+    step: number;
+    since: string;
+  }[],
 ): Fired[] {
-  const groups = new Map<string, { rule: Rule; acts: RuleActReading[]; instance: string }>();
+  const groups = new Map<
+    string,
+    {
+      rule: Rule;
+      acts: RuleActReading[];
+      instance: string;
+    }
+  >();
   for (const act of acts) {
     const rule = rules.find((one) => one.id === act.rule);
     if (rule === undefined) continue;
     // An edge that lands on a state is keyed by the instance it was done to, or the deploy a watch takes on; one that hands to a step, by the instance that set it off, or by none where a step set it off.
-    const link = rule.to.lane === "workflow" ? (rule.from.lane === "workflow" ? undefined : (act.entered ?? act.on)) : (act.on ?? act.entered);
-    const instance = rule.to.lane !== "workflow" && act.on === undefined && landsOn.has(rule.id) ? landsOn.get(rule.id)! : link === undefined ? "" : instanceId(link.lifecycle, link.key);
+    const link =
+      rule.to.lane === "workflow"
+        ? rule.from.lane === "workflow"
+          ? undefined
+          : (act.entered ?? act.on)
+        : (act.on ?? act.entered);
+    const instance =
+      rule.to.lane !== "workflow" && act.on === undefined && landsOn.has(rule.id)
+        ? landsOn.get(rule.id)!
+        : link === undefined
+          ? ""
+          : instanceId(link.lifecycle, link.key);
     const group = groups.get(`${act.rule}\n${instance}`);
-    if (group === undefined) groups.set(`${act.rule}\n${instance}`, { rule, acts: [act], instance });
+    if (group === undefined)
+      groups.set(`${act.rule}\n${instance}`, {
+        rule,
+        acts: [
+          act,
+        ],
+        instance,
+      });
     else group.acts.push(act);
   }
-  return [...groups.values()].map(({ rule, acts: mine, instance }): Fired => {
+  return [
+    ...groups.values(),
+  ].map(({ rule, acts: mine, instance }): Fired => {
     const last = mine[mine.length - 1]!;
     const at = stepWhen(mine[0]!.at, visits);
     const step = at === undefined ? undefined : steps[at]?.id;
@@ -272,8 +538,24 @@ function firedOf(
       outcome: outcomeOf(mine),
       at: clock(last.settled_at ?? last.at),
       did: mine.map(sayAct),
-      ...(step === undefined ? {} : { step }),
-      acts: mine.map((one): FiredAct => ({ text: one.text, course: one.course === "asks" ? "asks" : "acts", standing: one.standing, at: clock(one.settled_at ?? one.at), ...(one.said === undefined || one.said === "" ? {} : { said: one.said }) })),
+      ...(step === undefined
+        ? {}
+        : {
+            step,
+          }),
+      acts: mine.map(
+        (one): FiredAct => ({
+          text: one.text,
+          course: one.course === "asks" ? "asks" : "acts",
+          standing: one.standing,
+          at: clock(one.settled_at ?? one.at),
+          ...(one.said === undefined || one.said === ""
+            ? {}
+            : {
+                said: one.said,
+              }),
+        }),
+      ),
     };
   });
 }
@@ -282,26 +564,96 @@ function firedOf(
 export function lanesOfJob(input: LaneInput): SessionLanes | undefined {
   const { held, workflow } = input;
   if (held.instances.length === 0) return undefined;
-  const steps = (workflow?.steps ?? []).map((step, col): LaneStep => ({ id: step.id, label: step.label, col }));
-  const waiting = input.waiting === undefined || input.waiting.length === 0 ? undefined : input.waiting;
-  const read = (held.rules ?? input.rules ?? []).flatMap((one) => readRule(one, held.lifecycles) ?? []);
+  const steps = (workflow?.steps ?? []).map(
+    (step, col): LaneStep => ({
+      id: step.id,
+      label: step.label,
+      col,
+    }),
+  );
+  const waiting =
+    input.waiting === undefined || input.waiting.length === 0 ? undefined : input.waiting;
+  const read = (held.rules ?? input.rules ?? []).flatMap(
+    (one) => readRule(one, held.lifecycles) ?? [],
+  );
   // A rule a Job event sets off is not drawn, and one the Job dropped is only the repository's now: a change names it from every rule either holds.
-  const named = new Map([...(input.rules ?? []), ...(held.rules ?? [])].map((one) => [one.rule.id, one.rule.name] as const));
+  const named = new Map(
+    [
+      ...(input.rules ?? []),
+      ...(held.rules ?? []),
+    ].map(
+      (one) =>
+        [
+          one.rule.id,
+          one.rule.name,
+        ] as const,
+    ),
+  );
   const rules = read.map((one) => one.rule);
   const handed = handedOf(held);
   const given = new Set(handed.values());
-  const landsOn = new Map(read.flatMap((one) => (one.landsOn === undefined ? [] : [[one.rule.id, one.landsOn] as const])));
+  const landsOn = new Map(
+    read.flatMap((one) =>
+      one.landsOn === undefined
+        ? []
+        : [
+            [
+              one.rule.id,
+              one.landsOn,
+            ] as const,
+          ],
+    ),
+  );
   const job: JobLanes = {
     workspace: "",
-    copy: { steps, lifecycles: held.lifecycles.map(lifecycleOf), rules },
+    copy: {
+      steps,
+      lifecycles: held.lifecycles.map(lifecycleOf),
+      rules,
+    },
     // A ticket handed away has no lane here: the card of the Job it went to carries it.
-    instances: held.instances.filter((one) => !given.has(one)).map((one) => instanceOf(one, held.moves, handed.has(one) ? carriedOf(handed.get(one)!, input.started?.get(one.key), held, input.titles?.get(handed.get(one)!.key)) : undefined)),
+    instances: held.instances
+      .filter((one) => !given.has(one))
+      .map((one) =>
+        instanceOf(
+          one,
+          held.moves,
+          handed.has(one)
+            ? carriedOf(
+                handed.get(one)!,
+                input.started?.get(one.key),
+                held,
+                input.titles?.get(handed.get(one)!.key),
+              )
+            : undefined,
+        ),
+      ),
     fired: firedOf(held.acts ?? [], rules, landsOn, steps, workflow?.visits ?? []),
     changes: (held.changes ?? []).map((one): JobChange => {
       const name = one.lane === "rule" ? named.get(one.item) : undefined;
-      return { id: `${one.lane}:${one.item}:${one.at}`, lane: one.lane, item: one.item, text: one.text, at: one.at, ...(one.dropped === true ? { dropped: true as const } : {}), ...(name === undefined ? {} : { name }) };
+      return {
+        id: `${one.lane}:${one.item}:${one.at}`,
+        lane: one.lane,
+        item: one.item,
+        text: one.text,
+        at: one.at,
+        ...(one.dropped === true
+          ? {
+              dropped: true as const,
+            }
+          : {}),
+        ...(name === undefined
+          ? {}
+          : {
+              name,
+            }),
+      };
     }),
-    ...(waiting === undefined ? {} : { waiting }),
+    ...(waiting === undefined
+      ? {}
+      : {
+          waiting,
+        }),
   };
   // `at` is -1 before a step starts and the step count once every one has ended; Fleet names no step in either case.
   const at = workflow?.at ?? (workflow?.began === true ? steps.length : -1);
@@ -309,7 +661,11 @@ export function lanesOfJob(input: LaneInput): SessionLanes | undefined {
     workflow: workflow?.name ?? "",
     at,
     working: input.working && workflow?.at !== undefined,
-    ...(workflow?.skipped === undefined || workflow.skipped.length === 0 ? {} : { skipped: workflow.skipped }),
+    ...(workflow?.skipped === undefined || workflow.skipped.length === 0
+      ? {}
+      : {
+          skipped: workflow.skipped,
+        }),
     job,
   };
 }

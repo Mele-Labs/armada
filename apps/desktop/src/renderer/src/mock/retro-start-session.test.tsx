@@ -25,13 +25,41 @@ test("Start Job on an Armada item goes to the Cockpit and writes nothing in a me
   await toRetros();
 
   // The open item's acts are in its head, beside its title.
-  await page.getByRole("grid", { name: "Retros" }).getByRole("row", { name: /A reset waited 40 minutes for an answer/ }).click();
-  const item = page.getByRole("region", { name: "Retro item" });
-  await expect.element(item.getByRole("button", { name: "Start Job" })).toBeVisible();
-  await userEvent.click(item.getByRole("button", { name: "Start Job" }));
+  await page
+    .getByRole("grid", {
+      name: "Retros",
+    })
+    .getByRole("row", {
+      name: /A reset waited 40 minutes for an answer/,
+    })
+    .click();
+  const item = page.getByRole("region", {
+    name: "Retro item",
+  });
+  await expect
+    .element(
+      item.getByRole("button", {
+        name: "Start Job",
+      }),
+    )
+    .toBeVisible();
+  await userEvent.click(
+    item.getByRole("button", {
+      name: "Start Job",
+    }),
+  );
 
-  await expect.element(page.getByRole("region", { name: "Jobs", exact: true })).toBeVisible();
-  expect(Object.keys(window.localStorage).filter((one) => one.startsWith("armada:kept:session:"))).toEqual([]);
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Jobs",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  expect(
+    Object.keys(window.localStorage).filter((one) => one.startsWith("armada:kept:session:")),
+  ).toEqual([]);
 });
 
 test("a Kit item offers no Start Job", async () => {
@@ -39,8 +67,29 @@ test("a Kit item offers no Start Job", async () => {
   await onScreen();
   await toRetros();
 
-  await page.getByRole("grid", { name: "Retros" }).getByRole("row", { name: /Walks opened in your browser/ }).click();
-  const kit = page.getByRole("region", { name: "Retro item" });
-  await expect.element(kit.getByRole("heading", { name: "Walks opened in your browser" })).toBeVisible();
-  expect(kit.getByRole("button", { name: "Start Job" }).elements()).toHaveLength(0);
+  await page
+    .getByRole("grid", {
+      name: "Retros",
+    })
+    .getByRole("row", {
+      name: /Walks opened in your browser/,
+    })
+    .click();
+  const kit = page.getByRole("region", {
+    name: "Retro item",
+  });
+  await expect
+    .element(
+      kit.getByRole("heading", {
+        name: "Walks opened in your browser",
+      }),
+    )
+    .toBeVisible();
+  expect(
+    kit
+      .getByRole("button", {
+        name: "Start Job",
+      })
+      .elements(),
+  ).toHaveLength(0);
 });

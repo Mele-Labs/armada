@@ -104,7 +104,10 @@ test("two stamps in one surface turn together, from a press on either", async ()
       <Stamp at={TWO_HOURS()} />
     </StampSurface>,
   );
-  const [first, second] = [page.getByRole("button").nth(0), page.getByRole("button").nth(1)];
+  const [first, second] = [
+    page.getByRole("button").nth(0),
+    page.getByRole("button").nth(1),
+  ];
 
   await userEvent.click(second);
   await expect.element(first).toHaveAccessibleName("4m ago");
@@ -126,7 +129,10 @@ test("a stamp in another surface keeps its own reading", async () => {
       </StampSurface>
     </>,
   );
-  const [here, there] = [page.getByRole("button").nth(0), page.getByRole("button").nth(1)];
+  const [here, there] = [
+    page.getByRole("button").nth(0),
+    page.getByRole("button").nth(1),
+  ];
 
   await userEvent.click(here);
 

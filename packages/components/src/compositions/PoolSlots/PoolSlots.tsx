@@ -58,7 +58,15 @@ export type PoolSlotsProps = {
 };
 
 /** The ghost tile after the last bay: one more slot, made by the next lease. */
-function AddTile({ onAct, refused, adding }: { onAct: NonNullable<PoolSlotsProps["onAct"]>; refused?: string; adding?: boolean }) {
+function AddTile({
+  onAct,
+  refused,
+  adding,
+}: {
+  onAct: NonNullable<PoolSlotsProps["onAct"]>;
+  refused?: string;
+  adding?: boolean;
+}) {
   return (
     <li className="armada-bay" data-bay="add" aria-busy={adding || undefined}>
       <Tooltip label="Add a slot">
@@ -108,7 +116,14 @@ export function PoolSlots({
   // A tile that went away, a slot removed, has no panel left.
   const open = rows.find((row) => keyOf(row) === opened);
   const pooled = rows.length > 0 || onAct !== undefined;
-  const tile = (row: TileRow) => <PoolTile key={keyOf(row)} row={row} open={keyOf(row) === opened} onOpen={() => setOpened(keyOf(row))} />;
+  const tile = (row: TileRow) => (
+    <PoolTile
+      key={keyOf(row)}
+      row={row}
+      open={keyOf(row) === opened}
+      onOpen={() => setOpened(keyOf(row))}
+    />
+  );
   return (
     <>
       {/* The cockpit's viewscreen: a band over a ruled glass the tiles stand on. The label repeats its list's name, so it is unread. */}
@@ -123,7 +138,21 @@ export function PoolSlots({
             </div>
             <ul className="armada-pool-slots" aria-label="Worktree slots">
               {rows.map(tile)}
-              {onAct === undefined ? null : <AddTile onAct={onAct} {...(addRefused === undefined ? {} : { refused: addRefused })} {...(adding === undefined ? {} : { adding })} />}
+              {onAct === undefined ? null : (
+                <AddTile
+                  onAct={onAct}
+                  {...(addRefused === undefined
+                    ? {}
+                    : {
+                        refused: addRefused,
+                      })}
+                  {...(adding === undefined
+                    ? {}
+                    : {
+                        adding,
+                      })}
+                />
+              )}
             </ul>
           </div>
         ) : null}
@@ -133,10 +162,26 @@ export function PoolSlots({
           key={opened}
           row={open}
           floor={floor}
-          {...(onAct === undefined ? {} : { onAct })}
-          {...(onRescue === undefined ? {} : { onRescue })}
-          {...(onRelease === undefined ? {} : { onRelease })}
-          {...(onCopied === undefined ? {} : { onCopied })}
+          {...(onAct === undefined
+            ? {}
+            : {
+                onAct,
+              })}
+          {...(onRescue === undefined
+            ? {}
+            : {
+                onRescue,
+              })}
+          {...(onRelease === undefined
+            ? {}
+            : {
+                onRelease,
+              })}
+          {...(onCopied === undefined
+            ? {}
+            : {
+                onCopied,
+              })}
           onClose={() => {
             // The sheet takes focus when it opens, so closing it gives focus back to the tile it was opened from.
             if (view.current !== null && opened !== null) focusTile(view.current, opened);

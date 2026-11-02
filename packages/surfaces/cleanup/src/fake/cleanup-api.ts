@@ -14,8 +14,14 @@ import { reshaped, rescued, scoutRead } from "./slots-fleet";
  * that failed. The app's fake supplies them.
  */
 export type CleanupFleet = FleetHandle<CleanupState> & {
-  held: { get: () => WorktreesHeld | undefined; set: (held: WorktreesHeld | undefined) => void };
-  unread: (route: string) => { state: "failed"; outcome: Outcome };
+  held: {
+    get: () => WorktreesHeld | undefined;
+    set: (held: WorktreesHeld | undefined) => void;
+  };
+  unread: (route: string) => {
+    state: "failed";
+    outcome: Outcome;
+  };
 };
 
 /** How long a mock add holds its answer: a real worktree takes seconds, and a press that answers at once shows no wait. */
@@ -25,7 +31,13 @@ export function cleanupApi({ state, publish, held: pool, unread }: CleanupFleet)
   /** The pool as an act left it, published where the window is reading it. */
   const settled = (held: WorktreesHeld): void => {
     pool.set(held);
-    if (state().held.state === "read") publish({ held: { state: "read", held } });
+    if (state().held.state === "read")
+      publish({
+        held: {
+          state: "read",
+          held,
+        },
+      });
   };
   return {
     changeSlotPool: async (manifestId, change) => {
@@ -39,7 +51,8 @@ export function cleanupApi({ state, publish, held: pool, unread }: CleanupFleet)
     },
     rescueSlot: async (manifestId, rescue) => {
       const held = pool.get();
-      if (held === undefined) return unanswered(`/worktrees/slots/rescue?manifest_id=${manifestId}`) as RescueOutcome;
+      if (held === undefined)
+        return unanswered(`/worktrees/slots/rescue?manifest_id=${manifestId}`) as RescueOutcome;
       const after = rescued(held, manifestId, rescue);
       settled(after.held);
       return after.outcome;
@@ -49,7 +62,14 @@ export function cleanupApi({ state, publish, held: pool, unread }: CleanupFleet)
       // A Scout reads between two reads, as Fleet's does: each one finds it a file further on.
       if (want && held !== undefined) pool.set((held = scoutRead(held)));
       publish({
-        held: !want ? CLEANUP_NOTHING_YET.held : held === undefined ? unread("/worktrees/held") : { state: "read", held },
+        held: !want
+          ? CLEANUP_NOTHING_YET.held
+          : held === undefined
+            ? unread("/worktrees/held")
+            : {
+                state: "read",
+                held,
+              },
       });
     },
   };

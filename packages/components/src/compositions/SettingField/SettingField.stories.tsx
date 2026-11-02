@@ -18,7 +18,8 @@ type Story = StoryObj<typeof SettingField>;
 const DRONES = {
   name: "limits.dronesAtOnce",
   title: "Drones at once",
-  description: "How many drones Fleet runs at the same time. A job past this waits for one to finish.",
+  description:
+    "How many drones Fleet runs at the same time. A job past this waits for one to finish.",
   shipped: "2",
   onSave: fn(),
   onReset: fn(),
@@ -27,13 +28,26 @@ const DRONES = {
 /** As Armada ships it: no mark, nothing to go back to. */
 export const AtRest: Story = {
   name: "At rest",
-  args: { ...DRONES, control: { kind: "number", value: 2, min: 1, max: 8 }, modified: false },
+  args: {
+    ...DRONES,
+    control: {
+      kind: "number",
+      value: 2,
+      min: 1,
+      max: 8,
+    },
+    modified: false,
+  },
   /** **What goes to Fleet is a number, never the text typed.** */
   play: async ({ args, canvas, userEvent }) => {
     const field = canvas.getByLabelText("Drones at once");
     await userEvent.clear(field);
     await userEvent.type(field, "4");
-    await userEvent.click(canvas.getByRole("button", { name: "Save Drones at once" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Save Drones at once",
+      }),
+    );
     await expect(args.onSave).toHaveBeenCalledWith(4);
     await expect(canvas.queryByText("Modified")).toBeNull();
   },
@@ -41,10 +55,23 @@ export const AtRest: Story = {
 
 /** settings.json holds a value for the key: Modified, and Reset removes it. */
 export const Modified: Story = {
-  args: { ...DRONES, control: { kind: "number", value: 3, min: 1, max: 8 }, modified: true },
+  args: {
+    ...DRONES,
+    control: {
+      kind: "number",
+      value: 3,
+      min: 1,
+      max: 8,
+    },
+    modified: true,
+  },
   play: async ({ args, canvas, userEvent }) => {
     await expect(canvas.getByText("Modified")).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "Reset: Drones at once" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Reset: Drones at once",
+      }),
+    );
     await expect(args.onReset).toHaveBeenCalled();
   },
 };
@@ -52,20 +79,43 @@ export const Modified: Story = {
 /** A figure outside the bound is refused before anything is sent. */
 export const OutOfRange: Story = {
   name: "Refused in the field",
-  args: { ...DRONES, control: { kind: "number", value: 2, min: 1, max: 8 }, modified: false },
+  args: {
+    ...DRONES,
+    control: {
+      kind: "number",
+      value: 2,
+      min: 1,
+      max: 8,
+    },
+    modified: false,
+  },
   play: async ({ canvas, userEvent }) => {
     const field = canvas.getByLabelText("Drones at once");
     await userEvent.clear(field);
     await userEvent.type(field, "12");
     await expect(canvas.getByText("Between 1 and 8.")).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Save Drones at once" })).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Save Drones at once",
+      }),
+    ).toBeDisabled();
   },
 };
 
 /** Fleet refused the save, in its own words. */
 export const RefusedByFleet: Story = {
   name: "Refused by Fleet",
-  args: { ...DRONES, control: { kind: "number", value: 2, min: 1, max: 8 }, modified: false, refused: "limits.dronesAtOnce must be between 1 and 8, and 12 is not." },
+  args: {
+    ...DRONES,
+    control: {
+      kind: "number",
+      value: 2,
+      min: 1,
+      max: 8,
+    },
+    modified: false,
+    refused: "limits.dronesAtOnce must be between 1 and 8, and 12 is not.",
+  },
 };
 
 /** A seconds value, read out in minutes beneath the field. Saved, and waiting on a restart. */
@@ -74,8 +124,15 @@ export const WaitingOnRestart: Story = {
   args: {
     name: "timeouts.commandSeconds",
     title: "Command time limit",
-    description: "How long Fleet works on one command from Bridge before it answers that it gave up.",
-    control: { kind: "number", value: 60, min: 5, max: 300, seconds: true },
+    description:
+      "How long Fleet works on one command from Bridge before it answers that it gave up.",
+    control: {
+      kind: "number",
+      value: 60,
+      min: 5,
+      max: 300,
+      seconds: true,
+    },
     shipped: "15 seconds",
     modified: true,
     restart: true,
@@ -91,7 +148,10 @@ export const OverriddenByEnvironment: Story = {
     name: "harness.binaryPath",
     title: "Agent program",
     description: "The agent's program, by name on PATH or by absolute path.",
-    control: { kind: "text", value: "agent" },
+    control: {
+      kind: "text",
+      value: "agent",
+    },
     modified: false,
     overriddenBy: "ARMADA_AGENT_BINARY",
     onSave: fn(),
@@ -105,8 +165,12 @@ export const OnOff: Story = {
   args: {
     name: "features.draftPullRequests",
     title: "Draft pull requests",
-    description: "A pull request is opened as a draft unless the repository, the workflow or the job says otherwise.",
-    control: { kind: "switch", value: false },
+    description:
+      "A pull request is opened as a draft unless the repository, the workflow or the job says otherwise.",
+    control: {
+      kind: "switch",
+      value: false,
+    },
     shipped: "off",
     modified: false,
     onSave: fn(),
@@ -124,7 +188,18 @@ export const Choice: Story = {
     name: "terminal.app",
     title: "Terminal",
     description: "The terminal Bridge opens a worktree in.",
-    control: { kind: "choice", value: "Terminal", options: ["Terminal", "iTerm", "Ghostty", "Warp", "WezTerm", "Custom"] },
+    control: {
+      kind: "choice",
+      value: "Terminal",
+      options: [
+        "Terminal",
+        "iTerm",
+        "Ghostty",
+        "Warp",
+        "WezTerm",
+        "Custom",
+      ],
+    },
     modified: false,
     onSave: fn(),
     onReset: fn(),
@@ -139,7 +214,15 @@ export const ChoiceWithNoSentence: Story = {
     title: "Large context",
     description: "",
     tip: "Context limit",
-    control: { kind: "choice", value: "ask", options: ["ask", "carry on automatically", "never"] },
+    control: {
+      kind: "choice",
+      value: "ask",
+      options: [
+        "ask",
+        "carry on automatically",
+        "never",
+      ],
+    },
     shipped: "ask",
     modified: false,
     onSave: fn(),
@@ -147,11 +230,15 @@ export const ChoiceWithNoSentence: Story = {
   },
   /** **The tooltip is the whole description**, and it shows on hover. */
   play: async ({ canvas, userEvent }) => {
-    const choice = canvas.getByRole("combobox", { name: "Large context" });
+    const choice = canvas.getByRole("combobox", {
+      name: "Large context",
+    });
     await expect(choice).toHaveAccessibleDescription("Context limit");
     await userEvent.hover(choice);
     // Drawn with a box: a bubble put inside the `select` passes `toBeVisible` and is never painted.
-    await waitFor(() => expect(canvas.getByText("Context limit").getBoundingClientRect().width).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(canvas.getByText("Context limit").getBoundingClientRect().width).toBeGreaterThan(0),
+    );
   },
 };
 
@@ -161,7 +248,14 @@ export const List: Story = {
     name: "models.roster",
     title: "Models",
     description: "The models a job or a step may choose from.",
-    control: { kind: "list", value: ["opus", "sonnet", "haiku"] },
+    control: {
+      kind: "list",
+      value: [
+        "opus",
+        "sonnet",
+        "haiku",
+      ],
+    },
     modified: false,
     onSave: fn(),
     onReset: fn(),
@@ -175,13 +269,20 @@ export const PromptChanged: Story = {
     name: "prompts.droneBaseline",
     title: "Drone baseline",
     description: "What every drone is told before its step's own brief.",
-    control: { kind: "prompt", value: "You are working one step of a job.\nStay inside the worktree." },
+    control: {
+      kind: "prompt",
+      value: "You are working one step of a job.\nStay inside the worktree.",
+    },
     modified: true,
     onSave: fn(),
     onReset: fn(),
   },
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Reset to shipped: Drone baseline" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Reset to shipped: Drone baseline",
+      }),
+    );
     await expect(args.onReset).toHaveBeenCalled();
   },
 };
@@ -190,9 +291,17 @@ export const PromptChanged: Story = {
 export const FileBar: StoryObj<typeof SettingsFileBar> = {
   name: "File bar",
   render: (args) => <SettingsFileBar {...args} />,
-  args: { path: "/Users/user/Library/Application Support/Armada/settings.json", refused: null, onOpen: fn() },
+  args: {
+    path: "/Users/user/Library/Application Support/Armada/settings.json",
+    refused: null,
+    onOpen: fn(),
+  },
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Open settings.json" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Open settings.json",
+      }),
+    );
     await expect(args.onOpen).toHaveBeenCalled();
   },
 };
@@ -203,11 +312,16 @@ export const FileRefused: StoryObj<typeof SettingsFileBar> = {
   render: (args) => <SettingsFileBar {...args} />,
   args: {
     path: "/Users/user/Library/Application Support/Armada/settings.json",
-    refused: { key: "limits.dronesAtOnce", reason: "12 is above the most this takes, 8." },
+    refused: {
+      key: "limits.dronesAtOnce",
+      reason: "12 is above the most this takes, 8.",
+    },
     onOpen: fn(),
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText(/The last settings that read cleanly stay in force/)).toBeVisible();
+    await expect(
+      canvas.getByText(/The last settings that read cleanly stay in force/),
+    ).toBeVisible();
     await expect(canvas.getByText("limits.dronesAtOnce")).toBeVisible();
   },
 };

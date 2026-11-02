@@ -12,30 +12,88 @@ const PANEL = role("dialog", "Pull request #2209");
 const SWITCH = role("switch", "Pull request owners");
 
 const chip = (scope: ReturnType<typeof region>, who: RegExp) => inside(scope, role("group", who));
-const machine = (scope: ReturnType<typeof region>, who: RegExp, name: string) => inside(chip(scope, who), role("img", name, { exact: true }));
+const machine = (scope: ReturnType<typeof region>, who: RegExp, name: string) =>
+  inside(
+    chip(scope, who),
+    role("img", name, {
+      exact: true,
+    }),
+  );
 
 const owners = walk("pr-owners", [
   ...viaPalette("Merge line", "The merge line"),
-  { hover: machine(ARMADA, /^Job a3f9c21e/, "This machine"), say: "A Job on this machine" },
-  { hover: machine(ARMADA, /^Job 9c74d82e/, "MacBook Air"), say: "A Job on the other machine" },
-  { hover: inside(chip(ARMADA, /^Job 7be40d15/), text("7be40d15")), say: "Another Job on the other machine" },
+  {
+    hover: machine(ARMADA, /^Job a3f9c21e/, "This machine"),
+    say: "A Job on this machine",
+  },
+  {
+    hover: machine(ARMADA, /^Job 9c74d82e/, "MacBook Air"),
+    say: "A Job on the other machine",
+  },
+  {
+    hover: inside(chip(ARMADA, /^Job 7be40d15/), text("7be40d15")),
+    say: "Another Job on the other machine",
+  },
   toSessions,
-  { press: inside(region("Jobs", { exact: true }), button("Store migration spike")), say: "A Job on this machine" },
+  {
+    press: inside(
+      region("Jobs", {
+        exact: true,
+      }),
+      button("Store migration spike"),
+    ),
+    say: "A Job on this machine",
+  },
   ...row(/^Pull request #2209 /, "Its pull request"),
-  { hover: machine(PANEL, /^Job a3f9c21e/, "This machine"), say: "The chip sits in the panel's head" },
+  {
+    hover: machine(PANEL, /^Job a3f9c21e/, "This machine"),
+    say: "The chip sits in the panel's head",
+  },
 ]);
 
 const optIn = walk("pr-owners", [
-  { press: button(/^Open the/), say: "The Manifest" },
-  { press: button("Choose a repository"), say: "Choose a repository" },
-  { press: role("menuitem", "armada"), say: "armada" },
-  { press: role("tab", "Edit"), say: "Edit" },
-  { hover: SWITCH, say: "On for armada" },
-  { press: place("Cockpit"), say: "Back on the Cockpit, whose picker holds the repository" },
-  { press: role("button", "Repository", { exact: true }), say: "The picker" },
-  { press: role("menuitem", "pocket"), say: "pocket" },
-  { press: button(/^Open the/), say: "Its Manifest" },
-  { look: SWITCH, say: "Off for pocket" },
+  {
+    press: button(/^Open the/),
+    say: "The Manifest",
+  },
+  {
+    press: button("Choose a repository"),
+    say: "Choose a repository",
+  },
+  {
+    press: role("menuitem", "armada"),
+    say: "armada",
+  },
+  {
+    press: role("tab", "Edit"),
+    say: "Edit",
+  },
+  {
+    hover: SWITCH,
+    say: "On for armada",
+  },
+  {
+    press: place("Cockpit"),
+    say: "Back on the Cockpit, whose picker holds the repository",
+  },
+  {
+    press: role("button", "Repository", {
+      exact: true,
+    }),
+    say: "The picker",
+  },
+  {
+    press: role("menuitem", "pocket"),
+    say: "pocket",
+  },
+  {
+    press: button(/^Open the/),
+    say: "Its Manifest",
+  },
+  {
+    look: SWITCH,
+    say: "Off for pocket",
+  },
 ]);
 
 export { owners as "pr-owners", optIn as "pr-owners-opt-in" };

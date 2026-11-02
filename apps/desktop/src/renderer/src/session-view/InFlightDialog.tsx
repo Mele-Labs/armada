@@ -5,14 +5,36 @@ import { Dialog } from "@armada/components";
 
 import "./lanes.css";
 
-export type InFlightRow = { id: string; label: string; state: string };
+export type InFlightRow = {
+  id: string;
+  label: string;
+  state: string;
+};
 
-export function InFlightDialog({ rows, onEnd, onKeep }: { rows: readonly InFlightRow[]; onEnd: () => void; onKeep: () => void }) {
+export function InFlightDialog({
+  rows,
+  onEnd,
+  onKeep,
+}: {
+  rows: readonly InFlightRow[];
+  onEnd: () => void;
+  onKeep: () => void;
+}) {
   return (
-    <Dialog open tone="destructive" title="In flight" confirmLabel="End job" cancelLabel="Keep going" onConfirm={onEnd} onCancel={onKeep}>
+    <Dialog
+      open
+      tone="destructive"
+      title="In flight"
+      confirmLabel="End job"
+      cancelLabel="Keep going"
+      onConfirm={onEnd}
+      onCancel={onKeep}
+    >
       <ul className="sv-inflight" aria-label="In flight">
         {rows.map((one) => (
-          <li key={one.id} className="sv-inflight__row">{one.state === "" ? one.label : `${one.label}: ${one.state}`}</li>
+          <li key={one.id} className="sv-inflight__row">
+            {one.state === "" ? one.label : `${one.label}: ${one.state}`}
+          </li>
         ))}
       </ul>
     </Dialog>

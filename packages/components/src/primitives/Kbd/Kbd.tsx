@@ -32,7 +32,9 @@ export function KbdChord({
   keys,
   className,
   ...rest
-}: { keys: ReactNode[] } & Omit<HTMLAttributes<HTMLElement>, "children">) {
+}: {
+  keys: ReactNode[];
+} & Omit<HTMLAttributes<HTMLElement>, "children">) {
   return (
     <Kbd className={className} {...rest}>
       {keys.map((key, i) => (
@@ -51,7 +53,14 @@ export function KbdChord({
  * with a range or a pair to draw still owns its own cut.
  */
 export function KbdCmd({ shortcut }: { shortcut: string }) {
-  return <KbdChord keys={["⌘", shortcut.slice(1)]} />;
+  return (
+    <KbdChord
+      keys={[
+        "⌘",
+        shortcut.slice(1),
+      ]}
+    />
+  );
 }
 
 /**

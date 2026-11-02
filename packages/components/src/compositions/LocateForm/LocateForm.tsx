@@ -41,7 +41,11 @@ export type LocateFormProps = {
    * What did not happen, then Fleet's sentence whole — git's too — and what to do where the words
    * do not say. The Manifest form's refused save, read the same way.
    */
-  refusal?: { title: string; saying: string; next?: string };
+  refusal?: {
+    title: string;
+    saying: string;
+    next?: string;
+  };
   onMode: (mode: LocateMode) => void;
   onPath: (path: string) => void;
   onUrl: (url: string) => void;
@@ -69,12 +73,23 @@ export function LocateForm(props: LocateFormProps) {
       onCancel={onCancel}
       field={
         <div className="armada-locate">
-          {making ? <NewFields {...props} /> : cloning ? <CloneFields {...props} /> : <FolderFields {...props} />}
+          {making ? (
+            <NewFields {...props} />
+          ) : cloning ? (
+            <CloneFields {...props} />
+          ) : (
+            <FolderFields {...props} />
+          )}
           {/* Gone while sending rather than disabled: the other acts mean nothing until this one answers. */}
           {sending ? null : (
             <div className="armada-locate__other">
               {OTHERS.filter((other) => other.mode !== mode).map((other) => (
-                <Button key={other.mode} variant="ghost" size="sm" onClick={() => onMode(other.mode)}>
+                <Button
+                  key={other.mode}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onMode(other.mode)}
+                >
                   {other.label}
                 </Button>
               ))}
@@ -87,14 +102,17 @@ export function LocateForm(props: LocateFormProps) {
       {refusal !== undefined ? (
         <Alert tone="escalated" title={refusal.title}>
           <p className="armada-locate__saying">{refusal.saying}</p>
-          {refusal.next === undefined ? null : <p className="armada-locate__saying">{refusal.next}</p>}
+          {refusal.next === undefined ? null : (
+            <p className="armada-locate__saying">{refusal.next}</p>
+          )}
         </Alert>
       ) : sending && making ? (
         <p>Fleet is making the folder.</p>
       ) : sending && cloning ? (
         <p>
-          Git is cloning into <span className="armada-locate__path">{props.landsIn}</span>. A large repository
-          takes minutes. Closing this leaves the clone running, and Bridge says so when it finishes.
+          Git is cloning into <span className="armada-locate__path">{props.landsIn}</span>. A large
+          repository takes minutes. Closing this leaves the clone running, and Bridge says so when
+          it finishes.
         </p>
       ) : sending ? (
         <p>Fleet is reading the folder.</p>
@@ -102,8 +120,8 @@ export function LocateForm(props: LocateFormProps) {
         <p>Armada makes the folder and starts it as a git repository. A new Job opens on it.</p>
       ) : cloning ? (
         <p>
-          Git clones it into a new folder, with the credentials it already has. Armada serves the clone, and
-          Setup opens for it next.
+          Git clones it into a new folder, with the credentials it already has. Armada serves the
+          clone, and Setup opens for it next.
         </p>
       ) : (
         <p>Armada serves the folder as it is and changes nothing in it. Setup opens for it next.</p>
@@ -113,13 +131,34 @@ export function LocateForm(props: LocateFormProps) {
 }
 
 /** The other ways in, offered under the fields of the one shown. */
-const OTHERS: readonly { mode: LocateMode; label: string }[] = [
-  { mode: "folder", label: "Add a folder on disk" },
-  { mode: "clone", label: "Clone from a URL" },
-  { mode: "new", label: "New project" },
+const OTHERS: readonly {
+  mode: LocateMode;
+  label: string;
+}[] = [
+  {
+    mode: "folder",
+    label: "Add a folder on disk",
+  },
+  {
+    mode: "clone",
+    label: "Clone from a URL",
+  },
+  {
+    mode: "new",
+    label: "New project",
+  },
 ];
 
-function NewFields({ place, name, placeMessage, nameMessage, sending, onPlace, onName, onChoose }: LocateFormProps) {
+function NewFields({
+  place,
+  name,
+  placeMessage,
+  nameMessage,
+  sending,
+  onPlace,
+  onName,
+  onChoose,
+}: LocateFormProps) {
   return (
     <>
       <div className="armada-locate__row">
@@ -169,12 +208,28 @@ function FolderFields({ path, pathMessage, sending, onPath, onChoose }: LocateFo
   );
 }
 
-function CloneFields({ url, parent, landsIn, parentMessage, refusal, sending, onUrl, onParent, onChoose }: LocateFormProps) {
+function CloneFields({
+  url,
+  parent,
+  landsIn,
+  parentMessage,
+  refusal,
+  sending,
+  onUrl,
+  onParent,
+  onChoose,
+}: LocateFormProps) {
   // A refusal naming where the clone lands has said it; the preview would say it twice.
   const said = landsIn !== null && refusal?.saying.includes(landsIn) === true;
   return (
     <>
-      <Input label="Repository URL" mono value={url} disabled={sending} onChange={(event) => onUrl(event.target.value)} />
+      <Input
+        label="Repository URL"
+        mono
+        value={url}
+        disabled={sending}
+        onChange={(event) => onUrl(event.target.value)}
+      />
       <div className="armada-locate__row">
         <Input
           label="Clone into"
@@ -191,14 +246,14 @@ function CloneFields({ url, parent, landsIn, parentMessage, refusal, sending, on
       </div>
       {/* Read-only, and the label the journey names: where the project will be. */}
       {said ? null : (
-      <div className="armada-locate__lands" role="group" aria-label="Project location">
-        <span className="armada-locate__label">Project location</span>
-        {landsIn === null ? (
-          <span className="armada-locate__pending">A new folder, named from the URL</span>
-        ) : (
-          <span className="armada-locate__path">{landsIn}</span>
-        )}
-      </div>
+        <div className="armada-locate__lands" role="group" aria-label="Project location">
+          <span className="armada-locate__label">Project location</span>
+          {landsIn === null ? (
+            <span className="armada-locate__pending">A new folder, named from the URL</span>
+          ) : (
+            <span className="armada-locate__path">{landsIn}</span>
+          )}
+        </div>
       )}
     </>
   );

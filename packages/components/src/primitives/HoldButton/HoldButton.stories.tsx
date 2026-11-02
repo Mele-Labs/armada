@@ -13,7 +13,12 @@ const meta: Meta<typeof HoldButton> = {
     onAsk: fn(),
   },
   render: (args) => (
-    <div style={{ padding: "var(--pad-card)", background: "var(--bg-raised)" }}>
+    <div
+      style={{
+        padding: "var(--pad-card)",
+        background: "var(--bg-raised)",
+      }}
+    >
       <HoldButton {...args} />
     </div>
   ),
@@ -25,9 +30,13 @@ type Story = StoryObj<typeof HoldButton>;
 /** At rest. A click is a press let go at once, so it kills nothing and asks nothing. */
 export const Rest: Story = {
   // The hold is the claim, and the test run's reduced motion does not offer one.
-  parameters: { motion: "on" },
+  parameters: {
+    motion: "on",
+  },
   play: async ({ args, canvas, userEvent }) => {
-    const button = canvas.getByRole("button", { name: "Hold to kill job" });
+    const button = canvas.getByRole("button", {
+      name: "Hold to kill job",
+    });
     await expect(button).toHaveAccessibleDescription(args.description);
     await userEvent.click(button);
     const hold = holdDurationOf(button) ?? 0;
@@ -40,7 +49,12 @@ export const Rest: Story = {
 /** Held halfway, seeded so the fill does not depend on when the screenshot lands. */
 export const Arming: Story = {
   render: (args) => (
-    <div style={{ padding: "var(--pad-card)", background: "var(--bg-raised)" }}>
+    <div
+      style={{
+        padding: "var(--pad-card)",
+        background: "var(--bg-raised)",
+      }}
+    >
       <HoldButton {...args} data-preview-held="" />
     </div>
   ),
@@ -48,7 +62,11 @@ export const Arming: Story = {
 
 /** Held long enough, and Fleet has not answered. `Button`'s own pending rendering. */
 export const Pending: Story = {
-  args: { children: "Killing job…", askLabel: "Killing job…", pending: true },
+  args: {
+    children: "Killing job…",
+    askLabel: "Killing job…",
+    pending: true,
+  },
 };
 
 /**
@@ -62,14 +80,22 @@ export const ReducedMotion: Story = {
       if (!query.includes("prefers-reduced-motion")) return real.call(window, query);
       // A preference that never changes, so nothing is ever dispatched to a listener.
       const reduced = new EventTarget() as MediaQueryList;
-      return Object.assign(reduced, { matches: true, media: query, onchange: null });
+      return Object.assign(reduced, {
+        matches: true,
+        media: query,
+        onchange: null,
+      });
     };
     return () => {
       window.matchMedia = real;
     };
   },
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Kill job" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Kill job",
+      }),
+    );
     await expect(args.onAsk).toHaveBeenCalledTimes(1);
     await expect(args.onCommit).not.toHaveBeenCalled();
   },

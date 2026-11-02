@@ -10,7 +10,13 @@ const meta: Meta<typeof RowLink> = {
   component: RowLink,
   decorators: [
     (Story) => (
-      <div style={{ padding: "var(--space-6)", background: "var(--surface-canvas)", maxWidth: "var(--w-step-panel-min)" }}>
+      <div
+        style={{
+          padding: "var(--space-6)",
+          background: "var(--surface-canvas)",
+          maxWidth: "var(--w-step-panel-min)",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -32,7 +38,11 @@ export const FailedCheck: Story = {
     onOpen: fn(),
   },
   play: async ({ canvas, args }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "screens_test, failed" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "screens_test, failed",
+      }),
+    );
     await expect(args.onOpen).toHaveBeenCalledOnce();
   },
 };

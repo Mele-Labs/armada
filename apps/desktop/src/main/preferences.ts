@@ -35,15 +35,27 @@ export class Preferring {
    * changes this signature rather than widening it on spec.
    */
   async save(save: SavePreference): Promise<Outcome> {
-    if (this.saving) return { ok: false, why: "already_setting" };
+    if (this.saving)
+      return {
+        ok: false,
+        why: "already_setting",
+      };
     const port = this.board.port();
-    if (port === null) return { ok: false, why: "not_connected" };
+    if (port === null)
+      return {
+        ok: false,
+        why: "not_connected",
+      };
     this.saving = true;
     try {
       const answer = await ask(port, "POST", "/preferences/save", save);
       if (answer.ok !== true) return answer.outcome;
-      this.board.publish({ preferences: answer.body as Preferences });
-      return { ok: true };
+      this.board.publish({
+        preferences: answer.body as Preferences,
+      });
+      return {
+        ok: true,
+      };
     } finally {
       this.saving = false;
     }

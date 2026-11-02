@@ -10,9 +10,19 @@ import { jobOpens, rearrange, peek } from "./store";
 import { closeTab } from "./tree";
 
 const tabs = vi.fn(async () => undefined);
-const api = { list: async () => [], onChanged: () => () => undefined, onShow: () => () => undefined, tabs };
+const api = {
+  list: async () => [],
+  onChanged: () => () => undefined,
+  onShow: () => () => undefined,
+  tabs,
+};
 
-let mounted: { root: Root; host: HTMLElement } | undefined;
+let mounted:
+  | {
+      root: Root;
+      host: HTMLElement;
+    }
+  | undefined;
 beforeEach(() => {
   tabs.mockClear();
   wireJobBrowsers(api as unknown as Parameters<typeof wireJobBrowsers>[0]);
@@ -28,7 +38,10 @@ function mount(jobId: string): void {
   document.body.append(host);
   const root = createRoot(host);
   act(() => root.render(<BrowserTabsSync jobId={jobId} />));
-  mounted = { root, host };
+  mounted = {
+    root,
+    host,
+  };
 }
 
 test("a Job with two Browser tabs tells main both, and tells it the one left when the tab behind the front is closed", () => {
@@ -36,8 +49,13 @@ test("a Job with two Browser tabs tells main both, and tells it the one left whe
   jobOpens("sync-job", "browser");
   mount("sync-job");
   const [first, second] = browserTabIds(peek("sync-job"));
-  expect(tabs).toHaveBeenLastCalledWith("sync-job", [first, second]);
+  expect(tabs).toHaveBeenLastCalledWith("sync-job", [
+    first,
+    second,
+  ]);
   // The second tab is in front of its pane, so closing the first draws nothing that says so.
   act(() => rearrange("sync-job", (arrangement) => closeTab(arrangement, first!)));
-  expect(tabs).toHaveBeenLastCalledWith("sync-job", [second]);
+  expect(tabs).toHaveBeenLastCalledWith("sync-job", [
+    second,
+  ]);
 });

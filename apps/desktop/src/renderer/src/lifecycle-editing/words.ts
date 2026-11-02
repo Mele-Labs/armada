@@ -1,7 +1,13 @@
 // A rule's If and Do as the editor's rows say them, from the structure Fleet serves. **Said from the definition and not from an instance**: the rule has not fired, so
 // a ticket is "the ticket" and a state is named by the label its lifecycle gives it. Fleet's own line for an act that has fired (`saying.rs`) names the instance.
 
-import type { LifecycleRule, RuleAct, RuleAmong, RuleCondition, RuleTarget } from "@armada/protocol";
+import type {
+  LifecycleRule,
+  RuleAct,
+  RuleAmong,
+  RuleCondition,
+  RuleTarget,
+} from "@armada/protocol";
 import type { ActKind } from "@armada/components";
 
 /** The longest a prompt or a message is quoted in a line. */
@@ -13,12 +19,24 @@ const cut = (text: string): string => {
 };
 
 /** Enough of a lifecycle to word a rule about it. */
-export type Named = { id: string; name: string; states: readonly { id: string; label: string }[]; ends: readonly string[] };
+export type Named = {
+  id: string;
+  name: string;
+  states: readonly {
+    id: string;
+    label: string;
+  }[];
+  ends: readonly string[];
+};
 type Lifecycles = readonly Pick<Named, "id" | "name" | "states">[];
 
 /** The lifecycle a target is of: the one named, or the one whose entering set the rule off. */
 export function laneOf(among: RuleAmong, rule: Pick<LifecycleRule, "when">): string | undefined {
-  return among.kind === "entered" ? (rule.when.kind === "enters" ? rule.when.lifecycle : undefined) : among.lifecycle;
+  return among.kind === "entered"
+    ? rule.when.kind === "enters"
+      ? rule.when.lifecycle
+      : undefined
+    : among.lifecycle;
 }
 
 /** What a lifecycle's instances are called in a line: a ticket, a pull request, a deploy. */
@@ -27,12 +45,19 @@ const noun = (lifecycle: string | undefined, lifecycles: Lifecycles): string => 
   return name.toLowerCase();
 };
 
-const stateLabel = (lifecycle: string | undefined, state: string, lifecycles: Lifecycles): string => lifecycles.find((one) => one.id === lifecycle)?.states.find((each) => each.id === state)?.label ?? state;
+const stateLabel = (lifecycle: string | undefined, state: string, lifecycles: Lifecycles): string =>
+  lifecycles.find((one) => one.id === lifecycle)?.states.find((each) => each.id === state)?.label ??
+  state;
 
-function thing(target: RuleTarget, rule: Pick<LifecycleRule, "when">, lifecycles: Lifecycles): string {
+function thing(
+  target: RuleTarget,
+  rule: Pick<LifecycleRule, "when">,
+  lifecycles: Lifecycles,
+): string {
   const lane = laneOf(target.among, rule);
   const word = noun(lane, lifecycles);
-  const where = target.in_state === undefined ? "" : ` in ${stateLabel(lane, target.in_state, lifecycles)}`;
+  const where =
+    target.in_state === undefined ? "" : ` in ${stateLabel(lane, target.in_state, lifecycles)}`;
   return `the ${word}${where}`;
 }
 
@@ -65,7 +90,11 @@ export function kindOf(act: RuleAct): ActKind {
   }
 }
 
-export function sayAct(act: RuleAct, rule: Pick<LifecycleRule, "when">, lifecycles: Lifecycles): string {
+export function sayAct(
+  act: RuleAct,
+  rule: Pick<LifecycleRule, "when">,
+  lifecycles: Lifecycles,
+): string {
   switch (act.act) {
     case "tracker_assign":
       return `Assign ${thing(act.target, rule, lifecycles)} to ${act.to}`;
@@ -86,7 +115,9 @@ export function sayAct(act: RuleAct, rule: Pick<LifecycleRule, "when">, lifecycl
     case "start_job":
       return `Start a Job: ${cut(act.prompt)}`;
     case "start_watch":
-      return act.deploy === undefined || act.deploy === "" ? `Start the ${act.recipe} watch` : `Start the ${act.deploy} deploy watch`;
+      return act.deploy === undefined || act.deploy === ""
+        ? `Start the ${act.recipe} watch`
+        : `Start the ${act.deploy} deploy watch`;
     case "tell":
       return `Tell the agent: ${cut(act.message)}`;
     case "wake":
@@ -100,7 +131,11 @@ export function sayAct(act: RuleAct, rule: Pick<LifecycleRule, "when">, lifecycl
   }
 }
 
-const QUANTITY: Readonly<Record<string, string>> = { every: "Every", any: "Any", no: "No" };
+const QUANTITY: Readonly<Record<string, string>> = {
+  every: "Every",
+  any: "Any",
+  no: "No",
+};
 
 function among(one: RuleAmong, rule: Pick<LifecycleRule, "when">, lifecycles: Lifecycles): string {
   switch (one.kind) {
@@ -115,7 +150,11 @@ function among(one: RuleAmong, rule: Pick<LifecycleRule, "when">, lifecycles: Li
   }
 }
 
-export function sayCondition(condition: RuleCondition, rule: Pick<LifecycleRule, "when">, lifecycles: Lifecycles): string {
+export function sayCondition(
+  condition: RuleCondition,
+  rule: Pick<LifecycleRule, "when">,
+  lifecycles: Lifecycles,
+): string {
   switch (condition.kind) {
     case "instances": {
       const lane = laneOf(condition.among, rule);

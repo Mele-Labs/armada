@@ -4,7 +4,8 @@ import { expect, fn, userEvent, within } from "storybook/test";
 import { StudioAddNode } from "./StudioAddNode";
 
 /** What `Studios.tsx` passes while #1293 is unbuilt: the choice, refused. */
-const NOT_BUILT = "Reading an address in is not built yet. Keep the link, and read it in when it is.";
+const NOT_BUILT =
+  "Reading an address in is not built yet. Keep the link, and read it in when it is.";
 
 const meta: Meta<typeof StudioAddNode> = {
   title: "Compositions/Studio add node",
@@ -31,22 +32,39 @@ export const Control: Story = {};
 export const Menu: Story = {
   play: async ({ canvasElement, args }) => {
     const board = within(canvasElement);
-    await userEvent.click(board.getByRole("button", { name: /Node/ }));
+    await userEvent.click(
+      board.getByRole("button", {
+        name: /Node/,
+      }),
+    );
     const items = board.getAllByRole("menuitem");
-    await expect(items.map((item) => item.textContent)).toEqual(["NoteN", "LinkV", "SketchS", "ZoneZ"]);
-    await userEvent.click(board.getByRole("menuitem", { name: /Note/ }));
+    await expect(items.map((item) => item.textContent)).toEqual([
+      "NoteN",
+      "LinkV",
+      "SketchS",
+      "ZoneZ",
+    ]);
+    await userEvent.click(
+      board.getByRole("menuitem", {
+        name: /Note/,
+      }),
+    );
     await expect(args.onAdding).toHaveBeenCalledWith("note");
   },
 };
 
 /** A Note typed here, which is fixed the moment it is made, as a captured one is. */
 export const Note: Story = {
-  args: { adding: "note" },
+  args: {
+    adding: "note",
+  },
 };
 
 /** A Link pasted. One line, mono, because an address is machine-derived. */
 export const Link: Story = {
-  args: { adding: "link" },
+  args: {
+    adding: "link",
+  },
 };
 
 /**
@@ -55,16 +73,28 @@ export const Link: Story = {
  * *Read it in* refused with the reason where this build has no read-in.
  */
 export const Pasted: Story = {
-  args: { adding: "link" },
+  args: {
+    adding: "link",
+  },
   play: async ({ canvasElement, args }) => {
     const board = within(canvasElement);
     await expect(board.queryByLabelText("Your line")).toBeNull();
 
-    await userEvent.type(board.getByLabelText("Link"), "https://example.invalid/armada/issues/1378");
+    await userEvent.type(
+      board.getByLabelText("Link"),
+      "https://example.invalid/armada/issues/1378",
+    );
     await expect(board.getByText(NOT_BUILT)).toBeVisible();
-    await expect(board.getByRole("button", { name: "Read it in" })).toBeDisabled();
+    await expect(
+      board.getByRole("button", {
+        name: "Read it in",
+      }),
+    ).toBeDisabled();
 
-    await userEvent.type(board.getByLabelText("Your line"), "the owner's own report of this defect{Enter}");
+    await userEvent.type(
+      board.getByLabelText("Your line"),
+      "the owner's own report of this defect{Enter}",
+    );
     await expect(args.onAdd).toHaveBeenCalledWith({
       kind: "link",
       address: "https://example.invalid/armada/issues/1378",
@@ -78,11 +108,19 @@ export const Pasted: Story = {
  * changes is that the choice is a press rather than a sentence saying why not.
  */
 export const PastedWithReadIn: Story = {
-  args: { adding: "link", readIn: fn() },
+  args: {
+    adding: "link",
+    readIn: fn(),
+  },
   play: async ({ canvasElement, args }) => {
     const board = within(canvasElement);
-    await userEvent.type(board.getByLabelText("Link"), "https://example.invalid/armada/issues/1293");
-    const read = board.getByRole("button", { name: "Read it in" });
+    await userEvent.type(
+      board.getByLabelText("Link"),
+      "https://example.invalid/armada/issues/1293",
+    );
+    const read = board.getByRole("button", {
+      name: "Read it in",
+    });
     await expect(read).toBeEnabled();
     await userEvent.click(read);
     await expect(args.readIn).toHaveBeenCalledWith({
@@ -97,17 +135,25 @@ export const PastedWithReadIn: Story = {
 
 /** Out to Fleet. The field waits rather than taking a second press. */
 export const Adding: Story = {
-  args: { adding: "note", saving: true },
+  args: {
+    adding: "note",
+    saving: true,
+  },
 };
 
 /** Fleet did not take it, and the field says so without losing what was typed. */
 export const Refused: Story = {
-  args: { adding: "link", refused: "Fleet is not running, so nothing was added." },
+  args: {
+    adding: "link",
+    refused: "Fleet is not running, so nothing was added.",
+  },
 };
 
 /** A Studio reopened read-only. The control is there and does not open. */
 export const ReadOnly: Story = {
-  args: { disabled: true },
+  args: {
+    disabled: true,
+  },
 };
 
 /**
@@ -117,7 +163,9 @@ export const ReadOnly: Story = {
  * nothing at all.
  */
 export const Writing: Story = {
-  args: { adding: "note" },
+  args: {
+    adding: "note",
+  },
   play: async ({ canvasElement, args }) => {
     const board = within(canvasElement);
     const field = board.getByLabelText("Note");
@@ -127,10 +175,17 @@ export const Writing: Story = {
 
     await userEvent.type(field, "{Meta>}{Enter}{/Meta}");
     // The newline `Enter` left is trimmed off: what is sent is what was written.
-    await expect(args.onAdd).toHaveBeenCalledWith({ kind: "note", said: "The legend is unreadable" });
+    await expect(args.onAdd).toHaveBeenCalledWith({
+      kind: "note",
+      said: "The legend is unreadable",
+    });
 
     await userEvent.clear(field);
-    await expect(board.getByRole("button", { name: "Add note" })).toBeDisabled();
+    await expect(
+      board.getByRole("button", {
+        name: "Add note",
+      }),
+    ).toBeDisabled();
     await userEvent.keyboard("{Escape}");
     await expect(args.onAdding).toHaveBeenCalledWith(null);
   },

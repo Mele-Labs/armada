@@ -13,27 +13,65 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "../sessions-draft";
 import { openInPanel } from "../shared-panel/store";
-import { readingSays, verdictSaid, verdictsOn, watchesShown, watchSaid, WatchMark } from "./watch-marks";
+import {
+  readingSays,
+  verdictSaid,
+  verdictsOn,
+  watchesShown,
+  watchSaid,
+  WatchMark,
+} from "./watch-marks";
 import "./watching-block.css";
 
-export const openWatchPanel = (sessionId: string, watch: WatchSummary) => openInPanel({ kind: "watch", sessionId, id: watch.id, name: watch.name });
+export const openWatchPanel = (sessionId: string, watch: WatchSummary) =>
+  openInPanel({
+    kind: "watch",
+    sessionId,
+    id: watch.id,
+    name: watch.name,
+  });
 
-function WatchRow({ sessionId, watch, asks, onDelete }: { sessionId: string; watch: WatchSummary; asks: boolean; onDelete: ((watch: string) => void) | undefined }) {
+function WatchRow({
+  sessionId,
+  watch,
+  asks,
+  onDelete,
+}: {
+  sessionId: string;
+  watch: WatchSummary;
+  asks: boolean;
+  onDelete: ((watch: string) => void) | undefined;
+}) {
   const last = watch.last;
   const weighed = last === undefined ? [] : verdictsOn(watch, last);
   return (
     <li className="sv-watch" data-state={watch.state} data-asks={asks || undefined}>
       <div className="sv-watch__line">
-        <button type="button" className="sv-watch__row" aria-label={`Watch ${watch.name}`} onClick={() => openWatchPanel(sessionId, watch)}>
+        <button
+          type="button"
+          className="sv-watch__row"
+          aria-label={`Watch ${watch.name}`}
+          onClick={() => openWatchPanel(sessionId, watch)}
+        >
           <WatchMark state={watch.state} said={watchSaid(watch)} />
           <span className="sv-watch__name">{watch.name}</span>
           <span className="sv-watch__says">{last === undefined ? "" : readingSays(last)}</span>
-          {last === undefined ? <span /> : <Stamp at={last.at} first="age" still className="sv-watch__age" />}
+          {last === undefined ? (
+            <span />
+          ) : (
+            <Stamp at={last.at} first="age" still className="sv-watch__age" />
+          )}
         </button>
         <span className="sv-watch__act">
           {watch.live || onDelete === undefined ? null : (
             <Tooltip label="Delete">
-              <Button variant="ghost" size="sm" iconOnly aria-label={`Delete watch ${watch.name}`} onClick={() => onDelete(watch.id)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                aria-label={`Delete watch ${watch.name}`}
+                onClick={() => onDelete(watch.id)}
+              >
                 <Trash2 size={12} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
@@ -43,7 +81,11 @@ function WatchRow({ sessionId, watch, asks, onDelete }: { sessionId: string; wat
       {weighed.length === 0 ? null : (
         <ul className="sv-watch__verdicts" aria-label={`Weighed by the agent: ${watch.name}`}>
           {weighed.map((one) => (
-            <li key={`${one.at}:${one.verdict}`} className="sv-watch__verdict" data-verdict={one.verdict}>
+            <li
+              key={`${one.at}:${one.verdict}`}
+              className="sv-watch__verdict"
+              data-verdict={one.verdict}
+            >
               {verdictSaid(one)}
             </li>
           ))}
@@ -61,14 +103,26 @@ export function WatchingBlock({ session }: { session: Session }) {
   const anyEnded = watches.some((watch) => !watch.live);
   const shown = watchesShown(watches, session.waitingFor ?? [], ended);
   // Needs you still asks about these: the row pulses in the Needs you hue until the item is settled.
-  const asked = new Set((session.waitingFor ?? []).filter((one) => one.source === "watch_not_ours").map((one) => one.act?.target));
+  const asked = new Set(
+    (session.waitingFor ?? [])
+      .filter((one) => one.source === "watch_not_ours")
+      .map((one) => one.act?.target),
+  );
   const remove = draft?.deleteWatch;
   return (
-    <section className="sv-watching" aria-label="Watching" data-not-ours={shown.some((watch) => watch.state === "not_ours") || undefined}>
+    <section
+      className="sv-watching"
+      aria-label="Watching"
+      data-not-ours={shown.some((watch) => watch.state === "not_ours") || undefined}
+    >
       <div className="sv-watching__head">
         <span className="sv-watching__label">Watching</span>
         {anyEnded ? (
-          <Switch size="sm" checked={ended} onChange={(event) => setEnded(event.currentTarget.checked)}>
+          <Switch
+            size="sm"
+            checked={ended}
+            onChange={(event) => setEnded(event.currentTarget.checked)}
+          >
             Show ended
           </Switch>
         ) : null}
@@ -76,7 +130,13 @@ export function WatchingBlock({ session }: { session: Session }) {
       {shown.length === 0 ? null : (
         <ul className="sv-watching__list" data-acts={anyEnded || undefined}>
           {shown.map((watch) => (
-            <WatchRow key={watch.id} sessionId={session.id} watch={watch} asks={asked.has(watch.id)} onDelete={remove === undefined ? undefined : (id) => remove(session.id, id)} />
+            <WatchRow
+              key={watch.id}
+              sessionId={session.id}
+              watch={watch}
+              asks={asked.has(watch.id)}
+              onDelete={remove === undefined ? undefined : (id) => remove(session.id, id)}
+            />
           ))}
         </ul>
       )}

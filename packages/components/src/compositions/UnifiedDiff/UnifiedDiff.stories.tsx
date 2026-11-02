@@ -27,28 +27,76 @@ export const APatchToDecideOn: Story = {
       {
         path: "crates/fleet/src/gate.rs",
         lines: [
-          { kind: "hunk", text: "@@ -41,7 +41,11 @@ impl Gate {" },
-          { kind: "context", text: "     fn decide(&self, step: &Step) -> Advance {" },
-          { kind: "context", text: "         let carried = step.advance_gate();" },
-          { kind: "removed", text: "-        if carried == AdvanceGate::Auto {" },
-          { kind: "removed", text: "-            return Advance::Now;" },
-          { kind: "added", text: "+        match carried {" },
-          { kind: "added", text: "+            AdvanceGate::Auto => Advance::Now," },
-          { kind: "added", text: "+            AdvanceGate::HumanAlways => Advance::Wait," },
-          { kind: "added", text: "+            AdvanceGate::AutoIfJudgePasses => self.ask_the_judge(step)," },
-          { kind: "context", text: "         }" },
-          { kind: "context", text: "     }" },
+          {
+            kind: "hunk",
+            text: "@@ -41,7 +41,11 @@ impl Gate {",
+          },
+          {
+            kind: "context",
+            text: "     fn decide(&self, step: &Step) -> Advance {",
+          },
+          {
+            kind: "context",
+            text: "         let carried = step.advance_gate();",
+          },
+          {
+            kind: "removed",
+            text: "-        if carried == AdvanceGate::Auto {",
+          },
+          {
+            kind: "removed",
+            text: "-            return Advance::Now;",
+          },
+          {
+            kind: "added",
+            text: "+        match carried {",
+          },
+          {
+            kind: "added",
+            text: "+            AdvanceGate::Auto => Advance::Now,",
+          },
+          {
+            kind: "added",
+            text: "+            AdvanceGate::HumanAlways => Advance::Wait,",
+          },
+          {
+            kind: "added",
+            text: "+            AdvanceGate::AutoIfJudgePasses => self.ask_the_judge(step),",
+          },
+          {
+            kind: "context",
+            text: "         }",
+          },
+          {
+            kind: "context",
+            text: "     }",
+          },
         ],
       },
       {
         path: "crates/fleet/src/reviewing.rs",
         meta: "new file mode 100644",
         lines: [
-          { kind: "hunk", text: "@@ -0,0 +1,4 @@" },
-          { kind: "added", text: "+//! The three acts a person takes on finished work." },
-          { kind: "added", text: "+//!" },
-          { kind: "added", text: "+//! All three refuse anywhere but `awaiting_review`." },
-          { kind: "added", text: "+" },
+          {
+            kind: "hunk",
+            text: "@@ -0,0 +1,4 @@",
+          },
+          {
+            kind: "added",
+            text: "+//! The three acts a person takes on finished work.",
+          },
+          {
+            kind: "added",
+            text: "+//!",
+          },
+          {
+            kind: "added",
+            text: "+//! All three refuse anywhere but `awaiting_review`.",
+          },
+          {
+            kind: "added",
+            text: "+",
+          },
         ],
       },
     ],
@@ -68,19 +116,40 @@ export const AFileOutsideTheDeclaredPlan: Story = {
       {
         path: "crates/fleet/src/gate.rs",
         lines: [
-          { kind: "hunk", text: "@@ -41,3 +41,3 @@" },
-          { kind: "context", text: "     fn decide(&self, step: &Step) -> Advance {" },
-          { kind: "added", text: "+        // The gate the workflow carried, honoured." },
-          { kind: "removed", text: "-        // TODO: read the gate." },
+          {
+            kind: "hunk",
+            text: "@@ -41,3 +41,3 @@",
+          },
+          {
+            kind: "context",
+            text: "     fn decide(&self, step: &Step) -> Advance {",
+          },
+          {
+            kind: "added",
+            text: "+        // The gate the workflow carried, honoured.",
+          },
+          {
+            kind: "removed",
+            text: "-        // TODO: read the gate.",
+          },
         ],
       },
       {
         path: "crates/config/settings.toml",
         outsidePlan: true,
         lines: [
-          { kind: "hunk", text: "@@ -12,2 +12,3 @@ [judge]" },
-          { kind: "context", text: ' model = "haiku"' },
-          { kind: "added", text: " timeout_seconds = 90" },
+          {
+            kind: "hunk",
+            text: "@@ -12,2 +12,3 @@ [judge]",
+          },
+          {
+            kind: "context",
+            text: ' model = "haiku"',
+          },
+          {
+            kind: "added",
+            text: " timeout_seconds = 90",
+          },
         ],
       },
     ],
@@ -98,16 +167,47 @@ export const AHunkThatCollides: Story = {
       {
         path: "crates/fleet/src/lease.rs",
         lines: [
-          { kind: "hunk", text: "@@ -12,3 +12,4 @@ use crate::pool::Pool;" },
-          { kind: "context", text: " use crate::slots::Slot;" },
-          { kind: "added", text: "+use crate::clock::Backoff;" },
-          { kind: "context", text: "" },
-          { kind: "hunk", text: "@@ -41,4 +42,6 @@ impl Lease {", collides: "Collides with Rotate the audit log" },
-          { kind: "context", text: "     pub fn take(&self, pool: &Pool) -> Result<Slot, Contended> {" },
-          { kind: "removed", text: "-        pool.take_free()" },
-          { kind: "added", text: "+        let backoff = Backoff::new(self.tries);" },
-          { kind: "added", text: "+        pool.take_free().or_else(|_| backoff.retry(|| pool.take_free()))" },
-          { kind: "context", text: "     }" },
+          {
+            kind: "hunk",
+            text: "@@ -12,3 +12,4 @@ use crate::pool::Pool;",
+          },
+          {
+            kind: "context",
+            text: " use crate::slots::Slot;",
+          },
+          {
+            kind: "added",
+            text: "+use crate::clock::Backoff;",
+          },
+          {
+            kind: "context",
+            text: "",
+          },
+          {
+            kind: "hunk",
+            text: "@@ -41,4 +42,6 @@ impl Lease {",
+            collides: "Collides with Rotate the audit log",
+          },
+          {
+            kind: "context",
+            text: "     pub fn take(&self, pool: &Pool) -> Result<Slot, Contended> {",
+          },
+          {
+            kind: "removed",
+            text: "-        pool.take_free()",
+          },
+          {
+            kind: "added",
+            text: "+        let backoff = Backoff::new(self.tries);",
+          },
+          {
+            kind: "added",
+            text: "+        pool.take_free().or_else(|_| backoff.retry(|| pool.take_free()))",
+          },
+          {
+            kind: "context",
+            text: "     }",
+          },
         ],
       },
     ],
@@ -133,10 +233,22 @@ export const APatchTooLongToDraw: Story = {
       {
         path: "crates/store/src/schema.rs",
         lines: [
-          { kind: "hunk", text: "@@ -199,4 +199,5 @@ const MIGRATIONS: &[Migration] = &[" },
-          { kind: "context", text: "    Migration { id: 11, sql: include_str!(\"sql/011_steps.sql\") }," },
-          { kind: "added", text: "+    Migration { id: 12, sql: include_str!(\"sql/012_review.sql\") }," },
-          { kind: "context", text: "];" },
+          {
+            kind: "hunk",
+            text: "@@ -199,4 +199,5 @@ const MIGRATIONS: &[Migration] = &[",
+          },
+          {
+            kind: "context",
+            text: '    Migration { id: 11, sql: include_str!("sql/011_steps.sql") },',
+          },
+          {
+            kind: "added",
+            text: '+    Migration { id: 12, sql: include_str!("sql/012_review.sql") },',
+          },
+          {
+            kind: "context",
+            text: "];",
+          },
         ],
       },
     ],

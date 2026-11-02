@@ -24,7 +24,14 @@ export function Skeleton({ className, width, style, ...rest }: SkeletonProps) {
     <div
       className={className ? `armada-skeleton ${className}` : "armada-skeleton"}
       aria-hidden
-      style={width ? { ...style, width } : style}
+      style={
+        width
+          ? {
+              ...style,
+              width,
+            }
+          : style
+      }
       {...rest}
     />
   );
@@ -40,7 +47,11 @@ export type SkeletonTextProps = HTMLAttributes<HTMLDivElement> & {
   label?: string;
 };
 
-const DEFAULT_WIDTHS = ["60%", "85%", "40%"];
+const DEFAULT_WIDTHS = [
+  "60%",
+  "85%",
+  "40%",
+];
 
 export function SkeletonText({
   className,

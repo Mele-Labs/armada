@@ -79,7 +79,9 @@ async function serving(preferencesUnavailable = false): Promise<{
   /** How many times one route has been read. */
   read: (route: string) => number;
 }> {
-  const stream = new WebSocketServer({ noServer: true });
+  const stream = new WebSocketServer({
+    noServer: true,
+  });
   const events = arriving(stream);
 
   const reads = new Map<string, number>();
@@ -88,12 +90,23 @@ async function serving(preferencesUnavailable = false): Promise<{
     reads.set(route, (reads.get(route) ?? 0) + 1);
     // Anything off the list answers a refusal, which every reader here already
     // renders rather than throwing on.
-    const body = answering(route, preferencesUnavailable ? undefined : { where_things_are_open: true });
-    answer.writeHead(body === undefined ? 404 : 200, { "content-type": "application/json" });
+    const body = answering(
+      route,
+      preferencesUnavailable
+        ? undefined
+        : {
+            where_things_are_open: true,
+          },
+    );
+    answer.writeHead(body === undefined ? 404 : 200, {
+      "content-type": "application/json",
+    });
     answer.end(JSON.stringify(body ?? {}));
   });
   server.on("upgrade", (request: IncomingMessage, socket: Socket, head: Buffer) => {
-    stream.handleUpgrade(request, socket, head, (client) => stream.emit("connection", client, request));
+    stream.handleUpgrade(request, socket, head, (client) =>
+      stream.emit("connection", client, request),
+    );
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -118,11 +131,16 @@ function resyncing(cursor: number): string {
 /** Every state main published, and a wait for the one a case is about. */
 function publishing() {
   const seen: BridgeState[] = [];
-  const wanted: { holds: (state: BridgeState) => boolean; keep: () => void }[] = [];
+  const wanted: {
+    holds: (state: BridgeState) => boolean;
+    keep: () => void;
+  }[] = [];
   return {
     publish(state: BridgeState): void {
       seen.push(state);
-      for (const [at, want] of [...wanted.entries()].reverse()) {
+      for (const [at, want] of [
+        ...wanted.entries(),
+      ].reverse()) {
         if (!want.holds(state)) continue;
         wanted.splice(at, 1);
         want.keep();
@@ -135,7 +153,12 @@ function publishing() {
     },
     until(holds: (state: BridgeState) => boolean): Promise<void> {
       if (seen.some(holds)) return Promise.resolve();
-      return new Promise((keep) => wanted.push({ holds, keep }));
+      return new Promise((keep) =>
+        wanted.push({
+          holds,
+          keep,
+        }),
+      );
     },
     /** The state as last published. Read after an `until` that pinned it. */
     latest(): BridgeState {
@@ -150,7 +173,9 @@ function publishing() {
 async function runtimeFile(port: number): Promise<string> {
   const home = await mkdtemp(join(tmpdir(), "bridge-"));
   const dir = join(home, "Library", "Application Support", "Armada");
-  await mkdir(dir, { recursive: true });
+  await mkdir(dir, {
+    recursive: true,
+  });
   const held = holderOf(process.pid);
   await writeFile(
     join(dir, "fleet.json"),
@@ -207,7 +232,9 @@ it("keeps drawing the shipped default when Fleet's preferences read fails", asyn
     // One open window, so the per-window reads a resync also fires keep this
     // test's ordering the same as every other read here — an empty set skips
     // them outright, which is correct but not what this race depends on.
-    windowIds: () => [1],
+    windowIds: () => [
+      1,
+    ],
     now: () => 1_756_840_000_000,
   });
   opened.push(() => connection.stop());
@@ -221,5 +248,7 @@ it("keeps drawing the shipped default when Fleet's preferences read fails", asyn
   // always publishes — landing after it. `#507`'s reason: waiting on a state
   // change the failure itself makes would wait forever.
   await published.until(() => fleet.read(PREFERENCES_ROUTE) === 1);
-  expect(published.latest().preferences).toEqual({ where_things_are_open: false });
+  expect(published.latest().preferences).toEqual({
+    where_things_are_open: false,
+  });
 });

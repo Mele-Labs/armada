@@ -17,17 +17,38 @@ const REPLY = [
 ].join("\n\n");
 
 const FORGE = "https://forge.invalid/pull/";
-const pull = (number: number, title: string, branch: string) => ({ number, title, branch, url: `${FORGE}${number}`, ci: "passed" });
+const pull = (number: number, title: string, branch: string) => ({
+  number,
+  title,
+  branch,
+  url: `${FORGE}${number}`,
+  ci: "passed",
+});
 
 /** armada's merge line: three pull requests open, and #2207 landed. Where a pull request named in Helm's thread opens. */
 const LINE: MergeLine = {
   root: repository().root,
   line: [],
   off: [],
-  landed: [{ branch: "fix/drone-count", pull_request: { number: 2207, url: `${FORGE}2207`, settled: "merged" }, state: "landed", merge_commit: "9c1d0b7e4a2f6d83b50c9e71a4f2d6b8c3e5a107" }],
+  landed: [
+    {
+      branch: "fix/drone-count",
+      pull_request: {
+        number: 2207,
+        url: `${FORGE}2207`,
+        settled: "merged",
+      },
+      state: "landed",
+      merge_commit: "9c1d0b7e4a2f6d83b50c9e71a4f2d6b8c3e5a107",
+    },
+  ],
   sent_back: [],
   hub: {
-    pull_requests: [pull(2219, "Pin the Bridge store clock", "fix/store-clock"), pull(2216, "Fold the two notification routes into one", "notify/one-route"), pull(203, "Sessions page: Active, Quiet and Ended views", "sessions/list-views")],
+    pull_requests: [
+      pull(2219, "Pin the Bridge store clock", "fix/store-clock"),
+      pull(2216, "Fold the two notification routes into one", "notify/one-route"),
+      pull(203, "Sessions page: Active, Quiet and Ended views", "sessions/list-views"),
+    ],
   },
 };
 
@@ -35,7 +56,14 @@ export const s211HelmRichComposer: Scenario = {
   ...s210RouteAThought,
   name: "helm-rich-composer",
   says: "Helm's message box is the Sessions box: files, sketches, /, @ and #, in three repositories",
-  state: { ...s210RouteAThought.state, mergeLines: { lines: [LINE] } },
+  state: {
+    ...s210RouteAThought.state,
+    mergeLines: {
+      lines: [
+        LINE,
+      ],
+    },
+  },
   // What the message carried is kept on its row, as Fleet keeps it, and Helm's reply follows.
   behaves: (handle) => helmFleetOn(s210RouteAThought, handle, REPLY),
 };

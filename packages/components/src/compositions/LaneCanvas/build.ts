@@ -1,12 +1,53 @@
 // The lanes of a Workspace as the editor draws them, and of a Job as its Lanes view does. Both come to the same two lists, lanes
 // and rule edges, which `LaneCanvas` places.
 
-import { CURRENT_STEP, DEFAULT, END_ITEM, START_ITEM, clashAt, differSaid, isWorkspaceLevel, layersAt, levelName, levelsOf, lifecyclesAt, lifecyclesFor, nodeId, ownersOf, ruleAt, ruleDiffers, stateDiffers, stateOwners, stepDiffers } from "./model";
-import type { Clash, Instance, JobLanes, LaneNodeView, LaneStep, LaneView, Lifecycle, LifecycleKind, NodeKind, PendingKind, Rule, RuleView, Workspace } from "./model";
+import {
+  CURRENT_STEP,
+  DEFAULT,
+  END_ITEM,
+  START_ITEM,
+  clashAt,
+  differSaid,
+  isWorkspaceLevel,
+  layersAt,
+  levelName,
+  levelsOf,
+  lifecyclesAt,
+  lifecyclesFor,
+  nodeId,
+  ownersOf,
+  ruleAt,
+  ruleDiffers,
+  stateDiffers,
+  stateOwners,
+  stepDiffers,
+} from "./model";
+import type {
+  Clash,
+  Instance,
+  JobLanes,
+  LaneNodeView,
+  LaneStep,
+  LaneView,
+  Lifecycle,
+  LifecycleKind,
+  NodeKind,
+  PendingKind,
+  Rule,
+  RuleView,
+  Workspace,
+} from "./model";
 
 /** The node a state of a lifecycle is drawn as, by what reads the lifecycle. */
-const STATE_KIND: Readonly<Record<LifecycleKind, NodeKind>> = { tracker: "tracker", forge: "forge", watch: "watch", document: "document", job: "job" };
-const kindOfState = (lifecycle: { kind?: LifecycleKind }): NodeKind => STATE_KIND[lifecycle.kind ?? "tracker"];
+const STATE_KIND: Readonly<Record<LifecycleKind, NodeKind>> = {
+  tracker: "tracker",
+  forge: "forge",
+  watch: "watch",
+  document: "document",
+  job: "job",
+};
+const kindOfState = (lifecycle: { kind?: LifecycleKind }): NodeKind =>
+  STATE_KIND[lifecycle.kind ?? "tracker"];
 
 /** A step is a box, and one that ends on a state, so waits for it, is a hexagon. */
 const kindOfStep = (step: LaneStep): NodeKind => (step.endsOn === undefined ? "step" : "wait");
@@ -15,24 +56,107 @@ const kindOfStep = (step: LaneStep): NodeKind => (step.endsOn === undefined ? "s
  * The workflow's lane with a small circle at each end: where it starts and where it ends. They sit in the columns of the first and the last step, and are no steps, so nothing picks them. `began` and
  * `ended` are a Job's: it has started its first step, and every step is over.
  */
-function withEnds(steps: readonly LaneNodeView[], pairs: readonly (readonly [string, string])[], standing?: { began: boolean; ended: boolean }): { nodes: LaneNodeView[]; moves: (readonly [string, string])[] } {
+function withEnds(
+  steps: readonly LaneNodeView[],
+  pairs: readonly (readonly [
+    string,
+    string,
+  ])[],
+  standing?: {
+    began: boolean;
+    ended: boolean;
+  },
+): {
+  nodes: LaneNodeView[];
+  moves: (readonly [
+    string,
+    string,
+  ])[];
+} {
   const first = steps[0];
   const last = steps[steps.length - 1];
-  if (first === undefined || last === undefined) return { nodes: [...steps], moves: [...pairs] };
-  const start: LaneNodeView = { id: nodeId("workflow", START_ITEM), label: "Start", col: first.col, role: "step", kind: "start", ...(standing?.began === true ? { passed: true as const } : {}) };
-  const end: LaneNodeView = { id: nodeId("workflow", END_ITEM), label: "End", col: last.col, role: "step", kind: "end", ...(standing?.ended === true ? { here: true as const } : {}) };
-  return { nodes: [start, ...steps, end], moves: [[start.id, first.id], ...pairs, [last.id, end.id]] };
+  if (first === undefined || last === undefined)
+    return {
+      nodes: [
+        ...steps,
+      ],
+      moves: [
+        ...pairs,
+      ],
+    };
+  const start: LaneNodeView = {
+    id: nodeId("workflow", START_ITEM),
+    label: "Start",
+    col: first.col,
+    role: "step",
+    kind: "start",
+    ...(standing?.began === true
+      ? {
+          passed: true as const,
+        }
+      : {}),
+  };
+  const end: LaneNodeView = {
+    id: nodeId("workflow", END_ITEM),
+    label: "End",
+    col: last.col,
+    role: "step",
+    kind: "end",
+    ...(standing?.ended === true
+      ? {
+          here: true as const,
+        }
+      : {}),
+  };
+  return {
+    nodes: [
+      start,
+      ...steps,
+      end,
+    ],
+    moves: [
+      [
+        start.id,
+        first.id,
+      ],
+      ...pairs,
+      [
+        last.id,
+        end.id,
+      ],
+    ],
+  };
 }
 
-const laneOfLifecycle = (lifecycle: Lifecycle, id: string, title: string, note: string | undefined, nodes: readonly LaneNodeView[]): LaneView => ({
+const laneOfLifecycle = (
+  lifecycle: Lifecycle,
+  id: string,
+  title: string,
+  note: string | undefined,
+  nodes: readonly LaneNodeView[],
+): LaneView => ({
   id,
   kind: "lifecycle",
   title,
   source: lifecycle.from,
-  ...(note === undefined ? {} : { note }),
-  ...(lifecycle.kind === "tracker" ? { ticket: true as const } : {}),
+  ...(note === undefined
+    ? {}
+    : {
+        note,
+      }),
+  ...(lifecycle.kind === "tracker"
+    ? {
+        ticket: true as const,
+      }
+    : {}),
   nodes,
-  moves: lifecycle.next.map(([from, to]) => [nodeId(id, from), nodeId(id, to)] as const),
+  moves: lifecycle.next.map(
+    ([from, to]) =>
+      [
+        nodeId(id, from),
+        nodeId(id, to),
+      ] as const,
+  ),
 });
 
 /** A step's second line: the lifecycle state that ends it, when one does. */
@@ -44,7 +168,15 @@ function endsOnSaid(step: LaneStep, lifecycles: readonly Lifecycle[]): string | 
 }
 
 /** The steps of a workflow, placed in columns where the Workspace says, and in order where it does not. At a level below the default each takes what that level changes of it. */
-export function stepsOf(workspace: Workspace, workflow: string, steps: readonly { id: string; label: string }[], scope: string = DEFAULT): LaneStep[] {
+export function stepsOf(
+  workspace: Workspace,
+  workflow: string,
+  steps: readonly {
+    id: string;
+    label: string;
+  }[],
+  scope: string = DEFAULT,
+): LaneStep[] {
   return steps.map((step, at) => {
     const given = workspace.workflows[workflow]?.steps[step.id];
     let label = step.label;
@@ -59,23 +191,70 @@ export function stepsOf(workspace: Workspace, workflow: string, steps: readonly 
       }
       if (layer.passedOver !== undefined) passedOver = layer.passedOver;
     }
-    return { id: step.id, label, col: given?.col ?? at, ...(endsOn === undefined ? {} : { endsOn }), ...(ends === undefined ? {} : { ends }), ...(passedOver === undefined ? {} : { passedOver }) };
+    return {
+      id: step.id,
+      label,
+      col: given?.col ?? at,
+      ...(endsOn === undefined
+        ? {}
+        : {
+            endsOn,
+          }),
+      ...(ends === undefined
+        ? {}
+        : {
+            ends,
+          }),
+      ...(passedOver === undefined
+        ? {}
+        : {
+            passedOver,
+          }),
+    };
   });
 }
 
 /** The rules a workflow draws as they read at a level: its own, and the Workspace's wherever both ends are on its lanes. */
-export function rulesFor(workspace: Workspace, workflow: string, steps: readonly { id: string; label: string }[], scope: string = DEFAULT): Rule[] {
-  const drawn = new Set<string>([...steps.map((step) => nodeId("workflow", step.id)), ...lifecyclesFor(workspace, workflow, scope).flatMap((lifecycle) => lifecycle.states.map((state) => nodeId(lifecycle.id, state.id)))]);
+export function rulesFor(
+  workspace: Workspace,
+  workflow: string,
+  steps: readonly {
+    id: string;
+    label: string;
+  }[],
+  scope: string = DEFAULT,
+): Rule[] {
+  const drawn = new Set<string>([
+    ...steps.map((step) => nodeId("workflow", step.id)),
+    ...lifecyclesFor(workspace, workflow, scope).flatMap((lifecycle) =>
+      lifecycle.states.map((state) => nodeId(lifecycle.id, state.id)),
+    ),
+  ]);
   return workspace.rules
     .map((rule) => ruleAt(rule, scope, workspace))
-    .filter((rule) => (rule.workflow === undefined || rule.workflow === workflow) && drawn.has(nodeId(rule.from.lane, rule.from.item)) && drawn.has(nodeId(rule.to.lane, rule.to.item)));
+    .filter(
+      (rule) =>
+        (rule.workflow === undefined || rule.workflow === workflow) &&
+        drawn.has(nodeId(rule.from.lane, rule.from.item)) &&
+        drawn.has(nodeId(rule.to.lane, rule.to.item)),
+    );
 }
 
 /** Whether a tab changes anything in this workflow of what it takes from the level above, or adds to it. The default has no level above. */
-export function changedAt(workspace: Workspace, workflow: string, steps: readonly { id: string; label: string }[], scope: string): boolean {
+export function changedAt(
+  workspace: Workspace,
+  workflow: string,
+  steps: readonly {
+    id: string;
+    label: string;
+  }[],
+  scope: string,
+): boolean {
   if (scope === DEFAULT) return false;
   return (
-    lifecyclesFor(workspace, workflow).some((lifecycle) => lifecycle.states.some((state) => stateDiffers(state).includes(scope))) ||
+    lifecyclesFor(workspace, workflow).some((lifecycle) =>
+      lifecycle.states.some((state) => stateDiffers(state).includes(scope)),
+    ) ||
     rulesFor(workspace, workflow, steps).some((rule) => ruleDiffers(rule).includes(scope)) ||
     steps.some((step) => stepDiffers(workspace.workflows[workflow], step.id).includes(scope)) ||
     (workspace.workflows[workflow]?.added ?? []).some((one) => one.scope === scope)
@@ -89,26 +268,45 @@ export function changedAt(workspace: Workspace, workflow: string, steps: readonl
 export function editorLanes(input: {
   workspace: Workspace;
   workflow: string;
-  steps: readonly { id: string; label: string }[];
+  steps: readonly {
+    id: string;
+    label: string;
+  }[];
   proposed?: readonly Rule[];
   /** `default`, `workspace`, or the id of one repository: the lanes as the workflow runs there, with that level's names, words and autonomy, and the marks for what differs from it down. */
   scope?: string;
   /** The rules and lifecycles that wait on a pull request removing them or on a draft keeping them, as `rule:<id>` and `lifecycle:<id>`, with which wait each is. */
   pending?: ReadonlyMap<string, PendingKind>;
-}): { lanes: LaneView[]; rules: RuleView[] } {
+}): {
+  lanes: LaneView[];
+  rules: RuleView[];
+} {
   const { workspace, workflow } = input;
   const scope = input.scope ?? DEFAULT;
   const named = (ids: readonly string[]): string[] => ids.map((id) => levelName(workspace, id));
   /** The levels a mark names: on the default's tab every one under it that differs; on a Workspace's, the repositories it holds that differ; on a repository's own tab only that one. */
   const marked = (ids: readonly string[]): string[] =>
-    named(scope === DEFAULT ? ids : isWorkspaceLevel(scope) ? ids.filter((id) => !isWorkspaceLevel(id) && levelsOf(id, workspace).includes(scope)) : ids.filter((id) => id === scope));
+    named(
+      scope === DEFAULT
+        ? ids
+        : isWorkspaceLevel(scope)
+          ? ids.filter((id) => !isWorkspaceLevel(id) && levelsOf(id, workspace).includes(scope))
+          : ids.filter((id) => id === scope),
+    );
   /** The Workspaces whose pieces differ on this tab, by name: only a repository's tab sets any aside. */
-  const clashNames = (clash: Clash | undefined, own: readonly string[]): string[] => clashAt(clash, scope, workspace, own).map((id) => levelName(workspace, id));
+  const clashNames = (clash: Clash | undefined, own: readonly string[]): string[] =>
+    clashAt(clash, scope, workspace, own).map((id) => levelName(workspace, id));
   /** A rule is drawn where it applies: everywhere on the default's tab; on a Workspace's, where it is the default's, that Workspace's or a repository's in it; on a repository's, where the levels it reads set it. */
   const appliesHere = (rule: Rule): boolean => {
     if (scope === DEFAULT) return true;
     const owners = ownersOf(rule);
-    if (isWorkspaceLevel(scope)) return owners.some((level) => level === DEFAULT || level === scope || (!isWorkspaceLevel(level) && levelsOf(level, workspace).includes(scope)));
+    if (isWorkspaceLevel(scope))
+      return owners.some(
+        (level) =>
+          level === DEFAULT ||
+          level === scope ||
+          (!isWorkspaceLevel(level) && levelsOf(level, workspace).includes(scope)),
+      );
     return owners.some((level) => levelsOf(scope, workspace, rule.clash).includes(level));
   };
   const steps = stepsOf(workspace, workflow, input.steps, scope);
@@ -118,11 +316,40 @@ export function editorLanes(input: {
     steps.map((step): LaneNodeView => {
       const sub = endsOnSaid(step, lifecycles);
       const differs = marked(stepDiffers(placeOf, step.id));
-      return { id: nodeId("workflow", step.id), label: step.label, ...(sub === undefined ? {} : { sub }), col: step.col, role: "step", kind: kindOfStep(step), ...(differs.length === 0 ? {} : { differs }) };
+      return {
+        id: nodeId("workflow", step.id),
+        label: step.label,
+        ...(sub === undefined
+          ? {}
+          : {
+              sub,
+            }),
+        col: step.col,
+        role: "step",
+        kind: kindOfStep(step),
+        ...(differs.length === 0
+          ? {}
+          : {
+              differs,
+            }),
+      };
     }),
-    steps.slice(1).map((step, at) => [nodeId("workflow", steps[at]!.id), nodeId("workflow", step.id)] as const),
+    steps.slice(1).map(
+      (step, at) =>
+        [
+          nodeId("workflow", steps[at]!.id),
+          nodeId("workflow", step.id),
+        ] as const,
+    ),
   );
-  const flow: LaneView = { id: "workflow", kind: "workflow", title: workflow, source: "Workflow", nodes: drawnSteps.nodes, moves: drawnSteps.moves };
+  const flow: LaneView = {
+    id: "workflow",
+    kind: "workflow",
+    title: workflow,
+    source: "Workflow",
+    nodes: drawnSteps.nodes,
+    moves: drawnSteps.moves,
+  };
   const lanes = lifecycles.map((lifecycle): LaneView => {
     const lane = laneOfLifecycle(
       lifecycle,
@@ -132,11 +359,37 @@ export function editorLanes(input: {
       lifecycle.states.map((state) => {
         const differs = marked(stateDiffers(state));
         const clash = clashNames(state.clash, stateOwners(state));
-        return { id: nodeId(lifecycle.id, state.id), label: state.label, col: state.col, role: "state" as const, kind: kindOfState(lifecycle), ...(state.end === true ? { end: true as const } : {}), ...(differs.length === 0 ? {} : { differs }), ...(clash.length === 0 ? {} : { clash: differSaid(clash) }) };
+        return {
+          id: nodeId(lifecycle.id, state.id),
+          label: state.label,
+          col: state.col,
+          role: "state" as const,
+          kind: kindOfState(lifecycle),
+          ...(state.end === true
+            ? {
+                end: true as const,
+              }
+            : {}),
+          ...(differs.length === 0
+            ? {}
+            : {
+                differs,
+              }),
+          ...(clash.length === 0
+            ? {}
+            : {
+                clash: differSaid(clash),
+              }),
+        };
       }),
     );
     const waits = input.pending?.get(`lifecycle:${lifecycle.id}`);
-    return waits === undefined ? lane : { ...lane, pending: waits };
+    return waits === undefined
+      ? lane
+      : {
+          ...lane,
+          pending: waits,
+        };
   });
   const drawn = (rule: Rule, proposed: boolean): RuleView => {
     const differs = marked(ruleDiffers(rule));
@@ -149,63 +402,156 @@ export function editorLanes(input: {
       to: nodeId(rule.to.lane, rule.to.item),
       label: rule.label,
       autonomy: rule.autonomy,
-      ...(differs.length === 0 ? {} : { differs }),
-      ...(clash.length === 0 ? {} : { clash: differSaid(clash) }),
-      ...(proposed ? { proposed: true as const } : {}),
-      ...(waits === undefined ? {} : { pending: waits }),
+      ...(differs.length === 0
+        ? {}
+        : {
+            differs,
+          }),
+      ...(clash.length === 0
+        ? {}
+        : {
+            clash: differSaid(clash),
+          }),
+      ...(proposed
+        ? {
+            proposed: true as const,
+          }
+        : {}),
+      ...(waits === undefined
+        ? {}
+        : {
+            pending: waits,
+          }),
     };
   };
   return {
-    lanes: [flow, ...lanes],
-    rules: [...rulesFor(workspace, workflow, input.steps, scope).filter(appliesHere).map((rule) => drawn(rule, false)), ...(input.proposed ?? []).map((rule) => ruleAt(rule, scope, workspace)).filter(appliesHere).map((rule) => drawn(rule, true))],
+    lanes: [
+      flow,
+      ...lanes,
+    ],
+    rules: [
+      ...rulesFor(workspace, workflow, input.steps, scope)
+        .filter(appliesHere)
+        .map((rule) => drawn(rule, false)),
+      ...(input.proposed ?? [])
+        .map((rule) => ruleAt(rule, scope, workspace))
+        .filter(appliesHere)
+        .map((rule) => drawn(rule, true)),
+    ],
   };
 }
 
 // ---- A Job ---------------------------------------------------------------------------------------------------------------
 
 /** Where a Job stands in its workflow, as the story reads it. `working` is the agent being on that step now: only then is the step lit. */
-export type JobStanding = { workflow: string; at: number; skipped?: readonly number[]; working?: boolean };
+export type JobStanding = {
+  workflow: string;
+  at: number;
+  skipped?: readonly number[];
+  working?: boolean;
+};
 
 /** What a Job's Lanes view draws: where the workflow stands (`at` is -1 before a step starts, the step count once all ended) and what the Job holds. */
-export type SessionLanes = JobStanding & { job: JobLanes };
+export type SessionLanes = JobStanding & {
+  job: JobLanes;
+};
 
-const instancesOf = (job: JobLanes, lane: string): readonly Instance[] => job.instances.filter((one) => one.lifecycle === lane);
+const instancesOf = (job: JobLanes, lane: string): readonly Instance[] =>
+  job.instances.filter((one) => one.lifecycle === lane);
 
 /**
  * A Job's lanes: its workflow on top with the step it is at (lit while the agent works on it), then a lane for each instance it holds, the state it
  * stands in marked as where it is, and the ones it went through marked. A rule that fired is an edge with its outcome and when; a rule still waiting is a dashed edge naming what it
  * waits for. A rule turned off is not drawn.
  */
-export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneView[]; rules: RuleView[] } {
+export function jobLanes(
+  job: JobLanes,
+  standing: JobStanding,
+): {
+  lanes: LaneView[];
+  rules: RuleView[];
+} {
   const { copy } = job;
-  const label = (lane: string, item: string): string => copy.lifecycles.find((one) => one.id === lane)?.states.find((one) => one.id === item)?.label ?? item;
+  const label = (lane: string, item: string): string =>
+    copy.lifecycles.find((one) => one.id === lane)?.states.find((one) => one.id === item)?.label ??
+    item;
   const drawnSteps = withEnds(
     copy.steps.map((step, at): LaneNodeView => {
       const sub = endsOnSaid(step, copy.lifecycles);
       // What the Job's step waits on is the step it is at.
       const waiting = at === standing.at ? job.waiting : undefined;
-      const changed = job.changes.find((one) => one.lane === "workflow" && one.item === step.id)?.text;
+      const changed = job.changes.find(
+        (one) => one.lane === "workflow" && one.item === step.id,
+      )?.text;
       return {
         id: nodeId("workflow", step.id),
         label: step.label,
-        ...(sub === undefined ? {} : { sub }),
+        ...(sub === undefined
+          ? {}
+          : {
+              sub,
+            }),
         col: step.col,
         role: "step",
         kind: kindOfStep(step),
-        ...(at === standing.at ? (standing.working === true ? { lit: true as const } : { here: true as const }) : {}),
-        ...(at < standing.at ? { passed: true as const } : {}),
-        ...(waiting === undefined ? {} : { waiting }),
-        ...(standing.skipped?.includes(at) === true ? { skipped: true as const } : {}),
-        ...(changed === undefined ? {} : { changed }),
+        ...(at === standing.at
+          ? standing.working === true
+            ? {
+                lit: true as const,
+              }
+            : {
+                here: true as const,
+              }
+          : {}),
+        ...(at < standing.at
+          ? {
+              passed: true as const,
+            }
+          : {}),
+        ...(waiting === undefined
+          ? {}
+          : {
+              waiting,
+            }),
+        ...(standing.skipped?.includes(at) === true
+          ? {
+              skipped: true as const,
+            }
+          : {}),
+        ...(changed === undefined
+          ? {}
+          : {
+              changed,
+            }),
       };
     }),
-    copy.steps.slice(1).map((step, at) => [nodeId("workflow", copy.steps[at]!.id), nodeId("workflow", step.id)] as const),
-    { began: standing.at >= 0, ended: standing.at >= copy.steps.length },
+    copy.steps.slice(1).map(
+      (step, at) =>
+        [
+          nodeId("workflow", copy.steps[at]!.id),
+          nodeId("workflow", step.id),
+        ] as const,
+    ),
+    {
+      began: standing.at >= 0,
+      ended: standing.at >= copy.steps.length,
+    },
   );
-  const flow: LaneView = { id: "workflow", kind: "workflow", title: standing.workflow, source: "Workflow", nodes: drawnSteps.nodes, moves: drawnSteps.moves };
+  const flow: LaneView = {
+    id: "workflow",
+    kind: "workflow",
+    title: standing.workflow,
+    source: "Workflow",
+    nodes: drawnSteps.nodes,
+    moves: drawnSteps.moves,
+  };
   const lanes: LaneView[] = [
     // A Job with no workflow has no top lane.
-    ...(copy.steps.length === 0 ? [] : [flow]),
+    ...(copy.steps.length === 0
+      ? []
+      : [
+          flow,
+        ]),
     ...job.instances.flatMap((instance): LaneView[] => {
       const lifecycle = copy.lifecycles.find((one) => one.id === instance.lifecycle);
       if (lifecycle === undefined) return [];
@@ -216,25 +562,78 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
         instance.title,
         lifecycle.states.map((state) => {
           const says = instance.says?.[state.id];
-          const changed = job.changes.find((one) => one.lane === instance.id && one.item === state.id)?.text;
+          const changed = job.changes.find(
+            (one) => one.lane === instance.id && one.item === state.id,
+          )?.text;
           return {
             id: nodeId(instance.id, state.id),
             label: state.label,
             col: state.col,
             role: "state" as const,
             kind: kindOfState(lifecycle),
-            ...(state.id === instance.state ? (instance.ended === true ? { ended: true as const } : { here: true as const }) : {}),
-            ...(state.id !== instance.state && instance.visited.includes(state.id) ? { passed: true as const } : {}),
-            ...(state.end === true ? { end: true as const } : {}),
-            ...(state.id === instance.state && instance.assignee !== undefined ? { who: instance.assignee } : {}),
-            ...(state.id === instance.state && instance.ticket !== undefined ? { ticket: instance.ticket } : {}),
-            ...(says === undefined ? {} : { facts: [says] }),
-            ...(changed === undefined ? {} : { changed }),
+            ...(state.id === instance.state
+              ? instance.ended === true
+                ? {
+                    ended: true as const,
+                  }
+                : {
+                    here: true as const,
+                  }
+              : {}),
+            ...(state.id !== instance.state && instance.visited.includes(state.id)
+              ? {
+                  passed: true as const,
+                }
+              : {}),
+            ...(state.end === true
+              ? {
+                  end: true as const,
+                }
+              : {}),
+            ...(state.id === instance.state && instance.assignee !== undefined
+              ? {
+                  who: instance.assignee,
+                }
+              : {}),
+            ...(state.id === instance.state && instance.ticket !== undefined
+              ? {
+                  ticket: instance.ticket,
+                }
+              : {}),
+            ...(says === undefined
+              ? {}
+              : {
+                  facts: [
+                    says,
+                  ],
+                }),
+            ...(changed === undefined
+              ? {}
+              : {
+                  changed,
+                }),
           };
         }),
       );
-      const changed = job.changes.find((one) => one.lane === instance.lifecycle && one.item === "")?.text;
-      return [{ ...lane, what: lifecycle.label, ...(instance.ended === true ? { ended: true as const } : {}), ...(changed === undefined ? {} : { changed }) }];
+      const changed = job.changes.find(
+        (one) => one.lane === instance.lifecycle && one.item === "",
+      )?.text;
+      return [
+        {
+          ...lane,
+          what: lifecycle.label,
+          ...(instance.ended === true
+            ? {
+                ended: true as const,
+              }
+            : {}),
+          ...(changed === undefined
+            ? {}
+            : {
+                changed,
+              }),
+        },
+      ];
     }),
   ];
   const stepAt = (id: string) => copy.steps.findIndex((one) => one.id === id);
@@ -243,28 +642,52 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
   const rules: RuleView[] = [];
   for (const rule of copy.rules) {
     if (rule.autonomy === "off") continue;
-    const sources = rule.from.lane === "workflow" ? [undefined] : instancesOf(job, rule.from.lane);
-    const targets = rule.to.lane === "workflow" ? [undefined] : instancesOf(job, rule.to.lane);
+    const sources =
+      rule.from.lane === "workflow"
+        ? [
+            undefined,
+          ]
+        : instancesOf(job, rule.from.lane);
+    const targets =
+      rule.to.lane === "workflow"
+        ? [
+            undefined,
+          ]
+        : instancesOf(job, rule.to.lane);
     const changed = job.changes.find((one) => one.lane === "rule" && one.item === rule.id)?.text;
     let first = true;
     for (const source of sources) {
       for (const target of targets) {
-        const fired = job.fired.find((one) => one.rule === rule.id && one.instance === ((target ?? source)?.id ?? ""));
+        const fired = job.fired.find(
+          (one) => one.rule === rule.id && one.instance === ((target ?? source)?.id ?? ""),
+        );
         const reached =
           source === undefined
-            ? stepAt(rule.from.item) < standing.at || (rule.at !== "ends" && stepAt(rule.from.item) === standing.at)
+            ? stepAt(rule.from.item) < standing.at ||
+              (rule.at !== "ends" && stepAt(rule.from.item) === standing.at)
             : source.visited.includes(rule.from.item);
         // A rule waits for its source only while it has not been reached: one reached and unfired has nothing left to show.
         if (fired === undefined && reached) continue;
         const status = fired === undefined ? ("waiting" as const) : fired.outcome;
         // A rule that hands to the step the Job is on lands on the one it was on when it fired, else the one it is on now.
-        const landing = rule.to.item === CURRENT_STEP ? (fired?.step ?? copy.steps[Math.min(Math.max(standing.at, 0), copy.steps.length - 1)]?.id ?? rule.to.item) : rule.to.item;
+        const landing =
+          rule.to.item === CURRENT_STEP
+            ? (fired?.step ??
+              copy.steps[Math.min(Math.max(standing.at, 0), copy.steps.length - 1)]?.id ??
+              rule.to.item)
+            : rule.to.item;
         const from = nodeId(source?.id ?? "workflow", rule.from.item);
         const to = nodeId(target?.id ?? "workflow", landing);
         // A rule that leaves a node and lands on the same one moves nothing on the lanes.
         if (from === to || !drawn.has(from) || !drawn.has(to)) continue;
-        const name = source === undefined ? copy.steps.find((one) => one.id === rule.from.item)?.label ?? rule.from.item : label(rule.from.lane, rule.from.item);
-        const waits = source === undefined ? `${name} ${rule.at === "ends" ? "ends" : "starts"}` : `${source.label}: ${name}`;
+        const name =
+          source === undefined
+            ? (copy.steps.find((one) => one.id === rule.from.item)?.label ?? rule.from.item)
+            : label(rule.from.lane, rule.from.item);
+        const waits =
+          source === undefined
+            ? `${name} ${rule.at === "ends" ? "ends" : "starts"}`
+            : `${source.label}: ${name}`;
         rules.push({
           id: `${rule.id}:${(source ?? target)?.id ?? "workflow"}${source !== undefined && target !== undefined ? `>${target.id}` : ""}`,
           rule: rule.id,
@@ -274,27 +697,60 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
           meta: fired === undefined ? waits : fired.at,
           autonomy: rule.autonomy,
           status,
-          ...(fired?.did === undefined ? {} : { did: fired.did }),
-          ...(fired?.needs === undefined ? {} : { needs: fired.needs }),
-          ...(changed === undefined ? {} : { changed }),
-          ...(first ? {} : { quiet: true as const }),
+          ...(fired?.did === undefined
+            ? {}
+            : {
+                did: fired.did,
+              }),
+          ...(fired?.needs === undefined
+            ? {}
+            : {
+                needs: fired.needs,
+              }),
+          ...(changed === undefined
+            ? {}
+            : {
+                changed,
+              }),
+          ...(first
+            ? {}
+            : {
+                quiet: true as const,
+              }),
         });
         first = false;
       }
     }
   }
-  return { lanes, rules };
+  return {
+    lanes,
+    rules,
+  };
 }
 
 /**
  * What is still in flight on a Job: each instance not in an end state, as `Deploy: Rolling out`. **One that stands in no state is in flight too**: a status its lifecycle lists
  * none for says the word its source used, and one not read yet says nothing, because an instance nobody can place must not be let go. One that ending the Job ended is not.
  */
-export function inFlight(job: JobLanes): { id: string; label: string; state: string; lifecycle: Instance["lifecycle"] }[] {
+export function inFlight(job: JobLanes): {
+  id: string;
+  label: string;
+  state: string;
+  lifecycle: Instance["lifecycle"];
+}[] {
   return job.instances.flatMap((instance) => {
     if (instance.ended === true) return [];
-    const state = job.copy.lifecycles.find((one) => one.id === instance.lifecycle)?.states.find((one) => one.id === instance.state);
+    const state = job.copy.lifecycles
+      .find((one) => one.id === instance.lifecycle)
+      ?.states.find((one) => one.id === instance.state);
     if (state?.end === true) return [];
-    return [{ id: instance.id, label: instance.label, state: state?.label ?? instance.unmapped ?? "", lifecycle: instance.lifecycle }];
+    return [
+      {
+        id: instance.id,
+        label: instance.label,
+        state: state?.label ?? instance.unmapped ?? "",
+        lifecycle: instance.lifecycle,
+      },
+    ];
   });
 }

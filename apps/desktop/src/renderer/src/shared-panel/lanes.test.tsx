@@ -16,9 +16,16 @@ import { SessionsFrom } from "../sessions-draft";
 import { WiredStore } from "../sessions-wired";
 import { LanesBody } from "./lanes";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 afterEach(() => {
   for (const { root, host } of roots.splice(0)) {
     act(() => root.unmount());
@@ -40,38 +47,145 @@ const record = (id: string, title: string): SessionRecord => ({
   last_seen_at: AT,
   usage: {},
   attachments: [],
-  hosted: { turn: { state: "idle" }, mode: "auto", running: false },
+  hosted: {
+    turn: {
+      state: "idle",
+    },
+    mode: "auto",
+    running: false,
+  },
 });
 
 const TICKET: JobLifecycles["lifecycles"][number] = {
   id: "ticket",
   name: "Ticket",
-  scope: { kind: "everywhere" },
+  scope: {
+    kind: "everywhere",
+  },
   states: [
-    { id: "todo", label: "To do", read: { source: "tracker", words: ["To Do"] } },
-    { id: "in_review", label: "In review", read: { source: "tracker", words: ["In Review"] } },
+    {
+      id: "todo",
+      label: "To do",
+      read: {
+        source: "tracker",
+        words: [
+          "To Do",
+        ],
+      },
+    },
+    {
+      id: "in_review",
+      label: "In review",
+      read: {
+        source: "tracker",
+        words: [
+          "In Review",
+        ],
+      },
+    },
   ],
-  transitions: [{ from: "todo", to: "in_review" }],
+  transitions: [
+    {
+      from: "todo",
+      to: "in_review",
+    },
+  ],
   ends: [],
 };
-const JOB: JobLifecycles["lifecycles"][number] = { id: "job", name: "Job", scope: { kind: "everywhere" }, states: [{ id: "started", label: "Started", read: { source: "fleet", fact: "started" } }], transitions: [], ends: [] };
+const JOB: JobLifecycles["lifecycles"][number] = {
+  id: "job",
+  name: "Job",
+  scope: {
+    kind: "everywhere",
+  },
+  states: [
+    {
+      id: "started",
+      label: "Started",
+      read: {
+        source: "fleet",
+        fact: "started",
+      },
+    },
+  ],
+  transitions: [],
+  ends: [],
+};
 
 /** `parent` started three Jobs: `child` for a ticket, `quiet` whose lifecycles Fleet does not serve, and `gone`, which is no Job the window holds. */
 const parent: JobLifecycles = {
   session_id: "parent",
-  lifecycles: [JOB, TICKET],
+  lifecycles: [
+    JOB,
+    TICKET,
+  ],
   instances: [
-    { lifecycle: "job", key: "child", label: "Fix cart rounding", standing: { kind: "in", state: "started" }, links: [{ lifecycle: "ticket", key: "ARM-52" }] },
-    { lifecycle: "job", key: "quiet", label: "Tidy the panel", standing: { kind: "in", state: "started" }, links: [] },
-    { lifecycle: "job", key: "gone", label: "Old attempt", standing: { kind: "in", state: "started" }, links: [] },
-    { lifecycle: "ticket", key: "ARM-52", label: "ARM-52", standing: { kind: "in", state: "todo" }, links: [], ended_at: AT },
+    {
+      lifecycle: "job",
+      key: "child",
+      label: "Fix cart rounding",
+      standing: {
+        kind: "in",
+        state: "started",
+      },
+      links: [
+        {
+          lifecycle: "ticket",
+          key: "ARM-52",
+        },
+      ],
+    },
+    {
+      lifecycle: "job",
+      key: "quiet",
+      label: "Tidy the panel",
+      standing: {
+        kind: "in",
+        state: "started",
+      },
+      links: [],
+    },
+    {
+      lifecycle: "job",
+      key: "gone",
+      label: "Old attempt",
+      standing: {
+        kind: "in",
+        state: "started",
+      },
+      links: [],
+    },
+    {
+      lifecycle: "ticket",
+      key: "ARM-52",
+      label: "ARM-52",
+      standing: {
+        kind: "in",
+        state: "todo",
+      },
+      links: [],
+      ended_at: AT,
+    },
   ],
   moves: [],
 };
 const child = (state: string): JobLifecycles => ({
   session_id: "child",
-  lifecycles: [TICKET],
-  instances: [{ lifecycle: "ticket", key: "ARM-52", label: "ARM-52", standing: { kind: "in", state }, links: [] }],
+  lifecycles: [
+    TICKET,
+  ],
+  instances: [
+    {
+      lifecycle: "ticket",
+      key: "ARM-52",
+      label: "ARM-52",
+      standing: {
+        kind: "in",
+        state,
+      },
+      links: [],
+    },
+  ],
   moves: [],
 });
 
@@ -80,16 +194,60 @@ async function mounted() {
   let send: (change: StateChange<BridgeState>) => void = () => undefined;
   let changed: (held: JobLifecycles) => void = () => undefined;
   const api = {
-    syncState: () => Promise.resolve({ full: NOTHING_YET, seq: 0 }),
+    syncState: () =>
+      Promise.resolve({
+        full: NOTHING_YET,
+        seq: 0,
+      }),
     subscribeChanges: (on: typeof send) => ((send = on), () => undefined),
-    getJobLifecycles: vi.fn(async (id: string) => (id === "parent" ? { ok: true as const, value: parent } : id === "child" ? { ok: true as const, value: child("in_review") } : { ok: false as const, outcome: { ok: false as const, why: "not_connected" as const } })),
-    listLifecycleRules: async () => ({ ok: true as const, value: { manifest_id: "armada", rules: [], left_out: [] } }),
+    getJobLifecycles: vi.fn(async (id: string) =>
+      id === "parent"
+        ? {
+            ok: true as const,
+            value: parent,
+          }
+        : id === "child"
+          ? {
+              ok: true as const,
+              value: child("in_review"),
+            }
+          : {
+              ok: false as const,
+              outcome: {
+                ok: false as const,
+                why: "not_connected" as const,
+              },
+            },
+    ),
+    listLifecycleRules: async () => ({
+      ok: true as const,
+      value: {
+        manifest_id: "armada",
+        rules: [],
+        left_out: [],
+      },
+    }),
     onJobLifecyclesChanged: (on: typeof changed) => ((changed = on), () => undefined),
   } as unknown as BridgeApi;
   const store = new WiredStore(api);
   store.attach();
-  send({ full: structuredClone({ ...NOTHING_YET, sessions: { state: "read", sessions: [record("parent", "Go through app feedback"), record("child", "Fix cart rounding"), record("quiet", "Tidy the panel")] } }), seq: 0 });
-  await vi.waitFor(() => expect(store.draft.get().find((one) => one.id === "child")?.lanes).toBeDefined());
+  send({
+    full: structuredClone({
+      ...NOTHING_YET,
+      sessions: {
+        state: "read",
+        sessions: [
+          record("parent", "Go through app feedback"),
+          record("child", "Fix cart rounding"),
+          record("quiet", "Tidy the panel"),
+        ],
+      },
+    }),
+    seq: 0,
+  });
+  await vi.waitFor(() =>
+    expect(store.draft.get().find((one) => one.id === "child")?.lanes).toBeDefined(),
+  );
   const host = document.createElement("div");
   host.style.cssText = "width:900px;height:600px";
   document.body.append(host);
@@ -101,11 +259,20 @@ async function mounted() {
       </SessionsFrom>,
     ),
   );
-  roots.push({ root, host });
-  return { changed: (held: JobLifecycles) => act(() => changed(held)) };
+  roots.push({
+    root,
+    host,
+  });
+  return {
+    changed: (held: JobLifecycles) => act(() => changed(held)),
+  };
 }
 
-const opening = (title: string) => page.getByRole("button", { name: `Open Workflow: ${title}`, exact: true });
+const opening = (title: string) =>
+  page.getByRole("button", {
+    name: `Open Workflow: ${title}`,
+    exact: true,
+  });
 
 test("the head of a lane for a Job whose lifecycles Fleet serves opens that Job's Workflow", async () => {
   await mounted();
@@ -114,18 +281,56 @@ test("the head of a lane for a Job whose lifecycles Fleet serves opens that Job'
 
 test("the head of a lane for a Job whose lifecycles Fleet does not serve has no button, nor one for a Job the window does not hold", async () => {
   await mounted();
-  await expect.element(page.getByText("Tidy the panel", { exact: true })).toBeVisible();
-  await expect.element(page.getByText("Old attempt", { exact: true })).toBeVisible();
+  await expect
+    .element(
+      page.getByText("Tidy the panel", {
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByText("Old attempt", {
+        exact: true,
+      }),
+    )
+    .toBeVisible();
   await expect.element(opening("Tidy the panel")).not.toBeInTheDocument();
   await expect.element(opening("Old attempt")).not.toBeInTheDocument();
 });
 
 test("a handed ticket has no lane of its own, and its glyph follows what the started Job's Fleet says", async () => {
   const { changed } = await mounted();
-  await expect.element(page.getByRole("button", { name: "Fix cart rounding: Started, ticket ARM-52, In review", exact: true })).toBeVisible();
-  await expect.element(page.getByText("ARM-52", { exact: true })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Fix cart rounding: Started, ticket ARM-52, In review",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByText("ARM-52", {
+        exact: true,
+      }),
+    )
+    .toBeVisible();
   changed(child("todo"));
-  await expect.element(page.getByRole("button", { name: "Fix cart rounding: Started, ticket ARM-52, To do", exact: true })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Fix cart rounding: Started, ticket ARM-52, To do",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
   // The ticket is on the card, and no lane is titled for it.
-  expect(Array.from(document.querySelectorAll(".armada-lane__title"), (one) => one.textContent)).toEqual(["Fix cart rounding", "Tidy the panel", "Old attempt"]);
+  expect(
+    Array.from(document.querySelectorAll(".armada-lane__title"), (one) => one.textContent),
+  ).toEqual([
+    "Fix cart rounding",
+    "Tidy the panel",
+    "Old attempt",
+  ]);
 });

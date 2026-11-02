@@ -9,7 +9,9 @@ import { StudioCapture, type CaptureBox, type StudioCaptureProps } from "./Studi
  * The layer over a window, so each story draws a box in the canvas the way the
  * app draws one over a control. The binding is the registry's own.
  */
-const BINDING = [...(ACTION.capture_note?.shortcut ?? "")];
+const BINDING = [
+  ...(ACTION.capture_note?.shortcut ?? ""),
+];
 
 const meta: Meta<typeof StudioCapture> = {
   title: "Compositions/Studio capture",
@@ -28,29 +30,48 @@ export default meta;
 
 type Story = StoryObj<typeof StudioCapture>;
 
-const CHIP = { x: 120, y: 120, width: 96, height: 28 };
+const CHIP = {
+  x: 120,
+  y: 120,
+  width: 96,
+  height: 28,
+};
 
 /** Pointing: the element under the pointer is outlined and named. */
 export const Pointing: Story = {
-  args: { hovered: { box: CHIP, named: "FilterChip" } },
+  args: {
+    hovered: {
+      box: CHIP,
+      named: "FilterChip",
+    },
+  },
 };
 
 /** Held: the card sits against the element, and the note is written in it. */
 export const Writing: Story = {
   args: {
-    held: { box: CHIP, chain: "FilterChip ← Board · button.armada-chip" },
+    held: {
+      box: CHIP,
+      chain: "FilterChip ← Board · button.armada-chip",
+    },
     note: "The chip keeps its count after the filter is cleared",
   },
 };
 
 /** Out to Fleet. The card waits rather than taking a second press. */
 export const Capturing: Story = {
-  args: { ...Writing.args, saving: true },
+  args: {
+    ...Writing.args,
+    saving: true,
+  },
 };
 
 /** Fleet did not take it, and the card says so without losing what was typed. */
 export const Refused: Story = {
-  args: { ...Writing.args, refused: "Fleet is not running, so nothing was captured." },
+  args: {
+    ...Writing.args,
+    refused: "Fleet is not running, so nothing was captured.",
+  },
 };
 
 /**
@@ -59,7 +80,10 @@ export const Refused: Story = {
  */
 export const NothingAimedAt: Story = {
   args: {
-    held: { box: CHIP, chain: "FilterChip ← Board · button.armada-chip" },
+    held: {
+      box: CHIP,
+      chain: "FilterChip ← Board · button.armada-chip",
+    },
     note: "The chip keeps its count",
     aim: "No Studio open — open one on Studios to capture onto it",
     aimed: false,
@@ -77,9 +101,16 @@ export const WhatTheCardRefuses: Story = {
     const [note, setNote] = useState("");
     return <StudioCapture {...args} note={note} onNote={setNote} />;
   },
-  args: { held: { box: CHIP, chain: "FilterChip ← Board · button.armada-chip" } },
+  args: {
+    held: {
+      box: CHIP,
+      chain: "FilterChip ← Board · button.armada-chip",
+    },
+  },
   play: async ({ args, canvas }) => {
-    const capture = canvas.getByRole("button", { name: "Capture" });
+    const capture = canvas.getByRole("button", {
+      name: "Capture",
+    });
     await expect(capture).toBeDisabled();
 
     await userEvent.type(canvas.getByLabelText("Note"), "   ");
@@ -104,7 +135,15 @@ export const HoldingFocusesTheNote: Story = {
     const [held, setHeld] = useState<StudioCaptureProps["held"]>(undefined);
     return (
       <>
-        <button type="button" onClick={() => setHeld({ box: CHIP, chain: "FilterChip ← Board · button.armada-chip" })}>
+        <button
+          type="button"
+          onClick={() =>
+            setHeld({
+              box: CHIP,
+              chain: "FilterChip ← Board · button.armada-chip",
+            })
+          }
+        >
           Hold the chip
         </button>
         <StudioCapture {...args} held={held} />
@@ -112,7 +151,11 @@ export const HoldingFocusesTheNote: Story = {
     );
   },
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Hold the chip" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Hold the chip",
+      }),
+    );
     await expect(canvas.getByLabelText("Note")).toHaveFocus();
   },
 };
@@ -142,15 +185,36 @@ function Box({ children }: { children: React.ReactNode }) {
   );
 }
 
-const ROOM = { width: 436, height: 288 };
+const ROOM = {
+  width: 436,
+  height: 288,
+};
 const AT_EDGE = (box: CaptureBox): Partial<StudioCaptureProps> => ({
-  held: { box, chain: "FilterChip ← Board · button.armada-chip" },
+  held: {
+    box,
+    chain: "FilterChip ← Board · button.armada-chip",
+  },
   note: "The chip keeps its count after the filter is cleared",
 });
 
-async function expectCardInside(canvas: { getByRole: (role: string, options?: { name: string }) => HTMLElement }) {
-  const page = canvas.getByRole("region", { name: "Page" }).getBoundingClientRect();
-  const card = canvas.getByRole("dialog", { name: "Capture a note" }).getBoundingClientRect();
+async function expectCardInside(canvas: {
+  getByRole: (
+    role: string,
+    options?: {
+      name: string;
+    },
+  ) => HTMLElement;
+}) {
+  const page = canvas
+    .getByRole("region", {
+      name: "Page",
+    })
+    .getBoundingClientRect();
+  const card = canvas
+    .getByRole("dialog", {
+      name: "Capture a note",
+    })
+    .getBoundingClientRect();
   await expect(card.top).toBeGreaterThanOrEqual(page.top);
   await expect(card.bottom).toBeLessThanOrEqual(page.bottom);
   await expect(card.left).toBeGreaterThanOrEqual(page.left);
@@ -159,21 +223,54 @@ async function expectCardInside(canvas: { getByRole: (role: string, options?: { 
 
 /** Against the top edge: below it, where there is room. */
 export const AtTheTopEdge: Story = {
-  decorators: [(Story) => <Box><Story /></Box>],
-  args: AT_EDGE({ x: 120, y: 0, width: 96, height: 28 }),
+  decorators: [
+    (Story) => (
+      <Box>
+        <Story />
+      </Box>
+    ),
+  ],
+  args: AT_EDGE({
+    x: 120,
+    y: 0,
+    width: 96,
+    height: 28,
+  }),
   play: ({ canvas }) => expectCardInside(canvas),
 };
 
 /** Against the bottom edge: above it, since nothing is left below. */
 export const AtTheBottomEdge: Story = {
-  decorators: [(Story) => <Box><Story /></Box>],
-  args: AT_EDGE({ x: 120, y: ROOM.height - 28, width: 96, height: 28 }),
+  decorators: [
+    (Story) => (
+      <Box>
+        <Story />
+      </Box>
+    ),
+  ],
+  args: AT_EDGE({
+    x: 120,
+    y: ROOM.height - 28,
+    width: 96,
+    height: 28,
+  }),
   play: ({ canvas }) => expectCardInside(canvas),
 };
 
 /** Against the right edge: pulled left, so the card is not cut at the side. */
 export const AtTheRightEdge: Story = {
-  decorators: [(Story) => <Box><Story /></Box>],
-  args: AT_EDGE({ x: ROOM.width - 96, y: 130, width: 96, height: 28 }),
+  decorators: [
+    (Story) => (
+      <Box>
+        <Story />
+      </Box>
+    ),
+  ],
+  args: AT_EDGE({
+    x: ROOM.width - 96,
+    y: 130,
+    width: 96,
+    height: 28,
+  }),
   play: ({ canvas }) => expectCardInside(canvas),
 };

@@ -109,12 +109,21 @@
   white-space: nowrap;
 }
 
-.armada-teach-panel__chip:hover:not(:disabled) { border-color: var(--border-strong); }
-.armada-teach-panel__chip:disabled { cursor: default; }
-.armada-teach-panel__chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-teach-panel__chip:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+.armada-teach-panel__chip:disabled {
+  cursor: default;
+}
+.armada-teach-panel__chip:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
 
 /* Every repository: lit at its edge, flat, as the dispatch row marks the repository the words name. */
-.armada-teach-panel__chip[aria-pressed="true"] { border-color: var(--accent); }
+.armada-teach-panel__chip[aria-pressed="true"] {
+  border-color: var(--accent);
+}
 
 .armada-teach-panel__acts {
   display: flex;
@@ -146,11 +155,15 @@
 }
 
 @keyframes armada-teach-panel-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .armada-teach-panel__reading > svg { animation: none; }
+  .armada-teach-panel__reading > svg {
+    animation: none;
+  }
 }
 
 /* A colour a tweak changes, with the square it is. */

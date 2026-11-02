@@ -13,18 +13,45 @@ test("the lines of a large diff are not styled while they are off screen, and ty
   await page.viewport(1440, 900);
   mount("shared-side-panel");
   await onScreen();
-  await page.getByRole("region", { name: "Merge queue" }).getByRole("button", { name: /^#1890/ }).click();
-  const pull = page.getByRole("dialog", { name: "Pull request #1890" });
-  await pull.getByRole("tab", { name: "Files" }).click();
-  await expect.element(pull.getByRole("button", { name: /^Note for the job on \+\s+marker: Option<String>,/ })).toBeInTheDocument();
+  await page
+    .getByRole("region", {
+      name: "Merge queue",
+    })
+    .getByRole("button", {
+      name: /^#1890/,
+    })
+    .click();
+  const pull = page.getByRole("dialog", {
+    name: "Pull request #1890",
+  });
+  await pull
+    .getByRole("tab", {
+      name: "Files",
+    })
+    .click();
+  await expect
+    .element(
+      pull.getByRole("button", {
+        name: /^Note for the job on \+\s+marker: Option<String>,/,
+      }),
+    )
+    .toBeInTheDocument();
 
-  const lines = [...document.querySelectorAll<HTMLElement>(".armada-diff__line")];
+  const lines = [
+    ...document.querySelectorAll<HTMLElement>(".armada-diff__line"),
+  ];
   // The panel cuts a diff at about two thousand lines, which is still more than a restyle of all of them can be quick over.
   expect(lines.length).toBeGreaterThan(2000);
   expect(getComputedStyle(lines[lines.length - 1]!).contentVisibility).toBe("auto");
 
-  await pull.getByRole("button", { name: /^Note for the job on \+\s+marker: Option<String>,/ }).click();
-  const note = pull.getByRole("textbox", { name: "Note for the job" });
+  await pull
+    .getByRole("button", {
+      name: /^Note for the job on \+\s+marker: Option<String>,/,
+    })
+    .click();
+  const note = pull.getByRole("textbox", {
+    name: "Note for the job",
+  });
   await note.click();
   const words = "Why an Option here, when every pause has a marker?";
   const from = performance.now();

@@ -5,7 +5,12 @@ import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { SessionThreadRow } from "./SessionThread";
 
-export type RequestedThreadRow = Extract<SessionThreadRow, { kind: "requested" }>;
+export type RequestedThreadRow = Extract<
+  SessionThreadRow,
+  {
+    kind: "requested";
+  }
+>;
 
 /**
  * Opens a request the thread holds in Requests, to edit and send again. **A context and not a prop of the thread**, so the
@@ -14,15 +19,23 @@ export type RequestedThreadRow = Extract<SessionThreadRow, { kind: "requested" }
 export const RequestOpen = createContext<((row: RequestedThreadRow) => void) | null>(null);
 
 /** A request's time as it is read: milliseconds under a second, seconds to one place past it. */
-export const requestTimeOf = (ms: number): string => (ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`);
+export const requestTimeOf = (ms: number): string =>
+  ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
 
 /**
  * How a request was answered: a check for a 2xx or 3xx, a cross for a 4xx or 5xx, and the unplugged mark where nothing
  * answered. The tooltip is the status, or Fleet's words for why nothing did.
  */
-export function RequestMark({ status, error }: { status: number | null; error?: string | undefined }) {
+export function RequestMark({
+  status,
+  error,
+}: {
+  status: number | null;
+  error?: string | undefined;
+}) {
   const outcome = status === null ? "none" : status < 400 ? "answered" : "failed";
-  const said = status === null ? (error === undefined ? "No answer" : `No answer: ${error}`) : String(status);
+  const said =
+    status === null ? (error === undefined ? "No answer" : `No answer: ${error}`) : String(status);
   const Glyph = outcome === "none" ? Unplug : outcome === "answered" ? Check : X;
   return (
     <Tooltip label={said}>
@@ -45,8 +58,16 @@ export function RequestedRow({ row, agentName }: { row: RequestedThreadRow; agen
   return (
     <li className="armada-session-fold armada-session-fold--requested">
       <details>
-        <summary className="armada-session-fold__head" aria-label={`${by}: ${answered} ${row.method} ${row.url}`}>
-          <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-session-fold__chevron" />
+        <summary
+          className="armada-session-fold__head"
+          aria-label={`${by}: ${answered} ${row.method} ${row.url}`}
+        >
+          <ChevronRight
+            size={12}
+            strokeWidth={2}
+            aria-hidden
+            className="armada-session-fold__chevron"
+          />
           <RequestMark status={row.status} error={row.error} />
           <span className="armada-requested__by">{by}</span>
           <code className="armada-requested__method">{row.method}</code>

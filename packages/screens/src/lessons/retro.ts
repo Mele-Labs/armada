@@ -27,7 +27,13 @@ import type {
   RetroRecord,
   RetroSubject,
 } from "@armada/protocol";
-import type { LessonAnswers, LessonRow, LessonSettled, RetroCite, RetroSheetItem } from "@armada/components";
+import type {
+  LessonAnswers,
+  LessonRow,
+  LessonSettled,
+  RetroCite,
+  RetroSheetItem,
+} from "@armada/components";
 
 import { refusalWords } from "../refusal-words";
 import { addressOf } from "../sessions-wire";
@@ -48,9 +54,22 @@ export function retroNumberOf(lessonId: string): number | undefined {
 }
 
 /** The retro a listed item belongs to: its Session's numbered one. */
-export function retroSubjectOf(lesson: { id: string; session: { id: string } }): RetroSubject {
+export function retroSubjectOf(lesson: {
+  id: string;
+  session: {
+    id: string;
+  };
+}): RetroSubject {
   const n = retroNumberOf(lesson.id);
-  return { kind: "session", id: lesson.session.id, ...(n === undefined ? {} : { n }) };
+  return {
+    kind: "session",
+    id: lesson.session.id,
+    ...(n === undefined
+      ? {}
+      : {
+          n,
+        }),
+  };
 }
 
 /** What a read of one retro is held under, so a Session's two retros are two reads. */
@@ -77,13 +96,25 @@ export type SessionStarts = {
 };
 
 /** A record row as one line: what it is about, what it came to, and when. */
-function when(at: string | undefined): { at?: string } {
-  return at === undefined ? {} : { at };
+function when(at: string | undefined): {
+  at?: string;
+} {
+  return at === undefined
+    ? {}
+    : {
+        at,
+      };
 }
 
-function detail(...parts: (string | undefined)[]): { detail?: string } {
+function detail(...parts: (string | undefined)[]): {
+  detail?: string;
+} {
   const said = parts.filter((one): one is string => one !== undefined && one !== "").join(" · ");
-  return said === "" ? {} : { detail: said };
+  return said === ""
+    ? {}
+    : {
+        detail: said,
+      };
 }
 
 const refusal = (row: RecordRefusal): RetroCite => ({
@@ -95,7 +126,11 @@ const refusal = (row: RecordRefusal): RetroCite => ({
 });
 
 /** Something an agent or a person said. */
-const said = (row: RecordSaid): RetroCite => ({ id: row.cite, name: row.said, ...when(row.at) });
+const said = (row: RecordSaid): RetroCite => ({
+  id: row.cite,
+  name: row.said,
+  ...when(row.at),
+});
 
 /** A move, and who made it through which door — `via` is what tells a press from an agent's `curl`. */
 const act = (row: RecordAct): RetroCite => ({
@@ -124,7 +159,12 @@ function rowsOf(record: RetroRecord): Map<string, RetroCite> {
     ...(record.failed_tools ?? []).map(refusal),
     ...(record.subagents ?? []).map(said),
   ];
-  return new Map(rows.map((row) => [row.id, row]));
+  return new Map(
+    rows.map((row) => [
+      row.id,
+      row,
+    ]),
+  );
 }
 
 /** The record rows these cites name, in the order cited. One the record does not hold is left out. */
@@ -132,7 +172,11 @@ export function citesOf(retro: Retro, cites: readonly string[]): RetroCite[] {
   const rows = rowsOf(retro.record);
   return cites.flatMap((cite) => {
     const row = rows.get(cite);
-    return row === undefined ? [] : [row];
+    return row === undefined
+      ? []
+      : [
+          row,
+        ];
   });
 }
 
@@ -165,18 +209,46 @@ export function itemsOf(retro: Retro): SheetItem[] {
   const rows = rowsOf(retro.record);
   return (retro.items ?? []).map((item) => ({
     id: item.id,
-    ...(item.state === undefined ? {} : { state: item.state }),
-    ...(sessionProposedOf(item) === undefined ? {} : { sessionProposed: sessionProposedOf(item)! }),
+    ...(item.state === undefined
+      ? {}
+      : {
+          state: item.state,
+        }),
+    ...(sessionProposedOf(item) === undefined
+      ? {}
+      : {
+          sessionProposed: sessionProposedOf(item)!,
+        }),
     ...changed(item),
     who: item.who,
-    ...(item.lands_in === undefined ? {} : { landsIn: item.lands_in }),
+    ...(item.lands_in === undefined
+      ? {}
+      : {
+          landsIn: item.lands_in,
+        }),
     statement: item.statement,
-    ...(item.title === undefined ? {} : { title: item.title }),
-    ...(item.what === undefined ? {} : { what: item.what }),
-    ...(item.fix === undefined ? {} : { fix: item.fix }),
+    ...(item.title === undefined
+      ? {}
+      : {
+          title: item.title,
+        }),
+    ...(item.what === undefined
+      ? {}
+      : {
+          what: item.what,
+        }),
+    ...(item.fix === undefined
+      ? {}
+      : {
+          fix: item.fix,
+        }),
     cites: item.evidence.flatMap((cite) => {
       const row = rows.get(cite);
-      return row === undefined ? [] : [row];
+      return row === undefined
+        ? []
+        : [
+            row,
+          ];
     }),
   }));
 }
@@ -197,13 +269,30 @@ export function statusOf(retro: Retro): string | undefined {
 }
 
 /** A row of the list, with what Update Kit would add and what it added: read here, not drawn by the list. */
-export type ListedRow = LessonRow & { change?: string; applied?: string };
+export type ListedRow = LessonRow & {
+  change?: string;
+  applied?: string;
+};
 
 /** The commands an item carries, where it carries any. */
-function changed(item: { change?: RetroChange; applied?: RetroChange }): { change?: string; applied?: string } {
+function changed(item: { change?: RetroChange; applied?: RetroChange }): {
+  change?: string;
+  applied?: string;
+} {
   const change = commandOf(item.change);
   const applied = commandOf(item.applied);
-  return { ...(change === undefined ? {} : { change }), ...(applied === undefined ? {} : { applied }) };
+  return {
+    ...(change === undefined
+      ? {}
+      : {
+          change,
+        }),
+    ...(applied === undefined
+      ? {}
+      : {
+          applied,
+        }),
+  };
 }
 
 /** A Session as a person reads it: its title and its address, `Fix the flaky test · s-01J8ZQ4M`. */
@@ -219,11 +308,27 @@ export function lessonRowsOf(lessons: readonly Lesson[]): ListedRow[] {
       id: lesson.id,
       sessionId: lesson.session.id,
       who: lesson.who,
-      ...(lesson.lands_in === undefined ? {} : { landsIn: lesson.lands_in }),
+      ...(lesson.lands_in === undefined
+        ? {}
+        : {
+            landsIn: lesson.lands_in,
+          }),
       statement: lesson.statement,
-      ...(lesson.title === undefined ? {} : { title: lesson.title }),
-      ...(lesson.what === undefined ? {} : { what: lesson.what }),
-      ...(lesson.fix === undefined ? {} : { fix: lesson.fix }),
+      ...(lesson.title === undefined
+        ? {}
+        : {
+            title: lesson.title,
+          }),
+      ...(lesson.what === undefined
+        ? {}
+        : {
+            what: lesson.what,
+          }),
+      ...(lesson.fix === undefined
+        ? {}
+        : {
+            fix: lesson.fix,
+          }),
       ...changed(lesson),
       session: sessionOf(lesson.session),
       sessionExact: lesson.session.id,
@@ -236,11 +341,26 @@ export function lessonRowsOf(lessons: readonly Lesson[]): ListedRow[] {
 export type LessonsTab = "all" | LandsIn;
 
 /** The tabs, in the order the owner named them (3 Oct 2026). No counts: hard rule 7. */
-export const LESSONS_TABS: readonly { id: LessonsTab; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "armada", label: "Armada" },
-  { id: "kit", label: "Kit" },
-  { id: "manifest", label: "Manifest" },
+export const LESSONS_TABS: readonly {
+  id: LessonsTab;
+  label: string;
+}[] = [
+  {
+    id: "all",
+    label: "All",
+  },
+  {
+    id: "armada",
+    label: "Armada",
+  },
+  {
+    id: "kit",
+    label: "Kit",
+  },
+  {
+    id: "manifest",
+    label: "Manifest",
+  },
 ];
 
 /** A remembered tab read back. Anything not a tab — nothing stored, an old value — is All. */
@@ -254,17 +374,30 @@ export function lessonsTabNamed(value: string | null): LessonsTab {
  * nothing. A row stored before `lands_in` was written is under All alone.
  */
 export function underTab(rows: readonly ListedRow[], tab: LessonsTab): ListedRow[] {
-  return tab === "all" ? [...rows] : rows.filter((row) => row.landsIn === tab);
+  return tab === "all"
+    ? [
+        ...rows,
+      ]
+    : rows.filter((row) => row.landsIn === tab);
 }
 
 /**
  * The button that agrees, for a Kit item alone: one that carries a change updates Kit, and one
  * without is saved. **Any other item is agreed by starting a Session**, which has its own button.
  */
-export function kitAgreeOf(changes = false): { label: string; tip: string } {
+export function kitAgreeOf(changes = false): {
+  label: string;
+  tip: string;
+} {
   return changes
-    ? { label: "Update Kit", tip: "Adds this command to your Kit's allowed commands. You can remove it from the Kit page." }
-    : { label: "Accept", tip: "Saves it under Accepted." };
+    ? {
+        label: "Update Kit",
+        tip: "Adds this command to your Kit's allowed commands. You can remove it from the Kit page.",
+      }
+    : {
+        label: "Accept",
+        tip: "Saves it under Accepted.",
+      };
 }
 
 /** What Start Session does: how an Armada or Manifest item is agreed with. */
@@ -282,10 +415,19 @@ const SESSION_STARTED = "Job started";
 const OPEN_SESSION = "Open Job";
 
 /** Where an item stands on the wire, where the surface knows it. Absent on an item kept before it was written. */
-export type Standing = { state?: LessonState; sessionProposed?: string; change?: string; applied?: string };
+export type Standing = {
+  state?: LessonState;
+  sessionProposed?: string;
+  change?: string;
+  applied?: string;
+};
 
 /** What an item shows of its own answer: the buttons, what it settled as, or that it has gone. */
-export type AnswerView = { answers?: LessonAnswers; settled?: LessonSettled; gone: boolean };
+export type AnswerView = {
+  answers?: LessonAnswers;
+  settled?: LessonSettled;
+  gone: boolean;
+};
 
 /**
  * What answering leaves on screen, for the list and the sheet alike.
@@ -315,20 +457,33 @@ export function useAnswers(
   const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
   const [updated, setUpdated] = useState<Record<string, string>>({});
 
-  async function press(lessonId: string, which: "agree" | "disagree", landsIn: LandsIn | undefined) {
+  async function press(
+    lessonId: string,
+    which: "agree" | "disagree",
+    landsIn: LandsIn | undefined,
+  ) {
     const send = which === "agree" ? agree : disagree;
     if (send === undefined) return;
-    setPressing((was) => ({ ...was, [lessonId]: which }));
+    setPressing((was) => ({
+      ...was,
+      [lessonId]: which,
+    }));
     setRefused(({ [lessonId]: _, ...rest }) => rest);
     const answer = await send(lessonId);
     setPressing(({ [lessonId]: _, ...rest }) => rest);
     if (!answer.ok) {
-      setRefused((was) => ({ ...was, [lessonId]: refusalWords(answer.outcome) }));
+      setRefused((was) => ({
+        ...was,
+        [lessonId]: refusalWords(answer.outcome),
+      }));
       return;
     }
     const applied = commandOf(answer.lesson.applied);
     if (which === "agree" && landsIn === "kit" && applied !== undefined) {
-      setUpdated((was) => ({ ...was, [lessonId]: applied }));
+      setUpdated((was) => ({
+        ...was,
+        [lessonId]: applied,
+      }));
     } else {
       setGone((was) => new Set(was).add(lessonId));
     }
@@ -337,18 +492,30 @@ export function useAnswers(
   async function startSession(lessonId: string) {
     const starts = latestSessions.current;
     if (starts === undefined) return;
-    setPressing((was) => ({ ...was, [lessonId]: "session" }));
+    setPressing((was) => ({
+      ...was,
+      [lessonId]: "session",
+    }));
     setRefused(({ [lessonId]: _, ...rest }) => rest);
     const answer = await starts.start(lessonId);
     setPressing(({ [lessonId]: _, ...rest }) => rest);
     if (!answer.ok) {
-      setRefused((was) => ({ ...was, [lessonId]: refusalWords(answer.outcome) }));
+      setRefused((was) => ({
+        ...was,
+        [lessonId]: refusalWords(answer.outcome),
+      }));
       return;
     }
-    setStarted((was) => ({ ...was, [lessonId]: answer.started.session_id }));
+    setStarted((was) => ({
+      ...was,
+      [lessonId]: answer.started.session_id,
+    }));
     if (answer.started.send_failed !== undefined) {
       const why = answer.started.send_failed;
-      setNotSent((was) => ({ ...was, [lessonId]: why }));
+      setNotSent((was) => ({
+        ...was,
+        [lessonId]: why,
+      }));
     }
     latestSessions.current?.open(answer.started.session_id);
   }
@@ -357,18 +524,35 @@ export function useAnswers(
     gone: false,
     settled: {
       said: SESSION_STARTED,
-      ...(note === undefined ? {} : { note }),
-      ...(sessions === undefined ? {} : { session: { label: OPEN_SESSION, onOpen: () => sessions.open(sessionId) } }),
+      ...(note === undefined
+        ? {}
+        : {
+            note,
+          }),
+      ...(sessions === undefined
+        ? {}
+        : {
+            session: {
+              label: OPEN_SESSION,
+              onOpen: () => sessions.open(sessionId),
+            },
+          }),
     },
   });
 
   const updatedAs = (command: string): AnswerView => ({
     gone: false,
-    settled: { said: UPDATED_KIT, command },
+    settled: {
+      said: UPDATED_KIT,
+      command,
+    },
   });
 
   return (lessonId, landsIn, standing) => {
-    if (gone.has(lessonId)) return { gone: true };
+    if (gone.has(lessonId))
+      return {
+        gone: true,
+      };
     const startedId = started[lessonId];
     if (startedId !== undefined) return startedAs(startedId, notSent[lessonId]);
     const was = updated[lessonId];
@@ -376,15 +560,38 @@ export function useAnswers(
     // **An item answered before this read stands as Fleet says**: its state, and no buttons.
     // Discarded draws nothing. One with no state is read and left alone.
     if (standing.state === "agreed") {
-      return standing.sessionProposed === undefined ? { gone: false, settled: { said: AGREED } } : startedAs(standing.sessionProposed);
+      return standing.sessionProposed === undefined
+        ? {
+            gone: false,
+            settled: {
+              said: AGREED,
+            },
+          }
+        : startedAs(standing.sessionProposed);
     }
     if (standing.state === "accepted") {
-      return standing.applied === undefined ? { gone: false, settled: { said: ACCEPTED } } : updatedAs(standing.applied);
+      return standing.applied === undefined
+        ? {
+            gone: false,
+            settled: {
+              said: ACCEPTED,
+            },
+          }
+        : updatedAs(standing.applied);
     }
-    if (standing.state === "discarded") return { gone: true };
-    if (standing.state === undefined) return { gone: false };
+    if (standing.state === "discarded")
+      return {
+        gone: true,
+      };
+    if (standing.state === undefined)
+      return {
+        gone: false,
+      };
     // An item kept before a place was named is refused both answers by Fleet, so it has none.
-    if (disagree === undefined || landsIn === undefined) return { gone: false };
+    if (disagree === undefined || landsIn === undefined)
+      return {
+        gone: false,
+      };
     const held = pressing[lessonId];
     const why = refused[lessonId];
     return {
@@ -393,22 +600,51 @@ export function useAnswers(
         // Only a Kit item has an agree of its own; the rest are agreed by a Session.
         ...(landsIn !== "kit" || agree === undefined
           ? {}
-          : { agree: { ...kitAgreeOf(standing.change !== undefined), onAgree: () => void press(lessonId, "agree", landsIn) } }),
+          : {
+              agree: {
+                ...kitAgreeOf(standing.change !== undefined),
+                onAgree: () => void press(lessonId, "agree", landsIn),
+              },
+            }),
         disagreeTip: DISAGREE_TIP,
         onDisagree: () => void press(lessonId, "disagree", landsIn),
         // Kit is no repository, so a Kit item has no Session to start.
         ...(sessions === undefined || landsIn === "kit"
           ? {}
-          : { startSession: { tip: START_SESSION_TIP, onStart: () => void startSession(lessonId) } }),
-        ...(held === undefined ? {} : { pressing: held }),
-        ...(why === undefined ? {} : { refusal: why }),
+          : {
+              startSession: {
+                tip: START_SESSION_TIP,
+                onStart: () => void startSession(lessonId),
+              },
+            }),
+        ...(held === undefined
+          ? {}
+          : {
+              pressing: held,
+            }),
+        ...(why === undefined
+          ? {}
+          : {
+              refusal: why,
+            }),
       },
     };
   };
 }
 
 /** Where one Session's retro stands on the Retros list: out, read, or failed. */
-export type HeldRetro = { state: "pending" } | { state: "read"; retro: Retro } | { state: "failed"; outcome: Outcome };
+export type HeldRetro =
+  | {
+      state: "pending";
+    }
+  | {
+      state: "read";
+      retro: Retro;
+    }
+  | {
+      state: "failed";
+      outcome: Outcome;
+    };
 
 /**
  * The retros the Retros list's Evidence controls read, **each at most once**
@@ -416,7 +652,10 @@ export type HeldRetro = { state: "pending" } | { state: "read"; retro: Retro } |
  * when the window comes back to the front, as the list's own read is asked
  * again then. A failed read is not kept: pressing again asks again.
  */
-export function useRetros(read: ReadRetro): { of: (subject: RetroSubject) => HeldRetro | undefined; ask: (subject: RetroSubject) => void } {
+export function useRetros(read: ReadRetro): {
+  of: (subject: RetroSubject) => HeldRetro | undefined;
+  ask: (subject: RetroSubject) => void;
+} {
   const [held, setHeld] = useState<Record<string, HeldRetro>>({});
   // What is out or answered, and which generation asked: a drop makes earlier answers stale.
   const asked = useRef(new Set<string>());
@@ -439,13 +678,26 @@ export function useRetros(read: ReadRetro): { of: (subject: RetroSubject) => Hel
       if (asked.current.has(key)) return;
       asked.current.add(key);
       const mine = generation.current;
-      setHeld((was) => ({ ...was, [key]: { state: "pending" } }));
+      setHeld((was) => ({
+        ...was,
+        [key]: {
+          state: "pending",
+        },
+      }));
       void latest.current(subject).then((answer) => {
         if (mine !== generation.current) return;
         if (!answer.ok) asked.current.delete(key);
         setHeld((was) => ({
           ...was,
-          [key]: answer.ok ? { state: "read", retro: answer.retro } : { state: "failed", outcome: answer.outcome },
+          [key]: answer.ok
+            ? {
+                state: "read",
+                retro: answer.retro,
+              }
+            : {
+                state: "failed",
+                outcome: answer.outcome,
+              },
         }));
       });
     },
@@ -459,7 +711,13 @@ export function useRetros(read: ReadRetro): { of: (subject: RetroSubject) => Hel
  * surface back to its skeleton.
  */
 export function useReadOnFocus<T>(read: () => Promise<T>, key: string): T | undefined {
-  const [held, setHeld] = useState<{ key: string; read: T } | undefined>(undefined);
+  const [held, setHeld] = useState<
+    | {
+        key: string;
+        read: T;
+      }
+    | undefined
+  >(undefined);
   // **Read through a ref**, so a caller's lambda rebuilt every render does not
   // re-run the effect — the answer sets state, and the loop would feed itself.
   const latest = useRef(read);
@@ -469,7 +727,11 @@ export function useReadOnFocus<T>(read: () => Promise<T>, key: string): T | unde
     const again = () =>
       void latest.current().then((answer) => {
         // An answer for a Session or a pick this surface has left is not this one's.
-        if (live) setHeld({ key, read: answer });
+        if (live)
+          setHeld({
+            key,
+            read: answer,
+          });
       });
     again();
     window.addEventListener("focus", again);
@@ -477,6 +739,8 @@ export function useReadOnFocus<T>(read: () => Promise<T>, key: string): T | unde
       live = false;
       window.removeEventListener("focus", again);
     };
-  }, [key]);
+  }, [
+    key,
+  ]);
   return held?.key === key ? held.read : undefined;
 }

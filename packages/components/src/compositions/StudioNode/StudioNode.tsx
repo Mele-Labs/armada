@@ -62,30 +62,58 @@ export type StudioNodeFrame = {
 /** Each kind, with the states `studio.md` gives it. A kind with none takes no `state`. */
 export type StudioNodeOf =
   /** `state` absent: the run has not been read, and nothing is said about it. */
-  | { kind: "run"; state?: StudioRunState }
-  | { kind: "note"; frame?: StudioNodeFrame }
+  | {
+      kind: "run";
+      state?: StudioRunState;
+    }
+  | {
+      kind: "note";
+      frame?: StudioNodeFrame;
+    }
   /** Drawn as a frame round its Notes on the whiteboard — `StudioFrame`. */
-  | { kind: "cluster" }
+  | {
+      kind: "cluster";
+    }
   /** Drawn as a frame round what it holds on the whiteboard — `StudioFrame`. #1620. */
-  | { kind: "zone" }
+  | {
+      kind: "zone";
+    }
   /** `state` absent: its scout ended, and how is one of its facts. Never `frozen` (1 Oct 2026). */
-  | { kind: "finding"; state?: StudioFindingState }
-  | { kind: "contradiction"; state: StudioContradictionState }
+  | {
+      kind: "finding";
+      state?: StudioFindingState;
+    }
+  | {
+      kind: "contradiction";
+      state: StudioContradictionState;
+    }
   /**
    * The pad's drawing, drawn read-only in the card's picture plate — the
    * owner's call of 1 Oct 2026. No words of its own, so no title is drawn.
    */
-  | { kind: "sketch"; drawing: StudioNodeDrawing }
+  | {
+      kind: "sketch";
+      drawing: StudioNodeDrawing;
+    }
   /**
    * A Link keeps its address, whatever is typed beside it — `#1378`. The
    * card's title is the person's own line, and this is drawn under it; where
    * they typed none the title *is* the address, and it is not said twice.
    */
-  | { kind: "link"; address: string }
+  | {
+      kind: "link";
+      address: string;
+    }
   /** A path a person pasted, kept as pasted. The card's title is the path. */
-  | { kind: "file"; path: string }
+  | {
+      kind: "file";
+      path: string;
+    }
   /** A picture pasted onto the board, and nothing else: no words, so no title is drawn. */
-  | { kind: "picture"; frame: StudioNodeFrame }
+  | {
+      kind: "picture";
+      frame: StudioNodeFrame;
+    }
   /**
    * The three kinds a forge address makes — `#1394`. Each draws its address
    * the way a Link does; what it holds besides is a fact, not a sentence.
@@ -94,12 +122,30 @@ export type StudioNodeOf =
    * of their facts, drawn as a chip, and not a state of Armada's that this
    * card would colour or pulse.
    */
-  | { kind: "issue"; address: string }
-  | { kind: "pull_request"; address: string }
-  | { kind: "epic"; address: string }
-  | { kind: "deferral"; state: StudioDeferralState }
-  | { kind: "outline"; state: StudioOutlineState }
-  | { kind: "issue_draft"; state: "draft" };
+  | {
+      kind: "issue";
+      address: string;
+    }
+  | {
+      kind: "pull_request";
+      address: string;
+    }
+  | {
+      kind: "epic";
+      address: string;
+    }
+  | {
+      kind: "deferral";
+      state: StudioDeferralState;
+    }
+  | {
+      kind: "outline";
+      state: StudioOutlineState;
+    }
+  | {
+      kind: "issue_draft";
+      state: "draft";
+    };
 
 export type StudioNodeKind = StudioNodeOf["kind"];
 
@@ -171,17 +217,31 @@ export type StudioNodeReading = {
  * the run and never its state, so until one is read there is nothing
  * to say — and saying nothing beats guessing.
  */
-const UNREAD: StudioNodeReading = { words: null, run: null, working: false };
+const UNREAD: StudioNodeReading = {
+  words: null,
+  run: null,
+  working: false,
+};
 
 export function studioNodeReading(node: StudioNodeOf): StudioNodeReading {
   if (node.kind === "run") {
     if (node.state === undefined) return UNREAD;
     // **A server pulses the whole time it is up**, not only while it comes up:
     // it is a process Armada is holding, which is what the pulse says.
-    const working = node.state === "running" || node.state === "starting" || node.state === "serving";
-    return { words: node.state, run: node.state, working };
+    const working =
+      node.state === "running" || node.state === "starting" || node.state === "serving";
+    return {
+      words: node.state,
+      run: node.state,
+      working,
+    };
   }
-  if (!("state" in node) || node.state === undefined) return { words: null, run: null, working: false };
+  if (!("state" in node) || node.state === undefined)
+    return {
+      words: null,
+      run: null,
+      working: false,
+    };
   return {
     words: NEUTRAL_STATE[node.state] ?? node.state,
     run: null,
@@ -190,10 +250,17 @@ export function studioNodeReading(node: StudioNodeOf): StudioNodeReading {
 }
 
 /** The node's accessible name: kind, title, then state. */
-export function studioNodeLabel(node: StudioNodeOf & { title: string }): string {
+export function studioNodeLabel(
+  node: StudioNodeOf & {
+    title: string;
+  },
+): string {
   const { words } = studioNodeReading(node);
   // A Picture has no words, and is named by its kind alone.
-  const head = node.title === "" ? STUDIO_NODE_KIND[node.kind] : `${STUDIO_NODE_KIND[node.kind]}: ${node.title}`;
+  const head =
+    node.title === ""
+      ? STUDIO_NODE_KIND[node.kind]
+      : `${STUDIO_NODE_KIND[node.kind]}: ${node.title}`;
   return words === null ? head : `${head}, ${words}`;
 }
 
@@ -280,8 +347,12 @@ export function StudioNode(props: StudioNodeProps) {
               // The file name never gives way: a long path is cut in its
               // middle, `crates/…/briefing.rs` — the owner's call, 1 Oct 2026.
               <>
-                <span className="armada-studio-node__path-head">{title.slice(0, Math.max(0, title.lastIndexOf("/")))}</span>
-                <span className="armada-studio-node__path-tail">{title.slice(Math.max(0, title.lastIndexOf("/")))}</span>
+                <span className="armada-studio-node__path-head">
+                  {title.slice(0, Math.max(0, title.lastIndexOf("/")))}
+                </span>
+                <span className="armada-studio-node__path-tail">
+                  {title.slice(Math.max(0, title.lastIndexOf("/")))}
+                </span>
               </>
             ) : (
               title
@@ -300,7 +371,9 @@ export function StudioNode(props: StudioNodeProps) {
           <SketchPreview label={STUDIO_SKETCH_LABEL} {...props.drawing} />
         </span>
       ) : null}
-      {props.kind !== "note" || props.frame === undefined ? null : <Frame frame={props.frame} alt={STUDIO_FRAME_LABEL} />}
+      {props.kind !== "note" || props.frame === undefined ? null : (
+        <Frame frame={props.frame} alt={STUDIO_FRAME_LABEL} />
+      )}
       {facts.length === 0 ? null : (
         <ul className="armada-studio-node__facts">
           {facts.map((fact) => (

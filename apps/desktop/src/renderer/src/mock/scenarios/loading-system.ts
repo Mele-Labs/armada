@@ -6,11 +6,20 @@ import type { Scenario } from "../moment";
 import { checkingOver } from "../checks-fleet";
 
 function build(): Scenario {
-  const base = checkingOver({ state: "reading" }, "loading/system", "System pages while Fleet's reads are still out: Checks, Skills, Workflows and the Requests collections tree show skeletons");
+  const base = checkingOver(
+    {
+      state: "reading",
+    },
+    "loading/system",
+    "System pages while Fleet's reads are still out: Checks, Skills, Workflows and the Requests collections tree show skeletons",
+  );
   const never = () => new Promise<never>(() => {});
   return {
     ...base,
-    state: { ...base.state, mergeLines: null },
+    state: {
+      ...base.state,
+      mergeLines: null,
+    },
     behaves: (...args) => ({
       ...base.behaves?.(...args),
       listCheckoutRuns: never,

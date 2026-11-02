@@ -7,10 +7,18 @@ import { PullRequestActs } from "./PullRequestActs";
 const meta: Meta<typeof PullRequestActs> = {
   title: "Compositions/Pull request acts",
   component: PullRequestActs,
-  args: { onAct: fn(), auto: false },
+  args: {
+    onAct: fn(),
+    auto: false,
+  },
   decorators: [
     (Story) => (
-      <div style={{ padding: "var(--space-6)", background: "var(--bg-raised)" }}>
+      <div
+        style={{
+          padding: "var(--space-6)",
+          background: "var(--bg-raised)",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -22,68 +30,132 @@ type Story = StoryObj<typeof PullRequestActs>;
 
 /** A draft is readied before anything else. */
 export const Draft: Story = {
-  args: { state: "draft", checks: "pending" },
+  args: {
+    state: "draft",
+    checks: "pending",
+  },
   play: async ({ canvas, args }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Ready for review" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Ready for review",
+      }),
+    );
     await expect(args.onAct).toHaveBeenCalledWith("ready");
-    await expect(canvas.queryByRole("button", { name: "Merge" })).toBeNull();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Merge",
+      }),
+    ).toBeNull();
   },
 };
 
 /** Checks still running: auto-merge. */
 export const ChecksRunning: Story = {
-  args: { state: "open", checks: "pending" },
+  args: {
+    state: "open",
+    checks: "pending",
+  },
   play: async ({ canvas, args }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Enable auto-merge" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Enable auto-merge",
+      }),
+    );
     await expect(args.onAct).toHaveBeenCalledWith("auto_merge");
   },
 };
 
 /** Auto-merge pressed and not yet answered: that button is pending, and no other act can start. */
 export const AutoMergeUnderway: Story = {
-  args: { state: "open", checks: "pending", pending: "auto_merge" },
+  args: {
+    state: "open",
+    checks: "pending",
+    pending: "auto_merge",
+  },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: "Enable auto-merge" })).toHaveAttribute("aria-busy", "true");
+    await expect(
+      canvas.getByRole("button", {
+        name: "Enable auto-merge",
+      }),
+    ).toHaveAttribute("aria-busy", "true");
   },
 };
 
 /** Auto-merge asked for: the fact, and no second ask. */
 export const AutoMergeOn: Story = {
-  args: { state: "open", checks: "pending", auto: true },
+  args: {
+    state: "open",
+    checks: "pending",
+    auto: true,
+  },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: "Auto-merge on" })).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Auto-merge on",
+      }),
+    ).toBeDisabled();
   },
 };
 
 /** In the forge's merge queue: the fact, and nothing asks for it again. */
 export const InMergeQueue: Story = {
-  args: { state: "open", checks: "passed", auto: true, queued: true },
+  args: {
+    state: "open",
+    checks: "passed",
+    auto: true,
+    queued: true,
+  },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: "In merge queue" })).toBeDisabled();
-    await expect(canvas.queryByRole("button", { name: "Merge" })).toBeNull();
+    await expect(
+      canvas.getByRole("button", {
+        name: "In merge queue",
+      }),
+    ).toBeDisabled();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Merge",
+      }),
+    ).toBeNull();
   },
 };
 
 /** Every Check passed: merge. */
 export const Passing: Story = {
-  args: { state: "open", checks: "passed" },
+  args: {
+    state: "open",
+    checks: "passed",
+  },
   play: async ({ canvas, args }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Merge" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Merge",
+      }),
+    );
     await expect(args.onAct).toHaveBeenCalledWith("merge");
   },
 };
 
 /** Red: nothing merges it. */
 export const Failing: Story = {
-  args: { state: "open", checks: "failed" },
+  args: {
+    state: "open",
+    checks: "failed",
+  },
   play: async ({ canvas }) => {
-    await expect(canvas.queryByRole("button", { name: "Merge" })).toBeNull();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Merge",
+      }),
+    ).toBeNull();
   },
 };
 
 /** Landed: no acts. */
 export const Merged: Story = {
-  args: { state: "merged", checks: "passed" },
+  args: {
+    state: "merged",
+    checks: "passed",
+  },
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("group")).toBeNull();
   },

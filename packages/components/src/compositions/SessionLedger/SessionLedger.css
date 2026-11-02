@@ -375,14 +375,29 @@ path.armada-session-ledger__picture-later {
 
 /* A row's mark is in its state's hue, as the PR chip's Checks are, and the row carries that hue on its
    leading edge: a pull request's Checks, or a subagent's turn, read at a glance down the ledger. */
-.armada-session-ledger__row[data-mark] { --mark: var(--fg-subtle); border-inline-start: var(--space-1) solid var(--mark); }
-.armada-session-ledger__row[data-mark="passed"] { --mark: var(--status-completed-success); }
-.armada-session-ledger__row[data-mark="failed"] { --mark: var(--status-completed-failed); }
-.armada-session-ledger__row[data-mark="pending"] { --mark: var(--status-awaiting-review); }
+.armada-session-ledger__row[data-mark] {
+  --mark: var(--fg-subtle);
+  border-inline-start: var(--space-1) solid var(--mark);
+}
+.armada-session-ledger__row[data-mark="passed"] {
+  --mark: var(--status-completed-success);
+}
+.armada-session-ledger__row[data-mark="failed"] {
+  --mark: var(--status-completed-failed);
+}
+.armada-session-ledger__row[data-mark="pending"] {
+  --mark: var(--status-awaiting-review);
+}
 .armada-session-ledger__row[data-mark="running"],
-.armada-session-ledger__row[data-mark="piloted"] { --mark: var(--status-running); }
-.armada-session-ledger__row[data-mark="escalated"] { --mark: var(--status-escalated); }
-.armada-session-ledger__row[data-mark] [data-state-mark] { color: var(--mark); }
+.armada-session-ledger__row[data-mark="piloted"] {
+  --mark: var(--status-running);
+}
+.armada-session-ledger__row[data-mark="escalated"] {
+  --mark: var(--status-escalated);
+}
+.armada-session-ledger__row[data-mark] [data-state-mark] {
+  color: var(--mark);
+}
 
 /* A row's preview, on the tooltip's own bubble beside the row: an overlay surface, its title, then one
    fact a line, labelled. A fact with a tone takes its hue from the same status tokens the row's mark does. */
@@ -400,17 +415,44 @@ path.armada-session-ledger__picture-later {
   color: var(--fg-default);
 }
 
-.armada-ledger-card__title { font-weight: var(--weight-medium); overflow-wrap: anywhere; }
-.armada-ledger-card__fact { --tone: var(--fg-default); display: flex; gap: var(--space-2); min-width: 0; }
-.armada-ledger-card__label { flex: none; color: var(--fg-muted); }
-.armada-ledger-card__value { min-width: 0; color: var(--tone); overflow-wrap: anywhere; }
-.armada-ledger-card__value[data-mono] { font-family: var(--font-mono); }
-.armada-ledger-card__fact[data-tone="passed"] { --tone: var(--status-completed-success); }
-.armada-ledger-card__fact[data-tone="failed"] { --tone: var(--status-completed-failed); }
-.armada-ledger-card__fact[data-tone="pending"] { --tone: var(--status-awaiting-review); }
+.armada-ledger-card__title {
+  font-weight: var(--weight-medium);
+  overflow-wrap: anywhere;
+}
+.armada-ledger-card__fact {
+  --tone: var(--fg-default);
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.armada-ledger-card__label {
+  flex: none;
+  color: var(--fg-muted);
+}
+.armada-ledger-card__value {
+  min-width: 0;
+  color: var(--tone);
+  overflow-wrap: anywhere;
+}
+.armada-ledger-card__value[data-mono] {
+  font-family: var(--font-mono);
+}
+.armada-ledger-card__fact[data-tone="passed"] {
+  --tone: var(--status-completed-success);
+}
+.armada-ledger-card__fact[data-tone="failed"] {
+  --tone: var(--status-completed-failed);
+}
+.armada-ledger-card__fact[data-tone="pending"] {
+  --tone: var(--status-awaiting-review);
+}
 .armada-ledger-card__fact[data-tone="running"],
-.armada-ledger-card__fact[data-tone="piloted"] { --tone: var(--status-running); }
-.armada-ledger-card__fact[data-tone="escalated"] { --tone: var(--status-escalated); }
+.armada-ledger-card__fact[data-tone="piloted"] {
+  --tone: var(--status-running);
+}
+.armada-ledger-card__fact[data-tone="escalated"] {
+  --tone: var(--status-escalated);
+}
 
 /* A pull request's state mark, in the hue of its state; its Checks mark is the PR card's. */
 .armada-pr-state {
@@ -431,16 +473,24 @@ path.armada-session-ledger__picture-later {
 }
 
 /* A restart's mark: in its state's hue, and turning while the switch runs. */
-.armada-session-mark[data-restart="running"] { color: var(--status-running); }
-.armada-session-mark[data-restart="passed"] { color: var(--status-completed-success); }
-.armada-session-mark[data-restart="failed"] { color: var(--status-completed-failed); }
+.armada-session-mark[data-restart="running"] {
+  color: var(--status-running);
+}
+.armada-session-mark[data-restart="passed"] {
+  color: var(--status-completed-success);
+}
+.armada-session-mark[data-restart="failed"] {
+  color: var(--status-completed-failed);
+}
 
 .armada-session-mark[data-restart="running"] > svg {
   animation: armada-session-ledger-spin var(--duration-pulse) linear infinite;
 }
 
 @keyframes armada-session-ledger-spin {
-  to { transform: rotate(1turn); }
+  to {
+    transform: rotate(1turn);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

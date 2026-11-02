@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { BellRing, ChevronLeft, ChevronUp, MessageCircleQuestion, ThumbsDown, ThumbsUp } from "lucide-react";
+import {
+  BellRing,
+  ChevronLeft,
+  ChevronUp,
+  MessageCircleQuestion,
+  ThumbsDown,
+  ThumbsUp,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -9,53 +16,111 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { useEscapeFold } from "./useEscapeFold";
 import { useScrimFold } from "./useScrimFold";
 import { StartAct } from "./StartAct";
-import { LedgerRows, RestartKey, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
+import {
+  LedgerRows,
+  RestartKey,
+  waitingMark,
+  type LedgerEntry,
+} from "../SessionLedger/SessionLedger";
 
 /** Focus may move to an arriving question from anywhere but a box with something typed in it: a row he just pressed to come into the Session is not one. */
 function focusIsFree(): boolean {
   const active = document.activeElement;
   if (active === null || active === document.body) return true;
   if (!(active instanceof HTMLElement)) return false;
-  if (active.closest(".armada-session-composer") === null && !active.matches(TYPES_WORDS)) return true;
-  const typed = active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement ? active.value : (active.textContent ?? "");
+  if (active.closest(".armada-session-composer") === null && !active.matches(TYPES_WORDS))
+    return true;
+  const typed =
+    active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement
+      ? active.value
+      : (active.textContent ?? "");
   return typed.trim() === "";
 }
 
 const TYPES_WORDS = "input, textarea, select, [contenteditable]";
 
 /** What the arrows move between in the list: a question's row, and an action's one press. */
-const LIST_KEYS = ".armada-needs-panel__list :is(.armada-session-ledger__open, .armada-session-ledger__offer-key, [data-aside], .armada-prose__run-acts button)";
+const LIST_KEYS =
+  ".armada-needs-panel__list :is(.armada-session-ledger__open, .armada-session-ledger__offer-key, [data-aside], .armada-prose__run-acts button)";
 
 /** The actions, by what their one press does, in the order they are drawn. */
-const ACTIONS: readonly { label: string; holds: (row: LedgerEntry) => boolean }[] = [
-  { label: "Walks", holds: (row) => row.act === "walk" },
-  { label: "Commands", holds: (row) => row.act === "run" || row.act === "steps" },
-  { label: "PRs", holds: (row) => row.act === "approve_pr" },
+const ACTIONS: readonly {
+  label: string;
+  holds: (row: LedgerEntry) => boolean;
+}[] = [
+  {
+    label: "Walks",
+    holds: (row) => row.act === "walk",
+  },
+  {
+    label: "Commands",
+    holds: (row) => row.act === "run" || row.act === "steps",
+  },
+  {
+    label: "PRs",
+    holds: (row) => row.act === "approve_pr",
+  },
 ];
 
 /** A restart is the band's own key, unless he may put it away: then it is Fleet's offer, listed under Commands with its sentence. */
-const banded = (row: LedgerEntry): boolean => row.restart !== undefined && row.onDismiss === undefined;
+const banded = (row: LedgerEntry): boolean =>
+  row.restart !== undefined && row.onDismiss === undefined;
 
-const acts = (row: LedgerEntry): boolean => !banded(row) && row.options === undefined && ACTIONS.some((group) => group.holds(row));
+const acts = (row: LedgerEntry): boolean =>
+  !banded(row) && row.options === undefined && ACTIONS.some((group) => group.holds(row));
 
 /** A row that asks him something: choices, a reply, or a press that goes to a question or a message. */
 const asks = (row: LedgerEntry): boolean => !banded(row) && !acts(row);
 
 /** One question waiting, as the list draws it and the detail opens it. */
-type Thing = { key: string; Glyph: LucideIcon; said: string; tip: string; text: ReactNode; name: string; row?: LedgerEntry; content?: ReactNode; press?: () => void; /** A sentence Fleet read from a reply: `no` is Not a question, `yes` is A question and is absent once Fleet has it confirmed. Both are thumbs at the row's end and items of its menu. */ misread?: { no: () => void; yes?: () => void } };
+type Thing = {
+  key: string;
+  Glyph: LucideIcon;
+  said: string;
+  tip: string;
+  text: ReactNode;
+  name: string;
+  row?: LedgerEntry;
+  content?: ReactNode;
+  press?: () => void /** A sentence Fleet read from a reply: `no` is Not a question, `yes` is A question and is absent once Fleet has it confirmed. Both are thumbs at the row's end and items of its menu. */;
+  misread?: {
+    no: () => void;
+    yes?: () => void;
+  };
+};
 
 /** The two thumbs at a read line's end, in the list and opened. Confirmed, Fleet has nothing left to ask, so there are none. `keep` is where focus goes when A question takes the thumbs away. */
-function Thumbs({ misread, keep }: { misread: NonNullable<Thing["misread"]>; keep: (thumb: HTMLElement) => HTMLElement | null }) {
+function Thumbs({
+  misread,
+  keep,
+}: {
+  misread: NonNullable<Thing["misread"]>;
+  keep: (thumb: HTMLElement) => HTMLElement | null;
+}) {
   if (misread.yes === undefined) return null;
   return (
     <span className="armada-needs-panel__thumbs">
       <Tooltip label="A question">
-        <Button variant="ghost" size="sm" iconOnly data-aside="" aria-label="A question" onClick={(event) => (keep(event.currentTarget)?.focus(), misread.yes?.())}>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          data-aside=""
+          aria-label="A question"
+          onClick={(event) => (keep(event.currentTarget)?.focus(), misread.yes?.())}
+        >
           <ThumbsUp size={12} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>
       <Tooltip label="Not a question">
-        <Button variant="ghost" size="sm" iconOnly data-aside="" aria-label="Not a question" onClick={misread.no}>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          data-aside=""
+          aria-label="Not a question"
+          onClick={misread.no}
+        >
           <ThumbsDown size={12} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>
@@ -64,7 +129,9 @@ function Thumbs({ misread, keep }: { misread: NonNullable<Thing["misread"]>; kee
 }
 
 /** A question answered in the panel's place: the question, a card of Fleet's own, or a row with choices or a reply box. The rest go where they point. */
-const opensHere = (one: Thing): boolean => one.press === undefined && (one.row === undefined || one.row.options !== undefined || one.row.onReply !== undefined);
+const opensHere = (one: Thing): boolean =>
+  one.press === undefined &&
+  (one.row === undefined || one.row.options !== undefined || one.row.onReply !== undefined);
 
 /**
  * Everything the agent needs from the person, in one panel joined to the composer. Folded it is a trigger on the composer's top edge, a glyph
@@ -85,13 +152,29 @@ export function NeedsYouPanel({
 }: {
   rows: readonly LedgerEntry[];
   /** `label` is the question's header, `text` the line its row reads, and `children` the card that answers it. */
-  question?: { id: string; label: string; text: string; children: ReactNode };
+  question?: {
+    id: string;
+    label: string;
+    text: string;
+    children: ReactNode;
+  };
   /** Fleet's own asks with a card of their own, after the question: `Glyph` and `said` mark the row, `children` is the card that settles it. */
-  cards?: readonly { id: string; text: string; Glyph: LucideIcon; said: string; children: ReactNode }[];
+  cards?: readonly {
+    id: string;
+    text: string;
+    Glyph: LucideIcon;
+    said: string;
+    children: ReactNode;
+  }[];
   open: boolean;
   onOpen: (next: boolean) => void;
 }) {
-  const [menu, setMenu] = useState<{ key: string; x: number; y: number; from: HTMLElement | null }>();
+  const [menu, setMenu] = useState<{
+    key: string;
+    x: number;
+    y: number;
+    from: HTMLElement | null;
+  }>();
   const section = useRef<HTMLElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const [at, setAt] = useState<string | undefined>();
@@ -103,26 +186,91 @@ export function NeedsYouPanel({
   const quiet = useRef(false);
   const host = useRef(onOpen);
   host.current = onOpen;
-  const misreadOf = (row: LedgerEntry): Pick<Thing, "misread"> => (row.onMisread === undefined ? {} : { misread: { no: row.onMisread, ...(row.confirmed === true || row.onConfirmed === undefined ? {} : { yes: row.onConfirmed }) } });
+  const misreadOf = (row: LedgerEntry): Pick<Thing, "misread"> =>
+    row.onMisread === undefined
+      ? {}
+      : {
+          misread: {
+            no: row.onMisread,
+            ...(row.confirmed === true || row.onConfirmed === undefined
+              ? {}
+              : {
+                  yes: row.onConfirmed,
+                }),
+          },
+        };
   const questions: Thing[] = [
-    ...(question === undefined ? [] : [{ key: `question:${question.id}`, Glyph: MessageCircleQuestion, said: question.label, tip: question.label, text: question.text, name: question.text, content: question.children }]),
-    ...(cards ?? []).map((one) => ({ key: `card:${one.id}`, Glyph: one.Glyph, said: one.said, tip: one.said, text: one.text, name: one.text, content: one.children })),
-    ...rows.filter(asks).map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row, ...misreadOf(row) })),
+    ...(question === undefined
+      ? []
+      : [
+          {
+            key: `question:${question.id}`,
+            Glyph: MessageCircleQuestion,
+            said: question.label,
+            tip: question.label,
+            text: question.text,
+            name: question.text,
+            content: question.children,
+          },
+        ]),
+    ...(cards ?? []).map((one) => ({
+      key: `card:${one.id}`,
+      Glyph: one.Glyph,
+      said: one.said,
+      tip: one.said,
+      text: one.text,
+      name: one.text,
+      content: one.children,
+    })),
+    ...rows.filter(asks).map((row) => ({
+      key: row.key,
+      ...waitingMark(row),
+      tip: row.name,
+      text: row.text,
+      name: row.name,
+      row,
+      ...misreadOf(row),
+    })),
   ];
-  const menuOf = menu === undefined ? undefined : questions.find((one) => one.key === menu.key)?.misread;
-  const actions = ACTIONS.map((group) => ({ label: group.label, rows: rows.filter((row) => acts(row) && group.holds(row)) })).filter((group) => group.rows.length > 0);
+  const menuOf =
+    menu === undefined ? undefined : questions.find((one) => one.key === menu.key)?.misread;
+  const actions = ACTIONS.map((group) => ({
+    label: group.label,
+    rows: rows.filter((row) => acts(row) && group.holds(row)),
+  })).filter((group) => group.rows.length > 0);
   const restarts = rows.filter(banded);
-  const things: Thing[] = [...questions, ...actions.flatMap((group) => group.rows.map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row })))];
+  const things: Thing[] = [
+    ...questions,
+    ...actions.flatMap((group) =>
+      group.rows.map((row) => ({
+        key: row.key,
+        ...waitingMark(row),
+        tip: row.name,
+        text: row.text,
+        name: row.name,
+        row,
+      })),
+    ),
+  ];
   // What opens the panel on arriving: the question.
-  const arrived = [question?.id].filter((one) => one !== undefined).join("\n");
+  const arrived = [
+    question?.id,
+  ]
+    .filter((one) => one !== undefined)
+    .join("\n");
   // A band with nothing to list (a restart alone) is never drawn open: the host may still hold it open from an earlier arrival.
   const open = wanted && things.length > 0;
-  const only = things.length === 1 && questions.length === 1 && opensHere(questions[0]!) ? questions[0]!.key : undefined;
+  const only =
+    things.length === 1 && questions.length === 1 && opensHere(questions[0]!)
+      ? questions[0]!.key
+      : undefined;
   const shown = at ?? (open ? only : undefined);
   const current = shown === undefined ? undefined : questions.find((one) => one.key === shown);
   const listed = open && current === undefined;
   const focusRow = (key: string | undefined) => {
-    const buttons = [...(section.current?.querySelectorAll<HTMLElement>(LIST_KEYS) ?? [])];
+    const buttons = [
+      ...(section.current?.querySelectorAll<HTMLElement>(LIST_KEYS) ?? []),
+    ];
     (key === undefined ? buttons[0] : buttons.find((one) => one.dataset.thing === key))?.focus();
   };
   useEffect(() => {
@@ -132,11 +280,17 @@ export function NeedsYouPanel({
     host.current(true);
     if (focusIsFree()) landing.current = "";
     else quiet.current = true;
-  }, [arrived]);
+  }, [
+    arrived,
+  ]);
   // The panel put away, or the thing opened gone (answered, run, removed), returns to the list; a list with nothing in it folds the panel.
   useEffect(() => {
     if (!open || (at !== undefined && current === undefined)) setAt(undefined);
-  }, [open, at, current]);
+  }, [
+    open,
+    at,
+    current,
+  ]);
   const empty = things.length === 0;
   // Folded on the host too, where `open` already reads false because nothing waits: else the next thing to arrive finds it open.
   // Not on a mount that has never listed anything, or it would overwrite a host that already opens the panel for what waits (a delivery question).
@@ -144,7 +298,9 @@ export function NeedsYouPanel({
   useEffect(() => {
     if (!empty) hadRows.current = true;
     if (empty && hadRows.current) host.current(false);
-  }, [empty]);
+  }, [
+    empty,
+  ]);
   useEffect(() => {
     const body = section.current;
     if (quiet.current && open) {
@@ -155,13 +311,24 @@ export function NeedsYouPanel({
     if (current !== undefined) {
       landing.current = undefined;
       // A detail with nothing to press or type in still takes the keys: focus goes to Back, so Esc and Backspace reach the panel.
-      window.requestAnimationFrame(() => (body?.querySelector<HTMLElement>(".armada-needs-panel__content :is(input, textarea, [role='radio'], [role='checkbox'], button)") ?? body?.querySelector<HTMLElement>(".armada-needs-panel__detail button[aria-label='Back']"))?.focus());
+      window.requestAnimationFrame(() =>
+        (
+          body?.querySelector<HTMLElement>(
+            ".armada-needs-panel__content :is(input, textarea, [role='radio'], [role='checkbox'], button)",
+          ) ??
+          body?.querySelector<HTMLElement>(".armada-needs-panel__detail button[aria-label='Back']")
+        )?.focus(),
+      );
     } else if (listed && landing.current !== undefined) {
       const to = landing.current === "" ? undefined : landing.current;
       landing.current = undefined;
       window.requestAnimationFrame(() => focusRow(to));
     }
-  }, [current?.key, listed, open]);
+  }, [
+    current?.key,
+    listed,
+    open,
+  ]);
   // Dimmed, the thread is not there to be pressed: a press on it folds the panel.
   useScrimFold(section, open, () => host.current(false));
   useEscapeFold(section, open && menu === undefined, () => host.current(false));
@@ -187,15 +354,23 @@ export function NeedsYouPanel({
       event.stopPropagation();
       if (current !== undefined) return back();
       fold();
-    } else if (event.key === "Backspace" && current !== undefined && !(event.target instanceof Element && event.target.closest(TYPES_WORDS) !== null)) {
+    } else if (
+      event.key === "Backspace" &&
+      current !== undefined &&
+      !(event.target instanceof Element && event.target.closest(TYPES_WORDS) !== null)
+    ) {
       event.preventDefault();
       back();
     } else if ((event.key === "ArrowDown" || event.key === "ArrowUp") && current === undefined) {
-      const buttons = [...(section.current?.querySelectorAll<HTMLElement>(LIST_KEYS) ?? [])];
+      const buttons = [
+        ...(section.current?.querySelectorAll<HTMLElement>(LIST_KEYS) ?? []),
+      ];
       const here = buttons.findIndex((one) => one === document.activeElement);
       if (here < 0) return;
       event.preventDefault();
-      buttons[Math.min(buttons.length - 1, Math.max(0, here + (event.key === "ArrowDown" ? 1 : -1)))]?.focus();
+      buttons[
+        Math.min(buttons.length - 1, Math.max(0, here + (event.key === "ArrowDown" ? 1 : -1)))
+      ]?.focus();
     }
   };
   const press = () => {
@@ -204,9 +379,24 @@ export function NeedsYouPanel({
     onOpen(!open);
   };
   return (
-    <section ref={section} className="armada-needs-panel" aria-label="Needs you" data-open={open} onKeyDown={key} data-keeps-escape={open ? "" : undefined}>
+    <section
+      ref={section}
+      className="armada-needs-panel"
+      aria-label="Needs you"
+      data-open={open}
+      onKeyDown={key}
+      data-keeps-escape={open ? "" : undefined}
+    >
       <div className="armada-needs-panel__band">
-        <button ref={trigger} type="button" className="armada-needs-panel__trigger" aria-label="Needs you" aria-expanded={open} aria-disabled={empty || undefined} onClick={empty ? undefined : press}>
+        <button
+          ref={trigger}
+          type="button"
+          className="armada-needs-panel__trigger"
+          aria-label="Needs you"
+          aria-expanded={open}
+          aria-disabled={empty || undefined}
+          onClick={empty ? undefined : press}
+        >
           <BellRing size={12} strokeWidth={2} aria-hidden />
           <span className="armada-needs-panel__label">Needs you</span>
           <span className="armada-needs-panel__glyphs">
@@ -218,9 +408,20 @@ export function NeedsYouPanel({
               </Tooltip>
             ))}
           </span>
-          {empty ? null : <ChevronUp className="armada-needs-panel__fold" size={12} strokeWidth={2} aria-hidden />}
+          {empty ? null : (
+            <ChevronUp className="armada-needs-panel__fold" size={12} strokeWidth={2} aria-hidden />
+          )}
         </button>
-        {restarts.map((row) => (row.restart === undefined ? null : <RestartKey key={row.key} className="armada-needs-panel__restart" name={row.name} restart={row.restart} />))}
+        {restarts.map((row) =>
+          row.restart === undefined ? null : (
+            <RestartKey
+              key={row.key}
+              className="armada-needs-panel__restart"
+              name={row.name}
+              restart={row.restart}
+            />
+          ),
+        )}
       </div>
       <div className="armada-needs-panel__reveal" data-open={open}>
         <div className="armada-needs-panel__shell">
@@ -228,41 +429,113 @@ export function NeedsYouPanel({
             {current === undefined ? (
               <div className="armada-needs-panel__list">
                 {[
-                  { label: "Questions", rows: questions },
-                ].map((group) => group.rows.length === 0 ? null : (
-                  <section key={group.label} className="armada-session-ledger__group" aria-label={group.label}>
-                    <h3 className="armada-session-ledger__eyebrow">{group.label}</h3>
-                    <ul className="armada-session-ledger__rows">
-                      {group.rows.map((one) => (
-                        <li
-                          key={one.key}
-                          className="armada-session-ledger__row"
-                          aria-label={one.name}
-                          onContextMenu={one.misread === undefined ? undefined : (event) => (event.preventDefault(), setMenu({ key: one.key, x: event.clientX, y: event.clientY, from: event.currentTarget.querySelector<HTMLElement>(".armada-session-ledger__open") }))}
-                          onKeyDown={one.misread === undefined ? undefined : (event) => {
-                            if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
-                            event.preventDefault();
-                            const box = event.currentTarget.querySelector<HTMLElement>(".armada-session-ledger__open")?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect();
-                            setMenu({ key: one.key, x: box.left + box.width / 2, y: box.bottom, from: event.currentTarget.querySelector<HTMLElement>(".armada-session-ledger__open") });
-                          }}
-                        >
-                          <button type="button" className="armada-session-ledger__open" aria-label={`Open ${one.name}`} data-thing={one.key} onClick={() => (opensHere(one) ? choose(one.key) : (one.press ?? one.row?.onOpen)?.())}>
-                            <Tooltip label={one.said}>
-                              <span className="armada-session-mark" role="img" aria-label={one.said}>
-                                <one.Glyph size={12} strokeWidth={2} aria-hidden />
-                              </span>
-                            </Tooltip>
-                            <span className="armada-session-ledger__text">{one.text}</span>
-                          </button>
-                          {one.misread === undefined ? null : <Thumbs misread={one.misread} keep={(thumb) => thumb.closest("li")?.querySelector<HTMLElement>(".armada-session-ledger__open") ?? null} />}
-                          {one.row?.start === undefined ? null : <StartAct start={one.row.start} />}
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                ))}
+                  {
+                    label: "Questions",
+                    rows: questions,
+                  },
+                ].map((group) =>
+                  group.rows.length === 0 ? null : (
+                    <section
+                      key={group.label}
+                      className="armada-session-ledger__group"
+                      aria-label={group.label}
+                    >
+                      <h3 className="armada-session-ledger__eyebrow">{group.label}</h3>
+                      <ul className="armada-session-ledger__rows">
+                        {group.rows.map((one) => (
+                          <li
+                            key={one.key}
+                            className="armada-session-ledger__row"
+                            aria-label={one.name}
+                            onContextMenu={
+                              one.misread === undefined
+                                ? undefined
+                                : (event) => (
+                                    event.preventDefault(),
+                                    setMenu({
+                                      key: one.key,
+                                      x: event.clientX,
+                                      y: event.clientY,
+                                      from: event.currentTarget.querySelector<HTMLElement>(
+                                        ".armada-session-ledger__open",
+                                      ),
+                                    })
+                                  )
+                            }
+                            onKeyDown={
+                              one.misread === undefined
+                                ? undefined
+                                : (event) => {
+                                    if (
+                                      event.key !== "ContextMenu" &&
+                                      !(event.key === "F10" && event.shiftKey)
+                                    )
+                                      return;
+                                    event.preventDefault();
+                                    const box =
+                                      event.currentTarget
+                                        .querySelector<HTMLElement>(".armada-session-ledger__open")
+                                        ?.getBoundingClientRect() ??
+                                      event.currentTarget.getBoundingClientRect();
+                                    setMenu({
+                                      key: one.key,
+                                      x: box.left + box.width / 2,
+                                      y: box.bottom,
+                                      from: event.currentTarget.querySelector<HTMLElement>(
+                                        ".armada-session-ledger__open",
+                                      ),
+                                    });
+                                  }
+                            }
+                          >
+                            <button
+                              type="button"
+                              className="armada-session-ledger__open"
+                              aria-label={`Open ${one.name}`}
+                              data-thing={one.key}
+                              onClick={() =>
+                                opensHere(one)
+                                  ? choose(one.key)
+                                  : (one.press ?? one.row?.onOpen)?.()
+                              }
+                            >
+                              <Tooltip label={one.said}>
+                                <span
+                                  className="armada-session-mark"
+                                  role="img"
+                                  aria-label={one.said}
+                                >
+                                  <one.Glyph size={12} strokeWidth={2} aria-hidden />
+                                </span>
+                              </Tooltip>
+                              <span className="armada-session-ledger__text">{one.text}</span>
+                            </button>
+                            {one.misread === undefined ? null : (
+                              <Thumbs
+                                misread={one.misread}
+                                keep={(thumb) =>
+                                  thumb
+                                    .closest("li")
+                                    ?.querySelector<HTMLElement>(".armada-session-ledger__open") ??
+                                  null
+                                }
+                              />
+                            )}
+                            {one.row?.start === undefined ? null : (
+                              <StartAct start={one.row.start} />
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ),
+                )}
                 {actions.map((group) => (
-                  <section key={group.label} className="armada-session-ledger__group" aria-label={group.label}>
+                  <section
+                    key={group.label}
+                    className="armada-session-ledger__group"
+                    aria-label={group.label}
+                  >
                     <h3 className="armada-session-ledger__eyebrow">{group.label}</h3>
                     <LedgerRows kind="waiting" Glyph={BellRing} rows={group.rows} />
                   </section>
@@ -276,10 +549,30 @@ export function NeedsYouPanel({
                       <ChevronLeft size={16} aria-hidden />
                     </Button>
                   </Tooltip>
-                  {current.misread === undefined ? null : <Thumbs misread={current.misread} keep={(thumb) => thumb.closest(".armada-needs-panel__head")?.querySelector<HTMLElement>("button[aria-label='Back']") ?? null} />}
+                  {current.misread === undefined ? null : (
+                    <Thumbs
+                      misread={current.misread}
+                      keep={(thumb) =>
+                        thumb
+                          .closest(".armada-needs-panel__head")
+                          ?.querySelector<HTMLElement>("button[aria-label='Back']") ?? null
+                      }
+                    />
+                  )}
                 </div>
                 <div className="armada-needs-panel__content">
-                  {current.row === undefined ? current.content : <LedgerRows kind="waiting" Glyph={BellRing} rows={[current.row]} expanded />}
+                  {current.row === undefined ? (
+                    current.content
+                  ) : (
+                    <LedgerRows
+                      kind="waiting"
+                      Glyph={BellRing}
+                      rows={[
+                        current.row,
+                      ]}
+                      expanded
+                    />
+                  )}
                 </div>
               </div>
             )}
@@ -289,11 +582,28 @@ export function NeedsYouPanel({
       {menu === undefined ? null : (
         <DropdownMenu
           triggerLabel="Question"
-          at={{ x: menu.x, y: menu.y }}
+          at={{
+            x: menu.x,
+            y: menu.y,
+          }}
           open
           entries={[
-            ...(menuOf?.yes === undefined ? [] : [{ kind: "item" as const, id: "yes", label: "A question", icon: ThumbsUp }]),
-            { kind: "item", id: "no", label: "Not a question", icon: ThumbsDown },
+            ...(menuOf?.yes === undefined
+              ? []
+              : [
+                  {
+                    kind: "item" as const,
+                    id: "yes",
+                    label: "A question",
+                    icon: ThumbsUp,
+                  },
+                ]),
+            {
+              kind: "item",
+              id: "no",
+              label: "Not a question",
+              icon: ThumbsDown,
+            },
           ]}
           onOpenChange={(next) => {
             if (next) return;

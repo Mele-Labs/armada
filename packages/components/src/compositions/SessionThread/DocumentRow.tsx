@@ -13,13 +13,33 @@ import type { SketchAnswer } from "./sketch-answer";
  * holds Approve and Send back under the band while it waits, and how it ended once answered. It wears the sketch card's frame,
  * so the two read as one kind of thing.
  */
-export function DocumentRow({ row, keep, onOpen, onAnswer }: { row: Extract<SessionThreadRow, { kind: "document" }>; keep?: string; onOpen?: (page: string) => void; onAnswer?: (page: string, answer: SketchAnswer) => void }) {
+export function DocumentRow({
+  row,
+  keep,
+  onOpen,
+  onAnswer,
+}: {
+  row: Extract<
+    SessionThreadRow,
+    {
+      kind: "document";
+    }
+  >;
+  keep?: string;
+  onOpen?: (page: string) => void;
+  onAnswer?: (page: string, answer: SketchAnswer) => void;
+}) {
   const settled = row.settled;
   const open = row.asked === true && settled === undefined && onAnswer !== undefined;
   const revision = `Revision ${String(row.revision)}`;
   return (
     <li className="armada-session-sketch armada-session-document" data-asked>
-      <div className="armada-session-sketch__asked" role="article" aria-label={`Document: ${row.title}, ${revision}`} data-settled={settled?.how}>
+      <div
+        className="armada-session-sketch__asked"
+        role="article"
+        aria-label={`Document: ${row.title}, ${revision}`}
+        data-settled={settled?.how}
+      >
         <div className="armada-session-sketch__band">
           <FileText size={12} strokeWidth={2} aria-hidden />
           <span className="armada-session-sketch__title">{row.title}</span>
@@ -29,7 +49,14 @@ export function DocumentRow({ row, keep, onOpen, onAnswer }: { row: Extract<Sess
           <Stamp still at={row.at} className="armada-session-sketch__at" />
           {onOpen === undefined ? null : (
             <Tooltip label="Open">
-              <Button className="armada-session-document__open" variant="ghost" size="sm" iconOnly aria-label={`Open ${row.title}, ${revision}`} onClick={() => onOpen(row.page)}>
+              <Button
+                className="armada-session-document__open"
+                variant="ghost"
+                size="sm"
+                iconOnly
+                aria-label={`Open ${row.title}, ${revision}`}
+                onClick={() => onOpen(row.page)}
+              >
                 <Maximize2 size={12} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
@@ -37,7 +64,21 @@ export function DocumentRow({ row, keep, onOpen, onAnswer }: { row: Extract<Sess
         </div>
         {!open && settled === undefined ? null : (
           <div className="armada-session-sketch__answers">
-            <ApprovalAnswers id={row.page} keep={keep ?? `document:${row.id}`} {...(settled === undefined ? {} : { settled })} open={open} {...(onAnswer === undefined ? {} : { onAnswer })} />
+            <ApprovalAnswers
+              id={row.page}
+              keep={keep ?? `document:${row.id}`}
+              {...(settled === undefined
+                ? {}
+                : {
+                    settled,
+                  })}
+              open={open}
+              {...(onAnswer === undefined
+                ? {}
+                : {
+                    onAnswer,
+                  })}
+            />
           </div>
         )}
       </div>

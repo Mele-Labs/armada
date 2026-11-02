@@ -17,7 +17,9 @@ unmountAfterEach();
 /** ⌘K, and the palette's list once it is up. */
 async function palette() {
   await userEvent.keyboard("{Meta>}k{/Meta}");
-  const list = page.getByRole("dialog", { name: "Command palette" });
+  const list = page.getByRole("dialog", {
+    name: "Command palette",
+  });
   await expect.element(list).toBeVisible();
   return list;
 }
@@ -29,9 +31,29 @@ describe("overview menu gone", () => {
     await onScreen();
 
     // The Cockpit, drawn: its list.
-    await expect.element(page.getByRole("region", { name: "Jobs", exact: true })).toBeVisible();
-    expect(page.getByRole("button", { name: "Everything else", exact: true }).query()).toBeNull();
-    expect(page.getByRole("button", { name: /^Clear \d+ finished/ }).query()).toBeNull();
+    await expect
+      .element(
+        page.getByRole("region", {
+          name: "Jobs",
+          exact: true,
+        }),
+      )
+      .toBeVisible();
+    expect(
+      page
+        .getByRole("button", {
+          name: "Everything else",
+          exact: true,
+        })
+        .query(),
+    ).toBeNull();
+    expect(
+      page
+        .getByRole("button", {
+          name: /^Clear \d+ finished/,
+        })
+        .query(),
+    ).toBeNull();
   });
 
   test("⇧⌘R refreshes, from Overview with nothing on screen to press", async () => {
@@ -48,7 +70,19 @@ describe("overview menu gone", () => {
     await onScreen();
     const list = await palette();
 
-    await expect.element(list.getByRole("option", { name: /^Refresh/ })).toBeInTheDocument();
-    expect(list.getByRole("option", { name: /^(Clear|Delete) \d+/ }).query()).toBeNull();
+    await expect
+      .element(
+        list.getByRole("option", {
+          name: /^Refresh/,
+        }),
+      )
+      .toBeInTheDocument();
+    expect(
+      list
+        .getByRole("option", {
+          name: /^(Clear|Delete) \d+/,
+        })
+        .query(),
+    ).toBeNull();
   });
 });

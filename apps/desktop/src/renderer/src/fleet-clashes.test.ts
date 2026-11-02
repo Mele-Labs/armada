@@ -9,32 +9,67 @@ import { createFleetClashes, SETTLE_MS } from "./fleet-clashes";
 import { clashingOf } from "./clashes";
 
 const CLASH: WriteClash = {
-  one: { kind: "session", id: "s2", label: "Cap the retry backoff" },
-  other: { kind: "session", id: "s1", label: "Retry tuning" },
-  paths: ["crates/fleet/src/retry.rs"],
+  one: {
+    kind: "session",
+    id: "s2",
+    label: "Cap the retry backoff",
+  },
+  other: {
+    kind: "session",
+    id: "s1",
+    label: "Retry tuning",
+  },
+  paths: [
+    "crates/fleet/src/retry.rs",
+  ],
   since: "2026-10-13T09:00:00Z",
 };
 
 type Facts = Pick<BridgeState, "connection">;
-const up = { connection: { state: "connected" } as BridgeState["connection"] };
-const down = { connection: { state: "reading" } as BridgeState["connection"] };
+const up = {
+  connection: {
+    state: "connected",
+  } as BridgeState["connection"],
+};
+const down = {
+  connection: {
+    state: "reading",
+  } as BridgeState["connection"],
+};
 
 function harness(answers: Array<WriteClash[] | "refused">) {
   let on: (facts: Facts) => void = () => {};
   let now: Facts = down;
   let reads = 0;
-  let pending: { run: () => void; ms: number } | null = null;
+  let pending: {
+    run: () => void;
+    ms: number;
+  } | null = null;
   const source = createFleetClashes(
     {
       state: async () => now,
       subscribe: (to) => ((on = to), () => {}),
       getWriteClashes: async () => {
         const answer = answers[Math.min(reads++, answers.length - 1)]!;
-        return answer === "refused" ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: answer };
+        return answer === "refused"
+          ? {
+              ok: false,
+              outcome: {
+                ok: false,
+                why: "not_connected",
+              },
+            }
+          : {
+              ok: true,
+              value: answer,
+            };
       },
     },
     (run, ms) => {
-      pending = { run, ms };
+      pending = {
+        run,
+        ms,
+      };
       return () => {
         pending = null;
       };
@@ -61,26 +96,51 @@ function harness(answers: Array<WriteClash[] | "refused">) {
 
 describe("the clashes Fleet reports", () => {
   it("are read when Fleet connects, and held for whoever listens", async () => {
-    const fleet = harness([[CLASH]]);
+    const fleet = harness([
+      [
+        CLASH,
+      ],
+    ]);
     await fleet.listen();
     expect(fleet.source.get()).toEqual([]);
     await fleet.tell(up);
     expect(fleet.reads()).toBe(1);
-    expect(fleet.source.get()).toEqual([CLASH]);
+    expect(fleet.source.get()).toEqual([
+      CLASH,
+    ]);
   });
 
   it("mark both Sessions of a pair and nothing else", async () => {
-    const fleet = harness([[CLASH]]);
+    const fleet = harness([
+      [
+        CLASH,
+      ],
+    ]);
     await fleet.listen();
     await fleet.tell(up);
     const of = clashingOf(fleet.source.get());
-    expect(of("session", "s2")).toEqual([{ with: CLASH.other, paths: CLASH.paths }]);
-    expect(of("session", "s1")).toEqual([{ with: CLASH.one, paths: CLASH.paths }]);
+    expect(of("session", "s2")).toEqual([
+      {
+        with: CLASH.other,
+        paths: CLASH.paths,
+      },
+    ]);
+    expect(of("session", "s1")).toEqual([
+      {
+        with: CLASH.one,
+        paths: CLASH.paths,
+      },
+    ]);
     expect(of("session", "s3")).toEqual([]);
   });
 
   it("are read again once the board has changed, one pending read however busy it is", async () => {
-    const fleet = harness([[], [CLASH]]);
+    const fleet = harness([
+      [],
+      [
+        CLASH,
+      ],
+    ]);
     await fleet.listen();
     await fleet.tell(up);
     await fleet.tell(up);
@@ -89,31 +149,54 @@ describe("the clashes Fleet reports", () => {
     expect(fleet.reads()).toBe(1);
     await fleet.fire();
     expect(fleet.reads()).toBe(2);
-    expect(fleet.source.get()).toEqual([CLASH]);
+    expect(fleet.source.get()).toEqual([
+      CLASH,
+    ]);
   });
 
   it("go on being read while one stands, so a cleared one goes, and stop when none does", async () => {
-    const fleet = harness([[CLASH], [CLASH], []]);
+    const fleet = harness([
+      [
+        CLASH,
+      ],
+      [
+        CLASH,
+      ],
+      [],
+    ]);
     await fleet.listen();
     await fleet.tell(up);
     expect(fleet.pending()).not.toBeNull();
     await fleet.fire();
-    expect(fleet.source.get()).toEqual([CLASH]);
+    expect(fleet.source.get()).toEqual([
+      CLASH,
+    ]);
     await fleet.fire();
     expect(fleet.source.get()).toEqual([]);
     expect(fleet.pending()).toBeNull();
   });
 
   it("keep what stands through a read that was refused", async () => {
-    const fleet = harness([[CLASH], "refused"]);
+    const fleet = harness([
+      [
+        CLASH,
+      ],
+      "refused",
+    ]);
     await fleet.listen();
     await fleet.tell(up);
     await fleet.fire();
-    expect(fleet.source.get()).toEqual([CLASH]);
+    expect(fleet.source.get()).toEqual([
+      CLASH,
+    ]);
   });
 
   it("are dropped with the connection, and read again when it returns", async () => {
-    const fleet = harness([[CLASH]]);
+    const fleet = harness([
+      [
+        CLASH,
+      ],
+    ]);
     await fleet.listen();
     await fleet.tell(up);
     await fleet.tell(down);
@@ -121,11 +204,20 @@ describe("the clashes Fleet reports", () => {
     expect(fleet.pending()).toBeNull();
     await fleet.tell(up);
     expect(fleet.reads()).toBe(2);
-    expect(fleet.source.get()).toEqual([CLASH]);
+    expect(fleet.source.get()).toEqual([
+      CLASH,
+    ]);
   });
 
   it("tell a listener only when the list changed", async () => {
-    const fleet = harness([[CLASH], [CLASH]]);
+    const fleet = harness([
+      [
+        CLASH,
+      ],
+      [
+        CLASH,
+      ],
+    ]);
     let told = 0;
     await fleet.listen(() => told++);
     await fleet.tell(up);

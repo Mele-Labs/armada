@@ -30,39 +30,72 @@ import { browserProject } from "./vitest.browser.preset";
 import WeightedShards from "./vitest.shard";
 
 // What loads a surface's code, by path under `src/renderer/src`.
-const smokeNode = ["src/renderer/src/mock/**/*.test.ts", "src/renderer/src/left-column.test.ts"];
-const smokeBrowser = ["src/renderer/src/mock/**/*.test.tsx", "src/renderer/src/annotate/Layer.test.tsx"];
+const smokeNode = [
+  "src/renderer/src/mock/**/*.test.ts",
+  "src/renderer/src/left-column.test.ts",
+];
+const smokeBrowser = [
+  "src/renderer/src/mock/**/*.test.tsx",
+  "src/renderer/src/annotate/Layer.test.tsx",
+];
 
 // The preset takes an `include` and nothing else, so what `smoke (browser)` owns is taken out here.
-const desktopBrowser = browserProject("desktop (browser)", ["src/renderer/**/*.test.tsx"]);
-desktopBrowser.test = { ...desktopBrowser.test, exclude: [...configDefaults.exclude, ...smokeBrowser] };
+const desktopBrowser = browserProject("desktop (browser)", [
+  "src/renderer/**/*.test.tsx",
+]);
+desktopBrowser.test = {
+  ...desktopBrowser.test,
+  exclude: [
+    ...configDefaults.exclude,
+    ...smokeBrowser,
+  ],
+};
 
 // The walks play on the mock, whose note card reads the components' stories from the server
 // that serves the page, as `vite.mock.config.ts` does; without it a walk that picks a variant stops.
 const smokeBrowserProject = browserProject("smoke (browser)", smokeBrowser);
-smokeBrowserProject.plugins = [...(smokeBrowserProject.plugins ?? []), annotationStories()];
+smokeBrowserProject.plugins = [
+  ...(smokeBrowserProject.plugins ?? []),
+  annotationStories(),
+];
 // The story files the card draws import `storybook/test`; crawled here, as `vite.mock.config.ts` does, so Vite
 // bundles it before the first walk and never reloads a test to find it.
-smokeBrowserProject.optimizeDeps = { ...smokeBrowserProject.optimizeDeps, entries: ["../../packages/components/src/**/*.stories.tsx"] };
+smokeBrowserProject.optimizeDeps = {
+  ...smokeBrowserProject.optimizeDeps,
+  entries: [
+    "../../packages/components/src/**/*.stories.tsx",
+  ],
+};
 
 // `electron.vite.config.ts` builds the walk finder into this module; a test that only loads
 // `capture/window.ts` needs the import to resolve, not the finder. `finder.test.ts` mocks its own.
 const walkFinderStub = {
   name: "armada-walk-finder-stub",
-  resolveId: (source: string) => (source === "virtual:armada-walk-finder" ? "\0virtual:armada-walk-finder" : null),
-  load: (file: string) => (file === "\0virtual:armada-walk-finder" ? 'export default "var ArmadaFinder = {};"' : null),
+  resolveId: (source: string) =>
+    source === "virtual:armada-walk-finder" ? "\0virtual:armada-walk-finder" : null,
+  load: (file: string) =>
+    file === "\0virtual:armada-walk-finder" ? 'export default "var ArmadaFinder = {};"' : null,
 };
 
 export default defineConfig({
   test: {
-    sequence: { sequencer: WeightedShards },
+    sequence: {
+      sequencer: WeightedShards,
+    },
     projects: [
       {
-        plugins: [walkFinderStub],
+        plugins: [
+          walkFinderStub,
+        ],
         test: {
           name: "desktop",
           environment: "node",
-          include: ["src/main/**/*.test.ts", "src/preload/**/*.test.ts", "src/shared/**/*.test.ts", "src/renderer/**/*.test.ts"],
+          include: [
+            "src/main/**/*.test.ts",
+            "src/preload/**/*.test.ts",
+            "src/shared/**/*.test.ts",
+            "src/renderer/**/*.test.ts",
+          ],
           exclude: smokeNode,
         },
       },

@@ -1,5 +1,26 @@
-import { createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { Check, ChevronDown, CircleCheck, CircleX, Copy, Play, RotateCcw, Square, SquareTerminal } from "lucide-react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
+import {
+  Check,
+  ChevronDown,
+  CircleCheck,
+  CircleX,
+  Copy,
+  Play,
+  RotateCcw,
+  Square,
+  SquareTerminal,
+} from "lucide-react";
 
 import { Button } from "../Button/Button";
 import { Tooltip } from "../Tooltip/Tooltip";
@@ -9,10 +30,26 @@ import { plainOf } from "./plain";
 import { begin, change, entryFor, newEntry, subscribeTo, type RunEntry } from "./runs";
 
 /** What a run says: a chunk of the terminal's bytes, escapes intact, then how it ended: with an exit code, or with none, where `stopped` says whether Stop ended it or a signal did. */
-export type CodeRunEvent = { kind: "out"; text: string } | { kind: "end"; code: number } | { kind: "end"; code: null; stopped: boolean };
+export type CodeRunEvent =
+  | {
+      kind: "out";
+      text: string;
+    }
+  | {
+      kind: "end";
+      code: number;
+    }
+  | {
+      kind: "end";
+      code: null;
+      stopped: boolean;
+    };
 
 /** A terminal's size in cells. */
-export type TerminalSize = { cols: number; rows: number };
+export type TerminalSize = {
+  cols: number;
+  rows: number;
+};
 
 /**
  * Runs a command where the Session works and reports back. The person's own act, so nothing
@@ -24,21 +61,91 @@ export type CodeRunner = (
   command: string,
   on: (event: CodeRunEvent) => void,
   size?: TerminalSize,
-) => { stop: () => void; write?: (data: string) => void; resize?: (cols: number, rows: number) => void };
+) => {
+  stop: () => void;
+  write?: (data: string) => void;
+  resize?: (cols: number, rows: number) => void;
+};
 
 export const ProseRunner = createContext<CodeRunner | null>(null);
 
-const SHELLS = new Set(["sh", "bash", "zsh", "shell", "console"]);
+const SHELLS = new Set([
+  "sh",
+  "bash",
+  "zsh",
+  "shell",
+  "console",
+]);
 
 const COMMON = new Set([
-  "cd", "ls", "git", "gh", "pnpm", "npm", "npx", "yarn", "cargo", "armada", "make", "docker", "kubectl", "brew", "node",
-  "python", "python3", "pip", "curl", "cat", "echo", "grep", "rg", "rm", "mv", "cp", "mkdir", "touch", "chmod", "sudo",
-  "tail", "head", "find", "sed", "awk", "xargs", "kill", "ps", "sh", "bash", "zsh", "source", "export",
+  "cd",
+  "ls",
+  "git",
+  "gh",
+  "pnpm",
+  "npm",
+  "npx",
+  "yarn",
+  "cargo",
+  "armada",
+  "make",
+  "docker",
+  "kubectl",
+  "brew",
+  "node",
+  "python",
+  "python3",
+  "pip",
+  "curl",
+  "cat",
+  "echo",
+  "grep",
+  "rg",
+  "rm",
+  "mv",
+  "cp",
+  "mkdir",
+  "touch",
+  "chmod",
+  "sudo",
+  "tail",
+  "head",
+  "find",
+  "sed",
+  "awk",
+  "xargs",
+  "kill",
+  "ps",
+  "sh",
+  "bash",
+  "zsh",
+  "source",
+  "export",
 ]);
 /** A first word that opens a line of code, not of a command. `export` stays: it is shell too. */
 const CODE_WORDS = new Set([
-  "const", "let", "var", "function", "def", "class", "import", "from", "return", "fn", "pub", "use", "struct", "enum",
-  "impl", "interface", "package", "public", "private", "type", "async", "await",
+  "const",
+  "let",
+  "var",
+  "function",
+  "def",
+  "class",
+  "import",
+  "from",
+  "return",
+  "fn",
+  "pub",
+  "use",
+  "struct",
+  "enum",
+  "impl",
+  "interface",
+  "package",
+  "public",
+  "private",
+  "type",
+  "async",
+  "await",
 ]);
 
 /**
@@ -94,7 +201,18 @@ const stripPrompts = (body: string) =>
     .map((line) => line.replace(/^\$ ?/, ""))
     .join("\n");
 
-export type CodePhase = { state: "idle" } | { state: "running" } | { state: "ended"; code: number | null; stopped?: boolean };
+export type CodePhase =
+  | {
+      state: "idle";
+    }
+  | {
+      state: "running";
+    }
+  | {
+      state: "ended";
+      code: number | null;
+      stopped?: boolean;
+    };
 
 /** One run's state: what it has printed and how it stands. `RunnableBlock` and a card that runs a command from its own key both draw it. */
 export type CodeRun = {
@@ -124,21 +242,44 @@ export type CodeRun = {
 export function useCodeRun(runner: CodeRunner | null | undefined, key?: string): CodeRun {
   const own = useRef<RunEntry | null>(null);
   const entry = key === undefined ? (own.current ??= newEntry()) : entryFor(key);
-  const { phase, out, runs, open } = useSyncExternalStore(useMemo(() => subscribeTo(entry), [entry]), () => entry.view);
-  useEffect(() => (key === undefined ? () => entry.handle?.stop() : undefined), [entry, key]);
+  const { phase, out, runs, open } = useSyncExternalStore(
+    useMemo(
+      () => subscribeTo(entry),
+      [
+        entry,
+      ],
+    ),
+    () => entry.view,
+  );
+  useEffect(
+    () => (key === undefined ? () => entry.handle?.stop() : undefined),
+    [
+      entry,
+      key,
+    ],
+  );
   return {
     phase,
     out,
     runs,
     open,
-    setOpen: (next) => change(entry, { open: next }),
+    setOpen: (next) =>
+      change(entry, {
+        open: next,
+      }),
     start: (command, size) => {
       if (runner !== null && runner !== undefined) begin(entry, runner, command, size);
     },
     stop: () => entry.handle?.stop(),
     write: (data) => entry.handle?.write?.(data),
     resize: (cols, rows) => entry.handle?.resize?.(cols, rows),
-    close: () => change(entry, { phase: { state: "idle" }, out: "" }),
+    close: () =>
+      change(entry, {
+        phase: {
+          state: "idle",
+        },
+        out: "",
+      }),
   };
 }
 
@@ -149,32 +290,73 @@ export function RunOutput({ run }: { run: CodeRun }) {
   useEffect(() => {
     const one = log.current;
     if (one !== null) one.scrollTop = one.scrollHeight;
-  }, [out]);
+  }, [
+    out,
+  ]);
   if (phase.state === "idle") return null;
   return (
     <div className="armada-prose__run-panel" role="group" aria-label="Run">
       <div className="armada-prose__run-head">
         {phase.state === "running" ? (
           <Tooltip label="Running">
-            <span className="armada-prose__run-mark" data-result="running" role="img" aria-label="Running">
+            <span
+              className="armada-prose__run-mark"
+              data-result="running"
+              role="img"
+              aria-label="Running"
+            >
               <SquareTerminal size={16} strokeWidth={2} aria-hidden />
             </span>
           </Tooltip>
         ) : (
           <Tooltip label={endedSaid(phase)}>
-            <span className="armada-prose__run-mark" data-result={phase.code === 0 ? "passed" : "failed"} role="img" aria-label={phase.code === 0 ? "Passed" : phase.code === null && phase.stopped !== false ? "Stopped" : "Failed"}>
-              {phase.code === 0 ? <CircleCheck size={16} strokeWidth={2} aria-hidden /> : <CircleX size={16} strokeWidth={2} aria-hidden />}
+            <span
+              className="armada-prose__run-mark"
+              data-result={phase.code === 0 ? "passed" : "failed"}
+              role="img"
+              aria-label={
+                phase.code === 0
+                  ? "Passed"
+                  : phase.code === null && phase.stopped !== false
+                    ? "Stopped"
+                    : "Failed"
+              }
+            >
+              {phase.code === 0 ? (
+                <CircleCheck size={16} strokeWidth={2} aria-hidden />
+              ) : (
+                <CircleX size={16} strokeWidth={2} aria-hidden />
+              )}
             </span>
           </Tooltip>
         )}
         <Tooltip label={open ? "Collapse output" : "Show output"}>
-          <Button variant="ghost" size="sm" iconOnly aria-label={open ? "Collapse output" : "Show output"} aria-expanded={open} onClick={() => setOpen(!open)}>
-            <ChevronDown size={16} strokeWidth={2} aria-hidden className="armada-prose__run-chevron" data-open={open ? "" : undefined} />
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label={open ? "Collapse output" : "Show output"}
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+          >
+            <ChevronDown
+              size={16}
+              strokeWidth={2}
+              aria-hidden
+              className="armada-prose__run-chevron"
+              data-open={open ? "" : undefined}
+            />
           </Button>
         </Tooltip>
       </div>
       {open ? (
-        <pre ref={log} className="armada-prose__run-out" role="log" aria-label="Output" tabIndex={0}>
+        <pre
+          ref={log}
+          className="armada-prose__run-out"
+          role="log"
+          aria-label="Output"
+          tabIndex={0}
+        >
           {plainOf(out)}
         </pre>
       ) : null}
@@ -209,34 +391,86 @@ export function CopyAct({ text, label: named = "Copy" }: { text: string; label?:
           );
         }}
       >
-        {copied ? <Check size={16} strokeWidth={2} aria-hidden /> : <Copy size={16} strokeWidth={2} aria-hidden />}
+        {copied ? (
+          <Check size={16} strokeWidth={2} aria-hidden />
+        ) : (
+          <Copy size={16} strokeWidth={2} aria-hidden />
+        )}
       </Button>
     </Tooltip>
   );
 }
 
 /** `copyLabel` names the copy key where one panel holds several blocks. `run` is a run held elsewhere, which a call card's own key drives too, and is drawn on a terminal that takes keys; left out, the block holds its own, kept past the block by `keep` where that is given. `copy` is the source a fenced block copies, beside Run. */
-export function RunnableBlock({ command, runner, run: held, keep, copy, copyLabel, children }: { command: string; runner?: CodeRunner; run?: CodeRun; keep?: string; copy?: string; copyLabel?: string; children: ReactNode }) {
+export function RunnableBlock({
+  command,
+  runner,
+  run: held,
+  keep,
+  copy,
+  copyLabel,
+  children,
+}: {
+  command: string;
+  runner?: CodeRunner;
+  run?: CodeRun;
+  keep?: string;
+  copy?: string;
+  copyLabel?: string;
+  children: ReactNode;
+}) {
   const own = useCodeRun(runner, keep);
   const terminal = useContext(ProseTerminal);
   const run = held ?? own;
   // The view's pane holds one run, and a block draws it under itself only while it is a run of this command that a block started.
   const dock = held === undefined && terminal !== null ? terminal.dock : null;
   const block = useId();
-  useLayoutEffect(() => dock?.register(block, command), [dock?.register, block, command]);
+  useLayoutEffect(
+    () => dock?.register(block, command),
+    [
+      dock?.register,
+      block,
+      command,
+    ],
+  );
   const docked = dock !== null && dock.command === command && dock.claims(block) ? dock.run : null;
-  const { phase } = dock === null ? run : (docked ?? { phase: { state: "idle" } as const });
+  const { phase } =
+    dock === null
+      ? run
+      : (docked ?? {
+          phase: {
+            state: "idle",
+          } as const,
+        });
   const running = phase.state === "running";
   const start = () => (dock === null ? run.start(command) : dock.start(command, block));
   const stop = dock === null ? run.stop : dock.run.stop;
 
   return (
-    <div className="armada-prose__run" data-state={phase.state} data-docked={docked === null ? undefined : ""} data-held={held === undefined || phase.state === "idle" ? undefined : ""} role="group" aria-label={command.split("\n")[0]}>
+    <div
+      className="armada-prose__run"
+      data-state={phase.state}
+      data-docked={docked === null ? undefined : ""}
+      data-held={held === undefined || phase.state === "idle" ? undefined : ""}
+      role="group"
+      aria-label={command.split("\n")[0]}
+    >
       <div className="armada-prose__run-block">
         {children}
-        {dock !== null && docked !== null && !dock.shown ? <DockedMark dock={dock} phase={phase} /> : null}
+        {dock !== null && docked !== null && !dock.shown ? (
+          <DockedMark dock={dock} phase={phase} />
+        ) : null}
         <span className="armada-prose__run-acts">
-          {copy === undefined ? null : <CopyAct text={copy} {...(copyLabel === undefined ? {} : { label: copyLabel })} />}
+          {copy === undefined ? null : (
+            <CopyAct
+              text={copy}
+              {...(copyLabel === undefined
+                ? {}
+                : {
+                    label: copyLabel,
+                  })}
+            />
+          )}
           {running ? (
             <Tooltip label="Stop">
               <Button variant="ghost" size="sm" iconOnly aria-label="Stop" onClick={stop}>
@@ -258,7 +492,13 @@ export function RunnableBlock({ command, runner, run: held, keep, copy, copyLabe
           )}
         </span>
       </div>
-      {held !== undefined ? <HeldTerminal command={command} run={held} /> : dock === null ? <RunOutput run={run} /> : docked === null ? null : <InlineTerminal dock={dock} />}
+      {held !== undefined ? (
+        <HeldTerminal command={command} run={held} />
+      ) : dock === null ? (
+        <RunOutput run={run} />
+      ) : docked === null ? null : (
+        <InlineTerminal dock={dock} />
+      )}
     </div>
   );
 }

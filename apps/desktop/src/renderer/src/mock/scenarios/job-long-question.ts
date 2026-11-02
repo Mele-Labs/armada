@@ -46,26 +46,70 @@ const job: Session = {
   model: "opus",
   effort: "high",
   mode: "auto",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: new Date(Date.now() - 2 * 60_000).toISOString(),
   standing: "idle",
   attachments: [],
   rows: [
-    { id: "l-1", at: "13:20:00", kind: "message", from: { kind: "you" }, text: "Make the slot lease retry when two Jobs ask for the same bay at once." },
-    { id: "l-2", at: "13:21:02", kind: "message", from: { kind: "agent" }, text: "Two Jobs can ask for the same bay between the read and the write. The second is refused and gives up at once. There are five ways to fix it." },
+    {
+      id: "l-1",
+      at: "13:20:00",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Make the slot lease retry when two Jobs ask for the same bay at once.",
+    },
+    {
+      id: "l-2",
+      at: "13:21:02",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "Two Jobs can ask for the same bay between the read and the write. The second is refused and gives up at once. There are five ways to fix it.",
+    },
   ],
   asked: {
     command: "Where should the retry live?",
     call: "long-q1",
-    offers: ["allow_once", "refuse"],
-    questions: [{ question: "Where should the retry live?", header: "Lease", multi_select: false, options }],
+    offers: [
+      "allow_once",
+      "refuse",
+    ],
+    questions: [
+      {
+        question: "Where should the retry live?",
+        header: "Lease",
+        multi_select: false,
+        options,
+      },
+    ],
   },
 };
 
-const base = holding("job-long-question", "A Job asks a question whose options have long descriptions");
+const base = holding(
+  "job-long-question",
+  "A Job asks a question whose options have long descriptions",
+);
 
 export const s299JobLongQuestion: Scenario = {
   ...base,
-  state: { ...base.state, repository: null },
-  draft: { sessions: () => sessionsStore([job], [], new Map(), []) },
+  state: {
+    ...base.state,
+    repository: null,
+  },
+  draft: {
+    sessions: () =>
+      sessionsStore(
+        [
+          job,
+        ],
+        [],
+        new Map(),
+        [],
+      ),
+  },
 };

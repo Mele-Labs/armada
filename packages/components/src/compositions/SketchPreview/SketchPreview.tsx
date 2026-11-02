@@ -42,12 +42,20 @@ export type SketchPreviewPicture = {
  * the pad draws every box at; the height is a box holding two rows, the pad's
  * `rows={2}`. Numbers here because a `viewBox` is fitted in JavaScript.
  */
-const BOX = { width: 240, height: 76 };
+const BOX = {
+  width: 240,
+  height: 76,
+};
 
 /** Room round the drawing's outermost edge, in pad units. */
 const MARGIN = 24;
 
-type Rect = { x: number; y: number; width: number; height: number };
+type Rect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 
 const SIDE: Record<string, Position> = {
   left: Position.Left,
@@ -56,24 +64,48 @@ const SIDE: Record<string, Position> = {
   bottom: Position.Bottom,
 };
 
-function middleOf(rect: Rect, side: Position): { x: number; y: number } {
+function middleOf(
+  rect: Rect,
+  side: Position,
+): {
+  x: number;
+  y: number;
+} {
   switch (side) {
     case Position.Left:
-      return { x: rect.x, y: rect.y + rect.height / 2 };
+      return {
+        x: rect.x,
+        y: rect.y + rect.height / 2,
+      };
     case Position.Right:
-      return { x: rect.x + rect.width, y: rect.y + rect.height / 2 };
+      return {
+        x: rect.x + rect.width,
+        y: rect.y + rect.height / 2,
+      };
     case Position.Top:
-      return { x: rect.x + rect.width / 2, y: rect.y };
+      return {
+        x: rect.x + rect.width / 2,
+        y: rect.y,
+      };
     default:
-      return { x: rect.x + rect.width / 2, y: rect.y + rect.height };
+      return {
+        x: rect.x + rect.width / 2,
+        y: rect.y + rect.height,
+      };
   }
 }
 
 /** The bezier between two parts' facing sides, as the pad's edge draws it. */
 function joinPath(from: Rect, to: Rect): string {
   const placed = (rect: Rect) => ({
-    position: { x: rect.x, y: rect.y },
-    measured: { width: rect.width, height: rect.height },
+    position: {
+      x: rect.x,
+      y: rect.y,
+    },
+    measured: {
+      width: rect.width,
+      height: rect.height,
+    },
   });
   const { sourceHandle, targetHandle } = facingSides(placed(from), placed(to));
   const out = SIDE[sourceHandle.slice(2)] ?? Position.Right;
@@ -105,20 +137,52 @@ function bounds(rects: readonly Rect[], strokes: readonly SketchStroke[]): Rect 
       ys.push(point.y);
     }
   }
-  if (xs.length === 0) return { x: 0, y: 0, width: 1, height: 1 };
+  if (xs.length === 0)
+    return {
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+    };
   const x = Math.min(...xs) - MARGIN;
   const y = Math.min(...ys) - MARGIN;
-  return { x, y, width: Math.max(...xs) + MARGIN - x, height: Math.max(...ys) + MARGIN - y };
+  return {
+    x,
+    y,
+    width: Math.max(...xs) + MARGIN - x,
+    height: Math.max(...ys) + MARGIN - y,
+  };
 }
 
 export function SketchPreview({ label, boxes, lines, strokes, pictures }: SketchPreviewProps) {
   // An id per drawing, since a board holds several and a marker is found by id.
   const arrow = `sketch-arrow-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const placed = new Map<string, Rect>([
-    ...boxes.map((box) => [box.id, { x: box.x, y: box.y, ...BOX }] as const),
-    ...pictures.map((one) => [one.id, one] as const),
+    ...boxes.map(
+      (box) =>
+        [
+          box.id,
+          {
+            x: box.x,
+            y: box.y,
+            ...BOX,
+          },
+        ] as const,
+    ),
+    ...pictures.map(
+      (one) =>
+        [
+          one.id,
+          one,
+        ] as const,
+    ),
   ]);
-  const view = bounds([...placed.values()], strokes);
+  const view = bounds(
+    [
+      ...placed.values(),
+    ],
+    strokes,
+  );
   return (
     <svg
       className="armada-sketch-preview"

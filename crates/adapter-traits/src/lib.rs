@@ -203,6 +203,12 @@ pub trait AgentHarness {
         None
     }
 
+    /// The CLI's own version, asked of it on `path` for at most `within`. **`None` by default**, and
+    /// where it did not answer in time: the debug report says so rather than wait.
+    fn version_within(&self, _path: &str, _within: core::time::Duration) -> Option<alloc::string::String> {
+        None
+    }
+
     /// A file read or a command run, where `event` is a call that did one. `None` for every other
     /// event, an edit call included. **Which tools these are is the harness's vocabulary**, asked of
     /// it for the reason `edited` is.

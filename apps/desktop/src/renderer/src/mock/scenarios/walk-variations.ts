@@ -11,8 +11,20 @@ import { s200Sessions } from "./sessions";
 const varier: Session = {
   id: VARIER,
   title: "Board layout takes",
-  turn: { state: "idle" },
-  rows: [{ id: "v1", at: "14:41:02", kind: "message", from: { kind: "agent" }, text: "Three layouts for the Board are built." }],
+  turn: {
+    state: "idle",
+  },
+  rows: [
+    {
+      id: "v1",
+      at: "14:41:02",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "Three layouts for the Board are built.",
+    },
+  ],
   attachments: [],
 };
 
@@ -20,5 +32,10 @@ export const s205WalkVariations: Scenario = {
   ...s200Sessions,
   name: "walk-variations",
   says: "A Session that shows three takes of one page, swapped on the window's bar",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [varier]) },
+  draft: {
+    sessions: (board) =>
+      s200Sessions.draft!.sessions!(board, [
+        varier,
+      ]),
+  },
 };

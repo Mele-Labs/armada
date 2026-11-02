@@ -28,8 +28,8 @@ import { createKeptStyles } from "@armada/screens/src/kept-styles";
 import { WiredNumbered } from "./numbered-fleet";
 import { WiredSessions } from "./sessions-wired";
 import { ThreadLookSaved } from "./thread-look-here";
-import { SleepSourceProvider } from "./sleep";
-import { createFleetSleep } from "./fleet-sleep";
+import { AutopilotDecisionsSourceProvider } from "./autopilot-decisions";
+import { createFleetAutopilotDecisions } from "./fleet-autopilot-decisions";
 import { createFleetPlanUsage } from "./fleet-plan-usage";
 import { timelineSince } from "./cockpit/deck/ConsoleTimeline";
 import { createFleetTimeline } from "./fleet-timeline";
@@ -50,6 +50,8 @@ import { WiredSharedPanel } from "./shared-panel/wired";
 import { reviewSourceOf } from "./pr-review/source";
 import { createFleetTerritory } from "./fleet-territory";
 import { createFleetAccount } from "./fleet-account";
+import { DebugReportFrom } from "./debug-report/debug-report";
+import { createFleetDebugReport } from "./fleet-debug-report";
 import { createFleetSharedHome } from "./fleet-shared-home";
 import { AccountFromFleet } from "./account-fleet";
 import { ClashesFromFleet } from "./clashes";
@@ -78,7 +80,10 @@ import { BUILT_IN_SWATCHES, modSwatch } from "./swatches";
 // when everything under it has gone.
 
 /** The themes this window offers: Fleet's mods and the saved preference, and the catalogue Bridge ships. */
-const THEMES = createFleetThemes(withState(window.armada), CATALOGUE, { builtIn: BUILT_IN_SWATCHES, ofMod: modSwatch });
+const THEMES = createFleetThemes(withState(window.armada), CATALOGUE, {
+  builtIn: BUILT_IN_SWATCHES,
+  ofMod: modSwatch,
+});
 
 /** The layout this window draws: Fleet's layout mods and the owner's saved choices, or the shipped layout in safe mode. */
 const LAYOUT = skipsMods() ? createLayoutSource() : createFleetLayout(withState(window.armada));
@@ -102,8 +107,8 @@ const MOCK_STYLES = createKeptStyles(
   (hash) => window.armada.readKeptStyles(hash).then((read) => (read.ok ? read.value : undefined)),
   () => document.documentElement.getAttribute("data-theme"),
 );
-/** The moon in the title row and the night's decisions as Cockpit calls, over Fleet. */
-const SLEEP = createFleetSleep(withState(window.armada));
+/** What Autopilot answered while the owner was away, as Cockpit calls to review, over Fleet. */
+const AUTOPILOT_DECISIONS = createFleetAutopilotDecisions(withState(window.armada));
 /** The plan's windows in the title row, over Fleet. */
 const PLAN_USAGE = createFleetPlanUsage(withState(window.armada));
 /** The default model's offered step down on the weekly meter, over Fleet. */
@@ -121,8 +126,12 @@ const REVIEWS = createReviewStore(reviewSourceOf(window.armada));
 const ISSUES = createIssuesStore(issuesSourceOf(window.armada, window.armada));
 /** His projects, kept in Fleet and read when the window opens, then kept current by `projects.changed`. */
 const PROJECTS = createProjectsStore(window.armada);
+/** The text Copy debug report shows: Fleet's where it answers, and `armada report` run by main where it does not. */
+const DEBUG_REPORT = createFleetDebugReport(window.armada, withState(window.armada));
 /** The title menu's account entry: the profiles, the sign-in and What syncs, over Fleet. A kind switched reads the home again. */
-const ACCOUNT = createFleetAccount(withState(window.armada), undefined, { kindSwitched: (login) => HOME.readAgain(login) });
+const ACCOUNT = createFleetAccount(withState(window.armada), undefined, {
+  kindSwitched: (login) => HOME.readAgain(login),
+});
 /** Kit and the Theme rows against the chosen profile's shared home, over Fleet. */
 const HOME = createFleetSharedHome(window.armada, ACCOUNT);
 
@@ -138,54 +147,52 @@ function Root() {
   }, []);
 
   return (
-    <Boundary
-      region="the window"
-      usable={false}
-      bridge={bridge}
-    >
+    <Boundary region="the window" usable={false} bridge={bridge}>
       {/* Here rather than in `App`, which the mock mounts: only a real Bridge reaches a trackpad. */}
       <HapticsProvider perform={window.armada.tap}>
         <Themed source={THEMES}>
           <LayoutSourceProvider value={LAYOUT}>
             <TaughtSourceProvider value={TAUGHT}>
-            <TweakSourceProvider source={TWEAKS}>
-            <PhoneSourceProvider value={PHONE}>
-              <SleepSourceProvider value={SLEEP}>
-                <WiredNumbered>
-                  <PlanUsageSourceProvider value={PLAN_USAGE}>
-                    <DownshiftSourceProvider value={DOWNSHIFT}>
-                    <AgentSignInSourceProvider value={AGENT_SIGN_IN}>
-                      <WiredSessions events={TIMELINE}>
-                        <ClashesFromFleet source={CLASHES}>
-                          <TerritoryFromFleet source={TERRITORY}>
-                            <AccountFromFleet source={ACCOUNT} home={HOME}>
-                              <FleetEventsOver source={TIMELINE}>
-                                <ReviewsFrom store={REVIEWS}>
-                                  <IssuesFrom store={ISSUES}>
-                                    <ProjectsFrom store={PROJECTS}>
-                                      <ThreadLookSaved>
-                                        <MockStylesContext.Provider value={MOCK_STYLES}>
-                                          <WiredSharedPanel>
-                                            <App />
-                                            <TweaksApplied />
-                                          </WiredSharedPanel>
-                                        </MockStylesContext.Provider>
-                                      </ThreadLookSaved>
-                                    </ProjectsFrom>
-                                  </IssuesFrom>
-                                </ReviewsFrom>
-                              </FleetEventsOver>
-                            </AccountFromFleet>
-                          </TerritoryFromFleet>
-                        </ClashesFromFleet>
-                      </WiredSessions>
-                    </AgentSignInSourceProvider>
-                    </DownshiftSourceProvider>
-                  </PlanUsageSourceProvider>
-                </WiredNumbered>
-              </SleepSourceProvider>
-            </PhoneSourceProvider>
-            </TweakSourceProvider>
+              <TweakSourceProvider source={TWEAKS}>
+                <PhoneSourceProvider value={PHONE}>
+                  <AutopilotDecisionsSourceProvider value={AUTOPILOT_DECISIONS}>
+                    <WiredNumbered>
+                      <PlanUsageSourceProvider value={PLAN_USAGE}>
+                        <DownshiftSourceProvider value={DOWNSHIFT}>
+                          <AgentSignInSourceProvider value={AGENT_SIGN_IN}>
+                            <WiredSessions events={TIMELINE}>
+                              <ClashesFromFleet source={CLASHES}>
+                                <TerritoryFromFleet source={TERRITORY}>
+                                  <AccountFromFleet source={ACCOUNT} home={HOME}>
+                                    <FleetEventsOver source={TIMELINE}>
+                                      <ReviewsFrom store={REVIEWS}>
+                                        <IssuesFrom store={ISSUES}>
+                                          <ProjectsFrom store={PROJECTS}>
+                                            <ThreadLookSaved>
+                                              <MockStylesContext.Provider value={MOCK_STYLES}>
+                                                <DebugReportFrom read={DEBUG_REPORT}>
+                                                  <WiredSharedPanel>
+                                                    <App />
+                                                    <TweaksApplied />
+                                                  </WiredSharedPanel>
+                                                </DebugReportFrom>
+                                              </MockStylesContext.Provider>
+                                            </ThreadLookSaved>
+                                          </ProjectsFrom>
+                                        </IssuesFrom>
+                                      </ReviewsFrom>
+                                    </FleetEventsOver>
+                                  </AccountFromFleet>
+                                </TerritoryFromFleet>
+                              </ClashesFromFleet>
+                            </WiredSessions>
+                          </AgentSignInSourceProvider>
+                        </DownshiftSourceProvider>
+                      </PlanUsageSourceProvider>
+                    </WiredNumbered>
+                  </AutopilotDecisionsSourceProvider>
+                </PhoneSourceProvider>
+              </TweakSourceProvider>
             </TaughtSourceProvider>
           </LayoutSourceProvider>
         </Themed>

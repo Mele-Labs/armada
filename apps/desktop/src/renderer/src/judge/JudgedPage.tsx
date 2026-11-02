@@ -13,7 +13,8 @@ const BLOCKS = "p, h1, h2, h3, h4, h5, h6, li, tr, pre, blockquote, section, div
 
 const WORDS = "p:";
 
-const wordsOf = (el: Element): string => (el.textContent ?? "").split(/\s+/).filter(Boolean).join(" ");
+const wordsOf = (el: Element): string =>
+  (el.textContent ?? "").split(/\s+/).filter(Boolean).join(" ");
 
 /** Where a holder goes for the block: inside a list item, after a row's whole table, else straight after it. */
 const holderAfter = (block: HTMLElement, holder: HTMLElement) => {
@@ -21,16 +22,39 @@ const holderAfter = (block: HTMLElement, holder: HTMLElement) => {
   (block.tagName === "TR" ? (block.closest("table") ?? block) : block).after(holder);
 };
 
-type Holder = { about: string; el: HTMLElement };
+type Holder = {
+  about: string;
+  el: HTMLElement;
+};
 
 /** `root` is the page the layer drew: a new one is a new set of nodes, so the holders are made again. */
-export function JudgedPage({ page, root, job, artifact }: { page: RefObject<HTMLDivElement | null>; root: HTMLElement; job: string; artifact: Pick<JudgeArtifact, "kind" | "id"> }) {
+export function JudgedPage({
+  page,
+  root,
+  job,
+  artifact,
+}: {
+  page: RefObject<HTMLDivElement | null>;
+  root: HTMLElement;
+  job: string;
+  artifact: Pick<JudgeArtifact, "kind" | "id">;
+}) {
   const { notes } = useJudgeNotes(job, artifact);
   const asked = useNotesAsked(job, artifact);
   const [holders, setHolders] = useState<readonly Holder[]>([]);
   const [head, setHead] = useState<HTMLElement | undefined>();
   const [placed, setPlaced] = useState<ReadonlySet<string>>(new Set());
-  const wanted = JSON.stringify([...new Set(notes.flatMap((one) => (one.about?.startsWith(WORDS) === true ? [one.about] : [])))]);
+  const wanted = JSON.stringify([
+    ...new Set(
+      notes.flatMap((one) =>
+        one.about?.startsWith(WORDS) === true
+          ? [
+              one.about,
+            ]
+          : [],
+      ),
+    ),
+  ]);
   const any = notes.length > 0;
   useLayoutEffect(() => {
     const el = page.current;
@@ -40,7 +64,14 @@ export function JudgedPage({ page, root, job, artifact }: { page: RefObject<HTML
       setPlaced(new Set());
       return;
     }
-    const blocks = [...el.querySelectorAll<HTMLElement>(BLOCKS)].filter((one) => one.closest(".armada-doc__sketch") === null).map((one) => ({ one, words: wordsOf(one) }));
+    const blocks = [
+      ...el.querySelectorAll<HTMLElement>(BLOCKS),
+    ]
+      .filter((one) => one.closest(".armada-doc__sketch") === null)
+      .map((one) => ({
+        one,
+        words: wordsOf(one),
+      }));
     const made: HTMLElement[] = [];
     const holder = () => {
       const put = document.createElement("div");
@@ -56,7 +87,12 @@ export function JudgedPage({ page, root, job, artifact }: { page: RefObject<HTML
       if (block === undefined) return [];
       const under = holder();
       holderAfter(block, under);
-      return [{ about, el: under }];
+      return [
+        {
+          about,
+          el: under,
+        },
+      ];
     });
     const top = holder();
     el.prepend(top);
@@ -64,17 +100,50 @@ export function JudgedPage({ page, root, job, artifact }: { page: RefObject<HTML
     setHead(top);
     setPlaced(new Set(next.map((one) => one.about)));
     return () => made.forEach((one) => one.remove());
-  }, [page, root, wanted, any]);
+  }, [
+    page,
+    root,
+    wanted,
+    any,
+  ]);
   // A press asked for the notes: the first on the page comes into view, and an open page that has none is asked no more.
   useEffect(() => {
     if (!asked || head === undefined) return;
-    page.current?.querySelector(".judge-notes")?.scrollIntoView({ block: "center" });
+    page.current?.querySelector(".judge-notes")?.scrollIntoView({
+      block: "center",
+    });
     notesBrought();
-  }, [asked, head, holders, page]);
+  }, [
+    asked,
+    head,
+    holders,
+    page,
+  ]);
   return (
     <>
-      {head === undefined ? null : createPortal(<JudgeNotes job={job} artifact={artifact} label="Notes from the judge" only={(note) => note.about === undefined || !placed.has(note.about)} />, head)}
-      {holders.map((one) => createPortal(<JudgeNotes job={job} artifact={artifact} label="Notes on this part" only={(note) => note.about === one.about} />, one.el, one.about))}
+      {head === undefined
+        ? null
+        : createPortal(
+            <JudgeNotes
+              job={job}
+              artifact={artifact}
+              label="Notes from the judge"
+              only={(note) => note.about === undefined || !placed.has(note.about)}
+            />,
+            head,
+          )}
+      {holders.map((one) =>
+        createPortal(
+          <JudgeNotes
+            job={job}
+            artifact={artifact}
+            label="Notes on this part"
+            only={(note) => note.about === one.about}
+          />,
+          one.el,
+          one.about,
+        ),
+      )}
     </>
   );
 }

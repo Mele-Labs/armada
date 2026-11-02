@@ -5,7 +5,17 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { FilesReach } from "@armada/components";
-import type { MergeLines, PullRequestFilePatches, PullRequestNote, PullRequestNotes, PullRequestPage, RepositorySummary, SavePullRequestNote, SendPullRequestNotes, WorktreeSlot } from "@armada/protocol";
+import type {
+  MergeLines,
+  PullRequestFilePatches,
+  PullRequestNote,
+  PullRequestNotes,
+  PullRequestPage,
+  RepositorySummary,
+  SavePullRequestNote,
+  SendPullRequestNotes,
+  WorktreeSlot,
+} from "@armada/protocol";
 import type { PullRequestAct, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import type { RequestsApi } from "../../../shared/api/requests";
@@ -14,14 +24,24 @@ import type { TerminalRunApi } from "./terminal-run";
 import { browsePullRequestsWith, forgetPanel, hostsPanel } from "./store";
 import type { PanelItem } from "./store";
 
-type Of<K extends PanelItem["kind"]> = Extract<PanelItem, { kind: K }>;
+type Of<K extends PanelItem["kind"]> = Extract<
+  PanelItem,
+  {
+    kind: K;
+  }
+>;
 
 /** A pull request as the forge says it, whoever owns it. */
 export type PullRequestRead = {
   repository: string;
   root?: string;
   /** The state the panel draws, as a Session's attachment carries it. */
-  facts: Extract<SessionAttachment, { kind: "pull_request" }>;
+  facts: Extract<
+    SessionAttachment,
+    {
+      kind: "pull_request";
+    }
+  >;
   page: PullRequestPage;
 };
 
@@ -37,9 +57,18 @@ export type IssueRead = {
   labels: readonly string[];
   assignees: readonly string[];
   body: string;
-  comments: readonly { author: string; at: string; body: string }[];
+  comments: readonly {
+    author: string;
+    at: string;
+    body: string;
+  }[];
   /** Pull requests that name it, each opening in this same panel. */
-  linked: readonly { number: number; title: string; address: string; state: "open" | "merged" | "closed" }[];
+  linked: readonly {
+    number: number;
+    title: string;
+    address: string;
+    state: "open" | "merged" | "closed";
+  }[];
 };
 
 export type BayRead = {
@@ -47,7 +76,10 @@ export type BayRead = {
   repository: string;
   state: "leased" | "free" | "stranded" | "closed";
   word: string;
-  holder?: { id: string; title: string };
+  holder?: {
+    id: string;
+    title: string;
+  };
   branch?: string;
   heldFor?: string;
   base: string;
@@ -56,7 +88,11 @@ export type BayRead = {
   path: string;
   uncommitted: readonly string[];
   unpushed: readonly string[];
-  history: readonly { who: string; span: string; branch?: string }[];
+  history: readonly {
+    who: string;
+    span: string;
+    branch?: string;
+  }[];
   /** The pool's own slot, where Fleet served it: the panel manages the bay through it. */
   slot?: WorktreeSlot;
 };
@@ -65,26 +101,65 @@ export type CheckRead = {
   name: string;
   repository: string;
   state: "passed" | "failed" | "running";
-  runs: readonly { on: string; state: "passed" | "failed" | "running"; seconds?: number; ago: string; pull?: { number: number; address: string } }[];
-  log: { run: string; lines: readonly string[] };
+  runs: readonly {
+    on: string;
+    state: "passed" | "failed" | "running";
+    seconds?: number;
+    ago: string;
+    pull?: {
+      number: number;
+      address: string;
+    };
+  }[];
+  log: {
+    run: string;
+    lines: readonly string[];
+  };
 };
 
 /** Every changed file's patch in the forge's order, or Fleet's words for why they were not read. */
-export type PatchesRead = { ok: true; files: PullRequestFilePatches["files"] } | { ok: false; said: string };
+export type PatchesRead =
+  | {
+      ok: true;
+      files: PullRequestFilePatches["files"];
+    }
+  | {
+      ok: false;
+      said: string;
+    };
 
 /** The page was refused: Fleet's own words, with the forge's reason and what to do. */
 /** The forge's refusal in Fleet's words. `root` is the repository's checkout, where a command the words name is run. */
-export type PullRequestRefused = { refused: string; root?: string };
+export type PullRequestRefused = {
+  refused: string;
+  root?: string;
+};
 
 /** What Fleet answered of a note act: the value, or its words for why not. */
-export type NotesRead<T> = { ok: true; value: T } | { ok: false; said: string };
+export type NotesRead<T> =
+  | {
+      ok: true;
+      value: T;
+    }
+  | {
+      ok: false;
+      said: string;
+    };
 
 /** The owner's notes for the Job that holds a pull request, kept by Fleet so that Job can resolve one. Keyed by the Manifest and the number. */
 export type PullRequestNotesReads = {
   list: (manifestId: string, number: number) => Promise<NotesRead<PullRequestNotes>>;
-  save: (manifestId: string, number: number, save: SavePullRequestNote) => Promise<NotesRead<PullRequestNote>>;
+  save: (
+    manifestId: string,
+    number: number,
+    save: SavePullRequestNote,
+  ) => Promise<NotesRead<PullRequestNote>>;
   remove: (manifestId: string, number: number, id: string) => Promise<NotesRead<PullRequestNotes>>;
-  send: (manifestId: string, number: number, send: SendPullRequestNotes) => Promise<NotesRead<PullRequestNotes>>;
+  send: (
+    manifestId: string,
+    number: number,
+    send: SendPullRequestNotes,
+  ) => Promise<NotesRead<PullRequestNotes>>;
 };
 
 export type PanelReads = {
@@ -100,7 +175,22 @@ export type PanelReads = {
   /** The owner's notes for the Job. Absent where Fleet serves none, and the Files tab draws no gutter for a note. */
   notes?: PullRequestNotesReads;
   /** A comment or a review written on the forge. Answers the page as it stands after. */
-  writePullRequest?: (item: Of<"pr">, write: { kind: "comment" | "approve" | "request_changes"; body?: string }) => Promise<{ ok: true; page: PullRequestPage } | { ok: false; said: string }>;
+  writePullRequest?: (
+    item: Of<"pr">,
+    write: {
+      kind: "comment" | "approve" | "request_changes";
+      body?: string;
+    },
+  ) => Promise<
+    | {
+        ok: true;
+        page: PullRequestPage;
+      }
+    | {
+        ok: false;
+        said: string;
+      }
+  >;
   /** A forge act on a pull request nobody here owns. A pull request a Job holds goes through that Job. */
   actOnPullRequest?: (item: Of<"pr">, act: PullRequestAct) => Promise<boolean>;
   issue: (item: Of<"issue">) => Promise<IssueRead | undefined>;
@@ -119,30 +209,59 @@ export type PanelReads = {
   /** Requests' reads, saves and sends, through Fleet. Absent where Fleet serves none, and Requests says so. */
   requests?: RequestsApi;
   /** The repositories Fleet lists, and the one the Cockpit is narrowed to (`null` on All), as they stand when asked. */
-  repositories?: () => { listed: readonly RepositorySummary[]; filter: string | null };
+  repositories?: () => {
+    listed: readonly RepositorySummary[];
+    filter: string | null;
+  };
   /** The issues and pull requests a `#number` in the panel's words can name. */
-  numbered: readonly { kind: "issue" | "pull_request"; number: string; title: string; url?: string }[];
+  numbered: readonly {
+    kind: "issue" | "pull_request";
+    number: string;
+    title: string;
+    url?: string;
+  }[];
 };
 
 const Held = createContext<PanelReads | undefined>(undefined);
 
 /** Hands the window its reads, and says a panel is hosted for as long as it is mounted. */
-export function SharedPanelFrom({ reads, children }: { reads: PanelReads | undefined; children: ReactNode }) {
+export function SharedPanelFrom({
+  reads,
+  children,
+}: {
+  reads: PanelReads | undefined;
+  children: ReactNode;
+}) {
   const hosted = reads !== undefined;
   useEffect(() => {
     if (!hosted) return;
     forgetPanel();
     return hostsPanel();
-  }, [hosted]);
+  }, [
+    hosted,
+  ]);
   const browse = reads?.browse;
-  useEffect(() => browsePullRequestsWith(browse), [browse]);
+  useEffect(
+    () => browsePullRequestsWith(browse),
+    [
+      browse,
+    ],
+  );
   return <Held.Provider value={reads}>{children}</Held.Provider>;
 }
 
 export const usePanelReads = (): PanelReads | undefined => useContext(Held);
 
 /** A read as it stands: out, or answered, where an answer of nothing is `value` absent. `refreshing` is a kept answer drawn while the read goes out once more. */
-export type Reading<T> = { out: true } | { out: false; value: T | undefined; refreshing: boolean };
+export type Reading<T> =
+  | {
+      out: true;
+    }
+  | {
+      out: false;
+      value: T | undefined;
+      refreshing: boolean;
+    };
 
 /** The last answer of each read kept by key, so a panel opened again draws it at once while the read goes out once more. */
 const kept = new Map<string, unknown>();
@@ -151,8 +270,26 @@ const kept = new Map<string, unknown>();
 export const forgetReadings = (): void => kept.clear();
 
 /** A read, started when `key` changes. A change of `again` reads once more and keeps what was read meanwhile. A read that throws answered nothing. With `keep`, the last answer for `key` is drawn from the first frame while the read refreshes it. */
-export function useReading<T>(start: () => Promise<T | undefined>, key: string, again = 0, keep = false): Reading<T> {
-  const [value, setValue] = useState<{ key: string; value: T | undefined } | undefined>(() => (keep && kept.has(key) ? { key, value: kept.get(key) as T } : undefined));
+export function useReading<T>(
+  start: () => Promise<T | undefined>,
+  key: string,
+  again = 0,
+  keep = false,
+): Reading<T> {
+  const [value, setValue] = useState<
+    | {
+        key: string;
+        value: T | undefined;
+      }
+    | undefined
+  >(() =>
+    keep && kept.has(key)
+      ? {
+          key,
+          value: kept.get(key) as T,
+        }
+      : undefined,
+  );
   const seeded = keep && kept.has(key) && value?.key !== key ? (kept.get(key) as T) : undefined;
   const [pending, setPending] = useState(true);
   useEffect(() => {
@@ -163,7 +300,10 @@ export function useReading<T>(start: () => Promise<T | undefined>, key: string, 
       .then((answer) => {
         if (keep && answer !== undefined) kept.set(key, answer);
         if (current) {
-          setValue({ key, value: answer });
+          setValue({
+            key,
+            value: answer,
+          });
           setPending(false);
         }
       });
@@ -171,13 +311,33 @@ export function useReading<T>(start: () => Promise<T | undefined>, key: string, 
       current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, again]);
-  if (value?.key === key) return { out: false, value: value.value, refreshing: pending };
-  return seeded === undefined ? { out: true } : { out: false, value: seeded, refreshing: pending };
+  }, [
+    key,
+    again,
+  ]);
+  if (value?.key === key)
+    return {
+      out: false,
+      value: value.value,
+      refreshing: pending,
+    };
+  return seeded === undefined
+    ? {
+        out: true,
+      }
+    : {
+        out: false,
+        value: seeded,
+        refreshing: pending,
+      };
 }
 
 /** `useReading`, absent while it is in flight and where nothing was found. */
-export function useRead<T>(start: () => Promise<T | undefined>, key: string, again = 0): T | undefined {
+export function useRead<T>(
+  start: () => Promise<T | undefined>,
+  key: string,
+  again = 0,
+): T | undefined {
   const reading = useReading(start, key, again);
   return reading.out ? undefined : reading.value;
 }

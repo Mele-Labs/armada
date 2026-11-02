@@ -31,13 +31,25 @@ export type StudioNodeByHandKind = "note" | "link" | "sketch" | "zone";
 export type StudioNodeWrittenKind = Exclude<StudioNodeByHandKind, "sketch" | "zone">;
 
 export type StudioNodeByHand =
-  | { kind: "note"; said: string }
+  | {
+      kind: "note";
+      said: string;
+    }
   /** `said` is the line beside the address, absent where none was typed. `#1378`. */
-  | { kind: "link"; address: string; said?: string }
+  | {
+      kind: "link";
+      address: string;
+      said?: string;
+    }
   /** A path, pasted onto the board. **No field writes one**, so it is no `StudioNodeByHandKind`. */
-  | { kind: "file"; path: string }
+  | {
+      kind: "file";
+      path: string;
+    }
   /** An empty Zone, put down where the board was pressed. #1620. */
-  | { kind: "zone" };
+  | {
+      kind: "zone";
+    };
 
 export type StudioAddNodeProps = {
   /** The kind being written, or `null` for the menu alone. */
@@ -81,9 +93,26 @@ const ACT: Readonly<Record<StudioNodeByHandKind, string>> = {
 };
 
 /** What the field is called, what it asks for, and how tall it is drawn. */
-const FIELD: Readonly<Record<StudioNodeWrittenKind, { label: string; asks: string; rows: number }>> = {
-  note: { label: "Note", asks: "What you noticed", rows: 3 },
-  link: { label: "Link", asks: "A board, document, issue, page or job, as its address", rows: 0 },
+const FIELD: Readonly<
+  Record<
+    StudioNodeWrittenKind,
+    {
+      label: string;
+      asks: string;
+      rows: number;
+    }
+  >
+> = {
+  note: {
+    label: "Note",
+    asks: "What you noticed",
+    rows: 3,
+  },
+  link: {
+    label: "Link",
+    asks: "A board, document, issue, page or job, as its address",
+    rows: 0,
+  },
 };
 
 /** What the menu calls each kind, the Sketch it opens the pad on included. */
@@ -94,7 +123,12 @@ const NAMED: Readonly<Record<StudioNodeByHandKind, string>> = {
   zone: "Zone",
 };
 
-const KINDS: readonly StudioNodeByHandKind[] = ["note", "link", "sketch", "zone"];
+const KINDS: readonly StudioNodeByHandKind[] = [
+  "note",
+  "link",
+  "sketch",
+  "zone",
+];
 
 /**
  * What reading an address in produces, said before anybody presses it —
@@ -105,13 +139,30 @@ const READING_IN_MAKES =
   "to the Link. The Link stays where it is.";
 
 /** What a person wrote, as the node it makes. Blank is nothing, and sends nothing. */
-function written(kind: StudioNodeWrittenKind, draft: string, line: string): StudioNodeByHand | null {
+function written(
+  kind: StudioNodeWrittenKind,
+  draft: string,
+  line: string,
+): StudioNodeByHand | null {
   const said = draft.trim();
   if (said === "") return null;
-  if (kind === "note") return { kind, said };
+  if (kind === "note")
+    return {
+      kind,
+      said,
+    };
   // A Link is its address whatever is typed beside it, so a blank line is left
   // out rather than sent — one shape for a Link nobody wrote a line on.
-  return line.trim() === "" ? { kind, address: said } : { kind, address: said, said: line.trim() };
+  return line.trim() === ""
+    ? {
+        kind,
+        address: said,
+      }
+    : {
+        kind,
+        address: said,
+        said: line.trim(),
+      };
 }
 
 export function StudioAddNode({
@@ -133,11 +184,18 @@ export function StudioAddNode({
   useEffect(() => {
     setDraft("");
     setLine("");
-  }, [adding]);
+  }, [
+    adding,
+  ]);
 
   useEffect(() => {
     if (adding !== null) onWritten?.(written(adding, draft, line));
-  }, [adding, draft, line, onWritten]);
+  }, [
+    adding,
+    draft,
+    line,
+    onWritten,
+  ]);
 
   if (adding === null) {
     return (
@@ -182,7 +240,13 @@ export function StudioAddNode({
         <Input
           key={adding}
           autoFocus
-          {...(inPlace ? { "aria-label": label } : { label })}
+          {...(inPlace
+            ? {
+                "aria-label": label,
+              }
+            : {
+                label,
+              })}
           placeholder={asks}
           value={draft}
           mono
@@ -196,7 +260,13 @@ export function StudioAddNode({
         <Textarea
           key={adding}
           autoFocus
-          {...(inPlace ? { "aria-label": label } : { label })}
+          {...(inPlace
+            ? {
+                "aria-label": label,
+              }
+            : {
+                label,
+              })}
           placeholder={asks}
           rows={rows}
           value={draft}
@@ -232,7 +302,16 @@ export function StudioAddNode({
             Cancel
           </Button>
         )}
-        {adding === "link" ? <Kbd>Enter</Kbd> : <KbdChord keys={["⌘", "Enter"]} />}
+        {adding === "link" ? (
+          <Kbd>Enter</Kbd>
+        ) : (
+          <KbdChord
+            keys={[
+              "⌘",
+              "Enter",
+            ]}
+          />
+        )}
       </div>
     </div>
   );
@@ -257,7 +336,11 @@ type PastedOfferProps = {
  */
 function PastedOffer({ line, onLine, onKeyDown, readIn }: PastedOfferProps) {
   return (
-    <div className="armada-studio-add-node__offer" role="group" aria-label="What to do with this address">
+    <div
+      className="armada-studio-add-node__offer"
+      role="group"
+      aria-label="What to do with this address"
+    >
       <Input
         label="Your line"
         placeholder="Why you kept it"

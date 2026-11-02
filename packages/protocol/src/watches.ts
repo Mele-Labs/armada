@@ -14,24 +14,51 @@ export type WatchReadingState = "waiting" | "running" | "passed" | "failed";
 export type WatchState = WatchReadingState | "not_ours" | "gave_up" | "broken" | "stopped";
 
 /** One part of a reading: where to look at it, the exact lines it failed on and the end of its own log, where its line gave them. */
-export type WatchPart = { name: string; state: WatchReadingState; link?: string; error?: string; tail?: string };
+export type WatchPart = {
+  name: string;
+  state: WatchReadingState;
+  link?: string;
+  error?: string;
+  tail?: string;
+};
 
 /** A part the agent weighed as not its change's doing, and why. Drawn struck through. */
-export type WatchSetAside = { part: string; sentence: string };
+export type WatchSetAside = {
+  part: string;
+  sentence: string;
+};
 
 /**
  * A run of readings that read the same, as `readings` carries one: `count` is how many in a row, absent for one, `at`
  * the first and `last_at` the last. `last` never carries a run.
  */
-type WatchRun = { count?: number; last_at?: string };
+type WatchRun = {
+  count?: number;
+  last_at?: string;
+};
 
 /**
  * One reading: what the command's line said, or why it gave none. A broken run's `output` is its last one's. `log` is the whole
  * output of a run that failed or broke, as a file on this Mac; a run of readings carries its last one's.
  */
 export type WatchReading =
-  | ({ kind: "read"; at: string; state: WatchReadingState; finished: boolean; says: string; link?: string; parts?: WatchPart[]; log?: string } & WatchRun)
-  | ({ kind: "broken"; at: string; why: string; output?: string; log?: string } & WatchRun);
+  | ({
+      kind: "read";
+      at: string;
+      state: WatchReadingState;
+      finished: boolean;
+      says: string;
+      link?: string;
+      parts?: WatchPart[];
+      log?: string;
+    } & WatchRun)
+  | ({
+      kind: "broken";
+      at: string;
+      why: string;
+      output?: string;
+      log?: string;
+    } & WatchRun);
 
 export type WatchSummary = {
   /** What `weigh_watch` and `stop_watch` name. */
@@ -68,19 +95,39 @@ export type WatchSummary = {
 };
 
 /** Where a watch's environment came from: the person's login shell, or Fleet's own and why. */
-export type LoginShell = { kind: "read" } | { kind: "fell_back"; why: string };
+export type LoginShell =
+  | {
+      kind: "read";
+    }
+  | {
+      kind: "fell_back";
+      why: string;
+    };
 
 /**
  * One `weigh_watch`, as kept on the watch. `at` places it after the reading it weighed. Each verdict carries the agent's
  * `sentence`; `parts` are those a `not_ours` set aside.
  */
-export type WatchVerdict = { at: string; verdict: "ours" | "not_ours"; sentence: string; parts?: string[]; evidence?: WatchEvidence };
+export type WatchVerdict = {
+  at: string;
+  verdict: "ours" | "not_ours";
+  sentence: string;
+  parts?: string[];
+  evidence?: WatchEvidence;
+};
 
 /** What backs a `not_ours`: links to what was watched, log files the agent saved, and the exact error lines. Each list may be absent. */
-export type WatchEvidence = { links?: string[]; logs?: string[]; errors?: string[] };
+export type WatchEvidence = {
+  links?: string[];
+  logs?: string[];
+  errors?: string[];
+};
 
 /** `list_watches`: a Job's live watches, and with `?ended=true` its ended ones too, the newest first. `watches.changed` carries both. */
-export type WatchList = { session_id: string; watches: WatchSummary[] };
+export type WatchList = {
+  session_id: string;
+  watches: WatchSummary[];
+};
 
 /** `watches.changed`: one Job's watches after any change to one, whole, as `list_watches` answers for it. */
 export type WatchesChanged = WatchList;
@@ -92,13 +139,34 @@ export type StartWatch = {
   follows?: number;
   set_aside?: WatchSetAside[];
 } & (
-  | { recipe: string; values?: Record<string, string> }
-  | { command: string[]; every: string; gives_up_after?: string }
-  | { in_terminal: string; regex?: boolean; gives_up_after?: string }
+  | {
+      recipe: string;
+      values?: Record<string, string>;
+    }
+  | {
+      command: string[];
+      every: string;
+      gives_up_after?: string;
+    }
+  | {
+      in_terminal: string;
+      regex?: boolean;
+      gives_up_after?: string;
+    }
 );
 
 /** `try_watch`: a recipe with its values, or the agent's own command, run once and kept nowhere. */
-export type TryWatch = { session_id?: string } & ({ recipe: string; values?: Record<string, string> } | { command: string[] });
+export type TryWatch = {
+  session_id?: string;
+} & (
+  | {
+      recipe: string;
+      values?: Record<string, string>;
+    }
+  | {
+      command: string[];
+    }
+);
 
 /** What `try_watch` read, and where and how its command ran. */
 export type WatchTried = {
@@ -130,7 +198,10 @@ export type WatchRecipeListed = {
 };
 
 /** `list_watch_recipes`: one per name, the copy a start would run, and each file left out with why. */
-export type WatchRecipeList = { recipes: WatchRecipeListed[]; left_out?: string[] };
+export type WatchRecipeList = {
+  recipes: WatchRecipeListed[];
+  left_out?: string[];
+};
 
 /** `save_watch_recipe`: written into this Mac's own recipes only. */
 export type SaveWatchRecipe = {
@@ -146,25 +217,57 @@ export type SaveWatchRecipe = {
   replace?: boolean;
 };
 
-export type WatchRecipeSaved = { recipe: WatchRecipeListed; file: string; script?: string; replaced: boolean };
+export type WatchRecipeSaved = {
+  recipe: WatchRecipeListed;
+  file: string;
+  script?: string;
+  replaced: boolean;
+};
 
 /** `weigh_watch`, each verdict with its sentence. `ours` ends the watch failed; `not_ours` sets its parts aside. */
-export type WeighWatch = { session_id?: string; watch: string } & (
-  | { verdict: "ours"; sentence: string }
-  | { verdict: "not_ours"; sentence: string; parts: string[]; evidence?: WatchEvidence }
+export type WeighWatch = {
+  session_id?: string;
+  watch: string;
+} & (
+  | {
+      verdict: "ours";
+      sentence: string;
+    }
+  | {
+      verdict: "not_ours";
+      sentence: string;
+      parts: string[];
+      evidence?: WatchEvidence;
+    }
 );
 
 /** `stop_watch`: the person's Stop, or the agent's. */
-export type StopWatch = { session_id?: string; watch: string };
+export type StopWatch = {
+  session_id?: string;
+  watch: string;
+};
 
 /** `dismiss_wait`: the cross on a pull request of the Job's own that its Waiting band lists. Fleet stops listing it as holding the Job open and touches the pull request not at all. Answers the Job's `SessionRecord`. Bridge only. */
-export type DismissWait = { session_id: string; pull_request: number };
+export type DismissWait = {
+  session_id: string;
+  pull_request: number;
+};
 
 /** `read_watch_log`: the log a kept reading of `watch` carries as `log`, read whole. `GET /watches/log?watch=&log=`. Bridge only. */
-export type ReadWatchLog = { watch: string; log: string };
+export type ReadWatchLog = {
+  watch: string;
+  log: string;
+};
 
 /** What a reading's log holds: the run's stdout and stderr, as much as it captured. */
-export type WatchLog = { watch: string; log: string; text: string };
+export type WatchLog = {
+  watch: string;
+  log: string;
+  text: string;
+};
 
 /** `delete_watch`: an ended watch only, and all kept of it. Answers the Job's `WatchList` after, live and ended. */
-export type DeleteWatch = { session_id?: string; watch: string };
+export type DeleteWatch = {
+  session_id?: string;
+  watch: string;
+};

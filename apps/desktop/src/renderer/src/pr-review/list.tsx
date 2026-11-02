@@ -7,7 +7,25 @@
 
 import { useEffect, useState } from "react";
 import { Bot, Check, History, LoaderCircle, RotateCw, X } from "lucide-react";
-import { Button, DropdownMenu, Input, Kbd, ListCard, ListCardChip, ListCardMark, ListCardPending, ListCardTime, PrMark, SearchField, Textarea, Tooltip, agoOf, forgetKept, sendsOn, useKept } from "@armada/components";
+import {
+  Button,
+  DropdownMenu,
+  Input,
+  Kbd,
+  ListCard,
+  ListCardChip,
+  ListCardMark,
+  ListCardPending,
+  ListCardTime,
+  PrMark,
+  SearchField,
+  Textarea,
+  Tooltip,
+  agoOf,
+  forgetKept,
+  sendsOn,
+  useKept,
+} from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 
@@ -20,10 +38,22 @@ import { reviewFieldOf, reviewViewEntries, useReviewView } from "./row-view";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
 
 const LISTS = [
-  { id: "requested", label: "Requested for Review" },
-  { id: "team", label: "Team" },
-  { id: "assigned", label: "Assigned" },
-  { id: "mine", label: "My PRs" },
+  {
+    id: "requested",
+    label: "Requested for Review",
+  },
+  {
+    id: "team",
+    label: "Team",
+  },
+  {
+    id: "assigned",
+    label: "Assigned",
+  },
+  {
+    id: "mine",
+    label: "My PRs",
+  },
 ];
 
 const FIND_KEEP = "pr-review:find";
@@ -32,56 +62,153 @@ const SEARCH_KEEP = "pr-review:search";
 const ASK = "ask";
 
 /** The repository picked narrows the list, as it narrows every other list in the window. */
-export const inRepository = (pr: ReviewPr, picked: RepositorySummary | null): boolean => picked === null || picked.manifest === undefined || pr.manifestId === picked.manifest.id;
+export const inRepository = (pr: ReviewPr, picked: RepositorySummary | null): boolean =>
+  picked === null || picked.manifest === undefined || pr.manifestId === picked.manifest.id;
 
 /** Whether a row answers the words in the bar: its title, `#number`, repository or author, in any case. */
 const matches = (pr: ReviewPr, words: string): boolean => {
   const wanted = words.trim().toLowerCase();
-  return wanted === "" || [pr.title, `#${pr.number}`, pr.repository, pr.page.author ?? ""].some((one) => one.toLowerCase().includes(wanted));
+  return (
+    wanted === "" ||
+    [
+      pr.title,
+      `#${pr.number}`,
+      pr.repository,
+      pr.page.author ?? "",
+    ].some((one) => one.toLowerCase().includes(wanted))
+  );
 };
 
-export function ReviewList({ picked, repositories }: { picked: RepositorySummary | null; repositories: readonly RepositorySummary[] }) {
+export function ReviewList({
+  picked,
+  repositories,
+}: {
+  picked: RepositorySummary | null;
+  repositories: readonly RepositorySummary[];
+}) {
   const store = useReviewStore()!;
-  const { prs, tab, finds, open, linked, fetchedAt, fetching, failed, work, searching: asking } = useReviews();
+  const {
+    prs,
+    tab,
+    finds,
+    open,
+    linked,
+    fetchedAt,
+    fetching,
+    failed,
+    work,
+    searching: asking,
+  } = useReviews();
   const setAsking = (on: boolean) => store.setSearching(on);
   const [words, setWords] = useState("");
   const [narrow, setNarrow] = useKept<string>(SEARCH_KEEP, "");
   const [address, setAddress] = useState("");
   const [unopened, setUnopened] = useState<string | undefined>(undefined);
   // A right press on the list, or the menu key on a row, opens the View menu (`row-view.ts`) where it was pressed.
-  const [menu, setMenu] = useState<{ x: number; y: number; row: HTMLElement | null }>();
+  const [menu, setMenu] = useState<{
+    x: number;
+    y: number;
+    row: HTMLElement | null;
+  }>();
   const [view, toggleField] = useReviewView();
   // The box is drawn only when he chose it in the dropdown, in place of the list, until he sends or leaves it.
   // The list is read each time the view is opened, and on Refresh. Nothing reads it in between.
   useEffect(() => {
     store.fetch();
-  }, [store]);
+  }, [
+    store,
+  ]);
 
   const find = finds.find((one) => one.id === tab);
-  const chosen: { pr: ReviewPr; reason?: string }[] =
+  const chosen: {
+    pr: ReviewPr;
+    reason?: string;
+  }[] =
     find === undefined
-      ? prs.filter((one) => one.lists.some((list) => list === tab) && inRepository(one, picked)).map((pr) => ({ pr, ...(tab === "team" && pr.team !== undefined ? { reason: pr.team } : {}) }))
+      ? prs
+          .filter((one) => one.lists.some((list) => list === tab) && inRepository(one, picked))
+          .map((pr) => ({
+            pr,
+            ...(tab === "team" && pr.team !== undefined
+              ? {
+                  reason: pr.team,
+                }
+              : {}),
+          }))
       : find.hits.flatMap((hit) => {
           const pr = prs.find((one) => one.key === hit.key);
-          return pr === undefined || !inRepository(pr, picked) ? [] : [{ pr, reason: hit.reason }];
+          return pr === undefined || !inRepository(pr, picked)
+            ? []
+            : [
+                {
+                  pr,
+                  reason: hit.reason,
+                },
+              ];
         });
   // What he opened by its link is on no list the forge keeps, so it sits above whichever one is chosen, where he can click back to it.
   const byLink = linked.flatMap((key) => {
     const pr = prs.find((one) => one.key === key);
-    return pr === undefined || !inRepository(pr, picked) || chosen.some((one) => one.pr.key === key) ? [] : [{ pr, reason: "Opened by its link" }];
+    return pr === undefined || !inRepository(pr, picked) || chosen.some((one) => one.pr.key === key)
+      ? []
+      : [
+          {
+            pr,
+            reason: "Opened by its link",
+          },
+        ];
   });
-  const rows = [...byLink, ...chosen];
+  const rows = [
+    ...byLink,
+    ...chosen,
+  ];
   const shown = rows.filter(({ pr }) => matches(pr, narrow));
-  const fetched = fetchedAt === undefined ? "Not fetched" : `Fetched ${agoOf(new Date(fetchedAt).toISOString())}`;
+  const fetched =
+    fetchedAt === undefined ? "Not fetched" : `Fetched ${agoOf(new Date(fetchedAt).toISOString())}`;
   const here = asking ? ASK : tab;
   // Until the first read has answered or been refused, the rows are the shape of what is coming. A list read and empty is not this.
   const pending = fetchedAt === undefined && failed === undefined;
   const entries: DropdownMenuEntry[] = [
-    ...LISTS.map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.label, selected: here === one.id })),
-    ...(finds.length === 0 ? [] : [{ kind: "separator", id: "finds-rule" } as const, { kind: "label", id: "finds-label", label: "Finds" } as const]),
-    ...finds.map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.words, selected: here === one.id })),
-    { kind: "separator", id: "ask-rule" },
-    { kind: "item", id: ASK, label: "Natural Search", selected: asking, shortcut: capOf(REVIEW_KEYS.search) },
+    ...LISTS.map(
+      (one): DropdownMenuEntry => ({
+        kind: "item",
+        id: one.id,
+        label: one.label,
+        selected: here === one.id,
+      }),
+    ),
+    ...(finds.length === 0
+      ? []
+      : [
+          {
+            kind: "separator",
+            id: "finds-rule",
+          } as const,
+          {
+            kind: "label",
+            id: "finds-label",
+            label: "Finds",
+          } as const,
+        ]),
+    ...finds.map(
+      (one): DropdownMenuEntry => ({
+        kind: "item",
+        id: one.id,
+        label: one.words,
+        selected: here === one.id,
+      }),
+    ),
+    {
+      kind: "separator",
+      id: "ask-rule",
+    },
+    {
+      kind: "item",
+      id: ASK,
+      label: "Natural Search",
+      selected: asking,
+      shortcut: capOf(REVIEW_KEYS.search),
+    },
   ];
   const ask = () => {
     if (words.trim() === "") return;
@@ -115,7 +242,11 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
         const target = event.target as Element;
         if (target.closest("input, textarea, [role='menu']") !== null) return;
         event.preventDefault();
-        setMenu({ x: event.clientX, y: event.clientY, row: target.closest<HTMLElement>(".pr-row") });
+        setMenu({
+          x: event.clientX,
+          y: event.clientY,
+          row: target.closest<HTMLElement>(".pr-row"),
+        });
       }}
       onKeyDown={(event) => {
         if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
@@ -123,17 +254,32 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
         if (row === null) return;
         event.preventDefault();
         const box = row.getBoundingClientRect();
-        setMenu({ x: box.left + box.width / 2, y: box.bottom, row });
+        setMenu({
+          x: box.left + box.width / 2,
+          y: box.bottom,
+          row,
+        });
       }}
     >
       <div className="pr-list__search">
-        <SearchField label="Search the pull requests" value={narrow} onValue={setNarrow} cap={REVIEW_KEYS.filter} />
+        <SearchField
+          label="Search the pull requests"
+          value={narrow}
+          onValue={setNarrow}
+          cap={REVIEW_KEYS.filter}
+        />
       </div>
       <div className="deck-scope pr-list__pick">
         <DropdownMenu
           align="start"
           portal
-          triggerLabel={asking ? "Natural Search" : find === undefined ? (LISTS.find((one) => one.id === tab)?.label ?? "") : find.words}
+          triggerLabel={
+            asking
+              ? "Natural Search"
+              : find === undefined
+                ? (LISTS.find((one) => one.id === tab)?.label ?? "")
+                : find.words
+          }
           triggerAriaLabel="List"
           entries={entries}
           onSelect={(id) => {
@@ -143,8 +289,21 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
         />
         <span className="pr-list__refresh">
           <Tooltip label={fetching ? "Fetching" : fetched}>
-            <Button variant="ghost" size="sm" iconOnly aria-label="Refresh" disabled={fetching} onClick={() => store.fetch()}>
-              <RotateCw size={16} strokeWidth={2} aria-hidden data-fetching={fetching || undefined} className="pr-list__spin" />
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Refresh"
+              disabled={fetching}
+              onClick={() => store.fetch()}
+            >
+              <RotateCw
+                size={16}
+                strokeWidth={2}
+                aria-hidden
+                data-fetching={fetching || undefined}
+                className="pr-list__spin"
+              />
             </Button>
           </Tooltip>
         </span>
@@ -166,7 +325,11 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
           mono
           value={address}
           invalid={unopened !== undefined}
-          {...(unopened === undefined ? {} : { message: unopened })}
+          {...(unopened === undefined
+            ? {}
+            : {
+                message: unopened,
+              })}
           onChange={(event) => {
             setAddress(event.target.value);
             setUnopened(undefined);
@@ -174,93 +337,112 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
         />
       </form>
       {asking ? (
-      <form
-        className="pr-find"
-        aria-label="Natural Search"
-        onSubmit={(event) => {
-          event.preventDefault();
-          ask();
-        }}
-      >
-        <Textarea
-          rows={3}
-          autoFocus
-          keep={FIND_KEEP}
+        <form
+          className="pr-find"
           aria-label="Natural Search"
-          value={words}
-          onChange={(event) => setWords(event.target.value)}
-          onKeyDown={(event) => {
-            if (sendsOn(event) && !event.nativeEvent.isComposing) {
-              event.preventDefault();
-              ask();
-            }
+          onSubmit={(event) => {
+            event.preventDefault();
+            ask();
           }}
-        />
-        <Tooltip label="A Drone looks for them, once, when you send" asChild>
-          <Button variant="secondary" size="sm" type="submit" disabled={words.trim() === ""}>
-            Search
-          </Button>
-        </Tooltip>
-      </form>
+        >
+          <Textarea
+            rows={3}
+            autoFocus
+            keep={FIND_KEEP}
+            aria-label="Natural Search"
+            value={words}
+            onChange={(event) => setWords(event.target.value)}
+            onKeyDown={(event) => {
+              if (sendsOn(event) && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                ask();
+              }
+            }}
+          />
+          <Tooltip label="A Drone looks for them, once, when you send" asChild>
+            <Button variant="secondary" size="sm" type="submit" disabled={words.trim() === ""}>
+              Search
+            </Button>
+          </Tooltip>
+        </form>
       ) : (
         <>
-      {failed === undefined ? null : (
-        <p className="pr-list__failed" role="alert">
-          {failed}
-        </p>
-      )}
-      {find === undefined ? null : <FindHead find={find} />}
-      <ul className="deck-list__rows pr-list__rows">
-        {pending ? <PendingRows /> : null}
-        {pending ? [] : shown.map(({ pr, reason }) => (
-          <li key={pr.key} className="deck-list__item">
-            <ListCard
-              className="pr-row"
-              data-checks={pr.checks}
-              selected={open === pr.key}
-              aria-label={`#${pr.number} ${pr.title}`}
-              onClick={() => store.open(pr.key)}
-              title={pr.title}
-              marks={
-                <>
-                  <ListCardMark>{pr.holder === undefined ? null : <HolderMark title={pr.holder.title} />}</ListCardMark>
-                  <ListCardMark wide>
-                    {view.state ? <ReviewMark review={work[pr.key]?.review ?? NO_WORK.review} /> : null}
-                    {view.state ? <ChecksMark checks={pr.checks} /> : null}
-                  </ListCardMark>
-                </>
-              }
-              {...(view.number ? { tag: <ListCardChip>{`#${pr.number}`}</ListCardChip> } : {})}
-              at={<ListCardTime at={pr.updatedAt} said="Last updated" />}
-              lines={
-                view.author || view.repository || (view.reason && reason !== undefined) ? (
-                  <>
-                    {view.author || view.repository ? (
-                      <span className="pr-row__facts">
-                        {view.author ? <span className="pr-row__author">{pr.page.author}</span> : null}
-                        {view.repository ? <span className="pr-row__repository">{pr.repository}</span> : null}
-                      </span>
-                    ) : null}
-                    {!view.reason || reason === undefined ? null : (
-                      <Tooltip label={reason} asChild>
-                        <span className="pr-row__reason" role="note" aria-label={reason}>
-                          {reason}
-                        </span>
-                      </Tooltip>
-                    )}
-                  </>
-                ) : undefined
-              }
-            />
-          </li>
-        ))}
-      </ul>
+          {failed === undefined ? null : (
+            <p className="pr-list__failed" role="alert">
+              {failed}
+            </p>
+          )}
+          {find === undefined ? null : <FindHead find={find} />}
+          <ul className="deck-list__rows pr-list__rows">
+            {pending ? <PendingRows /> : null}
+            {pending
+              ? []
+              : shown.map(({ pr, reason }) => (
+                  <li key={pr.key} className="deck-list__item">
+                    <ListCard
+                      className="pr-row"
+                      data-checks={pr.checks}
+                      selected={open === pr.key}
+                      aria-label={`#${pr.number} ${pr.title}`}
+                      onClick={() => store.open(pr.key)}
+                      title={pr.title}
+                      marks={
+                        <>
+                          <ListCardMark>
+                            {pr.holder === undefined ? null : (
+                              <HolderMark title={pr.holder.title} />
+                            )}
+                          </ListCardMark>
+                          <ListCardMark wide>
+                            {view.state ? (
+                              <ReviewMark review={work[pr.key]?.review ?? NO_WORK.review} />
+                            ) : null}
+                            {view.state ? <ChecksMark checks={pr.checks} /> : null}
+                          </ListCardMark>
+                        </>
+                      }
+                      {...(view.number
+                        ? {
+                            tag: <ListCardChip>{`#${pr.number}`}</ListCardChip>,
+                          }
+                        : {})}
+                      at={<ListCardTime at={pr.updatedAt} said="Last updated" />}
+                      lines={
+                        view.author || view.repository || (view.reason && reason !== undefined) ? (
+                          <>
+                            {view.author || view.repository ? (
+                              <span className="pr-row__facts">
+                                {view.author ? (
+                                  <span className="pr-row__author">{pr.page.author}</span>
+                                ) : null}
+                                {view.repository ? (
+                                  <span className="pr-row__repository">{pr.repository}</span>
+                                ) : null}
+                              </span>
+                            ) : null}
+                            {!view.reason || reason === undefined ? null : (
+                              <Tooltip label={reason} asChild>
+                                <span className="pr-row__reason" role="note" aria-label={reason}>
+                                  {reason}
+                                </span>
+                              </Tooltip>
+                            )}
+                          </>
+                        ) : undefined
+                      }
+                    />
+                  </li>
+                ))}
+          </ul>
         </>
       )}
       {menu === undefined ? null : (
         <DropdownMenu
           triggerLabel="Pull requests"
-          at={{ x: menu.x, y: menu.y }}
+          at={{
+            x: menu.x,
+            y: menu.y,
+          }}
           open
           entries={reviewViewEntries(view)}
           onOpenChange={(open) => {
@@ -272,7 +454,9 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
             const field = reviewFieldOf(chosen);
             if (field === undefined) return;
             toggleField(field);
-            setMenu({ ...menu });
+            setMenu({
+              ...menu,
+            });
           }}
         />
       )}
@@ -280,7 +464,12 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
   );
 }
 
-const PENDING_TITLES = ["72%", "58%", "66%", "50%"];
+const PENDING_TITLES = [
+  "72%",
+  "58%",
+  "66%",
+  "50%",
+];
 
 /** The rows the list draws before the forge has answered: the card's title and number as bars, no text, so nothing moves when they land. */
 function PendingRows() {
@@ -322,15 +511,31 @@ function FindHead({ find }: { find: Find }) {
       ) : find.run.state === "done" && find.hits.length === 0 ? (
         <PrMark Glyph={Check} said="Nothing found" tone="success" />
       ) : null}
-      {find.run.state === "done" ? <PrMark Glyph={History} said={`Kept. Ran ${agoOf(new Date(find.run.at).toISOString())}`} /> : null}
+      {find.run.state === "done" ? (
+        <PrMark Glyph={History} said={`Kept. Ran ${agoOf(new Date(find.run.at).toISOString())}`} />
+      ) : null}
       <span className="pr-find__acts">
         <Tooltip label="Run again">
-          <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={running} onClick={() => store.spend("Natural Search", () => store.rerunFind(find.id))}>
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label="Run again"
+            disabled={running}
+            onClick={() => store.spend("Natural Search", () => store.rerunFind(find.id))}
+          >
             <RotateCw size={16} strokeWidth={2} aria-hidden />
           </Button>
         </Tooltip>
         <Tooltip label="Remove this find">
-          <Button variant="ghost" size="sm" iconOnly aria-label="Remove this find" disabled={running} onClick={() => store.removeFind(find.id)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label="Remove this find"
+            disabled={running}
+            onClick={() => store.removeFind(find.id)}
+          >
             <X size={16} strokeWidth={2} aria-hidden />
           </Button>
         </Tooltip>

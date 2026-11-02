@@ -85,10 +85,11 @@ mod notice_mutes;
 mod issue_queries;
 /// The projects a person keeps, across repositories: tasks he wrote and linked issues, in order.
 mod projects;
+mod session_init;
 mod session_waiting;
-mod sleep_night;
 /// A repository's Autopilot and what it picked. #2092.
 mod autopilot;
+mod autopilot_decisions;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
 mod kit;
 /// The 113 migrations the numbered list held, frozen.
@@ -209,12 +210,13 @@ pub use issue_queries::KeptIssueQuery;
 pub use projects::{
     KeptAsked, KeptHolder, KeptProject, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskIssue, KeptTaskPull, KeptTaskState, LOOSE as LOOSE_PROJECT,
 };
+pub use session_init::KeptInit;
 pub use session_waiting::{KeptClosed, KeptWaiting};
 pub use session_checks::KeptSessionCheck;
 pub use test_map::{StaleTest, TestsReaching};
 pub use model_downshift::KeptDownshift;
-pub use sleep_night::{SleepRow, SleepSwitch};
 pub use autopilot::{KeptAutopilot, KeptPick};
+pub use autopilot_decisions::KeptDecision;
 pub use limits::SavedLimits;
 pub use main_ci::{MainCi, MainFailedJob, MainMerge, MainState};
 pub use main_fix::{MainFix, TakenBy, TakenHow};

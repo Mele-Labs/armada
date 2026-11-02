@@ -4,7 +4,10 @@
 // mock's `issues-tab` scenario stands in for it in a walk (`mock/slices/issues.ts`).
 
 /** One field the tracker returned for an issue, by the tracker's own name for it. */
-export type TicketField = { name: string; values: string[] };
+export type TicketField = {
+  name: string;
+  values: string[];
+};
 
 /** An issue as a list holds it. `reference` is as the tracker writes it: `#2810`, `ABC-41`. */
 export type Ticket = {
@@ -25,13 +28,31 @@ export type Ticket = {
 
 /** A pull request that names an issue. */
 /** A pull request naming the issue, and its Checks where the forge reports them. */
-export type LinkedPull = { number: number; title: string; address: string; state: "open" | "merged" | "closed"; checks?: { state: "passed" | "running" | "failed"; said: string } };
+export type LinkedPull = {
+  number: number;
+  title: string;
+  address: string;
+  state: "open" | "merged" | "closed";
+  checks?: {
+    state: "passed" | "running" | "failed";
+    said: string;
+  };
+};
 
 /** One issue read whole, for the reader: the row, and what only reading it answers. */
-export type TicketRead = Ticket & { body: string; linked_pull_requests: LinkedPull[] };
+export type TicketRead = Ticket & {
+  body: string;
+  linked_pull_requests: LinkedPull[];
+};
 
 /** A query he saved for a repository: his words, the query the model wrote for them (or he edited), and the fields its rows show. */
-export type SavedQuery = { id: string; name: string; words: string; query: string; row_fields: string[] };
+export type SavedQuery = {
+  id: string;
+  name: string;
+  words: string;
+  query: string;
+  row_fields: string[];
+};
 
 /** What the model wrote for his words, in the tracker's own language. */
 export type WrittenQuery = {
@@ -42,7 +63,9 @@ export type WrittenQuery = {
 };
 
 /** A query to keep. With an `id` it edits that saved query; without, Fleet gives the new one its own. */
-export type QueryToSave = Omit<SavedQuery, "id"> & { id?: string };
+export type QueryToSave = Omit<SavedQuery, "id"> & {
+  id?: string;
+};
 
 /**
  * A repository's tracker, as Fleet reads it. **Read** is any tracker a build or a mod reads; `mod` names the tracker mod
@@ -63,12 +86,32 @@ export type Tracker =
       saved: SavedQuery[];
     }
   /** `named` is the provider the Manifest names, where Fleet says it. */
-  | { manifestId: string; state: "refused"; named?: string; said: string };
+  | {
+      manifestId: string;
+      state: "refused";
+      named?: string;
+      said: string;
+    };
 
-export type ReadTracker = Extract<Tracker, { state: "read" }>;
+export type ReadTracker = Extract<
+  Tracker,
+  {
+    state: "read";
+  }
+>;
 
 /** An answer, or Fleet's words for why there is none. */
-export type Read<T> = { ok: true; value: T } | { ok: false; said: string; /** The program the tracker could not run, as Fleet named it. */ missing?: string; /** The program the tracker ran and found no project for, as Fleet named it. */ needsSetup?: string };
+export type Read<T> =
+  | {
+      ok: true;
+      value: T;
+    }
+  | {
+      ok: false;
+      said: string /** The program the tracker could not run, as Fleet named it. */;
+      missing?: string /** The program the tracker ran and found no project for, as Fleet named it. */;
+      needsSetup?: string;
+    };
 
 /**
  * A bug an agent in a Job reported in Armada itself, as Fleet's `BugReport` with `kept` read as whether the owner kept it.
@@ -87,7 +130,12 @@ export type ReportedBug = {
   at: string;
   kept: boolean;
   /** The pull request of the Job started on it merged: the report is fixed. Absent while it stands open. */
-  fixed?: { at: string; pull_request: number; title: string; url: string };
+  fixed?: {
+    at: string;
+    pull_request: number;
+    title: string;
+    url: string;
+  };
 };
 
 /** What the tab reads and writes. Fleet answers it (`source.ts`), and the mock does in a walk. */
@@ -121,7 +169,10 @@ export const CLOSED = "closed";
 export const DESCRIBE = "describe";
 /** A saved query is chosen by its name, so on All one name reaches each repository that keeps it. */
 export const savedChoice = (name: string): string => `saved:${name}`;
-export const savedName = (choice: string): string | undefined => (choice.startsWith("saved:") ? choice.slice("saved:".length) : undefined);
+export const savedName = (choice: string): string | undefined =>
+  choice.startsWith("saved:") ? choice.slice("saved:".length) : undefined;
 
 /** What a built-in query's rows show. */
-export const BUILT_IN_FIELDS = ["Labels"];
+export const BUILT_IN_FIELDS = [
+  "Labels",
+];

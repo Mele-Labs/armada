@@ -12,10 +12,26 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const { pathname } = new URL(request.url);
     if (pathname === "/v1/enrol") return enrol(request, env);
-    if (!pathname.startsWith("/v1/")) return Response.json({ error: "no_route" }, { status: 404 });
+    if (!pathname.startsWith("/v1/"))
+      return Response.json(
+        {
+          error: "no_route",
+        },
+        {
+          status: 404,
+        },
+      );
 
     const account = DEVICE.exec(request.headers.get(DEVICE_HEADER) ?? "")?.[1];
-    if (!account) return Response.json({ error: "unsigned" }, { status: 401 });
+    if (!account)
+      return Response.json(
+        {
+          error: "unsigned",
+        },
+        {
+          status: 401,
+        },
+      );
     return env.ACCOUNT.get(env.ACCOUNT.idFromName(account)).fetch(request);
   },
 } satisfies ExportedHandler<Env>;

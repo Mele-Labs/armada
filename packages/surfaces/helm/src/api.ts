@@ -19,7 +19,12 @@ import type { Outstanding } from "@armada/screens/src/outstanding";
  * `model` and `effort` are the box's pick, read only by the message that starts the Helm Session; a live one
  * is tuned as any Session is.
  */
-export type HelmCarry = { attachments?: SessionUpload[]; mentions?: SessionTag[]; model?: string; effort?: string };
+export type HelmCarry = {
+  attachments?: SessionUpload[];
+  mentions?: SessionTag[];
+  model?: string;
+  effort?: string;
+};
 
 export type HelmApi = {
   /**
@@ -60,7 +65,12 @@ export type HelmApi = {
    * **Never sent before the delivery succeeded**, and never to Helm's own session. `carry` is what the
    * thought went with, which Fleet keeps on the row so a reload draws it.
    */
-  recordThoughtSent: (manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry) => Promise<Outcome>;
+  recordThoughtSent: (
+    manifestId: string,
+    text: string,
+    target: ThoughtTarget,
+    carry?: HelmCarry,
+  ) => Promise<Outcome>;
   /** End the Helm Session of the repository Helm answers for, so the next message starts a new one. */
   startHelmFresh: () => Promise<Outcome>;
   /**
@@ -72,7 +82,14 @@ export type HelmApi = {
 };
 
 /** The repository Helm answers for. Its Session is one of the window's Sessions, found by its `helm` mark and this id. */
-export type HelmAim = { state: "none" } | { state: "pointed"; manifestId: string };
+export type HelmAim =
+  | {
+      state: "none";
+    }
+  | {
+      state: "pointed";
+      manifestId: string;
+    };
 
 export type HelmState = {
   /**
@@ -86,7 +103,9 @@ export type HelmState = {
 
 export const HELM_NOTHING_YET: HelmState = {
   questions: [],
-  helm: { state: "none" },
+  helm: {
+    state: "none",
+  },
 };
 
 export const HELM_CHANNELS = {

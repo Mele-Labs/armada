@@ -5,7 +5,10 @@ import type { ModelDownshiftState, Outcome } from "@armada/protocol";
 import type { ModelDownshiftRead } from "../shared/api/model-downshift";
 import { ask } from "./request";
 
-const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
+const NOT_CONNECTED: Outcome = {
+  ok: false,
+  why: "not_connected",
+};
 
 export class ModelDownshiftHost {
   private readonly port: () => number | null;
@@ -59,9 +62,20 @@ export class ModelDownshiftHost {
 
   private async act(method: "GET" | "POST", path: string): Promise<ModelDownshiftRead> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: NOT_CONNECTED,
+      };
     const answer = await ask(port, method, path);
-    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-    return { ok: true, value: answer.body as ModelDownshiftState };
+    if (answer.ok !== true)
+      return {
+        ok: false,
+        outcome: answer.outcome,
+      };
+    return {
+      ok: true,
+      value: answer.body as ModelDownshiftState,
+    };
   }
 }

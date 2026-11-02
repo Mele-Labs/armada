@@ -11,93 +11,326 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
   name: "sessions",
   state: SESSIONS_NOTHING_YET,
   api: () => ({
-    startSession: async () => ({ ok: false, outcome: unanswered("/sessions/start") }),
-    beginSession: async () => ({ ok: false, outcome: unanswered("/sessions/begin") }),
-    sendSessionMessage: async () => ({ ok: false, outcome: unanswered("/sessions/message") }),
-    sendSessionNotes: async () => ({ ok: false, outcome: unanswered("/sessions/notes") }),
-    startModSession: async () => ({ ok: false, outcome: unanswered("/mods/session") }),
-    answerSessionAsk: async () => ({ ok: false, outcome: unanswered("/sessions/ask/answer") }),
-    answerWaiting: async () => ({ ok: false, outcome: unanswered("/sessions/waiting/answer") }),
-    claimPullRequest: async () => ({ ok: false, outcome: unanswered("/sessions/claim_pull_request") }),
-    claimIssue: async () => ({ ok: false, outcome: unanswered("/sessions/claim_issue") }),
-    settleLater: async () => ({ ok: false, outcome: unanswered("/sessions/settle_later") }),
-    stopWatch: async () => ({ ok: false, outcome: unanswered("/watches/stop") }),
-    deleteWatch: async () => ({ ok: false, outcome: unanswered("/watches/delete") }),
-    dismissWait: async () => ({ ok: false, outcome: unanswered("/watches/dismiss_wait") }),
-    readWatchLog: async () => ({ ok: false, outcome: unanswered("/watches/log") }),
-    readSessionWait: async () => ({ ok: false, outcome: unanswered("/sessions/read_wait") }),
-    changeWaiting: async () => ({ ok: false, outcome: unanswered("/sessions/change_waiting") }),
-    startWaitingNow: async () => ({ ok: false, outcome: unanswered("/sessions/start_waiting") }),
-    dismissWaiting: async () => ({ ok: false, outcome: unanswered("/sessions/waiting/dismiss") }),
-    reopenWaiting: async () => ({ ok: false, outcome: unanswered("/sessions/waiting/reopen") }),
-    confirmLater: async () => ({ ok: false, outcome: unanswered("/sessions/later/confirm") }),
-    confirmWaiting: async () => ({ ok: false, outcome: unanswered("/sessions/waiting/confirm") }),
-    answerSketch: async () => ({ ok: false, outcome: unanswered("/sessions/sketch/answer") }),
-    answerDocument: async () => ({ ok: false, outcome: unanswered("/sessions/document/answer") }),
-    approvePlan: async () => ({ ok: false, outcome: unanswered("/sessions/plan/approve") }),
-    sendPlanChanges: async () => ({ ok: false, outcome: unanswered("/sessions/plan/changes") }),
-    askJudge: async () => ({ ok: false, outcome: unanswered("/sessions/judge") }),
-    sendJudgeNote: async () => ({ ok: false, outcome: unanswered("/sessions/judge/send") }),
-    dismissJudgeNote: async () => ({ ok: false, outcome: unanswered("/sessions/judge/dismiss") }),
-    markJudgeRead: async () => ({ ok: false, outcome: unanswered("/sessions/judge/read") }),
-    tuneSession: async () => ({ ok: false, outcome: unanswered("/sessions/tune") }),
-    runSessionCommand: async () => ({ ok: false, outcome: unanswered("/sessions/command") }),
-    renameSession: async () => ({ ok: false, outcome: unanswered("/sessions/rename") }),
-    nameSession: async () => ({ ok: false, outcome: unanswered("/sessions/name") }),
-    forkSession: async () => ({ ok: false, outcome: unanswered("/sessions/start") }),
-    forkSessionAt: async () => ({ ok: false, outcome: unanswered("/sessions/start") }),
+    startSession: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/start"),
+    }),
+    beginSession: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/begin"),
+    }),
+    sendSessionMessage: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/message"),
+    }),
+    sendSessionNotes: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/notes"),
+    }),
+    startModSession: async () => ({
+      ok: false,
+      outcome: unanswered("/mods/session"),
+    }),
+    answerSessionAsk: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/ask/answer"),
+    }),
+    answerWaiting: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/waiting/answer"),
+    }),
+    claimPullRequest: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/claim_pull_request"),
+    }),
+    claimIssue: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/claim_issue"),
+    }),
+    settleLater: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/settle_later"),
+    }),
+    stopWatch: async () => ({
+      ok: false,
+      outcome: unanswered("/watches/stop"),
+    }),
+    deleteWatch: async () => ({
+      ok: false,
+      outcome: unanswered("/watches/delete"),
+    }),
+    dismissWait: async () => ({
+      ok: false,
+      outcome: unanswered("/watches/dismiss_wait"),
+    }),
+    readWatchLog: async () => ({
+      ok: false,
+      outcome: unanswered("/watches/log"),
+    }),
+    readSessionWait: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/read_wait"),
+    }),
+    changeWaiting: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/change_waiting"),
+    }),
+    startWaitingNow: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/start_waiting"),
+    }),
+    dismissWaiting: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/waiting/dismiss"),
+    }),
+    reopenWaiting: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/waiting/reopen"),
+    }),
+    confirmLater: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/later/confirm"),
+    }),
+    confirmWaiting: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/waiting/confirm"),
+    }),
+    answerSketch: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/sketch/answer"),
+    }),
+    answerDocument: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/document/answer"),
+    }),
+    approvePlan: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/plan/approve"),
+    }),
+    sendPlanChanges: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/plan/changes"),
+    }),
+    askJudge: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/judge"),
+    }),
+    sendJudgeNote: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/judge/send"),
+    }),
+    dismissJudgeNote: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/judge/dismiss"),
+    }),
+    markJudgeRead: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/judge/read"),
+    }),
+    tuneSession: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/tune"),
+    }),
+    runSessionCommand: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/command"),
+    }),
+    renameSession: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/rename"),
+    }),
+    nameSession: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/name"),
+    }),
+    forkSession: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/start"),
+    }),
+    forkSessionAt: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/start"),
+    }),
     retroSession: async () => unanswered("/sessions/:session_id/retro"),
-    closeSession: async () => ({ ok: false, outcome: unanswered("/sessions/close") }),
-    stopSession: async () => ({ ok: false, outcome: unanswered("/sessions/stop") }),
-    retryHandoff: async () => ({ ok: false, outcome: unanswered("/sessions/handoff/retry") }),
-    startAgain: async () => ({ ok: false, outcome: unanswered("/sessions/start_again") }),
-    pauseSession: async () => ({ ok: false, outcome: unanswered("/sessions/pause") }),
-    resumeSession: async () => ({ ok: false, outcome: unanswered("/sessions/resume") }),
-    setSessionAutoLand: async () => ({ ok: false, outcome: unanswered("/sessions/auto_land") }),
-    setSessionWorkflow: async () => ({ ok: false, outcome: unanswered("/sessions/workflow") }),
-    skipSessionStep: async () => ({ ok: false, outcome: unanswered("/sessions/step-skip") }),
-    jumpSessionStep: async () => ({ ok: false, outcome: unanswered("/sessions/step-jump") }),
-    handToSession: async () => ({ ok: false, outcome: unanswered("/sessions/hand_to_session") }),
-    releaseSessionHolds: async () => ({ ok: false, outcome: unanswered("/sessions/release_holds") }),
-    moveSession: async () => ({ ok: false, outcome: unanswered("/sessions/move") }),
-    muteNotice: async () => ({ ok: false, outcome: unanswered("/notices/mute") }),
+    closeSession: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/close"),
+    }),
+    stopSession: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/stop"),
+    }),
+    retryHandoff: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/handoff/retry"),
+    }),
+    startAgain: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/start_again"),
+    }),
+    pauseSession: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/pause"),
+    }),
+    resumeSession: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/resume"),
+    }),
+    setSessionAutoLand: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/auto_land"),
+    }),
+    setSessionWorkflow: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/workflow"),
+    }),
+    skipSessionStep: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/step-skip"),
+    }),
+    jumpSessionStep: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/step-jump"),
+    }),
+    handToSession: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/hand_to_session"),
+    }),
+    releaseSessionHolds: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/release_holds"),
+    }),
+    moveSession: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/move"),
+    }),
+    muteNotice: async () => ({
+      ok: false,
+      outcome: unanswered("/notices/mute"),
+    }),
     watchSession: async () => undefined,
-    readSessionFile: async () => ({ ok: false, outcome: unanswered("/sessions/file") }),
-    readSessionSubagent: async () => ({ ok: false, outcome: unanswered("/sessions/subagent") }),
-    readSessionLoadout: async () => ({ ok: false, outcome: unanswered("/sessions/loadout") }),
-    readAttachmentHistory: async () => ({ ok: false, outcome: unanswered("/sessions/attachment_history") }),
-    readKeptStyles: async () => ({ ok: false, outcome: unanswered("/sessions/kept_styles") }),
-    readLoadoutItem: async () => ({ ok: false, outcome: unanswered("/sessions/loadout/item") }),
-    readSessionMcp: async () => ({ ok: false, outcome: unanswered("/sessions/mcp") }),
-    readSessionQuick: async () => ({ ok: true, value: { asked: [], learnt: [] } }),
-    actOnSessionMcp: async () => ({ ok: false, outcome: unanswered("/sessions/mcp/act") }),
-    mendSessionTools: async () => ({ ok: false, outcome: unanswered("/sessions/tools/mend") }),
-    openSessionFile: async () => ({ ok: true }),
-    openSessionWindow: async () => ({ ok: true }),
+    readSessionFile: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/file"),
+    }),
+    readSessionSubagent: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/subagent"),
+    }),
+    readSessionLoadout: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/loadout"),
+    }),
+    readAttachmentHistory: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/attachment_history"),
+    }),
+    readKeptStyles: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/kept_styles"),
+    }),
+    readLoadoutItem: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/loadout/item"),
+    }),
+    readSessionMcp: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/mcp"),
+    }),
+    readSessionQuick: async () => ({
+      ok: true,
+      value: {
+        asked: [],
+        learnt: [],
+      },
+    }),
+    actOnSessionMcp: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/mcp/act"),
+    }),
+    mendSessionTools: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/tools/mend"),
+    }),
+    openSessionFile: async () => ({
+      ok: true,
+    }),
+    openSessionWindow: async () => ({
+      ok: true,
+    }),
     getSessionWindows: async () => [],
     onSessionWindows: () => () => {},
-    readSessionArtifact: async () => ({ ok: false, why: "unreadable" }),
-    showSessionPage: async () => ({ ok: true }),
+    readSessionArtifact: async () => ({
+      ok: false,
+      why: "unreadable",
+    }),
+    showSessionPage: async () => ({
+      ok: true,
+    }),
     moveSessionPage: async () => undefined,
     hideSessionPage: async () => undefined,
     onSessionPageEscape: () => () => undefined,
-    watchSessionSnapshot: async () => ({ ok: true }),
+    watchSessionSnapshot: async () => ({
+      ok: true,
+    }),
     stopSessionSnapshot: async () => undefined,
     onSessionSnapshot: () => () => undefined,
-    pressPullRequest: async () => ({ ok: false, outcome: unanswered("/pull_requests") }),
-    pressRepositoryPullRequest: async () => ({ ok: false, outcome: unanswered("/pull_requests") }),
-    readPullRequestPage: async () => ({ ok: false, outcome: unanswered("/pull_request_details") }),
-    readPullRequestFile: async () => ({ ok: false, outcome: unanswered("/pull_request_files") }),
-    writePullRequest: async () => ({ ok: false, outcome: unanswered("/pull_request_writes") }),
-    startSessionRun: async () => ({ ok: false, outcome: unanswered("/sessions/run/start") }),
-    openTerminal: async () => ({ ok: false, outcome: unanswered("/sessions/terminal/open") }),
-    startTerminalRun: async () => ({ ok: false, outcome: unanswered("/sessions/terminal/run") }),
-    catchUpCheckout: async () => ({ ok: false, outcome: unanswered("/merge_lines/catch_up") }),
-    sendCheckoutAsPullRequest: async () => ({ ok: false, outcome: unanswered("/merge_lines/checkout_to_pull_request") }),
-    readCheckoutDiff: async () => ({ ok: false, outcome: unanswered("/merge_lines/checkout_diff") }),
-    stopSessionRun: async () => ({ ok: false, outcome: unanswered("/sessions/run/stop") }),
-    writeSessionRun: async () => ({ ok: false, outcome: unanswered("/sessions/run/write") }),
-    resizeSessionRun: async () => ({ ok: false, outcome: unanswered("/sessions/run/resize") }),
+    pressPullRequest: async () => ({
+      ok: false,
+      outcome: unanswered("/pull_requests"),
+    }),
+    pressRepositoryPullRequest: async () => ({
+      ok: false,
+      outcome: unanswered("/pull_requests"),
+    }),
+    readPullRequestPage: async () => ({
+      ok: false,
+      outcome: unanswered("/pull_request_details"),
+    }),
+    readPullRequestFile: async () => ({
+      ok: false,
+      outcome: unanswered("/pull_request_files"),
+    }),
+    writePullRequest: async () => ({
+      ok: false,
+      outcome: unanswered("/pull_request_writes"),
+    }),
+    startSessionRun: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/run/start"),
+    }),
+    openTerminal: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/terminal/open"),
+    }),
+    startTerminalRun: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/terminal/run"),
+    }),
+    catchUpCheckout: async () => ({
+      ok: false,
+      outcome: unanswered("/merge_lines/catch_up"),
+    }),
+    sendCheckoutAsPullRequest: async () => ({
+      ok: false,
+      outcome: unanswered("/merge_lines/checkout_to_pull_request"),
+    }),
+    readCheckoutDiff: async () => ({
+      ok: false,
+      outcome: unanswered("/merge_lines/checkout_diff"),
+    }),
+    stopSessionRun: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/run/stop"),
+    }),
+    writeSessionRun: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/run/write"),
+    }),
+    resizeSessionRun: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/run/resize"),
+    }),
     onSessionRunMessage: () => () => undefined,
     onSessionTerminal: () => () => undefined,
     openTerminalWindow: async () => undefined,

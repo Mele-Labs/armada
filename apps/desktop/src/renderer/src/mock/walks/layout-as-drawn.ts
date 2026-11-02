@@ -5,13 +5,42 @@ import { deckRow, inside, place, region, role, toSystemPage, walk } from "../wal
 
 export const layoutAsDrawn = walk("compact-session-view", [
   ...toSystemPage("Layout", "Layout, from System"),
-  { look: role("group", "Cockpit panels"), say: "The Cockpit's panels as drawn. The Jobs list always stays" },
-  { look: role("group", "Job panels"), say: "An open Job's panels, in the order they stand" },
-  { look: role("group", "Places"), say: "Each place once" },
-  { press: role("switch", "Activity"), say: "Activity off" },
-  { press: inside(role("group", "Job panels"), role("switch", "Open")), say: "Open off" },
-  { press: place("Cockpit"), say: "The Cockpit" },
-  { look: region("Flight controls"), say: "Activity's bay stands empty" },
-  { press: deckRow("Retry the slot lease"), say: "A Job" },
-  { look: region("Build", { exact: true }), say: "The right column stands with the Job's current step. Open is gone" },
+  {
+    look: role("group", "Cockpit panels"),
+    say: "The Cockpit's panels as drawn. The Jobs list always stays",
+  },
+  {
+    look: role("group", "Job panels"),
+    say: "An open Job's panels, in the order they stand",
+  },
+  {
+    look: role("group", "Places"),
+    say: "Each place once",
+  },
+  {
+    press: role("switch", "Activity"),
+    say: "Activity off",
+  },
+  {
+    press: inside(role("group", "Job panels"), role("switch", "Open")),
+    say: "Open off",
+  },
+  {
+    press: place("Cockpit"),
+    say: "The Cockpit",
+  },
+  {
+    look: region("Flight controls"),
+    say: "Activity's bay stands empty",
+  },
+  {
+    press: deckRow("Retry the slot lease"),
+    say: "A Job",
+  },
+  {
+    look: region("Build", {
+      exact: true,
+    }),
+    say: "The right column stands with the Job's current step. Open is gone",
+  },
 ]);

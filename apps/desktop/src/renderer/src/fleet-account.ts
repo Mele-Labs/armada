@@ -6,9 +6,25 @@
 // What syncs is read when it is opened for a profile: its kinds, and whether its home is made. A kind switched is drawn
 // at once and then as Fleet answers, and the home is read again, since a kind left off has no rows.
 
-import type { Account, AccountFlow, BlankSetting, Profile, SignedOutNote, SyncChoice, UnboundRepository } from "@armada/components";
+import type {
+  Account,
+  AccountFlow,
+  BlankSetting,
+  Profile,
+  SignedOutNote,
+  SyncChoice,
+  UnboundRepository,
+} from "@armada/components";
 import { openSettingsAt } from "@armada/settings";
-import type { AccountFlow as WireFlow, Accounts, HomeKind, HomeKinds, SharedHomeRead, SignedOut, SignInEnded } from "@armada/protocol";
+import type {
+  AccountFlow as WireFlow,
+  Accounts,
+  HomeKind,
+  HomeKinds,
+  SharedHomeRead,
+  SignedOut,
+  SignInEnded,
+} from "@armada/protocol";
 
 import type { AccountsActed } from "../../shared/api/accounts";
 import type { BridgeState } from "../../shared/bridge";
@@ -51,7 +67,9 @@ export type FleetAccounts = {
 };
 
 /** What What syncs tells the rest of the window: a kind was switched for `login`. */
-export type AccountHooks = { kindSwitched?: (login: string) => void };
+export type AccountHooks = {
+  kindSwitched?: (login: string) => void;
+};
 
 /** Where a pending read waits: `setTimeout` in the app, a hand-turned clock in a test. */
 export type Later = (run: () => void, ms: number) => () => void;
@@ -63,21 +81,53 @@ const timer: Later = (run, ms) => {
 
 /** The settings Fleet's refusal names as blank. Its sentence is all the wire carries of them. */
 const blankIn = (said: string): BlankSetting[] => [
-  ...(said.includes("sign-in app") ? (["account"] as const) : []),
-  ...(said.includes("store address") ? (["store"] as const) : []),
+  ...(said.includes("sign-in app")
+    ? ([
+        "account",
+      ] as const)
+    : []),
+  ...(said.includes("store address")
+    ? ([
+        "store",
+      ] as const)
+    : []),
 ];
 
 const flowOf = (wire: WireFlow): AccountFlow =>
   wire.phase === "code"
-    ? { phase: "code", code: wire.code, expiresIn: wire.expires_in_seconds }
+    ? {
+        phase: "code",
+        code: wire.code,
+        expiresIn: wire.expires_in_seconds,
+      }
     : wire.phase === "setup"
-      ? { phase: "setup", login: wire.login, repository: wire.repository, steps: wire.steps }
-      : { phase: "idle" };
+      ? {
+          phase: "setup",
+          login: wire.login,
+          repository: wire.repository,
+          steps: wire.steps,
+        }
+      : {
+          phase: "idle",
+        };
 
 /** The profile whose What syncs is open: its kinds once read, a switch pressed and not yet answered, and its home. */
-type Sheet = { login: string; kinds?: HomeKinds; pressed: Partial<Record<HomeKind, boolean>>; home?: { account: string; repository: string; made: boolean } };
+type Sheet = {
+  login: string;
+  kinds?: HomeKinds;
+  pressed: Partial<Record<HomeKind, boolean>>;
+  home?: {
+    account: string;
+    repository: string;
+    made: boolean;
+  };
+};
 
-export function createFleetAccount(fleet: FleetAccounts, later: Later = timer, hooks: AccountHooks = {}): AccountSource {
+export function createFleetAccount(
+  fleet: FleetAccounts,
+  later: Later = timer,
+  hooks: AccountHooks = {},
+): AccountSource {
   let wire: Accounts | undefined;
   let refused: string | undefined;
   // Who signed out, until the panel is put away; and the ended sign-in the panel has been put away on.
@@ -102,7 +152,8 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer, h
     addProfile: () => begin(),
     openDevicePage: () => {
       const flow = wire?.flow;
-      if (flow?.phase === "code" && flow.address.startsWith("https://")) void fleet.openLink(flow.address);
+      if (flow?.phase === "code" && flow.address.startsWith("https://"))
+        void fleet.openLink(flow.address);
     },
     dismiss: () => {
       const ended = wire?.flow.phase === "idle" ? wire.flow.ended : undefined;
@@ -135,8 +186,21 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer, h
   const syncsOf = (): Account["syncs"] => {
     if (sheet?.kinds === undefined) return null;
     const pressed = sheet.pressed;
-    const kinds: SyncChoice[] = sheet.kinds.kinds.map((one) => ({ kind: one.kind, on: pressed[one.kind] ?? one.on, pulling: false, items: [] }));
-    return { login: sheet.login, kinds, home: sheet.home ?? { account: sheet.login, repository: HOME_REPOSITORY, made: false } };
+    const kinds: SyncChoice[] = sheet.kinds.kinds.map((one) => ({
+      kind: one.kind,
+      on: pressed[one.kind] ?? one.on,
+      pulling: false,
+      items: [],
+    }));
+    return {
+      login: sheet.login,
+      kinds,
+      home: sheet.home ?? {
+        account: sheet.login,
+        repository: HOME_REPOSITORY,
+        made: false,
+      },
+    };
   };
 
   const heldOf = (from: Accounts, said: string | undefined): AccountHeld => {
@@ -148,36 +212,107 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer, h
       active: false,
       orgs: one.orgs,
       // A home with no copy here has no repository yet, whatever Fleet plans for it.
-      ...(one.home.made ? { repository: one.home.repository } : {}),
-      home: { account: one.home.account, repository: one.home.repository, made: one.home.made },
-      repositories: one.repositories.map((bound) => ({ root: bound.root, name: bound.name, by: bound.how })),
+      ...(one.home.made
+        ? {
+            repository: one.home.repository,
+          }
+        : {}),
+      home: {
+        account: one.home.account,
+        repository: one.home.repository,
+        made: one.home.made,
+      },
+      repositories: one.repositories.map((bound) => ({
+        root: bound.root,
+        name: bound.name,
+        by: bound.how,
+      })),
     }));
-    const unbound: UnboundRepository[] = from.unmatched.map((loose) => ({ root: loose.root, name: loose.name, ...(loose.none_chosen ? { none: true } : {}) }));
+    const unbound: UnboundRepository[] = from.unmatched.map((loose) => ({
+      root: loose.root,
+      name: loose.name,
+      ...(loose.none_chosen
+        ? {
+            none: true,
+          }
+        : {}),
+    }));
     const ended = from.flow.phase === "idle" ? from.flow.ended : undefined;
     const blank = said === undefined ? [] : blankIn(said);
     // A refusal that names no blank setting is the forge declining to begin: it ends the sign-in, refused.
     const end =
       ended === undefined || ended.outcome === "signed_in" || JSON.stringify(ended) === put
         ? undefined
-        : { outcome: ended.outcome, said: ended.said ?? "" };
+        : {
+            outcome: ended.outcome,
+            said: ended.said ?? "",
+          };
     // The home drawn is the chosen profile's, the one Kit draws.
     const drawn = from.profiles.find((one) => one.chosen) ?? from.profiles[0];
     const account: Account = {
       profiles,
       flow: flowOf(from.flow),
-      ...(drawn === undefined ? {} : { home: drawn.home.made }),
+      ...(drawn === undefined
+        ? {}
+        : {
+            home: drawn.home.made,
+          }),
       syncs: syncsOf(),
-      ...(unbound.length === 0 ? {} : { unbound }),
-      ...(end === undefined ? {} : { ended: end }),
-      ...(said === undefined ? {} : blank.length > 0 ? { unavailable: { said, blank } } : { ended: { outcome: "refused" as const, said } }),
-      ...(left === undefined ? {} : { left }),
+      ...(unbound.length === 0
+        ? {}
+        : {
+            unbound,
+          }),
+      ...(end === undefined
+        ? {}
+        : {
+            ended: end,
+          }),
+      ...(said === undefined
+        ? {}
+        : blank.length > 0
+          ? {
+              unavailable: {
+                said,
+                blank,
+              },
+            }
+          : {
+              ended: {
+                outcome: "refused" as const,
+                said,
+              },
+            }),
+      ...(left === undefined
+        ? {}
+        : {
+            left,
+          }),
       ...acts,
     };
-    return { account, ...(ended === undefined ? {} : { ended }), ...(said === undefined ? {} : { refused: said }) };
+    return {
+      account,
+      ...(ended === undefined
+        ? {}
+        : {
+            ended,
+          }),
+      ...(said === undefined
+        ? {}
+        : {
+            refused: said,
+          }),
+    };
   };
 
   const publish = (to: Accounts | undefined, said: string | undefined): void => {
-    const key = JSON.stringify([to, said, left, put, sheet]);
+    const key = JSON.stringify([
+      to,
+      said,
+      left,
+      put,
+      sheet,
+    ]);
     const same = key === shown;
     wire = to;
     refused = said;
@@ -223,7 +358,8 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer, h
       .then((answer) => {
         if (answer.ok) return took(answer, at);
         // Fleet's refusal is an answer: it names which setting is blank, and nothing else changes.
-        if (answer.outcome.ok === false && answer.outcome.why === "refused" && wire !== undefined) publish(wire, answer.outcome.error.message);
+        if (answer.outcome.ok === false && answer.outcome.why === "refused" && wire !== undefined)
+          publish(wire, answer.outcome.error.message);
         return false;
       })
       .finally(() => {
@@ -238,9 +374,19 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer, h
       left = {
         login,
         storeRowRemains: answer.value.store_row_remains,
-        ...(answer.value.said === undefined ? {} : { said: answer.value.said }),
+        ...(answer.value.said === undefined
+          ? {}
+          : {
+              said: answer.value.said,
+            }),
       };
-      took({ ok: true, value: answer.value.accounts }, at);
+      took(
+        {
+          ok: true,
+          value: answer.value.accounts,
+        },
+        at,
+      );
     }
     return answer;
   };
@@ -248,42 +394,83 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer, h
   // The composition names a repository by its root and a profile by its login; Fleet names a profile by
   // its account id. A login Fleet no longer lists asks nothing.
   const bind = async (root: string, login: string | null): Promise<void> => {
-    const account = login === null ? null : wire?.profiles.find((one) => one.login === login)?.account_id;
+    const account =
+      login === null ? null : wire?.profiles.find((one) => one.login === login)?.account_id;
     if (account === undefined) return;
     const at = ++issued;
     const answer = await fleet.setRepositoryProfile(root, account);
     // Fleet's refusal is shown as the page shows the others.
-    if (!answer.ok && answer.outcome.ok === false && answer.outcome.why === "refused" && wire !== undefined) publish(wire, answer.outcome.error.message);
+    if (
+      !answer.ok &&
+      answer.outcome.ok === false &&
+      answer.outcome.why === "refused" &&
+      wire !== undefined
+    )
+      publish(wire, answer.outcome.error.message);
     else took(answer, at);
   };
 
   /** Open What syncs for `login`, reading its kinds and whether its home is made. */
   const open = async (login: string): Promise<void> => {
-    sheet = { login, pressed: {} };
-    const [kinds, home] = await Promise.all([fleet.getHomeKinds(login), fleet.getSharedHome(login)]);
+    sheet = {
+      login,
+      pressed: {},
+    };
+    const [kinds, home] = await Promise.all([
+      fleet.getHomeKinds(login),
+      fleet.getSharedHome(login),
+    ]);
     if (sheet?.login !== login) return;
     if (!kinds.ok) {
       sheet = null;
-      if (kinds.outcome.ok === false && kinds.outcome.why === "refused" && wire !== undefined) publish(wire, kinds.outcome.error.message);
+      if (kinds.outcome.ok === false && kinds.outcome.why === "refused" && wire !== undefined)
+        publish(wire, kinds.outcome.error.message);
       return;
     }
     const made = home.ok && home.value.home !== undefined;
     const place = home.ok ? (home.value.home ?? home.value.planned) : undefined;
-    sheet = { ...sheet, kinds: kinds.value, home: { account: place?.account ?? login, repository: place?.repository ?? HOME_REPOSITORY, made } };
+    sheet = {
+      ...sheet,
+      kinds: kinds.value,
+      home: {
+        account: place?.account ?? login,
+        repository: place?.repository ?? HOME_REPOSITORY,
+        made,
+      },
+    };
     publish(wire, refused);
   };
 
   const switchKind = async (kind: HomeKind, on: boolean): Promise<void> => {
     if (sheet?.kinds === undefined) return;
     const login = sheet.login;
-    sheet = { ...sheet, pressed: { ...sheet.pressed, [kind]: on } };
+    sheet = {
+      ...sheet,
+      pressed: {
+        ...sheet.pressed,
+        [kind]: on,
+      },
+    };
     publish(wire, refused);
     const answer = await fleet.setHomeKind(login, kind, on);
     if (sheet?.login !== login) return;
     const { [kind]: _answered, ...pressed } = sheet.pressed;
-    sheet = { ...sheet, pressed, ...(answer.ok ? { kinds: answer.value } : {}) };
+    sheet = {
+      ...sheet,
+      pressed,
+      ...(answer.ok
+        ? {
+            kinds: answer.value,
+          }
+        : {}),
+    };
     // Fleet's refusal is shown as the page shows the others; the switch goes back to where it stood.
-    publish(wire, !answer.ok && answer.outcome.ok === false && answer.outcome.why === "refused" ? answer.outcome.error.message : refused);
+    publish(
+      wire,
+      !answer.ok && answer.outcome.ok === false && answer.outcome.why === "refused"
+        ? answer.outcome.error.message
+        : refused,
+    );
     if (answer.ok) hooks.kindSwitched?.(login);
   };
 
@@ -325,6 +512,7 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer, h
       };
     },
     refresh: read,
-    signOut: (accountId) => leave(accountId, wire?.profiles.find((one) => one.account_id === accountId)?.login ?? ""),
+    signOut: (accountId) =>
+      leave(accountId, wire?.profiles.find((one) => one.account_id === accountId)?.login ?? ""),
   };
 }

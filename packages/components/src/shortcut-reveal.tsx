@@ -70,7 +70,9 @@ export function ShortcutRevealProvider({ children }: { children: ReactNode }) {
     if (revealing) root.reveal = "";
     else delete root.reveal;
     return () => void delete root.reveal;
-  }, [revealing]);
+  }, [
+    revealing,
+  ]);
 
   return <ShortcutReveal.Provider value={revealing}>{children}</ShortcutReveal.Provider>;
 }

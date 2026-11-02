@@ -13,7 +13,20 @@ export function rootlessSheet(): CheckoutRunSheet {
     destructive: false,
     frozen: false,
   };
-  return { setup: [], checks: [], commands: [], servers: [], workspaces: [{ dir: "apps/web", commands: [dev] }] };
+  return {
+    setup: [],
+    checks: [],
+    commands: [],
+    servers: [],
+    workspaces: [
+      {
+        dir: "apps/web",
+        commands: [
+          dev,
+        ],
+      },
+    ],
+  };
 }
 
 /** `dev` run once in `apps/web`, as `list_checkout_runs` answers it. */

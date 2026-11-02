@@ -6,7 +6,17 @@
 export type VoiceEngine = "apple" | "whisper" | "dictation";
 
 /** Whisper on this Mac, shaped as `WhisperModel` in `thread-look.ts`: not here, coming down (`progress` 0 to 1), or here. */
-export type WhisperState = { state: "absent" } | { state: "installing"; progress: number } | { state: "installed" };
+export type WhisperState =
+  | {
+      state: "absent";
+    }
+  | {
+      state: "installing";
+      progress: number;
+    }
+  | {
+      state: "installed";
+    };
 
 /**
  * Why hearing ended early, or why an install did not finish. `helper_missing`: Armada Voice was not built into this
@@ -29,6 +39,9 @@ export type VoiceWhy =
   | "digest_mismatch"
   | "unpack_failed";
 
+/** The System Settings panes Talk's guide opens. The same as `TalkPane` in `@armada/components`' `thread-look.ts`. */
+export type VoicePane = "microphone" | "speech" | "sound";
+
 export type VoiceApi = {
   /** **Absent in the mock**, whose look source plays Talk from a script. */
   voice?: {
@@ -38,16 +51,39 @@ export type VoiceApi = {
      * neither: macOS types into the box that has focus, so the box must have it before this is called. `onEnd` is
      * called once, when nothing more will come, with why where it ended early.
      */
-    listen: (engine: VoiceEngine, onWord: (word: string) => void, onEnd?: (why?: VoiceWhy) => void) => () => void;
+    listen: (
+      engine: VoiceEngine,
+      onWord: (word: string) => void,
+      onEnd?: (why?: VoiceWhy) => void,
+    ) => () => void;
+    /** Opens the System Settings pane that holds what Talk was refused: Microphone, Speech Recognition, or Sound's input list. */
+    openSettings: (pane: VoicePane) => void;
     whisper: () => Promise<WhisperState>;
     onWhisper: (listener: (state: WhisperState) => void) => () => void;
     /** Downloads whisper.cpp and its model into Bridge's data folder. Resolves when it is installed or has given up. */
-    installWhisper: () => Promise<{ ok: true } | { ok: false; why: VoiceWhy }>;
+    installWhisper: () => Promise<
+      | {
+          ok: true;
+        }
+      | {
+          ok: false;
+          why: VoiceWhy;
+        }
+    >;
   };
 };
 
 /** One message on `voiceHeard`: a word for the hearing `id`, or its end. */
-export type Heard = { id: number; word: string } | { id: number; end: true; why?: VoiceWhy };
+export type Heard =
+  | {
+      id: number;
+      word: string;
+    }
+  | {
+      id: number;
+      end: true;
+      why?: VoiceWhy;
+    };
 
 export const VOICE_CHANNELS = {
   voiceListen: "bridge:voice-listen",
@@ -56,4 +92,5 @@ export const VOICE_CHANNELS = {
   voiceWhisper: "bridge:voice-whisper",
   voiceWhisperChanged: "bridge:voice-whisper-changed",
   voiceInstallWhisper: "bridge:voice-install-whisper",
+  voiceOpenSettings: "bridge:voice-open-settings",
 } as const;

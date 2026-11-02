@@ -36,11 +36,50 @@
 // person most wants out.
 
 import { useEffect, useState } from "react";
-import { Ban, Check, CircleDot, Copy, ExternalLink, FileTerminal, GitFork, GitMerge, GitPullRequest, Globe, ListTodo, MessageSquarePlus, Pause, Play, Plus, Route, Send } from "lucide-react";
+import {
+  Ban,
+  Check,
+  CircleDot,
+  Copy,
+  ExternalLink,
+  FileTerminal,
+  GitFork,
+  GitMerge,
+  GitPullRequest,
+  Globe,
+  ListTodo,
+  MessageSquarePlus,
+  Pause,
+  Play,
+  Plus,
+  Route,
+  Send,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { actsIn, ALIASES, globalActs, CommandPalette, isPressed, keyFor, parseChord, refuseAlias, refuseHotkey } from "@armada/components";
-import type { Action, ActionContext, PaletteAction, PaletteDispatch, PaletteLink, PalettePath, PaletteEntry, PaletteMeta, PaletteSection, PaletteStep } from "@armada/components";
+import {
+  actsIn,
+  ALIASES,
+  globalActs,
+  CommandPalette,
+  isPressed,
+  keyFor,
+  parseChord,
+  refuseAlias,
+  refuseHotkey,
+} from "@armada/components";
+import type {
+  Action,
+  ActionContext,
+  PaletteAction,
+  PaletteDispatch,
+  PaletteLink,
+  PalettePath,
+  PaletteEntry,
+  PaletteMeta,
+  PaletteSection,
+  PaletteStep,
+} from "@armada/components";
 
 /**
  * A Session as a search result: found by any word of its title, or by its id. **A Job says where it is and how it
@@ -51,7 +90,11 @@ export type PaletteSession = {
   label: string;
   aliases: readonly string[];
   repo?: string;
-  state?: { icon: LucideIcon; said: string; pulsing?: true };
+  state?: {
+    icon: LucideIcon;
+    said: string;
+    pulsing?: true;
+  };
   paused?: boolean;
   pull?: number;
   /** Acts of its ⌘K panel that nothing answers here, by act id: left out rather than drawn dead. */
@@ -59,7 +102,11 @@ export type PaletteSession = {
 };
 
 /** An open pull request, an issue: found by its number or any word of its title. */
-export type PaletteTicket = { number: number; title: string; repo: string };
+export type PaletteTicket = {
+  number: number;
+  title: string;
+  repo: string;
+};
 
 /**
  * A row a Commands mod brings: opening a URL, running a shell line, a chain of palette steps, or a prompt that
@@ -79,19 +126,40 @@ export type PaletteCommand = {
 };
 
 /** What the page showing offers: its title heads the block, and its rows are the acts of that page. */
-export type PalettePage = { title: string; rows: readonly (PaletteBoardRow & { shortcut?: string })[] };
+export type PalettePage = {
+  title: string;
+  rows: readonly (PaletteBoardRow & {
+    shortcut?: string;
+  })[];
+};
 
 /** What the empty query shows. A setting. */
 export type PaletteOpens = "pinned" | "page" | "everything";
 
-export const PALETTE_OPENS: readonly { id: PaletteOpens; label: string }[] = [
-  { id: "pinned", label: "Pinned and recent" },
-  { id: "page", label: "This page first" },
-  { id: "everything", label: "Everything" },
+export const PALETTE_OPENS: readonly {
+  id: PaletteOpens;
+  label: string;
+}[] = [
+  {
+    id: "pinned",
+    label: "Pinned and recent",
+  },
+  {
+    id: "page",
+    label: "This page first",
+  },
+  {
+    id: "everything",
+    label: "Everything",
+  },
 ];
 
 /** A task or subtask of the Projects tab as a search result: found by its title, with where it stands as a quiet second line. */
-export type PaletteTask = { id: string; label: string; detail: string };
+export type PaletteTask = {
+  id: string;
+  label: string;
+  detail: string;
+};
 
 /**
  * A destination in Bridge, with the digit that reaches it where it has one.
@@ -153,7 +221,12 @@ export type PaletteRunnable = {
  * standing configuration lives, whether that configuration is read here or
  * changed behind its own screen.
  */
-export type PaletteSetting = { id: string; label: string; value?: string; aliases?: readonly string[] };
+export type PaletteSetting = {
+  id: string;
+  label: string;
+  value?: string;
+  aliases?: readonly string[];
+};
 
 /**
  * One of the Board's state filters, with the digit that sets it.
@@ -165,39 +238,106 @@ export type PaletteSetting = { id: string; label: string; value?: string; aliase
  * filter and set none, which would leave `1`–`5` the one part of the app
  * learnable only by finding the tabs.
  */
-export type PaletteFilter = { id: string; label: string; shortcut: string };
+export type PaletteFilter = {
+  id: string;
+  label: string;
+  shortcut: string;
+};
 
 /**
  * A row about the window as a whole, with no registry row and no rail row: Reported. Drawn under
  * Navigation beside the global acts. The palette is the only place Reported is drawn — the owner's note of 1 Oct 2026.
  */
-export type PaletteBoardRow = { id: string; label: string; icon?: LucideIcon; destructive?: boolean; dormant?: string };
+export type PaletteBoardRow = {
+  id: string;
+  label: string;
+  icon?: LucideIcon;
+  destructive?: boolean;
+  dormant?: string;
+};
 
 /** What a chosen row was. The section it came from decides what happens. */
 export type PaletteChoice =
-  | { of: "act"; id: string }
-  | { of: "session"; id: string }
-  | { of: "task"; id: string }
-  | { of: "surface"; id: string }
-  | { of: "run"; id: string }
-  | { of: "setting"; id: string }
-  | { of: "filter"; id: string }
-  | { of: "board"; id: string }
-  | { of: "page"; id: string }
-  | { of: "pull"; id: string }
-  | { of: "issue"; id: string }
-  | { of: "task"; id: string }
-  | { of: "command"; id: string }
+  | {
+      of: "act";
+      id: string;
+    }
+  | {
+      of: "session";
+      id: string;
+    }
+  | {
+      of: "task";
+      id: string;
+    }
+  | {
+      of: "surface";
+      id: string;
+    }
+  | {
+      of: "run";
+      id: string;
+    }
+  | {
+      of: "setting";
+      id: string;
+    }
+  | {
+      of: "filter";
+      id: string;
+    }
+  | {
+      of: "board";
+      id: string;
+    }
+  | {
+      of: "page";
+      id: string;
+    }
+  | {
+      of: "pull";
+      id: string;
+    }
+  | {
+      of: "issue";
+      id: string;
+    }
+  | {
+      of: "task";
+      id: string;
+    }
+  | {
+      of: "command";
+      id: string;
+    }
   /** An action on a row: the row's id as the palette drew it, and the action's. `value` is what an action that asked was answered: the alias, or the chord. */
-  | { of: "on"; target: string; action: string; value?: string }
+  | {
+      of: "on";
+      target: string;
+      action: string;
+      value?: string;
+    }
   /** `root` is `null` for All repositories. */
-  | { of: "repository"; root: string | null };
+  | {
+      of: "repository";
+      root: string | null;
+    };
 
 /** A row the palette lists, as Settings names it: what it is called, what kind it is, and whether a word or a key can be given it. */
-export type PaletteKnown = { id: string; label: string; kind: string; keyable: boolean; dormant: boolean; shortcut?: string };
+export type PaletteKnown = {
+  id: string;
+  label: string;
+  kind: string;
+  keyable: boolean;
+  dormant: boolean;
+  shortcut?: string;
+};
 
 /** A repository the palette can pick, as the title row's picker names it. */
-export type PaletteRepository = { root: string; label: string };
+export type PaletteRepository = {
+  root: string;
+  label: string;
+};
 
 export type PaletteProps = {
   open: boolean;
@@ -337,7 +477,11 @@ export function useCommandPalette(): {
     return () => window.removeEventListener("keydown", pressed);
   }, []);
 
-  return { open, onOpen: () => setOpen(true), onClose: () => setOpen(false) };
+  return {
+    open,
+    onOpen: () => setOpen(true),
+    onClose: () => setOpen(false),
+  };
 }
 
 export function Palette({
@@ -378,23 +522,88 @@ export function Palette({
 }: PaletteProps) {
   const sections: PaletteSection[] = [
     // The page showing heads the results, titled with it.
-    ...(page === undefined || page.rows.length === 0 ? [] : [{ id: PAGE, title: page.title }]),
-    { id: CONTEXT, title: on ?? NOTHING_FOCUSED },
-    { id: NAVIGATION, title: "Navigation" },
-    ...(commands.length === 0 ? [] : [{ id: COMMANDS, title: "Commands" }]),
+    ...(page === undefined || page.rows.length === 0
+      ? []
+      : [
+          {
+            id: PAGE,
+            title: page.title,
+          },
+        ]),
+    {
+      id: CONTEXT,
+      title: on ?? NOTHING_FOCUSED,
+    },
+    {
+      id: NAVIGATION,
+      title: "Navigation",
+    },
+    ...(commands.length === 0
+      ? []
+      : [
+          {
+            id: COMMANDS,
+            title: "Commands",
+          },
+        ]),
     // **Below Navigation and above Sessions, and it is a fifth block.** The
     // contract's contents order names four, and none of them is this: a Check
     // is not an act on what is focused, not a place, not a Session and
     // not a setting. It sits where it does because it is the one block scoped
     // to the surface showing — nearer the acts than the index of everything.
-    ...(runnables.length === 0 ? [] : [{ id: RUN, title: "Run in the checkout" }]),
+    ...(runnables.length === 0
+      ? []
+      : [
+          {
+            id: RUN,
+            title: "Run in the checkout",
+          },
+        ]),
     // Where the title row's picker is, from the keyboard: the same pick, over the same list.
-    ...(repositories.length === 0 ? [] : [{ id: REPOSITORIES, title: "Repositories" }]),
-    ...(sessions.length === 0 ? [] : [{ id: SESSIONS, title: "Jobs" }]),
-    ...(pulls.length === 0 ? [] : [{ id: PULLS, title: "Pull requests" }]),
-    ...(issues.length === 0 ? [] : [{ id: ISSUES, title: "Issues" }]),
-    ...(tasks.length === 0 ? [] : [{ id: TASKS, title: "Tasks" }]),
-    { id: SETTINGS, title: "Settings" },
+    ...(repositories.length === 0
+      ? []
+      : [
+          {
+            id: REPOSITORIES,
+            title: "Repositories",
+          },
+        ]),
+    ...(sessions.length === 0
+      ? []
+      : [
+          {
+            id: SESSIONS,
+            title: "Jobs",
+          },
+        ]),
+    ...(pulls.length === 0
+      ? []
+      : [
+          {
+            id: PULLS,
+            title: "Pull requests",
+          },
+        ]),
+    ...(issues.length === 0
+      ? []
+      : [
+          {
+            id: ISSUES,
+            title: "Issues",
+          },
+        ]),
+    ...(tasks.length === 0
+      ? []
+      : [
+          {
+            id: TASKS,
+            title: "Tasks",
+          },
+        ]),
+    {
+      id: SETTINGS,
+      title: "Settings",
+    },
   ];
 
   const entries: PaletteEntry[] = [
@@ -402,27 +611,49 @@ export function Palette({
       id: `page:${row.id}`,
       section: PAGE,
       label: row.label,
-      ...(row.icon === undefined ? {} : { icon: row.icon }),
-      ...(row.shortcut === undefined ? {} : { shortcut: row.shortcut }),
-      ...(row.destructive === true ? { destructive: true } : {}),
-      ...(row.dormant === undefined ? {} : { dormant: row.dormant }),
+      ...(row.icon === undefined
+        ? {}
+        : {
+            icon: row.icon,
+          }),
+      ...(row.shortcut === undefined
+        ? {}
+        : {
+            shortcut: row.shortcut,
+          }),
+      ...(row.destructive === true
+        ? {
+            destructive: true,
+          }
+        : {}),
+      ...(row.dormant === undefined
+        ? {}
+        : {
+            dormant: row.dormant,
+          }),
     })),
     ...actsIn(context).flatMap((action) =>
       action.unbuilt === null && absent.includes(action.id)
         ? []
         : action.id === STATE_FILTER && filters.length > 0
-        ? // Expanded into its five, for the reason the roster expands
-          // `deck_tabs` into its places. The one registry row spells a
-          // range over a set whose order is the rule; only the Board knows
-          // what `3` currently narrows to.
-          filters.map((filter) => ({
-            id: `tab:${filter.id}`,
-            section: CONTEXT,
-            label: filter.label,
-            shortcut: filter.shortcut,
-            ...(action.icon === null ? {} : { icon: action.icon }),
-          }))
-        : [entryOf(action, CONTEXT, dormant)],
+          ? // Expanded into its five, for the reason the roster expands
+            // `deck_tabs` into its places. The one registry row spells a
+            // range over a set whose order is the rule; only the Board knows
+            // what `3` currently narrows to.
+            filters.map((filter) => ({
+              id: `tab:${filter.id}`,
+              section: CONTEXT,
+              label: filter.label,
+              shortcut: filter.shortcut,
+              ...(action.icon === null
+                ? {}
+                : {
+                    icon: action.icon,
+                  }),
+            }))
+          : [
+              entryOf(action, CONTEXT, dormant),
+            ],
     ),
     // The roster as it actually is, one row per destination. The registry keeps
     // `deck_tabs` as a single row on purpose — its rule is the tab's place in
@@ -439,8 +670,16 @@ export function Palette({
       section: NAVIGATION,
       label: surface.label,
       icon: surface.icon,
-      ...(surface.shortcut === undefined ? {} : { shortcut: surface.shortcut }),
-      ...(surface.aliases === undefined ? {} : { aliases: surface.aliases }),
+      ...(surface.shortcut === undefined
+        ? {}
+        : {
+            shortcut: surface.shortcut,
+          }),
+      ...(surface.aliases === undefined
+        ? {}
+        : {
+            aliases: surface.aliases,
+          }),
     })),
     ...globalActs()
       .filter((action) => action.unbuilt !== null || !absent.includes(action.id))
@@ -449,19 +688,54 @@ export function Palette({
       id: `board:${row.id}`,
       section: NAVIGATION,
       label: row.label,
-      ...(row.icon === undefined ? {} : { icon: row.icon }),
-      ...(row.destructive === true ? { destructive: true } : {}),
-      ...(row.dormant === undefined ? {} : { dormant: row.dormant }),
+      ...(row.icon === undefined
+        ? {}
+        : {
+            icon: row.icon,
+          }),
+      ...(row.destructive === true
+        ? {
+            destructive: true,
+          }
+        : {}),
+      ...(row.dormant === undefined
+        ? {}
+        : {
+            dormant: row.dormant,
+          }),
     })),
     ...commands.map((command) => ({
       id: `cmd:${command.id}`,
       section: COMMANDS,
       label: command.label,
       icon: COMMAND_GLYPH[command.kind],
-      ...(command.hotkey === undefined ? {} : { shortcut: command.hotkey }),
-      ...(command.value === undefined ? {} : { value: command.value }),
-      ...(command.alias === undefined && command.aliases === undefined ? {} : { aliases: [...(command.alias === undefined ? [] : [command.alias]), ...(command.aliases ?? [])] }),
-      ...(command.dormant === undefined ? {} : { dormant: command.dormant }),
+      ...(command.hotkey === undefined
+        ? {}
+        : {
+            shortcut: command.hotkey,
+          }),
+      ...(command.value === undefined
+        ? {}
+        : {
+            value: command.value,
+          }),
+      ...(command.alias === undefined && command.aliases === undefined
+        ? {}
+        : {
+            aliases: [
+              ...(command.alias === undefined
+                ? []
+                : [
+                    command.alias,
+                  ]),
+              ...(command.aliases ?? []),
+            ],
+          }),
+      ...(command.dormant === undefined
+        ? {}
+        : {
+            dormant: command.dormant,
+          }),
     })),
     ...runnables.map((runnable) => ({
       id: `run:${runnable.id}`,
@@ -474,75 +748,252 @@ export function Palette({
     ...(repositories.length === 0
       ? []
       : [
-          { id: ALL_REPOSITORIES, section: REPOSITORIES, label: "All repositories", aliases: ["all"], ...(picked === null ? { value: "picked" } : {}) },
+          {
+            id: ALL_REPOSITORIES,
+            section: REPOSITORIES,
+            label: "All repositories",
+            aliases: [
+              "all",
+            ],
+            ...(picked === null
+              ? {
+                  value: "picked",
+                }
+              : {}),
+          },
           ...repositories.map((one) => ({
             id: `repo:${one.root}`,
             section: REPOSITORIES,
             label: one.label,
-            ...(picked === one.root ? { value: "picked" } : {}),
+            ...(picked === one.root
+              ? {
+                  value: "picked",
+                }
+              : {}),
           })),
         ]),
     // A Job's pull request is found by its number and not drawn (the owner, 27 Oct 2026: too much in a row). Its own row
     // under Pull requests draws it.
-    ...sessions.map((session) => ({ id: `session:${session.id}`, section: SESSIONS, label: session.label, aliases: [...session.aliases, ...(session.pull === undefined ? [] : [`#${session.pull}`])], meta: metaOfJob(session) })),
-    ...pulls.map((one) => ({ id: `pull:${one.repo}:${one.number}`, section: PULLS, label: one.title, icon: GitPullRequest, meta: { repo: one.repo, number: `#${one.number}` } })),
-    ...issues.map((one) => ({ id: `issue:${one.repo}:${one.number}`, section: ISSUES, label: one.title, icon: CircleDot, meta: { repo: one.repo, number: `#${one.number}` } })),
+    ...sessions.map((session) => ({
+      id: `session:${session.id}`,
+      section: SESSIONS,
+      label: session.label,
+      aliases: [
+        ...session.aliases,
+        ...(session.pull === undefined
+          ? []
+          : [
+              `#${session.pull}`,
+            ]),
+      ],
+      meta: metaOfJob(session),
+    })),
+    ...pulls.map((one) => ({
+      id: `pull:${one.repo}:${one.number}`,
+      section: PULLS,
+      label: one.title,
+      icon: GitPullRequest,
+      meta: {
+        repo: one.repo,
+        number: `#${one.number}`,
+      },
+    })),
+    ...issues.map((one) => ({
+      id: `issue:${one.repo}:${one.number}`,
+      section: ISSUES,
+      label: one.title,
+      icon: CircleDot,
+      meta: {
+        repo: one.repo,
+        number: `#${one.number}`,
+      },
+    })),
     // Searched, never listed at rest: a long list of tasks would bury the acts. A pinned or recent one is shown at rest below.
-    ...tasks.map((one) => ({ id: `task:${one.id}`, section: TASKS, label: one.label, icon: ListTodo, detail: one.detail, searchOnly: true })),
+    ...tasks.map((one) => ({
+      id: `task:${one.id}`,
+      section: TASKS,
+      label: one.label,
+      icon: ListTodo,
+      detail: one.detail,
+      searchOnly: true,
+    })),
     ...settings.map((setting) => ({
       id: `set:${setting.id}`,
       section: SETTINGS,
       label: setting.label,
-      ...(setting.value === undefined ? {} : { value: setting.value }),
-      ...(setting.aliases === undefined ? {} : { aliases: setting.aliases }),
+      ...(setting.value === undefined
+        ? {}
+        : {
+            value: setting.value,
+          }),
+      ...(setting.aliases === undefined
+        ? {}
+        : {
+            aliases: setting.aliases,
+          }),
     })),
   ].map((entry) => ({
     ...entry,
     kind: KIND[entry.id.slice(0, entry.id.indexOf(":") + 1) || entry.id] ?? "Action",
-    ...(given[entry.id] === undefined ? {} : { alias: given[entry.id]!, aliases: [...("aliases" in entry ? entry.aliases ?? [] : []), given[entry.id]!] }),
-    ...(hotkeys[entry.id] === undefined ? {} : { shortcut: hotkeys[entry.id]! }),
+    ...(given[entry.id] === undefined
+      ? {}
+      : {
+          alias: given[entry.id]!,
+          aliases: [
+            ...("aliases" in entry ? (entry.aliases ?? []) : []),
+            given[entry.id]!,
+          ],
+        }),
+    ...(hotkeys[entry.id] === undefined
+      ? {}
+      : {
+          shortcut: hotkeys[entry.id]!,
+        }),
   }));
 
-  const known: PaletteKnown[] = entries.map((entry) => ({ id: entry.id, label: entry.label, kind: entry.kind ?? "Action", keyable: entry.destructive !== true, dormant: entry.dormant !== undefined, ...(entry.shortcut === undefined ? {} : { shortcut: entry.shortcut }) }));
-  const knownKey = known.map((one) => `${one.id}\t${one.label}\t${one.kind}\t${one.keyable}\t${one.dormant}\t${one.shortcut ?? ""}`).join("\n");
+  const known: PaletteKnown[] = entries.map((entry) => ({
+    id: entry.id,
+    label: entry.label,
+    kind: entry.kind ?? "Action",
+    keyable: entry.destructive !== true,
+    dormant: entry.dormant !== undefined,
+    ...(entry.shortcut === undefined
+      ? {}
+      : {
+          shortcut: entry.shortcut,
+        }),
+  }));
+  const knownKey = known
+    .map(
+      (one) =>
+        `${one.id}\t${one.label}\t${one.kind}\t${one.keyable}\t${one.dormant}\t${one.shortcut ?? ""}`,
+    )
+    .join("\n");
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => onRows?.(known), [knownKey]);
+  useEffect(
+    () => onRows?.(known),
+    [
+      knownKey,
+    ],
+  );
 
   // With nothing typed: Pinned, then Recent; or this page first; or everything, as the setting says.
-  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const byId = new Map(
+    entries.map((entry) => [
+      entry.id,
+      entry,
+    ]),
+  );
   const kept = pinned.flatMap((id) => byId.get(id) ?? []);
   const lately = recent.filter((id) => !pinned.includes(id)).flatMap((id) => byId.get(id) ?? []);
   const home =
     opens === "pinned" && kept.length + lately.length > 0
       ? {
-          sections: [...(kept.length === 0 ? [] : [{ id: PINNED, title: "Pinned" }]), ...(lately.length === 0 ? [] : [{ id: RECENT, title: "Recent" }])],
-          entries: [...kept.map((entry) => ({ ...entry, section: PINNED, searchOnly: false })), ...lately.map((entry) => ({ ...entry, section: RECENT, searchOnly: false }))],
+          sections: [
+            ...(kept.length === 0
+              ? []
+              : [
+                  {
+                    id: PINNED,
+                    title: "Pinned",
+                  },
+                ]),
+            ...(lately.length === 0
+              ? []
+              : [
+                  {
+                    id: RECENT,
+                    title: "Recent",
+                  },
+                ]),
+          ],
+          entries: [
+            ...kept.map((entry) => ({
+              ...entry,
+              section: PINNED,
+              searchOnly: false,
+            })),
+            ...lately.map((entry) => ({
+              ...entry,
+              section: RECENT,
+              searchOnly: false,
+            })),
+          ],
         }
       : opens === "everything"
-      ? { sections: sections.filter((one) => one.id !== PAGE), entries: entries.filter((entry) => entry.section !== PAGE) }
-      : undefined;
+        ? {
+            sections: sections.filter((one) => one.id !== PAGE),
+            entries: entries.filter((entry) => entry.section !== PAGE),
+          }
+        : undefined;
 
   return (
     <CommandPalette
       open={open}
       sections={sections}
       entries={entries}
-      {...(home === undefined ? {} : { home })}
-      actionsOf={(entry) => actionsOf(entry, { sessions, pinned, aliases: given, hotkeys })}
+      {...(home === undefined
+        ? {}
+        : {
+            home,
+          })}
+      actionsOf={(entry) =>
+        actionsOf(entry, {
+          sessions,
+          pinned,
+          aliases: given,
+          hotkeys,
+        })
+      }
       onTake={(entry, action, value) => {
         const refused = refusal(entry, action.id, value, entries, given);
-        if (refused === undefined) onChoose({ of: "on", target: entry.id, action: action.id, value });
+        if (refused === undefined)
+          onChoose({
+            of: "on",
+            target: entry.id,
+            action: action.id,
+            value,
+          });
         return refused;
       }}
       stepOf={(entry) => (entry.id.startsWith("cmd:") ? commandStep?.(bare(entry.id)) : undefined)}
       opensOn={opensOn}
-      onAct={(entry, action) => onChoose({ of: "on", target: entry.id, action: action.id })}
-      searched={searchedSentence({ sessions: sessions.length, settings: settings.length, runnables: runnables.length, repositories: repositories.length, tickets: pulls.length + issues.length + tasks.length, commands: commands.length })}
+      onAct={(entry, action) =>
+        onChoose({
+          of: "on",
+          target: entry.id,
+          action: action.id,
+        })
+      }
+      searched={searchedSentence({
+        sessions: sessions.length,
+        settings: settings.length,
+        runnables: runnables.length,
+        repositories: repositories.length,
+        tickets: pulls.length + issues.length + tasks.length,
+        commands: commands.length,
+      })}
       onClose={onClose}
-      {...(dispatch === undefined ? {} : { dispatch })}
-      {...(path === undefined ? {} : { path })}
-      {...(link === undefined ? {} : { link })}
-      {...(anchor === undefined ? {} : { anchor })}
+      {...(dispatch === undefined
+        ? {}
+        : {
+            dispatch,
+          })}
+      {...(path === undefined
+        ? {}
+        : {
+            path,
+          })}
+      {...(link === undefined
+        ? {}
+        : {
+            link,
+          })}
+      {...(anchor === undefined
+        ? {}
+        : {
+            anchor,
+          })}
       onSelect={(entry) => onChoose(choiceOf(entry.id))}
       // A destructive board row opens its own confirmation, so it is a choice.
       onConfirm={(entry) => {
@@ -565,17 +1016,32 @@ function entryOf(
   // Two kinds of dormancy and one rendering: a binding nothing answers
   // anywhere, which the registry names with an issue, and an act this app
   // cannot reach at this moment, which only the app knows.
-  const why =
-    action.unbuilt === null ? dormant[action.id] : `not built · ${action.unbuilt}`;
+  const why = action.unbuilt === null ? dormant[action.id] : `not built · ${action.unbuilt}`;
   return {
     id: `act:${action.id}`,
     section,
     label: action.verb,
     shortcut: keyFor(action.id),
-    ...(action.icon === null ? {} : { icon: action.icon }),
-    ...(ALIASES[action.id] === undefined ? {} : { aliases: ALIASES[action.id] }),
-    ...(action.destructive ? { destructive: true } : {}),
-    ...(why === undefined ? {} : { dormant: why }),
+    ...(action.icon === null
+      ? {}
+      : {
+          icon: action.icon,
+        }),
+    ...(ALIASES[action.id] === undefined
+      ? {}
+      : {
+          aliases: ALIASES[action.id],
+        }),
+    ...(action.destructive
+      ? {
+          destructive: true,
+        }
+      : {}),
+    ...(why === undefined
+      ? {}
+      : {
+          dormant: why,
+        }),
   };
 }
 
@@ -587,21 +1053,80 @@ function bare(id: string): string {
 /** What a chosen row was, read off the prefix its section gave it. */
 export function choiceOf(id: string): PaletteChoice {
   const rest = bare(id);
-  if (id === ALL_REPOSITORIES) return { of: "repository", root: null };
-  if (id.startsWith("repo:")) return { of: "repository", root: rest };
-  if (id.startsWith("act:")) return { of: "act", id: rest };
-  if (id.startsWith("nav:")) return { of: "surface", id: rest };
-  if (id.startsWith("session:")) return { of: "session", id: rest };
-  if (id.startsWith("task:")) return { of: "task", id: rest };
-  if (id.startsWith("tab:")) return { of: "filter", id: rest };
-  if (id.startsWith("run:")) return { of: "run", id: rest };
-  if (id.startsWith("board:")) return { of: "board", id: rest };
-  if (id.startsWith("page:")) return { of: "page", id: rest };
-  if (id.startsWith("pull:")) return { of: "pull", id: rest };
-  if (id.startsWith("issue:")) return { of: "issue", id: rest };
-  if (id.startsWith("task:")) return { of: "task", id: rest };
-  if (id.startsWith("cmd:")) return { of: "command", id: rest };
-  return { of: "setting", id: rest };
+  if (id === ALL_REPOSITORIES)
+    return {
+      of: "repository",
+      root: null,
+    };
+  if (id.startsWith("repo:"))
+    return {
+      of: "repository",
+      root: rest,
+    };
+  if (id.startsWith("act:"))
+    return {
+      of: "act",
+      id: rest,
+    };
+  if (id.startsWith("nav:"))
+    return {
+      of: "surface",
+      id: rest,
+    };
+  if (id.startsWith("session:"))
+    return {
+      of: "session",
+      id: rest,
+    };
+  if (id.startsWith("task:"))
+    return {
+      of: "task",
+      id: rest,
+    };
+  if (id.startsWith("tab:"))
+    return {
+      of: "filter",
+      id: rest,
+    };
+  if (id.startsWith("run:"))
+    return {
+      of: "run",
+      id: rest,
+    };
+  if (id.startsWith("board:"))
+    return {
+      of: "board",
+      id: rest,
+    };
+  if (id.startsWith("page:"))
+    return {
+      of: "page",
+      id: rest,
+    };
+  if (id.startsWith("pull:"))
+    return {
+      of: "pull",
+      id: rest,
+    };
+  if (id.startsWith("issue:"))
+    return {
+      of: "issue",
+      id: rest,
+    };
+  if (id.startsWith("task:"))
+    return {
+      of: "task",
+      id: rest,
+    };
+  if (id.startsWith("cmd:"))
+    return {
+      of: "command",
+      id: rest,
+    };
+  return {
+    of: "setting",
+    id: rest,
+  };
 }
 
 /**
@@ -613,7 +1138,14 @@ export function choiceOf(id: string): PaletteChoice {
  * sentence claiming settings on a build that indexes none would be the labelled
  * blank this app refuses everywhere else.
  */
-function searchedSentence(held: { sessions: number; settings: number; runnables: number; repositories: number; tickets: number; commands: number }): string {
+function searchedSentence(held: {
+  sessions: number;
+  settings: number;
+  runnables: number;
+  repositories: number;
+  tickets: number;
+  commands: number;
+}): string {
   const found = [
     "every act available here",
     "every place in Bridge",
@@ -630,8 +1162,16 @@ function searchedSentence(held: { sessions: number; settings: number; runnables:
 /** A Job's row says where it is, how it stands and the pull request it holds. */
 function metaOfJob(session: PaletteSession): PaletteMeta {
   return {
-    ...(session.repo === undefined ? {} : { repo: session.repo }),
-    ...(session.state === undefined ? {} : { state: session.state }),
+    ...(session.repo === undefined
+      ? {}
+      : {
+          repo: session.repo,
+        }),
+    ...(session.state === undefined
+      ? {}
+      : {
+          state: session.state,
+        }),
   };
 }
 
@@ -653,75 +1193,282 @@ const KIND: Readonly<Record<string, string>> = {
   "tab:": "Filter",
 };
 
-const COMMAND_GLYPH: Record<PaletteCommand["kind"], LucideIcon> = { url: Globe, shell: FileTerminal, chain: Route, prompt: MessageSquarePlus };
+const COMMAND_GLYPH: Record<PaletteCommand["kind"], LucideIcon> = {
+  url: Globe,
+  shell: FileTerminal,
+  chain: Route,
+  prompt: MessageSquarePlus,
+};
 
 /**
  * What ⌘K opens on a row. **Pin is on every one**, since a pin is kept by the host and a row can be pinned from
  * whichever list it was found in. Stop confirms: it is the one act here that ends work.
  */
-function actionsOf(entry: PaletteEntry, held: { sessions: readonly PaletteSession[]; pinned: readonly string[]; aliases: Readonly<Record<string, string>>; hotkeys: Readonly<Record<string, string>> }): readonly PaletteAction[] {
+function actionsOf(
+  entry: PaletteEntry,
+  held: {
+    sessions: readonly PaletteSession[];
+    pinned: readonly string[];
+    aliases: Readonly<Record<string, string>>;
+    hotkeys: Readonly<Record<string, string>>;
+  },
+): readonly PaletteAction[] {
   // A row that cannot be opened has no word or key to give it. Apart from the row's own acts.
   const keyed: PaletteAction[] =
     entry.dormant !== undefined
       ? []
       : [
-          { id: "alias", label: "Set alias", takes: "word", apart: true, ...(held.aliases[entry.id] === undefined ? {} : { held: { word: held.aliases[entry.id]! } }) },
-          ...(held.aliases[entry.id] === undefined ? [] : [{ id: "remove-alias", label: "Remove alias", stays: true as const }]),
-          ...(entry.destructive === true ? [] : [{ id: "hotkey", label: "Record hotkey", takes: "chord" as const, ...(held.hotkeys[entry.id] === undefined ? {} : { held: { chord: held.hotkeys[entry.id]! } }) }]),
-          ...(held.hotkeys[entry.id] === undefined || entry.destructive === true ? [] : [{ id: "remove-hotkey", label: "Remove hotkey", stays: true as const }]),
+          {
+            id: "alias",
+            label: "Set alias",
+            takes: "word",
+            apart: true,
+            ...(held.aliases[entry.id] === undefined
+              ? {}
+              : {
+                  held: {
+                    word: held.aliases[entry.id]!,
+                  },
+                }),
+          },
+          ...(held.aliases[entry.id] === undefined
+            ? []
+            : [
+                {
+                  id: "remove-alias",
+                  label: "Remove alias",
+                  stays: true as const,
+                },
+              ]),
+          ...(entry.destructive === true
+            ? []
+            : [
+                {
+                  id: "hotkey",
+                  label: "Record hotkey",
+                  takes: "chord" as const,
+                  ...(held.hotkeys[entry.id] === undefined
+                    ? {}
+                    : {
+                        held: {
+                          chord: held.hotkeys[entry.id]!,
+                        },
+                      }),
+                },
+              ]),
+          ...(held.hotkeys[entry.id] === undefined || entry.destructive === true
+            ? []
+            : [
+                {
+                  id: "remove-hotkey",
+                  label: "Remove hotkey",
+                  stays: true as const,
+                },
+              ]),
         ];
-  return [...ownActs(entry, held), ...keyed];
+  return [
+    ...ownActs(entry, held),
+    ...keyed,
+  ];
 }
 
 /** Why a word or a key cannot be given to a row, in a few words, or nothing where it can. */
-function refusal(entry: PaletteEntry, act: string, value: string, entries: readonly PaletteEntry[], aliases: Readonly<Record<string, string>>): string | undefined {
+function refusal(
+  entry: PaletteEntry,
+  act: string,
+  value: string,
+  entries: readonly PaletteEntry[],
+  aliases: Readonly<Record<string, string>>,
+): string | undefined {
   if (act === "alias") {
-    return refuseAlias(value.trim(), entries.flatMap((one) => (one.id === entry.id || aliases[one.id] === undefined ? [] : [{ label: one.label, alias: aliases[one.id]! }])));
+    return refuseAlias(
+      value.trim(),
+      entries.flatMap((one) =>
+        one.id === entry.id || aliases[one.id] === undefined
+          ? []
+          : [
+              {
+                label: one.label,
+                alias: aliases[one.id]!,
+              },
+            ],
+      ),
+    );
   }
   const chord = parseChord(value);
   if (chord === null) return "Not a key";
-  return refuseHotkey(chord, entries.flatMap((one) => (one.id === entry.id || one.shortcut === undefined ? [] : [{ label: one.label, hotkey: one.shortcut }])));
+  return refuseHotkey(
+    chord,
+    entries.flatMap((one) =>
+      one.id === entry.id || one.shortcut === undefined
+        ? []
+        : [
+            {
+              label: one.label,
+              hotkey: one.shortcut,
+            },
+          ],
+    ),
+  );
 }
 
-function ownActs(entry: PaletteEntry, held: { sessions: readonly PaletteSession[]; pinned: readonly string[] }): readonly PaletteAction[] {
+function ownActs(
+  entry: PaletteEntry,
+  held: {
+    sessions: readonly PaletteSession[];
+    pinned: readonly string[];
+  },
+): readonly PaletteAction[] {
   // Each act's chord runs it while the palette is up, from the results or the panel, as Raycast's do. None is a
   // Global binding: the palette holds focus, and a chord it took from the window would go deaf everywhere else.
-  const pin: PaletteAction = held.pinned.includes(entry.id) ? { id: "unpin", label: "Unpin", shortcut: "⇧⌘F", apart: true, stays: true } : { id: "pin", label: "Pin", shortcut: "⇧⌘F", apart: true, stays: true };
+  const pin: PaletteAction = held.pinned.includes(entry.id)
+    ? {
+        id: "unpin",
+        label: "Unpin",
+        shortcut: "⇧⌘F",
+        apart: true,
+        stays: true,
+      }
+    : {
+        id: "pin",
+        label: "Pin",
+        shortcut: "⇧⌘F",
+        apart: true,
+        stays: true,
+      };
   if (entry.id.startsWith("session:")) {
     const job = held.sessions.find((one) => `session:${one.id}` === entry.id);
     const acts: PaletteAction[] = [
-      { id: "open", label: "Open", shortcut: "↵" },
-      job?.paused === true ? { id: "resume", label: "Resume", icon: Play, shortcut: "⌘P" } : { id: "pause", label: "Pause", icon: Pause, shortcut: "⌘P" },
-      { id: "fork", label: "Fork", icon: GitFork, shortcut: "⌥⌘F" },
+      {
+        id: "open",
+        label: "Open",
+        shortcut: "↵",
+      },
+      job?.paused === true
+        ? {
+            id: "resume",
+            label: "Resume",
+            icon: Play,
+            shortcut: "⌘P",
+          }
+        : {
+            id: "pause",
+            label: "Pause",
+            icon: Pause,
+            shortcut: "⌘P",
+          },
+      {
+        id: "fork",
+        label: "Fork",
+        icon: GitFork,
+        shortcut: "⌥⌘F",
+      },
       ...(job?.pull === undefined
         ? []
         : [
-            { id: "open-pull", label: "Open pull request", icon: GitPullRequest, shortcut: "⇧⌘P", apart: true as const },
-            { id: "merge-pull", label: "Merge pull request", icon: GitMerge, shortcut: "⇧⌘M" },
+            {
+              id: "open-pull",
+              label: "Open pull request",
+              icon: GitPullRequest,
+              shortcut: "⇧⌘P",
+              apart: true as const,
+            },
+            {
+              id: "merge-pull",
+              label: "Merge pull request",
+              icon: GitMerge,
+              shortcut: "⇧⌘M",
+            },
           ]),
-      { id: "copy-id", label: "Copy Job id", icon: Copy, shortcut: "⇧⌘C", apart: true },
+      {
+        id: "copy-id",
+        label: "Copy Job id",
+        icon: Copy,
+        shortcut: "⇧⌘C",
+        apart: true,
+      },
       pin,
-      { id: "stop", label: "Stop", icon: Ban, shortcut: "⌘⌫", destructive: true, apart: true },
+      {
+        id: "stop",
+        label: "Stop",
+        icon: Ban,
+        shortcut: "⌘⌫",
+        destructive: true,
+        apart: true,
+      },
     ];
     return acts.filter((one) => job?.without?.includes(one.id) !== true);
   }
   if (entry.id.startsWith("pull:")) {
     return [
-      { id: "open", label: "Open in Reviews", icon: GitPullRequest, shortcut: "↵" },
-      { id: "forge", label: "Open on the forge", icon: ExternalLink, shortcut: "⇧⌘O" },
-      { id: "start-job", label: "Start a Job on it", icon: Plus, shortcut: "⇧⌘N", apart: true },
+      {
+        id: "open",
+        label: "Open in Reviews",
+        icon: GitPullRequest,
+        shortcut: "↵",
+      },
+      {
+        id: "forge",
+        label: "Open on the forge",
+        icon: ExternalLink,
+        shortcut: "⇧⌘O",
+      },
+      {
+        id: "start-job",
+        label: "Start a Job on it",
+        icon: Plus,
+        shortcut: "⇧⌘N",
+        apart: true,
+      },
       pin,
     ];
   }
-  if (entry.id.startsWith("issue:")) return [{ id: "open", label: "Open", shortcut: "↵" }, { id: "start-job", label: "Start a Job on it", icon: Plus, shortcut: "⇧⌘N", apart: true }, pin];
+  if (entry.id.startsWith("issue:"))
+    return [
+      {
+        id: "open",
+        label: "Open",
+        shortcut: "↵",
+      },
+      {
+        id: "start-job",
+        label: "Start a Job on it",
+        icon: Plus,
+        shortcut: "⇧⌘N",
+        apart: true,
+      },
+      pin,
+    ];
   if (entry.id.startsWith("task:")) {
     return [
-      { id: "open", label: "Open", shortcut: "↵" },
-      { id: "dispatch", label: "Dispatch", icon: Send, shortcut: "⇧⌘N" },
-      { id: "tick", label: "Tick", icon: Check, shortcut: "⌘D" },
+      {
+        id: "open",
+        label: "Open",
+        shortcut: "↵",
+      },
+      {
+        id: "dispatch",
+        label: "Dispatch",
+        icon: Send,
+        shortcut: "⇧⌘N",
+      },
+      {
+        id: "tick",
+        label: "Tick",
+        icon: Check,
+        shortcut: "⌘D",
+      },
       pin,
     ];
   }
-  if (entry.id.startsWith("cmd:")) return [{ id: "run", label: "Run", shortcut: "↵" }, pin];
+  if (entry.id.startsWith("cmd:"))
+    return [
+      {
+        id: "run",
+        label: "Run",
+        shortcut: "↵",
+      },
+      pin,
+    ];
   return [];
 }

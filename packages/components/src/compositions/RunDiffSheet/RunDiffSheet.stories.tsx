@@ -41,34 +41,75 @@ const REFORMATTED: DiffFile[] = [
   {
     path: "crates/fleet/src/rehearsing/checkout.rs",
     lines: [
-      { kind: "hunk", text: "@@ -137,9 +137,7 @@ impl Fleet {" },
-      { kind: "context", text: "         let gone = |why: &str| {" },
-      { kind: "removed", text: "-            answered(ipc::RunDiffReading::Gone {" },
-      { kind: "removed", text: "-                why: why.to_string()," },
-      { kind: "removed", text: "-            })" },
-      { kind: "added", text: "+            answered(ipc::RunDiffReading::Gone { why: why.to_string() })" },
-      { kind: "context", text: "         };" },
+      {
+        kind: "hunk",
+        text: "@@ -137,9 +137,7 @@ impl Fleet {",
+      },
+      {
+        kind: "context",
+        text: "         let gone = |why: &str| {",
+      },
+      {
+        kind: "removed",
+        text: "-            answered(ipc::RunDiffReading::Gone {",
+      },
+      {
+        kind: "removed",
+        text: "-                why: why.to_string(),",
+      },
+      {
+        kind: "removed",
+        text: "-            })",
+      },
+      {
+        kind: "added",
+        text: "+            answered(ipc::RunDiffReading::Gone { why: why.to_string() })",
+      },
+      {
+        kind: "context",
+        text: "         };",
+      },
     ],
   },
   {
     path: "crates/api/src/rehearsing.rs",
     lines: [
-      { kind: "hunk", text: "@@ -158,7 +158,8 @@ pub(crate) async fn get_checkout_run_diff" },
-      { kind: "removed", text: "-    match served.daemon().get_checkout_run_diff(run_id).await {" },
-      { kind: "added", text: "+    match served.daemon().get_checkout_run_diff(run_id).await" },
-      { kind: "added", text: "+    {" },
+      {
+        kind: "hunk",
+        text: "@@ -158,7 +158,8 @@ pub(crate) async fn get_checkout_run_diff",
+      },
+      {
+        kind: "removed",
+        text: "-    match served.daemon().get_checkout_run_diff(run_id).await {",
+      },
+      {
+        kind: "added",
+        text: "+    match served.daemon().get_checkout_run_diff(run_id).await",
+      },
+      {
+        kind: "added",
+        text: "+    {",
+      },
     ],
   },
 ];
 
-const RAN = { name: "fmt", ranAt: "2026-10-19T14:18:02Z", onClose: fn() };
+const RAN = {
+  name: "fmt",
+  ranAt: "2026-10-19T14:18:02Z",
+  onClose: fn(),
+};
 
 /** A run that changed the checkout: the patch, counted in the header, against its snapshot. */
 export const ARunThatChangedFiles: Story = {
   args: {
     ...RAN,
     open: true,
-    reading: { state: "read", files: REFORMATTED, emptyNote: "This run changed nothing." },
+    reading: {
+      state: "read",
+      files: REFORMATTED,
+      emptyNote: "This run changed nothing.",
+    },
   },
 };
 
@@ -82,10 +123,16 @@ export const AnUndoneRun: Story = {
     ...RAN,
     open: true,
     undoneAt: "2026-10-19T14:21:03Z",
-    reading: { state: "read", files: REFORMATTED, emptyNote: "This run changed nothing." },
+    reading: {
+      state: "read",
+      files: REFORMATTED,
+      emptyNote: "This run changed nothing.",
+    },
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("note")).toHaveTextContent(`Undone at ${timeSaid("2026-10-19T14:21:03Z")}`);
+    await expect(canvas.getByRole("note")).toHaveTextContent(
+      `Undone at ${timeSaid("2026-10-19T14:21:03Z")}`,
+    );
     await expect(canvas.getByText("crates/fleet/src/rehearsing/checkout.rs")).toBeVisible();
   },
 };
@@ -99,7 +146,10 @@ export const TheSnapshotIsGone: Story = {
   args: {
     ...RAN,
     open: true,
-    reading: { state: "gone", why: "the snapshot this run kept is no longer in the repository" },
+    reading: {
+      state: "gone",
+      why: "the snapshot this run kept is no longer in the repository",
+    },
   },
   play: async ({ canvas }) => {
     await expect(canvas.getByText(/no longer in the repository/)).toBeVisible();
@@ -111,5 +161,11 @@ export const TheSnapshotIsGone: Story = {
 
 /** Fleet has been asked. The header says so rather than counting nothing. */
 export const Reading: Story = {
-  args: { ...RAN, open: true, reading: { state: "reading" } },
+  args: {
+    ...RAN,
+    open: true,
+    reading: {
+      state: "reading",
+    },
+  },
 };

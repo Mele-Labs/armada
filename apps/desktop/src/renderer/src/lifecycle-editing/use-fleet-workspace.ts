@@ -24,7 +24,18 @@ export type FleetWorkspace = {
   /** What the last change could not do, in Fleet's own words. */
   notice: string | undefined;
   /** The piece of the person's own that a pick on a tab runs, which Commit to repository copies, and the repository it must go to where its scope is a Workspace's. */
-  pieceAt: (pick: { kind: "rule" | "lifecycle"; id: string }, tab: string) => { piece: PieceToCommit; home?: string } | undefined;
+  pieceAt: (
+    pick: {
+      kind: "rule" | "lifecycle";
+      id: string;
+    },
+    tab: string,
+  ) =>
+    | {
+        piece: PieceToCommit;
+        home?: string;
+      }
+    | undefined;
   /** Whether a rule lands on a node of the lanes, which is how it is drawn and picked. */
   lands: (rule: LifecycleRule) => boolean;
   /** Whether a connector from one node to another makes a rule Fleet can run: a ticket moved to a state, or a pull request made ready or merged. */
@@ -41,19 +52,37 @@ const keyOf = (piece: PieceId): string => `${piece.kind}:${piece.id}`;
 function stillHeld(read: PiecesRead, key: string): boolean {
   const [kind, id = ""] = key.split(":");
   const layers = (kind === "rule" ? ruleLayers(read) : lifecycleLayers(read)).get(id);
-  return [...(layers?.values() ?? [])].some((one) => one.kept.rank.source === "repository");
+  return [
+    ...(layers?.values() ?? []),
+  ].some((one) => one.kept.rank.source === "repository");
 }
 
 /** The Workspace Fleet keeps for `current`, or none while it is read, where there is no Manifest, or where Fleet has no lifecycle to draw. `workflows` are the ids the lanes are placed for. */
-export function useFleetWorkspace(api: () => PiecesApi, current: string | null, served: readonly Served[], workflows: readonly string[], enabled: boolean): FleetWorkspace | undefined {
+export function useFleetWorkspace(
+  api: () => PiecesApi,
+  current: string | null,
+  served: readonly Served[],
+  workflows: readonly string[],
+  enabled: boolean,
+): FleetWorkspace | undefined {
   const [read, setRead] = useState<PiecesRead | undefined>(undefined);
   const [shown, setShown] = useState<Workspace | undefined>(undefined);
   const [readOnly, setReadOnly] = useState(false);
   const [notice, setNotice] = useState<string | undefined>(undefined);
   const [removing, setRemoving] = useState<ReadonlySet<string>>(new Set());
   const [drafts, setDrafts] = useState<readonly KeepDraft[]>([]);
-  const latest = useRef({ read, served, api, drafts });
-  latest.current = { read, served, api, drafts };
+  const latest = useRef({
+    read,
+    served,
+    api,
+    drafts,
+  });
+  latest.current = {
+    read,
+    served,
+    api,
+    drafts,
+  };
   const waiting = useRef(0);
   const queue = useRef<Promise<void>>(Promise.resolve());
   const open = useRef(true);
@@ -67,34 +96,69 @@ export function useFleetWorkspace(api: () => PiecesApi, current: string | null, 
   const reload = useCallback(
     async (draw: boolean): Promise<boolean> => {
       if (current === null) return false;
-      const [answer, keeps] = await Promise.all([readPieces(latest.current.api(), current, latest.current.served), readKeepDrafts(latest.current.api(), current)]);
+      const [answer, keeps] = await Promise.all([
+        readPieces(latest.current.api(), current, latest.current.served),
+        readKeepDrafts(latest.current.api(), current),
+      ]);
       if (!open.current) return false;
       if (!answer.ok) {
-        if (!answer.outcome.ok && answer.outcome.why === "refused") setNotice(answer.outcome.error.message);
+        if (!answer.outcome.ok && answer.outcome.why === "refused")
+          setNotice(answer.outcome.error.message);
         return false;
       }
-      latest.current = { ...latest.current, read: answer.read, drafts: keeps };
+      latest.current = {
+        ...latest.current,
+        read: answer.read,
+        drafts: keeps,
+      };
       setRead(answer.read);
       setDrafts(keeps);
       // A piece the repository no longer holds has gone with the pull request that removed it.
-      setRemoving((was) => (was.size === 0 ? was : new Set([...was].filter((key) => stillHeld(answer.read, key)))));
+      setRemoving((was) =>
+        was.size === 0
+          ? was
+          : new Set(
+              [
+                ...was,
+              ].filter((key) => stillHeld(answer.read, key)),
+            ),
+      );
       if (draw) setShown(workspaceDrawn(answer.read, keeps, current));
       return true;
     },
-    [current],
+    [
+      current,
+    ],
   );
 
   useEffect(() => {
     if (enabled) void reload(true);
-  }, [enabled, reload]);
+  }, [
+    enabled,
+    reload,
+  ]);
 
   // A draft opened, approved or dismissed in this repository: Fleet says so, and the drafts and the files Approve saved are read again. A change being saved redraws when it is done.
   useEffect(() => {
     if (!enabled || current === null) return;
-    return followKeepDrafts(latest.current.api(), current, () => void reload(waiting.current === 0));
-  }, [enabled, current, reload]);
+    return followKeepDrafts(
+      latest.current.api(),
+      current,
+      () => void reload(waiting.current === 0),
+    );
+  }, [
+    enabled,
+    current,
+    reload,
+  ]);
 
-  const workspace = useMemo(() => (shown === undefined ? undefined : withPlaces(shown, workflows)), [shown, workflows]);
+  const workspace = useMemo(
+    () => (shown === undefined ? undefined : withPlaces(shown, workflows)),
+    [
+      shown,
+      workflows,
+    ],
+  );
   const drawn = useRef(workspace);
   drawn.current = workspace;
 
@@ -112,46 +176,132 @@ export function useFleetWorkspace(api: () => PiecesApi, current: string | null, 
       queue.current = queue.current.then(async () => {
         try {
           // Against what Fleet holds now: the change before this one has been saved and read back.
-          const ran = await runOps(latest.current.api(), opsFrom(latest.current.read ?? kept, before, made), latest.current.served);
+          const ran = await runOps(
+            latest.current.api(),
+            opsFrom(latest.current.read ?? kept, before, made),
+            latest.current.served,
+          );
           if (!open.current) return;
           if (!ran.ok) {
             if (ran.old) setReadOnly(true);
             else setNotice(ran.said);
-          } else if (ran.removing.length > 0) setRemoving((was) => new Set([...was, ...ran.removing.map(keyOf)]));
+          } else if (ran.removing.length > 0)
+            setRemoving(
+              (was) =>
+                new Set([
+                  ...was,
+                  ...ran.removing.map(keyOf),
+                ]),
+            );
           await reload(false);
         } finally {
           waiting.current -= 1;
-          if (waiting.current === 0 && open.current && latest.current.read !== undefined) setShown(workspaceDrawn(latest.current.read, latest.current.drafts, current ?? ""));
+          if (waiting.current === 0 && open.current && latest.current.read !== undefined)
+            setShown(workspaceDrawn(latest.current.read, latest.current.drafts, current ?? ""));
         }
       });
     },
-    [readOnly, reload, current],
+    [
+      readOnly,
+      reload,
+      current,
+    ],
   );
 
   const held = useMemo<WorkspaceHeld | undefined>(
-    () => (workspace === undefined ? undefined : { workspace, change, ask: () => undefined, add: (rule) => change({ ...workspace, rules: [...workspace.rules, rule] }) }),
-    [workspace, change],
+    () =>
+      workspace === undefined
+        ? undefined
+        : {
+            workspace,
+            change,
+            ask: () => undefined,
+            add: (rule) =>
+              change({
+                ...workspace,
+                rules: [
+                  ...workspace.rules,
+                  rule,
+                ],
+              }),
+          },
+    [
+      workspace,
+      change,
+    ],
   );
-  const pending = useMemo<ReadonlyMap<string, PendingKind>>(() => pendingMarks(drafts, removing), [drafts, removing]);
-  const drafted = useMemo(() => (read === undefined || workspace === undefined ? [] : draftedRules(read, drafts, workspace)), [read, drafts, workspace]);
+  const pending = useMemo<ReadonlyMap<string, PendingKind>>(
+    () => pendingMarks(drafts, removing),
+    [
+      drafts,
+      removing,
+    ],
+  );
+  const drafted = useMemo(
+    () =>
+      read === undefined || workspace === undefined ? [] : draftedRules(read, drafts, workspace),
+    [
+      read,
+      drafts,
+      workspace,
+    ],
+  );
   const pieceAt = useCallback<FleetWorkspace["pieceAt"]>(
     (pick, tab) => {
       if (read === undefined) return undefined;
       const found = kitPieceAt(read, pick.kind, pick.id, tab);
       if (found === undefined) return undefined;
       const scope = found.scope;
-      const home = scope.kind === "within" ? read.workspaces.find((one) => one.id === scope.id)?.home : undefined;
-      return { piece: { kind: found.kind === "rule" ? "lifecycle_rule" : "lifecycle", id: found.id, scope: found.scope }, ...(home === undefined ? {} : { home }) };
+      const home =
+        scope.kind === "within"
+          ? read.workspaces.find((one) => one.id === scope.id)?.home
+          : undefined;
+      return {
+        piece: {
+          kind: found.kind === "rule" ? "lifecycle_rule" : "lifecycle",
+          id: found.id,
+          scope: found.scope,
+        },
+        ...(home === undefined
+          ? {}
+          : {
+              home,
+            }),
+      };
     },
-    [read],
+    [
+      read,
+    ],
   );
-  const lands = useCallback<FleetWorkspace["lands"]>((rule) => landing(rule, namedOf(drawn.current?.lifecycles ?? [])) !== undefined, []);
+  const lands = useCallback<FleetWorkspace["lands"]>(
+    (rule) => landing(rule, namedOf(drawn.current?.lifecycles ?? [])) !== undefined,
+    [],
+  );
   const canConnect = useCallback<FleetWorkspace["canConnect"]>((from, to) => {
     const lifecycles = drawn.current?.lifecycles ?? [];
     const lane = lifecycles.find((one) => one.id === to.lane);
-    if (lane === undefined || (from.lane !== "workflow" && !lifecycles.some((one) => one.id === from.lane))) return false;
+    if (
+      lane === undefined ||
+      (from.lane !== "workflow" && !lifecycles.some((one) => one.id === from.lane))
+    )
+      return false;
     // A ticket is moved to any state of its lifecycle; a pull request is made ready or merged; no act brings about any other.
-    return lane.kind === "tracker" || lane.kind === undefined || (lane.kind === "forge" && (to.item === "ready" || to.item === "merged"));
+    return (
+      lane.kind === "tracker" ||
+      lane.kind === undefined ||
+      (lane.kind === "forge" && (to.item === "ready" || to.item === "merged"))
+    );
   }, []);
-  return held === undefined ? undefined : { held, readOnly, notice, pieceAt, lands, canConnect, pending, drafted };
+  return held === undefined
+    ? undefined
+    : {
+        held,
+        readOnly,
+        notice,
+        pieceAt,
+        lands,
+        canConnect,
+        pending,
+        drafted,
+      };
 }

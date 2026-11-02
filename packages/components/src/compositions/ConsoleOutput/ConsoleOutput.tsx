@@ -98,9 +98,16 @@ export type ConsoleTools = {
    * inside folds**, because a search that reported 3 and showed 1 is the
    * failure this component exists not to have.
    */
-  find?: { term: ReactNode; found?: ReactNode };
+  find?: {
+    term: ReactNode;
+    found?: ReactNode;
+  };
   /** Cycling the differences — `1 of 1 difference`. Absent where there are none. */
-  differences?: { says: ReactNode; onPrevious?: () => void; onNext?: () => void };
+  differences?: {
+    says: ReactNode;
+    onPrevious?: () => void;
+    onNext?: () => void;
+  };
   /** Wrap, Raw, Reveal in Finder. Controls the caller owns and this does not name. */
   acts?: ReactNode;
 };
@@ -167,7 +174,9 @@ export function ConsoleOutput({
       {tools === undefined ? null : <Tools tools={tools} />}
       {following ? null : bar}
       {rows.length === 0 ? (
-        emptyNote === undefined ? null : <p className="armada-console__empty">{emptyNote}</p>
+        emptyNote === undefined ? null : (
+          <p className="armada-console__empty">{emptyNote}</p>
+        )
       ) : (
         <ol className="armada-console__rows">
           {rows.map((row) =>
@@ -259,9 +268,7 @@ function Tools({ tools }: { tools: ConsoleTools }) {
           </button>
         </span>
       )}
-      {tools.acts === undefined ? null : (
-        <span className="armada-console__acts">{tools.acts}</span>
-      )}
+      {tools.acts === undefined ? null : <span className="armada-console__acts">{tools.acts}</span>}
     </div>
   );
 }
@@ -277,7 +284,14 @@ const WRAP_LINES = "Wrap lines";
 export function ConsoleWrapToggle({ wrap, onToggle }: { wrap: boolean; onToggle: () => void }) {
   return (
     <Tooltip label={WRAP_LINES} asChild>
-      <Button variant="ghost" size="sm" iconOnly aria-label={WRAP_LINES} aria-pressed={wrap} onClick={onToggle}>
+      <Button
+        variant="ghost"
+        size="sm"
+        iconOnly
+        aria-label={WRAP_LINES}
+        aria-pressed={wrap}
+        onClick={onToggle}
+      >
         <TextWrap size={16} strokeWidth={2} aria-hidden="true" />
       </Button>
     </Tooltip>

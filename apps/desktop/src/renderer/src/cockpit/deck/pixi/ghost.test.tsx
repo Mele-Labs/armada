@@ -9,11 +9,43 @@ import { GHOST, alphaOf, drawDrone } from "./drones";
 import { DRONES, PANE, REPO, sceneFor } from "./scene-fixture";
 import { readPalette } from "./palette";
 
-const OTHER: DroneIn = { key: "session:Other", kind: "session", title: "Other", root: "/r", said: "Working", hue: "calm", spin: true, hover: true, ping: false, stuck: false, flare: false, working: true, touches: [{ path: "crates/store", w: 4 }], shown: true, ghost: true };
+const OTHER: DroneIn = {
+  key: "session:Other",
+  kind: "session",
+  title: "Other",
+  root: "/r",
+  said: "Working",
+  hue: "calm",
+  spin: true,
+  hover: true,
+  ping: false,
+  stuck: false,
+  flare: false,
+  working: true,
+  touches: [
+    {
+      path: "crates/store",
+      w: 4,
+    },
+  ],
+  shown: true,
+  ghost: true,
+};
 
 test("another Job's drone is drawn faded, with no label, no beam line and no action, and its plot does not rise or light", () => {
-  const drones = [...DRONES, OTHER];
-  const scene = sceneFor({ drones, labels: new Set(["session:Other"]), loops: new Set(["session:Other"]) });
+  const drones = [
+    ...DRONES,
+    OTHER,
+  ];
+  const scene = sceneFor({
+    drones,
+    labels: new Set([
+      "session:Other",
+    ]),
+    loops: new Set([
+      "session:Other",
+    ]),
+  });
   const spec = scene.drones.find((one) => one.drone.key === "session:Other")!;
   const own = scene.drones.find((one) => one.drone.key === "session:Writer")!;
   expect(spec.ghost).toBe(true);
@@ -35,12 +67,49 @@ test("another Job's drone is drawn faded, with no label, no beam line and no act
 });
 
 test("a faded drone gives way to the Job's own, which stays where its edits put it", () => {
-  const world = { width: PANE.width * 1.6, height: PANE.height * 1.6 };
+  const world = {
+    width: PANE.width * 1.6,
+    height: PANE.height * 1.6,
+  };
   const big = bigOf(PANE);
   const writer = DRONES[0]!;
-  const alone = layoutOf([REPO], [writer], world, big).at.get(writer.key)!;
-  const crowded = layoutOf([REPO], [writer, { ...OTHER, touches: writer.touches }], world, big);
+  const alone = layoutOf(
+    [
+      REPO,
+    ],
+    [
+      writer,
+    ],
+    world,
+    big,
+  ).at.get(writer.key)!;
+  const crowded = layoutOf(
+    [
+      REPO,
+    ],
+    [
+      writer,
+      {
+        ...OTHER,
+        touches: writer.touches,
+      },
+    ],
+    world,
+    big,
+  );
   expect(crowded.at.get(writer.key)).toEqual(alone);
   expect(crowded.at.get(OTHER.key)).not.toEqual(alone);
-  expect(frameOf({ layout: crowded, drones: [writer, OTHER], plays: [], big }).doers.map((one) => one.key)).toEqual([writer.key]);
+  expect(
+    frameOf({
+      layout: crowded,
+      drones: [
+        writer,
+        OTHER,
+      ],
+      plays: [],
+      big,
+    }).doers.map((one) => one.key),
+  ).toEqual([
+    writer.key,
+  ]);
 });

@@ -8,7 +8,11 @@ import type { Banner } from "./banners";
 
 type Event = "click" | "close" | "failed";
 
-function aBanner(): { banner: Banner; fire: (event: Event) => void; shown: () => number } {
+function aBanner(): {
+  banner: Banner;
+  fire: (event: Event) => void;
+  shown: () => number;
+} {
   const listeners = new Map<Event, () => void>();
   let shown = 0;
   const banner: Banner = {
@@ -19,7 +23,11 @@ function aBanner(): { banner: Banner; fire: (event: Event) => void; shown: () =>
       shown += 1;
     },
   };
-  return { banner, fire: (event) => listeners.get(event)?.(), shown: () => shown };
+  return {
+    banner,
+    fire: (event) => listeners.get(event)?.(),
+    shown: () => shown,
+  };
 }
 
 describe("a shown banner", () => {
@@ -35,7 +43,11 @@ describe("a shown banner", () => {
     expect(isHeld(banner)).toBe(true);
   });
 
-  it.each(["click", "close", "failed"] as const)("is let go after %s", (event) => {
+  it.each([
+    "click",
+    "close",
+    "failed",
+  ] as const)("is let go after %s", (event) => {
     const { banner, fire } = aBanner();
     showHeld(banner);
     fire(event);

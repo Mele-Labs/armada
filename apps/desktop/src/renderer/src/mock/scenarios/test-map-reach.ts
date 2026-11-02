@@ -9,5 +9,8 @@ export const testMapReach: Scenario = {
   ...s236SessionPrPanel,
   name: "test-map-reach",
   says: "A Session's pull request, its changed files marked with the tests that reach them",
-  draft: { ...s236SessionPrPanel.draft, testsReaching },
+  draft: {
+    ...s236SessionPrPanel.draft,
+    testsReaching,
+  },
 };

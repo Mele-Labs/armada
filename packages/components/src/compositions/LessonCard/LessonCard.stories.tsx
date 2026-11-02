@@ -13,7 +13,14 @@ const meta: Meta<typeof LessonCard> = {
   component: LessonCard,
   decorators: [
     (Story) => (
-      <ul style={{ margin: 0, padding: "var(--space-6)", background: "var(--surface-canvas)", listStyle: "none" }}>
+      <ul
+        style={{
+          margin: 0,
+          padding: "var(--space-6)",
+          background: "var(--surface-canvas)",
+          listStyle: "none",
+        }}
+      >
         <Story />
       </ul>
     ),
@@ -23,17 +30,40 @@ export default meta;
 
 type Story = StoryObj<typeof LessonCard>;
 
-const SESSION_TIP = "Starts a Job on this repository and sends it this request now. It begins work at once.";
+const SESSION_TIP =
+  "Starts a Job on this repository and sends it this request now. It begins work at once.";
 
-const answers = (agree?: { label: string; tip: string }, session = false): LessonAnswers => ({
-  ...(agree === undefined ? {} : { agree: { ...agree, onAgree: fn() } }),
+const answers = (
+  agree?: {
+    label: string;
+    tip: string;
+  },
+  session = false,
+): LessonAnswers => ({
+  ...(agree === undefined
+    ? {}
+    : {
+        agree: {
+          ...agree,
+          onAgree: fn(),
+        },
+      }),
   disagreeTip: "Discards it.",
   onDisagree: fn(),
-  ...(session ? { startSession: { tip: SESSION_TIP, onStart: fn() } } : {}),
+  ...(session
+    ? {
+        startSession: {
+          tip: SESSION_TIP,
+          onStart: fn(),
+        },
+      }
+    : {}),
 });
 
 const words = (root: HTMLElement) =>
-  [...root.querySelectorAll(".armada-lesson__word")].map((one) => one.textContent);
+  [
+    ...root.querySelectorAll(".armada-lesson__word"),
+  ].map((one) => one.textContent);
 
 /** **Armada.** Agreed by starting a Session, so there is no other agree button. */
 export const Armada: Story = {
@@ -50,12 +80,32 @@ export const Armada: Story = {
     answers: answers(undefined, true),
   },
   play: async ({ canvas, canvasElement }) => {
-    await expect(words(canvasElement)).toEqual(["Fleet", "Armada"]);
-    await expect(canvas.getByRole("button", { name: "Start Job" })).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Reject change" })).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "Accept" })).toBeNull();
-    const names = [...canvasElement.querySelectorAll("button")].map((one) => one.textContent?.trim());
-    await expect(names.slice(0, 2)).toEqual(["Start Job", "Reject change"]);
+    await expect(words(canvasElement)).toEqual([
+      "Fleet",
+      "Armada",
+    ]);
+    await expect(
+      canvas.getByRole("button", {
+        name: "Start Job",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Reject change",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Accept",
+      }),
+    ).toBeNull();
+    const names = [
+      ...canvasElement.querySelectorAll("button"),
+    ].map((one) => one.textContent?.trim());
+    await expect(names.slice(0, 2)).toEqual([
+      "Start Job",
+      "Reject change",
+    ]);
   },
 };
 
@@ -71,10 +121,17 @@ export const StartingSession: Story = {
       what: "One docs edit set off all 4211 Rust tests.",
       fix: "Run only xtask's tests when only apps/ or packages/ change.",
     },
-    answers: { ...answers(undefined, true), pressing: "session" },
+    answers: {
+      ...answers(undefined, true),
+      pressing: "session",
+    },
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: "Reject change" })).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Reject change",
+      }),
+    ).toBeDisabled();
   },
 };
 
@@ -88,12 +145,23 @@ export const SessionRefused: Story = {
       statement: "The gate compared the step against a stale local main.",
       title: "The gate blamed the Drone for Fleet's own mistake",
     },
-    answers: { ...answers(undefined, true), refusal: "Armada is not served by this Fleet." },
+    answers: {
+      ...answers(undefined, true),
+      refusal: "Armada is not served by this Fleet.",
+    },
   },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Armada is not served by this Fleet.")).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Start Job" })).toBeEnabled();
-    await expect(canvas.getByRole("button", { name: "Reject change" })).toBeEnabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Start Job",
+      }),
+    ).toBeEnabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Reject change",
+      }),
+    ).toBeEnabled();
   },
 };
 
@@ -109,13 +177,27 @@ export const Kit: Story = {
       what: "It asked to run grep on a check log, and the step waited until you allowed it.",
       fix: "Add grep on .armada/checks to the allowlist.",
     },
-    answers: answers({ label: "Accept", tip: "Saves it under Accepted." }),
+    answers: answers({
+      label: "Accept",
+      tip: "Saves it under Accepted.",
+    }),
   },
   play: async ({ canvas, canvasElement }) => {
-    await expect(words(canvasElement)).toEqual(["Drone", "Kit"]);
-    await expect(canvas.getByRole("button", { name: "Accept" })).toBeVisible();
+    await expect(words(canvasElement)).toEqual([
+      "Drone",
+      "Kit",
+    ]);
+    await expect(
+      canvas.getByRole("button", {
+        name: "Accept",
+      }),
+    ).toBeVisible();
     // Kit is no repository, so there is no Session to start.
-    await expect(canvas.queryByRole("button", { name: "Start Job" })).toBeNull();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Start Job",
+      }),
+    ).toBeNull();
   },
 };
 
@@ -130,14 +212,29 @@ export const AllFields: Story = {
       title: "A docs edit ran every Rust test",
       what: "One docs edit set off all 4211 Rust tests and a 7.5 minute compile.",
       fix: "Run only xtask's tests when only apps/ or packages/ change.",
-      cites: [{ id: "check:2", name: "rust_test", mono: true, detail: "every Rust test ran", at: "2026-10-02T21:31:00Z" }],
+      cites: [
+        {
+          id: "check:2",
+          name: "rust_test",
+          mono: true,
+          detail: "every Rust test ran",
+          at: "2026-10-02T21:31:00Z",
+        },
+      ],
     },
     answers: answers(undefined, true),
   },
   play: async ({ canvas, canvasElement }) => {
-    await expect(words(canvasElement)).toEqual(["Fleet", "Manifest"]);
+    await expect(words(canvasElement)).toEqual([
+      "Fleet",
+      "Manifest",
+    ]);
     await expect(canvas.getByText("What would change")).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Start Job" })).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Start Job",
+      }),
+    ).toBeVisible();
     await expect(canvas.queryByText("rust_test")).toBeNull();
   },
 };
@@ -146,10 +243,15 @@ export const AllFields: Story = {
 export const Old: Story = {
   name: "An old item with only a statement",
   args: {
-    item: { who: "owner", statement: "The Judge's question waited in the dock while the plan was read twice." },
+    item: {
+      who: "owner",
+      statement: "The Judge's question waited in the dock while the plan was read twice.",
+    },
   },
   play: async ({ canvas, canvasElement }) => {
-    await expect(words(canvasElement)).toEqual(["You"]);
+    await expect(words(canvasElement)).toEqual([
+      "You",
+    ]);
     await expect(canvasElement.querySelector(".armada-lesson__arrow")).toBeNull();
     await expect(canvas.queryByRole("button")).toBeNull();
   },
@@ -167,12 +269,30 @@ export const SessionStarted: Story = {
       what: "It compared the step against a local main two commits behind origin.",
       fix: "Compare against origin/main, where the branch is cut from.",
     },
-    settled: { said: "Job started", session: { label: "Open Job", onOpen: fn() } },
+    settled: {
+      said: "Job started",
+      session: {
+        label: "Open Job",
+        onOpen: fn(),
+      },
+    },
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText("Job started", { exact: true })).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Open Job" })).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "Start Job" })).toBeNull();
+    await expect(
+      canvas.getByText("Job started", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Open Job",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Start Job",
+      }),
+    ).toBeNull();
   },
 };
 
@@ -180,12 +300,28 @@ export const SessionStarted: Story = {
 export const SessionNotSent: Story = {
   name: "A Job started whose request was not sent",
   args: {
-    item: { who: "fleet", landsIn: "armada", statement: "s", title: "The gate blamed the Drone for Fleet's own mistake" },
-    settled: { said: "Job started", session: { label: "Open Job", onOpen: fn() }, note: "The agent could not be reached." },
+    item: {
+      who: "fleet",
+      landsIn: "armada",
+      statement: "s",
+      title: "The gate blamed the Drone for Fleet's own mistake",
+    },
+    settled: {
+      said: "Job started",
+      session: {
+        label: "Open Job",
+        onOpen: fn(),
+      },
+      note: "The agent could not be reached.",
+    },
   },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("The agent could not be reached.")).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Open Job" })).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Open Job",
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -201,11 +337,28 @@ export const UpdatedKit: Story = {
       what: "It asked to run grep on a check log, and the step waited until you allowed it.",
       fix: "Add grep on .armada/checks to the allowlist.",
     },
-    settled: { said: "Updated Kit", command: "grep" },
+    settled: {
+      said: "Updated Kit",
+      command: "grep",
+    },
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText("Updated Kit", { exact: true })).toBeVisible();
-    await expect(canvas.getByText("grep", { exact: true }).classList.contains("mono")).toBe(true);
-    await expect(canvas.queryByRole("button", { name: "Update Kit" })).toBeNull();
+    await expect(
+      canvas.getByText("Updated Kit", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas
+        .getByText("grep", {
+          exact: true,
+        })
+        .classList.contains("mono"),
+    ).toBe(true);
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Update Kit",
+      }),
+    ).toBeNull();
   },
 };

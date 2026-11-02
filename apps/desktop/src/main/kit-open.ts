@@ -21,13 +21,34 @@ export async function openKitFile(
   path: unknown,
   how: unknown,
 ): Promise<KitFileOpened> {
-  if (typeof path !== "string" || (how !== "editor" && how !== "finder")) return { ok: false, detail: "Not understood." };
-  if (!read.ok) return { ok: false, detail: "Fleet did not answer." };
-  if (!namesKitPath(read.setup, path)) return { ok: false, detail: "Kit does not list that." };
+  if (typeof path !== "string" || (how !== "editor" && how !== "finder"))
+    return {
+      ok: false,
+      detail: "Not understood.",
+    };
+  if (!read.ok)
+    return {
+      ok: false,
+      detail: "Fleet did not answer.",
+    };
+  if (!namesKitPath(read.setup, path))
+    return {
+      ok: false,
+      detail: "Kit does not list that.",
+    };
   if (how === "finder") {
     shell.showItemInFolder(path);
-    return { ok: true };
+    return {
+      ok: true,
+    };
   }
   const refused = await inEditor(state, path);
-  return refused === null ? { ok: true } : { ok: false, detail: refused };
+  return refused === null
+    ? {
+        ok: true,
+      }
+    : {
+        ok: false,
+        detail: refused,
+      };
 }

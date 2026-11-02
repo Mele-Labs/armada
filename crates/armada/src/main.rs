@@ -89,6 +89,23 @@ async fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Verb::Report => {
+            let Ok(cwd) = std::env::current_dir() else {
+                eprintln!("the working directory could not be read");
+                return ExitCode::FAILURE;
+            };
+            // Blocking reads and a blocking request, so off the runtime's workers.
+            match tokio::task::spawn_blocking(move || armada::reporting::report(&cwd)).await {
+                Ok(text) => {
+                    println!("{text}");
+                    ExitCode::SUCCESS
+                }
+                Err(why) => {
+                    eprintln!("{why}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Verb::Job(act) => armada::job::run(act),
         Verb::Worktree(act) => worktree_verb(act),
         Verb::TestMap(TestMapAct::Record { check, out }) => record_the_test_map(&check, &out),

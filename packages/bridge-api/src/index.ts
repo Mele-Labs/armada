@@ -91,18 +91,38 @@ export function unanswered(path: string): Outcome {
     ok: false,
     why: "transport",
     detail: "Not in this mock scenario — no Fleet is behind this window",
-    fault: { method: "GET", path, why: "unreachable" },
+    fault: {
+      method: "GET",
+      path,
+      why: "unreachable",
+    },
   };
 }
 
 /** A Fleet that answered. Invented: no process has this pid or this port. */
 const CONNECTED: Connection = connectedTo(
-  { protocolId: PROTOCOL_ID, pid: 4242, port: 7878, startedAt: "2026-09-10T14:00:00Z" },
+  {
+    protocolId: PROTOCOL_ID,
+    pid: 4242,
+    port: 7878,
+    startedAt: "2026-09-10T14:00:00Z",
+  },
   1,
 );
 
 /** What `list_models` answers — `props.ts`' own guess, so a story and the app agree. */
-const MODELS: ModelChoices = { models: ["haiku", "sonnet", "opus"], default: "sonnet", session: "opus", harnesses: [HARNESS] };
+const MODELS: ModelChoices = {
+  models: [
+    "haiku",
+    "sonnet",
+    "opus",
+  ],
+  default: "sonnet",
+  session: "opus",
+  harnesses: [
+    HARNESS,
+  ],
+};
 
 /** The state a connected Fleet publishes over `nothingYet`. */
 export function connected<S extends PublishedCore>(
@@ -116,7 +136,13 @@ export function connected<S extends PublishedCore>(
     readAt: Date.now(),
     holds: {
       workflows,
-      manifests: repositories.flatMap((one) => (one.manifest === undefined ? [] : [one.manifest])),
+      manifests: repositories.flatMap((one) =>
+        one.manifest === undefined
+          ? []
+          : [
+              one.manifest,
+            ],
+      ),
       models: MODELS,
       repositories,
     },
@@ -131,14 +157,25 @@ export function connected<S extends PublishedCore>(
 export function onBoard<S extends PublishedCore, A>(
   nothingYet: S,
   {
-    workflows = [workflow()],
-    repositories = [repository()],
+    workflows = [
+      workflow(),
+    ],
+    repositories = [
+      repository(),
+    ],
     picked = null,
-  }: { workflows?: WorkflowSummary[]; repositories?: RepositorySummary[]; picked?: string | null } = {},
+  }: {
+    workflows?: WorkflowSummary[];
+    repositories?: RepositorySummary[];
+    picked?: string | null;
+  } = {},
 ): Scenario<S, A> {
   return {
     name: "board",
     says: "A window a test asked for",
-    state: { ...connected(nothingYet, workflows, repositories), repository: picked },
+    state: {
+      ...connected(nothingYet, workflows, repositories),
+      repository: picked,
+    },
   };
 }

@@ -356,9 +356,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/agent/sign_in",
             get(crate::hosted_sessions::get_agent_sign_in::<D>).post(crate::hosted_sessions::start_agent_sign_in::<D>),
         )
-        .route("/sleep", get(crate::hosted_sessions::get_sleep::<D>).post(crate::hosted_sessions::set_sleep::<D>))
-        .route("/sleep/override", post(crate::hosted_sessions::override_sleep::<D>))
-        .route("/sleep/review", post(crate::hosted_sessions::review_sleep::<D>))
         .route("/sessions/waiting", post(crate::sessions::waiting_for::<D>))
         .route("/sessions/done", post(crate::sessions::all_done::<D>))
         .route("/sessions/defer_later", post(crate::sessions::defer_later::<D>))
@@ -686,6 +683,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/projects/rows/:row/repository", post(crate::projects::move_project_task_repository::<D>))
         .route("/projects/rows/:row/tick", post(crate::projects::tick_project_task::<D>))
         .route("/health", get(get_health::<D>))
+        .route("/debug_report", get(crate::fleetwide::get_debug_report::<D>))
         .route("/manifests/:manifest_id", get(get_manifest::<D>))
         .route("/events/since", get(get_events_since::<D>))
         .route("/manifest/reading", get(get_manifest_reading::<D>))
@@ -720,6 +718,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(remove_repository_allowed_command::<D>),
         )
         .route("/requests/send", post(crate::requests::send_request::<D>))
+        .route("/requests/send_many", post(crate::requests::send_requests::<D>))
         .route("/requests", get(crate::requests::get_requests::<D>))
         .route("/requests/collections", post(crate::requests::save_request_collection::<D>))
         .route(

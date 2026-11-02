@@ -13,7 +13,12 @@ const meta: Meta<typeof Inspect> = {
   component: Inspect,
   decorators: [
     (Story) => (
-      <div style={{ padding: "var(--space-12)", background: "var(--surface-canvas)" }}>
+      <div
+        style={{
+          padding: "var(--space-12)",
+          background: "var(--surface-canvas)",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -24,26 +29,51 @@ export default meta;
 type Story = StoryObj<typeof Inspect>;
 
 const FACTS = [
-  { label: "Bay", value: "slot-3", mono: true },
-  { label: "Step", value: "2 of 5, Build" },
-  { label: "Last", value: "4m", mono: true },
+  {
+    label: "Bay",
+    value: "slot-3",
+    mono: true,
+  },
+  {
+    label: "Step",
+    value: "2 of 5, Build",
+  },
+  {
+    label: "Last",
+    value: "4m",
+    mono: true,
+  },
 ];
 
 const card = (
   <InspectCard
-    kind={{ Glyph: Box, label: "Job" }}
+    kind={{
+      Glyph: Box,
+      label: "Job",
+    }}
     where="armada"
     title="Cache the manifest read"
-    state={{ said: "Working", tone: "var(--status-running)" }}
+    state={{
+      said: "Working",
+      tone: "var(--status-running)",
+    }}
     facts={FACTS}
-    keys={[{ key: "Enter", verb: "Open" }]}
+    keys={[
+      {
+        key: "Enter",
+        verb: "Open",
+      },
+    ]}
   />
 );
 
 /** Sets a timing token on the root for one story and puts it back, so the delay under test is the one written here. */
 function timing(delay: string, grace = "0ms"): () => void {
   const root = document.documentElement.style;
-  const was = [root.getPropertyValue("--tooltip-delay"), root.getPropertyValue("--tooltip-grace")];
+  const was = [
+    root.getPropertyValue("--tooltip-delay"),
+    root.getPropertyValue("--tooltip-grace"),
+  ];
   root.setProperty("--tooltip-delay", delay);
   root.setProperty("--tooltip-grace", grace);
   return () => {
@@ -58,12 +88,30 @@ const wait = (ms: number) => new Promise((done) => window.setTimeout(done, ms));
 export const Anatomy: StoryObj<typeof InspectCard> = {
   render: () => (
     <InspectCard
-      kind={{ Glyph: GitPullRequest, label: "Pull request" }}
+      kind={{
+        Glyph: GitPullRequest,
+        label: "Pull request",
+      }}
       where="#1890"
       title="Open the inspect card on every row"
-      state={{ said: "Checks running", tone: "var(--status-running)" }}
-      facts={[...FACTS, { label: "Branch", value: "style/inspect-card", mono: true }]}
-      keys={[{ key: "Enter", verb: "Open" }]}
+      state={{
+        said: "Checks running",
+        tone: "var(--status-running)",
+      }}
+      facts={[
+        ...FACTS,
+        {
+          label: "Branch",
+          value: "style/inspect-card",
+          mono: true,
+        },
+      ]}
+      keys={[
+        {
+          key: "Enter",
+          verb: "Open",
+        },
+      ]}
     />
   ),
   play: async ({ canvas }) => {
@@ -71,7 +119,9 @@ export const Anatomy: StoryObj<typeof InspectCard> = {
     await expect(canvas.getByText("#1890")).toBeVisible();
     await expect(canvas.getByText("Open the inspect card on every row")).toBeVisible();
     await expect(canvas.getByText("Checks running")).toBeVisible();
-    const keys = canvas.getByRole("list", { name: "Keys" });
+    const keys = canvas.getByRole("list", {
+      name: "Keys",
+    });
     const items = keys.querySelectorAll("li");
     await expect(items.length).toBe(2);
     await expect(items[0]).toHaveTextContent("Open");
@@ -81,15 +131,33 @@ export const Anatomy: StoryObj<typeof InspectCard> = {
 
 /** Every fact's value is on the right edge of the card, in tabular figures, so a column of figures lines up. */
 export const FactsAreRightAligned: StoryObj<typeof InspectCard> = {
-  render: () => <InspectCard kind={{ Glyph: Box, label: "Job" }} title="Facts" facts={FACTS} />,
+  render: () => (
+    <InspectCard
+      kind={{
+        Glyph: Box,
+        label: "Job",
+      }}
+      title="Facts"
+      facts={FACTS}
+    />
+  ),
   play: async ({ canvas }) => {
-    for (const value of ["slot-3", "2 of 5, Build", "4m"]) {
+    for (const value of [
+      "slot-3",
+      "2 of 5, Build",
+      "4m",
+    ]) {
       const cell = canvas.getByText(value);
       await expect(getComputedStyle(cell).textAlign).toMatch(/^(right|end)$/);
       await expect(getComputedStyle(cell).fontVariantNumeric).toContain("tabular-nums");
     }
-    const [short, long] = [canvas.getByText("4m"), canvas.getByText("2 of 5, Build")];
-    await expect(Math.round(short.getBoundingClientRect().right)).toBe(Math.round(long.getBoundingClientRect().right));
+    const [short, long] = [
+      canvas.getByText("4m"),
+      canvas.getByText("2 of 5, Build"),
+    ];
+    await expect(Math.round(short.getBoundingClientRect().right)).toBe(
+      Math.round(long.getBoundingClientRect().right),
+    );
   },
 };
 
@@ -103,12 +171,20 @@ export const OpensAfterTheDelay: Story = {
   play: async ({ canvas, userEvent }) => {
     const undo = timing("250ms");
     try {
-      await userEvent.hover(canvas.getByRole("button", { name: "Trigger" }));
+      await userEvent.hover(
+        canvas.getByRole("button", {
+          name: "Trigger",
+        }),
+      );
       await expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
       await waitFor(() => expect(screen.getByRole("tooltip")).toBeVisible());
       await expect(screen.getByRole("tooltip")).toHaveTextContent("Cache the manifest read");
       await expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-      await userEvent.unhover(canvas.getByRole("button", { name: "Trigger" }));
+      await userEvent.unhover(
+        canvas.getByRole("button", {
+          name: "Trigger",
+        }),
+      );
       await waitFor(() => expect(screen.queryByRole("tooltip")).not.toBeInTheDocument());
     } finally {
       undo();
@@ -127,7 +203,9 @@ export const OpensOnKeyboardFocus: Story = {
     const undo = timing("150ms");
     try {
       await userEvent.tab();
-      const trigger = canvas.getByRole("button", { name: "Trigger" });
+      const trigger = canvas.getByRole("button", {
+        name: "Trigger",
+      });
       await expect(trigger).toHaveFocus();
       await waitFor(() => expect(screen.getByRole("tooltip")).toBeVisible());
       await expect(trigger).toHaveAccessibleDescription(/Cache the manifest read/);
@@ -140,18 +218,49 @@ export const OpensOnKeyboardFocus: Story = {
 /** Moving from one open card to the next item opens that one at once, with no delay, and the first is put away. */
 export const GraceSwitching: Story = {
   render: () => (
-    <div style={{ display: "flex", gap: "var(--space-12)" }}>
-      <Inspect card={<InspectCard kind={{ Glyph: Box, label: "Job" }} title="First card" />} name="First">
+    <div
+      style={{
+        display: "flex",
+        gap: "var(--space-12)",
+      }}
+    >
+      <Inspect
+        card={
+          <InspectCard
+            kind={{
+              Glyph: Box,
+              label: "Job",
+            }}
+            title="First card"
+          />
+        }
+        name="First"
+      >
         <button type="button">First</button>
       </Inspect>
-      <Inspect card={<InspectCard kind={{ Glyph: Box, label: "Job" }} title="Second card" />} name="Second">
+      <Inspect
+        card={
+          <InspectCard
+            kind={{
+              Glyph: Box,
+              label: "Job",
+            }}
+            title="Second card"
+          />
+        }
+        name="Second"
+      >
         <button type="button">Second</button>
       </Inspect>
     </div>
   ),
   play: async ({ canvas, userEvent }) => {
-    const first = canvas.getByRole("button", { name: "First" });
-    const second = canvas.getByRole("button", { name: "Second" });
+    const first = canvas.getByRole("button", {
+      name: "First",
+    });
+    const second = canvas.getByRole("button", {
+      name: "Second",
+    });
     const undo = timing("100ms", "300ms");
     try {
       await userEvent.hover(first);
@@ -160,7 +269,9 @@ export const GraceSwitching: Story = {
       document.documentElement.style.setProperty("--tooltip-delay", "3000ms");
       await userEvent.unhover(first);
       await userEvent.hover(second);
-      await waitFor(() => expect(screen.getByText("Second card")).toBeVisible(), { timeout: 500 });
+      await waitFor(() => expect(screen.getByText("Second card")).toBeVisible(), {
+        timeout: 500,
+      });
       await waitFor(() => expect(screen.queryByText("First card")).not.toBeInTheDocument());
     } finally {
       undo();
@@ -173,7 +284,13 @@ export const PointerCanEnterTheCard: Story = {
   render: () => (
     <Inspect
       card={
-        <InspectCard kind={{ Glyph: Box, label: "Job" }} title="Hold here">
+        <InspectCard
+          kind={{
+            Glyph: Box,
+            label: "Job",
+          }}
+          title="Hold here"
+        >
           <button type="button">Inside</button>
         </InspectCard>
       }
@@ -185,10 +302,14 @@ export const PointerCanEnterTheCard: Story = {
   play: async ({ canvas, userEvent }) => {
     const undo = timing("100ms");
     try {
-      const trigger = canvas.getByRole("button", { name: "Trigger" });
+      const trigger = canvas.getByRole("button", {
+        name: "Trigger",
+      });
       await userEvent.hover(trigger);
       await waitFor(() => expect(screen.getByRole("tooltip")).toBeVisible());
-      const inside = screen.getByRole("button", { name: "Inside" });
+      const inside = screen.getByRole("button", {
+        name: "Inside",
+      });
       await userEvent.unhover(trigger);
       await userEvent.hover(inside);
       // Past the time the trigger's own leave would have closed it.
@@ -207,7 +328,13 @@ export const PressPins: Story = {
   render: () => (
     <Inspect
       card={
-        <InspectCard kind={{ Glyph: Box, label: "Job" }} title="Pinned">
+        <InspectCard
+          kind={{
+            Glyph: Box,
+            label: "Job",
+          }}
+          title="Pinned"
+        >
           <button type="button">Act</button>
         </InspectCard>
       }
@@ -217,14 +344,22 @@ export const PressPins: Story = {
     </Inspect>
   ),
   play: async ({ canvas, userEvent }) => {
-    const trigger = canvas.getByRole("button", { name: "Trigger" });
+    const trigger = canvas.getByRole("button", {
+      name: "Trigger",
+    });
     await userEvent.click(trigger);
-    const dialog = await screen.findByRole("dialog", { name: "Job card" });
+    const dialog = await screen.findByRole("dialog", {
+      name: "Job card",
+    });
     await expect(dialog).toBeVisible();
     await expect(dialog.contains(document.activeElement)).toBe(true);
     await userEvent.unhover(trigger);
     await wait(400);
-    await expect(screen.getByRole("dialog", { name: "Job card" })).toBeVisible();
+    await expect(
+      screen.getByRole("dialog", {
+        name: "Job card",
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -241,7 +376,11 @@ export const PressDoesNotPinWhereItIsAnAct: Story = {
   ),
   play: async ({ canvas, userEvent }) => {
     pressed.mockClear();
-    await userEvent.click(canvas.getByRole("button", { name: "Open" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Open",
+      }),
+    );
     await wait(100);
     await expect(pressed).toHaveBeenCalledTimes(1);
     await expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -255,7 +394,13 @@ export const EscAndOutsidePressClose: Story = {
     <div>
       <Inspect
         card={
-          <InspectCard kind={{ Glyph: Box, label: "Job" }} title="Closable">
+          <InspectCard
+            kind={{
+              Glyph: Box,
+              label: "Job",
+            }}
+            title="Closable"
+          >
             <button type="button">Act</button>
           </InspectCard>
         }
@@ -267,16 +412,22 @@ export const EscAndOutsidePressClose: Story = {
     </div>
   ),
   play: async ({ canvas, userEvent }) => {
-    const trigger = canvas.getByRole("button", { name: "Trigger" });
+    const trigger = canvas.getByRole("button", {
+      name: "Trigger",
+    });
     await userEvent.click(trigger);
-    await screen.findByRole("dialog", { name: "Job card" });
+    await screen.findByRole("dialog", {
+      name: "Job card",
+    });
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     await expect(trigger).toHaveFocus();
 
     // Pinned again, then a press somewhere else.
     await userEvent.click(trigger);
-    await screen.findByRole("dialog", { name: "Job card" });
+    await screen.findByRole("dialog", {
+      name: "Job card",
+    });
     await userEvent.click(canvas.getByText("Elsewhere on the page"));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   },
@@ -286,16 +437,29 @@ export const EscAndOutsidePressClose: Story = {
 export const KeysFooter: StoryObj<typeof InspectCard> = {
   render: () => (
     <InspectCard
-      kind={{ Glyph: Box, label: "Job" }}
+      kind={{
+        Glyph: Box,
+        label: "Job",
+      }}
       title="Keys"
       keys={[
-        { key: "Enter", verb: "Open" },
-        { act: "close", verb: "Dismiss" },
+        {
+          key: "Enter",
+          verb: "Open",
+        },
+        {
+          act: "close",
+          verb: "Dismiss",
+        },
       ]}
     />
   ),
   play: async ({ canvas }) => {
-    const items = canvas.getByRole("list", { name: "Keys" }).querySelectorAll("li");
+    const items = canvas
+      .getByRole("list", {
+        name: "Keys",
+      })
+      .querySelectorAll("li");
     await expect(items[0]).toHaveTextContent("Open");
     await expect(items[1]).toHaveTextContent("Dismiss");
     await expect(items[items.length - 1]).toHaveTextContent(/Esc/);
@@ -304,7 +468,15 @@ export const KeysFooter: StoryObj<typeof InspectCard> = {
 
 /** The card eases in only where motion is allowed; reduced motion is the stories' default, so it draws still. */
 export const ReducedMotionDrawsStill: StoryObj<typeof InspectCard> = {
-  render: () => <InspectCard kind={{ Glyph: Box, label: "Job" }} title="Still" />,
+  render: () => (
+    <InspectCard
+      kind={{
+        Glyph: Box,
+        label: "Job",
+      }}
+      title="Still"
+    />
+  ),
   play: async ({ canvasElement }) => {
     const drawn = canvasElement.querySelector(".armada-inspect-card")!;
     await expect(getComputedStyle(drawn).animationName).toBe("none");
@@ -313,8 +485,18 @@ export const ReducedMotionDrawsStill: StoryObj<typeof InspectCard> = {
 
 /** With motion allowed the same card carries its entrance. */
 export const MotionEasesIn: StoryObj<typeof InspectCard> = {
-  parameters: { motion: "on" },
-  render: () => <InspectCard kind={{ Glyph: Box, label: "Job" }} title="Eases in" />,
+  parameters: {
+    motion: "on",
+  },
+  render: () => (
+    <InspectCard
+      kind={{
+        Glyph: Box,
+        label: "Job",
+      }}
+      title="Eases in"
+    />
+  ),
   play: async ({ canvasElement }) => {
     const drawn = canvasElement.querySelector(".armada-inspect-card")!;
     await expect(getComputedStyle(drawn).animationName).toBe("armada-inspect-in");

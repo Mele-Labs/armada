@@ -43,14 +43,29 @@ export function contextOf(where: {
   const node = studio === null ? null : (where.node ?? null);
   return {
     screen: where.screen,
-    ...(where.picked !== null ? { picked: where.picked } : {}),
-    ...(studio !== null ? { studio } : {}),
-    ...(node !== null ? { node } : {}),
+    ...(where.picked !== null
+      ? {
+          picked: where.picked,
+        }
+      : {}),
+    ...(studio !== null
+      ? {
+          studio,
+        }
+      : {}),
+    ...(node !== null
+      ? {
+          node,
+        }
+      : {}),
   };
 }
 
 /** How the open Studio and its selected node are named on the footer — `App.tsx` resolves the ids. */
-export type StudioNamed = { name: string; node?: string };
+export type StudioNamed = {
+  name: string;
+  node?: string;
+};
 
 const SCREEN_LABEL: Record<HelmScreen, string> = {
   overview: "Cockpit",
@@ -72,7 +87,8 @@ export function locationOf(context: HelmContext, studio?: StudioNamed): string {
   // A Studio names itself, and the node selected on it, only where the wire carries the Studio.
   if (context.screen === "studio") {
     if (context.studio === undefined || studio === undefined) return label;
-    const on = context.node === undefined || studio.node === undefined ? "" : ` · ${studio.node} selected`;
+    const on =
+      context.node === undefined || studio.node === undefined ? "" : ` · ${studio.node} selected`;
     return `${label} · ${studio.name}${on}`;
   }
   return label;

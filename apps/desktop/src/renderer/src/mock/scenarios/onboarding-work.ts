@@ -21,34 +21,73 @@ const INVENTORY: KitInventory = {
         read: {
           what: "read",
           items: [
-            { name: "code-review", source: `${SOURCE}/code-review` },
-            { name: "release-notes", source: `${SOURCE}/release-notes` },
+            {
+              name: "code-review",
+              source: `${SOURCE}/code-review`,
+            },
+            {
+              name: "release-notes",
+              source: `${SOURCE}/release-notes`,
+            },
           ],
           unreadable: [],
         },
       };
     }
-    if (one.kind === "plugins") return { kind: "plugins", read: { what: "read", items: [], unreadable: [] } };
+    if (one.kind === "plugins")
+      return {
+        kind: "plugins",
+        read: {
+          what: "read",
+          items: [],
+          unreadable: [],
+        },
+      };
     if (one.kind === "mcp_servers") {
-      return { kind: "mcp_servers", read: { what: "read", items: [{ name: "linear", says: "mcp.linear.app", source: "/Users/user/.agent.json" }], unreadable: [] } };
+      return {
+        kind: "mcp_servers",
+        read: {
+          what: "read",
+          items: [
+            {
+              name: "linear",
+              says: "mcp.linear.app",
+              source: "/Users/user/.agent.json",
+            },
+          ],
+          unreadable: [],
+        },
+      };
     }
     return one;
   }),
 };
 
-const row = (kind: string, name: string, more: Partial<SharedRow> = {}): SharedRow => ({ kind, name, state: "same", ...more });
+const row = (kind: string, name: string, more: Partial<SharedRow> = {}): SharedRow => ({
+  kind,
+  name,
+  state: "same",
+  ...more,
+});
 
 const ROWS: SharedRow[] = [
   row("skills", "code-review"),
   row("skills", "release-notes"),
-  row("global_instructions", "AGENTS.md", { source: "/Users/user/.agent/AGENTS.md" }),
+  row("global_instructions", "AGENTS.md", {
+    source: "/Users/user/.agent/AGENTS.md",
+  }),
   row("workflows", "deploy"),
   row("mcp_servers", "linear"),
-  row("memory", "Release checklist", { source: "api", says: "Check the changelog before the tag" }),
+  row("memory", "Release checklist", {
+    source: "api",
+    says: "Check the changelog before the tag",
+  }),
 ];
 
 function build(): Scenario {
-  const base = manifesting({ kitInventory: INVENTORY });
+  const base = manifesting({
+    kitInventory: INVENTORY,
+  });
   return {
     ...base,
     name: "onboarding-work",
@@ -56,10 +95,22 @@ function build(): Scenario {
     behaves: withPlanUsage(base.behaves),
     draft: {
       ...(base.draft ?? {}),
-      sharedHome: { account: "mele-work", repository: "armada-home", rows: ROWS },
+      sharedHome: {
+        account: "mele-work",
+        repository: "armada-home",
+        rows: ROWS,
+      },
       account: {
-        signIn: { login: "mele-work", code: "RTHV-2CLM", repository: "armada-home" },
-        add: { login: "nickmele", code: "WDJB-MJHT", items: PERSONAL_ITEMS },
+        signIn: {
+          login: "mele-work",
+          code: "RTHV-2CLM",
+          repository: "armada-home",
+        },
+        add: {
+          login: "nickmele",
+          code: "WDJB-MJHT",
+          items: PERSONAL_ITEMS,
+        },
       },
     },
   };

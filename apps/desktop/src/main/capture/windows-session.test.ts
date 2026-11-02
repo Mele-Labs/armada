@@ -6,7 +6,11 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({}));
 
-const made = vi.hoisted(() => ({ windows: [] as unknown[][], closed: 0, raised: 0 }));
+const made = vi.hoisted(() => ({
+  windows: [] as unknown[][],
+  closed: 0,
+  raised: 0,
+}));
 vi.mock("./window", () => ({
   CaptureWindow: class {
     open = true;
@@ -14,7 +18,11 @@ vi.mock("./window", () => ({
     origins: string[] = [];
     constructor(...args: unknown[]) {
       made.windows.push(args);
-      this.address = (args[0] as { url: string }).url;
+      this.address = (
+        args[0] as {
+          url: string;
+        }
+      ).url;
     }
     raise = () => void (made.raised += 1);
     close = () => void (made.closed += 1);
@@ -23,7 +31,9 @@ vi.mock("./window", () => ({
     question = () => {};
   },
 }));
-vi.mock("./walk-window", async () => ({ WalkWindow: (await import("./walk-window.fake")).FakeWalkWindow }));
+vi.mock("./walk-window", async () => ({
+  WalkWindow: (await import("./walk-window.fake")).FakeWalkWindow,
+}));
 
 import type { SessionRecord } from "@armada/protocol";
 import { NOTHING_YET } from "../../shared/bridge";
@@ -38,7 +48,11 @@ const record = (id: string, manifest_id?: string): SessionRecord => ({
   id,
   harness: "h",
   origin: "bridge",
-  ...(manifest_id === undefined ? {} : { manifest_id }),
+  ...(manifest_id === undefined
+    ? {}
+    : {
+        manifest_id,
+      }),
   cwd: "/repo",
   state: "live",
   started_at: AT,
@@ -49,9 +63,17 @@ const record = (id: string, manifest_id?: string): SessionRecord => ({
 });
 
 function windows(...sessions: SessionRecord[]): CaptureWindows {
-  const board = { windowsChanged: () => {} } as unknown as ConstructorParameters<typeof CaptureWindows>[0];
+  const board = {
+    windowsChanged: () => {},
+  } as unknown as ConstructorParameters<typeof CaptureWindows>[0];
   const shown = new CaptureWindows(board);
-  shown.changed({ ...NOTHING_YET, sessions: { state: "read", sessions } });
+  shown.changed({
+    ...NOTHING_YET,
+    sessions: {
+      state: "read",
+      sessions,
+    },
+  });
   return shown;
 }
 
@@ -84,34 +106,95 @@ it("keeps a Session's window in its repository's cookie jar, and two repositorie
 
 it("pins the window to the shown origin and the bare origins named, and drops an entry that is more", () => {
   const shown = windows(record("a", "01ARMADA"));
-  shown.openForSession("a", "Staging", PAGE, [], ["https://login.example.org", "https://login.example.org/sso", "ftp://x.example.net"]);
-  expect(pinOf(0)).toMatchObject({ origin: "https://staging.example.com", through: ["https://login.example.org"] });
+  shown.openForSession(
+    "a",
+    "Staging",
+    PAGE,
+    [],
+    [
+      "https://login.example.org",
+      "https://login.example.org/sso",
+      "ftp://x.example.net",
+    ],
+  );
+  expect(pinOf(0)).toMatchObject({
+    origin: "https://staging.example.com",
+    through: [
+      "https://login.example.org",
+    ],
+  });
 });
 
 it("hands the sign-in to the window and to nothing else", () => {
   const shown = windows(record("a", "01ARMADA"));
   const link = "https://staging.example.com/dev/login?token=abc";
-  shown.openForSession("a", "Staging", PAGE, [], [], [link]);
+  shown.openForSession(
+    "a",
+    "Staging",
+    PAGE,
+    [],
+    [],
+    [
+      link,
+    ],
+  );
   const [pin, , , , , , signIn] = made.windows[0] ?? [];
-  expect(signIn).toEqual([link]);
+  expect(signIn).toEqual([
+    link,
+  ]);
   expect(JSON.stringify(pin)).not.toContain("token=abc");
 });
 
 it("opens the walk window behind, and brings it forward only on the owner's press", () => {
   const shown = windows(record("a", "01ARMADA"));
   shown.openForSession("a", "Staging", PAGE);
-  expect(walkWindow().revealed).toEqual([false]);
+  expect(walkWindow().revealed).toEqual([
+    false,
+  ]);
   shown.openForSession("a", "Staging", PAGE);
-  expect([made.windows.length, walkWindow().raised, made.closed]).toEqual([1, 0, 0]);
+  expect([
+    made.windows.length,
+    walkWindow().raised,
+    made.closed,
+  ]).toEqual([
+    1,
+    0,
+    0,
+  ]);
   shown.openForSession("a", "Staging", PAGE, [], [], [], [], true);
-  expect([made.windows.length, walkWindow().raised, made.closed]).toEqual([1, 1, 0]);
+  expect([
+    made.windows.length,
+    walkWindow().raised,
+    made.closed,
+  ]).toEqual([
+    1,
+    1,
+    0,
+  ]);
 });
 
 it("makes a walk's page afresh in its place when it is shown again with a sign-in to run", () => {
   const shown = windows(record("a", "01ARMADA"));
   shown.openForSession("a", "Staging", PAGE);
-  shown.openForSession("a", "Staging", PAGE, [], [], ["https://staging.example.com/dev/login"]);
-  expect([made.windows.length, made.closed, walkWindow().queued.length]).toEqual([2, 1, 1]);
+  shown.openForSession(
+    "a",
+    "Staging",
+    PAGE,
+    [],
+    [],
+    [
+      "https://staging.example.com/dev/login",
+    ],
+  );
+  expect([
+    made.windows.length,
+    made.closed,
+    walkWindow().queued.length,
+  ]).toEqual([
+    2,
+    1,
+    1,
+  ]);
 });
 
 it("queues a walk that arrives while the window is open, oldest first, and leaves the one on screen", () => {

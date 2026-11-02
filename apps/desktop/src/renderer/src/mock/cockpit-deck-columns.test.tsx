@@ -11,12 +11,24 @@ unmountAfterEach();
 const CENTRE_FLOOR = 480;
 // Nothing is selected on mount, so the widths are kept under the idle layout's key.
 const KEY = "armada.bridge.deck-columns.idle";
-const left = () => page.getByRole("separator", { name: "Resize the left column" });
-const right = () => page.getByRole("separator", { name: "Resize the right column" });
+const left = () =>
+  page.getByRole("separator", {
+    name: "Resize the left column",
+  });
+const right = () =>
+  page.getByRole("separator", {
+    name: "Resize the right column",
+  });
 const width = (selector: string) => document.querySelector(selector)!.getBoundingClientRect().width;
-const widths = () => ({ left: width(".deck-left"), centre: width(".deck-centre"), right: width(".deck-right") });
-const now = (separator: ReturnType<typeof left>) => Number((separator.element() as HTMLElement).getAttribute("aria-valuenow"));
-const bound = (separator: ReturnType<typeof left>, which: "min" | "max") => Number((separator.element() as HTMLElement).getAttribute(`aria-value${which}`));
+const widths = () => ({
+  left: width(".deck-left"),
+  centre: width(".deck-centre"),
+  right: width(".deck-right"),
+});
+const now = (separator: ReturnType<typeof left>) =>
+  Number((separator.element() as HTMLElement).getAttribute("aria-valuenow"));
+const bound = (separator: ReturnType<typeof left>, which: "min" | "max") =>
+  Number((separator.element() as HTMLElement).getAttribute(`aria-value${which}`));
 
 async function deck() {
   await page.viewport(1440, 900);
@@ -35,11 +47,23 @@ test("dragging the left handle widens the left column, the centre gives up the s
   const handle = left().element() as HTMLElement;
   const box = handle.getBoundingClientRect();
   // It sits in the gap between the panels, over neither, and draws nothing at rest.
-  const gap = { from: document.querySelector(".deck-left")!.getBoundingClientRect().right, to: document.querySelector(".deck-centre")!.getBoundingClientRect().left };
+  const gap = {
+    from: document.querySelector(".deck-left")!.getBoundingClientRect().right,
+    to: document.querySelector(".deck-centre")!.getBoundingClientRect().left,
+  };
   expect(box.left).toBeGreaterThanOrEqual(gap.from);
   expect(box.right).toBeLessThanOrEqual(gap.to);
   expect(getComputedStyle(handle, "::before").backgroundColor).toBe("rgba(0, 0, 0, 0)");
-  await userEvent.dragAndDrop(left(), left(), { sourcePosition: { x: box.width / 2, y: box.height / 2 }, targetPosition: { x: box.width / 2 + 60, y: box.height / 2 } });
+  await userEvent.dragAndDrop(left(), left(), {
+    sourcePosition: {
+      x: box.width / 2,
+      y: box.height / 2,
+    },
+    targetPosition: {
+      x: box.width / 2 + 60,
+      y: box.height / 2,
+    },
+  });
 
   await expect.poll(() => Math.round(widths().left - before.left)).toBe(60);
   const after = widths();

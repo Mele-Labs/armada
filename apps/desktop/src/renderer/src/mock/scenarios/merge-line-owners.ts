@@ -17,17 +17,25 @@ const more: Session[] = [
   {
     id: "s8",
     title: "Pin the store clock",
-    turn: { state: "idle" },
+    turn: {
+      state: "idle",
+    },
     rows: [],
     attachments: [
-      { kind: "branch", name: "fix/pin-store-clock", slot: 2 },
+      {
+        kind: "branch",
+        name: "fix/pin-store-clock",
+        slot: 2,
+      },
       {
         kind: "pull_request",
         number: 1861,
         title: "Pin the store clock",
         branch: "fix/pin-store-clock",
         address: `${PULL}1861`,
-        checks: { state: "passed" },
+        checks: {
+          state: "passed",
+        },
         state: "open",
         auto: false,
       },
@@ -39,9 +47,33 @@ function line(): MergeLine {
   return {
     root: repository().root,
     line: [
-      { place: 1, branch: "fix/pin-store-clock", pull_request: { number: 1861, url: `${PULL}1861` }, state: "waiting" },
-      { place: 2, branch: unownedBranch, pull_request: { number: 1862, url: `${PULL}1862` }, state: "waiting" },
-      { place: 3, branch: "docs/typo-in-the-readme", pull_request: { number: 1863, url: `${PULL}1863` }, state: "waiting" },
+      {
+        place: 1,
+        branch: "fix/pin-store-clock",
+        pull_request: {
+          number: 1861,
+          url: `${PULL}1861`,
+        },
+        state: "waiting",
+      },
+      {
+        place: 2,
+        branch: unownedBranch,
+        pull_request: {
+          number: 1862,
+          url: `${PULL}1862`,
+        },
+        state: "waiting",
+      },
+      {
+        place: 3,
+        branch: "docs/typo-in-the-readme",
+        pull_request: {
+          number: 1863,
+          url: `${PULL}1863`,
+        },
+        state: "waiting",
+      },
     ],
     off: [],
     landed: [],
@@ -53,6 +85,15 @@ export const s203MergeLineOwners: Scenario = {
   ...s200Sessions,
   name: "merge-line-owners",
   says: "A merge line with an entry a Session owns and two nobody does",
-  state: { ...s200Sessions.state, mergeLines: { lines: [line()] } },
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, more) },
+  state: {
+    ...s200Sessions.state,
+    mergeLines: {
+      lines: [
+        line(),
+      ],
+    },
+  },
+  draft: {
+    sessions: (board) => s200Sessions.draft!.sessions!(board, more),
+  },
 };

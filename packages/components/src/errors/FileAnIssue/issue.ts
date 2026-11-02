@@ -139,7 +139,11 @@ export type Filing = {
  * bodies that differ in section order are two artifacts nobody can diff.
  */
 export function issueBody(filing: Filing): string {
-  const lines: string[] = [`# ${filing.title}`, "", NO_SCRUB];
+  const lines: string[] = [
+    `# ${filing.title}`,
+    "",
+    NO_SCRUB,
+  ];
 
   for (const item of filing.attached) {
     const wrap = fence(item.body);

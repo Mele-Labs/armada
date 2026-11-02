@@ -8,26 +8,65 @@ import { JobShells } from "./job-shell";
 function later<T>() {
   let settle!: (value: T) => void;
   const promise = new Promise<T>((done) => (settle = done));
-  return { promise, settle };
+  return {
+    promise,
+    settle,
+  };
 }
 
 /** A window's api with Fleet's answers held back: the open's, and main's read of what the shell printed so far. */
 function fakeApi() {
-  const opened = later<SessionActed<{ run_id: string }>>();
+  const opened =
+    later<
+      SessionActed<{
+        run_id: string;
+      }>
+    >();
   const soFar = later<string | null>();
   let ran: (runId: string, message: SessionRunMessage) => void = () => undefined;
   let told: (terminal: JobTerminalChange) => void = () => undefined;
   const api = {
     openTerminal: vi.fn(() => opened.promise),
     readTerminalSoFar: vi.fn(() => soFar.promise),
-    writeSessionRun: vi.fn(async () => ({ ok: true as const, value: { run_id: "r1" } })),
-    resizeSessionRun: vi.fn(async () => ({ ok: true as const, value: { run_id: "r1" } })),
-    stopSessionRun: vi.fn(async () => ({ ok: true as const, value: { run_id: "r1" } })),
+    writeSessionRun: vi.fn(async () => ({
+      ok: true as const,
+      value: {
+        run_id: "r1",
+      },
+    })),
+    resizeSessionRun: vi.fn(async () => ({
+      ok: true as const,
+      value: {
+        run_id: "r1",
+      },
+    })),
+    stopSessionRun: vi.fn(async () => ({
+      ok: true as const,
+      value: {
+        run_id: "r1",
+      },
+    })),
     onSessionRunMessage: (on: typeof ran) => ((ran = on), () => undefined),
     onSessionTerminal: (on: typeof told) => ((told = on), () => undefined),
   };
-  const print = (text: string) => ran("r1", { kind: "output", text });
-  return { api, opened, soFar, print, end: () => ran("r1", { kind: "exited", code: 0, stopped: false }), tell: (terminal: JobTerminalChange) => told(terminal) };
+  const print = (text: string) =>
+    ran("r1", {
+      kind: "output",
+      text,
+    });
+  return {
+    api,
+    opened,
+    soFar,
+    print,
+    end: () =>
+      ran("r1", {
+        kind: "exited",
+        code: 0,
+        stopped: false,
+      }),
+    tell: (terminal: JobTerminalChange) => told(terminal),
+  };
 }
 
 const settled = () => new Promise((done) => setTimeout(done, 0));
@@ -39,7 +78,12 @@ describe("a window that comes to a running shell", () => {
     shells.want("page", "a");
     shells.sized("a", 80, 24);
     print("early ");
-    opened.settle({ ok: true, value: { run_id: "r1" } });
+    opened.settle({
+      ok: true,
+      value: {
+        run_id: "r1",
+      },
+    });
     await settled();
     expect(api.readTerminalSoFar).toHaveBeenCalledWith("r1");
     print("meanwhile ");
@@ -54,13 +98,21 @@ describe("a window that comes to a running shell", () => {
     const shells = new JobShells(api);
     shells.want("page", "a");
     shells.sized("a", 80, 24);
-    opened.settle({ ok: true, value: { run_id: "r1" } });
+    opened.settle({
+      ok: true,
+      value: {
+        run_id: "r1",
+      },
+    });
     await settled();
     print("bye\r\n");
     end();
     soFar.settle("bye\r\n");
     await settled();
-    expect(shells.shell("a")).toMatchObject({ out: "bye\r\n", ended: true });
+    expect(shells.shell("a")).toMatchObject({
+      out: "bye\r\n",
+      ended: true,
+    });
   });
 
   it("draws what it heard where main holds nothing for the run", async () => {
@@ -69,7 +121,12 @@ describe("a window that comes to a running shell", () => {
     shells.want("page", "a");
     shells.sized("a", 80, 24);
     print("early ");
-    opened.settle({ ok: true, value: { run_id: "r1" } });
+    opened.settle({
+      ok: true,
+      value: {
+        run_id: "r1",
+      },
+    });
     await settled();
     print("meanwhile");
     soFar.settle(null);
@@ -82,9 +139,18 @@ describe("a window that comes to a running shell", () => {
     const shells = new JobShells(api);
     shells.want("page", "a");
     shells.sized("a", 80, 24);
-    tell({ session_id: "a", run_id: "r1", change: "opened" });
+    tell({
+      session_id: "a",
+      run_id: "r1",
+      change: "opened",
+    });
     print("ls\r\n");
-    opened.settle({ ok: true, value: { run_id: "r1" } });
+    opened.settle({
+      ok: true,
+      value: {
+        run_id: "r1",
+      },
+    });
     await settled();
     expect(api.readTerminalSoFar).not.toHaveBeenCalled();
     expect(shells.shell("a")?.out).toBe("ls\r\n");
@@ -95,8 +161,15 @@ describe("a shell moved back out of its window", () => {
   it("is held ended with what main kept of it where it ended there, and no shell is opened", async () => {
     const { api, soFar } = fakeApi();
     const shells = new JobShells(api);
-    shells.movedIn("a", { runId: "r9", ended: true });
-    expect(shells.shell("a")).toMatchObject({ runId: "r9", ended: true, waiting: false });
+    shells.movedIn("a", {
+      runId: "r9",
+      ended: true,
+    });
+    expect(shells.shell("a")).toMatchObject({
+      runId: "r9",
+      ended: true,
+      waiting: false,
+    });
     soFar.settle("~ $ exit\r\n");
     await settled();
     expect(api.readTerminalSoFar).toHaveBeenCalledWith("r9");
@@ -108,8 +181,14 @@ describe("a shell moved back out of its window", () => {
   it("waits for its pane's size and is handed the running one where it still runs", () => {
     const { api } = fakeApi();
     const shells = new JobShells(api);
-    shells.movedIn("a", { runId: "r1", ended: false });
-    expect(shells.shell("a")).toMatchObject({ runId: null, waiting: true });
+    shells.movedIn("a", {
+      runId: "r1",
+      ended: false,
+    });
+    expect(shells.shell("a")).toMatchObject({
+      runId: null,
+      waiting: true,
+    });
     shells.sized("a", 80, 24);
     expect(api.openTerminal).toHaveBeenCalledWith("a", 80, 24);
   });
@@ -121,7 +200,12 @@ describe("a shell's activity", () => {
     const shells = new JobShells(api);
     shells.want("page", "a");
     shells.sized("a", 80, 24);
-    opened.settle({ ok: true, value: { run_id: "r1" } });
+    opened.settle({
+      ok: true,
+      value: {
+        run_id: "r1",
+      },
+    });
     await settled();
     soFar.settle(null);
     await settled();

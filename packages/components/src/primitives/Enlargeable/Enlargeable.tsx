@@ -10,7 +10,19 @@ import { createPortal } from "react-dom";
  * `large` draws in the picture's place in the large view: a `NotableImage`, whose press draws a region rather than
  * closing. Esc goes first to a note or a region open in it. `opened` starts it large, for a press that asked for the picture itself.
  */
-export function Enlargeable({ src, name, className, large, opened = false }: { src: string; name: string; className?: string; large?: ReactNode; opened?: boolean }) {
+export function Enlargeable({
+  src,
+  name,
+  className,
+  large,
+  opened = false,
+}: {
+  src: string;
+  name: string;
+  className?: string;
+  large?: ReactNode;
+  opened?: boolean;
+}) {
   const [open, setOpen] = useState(opened);
   const thumb = useRef<HTMLButtonElement>(null);
   const layer = useRef<HTMLDivElement>(null);
@@ -20,7 +32,12 @@ export function Enlargeable({ src, name, className, large, opened = false }: { s
     layer.current?.focus();
     const close = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (layer.current?.querySelector("[data-viewer-notes-open], .armada-notable-image__region[data-drawing]") != null) return;
+      if (
+        layer.current?.querySelector(
+          "[data-viewer-notes-open], .armada-notable-image__region[data-drawing]",
+        ) != null
+      )
+        return;
       event.stopPropagation();
       event.preventDefault();
       setOpen(false);
@@ -28,11 +45,19 @@ export function Enlargeable({ src, name, className, large, opened = false }: { s
     };
     window.addEventListener("keydown", close, true);
     return () => window.removeEventListener("keydown", close, true);
-  }, [open]);
+  }, [
+    open,
+  ]);
 
   return (
     <>
-      <button ref={thumb} type="button" className="armada-enlargeable" aria-label={name} onClick={() => setOpen(true)}>
+      <button
+        ref={thumb}
+        type="button"
+        className="armada-enlargeable"
+        aria-label={name}
+        onClick={() => setOpen(true)}
+      >
         <img className={className} src={src} alt="" />
       </button>
       {open

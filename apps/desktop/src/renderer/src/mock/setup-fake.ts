@@ -12,4 +12,5 @@ import type { Scenario } from "./moment";
 
 export * from "@armada/setup/fake";
 
-export const settingUp = (options: SettingUp = {}): Scenario => settingUpOver<BridgeState, BridgeApi>(NOTHING_YET, options);
+export const settingUp = (options: SettingUp = {}): Scenario =>
+  settingUpOver<BridgeState, BridgeApi>(NOTHING_YET, options);

@@ -10,12 +10,23 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 import { FieldMap } from "./FieldPanel";
 import { closeLayer } from "./layers";
 
-export function FieldLayer({ session, repositories }: { session: Session; repositories: readonly RepositorySummary[] }) {
+export function FieldLayer({
+  session,
+  repositories,
+}: {
+  session: Session;
+  repositories: readonly RepositorySummary[];
+}) {
   const body = useRef<HTMLDivElement>(null);
   // Esc is Back, wherever focus is, unless a sheet is open over the layer: that one's Esc is its own.
   useEffect(() => {
     const listen = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented || document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
+      if (
+        event.key !== "Escape" ||
+        event.defaultPrevented ||
+        document.querySelector('[role="dialog"], [role="alertdialog"]') !== null
+      )
+        return;
       event.preventDefault();
       closeLayer();
     };
@@ -34,7 +45,12 @@ export function FieldLayer({ session, repositories }: { session: Session; reposi
           </Button>
         </Tooltip>
       </header>
-      <div ref={body} className="sv-layer__body sv-fieldlayer" role="group" aria-label="Expanded Field">
+      <div
+        ref={body}
+        className="sv-layer__body sv-fieldlayer"
+        role="group"
+        aria-label="Expanded Field"
+      >
         <FieldMap session={session} repositories={repositories} large />
       </div>
     </section>

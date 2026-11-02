@@ -10,7 +10,10 @@ const reach = new Map<number, (address: string) => boolean>();
  * **A page's window decides who may be given it**: `allowed` is the window's own test of an origin. Forgotten
  * when the contents are destroyed, so a recycled id never inherits a grant.
  */
-export function reachesLocalNetwork(contents: WebContents, allowed: (address: string) => boolean): void {
+export function reachesLocalNetwork(
+  contents: WebContents,
+  allowed: (address: string) => boolean,
+): void {
   reach.set(contents.id, allowed);
   contents.on("destroyed", () => void reach.delete(contents.id));
 }
@@ -22,9 +25,27 @@ export function may(contents: WebContents | null): (address: string) => boolean 
 
 /** What a Job browser's page decides for itself: its own saved choices instead of the window's origin test. */
 export type Decider = {
-  request(permission: string, requestingUrl: string, details: { mediaTypes?: readonly string[] }): Promise<boolean>;
-  check(permission: string, requestingOrigin: string, details: { mediaTypes?: readonly string[] }): boolean;
-  download(event: { preventDefault(): void }, url: string, redownload: () => void): void;
+  request(
+    permission: string,
+    requestingUrl: string,
+    details: {
+      mediaTypes?: readonly string[];
+    },
+  ): Promise<boolean>;
+  check(
+    permission: string,
+    requestingOrigin: string,
+    details: {
+      mediaTypes?: readonly string[];
+    },
+  ): boolean;
+  download(
+    event: {
+      preventDefault(): void;
+    },
+    url: string,
+    redownload: () => void,
+  ): void;
 };
 
 const deciders = new Map<number, Decider>();

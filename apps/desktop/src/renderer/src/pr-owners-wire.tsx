@@ -7,7 +7,11 @@
 
 import { useMemo } from "react";
 import type { ReactNode } from "react";
-import { PrOwnerRegistryProvider, repositoryOfAddress, usePrOwnerRegistry } from "@armada/components";
+import {
+  PrOwnerRegistryProvider,
+  repositoryOfAddress,
+  usePrOwnerRegistry,
+} from "@armada/components";
 import type { PrOwnerRegistry, RegisteredOwnerRow } from "@armada/components";
 import type { MergeLines, PullRequestOwner } from "@armada/protocol";
 
@@ -17,42 +21,70 @@ const keyOf = (repository: string, number: number) => `${repository}#${number}`;
 export const rowOf = (owner: PullRequestOwner): RegisteredOwnerRow => ({
   kind: owner.kind,
   id: owner.id,
-  machine: { name: owner.machine, here: owner.this_machine },
+  machine: {
+    name: owner.machine,
+    here: owner.this_machine,
+  },
 });
 
 /** Every owner the lines carry, by `owner/name#number`. */
-export function ownersOnLines(lines: MergeLines | null | undefined): ReadonlyMap<string, RegisteredOwnerRow> {
+export function ownersOnLines(
+  lines: MergeLines | null | undefined,
+): ReadonlyMap<string, RegisteredOwnerRow> {
   const found = new Map<string, RegisteredOwnerRow>();
   for (const line of lines?.lines ?? []) {
     for (const pull of line.hub?.pull_requests ?? []) {
       const repository = repositoryOfAddress(pull.url);
-      if (repository !== undefined && pull.owner !== undefined) found.set(keyOf(repository, pull.number), rowOf(pull.owner));
+      if (repository !== undefined && pull.owner !== undefined)
+        found.set(keyOf(repository, pull.number), rowOf(pull.owner));
     }
   }
   return found;
 }
 
 /** The pull request a panel is open on, with the owner its page carried. */
-export type OwnedPanel = { repository: string | undefined; number: number; owner: PullRequestOwner | undefined };
+export type OwnedPanel = {
+  repository: string | undefined;
+  number: number;
+  owner: PullRequestOwner | undefined;
+};
 
 /**
  * Hands the chips under it the owners the wire names: `lines` for the merge line, and `panel` for a pull
  * request panel, whose own page is read when it opens and wins over the lines.
  */
-export function PrOwnersOnTheWire({ lines, panel, children }: { lines?: MergeLines | null; panel?: OwnedPanel; children: ReactNode }) {
+export function PrOwnersOnTheWire({
+  lines,
+  panel,
+  children,
+}: {
+  lines?: MergeLines | null;
+  panel?: OwnedPanel;
+  children: ReactNode;
+}) {
   const outer = usePrOwnerRegistry();
   const owners = useMemo(() => {
     const found = new Map(ownersOnLines(lines));
-    if (panel?.repository !== undefined && panel.owner !== undefined) found.set(keyOf(panel.repository, panel.number), rowOf(panel.owner));
+    if (panel?.repository !== undefined && panel.owner !== undefined)
+      found.set(keyOf(panel.repository, panel.number), rowOf(panel.owner));
     return found;
-  }, [lines, panel?.repository, panel?.number, panel?.owner]);
+  }, [
+    lines,
+    panel?.repository,
+    panel?.number,
+    panel?.owner,
+  ]);
   const value = useMemo<PrOwnerRegistry>(
     () => ({
-      ownerOf: (repository, number) => owners.get(keyOf(repository, number)) ?? outer?.ownerOf(repository, number),
+      ownerOf: (repository, number) =>
+        owners.get(keyOf(repository, number)) ?? outer?.ownerOf(repository, number),
       registering: outer?.registering ?? false,
       setRegistering: outer?.setRegistering ?? (() => undefined),
     }),
-    [owners, outer],
+    [
+      owners,
+      outer,
+    ],
   );
   return <PrOwnerRegistryProvider value={value}>{children}</PrOwnerRegistryProvider>;
 }

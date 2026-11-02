@@ -5,21 +5,52 @@ import { CROSS_MS, SWITCH_MS, steadyTips, type Shown } from "./tip-hover";
 function clocked() {
   let now = 0;
   let next = 1;
-  const waiting = new Map<number, { at: number; run: () => void }>();
+  const waiting = new Map<
+    number,
+    {
+      at: number;
+      run: () => void;
+    }
+  >();
   const tips = steadyTips({
-    set: (run, ms) => (waiting.set(next, { at: now + ms, run }), next++),
+    set: (run, ms) => (
+      waiting.set(next, {
+        at: now + ms,
+        run,
+      }),
+      next++
+    ),
     clear: (id) => void waiting.delete(id),
   });
   const settled: (Shown | undefined)[] = [];
   tips.onSettle((one) => settled.push(one));
   const advance = (ms: number) => {
     now += ms;
-    for (const [id, one] of [...waiting]) if (one.at <= now) (waiting.delete(id), one.run());
+    for (const [id, one] of [
+      ...waiting,
+    ])
+      if (one.at <= now) waiting.delete(id), one.run();
   };
-  return { tips, settled, advance };
+  return {
+    tips,
+    settled,
+    advance,
+  };
 }
 
-const thing = (name: string): Shown => ({ tip: { label: name, title: name, hue: "calm" }, anchor: { target: { name } as unknown as Element }, hot: name });
+const thing = (name: string): Shown => ({
+  tip: {
+    label: name,
+    title: name,
+    hue: "calm",
+  },
+  anchor: {
+    target: {
+      name,
+    } as unknown as Element,
+  },
+  hot: name,
+});
 const A = thing("a");
 const B = thing("b");
 

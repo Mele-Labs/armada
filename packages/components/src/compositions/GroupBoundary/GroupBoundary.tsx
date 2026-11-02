@@ -1,5 +1,12 @@
 import { useState, type ReactNode } from "react";
-import { ChevronDown, ShieldCheck, ShieldMinus, ShieldOff, ShieldX, type LucideIcon } from "lucide-react";
+import {
+  ChevronDown,
+  ShieldCheck,
+  ShieldMinus,
+  ShieldOff,
+  ShieldX,
+  type LucideIcon,
+} from "lucide-react";
 
 import { ConceptLabel } from "../../concepts";
 import { FactChip, type FactChipNamed } from "../FactChip/FactChip";
@@ -117,10 +124,22 @@ function CheckRow({ check }: { check: GroupBoundaryCheck }) {
         mark={Mark === undefined ? undefined : <Mark size={12} strokeWidth={2} />}
         mono
         says={check.reads}
-        {...(check.reads === "passed" || check.reads === "failed" ? { tone: check.reads } : {})}
+        {...(check.reads === "passed" || check.reads === "failed"
+          ? {
+              tone: check.reads,
+            }
+          : {})}
         label={`${check.name}, ${check.reads}`}
-        {...(check.why === undefined ? {} : { hint: check.why })}
-        {...(check.onOpen === undefined ? {} : { onOpen: check.onOpen })}
+        {...(check.why === undefined
+          ? {}
+          : {
+              hint: check.why,
+            })}
+        {...(check.onOpen === undefined
+          ? {}
+          : {
+              onOpen: check.onOpen,
+            })}
       >
         {check.name}
       </RowLink>
@@ -141,7 +160,8 @@ function Told({ label, value }: { label: string; value: string }) {
 }
 
 /** Whether a Check carries what it was held to or what it got. */
-const told = (check: GroupBoundaryCheck) => check.expected !== undefined || check.result !== undefined;
+const told = (check: GroupBoundaryCheck) =>
+  check.expected !== undefined || check.result !== undefined;
 
 /**
  * One strip — the kind, the run, and, while folded, how many and what it came to.
@@ -185,7 +205,10 @@ function Strip({
   const sums = onToggle === undefined || open !== true;
   return (
     <div className="armada-boundary__strip" data-open={open === true ? "true" : undefined}>
-      <div className="armada-boundary__head" data-press={onToggle === undefined ? undefined : "true"}>
+      <div
+        className="armada-boundary__head"
+        data-press={onToggle === undefined ? undefined : "true"}
+      >
         {onToggle === undefined ? (
           <span className="armada-boundary__kind">{label}</span>
         ) : (
@@ -199,15 +222,26 @@ function Strip({
           </button>
         )}
         {guide}
-        {count === undefined || !sums ? null : <span className="armada-boundary__count">{count}</span>}
+        {count === undefined || !sums ? null : (
+          <span className="armada-boundary__count">{count}</span>
+        )}
         {segments === undefined || segments.length === 0 || !sums ? null : (
           <span className="armada-boundary__bar">
-            <StepBar tasks={segments} {...(presses === undefined ? {} : { presses })} />
+            <StepBar
+              tasks={segments}
+              {...(presses === undefined
+                ? {}
+                : {
+                    presses,
+                  })}
+            />
           </span>
         )}
         <span className="armada-boundary__gap" />
         {chips}
-        {sums && trailing !== undefined ? <span className="armada-boundary__trailing">{trailing}</span> : null}
+        {sums && trailing !== undefined ? (
+          <span className="armada-boundary__trailing">{trailing}</span>
+        ) : null}
         {onToggle === undefined ? null : (
           <ChevronDown className="armada-boundary__chevron" size={12} strokeWidth={2} aria-hidden />
         )}
@@ -254,7 +288,10 @@ export function GroupBoundary({
             presses={checks.map((check) =>
               check.onOpen === undefined
                 ? undefined
-                : { label: `${check.name}, ${check.reads}`, onPress: check.onOpen },
+                : {
+                    label: `${check.name}, ${check.reads}`,
+                    onPress: check.onOpen,
+                  },
             )}
             chips={
               <>
@@ -277,7 +314,10 @@ export function GroupBoundary({
             {/* The Check a person came for leads: what failed carries what it
                 was held to and what it got, across the whole card. */}
             <ul className="armada-boundary__checks">
-              {[...checks.filter(told), ...checks.filter((check) => !told(check))].map((check) => (
+              {[
+                ...checks.filter(told),
+                ...checks.filter((check) => !told(check)),
+              ].map((check) => (
                 <CheckRow key={check.name} check={check} />
               ))}
             </ul>

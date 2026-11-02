@@ -105,10 +105,16 @@ const BRIDGE_PROTOCOL = spoken(PROTOCOL_ID);
  * Absent stays absent: three connection states never got a version to read, and
  * `debugInfo` omits the row rather than printing a blank one.
  */
-export function versions(bridge: BridgeIdentity): Pick<DebugPayload, "bridgeProtocol" | "fleetProtocol"> {
+export function versions(
+  bridge: BridgeIdentity,
+): Pick<DebugPayload, "bridgeProtocol" | "fleetProtocol"> {
   return {
     bridgeProtocol: BRIDGE_PROTOCOL,
-    ...(bridge.fleetProtocol === null ? {} : { fleetProtocol: bridge.fleetProtocol }),
+    ...(bridge.fleetProtocol === null
+      ? {}
+      : {
+          fleetProtocol: bridge.fleetProtocol,
+        }),
   };
 }
 
@@ -122,7 +128,14 @@ export function versions(bridge: BridgeIdentity): Pick<DebugPayload, "bridgeProt
  * Absent, not blank, where no path resolves.
  */
 export function logField(bridge: BridgeIdentity): DebugField[] {
-  return bridge.auditPath === null ? [] : [{ key: "bridge_log", value: bridge.auditPath }];
+  return bridge.auditPath === null
+    ? []
+    : [
+        {
+          key: "bridge_log",
+          value: bridge.auditPath,
+        },
+      ];
 }
 
 /**
@@ -132,5 +145,12 @@ export function logField(bridge: BridgeIdentity): DebugField[] {
  */
 export function machineLog(bridge: BridgeIdentity): FailureMachineValue[] {
   if (bridge.auditPath === null) return [];
-  return [{ icon: File, iconLabel: "Log", value: bridge.auditPath, copyValue: bridge.auditPath }];
+  return [
+    {
+      icon: File,
+      iconLabel: "Log",
+      value: bridge.auditPath,
+      copyValue: bridge.auditPath,
+    },
+  ];
 }

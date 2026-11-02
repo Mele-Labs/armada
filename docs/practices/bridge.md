@@ -565,18 +565,45 @@ IPC types will be its first real occupant once the protocol crate exists.
 Don't create a package pre-emptively for Bridge alone; a package with one
 consumer is a folder with an import path, per `packages/README.md`.
 
-**No formatter is configured, so none is run.** The TypeScript is wrapped by
-hand at about a hundred columns, and there is no Prettier config for a tool to
-find. Confirmed 12 Sep 2026: `npx prettier --write` on one file fell back to
-Prettier's eighty-column default and rewrapped every line of `timeline.tsx` in
-the screens package (deleted since), burying a forty-line change in a whole-file
-diff; it had to be reverted and made again by hand. Match the lines around an
-edit instead.
-
 **pnpm workspace, not npm or yarn**, `packages: ["apps/*", "packages/*"]`
 per `pnpm-workspace.yaml` — Fleet and Bridge version together in one repo and
 one commit, so don't introduce a second lockfile or a second package manager
 for anything under `apps/desktop`.
+
+## The formatter
+
+**Biome formats `apps/` and `packages/` at a hundred columns**, configured in `biome.jsonc` at the root, and CI's `format` job refuses a file it would change.
+Run `pnpm format` before committing; a Drone runs `armada run format`.
+It runs the formatter twice, because Biome 2.6.4 does not settle every file in one pass: on 30 Oct 2026 a second pass changed 9 of the 2,813 files the first had, in long member chains, and a third changed none.
+Rust is outside it.
+
+**The width is fixed so a long expression breaks one item per line.**
+Before it, hub files such as `sessions.tsx` kept conflicting between pull requests that changed different features, because a single line held both: one line of plan approval props ran to 1,728 characters.
+Without a config, a formatter falls back to its own default, which is how `npx prettier --write` rewrapped all of one file at eighty columns on 12 Sep 2026.
+
+**Formatting only.**
+No lint rules and no import sorting, and quotes stay double: several gate rules and tests split source text on `"`.
+
+**Every object and list literal is one item per line, even a short one** (`expand: "always"`), so a field added beside another is a line of its own.
+The owner chose it on 2 Nov 2026 over breaking only what passes the width, knowing it makes the tree much taller: the reformat added about 414,000 lines where breaking only long lines added 164,000.
+A test that reads TypeScript as text matches a field, such as ` act: "`, and never the braces around it on one line.
+Function arguments, imports and type unions still break only past the width.
+
+**What is left unformatted, and why.** Each is listed in `biome.jsonc`.
+
+| Path | Why |
+|---|---|
+| `packages/tokens/` | Its generated files are compared byte for byte with the generator's output, and `xtask/src/tokens.rs` parses its sources one line at a time |
+| `packages/components/src/generated/` | `xtask/src/rules_vocabulary.rs` compares it byte for byte with `codegen` |
+| `packages/shell/layout-registry.json` | `xtask/src/skill_regions.rs` reads it by its hand-written shape |
+| `packages/mods/` | Compiled into Fleet, and `crates/fleet/src/tests/mods.rs` pins the CSS text |
+| `SketchScene/scene.ts`, `SketchScene/screen.ts` | `crates/ipc/src/tests/sketch.rs` splits them on their line layout |
+
+**Reformatting `packages/protocol` moves the protocol ID**, which is a hash of the wire files.
+Fleet and Bridge are rebuilt together after it, as after any wire change.
+
+**An open branch catches up after a reformat with `scripts/format-catch-up`**, not a plain merge: `docs/practices/ci.md`, *Catching a branch up*.
+The reformat commits are listed in `.git-blame-ignore-revs`, so `git blame` and GitHub skip them.
 
 ## Open questions
 

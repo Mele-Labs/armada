@@ -4,10 +4,26 @@
 import type { Outcome, UsageRules, UsageSummary } from "@armada/protocol";
 
 /** What reading the summary came to: Fleet's summary, or the refusal to word. */
-export type UsageSummaryRead = { ok: true; value: UsageSummary } | { ok: false; outcome: Outcome };
+export type UsageSummaryRead =
+  | {
+      ok: true;
+      value: UsageSummary;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** What reading the usage rules came to: Fleet's rules with their trips, or the refusal to word. */
-export type UsageRulesRead = { ok: true; value: UsageRules } | { ok: false; outcome: Outcome };
+export type UsageRulesRead =
+  | {
+      ok: true;
+      value: UsageRules;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 export type UsageSummaryApi = {
   /** `GET /usage/summary`: the last seven days, cut into days, weekdays and three-hour blocks `tzOffsetMinutes` ahead of UTC. */

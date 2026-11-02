@@ -1,0 +1,12 @@
+[operations.get_autopilot_decisions]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "What Autopilot answered for the person while they were away, not yet reviewed, for every repository"
+notes = """
+`GET /autopilot/decisions`, answered with `AutopilotDecisions`: `to_review`, the answers not yet reviewed, in the order they were given. Each is an `AutopilotDecided`: `id` (`<job>:<item>` for a Job's item, so an item is answered once, and a name of its own for a pull request, a set-aside issue or a red main), `manifest_id`, the `session_id` of the Job it answered for or started, `who` (that Job's name), `kind` (a box's word: `recommended`, `open`, `plan`, `draft`, `walk`, `land`, `unsure`, `red`, `reads`, `writes`), `asked`, `chose`, `because` (the helper's own reason) and `at`.
+
+**What it holds.** While an Autopilot is running, a kind of decision its person checked at start is answered by a fresh call that names a way and says it is sure, once the item has waited two minutes so the agent can carry on by itself first. A kind that was not checked waits for the person, and a destructive or irreversible item always waits, whatever is checked; there is no kind for it. An item the call was unsure of, or that it answered in a shape Fleet refused, or that failed, is not recorded: it stays with the person. A Job in a terminal always waits. With `running` off only the Jobs Autopilot started are answered, and with it on every live Job of the repository. Paused or stopped answers nothing.
+
+A reviewed row, kept or corrected, is left out. Its answer stays on record, and its correction, which the helper reads of the repository's earlier answers.
+"""

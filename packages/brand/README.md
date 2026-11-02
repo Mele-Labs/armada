@@ -5,23 +5,23 @@ colour, and it is the only custom glyph Armada owns.
 
 ## What is here
 
-| Folder | Holds |
-|---|---|
-| `svg/` | The masters. Everything else is derived from these. |
-| `png/` | Raster mark at nine sizes, plus lockups and wordmark at @2x, in both tones. |
-| `web/` | Favicons. `favicon.svg` flips with `prefers-color-scheme`. |
-| `macos/` | App icon on Apple's grid, as `.icns` and as a rebuildable `.iconset`. |
-| `src/` | `ArmadaMark`, `ArmadaMarkDuo`, `ArmadaLockupHorizontal`, `ArmadaLockupStacked`. |
-| `covers/` | Notion covers at 2400×480 and the GitHub card at 1280×640. |
+| Folder    | Holds                                                                           |
+| --------- | ------------------------------------------------------------------------------- |
+| `svg/`    | The masters. Everything else is derived from these.                             |
+| `png/`    | Raster mark at nine sizes, plus lockups and wordmark at @2x, in both tones.     |
+| `web/`    | Favicons. `favicon.svg` flips with `prefers-color-scheme`.                      |
+| `macos/`  | App icon on Apple's grid, as `.icns` and as a rebuildable `.iconset`.           |
+| `src/`    | `ArmadaMark`, `ArmadaMarkDuo`, `ArmadaLockupHorizontal`, `ArmadaLockupStacked`. |
+| `covers/` | Notion covers at 2400×480 and the GitHub card at 1280×640.                      |
 
 ## Colour
 
-| Token | Value | Use |
-|---|---|---|
-| Ink | `#E4E9EF` | The mark on dark grounds |
-| Ink, dark | `#0F1419` | The mark on light grounds |
-| Accent | `#4A9EDB` | Rules, meta text, the app icon's pool of light |
-| App body, dark | `#1A2330` → `#0C1116` | The macOS icon body, top to bottom |
+| Token          | Value                 | Use                                            |
+| -------------- | --------------------- | ---------------------------------------------- |
+| Ink            | `#E4E9EF`             | The mark on dark grounds                       |
+| Ink, dark      | `#0F1419`             | The mark on light grounds                      |
+| Accent         | `#4A9EDB`             | Rules, meta text, the app icon's pool of light |
+| App body, dark | `#1A2330` → `#0C1116` | The macOS icon body, top to bottom             |
 
 The mark is monotone. It is never given a gradient, a shadow, an outline, or a
 second colour, with one exception: `ArmadaMarkDuo` holds the two trailing hulls
@@ -46,12 +46,12 @@ lockup. Use the supplied lockups rather than setting your own.
 
 ## Minimum sizes
 
-| Context | Floor |
-|---|---|
-| Mark alone | 16px |
-| Horizontal lockup | 20px cap height |
-| Stacked lockup | 48px overall height |
-| `ArmadaMarkDuo` | 32px |
+| Context           | Floor               |
+| ----------------- | ------------------- |
+| Mark alone        | 16px                |
+| Horizontal lockup | 20px cap height     |
+| Stacked lockup    | 48px overall height |
+| `ArmadaMarkDuo`   | 32px                |
 
 At 16px the notches are about one pixel and the mark is at its limit; it is
 comfortable from 24px. Below 16px the three hulls fuse into a single silhouette

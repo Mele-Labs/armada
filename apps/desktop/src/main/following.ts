@@ -31,7 +31,9 @@ function followPath(kept: string): string | null {
 export class FollowSocket {
   private readonly publish: (followed: FollowedLog) => void;
   private socket: WebSocket | null = null;
-  private held: FollowedLog = { state: "none" };
+  private held: FollowedLog = {
+    state: "none",
+  };
 
   constructor(publish: (followed: FollowedLog) => void) {
     this.publish = publish;
@@ -58,19 +60,35 @@ export class FollowSocket {
     }
     this.close();
     if (jobId === null || kept === null) {
-      this.set({ state: "none" });
+      this.set({
+        state: "none",
+      });
       return;
     }
     if (port === null) {
-      this.set({ state: "failed", jobId, kept, detail: "Fleet is not connected." });
+      this.set({
+        state: "failed",
+        jobId,
+        kept,
+        detail: "Fleet is not connected.",
+      });
       return;
     }
     const path = followPath(kept);
     if (path === null) {
-      this.set({ state: "failed", jobId, kept, detail: "Fleet serves no log under that name." });
+      this.set({
+        state: "failed",
+        jobId,
+        kept,
+        detail: "Fleet serves no log under that name.",
+      });
       return;
     }
-    this.set({ state: "opening", jobId, kept });
+    this.set({
+      state: "opening",
+      jobId,
+      kept,
+    });
 
     const socket = new WebSocket(`ws://${HOST}:${port}${path}`);
     this.socket = socket;
@@ -124,16 +142,26 @@ export class FollowSocket {
     if (held.state !== "following") return;
 
     if (message.message === "lines") {
-      const all = [...held.lines, ...message.lines];
+      const all = [
+        ...held.lines,
+        ...message.lines,
+      ];
       const dropped = Math.max(0, all.length - HELD);
-      this.set({ ...held, lines: all.slice(dropped), fromLine: held.fromLine + dropped });
+      this.set({
+        ...held,
+        lines: all.slice(dropped),
+        fromLine: held.fromLine + dropped,
+      });
       return;
     }
 
     // `closed` carries why, and the socket is let go first so its own `close`
     // cannot overwrite the reason — `journal.ts` learned this the hard way.
     this.close();
-    this.set({ ...held, ended: message.because });
+    this.set({
+      ...held,
+      ended: message.because,
+    });
   }
 
   /**
@@ -147,9 +175,17 @@ export class FollowSocket {
     this.socket = null;
     const held = this.held;
     if (held.state === "following") {
-      this.set({ ...held, ended: held.ended ?? "broke" });
+      this.set({
+        ...held,
+        ended: held.ended ?? "broke",
+      });
       return;
     }
-    this.set({ state: "failed", jobId, kept, detail });
+    this.set({
+      state: "failed",
+      jobId,
+      kept,
+      detail,
+    });
   }
 }

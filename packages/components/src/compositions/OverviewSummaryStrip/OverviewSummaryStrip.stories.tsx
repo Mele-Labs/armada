@@ -11,7 +11,9 @@ import { OverviewSummaryStrip } from "./OverviewSummaryStrip";
 const meta = {
   title: "Compositions/Overview summary strip",
   component: OverviewSummaryStrip,
-  parameters: { layout: "padded" },
+  parameters: {
+    layout: "padded",
+  },
 } satisfies Meta<typeof OverviewSummaryStrip>;
 
 export default meta;
@@ -22,9 +24,28 @@ export const SomeOfEach: Story = {
   name: "Some of each",
   args: {
     items: [
-      { id: "needs-you", label: "Needs you", count: 3, hue: "awaiting-review", tone: "awaiting-review", onPress: fn() },
-      { id: "running", label: "Running", count: 2, hue: "running", onPress: fn() },
-      { id: "queued", label: "Queued", count: 0, hue: "not-started", onPress: fn() },
+      {
+        id: "needs-you",
+        label: "Needs you",
+        count: 3,
+        hue: "awaiting-review",
+        tone: "awaiting-review",
+        onPress: fn(),
+      },
+      {
+        id: "running",
+        label: "Running",
+        count: 2,
+        hue: "running",
+        onPress: fn(),
+      },
+      {
+        id: "queued",
+        label: "Queued",
+        count: 0,
+        hue: "not-started",
+        onPress: fn(),
+      },
       {
         id: "recently-ended",
         label: "Recently ended",
@@ -36,12 +57,16 @@ export const SomeOfEach: Story = {
     ],
   },
   play: async ({ args, canvas, userEvent }) => {
-    const needsYou = canvas.getByRole("button", { name: "3 Needs you" });
+    const needsYou = canvas.getByRole("button", {
+      name: "3 Needs you",
+    });
     await expect(needsYou).toBeVisible();
     await userEvent.click(needsYou);
     await expect(args.items[0]!.onPress).toHaveBeenCalledOnce();
 
-    const ended = canvas.getByRole("button", { name: "4 Recently ended" });
+    const ended = canvas.getByRole("button", {
+      name: "4 Recently ended",
+    });
     await userEvent.click(ended);
     await expect(args.items[3]!.onPress).toHaveBeenCalledOnce();
   },
@@ -52,9 +77,28 @@ export const AllEmpty: Story = {
   name: "All empty",
   args: {
     items: [
-      { id: "needs-you", label: "Needs you", count: 0, hue: "awaiting-review", tone: "awaiting-review", onPress: fn() },
-      { id: "running", label: "Running", count: 0, hue: "running", onPress: fn() },
-      { id: "queued", label: "Queued", count: 0, hue: "not-started", onPress: fn() },
+      {
+        id: "needs-you",
+        label: "Needs you",
+        count: 0,
+        hue: "awaiting-review",
+        tone: "awaiting-review",
+        onPress: fn(),
+      },
+      {
+        id: "running",
+        label: "Running",
+        count: 0,
+        hue: "running",
+        onPress: fn(),
+      },
+      {
+        id: "queued",
+        label: "Queued",
+        count: 0,
+        hue: "not-started",
+        onPress: fn(),
+      },
       {
         id: "recently-ended",
         label: "Recently ended",

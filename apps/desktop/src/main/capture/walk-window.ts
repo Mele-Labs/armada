@@ -38,7 +38,10 @@ export type Queued = {
   /** What its page was made with, so the same walk shown again is told from another. */
   shape: string;
   /** A pull request's held walk, which Bridge closes at Fleet as it quits. */
-  held?: { manifestId: string; walkId: string };
+  held?: {
+    manifestId: string;
+    walkId: string;
+  };
 };
 
 /** What the window needs from whoever holds it. */
@@ -108,13 +111,26 @@ export class WalkWindow {
         one.left();
       }
       // A view's document outlives a closed `BaseWindow` unless it is closed with it.
-      for (const view of [this.bar, this.panel]) if (!view.webContents.isDestroyed()) view.webContents.close();
+      for (const view of [
+        this.bar,
+        this.panel,
+      ])
+        if (!view.webContents.isDestroyed()) view.webContents.close();
       this.board.closed();
     });
     this.bar.webContents.on("did-finish-load", () => this.current?.walk?.redraw());
     // The bar and the panel take the capture binding for the walk on screen, and the queue's keys the bar would take.
     // ⌘↵ stays the bar's own, where a field may hold it as Send, and the panel's, where its composer does.
-    for (const [view, own] of [[this.bar, true], [this.panel, false]] as const) {
+    for (const [view, own] of [
+      [
+        this.bar,
+        true,
+      ],
+      [
+        this.panel,
+        false,
+      ],
+    ] as const) {
       view.webContents.on("before-input-event", (event, input) => {
         if (isCaptureBinding(input)) {
           event.preventDefault();
@@ -170,7 +186,11 @@ export class WalkWindow {
   add(walk: Queued, show: boolean): void {
     if (this.find(walk.key) !== undefined) return;
     const at = placeOf(this.walks, walk.since);
-    this.walks = [...this.walks.slice(0, at), walk, ...this.walks.slice(at)];
+    this.walks = [
+      ...this.walks.slice(0, at),
+      walk,
+      ...this.walks.slice(at),
+    ];
     if (show || this.current === null) this.bring(walk);
     else this.current.walk?.redraw();
     this.board.changed();
@@ -180,7 +200,11 @@ export class WalkWindow {
   replace(walk: Queued): void {
     const standing = this.find(walk.key);
     if (standing === undefined) return this.add(walk, false);
-    const fresh: Queued = { ...walk, since: standing.since, seen: standing.seen || walk.seen };
+    const fresh: Queued = {
+      ...walk,
+      since: standing.since,
+      seen: standing.seen || walk.seen,
+    };
     this.walks = this.walks.map((one) => (one === standing ? fresh : one));
     standing.walk?.dispose();
     if (this.current === standing) {
@@ -240,7 +264,13 @@ export class WalkWindow {
   }
 
   private describe(): CaptureQueue {
-    return { entries: this.walks.map((one) => one.describe(one === this.current)), at: Math.max(0, this.walks.findIndex((one) => one === this.current)) };
+    return {
+      entries: this.walks.map((one) => one.describe(one === this.current)),
+      at: Math.max(
+        0,
+        this.walks.findIndex((one) => one === this.current),
+      ),
+    };
   }
 
   private queue(): CaptureQueue {
@@ -263,7 +293,8 @@ export class WalkWindow {
     if (walk.walk === null) walk.walk = walk.make(this.seat);
     before?.walk?.hide();
     walk.walk.show();
-    if (!this.panel.webContents.isDestroyed()) this.panel.webContents.send(CHANNELS.walkPanelSubjectChanged, walk.sessionId ?? null);
+    if (!this.panel.webContents.isDestroyed())
+      this.panel.webContents.send(CHANNELS.walkPanelSubjectChanged, walk.sessionId ?? null);
     this.board.shown(walk);
   }
 }

@@ -33,44 +33,91 @@ const cut = (text: string, most = CHARS): string => {
 };
 
 /** Where Claude Code keeps a session's transcript: the directory is the working directory with every character that is not a letter or digit as `-`. */
-export const transcriptOf = (cwd: string, id: string): string => `~/.claude/projects/${cwd.replace(/[^A-Za-z0-9]/g, "-")}/${id}.jsonl`;
+export const transcriptOf = (cwd: string, id: string): string =>
+  `~/.claude/projects/${cwd.replace(/[^A-Za-z0-9]/g, "-")}/${id}.jsonl`;
 
 const kb = (tokens: number) => `${Math.round(tokens / 1000)}k`;
 
 /** Its state in the words the Sessions page uses for what it can be sent. */
 function stateOf(session: Session): string {
-  const base = session.dead === "ended" ? "ended" : session.dead === "quiet" ? "terminal not listening" : session.turn.state === "working" ? "working" : "idle";
+  const base =
+    session.dead === "ended"
+      ? "ended"
+      : session.dead === "quiet"
+        ? "terminal not listening"
+        : session.turn.state === "working"
+          ? "working"
+          : "idle";
   if (session.standing === undefined || session.standing === base) return base;
-  const running = base === "idle" && session.standing === "working" ? session.attachments.find((one) => one.kind === "subagent" && one.state === "running") : undefined;
+  const running =
+    base === "idle" && session.standing === "working"
+      ? session.attachments.find((one) => one.kind === "subagent" && one.state === "running")
+      : undefined;
   if (running?.kind === "subagent") return `${base}, a subagent working: ${running.task}`;
   return `${base}, read by Fleet as ${session.standing}`;
 }
 
-function attachmentLine(one: SessionAttachment): [label: string, value: string] | undefined {
+function attachmentLine(one: SessionAttachment):
+  | [
+      label: string,
+      value: string,
+    ]
+  | undefined {
   switch (one.kind) {
     case "pull_request": {
-      const checks = one.checks.state === "failed" ? `checks failed (${one.checks.failing})` : `checks ${one.checks.state}`;
-      return ["Pull request", `#${one.number} ${one.title}, ${one.state}, ${checks}, branch ${one.branch}, ${one.address}`];
+      const checks =
+        one.checks.state === "failed"
+          ? `checks failed (${one.checks.failing})`
+          : `checks ${one.checks.state}`;
+      return [
+        "Pull request",
+        `#${one.number} ${one.title}, ${one.state}, ${checks}, branch ${one.branch}, ${one.address}`,
+      ];
     }
     case "forked_from":
-      return ["Forked from Job", one.id];
+      return [
+        "Forked from Job",
+        one.id,
+      ];
     case "forked_to":
-      return ["Forked to Job", one.id];
+      return [
+        "Forked to Job",
+        one.id,
+      ];
     case "started_by":
-      return ["Started by Job", one.id];
+      return [
+        "Started by Job",
+        one.id,
+      ];
     case "started_to":
-      return ["Started Job", one.id];
+      return [
+        "Started Job",
+        one.id,
+      ];
     default:
       return undefined;
   }
 }
 
-const who = (row: Extract<SessionRow, { kind: "message" }>) => (row.from.kind === "you" ? "Owner" : row.from.kind === "agent" ? "Agent" : `Job ${row.from.title} (${row.from.id})`);
+const who = (
+  row: Extract<
+    SessionRow,
+    {
+      kind: "message";
+    }
+  >,
+) =>
+  row.from.kind === "you"
+    ? "Owner"
+    : row.from.kind === "agent"
+      ? "Agent"
+      : `Job ${row.from.title} (${row.from.id})`;
 
 /** The labelled lines about `session`, one per fact, in the order they are read. A fact that is not known is not a line. */
 export function reportFacts(session: Session, from: ReportFrom): string[] {
   const lines: string[] = [];
-  const add = (label: string, value: string | undefined) => void (value === undefined || value === "" || lines.push(`${label}: ${value}`));
+  const add = (label: string, value: string | undefined) =>
+    void (value === undefined || value === "" || lines.push(`${label}: ${value}`));
   add("Reported at", from.at.toISOString());
   add("Pressed from", from.screen);
   add("Job", session.title === undefined ? undefined : `${session.title} (${session.id})`);
@@ -82,27 +129,62 @@ export function reportFacts(session: Session, from: ReportFrom): string[] {
     add("Started in", session.cwd);
     add("Transcript", transcriptOf(session.cwd, session.id));
   }
-  const branches = session.attachments.flatMap((one) => (one.kind === "branch" ? [one] : []));
-  const slots = session.attachments.flatMap((one) => (one.kind === "slot" ? [one] : []));
+  const branches = session.attachments.flatMap((one) =>
+    one.kind === "branch"
+      ? [
+          one,
+        ]
+      : [],
+  );
+  const slots = session.attachments.flatMap((one) =>
+    one.kind === "slot"
+      ? [
+          one,
+        ]
+      : [],
+  );
   const bayPath = (slot: number) => `${from.root}/.armada/slots/slot-${slot}`;
   for (const one of branches) add("Branch", `${one.name}, slot ${one.slot}, ${bayPath(one.slot)}`);
-  if (branches.length === 0) for (const one of slots) add("Slot", `${one.slot}, ${bayPath(one.slot)}`);
-  if (branches.length === 0 && slots.length === 0) add("Slot held earlier", (session.trail?.bays ?? []).map((one) => `slot-${one.slot}`).join(", "));
+  if (branches.length === 0)
+    for (const one of slots) add("Slot", `${one.slot}, ${bayPath(one.slot)}`);
+  if (branches.length === 0 && slots.length === 0)
+    add(
+      "Slot held earlier",
+      (session.trail?.bays ?? []).map((one) => `slot-${one.slot}`).join(", "),
+    );
   add("State", stateOf(session));
   add("Started", session.trail?.started);
   add("Last turn ended", session.lastTurnAt);
   add("Held on the plan limit until", session.limitedUntil);
-  const model = [session.model, session.resolvedModel === undefined ? undefined : `resolved ${session.resolvedModel}`, session.effort === undefined ? undefined : `effort ${session.effort}`, session.mode === undefined ? undefined : `mode ${session.mode}`].filter((one) => one !== undefined);
+  const model = [
+    session.model,
+    session.resolvedModel === undefined ? undefined : `resolved ${session.resolvedModel}`,
+    session.effort === undefined ? undefined : `effort ${session.effort}`,
+    session.mode === undefined ? undefined : `mode ${session.mode}`,
+  ].filter((one) => one !== undefined);
   add("Model", model.length === 0 ? undefined : model.join(", "));
-  add("Context", session.context === undefined ? undefined : `${kb(session.context.tokens)} of ${kb(session.context.window)} tokens`);
+  add(
+    "Context",
+    session.context === undefined
+      ? undefined
+      : `${kb(session.context.tokens)} of ${kb(session.context.window)} tokens`,
+  );
   for (const one of session.attachments) {
     const line = attachmentLine(one);
     if (line !== undefined) add(line[0], line[1]);
   }
-  for (const item of session.waitingFor ?? []) add("Waiting on the owner", `${cut(item.text, 200)} (${item.source}, since ${item.since})`);
+  for (const item of session.waitingFor ?? [])
+    add("Waiting on the owner", `${cut(item.text, 200)} (${item.source}, since ${item.since})`);
   if (session.asked !== undefined) add("Held on a call", cut(session.asked.command, 200));
-  if (session.lapsed !== undefined) add("Question nobody answered", cut(session.lapsed.questions.map((one) => one.question).join(" / "), 200));
-  add("Last Job act Fleet refused", from.refused === undefined ? undefined : cut(from.refused, 200));
+  if (session.lapsed !== undefined)
+    add(
+      "Question nobody answered",
+      cut(session.lapsed.questions.map((one) => one.question).join(" / "), 200),
+    );
+  add(
+    "Last Job act Fleet refused",
+    from.refused === undefined ? undefined : cut(from.refused, 200),
+  );
   return lines;
 }
 
@@ -111,8 +193,12 @@ export function reportFacts(session: Session, from: ReportFrom): string[] {
  * messages, tools and timeline stay out; carried whole, they read as the task and buried his words.
  */
 export function noteFacts(session: Session, root: string): string[] {
-  const lines = [`Job: ${session.title === undefined ? session.id : `${session.title} (${session.id})`}`];
-  for (const one of session.attachments) if (one.kind === "branch") lines.push(`Branch: ${one.name}, ${root}/.armada/slots/slot-${one.slot}`);
+  const lines = [
+    `Job: ${session.title === undefined ? session.id : `${session.title} (${session.id})`}`,
+  ];
+  for (const one of session.attachments)
+    if (one.kind === "branch")
+      lines.push(`Branch: ${one.name}, ${root}/.armada/slots/slot-${one.slot}`);
   if (session.cwd !== undefined) lines.push(`Transcript: ${transcriptOf(session.cwd, session.id)}`);
   return lines;
 }
@@ -125,20 +211,46 @@ export function reportLists(session: Session, from: ReportFrom): string[] {
     out.push("", `Did not start: ${cut(cause)}`);
     if (log.length > 0) {
       // A fence one longer than any backtick run in the log, so a line of the agent's own cannot close it.
-      const fence = "`".repeat(Math.max(3, ...log.map((line) => (line.match(/`+/g) ?? []).reduce((most, run) => Math.max(most, run.length), 0) + 1)));
+      const fence = "`".repeat(
+        Math.max(
+          3,
+          ...log.map(
+            (line) =>
+              (line.match(/`+/g) ?? []).reduce((most, run) => Math.max(most, run.length), 0) + 1,
+          ),
+        ),
+      );
       out.push("", "The agent's last error lines, oldest first:", fence, ...log, fence);
     }
   }
-  const section = (head: string, rows: readonly string[]) => void (rows.length === 0 || out.push("", `${head}:`, ...rows.map((one) => `- ${one}`)));
-  const messages = session.rows.flatMap((row) => (row.kind === "message" ? [`${who(row)} at ${row.at}: ${cut(row.text)}`] : []));
+  const section = (head: string, rows: readonly string[]) =>
+    void (rows.length === 0 || out.push("", `${head}:`, ...rows.map((one) => `- ${one}`)));
+  const messages = session.rows.flatMap((row) =>
+    row.kind === "message"
+      ? [
+          `${who(row)} at ${row.at}: ${cut(row.text)}`,
+        ]
+      : [],
+  );
   section("Last messages, oldest first", messages.slice(-MESSAGES));
-  const tools = session.rows.flatMap((row) => (row.kind === "tool" ? [`${row.at} ${cut(row.text, 160)}`] : []));
+  const tools = session.rows.flatMap((row) =>
+    row.kind === "tool"
+      ? [
+          `${row.at} ${cut(row.text, 160)}`,
+        ]
+      : [],
+  );
   section("Last tool calls, oldest first", tools.slice(-TOOLS));
-  const events = [...from.events]
+  const events = [
+    ...from.events,
+  ]
     .filter((one) => one.subject.kind === "session" && one.subject.id === session.id)
     .sort((a, b) => Date.parse(a.at) - Date.parse(b.at) || a.id - b.id)
     .slice(-EVENTS)
-    .map((one) => `${one.at} ${one.kind}: ${cut(one.says, 160)}${one.detail === undefined ? "" : ` (${cut(one.detail, 120)})`}${one.tone === "bad" ? ", failing" : ""}`);
+    .map(
+      (one) =>
+        `${one.at} ${one.kind}: ${cut(one.says, 160)}${one.detail === undefined ? "" : ` (${cut(one.detail, 120)})`}${one.tone === "bad" ? ", failing" : ""}`,
+    );
   section("Last timeline events, oldest first", events);
   return out;
 }

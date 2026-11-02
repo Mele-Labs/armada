@@ -20,7 +20,13 @@ const { drawn } = vi.hoisted(() => {
 
   const PERFORMED_WORK = 1;
   /** Function, class, forwardRef, memo and simple-memo components, as React tags them. */
-  const COMPONENT_TAGS = new Set([0, 1, 11, 14, 15]);
+  const COMPONENT_TAGS = new Set([
+    0,
+    1,
+    11,
+    14,
+    15,
+  ]);
 
   const drawn: Map<string, number>[] = [];
 
@@ -30,29 +36,50 @@ const { drawn } = vi.hoisted(() => {
       // Bailed-out subtrees keep their children by identity: nothing in them ran.
       if (one.alternate !== null && one.alternate.child === one.child) continue;
       if (COMPONENT_TAGS.has(one.tag) && (one.flags & PERFORMED_WORK) !== 0) {
-        const type = one.type as { displayName?: string; name?: string; render?: { name?: string }; type?: { name?: string } } | null;
-        const name = type?.displayName ?? type?.name ?? type?.render?.name ?? type?.type?.name ?? "anonymous";
+        const type = one.type as {
+          displayName?: string;
+          name?: string;
+          render?: {
+            name?: string;
+          };
+          type?: {
+            name?: string;
+          };
+        } | null;
+        const name =
+          type?.displayName ?? type?.name ?? type?.render?.name ?? type?.type?.name ?? "anonymous";
         names.set(name, (names.get(name) ?? 0) + 1);
       }
       walk(one.child, names);
     }
   }
 
-  (globalThis as { __REACT_DEVTOOLS_GLOBAL_HOOK__?: unknown }).__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+  (
+    globalThis as {
+      __REACT_DEVTOOLS_GLOBAL_HOOK__?: unknown;
+    }
+  ).__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
     supportsFiber: true,
     renderers: new Map(),
     inject: () => 1,
     checkDCE: () => undefined,
     onCommitFiberUnmount: () => undefined,
     onPostCommitFiberRoot: () => undefined,
-    onCommitFiberRoot: (_id: number, root: { current: Fiber }) => {
+    onCommitFiberRoot: (
+      _id: number,
+      root: {
+        current: Fiber;
+      },
+    ) => {
       const names = new Map<string, number>();
       walk(root.current, names);
       drawn.push(names);
     },
   };
 
-  return { drawn };
+  return {
+    drawn,
+  };
 });
 
 const second = (): Promise<void> => new Promise((done) => setTimeout(done, 1100));
@@ -64,10 +91,21 @@ async function twoTicks(): Promise<Map<string, number>> {
   await second();
   await second();
   const total = new Map<string, number>();
-  for (const commit of drawn) for (const [name, n] of commit) total.set(name, (total.get(name) ?? 0) + n);
-  const count = [...total.values()].reduce((sum, n) => sum + n, 0);
+  for (const commit of drawn)
+    for (const [name, n] of commit) total.set(name, (total.get(name) ?? 0) + n);
+  const count = [
+    ...total.values(),
+  ].reduce((sum, n) => sum + n, 0);
   console.log(`renders over two ticks: ${count} in ${drawn.length} commits`);
-  console.log([...total].sort((a, b) => b[1] - a[1]).slice(0, 25).map(([name, n]) => `${n} ${name}`).join("\n"));
+  console.log(
+    [
+      ...total,
+    ]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 25)
+      .map(([name, n]) => `${n} ${name}`)
+      .join("\n"),
+  );
   return total;
 }
 

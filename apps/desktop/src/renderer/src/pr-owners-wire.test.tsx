@@ -13,9 +13,16 @@ import type { HubPullRequest, MergeLines, PullRequestOwner } from "@armada/proto
 import { ownersOnLines, PrOwnersOnTheWire } from "./pr-owners-wire";
 import type { OwnedPanel } from "./pr-owners-wire";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 afterEach(() => {
   for (const { root, host } of roots.splice(0)) {
     act(() => root.unmount());
@@ -23,30 +30,73 @@ afterEach(() => {
   }
 });
 
-const A_SESSION: PullRequestOwner = { kind: "session", id: "s-a1b2", machine: "mac-a", this_machine: false };
-const HERE: PullRequestOwner = { kind: "session", id: "s-here", machine: "mac-b", this_machine: true };
+const A_SESSION: PullRequestOwner = {
+  kind: "session",
+  id: "s-a1b2",
+  machine: "mac-a",
+  this_machine: false,
+};
+const HERE: PullRequestOwner = {
+  kind: "session",
+  id: "s-here",
+  machine: "mac-b",
+  this_machine: true,
+};
 
 const pull = (number: number, owner?: PullRequestOwner): HubPullRequest => ({
   number,
   title: `Change ${number}`,
   branch: `armada/${number}`,
   url: `https://forge.invalid/mele-labs/armada/pull/${number}`,
-  ...(owner === undefined ? {} : { owner }),
+  ...(owner === undefined
+    ? {}
+    : {
+        owner,
+      }),
 });
 
 const linesOf = (...pulls: HubPullRequest[]): MergeLines => ({
-  lines: [{ root: "/srv/armada", line: [], off: [], landed: [], sent_back: [], hub: { pull_requests: pulls } }],
+  lines: [
+    {
+      root: "/srv/armada",
+      line: [],
+      off: [],
+      landed: [],
+      sent_back: [],
+      hub: {
+        pull_requests: pulls,
+      },
+    },
+  ],
 });
 
 /** The chips for pull requests 30, 31 and 32 of the repository, under whatever `around` wraps them in. */
-function window(lines: MergeLines | null, panel?: OwnedPanel, around?: (inner: ReactElement) => ReactElement): HTMLElement {
+function window(
+  lines: MergeLines | null,
+  panel?: OwnedPanel,
+  around?: (inner: ReactElement) => ReactElement,
+): HTMLElement {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  roots.push({ root, host });
+  roots.push({
+    root,
+    host,
+  });
   const chips = (
-    <PrOwnersOnTheWire lines={lines} {...(panel === undefined ? {} : { panel })}>
-      {[30, 31, 32].map((number) => (
+    <PrOwnersOnTheWire
+      lines={lines}
+      {...(panel === undefined
+        ? {}
+        : {
+            panel,
+          })}
+    >
+      {[
+        30,
+        31,
+        32,
+      ].map((number) => (
         <section key={number} aria-label={`#${number}`}>
           <RegisteredOwnerOf repository="mele-labs/armada" number={number} />
         </section>
@@ -57,7 +107,8 @@ function window(lines: MergeLines | null, panel?: OwnedPanel, around?: (inner: R
   return host;
 }
 
-const chipOn = (host: HTMLElement, number: number) => host.querySelector(`section[aria-label="#${number}"] .armada-registered-owner`);
+const chipOn = (host: HTMLElement, number: number) =>
+  host.querySelector(`section[aria-label="#${number}"] .armada-registered-owner`);
 
 test("a pull request the wire names an owner for draws the chip, and one it does not draws none", () => {
   const host = window(linesOf(pull(30, A_SESSION), pull(31)));
@@ -79,27 +130,51 @@ test("a Fleet that served no owners, or no lines, draws no chip", () => {
 });
 
 test("the panel's page names the owner of its own pull request over the lines", () => {
-  const host = window(linesOf(pull(30, A_SESSION)), { repository: "mele-labs/armada", number: 30, owner: HERE });
+  const host = window(linesOf(pull(30, A_SESSION)), {
+    repository: "mele-labs/armada",
+    number: 30,
+    owner: HERE,
+  });
   expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Job s-here, This machine");
 });
 
 test("a page with no owner leaves the one the lines carry", () => {
-  const host = window(linesOf(pull(30, A_SESSION)), { repository: "mele-labs/armada", number: 30, owner: undefined });
+  const host = window(linesOf(pull(30, A_SESSION)), {
+    repository: "mele-labs/armada",
+    number: 30,
+    owner: undefined,
+  });
   expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Job s-a1b2, mac-a");
 });
 
 test("owners are read off every line's pull requests by repository and number", () => {
   const owners = ownersOnLines(linesOf(pull(30, A_SESSION), pull(31)));
-  expect([...owners.keys()]).toEqual(["mele-labs/armada#30"]);
+  expect([
+    ...owners.keys(),
+  ]).toEqual([
+    "mele-labs/armada#30",
+  ]);
 });
 
 test("a registry the window already holds answers for what the wire does not", () => {
   const mock: PrOwnerRegistry = {
-    ownerOf: (_, number) => (number === 32 ? { kind: "session", id: "mock-session", machine: { name: "mock-mac", here: false } } : undefined),
+    ownerOf: (_, number) =>
+      number === 32
+        ? {
+            kind: "session",
+            id: "mock-session",
+            machine: {
+              name: "mock-mac",
+              here: false,
+            },
+          }
+        : undefined,
     registering: true,
     setRegistering: () => undefined,
   };
-  const host = window(linesOf(pull(30, A_SESSION)), undefined, (inner) => <PrOwnerRegistryProvider value={mock}>{inner}</PrOwnerRegistryProvider>);
+  const host = window(linesOf(pull(30, A_SESSION)), undefined, (inner) => (
+    <PrOwnerRegistryProvider value={mock}>{inner}</PrOwnerRegistryProvider>
+  ));
   expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Job s-a1b2, mac-a");
   expect(chipOn(host, 32)?.getAttribute("aria-label")).toBe("Job mock-session, mock-mac");
   expect(chipOn(host, 31)).toBeNull();

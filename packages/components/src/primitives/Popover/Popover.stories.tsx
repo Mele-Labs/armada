@@ -28,8 +28,8 @@ export const Open: Story = {
     trigger,
     children: (
       <span>
-        Spend follows the active billing mode. This machine gates on the quota
-        floor, so the row shows <span className="mono">68% quota</span> left.
+        Spend follows the active billing mode. This machine gates on the quota floor, so the row
+        shows <span className="mono">68% quota</span> left.
       </span>
     ),
   },
@@ -49,7 +49,11 @@ export const Open: Story = {
     await expect(canvas.queryByRole("dialog")).toBeNull();
 
     // And the control that opened it is the control that opens it again.
-    await userEvent.click(canvas.getByRole("button", { name: "Spend" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Spend",
+      }),
+    );
     await expect(canvas.getByRole("dialog")).toBeVisible();
   },
 };
@@ -61,8 +65,8 @@ export const AlignedToTheEnd: Story = {
     trigger,
     children: (
       <span>
-        Spend follows the active billing mode. This machine gates on the quota
-        floor, so the row shows <span className="mono">68% quota</span> left.
+        Spend follows the active billing mode. This machine gates on the quota floor, so the row
+        shows <span className="mono">68% quota</span> left.
       </span>
     ),
   },
@@ -70,8 +74,8 @@ export const AlignedToTheEnd: Story = {
 
 const body = (
   <span>
-    Spend follows the active billing mode. This machine gates on the quota
-    floor, so the row shows <span className="mono">68% quota</span> left.
+    Spend follows the active billing mode. This machine gates on the quota floor, so the row shows{" "}
+    <span className="mono">68% quota</span> left.
   </span>
 );
 
@@ -80,10 +84,14 @@ const body = (
  * size that fits on the page. `contain: layout` makes the frame the panel's
  * containing block, which is the window in the app.
  */
-function Frame({ edge, children }: { edge: "left" | "right" | "bottom"; children: React.ReactNode }) {
-  return (
-    <div className={`armada-popover-frame armada-popover-frame--${edge}`}>{children}</div>
-  );
+function Frame({
+  edge,
+  children,
+}: {
+  edge: "left" | "right" | "bottom";
+  children: React.ReactNode;
+}) {
+  return <div className={`armada-popover-frame armada-popover-frame--${edge}`}>{children}</div>;
 }
 
 /**

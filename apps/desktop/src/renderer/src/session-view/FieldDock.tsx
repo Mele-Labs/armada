@@ -11,8 +11,17 @@ import { SvPanel } from "./SvPanel";
 import { bandKeyFor } from "./story";
 import "./flight.css";
 
-export function FieldDock({ session, repositories, map }: { session: Session | undefined; repositories: readonly RepositorySummary[]; /** The Cockpit's own map, drawn when no Job is open. */ map: ReactNode }) {
-  if (session !== undefined) return <FieldPanel session={session} repositories={repositories} place="left" />;
+export function FieldDock({
+  session,
+  repositories,
+  map,
+}: {
+  session: Session | undefined;
+  repositories: readonly RepositorySummary[] /** The Cockpit's own map, drawn when no Job is open. */;
+  map: ReactNode;
+}) {
+  if (session !== undefined)
+    return <FieldPanel session={session} repositories={repositories} place="left" />;
   return (
     <SvPanel label="Field" area="field" place="left" keycap={bandKeyFor("field")}>
       {map}

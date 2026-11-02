@@ -6,7 +6,9 @@ import type { IpcRenderer } from "electron";
 import type { Heard, VoiceApi, WhisperState } from "../shared/api/voice";
 import { CHANNELS } from "../shared/bridge";
 
-export function voicePreload(ipc: Pick<IpcRenderer, "invoke" | "on" | "removeListener">): Required<VoiceApi> {
+export function voicePreload(
+  ipc: Pick<IpcRenderer, "invoke" | "on" | "removeListener">,
+): Required<VoiceApi> {
   let hearings = 0;
   return {
     voice: {
@@ -25,6 +27,7 @@ export function voicePreload(ipc: Pick<IpcRenderer, "invoke" | "on" | "removeLis
         });
         return () => void ipc.invoke(CHANNELS.voiceStop, id);
       },
+      openSettings: (pane) => void ipc.invoke(CHANNELS.voiceOpenSettings, pane),
       whisper: () => ipc.invoke(CHANNELS.voiceWhisper),
       onWhisper: (listener) => {
         const handler = (_event: unknown, state: WhisperState): void => listener(state);

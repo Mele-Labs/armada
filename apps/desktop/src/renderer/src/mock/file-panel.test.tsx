@@ -11,16 +11,31 @@ import { timePasses } from "./time-passes";
 
 unmountAfterEach();
 
-const dialog = (name: string) => page.getByRole("dialog", { name, exact: true });
-const editor = (name: string) => dialog(name).getByRole("group", { name: `Editor ${name}`, exact: true });
+const dialog = (name: string) =>
+  page.getByRole("dialog", {
+    name,
+    exact: true,
+  });
+const editor = (name: string) =>
+  dialog(name).getByRole("group", {
+    name: `Editor ${name}`,
+    exact: true,
+  });
 // Save stands in the head only while the file has an edit, and carries ⌘S.
-const unsaved = () => dialog("settings.json").getByRole("button", { name: /^Save/ });
+const unsaved = () =>
+  dialog("settings.json").getByRole("button", {
+    name: /^Save/,
+  });
 
 async function onSettingsFile(): Promise<void> {
   mount("file-panel");
   await onScreen();
   await toSystemPage("Settings");
-  await userEvent.click(page.getByRole("button", { name: "Open settings.json" }));
+  await userEvent.click(
+    page.getByRole("button", {
+      name: "Open settings.json",
+    }),
+  );
   await expect.element(editor("settings.json")).toBeVisible();
 }
 
@@ -33,7 +48,11 @@ function typed(words: string): void {
 
 test("Open settings.json opens the panel on the settings path", async () => {
   await onSettingsFile();
-  await expect.element(dialog("settings.json").getByText("~/Library/Application Support/Armada/settings.json")).toBeInTheDocument();
+  await expect
+    .element(
+      dialog("settings.json").getByText("~/Library/Application Support/Armada/settings.json"),
+    )
+    .toBeInTheDocument();
 });
 
 test("⌘O opens the file the dialog picked", async () => {
@@ -47,7 +66,15 @@ test("a show_file row in the thread opens the file in the panel", async () => {
   mount("file-panel");
   await onScreen();
   await toSession("Store clock notes");
-  await userEvent.click(page.getByRole("region", { name: "Thread" }).getByRole("button", { name: "Opened store-clock.md" }));
+  await userEvent.click(
+    page
+      .getByRole("region", {
+        name: "Thread",
+      })
+      .getByRole("button", {
+        name: "Opened store-clock.md",
+      }),
+  );
   await expect.element(editor("store-clock.md")).toBeVisible();
 });
 
@@ -55,10 +82,28 @@ test("a path in backticks in the thread links only where it is a file in the che
   mount("file-panel");
   await onScreen();
   await toSession("Store clock notes");
-  const thread = page.getByRole("region", { name: "Thread" });
-  await expect.element(thread.getByRole("link", { name: "docs/notes/gone.md" })).not.toBeInTheDocument();
-  await expect.element(thread.getByRole("link", { name: "docs/notes/store-clock.md --raw" })).not.toBeInTheDocument();
-  await userEvent.click(thread.getByRole("link", { name: "docs/notes/store-clock.md" }));
+  const thread = page.getByRole("region", {
+    name: "Thread",
+  });
+  await expect
+    .element(
+      thread.getByRole("link", {
+        name: "docs/notes/gone.md",
+      }),
+    )
+    .not.toBeInTheDocument();
+  await expect
+    .element(
+      thread.getByRole("link", {
+        name: "docs/notes/store-clock.md --raw",
+      }),
+    )
+    .not.toBeInTheDocument();
+  await userEvent.click(
+    thread.getByRole("link", {
+      name: "docs/notes/store-clock.md",
+    }),
+  );
   await expect.element(editor("store-clock.md")).toBeVisible();
 });
 
@@ -66,10 +111,49 @@ test("Artifacts says a file the Session only showed was shown, and one it wrote 
   mount("file-panel");
   await onScreen();
   await toSession("Store clock notes");
-  await userEvent.click(page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Artifacts", exact: true }));
-  const files = page.getByRole("region", { name: "Artifacts", exact: true }).getByRole("region", { name: "Files", exact: true });
-  await expect.element(files.getByRole("button", { name: "store-clock.md", exact: true }).getByRole("img", { name: "File shown" })).toBeVisible();
-  await expect.element(files.getByRole("button", { name: "clock.rs", exact: true }).getByRole("img", { name: "File written" })).toBeVisible();
+  await userEvent.click(
+    page
+      .getByRole("region", {
+        name: "Flight controls",
+      })
+      .getByRole("button", {
+        name: "Artifacts",
+        exact: true,
+      }),
+  );
+  const files = page
+    .getByRole("region", {
+      name: "Artifacts",
+      exact: true,
+    })
+    .getByRole("region", {
+      name: "Files",
+      exact: true,
+    });
+  await expect
+    .element(
+      files
+        .getByRole("button", {
+          name: "store-clock.md",
+          exact: true,
+        })
+        .getByRole("img", {
+          name: "File shown",
+        }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      files
+        .getByRole("button", {
+          name: "clock.rs",
+          exact: true,
+        })
+        .getByRole("img", {
+          name: "File written",
+        }),
+    )
+    .toBeVisible();
 });
 
 test("an edit survives closing the panel on it, and a save clears it", async () => {
@@ -78,12 +162,20 @@ test("an edit survives closing the panel on it, and a save clears it", async () 
   await expect.element(unsaved()).toBeVisible();
   await userEvent.keyboard("{Escape}");
   await expect.element(dialog("settings.json")).not.toBeInTheDocument();
-  await userEvent.click(page.getByRole("button", { name: "Open settings.json" }));
+  await userEvent.click(
+    page.getByRole("button", {
+      name: "Open settings.json",
+    }),
+  );
   await expect.element(unsaved()).toBeVisible();
   await userEvent.keyboard("{Meta>}s{/Meta}");
   await expect.element(unsaved()).not.toBeInTheDocument();
   await userEvent.keyboard("{Escape}");
-  await userEvent.click(page.getByRole("button", { name: "Open settings.json" }));
+  await userEvent.click(
+    page.getByRole("button", {
+      name: "Open settings.json",
+    }),
+  );
   await expect.element(editor("settings.json")).toBeVisible();
   await expect.element(unsaved()).not.toBeInTheDocument();
 });
@@ -94,8 +186,20 @@ test("a save the disk has moved past shows both, and Keep mine saves over what i
   timePasses();
   await userEvent.keyboard("{Meta>}s{/Meta}");
   await expect.element(dialog("settings.json").getByText("Changed on disk")).toBeVisible();
-  await expect.element(dialog("settings.json").getByRole("group", { name: "Editor settings.json on disk" })).toBeVisible();
-  await userEvent.click(dialog("settings.json").getByRole("button", { name: "Keep mine" }));
-  await expect.element(dialog("settings.json").getByText("Changed on disk")).not.toBeInTheDocument();
+  await expect
+    .element(
+      dialog("settings.json").getByRole("group", {
+        name: "Editor settings.json on disk",
+      }),
+    )
+    .toBeVisible();
+  await userEvent.click(
+    dialog("settings.json").getByRole("button", {
+      name: "Keep mine",
+    }),
+  );
+  await expect
+    .element(dialog("settings.json").getByText("Changed on disk"))
+    .not.toBeInTheDocument();
   await expect.element(unsaved()).not.toBeInTheDocument();
 });

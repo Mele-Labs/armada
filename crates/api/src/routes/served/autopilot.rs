@@ -56,4 +56,21 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/autopilots/:repository/picks/:pick_id/dismiss",
     },
+    // What a running Autopilot answered for the person, to review. Not under `/autopilots/:repository`:
+    // a repository named like the path would be shadowed.
+    Route {
+        operation: "get_autopilot_decisions",
+        method: "GET",
+        path: "/autopilot/decisions",
+    },
+    Route {
+        operation: "review_autopilot_decision",
+        method: "POST",
+        path: "/autopilot/decisions/review",
+    },
+    Route {
+        operation: "override_autopilot_decision",
+        method: "POST",
+        path: "/autopilot/decisions/override",
+    },
 ];

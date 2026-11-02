@@ -22,7 +22,9 @@ import { nodeNamed } from "@armada/screens/src/studio";
 import { actsOn, aWriteUp, placedBeside, selectedNodes } from "./studio-promotion";
 
 /** One rung as the aside's control offers it. */
-type Rung = StudioPickedAct & { id: Filling };
+type Rung = StudioPickedAct & {
+  id: Filling;
+};
 
 /** Which rung a person is filling in, or `null`. */
 type Filling =
@@ -106,7 +108,9 @@ export function useStudioPromotion(props: StudioPromotionProps): StudioPromotion
           act: "group",
           kind: "cluster",
           title,
-          from: [...selected],
+          from: [
+            ...selected,
+          ],
           position,
         });
       case "outline":
@@ -114,7 +118,9 @@ export function useStudioPromotion(props: StudioPromotionProps): StudioPromotion
           act: "group",
           kind: "outline",
           body,
-          from: [...selected],
+          from: [
+            ...selected,
+          ],
           position,
         });
       case "defer":
@@ -122,17 +128,40 @@ export function useStudioPromotion(props: StudioPromotionProps): StudioPromotion
           act: "defer",
           what: body,
           raised_on: node_id,
-          ...(blocks === "" ? {} : { blocks }),
+          ...(blocks === ""
+            ? {}
+            : {
+                blocks,
+              }),
           position,
         });
       case "write_up":
-        return send({ act: "write_up", node_id, title, body, position });
+        return send({
+          act: "write_up",
+          node_id,
+          title,
+          body,
+          position,
+        });
       case "edit":
-        return send({ act: "edit_draft", node_id, title, body });
+        return send({
+          act: "edit_draft",
+          node_id,
+          title,
+          body,
+        });
       case "line":
-        return send({ act: "edit_link", node_id, said: body });
+        return send({
+          act: "edit_link",
+          node_id,
+          said: body,
+        });
       case "settled":
-        return send({ act: "settle", node_id, outcome: "not_a_problem" });
+        return send({
+          act: "settle",
+          node_id,
+          outcome: "not_a_problem",
+        });
       case "resolved":
         return send({
           act: "settle",
@@ -143,7 +172,16 @@ export function useStudioPromotion(props: StudioPromotionProps): StudioPromotion
       case "read_in":
         // **The answer rides on an Epic alone.** Every other kind has one
         // thing to read and nothing to ask about — #1405.
-        return send({ act: "read_in", node_id, position, ...(one?.kind === "epic" ? { take } : {}) });
+        return send({
+          act: "read_in",
+          node_id,
+          position,
+          ...(one?.kind === "epic"
+            ? {
+                take,
+              }
+            : {}),
+        });
       case null:
         return;
     }
@@ -158,7 +196,20 @@ export function useStudioPromotion(props: StudioPromotionProps): StudioPromotion
   // two ways a Contradiction ends draw words because the difference between
   // them *is* the words, and a pair of silhouettes would have to encode why.
   const rung = (id: Filling, label: string, offers: boolean, icon?: LucideIcon): Rung[] =>
-    offers ? [icon === undefined ? { id, label } : { id, label, icon }] : [];
+    offers
+      ? [
+          icon === undefined
+            ? {
+                id,
+                label,
+              }
+            : {
+                id,
+                label,
+                icon,
+              },
+        ]
+      : [];
   const offered: Rung[] = [
     ...rung("cluster", "Cluster Notes", acts.cluster, Group),
     ...rung("outline", "Outline", acts.outline, ListOrdered),
@@ -298,11 +349,15 @@ function Filling(props: FillingProps) {
       return (
         <>
           <p>
-            {picked.map(named).join("; ")}. Each keeps a Produced edge to the new node, in the order they were
-            picked.
+            {picked.map(named).join("; ")}. Each keeps a Produced edge to the new node, in the order
+            they were picked.
           </p>
           {filling === "cluster" ? (
-            <Input label="Title" value={title} onChange={(event) => props.onTitle(event.target.value)} />
+            <Input
+              label="Title"
+              value={title}
+              onChange={(event) => props.onTitle(event.target.value)}
+            />
           ) : (
             <Textarea
               label="Reading"
@@ -316,14 +371,21 @@ function Filling(props: FillingProps) {
     case "defer":
       return (
         <>
-          <p>Raised on {one === undefined ? "the node" : named(one)}, and put off until somebody answers it.</p>
+          <p>
+            Raised on {one === undefined ? "the node" : named(one)}, and put off until somebody
+            answers it.
+          </p>
           <Textarea
             label="What is being put off"
             rows={3}
             value={body}
             onChange={(event) => props.onBody(event.target.value)}
           />
-          <Select label="Blocks" value={blocks} onChange={(event) => props.onBlocks(event.target.value)}>
+          <Select
+            label="Blocks"
+            value={blocks}
+            onChange={(event) => props.onBlocks(event.target.value)}
+          >
             <option value="">Nothing on this Studio</option>
             {studio.nodes
               .filter((node) => node.id !== one?.id)
@@ -344,18 +406,32 @@ function Filling(props: FillingProps) {
               ? "A draft on this Studio, and nothing filed anywhere. Filing it is yours to do."
               : "The draft keeps what you leave here."}
           </p>
-          <Input label="Title" value={title} onChange={(event) => props.onTitle(event.target.value)} />
-          <Textarea label="Body" rows={8} value={body} onChange={(event) => props.onBody(event.target.value)} />
+          <Input
+            label="Title"
+            value={title}
+            onChange={(event) => props.onTitle(event.target.value)}
+          />
+          <Textarea
+            label="Body"
+            rows={8}
+            value={body}
+            onChange={(event) => props.onBody(event.target.value)}
+          />
         </>
       );
     case "line":
       return (
         <>
           <p>
-            The card reads this line, with the address under it. The address does not change, and clearing the
-            line leaves the node as its address alone.
+            The card reads this line, with the address under it. The address does not change, and
+            clearing the line leaves the node as its address alone.
           </p>
-          <Textarea label="Your line" rows={3} value={body} onChange={(event) => props.onBody(event.target.value)} />
+          <Textarea
+            label="Your line"
+            rows={3}
+            value={body}
+            onChange={(event) => props.onBody(event.target.value)}
+          />
         </>
       );
     case "read_in":
@@ -364,31 +440,44 @@ function Filling(props: FillingProps) {
       return one?.kind === "epic" ? (
         <>
           <p>
-            Armada fetches this epic and fills it in as one Issue per issue, with no scout at all. The node stays
-            where it is and keeps its address. Reading it in again with the other answer widens or narrows what is
-            here, and leaves standing anything you have since worked on.
+            Armada fetches this epic and fills it in as one Issue per issue, with no scout at all.
+            The node stays where it is and keeps its address. Reading it in again with the other
+            answer widens or narrows what is here, and leaves standing anything you have since
+            worked on.
           </p>
-          <Select label="Take" value={take} onChange={(event) => props.onTake(event.target.value as EpicTake)}>
+          <Select
+            label="Take"
+            value={take}
+            onChange={(event) => props.onTake(event.target.value as EpicTake)}
+          >
             <option value="open">Only what is open</option>
             <option value="everything">Every issue</option>
           </Select>
         </>
       ) : (
         <p>
-          Armada fetches {one === undefined ? "this address" : named(one)} and a scout reads what comes back, off
-          this Studio. The node stays where it is and keeps its address; an address Armada does not read comes back
-          saying so.
+          Armada fetches {one === undefined ? "this address" : named(one)} and a scout reads what
+          comes back, off this Studio. The node stays where it is and keeps its address; an address
+          Armada does not read comes back saying so.
         </p>
       );
     case "settled":
       return (
-        <p>Both statements hold, in different contexts. The node keeps saying so, and nothing else is made.</p>
+        <p>
+          Both statements hold, in different contexts. The node keeps saying so, and nothing else is
+          made.
+        </p>
       );
     case "resolved":
       return (
         <>
           <p>The answer is kept on the node, so this can be reread.</p>
-          <Textarea label="Answer" rows={4} value={body} onChange={(event) => props.onBody(event.target.value)} />
+          <Textarea
+            label="Answer"
+            rows={4}
+            value={body}
+            onChange={(event) => props.onBody(event.target.value)}
+          />
         </>
       );
   }

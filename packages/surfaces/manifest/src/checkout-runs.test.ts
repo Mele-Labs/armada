@@ -37,14 +37,22 @@ function entry(name: string, run: string, over: Partial<RunEntry> = {}): RunEntr
 }
 
 const SHEET: CheckoutRunSheet = {
-  setup: [entry("bootstrap", "pnpm install --frozen-lockfile")],
+  setup: [
+    entry("bootstrap", "pnpm install --frozen-lockfile"),
+  ],
   checks: [
     // `narrows` is true and `narrow_run` is absent, which is exactly what
     // Fleet sends for the checkout: the Check declares a `narrow` and there is
     // no diff for one to resolve against.
-    entry("test", "cargo nextest run --workspace --exclude acceptance", { narrows: true }),
+    entry("test", "cargo nextest run --workspace --exclude acceptance", {
+      narrows: true,
+    }),
   ],
-  commands: [entry("fmt", "cargo fmt --all", { destructive: true })],
+  commands: [
+    entry("fmt", "cargo fmt --all", {
+      destructive: true,
+    }),
+  ],
 };
 
 describe("the groups the Manifest surface lists", () => {
@@ -61,19 +69,36 @@ describe("the groups the Manifest surface lists", () => {
   });
 
   it("gives the palette one row per entry, with its run line", () => {
-    expect(checkoutRunnablesOf({ state: "read", sheet: SHEET })).toEqual([
-      { id: "setup:bootstrap", label: "bootstrap", value: "pnpm install --frozen-lockfile" },
+    expect(
+      checkoutRunnablesOf({
+        state: "read",
+        sheet: SHEET,
+      }),
+    ).toEqual([
+      {
+        id: "setup:bootstrap",
+        label: "bootstrap",
+        value: "pnpm install --frozen-lockfile",
+      },
       {
         id: "check:test",
         label: "test",
         value: "cargo nextest run --workspace --exclude acceptance",
       },
-      { id: "command:fmt", label: "fmt", value: "cargo fmt --all" },
+      {
+        id: "command:fmt",
+        label: "fmt",
+        value: "cargo fmt --all",
+      },
     ]);
   });
 
   it("lists nothing for the palette before the read has answered", () => {
-    expect(checkoutRunnablesOf({ state: "reading" })).toEqual([]);
+    expect(
+      checkoutRunnablesOf({
+        state: "reading",
+      }),
+    ).toEqual([]);
   });
 });
 
@@ -84,17 +109,27 @@ describe("the output pane, keyed to the selection", () => {
     name: "fmt",
     path: ".armada/runs/crun_1/output.log",
     fromLine: 1,
-    lines: ["Diff in crates/api/src/rehearsing.rs"],
+    lines: [
+      "Diff in crates/api/src/rehearsing.rs",
+    ],
   };
 
   it("draws nothing where what is followed is not what is selected", () => {
     // `rehearsal.test.ts`'s finding, one surface over: a server's bar came up
     // live while the pane beneath still read the Command run before it.
-    expect(checkoutOutputOf(FMT, { name: "storybook_dev" })).toBeUndefined();
+    expect(
+      checkoutOutputOf(FMT, {
+        name: "storybook_dev",
+      }),
+    ).toBeUndefined();
   });
 
   it("draws the run where the two agree", () => {
-    expect(checkoutOutputOf(FMT, { name: "fmt" })?.rows).toHaveLength(1);
+    expect(
+      checkoutOutputOf(FMT, {
+        name: "fmt",
+      })?.rows,
+    ).toHaveLength(1);
   });
 
   it("draws a run already under way when nothing is selected yet", () => {
@@ -118,12 +153,21 @@ describe("what a row carries beyond its declaration", () => {
     name,
     key: "run",
     run: "pnpm run bridge-test",
-    drift: { verdict: "gone" as const, missing: ["package.json: scripts.bridge-test"] },
+    drift: {
+      verdict: "gone" as const,
+      missing: [
+        "package.json: scripts.bridge-test",
+      ],
+    },
     unfollowed: [],
   });
   const read = (declarations: Declaration[]): ManifestDriftRead => ({
     state: "read",
-    drift: { path: "/r/armada.yml", checkout: "/r", declarations },
+    drift: {
+      path: "/r/armada.yml",
+      checkout: "/r",
+      declarations,
+    },
   });
   const ran = (name: string, over: Partial<CheckoutRunRecord> = {}) =>
     ({
@@ -138,7 +182,11 @@ describe("what a row carries beyond its declaration", () => {
 
   it("marks the row whose own line went, and leaves the rest alone", () => {
     const groups = checkoutGroupsOf(SHEET, false, {
-      gone: driftGoneOf(read([gone("test")])),
+      gone: driftGoneOf(
+        read([
+          gone("test"),
+        ]),
+      ),
       runs: [],
     });
     const rows = groups.flatMap((group) => group.entries);
@@ -149,7 +197,12 @@ describe("what a row carries beyond its declaration", () => {
   it("carries a row's own newest run, short, with what it expected in the title", () => {
     const groups = checkoutGroupsOf(SHEET, false, {
       gone: new Set(),
-      runs: [ran("test", { exit_code: 2 }), ran("fmt")],
+      runs: [
+        ran("test", {
+          exit_code: 2,
+        }),
+        ran("fmt"),
+      ],
     });
     const test = groups.flatMap((group) => group.entries).find((row) => row.id === "check:test");
     expect(test?.last?.result).toBe("exit 2");
@@ -160,7 +213,13 @@ describe("what a row carries beyond its declaration", () => {
   it("says how a run with no code ended, because `exit undefined` is not a reading", () => {
     const groups = checkoutGroupsOf(SHEET, false, {
       gone: new Set(),
-      runs: [ran("test", { exit_code: undefined, ended: "killed", stopped: true })],
+      runs: [
+        ran("test", {
+          exit_code: undefined,
+          ended: "killed",
+          stopped: true,
+        }),
+      ],
     });
     const test = groups.flatMap((group) => group.entries).find((row) => row.id === "check:test");
     expect(test?.last?.result).toBe("killed");
@@ -168,7 +227,12 @@ describe("what a row carries beyond its declaration", () => {
   });
 
   it("leaves a row that has never run with nothing", () => {
-    const groups = checkoutGroupsOf(SHEET, false, { gone: new Set(), runs: [ran("fmt")] });
+    const groups = checkoutGroupsOf(SHEET, false, {
+      gone: new Set(),
+      runs: [
+        ran("fmt"),
+      ],
+    });
     const test = groups.flatMap((group) => group.entries).find((row) => row.id === "check:test");
     expect(test?.last).toBeUndefined();
   });
@@ -177,8 +241,15 @@ describe("what a row carries beyond its declaration", () => {
 describe("the result line, keyed to the selection", () => {
   // The owner's screen after a reload: `storybook_dev` selected, and the panel under it reading
   // `gate was stopped`, the newest run of anything.
-  const run = (id: string, name: string) => ({ id, name }) as CheckoutRunRecord;
-  const RUNS = [run("r2", "gate"), run("r1", "fmt")];
+  const run = (id: string, name: string) =>
+    ({
+      id,
+      name,
+    }) as CheckoutRunRecord;
+  const RUNS = [
+    run("r2", "gate"),
+    run("r1", "fmt"),
+  ];
 
   it("is nothing for a server, which is not a run", () => {
     expect(checkoutResultRunOf(RUNS, "server:storybook_dev", undefined)).toBeUndefined();
@@ -198,14 +269,34 @@ describe("the result line, keyed to the selection", () => {
 });
 
 describe("an ended server", () => {
-  const ENDED = { phase: "exited", stopped: false } as ServerState;
+  const ENDED = {
+    phase: "exited",
+    stopped: false,
+  } as ServerState;
 
   it("does not say it stopped on its own, or exit 0, when somebody pressed Stop", () => {
-    expect(exitedOf({ ...ENDED, stopped: true })).toEqual({ phase: "exited", stopped: true });
+    expect(
+      exitedOf({
+        ...ENDED,
+        stopped: true,
+      }),
+    ).toEqual({
+      phase: "exited",
+      stopped: true,
+    });
   });
 
   it("carries its code where it exited on its own", () => {
-    expect(exitedOf({ ...ENDED, exit_code: 1 })).toEqual({ phase: "exited", stopped: false, exitCode: 1 });
+    expect(
+      exitedOf({
+        ...ENDED,
+        exit_code: 1,
+      }),
+    ).toEqual({
+      phase: "exited",
+      stopped: false,
+      exitCode: 1,
+    });
   });
 });
 
@@ -215,30 +306,63 @@ describe("a workspace's own Commands", () => {
     checks: [],
     commands: [],
     workspaces: [
-      { dir: "apps/web", commands: [entry("dev", "pnpm dev")] },
-      { dir: "apps/api", commands: [entry("dev", "cargo run")] },
+      {
+        dir: "apps/web",
+        commands: [
+          entry("dev", "pnpm dev"),
+        ],
+      },
+      {
+        dir: "apps/api",
+        commands: [
+          entry("dev", "cargo run"),
+        ],
+      },
     ],
   };
   const groups = checkoutGroupsOf(ROOTLESS, true);
 
   it("lists only Commands where there is no root file, each saying where it runs", () => {
-    expect(groups.map((group) => group.label)).toEqual(["Commands"]);
-    expect(groups[0]?.entries.map((row) => row.note)).toEqual(["In apps/web.", "In apps/api."]);
+    expect(groups.map((group) => group.label)).toEqual([
+      "Commands",
+    ]);
+    expect(groups[0]?.entries.map((row) => row.note)).toEqual([
+      "In apps/web.",
+      "In apps/api.",
+    ]);
   });
 
   it("starts a row with its workspace named", () => {
-    expect(checkoutStartOf(groups[0]!.entries[1]!.id)).toEqual({ name: "dev", workspace: "apps/api" });
-    expect(checkoutStartOf("command:fmt")).toEqual({ name: "fmt" });
+    expect(checkoutStartOf(groups[0]!.entries[1]!.id)).toEqual({
+      name: "dev",
+      workspace: "apps/api",
+    });
+    expect(checkoutStartOf("command:fmt")).toEqual({
+      name: "fmt",
+    });
   });
 
   it("keeps two of one name apart, in flight and in Earlier runs", () => {
     expect(runningEntryOf(groups, "dev", "apps/api")).toBe(groups[0]!.entries[1]!.id);
     const runs = [
-      { id: "r2", name: "dev", workspace: "apps/api" },
-      { id: "r1", name: "dev", workspace: "apps/web" },
+      {
+        id: "r2",
+        name: "dev",
+        workspace: "apps/api",
+      },
+      {
+        id: "r1",
+        name: "dev",
+        workspace: "apps/web",
+      },
     ] as CheckoutRunRecord[];
     expect(checkoutResultRunOf(runs, groups[0]!.entries[0]!.id, undefined)?.id).toBe("r1");
-    expect(checkoutRunnablesOf({ state: "read", sheet: ROOTLESS }).map((row) => row.label)).toEqual([
+    expect(
+      checkoutRunnablesOf({
+        state: "read",
+        sheet: ROOTLESS,
+      }).map((row) => row.label),
+    ).toEqual([
       "dev in apps/web",
       "dev in apps/api",
     ]);
@@ -252,18 +376,61 @@ describe("two Commands of one name in different workspaces", () => {
     name: "dev",
     path: ".armada/runs/main/crun_api/output.log",
     fromLine: 1,
-    lines: ["listening"],
+    lines: [
+      "listening",
+    ],
   };
-  const followedIn = followedWorkspaceOf(DEV_IN_API, new Map([["crun_api", "apps/api"]]), []);
+  const followedIn = followedWorkspaceOf(
+    DEV_IN_API,
+    new Map([
+      [
+        "crun_api",
+        "apps/api",
+      ],
+    ]),
+    [],
+  );
 
   it("draw only the selected one's output, never the other's", () => {
-    expect(checkoutOutputOf(DEV_IN_API, { name: "dev", workspace: "apps/web" }, followedIn)).toBeUndefined();
-    expect(checkoutOutputOf(DEV_IN_API, { name: "dev", workspace: "apps/api" }, followedIn)?.rows).toHaveLength(1);
-    expect(checkoutOutputOf(DEV_IN_API, { name: "dev" }, followedIn)).toBeUndefined();
+    expect(
+      checkoutOutputOf(
+        DEV_IN_API,
+        {
+          name: "dev",
+          workspace: "apps/web",
+        },
+        followedIn,
+      ),
+    ).toBeUndefined();
+    expect(
+      checkoutOutputOf(
+        DEV_IN_API,
+        {
+          name: "dev",
+          workspace: "apps/api",
+        },
+        followedIn,
+      )?.rows,
+    ).toHaveLength(1);
+    expect(
+      checkoutOutputOf(
+        DEV_IN_API,
+        {
+          name: "dev",
+        },
+        followedIn,
+      ),
+    ).toBeUndefined();
   });
 
   it("know a finished run's workspace from its record once the sheet no longer has it out", () => {
-    const runs = [{ id: "crun_api", name: "dev", workspace: "apps/api" }] as CheckoutRunRecord[];
+    const runs = [
+      {
+        id: "crun_api",
+        name: "dev",
+        workspace: "apps/api",
+      },
+    ] as CheckoutRunRecord[];
     expect(followedWorkspaceOf(DEV_IN_API, new Map(), runs)).toBe("apps/api");
   });
 });
@@ -271,21 +438,41 @@ describe("two Commands of one name in different workspaces", () => {
 describe("a root Manifest with workspaces of its own", () => {
   const groups = checkoutGroupsOf({
     ...SHEET,
-    workspaces: [{ dir: "apps/web", commands: [entry("fmt", "pnpm format")] }],
+    workspaces: [
+      {
+        dir: "apps/web",
+        commands: [
+          entry("fmt", "pnpm format"),
+        ],
+      },
+    ],
   });
 
   it("keeps the root's three groups and lists the workspace's Commands after the root's", () => {
-    expect(groups.map((group) => group.label)).toEqual(["Setup", "Checks", "Commands"]);
+    expect(groups.map((group) => group.label)).toEqual([
+      "Setup",
+      "Checks",
+      "Commands",
+    ]);
     const commands = groups[2]!.entries;
     const fmt = commands.filter((row) => row.name === "fmt").map((row) => row.note ?? "root");
-    expect(fmt).toEqual(["root", "In apps/web."]);
+    expect(fmt).toEqual([
+      "root",
+      "In apps/web.",
+    ]);
     expect(runningEntryOf(groups, "fmt")).toBe("command:fmt");
   });
 });
 
 describe("a name the person's own armada.yml declares differently", () => {
   it("is marked as hiding the repository's, by kind and name", () => {
-    const groups = checkoutGroupsOf(SHEET, false, { gone: new Set(), runs: [], hiding: new Set(["check:test"]) });
+    const groups = checkoutGroupsOf(SHEET, false, {
+      gone: new Set(),
+      runs: [],
+      hiding: new Set([
+        "check:test",
+      ]),
+    });
     const rows = groups.flatMap((group) => group.entries);
     expect(rows.find((row) => row.id === "check:test")?.hides).toBe(true);
     expect(rows.find((row) => row.id === "command:fmt")?.hides).toBeUndefined();

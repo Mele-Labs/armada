@@ -58,7 +58,7 @@ Fleet has more than one way to learn that a test reaches a file, and uses whiche
 | A file changes on a branch | Marks its edges stale, and reads them again by the cheapest source that can |
 | Main moves to a new tip | Marks the edges of the files between the tips stale, reads again at the new tip the tests of every source that costs no run and no rebuild, and has a model read the changed files no collector can measure |
 | A new file appears | Asks the static graph, and a model only where no collector can measure it |
-| The machine is asleep | Re-measures stale edges in a free bay, one test at a time, holding one of the machine's places, and stops when sleep mode goes off. A map holding no edge is the forge's to seed, so it is never measured whole here |
+| A repository's Autopilot is running | Re-measures stale edges in a free bay, one test at a time, holding one of the machine's places, and stops when that Autopilot is paused or stopped. A map holding no edge is the forge's to seed, so it is never measured whole here |
 
 > **Rule.** A model reads at most twenty files when main moves, each cut at 12 KB and shown at most 200 test files, the nearest first. The files it did not reach are read after the next move.
 > Why: the call costs a turn of the machine's model each, and a move that changed a hundred files must not ask a hundred times.
@@ -69,7 +69,7 @@ Fleet has more than one way to learn that a test reaches a file, and uses whiche
 > **Rule.** A stale edge is still an answer, said as stale.
 > Why: a file edited an hour ago is reached by nearly the same tests it was, and no answer at all sends an agent to the whole suite.
 
-> **Rule.** Recording never slows a run on a shared machine past what the Check costs on its own, and a collector that needs a rebuild records only on the forge's runner or in a sleeping bay.
+> **Rule.** Recording never slows a run on a shared machine past what the Check costs on its own, and a collector that needs a rebuild records only on the forge's runner or in an Autopilot bay.
 > Why: one machine carries every Check, agent and Fleet.
 
 The cost of a cold seed, timed on the runner, is in `../spikes/test-map-seed.md`.

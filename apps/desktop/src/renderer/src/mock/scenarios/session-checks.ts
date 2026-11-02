@@ -14,7 +14,9 @@ const ID = "s9";
 const OUT = 31;
 
 /** Whether the Check that was out has ended. */
-const ended = { failed: false };
+const ended = {
+  failed: false,
+};
 
 const checked = (): Session => ({
   id: ID,
@@ -22,24 +24,75 @@ const checked = (): Session => ({
   model: "sonnet",
   effort: "medium",
   mode: "auto",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   standing: "working",
   rows: [
-    { id: "c1", at: "14:20:50", kind: "message", from: { kind: "you" }, text: "Run the checks on the thread rows." },
-    { id: "c2", at: "14:21:20", kind: "tool", text: "Edit packages/components/src/compositions/SessionThread/SessionThread.tsx" },
-    { id: "c3", at: "14:21:40", kind: "check", name: "desktop:typecheck", run: 29, state: "passed" },
-    { id: "c4", at: "14:22:20", kind: "check", name: "components_test", run: 30, state: "failed" },
-    { id: "c5", at: "14:23:10", kind: "check", name: "app_smoke", run: OUT, state: ended.failed ? "failed" : "running" },
+    {
+      id: "c1",
+      at: "14:20:50",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Run the checks on the thread rows.",
+    },
+    {
+      id: "c2",
+      at: "14:21:20",
+      kind: "tool",
+      text: "Edit packages/components/src/compositions/SessionThread/SessionThread.tsx",
+    },
+    {
+      id: "c3",
+      at: "14:21:40",
+      kind: "check",
+      name: "desktop:typecheck",
+      run: 29,
+      state: "passed",
+    },
+    {
+      id: "c4",
+      at: "14:22:20",
+      kind: "check",
+      name: "components_test",
+      run: 30,
+      state: "failed",
+    },
+    {
+      id: "c5",
+      at: "14:23:10",
+      kind: "check",
+      name: "app_smoke",
+      run: OUT,
+      state: ended.failed ? "failed" : "running",
+    },
   ],
   attachments: [
-    { kind: "slot", slot: SLOT },
-    { kind: "branch", name: "sessions/session-checks", slot: SLOT },
-    { kind: "subagent", id: "sub-1", task: "Build the Fleet side of Kit's install", state: "running", agentType: "rust-engineer" },
+    {
+      kind: "slot",
+      slot: SLOT,
+    },
+    {
+      kind: "branch",
+      name: "sessions/session-checks",
+      slot: SLOT,
+    },
+    {
+      kind: "subagent",
+      id: "sub-1",
+      task: "Build the Fleet side of Kit's install",
+      state: "running",
+      agentType: "rust-engineer",
+    },
   ],
 });
 
 /** The store with the Session added, whose last Check ends when time passes. */
-function store(board: Parameters<NonNullable<NonNullable<Scenario["draft"]>["sessions"]>>[0]): SessionsStore {
+function store(
+  board: Parameters<NonNullable<NonNullable<Scenario["draft"]>["sessions"]>>[0],
+): SessionsStore {
   const inner = s200Sessions.draft!.sessions!(board) as SessionsStore;
   const listeners = new Set<() => void>();
   let seen: readonly Session[] | undefined;
@@ -51,7 +104,10 @@ function store(board: Parameters<NonNullable<NonNullable<Scenario["draft"]>["ses
       const now = inner.get();
       if (now !== seen) {
         seen = now;
-        drawn = [...now, mine];
+        drawn = [
+          ...now,
+          mine,
+        ];
       }
       return drawn;
     },
@@ -74,7 +130,9 @@ function store(board: Parameters<NonNullable<NonNullable<Scenario["draft"]>["ses
 }
 
 const over = checkingOver(
-  { state: "reading" },
+  {
+    state: "reading",
+  },
   "session-checks",
   "A Session's agent ran three Checks in its slot: one out, one passed, one failed, each a row in its thread",
 );
@@ -86,5 +144,7 @@ export const s203SessionChecks: Scenario = {
     ended.failed = false;
     return over.behaves?.(fleet) ?? {};
   },
-  draft: { sessions: store },
+  draft: {
+    sessions: store,
+  },
 };

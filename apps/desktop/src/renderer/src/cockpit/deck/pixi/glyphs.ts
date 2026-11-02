@@ -10,7 +10,12 @@ import { Container, Graphics } from "pixi.js";
 import type { OutpostGlyph } from "../outposts";
 import { hex, type Rgba } from "./palette";
 
-const ICONS = { forge: Github, ticket: Ticket, globe: Globe, plug: Plug } as const;
+const ICONS = {
+  forge: Github,
+  ticket: Ticket,
+  globe: Globe,
+  plug: Plug,
+} as const;
 
 /** The side of lucide's own drawing board. */
 const BOARD = 24;
@@ -24,7 +29,10 @@ function svgOf(name: OutpostGlyph, stroke: string): string {
   // The root says `currentColor`, which the canvas cannot resolve.
   return raw
     .replace(/ stroke="currentColor"/, "")
-    .replace(/<(path|circle|rect|line|polyline|polygon|ellipse)\b/g, `<$1 fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`);
+    .replace(
+      /<(path|circle|rect|line|polyline|polygon|ellipse)\b/g,
+      `<$1 fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`,
+    );
 }
 
 /** A colour as the `#rrggbb` an SVG attribute takes. */

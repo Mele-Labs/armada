@@ -9,7 +9,11 @@ import { page } from "vitest/browser";
 import { mount, onScreen, unmountAfterEach } from "./testing";
 
 /** The panel's head, named by its label and the state its dot now carries. */
-const head = () => page.getByRole("button", { name: "Fleet Running", exact: true });
+const head = () =>
+  page.getByRole("button", {
+    name: "Fleet Running",
+    exact: true,
+  });
 
 unmountAfterEach();
 
@@ -21,7 +25,10 @@ test.skip("the dot sits inside the Fleet panel's head, and the head says the sta
   await expect.element(head()).toBeVisible();
   // The panel's own dot, not the title row's, which carries the whole sentence
   // because it stands there with no label beside it.
-  const dot = head().getByRole("img", { name: "Running", exact: true });
+  const dot = head().getByRole("img", {
+    name: "Running",
+    exact: true,
+  });
   await expect.element(dot).toBeVisible();
   expect(dot.element().closest(".armada-panel__head")).not.toBeNull();
 });
@@ -44,5 +51,11 @@ test("a Fleet with no figure, no sentence and no Doctor reading draws its head a
   // The bodyless case is `reading` — Bridge before it has read the file at all.
   mount("first-launch");
   await onScreen();
-  await expect.element(page.getByRole("button", { name: /^Fleet/ })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: /^Fleet/,
+      }),
+    )
+    .toBeVisible();
 });

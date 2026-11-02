@@ -7,14 +7,41 @@ import type { Outcome, TileAsk } from "@armada/protocol";
 
 /** The ask a press was refused with, where Fleet refused it as not approved here: its `fields` carry the command and its hash. */
 export function askOfRefusal(outcome: Outcome, id: string): TileAsk | undefined {
-  if (outcome.ok || outcome.why !== "refused" || outcome.error.code !== "fleet.tile_not_approved") return undefined;
+  if (outcome.ok || outcome.why !== "refused" || outcome.error.code !== "fleet.tile_not_approved")
+    return undefined;
   const { command, command_hash } = outcome.error.fields;
-  return typeof command === "string" && typeof command_hash === "string" ? { id, command, command_hash, approved: false } : undefined;
+  return typeof command === "string" && typeof command_hash === "string"
+    ? {
+        id,
+        command,
+        command_hash,
+        approved: false,
+      }
+    : undefined;
 }
 
-export function TileAskDialog({ name, ask, said, onRun, onCancel }: { name: string; ask: TileAsk; said?: string; onRun: () => void; onCancel: () => void }) {
+export function TileAskDialog({
+  name,
+  ask,
+  said,
+  onRun,
+  onCancel,
+}: {
+  name: string;
+  ask: TileAsk;
+  said?: string;
+  onRun: () => void;
+  onCancel: () => void;
+}) {
   return (
-    <Dialog open title={name} tone="neutral" confirmLabel="Run" onConfirm={onRun} onCancel={onCancel}>
+    <Dialog
+      open
+      title={name}
+      tone="neutral"
+      confirmLabel="Run"
+      onConfirm={onRun}
+      onCancel={onCancel}
+    >
       <pre className="deck-ask__command" aria-label="Command">
         {ask.command}
       </pre>

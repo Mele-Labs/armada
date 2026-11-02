@@ -31,7 +31,20 @@ export const s261MergeByHand: Scenario = (() => {
       const open = (line.hub?.pull_requests ?? []).filter((one) => one.number !== edit.number);
       return open.length === (line.hub?.pull_requests ?? []).length
         ? line
-        : { ...line, hub: { ...line.hub, pull_requests: open, merged: [{ ...gone, merged_at: new Date().toISOString() }, ...(line.hub?.merged ?? [])] } };
+        : {
+            ...line,
+            hub: {
+              ...line.hub,
+              pull_requests: open,
+              merged: [
+                {
+                  ...gone,
+                  merged_at: new Date().toISOString(),
+                },
+                ...(line.hub?.merged ?? []),
+              ],
+            },
+          };
     }),
   });
   return {
@@ -41,7 +54,20 @@ export const s261MergeByHand: Scenario = (() => {
     state: {
       ...ship.state,
       mergeLines: {
-        lines: lines.lines.map((line, at) => (at !== 0 ? line : { ...line, hub: { ...line.hub, pull_requests: [edit, ...(line.hub?.pull_requests ?? [])] } })),
+        lines: lines.lines.map((line, at) =>
+          at !== 0
+            ? line
+            : {
+                ...line,
+                hub: {
+                  ...line.hub,
+                  pull_requests: [
+                    edit,
+                    ...(line.hub?.pull_requests ?? []),
+                  ],
+                },
+              },
+        ),
       },
     },
     draft: {
@@ -53,7 +79,10 @@ export const s261MergeByHand: Scenario = (() => {
           // No Session holds this pull request, so the act is pressed on the repository; Merge is the press the walk makes.
           actInRepository: async (_root, number, what) => {
             if (number !== edit.number) return false;
-            if (what === "merge") fleet?.publish({ mergeLines: merged(fleet.state().mergeLines!) });
+            if (what === "merge")
+              fleet?.publish({
+                mergeLines: merged(fleet.state().mergeLines!),
+              });
             return true;
           },
         };
@@ -61,7 +90,10 @@ export const s261MergeByHand: Scenario = (() => {
     },
     behaves: (handle) => {
       fleet = handle;
-      return { ...ship.behaves?.(handle), readManifestFile: manifesting().behaves?.(handle).readManifestFile! };
+      return {
+        ...ship.behaves?.(handle),
+        readManifestFile: manifesting().behaves?.(handle).readManifestFile!,
+      };
     },
   };
 })();

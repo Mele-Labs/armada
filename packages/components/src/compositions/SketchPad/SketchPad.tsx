@@ -15,7 +15,11 @@ import { Ink, type SketchPoint, type SketchStroke } from "./Ink";
 import { Paste, useMiddle } from "./Paste";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { GRAPH_CANVAS_SIDES, GraphCanvas, facingSides } from "../GraphCanvas/GraphCanvas";
-import { GraphCanvasNodeAct, GraphCanvasNodeBar, GraphCanvasRailGroup } from "../GraphCanvas/GraphCanvasRail";
+import {
+  GraphCanvasNodeAct,
+  GraphCanvasNodeBar,
+  GraphCanvasRailGroup,
+} from "../GraphCanvas/GraphCanvasRail";
 import type { GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
 
 /**
@@ -47,19 +51,37 @@ export type SketchPadProps = {
    * A box put down somewhere new, by pointer or by arrow key. Reported when it
    * lands, never while it travels.
    */
-  onMove: (id: string, at: { x: number; y: number }) => void;
+  onMove: (
+    id: string,
+    at: {
+      x: number;
+      y: number;
+    },
+  ) => void;
   /** The words in one box, as they are typed. */
   onBody: (id: string, body: string) => void;
   /**
    * A box added, in the pad's own coordinates, holding `body` — empty from Add
    * a box, the text from a paste. **The caller mints the id.**
    */
-  onAdd: (at: { x: number; y: number }, body: string) => void;
+  onAdd: (
+    at: {
+      x: number;
+      y: number;
+    },
+    body: string,
+  ) => void;
   /**
    * A picture pasted onto the pad, already scaled to sit on it, placed by its
    * top-left corner. **The caller mints the id**, as it does for a box.
    */
-  onPicture: (picture: SketchPictureLanding, at: { x: number; y: number }) => void;
+  onPicture: (
+    picture: SketchPictureLanding,
+    at: {
+      x: number;
+      y: number;
+    },
+  ) => void;
   /** Whatever is selected, taken off. Never called with nothing selected. */
   onRemove: (ids: readonly string[]) => void;
   /** Two things joined, boxes or pictures. Offered only while exactly two are selected. */
@@ -95,19 +117,36 @@ export type SketchPadProps = {
 };
 
 /** One box: where a person put it, and the words in it. */
-export type SketchBox = { id: string; x: number; y: number; body: string };
+export type SketchBox = {
+  id: string;
+  x: number;
+  y: number;
+  body: string;
+};
 
 /** One box joined to another, in the direction it was drawn. */
-export type SketchLine = { id: string; from: string; to: string };
+export type SketchLine = {
+  id: string;
+  from: string;
+  to: string;
+};
 
 /**
  * One picture pasted onto the pad: where it sits, the size it is drawn at, and
  * a `blob:` address for its bytes — what the window's `img-src` draws.
  */
-export type SketchPicture = SketchPictureLanding & { id: string; x: number; y: number };
+export type SketchPicture = SketchPictureLanding & {
+  id: string;
+  x: number;
+  y: number;
+};
 
 /** What a paste hands the caller, before it has an id or a place. */
-export type SketchPictureLanding = { src: string; width: number; height: number };
+export type SketchPictureLanding = {
+  src: string;
+  width: number;
+  height: number;
+};
 
 /** The pen's own two, re-exported so a caller reads one module's props. */
 export type { SketchPoint, SketchStroke } from "./Ink";
@@ -132,7 +171,14 @@ const MADE_IN_A_STUDIO = "From a Studio";
 /** What a pasted picture is called, for somebody who cannot see it. */
 const A_PICTURE = "A pasted picture";
 
-type BoxNode = Node<{ body: string; onBody: (body: string) => void; disabled: boolean }, "sketch">;
+type BoxNode = Node<
+  {
+    body: string;
+    onBody: (body: string) => void;
+    disabled: boolean;
+  },
+  "sketch"
+>;
 type PictureNode = Node<SketchPictureLanding, "picture">;
 type PadNode = BoxNode | PictureNode;
 type PadEdge = Edge<Record<string, never>, "default">;
@@ -197,7 +243,10 @@ function PictureView({ data, selected }: NodeProps<PictureNode>) {
   );
 }
 
-const NODE_TYPES = { sketch: BoxView, picture: PictureView };
+const NODE_TYPES = {
+  sketch: BoxView,
+  picture: PictureView,
+};
 const EDGE_TYPES = {};
 
 /**
@@ -211,14 +260,19 @@ const EDGE_TYPES = {};
  * fit armed zoomed onto the first box added, which is what the owner read on
  * 28 Sep 2026.
  */
-const FIT: FitViewOptions = { padding: 0.1 };
+const FIT: FitViewOptions = {
+  padding: 0.1,
+};
 
 /**
  * Held down, a second box joins the selection rather than replacing it — which
  * is how a person picks the two they are joining. Named rather than left to
  * React Flow's platform read, for the two reasons `StudioWhiteboard` states.
  */
-const JOINS_THE_SELECTION = ["Meta", "Control"];
+const JOINS_THE_SELECTION = [
+  "Meta",
+  "Control",
+];
 
 /** How many boxes a join takes. Two, and the control says so while it is off. */
 const A_JOIN_TAKES = 2;
@@ -241,7 +295,13 @@ function PadRail({
   onUndo,
   disabled,
 }: {
-  onAdd: (at: { x: number; y: number }, body: string) => void;
+  onAdd: (
+    at: {
+      x: number;
+      y: number;
+    },
+    body: string,
+  ) => void;
   pen: boolean;
   onPen: (pen: boolean) => void;
   drawn: boolean;
@@ -325,7 +385,10 @@ function BoxActs({
 function toPadNode(box: SketchBox, props: SketchPadProps): BoxNode {
   return {
     id: box.id,
-    position: { x: box.x, y: box.y },
+    position: {
+      x: box.x,
+      y: box.y,
+    },
     type: "sketch",
     data: {
       body: box.body,
@@ -340,9 +403,16 @@ function toPadNode(box: SketchBox, props: SketchPadProps): BoxNode {
 function toPictureNode(picture: SketchPicture): PictureNode {
   return {
     id: picture.id,
-    position: { x: picture.x, y: picture.y },
+    position: {
+      x: picture.x,
+      y: picture.y,
+    },
     type: "picture",
-    data: { src: picture.src, width: picture.width, height: picture.height },
+    data: {
+      src: picture.src,
+      width: picture.width,
+      height: picture.height,
+    },
     ariaLabel: A_PICTURE,
   };
 }
@@ -353,7 +423,10 @@ function toPictureNode(picture: SketchPicture): PictureNode {
  * A screenshot is what a box is about, and the box is the part with words.
  */
 function given(props: SketchPadProps): PadNode[] {
-  return [...props.pictures.map(toPictureNode), ...props.boxes.map((box) => toPadNode(box, props))];
+  return [
+    ...props.pictures.map(toPictureNode),
+    ...props.boxes.map((box) => toPadNode(box, props)),
+  ];
 }
 
 /**
@@ -366,12 +439,21 @@ function given(props: SketchPadProps): PadNode[] {
  * `visibility: hidden` forever. `StudioWhiteboard` folds the same way.
  */
 function merged(kept: readonly PadNode[], props: SketchPadProps): PadNode[] {
-  const byId = new Map(kept.map((node) => [node.id, node]));
+  const byId = new Map(
+    kept.map((node) => [
+      node.id,
+      node,
+    ]),
+  );
   return given(props).map((fresh) => {
     const held = byId.get(fresh.id);
     return held === undefined
       ? fresh
-      : ({ ...held, data: fresh.data, ariaLabel: fresh.ariaLabel } as PadNode);
+      : ({
+          ...held,
+          data: fresh.data,
+          ariaLabel: fresh.ariaLabel,
+        } as PadNode);
   });
 }
 
@@ -403,20 +485,55 @@ export function SketchPad(props: SketchPadProps) {
         }
       }
     },
-    [props, onMove],
+    [
+      props,
+      onMove,
+    ],
   );
 
   // Hung off the boxes rather than off `nodes`, which is a fresh array every
   // render — the sides an edge leaves from are decided by where the two sit.
   // A picture's size is known, so its centre is too.
   const edges = useMemo<PadEdge[]>(() => {
-    const placed = new Map<string, { position: { x: number; y: number }; measured?: { width: number; height: number } }>([
-      ...boxes.map((box) => [box.id, { position: { x: box.x, y: box.y } }] as const),
+    const placed = new Map<
+      string,
+      {
+        position: {
+          x: number;
+          y: number;
+        };
+        measured?: {
+          width: number;
+          height: number;
+        };
+      }
+    >([
+      ...boxes.map(
+        (box) =>
+          [
+            box.id,
+            {
+              position: {
+                x: box.x,
+                y: box.y,
+              },
+            },
+          ] as const,
+      ),
       ...pictures.map(
         (one) =>
           [
             one.id,
-            { position: { x: one.x, y: one.y }, measured: { width: one.width, height: one.height } },
+            {
+              position: {
+                x: one.x,
+                y: one.y,
+              },
+              measured: {
+                width: one.width,
+                height: one.height,
+              },
+            },
           ] as const,
       ),
     ]);
@@ -426,9 +543,15 @@ export function SketchPad(props: SketchPadProps) {
       target: line.to,
       ...facingSides(placed.get(line.from), placed.get(line.to)),
       ariaLabel: `A line from ${line.from} to ${line.to}`,
-      markerEnd: { type: MarkerType.ArrowClosed },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+      },
     }));
-  }, [lines, boxes, pictures]);
+  }, [
+    lines,
+    boxes,
+    pictures,
+  ]);
 
   return (
     <div className="armada-sketch-pad" data-fills={props.fills || undefined}>

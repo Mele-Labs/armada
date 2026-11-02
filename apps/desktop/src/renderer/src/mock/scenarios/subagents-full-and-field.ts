@@ -10,14 +10,32 @@ const QUIET = "one-view-2";
 
 const working = (one: Session): Session => ({
   ...one,
-  turn: { state: "working" },
+  turn: {
+    state: "working",
+  },
   standing: "working",
   attachments: [
     ...one.attachments,
-    { kind: "subagent", id: "sa-restart", task: "Harden the restart scripts", state: "running", agentType: "bridge-engineer" },
-    { kind: "subagent", id: "sa-toast", task: "Failed refresh toast", state: "running", agentType: "bridge-engineer" },
+    {
+      kind: "subagent",
+      id: "sa-restart",
+      task: "Harden the restart scripts",
+      state: "running",
+      agentType: "bridge-engineer",
+    },
+    {
+      kind: "subagent",
+      id: "sa-toast",
+      task: "Failed refresh toast",
+      state: "running",
+      agentType: "bridge-engineer",
+    },
   ],
-  work: { proposal: { workflow: null } },
+  work: {
+    proposal: {
+      workflow: null,
+    },
+  },
 });
 
 export const s280SubagentsFullAndField: Scenario = {

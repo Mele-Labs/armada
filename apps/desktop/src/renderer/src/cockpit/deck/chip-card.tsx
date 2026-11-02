@@ -8,9 +8,18 @@ import type { SessionLedgerCard, SessionLedgerTone } from "@armada/components";
 
 import { MERGE_BY_HAND, type Dot, type PullState } from "../horizon";
 
-const TONE: Partial<Record<PullState, SessionLedgerTone>> = { ready: "passed", failing: "failed", running: "running", blocked: "escalated" };
+const TONE: Partial<Record<PullState, SessionLedgerTone>> = {
+  ready: "passed",
+  failing: "failed",
+  running: "running",
+  blocked: "escalated",
+};
 
-const REVIEW = { approved: "Approved", changes: "Changes requested", required: "Required" } as const;
+const REVIEW = {
+  approved: "Approved",
+  changes: "Changes requested",
+  required: "Required",
+} as const;
 
 export function chipCardOf(dot: Dot, openJob?: (id: string) => void): SessionLedgerCard {
   const { card } = dot;
@@ -19,16 +28,87 @@ export function chipCardOf(dot: Dot, openJob?: (id: string) => void): SessionLed
   return {
     title: card.title ?? card.heading,
     where: card.heading,
-    state: { said: card.draft === true ? `${card.says}, draft` : card.says, Glyph: pull ? GitPullRequest : GitBranch, ...(tone === undefined ? {} : { tone }) },
+    state: {
+      said: card.draft === true ? `${card.says}, draft` : card.says,
+      Glyph: pull ? GitPullRequest : GitBranch,
+      ...(tone === undefined
+        ? {}
+        : {
+            tone,
+          }),
+    },
     facts: [
-      ...(card.author === undefined ? [] : [{ label: "Author", value: card.author }]),
-      ...(card.check === undefined ? [] : [{ label: "Checks", value: card.check }]),
-      ...(card.place === undefined ? [] : [{ label: pull ? "Place" : "Turn", value: String(card.place) }]),
-      ...(card.branch === card.heading ? [] : [{ label: "Branch", value: card.branch, mono: true }]),
-      ...(card.review === undefined ? [] : [{ label: "Review", value: REVIEW[card.review] }]),
-      ...(card.conflicts === true ? [{ label: "Main", value: "Conflicts", tone: "failed" as const }] : []),
-      ...(card.byHand === true ? [{ label: "Merge", value: MERGE_BY_HAND }] : []),
-      ...(card.owner === undefined ? [] : [{ label: "Job", value: card.owner.title, ...(openJob === undefined ? {} : { open: () => openJob(card.owner!.id) }) }]),
+      ...(card.author === undefined
+        ? []
+        : [
+            {
+              label: "Author",
+              value: card.author,
+            },
+          ]),
+      ...(card.check === undefined
+        ? []
+        : [
+            {
+              label: "Checks",
+              value: card.check,
+            },
+          ]),
+      ...(card.place === undefined
+        ? []
+        : [
+            {
+              label: pull ? "Place" : "Turn",
+              value: String(card.place),
+            },
+          ]),
+      ...(card.branch === card.heading
+        ? []
+        : [
+            {
+              label: "Branch",
+              value: card.branch,
+              mono: true,
+            },
+          ]),
+      ...(card.review === undefined
+        ? []
+        : [
+            {
+              label: "Review",
+              value: REVIEW[card.review],
+            },
+          ]),
+      ...(card.conflicts === true
+        ? [
+            {
+              label: "Main",
+              value: "Conflicts",
+              tone: "failed" as const,
+            },
+          ]
+        : []),
+      ...(card.byHand === true
+        ? [
+            {
+              label: "Merge",
+              value: MERGE_BY_HAND,
+            },
+          ]
+        : []),
+      ...(card.owner === undefined
+        ? []
+        : [
+            {
+              label: "Job",
+              value: card.owner.title,
+              ...(openJob === undefined
+                ? {}
+                : {
+                    open: () => openJob(card.owner!.id),
+                  }),
+            },
+          ]),
     ],
   };
 }
@@ -40,6 +120,15 @@ export const chipPreview =
     <LedgerPreview
       card={chipCardOf(dot, openJob === undefined ? undefined : (id) => (close(), openJob(id)))}
       kind={dot.card.heading.startsWith("#") ? "pull_request" : "branch"}
-      keys={pressable ? [{ key: "Enter", verb: "Open" }] : []}
+      keys={
+        pressable
+          ? [
+              {
+                key: "Enter",
+                verb: "Open",
+              },
+            ]
+          : []
+      }
     />
   );

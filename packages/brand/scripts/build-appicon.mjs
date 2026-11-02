@@ -8,51 +8,65 @@
 //
 // Run: pnpm --filter @armada/brand build:appicon
 
-import { Resvg } from '@resvg/resvg-js'
-import { mkdirSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { Resvg } from "@resvg/resvg-js";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const BRAND = join(dirname(fileURLToPath(import.meta.url)), '..')
-const MACOS = join(BRAND, 'macos')
-const ICONSET = join(MACOS, 'AppIcon.iconset')
+const BRAND = join(dirname(fileURLToPath(import.meta.url)), "..");
+const MACOS = join(BRAND, "macos");
+const ICONSET = join(MACOS, "AppIcon.iconset");
 
 /** The hull, and the three positions of the arc. From svg/armada-mark.svg. */
 const HULL =
-  'M32 4 C 40 17, 50 35, 53 44 L36 46 C 34 34, 33 24, 31 18 C 28 25, 24 38, 19 52 L2 54 C 11 36, 24 15, 32 4 Z'
+  "M32 4 C 40 17, 50 35, 53 44 L36 46 C 34 34, 33 24, 31 18 C 28 25, 24 38, 19 52 L2 54 C 11 36, 24 15, 32 4 Z";
 const HULLS = [
-  [299.7099, 483.6947],
-  [425.5115, 357.8931],
-  [551.313, 452.2443],
-]
-const HULL_SCALE = 3.145038
+  [
+    299.7099,
+    483.6947,
+  ],
+  [
+    425.5115,
+    357.8931,
+  ],
+  [
+    551.313,
+    452.2443,
+  ],
+];
+const HULL_SCALE = 3.145038;
 
 /** Apple's grid: the art occupies 824 of 1024, and the inset carries the shadow. */
-const BODY = { x: 100, y: 100, size: 824, radius: 185.4 }
+const BODY = {
+  x: 100,
+  y: 100,
+  size: 824,
+  radius: 185.4,
+};
 
 const TOKEN = {
-  bgBase: '#0F1419', // --bg-base, the canvas
-  bgGlass: '#1A2330', // --bg-glass, a card's lit top
-  accent: '#4A9EDB', // --accent
-  ink: '#E9EEF4', // brand ink on dark grounds
-}
+  bgBase: "#0F1419", // --bg-base, the canvas
+  bgGlass: "#1A2330", // --bg-glass, a card's lit top
+  accent: "#4A9EDB", // --accent
+  ink: "#E9EEF4", // brand ink on dark grounds
+};
 
 const rect = (inset = 0) =>
   `x="${BODY.x + inset}" y="${BODY.y + inset}" width="${BODY.size - inset * 2}" ` +
-  `height="${BODY.size - inset * 2}" rx="${BODY.radius - inset}" ry="${BODY.radius - inset}"`
+  `height="${BODY.size - inset * 2}" rx="${BODY.radius - inset}" ry="${BODY.radius - inset}"`;
 
 /** The three hulls span x 306–718 and y 370–653, centred on (512, 512). Drawn at 1:1 they filled half the tile and read small in the dock. */
-const MARK_SCALE = 1.6
+const MARK_SCALE = 1.6;
 
 /** The hulls are bottom-heavy at this size, so the mark sits this far above the tile centre. */
-const MARK_LIFT = 24
+const MARK_LIFT = 24;
 
 const mark = (fill) =>
   `<g fill="${fill}" transform="translate(512 ${512 - MARK_LIFT}) scale(${MARK_SCALE}) translate(-512 -512)">` +
   HULLS.map(
     ([x, y]) => `<path transform="translate(${x},${y}) scale(${HULL_SCALE})" d="${HULL}"/>`,
-  ).join('') +
-  '</g>'
+  ).join("") +
+  "</g>";
 
 /**
  * Every id is prefixed with the variant's own name. Two of these inlined into
@@ -67,7 +81,14 @@ const mark = (fill) =>
  * @param glyph  the mark's flat fill
  * @param rim    the glass edge, brightest where the light falls
  */
-const icon = ({ id, body, pool, halo, glyph, rim }) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="Armada">
+const icon = ({
+  id,
+  body,
+  pool,
+  halo,
+  glyph,
+  rim,
+}) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="Armada">
   <defs>
     <clipPath id="${id}-body"><rect ${rect()}/></clipPath>
     <linearGradient id="${id}-ground" x1="0" y1="100" x2="0" y2="924" gradientUnits="userSpaceOnUse">
@@ -99,53 +120,104 @@ const icon = ({ id, body, pool, halo, glyph, rim }) => `<svg xmlns="http://www.w
   ${mark(glyph)}
   <rect ${rect(1.5)} fill="none" stroke="url(#${id}-rim)" stroke-width="3"/>
 </svg>
-`
+`;
 
 const MASTERS = {
-  'appicon-dark.svg': icon({
-    id: 'dark',
-    body: [TOKEN.bgGlass, '#0C1116'],
+  "appicon-dark.svg": icon({
+    id: "dark",
+    body: [
+      TOKEN.bgGlass,
+      "#0C1116",
+    ],
     pool: TOKEN.accent,
-    halo: '#7FC2F0',
+    halo: "#7FC2F0",
     glyph: TOKEN.ink,
-    rim: ['#A8D8F7', 0.34],
+    rim: [
+      "#A8D8F7",
+      0.34,
+    ],
   }),
-  'appicon-accent.svg': icon({
-    id: 'accent',
-    body: ['#6FB8EC', '#2A6E9F'],
-    pool: '#FFFFFF',
+  "appicon-accent.svg": icon({
+    id: "accent",
+    body: [
+      "#6FB8EC",
+      "#2A6E9F",
+    ],
+    pool: "#FFFFFF",
     halo: TOKEN.bgBase,
-    glyph: '#FFFFFF',
-    rim: ['#FFFFFF', 0.45],
+    glyph: "#FFFFFF",
+    rim: [
+      "#FFFFFF",
+      0.45,
+    ],
   }),
-}
+};
 
 /** Apple's ten. `iconutil` refuses an iconset missing any of them. */
 const ICONSET_SIZES = [
-  ['icon_16x16', 16],
-  ['icon_16x16@2x', 32],
-  ['icon_32x32', 32],
-  ['icon_32x32@2x', 64],
-  ['icon_128x128', 128],
-  ['icon_128x128@2x', 256],
-  ['icon_256x256', 256],
-  ['icon_256x256@2x', 512],
-  ['icon_512x512', 512],
-  ['icon_512x512@2x', 1024],
-]
+  [
+    "icon_16x16",
+    16,
+  ],
+  [
+    "icon_16x16@2x",
+    32,
+  ],
+  [
+    "icon_32x32",
+    32,
+  ],
+  [
+    "icon_32x32@2x",
+    64,
+  ],
+  [
+    "icon_128x128",
+    128,
+  ],
+  [
+    "icon_128x128@2x",
+    256,
+  ],
+  [
+    "icon_256x256",
+    256,
+  ],
+  [
+    "icon_256x256@2x",
+    512,
+  ],
+  [
+    "icon_512x512",
+    512,
+  ],
+  [
+    "icon_512x512@2x",
+    1024,
+  ],
+];
 
-mkdirSync(ICONSET, { recursive: true })
+mkdirSync(ICONSET, {
+  recursive: true,
+});
 
 for (const [name, svg] of Object.entries(MASTERS)) {
-  writeFileSync(join(MACOS, name), svg)
-  console.log(`macos/${name}`)
+  writeFileSync(join(MACOS, name), svg);
+  console.log(`macos/${name}`);
 }
 
-const dark = MASTERS['appicon-dark.svg']
+const dark = MASTERS["appicon-dark.svg"];
 for (const [name, width] of ICONSET_SIZES) {
-  const png = new Resvg(dark, { fitTo: { mode: 'width', value: width } }).render().asPng()
-  writeFileSync(join(ICONSET, `${name}.png`), png)
-  console.log(`macos/AppIcon.iconset/${name}.png  ${width}px`)
+  const png = new Resvg(dark, {
+    fitTo: {
+      mode: "width",
+      value: width,
+    },
+  })
+    .render()
+    .asPng();
+  writeFileSync(join(ICONSET, `${name}.png`), png);
+  console.log(`macos/AppIcon.iconset/${name}.png  ${width}px`);
 }
 
-console.log('\nNow: iconutil -c icns packages/brand/macos/AppIcon.iconset')
+console.log("\nNow: iconutil -c icns packages/brand/macos/AppIcon.iconset");

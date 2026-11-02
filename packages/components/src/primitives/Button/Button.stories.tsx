@@ -35,7 +35,10 @@ function Card({ children }: { children: React.ReactNode }) {
    Button table — plus `Tonal`, chrome for the one caller outside it. */
 
 export const Primary: Story = {
-  args: { variant: "primary", children: "Dispatch job" },
+  args: {
+    variant: "primary",
+    children: "Dispatch job",
+  },
   render: (args) => (
     <Card>
       <Button {...args} />
@@ -44,7 +47,10 @@ export const Primary: Story = {
 };
 
 export const Secondary: Story = {
-  args: { variant: "secondary", children: "Cancel" },
+  args: {
+    variant: "secondary",
+    children: "Cancel",
+  },
   render: (args) => (
     <Card>
       <Button {...args} />
@@ -53,7 +59,10 @@ export const Secondary: Story = {
 };
 
 export const Ghost: Story = {
-  args: { variant: "ghost", children: "Ghost" },
+  args: {
+    variant: "ghost",
+    children: "Ghost",
+  },
   render: (args) => (
     <Card>
       <Button {...args} />
@@ -62,7 +71,10 @@ export const Ghost: Story = {
 };
 
 export const Destructive: Story = {
-  args: { variant: "destructive", children: "Kill job" },
+  args: {
+    variant: "destructive",
+    children: "Kill job",
+  },
   render: (args) => (
     <Card>
       <Button {...args} />
@@ -75,9 +87,17 @@ export const Destructive: Story = {
  * `tonal`, drawn on `--bg-sunken`, the title row's own ground (#1156).
  */
 export const Tonal: Story = {
-  args: { variant: "tonal", children: "Dispatch" },
+  args: {
+    variant: "tonal",
+    children: "Dispatch",
+  },
   render: (args) => (
-    <div style={{ padding: "var(--pad-card)", background: "var(--bg-sunken)" }}>
+    <div
+      style={{
+        padding: "var(--pad-card)",
+        background: "var(--bg-sunken)",
+      }}
+    >
       <Button {...args} />
     </div>
   ),
@@ -138,7 +158,9 @@ export const Disabled: Story = {
  * group that is not greyed out, and a second press sends nothing. #1117.
  */
 export const Pending: Story = {
-  args: { onClick: fn() },
+  args: {
+    onClick: fn(),
+  },
   render: (args) => (
     <Card>
       <Button variant="primary" disabled>
@@ -153,7 +175,9 @@ export const Pending: Story = {
     </Card>
   ),
   play: async ({ args, canvas, userEvent }) => {
-    const pressed = canvas.getByRole("button", { name: "Requesting changes…" });
+    const pressed = canvas.getByRole("button", {
+      name: "Requesting changes…",
+    });
     await expect(pressed).toHaveAttribute("aria-busy", "true");
     await expect(pressed).toHaveAttribute("aria-disabled", "true");
     // By keyboard: it stays focusable, and Enter on it sends nothing.
@@ -161,17 +185,39 @@ export const Pending: Story = {
     await expect(pressed).toHaveFocus();
     await userEvent.keyboard("{Enter}");
     await expect(args.onClick).not.toHaveBeenCalled();
-    await expect(canvas.getByRole("button", { name: "Approve the work" })).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Approve the work",
+      }),
+    ).toBeDisabled();
   },
 };
 
 /** Every variant, with the label each story above gives it. */
-const EVERY: { variant: ButtonVariant; label: string }[] = [
-  { variant: "primary", label: "Dispatch job" },
-  { variant: "secondary", label: "Cancel" },
-  { variant: "ghost", label: "Ghost" },
-  { variant: "destructive", label: "Kill job" },
-  { variant: "tonal", label: "Dispatch" },
+const EVERY: {
+  variant: ButtonVariant;
+  label: string;
+}[] = [
+  {
+    variant: "primary",
+    label: "Dispatch job",
+  },
+  {
+    variant: "secondary",
+    label: "Cancel",
+  },
+  {
+    variant: "ghost",
+    label: "Ghost",
+  },
+  {
+    variant: "destructive",
+    label: "Kill job",
+  },
+  {
+    variant: "tonal",
+    label: "Dispatch",
+  },
 ];
 
 /**
@@ -310,15 +356,12 @@ function Sending({
  * be pressed again and is sent again.
  */
 export const Answering: Story = {
-  args: { onClick: fn() },
+  args: {
+    onClick: fn(),
+  },
   render: (args) => (
     <Card>
-      <Sending
-        variant="primary"
-        label="Approve"
-        waiting="Approving…"
-        answer="accepted"
-      />
+      <Sending variant="primary" label="Approve" waiting="Approving…" answer="accepted" />
       <Sending
         variant="secondary"
         label="Request changes"
@@ -329,14 +372,26 @@ export const Answering: Story = {
     </Card>
   ),
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Request changes" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Request changes",
+      }),
+    );
     await expect(args.onClick).toHaveBeenCalledTimes(1);
-    const waiting = canvas.getByRole("button", { name: "Requesting changes…" });
+    const waiting = canvas.getByRole("button", {
+      name: "Requesting changes…",
+    });
     await expect(waiting).toHaveAttribute("aria-busy", "true");
 
-    const refused = await waitFor(() => canvas.getByRole("button", { name: "Request changes" }), {
-      timeout: 3000,
-    });
+    const refused = await waitFor(
+      () =>
+        canvas.getByRole("button", {
+          name: "Request changes",
+        }),
+      {
+        timeout: 3000,
+      },
+    );
     await expect(refused).not.toHaveAttribute("aria-busy");
     await expect(refused).not.toHaveAttribute("aria-disabled");
     await userEvent.click(refused);
@@ -346,7 +401,9 @@ export const Answering: Story = {
 
 /** Pending wins over a stale answer: the control waits, and a press sends nothing. */
 export const PendingOverAnAnswer: Story = {
-  args: { onClick: fn() },
+  args: {
+    onClick: fn(),
+  },
   render: (args) => (
     <Card>
       <Button variant="secondary" pending answer="refused" onClick={args.onClick}>
@@ -355,7 +412,9 @@ export const PendingOverAnAnswer: Story = {
     </Card>
   ),
   play: async ({ args, canvas, userEvent }) => {
-    const pressed = canvas.getByRole("button", { name: "Requesting changes…" });
+    const pressed = canvas.getByRole("button", {
+      name: "Requesting changes…",
+    });
     await expect(pressed).toHaveAttribute("aria-busy", "true");
     pressed.focus();
     await userEvent.keyboard("{Enter}");
@@ -393,7 +452,13 @@ export const Group: Story = {
  *  below, `--bg-sunken` would make the button disappear into it. */
 export const SecondaryOnASunkenGround: Story = {
   render: () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--space-4)",
+      }}
+    >
       <Card>
         <Button variant="secondary" ground="card">
           On a card

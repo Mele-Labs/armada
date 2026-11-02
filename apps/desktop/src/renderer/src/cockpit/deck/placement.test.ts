@@ -5,11 +5,36 @@ import { expect, test } from "vitest";
 
 import { EDGE, GAP, placeCallout } from "./placement";
 
-const PANE = { width: 900, height: 600 };
-const CARD = { w: 240, h: 130 };
-const thing = (x: number, y: number) => ({ x, y, w: 60, h: 40 });
-const covers = (a: { left: number; top: number }, at: { x: number; y: number; w: number; h: number }) =>
-  a.left < at.x + at.w / 2 && a.left + CARD.w > at.x - at.w / 2 && a.top < at.y + at.h / 2 && a.top + CARD.h > at.y - at.h / 2;
+const PANE = {
+  width: 900,
+  height: 600,
+};
+const CARD = {
+  w: 240,
+  h: 130,
+};
+const thing = (x: number, y: number) => ({
+  x,
+  y,
+  w: 60,
+  h: 40,
+});
+const covers = (
+  a: {
+    left: number;
+    top: number;
+  },
+  at: {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  },
+) =>
+  a.left < at.x + at.w / 2 &&
+  a.left + CARD.w > at.x - at.w / 2 &&
+  a.top < at.y + at.h / 2 &&
+  a.top + CARD.h > at.y - at.h / 2;
 
 test("with room it stands up and to the right, a gap off the thing", () => {
   const at = thing(300, 400);
@@ -31,8 +56,16 @@ test("at the right edge it stands to the left, and at the top it stands below", 
 });
 
 test("the card is inside the pane whatever corner the thing is in, and never over the thing", () => {
-  for (const x of [20, 450, 880]) {
-    for (const y of [20, 300, 580]) {
+  for (const x of [
+    20,
+    450,
+    880,
+  ]) {
+    for (const y of [
+      20,
+      300,
+      580,
+    ]) {
       const at = thing(x, y);
       const put = placeCallout(at, CARD, PANE);
       expect(put.left).toBeGreaterThanOrEqual(EDGE);
@@ -59,7 +92,10 @@ test("the leader ends on the card: at its near corner, or on its near side where
 });
 
 test("a pane smaller than the card still gets a card at its edge and no negative place", () => {
-  const put = placeCallout(thing(50, 50), CARD, { width: 200, height: 100 });
+  const put = placeCallout(thing(50, 50), CARD, {
+    width: 200,
+    height: 100,
+  });
   expect(put.left).toBeGreaterThanOrEqual(EDGE);
   expect(put.top).toBeGreaterThanOrEqual(EDGE);
 });

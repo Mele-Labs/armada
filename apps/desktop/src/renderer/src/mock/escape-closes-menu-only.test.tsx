@@ -10,14 +10,21 @@ import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const session = () => page.getByRole("region", { name: /^Job: / });
+const session = () =>
+  page.getByRole("region", {
+    name: /^Job: /,
+  });
 const menu = () => page.getByRole("menu");
 
 async function openMore() {
   mount("session-head");
   await onScreen();
   await toSession(/How does armada interface/);
-  await userEvent.click(session().getByRole("button", { name: "More" }));
+  await userEvent.click(
+    session().getByRole("button", {
+      name: "More",
+    }),
+  );
   await expect.element(menu()).toBeVisible();
 }
 
@@ -35,7 +42,12 @@ test("Esc in the More menu shuts the menu and leaves the Job open, and the next 
 
 test("Esc shuts the menu alone when focus has left it, after a press on the menu's padding", async () => {
   await openMore();
-  await menu().click({ position: { x: 2, y: 2 } });
+  await menu().click({
+    position: {
+      x: 2,
+      y: 2,
+    },
+  });
   await expect.element(menu()).toBeVisible();
   expect(menu().element().contains(document.activeElement)).toBe(false);
 
@@ -51,8 +63,14 @@ test("Esc closes a pinned card and leaves the Job open", async () => {
   mount("session-head");
   await onScreen();
   await toSession(/How does armada interface/);
-  await userEvent.click(session().getByRole("button", { name: /^Context/ }));
-  const card = page.getByRole("dialog", { name: "Context" });
+  await userEvent.click(
+    session().getByRole("button", {
+      name: /^Context/,
+    }),
+  );
+  const card = page.getByRole("dialog", {
+    name: "Context",
+  });
   await expect.element(card).toBeVisible();
 
   await userEvent.keyboard("{Escape}");

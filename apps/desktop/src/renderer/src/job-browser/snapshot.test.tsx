@@ -24,7 +24,7 @@ test("reads each part by its role and name, with its value and state, and its wo
     <div hidden><button>Secret</button></div>
   `);
   expect(snapshotOf(at, 10_000).split("\n")).toEqual([
-    '- main',
+    "- main",
     '  - heading "Checkout" [level=1]',
     '  - text: "Discount code"',
     '  - textbox "Discount code": "SPRING10"',
@@ -37,7 +37,13 @@ test("reads each part by its role and name, with its value and state, and its wo
 });
 
 test("is cut at the length it is given, and says so", () => {
-  const at = page([...Array(200).keys()].map((one) => `<button>Row ${one}</button>`).join(""));
+  const at = page(
+    [
+      ...Array(200).keys(),
+    ]
+      .map((one) => `<button>Row ${one}</button>`)
+      .join(""),
+  );
   const read = snapshotOf(at, 500);
   expect(read.length).toBeLessThanOrEqual(500 + "\n- (cut: the page goes on)".length);
   expect(read.endsWith("- (cut: the page goes on)")).toBe(true);

@@ -3,26 +3,55 @@ import type { DroneTurn, TurnStep } from "./DroneTurns";
 
 /** One line of a block: a call, or a run of the Drone thinking. */
 export type Member =
-  | { of: "call"; turn: DroneTurn }
+  | {
+      of: "call";
+      turn: DroneTurn;
+    }
   /**
    * At least one row, always: a run is opened with the turn that started it
    * and only ever grows. Written as a non-empty tuple so the head below is a
    * turn rather than a lookup every caller has to assert.
    */
-  | { of: "quiet"; turns: [DroneTurn, ...DroneTurn[]] };
+  | {
+      of: "quiet";
+      turns: [
+        DroneTurn,
+        ...DroneTurn[],
+      ];
+    };
 
 type Item =
-  | { of: "turn"; turn: DroneTurn }
+  | {
+      of: "turn";
+      turn: DroneTurn;
+    }
   /** Consecutive calls and thinking, refused calls included. Non-empty for the same reason. */
-  | { of: "block"; members: [Member, ...Member[]] };
+  | {
+      of: "block";
+      members: [
+        Member,
+        ...Member[],
+      ];
+    };
 
 /** One speaker's consecutive turns. Never empty, for the same reason as a run. */
-export type CardEntry = { of: "card"; who?: ActivityActor; items: [Item, ...Item[]] };
+export type CardEntry = {
+  of: "card";
+  who?: ActivityActor;
+  items: [
+    Item,
+    ...Item[],
+  ];
+};
 
 type Entry =
   | CardEntry
   /** Keyed by the row it stands above, which is stable while rows only append. */
-  | { of: "step"; step?: TurnStep; above: string };
+  | {
+      of: "step";
+      step?: TurnStep;
+      above: string;
+    };
 
 /**
  * The rows, gathered into a card per run of one speaker, with calls and runs of
@@ -52,18 +81,55 @@ export function runs(turns: DroneTurn[], steps: boolean): Entry[] {
   let card: CardEntry | undefined;
   for (const turn of turns) {
     if (attributed && (!opened || turn.step?.id !== under)) {
-      entries.push({ of: "step", step: turn.step, above: turn.id });
+      entries.push({
+        of: "step",
+        step: turn.step,
+        above: turn.id,
+      });
       under = turn.step?.id;
       opened = true;
       card = undefined;
     }
     const member: Member | undefined =
-      turn.quiet === true ? { of: "quiet", turns: [turn] } : isCall(turn) ? { of: "call", turn } : undefined;
-    const item: Item = member === undefined ? { of: "turn", turn } : { of: "block", members: [member] };
+      turn.quiet === true
+        ? {
+            of: "quiet",
+            turns: [
+              turn,
+            ],
+          }
+        : isCall(turn)
+          ? {
+              of: "call",
+              turn,
+            }
+          : undefined;
+    const item: Item =
+      member === undefined
+        ? {
+            of: "turn",
+            turn,
+          }
+        : {
+            of: "block",
+            members: [
+              member,
+            ],
+          };
     // **A turn with no speaker never shares a card**, not even with another
     // unnamed one: two rows under one head says one speaker wrote both.
     if (card === undefined || card.who === undefined || card.who !== turn.who) {
-      card = { of: "card", ...(turn.who === undefined ? {} : { who: turn.who }), items: [item] };
+      card = {
+        of: "card",
+        ...(turn.who === undefined
+          ? {}
+          : {
+              who: turn.who,
+            }),
+        items: [
+          item,
+        ],
+      };
       entries.push(card);
       continue;
     }

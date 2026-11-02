@@ -15,7 +15,11 @@ import type { ModelDownshiftState } from "@armada/protocol";
 import { soundOf } from "./telling";
 
 /** What the shell posts. The body is the fact, and the title is the act it offers. */
-export type Notice = { title: string; body: string; sound: string };
+export type Notice = {
+  title: string;
+  body: string;
+  sound: string;
+};
 
 export type NoticeEffects = {
   /** Post one notification, and bring Bridge forward when it is pressed. */
@@ -50,7 +54,11 @@ export class DownshiftNotice {
         sound: soundOf("waiting"),
       });
     } else if (next.phase === "reset") {
-      this.effects.show({ title: `Back to ${next.was} offered`, body: "Weekly limit reset", sound: soundOf("waiting") });
+      this.effects.show({
+        title: `Back to ${next.was} offered`,
+        body: "Weekly limit reset",
+        sound: soundOf("waiting"),
+      });
     }
   }
 }

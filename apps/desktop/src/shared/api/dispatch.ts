@@ -7,7 +7,10 @@
  * where exactly one repository is clearly meant, and `null` is "could not tell": ask the person before
  * anything is built. `likely` is every set-up repository, best first, and empty where nothing could be read.
  */
-export type RequestRepositoryRead = { manifest_id: string | null; likely: string[] };
+export type RequestRepositoryRead = {
+  manifest_id: string | null;
+  likely: string[];
+};
 
 export type DispatchApi = {
   /**
@@ -19,7 +22,9 @@ export type DispatchApi = {
     bytes: ArrayBuffer,
     filename: string,
     mimeType: string,
-  ) => Promise<{ path: string }>;
+  ) => Promise<{
+    path: string;
+  }>;
   /**
    * Paths under the checkout narrowed against typed text, for the `@` mention
    * popup. **Empty rather than a fault**, on a call that could not be made or

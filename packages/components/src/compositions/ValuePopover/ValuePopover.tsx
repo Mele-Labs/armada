@@ -23,7 +23,14 @@ export type ValuePopoverProps = {
   children: ReactNode;
 };
 
-export function ValuePopover({ label, value, offer, offerName, defaultOpen, children }: ValuePopoverProps) {
+export function ValuePopover({
+  label,
+  value,
+  offer,
+  offerName,
+  defaultOpen,
+  children,
+}: ValuePopoverProps) {
   const trigger =
     value === undefined ? (
       <button type="button" className="armada-value-popover__offer" aria-label={offerName ?? offer}>
@@ -60,7 +67,14 @@ export type OrderedPicksProps = {
 };
 
 /** Ticks for which, and a number for in what order. A new tick goes last. */
-export function OrderedPicks({ label, says, options, picked, busy = false, onPicked }: OrderedPicksProps) {
+export function OrderedPicks({
+  label,
+  says,
+  options,
+  picked,
+  busy = false,
+  onPicked,
+}: OrderedPicksProps) {
   return (
     <div className="armada-value-popover__picks" role="group" aria-label={label}>
       <p className="armada-value-popover__says">{says}</p>
@@ -77,7 +91,14 @@ export function OrderedPicks({ label, says, options, picked, busy = false, onPic
                 aria-disabled={busy || undefined}
                 onChange={() => {
                   if (busy) return;
-                  onPicked(ticked ? picked.filter((one) => one !== option.name) : [...picked, option.name]);
+                  onPicked(
+                    ticked
+                      ? picked.filter((one) => one !== option.name)
+                      : [
+                          ...picked,
+                          option.name,
+                        ],
+                  );
                 }}
               >
                 <span className="armada-value-popover__name">{option.name}</span>
@@ -110,7 +131,15 @@ export type OneFlagProps = {
 };
 
 /** The degenerate set: one switch, the sentence naming what it changes, and who decides it. */
-export function OneFlag({ children, checked, description, judgement, unavailable, busy = false, onChange }: OneFlagProps) {
+export function OneFlag({
+  children,
+  checked,
+  description,
+  judgement,
+  unavailable,
+  busy = false,
+  onChange,
+}: OneFlagProps) {
   return (
     <div className="armada-value-popover__flag">
       <Switch

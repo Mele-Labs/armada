@@ -4,13 +4,35 @@
 import type { Outcome, ProcessStopped, SessionSystem } from "@armada/protocol";
 
 /** What reading a Job's system came to: Fleet's readings, or the refusal to word. */
-export type SessionSystemRead = { ok: true; value: SessionSystem } | { ok: false; outcome: Outcome };
+export type SessionSystemRead =
+  | {
+      ok: true;
+      value: SessionSystem;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** What stopping a process came to: the process ended, or Fleet's refusal. */
-export type ProcessStopRead = { ok: true; value: ProcessStopped } | { ok: false; outcome: Outcome };
+export type ProcessStopRead =
+  | {
+      ok: true;
+      value: ProcessStopped;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** The process to stop, by its pid or by the port it listens on. */
-export type ProcessTarget = { pid: number } | { port: number };
+export type ProcessTarget =
+  | {
+      pid: number;
+    }
+  | {
+      port: number;
+    };
 
 export type SessionSystemApi = {
   /** `GET /sessions/system`: the processes, load, worktrees and logs of one Job. */

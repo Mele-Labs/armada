@@ -2,31 +2,94 @@
 // element's size, colour, fill, spacing or words on the page, from the design tokens, and see each
 // change listed with what it was. Pictures he pastes or drops on the card sit under them.
 
-import { useEffect, useLayoutEffect, useMemo, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
-import { ALargeSmall, PaintBucket, Palette, SquareDashed, SwatchBook, TextCursorInput, Undo2, X } from "lucide-react";
+import {
+  ALargeSmall,
+  PaintBucket,
+  Palette,
+  SquareDashed,
+  SwatchBook,
+  TextCursorInput,
+  Undo2,
+  X,
+} from "lucide-react";
 import { Button, Textarea, Tooltip } from "@armada/components";
 
-import { AS_DRAWN, isPng, type ChangeKind, type IndexedStory, type StoryIndex, type StyleChange } from "../../../shared/annotations";
-import { asHex, computed, putOn, takeOff, tokenValue, variantOf, wordsOf, type Swap } from "./restyle";
+import {
+  AS_DRAWN,
+  isPng,
+  type ChangeKind,
+  type IndexedStory,
+  type StoryIndex,
+  type StyleChange,
+} from "../../../shared/annotations";
+import {
+  asHex,
+  computed,
+  putOn,
+  takeOff,
+  tokenValue,
+  variantOf,
+  wordsOf,
+  type Swap,
+} from "./restyle";
 import type { Sink } from "./sink";
 import { StoryBoundary, storyElement, type StoryModule } from "./story";
 import { COLOURS, FILLS, SIZES, SPACES, step } from "./tokens";
 
-const TOOLS: readonly { kind: ChangeKind; label: string; icon: ReactNode }[] = [
-  { kind: "size", label: "Size", icon: <ALargeSmall size={14} strokeWidth={2} aria-hidden /> },
-  { kind: "colour", label: "Colour", icon: <Palette size={14} strokeWidth={2} aria-hidden /> },
-  { kind: "fill", label: "Fill", icon: <PaintBucket size={14} strokeWidth={2} aria-hidden /> },
-  { kind: "spacing", label: "Spacing", icon: <SquareDashed size={14} strokeWidth={2} aria-hidden /> },
-  { kind: "text", label: "Text", icon: <TextCursorInput size={14} strokeWidth={2} aria-hidden /> },
-  { kind: "variant", label: "Variant", icon: <SwatchBook size={14} strokeWidth={2} aria-hidden /> },
+const TOOLS: readonly {
+  kind: ChangeKind;
+  label: string;
+  icon: ReactNode;
+}[] = [
+  {
+    kind: "size",
+    label: "Size",
+    icon: <ALargeSmall size={14} strokeWidth={2} aria-hidden />,
+  },
+  {
+    kind: "colour",
+    label: "Colour",
+    icon: <Palette size={14} strokeWidth={2} aria-hidden />,
+  },
+  {
+    kind: "fill",
+    label: "Fill",
+    icon: <PaintBucket size={14} strokeWidth={2} aria-hidden />,
+  },
+  {
+    kind: "spacing",
+    label: "Spacing",
+    icon: <SquareDashed size={14} strokeWidth={2} aria-hidden />,
+  },
+  {
+    kind: "text",
+    label: "Text",
+    icon: <TextCursorInput size={14} strokeWidth={2} aria-hidden />,
+  },
+  {
+    kind: "variant",
+    label: "Variant",
+    icon: <SwatchBook size={14} strokeWidth={2} aria-hidden />,
+  },
 ];
 
 /** Left and right move between the buttons of a row, so a row is one stop on Tab and its buttons are a key apart. */
 function arrows(event: KeyboardEvent<HTMLElement>): void {
   if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
   // A story drawn in a tile is inert, and its own buttons are not stops.
-  const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")].filter((one) => one.closest("[inert]") === null);
+  const buttons = [
+    ...event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
+  ].filter((one) => one.closest("[inert]") === null);
   const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
   if (at === -1) return;
   event.preventDefault();
@@ -35,19 +98,34 @@ function arrows(event: KeyboardEvent<HTMLElement>): void {
 
 /** `changes` with `next` in place of the change to the same property, or after them where there is none. */
 function withChange(changes: readonly StyleChange[], next: StyleChange): StyleChange[] {
-  return changes.some((one) => one.property === next.property) ? changes.map((one) => (one.property === next.property ? next : one)) : [...changes, next];
+  return changes.some((one) => one.property === next.property)
+    ? changes.map((one) => (one.property === next.property ? next : one))
+    : [
+        ...changes,
+        next,
+      ];
 }
 
 /**
  * `changes` put on `element` while the card is up, and taken off when it goes. A layout effect, so the
  * first frame drawn with the card already shows them.
  */
-function useRestyled(element: Element | null, changes: readonly StyleChange[], id: string, swap: Swap | undefined): void {
+function useRestyled(
+  element: Element | null,
+  changes: readonly StyleChange[],
+  id: string,
+  swap: Swap | undefined,
+): void {
   useLayoutEffect(() => {
     if (element === null) return undefined;
     putOn(element, changes, id, swap);
     return () => takeOff(element);
-  }, [element, changes, id, swap]);
+  }, [
+    element,
+    changes,
+    id,
+    swap,
+  ]);
 }
 
 const NO_NAMES: readonly string[] = [];
@@ -78,9 +156,21 @@ export function Tools({
   const target = names.find((name) => (stories[name]?.stories.length ?? 0) > 0);
   const picked = changes.find((one) => one.kind === "variant");
   const swap = useMemo<Swap | undefined>(() => {
-    const story = target === undefined || picked === undefined ? undefined : stories[target]?.stories.find((one) => one.name === picked.after);
-    return target === undefined || story === undefined ? undefined : { component: target, args: story.args };
-  }, [target, picked, stories]);
+    const story =
+      target === undefined || picked === undefined
+        ? undefined
+        : stories[target]?.stories.find((one) => one.name === picked.after);
+    return target === undefined || story === undefined
+      ? undefined
+      : {
+          component: target,
+          args: story.args,
+        };
+  }, [
+    target,
+    picked,
+    stories,
+  ]);
   useRestyled(element, changes, id, swap);
   const words = element === null ? null : wordsOf(element);
   // Words cleared to nothing are still his to type back.
@@ -98,7 +188,15 @@ export function Tools({
     // Colours are read as the page computes them, and written as the tokens are.
     const read = kind === "colour" || kind === "fill" ? asHex : (value: string) => value;
     const before = was?.before ?? read(computed(element, property));
-    onChanges(withChange(changes, { kind, property, before, after: read(tokenValue(element, token)), token }));
+    onChanges(
+      withChange(changes, {
+        kind,
+        property,
+        before,
+        after: read(tokenValue(element, token)),
+        token,
+      }),
+    );
   }
 
   /** A story picked on the component: what its root read is kept from the first pick, and the story pressed again undoes it. */
@@ -109,7 +207,15 @@ export function Tools({
       return;
     }
     const before = picked?.before ?? variantOf(element, target) ?? AS_DRAWN;
-    onChanges(withChange(changes, { kind: "variant", property: "variant", before, after: story.name, story: story.file }));
+    onChanges(
+      withChange(changes, {
+        kind: "variant",
+        property: "variant",
+        before,
+        after: story.name,
+        story: story.file,
+      }),
+    );
   }
 
   function typed(text: string): void {
@@ -119,45 +225,121 @@ export function Tools({
       onChanges(changes.filter((one) => one.kind !== "text"));
       return;
     }
-    onChanges(withChange(changes, { kind: "text", property: "text", before, after: text }));
+    onChanges(
+      withChange(changes, {
+        kind: "text",
+        property: "text",
+        before,
+        after: text,
+      }),
+    );
   }
 
-  const tokenOf = (property: string): string | undefined => changes.find((one) => one.property === property)?.token;
+  const tokenOf = (property: string): string | undefined =>
+    changes.find((one) => one.property === property)?.token;
   const textNow = changes.find((one) => one.kind === "text")?.after ?? words?.nodeValue ?? "";
 
   return (
     <div className="armada-annotate__tools">
-      <div className="armada-annotate__toolbar" role="toolbar" aria-label="Tools" onKeyDown={arrows}>
-        {TOOLS.filter(({ kind }) => kind !== "variant" || target !== undefined).map(({ kind, label, icon }) => {
-          const off = element === null || (kind === "text" && !hasWords);
-          const button = (
-            <Button key={kind} variant="ghost" size="sm" aria-label={label} aria-pressed={tool === kind} disabled={off} onClick={() => setTool(tool === kind ? null : kind)}>
-              {icon}
-              <span className="armada-annotate__tool-label">{label}</span>
-            </Button>
-          );
-          // The label is on the key, so a tooltip is left only to say why one is off.
-          return off && element !== null ? (
-            <Tooltip key={kind} label={`${label}: no words on it`} asChild>
-              {button}
-            </Tooltip>
-          ) : (
-            button
-          );
-        })}
+      <div
+        className="armada-annotate__toolbar"
+        role="toolbar"
+        aria-label="Tools"
+        onKeyDown={arrows}
+      >
+        {TOOLS.filter(({ kind }) => kind !== "variant" || target !== undefined).map(
+          ({ kind, label, icon }) => {
+            const off = element === null || (kind === "text" && !hasWords);
+            const button = (
+              <Button
+                key={kind}
+                variant="ghost"
+                size="sm"
+                aria-label={label}
+                aria-pressed={tool === kind}
+                disabled={off}
+                onClick={() => setTool(tool === kind ? null : kind)}
+              >
+                {icon}
+                <span className="armada-annotate__tool-label">{label}</span>
+              </Button>
+            );
+            // The label is on the key, so a tooltip is left only to say why one is off.
+            return off && element !== null ? (
+              <Tooltip key={kind} label={`${label}: no words on it`} asChild>
+                {button}
+              </Tooltip>
+            ) : (
+              button
+            );
+          },
+        )}
       </div>
-      {element !== null && tool === "size" && <Scale label="Size" sample="size" tokens={SIZES} current={tokenOf("font-size")} element={element} onPick={(token) => pick("size", "font-size", token)} />}
-      {element !== null && tool === "colour" && <Swatches label="Colour" tokens={COLOURS} current={tokenOf("color")} element={element} onPick={(token) => pick("colour", "color", token)} />}
-      {element !== null && tool === "fill" && <Swatches label="Fill" tokens={FILLS} current={tokenOf("background-color")} element={element} onPick={(token) => pick("fill", "background-color", token)} />}
+      {element !== null && tool === "size" && (
+        <Scale
+          label="Size"
+          sample="size"
+          tokens={SIZES}
+          current={tokenOf("font-size")}
+          element={element}
+          onPick={(token) => pick("size", "font-size", token)}
+        />
+      )}
+      {element !== null && tool === "colour" && (
+        <Swatches
+          label="Colour"
+          tokens={COLOURS}
+          current={tokenOf("color")}
+          element={element}
+          onPick={(token) => pick("colour", "color", token)}
+        />
+      )}
+      {element !== null && tool === "fill" && (
+        <Swatches
+          label="Fill"
+          tokens={FILLS}
+          current={tokenOf("background-color")}
+          element={element}
+          onPick={(token) => pick("fill", "background-color", token)}
+        />
+      )}
       {element !== null && tool === "spacing" && (
         <>
-          <Scale label="Padding" sample="space" tokens={SPACES} current={tokenOf("padding")} element={element} onPick={(token) => pick("spacing", "padding", token)} />
-          <Scale label="Gap" sample="space" tokens={SPACES} current={tokenOf("gap")} element={element} onPick={(token) => pick("spacing", "gap", token)} />
+          <Scale
+            label="Padding"
+            sample="space"
+            tokens={SPACES}
+            current={tokenOf("padding")}
+            element={element}
+            onPick={(token) => pick("spacing", "padding", token)}
+          />
+          <Scale
+            label="Gap"
+            sample="space"
+            tokens={SPACES}
+            current={tokenOf("gap")}
+            element={element}
+            onPick={(token) => pick("spacing", "gap", token)}
+          />
         </>
       )}
-      {element !== null && tool === "text" && hasWords && <Textarea label="Text" rows={2} keep={keep} value={textNow} onChange={(event) => typed(event.target.value)} />}
+      {element !== null && tool === "text" && hasWords && (
+        <Textarea
+          label="Text"
+          rows={2}
+          keep={keep}
+          value={textNow}
+          onChange={(event) => typed(event.target.value)}
+        />
+      )}
       {element !== null && tool === "variant" && target !== undefined && (
-        <Stories label="Variant" stories={stories[target]!.stories} current={picked?.after} onPick={pickStory} load={story} />
+        <Stories
+          label="Variant"
+          stories={stories[target]!.stories}
+          current={picked?.after}
+          onPick={pickStory}
+          load={story}
+        />
       )}
       <Changes changes={changes} onChanges={onChanges} />
     </div>
@@ -165,14 +347,45 @@ export function Tools({
 }
 
 /** A scale's steps as buttons reading the step over a bar drawn at the token's own size, each with its token and value as its tooltip. */
-function Scale({ label, sample, tokens, current, element, onPick }: { label: string; sample: "size" | "space"; tokens: readonly string[]; current: string | undefined; element: Element; onPick: (token: string) => void }) {
+function Scale({
+  label,
+  sample,
+  tokens,
+  current,
+  element,
+  onPick,
+}: {
+  label: string;
+  sample: "size" | "space";
+  tokens: readonly string[];
+  current: string | undefined;
+  element: Element;
+  onPick: (token: string) => void;
+}) {
   return (
-    <div className="armada-annotate__picker" role="group" aria-label={label} data-sample={sample} onKeyDown={arrows}>
+    <div
+      className="armada-annotate__picker"
+      role="group"
+      aria-label={label}
+      data-sample={sample}
+      onKeyDown={arrows}
+    >
       <span className="armada-annotate__picker-label">{label}</span>
       <div className="armada-annotate__picker-steps">
         {tokens.map((token) => (
           <Tooltip key={token} label={`${token} ${tokenValue(element, token)}`} asChild>
-            <Button variant="ghost" size="sm" aria-label={token} aria-pressed={current === token} onClick={() => onPick(token)} style={{ "--annotate-sample": `var(${token})` } as CSSProperties}>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={token}
+              aria-pressed={current === token}
+              onClick={() => onPick(token)}
+              style={
+                {
+                  "--annotate-sample": `var(${token})`,
+                } as CSSProperties
+              }
+            >
               <span className="armada-annotate__sample" aria-hidden />
               {step(token)}
             </Button>
@@ -195,18 +408,46 @@ function moduleOf(load: NonNullable<Sink["story"]>, file: string): Promise<Story
 }
 
 /** A component's stories as buttons reading each story's name as exported, with its args as the tooltip where it sets any. Each is drawn small over its name where `load` gives the story file. */
-function Stories({ label, stories, current, onPick, load }: { label: string; stories: readonly IndexedStory[]; current: string | undefined; onPick: (story: IndexedStory) => void; load: Sink["story"] }) {
+function Stories({
+  label,
+  stories,
+  current,
+  onPick,
+  load,
+}: {
+  label: string;
+  stories: readonly IndexedStory[];
+  current: string | undefined;
+  onPick: (story: IndexedStory) => void;
+  load: Sink["story"];
+}) {
   // Undefined while the file loads; null where it cannot be had, and the tiles are then names alone.
-  const [loaded, setLoaded] = useState<{ file: string; module: StoryModule | null } | undefined>(undefined);
+  const [loaded, setLoaded] = useState<
+    | {
+        file: string;
+        module: StoryModule | null;
+      }
+    | undefined
+  >(undefined);
   const file = stories[0]?.file;
   useEffect(() => {
     if (load === undefined || file === undefined) return undefined;
     let live = true;
-    void moduleOf(load, file).then((module) => live && setLoaded({ file, module }));
+    void moduleOf(load, file).then(
+      (module) =>
+        live &&
+        setLoaded({
+          file,
+          module,
+        }),
+    );
     return () => {
       live = false;
     };
-  }, [load, file]);
+  }, [
+    load,
+    file,
+  ]);
   const module = loaded !== undefined && loaded.file === file ? loaded.module : undefined;
   const drawn = load !== undefined && module !== null;
   return (
@@ -216,7 +457,13 @@ function Stories({ label, stories, current, onPick, load }: { label: string; sto
         {stories.map((story) => {
           const args = Object.entries(story.args).map(([key, value]) => `${key} ${String(value)}`);
           const button = (
-            <Button key={story.name} variant="ghost" size="sm" aria-pressed={current === story.name} onClick={() => onPick(story)}>
+            <Button
+              key={story.name}
+              variant="ghost"
+              size="sm"
+              aria-pressed={current === story.name}
+              onClick={() => onPick(story)}
+            >
               {drawn && <Preview module={module} name={story.name} />}
               {story.name}
             </Button>
@@ -240,7 +487,13 @@ function Stories({ label, stories, current, onPick, load }: { label: string; sto
  */
 function Preview({ module, name }: { module: StoryModule | undefined; name: string }) {
   const [host, setHost] = useState<HTMLElement | null>(null);
-  const element = useMemo(() => (module === undefined ? null : storyElement(module, name)), [module, name]);
+  const element = useMemo(
+    () => (module === undefined ? null : storyElement(module, name)),
+    [
+      module,
+      name,
+    ],
+  );
   if (module !== undefined && element === null) return null;
   return (
     <StoryBoundary>
@@ -253,7 +506,19 @@ function Preview({ module, name }: { module: StoryModule | undefined; name: stri
 }
 
 /** Colour tokens as swatches, each with its token and value as its tooltip. */
-function Swatches({ label, tokens, current, element, onPick }: { label: string; tokens: readonly string[]; current: string | undefined; element: Element; onPick: (token: string) => void }) {
+function Swatches({
+  label,
+  tokens,
+  current,
+  element,
+  onPick,
+}: {
+  label: string;
+  tokens: readonly string[];
+  current: string | undefined;
+  element: Element;
+  onPick: (token: string) => void;
+}) {
   return (
     <div className="armada-annotate__picker" role="group" aria-label={label} onKeyDown={arrows}>
       <span className="armada-annotate__picker-label">{label}</span>
@@ -265,7 +530,11 @@ function Swatches({ label, tokens, current, element, onPick }: { label: string; 
               className="armada-annotate__swatch"
               aria-label={token}
               aria-pressed={current === token}
-              style={{ "--annotate-swatch": `var(${token})` } as CSSProperties}
+              style={
+                {
+                  "--annotate-swatch": `var(${token})`,
+                } as CSSProperties
+              }
               onClick={() => onPick(token)}
             />
           </Tooltip>
@@ -275,14 +544,29 @@ function Swatches({ label, tokens, current, element, onPick }: { label: string; 
   );
 }
 
-const shown = (change: StyleChange, value: string): string => (change.kind === "text" ? value : value === "" ? "none" : value);
+const shown = (change: StyleChange, value: string): string =>
+  change.kind === "text" ? value : value === "" ? "none" : value;
 
 /** What a change's row calls its property: the tool's name, and Padding and Gap apart. */
-const LABELS: Record<string, string> = { "font-size": "Size", color: "Colour", "background-color": "Fill", padding: "Padding", gap: "Gap", text: "Text", variant: "Variant" };
+const LABELS: Record<string, string> = {
+  "font-size": "Size",
+  color: "Colour",
+  "background-color": "Fill",
+  padding: "Padding",
+  gap: "Gap",
+  text: "Text",
+  variant: "Variant",
+};
 const labelOf = (change: StyleChange): string => LABELS[change.property] ?? change.property;
 
 /** Each change, what it was and what it is, with its token; undone one at a time or all at once. */
-function Changes({ changes, onChanges }: { changes: readonly StyleChange[]; onChanges: (next: StyleChange[]) => void }) {
+function Changes({
+  changes,
+  onChanges,
+}: {
+  changes: readonly StyleChange[];
+  onChanges: (next: StyleChange[]) => void;
+}) {
   if (changes.length === 0) return null;
   return (
     <>
@@ -299,7 +583,13 @@ function Changes({ changes, onChanges }: { changes: readonly StyleChange[]; onCh
             </span>
             <span className="armada-annotate__change-token">{change.token ?? ""}</span>
             <Tooltip label="Undo" asChild>
-              <Button variant="ghost" size="sm" iconOnly aria-label={`Undo ${labelOf(change)}`} onClick={() => onChanges(changes.filter((one) => one.property !== change.property))}>
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                aria-label={`Undo ${labelOf(change)}`}
+                onClick={() => onChanges(changes.filter((one) => one.property !== change.property))}
+              >
                 <Undo2 size={14} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
@@ -334,11 +624,22 @@ export async function asPng(file: Blob): Promise<ArrayBuffer | null> {
 
 /** The image files a paste or a drop carries. */
 export function imagesIn(data: DataTransfer | null): File[] {
-  return [...(data?.files ?? [])].filter((file) => file.type.startsWith("image/"));
+  return [
+    ...(data?.files ?? []),
+  ].filter((file) => file.type.startsWith("image/"));
 }
 
 /** The note's example pictures as thumbnails, each with a press that takes it off. */
-export function Examples({ pictures, onRemove }: { pictures: readonly { name: string; png: ArrayBuffer | undefined }[]; onRemove: (name: string) => void }) {
+export function Examples({
+  pictures,
+  onRemove,
+}: {
+  pictures: readonly {
+    name: string;
+    png: ArrayBuffer | undefined;
+  }[];
+  onRemove: (name: string) => void;
+}) {
   if (pictures.length === 0) return null;
   return (
     <ul className="armada-annotate__examples" aria-label="Pictures">
@@ -346,7 +647,13 @@ export function Examples({ pictures, onRemove }: { pictures: readonly { name: st
         <li key={name} className="armada-annotate__example">
           <Thumbnail name={name} png={png} />
           <Tooltip label="Remove picture" asChild>
-            <Button variant="ghost" size="sm" iconOnly aria-label={`Remove ${name}`} onClick={() => onRemove(name)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label={`Remove ${name}`}
+              onClick={() => onRemove(name)}
+            >
               <X size={14} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>
@@ -361,12 +668,27 @@ function Thumbnail({ name, png }: { name: string; png: ArrayBuffer | undefined }
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
     if (png === undefined) return undefined;
-    const made = URL.createObjectURL(new Blob([png], { type: "image/png" }));
+    const made = URL.createObjectURL(
+      new Blob(
+        [
+          png,
+        ],
+        {
+          type: "image/png",
+        },
+      ),
+    );
     setSrc(made);
     return () => {
       URL.revokeObjectURL(made);
       setSrc(null);
     };
-  }, [png]);
-  return src === null ? <span className="armada-annotate__thumb" /> : <img className="armada-annotate__thumb" src={src} alt={name} />;
+  }, [
+    png,
+  ]);
+  return src === null ? (
+    <span className="armada-annotate__thumb" />
+  ) : (
+    <img className="armada-annotate__thumb" src={src} alt={name} />
+  );
 }

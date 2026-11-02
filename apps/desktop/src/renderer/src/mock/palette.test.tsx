@@ -11,7 +11,9 @@ unmountAfterEach();
 /** ⌘K, and the palette's list once it is up. */
 async function palette() {
   await userEvent.keyboard("{Meta>}k{/Meta}");
-  const list = page.getByRole("dialog", { name: "Command palette" });
+  const list = page.getByRole("dialog", {
+    name: "Command palette",
+  });
   await expect.element(list).toBeVisible();
   return list;
 }
@@ -23,7 +25,9 @@ test("the palette opens centred across the window, not on the search field", asy
   await onScreen();
   const list = await palette();
   const box = list.element().getBoundingClientRect();
-  expect(document.querySelector(".armada-palette-layer")?.hasAttribute("data-anchored")).toBe(false);
+  expect(document.querySelector(".armada-palette-layer")?.hasAttribute("data-anchored")).toBe(
+    false,
+  );
   expect(box.left + box.width / 2).toBeCloseTo(window.innerWidth / 2, 0);
   expect(box.top).toBeCloseTo(window.innerHeight * 0.2, 0);
 });
@@ -34,8 +38,20 @@ test("session is still a search word for the renamed entries", async () => {
   await onScreen();
   const list = await palette();
   await userEvent.type(list.getByRole("combobox"), "session");
-  await expect.element(list.getByRole("option", { name: /^Jobs/ })).toBeVisible();
-  await expect.element(list.getByRole("option", { name: /^Dispatch/ })).toBeVisible();
+  await expect
+    .element(
+      list.getByRole("option", {
+        name: /^Jobs/,
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      list.getByRole("option", {
+        name: /^Dispatch/,
+      }),
+    )
+    .toBeVisible();
 });
 
 // A pasted path is a first row: ↵ opens the file in the panel, and a path that is no readable file says so.
@@ -43,11 +59,23 @@ test("a pasted path is offered first and opens in the file panel", async () => {
   mount("file-panel");
   await onScreen();
   const list = await palette();
-  await userEvent.type(list.getByRole("combobox"), '  "/Users/user/Development/armada/crates/store/src/clock.rs" ');
+  await userEvent.type(
+    list.getByRole("combobox"),
+    '  "/Users/user/Development/armada/crates/store/src/clock.rs" ',
+  );
   const row = list.getByRole("option").first();
-  await expect.element(row).toHaveTextContent("Open /Users/user/Development/armada/crates/store/src/clock.rs");
+  await expect
+    .element(row)
+    .toHaveTextContent("Open /Users/user/Development/armada/crates/store/src/clock.rs");
   await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("dialog", { name: "clock.rs", exact: true })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("dialog", {
+        name: "clock.rs",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
 });
 
 test("a pasted path that is no file stays in the palette and says so", async () => {

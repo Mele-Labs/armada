@@ -29,11 +29,29 @@ const copying: Session[] = [
   {
     id: "s14",
     title: "Find the flaky test",
-    turn: { state: "idle" },
+    turn: {
+      state: "idle",
+    },
     lastTurnAt: minutesAgo(1),
     rows: [
-      { id: "r1", at: "14:39:50", kind: "message", from: { kind: "you" }, text: "Why does store_open fail now and then?" },
-      { id: "r2", at: "14:40:02", kind: "message", from: { kind: "agent" }, text: TEXT },
+      {
+        id: "r1",
+        at: "14:39:50",
+        kind: "message",
+        from: {
+          kind: "you",
+        },
+        text: "Why does store_open fail now and then?",
+      },
+      {
+        id: "r2",
+        at: "14:40:02",
+        kind: "message",
+        from: {
+          kind: "agent",
+        },
+        text: TEXT,
+      },
     ],
     attachments: [],
   },
@@ -47,5 +65,7 @@ export const s255CopyFromASession: Scenario = {
     useWalkClipboard();
     return s200Sessions.behaves?.(fleet) ?? {};
   },
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, copying) },
+  draft: {
+    sessions: (board) => s200Sessions.draft!.sessions!(board, copying),
+  },
 };

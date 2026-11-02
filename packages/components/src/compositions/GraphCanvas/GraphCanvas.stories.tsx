@@ -16,10 +16,17 @@ import { GraphCanvasRailGroup } from "./GraphCanvasRail";
 const meta: Meta<typeof GraphCanvas> = {
   title: "Compositions/Graph canvas",
   component: GraphCanvas,
-  parameters: { layout: "fullscreen" },
+  parameters: {
+    layout: "fullscreen",
+  },
   decorators: [
     (Story) => (
-      <div style={{ height: "100vh", background: "var(--surface-canvas)" }}>
+      <div
+        style={{
+          height: "100vh",
+          background: "var(--surface-canvas)",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -27,14 +34,25 @@ const meta: Meta<typeof GraphCanvas> = {
 };
 export default meta;
 
-type Card = Node<{ title: string }, "card">;
+type Card = Node<
+  {
+    title: string;
+  },
+  "card"
+>;
 type Line = Edge<Record<string, never>, "default">;
 
 function CardView({ data, selected }: NodeProps<Card>) {
   return (
     <>
       {GRAPH_CANVAS_SIDES.map((side) => (
-        <Handle key={`t-${side}`} id={`t-${side}`} type="target" position={side} isConnectable={false} />
+        <Handle
+          key={`t-${side}`}
+          id={`t-${side}`}
+          type="target"
+          position={side}
+          isConnectable={false}
+        />
       ))}
       <Card role="group" aria-label={data.title} aria-current={selected || undefined}>
         <CardContent>
@@ -42,27 +60,84 @@ function CardView({ data, selected }: NodeProps<Card>) {
         </CardContent>
       </Card>
       {GRAPH_CANVAS_SIDES.map((side) => (
-        <Handle key={`s-${side}`} id={`s-${side}`} type="source" position={side} isConnectable={false} />
+        <Handle
+          key={`s-${side}`}
+          id={`s-${side}`}
+          type="source"
+          position={side}
+          isConnectable={false}
+        />
       ))}
     </>
   );
 }
 
-const NODE_TYPES = { card: CardView };
+const NODE_TYPES = {
+  card: CardView,
+};
 const EDGE_TYPES = {};
 
 const nodes: Card[] = [
-  { id: "a", type: "card", position: { x: 0, y: 0 }, data: { title: "One" } },
-  { id: "b", type: "card", position: { x: 260, y: 0 }, data: { title: "Two" } },
-  { id: "c", type: "card", position: { x: 520, y: 0 }, data: { title: "Three" } },
+  {
+    id: "a",
+    type: "card",
+    position: {
+      x: 0,
+      y: 0,
+    },
+    data: {
+      title: "One",
+    },
+  },
+  {
+    id: "b",
+    type: "card",
+    position: {
+      x: 260,
+      y: 0,
+    },
+    data: {
+      title: "Two",
+    },
+  },
+  {
+    id: "c",
+    type: "card",
+    position: {
+      x: 520,
+      y: 0,
+    },
+    data: {
+      title: "Three",
+    },
+  },
 ];
 
 const edges: Line[] = [
-  { id: "a-b", source: "a", target: "b", sourceHandle: "s-right", targetHandle: "t-left" },
-  { id: "b-c", source: "b", target: "c", sourceHandle: "s-right", targetHandle: "t-left" },
+  {
+    id: "a-b",
+    source: "a",
+    target: "b",
+    sourceHandle: "s-right",
+    targetHandle: "t-left",
+  },
+  {
+    id: "b-c",
+    source: "b",
+    target: "c",
+    sourceHandle: "s-right",
+    targetHandle: "t-left",
+  },
 ];
 
-const args = { surface: "armada-graph-canvas-demo", label: "Three cards", nodes, edges, nodeTypes: NODE_TYPES, edgeTypes: EDGE_TYPES };
+const args = {
+  surface: "armada-graph-canvas-demo",
+  label: "Three cards",
+  nodes,
+  edges,
+  nodeTypes: NODE_TYPES,
+  edgeTypes: EDGE_TYPES,
+};
 
 type Story = StoryObj<typeof GraphCanvas<Card, Line>>;
 
@@ -78,11 +153,33 @@ type Story = StoryObj<typeof GraphCanvas<Card, Line>>;
 export const ViewOnly: Story = {
   args,
   play: async ({ canvas }) => {
-    await waitFor(() => expect(canvas.getByRole("button", { name: "Zoom in" })).toBeVisible());
-    await expect(canvas.getByRole("button", { name: "Zoom in" })).toHaveTextContent("+");
-    await expect(canvas.getByRole("button", { name: "Zoom out" })).toHaveTextContent("−");
-    await expect(canvas.getByRole("button", { name: "Fit" })).toBeVisible();
-    await expect(canvas.getByRole("group", { name: "How you are looking at this" })).toBeVisible();
+    await waitFor(() =>
+      expect(
+        canvas.getByRole("button", {
+          name: "Zoom in",
+        }),
+      ).toBeVisible(),
+    );
+    await expect(
+      canvas.getByRole("button", {
+        name: "Zoom in",
+      }),
+    ).toHaveTextContent("+");
+    await expect(
+      canvas.getByRole("button", {
+        name: "Zoom out",
+      }),
+    ).toHaveTextContent("−");
+    await expect(
+      canvas.getByRole("button", {
+        name: "Fit",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("group", {
+        name: "How you are looking at this",
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -97,8 +194,20 @@ export const WithTools: Story = {
       <GraphCanvasRailGroup
         label="What you can put on this"
         acts={[
-          { id: "add", name: "Add a box", icon: SquarePlus, onPress: () => undefined },
-          { id: "undo", name: "Undo", icon: Undo2, disabled: true, why: "Nothing to take back.", onPress: () => undefined },
+          {
+            id: "add",
+            name: "Add a box",
+            icon: SquarePlus,
+            onPress: () => undefined,
+          },
+          {
+            id: "undo",
+            name: "Undo",
+            icon: Undo2,
+            disabled: true,
+            why: "Nothing to take back.",
+            onPress: () => undefined,
+          },
         ]}
       />
     ),

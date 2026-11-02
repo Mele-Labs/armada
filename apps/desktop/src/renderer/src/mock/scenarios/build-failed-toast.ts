@@ -11,8 +11,30 @@ export const s274BuildFailedToast: Scenario = {
   ...s200Sessions,
   name: "build-failed-toast",
   says: "A restart onto the preview is under way and its next read says it failed; the failure toast offers Dispatch session",
-  state: { ...s200Sessions.state, fleetBuild: { on: "main", commit: COMMIT, position: { ahead: 0, behind: 2 }, restarting: "preview", stage: "building_fleet" } },
+  state: {
+    ...s200Sessions.state,
+    fleetBuild: {
+      on: "main",
+      commit: COMMIT,
+      position: {
+        ahead: 0,
+        behind: 2,
+      },
+      restarting: "preview",
+      stage: "building_fleet",
+    },
+  },
   later: [
-    { fleetBuild: { on: "main", commit: COMMIT, position: { ahead: 0, behind: 2 }, failed: "error[E0432]: unresolved import crate::drones" } },
+    {
+      fleetBuild: {
+        on: "main",
+        commit: COMMIT,
+        position: {
+          ahead: 0,
+          behind: 2,
+        },
+        failed: "error[E0432]: unresolved import crate::drones",
+      },
+    },
   ],
 };

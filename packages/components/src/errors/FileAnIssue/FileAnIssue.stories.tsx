@@ -17,9 +17,18 @@ const REFUSED: DebugPayload = {
   drone_id: "drn_4c8",
   step_id: "verify",
   fields: [
-    { key: "criterion", value: "2" },
-    { key: "judge_model", value: "sonnet" },
-    { key: "response_bytes", value: "1184" },
+    {
+      key: "criterion",
+      value: "2",
+    },
+    {
+      key: "judge_model",
+      value: "sonnet",
+    },
+    {
+      key: "response_bytes",
+      value: "1184",
+    },
   ],
   chain: [
     "judge: no verdict parsed from response",
@@ -83,7 +92,13 @@ const DIFF = {
  */
 export const TheControl: Story = {
   args: {
-    compose: () => ({ title: REFUSED.message, attached: [ENVELOPE], withheld: NOT_OFFERED }),
+    compose: () => ({
+      title: REFUSED.message,
+      attached: [
+        ENVELOPE,
+      ],
+      withheld: NOT_OFFERED,
+    }),
   },
 };
 
@@ -103,7 +118,13 @@ export const TheControl: Story = {
 export const OneItemAndItCannotBeRemoved: Story = {
   render: () => (
     <FilingReview
-      offered={{ title: REFUSED.message, attached: [ENVELOPE], withheld: NOT_OFFERED }}
+      offered={{
+        title: REFUSED.message,
+        attached: [
+          ENVELOPE,
+        ],
+        withheld: NOT_OFFERED,
+      }}
       removed={new Set()}
       onToggle={() => undefined}
       onCancel={() => undefined}
@@ -126,7 +147,14 @@ export const OneItemAndItCannotBeRemoved: Story = {
 export const AnItemThatCanBeRemoved: Story = {
   render: () => (
     <FilingReview
-      offered={{ title: REFUSED.message, attached: [ENVELOPE, DIFF], withheld: NOT_OFFERED }}
+      offered={{
+        title: REFUSED.message,
+        attached: [
+          ENVELOPE,
+          DIFF,
+        ],
+        withheld: NOT_OFFERED,
+      }}
       removed={new Set()}
       onToggle={() => undefined}
       onCancel={() => undefined}
@@ -145,8 +173,19 @@ export const AnItemThatCanBeRemoved: Story = {
 export const AnItemRemoved: Story = {
   render: () => (
     <FilingReview
-      offered={{ title: REFUSED.message, attached: [ENVELOPE, DIFF], withheld: NOT_OFFERED }}
-      removed={new Set([DIFF.id])}
+      offered={{
+        title: REFUSED.message,
+        attached: [
+          ENVELOPE,
+          DIFF,
+        ],
+        withheld: NOT_OFFERED,
+      }}
+      removed={
+        new Set([
+          DIFF.id,
+        ])
+      }
       onToggle={() => undefined}
       onCancel={() => undefined}
       onCopy={() => undefined}

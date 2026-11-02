@@ -9,13 +9,25 @@ import { attachmentsOf } from "@armada/screens/src/draft/sessions";
 import type { Areas } from "../cockpit/deck/areas";
 
 /** The Session's own drone before any work has placed it. */
-const OWN: WorkDrone = { id: "main", path: "", doing: "read" };
+const OWN: WorkDrone = {
+  id: "main",
+  path: "",
+  doing: "read",
+};
 
-type Subagent = Extract<SessionAttachment, { kind: "subagent" }>;
+type Subagent = Extract<
+  SessionAttachment,
+  {
+    kind: "subagent";
+  }
+>;
 
 const subagentsOf = (session: Session): Subagent[] => attachmentsOf(session, "subagent");
 
-export function workingDrones(session: Session, field: readonly WorkDrone[] | undefined): readonly WorkDrone[] | undefined {
+export function workingDrones(
+  session: Session,
+  field: readonly WorkDrone[] | undefined,
+): readonly WorkDrone[] | undefined {
   const subagents = subagentsOf(session);
   const row = new Map<string, Subagent>();
   for (const one of subagents) {
@@ -25,16 +37,43 @@ export function workingDrones(session: Session, field: readonly WorkDrone[] | un
   // A drone Fleet placed is the row it names, titled by the row's type and task, and gone once the row is done.
   const placed = (field ?? []).flatMap((one): WorkDrone[] => {
     const held = one.agent === undefined ? undefined : row.get(one.id);
-    if (held === undefined) return [one];
+    if (held === undefined)
+      return [
+        one,
+      ];
     if (held.state === "done") return [];
-    return [{ ...one, id: held.id, agent: held.agentType ?? one.agent, task: held.task }];
+    return [
+      {
+        ...one,
+        id: held.id,
+        agent: held.agentType ?? one.agent,
+        task: held.task,
+      },
+    ];
   });
   const drawn = new Set(placed.map((one) => one.id));
   const unplaced = subagents.flatMap((one): WorkDrone[] =>
-    one.state === "running" && !drawn.has(one.id) ? [{ id: one.id, agent: one.agentType ?? "Subagent", task: one.task, path: "", doing: "read" }] : [],
+    one.state === "running" && !drawn.has(one.id)
+      ? [
+          {
+            id: one.id,
+            agent: one.agentType ?? "Subagent",
+            task: one.task,
+            path: "",
+            doing: "read",
+          },
+        ]
+      : [],
   );
   if (field === undefined && unplaced.length === 0) return undefined;
-  return [...(field === undefined ? [OWN] : placed), ...unplaced];
+  return [
+    ...(field === undefined
+      ? [
+          OWN,
+        ]
+      : placed),
+    ...unplaced,
+  ];
 }
 
 /** A drone at work: the Session's own while its turn runs, a subagent while the ledger holds it running, and one the ledger does not hold while the turn runs. */
@@ -47,8 +86,17 @@ export function isWorking(session: Session, one: WorkDrone): boolean {
 
 /** Every plot of the floor whose directory a touched path names or lies under: a top directory with no plots inside it is one plot. */
 export function touchedPlots(areas: Areas, paths: ReadonlySet<string>): Set<string> {
-  const plots = areas.flatMap((area) => (area.kids.length === 0 ? [area.dir] : area.kids.map(([kid]) => `${area.dir}/${kid}`)));
-  const named = [...paths];
-  return new Set(plots.filter((plot) => named.some((path) => path === plot || path.startsWith(`${plot}/`))));
+  const plots = areas.flatMap((area) =>
+    area.kids.length === 0
+      ? [
+          area.dir,
+        ]
+      : area.kids.map(([kid]) => `${area.dir}/${kid}`),
+  );
+  const named = [
+    ...paths,
+  ];
+  return new Set(
+    plots.filter((plot) => named.some((path) => path === plot || path.startsWith(`${plot}/`))),
+  );
 }
-

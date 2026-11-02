@@ -14,17 +14,58 @@ const ARMADA = repository().manifest!.id;
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
 /** The ship's working Sessions, as its record names them. */
-const GATE = { id: "p1", title: "Gate policy on every run" };
-const CLOCK = { id: "r1", title: "Pin the store clock" };
-const NOTES = { id: "w1", title: "Migration notes" };
+const GATE = {
+  id: "p1",
+  title: "Gate policy on every run",
+};
+const CLOCK = {
+  id: "r1",
+  title: "Pin the store clock",
+};
+const NOTES = {
+  id: "w1",
+  title: "Migration notes",
+};
 
-const WORD: Record<string, string> = { forge: "GitHub", tracker: "the issue tracker", web: "the web", figma: "Figma" };
+const WORD: Record<string, string> = {
+  forge: "GitHub",
+  tracker: "the issue tracker",
+  web: "the web",
+  figma: "Figma",
+};
 
 let count = 9100;
 /** One call, as Fleet records it from the hooks that observe the tools: one entry each, dated when it was made. */
-function call(at: string, who: { id: string; title: string }, service: CallService, line: string): TimelineEvent {
+function call(
+  at: string,
+  who: {
+    id: string;
+    title: string;
+  },
+  service: CallService,
+  line: string,
+): TimelineEvent {
   count += 1;
-  return { id: count, at, kind: "session.called", subject: { kind: "session", id: who.id }, title: who.title, tone: "run", says: `Called ${WORD[service] ?? service}`, detail: line, call: { service, name: WORD[service] ?? service, line }, manifest_id: ARMADA, live: true };
+  return {
+    id: count,
+    at,
+    kind: "session.called",
+    subject: {
+      kind: "session",
+      id: who.id,
+    },
+    title: who.title,
+    tone: "run",
+    says: `Called ${WORD[service] ?? service}`,
+    detail: line,
+    call: {
+      service,
+      name: WORD[service] ?? service,
+      line,
+    },
+    manifest_id: ARMADA,
+    live: true,
+  };
 }
 
 /** What was called before the walk begins, all of it too old to be a beam. */
@@ -42,9 +83,15 @@ const BEFORE = (): TimelineEvent[] => [
  */
 const justNow = () => new Date(Date.now() - CLOCK_MS).toISOString();
 const LATER: readonly (() => TimelineEvent[])[] = [
-  () => [call(justNow(), GATE, "forge", "gh pr view")],
-  () => [call(justNow(), CLOCK, "figma", "get_design_context")],
-  () => [call(justNow(), NOTES, "tracker", "create_issue")],
+  () => [
+    call(justNow(), GATE, "forge", "gh pr view"),
+  ],
+  () => [
+    call(justNow(), CLOCK, "figma", "get_design_context"),
+  ],
+  () => [
+    call(justNow(), NOTES, "tracker", "create_issue"),
+  ],
 ];
 
 function build(): Scenario {
@@ -57,9 +104,15 @@ function build(): Scenario {
     later: [],
     draft: {
       ...draft,
-      events: [...(draft.events ?? []), ...BEFORE()],
+      events: [
+        ...(draft.events ?? []),
+        ...BEFORE(),
+      ],
       eventsLater: LATER,
-      sessions: (control, more) => ({ ...draft.sessions!(control, more), later: () => undefined }),
+      sessions: (control, more) => ({
+        ...draft.sessions!(control, more),
+        later: () => undefined,
+      }),
     },
   };
 }

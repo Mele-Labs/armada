@@ -115,7 +115,9 @@
   font-weight: var(--weight-medium);
   white-space: nowrap;
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+  transition:
+    background var(--duration-fast) var(--ease),
+    color var(--duration-fast) var(--ease);
 }
 
 .armada-alert__button:hover {

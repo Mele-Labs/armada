@@ -38,7 +38,10 @@ export function startId(name: string, server: boolean): string {
  */
 export function studioStarts(read: CheckoutRunSheetRead): StudioStart[] {
   if (read.state !== "read") return [];
-  const runs = [...read.sheet.checks, ...read.sheet.commands].map((entry) => ({
+  const runs = [
+    ...read.sheet.checks,
+    ...read.sheet.commands,
+  ].map((entry) => ({
     id: startId(entry.name, false),
     name: entry.name,
     server: false,
@@ -48,7 +51,10 @@ export function studioStarts(read: CheckoutRunSheetRead): StudioStart[] {
     name: entry.name,
     server: true,
   }));
-  return [...runs, ...servers];
+  return [
+    ...runs,
+    ...servers,
+  ];
 }
 
 /**
@@ -59,7 +65,9 @@ export function studioStarts(read: CheckoutRunSheetRead): StudioStart[] {
  * `undefined` where there is nothing to start, which is what says to draw no
  * control at all rather than an empty menu.
  */
-export function studioStartEntries(starts: readonly StudioStart[]): DropdownMenuEntry[] | undefined {
+export function studioStartEntries(
+  starts: readonly StudioStart[],
+): DropdownMenuEntry[] | undefined {
   if (starts.length === 0) return undefined;
   const runs = starts.filter((start) => !start.server);
   const servers = starts.filter((start) => start.server);
@@ -69,13 +77,32 @@ export function studioStartEntries(starts: readonly StudioStart[]): DropdownMenu
     label: start.name,
   });
   return [
-    ...(runs.length === 0 ? [] : [{ kind: "label" as const, id: "runs", label: "Checks and Commands" }]),
+    ...(runs.length === 0
+      ? []
+      : [
+          {
+            kind: "label" as const,
+            id: "runs",
+            label: "Checks and Commands",
+          },
+        ]),
     ...runs.map(item),
     ...(servers.length === 0
       ? []
       : [
-          ...(runs.length === 0 ? [] : [{ kind: "separator" as const, id: "before-servers" }]),
-          { kind: "label" as const, id: "servers", label: "Servers" },
+          ...(runs.length === 0
+            ? []
+            : [
+                {
+                  kind: "separator" as const,
+                  id: "before-servers",
+                },
+              ]),
+          {
+            kind: "label" as const,
+            id: "servers",
+            label: "Servers",
+          },
         ]),
     ...servers.map(item),
   ];

@@ -26,7 +26,11 @@ export function mergeLines(): MergeLines {
       {
         root: repository().root,
         line: [
-          { place: 1, branch: "fleet/helm-kills-processes", state: "waiting" },
+          {
+            place: 1,
+            branch: "fleet/helm-kills-processes",
+            state: "waiting",
+          },
           {
             place: 2,
             branch: "docs/wire-lock-signed",
@@ -40,11 +44,26 @@ export function mergeLines(): MergeLines {
             state: "gating",
             batch: TURN,
             checks: [
-              { name: "build", state: "passed" },
-              { name: "typecheck", state: "passed" },
-              { name: "screens_test", state: "running" },
-              { name: "desktop_test", state: "waiting" },
-              { name: "components_test", state: "waiting" },
+              {
+                name: "build",
+                state: "passed",
+              },
+              {
+                name: "typecheck",
+                state: "passed",
+              },
+              {
+                name: "screens_test",
+                state: "running",
+              },
+              {
+                name: "desktop_test",
+                state: "waiting",
+              },
+              {
+                name: "components_test",
+                state: "waiting",
+              },
             ],
           },
           {
@@ -64,7 +83,10 @@ export function mergeLines(): MergeLines {
           {
             place: 6,
             branch: "fleet/read-in-cluster-membership",
-            pull_request: { number: 1770, url: `${PULL}1770` },
+            pull_request: {
+              number: 1770,
+              url: `${PULL}1770`,
+            },
             state: "waiting",
           },
         ],
@@ -72,13 +94,21 @@ export function mergeLines(): MergeLines {
         landed: [
           {
             branch: "studio/read-in-lands-in-a-zone",
-            pull_request: { number: 1772, url: `${PULL}1772`, settled: "merged" },
+            pull_request: {
+              number: 1772,
+              url: `${PULL}1772`,
+              settled: "merged",
+            },
             state: "landed",
             merge_commit: "007088d7ea0a2e909d3ebb072671e978f79ff9a0",
           },
           {
             branch: "bridge/remove-log-leftovers",
-            pull_request: { number: 1773, url: `${PULL}1773`, settled: "merged" },
+            pull_request: {
+              number: 1773,
+              url: `${PULL}1773`,
+              settled: "merged",
+            },
             state: "landed",
             merge_commit: "3fa640ad4832c11648974d5580862d5154a27a93",
           },
@@ -91,14 +121,32 @@ export function mergeLines(): MergeLines {
         sent_back: [
           {
             branch: "fleet/pulse-log-rows",
-            pull_request: { number: 1768, url: `${PULL}1768` },
+            pull_request: {
+              number: 1768,
+              url: `${PULL}1768`,
+            },
             state: "red",
-            failed: ["desktop_test", "screens_test"],
+            failed: [
+              "desktop_test",
+              "screens_test",
+            ],
             checks: [
-              { name: "build", state: "passed" },
-              { name: "typecheck", state: "passed" },
-              { name: "desktop_test", state: "failed" },
-              { name: "screens_test", state: "timed_out" },
+              {
+                name: "build",
+                state: "passed",
+              },
+              {
+                name: "typecheck",
+                state: "passed",
+              },
+              {
+                name: "desktop_test",
+                state: "failed",
+              },
+              {
+                name: "screens_test",
+                state: "timed_out",
+              },
             ],
           },
           {
@@ -129,11 +177,19 @@ export function emptiedLine(root: string): MergeLine {
       {
         branch: "notes/weekly-review",
         // The forge never read the push as the merge, so the line closed it naming the merge.
-        pull_request: { number: 12, url: "https://git.example/notes/pull/12", settled: "closed_unmerged" },
+        pull_request: {
+          number: 12,
+          url: "https://git.example/notes/pull/12",
+          settled: "closed_unmerged",
+        },
         state: "landed",
         merge_commit: "a41c9e07d2b85f3e61c0aa9d2f7b4e8c19d03f5a",
       },
-      { branch: "notes/reading-list", state: "landed", merge_commit: "6be2f0c4d18a93e57f0b2c6d4a8e1f3b97c5d20e" },
+      {
+        branch: "notes/reading-list",
+        state: "landed",
+        merge_commit: "6be2f0c4d18a93e57f0b2c6d4a8e1f3b97c5d20e",
+      },
     ],
     sent_back: [],
   };
@@ -141,5 +197,11 @@ export function emptiedLine(root: string): MergeLine {
 
 /** A line in `root` that nothing has ever landed in, and nobody is in or was sent back from. */
 export function neverLanded(root: string): MergeLine {
-  return { root, line: [], off: [], landed: [], sent_back: [] };
+  return {
+    root,
+    line: [],
+    off: [],
+    landed: [],
+    sent_back: [],
+  };
 }

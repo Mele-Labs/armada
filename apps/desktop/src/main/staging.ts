@@ -11,10 +11,16 @@ import type { SketchDrawn, StagedFrame } from "@armada/protocol";
 /** A PNG written where a frame is staged. */
 export async function stagePng(png: Buffer, width: number, height: number): Promise<StagedFrame> {
   const dir = join(app.getPath("temp"), "armada-frames", randomUUID());
-  await mkdir(dir, { recursive: true });
+  await mkdir(dir, {
+    recursive: true,
+  });
   const staged = join(dir, "frame.png");
   await writeFile(staged, png);
-  return { staged_path: staged, width, height };
+  return {
+    staged_path: staged,
+    width,
+    height,
+  };
 }
 
 /**
@@ -33,7 +39,10 @@ export async function stagedPicture(bytes: Uint8Array): Promise<StagedFrame | nu
 const isText = (value: unknown): value is string => typeof value === "string";
 const isWhole = (value: unknown): value is number => Number.isInteger(value);
 const listOf = (value: unknown, each: (item: Record<string, unknown>) => boolean): boolean =>
-  Array.isArray(value) && value.every((item) => typeof item === "object" && item !== null && each(item as Record<string, unknown>));
+  Array.isArray(value) &&
+  value.every(
+    (item) => typeof item === "object" && item !== null && each(item as Record<string, unknown>),
+  );
 
 /**
  * A drawing the renderer handed over, with each new picture's bytes staged —
@@ -43,11 +52,16 @@ const listOf = (value: unknown, each: (item: Record<string, unknown>) => boolean
  */
 export async function stagedSketch(value: unknown): Promise<SketchDrawn | null> {
   const drawing = (value ?? {}) as Record<string, unknown>;
-  const placed = (item: Record<string, unknown>) => isText(item.id) && isWhole(item.x) && isWhole(item.y);
+  const placed = (item: Record<string, unknown>) =>
+    isText(item.id) && isWhole(item.x) && isWhole(item.y);
   const shaped =
     listOf(drawing.boxes, (box) => placed(box) && isText(box.body)) &&
     listOf(drawing.joins, (join) => isText(join.id) && isText(join.from) && isText(join.to)) &&
-    listOf(drawing.strokes, (stroke) => isText(stroke.id) && listOf(stroke.points, (at) => isWhole(at.x) && isWhole(at.y))) &&
+    listOf(
+      drawing.strokes,
+      (stroke) =>
+        isText(stroke.id) && listOf(stroke.points, (at) => isWhole(at.x) && isWhole(at.y)),
+    ) &&
     listOf(
       drawing.pictures,
       (picture) =>
@@ -57,16 +71,36 @@ export async function stagedSketch(value: unknown): Promise<SketchDrawn | null> 
         (picture.bytes === undefined || picture.bytes instanceof Uint8Array),
     );
   if (!shaped) return null;
-  const pictures = drawing.pictures as { id: string; x: number; y: number; width: number; height: number; bytes?: Uint8Array }[];
+  const pictures = drawing.pictures as {
+    id: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    bytes?: Uint8Array;
+  }[];
   const drawn: SketchDrawn["pictures"] = [];
   for (const { id, x, y, width, height, bytes } of pictures) {
     if (bytes === undefined) {
-      drawn.push({ id, x, y, width, height });
+      drawn.push({
+        id,
+        x,
+        y,
+        width,
+        height,
+      });
       continue;
     }
     const staged = await stagedPicture(bytes);
     if (staged === null) return null;
-    drawn.push({ id, x, y, width, height, staged });
+    drawn.push({
+      id,
+      x,
+      y,
+      width,
+      height,
+      staged,
+    });
   }
   return {
     boxes: drawing.boxes as SketchDrawn["boxes"],

@@ -11,7 +11,13 @@ import { BrowserWindow, type WebContentsView } from "electron";
 import { writeFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 
-import type { AnswerBrowserRequest, BrowserRequest, Outcome, SendSessionNote, StudioCapture } from "@armada/protocol";
+import type {
+  AnswerBrowserRequest,
+  BrowserRequest,
+  Outcome,
+  SendSessionNote,
+  StudioCapture,
+} from "@armada/protocol";
 
 import type { JobBrowserState } from "../shared/api/job-browser";
 import type { Answer, Choice, SitePermission } from "../shared/site-permissions";
@@ -24,7 +30,14 @@ import { PageFinder } from "./capture/finder";
 import { askSource } from "./capture/layer";
 import { sessionNoteBody } from "./capture/pinned-note";
 import { decidesPermissions } from "./capture/permissions";
-import { check, decide, downloadOf, hostOf, permissionsOf, type Rules } from "./capture/site-permissions";
+import {
+  check,
+  decide,
+  downloadOf,
+  hostOf,
+  permissionsOf,
+  type Rules,
+} from "./capture/site-permissions";
 import { pageView } from "./capture/views";
 import { actOn, LOAD_MS, type ActsHost, type JobPage } from "./job-browser-acts";
 import { boundsOf } from "./session-page-bounds";
@@ -58,27 +71,46 @@ export type BrowserPage = JobPage & {
   go(to: "back" | "forward" | "reload"): void;
   back(): boolean;
   forward(): boolean;
-  viewport(): { width: number; height: number };
+  viewport(): {
+    width: number;
+    height: number;
+  };
   /** The page as it is drawn now. */
   picture(): Promise<Picture | null>;
   /** The injected layer's ask at a point of the page (`capture/layer.ts`); `take` false answers only the box and its name. */
   ask(x: number, y: number, take?: boolean): Promise<unknown>;
   /** What this page's repository has decided for each site, without the request waiting. */
-  settings(): { sites: JobBrowserState["site"]["sites"]; defaults: JobBrowserState["site"]["defaults"] };
+  settings(): {
+    sites: JobBrowserState["site"]["sites"];
+    defaults: JobBrowserState["site"]["defaults"];
+  };
   choose(host: string, permission: SitePermission, choice: Choice): void;
   setDefault(permission: SitePermission, choice: Choice): void;
 };
 
 /** The page as drawn, and where a box in its CSS pixels is on that picture. */
-export type Picture = { png: Uint8Array; ring(box: CaptureRect): Ring | null };
+export type Picture = {
+  png: Uint8Array;
+  ring(box: CaptureRect): Ring | null;
+};
 
 /** One tab's window, beside its Job's thread. */
-export type BrowserWindowHeld = { host: Host; focus(): void; close(): void };
+export type BrowserWindowHeld = {
+  host: Host;
+  focus(): void;
+  close(): void;
+};
 
 export type JobBrowserMake = {
   page(sessionId: string, told: PageTold): BrowserPage;
   /** `closing`: before the window goes, so its page can be moved out of it. */
-  window(sessionId: string, tabId: string, told: { closing: () => void }): BrowserWindowHeld;
+  window(
+    sessionId: string,
+    tabId: string,
+    told: {
+      closing: () => void;
+    },
+  ): BrowserWindowHeld;
 };
 
 export type JobBrowserTell = {
@@ -99,9 +131,16 @@ type Held = {
   window: BrowserWindowHeld | null;
   /** The picture Capture holds still, and the part of it the owner picked. */
   frozen: Picture | null;
-  holding: { capture: StudioCapture; read: PageRead } | null;
+  holding: {
+    capture: StudioCapture;
+    read: PageRead;
+  } | null;
   /** The page's request waiting on the owner. */
-  asking: { permission: SitePermission; host: string; settle(answer: Answer): void } | null;
+  asking: {
+    permission: SitePermission;
+    host: string;
+    settle(answer: Answer): void;
+  } | null;
 };
 
 /** The tab id of the page an agent opened for a Job that had no Browser tab. The first tab the renderer reports takes it over. */
@@ -111,7 +150,13 @@ const UNATTACHED = "";
  * **The Job's page**, the one its agent's acts reach: the first Browser tab in pane order that is shown, else the one shown last, else the first.
  * `tabs` is in pane order. The agent follows what the owner is looking at, and keeps a page of its own while he looks at none.
  */
-export function jobsPage(tabs: readonly { id: string; shown: boolean }[], lastShown: string | undefined): string | undefined {
+export function jobsPage(
+  tabs: readonly {
+    id: string;
+    shown: boolean;
+  }[],
+  lastShown: string | undefined,
+): string | undefined {
   return (tabs.find((one) => one.shown) ?? tabs.find((one) => one.id === lastShown) ?? tabs[0])?.id;
 }
 
@@ -130,7 +175,13 @@ export class JobBrowsers {
   ) {}
 
   list(): JobBrowserState[] {
-    return [...this.held.entries()].flatMap(([sessionId, tabs]) => [...tabs.keys()].map((tabId) => this.stateOf(sessionId, tabId)!));
+    return [
+      ...this.held.entries(),
+    ].flatMap(([sessionId, tabs]) =>
+      [
+        ...tabs.keys(),
+      ].map((tabId) => this.stateOf(sessionId, tabId)!),
+    );
   }
 
   private one(sessionId: string, tabId: string): Held | undefined {
@@ -144,11 +195,21 @@ export class JobBrowsers {
       sessionId,
       tabId,
       url: one.page.url(),
-      title: one.page.title(), back: one.page.back(),
+      title: one.page.title(),
+      back: one.page.back(),
       forward: one.page.forward(),
       driver: one.driver,
       windowed: one.window !== null,
-      site: { ...one.page.settings(), pending: one.asking === null ? null : { permission: one.asking.permission, host: one.asking.host } },
+      site: {
+        ...one.page.settings(),
+        pending:
+          one.asking === null
+            ? null
+            : {
+                permission: one.asking.permission,
+                host: one.asking.host,
+              },
+      },
     };
   }
 
@@ -166,9 +227,14 @@ export class JobBrowsers {
       driving: () => one.driver === "owner",
       ask: (permission, host) => {
         // One question at a time: a second is refused now, as a dismissed one.
-        if (this.one(sessionId, one.tabId) !== one || one.asking !== null) return Promise.resolve<Answer>("dismiss");
+        if (this.one(sessionId, one.tabId) !== one || one.asking !== null)
+          return Promise.resolve<Answer>("dismiss");
         return new Promise<Answer>((settle) => {
-          one.asking = { permission, host, settle };
+          one.asking = {
+            permission,
+            host,
+            settle,
+          };
           this.told(sessionId, one.tabId);
         });
       },
@@ -179,7 +245,15 @@ export class JobBrowsers {
         } else if (one.driver === "owner") page.go(chord);
       },
     });
-    const one: Held = { tabId, page, driver: "agent", window: null, frozen: null, holding: null, asking: null };
+    const one: Held = {
+      tabId,
+      page,
+      driver: "agent",
+      window: null,
+      frozen: null,
+      holding: null,
+      asking: null,
+    };
     this.held.set(sessionId, (this.held.get(sessionId) ?? new Map()).set(tabId, one));
     return one;
   }
@@ -203,7 +277,10 @@ export class JobBrowsers {
    */
   tabs(sessionId: string, tabIds: readonly string[]): void {
     this.order.set(sessionId, tabIds);
-    for (const tabId of [...(this.held.get(sessionId)?.keys() ?? [])]) if (tabId !== UNATTACHED && !tabIds.includes(tabId)) this.drop(sessionId, tabId);
+    for (const tabId of [
+      ...(this.held.get(sessionId)?.keys() ?? []),
+    ])
+      if (tabId !== UNATTACHED && !tabIds.includes(tabId)) this.drop(sessionId, tabId);
     const mine = this.held.get(sessionId);
     const opened = mine?.get(UNATTACHED);
     const first = tabIds.find((id) => mine?.has(id) !== true);
@@ -223,7 +300,10 @@ export class JobBrowsers {
 
   /** A Job is gone: every page it had is destroyed. */
   forget(sessionId: string): void {
-    for (const tabId of [...(this.held.get(sessionId)?.keys() ?? [])]) this.drop(sessionId, tabId);
+    for (const tabId of [
+      ...(this.held.get(sessionId)?.keys() ?? []),
+    ])
+      this.drop(sessionId, tabId);
     this.held.delete(sessionId);
     this.order.delete(sessionId);
     this.lastShown.delete(sessionId);
@@ -231,7 +311,10 @@ export class JobBrowsers {
 
   /** Only these Jobs are alive: the pages of any other are destroyed. */
   keep(alive: ReadonlySet<string>): void {
-    for (const sessionId of [...this.held.keys()]) if (!alive.has(sessionId)) this.forget(sessionId);
+    for (const sessionId of [
+      ...this.held.keys(),
+    ])
+      if (!alive.has(sessionId)) this.forget(sessionId);
   }
 
   /** Back in its pane: out of the window it was in, which closes. The pane places the page again. */
@@ -298,7 +381,13 @@ export class JobBrowsers {
     this.told(sessionId, tabId);
   }
 
-  choose(sessionId: string, tabId: string, host: string, permission: SitePermission, choice: Choice): void {
+  choose(
+    sessionId: string,
+    tabId: string,
+    host: string,
+    permission: SitePermission,
+    choice: Choice,
+  ): void {
     this.one(sessionId, tabId)?.page.choose(host, permission, choice);
     this.told(sessionId, tabId);
   }
@@ -328,9 +417,15 @@ export class JobBrowsers {
   private jobsHeld(sessionId: string): Held | undefined {
     const mine = this.held.get(sessionId);
     if (mine === undefined) return undefined;
-    const tabs = [...(this.order.get(sessionId) ?? []), UNATTACHED].filter((id) => mine.has(id));
+    const tabs = [
+      ...(this.order.get(sessionId) ?? []),
+      UNATTACHED,
+    ].filter((id) => mine.has(id));
     const id = jobsPage(
-      tabs.map((one) => ({ id: one, shown: mine.get(one)!.page.hostOf() !== null })),
+      tabs.map((one) => ({
+        id: one,
+        shown: mine.get(one)!.page.hostOf() !== null,
+      })),
       this.lastShown.get(sessionId),
     );
     return id === undefined ? undefined : mine.get(id);
@@ -374,10 +469,20 @@ export class JobBrowsers {
     if (one === undefined || one.frozen === null) return null;
     const viewport = one.page.viewport();
     const answer = await one.page.ask(x, y);
-    const capture = bounded(answer, viewport, { run: "", name: one.page.title(), address: webOrigin(one.page.url()) ?? one.page.url() });
+    const capture = bounded(answer, viewport, {
+      run: "",
+      name: one.page.title(),
+      address: webOrigin(one.page.url()) ?? one.page.url(),
+    });
     if (capture === null) return null;
-    one.holding = { capture, read: readOf(answer) };
-    return { box: rectOf(capture.bounds, viewport), chain: chainOf(capture) };
+    one.holding = {
+      capture,
+      read: readOf(answer),
+    };
+    return {
+      box: rectOf(capture.bounds, viewport),
+      chain: chainOf(capture),
+    };
   }
 
   /** The box of the part at a point of the picture, in the picture's own pixels (the page's CSS pixels): the pane's hover ring. */
@@ -394,11 +499,27 @@ export class JobBrowsers {
   async note(sessionId: string, tabId: string, said: string): Promise<Outcome> {
     const one = this.one(sessionId, tabId);
     const holding = one?.holding;
-    if (one === undefined || holding === null || holding === undefined) return { ok: false, why: "nothing_held" };
+    if (one === undefined || holding === null || holding === undefined)
+      return {
+        ok: false,
+        why: "nothing_held",
+      };
     const frozen = one.frozen;
-    const ring = frozen === null ? null : frozen.ring(rectOf(holding.capture.bounds, one.page.viewport()));
-    const crop = frozen === null || ring === null ? null : Buffer.from(this.burn(frozen.png, ring, 1)).toString("base64");
-    const body = sessionNoteBody({ sessionId, said, capture: holding.capture, read: holding.read, address: one.page.url(), walk: null, crop });
+    const ring =
+      frozen === null ? null : frozen.ring(rectOf(holding.capture.bounds, one.page.viewport()));
+    const crop =
+      frozen === null || ring === null
+        ? null
+        : Buffer.from(this.burn(frozen.png, ring, 1)).toString("base64");
+    const body = sessionNoteBody({
+      sessionId,
+      said,
+      capture: holding.capture,
+      read: holding.read,
+      address: one.page.url(),
+      walk: null,
+      crop,
+    });
     const outcome = await this.tell.note(body);
     if (outcome.ok) this.thaw(sessionId, tabId);
     return outcome;
@@ -414,7 +535,13 @@ const MOST_SNAPSHOT = 64 * 1024;
 const MOST_RESULT = 64 * 1024;
 const SETTLE_MS = 300;
 // ⌥⌘A starts Capture as ⌥⌘C does; the app's annotation layer keeps it while no Job browser is on screen (`chord.ts` in the pane).
-const CHORDS: Record<string, Chord> = { "alt+meta+KeyC": "capture", "alt+meta+KeyA": "capture", "meta+BracketLeft": "back", "meta+BracketRight": "forward", "meta+KeyR": "reload" };
+const CHORDS: Record<string, Chord> = {
+  "alt+meta+KeyC": "capture",
+  "alt+meta+KeyA": "capture",
+  "meta+BracketLeft": "back",
+  "meta+BracketRight": "forward",
+  "meta+KeyR": "reload",
+};
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -427,13 +554,28 @@ export function evaluateSource(expression: string): string {
  * A Browser tab's page in Electron. **Put away in Bridge's window, hidden**, while no pane shows it, so an act still reaches a page
  * that is laid out at its last size; `parkIn` is that window, or null while none is up.
  */
-export function makeBrowserPage(manifestId: string | null, parkIn: () => BrowserWindow | null, told: PageTold, store: SiteSettingsStore): BrowserPage {
-  const view: WebContentsView = pageView({ run: "", name: "", origin: "", url: "about:blank", manifestId, through: [] });
+export function makeBrowserPage(
+  manifestId: string | null,
+  parkIn: () => BrowserWindow | null,
+  told: PageTold,
+  store: SiteSettingsStore,
+): BrowserPage {
+  const view: WebContentsView = pageView({
+    run: "",
+    name: "",
+    origin: "",
+    url: "about:blank",
+    manifestId,
+    through: [],
+  });
   const contents = view.webContents;
   const key = manifestId ?? "none";
   // **Only while the owner drives**, from the choices kept for this repository; a question goes to the owner, and an unparsable host is refused.
   const rules: Rules = {
-    settings: () => ({ ...store.settingsOf(key), pending: null }),
+    settings: () => ({
+      ...store.settingsOf(key),
+      pending: null,
+    }),
     driving: told.driving,
     ask: told.ask,
     remember: (host, permission, choice) => {
@@ -470,7 +612,9 @@ export function makeBrowserPage(manifestId: string | null, parkIn: () => Browser
   // A page that opens another opens it here, and only on the web.
   contents.setWindowOpenHandler(({ url }) => {
     if (webOrigin(url) !== null) void contents.loadURL(url).catch(() => undefined);
-    return { action: "deny" };
+    return {
+      action: "deny",
+    };
   });
   contents.on("will-navigate", (event, url) => {
     if (webOrigin(url) === null) event.preventDefault();
@@ -494,7 +638,10 @@ export function makeBrowserPage(manifestId: string | null, parkIn: () => Browser
   let hidden = false;
   const viewportOf = () => {
     const box = view.getBounds();
-    return { width: Math.max(1, box.width), height: Math.max(1, box.height) };
+    return {
+      width: Math.max(1, box.width),
+      height: Math.max(1, box.height),
+    };
   };
   const into = (window: BrowserWindow | null): void => {
     if (parent === window) return;
@@ -506,22 +653,52 @@ export function makeBrowserPage(manifestId: string | null, parkIn: () => Browser
   into(parkIn());
   return {
     // A Job browser made empty shows no address until a page is opened in it.
-    url: () => (contents.isDestroyed() || contents.getURL() === "about:blank" ? "" : contents.getURL()),
+    url: () =>
+      contents.isDestroyed() || contents.getURL() === "about:blank" ? "" : contents.getURL(),
     title: () => (contents.isDestroyed() ? "" : contents.getTitle()),
     load: (url, patience) =>
       new Promise((resolve) => {
-        const finish = (said: { loaded: true } | { failed: string } | { timedOut: true }) => {
+        const finish = (
+          said:
+            | {
+                loaded: true;
+              }
+            | {
+                failed: string;
+              }
+            | {
+                timedOut: true;
+              },
+        ) => {
           clearTimeout(giveUp);
           contents.off("did-finish-load", onLoaded);
           contents.off("did-fail-load", onFailed);
           resolve(said);
         };
-        const onLoaded = () => finish({ loaded: true });
+        const onLoaded = () =>
+          finish({
+            loaded: true,
+          });
         // An aborted load (-3) is one a redirect or the next load replaced; the load that replaced it is waited for.
-        const onFailed = (_event: unknown, code: number, description: string, _url: string, mainFrame: boolean) => {
-          if (mainFrame && code !== -3) finish({ failed: description });
+        const onFailed = (
+          _event: unknown,
+          code: number,
+          description: string,
+          _url: string,
+          mainFrame: boolean,
+        ) => {
+          if (mainFrame && code !== -3)
+            finish({
+              failed: description,
+            });
         };
-        const giveUp = setTimeout(() => finish({ timedOut: true }), patience);
+        const giveUp = setTimeout(
+          () =>
+            finish({
+              timedOut: true,
+            }),
+          patience,
+        );
         contents.on("did-finish-load", onLoaded);
         contents.on("did-fail-load", onFailed);
         void contents.loadURL(url).catch(() => undefined);
@@ -550,10 +727,20 @@ export function makeBrowserPage(manifestId: string | null, parkIn: () => Browser
     },
     evaluate: async (expression) => {
       try {
-        const said: unknown = await contents.executeJavaScriptInIsolatedWorld(EVALUATE_WORLD, [{ code: evaluateSource(expression) }]);
-        return typeof said === "string" ? { result: said.slice(0, MOST_RESULT) } : {};
+        const said: unknown = await contents.executeJavaScriptInIsolatedWorld(EVALUATE_WORLD, [
+          {
+            code: evaluateSource(expression),
+          },
+        ]);
+        return typeof said === "string"
+          ? {
+              result: said.slice(0, MOST_RESULT),
+            }
+          : {};
       } catch (error) {
-        return { threw: error instanceof Error ? error.message : String(error) };
+        return {
+          threw: error instanceof Error ? error.message : String(error),
+        };
       }
     },
     placeIn: (host, bounds) => {
@@ -586,8 +773,10 @@ export function makeBrowserPage(manifestId: string | null, parkIn: () => Browser
     go: (to) => {
       if (contents.isDestroyed()) return;
       if (to === "reload") contents.reload();
-      else if (to === "back" && contents.navigationHistory.canGoBack()) contents.navigationHistory.goBack();
-      else if (to === "forward" && contents.navigationHistory.canGoForward()) contents.navigationHistory.goForward();
+      else if (to === "back" && contents.navigationHistory.canGoBack())
+        contents.navigationHistory.goBack();
+      else if (to === "forward" && contents.navigationHistory.canGoForward())
+        contents.navigationHistory.goForward();
     },
     back: () => !contents.isDestroyed() && contents.navigationHistory.canGoBack(),
     forward: () => !contents.isDestroyed() && contents.navigationHistory.canGoForward(),
@@ -598,7 +787,11 @@ export function makeBrowserPage(manifestId: string | null, parkIn: () => Browser
       if (image.isEmpty()) return null;
       const png = image.toPNG();
       const width = pngSize(png)?.width ?? image.getSize().width;
-      return { png, ring: (box) => (box.width === 0 || box.height === 0 ? null : ringOn(box, viewportOf().width, width)) };
+      return {
+        png,
+        ring: (box) =>
+          box.width === 0 || box.height === 0 ? null : ringOn(box, viewportOf().width, width),
+      };
     },
     ask: async (x, y, take = true) => {
       if (contents.isDestroyed()) return null;
@@ -615,21 +808,53 @@ export function makeBrowserPage(manifestId: string | null, parkIn: () => Browser
 }
 
 /** A Browser tab's page in a window of its own: a Bridge document with Bridge's preload, which goes nowhere, as the terminal's window is. */
-export function makeBrowserWindow(sessionId: string, tabId: string, over: { x: number; y: number; width: number; height: number } | null, told: { closing: () => void }): BrowserWindowHeld {
-  const size = { width: 1280, height: 820 };
+export function makeBrowserWindow(
+  sessionId: string,
+  tabId: string,
+  over: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null,
+  told: {
+    closing: () => void;
+  },
+): BrowserWindowHeld {
+  const size = {
+    width: 1280,
+    height: 820,
+  };
   const window = new BrowserWindow({
     ...size,
-    ...(over === null ? {} : { x: Math.round(over.x + (over.width - size.width) / 2), y: Math.round(over.y + (over.height - size.height) / 2) }),
+    ...(over === null
+      ? {}
+      : {
+          x: Math.round(over.x + (over.width - size.width) / 2),
+          y: Math.round(over.y + (over.height - size.height) / 2),
+        }),
     show: false,
     minWidth: 720,
     minHeight: 420,
-    webPreferences: { preload: join(__dirname, "../preload/index.js"), sandbox: true, contextIsolation: true, nodeIntegration: false },
+    webPreferences: {
+      preload: join(__dirname, "../preload/index.js"),
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
   });
-  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.setWindowOpenHandler(() => ({
+    action: "deny",
+  }));
   window.webContents.on("will-navigate", (event) => event.preventDefault());
   window.on("ready-to-show", () => window.show());
   window.on("close", told.closing);
-  void window.loadFile(join(__dirname, "../renderer/browser-window.html"), { query: { session: sessionId, tab: tabId } });
+  void window.loadFile(join(__dirname, "../renderer/browser-window.html"), {
+    query: {
+      session: sessionId,
+      tab: tabId,
+    },
+  });
   return {
     host: window,
     focus: () => {

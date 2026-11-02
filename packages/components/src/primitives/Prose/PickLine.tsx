@@ -1,4 +1,13 @@
-import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 
 import { Button } from "../Button/Button";
 import { DropdownMenu } from "../DropdownMenu/DropdownMenu";
@@ -25,7 +34,12 @@ export const ProsePick = createContext<ProsePicker | null>(null);
 export const InPickLine = createContext(false);
 
 /** The hast node `react-markdown` hands a component, as far as the line's words are read from it. */
-export type LineNode = { type: string; value?: string; tagName?: string; children?: LineNode[] };
+export type LineNode = {
+  type: string;
+  value?: string;
+  tagName?: string;
+  children?: LineNode[];
+};
 
 /** The words of a line as plain text: formatting dropped, code kept, and a nested list left to its own lines. */
 export function lineText(node: LineNode | undefined): string {
@@ -58,7 +72,9 @@ let settling: ReturnType<typeof setTimeout> | undefined;
 function move(from: HTMLElement, by: 1 | -1): void {
   const message = from.closest(".armada-prose");
   if (message === null) return;
-  const lines = [...message.querySelectorAll<HTMLElement>("[data-pick]")];
+  const lines = [
+    ...message.querySelectorAll<HTMLElement>("[data-pick]"),
+  ];
   lines[lines.indexOf(from) + by]?.focus();
 }
 
@@ -67,7 +83,19 @@ function move(from: HTMLElement, by: 1 | -1): void {
  * over its right end. Enter sends the first, 1 to 6 send the nth, the arrows move between lines. What was sent keeps a quiet mark.
  * **A right press on a response offers Edit, Remove and Add response**, and the bar stays up while its menu or editor is open.
  */
-export function PickLine({ as: Tag, className, text, children, ...rest }: { as: "li" | "p"; className: string; text: string; children?: ReactNode; [data: `data-${string}`]: unknown }) {
+export function PickLine({
+  as: Tag,
+  className,
+  text,
+  children,
+  ...rest
+}: {
+  as: "li" | "p";
+  className: string;
+  text: string;
+  children?: ReactNode;
+  [data: `data-${string}`]: unknown;
+}) {
   const picker = useContext(ProsePick);
   // Whether this line holds the acts. Read from the pointer's own events, so the nearest line wins over a list inside it.
   const [hot, setHot] = useState(false);
@@ -76,8 +104,20 @@ export function PickLine({ as: Tag, className, text, children, ...rest }: { as: 
   // Whether the pointer is over this line now, for a line still settling.
   const over = useRef(false);
   // The menu or the editor a right press opened: the acts are not put away while either is up.
-  const [menu, setMenu] = useState<{ x: number; y: number; id: string } | undefined>(undefined);
-  const [editing, setEditing] = useState<{ id: string | undefined } | undefined>(undefined);
+  const [menu, setMenu] = useState<
+    | {
+        x: number;
+        y: number;
+        id: string;
+      }
+    | undefined
+  >(undefined);
+  const [editing, setEditing] = useState<
+    | {
+        id: string | undefined;
+      }
+    | undefined
+  >(undefined);
   const holding = useRef(false);
   holding.current = menu !== undefined || editing !== undefined;
   // While hot, the acts stay until the pointer is clearly away from the line and from them, and a moment after.
@@ -92,7 +132,12 @@ export function PickLine({ as: Tag, className, text, children, ...rest }: { as: 
     const within = (one: Element | null, by: number, event: PointerEvent) => {
       if (one === null) return false;
       const box = one.getBoundingClientRect();
-      return event.clientX >= box.left - by && event.clientX <= box.right + by && event.clientY >= box.top - by && event.clientY <= box.bottom + by;
+      return (
+        event.clientX >= box.left - by &&
+        event.clientX <= box.right + by &&
+        event.clientY >= box.top - by &&
+        event.clientY <= box.bottom + by
+      );
     };
     const onMove = (event: PointerEvent) => {
       if (within(acts.current, STRAY, event)) clearTimeout(settling);
@@ -112,13 +157,26 @@ export function PickLine({ as: Tag, className, text, children, ...rest }: { as: 
       document.removeEventListener("pointermove", onMove);
       if (coolHot === cool) coolHot = null;
     };
-  }, [hot]);
+  }, [
+    hot,
+  ]);
   // `rest` is the `data-line` a source view puts on a block.
-  if (picker === null || text === "") return <Tag className={className} {...rest}>{children}</Tag>;
+  if (picker === null || text === "")
+    return (
+      <Tag className={className} {...rest}>
+        {children}
+      </Tag>
+    );
   const marked = picker.marked(text);
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.target !== event.currentTarget || event.metaKey || event.ctrlKey || event.altKey) return;
-    const response = event.key === "Enter" ? picker.responses[0] : /^[1-9]$/.test(event.key) ? picker.responses[Number(event.key) - 1] : undefined;
+    if (event.target !== event.currentTarget || event.metaKey || event.ctrlKey || event.altKey)
+      return;
+    const response =
+      event.key === "Enter"
+        ? picker.responses[0]
+        : /^[1-9]$/.test(event.key)
+          ? picker.responses[Number(event.key) - 1]
+          : undefined;
     if (response !== undefined) {
       event.preventDefault();
       picker.pick(text, response);
@@ -127,31 +185,84 @@ export function PickLine({ as: Tag, className, text, children, ...rest }: { as: 
       move(event.currentTarget, event.key === "ArrowDown" ? 1 : -1);
     }
   };
-  const markName = marked === undefined ? undefined : (picker.responses.find((one) => one.emoji === marked)?.name ?? "Sent");
-  const edited = editing === undefined ? undefined : picker.responses.find((one) => one.id === editing.id);
+  const markName =
+    marked === undefined
+      ? undefined
+      : (picker.responses.find((one) => one.emoji === marked)?.name ?? "Sent");
+  const edited =
+    editing === undefined ? undefined : picker.responses.find((one) => one.id === editing.id);
   const full = picker.responses.length >= MAX_RESPONSES;
   const alone = picker.responses.length <= 1;
   const entries: DropdownMenuEntry[] = [
-    { kind: "item", id: "edit", label: "Edit" },
-    { kind: "item", id: "add", label: "Add response", disabled: full, ...(full ? { hint: "Six at most" } : {}) },
-    { kind: "separator", id: "rule" },
-    { kind: "item", id: "remove", label: "Remove", danger: true, disabled: alone, ...(alone ? { hint: "One stays" } : {}) },
+    {
+      kind: "item",
+      id: "edit",
+      label: "Edit",
+    },
+    {
+      kind: "item",
+      id: "add",
+      label: "Add response",
+      disabled: full,
+      ...(full
+        ? {
+            hint: "Six at most",
+          }
+        : {}),
+    },
+    {
+      kind: "separator",
+      id: "rule",
+    },
+    {
+      kind: "item",
+      id: "remove",
+      label: "Remove",
+      danger: true,
+      disabled: alone,
+      ...(alone
+        ? {
+            hint: "One stays",
+          }
+        : {}),
+    },
   ];
-  const openMenu = picker.onAct === undefined ? undefined : (response: QuickResponse) => ({
-    onContextMenu: (event: MouseEvent<HTMLElement>) => {
-      event.preventDefault();
-      setMenu({ x: event.clientX, y: event.clientY, id: response.id });
-    },
-    onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
-      if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
-      event.preventDefault();
-      const box = event.currentTarget.getBoundingClientRect();
-      setMenu({ x: box.left + box.width / 2, y: box.bottom, id: response.id });
-    },
-  });
-  const menuFor = menu === undefined ? undefined : picker.responses.find((one) => one.id === menu.id);
+  const openMenu =
+    picker.onAct === undefined
+      ? undefined
+      : (response: QuickResponse) => ({
+          onContextMenu: (event: MouseEvent<HTMLElement>) => {
+            event.preventDefault();
+            setMenu({
+              x: event.clientX,
+              y: event.clientY,
+              id: response.id,
+            });
+          },
+          onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+            if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
+            event.preventDefault();
+            const box = event.currentTarget.getBoundingClientRect();
+            setMenu({
+              x: box.left + box.width / 2,
+              y: box.bottom,
+              id: response.id,
+            });
+          },
+        });
+  const menuFor =
+    menu === undefined ? undefined : picker.responses.find((one) => one.id === menu.id);
   return (
-    <Tag ref={(node: HTMLElement | null) => { line.current = node; }} className={className} {...rest} data-pick="" data-hot={hot || undefined} data-marked={marked} tabIndex={0}
+    <Tag
+      ref={(node: HTMLElement | null) => {
+        line.current = node;
+      }}
+      className={className}
+      {...rest}
+      data-pick=""
+      data-hot={hot || undefined}
+      data-marked={marked}
+      tabIndex={0}
       onPointerOver={(event) => {
         const mine = (event.target as Element).closest("[data-pick]") === event.currentTarget;
         over.current = mine;
@@ -167,7 +278,13 @@ export function PickLine({ as: Tag, className, text, children, ...rest }: { as: 
       }}
       onPointerOut={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) over.current = false;
-      }} aria-keyshortcuts={["Enter", ...picker.responses.map((_, at) => String(at + 1))].join(" ")} onKeyDown={onKeyDown}>
+      }}
+      aria-keyshortcuts={[
+        "Enter",
+        ...picker.responses.map((_, at) => String(at + 1)),
+      ].join(" ")}
+      onKeyDown={onKeyDown}
+    >
       <InPickLine.Provider value>{children}</InPickLine.Provider>
       {marked === undefined ? null : (
         <Tooltip label={markName!}>
@@ -176,16 +293,32 @@ export function PickLine({ as: Tag, className, text, children, ...rest }: { as: 
           </span>
         </Tooltip>
       )}
-      <span ref={acts} className="armada-prose__pick-acts" role="group" aria-label={`Quick responses: ${text}`}>
+      <span
+        ref={acts}
+        className="armada-prose__pick-acts"
+        role="group"
+        aria-label={`Quick responses: ${text}`}
+      >
         {picker.responses.map((response) => (
           <Tooltip key={response.id} label={response.name}>
-            <Button variant="ghost" size="sm" iconOnly aria-label={response.name} tabIndex={-1} aria-haspopup={picker.onAct === undefined ? undefined : "menu"} {...(openMenu?.(response) ?? {})} onClick={(event) => {
-              picker.pick(text, response);
-              setHot(false);
-              // A press leaves focus on the button, which would hold the acts up after the pointer has gone.
-              event.currentTarget.blur();
-            }}>
-              <span className="armada-prose__pick-emoji" aria-hidden>{response.emoji}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label={response.name}
+              tabIndex={-1}
+              aria-haspopup={picker.onAct === undefined ? undefined : "menu"}
+              {...(openMenu?.(response) ?? {})}
+              onClick={(event) => {
+                picker.pick(text, response);
+                setHot(false);
+                // A press leaves focus on the button, which would hold the acts up after the pointer has gone.
+                event.currentTarget.blur();
+              }}
+            >
+              <span className="armada-prose__pick-emoji" aria-hidden>
+                {response.emoji}
+              </span>
             </Button>
           </Tooltip>
         ))}
@@ -199,9 +332,19 @@ export function PickLine({ as: Tag, className, text, children, ...rest }: { as: 
           onOpenChange={(open) => open || setMenu(undefined)}
           onSelect={(chosen) => {
             setMenu(undefined);
-            if (chosen === "edit") setEditing({ id: menuFor.id });
-            else if (chosen === "add") setEditing({ id: undefined });
-            else if (chosen === "remove") picker.onAct?.({ act: "remove", id: menuFor.id });
+            if (chosen === "edit")
+              setEditing({
+                id: menuFor.id,
+              });
+            else if (chosen === "add")
+              setEditing({
+                id: undefined,
+              });
+            else if (chosen === "remove")
+              picker.onAct?.({
+                act: "remove",
+                id: menuFor.id,
+              });
           }}
         />
       )}
@@ -211,12 +354,39 @@ export function PickLine({ as: Tag, className, text, children, ...rest }: { as: 
           line={line}
           label={edited === undefined ? "Add response" : `Edit ${edited.name}`}
           keep="quick-response"
-          {...(edited === undefined ? {} : { response: edited })}
+          {...(edited === undefined
+            ? {}
+            : {
+                response: edited,
+              })}
           onSave={(emoji, name) => {
-            picker.onAct?.(edited === undefined ? { act: "add", emoji, name } : { act: "edit", id: edited.id, emoji, name });
+            picker.onAct?.(
+              edited === undefined
+                ? {
+                    act: "add",
+                    emoji,
+                    name,
+                  }
+                : {
+                    act: "edit",
+                    id: edited.id,
+                    emoji,
+                    name,
+                  },
+            );
             setEditing(undefined);
           }}
-          {...(edited === undefined || alone ? {} : { onRemove: () => { picker.onAct?.({ act: "remove", id: edited.id }); setEditing(undefined); } })}
+          {...(edited === undefined || alone
+            ? {}
+            : {
+                onRemove: () => {
+                  picker.onAct?.({
+                    act: "remove",
+                    id: edited.id,
+                  });
+                  setEditing(undefined);
+                },
+              })}
           onClose={() => setEditing(undefined)}
         />
       )}

@@ -13,7 +13,14 @@ const meta: Meta<typeof ListCard> = {
   component: ListCard,
   decorators: [
     (Story) => (
-      <ul style={{ width: "20rem", padding: 0, listStyle: "none", background: "var(--surface-canvas)" }}>
+      <ul
+        style={{
+          width: "20rem",
+          padding: 0,
+          listStyle: "none",
+          background: "var(--surface-canvas)",
+        }}
+      >
         <li>
           <Story />
         </li>
@@ -38,7 +45,11 @@ const MARKS = (
 
 /** A Job: nothing under its title, so one line with the time before the marks. */
 export const OneLine: Story = {
-  args: { title: "Round the cart totals", marks: MARKS, at: <ListCardTime at={AT} said="Last turn" /> },
+  args: {
+    title: "Round the cart totals",
+    marks: MARKS,
+    at: <ListCardTime at={AT} said="Last turn" />,
+  },
 };
 
 /** A pull request: its number under the title, and the time at the end of that line. */
@@ -71,20 +82,37 @@ export const WrappedTitle: Story = {
 
 /** A line under the tag, as the person's View menu has it. */
 export const WithLines: Story = {
-  args: { title: "Prorate mid cycle plans", marks: MARKS, tag: <ListCardChip>#1892</ListCardChip>, lines: "Reading the billing tests" },
+  args: {
+    title: "Prorate mid cycle plans",
+    marks: MARKS,
+    tag: <ListCardChip>#1892</ListCardChip>,
+    lines: "Reading the billing tests",
+  },
 };
 
 /** The one open beside the list, which says so to a reader as well as in its weight. */
 export const Selected: Story = {
-  args: { title: "Rotate the staging certificates", marks: MARKS, selected: true },
+  args: {
+    title: "Rotate the staging certificates",
+    marks: MARKS,
+    selected: true,
+  },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByRole("button", { name: "Rotate the staging certificates" })).toHaveAttribute("aria-current", "true");
+    await expect(
+      within(canvasElement).getByRole("button", {
+        name: "Rotate the staging certificates",
+      }),
+    ).toHaveAttribute("aria-current", "true");
   },
 };
 
 /** Needs him: the card's faint tint pulses. */
 export const Needs: Story = {
-  args: { title: "Round the cart totals", marks: MARKS, needs: true },
+  args: {
+    title: "Round the cart totals",
+    marks: MARKS,
+    needs: true,
+  },
 };
 
 /** Before its list has answered. */

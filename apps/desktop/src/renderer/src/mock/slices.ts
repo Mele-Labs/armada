@@ -14,7 +14,7 @@ import { manifest } from "./slices/manifest";
 import { overview } from "./slices/overview";
 import { sessions } from "./slices/sessions";
 import { settings } from "./slices/settings";
-import { sleep } from "./slices/sleep";
+import { autopilotDecisions } from "./slices/autopilot-decisions";
 import { accounts } from "./slices/accounts";
 import { planUsage } from "./slices/plan-usage";
 import { modelDownshift } from "./slices/model-downshift";
@@ -30,6 +30,7 @@ import { actFailed } from "./slices/act-failed";
 import { bayHistory } from "./slices/bay-history";
 import { sessionSystem } from "./slices/session-system";
 import { usageSummary } from "./slices/usage-summary";
+import { debugReport } from "./slices/debug-report";
 import { issues } from "./slices/issues";
 import { autopilot } from "./slices/autopilot";
 import { sketchShare } from "./slices/sketch-share";
@@ -50,10 +51,50 @@ import { pullRequestNotes } from "./slices/pull-request-notes";
 export type AnySlice = Slice<Partial<BridgeApi>, Partial<BridgeState>>;
 
 /** **A `Record` over every name**, so a surface with no entry here fails typecheck. */
-const BY_NAME = { core, studios, manifest, setup, workflows, helm, settings, overview, cleanup, dispatch, checks, lessons, sessions, sleep, accounts, planUsage, modelDownshift, projects, bugReports, lifecycles, agentSignIn, clashes, reviews, territory, timeline, actFailed, bayHistory, sessionSystem, usageSummary, issues, autopilot, sketchShare, attachments, files, flightControls, onboarding, requests, sharing, logbook, teaching, pullRequestNotes } satisfies Record<
-  SliceName,
-  AnySlice
->;
+const BY_NAME = {
+  core,
+  studios,
+  manifest,
+  setup,
+  workflows,
+  helm,
+  settings,
+  overview,
+  cleanup,
+  dispatch,
+  checks,
+  lessons,
+  sessions,
+  autopilotDecisions,
+  accounts,
+  planUsage,
+  modelDownshift,
+  projects,
+  bugReports,
+  lifecycles,
+  agentSignIn,
+  clashes,
+  reviews,
+  territory,
+  timeline,
+  actFailed,
+  bayHistory,
+  sessionSystem,
+  usageSummary,
+  debugReport,
+  issues,
+  autopilot,
+  sketchShare,
+  attachments,
+  files,
+  flightControls,
+  onboarding,
+  requests,
+  sharing,
+  logbook,
+  teaching,
+  pullRequestNotes,
+} satisfies Record<SliceName, AnySlice>;
 
 /** Core first, then each surface. */
 export const SLICES: readonly AnySlice[] = Object.values(BY_NAME);
@@ -61,10 +102,13 @@ export const SLICES: readonly AnySlice[] = Object.values(BY_NAME);
 export type { SliceName };
 
 type ApiOf<T> = T extends Slice<infer A, unknown> ? A : never;
-type Intersection<U> = (U extends unknown ? (one: U) => void : never) extends (all: infer I) => void ? I : never;
+type Intersection<U> = (U extends unknown ? (one: U) => void : never) extends (all: infer I) => void
+  ? I
+  : never;
 
 /** Fails typecheck where the slices together answer less than `BridgeApi` names. */
-export type EverySliceTogetherIsBridgeApi = Intersection<ApiOf<(typeof BY_NAME)[SliceName]>> extends BridgeApi ? true : never;
+export type EverySliceTogetherIsBridgeApi =
+  Intersection<ApiOf<(typeof BY_NAME)[SliceName]>> extends BridgeApi ? true : never;
 const _complete: EverySliceTogetherIsBridgeApi = true;
 void _complete;
 

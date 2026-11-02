@@ -4,7 +4,10 @@
 // counts only.
 
 /** Units under a name: a model, a tool or a `bash_use` label. */
-export type NamedUnits = { name: string; units: number };
+export type NamedUnits = {
+  name: string;
+  units: number;
+};
 
 /** The four token kinds, in units. */
 export type TokenUnits = {
@@ -55,7 +58,10 @@ export type SessionUsageSummary = {
 };
 
 /** The Sessions past the listed ones, rolled into one. */
-export type RestUsage = { sessions: number; usage: UsageBreakdown };
+export type RestUsage = {
+  sessions: number;
+  usage: UsageBreakdown;
+};
 
 /** The period of equal length just before `since`. */
 export type PriorUsage = {

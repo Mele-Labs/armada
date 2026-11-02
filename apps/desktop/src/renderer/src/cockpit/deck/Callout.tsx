@@ -7,7 +7,19 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-import { CircleDot, FolderGit2, Flag, GitMerge, KeyRound, Layers, ListChecks, Split, SquareTerminal, TriangleAlert, type LucideIcon } from "lucide-react";
+import {
+  CircleDot,
+  FolderGit2,
+  Flag,
+  GitMerge,
+  KeyRound,
+  Layers,
+  ListChecks,
+  Split,
+  SquareTerminal,
+  TriangleAlert,
+  type LucideIcon,
+} from "lucide-react";
 import { InspectCard } from "@armada/components";
 
 import { AskUpdate } from "./AskUpdate";
@@ -16,23 +28,61 @@ import { placeCallout, type Anchored } from "./placement";
 import type { Tip } from "./tip";
 
 /** The glyph of each kind of thing the map says something about. */
-const KIND_GLYPH: Record<string, LucideIcon | undefined> = { Job: SquareTerminal, Main: GitMerge, Bay: KeyRound, Task: ListChecks, Road: Flag, Phase: Layers, Subagent: Split, Repository: FolderGit2, "Write clash": TriangleAlert };
+const KIND_GLYPH: Record<string, LucideIcon | undefined> = {
+  Job: SquareTerminal,
+  Main: GitMerge,
+  Bay: KeyRound,
+  Task: ListChecks,
+  Road: Flag,
+  Phase: Layers,
+  Subagent: Split,
+  Repository: FolderGit2,
+  "Write clash": TriangleAlert,
+};
 
 /** The kinds a press on the focused thing opens. */
-const OPENS: ReadonlySet<string> = new Set(["Job", "Bay", "Main"]);
+const OPENS: ReadonlySet<string> = new Set([
+  "Job",
+  "Bay",
+  "Main",
+]);
 
 /** The status token a state's tone is drawn in. */
-const STATE_TONE = { calm: "var(--fg-muted)", ask: "var(--status-awaiting-review)", bad: "var(--status-completed-failed)", good: "var(--status-completed-success)" } as const;
+const STATE_TONE = {
+  calm: "var(--fg-muted)",
+  ask: "var(--status-awaiting-review)",
+  bad: "var(--status-completed-failed)",
+  good: "var(--status-completed-success)",
+} as const;
 
 /** What the callout hangs from: the element hovered or focused, or a point where the pointer was for a thing too large to have a middle. */
-export type Anchor = { target: Element; at?: { x: number; y: number } };
+export type Anchor = {
+  target: Element;
+  at?: {
+    x: number;
+    y: number;
+  };
+};
 
 /** The box on the screen the callout keeps clear of: the drone's hit box, the pad's hit box, the flag's; a point, where the pointer was. */
 function boxOf({ target, at }: Anchor): Anchored | undefined {
-  if (at !== undefined) return { x: at.x, y: at.y, w: 8, h: 8 };
+  if (at !== undefined)
+    return {
+      x: at.x,
+      y: at.y,
+      w: 8,
+      h: 8,
+    };
   if (!target.isConnected) return undefined;
   const r = target.getBoundingClientRect();
-  return r.width === 0 && r.height === 0 ? undefined : { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height };
+  return r.width === 0 && r.height === 0
+    ? undefined
+    : {
+        x: r.left + r.width / 2,
+        y: r.top + r.height / 2,
+        w: r.width,
+        h: r.height,
+      };
 }
 
 /**
@@ -44,13 +94,36 @@ const SETTLED_FRAMES = 30;
 const HEARTBEAT_MS = 250;
 
 /** What the card stands in: the pane, or the window where it is floated. */
-const windowBox = () => ({ left: 0, top: 0, width: window.innerWidth, height: window.innerHeight });
+const windowBox = () => ({
+  left: 0,
+  top: 0,
+  width: window.innerWidth,
+  height: window.innerHeight,
+});
 
 /**
  * `pinned` is one a press opened: it stays, and what is in it can be pressed. `view` is whatever changes when the camera does. `float`
  * draws it over the app; `onEnter` and `onLeave` are the pointer on the card and off it.
  */
-export function Callout({ tip, anchor, host, pinned, view, float = false, onEnter, onLeave }: { tip: Tip; anchor: Anchor; host: HTMLElement; pinned?: boolean; view?: unknown; float?: boolean; onEnter?: () => void; onLeave?: () => void }) {
+export function Callout({
+  tip,
+  anchor,
+  host,
+  pinned,
+  view,
+  float = false,
+  onEnter,
+  onLeave,
+}: {
+  tip: Tip;
+  anchor: Anchor;
+  host: HTMLElement;
+  pinned?: boolean;
+  view?: unknown;
+  float?: boolean;
+  onEnter?: () => void;
+  onLeave?: () => void;
+}) {
   const root = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const slot = useRef<HTMLDivElement>(null);
@@ -70,10 +143,41 @@ export function Callout({ tip, anchor, host, pinned, view, float = false, onEnte
       const from = boxOf(anchor);
       const el = card.current;
       const moves = slot.current;
-      if (from !== undefined && el !== null && moves !== null && line.current !== null && dot.current !== null && root.current !== null) {
-        const a = { x: from.x - base.left, y: from.y - base.top, w: from.w, h: from.h };
-        const put = placeCallout(a, { w: el.offsetWidth, h: el.offsetHeight }, { width: base.width, height: base.height });
-        const key = [put.left, put.top, put.end.x, put.end.y, a.x, a.y].map((n) => Math.round(n)).join();
+      if (
+        from !== undefined &&
+        el !== null &&
+        moves !== null &&
+        line.current !== null &&
+        dot.current !== null &&
+        root.current !== null
+      ) {
+        const a = {
+          x: from.x - base.left,
+          y: from.y - base.top,
+          w: from.w,
+          h: from.h,
+        };
+        const put = placeCallout(
+          a,
+          {
+            w: el.offsetWidth,
+            h: el.offsetHeight,
+          },
+          {
+            width: base.width,
+            height: base.height,
+          },
+        );
+        const key = [
+          put.left,
+          put.top,
+          put.end.x,
+          put.end.y,
+          a.x,
+          a.y,
+        ]
+          .map((n) => Math.round(n))
+          .join();
         if (key !== seen) {
           seen = key;
           moved = true;
@@ -114,10 +218,20 @@ export function Callout({ tip, anchor, host, pinned, view, float = false, onEnte
       window.clearTimeout(beat);
       watch?.disconnect();
     };
-  }, [tip, anchor, host, float]);
+  }, [
+    tip,
+    anchor,
+    host,
+    float,
+  ]);
 
   // The camera moved: the anchor is somewhere else now, and the next frames find where.
-  useLayoutEffect(() => wake.current(), [view]);
+  useLayoutEffect(
+    () => wake.current(),
+    [
+      view,
+    ],
+  );
 
   // The card takes the pointer only once the pointer is on it: until then it stands over other drones without taking a hover or a
   // press from them. Listened for only while a card is open.
@@ -128,21 +242,46 @@ export function Callout({ tip, anchor, host, pinned, view, float = false, onEnte
       const top = root.current;
       if (el === null || top === null || top.dataset.reached !== undefined) return;
       const box = el.getBoundingClientRect();
-      if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) return;
+      if (
+        event.clientX < box.left ||
+        event.clientX > box.right ||
+        event.clientY < box.top ||
+        event.clientY > box.bottom
+      )
+        return;
       top.dataset.reached = "";
       onEnter();
     };
-    window.addEventListener("pointermove", move, { passive: true });
+    window.addEventListener("pointermove", move, {
+      passive: true,
+    });
     return () => window.removeEventListener("pointermove", move);
-  }, [pinned, onEnter]);
+  }, [
+    pinned,
+    onEnter,
+  ]);
   const left = () => {
     if (root.current !== null) delete root.current.dataset.reached;
     onLeave?.();
   };
 
-  const most = Math.max(1, ...(tip.ticks ?? [0]));
+  const most = Math.max(
+    1,
+    ...(tip.ticks ?? [
+      0,
+    ]),
+  );
   const drawn: ReactNode = (
-    <div ref={root} className="bf-callout" data-hue={tip.hue} data-pinned={pinned || undefined} data-node={tip.node !== undefined || undefined} data-float={float || undefined} role={pinned ? "group" : "tooltip"} aria-label={pinned ? tip.title : undefined}>
+    <div
+      ref={root}
+      className="bf-callout"
+      data-hue={tip.hue}
+      data-pinned={pinned || undefined}
+      data-node={tip.node !== undefined || undefined}
+      data-float={float || undefined}
+      role={pinned ? "group" : "tooltip"}
+      aria-label={pinned ? tip.title : undefined}
+    >
       <svg className="bf-callout__lead" aria-hidden="true">
         <g>
           <line ref={line} />
@@ -150,62 +289,115 @@ export function Callout({ tip, anchor, host, pinned, view, float = false, onEnte
         </g>
       </svg>
       {/* A press on the card is the card's: the map under it does not take it for a drag. */}
-      <div ref={slot} className="bf-callout__place" onPointerDown={(event) => event.stopPropagation()} onMouseEnter={onEnter} onMouseLeave={left}>
-      <InspectCard
-        ref={card}
-        className="bf-callout__card"
-        kind={{ Glyph: KIND_GLYPH[tip.label] ?? CircleDot, label: tip.label }}
-        {...(tip.node !== undefined ? {} : { title: tip.title })}
-        {...(tip.node !== undefined || tip.state === undefined ? {} : { state: { Glyph: tip.state.Glyph, said: tip.state.said, tone: STATE_TONE[tip.state.tone] } })}
-        tone="var(--tip)"
-        keys={OPENS.has(tip.label) ? [{ key: "Enter", verb: "Open" }] : []}
+      <div
+        ref={slot}
+        className="bf-callout__place"
+        onPointerDown={(event) => event.stopPropagation()}
+        onMouseEnter={onEnter}
+        onMouseLeave={left}
       >
-        {pinned && tip.ask !== undefined && tip.build !== undefined ? <AskUpdate subject={tip.ask} /> : null}
-        {tip.node !== undefined ? <div className="bf-callout__node">{tip.node}</div> : null}
-        {tip.doing === undefined ? null : (
-          <div className="bf-callout__doing">
-            <tip.doing.Glyph size={16} strokeWidth={2} aria-hidden="true" />
-            {tip.doing.word}
-            {tip.doing.via === undefined ? null : <span className="bf-callout__path">{tip.doing.via}</span>}
-          </div>
-        )}
-        {tip.build === undefined ? null : <BuildCard build={tip.build} />}
-        {tip.lines === undefined ? null : tip.lines.map((one) => <div key={one} className="bf-callout__line">{one}</div>)}
-        {tip.pills === undefined && tip.bay === undefined ? null : (
-          <ul className="bf-callout__pills">
-            {tip.bay === undefined ? null : (
-              <li className="bf-callout__pill" data-bay>
-                <tip.bay.Glyph size={12} strokeWidth={2} aria-hidden="true" />
-                slot-{tip.bay.slot}
-              </li>
-            )}
-            {(tip.pills ?? []).map((one) => (
-              <li key={one} className="bf-callout__pill">
-                {one}
-              </li>
-            ))}
-          </ul>
-        )}
-        {tip.last === undefined ? null : (
-          <div className="bf-callout__last">
-            <span>{tip.last.says}</span>
-            <time>{tip.last.ago}</time>
-          </div>
-        )}
-        {tip.call === undefined ? null : (
-          <div className="bf-callout__call">
-            <i aria-hidden="true" />
-            {tip.call}
-          </div>
-        )}
-        {tip.ticks === undefined ? null : (
-          <svg className="bf-callout__ticks" viewBox={`0 0 ${tip.ticks.length * 6} 14`} aria-hidden="true" preserveAspectRatio="none">
-            {tip.ticks.map((n, i) => (
-              <rect key={i} x={i * 6} y={14 - (n === 0 ? 2 : 4 + (n / most) * 10)} width={4} height={n === 0 ? 2 : 4 + (n / most) * 10} rx={1} data-empty={n === 0 || undefined} />
-            ))}
-          </svg>
-        )}
-      </InspectCard>
+        <InspectCard
+          ref={card}
+          className="bf-callout__card"
+          kind={{
+            Glyph: KIND_GLYPH[tip.label] ?? CircleDot,
+            label: tip.label,
+          }}
+          {...(tip.node !== undefined
+            ? {}
+            : {
+                title: tip.title,
+              })}
+          {...(tip.node !== undefined || tip.state === undefined
+            ? {}
+            : {
+                state: {
+                  Glyph: tip.state.Glyph,
+                  said: tip.state.said,
+                  tone: STATE_TONE[tip.state.tone],
+                },
+              })}
+          tone="var(--tip)"
+          keys={
+            OPENS.has(tip.label)
+              ? [
+                  {
+                    key: "Enter",
+                    verb: "Open",
+                  },
+                ]
+              : []
+          }
+        >
+          {pinned && tip.ask !== undefined && tip.build !== undefined ? (
+            <AskUpdate subject={tip.ask} />
+          ) : null}
+          {tip.node !== undefined ? <div className="bf-callout__node">{tip.node}</div> : null}
+          {tip.doing === undefined ? null : (
+            <div className="bf-callout__doing">
+              <tip.doing.Glyph size={16} strokeWidth={2} aria-hidden="true" />
+              {tip.doing.word}
+              {tip.doing.via === undefined ? null : (
+                <span className="bf-callout__path">{tip.doing.via}</span>
+              )}
+            </div>
+          )}
+          {tip.build === undefined ? null : <BuildCard build={tip.build} />}
+          {tip.lines === undefined
+            ? null
+            : tip.lines.map((one) => (
+                <div key={one} className="bf-callout__line">
+                  {one}
+                </div>
+              ))}
+          {tip.pills === undefined && tip.bay === undefined ? null : (
+            <ul className="bf-callout__pills">
+              {tip.bay === undefined ? null : (
+                <li className="bf-callout__pill" data-bay>
+                  <tip.bay.Glyph size={12} strokeWidth={2} aria-hidden="true" />
+                  slot-{tip.bay.slot}
+                </li>
+              )}
+              {(tip.pills ?? []).map((one) => (
+                <li key={one} className="bf-callout__pill">
+                  {one}
+                </li>
+              ))}
+            </ul>
+          )}
+          {tip.last === undefined ? null : (
+            <div className="bf-callout__last">
+              <span>{tip.last.says}</span>
+              <time>{tip.last.ago}</time>
+            </div>
+          )}
+          {tip.call === undefined ? null : (
+            <div className="bf-callout__call">
+              <i aria-hidden="true" />
+              {tip.call}
+            </div>
+          )}
+          {tip.ticks === undefined ? null : (
+            <svg
+              className="bf-callout__ticks"
+              viewBox={`0 0 ${tip.ticks.length * 6} 14`}
+              aria-hidden="true"
+              preserveAspectRatio="none"
+            >
+              {tip.ticks.map((n, i) => (
+                <rect
+                  key={i}
+                  x={i * 6}
+                  y={14 - (n === 0 ? 2 : 4 + (n / most) * 10)}
+                  width={4}
+                  height={n === 0 ? 2 : 4 + (n / most) * 10}
+                  rx={1}
+                  data-empty={n === 0 || undefined}
+                />
+              ))}
+            </svg>
+          )}
+        </InspectCard>
       </div>
     </div>
   );

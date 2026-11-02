@@ -12,8 +12,17 @@ import { timePasses } from "./time-passes";
 unmountAfterEach();
 
 const FILTER = "armada.bridge.dashboard-tab";
-const call = page.getByRole("region", { name: /^Pull request: #1904/ });
-const needsYou = () => page.getByRole("tab", { name: "Your move" }).getByRole("img", { name: "Needs you" });
+const call = page.getByRole("region", {
+  name: /^Pull request: #1904/,
+});
+const needsYou = () =>
+  page
+    .getByRole("tab", {
+      name: "Your move",
+    })
+    .getByRole("img", {
+      name: "Needs you",
+    });
 
 // Skipped (#2301): written for the classic Cockpit (the Lanes take, filter tabs, the call in front), which the flight deck replaced. To be ported or dropped before landing.
 test.skip("no call while its Session works, the call with the Session's thread once it is idle, and none after a Poke", async () => {
@@ -29,11 +38,23 @@ test.skip("no call while its Session works, the call with the Session's thread o
   // Idle, with nothing sent since the checks failed: the call, and the Session's own thread under it.
   timePasses();
   await expect.element(call).toBeVisible();
-  await expect.element(call.getByRole("group", { name: /^Session Pin the Bridge clock/ })).toBeVisible();
-  await expect.element(call.getByText("desktop_test is failing on a clock the Bridge tests also read.")).toBeVisible();
+  await expect
+    .element(
+      call.getByRole("group", {
+        name: /^Session Pin the Bridge clock/,
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(call.getByText("desktop_test is failing on a clock the Bridge tests also read."))
+    .toBeVisible();
 
   // Poke tells it, so it is on the failure again and the call leaves.
-  await userEvent.click(page.getByRole("button", { name: /Poke/ }));
+  await userEvent.click(
+    page.getByRole("button", {
+      name: /Poke/,
+    }),
+  );
   await expect.element(call).not.toBeInTheDocument();
   expect(needsYou().query()).toBeNull();
 });

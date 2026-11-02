@@ -8,7 +8,14 @@
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, FolderGit2, FolderPlus, Layers, Plus } from "lucide-react";
-import { PLACE_GLYPH, RunsAll, RunsPlaces, Tooltip, placePhrase, useAccount } from "@armada/components";
+import {
+  PLACE_GLYPH,
+  RunsAll,
+  RunsPlaces,
+  Tooltip,
+  placePhrase,
+  useAccount,
+} from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
@@ -20,7 +27,11 @@ const ALL_ROW = "all";
 const ADD_ROW = "add";
 const NEW_ROW = "new";
 
-type Row = { readonly id: string; readonly root: string | null; readonly label: string };
+type Row = {
+  readonly id: string;
+  readonly root: string | null;
+  readonly label: string;
+};
 
 export function RepositoryCombobox({
   repositories,
@@ -46,24 +57,67 @@ export function RepositoryCombobox({
   const book = useRunBook();
   const account = useAccount();
   const input = useRef<HTMLInputElement>(null);
-  const [box, setBox] = useState<{ left: number; top: number; width: number }>({ left: 0, top: 0, width: 0 });
+  const [box, setBox] = useState<{
+    left: number;
+    top: number;
+    width: number;
+  }>({
+    left: 0,
+    top: 0,
+    width: 0,
+  });
   const listId = useId();
   const current = picked === null ? "All repositories" : repositoryLabel(picked, repositories);
   const needle = query.trim().toLowerCase();
 
   const rows = useMemo<Row[]>(() => {
-    const all: Row[] = [{ id: ALL_ROW, root: null, label: "All repositories" }];
-    const repos: Row[] = repositories.map((one) => ({ id: one.root, root: one.root, label: repositoryLabel(one, repositories) }));
-    return [...all, ...repos].filter((row) => needle === "" || row.label.toLowerCase().includes(needle));
-  }, [repositories, needle]);
+    const all: Row[] = [
+      {
+        id: ALL_ROW,
+        root: null,
+        label: "All repositories",
+      },
+    ];
+    const repos: Row[] = repositories.map((one) => ({
+      id: one.root,
+      root: one.root,
+      label: repositoryLabel(one, repositories),
+    }));
+    return [
+      ...all,
+      ...repos,
+    ].filter((row) => needle === "" || row.label.toLowerCase().includes(needle));
+  }, [
+    repositories,
+    needle,
+  ]);
   // The arrow order: the filtered rows, then the footer actions, which the filter never removes.
-  const footer = [...(onNew === undefined ? [] : [NEW_ROW]), ...(onAdd === undefined ? [] : [ADD_ROW])];
-  const order = [...rows.map((row) => row.id), ...footer];
+  const footer = [
+    ...(onNew === undefined
+      ? []
+      : [
+          NEW_ROW,
+        ]),
+    ...(onAdd === undefined
+      ? []
+      : [
+          ADD_ROW,
+        ]),
+  ];
+  const order = [
+    ...rows.map((row) => row.id),
+    ...footer,
+  ];
   const activeId = open && order.length > 0 ? order[Math.min(active, order.length - 1)] : undefined;
 
   const show = () => {
     const rect = input.current?.getBoundingClientRect();
-    if (rect !== undefined) setBox({ left: rect.left, top: rect.bottom + 4, width: rect.width });
+    if (rect !== undefined)
+      setBox({
+        left: rect.left,
+        top: rect.bottom + 4,
+        width: rect.width,
+      });
     setActive(0);
     setOpen(true);
     // Each repository's row wears the place its runs are kept in, which Fleet is asked for as the list opens.
@@ -93,8 +147,15 @@ export function RepositoryCombobox({
     setRefused(undefined);
   };
   const keys = (event: KeyboardEvent<HTMLInputElement>) => {
-    const row = open && activeId !== undefined && event.key === "ArrowRight" ? rows.find((one) => one.id === activeId) : undefined;
-    if (row?.root != null && book.placeOf(row.root) !== undefined && event.currentTarget.selectionStart === query.length) {
+    const row =
+      open && activeId !== undefined && event.key === "ArrowRight"
+        ? rows.find((one) => one.id === activeId)
+        : undefined;
+    if (
+      row?.root != null &&
+      book.placeOf(row.root) !== undefined &&
+      event.currentTarget.selectionStart === query.length
+    ) {
       event.preventDefault();
       return openRuns(row.root);
     }
@@ -117,10 +178,12 @@ export function RepositoryCombobox({
     }
   };
 
-  const optionId = (id: string) => `${listId}-${id === ALL_ROW || id === ADD_ROW || id === NEW_ROW ? id : `r${repositories.findIndex((one) => one.root === id)}`}`;
+  const optionId = (id: string) =>
+    `${listId}-${id === ALL_ROW || id === ADD_ROW || id === NEW_ROW ? id : `r${repositories.findIndex((one) => one.root === id)}`}`;
   /** The glyph of the place a repository's runs are kept in, which opens all of how it runs. */
   const mark = (row: Row) => {
-    const kept = row.root === null ? undefined : book.placeOf(row.root, boundProfile(account, row.root));
+    const kept =
+      row.root === null ? undefined : book.placeOf(row.root, boundProfile(account, row.root));
     if (kept === undefined || row.root === null) return null;
     const Glyph = PLACE_GLYPH[kept.id];
     const root = row.root;
@@ -155,18 +218,32 @@ export function RepositoryCombobox({
       onMouseMove={() => setActive(order.indexOf(row.id))}
       onClick={() => choose(row.id)}
     >
-      {row.root === null ? <Layers size={16} aria-hidden="true" /> : <FolderGit2 size={16} aria-hidden="true" />}
+      {row.root === null ? (
+        <Layers size={16} aria-hidden="true" />
+      ) : (
+        <FolderGit2 size={16} aria-hidden="true" />
+      )}
       <span className="deck-combo__label">{row.label}</span>
       {mark(row)}
       <span className="deck-combo__mark-col" aria-hidden="true">
-        {(picked === null ? row.root === null : row.root === picked.root) ? <Check className="deck-combo__check" size={16} aria-hidden="true" /> : null}
+        {(picked === null ? row.root === null : row.root === picked.root) ? (
+          <Check className="deck-combo__check" size={16} aria-hidden="true" />
+        ) : null}
       </span>
     </li>
   );
   const [first, ...rest] = rows;
 
-  const layerRepository = layer === null ? undefined : repositories.find((one) => one.root === layer);
-  const shown = layer === null || layerRepository === undefined ? undefined : book.runsOf(layer, repositoryLabel(layerRepository, repositories), boundProfile(account, layer));
+  const layerRepository =
+    layer === null ? undefined : repositories.find((one) => one.root === layer);
+  const shown =
+    layer === null || layerRepository === undefined
+      ? undefined
+      : book.runsOf(
+          layer,
+          repositoryLabel(layerRepository, repositories),
+          boundProfile(account, layer),
+        );
 
   return (
     <div className="deck-combo" data-open={open || undefined}>
@@ -197,9 +274,27 @@ export function RepositoryCombobox({
       <ChevronDown className="deck-combo__chevron" size={16} aria-hidden="true" />
       {open
         ? createPortal(
-            <ul id={listId} role="listbox" aria-label="Repositories" className="deck-combo__list" style={{ left: box.left, top: box.top, width: box.width }}>
-              {first === undefined ? <li role="presentation" className="deck-combo__empty">No repository matches</li> : first.root === null ? option(first) : null}
-              {first !== undefined && first.root === null && rest.length > 0 ? <li role="presentation" className="deck-combo__rule" /> : null}
+            <ul
+              id={listId}
+              role="listbox"
+              aria-label="Repositories"
+              className="deck-combo__list"
+              style={{
+                left: box.left,
+                top: box.top,
+                width: box.width,
+              }}
+            >
+              {first === undefined ? (
+                <li role="presentation" className="deck-combo__empty">
+                  No repository matches
+                </li>
+              ) : first.root === null ? (
+                option(first)
+              ) : null}
+              {first !== undefined && first.root === null && rest.length > 0 ? (
+                <li role="presentation" className="deck-combo__rule" />
+              ) : null}
               {(first !== undefined && first.root === null ? rest : rows).map(option)}
               {footer.length === 0 ? null : <li role="presentation" className="deck-combo__rule" />}
               {footer.map((id) => (
@@ -214,8 +309,14 @@ export function RepositoryCombobox({
                   onMouseMove={() => setActive(order.indexOf(id))}
                   onClick={() => choose(id)}
                 >
-                  {id === NEW_ROW ? <FolderPlus size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
-                  <span className="deck-combo__label">{id === NEW_ROW ? "New project" : "Add a repository"}</span>
+                  {id === NEW_ROW ? (
+                    <FolderPlus size={16} aria-hidden="true" />
+                  ) : (
+                    <Plus size={16} aria-hidden="true" />
+                  )}
+                  <span className="deck-combo__label">
+                    {id === NEW_ROW ? "New project" : "Add a repository"}
+                  </span>
                   <span className="deck-combo__mark-col" aria-hidden="true" />
                 </li>
               ))}
@@ -226,7 +327,10 @@ export function RepositoryCombobox({
       {layer === null || shown === undefined
         ? null
         : createPortal(
-            <div className="deck-runs-layer" onPointerDown={(event) => event.target === event.currentTarget && closeRuns()}>
+            <div
+              className="deck-runs-layer"
+              onPointerDown={(event) => event.target === event.currentTarget && closeRuns()}
+            >
               <RunsAll
                 name={shown.repository}
                 source={shown.source}

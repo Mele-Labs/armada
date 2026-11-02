@@ -7,10 +7,18 @@ import { page, userEvent } from "vitest/browser";
 
 import { mountApp, type Mounted, zoning, zoneProposing, toSystemPage } from "@armada/desktop/mock";
 
-const SLICES = { slices: ["core", "studios"] } as const;
+const SLICES = {
+  slices: [
+    "core",
+    "studios",
+  ],
+} as const;
 import { READ_IN_NAME, ZONE_PROPOSAL_NAME } from "./fake";
 
-let mounted: { app: Mounted; host: HTMLElement } | null = null;
+let mounted: {
+  app: Mounted;
+  host: HTMLElement;
+} | null = null;
 
 afterEach(() => {
   mounted?.app.unmount();
@@ -18,11 +26,18 @@ afterEach(() => {
   mounted = null;
 });
 
-const node = (name: RegExp | string) => page.getByRole("group", { name, exact: typeof name === "string" });
+const node = (name: RegExp | string) =>
+  page.getByRole("group", {
+    name,
+    exact: typeof name === "string",
+  });
 const box = (name: RegExp | string) => node(name).element().getBoundingClientRect();
 /** Whether `inner` is drawn wholly inside `outer`. */
 const holds = (outer: DOMRect, inner: DOMRect) =>
-  inner.left >= outer.left && inner.right <= outer.right && inner.top >= outer.top && inner.bottom <= outer.bottom;
+  inner.left >= outer.left &&
+  inner.right <= outer.right &&
+  inner.top >= outer.top &&
+  inner.bottom <= outer.bottom;
 
 /** A pointer drag, the way React Flow hears one: down on the node, moves and up on the window. */
 function drag(element: Element, dx: number, dy: number): void {
@@ -36,7 +51,12 @@ function drag(element: Element, dx: number, dy: number): void {
     buttons: 1,
   });
   element.dispatchEvent(new MouseEvent("mousedown", at(0, 0)));
-  for (const step of [0.1, 0.5, 1]) window.dispatchEvent(new MouseEvent("mousemove", at(dx * step, dy * step)));
+  for (const step of [
+    0.1,
+    0.5,
+    1,
+  ])
+    window.dispatchEvent(new MouseEvent("mousemove", at(dx * step, dy * step)));
   window.dispatchEvent(new MouseEvent("mouseup", at(dx, dy)));
 }
 
@@ -46,20 +66,37 @@ async function openEditable() {
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);
-  mounted = { app: mountApp(fleet.scenario, host, undefined, SLICES), host };
+  mounted = {
+    app: mountApp(fleet.scenario, host, undefined, SLICES),
+    host,
+  };
   await toSystemPage("Studios");
-  await page.getByRole("cell", { name: READ_IN_NAME, exact: true }).click();
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page
+    .getByRole("cell", {
+      name: READ_IN_NAME,
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("button", {
+      name: "Continue",
+    })
+    .click();
   await expect.element(node("Zone")).toBeVisible();
   return fleet;
 }
 
-const kept = (fleet: ReturnType<typeof zoning>, id: string) => fleet.studios()[0]!.nodes.find((one) => one.id === id)!;
+const kept = (fleet: ReturnType<typeof zoning>, id: string) =>
+  fleet.studios()[0]!.nodes.find((one) => one.id === id)!;
 
 test("a read-in is one Zone with one line to it, and each Cluster is a box round its Notes", async () => {
   await openEditable();
   const zone = box("Zone");
-  for (const cluster of ["The problem today", "What to build", "Risks to watch"]) {
+  for (const cluster of [
+    "The problem today",
+    "What to build",
+    "Risks to watch",
+  ]) {
     expect(holds(zone, box(`Cluster: ${cluster}`)), `${cluster} is inside the Zone`).toBe(true);
   }
   const risks = box("Cluster: Risks to watch");
@@ -69,14 +106,21 @@ test("a read-in is one Zone with one line to it, and each Cluster is a box round
   await expect.element(node("Cluster: Acceptance")).not.toBeInTheDocument();
   expect(holds(zone, box(/^Note: Done when, on a failed task/))).toBe(true);
   expect(holds(zone, box(/^Finding: Read in/))).toBe(true);
-  expect(holds(zone, box(/^Issue: Nobody can change a task/)), "the issue stays outside what it made").toBe(false);
+  expect(
+    holds(zone, box(/^Issue: Nobody can change a task/)),
+    "the issue stays outside what it made",
+  ).toBe(false);
 
   // One line out of the issue, to the Zone, where the read-in drew eighteen — and none from a
   // Note to the Cluster round it.
-  const lines = [...document.querySelectorAll("[aria-label]")]
+  const lines = [
+    ...document.querySelectorAll("[aria-label]"),
+  ]
     .map((one) => one.getAttribute("aria-label")!)
     .filter((said) => said.includes(" produced "));
-  expect(lines).toEqual(["Issue Nobody can change a task's title, brief, files, done-when or model produced Zone"]);
+  expect(lines).toEqual([
+    "Issue Nobody can change a task's title, brief, files, done-when or model produced Zone",
+  ]);
 });
 
 test("dragging the Zone moves everything in it, and its Notes stay where they are in it", async () => {
@@ -101,63 +145,134 @@ test("a Zone is put down from the rail, and a Note dropped on it goes in", async
   const fleet = await openEditable();
   const zones = () => fleet.studios()[0]!.nodes.filter((one) => one.kind === "zone");
 
-  await page.getByRole("button", { name: "Add a Zone" }).click();
+  await page
+    .getByRole("button", {
+      name: "Add a Zone",
+    })
+    .click();
   // **React Flow's pane has no role**, so it is found by its class, and the press lands on a
   // point checked to be the pane itself rather than a node over it.
   const pane = document.querySelector<HTMLElement>(".armada-studio-whiteboard .react-flow__pane")!;
   const loose = box(/^Note: Ask whether a Judge/);
   const area = pane.getBoundingClientRect();
-  let at: { x: number; y: number } | undefined;
+  let at:
+    | {
+        x: number;
+        y: number;
+      }
+    | undefined;
   for (let y = area.bottom - 80; at === undefined && y > area.top; y -= 40) {
     for (let x = area.left + 120; at === undefined && x < area.right - 120; x += 40) {
-      if (document.elementFromPoint(x, y) === pane) at = { x, y };
+      if (document.elementFromPoint(x, y) === pane)
+        at = {
+          x,
+          y,
+        };
     }
   }
-  await userEvent.click(page.elementLocator(pane), { position: { x: at!.x - area.left, y: at!.y - area.top } });
+  await userEvent.click(page.elementLocator(pane), {
+    position: {
+      x: at!.x - area.left,
+      y: at!.y - area.top,
+    },
+  });
   await expect.poll(() => zones().length).toBe(2);
   const added = zones().find((one) => one.id !== "read-in-zone")!;
 
   await expect.poll(() => node("Zone").elements().length).toBe(2);
-  const empty = node("Zone").elements().map((one) => one.getBoundingClientRect()).find((one) => !holds(one, box(/^Finding/)))!;
-  drag(node(/^Note: Ask whether a Judge/).element(), empty.left + empty.width / 2 - (loose.left + loose.width / 2), empty.top + 60 - (loose.top + 12));
+  const empty = node("Zone")
+    .elements()
+    .map((one) => one.getBoundingClientRect())
+    .find((one) => !holds(one, box(/^Finding/)))!;
+  drag(
+    node(/^Note: Ask whether a Judge/).element(),
+    empty.left + empty.width / 2 - (loose.left + loose.width / 2),
+    empty.top + 60 - (loose.top + 12),
+  );
   await expect.poll(() => kept(fleet, "read-in-loose").within).toBe(added.id);
 });
 
 /** Whether two boxes share any area. */
-const overlap = (a: DOMRect, b: DOMRect) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+const overlap = (a: DOMRect, b: DOMRect) =>
+  a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
 
 test("a proposed relation is a dot on its line that covers no card, and opens to be answered", async () => {
   const fleet = await openEditable();
   const named = /^Helm proposes: Note Done when, on a failed task/;
-  const dot = page.getByRole("button", { name: named });
+  const dot = page.getByRole("button", {
+    name: named,
+  });
   await expect.element(dot).toBeVisible();
 
   // The owner, 2 Oct 2026: the card sat on "Watch for a `scope` change" and hid its text. Shut, the
   // proposal draws nothing over the board but its dot, and the dot sits on no card.
-  expect(page.getByRole("group", { name: named }).query()).toBeNull();
-  const drawn = [...document.querySelectorAll(".armada-studio-edge__proposal-at")].map((one) => one.getBoundingClientRect());
-  const cards = page.getByRole("group", { name: /^(Note|Finding|Contradiction|Issue): / }).elements();
+  expect(
+    page
+      .getByRole("group", {
+        name: named,
+      })
+      .query(),
+  ).toBeNull();
+  const drawn = [
+    ...document.querySelectorAll(".armada-studio-edge__proposal-at"),
+  ].map((one) => one.getBoundingClientRect());
+  const cards = page
+    .getByRole("group", {
+      name: /^(Note|Finding|Contradiction|Issue): /,
+    })
+    .elements();
   for (const card of cards) {
-    for (const label of drawn) expect(overlap(label, card.getBoundingClientRect()), card.getAttribute("aria-label")!).toBe(false);
+    for (const label of drawn)
+      expect(overlap(label, card.getBoundingClientRect()), card.getAttribute("aria-label")!).toBe(
+        false,
+      );
   }
 
   await dot.hover();
-  const proposal = page.getByRole("group", { name: named });
-  await expect.element(proposal.getByText("blocks", { exact: true })).toBeVisible();
-  await proposal.getByRole("button", { name: /^Reject: / }).click();
-  await expect.poll(() => fleet.studios()[0]!.edges.some((edge) => edge.id === "read-in-blocks" && edge.standing === "proposed")).toBe(false);
+  const proposal = page.getByRole("group", {
+    name: named,
+  });
+  await expect
+    .element(
+      proposal.getByText("blocks", {
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  await proposal
+    .getByRole("button", {
+      name: /^Reject: /,
+    })
+    .click();
+  await expect
+    .poll(() =>
+      fleet
+        .studios()[0]!
+        .edges.some((edge) => edge.id === "read-in-blocks" && edge.standing === "proposed"),
+    )
+    .toBe(false);
 });
 
 test("a proposal whose line runs across a Note moves its dot along the line, off the Note", async () => {
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);
-  mounted = { app: mountApp(zoneProposing().scenario, host, undefined, SLICES), host };
+  mounted = {
+    app: mountApp(zoneProposing().scenario, host, undefined, SLICES),
+    host,
+  };
   await toSystemPage("Studios");
-  await page.getByRole("cell", { name: ZONE_PROPOSAL_NAME, exact: true }).click();
+  await page
+    .getByRole("cell", {
+      name: ZONE_PROPOSAL_NAME,
+      exact: true,
+    })
+    .click();
 
   // The line from the first Note to the third runs straight across the second, and its middle is on it.
-  const dot = page.getByRole("button", { name: /^You proposed: Note The legend wraps at 720 wide blocks / });
+  const dot = page.getByRole("button", {
+    name: /^You proposed: Note The legend wraps at 720 wide blocks /,
+  });
   await expect.element(dot).toBeVisible();
   const crossed = box(/^Note: The step bar's legend is unreadable/);
   const at = dot.element().getBoundingClientRect();
@@ -175,14 +290,28 @@ test("a proposal whose line runs across a Note moves its dot along the line, off
  */
 async function pressGround(frame: Element): Promise<void> {
   const area = frame.getBoundingClientRect();
-  let at: { x: number; y: number } | undefined;
+  let at:
+    | {
+        x: number;
+        y: number;
+      }
+    | undefined;
   for (let y = area.bottom - 16; at === undefined && y > area.top + 16; y -= 12) {
     for (let x = area.left + 16; at === undefined && x < area.right - 16; x += 12) {
-      if (document.elementFromPoint(x, y)?.closest(".react-flow__node") === frame) at = { x, y };
+      if (document.elementFromPoint(x, y)?.closest(".react-flow__node") === frame)
+        at = {
+          x,
+          y,
+        };
     }
   }
   expect(at, "the frame has ground of its own to press").toBeDefined();
-  await userEvent.click(page.elementLocator(frame), { position: { x: at!.x - area.left, y: at!.y - area.top } });
+  await userEvent.click(page.elementLocator(frame), {
+    position: {
+      x: at!.x - area.left,
+      y: at!.y - area.top,
+    },
+  });
 }
 
 const said = (fleet: ReturnType<typeof zoning>, words: string) =>
@@ -191,10 +320,24 @@ const said = (fleet: ReturnType<typeof zoning>, words: string) =>
 test("a kind armed and pressed inside the Zone lands in it", async () => {
   const fleet = await openEditable();
 
-  await page.getByRole("button", { name: "Add a Note", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "Add a Note",
+      exact: true,
+    })
+    .click();
   await pressGround(node("Zone").element());
-  await userEvent.fill(page.getByLabelText("Note", { exact: true }), "Pressed inside the Zone");
-  await page.getByRole("button", { name: "Add note" }).click();
+  await userEvent.fill(
+    page.getByLabelText("Note", {
+      exact: true,
+    }),
+    "Pressed inside the Zone",
+  );
+  await page
+    .getByRole("button", {
+      name: "Add note",
+    })
+    .click();
 
   await expect.poll(() => said(fleet, "Pressed inside the Zone")?.within).toBe("read-in-zone");
   // Fleet holding it is not the board drawing it: the publish renders after the write answers.
@@ -206,10 +349,24 @@ test("a kind armed and pressed inside the Zone lands in it", async () => {
 test("a press inside a Cluster lands in the Zone round it", async () => {
   const fleet = await openEditable();
 
-  await page.getByRole("button", { name: "Add a Note", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "Add a Note",
+      exact: true,
+    })
+    .click();
   await pressGround(node("Cluster: The problem today").element());
-  await userEvent.fill(page.getByLabelText("Note", { exact: true }), "Pressed inside a Cluster");
-  await page.getByRole("button", { name: "Add note" }).click();
+  await userEvent.fill(
+    page.getByLabelText("Note", {
+      exact: true,
+    }),
+    "Pressed inside a Cluster",
+  );
+  await page
+    .getByRole("button", {
+      name: "Add note",
+    })
+    .click();
   await expect.poll(() => said(fleet, "Pressed inside a Cluster")?.within).toBe("read-in-zone");
 });
 
@@ -217,7 +374,11 @@ test("a press inside a Cluster lands in the Zone round it", async () => {
 test("a Zone pressed inside a Zone lands on the board", async () => {
   const fleet = await openEditable();
   const zones = () => fleet.studios()[0]!.nodes.filter((one) => one.kind === "zone");
-  await page.getByRole("button", { name: "Add a Zone" }).click();
+  await page
+    .getByRole("button", {
+      name: "Add a Zone",
+    })
+    .click();
   await pressGround(node("Zone").element());
   await expect.poll(() => zones().length).toBe(2);
   expect(zones().find((one) => one.id !== "read-in-zone")?.within).toBeUndefined();

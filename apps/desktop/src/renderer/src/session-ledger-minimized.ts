@@ -1,7 +1,10 @@
 import { useState } from "react";
 
 /** Whether the ledger is hidden beside the thread, kept for the window. A viewer's convenience, so a blocked store only forgets it. */
-export function useMinimized(): [boolean, (minimized: boolean) => void] {
+export function useMinimized(): [
+  boolean,
+  (minimized: boolean) => void,
+] {
   const [minimized, set] = useState(() => {
     try {
       return localStorage.getItem("armada.session-ledger.minimized") === "1";

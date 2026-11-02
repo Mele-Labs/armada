@@ -13,7 +13,11 @@ import { withState } from "./state-feed";
 import { skipsMods } from "./theme-loader";
 
 /** One row of a Commands mod. */
-export type ModRow = { id: string; mod: string; command: ModCommand };
+export type ModRow = {
+  id: string;
+  mod: string;
+  command: ModCommand;
+};
 
 /** `name` as Fleet spells it in a row's id: lower case, each run of anything but letters and digits one `-`, none at either end. */
 export const slugOf = (name: string): string =>
@@ -22,21 +26,51 @@ export const slugOf = (name: string): string =>
     .replace(/[^\p{L}\p{N}]+/gu, "-")
     .replace(/^-+|-+$/g, "");
 
-export const rowsOf = (mod: string, file: CommandsFile): ModRow[] => file.command.map((command) => ({ id: `${mod}:${slugOf(command.name)}`, mod, command }));
+export const rowsOf = (mod: string, file: CommandsFile): ModRow[] =>
+  file.command.map((command) => ({
+    id: `${mod}:${slugOf(command.name)}`,
+    mod,
+    command,
+  }));
 
 /** What the palette draws of a row. `hotkey` is the key it was allowed, which is not always the one the file names. */
 export function displayOf(row: ModRow, hotkey: string | undefined): PaletteCommand {
   const { command } = row;
-  const kind = command.prompt !== undefined ? "prompt" : command.url !== undefined ? "url" : command.shell !== undefined ? "shell" : "chain";
+  const kind =
+    command.prompt !== undefined
+      ? "prompt"
+      : command.url !== undefined
+        ? "url"
+        : command.shell !== undefined
+          ? "shell"
+          : "chain";
   const value =
-    kind === "url" ? command.url!.replace(/^https?:\/\//, "") : kind === "shell" ? command.shell! : kind === "prompt" && command.blanks !== undefined ? command.blanks.map((one) => `{${one}}`).join(" ") : undefined;
+    kind === "url"
+      ? command.url!.replace(/^https?:\/\//, "")
+      : kind === "shell"
+        ? command.shell!
+        : kind === "prompt" && command.blanks !== undefined
+          ? command.blanks.map((one) => `{${one}}`).join(" ")
+          : undefined;
   return {
     id: row.id,
     label: command.name,
     kind,
-    ...(value === undefined ? {} : { value }),
-    ...(command.aliases === undefined || command.aliases.length === 0 ? {} : { aliases: command.aliases }),
-    ...(hotkey === undefined ? {} : { hotkey }),
+    ...(value === undefined
+      ? {}
+      : {
+          value,
+        }),
+    ...(command.aliases === undefined || command.aliases.length === 0
+      ? {}
+      : {
+          aliases: command.aliases,
+        }),
+    ...(hotkey === undefined
+      ? {}
+      : {
+          hotkey,
+        }),
   };
 }
 
@@ -45,8 +79,14 @@ export function displayOf(row: ModRow, hotkey: string | undefined): PaletteComma
  * is refused as a recorded one is (`refuseHotkey`): by ⌘ or ⌃ missing, an act, the system, or a row that already has it. Recorded keys
  * hold their place first, then the files' in row order.
  */
-export function keysOf(rows: readonly ModRow[], recorded: Readonly<Record<string, string>>): Record<string, string> {
-  const held = Object.entries(recorded).map(([id, hotkey]) => ({ label: id, hotkey }));
+export function keysOf(
+  rows: readonly ModRow[],
+  recorded: Readonly<Record<string, string>>,
+): Record<string, string> {
+  const held = Object.entries(recorded).map(([id, hotkey]) => ({
+    label: id,
+    hotkey,
+  }));
   const allowed: Record<string, string> = {};
   for (const row of rows) {
     const id = `cmd:${row.id}`;
@@ -55,7 +95,10 @@ export function keysOf(rows: readonly ModRow[], recorded: Readonly<Record<string
     const chord = parseChord(spelled);
     if (chord === null || refuseHotkey(chord, held) !== undefined) continue;
     allowed[id] = spelled;
-    held.push({ label: id, hotkey: spelled });
+    held.push({
+      label: id,
+      hotkey: spelled,
+    });
   }
   return allowed;
 }
@@ -72,10 +115,25 @@ export function useModRows(): readonly ModRow[] {
   useEffect(() => {
     const api = window.armada as Partial<BridgeApi> | undefined;
     // A test's fake window with no state to follow, and safe mode, which reads no mods.
-    if (skipsMods() || typeof api?.syncState !== "function" || typeof api.subscribeChanges !== "function" || typeof api.validateMod !== "function") return;
+    if (
+      skipsMods() ||
+      typeof api?.syncState !== "function" ||
+      typeof api.subscribeChanges !== "function" ||
+      typeof api.validateMod !== "function"
+    )
+      return;
     const fleet = withState(api as BridgeApi);
-    const read = new Map<string, { at: string; rows: ModRow[] }>();
-    let on: { name: string; at: string }[] = [];
+    const read = new Map<
+      string,
+      {
+        at: string;
+        rows: ModRow[];
+      }
+    >();
+    let on: {
+      name: string;
+      at: string;
+    }[] = [];
     let seen = "";
     let live = true;
     const publish = () => {
@@ -89,7 +147,11 @@ export function useModRows(): readonly ModRow[] {
         (checked: ModChecked | null) => {
           if (!live || checked === null) return;
           // A mod that no longer passes adds nothing; the rows before it are not kept.
-          if (checked.valid && checked.commands !== undefined) read.set(one.name, { at: one.at, rows: rowsOf(one.name, checked.commands) });
+          if (checked.valid && checked.commands !== undefined)
+            read.set(one.name, {
+              at: one.at,
+              rows: rowsOf(one.name, checked.commands),
+            });
           else read.delete(one.name);
           publish();
         },
@@ -100,13 +162,19 @@ export function useModRows(): readonly ModRow[] {
       if (!live) return;
       const next = (state.mods?.mods ?? [])
         .filter((row) => row.kind === "commands" && row.valid && row.enabled)
-        .map((row) => ({ name: row.name, at: row.changed_at ?? "" }))
+        .map((row) => ({
+          name: row.name,
+          at: row.changed_at ?? "",
+        }))
         .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
       const key = JSON.stringify(next);
       if (key === seen) return;
       seen = key;
       on = next;
-      for (const name of [...read.keys()]) if (!next.some((one) => one.name === name)) read.delete(name);
+      for (const name of [
+        ...read.keys(),
+      ])
+        if (!next.some((one) => one.name === name)) read.delete(name);
       publish();
       next.forEach(ask);
     };

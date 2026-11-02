@@ -6,7 +6,20 @@ import { button, role, toSystemPage, walk } from "../walk";
 
 export const aStudioZoneAndCluster = walk("studio-zone", [
   ...toSystemPage("Studios", "This repository's Studios"),
-  { press: button("Open", { exact: true }), say: "The Studio the issue was read into" },
-  { look: role("group", "Zone", { exact: true }), say: "A Zone: walled, its head a strip" },
-  { look: role("group", "Cluster: The problem today"), say: "A Cluster: dashed, its kind beside its title" },
+  {
+    press: button("Open", {
+      exact: true,
+    }),
+    say: "The Studio the issue was read into",
+  },
+  {
+    look: role("group", "Zone", {
+      exact: true,
+    }),
+    say: "A Zone: walled, its head a strip",
+  },
+  {
+    look: role("group", "Cluster: The problem today"),
+    say: "A Cluster: dashed, its kind beside its title",
+  },
 ]);

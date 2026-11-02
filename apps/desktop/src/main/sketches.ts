@@ -14,7 +14,10 @@ import { stagedSketch } from "./staging";
 type Writes = {
   addNode: (
     studioId: string,
-    node: { kind: "sketch"; drawing: SketchDrawn },
+    node: {
+      kind: "sketch";
+      drawing: SketchDrawn;
+    },
     at: StudioPosition,
     within: string | null,
   ) => Promise<Outcome>;
@@ -41,13 +44,26 @@ export function handleSketches({ ipc, studios, whole, unsent }: Hosts): void {
       if (!text(studioId) || at === null || !(within === null || text(within))) return undefined;
       const drawn = await stagedSketch(drawing);
       if (drawn === null) return undefined;
-      return (await studios()?.addNode(studioId, { kind: "sketch", drawing: drawn }, at, within)) ?? unsent;
+      return (
+        (await studios()?.addNode(
+          studioId,
+          {
+            kind: "sketch",
+            drawing: drawn,
+          },
+          at,
+          within,
+        )) ?? unsent
+      );
     },
   );
-  ipc.handle(CHANNELS.saveStudioSketch, async (_event, studioId: unknown, nodeId: unknown, drawing: unknown) => {
-    if (!text(studioId) || !text(nodeId)) return undefined;
-    const drawn = await stagedSketch(drawing);
-    if (drawn === null) return undefined;
-    return (await studios()?.editSketch(studioId, nodeId, drawn)) ?? unsent;
-  });
+  ipc.handle(
+    CHANNELS.saveStudioSketch,
+    async (_event, studioId: unknown, nodeId: unknown, drawing: unknown) => {
+      if (!text(studioId) || !text(nodeId)) return undefined;
+      const drawn = await stagedSketch(drawing);
+      if (drawn === null) return undefined;
+      return (await studios()?.editSketch(studioId, nodeId, drawn)) ?? unsent;
+    },
+  );
 }

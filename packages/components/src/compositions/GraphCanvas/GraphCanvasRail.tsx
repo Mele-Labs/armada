@@ -55,7 +55,10 @@ export type GraphCanvasRailAct = {
    */
   why?: string;
 } & (
-  | { onPress: () => void; menu?: never }
+  | {
+      onPress: () => void;
+      menu?: never;
+    }
   | {
       /**
        * A press that opens a list to choose from, rather than one that acts —
@@ -97,18 +100,34 @@ export function GraphCanvasRailGroup({ label, acts, disabled = false }: GraphCan
           <Tooltip
             key={act.id}
             label={off && act.why !== undefined ? act.why : act.name}
-            {...(act.shortcut === undefined ? {} : { shortcut: act.shortcut })}
+            {...(act.shortcut === undefined
+              ? {}
+              : {
+                  shortcut: act.shortcut,
+                })}
           >
             {act.menu !== undefined ? (
               <DropdownMenu
-                {...(Glyph === undefined ? {} : { icon: Glyph })}
+                {...(Glyph === undefined
+                  ? {}
+                  : {
+                      icon: Glyph,
+                    })}
                 triggerLabel={act.name}
                 align="start"
                 entries={act.menu.entries}
                 disabled={off}
                 onSelect={act.menu.onSelect}
-                {...(act.menu.open === undefined ? {} : { open: act.menu.open })}
-                {...(act.menu.onOpenChange === undefined ? {} : { onOpenChange: act.menu.onOpenChange })}
+                {...(act.menu.open === undefined
+                  ? {}
+                  : {
+                      open: act.menu.open,
+                    })}
+                {...(act.menu.onOpenChange === undefined
+                  ? {}
+                  : {
+                      onOpenChange: act.menu.onOpenChange,
+                    })}
               />
             ) : (
               <Button
@@ -116,11 +135,19 @@ export function GraphCanvasRailGroup({ label, acts, disabled = false }: GraphCan
                 size="sm"
                 iconOnly
                 aria-label={act.name}
-                {...(act.pressed === undefined ? {} : { "aria-pressed": act.pressed })}
+                {...(act.pressed === undefined
+                  ? {}
+                  : {
+                      "aria-pressed": act.pressed,
+                    })}
                 disabled={off}
                 onClick={act.onPress}
               >
-                {Glyph === undefined ? act.sign : <Glyph size={RAIL_ICON} strokeWidth={RAIL_STROKE} aria-hidden />}
+                {Glyph === undefined ? (
+                  act.sign
+                ) : (
+                  <Glyph size={RAIL_ICON} strokeWidth={RAIL_STROKE} aria-hidden />
+                )}
               </Button>
             )}
           </Tooltip>
@@ -194,7 +221,11 @@ export function GraphCanvasNodeAct({
       disabled={disabled}
       onClick={onPress}
     >
-      {Glyph === undefined ? name : <Glyph size={RAIL_ICON} strokeWidth={RAIL_STROKE} aria-hidden />}
+      {Glyph === undefined ? (
+        name
+      ) : (
+        <Glyph size={RAIL_ICON} strokeWidth={RAIL_STROKE} aria-hidden />
+      )}
     </Button>
   );
   if (Glyph === undefined && said === name) return button;
@@ -254,19 +285,66 @@ export function GraphCanvasNodeBar({ label, nodeIds, children }: GraphCanvasNode
     const bar = canvas?.querySelector(".armada-graph-node-bar")?.getBoundingClientRect();
     const frame = canvas?.getBoundingClientRect();
     if (bar === undefined || frame === undefined) return;
-    const bounds = flow.getNodesBounds([...nodeIds]);
-    const near = flow.flowToScreenPosition({ x: bounds.x, y: bounds.y });
-    const far = flow.flowToScreenPosition({ x: bounds.x + bounds.width, y: bounds.y + bounds.height });
-    const dx = intoView([Math.min(near.x, bar.left), Math.max(far.x, bar.right)], [bar.left, bar.right], [frame.left, frame.right]);
-    const dy = intoView([Math.min(near.y, bar.top), Math.max(far.y, bar.bottom)], [bar.top, bar.bottom], [frame.top, frame.bottom]);
+    const bounds = flow.getNodesBounds([
+      ...nodeIds,
+    ]);
+    const near = flow.flowToScreenPosition({
+      x: bounds.x,
+      y: bounds.y,
+    });
+    const far = flow.flowToScreenPosition({
+      x: bounds.x + bounds.width,
+      y: bounds.y + bounds.height,
+    });
+    const dx = intoView(
+      [
+        Math.min(near.x, bar.left),
+        Math.max(far.x, bar.right),
+      ],
+      [
+        bar.left,
+        bar.right,
+      ],
+      [
+        frame.left,
+        frame.right,
+      ],
+    );
+    const dy = intoView(
+      [
+        Math.min(near.y, bar.top),
+        Math.max(far.y, bar.bottom),
+      ],
+      [
+        bar.top,
+        bar.bottom,
+      ],
+      [
+        frame.top,
+        frame.bottom,
+      ],
+    );
     if (dx === 0 && dy === 0) return;
     const { x, y, zoom } = flow.getViewport();
-    void flow.setViewport({ x: x + dx, y: y + dy, zoom }, { duration: token("--duration-travel") });
-  }, [picked]);
+    void flow.setViewport(
+      {
+        x: x + dx,
+        y: y + dy,
+        zoom,
+      },
+      {
+        duration: token("--duration-travel"),
+      },
+    );
+  }, [
+    picked,
+  ]);
   if (nodeIds.length === 0) return null;
   return (
     <NodeToolbar
-      nodeId={[...nodeIds]}
+      nodeId={[
+        ...nodeIds,
+      ]}
       isVisible
       offset={typeof placed === "number" ? placed : gap}
       position={placed === "under" ? Position.Bottom : Position.Top}
@@ -279,7 +357,10 @@ export function GraphCanvasNodeBar({ label, nodeIds, children }: GraphCanvasNode
   );
 }
 
-type Span = readonly [from: number, to: number];
+type Span = readonly [
+  from: number,
+  to: number,
+];
 
 /**
  * How far to move `pick` so it lies inside `frame`, the least distance that

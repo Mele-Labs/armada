@@ -5,7 +5,15 @@ import { fromBase64, hex, importPublicKey } from "./signing";
 // `FORGE_USER_URL` overrides it, which is how the tests stand in for the forge.
 const FORGE_USER_URL = "https://api.github.com/user";
 
-const refuse = (status: number, error: string): Response => Response.json({ error }, { status });
+const refuse = (status: number, error: string): Response =>
+  Response.json(
+    {
+      error,
+    },
+    {
+      status,
+    },
+  );
 
 /** The account's numeric id for a device-flow token, or the response to refuse with. */
 async function accountOf(token: string, env: Env): Promise<number | Response> {
@@ -23,9 +31,12 @@ async function accountOf(token: string, env: Env): Promise<number | Response> {
   }
   if (answer.status === 401 || answer.status === 403) return refuse(401, "forge_refused");
   if (!answer.ok) return refuse(502, "forge_unreachable");
-  const user = (await answer.json().catch(() => null)) as { id?: unknown } | null;
+  const user = (await answer.json().catch(() => null)) as {
+    id?: unknown;
+  } | null;
   const id = user?.id;
-  if (typeof id !== "number" || !Number.isSafeInteger(id) || id <= 0) return refuse(502, "forge_unreadable");
+  if (typeof id !== "number" || !Number.isSafeInteger(id) || id <= 0)
+    return refuse(502, "forge_unreadable");
   return id;
 }
 
@@ -37,12 +48,19 @@ export async function enrol(request: Request, env: Env): Promise<Response> {
   if (request.method !== "POST") return refuse(405, "bad_method");
   const text = await request.text();
   if (text.length > MAX_BODY_BYTES) return refuse(413, "too_large");
-  const body = exactly(parseJson(text), ["token", "public_key", "machine"]);
+  const body = exactly(parseJson(text), [
+    "token",
+    "public_key",
+    "machine",
+  ]);
   const { token, public_key: publicKey, machine } = body ?? {};
   if (
-    typeof token !== "string" || token === "" || token.length > 512 ||
+    typeof token !== "string" ||
+    token === "" ||
+    token.length > 512 ||
     typeof publicKey !== "string" ||
-    typeof machine !== "string" || !MACHINE.test(machine)
+    typeof machine !== "string" ||
+    !MACHINE.test(machine)
   ) {
     return refuse(400, "invalid_body");
   }
@@ -55,13 +73,26 @@ export async function enrol(request: Request, env: Env): Promise<Response> {
 
   // Past this point every request costs a call to the forge, so this is where an address is counted.
   const address = request.headers.get("CF-Connecting-IP") ?? "unknown";
-  if (!(await env.ENROL_LIMIT.limit({ key: address })).success) return refuse(429, "enrol_rate_limited");
+  if (
+    !(
+      await env.ENROL_LIMIT.limit({
+        key: address,
+      })
+    ).success
+  )
+    return refuse(429, "enrol_rate_limited");
 
   const account = await accountOf(token, env);
   if (account instanceof Response) return account;
 
   const device = `${account}.${hex(crypto.getRandomValues(new Uint8Array(16)))}`;
-  const placed = await env.ACCOUNT.get(env.ACCOUNT.idFromName(String(account))).register(device, publicKey, machine);
+  const placed = await env.ACCOUNT.get(env.ACCOUNT.idFromName(String(account))).register(
+    device,
+    publicKey,
+    machine,
+  );
   if (placed === "full") return refuse(413, "devices_full");
-  return Response.json({ device });
+  return Response.json({
+    device,
+  });
 }

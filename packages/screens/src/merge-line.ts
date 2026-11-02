@@ -5,8 +5,30 @@
 // `merge_lines.changed` — reading what `armada land` keeps on disk. `landed` and `sent_back` since
 // 23.1. This is the one fold from that wire onto the composition's rows.
 
-import type { HubPull, MainRed, PlaceRow, MainState, RecentSession, MergeLineCheck, MergeLineEntry, MergeLineHub, MergeLineNotice, MergeLineState, MergeLineWaiting } from "@armada/components";
-import type { HubMerged, HubPullRequest as WireHubPull, MainRun, MainStanding, MergeLine, MergeLineHub as WireHub, MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
+import type {
+  HubPull,
+  MainRed,
+  PlaceRow,
+  MainState,
+  RecentSession,
+  MergeLineCheck,
+  MergeLineEntry,
+  MergeLineHub,
+  MergeLineNotice,
+  MergeLineState,
+  MergeLineWaiting,
+} from "@armada/components";
+import type {
+  HubMerged,
+  HubPullRequest as WireHubPull,
+  MainRun,
+  MainStanding,
+  MergeLine,
+  MergeLineHub as WireHub,
+  MergeLineRow,
+  MergeLines,
+  RepositorySummary,
+} from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
 import { settledBadgeOf } from "./facts";
@@ -34,10 +56,14 @@ export type MergeLineView = {
  * A line as the mock serves it ahead of the wire. `notice` is not a field of protocol 23 yet, so a
  * Fleet sends none and nothing draws. Folded here so the panel can be walked before it is built.
  */
-type NoticedLine = MergeLine & { notice?: MergeLineNotice };
+type NoticedLine = MergeLine & {
+  notice?: MergeLineNotice;
+};
 
 /** A row as the mock serves it ahead of the wire: `why`, the reason a waiting branch is not in the turn. */
-type ReasonedRow = MergeLineRow & { why?: MergeLineWaiting };
+type ReasonedRow = MergeLineRow & {
+  why?: MergeLineWaiting;
+};
 
 /**
  * The line in the order it will merge: the turn that is running first, in place order, then what
@@ -47,9 +73,15 @@ type ReasonedRow = MergeLineRow & { why?: MergeLineWaiting };
 function inOrder(rows: readonly MergeLineRow[]): MergeLineRow[] {
   const ahead = (row: MergeLineRow) => (row.state === "waiting" ? 1 : 0);
   return rows
-    .map((row, at) => ({ row, at }))
+    .map((row, at) => ({
+      row,
+      at,
+    }))
     .sort((a, b) => ahead(a.row) - ahead(b.row) || a.at - b.at)
-    .map(({ row }, at) => ({ ...row, place: at + 1 }));
+    .map(({ row }, at) => ({
+      ...row,
+      place: at + 1,
+    }));
 }
 
 /** How much of a merge commit a row shows. */
@@ -73,14 +105,31 @@ export function mergeLineViews(
   const named = chosen.length > 1;
   return chosen.map((one) => ({
     root: one.root,
-    ...(named ? { name: nameOf(one.root, repositories) } : {}),
-    line: inOrder(one.line).map((row) => entryOf(row, (one as NoticedLine).notice?.kind === "main")),
+    ...(named
+      ? {
+          name: nameOf(one.root, repositories),
+        }
+      : {}),
+    line: inOrder(one.line).map((row) =>
+      entryOf(row, (one as NoticedLine).notice?.kind === "main"),
+    ),
     // The forge's newest merged pull requests, where Fleet serves them; the queue's own outcome
     // files only from a Fleet before 23.42, or one whose forge said none.
-    landed: (one.hub?.merged ?? []).length > 0 ? one.hub!.merged!.map(mergedEntryOf) : one.landed.map((row) => entryOf(row)),
+    landed:
+      (one.hub?.merged ?? []).length > 0
+        ? one.hub!.merged!.map(mergedEntryOf)
+        : one.landed.map((row) => entryOf(row)),
     sentBack: one.sent_back.map((row) => entryOf(row)),
-    ...((one as NoticedLine).notice === undefined ? {} : { notice: (one as NoticedLine).notice }),
-    ...(one.hub === undefined ? {} : { hub: hubOf(one.hub) }),
+    ...((one as NoticedLine).notice === undefined
+      ? {}
+      : {
+          notice: (one as NoticedLine).notice,
+        }),
+    ...(one.hub === undefined
+      ? {}
+      : {
+          hub: hubOf(one.hub),
+        }),
   }));
 }
 
@@ -90,7 +139,13 @@ export function mergeLineViews(
  * among them**, even where the registry does not hold it, so the dialog can choose it before the
  * owner looks.
  */
-export function recentSessionsOf(sessions: readonly Session[], culprit?: { id: string; title: string }): readonly RecentSession[] {
+export function recentSessionsOf(
+  sessions: readonly Session[],
+  culprit?: {
+    id: string;
+    title: string;
+  },
+): readonly RecentSession[] {
   const branchOf = (one: Session): string | undefined => {
     for (const held of one.attachments) {
       if (held.kind === "branch") return held.name;
@@ -101,25 +156,62 @@ export function recentSessionsOf(sessions: readonly Session[], culprit?: { id: s
   const open = sessions
     .filter((one) => one.title !== undefined && one.dead === undefined)
     .sort((a, b) => (b.lastTurnAt ?? "").localeCompare(a.lastTurnAt ?? ""))
-    .map((one): RecentSession => ({ id: one.id, title: one.title!, ...(branchOf(one) === undefined ? {} : { branch: branchOf(one)! }) }));
-  return culprit === undefined || open.some((one) => one.id === culprit.id) ? open : [{ id: culprit.id, title: culprit.title }, ...open];
+    .map(
+      (one): RecentSession => ({
+        id: one.id,
+        title: one.title!,
+        ...(branchOf(one) === undefined
+          ? {}
+          : {
+              branch: branchOf(one)!,
+            }),
+      }),
+    );
+  return culprit === undefined || open.some((one) => one.id === culprit.id)
+    ? open
+    : [
+        {
+          id: culprit.id,
+          title: culprit.title,
+        },
+        ...open,
+      ];
 }
 
 /** A pull request the forge lists as merged, as a landed row draws it. */
 function mergedEntryOf(pull: HubMerged): MergeLineEntry {
   return {
     branch: pull.branch,
-    pr: { number: pull.number, url: pull.url },
+    pr: {
+      number: pull.number,
+      url: pull.url,
+    },
     state: "landed",
-    ...(pull.commit === undefined ? {} : { merge: pull.commit.slice(0, SHORT) }),
-    ...(pull.commit === undefined || pull.main_run === undefined ? {} : mainRunOf(pull.main_run, pull.commit)),
+    ...(pull.commit === undefined
+      ? {}
+      : {
+          merge: pull.commit.slice(0, SHORT),
+        }),
+    ...(pull.commit === undefined || pull.main_run === undefined
+      ? {}
+      : mainRunOf(pull.main_run, pull.commit)),
   };
 }
 
 /** The CI run on the merge commit. A `state` this build does not know draws no mark. */
 function mainRunOf(run: MainRun, commit: string): Pick<MergeLineEntry, "mainRun"> {
   if (run.state !== "passed" && run.state !== "running" && run.state !== "failed") return {};
-  return { mainRun: { state: run.state, ...(run.failed === undefined || run.failed.length === 0 ? {} : { failed: run.failed }), branch: `main@${commit}` } };
+  return {
+    mainRun: {
+      state: run.state,
+      ...(run.failed === undefined || run.failed.length === 0
+        ? {}
+        : {
+            failed: run.failed,
+          }),
+      branch: `main@${commit}`,
+    },
+  };
 }
 
 /**
@@ -130,26 +222,99 @@ function mainRunOf(run: MainRun, commit: string): Pick<MergeLineEntry, "mainRun"
 function hubOf(hub: WireHub): MergeLineHub {
   const main = mainOf(hub);
   return {
-    ...(main === undefined ? {} : { main }),
-    pulls: queueFirst((hub.pull_requests ?? []).filter((pull) => pull.mine !== false || inTheQueue(pull))).map((pull) => pull.mine === false ? quietOf(pull) : ({
-      number: pull.number,
-      url: pull.url,
-      branch: pull.branch,
-      ...(pull.author === undefined ? {} : { author: pull.author }),
-      ...(pull.opened_at === undefined ? {} : { openedAt: pull.opened_at }),
-      ...(pull.updated_at === undefined ? {} : { updatedAt: pull.updated_at }),
-      ...(pull.draft === true ? { draft: true as const } : {}),
-      ...(pull.mergeable === undefined ? {} : { mergeable: pull.mergeable as NonNullable<HubPull["mergeable"]> }),
-      ...(pull.review === undefined ? {} : { review: pull.review as NonNullable<HubPull["review"]> }),
-      ...(pull.additions === undefined ? {} : { additions: pull.additions }),
-      ...(pull.deletions === undefined ? {} : { deletions: pull.deletions }),
-      ...(pull.merge_by_hand === true ? { mergeByHand: true as const } : {}),
-      ...(pull.ci === undefined ? {} : { ci: pull.ci as NonNullable<HubPull["ci"]> }),
-      ...(pull.queue === undefined ? {} : { queue: { state: pull.queue.state as NonNullable<HubPull["queue"]>["state"], ...(pull.queue.position === undefined ? {} : { position: pull.queue.position }) } }),
-    })),
-    ...(hub.checkout === undefined ? {} : { checkout: hub.checkout }),
-    ...(hub.forge_read_at === undefined ? {} : { readAt: hub.forge_read_at }),
-    ...(hub.quiet_since === undefined ? {} : { quietSince: hub.quiet_since }),
+    ...(main === undefined
+      ? {}
+      : {
+          main,
+        }),
+    pulls: queueFirst(
+      (hub.pull_requests ?? []).filter((pull) => pull.mine !== false || inTheQueue(pull)),
+    ).map((pull) =>
+      pull.mine === false
+        ? quietOf(pull)
+        : {
+            number: pull.number,
+            url: pull.url,
+            branch: pull.branch,
+            ...(pull.author === undefined
+              ? {}
+              : {
+                  author: pull.author,
+                }),
+            ...(pull.opened_at === undefined
+              ? {}
+              : {
+                  openedAt: pull.opened_at,
+                }),
+            ...(pull.updated_at === undefined
+              ? {}
+              : {
+                  updatedAt: pull.updated_at,
+                }),
+            ...(pull.draft === true
+              ? {
+                  draft: true as const,
+                }
+              : {}),
+            ...(pull.mergeable === undefined
+              ? {}
+              : {
+                  mergeable: pull.mergeable as NonNullable<HubPull["mergeable"]>,
+                }),
+            ...(pull.review === undefined
+              ? {}
+              : {
+                  review: pull.review as NonNullable<HubPull["review"]>,
+                }),
+            ...(pull.additions === undefined
+              ? {}
+              : {
+                  additions: pull.additions,
+                }),
+            ...(pull.deletions === undefined
+              ? {}
+              : {
+                  deletions: pull.deletions,
+                }),
+            ...(pull.merge_by_hand === true
+              ? {
+                  mergeByHand: true as const,
+                }
+              : {}),
+            ...(pull.ci === undefined
+              ? {}
+              : {
+                  ci: pull.ci as NonNullable<HubPull["ci"]>,
+                }),
+            ...(pull.queue === undefined
+              ? {}
+              : {
+                  queue: {
+                    state: pull.queue.state as NonNullable<HubPull["queue"]>["state"],
+                    ...(pull.queue.position === undefined
+                      ? {}
+                      : {
+                          position: pull.queue.position,
+                        }),
+                  },
+                }),
+          },
+    ),
+    ...(hub.checkout === undefined
+      ? {}
+      : {
+          checkout: hub.checkout,
+        }),
+    ...(hub.forge_read_at === undefined
+      ? {}
+      : {
+          readAt: hub.forge_read_at,
+        }),
+    ...(hub.quiet_since === undefined
+      ? {}
+      : {
+          quietSince: hub.quiet_since,
+        }),
   };
 }
 
@@ -169,17 +334,44 @@ function quietOf(pull: WireHubPull): HubPull {
     number: pull.number,
     url: pull.url,
     branch: pull.branch,
-    ...(pull.author === undefined ? {} : { author: pull.author }),
-    queue: { state: "in_queue", ...(pull.queue?.position === undefined ? {} : { position: pull.queue.position }) },
+    ...(pull.author === undefined
+      ? {}
+      : {
+          author: pull.author,
+        }),
+    queue: {
+      state: "in_queue",
+      ...(pull.queue?.position === undefined
+        ? {}
+        : {
+            position: pull.queue.position,
+          }),
+    },
   };
 }
 
 /** The queue first, by position, then the pull requests waiting for ci to join it, then the rest as listed. */
-function queueFirst<T extends { queue?: { state: string; position?: number } }>(pulls: readonly T[]): T[] {
-  const rank = (pull: T) => (pull.queue?.position !== undefined ? 0 : pull.queue?.state === "waiting_for_ci" ? 1 : 2);
+function queueFirst<
+  T extends {
+    queue?: {
+      state: string;
+      position?: number;
+    };
+  },
+>(pulls: readonly T[]): T[] {
+  const rank = (pull: T) =>
+    pull.queue?.position !== undefined ? 0 : pull.queue?.state === "waiting_for_ci" ? 1 : 2;
   return pulls
-    .map((pull, at) => ({ pull, at }))
-    .sort((a, b) => rank(a.pull) - rank(b.pull) || (a.pull.queue?.position ?? 0) - (b.pull.queue?.position ?? 0) || a.at - b.at)
+    .map((pull, at) => ({
+      pull,
+      at,
+    }))
+    .sort(
+      (a, b) =>
+        rank(a.pull) - rank(b.pull) ||
+        (a.pull.queue?.position ?? 0) - (b.pull.queue?.position ?? 0) ||
+        a.at - b.at,
+    )
     .map(({ pull }) => pull);
 }
 
@@ -187,12 +379,50 @@ function mainOf({ main, fixing_session, fixing_elsewhere }: WireHub): MainState 
   if (main === undefined) return undefined;
   const checking = (main.checking ?? []).map((one) => ({
     commit: one.commit,
-    ...(one.pull_request === undefined ? {} : { number: one.pull_request.number, ...(one.pull_request.url === undefined ? {} : { url: one.pull_request.url }) }),
+    ...(one.pull_request === undefined
+      ? {}
+      : {
+          number: one.pull_request.number,
+          ...(one.pull_request.url === undefined
+            ? {}
+            : {
+                url: one.pull_request.url,
+              }),
+        }),
   }));
-  if (main.state === "green") return { state: "green", ...(checking.length === 0 ? {} : { checking }) };
+  if (main.state === "green")
+    return {
+      state: "green",
+      ...(checking.length === 0
+        ? {}
+        : {
+            checking,
+          }),
+    };
   const red = main.state === "red" ? redOf(main) : undefined;
   if (red === undefined) return undefined;
-  return { state: "red", red, ...(fixing_session === undefined ? {} : { takenBySession: { id: fixing_session.id, title: fixing_session.title ?? fixing_session.id } }), ...(fixing_elsewhere === undefined ? {} : { elsewhere: fixing_elsewhere }), ...(checking.length === 0 ? {} : { checking }) };
+  return {
+    state: "red",
+    red,
+    ...(fixing_session === undefined
+      ? {}
+      : {
+          takenBySession: {
+            id: fixing_session.id,
+            title: fixing_session.title ?? fixing_session.id,
+          },
+        }),
+    ...(fixing_elsewhere === undefined
+      ? {}
+      : {
+          elsewhere: fixing_elsewhere,
+        }),
+    ...(checking.length === 0
+      ? {}
+      : {
+          checking,
+        }),
+  };
 }
 
 /** What failed: a Manifest Check where the CI job maps to one, otherwise the job's own name. */
@@ -202,16 +432,36 @@ function redOf(main: MainStanding): MainRed | undefined {
   const merge = main.merge;
   return {
     check: first.check ?? first.name,
-    ...(first.check === undefined ? { unmapped: true as const } : {}),
-    ...(first.tests?.[0] === undefined ? {} : { test: first.tests[0] }),
-    ...(main.red_since === undefined ? {} : { since: main.red_since }),
+    ...(first.check === undefined
+      ? {
+          unmapped: true as const,
+        }
+      : {}),
+    ...(first.tests?.[0] === undefined
+      ? {}
+      : {
+          test: first.tests[0],
+        }),
+    ...(main.red_since === undefined
+      ? {}
+      : {
+          since: main.red_since,
+        }),
     ...(rest.length === 0
       ? {}
       : {
           also: rest.map((job) => ({
             check: job.check ?? job.name,
-            ...(job.check === undefined ? { unmapped: true as const } : {}),
-            ...(job.tests?.[0] === undefined ? {} : { test: job.tests[0] }),
+            ...(job.check === undefined
+              ? {
+                  unmapped: true as const,
+                }
+              : {}),
+            ...(job.tests?.[0] === undefined
+              ? {}
+              : {
+                  test: job.tests[0],
+                }),
           })),
         }),
     ...(merge === undefined
@@ -219,9 +469,24 @@ function redOf(main: MainStanding): MainRed | undefined {
       : {
           merge: {
             number: merge.number,
-            ...(merge.url === undefined ? {} : { url: merge.url }),
-            ...(merge.branch === undefined ? {} : { branch: merge.branch }),
-            ...(merge.session === undefined ? {} : { session: { id: merge.session.id, title: merge.session.title ?? merge.branch ?? merge.session.id } }),
+            ...(merge.url === undefined
+              ? {}
+              : {
+                  url: merge.url,
+                }),
+            ...(merge.branch === undefined
+              ? {}
+              : {
+                  branch: merge.branch,
+                }),
+            ...(merge.session === undefined
+              ? {}
+              : {
+                  session: {
+                    id: merge.session.id,
+                    title: merge.session.title ?? merge.branch ?? merge.session.id,
+                  },
+                }),
           },
         }),
   };
@@ -249,9 +514,19 @@ function stateOf(row: MergeLineRow, held: boolean): MergeLineState {
  * A row's pull request, with the Job's own badge for how it ended (`settledBadgeOf`), so the merge
  * line and a Job's detail read a settled pull request alike. Nothing known draws the number alone.
  */
-function pullRequestOf(pr: NonNullable<MergeLineRow["pull_request"]>): NonNullable<MergeLineEntry["pr"]> {
+function pullRequestOf(
+  pr: NonNullable<MergeLineRow["pull_request"]>,
+): NonNullable<MergeLineEntry["pr"]> {
   const settled = settledBadgeOf(pr.settled);
-  return { number: pr.number, url: pr.url, ...(settled === undefined ? {} : { settled }) };
+  return {
+    number: pr.number,
+    url: pr.url,
+    ...(settled === undefined
+      ? {}
+      : {
+          settled,
+        }),
+  };
 }
 
 function entryOf(row: MergeLineRow, held = false): MergeLineEntry {
@@ -266,12 +541,19 @@ function entryOf(row: MergeLineRow, held = false): MergeLineEntry {
     merge: row.merge_commit?.slice(0, SHORT),
     failed: row.failed,
     conflicts: row.conflicts,
-    checks: row.checks?.map((check) => ({ name: check.name, state: check.state as MergeLineCheck["state"] })),
+    checks: row.checks?.map((check) => ({
+      name: check.name,
+      state: check.state as MergeLineCheck["state"],
+    })),
   };
 }
 
 /** The pull request a panel is drawn for: how a hub names it, and how a land line's row does. */
-export type PlacedPull = { number: number; address: string; branch: string };
+export type PlacedPull = {
+  number: number;
+  address: string;
+  branch: string;
+};
 
 /**
  * The line that holds a pull request, as the rows to draw: its place first, the others in order.
@@ -280,11 +562,19 @@ export type PlacedPull = { number: number; address: string; branch: string };
  * it. A pull request waiting for ci to join the queue has no place, and neither does one in no line,
  * so both give `undefined` and nothing is drawn.
  */
-export function placeOf(lines: MergeLines | null, pull: PlacedPull): readonly PlaceRow[] | undefined {
+export function placeOf(
+  lines: MergeLines | null,
+  pull: PlacedPull,
+): readonly PlaceRow[] | undefined {
   const served = lines?.lines ?? [];
   for (const one of served) {
-    const placed = (one.hub?.pull_requests ?? []).filter((row) => row.queue?.position !== undefined);
-    const mine = placed.find((row) => row.url === pull.address || (row.number === pull.number && row.branch === pull.branch));
+    const placed = (one.hub?.pull_requests ?? []).filter(
+      (row) => row.queue?.position !== undefined,
+    );
+    const mine = placed.find(
+      (row) =>
+        row.url === pull.address || (row.number === pull.number && row.branch === pull.branch),
+    );
     if (mine === undefined) continue;
     return placed
       .sort((a, b) => a.queue!.position! - b.queue!.position!)
@@ -293,21 +583,46 @@ export function placeOf(lines: MergeLines | null, pull: PlacedPull): readonly Pl
         title: row.title === "" ? row.branch : row.title,
         number: row.number,
         url: row.url,
-        mark: { line: "queue" as const, state: row.queue!.state as NonNullable<HubPull["queue"]>["state"] },
-        ...(row === mine ? { current: true as const } : {}),
+        mark: {
+          line: "queue" as const,
+          state: row.queue!.state as NonNullable<HubPull["queue"]>["state"],
+        },
+        ...(row === mine
+          ? {
+              current: true as const,
+            }
+          : {}),
       }));
   }
   for (const view of mergeLineViews(lines, null, [])) {
-    const mine = view.line.find((row) => row.place !== undefined && (row.pr?.url === pull.address || row.pr?.number === pull.number || row.branch === pull.branch));
+    const mine = view.line.find(
+      (row) =>
+        row.place !== undefined &&
+        (row.pr?.url === pull.address ||
+          row.pr?.number === pull.number ||
+          row.branch === pull.branch),
+    );
     if (mine === undefined) continue;
     return view.line
       .filter((row) => row.place !== undefined)
       .map((row) => ({
         place: row.place!,
         title: row.branch,
-        ...(row.pr === undefined ? {} : { number: row.pr.number, url: row.pr.url }),
-        mark: { line: "land" as const, state: row.state },
-        ...(row === mine ? { current: true as const } : {}),
+        ...(row.pr === undefined
+          ? {}
+          : {
+              number: row.pr.number,
+              url: row.pr.url,
+            }),
+        mark: {
+          line: "land" as const,
+          state: row.state,
+        },
+        ...(row === mine
+          ? {
+              current: true as const,
+            }
+          : {}),
       }));
   }
   return undefined;

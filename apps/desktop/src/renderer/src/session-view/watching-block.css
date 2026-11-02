@@ -1,29 +1,87 @@
 /* Progress: the Watching block, framed in the running hue; a watch's state is its mark's hue, as a Check's is, and the name carries weight.
    Tokens only. */
 
-.sv-watching { --hue: var(--step-running); display: flex; flex-direction: column; gap: var(--space-1); }
-.sv-watching__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.sv-watching {
+  --hue: var(--step-running);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.sv-watching__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
 /* A watch that ended not ours is the person's to settle, so the block wears the Needs you hue rather than running's, and never blue. */
-.sv-watching[data-not-ours] { --hue: var(--step-waiting); }
-.sv-watching__label { font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-medium); color: var(--hue); }
-.sv-watching__list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised)); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--hue); overflow: hidden; }
-.sv-watching__list > li + li { border-top: var(--border-width) solid color-mix(in srgb, var(--hue) 25%, var(--border-subtle)); }
+.sv-watching[data-not-ours] {
+  --hue: var(--step-waiting);
+}
+.sv-watching__label {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  color: var(--hue);
+}
+.sv-watching__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
+  box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--hue);
+  overflow: hidden;
+}
+.sv-watching__list > li + li {
+  border-top: var(--border-width) solid color-mix(in srgb, var(--hue) 25%, var(--border-subtle));
+}
 
 /* The hue a state's mark wears, here and in the side panel. */
-.sv-watch-mark { display: inline-flex; align-items: center; flex: none; color: var(--fg-muted); }
-.sv-watch-mark[data-state="running"] { color: var(--status-running); }
-.sv-watch-mark[data-state="passed"] { color: var(--status-completed-success); }
-.sv-watch-mark[data-state="failed"] { color: var(--status-completed-failed); }
+.sv-watch-mark {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  color: var(--fg-muted);
+}
+.sv-watch-mark[data-state="running"] {
+  color: var(--status-running);
+}
+.sv-watch-mark[data-state="passed"] {
+  color: var(--status-completed-success);
+}
+.sv-watch-mark[data-state="failed"] {
+  color: var(--status-completed-failed);
+}
 .sv-watch-mark[data-state="not_ours"],
 .sv-watch-mark[data-state="gave_up"],
-.sv-watch-mark[data-state="broken"] { color: var(--status-escalated); }
-.sv-watch-mark[data-state="stopped"] { color: var(--status-killed); }
+.sv-watch-mark[data-state="broken"] {
+  color: var(--status-escalated);
+}
+.sv-watch-mark[data-state="stopped"] {
+  color: var(--status-killed);
+}
 
 /* Delete sits in a column one control wide that every row keeps, where the Job has an ended watch. */
-.sv-watch__line { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; }
-.sv-watching__list[data-acts] .sv-watch__line { grid-template-columns: minmax(0, 1fr) var(--h-control-sm); }
-.sv-watch__act { display: inline-flex; align-items: center; justify-content: center; }
-.sv-watching__list:not([data-acts]) .sv-watch__act { display: none; }
+.sv-watch__line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+}
+.sv-watching__list[data-acts] .sv-watch__line {
+  grid-template-columns: minmax(0, 1fr) var(--h-control-sm);
+}
+.sv-watch__act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.sv-watching__list:not([data-acts]) .sv-watch__act {
+  display: none;
+}
 
 .sv-watch__row {
   display: grid;
@@ -41,21 +99,60 @@
   text-align: start;
   cursor: pointer;
 }
-.sv-watch__row:hover { background: color-mix(in srgb, var(--fg-default) 5%, transparent); }
-.sv-watch__row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -2); }
-.sv-watch__row > .armada-tooltip { display: inline-flex; align-items: center; }
-.sv-watch__name { font-family: var(--font-sans); font-weight: var(--weight-medium); white-space: nowrap; }
-.sv-watch__says { min-width: 0; font-family: var(--font-sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-muted); }
-.sv-watch__age { color: var(--fg-subtle); white-space: nowrap; }
+.sv-watch__row:hover {
+  background: color-mix(in srgb, var(--fg-default) 5%, transparent);
+}
+.sv-watch__row:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--border-width) * -2);
+}
+.sv-watch__row > .armada-tooltip {
+  display: inline-flex;
+  align-items: center;
+}
+.sv-watch__name {
+  font-family: var(--font-sans);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.sv-watch__says {
+  min-width: 0;
+  font-family: var(--font-sans);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-muted);
+}
+.sv-watch__age {
+  color: var(--fg-subtle);
+  white-space: nowrap;
+}
 
 /* What the agent made of the reading, under the name. */
-.sv-watch__verdicts { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0 var(--space-3) var(--space-2) calc(var(--space-3) + var(--space-2) + var(--space-3)); list-style: none; }
-.sv-watch__verdict { font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-muted); overflow-wrap: anywhere; }
-.sv-watch__verdict[data-verdict="ours"] { color: var(--fg-default); }
+.sv-watch__verdicts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-2) calc(var(--space-3) + var(--space-2) + var(--space-3));
+  list-style: none;
+}
+.sv-watch__verdict {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+.sv-watch__verdict[data-verdict="ours"] {
+  color: var(--fg-default);
+}
 
 /* While Needs you asks about it, the row pulses as the title bar's call does: the same hue and clock, opacity only, so nothing shifts.
    Reduced motion holds it lit. Settled, the attribute goes and the pulse with it. */
-.sv-watch[data-asks] { position: relative; }
+.sv-watch[data-asks] {
+  position: relative;
+}
 .sv-watch[data-asks]::after {
   content: "";
   position: absolute;
@@ -66,9 +163,15 @@
   pointer-events: none;
 }
 @keyframes sv-watch-asks {
-  50% { opacity: 0.05; }
+  50% {
+    opacity: 0.05;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  .sv-watch[data-asks]::after { animation: none; }
+  .sv-watch[data-asks]::after {
+    animation: none;
+  }
 }
-.sv-watch[data-state="not_ours"] .sv-watch__row:focus-visible { outline-color: var(--step-waiting); }
+.sv-watch[data-state="not_ours"] .sv-watch__row:focus-visible {
+  outline-color: var(--step-waiting);
+}

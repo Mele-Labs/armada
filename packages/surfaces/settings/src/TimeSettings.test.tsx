@@ -32,9 +32,27 @@ const sample = () => page.getByRole("button");
 test("the switches start as the shipped format and the sample is its clock", async () => {
   mount(<TimeSettings />);
 
-  await expect.element(page.getByRole("switch", { name: "24-hour clock" })).toBeChecked();
-  await expect.element(page.getByRole("switch", { name: "Seconds" })).toBeChecked();
-  await expect.element(page.getByRole("switch", { name: "Date" })).not.toBeChecked();
+  await expect
+    .element(
+      page.getByRole("switch", {
+        name: "24-hour clock",
+      }),
+    )
+    .toBeChecked();
+  await expect
+    .element(
+      page.getByRole("switch", {
+        name: "Seconds",
+      }),
+    )
+    .toBeChecked();
+  await expect
+    .element(
+      page.getByRole("switch", {
+        name: "Date",
+      }),
+    )
+    .not.toBeChecked();
   await expect.element(sample()).toHaveAccessibleName(/^\d{2}:\d{2}:\d{2}$/);
   expect(saved).not.toHaveBeenCalled();
 });
@@ -42,11 +60,43 @@ test("the switches start as the shipped format and the sample is its clock", asy
 test("the clock switch says 24H and 12H, and the other two say ON and OFF", async () => {
   mount(<TimeSettings />);
 
-  await expect.element(page.getByRole("switch", { name: "24-hour clock" })).toBeChecked();
-  const track = (name: string) => [...document.querySelectorAll<HTMLElement>("label.armada-switch")].find((one) => one.textContent?.includes(name))?.querySelectorAll(".armada-switch__word");
-  expect([...(track("24-hour clock") ?? [])].map((one) => one.textContent)).toEqual(["24H", "12H"]);
-  expect([...(track("Seconds") ?? [])].map((one) => one.textContent)).toEqual(["ON", "OFF"]);
-  expect([...(track("Date") ?? [])].map((one) => one.textContent)).toEqual(["ON", "OFF"]);
+  await expect
+    .element(
+      page.getByRole("switch", {
+        name: "24-hour clock",
+      }),
+    )
+    .toBeChecked();
+  const track = (name: string) =>
+    [
+      ...document.querySelectorAll<HTMLElement>("label.armada-switch"),
+    ]
+      .find((one) => one.textContent?.includes(name))
+      ?.querySelectorAll(".armada-switch__word");
+  expect(
+    [
+      ...(track("24-hour clock") ?? []),
+    ].map((one) => one.textContent),
+  ).toEqual([
+    "24H",
+    "12H",
+  ]);
+  expect(
+    [
+      ...(track("Seconds") ?? []),
+    ].map((one) => one.textContent),
+  ).toEqual([
+    "ON",
+    "OFF",
+  ]);
+  expect(
+    [
+      ...(track("Date") ?? []),
+    ].map((one) => one.textContent),
+  ).toEqual([
+    "ON",
+    "OFF",
+  ]);
 });
 
 test("turning 24-hour clock off keeps a 12-hour one and draws the sample with AM or PM", async () => {
@@ -54,8 +104,18 @@ test("turning 24-hour clock off keeps a 12-hour one and draws the sample with AM
 
   await page.getByText("24-hour clock").click();
 
-  expect(lastSaved()).toEqual({ hour12: true, seconds: true, date: false });
-  await expect.element(page.getByRole("switch", { name: "24-hour clock" })).not.toBeChecked();
+  expect(lastSaved()).toEqual({
+    hour12: true,
+    seconds: true,
+    date: false,
+  });
+  await expect
+    .element(
+      page.getByRole("switch", {
+        name: "24-hour clock",
+      }),
+    )
+    .not.toBeChecked();
   await expect.element(sample()).toHaveAccessibleName(/^\d{1,2}:\d{2}:\d{2}\s[AP]M$/);
 });
 
@@ -64,31 +124,71 @@ test("turning Seconds off keeps it, and the sample loses its seconds", async () 
 
   await page.getByText("Seconds").click();
 
-  expect(lastSaved()).toEqual({ hour12: false, seconds: false, date: false });
-  await expect.element(page.getByRole("switch", { name: "Seconds" })).not.toBeChecked();
+  expect(lastSaved()).toEqual({
+    hour12: false,
+    seconds: false,
+    date: false,
+  });
+  await expect
+    .element(
+      page.getByRole("switch", {
+        name: "Seconds",
+      }),
+    )
+    .not.toBeChecked();
   await expect.element(sample()).toHaveAccessibleName(/^\d{2}:\d{2}$/);
 });
 
 test("turning Date on keeps it, and the sample gains the day", async () => {
   mount(<TimeSettings />);
 
-  await page.getByText("Date", { exact: true }).click();
+  await page
+    .getByText("Date", {
+      exact: true,
+    })
+    .click();
 
-  expect(lastSaved()).toEqual({ hour12: false, seconds: true, date: true });
-  await expect.element(page.getByRole("switch", { name: "Date" })).toBeChecked();
+  expect(lastSaved()).toEqual({
+    hour12: false,
+    seconds: true,
+    date: true,
+  });
+  await expect
+    .element(
+      page.getByRole("switch", {
+        name: "Date",
+      }),
+    )
+    .toBeChecked();
   await expect.element(sample()).toHaveAccessibleName(/^[A-Z][a-z]{2} \d{1,2} \d{2}:\d{2}:\d{2}$/);
 });
 
 test("each press keeps the switches before it, and a switch turned back off is kept off", async () => {
   mount(<TimeSettings />);
 
-  await page.getByText("Date", { exact: true }).click();
+  await page
+    .getByText("Date", {
+      exact: true,
+    })
+    .click();
   await page.getByText("Seconds").click();
-  expect(lastSaved()).toEqual({ hour12: false, seconds: false, date: true });
+  expect(lastSaved()).toEqual({
+    hour12: false,
+    seconds: false,
+    date: true,
+  });
   await expect.element(sample()).toHaveAccessibleName(/^[A-Z][a-z]{2} \d{1,2} \d{2}:\d{2}$/);
 
-  await page.getByText("Date", { exact: true }).click();
-  expect(lastSaved()).toEqual({ hour12: false, seconds: false, date: false });
+  await page
+    .getByText("Date", {
+      exact: true,
+    })
+    .click();
+  expect(lastSaved()).toEqual({
+    hour12: false,
+    seconds: false,
+    date: false,
+  });
   await expect.element(sample()).toHaveAccessibleName(/^\d{2}:\d{2}$/);
   expect(saved).toHaveBeenCalledTimes(3);
 });

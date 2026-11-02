@@ -8,7 +8,13 @@ export const sketchShare: Slice<SketchShareApi, Record<string, never>> = {
   name: "sketchShare",
   state: {},
   api: () => ({
-    saveSketchFile: async (files) => ({ saved: true, name: files[0]!.name }),
-    saveDocument: async (request) => ({ saved: true, name: request.name }),
+    saveSketchFile: async (files) => ({
+      saved: true,
+      name: files[0]!.name,
+    }),
+    saveDocument: async (request) => ({
+      saved: true,
+      name: request.name,
+    }),
   }),
 };

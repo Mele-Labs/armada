@@ -10,7 +10,9 @@ import { LocateForm, type LocateFormProps } from "./LocateForm";
 const meta: Meta<typeof LocateForm> = {
   title: "Compositions/Locate form",
   component: LocateForm,
-  parameters: { layout: "fullscreen" },
+  parameters: {
+    layout: "fullscreen",
+  },
 };
 export default meta;
 
@@ -43,10 +45,20 @@ export const AFolder: Story = {
   name: "A folder",
   args: BASE,
   play: async ({ args, canvasElement, userEvent }) => {
-    const dialog = within(canvasElement).getByRole("dialog", { name: "Add a repository" });
+    const dialog = within(canvasElement).getByRole("dialog", {
+      name: "Add a repository",
+    });
     await waitFor(() => expect(within(dialog).getByLabelText("Project location")).toBeVisible());
-    await expect(within(dialog).getByRole("button", { name: /^Add repository/ })).toBeDisabled();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Choose a folder" }));
+    await expect(
+      within(dialog).getByRole("button", {
+        name: /^Add repository/,
+      }),
+    ).toBeDisabled();
+    await userEvent.click(
+      within(dialog).getByRole("button", {
+        name: "Choose a folder",
+      }),
+    );
     await expect(args.onChoose).toHaveBeenCalledWith("path");
     // Escape is the way out, and it sends nothing.
     await userEvent.keyboard("{Escape}");
@@ -58,7 +70,11 @@ export const AFolder: Story = {
 /** A relative path is refused where it is typed, before Fleet is asked. */
 export const NotAFullPath: Story = {
   name: "Not a full path",
-  args: { ...BASE, path: "code/scratch", pathMessage: "A full path, starting with /." },
+  args: {
+    ...BASE,
+    path: "code/scratch",
+    pathMessage: "A full path, starting with /.",
+  },
 };
 
 /** The clone names the folder it lands in before anything is pressed. */
@@ -77,11 +93,20 @@ export const CloneFromAURL: Story = {
 /** Underway: the dialog says so, every field holds still, and Clone cannot be pressed again. */
 export const CloneUnderway: Story = {
   name: "Clone underway",
-  args: { ...CloneFromAURL.args, sending: true },
+  args: {
+    ...CloneFromAURL.args,
+    sending: true,
+  },
   play: async ({ args, canvasElement, userEvent }) => {
-    const dialog = within(canvasElement).getByRole("dialog", { name: "Add a repository" });
+    const dialog = within(canvasElement).getByRole("dialog", {
+      name: "Add a repository",
+    });
     await waitFor(() => expect(within(dialog).getByText(/Git is cloning into/)).toBeVisible());
-    await expect(within(dialog).getByRole("button", { name: /^Clone repository/ })).toBeDisabled();
+    await expect(
+      within(dialog).getByRole("button", {
+        name: /^Clone repository/,
+      }),
+    ).toBeDisabled();
     await userEvent.keyboard("{Enter}");
     await expect(args.onSend).not.toHaveBeenCalled();
   },
@@ -116,14 +141,35 @@ export const DestinationNotEmpty: Story = {
 /** A new project: a location offered, a name typed, and Create project waits for both. The other two ways in sit under the fields. */
 export const ANewProject: Story = {
   name: "A new project",
-  args: { ...BASE, mode: "new" },
+  args: {
+    ...BASE,
+    mode: "new",
+  },
   play: async ({ args, canvasElement, userEvent }) => {
-    const dialog = within(canvasElement).getByRole("dialog", { name: "New project" });
+    const dialog = within(canvasElement).getByRole("dialog", {
+      name: "New project",
+    });
     await waitFor(() => expect(within(dialog).getByLabelText("Location")).toHaveValue("~/code"));
-    await expect(within(dialog).getByRole("button", { name: /^Create project/ })).toBeDisabled();
-    await expect(within(dialog).getByRole("button", { name: "Add a folder on disk" })).toBeVisible();
-    await expect(within(dialog).getByRole("button", { name: "Clone from a URL" })).toBeVisible();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Choose a folder" }));
+    await expect(
+      within(dialog).getByRole("button", {
+        name: /^Create project/,
+      }),
+    ).toBeDisabled();
+    await expect(
+      within(dialog).getByRole("button", {
+        name: "Add a folder on disk",
+      }),
+    ).toBeVisible();
+    await expect(
+      within(dialog).getByRole("button", {
+        name: "Clone from a URL",
+      }),
+    ).toBeVisible();
+    await userEvent.click(
+      within(dialog).getByRole("button", {
+        name: "Choose a folder",
+      }),
+    );
     await expect(args.onChoose).toHaveBeenCalledWith("place");
     await userEvent.type(within(dialog).getByLabelText("Name"), "m");
     await expect(args.onName).toHaveBeenCalledWith("m");
@@ -133,10 +179,25 @@ export const ANewProject: Story = {
 /** A name that is not one folder's: said under the field. */
 export const ANewProjectBadName: Story = {
   name: "A new project, a name with a space",
-  args: { ...BASE, mode: "new", name: "my app", nameMessage: "Letters, digits, dots, dashes and underscores." },
+  args: {
+    ...BASE,
+    mode: "new",
+    name: "my app",
+    nameMessage: "Letters, digits, dots, dashes and underscores.",
+  },
   play: async ({ canvasElement }) => {
-    const dialog = within(canvasElement).getByRole("dialog", { name: "New project" });
-    await waitFor(() => expect(within(dialog).getByText("Letters, digits, dots, dashes and underscores.")).toBeVisible());
-    await expect(within(dialog).getByRole("button", { name: /^Create project/ })).toBeDisabled();
+    const dialog = within(canvasElement).getByRole("dialog", {
+      name: "New project",
+    });
+    await waitFor(() =>
+      expect(
+        within(dialog).getByText("Letters, digits, dots, dashes and underscores."),
+      ).toBeVisible(),
+    );
+    await expect(
+      within(dialog).getByRole("button", {
+        name: /^Create project/,
+      }),
+    ).toBeDisabled();
   },
 };

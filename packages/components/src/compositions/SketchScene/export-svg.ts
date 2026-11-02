@@ -13,15 +13,65 @@ import { pathOf } from "../SketchPad/ink-path";
 
 /** The tokens the drawing reads, by name. The caller resolves each against the theme in force. */
 export const EXPORT_TOKENS = [
-  "--bg-base", "--bg-sunken", "--bg-raised", "--bg-hover", "--fg-default", "--fg-muted", "--fg-inverse", "--border-subtle", "--border-default", "--border-strong",
-  "--status-running", "--status-not-started", "--status-completed-success", "--status-completed-failed", "--status-awaiting-review", "--status-rejected",
-  "--edge-focus", "--edge-active", "--row-tint-recent", "--font-mono", "--font-sans", "--text-xs", "--text-sm", "--text-base", "--leading-xs", "--leading-sm",
-  "--space-1", "--space-2", "--space-3", "--space-4", "--space-6", "--weight-heading", "--tracking-caps", "--radius-sm", "--radius-md", "--radius-lg", "--ease", "--duration-base",
+  "--bg-base",
+  "--bg-sunken",
+  "--bg-raised",
+  "--bg-hover",
+  "--fg-default",
+  "--fg-muted",
+  "--fg-inverse",
+  "--border-subtle",
+  "--border-default",
+  "--border-strong",
+  "--status-running",
+  "--status-not-started",
+  "--status-completed-success",
+  "--status-completed-failed",
+  "--status-awaiting-review",
+  "--status-rejected",
+  "--edge-focus",
+  "--edge-active",
+  "--row-tint-recent",
+  "--font-mono",
+  "--font-sans",
+  "--text-xs",
+  "--text-sm",
+  "--text-base",
+  "--leading-xs",
+  "--leading-sm",
+  "--space-1",
+  "--space-2",
+  "--space-3",
+  "--space-4",
+  "--space-6",
+  "--weight-heading",
+  "--tracking-caps",
+  "--radius-sm",
+  "--radius-md",
+  "--radius-lg",
+  "--ease",
+  "--duration-base",
   // What a screen's own stylesheet reads, which the export writes in beside its markup.
-  "--border-width", "--space-8", "--space-12", "--text-2xs", "--text-xl", "--leading-2xs", "--leading-base", "--leading-xl", "--weight-medium", "--weight-body",
-  "--h-control-sm", "--h-badge",
+  "--border-width",
+  "--space-8",
+  "--space-12",
+  "--text-2xs",
+  "--text-xl",
+  "--leading-2xs",
+  "--leading-base",
+  "--leading-xl",
+  "--weight-medium",
+  "--weight-body",
+  "--h-control-sm",
+  "--h-badge",
   // What an agent may colour a part.
-  "--sketch-blue", "--sketch-teal", "--sketch-green", "--sketch-amber", "--sketch-orange", "--sketch-red", "--sketch-grey",
+  "--sketch-blue",
+  "--sketch-teal",
+  "--sketch-green",
+  "--sketch-amber",
+  "--sketch-orange",
+  "--sketch-red",
+  "--sketch-grey",
 ] as const;
 
 /** The lengths the layout needs as numbers, in px: read from the tokens, or these where one cannot be read. */
@@ -41,7 +91,17 @@ export type ExportMetrics = {
 };
 
 export const DEFAULT_METRICS: ExportMetrics = {
-  textXs: 12, textSm: 13, leadingXs: 16, leadingSm: 20, space1: 4, space2: 8, space3: 12, edge: 2, radiusSm: 3, radiusMd: 5, pad: 24,
+  textXs: 12,
+  textSm: 13,
+  leadingXs: 16,
+  leadingSm: 20,
+  space1: 4,
+  space2: 8,
+  space3: 12,
+  edge: 2,
+  radiusSm: 3,
+  radiusMd: 5,
+  pad: 24,
 };
 
 /** About how wide the sans face is for its size, a character on average: wide enough that a guess never runs past its box. */
@@ -61,16 +121,29 @@ export type ExportGeometry = {
  * One screen as markup: how it stands at rest and how it stands at each step an element of it carries, from
  * `ScreenView`, so the file draws it as the canvas does. `top` is where the sheet starts under the node's title.
  */
-export type ScreenMarkup = { top: number; rest: string; steps: Readonly<Record<number, string>> };
+export type ScreenMarkup = {
+  top: number;
+  rest: string;
+  steps: Readonly<Record<number, string>>;
+};
 
 /** The screens of a scene by node id, and the stylesheet they are drawn with. A node with no entry is drawn as its frame and name. */
-export type ExportScreens = { css: string; nodes: Readonly<Record<string, ScreenMarkup>> };
+export type ExportScreens = {
+  css: string;
+  nodes: Readonly<Record<string, ScreenMarkup>>;
+};
 
 /**
  * One `mock` as a file carries it: its cleaned HTML, the sheets it applies and the attributes of its root, drawn in a frame `height` tall that starts
  * `top` under the node's title. Fonts are not carried, so a file falls back to the system's.
  */
-export type MockMarkup = { top: number; height: number; html: string; css: string; root: Readonly<Record<string, string>> };
+export type MockMarkup = {
+  top: number;
+  height: number;
+  html: string;
+  css: string;
+  root: Readonly<Record<string, string>>;
+};
 
 /** What the owner and a diff did to the scene, as the canvas draws it. */
 export type ExportState = {
@@ -102,13 +175,22 @@ export type SketchSvgInput = {
   extraCss?: string;
 };
 
-const GROUND = new Set(["group", "lane"]);
+const GROUND = new Set([
+  "group",
+  "lane",
+]);
 /** What a mock's frame in a file may do: draw its own inline rules and nothing else, so even a file with no policy of its own fetches nothing. */
 const MOCK_POLICY = "default-src 'none'; style-src 'unsafe-inline'";
 const SVG_NS = "http://www.w3.org/2000/svg";
 const XHTML_NS = "http://www.w3.org/1999/xhtml";
 
-export const xml = (text: string): string => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+export const xml = (text: string): string =>
+  text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 const num = (n: number) => String(Math.round(n * 100) / 100);
 
 const sentence = (name: string) => name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, " ");
@@ -158,15 +240,27 @@ export function nodeHeight(node: SceneNode, w: number, m: ExportMetrics): number
   const floor = node.h ?? 0;
   if (node.kind === "label") return Math.max(floor, m.leadingSm);
   const hasHead = node.title !== undefined || node.icon !== undefined;
-  const cols = Math.floor((w - m.edge * 2 - m.space3 * 2) / (m.textXs * (node.kind === "code" ? MONO : SANS)));
-  const body = node.body === undefined ? 0 : wrapBody(node.body, cols).length * m.leadingXs + m.space2 * 2;
+  const cols = Math.floor(
+    (w - m.edge * 2 - m.space3 * 2) / (m.textXs * (node.kind === "code" ? MONO : SANS)),
+  );
+  const body =
+    node.body === undefined ? 0 : wrapBody(node.body, cols).length * m.leadingXs + m.space2 * 2;
   return Math.max(floor, m.edge * 2 + (hasHead ? headHeight(m) : 0) + body);
 }
 
-type Frame = { x: number; y: number; w: number; h: number };
+type Frame = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
 
 /** The drawing's frame: every box, every arrow's words and path, and every hand line, with air round it. */
-export function frameOf(scene: Scene, geometry: ExportGeometry, m: ExportMetrics = DEFAULT_METRICS): Frame {
+export function frameOf(
+  scene: Scene,
+  geometry: ExportGeometry,
+  m: ExportMetrics = DEFAULT_METRICS,
+): Frame {
   const xs: number[] = [];
   const ys: number[] = [];
   const take = (x: number, y: number) => {
@@ -190,26 +284,69 @@ export function frameOf(scene: Scene, geometry: ExportGeometry, m: ExportMetrics
     take(p.x - p.w / 2, p.y - p.h / 2);
     take(p.x + p.w / 2, p.y + p.h / 2);
   }
-  for (const stroke of scene.strokes ?? []) for (const point of stroke.points) take(point.x, point.y);
-  if (xs.length === 0) return { x: 0, y: 0, w: m.pad * 2, h: m.pad * 2 };
+  for (const stroke of scene.strokes ?? [])
+    for (const point of stroke.points) take(point.x, point.y);
+  if (xs.length === 0)
+    return {
+      x: 0,
+      y: 0,
+      w: m.pad * 2,
+      h: m.pad * 2,
+    };
   const x = Math.floor(Math.min(...xs) - m.pad);
   const y = Math.floor(Math.min(...ys) - m.pad);
-  return { x, y, w: Math.ceil(Math.max(...xs) + m.pad) - x, h: Math.ceil(Math.max(...ys) + m.pad) - y };
+  return {
+    x,
+    y,
+    w: Math.ceil(Math.max(...xs) + m.pad) - x,
+    h: Math.ceil(Math.max(...ys) + m.pad) - y,
+  };
 }
 
 /**
  * The player's order: what each step lights and which arrows carry its dot. Read from the scene as the canvas reads it.
  * `inner` lists the screens that hold the step in one of their elements: they ring that element, and do not stand back.
  */
-export type StepPlan = { at: number; nodes: string[]; edges: string[]; inner?: string[] }[];
+export type StepPlan = {
+  at: number;
+  nodes: string[];
+  edges: string[];
+  inner?: string[];
+}[];
 
 export function stepPlan(scene: Scene): StepPlan {
   const inside = (one: SceneNode) => (one.screen === undefined ? [] : screenSteps(one.screen));
-  const numbers = [...new Set([...scene.nodes.flatMap((one) => [one.step, ...inside(one)]), ...scene.edges.map((one) => one.step)].filter((one): one is number => one !== undefined))].sort((a, b) => a - b);
+  const numbers = [
+    ...new Set(
+      [
+        ...scene.nodes.flatMap((one) => [
+          one.step,
+          ...inside(one),
+        ]),
+        ...scene.edges.map((one) => one.step),
+      ].filter((one): one is number => one !== undefined),
+    ),
+  ].sort((a, b) => a - b);
   return numbers.map((at) => {
-    const nodes = [...new Set([...scene.nodes.filter((one) => one.step === at).map((one) => one.id), ...scene.edges.filter((one) => one.step === at).map((one) => one.to)])];
-    const inner = scene.nodes.filter((one) => !nodes.includes(one.id) && inside(one).includes(at)).map((one) => one.id);
-    return { at, nodes, edges: scene.edges.filter((one) => one.step === at).map((one) => one.id), ...(inner.length === 0 ? {} : { inner }) };
+    const nodes = [
+      ...new Set([
+        ...scene.nodes.filter((one) => one.step === at).map((one) => one.id),
+        ...scene.edges.filter((one) => one.step === at).map((one) => one.to),
+      ]),
+    ];
+    const inner = scene.nodes
+      .filter((one) => !nodes.includes(one.id) && inside(one).includes(at))
+      .map((one) => one.id);
+    return {
+      at,
+      nodes,
+      edges: scene.edges.filter((one) => one.step === at).map((one) => one.id),
+      ...(inner.length === 0
+        ? {}
+        : {
+            inner,
+          }),
+    };
   });
 }
 
@@ -281,7 +418,11 @@ export function tokenDeclarations(tokens: Readonly<Record<string, string>>): str
 }
 
 /** A mock's document: sealed by its policy as well as by its frame, with the sheets it applies inline. */
-export function mockDocument({ html, css, root }: Pick<MockMarkup, "html" | "css" | "root">): string {
+export function mockDocument({
+  html,
+  css,
+  root,
+}: Pick<MockMarkup, "html" | "css" | "root">): string {
   const attributes = Object.entries(root)
     .filter(([name]) => /^[a-z][a-z-]*$/.test(name))
     .map(([name, value]) => ` ${name}="${xml(value)}"`)
@@ -296,20 +437,56 @@ function nodeSvg(node: SceneNode, scene: Scene, input: SketchSvgInput, m: Export
   const change = state.change?.get(node.id);
   const mine = state.mine?.has(node.id) ?? false;
   const struck = state.struck?.has(node.id) ?? false;
-  const name = mine ? (node.body?.trim() ? `Your box: ${node.body}` : "Your box") : partLabel(scene, node.id);
+  const name = mine
+    ? node.body?.trim()
+      ? `Your box: ${node.body}`
+      : "Your box"
+    : partLabel(scene, node.id);
   const said = `${mine ? "" : struck ? "Struck out, " : change === undefined ? "" : `${CHANGE_SAID[change]}, `}${name}`;
   const { w, h } = r;
   const e = m.edge;
   const ground = GROUND.has(node.kind);
-  const shape = node.kind === "box" && !mine && node.shape !== undefined && node.shape !== "box" ? node.shape : undefined;
+  const shape =
+    node.kind === "box" && !mine && node.shape !== undefined && node.shape !== "box"
+      ? node.shape
+      : undefined;
   const attrs = [
-    `class="sk-node"`, `data-node="${xml(node.id)}"`, `data-kind="${node.kind}"`,
-    ...(shape === undefined ? [] : [`data-shape="${shape}"`]),
-    ...(node.color === undefined ? [] : [`data-color="${node.color}"`]),
-    ...(ground ? ['data-ground=""'] : []),
-    ...(change === undefined ? [] : [`data-change="${change}"`]),
-    ...(mine ? ['data-mine=""'] : []), ...(struck ? ['data-struck=""'] : []),
-    `role="group"`, `aria-label="${xml(said)}"`, `transform="translate(${num(r.x)} ${num(r.y)})"`,
+    `class="sk-node"`,
+    `data-node="${xml(node.id)}"`,
+    `data-kind="${node.kind}"`,
+    ...(shape === undefined
+      ? []
+      : [
+          `data-shape="${shape}"`,
+        ]),
+    ...(node.color === undefined
+      ? []
+      : [
+          `data-color="${node.color}"`,
+        ]),
+    ...(ground
+      ? [
+          'data-ground=""',
+        ]
+      : []),
+    ...(change === undefined
+      ? []
+      : [
+          `data-change="${change}"`,
+        ]),
+    ...(mine
+      ? [
+          'data-mine=""',
+        ]
+      : []),
+    ...(struck
+      ? [
+          'data-struck=""',
+        ]
+      : []),
+    `role="group"`,
+    `aria-label="${xml(said)}"`,
+    `transform="translate(${num(r.x)} ${num(r.y)})"`,
   ].join(" ");
   const parts: string[] = [];
   const clip = `sk-clip-${xml(node.id).replace(/[^A-Za-z0-9_-]/g, "_")}`;
@@ -328,120 +505,245 @@ function nodeSvg(node: SceneNode, scene: Scene, input: SketchSvgInput, m: Export
       );
       x += ICON_PX + m.space2;
     }
-    if (node.title !== undefined) items.push(`<text class="sk-title" x="${num(x)}" y="${mid(e, bandH)}">${xml(node.title)}</text>`);
-    if (node.lang !== undefined) items.push(`<text class="sk-lang" x="${num(w - e - m.space3)}" y="${mid(e, bandH)}">${xml(node.lang)}</text>`);
+    if (node.title !== undefined)
+      items.push(
+        `<text class="sk-title" x="${num(x)}" y="${mid(e, bandH)}">${xml(node.title)}</text>`,
+      );
+    if (node.lang !== undefined)
+      items.push(
+        `<text class="sk-lang" x="${num(w - e - m.space3)}" y="${mid(e, bandH)}">${xml(node.lang)}</text>`,
+      );
     if (ground) {
-      const chip = x + (node.title === undefined ? 0 : node.title.length * m.textXs * SANS) + m.space3;
-      parts.push(`<rect class="sk-head" x="${num(e)}" y="${num(e)}" width="${num(Math.min(chip, w - e * 2))}" height="${num(bandH)}" rx="${num(m.radiusMd)}"/>`);
+      const chip =
+        x + (node.title === undefined ? 0 : node.title.length * m.textXs * SANS) + m.space3;
+      parts.push(
+        `<rect class="sk-head" x="${num(e)}" y="${num(e)}" width="${num(Math.min(chip, w - e * 2))}" height="${num(bandH)}" rx="${num(m.radiusMd)}"/>`,
+      );
     } else {
-      parts.push(`<rect class="sk-head" x="${num(e)}" y="${num(e)}" width="${num(w - e * 2)}" height="${num(bandH)}"/>`);
+      parts.push(
+        `<rect class="sk-head" x="${num(e)}" y="${num(e)}" width="${num(w - e * 2)}" height="${num(bandH)}"/>`,
+      );
     }
     parts.push(...items);
     return bandH;
   };
   const body = (top: number, text: string) => {
-    const cols = Math.floor((w - e * 2 - m.space3 * 2) / (m.textXs * (node.kind === "code" ? MONO : SANS)));
+    const cols = Math.floor(
+      (w - e * 2 - m.space3 * 2) / (m.textXs * (node.kind === "code" ? MONO : SANS)),
+    );
     const lines = input.bodyLines?.[node.id] ?? wrapBody(text, cols);
-    const tspans = lines.map((line, at) => `<tspan x="${num(e + m.space3)}" y="${mid(top + m.space2 + at * m.leadingXs, m.leadingXs)}">${xml(line === "" ? " " : line)}</tspan>`).join("");
+    const tspans = lines
+      .map(
+        (line, at) =>
+          `<tspan x="${num(e + m.space3)}" y="${mid(top + m.space2 + at * m.leadingXs, m.leadingXs)}">${xml(line === "" ? " " : line)}</tspan>`,
+      )
+      .join("");
     parts.push(`<text class="sk-body">${tspans}</text>`);
   };
 
   if (shape !== undefined) {
     // The outline, then the title and words centred in it, as the canvas draws them.
     const at = (fx: number, fy: number) => `${num(w * fx)},${num(h * fy)}`;
-    if (shape === "pill" || shape === "circle") parts.push(`<rect class="sk-shape" x="0" y="0" width="${num(w)}" height="${num(h)}" rx="${num(shape === "pill" ? h / 2 : w / 2)}"/>`);
-    else if (shape === "diamond") parts.push(`<polygon class="sk-shape" points="${at(0.5, 0)} ${at(1, 0.5)} ${at(0.5, 1)} ${at(0, 0.5)}"/>`);
-    else if (shape === "hexagon") parts.push(`<polygon class="sk-shape" points="${at(0.12, 0)} ${at(0.88, 0)} ${at(1, 0.5)} ${at(0.88, 1)} ${at(0.12, 1)} ${at(0, 0.5)}"/>`);
+    if (shape === "pill" || shape === "circle")
+      parts.push(
+        `<rect class="sk-shape" x="0" y="0" width="${num(w)}" height="${num(h)}" rx="${num(shape === "pill" ? h / 2 : w / 2)}"/>`,
+      );
+    else if (shape === "diamond")
+      parts.push(
+        `<polygon class="sk-shape" points="${at(0.5, 0)} ${at(1, 0.5)} ${at(0.5, 1)} ${at(0, 0.5)}"/>`,
+      );
+    else if (shape === "hexagon")
+      parts.push(
+        `<polygon class="sk-shape" points="${at(0.12, 0)} ${at(0.88, 0)} ${at(1, 0.5)} ${at(0.88, 1)} ${at(0.12, 1)} ${at(0, 0.5)}"/>`,
+      );
     else {
       const ry = h * 0.1;
-      parts.push(`<path class="sk-shape" d="M0 ${num(ry)} A${num(w / 2)} ${num(ry)} 0 0 1 ${num(w)} ${num(ry)} V${num(h - ry)} A${num(w / 2)} ${num(ry)} 0 0 1 0 ${num(h - ry)} Z"/>`);
-      parts.push(`<path class="sk-shape-rim" d="M0 ${num(ry)} A${num(w / 2)} ${num(ry)} 0 0 0 ${num(w)} ${num(ry)}"/>`);
+      parts.push(
+        `<path class="sk-shape" d="M0 ${num(ry)} A${num(w / 2)} ${num(ry)} 0 0 1 ${num(w)} ${num(ry)} V${num(h - ry)} A${num(w / 2)} ${num(ry)} 0 0 1 0 ${num(h - ry)} Z"/>`,
+      );
+      parts.push(
+        `<path class="sk-shape-rim" d="M0 ${num(ry)} A${num(w / 2)} ${num(ry)} 0 0 0 ${num(w)} ${num(ry)}"/>`,
+      );
     }
-    const lines = node.body === undefined ? [] : (input.bodyLines?.[node.id] ?? wrapBody(node.body, Math.floor((w / 2) / (m.textXs * SANS))));
+    const lines =
+      node.body === undefined
+        ? []
+        : (input.bodyLines?.[node.id] ??
+          wrapBody(node.body, Math.floor(w / 2 / (m.textXs * SANS))));
     const tall = (node.title === undefined ? 0 : m.leadingXs) + lines.length * m.leadingXs;
     let y = (h - tall) / 2;
     if (node.title !== undefined) {
-      parts.push(`<text class="sk-name" x="${num(w / 2)}" y="${mid(y, m.leadingXs)}" text-anchor="middle">${xml(node.title)}</text>`);
+      parts.push(
+        `<text class="sk-name" x="${num(w / 2)}" y="${mid(y, m.leadingXs)}" text-anchor="middle">${xml(node.title)}</text>`,
+      );
       y += m.leadingXs;
     }
     if (lines.length > 0) {
-      const tspans = lines.map((line, k) => `<tspan x="${num(w / 2)}" y="${mid(y + k * m.leadingXs, m.leadingXs)}">${xml(line === "" ? " " : line)}</tspan>`).join("");
+      const tspans = lines
+        .map(
+          (line, k) =>
+            `<tspan x="${num(w / 2)}" y="${mid(y + k * m.leadingXs, m.leadingXs)}">${xml(line === "" ? " " : line)}</tspan>`,
+        )
+        .join("");
       parts.push(`<text class="sk-body" text-anchor="middle">${tspans}</text>`);
     }
   } else if (node.kind === "label") {
-    parts.push(`<text class="sk-label" x="0" y="${num(h / 2)}">${xml(node.title ?? node.body ?? "")}</text>`);
+    parts.push(
+      `<text class="sk-label" x="0" y="${num(h / 2)}">${xml(node.title ?? node.body ?? "")}</text>`,
+    );
   } else if (mine) {
-    parts.push(`<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`);
+    parts.push(
+      `<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`,
+    );
     body(e, node.body ?? "");
   } else if (node.kind === "screen" && sheet !== undefined) {
     // The sheet as the canvas draws it, under its name: the screen's own markup and stylesheet in a foreignObject.
-    if (node.title !== undefined) parts.push(`<text class="sk-caption" x="0" y="${num((sheet.top - m.space2) / 2)}">${xml(node.title)}</text>`);
+    if (node.title !== undefined)
+      parts.push(
+        `<text class="sk-caption" x="0" y="${num((sheet.top - m.space2) / 2)}">${xml(node.title)}</text>`,
+      );
     const html = (markup: string) => {
       const bare = markup.replace(/ xmlns="[^"]*"/g, "");
       return input.standalone ? bare.replace(/<svg /g, `<svg xmlns="${SVG_NS}" `) : bare;
     };
-    const variants: [string, string][] = [["rest", sheet.rest], ...Object.entries(sheet.steps).map(([at, markup]): [string, string] => [at, markup])];
+    const variants: [
+      string,
+      string,
+    ][] = [
+      [
+        "rest",
+        sheet.rest,
+      ],
+      ...Object.entries(sheet.steps).map(
+        ([at, markup]): [
+          string,
+          string,
+        ] => [
+          at,
+          markup,
+        ],
+      ),
+    ];
     for (const [at, markup] of variants) {
       const body = `<div${input.standalone ? ` xmlns="${XHTML_NS}"` : ""}>${html(markup)}</div>`;
-      parts.push(`<g class="sk-screen" data-at="${at}"${at === "rest" ? "" : ' data-off=""'}><foreignObject x="0" y="${num(sheet.top)}" width="${num(w)}" height="${num(Math.max(0, h - sheet.top))}" overflow="visible">${body}</foreignObject></g>`);
+      parts.push(
+        `<g class="sk-screen" data-at="${at}"${at === "rest" ? "" : ' data-off=""'}><foreignObject x="0" y="${num(sheet.top)}" width="${num(w)}" height="${num(Math.max(0, h - sheet.top))}" overflow="visible">${body}</foreignObject></g>`,
+      );
     }
   } else if (node.kind === "mock" && input.mocks?.[node.id] !== undefined) {
     // The part of the app in a frame of its own: sealed, with its sheets inline, and nothing in it to fetch. A viewer's browser draws it again.
     const drawn = input.mocks[node.id]!;
-    if (node.title !== undefined) parts.push(`<text class="sk-caption" x="0" y="${num((drawn.top - m.space2) / 2)}">${xml(node.title)}</text>`);
+    if (node.title !== undefined)
+      parts.push(
+        `<text class="sk-caption" x="0" y="${num((drawn.top - m.space2) / 2)}">${xml(node.title)}</text>`,
+      );
     const frame = `<iframe class="sk-mock" title="${xml(node.title ?? "Frame")}" sandbox="" width="${num(w)}" height="${num(drawn.height)}" srcdoc="${xml(mockDocument(drawn))}"></iframe>`;
-    parts.push(`<foreignObject x="0" y="${num(drawn.top)}" width="${num(w)}" height="${num(drawn.height)}" overflow="visible"><div${input.standalone ? ` xmlns="${XHTML_NS}"` : ""}>${frame}</div></foreignObject>`);
+    parts.push(
+      `<foreignObject x="0" y="${num(drawn.top)}" width="${num(w)}" height="${num(drawn.height)}" overflow="visible"><div${input.standalone ? ` xmlns="${XHTML_NS}"` : ""}>${frame}</div></foreignObject>`,
+    );
   } else if (node.kind === "mock") {
     // The frame and the name, for a picture: an image cannot hold a frame of another document.
-    parts.push(`<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`);
-    if (node.title !== undefined) parts.push(`<text class="sk-wire-title" x="${num(e + m.space3)}" y="${mid(e, headHeight(m))}">${xml(node.title)}</text>`);
+    parts.push(
+      `<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`,
+    );
+    if (node.title !== undefined)
+      parts.push(
+        `<text class="sk-wire-title" x="${num(e + m.space3)}" y="${mid(e, headHeight(m))}">${xml(node.title)}</text>`,
+      );
   } else if (node.kind === "screen") {
     // The screen's outer frame and its name, for a picture handed no markup to draw it with.
-    parts.push(`<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`);
-    if (node.title !== undefined) parts.push(`<text class="sk-wire-title" x="${num(e + m.space3)}" y="${mid(e, headHeight(m))}">${xml(node.title)}</text>`);
+    parts.push(
+      `<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`,
+    );
+    if (node.title !== undefined)
+      parts.push(
+        `<text class="sk-wire-title" x="${num(e + m.space3)}" y="${mid(e, headHeight(m))}">${xml(node.title)}</text>`,
+      );
   } else if (node.kind === "wire") {
-    parts.push(`<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`);
+    parts.push(
+      `<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`,
+    );
     const part = node.wire ?? "card";
     const title = node.title ?? "";
     const x = e + m.space3;
     const inner = w - e * 2 - m.space3 * 2;
     if (part === "button") {
-      parts.push(`<rect class="sk-wire-line" x="${num(e)}" y="${num(e)}" width="${num(w - e * 2)}" height="${num(h - e * 2)}" rx="${num(m.radiusSm)}"/>`);
-      parts.push(`<text class="sk-body" x="${num(w / 2)}" y="${num(h / 2)}" text-anchor="middle">${xml(title)}</text>`);
+      parts.push(
+        `<rect class="sk-wire-line" x="${num(e)}" y="${num(e)}" width="${num(w - e * 2)}" height="${num(h - e * 2)}" rx="${num(m.radiusSm)}"/>`,
+      );
+      parts.push(
+        `<text class="sk-body" x="${num(w / 2)}" y="${num(h / 2)}" text-anchor="middle">${xml(title)}</text>`,
+      );
     } else if (part === "input") {
-      parts.push(`<rect class="sk-wire-input" x="${num(e + m.space2)}" y="${num(e + m.space2)}" width="${num(w - (e + m.space2) * 2)}" height="${num(h - (e + m.space2) * 2)}"/>`);
-      parts.push(`<text class="sk-wire-title" x="${num(x + m.space2)}" y="${num(h / 2)}">${xml(title)}</text>`);
+      parts.push(
+        `<rect class="sk-wire-input" x="${num(e + m.space2)}" y="${num(e + m.space2)}" width="${num(w - (e + m.space2) * 2)}" height="${num(h - (e + m.space2) * 2)}"/>`,
+      );
+      parts.push(
+        `<text class="sk-wire-title" x="${num(x + m.space2)}" y="${num(h / 2)}">${xml(title)}</text>`,
+      );
     } else if (part === "nav") {
-      parts.push(`<text class="sk-wire-title" x="${num(x)}" y="${num(h / 2)}">${xml(title)}</text>`);
+      parts.push(
+        `<text class="sk-wire-title" x="${num(x)}" y="${num(h / 2)}">${xml(title)}</text>`,
+      );
     } else {
       let y = e + m.space3;
       if (title !== "") {
-        parts.push(`<text class="sk-wire-title" x="${num(x)}" y="${mid(y, m.leadingSm)}">${xml(title)}</text>`);
+        parts.push(
+          `<text class="sk-wire-title" x="${num(x)}" y="${mid(y, m.leadingSm)}">${xml(title)}</text>`,
+        );
         y += m.leadingSm + m.space2;
       }
-      const lines = part === "text" ? [1, 1] : [1, 1, 0.6];
+      const lines =
+        part === "text"
+          ? [
+              1,
+              1,
+            ]
+          : [
+              1,
+              1,
+              0.6,
+            ];
       for (const share of lines) {
-        parts.push(`<rect class="sk-wire-line" x="${num(x)}" y="${num(y)}" width="${num(inner * share)}" height="${num(m.space2)}" rx="${num(m.radiusSm)}"/>`);
+        parts.push(
+          `<rect class="sk-wire-line" x="${num(x)}" y="${num(y)}" width="${num(inner * share)}" height="${num(m.space2)}" rx="${num(m.radiusSm)}"/>`,
+        );
         y += m.space2 * 2;
       }
     }
   } else if (ground) {
     if (node.kind === "lane") {
-      parts.push(`<path class="sk-frame" d="M0 ${num(e / 2)}H${num(w)}M0 ${num(h - e / 2)}H${num(w)}"/>`);
+      parts.push(
+        `<path class="sk-frame" d="M0 ${num(e / 2)}H${num(w)}M0 ${num(h - e / 2)}H${num(w)}"/>`,
+      );
     } else {
-      parts.push(`<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`);
+      parts.push(
+        `<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`,
+      );
     }
     head();
   } else {
-    parts.push(`<clipPath id="${clip}"><rect x="0" y="0" width="${num(w)}" height="${num(h)}" rx="${num(m.radiusMd)}"/></clipPath>`);
-    parts.push(`<g clip-path="url(#${clip})"><rect class="sk-fill" x="0" y="0" width="${num(w)}" height="${num(h)}"/>`);
+    parts.push(
+      `<clipPath id="${clip}"><rect x="0" y="0" width="${num(w)}" height="${num(h)}" rx="${num(m.radiusMd)}"/></clipPath>`,
+    );
+    parts.push(
+      `<g clip-path="url(#${clip})"><rect class="sk-fill" x="0" y="0" width="${num(w)}" height="${num(h)}"/>`,
+    );
     const bandH = head();
     if (node.body !== undefined) body(e + bandH, node.body);
     parts.push(`</g>`);
-    parts.push(`<rect class="sk-border" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`);
+    parts.push(
+      `<rect class="sk-border" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`,
+    );
   }
-  if (sheet !== undefined && node.kind === "screen") parts.push(`<rect class="sk-ring" x="${num(-e)}" y="${num(sheet.top - e)}" width="${num(w + e * 2)}" height="${num(h - sheet.top + e * 2)}" rx="${num(m.radiusSm + e)}"/>`);
-  else if (node.kind !== "label") parts.push(`<rect class="sk-ring" x="${num(-e)}" y="${num(-e)}" width="${num(w + e * 2)}" height="${num(h + e * 2)}" rx="${num(m.radiusMd + e)}"/>`);
+  if (sheet !== undefined && node.kind === "screen")
+    parts.push(
+      `<rect class="sk-ring" x="${num(-e)}" y="${num(sheet.top - e)}" width="${num(w + e * 2)}" height="${num(h - sheet.top + e * 2)}" rx="${num(m.radiusSm + e)}"/>`,
+    );
+  else if (node.kind !== "label")
+    parts.push(
+      `<rect class="sk-ring" x="${num(-e)}" y="${num(-e)}" width="${num(w + e * 2)}" height="${num(h + e * 2)}" rx="${num(m.radiusMd + e)}"/>`,
+    );
   return `<g ${attrs}>${parts.join("")}</g>`;
 }
 
@@ -457,18 +759,44 @@ function edgeSvg(at: number, input: SketchSvgInput): string {
   const place = input.geometry.places.get(edge.id);
   const head = `sk-head-${String(at)}`;
   const attrs = [
-    `class="sk-edge"`, `data-edge="${xml(edge.id)}"`,
-    ...(edge.color === undefined ? [] : [`data-color="${edge.color}"`]),
-    ...(edge.flow !== false ? ['data-flow=""'] : []),
-    ...(change === undefined ? [] : [`data-change="${change}"`]),
-    ...(mine ? ['data-mine=""'] : []), ...(struck ? ['data-struck=""'] : []),
-    `role="group"`, `aria-label="${xml(said)}"`,
+    `class="sk-edge"`,
+    `data-edge="${xml(edge.id)}"`,
+    ...(edge.color === undefined
+      ? []
+      : [
+          `data-color="${edge.color}"`,
+        ]),
+    ...(edge.flow !== false
+      ? [
+          'data-flow=""',
+        ]
+      : []),
+    ...(change === undefined
+      ? []
+      : [
+          `data-change="${change}"`,
+        ]),
+    ...(mine
+      ? [
+          'data-mine=""',
+        ]
+      : []),
+    ...(struck
+      ? [
+          'data-struck=""',
+        ]
+      : []),
+    `role="group"`,
+    `aria-label="${xml(said)}"`,
   ].join(" ");
   const words =
     place === undefined || edge.label === undefined
       ? ""
       : `<g class="sk-edge__words" role="img" aria-label="${xml(edge.label)}"><rect class="sk-edge__backing" x="${num(place.x - place.w / 2)}" y="${num(place.y - place.h / 2)}" width="${num(place.w)}" height="${num(place.h)}"/>${place.lines
-          .map((line, index) => `<text class="sk-edge__label" x="${num(place.x)}" y="${num(place.y - place.h / 2 + place.pad + (index + 0.5) * place.lineH)}">${xml(line)}</text>`)
+          .map(
+            (line, index) =>
+              `<text class="sk-edge__label" x="${num(place.x)}" y="${num(place.y - place.h / 2 + place.pad + (index + 0.5) * place.lineH)}">${xml(line)}</text>`,
+          )
           .join("")}</g>`;
   return `<g ${attrs}><defs><marker id="${head}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="sk-edge__head" d="M0 0L10 5L0 10z"/></marker></defs><path class="sk-edge__line" d="${xml(path)}" marker-end="url(#${head})"/>${words}</g>`;
 }
@@ -479,7 +807,12 @@ export function sketchSvg(input: SketchSvgInput): string {
   const frame = frameOf(input.scene, input.geometry, m);
   const grounds = input.scene.nodes.filter((one) => GROUND.has(one.kind));
   const solids = input.scene.nodes.filter((one) => !GROUND.has(one.kind));
-  const ink = (input.scene.strokes ?? []).map((one) => `<path class="sk-ink" d="${xml(pathOf(one.points))}" role="img" aria-label="Drawn by hand"/>`).join("");
+  const ink = (input.scene.strokes ?? [])
+    .map(
+      (one) =>
+        `<path class="sk-ink" d="${xml(pathOf(one.points))}" role="img" aria-label="Drawn by hand"/>`,
+    )
+    .join("");
   const css = `.sk { ${tokenDeclarations(input.tokens)} }${EXPORT_CSS}${input.screens?.css ?? ""}${input.extraCss ?? ""}`;
   return [
     `<svg ${input.standalone ? 'xmlns="http://www.w3.org/2000/svg" ' : ""}class="sk armada-sketch-export" viewBox="${frame.x} ${frame.y} ${frame.w} ${frame.h}" width="${frame.w}" height="${frame.h}" role="group" aria-label="${xml(input.title)}">`,

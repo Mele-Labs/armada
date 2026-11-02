@@ -6,16 +6,23 @@ import type { SettingsApi } from "./api";
 
 export { MOCK_SETTINGS, savedInto } from "./fake-settings";
 
-const OK: Outcome = { ok: true };
+const OK: Outcome = {
+  ok: true,
+};
 
 export const settingsApi = (): SettingsApi => ({
   savePreference: async () => OK,
   saveSettings: async () => OK,
   askModels: async () => undefined,
-  openSettingsFile: async () => ({ ok: true }),
+  openSettingsFile: async () => ({
+    ok: true,
+  }),
   validateMod: async () => null,
   setModEnabled: async () => OK,
   promoteMod: async () => OK,
   tryTrackerMod: async () => OK,
-  phone: async () => ({ ok: false, why: "unreachable" }),
+  phone: async () => ({
+    ok: false,
+    why: "unreachable",
+  }),
 });

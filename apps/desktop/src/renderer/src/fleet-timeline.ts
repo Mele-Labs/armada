@@ -17,7 +17,12 @@ export const TIMELINE_WINDOW_MS = 2 * 60 * 60_000;
 const KEPT = 2000;
 
 /** What a Job came to: held past `KEPT` and past the window, since the Timeline HUD owes him each one until he closes it. */
-export const OUTCOME_KINDS: ReadonlySet<TimelineEvent["kind"]> = new Set(["pr.merged", "session.ended", "main.red", "main.green"]);
+export const OUTCOME_KINDS: ReadonlySet<TimelineEvent["kind"]> = new Set([
+  "pr.merged",
+  "session.ended",
+  "main.red",
+  "main.green",
+]);
 
 /** What the timeline reads: the entries held, oldest first, kept current while something is subscribed. */
 export type TimelineSource = {
@@ -36,7 +41,11 @@ export type FleetTimelineHost = {
 const NONE: readonly TimelineEvent[] = [];
 
 /** `reach` is how far back, in epoch milliseconds, what a Job came to is still owed: read when a read starts. */
-export function createFleetTimeline(fleet: FleetTimelineHost, now: () => number = Date.now, reach: () => number = () => now() - TIMELINE_WINDOW_MS): TimelineSource {
+export function createFleetTimeline(
+  fleet: FleetTimelineHost,
+  now: () => number = Date.now,
+  reach: () => number = () => now() - TIMELINE_WINDOW_MS,
+): TimelineSource {
   let held: readonly TimelineEvent[] = NONE;
   let wasConnected = false;
   const listeners = new Set<() => void>();
@@ -44,12 +53,25 @@ export function createFleetTimeline(fleet: FleetTimelineHost, now: () => number 
 
   // Every reader redraws on a notice, and a busy Fleet appends dozens a second: they are told no faster than four a second, the first at
   // once and the last always. What `get` returns is current meanwhile.
-  const tell = throttled<void>(() => listeners.forEach((on) => on()), TICK_MS, { now: () => Date.now(), later: (run, ms) => void setTimeout(run, ms) });
+  const tell = throttled<void>(() => listeners.forEach((on) => on()), TICK_MS, {
+    now: () => Date.now(),
+    later: (run, ms) => void setTimeout(run, ms),
+  });
   const merge = (more: readonly TimelineEvent[]): void => {
-    const seen = new Map(held.map((one) => [one.id, one]));
+    const seen = new Map(
+      held.map((one) => [
+        one.id,
+        one,
+      ]),
+    );
     for (const one of more) seen.set(one.id, one);
-    const all = [...seen.values()].sort((a, b) => a.id - b.id);
-    held = [...all.slice(0, -KEPT).filter((one) => OUTCOME_KINDS.has(one.kind)), ...all.slice(-KEPT)];
+    const all = [
+      ...seen.values(),
+    ].sort((a, b) => a.id - b.id);
+    held = [
+      ...all.slice(0, -KEPT).filter((one) => OUTCOME_KINDS.has(one.kind)),
+      ...all.slice(-KEPT),
+    ];
     tell.push();
   };
   // Fleet answers the newest of a window and says it cut the rest, so each page asks for what is older than the last one's oldest.
@@ -58,9 +80,21 @@ export function createFleetTimeline(fleet: FleetTimelineHost, now: () => number 
     const since = new Date(Math.min(every, reach())).toISOString();
     let until: string | undefined;
     for (;;) {
-      const answer = await fleet.getFleetTimeline({ since, limit: KEPT, ...(until === undefined ? {} : { until }) });
+      const answer = await fleet.getFleetTimeline({
+        since,
+        limit: KEPT,
+        ...(until === undefined
+          ? {}
+          : {
+              until,
+            }),
+      });
       if (!answer.ok || stop === null) return;
-      merge(answer.value.events.filter((one) => Date.parse(one.at) >= every || OUTCOME_KINDS.has(one.kind)));
+      merge(
+        answer.value.events.filter(
+          (one) => Date.parse(one.at) >= every || OUTCOME_KINDS.has(one.kind),
+        ),
+      );
       until = answer.value.events[0]?.at;
       if (answer.value.cut !== true || until === undefined) return;
     }
@@ -72,7 +106,11 @@ export function createFleetTimeline(fleet: FleetTimelineHost, now: () => number 
   };
   const start = (): void => {
     const offState = fleet.subscribe(connectedIn);
-    const offAppended = fleet.onTimelineAppended((one) => merge([one]));
+    const offAppended = fleet.onTimelineAppended((one) =>
+      merge([
+        one,
+      ]),
+    );
     // Read at once whether or not Fleet answers: main answers from the picture it kept on disk until it does.
     void fleet.state().then((facts) => {
       if (facts.connection.state !== "connected") void read();

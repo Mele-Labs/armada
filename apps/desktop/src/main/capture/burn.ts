@@ -17,9 +17,19 @@ const token = (name: string): string => tokens.tokens.find((one) => one.name ===
 const px = (name: string): number => Number.parseInt(token(name), 10) || 0;
 
 /** `#RRGGBB` as the bytes a BGRA bitmap holds, opaque. */
-function bgra(hex: string): [number, number, number, number] {
+function bgra(hex: string): [
+  number,
+  number,
+  number,
+  number,
+] {
   const value = Number.parseInt(hex.replace("#", ""), 16);
-  return [value & 0xff, (value >> 8) & 0xff, (value >> 16) & 0xff, 0xff];
+  return [
+    value & 0xff,
+    (value >> 8) & 0xff,
+    (value >> 16) & 0xff,
+    0xff,
+  ];
 }
 
 export const RING_COLOUR = bgra(token("--accent"));
@@ -32,23 +42,118 @@ const TAG_PAD = px("--space-1");
 
 /** 0–9, five columns by seven rows, the top row first; the zero slashed, as a mono face draws it. */
 const DIGITS: readonly (readonly string[])[] = [
-  ["01110", "10001", "10011", "10101", "11001", "10001", "01110"],
-  ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
-  ["01110", "10001", "00001", "00010", "00100", "01000", "11111"],
-  ["11111", "00010", "00100", "00010", "00001", "10001", "01110"],
-  ["00010", "00110", "01010", "10010", "11111", "00010", "00010"],
-  ["11111", "10000", "11110", "00001", "00001", "10001", "01110"],
-  ["00110", "01000", "10000", "11110", "10001", "10001", "01110"],
-  ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
-  ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
-  ["01110", "10001", "10001", "01111", "00001", "00010", "01100"],
+  [
+    "01110",
+    "10001",
+    "10011",
+    "10101",
+    "11001",
+    "10001",
+    "01110",
+  ],
+  [
+    "00100",
+    "01100",
+    "00100",
+    "00100",
+    "00100",
+    "00100",
+    "01110",
+  ],
+  [
+    "01110",
+    "10001",
+    "00001",
+    "00010",
+    "00100",
+    "01000",
+    "11111",
+  ],
+  [
+    "11111",
+    "00010",
+    "00100",
+    "00010",
+    "00001",
+    "10001",
+    "01110",
+  ],
+  [
+    "00010",
+    "00110",
+    "01010",
+    "10010",
+    "11111",
+    "00010",
+    "00010",
+  ],
+  [
+    "11111",
+    "10000",
+    "11110",
+    "00001",
+    "00001",
+    "10001",
+    "01110",
+  ],
+  [
+    "00110",
+    "01000",
+    "10000",
+    "11110",
+    "10001",
+    "10001",
+    "01110",
+  ],
+  [
+    "11111",
+    "00001",
+    "00010",
+    "00100",
+    "01000",
+    "01000",
+    "01000",
+  ],
+  [
+    "01110",
+    "10001",
+    "10001",
+    "01110",
+    "10001",
+    "10001",
+    "01110",
+  ],
+  [
+    "01110",
+    "10001",
+    "10001",
+    "01111",
+    "00001",
+    "00010",
+    "01100",
+  ],
 ];
 const GLYPH_WIDTH = 5;
 const GLYPH_HEIGHT = 7;
 
-type Rect = { x0: number; y0: number; x1: number; y1: number };
-type Corners = { tl: boolean; tr: boolean; bl: boolean; br: boolean };
-const ALL: Corners = { tl: true, tr: true, bl: true, br: true };
+type Rect = {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+};
+type Corners = {
+  tl: boolean;
+  tr: boolean;
+  bl: boolean;
+  br: boolean;
+};
+const ALL: Corners = {
+  tl: true,
+  tr: true,
+  bl: true,
+  br: true,
+};
 
 /** Whether pixel (x, y)'s centre is inside `rect` with the named corners rounded to `radius`. */
 function inside(x: number, y: number, rect: Rect, radius: number, corners: Corners): boolean {
@@ -60,7 +165,11 @@ function inside(x: number, y: number, rect: Rect, radius: number, corners: Corne
   const right = cx > rect.x1 - radius;
   const top = cy < rect.y0 + radius;
   const bottom = cy > rect.y1 - radius;
-  const corner = (top && left && corners.tl) || (top && right && corners.tr) || (bottom && left && corners.bl) || (bottom && right && corners.br);
+  const corner =
+    (top && left && corners.tl) ||
+    (top && right && corners.tr) ||
+    (bottom && left && corners.bl) ||
+    (bottom && right && corners.br);
   if (!corner) return true;
   const dx = cx - (left ? rect.x0 + radius : rect.x1 - radius);
   const dy = cy - (top ? rect.y0 + radius : rect.y1 - radius);
@@ -71,7 +180,13 @@ function inside(x: number, y: number, rect: Rect, radius: number, corners: Corne
  * Draw `ring` and `number` into a BGRA bitmap `width` by `height`, in place. **Held to the picture**: a box at its edge, or
  * the whole window, is ringed along the edge, and the tag moves in rather than leave it.
  */
-export function drawRing(pixels: Uint8Array, width: number, height: number, ring: Ring, number: number): void {
+export function drawRing(
+  pixels: Uint8Array,
+  width: number,
+  height: number,
+  ring: Ring,
+  number: number,
+): void {
   const scale = ring.scale > 0 ? ring.scale : 1;
   const put = (x: number, y: number, colour: readonly number[]): void => {
     const at = (y * width + x) * 4;
@@ -90,15 +205,31 @@ export function drawRing(pixels: Uint8Array, width: number, height: number, ring
     y1: Math.min(height, ring.y + ring.height + outset),
   };
   if (outer.x1 <= outer.x0 || outer.y1 <= outer.y0) return;
-  const inner: Rect = { x0: outer.x0 + stroke, y0: outer.y0 + stroke, x1: outer.x1 - stroke, y1: outer.y1 - stroke };
+  const inner: Rect = {
+    x0: outer.x0 + stroke,
+    y0: outer.y0 + stroke,
+    x1: outer.x1 - stroke,
+    y1: outer.y1 - stroke,
+  };
   const innerRadius = Math.max(0, radius - stroke);
   for (let y = outer.y0; y < outer.y1; y += 1) {
     // Rows clear of the corners cross the stroke only at its two sides.
     const straight = y >= outer.y0 + radius + stroke && y < outer.y1 - radius - stroke;
-    const columns = straight ? [outer.x0, outer.x0 + stroke, outer.x1 - stroke, outer.x1] : [outer.x0, outer.x1];
+    const columns = straight
+      ? [
+          outer.x0,
+          outer.x0 + stroke,
+          outer.x1 - stroke,
+          outer.x1,
+        ]
+      : [
+          outer.x0,
+          outer.x1,
+        ];
     for (let pair = 0; pair < columns.length; pair += 2) {
       for (let x = columns[pair]!; x < columns[pair + 1]!; x += 1) {
-        if (inside(x, y, outer, radius, ALL) && !inside(x, y, inner, innerRadius, ALL)) put(x, y, RING_COLOUR);
+        if (inside(x, y, outer, radius, ALL) && !inside(x, y, inner, innerRadius, ALL))
+          put(x, y, RING_COLOUR);
       }
     }
   }
@@ -112,11 +243,25 @@ export function drawRing(pixels: Uint8Array, width: number, height: number, ring
   const tagHeight = Math.max(Math.round(TAG_HEIGHT * scale), GLYPH_HEIGHT * unit + 2 * unit);
   const tx = Math.max(0, Math.min(outer.x0, width - tagWidth));
   const ty = Math.max(0, Math.min(outer.y0, height - tagHeight));
-  const tag: Rect = { x0: tx, y0: ty, x1: Math.min(width, tx + tagWidth), y1: Math.min(height, ty + tagHeight) };
-  const pill: Corners = { tl: true, tr: false, bl: false, br: true };
-  for (let y = tag.y0; y < tag.y1; y += 1) for (let x = tag.x0; x < tag.x1; x += 1) if (inside(x, y, tag, radius, pill)) put(x, y, RING_COLOUR);
+  const tag: Rect = {
+    x0: tx,
+    y0: ty,
+    x1: Math.min(width, tx + tagWidth),
+    y1: Math.min(height, ty + tagHeight),
+  };
+  const pill: Corners = {
+    tl: true,
+    tr: false,
+    bl: false,
+    br: true,
+  };
+  for (let y = tag.y0; y < tag.y1; y += 1)
+    for (let x = tag.x0; x < tag.x1; x += 1)
+      if (inside(x, y, tag, radius, pill)) put(x, y, RING_COLOUR);
   const gy = ty + Math.floor((tagHeight - GLYPH_HEIGHT * unit) / 2);
-  for (const [index, digit] of [...digits].entries()) {
+  for (const [index, digit] of [
+    ...digits,
+  ].entries()) {
     const rows = DIGITS[Number(digit)]!;
     const gx = tx + pad + index * (GLYPH_WIDTH + 1) * unit;
     for (let row = 0; row < GLYPH_HEIGHT; row += 1) {
@@ -144,5 +289,10 @@ export function burnRing(png: Uint8Array, ring: Ring, number: number): Buffer {
   const bitmap = image.toBitmap();
   if (image.isEmpty() || bitmap.length !== width * height * 4) return Buffer.from(png);
   drawRing(bitmap, width, height, ring, number);
-  return nativeImage.createFromBitmap(bitmap, { width, height }).toPNG();
+  return nativeImage
+    .createFromBitmap(bitmap, {
+      width,
+      height,
+    })
+    .toPNG();
 }

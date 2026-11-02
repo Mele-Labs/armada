@@ -11,9 +11,31 @@ import { s200Sessions } from "./sessions";
 const sketcher: Session = {
   id: SKETCHER,
   title: "Store clock sketches",
-  turn: { state: "idle" },
-  work: { workflow: { name: "Feature", steps: ["Plan the change", "Implement", "Review the change"], at: 1 } },
-  rows: [{ id: "k1", at: "14:44:10", kind: "message", from: { kind: "agent" }, text: "The clock reads are all in one place now." }],
+  turn: {
+    state: "idle",
+  },
+  work: {
+    workflow: {
+      name: "Feature",
+      steps: [
+        "Plan the change",
+        "Implement",
+        "Review the change",
+      ],
+      at: 1,
+    },
+  },
+  rows: [
+    {
+      id: "k1",
+      at: "14:44:10",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "The clock reads are all in one place now.",
+    },
+  ],
   attachments: [],
 };
 
@@ -21,5 +43,10 @@ export const s243AgentSketch: Scenario = {
   ...s200Sessions,
   name: "agent-sketch",
   says: "A Session whose agent draws a sketch, replaces it, and draws a change to it",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [sketcher]) },
+  draft: {
+    sessions: (board) =>
+      s200Sessions.draft!.sessions!(board, [
+        sketcher,
+      ]),
+  },
 };

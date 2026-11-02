@@ -38,7 +38,12 @@ const CURRENT: DriftPanelRow[] = [
     where: "commands.storybook_dev.ready",
     run: "curl -sf http://localhost:41207",
     verdict: "current",
-    unfollowed: [{ word: "curl", why: "a program on this machine, not a path in the repository" }],
+    unfollowed: [
+      {
+        word: "curl",
+        why: "a program on this machine, not a path in the repository",
+      },
+    ],
   },
 ];
 
@@ -47,7 +52,9 @@ const GONE: DriftPanelRow = {
   where: "checks.bridge_test.run",
   run: "pnpm run bridge-test",
   verdict: "gone",
-  missing: ["package.json: scripts.bridge-test"],
+  missing: [
+    "package.json: scripts.bridge-test",
+  ],
 };
 
 /**
@@ -57,14 +64,23 @@ const GONE: DriftPanelRow = {
  */
 export const ALineThatIsGone: Story = {
   name: "A line that is gone",
-  args: { rows: [CURRENT[0]!, GONE, CURRENT[1]!, CURRENT[2]!] },
+  args: {
+    rows: [
+      CURRENT[0]!,
+      GONE,
+      CURRENT[1]!,
+      CURRENT[2]!,
+    ],
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("gone")).toBeVisible();
     await expect(canvas.getByText("package.json: scripts.bridge-test")).toBeVisible();
     await expect(canvas.getByText(/1 of 4 lines names something/)).toBeVisible();
     // Reports, never fixes: the fold is the one button in the panel.
     const pressable = canvas.getAllByRole("button").map((button) => button.textContent);
-    await expect(pressable).toEqual(["Show the 3 lines still current"]);
+    await expect(pressable).toEqual([
+      "Show the 3 lines still current",
+    ]);
     await expect(canvas.queryByText("pnpm typecheck")).toBeNull();
   },
 };
@@ -72,11 +88,19 @@ export const ALineThatIsGone: Story = {
 /** Every line still names something the checkout has — and the panel says what that does not cover. */
 export const EveryLineCurrent: Story = {
   name: "Every line current",
-  args: { rows: CURRENT },
+  args: {
+    rows: CURRENT,
+  },
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.getByText(/None of the 3 lines names/)).toBeVisible();
-    await expect(canvas.getByText(/says nothing about policy, permissions or budgets/)).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "Show the 3 lines still current" }));
+    await expect(
+      canvas.getByText(/says nothing about policy, permissions or budgets/),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Show the 3 lines still current",
+      }),
+    );
     await expect(canvas.getAllByText("current")).toHaveLength(3);
     await expect(canvas.getByText("curl")).toBeVisible();
   },
@@ -86,7 +110,11 @@ export const EveryLineCurrent: Story = {
 export const Reading: Story = {
   args: {},
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("region", { name: "Drift" })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("region", {
+        name: "Drift",
+      }),
+    ).toBeInTheDocument();
     await expect(canvas.queryByText(/Reading/)).toBeNull();
   },
 };

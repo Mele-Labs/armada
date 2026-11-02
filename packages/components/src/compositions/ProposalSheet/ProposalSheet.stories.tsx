@@ -10,27 +10,70 @@ import { ProposalSheet, type ProposalSheetProps } from "./ProposalSheet";
 const meta: Meta<typeof ProposalSheet> = {
   title: "Compositions/Proposal sheet",
   component: ProposalSheet,
-  parameters: { layout: "fullscreen" },
+  parameters: {
+    layout: "fullscreen",
+  },
 };
 export default meta;
 
 type Story = StoryObj<typeof ProposalSheet>;
 
-const CAPS = "Jobs here stop at $5.00 or 200 turns. Change these on the Manifest page, where past Jobs' costs are.";
+const CAPS =
+  "Jobs here stop at $5.00 or 200 turns. Change these on the Manifest page, where past Jobs' costs are.";
 
 const BASE: ProposalSheetProps = {
   open: true,
   dir: "apps/web",
   file: "apps/web/armada.yml",
-  id: { value: "web", cited: { source: "convention", file: "apps/web/package.json", at: "name" } },
+  id: {
+    value: "web",
+    cited: {
+      source: "convention",
+      file: "apps/web/package.json",
+      at: "name",
+    },
+  },
   ports: [],
   checks: [
-    { name: "test", run: "pnpm vitest run", cited: { source: "convention", file: "apps/web/package.json", at: "scripts.test" } },
-    { name: "lint", run: "pnpm eslint .", cited: { source: "convention", file: "apps/web/package.json", at: "scripts.lint" } },
+    {
+      name: "test",
+      run: "pnpm vitest run",
+      cited: {
+        source: "convention",
+        file: "apps/web/package.json",
+        at: "scripts.test",
+      },
+    },
+    {
+      name: "lint",
+      run: "pnpm eslint .",
+      cited: {
+        source: "convention",
+        file: "apps/web/package.json",
+        at: "scripts.lint",
+      },
+    },
   ],
   commands: [
-    { name: "dev", run: "pnpm vite", cited: { source: "convention", file: "apps/web/package.json", at: "scripts.dev" } },
-    { name: "reset", run: "pnpm db:reset", destructive: true, cited: { source: "convention", file: "apps/web/package.json", at: "scripts.db:reset" } },
+    {
+      name: "dev",
+      run: "pnpm vite",
+      cited: {
+        source: "convention",
+        file: "apps/web/package.json",
+        at: "scripts.dev",
+      },
+    },
+    {
+      name: "reset",
+      run: "pnpm db:reset",
+      destructive: true,
+      cited: {
+        source: "convention",
+        file: "apps/web/package.json",
+        at: "scripts.db:reset",
+      },
+    },
   ],
   policy: [
     {
@@ -38,10 +81,20 @@ const BASE: ProposalSheetProps = {
       label: "Auto merge",
       value: "never",
       options: [
-        { value: "never", reads: "A person merges", says: "A person merges every pull request here." },
-        { value: "checks-pass", reads: "Fleet merges once the forge's checks pass", says: "Fleet merges once every check the forge runs has passed." },
+        {
+          value: "never",
+          reads: "A person merges",
+          says: "A person merges every pull request here.",
+        },
+        {
+          value: "checks-pass",
+          reads: "Fleet merges once the forge's checks pass",
+          says: "Fleet merges once every check the forge runs has passed.",
+        },
       ],
-      cited: { source: "default" },
+      cited: {
+        source: "default",
+      },
     },
   ],
   caps: CAPS,
@@ -63,20 +116,40 @@ export const Proposed: Story = {
   args: BASE,
   play: async ({ args, canvasElement, userEvent }) => {
     const sheet = within(canvasElement);
-    const checks = sheet.getByRole("list", { name: "Checks" });
-    const lint = within(checks).getByRole("listitem", { name: "lint" });
+    const checks = sheet.getByRole("list", {
+      name: "Checks",
+    });
+    const lint = within(checks).getByRole("listitem", {
+      name: "lint",
+    });
     await expect(within(lint).getByText("convention")).toBeVisible();
 
-    await userEvent.click(within(lint).getByRole("button", { name: "Edit lint command" }));
+    await userEvent.click(
+      within(lint).getByRole("button", {
+        name: "Edit lint command",
+      }),
+    );
     const field = within(lint).getByLabelText("lint command");
     await userEvent.clear(field);
     await userEvent.type(field, "pnpm eslint . --max-warnings 0{Enter}");
-    await expect(args.onEditRun).toHaveBeenCalledWith("checks", "lint", "pnpm eslint . --max-warnings 0");
+    await expect(args.onEditRun).toHaveBeenCalledWith(
+      "checks",
+      "lint",
+      "pnpm eslint . --max-warnings 0",
+    );
 
-    await userEvent.click(within(lint).getByRole("button", { name: "Move to Commands" }));
+    await userEvent.click(
+      within(lint).getByRole("button", {
+        name: "Move to Commands",
+      }),
+    );
     await expect(args.onMove).toHaveBeenCalledWith("checks", "lint");
     await expect(sheet.getByText(/No file here declares one/)).toBeVisible();
-    await expect(sheet.queryByRole("button", { name: /Helm/ })).toBeNull();
+    await expect(
+      sheet.queryByRole("button", {
+        name: /Helm/,
+      }),
+    ).toBeNull();
   },
 };
 
@@ -86,23 +159,79 @@ export const RunsFirstAndDestructive: Story = {
   args: BASE,
   play: async ({ args, canvasElement, userEvent }) => {
     const sheet = within(canvasElement);
-    const test = within(sheet.getByRole("list", { name: "Checks" })).getByRole("listitem", { name: "test" });
-    await userEvent.click(within(test).getByRole("button", { name: "Add runs first: test" }));
-    const first = within(test).getByRole("dialog", { name: "test runs first" });
+    const test = within(
+      sheet.getByRole("list", {
+        name: "Checks",
+      }),
+    ).getByRole("listitem", {
+      name: "test",
+    });
+    await userEvent.click(
+      within(test).getByRole("button", {
+        name: "Add runs first: test",
+      }),
+    );
+    const first = within(test).getByRole("dialog", {
+      name: "test runs first",
+    });
     // A destructive Command is shown and not offered: the file would not load.
-    await expect(within(first).getByRole("checkbox", { name: "reset" })).toBeDisabled();
-    await userEvent.click(within(first).getByRole("checkbox", { name: "dev" }));
-    await expect(args.onRequires).toHaveBeenCalledWith("test", ["dev"]);
-    await userEvent.click(within(test).getByRole("button", { name: "Add runs first: test" }));
+    await expect(
+      within(first).getByRole("checkbox", {
+        name: "reset",
+      }),
+    ).toBeDisabled();
+    await userEvent.click(
+      within(first).getByRole("checkbox", {
+        name: "dev",
+      }),
+    );
+    await expect(args.onRequires).toHaveBeenCalledWith("test", [
+      "dev",
+    ]);
+    await userEvent.click(
+      within(test).getByRole("button", {
+        name: "Add runs first: test",
+      }),
+    );
 
-    const reset = within(sheet.getByRole("list", { name: "Commands" })).getByRole("listitem", { name: "reset" });
-    await userEvent.click(within(reset).getByRole("button", { name: "Edit reset destructive" }));
-    await userEvent.click(within(reset).getByRole("switch", { name: /Destructive/ }));
+    const reset = within(
+      sheet.getByRole("list", {
+        name: "Commands",
+      }),
+    ).getByRole("listitem", {
+      name: "reset",
+    });
+    await userEvent.click(
+      within(reset).getByRole("button", {
+        name: "Edit reset destructive",
+      }),
+    );
+    await userEvent.click(
+      within(reset).getByRole("switch", {
+        name: /Destructive/,
+      }),
+    );
     await expect(args.onDestructive).toHaveBeenCalledWith("reset", false);
-    await userEvent.click(within(reset).getByRole("button", { name: "Edit reset destructive" }));
-    await expect(sheet.queryByRole("dialog", { name: /runs first|destructive/ })).toBeNull();
+    await userEvent.click(
+      within(reset).getByRole("button", {
+        name: "Edit reset destructive",
+      }),
+    );
+    await expect(
+      sheet.queryByRole("dialog", {
+        name: /runs first|destructive/,
+      }),
+    ).toBeNull();
 
-    await expect(within(sheet.getByRole("region", { name: "Policy" })).getByRole("radio", { name: "A person merges never" })).toBeChecked();
+    await expect(
+      within(
+        sheet.getByRole("region", {
+          name: "Policy",
+        }),
+      ).getByRole("radio", {
+        name: "A person merges never",
+      }),
+    ).toBeChecked();
   },
 };
 
@@ -112,27 +241,84 @@ export const RunsFirstAndDestructive: Story = {
  */
 export const DefaultsAndSetValues: Story = {
   name: "Defaults, and set values",
-  args: { ...BASE, checks: [{ ...BASE.checks[0]!, requires: ["dev"] }, BASE.checks[1]!] },
+  args: {
+    ...BASE,
+    checks: [
+      {
+        ...BASE.checks[0]!,
+        requires: [
+          "dev",
+        ],
+      },
+      BASE.checks[1]!,
+    ],
+  },
   play: async ({ args, canvasElement, userEvent }) => {
     const sheet = within(canvasElement);
-    const checks = within(sheet.getByRole("list", { name: "Checks" }));
-    const commands = within(sheet.getByRole("list", { name: "Commands" }));
-    await expect(within(checks.getByRole("listitem", { name: "test" })).getByRole("button", { name: "Edit test runs first" })).toHaveTextContent("dev →");
-    await expect(within(commands.getByRole("listitem", { name: "reset" })).getByRole("button", { name: "Edit reset destructive" })).toHaveTextContent("destructive");
+    const checks = within(
+      sheet.getByRole("list", {
+        name: "Checks",
+      }),
+    );
+    const commands = within(
+      sheet.getByRole("list", {
+        name: "Commands",
+      }),
+    );
+    await expect(
+      within(
+        checks.getByRole("listitem", {
+          name: "test",
+        }),
+      ).getByRole("button", {
+        name: "Edit test runs first",
+      }),
+    ).toHaveTextContent("dev →");
+    await expect(
+      within(
+        commands.getByRole("listitem", {
+          name: "reset",
+        }),
+      ).getByRole("button", {
+        name: "Edit reset destructive",
+      }),
+    ).toHaveTextContent("destructive");
     await expect(sheet.queryByText(/runs nothing first|not destructive/)).toBeNull();
 
-    const lint = within(checks.getByRole("listitem", { name: "lint" }));
-    const offer = lint.getByRole("button", { name: "Add runs first: lint" });
+    const lint = within(
+      checks.getByRole("listitem", {
+        name: "lint",
+      }),
+    );
+    const offer = lint.getByRole("button", {
+      name: "Add runs first: lint",
+    });
     await waitFor(() => expect(getComputedStyle(offer).opacity).toBe("0"));
-    lint.getByRole("button", { name: "Edit lint command" }).focus();
+    lint
+      .getByRole("button", {
+        name: "Edit lint command",
+      })
+      .focus();
     await userEvent.tab();
     await expect(offer).toHaveFocus();
     await waitFor(() => expect(getComputedStyle(offer).opacity).toBe("1"));
 
-    const dev = within(commands.getByRole("listitem", { name: "dev" }));
+    const dev = within(
+      commands.getByRole("listitem", {
+        name: "dev",
+      }),
+    );
     // `test` runs `dev` first, so the offer opens on the reason it cannot be switched on.
-    await userEvent.click(dev.getByRole("button", { name: "Mark destructive: dev" }));
-    await expect(dev.getByRole("switch", { name: /Destructive/ })).toBeDisabled();
+    await userEvent.click(
+      dev.getByRole("button", {
+        name: "Mark destructive: dev",
+      }),
+    );
+    await expect(
+      dev.getByRole("switch", {
+        name: /Destructive/,
+      }),
+    ).toBeDisabled();
     await expect(dev.getByText("test runs it first, so it cannot be destructive.")).toBeVisible();
     await expect(args.onDestructive).not.toHaveBeenCalled();
     await userEvent.keyboard("{Escape}");
@@ -145,12 +331,24 @@ export const Edited: Story = {
   args: {
     ...BASE,
     checks: [
-      { ...BASE.checks[0]!, run: "pnpm vitest run --coverage", cited: { source: "edited_during_setup" } },
+      {
+        ...BASE.checks[0]!,
+        run: "pnpm vitest run --coverage",
+        cited: {
+          source: "edited_during_setup",
+        },
+      },
       BASE.checks[1]!,
     ],
   },
   play: async ({ canvasElement }) => {
-    const test = within(within(canvasElement).getByRole("list", { name: "Checks" })).getByRole("listitem", { name: "test" });
+    const test = within(
+      within(canvasElement).getByRole("list", {
+        name: "Checks",
+      }),
+    ).getByRole("listitem", {
+      name: "test",
+    });
     await expect(within(test).getByText("edited during setup")).toBeVisible();
     await expect(within(test).queryByText(/package\.json/)).toBeNull();
   },
@@ -160,23 +358,46 @@ export const Edited: Story = {
 export const Refused: Story = {
   args: {
     ...BASE,
-    checks: [{ ...BASE.checks[0]!, requires: ["seed"] }],
+    checks: [
+      {
+        ...BASE.checks[0]!,
+        requires: [
+          "seed",
+        ],
+      },
+    ],
     refused: {
       saying: "apps/web/armada.yml would not load.",
-      faults: [{ key: "checks.test.requires", fault: "names `seed`, which no Command declares." }],
+      faults: [
+        {
+          key: "checks.test.requires",
+          fault: "names `seed`, which no Command declares.",
+        },
+      ],
     },
   },
   play: async ({ canvasElement }) => {
     const sheet = within(canvasElement);
     await expect(sheet.getByText("Not written")).toBeVisible();
-    const test = within(sheet.getByRole("list", { name: "Checks" })).getByRole("listitem", { name: "test" });
+    const test = within(
+      sheet.getByRole("list", {
+        name: "Checks",
+      }),
+    ).getByRole("listitem", {
+      name: "test",
+    });
     await expect(within(test).getByText("names `seed`, which no Command declares.")).toBeVisible();
   },
 };
 
 /** A file was already at the path. Nothing was written over it, and what is there is shown. */
 export const AlreadyThere: Story = {
-  args: { ...BASE, appeared: { onDisk: "version: 1\nid: web\n" } },
+  args: {
+    ...BASE,
+    appeared: {
+      onDisk: "version: 1\nid: web\n",
+    },
+  },
   play: async ({ canvasElement }) => {
     const sheet = within(canvasElement);
     await expect(sheet.getByText("Nothing was written over it. It reads:")).toBeVisible();
@@ -187,12 +408,28 @@ export const AlreadyThere: Story = {
 /** Already set up: no Write and no edit, and the Edit tab offered where the file is reachable. */
 export const AlreadySetUp: Story = {
   name: "Already set up",
-  args: { ...BASE, setUp: true, onEditManifest: fn() },
+  args: {
+    ...BASE,
+    setUp: true,
+    onEditManifest: fn(),
+  },
   play: async ({ args, canvasElement, userEvent }) => {
     const sheet = within(canvasElement);
-    await expect(sheet.queryByRole("button", { name: /^Write / })).toBeNull();
-    await expect(sheet.queryByRole("button", { name: /^Edit / })).toBeNull();
-    await userEvent.click(sheet.getByRole("button", { name: "Open the Edit tab" }));
+    await expect(
+      sheet.queryByRole("button", {
+        name: /^Write /,
+      }),
+    ).toBeNull();
+    await expect(
+      sheet.queryByRole("button", {
+        name: /^Edit /,
+      }),
+    ).toBeNull();
+    await userEvent.click(
+      sheet.getByRole("button", {
+        name: "Open the Edit tab",
+      }),
+    );
     await expect(args.onEditManifest).toHaveBeenCalledTimes(1);
   },
 };
@@ -206,10 +443,26 @@ export const Written: Story = {
   },
   play: async ({ canvasElement }) => {
     const sheet = within(canvasElement);
-    await expect(sheet.getByRole("region", { name: "Verify" })).toBeVisible();
-    await expect(sheet.getByRole("button", { name: "Written" })).toBeDisabled();
+    await expect(
+      sheet.getByRole("region", {
+        name: "Verify",
+      }),
+    ).toBeVisible();
+    await expect(
+      sheet.getByRole("button", {
+        name: "Written",
+      }),
+    ).toBeDisabled();
     await expect(sheet.getByText(/^Wrote apps\/web\/armada.yml/)).toBeVisible();
-    await expect(sheet.queryByRole("button", { name: /^Edit / })).toBeNull();
-    await expect(sheet.queryByRole("button", { name: "Remove" })).toBeNull();
+    await expect(
+      sheet.queryByRole("button", {
+        name: /^Edit /,
+      }),
+    ).toBeNull();
+    await expect(
+      sheet.queryByRole("button", {
+        name: "Remove",
+      }),
+    ).toBeNull();
   },
 };

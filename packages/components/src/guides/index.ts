@@ -19,14 +19,7 @@ import { GUIDE_WORKFLOW } from "./019-what-is-a-workflow";
 import { GUIDE_MERGE_LINE } from "./022-what-is-the-merge-line";
 
 export * from "./guide";
-export {
-  GUIDE_JOB,
-  GUIDE_BEFORE_A_RUN,
-  GUIDE_PLAN,
-  GUIDE_DRONE,
-  GUIDE_WORKFLOW,
-  GUIDE_MERGE_LINE,
-};
+export { GUIDE_JOB, GUIDE_BEFORE_A_RUN, GUIDE_PLAN, GUIDE_DRONE, GUIDE_WORKFLOW, GUIDE_MERGE_LINE };
 
 /**
  * The numbers no guide may take. **A retired guide keeps its number.**
@@ -47,7 +40,24 @@ export {
  * plan board, the run sheet and the Pulse, which went with the Jobs deletion of
  * October 2026 and left no screen that draws them.
  */
-export const RETIRED_GUIDE_NUMBERS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 20, 21];
+export const RETIRED_GUIDE_NUMBERS: readonly number[] = [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  20,
+  21,
+];
 
 export const GUIDES: readonly Guide[] = [
   GUIDE_JOB,

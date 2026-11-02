@@ -93,13 +93,17 @@
 
 /* The bar's menus and icon buttons carry no ground or edge of their own, so they sit on the box's. The ground the
    ghost button takes on hover is all that marks one, and focus keeps its ring. */
-.armada-session-composer .armada-session-composer__bar :is(.armada-select, .armada-button:not([type="submit"])) {
+.armada-session-composer
+  .armada-session-composer__bar
+  :is(.armada-select, .armada-button:not([type="submit"])) {
   border-color: transparent;
   background: transparent;
   color: var(--fg-muted);
 }
 
-.armada-session-composer .armada-session-composer__bar :is(.armada-select, .armada-button:not([type="submit"])):hover:not(:disabled),
+.armada-session-composer
+  .armada-session-composer__bar
+  :is(.armada-select, .armada-button:not([type="submit"])):hover:not(:disabled),
 .armada-session-composer .armada-session-composer__bar .armada-select:focus-visible {
   background: var(--bg-hover);
   color: var(--fg-default);
@@ -182,12 +186,20 @@
 
 /* In a thread too narrow for three menus beside the buttons, the menus give up their floor before Send does. The box measures
    itself, so a thread beside the browser answers to its own width and not the window's. */
-.armada-session-composer { container-type: inline-size; }
+.armada-session-composer {
+  container-type: inline-size;
+}
 @container (max-width: 400px) {
-  .armada-session-composer__bar { gap: var(--space-1); }
-  .armada-session-composer__pick { min-width: 0; }
+  .armada-session-composer__bar {
+    gap: var(--space-1);
+  }
+  .armada-session-composer__pick {
+    min-width: 0;
+  }
   /* Just the caret's own room on the right, which is what a menu keeps when it has no words to spare. */
-  .armada-session-composer__bar .armada-select { padding-inline: var(--space-1) var(--space-6); }
+  .armada-session-composer__bar .armada-select {
+    padding-inline: var(--space-1) var(--space-6);
+  }
 }
 
 .armada-session-composer__bar .armada-select-field {
@@ -350,7 +362,13 @@ a.armada-inline-tag--link > svg {
 }
 
 /* A value the proposer picked, until the person changes it. */
-.armada-session-composer__proposed { display: inline-flex; flex: none; align-self: center; margin-left: var(--space-1); color: var(--accent); }
+.armada-session-composer__proposed {
+  display: inline-flex;
+  flex: none;
+  align-self: center;
+  margin-left: var(--space-1);
+  color: var(--accent);
+}
 
 /* The quick bar is the box's top row, inside its border, so a band over the box frames both. */
 .armada-session-composer > .armada-quick {
@@ -382,6 +400,114 @@ a.armada-inline-tag--link > svg {
   .armada-session-composer__talk[data-listening] > svg {
     animation: none;
   }
+}
+
+/* The Talk button's own box, so its guide can hang from it. */
+.armada-session-composer__talkwrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Why Talk could not hear: a card over the button, on the popover's ground. A head names what failed, the steps are numbered rows, and the one act is the foot's. */
+.armada-session-composer__guide {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-2));
+  z-index: var(--z-menu);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: max-content;
+  min-width: var(--sidebar-default);
+  max-width: var(--palette-width);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  border: var(--border-width) solid var(--border-default);
+  box-shadow: var(--shadow-overlay);
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  text-wrap: pretty;
+}
+
+.armada-session-composer__guide-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-session-composer__guide-glyph {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--h-control);
+  height: var(--h-control);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--fg-muted);
+}
+
+.armada-session-composer__guide-title {
+  margin: 0;
+  font-weight: var(--weight-medium);
+}
+
+/* The steps count themselves, in the mono face, on a sunken disc. What to find is bold; the rest is quiet. */
+.armada-session-composer__steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+  color: var(--fg-muted);
+}
+
+.armada-session-composer__steps > li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  counter-increment: step;
+}
+
+.armada-session-composer__steps > li::before {
+  content: counter(step);
+  flex: none;
+  width: var(--space-4);
+  text-align: center;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.armada-session-composer__steps strong {
+  color: var(--fg-default);
+  font-weight: var(--weight-medium);
+}
+
+.armada-session-composer__steps code {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+}
+
+.armada-session-composer__guide-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.armada-session-composer__guide-foot > kbd {
+  margin-inline-start: auto;
 }
 
 /* The context ring, a step off Send. */

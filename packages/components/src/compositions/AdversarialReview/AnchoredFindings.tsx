@@ -15,7 +15,10 @@ import type { Finding } from "./AdversarialReview";
  * opens in place to show the task each names, by its words, with the finding directly under it. The plan card and the view of the plan
  * in full draw the same claim, the same acts and the same keys, so the two offer the same things.
  */
-export type Anchors = { whole: readonly Finding[]; at: (id: string) => readonly Finding[] };
+export type Anchors = {
+  whole: readonly Finding[];
+  at: (id: string) => readonly Finding[];
+};
 
 /** `found` by what they are about. `known` is every group and task id of the plan drawn. */
 export function anchorsOf(found: readonly Finding[], known: readonly string[]): Anchors {
@@ -26,7 +29,10 @@ export function anchorsOf(found: readonly Finding[], known: readonly string[]): 
   };
 }
 
-export type FindingActs = { onSend: (id: string) => void; onDismiss: (id: string) => void };
+export type FindingActs = {
+  onSend: (id: string) => void;
+  onDismiss: (id: string) => void;
+};
 
 /**
  * The keys of findings drawn in several places under one element, as the registry binds them (`finding_move`, `judge_note_send`,
@@ -36,12 +42,19 @@ export type FindingActs = { onSend: (id: string) => void; onDismiss: (id: string
 export function useFindingKeys(findings: readonly Finding[] | undefined, acts: FindingActs) {
   const scope = useRef<HTMLElement | null>(null);
   const after = useRef<string | undefined>(undefined);
-  const live = () => [...(scope.current?.querySelectorAll<HTMLElement>("[data-finding]") ?? [])];
+  const live = () => [
+    ...(scope.current?.querySelectorAll<HTMLElement>("[data-finding]") ?? []),
+  ];
   useEffect(() => {
     const id = after.current;
     after.current = undefined;
-    if (id !== undefined) live().find((one) => one.dataset.finding === id)?.focus();
-  }, [findings]);
+    if (id !== undefined)
+      live()
+        .find((one) => one.dataset.finding === id)
+        ?.focus();
+  }, [
+    findings,
+  ]);
   const act = (id: string, run: (id: string) => void) => {
     const all = live();
     const at = all.findIndex((one) => one.dataset.finding === id);
@@ -70,20 +83,36 @@ export function useFindingKeys(findings: readonly Finding[] | undefined, acts: F
     }
   };
   return {
-    bind: { ref: (el: HTMLElement | null) => void (scope.current = el), onKeyDown },
+    bind: {
+      ref: (el: HTMLElement | null) => void (scope.current = el),
+      onKeyDown,
+    },
     send: (id: string) => act(id, acts.onSend),
     dismiss: (id: string) => act(id, acts.onDismiss),
   };
 }
 
 /** The findings pinned to one thing: each a claim with its acts, or, acted on, one muted line. A hairline down their edge ties them to it. */
-export function FindingNotes({ findings, label, onSend, onDismiss }: { findings: readonly Finding[]; label: string } & FindingActs) {
+export function FindingNotes({
+  findings,
+  label,
+  onSend,
+  onDismiss,
+}: {
+  findings: readonly Finding[];
+  label: string;
+} & FindingActs) {
   if (findings.length === 0) return null;
   return (
     <ul className="armada-adversarial__notes" aria-label={label}>
       {findings.map((one) =>
         one.settled === undefined ? (
-          <FindingRow key={one.id} finding={one} onSend={() => onSend(one.id)} onDismiss={() => onDismiss(one.id)} />
+          <FindingRow
+            key={one.id}
+            finding={one}
+            onSend={() => onSend(one.id)}
+            onDismiss={() => onDismiss(one.id)}
+          />
         ) : (
           <SettledRow key={one.id} finding={one} />
         ),
@@ -92,17 +121,45 @@ export function FindingNotes({ findings, label, onSend, onDismiss }: { findings:
   );
 }
 
-type Grouped = { id: string; title: string; tasks: readonly { id: string; text: string }[] };
+type Grouped = {
+  id: string;
+  title: string;
+  tasks: readonly {
+    id: string;
+    text: string;
+  }[];
+};
 
 /** What a group holds: findings about the group itself, then each task a finding names, in the plan's order, by its words. */
 function held(group: Grouped, anchors: Anchors) {
   const own = anchors.at(group.id);
-  const tasks = group.tasks.map((task) => ({ task, found: anchors.at(task.id) })).filter((one) => one.found.length > 0);
-  return { own, tasks, all: [...own, ...tasks.flatMap((one) => one.found)] };
+  const tasks = group.tasks
+    .map((task) => ({
+      task,
+      found: anchors.at(task.id),
+    }))
+    .filter((one) => one.found.length > 0);
+  return {
+    own,
+    tasks,
+    all: [
+      ...own,
+      ...tasks.flatMap((one) => one.found),
+    ],
+  };
 }
 
 /** The open part of a group: its own findings directly under its line, then the task each names with its findings under it. */
-export function GroupFindings({ group, anchors, id, ...acts }: { group: Grouped; anchors: Anchors; id?: string } & FindingActs) {
+export function GroupFindings({
+  group,
+  anchors,
+  id,
+  ...acts
+}: {
+  group: Grouped;
+  anchors: Anchors;
+  id?: string;
+} & FindingActs) {
   const { own, tasks } = held(group, anchors);
   return (
     <div id={id} className="armada-adversarial__anchored">
@@ -125,7 +182,16 @@ export function GroupFindings({ group, anchors, id, ...acts }: { group: Grouped;
  * has a mark in a fixed column at the line's end, and opens in place under it; the mark shuts it. Once every finding in it is acted on
  * the mark goes and the muted lines stay.
  */
-export function GivesRow({ text, group, anchors, ...acts }: { text: string; group: Grouped; anchors: Anchors } & FindingActs) {
+export function GivesRow({
+  text,
+  group,
+  anchors,
+  ...acts
+}: {
+  text: string;
+  group: Grouped;
+  anchors: Anchors;
+} & FindingActs) {
   const [open, setOpen] = useState(true);
   const region = useId();
   const { all } = held(group, anchors);
@@ -137,13 +203,23 @@ export function GivesRow({ text, group, anchors, ...acts }: { text: string; grou
         <span>{text}</span>
         {live ? (
           <Tooltip label="Notes from the judge">
-            <Button size="sm" variant="ghost" iconOnly aria-label={`Findings on ${text}`} aria-expanded={open} aria-controls={region} onClick={() => setOpen(!open)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              iconOnly
+              aria-label={`Findings on ${text}`}
+              aria-expanded={open}
+              aria-controls={region}
+              onClick={() => setOpen(!open)}
+            >
               <ScanSearch size={16} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>
         ) : null}
       </div>
-      {open || !live ? <GroupFindings id={region} group={group} anchors={anchors} {...acts} /> : null}
+      {open || !live ? (
+        <GroupFindings id={region} group={group} anchors={anchors} {...acts} />
+      ) : null}
     </li>
   );
 }

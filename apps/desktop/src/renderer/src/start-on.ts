@@ -11,6 +11,9 @@ export async function startOn(draft: SessionsDraft, root: string): Promise<void>
   const id = await draft.start(undefined, root);
   if (id !== undefined) {
     askComposerFocus(id);
-    select({ kind: "session", key: `session:${id}` });
+    select({
+      kind: "session",
+      key: `session:${id}`,
+    });
   }
 }

@@ -11,101 +11,342 @@ type Handler = (event: unknown, ...args: unknown[]) => unknown;
 
 function wired() {
   const handlers = new Map<string, Handler>();
-  const answer = vi.fn(async () => ({ ok: true }));
-  const muteNotice = vi.fn(async () => ({ ok: true }));
-  const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
-  const settleLater = vi.fn(async () => ({ ok: true }));
-  const confirmLater = vi.fn(async () => ({ ok: true }));
-  const connection = () => ({ sessions: { answer, muteNotice, settleLater, confirmLater } });
-  handleSessions({ ipc, connection, windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+  const answer = vi.fn(async () => ({
+    ok: true,
+  }));
+  const muteNotice = vi.fn(async () => ({
+    ok: true,
+  }));
+  const ipc = {
+    handle: (channel: string, handler: Handler) => handlers.set(channel, handler),
+  };
+  const settleLater = vi.fn(async () => ({
+    ok: true,
+  }));
+  const confirmLater = vi.fn(async () => ({
+    ok: true,
+  }));
+  const connection = () => ({
+    sessions: {
+      answer,
+      muteNotice,
+      settleLater,
+      confirmLater,
+    },
+  });
+  handleSessions({
+    ipc,
+    connection,
+    windowIdOf: () => undefined,
+    pages: {},
+  } as unknown as Parameters<typeof handleSessions>[0]);
   const send = (body: AnswerSessionAsk) => handlers.get(CHANNELS.answerSessionAsk)?.({}, body);
   const mute = (body: unknown) => handlers.get(CHANNELS.muteNotice)?.({}, body);
   const drop = (body: unknown) => handlers.get(CHANNELS.settleLater)?.({}, body);
   const confirm = (body: unknown) => handlers.get(CHANNELS.confirmLater)?.({}, body);
-  return { send, answer, mute, muteNotice, drop, confirm, settleLater, confirmLater };
+  return {
+    send,
+    answer,
+    mute,
+    muteNotice,
+    drop,
+    confirm,
+    settleLater,
+    confirmLater,
+  };
 }
 
 describe("answering a session's ask", () => {
   it("sends every answer the protocol names, the folder with it", async () => {
     const { send, answer } = wired();
     for (const said of HELM_CALL_ANSWERS) {
-      await send({ session_id: "s", call: "helm-1", answer: said, folder: "/Users/user/Documents" } as AnswerSessionAsk);
+      await send({
+        session_id: "s",
+        call: "helm-1",
+        answer: said,
+        folder: "/Users/user/Documents",
+      } as AnswerSessionAsk);
     }
     expect(answer).toHaveBeenCalledTimes(HELM_CALL_ANSWERS.length);
-    expect(answer).toHaveBeenLastCalledWith(expect.objectContaining({ answer: "always_block", folder: "/Users/user/Documents" }));
+    expect(answer).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        answer: "always_block",
+        folder: "/Users/user/Documents",
+      }),
+    );
   });
 
   it("sends the kind a like-this answer chose, and refuses a malformed one, sending nothing", async () => {
     const { send, answer } = wired();
-    const like = { session_id: "s", call: "helm-1", answer: "allow_like_this_for_session" } as const;
-    await send({ ...like, kind: { program: "node", script: "drive.mjs" } });
-    expect(answer).toHaveBeenLastCalledWith({ ...like, kind: { program: "node", script: "drive.mjs" } });
-    await send({ ...like, kind: { program: "node" }, folder: "/Users/user/Desktop" });
-    expect(answer).toHaveBeenLastCalledWith({ ...like, kind: { program: "node" }, folder: "/Users/user/Desktop" });
+    const like = {
+      session_id: "s",
+      call: "helm-1",
+      answer: "allow_like_this_for_session",
+    } as const;
+    await send({
+      ...like,
+      kind: {
+        program: "node",
+        script: "drive.mjs",
+      },
+    });
+    expect(answer).toHaveBeenLastCalledWith({
+      ...like,
+      kind: {
+        program: "node",
+        script: "drive.mjs",
+      },
+    });
+    await send({
+      ...like,
+      kind: {
+        program: "node",
+      },
+      folder: "/Users/user/Desktop",
+    });
+    expect(answer).toHaveBeenLastCalledWith({
+      ...like,
+      kind: {
+        program: "node",
+      },
+      folder: "/Users/user/Desktop",
+    });
     answer.mockClear();
-    for (const kind of ["node", null, { script: "drive.mjs" }, { program: 3 }, { program: "node", script: 5 }]) {
-      const said = await send({ ...like, kind } as unknown as AnswerSessionAsk);
-      expect(said).toEqual({ ok: false, outcome: { ok: false, why: "not_understood" } });
+    for (const kind of [
+      "node",
+      null,
+      {
+        script: "drive.mjs",
+      },
+      {
+        program: 3,
+      },
+      {
+        program: "node",
+        script: 5,
+      },
+    ]) {
+      const said = await send({
+        ...like,
+        kind,
+      } as unknown as AnswerSessionAsk);
+      expect(said).toEqual({
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_understood",
+        },
+      });
     }
     expect(answer).not.toHaveBeenCalled();
   });
 
   it("sends nothing for a word that is no answer, and says so rather than Fleet not connected", async () => {
     const { send, answer } = wired();
-    const said = await send({ session_id: "s", call: "helm-1", answer: "maybe" } as unknown as AnswerSessionAsk);
+    const said = await send({
+      session_id: "s",
+      call: "helm-1",
+      answer: "maybe",
+    } as unknown as AnswerSessionAsk);
     expect(answer).not.toHaveBeenCalled();
-    expect(said).toEqual({ ok: false, outcome: { ok: false, why: "not_understood" } });
+    expect(said).toEqual({
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "not_understood",
+      },
+    });
   });
 });
 
 describe("starting a Mod Job", () => {
-  const note = { said: "", address: "file:///index.html", place: { selector: "li", element: { tag: "li", text: "x" }, location: "/usage" }, state: { selected: [] } };
+  const note = {
+    said: "",
+    address: "file:///index.html",
+    place: {
+      selector: "li",
+      element: {
+        tag: "li",
+        text: "x",
+      },
+      location: "/usage",
+    },
+    state: {
+      selected: [],
+    },
+  };
 
   it("passes the note and the words Bridge gave to Fleet, and drops a blank model", async () => {
     const handlers = new Map<string, Handler>();
-    const startMod = vi.fn(async () => ({ ok: true }));
-    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
-    handleSessions({ ipc, connection: () => ({ sessions: { startMod } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
-    await handlers.get(CHANNELS.startModSession)?.({}, { title: "Usage meter", model: "", note });
-    expect(startMod).toHaveBeenCalledWith({ title: "Usage meter", note });
+    const startMod = vi.fn(async () => ({
+      ok: true,
+    }));
+    const ipc = {
+      handle: (channel: string, handler: Handler) => handlers.set(channel, handler),
+    };
+    handleSessions({
+      ipc,
+      connection: () => ({
+        sessions: {
+          startMod,
+        },
+      }),
+      windowIdOf: () => undefined,
+      pages: {},
+    } as unknown as Parameters<typeof handleSessions>[0]);
+    await handlers.get(CHANNELS.startModSession)?.(
+      {},
+      {
+        title: "Usage meter",
+        model: "",
+        note,
+      },
+    );
+    expect(startMod).toHaveBeenCalledWith({
+      title: "Usage meter",
+      note,
+    });
   });
 
   it("passes an empty body through as an empty Mod Job", async () => {
     const handlers = new Map<string, Handler>();
-    const startMod = vi.fn(async () => ({ ok: true }));
-    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
-    handleSessions({ ipc, connection: () => ({ sessions: { startMod } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+    const startMod = vi.fn(async () => ({
+      ok: true,
+    }));
+    const ipc = {
+      handle: (channel: string, handler: Handler) => handlers.set(channel, handler),
+    };
+    handleSessions({
+      ipc,
+      connection: () => ({
+        sessions: {
+          startMod,
+        },
+      }),
+      windowIdOf: () => undefined,
+      pages: {},
+    } as unknown as Parameters<typeof handleSessions>[0]);
     await handlers.get(CHANNELS.startModSession)?.({}, {});
     expect(startMod).toHaveBeenCalledWith({});
   });
 
   it("passes the Job and tab a Custom tab started it from, and refuses either that is not a string", async () => {
     const handlers = new Map<string, Handler>();
-    const startMod = vi.fn(async () => ({ ok: true }));
-    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
-    handleSessions({ ipc, connection: () => ({ sessions: { startMod } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+    const startMod = vi.fn(async () => ({
+      ok: true,
+    }));
+    const ipc = {
+      handle: (channel: string, handler: Handler) => handlers.set(channel, handler),
+    };
+    handleSessions({
+      ipc,
+      connection: () => ({
+        sessions: {
+          startMod,
+        },
+      }),
+      windowIdOf: () => undefined,
+      pages: {},
+    } as unknown as Parameters<typeof handleSessions>[0]);
     const start = handlers.get(CHANNELS.startModSession);
-    await start?.({}, { said: "a list", from_job: "job-9", from_tab: "t4" });
-    expect(startMod).toHaveBeenCalledWith({ said: "a list", from_job: "job-9", from_tab: "t4" });
+    await start?.(
+      {},
+      {
+        said: "a list",
+        from_job: "job-9",
+        from_tab: "t4",
+      },
+    );
+    expect(startMod).toHaveBeenCalledWith({
+      said: "a list",
+      from_job: "job-9",
+      from_tab: "t4",
+    });
     startMod.mockClear();
-    const notUnderstood = { ok: false, outcome: { ok: false, why: "not_understood" } };
-    expect(await start?.({}, { said: "a list", from_job: 9, from_tab: "t4" })).toEqual(notUnderstood);
-    expect(await start?.({}, { said: "a list", from_job: "job-9", from_tab: {} })).toEqual(notUnderstood);
+    const notUnderstood = {
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "not_understood",
+      },
+    };
+    expect(
+      await start?.(
+        {},
+        {
+          said: "a list",
+          from_job: 9,
+          from_tab: "t4",
+        },
+      ),
+    ).toEqual(notUnderstood);
+    expect(
+      await start?.(
+        {},
+        {
+          said: "a list",
+          from_job: "job-9",
+          from_tab: {},
+        },
+      ),
+    ).toEqual(notUnderstood);
     expect(startMod).not.toHaveBeenCalled();
   });
 
   it("passes his words as said, and answers not understood to a malformed note or words, sending nothing", async () => {
     const handlers = new Map<string, Handler>();
-    const startMod = vi.fn(async () => ({ ok: true }));
-    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
-    handleSessions({ ipc, connection: () => ({ sessions: { startMod } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+    const startMod = vi.fn(async () => ({
+      ok: true,
+    }));
+    const ipc = {
+      handle: (channel: string, handler: Handler) => handlers.set(channel, handler),
+    };
+    handleSessions({
+      ipc,
+      connection: () => ({
+        sessions: {
+          startMod,
+        },
+      }),
+      windowIdOf: () => undefined,
+      pages: {},
+    } as unknown as Parameters<typeof handleSessions>[0]);
     const start = handlers.get(CHANNELS.startModSession);
-    await start?.({}, { said: "a dark theme" });
-    expect(startMod).toHaveBeenCalledWith({ said: "a dark theme" });
+    await start?.(
+      {},
+      {
+        said: "a dark theme",
+      },
+    );
+    expect(startMod).toHaveBeenCalledWith({
+      said: "a dark theme",
+    });
     startMod.mockClear();
-    const notUnderstood = { ok: false, outcome: { ok: false, why: "not_understood" } };
-    expect(await start?.({}, { note: { said: "x" } })).toEqual(notUnderstood);
-    expect(await start?.({}, { said: 3 })).toEqual(notUnderstood);
+    const notUnderstood = {
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "not_understood",
+      },
+    };
+    expect(
+      await start?.(
+        {},
+        {
+          note: {
+            said: "x",
+          },
+        },
+      ),
+    ).toEqual(notUnderstood);
+    expect(
+      await start?.(
+        {},
+        {
+          said: 3,
+        },
+      ),
+    ).toEqual(notUnderstood);
     expect(await start?.({}, null)).toEqual(notUnderstood);
     expect(startMod).not.toHaveBeenCalled();
   });
@@ -114,16 +355,60 @@ describe("starting a Mod Job", () => {
 describe("a Mod Job's aim", () => {
   it("passes the aim Bridge named to Fleet, and refuses a word that is no aim, sending nothing", async () => {
     const handlers = new Map<string, Handler>();
-    const startMod = vi.fn(async () => ({ ok: true }));
-    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
-    handleSessions({ ipc, connection: () => ({ sessions: { startMod } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+    const startMod = vi.fn(async () => ({
+      ok: true,
+    }));
+    const ipc = {
+      handle: (channel: string, handler: Handler) => handlers.set(channel, handler),
+    };
+    handleSessions({
+      ipc,
+      connection: () => ({
+        sessions: {
+          startMod,
+        },
+      }),
+      windowIdOf: () => undefined,
+      pages: {},
+    } as unknown as Parameters<typeof handleSessions>[0]);
     const start = handlers.get(CHANNELS.startModSession);
-    await start?.({}, { said: "a track view", aim: "tab" });
-    expect(startMod).toHaveBeenCalledWith({ said: "a track view", aim: "tab" });
+    await start?.(
+      {},
+      {
+        said: "a track view",
+        aim: "tab",
+      },
+    );
+    expect(startMod).toHaveBeenCalledWith({
+      said: "a track view",
+      aim: "tab",
+    });
     startMod.mockClear();
-    const notUnderstood = { ok: false, outcome: { ok: false, why: "not_understood" } };
-    expect(await start?.({}, { said: "x", aim: "panel" })).toEqual(notUnderstood);
-    expect(await start?.({}, { said: "x", aim: 3 })).toEqual(notUnderstood);
+    const notUnderstood = {
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "not_understood",
+      },
+    };
+    expect(
+      await start?.(
+        {},
+        {
+          said: "x",
+          aim: "panel",
+        },
+      ),
+    ).toEqual(notUnderstood);
+    expect(
+      await start?.(
+        {},
+        {
+          said: "x",
+          aim: 3,
+        },
+      ),
+    ).toEqual(notUnderstood);
     expect(startMod).not.toHaveBeenCalled();
   });
 });
@@ -131,24 +416,81 @@ describe("a Mod Job's aim", () => {
 describe("sending a session message", () => {
   it("passes the aim of an empty Mod Job's first message to Fleet unchanged", async () => {
     const handlers = new Map<string, Handler>();
-    const send = vi.fn(async () => ({ ok: true }));
-    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
-    handleSessions({ ipc, connection: () => ({ sessions: { send } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
-    await handlers.get(CHANNELS.sendSessionMessage)?.({}, { session_id: "m", text: "a dark theme", aim: "theme" });
-    expect(send).toHaveBeenCalledWith({ session_id: "m", text: "a dark theme", aim: "theme" });
+    const send = vi.fn(async () => ({
+      ok: true,
+    }));
+    const ipc = {
+      handle: (channel: string, handler: Handler) => handlers.set(channel, handler),
+    };
+    handleSessions({
+      ipc,
+      connection: () => ({
+        sessions: {
+          send,
+        },
+      }),
+      windowIdOf: () => undefined,
+      pages: {},
+    } as unknown as Parameters<typeof handleSessions>[0]);
+    await handlers.get(CHANNELS.sendSessionMessage)?.(
+      {},
+      {
+        session_id: "m",
+        text: "a dark theme",
+        aim: "theme",
+      },
+    );
+    expect(send).toHaveBeenCalledWith({
+      session_id: "m",
+      text: "a dark theme",
+      aim: "theme",
+    });
   });
 });
 
 function terminalWired() {
   const handlers = new Map<string, Handler>();
-  const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
+  const ipc = {
+    handle: (channel: string, handler: Handler) => handlers.set(channel, handler),
+  };
   const soFar = vi.fn((runId: string) => (runId === "r1" ? "~ $ ls\r\n" : null));
-  const windows = { show: vi.fn(), close: vi.fn(), sessionIds: () => ["a"] };
+  const windows = {
+    show: vi.fn(),
+    close: vi.fn(),
+    sessionIds: () => [
+      "a",
+    ],
+  };
   const movedBack = vi.fn();
-  const shellNow = (sessionId: string) => (sessionId === "a" ? { runId: "r1", ended: true } : null);
-  handleSessions({ ipc, connection: () => ({ sessions: { soFar, shellNow } }), windowIdOf: () => undefined, pages: {}, terminals: { windows, movedBack } } as unknown as Parameters<typeof handleSessions>[0]);
+  const shellNow = (sessionId: string) =>
+    sessionId === "a"
+      ? {
+          runId: "r1",
+          ended: true,
+        }
+      : null;
+  handleSessions({
+    ipc,
+    connection: () => ({
+      sessions: {
+        soFar,
+        shellNow,
+      },
+    }),
+    windowIdOf: () => undefined,
+    pages: {},
+    terminals: {
+      windows,
+      movedBack,
+    },
+  } as unknown as Parameters<typeof handleSessions>[0]);
   const call = (channel: string, ...args: unknown[]) => handlers.get(channel)?.({}, ...args);
-  return { call, windows, movedBack, soFar };
+  return {
+    call,
+    windows,
+    movedBack,
+    soFar,
+  };
 }
 
 describe("a Job's terminal window", () => {
@@ -157,8 +499,14 @@ describe("a Job's terminal window", () => {
     await call(CHANNELS.openTerminalWindow, "a");
     await call(CHANNELS.openTerminalWindow, "");
     await call(CHANNELS.openTerminalWindow, 7);
-    expect(windows.show.mock.calls).toEqual([["a"]]);
-    expect(await call(CHANNELS.getTerminalWindows)).toEqual(["a"]);
+    expect(windows.show.mock.calls).toEqual([
+      [
+        "a",
+      ],
+    ]);
+    expect(await call(CHANNELS.getTerminalWindows)).toEqual([
+      "a",
+    ]);
   });
 
   it("moves a shell back into Bridge, closing its window and telling every window where it went and which shell it is", async () => {
@@ -169,29 +517,79 @@ describe("a Job's terminal window", () => {
     await call(CHANNELS.moveTerminalBack, "", "docked");
     await call(CHANNELS.moveTerminalBack, "a", "docked");
     await call(CHANNELS.moveTerminalBack, "b", "docked");
-    expect(windows.close.mock.calls).toEqual([["a"], ["b"]]);
-    expect(movedBack.mock.calls).toEqual([[{ sessionId: "a", to: "docked", shell: { runId: "r1", ended: true } }], [{ sessionId: "b", to: "docked" }]]);
+    expect(windows.close.mock.calls).toEqual([
+      [
+        "a",
+      ],
+      [
+        "b",
+      ],
+    ]);
+    expect(movedBack.mock.calls).toEqual([
+      [
+        {
+          sessionId: "a",
+          to: "docked",
+          shell: {
+            runId: "r1",
+            ended: true,
+          },
+        },
+      ],
+      [
+        {
+          sessionId: "b",
+          to: "docked",
+        },
+      ],
+    ]);
   });
 
   it("reads what a shell has printed so far by its run id", async () => {
     const { call, soFar } = terminalWired();
     expect(await call(CHANNELS.readTerminalSoFar, "r1")).toBe("~ $ ls\r\n");
     expect(await call(CHANNELS.readTerminalSoFar, 1)).toBeNull();
-    expect(soFar.mock.calls).toEqual([["r1"]]);
+    expect(soFar.mock.calls).toEqual([
+      [
+        "r1",
+      ],
+    ]);
   });
 });
 
 describe("muting a notice", () => {
   it("sends a mute for every word a notice goes by, not only the behind-base one", async () => {
     const { mute, muteNotice } = wired();
-    for (const notice of NOTICES) await mute({ notice, muted: true, scope: { kind: "job", session_id: "s" } });
+    for (const notice of NOTICES)
+      await mute({
+        notice,
+        muted: true,
+        scope: {
+          kind: "job",
+          session_id: "s",
+        },
+      });
     expect(muteNotice).toHaveBeenCalledTimes(NOTICES.length);
-    expect(muteNotice).toHaveBeenCalledWith({ notice: "pr_merged", muted: true, scope: { kind: "job", session_id: "s" } });
+    expect(muteNotice).toHaveBeenCalledWith({
+      notice: "pr_merged",
+      muted: true,
+      scope: {
+        kind: "job",
+        session_id: "s",
+      },
+    });
   });
 
   it("sends nothing for a word that is no notice", async () => {
     const { mute, muteNotice } = wired();
-    await mute({ notice: "something_else", muted: true, scope: { kind: "job", session_id: "s" } });
+    await mute({
+      notice: "something_else",
+      muted: true,
+      scope: {
+        kind: "job",
+        session_id: "s",
+      },
+    });
     expect(muteNotice).not.toHaveBeenCalled();
   });
 });
@@ -199,41 +597,131 @@ describe("muting a notice", () => {
 describe("a Job held on its start card", () => {
   function started() {
     const handlers = new Map<string, Handler>();
-    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
-    const begin = vi.fn(async () => ({ ok: true }));
-    const startSession = vi.fn(async (..._args: unknown[]) => ({ ok: true }));
-    const connection = () => ({ startSession, repositories: { pickedByWindow: { of: () => ({}) } }, sessions: { begin } });
-    handleSessions({ ipc, connection, windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+    const ipc = {
+      handle: (channel: string, handler: Handler) => handlers.set(channel, handler),
+    };
+    const begin = vi.fn(async () => ({
+      ok: true,
+    }));
+    const startSession = vi.fn(async (..._args: unknown[]) => ({
+      ok: true,
+    }));
+    const connection = () => ({
+      startSession,
+      repositories: {
+        pickedByWindow: {
+          of: () => ({}),
+        },
+      },
+      sessions: {
+        begin,
+      },
+    });
+    handleSessions({
+      ipc,
+      connection,
+      windowIdOf: () => undefined,
+      pages: {},
+    } as unknown as Parameters<typeof handleSessions>[0]);
     const call = (channel: string, ...args: unknown[]) => handlers.get(channel)?.({}, ...args);
-    return { call, begin, startSession };
+    return {
+      call,
+      begin,
+      startSession,
+    };
   }
 
   it("passes `held` on to the start, and only when it is true", async () => {
     const { call, startSession } = started();
     await call(CHANNELS.startSession, undefined, "/r", "fix it", {}, undefined, true);
     await call(CHANNELS.startSession, undefined, "/r", "fix it", {});
-    expect(startSession.mock.calls.map((one) => one[6])).toEqual([true, false]);
+    expect(startSession.mock.calls.map((one) => one[6])).toEqual([
+      true,
+      false,
+    ]);
   });
 
   it("begins it with the delivery chosen, or none", async () => {
     const { call, begin } = started();
-    await call(CHANNELS.beginSession, { session_id: "s", delivery: "open_pr" });
-    await call(CHANNELS.beginSession, { session_id: "s" });
-    expect(begin.mock.calls).toEqual([[{ session_id: "s", delivery: "open_pr" }], [{ session_id: "s" }]]);
+    await call(CHANNELS.beginSession, {
+      session_id: "s",
+      delivery: "open_pr",
+    });
+    await call(CHANNELS.beginSession, {
+      session_id: "s",
+    });
+    expect(begin.mock.calls).toEqual([
+      [
+        {
+          session_id: "s",
+          delivery: "open_pr",
+        },
+      ],
+      [
+        {
+          session_id: "s",
+        },
+      ],
+    ]);
   });
 
   it("passes the first message as he left it on the card, and refuses one that is no text rather than begin on the unedited words", async () => {
     const { call, begin } = started();
-    await call(CHANNELS.beginSession, { session_id: "s", delivery: "keep_local", message: "Port the clock, then the loader" });
-    expect(begin.mock.calls).toEqual([[{ session_id: "s", delivery: "keep_local", message: "Port the clock, then the loader" }]]);
-    expect(await call(CHANNELS.beginSession, { session_id: "s", message: 4 })).toEqual({ ok: false, outcome: { ok: false, why: "not_understood" } });
+    await call(CHANNELS.beginSession, {
+      session_id: "s",
+      delivery: "keep_local",
+      message: "Port the clock, then the loader",
+    });
+    expect(begin.mock.calls).toEqual([
+      [
+        {
+          session_id: "s",
+          delivery: "keep_local",
+          message: "Port the clock, then the loader",
+        },
+      ],
+    ]);
+    expect(
+      await call(CHANNELS.beginSession, {
+        session_id: "s",
+        message: 4,
+      }),
+    ).toEqual({
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "not_understood",
+      },
+    });
     expect(begin).toHaveBeenCalledTimes(1);
   });
 
   it("sends nothing for a Job that is no id or a delivery that is no choice, and says so", async () => {
     const { call, begin } = started();
-    expect(await call(CHANNELS.beginSession, { session_id: "", delivery: "open_pr" })).toEqual({ ok: false, outcome: { ok: false, why: "not_understood" } });
-    expect(await call(CHANNELS.beginSession, { session_id: "s", delivery: "merge_now" })).toEqual({ ok: false, outcome: { ok: false, why: "not_understood" } });
+    expect(
+      await call(CHANNELS.beginSession, {
+        session_id: "",
+        delivery: "open_pr",
+      }),
+    ).toEqual({
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "not_understood",
+      },
+    });
+    expect(
+      await call(CHANNELS.beginSession, {
+        session_id: "s",
+        delivery: "merge_now",
+      }),
+    ).toEqual({
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "not_understood",
+      },
+    });
     expect(begin).not.toHaveBeenCalled();
   });
 });
@@ -241,15 +729,41 @@ describe("a Job held on its start card", () => {
 describe("the thumbs on a follow-up", () => {
   it("passes the misread of a thumbs down on to Fleet", async () => {
     const { drop, settleLater } = wired();
-    await drop({ id: "later-2", how: "dropped", misread: true, session_id: "a" });
-    expect(settleLater).toHaveBeenCalledWith({ id: "later-2", how: "dropped", misread: true, session_id: "a" });
+    await drop({
+      id: "later-2",
+      how: "dropped",
+      misread: true,
+      session_id: "a",
+    });
+    expect(settleLater).toHaveBeenCalledWith({
+      id: "later-2",
+      how: "dropped",
+      misread: true,
+      session_id: "a",
+    });
   });
 
   it("sends a thumbs up by id, and refuses one with no id", async () => {
     const { confirm, confirmLater } = wired();
-    await confirm({ id: "later-2", session_id: "a" });
-    expect(confirmLater).toHaveBeenCalledWith({ id: "later-2", session_id: "a" });
-    expect(await confirm({ session_id: "a" })).toEqual({ ok: false, outcome: { ok: false, why: "not_understood" } });
+    await confirm({
+      id: "later-2",
+      session_id: "a",
+    });
+    expect(confirmLater).toHaveBeenCalledWith({
+      id: "later-2",
+      session_id: "a",
+    });
+    expect(
+      await confirm({
+        session_id: "a",
+      }),
+    ).toEqual({
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "not_understood",
+      },
+    });
     expect(confirmLater).toHaveBeenCalledTimes(1);
   });
 });

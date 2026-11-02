@@ -11,5 +11,8 @@ export const s262PrReview: Scenario = {
   ...ship,
   name: "pr-review",
   says: "The flight deck with pull requests to review: three asked of him in two repositories, two that his agents opened",
-  draft: { ...ship.draft, prReview: reviewSeed() },
+  draft: {
+    ...ship.draft,
+    prReview: reviewSeed(),
+  },
 };

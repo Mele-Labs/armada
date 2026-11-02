@@ -14,7 +14,10 @@ import type {
 import type { OnboardingAnswer } from "../shared/api/onboarding";
 import { ask, COMMAND_MS } from "./request";
 
-const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
+const NOT_CONNECTED: Outcome = {
+  ok: false,
+  why: "not_connected",
+};
 
 /**
  * How long the mod's install is waited for. **Fleet stops each of its steps at two minutes**, and the install has up to three; this
@@ -40,20 +43,40 @@ export class OnboardingHost {
   }
 
   importRuns(path: string): Promise<OnboardingAnswer<ImportRuns>> {
-    return this.send("GET", `/import/runs?path=${encodeURIComponent(path)}`, undefined, IMPORT_READ_MS);
+    return this.send(
+      "GET",
+      `/import/runs?path=${encodeURIComponent(path)}`,
+      undefined,
+      IMPORT_READ_MS,
+    );
   }
 
   installMod(): Promise<OnboardingAnswer<ModInstalled>> {
-    return this.send("POST", "/import/install_mod", { requested: true }, INSTALL_MOD_MS);
+    return this.send(
+      "POST",
+      "/import/install_mod",
+      {
+        requested: true,
+      },
+      INSTALL_MOD_MS,
+    );
   }
 
   /** Reading merges in the repository's own folder's imported sessions, so it waits as an import read does. */
   runMemory(repository: string): Promise<OnboardingAnswer<RunMemory>> {
-    return this.send("GET", `/repositories/runs?repository=${encodeURIComponent(repository)}`, undefined, IMPORT_READ_MS);
+    return this.send(
+      "GET",
+      `/repositories/runs?repository=${encodeURIComponent(repository)}`,
+      undefined,
+      IMPORT_READ_MS,
+    );
   }
 
   runMemoryPlace(repository: string): Promise<OnboardingAnswer<RunMemoryPlace>> {
-    return this.send("GET", `/repositories/runs/place?repository=${encodeURIComponent(repository)}`);
+    return this.send(
+      "GET",
+      `/repositories/runs/place?repository=${encodeURIComponent(repository)}`,
+    );
   }
 
   setRunMemoryPlace(body: SetRunMemoryPlace): Promise<OnboardingAnswer<RunMemoryPlace>> {
@@ -64,10 +87,27 @@ export class OnboardingHost {
     return this.send("POST", "/repositories/runs/drop", body);
   }
 
-  private async send<T>(method: "GET" | "POST", path: string, body?: unknown, waitMs: number = COMMAND_MS): Promise<OnboardingAnswer<T>> {
+  private async send<T>(
+    method: "GET" | "POST",
+    path: string,
+    body?: unknown,
+    waitMs: number = COMMAND_MS,
+  ): Promise<OnboardingAnswer<T>> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: NOT_CONNECTED,
+      };
     const answer = await ask(port, method, path, body, waitMs);
-    return answer.ok === true ? { ok: true, value: answer.body as T } : { ok: false, outcome: answer.outcome };
+    return answer.ok === true
+      ? {
+          ok: true,
+          value: answer.body as T,
+        }
+      : {
+          ok: false,
+          outcome: answer.outcome,
+        };
   }
 }

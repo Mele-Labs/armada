@@ -22,7 +22,11 @@ export function CheckoutPage({ sessionId }: { sessionId?: string }) {
         <li>Enamel mug, $36.00</li>
       </ul>
       <div className="armada-mock-checkout__code">
-        <Input label="Discount code" defaultValue={code} onChange={(event) => void (code = event.target.value)} />
+        <Input
+          label="Discount code"
+          defaultValue={code}
+          onChange={(event) => void (code = event.target.value)}
+        />
         <Button variant="secondary" size="sm">
           Apply
         </Button>
@@ -34,10 +38,18 @@ export function CheckoutPage({ sessionId }: { sessionId?: string }) {
       <Button variant="primary">Place order</Button>
       {sessionId === undefined ? null : (
         <div className="armada-mock-checkout__asks">
-          <Button variant="ghost" size="sm" onClick={() => requestPermission(sessionId, "local_network")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => requestPermission(sessionId, "local_network")}
+          >
             Connect Okta Verify
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => requestPermission(sessionId, "location")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => requestPermission(sessionId, "location")}
+          >
             Use my location
           </Button>
         </div>
@@ -71,5 +83,17 @@ function NotFound({ url }: { url: string }) {
 /** The page at an address on the shop's dev server. */
 export function shopPage(url: string, sessionId?: string) {
   const path = url.replace(/^https?:\/\/[^/]+/, "");
-  return path === "/checkout" ? <CheckoutPage {...(sessionId === undefined ? {} : { sessionId })} /> : path === "/cart" ? <CartPage /> : <NotFound url={url} />;
+  return path === "/checkout" ? (
+    <CheckoutPage
+      {...(sessionId === undefined
+        ? {}
+        : {
+            sessionId,
+          })}
+    />
+  ) : path === "/cart" ? (
+    <CartPage />
+  ) : (
+    <NotFound url={url} />
+  );
 }

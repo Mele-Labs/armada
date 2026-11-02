@@ -179,7 +179,11 @@ export function ErrorNotice(props: ErrorNoticeProps) {
     // The toast is often the only sighting, so its one action finishes the
     // job rather than leaving a dismissed-or-not toast behind the copy.
     dismiss?.();
-  }, [payload, onCopied, dismiss]);
+  }, [
+    payload,
+    onCopied,
+    dismiss,
+  ]);
 
   return (
     <section
@@ -237,7 +241,9 @@ export function ErrorNotice(props: ErrorNoticeProps) {
           <FileAnIssue
             compose={() => ({
               title: payload.message,
-              attached: [envelopeOf(payload)],
+              attached: [
+                envelopeOf(payload),
+              ],
               withheld: NOT_OFFERED,
             })}
             onCopied={onCopied}
@@ -256,7 +262,12 @@ export function ErrorNotice(props: ErrorNoticeProps) {
               expanded view and a toast is gone before it would be read, so
               neither offers a control that would open one. */}
           {payload !== undefined && disclosure === "disclosed" ? (
-            <Button variant="ghost" size="sm" aria-expanded={open} onClick={() => setOpen((was) => !was)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-expanded={open}
+              onClick={() => setOpen((was) => !was)}
+            >
               Details
             </Button>
           ) : null}

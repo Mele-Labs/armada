@@ -18,9 +18,18 @@ export function useBuilds(now: number): ReadonlyMap<string, BuildIn> {
         sessions.flatMap((one) => {
           if (one.build === undefined) return [];
           const build = buildInOf(one.id, one.build, clock, events);
-          return [[build.key, build] as const];
+          return [
+            [
+              build.key,
+              build,
+            ] as const,
+          ];
         }),
       ),
-    [sessions, events, clock],
+    [
+      sessions,
+      events,
+      clock,
+    ],
   );
 }

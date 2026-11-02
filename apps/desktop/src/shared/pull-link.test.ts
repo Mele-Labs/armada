@@ -5,20 +5,34 @@ import { expect, test } from "vitest";
 
 import { DEEP_LINK_SCHEME, deepLinkOf, parsePullLink } from "./pull-link";
 
-const ARMADA = { owner: "Mele-Labs", name: "armada", number: 2899 };
+const ARMADA = {
+  owner: "Mele-Labs",
+  name: "armada",
+  number: 2899,
+};
 
 test("a pull request's address on the forge names its repository and number", () => {
   expect(parsePullLink("https://forge.example/Mele-Labs/armada/pull/2899")).toEqual(ARMADA);
 });
 
 test("a tab, the files page or a trailing slash on the address is still the pull request", () => {
-  for (const tail of ["/files", "/commits", "/", "?diff=split", "#issuecomment-1"]) {
-    expect(parsePullLink(`https://forge.example/Mele-Labs/armada/pull/2899${tail}`)).toEqual(ARMADA);
+  for (const tail of [
+    "/files",
+    "/commits",
+    "/",
+    "?diff=split",
+    "#issuecomment-1",
+  ]) {
+    expect(parsePullLink(`https://forge.example/Mele-Labs/armada/pull/2899${tail}`)).toEqual(
+      ARMADA,
+    );
   }
 });
 
 test("the deep link and the forge's address read as the same pull request", () => {
-  expect(parsePullLink("armada://pull/Mele-Labs/armada/2899")).toEqual(parsePullLink("https://forge.example/Mele-Labs/armada/pull/2899"));
+  expect(parsePullLink("armada://pull/Mele-Labs/armada/2899")).toEqual(
+    parsePullLink("https://forge.example/Mele-Labs/armada/pull/2899"),
+  );
 });
 
 test("the deep link made for a pull request reads back as it", () => {

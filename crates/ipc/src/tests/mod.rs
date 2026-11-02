@@ -10,6 +10,7 @@
 /// An empty optional field leaves no key rather than a `null`.
 mod absent;
 mod bug_reports;
+mod debug_report;
 mod lifecycles;
 mod piece_saving;
 mod accounts;
@@ -89,3 +90,4 @@ mod taught_mods;
 mod watch_wire;
 mod workflow_changes;
 mod workflows_off;
+mod autopilot_boxes;

@@ -36,7 +36,10 @@ export type FleetBuildReport = {
    * holds that it lacks. Both nought is aligned. **Absent where it cannot be
    * counted**, which draws no mark: it is not aligned.
    */
-  position?: { ahead: number; behind: number };
+  position?: {
+    ahead: number;
+    behind: number;
+  };
   /** The build a restart under way is moving Fleet onto. Absent when none is. */
   restarting?: BuildSource;
   /** Where that restart has got to. Absent until the restart says. */
@@ -48,7 +51,11 @@ export type FleetBuildReport = {
    * on `main`, and where the record was written for another build. Sorted by branch. `moved` is a branch
    * whose tip has moved past the one it was left out at; absent is false.
    */
-  left_out?: { branch: string; why: string; moved?: boolean }[];
+  left_out?: {
+    branch: string;
+    why: string;
+    moved?: boolean;
+  }[];
 };
 
 /** `POST /fleet/build/change`. */
@@ -59,4 +66,6 @@ export type ChangeFleetBuild = {
 };
 
 /** The 202 answer: the restart has begun, onto this build. */
-export type FleetBuildChanging = { build: BuildSource };
+export type FleetBuildChanging = {
+  build: BuildSource;
+};

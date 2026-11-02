@@ -8,7 +8,12 @@ export type FiberLike = {
   return?: FiberLike | null;
   child?: FiberLike | null;
   stateNode?: unknown;
-  _debugOwner?: FiberLike | { name?: unknown } | null;
+  _debugOwner?:
+    | FiberLike
+    | {
+        name?: unknown;
+      }
+    | null;
 };
 
 const MEMO = Symbol.for("react.memo");
@@ -17,13 +22,22 @@ const FORWARD_REF = Symbol.for("react.forward_ref");
 /** A component's name, or null for a host element, a fragment, or an anonymous function. */
 export function componentName(type: unknown): string | null {
   if (typeof type === "function") {
-    const named = type as { displayName?: unknown; name?: unknown };
+    const named = type as {
+      displayName?: unknown;
+      name?: unknown;
+    };
     const name = typeof named.displayName === "string" ? named.displayName : named.name;
     return typeof name === "string" && name !== "" ? name : null;
   }
   if (typeof type === "object" && type !== null) {
-    const wrapped = type as { $$typeof?: unknown; displayName?: unknown; type?: unknown; render?: unknown };
-    if (typeof wrapped.displayName === "string" && wrapped.displayName !== "") return wrapped.displayName;
+    const wrapped = type as {
+      $$typeof?: unknown;
+      displayName?: unknown;
+      type?: unknown;
+      render?: unknown;
+    };
+    if (typeof wrapped.displayName === "string" && wrapped.displayName !== "")
+      return wrapped.displayName;
     if (wrapped.$$typeof === MEMO) return componentName(wrapped.type);
     if (wrapped.$$typeof === FORWARD_REF) return componentName(wrapped.render);
   }
@@ -32,7 +46,11 @@ export function componentName(type: unknown): string | null {
 
 /** The fiber React hung on a DOM node, walking up to the nearest node that has one. */
 export function fiberOf(node: object | null): FiberLike | null {
-  let at: (object & { parentNode?: object | null }) | null = node;
+  let at:
+    | (object & {
+        parentNode?: object | null;
+      })
+    | null = node;
   while (at !== null && at !== undefined) {
     for (const key of Object.keys(at)) {
       if (key.startsWith("__reactFiber$")) return (at as Record<string, FiberLike>)[key] ?? null;
@@ -83,16 +101,39 @@ export function componentsOf(fiber: FiberLike | null): {
     pushName(parents, componentName(at.type));
   }
   const component = parents[0] ?? null;
-  if (component === null) return { component: null, owners: [], from: "parent" };
+  if (component === null)
+    return {
+      component: null,
+      owners: [],
+      from: "parent",
+    };
 
-  const owners: string[] = [component];
+  const owners: string[] = [
+    component,
+  ];
   let owner = fiber?._debugOwner;
   while (owner != null && owners.length < DEPTH) {
     // A server component's owner is `{ name }` rather than a fiber.
-    const named = (owner as { name?: unknown }).name;
-    pushName(owners, "type" in owner ? componentName(owner.type) : typeof named === "string" ? named : null);
+    const named = (
+      owner as {
+        name?: unknown;
+      }
+    ).name;
+    pushName(
+      owners,
+      "type" in owner ? componentName(owner.type) : typeof named === "string" ? named : null,
+    );
     owner = "_debugOwner" in owner ? (owner as FiberLike)._debugOwner : null;
   }
-  if (owners.length > 1) return { component, owners: owners.slice(1), from: "owner" };
-  return { component, owners: parents.slice(1), from: "parent" };
+  if (owners.length > 1)
+    return {
+      component,
+      owners: owners.slice(1),
+      from: "owner",
+    };
+  return {
+    component,
+    owners: parents.slice(1),
+    from: "parent",
+  };
 }

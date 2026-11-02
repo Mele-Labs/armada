@@ -2,10 +2,18 @@
 // that shows it may draw twice while the Cockpit takes the stage over.
 
 const HELD_MS = 3000;
-let asked: { id: string; at: number } | undefined;
+let asked:
+  | {
+      id: string;
+      at: number;
+    }
+  | undefined;
 
 export function askComposerFocus(id: string): void {
-  asked = { id, at: Date.now() };
+  asked = {
+    id,
+    at: Date.now(),
+  };
 }
 
 export function composerFocusAsked(id: string): boolean {

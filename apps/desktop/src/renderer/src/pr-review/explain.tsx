@@ -3,7 +3,20 @@
 // first chooses it. The answer is kept per commit, as a tool's result is, so choosing another and coming back shows it
 // at once. Explanations are defined in the same three places the tools are, so a repository can add its own.
 
-import { Bot, BookOpen, Check, CircleX, ExternalLink, Eye, FileText, History, LoaderCircle, RefreshCw, RotateCw, X } from "lucide-react";
+import {
+  Bot,
+  BookOpen,
+  Check,
+  CircleX,
+  ExternalLink,
+  Eye,
+  FileText,
+  History,
+  LoaderCircle,
+  RefreshCw,
+  RotateCw,
+  X,
+} from "lucide-react";
 import { Button, Kbd, Prose, PrMark, SessionComposer, Tooltip, agoOf } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
@@ -52,12 +65,23 @@ export function pressExplanation(store: ReviewStore, pr: ReviewPr, def: ToolDef)
 }
 
 /** What was chosen: the explanation, or the answer to a question of his. Nothing where nothing is chosen. */
-export function Explained({ pr, send, onOpenLink }: { pr: ReviewPr; send: Send; onOpenLink: (address: string) => void }) {
+export function Explained({
+  pr,
+  send,
+  onOpenLink,
+}: {
+  pr: ReviewPr;
+  send: Send;
+  onOpenLink: (address: string) => void;
+}) {
   const reviews = useReviews();
   const work = reviews.work[pr.key] ?? NO_WORK;
-  const chosen = onlyExplanations(toolsOf(reviews, pr.manifestId)).find((one) => one.id === work.kind);
+  const chosen = onlyExplanations(toolsOf(reviews, pr.manifestId)).find(
+    (one) => one.id === work.kind,
+  );
   const asked = work.asks.find((one) => one.id === work.kind);
-  if (chosen !== undefined) return <Chosen pr={pr} def={chosen} send={send} onOpenLink={onOpenLink} />;
+  if (chosen !== undefined)
+    return <Chosen pr={pr} def={chosen} send={send} onOpenLink={onOpenLink} />;
   return asked === undefined ? null : <Answer asked={asked} />;
 }
 
@@ -72,8 +96,18 @@ function Asks({ pr }: { pr: ReviewPr }) {
         const kept = one.run.state === "done" ? one.run : undefined;
         const stale = kept !== undefined && kept.head !== pr.head;
         return (
-          <li key={one.id} className="pr-asked__row" aria-label={one.words} data-selected={work.kind === one.id || undefined}>
-            <button type="button" className="pr-asked__words" aria-pressed={work.kind === one.id} onClick={() => store.show(pr.key, one.id)}>
+          <li
+            key={one.id}
+            className="pr-asked__row"
+            aria-label={one.words}
+            data-selected={work.kind === one.id || undefined}
+          >
+            <button
+              type="button"
+              className="pr-asked__words"
+              aria-pressed={work.kind === one.id}
+              onClick={() => store.show(pr.key, one.id)}
+            >
               {one.words}
             </button>
             {running ? (
@@ -85,16 +119,33 @@ function Asks({ pr }: { pr: ReviewPr }) {
             ) : kept === undefined ? null : (
               <PrMark
                 Glyph={stale ? RefreshCw : History}
-                said={stale ? `Out of date. Answered on ${kept.head.slice(0, 7)}, the pull request is at ${pr.head.slice(0, 7)}` : `Kept. Answered ${agoOf(new Date(kept.at).toISOString())} on ${kept.head.slice(0, 7)}`}
+                said={
+                  stale
+                    ? `Out of date. Answered on ${kept.head.slice(0, 7)}, the pull request is at ${pr.head.slice(0, 7)}`
+                    : `Kept. Answered ${agoOf(new Date(kept.at).toISOString())} on ${kept.head.slice(0, 7)}`
+                }
               />
             )}
             <Tooltip label="Ask again, for this pull request">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={running} onClick={() => store.spend("Ask", () => store.askAgain(pr.key, one.id))}>
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                aria-label="Run again"
+                disabled={running}
+                onClick={() => store.spend("Ask", () => store.askAgain(pr.key, one.id))}
+              >
                 <RotateCw size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
             <Tooltip label="Remove this question">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Remove this question" onClick={() => store.removeAsk(pr.key, one.id)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                aria-label="Remove this question"
+                onClick={() => store.removeAsk(pr.key, one.id)}
+              >
                 <X size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
@@ -137,7 +188,17 @@ function Answer({ asked }: { asked: Asked }) {
   );
 }
 
-function Chosen({ pr, def, send, onOpenLink }: { pr: ReviewPr; def: ToolDef; send: Send; onOpenLink: (address: string) => void }) {
+function Chosen({
+  pr,
+  def,
+  send,
+  onOpenLink,
+}: {
+  pr: ReviewPr;
+  def: ToolDef;
+  send: Send;
+  onOpenLink: (address: string) => void;
+}) {
   const store = useReviewStore()!;
   const work = useReviews().work[pr.key] ?? NO_WORK;
   const run = work.explains[def.id];
@@ -158,11 +219,22 @@ function Chosen({ pr, def, send, onOpenLink }: { pr: ReviewPr; def: ToolDef; sen
           {kept === undefined ? null : (
             <PrMark
               Glyph={stale ? RefreshCw : History}
-              said={stale ? `Out of date. Explained on ${kept.head.slice(0, 7)}, the pull request is at ${pr.head.slice(0, 7)}` : `Kept. Explained ${agoOf(new Date(kept.at).toISOString())} on ${kept.head.slice(0, 7)}`}
+              said={
+                stale
+                  ? `Out of date. Explained on ${kept.head.slice(0, 7)}, the pull request is at ${pr.head.slice(0, 7)}`
+                  : `Kept. Explained ${agoOf(new Date(kept.at).toISOString())} on ${kept.head.slice(0, 7)}`
+              }
             />
           )}
           <Tooltip label="Explain again, for this pull request">
-            <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={running} onClick={() => store.spend(def.name, () => store.explainAgain(pr.key, def))}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Run again"
+              disabled={running}
+              onClick={() => store.spend(def.name, () => store.explainAgain(pr.key, def))}
+            >
               <RotateCw size={16} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>
@@ -181,7 +253,14 @@ function Chosen({ pr, def, send, onOpenLink }: { pr: ReviewPr; def: ToolDef; sen
           <Prose text={pr.explanation.summary} />
           <div className="pr-themes">
             {pr.explanation.themes.map((theme, at) => (
-              <ThemeBlock key={theme.id} pr={pr} theme={theme} number={at + 1} mode="explain" send={send} />
+              <ThemeBlock
+                key={theme.id}
+                pr={pr}
+                theme={theme}
+                number={at + 1}
+                mode="explain"
+                send={send}
+              />
             ))}
           </div>
         </>
@@ -196,7 +275,13 @@ function Chosen({ pr, def, send, onOpenLink }: { pr: ReviewPr; def: ToolDef; sen
   );
 }
 
-function AccountView({ account, onOpenLink }: { account: Account; onOpenLink: (address: string) => void }) {
+function AccountView({
+  account,
+  onOpenLink,
+}: {
+  account: Account;
+  onOpenLink: (address: string) => void;
+}) {
   if (account.shape === "text") return <Prose text={account.body} />;
   if (account.shape === "change") {
     return (
@@ -230,7 +315,15 @@ function AccountView({ account, onOpenLink }: { account: Account; onOpenLink: (a
                   <PrMark Glyph={FileText} said="From the description" />
                 ) : (
                   <Tooltip label={`From ${step.from.path}`}>
-                    <Button variant="ghost" size="sm" iconOnly aria-label={`Open ${step.from.path}`} onClick={() => onOpenLink(step.from!.from === "doc" ? step.from!.address : "")}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      aria-label={`Open ${step.from.path}`}
+                      onClick={() =>
+                        onOpenLink(step.from!.from === "doc" ? step.from!.address : "")
+                      }
+                    >
                       <BookOpen size={16} strokeWidth={2} aria-hidden />
                     </Button>
                   </Tooltip>
@@ -301,7 +394,15 @@ export function AskComposer({ pr }: { pr: ReviewPr }) {
         onDraw={NOBODY}
         onRemoveDrawn={NOBODY}
         draftKey={`pr-review:${pr.key}`}
-        onSend={(sent) => new Promise<boolean>((resolve) => store.spend("Ask", () => (store.ask(pr.key, sent.text), resolve(true)), () => resolve(false)))}
+        onSend={(sent) =>
+          new Promise<boolean>((resolve) =>
+            store.spend(
+              "Ask",
+              () => (store.ask(pr.key, sent.text), resolve(true)),
+              () => resolve(false),
+            ),
+          )
+        }
       />
     </div>
   );

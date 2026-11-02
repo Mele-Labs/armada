@@ -9,7 +9,11 @@
 // Nothing here runs in more than one process — the preload is a wire and not an
 // import path, and this file is the shape of what crosses it.
 
-import type { CheckoutRunFollowed, CheckoutRunSheetRead, ManifestDriftRead } from "@armada/protocol";
+import type {
+  CheckoutRunFollowed,
+  CheckoutRunSheetRead,
+  ManifestDriftRead,
+} from "@armada/protocol";
 import type { LeftOutWorkflow, ManifestReading } from "@armada/protocol";
 import type { HealthRead } from "@armada/screens/src/overview-reads";
 import { spoken } from "@armada/protocol";
@@ -37,7 +41,7 @@ import type { ChecksState } from "./api/checks";
 import { LESSONS_CHANNELS } from "./api/lessons";
 import { SESSIONS_CHANNELS, SESSIONS_NOTHING_YET } from "./api/sessions";
 import type { SessionsState } from "./api/sessions";
-import { SLEEP_CHANNELS } from "./api/sleep";
+import { AUTOPILOT_DECISIONS_CHANNELS } from "./api/autopilot-decisions";
 import { ACCOUNTS_CHANNELS } from "./api/accounts";
 import { PLAN_USAGE_CHANNELS } from "./api/plan-usage";
 import { MODEL_DOWNSHIFT_CHANNELS } from "./api/model-downshift";
@@ -53,6 +57,7 @@ import { ACT_FAILED_CHANNELS } from "./api/act-failed";
 import { BAY_HISTORY_CHANNELS } from "./api/bay-history";
 import { SESSION_SYSTEM_CHANNELS } from "./api/session-system";
 import { USAGE_SUMMARY_CHANNELS } from "./api/usage-summary";
+import { DEBUG_REPORT_CHANNELS } from "./api/debug-report";
 import { ISSUES_CHANNELS } from "./api/issues";
 import { FLIGHT_CONTROLS_CHANNELS } from "./api/flight-controls";
 import { PULL_REQUEST_NOTES_CHANNELS } from "./api/pull-request-notes";
@@ -82,7 +87,13 @@ export function identifying(state: BridgeState): BridgeState {
   const fleetProtocol =
     "fleet" in state.connection ? spoken(state.connection.fleet.protocolId) : null;
   if (fleetProtocol === state.bridge.fleetProtocol) return state;
-  return { ...state, bridge: { ...state.bridge, fleetProtocol } };
+  return {
+    ...state,
+    bridge: {
+      ...state.bridge,
+      fleetProtocol,
+    },
+  };
 }
 
 /**
@@ -168,7 +179,7 @@ export const CHANNELS = {
   ...CHECKS_CHANNELS,
   ...LESSONS_CHANNELS,
   ...SESSIONS_CHANNELS,
-  ...SLEEP_CHANNELS,
+  ...AUTOPILOT_DECISIONS_CHANNELS,
   ...ACCOUNTS_CHANNELS,
   ...PLAN_USAGE_CHANNELS,
   ...MODEL_DOWNSHIFT_CHANNELS,
@@ -184,6 +195,7 @@ export const CHANNELS = {
   ...BAY_HISTORY_CHANNELS,
   ...SESSION_SYSTEM_CHANNELS,
   ...USAGE_SUMMARY_CHANNELS,
+  ...DEBUG_REPORT_CHANNELS,
   ...ISSUES_CHANNELS,
   ...AUTOPILOT_CHANNELS,
   ...SKETCH_SHARE_CHANNELS,

@@ -15,9 +15,17 @@ export function ProjectsUndo() {
     if (removed === undefined || store === undefined) return;
     const gone = window.setTimeout(store.forgetRemoved, UNDO_MS);
     return () => window.clearTimeout(gone);
-  }, [removed, store]);
+  }, [
+    removed,
+    store,
+  ]);
   if (removed === undefined || store === undefined) return null;
-  const said = removed.kind === "project" ? `Deleted ${removed.project.name}` : removed.row.kind === "issue" ? `Unlinked ${removed.row.reference}` : `Deleted ${removed.row.title}`;
+  const said =
+    removed.kind === "project"
+      ? `Deleted ${removed.project.name}`
+      : removed.row.kind === "issue"
+        ? `Unlinked ${removed.row.reference}`
+        : `Deleted ${removed.row.title}`;
   return (
     <Toast actionLabel="Undo" onAction={store.undo}>
       {said}

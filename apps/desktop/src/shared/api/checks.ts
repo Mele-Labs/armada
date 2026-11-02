@@ -1,7 +1,14 @@
 // Checks: one running Check's log, a Session Check's output, and the merge line the Checks page reads.
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { CheckOutputRead, FollowedLandLog, FollowedLog, LandCheckAt, MergeLines, Outcome } from "@armada/protocol";
+import type {
+  CheckOutputRead,
+  FollowedLandLog,
+  FollowedLog,
+  LandCheckAt,
+  MergeLines,
+  Outcome,
+} from "@armada/protocol";
 
 export type ChecksApi = {
   /**
@@ -40,9 +47,13 @@ export type ChecksState = {
 };
 
 export const CHECKS_NOTHING_YET: ChecksState = {
-  followed: { state: "none" },
+  followed: {
+    state: "none",
+  },
   mergeLines: null,
-  landFollowed: { state: "none" },
+  landFollowed: {
+    state: "none",
+  },
 };
 
 export const CHECKS_CHANNELS = {

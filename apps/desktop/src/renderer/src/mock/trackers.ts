@@ -10,13 +10,20 @@ import { mockLayout, TIDY_DASHBOARD } from "./layout";
 import { DUSK_MOD, mockThemes } from "./themes";
 
 /** Valid and on, edited since its try. */
-export const STALE = new Set(["shortcut"]);
+export const STALE = new Set([
+  "shortcut",
+]);
 
 /** A theme in force and a layout switched off, so the list has all three of Theme, Layout and Tracker. */
 export function installTrackerMods(): void {
   mockThemes.install(DUSK_MOD);
   mockThemes.setActive(DUSK_MOD.name);
-  mockLayout.install({ name: "tidy", title: "Tidy", enabled: false, file: parseLayout(TIDY_DASHBOARD).file });
+  mockLayout.install({
+    name: "tidy",
+    title: "Tidy",
+    enabled: false,
+    file: parseLayout(TIDY_DASHBOARD).file,
+  });
 }
 
 /** The same source with `STALE` drawn stale and Try answered: a tracker tried reads passed. */
@@ -29,8 +36,29 @@ export function triable(source: TaughtSource): TaughtSource {
   let shown: TaughtState = source.get();
   const mark = (mod: TaughtMod): TaughtMod => {
     if (mod.tracker === undefined || mod.tracker.tried.state !== "never") return mod;
-    if (tried.has(mod.name)) return { ...mod, tracker: { ...mod.tracker, tried: { state: "passed", words: "Tried today" } } };
-    return STALE.has(mod.name) ? { ...mod, tracker: { ...mod.tracker, tried: { state: "stale", words: "Stale" } } } : mod;
+    if (tried.has(mod.name))
+      return {
+        ...mod,
+        tracker: {
+          ...mod.tracker,
+          tried: {
+            state: "passed",
+            words: "Tried today",
+          },
+        },
+      };
+    return STALE.has(mod.name)
+      ? {
+          ...mod,
+          tracker: {
+            ...mod.tracker,
+            tried: {
+              state: "stale",
+              words: "Stale",
+            },
+          },
+        }
+      : mod;
   };
   return {
     ...source,
@@ -39,7 +67,10 @@ export function triable(source: TaughtSource): TaughtSource {
       if (state !== from || version !== seen) {
         from = state;
         seen = version;
-        shown = { ...state, mods: state.mods.map(mark) };
+        shown = {
+          ...state,
+          mods: state.mods.map(mark),
+        };
       }
       return shown;
     },

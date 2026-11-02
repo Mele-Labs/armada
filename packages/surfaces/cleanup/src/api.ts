@@ -2,12 +2,7 @@
 // Types and values only, no React. A slice imports protocol and screens, never another slice;
 // desktop's `shared/api/cleanup.ts` re-exports it and `shared/api.ts` composes it.
 
-import type {
-  Outcome,
-  ChangeSlotPool,
-  RescueSlot,
-  HeldWorktrees,
-} from "@armada/protocol";
+import type { Outcome, ChangeSlotPool, RescueSlot, HeldWorktrees } from "@armada/protocol";
 import type { RescueOutcome } from "./slot-rescue";
 
 export type * from "./slot-rescue";
@@ -45,7 +40,9 @@ export type CleanupState = {
 };
 
 export const CLEANUP_NOTHING_YET: CleanupState = {
-  held: { state: "none" },
+  held: {
+    state: "none",
+  },
 };
 
 export const CLEANUP_CHANNELS = {

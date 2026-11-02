@@ -1,4 +1,4 @@
-//! The loop beside the Sessions that Autopilot's picks, sleep mode, plan limits and the clash
+//! The loop beside the Sessions that Autopilot's picks, plan limits and the clash
 //! watch ride on.
 
 use std::sync::Arc;
@@ -12,7 +12,7 @@ use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 
 /// Run the passes that wait on time every `tick`; their own intervals still gate them. Starts
-/// Autopilot's pass beside it.
+/// Autopilot's passes beside it: the picks, and the decisions it answers.
 pub fn keep_noticing<H, V, W>(
     fleet: Arc<Fleet<H, V, W>>,
     tick: Duration,
@@ -29,6 +29,7 @@ where
 {
     let adrift = Arc::new(adrift);
     crate::autopilot::keep_autopiloting(Arc::clone(&fleet), tick, Arc::clone(&adrift));
+    crate::autopilot::keep_deciding(Arc::clone(&fleet), tick, Arc::clone(&adrift));
     // The week's transcripts, read once and in the background, a while after Fleet is up.
     let backfill = Arc::clone(&fleet);
     tokio::spawn(async move {
@@ -65,16 +66,10 @@ where
                 pages_read = tokio::time::Instant::now();
                 fleet.pages_read().await;
             }
-            // Sleep mode's pass rides this tick, but looks only every `sleeping::EVERY`.
-            if slept.elapsed() >= crate::sleeping::EVERY {
+            // A free bay, while a repository's Autopilot runs, re-measures what main's moves made stale.
+            if slept.elapsed() >= crate::test_map_feed::EVERY {
                 slept = tokio::time::Instant::now();
-                if let Err(why) = Arc::clone(&fleet).sleep_pass().await {
-                    eprintln!("sleep mode did not pass over the jobs: {why:?}");
-                }
-                // A free bay, while he sleeps, re-measures what main's moves made stale.
-                if fleet.sleeping().await {
-                    fleet.test_map_slept_over();
-                }
+                fleet.test_map_slept_over();
             }
             // Sessions the plan's limit stopped, woken once it has reset.
             fleet.limits_lifted().await;

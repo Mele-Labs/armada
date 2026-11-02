@@ -17,7 +17,10 @@ import type { RehearsalConnection } from "./rehearsal";
 import { RepositoryReads } from "./repositories";
 import { ask, COMMAND_MS } from "./request";
 
-const ADDED = { root: "/Users/user/scratch", records_root: "/records/scratch" };
+const ADDED = {
+  root: "/Users/user/scratch",
+  records_root: "/records/scratch",
+};
 
 let listening: Server | null = null;
 afterEach(async () => {
@@ -27,13 +30,25 @@ afterEach(async () => {
 });
 
 /** A Fleet answering one status and body to every request, recording what arrived. */
-async function fleet(status: number, body: unknown, into: { url: string; body: string }[]): Promise<number> {
+async function fleet(
+  status: number,
+  body: unknown,
+  into: {
+    url: string;
+    body: string;
+  }[],
+): Promise<number> {
   const server = createServer((request, response) => {
     let text = "";
     request.on("data", (chunk) => (text += chunk));
     request.on("end", () => {
-      into.push({ url: request.url ?? "", body: text });
-      response.writeHead(status, { "content-type": "application/json" });
+      into.push({
+        url: request.url ?? "",
+        body: text,
+      });
+      response.writeHead(status, {
+        "content-type": "application/json",
+      });
       response.end(JSON.stringify(body));
     });
   });
@@ -52,62 +67,152 @@ function wired(port: number, done: string[]): Locating {
 
 describe("adding a folder", () => {
   it("posts the path and lists what Fleet now serves, leaving the pick to the window that asked", async () => {
-    const asked: { url: string; body: string }[] = [];
+    const asked: {
+      url: string;
+      body: string;
+    }[] = [];
     const done: string[] = [];
     const port = await fleet(201, ADDED, asked);
     const answer = await wired(port, done).add("/Users/user/scratch");
-    expect(asked).toEqual([{ url: "/repositories/add", body: JSON.stringify({ path: "/Users/user/scratch" }) }]);
-    expect(answer).toEqual({ state: "located", repository: ADDED });
-    expect(done).toEqual(["list"]);
+    expect(asked).toEqual([
+      {
+        url: "/repositories/add",
+        body: JSON.stringify({
+          path: "/Users/user/scratch",
+        }),
+      },
+    ]);
+    expect(answer).toEqual({
+      state: "located",
+      repository: ADDED,
+    });
+    expect(done).toEqual([
+      "list",
+    ]);
   });
 
   it("reads a refusal in Fleet's words, and picks nothing", async () => {
-    const refusal = { code: "fleet.not_a_repository", message: "/tmp is not the root of a git repository", run_id: "r", fields: {}, chain: [] };
+    const refusal = {
+      code: "fleet.not_a_repository",
+      message: "/tmp is not the root of a git repository",
+      run_id: "r",
+      fields: {},
+      chain: [],
+    };
     const done: string[] = [];
     const port = await fleet(422, refusal, []);
     const answer = await wired(port, done).add("/tmp");
-    expect(answer).toEqual({ state: "refused", code: "fleet.not_a_repository", saying: refusal.message });
+    expect(answer).toEqual({
+      state: "refused",
+      code: "fleet.not_a_repository",
+      saying: refusal.message,
+    });
     expect(done).toEqual([]);
   });
 
   it("sends nothing without a Fleet", async () => {
-    const locating = new Locating({ port: () => null, list: async () => {} });
-    expect(await locating.add("/Users/user/scratch")).toEqual({ state: "failed", outcome: { ok: false, why: "not_connected" } });
+    const locating = new Locating({
+      port: () => null,
+      list: async () => {},
+    });
+    expect(await locating.add("/Users/user/scratch")).toEqual({
+      state: "failed",
+      outcome: {
+        ok: false,
+        why: "not_connected",
+      },
+    });
   });
 });
 
 describe("making a project", () => {
   it("posts the parent and the name, and lists what Fleet now serves", async () => {
-    const asked: { url: string; body: string }[] = [];
+    const asked: {
+      url: string;
+      body: string;
+    }[] = [];
     const done: string[] = [];
     const port = await fleet(201, ADDED, asked);
     const answer = await wired(port, done).create("/Users/user", "scratch");
-    expect(asked).toEqual([{ url: "/repositories/create", body: JSON.stringify({ parent: "/Users/user", name: "scratch" }) }]);
-    expect(answer).toEqual({ state: "located", repository: ADDED });
-    expect(done).toEqual(["list"]);
+    expect(asked).toEqual([
+      {
+        url: "/repositories/create",
+        body: JSON.stringify({
+          parent: "/Users/user",
+          name: "scratch",
+        }),
+      },
+    ]);
+    expect(answer).toEqual({
+      state: "located",
+      repository: ADDED,
+    });
+    expect(done).toEqual([
+      "list",
+    ]);
   });
 
   it("reads a refused name in Fleet's words", async () => {
-    const refusal = { code: "fleet.project_name_refused", message: "a project's name is one folder's name", run_id: "r", fields: {}, chain: [] };
+    const refusal = {
+      code: "fleet.project_name_refused",
+      message: "a project's name is one folder's name",
+      run_id: "r",
+      fields: {},
+      chain: [],
+    };
     const port = await fleet(422, refusal, []);
-    expect(await wired(port, []).create("/Users/user", "a/b")).toEqual({ state: "refused", code: "fleet.project_name_refused", saying: refusal.message });
+    expect(await wired(port, []).create("/Users/user", "a/b")).toEqual({
+      state: "refused",
+      code: "fleet.project_name_refused",
+      saying: refusal.message,
+    });
   });
 });
 
 describe("cloning from a URL", () => {
   it("waits past Fleet's ten-minute bound, where an add waits a command's", async () => {
-    const waits: { path: string; waitMs: number | undefined; body: unknown }[] = [];
+    const waits: {
+      path: string;
+      waitMs: number | undefined;
+      body: unknown;
+    }[] = [];
     const recording: typeof ask = async (_port, _method, path, body, waitMs) => {
-      waits.push({ path, waitMs, body });
-      return { ok: true, body: ADDED };
+      waits.push({
+        path,
+        waitMs,
+        body,
+      });
+      return {
+        ok: true,
+        body: ADDED,
+      };
     };
-    const locating = new Locating({ port: () => 1, list: async () => {} }, recording);
+    const locating = new Locating(
+      {
+        port: () => 1,
+        list: async () => {},
+      },
+      recording,
+    );
     await locating.clone("file:///tmp/remotes/scratch.git", "/Users/user/code");
     await locating.add("/Users/user/scratch");
     expect(CLONE_MS).toBeGreaterThan(10 * 60_000);
     expect(waits).toEqual([
-      { path: "/repositories/clone", waitMs: CLONE_MS, body: { url: "file:///tmp/remotes/scratch.git", parent: "/Users/user/code" } },
-      { path: "/repositories/add", waitMs: COMMAND_MS, body: { path: "/Users/user/scratch" } },
+      {
+        path: "/repositories/clone",
+        waitMs: CLONE_MS,
+        body: {
+          url: "file:///tmp/remotes/scratch.git",
+          parent: "/Users/user/code",
+        },
+      },
+      {
+        path: "/repositories/add",
+        waitMs: COMMAND_MS,
+        body: {
+          path: "/Users/user/scratch",
+        },
+      },
     ]);
   });
 
@@ -116,19 +221,52 @@ describe("cloning from a URL", () => {
     let sent = 0;
     const slow: typeof ask = (_port, _method, _path) => {
       sent += 1;
-      return new Promise((resolve) => (finish = () => resolve({ ok: true, body: ADDED })));
+      return new Promise(
+        (resolve) =>
+          (finish = () =>
+            resolve({
+              ok: true,
+              body: ADDED,
+            })),
+      );
     };
-    const locating = new Locating({ port: () => 1, list: async () => {} }, slow);
+    const locating = new Locating(
+      {
+        port: () => 1,
+        list: async () => {},
+      },
+      slow,
+    );
     const first = locating.clone("git@host:scratch.git", "/Users/user/code");
-    expect(await locating.clone("git@host:scratch.git", "/Users/user/code")).toEqual({ state: "busy" });
+    expect(await locating.clone("git@host:scratch.git", "/Users/user/code")).toEqual({
+      state: "busy",
+    });
     finish();
     expect((await first).state).toBe("located");
     expect(sent).toBe(1);
   });
 
   it("carries a transport failure whole", () => {
-    const outcome = { ok: false as const, why: "transport" as const, detail: "aborted", fault: { method: "POST" as const, path: "/repositories/clone", why: "timed_out" as const, waitedMs: CLONE_MS } };
-    expect(locateAnswerOf({ ok: false, outcome })).toEqual({ state: "failed", outcome });
+    const outcome = {
+      ok: false as const,
+      why: "transport" as const,
+      detail: "aborted",
+      fault: {
+        method: "POST" as const,
+        path: "/repositories/clone",
+        why: "timed_out" as const,
+        waitedMs: CLONE_MS,
+      },
+    };
+    expect(
+      locateAnswerOf({
+        ok: false,
+        outcome,
+      }),
+    ).toEqual({
+      state: "failed",
+      outcome,
+    });
   });
 });
 
@@ -155,26 +293,47 @@ describe("a clone that lands late", () => {
     const landed: unknown[] = [];
     const done: string[] = [];
     const port = await fleet(201, ADDED, []);
-    const locating = new Locating({ port: () => port, list: async () => void done.push("list"), landed: (one) => void landed.push(one) });
+    const locating = new Locating({
+      port: () => port,
+      list: async () => void done.push("list"),
+      landed: (one) => void landed.push(one),
+    });
     await locating.add("/Users/user/scratch");
     expect(landed).toEqual([]);
     await locating.clone("https://forge.invalid/owner/scratch.git", "/Users/user");
-    expect(done).toEqual(["list", "list"]);
-    expect(landed).toEqual([ADDED]);
+    expect(done).toEqual([
+      "list",
+      "list",
+    ]);
+    expect(landed).toEqual([
+      ADDED,
+    ]);
   });
 
   it("reaches every window on the one state main publishes, and moves no pick", async () => {
-    const armada = { root: "/Users/user/armada", records_root: "/records/armada" };
+    const armada = {
+      root: "/Users/user/armada",
+      records_root: "/records/armada",
+    };
     const routes: Record<string, unknown> = {
       "/repositories/clone": ADDED,
-      "/repositories": { repositories: [armada, ADDED] },
+      "/repositories": {
+        repositories: [
+          armada,
+          ADDED,
+        ],
+      },
       "/workflows": [],
       "/manifests": [],
-      "/models": { choices: [] },
+      "/models": {
+        choices: [],
+      },
     };
     const server = createServer((request, response) => {
       const body = routes[request.url ?? ""];
-      response.writeHead(body === undefined ? 404 : 200, { "content-type": "application/json" });
+      response.writeHead(body === undefined ? 404 : 200, {
+        "content-type": "application/json",
+      });
       response.end(JSON.stringify(body ?? {}));
     });
     listening = server;
@@ -185,18 +344,31 @@ describe("a clone that lands late", () => {
     // Bridge opens on All repositories, so the window's own pick is made, as the rail makes it.
     const WINDOW = 1;
     const pickedByWindow = new PickedByWindow();
-    pickedByWindow.of(WINDOW).hold([armada]);
+    pickedByWindow.of(WINDOW).hold([
+      armada,
+    ]);
     pickedByWindow.of(WINDOW).pick(armada.root);
     const published: Partial<BridgeState>[] = [];
-    const windows: { windowId: number; change: Partial<PickedView> }[] = [];
+    const windows: {
+      windowId: number;
+      change: Partial<PickedView>;
+    }[] = [];
     const publish = (change: Partial<BridgeState>) => void published.push(change);
     const reads = new RepositoryReads({
       pickedByWindow,
       publish,
-      publishToWindow: (windowId, change) => void windows.push({ windowId, change }),
-      windowIds: () => [WINDOW],
+      publishToWindow: (windowId, change) =>
+        void windows.push({
+          windowId,
+          change,
+        }),
+      windowIds: () => [
+        WINDOW,
+      ],
       holds: () => NOTHING_YET.holds,
-      rehearsal: { onRepositoryMoved: async () => {} } as unknown as RehearsalConnection,
+      rehearsal: {
+        onRepositoryMoved: async () => {},
+      } as unknown as RehearsalConnection,
       overviewAgain: async () => {},
       onPicked: () => {},
       port: () => port,
@@ -204,11 +376,24 @@ describe("a clone that lands late", () => {
     await reads.locating.clone("https://forge.invalid/owner/scratch.git", "/Users/user");
 
     const told = published.filter((change) => change.located !== undefined);
-    expect(told).toEqual([{ located: { repository: ADDED, at: expect.any(Number) } }]);
+    expect(told).toEqual([
+      {
+        located: {
+          repository: ADDED,
+          at: expect.any(Number),
+        },
+      },
+    ]);
     // Listed before it is told, so a window that opens its Setup finds it in the picker.
-    expect(published.findIndex((change) => change.holds !== undefined)).toBeLessThan(published.indexOf(told[0]!));
+    expect(published.findIndex((change) => change.holds !== undefined)).toBeLessThan(
+      published.indexOf(told[0]!),
+    );
     // The window's own pick never moved off armada for a clone it did not ask for.
-    expect(windows.filter((one) => one.change.repository !== undefined).map((one) => one.change.repository)).toEqual([
+    expect(
+      windows
+        .filter((one) => one.change.repository !== undefined)
+        .map((one) => one.change.repository),
+    ).toEqual([
       armada.root,
     ]);
   });

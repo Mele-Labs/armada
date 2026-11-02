@@ -5,7 +5,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const openExternal = vi.fn(async (_url: string) => undefined);
-vi.mock("electron", () => ({ shell: { openExternal: (url: string) => openExternal(url) } }));
+vi.mock("electron", () => ({
+  shell: {
+    openExternal: (url: string) => openExternal(url),
+  },
+}));
 
 const { openLink } = await import("./links");
 
@@ -20,20 +24,24 @@ describe("opening a link in a model's text", () => {
   });
 
   it("hands an http address to the OS", async () => {
-    await expect(openLink("http://localhost:5173/")).resolves.toEqual({ ok: true });
+    await expect(openLink("http://localhost:5173/")).resolves.toEqual({
+      ok: true,
+    });
   });
 
-  it.each(["javascript:alert(1)", "file:///Users/user/.ssh/id_ed25519", "vscode://file/x", "../x"])(
-    "refuses %s by name",
-    async (address) => {
-      await expect(openLink(address)).resolves.toEqual({
-        ok: false,
-        why: "not_addressable",
-        address,
-      });
-      expect(openExternal).not.toHaveBeenCalled();
-    },
-  );
+  it.each([
+    "javascript:alert(1)",
+    "file:///Users/user/.ssh/id_ed25519",
+    "vscode://file/x",
+    "../x",
+  ])("refuses %s by name", async (address) => {
+    await expect(openLink(address)).resolves.toEqual({
+      ok: false,
+      why: "not_addressable",
+      address,
+    });
+    expect(openExternal).not.toHaveBeenCalled();
+  });
 
   it("carries the OS's own refusal through", async () => {
     openExternal.mockRejectedValueOnce(new Error("no application knows how to open this"));

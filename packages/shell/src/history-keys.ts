@@ -5,16 +5,24 @@
 import { useEffect, useRef } from "react";
 import { pressedSlot } from "@armada/components";
 
-
 /** Whether a press landed where `⌘[` and `⌘]` already mean outdent and indent. */
 function inEditor(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
+  );
 }
 
 /** Back on `⌘[` or button 3, forward on `⌘]` or button 4; the keys not from a field being typed in. */
 export function useHistoryKeys(onBack: () => void, onForward: () => void): void {
-  const latest = useRef({ onBack, onForward });
-  latest.current = { onBack, onForward };
+  const latest = useRef({
+    onBack,
+    onForward,
+  });
+  latest.current = {
+    onBack,
+    onForward,
+  };
 
   useEffect(() => {
     function pressed(event: KeyboardEvent): void {

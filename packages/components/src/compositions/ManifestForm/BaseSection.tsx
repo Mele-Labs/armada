@@ -14,7 +14,12 @@ export function BaseSection({ draft, onDraft }: ManifestFormProps) {
         mono
         value={draft.base}
         spellCheck={false}
-        onChange={(event) => onDraft({ ...draft, base: event.target.value })}
+        onChange={(event) =>
+          onDraft({
+            ...draft,
+            base: event.target.value,
+          })
+        }
       />
     </Section>
   );

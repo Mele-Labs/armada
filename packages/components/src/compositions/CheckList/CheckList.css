@@ -47,8 +47,15 @@
   overflow: auto;
   overscroll-behavior: contain;
   background:
-    linear-gradient(color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width)),
-    linear-gradient(90deg, color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width));
+    linear-gradient(
+      color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width),
+      transparent var(--border-width)
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width),
+      transparent var(--border-width)
+    );
   background-size: var(--space-6) var(--space-6);
   background-attachment: local;
 }
@@ -95,7 +102,8 @@
   --hue: var(--fg-subtle);
   position: relative;
   min-height: calc(var(--h-row) * 1.25);
-  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border: calc(var(--border-width) * 2) solid
+    color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
   transition:
@@ -105,10 +113,18 @@
 }
 
 /* The hue, from the run tokens: each aliases its Job counterpart. */
-.armada-check-list__row[data-status="running"] { --hue: var(--run-running); }
-.armada-check-list__row[data-status="passed"] { --hue: var(--run-passed); }
-.armada-check-list__row[data-status="failed"] { --hue: var(--run-failed); }
-.armada-check-list__row[data-status="stopped"] { --hue: var(--run-stopped); }
+.armada-check-list__row[data-status="running"] {
+  --hue: var(--run-running);
+}
+.armada-check-list__row[data-status="passed"] {
+  --hue: var(--run-passed);
+}
+.armada-check-list__row[data-status="failed"] {
+  --hue: var(--run-failed);
+}
+.armada-check-list__row[data-status="stopped"] {
+  --hue: var(--run-stopped);
+}
 
 .armada-check-list__row .armada-table-cell {
   padding: var(--space-2) var(--space-3);
@@ -260,6 +276,15 @@
 
 /* Pending: tiles with no state yet, in the neutral hue, each bar standing where its text will. The tile keeps its own
    height, so the rows are the height they will be when the Checks land. */
-.armada-check-list__row[data-status="pending"] { --skeleton-fill: var(--bg-raised); }
-.armada-check-list__row[data-status="pending"] .armada-table-cell { box-sizing: border-box; min-height: calc(var(--leading-xs) + var(--space-4)); }
-.armada-check-list__row .armada-skeleton.armada-check-list__skel-mark { width: calc(var(--space-4) - 2 * var(--border-width)); height: calc(var(--space-4) - 2 * var(--border-width)); border-radius: 50%; }
+.armada-check-list__row[data-status="pending"] {
+  --skeleton-fill: var(--bg-raised);
+}
+.armada-check-list__row[data-status="pending"] .armada-table-cell {
+  box-sizing: border-box;
+  min-height: calc(var(--leading-xs) + var(--space-4));
+}
+.armada-check-list__row .armada-skeleton.armada-check-list__skel-mark {
+  width: calc(var(--space-4) - 2 * var(--border-width));
+  height: calc(var(--space-4) - 2 * var(--border-width));
+  border-radius: 50%;
+}

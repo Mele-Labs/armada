@@ -4,17 +4,53 @@
 
 import { button, deckRow, inside, region, role, walk } from "../walk";
 
-const artifacts = region("Artifacts", { exact: true });
+const artifacts = region("Artifacts", {
+  exact: true,
+});
 const stage = region(/^Job: /);
 
 const cockpit = walk("ledger-in-cockpit", [
-  { press: deckRow("Queue session for later"), say: "A Job selected on the Cockpit has no Ledger. The Blueprint and the Field share its column" },
-  { press: button("Artifacts", { exact: true }), say: "Artifacts (8) holds what the Ledger did, over the thread" },
-  { look: inside(artifacts, region("Commands", { exact: true })), say: "Commands: two commands and a monitor running" },
-  { look: inside(artifacts, region("Pull requests", { exact: true })), say: "Pull requests, with their state and checks" },
-  { type: "walk", into: inside(artifacts, role("searchbox", "Search artifacts")), say: "Typing narrows every group at once" },
-  { press: inside(artifacts, button("Back")), say: "Back returns to the thread where it was" },
-  { look: inside(stage, region("Needs you")), say: "What waits on him is in the Needs you panel on the composer, not in Artifacts" },
+  {
+    press: deckRow("Queue session for later"),
+    say: "A Job selected on the Cockpit has no Ledger. The Blueprint and the Field share its column",
+  },
+  {
+    press: button("Artifacts", {
+      exact: true,
+    }),
+    say: "Artifacts (8) holds what the Ledger did, over the thread",
+  },
+  {
+    look: inside(
+      artifacts,
+      region("Commands", {
+        exact: true,
+      }),
+    ),
+    say: "Commands: two commands and a monitor running",
+  },
+  {
+    look: inside(
+      artifacts,
+      region("Pull requests", {
+        exact: true,
+      }),
+    ),
+    say: "Pull requests, with their state and checks",
+  },
+  {
+    type: "walk",
+    into: inside(artifacts, role("searchbox", "Search artifacts")),
+    say: "Typing narrows every group at once",
+  },
+  {
+    press: inside(artifacts, button("Back")),
+    say: "Back returns to the thread where it was",
+  },
+  {
+    look: inside(stage, region("Needs you")),
+    say: "What waits on him is in the Needs you panel on the composer, not in Artifacts",
+  },
 ]);
 
 export { cockpit as "ledger-in-cockpit" };

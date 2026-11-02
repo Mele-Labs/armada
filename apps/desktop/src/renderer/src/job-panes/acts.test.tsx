@@ -18,23 +18,72 @@ import "../styles/index.css";
 import "../cockpit/deck/deck.css";
 import "./job-panes.css";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
-const NONE: FlightControls = { version: 1, job: [], deck: [] };
+const NONE: FlightControls = {
+  version: 1,
+  job: [],
+  deck: [],
+};
 
 let base: unknown;
 beforeAll(() => {
-  const state = { ...NOTHING_YET, connection: { state: "connected" } } as unknown as BridgeState;
-  base = (window as unknown as { armada: unknown }).armada = {
+  const state = {
+    ...NOTHING_YET,
+    connection: {
+      state: "connected",
+    },
+  } as unknown as BridgeState;
+  base = (
+    window as unknown as {
+      armada: unknown;
+    }
+  ).armada = {
     subscribeChanges: () => () => {},
-    syncState: async () => ({ full: state, seq: 1 }),
-    getFlightControls: async () => ({ ok: true, value: { what: "read", controls: NONE } }),
-    saveFlightControls: async (controls: FlightControls) => ({ ok: true, value: { what: "read", controls } }),
-    getRepositoryFlightControls: async (repository: string) => ({ ok: true, value: { repository, place: "this_mac", read: { what: "read", controls: { version: 1, job: [], deck: [] } } } }),
+    syncState: async () => ({
+      full: state,
+      seq: 1,
+    }),
+    getFlightControls: async () => ({
+      ok: true,
+      value: {
+        what: "read",
+        controls: NONE,
+      },
+    }),
+    saveFlightControls: async (controls: FlightControls) => ({
+      ok: true,
+      value: {
+        what: "read",
+        controls,
+      },
+    }),
+    getRepositoryFlightControls: async (repository: string) => ({
+      ok: true,
+      value: {
+        repository,
+        place: "this_mac",
+        read: {
+          what: "read",
+          controls: {
+            version: 1,
+            job: [],
+            deck: [],
+          },
+        },
+      },
+    }),
   };
 });
 
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 /** Takes the head away: the acts and where they stand are one Job's, so a second head waits for the first to go. */
 const leave = () => {
   for (const { root, host } of roots.splice(0)) {
@@ -45,18 +94,54 @@ const leave = () => {
 afterEach(() => {
   leave();
   delete document.documentElement.dataset.headTake;
-  (window as unknown as { armada: unknown }).armada = base;
+  (
+    window as unknown as {
+      armada: unknown;
+    }
+  ).armada = base;
 });
 
 const flush = () => act(async () => void (await new Promise((done) => setTimeout(done, 0))));
 
 const TITLE = "Retry the slot lease when two Jobs ask for the same bay at once";
-const REPOSITORY = { root: "/code/armada", name: "armada" };
-const jobOf = (more: object = {}): Session => ({ id: "s1", title: TITLE, rows: [], attachments: [], turn: { state: "idle" }, ...more }) as unknown as Session;
-const draftOf = (more: object = {}) => ({ commands: [], get: () => [], send: vi.fn(async () => true), autoLand: vi.fn(async () => true), pause: vi.fn(async () => true), resume: vi.fn(async () => true), ...more }) as unknown as SessionsDraft & { autoLand: ReturnType<typeof vi.fn> };
+const REPOSITORY = {
+  root: "/code/armada",
+  name: "armada",
+};
+const jobOf = (more: object = {}): Session =>
+  ({
+    id: "s1",
+    title: TITLE,
+    rows: [],
+    attachments: [],
+    turn: {
+      state: "idle",
+    },
+    ...more,
+  }) as unknown as Session;
+const draftOf = (more: object = {}) =>
+  ({
+    commands: [],
+    get: () => [],
+    send: vi.fn(async () => true),
+    autoLand: vi.fn(async () => true),
+    pause: vi.fn(async () => true),
+    resume: vi.fn(async () => true),
+    ...more,
+  }) as unknown as SessionsDraft & {
+    autoLand: ReturnType<typeof vi.fn>;
+  };
 
 /** A Thread head as the Cockpit draws one: the frame, the slot the acts stand in, and the menu that takes the ones with no room. */
-function Head({ session, draft, under = false }: { session: Session; draft: SessionsDraft; under?: boolean }) {
+function Head({
+  session,
+  draft,
+  under = false,
+}: {
+  session: Session;
+  draft: SessionsDraft;
+  under?: boolean;
+}) {
   const acts = useActs();
   const { away } = useActsPlace();
   return (
@@ -65,11 +150,22 @@ function Head({ session, draft, under = false }: { session: Session; draft: Sess
         state="quiet"
         said="Quiet"
         id={session.id}
-        {...(session.title === undefined ? {} : { title: session.title })}
+        {...(session.title === undefined
+          ? {}
+          : {
+              title: session.title,
+            })}
         headTake={headTake()}
-        {...(under ? { toolsUnder: true } : {})}
+        {...(under
+          ? {
+              toolsUnder: true,
+            }
+          : {})}
         actions={<JobActsSlot />}
-        menu={{ entries: actEntries(acts, away), onSelect: (id) => void runActEntry(acts, id) }}
+        menu={{
+          entries: actEntries(acts, away),
+          onSelect: (id) => void runActEntry(acts, id),
+        }}
         back={<button type="button" aria-label="Close" />}
       >
         {under ? (
@@ -85,21 +181,33 @@ function Head({ session, draft, under = false }: { session: Session; draft: Sess
 }
 
 /** The head, `width` wide, laid out. */
-async function mount(width: number, session: Session = jobOf(), draft: SessionsDraft = draftOf(), under = false) {
+async function mount(
+  width: number,
+  session: Session = jobOf(),
+  draft: SessionsDraft = draftOf(),
+  under = false,
+) {
   const host = document.createElement("div");
   host.style.cssText = `width: ${width}px; display: flex; flex-direction: column`;
   document.body.append(host);
   const root = createRoot(host);
   act(() => root.render(<Head session={session} draft={draft} under={under} />));
-  roots.push({ root, host });
+  roots.push({
+    root,
+    host,
+  });
   // Each measuring is a step, and the row settles in as many as it has acts.
   for (let i = 0; i < 12; i++) await flush();
   return host;
 }
 
 const head = (host: HTMLElement) => host.querySelector<HTMLElement>(".armada-session-frame__head")!;
-const drawn = (host: HTMLElement) => [...host.querySelectorAll<HTMLElement>('.job-acts[role="toolbar"] > *')].map((one) => (one.querySelector("button") ?? one).getAttribute("aria-label"));
-const icon = (host: HTMLElement, name: string) => host.querySelector<HTMLElement>(`.job-acts[role="toolbar"] button[aria-label="${name}"]`)!;
+const drawn = (host: HTMLElement) =>
+  [
+    ...host.querySelectorAll<HTMLElement>('.job-acts[role="toolbar"] > *'),
+  ].map((one) => (one.querySelector("button") ?? one).getAttribute("aria-label"));
+const icon = (host: HTMLElement, name: string) =>
+  host.querySelector<HTMLElement>(`.job-acts[role="toolbar"] button[aria-label="${name}"]`)!;
 
 /** The name's width against 18 characters of its own type. */
 function nameAgainstFloor(host: HTMLElement) {
@@ -109,10 +217,18 @@ function nameAgainstFloor(host: HTMLElement) {
   title.append(probe);
   const floor = probe.getBoundingClientRect().width;
   probe.remove();
-  return { name: host.querySelector<HTMLElement>(".armada-session-frame__title-text")!.getBoundingClientRect().width, floor };
+  return {
+    name: host
+      .querySelector<HTMLElement>(".armada-session-frame__title-text")!
+      .getBoundingClientRect().width,
+    floor,
+  };
 }
 
-for (const take of ["rows", "overflow"] as const) {
+for (const take of [
+  "rows",
+  "overflow",
+] as const) {
   test(`${take}: the name keeps 18 characters at a narrow width, and the head does not overflow`, async () => {
     if (take === "overflow") document.documentElement.dataset.headTake = "overflow";
     const host = await mount(360);
@@ -120,22 +236,45 @@ for (const take of ["rows", "overflow"] as const) {
     expect(floor).toBeGreaterThan(0);
     expect(name).toBeGreaterThanOrEqual(floor);
     expect(head(host).scrollWidth).toBeLessThanOrEqual(head(host).clientWidth + 1);
-    for (const row of host.querySelectorAll<HTMLElement>(".armada-session-frame__row")) expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth + 1);
+    for (const row of host.querySelectorAll<HTMLElement>(".armada-session-frame__row"))
+      expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth + 1);
   });
 }
 
 test("every act is an icon where the row has room, and none is in the menu", async () => {
   const host = await mount(900);
-  expect(drawn(host)).toEqual(["Auto land", "Pause", "Judge", "Report issue with job", "Release everything the Job holds", "Requests", "Checks", "Subagents"]);
+  expect(drawn(host)).toEqual([
+    "Auto land",
+    "Pause",
+    "Judge",
+    "Report issue with job",
+    "Release everything the Job holds",
+    "Requests",
+    "Checks",
+    "Subagents",
+  ]);
 });
 
 test("the acts with no room leave in a fixed order, the one read at a glance last", async () => {
   // At 170 some have left and some stay: what stays is the last of the order they leave in, whichever the head draws first.
-  const order = ["Requests", "Release everything the Job holds", "Report issue with job", "Subagents", "Judge", "Checks", "Auto land", "Pause"];
+  const order = [
+    "Requests",
+    "Release everything the Job holds",
+    "Report issue with job",
+    "Subagents",
+    "Judge",
+    "Checks",
+    "Auto land",
+    "Pause",
+  ];
   const kept = drawn(await mount(170));
   expect(kept.length).toBeGreaterThan(0);
   expect(kept.length).toBeLessThan(order.length);
-  expect([...kept].sort()).toEqual(order.slice(order.length - kept.length).sort());
+  expect(
+    [
+      ...kept,
+    ].sort(),
+  ).toEqual(order.slice(order.length - kept.length).sort());
 });
 
 test("an act with no room is a row of the ellipsis menu, and Enter on the row runs it", async () => {
@@ -145,18 +284,31 @@ test("an act with no room is a row of the ellipsis menu, and Enter on the row ru
   host.querySelector<HTMLElement>('button[aria-label="More"]')!.focus();
   await userEvent.keyboard("{Enter}");
   await flush();
-  const rows = () => [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+  const rows = () => [
+    ...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+  ];
   expect(rows().map((one) => one.textContent)).toContain("Auto land");
   // Arrow to the row by its name, as a keyboard does, and press Enter.
-  for (let i = 0; i < rows().length && document.activeElement?.textContent !== "Auto land"; i++) await userEvent.keyboard("{ArrowDown}");
+  for (let i = 0; i < rows().length && document.activeElement?.textContent !== "Auto land"; i++)
+    await userEvent.keyboard("{ArrowDown}");
   expect(document.activeElement?.textContent).toBe("Auto land");
   await userEvent.keyboard("{Enter}");
   await flush();
-  expect(draft.autoLand.mock.calls).toEqual([["s1", true]]);
+  expect(draft.autoLand.mock.calls).toEqual([
+    [
+      "s1",
+      true,
+    ],
+  ]);
 });
 
 test("a switch that is on carries its state and says it in its tooltip, and an off one does not", async () => {
-  const on = await mount(900, jobOf({ autoLand: true }));
+  const on = await mount(
+    900,
+    jobOf({
+      autoLand: true,
+    }),
+  );
   expect(icon(on, "Auto land").dataset.on).toBe("true");
   expect(icon(on, "Pause").hasAttribute("data-on")).toBe(false);
   await userEvent.hover(icon(on, "Auto land"));
@@ -168,34 +320,90 @@ test("a switch that is on carries its state and says it in its tooltip, and an o
 });
 
 test("a paused Job's Pause is on", async () => {
-  const host = await mount(900, jobOf({ paused: true }));
+  const host = await mount(
+    900,
+    jobOf({
+      paused: true,
+    }),
+  );
   expect(icon(host, "Resume").dataset.on).toBe("true");
 });
 
 test("a thing that is running carries its state and says it in its tooltip, and stops when nothing runs", async () => {
-  const running = [{ kind: "subagent", id: "a1", task: "Read the retry path", state: "running" }];
-  const host = await mount(900, jobOf({ attachments: running }));
+  const running = [
+    {
+      kind: "subagent",
+      id: "a1",
+      task: "Read the retry path",
+      state: "running",
+    },
+  ];
+  const host = await mount(
+    900,
+    jobOf({
+      attachments: running,
+    }),
+  );
   expect(icon(host, "Subagents").dataset.running).toBe("true");
   await userEvent.hover(icon(host, "Subagents"));
   await expect.element(page.getByText("Subagents running")).toBeVisible();
   await userEvent.unhover(icon(host, "Subagents"));
   leave();
-  const done = await mount(900, jobOf({ attachments: [{ ...running[0], state: "done" }] }));
+  const done = await mount(
+    900,
+    jobOf({
+      attachments: [
+        {
+          ...running[0],
+          state: "done",
+        },
+      ],
+    }),
+  );
   expect(icon(done, "Subagents").hasAttribute("data-running")).toBe(false);
 });
 
 test("a running Check carries its state", async () => {
-  const host = await mount(900, jobOf({ rows: [{ id: "c1", at: "14:00:00", kind: "check", name: "tests", state: "running" }] }));
+  const host = await mount(
+    900,
+    jobOf({
+      rows: [
+        {
+          id: "c1",
+          at: "14:00:00",
+          kind: "check",
+          name: "tests",
+          state: "running",
+        },
+      ],
+    }),
+  );
   expect(icon(host, "Checks").dataset.running).toBe("true");
 });
 
 test("an act in the menu carries its state on its row", async () => {
-  const running = [{ kind: "subagent", id: "a1", task: "Read the retry path", state: "running" }];
-  const host = await mount(120, jobOf({ autoLand: true, attachments: running }));
+  const running = [
+    {
+      kind: "subagent",
+      id: "a1",
+      task: "Read the retry path",
+      state: "running",
+    },
+  ];
+  const host = await mount(
+    120,
+    jobOf({
+      autoLand: true,
+      attachments: running,
+    }),
+  );
   host.querySelector<HTMLElement>('button[aria-label="More"]')!.focus();
   await userEvent.keyboard("{Enter}");
   await flush();
-  const row = (name: string) => [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((one) => one.textContent?.startsWith(name));
+  const row = (name: string) =>
+    [
+      ...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+    ].find((one) => one.textContent?.startsWith(name));
   expect(row("Auto land")?.dataset.state).toBe("on");
   expect(row("Subagents")?.dataset.state).toBe("running");
   // Judge has left too, with nothing on it.

@@ -17,6 +17,10 @@ export function recentManifestIds(
   if (setUp.length <= RECENT_FROM) return [];
   return recentRoots.flatMap((root) => {
     const found = setUp.find((one) => one.root === root);
-    return found?.manifest === undefined ? [] : [found.manifest.id];
+    return found?.manifest === undefined
+      ? []
+      : [
+          found.manifest.id,
+        ];
   });
 }

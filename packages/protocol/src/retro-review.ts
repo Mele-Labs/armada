@@ -56,4 +56,6 @@ export type LessonAsk = {
 };
 
 /** What `ask_lesson` answers. */
-export type AskLessonAnswer = { answer: string };
+export type AskLessonAnswer = {
+  answer: string;
+};

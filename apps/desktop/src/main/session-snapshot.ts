@@ -12,10 +12,15 @@ export type SnapshotSource = {
 /** How often a picture is taken of a page that gives no sign it moved: an animation, a timer, a request that came back. */
 export const SNAPSHOT_EVERY_MS = 3000;
 
-const same = (a: Uint8Array | undefined, b: Uint8Array): boolean => a !== undefined && a.byteLength === b.byteLength && a.every((byte, at) => byte === b[at]);
+const same = (a: Uint8Array | undefined, b: Uint8Array): boolean =>
+  a !== undefined && a.byteLength === b.byteLength && a.every((byte, at) => byte === b[at]);
 
 /** Starts pictures of `source`, handing each new one to `send`. Returns what ends them. **One is taken at a time**: a change during one asks for one more after it. */
-export function keepSnapshots(source: SnapshotSource, send: (png: Uint8Array) => void, every: number = SNAPSHOT_EVERY_MS): () => void {
+export function keepSnapshots(
+  source: SnapshotSource,
+  send: (png: Uint8Array) => void,
+  every: number = SNAPSHOT_EVERY_MS,
+): () => void {
   let stopped = false;
   let taking = false;
   let again = false;

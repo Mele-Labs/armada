@@ -17,11 +17,8 @@ export function setKnownRows(rows: readonly PaletteKnown[]): void {
 export const knownRows = (): readonly PaletteKnown[] => held;
 
 export function useKnownRows(): readonly PaletteKnown[] {
-  return useSyncExternalStore(
-    (on) => {
-      listeners.add(on);
-      return () => void listeners.delete(on);
-    },
-    knownRows,
-  );
+  return useSyncExternalStore((on) => {
+    listeners.add(on);
+    return () => void listeners.delete(on);
+  }, knownRows);
 }

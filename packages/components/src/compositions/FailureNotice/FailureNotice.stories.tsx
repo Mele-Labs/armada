@@ -98,11 +98,22 @@ export const FleetIsNotRunningNoFile: Story = {
     next: "Start Fleet. Bridge reconnects on its own.",
     detailsLabel: "What the runtime file answered",
     details: [
-      { label: "Answer", value: "no_runtime_file" },
-      { label: "Runtime file", value: RUNTIME_FILE },
+      {
+        label: "Answer",
+        value: "no_runtime_file",
+      },
+      {
+        label: "Runtime file",
+        value: RUNTIME_FILE,
+      },
     ],
     values: [
-      { icon: File, iconLabel: "Log", value: AUDIT, copyValue: AUDIT },
+      {
+        icon: File,
+        iconLabel: "Log",
+        value: AUDIT,
+        copyValue: AUDIT,
+      },
     ],
     note: "Bridge rereads the file every 2 seconds and connects when one appears. Nothing reached Fleet, so there is no run id to quote.",
     actions: <Acts />,
@@ -122,12 +133,26 @@ export const FleetIsNotRunningDeadPid: Story = {
     next: "Start Fleet. Bridge reconnects on its own.",
     detailsLabel: "What the runtime file answered",
     details: [
-      { label: "Answer", value: "pid_dead" },
-      { label: "Pid", value: "48221" },
-      { label: "Runtime file", value: RUNTIME_FILE },
+      {
+        label: "Answer",
+        value: "pid_dead",
+      },
+      {
+        label: "Pid",
+        value: "48221",
+      },
+      {
+        label: "Runtime file",
+        value: RUNTIME_FILE,
+      },
     ],
     values: [
-      { icon: File, iconLabel: "Log", value: AUDIT, copyValue: AUDIT },
+      {
+        icon: File,
+        iconLabel: "Log",
+        value: AUDIT,
+        copyValue: AUDIT,
+      },
     ],
     note: "Fleet exited without cleaning up. The file names a pid nothing holds.",
     actions: <Acts />,
@@ -147,14 +172,34 @@ export const FleetIsNotRunningPidReused: Story = {
     next: "Start Fleet. Bridge reconnects on its own.",
     detailsLabel: "What the runtime file answered",
     details: [
-      { label: "Answer", value: "pid_held_by_another" },
-      { label: "Pid", value: "48221" },
-      { label: "File wrote", value: "Sat Aug 23 09:14:02 2026" },
-      { label: "Holder started", value: "Sun Aug 24 18:02:55 2026" },
-      { label: "Runtime file", value: RUNTIME_FILE },
+      {
+        label: "Answer",
+        value: "pid_held_by_another",
+      },
+      {
+        label: "Pid",
+        value: "48221",
+      },
+      {
+        label: "File wrote",
+        value: "Sat Aug 23 09:14:02 2026",
+      },
+      {
+        label: "Holder started",
+        value: "Sun Aug 24 18:02:55 2026",
+      },
+      {
+        label: "Runtime file",
+        value: RUNTIME_FILE,
+      },
     ],
     values: [
-      { icon: File, iconLabel: "Log", value: AUDIT, copyValue: AUDIT },
+      {
+        icon: File,
+        iconLabel: "Log",
+        value: AUDIT,
+        copyValue: AUDIT,
+      },
     ],
     note: "Bridge did not open a socket. The port in this file is not Fleet's.",
     actions: <Acts />,
@@ -181,14 +226,34 @@ export const FleetIsUnreachable: Story = {
     next: "Fleet is up and not answering. What is on the board is not live.",
     detailsLabel: "What the connection answered",
     details: [
-      { label: "Pid", value: "48221" },
-      { label: "Port", value: "7773" },
-      { label: "Silent for", value: "1m" },
-      { label: "Detail", value: "the connection closed" },
-      { label: "Last read", value: "1m ago" },
+      {
+        label: "Pid",
+        value: "48221",
+      },
+      {
+        label: "Port",
+        value: "7773",
+      },
+      {
+        label: "Silent for",
+        value: "1m",
+      },
+      {
+        label: "Detail",
+        value: "the connection closed",
+      },
+      {
+        label: "Last read",
+        value: "1m ago",
+      },
     ],
     values: [
-      { icon: File, iconLabel: "Log", value: AUDIT, copyValue: AUDIT },
+      {
+        icon: File,
+        iconLabel: "Log",
+        value: AUDIT,
+        copyValue: AUDIT,
+      },
     ],
     note: "Bridge is retrying every 2 seconds. Jobs keep progressing either way.",
     actions: <Acts />,
@@ -221,8 +286,14 @@ export const TheRendererThrew: Story = {
     next: "Reload Bridge. Fleet keeps running and jobs keep progressing.",
     detailsLabel: "What threw",
     details: [
-      { label: "Component", value: "JobRowStacked" },
-      { label: "Message", value: "Cannot read properties of undefined (reading 'steps')" },
+      {
+        label: "Component",
+        value: "JobRowStacked",
+      },
+      {
+        label: "Message",
+        value: "Cannot read properties of undefined (reading 'steps')",
+      },
       {
         label: "Where",
         value: "    at JobRowStacked\n    at Row\n    at Jobs\n    at Boundary\n    at App",
@@ -236,7 +307,12 @@ export const TheRendererThrew: Story = {
       },
     ],
     values: [
-      { icon: File, iconLabel: "Log", value: AUDIT, copyValue: AUDIT },
+      {
+        icon: File,
+        iconLabel: "Log",
+        value: AUDIT,
+        copyValue: AUDIT,
+      },
     ],
     note: "The rest of the window is still usable. Only this region stopped drawing. This never reached Fleet, so there is no run id: the component and the log identify it.",
     actions: <Acts />,
@@ -259,7 +335,11 @@ export const TheRendererThrew: Story = {
     await expect(canvas.getByText("JobRowStacked")).toBeVisible();
 
     // The one thing a person can do about it is a control, in both states.
-    await expect(canvas.getByRole("button", { name: "Reload Bridge" })).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Reload Bridge",
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -284,18 +364,39 @@ export const FleetRefusedTheCommand: Story = {
     next: "Nothing was sent. Change what the command names, or read the log.",
     detailsLabel: "What Fleet refused",
     details: [
-      { label: "Code", value: "ARM-0412" },
-      { label: "Message", value: "Manifest 01K1M8Z5V2 is not one Fleet holds" },
-      { label: "manifest_id", value: "01K1M8Z5V2QW7H3N9TB4XC6RFD" },
-      { label: "held", value: "3" },
+      {
+        label: "Code",
+        value: "ARM-0412",
+      },
+      {
+        label: "Message",
+        value: "Manifest 01K1M8Z5V2 is not one Fleet holds",
+      },
+      {
+        label: "manifest_id",
+        value: "01K1M8Z5V2QW7H3N9TB4XC6RFD",
+      },
+      {
+        label: "held",
+        value: "3",
+      },
       {
         label: "Chain",
         value: "propose_job\nresolve_manifest\nManifestNotHeld",
       },
     ],
     values: [
-      { icon: File, iconLabel: "Log", value: AUDIT, copyValue: AUDIT },
-      { value: FLEET_RUN, copyValue: FLEET_RUN, meta: "Fleet run" },
+      {
+        icon: File,
+        iconLabel: "Log",
+        value: AUDIT,
+        copyValue: AUDIT,
+      },
+      {
+        value: FLEET_RUN,
+        copyValue: FLEET_RUN,
+        meta: "Fleet run",
+      },
     ],
     note: "The run names Fleet's process for this session, not this one failure. It is what joins this to Fleet's log lines.",
     actions: <Acts reload={false} dismiss />,
@@ -322,12 +423,31 @@ export const FleetSpeaksAnotherProtocol: Story = {
     next: "Run /update-armada, then reopen Bridge.",
     detailsLabel: "What each side speaks",
     details: [
-      { label: "Fleet", value: "3fa9c1d2" },
-      { label: "Bridge", value: "91bb07e4" },
-      { label: "Pid", value: "48221" },
-      { label: "Port", value: "7773" },
+      {
+        label: "Fleet",
+        value: "3fa9c1d2",
+      },
+      {
+        label: "Bridge",
+        value: "91bb07e4",
+      },
+      {
+        label: "Pid",
+        value: "48221",
+      },
+      {
+        label: "Port",
+        value: "7773",
+      },
     ],
-    values: [{ icon: File, iconLabel: "Log", value: AUDIT, copyValue: AUDIT }],
+    values: [
+      {
+        icon: File,
+        iconLabel: "Log",
+        value: AUDIT,
+        copyValue: AUDIT,
+      },
+    ],
     note: "Bridge did not connect. Jobs keep running.",
     actions: <Acts />,
   },
@@ -350,7 +470,13 @@ export const FleetSpeaksAnotherProtocol: Story = {
  */
 export const TheTwoClassesSideBySide: Story = {
   render: () => (
-    <div style={{ display: "grid", gap: "var(--space-6)", maxWidth: "34rem" }}>
+    <div
+      style={{
+        display: "grid",
+        gap: "var(--space-6)",
+        maxWidth: "34rem",
+      }}
+    >
       <FailureNotice
         kind="fault"
         headline="Fleet is not running"
@@ -358,8 +484,14 @@ export const TheTwoClassesSideBySide: Story = {
         next="Start Fleet. Bridge reconnects on its own."
         detailsLabel="What the runtime file answered"
         details={[
-          { label: "Answer", value: "pid_dead" },
-          { label: "Pid", value: "48221" },
+          {
+            label: "Answer",
+            value: "pid_dead",
+          },
+          {
+            label: "Pid",
+            value: "48221",
+          },
         ]}
         note="Fleet exited without cleaning up. The file names a pid nothing holds."
       />
@@ -370,8 +502,14 @@ export const TheTwoClassesSideBySide: Story = {
         next="Fleet is up and not answering. What is on the board is not live."
         detailsLabel="What the connection answered"
         details={[
-          { label: "Pid", value: "48221" },
-          { label: "Silent for", value: "1m" },
+          {
+            label: "Pid",
+            value: "48221",
+          },
+          {
+            label: "Silent for",
+            value: "1m",
+          },
         ]}
         note="Bridge is retrying every 2 seconds. Jobs keep progressing either way."
       />
@@ -385,10 +523,17 @@ export const TheTwoClassesSideBySide: Story = {
    */
   play: async ({ canvasElement }) => {
     const notices = canvasElement.querySelectorAll("[data-error-class]");
-    const classes = [...notices].map((at) => at.getAttribute("data-error-class"));
+    const classes = [
+      ...notices,
+    ].map((at) => at.getAttribute("data-error-class"));
 
     // Two notices and two chips, and the chip agrees with the notice it is in.
-    await expect(classes).toEqual(["fault", "fault", "degraded", "degraded"]);
+    await expect(classes).toEqual([
+      "fault",
+      "fault",
+      "degraded",
+      "degraded",
+    ]);
 
     // The dot is the degraded class's own channel, and a fault has none.
     await expect(canvasElement.querySelectorAll(".armada-failure__dot")).toHaveLength(1);

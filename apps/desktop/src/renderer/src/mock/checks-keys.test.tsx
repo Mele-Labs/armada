@@ -8,8 +8,16 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const checks = () => page.getByRole("region", { name: "Checks", exact: true });
-const tile = (name: string) => checks().getByRole("button", { name, exact: true });
+const checks = () =>
+  page.getByRole("region", {
+    name: "Checks",
+    exact: true,
+  });
+const tile = (name: string) =>
+  checks().getByRole("button", {
+    name,
+    exact: true,
+  });
 
 async function opened(): Promise<void> {
   mount("job-checks");
@@ -21,7 +29,14 @@ async function opened(): Promise<void> {
 
 test("Checks keys: the tiles are one Tab stop, entered once and left without visiting a second", async () => {
   await opened();
-  (checks().getByRole("tab", { name: "All", exact: true }).element() as HTMLElement).focus();
+  (
+    checks()
+      .getByRole("tab", {
+        name: "All",
+        exact: true,
+      })
+      .element() as HTMLElement
+  ).focus();
 
   await userEvent.keyboard("{Tab}");
   await expect.element(tile("desktop_test")).toHaveFocus();
@@ -49,7 +64,13 @@ test("Checks keys: the arrows and j/k move between tiles, and Enter or o opens o
   await expect.element(tile("hooks_test")).toHaveFocus();
 
   await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("dialog", { name: "Check" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("dialog", {
+        name: "Check",
+      }),
+    )
+    .toBeVisible();
   await expect.element(tile("hooks_test")).toHaveAttribute("aria-expanded", "true");
 
   (tile("ipc_test").element() as HTMLElement).focus();

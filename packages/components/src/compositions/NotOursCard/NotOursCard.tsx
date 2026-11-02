@@ -7,7 +7,11 @@ import { CopyAct } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /** A part set aside as not ours that failed, with the agent's sentence for why it is not the change's doing, and the exact lines it failed on where its reading gave them. */
-export type NotOursPart = { name: string; sentence: string; error?: string };
+export type NotOursPart = {
+  name: string;
+  sentence: string;
+  error?: string;
+};
 
 /**
  * A watch that ended not ours, waiting on the person in Needs you: the parts that failed, each with the agent's sentence, the
@@ -34,7 +38,12 @@ export function NotOursCard({
   const [escalating, setEscalating] = useState(false);
   const failed = `${parts.map((one) => one.name).join(", ")} failed`;
   return (
-    <Card flat className="armada-not-ours" role="group" aria-label={`Not ours: ${watch}, ${failed}`}>
+    <Card
+      flat
+      className="armada-not-ours"
+      role="group"
+      aria-label={`Not ours: ${watch}, ${failed}`}
+    >
       <div className="armada-not-ours__band">
         <Tooltip label={`Not ours: ${failed}`}>
           <span role="img" aria-label={`Not ours: ${failed}`} className="armada-not-ours__mark">
@@ -78,7 +87,12 @@ export function NotOursCard({
         <Button size="sm" variant="ghost" onClick={onIgnore}>
           Ignore
         </Button>
-        <Button size="sm" variant="ghost" aria-expanded={escalating} onClick={() => setEscalating(!escalating)}>
+        <Button
+          size="sm"
+          variant="ghost"
+          aria-expanded={escalating}
+          onClick={() => setEscalating(!escalating)}
+        >
           Escalate
         </Button>
       </div>

@@ -14,7 +14,16 @@ import type { FleetRule } from "./teaching";
  * `commands` rows added to the command palette, `tab` a tab Bridge loads as part of itself, drawn with the whole Fleet API,
  * `instrument` an instrument Bridge seats in a bay of the Cockpit console, loaded as a tab is.
  */
-export type ModKind = "theme" | "layout" | "words" | "fleet" | "tweak" | "tracker" | "commands" | "tab" | "instrument";
+export type ModKind =
+  | "theme"
+  | "layout"
+  | "words"
+  | "fleet"
+  | "tweak"
+  | "tracker"
+  | "commands"
+  | "tab"
+  | "instrument";
 
 /** Where a mod comes from: this machine's mods folder, or `packages/mods/` in the build Fleet runs. */
 export type ModOrigin = "local" | "built_in";
@@ -64,7 +73,9 @@ export type ModPullRequest = {
 };
 
 /** `GET /mods`, and the body of `mods.changed`: every mod by name, which a client replaces its list with. */
-export type ModList = { mods: ModSummary[] };
+export type ModList = {
+  mods: ModSummary[];
+};
 
 /** `POST /mods/scaffold`'s body. */
 export type ScaffoldMod = {
@@ -99,16 +110,35 @@ export type StartModSession = {
 };
 
 /** What he picked in an empty Mod Job: the kind of mod he is aiming for, `source` for a change to Armada's code. Read with his first message only. */
-export type ModAim = "theme" | "layout" | "words" | "fleet" | "tracker" | "commands" | "tab" | "instrument" | "source";
+export type ModAim =
+  | "theme"
+  | "layout"
+  | "words"
+  | "fleet"
+  | "tracker"
+  | "commands"
+  | "tab"
+  | "instrument"
+  | "source";
 
 /** A Mod Job started. `send_failed` is why its first message was not sent, where it was refused; open the Job and send by hand. */
-export type ModSessionStarted = { session_id: string; title: string; send_failed?: string };
+export type ModSessionStarted = {
+  session_id: string;
+  title: string;
+  send_failed?: string;
+};
 
 /** A mod made. `path` is the folder, where `theme.css` or `layout.json` is edited. */
-export type ModScaffolded = { name: string; path: string };
+export type ModScaffolded = {
+  name: string;
+  path: string;
+};
 
 /** `POST /mods/enable`'s body: this machine's switch for one mod. */
-export type SetModEnabled = { name: string; enabled: boolean };
+export type SetModEnabled = {
+  name: string;
+  enabled: boolean;
+};
 
 /** `GET /mods/validate?name=`. `problems` is empty exactly when `valid`. */
 export type ModChecked = {
@@ -202,7 +232,10 @@ export type CommandsFile = {
 };
 
 /** `POST /mods/try`'s body: the tracker mod, and the repository to try it against. Absent is the first served whose Manifest names this mod as its tracker, else the first served. */
-export type TryTrackerMod = { name: string; manifest_id?: string };
+export type TryTrackerMod = {
+  name: string;
+  manifest_id?: string;
+};
 
 /** How a tracker mod's try went. Only a tracker that passed one is used by a Manifest naming it. */
 export type TrackerTry = {

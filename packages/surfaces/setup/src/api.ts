@@ -37,7 +37,10 @@ export type SetupState = {
    * The last clone Fleet finished serving, and when. Every window receives it so a clone that
    * outlasts its dialog is announced wherever the person is (#926). It moves no pick.
    */
-  located: { repository: RepositorySummary; at: number } | null;
+  located: {
+    repository: RepositorySummary;
+    at: number;
+  } | null;
 };
 
 export const SETUP_NOTHING_YET: SetupState = {

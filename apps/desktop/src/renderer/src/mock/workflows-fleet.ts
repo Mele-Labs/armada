@@ -25,7 +25,15 @@ import type { BridgeApi } from "../../../shared/api";
 import { manifesting } from "./manifest-fake";
 import { connected, type Scenario } from "./moment";
 import { builtInPieces } from "./pieces-seed";
-import { CANNOT_YET, MANAGED_DEFINITIONS, MANAGED_ENDS, MANAGED_NUDGES, SAY_WHY_SKIPPED, SUGGESTED_SENTENCE, WIRE_AND_TESTS } from "./workflows-managed";
+import {
+  CANNOT_YET,
+  MANAGED_DEFINITIONS,
+  MANAGED_ENDS,
+  MANAGED_NUDGES,
+  SAY_WHY_SKIPPED,
+  SUGGESTED_SENTENCE,
+  WIRE_AND_TESTS,
+} from "./workflows-managed";
 import type { MockNudge } from "./workflows-managed";
 
 type Served = Pick<
@@ -50,7 +58,13 @@ type Served = Pick<
 const refusal = (code: string, message: string): Outcome => ({
   ok: false,
   why: "refused",
-  error: { code, message, run_id: "mock", fields: {}, chain: [] },
+  error: {
+    code,
+    message,
+    run_id: "mock",
+    fields: {},
+    chain: [],
+  },
 });
 
 const KIT_FOLDER = "~/.armada/workflows";
@@ -62,32 +76,80 @@ export const DRAFTING_MS = 1200;
 type Place = "armada" | "repository" | "kit";
 
 /** A definition held in a place. A repository's copy is held under the Manifest of the repository it is in. */
-type Held = { source: Place; id: string; file: string; text: string; manifest?: string; leftOut?: string };
+type Held = {
+  source: Place;
+  id: string;
+  file: string;
+  text: string;
+  manifest?: string;
+  leftOut?: string;
+};
 
 /** The more specific place answers: Kit's, then the repository's, then Armada's. */
-const SPECIFIC: readonly Place[] = ["kit", "repository", "armada"];
+const SPECIFIC: readonly Place[] = [
+  "kit",
+  "repository",
+  "armada",
+];
 
 const fileOf = (source: Place, id: string) =>
-  source === "armada" ? `[armada]/${id}` : `${source === "kit" ? KIT_FOLDER : REPOSITORY_FOLDER}/${id}.json`;
+  source === "armada"
+    ? `[armada]/${id}`
+    : `${source === "kit" ? KIT_FOLDER : REPOSITORY_FOLDER}/${id}.json`;
 
 /** Workflows approved elsewhere in the mock (a Job's proposal), waiting to be held by the next read. */
 const APPROVED: Held[] = [];
 
 /** A proposed workflow approved: the next read of the list holds it under its scope. A mock's route. */
-export function approveProposedWorkflow(id: string, scope: "kit" | "repository", text: string): void {
-  APPROVED.push({ source: scope, id, file: fileOf(scope, id), text, ...(scope === "repository" ? { manifest: FIRST } : {}) });
+export function approveProposedWorkflow(
+  id: string,
+  scope: "kit" | "repository",
+  text: string,
+): void {
+  APPROVED.push({
+    source: scope,
+    id,
+    file: fileOf(scope, id),
+    text,
+    ...(scope === "repository"
+      ? {
+          manifest: FIRST,
+        }
+      : {}),
+  });
 }
 
 /** Changes a Job proposed as new workflows, ready at once: the reads list them beside the page's own. A mock's route. */
 const PROPOSED: WorkflowChange[] = [];
 
 /** A Job proposes a workflow nothing held: a ready `new` change the reads list until it settles. */
-export function proposeWorkflowChange(id: number, workflowId: string, scope: "kit" | "repository", text: string): void {
-  PROPOSED.push({ id, workflow_id: workflowId, source: scope, origin: { kind: "new" }, before: "", after: text, state: "ready", at: new Date().toISOString() });
+export function proposeWorkflowChange(
+  id: number,
+  workflowId: string,
+  scope: "kit" | "repository",
+  text: string,
+): void {
+  PROPOSED.push({
+    id,
+    workflow_id: workflowId,
+    source: scope,
+    origin: {
+      kind: "new",
+    },
+    before: "",
+    after: text,
+    state: "ready",
+    at: new Date().toISOString(),
+  });
 }
 
 /** A Job offers a workflow and it is listed under its scope at once, as a draft with a change waiting on Approve: the page picks it and draws the proposed steps. A mock's route. */
-export function offerWorkflow(id: number, workflowId: string, scope: "kit" | "repository", text: string): void {
+export function offerWorkflow(
+  id: number,
+  workflowId: string,
+  scope: "kit" | "repository",
+  text: string,
+): void {
   approveProposedWorkflow(workflowId, scope, text);
   settleProposedChange(id);
   proposeWorkflowChange(id, workflowId, scope, text);
@@ -100,10 +162,20 @@ export function settleProposedChange(id: number): void {
 }
 
 /** A change as the mock keeps it: the wire's, and the moment an agent finishes it. */
-type Kept = { change: WorkflowChange; readyAt: number; manifest: string };
+type Kept = {
+  change: WorkflowChange;
+  readyAt: number;
+  manifest: string;
+};
 
 /** A nudge as the mock keeps it. */
-type KeptNudge = { id: number; source: Place; workflow: string; step: string; nudge: StepNudge };
+type KeptNudge = {
+  id: number;
+  source: Place;
+  workflow: string;
+  step: string;
+  nudge: StepNudge;
+};
 
 /** The job a change Armada can't make yet starts, to build what it lacks. */
 const SUPPORT_JOB = "mock-armada-support";
@@ -114,11 +186,17 @@ const FIRST = repository().manifest!.id;
 const LEDGER_ID = "01M1CNPKTV0018H2M1CXDNBK07";
 const SITE_ID = "01M1CNPKTV0018H2M1CXDNBK08";
 /** Every repository Fleet serves, in the order it lists them. */
-const SERVED = [FIRST, LEDGER_ID, SITE_ID];
+const SERVED = [
+  FIRST,
+  LEDGER_ID,
+  SITE_ID,
+];
 
 /** What the second repository holds of its own: Armada's `bug`, with a line of its own in Fix. */
 const LEDGER_BUG = (): Held | undefined => {
-  const armada = MANAGED_DEFINITIONS.find(({ source, definition }) => source === "armada" && definition.workflow_id === "bug");
+  const armada = MANAGED_DEFINITIONS.find(
+    ({ source, definition }) => source === "armada" && definition.workflow_id === "bug",
+  );
   if (armada === undefined) return undefined;
   const text = JSON.stringify(armada.definition, null, 2);
   const fix = stepsOfDefinition(text)?.find((one) => one.id === "fix")?.instructions ?? "";
@@ -150,21 +228,37 @@ export function workflowsServed(
 ): Served {
   const started = Date.now();
   const ends = options.ends ?? MANAGED_ENDS;
-  let files: Held[] = (options.definitions ?? MANAGED_DEFINITIONS).map(({ source, definition }) => ({
-    source,
-    id: definition.workflow_id,
-    file: fileOf(source, definition.workflow_id),
-    text: JSON.stringify(definition, null, 2),
-    ...(source === "repository" ? { manifest: FIRST } : {}),
-  }));
+  let files: Held[] = (options.definitions ?? MANAGED_DEFINITIONS).map(
+    ({ source, definition }) => ({
+      source,
+      id: definition.workflow_id,
+      file: fileOf(source, definition.workflow_id),
+      text: JSON.stringify(definition, null, 2),
+      ...(source === "repository"
+        ? {
+            manifest: FIRST,
+          }
+        : {}),
+    }),
+  );
   const ledgerBug = options.definitions === undefined ? LEDGER_BUG() : undefined;
-  if (ledgerBug !== undefined) files = [...files, ledgerBug];
+  if (ledgerBug !== undefined)
+    files = [
+      ...files,
+      ledgerBug,
+    ];
   let nudges: KeptNudge[] = (options.nudges ?? MANAGED_NUDGES).map((one, at) => ({
     id: at + 1,
     source: one.source,
     workflow: one.workflow,
     step: one.step,
-    nudge: { id: at + 1, job_id: one.job_id, job_title: one.job_title, fact: one.fact, at: new Date(started - one.ago).toISOString() },
+    nudge: {
+      id: at + 1,
+      job_id: one.job_id,
+      job_title: one.job_title,
+      fact: one.fact,
+      at: new Date(started - one.ago).toISOString(),
+    },
   }));
   let changes: Kept[] = [];
   let nextChange = 1;
@@ -173,14 +267,26 @@ export function workflowsServed(
   const under = (manifest: string | null | undefined) => manifest ?? current() ?? FIRST;
   /** A repository's copy is in one repository; Armada's and Kit's are in all. */
   const held = (id: string, source: Place, manifest?: string | null) =>
-    (files = [...files, ...APPROVED.splice(0)]).find((one) => one.id === id && one.source === source && one.leftOut === undefined && (source !== "repository" || one.manifest === under(manifest)));
+    (files = [
+      ...files,
+      ...APPROVED.splice(0),
+    ]).find(
+      (one) =>
+        one.id === id &&
+        one.source === source &&
+        one.leftOut === undefined &&
+        (source !== "repository" || one.manifest === under(manifest)),
+    );
   const missing = (id: string, source: string): Outcome =>
     refusal("fleet.no_such_workflow_definition", `No ${source} definition of \`${id}\` is held`);
-  const place = (source: string): Place | undefined => (source === "armada" || source === "repository" || source === "kit" ? source : undefined);
+  const place = (source: string): Place | undefined =>
+    source === "armada" || source === "repository" || source === "kit" ? source : undefined;
 
   const insertSentence = (words: string, sentence: string): string => {
     const closing = "Notes come back as another take.";
-    return words.includes(closing) ? words.replace(closing, `${sentence} ${closing}`) : `${words} ${sentence}`;
+    return words.includes(closing)
+      ? words.replace(closing, `${sentence} ${closing}`)
+      : `${words} ${sentence}`;
   };
 
   /** A definition's steps with what ends each, as Fleet works out both sides of a change. */
@@ -190,9 +296,21 @@ export function workflowsServed(
       return {
         id: step.id,
         label: step.label,
-        ...(step.instructions === undefined ? {} : { instructions: step.instructions }),
-        ...(end === undefined ? {} : { ends_when: end.ends }),
-        ...(end?.passedOver === undefined ? {} : { passed_over_when: end.passedOver }),
+        ...(step.instructions === undefined
+          ? {}
+          : {
+              instructions: step.instructions,
+            }),
+        ...(end === undefined
+          ? {}
+          : {
+              ends_when: end.ends,
+            }),
+        ...(end?.passedOver === undefined
+          ? {}
+          : {
+              passed_over_when: end.passedOver,
+            }),
       };
     });
 
@@ -204,23 +322,61 @@ export function workflowsServed(
     const asked = change.origin.kind === "asked" ? change.origin.text : undefined;
     let after: string | undefined;
     if (asked !== undefined) {
-      const steps = JSON.parse(text) as { steps: { id: string }[] };
+      const steps = JSON.parse(text) as {
+        steps: {
+          id: string;
+        }[];
+      };
       // A step ends on one fact read from its fields, so an end on any of several approvals is beyond what Armada does.
-      if (/\bpropose\b.*\bend\b.*\bapproved\b/i.test(asked)) return { ...change, state: "cannot", missing: [...CANNOT_YET] };
+      if (/\bpropose\b.*\bend\b.*\bapproved\b/i.test(asked))
+        return {
+          ...change,
+          state: "cannot",
+          missing: [
+            ...CANNOT_YET,
+          ],
+        };
       if (/split\s+refine/i.test(asked) && steps.steps.some((one) => one.id === "refine")) {
-        after = JSON.stringify({ ...steps, steps: steps.steps.flatMap((one): unknown[] => (one.id === "refine" ? [...WIRE_AND_TESTS] : [one])) }, null, 2);
+        after = JSON.stringify(
+          {
+            ...steps,
+            steps: steps.steps.flatMap((one): unknown[] =>
+              one.id === "refine"
+                ? [
+                    ...WIRE_AND_TESTS,
+                  ]
+                : [
+                    one,
+                  ],
+            ),
+          },
+          null,
+          2,
+        );
       }
       const walkWords = stepsOfDefinition(text)?.find((one) => one.id === "walk")?.instructions;
-      if (/\bwalk\b.*\bsay why\b.*\bskips?\b/i.test(asked) && walkWords !== undefined) after = withWords(text, "walk", insertSentence(walkWords, SAY_WHY_SKIPPED));
+      if (/\bwalk\b.*\bsay why\b.*\bskips?\b/i.test(asked) && walkWords !== undefined)
+        after = withWords(text, "walk", insertSentence(walkWords, SAY_WHY_SKIPPED));
     } else if (change.step_id !== undefined) {
       const sentence = SUGGESTED_SENTENCE[change.step_id];
       const words = stepsOfDefinition(text)?.find((one) => one.id === change.step_id)?.instructions;
-      if (sentence !== undefined && words !== undefined) after = withWords(text, change.step_id, insertSentence(words, sentence));
+      if (sentence !== undefined && words !== undefined)
+        after = withWords(text, change.step_id, insertSentence(words, sentence));
     }
     if (after === undefined) {
-      return { ...change, state: "failed", reason: "The drafted workflow is the same as the one it was made from" };
+      return {
+        ...change,
+        state: "failed",
+        reason: "The drafted workflow is the same as the one it was made from",
+      };
     }
-    return { ...change, state: "ready", after, before_steps: changeStepsOf(change.workflow_id, text), after_steps: changeStepsOf(change.workflow_id, after) };
+    return {
+      ...change,
+      state: "ready",
+      after,
+      before_steps: changeStepsOf(change.workflow_id, text),
+      after_steps: changeStepsOf(change.workflow_id, after),
+    };
   };
 
   const open = (id: string, source: string, manifest: string) =>
@@ -238,41 +394,104 @@ export function workflowsServed(
       const end = ends[`${one.id}/${step.id}`] ?? ends[step.id];
       // The nudges are the first repository's Jobs.
       const here = nudges
-        .filter((each) => each.source === one.source && each.workflow === one.id && each.step === step.id && (one.source !== "repository" || one.manifest === FIRST))
+        .filter(
+          (each) =>
+            each.source === one.source &&
+            each.workflow === one.id &&
+            each.step === step.id &&
+            (one.source !== "repository" || one.manifest === FIRST),
+        )
         .map((each) => each.nudge);
       return {
         id: step.id,
         label: step.label,
-        ...(step.instructions === undefined ? {} : { instructions: step.instructions }),
-        ...(end === undefined ? {} : { ends_when: end.ends }),
-        ...(end?.endsAny === undefined ? {} : { ends_any: [...end.endsAny] }),
-        ...(end?.passedOver === undefined ? {} : { passed_over_when: end.passedOver }),
-        ...(here.length === 0 ? {} : { nudges: here }),
+        ...(step.instructions === undefined
+          ? {}
+          : {
+              instructions: step.instructions,
+            }),
+        ...(end === undefined
+          ? {}
+          : {
+              ends_when: end.ends,
+            }),
+        ...(end?.endsAny === undefined
+          ? {}
+          : {
+              ends_any: [
+                ...end.endsAny,
+              ],
+            }),
+        ...(end?.passedOver === undefined
+          ? {}
+          : {
+              passed_over_when: end.passedOver,
+            }),
+        ...(here.length === 0
+          ? {}
+          : {
+              nudges: here,
+            }),
       };
     });
 
   /** A change begun on a copy: kept `drafting`, with the beat an agent takes. */
-  const begin = (id: string, source: Place, manifest: string, origin: WorkflowChange["origin"], stepId?: string): WorkflowChange => {
+  const begin = (
+    id: string,
+    source: Place,
+    manifest: string,
+    origin: WorkflowChange["origin"],
+    stepId?: string,
+  ): WorkflowChange => {
     const change: WorkflowChange = {
       id: nextChange++,
       workflow_id: id,
       source,
-      ...(stepId === undefined ? {} : { step_id: stepId }),
+      ...(stepId === undefined
+        ? {}
+        : {
+            step_id: stepId,
+          }),
       origin,
       before: held(id, source, manifest)!.text,
       state: "drafting",
       at: new Date().toISOString(),
     };
-    changes = [...changes, { change, readyAt: Date.now() + DRAFTING_MS, manifest }];
+    changes = [
+      ...changes,
+      {
+        change,
+        readyAt: Date.now() + DRAFTING_MS,
+        manifest,
+      },
+    ];
     return change;
   };
 
   // The suggestion already drawn up at Walk in the repository's `feature`, from the two Jobs Fleet nudged there.
   const walked = held("feature", "repository", FIRST);
-  const from = nudges.filter((one) => one.source === "repository" && one.step === "walk").map((one) => one.id);
+  const from = nudges
+    .filter((one) => one.source === "repository" && one.step === "walk")
+    .map((one) => one.id);
   if (walked !== undefined && from.length > 0) {
-    const change = begin("feature", "repository", FIRST, { kind: "drift", nudges: from }, "walk");
-    changes = changes.map((one) => (one.change.id === change.id ? { ...one, readyAt: 0 } : one));
+    const change = begin(
+      "feature",
+      "repository",
+      FIRST,
+      {
+        kind: "drift",
+        nudges: from,
+      },
+      "walk",
+    );
+    changes = changes.map((one) =>
+      one.change.id === change.id
+        ? {
+            ...one,
+            readyAt: 0,
+          }
+        : one,
+    );
   }
 
   const outcomeOfChange = (id: number) => changes.find((one) => one.change.id === id);
@@ -284,13 +503,32 @@ export function workflowsServed(
   return {
     // One summary per repository and workflow id, as Fleet lists them: Armada's and Kit's are the same under each.
     readWorkflows: async () => {
-      files = [...files, ...APPROVED.splice(0)];
+      files = [
+        ...files,
+        ...APPROVED.splice(0),
+      ];
       const summaries = (options.served ?? SERVED).flatMap((manifest) => {
-        const ids = [...new Set(files.filter((one) => one.leftOut === undefined && (one.source !== "repository" || one.manifest === manifest)).map((one) => one.id))];
+        const ids = [
+          ...new Set(
+            files
+              .filter(
+                (one) =>
+                  one.leftOut === undefined &&
+                  (one.source !== "repository" || one.manifest === manifest),
+              )
+              .map((one) => one.id),
+          ),
+        ];
         return ids.map((id): WorkflowSummary => {
-          const here = SPECIFIC.map((source) => held(id, source, manifest)).filter((one) => one !== undefined);
+          const here = SPECIFIC.map((source) => held(id, source, manifest)).filter(
+            (one) => one !== undefined,
+          );
           const [runs, ...replaced] = here;
-          const forRequests = (JSON.parse(runs!.text) as { for_requests?: string }).for_requests;
+          const forRequests = (
+            JSON.parse(runs!.text) as {
+              for_requests?: string;
+            }
+          ).for_requests;
           return {
             id,
             name: id,
@@ -299,27 +537,68 @@ export function workflowsServed(
             manifest_id: manifest,
             source: runs!.source,
             file: runs!.file,
-            ...(forRequests === undefined ? {} : { for_requests: forRequests }),
-            ...(replaced.length === 0 ? {} : { overrides: replaced.map((one) => ({ source: one.source, file: one.file })) }),
-            ...(runs!.source === "kit" && replaced.some((one) => one.source === "repository" && one.text !== runs!.text) ? { hides: "repository" } : {}),
+            ...(forRequests === undefined
+              ? {}
+              : {
+                  for_requests: forRequests,
+                }),
+            ...(replaced.length === 0
+              ? {}
+              : {
+                  overrides: replaced.map((one) => ({
+                    source: one.source,
+                    file: one.file,
+                  })),
+                }),
+            ...(runs!.source === "kit" &&
+            replaced.some((one) => one.source === "repository" && one.text !== runs!.text)
+              ? {
+                  hides: "repository",
+                }
+              : {}),
           };
         });
       });
       // A file left out is one repository's, so none is listed on All.
-      return { ok: true, workflows: summaries, leftOut: current() === null ? [] : options.leftOut ?? [] };
+      return {
+        ok: true,
+        workflows: summaries,
+        leftOut: current() === null ? [] : (options.leftOut ?? []),
+      };
     },
     readWorkflowDefinition: async (workflowId, source, manifestId) => {
-      const one = place(source) === undefined ? undefined : held(workflowId, source as Place, manifestId);
+      const one =
+        place(source) === undefined ? undefined : held(workflowId, source as Place, manifestId);
       return one === undefined
-        ? { ok: false, outcome: missing(workflowId, source) }
-        : { ok: true, definition: { workflow_id: one.id, source: one.source, file: one.file, definition: one.text } };
+        ? {
+            ok: false,
+            outcome: missing(workflowId, source),
+          }
+        : {
+            ok: true,
+            definition: {
+              workflow_id: one.id,
+              source: one.source,
+              file: one.file,
+              definition: one.text,
+            },
+          };
     },
     saveWorkflow: async ({ manifestId, body }) => {
-      const id = String((JSON.parse(body.definition) as { workflow_id?: unknown }).workflow_id ?? "");
+      const id = String(
+        (
+          JSON.parse(body.definition) as {
+            workflow_id?: unknown;
+          }
+        ).workflow_id ?? "",
+      );
       if (!/^[A-Za-z0-9_-]+$/.test(id)) {
         return {
           ok: false,
-          outcome: refusal("fleet.workflow_id_not_a_name", `\`${id}\` cannot be a file's name: a workflow_id here is letters, digits, \`-\` and \`_\``),
+          outcome: refusal(
+            "fleet.workflow_id_not_a_name",
+            `\`${id}\` cannot be a file's name: a workflow_id here is letters, digits, \`-\` and \`_\``,
+          ),
         };
       }
       const source: Place = body.scope === "kit" ? "kit" : "repository";
@@ -329,66 +608,229 @@ export function workflowsServed(
       if (was !== undefined && body.overwrite !== true) {
         return {
           ok: false,
-          outcome: refusal("fleet.workflow_exists", `${was.file} already defines \`${id}\` and nothing was written; save again with overwrite to replace it`),
+          outcome: refusal(
+            "fleet.workflow_exists",
+            `${was.file} already defines \`${id}\` and nothing was written; save again with overwrite to replace it`,
+          ),
         };
       }
-      files = [...files.filter((one) => one !== was), { source, id, file, text: body.definition, ...(source === "repository" ? { manifest } : {}) }];
-      return { ok: true, saved: { workflow_id: id, scope: body.scope, file, replaced: was !== undefined, runs_from: source } };
+      files = [
+        ...files.filter((one) => one !== was),
+        {
+          source,
+          id,
+          file,
+          text: body.definition,
+          ...(source === "repository"
+            ? {
+                manifest,
+              }
+            : {}),
+        },
+      ];
+      return {
+        ok: true,
+        saved: {
+          workflow_id: id,
+          scope: body.scope,
+          file,
+          replaced: was !== undefined,
+          runs_from: source,
+        },
+      };
     },
     readWorkflowSteps: async (workflowId, source, manifestId) => {
-      const one = place(source) === undefined ? undefined : held(workflowId, source as Place, manifestId);
+      const one =
+        place(source) === undefined ? undefined : held(workflowId, source as Place, manifestId);
       return one === undefined
-        ? { ok: false, outcome: missing(workflowId, source) }
-        : { ok: true, steps: { workflow_id: one.id, source: one.source, steps: stepsOf(one) } };
+        ? {
+            ok: false,
+            outcome: missing(workflowId, source),
+          }
+        : {
+            ok: true,
+            steps: {
+              workflow_id: one.id,
+              source: one.source,
+              steps: stepsOf(one),
+            },
+          };
     },
     deleteWorkflowCopy: async ({ manifestId, copy }) => {
       const source = place(copy.source);
-      if (source === "armada") return { ok: false, outcome: refusal("fleet.workflow_is_armadas", "Armada's workflows are read-only here") };
+      if (source === "armada")
+        return {
+          ok: false,
+          outcome: refusal("fleet.workflow_is_armadas", "Armada's workflows are read-only here"),
+        };
       const one = source === undefined ? undefined : held(copy.workflow_id, source, manifestId);
-      if (one === undefined) return { ok: false, outcome: missing(copy.workflow_id, copy.source) };
+      if (one === undefined)
+        return {
+          ok: false,
+          outcome: missing(copy.workflow_id, copy.source),
+        };
       files = files.filter((each) => each !== one);
-      const runs = SPECIFIC.map((where) => held(copy.workflow_id, where, manifestId)).find((each) => each !== undefined);
-      return { ok: true, deleted: { workflow_id: one.id, source: one.source, file: one.file, ...(runs === undefined ? {} : { runs_from: runs.source }) } };
+      const runs = SPECIFIC.map((where) => held(copy.workflow_id, where, manifestId)).find(
+        (each) => each !== undefined,
+      );
+      return {
+        ok: true,
+        deleted: {
+          workflow_id: one.id,
+          source: one.source,
+          file: one.file,
+          ...(runs === undefined
+            ? {}
+            : {
+                runs_from: runs.source,
+              }),
+        },
+      };
     },
     resetWorkflowCopy: async ({ manifestId, copy }) => {
       const source = place(copy.source);
-      if (source === "armada") return { ok: false, outcome: refusal("fleet.workflow_is_armadas", "Armada's workflows are read-only here") };
+      if (source === "armada")
+        return {
+          ok: false,
+          outcome: refusal("fleet.workflow_is_armadas", "Armada's workflows are read-only here"),
+        };
       const one = source === undefined ? undefined : held(copy.workflow_id, source, manifestId);
       const armada = held(copy.workflow_id, "armada");
-      if (one === undefined) return { ok: false, outcome: missing(copy.workflow_id, copy.source) };
-      if (armada === undefined) return { ok: false, outcome: refusal("fleet.workflow_not_carried", `Armada carries no \`${copy.workflow_id}\``) };
-      files = files.map((each) => (each === one ? { ...one, text: armada.text } : each));
-      return { ok: true, saved: { workflow_id: one.id, scope: one.source === "kit" ? "kit" : "repository", file: one.file, replaced: true, runs_from: one.source } };
+      if (one === undefined)
+        return {
+          ok: false,
+          outcome: missing(copy.workflow_id, copy.source),
+        };
+      if (armada === undefined)
+        return {
+          ok: false,
+          outcome: refusal(
+            "fleet.workflow_not_carried",
+            `Armada carries no \`${copy.workflow_id}\``,
+          ),
+        };
+      files = files.map((each) =>
+        each === one
+          ? {
+              ...one,
+              text: armada.text,
+            }
+          : each,
+      );
+      return {
+        ok: true,
+        saved: {
+          workflow_id: one.id,
+          scope: one.source === "kit" ? "kit" : "repository",
+          file: one.file,
+          replaced: true,
+          runs_from: one.source,
+        },
+      };
     },
     markNotADrift: async (nudge) => {
-      if (!nudges.some((one) => one.id === nudge)) return { ok: false, outcome: refusal("fleet.no_such_nudge", "No nudge by that id is kept") };
+      if (!nudges.some((one) => one.id === nudge))
+        return {
+          ok: false,
+          outcome: refusal("fleet.no_such_nudge", "No nudge by that id is kept"),
+        };
       nudges = nudges.filter((one) => one.id !== nudge);
-      return { ok: true, marked: { nudge } };
+      return {
+        ok: true,
+        marked: {
+          nudge,
+        },
+      };
     },
     askWorkflowChange: async ({ manifestId, body }) => {
       const source = place(body.source);
-      if (source === "armada") return { ok: false, outcome: refusal("fleet.workflow_is_armadas", "Armada's workflows are read-only here") };
-      if (source === undefined || held(body.workflow_id, source, manifestId) === undefined) return { ok: false, outcome: missing(body.workflow_id, body.source) };
-      if (body.text.trim() === "") return { ok: false, outcome: refusal("fleet.workflow_change_empty", "Say what to change") };
-      return { ok: true, change: begin(body.workflow_id, source, under(manifestId), { kind: "asked", text: body.text.trim() }) };
+      if (source === "armada")
+        return {
+          ok: false,
+          outcome: refusal("fleet.workflow_is_armadas", "Armada's workflows are read-only here"),
+        };
+      if (source === undefined || held(body.workflow_id, source, manifestId) === undefined)
+        return {
+          ok: false,
+          outcome: missing(body.workflow_id, body.source),
+        };
+      if (body.text.trim() === "")
+        return {
+          ok: false,
+          outcome: refusal("fleet.workflow_change_empty", "Say what to change"),
+        };
+      return {
+        ok: true,
+        change: begin(body.workflow_id, source, under(manifestId), {
+          kind: "asked",
+          text: body.text.trim(),
+        }),
+      };
     },
     suggestWorkflowChange: async ({ manifestId, body }) => {
       const source = place(body.source);
-      if (source === "armada") return { ok: false, outcome: refusal("fleet.workflow_is_armadas", "Armada's workflows are read-only here") };
+      if (source === "armada")
+        return {
+          ok: false,
+          outcome: refusal("fleet.workflow_is_armadas", "Armada's workflows are read-only here"),
+        };
       const one = source === undefined ? undefined : held(body.workflow_id, source, manifestId);
-      if (source === undefined || one === undefined) return { ok: false, outcome: missing(body.workflow_id, body.source) };
+      if (source === undefined || one === undefined)
+        return {
+          ok: false,
+          outcome: missing(body.workflow_id, body.source),
+        };
       if (!(stepsOfDefinition(one.text) ?? []).some((step) => step.id === body.step_id)) {
-        return { ok: false, outcome: refusal("fleet.workflow_step_not_here", `\`${body.step_id}\` is not a step of \`${body.workflow_id}\``) };
+        return {
+          ok: false,
+          outcome: refusal(
+            "fleet.workflow_step_not_here",
+            `\`${body.step_id}\` is not a step of \`${body.workflow_id}\``,
+          ),
+        };
       }
-      const counted = nudges.filter((each) => each.source === source && each.workflow === body.workflow_id && each.step === body.step_id && (source !== "repository" || one.manifest === FIRST));
-      if (counted.length === 0) return { ok: false, outcome: refusal("fleet.workflow_nothing_drifted", "No Job drifted at that step") };
-      const standing = open(body.workflow_id, body.source, under(manifestId)).find(({ change }) => change.step_id === body.step_id);
-      if (standing !== undefined) return { ok: false, outcome: refusal("fleet.workflow_change_open", "That step has a change waiting") };
-      return { ok: true, change: begin(body.workflow_id, source, under(manifestId), { kind: "drift", nudges: counted.map((each) => each.id) }, body.step_id) };
+      const counted = nudges.filter(
+        (each) =>
+          each.source === source &&
+          each.workflow === body.workflow_id &&
+          each.step === body.step_id &&
+          (source !== "repository" || one.manifest === FIRST),
+      );
+      if (counted.length === 0)
+        return {
+          ok: false,
+          outcome: refusal("fleet.workflow_nothing_drifted", "No Job drifted at that step"),
+        };
+      const standing = open(body.workflow_id, body.source, under(manifestId)).find(
+        ({ change }) => change.step_id === body.step_id,
+      );
+      if (standing !== undefined)
+        return {
+          ok: false,
+          outcome: refusal("fleet.workflow_change_open", "That step has a change waiting"),
+        };
+      return {
+        ok: true,
+        change: begin(
+          body.workflow_id,
+          source,
+          under(manifestId),
+          {
+            kind: "drift",
+            nudges: counted.map((each) => each.id),
+          },
+          body.step_id,
+        ),
+      };
     },
     readWorkflowChanges: async (workflowId, source, manifestId) => ({
       ok: true,
-      changes: { changes: [...open(workflowId, source, under(manifestId)).map((kept) => settled(kept)), ...PROPOSED.filter((one) => one.workflow_id === workflowId && one.source === source)] },
+      changes: {
+        changes: [
+          ...open(workflowId, source, under(manifestId)).map((kept) => settled(kept)),
+          ...PROPOSED.filter((one) => one.workflow_id === workflowId && one.source === source),
+        ],
+      },
     }),
     approveWorkflowChange: async (id) => {
       // A workflow a Job offered is already held as a draft: approving it settles the change and keeps the draft as the copy.
@@ -396,53 +838,161 @@ export function workflowsServed(
       if (offered !== undefined) {
         settleProposedChange(id);
         const source = place(offered.source)!;
-        return { ok: true, approved: { change: { ...offered, state: "approved" }, saved: { workflow_id: offered.workflow_id, scope: source === "kit" ? "kit" : "repository", file: fileOf(source, offered.workflow_id), replaced: false, runs_from: source } } };
+        return {
+          ok: true,
+          approved: {
+            change: {
+              ...offered,
+              state: "approved",
+            },
+            saved: {
+              workflow_id: offered.workflow_id,
+              scope: source === "kit" ? "kit" : "repository",
+              file: fileOf(source, offered.workflow_id),
+              replaced: false,
+              runs_from: source,
+            },
+          },
+        };
       }
       const kept = outcomeOfChange(id);
-      if (kept === undefined) return { ok: false, outcome: noChange };
+      if (kept === undefined)
+        return {
+          ok: false,
+          outcome: noChange,
+        };
       const change = settled(kept);
       if (change.state !== "ready" || change.after === undefined) {
-        return { ok: false, outcome: refusal("fleet.workflow_change_not_ready", "That change is not ready to approve") };
+        return {
+          ok: false,
+          outcome: refusal(
+            "fleet.workflow_change_not_ready",
+            "That change is not ready to approve",
+          ),
+        };
       }
       const source = place(change.source)!;
       const one = held(change.workflow_id, source, kept.manifest);
       if (one === undefined || one.text !== change.before) {
-        return { ok: false, outcome: refusal("fleet.workflow_changed_since", `${one?.file ?? change.workflow_id} changed since the draft was made. Dismiss the draft and ask again`) };
+        return {
+          ok: false,
+          outcome: refusal(
+            "fleet.workflow_changed_since",
+            `${one?.file ?? change.workflow_id} changed since the draft was made. Dismiss the draft and ask again`,
+          ),
+        };
       }
-      files = files.map((each) => (each === one ? { ...one, text: change.after! } : each));
-      const approved: WorkflowChange = { ...change, state: "approved" };
-      revise(id, (each) => ({ ...each, change: approved }));
-      return { ok: true, approved: { change: approved, saved: { workflow_id: one.id, scope: source === "kit" ? "kit" : "repository", file: one.file, replaced: true, runs_from: source } } };
+      files = files.map((each) =>
+        each === one
+          ? {
+              ...one,
+              text: change.after!,
+            }
+          : each,
+      );
+      const approved: WorkflowChange = {
+        ...change,
+        state: "approved",
+      };
+      revise(id, (each) => ({
+        ...each,
+        change: approved,
+      }));
+      return {
+        ok: true,
+        approved: {
+          change: approved,
+          saved: {
+            workflow_id: one.id,
+            scope: source === "kit" ? "kit" : "repository",
+            file: one.file,
+            replaced: true,
+            runs_from: source,
+          },
+        },
+      };
     },
     dismissWorkflowChange: async (id) => {
       // A workflow a Job offered is dropped with the draft that held it.
       const offered = PROPOSED.find((one) => one.id === id);
       if (offered !== undefined) {
         settleProposedChange(id);
-        files = [...files, ...APPROVED.splice(0)].filter((one) => !(one.id === offered.workflow_id && one.source === offered.source));
-        return { ok: true, change: { ...offered, state: "dismissed" } };
+        files = [
+          ...files,
+          ...APPROVED.splice(0),
+        ].filter((one) => !(one.id === offered.workflow_id && one.source === offered.source));
+        return {
+          ok: true,
+          change: {
+            ...offered,
+            state: "dismissed",
+          },
+        };
       }
       const kept = outcomeOfChange(id);
-      if (kept === undefined) return { ok: false, outcome: noChange };
-      const dismissed: WorkflowChange = { ...settled(kept), state: "dismissed" };
-      revise(id, (each) => ({ ...each, change: dismissed }));
-      return { ok: true, change: dismissed };
+      if (kept === undefined)
+        return {
+          ok: false,
+          outcome: noChange,
+        };
+      const dismissed: WorkflowChange = {
+        ...settled(kept),
+        state: "dismissed",
+      };
+      revise(id, (each) => ({
+        ...each,
+        change: dismissed,
+      }));
+      return {
+        ok: true,
+        change: dismissed,
+      };
     },
     sendBackWorkflowChange: async ({ change: id, notes }) => {
       const kept = outcomeOfChange(id);
-      if (kept === undefined) return { ok: false, outcome: noChange };
-      if (notes.trim() === "") return { ok: false, outcome: refusal("fleet.workflow_change_empty", "Say what was wrong with the draft") };
-      const again: WorkflowChange = { ...settled(kept), state: "drafting", notes: notes.trim() };
+      if (kept === undefined)
+        return {
+          ok: false,
+          outcome: noChange,
+        };
+      if (notes.trim() === "")
+        return {
+          ok: false,
+          outcome: refusal("fleet.workflow_change_empty", "Say what was wrong with the draft"),
+        };
+      const again: WorkflowChange = {
+        ...settled(kept),
+        state: "drafting",
+        notes: notes.trim(),
+      };
       delete again.after;
       delete again.reason;
-      revise(id, () => ({ change: again, readyAt: Date.now() + DRAFTING_MS, manifest: kept.manifest }));
-      return { ok: true, change: again };
+      revise(id, () => ({
+        change: again,
+        readyAt: Date.now() + DRAFTING_MS,
+        manifest: kept.manifest,
+      }));
+      return {
+        ok: true,
+        change: again,
+      };
     },
     // The job is Fleet's to start; the change it answers closes.
     buildWorkflowSupport: async ({ change: id }) => {
       const kept = outcomeOfChange(id);
-      if (kept === undefined) return { ok: false, outcome: noChange };
-      if (settled(kept).state !== "cannot") return { ok: false, outcome: refusal("fleet.workflow_change_not_buildable", "Armada can already do what that change asks") };
+      if (kept === undefined)
+        return {
+          ok: false,
+          outcome: noChange,
+        };
+      if (settled(kept).state !== "cannot")
+        return {
+          ok: false,
+          outcome: refusal(
+            "fleet.workflow_change_not_buildable",
+            "Armada can already do what that change asks",
+          ),
+        };
       changes = changes.filter((one) => one.change.id !== id);
       const now = new Date().toISOString();
       options.started?.({
@@ -458,24 +1008,48 @@ export function workflowsServed(
         usage: {},
         attachments: [],
       });
-      return { ok: true, building: { job_id: SUPPORT_JOB } };
+      return {
+        ok: true,
+        building: {
+          job_id: SUPPORT_JOB,
+        },
+      };
     },
     proposeWorkflowToArmada: async ({ workflow_id, definition }) =>
       definition.trim() === ""
-        ? { ok: false, outcome: refusal("fleet.workflow_change_empty", "Nothing to propose") }
-        : { ok: true, proposed: { workflow_id, session_id: "mock-armada-proposal" } },
+        ? {
+            ok: false,
+            outcome: refusal("fleet.workflow_change_empty", "Nothing to propose"),
+          }
+        : {
+            ok: true,
+            proposed: {
+              workflow_id,
+              session_id: "mock-armada-proposal",
+            },
+          },
   };
 }
 
 const LEDGER: RepositorySummary = {
   root: "/Users/user/ledger",
   records_root: "/Users/user/Library/Application Support/Armada/records/ledger",
-  manifest: { ...repository().manifest!, id: LEDGER_ID, repository: "ledger", path: "ledger/armada.yml" },
+  manifest: {
+    ...repository().manifest!,
+    id: LEDGER_ID,
+    repository: "ledger",
+    path: "ledger/armada.yml",
+  },
 };
 const SITE: RepositorySummary = {
   root: "/Users/user/site",
   records_root: "/Users/user/Library/Application Support/Armada/records/site",
-  manifest: { ...repository().manifest!, id: SITE_ID, repository: "site", path: "site/armada.yml" },
+  manifest: {
+    ...repository().manifest!,
+    id: SITE_ID,
+    repository: "site",
+    path: "site/armada.yml",
+  },
 };
 
 /**
@@ -483,30 +1057,62 @@ const SITE: RepositorySummary = {
  * left a workflow file out: what the Workflow creator is walked on.
  */
 export function workflowing(): Scenario {
-  const state = connected([], [repository(), LEDGER, SITE]);
+  const state = connected(
+    [],
+    [
+      repository(),
+      LEDGER,
+      SITE,
+    ],
+  );
   return {
     name: "workflows",
     says: "A repository picked, workflow files of every kind, and one set aside",
     state: {
       ...state,
       repository: repository().root,
-      health: { state: "read", health: { probes: [], not_probed: [], helm_action_authority: "acting", workflows_left_out: true } },
+      health: {
+        state: "read",
+        health: {
+          probes: [],
+          not_probed: [],
+          helm_action_authority: "acting",
+          workflows_left_out: true,
+        },
+      },
     },
     // The Commands a Workflow names are the ones this repository's Manifest declares.
-    behaves: (fleet) => ({ readManifestFile: manifesting().behaves?.(fleet).readManifestFile! }),
+    behaves: (fleet) => ({
+      readManifestFile: manifesting().behaves?.(fleet).readManifestFile!,
+    }),
   };
 }
 
 /** The same Fleet with All repositories picked: each repository's copies in a group of its own, over the lanes of Armada's lifecycles. */
 export function workflowingOnAll(): Scenario {
   const base = workflowing();
-  return { ...base, name: "workflows-on-all", says: "All repositories picked, a repository's copies of workflows in each", state: { ...base.state, repository: null }, draft: { pieces: builtInPieces() } };
+  return {
+    ...base,
+    name: "workflows-on-all",
+    says: "All repositories picked, a repository's copies of workflows in each",
+    state: {
+      ...base.state,
+      repository: null,
+    },
+    draft: {
+      pieces: builtInPieces(),
+    },
+  };
 }
 
 /** Fleet's health read with a probe of every module and one warning and one failure, which Doctor is walked on. */
 export function doctoring(): Scenario {
   const base = workflowing();
-  const probe = (module: string, outcome: string, detail: string) => ({ module, outcome, detail });
+  const probe = (module: string, outcome: string, detail: string) => ({
+    module,
+    outcome,
+    detail,
+  });
   return {
     ...base,
     name: "doctor",
@@ -523,10 +1129,19 @@ export function doctoring(): Scenario {
             probe("Manifest", "warn", "/Users/user/armada/armada.yml, drifted from main"),
             probe("Manifest", "pass", "/Users/user/ledger/armada.yml"),
             probe("SQLite", "pass", "opens and writes"),
-            probe("System stats", "pass", "cpu 21% in use, memory 62% in use, 184320000 KiB free on the volume"),
+            probe(
+              "System stats",
+              "pass",
+              "cpu 21% in use, memory 62% in use, 184320000 KiB free on the volume",
+            ),
             probe("Slots", "fail", "slot 7 stranded, holder gone"),
           ],
-          not_probed: [{ owner: "adapters", because: "No adapter is configured on this machine." }],
+          not_probed: [
+            {
+              owner: "adapters",
+              because: "No adapter is configured on this machine.",
+            },
+          ],
           helm_action_authority: "acting",
         },
       },

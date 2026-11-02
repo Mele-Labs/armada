@@ -4,7 +4,17 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { Button, Card, CardTitle, PLACE_GLYPH, RunsPlaces, Tooltip, placePhrase, type RunsPlace, type SyncedFolder } from "@armada/components";
+import {
+  Button,
+  Card,
+  CardTitle,
+  PLACE_GLYPH,
+  RunsPlaces,
+  Tooltip,
+  placePhrase,
+  type RunsPlace,
+  type SyncedFolder,
+} from "@armada/components";
 
 import "./runs-place-control.css";
 
@@ -24,7 +34,8 @@ type Where = {
 const MARGIN = 8;
 
 /** What the places are for, said once above them. */
-const LINE = "Where Armada keeps this repository's configuration: how its tests, build and dev server run.";
+const LINE =
+  "Where Armada keeps this repository's configuration: how its tests, build and dev server run.";
 const said = (place: RunsPlace) => `Armada configuration kept ${placePhrase(place)}`;
 
 /** The glyph, and the menu it opens. J and K move in the menu, Enter picks, Esc puts it away. */
@@ -42,8 +53,13 @@ export function RunsPlaceControl({ place, synced, profiles, onPick, onFolder, on
     if (!open || box === undefined) return;
     const width = menu.current?.offsetWidth ?? 0;
     const left = Math.max(MARGIN, Math.min(box.left, window.innerWidth - width - MARGIN));
-    setAt({ left, top: box.bottom + MARGIN });
-  }, [open]);
+    setAt({
+      left,
+      top: box.bottom + MARGIN,
+    });
+  }, [
+    open,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -53,7 +69,9 @@ export function RunsPlaceControl({ place, synced, profiles, onPick, onFolder, on
     };
     window.addEventListener("mousedown", away);
     return () => window.removeEventListener("mousedown", away);
-  }, [open]);
+  }, [
+    open,
+  ]);
 
   const close = () => {
     setOpen(false);
@@ -64,25 +82,40 @@ export function RunsPlaceControl({ place, synced, profiles, onPick, onFolder, on
   return (
     <span ref={root} className="armada-place-control">
       <Tooltip label={said(place)}>
-        <Button type="button" variant="ghost" size="sm" iconOnly aria-label={said(place)} aria-expanded={open} aria-haspopup="true" onClick={() => setOpen(!open)}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          iconOnly
+          aria-label={said(place)}
+          aria-expanded={open}
+          aria-haspopup="true"
+          onClick={() => setOpen(!open)}
+        >
           <Glyph size={16} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>
-      {!open ? null : createPortal(
-        <div ref={menu} className="armada-place-control__menu" style={at}>
-          <p className="armada-place-card__line armada-place-control__line">{LINE}</p>
-          <RunsPlaces
-            synced={synced}
-            profiles={profiles}
-            current={place}
-            refused={refused}
-            onFolder={onFolder}
-            onPick={(next) => void onPick(next).then((said) => (said === undefined ? close() : setRefused(said)))}
-            onClose={close}
-          />
-        </div>,
-        document.body,
-      )}
+      {!open
+        ? null
+        : createPortal(
+            <div ref={menu} className="armada-place-control__menu" style={at}>
+              <p className="armada-place-card__line armada-place-control__line">{LINE}</p>
+              <RunsPlaces
+                synced={synced}
+                profiles={profiles}
+                current={place}
+                refused={refused}
+                onFolder={onFolder}
+                onPick={(next) =>
+                  void onPick(next).then((said) =>
+                    said === undefined ? close() : setRefused(said),
+                  )
+                }
+                onClose={close}
+              />
+            </div>,
+            document.body,
+          )}
     </span>
   );
 }
@@ -101,7 +134,11 @@ export function RunsPlaceCard({ place, synced, profiles, onPick, onFolder, onDon
         current={place}
         refused={refused}
         onFolder={onFolder}
-        onPick={(next) => void onPick(next).then((said) => (said === undefined ? (setRefused(undefined), onDone()) : setRefused(said)))}
+        onPick={(next) =>
+          void onPick(next).then((said) =>
+            said === undefined ? (setRefused(undefined), onDone()) : setRefused(said),
+          )
+        }
         onClose={onDone}
       />
     </Card>

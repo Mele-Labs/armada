@@ -285,9 +285,17 @@
 }
 
 /* Pending: each bar takes the text line, so a row is the height it will be when the names land. */
-.side-requests__skel { display: flex; align-items: center; min-height: var(--leading-xs); }
-.side-requests__tree[data-pending] { --skeleton-fill: var(--bg-raised); }
-.side-requests__tree[data-pending] .armada-skeleton.side-requests__skel-lead { width: var(--space-4); }
+.side-requests__skel {
+  display: flex;
+  align-items: center;
+  min-height: var(--leading-xs);
+}
+.side-requests__tree[data-pending] {
+  --skeleton-fill: var(--bg-raised);
+}
+.side-requests__tree[data-pending] .armada-skeleton.side-requests__skel-lead {
+  width: var(--space-4);
+}
 
 .side-requests__hides,
 .side-requests__set {

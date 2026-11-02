@@ -18,16 +18,23 @@ export const ALERT_MS = 15_000;
  * after the others do, so a Session's question standing since Friday would otherwise read as arriving at
  * once on the heels of the seeding reading. An object so a test can shorten it.
  */
-export const settle = { ms: 1500 };
+export const settle = {
+  ms: 1500,
+};
 
 /** The most that stand at once; the oldest goes when a fourth comes. */
 const MOST = 3;
 
 /** `useItems` draws acts it never calls here, and a stable object keeps its memo. */
-const NO_HOSTS: Hosts = { onOpenSession: () => {}, onOpenLink: () => {} };
+const NO_HOSTS: Hosts = {
+  onOpenSession: () => {},
+  onOpenLink: () => {},
+};
 const NONE: ReadonlySet<string> = new Set();
 
-type Standing = Alert & { until: number };
+type Standing = Alert & {
+  until: number;
+};
 
 export function CallAlerts({
   state,
@@ -65,21 +72,39 @@ export function CallAlerts({
       const live = new Set(calls.map((one) => one.key));
       // One that no longer stands has been answered or dismissed somewhere, and says nothing now.
       const kept = was.filter((one) => one.keys.some((key) => live.has(key)));
-      return told === null ? kept : [...kept, { ...told, until: at + ALERT_MS }].slice(-MOST);
+      return told === null
+        ? kept
+        : [
+            ...kept,
+            {
+              ...told,
+              until: at + ALERT_MS,
+            },
+          ].slice(-MOST);
     });
-  }, [calls, state.readAt]);
+  }, [
+    calls,
+    state.readAt,
+  ]);
 
   // The cockpit coming up puts the card in front, which is what an alert was pointing at.
   useEffect(() => {
     if (deckShown) setStanding([]);
-  }, [deckShown]);
+  }, [
+    deckShown,
+  ]);
 
   useEffect(() => {
     if (standing.length === 0) return;
     const next = Math.min(...standing.map((one) => one.until));
-    const timer = window.setTimeout(() => setStanding((was) => was.filter((one) => one.until > Date.now())), Math.max(0, next - Date.now()) + 10);
+    const timer = window.setTimeout(
+      () => setStanding((was) => was.filter((one) => one.until > Date.now())),
+      Math.max(0, next - Date.now()) + 10,
+    );
     return () => window.clearTimeout(timer);
-  }, [standing]);
+  }, [
+    standing,
+  ]);
 
   return (
     <>

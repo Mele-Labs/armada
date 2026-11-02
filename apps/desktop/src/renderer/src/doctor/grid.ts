@@ -22,7 +22,10 @@ export type Row = {
 };
 
 /** Probes nobody runs yet, as Fleet groups them: by who owns them, with why. Never drawn as a result. */
-export type Gap = { owner: string; because: string };
+export type Gap = {
+  owner: string;
+  because: string;
+};
 
 export type Grid = {
   rows: Row[];
@@ -36,28 +39,99 @@ export type Grid = {
  * **the modules this side can name.** Those probed from `adapters` are named by their probe when it
  * answers, and until then by Fleet's `not_probed`: their names are vendors', which stay in `adapters`.
  */
-export const MODULES: readonly { module: string; owner: string }[] = [
-  { module: "Fleet", owner: "fleet" },
-  { module: "Armada API", owner: "Bridge" },
-  { module: "Kit", owner: "config" },
-  { module: "Machine", owner: "config" },
-  { module: "Manifest", owner: "fleet" },
-  { module: "SQLite", owner: "store" },
-  { module: "System stats", owner: "fleet" },
+export const MODULES: readonly {
+  module: string;
+  owner: string;
+}[] = [
+  {
+    module: "Fleet",
+    owner: "fleet",
+  },
+  {
+    module: "Armada API",
+    owner: "Bridge",
+  },
+  {
+    module: "Kit",
+    owner: "config",
+  },
+  {
+    module: "Machine",
+    owner: "config",
+  },
+  {
+    module: "Manifest",
+    owner: "fleet",
+  },
+  {
+    module: "SQLite",
+    owner: "store",
+  },
+  {
+    module: "System stats",
+    owner: "fleet",
+  },
 ];
 
 /** What each result means for each module — the doc's table, so a picked row can say it. */
-export const MEANS: Readonly<Record<string, { reads: string; pass: string; warn?: string; fail: string }>> = {
-  Fleet: { reads: "Daemon alive and answering", pass: "Alive, answering", fail: "Not answering" },
-  "Armada API": { reads: "Bridge's own connection state, not a probe", pass: "Connected", fail: "Wrong port, stale connection, or a Bridge-side socket failure" },
-  Kit: { reads: "kit.yml present, parses, schema current", pass: "Parses, schema current", warn: "Parses, schema behind, migration pending", fail: "Missing or unparseable" },
-  Machine: { reads: "machine.yml present, parses, schema current", pass: "Parses, schema current", warn: "Parses, schema behind, migration pending", fail: "Missing or unparseable" },
-  Manifest: { reads: "Every known armada.yml parses, schema current, no drift", pass: "All parse, all schemas current", warn: "Some parse and some do not, or some have drifted", fail: "None parse, or none found" },
-  SQLite: { reads: "armada.db opens, schema matches, WAL writable", pass: "Opens and writes", warn: "Schema behind, or rows that will not load", fail: "Locked, corrupt, or the volume is full" },
-  "System stats": { reads: "CPU, memory and disk headroom against admission's thresholds", pass: "Above threshold", warn: "Below threshold — Drones queue rather than spawn", fail: "Insufficient to run anything" },
+export const MEANS: Readonly<
+  Record<
+    string,
+    {
+      reads: string;
+      pass: string;
+      warn?: string;
+      fail: string;
+    }
+  >
+> = {
+  Fleet: {
+    reads: "Daemon alive and answering",
+    pass: "Alive, answering",
+    fail: "Not answering",
+  },
+  "Armada API": {
+    reads: "Bridge's own connection state, not a probe",
+    pass: "Connected",
+    fail: "Wrong port, stale connection, or a Bridge-side socket failure",
+  },
+  Kit: {
+    reads: "kit.yml present, parses, schema current",
+    pass: "Parses, schema current",
+    warn: "Parses, schema behind, migration pending",
+    fail: "Missing or unparseable",
+  },
+  Machine: {
+    reads: "machine.yml present, parses, schema current",
+    pass: "Parses, schema current",
+    warn: "Parses, schema behind, migration pending",
+    fail: "Missing or unparseable",
+  },
+  Manifest: {
+    reads: "Every known armada.yml parses, schema current, no drift",
+    pass: "All parse, all schemas current",
+    warn: "Some parse and some do not, or some have drifted",
+    fail: "None parse, or none found",
+  },
+  SQLite: {
+    reads: "armada.db opens, schema matches, WAL writable",
+    pass: "Opens and writes",
+    warn: "Schema behind, or rows that will not load",
+    fail: "Locked, corrupt, or the volume is full",
+  },
+  "System stats": {
+    reads: "CPU, memory and disk headroom against admission's thresholds",
+    pass: "Above threshold",
+    warn: "Below threshold — Drones queue rather than spawn",
+    fail: "Insufficient to run anything",
+  },
 };
 
-const WORDS = new Set<Result>(["pass", "warn", "fail"]);
+const WORDS = new Set<Result>([
+  "pass",
+  "warn",
+  "fail",
+]);
 
 /** Fleet's words, as a result. A word this build does not know is drawn as `warn` rather than dropped. */
 function resultOf(outcome: string): Result {
@@ -73,30 +147,58 @@ export function worstOf(rows: readonly Row[]): "fail" | "warn" | undefined {
 
 /** The Armada API row: Bridge's own socket, never asked of the process it cannot reach. */
 function apiRow(connection: Connection, said: string): Row {
-  const base = { key: "Armada API", module: "Armada API", owner: "Bridge" };
+  const base = {
+    key: "Armada API",
+    module: "Armada API",
+    owner: "Bridge",
+  };
   switch (connection.state) {
     case "connected":
-      return { ...base, result: "pass", detail: `connected on port ${connection.fleet.port}` };
+      return {
+        ...base,
+        result: "pass",
+        detail: `connected on port ${connection.fleet.port}`,
+      };
     case "reading":
     case "connecting":
     case "starting":
-      return { ...base, result: "reading", detail: said };
+      return {
+        ...base,
+        result: "reading",
+        detail: said,
+      };
     default:
-      return { ...base, result: "fail", detail: said };
+      return {
+        ...base,
+        result: "fail",
+        detail: said,
+      };
   }
 }
 
 /** Fleet's row when `/health` was not read: what the runtime file and the pid say, from outside. */
 function fleetRow(connection: Connection, said: string): Row {
-  const base = { key: "Fleet", module: "Fleet", owner: "fleet" };
+  const base = {
+    key: "Fleet",
+    module: "Fleet",
+    owner: "fleet",
+  };
   switch (connection.state) {
     case "connected":
     case "reading":
     case "connecting":
     case "starting":
-      return { ...base, result: "reading", detail: said };
+      return {
+        ...base,
+        result: "reading",
+        detail: said,
+      };
     default:
-      return { ...base, result: "fail", detail: said };
+      return {
+        ...base,
+        result: "fail",
+        detail: said,
+      };
   }
 }
 
@@ -118,28 +220,75 @@ export function gridOf(read: HealthRead, connection: Connection, said: string): 
     if (module === "Armada API") rows.push(apiRow(connection, said));
     else if (answered.length > 0) {
       answered.forEach((probe, at) =>
-        rows.push({ key: at === 0 ? module : `${module}:${at}`, module, result: resultOf(probe.outcome), detail: probe.detail, owner }),
+        rows.push({
+          key: at === 0 ? module : `${module}:${at}`,
+          module,
+          result: resultOf(probe.outcome),
+          detail: probe.detail,
+          owner,
+        }),
       );
     } else if (module === "Fleet" && health === undefined) rows.push(fleetRow(connection, said));
     // Fleet probes these itself, so they are in flight while `/health` is. A config module is Fleet's `not_probed`.
-    else if (owner !== "config" && read.state !== "failed" && health === undefined) rows.push({ key: module, module, result: "reading", detail: "", owner });
+    else if (owner !== "config" && read.state !== "failed" && health === undefined)
+      rows.push({
+        key: module,
+        module,
+        result: "reading",
+        detail: "",
+        owner,
+      });
   }
   // A module this side does not name still shows: a row dropped is a problem hidden.
   const known = new Set(MODULES.map((one) => one.module));
   probes
     .filter((probe) => !known.has(probe.module))
-    .forEach((probe, at) => rows.push({ key: `${probe.module}:x${at}`, module: probe.module, result: resultOf(probe.outcome), detail: probe.detail, owner: "fleet" }));
+    .forEach((probe, at) =>
+      rows.push({
+        key: `${probe.module}:x${at}`,
+        module: probe.module,
+        result: resultOf(probe.outcome),
+        detail: probe.detail,
+        owner: "fleet",
+      }),
+    );
   // Bridge's own entry is the Armada API row above, drawn rather than excused.
-  for (const one of health?.not_probed ?? []) if (one.owner !== "Bridge") gaps.push({ owner: one.owner, because: one.because.replace(/\s+/g, " ") });
-  if (read.state === "failed") gaps.unshift({ owner: "fleet", because: `Fleet's own probes were not read: ${unread(read)}` });
-  return read.state === "failed" ? { rows, gaps, unread: unread(read) } : { rows, gaps };
+  for (const one of health?.not_probed ?? [])
+    if (one.owner !== "Bridge")
+      gaps.push({
+        owner: one.owner,
+        because: one.because.replace(/\s+/g, " "),
+      });
+  if (read.state === "failed")
+    gaps.unshift({
+      owner: "fleet",
+      because: `Fleet's own probes were not read: ${unread(read)}`,
+    });
+  return read.state === "failed"
+    ? {
+        rows,
+        gaps,
+        unread: unread(read),
+      }
+    : {
+        rows,
+        gaps,
+      };
 }
 
 /** One labelled value a probe's line carries, such as a percentage, a port or a file. */
-export type Fact = { label: string; value: string; mono?: boolean; full?: string };
+export type Fact = {
+  label: string;
+  value: string;
+  mono?: boolean;
+  full?: string;
+};
 
 /** A probe's one line, laid out: its sentences, and the values in it named. */
-export type Reading = { lines: string[]; facts: Fact[] };
+export type Reading = {
+  lines: string[];
+  facts: Fact[];
+};
 
 const capitalised = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
@@ -156,27 +305,59 @@ const kibSaid = (kib: number) => `${(kib / 1024 / 1024).toFixed(1)} GB`;
 export function readingOf(detail: string): Reading {
   const lines: string[] = [];
   const facts: Fact[] = [];
-  for (const clause of detail.split(/\s+—\s+|;\s+|,\s+/).map((one) => one.trim()).filter(Boolean)) {
+  for (const clause of detail
+    .split(/\s+—\s+|;\s+|,\s+/)
+    .map((one) => one.trim())
+    .filter(Boolean)) {
     let match: RegExpMatchArray | null;
     if ((match = clause.match(/^(cpu|memory|disk) (\d+(?:\.\d+)?%) in use$/i))) {
-      facts.push({ label: match[1]!.toLowerCase() === "cpu" ? "CPU" : capitalised(match[1]!), value: `${match[2]} used` });
+      facts.push({
+        label: match[1]!.toLowerCase() === "cpu" ? "CPU" : capitalised(match[1]!),
+        value: `${match[2]} used`,
+      });
     } else if ((match = clause.match(/^(\d+) KiB free on the volume$/))) {
-      facts.push({ label: "Disk", value: `${kibSaid(Number(match[1]))} free` });
+      facts.push({
+        label: "Disk",
+        value: `${kibSaid(Number(match[1]))} free`,
+      });
     } else if ((match = clause.match(/^this process is run (\S+)$/))) {
-      facts.push({ label: "Run", value: match[1]!, mono: true });
+      facts.push({
+        label: "Run",
+        value: match[1]!,
+        mono: true,
+      });
     } else if ((match = clause.match(/^connected on port (\d+)$/))) {
       lines.push("Connected");
-      facts.push({ label: "Port", value: match[1]!, mono: true });
+      facts.push({
+        label: "Port",
+        value: match[1]!,
+        mono: true,
+      });
     } else if ((match = clause.match(/^(\/\S+?)(?:[:,])?(?:\s+(.*))?$/))) {
-      facts.push({ label: "File", value: shortPath(match[1]!), mono: true, full: match[1]! });
+      facts.push({
+        label: "File",
+        value: shortPath(match[1]!),
+        mono: true,
+        full: match[1]!,
+      });
       if (match[2] !== undefined) lines.push(capitalised(match[2]));
     } else lines.push(capitalised(clause));
   }
-  return { lines, facts };
+  return {
+    lines,
+    facts,
+  };
 }
 
 /** Why `/health` was not read, in the app's own words for that outcome. */
-function unread(read: Extract<HealthRead, { state: "failed" }>): string {
+function unread(
+  read: Extract<
+    HealthRead,
+    {
+      state: "failed";
+    }
+  >,
+): string {
   return saidOf(read.outcome) || "Fleet did not answer";
 }
 
@@ -185,5 +366,7 @@ export function summaryOf(grid: Grid): string {
   if (grid.unread !== undefined) return `Not read — ${grid.unread}`;
   if (grid.rows.some((row) => row.result === "reading")) return "Reading";
   const flagged = grid.rows.filter((row) => row.result !== "pass");
-  return flagged.length === 0 ? "Every probed module passes" : flagged.map((row) => `${row.module}: ${row.result}`).join(" · ");
+  return flagged.length === 0
+    ? "Every probed module passes"
+    : flagged.map((row) => `${row.module}: ${row.result}`).join(" · ");
 }

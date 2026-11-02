@@ -38,7 +38,12 @@ export type RadioGroupProps = {
  */
 export function RadioGroup({ label, labelledBy, children }: RadioGroupProps) {
   return (
-    <div className="armada-radio-group" role="radiogroup" aria-label={label} aria-labelledby={labelledBy}>
+    <div
+      className="armada-radio-group"
+      role="radiogroup"
+      aria-label={label}
+      aria-labelledby={labelledBy}
+    >
       {label !== undefined && <span className="armada-radio-group__label">{label}</span>}
       {children}
     </div>

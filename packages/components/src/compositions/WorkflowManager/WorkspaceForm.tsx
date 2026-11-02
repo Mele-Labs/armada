@@ -22,13 +22,27 @@ export type WorkspaceFormProps = {
   onRemove?: () => void;
 };
 
-export function WorkspaceForm({ mode, repositories, name = "", ticked = [], home, onSubmit, onRemove }: WorkspaceFormProps) {
+export function WorkspaceForm({
+  mode,
+  repositories,
+  name = "",
+  ticked = [],
+  home,
+  onSubmit,
+  onRemove,
+}: WorkspaceFormProps) {
   const [text, setText] = useState(name);
   const [chosen, setChosen] = useState<readonly string[]>(ticked);
   const trimmed = text.trim();
   const ready = trimmed !== "" && chosen.length > 0;
   const remove = (
-    <Button type="button" variant="ghost" size="sm" disabled={home !== undefined} onClick={onRemove}>
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      disabled={home !== undefined}
+      onClick={onRemove}
+    >
       <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
       Remove
     </Button>
@@ -49,14 +63,27 @@ export function WorkspaceForm({ mode, repositories, name = "", ticked = [], home
           <Checkbox
             key={one.id}
             checked={chosen.includes(one.id)}
-            onChange={(event) => setChosen((was) => (event.target.checked ? [...was, one.id] : was.filter((each) => each !== one.id)))}
+            onChange={(event) =>
+              setChosen((was) =>
+                event.target.checked
+                  ? [
+                      ...was,
+                      one.id,
+                    ]
+                  : was.filter((each) => each !== one.id),
+              )
+            }
           >
             {one.name}
           </Checkbox>
         ))}
       </fieldset>
       <div className="armada-wm-ws__actions">
-        {mode === "new" || onRemove === undefined ? null : home === undefined ? remove : <Tooltip label={`Lives in ${home}`}>{remove}</Tooltip>}
+        {mode === "new" || onRemove === undefined ? null : home === undefined ? (
+          remove
+        ) : (
+          <Tooltip label={`Lives in ${home}`}>{remove}</Tooltip>
+        )}
         <Button type="submit" variant="primary" size="sm" disabled={!ready}>
           {mode === "new" ? "Create" : "Save"}
         </Button>

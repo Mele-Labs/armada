@@ -55,6 +55,9 @@ export function useSheetWidth(kind: string | undefined): number | undefined {
 
 /** Remember `width` for every sheet of `kind`, and redraw the ones open now. */
 export function rememberSheetWidth(kind: string, width: number): void {
-  write({ ...read(), [kind]: width });
+  write({
+    ...read(),
+    [kind]: width,
+  });
   for (const listener of listeners) listener();
 }

@@ -6,10 +6,30 @@ import { useBack } from "./panels";
 import { closePanel, holdLaneSlot } from "./store";
 import type { PanelItem } from "./store";
 
-export function LaneSide({ item }: { item: Extract<PanelItem, { kind: "lane" }> }) {
+export function LaneSide({
+  item,
+}: {
+  item: Extract<
+    PanelItem,
+    {
+      kind: "lane";
+    }
+  >;
+}) {
   const back = useBack();
   return (
-    <SidePanel title={item.title} heading={item.heading} {...(item.crumb === "" ? {} : { crumb: item.crumb })} through back={back} onClose={closePanel}>
+    <SidePanel
+      title={item.title}
+      heading={item.heading}
+      {...(item.crumb === ""
+        ? {}
+        : {
+            crumb: item.crumb,
+          })}
+      through
+      back={back}
+      onClose={closePanel}
+    >
       <div ref={holdLaneSlot} />
     </SidePanel>
   );

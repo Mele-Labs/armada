@@ -16,20 +16,38 @@ const QUOTES = /^["'`“”‘’]+|["'`“”‘’]+$/g;
 export function readsAsPath(query: string): string | null {
   const typed = query.trim().replace(QUOTES, "").trim();
   if (typed === "" || /^[a-z][a-z0-9+.-]*:\/\//i.test(typed) || typed.includes("\n")) return null;
-  if (typed.startsWith("/") || typed.startsWith("~/")) return typed.length > 1 && !typed.endsWith("/") ? typed : null;
+  if (typed.startsWith("/") || typed.startsWith("~/"))
+    return typed.length > 1 && !typed.endsWith("/") ? typed : null;
   return /^\S+\/[^/\s]*\.[A-Za-z0-9]+$/.test(typed) ? typed : null;
 }
 
 export const PATH_ROW = "armada-palette-row-path";
 
-export function PathRow({ path, active, ref, onEnter, onChoose }: { path: string; active: boolean; ref?: React.Ref<HTMLDivElement> | undefined; onEnter: () => void; onChoose: () => void }) {
+export function PathRow({
+  path,
+  active,
+  ref,
+  onEnter,
+  onChoose,
+}: {
+  path: string;
+  active: boolean;
+  ref?: React.Ref<HTMLDivElement> | undefined;
+  onEnter: () => void;
+  onChoose: () => void;
+}) {
   return (
     <div
       ref={ref}
       id={PATH_ROW}
       role="option"
       aria-selected={active}
-      className={["armada-palette__row", active ? "armada-palette__row--active" : ""].filter((one) => one !== "").join(" ")}
+      className={[
+        "armada-palette__row",
+        active ? "armada-palette__row--active" : "",
+      ]
+        .filter((one) => one !== "")
+        .join(" ")}
       onMouseEnter={onEnter}
       onClick={onChoose}
     >

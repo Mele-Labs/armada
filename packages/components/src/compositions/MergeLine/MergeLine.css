@@ -56,7 +56,8 @@
 .armada-merge-line[data-red] {
   border-color: var(--status-completed-failed);
   box-shadow:
-    inset 0 0 calc(var(--space-12) * 1.5) color-mix(in srgb, var(--status-completed-failed) 12%, transparent),
+    inset 0 0 calc(var(--space-12) * 1.5)
+    color-mix(in srgb, var(--status-completed-failed) 12%, transparent),
     0 0 var(--space-6) color-mix(in srgb, var(--status-completed-failed) 16%, transparent);
 }
 
@@ -179,7 +180,9 @@
   left: calc(var(--space-3) * -1);
   width: calc(100% + var(--space-3));
   height: calc(var(--border-width) * 2);
-  background: linear-gradient(90deg, var(--border-strong) var(--space-1), transparent var(--space-1)) 0 0 / var(--space-3) 100% repeat-x;
+  background:
+    linear-gradient(90deg, var(--border-strong) var(--space-1), transparent var(--space-1)) 0 0 /
+    var(--space-3) 100% repeat-x;
   will-change: transform;
   animation: armada-merge-line-flow var(--duration-pulse) linear infinite;
 }
@@ -259,8 +262,15 @@
   min-width: 0;
   padding: var(--space-4);
   background:
-    linear-gradient(color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width)),
-    linear-gradient(90deg, color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width));
+    linear-gradient(
+      color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width),
+      transparent var(--border-width)
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width),
+      transparent var(--border-width)
+    );
   background-size: var(--space-6) var(--space-6);
 }
 
@@ -340,8 +350,15 @@
   justify-content: center;
   padding: var(--space-8) var(--space-4);
   background:
-    linear-gradient(color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width)),
-    linear-gradient(90deg, color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width));
+    linear-gradient(
+      color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width),
+      transparent var(--border-width)
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width),
+      transparent var(--border-width)
+    );
   background-size: var(--space-6) var(--space-6);
 }
 
@@ -373,7 +390,8 @@
   grid-template-columns: subgrid;
   align-items: start;
   padding: var(--space-2) var(--space-3);
-  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border: calc(var(--border-width) * 2) solid
+    color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
   font-size: var(--text-sm);
@@ -718,11 +736,19 @@ a.armada-merge-line__queue-title:focus-visible {
 }
 
 /* Dimmed by token, never by alpha (design-system.md): the text and the number go to muted. */
-.armada-merge-line__placed .armada-merge-line__row:not([aria-current]) :is(.armada-merge-line__queue-title, .armada-merge-line__queue-number, .armada-merge-line__place) {
+.armada-merge-line__placed
+  .armada-merge-line__row:not([aria-current])
+  :is(
+    .armada-merge-line__queue-title,
+    .armada-merge-line__queue-number,
+    .armada-merge-line__place
+  ) {
   color: var(--fg-muted);
   transition: color var(--duration-fast) ease;
 }
 
-.armada-merge-line__placed .armada-merge-line__row:not([aria-current]):is(:hover, :focus-within) .armada-merge-line__queue-title {
+.armada-merge-line__placed
+  .armada-merge-line__row:not([aria-current]):is(:hover, :focus-within)
+  .armada-merge-line__queue-title {
   color: var(--fg-default);
 }

@@ -12,10 +12,21 @@ const meta: Meta<typeof WindowQuestion> = {
     from: "Findings page",
     question: "Should the count sit beside the title or under it?",
     options: [
-      { label: "Beside", description: "One line, as on the Board" },
-      { label: "Under", description: "Leaves the title its whole width" },
+      {
+        label: "Beside",
+        description: "One line, as on the Board",
+      },
+      {
+        label: "Under",
+        description: "Leaves the title its whole width",
+      },
     ],
-    box: { x: 120, y: 120, width: 220, height: 32 },
+    box: {
+      x: 120,
+      y: 120,
+      width: 220,
+      height: 32,
+    },
     answer: "",
     onAnswer: fn(),
     onChoose: fn(),
@@ -32,18 +43,33 @@ export const Asking: Story = {};
 
 /** Nothing on the page matched: the card still asks, at the top, and says it found no place. */
 export const PlaceNotFound: Story = {
-  args: { box: null },
+  args: {
+    box: null,
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("The place it asks about is not on this page.")).toBeVisible();
-    await expect(canvas.queryByRole("img", { name: "The place asked about" })).toBeNull();
+    await expect(
+      canvas.queryByRole("img", {
+        name: "The place asked about",
+      }),
+    ).toBeNull();
   },
 };
 
 /** A place too tall for room above or below it, starting near the top: the card stands at the top of the page, inside the window. */
 export const TallPlace: Story = {
-  args: { box: { x: 40, y: 60, width: 600, height: 2000 } },
+  args: {
+    box: {
+      x: 40,
+      y: 60,
+      width: 600,
+      height: 2000,
+    },
+  },
   play: async ({ canvas }) => {
-    const card = canvas.getByRole("dialog", { name: "Question from Findings page" });
+    const card = canvas.getByRole("dialog", {
+      name: "Question from Findings page",
+    });
     await expect(card.getAttribute("data-side")).toBe("top");
     await expect(card.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
   },
@@ -51,20 +77,32 @@ export const TallPlace: Story = {
 
 /** No options: the question is answered in words alone. */
 export const InWordsOnly: Story = {
-  args: { options: [] },
+  args: {
+    options: [],
+  },
 };
 
 /** Out to Fleet: no option and no Send takes a second press. */
 export const Sending: Story = {
-  args: { answer: "and smaller", sending: true },
+  args: {
+    answer: "and smaller",
+    sending: true,
+  },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: /Beside/ })).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: /Beside/,
+      }),
+    ).toBeDisabled();
   },
 };
 
 /** Fleet did not take it, and the card says so without losing what was typed. */
 export const Refused: Story = {
-  args: { answer: "and smaller", refused: "Not sent: Fleet is not running." },
+  args: {
+    answer: "and smaller",
+    refused: "Not sent: Fleet is not running.",
+  },
 };
 
 /**
@@ -78,12 +116,18 @@ export const WhatAnswers: Story = {
     return <WindowQuestion {...args} answer={answer} onAnswer={setAnswer} />;
   },
   play: async ({ args, canvas }) => {
-    const send = canvas.getByRole("button", { name: "Send" });
+    const send = canvas.getByRole("button", {
+      name: "Send",
+    });
     await expect(send).toBeDisabled();
     await userEvent.type(canvas.getByLabelText("Or in your own words"), "   ");
     await expect(send).toBeDisabled();
 
-    await userEvent.click(canvas.getByRole("button", { name: /Under/ }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: /Under/,
+      }),
+    );
     await expect(args.onChoose).toHaveBeenCalledWith(1);
     await expect(args.onSend).not.toHaveBeenCalled();
 
@@ -94,7 +138,11 @@ export const WhatAnswers: Story = {
 
     await userEvent.keyboard("{Escape}");
     await expect(args.onFold).toHaveBeenCalledTimes(1);
-    await userEvent.click(canvas.getByRole("button", { name: "Look around" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Look around",
+      }),
+    );
     await expect(args.onFold).toHaveBeenCalledTimes(2);
   },
 };

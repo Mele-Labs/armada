@@ -30,16 +30,39 @@ export type ThreadLook = {
 };
 
 /** A line the quick bar offers: one he saved, or one Bridge learnt from what he sends. */
-export type QuickPhrase = { id: string; text: string; kind: "saved" | "learnt"; /** Sits first in the bar, after the answers to the agent's question. Only a saved line is pinned. */ pinned?: boolean };
+export type QuickPhrase = {
+  id: string;
+  text: string;
+  kind:
+    | "saved"
+    | "learnt" /** Sits first in the bar, after the answers to the agent's question. Only a saved line is pinned. */;
+  pinned?: boolean;
+};
 
 /** What he does to a quick reply, from its menu or from the settings list. */
 export type QuickAct =
-  | { act: "edit"; id: string; text: string }
-  | { act: "delete"; id: string }
-  | { act: "pin"; id: string }
-  | { act: "unpin"; id: string }
+  | {
+      act: "edit";
+      id: string;
+      text: string;
+    }
+  | {
+      act: "delete";
+      id: string;
+    }
+  | {
+      act: "pin";
+      id: string;
+    }
+  | {
+      act: "unpin";
+      id: string;
+    }
   /** An answer to the agent's question, kept as a saved line. */
-  | { act: "save"; text: string };
+  | {
+      act: "save";
+      text: string;
+    };
 
 /** Whether the bar is drawn in a Job: not while it is off for all Jobs, nor for this one. */
 export function quickShownIn(look: ThreadLook, jobId: string | undefined): boolean {
@@ -47,8 +70,15 @@ export function quickShownIn(look: ThreadLook, jobId: string | undefined): boole
 }
 
 /** The lines as the bar draws them: pinned first, each group in the order it is kept. */
-export function pinnedFirst<T extends { pinned?: boolean }>(lines: readonly T[]): T[] {
-  return [...lines.filter((one) => one.pinned === true), ...lines.filter((one) => one.pinned !== true)];
+export function pinnedFirst<
+  T extends {
+    pinned?: boolean;
+  },
+>(lines: readonly T[]): T[] {
+  return [
+    ...lines.filter((one) => one.pinned === true),
+    ...lines.filter((one) => one.pinned !== true),
+  ];
 }
 
 /**
@@ -60,38 +90,96 @@ export function actOnQuick(look: ThreadLook, act: QuickAct): ThreadLook {
   if (act.act === "save") {
     const text = act.text.trim();
     if (text === "" || look.quick.some((one) => one.text === text)) return look;
-    return { ...look, quick: [...look.quick, { id: `saved:${Date.now()}`, text, kind: "saved" }] };
+    return {
+      ...look,
+      quick: [
+        ...look.quick,
+        {
+          id: `saved:${Date.now()}`,
+          text,
+          kind: "saved",
+        },
+      ],
+    };
   }
   const was = look.quick.find((one) => one.id === act.id);
   if (was === undefined) return look;
-  const forget = was.kind === "learnt" && !look.forgotten.includes(was.text) ? [...look.forgotten, was.text] : look.forgotten;
+  const forget =
+    was.kind === "learnt" && !look.forgotten.includes(was.text)
+      ? [
+          ...look.forgotten,
+          was.text,
+        ]
+      : look.forgotten;
   switch (act.act) {
     case "edit": {
       const text = act.text.trim();
       if (text === "" || text === was.text) return look;
-      return { ...look, forgotten: forget, quick: look.quick.map((one) => (one.id === was.id ? { ...one, text, kind: "saved" } : one)) };
+      return {
+        ...look,
+        forgotten: forget,
+        quick: look.quick.map((one) =>
+          one.id === was.id
+            ? {
+                ...one,
+                text,
+                kind: "saved",
+              }
+            : one,
+        ),
+      };
     }
     case "delete":
-      return { ...look, forgotten: forget, quick: look.quick.filter((one) => one.id !== was.id) };
+      return {
+        ...look,
+        forgotten: forget,
+        quick: look.quick.filter((one) => one.id !== was.id),
+      };
     case "pin": {
       if (was.pinned === true) return look;
       const rest = look.quick.filter((one) => one.id !== was.id);
       const at = rest.filter((one) => one.pinned === true).length;
-      return { ...look, quick: [...rest.slice(0, at), { ...was, kind: "saved", pinned: true }, ...rest.slice(at)] };
+      return {
+        ...look,
+        quick: [
+          ...rest.slice(0, at),
+          {
+            ...was,
+            kind: "saved",
+            pinned: true,
+          },
+          ...rest.slice(at),
+        ],
+      };
     }
     case "unpin": {
       const { pinned: _, ...unpinned } = was;
-      return { ...look, quick: look.quick.map((one) => (one.id === was.id ? unpinned : one)) };
+      return {
+        ...look,
+        quick: look.quick.map((one) => (one.id === was.id ? unpinned : one)),
+      };
     }
   }
 }
 
 /** The body sizes a thread can be read at, each a type token's (`typography.css`). `base` is what a message is drawn at today. */
 export const THREAD_TEXT_SIZES = [
-  { size: "xs", said: "13 px" },
-  { size: "sm", said: "14 px" },
-  { size: "base", said: "15 px" },
-  { size: "lg", said: "18 px" },
+  {
+    size: "xs",
+    said: "13 px",
+  },
+  {
+    size: "sm",
+    said: "14 px",
+  },
+  {
+    size: "base",
+    said: "15 px",
+  },
+  {
+    size: "lg",
+    said: "18 px",
+  },
 ] as const;
 
 export type ThreadTextSize = (typeof THREAD_TEXT_SIZES)[number]["size"];
@@ -99,16 +187,69 @@ export type ThreadTextSize = (typeof THREAD_TEXT_SIZES)[number]["size"];
 /** Where Talk's words come from. */
 export type VoiceEngine = "apple" | "whisper" | "dictation";
 
-export const VOICE_ENGINES: readonly { id: VoiceEngine; said: string }[] = [
-  { id: "apple", said: "Apple on-device" },
-  { id: "whisper", said: "Whisper" },
-  { id: "dictation", said: "macOS Dictation" },
+export const VOICE_ENGINES: readonly {
+  id: VoiceEngine;
+  said: string;
+}[] = [
+  {
+    id: "apple",
+    said: "Apple on-device",
+  },
+  {
+    id: "whisper",
+    said: "Whisper",
+  },
+  {
+    id: "dictation",
+    said: "macOS Dictation",
+  },
 ];
 
-export const DEFAULT_LOOK: ThreadLook = { agentName: "", showTimes: true, showAgentName: true, textSize: "base", spacing: "default", quick: [], learn: true, forgotten: [], voice: "apple", quickOff: false, quickOffFor: [], responses: DEFAULT_RESPONSES };
+export const DEFAULT_LOOK: ThreadLook = {
+  agentName: "",
+  showTimes: true,
+  showAgentName: true,
+  textSize: "base",
+  spacing: "default",
+  quick: [],
+  learn: true,
+  forgotten: [],
+  voice: "apple",
+  quickOff: false,
+  quickOffFor: [],
+  responses: DEFAULT_RESPONSES,
+};
+
+/** Why Talk ended early: the same names as `VoiceWhy` in the desktop app's `shared/api/voice.ts`. */
+export type TalkWhy =
+  | "helper_missing"
+  | "helper_failed"
+  | "microphone_denied"
+  | "microphone_unavailable"
+  | "speech_denied"
+  | "on_device_unavailable"
+  | "recognition_failed"
+  | "whisper_absent"
+  | "whisper_failed"
+  | "download_failed"
+  | "digest_mismatch"
+  | "unpack_failed";
+
+/** The System Settings panes Talk's guide can open. */
+export type TalkPane = "microphone" | "speech" | "sound";
 
 /** Whisper's model on this Mac: not here, coming down (`progress` 0 to 1), or here. */
-export type WhisperModel = { state: "absent" } | { state: "installing"; progress: number } | { state: "installed" };
+export type WhisperModel =
+  | {
+      state: "absent";
+    }
+  | {
+      state: "installing";
+      progress: number;
+    }
+  | {
+      state: "installed";
+    };
 
 /**
  * What the window holds for the thread's look, and what serves the quick bar and Talk. **Absent, nothing new is drawn**: no Aa,
@@ -126,8 +267,10 @@ export type ThreadLookSource = {
    * the look leaves lines out by, does. Called from an effect, and only while the Job's bar is drawn. Absent where `askedFor` is fixed.
    */
   wantQuick?: (sessionId: string, lastMessage: string, settled: string) => void;
-  /** Hears words, one at a time, until the returned stop is called. Absent where nothing hears: Talk is not drawn. */
-  listen?: (onWord: (word: string) => void) => () => void;
+  /** Hears words, one at a time, until the returned stop is called. `onEnd` is called once, with why where hearing ended early. Absent where nothing hears: Talk is not drawn. */
+  listen?: (onWord: (word: string) => void, onEnd?: (why?: TalkWhy) => void) => () => void;
+  /** Opens the System Settings pane that holds what Talk was refused. Absent where there is no such pane: the guide draws no button. */
+  openSettings?: (pane: TalkPane) => void;
   /** Absent where nothing installs it: the voice list reads Whisper as not here. */
   whisper?: WhisperModel;
   installWhisper?: () => void;

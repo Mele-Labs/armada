@@ -7,7 +7,13 @@
 import { useSyncExternalStore, type ReactNode } from "react";
 
 import type { JobBrowserApi, JobBrowserState } from "../../../shared/api/job-browser";
-import { effectiveChoice, NO_SETTINGS, type Choice, type SitePermission, type SiteSettings } from "../../../shared/site-permissions";
+import {
+  effectiveChoice,
+  NO_SETTINGS,
+  type Choice,
+  type SitePermission,
+  type SiteSettings,
+} from "../../../shared/site-permissions";
 import { viewingNow } from "../cockpit/viewed";
 import { jobOpens, look, peek } from "../job-panes/store";
 import { activate, panesOf, type Arrangement } from "../job-panes/tree";
@@ -16,7 +22,18 @@ import { activate, panesOf, type Arrangement } from "../job-panes/tree";
 export type BrowserDriver = "agent" | "you";
 
 /** A note the person pinned on part of the page, at that part's box within the page. Only the mock draws them. */
-export type BrowserPin = { id: string; url: string; on: string; note: string; box: { top: number; left: number; width: number; height: number } };
+export type BrowserPin = {
+  id: string;
+  url: string;
+  on: string;
+  note: string;
+  box: {
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  };
+};
 
 export type JobBrowser = {
   url: string;
@@ -40,13 +57,20 @@ let wired: Wired | undefined;
 
 let held: Readonly<Record<string, JobBrowser>> = {};
 /** The mock's history for each Job, which main keeps for the app. */
-const visits = new Map<string, { visited: string[]; at: number }>();
+const visits = new Map<
+  string,
+  {
+    visited: string[];
+    at: number;
+  }
+>();
 const listeners = new Set<() => void>();
 /** The Browser tabs of each Job in pane order, as main was last told them. */
 const reported = new Map<string, readonly string[]>();
 
 /** What a tab's page is held under. **The mock plays one browser for the Job**, so every one of its tabs is held under the Job. */
-const keyOf = (sessionId: string, tabId: string): string => (wired === undefined ? sessionId : `${sessionId}/${tabId}`);
+const keyOf = (sessionId: string, tabId: string): string =>
+  wired === undefined ? sessionId : `${sessionId}/${tabId}`;
 
 function told(): void {
   listeners.forEach((hear) => hear());
@@ -56,7 +80,10 @@ function told(): void {
 function edit(key: string, change: (one: JobBrowser) => JobBrowser): void {
   const one = held[key];
   if (one === undefined) return;
-  held = { ...held, [key]: change(one) };
+  held = {
+    ...held,
+    [key]: change(one),
+  };
   told();
 }
 
@@ -101,7 +128,12 @@ export function wireJobBrowsers(api: Wired): () => void {
 /** The tab's browser as it stands now, for a caller that is not drawing it; without a tab, the Job's first. */
 export function peekJobBrowser(sessionId: string, tabId?: string): JobBrowser | undefined {
   if (tabId !== undefined) return held[keyOf(sessionId, tabId)];
-  return held[sessionId] ?? (reported.get(sessionId) ?? []).map((one) => held[keyOf(sessionId, one)]).find((one) => one !== undefined);
+  return (
+    held[sessionId] ??
+    (reported.get(sessionId) ?? [])
+      .map((one) => held[keyOf(sessionId, one)])
+      .find((one) => one !== undefined)
+  );
 }
 
 /** The tab's browser as it stands, or nothing where it has none. */
@@ -117,7 +149,9 @@ export function useJobBrowser(sessionId: string | undefined, tabId = ""): JobBro
 
 /** The ids of an arrangement's Browser tabs in pane order, which is the order the Job's page is looked for in. */
 export const browserTabIds = (arrangement: Arrangement): string[] =>
-  panesOf(arrangement.root).flatMap((pane) => pane.tabs.filter((tab) => tab.kind === "browser").map((tab) => tab.id));
+  panesOf(arrangement.root).flatMap((pane) =>
+    pane.tabs.filter((tab) => tab.kind === "browser").map((tab) => tab.id),
+  );
 
 /**
  * Tell main which Browser tabs a Job has, so each has a page and the page of a tab that is gone is destroyed. Said as the panes change,
@@ -128,7 +162,9 @@ export function reportTabs(sessionId: string, tabIds: readonly string[]): void {
   reported.set(sessionId, tabIds);
   // What main no longer holds is not kept here either.
   const mine = `${sessionId}/`;
-  const gone = Object.keys(held).filter((key) => key.startsWith(mine) && !tabIds.includes(key.slice(mine.length)));
+  const gone = Object.keys(held).filter(
+    (key) => key.startsWith(mine) && !tabIds.includes(key.slice(mine.length)),
+  );
   if (gone.length > 0) {
     held = Object.fromEntries(Object.entries(held).filter(([key]) => !gone.includes(key)));
     told();
@@ -147,9 +183,35 @@ export function openBrowserTab(sessionId: string): void {
 export const jobBrowserApi = (): Wired | undefined => wired;
 
 /** **The mock's**: a Job's browser on its first addresses, the last showing. */
-export function seedJobBrowser(sessionId: string, seed: { visited: string[]; driver?: BrowserDriver; page: (url: string, sessionId: string) => ReactNode }): void {
-  visits.set(sessionId, { visited: [...seed.visited], at: seed.visited.length - 1 });
-  held = { ...held, [sessionId]: { url: "", title: "", back: false, forward: false, loads: 0, driver: seed.driver ?? "agent", windowed: false, pins: [], site: NO_SETTINGS, page: seed.page } };
+export function seedJobBrowser(
+  sessionId: string,
+  seed: {
+    visited: string[];
+    driver?: BrowserDriver;
+    page: (url: string, sessionId: string) => ReactNode;
+  },
+): void {
+  visits.set(sessionId, {
+    visited: [
+      ...seed.visited,
+    ],
+    at: seed.visited.length - 1,
+  });
+  held = {
+    ...held,
+    [sessionId]: {
+      url: "",
+      title: "",
+      back: false,
+      forward: false,
+      loads: 0,
+      driver: seed.driver ?? "agent",
+      windowed: false,
+      pins: [],
+      site: NO_SETTINGS,
+      page: seed.page,
+    },
+  };
   moved(sessionId);
 }
 
@@ -157,10 +219,18 @@ export function seedJobBrowser(sessionId: string, seed: { visited: string[]; dri
 function moved(sessionId: string): void {
   const history = visits.get(sessionId);
   if (history === undefined) return;
-  edit(sessionId, (one) => ({ ...one, url: history.visited[history.at] ?? "", back: history.at > 0, forward: history.at < history.visited.length - 1 }));
+  edit(sessionId, (one) => ({
+    ...one,
+    url: history.visited[history.at] ?? "",
+    back: history.at > 0,
+    forward: history.at < history.visited.length - 1,
+  }));
 }
 
-function walked(sessionId: string, step: (history: { visited: string[]; at: number }) => void): void {
+function walked(
+  sessionId: string,
+  step: (history: { visited: string[]; at: number }) => void,
+): void {
   const history = visits.get(sessionId);
   if (history === undefined) return;
   step(history);
@@ -170,7 +240,15 @@ function walked(sessionId: string, step: (history: { visited: string[]; at: numb
 /** Take over, or hand back to the agent. */
 export function toggleDriver(sessionId: string, tabId: string): void {
   if (wired !== undefined) void wired.drive(sessionId, tabId);
-  else edit(keyOf(sessionId, tabId), (one) => ({ ...one, driver: one.driver === "agent" ? "you" : "agent", site: { ...one.site, pending: null } }));
+  else
+    edit(keyOf(sessionId, tabId), (one) => ({
+      ...one,
+      driver: one.driver === "agent" ? "you" : "agent",
+      site: {
+        ...one.site,
+        pending: null,
+      },
+    }));
 }
 
 /** The host a page is on. */
@@ -182,19 +260,51 @@ export const hostOf = (url: string): string => {
   }
 };
 
-export function setChoice(sessionId: string, tabId: string, host: string, permission: SitePermission, choice: Choice): void {
+export function setChoice(
+  sessionId: string,
+  tabId: string,
+  host: string,
+  permission: SitePermission,
+  choice: Choice,
+): void {
   if (wired !== undefined) {
     void wired.choose(sessionId, tabId, host, permission, choice);
     return;
   }
-  edit(keyOf(sessionId, tabId), (one) => ({ ...one, site: { ...one.site, sites: { ...one.site.sites, [host]: { ...one.site.sites[host], [permission]: choice } } } }));
+  edit(keyOf(sessionId, tabId), (one) => ({
+    ...one,
+    site: {
+      ...one.site,
+      sites: {
+        ...one.site.sites,
+        [host]: {
+          ...one.site.sites[host],
+          [permission]: choice,
+        },
+      },
+    },
+  }));
 }
-export function setDefault(sessionId: string, tabId: string, permission: SitePermission, choice: Choice): void {
+export function setDefault(
+  sessionId: string,
+  tabId: string,
+  permission: SitePermission,
+  choice: Choice,
+): void {
   if (wired !== undefined) {
     void wired.setDefault(sessionId, tabId, permission, choice);
     return;
   }
-  edit(keyOf(sessionId, tabId), (one) => ({ ...one, site: { ...one.site, defaults: { ...one.site.defaults, [permission]: choice } } }));
+  edit(keyOf(sessionId, tabId), (one) => ({
+    ...one,
+    site: {
+      ...one.site,
+      defaults: {
+        ...one.site.defaults,
+        [permission]: choice,
+      },
+    },
+  }));
 }
 /** **The mock's** page asking. While the agent drives it is refused and nothing is kept; a decided site is answered at once; only an undecided one raises the bubble. */
 export function requestPermission(sessionId: string, permission: SitePermission): void {
@@ -202,7 +312,16 @@ export function requestPermission(sessionId: string, permission: SitePermission)
     if (one.driver !== "you") return one;
     const host = hostOf(one.url);
     if (effectiveChoice(one.site, host, permission) !== "ask") return one;
-    return { ...one, site: { ...one.site, pending: { permission, host } } };
+    return {
+      ...one,
+      site: {
+        ...one.site,
+        pending: {
+          permission,
+          host,
+        },
+      },
+    };
   });
 }
 export function answerRequest(sessionId: string, tabId: string, choice: "allow" | "block"): void {
@@ -213,7 +332,20 @@ export function answerRequest(sessionId: string, tabId: string, choice: "allow" 
   edit(keyOf(sessionId, tabId), (one) => {
     const asked = one.site.pending;
     if (asked === null) return one;
-    return { ...one, site: { ...one.site, pending: null, sites: { ...one.site.sites, [asked.host]: { ...one.site.sites[asked.host], [asked.permission]: choice } } } };
+    return {
+      ...one,
+      site: {
+        ...one.site,
+        pending: null,
+        sites: {
+          ...one.site.sites,
+          [asked.host]: {
+            ...one.site.sites[asked.host],
+            [asked.permission]: choice,
+          },
+        },
+      },
+    };
   });
 }
 /** Esc on the bubble: the site stays undecided. */
@@ -222,7 +354,13 @@ export function dismissRequest(sessionId: string, tabId: string): void {
     void wired.answer(sessionId, tabId, "dismiss");
     return;
   }
-  edit(keyOf(sessionId, tabId), (one) => ({ ...one, site: { ...one.site, pending: null } }));
+  edit(keyOf(sessionId, tabId), (one) => ({
+    ...one,
+    site: {
+      ...one.site,
+      pending: null,
+    },
+  }));
 }
 /** A new address, which drops whatever Forward would have gone to. */
 export function navigate(sessionId: string, tabId: string, url: string): void {
@@ -239,25 +377,52 @@ export function goBack(sessionId: string, tabId: string): void {
 }
 export function goForward(sessionId: string, tabId: string): void {
   if (wired !== undefined) void wired.go(sessionId, tabId, "forward");
-  else walked(sessionId, (history) => void (history.at = Math.min(history.visited.length - 1, history.at + 1)));
+  else
+    walked(
+      sessionId,
+      (history) => void (history.at = Math.min(history.visited.length - 1, history.at + 1)),
+    );
 }
 export function reload(sessionId: string, tabId: string): void {
   if (wired !== undefined) void wired.go(sessionId, tabId, "reload");
-  else edit(sessionId, (one) => ({ ...one, loads: one.loads + 1 }));
+  else
+    edit(sessionId, (one) => ({
+      ...one,
+      loads: one.loads + 1,
+    }));
 }
 /** The tab's page back in its pane, out of the window it was in. */
 export function browserToPane(sessionId: string, tabId: string): void {
   if (wired !== undefined) void wired.show(sessionId, tabId);
-  else edit(keyOf(sessionId, tabId), (one) => ({ ...one, windowed: false }));
+  else
+    edit(keyOf(sessionId, tabId), (one) => ({
+      ...one,
+      windowed: false,
+    }));
 }
 /** The tab's page in a window of its own, which its pane gives way to. */
 export function browserToWindow(sessionId: string, tabId: string): void {
   if (wired !== undefined) void wired.toWindow(sessionId, tabId);
-  else edit(keyOf(sessionId, tabId), (one) => ({ ...one, windowed: true }));
+  else
+    edit(keyOf(sessionId, tabId), (one) => ({
+      ...one,
+      windowed: true,
+    }));
 }
 /** **The mock's** window close: the page is put away, and the Job keeps it. */
-export const closeBrowserWindow = (sessionId: string) => edit(sessionId, (one) => ({ ...one, windowed: false }));
-export const pinNote = (sessionId: string, pin: BrowserPin) => edit(sessionId, (one) => ({ ...one, pins: [...one.pins, pin] }));
+export const closeBrowserWindow = (sessionId: string) =>
+  edit(sessionId, (one) => ({
+    ...one,
+    windowed: false,
+  }));
+export const pinNote = (sessionId: string, pin: BrowserPin) =>
+  edit(sessionId, (one) => ({
+    ...one,
+    pins: [
+      ...one.pins,
+      pin,
+    ],
+  }));
 
 /** **The mock's**: the Jobs whose browser has a window of its own. */
 export function useBrowserWindows(): readonly string[] {

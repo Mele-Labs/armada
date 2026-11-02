@@ -19,25 +19,46 @@ import { HeldNotes, type HeldAnswer, type HeldNotesActs } from "./HeldNotes";
 
 const NOTHING = () => {};
 
-const answered = (outcome: Outcome): HeldAnswer => (outcome.ok ? { ok: true } : { ok: false, said: said(outcome) });
+const answered = (outcome: Outcome): HeldAnswer =>
+  outcome.ok
+    ? {
+        ok: true,
+      }
+    : {
+        ok: false,
+        said: said(outcome),
+      };
 
 /** The notes main holds on this Job, asked for again as the Job changes. The calls name no Job: main reads it off this panel. */
-function useHeld(sessionId: string): { notes: PanelHeldNote[]; acts: HeldNotesActs } {
+function useHeld(sessionId: string): {
+  notes: PanelHeldNote[];
+  acts: HeldNotesActs;
+} {
   const [notes, setNotes] = useState<PanelHeldNote[]>([]);
   const { held, editNote, removeNote, sendNotes } = window.armada.walkPanel;
   useEffect(() => {
     setNotes([]);
     return held(setNotes);
-  }, [held, sessionId]);
+  }, [
+    held,
+    sessionId,
+  ]);
   const acts = useMemo<HeldNotesActs>(
     () => ({
       onEdit: async (id, words) => answered(await editNote(id, words)),
       onRemove: async (id) => answered(await removeNote(id)),
       onSend: async () => answered(await sendNotes()),
     }),
-    [editNote, removeNote, sendNotes],
+    [
+      editNote,
+      removeNote,
+      sendNotes,
+    ],
   );
-  return { notes, acts };
+  return {
+    notes,
+    acts,
+  };
 }
 
 export function WalkSession({ sessionId }: { sessionId: string }) {
@@ -50,26 +71,71 @@ export function WalkSession({ sessionId }: { sessionId: string }) {
   const { goInBridge, openInBridge } = window.armada.walkPanel;
   const goes = useMemo<LedgerGoes>(
     () => ({
-      onGoTo: (id) => void goInBridge({ kind: "surface", id }),
-      onOpenLink: (address) => void goInBridge({ kind: "link", address }),
-      onOpenCheck: (_session, run) => void goInBridge({ kind: "check", run }),
-      onOpenLoadout: () => void goInBridge({ kind: "loadout" }),
+      onGoTo: (id) =>
+        void goInBridge({
+          kind: "surface",
+          id,
+        }),
+      onOpenLink: (address) =>
+        void goInBridge({
+          kind: "link",
+          address,
+        }),
+      onOpenCheck: (_session, run) =>
+        void goInBridge({
+          kind: "check",
+          run,
+        }),
+      onOpenLoadout: () =>
+        void goInBridge({
+          kind: "loadout",
+        }),
     }),
-    [goInBridge],
+    [
+      goInBridge,
+    ],
   );
   // Bridge's window wants the pool while it shows it; a want from here would drop that one when this closes.
-  const held = useMemo<HeldReads>(() => ({ held: state.held, onWant: NOTHING }), [state.held]);
-  if (session === undefined) return <p className="text-fg-muted">{served ? "Fleet holds no Job by this id now." : "Reading the Job."}</p>;
+  const held = useMemo<HeldReads>(
+    () => ({
+      held: state.held,
+      onWant: NOTHING,
+    }),
+    [
+      state.held,
+    ],
+  );
+  if (session === undefined)
+    return (
+      <p className="text-fg-muted">
+        {served ? "Fleet holds no Job by this id now." : "Reading the Job."}
+      </p>
+    );
   return (
-    <section className="deck-pane armada-walk-job" data-frame="" aria-label={`Job: ${session.title ?? session.id}`}>
+    <section
+      className="deck-pane armada-walk-job"
+      data-frame=""
+      aria-label={`Job: ${session.title ?? session.id}`}
+    >
       <SessionView
         key={session.id}
         session={session}
         goes={goes}
-        onOpen={(id) => void (id === sessionId ? openInBridge() : goInBridge({ kind: "session", id }))}
+        onOpen={(id) =>
+          void (id === sessionId
+            ? openInBridge()
+            : goInBridge({
+                kind: "session",
+                id,
+              }))
+        }
         held={held}
         repositories={state.holds.repositories ?? []}
-        {...(notes.notes.length === 0 ? {} : { trailing: <HeldNotes notes={notes.notes} {...notes.acts} /> })}
+        {...(notes.notes.length === 0
+          ? {}
+          : {
+              trailing: <HeldNotes notes={notes.notes} {...notes.acts} />,
+            })}
       />
     </section>
   );

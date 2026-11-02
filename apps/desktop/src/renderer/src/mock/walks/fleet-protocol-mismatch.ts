@@ -9,19 +9,48 @@ import { button, text, walk } from "../walk";
 const RESTART = button("Restart Fleet");
 
 export const fleetProtocolMismatch = walk("fleet/protocol-mismatch", [
-  { look: text("Fleet and Bridge do not match"), say: "The notice names both sides" },
-  { look: text("Restart Fleet onto the installed build."), say: "One thing to do" },
-  { hover: RESTART, say: "The tooltip says what a working Drone costs" },
-  { press: RESTART, say: "Working: the button shows it is restarting and cannot be pressed again" },
-  { look: button("Fleet — Running", { exact: true }), say: "Fleet came back matching, so the notice is gone" },
+  {
+    look: text("Fleet and Bridge do not match"),
+    say: "The notice names both sides",
+  },
+  {
+    look: text("Restart Fleet onto the installed build."),
+    say: "One thing to do",
+  },
+  {
+    hover: RESTART,
+    say: "The tooltip says what a working Drone costs",
+  },
+  {
+    press: RESTART,
+    say: "Working: the button shows it is restarting and cannot be pressed again",
+  },
+  {
+    look: button("Fleet — Running", {
+      exact: true,
+    }),
+    say: "Fleet came back matching, so the notice is gone",
+  },
 ]);
 
 export const fleetProtocolMismatchStillApart = walk("fleet/protocol-mismatch-still-apart", [
-  { press: RESTART, say: "Restart" },
-  { look: text("Still not matching"), say: "Fleet is back on the installed build and it is not this Bridge's" },
+  {
+    press: RESTART,
+    say: "Restart",
+  },
+  {
+    look: text("Still not matching"),
+    say: "Fleet is back on the installed build and it is not this Bridge's",
+  },
 ]);
 
 export const fleetProtocolMismatchUnmanaged = walk("fleet/protocol-mismatch-unmanaged", [
-  { press: RESTART, say: "Restart" },
-  { look: text("Fleet was not started by Armada's service"), say: "Nothing was restarted, and it says why" },
+  {
+    press: RESTART,
+    say: "Restart",
+  },
+  {
+    look: text("Fleet was not started by Armada's service"),
+    say: "Nothing was restarted, and it says why",
+  },
 ]);

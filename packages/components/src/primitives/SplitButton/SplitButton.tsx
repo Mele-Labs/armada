@@ -201,8 +201,16 @@ export function SplitButton({
       disabled={pending ? undefined : disabled || faceDisabled}
       aria-disabled={pending || undefined}
       aria-busy={pending || undefined}
-      {...(faceLabel === undefined || holding ? {} : { "aria-label": faceLabel })}
-      {...(faceDescribedBy === undefined || holding ? {} : { "aria-describedby": faceDescribedBy })}
+      {...(faceLabel === undefined || holding
+        ? {}
+        : {
+            "aria-label": faceLabel,
+          })}
+      {...(faceDescribedBy === undefined || holding
+        ? {}
+        : {
+            "aria-describedby": faceDescribedBy,
+          })}
       {...(holding
         ? {
             ...held.handlers,
@@ -213,7 +221,9 @@ export function SplitButton({
             "aria-describedby":
               faceDescribedBy === undefined ? describedBy : `${faceDescribedBy} ${describedBy}`,
           }
-        : { onClick: pending ? undefined : onAction })}
+        : {
+            onClick: pending ? undefined : onAction,
+          })}
     >
       {holding ? (
         <>
@@ -247,7 +257,13 @@ export function SplitButton({
             The bubble is `position: fixed` against the face's own anchor, so
             the face's `overflow: clip` — there for the press line's corners —
             does not reach it. */}
-        {note === undefined ? face : <Tooltip asChild label={note}>{face}</Tooltip>}
+        {note === undefined ? (
+          face
+        ) : (
+          <Tooltip asChild label={note}>
+            {face}
+          </Tooltip>
+        )}
         <button
           type="button"
           className="armada-split-button__caret"

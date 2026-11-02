@@ -4,19 +4,43 @@
 import { deckRow, inside, region, role, text, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const walking = region("Walk", { exact: true });
-const proposing = region("Propose", { exact: true });
-const now = region("Now", { exact: true });
+const walking = region("Walk", {
+  exact: true,
+});
+const proposing = region("Propose", {
+  exact: true,
+});
+const now = region("Now", {
+  exact: true,
+});
 
 const spineAgentTasks = walk("spine-agent-tasks", [
-  { press: deckRow("Rotate the audit log"), say: "A Feature Job at its Walk step, with an approved plan" },
-  { look: inside(walking, text("Document the retention")), say: "After the plan's tasks, the items the plan lacks. The ones it has are not drawn twice" },
+  {
+    press: deckRow("Rotate the audit log"),
+    say: "A Feature Job at its Walk step, with an approved plan",
+  },
+  {
+    look: inside(walking, text("Document the retention")),
+    say: "After the plan's tasks, the items the plan lacks. The ones it has are not drawn twice",
+  },
   toSessions,
-  { press: deckRow("Name the store migrations"), say: "A Feature Job at its first step, with no plan" },
-  { look: inside(proposing, role("list", "Tasks")), say: "The whole list sits under the current step" },
+  {
+    press: deckRow("Name the store migrations"),
+    say: "A Feature Job at its first step, with no plan",
+  },
+  {
+    look: inside(proposing, role("list", "Tasks")),
+    say: "The whole list sits under the current step",
+  },
   toSessions,
-  { press: deckRow("Retry the slot lease"), say: "A custom Job, its turn ended" },
-  { hover: inside(inside(now, role("list", "Tasks")), role("img", "Working")), say: "The list stays, and the working mark is still" },
+  {
+    press: deckRow("Retry the slot lease"),
+    say: "A custom Job, its turn ended",
+  },
+  {
+    hover: inside(inside(now, role("list", "Tasks")), role("img", "Working")),
+    say: "The list stays, and the working mark is still",
+  },
 ]);
 
 export { spineAgentTasks as "spine-agent-tasks" };

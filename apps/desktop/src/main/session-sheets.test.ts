@@ -14,12 +14,24 @@ test("the pulse moves only the wash's opacity, and stands still under reduced mo
   const keyframes = /@keyframes deck-needs-pulse\s*\{([^]*?)\}\s*\}/.exec(deck)?.[1] ?? "";
   expect(keyframes).toContain("opacity");
   expect(keyframes).not.toMatch(/transform|translate|scale|rotate|width|height|top|left/);
-  expect(deck).toMatch(/\.deck-row\[data-lamp="needs"\]::after\s*\{[^}]*animation:\s*deck-needs-pulse[^}]*infinite/);
-  expect(deck).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.deck-row\[data-lamp="needs"\]::after\s*\{\s*animation:\s*none;?\s*\}/);
+  expect(deck).toMatch(
+    /\.deck-row\[data-lamp="needs"\]::after\s*\{[^}]*animation:\s*deck-needs-pulse[^}]*infinite/,
+  );
+  expect(deck).toMatch(
+    /@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.deck-row\[data-lamp="needs"\]::after\s*\{\s*animation:\s*none;?\s*\}/,
+  );
 });
 
 test("nothing of the pinned region's scroll-driven shrink is left in the thread's sheet", () => {
-  for (const gone of ["--thread-scroll", "armada-session-calls-shrink", "--calls-body", "scroll-timeline", "animation-timeline", "armada-session-thread__calls"]) expect(thread, gone).not.toContain(gone);
+  for (const gone of [
+    "--thread-scroll",
+    "armada-session-calls-shrink",
+    "--calls-body",
+    "scroll-timeline",
+    "animation-timeline",
+    "armada-session-thread__calls",
+  ])
+    expect(thread, gone).not.toContain(gone);
 });
 
 test("the sheets carry no rule gated on the new look, which the restyle owns", () => {

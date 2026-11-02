@@ -9,13 +9,29 @@ import { Tooltip } from "@armada/components";
 import { SessionMenu, sessionRow, type Offered } from "./SessionMenu";
 import { cycled, type Cycle, type WaitChip as Chip, type WaitPart } from "./waits";
 
-const TIPS: Record<WaitPart, string> = { on: "The Job it waits on", when: "When it starts", base: "Where it starts from", needs: "What it needs" };
+const TIPS: Record<WaitPart, string> = {
+  on: "The Job it waits on",
+  when: "When it starts",
+  base: "Where it starts from",
+  needs: "What it needs",
+};
 
-export function WaitChip({ chip, sessions, disabled, onLeave }: { chip: Chip; sessions: readonly Offered[]; disabled: boolean; onLeave: () => void }) {
+export function WaitChip({
+  chip,
+  sessions,
+  disabled,
+  onLeave,
+}: {
+  chip: Chip;
+  sessions: readonly Offered[];
+  disabled: boolean;
+  onLeave: () => void;
+}) {
   const menuId = useId();
   const [menu, setMenu] = useState<number | null>(null);
   const his = (part: WaitPart) => chip.his.includes(part);
-  const tip = (part: WaitPart, text?: string) => `${text ?? TIPS[part]}${his(part) ? ", set by you" : ""}`;
+  const tip = (part: WaitPart, text?: string) =>
+    `${text ?? TIPS[part]}${his(part) ? ", set by you" : ""}`;
 
   // Esc gives the keys back to the request, or closes the menu first.
   const leave = (event: KeyboardEvent<HTMLElement>, inMenu: boolean) => {
@@ -41,7 +57,12 @@ export function WaitChip({ chip, sessions, disabled, onLeave }: { chip: Chip; se
   const sessionKeys = (event: KeyboardEvent<HTMLElement>) => {
     if (leave(event, menu !== null)) return;
     if (menu === null) {
-      if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === " " || event.key === "Enter") {
+      if (
+        event.key === "ArrowDown" ||
+        event.key === "ArrowUp" ||
+        event.key === " " ||
+        event.key === "Enter"
+      ) {
         event.preventDefault();
         setMenu(0);
       }
@@ -60,7 +81,14 @@ export function WaitChip({ chip, sessions, disabled, onLeave }: { chip: Chip; se
 
   const part = (name: WaitPart, one: Cycle, text: string = one.label) => (
     <Tooltip label={tip(name, name === "needs" ? one.value : undefined)} asChild>
-      <button type="button" className="armada-wait__part" data-his={his(name) || undefined} aria-label={`${name === "when" ? "Condition" : name === "base" ? "Starts from" : "Needs"} ${one.label}`} disabled={disabled} {...cycle(name, one)}>
+      <button
+        type="button"
+        className="armada-wait__part"
+        data-his={his(name) || undefined}
+        aria-label={`${name === "when" ? "Condition" : name === "base" ? "Starts from" : "Needs"} ${one.label}`}
+        disabled={disabled}
+        {...cycle(name, one)}
+      >
         <span className="armada-wait__text">{text}</span>
       </button>
     </Tooltip>
@@ -101,7 +129,18 @@ export function WaitChip({ chip, sessions, disabled, onLeave }: { chip: Chip; se
           </>
         )}
       </div>
-      {menu === null ? null : <SessionMenu id={menuId} label="Jobs" rows={others.map(sessionRow)} active={menu} onHover={setMenu} onChoose={(one) => (setMenu(null), one.session !== undefined && chip.set("on", one.session))} />}
+      {menu === null ? null : (
+        <SessionMenu
+          id={menuId}
+          label="Jobs"
+          rows={others.map(sessionRow)}
+          active={menu}
+          onHover={setMenu}
+          onChoose={(one) => (
+            setMenu(null), one.session !== undefined && chip.set("on", one.session)
+          )}
+        />
+      )}
     </div>
   );
 }

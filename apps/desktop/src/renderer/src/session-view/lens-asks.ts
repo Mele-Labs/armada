@@ -11,11 +11,29 @@ export const ASK_MS = 2_000;
 export type Ask = (path: string, seen: string | undefined) => Promise<FileChangeRead>;
 
 /** What an ask came to: a new change, or a refusal. An `unchanged` answer reports nothing. */
-export type Answered = (path: string, read: Extract<FileChangeRead, { ok: true }> | undefined) => void;
+export type Answered = (
+  path: string,
+  read:
+    | Extract<
+        FileChangeRead,
+        {
+          ok: true;
+        }
+      >
+    | undefined,
+) => void;
 
-type Timers = { set: (run: () => void, ms: number) => number; clear: (id: number) => void; now: () => number };
+type Timers = {
+  set: (run: () => void, ms: number) => number;
+  clear: (id: number) => void;
+  now: () => number;
+};
 
-const WINDOW: Timers = { set: (run, ms) => window.setTimeout(run, ms), clear: (id) => window.clearTimeout(id), now: () => Date.now() };
+const WINDOW: Timers = {
+  set: (run, ms) => window.setTimeout(run, ms),
+  clear: (id) => window.clearTimeout(id),
+  now: () => Date.now(),
+};
 
 export class LensAsks {
   private readonly wanted = new Set<string>();
@@ -37,7 +55,9 @@ export class LensAsks {
   /** The files being written now. A new one is asked at once, as its two seconds allow; one no longer written is asked no more. */
   want(paths: Iterable<string>): void {
     const now = new Set(paths);
-    for (const path of [...this.wanted]) {
+    for (const path of [
+      ...this.wanted,
+    ]) {
       if (now.has(path)) continue;
       this.wanted.delete(path);
       this.unschedule(path);
@@ -67,7 +87,14 @@ export class LensAsks {
   }
 
   private poke(path: string): void {
-    if (this.gone || this.noRoute || this.refused.has(path) || this.flying.has(path) || this.timers.has(path)) return;
+    if (
+      this.gone ||
+      this.noRoute ||
+      this.refused.has(path) ||
+      this.flying.has(path) ||
+      this.timers.has(path)
+    )
+      return;
     const wait = (this.last.get(path) ?? -Infinity) + ASK_MS - this.clock.now();
     if (wait <= 0) this.fire(path);
     else this.schedule(path, wait);

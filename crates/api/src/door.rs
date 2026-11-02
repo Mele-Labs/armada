@@ -56,6 +56,7 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("validate_mod", &["name"]),
     ("get_requests", &["repository", "session_id"]),
     ("get_style_sources", &["path", "session_id"]),
+    ("get_debug_report", &["root"]),
     ("list_watches", &["session_id", "ended"]),
     ("list_closed_waiting", &["session_id"]),
     ("get_job_lifecycles", &["session_id"]),
@@ -189,6 +190,7 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "list_manifests",
     // A request is sent from the Job, not from a repository.
     "send_request",
+    "send_requests",
     "get_requests",
     "save_request_to_collection",
     // The Job's shell stands in its own worktree or directory, read inside no Manifest.

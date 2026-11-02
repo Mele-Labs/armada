@@ -25,8 +25,21 @@ export function BayManage({ slot, ...rest }: BayManageProps) {
   const { worked, acts } = useTileActs(rest);
   const key = keyOf(slot.manifest_id, slot.slot);
   const heldFor = slot.since === undefined ? null : sitting(slot.since, rest.now);
-  const row: TileRow = { key, name: `slot-${slot.slot}`, slot, ...(heldFor === null ? {} : { heldFor }), ...worked(key) };
-  const { body, foot, reading } = useTileManage({ row, ...acts(slot.manifest_id) });
+  const row: TileRow = {
+    key,
+    name: `slot-${slot.slot}`,
+    slot,
+    ...(heldFor === null
+      ? {}
+      : {
+          heldFor,
+        }),
+    ...worked(key),
+  };
+  const { body, foot, reading } = useTileManage({
+    row,
+    ...acts(slot.manifest_id),
+  });
   return (
     <div className="armada-bay-manage">
       {body}

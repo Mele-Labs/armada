@@ -29,10 +29,22 @@ export type AutonomyToSave = {
 
 /** One piece, by kind. */
 export type LifecyclePiece =
-  | { kind: "lifecycle"; lifecycle: LifecycleDefinition }
-  | { kind: "rule"; rule: LifecycleRule }
-  | { kind: "workspace"; workspace: WorkspaceToSave }
-  | { kind: "autonomy"; autonomy: AutonomyToSave };
+  | {
+      kind: "lifecycle";
+      lifecycle: LifecycleDefinition;
+    }
+  | {
+      kind: "rule";
+      rule: LifecycleRule;
+    }
+  | {
+      kind: "workspace";
+      workspace: WorkspaceToSave;
+    }
+  | {
+      kind: "autonomy";
+      autonomy: AutonomyToSave;
+    };
 
 /**
  * `save_lifecycle_piece`'s body (`POST /lifecycles/pieces/save`): write one piece to Kit's folder. 422 `fleet.piece_unfit` with the parser's own

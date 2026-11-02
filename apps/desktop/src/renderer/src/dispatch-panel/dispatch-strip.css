@@ -17,10 +17,15 @@
   animation: armada-dispatch-strip-in var(--duration-base) var(--ease);
 }
 
-.armada-dispatch-strip[data-openable] { cursor: pointer; }
+.armada-dispatch-strip[data-openable] {
+  cursor: pointer;
+}
 
 @keyframes armada-dispatch-strip-in {
-  from { opacity: 0; transform: translateY(calc(var(--space-2) * -1)); }
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--space-2) * -1));
+  }
 }
 
 .armada-dispatch-strip__mark {
@@ -40,8 +45,12 @@
 }
 
 /* The hint is for a bar that has the cursor, which is where ↵ lands. */
-.armada-dispatch-strip__enter { visibility: hidden; }
-.armada-dispatch-strip:focus-within .armada-dispatch-strip__enter { visibility: visible; }
+.armada-dispatch-strip__enter {
+  visibility: hidden;
+}
+.armada-dispatch-strip:focus-within .armada-dispatch-strip__enter {
+  visibility: visible;
+}
 
 /* Over the title bar's field: its box, read when the strip appears. The row is a drag region and the strip opts out. */
 .armada-dispatch-strip {
@@ -58,4 +67,6 @@
   -webkit-app-region: no-drag;
 }
 
-.armada-dispatch-strip:focus-within { border-color: var(--accent); }
+.armada-dispatch-strip:focus-within {
+  border-color: var(--accent);
+}

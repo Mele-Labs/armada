@@ -10,7 +10,10 @@ import { afterEach, expect, test } from "vitest";
 import { usageRulesNow } from "./mock/usage-rules";
 import { JOB_TITLES, usageSummaryNow } from "./mock/usage-summary";
 
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 afterEach(() => {
   for (const { root, host } of roots.splice(0)) {
     root.unmount();
@@ -18,21 +21,39 @@ afterEach(() => {
   }
 });
 
-function mount(rules: UsageRules | undefined, titles: ReadonlyMap<string, string> = JOB_TITLES): HTMLElement {
+function mount(
+  rules: UsageRules | undefined,
+  titles: ReadonlyMap<string, string> = JOB_TITLES,
+): HTMLElement {
   const host = document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);
-  roots.push({ root, host });
-  flushSync(() => root.render(<UsagePage summary={usageSummaryNow(0)} titles={titles} rules={rules} />));
+  roots.push({
+    root,
+    host,
+  });
+  flushSync(() =>
+    root.render(<UsagePage summary={usageSummaryNow(0)} titles={titles} rules={rules} />),
+  );
   return host;
 }
 
 const press = async (key: string) => {
-  document.body.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+  document.body.dispatchEvent(
+    new KeyboardEvent("keydown", {
+      key,
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
   await new Promise((done) => setTimeout(done, 30));
 };
 const panel = (host: HTMLElement) => host.querySelector('[aria-label="Usage rules"]');
-const rules = (host: HTMLElement) => [...(panel(host)?.querySelectorAll('[aria-label="Rules"] > li') ?? [])];
-const trips = (host: HTMLElement) => [...(panel(host)?.querySelectorAll(".armada-usage__trip") ?? [])];
+const rules = (host: HTMLElement) => [
+  ...(panel(host)?.querySelectorAll('[aria-label="Rules"] > li') ?? []),
+];
+const trips = (host: HTMLElement) => [
+  ...(panel(host)?.querySelectorAll(".armada-usage__trip") ?? []),
+];
 
 test("no panel is drawn until Fleet has answered", () => {
   expect(panel(mount(undefined))).toBeNull();
@@ -46,13 +67,21 @@ test("each rule reads with its limit from the answer, and an off rule is marked 
     "under 70% over 10 turns",
     "20 turns only reading",
   ]);
-  expect(rules(host).map((one) => one.getAttribute("aria-label")?.split(", ")[1])).toEqual(["on", "on", "off", "on"]);
+  expect(rules(host).map((one) => one.getAttribute("aria-label")?.split(", ")[1])).toEqual([
+    "on",
+    "on",
+    "off",
+    "on",
+  ]);
   expect(trips(host)).toHaveLength(0);
 });
 
 test("a limit that moved is the one drawn", () => {
   const moved = usageRulesNow();
-  moved.rules[0]!.limit = { value: 200, unit: "thousand tokens" };
+  moved.rules[0]!.limit = {
+    value: 200,
+    unit: "thousand tokens",
+  };
   expect(rules(mount(moved))[0]!.querySelector(".armada-usage__limit")?.textContent).toBe("200k");
 });
 
@@ -60,7 +89,11 @@ test("1 to 4 pick a rule and list its trips, newest first, and Esc clears the pi
   const host = mount(usageRulesNow());
   await press("4");
   expect(rules(host)[3]!.getAttribute("aria-selected")).toBe("true");
-  expect(trips(host).map((one) => one.querySelector(".armada-usage__title")?.textContent)).toEqual(["Debug Job 14", "Cockpit Updates", "Jobs -> Session Merger"]);
+  expect(trips(host).map((one) => one.querySelector(".armada-usage__title")?.textContent)).toEqual([
+    "Debug Job 14",
+    "Cockpit Updates",
+    "Jobs -> Session Merger",
+  ]);
   await press("1");
   expect(trips(host)).toHaveLength(5);
   await press("Escape");
@@ -82,17 +115,30 @@ test("a trip not yet measured leaves its after and its change empty", async () =
   const host = mount(usageRulesNow());
   await press("1");
   const first = trips(host)[0]!;
-  const figs = [...first.querySelectorAll(".armada-usage__fig")].map((one) => one.firstChild?.textContent ?? "");
+  const figs = [
+    ...first.querySelectorAll(".armada-usage__fig"),
+  ].map((one) => one.firstChild?.textContent ?? "");
   // The first is a Stamp: its own reading is the first text, and its tooltip, the other reading, follows inside it.
-  expect(figs).toEqual(["2h ago", "351k", "11.8", ""]);
+  expect(figs).toEqual([
+    "2h ago",
+    "351k",
+    "11.8",
+    "",
+  ]);
   expect(first.querySelector(".armada-usage__delta")?.textContent).toBe("");
 });
 
 test("a measured trip draws its change with a name, and a small move reads as none", async () => {
   const host = mount(usageRulesNow());
   await press("4");
-  const labels = trips(host).map((one) => one.querySelector(".armada-usage__delta")?.getAttribute("aria-label"));
-  expect(labels).toEqual(["Down 60% in the burn per hour", "No change in the burn per hour", "Down 59% in the burn per hour"]);
+  const labels = trips(host).map((one) =>
+    one.querySelector(".armada-usage__delta")?.getAttribute("aria-label"),
+  );
+  expect(labels).toEqual([
+    "Down 60% in the burn per hour",
+    "No change in the burn per hour",
+    "Down 59% in the burn per hour",
+  ]);
 });
 
 test("a Job with no title shows its short id", async () => {
@@ -107,7 +153,11 @@ test("the picked rule shows what the Job is told, with the newest trip's figure"
   const host = mount(usageRulesNow());
   expect(host.querySelector(".armada-usage__tell")).toBeNull();
   await press("2");
-  expect(host.querySelector(".armada-usage__tell")?.textContent).toBe("Subagents burned 87% of your last hour, on opus. Pass model sonnet on reading and searching agents.");
+  expect(host.querySelector(".armada-usage__tell")?.textContent).toBe(
+    "Subagents burned 87% of your last hour, on opus. Pass model sonnet on reading and searching agents.",
+  );
   await press("3");
-  expect(host.querySelector(".armada-usage__tell")?.textContent).toContain("Cache hit rate is 54% over your last 10 turns.");
+  expect(host.querySelector(".armada-usage__tell")?.textContent).toContain(
+    "Cache hit rate is 54% over your last 10 turns.",
+  );
 });

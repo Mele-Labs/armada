@@ -6,13 +6,25 @@
 import type { TurnAccount, WorkingTodo } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
-const running = (session: Session): boolean => session.dead === undefined && session.turn.state === "working";
+const running = (session: Session): boolean =>
+  session.dead === undefined && session.turn.state === "working";
 
 /** The todos of a running turn: the one being done first, then those still to do, then those done. */
 export function todosOf(session: Session): WorkingTodo[] {
   if (!running(session)) return [];
-  const todos = (session.activity?.todos ?? []).map((one, at): WorkingTodo => ({ key: `${at}`, ...one }));
-  return (["doing", "todo", "done"] as const).flatMap((state) => todos.filter((one) => one.state === state));
+  const todos = (session.activity?.todos ?? []).map(
+    (one, at): WorkingTodo => ({
+      key: `${at}`,
+      ...one,
+    }),
+  );
+  return (
+    [
+      "doing",
+      "todo",
+      "done",
+    ] as const
+  ).flatMap((state) => todos.filter((one) => one.state === state));
 }
 
 /** Its detected action, for a list row. */
@@ -31,10 +43,22 @@ export function accountNowOf(session: Session): string | undefined {
 }
 
 /** The group of the approved plan the account's now line belongs to, while the turn runs. Nothing without an approved plan, a now line or a match. */
-export function accountGroupOf(session: Session): { id: string; title: string } | undefined {
+export function accountGroupOf(session: Session):
+  | {
+      id: string;
+      title: string;
+    }
+  | undefined {
   const account = session.account;
   const plan = session.work?.plan;
-  if (account?.group === undefined || account.now === undefined || plan === undefined || !plan.approved || !running(session)) return undefined;
+  if (
+    account?.group === undefined ||
+    account.now === undefined ||
+    plan === undefined ||
+    !plan.approved ||
+    !running(session)
+  )
+    return undefined;
   return plan.groups.find((one) => one.id === account.group);
 }
 
@@ -47,9 +71,32 @@ export function accountOf(session: Session): TurnAccount | undefined {
   if (account === undefined) return undefined;
   if (running(session)) {
     const group = accountGroupOf(session);
-    return { done: account.done, ...(account.now === undefined ? {} : { now: account.now }), ...(group === undefined ? {} : { of: group.title }), ...(account.next === undefined ? {} : { next: account.next }) };
+    return {
+      done: account.done,
+      ...(account.now === undefined
+        ? {}
+        : {
+            now: account.now,
+          }),
+      ...(group === undefined
+        ? {}
+        : {
+            of: group.title,
+          }),
+      ...(account.next === undefined
+        ? {}
+        : {
+            next: account.next,
+          }),
+    };
   }
   const at = session.rows.findIndex((row) => row.id === account.for);
-  const answered = at >= 0 && session.rows.slice(at + 1).some((row) => row.kind === "message" && row.from.kind === "you");
-  return answered ? undefined : { done: account.done };
+  const answered =
+    at >= 0 &&
+    session.rows.slice(at + 1).some((row) => row.kind === "message" && row.from.kind === "you");
+  return answered
+    ? undefined
+    : {
+        done: account.done,
+      };
 }

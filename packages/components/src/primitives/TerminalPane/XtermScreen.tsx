@@ -20,7 +20,21 @@ export type TerminalScreenProps = {
 function typingElsewhere(screen: HTMLElement | null): boolean {
   const active = document.activeElement;
   if (!(active instanceof HTMLElement) || screen?.contains(active) === true) return false;
-  return active instanceof HTMLTextAreaElement || active.isContentEditable || (active instanceof HTMLInputElement && !["button", "checkbox", "radio", "submit", "reset", "range", "color", "file"].includes(active.type));
+  return (
+    active instanceof HTMLTextAreaElement ||
+    active.isContentEditable ||
+    (active instanceof HTMLInputElement &&
+      ![
+        "button",
+        "checkbox",
+        "radio",
+        "submit",
+        "reset",
+        "range",
+        "color",
+        "file",
+      ].includes(active.type))
+  );
 }
 
 /** A token's colour as the browser computes it, which is what xterm is given. */
@@ -69,11 +83,23 @@ const MIN_ROWS = 2;
 export function XtermScreen({ out, run, running, write, onSize, grows }: TerminalScreenProps) {
   const host = useRef<HTMLDivElement>(null);
   const screen = useRef<Terminal | null>(null);
-  const shown = useRef({ run, length: 0, live: false });
+  const shown = useRef({
+    run,
+    length: 0,
+    live: false,
+  });
   // Writes of history still being parsed. A query in history was answered when it was printed, so its reply now would be typed into the shell.
   const redrawing = useRef(0);
-  const latest = useRef({ write, onSize, running });
-  latest.current = { write, onSize, running };
+  const latest = useRef({
+    write,
+    onSize,
+    running,
+  });
+  latest.current = {
+    write,
+    onSize,
+    running,
+  };
   const fitHeight = useRef<() => void>(() => undefined);
 
   useLayoutEffect(() => {
@@ -99,17 +125,24 @@ export function XtermScreen({ out, run, running, write, onSize, grows }: Termina
     screen.current = terminal;
 
     let over = false;
-    let told: { cols: number; rows: number } | null = null;
+    let told: {
+      cols: number;
+      rows: number;
+    } | null = null;
     // In a thread the run keeps `grows` rows, as a program that addresses the screen expects, and the well shows as many of them as the run has used.
     fitHeight.current = () => {
       if (grows === undefined || over || terminal.element === undefined) return;
       const cell = element.querySelector<HTMLElement>(".xterm-screen")?.clientHeight;
-      const used = Math.min(terminal.rows, Math.max(MIN_ROWS, terminal.buffer.active.baseY + terminal.buffer.active.cursorY + 1));
+      const used = Math.min(
+        terminal.rows,
+        Math.max(MIN_ROWS, terminal.buffer.active.baseY + terminal.buffer.active.cursorY + 1),
+      );
       const pad = getComputedStyle(terminal.element);
       element.style.height = `${(used * (cell === undefined || cell === 0 ? line : cell / terminal.rows)) + parseFloat(pad.paddingTop) + parseFloat(pad.paddingBottom)}px`;
     };
     const refit = () => {
-      if (over || element.clientWidth === 0 || (grows === undefined && element.clientHeight === 0)) return;
+      if (over || element.clientWidth === 0 || (grows === undefined && element.clientHeight === 0))
+        return;
       if (grows === undefined) fit.fit();
       else {
         const size = fit.proposeDimensions();
@@ -118,7 +151,10 @@ export function XtermScreen({ out, run, running, write, onSize, grows }: Termina
         fitHeight.current();
       }
       if (told?.cols === terminal.cols && told.rows === terminal.rows) return;
-      told = { cols: terminal.cols, rows: terminal.rows };
+      told = {
+        cols: terminal.cols,
+        rows: terminal.rows,
+      };
       latest.current.onSize(terminal.cols, terminal.rows);
     };
     refit();
@@ -137,7 +173,12 @@ export function XtermScreen({ out, run, running, write, onSize, grows }: Termina
     const retheme = new MutationObserver(() => {
       terminal.options.theme = themeOf(element);
     });
-    retheme.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    retheme.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: [
+        "data-theme",
+      ],
+    });
     if (latest.current.running && !typingElsewhere(element)) terminal.focus();
 
     return () => {
@@ -147,7 +188,11 @@ export function XtermScreen({ out, run, running, write, onSize, grows }: Termina
       data.dispose();
       terminal.dispose();
       screen.current = null;
-      shown.current = { run: -1, length: 0, live: false };
+      shown.current = {
+        run: -1,
+        length: 0,
+        live: false,
+      };
     };
     // The screen is made once; what changes after is told to it below.
   }, []);
@@ -158,7 +203,11 @@ export function XtermScreen({ out, run, running, write, onSize, grows }: Termina
     // What a screen is first given, or given again after it starts over on the same run, is history; a new run's bytes are not.
     if (shown.current.run !== run || out.length < shown.current.length) {
       terminal.reset();
-      shown.current = { run, length: 0, live: shown.current.run !== run && shown.current.run !== -1 };
+      shown.current = {
+        run,
+        length: 0,
+        live: shown.current.run !== run && shown.current.run !== -1,
+      };
     }
     if (out.length > shown.current.length) {
       const chunk = out.slice(shown.current.length);
@@ -173,7 +222,10 @@ export function XtermScreen({ out, run, running, write, onSize, grows }: Termina
       shown.current.length = out.length;
     }
     shown.current.live = true;
-  }, [out, run]);
+  }, [
+    out,
+    run,
+  ]);
 
   useEffect(() => {
     const terminal = screen.current;
@@ -188,7 +240,17 @@ export function XtermScreen({ out, run, running, write, onSize, grows }: Termina
       // Keys are the window's again once nothing is listening for them.
       terminal.blur();
     }
-  }, [running, run]);
+  }, [
+    running,
+    run,
+  ]);
 
-  return <div ref={host} className="armada-xterm" data-grows={grows === undefined ? undefined : ""} onClick={() => screen.current?.focus()} />;
+  return (
+    <div
+      ref={host}
+      className="armada-xterm"
+      data-grows={grows === undefined ? undefined : ""}
+      onClick={() => screen.current?.focus()}
+    />
+  );
 }

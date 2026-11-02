@@ -8,7 +8,12 @@
 // message: it is drawn in the optimistic row's place, under the same key, so nothing draws again and nothing is there twice.
 // Fleet carries no id of ours, so the row is found by its words, and by being new.
 
-import type { Session, SessionRow, SessionsDraft, SentMessage } from "@armada/screens/src/draft/sessions";
+import type {
+  Session,
+  SessionRow,
+  SessionsDraft,
+  SentMessage,
+} from "@armada/screens/src/draft/sessions";
 
 type Standing = "sending" | "sent" | "failed" | "echoed" | "dropped";
 
@@ -28,13 +33,20 @@ type Entry = {
   deliver?: Delivery;
 };
 
-type Message = Extract<SessionRow, { kind: "message" | "sent" }>;
+type Message = Extract<
+  SessionRow,
+  {
+    kind: "message" | "sent";
+  }
+>;
 
 /** Words compared as Fleet may have trimmed them. */
-const same = (a: string, b: string): boolean => a.trim().replace(/\s+/g, " ") === b.trim().replace(/\s+/g, " ");
+const same = (a: string, b: string): boolean =>
+  a.trim().replace(/\s+/g, " ") === b.trim().replace(/\s+/g, " ");
 
 /** The person's words as Fleet keeps them: their message, or in Helm's thread the row for words sent on to other work. */
-const youSaid = (row: SessionRow): row is Message => (row.kind === "message" && row.from.kind === "you") || row.kind === "sent";
+const youSaid = (row: SessionRow): row is Message =>
+  (row.kind === "message" && row.from.kind === "you") || row.kind === "sent";
 
 /** Words held in a thread while they go. */
 export type Held = {
@@ -63,7 +75,14 @@ export function outgoing(): Outgoing {
   const entries = new Map<string, Entry[]>();
   const versions = new Map<string, number>();
   const listeners = new Set<() => void>();
-  const cached = new Map<string, { rows: readonly SessionRow[]; version: number; out: readonly SessionRow[] }>();
+  const cached = new Map<
+    string,
+    {
+      rows: readonly SessionRow[];
+      version: number;
+      out: readonly SessionRow[];
+    }
+  >();
   let count = 0;
   let total = 0;
 
@@ -79,34 +98,96 @@ export function outgoing(): Outgoing {
     const have = versions.get(id) ?? 0;
     const was = cached.get(id);
     if (was !== undefined && was.rows === base && was.version === have) return was.out;
-    const taken = new Set(mine.flatMap((one) => (one.rowId === undefined ? [] : [one.rowId])));
+    const taken = new Set(
+      mine.flatMap((one) =>
+        one.rowId === undefined
+          ? []
+          : [
+              one.rowId,
+            ],
+      ),
+    );
     for (const entry of mine) {
       if (entry.state === "echoed" || entry.state === "failed") continue;
-      const fresh = base.filter((row): row is Message => youSaid(row) && !entry.known.has(row.id) && !taken.has(row.id));
+      const fresh = base.filter(
+        (row): row is Message => youSaid(row) && !entry.known.has(row.id) && !taken.has(row.id),
+      );
       // Its words first; failing that, a Fleet that rewrote them and said so with a new row of the person's.
-      const found = fresh.find((row) => same(row.text, entry.text)) ?? (entry.state === "sent" ? fresh[0] : undefined);
+      const found =
+        fresh.find((row) => same(row.text, entry.text)) ??
+        (entry.state === "sent" ? fresh[0] : undefined);
       if (found === undefined) continue;
       entry.state = "echoed";
       entry.rowId = found.id;
       taken.add(found.id);
     }
-    const keyed = new Map(mine.flatMap((one) => (one.rowId === undefined ? [] : [[one.rowId, one.key] as const])));
-    const rows: SessionRow[] = base.map((row) => (keyed.has(row.id) && (row.kind === "message" || row.kind === "sent") ? { ...row, stableKey: keyed.get(row.id)! } : row));
+    const keyed = new Map(
+      mine.flatMap((one) =>
+        one.rowId === undefined
+          ? []
+          : [
+              [
+                one.rowId,
+                one.key,
+              ] as const,
+            ],
+      ),
+    );
+    const rows: SessionRow[] = base.map((row) =>
+      keyed.has(row.id) && (row.kind === "message" || row.kind === "sent")
+        ? {
+            ...row,
+            stableKey: keyed.get(row.id)!,
+          }
+        : row,
+    );
     for (const entry of mine) {
       if (entry.state === "echoed") continue;
       rows.push({
         id: entry.key,
         at: entry.at,
         kind: "message",
-        from: { kind: "you" },
+        from: {
+          kind: "you",
+        },
         text: entry.text,
-        ...(entry.sent.files.length === 0 ? {} : { files: entry.sent.files.map(({ id, name }) => ({ id, name })) }),
-        ...(entry.sent.sketches.length === 0 ? {} : { sketches: entry.sent.sketches.map(({ id, title }) => ({ id, title })) }),
-        ...(entry.sent.tags.length === 0 ? {} : { tags: entry.sent.tags }),
-        ...(entry.state === "sending" ? { delivery: "sending" as const } : entry.state === "failed" ? { delivery: "failed" as const } : {}),
+        ...(entry.sent.files.length === 0
+          ? {}
+          : {
+              files: entry.sent.files.map(({ id, name }) => ({
+                id,
+                name,
+              })),
+            }),
+        ...(entry.sent.sketches.length === 0
+          ? {}
+          : {
+              sketches: entry.sent.sketches.map(({ id, title }) => ({
+                id,
+                title,
+              })),
+            }),
+        ...(entry.sent.tags.length === 0
+          ? {}
+          : {
+              tags: entry.sent.tags,
+            }),
+        ...(entry.state === "sending"
+          ? {
+              delivery: "sending" as const,
+            }
+          : entry.state === "failed"
+            ? {
+                delivery: "failed" as const,
+              }
+            : {}),
       });
     }
-    cached.set(id, { rows: base, version: have, out: rows });
+    cached.set(id, {
+      rows: base,
+      version: have,
+      out: rows,
+    });
     return rows;
   };
 
@@ -136,7 +217,12 @@ export function outgoing(): Outgoing {
   };
 
   /** Back to going: the same words, in the thread as it is now. */
-  const again = (id: string, entry: Entry, known: ReadonlySet<string>, how: Delivery): Promise<boolean> => {
+  const again = (
+    id: string,
+    entry: Entry,
+    known: ReadonlySet<string>,
+    how: Delivery,
+  ): Promise<boolean> => {
     if (entry.state !== "sending") {
       entry.state = "sending";
       entry.known = known;
@@ -149,11 +235,22 @@ export function outgoing(): Outgoing {
     hold: (id, sent, known) => {
       const now = new Date().toISOString();
       count += 1;
-      const entry: Entry = { key: `sending:${count}`, text: sent.text, sent, at: now, state: "sending", known };
-      entries.set(id, [...(entries.get(id) ?? []), entry]);
+      const entry: Entry = {
+        key: `sending:${count}`,
+        text: sent.text,
+        sent,
+        at: now,
+        state: "sending",
+        known,
+      };
+      entries.set(id, [
+        ...(entries.get(id) ?? []),
+        entry,
+      ]);
       changed(id);
       return {
-        deliver: (how) => (entry.state === "dropped" ? Promise.resolve(false) : again(id, entry, entry.known, how)),
+        deliver: (how) =>
+          entry.state === "dropped" ? Promise.resolve(false) : again(id, entry, entry.known, how),
         drop: () => {
           if (entry.state === "dropped" || entry.state === "echoed") return;
           entry.state = "dropped";
@@ -179,11 +276,30 @@ export function outgoing(): Outgoing {
 
 export function withOutgoing(draft: SessionsDraft): SessionsDraft {
   const held = outgoing();
-  const cached = new Map<string, { session: Session; version: number; out: Session }>();
-  let last: { base: readonly Session[]; version: number; out: readonly Session[] } | undefined;
+  const cached = new Map<
+    string,
+    {
+      session: Session;
+      version: number;
+      out: Session;
+    }
+  >();
+  let last:
+    | {
+        base: readonly Session[];
+        version: number;
+        out: readonly Session[];
+      }
+    | undefined;
   let sent = false;
 
-  const rowsOf = (id: string): ReadonlySet<string> => new Set(draft.get().find((one) => one.id === id)?.rows.map((one) => one.id));
+  const rowsOf = (id: string): ReadonlySet<string> =>
+    new Set(
+      draft
+        .get()
+        .find((one) => one.id === id)
+        ?.rows.map((one) => one.id),
+    );
 
   /** The Session with what it holds of its own on top: Fleet's row where one has arrived, and the message where none has. */
   const overlay = (session: Session): Session => {
@@ -191,8 +307,17 @@ export function withOutgoing(draft: SessionsDraft): SessionsDraft {
     const have = held.version(session.id);
     const was = cached.get(session.id);
     if (was !== undefined && was.session === session && was.version === have) return was.out;
-    const out = { ...session, rows: [...held.overlay(session.id, session.rows)] };
-    cached.set(session.id, { session, version: have, out });
+    const out = {
+      ...session,
+      rows: [
+        ...held.overlay(session.id, session.rows),
+      ],
+    };
+    cached.set(session.id, {
+      session,
+      version: have,
+      out,
+    });
     return out;
   };
 
@@ -201,11 +326,19 @@ export function withOutgoing(draft: SessionsDraft): SessionsDraft {
     get: (): readonly Session[] => {
       const base = draft.get();
       if (!sent) return base;
-      if (last !== undefined && last.base === base && last.version === held.total()) return last.out;
+      if (last !== undefined && last.base === base && last.version === held.total())
+        return last.out;
       const out = base.map(overlay);
       // Nothing of ours changed what is drawn: the same list, so what reads it does not draw again.
-      const kept = last !== undefined && last.out.length === out.length && out.every((one, at) => one === last!.out[at]);
-      last = { base, version: held.total(), out: kept ? last!.out : out };
+      const kept =
+        last !== undefined &&
+        last.out.length === out.length &&
+        out.every((one, at) => one === last!.out[at]);
+      last = {
+        base,
+        version: held.total(),
+        out: kept ? last!.out : out,
+      };
       return last.out;
     },
     subscribe: (listener: () => void): (() => void) => {
@@ -218,7 +351,8 @@ export function withOutgoing(draft: SessionsDraft): SessionsDraft {
     },
     send: (id: string, message: SentMessage): Promise<boolean> => {
       // Words sent to a Job held before its start are its first message, kept in the composer until Start: not a row in the thread yet.
-      if (draft.get().find((one) => one.id === id)?.start !== undefined) return Promise.resolve(draft.send(id, message)).then((went) => went !== false);
+      if (draft.get().find((one) => one.id === id)?.start !== undefined)
+        return Promise.resolve(draft.send(id, message)).then((went) => went !== false);
       sent = true;
       // To whether Fleet took it, as `send` answers. The message box does not wait on that: it is in the thread already.
       return held.hold(id, message, rowsOf(id)).deliver(() => draft.send(id, message));

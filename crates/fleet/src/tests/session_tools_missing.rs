@@ -21,7 +21,7 @@ fn init_reading(reading: HarnessReading) -> Vec<DroneEvent> {
 }
 
 fn reading(mod_loaded: bool, door_connected: bool, task_tools: bool) -> HarnessReading {
-    HarnessReading { name: HARNESS.into(), update: UPDATE.into(), version: VERSION.into(), mod_loaded, door_connected, task_tools }
+    HarnessReading { name: HARNESS.into(), update: UPDATE.into(), version: VERSION.into(), mod_loaded, door_connected, task_tools, ..HarnessReading::default() }
 }
 
 async fn missing(rig: &Rig, id: &SessionId) -> Option<ToolsMissing> {

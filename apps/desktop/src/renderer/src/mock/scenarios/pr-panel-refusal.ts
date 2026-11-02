@@ -9,20 +9,60 @@ import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
 import { FakeSessionsFleet, held, hosted, pullRequest } from "../sessions-fleet";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 const JOB = "01SESSIONPRPANELREFUSALAA";
 const AT = "2026-10-23T09:00:00.000Z";
 
 function refusing(): FakeSessionsFleet {
   const fleet = new FakeSessionsFleet(
-    [hosted(JOB, { title: "Fix the flaky store test", attachments: [held("slot", "3"), held("branch", "fix/flaky-store"), pullRequest(1847, { checks: "pending" })] })],
-    { [JOB]: [{ kind: "message", id: "m1", at: AT, from: { kind: "you" }, text: "Fix the flaky store test, and open a pull request." }] },
+    [
+      hosted(JOB, {
+        title: "Fix the flaky store test",
+        attachments: [
+          held("slot", "3"),
+          held("branch", "fix/flaky-store"),
+          pullRequest(1847, {
+            checks: "pending",
+          }),
+        ],
+      }),
+    ],
+    {
+      [JOB]: [
+        {
+          kind: "message",
+          id: "m1",
+          at: AT,
+          from: {
+            kind: "you",
+          },
+          text: "Fix the flaky store test, and open a pull request.",
+        },
+      ],
+    },
   );
-  fleet.refusesPress = { code: "fleet.auto_merge_refused", message: "Auto merge is not allowed" };
+  fleet.refusesPress = {
+    code: "fleet.auto_merge_refused",
+    message: "Auto merge is not allowed",
+  };
   return fleet;
 }
 
-const build = (fleet: FakeSessionsFleet): Scenario => fleet.scenario(onBoard({ repositories: [ARMADA], picked: ARMADA.root }));
+const build = (fleet: FakeSessionsFleet): Scenario =>
+  fleet.scenario(
+    onBoard({
+      repositories: [
+        ARMADA,
+      ],
+      picked: ARMADA.root,
+    }),
+  );
 
 export const prPanelRefusal: Scenario = {
   ...build(refusing()),

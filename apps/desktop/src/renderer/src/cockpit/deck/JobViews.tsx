@@ -40,59 +40,164 @@ export type JobView = {
   onPress: () => void;
 };
 
-const GLYPH: Record<(typeof VIEW_LAYERS)[number], string> = { artifacts: "library", checks: "shield-check", subagents: "drone", slot: "rows-3", system: "cpu" };
+const GLYPH: Record<(typeof VIEW_LAYERS)[number], string> = {
+  artifacts: "library",
+  checks: "shield-check",
+  subagents: "drone",
+  slot: "rows-3",
+  system: "cpu",
+};
 
 /** The Job's views, or none where there is no draft to read what is on. */
-export function useJobViews(session: Session, bays: SessionBays | undefined): readonly JobView[] | undefined {
+export function useJobViews(
+  session: Session,
+  bays: SessionBays | undefined,
+): readonly JobView[] | undefined {
   const open = useLayer(session.id);
   const lanesOpen = useLanesView(session.id);
   const draft = useSessionsDraft();
   const tiles = tilesOf("job", useFlightFile());
   if (draft === undefined) return undefined;
   const { off } = offeredOf(session, draft, undefined, (bays?.bays.length ?? 0) > 0);
-  const subagentsRunning = attachmentsOf(session, "subagent").filter((one) => one.state === "running").length;
+  const subagentsRunning = attachmentsOf(session, "subagent").filter(
+    (one) => one.state === "running",
+  ).length;
   const checksRunning = session.rows.some((one) => one.kind === "check" && one.state === "running");
-  const clashing = (bays?.clashes ?? []).map((one) => (one.one.kind === "session" && one.one.id === session.id ? one.other : one.one).label);
+  const clashing = (bays?.clashes ?? []).map(
+    (one) => (one.one.kind === "session" && one.one.id === session.id ? one.other : one.one).label,
+  );
   const clashSaid = clashing.length === 0 ? undefined : `Write clash with ${clashing.join(", ")}`;
-  const wrongs = [...(bays?.bays ?? []).flatMap((one) => (one.said === undefined ? [] : [one.said])), ...(clashSaid === undefined ? [] : [clashSaid])];
+  const wrongs = [
+    ...(bays?.bays ?? []).flatMap((one) =>
+      one.said === undefined
+        ? []
+        : [
+            one.said,
+          ],
+    ),
+    ...(clashSaid === undefined
+      ? []
+      : [
+          clashSaid,
+        ]),
+  ];
   const views = VIEW_LAYERS.map((layer): JobView => {
     const tile = tiles.find((one) => one.builtIn !== undefined && one.id === layer);
     const key = tile === undefined ? undefined : flightKey(tile);
     const why = off[layer];
     const name = tile?.text ?? layer;
     // Running reads on the glyph itself, in the running hue and pulsing (`JobViews.css`), and the number running is in the tooltip. Only a clash is a mark.
-    const running = (layer === "checks" && checksRunning) || (layer === "subagents" && subagentsRunning > 0);
+    const running =
+      (layer === "checks" && checksRunning) || (layer === "subagents" && subagentsRunning > 0);
     const mark =
       layer === "slot" && clashSaid !== undefined ? (
         <span className="sv-view__clash" role="img" aria-label={clashSaid} />
       ) : undefined;
-    const said = layer === "slot" && wrongs.length > 0 ? wrongs.join(", ") : layer === "subagents" && subagentsRunning > 0 ? `${tile?.label ?? name}, ${subagentsRunning} running` : (tile?.label ?? name);
+    const said =
+      layer === "slot" && wrongs.length > 0
+        ? wrongs.join(", ")
+        : layer === "subagents" && subagentsRunning > 0
+          ? `${tile?.label ?? name}, ${subagentsRunning} running`
+          : (tile?.label ?? name);
     return {
       id: layer,
       label: name,
       tip: why ?? said,
       Glyph: glyphOf(GLYPH[layer], "zap"),
-      ...(key === undefined ? {} : { key }),
-      ...(layer === "artifacts" ? { alsoKey: ARTIFACTS_KEY.cap } : {}),
+      ...(key === undefined
+        ? {}
+        : {
+            key,
+          }),
+      ...(layer === "artifacts"
+        ? {
+            alsoKey: ARTIFACTS_KEY.cap,
+          }
+        : {}),
       pressed: open === layer,
-      ...(why === undefined ? {} : { disabled: true }),
-      ...(layer === "slot" && bays !== undefined && baysLit(bays) ? { lit: true } : {}),
-      ...(running ? { running: true } : {}),
-      ...(mark === undefined ? {} : { mark }),
+      ...(why === undefined
+        ? {}
+        : {
+            disabled: true,
+          }),
+      ...(layer === "slot" && bays !== undefined && baysLit(bays)
+        ? {
+            lit: true,
+          }
+        : {}),
+      ...(running
+        ? {
+            running: true,
+          }
+        : {}),
+      ...(mark === undefined
+        ? {}
+        : {
+            mark,
+          }),
       onPress: () => toggleLayer(session.id, layer),
     };
   });
   // Workflow is a Job's own when the Workspace gives it lifecycles. It has no flight key: its ⌥⇧L is heard by the workspace, so the host's `data-key` handler does not toggle it twice.
   if (session.lanes === undefined) return views;
-  return [...views, { id: "lanes", label: "Workflow", tip: "Workflow", Glyph: Waypoints, alsoKey: LANES_KEY.cap, pressed: lanesOpen, onPress: () => toggleLanes(session.id) }];
+  return [
+    ...views,
+    {
+      id: "lanes",
+      label: "Workflow",
+      tip: "Workflow",
+      Glyph: Waypoints,
+      alsoKey: LANES_KEY.cap,
+      pressed: lanesOpen,
+      onPress: () => toggleLanes(session.id),
+    },
+  ];
 }
 
 /** A view's button, as in the Job's head: ghost, small, its glyph and its fact on the corner. */
 function ViewButton({ view }: { view: JobView }) {
-  const { id, label, tip, Glyph, key, alsoKey, pressed, disabled = false, lit = false, running = false, mark, onPress } = view;
+  const {
+    id,
+    label,
+    tip,
+    Glyph,
+    key,
+    alsoKey,
+    pressed,
+    disabled = false,
+    lit = false,
+    running = false,
+    mark,
+    onPress,
+  } = view;
   return (
-    <Tooltip label={tip} {...(key === undefined && alsoKey === undefined ? {} : { shortcut: [key, alsoKey].filter((one) => one !== undefined).join(" ") })}>
-      <Button type="button" variant="ghost" size="sm" iconOnly aria-label={label} aria-pressed={pressed} disabled={disabled} data-key={key} data-lit={lit || undefined} data-running={running || undefined} data-view={id} onClick={onPress}>
+    <Tooltip
+      label={tip}
+      {...(key === undefined && alsoKey === undefined
+        ? {}
+        : {
+            shortcut: [
+              key,
+              alsoKey,
+            ]
+              .filter((one) => one !== undefined)
+              .join(" "),
+          })}
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        iconOnly
+        aria-label={label}
+        aria-pressed={pressed}
+        disabled={disabled}
+        data-key={key}
+        data-lit={lit || undefined}
+        data-running={running || undefined}
+        data-view={id}
+        onClick={onPress}
+      >
         <Glyph size={16} strokeWidth={2} aria-hidden />
         {mark === undefined ? null : <span className="sv-view__mark">{mark}</span>}
       </Button>

@@ -12,14 +12,40 @@ export default meta;
 type Story = StoryObj<typeof Provenance>;
 
 /** A port a compose file declares: the file, in mono, and nothing else. */
-export const Read: Story = { args: { source: "read", file: "compose.yaml", at: "services.db.ports" } };
+export const Read: Story = {
+  args: {
+    source: "read",
+    file: "compose.yaml",
+    at: "services.db.ports",
+  },
+};
 
 /** A script placed by guess: the file it was read from, and the word that says the placement is a guess. */
-export const Convention: Story = { args: { source: "convention", file: "package.json", at: "scripts.test" } };
+export const Convention: Story = {
+  args: {
+    source: "convention",
+    file: "package.json",
+    at: "scripts.test",
+  },
+};
 
 /** A policy row: nothing in a repository corresponds to it. */
-export const Default: Story = { args: { source: "default" } };
+export const Default: Story = {
+  args: {
+    source: "default",
+  },
+};
 
-export const EditedDuringSetup: Story = { name: "Edited during setup", args: { source: "edited_during_setup" } };
+export const EditedDuringSetup: Story = {
+  name: "Edited during setup",
+  args: {
+    source: "edited_during_setup",
+  },
+};
 
-export const AddedDuringSetup: Story = { name: "Added during setup", args: { source: "added_during_setup" } };
+export const AddedDuringSetup: Story = {
+  name: "Added during setup",
+  args: {
+    source: "added_during_setup",
+  },
+};

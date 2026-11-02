@@ -13,7 +13,13 @@ const meta: Meta<typeof DockQuestions> = {
   title: "Compositions/Dock questions",
   component: DockQuestions,
   render: (args) => (
-    <div style={{ width: "var(--w-dock)", background: "var(--bg-sunken)", padding: "var(--space-4)" }}>
+    <div
+      style={{
+        width: "var(--w-dock)",
+        background: "var(--bg-sunken)",
+        padding: "var(--space-4)",
+      }}
+    >
       <DockQuestions {...args} />
     </div>
   ),
@@ -30,13 +36,21 @@ const helmCall: DockQuestion = {
   detail: "Your settings would have to allow Bash(gh issue list:*).",
   waiting: "18s",
   answers: [
-    { id: "allow_once", label: "Allow once", consequence: "Helm runs it now. Nothing is written down." },
+    {
+      id: "allow_once",
+      label: "Allow once",
+      consequence: "Helm runs it now. Nothing is written down.",
+    },
     {
       id: "allow_and_remember",
       label: "Allow and remember",
       consequence: "Helm runs it now, and the rule goes into this repository's own settings.",
     },
-    { id: "refuse", label: "Refuse", consequence: "Helm is told no, and says what it could not do." },
+    {
+      id: "refuse",
+      label: "Refuse",
+      consequence: "Helm is told no, and says what it could not do.",
+    },
   ],
   onAnswer: fn(),
   onDiscuss: fn(),
@@ -58,11 +72,19 @@ const otherCall: DockQuestion = {
  * allow it, and offers three answers of its own. #1389.
  */
 export const HelmNeedsPermission: Story = {
-  args: { questions: [helmCall] },
+  args: {
+    questions: [
+      helmCall,
+    ],
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByText(/armada · helm/)).toBeInTheDocument();
     await expect(canvas.queryByText(/job /)).not.toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: "Allow and remember" })).toBeEnabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Allow and remember",
+      }),
+    ).toBeEnabled();
   },
 };
 
@@ -73,7 +95,13 @@ export const InMarkdown: Story = {
     questions: [
       {
         ...helmCall,
-        asked: <Prose text={"Run **exited** checks?\n\n- `drone_count` reads the live set\n- the restart drops it"} />,
+        asked: (
+          <Prose
+            text={
+              "Run **exited** checks?\n\n- `drone_count` reads the live set\n- the restart drops it"
+            }
+          />
+        ),
         detail: <Prose text={"A customer is **still charged** the full price by `total()`."} />,
       },
     ],
@@ -92,17 +120,38 @@ export const InMarkdown: Story = {
  * it was pressed on.
  */
 export const FromTwoRepositories: Story = {
-  args: { questions: [helmCall, otherCall] },
+  args: {
+    questions: [
+      helmCall,
+      otherCall,
+    ],
+  },
   play: async ({ args, canvas, userEvent }) => {
     await expect(canvas.getAllByRole("article")).toHaveLength(2);
-    await expect(canvas.getByRole("article", { name: /shop-01, helm/ })).toBeVisible();
-    await expect(canvas.getByRole("article", { name: /armada, helm/ })).toBeVisible();
+    await expect(
+      canvas.getByRole("article", {
+        name: /shop-01, helm/,
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("article", {
+        name: /armada, helm/,
+      }),
+    ).toBeVisible();
 
-    await userEvent.click(canvas.getAllByRole("button", { name: "Refuse" })[1]!);
+    await userEvent.click(
+      canvas.getAllByRole("button", {
+        name: "Refuse",
+      })[1]!,
+    );
     await expect(args.questions[1]?.onAnswer).toHaveBeenCalledWith("refuse");
     await expect(args.questions[0]?.onAnswer).not.toHaveBeenCalled();
 
-    await userEvent.click(canvas.getAllByRole("button", { name: "Discuss with Helm" })[1]!);
+    await userEvent.click(
+      canvas.getAllByRole("button", {
+        name: "Discuss with Helm",
+      })[1]!,
+    );
     await expect(args.questions[1]?.onDiscuss).toHaveBeenCalledTimes(1);
     await expect(args.questions[0]?.onDiscuss).not.toHaveBeenCalled();
   },
@@ -110,9 +159,17 @@ export const FromTwoRepositories: Story = {
 
 /** Pressing an answer sends it — the whole of what a card does when Fleet takes it. #936. */
 export const CardAnswered: Story = {
-  args: { questions: [helmCall] },
+  args: {
+    questions: [
+      helmCall,
+    ],
+  },
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Allow once" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Allow once",
+      }),
+    );
     await expect(args.questions[0]?.onAnswer).toHaveBeenCalledWith("allow_once");
   },
 };
@@ -147,9 +204,21 @@ function Pressing() {
 export const CardPending: Story = {
   render: () => <Pressing />,
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Allow once" }));
-    await expect(canvas.getByRole("button", { name: "Allow once" })).toHaveAttribute("aria-busy", "true");
-    await expect(canvas.getByRole("button", { name: "Refuse" })).toBeDisabled();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Allow once",
+      }),
+    );
+    await expect(
+      canvas.getByRole("button", {
+        name: "Allow once",
+      }),
+    ).toHaveAttribute("aria-busy", "true");
+    await expect(
+      canvas.getByRole("button", {
+        name: "Refuse",
+      }),
+    ).toBeDisabled();
   },
 };
 
@@ -159,12 +228,25 @@ export const CardPending: Story = {
  * has nothing of its own to point at. #1117.
  */
 export const CardAnsweringElsewhere: Story = {
-  args: { questions: [{ ...helmCall, answering: true }] },
+  args: {
+    questions: [
+      {
+        ...helmCall,
+        answering: true,
+      },
+    ],
+  },
   play: async ({ canvas }) => {
-    const only = canvas.getByRole("button", { name: "Allow once" });
+    const only = canvas.getByRole("button", {
+      name: "Allow once",
+    });
     await expect(only).toBeDisabled();
     await expect(only).not.toHaveAttribute("aria-busy", "true");
-    await expect(canvas.getByRole("button", { name: "Refuse" })).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Refuse",
+      }),
+    ).toBeDisabled();
   },
 };
 
@@ -174,7 +256,8 @@ export const AlreadyAnswered: Story = {
     questions: [
       {
         ...helmCall,
-        refusal: "the call being answered is not the one outstanding. Read the calls again and answer the one it names",
+        refusal:
+          "the call being answered is not the one outstanding. Read the calls again and answer the one it names",
       },
     ],
   },
@@ -186,11 +269,28 @@ export const AlreadyAnswered: Story = {
 /** Before answering from the dock is wired: the answers are drawn, off, and the card says where to answer. */
 export const AnswersNotWiredYet: Story = {
   args: {
-    questions: [{ ...helmCall, onAnswer: undefined, onDiscuss: undefined, note: "Open Armada on this machine to answer." }],
+    questions: [
+      {
+        ...helmCall,
+        onAnswer: undefined,
+        onDiscuss: undefined,
+        note: "Open Armada on this machine to answer.",
+      },
+    ],
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: "Allow once" })).toBeDisabled();
-    await expect(canvas.getByRole("button", { name: "Discuss with Helm" })).toBeDisabled();
-    await expect(canvas.getByRole("note")).toHaveTextContent("Open Armada on this machine to answer.");
+    await expect(
+      canvas.getByRole("button", {
+        name: "Allow once",
+      }),
+    ).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Discuss with Helm",
+      }),
+    ).toBeDisabled();
+    await expect(canvas.getByRole("note")).toHaveTextContent(
+      "Open Armada on this machine to answer.",
+    );
   },
 };

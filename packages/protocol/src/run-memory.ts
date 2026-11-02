@@ -14,7 +14,13 @@ export type RunPlace = "this_mac" | "repository" | "synced" | "cloud";
  * or a bucket the person owns, `s3://`, `r2://` or `gs://` with the bucket and a prefix, read with that provider's
  * own credentials.
  */
-export type RunCloud = { store: Record<string, never> } | { bucket: string };
+export type RunCloud =
+  | {
+      store: Record<string, never>;
+    }
+  | {
+      bucket: string;
+    };
 
 /**
  * `get_run_memory_place` (`GET /repositories/runs/place?repository=`), and the body and answer of

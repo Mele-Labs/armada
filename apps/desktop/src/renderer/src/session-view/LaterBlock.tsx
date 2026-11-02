@@ -13,13 +13,40 @@ import "./later-block.css";
 
 type One = NonNullable<Session["later"]>[number];
 
-export function LaterBlock({ later, issues, manifestId, onRemind, onConfirm, onDrop }: { later: NonNullable<Session["later"]>; issues: readonly Issue[]; manifestId: string | undefined; onRemind: (sentence: string) => void; onConfirm: (one: One) => void; onDrop: (one: One) => void }) {
+export function LaterBlock({
+  later,
+  issues,
+  manifestId,
+  onRemind,
+  onConfirm,
+  onDrop,
+}: {
+  later: NonNullable<Session["later"]>;
+  issues: readonly Issue[];
+  manifestId: string | undefined;
+  onRemind: (sentence: string) => void;
+  onConfirm: (one: One) => void;
+  onDrop: (one: One) => void;
+}) {
   const [open, setOpen] = useState(false);
-  const [menu, setMenu] = useState<{ id: string; x: number; y: number; from: HTMLElement | null } | undefined>(undefined);
+  const [menu, setMenu] = useState<
+    | {
+        id: string;
+        x: number;
+        y: number;
+        from: HTMLElement | null;
+      }
+    | undefined
+  >(undefined);
   const menuOf = menu === undefined ? undefined : later.find((one) => one.id === menu.id);
   return (
     <section className="sv-later" data-open={open || undefined} aria-label="Deferred">
-      <button type="button" className="sv-later__row" aria-expanded={open} onClick={() => setOpen((was) => !was)}>
+      <button
+        type="button"
+        className="sv-later__row"
+        aria-expanded={open}
+        onClick={() => setOpen((was) => !was)}
+      >
         <span className="sv-later__label">Deferred</span>
         <ChevronDown className="sv-later__chevron" size={12} strokeWidth={2} aria-hidden />
       </button>
@@ -30,18 +57,40 @@ export function LaterBlock({ later, issues, manifestId, onRemind, onConfirm, onD
               key={one.id}
               className="sv-later__item"
               aria-label={one.text}
-              onContextMenu={(event) => (event.preventDefault(), setMenu({ id: one.id, x: event.clientX, y: event.clientY, from: event.currentTarget.querySelector<HTMLElement>(".sv-later__remind button") }))}
+              onContextMenu={(event) => (
+                event.preventDefault(),
+                setMenu({
+                  id: one.id,
+                  x: event.clientX,
+                  y: event.clientY,
+                  from: event.currentTarget.querySelector<HTMLElement>(".sv-later__remind button"),
+                })
+              )}
               onKeyDown={(event) => {
                 if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
                 event.preventDefault();
-                const box = event.currentTarget.querySelector<HTMLElement>(".sv-later__remind button")?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect();
-                setMenu({ id: one.id, x: box.left + box.width / 2, y: box.bottom, from: event.currentTarget.querySelector<HTMLElement>(".sv-later__remind button") });
+                const box =
+                  event.currentTarget
+                    .querySelector<HTMLElement>(".sv-later__remind button")
+                    ?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect();
+                setMenu({
+                  id: one.id,
+                  x: box.left + box.width / 2,
+                  y: box.bottom,
+                  from: event.currentTarget.querySelector<HTMLElement>(".sv-later__remind button"),
+                });
               }}
             >
               <span className="sv-later__text">{one.text}</span>
               <span className="sv-later__remind">
                 <Tooltip label="Remind">
-                  <Button variant="ghost" size="sm" iconOnly aria-label={`Remind: ${one.text}`} onClick={() => onRemind(one.text)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    aria-label={`Remind: ${one.text}`}
+                    onClick={() => onRemind(one.text)}
+                  >
                     <BellRing size={12} strokeWidth={2} aria-hidden />
                   </Button>
                 </Tooltip>
@@ -50,12 +99,30 @@ export function LaterBlock({ later, issues, manifestId, onRemind, onConfirm, onD
                 {one.confirmed === true ? null : (
                   <>
                     <Tooltip label="Deferred">
-                      <Button variant="ghost" size="sm" iconOnly aria-label={`Deferred: ${one.text}`} onClick={(event) => (event.currentTarget.closest("li")?.querySelector<HTMLElement>(".sv-later__remind button")?.focus(), onConfirm(one))}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        iconOnly
+                        aria-label={`Deferred: ${one.text}`}
+                        onClick={(event) => (
+                          event.currentTarget
+                            .closest("li")
+                            ?.querySelector<HTMLElement>(".sv-later__remind button")
+                            ?.focus(),
+                          onConfirm(one)
+                        )}
+                      >
                         <ThumbsUp size={12} strokeWidth={2} aria-hidden />
                       </Button>
                     </Tooltip>
                     <Tooltip label="Not deferred">
-                      <Button variant="ghost" size="sm" iconOnly aria-label={`Not deferred: ${one.text}`} onClick={() => onDrop(one)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        iconOnly
+                        aria-label={`Not deferred: ${one.text}`}
+                        onClick={() => onDrop(one)}
+                      >
                         <ThumbsDown size={12} strokeWidth={2} aria-hidden />
                       </Button>
                     </Tooltip>
@@ -74,11 +141,28 @@ export function LaterBlock({ later, issues, manifestId, onRemind, onConfirm, onD
       {menu === undefined || menuOf === undefined ? null : (
         <DropdownMenu
           triggerLabel="Deferred"
-          at={{ x: menu.x, y: menu.y }}
+          at={{
+            x: menu.x,
+            y: menu.y,
+          }}
           open
           entries={[
-            ...(menuOf.confirmed === true ? [] : [{ kind: "item" as const, id: "yes", label: "Deferred", icon: ThumbsUp }]),
-            { kind: "item", id: "no", label: "Not deferred", icon: ThumbsDown },
+            ...(menuOf.confirmed === true
+              ? []
+              : [
+                  {
+                    kind: "item" as const,
+                    id: "yes",
+                    label: "Deferred",
+                    icon: ThumbsUp,
+                  },
+                ]),
+            {
+              kind: "item",
+              id: "no",
+              label: "Not deferred",
+              icon: ThumbsDown,
+            },
           ]}
           onOpenChange={(next) => {
             if (next) return;

@@ -18,7 +18,10 @@ import { useEffect, useState } from "react";
 const NOTICE = "ResizeObserver loop completed with undelivered notifications.";
 
 const stops: (() => void)[] = [];
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 
 afterEach(() => {
   for (const stop of stops.splice(0)) stop();
@@ -39,11 +42,20 @@ test("the browser's ResizeObserver notice raises nothing, and a real throw still
   const seen = caught();
 
   // The notice, exactly as Chromium sends it: no exception behind it.
-  window.dispatchEvent(new ErrorEvent("error", { message: NOTICE }));
+  window.dispatchEvent(
+    new ErrorEvent("error", {
+      message: NOTICE,
+    }),
+  );
   expect(seen).toEqual([]);
 
   // A throw is still a throw.
-  window.dispatchEvent(new ErrorEvent("error", { message: "boom", error: new Error("boom") }));
+  window.dispatchEvent(
+    new ErrorEvent("error", {
+      message: "boom",
+      error: new Error("boom"),
+    }),
+  );
   expect(seen).toHaveLength(1);
   expect(seen[0]?.from).toBe("throw");
   expect(seen[0]?.message).toBe("boom");
@@ -51,32 +63,71 @@ test("the browser's ResizeObserver notice raises nothing, and a real throw still
 
   // **The message alone does not buy silence.** An `Error` carrying the same
   // sentence is something Bridge did, and is reported.
-  window.dispatchEvent(new ErrorEvent("error", { message: NOTICE, error: new Error(NOTICE) }));
+  window.dispatchEvent(
+    new ErrorEvent("error", {
+      message: NOTICE,
+      error: new Error(NOTICE),
+    }),
+  );
   expect(seen).toHaveLength(2);
   expect(seen[1]?.message).toBe(NOTICE);
 
   // A rejection is untouched by any of this.
   window.dispatchEvent(
-    new PromiseRejectionEvent("unhandledrejection", { promise: Promise.reject(new Error("nope")).catch(() => undefined), reason: new Error("nope") }),
+    new PromiseRejectionEvent("unhandledrejection", {
+      promise: Promise.reject(new Error("nope")).catch(() => undefined),
+      reason: new Error("nope"),
+    }),
   );
   expect(seen).toHaveLength(3);
   expect(seen[2]?.from).toBe("rejection");
 });
 
-const KINDS = ["link", "run", "note", "contradiction", "finding", "cluster", "sketch", "outline", "issue_draft", "job"] as const;
+const KINDS = [
+  "link",
+  "run",
+  "note",
+  "contradiction",
+  "finding",
+  "cluster",
+  "sketch",
+  "outline",
+  "issue_draft",
+  "job",
+] as const;
 
 /** Nodes whose own boxes change on every pass — a Studio's cards as their titles and facts change. */
 function board(pass: number): StudioWhiteboardNode[] {
   return KINDS.map((kind, i) => ({
     id: `n${i}`,
-    position: { x: (i % 4) * 320, y: Math.floor(i / 4) * 240 },
+    position: {
+      x: (i % 4) * 320,
+      y: Math.floor(i / 4) * 240,
+    },
     node: {
       kind,
       title: `${kind} ${"word ".repeat(1 + ((pass + i) % 14))}`,
-      facts: ["one", "two"].slice(0, 1 + ((pass + i) % 2)),
+      facts: [
+        "one",
+        "two",
+      ].slice(0, 1 + ((pass + i) % 2)),
       // A Sketch says what it says in its boxes, so its words change there.
       ...(kind === "sketch"
-        ? { drawing: { boxes: [{ id: "b1", x: 0, y: 0, body: "word ".repeat(1 + ((pass + i) % 14)) }], lines: [], strokes: [], pictures: [] } }
+        ? {
+            drawing: {
+              boxes: [
+                {
+                  id: "b1",
+                  x: 0,
+                  y: 0,
+                  body: "word ".repeat(1 + ((pass + i) % 14)),
+                },
+              ],
+              lines: [],
+              strokes: [],
+              pictures: [],
+            },
+          }
         : {}),
     },
   })) as StudioWhiteboardNode[];
@@ -102,7 +153,10 @@ test("the whiteboard's nodes resizing raise the notice, and the surface stays qu
   host.style.cssText = "position:fixed;inset:0";
   document.body.append(host);
   const root = createRoot(host);
-  roots.push({ root, host });
+  roots.push({
+    root,
+    host,
+  });
 
   // **Drawn from inside a frame, not awaited pass by pass.** React Flow measures
   // each node with a `ResizeObserver` and writes what it measured into its store,
@@ -122,8 +176,18 @@ test("the whiteboard's nodes resizing raise the notice, and the surface stays qu
       }
       const frame = requestAnimationFrame(() => setPass(pass + 1));
       return () => cancelAnimationFrame(frame);
-    }, [pass, done]);
-    return <StudioWhiteboard nodes={board(pass)} edges={[]} onNodeMoved={() => undefined} onSelectionChange={() => undefined} />;
+    }, [
+      pass,
+      done,
+    ]);
+    return (
+      <StudioWhiteboard
+        nodes={board(pass)}
+        edges={[]}
+        onNodeMoved={() => undefined}
+        onSelectionChange={() => undefined}
+      />
+    );
   }
 
   await new Promise<void>((done) => root.render(<Churn done={done} />));
@@ -131,6 +195,9 @@ test("the whiteboard's nodes resizing raise the notice, and the surface stays qu
   expect(drawn).toBe(PASSES);
   expect(host.querySelectorAll(".react-flow__node")).toHaveLength(KINDS.length);
 
-  expect(notices.length, "the board no longer raises the notice — the reproduction has gone stale").toBeGreaterThan(0);
+  expect(
+    notices.length,
+    "the board no longer raises the notice — the reproduction has gone stale",
+  ).toBeGreaterThan(0);
   expect(seen, "Bridge reported a browser notice as a failure").toEqual([]);
 });

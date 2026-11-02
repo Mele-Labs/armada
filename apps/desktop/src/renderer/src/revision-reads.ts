@@ -7,7 +7,12 @@ import type { SessionsDraft } from "@armada/screens/src/draft/sessions";
  * Each path's file as `read` makes it, in the order given. **A file not read yet, or one `read` refuses, is `undefined`.**
  * `read` is held at its first value, so pass one declared outside the component.
  */
-export function useRevisionReads<T>(draft: SessionsDraft | undefined, session: string, paths: readonly string[], read: (text: string) => T | undefined): (T | undefined)[] {
+export function useRevisionReads<T>(
+  draft: SessionsDraft | undefined,
+  session: string,
+  paths: readonly string[],
+  read: (text: string) => T | undefined,
+): (T | undefined)[] {
   const cache = useRef(new Map<string, T>());
   const reader = useRef(read);
   const [version, setVersion] = useState(0);
@@ -19,7 +24,8 @@ export function useRevisionReads<T>(draft: SessionsDraft | undefined, session: s
     void Promise.all(
       missing.map(async (path) => {
         const got = await draft?.readArtifact?.(session, path);
-        const made = got?.ok === true ? reader.current(new TextDecoder().decode(got.bytes)) : undefined;
+        const made =
+          got?.ok === true ? reader.current(new TextDecoder().decode(got.bytes)) : undefined;
         if (made !== undefined) cache.current.set(path, made);
       }),
     ).then(() => {
@@ -28,6 +34,16 @@ export function useRevisionReads<T>(draft: SessionsDraft | undefined, session: s
     return () => {
       live = false;
     };
-  }, [draft, session, key]);
-  return useMemo(() => (key === "" ? [] : key.split("|").map((one) => cache.current.get(one))), [key, version]);
+  }, [
+    draft,
+    session,
+    key,
+  ]);
+  return useMemo(
+    () => (key === "" ? [] : key.split("|").map((one) => cache.current.get(one))),
+    [
+      key,
+      version,
+    ],
+  );
 }

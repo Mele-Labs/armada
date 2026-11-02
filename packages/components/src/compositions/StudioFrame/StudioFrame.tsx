@@ -32,15 +32,27 @@ export type StudioFrameProps = {
 };
 
 /** What a frame is read aloud as: its kind, then its title where it has one. */
-export function studioFrameLabel({ kind, title }: Pick<StudioFrameProps, "kind" | "title">): string {
-  return title === undefined || title === "" ? STUDIO_NODE_KIND[kind] : `${STUDIO_NODE_KIND[kind]}: ${title}`;
+export function studioFrameLabel({
+  kind,
+  title,
+}: Pick<StudioFrameProps, "kind" | "title">): string {
+  return title === undefined || title === ""
+    ? STUDIO_NODE_KIND[kind]
+    : `${STUDIO_NODE_KIND[kind]}: ${title}`;
 }
 
 export function StudioFrame({ kind, title, name, head, selected = false, tone }: StudioFrameProps) {
   return (
-    <div className="armada-studio-frame" data-kind={kind} data-selected={selected || undefined} data-tone={tone}>
+    <div
+      className="armada-studio-frame"
+      data-kind={kind}
+      data-selected={selected || undefined}
+      data-tone={tone}
+    >
       <div className="armada-studio-frame__head">
-        {head ?? <span className="armada-studio-frame__kind">{name ?? STUDIO_NODE_KIND[kind]}</span>}
+        {head ?? (
+          <span className="armada-studio-frame__kind">{name ?? STUDIO_NODE_KIND[kind]}</span>
+        )}
         {title === undefined || title === "" ? null : (
           <span className="armada-studio-frame__title" title={title}>
             {title}

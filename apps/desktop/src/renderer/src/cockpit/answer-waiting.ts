@@ -12,14 +12,39 @@ import { markViewed } from "./viewed";
 const UNHELD = "fleet.session_waiting_unheld";
 
 /** Answered, or nothing held it any more (the card goes quietly), or Fleet refused in these words. */
-export type WaitingAnswered = { kind: "answered" } | { kind: "gone" } | { kind: "refused"; said: string };
+export type WaitingAnswered =
+  | {
+      kind: "answered";
+    }
+  | {
+      kind: "gone";
+    }
+  | {
+      kind: "refused";
+      said: string;
+    };
 
 export async function answerWaiting(request: AnswerWaiting): Promise<WaitingAnswered> {
   const done = await window.armada.answerWaiting(request);
   // An answer sent from a card is him being in the Session. Without this the Session's older items came
   // back as calls, since a Session he never opened holds no thread to date his message by.
-  if (done.ok) return markViewed(request.session_id), { kind: "answered" };
+  if (done.ok)
+    return (
+      markViewed(request.session_id),
+      {
+        kind: "answered",
+      }
+    );
   const outcome = done.outcome;
-  if (!outcome.ok && outcome.why === "refused" && outcome.error.code === UNHELD) return markViewed(request.session_id), { kind: "gone" };
-  return { kind: "refused", said: refusalWords(outcome) };
+  if (!outcome.ok && outcome.why === "refused" && outcome.error.code === UNHELD)
+    return (
+      markViewed(request.session_id),
+      {
+        kind: "gone",
+      }
+    );
+  return {
+    kind: "refused",
+    said: refusalWords(outcome),
+  };
 }

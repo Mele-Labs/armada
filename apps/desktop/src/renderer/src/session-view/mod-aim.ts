@@ -3,7 +3,17 @@
 import { forgetKept, readKept } from "@armada/components";
 import type { ModAim } from "@armada/protocol";
 
-const AIMS: readonly ModAim[] = ["theme", "layout", "words", "fleet", "tracker", "commands", "tab", "instrument", "source"];
+const AIMS: readonly ModAim[] = [
+  "theme",
+  "layout",
+  "words",
+  "fleet",
+  "tracker",
+  "commands",
+  "tab",
+  "instrument",
+  "source",
+];
 export const aimKey = (sessionId: string) => `mod-aim:${sessionId}`;
 
 export const aimOf = (sessionId: string): ModAim | undefined => {

@@ -35,7 +35,10 @@ const BRIEF =
 
 /** At rest: `--bg-sunken` well, `--border-default` edge, `--fg-default` text. */
 export const Default: Story = {
-  args: { label: "Brief", defaultValue: BRIEF },
+  args: {
+    label: "Brief",
+    defaultValue: BRIEF,
+  },
   render: (args) => (
     <Card>
       <Textarea {...args} />
@@ -45,7 +48,10 @@ export const Default: Story = {
 
 /** Placeholder is `--fg-subtle`, the same step as a timestamp. */
 export const Placeholder: Story = {
-  args: { label: "Brief", placeholder: BRIEF },
+  args: {
+    label: "Brief",
+    placeholder: BRIEF,
+  },
   render: (args) => (
     <Card>
       <Textarea {...args} />
@@ -127,7 +133,12 @@ export const Light: Story = {
 function Held({ about, controlled }: { about: string; controlled: boolean }) {
   const [value, setValue] = useState("");
   return controlled ? (
-    <Textarea aria-label="Note" keep={about} value={value} onChange={(event) => setValue(event.target.value)} />
+    <Textarea
+      aria-label="Note"
+      keep={about}
+      value={value}
+      onChange={(event) => setValue(event.target.value)}
+    />
   ) : (
     <Textarea aria-label="Note" keep={about} />
   );
@@ -147,19 +158,62 @@ function Panels({ controlled }: { controlled: boolean }) {
 }
 
 const keepsWhatWasTyped: Story["play"] = async ({ canvas }) => {
-  await userEvent.type(canvas.getByRole("textbox", { name: "Note" }), "half a thought");
-  await userEvent.click(canvas.getByRole("button", { name: "Toggle" }));
-  await expect(canvas.queryByRole("textbox", { name: "Note" })).toBeNull();
-  await userEvent.click(canvas.getByRole("button", { name: "Toggle" }));
-  await expect(canvas.getByRole("textbox", { name: "Note" })).toHaveValue("half a thought");
-  await userEvent.click(canvas.getByRole("button", { name: "Other" }));
-  await userEvent.click(canvas.getByRole("button", { name: "Toggle" }));
-  await userEvent.click(canvas.getByRole("button", { name: "Toggle" }));
-  await expect(canvas.getByRole("textbox", { name: "Note" })).toHaveValue("");
+  await userEvent.type(
+    canvas.getByRole("textbox", {
+      name: "Note",
+    }),
+    "half a thought",
+  );
+  await userEvent.click(
+    canvas.getByRole("button", {
+      name: "Toggle",
+    }),
+  );
+  await expect(
+    canvas.queryByRole("textbox", {
+      name: "Note",
+    }),
+  ).toBeNull();
+  await userEvent.click(
+    canvas.getByRole("button", {
+      name: "Toggle",
+    }),
+  );
+  await expect(
+    canvas.getByRole("textbox", {
+      name: "Note",
+    }),
+  ).toHaveValue("half a thought");
+  await userEvent.click(
+    canvas.getByRole("button", {
+      name: "Other",
+    }),
+  );
+  await userEvent.click(
+    canvas.getByRole("button", {
+      name: "Toggle",
+    }),
+  );
+  await userEvent.click(
+    canvas.getByRole("button", {
+      name: "Toggle",
+    }),
+  );
+  await expect(
+    canvas.getByRole("textbox", {
+      name: "Note",
+    }),
+  ).toHaveValue("");
 };
 
 /** Leave the panel and come back and the text is there; another key starts empty. */
-export const KeepsWhatWasTyped: Story = { render: () => <Panels controlled={false} />, play: keepsWhatWasTyped };
+export const KeepsWhatWasTyped: Story = {
+  render: () => <Panels controlled={false} />,
+  play: keepsWhatWasTyped,
+};
 
 /** The same, for a field whose host holds the value and lost it with the panel. */
-export const KeepsWhatAHostLost: Story = { render: () => <Panels controlled />, play: keepsWhatWasTyped };
+export const KeepsWhatAHostLost: Story = {
+  render: () => <Panels controlled />,
+  play: keepsWhatWasTyped,
+};

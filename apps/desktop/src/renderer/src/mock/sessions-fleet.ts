@@ -74,11 +74,29 @@ export const NAMED_FOR_ME: Record<string, string> = {
 const firstWords = (text: string): string => text.trim().split(/\s+/).slice(0, 6).join(" ");
 
 /** A picture that decodes. A sent message draws what it carried, and a broken one raises an error the walks hear. */
-const ONE_PIXEL = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="), (c) => c.charCodeAt(0));
+const ONE_PIXEL = Uint8Array.from(
+  atob(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  ),
+  (c) => c.charCodeAt(0),
+);
 
 /** An attachment as Fleet writes it. */
-export function held(kind: string, target: string, detail: Record<string, string> = {}, state: AttachmentState = "standing"): Attachment {
-  return { kind, manifest_id: "armada", target, state, detail, since: AT, changed_at: AT };
+export function held(
+  kind: string,
+  target: string,
+  detail: Record<string, string> = {},
+  state: AttachmentState = "standing",
+): Attachment {
+  return {
+    kind,
+    manifest_id: "armada",
+    target,
+    state,
+    detail,
+    since: AT,
+    changed_at: AT,
+  };
 }
 
 /** A session Fleet hosts, idle, with nothing leased. */
@@ -94,7 +112,13 @@ export function hosted(id: string, change: Partial<SessionRecord> = {}): Session
     last_seen_at: AT,
     usage: {},
     attachments: [],
-    hosted: { turn: { state: "idle" }, mode: "auto", running: false },
+    hosted: {
+      turn: {
+        state: "idle",
+      },
+      mode: "auto",
+      running: false,
+    },
     ...change,
   };
 }
@@ -103,7 +127,13 @@ export function hosted(id: string, change: Partial<SessionRecord> = {}): Session
 export function terminal(id: string, change: Partial<SessionRecord> = {}): SessionRecord {
   const { hosted: _hosted, ...rest } = hosted(id, change);
   // A terminal whose mod is asking, as one a person is at: it takes a message, and offers no Fork.
-  return { terminal: { listening: true }, ...rest, origin: "terminal" };
+  return {
+    terminal: {
+      listening: true,
+    },
+    ...rest,
+    origin: "terminal",
+  };
 }
 
 /** A call the agent is held on, with the three offers. */
@@ -116,13 +146,20 @@ export function asking(command: string, call = "call-1"): HelmCallInFlight {
     detail: command,
     truncated: false,
     rule: `Bash(${command}:*)`,
-    offers: ["allow_once", "allow_and_remember", "refuse"],
+    offers: [
+      "allow_once",
+      "allow_and_remember",
+      "refuse",
+    ],
     holding_for_seconds: 600,
   };
 }
 
 /** The pull request as the forge shows it, in the words the ledger's `detail` carries. */
-export const pullRequest = (number: number, detail: Partial<Record<string, string>> = {}): Attachment =>
+export const pullRequest = (
+  number: number,
+  detail: Partial<Record<string, string>> = {},
+): Attachment =>
   held("pr", String(number), {
     state: "open",
     auto_merge: "false",
@@ -135,12 +172,28 @@ export const pullRequest = (number: number, detail: Partial<Record<string, strin
   });
 
 /** What the forge says of a pull request when it is next read: its checks, the head they ran on, and each failing check with its log. */
-export type ForgeReading = { checks: "passed" | "failed" | "pending"; head: string; failing?: readonly { name: string; log: string }[] };
+export type ForgeReading = {
+  checks: "passed" | "failed" | "pending";
+  head: string;
+  failing?: readonly {
+    name: string;
+    log: string;
+  }[];
+};
 
-const HUB_CI: Record<ForgeReading["checks"], string> = { passed: "passed", failed: "failed", pending: "running" };
+const HUB_CI: Record<ForgeReading["checks"], string> = {
+  passed: "passed",
+  failed: "failed",
+  pending: "running",
+};
 
 /** The message Fleet sends the owning Job when a pull request's checks fail, in `fleet::pull_notices`' words. */
-function failedNotice(number: number, reading: ForgeReading, address: string, branch: string): string {
+function failedNotice(
+  number: number,
+  reading: ForgeReading,
+  address: string,
+  branch: string,
+): string {
   const failing = (reading.failing ?? []).map((one) => `${one.name}: ${one.log}`).join("\n");
   return `#${number} failed its checks at ${reading.head.slice(0, 7)}.\n${address}\nBranch: ${branch}${failing === "" ? "" : `\n\n${failing}`}`;
 }
@@ -154,7 +207,10 @@ export type Calls = {
   /** The project rows each start carried, in order: absent where it carried none. */
   startedRows: (readonly ProjectRowRef[] | undefined)[];
   /** The briefs read for a wait, and the Session each tagged. */
-  readWaits: { sessionId: string; request: string }[];
+  readWaits: {
+    sessionId: string;
+    request: string;
+  }[];
   changedWaits: ChangeWaiting[];
   /** The waiting Sessions started now. */
   startedNow: string[];
@@ -174,18 +230,34 @@ export type Calls = {
   stopped: string[];
   forked: string[];
   /** The plan groups handed to a Session of their own, and the Session that handed each. */
-  handed: { sessionId: string; group: string }[];
+  handed: {
+    sessionId: string;
+    group: string;
+  }[];
   /** The Sessions forked from one message, and the message. */
-  forkedAt: { sessionId: string; at: string }[];
+  forkedAt: {
+    sessionId: string;
+    at: string;
+  }[];
   /** The Sessions moved to another repository, and where. */
-  moved: { sessionId: string; manifestId: string }[];
+  moved: {
+    sessionId: string;
+    manifestId: string;
+  }[];
   /** The `set_notice_mute` bodies Fleet was sent. */
   muted: SetNoticeMute[];
   /** The pull requests Refresh asked Fleet to read from the forge now. */
-  refreshed: { manifestId: string; number: number }[];
+  refreshed: {
+    manifestId: string;
+    number: number;
+  }[];
   /** The Sessions the Retro press was pressed on. */
   retroed: string[];
-  pressed: { sessionId: string; number: number; press: string }[];
+  pressed: {
+    sessionId: string;
+    number: number;
+    press: string;
+  }[];
   watched: string[];
   /** The addresses a page view was shown on, and how many times it was taken away. */
   pages: string[];
@@ -199,23 +271,84 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], startedRows: [], readWaits: [], changedWaits: [], startedNow: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], confirmed: [], tuned: [], begun: [], renamed: [], named: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], muted: [], refreshed: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = {
+    started: 0,
+    startedIn: [],
+    startedAfter: [],
+    startedRows: [],
+    readWaits: [],
+    changedWaits: [],
+    startedNow: [],
+    sent: [],
+    answered: [],
+    waited: [],
+    claimed: [],
+    dismissed: [],
+    confirmed: [],
+    tuned: [],
+    begun: [],
+    renamed: [],
+    named: [],
+    closed: [],
+    stopped: [],
+    forked: [],
+    handed: [],
+    forkedAt: [],
+    moved: [],
+    muted: [],
+    refreshed: [],
+    retroed: [],
+    pressed: [],
+    watched: [],
+    pages: [],
+    pagesHidden: 0,
+  };
   /** What `readSessionWait` answers: the defaults, unless a test says otherwise. */
-  reading: WaitReading = { condition: { kind: "ends" }, base: "main" };
+  reading: WaitReading = {
+    condition: {
+      kind: "ends",
+    },
+    base: "main",
+  };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
-  private repositories: readonly { root: string; manifest?: { id: string } }[] = [];
+  private repositories: readonly {
+    root: string;
+    manifest?: {
+      id: string;
+    };
+  }[] = [];
   /** Set to have the next message refused, the way Fleet refuses one: the error says why and nothing is sent. */
-  refusesSend: { code: string; message: string } | undefined;
+  refusesSend:
+    | {
+        code: string;
+        message: string;
+      }
+    | undefined;
   /** Set to have the next End session refused, the way Fleet refuses one: nothing ends and nothing is parked. */
-  refusesClose: { code: string; message: string } | undefined;
+  refusesClose:
+    | {
+        code: string;
+        message: string;
+      }
+    | undefined;
   /** How long after End answers the Job shows as ended, the way Fleet parks it in the background. 0 ends it with the answer. */
   endsAfterMs = 0;
   /** Set to have the next move refused, the way Fleet refuses one: nothing ends and nothing starts. */
-  refusesMove: { code: string; message: string } | undefined;
+  refusesMove:
+    | {
+        code: string;
+        message: string;
+      }
+    | undefined;
   /** Set to have the next retro refused the way Fleet refuses one: the error says why and nothing is written. */
-  refusesRetro: { code: string; message: string } | undefined;
+  refusesRetro:
+    | {
+        code: string;
+        message: string;
+      }
+    | undefined;
   /** How long each frame of a retro's writing takes, so a person can see the row move. */
   retroStepMs = 400;
   /** Set to hold a retro at each frame a walk stops on until time passes (a walk's `later`), the others following at once. */
@@ -233,11 +366,21 @@ export class FakeSessionsFleet {
   private retroRowed = 0;
   private releaseRetro: (() => void) | undefined;
   /** Set to have the next act on a pull request refused, the way Fleet refuses one: the error says why and nothing changes. */
-  refusesPress: { code: string; message: string } | undefined;
+  refusesPress:
+    | {
+        code: string;
+        message: string;
+      }
+    | undefined;
   /** What the forge says of each pull request the next time Refresh reads it, by number. A number not here reads as it stands. */
   forge: Record<number, ForgeReading> = {};
   /** Set to have Refresh refused, the way Fleet refuses one: nothing is read and nothing changes. */
-  refusesRefresh: { code: string; message: string } | undefined;
+  refusesRefresh:
+    | {
+        code: string;
+        message: string;
+      }
+    | undefined;
   /** The failures told, by Job, pull request and head: Fleet tells each once, however often it is read. */
   private readonly told = new Set<string>();
   /** Each subagent's thread as its transcript stands, by subagent id. A test changes it to let one run on. */
@@ -257,7 +400,11 @@ export class FakeSessionsFleet {
   /** The servers whose next act is refused, by name, with Fleet's words. Taken by the act it refuses. */
   mcpRefuses: Record<string, string> = {};
   /** Every act on an MCP server, in order. */
-  mcpActs: { session: string; server: string; act: McpServerAct }[] = [];
+  mcpActs: {
+    session: string;
+    server: string;
+    act: McpServerAct;
+  }[] = [];
   /** What each Session's bar is offered, by Session id, as `get_session_quick` answers. A Session not here is offered nothing. */
   quick: Record<string, SessionQuick> = {};
   /** Hears each message the person sends, to script what the agent does with it. */
@@ -273,7 +420,14 @@ export class FakeSessionsFleet {
   /** A row for a thread nobody has opened is kept for when it is, as Fleet keeps every thread, and not dropped as main drops it. */
   keepsRows = false;
   /** The threads whose first read is held, by Session id: none, and every read answers at once. `holdRead` sets one. */
-  private readonly heldReads = new Map<string, { ms: number; thread: SessionRow[]; cached?: SessionRow[] }>();
+  private readonly heldReads = new Map<
+    string,
+    {
+      ms: number;
+      thread: SessionRow[];
+      cached?: SessionRow[];
+    }
+  >();
   /** The ids whose read has not answered, as main publishes them. */
   private readingIds: string[] = [];
   private minted = 0;
@@ -285,43 +439,113 @@ export class FakeSessionsFleet {
   }
 
   private began(): Partial<SessionRecord> {
-    return this.startsNow ? { started_at: new Date().toISOString() } : {};
+    return this.startsNow
+      ? {
+          started_at: new Date().toISOString(),
+        }
+      : {};
   }
 
   /**
    * One act as the process takes it: a Reconnect or a Turn on connects the server, a Turn off turns it off, and a
    * sign-in answers its page and leaves it needing sign-in until a Reconnect, as a hosted connector does.
    */
-  private async actingOnMcp(sessionId: string, server: string, act: McpServerAct): Promise<SessionActed<SessionMcpActed>> {
-    this.mcpActs.push({ session: sessionId, server, act });
+  private async actingOnMcp(
+    sessionId: string,
+    server: string,
+    act: McpServerAct,
+  ): Promise<SessionActed<SessionMcpActed>> {
+    this.mcpActs.push({
+      session: sessionId,
+      server,
+      act,
+    });
     // A Job that came up without Fleet's door connects it on Reconnect, and the mark loses that piece.
-    if (server === "armada-fleet" && act === "reconnect" && this.records.find((one) => one.id === sessionId)?.tools_missing?.missing.includes("door") === true) {
+    if (
+      server === "armada-fleet" &&
+      act === "reconnect" &&
+      this.records.find((one) => one.id === sessionId)?.tools_missing?.missing.includes("door") ===
+        true
+    ) {
       await new Promise((done) => setTimeout(done, 1200));
       this.mend(sessionId, "door");
-      return { ok: true, value: { servers: this.mcpServers[sessionId] ?? [] } };
+      return {
+        ok: true,
+        value: {
+          servers: this.mcpServers[sessionId] ?? [],
+        },
+      };
     }
     const servers = this.mcpServers[sessionId];
-    if (servers?.some((one) => one.name === server) !== true) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    if (servers?.some((one) => one.name === server) !== true)
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
     const refused = this.mcpRefuses[server];
     if (refused !== undefined) {
       delete this.mcpRefuses[server];
-      return { ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.session_mcp_refused", message: refused } } as never };
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "refused",
+          error: {
+            code: "fleet.session_mcp_refused",
+            message: refused,
+          },
+        } as never,
+      };
     }
     const next = (one: SessionMcpServer): SessionMcpServer => {
       if (one.name !== server || act === "sign_in") return one;
       const { error: _error, ...rest } = one;
-      return act === "turn_off" ? { ...rest, state: "off", tools: 0 } : { ...rest, state: "connected", tools: this.mcpTools[server] ?? 0 };
+      return act === "turn_off"
+        ? {
+            ...rest,
+            state: "off",
+            tools: 0,
+          }
+        : {
+            ...rest,
+            state: "connected",
+            tools: this.mcpTools[server] ?? 0,
+          };
     };
-    this.mcpServers = { ...this.mcpServers, [sessionId]: servers.map(next) };
+    this.mcpServers = {
+      ...this.mcpServers,
+      [sessionId]: servers.map(next),
+    };
     const signIn = act === "sign_in" ? this.mcpSignIns[server] : undefined;
-    return { ok: true, value: { servers: this.mcpServers[sessionId]!, ...(signIn === undefined ? {} : { sign_in: signIn }) } };
+    return {
+      ok: true,
+      value: {
+        servers: this.mcpServers[sessionId]!,
+        ...(signIn === undefined
+          ? {}
+          : {
+              sign_in: signIn,
+            }),
+      },
+    };
   }
 
   /** A piece of what the agent came up without, now present: the record loses it, and the mark with the last one. */
   private mend(sessionId: string, piece: "mod" | "door" | "task_tools"): void {
     this.change(sessionId, ({ tools_missing: tools, ...one }) => {
       const missing = (tools?.missing ?? []).filter((each) => each !== piece);
-      return tools === undefined || missing.length === 0 ? one : { ...one, tools_missing: { ...tools, missing } };
+      return tools === undefined || missing.length === 0
+        ? one
+        : {
+            ...one,
+            tools_missing: {
+              ...tools,
+              missing,
+            },
+          };
     });
   }
 
@@ -329,23 +553,45 @@ export class FakeSessionsFleet {
   private async mending(sessionId: string): Promise<SessionActed<void>> {
     await new Promise((done) => setTimeout(done, 1200));
     this.mend(sessionId, "mod");
-    return { ok: true, value: undefined };
+    return {
+      ok: true,
+      value: undefined,
+    };
   }
 
   private readonly runListeners = new Set<(runId: string, message: SessionRunMessage) => void>();
 
   /** `start_session_run`: the agent's update command prints a line and exits clean, and any other command exits clean. */
-  private startingRun(sessionId: string, command: string): SessionActed<{ run_id: string }> {
+  private startingRun(
+    sessionId: string,
+    command: string,
+  ): SessionActed<{
+    run_id: string;
+  }> {
     const runId = `run-${(this.minted += 1)}`;
-    const send = (message: SessionRunMessage) => this.runListeners.forEach((on) => on(runId, message));
+    const send = (message: SessionRunMessage) =>
+      this.runListeners.forEach((on) => on(runId, message));
     const updating = command.trim() === AGENT.update;
     setTimeout(() => {
-      if (updating) send({ kind: "output", text: `Updated ${AGENT.name} to 2.1.340\r\n` });
-      send({ kind: "exited", code: 0, stopped: false });
+      if (updating)
+        send({
+          kind: "output",
+          text: `Updated ${AGENT.name} to 2.1.340\r\n`,
+        });
+      send({
+        kind: "exited",
+        code: 0,
+        stopped: false,
+      });
       // Exit 0 clears the piece here; in the real build it leaves at the Job's next init line.
       if (updating) this.mend(sessionId, "task_tools");
     }, 1200);
-    return { ok: true, value: { run_id: runId } };
+    return {
+      ok: true,
+      value: {
+        run_id: runId,
+      },
+    };
   }
 
   /** `base`, with Sessions served: what main publishes once Fleet has answered `list_sessions`, and the capabilities over them. */
@@ -353,7 +599,14 @@ export class FakeSessionsFleet {
     this.repositories = base.state.holds.repositories ?? [];
     return {
       ...base,
-      state: { ...base.state, sessions: { state: "read", sessions: this.records }, sessionThreads: {} },
+      state: {
+        ...base.state,
+        sessions: {
+          state: "read",
+          sessions: this.records,
+        },
+        sessionThreads: {},
+      },
       behaves: (fleet) => {
         this.fleet = fleet;
         // A walk's `later` lets a held retro go on to its next stop. **After the window's fake has registered its own**
@@ -370,17 +623,75 @@ export class FakeSessionsFleet {
             const waits =
               after === undefined
                 ? undefined
-                : { on: { id: after.session, title: this.records.find((one) => one.id === after.session)?.title ?? after.session }, condition: after.condition ?? { kind: "ends" as const }, base: after.base ?? ("main" as const), brief: request ?? "", by: "you" as const, held: false, ...(after.needs === undefined ? {} : { needs: after.needs }) };
-            const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`, { ...this.began(), ...(manifest_id === undefined ? {} : { manifest_id }), ...(waits === undefined ? {} : { waits }) });
+                : {
+                    on: {
+                      id: after.session,
+                      title:
+                        this.records.find((one) => one.id === after.session)?.title ??
+                        after.session,
+                    },
+                    condition: after.condition ?? {
+                      kind: "ends" as const,
+                    },
+                    base: after.base ?? ("main" as const),
+                    brief: request ?? "",
+                    by: "you" as const,
+                    held: false,
+                    ...(after.needs === undefined
+                      ? {}
+                      : {
+                          needs: after.needs,
+                        }),
+                  };
+            const record = hosted(
+              `01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`,
+              {
+                ...this.began(),
+                ...(manifest_id === undefined
+                  ? {}
+                  : {
+                      manifest_id,
+                    }),
+                ...(waits === undefined
+                  ? {}
+                  : {
+                      waits,
+                    }),
+              },
+            );
             // Held: it waits on its start card, with no choice standing, and nothing runs until `beginSession`. The words he dispatched
             // are the first message, held on the card and not yet in the thread; the title is their first words, as the proposer would write it.
             const words = request?.trim() ?? "";
             const started =
               held === true && after === undefined
-                ? { ...record, ...(words === "" ? {} : { title: words.split(/\s+/).slice(0, 8).join(" ") }), hosted: { ...record.hosted!, start: { asks_delivery: true, ...(words === "" ? {} : { message: request }) } } }
+                ? {
+                    ...record,
+                    ...(words === ""
+                      ? {}
+                      : {
+                          title: words.split(/\s+/).slice(0, 8).join(" "),
+                        }),
+                    hosted: {
+                      ...record.hosted!,
+                      start: {
+                        asks_delivery: true,
+                        ...(words === ""
+                          ? {}
+                          : {
+                              message: request,
+                            }),
+                      },
+                    },
+                  }
                 : record;
-            this.set([started, ...this.records]);
-            return { ok: true, value: started };
+            this.set([
+              started,
+              ...this.records,
+            ]);
+            return {
+              ok: true,
+              value: started,
+            };
           },
           beginSession: async (begin) => {
             this.calls.begun.push(begin);
@@ -388,50 +699,135 @@ export class FakeSessionsFleet {
             // Start pressed while the proposer reads is queued, his words with it; the Job starts when the reading ends (`proposes`).
             if (found?.proposal?.reading === true && found.hosted?.start !== undefined) {
               const { start } = found.hosted;
-              if (begin.message !== undefined || begin.delivery !== undefined) this.queuedBegins.set(begin.session_id, begin);
-              const queued = this.change(begin.session_id, (one) => ({ ...one, hosted: { ...one.hosted!, start: { ...start, queued: true } } }));
+              if (begin.message !== undefined || begin.delivery !== undefined)
+                this.queuedBegins.set(begin.session_id, begin);
+              const queued = this.change(begin.session_id, (one) => ({
+                ...one,
+                hosted: {
+                  ...one.hosted!,
+                  start: {
+                    ...start,
+                    queued: true,
+                  },
+                },
+              }));
               this.onQueued?.(begin.session_id);
               return queued;
             }
             return this.beginNow(begin);
           },
-          setSessionWorkflow: async (sessionId, workflow) => this.change(sessionId, ({ workflow: _was, ...one }) => (workflow === undefined ? one : { ...one, workflow })),
-          skipSessionStep: async (sessionId, step, skipped) => this.skipping(sessionId, step, skipped),
+          setSessionWorkflow: async (sessionId, workflow) =>
+            this.change(sessionId, ({ workflow: _was, ...one }) =>
+              workflow === undefined
+                ? one
+                : {
+                    ...one,
+                    workflow,
+                  },
+            ),
+          skipSessionStep: async (sessionId, step, skipped) =>
+            this.skipping(sessionId, step, skipped),
           jumpSessionStep: async (sessionId, step) => this.jumping(sessionId, step),
           readSessionWait: async (sessionId, request) => {
-            this.calls.readWaits.push({ sessionId, request });
-            return { ok: true, value: this.reading };
+            this.calls.readWaits.push({
+              sessionId,
+              request,
+            });
+            return {
+              ok: true,
+              value: this.reading,
+            };
           },
           changeWaiting: async (change) => {
             this.calls.changedWaits.push(change);
             const found = this.records.find((one) => one.id === change.waiting_session)?.waits;
-            if (found === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-            const waits = { ...found, ...(change.condition === undefined ? {} : { condition: change.condition }), ...(change.base === undefined ? {} : { base: change.base }) };
-            this.change(change.waiting_session, (one) => ({ ...one, waits }));
-            return { ok: true, value: waits };
+            if (found === undefined)
+              return {
+                ok: false,
+                outcome: {
+                  ok: false,
+                  why: "not_connected",
+                },
+              };
+            const waits = {
+              ...found,
+              ...(change.condition === undefined
+                ? {}
+                : {
+                    condition: change.condition,
+                  }),
+              ...(change.base === undefined
+                ? {}
+                : {
+                    base: change.base,
+                  }),
+            };
+            this.change(change.waiting_session, (one) => ({
+              ...one,
+              waits,
+            }));
+            return {
+              ok: true,
+              value: waits,
+            };
           },
           startWaitingNow: async (sessionId) => {
             this.calls.startedNow.push(sessionId);
             return this.change(sessionId, ({ waits: _waits, ...one }) => one);
           },
           sendSessionMessage: async (send) => {
-            if (this.refusesSend !== undefined) return { ok: false, outcome: { ok: false, why: "refused", error: this.refusesSend } as never };
+            if (this.refusesSend !== undefined)
+              return {
+                ok: false,
+                outcome: {
+                  ok: false,
+                  why: "refused",
+                  error: this.refusesSend,
+                } as never,
+              };
             this.calls.sent.push(send);
             // A Job held on its start card takes the words as its first message, on the card; the thread has nothing until Start.
-            if (this.records.find((one) => one.id === send.session_id)?.hosted?.start !== undefined) {
-              return this.change(send.session_id, (one) => ({ ...one, hosted: { ...one.hosted!, start: { ...one.hosted!.start!, message: send.text } } }));
+            if (
+              this.records.find((one) => one.id === send.session_id)?.hosted?.start !== undefined
+            ) {
+              return this.change(send.session_id, (one) => ({
+                ...one,
+                hosted: {
+                  ...one.hosted!,
+                  start: {
+                    ...one.hosted!.start!,
+                    message: send.text,
+                  },
+                },
+              }));
             }
             this.row(send.session_id, {
               kind: "message",
               id: this.rowId(),
               at: AT,
-              from: { kind: "you" },
+              from: {
+                kind: "you",
+              },
               text: send.text,
               ...(send.attachments === undefined || send.attachments.length === 0
                 ? {}
-                : { files: send.attachments.map((one, at) => ({ id: `${this.rowed}-${at}`, name: one.name, media_type: one.media_type })) }),
+                : {
+                    files: send.attachments.map((one, at) => ({
+                      id: `${this.rowed}-${at}`,
+                      name: one.name,
+                      media_type: one.media_type,
+                    })),
+                  }),
             });
-            const sent = this.change(send.session_id, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "working" } } }));
+            const sent = this.change(send.session_id, (one) => ({
+              ...one,
+              hosted: {
+                ...one.hosted!,
+                turn: {
+                  state: "working",
+                },
+              },
+            }));
             this.onSend?.(send);
             return sent;
           },
@@ -440,7 +836,10 @@ export class FakeSessionsFleet {
             this.settled(answer);
             const acted = this.change(answer.session_id, (one) => {
               const { asked: _asked, ...rest } = one.hosted!;
-              return { ...one, hosted: rest };
+              return {
+                ...one,
+                hosted: rest,
+              };
             });
             this.onAnswer?.(answer);
             return acted;
@@ -454,14 +853,32 @@ export class FakeSessionsFleet {
           },
           claimPullRequest: async (claim) => {
             this.calls.claimed.push(claim);
-            return { ok: true, value: { number: claim.number, branch: "", url: "", holder_id: claim.session_id ?? "" } };
+            return {
+              ok: true,
+              value: {
+                number: claim.number,
+                branch: "",
+                url: "",
+                holder_id: claim.session_id ?? "",
+              },
+            };
           },
           dismissWaiting: async (dismiss) => {
             this.calls.dismissed.push(dismiss);
-            const removed = this.records.find((one) => one.id === dismiss.session_id)?.waiting_for?.find((item) => item.id === dismiss.item_id);
+            const removed = this.records
+              .find((one) => one.id === dismiss.session_id)
+              ?.waiting_for?.find((item) => item.id === dismiss.item_id);
             // Fleet tells the agent of an item it stated, in the person's words; a reply or a done is only dropped.
             if (removed?.source === "agent") {
-              this.row(dismiss.session_id, { kind: "message", id: this.rowId(), at: AT, from: { kind: "you" }, text: removedSaid(removed.text, dismiss.reason) });
+              this.row(dismiss.session_id, {
+                kind: "message",
+                id: this.rowId(),
+                at: AT,
+                from: {
+                  kind: "you",
+                },
+                text: removedSaid(removed.text, dismiss.reason),
+              });
             }
             return this.change(dismiss.session_id, (one) => ({
               ...one,
@@ -473,88 +890,322 @@ export class FakeSessionsFleet {
             // Fleet keeps the item and reads it confirmed from then on.
             return this.change(confirm.session_id, (one) => ({
               ...one,
-              waiting_for: (one.waiting_for ?? []).map((item) => (item.id === confirm.item_id ? { ...item, confirmed: true } : item)),
+              waiting_for: (one.waiting_for ?? []).map((item) =>
+                item.id === confirm.item_id
+                  ? {
+                      ...item,
+                      confirmed: true,
+                    }
+                  : item,
+              ),
             }));
           },
           tuneSession: async (tune) => {
             this.calls.tuned.push(tune);
             return this.change(tune.session_id, (one) => ({
               ...one,
-              hosted: { ...one.hosted!, mode: tune.mode, ...(tune.model === undefined ? {} : { model: tune.model }), ...(tune.effort === undefined ? {} : { effort: tune.effort }) },
+              hosted: {
+                ...one.hosted!,
+                mode: tune.mode,
+                ...(tune.model === undefined
+                  ? {}
+                  : {
+                      model: tune.model,
+                    }),
+                ...(tune.effort === undefined
+                  ? {}
+                  : {
+                      effort: tune.effort,
+                    }),
+              },
             }));
           },
           renameSession: async (rename) => {
             this.calls.renamed.push(rename);
-            return this.change(rename.session_id, (one) => ({ ...one, title: rename.title }));
+            return this.change(rename.session_id, (one) => ({
+              ...one,
+              title: rename.title,
+            }));
           },
           // Fleet names the Job from its first message: here a fixture, or the first words, after the wait a model takes.
           nameSession: async (naming) => {
             this.calls.named.push(naming);
             await new Promise((done) => setTimeout(done, NAMING_MS));
-            return this.change(naming.session_id, (one) => ({ ...one, title: NAMED_FOR_ME[one.id] ?? firstWords(one.hosted?.start?.message ?? one.title ?? "") }));
+            return this.change(naming.session_id, (one) => ({
+              ...one,
+              title:
+                NAMED_FOR_ME[one.id] ?? firstWords(one.hosted?.start?.message ?? one.title ?? ""),
+            }));
           },
           forkSession: async (sessionId) => {
             this.calls.forked.push(sessionId);
             const old = this.records.find((one) => one.id === sessionId);
-            if (old === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+            if (old === undefined)
+              return {
+                ok: false,
+                outcome: {
+                  ok: false,
+                  why: "not_connected",
+                },
+              };
             // Fleet's own refusal: a session that is still running is not forked.
-            if (old.state === "live" && (old.hosted !== undefined || old.terminal?.listening === true)) {
-              return { ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.session_fork_live", message: `session ${sessionId} is still running, and only an ended one is forked` } } as never };
+            if (
+              old.state === "live" &&
+              (old.hosted !== undefined || old.terminal?.listening === true)
+            ) {
+              return {
+                ok: false,
+                outcome: {
+                  ok: false,
+                  why: "refused",
+                  error: {
+                    code: "fleet.session_fork_live",
+                    message: `session ${sessionId} is still running, and only an ended one is forked`,
+                  },
+                } as never,
+              };
             }
             const id = `01FORK${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHIJ`;
-            const record = hosted(id, { ...this.began(), ...(old.title === undefined ? {} : { title: old.title }), attachments: [held("forked_from", sessionId, {}, "spent")] });
-            this.set([record, ...this.records.map((one) => (one.id === sessionId ? { ...one, attachments: [...one.attachments, held("forked_to", id, {}, "spent")] } : one))]);
-            return { ok: true, value: record };
+            const record = hosted(id, {
+              ...this.began(),
+              ...(old.title === undefined
+                ? {}
+                : {
+                    title: old.title,
+                  }),
+              attachments: [
+                held("forked_from", sessionId, {}, "spent"),
+              ],
+            });
+            this.set([
+              record,
+              ...this.records.map((one) =>
+                one.id === sessionId
+                  ? {
+                      ...one,
+                      attachments: [
+                        ...one.attachments,
+                        held("forked_to", id, {}, "spent"),
+                      ],
+                    }
+                  : one,
+              ),
+            ]);
+            return {
+              ok: true,
+              value: record,
+            };
           },
           handToSession: async (sessionId, group) => {
-            this.calls.handed.push({ sessionId, group });
+            this.calls.handed.push({
+              sessionId,
+              group,
+            });
             const parent = this.records.find((one) => one.id === sessionId);
             const title = parent?.plan?.groups.find((one) => one.id === group)?.title;
-            if (parent === undefined || title === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+            if (parent === undefined || title === undefined)
+              return {
+                ok: false,
+                outcome: {
+                  ok: false,
+                  why: "not_connected",
+                },
+              };
             // The press is his, so the brief is sent: nothing is left held.
-            const id = this.agentStarts(sessionId, { title, message: title, group });
+            const id = this.agentStarts(sessionId, {
+              title,
+              message: title,
+              group,
+            });
             this.change(id, (one) => {
               const { start: _start, ...rest } = one.hosted!;
-              return { ...one, hosted: rest };
+              return {
+                ...one,
+                hosted: rest,
+              };
             });
-            return { ok: true, value: { session_id: id, title, fork: false } };
+            return {
+              ok: true,
+              value: {
+                session_id: id,
+                title,
+                fork: false,
+              },
+            };
           },
           forkSessionAt: async (sessionId, at) => {
-            this.calls.forkedAt.push({ sessionId, at });
+            this.calls.forkedAt.push({
+              sessionId,
+              at,
+            });
             const old = this.records.find((one) => one.id === sessionId);
-            if (old === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+            if (old === undefined)
+              return {
+                ok: false,
+                outcome: {
+                  ok: false,
+                  why: "not_connected",
+                },
+              };
             // **Live or not**: the Session it came from is left as it was, and keeps taking messages.
             const id = `01FORK${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHIJ`;
-            const record = hosted(id, { ...this.began(), ...(old.title === undefined ? {} : { title: old.title }), attachments: [held("forked_from", sessionId, { at }, "spent")] });
-            this.set([record, ...this.records.map((one) => (one.id === sessionId ? { ...one, attachments: [...one.attachments, held("forked_to", id, {}, "spent")] } : one))]);
-            return { ok: true, value: record };
+            const record = hosted(id, {
+              ...this.began(),
+              ...(old.title === undefined
+                ? {}
+                : {
+                    title: old.title,
+                  }),
+              attachments: [
+                held(
+                  "forked_from",
+                  sessionId,
+                  {
+                    at,
+                  },
+                  "spent",
+                ),
+              ],
+            });
+            this.set([
+              record,
+              ...this.records.map((one) =>
+                one.id === sessionId
+                  ? {
+                      ...one,
+                      attachments: [
+                        ...one.attachments,
+                        held("forked_to", id, {}, "spent"),
+                      ],
+                    }
+                  : one,
+              ),
+            ]);
+            return {
+              ok: true,
+              value: record,
+            };
           },
           moveSession: async (sessionId, manifestId) => {
-            this.calls.moved.push({ sessionId, manifestId });
+            this.calls.moved.push({
+              sessionId,
+              manifestId,
+            });
             const old = this.records.find((one) => one.id === sessionId);
-            if (old === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-            const refused = this.refusesMove ?? (old.manifest_id === manifestId ? { code: "fleet.session_move_same", message: "session is already in that repository" } : old.terminal?.listening === true ? { code: "fleet.session_move_listening", message: "session runs in a terminal that is still listening" } : undefined);
+            if (old === undefined)
+              return {
+                ok: false,
+                outcome: {
+                  ok: false,
+                  why: "not_connected",
+                },
+              };
+            const refused =
+              this.refusesMove ??
+              (old.manifest_id === manifestId
+                ? {
+                    code: "fleet.session_move_same",
+                    message: "session is already in that repository",
+                  }
+                : old.terminal?.listening === true
+                  ? {
+                      code: "fleet.session_move_listening",
+                      message: "session runs in a terminal that is still listening",
+                    }
+                  : undefined);
             if (refused !== undefined) {
               this.refusesMove = undefined;
-              return { ok: false, outcome: { ok: false, why: "refused", error: refused } as never };
+              return {
+                ok: false,
+                outcome: {
+                  ok: false,
+                  why: "refused",
+                  error: refused,
+                } as never,
+              };
             }
             const id = `01MOVE${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHIJ`;
-            const branch = old.attachments.filter((one) => one.kind === "branch").map((one) => one.target).join(",");
-            const record = hosted(id, { ...this.began(), manifest_id: manifestId, ...(old.title === undefined ? {} : { title: old.title }), attachments: [held("forked_from", sessionId, { ...(old.manifest_id === undefined ? {} : { moved: old.manifest_id }), ...(branch === "" ? {} : { branch }) }, "spent")] });
-            const ended = (one: SessionRecord): SessionRecord => ({ ...one, state: "ended", attachments: [...one.attachments, held("forked_to", id, { moved: manifestId }, "spent")] });
-            this.set([record, ...this.records.map((one) => (one.id === sessionId ? ended(one) : one))]);
-            return { ok: true, value: record };
+            const branch = old.attachments
+              .filter((one) => one.kind === "branch")
+              .map((one) => one.target)
+              .join(",");
+            const record = hosted(id, {
+              ...this.began(),
+              manifest_id: manifestId,
+              ...(old.title === undefined
+                ? {}
+                : {
+                    title: old.title,
+                  }),
+              attachments: [
+                held(
+                  "forked_from",
+                  sessionId,
+                  {
+                    ...(old.manifest_id === undefined
+                      ? {}
+                      : {
+                          moved: old.manifest_id,
+                        }),
+                    ...(branch === ""
+                      ? {}
+                      : {
+                          branch,
+                        }),
+                  },
+                  "spent",
+                ),
+              ],
+            });
+            const ended = (one: SessionRecord): SessionRecord => ({
+              ...one,
+              state: "ended",
+              attachments: [
+                ...one.attachments,
+                held(
+                  "forked_to",
+                  id,
+                  {
+                    moved: manifestId,
+                  },
+                  "spent",
+                ),
+              ],
+            });
+            this.set([
+              record,
+              ...this.records.map((one) => (one.id === sessionId ? ended(one) : one)),
+            ]);
+            return {
+              ok: true,
+              value: record,
+            };
           },
           muteNotice: async (mute) => {
             this.calls.muted.push(mute);
-            return { ok: true, value: mute };
+            return {
+              ok: true,
+              value: mute,
+            };
           },
           retroSession: async (sessionId: string) => {
             this.calls.retroed.push(sessionId);
-            if (this.refusesRetro !== undefined) return { ok: false as const, why: "refused", error: this.refusesRetro } as never;
+            if (this.refusesRetro !== undefined)
+              return {
+                ok: false as const,
+                why: "refused",
+                error: this.refusesRetro,
+              } as never;
             // **Fleet refuses a second press while one is being written**, and the first goes on.
             if (this.writingRetro.has(sessionId)) {
-              return { ok: false as const, why: "refused", error: { code: "fleet.session_retro_being_written", message: `a retro of session ${sessionId} is being written` } } as never;
+              return {
+                ok: false as const,
+                why: "refused",
+                error: {
+                  code: "fleet.session_retro_being_written",
+                  message: `a retro of session ${sessionId} is being written`,
+                },
+              } as never;
             }
             this.writingRetro.add(sessionId);
             try {
@@ -562,18 +1213,31 @@ export class FakeSessionsFleet {
             } finally {
               this.writingRetro.delete(sessionId);
             }
-            return { ok: true as const };
+            return {
+              ok: true as const,
+            };
           },
           closeSession: async (sessionId) => {
             if (this.refusesClose !== undefined) {
               const error = this.refusesClose;
               this.refusesClose = undefined;
-              return { ok: false, outcome: { ok: false, why: "refused", error } as never };
+              return {
+                ok: false,
+                outcome: {
+                  ok: false,
+                  why: "refused",
+                  error,
+                } as never,
+              };
             }
             this.calls.closed.push(sessionId);
             // A terminal's end is held for its mod: the row ends when the terminal says it did (`changed`).
-            if (this.records.find((one) => one.id === sessionId)?.origin === "terminal") return this.change(sessionId, (one) => one);
-            const ending = (one: SessionRecord): SessionRecord => ({ ...one, state: "ended" });
+            if (this.records.find((one) => one.id === sessionId)?.origin === "terminal")
+              return this.change(sessionId, (one) => one);
+            const ending = (one: SessionRecord): SessionRecord => ({
+              ...one,
+              state: "ended",
+            });
             if (this.endsAfterMs > 0) {
               const answer = this.change(sessionId, (one) => one);
               setTimeout(() => this.change(sessionId, ending), this.endsAfterMs);
@@ -583,47 +1247,118 @@ export class FakeSessionsFleet {
           },
           stopSession: async (sessionId) => {
             this.calls.stopped.push(sessionId);
-            return this.change(sessionId, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "idle" } } }));
+            return this.change(sessionId, (one) => ({
+              ...one,
+              hosted: {
+                ...one.hosted!,
+                turn: {
+                  state: "idle",
+                },
+              },
+            }));
           },
           watchSession: async (sessionId) => {
             this.calls.watched.push(sessionId);
             if (this.readingIds.includes(sessionId)) return;
             const held = this.heldReads.get(sessionId);
             if (held !== undefined) return this.readHeld(sessionId, held);
-            this.threads = { ...this.threads, [sessionId]: this.threads[sessionId] ?? this.keptRetro[sessionId] ?? [] };
+            this.threads = {
+              ...this.threads,
+              [sessionId]: this.threads[sessionId] ?? this.keptRetro[sessionId] ?? [],
+            };
             this.publishThreads();
           },
           readSessionSubagent: async (_sessionId, subagentId) => {
             const thread = this.subagents[subagentId];
-            return thread === undefined ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: thread };
+            return thread === undefined
+              ? {
+                  ok: false,
+                  outcome: {
+                    ok: false,
+                    why: "not_connected",
+                  },
+                }
+              : {
+                  ok: true,
+                  value: thread,
+                };
           },
           readSessionLoadout: async (sessionId) => {
             const loadout = this.loadouts[sessionId];
-            return loadout === undefined ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: loadout };
+            return loadout === undefined
+              ? {
+                  ok: false,
+                  outcome: {
+                    ok: false,
+                    why: "not_connected",
+                  },
+                }
+              : {
+                  ok: true,
+                  value: loadout,
+                };
           },
           readLoadoutItem: async (sessionId, item) => {
             const key = loadoutKeyOf(item);
             this.readLoadoutItems.push(key);
-            return { ok: true, value: this.loadoutItems[sessionId]?.[key] ?? { what: "not_read", why: "No file on this machine names this item." } };
+            return {
+              ok: true,
+              value: this.loadoutItems[sessionId]?.[key] ?? {
+                what: "not_read",
+                why: "No file on this machine names this item.",
+              },
+            };
           },
           readSessionMcp: async (sessionId) => {
             const servers = this.mcpServers[sessionId];
-            return servers === undefined ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: { servers } };
+            return servers === undefined
+              ? {
+                  ok: false,
+                  outcome: {
+                    ok: false,
+                    why: "not_connected",
+                  },
+                }
+              : {
+                  ok: true,
+                  value: {
+                    servers,
+                  },
+                };
           },
-          readSessionQuick: async (sessionId) => ({ ok: true, value: this.quick[sessionId] ?? { asked: [], learnt: [] } }),
-          actOnSessionMcp: async (sessionId, server, act) => this.actingOnMcp(sessionId, server, act),
+          readSessionQuick: async (sessionId) => ({
+            ok: true,
+            value: this.quick[sessionId] ?? {
+              asked: [],
+              learnt: [],
+            },
+          }),
+          actOnSessionMcp: async (sessionId, server, act) =>
+            this.actingOnMcp(sessionId, server, act),
           mendSessionTools: async (sessionId) => this.mending(sessionId),
           startSessionRun: async (sessionId, command) => this.startingRun(sessionId, command),
           onSessionRunMessage: (on) => {
             this.runListeners.add(on);
             return () => void this.runListeners.delete(on);
           },
-          readSessionFile: async () => ({ ok: true, bytes: ONE_PIXEL, type: "image/png" }),
-          openSessionFile: async () => ({ ok: true }),
-          readSessionArtifact: async () => ({ ok: true, bytes: new TextEncoder().encode("# Store clock"), type: "text/markdown" }),
+          readSessionFile: async () => ({
+            ok: true,
+            bytes: ONE_PIXEL,
+            type: "image/png",
+          }),
+          openSessionFile: async () => ({
+            ok: true,
+          }),
+          readSessionArtifact: async () => ({
+            ok: true,
+            bytes: new TextEncoder().encode("# Store clock"),
+            type: "text/markdown",
+          }),
           showSessionPage: async (_sessionId, address) => {
             this.calls.pages.push(address);
-            return { ok: true };
+            return {
+              ok: true,
+            };
           },
           moveSessionPage: async () => undefined,
           onSessionPageEscape: (on) => {
@@ -634,31 +1369,64 @@ export class FakeSessionsFleet {
             this.calls.pagesHidden += 1;
           },
           refreshPullRequest: async (manifestId, number) => {
-            this.calls.refreshed.push({ manifestId, number });
-            if (this.refusesRefresh !== undefined) return { ok: false, outcome: { ok: false, why: "refused", error: this.refusesRefresh } as never };
+            this.calls.refreshed.push({
+              manifestId,
+              number,
+            });
+            if (this.refusesRefresh !== undefined)
+              return {
+                ok: false,
+                outcome: {
+                  ok: false,
+                  why: "refused",
+                  error: this.refusesRefresh,
+                } as never,
+              };
             const reading = this.forge[number];
             if (reading !== undefined) this.readFromForge(number, reading);
-            return { ok: true, value: this.pullRequestState(manifestId, number) };
+            return {
+              ok: true,
+              value: this.pullRequestState(manifestId, number),
+            };
           },
           pressPullRequest: async (sessionId, number, press) => {
-            this.calls.pressed.push({ sessionId, number, press });
-            if (press !== "read" && this.refusesPress !== undefined) return { ok: false, outcome: { ok: false, why: "refused", error: this.refusesPress } as never };
+            this.calls.pressed.push({
+              sessionId,
+              number,
+              press,
+            });
+            if (press !== "read" && this.refusesPress !== undefined)
+              return {
+                ok: false,
+                outcome: {
+                  ok: false,
+                  why: "refused",
+                  error: this.refusesPress,
+                } as never,
+              };
             if (press === "merge") {
               const refused = this.merge(sessionId, number);
               if (refused !== undefined) return refused;
             }
-            const now = this.records.find((one) => one.id === sessionId)?.attachments.find((one) => one.kind === "pr" && one.target === String(number));
+            const now = this.records
+              .find((one) => one.id === sessionId)
+              ?.attachments.find((one) => one.kind === "pr" && one.target === String(number));
             const state: PullRequestState = {
               manifest_id: "armada",
               number,
               state: press === "merge" ? "merged" : "open",
               auto_merge: press === "auto_merge",
-              checks: { state: "passed" },
+              checks: {
+                state: "passed",
+              },
               title: now?.detail?.["title"] ?? "",
               branch: now?.detail?.["branch"] ?? "",
               address: now?.detail?.["address"] ?? "",
             };
-            return { ok: true, value: state };
+            return {
+              ok: true,
+              value: state,
+            };
           },
         };
       },
@@ -672,30 +1440,97 @@ export class FakeSessionsFleet {
   private readFromForge(number: number, reading: ForgeReading): void {
     const lines = this.fleet?.state().mergeLines;
     if (lines != null) {
-      const read = (one: HubPullRequest): HubPullRequest => (one.number === number ? { ...one, ci: HUB_CI[reading.checks], updated_at: new Date().toISOString() } : one);
-      const next: MergeLines = { lines: lines.lines.map((line) => (line.hub?.pull_requests === undefined ? line : { ...line, hub: { ...line.hub, pull_requests: line.hub.pull_requests.map(read) } })) };
-      this.fleet?.publish({ mergeLines: next });
+      const read = (one: HubPullRequest): HubPullRequest =>
+        one.number === number
+          ? {
+              ...one,
+              ci: HUB_CI[reading.checks],
+              updated_at: new Date().toISOString(),
+            }
+          : one;
+      const next: MergeLines = {
+        lines: lines.lines.map((line) =>
+          line.hub?.pull_requests === undefined
+            ? line
+            : {
+                ...line,
+                hub: {
+                  ...line.hub,
+                  pull_requests: line.hub.pull_requests.map(read),
+                },
+              },
+        ),
+      };
+      this.fleet?.publish({
+        mergeLines: next,
+      });
     }
     const failing = (reading.failing ?? []).map((one) => one.name).join(", ");
     for (const record of this.records) {
-      const row = record.attachments.find((one) => one.kind === "pr" && one.target === String(number));
+      const row = record.attachments.find(
+        (one) => one.kind === "pr" && one.target === String(number),
+      );
       if (row === undefined) continue;
-      this.change(record.id, (one) => ({ ...one, attachments: one.attachments.map((a) => (a === row ? { ...a, detail: { ...a.detail, checks: reading.checks, failing } } : a)) }));
+      this.change(record.id, (one) => ({
+        ...one,
+        attachments: one.attachments.map((a) =>
+          a === row
+            ? {
+                ...a,
+                detail: {
+                  ...a.detail,
+                  checks: reading.checks,
+                  failing,
+                },
+              }
+            : a,
+        ),
+      }));
       const key = `${record.id}:${number}:${reading.head}`;
       if (reading.checks !== "failed" || this.told.has(key)) continue;
       this.told.add(key);
-      const text = failedNotice(number, reading, row.detail?.["address"] ?? "", row.detail?.["branch"] ?? "");
-      this.row(record.id, { kind: "message", id: this.rowId(), at: new Date().toISOString(), from: { kind: "session", id: "fleet", title: "Fleet" }, text });
+      const text = failedNotice(
+        number,
+        reading,
+        row.detail?.["address"] ?? "",
+        row.detail?.["branch"] ?? "",
+      );
+      this.row(record.id, {
+        kind: "message",
+        id: this.rowId(),
+        at: new Date().toISOString(),
+        from: {
+          kind: "session",
+          id: "fleet",
+          title: "Fleet",
+        },
+        text,
+      });
     }
   }
 
   /** `get_pull_request`'s answer, from the ledger row that holds the pull request, else the merge line's hub row. */
   private pullRequestState(manifestId: string, number: number): PullRequestState {
-    const row = this.records.flatMap((one) => one.attachments).find((one) => one.kind === "pr" && one.target === String(number));
-    const hub = (this.fleet?.state().mergeLines?.lines ?? []).flatMap((line) => line.hub?.pull_requests ?? []).find((one) => one.number === number);
+    const row = this.records
+      .flatMap((one) => one.attachments)
+      .find((one) => one.kind === "pr" && one.target === String(number));
+    const hub = (this.fleet?.state().mergeLines?.lines ?? [])
+      .flatMap((line) => line.hub?.pull_requests ?? [])
+      .find((one) => one.number === number);
     const reading = this.forge[number];
     const checks: PullRequestState["checks"] =
-      reading?.checks === "failed" ? { state: "failed", failing: (reading.failing ?? []).map((one) => one.name) } : reading?.checks === "passed" || hub?.ci === "passed" ? { state: "passed" } : { state: "pending" };
+      reading?.checks === "failed"
+        ? {
+            state: "failed",
+            failing: (reading.failing ?? []).map((one) => one.name),
+          }
+        : reading?.checks === "passed" || hub?.ci === "passed"
+          ? {
+              state: "passed",
+            }
+          : {
+              state: "pending",
+            };
     return {
       manifest_id: manifestId,
       number,
@@ -713,40 +1548,110 @@ export class FakeSessionsFleet {
   }
 
   private merge(sessionId: string, number: number): SessionActed<never> | undefined {
-    const row = this.records.find((one) => one.id === sessionId)?.attachments.find((one) => one.kind === "pr" && one.target === String(number));
+    const row = this.records
+      .find((one) => one.id === sessionId)
+      ?.attachments.find((one) => one.kind === "pr" && one.target === String(number));
     if (row?.detail?.["checks"] !== "passed") {
-      return { ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.merge_checks_not_passed", message: "The checks have not passed." } } as never };
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "refused",
+          error: {
+            code: "fleet.merge_checks_not_passed",
+            message: "The checks have not passed.",
+          },
+        } as never,
+      };
     }
     this.change(sessionId, (one) => ({
       ...one,
-      attachments: one.attachments.map((a) => (a === row ? { ...a, state: "spent" as const, detail: { ...a.detail, state: "merged" } } : a)),
+      attachments: one.attachments.map((a) =>
+        a === row
+          ? {
+              ...a,
+              state: "spent" as const,
+              detail: {
+                ...a.detail,
+                state: "merged",
+              },
+            }
+          : a,
+      ),
     }));
     return undefined;
   }
 
   /** A turn of the agent has filled more of a Session's context window: the usage and what the window holds move together. */
-  fillTo(sessionId: string, usage: SessionRecord["usage"], breakdown: SessionRecord["context_breakdown"]): void {
-    this.change(sessionId, (one) => ({ ...one, usage, ...(breakdown === undefined ? {} : { context_breakdown: breakdown }) }));
+  fillTo(
+    sessionId: string,
+    usage: SessionRecord["usage"],
+    breakdown: SessionRecord["context_breakdown"],
+  ): void {
+    this.change(sessionId, (one) => ({
+      ...one,
+      usage,
+      ...(breakdown === undefined
+        ? {}
+        : {
+            context_breakdown: breakdown,
+          }),
+    }));
   }
 
   /** Fleet starts a held Job: the card goes, the first message lands in the thread, and the Job that started it is told. */
   private beginNow(begin: BeginSession): SessionActed {
     // The first message is his edit, else the one the card held. It lands in the thread now, and the agent plays in on it.
-    const first = begin.message ?? this.records.find((one) => one.id === begin.session_id)?.hosted?.start?.message;
+    const first =
+      begin.message ??
+      this.records.find((one) => one.id === begin.session_id)?.hosted?.start?.message;
     // Fleet starts the agent and the card goes: `start` is gone from the record it answers.
     const begun = this.change(begin.session_id, (one) => {
       const { start: _start, ...rest } = one.hosted!;
-      return { ...one, hosted: { ...rest, turn: { state: "working" } } };
+      return {
+        ...one,
+        hosted: {
+          ...rest,
+          turn: {
+            state: "working",
+          },
+        },
+      };
     });
     if (begun.ok && first !== undefined && first.trim() !== "") {
-      this.threads = { ...this.threads, [begin.session_id]: this.threads[begin.session_id] ?? [] };
-      this.row(begin.session_id, { kind: "message", id: this.rowId(), at: AT, from: { kind: "you" }, text: first });
-      this.onSend?.({ session_id: begin.session_id, text: first });
+      this.threads = {
+        ...this.threads,
+        [begin.session_id]: this.threads[begin.session_id] ?? [],
+      };
+      this.row(begin.session_id, {
+        kind: "message",
+        id: this.rowId(),
+        at: AT,
+        from: {
+          kind: "you",
+        },
+        text: first,
+      });
+      this.onSend?.({
+        session_id: begin.session_id,
+        text: first,
+      });
     }
     // The Job whose agent started it has a linked row, where its own row for Start was.
-    const parent = begun.ok ? begun.value.attachments.find((one) => one.kind === "started_by")?.target : undefined;
+    const parent = begun.ok
+      ? begun.value.attachments.find((one) => one.kind === "started_by")?.target
+      : undefined;
     if (begun.ok && parent !== undefined) {
-      this.row(parent, { kind: "linked", id: this.rowId(), at: this.startsNow ? new Date().toISOString() : AT, session: { id: begin.session_id, title: begun.value.title ?? begin.session_id }, event: "started" });
+      this.row(parent, {
+        kind: "linked",
+        id: this.rowId(),
+        at: this.startsNow ? new Date().toISOString() : AT,
+        session: {
+          id: begin.session_id,
+          title: begun.value.title ?? begin.session_id,
+        },
+        event: "started",
+      });
     }
     return begun;
   }
@@ -756,24 +1661,59 @@ export class FakeSessionsFleet {
    * still on its start card, and the item goes when that Job starts. A record whose items stand as they were is kept as it was.
    */
   private withHeldChildren(records: SessionRecord[]): SessionRecord[] {
-    const held = new Map(records.filter((one) => one.state === "live" && one.hosted?.start !== undefined).map((one) => [one.id, one]));
+    const held = new Map(
+      records
+        .filter((one) => one.state === "live" && one.hosted?.start !== undefined)
+        .map((one) => [
+          one.id,
+          one,
+        ]),
+    );
     return records.map((one) => {
       const was = (one.waiting_for ?? []).filter((item) => item.source === "held_child");
-      const children = one.attachments.flatMap((link) => (link.kind === "started_to" && held.has(link.target) ? [held.get(link.target)!] : []));
+      const children = one.attachments.flatMap((link) =>
+        link.kind === "started_to" && held.has(link.target)
+          ? [
+              held.get(link.target)!,
+            ]
+          : [],
+      );
       const items = children.map((child): WaitingItem => {
         const text = `Press Start on "${child.title ?? child.id}"`;
         const kept = was.find((item) => item.id === `start:${child.id}`);
-        return kept !== undefined && kept.text === text ? kept : { id: `start:${child.id}`, text, since: kept?.since ?? AT, source: "held_child", act: { kind: "message", target: child.id } };
+        return kept !== undefined && kept.text === text
+          ? kept
+          : {
+              id: `start:${child.id}`,
+              text,
+              since: kept?.since ?? AT,
+              source: "held_child",
+              act: {
+                kind: "message",
+                target: child.id,
+              },
+            };
       });
       if (items.length === was.length && items.every((item, at) => item === was[at])) return one;
-      return { ...one, waiting_for: [...(one.waiting_for ?? []).filter((item) => item.source !== "held_child"), ...items] };
+      return {
+        ...one,
+        waiting_for: [
+          ...(one.waiting_for ?? []).filter((item) => item.source !== "held_child"),
+          ...items,
+        ],
+      };
     });
   }
 
   private set(records: SessionRecord[]): void {
     records = this.withHeldChildren(records);
     this.records = records;
-    this.fleet?.publish({ sessions: { state: "read", sessions: records } });
+    this.fleet?.publish({
+      sessions: {
+        state: "read",
+        sessions: records,
+      },
+    });
   }
 
   /**
@@ -784,64 +1724,204 @@ export class FakeSessionsFleet {
     const { [sessionId]: thread = [], ...rest } = this.threads;
     // Out of the threads every other read publishes, so no other Job's open lets it in early.
     this.threads = rest;
-    this.heldReads.set(sessionId, { ms, thread, ...(cached === undefined ? {} : { cached }) });
+    this.heldReads.set(sessionId, {
+      ms,
+      thread,
+      ...(cached === undefined
+        ? {}
+        : {
+            cached,
+          }),
+    });
   }
 
-  private readHeld(sessionId: string, held: { ms: number; thread: SessionRow[]; cached?: SessionRow[] }): void {
+  private readHeld(
+    sessionId: string,
+    held: {
+      ms: number;
+      thread: SessionRow[];
+      cached?: SessionRow[];
+    },
+  ): void {
     this.heldReads.delete(sessionId);
-    this.readingIds = [...this.readingIds, sessionId];
-    if (held.cached !== undefined) this.threads = { ...this.threads, [sessionId]: held.cached };
-    this.fleet?.publish({ sessionThreads: this.threads, sessionThreadsReading: this.readingIds });
+    this.readingIds = [
+      ...this.readingIds,
+      sessionId,
+    ];
+    if (held.cached !== undefined)
+      this.threads = {
+        ...this.threads,
+        [sessionId]: held.cached,
+      };
+    this.fleet?.publish({
+      sessionThreads: this.threads,
+      sessionThreadsReading: this.readingIds,
+    });
     setTimeout(() => {
       this.readingIds = this.readingIds.filter((one) => one !== sessionId);
-      this.threads = { ...this.threads, [sessionId]: held.thread };
-      this.fleet?.publish({ sessionThreads: this.threads, sessionThreadsReading: this.readingIds });
+      this.threads = {
+        ...this.threads,
+        [sessionId]: held.thread,
+      };
+      this.fleet?.publish({
+        sessionThreads: this.threads,
+        sessionThreadsReading: this.readingIds,
+      });
     }, held.ms);
   }
 
   private publishThreads(): void {
-    this.fleet?.publish({ sessionThreads: this.threads });
+    this.fleet?.publish({
+      sessionThreads: this.threads,
+    });
   }
 
   /** `skip_session_step` as Fleet takes it (`skip-step.ts`), against the steps of the workflow the record follows. */
   private skipping(sessionId: string, step: number, skipped: boolean): SessionActed {
     const found = this.records.find((one) => one.id === sessionId);
-    if (found === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    const steps = this.fleet?.state().holds.workflows.find((one) => one.id === found.workflow && (found.manifest_id === undefined || one.manifest_id === found.manifest_id))?.steps.length ?? 0;
-    const stands = skipStep({ at: found.workflow_step, skipped: found.skipped_steps ?? [] }, steps, step, skipped);
+    if (found === undefined)
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
+    const steps =
+      this.fleet
+        ?.state()
+        .holds.workflows.find(
+          (one) =>
+            one.id === found.workflow &&
+            (found.manifest_id === undefined || one.manifest_id === found.manifest_id),
+        )?.steps.length ?? 0;
+    const stands = skipStep(
+      {
+        at: found.workflow_step,
+        skipped: found.skipped_steps ?? [],
+      },
+      steps,
+      step,
+      skipped,
+    );
     if (stands === undefined) {
-      return { ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.session_step_not_skippable", message: `step ${step} is not one this Job can skip` } } as never };
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "refused",
+          error: {
+            code: "fleet.session_step_not_skippable",
+            message: `step ${step} is not one this Job can skip`,
+          },
+        } as never,
+      };
     }
     return this.change(sessionId, ({ skipped_steps: _was, ...one }) => {
       // A step the Job moves onto is a visit begun now, so what it makes next stands under it.
-      const moved = stands.at !== undefined && stands.at !== one.workflow_step ? { workflow_visits: [...(one.workflow_visits ?? []), { step: stands.at, since: new Date().toISOString() }] } : {};
-      return { ...one, ...(stands.skipped.length === 0 ? {} : { skipped_steps: stands.skipped }), ...(stands.at === undefined ? {} : { workflow_step: stands.at }), ...moved };
+      const moved =
+        stands.at !== undefined && stands.at !== one.workflow_step
+          ? {
+              workflow_visits: [
+                ...(one.workflow_visits ?? []),
+                {
+                  step: stands.at,
+                  since: new Date().toISOString(),
+                },
+              ],
+            }
+          : {};
+      return {
+        ...one,
+        ...(stands.skipped.length === 0
+          ? {}
+          : {
+              skipped_steps: stands.skipped,
+            }),
+        ...(stands.at === undefined
+          ? {}
+          : {
+              workflow_step: stands.at,
+            }),
+        ...moved,
+      };
     });
   }
 
   /** `jump_session_step` as Fleet takes it (`jump-step.ts`), against the steps of the workflow the record follows. */
   private jumping(sessionId: string, step: number): SessionActed {
     const found = this.records.find((one) => one.id === sessionId);
-    if (found === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    const steps = this.fleet?.state().holds.workflows.find((one) => one.id === found.workflow && (found.manifest_id === undefined || one.manifest_id === found.manifest_id))?.steps.length ?? 0;
-    const stands = jumpStep({ at: found.workflow_step, skipped: found.skipped_steps ?? [] }, steps, step);
+    if (found === undefined)
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
+    const steps =
+      this.fleet
+        ?.state()
+        .holds.workflows.find(
+          (one) =>
+            one.id === found.workflow &&
+            (found.manifest_id === undefined || one.manifest_id === found.manifest_id),
+        )?.steps.length ?? 0;
+    const stands = jumpStep(
+      {
+        at: found.workflow_step,
+        skipped: found.skipped_steps ?? [],
+      },
+      steps,
+      step,
+    );
     if (stands === undefined) {
-      return { ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.session_step_not_ahead", message: `step ${step} is not after the one this Job is on` } } as never };
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "refused",
+          error: {
+            code: "fleet.session_step_not_ahead",
+            message: `step ${step} is not after the one this Job is on`,
+          },
+        } as never,
+      };
     }
     return this.change(sessionId, ({ skipped_steps: _was, ...one }) => ({
       ...one,
-      ...(stands.skipped.length === 0 ? {} : { skipped_steps: stands.skipped }),
+      ...(stands.skipped.length === 0
+        ? {}
+        : {
+            skipped_steps: stands.skipped,
+          }),
       workflow_step: stands.at,
-      workflow_visits: [...(one.workflow_visits ?? []), { step: stands.at, since: new Date().toISOString() }],
+      workflow_visits: [
+        ...(one.workflow_visits ?? []),
+        {
+          step: stands.at,
+          since: new Date().toISOString(),
+        },
+      ],
     }));
   }
 
   private change(sessionId: string, how: (one: SessionRecord) => SessionRecord): SessionActed {
     const found = this.records.find((one) => one.id === sessionId);
-    if (found === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    if (found === undefined)
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
     const record = how(found);
     this.set(this.records.map((one) => (one.id === sessionId ? record : one)));
-    return { ok: true, value: record };
+    return {
+      ok: true,
+      value: record,
+    };
   }
 
   /**
@@ -849,13 +1929,74 @@ export class FakeSessionsFleet {
    * the agent's own conversation, whole or at one of its messages. **Fleet holds it for him**: the Job opens on its start
    * card with the agent's first message in the Message box, and nothing runs until he presses Start. Answers the new id.
    */
-  agentStarts(fromId: string, how: { title: string; message: string; fork?: { at?: string }; group?: string }): string {
+  agentStarts(
+    fromId: string,
+    how: {
+      title: string;
+      message: string;
+      fork?: {
+        at?: string;
+      };
+      group?: string;
+    },
+  ): string {
     const id = `01AGENT${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHI`;
-    const grouped: Record<string, string> = how.group === undefined ? {} : { group: how.group };
-    const link = how.fork === undefined ? held("started_by", fromId, grouped, "spent") : held("forked_from", fromId, how.fork.at === undefined ? {} : { at: how.fork.at }, "spent");
-    const record = { ...hosted(id, { title: how.title, attachments: [link] }), hosted: { ...hosted(id).hosted!, start: { asks_delivery: true, picked: { choice: "open_pr" as const, from: "usual" as const }, message: how.message } } };
-    const back = how.fork === undefined ? held("started_to", id, grouped, "spent") : held("forked_to", id, {}, "spent");
-    this.set([record, ...this.records.map((one) => (one.id === fromId ? { ...one, attachments: [...one.attachments, back] } : one))]);
+    const grouped: Record<string, string> =
+      how.group === undefined
+        ? {}
+        : {
+            group: how.group,
+          };
+    const link =
+      how.fork === undefined
+        ? held("started_by", fromId, grouped, "spent")
+        : held(
+            "forked_from",
+            fromId,
+            how.fork.at === undefined
+              ? {}
+              : {
+                  at: how.fork.at,
+                },
+            "spent",
+          );
+    const record = {
+      ...hosted(id, {
+        title: how.title,
+        attachments: [
+          link,
+        ],
+      }),
+      hosted: {
+        ...hosted(id).hosted!,
+        start: {
+          asks_delivery: true,
+          picked: {
+            choice: "open_pr" as const,
+            from: "usual" as const,
+          },
+          message: how.message,
+        },
+      },
+    };
+    const back =
+      how.fork === undefined
+        ? held("started_to", id, grouped, "spent")
+        : held("forked_to", id, {}, "spent");
+    this.set([
+      record,
+      ...this.records.map((one) =>
+        one.id === fromId
+          ? {
+              ...one,
+              attachments: [
+                ...one.attachments,
+                back,
+              ],
+            }
+          : one,
+      ),
+    ]);
     return id;
   }
 
@@ -863,15 +2004,44 @@ export class FakeSessionsFleet {
    * The proposer's reading of a held Job, as Fleet's record carries it: `reading` while the call is out, then the workflow it picked, the fields
    * it chose, and the landing his usual or his words gave.
    */
-  proposes(id: string, reading: { reading: true } | { workflow: string; picked: ProposedField[]; landing?: DeliveryPicked }): void {
+  proposes(
+    id: string,
+    reading:
+      | {
+          reading: true;
+        }
+      | {
+          workflow: string;
+          picked: ProposedField[];
+          landing?: DeliveryPicked;
+        },
+  ): void {
     const read = this.change(id, (one) => {
-      if ("reading" in reading) return { ...one, proposal: { reading: true } };
+      if ("reading" in reading)
+        return {
+          ...one,
+          proposal: {
+            reading: true,
+          },
+        };
       const { landing, workflow, picked } = reading;
       return {
         ...one,
         workflow,
-        proposal: { picked },
-        ...(landing === undefined || one.hosted?.start === undefined ? {} : { hosted: { ...one.hosted, start: { ...one.hosted.start, picked: landing } } }),
+        proposal: {
+          picked,
+        },
+        ...(landing === undefined || one.hosted?.start === undefined
+          ? {}
+          : {
+              hosted: {
+                ...one.hosted,
+                start: {
+                  ...one.hosted.start,
+                  picked: landing,
+                },
+              },
+            }),
       };
     });
     // A start queued while it read goes now, with the landing the reading picked where the press named none.
@@ -880,35 +2050,96 @@ export class FakeSessionsFleet {
     const pressed = this.queuedBegins.get(id);
     this.queuedBegins.delete(id);
     const delivery = pressed?.delivery ?? (start.asks_delivery ? start.picked?.choice : undefined);
-    this.beginNow({ session_id: id, ...(delivery === undefined ? {} : { delivery }), ...(pressed?.message === undefined ? {} : { message: pressed.message }) });
+    this.beginNow({
+      session_id: id,
+      ...(delivery === undefined
+        ? {}
+        : {
+            delivery,
+          }),
+      ...(pressed?.message === undefined
+        ? {}
+        : {
+            message: pressed.message,
+          }),
+    });
   }
 
   /** The agent takes a turn on its own clock: working, then the rows it writes (a function is made as its turn reaches it), then idle. */
-  async agentTurn(sessionId: string, rows: readonly (SessionRow | (() => SessionRow))[]): Promise<void> {
-    this.change(sessionId, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "working" } } }));
+  async agentTurn(
+    sessionId: string,
+    rows: readonly (SessionRow | (() => SessionRow))[],
+  ): Promise<void> {
+    this.change(sessionId, (one) => ({
+      ...one,
+      hosted: {
+        ...one.hosted!,
+        turn: {
+          state: "working",
+        },
+      },
+    }));
     for (const row of rows) {
       await new Promise((done) => setTimeout(done, 450));
       this.row(sessionId, typeof row === "function" ? row() : row);
     }
-    this.change(sessionId, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "idle" } } }));
+    this.change(sessionId, (one) => ({
+      ...one,
+      hosted: {
+        ...one.hosted!,
+        turn: {
+          state: "idle",
+        },
+      },
+    }));
   }
 
   /** The agent's call is held on the person, as Fleet holds one: the Session carries the ask and its thread a waiting row for it. */
   asks(sessionId: string, ask: HelmCallInFlight): void {
-    this.change(sessionId, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "working" }, asked: ask } }));
-    this.row(sessionId, { kind: "ask", id: `ask-${ask.call}-${sessionId}`, at: ask.asked_at, ask, state: "waiting" });
+    this.change(sessionId, (one) => ({
+      ...one,
+      hosted: {
+        ...one.hosted!,
+        turn: {
+          state: "working",
+        },
+        asked: ask,
+      },
+    }));
+    this.row(sessionId, {
+      kind: "ask",
+      id: `ask-${ask.call}-${sessionId}`,
+      at: ask.asked_at,
+      ask,
+      state: "waiting",
+    });
   }
 
   /** The agent takes a turn and stays in it: working, one row written, and no end to the turn, for a walk to look at the Working mark. */
   async agentWorks(sessionId: string, row: SessionRow): Promise<void> {
-    this.change(sessionId, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "working" } } }));
+    this.change(sessionId, (one) => ({
+      ...one,
+      hosted: {
+        ...one.hosted!,
+        turn: {
+          state: "working",
+        },
+      },
+    }));
     await new Promise((done) => setTimeout(done, 450));
     this.row(sessionId, row);
   }
 
   /** `session.changed`: a session, whole, as Fleet publishes it after any fact. */
   changed(record: SessionRecord): void {
-    this.set(this.records.some((one) => one.id === record.id) ? this.records.map((one) => (one.id === record.id ? record : one)) : [record, ...this.records]);
+    this.set(
+      this.records.some((one) => one.id === record.id)
+        ? this.records.map((one) => (one.id === record.id ? record : one))
+        : [
+            record,
+            ...this.records,
+          ],
+    );
   }
 
   /**
@@ -938,7 +2169,13 @@ export class FakeSessionsFleet {
         stage = frame.row.stage;
         since = new Date().toISOString();
       }
-      this.row(sessionId, { kind: "retro", id, at, stage_since: since, ...frame.row });
+      this.row(sessionId, {
+        kind: "retro",
+        id,
+        at,
+        stage_since: since,
+        ...frame.row,
+      });
       if (index < frames.length - 1) await this.beat(frame.pause);
     }
   }
@@ -959,10 +2196,14 @@ export class FakeSessionsFleet {
     const held = this.threads[sessionId];
     // Not opened: main holds no thread for it and drops the row. Fleet keeps a retro's, so opening the thread later brings it.
     if (held === undefined) {
-      if (row.kind === "retro" || this.keepsRows) this.keptRetro[sessionId] = withThreadRow(this.keptRetro[sessionId] ?? [], row);
+      if (row.kind === "retro" || this.keepsRows)
+        this.keptRetro[sessionId] = withThreadRow(this.keptRetro[sessionId] ?? [], row);
       return;
     }
-    this.threads = { ...this.threads, [sessionId]: withThreadRow(held, row) };
+    this.threads = {
+      ...this.threads,
+      [sessionId]: withThreadRow(held, row),
+    };
     this.publishThreads();
   }
 
@@ -980,20 +2221,48 @@ export class FakeSessionsFleet {
       allow_for_session: "allowed_for_session",
       allow_like_this_for_session: "allowed_for_session",
     };
-    const waiting = this.threads[answer.session_id]?.find((row) => row.kind === "ask" && row.ask.call === answer.call && row.state === "waiting");
-    if (waiting?.kind === "ask") this.row(answer.session_id, { ...waiting, state: STATE[answer.answer] });
+    const waiting = this.threads[answer.session_id]?.find(
+      (row) => row.kind === "ask" && row.ask.call === answer.call && row.state === "waiting",
+    );
+    if (waiting?.kind === "ask")
+      this.row(answer.session_id, {
+        ...waiting,
+        state: STATE[answer.answer],
+      });
     const settings = this.fleet?.state().settings;
-    if (answer.folder === undefined || (answer.answer !== "always_allow" && answer.answer !== "always_block") || settings == null) return;
+    if (
+      answer.folder === undefined ||
+      (answer.answer !== "always_allow" && answer.answer !== "always_block") ||
+      settings == null
+    )
+      return;
     const folder = answer.folder;
-    const held = reachFoldersOf(settings.settings.find((one) => one.key === REACH_FOLDERS_KEY)?.value);
+    const held = reachFoldersOf(
+      settings.settings.find((one) => one.key === REACH_FOLDERS_KEY)?.value,
+    );
     const allow = held.allow.filter((one) => one !== folder);
     const block = held.block.filter((one) => one !== folder);
     (answer.answer === "always_allow" ? allow : block).push(folder);
-    this.fleet?.publish({ settings: savedInto(settings, { [REACH_FOLDERS_KEY]: { allow, block } }) });
+    this.fleet?.publish({
+      settings: savedInto(settings, {
+        [REACH_FOLDERS_KEY]: {
+          allow,
+          block,
+        },
+      }),
+    });
   }
 
   /** The agent says something in a thread. */
   says(sessionId: string, text: string): void {
-    this.row(sessionId, { kind: "message", id: this.rowId(), at: AT, from: { kind: "agent" }, text });
+    this.row(sessionId, {
+      kind: "message",
+      id: this.rowId(),
+      at: AT,
+      from: {
+        kind: "agent",
+      },
+      text,
+    });
   }
 }

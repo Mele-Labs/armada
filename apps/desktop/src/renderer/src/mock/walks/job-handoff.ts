@@ -6,22 +6,62 @@ import { HANDOFF_YES } from "@armada/protocol";
 
 import { button, deckRow, inside, region, role, walk } from "../walk";
 
-const list = region("Jobs", { exact: true });
+const list = region("Jobs", {
+  exact: true,
+});
 const ask = role("article", "Waiting on you");
 const needs = region("Needs you");
 const YES = HANDOFF_YES;
-const choice = (name: string) => inside(needs, role("radio", name, { exact: true }));
+const choice = (name: string) =>
+  inside(
+    needs,
+    role("radio", name, {
+      exact: true,
+    }),
+  );
 const row = deckRow("Retry the slot lease");
 
 export const jobHandoff = walk("job-handoff", [
-  { press: row, say: "The Job is open, and its question is in Needs you" },
-  { look: ask, say: "Carry on in a new Job, or stay here. It has started nothing, and its answers are numbered" },
-  { key: "1", on: choice(YES), say: "1 picks yes" },
-  { press: inside(needs, button("Answer")), say: "Answer sends it" },
-  { look: inside(list, role("img", "Handing off")), say: "The new Job is coming up. The row is where it was" },
-  { look: inside(list, button("Earlier Job")), say: "One row, the same title and place. The earlier Job is behind it" },
-  { key: "h", on: row, say: "h opens the earlier Job in the same place" },
-  { look: inside(region(/^Job: /), role("img", "Ended")), say: "The earlier Job, on the stage where the new one was, holding nothing" },
-  { press: inside(region(/^Job: /), button(/^Back/)), say: "Back returns to the new Job as it was" },
-  { look: inside(list, button("Earlier Job")), say: "The one row, as it was" },
+  {
+    press: row,
+    say: "The Job is open, and its question is in Needs you",
+  },
+  {
+    look: ask,
+    say: "Carry on in a new Job, or stay here. It has started nothing, and its answers are numbered",
+  },
+  {
+    key: "1",
+    on: choice(YES),
+    say: "1 picks yes",
+  },
+  {
+    press: inside(needs, button("Answer")),
+    say: "Answer sends it",
+  },
+  {
+    look: inside(list, role("img", "Handing off")),
+    say: "The new Job is coming up. The row is where it was",
+  },
+  {
+    look: inside(list, button("Earlier Job")),
+    say: "One row, the same title and place. The earlier Job is behind it",
+  },
+  {
+    key: "h",
+    on: row,
+    say: "h opens the earlier Job in the same place",
+  },
+  {
+    look: inside(region(/^Job: /), role("img", "Ended")),
+    say: "The earlier Job, on the stage where the new one was, holding nothing",
+  },
+  {
+    press: inside(region(/^Job: /), button(/^Back/)),
+    say: "Back returns to the new Job as it was",
+  },
+  {
+    look: inside(list, button("Earlier Job")),
+    say: "The one row, as it was",
+  },
 ]);

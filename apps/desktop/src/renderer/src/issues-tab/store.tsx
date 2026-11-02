@@ -7,15 +7,64 @@ import { createContext, useContext, useEffect, useSyncExternalStore } from "reac
 import type { ReactNode } from "react";
 import { SURFACE } from "@armada/shell";
 
-import type { IssuesSource, ReportedBug, SavedQuery, Ticket, TicketRead, Tracker, WrittenQuery } from "./model";
+import type {
+  IssuesSource,
+  ReportedBug,
+  SavedQuery,
+  Ticket,
+  TicketRead,
+  Tracker,
+  WrittenQuery,
+} from "./model";
 
-export type Run = { state: "running" } | { state: "read"; tickets: Ticket[] } | { state: "failed"; said: string; /** The program the tracker could not run: the line offers to install it. */ missing?: string; /** The program the tracker found no project for: the line offers to set it up. */ needsSetup?: string };
+export type Run =
+  | {
+      state: "running";
+    }
+  | {
+      state: "read";
+      tickets: Ticket[];
+    }
+  | {
+      state: "failed";
+      said: string /** The program the tracker could not run: the line offers to install it. */;
+      missing?: string /** The program the tracker found no project for: the line offers to set it up. */;
+      needsSetup?: string;
+    };
 
 /** One install of a missing program, by repository and tool: under way, or refused with why. A finished one is gone. */
-export type Install = { state: "installing" } | { state: "failed"; said: string };
+export type Install =
+  | {
+      state: "installing";
+    }
+  | {
+      state: "failed";
+      said: string;
+    };
 
 /** The box, and once he sends it, what the model wrote for each repository. */
-export type Describing = { phase: "box" } | { phase: "written"; words: string; written: Record<string, { state: "running" } | { state: "read"; query: WrittenQuery } | { state: "failed"; said: string }> };
+export type Describing =
+  | {
+      phase: "box";
+    }
+  | {
+      phase: "written";
+      words: string;
+      written: Record<
+        string,
+        | {
+            state: "running";
+          }
+        | {
+            state: "read";
+            query: WrittenQuery;
+          }
+        | {
+            state: "failed";
+            said: string;
+          }
+      >;
+    };
 
 export type IssuesSnapshot = {
   trackers: readonly Tracker[] | undefined;
@@ -23,7 +72,12 @@ export type IssuesSnapshot = {
   runs: Readonly<Record<string, Run>>;
   installs: Readonly<Record<string, Install>>;
   reads: Readonly<Record<string, Read>>;
-  open: { manifestId: string; reference: string } | undefined;
+  open:
+    | {
+        manifestId: string;
+        reference: string;
+      }
+    | undefined;
   /** The bugs agents reported, and which of them this window has opened (an unopened one is unread). */
   reports: readonly ReportedBug[];
   seen: readonly string[];
@@ -31,22 +85,52 @@ export type IssuesSnapshot = {
   openReport: string | undefined;
   describing: Describing | undefined;
   /** The saved query being edited by hand, as `manifestId` and its id. */
-  editing: { manifestId: string; id: string } | undefined;
+  editing:
+    | {
+        manifestId: string;
+        id: string;
+      }
+    | undefined;
   spending: string | undefined;
   askFirst: boolean;
 };
 
-type Read = { state: "read"; ticket: TicketRead } | { state: "failed"; said: string };
+type Read =
+  | {
+      state: "read";
+      ticket: TicketRead;
+    }
+  | {
+      state: "failed";
+      said: string;
+    };
 
 const key = (manifestId: string, rest: string): string => `${manifestId}\n${rest}`;
 
 export type IssuesStore = ReturnType<typeof createIssuesStore>;
 
 export function createIssuesStore(source: IssuesSource) {
-  let snap: IssuesSnapshot = { trackers: undefined, failed: undefined, runs: {}, installs: {}, reads: {}, open: undefined, reports: [], seen: [], openReport: undefined, describing: undefined, editing: undefined, spending: undefined, askFirst: true };
+  let snap: IssuesSnapshot = {
+    trackers: undefined,
+    failed: undefined,
+    runs: {},
+    installs: {},
+    reads: {},
+    open: undefined,
+    reports: [],
+    seen: [],
+    openReport: undefined,
+    describing: undefined,
+    editing: undefined,
+    spending: undefined,
+    askFirst: true,
+  };
   const listeners = new Set<() => void>();
   const set = (next: Partial<IssuesSnapshot>) => {
-    snap = { ...snap, ...next };
+    snap = {
+      ...snap,
+      ...next,
+    };
     for (const one of listeners) one();
   };
   let waiting: (() => void) | undefined;
@@ -58,7 +142,14 @@ export function createIssuesStore(source: IssuesSource) {
 
   /** Fleet's list of reported bugs, whole: it replaces what is held, and puts away a report that is gone. */
   const heardReports = (reports: ReportedBug[]) =>
-    set({ reports, ...(snap.openReport !== undefined && !reports.some((one) => one.id === snap.openReport) ? { openReport: undefined } : {}) });
+    set({
+      reports,
+      ...(snap.openReport !== undefined && !reports.some((one) => one.id === snap.openReport)
+        ? {
+            openReport: undefined,
+          }
+        : {}),
+    });
   const loadReports = () => {
     const reports = source.reports;
     if (reports === undefined) return;
@@ -69,13 +160,54 @@ export function createIssuesStore(source: IssuesSource) {
   };
 
   const savedInto = (manifestId: string, saved: SavedQuery[]) =>
-    set({ trackers: (snap.trackers ?? []).map((one) => (one.manifestId === manifestId && one.state === "read" ? { ...one, saved } : one)) });
+    set({
+      trackers: (snap.trackers ?? []).map((one) =>
+        one.manifestId === manifestId && one.state === "read"
+          ? {
+              ...one,
+              saved,
+            }
+          : one,
+      ),
+    });
 
   const run = (manifestId: string, query: string, again = false) => {
     const at = key(manifestId, query);
     if (!again && snap.runs[at] !== undefined) return;
-    set({ runs: { ...snap.runs, [at]: { state: "running" } } });
-    void source.run(manifestId, query).then((answer) => set({ runs: { ...snap.runs, [at]: answer.ok ? { state: "read", tickets: answer.value } : { state: "failed", said: answer.said, ...(answer.missing === undefined ? {} : { missing: answer.missing }), ...(answer.needsSetup === undefined ? {} : { needsSetup: answer.needsSetup }) } } }));
+    set({
+      runs: {
+        ...snap.runs,
+        [at]: {
+          state: "running",
+        },
+      },
+    });
+    void source.run(manifestId, query).then((answer) =>
+      set({
+        runs: {
+          ...snap.runs,
+          [at]: answer.ok
+            ? {
+                state: "read",
+                tickets: answer.value,
+              }
+            : {
+                state: "failed",
+                said: answer.said,
+                ...(answer.missing === undefined
+                  ? {}
+                  : {
+                      missing: answer.missing,
+                    }),
+                ...(answer.needsSetup === undefined
+                  ? {}
+                  : {
+                      needsSetup: answer.needsSetup,
+                    }),
+              },
+        },
+      }),
+    );
   };
 
   /** The same query asked again with the list kept on screen, so a card changes in place and nothing flashes. A refusal keeps what was held. */
@@ -83,7 +215,16 @@ export function createIssuesStore(source: IssuesSource) {
     const at = key(manifestId, query);
     if (snap.runs[at]?.state !== "read") return;
     void source.run(manifestId, query).then((answer) => {
-      if (answer.ok) set({ runs: { ...snap.runs, [at]: { state: "read", tickets: answer.value } } });
+      if (answer.ok)
+        set({
+          runs: {
+            ...snap.runs,
+            [at]: {
+              state: "read",
+              tickets: answer.value,
+            },
+          },
+        });
     });
   };
 
@@ -101,22 +242,50 @@ export function createIssuesStore(source: IssuesSource) {
       void source.trackers(fresh).then((answer) => {
         if (!answer.ok) {
           for (const id of fresh) asked.delete(id);
-          return set({ failed: answer.said });
+          return set({
+            failed: answer.said,
+          });
         }
-        set({ trackers: [...(snap.trackers ?? []).filter((one) => !fresh.includes(one.manifestId)), ...answer.value], failed: undefined });
+        set({
+          trackers: [
+            ...(snap.trackers ?? []).filter((one) => !fresh.includes(one.manifestId)),
+            ...answer.value,
+          ],
+          failed: undefined,
+        });
       });
     },
-    runOf: (manifestId: string, query: string): Run | undefined => snap.runs[key(manifestId, query)],
-    installOf: (manifestId: string, tool: string): Install | undefined => snap.installs[key(manifestId, tool)],
+    runOf: (manifestId: string, query: string): Run | undefined =>
+      snap.runs[key(manifestId, query)],
+    installOf: (manifestId: string, tool: string): Install | undefined =>
+      snap.installs[key(manifestId, tool)],
     /** Installs a tool a search found missing, or sets it up where it found no project (Fleet does both on one request), then runs that search again. **Only a press calls this**; a failure is kept with its words and offers nothing more. */
     install: (manifestId: string, tool: string, query: string) => {
       const at = key(manifestId, tool);
       if (snap.installs[at]?.state === "installing") return;
-      set({ installs: { ...snap.installs, [at]: { state: "installing" } } });
+      set({
+        installs: {
+          ...snap.installs,
+          [at]: {
+            state: "installing",
+          },
+        },
+      });
       void source.install(manifestId, tool).then((answer) => {
-        if (!answer.ok) return set({ installs: { ...snap.installs, [at]: { state: "failed", said: answer.said } } });
+        if (!answer.ok)
+          return set({
+            installs: {
+              ...snap.installs,
+              [at]: {
+                state: "failed",
+                said: answer.said,
+              },
+            },
+          });
         const { [at]: _done, ...rest } = snap.installs;
-        set({ installs: rest });
+        set({
+          installs: rest,
+        });
         run(manifestId, query, true);
       });
     },
@@ -135,7 +304,16 @@ export function createIssuesStore(source: IssuesSource) {
       const at = key(manifestId, open.reference);
       if (snap.reads[at]?.state !== "read") return;
       void source.read(manifestId, open.reference).then((answer) => {
-        if (answer.ok) set({ reads: { ...snap.reads, [at]: { state: "read", ticket: answer.value } } });
+        if (answer.ok)
+          set({
+            reads: {
+              ...snap.reads,
+              [at]: {
+                state: "read",
+                ticket: answer.value,
+              },
+            },
+          });
       });
     },
     run,
@@ -150,50 +328,160 @@ export function createIssuesStore(source: IssuesSource) {
     /** Hears `bug_reports.changed` until the returned function is called. */
     followReports: (): (() => void) => source.reports?.follow(heardReports) ?? (() => undefined),
     /** Opening a report marks it read here, and puts any issue away. */
-    openReport: (id: string | undefined) => set(id === undefined ? { openReport: undefined } : { openReport: id, open: undefined, seen: snap.seen.includes(id) ? snap.seen : [...snap.seen, id] }),
+    openReport: (id: string | undefined) =>
+      set(
+        id === undefined
+          ? {
+              openReport: undefined,
+            }
+          : {
+              openReport: id,
+              open: undefined,
+              seen: snap.seen.includes(id)
+                ? snap.seen
+                : [
+                    ...snap.seen,
+                    id,
+                  ],
+            },
+      ),
     /** Keeps a report with Fleet, and shows it kept once Fleet says so. A refusal is said on the tab, and the list is read again. */
     keepReport: async (id: string): Promise<void> => {
-      set({ seen: snap.seen.includes(id) ? snap.seen : [...snap.seen, id] });
+      set({
+        seen: snap.seen.includes(id)
+          ? snap.seen
+          : [
+              ...snap.seen,
+              id,
+            ],
+      });
       const answer = await source.reports?.keep(id);
       if (answer === undefined) return;
       if (!answer.ok) {
-        set({ failed: answer.said });
+        set({
+          failed: answer.said,
+        });
         return loadReports();
       }
-      set({ reports: snap.reports.map((one) => (one.id === id ? answer.value : one)), failed: undefined });
+      set({
+        reports: snap.reports.map((one) => (one.id === id ? answer.value : one)),
+        failed: undefined,
+      });
     },
     /** Drops a report with Fleet, and puts it away once Fleet says so. A refusal is said on the tab, and the list is read again. */
     dropReport: async (id: string): Promise<void> => {
       const answer = await source.reports?.drop(id);
       if (answer === undefined) return;
       if (!answer.ok) {
-        set({ failed: answer.said });
+        set({
+          failed: answer.said,
+        });
         return loadReports();
       }
-      set({ reports: snap.reports.filter((one) => one.id !== id), failed: undefined, ...(snap.openReport === id ? { openReport: undefined } : {}) });
+      set({
+        reports: snap.reports.filter((one) => one.id !== id),
+        failed: undefined,
+        ...(snap.openReport === id
+          ? {
+              openReport: undefined,
+            }
+          : {}),
+      });
     },
     open: (manifestId: string | undefined, reference?: string) => {
-      if (manifestId === undefined || reference === undefined) return set({ open: undefined, openReport: undefined });
-      set({ open: { manifestId, reference }, openReport: undefined });
+      if (manifestId === undefined || reference === undefined)
+        return set({
+          open: undefined,
+          openReport: undefined,
+        });
+      set({
+        open: {
+          manifestId,
+          reference,
+        },
+        openReport: undefined,
+      });
       const at = key(manifestId, reference);
       if (snap.reads[at] !== undefined) return;
-      void source.read(manifestId, reference).then((answer) => set({ reads: { ...snap.reads, [at]: answer.ok ? { state: "read", ticket: answer.value } : { state: "failed", said: answer.said } } }));
+      void source.read(manifestId, reference).then((answer) =>
+        set({
+          reads: {
+            ...snap.reads,
+            [at]: answer.ok
+              ? {
+                  state: "read",
+                  ticket: answer.value,
+                }
+              : {
+                  state: "failed",
+                  said: answer.said,
+                },
+          },
+        }),
+      );
     },
-    readOf: (manifestId: string, reference: string): Read | undefined => snap.reads[key(manifestId, reference)],
-    describe: () => set({ describing: { phase: "box" }, editing: undefined }),
-    stopDescribing: () => set({ describing: undefined }),
+    readOf: (manifestId: string, reference: string): Read | undefined =>
+      snap.reads[key(manifestId, reference)],
+    describe: () =>
+      set({
+        describing: {
+          phase: "box",
+        },
+        editing: undefined,
+      }),
+    stopDescribing: () =>
+      set({
+        describing: undefined,
+      }),
     /** The model writes a query for his words in each repository's tracker, and each is run as it arrives. */
     write: (words: string, manifestIds: readonly string[]) => {
-      set({ describing: { phase: "written", words, written: Object.fromEntries(manifestIds.map((id) => [id, { state: "running" }])) } });
+      set({
+        describing: {
+          phase: "written",
+          words,
+          written: Object.fromEntries(
+            manifestIds.map((id) => [
+              id,
+              {
+                state: "running",
+              },
+            ]),
+          ),
+        },
+      });
       for (const manifestId of manifestIds) {
         void source.write(manifestId, words).then((answer) => {
           const now = snap.describing;
           if (now?.phase !== "written" || now.words !== words) return;
-          set({ describing: { ...now, written: { ...now.written, [manifestId]: answer.ok ? { state: "read", query: answer.value } : { state: "failed", said: answer.said } } } });
+          set({
+            describing: {
+              ...now,
+              written: {
+                ...now.written,
+                [manifestId]: answer.ok
+                  ? {
+                      state: "read",
+                      query: answer.value,
+                    }
+                  : {
+                      state: "failed",
+                      said: answer.said,
+                    },
+              },
+            },
+          });
           if (!answer.ok) return;
           // Fleet ran what the model wrote before it answered, so those issues are the list and it is not asked again.
           if (answer.value.tickets === undefined) return run(manifestId, answer.value.query);
-          set({ runs: { ...snap.runs, [key(manifestId, answer.value.query)]: { state: "read", tickets: answer.value.tickets } } });
+          set({
+            runs: {
+              ...snap.runs,
+              [key(manifestId, answer.value.query)]: {
+                state: "read",
+                tickets: answer.value.tickets,
+              },
+            },
+          });
         });
       }
     },
@@ -203,43 +491,86 @@ export function createIssuesStore(source: IssuesSource) {
       if (now?.phase !== "written") return;
       for (const [manifestId, one] of Object.entries(now.written)) {
         if (one.state !== "read") continue;
-        const answer = await source.save(manifestId, { name, words: now.words, query: one.query.query, row_fields: one.query.row_fields });
-        if (!answer.ok) return set({ failed: answer.said });
+        const answer = await source.save(manifestId, {
+          name,
+          words: now.words,
+          query: one.query.query,
+          row_fields: one.query.row_fields,
+        });
+        if (!answer.ok)
+          return set({
+            failed: answer.said,
+          });
         savedInto(manifestId, answer.value);
       }
-      set({ describing: undefined, failed: undefined });
+      set({
+        describing: undefined,
+        failed: undefined,
+      });
     },
-    edit: (manifestId: string | undefined, id?: string) => set({ editing: manifestId === undefined || id === undefined ? undefined : { manifestId, id } }),
+    edit: (manifestId: string | undefined, id?: string) =>
+      set({
+        editing:
+          manifestId === undefined || id === undefined
+            ? undefined
+            : {
+                manifestId,
+                id,
+              },
+      }),
     /** A query he edited by hand is kept and run again as written. No model is called. */
     saveEdited: (manifestId: string, query: SavedQuery) => {
       void source.save(manifestId, query).then((answer) => {
-        if (!answer.ok) return set({ failed: answer.said });
+        if (!answer.ok)
+          return set({
+            failed: answer.said,
+          });
         savedInto(manifestId, answer.value);
-        set({ editing: undefined, failed: undefined });
+        set({
+          editing: undefined,
+          failed: undefined,
+        });
         run(manifestId, query.query, true);
       });
     },
     remove: (manifestId: string, id: string) => {
       void source.remove(manifestId, id).then((answer) => {
-        if (!answer.ok) return set({ failed: answer.said });
+        if (!answer.ok)
+          return set({
+            failed: answer.said,
+          });
         savedInto(manifestId, answer.value);
-        set({ editing: undefined, failed: undefined });
+        set({
+          editing: undefined,
+          failed: undefined,
+        });
       });
     },
     spend: (what: string, then: () => void) => {
       if (!snap.askFirst) return then();
       waiting = then;
-      set({ spending: what });
+      set({
+        spending: what,
+      });
     },
     confirmSpend: (again: boolean) => {
       const then = waiting;
       waiting = undefined;
-      set({ spending: undefined, ...(again ? { askFirst: false } : {}) });
+      set({
+        spending: undefined,
+        ...(again
+          ? {
+              askFirst: false,
+            }
+          : {}),
+      });
       then?.();
     },
     cancelSpend: () => {
       waiting = undefined;
-      set({ spending: undefined });
+      set({
+        spending: undefined,
+      });
     },
   };
 }
@@ -247,7 +578,13 @@ export function createIssuesStore(source: IssuesSource) {
 const Held = createContext<IssuesStore | undefined>(undefined);
 
 /** Hands the window its Issues store: over Fleet in the app, over a scenario in the mock. */
-export function IssuesFrom({ store, children }: { store: IssuesStore | undefined; children: ReactNode }) {
+export function IssuesFrom({
+  store,
+  children,
+}: {
+  store: IssuesStore | undefined;
+  children: ReactNode;
+}) {
   return <Held.Provider value={store}>{children}</Held.Provider>;
 }
 
@@ -255,7 +592,21 @@ export function useIssuesStore(): IssuesStore | undefined {
   return useContext(Held);
 }
 
-const NEVER: IssuesSnapshot = { trackers: undefined, failed: undefined, runs: {}, installs: {}, reads: {}, open: undefined, reports: [], seen: [], openReport: undefined, describing: undefined, editing: undefined, spending: undefined, askFirst: true };
+const NEVER: IssuesSnapshot = {
+  trackers: undefined,
+  failed: undefined,
+  runs: {},
+  installs: {},
+  reads: {},
+  open: undefined,
+  reports: [],
+  seen: [],
+  openReport: undefined,
+  describing: undefined,
+  editing: undefined,
+  spending: undefined,
+  askFirst: true,
+};
 const NONE = () => () => undefined;
 
 export function useIssues(): IssuesSnapshot {
@@ -265,7 +616,11 @@ export function useIssues(): IssuesSnapshot {
 
 /** Issues is left off the places and the palette where nothing serves it. */
 export function issuesHidden(served: boolean): readonly string[] {
-  return served ? [] : [SURFACE.issues];
+  return served
+    ? []
+    : [
+        SURFACE.issues,
+      ];
 }
 
 /**
@@ -274,8 +629,16 @@ export function issuesHidden(served: boolean): readonly string[] {
  */
 export function useReportedBugsFollowed(connected: boolean): void {
   const store = useIssuesStore();
-  useEffect(() => store?.followReports(), [store]);
+  useEffect(
+    () => store?.followReports(),
+    [
+      store,
+    ],
+  );
   useEffect(() => {
     if (connected) store?.loadReports();
-  }, [store, connected]);
+  }, [
+    store,
+    connected,
+  ]);
 }

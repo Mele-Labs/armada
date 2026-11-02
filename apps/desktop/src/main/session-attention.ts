@@ -16,9 +16,22 @@ import type { Tone } from "./telling";
 export const QUIET_MS = 2000;
 
 /** The sources that hold a turn on the owner. `waiting.ts` in the renderer holds the same split for a call. */
-const BLOCKED = new Set(["ask_card", "permission", "window_ask", "plan", "slot_choice", "delivery", "task_done"]);
+const BLOCKED = new Set([
+  "ask_card",
+  "permission",
+  "window_ask",
+  "plan",
+  "slot_choice",
+  "delivery",
+  "task_done",
+]);
 
-export type Told = { sessionId: string; title: string; body: string; tone: Tone };
+export type Told = {
+  sessionId: string;
+  title: string;
+  body: string;
+  tone: Tone;
+};
 
 export type Effects = {
   /** Post one banner, and land on `sessionId` when it is pressed. */
@@ -26,14 +39,37 @@ export type Effects = {
 };
 
 /** What a live Session waits on him for, as this tells it: an item of `waiting_for`, or the start card it is held on. */
-type Waits = Pick<WaitingItem, "id" | "text" | "since"> & { blocks: boolean };
+type Waits = Pick<WaitingItem, "id" | "text" | "since"> & {
+  blocks: boolean;
+};
 
-type Entered = { sessionId: string; name: string; item: Waits };
+type Entered = {
+  sessionId: string;
+  name: string;
+  item: Waits;
+};
 
 /** A Job held on its start card holds its agent before the first move, so it blocks like the delivery question; `Not started` is the word its row already says. */
 function waitsOf(session: SessionRecord): Waits[] {
-  const items = (session.waiting_for ?? []).map((one): Waits => ({ id: one.id, text: one.text, since: one.since, blocks: BLOCKED.has(one.source) }));
-  return session.hosted?.start === undefined ? items : [{ id: "start", text: "Not started", since: session.started_at, blocks: true }, ...items];
+  const items = (session.waiting_for ?? []).map(
+    (one): Waits => ({
+      id: one.id,
+      text: one.text,
+      since: one.since,
+      blocks: BLOCKED.has(one.source),
+    }),
+  );
+  return session.hosted?.start === undefined
+    ? items
+    : [
+        {
+          id: "start",
+          text: "Not started",
+          since: session.started_at,
+          blocks: true,
+        },
+        ...items,
+      ];
 }
 
 export class SessionAttention {
@@ -65,7 +101,11 @@ export class SessionAttention {
         const key = `${session.id}:${item.id}`;
         now.add(key);
         if (this.seeded && !paused && !this.waiting.has(key)) {
-          entered.push({ sessionId: session.id, name: session.title ?? "Job", item });
+          entered.push({
+            sessionId: session.id,
+            name: session.title ?? "Job",
+            item,
+          });
         }
       }
     }
@@ -87,7 +127,9 @@ export class SessionAttention {
     if (this.window !== null) return;
     this.window = setTimeout(() => {
       this.window = null;
-      const batch = [...this.collecting.values()].sort(oldest);
+      const batch = [
+        ...this.collecting.values(),
+      ].sort(oldest);
       this.collecting.clear();
       const first = batch[0];
       if (first === undefined) return;
@@ -102,4 +144,5 @@ export class SessionAttention {
   }
 }
 
-const oldest = (a: Entered, b: Entered): number => Date.parse(a.item.since) - Date.parse(b.item.since) || a.item.id.localeCompare(b.item.id);
+const oldest = (a: Entered, b: Entered): number =>
+  Date.parse(a.item.since) - Date.parse(b.item.since) || a.item.id.localeCompare(b.item.id);

@@ -8,7 +8,9 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import { askToTell } from "./tell";
 
-type Facts = { preferences: Preferences };
+type Facts = {
+  preferences: Preferences;
+};
 
 /** What Bridge reaches Fleet through: `window.armada` in the app, a fake in a test. */
 export type FleetTimeFormat = {
@@ -17,7 +19,10 @@ export type FleetTimeFormat = {
   savePreference: (save: SavePreference) => Promise<Outcome>;
 };
 
-export function wireFleetTimeFormat(fleet: FleetTimeFormat, tell: (sentence: string) => void = askToTell): void {
+export function wireFleetTimeFormat(
+  fleet: FleetTimeFormat,
+  tell: (sentence: string) => void = askToTell,
+): void {
   let saving = 0;
   let held = "";
 
@@ -29,12 +34,18 @@ export function wireFleetTimeFormat(fleet: FleetTimeFormat, tell: (sentence: str
 
   setTimeFormatSaver((text) => {
     saving += 1;
-    void fleet.savePreference({ name: "time_format", value: false, text }).then((outcome) => {
-      saving -= 1;
-      if (outcome.ok) return;
-      setTimeFormat(parseTimeFormat(held));
-      tell(refusalWords(outcome));
-    });
+    void fleet
+      .savePreference({
+        name: "time_format",
+        value: false,
+        text,
+      })
+      .then((outcome) => {
+        saving -= 1;
+        if (outcome.ok) return;
+        setTimeFormat(parseTimeFormat(held));
+        tell(refusalWords(outcome));
+      });
   });
 
   fleet.state().then(ingest, () => undefined);

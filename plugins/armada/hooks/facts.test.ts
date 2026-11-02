@@ -23,6 +23,7 @@ import {
   isOwnPush,
   senderOf,
   spentUntil,
+  apiErrorIn,
   customTitleIn,
   titleOf,
   todoTasks,
@@ -146,6 +147,19 @@ test('a title never shows the markup a harness wrapped a prompt in', () => {
   expect(titleOf('<local-command-stdout>done</local-command-stdout>')).toBeUndefined()
   expect(titleOf('<agent-message from="a45d">\n</agent-message>')).toBeUndefined()
   expect(titleOf('make the <div> wrap')).toBe('make the <div> wrap')
+})
+
+test('the failure a turn died on is the transcript\'s last assistant line, when that line is one', () => {
+  const failure = (error: string, more = '') => `{"type":"assistant","isApiErrorMessage":true,"error":"${error}"${more}}`
+  const reply = '{"type":"assistant","message":{"content":[]}}'
+  expect(apiErrorIn([reply, failure('rate_limit')].join('\n') + '\n')).toBe('rate_limit')
+  expect(apiErrorIn([failure('authentication_failed'), '{"type":"user"}'].join('\n'))).toBe('authentication_failed')
+  // An earlier failure the session went on from, and a reply, are not this turn's.
+  expect(apiErrorIn([failure('rate_limit'), reply].join('\n'))).toBeUndefined()
+  expect(apiErrorIn('')).toBeUndefined()
+  // A subagent's own line, and a line cut short at the end of a file being written, are passed over.
+  expect(apiErrorIn([failure('overloaded'), failure('rate_limit', ',"isSidechain":true')].join('\n'))).toBe('overloaded')
+  expect(apiErrorIn([failure('overloaded'), '{"type":"assistant","isApiErr'].join('\n'))).toBe('overloaded')
 })
 
 test('a rename is read off the last custom-title entry of a transcript', () => {

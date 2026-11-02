@@ -16,7 +16,17 @@ const meta: Meta<typeof JobCard> = {
     repository: "storefront",
     onOpen: fn(),
   },
-  decorators: [(Story) => <div style={{ width: 320 }}><Story /></div>],
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          width: 320,
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
 };
 export default meta;
 
@@ -25,45 +35,119 @@ type Story = StoryObj<typeof JobCard>;
 export const Working: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("img", { name: "Working" })).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "Job Fix the coupon expiry check" }));
+    await expect(
+      canvas.getByRole("img", {
+        name: "Working",
+      }),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Job Fix the coupon expiry check",
+      }),
+    );
     await expect(args.onOpen).toHaveBeenCalledOnce();
   },
 };
 
-export const WaitingOnYou: Story = { args: { title: "Renew the edge certificates", state: "waiting", said: "Waiting on you", says: "Which certificate authority?" } };
+export const WaitingOnYou: Story = {
+  args: {
+    title: "Renew the edge certificates",
+    state: "waiting",
+    said: "Waiting on you",
+    says: "Which certificate authority?",
+  },
+};
 
-export const Failing: Story = { args: { title: "Prorate a mid-cycle upgrade", state: "failing", said: "Checks failed on #412", says: "invoice_totals failed" } };
+export const Failing: Story = {
+  args: {
+    title: "Prorate a mid-cycle upgrade",
+    state: "failing",
+    said: "Checks failed on #412",
+    says: "invoice_totals failed",
+  },
+};
 
-export const Idle: Story = { args: { title: "Round the cart totals", state: "idle", said: "Idle", says: "Pull request open" } };
+export const Idle: Story = {
+  args: {
+    title: "Round the cart totals",
+    state: "idle",
+    said: "Idle",
+    says: "Pull request open",
+  },
+};
 
-export const Selected: Story = { args: { selected: true } };
+export const Selected: Story = {
+  args: {
+    selected: true,
+  },
+};
 
 /** On a surface that already names the repository, the chip is left out. */
-export const NoRepository: Story = { args: { repository: undefined } };
+export const NoRepository: Story = {
+  args: {
+    repository: undefined,
+  },
+};
 
-const ISSUE = { label: "ABC-12", title: "A start_job rule act ignores the workflow it names" };
+const ISSUE = {
+  label: "ABC-12",
+  title: "A start_job rule act ignores the workflow it names",
+};
 const issuePressed = fn();
 
 /** A group of a plan that goes to a Job of its own, before the Job is started: a group named for its title, the card itself read and never pressed, and its issue a chip that opens the issue. */
 export const NotStarted: Story = {
-  render: () => <JobCard placeholder="Start the Job on the workflow a rule names" issue={{ ...ISSUE, onOpen: issuePressed }} />,
+  render: () => (
+    <JobCard
+      placeholder="Start the Job on the workflow a rule names"
+      issue={{
+        ...ISSUE,
+        onOpen: issuePressed,
+      }}
+    />
+  ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("group", { name: "Start the Job on the workflow a rule names, not started yet" })).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: /^Job / })).toBeNull();
-    await userEvent.click(canvas.getByRole("button", { name: `Issue ${ISSUE.label} ${ISSUE.title}` }));
+    await expect(
+      canvas.getByRole("group", {
+        name: "Start the Job on the workflow a rule names, not started yet",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", {
+        name: /^Job /,
+      }),
+    ).toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: `Issue ${ISSUE.label} ${ISSUE.title}`,
+      }),
+    );
     await expect(issuePressed).toHaveBeenCalledOnce();
   },
 };
 
 /** On a Job's own card the issue is a mark, and the card is what a press opens: a chip pressed inside a button would be two stops in one. */
 export const WorksAnIssue: Story = {
-  args: { issue: ISSUE },
+  args: {
+    issue: ISSUE,
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("img", { name: `Issue ${ISSUE.label} ${ISSUE.title}` })).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: /^Issue / })).toBeNull();
-    await expect(canvas.getByRole("button", { name: "Job Fix the coupon expiry check" })).toBeVisible();
+    await expect(
+      canvas.getByRole("img", {
+        name: `Issue ${ISSUE.label} ${ISSUE.title}`,
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", {
+        name: /^Issue /,
+      }),
+    ).toBeNull();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Job Fix the coupon expiry check",
+      }),
+    ).toBeVisible();
   },
 };

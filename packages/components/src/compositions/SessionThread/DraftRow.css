@@ -72,7 +72,8 @@
   color: var(--step-advanced);
 }
 
-.armada-session-draft__settled:is([data-how="sent_back"], [data-how="withdrawn"]) .armada-session-draft__mark {
+.armada-session-draft__settled:is([data-how="sent_back"], [data-how="withdrawn"])
+  .armada-session-draft__mark {
   color: var(--fg-muted);
 }
 

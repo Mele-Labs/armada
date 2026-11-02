@@ -18,24 +18,51 @@ const UNWRITTEN = "bridge_log";
 function buildLine(build: FleetBuildReport): string {
   const facts = [
     build.commit === undefined ? build.on : `${build.on} ${build.commit.slice(0, 9)}`,
-    ...(build.position === undefined ? [] : [`${build.position.ahead} ahead of origin/main`, `${build.position.behind} behind`]),
-    ...(build.restarting === undefined ? [] : [`restarting onto ${build.restarting}`]),
-    ...(build.failed === undefined ? [] : [`last restart failed: ${build.failed}`]),
+    ...(build.position === undefined
+      ? []
+      : [
+          `${build.position.ahead} ahead of origin/main`,
+          `${build.position.behind} behind`,
+        ]),
+    ...(build.restarting === undefined
+      ? []
+      : [
+          `restarting onto ${build.restarting}`,
+        ]),
+    ...(build.failed === undefined
+      ? []
+      : [
+          `last restart failed: ${build.failed}`,
+        ]),
   ];
   return `- Fleet build: ${facts.join(", ")}`;
 }
 
 /** The Session the refused act was for, where it is not the one open: the open one is already in the window's lines. */
-function actSessionLine(payload: DebugPayload, view: WindowFacts, state: PressedState): string | null {
+function actSessionLine(
+  payload: DebugPayload,
+  view: WindowFacts,
+  state: PressedState,
+): string | null {
   const id = payload.fields?.find((field) => field.key === "session_id")?.value;
-  if (id === undefined || id === view.context?.session?.id || state.sessions.state !== "read") return null;
+  if (id === undefined || id === view.context?.session?.id || state.sessions.state !== "read")
+    return null;
   const session = state.sessions.sessions.find((one) => one.id === id);
-  return session === undefined ? `- Act's Job: ${id}, not in Fleet's list` : sessionLine("Act's Job", sessionFacts(session));
+  return session === undefined
+    ? `- Act's Job: ${id}, not in Fleet's list`
+    : sessionLine("Act's Job", sessionFacts(session));
 }
 
 /** The message that carries a failure to a new Session. */
-export function failureMessage(payload: DebugPayload, view: WindowFacts, state: PressedState): string {
-  const info = debugInfo({ ...payload, fields: (payload.fields ?? []).filter((field) => field.key !== UNWRITTEN) });
+export function failureMessage(
+  payload: DebugPayload,
+  view: WindowFacts,
+  state: PressedState,
+): string {
+  const info = debugInfo({
+    ...payload,
+    fields: (payload.fields ?? []).filter((field) => field.key !== UNWRITTEN),
+  });
   const lines = windowLines(view);
   const acted = actSessionLine(payload, view, state);
   if (acted !== null) lines.push(acted);

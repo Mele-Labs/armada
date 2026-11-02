@@ -35,11 +35,30 @@ const NONCE = /^[A-Za-z0-9_-]{16,64}$/;
 const TIME = /^[0-9]{1,12}$/;
 
 const reply = (status: number, body?: unknown): Response =>
-  body === undefined ? new Response(null, { status }) : Response.json(body, { status });
-const refuse = (status: number, error: string): Response => reply(status, { error });
+  body === undefined
+    ? new Response(null, {
+        status,
+      })
+    : Response.json(body, {
+        status,
+      });
+const refuse = (status: number, error: string): Response =>
+  reply(status, {
+    error,
+  });
 
-type HolderRow = { kind: Holder["kind"]; id: string; machine: string; since: number };
-const holderFrom = (row: HolderRow): Holder => ({ kind: row.kind, id: row.id, machine: row.machine, since: row.since });
+type HolderRow = {
+  kind: Holder["kind"];
+  id: string;
+  machine: string;
+  since: number;
+};
+const holderFrom = (row: HolderRow): Holder => ({
+  kind: row.kind,
+  id: row.id,
+  machine: row.machine,
+  since: row.since,
+});
 
 /** One account's devices, claims, owners and the runs of its repositories. A Durable Object runs one request at a time. */
 export class Account extends DurableObject<Env> {
@@ -55,7 +74,12 @@ export class Account extends DurableObject<Env> {
   register(device: string, publicKey: string, machine: string): "ok" | "full" {
     this.makeTables();
     if (this.count("devices") >= MAX_DEVICES) return "full";
-    this.sql.exec("INSERT INTO devices (id, public_key, machine) VALUES (?, ?, ?)", device, publicKey, machine);
+    this.sql.exec(
+      "INSERT INTO devices (id, public_key, machine) VALUES (?, ?, ?)",
+      device,
+      publicKey,
+      machine,
+    );
     return "ok";
   }
 
@@ -77,12 +101,19 @@ export class Account extends DurableObject<Env> {
   }
 
   private hasTables(): boolean {
-    this.made ||= this.sql.exec("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'devices'").toArray().length > 0;
+    this.made ||=
+      this.sql
+        .exec("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'devices'")
+        .toArray().length > 0;
     return this.made;
   }
 
   private count(table: "devices" | "claims" | "owners" | "runs"): number {
-    return this.sql.exec<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`).one().n;
+    return this.sql
+      .exec<{
+        n: number;
+      }>(`SELECT COUNT(*) AS n FROM ${table}`)
+      .one().n;
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -96,7 +127,11 @@ export class Account extends DurableObject<Env> {
     return this.route(request.method, url, new TextDecoder().decode(body));
   }
 
-  private async authenticate(request: Request, target: string, body: Uint8Array): Promise<Response | null> {
+  private async authenticate(
+    request: Request,
+    target: string,
+    body: Uint8Array,
+  ): Promise<Response | null> {
     const device = request.headers.get(DEVICE_HEADER);
     const time = request.headers.get(TIME_HEADER);
     const nonce = request.headers.get(NONCE_HEADER);
@@ -107,7 +142,11 @@ export class Account extends DurableObject<Env> {
     }
     // An account nobody enrolled has no tables, and a stranger's request must not make them.
     if (!this.hasTables()) return refuse(401, "unknown_device");
-    const row = this.sql.exec<{ public_key: string }>("SELECT public_key FROM devices WHERE id = ?", device).toArray()[0];
+    const row = this.sql
+      .exec<{
+        public_key: string;
+      }>("SELECT public_key FROM devices WHERE id = ?", device)
+      .toArray()[0];
     if (!row) return refuse(401, "unknown_device");
 
     const now = Math.floor(Date.now() / 1000);
@@ -121,12 +160,33 @@ export class Account extends DurableObject<Env> {
     // or use up a device's requests. The nonces of the last minute are the count.
     this.sql.exec("DELETE FROM nonces WHERE seen < ?", now - NONCE_KEEP_SECONDS);
     const recent = this.sql
-      .exec<{ n: number }>("SELECT COUNT(*) AS n FROM nonces WHERE device = ? AND seen > ?", device, now - RATE_WINDOW_SECONDS)
+      .exec<{
+        n: number;
+      }>(
+        "SELECT COUNT(*) AS n FROM nonces WHERE device = ? AND seen > ?",
+        device,
+        now - RATE_WINDOW_SECONDS,
+      )
       .one().n;
     if (recent >= REQUESTS_PER_MINUTE) {
-      return Response.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(RATE_WINDOW_SECONDS) } });
+      return Response.json(
+        {
+          error: "rate_limited",
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(RATE_WINDOW_SECONDS),
+          },
+        },
+      );
     }
-    const taken = this.sql.exec("INSERT OR IGNORE INTO nonces (device, nonce, seen) VALUES (?, ?, ?)", device, nonce, now);
+    const taken = this.sql.exec(
+      "INSERT OR IGNORE INTO nonces (device, nonce, seen) VALUES (?, ?, ?)",
+      device,
+      nonce,
+      now,
+    );
     return taken.rowsWritten === 0 ? refuse(401, "replayed_nonce") : null;
   }
 
@@ -139,14 +199,18 @@ export class Account extends DurableObject<Env> {
       return method === "DELETE" ? this.signOut(first!) : refuse(405, "bad_method");
     }
     if (area === "claims") {
-      if (parts.length === 2) return method === "POST" ? this.claim(text) : refuse(405, "bad_method");
-      if (!HASH.test(first ?? "") || (second !== undefined && !HASH.test(second))) return refuse(400, "invalid_key");
-      if (second === undefined) return method === "DELETE" ? this.clearRepository(first!) : refuse(405, "bad_method");
+      if (parts.length === 2)
+        return method === "POST" ? this.claim(text) : refuse(405, "bad_method");
+      if (!HASH.test(first ?? "") || (second !== undefined && !HASH.test(second)))
+        return refuse(400, "invalid_key");
+      if (second === undefined)
+        return method === "DELETE" ? this.clearRepository(first!) : refuse(405, "bad_method");
       if (method === "GET") return this.readClaim(first!, second);
       return method === "DELETE" ? this.giveBack(first!, second) : refuse(405, "bad_method");
     }
     if (area === "owners") {
-      if (parts.length === 2) return method === "GET" ? this.readOwners(url) : refuse(405, "bad_method");
+      if (parts.length === 2)
+        return method === "GET" ? this.readOwners(url) : refuse(405, "bad_method");
       if (!HASH.test(first ?? "") || parts.length !== 3) return refuse(400, "invalid_key");
       if (method === "PUT") return this.putOwner(first!, text);
       return method === "DELETE" ? this.deleteOwner(first!) : refuse(405, "bad_method");
@@ -169,30 +233,54 @@ export class Account extends DurableObject<Env> {
 
   /** Claim if free: one INSERT that does nothing when the red is held. */
   private claim(text: string): Response {
-    const body = exactly(parseJson(text), ["repo", "red", "holder"]);
+    const body = exactly(parseJson(text), [
+      "repo",
+      "red",
+      "holder",
+    ]);
     const holder = holderOf(body?.holder);
-    if (!body || !holder || !HASH.test(String(body.repo)) || !HASH.test(String(body.red))) return refuse(400, "invalid_body");
+    if (!body || !holder || !HASH.test(String(body.repo)) || !HASH.test(String(body.red)))
+      return refuse(400, "invalid_body");
     const repo = String(body.repo);
     const red = String(body.red);
-    if (this.count("claims") >= MAX_CLAIMS && !this.claimHolder(repo, red)) return refuse(413, "claims_full");
+    if (this.count("claims") >= MAX_CLAIMS && !this.claimHolder(repo, red))
+      return refuse(413, "claims_full");
     const won = this.sql.exec(
       "INSERT OR IGNORE INTO claims (repo, red, kind, id, machine, since) VALUES (?, ?, ?, ?, ?, ?)",
-      repo, red, holder.kind, holder.id, holder.machine, holder.since,
+      repo,
+      red,
+      holder.kind,
+      holder.id,
+      holder.machine,
+      holder.since,
     );
-    if (won.rowsWritten > 0) return reply(200, { holder });
-    return reply(409, { holder: this.claimHolder(repo, red) });
+    if (won.rowsWritten > 0)
+      return reply(200, {
+        holder,
+      });
+    return reply(409, {
+      holder: this.claimHolder(repo, red),
+    });
   }
 
   private claimHolder(repo: string, red: string): Holder | null {
     const row = this.sql
-      .exec<HolderRow>("SELECT kind, id, machine, since FROM claims WHERE repo = ? AND red = ?", repo, red)
+      .exec<HolderRow>(
+        "SELECT kind, id, machine, since FROM claims WHERE repo = ? AND red = ?",
+        repo,
+        red,
+      )
       .toArray()[0];
     return row ? holderFrom(row) : null;
   }
 
   private readClaim(repo: string, red: string): Response {
     const holder = this.claimHolder(repo, red);
-    return holder ? reply(200, { holder }) : refuse(404, "no_claim");
+    return holder
+      ? reply(200, {
+          holder,
+        })
+      : refuse(404, "no_claim");
   }
 
   /** Give back and take over are the same delete; a take over then claims. */
@@ -207,7 +295,9 @@ export class Account extends DurableObject<Env> {
   }
 
   private putOwner(key: string, text: string): Response {
-    const body = exactly(parseJson(text), ["holder"]);
+    const body = exactly(parseJson(text), [
+      "holder",
+    ]);
     const holder = holderOf(body?.holder);
     if (!holder) return refuse(400, "invalid_body");
     const known = this.sql.exec("SELECT 1 FROM owners WHERE key = ?", key).toArray().length > 0;
@@ -215,7 +305,11 @@ export class Account extends DurableObject<Env> {
     this.sql.exec(
       `INSERT INTO owners (key, kind, id, machine, since) VALUES (?, ?, ?, ?, ?)
        ON CONFLICT (key) DO UPDATE SET kind = excluded.kind, id = excluded.id, machine = excluded.machine, since = excluded.since`,
-      key, holder.kind, holder.id, holder.machine, holder.since,
+      key,
+      holder.kind,
+      holder.id,
+      holder.machine,
+      holder.since,
     );
     return reply(204);
   }
@@ -227,7 +321,8 @@ export class Account extends DurableObject<Env> {
 
   private readOwners(url: URL): Response {
     const keys = (url.searchParams.get("keys") ?? "").split(",").filter((key) => key !== "");
-    if (keys.length > MAX_KEYS || !keys.every((key) => HASH.test(key))) return refuse(400, "invalid_key");
+    if (keys.length > MAX_KEYS || !keys.every((key) => HASH.test(key)))
+      return refuse(400, "invalid_key");
     const found: Record<string, Holder> = {};
     for (const key of keys) {
       const row = this.sql
@@ -240,7 +335,9 @@ export class Account extends DurableObject<Env> {
 
   /** Replaces every fact held for the repository. A repository with none holds no row. */
   private putRuns(repo: string, text: string): Response {
-    const body = exactly(parseJson(text), ["facts"]);
+    const body = exactly(parseJson(text), [
+      "facts",
+    ]);
     const facts = factsOf(body?.facts);
     if (!facts) return refuse(400, "invalid_body");
     if (facts.length === 0) {
@@ -251,13 +348,22 @@ export class Account extends DurableObject<Env> {
     if (!known && this.count("runs") >= MAX_RUNS) return refuse(413, "runs_full");
     this.sql.exec(
       "INSERT INTO runs (repo, facts) VALUES (?, ?) ON CONFLICT (repo) DO UPDATE SET facts = excluded.facts",
-      repo, JSON.stringify(facts),
+      repo,
+      JSON.stringify(facts),
     );
     return reply(204);
   }
 
   private readRuns(repo: string): Response {
-    const row = this.sql.exec<{ facts: string }>("SELECT facts FROM runs WHERE repo = ?", repo).toArray()[0];
-    return row ? reply(200, { facts: JSON.parse(row.facts) }) : refuse(404, "no_runs");
+    const row = this.sql
+      .exec<{
+        facts: string;
+      }>("SELECT facts FROM runs WHERE repo = ?", repo)
+      .toArray()[0];
+    return row
+      ? reply(200, {
+          facts: JSON.parse(row.facts),
+        })
+      : refuse(404, "no_runs");
   }
 }

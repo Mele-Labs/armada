@@ -120,7 +120,11 @@ export function TableCell({
         () => onCopied?.(copyValue),
       );
     },
-    [copyValue, onCopied, onClick],
+    [
+      copyValue,
+      onCopied,
+      onClick,
+    ],
   );
 
   return (

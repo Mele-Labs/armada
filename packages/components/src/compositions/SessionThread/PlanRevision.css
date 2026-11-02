@@ -120,7 +120,9 @@
   line-height: var(--leading-xs);
   text-align: start;
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+  transition:
+    background var(--duration-fast) var(--ease),
+    color var(--duration-fast) var(--ease);
 }
 
 .armada-plan-revision__fold:hover {

@@ -51,30 +51,79 @@ export function refusedAt(outcome: Outcome, sent: string, held: readonly Setting
 }
 
 /** The control a setting's kind draws, with the value in force; `null` for one the form does not draw. */
-function controlOf(setting: Setting): { control: SettingFieldControl; shipped?: string } | null {
+function controlOf(setting: Setting): {
+  control: SettingFieldControl;
+  shipped?: string;
+} | null {
   const { kind } = setting;
   switch (kind.kind) {
     case "integer": {
       const shipped = asNumber(setting.default, kind.min);
       return {
-        control: { kind: "number", value: asNumber(setting.value, shipped), min: kind.min, max: kind.max, ...(kind.unit ? { unit: kind.unit } : {}) },
+        control: {
+          kind: "number",
+          value: asNumber(setting.value, shipped),
+          min: kind.min,
+          max: kind.max,
+          ...(kind.unit
+            ? {
+                unit: kind.unit,
+              }
+            : {}),
+        },
         shipped: figure(shipped, kind.unit),
       };
     }
     case "seconds": {
       const shipped = asNumber(setting.default, kind.min);
-      return { control: { kind: "number", value: asNumber(setting.value, shipped), min: kind.min, max: kind.max, seconds: true }, shipped: inWords(shipped) };
+      return {
+        control: {
+          kind: "number",
+          value: asNumber(setting.value, shipped),
+          min: kind.min,
+          max: kind.max,
+          seconds: true,
+        },
+        shipped: inWords(shipped),
+      };
     }
     case "boolean":
-      return { control: { kind: "switch", value: setting.value === true }, shipped: setting.default === true ? "on" : "off" };
+      return {
+        control: {
+          kind: "switch",
+          value: setting.value === true,
+        },
+        shipped: setting.default === true ? "on" : "off",
+      };
     case "choice":
-      return { control: { kind: "choice", value: String(setting.value), options: kind.options } };
+      return {
+        control: {
+          kind: "choice",
+          value: String(setting.value),
+          options: kind.options,
+        },
+      };
     case "text":
-      return { control: { kind: "text", value: typeof setting.value === "string" ? setting.value : "" } };
+      return {
+        control: {
+          kind: "text",
+          value: typeof setting.value === "string" ? setting.value : "",
+        },
+      };
     case "prompt":
-      return { control: { kind: "prompt", value: typeof setting.value === "string" ? setting.value : "" } };
+      return {
+        control: {
+          kind: "prompt",
+          value: typeof setting.value === "string" ? setting.value : "",
+        },
+      };
     case "text_list":
-      return { control: { kind: "list", value: Array.isArray(setting.value) ? setting.value.map(String) : [] } };
+      return {
+        control: {
+          kind: "list",
+          value: Array.isArray(setting.value) ? setting.value.map(String) : [],
+        },
+      };
     case "json":
       return null;
   }
@@ -101,10 +150,23 @@ export function SchemaSection({ label, file, settings, live, onSave }: SchemaSec
   function send(key: string, value: SettingFieldValue | null): void {
     setSaving(key);
     setRefused(({ [key]: _gone, ...rest }) => rest);
-    const sent: SettingValue | null = value === null ? null : Array.isArray(value) ? [...value] : (value as SettingValue);
-    void onSave({ [key]: sent }).then((outcome) => {
+    const sent: SettingValue | null =
+      value === null
+        ? null
+        : Array.isArray(value)
+          ? [
+              ...value,
+            ]
+          : (value as SettingValue);
+    void onSave({
+      [key]: sent,
+    }).then((outcome) => {
       setSaving(null);
-      if (!outcome.ok) setRefused((was) => ({ ...was, [refusedAt(outcome, key, settings)]: refusalWords(outcome) }));
+      if (!outcome.ok)
+        setRefused((was) => ({
+          ...was,
+          [refusedAt(outcome, key, settings)]: refusalWords(outcome),
+        }));
     });
   }
 
@@ -117,9 +179,17 @@ export function SchemaSection({ label, file, settings, live, onSave }: SchemaSec
       <CardContent>
         {file?.note}
         {settings === null ? (
-          <p className="armada-settings__quiet">Fleet has not answered yet, so these settings are not here.</p>
+          <p className="armada-settings__quiet">
+            Fleet has not answered yet, so these settings are not here.
+          </p>
         ) : (
-          <SettingFieldList {...(live ? {} : { note: NOT_LIVE })}>
+          <SettingFieldList
+            {...(live
+              ? {}
+              : {
+                  note: NOT_LIVE,
+                })}
+          >
             {settings.map((setting) => {
               const drawn = controlOf(setting);
               if (drawn === null) return null;
@@ -130,15 +200,31 @@ export function SchemaSection({ label, file, settings, live, onSave }: SchemaSec
                   name={setting.key}
                   title={setting.title}
                   description={setting.description}
-                  {...(setting.tip == null ? {} : { tip: setting.tip })}
+                  {...(setting.tip == null
+                    ? {}
+                    : {
+                        tip: setting.tip,
+                      })}
                   control={drawn.control}
-                  {...(drawn.shipped === undefined ? {} : { shipped: drawn.shipped })}
+                  {...(drawn.shipped === undefined
+                    ? {}
+                    : {
+                        shipped: drawn.shipped,
+                      })}
                   modified={(setting.saved ?? null) !== null}
                   restart={setting.pending_restart}
-                  {...(setting.overridden_by_env == null ? {} : { overriddenBy: setting.overridden_by_env })}
+                  {...(setting.overridden_by_env == null
+                    ? {}
+                    : {
+                        overriddenBy: setting.overridden_by_env,
+                      })}
                   disabled={!live || (saving !== null && saving !== setting.key)}
                   saving={saving === setting.key}
-                  {...(said === undefined ? {} : { refused: said })}
+                  {...(said === undefined
+                    ? {}
+                    : {
+                        refused: said,
+                      })}
                   onSave={(value) => send(setting.key, value)}
                   onReset={() => send(setting.key, null)}
                 />
@@ -159,12 +245,16 @@ export type SettingsFileProps = {
 /** Why the file did not open, in the row's voice, or `null` because it did. */
 function whyNotOpened(opened: SettingsFileOpened): string | null {
   if (opened.ok) return null;
-  if (opened.why === "not_read") return "Fleet has not said where settings.json is yet. It does once it answers.";
+  if (opened.why === "not_read")
+    return "Fleet has not said where settings.json is yet. It does once it answers.";
   return `This machine did not open it: ${opened.detail}`;
 }
 
 /** settings.json as a card draws it: the path and open act for its strip, and the refusal or answer for its top. */
-export type SettingsFileParts = { strip: ReactNode; note: ReactNode };
+export type SettingsFileParts = {
+  strip: ReactNode;
+  note: ReactNode;
+};
 
 /** The same file as `SettingsFile`, split for the first card of a page: `SchemaSection` takes it as `file`. */
 export function useSettingsFile({ settings, onOpen }: SettingsFileProps): SettingsFileParts {
@@ -185,7 +275,16 @@ export function useSettingsFile({ settings, onOpen }: SettingsFileProps): Settin
         }}
       />
     ),
-    note: <SettingsFileNote refused={settings?.refused ?? null} {...(said === null ? {} : { said })} />,
+    note: (
+      <SettingsFileNote
+        refused={settings?.refused ?? null}
+        {...(said === null
+          ? {}
+          : {
+              said,
+            })}
+      />
+    ),
   };
 }
 
@@ -198,7 +297,11 @@ export function SettingsFile({ settings, onOpen }: SettingsFileProps) {
       path={settings?.path ?? null}
       refused={settings?.refused ?? null}
       opening={opening}
-      {...(said === null ? {} : { said })}
+      {...(said === null
+        ? {}
+        : {
+            said,
+          })}
       onOpen={() => {
         setOpening(true);
         setSaid(null);

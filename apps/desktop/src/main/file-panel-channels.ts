@@ -20,7 +20,10 @@ type Hosts = {
   published: () => BridgeState;
 };
 
-const refused: PanelFileOpenedIn = { ok: false, detail: "Not a file this panel opened" };
+const refused: PanelFileOpenedIn = {
+  ok: false,
+  detail: "Not a file this panel opened",
+};
 
 export function handleFilePanel({ ipc, recordOf, kitInventory, published }: Hosts): void {
   const panel = createFilePanel({
@@ -30,8 +33,14 @@ export function handleFilePanel({ ipc, recordOf, kitInventory, published }: Host
     kitInventory: (owner) => kitInventory(owner as WebContents),
     pick: async () => {
       const window = BrowserWindow.getFocusedWindow();
-      const options = { properties: ["openFile" as const] };
-      const chosen = await (window === null ? dialog.showOpenDialog(options) : dialog.showOpenDialog(window, options));
+      const options = {
+        properties: [
+          "openFile" as const,
+        ],
+      };
+      const chosen = await (window === null
+        ? dialog.showOpenDialog(options)
+        : dialog.showOpenDialog(window, options));
       return chosen.canceled ? null : (chosen.filePaths[0] ?? null);
     },
     inEditor: (path) => inEditor(published(), path),
@@ -52,20 +61,39 @@ export function handleFilePanel({ ipc, recordOf, kitInventory, published }: Host
     return sender;
   };
 
-  ipc.handle(FILES_CHANNELS.readPanelFile, (event, item: PanelFileItem) => panel.read(holding(event.sender), item));
+  ipc.handle(FILES_CHANNELS.readPanelFile, (event, item: PanelFileItem) =>
+    panel.read(holding(event.sender), item),
+  );
   ipc.handle(
     FILES_CHANNELS.savePanelFile,
-    (event, item: PanelFileItem, text: unknown, version: unknown): Promise<PanelFileSaved> | PanelFileSaved =>
+    (
+      event,
+      item: PanelFileItem,
+      text: unknown,
+      version: unknown,
+    ): Promise<PanelFileSaved> | PanelFileSaved =>
       typeof text === "string" && typeof version === "string"
         ? panel.save(item, text, version, event.sender)
-        : { state: "failed", detail: "Not understood" },
+        : {
+            state: "failed",
+            detail: "Not understood",
+          },
   );
-  ipc.handle(FILES_CHANNELS.findPanelFiles, (_event, sessionId: unknown, paths: unknown): Promise<string[]> | string[] =>
-    typeof sessionId === "string" && Array.isArray(paths) ? panel.known(sessionId, paths.filter((one): one is string => typeof one === "string")) : [],
+  ipc.handle(
+    FILES_CHANNELS.findPanelFiles,
+    (_event, sessionId: unknown, paths: unknown): Promise<string[]> | string[] =>
+      typeof sessionId === "string" && Array.isArray(paths)
+        ? panel.known(
+            sessionId,
+            paths.filter((one): one is string => typeof one === "string"),
+          )
+        : [],
   );
   ipc.handle(FILES_CHANNELS.pickPanelFile, () => panel.pick());
   ipc.handle(FILES_CHANNELS.openPanelPath, (_event, text: unknown, sessionId: unknown) =>
-    typeof text === "string" ? panel.openPath(text, typeof sessionId === "string" ? sessionId : undefined) : null,
+    typeof text === "string"
+      ? panel.openPath(text, typeof sessionId === "string" ? sessionId : undefined)
+      : null,
   );
   ipc.handle(FILES_CHANNELS.openPanelFileIn, (event, item: PanelFileItem, where: unknown) =>
     where === "editor" || where === "finder" ? panel.openIn(item, where, event.sender) : refused,

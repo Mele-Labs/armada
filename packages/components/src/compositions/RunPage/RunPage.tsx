@@ -115,7 +115,9 @@ export type RunPageGroup = {
  * command declared destructive stays an absolute boundary, and a boundary a
  * gate could be argued past by reading its own commit is not one.
  */
-export type RunPageAlwaysAllowedRow = { run: string };
+export type RunPageAlwaysAllowedRow = {
+  run: string;
+};
 
 export type RunPagePastRun = {
   id: string;
@@ -148,11 +150,16 @@ export type RunPageResult = {
 };
 
 /** An address a server offers, handed to a callback and never an `<a href>`. */
-export type RunPageServerLink = { url: string; name?: ReactNode };
+export type RunPageServerLink = {
+  url: string;
+  name?: ReactNode;
+};
 
 /** `RunSheet`'s three phases, unchanged: a server is a server either side. */
 export type RunPageServerStatus =
-  | { phase: "starting" }
+  | {
+      phase: "starting";
+    }
   | {
       phase: "serving";
       address: ReactNode;
@@ -208,7 +215,10 @@ export type RunPageProps = {
    */
   onDismiss?: () => void;
   /** Present while a run is in flight. The elapsed figure is the caller's own. */
-  running?: { elapsed: ReactNode; onStop?: () => void };
+  running?: {
+    elapsed: ReactNode;
+    onStop?: () => void;
+  };
   /** The last run's result line. */
   result?: RunPageResult;
 
@@ -293,8 +303,18 @@ function RunPageBody({
   // on every render, and the app renders every second to move its clock — so
   // keyed on the object, the Undo dialog closed itself within a second of
   // opening. The list is the run's own and only moves when the runs are read.
-  useEffect(() => setConfirmingRun(null), [selectedId]);
-  useEffect(() => setConfirmingUndo(false), [changed?.files]);
+  useEffect(
+    () => setConfirmingRun(null),
+    [
+      selectedId,
+    ],
+  );
+  useEffect(
+    () => setConfirmingUndo(false),
+    [
+      changed?.files,
+    ],
+  );
 
   function run(entry: RunPageEntry): void {
     if (entry.destructive === true) {
@@ -399,7 +419,8 @@ function RunPageBody({
                     checkout since, not a result. */}
                 {changed.undoneAt === undefined ? null : (
                   <p className="armada-run-page__changed-note">
-                    Undone at <Stamp at={changed.undoneAt} />. These files are back as they were before the run.
+                    Undone at <Stamp at={changed.undoneAt} />. These files are back as they were
+                    before the run.
                   </p>
                 )}
                 {changed.onOpenDiff === undefined && changed.onUndo === undefined ? null : (
@@ -410,11 +431,7 @@ function RunPageBody({
                       </Button>
                     )}
                     {changed.onUndo === undefined ? null : (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setConfirmingUndo(true)}
-                      >
+                      <Button variant="secondary" size="sm" onClick={() => setConfirmingUndo(true)}>
                         Undo this run
                       </Button>
                     )}
@@ -472,9 +489,9 @@ function RunPageBody({
         </p>
         <p className="mono">{confirmingRun?.run}</p>
         <p>
-          It runs in this checkout as it is on disk — the tree you are working in, with
-          whatever you have not committed. Nothing is copied first. After it, this page lists
-          what it changed and offers to put it back.
+          It runs in this checkout as it is on disk — the tree you are working in, with whatever you
+          have not committed. Nothing is copied first. After it, this page lists what it changed and
+          offers to put it back.
         </p>
       </Dialog>
 
@@ -493,9 +510,9 @@ function RunPageBody({
         }}
       >
         <p>
-          The snapshot was taken in this checkout immediately before the run. Restoring it
-          discards every change made since — the run's, and anything you or anything else
-          wrote into these paths after it.
+          The snapshot was taken in this checkout immediately before the run. Restoring it discards
+          every change made since — the run's, and anything you or anything else wrote into these
+          paths after it.
         </p>
         <ul>
           {(changed?.files ?? []).map((file) => (
@@ -532,7 +549,9 @@ function RunPageGroupList({
           <span className="armada-run-page__group-count">{group.entries.length}</span>
         )}
       </span>
-      {group.says === undefined ? null : <p className="armada-run-page__group-says">{group.says}</p>}
+      {group.says === undefined ? null : (
+        <p className="armada-run-page__group-says">{group.says}</p>
+      )}
       {group.entries.length === 0 ? (
         <p className="armada-run-page__group-empty">This Manifest declares none.</p>
       ) : (
@@ -542,7 +561,9 @@ function RunPageGroupList({
               className="armada-run-page__entry"
               key={entry.id}
               // The tile's hue: how it last ran, a server up, and drift, which lights it.
-              data-run={entry.id === selectedId && serving !== undefined ? serving : entry.last?.outcome}
+              data-run={
+                entry.id === selectedId && serving !== undefined ? serving : entry.last?.outcome
+              }
               data-drifted={entry.drifted === true ? "" : undefined}
             >
               <button
@@ -555,8 +576,14 @@ function RunPageGroupList({
                 <span className="armada-run-page__entry-head">
                   <span className="armada-run-page__entry-name">{entry.name}</span>
                   {entry.hides === true ? (
-                    <Tooltip label={`Hides the repository's ${typeof entry.name === "string" ? entry.name : entry.id}`}>
-                      <span className="armada-run-page__entry-hides" role="img" aria-label={`Hides the repository's ${typeof entry.name === "string" ? entry.name : entry.id}`}>
+                    <Tooltip
+                      label={`Hides the repository's ${typeof entry.name === "string" ? entry.name : entry.id}`}
+                    >
+                      <span
+                        className="armada-run-page__entry-hides"
+                        role="img"
+                        aria-label={`Hides the repository's ${typeof entry.name === "string" ? entry.name : entry.id}`}
+                      >
                         <Eclipse size={12} strokeWidth={2} aria-hidden />
                       </span>
                     </Tooltip>
@@ -773,7 +800,10 @@ function RunPageOutput({ output }: { output: ConsoleOutputProps }) {
     const el = ref.current;
     if (el === null || !followingTail) return;
     el.scrollTop = el.scrollHeight;
-  }, [output.rows, followingTail]);
+  }, [
+    output.rows,
+    followingTail,
+  ]);
 
   const onScroll = useCallback(() => {
     const el = ref.current;

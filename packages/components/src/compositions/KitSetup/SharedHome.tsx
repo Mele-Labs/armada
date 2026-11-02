@@ -1,6 +1,16 @@
 import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, Check, CircleDashed, House, Key, Laptop, RotateCw, Split } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Check,
+  CircleDashed,
+  House,
+  Key,
+  Laptop,
+  RotateCw,
+  Split,
+} from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Sheet } from "../../primitives/Sheet/Sheet";
@@ -40,15 +50,30 @@ export type SharedRow = {
 };
 
 /** One item switched on by itself, by its row's kind and name. */
-export type HomeSyncItem = { kind: string; name: string };
+export type HomeSyncItem = {
+  kind: string;
+  name: string;
+};
 
 /** What syncs: the kinds switched on, and each item switched on by itself while its kind is off. */
-export type Syncs = { kinds: readonly string[]; items: readonly HomeSyncItem[] };
+export type Syncs = {
+  kinds: readonly string[];
+  items: readonly HomeSyncItem[];
+};
 
 /** Whether an item syncs, and whether its own switch can move: not while its whole kind is on. */
-export function itemSyncs(syncs: Syncs, item: HomeSyncItem): { on: boolean; locked: boolean } {
+export function itemSyncs(
+  syncs: Syncs,
+  item: HomeSyncItem,
+): {
+  on: boolean;
+  locked: boolean;
+} {
   const locked = syncs.kinds.includes(item.kind);
-  return { on: locked || syncs.items.some((one) => one.kind === item.kind && one.name === item.name), locked };
+  return {
+    on: locked || syncs.items.some((one) => one.kind === item.kind && one.name === item.name),
+    locked,
+  };
 }
 
 export type SharedHomeRead = {
@@ -90,7 +115,13 @@ export type SharedHome = SharedHomeRead & SharedHomeActs;
 
 const Held = createContext<SharedHome | undefined>(undefined);
 
-export function SharedHomeProvider({ value, children }: { value: SharedHome | undefined; children: ReactNode }) {
+export function SharedHomeProvider({
+  value,
+  children,
+}: {
+  value: SharedHome | undefined;
+  children: ReactNode;
+}) {
   return <Held.Provider value={value}>{children}</Held.Provider>;
 }
 
@@ -100,10 +131,22 @@ export function useSharedHome(): SharedHome | undefined {
 }
 
 const STATE = {
-  same: { Glyph: Check, said: "Same as the home" },
-  differs: { Glyph: Split, said: "Differs from the home" },
-  here: { Glyph: Laptop, said: "Only on this machine" },
-  home: { Glyph: House, said: "Only in the home" },
+  same: {
+    Glyph: Check,
+    said: "Same as the home",
+  },
+  differs: {
+    Glyph: Split,
+    said: "Differs from the home",
+  },
+  here: {
+    Glyph: Laptop,
+    said: "Only on this machine",
+  },
+  home: {
+    Glyph: House,
+    said: "Only in the home",
+  },
 } as const;
 
 /** What a row's tooltip says of how it stands. */
@@ -115,21 +158,38 @@ export const syncSaid = (state: SyncState): string => STATE[state].said;
  * is a button, because it opens the two versions; without `onCompare` it is a
  * glyph like the rest, for a mark drawn inside a row that is a button itself.
  */
-export function SyncMarks({ row, onCompare }: { row: SharedRow; onCompare?: (row: SharedRow) => void }) {
+export function SyncMarks({
+  row,
+  onCompare,
+}: {
+  row: SharedRow;
+  onCompare?: (row: SharedRow) => void;
+}) {
   const { Glyph, said } = STATE[row.state];
   const glyph = <Glyph size={16} strokeWidth={2} aria-hidden="true" />;
   return (
     <span className="armada-sync-marks">
       {row.keyHere === true ? (
         <Tooltip beside label="Needs its key on this machine">
-          <span className="armada-sync-mark" data-sync="key" role="img" aria-label="Needs its key on this machine">
+          <span
+            className="armada-sync-mark"
+            data-sync="key"
+            role="img"
+            aria-label="Needs its key on this machine"
+          >
             <Key size={16} strokeWidth={2} aria-hidden="true" />
           </span>
         </Tooltip>
       ) : null}
       <Tooltip beside label={said}>
         {row.state === "differs" && onCompare !== undefined ? (
-          <button type="button" className="armada-sync-mark" data-sync="differs" aria-label={`${said}, ${row.name}`} onClick={() => onCompare(row)}>
+          <button
+            type="button"
+            className="armada-sync-mark"
+            data-sync="differs"
+            aria-label={`${said}, ${row.name}`}
+            onClick={() => onCompare(row)}
+          >
             {glyph}
           </button>
         ) : (
@@ -153,7 +213,13 @@ export function SyncAct({ row, acts }: { row: SharedRow; acts: SharedHomeActs })
   const Glyph = up ? ArrowUpFromLine : ArrowDownToLine;
   return (
     <Tooltip beside label={said}>
-      <Button variant="ghost" size="sm" iconOnly aria-label={`${said} ${row.name}`} onClick={() => (up ? acts.add(row) : acts.bring(row))}>
+      <Button
+        variant="ghost"
+        size="sm"
+        iconOnly
+        aria-label={`${said} ${row.name}`}
+        onClick={() => (up ? acts.add(row) : acts.bring(row))}
+      >
         <Glyph size={16} strokeWidth={2} aria-hidden="true" />
       </Button>
     </Tooltip>
@@ -161,11 +227,25 @@ export function SyncAct({ row, acts }: { row: SharedRow; acts: SharedHomeActs })
 }
 
 /** The home's repository, `account/repository`. `made` false marks one no kind has synced to yet. */
-export function SharedHomeChip({ account, repository, made = true }: { account: string; repository: string; made?: boolean }) {
+export function SharedHomeChip({
+  account,
+  repository,
+  made = true,
+}: {
+  account: string;
+  repository: string;
+  made?: boolean;
+}) {
   return (
-    <Tooltip label={`${made ? "Shared home" : "Shared home, not made yet"}: ${account}/${repository}`}>
+    <Tooltip
+      label={`${made ? "Shared home" : "Shared home, not made yet"}: ${account}/${repository}`}
+    >
       <span className="armada-shared-chip" data-made={made ? undefined : "no"}>
-        {made ? <House size={12} strokeWidth={2} aria-hidden="true" /> : <CircleDashed size={12} strokeWidth={2} aria-hidden="true" />}
+        {made ? (
+          <House size={12} strokeWidth={2} aria-hidden="true" />
+        ) : (
+          <CircleDashed size={12} strokeWidth={2} aria-hidden="true" />
+        )}
         <span>
           {account}
           <span className="armada-shared-chip__repo">/{repository}</span>
@@ -185,18 +265,40 @@ export function SharedHomeBar({ home, kind }: { home: SharedHome; kind?: string 
           <HomePicker
             login={home.login ?? home.account}
             owners={home.owners}
-            {...(home.setHome === undefined ? {} : { chosen: { owner: home.account, name: home.repository }, onChoose: home.setHome })}
+            {...(home.setHome === undefined
+              ? {}
+              : {
+                  chosen: {
+                    owner: home.account,
+                    name: home.repository,
+                  },
+                  onChoose: home.setHome,
+                })}
           />
         ) : (
-          <SharedHomeChip account={home.account} repository={home.repository} made={home.made !== false} />
+          <SharedHomeChip
+            account={home.account}
+            repository={home.repository}
+            made={home.made !== false}
+          />
         )}
         <Button variant="ghost" size="sm" pending={home.syncing} onClick={home.sync}>
-          <RotateCw size={12} strokeWidth={2} aria-hidden="true" className="armada-shared-bar__turn" data-turning={home.syncing ? "" : undefined} />
+          <RotateCw
+            size={12}
+            strokeWidth={2}
+            aria-hidden="true"
+            className="armada-shared-bar__turn"
+            data-turning={home.syncing ? "" : undefined}
+          />
           Sync
         </Button>
       </div>
       {kind === undefined || home.syncs === undefined || setKind === undefined ? null : (
-        <Switch size="sm" checked={home.syncs.kinds.includes(kind)} onChange={(event) => setKind(kind, event.target.checked)}>
+        <Switch
+          size="sm"
+          checked={home.syncs.kinds.includes(kind)}
+          onChange={(event) => setKind(kind, event.target.checked)}
+        >
           Sync all
         </Switch>
       )}
@@ -253,7 +355,17 @@ export function SyncSheet({
 }
 
 /** One side: its band, then its lines, each one that the other side lacks lit. */
-function Version({ Glyph, name, lines, other }: { Glyph: typeof House; name: string; lines: string[]; other: string[] }) {
+function Version({
+  Glyph,
+  name,
+  lines,
+  other,
+}: {
+  Glyph: typeof House;
+  name: string;
+  lines: string[];
+  other: string[];
+}) {
   const theirs = new Set(other);
   return (
     <section className="armada-sync-side" aria-label={name}>
@@ -263,7 +375,11 @@ function Version({ Glyph, name, lines, other }: { Glyph: typeof House; name: str
       </header>
       <ol className="armada-sync-side__lines">
         {lines.map((line, at) => (
-          <li key={at} className="armada-sync-side__line" data-differs={theirs.has(line) ? undefined : ""}>
+          <li
+            key={at}
+            className="armada-sync-side__line"
+            data-differs={theirs.has(line) ? undefined : ""}
+          >
             {line}
           </li>
         ))}

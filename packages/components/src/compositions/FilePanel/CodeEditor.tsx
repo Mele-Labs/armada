@@ -7,14 +7,36 @@ import { markdown } from "@codemirror/lang-markdown";
 import { python } from "@codemirror/lang-python";
 import { rust } from "@codemirror/lang-rust";
 import { yaml } from "@codemirror/lang-yaml";
-import { HighlightStyle, LanguageDescription, StreamLanguage, bracketMatching, indentOnInput, syntaxHighlighting } from "@codemirror/language";
+import {
+  HighlightStyle,
+  LanguageDescription,
+  StreamLanguage,
+  bracketMatching,
+  indentOnInput,
+  syntaxHighlighting,
+} from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
 import { Compartment, EditorState, RangeSetBuilder } from "@codemirror/state";
 import { languages } from "@codemirror/language-data";
 import { shell } from "@codemirror/legacy-modes/mode/shell";
 import { toml } from "@codemirror/legacy-modes/mode/toml";
-import { highlightSelectionMatches, search, searchKeymap, searchPanelOpen } from "@codemirror/search";
-import { Decoration, EditorView, GutterMarker, drawSelection, gutter, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from "@codemirror/view";
+import {
+  highlightSelectionMatches,
+  search,
+  searchKeymap,
+  searchPanelOpen,
+} from "@codemirror/search";
+import {
+  Decoration,
+  EditorView,
+  GutterMarker,
+  drawSelection,
+  gutter,
+  highlightActiveLine,
+  highlightActiveLineGutter,
+  keymap,
+  lineNumbers,
+} from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import { useEffect, useRef } from "react";
 
@@ -29,7 +51,21 @@ import { useEffect, useRef } from "react";
  */
 
 /** What a name, by extension, is read as. */
-export type CodeLanguage = "json" | "markdown" | "javascript" | "typescript" | "jsx" | "tsx" | "rust" | "yaml" | "css" | "html" | "python" | "toml" | "shell" | "text";
+export type CodeLanguage =
+  | "json"
+  | "markdown"
+  | "javascript"
+  | "typescript"
+  | "jsx"
+  | "tsx"
+  | "rust"
+  | "yaml"
+  | "css"
+  | "html"
+  | "python"
+  | "toml"
+  | "shell"
+  | "text";
 
 const BY_EXTENSION: Record<string, CodeLanguage> = {
   json: "json",
@@ -67,22 +103,32 @@ export function languageOf(name: string): CodeLanguage {
  * The grammar for a name the built-in set does not know, from CodeMirror's own list of languages, which loads each one when it
  * is first asked for. Null where the list has none, and the text stays plain.
  */
-const found = (name: string): Promise<Extension | null> => LanguageDescription.matchFilename(languages, name)?.load() ?? Promise.resolve(null);
+const found = (name: string): Promise<Extension | null> =>
+  LanguageDescription.matchFilename(languages, name)?.load() ?? Promise.resolve(null);
 
 const support = (language: CodeLanguage): Extension => {
   switch (language) {
     case "json":
       return json();
     case "markdown":
-      return markdown({ codeLanguages: languages });
+      return markdown({
+        codeLanguages: languages,
+      });
     case "javascript":
       return javascript();
     case "typescript":
-      return javascript({ typescript: true });
+      return javascript({
+        typescript: true,
+      });
     case "jsx":
-      return javascript({ jsx: true });
+      return javascript({
+        jsx: true,
+      });
     case "tsx":
-      return javascript({ typescript: true, jsx: true });
+      return javascript({
+        typescript: true,
+        jsx: true,
+      });
     case "rust":
       return rust();
     case "yaml":
@@ -105,18 +151,104 @@ const support = (language: CodeLanguage): Extension => {
 // **No token is named for syntax yet**, so the roles borrow the three tool hues and the neutral steps, which have light
 // and dark values. A `--syntax-*` set would replace this table and nothing else.
 const highlight = HighlightStyle.define([
-  { tag: [tags.keyword, tags.modifier, tags.operatorKeyword, tags.controlKeyword, tags.definitionKeyword], color: "var(--tool-change)" },
-  { tag: [tags.string, tags.special(tags.string), tags.regexp], color: "var(--tool-run)" },
-  { tag: [tags.number, tags.bool, tags.null, tags.atom, tags.literal], color: "var(--tool-run)" },
-  { tag: [tags.function(tags.variableName), tags.function(tags.propertyName), tags.propertyName, tags.attributeName], color: "var(--tool-look)" },
-  { tag: [tags.typeName, tags.className, tags.namespace, tags.tagName, tags.macroName], color: "var(--tool-look)" },
-  { tag: [tags.comment, tags.docComment, tags.lineComment, tags.blockComment], color: "var(--fg-subtle)" },
-  { tag: [tags.punctuation, tags.operator, tags.bracket, tags.separator, tags.meta], color: "var(--fg-muted)" },
-  { tag: [tags.heading, tags.strong], color: "var(--fg-default)", fontWeight: "var(--weight-heading)" },
-  { tag: [tags.link, tags.url], color: "var(--accent)" },
-  { tag: [tags.monospace, tags.processingInstruction, tags.quote, tags.contentSeparator], color: "var(--tool-run)" },
-  { tag: tags.emphasis, fontStyle: "italic" },
-  { tag: tags.strikethrough, textDecoration: "line-through" },
+  {
+    tag: [
+      tags.keyword,
+      tags.modifier,
+      tags.operatorKeyword,
+      tags.controlKeyword,
+      tags.definitionKeyword,
+    ],
+    color: "var(--tool-change)",
+  },
+  {
+    tag: [
+      tags.string,
+      tags.special(tags.string),
+      tags.regexp,
+    ],
+    color: "var(--tool-run)",
+  },
+  {
+    tag: [
+      tags.number,
+      tags.bool,
+      tags.null,
+      tags.atom,
+      tags.literal,
+    ],
+    color: "var(--tool-run)",
+  },
+  {
+    tag: [
+      tags.function(tags.variableName),
+      tags.function(tags.propertyName),
+      tags.propertyName,
+      tags.attributeName,
+    ],
+    color: "var(--tool-look)",
+  },
+  {
+    tag: [
+      tags.typeName,
+      tags.className,
+      tags.namespace,
+      tags.tagName,
+      tags.macroName,
+    ],
+    color: "var(--tool-look)",
+  },
+  {
+    tag: [
+      tags.comment,
+      tags.docComment,
+      tags.lineComment,
+      tags.blockComment,
+    ],
+    color: "var(--fg-subtle)",
+  },
+  {
+    tag: [
+      tags.punctuation,
+      tags.operator,
+      tags.bracket,
+      tags.separator,
+      tags.meta,
+    ],
+    color: "var(--fg-muted)",
+  },
+  {
+    tag: [
+      tags.heading,
+      tags.strong,
+    ],
+    color: "var(--fg-default)",
+    fontWeight: "var(--weight-heading)",
+  },
+  {
+    tag: [
+      tags.link,
+      tags.url,
+    ],
+    color: "var(--accent)",
+  },
+  {
+    tag: [
+      tags.monospace,
+      tags.processingInstruction,
+      tags.quote,
+      tags.contentSeparator,
+    ],
+    color: "var(--tool-run)",
+  },
+  {
+    tag: tags.emphasis,
+    fontStyle: "italic",
+  },
+  {
+    tag: tags.strikethrough,
+    textDecoration: "line-through",
+  },
 ]);
 
 const theme = EditorView.theme({
@@ -126,34 +258,73 @@ const theme = EditorView.theme({
     color: "var(--fg-default)",
     fontSize: "var(--text-xs)",
   },
-  "&.cm-focused": { outline: "none" },
+  "&.cm-focused": {
+    outline: "none",
+  },
   ".cm-scroller": {
     fontFamily: "var(--font-mono)",
     lineHeight: "var(--leading-xs)",
     overflow: "auto",
   },
-  ".cm-content": { caretColor: "var(--accent)", padding: "var(--space-2) 0" },
-  ".cm-line": { padding: "0 var(--space-3)" },
-  ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--accent)" },
-  ".cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-content ::selection": {
-    backgroundColor: "var(--accent-muted)",
+  ".cm-content": {
+    caretColor: "var(--accent)",
+    padding: "var(--space-2) 0",
   },
-  ".cm-activeLine": { backgroundColor: "var(--bg-hover)" },
+  ".cm-line": {
+    padding: "0 var(--space-3)",
+  },
+  ".cm-cursor, .cm-dropCursor": {
+    borderLeftColor: "var(--accent)",
+  },
+  ".cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-content ::selection":
+    {
+      backgroundColor: "var(--accent-muted)",
+    },
+  ".cm-activeLine": {
+    backgroundColor: "var(--bg-hover)",
+  },
   ".cm-gutters": {
     backgroundColor: "var(--bg-sunken)",
     color: "var(--fg-subtle)",
     border: "none",
   },
-  ".cm-lineNumbers .cm-gutterElement": { padding: "0 var(--space-2) 0 var(--space-3)", minWidth: "var(--space-8)" },
-  ".cm-activeLineGutter": { backgroundColor: "var(--bg-hover)", color: "var(--fg-muted)" },
-  ".cm-matchingBracket, .cm-nonmatchingBracket": { backgroundColor: "var(--bg-hover)", outline: "var(--border-width) solid var(--border-strong)" },
-  ".cm-selectionMatch": { backgroundColor: "var(--accent-faint)" },
-  ".cm-searchMatch": { backgroundColor: "var(--accent-faint)", outline: "var(--border-width) solid var(--accent)" },
-  ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: "var(--accent-muted)" },
-  ".cm-panels": { backgroundColor: "var(--bg-raised)", color: "var(--fg-default)", fontFamily: "var(--font-sans)" },
-  ".cm-panels.cm-panels-top": { borderBottom: "var(--border-width) solid var(--border-default)" },
-  ".cm-panel.cm-search": { padding: "var(--space-2) var(--space-3)", fontSize: "var(--text-xs)" },
-  ".cm-panel.cm-search input, .cm-panel.cm-search button, .cm-panel.cm-search label": { fontSize: "var(--text-xs)" },
+  ".cm-lineNumbers .cm-gutterElement": {
+    padding: "0 var(--space-2) 0 var(--space-3)",
+    minWidth: "var(--space-8)",
+  },
+  ".cm-activeLineGutter": {
+    backgroundColor: "var(--bg-hover)",
+    color: "var(--fg-muted)",
+  },
+  ".cm-matchingBracket, .cm-nonmatchingBracket": {
+    backgroundColor: "var(--bg-hover)",
+    outline: "var(--border-width) solid var(--border-strong)",
+  },
+  ".cm-selectionMatch": {
+    backgroundColor: "var(--accent-faint)",
+  },
+  ".cm-searchMatch": {
+    backgroundColor: "var(--accent-faint)",
+    outline: "var(--border-width) solid var(--accent)",
+  },
+  ".cm-searchMatch.cm-searchMatch-selected": {
+    backgroundColor: "var(--accent-muted)",
+  },
+  ".cm-panels": {
+    backgroundColor: "var(--bg-raised)",
+    color: "var(--fg-default)",
+    fontFamily: "var(--font-sans)",
+  },
+  ".cm-panels.cm-panels-top": {
+    borderBottom: "var(--border-width) solid var(--border-default)",
+  },
+  ".cm-panel.cm-search": {
+    padding: "var(--space-2) var(--space-3)",
+    fontSize: "var(--text-xs)",
+  },
+  ".cm-panel.cm-search input, .cm-panel.cm-search button, .cm-panel.cm-search label": {
+    fontSize: "var(--text-xs)",
+  },
   ".cm-textfield": {
     backgroundColor: "var(--bg-sunken)",
     color: "var(--fg-default)",
@@ -161,7 +332,10 @@ const theme = EditorView.theme({
     borderRadius: "var(--radius-md)",
     padding: "var(--space-1) var(--space-2)",
   },
-  ".cm-textfield:focus": { outline: "var(--focus-ring)", outlineOffset: "var(--focus-ring-offset)" },
+  ".cm-textfield:focus": {
+    outline: "var(--focus-ring)",
+    outlineOffset: "var(--focus-ring-offset)",
+  },
   ".cm-button": {
     backgroundColor: "var(--bg-sunken)",
     backgroundImage: "none",
@@ -170,12 +344,27 @@ const theme = EditorView.theme({
     borderRadius: "var(--radius-md)",
     padding: "var(--space-1) var(--space-2)",
   },
-  ".cm-button:hover": { backgroundColor: "var(--bg-hover)" },
-  ".cm-button:active": { backgroundColor: "var(--bg-hover)", backgroundImage: "none" },
-  ".cm-panel.cm-search [name=close]": { color: "var(--fg-muted)" },
+  ".cm-button:hover": {
+    backgroundColor: "var(--bg-hover)",
+  },
+  ".cm-button:active": {
+    backgroundColor: "var(--bg-hover)",
+    backgroundImage: "none",
+  },
+  ".cm-panel.cm-search [name=close]": {
+    color: "var(--fg-muted)",
+  },
   // A held note's lines, and its number in a gutter of its own beside the line numbers. As `NoteNumber` draws one.
-  ".cm-noted": { backgroundColor: "var(--accent-faint)", boxShadow: "inset var(--edge-active) 0 0 var(--accent)" },
-  ".cm-notes-gutter .cm-gutterElement": { display: "flex", gap: "var(--space-1)", alignItems: "center", padding: "0 var(--space-1)" },
+  ".cm-noted": {
+    backgroundColor: "var(--accent-faint)",
+    boxShadow: "inset var(--edge-active) 0 0 var(--accent)",
+  },
+  ".cm-notes-gutter .cm-gutterElement": {
+    display: "flex",
+    gap: "var(--space-1)",
+    alignItems: "center",
+    padding: "0 var(--space-1)",
+  },
   ".cm-note-number": {
     display: "inline-flex",
     alignItems: "center",
@@ -191,21 +380,36 @@ const theme = EditorView.theme({
     fontSize: "var(--text-2xs)",
     lineHeight: "1",
   },
-  ".cm-note-number[data-writing]": { backgroundColor: "var(--bg-sunken)", color: "var(--accent)" },
+  ".cm-note-number[data-writing]": {
+    backgroundColor: "var(--bg-sunken)",
+    color: "var(--accent)",
+  },
 });
 
 /** A note held on the text, as the editor marks it: its number, and the lines it is about. */
-export type CodeNoteMark = { n: number; from: number; to: number; writing: boolean };
+export type CodeNoteMark = {
+  n: number;
+  from: number;
+  to: number;
+  writing: boolean;
+};
 
 /** Lines a press points at: the selection's whole lines, or the line under the pointer where nothing is selected. */
-export type CodeLines = { from: number; to: number; quote: string };
+export type CodeLines = {
+  from: number;
+  to: number;
+  quote: string;
+};
 
 class NoteNumbers extends GutterMarker {
   constructor(readonly marks: readonly CodeNoteMark[]) {
     super();
   }
   override eq(other: NoteNumbers): boolean {
-    return other.marks.map((one) => `${String(one.n)}${String(one.writing)}`).join() === this.marks.map((one) => `${String(one.n)}${String(one.writing)}`).join();
+    return (
+      other.marks.map((one) => `${String(one.n)}${String(one.writing)}`).join() ===
+      this.marks.map((one) => `${String(one.n)}${String(one.writing)}`).join()
+    );
   }
   override toDOM(): Node {
     const all = document.createElement("span");
@@ -226,15 +430,26 @@ class NoteNumbers extends GutterMarker {
 /** The held notes' lines tinted, and each note's number at its first line. Nothing at all without notes, so no empty gutter stands. */
 function noteMarks(marks: readonly CodeNoteMark[]): Extension {
   if (marks.length === 0) return [];
-  const within = (view: EditorView, line: number) => Math.min(view.state.doc.lines, Math.max(1, line));
+  const within = (view: EditorView, line: number) =>
+    Math.min(view.state.doc.lines, Math.max(1, line));
   return [
     EditorView.decorations.of((view) => {
       const lines = new Set<number>();
-      for (const one of marks) for (let line = within(view, one.from); line <= within(view, one.to); line += 1) lines.add(line);
+      for (const one of marks)
+        for (let line = within(view, one.from); line <= within(view, one.to); line += 1)
+          lines.add(line);
       const built = new RangeSetBuilder<Decoration>();
-      for (const line of [...lines].sort((a, b) => a - b)) {
+      for (const line of [
+        ...lines,
+      ].sort((a, b) => a - b)) {
         const at = view.state.doc.line(line).from;
-        built.add(at, at, Decoration.line({ class: "cm-noted" }));
+        built.add(
+          at,
+          at,
+          Decoration.line({
+            class: "cm-noted",
+          }),
+        );
       }
       return built.finish();
     }),
@@ -242,9 +457,20 @@ function noteMarks(marks: readonly CodeNoteMark[]): Extension {
       class: "cm-notes-gutter",
       markers: (view) => {
         const byLine = new Map<number, CodeNoteMark[]>();
-        for (const one of marks) byLine.set(within(view, one.from), [...(byLine.get(within(view, one.from)) ?? []), one]);
+        for (const one of marks)
+          byLine.set(within(view, one.from), [
+            ...(byLine.get(within(view, one.from)) ?? []),
+            one,
+          ]);
         const built = new RangeSetBuilder<GutterMarker>();
-        for (const [line, here] of [...byLine].sort((a, b) => a[0] - b[0])) built.add(view.state.doc.line(line).from, view.state.doc.line(line).from, new NoteNumbers(here));
+        for (const [line, here] of [
+          ...byLine,
+        ].sort((a, b) => a[0] - b[0]))
+          built.add(
+            view.state.doc.line(line).from,
+            view.state.doc.line(line).from,
+            new NoteNumbers(here),
+          );
         return built.finish();
       },
     }),
@@ -252,12 +478,29 @@ function noteMarks(marks: readonly CodeNoteMark[]): Extension {
 }
 
 /** Where `lines` are drawn: across the text, from the top of the first to the bottom of the last. Undefined off screen. */
-function drawnOf(view: EditorView, lines: CodeLines): { left: number; top: number; right: number; bottom: number } | undefined {
+function drawnOf(
+  view: EditorView,
+  lines: CodeLines,
+):
+  | {
+      left: number;
+      top: number;
+      right: number;
+      bottom: number;
+    }
+  | undefined {
   const doc = view.state.doc;
   const first = view.coordsAtPos(doc.line(lines.from).from);
   const last = view.coordsAtPos(doc.line(lines.to).to);
   const text = view.contentDOM.getBoundingClientRect();
-  return first === null || last === null ? undefined : { left: text.left, top: first.top, right: text.right, bottom: last.bottom };
+  return first === null || last === null
+    ? undefined
+    : {
+        left: text.left,
+        top: first.top,
+        right: text.right,
+        bottom: last.bottom,
+      };
 }
 
 /** The whole lines from `from` to `to`, where a selection that ends at the start of a line does not take that line. */
@@ -266,7 +509,11 @@ function linesOf(view: EditorView, from: number, to: number): CodeLines {
   const first = doc.lineAt(from);
   let last = doc.lineAt(to);
   if (to > from && to === last.from && last.number > first.number) last = doc.line(last.number - 1);
-  return { from: first.number, to: last.number, quote: doc.sliceString(first.from, last.to) };
+  return {
+    from: first.number,
+    to: last.number,
+    quote: doc.sliceString(first.from, last.to),
+  };
 }
 
 export type CodeEditorProps = {
@@ -285,9 +532,26 @@ export type CodeEditorProps = {
   /** Held notes, marked on their lines. */
   notes?: readonly CodeNoteMark[];
   /** A right press, or the menu key or Shift F10: where, the lines it points at, and where they are on screen. */
-  onNote?: (at: { x: number; y: number }, lines: CodeLines, drawn: { left: number; top: number; right: number; bottom: number } | undefined) => void;
+  onNote?: (
+    at: {
+      x: number;
+      y: number;
+    },
+    lines: CodeLines,
+    drawn:
+      | {
+          left: number;
+          top: number;
+          right: number;
+          bottom: number;
+        }
+      | undefined,
+  ) => void;
   /** Lines to select and bring to the middle once the text is in, as a sent note on them opens the file again. 1-based, inclusive. */
-  reveal?: { from: number; to: number };
+  reveal?: {
+    from: number;
+    to: number;
+  };
 };
 
 /** The line at the top of a view scrolled to `top`, as a fraction where it is part way down one. */
@@ -305,7 +569,18 @@ function topOf(view: EditorView, line: number): number {
   return block.top + Math.min(1, Math.max(0, line - whole)) * block.height;
 }
 
-export function CodeEditor({ name, value, onChange, language, autoFocus = false, scrollTo, onScroll, notes, onNote, reveal }: CodeEditorProps) {
+export function CodeEditor({
+  name,
+  value,
+  onChange,
+  language,
+  autoFocus = false,
+  scrollTo,
+  onScroll,
+  notes,
+  onNote,
+  reveal,
+}: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const change = useRef(onChange);
@@ -319,13 +594,29 @@ export function CodeEditor({ name, value, onChange, language, autoFocus = false,
   const editable = onChange !== undefined;
   const kind = language ?? languageOf(name);
   const wraps = kind === "markdown" || kind === "text";
-  const first = useRef({ value, kind, editable, wraps, name });
-  const slots = useRef({ language: new Compartment(), editable: new Compartment(), wrap: new Compartment(), name: new Compartment(), notes: new Compartment() });
+  const first = useRef({
+    value,
+    kind,
+    editable,
+    wraps,
+    name,
+  });
+  const slots = useRef({
+    language: new Compartment(),
+    editable: new Compartment(),
+    wrap: new Compartment(),
+    name: new Compartment(),
+    notes: new Compartment(),
+  });
 
   useEffect(() => {
     const el = host.current;
     if (el === null) return;
-    const root = el.shadowRoot ?? el.attachShadow({ mode: "open" });
+    const root =
+      el.shadowRoot ??
+      el.attachShadow({
+        mode: "open",
+      });
     const start = first.current;
     const now = slots.current;
     const next = new EditorView({
@@ -342,16 +633,30 @@ export function CodeEditor({ name, value, onChange, language, autoFocus = false,
           indentOnInput(),
           bracketMatching(),
           highlightSelectionMatches(),
-          search({ top: true }),
+          search({
+            top: true,
+          }),
           syntaxHighlighting(highlight),
           theme,
-          keymap.of([...searchKeymap, ...historyKeymap, ...defaultKeymap]),
+          keymap.of([
+            ...searchKeymap,
+            ...historyKeymap,
+            ...defaultKeymap,
+          ]),
           now.language.of(support(start.kind)),
           now.wrap.of(start.wraps ? EditorView.lineWrapping : []),
-          now.editable.of([EditorState.readOnly.of(!start.editable), EditorView.editable.of(start.editable)]),
-          now.name.of(EditorView.contentAttributes.of({ "aria-label": start.name })),
+          now.editable.of([
+            EditorState.readOnly.of(!start.editable),
+            EditorView.editable.of(start.editable),
+          ]),
+          now.name.of(
+            EditorView.contentAttributes.of({
+              "aria-label": start.name,
+            }),
+          ),
           EditorView.updateListener.of((update) => {
-            if (update.docChanged && update.transactions.some((one) => one.docChanged)) change.current?.(update.state.doc.toString());
+            if (update.docChanged && update.transactions.some((one) => one.docChanged))
+              change.current?.(update.state.doc.toString());
             el.toggleAttribute("data-keeps-esc", searchPanelOpen(update.state));
           }),
         ],
@@ -387,13 +692,23 @@ export function CodeEditor({ name, value, onChange, language, autoFocus = false,
     if (Math.abs(top - at.scrollDOM.scrollTop) < 1) return;
     put.current = top;
     at.scrollDOM.scrollTop = top;
-  }, [scrollTo]);
+  }, [
+    scrollTo,
+  ]);
 
   useEffect(() => {
     const at = view.current;
     if (at === null || at.state.doc.toString() === value) return;
-    at.dispatch({ changes: { from: 0, to: at.state.doc.length, insert: value } });
-  }, [value]);
+    at.dispatch({
+      changes: {
+        from: 0,
+        to: at.state.doc.length,
+        insert: value,
+      },
+    });
+  }, [
+    value,
+  ]);
 
   useEffect(() => {
     const at = view.current;
@@ -402,11 +717,23 @@ export function CodeEditor({ name, value, onChange, language, autoFocus = false,
       effects: [
         now.language.reconfigure(support(kind)),
         now.wrap.reconfigure(wraps ? EditorView.lineWrapping : []),
-        now.editable.reconfigure([EditorState.readOnly.of(!editable), EditorView.editable.of(editable)]),
-        now.name.reconfigure(EditorView.contentAttributes.of({ "aria-label": name })),
+        now.editable.reconfigure([
+          EditorState.readOnly.of(!editable),
+          EditorView.editable.of(editable),
+        ]),
+        now.name.reconfigure(
+          EditorView.contentAttributes.of({
+            "aria-label": name,
+          }),
+        ),
       ],
     });
-  }, [kind, wraps, editable, name]);
+  }, [
+    kind,
+    wraps,
+    editable,
+    name,
+  ]);
 
   // A name the built-in set reads as plain text may still be a language the list knows: Go, Ruby, SQL and the rest.
   useEffect(() => {
@@ -414,17 +741,24 @@ export function CodeEditor({ name, value, onChange, language, autoFocus = false,
     let current = true;
     void found(name)
       .then((loaded) => {
-        if (current && loaded !== null) view.current?.dispatch({ effects: slots.current.language.reconfigure(loaded) });
+        if (current && loaded !== null)
+          view.current?.dispatch({
+            effects: slots.current.language.reconfigure(loaded),
+          });
       })
       .catch(() => undefined);
     return () => {
       current = false;
     };
-  }, [kind, name]);
+  }, [
+    kind,
+    name,
+  ]);
 
   // Once per pair of lines, after the text that holds them is in.
   const shown = useRef<string | undefined>(undefined);
-  const revealKey = reveal === undefined ? undefined : `${String(reveal.from)}-${String(reveal.to)}`;
+  const revealKey =
+    reveal === undefined ? undefined : `${String(reveal.from)}-${String(reveal.to)}`;
   useEffect(() => {
     const at = view.current;
     if (at === null || reveal === undefined || revealKey === shown.current) return;
@@ -433,15 +767,30 @@ export function CodeEditor({ name, value, onChange, language, autoFocus = false,
     shown.current = revealKey;
     const from = doc.line(reveal.from).from;
     const to = doc.line(Math.min(doc.lines, Math.max(reveal.from, reveal.to))).to;
-    at.dispatch({ selection: { anchor: from, head: to }, effects: EditorView.scrollIntoView(from, { y: "center" }) });
+    at.dispatch({
+      selection: {
+        anchor: from,
+        head: to,
+      },
+      effects: EditorView.scrollIntoView(from, {
+        y: "center",
+      }),
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the lines, and read again when the text arrives
-  }, [revealKey, value]);
+  }, [
+    revealKey,
+    value,
+  ]);
 
   // Keyed on what the marks say, so a render handing over an equal list reconfigures nothing.
   const noted = JSON.stringify(notes ?? []);
   useEffect(() => {
-    view.current?.dispatch({ effects: slots.current.notes.reconfigure(noteMarks(JSON.parse(noted) as CodeNoteMark[])) });
-  }, [noted]);
+    view.current?.dispatch({
+      effects: slots.current.notes.reconfigure(noteMarks(JSON.parse(noted) as CodeNoteMark[])),
+    });
+  }, [
+    noted,
+  ]);
 
   // Plain keys stay in the editor: Bridge's single-key shortcuts listen on the window and would read the host as no text field.
   // On the host, in the bubble phase, so the editor has heard the key by the time it stops. The menu key, and Shift F10,
@@ -451,12 +800,23 @@ export function CodeEditor({ name, value, onChange, language, autoFocus = false,
     if (el === null) return;
     const keep = (event: KeyboardEvent) => {
       const at = view.current;
-      if (at !== null && noting.current !== undefined && (event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey))) {
+      if (
+        at !== null &&
+        noting.current !== undefined &&
+        (event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey))
+      ) {
         event.preventDefault();
         const { from, to, head } = at.state.selection.main;
         const box = at.coordsAtPos(head) ?? el.getBoundingClientRect();
         const lines = linesOf(at, from, to);
-        noting.current({ x: box.left, y: box.bottom }, lines, drawnOf(at, lines));
+        noting.current(
+          {
+            x: box.left,
+            y: box.bottom,
+          },
+          lines,
+          drawnOf(at, lines),
+        );
       }
       if (!event.metaKey && !event.ctrlKey) event.stopPropagation();
     };
@@ -466,9 +826,22 @@ export function CodeEditor({ name, value, onChange, language, autoFocus = false,
       if (at === null || noting.current === undefined) return;
       event.preventDefault();
       const { from, to } = at.state.selection.main;
-      const under = from === to ? at.posAtCoords({ x: event.clientX, y: event.clientY }) : null;
+      const under =
+        from === to
+          ? at.posAtCoords({
+              x: event.clientX,
+              y: event.clientY,
+            })
+          : null;
       const lines = under === null ? linesOf(at, from, to) : linesOf(at, under, under);
-      noting.current({ x: event.clientX, y: event.clientY }, lines, drawnOf(at, lines));
+      noting.current(
+        {
+          x: event.clientX,
+          y: event.clientY,
+        },
+        lines,
+        drawnOf(at, lines),
+      );
     };
     el.addEventListener("keydown", keep);
     el.addEventListener("contextmenu", menu);
@@ -478,7 +851,15 @@ export function CodeEditor({ name, value, onChange, language, autoFocus = false,
     };
   }, []);
 
-  return <div ref={host} className="armada-code-editor" role="group" aria-label={`Editor ${name}`} data-keeps-keys="" />;
+  return (
+    <div
+      ref={host}
+      className="armada-code-editor"
+      role="group"
+      aria-label={`Editor ${name}`}
+      data-keeps-keys=""
+    />
+  );
 }
 
 /**
@@ -492,7 +873,14 @@ export function selectInEditor(element: HTMLElement, words: string): boolean {
   const from = at.state.doc.toString().indexOf(words);
   if (from < 0) return false;
   at.focus();
-  at.dispatch({ selection: { anchor: from, head: from + words.length }, scrollIntoView: true, userEvent: "select.pointer" });
+  at.dispatch({
+    selection: {
+      anchor: from,
+      head: from + words.length,
+    },
+    scrollIntoView: true,
+    userEvent: "select.pointer",
+  });
   return true;
 }
 
@@ -507,7 +895,19 @@ export function typeIntoEditor(element: HTMLElement, said: string): boolean {
   at.focus();
   const line = /^@(\d+) /.exec(said);
   const words = line === null ? said : said.slice(line[0].length);
-  const end = line === null ? at.state.doc.length : at.state.doc.line(Math.min(Number(line[1]), at.state.doc.lines)).to;
-  at.dispatch({ changes: { from: end, insert: words }, selection: { anchor: end + words.length }, userEvent: "input.type" });
+  const end =
+    line === null
+      ? at.state.doc.length
+      : at.state.doc.line(Math.min(Number(line[1]), at.state.doc.lines)).to;
+  at.dispatch({
+    changes: {
+      from: end,
+      insert: words,
+    },
+    selection: {
+      anchor: end + words.length,
+    },
+    userEvent: "input.type",
+  });
   return true;
 }
