@@ -84,6 +84,7 @@ import "./deck.css";
 import "./power.css";
 import "./console.css";
 import "./console-bridge.css";
+import { ConsoleBays, ConsoleRack } from "./ConsoleBays";
 import { Standby } from "./Standby";
 import { powering, usePowerOn } from "../boot";
 
@@ -381,6 +382,19 @@ export function useActivityBeside(grid: RefObject<HTMLDivElement | null>, layout
  * near it and pressing it picks its event**, and the map shows what moved: the drone it is about, ringed, and the rest dimmed.
  */
 function Activity({ props, listed, ship }: { props: CockpitProps; listed: readonly Subject[]; ship: Ship }) {
+  return (
+    <section className="deck-panel deck-activity" aria-label="Activity" tabIndex={-1}>
+      <Standby kind="activity" />
+      <header className="deck-band">
+        <span className="deck-band__name">Activity</span>
+      </header>
+      <ActivityBody props={props} listed={listed} ship={ship} />
+    </section>
+  );
+}
+
+/** The graph itself, which the bridge take also seats in a bay of the console as a scope. */
+function ActivityBody({ props, listed, ship }: { props: CockpitProps; listed: readonly Subject[]; ship: Ship }) {
   const needs = useDeck((deck) => deck.needs);
   const checks = useDeck((deck) => deck.checks);
   const sel = useDeck((deck) => deck.sel);
@@ -401,21 +415,15 @@ function Activity({ props, listed, ship }: { props: CockpitProps; listed: readon
     return inOrder(events).filter((one) => Date.parse(one.at) <= at).at(-1)?.id.toString();
   }, [events, focus, replay === undefined ? undefined : replay.at]);
   return (
-    <section className="deck-panel deck-activity" aria-label="Activity" tabIndex={-1}>
-      <Standby kind="activity" />
-      <header className="deck-band">
-        <span className="deck-band__name">Activity</span>
-      </header>
-      <ActivityGraph
-        now={props.now}
-        views={views}
-        filter="running"
-        keep={keep as never}
-        {...(of === undefined ? {} : { of })}
-        onPick={(event) => setFocus(event.id, event.subject.kind === "main" ? undefined : `${event.subject.kind}:${event.subject.id}`)}
-        {...(lit === undefined ? {} : { lit })}
-      />
-    </section>
+    <ActivityGraph
+      now={props.now}
+      views={views}
+      filter="running"
+      keep={keep as never}
+      {...(of === undefined ? {} : { of })}
+      onPick={(event) => setFocus(event.id, event.subject.kind === "main" ? undefined : `${event.subject.kind}:${event.subject.id}`)}
+      {...(lit === undefined ? {} : { lit })}
+    />
   );
 }
 
@@ -823,7 +831,7 @@ const DECK_TIPS: Record<string, string> = { checks: "Checks: only what is runnin
  * The two filters and the view switch: one row of four equal tiles. **While a Session is open on the stage they are that
  * Session's** (`SessionTiles`), in the same block and under the same keys, and the four return when it closes.
  */
-function FlightControl({ ship, props, unified = false }: { ship: Ship; props: CockpitProps; unified?: boolean }) {
+function FlightControl({ ship, props, listed, unified = false }: { ship: Ship; props: CockpitProps; listed: readonly Subject[]; unified?: boolean }) {
   const folded = useCollapse("controls");
   const file = useFlightFile();
   const [editing, setEditing] = useState(false);
@@ -882,13 +890,26 @@ function FlightControl({ ship, props, unified = false }: { ship: Ship; props: Co
         )}
         <span className="deck-band__acts" ref={setActs} />
       </header>
-      {editing ? (
+      {editing && set === "deck" && bridgeTake() ? (
+        <ConsoleRack host={acts} onDone={() => setEditing(false)} />
+      ) : editing ? (
         <FlightEdit set={set} host={acts} repository={opened} sessionId={session?.id} onClose={() => setEditing(false)} />
       ) : session !== undefined && draft !== undefined ? (
         <SessionTiles session={session} draft={draft} repository={repository} bays={bays} onOpenLink={props.onOpenLink} expanded={expanded} onOverflow={setOverflows} {...(startIn === undefined ? {} : { startIn })} />
       ) : (
         <div className="deck-controls__block">
-          {deckTiles.map((tile) => {
+          {bridgeTake() ? (
+            <ConsoleBays
+              wiring={{
+                tiles: deckTiles,
+                pressed: (id) => DECK_ACTS[id]?.pressed(deck) ?? false,
+                press: (id) => DECK_ACTS[id]?.press(),
+                calling: asking,
+                scope: <ActivityBody props={props} listed={listed} ship={ship} />,
+              }}
+            />
+          ) : null}
+          {bridgeTake() ? [] : deckTiles.map((tile) => {
             const act = tile.builtIn === undefined ? undefined : DECK_ACTS[tile.id];
             const Glyph = flightGlyph(tile.glyph, "zap");
             const address = (tile.words ?? "").trim();
@@ -904,7 +925,6 @@ function FlightControl({ ship, props, unified = false }: { ship: Ship; props: Co
                   aria-pressed={act?.pressed(deck)}
                   onClick={() => (act === undefined ? isWebAddress(address) && props.onOpenLink(address) : act.press())}
                 >
-                  {bridgeTake() ? <><i className="console-a" aria-hidden="true" /><i className="console-b" aria-hidden="true" /></> : null}
                   <Glyph size={20} aria-hidden="true" />
                   <span className="deck-tile__text">{tile.text}</span>
                   {tile.key === undefined ? null : (
@@ -916,7 +936,6 @@ function FlightControl({ ship, props, unified = false }: { ship: Ship; props: Co
               </Tooltip>
             );
           })}
-          {bridgeTake() ? <div className="console-gauges" aria-hidden="true"><i /><i /></div> : null}
         </div>
       )}
     </section>
@@ -1160,12 +1179,12 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
           </div>
           {footed ? (
             <div className="deck-foot">
-              {panels.has("controls") ? <FlightControl ship={ship} props={props} /> : null}
+              {panels.has("controls") ? <FlightControl ship={ship} props={props} listed={listed} /> : null}
               {!panels.has("dispatch") ? null : <DispatchDeck />}
               {!autopilotShown || !panels.has("autopilot") ? null : <AutopilotPanel autopilot={autopilot} />}
             </div>
           ) : null}
-          {unified && panels.has("controls") ? <FlightControl ship={ship} props={props} unified /> : null}
+          {unified && panels.has("controls") ? <FlightControl ship={ship} props={props} listed={listed} unified /> : null}
         </div>
         {/* A Job with a story has no column: its story is tabs in its panes. */}
         {bare || unified ? null : (
@@ -1178,7 +1197,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
                 <LedgerPanel host={setLedgerHost} />
               </>
             ) : panels.has("bays") ? <BaysPanel props={props} ship={ship} picked={sel?.kind === "session" ? selected : undefined} /> : null}
-            {!panels.has("activity") ? null : <Activity props={props} listed={listed} ship={ship} />}
+            {!panels.has("activity") || bridgeTake() ? null : <Activity props={props} listed={listed} ship={ship} />}
           </div>
         )}
         {splits}

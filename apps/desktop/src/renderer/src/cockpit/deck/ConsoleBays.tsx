@@ -1,0 +1,335 @@
+// The bridge take's modular console (mock): five bays, each a socket that takes any instrument, and the rack that seats them. What is in
+// each bay is kept in localStorage. Drawn only where `data-console="bridge"` is set (`console-bridge.css`); the markup is the same either way.
+
+import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { Activity as ActivityGlyph, ChartNoAxesGantt, Gauge, Maximize2, Megaphone, PlugZap, Plus, Radar, ShieldCheck, X, type LucideIcon } from "lucide-react";
+import { Button, Kbd, Tooltip } from "@armada/components";
+
+import { useZoomBox } from "../../job-panes/zoom";
+import { glyphOf } from "./flight-glyphs";
+import { tileCap } from "./session-tiles";
+import type { tilesOf } from "./flight-controls";
+
+export type InstrumentId = "matrix" | "beacon" | "radar" | "trace" | "scope" | "needles" | "usage";
+type Tile = ReturnType<typeof tilesOf>[number];
+
+/** The code is a stencil on the console, decoration only. `mod` names the mod an instrument comes from. */
+export const INSTRUMENTS: Record<InstrumentId, { code: string; label: string; Icon: LucideIcon; mod?: string }> = {
+  matrix: { code: "CHK", label: "Checks", Icon: ShieldCheck },
+  beacon: { code: "ALM", label: "Calls", Icon: Megaphone },
+  radar: { code: "RDR", label: "Map", Icon: Radar },
+  trace: { code: "TLM", label: "Timeline", Icon: ChartNoAxesGantt },
+  scope: { code: "ACT", label: "Activity", Icon: ActivityGlyph },
+  needles: { code: "GGE", label: "Gauges", Icon: Gauge },
+  usage: { code: "USE", label: "Plan usage", Icon: PlugZap, mod: "plan-usage" },
+};
+const BUILT_IN: readonly InstrumentId[] = ["matrix", "beacon", "radar", "trace", "scope", "needles"];
+const FROM_MODS: readonly InstrumentId[] = ["usage"];
+/** The deck tile each key instrument stands for, which holds its words, glyph and key. */
+const TILE_OF: Partial<Record<InstrumentId, string>> = { matrix: "checks", beacon: "needs", radar: "map", trace: "timeline" };
+const TIP_OF: Partial<Record<string, string>> = { checks: "Checks: only what is running one" };
+
+// ---- What the bays hold ------------------------------------------------------------------------------
+
+const KEPT = "armada.console.bays";
+type Bays = readonly (InstrumentId | null)[];
+const FIRST: Bays = ["matrix", "beacon", "radar", "trace", "scope"];
+const heard = new Set<() => void>();
+
+const read = (): Bays => {
+  try {
+    const kept: unknown = JSON.parse(window.localStorage.getItem(KEPT) ?? "null");
+    if (Array.isArray(kept) && kept.length === FIRST.length && kept.every((one) => one === null || (typeof one === "string" && one in INSTRUMENTS))) return kept as Bays;
+  } catch {
+    /* a bad record is the default */
+  }
+  return FIRST;
+};
+let bays: Bays = read();
+
+/** Put an instrument in a bay, or empty it. */
+function seat(bay: number, id: InstrumentId | null): void {
+  bays = bays.map((one, at) => (at === bay ? id : one));
+  try {
+    window.localStorage.setItem(KEPT, JSON.stringify(bays));
+  } catch {
+    /* kept for this page only */
+  }
+  heard.forEach((one) => one());
+}
+const useBays = (): Bays =>
+  useSyncExternalStore(
+    (hear) => (heard.add(hear), () => void heard.delete(hear)),
+    () => bays,
+  );
+
+export type Wiring = {
+  tiles: readonly Tile[];
+  pressed: (tile: string) => boolean;
+  press: (tile: string) => void;
+  /** A Job is asking him. */
+  calling: boolean;
+  /** The Activity graph, drawn into the scope. */
+  scope: ReactNode;
+};
+
+// ---- The bays ------------------------------------------------------------------------------------------
+
+/** A key instrument is the deck's own tile, drawn as an instrument: it does what the tile does. */
+function Key({ id, wiring }: { id: InstrumentId; wiring: Wiring }) {
+  const tileId = TILE_OF[id]!;
+  const tile = wiring.tiles.find((one) => one.id === tileId);
+  const Glyph = glyphOf(tile?.glyph, "zap");
+  const label = tile?.label ?? INSTRUMENTS[id].label;
+  return (
+    <Tooltip label={TIP_OF[tileId] ?? label} {...(tile?.key === undefined ? {} : { shortcut: tile.key })} asChild>
+      <button
+        type="button"
+        className="deck-tile"
+        aria-label={label}
+        data-key={tile?.key}
+        data-tile={tileId}
+        data-calling={tileId === "needs" && wiring.calling ? "" : undefined}
+        aria-pressed={wiring.pressed(tileId)}
+        onClick={() => wiring.press(tileId)}
+      >
+        <i className="console-a" aria-hidden="true" />
+        <i className="console-b" aria-hidden="true" />
+        <Glyph size={20} aria-hidden="true" />
+        <span className="deck-tile__text">{tile?.text ?? label}</span>
+        {tile?.key === undefined ? null : (
+          <Kbd className="deck-tile__key" aria-hidden="true">
+            {tileCap(tile.key)}
+          </Kbd>
+        )}
+      </button>
+    </Tooltip>
+  );
+}
+
+/** The Activity graph as a scope. Its press opens Activity over the Cockpit's body. */
+function Scope({ wiring }: { wiring: Wiring }) {
+  const [open, setOpen] = useState(false);
+  const box = useZoomBox(open, 0);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: globalThis.KeyboardEvent) => event.key === "Escape" && setOpen(false);
+    document.addEventListener("keydown", close);
+    return () => document.removeEventListener("keydown", close);
+  }, [open]);
+  return (
+    <div className="console-scope" data-tile="scope">
+      {wiring.scope}
+      <span className="console-scope__open">
+        <Tooltip label="Activity" asChild>
+          <Button variant="ghost" size="sm" iconOnly aria-label="Activity" aria-expanded={open} onClick={() => setOpen(true)}>
+            <Maximize2 size={12} aria-hidden="true" />
+          </Button>
+        </Tooltip>
+      </span>
+      {open && box !== undefined
+        ? createPortal(
+            <div className="console-sheet" role="dialog" aria-label="Activity" style={{ left: box.left, top: box.top, width: box.width, height: box.height }}>
+              <header className="console-sheet__band">
+                <Tooltip label="Close" shortcut="Esc" asChild>
+                  <Button variant="ghost" size="sm" iconOnly aria-label="Close" autoFocus onClick={() => setOpen(false)}>
+                    <X size={16} aria-hidden="true" />
+                  </Button>
+                </Tooltip>
+              </header>
+              <div className="console-sheet__body">{wiring.scope}</div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </div>
+  );
+}
+
+function Seated({ id, wiring }: { id: InstrumentId; wiring: Wiring }) {
+  if (id === "scope") return <Scope wiring={wiring} />;
+  if (id === "needles") {
+    return (
+      <Tooltip label={INSTRUMENTS.needles.label} asChild>
+        <div className="console-gauges" role="img" aria-label={INSTRUMENTS.needles.label}>
+          <i />
+          <i />
+        </div>
+      </Tooltip>
+    );
+  }
+  if (id === "usage") {
+    return (
+      <Tooltip label={INSTRUMENTS.usage.label} asChild>
+        <div className="console-usage" role="img" aria-label={INSTRUMENTS.usage.label}>
+          <span className="console-usage__mod" aria-hidden="true">
+            {INSTRUMENTS.usage.mod}
+          </span>
+          <i style={{ ["--v" as string]: "42%" }} />
+          <i style={{ ["--v" as string]: "71%" }} />
+        </div>
+      </Tooltip>
+    );
+  }
+  return <Key id={id} wiring={wiring} />;
+}
+
+/** The console's row of bays. A bay with nothing in it is a dark, recessed socket. */
+export function ConsoleBays({ wiring }: { wiring: Wiring }) {
+  const seated = useBays();
+  return (
+    <>
+      {seated.map((id, at) => (
+        <div key={at} className="console-bay" data-n={at + 1} data-empty={id === null || undefined}>
+          {id === null ? null : <Seated id={id} wiring={wiring} />}
+        </div>
+      ))}
+    </>
+  );
+}
+
+// ---- The rack: every bay an open socket, and a tray of instruments to put in them ---------------------------
+
+/** Left and Right move between the buttons of the row the key was pressed in. */
+function along(event: KeyboardEvent<HTMLElement>, selector: string) {
+  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+  const row = [...event.currentTarget.querySelectorAll<HTMLElement>(selector)];
+  const at = row.indexOf(document.activeElement as HTMLElement);
+  if (at === -1) return;
+  event.preventDefault();
+  row[Math.min(row.length - 1, Math.max(0, at + (event.key === "ArrowLeft" ? -1 : 1)))]?.focus();
+}
+
+/** The rack. Focus a bay and press Enter to pick it, then choose from the tray with the arrows and Enter; or drag an instrument onto a bay. Delete empties the bay. */
+export function ConsoleRack({ host, onDone }: { host: HTMLElement | null; onDone: () => void }) {
+  const seated = useBays();
+  const [armed, setArmed] = useState<number | undefined>();
+  const [over, setOver] = useState<number | undefined>();
+  const last = useRef(0);
+  const sockets = useRef<(HTMLButtonElement | null)[]>([]);
+  const tray = useRef<HTMLDivElement>(null);
+  const put = (bay: number, id: InstrumentId | null) => {
+    seat(bay, id);
+    setArmed(undefined);
+    sockets.current[bay]?.focus();
+  };
+  const drop = (bay: number) => (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    setOver(undefined);
+    const id = event.dataTransfer.getData("text/plain");
+    if (id in INSTRUMENTS) put(bay, id as InstrumentId);
+  };
+  useEffect(() => {
+    if (armed !== undefined) tray.current?.querySelector<HTMLElement>("button")?.focus();
+  }, [armed]);
+  const tile = (id: InstrumentId) => {
+    const { Icon, code, label, mod } = INSTRUMENTS[id];
+    return (
+      <Tooltip key={id} label={mod === undefined ? label : `${label}, ${mod}`} asChild>
+        <button
+          type="button"
+          role="option"
+          aria-selected={false}
+          aria-label={label}
+          className="console-tray__item"
+          data-mod={mod}
+          draggable
+          onDragStart={(event) => event.dataTransfer.setData("text/plain", id)}
+          onClick={() => put(armed ?? last.current, id)}
+        >
+          <Icon size={16} aria-hidden="true" />
+          <span className="console-tray__code" aria-hidden="true">
+            {code}
+          </span>
+          {mod === undefined ? null : (
+            <span className="console-tray__mod" aria-hidden="true">
+              {mod}
+            </span>
+          )}
+        </button>
+      </Tooltip>
+    );
+  };
+  return (
+    <>
+      {host === null
+        ? null
+        : createPortal(
+            <>
+              <Tooltip label="Leave without saving" shortcut="Esc">
+                <Button variant="ghost" size="sm" onClick={onDone}>
+                  Cancel
+                </Button>
+              </Tooltip>
+              <Button variant="secondary" size="sm" onClick={onDone}>
+                Done
+              </Button>
+            </>,
+            host,
+          )}
+      <div
+        className="deck-controls__block console-rack"
+        data-flight-editing=""
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && armed !== undefined) {
+            event.stopPropagation();
+            setArmed(undefined);
+            sockets.current[armed]?.focus();
+          }
+        }}
+      >
+        <div className="console-rack__bays" onKeyDown={(event) => along(event, ".console-socket")}>
+          {seated.map((id, at) => {
+            const meta = id === null ? undefined : INSTRUMENTS[id];
+            const Icon = meta?.Icon;
+            return (
+              <Tooltip key={at} label={meta?.label ?? `Bay ${at + 1}`} asChild>
+                <button
+                  type="button"
+                  className="console-socket"
+                  data-n={at + 1}
+                  data-empty={id === null || undefined}
+                  data-armed={armed === at || undefined}
+                  data-over={over === at || undefined}
+                  aria-label={`Bay ${at + 1}${meta === undefined ? "" : `, ${meta.label}`}`}
+                  aria-pressed={armed === at}
+                  ref={(element) => void (sockets.current[at] = element)}
+                  onFocus={() => (last.current = at)}
+                  onClick={() => setArmed(armed === at ? undefined : at)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Delete" || event.key === "Backspace") {
+                      event.preventDefault();
+                      seat(at, null);
+                    }
+                  }}
+                  onDragOver={(event) => (event.preventDefault(), setOver(at))}
+                  onDragLeave={() => setOver(undefined)}
+                  onDrop={drop(at)}
+                >
+                  {Icon === undefined ? null : <Icon size={20} aria-hidden="true" />}
+                  {meta === undefined ? null : (
+                    <span className="console-socket__code" aria-hidden="true">
+                      {meta.code}
+                    </span>
+                  )}
+                </button>
+              </Tooltip>
+            );
+          })}
+        </div>
+        <div className="console-tray" ref={tray} role="listbox" aria-label="Instruments" onKeyDown={(event) => along(event, ".console-tray__item")}>
+          {BUILT_IN.map(tile)}
+          <span className="console-tray__rule" aria-hidden="true" />
+          {FROM_MODS.map(tile)}
+          <Tooltip label="Make one" asChild>
+            <Button variant="ghost" size="sm" className="console-tray__make">
+              <Plus size={14} aria-hidden="true" />
+              Make one
+            </Button>
+          </Tooltip>
+        </div>
+      </div>
+    </>
+  );
+}
