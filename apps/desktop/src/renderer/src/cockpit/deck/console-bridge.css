@@ -1,0 +1,242 @@
+/* The Flight controls as a starship console, the third take: `?console=bridge`. Mock-only, like `console.css`: nothing applies without `data-console="bridge"` on the root.
+   The drama is structure: stepped bezels, recesses, hard shadows, masks and motion. No gradients, no glow. The Job's grid and the editor (`data-subject`) stay plain.
+   The small mono codes are decoration (`content` with an empty alternative), and the instrument parts are `aria-hidden` spans. */
+
+:root[data-console="bridge"] {
+  --cb-screw: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath fill-rule='evenodd' d='M4 .5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7zM1.8 3.6h4.4v.8H1.8z'/%3E%3C/svg%3E");
+  --cb-rivet: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 4'%3E%3Ccircle cx='6' cy='2' r='1.4'/%3E%3C/svg%3E");
+  --cb-rivety: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 12'%3E%3Ccircle cx='2' cy='6' r='1.4'/%3E%3C/svg%3E");
+  --cb-hazard: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 6' preserveAspectRatio='none'%3E%3Cpath d='M4 0h4L4 6H0z'/%3E%3C/svg%3E");
+  --cb-cell: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 7'%3E%3Crect width='5' height='5'/%3E%3C/svg%3E");
+  --cb-ticks: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(0 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(5 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(10 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(15 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(20 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(25 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(30 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(35 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(40 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(45 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(50 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(55 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(60 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(65 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(70 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(75 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(80 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(85 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(90 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(95 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(100 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(105 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(110 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(115 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(120 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(125 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(130 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(135 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(140 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(145 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(150 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(155 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(160 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(165 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(170 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(175 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(180 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(185 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(190 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(195 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(200 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(205 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(210 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(215 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(220 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(225 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(230 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(235 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(240 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(245 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(250 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(255 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(260 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(265 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(270 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(275 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(280 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(285 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(290 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(295 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(300 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(305 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(310 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(315 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(320 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(325 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(330 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(335 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(340 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(345 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(350 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(355 50 50)' stroke='black' stroke-width='0.8'/%3E%3C/svg%3E");
+  --cb-cross: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg stroke='black' stroke-width='.6'%3E%3Cpath d='M50 12V88M12 50H88'/%3E%3C/g%3E%3Ccircle cx='62' cy='36' r='2.2'/%3E%3Ccircle cx='38' cy='66' r='1.8'/%3E%3Ccircle cx='68' cy='60' r='1.5'/%3E%3C/svg%3E");
+  --cb-sweep: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 50L50 4A46 46 0 0 0 23.6 12.3Z' fill-opacity='.38'/%3E%3Cpath d='M50 50V4' stroke='black' stroke-width='1.2'/%3E%3C/svg%3E");
+  --cb-ring: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='black' stroke-width='7' stroke-dasharray='12 12'/%3E%3C/svg%3E");
+  --cb-scale: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 10' preserveAspectRatio='none'%3E%3Cpath d='M0 0h1v10H0zM8 5h1v5H8zM16 5h1v5h-1zM24 5h1v5h-1zM32 5h1v5h-1z'/%3E%3C/svg%3E");
+  --cb-wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 16'%3E%3Cpath d='M0 8H6L9 2L13 14L17 8H26L29 5L32 11L35 8H40' fill='none' stroke='black' stroke-width='1.2'/%3E%3C/svg%3E");
+  --cb-gauges: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 40' preserveAspectRatio='xMidYMax meet'%3E%3Cpath d='M4 36A26 26 0 0 1 56 36' fill='none' stroke='black' stroke-width='1.2'/%3E%3Cpath d='M4.0 36.0L9.0 36.0' stroke='black' stroke-width='1'/%3E%3Cpath d='M7.5 23.0L11.8 25.5' stroke='black' stroke-width='1'/%3E%3Cpath d='M17.0 13.5L19.5 17.8' stroke='black' stroke-width='1'/%3E%3Cpath d='M30.0 10.0L30.0 15.0' stroke='black' stroke-width='1'/%3E%3Cpath d='M43.0 13.5L40.5 17.8' stroke='black' stroke-width='1'/%3E%3Cpath d='M52.5 23.0L48.2 25.5' stroke='black' stroke-width='1'/%3E%3Cpath d='M56.0 36.0L51.0 36.0' stroke='black' stroke-width='1'/%3E%3Cpath d='M64 36A26 26 0 0 1 116 36' fill='none' stroke='black' stroke-width='1.2'/%3E%3Cpath d='M64.0 36.0L69.0 36.0' stroke='black' stroke-width='1'/%3E%3Cpath d='M67.5 23.0L71.8 25.5' stroke='black' stroke-width='1'/%3E%3Cpath d='M77.0 13.5L79.5 17.8' stroke='black' stroke-width='1'/%3E%3Cpath d='M90.0 10.0L90.0 15.0' stroke='black' stroke-width='1'/%3E%3Cpath d='M103.0 13.5L100.5 17.8' stroke='black' stroke-width='1'/%3E%3Cpath d='M112.5 23.0L108.2 25.5' stroke='black' stroke-width='1'/%3E%3Cpath d='M116.0 36.0L111.0 36.0' stroke='black' stroke-width='1'/%3E%3C/svg%3E");
+  --cb-slot: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' preserveAspectRatio='none'%3E%3Cpath d='M1 0h8v3H1z'/%3E%3C/svg%3E");
+
+  --cb-amber: var(--status-awaiting-review);
+  --cb-cyan: var(--status-running);
+  --cb-chamfer: var(--space-3);
+  --cb-reach: 200px;
+  --cb-code: calc(var(--text-2xs) * 0.8);
+
+  & .deck-foot { --cb-dial: calc(var(--tile) * 1.75); }
+
+  /* ---- The bezel: a chamfered frame of steps, a rivet row on each side and a screw at each corner. ---- */
+  & .deck-foot > :is(.deck-controls:has(> .deck-controls__block:not([data-subject])), .deck-dispatch) {
+    border: calc(var(--border-width) * 2) solid var(--border-strong);
+    border-radius: 0;
+    background: var(--bg-sunken);
+    box-shadow:
+      inset 0 0 0 calc(var(--border-width) * 3) var(--bg-raised),
+      inset 0 0 0 calc(var(--border-width) * 4) var(--border-default),
+      inset 0 0 0 calc(var(--border-width) * 7) var(--bg-sunken),
+      inset 0 0 0 calc(var(--border-width) * 8) var(--border-subtle);
+    clip-path: polygon(
+      0 var(--cb-chamfer), var(--cb-chamfer) 0, var(--cb-chamfer) calc(var(--cb-reach) * -1),
+      calc(100% - var(--cb-chamfer)) calc(var(--cb-reach) * -1), calc(100% - var(--cb-chamfer)) 0, 100% var(--cb-chamfer),
+      calc(100% + var(--cb-reach)) var(--cb-chamfer), calc(100% + var(--cb-reach)) calc(100% - var(--cb-chamfer)), 100% calc(100% - var(--cb-chamfer)),
+      calc(100% - var(--cb-chamfer)) 100%, calc(100% - var(--cb-chamfer)) calc(100% + var(--cb-reach)), var(--cb-chamfer) calc(100% + var(--cb-reach)),
+      var(--cb-chamfer) 100%, 0 calc(100% - var(--cb-chamfer)), calc(var(--cb-reach) * -1) calc(100% - var(--cb-chamfer)), calc(var(--cb-reach) * -1) var(--cb-chamfer)
+    );
+    &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      background-color: var(--fg-subtle);
+      pointer-events: none;
+      mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat-x, repeat-x, repeat-y, repeat-y;
+      mask-image: var(--cb-screw), var(--cb-screw), var(--cb-screw), var(--cb-screw), var(--cb-rivet), var(--cb-rivet), var(--cb-rivety), var(--cb-rivety);
+      mask-size: 9px 9px, 9px 9px, 9px 9px, 9px 9px, 12px 3px, 12px 3px, 3px 12px, 3px 12px;
+      mask-position: left 3px top 3px, right 3px top 3px, left 3px bottom 3px, right 3px bottom 3px, 24px top 0, 24px bottom 0, left 0 12px, right 0 12px;
+    }
+  }
+  & .deck-foot > :is(.deck-controls:has(> .deck-controls__block:not([data-subject])), .deck-dispatch) > .deck-band { padding-inline: var(--space-6); }
+
+  /* ---- The glass: a recess with its stencilled code along the top. ---- */
+  & :is(.deck-controls__block:not([data-subject]), .deck-dispatch__block) {
+    position: relative;
+    isolation: isolate;
+    margin: 0 var(--space-3) var(--space-3);
+    padding: var(--space-6) var(--space-3) var(--space-3);
+    border: calc(var(--border-width) * 2) solid var(--border-default);
+    border-radius: 0;
+    background: var(--bg-base);
+    box-shadow: inset 0 calc(var(--border-width) * 3) 0 var(--deck-key-seat);
+    gap: var(--space-3);
+  }
+  & .deck-controls__block:not([data-subject])::before {
+    content: "SYS 01   NAV 0412.7   RNG 0.42   HDG 271" / "";
+    position: absolute;
+    top: var(--space-1);
+    left: var(--space-3);
+    font-family: var(--font-mono);
+    font-size: var(--cb-code);
+    line-height: 1;
+    letter-spacing: 0.14em;
+    white-space: pre;
+    color: var(--fg-subtle);
+  }
+
+  /* ---- Every key is an instrument: a hard-edged slab with its own recess. ---- */
+  & :is(.deck-controls__block:not([data-subject]), .deck-dispatch__block) .deck-tile {
+    position: relative;
+    isolation: isolate;
+    justify-content: flex-end;
+    gap: 0;
+    padding: 0 var(--space-2) var(--space-1);
+    border: calc(var(--border-width) * 2) solid var(--border-strong);
+    border-radius: 0;
+    background: var(--bg-raised);
+    box-shadow: inset 0 0 0 var(--border-width) var(--bg-sunken), 0 calc(var(--border-width) * 3) 0 var(--deck-key-lo);
+    color: var(--fg-muted);
+    &:hover { background: var(--bg-hover); color: var(--fg-default); }
+    &:is([aria-pressed="true"], [data-on], :active) { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); box-shadow: inset 0 0 0 var(--border-width) var(--bg-sunken), 0 var(--border-width) 0 var(--deck-key-lo); top: calc(var(--border-width) * 2); }
+    &:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+    & > svg { position: relative; z-index: 1; width: var(--space-4); height: var(--space-4); }
+    & .deck-tile__text { position: relative; z-index: 1; }
+    & > .console-a, & > .console-b { position: absolute; display: block; z-index: -1; pointer-events: none; }
+    & > .console-b { display: none; }
+  }
+  & .deck-controls__block:not([data-subject]) .deck-tile[data-tile] > :is(.console-a, .console-b) { display: block; }
+
+  /* The recess the readout sits in, with its three-letter code. */
+  & .deck-tile:is([data-tile="checks"], [data-tile="needs"], [data-tile="timeline"])::before {
+    content: var(--cb-label) / "";
+    position: absolute;
+    z-index: -1;
+    inset: var(--space-2) var(--space-2) auto;
+    height: calc(var(--space-12) - var(--space-4) + var(--space-2) + var(--space-1) * 2);
+    box-sizing: border-box;
+    padding: var(--space-1);
+    border: var(--border-width) solid var(--border-default);
+    background: var(--bg-base);
+    box-shadow: inset 0 calc(var(--border-width) * 2) 0 var(--deck-key-seat);
+    font-family: var(--font-mono);
+    font-size: var(--cb-code);
+    line-height: 1;
+    letter-spacing: 0.14em;
+    text-align: left;
+    color: var(--fg-subtle);
+  }
+  & .deck-controls__block:not([data-subject]) .deck-tile[data-tile="checks"] { --cb-label: "CHK"; }
+  & .deck-controls__block:not([data-subject]) .deck-tile[data-tile="needs"] { --cb-label: "ALM"; }
+  & .deck-controls__block:not([data-subject]) .deck-tile[data-tile="timeline"] { --cb-label: "TLM"; }
+
+  /* Checks: an LED matrix, three rows, its lit part flickering between readings, and three LEDs. */
+  & .deck-controls__block:not([data-subject]) .deck-tile[data-tile="checks"] {
+    & > .console-a, & > .console-b { inset: var(--space-6) var(--space-4) auto; height: calc(7px * 3); mask-image: var(--cb-cell); mask-size: 7px 7px; mask-repeat: repeat; }
+    & > .console-a { background: var(--border-strong); }
+    & > .console-b { background: var(--cb-cyan); clip-path: inset(0 38% 0 0); animation: cb-flick calc(var(--duration-pulse) * 3) steps(8) infinite alternate; }
+    &::after { content: ""; position: absolute; z-index: -1; top: var(--space-3); right: var(--space-4); width: var(--space-1); height: var(--space-1); background: var(--cb-cyan); box-shadow: calc(var(--space-2) * -1) 0 0 var(--cb-cyan), calc(var(--space-2) * -2) 0 0 var(--border-strong); }
+    &:is([aria-pressed="true"], [data-on]) > .console-b { clip-path: inset(0 0 0 0); animation: none; }
+  }
+
+  /* Calls: a beacon lamp in a recessed socket, ringed by a hazard band that turns while a call is waiting. */
+  & .deck-controls__block:not([data-subject]) .deck-tile[data-tile="needs"] {
+    & > .console-a { top: var(--space-3); left: 50%; width: calc(var(--space-8) + var(--space-1)); height: calc(var(--space-8) + var(--space-1)); margin-inline-start: calc((var(--space-8) + var(--space-1)) / -2); box-sizing: border-box; border: calc(var(--border-width) * 3) solid var(--border-strong); border-radius: 50%; background: var(--bg-sunken); box-shadow: inset 0 calc(var(--border-width) * 3) 0 var(--deck-key-seat); }
+    & > .console-b { top: calc(var(--space-3) + var(--space-2)); left: 50%; width: var(--space-6); height: var(--space-6); margin-inline-start: calc(var(--space-6) / -2); border-radius: 50%; background: color-mix(in srgb, var(--cb-amber) 22%, var(--bg-sunken)); box-shadow: inset 0 0 0 var(--space-1) color-mix(in srgb, var(--cb-amber) 12%, var(--bg-sunken)); }
+    &::after { content: ""; position: absolute; z-index: -1; top: var(--space-2); left: 50%; width: calc(var(--space-12) - var(--space-1)); height: calc(var(--space-12) - var(--space-1)); margin-inline-start: calc((var(--space-12) - var(--space-1)) / -2); background: var(--cb-amber); mask-image: var(--cb-ring); mask-size: 100% 100%; opacity: 0.22; }
+    &[data-calling] > .console-b { background: var(--cb-amber); box-shadow: inset 0 0 0 var(--space-1) color-mix(in srgb, var(--cb-amber) 55%, var(--bg-base)); animation: cb-beacon var(--duration-pulse) steps(2) infinite; }
+    &[data-calling]::after { opacity: 1; animation: cb-turn calc(var(--duration-pulse) * 3) linear infinite; }
+    &:is([aria-pressed="true"], [data-on]) > .console-b { background: var(--cb-amber); }
+  }
+
+  /* Map: a radar. Range rings, a crosshair with contacts, bearing ticks and a sweep that turns. */
+  & .deck-controls__block:not([data-subject]) .deck-tile[data-tile="map"] {
+    width: var(--cb-dial);
+    height: var(--cb-dial);
+    justify-self: center;
+    justify-content: center;
+    padding: 0;
+    border: calc(var(--border-width) * 3) solid var(--border-strong);
+    border-radius: 50%;
+    background: var(--bg-sunken);
+    box-shadow:
+      inset 0 0 0 11px var(--bg-base), inset 0 0 0 12px var(--border-strong),
+      inset 0 0 0 22px var(--bg-base), inset 0 0 0 23px var(--border-default),
+      inset 0 0 0 33px var(--bg-base), inset 0 0 0 34px var(--border-default),
+      0 calc(var(--border-width) * 3) 0 var(--deck-key-lo);
+    &:is([aria-pressed="true"], [data-on], :active) { box-shadow: inset 0 0 0 11px var(--bg-base), inset 0 0 0 12px var(--accent), inset 0 0 0 22px var(--bg-base), inset 0 0 0 23px var(--border-default), inset 0 0 0 33px var(--bg-base), inset 0 0 0 34px var(--border-default), 0 var(--border-width) 0 var(--deck-key-lo); background: var(--bg-sunken); }
+    & .deck-tile__text { display: none; }
+    &::before { content: ""; position: absolute; z-index: -1; inset: 12px; background: var(--border-strong); mask-image: var(--cb-cross); mask-size: 100% 100%; }
+    &::after { content: ""; position: absolute; z-index: -1; inset: 2px; background: var(--fg-subtle); mask-image: var(--cb-ticks); mask-size: 100% 100%; }
+    & > .console-a { inset: 12px; border-radius: 50%; background: var(--cb-cyan); mask-image: var(--cb-sweep); mask-size: 100% 100%; animation: cb-turn calc(var(--duration-pulse) * 2.5) linear infinite; }
+    & .deck-tile__key { top: auto; right: auto; bottom: var(--space-2); left: 50%; translate: -50% 0; }
+  }
+
+  /* Timeline: a telemetry strip, a trace and a scale sliding past a fixed cursor. */
+  & .deck-controls__block:not([data-subject]) .deck-tile[data-tile="timeline"] {
+    & > .console-a { inset: calc(var(--space-12) - var(--space-3)) var(--space-4) auto; height: var(--space-3); background: var(--border-strong); mask-image: var(--cb-scale); mask-size: 40px 100%; mask-repeat: repeat-x; animation: cb-slide calc(var(--duration-pulse) * 1.5) linear infinite; }
+    & > .console-b { inset: var(--space-6) var(--space-4) auto; height: var(--space-4); background: var(--cb-cyan); mask-image: var(--cb-wave); mask-size: 40px 100%; mask-repeat: repeat-x; animation: cb-slide calc(var(--duration-pulse) * 3) linear infinite; }
+    &::after { content: ""; position: absolute; z-index: -1; top: var(--space-3); height: calc(var(--space-8) + var(--space-2)); left: 50%; width: var(--border-width); background: var(--cb-amber); }
+  }
+
+  /* ---- The unused width: two needle gauges over a vent grille. ---- */
+  & .console-gauges {
+    display: none;
+  }
+  & .deck-controls__block:not([data-subject]) > .console-gauges {
+    display: block;
+    grid-column: 5;
+    grid-row: 1;
+    position: relative;
+    container-type: inline-size;
+    border: calc(var(--border-width) * 2) solid var(--border-default);
+    background: var(--bg-base);
+    box-shadow: inset 0 calc(var(--border-width) * 3) 0 var(--deck-key-seat);
+    pointer-events: none;
+    --gw: calc(100cqw - var(--space-3));
+    &::before { content: ""; position: absolute; inset: var(--space-2) var(--space-2) auto; aspect-ratio: 3; background: var(--border-strong); mask-image: var(--cb-gauges); mask-size: 100% 100%; }
+    &::after { content: ""; position: absolute; inset: auto var(--space-2) var(--space-2); height: var(--space-8); background: var(--border-default); mask-image: var(--cb-slot); mask-size: 100% 6px; mask-repeat: repeat-y; }
+    & > i { position: absolute; width: var(--space-1); height: calc(var(--gw) / 120 * 22); top: calc(var(--space-2) + var(--gw) / 120 * 36 - var(--gw) / 120 * 22); margin-inline-start: -2px; transform-origin: 50% 100%; background: var(--cb-amber); }
+    & > i:nth-of-type(1) { left: calc(var(--space-2) + var(--gw) / 120 * 30); transform: rotate(-35deg); animation: cb-sway calc(var(--duration-pulse) * 2) ease-in-out infinite alternate; }
+    & > i:nth-of-type(2) { left: calc(var(--space-2) + var(--gw) / 120 * 90); background: var(--cb-cyan); transform: rotate(20deg); animation: cb-sway calc(var(--duration-pulse) * 2.7) ease-in-out infinite alternate-reverse; }
+  }
+
+  /* ---- Dispatch: a guarded switch. The cover is flipped up on its hinge, a bracket frames the cap, and the arming lamp blinks. ---- */
+  & .deck-foot .deck-dispatch .deck-dispatch__block {
+    grid-auto-rows: var(--cb-dial);
+    justify-items: center;
+    &::before { content: ""; position: absolute; z-index: -1; inset: 0 0 auto; height: var(--space-3); background: var(--cb-amber); mask-image: var(--cb-hazard); mask-size: var(--space-2) 100%; mask-repeat: repeat-x; }
+    &::after { content: ""; position: absolute; z-index: -1; inset: var(--space-3) var(--space-1) var(--space-1); border: calc(var(--border-width) * 3) solid var(--border-strong); border-top: 0; background: var(--bg-sunken); }
+    & .deck-tile {
+      width: calc(var(--cb-dial) - var(--space-4));
+      height: calc(var(--cb-dial) - var(--space-4));
+      align-self: center;
+      justify-content: center;
+      padding: 0;
+      border-radius: 50%;
+      border-width: calc(var(--border-width) * 3);
+      box-shadow: inset 0 0 0 var(--border-width) var(--bg-sunken), 0 calc(var(--border-width) * 4) 0 var(--deck-key-lo), 0 calc(var(--border-width) * 6) 0 var(--border-default);
+      & > svg { width: var(--space-6); height: var(--space-6); }
+      &::before { content: ""; position: absolute; z-index: 1; top: var(--space-2); left: 50%; width: var(--space-2); height: var(--space-1); margin-inline-start: calc(var(--space-1) * -1); background: var(--cb-amber); animation: cb-blink calc(var(--duration-pulse) * 0.75) steps(2) infinite; }
+      &::after { content: ""; position: absolute; z-index: -1; inset: var(--space-1); border: var(--border-width) solid var(--border-strong); border-radius: 50%; }
+      &:is([aria-pressed="true"], :active) { box-shadow: inset 0 0 0 var(--border-width) var(--bg-sunken), 0 var(--border-width) 0 var(--deck-key-lo); }
+    }
+  }
+
+  /* ---- Reshape: the instruments in one row, the radar in the middle. ---- */
+  & .deck-controls__block:not([data-subject]) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) var(--cb-dial) minmax(0, 1fr) minmax(0, 1.15fr);
+    grid-auto-rows: var(--cb-dial);
+    align-items: stretch;
+    & > .deck-tile { grid-row: 1; height: auto; }
+    & > .deck-tile[data-tile="map"] { grid-column: 3; align-self: center; height: var(--cb-dial); }
+  }
+}
+
+@keyframes cb-turn { to { rotate: 360deg; } }
+@keyframes cb-slide { from { mask-position: 0 0; } to { mask-position: -40px 0; } }
+@keyframes cb-sway { to { transform: rotate(38deg); } }
+@keyframes cb-blink { 50% { opacity: 0.15; } }
+@keyframes cb-beacon { 50% { opacity: 0.6; } }
+@keyframes cb-flick { to { clip-path: inset(0 8% 0 0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-console="bridge"] :is(.deck-tile, .deck-tile > *, .deck-tile::before, .deck-tile::after, .console-gauges > i) { animation: none !important; }
+}

@@ -2,7 +2,7 @@
    Skin restyles the six-column grid; reshape also seats Map as a round dial in the middle. The Job's grid and the editor (`data-subject`) stay on the plain look in both. */
 
 /* The shapes are masks, so their colour is a token: a screw head, and the slanted bars of a hazard edge. */
-:root[data-console] {
+:root:is([data-console="skin"], [data-console="reshape"]) {
   --console-screw: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath fill-rule='evenodd' d='M4 .5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7zM1.8 3.6h4.4v.8H1.8z'/%3E%3C/svg%3E");
   --console-hazard: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 6' preserveAspectRatio='none'%3E%3Cpath d='M4 0h4L4 6H0z'/%3E%3C/svg%3E");
   --console-tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 4' preserveAspectRatio='none'%3E%3Cpath d='M0 1h1v3H0zM3 2.5h1V4H3z'/%3E%3C/svg%3E");
@@ -203,5 +203,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root[data-console] .deck-tile[data-tile="needs"][data-calling]::before { animation: none; }
+  :root:is([data-console="skin"], [data-console="reshape"]) .deck-tile[data-tile="needs"][data-calling]::before { animation: none; }
 }

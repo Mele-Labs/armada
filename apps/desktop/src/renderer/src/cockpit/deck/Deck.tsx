@@ -83,6 +83,7 @@ import "../cockpit.css";
 import "./deck.css";
 import "./power.css";
 import "./console.css";
+import "./console-bridge.css";
 import { Standby } from "./Standby";
 import { powering, usePowerOn } from "../boot";
 
@@ -813,6 +814,9 @@ const DECK_ACTS: Record<string, { pressed: (deck: Deck) => boolean; press: () =>
   map: { pressed: (deck) => deck.sel === undefined && deck.view === "map", press: () => setView("map") },
   timeline: { pressed: (deck) => deck.sel === undefined && deck.view === "timeline", press: () => setView("timeline") },
 };
+/** The mock's third console take draws instrument parts inside the keys (`console-bridge.css`). */
+const bridgeTake = () => typeof document !== "undefined" && document.documentElement.dataset.console === "bridge";
+
 const DECK_TIPS: Record<string, string> = { checks: "Checks: only what is running one" };
 
 /**
@@ -900,6 +904,7 @@ function FlightControl({ ship, props, unified = false }: { ship: Ship; props: Co
                   aria-pressed={act?.pressed(deck)}
                   onClick={() => (act === undefined ? isWebAddress(address) && props.onOpenLink(address) : act.press())}
                 >
+                  {bridgeTake() ? <><i className="console-a" aria-hidden="true" /><i className="console-b" aria-hidden="true" /></> : null}
                   <Glyph size={20} aria-hidden="true" />
                   <span className="deck-tile__text">{tile.text}</span>
                   {tile.key === undefined ? null : (
@@ -911,6 +916,7 @@ function FlightControl({ ship, props, unified = false }: { ship: Ship; props: Co
               </Tooltip>
             );
           })}
+          {bridgeTake() ? <div className="console-gauges" aria-hidden="true"><i /><i /></div> : null}
         </div>
       )}
     </section>
