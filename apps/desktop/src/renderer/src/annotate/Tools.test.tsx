@@ -6,10 +6,12 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { isPng, type StyleChange } from "../../../shared/annotations";
+import { isPng, type StoryIndex, type StyleChange } from "../../../shared/annotations";
 import "../styles/index.css";
 import "./annotate.css";
 import { computed } from "./restyle";
+import type { Sink } from "./sink";
+import type { StoryModule } from "./story";
 import { asPng, Examples, imagesIn, Tools } from "./Tools";
 
 /** The eight bytes a PNG starts with, and one more. */
@@ -318,5 +320,52 @@ describe("pictures", () => {
 
     root.render(<Examples pictures={[]} onRemove={() => undefined} />);
     await expect.element(page.getByRole("list", { name: "Pictures" })).not.toBeInTheDocument();
+  });
+});
+
+describe("the Variant tool's tiles", () => {
+  const FILE = "packages/components/src/primitives/Chip/Chip.stories.tsx";
+  const index: StoryIndex = {
+    Chip: { file: "packages/components/src/primitives/Chip/Chip.tsx", title: "Chip", stories: [{ name: "Disabled", args: {}, file: FILE }, { name: "Loud", args: { tone: "loud" }, file: FILE }] },
+  };
+  const module = { default: { component: ({ tone }: { tone?: string }) => <i data-drawn={tone ?? "plain"}>drawn</i> }, Disabled: {}, Loud: { args: { tone: "loud" } } } as unknown as StoryModule;
+
+  async function variants(story: Sink["story"]): Promise<void> {
+    theme();
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mounted.push({ root, host });
+    root.render(<Tools id="20260916-222105-k3f9" element={target()} changes={[]} onChanges={() => undefined} keep="test:text" names={["Chip"]} stories={index} story={story} />);
+    await press("Variant");
+    await expect.element(page.getByRole("group", { name: "Variant" })).toBeVisible();
+  }
+
+  test("draw each story aria-hidden and out of reach, and keep the story's name as the button's", async () => {
+    await variants(async (file) => (file === FILE ? module : null));
+    const disabled = page.getByRole("button", { name: "Disabled", exact: true });
+    await expect.element(disabled).toBeVisible();
+    const button = disabled.element();
+    const preview = button.querySelector<HTMLElement>(".armada-annotate__preview")!;
+    expect(preview.getAttribute("aria-hidden")).toBe("true");
+    expect(preview.hasAttribute("inert")).toBe(true);
+    await expect.poll(() => preview.querySelector("[data-drawn]")?.getAttribute("data-drawn")).toBe("plain");
+    expect(button.querySelector('.armada-annotate__preview [data-drawn="loud"]')).toBeNull();
+    expect(page.getByRole("button", { name: "Loud", exact: true }).element().querySelector('[data-drawn="loud"]')).not.toBeNull();
+  });
+
+  test("are the names alone without a loader", async () => {
+    await variants(undefined);
+    const disabled = page.getByRole("button", { name: "Disabled", exact: true });
+    await expect.element(disabled).toBeVisible();
+    expect(disabled.element().querySelector(".armada-annotate__preview")).toBeNull();
+    expect(disabled.element().textContent).toBe("Disabled");
+  });
+
+  test("are the names alone where the file is unknown", async () => {
+    await variants(async () => null);
+    const disabled = page.getByRole("button", { name: "Disabled", exact: true });
+    await expect.element(disabled).toBeVisible();
+    await expect.poll(() => disabled.element().querySelector(".armada-annotate__preview")).toBeNull();
   });
 });

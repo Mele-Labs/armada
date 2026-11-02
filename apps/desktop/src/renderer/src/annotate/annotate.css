@@ -328,6 +328,39 @@
   font-size: var(--text-2xs);
 }
 
+/* Variant's stories as tiles, two across the card: each story drawn at half size over its name. */
+.armada-annotate__picker-steps[data-tiles] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.armada-annotate .armada-annotate__picker-steps[data-tiles] .armada-button {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  height: auto;
+  padding: var(--space-1);
+}
+
+/* The story is laid out at twice the tile's width and drawn at half. It is shown, not used. */
+.armada-annotate__preview {
+  display: flex;
+  align-items: center;
+  height: calc(var(--space-8) * 2);
+  overflow: hidden;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  pointer-events: none;
+}
+
+.armada-annotate__preview-story {
+  display: block;
+  width: 100%;
+  zoom: 0.5;
+}
+
 .armada-annotate__sample {
   flex: none;
   background: currentColor;
