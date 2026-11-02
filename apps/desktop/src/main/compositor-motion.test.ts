@@ -86,3 +86,13 @@ describe("an infinite animation", () => {
     expect([...read.keyframes.get("a")!]).toEqual(["transform", "box-shadow"]);
   });
 });
+
+// Every move of the field re-blurs the glass over it, so `linear` costs a full blur at the display's rate.
+describe("the field behind the glass", () => {
+  const css = readFileSync(join(ROOT, "packages/components/src/screens/screens.css"), "utf8");
+
+  test.each([["far", 397], ["near", 571]])("moves its %s layer one device pixel at a time", (layer, tile) => {
+    expect(css).toMatch(new RegExp(`armada-field-${layer} [^;]*steps\\(${tile * 2}\\) infinite`));
+    expect(css).toContain(`translate(-${tile}px, -${tile}px)`);
+  });
+});

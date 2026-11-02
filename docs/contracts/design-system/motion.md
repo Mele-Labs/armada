@@ -23,9 +23,10 @@
 **The app is not rigid.** A screen mounted into the shell fades up
 (opacity only; it never runs when the same screen's data moves), a sheet
 eases out as it eased in, every pressable thing eases colour and edge at
-`--duration-fast`, and behind the glass a faint tilted grid and a few marks
-drift: transform-only, one tile per `--duration-drift`, paused while the
-window is hidden and still under reduced motion. A loading place draws the
+`--duration-fast`, and behind the glass a star field drifts: transform-only,
+one tile per `--duration-drift`, in steps of one device pixel because every
+move re-blurs the glass over it, paused while the window is hidden and still
+under reduced motion. A loading place draws the
 running mark's pulse above its bars; the bars themselves stay still.
 
 **Three clocks, for three audiences.** A *transition* (press to travel,
