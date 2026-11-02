@@ -30,7 +30,6 @@ type Handle = (
 const PANES: Record<VoicePane, string> = {
   microphone: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
   speech: "x-apple.systempreferences:com.apple.preference.security?Privacy_SpeechRecognition",
-  sound: "x-apple.systempreferences:com.apple.Sound-Settings.extension",
 };
 
 type Hosts = {

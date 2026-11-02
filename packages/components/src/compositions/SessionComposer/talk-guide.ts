@@ -1,8 +1,8 @@
-// What Talk's guide says for each reason hearing ended early: a title, the steps in order, and the Settings pane that holds the fix.
+// What Talk's guide says for each reason hearing ended early: a title, the steps in order where the owner has any, and the Settings pane that holds the fix.
 
 import type { TalkPane, TalkWhy } from "../ThreadSettings/thread-look";
 
-/** `**bold**` marks what to find on screen and `code` what to type. */
+/** `**bold**` marks what to find on screen. Only a refused permission has steps and a pane; the rest is a title. */
 export type TalkGuide = {
   title: string;
   steps: readonly string[];
@@ -11,8 +11,6 @@ export type TalkGuide = {
 };
 
 const TRY_AGAIN = "Press Talk again.";
-const OTHER_VOICE =
-  "Or pick **Whisper** or **macOS Dictation** under **System**, **Thread**, **Voice**.";
 
 export function talkGuide(why: TalkWhy): TalkGuide {
   switch (why) {
@@ -41,60 +39,12 @@ export function talkGuide(why: TalkWhy): TalkGuide {
     case "microphone_unavailable":
       return {
         title: "No microphone is available",
-        steps: [
-          "Plug one in, or choose an input in **Sound**, then **Input**.",
-          TRY_AGAIN,
-        ],
-        pane: "sound",
-        action: "Open Sound settings",
-      };
-    case "on_device_unavailable":
-      return {
-        title: "This Mac cannot recognise its language on the device",
-        steps: [
-          OTHER_VOICE,
-        ],
-      };
-    case "helper_missing":
-      return {
-        title: "Armada Voice is not built into this Armada",
-        steps: [
-          "Run `xcode-select --install` if the Xcode tools are missing.",
-          "Run `node native/voice/build.mjs` in apps/desktop.",
-          "Restart Armada.",
-        ],
-      };
-    case "whisper_absent":
-      return {
-        title: "Whisper is not installed",
-        steps: [
-          "Install it under **System**, **Thread**, **Voice**.",
-          TRY_AGAIN,
-        ],
-      };
-    case "whisper_failed":
-      return {
-        title: "Whisper could not read the recording",
-        steps: [
-          TRY_AGAIN,
-          OTHER_VOICE,
-        ],
-      };
-    case "recognition_failed":
-      return {
-        title: "Speech recognition stopped",
-        steps: [
-          TRY_AGAIN,
-          OTHER_VOICE,
-        ],
+        steps: [],
       };
     default:
       return {
         title: "Talk stopped",
-        steps: [
-          TRY_AGAIN,
-          OTHER_VOICE,
-        ],
+        steps: [],
       };
   }
 }
