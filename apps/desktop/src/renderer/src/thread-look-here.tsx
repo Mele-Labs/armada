@@ -36,6 +36,8 @@ export type ThreadLookSeed = {
   asked: Readonly<Record<string, readonly string[]>>;
   /** What Talk hears, a word at a time. */
   heard: string;
+  /** Why Talk hears nothing, where `heard` is empty. Without it, the microphone is off. */
+  refusal?: TalkWhy;
 };
 
 /** How long Talk takes between words, and how long Whisper's model takes to come down. */
@@ -212,9 +214,9 @@ function Held({ seed, children }: { seed: ThreadLookSeed; children: ReactNode })
       setLook,
       askedFor: (id) => seed.asked[id] ?? [],
       listen: (onWord, onEnd) => {
-        // A seed with no words plays a refusal: the microphone is off, as on a Mac that has not allowed it.
+        // A seed with no words plays a refusal: the microphone is off, as on a Mac that has not allowed it, unless it says otherwise.
         if (seed.heard === "") {
-          const refused = window.setTimeout(() => onEnd?.("microphone_denied"), WORD_MS);
+          const refused = window.setTimeout(() => onEnd?.(seed.refusal ?? "microphone_denied"), WORD_MS);
           return () => window.clearTimeout(refused);
         }
         const words = seed.heard.split(/\s+/).filter((one) => one !== "");
