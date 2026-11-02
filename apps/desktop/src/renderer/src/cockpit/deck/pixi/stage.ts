@@ -6,8 +6,8 @@
 // The scene graph, back to front: the ground, the plots, the air, what lies on the ground under the drones (a Job's pad among it), the files' bars and their
 // glow (over the drones' shadows, so a file a drone is on still shows), the lines they leave, the standing pictures, the drones, the effects.
 // The ground and the plots are built again only when the tree or what stands on a plot changes, never for a file, a glow or a drone.
-// Continuous motion belongs to the few drones the map animates at once and to the plays an event started; the ticker runs while either
-// does, at half rate where the camera is still, and stops when neither does. A folded pane, a hidden window and an idle one draw nothing.
+// Continuous motion belongs to the plays an event started; the ticker runs while one does, at half rate where the camera is still, and
+// stops when none does. A drone that loops holds its pose. A folded pane, a hidden window and an idle one draw nothing.
 
 // A page whose policy has no `unsafe-eval` cannot use Pixi's generated uniform code; this swaps it for the same code written out.
 import "pixi.js/unsafe-eval";
@@ -33,9 +33,8 @@ import { heldScale, standsOf, type StandSpec } from "./stands";
 import { drawTerrain } from "./terrain";
 import { drawTiles, tilesIn, type TilesIn } from "./tiles";
 import { drawMarks } from "./marks";
-import { drawBlame, drawLinks, drawPad, padMoving, thinkMoving } from "./off-floor";
+import { drawBlame, drawLinks, drawPad } from "./off-floor";
 import { drawLens } from "./lens";
-import { arcsMoving } from "./arcs";
 import { unitOf } from "../lens";
 import type { LensSpec } from "./scene";
 
@@ -808,21 +807,14 @@ export class Stage {
     );
   }
 
-  /** A drone's loop is running, or a play an event started has not finished. */
+  /** A play an event started has not finished. A drone's own loop draws nothing: at thirty frames a second it held the whole window's GPU (`motion.md`). */
   private get moving(): boolean {
     const { scene } = this;
     const pulse = this.palette?.pulseMs ?? 0;
     if (scene === undefined || pulse <= 0) return false;
     const now = performance.now();
-    const clock = this.clock();
-    return (
-      scene.drones.some((one) => one.loop && one.aim !== undefined) ||
-      padMoving(scene, clock) ||
-      thinkMoving(scene, clock) ||
-      arcsMoving(scene, clock) ||
-      scene.plays.some(
-        (one) => !over(one.kind, one.delay, pulse, now - (this.playStart.get(one.id) ?? now)),
-      )
+    return scene.plays.some(
+      (one) => !over(one.kind, one.delay, pulse, now - (this.playStart.get(one.id) ?? now)),
     );
   }
 

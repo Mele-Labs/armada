@@ -3,8 +3,8 @@
 // 52% (`docs/contracts/design-system/motion.md`). Steps on each loop's own schedule add up, so here the
 // loops are paused and all moved together: ten of them cost one frame a tick, the same as one.
 
-/** About 10 frames a second: a pulse still reads as a pulse, and a spinner as turning. */
-const TICK_MS = 100;
+/** 5 frames a second: a pulse still reads as a pulse, and a spinner as turning. */
+const TICK_MS = 200;
 
 function held(one: Animation): boolean {
   const effect = one.effect as KeyframeEffect | null;
