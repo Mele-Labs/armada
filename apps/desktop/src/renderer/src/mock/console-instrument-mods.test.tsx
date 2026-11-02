@@ -61,8 +61,8 @@ const NO_DEFAULT = "export const Spend = () => null;\n";
 const row = (name: string, over: Partial<ModSummary> = {}): ModSummary => ({ name, kind: "instrument", enabled: true, valid: true, changed_at: "2026-11-02T10:00:00.000Z", ...over });
 
 /** The scenario's window with these mods and these seats, and what changes what Fleet lists and checks, as a Job's edit does. */
-function fleetOf(code: Record<string, string>, seats: readonly (string | null)[], over: { sessions?: readonly Session[] } = {}) {
-  const rows = Object.keys(code).map((name) => row(name));
+function fleetOf(code: Record<string, string>, seats: readonly (string | null)[], over: { sessions?: readonly Session[]; rows?: ModSummary[] } = {}) {
+  const rows = over.rows ?? Object.keys(code).map((name) => row(name));
   const held = { code: { ...code }, publish: (_next: ModSummary[]): void => undefined, rows };
   const scenario: Scenario = {
     ...base,
@@ -195,6 +195,13 @@ test("a seat on a Job that ended with nothing built is an empty socket", async (
   const { scenario } = fleetOf({}, ["job:gone", "beacon", "trace", "scope"], { sessions: [ended] });
   await deck(scenario, "Calls");
   await expect.poll(() => bayEmpty(1)).toBe(true);
+});
+
+test("a Job that waits on him for anything pulses its bay, not only one held on a permission", async () => {
+  const waiting: Session = { id: "made", title: "Mod Held", mod: true, modOfBay: true, attachments: [], rows: [], turn: { state: "idle" }, standing: "idle", waitingFor: [{ id: "plan", text: "Take this plan?", since: "2026-11-02T10:00:00.000Z", source: "plan" }] };
+  const { scenario } = fleetOf({ held: counting("held", false) }, ["mod:held", "beacon", "trace", "scope"], { sessions: [waiting], rows: [row("held", { made_by: "made" })] });
+  await deck(scenario, "Held");
+  await expect.poll(() => facet("Held").element().hasAttribute("data-calling")).toBe(true);
 });
 
 const make = async (words: string) => {

@@ -13,6 +13,7 @@ import { entriesOf, isWebAddress, saveFlight, tilesOf, useFlightFile } from "./f
 import { glyphOf } from "./flight-glyphs";
 import { BUILDING, bayShows, faultInstrument, startInstrument, startedHereJob, stencilOf, useInstruments, type Face, type InstrumentMod } from "./instrument-mods";
 import { useSessionsEverywhere } from "../../sessions-draft";
+import { stateOf } from "../../session-state";
 import { ModJobCard } from "../../job-panes/custom-card";
 import { faceInkOf, materialsOf, readTones } from "./pixi/console-art";
 import { ConsoleStage, type BayState, type Dot, type Kind, type Layout, type Plan } from "./pixi/console-stage";
@@ -195,7 +196,7 @@ function useMods(seated: Bays): readonly InstrumentMod[] {
     const live = new Map(sessions.filter((one) => one.dead === undefined).map((one) => [one.id, one]));
     const building = (job: string | undefined) => {
       const one = job === undefined ? undefined : live.get(job);
-      return one !== undefined && (one.turn.state === "working" || one.asked !== undefined);
+      return one !== undefined && (one.turn.state === "working" || stateOf(one).state === "waiting");
     };
     const held = seated.flatMap((seat): InstrumentMod[] => {
       if (seat === null || !seat.startsWith(JOB)) return [];
@@ -290,7 +291,7 @@ function ModFacet({ mod, folded, straight }: { mod: InstrumentMod; folded: boole
   if (fault !== undefined) {
     const said = mod.off === true ? `${mod.label} is switched off` : `${mod.label} did not draw: ${fault}`;
     return (
-      <div className="console-scope console-instrument" data-tile={`${MOD}${mod.name}`}>
+      <div className="console-scope console-instrument" data-tile={mod.seat}>
         <Tooltip label={said} asChild>
           <button type="button" className="console-scope__press" aria-label={mod.label} aria-description={said} />
         </Tooltip>
@@ -302,19 +303,19 @@ function ModFacet({ mod, folded, straight }: { mod: InstrumentMod; folded: boole
       type="button"
       className="console-scope__press"
       aria-label={mod.label}
-      data-calling={job?.asked === undefined ? undefined : ""}
+      data-calling={job !== undefined && stateOf(job).state === "waiting" ? "" : undefined}
       {...(slot === undefined ? {} : { "aria-pressed": open, "aria-haspopup": "dialog" as const, onClick: () => (open ? close() : setOpen(true)) })}
     />
   );
   return (
-    <div ref={facet} className="console-scope console-instrument" data-tile={`${MOD}${mod.name}`}>
+    <div ref={facet} className="console-scope console-instrument" data-tile={mod.seat}>
       {straight && mod.face !== undefined ? <StraightFace name={mod.name} face={mod.face} /> : null}
       {job === undefined ? (
         <Tooltip label={mod.label} asChild>
           {press}
         </Tooltip>
       ) : (
-        <ModJobCard tabId={`${MOD}${mod.name}`} job={job} building={false} summon={false} onSummoned={NOBODY} side="above" around=".console-bay">
+        <ModJobCard tabId={`bay:${job.id}`} job={job} building={false} summon={false} onSummoned={NOBODY} side="above" around=".console-bay">
           {press}
         </ModJobCard>
       )}
