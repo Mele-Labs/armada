@@ -11,7 +11,8 @@ import { mergeSession, stopSession, toggleSessionPause } from "./cockpit/deck/ac
 import { fill, type ModRow } from "./mod-commands";
 import { knownRows } from "./palette-known";
 import { askedOf } from "./palette-blanks";
-import { setView } from "./cockpit/deck/store";
+import { showTimeline } from "./cockpit/deck/ConsoleTimeline";
+import { showMap } from "./cockpit/deck/store";
 import type { PaletteFixtures, PaletteLinked } from "./palette-fixtures";
 import { JOB_PAGE } from "./palette-page";
 import { setAlias, setHotkey, togglePin } from "./palette-memory";
@@ -157,7 +158,8 @@ function runCommand(command: PaletteCommand | undefined, world: RowWorld): void 
 function onPage(id: string, world: RowWorld): void {
   if (id.startsWith(JOB_PAGE) && world.job !== undefined) return on(`session:${world.job.id}`, id.slice(JOB_PAGE.length), world);
   if (id === "dispatch") world.compose();
-  else if (id === "map" || id === "timeline") setView(id);
+  else if (id === "map") showMap();
+  else if (id === "timeline") showTimeline();
   else if (id === "needing-you") world.surface(SURFACE.overview);
   // Projects' own field and name box: the page's key runs the same two.
   else if (id === "add-task") window.requestAnimationFrame(focusAddTask);
