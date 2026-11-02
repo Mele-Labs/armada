@@ -11,7 +11,7 @@ use fleet::process::StartedAt;
 use fleet::runtime::{Presence, RuntimeFile, Staleness};
 use ipc::{ManifestId, ManifestSummary, ProtocolId};
 
-use crate::mcp::{door_for, found_in, posted_patiently, Door, listening, noting, publish, refused, standing_in, stands_in};
+use crate::mcp::{door_for, found_in, posted_patiently, said_at_handshake, Door, listening, noting, publish, refused, standing_in, stands_in};
 use crate::tests::{repository, TempDir};
 
 fn file(id: ProtocolId) -> RuntimeFile {
@@ -373,6 +373,31 @@ fn the_note_is_added_to_the_handshake_and_to_nothing_else() {
         handshake.to_vec(),
         "and so is a handshake where nothing was adopted"
     );
+}
+
+/// A Job in a terminal reaches Fleet through this relay and has no start argument of Fleet's, so
+/// its handshake says how to name itself and how to reach its acts, after the disclosure.
+#[test]
+fn a_job_in_a_terminal_is_told_how_to_name_itself_and_reach_its_acts_at_the_handshake() {
+    let said = said_at_handshake(None, |_| None).expect("a note");
+    assert!(said.contains("CLAUDE_CODE_SESSION_ID"), "{said}");
+    assert!(said.contains("`armada job status`"), "{said}");
+    assert!(said.contains("`session_id`"), "{said}");
+
+    let both = said_at_handshake(Some("It walked up."), |_| None).expect("a note");
+    assert!(both.starts_with("It walked up. "), "{both}");
+    assert!(both.ends_with(&said), "{both}");
+}
+
+/// A Job Fleet hosts has its id and its acts in its start arguments, and a Drone has no such
+/// door, so the handshake adds nothing for either, and only the disclosure where there is one.
+#[test]
+fn a_hosted_job_and_a_drone_are_told_nothing_more_at_the_handshake() {
+    for held in ["ARMADA_SESSION", "ARMADA_DRONE"] {
+        let env = |name: &str| (name == held).then(|| String::from("1"));
+        assert_eq!(said_at_handshake(None, env), None, "{held}");
+        assert_eq!(said_at_handshake(Some("It walked up."), env).as_deref(), Some("It walked up."), "{held}");
+    }
 }
 
 /// **A tool call made while Fleet restarts waits for it.** The port is bound

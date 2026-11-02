@@ -406,7 +406,9 @@ that is not — see *Fleet answers no page in a browser* above. **What names a
 terminal agent was measured on 2 Nov 2026**: an agent run with `ARMADA_SESSION` and
 `CLAUDE_CODE_SESSION_ID` unset (`claude -p`) saw `CLAUDE_CODE_SESSION_ID` in its
 Bash equal to the `session_id` its result reported, so the agent sets it in every
-command it runs and a terminal Job is named by it. `armada job` passes
+command it runs and a terminal Job is named by it. The relay says so at its
+handshake (`said_at_handshake`, `crates/armada/src/mcp.rs`), for a Job in a terminal only, so one
+whose mod's prompt hooks an organization's Claude Code skips still learns how to read it. `armada job` passes
 `ARMADA_SESSION`, else that, as `session_id` where the act takes one. That was
 `-p`, not an interactive terminal, which was not run, so the interactive case is
 still open. A Job Fleet hosts is placed by its process tree and needs none.

@@ -23,6 +23,7 @@ import type { Engine, Register, ToolCallResult } from 'claude-code'
 
 import {
   answersIn,
+  apiErrorIn,
   artifactOf,
   usedFact,
   customTitleIn,
@@ -92,6 +93,11 @@ const HELD_FETCH_MS = 35_000
 const SILENT_MS = 30_000
 const UNSENT_MOST = 200
 const DOCS_ACTS = ['create', 'batch', 'update']
+// How long a turn that died on an API error is given to write the failure into the transcript, and how often it is looked at.
+const FAILURE_READS = 3
+const FAILURE_WAIT_MS = 500
+// Turns that ended with no settings hook heard, before the mod says its hooks are not being run.
+const QUIET_TURNS = 2
 
 type Dollar = Door & Pick<Engine, 'command' | 'process' | 'prompt' | 'session'>
 
@@ -122,6 +128,8 @@ type Known = {
   calls: number
   /** Whether the session was reminded of the Job browser, which is done once. */
   reminded: boolean
+  /** What Fleet was told when the settings hooks were not run for this session, which is told once. */
+  skipped?: Fact
 }
 
 /** What the Loadout is made from, the list Fleet last heard, and when the turn its uses go under began. */
@@ -142,6 +150,15 @@ type Tuning = Extract<Fact, { kind: 'tuned' }>
 type Reading = { tokens?: number; window?: number; usd?: number; limits: RateLimit[]; changed: string[] }
 
 const known = new Map<string, Known>()
+/**
+ * Whether any of this mod's settings (`classic.*`) hooks has run since it loaded. **Where Claude Code
+ * passes them over (an organization's, `cc-plugin-sec-default`), none ever does**, and what they
+ * report is read from the events that still run, by the fallbacks that ask this. Where they run, they
+ * stay the source and the fallbacks stay quiet.
+ */
+let classicHeard = false
+/** Main-thread turns that ended with no settings hook heard. */
+let quietTurns = 0
 let measuredAt = Number.NEGATIVE_INFINITY
 /** The newest reading the throttle held back, told when its ten seconds are up. */
 let measureHeld: Reading | undefined
@@ -171,6 +188,7 @@ function everything(): Report[] {
     ]),
     ...(one.tasks.length === 0 ? [] : [told(id, { kind: 'tasks', tasks: one.tasks })]),
     ...one.prompts.slice(0, 1).map(open => told(id, promptFact(open))),
+    ...(one.skipped === undefined ? [] : [told(id, one.skipped)]),
     ...(one.loadout.told === undefined ? [] : [told(id, { kind: 'equipped', loadout: { items: one.loadout.told } })]),
   ])
 }
@@ -649,6 +667,56 @@ async function seen($: Dollar, mode: string | undefined, effort: unknown): Promi
   }
 }
 
+/**
+ * A main-thread turn ended with no settings hook heard in this load. After `QUIET_TURNS` of them
+ * Fleet is told once, as an attachment of kind `hooks_skipped` (**told, never asked of the agent**).
+ * Bridge draws no row for the kind; the Job's record keeps it for the debug report to name.
+ */
+async function quiet($: Dollar): Promise<void> {
+  quietTurns += 1
+  if (quietTurns < QUIET_TURNS) return
+  const [id, one] = await current($)
+  if (one.skipped !== undefined) return
+  one.skipped = hooksSkipped(quietTurns)
+  say($, id, one.skipped)
+}
+
+function hooksSkipped(turns: number): Fact {
+  return { kind: 'attached', attachment: { kind: 'hooks_skipped', target: 'classic', detail: { turns: String(turns) } } }
+}
+
+/**
+ * What a turn that died on an API error died of, for where `StopFailure` is not run: the failure is the
+ * transcript's last assistant line, which is given a moment to be written.
+ */
+async function failedOn($: Dollar, id: string, cwd: string): Promise<string | undefined> {
+  const home = await $.env.get('HOME')
+  if (!home) return undefined
+  const dirs = [...new Set([cwd, await $.session.cwd(), await $.session.root()])]
+  for (let tried = 0; tried < FAILURE_READS; tried += 1) {
+    let read = false
+    for (const dir of dirs) {
+      const text = await $.fs.read(transcriptPath(home, dir, id)).catch(() => undefined)
+      if (typeof text !== 'string') continue
+      read = true
+      const kind = apiErrorIn(text)
+      if (kind !== undefined) return kind
+      break
+    }
+    if (!read) return undefined
+    await $.clock.sleep(FAILURE_WAIT_MS)
+  }
+  return undefined
+}
+
+async function failed($: Dollar): Promise<void> {
+  if (await $.env.get('ARMADA_DRONE')) return
+  const [id, one] = await current($)
+  const kind = await failedOn($, id, one.cwd)
+  if (kind === 'rate_limit') await limited($)
+  if (kind === 'authentication_failed') say($, id, { kind: 'signed_out' })
+}
+
 /** The session's id, starting it first where it began without a `session.start`. */
 async function current($: Dollar): Promise<[string, Known]> {
   const id = await $.session.id()
@@ -981,9 +1049,21 @@ function promptFact(open: Prompt): Fact {
  */
 async function promptOpened($: Dollar, tool: string, input: unknown): Promise<void> {
   const [id, one] = await current($)
+  // Told once however it was heard: the settings hook and the engine's verdict can both say it.
+  const calls = underway.get(callKey(tool, (input ?? {}) as Record<string, unknown>)) ?? []
+  const call = calls.find(each => !each.opened)
+  if (calls.length > 0 && call === undefined) return
+  if (call !== undefined) call.opened = true
   const open = { tool, detail: promptDetail((input ?? {}) as Record<string, unknown>) }
   one.prompts.push(open)
   if (one.prompts.length === 1) say($, id, promptFact(open))
+}
+
+/** An ask the engine put to a person: not one the auto mode's classifier answers, which opens no prompt. */
+async function asking($: Dollar, tool: string, input: unknown): Promise<void> {
+  if (known.get(await $.session.id())?.tuned?.mode === 'auto') return
+  await promptOpened($, tool, input)
+  await promptPut($, tool, input)
 }
 
 /**
@@ -1005,7 +1085,7 @@ async function promptSettled($: Dollar, tool: string, input: Record<string, unkn
 }
 
 /** A tool call under way whose terminal prompt Bridge may answer first. */
-type Underway = { answer: (asked: Asked) => void; over: { done: boolean }; put: boolean }
+type Underway = { answer: (asked: Asked) => void; over: { done: boolean }; put: boolean; opened: boolean }
 
 // The calls under way by `callKey`, oldest first, and the ones Bridge allowed, which `tool.check` lets
 // run again without the terminal's prompt.
@@ -1154,6 +1234,7 @@ export const register: Register = on => {
 
   // Again at every start (startup, resume, clear, compact), so the id is never out of view.
   on('classic.SessionStart', async ($, e, next) => {
+    classicHeard = true
     const out = await next(e)
     if (await $.env.get('ARMADA_DRONE')) return out
     const id = await $.session.id()
@@ -1303,6 +1384,7 @@ export const register: Register = on => {
   // the session as stuck. Told only where a prompt opens: a hook beneath that decided opens none.
   // **Only told**: the terminal's prompt is what answers it.
   on('classic.PermissionRequest', async ($, e, next) => {
+    classicHeard = true
     const out = await next(e)
     if (out.decision === undefined) {
       void promptOpened($, e.tool_name, e.tool_input).catch(() => undefined)
@@ -1320,7 +1402,7 @@ export const register: Register = on => {
     const key = callKey(e.tool, input)
     let answer: (asked: Asked) => void = () => undefined
     const bridge = new Promise<Asked>(resolve => (answer = resolve))
-    const call: Underway = { answer, over: { done: false }, put: false }
+    const call: Underway = { answer, over: { done: false }, put: false, opened: false }
     underway.set(key, [...(underway.get(key) ?? []), call])
     try {
       const terminal = next(e).then(ran => ({ ran }))
@@ -1349,9 +1431,16 @@ export const register: Register = on => {
     }
   })
 
-  on('tool.check', async ($, e, next) =>
-    allowedInBridge.has(callKey(e.tool, (e.input ?? {}) as Record<string, unknown>)) ? { decision: 'allow' as const } : next(e),
-  )
+  // Where the settings hook that says a prompt opened is not run, the engine's own verdict of `ask` is
+  // the word: a call it is put to a person for. **Only told**, as there.
+  on('tool.check', async ($, e, next) => {
+    if (allowedInBridge.has(callKey(e.tool, (e.input ?? {}) as Record<string, unknown>))) return { decision: 'allow' as const }
+    const verdict = await next(e)
+    if (!classicHeard && verdict.decision === 'ask' && e.tool_use_id !== undefined && e.approver !== 'host') {
+      void asking($, e.tool, e.input).catch(() => undefined)
+    }
+    return verdict
+  })
 
   for (const tool of ['Artifact', 'Write', 'Read', ...DOCS_ACTS.map(act => `mcp__claude_ai_Claude_Docs__${act}`)]) {
     on('tool.call', { tool }, async ($, e, next) => {
@@ -1397,6 +1486,8 @@ export const register: Register = on => {
   // The Logbook goes in the prompt: Claude Code's own SubagentStart hook carries no prompt, so it could not
   // tell which paths the subagent works under.
   on('agent.spawn', async ($, e, next) => {
+    // The parent's permission mode is on the spawn: the one place left to read it where the settings hooks are not run.
+    if (!classicHeard && e.parentAgentId === undefined) void seen($, e.permissionMode, undefined)
     const told = (await $.env.get('ARMADA_DRONE')) ? '' : await logbookFor($, e.prompt)
     const out = await next(told === '' ? e : { ...e, prompt: `${e.prompt}\n\n${told}` })
     if (out.deny === undefined) {
@@ -1468,6 +1559,7 @@ export const register: Register = on => {
   // Its own transcript can end on a line that says it is still working (13 Oct 2026), so the
   // engine's word that it stopped is what settles it.
   on('classic.SubagentStop', async ($, e, next) => {
+    classicHeard = true
     const out = await next(e)
     void current($)
       .then(([id]) => settle($, id, 'subagent', e.agent_id, 'spent'))
@@ -1499,6 +1591,8 @@ export const register: Register = on => {
   // The engine measures at a turn's end and when a plan window moves, so a long turn would go unread
   // between them: each main-thread request is a reading of the context.
   on('turn.step', async function* ($, e, next) {
+    // Where the settings hook that carries the effort is not run, each main-thread request names it.
+    if (!classicHeard && e.agentId === undefined) void seen($, undefined, e.effort)
     const out = yield* next(e)
     if (e.agentId === undefined && out.usage !== null) {
       void measured($, stepTokens(out.usage)).catch(() => undefined)
@@ -1508,13 +1602,17 @@ export const register: Register = on => {
 
   // The terminal's permission mode and effort are on the settings-hook inputs and nowhere else.
   on('classic.UserPromptSubmit', async ($, e, next) => {
+    classicHeard = true
     const out = await next(e)
     void seen($, e.permission_mode, e.effort)
     return out
   })
 
-  // What the owner owes is read from the reply here, where the stop can still be turned back.
+  // What the owner owes is read from the reply here, where the stop can still be turned back. Only here:
+  // `turn.complete` cannot hold a stop, and what is left puts text in front of the model, which an
+  // organization's Claude Code keeps from a mod, so where this hook is not run the reply goes unchecked.
   on('classic.Stop', async ($, e, next) => {
+    classicHeard = true
     const out = await next(e)
     void seen($, e.permission_mode, e.effort)
     if (e.agent_id !== undefined || out.block !== undefined) return out
@@ -1548,6 +1646,7 @@ export const register: Register = on => {
   // of a hold for the limit, so the failed one is not told. A sign-in that ran out signs every Job
   // out, and Fleet wakes this one once the account works again.
   on('classic.StopFailure', async ($, e, next) => {
+    classicHeard = true
     const out = await next(e)
     if (await $.env.get('ARMADA_DRONE')) return out
     if (e.error === 'rate_limit') void limited($).catch(() => undefined)
@@ -1557,7 +1656,14 @@ export const register: Register = on => {
 
   on('turn.complete', async ($, e, next) => {
     const out = await next(e)
-    if (e.agentId === undefined && e.reason !== 'error') {
+    // Where the settings hooks are not run, a subagent's end is told from here, and a turn that died on an API error is read from the transcript.
+    if (e.agentId !== undefined) {
+      if (!classicHeard) void current($).then(([id]) => settle($, id, 'subagent', e.agentId as string, 'spent')).catch(() => undefined)
+      return out
+    }
+    if (e.reason === 'error' && !classicHeard) void failed($).catch(() => undefined)
+    if (e.reason === 'answer' && !classicHeard) void quiet($).catch(() => undefined)
+    if (e.reason !== 'error') {
       void current($)
         .then(([id, one]) => {
           one.prompts = []

@@ -6,7 +6,10 @@
 has got.** `crates/adapters/src/session_rules.md`, read at build by `include_str!`
 into `hosted_session::SESSION_RULES`, which `render_hosted_session` puts first in
 the one `--append-system-prompt` argument of every process: plain, Helm, fork,
-move and resuming alike. Helm's note (5a) and a fork's note follow it, and the Logbook note follows those ([Logbook](../../concepts/logbook.md), *Recall*).
+move and resuming alike.
+The Job's own id follows the rules, as one sentence: it names the id, says `armada job` passes it itself, and says it is the `session_id` where an act takes one.
+The mod's `armadaSession` note says it too, but an organization's Claude Code can pass the mod's prompt hooks over, and a start argument is Fleet's own (`docs/concepts/session/how-a-job-gets-in.md`, *Where Claude Code skips the mod's hooks*).
+Helm's note (5a) and a fork's note follow it, and the Logbook note follows those ([Logbook](../../concepts/logbook.md), *Recall*).
 
 **Compiled in, and no settings key.** Layer 1 is unreachable from config, and so
 is this. A text a person can edit away is a rule the job can fall back out
