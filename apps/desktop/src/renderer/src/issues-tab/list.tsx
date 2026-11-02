@@ -571,6 +571,7 @@ function Row({ band, ticket, fields, open }: { band: Band; ticket: Ticket; field
       <ListCard
         className="issues-row"
         selected={open}
+        data-tone={tone}
         needs={view.state && tone === "ask" && !open}
         aria-label={`${ticket.reference} ${ticket.title}`}
         onClick={() => store.open(band.manifestId, ticket.reference)}

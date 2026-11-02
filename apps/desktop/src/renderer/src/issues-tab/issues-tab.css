@@ -137,6 +137,10 @@
 .issues-surface .issues-report__part[aria-label="Logs"] { background: var(--bg-sunken); }
 
 /* Pending: a row and a heading as they will be, in bars. Each wrapper takes the line the text takes, so a row is the height it lands at. */
+/* The hue of the Job working an issue, which `meaning.css` draws as the bar and the ground. */
+.issues-surface .issues-row[data-tone="live"] { --lamp-hue: var(--status-running); }
+.issues-surface .issues-row[data-tone="ask"] { --lamp-hue: var(--status-awaiting-review); }
+.issues-surface .issues-row[data-tone="wait"] { --lamp-hue: var(--status-handed-in); }
 .issues-surface .issues-row[data-pending] { cursor: default; }
 .issues-surface .issues-row[data-pending]::before { content: none; }
 .issues-surface .issues-row[data-pending]:hover { background: var(--chip); }

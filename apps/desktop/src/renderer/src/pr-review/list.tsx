@@ -216,6 +216,7 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
           <li key={pr.key} className="deck-list__item">
             <ListCard
               className="pr-row"
+              data-checks={pr.checks}
               selected={open === pr.key}
               aria-label={`#${pr.number} ${pr.title}`}
               onClick={() => store.open(pr.key)}

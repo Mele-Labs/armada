@@ -11,4 +11,12 @@ const oneCard = walk("one-card", [
   { press: place("Logbook"), say: "Logbook. The same card in place of the table. The figure beside the state is how many Jobs confirmed it" },
 ]);
 
-export { oneCard as "one-card" };
+// The card with colour's bar on it: what an issue that asks draws, and the checks' bar on a pull request.
+const oneCardColour = walk("one-card", [
+  { press: place("Issues"), say: "Issues" },
+  { look: region("Issues", { exact: true }), say: "An issue a Job works has its bar and its ground. One that asks you also pulses, over the bar" },
+  { press: place("Reviews"), say: "Reviews" },
+  { look: region("Pull requests", { exact: true }), say: "A pull request's checks are the bar on its edge, on the same card" },
+]);
+
+export { oneCard as "one-card", oneCardColour as "one-card-colour" };

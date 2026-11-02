@@ -60,8 +60,8 @@ const SITE_ISSUES: TicketRead[] = [
 ];
 
 /** The Jobs holding rows: one at work, one finished and still live, one ended. */
-const PAIRING = "01PROJPAIRINGAAAAAAAAAAAAA";
-const SIGNING = "01PROJSIGNINGBBBBBBBBBBBBB";
+export const PAIRING = "01PROJPAIRINGAAAAAAAAAAAAA";
+export const SIGNING = "01PROJSIGNINGBBBBBBBBBBBBB";
 const GUIDE = "01PROJGUIDECCCCCCCCCCCCCCC";
 /** A Job at work that holds no row yet: the walk links it to a task. */
 const LISTING = "01PROJLISTINGDDDDDDDDDDDDD";
