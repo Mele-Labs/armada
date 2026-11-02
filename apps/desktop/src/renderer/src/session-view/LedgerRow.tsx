@@ -98,6 +98,8 @@ type LedgerRowProps = {
   };
   /** Names the row's pull request number, so a chip elsewhere can find it. */
   anchor?: number;
+  /** What stands under the row in the list, a judge's notes on it among them. */
+  under?: ReactNode;
 };
 
 export function LedgerRow({
@@ -114,6 +116,7 @@ export function LedgerRow({
   tone,
   lane,
   anchor,
+  under,
 }: LedgerRowProps) {
   const inside = (
     <>
@@ -154,12 +157,21 @@ export function LedgerRow({
   };
   // A stacked row is the lane beside a card, so the item holds both and the card is no longer the list item.
   // The stack's root stands flush left and the line starts under it; only what is stacked on it is drawn in from the lane.
-  if (lane === undefined)
-    return (
+  if (lane === undefined) {
+    const row = (
       <li className="sv-ledger" data-pr={anchor} {...data}>
         {body}
       </li>
     );
+    return under === undefined ? (
+      row
+    ) : (
+      <>
+        {row}
+        <li className="sv-ledger__under">{under}</li>
+      </>
+    );
+  }
   return (
     <li className="sv-stack-item" data-pr={anchor} data-root={lane.first ? "" : undefined}>
       {lane.first ? null : (

@@ -125,6 +125,25 @@ export function useJudgeRecord(
   return all.find((one) => one.job === job && keyOf(one.artifact) === keyOf(artifact));
 }
 
+// ---- Bringing a page's notes into view ---------------------------------------------------------------------------------------------------------------
+
+let asked: string | undefined;
+
+/** A press asked for this artifact's notes: its page brings them into view once they are drawn, which may be after it opens. */
+export function askForNotes(job: string, artifact: Pick<JudgeArtifact, "kind" | "id">): void {
+  asked = `${job}|${keyOf(artifact)}`;
+  told();
+}
+
+/** Whether this artifact's notes were asked for and not yet brought into view. */
+export const useNotesAsked = (job: string, artifact: Pick<JudgeArtifact, "kind" | "id">): boolean =>
+  useSyncExternalStore(subscribe, () => asked === `${job}|${keyOf(artifact)}`);
+
+export function notesBrought(): void {
+  asked = undefined;
+  told();
+}
+
 // ---- Opening the popover from a key --------------------------------------------------------------------------------------------------------------------
 
 const openers = new Map<string, () => void>();

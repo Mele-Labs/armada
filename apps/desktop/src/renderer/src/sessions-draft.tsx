@@ -56,7 +56,9 @@ function JudgeFeed({ draft }: { draft: SessionsDraft | undefined }) {
   );
   const acts = draft?.judge;
   useLayoutEffect(() => {
-    provideJudge(acts === undefined ? undefined : judgeApiOver(acts));
+    // A window can hold a second feed with no judge to ask, the mock's annotation layer among them: it must not take the Judge from the one that serves it.
+    if (acts === undefined) return;
+    provideJudge(judgeApiOver(acts));
     return () => provideJudge(undefined);
   }, [
     acts,

@@ -178,8 +178,8 @@ fn each_note_is_pinned_to_the_part_it_names() {
     let brief = brief_of(&page, "");
     let second = r#"{"about": "The previous key stays readable for a day", "claim": "The code keeps one key."}"#;
     let notes = notes_read(&answer(second), &brief, &page, &checkout).expect("the answer holds up");
-    assert_eq!(notes[0].about.as_deref(), Some("p:2"));
-    assert_eq!(notes[0].r#where.as_deref(), Some("Paragraph 2"));
+    assert_eq!(notes[0].about.as_deref(), Some("p:The previous key stays readable for a day after a rotation."));
+    assert_eq!(notes[0].r#where.as_deref(), Some("The previous key stays readable for a day..."));
 }
 
 #[test]

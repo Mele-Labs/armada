@@ -24,6 +24,7 @@
 .judge-pop__acts {
   display: flex;
   justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 /* A mark on the glyph while its notes are unread: a small dot at the corner, in the hue the notes wear. */
@@ -57,15 +58,101 @@ button[data-judge] {
   margin-block: var(--space-2);
 }
 
-.judge-loose {
+/* The Judge tab (`JudgeTab.tsx`): the reading scrolls, and what judging is and the box stand under it. The box wears the Judge's hue, so it is not taken for the Job's own. */
+.judge-tab {
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  margin-block-end: var(--space-3);
+  min-height: 0;
+  min-width: 0;
 }
-.judge-loose__title {
+.judge-tab__reading {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.judge-tab__asked {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.judge-tab__asked dt {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+.judge-tab__asked dd {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+.judge-tab__pending {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.judge-tab__said {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+.judge-tab__said[data-failed] {
+  color: var(--step-failed);
+}
+.judge-tab__foot {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.judge-tab__what {
   margin: 0;
   color: var(--fg-muted);
-  font-family: var(--font-mono);
   font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+/* A tint of the Judge's hue, as a kind wears it. The look's own rules on the Job's box are as specific, so these name the same places. */
+.judge-tab__foot .armada-session-composer,
+.judge-tab__foot .armada-session-composer:focus-within,
+:root[data-look="new"] .deck-pane .judge-tab__foot .armada-session-composer,
+:root[data-look="new"] .deck-pane .judge-tab__foot .armada-session-composer:focus-within {
+  border-color: var(--kind-gate);
+  background: color-mix(in srgb, var(--kind-gate) var(--status-wash), var(--bg-sunken));
+}
+.judge-tab__foot
+  .armada-session-composer__bar
+  .armada-button[data-variant="primary"]:not(:disabled),
+:root[data-look="new"]
+  .deck-pane
+  .judge-tab__foot
+  .armada-session-composer__bar
+  .armada-button[data-variant="primary"]:not(:disabled) {
+  border-color: var(--kind-gate);
+  background: color-mix(in srgb, var(--kind-gate) 22%, transparent);
+  color: var(--kind-gate);
+}
+.judge-tab__foot
+  .armada-session-composer__bar
+  .armada-button[data-variant="primary"]:hover:not(:disabled),
+:root[data-look="new"]
+  .deck-pane
+  .judge-tab__foot
+  .armada-session-composer__bar
+  .armada-button[data-variant="primary"]:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--kind-gate) 34%, transparent);
+  color: var(--kind-gate);
+}
+
+/* Notes under a ledger row. The row's own list item has the row's grid, so they stand in an item of their own. */
+.sv-ledger__under {
+  list-style: none;
+  min-width: 0;
 }

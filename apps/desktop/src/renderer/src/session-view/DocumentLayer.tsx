@@ -34,8 +34,9 @@ import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions"
 import { useRevisionReads } from "../revision-reads";
 import { useSessionsDraft } from "../sessions-draft";
 import { documentAnswerOf } from "../session-thread-rows";
+import { JudgeAct } from "../judge/JudgeAct";
 import { JudgedPage } from "../judge/JudgedPage";
-import { JudgeNoteBlock } from "../judge/notes";
+import { openJudge } from "../judge/store";
 import {
   DocumentPage,
   type DocumentFocus,
@@ -327,6 +328,11 @@ export function DocumentLayer({ session }: { session: Session }) {
     if (key === "c" && diff !== undefined) setChanges((was) => !was);
     else if (key === "r" && latest > 1) switchRevision();
     else if (key === "m") toggleMargin();
+    else if (key === "j" && doc !== undefined)
+      openJudge(session.id, {
+        kind: "doc",
+        id: doc.id,
+      });
     else if (key === "s") setSharing(true);
     else return;
     event.preventDefault();
@@ -406,6 +412,19 @@ export function DocumentLayer({ session }: { session: Session }) {
             )}
           </Button>
         </Tooltip>
+      )}
+      {doc === undefined ? null : (
+        <JudgeAct
+          job={session.id}
+          artifact={{
+            kind: "doc",
+            id: doc.id,
+            title: doc.title,
+          }}
+          label="Judge this document"
+          shortcut="J"
+          into={menus}
+        />
       )}
       <DropdownMenu
         icon={ExternalLink}
@@ -604,15 +623,6 @@ export function DocumentLayer({ session }: { session: Session }) {
                 </aside>
               </div>
               <div ref={scroller} className="armada-doc__scroll" onScroll={onScroll}>
-                {doc === undefined ? null : (
-                  <JudgeNoteBlock
-                    job={session.id}
-                    artifact={{
-                      kind: "doc",
-                      id: doc.id,
-                    }}
-                  />
-                )}
                 <DocumentPage
                   title={title}
                   revision={revision}

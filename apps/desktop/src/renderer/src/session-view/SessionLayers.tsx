@@ -69,7 +69,9 @@ import { closeLayer, type LayerId } from "./layers";
 import { SystemSections } from "./SystemLayer";
 import { artifactOfRow } from "../judge/artifacts";
 import { JudgeAct } from "../judge/JudgeAct";
-import { useJudgeApi } from "../judge/store";
+import { JudgeTab } from "../judge/JudgeTab";
+import { JudgeRowNotes, notedUnderRow } from "../judge/notes";
+import { keyOf, useJudgeApi, useJudgeRecords } from "../judge/store";
 import { Fact, Glyphed, LedgerRow, PullRow } from "./LedgerRow";
 import { openSlotKeyInPanel } from "../shared-panel/store";
 import { LanesBody } from "../shared-panel/lanes";
@@ -284,6 +286,11 @@ export function Row({
         : {
             act: <ReopenAct name={row.title} onPress={row.closed.onReopen} />,
           })}
+      {...(artifact === undefined || !notedUnderRow(artifact)
+        ? {}
+        : {
+            under: <JudgeRowNotes job={sessionId} artifact={artifact} />,
+          })}
       meta={
         <>
           {row.sub === undefined ? null : <code className="sv-ledger__sub">{row.sub}</code>}
@@ -340,7 +347,17 @@ function Group({
 }) {
   const [all, setAll] = useState(false);
   const capped = group.id === "command" && group.rows.length > COMMANDS_SHOWN;
-  const rows = capped && !all ? group.rows.slice(0, COMMANDS_SHOWN) : group.rows;
+  // A row a judge left notes under is drawn past the cap, so the notes stand where the reading's line leads.
+  const noted = useJudgeRecords(session.id)
+    .filter((one) => one.notes.length > 0)
+    .map((one) => keyOf(one.artifact));
+  const rows =
+    capped && !all
+      ? group.rows.filter((row, at) => {
+          const artifact = artifactOfRow(row, group.id);
+          return at < COMMANDS_SHOWN || (artifact !== undefined && noted.includes(keyOf(artifact)));
+        })
+      : group.rows;
   return (
     <section className="sv-layer__group" aria-label={group.label}>
       <h4 className="sv-layer__group-label">{group.label}</h4>
@@ -807,6 +824,15 @@ export function SystemLayer({
 }
 
 /** The layer that is open. */
+/** The Judge of the whole Job: how its reading stands, and the box that asks it. */
+function JudgeLayer({ session }: { session: Session }) {
+  return (
+    <Shell label="Judge">
+      <JudgeTab job={session.id} title={session.title ?? "the Job"} />
+    </Shell>
+  );
+}
+
 export function Layer({
   id,
   session,
@@ -840,6 +866,7 @@ export function Layer({
   if (id === "subagents") return <SubagentsLayer session={session} entries={entries} />;
   if (id === "checks") return <ChecksLayer session={session} onOpenCheck={onOpenCheck} />;
   if (id === "lanes") return <LanesLayer session={session} />;
+  if (id === "judge") return <JudgeLayer session={session} />;
   if (id === "system") return <SystemLayer session={session} bays={bays} />;
   return <BaysLayer session={session} bays={bays} />;
 }

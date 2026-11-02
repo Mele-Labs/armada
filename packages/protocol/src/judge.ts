@@ -44,7 +44,7 @@ export type JudgeNoteSettled = {
 export type JudgeNote = {
   /** Unique within its reading. */
   id: string;
-  /** The part it is about, in the artifact's own terms: a plan group or task id, `path:line` of a diff, a document's paragraph. Absent, the artifact as a whole. */
+  /** The part it is about, in the artifact's own terms: a plan group or task id, `path:line` of a diff, `p:` and the words of a document's block. Absent, the artifact as a whole. */
   about?: string;
   /** What is wrong, in a line. Heads the note. */
   claim: string;

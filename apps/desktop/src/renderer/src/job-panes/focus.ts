@@ -24,6 +24,7 @@ const TAB_OF: Partial<Record<LayerId, TabKind>> = {
   slot: "bays",
   system: "system",
   lanes: "workflow",
+  judge: "judge",
 };
 
 /** A view's key for a Job in panes: its tab comes to the front, or opens by the arrival rule. False where the view has no tab and opens over the Job. */

@@ -15,6 +15,7 @@ import {
   ListChecks,
   MessageSquareText,
   PanelTop,
+  Scale,
   Send,
   SquareTerminal,
   Ticket,
@@ -114,6 +115,10 @@ export const KINDS: Readonly<
   spine: {
     label: "Spine",
     Glyph: Waypoints,
+  },
+  judge: {
+    label: "Judge",
+    Glyph: Scale,
   },
   custom: {
     label: "Custom",

@@ -128,7 +128,7 @@ export function SessionWorkspace({
   const paned =
     hosts !== undefined && hosts.zones === undefined && work !== undefined && draft !== undefined;
   const story = work !== undefined && draft !== undefined && side !== null;
-  // The views a Job's keys open over it are tabs here: Artifacts is the Ledger, Bays and Workflow their own, and none opens a layer.
+  // The views a Job's keys open over it are tabs here: Artifacts is the Ledger, Bays, Workflow and Judge their own, and none opens a layer.
   useEffect(
     () => (paned ? drawLayersAsTabs(id, (one) => focusLayer(id, one)) : undefined),
     [
@@ -384,6 +384,18 @@ export function SessionWorkspace({
           return (
             <Layer
               id="system"
+              session={session}
+              entries={entries}
+              bays={bays}
+              onOpenCheck={onOpenCheck}
+              onOpenSession={onOpenSession}
+              onOpenSketch={onOpenSketch}
+            />
+          );
+        case "judge":
+          return (
+            <Layer
+              id="judge"
               session={session}
               entries={entries}
               bays={bays}

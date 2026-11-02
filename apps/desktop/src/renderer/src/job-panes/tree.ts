@@ -23,6 +23,7 @@ export const TAB_KINDS = [
   "system",
   "bays",
   "spine",
+  "judge",
   "custom",
 ] as const;
 export type TabKind = (typeof TAB_KINDS)[number];

@@ -116,8 +116,6 @@ import {
   withRevisionScenes,
   withSketchRevisions,
 } from "./session-sketch";
-import { JudgeLooseNotes } from "./judge/notes";
-import { useJudgeApi } from "./judge/store";
 import { useJudgedRows, usePlanJudge } from "./judge/thread";
 import {
   documentAnswerOf,
@@ -2019,7 +2017,6 @@ export function SessionView({
   // A judge on demand: a line in the thread for each reading that finished, and the plan's notes and press.
   const withJudged = useJudgedRows(session, withStarts);
   const planJudge = usePlanJudge(session);
-  const judging = useJudgeApi() !== undefined;
   const openRequest = useCallback(
     (row: RequestedThreadRow) =>
       void openInPanel({
@@ -2945,14 +2942,13 @@ export function SessionView({
                         <SessionThread
                           sessionId={session.id}
                           rows={withJudged}
-                          {...(!cardLead && !modEmpty && !judging
+                          {...(!cardLead && !modEmpty
                             ? {}
                             : {
                                 lead: (
                                   <>
                                     {cardLead ? <RunsPlaceCard {...where!} /> : null}
                                     {modEmpty ? <ModEmpty sessionId={session.id} /> : null}
-                                    {judging ? <JudgeLooseNotes job={session.id} /> : null}
                                   </>
                                 ),
                               })}
