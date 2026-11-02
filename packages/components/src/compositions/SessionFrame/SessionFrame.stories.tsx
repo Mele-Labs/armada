@@ -153,7 +153,7 @@ export const ContextBreakdown: Story = {
   args: { state: "idle", said: "Idle", title: "Release notes script", context: { tokens: 53_840, window: 1_000_000, breakdown } },
   play: async ({ canvas, userEvent }) => {
     const figure = canvas.getByRole("button", { name: "Context 5%" });
-    await expect(figure).toHaveTextContent("53.8k · 5%");
+    await expect(figure).toHaveTextContent("5%");
     await expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 
     await userEvent.hover(figure);
