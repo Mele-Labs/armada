@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { KeyRound, Plus } from "lucide-react";
+import { KeyRound } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -151,7 +151,7 @@ export function HeldSlots({ rows, onOpen, onFree, onCreate, now = Date.now() }: 
             onKeyDown={(event) => key(event, ordered.length)}
           >
             <span className="armada-ref-chip" aria-hidden>
-              <Plus size={12} strokeWidth={2} />
+              <KeyRound size={12} strokeWidth={2} />+
             </span>
             <span className="armada-held-slots__new">New slot</span>
             <span />
