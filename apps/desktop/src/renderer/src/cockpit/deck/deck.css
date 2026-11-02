@@ -29,6 +29,8 @@
   min-width: 0;
   margin: 0 0 var(--pad-page);
   gap: var(--deck-gutter);
+  /* A Job's panes reach half a gutter past the deck's edge (`.job-panes__area`). Clipped here, that reach is nothing the screen around it can scroll sideways. */
+  overflow-x: clip;
 }
 /* The shell holds the page gutter (`--pad-page`) at the work's sides and the mount's top, the same on every tab, so the deck keeps only the foot. */
 .armada-screen__overview[data-deck] { padding: 0; }
