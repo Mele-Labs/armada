@@ -122,8 +122,8 @@ It moves none while the window has had no input for a minute, and skips a loop o
 | Row pulse alone, 12 moves a second | 7% |
 | Both of those, each on its own schedule | 16% |
 
-**Nothing moves on a canvas or behind the glass unless an event started it.** On the owner's real Bridge with a Job open and no input, GPU time read about 21%, and fell to 9% the moment the idle rule stopped the map: a drone's loop in a Field 270 points wide held the whole window at 30 frames a second, and every frame redraws the glass.
-So a drone holds its pose, the console's lamps hold still and draw once a second for what its screens read, and the stars do not drift.
+**A canvas's loop moves on the same clock.** On the owner's real Bridge with a Job open and no input, GPU time read about 21%, and fell to 9% the moment the idle rule stopped the map: a drone's loop in a Field 270 points wide held the whole window at 30 frames a second, and every frame redraws the glass.
+So a drone's loop and the console's lamps draw on the loop clock's tick (`onLoopTick`) and share its frames, and the stars do not drift.
 A play an event started still runs, and stops itself.
 
 | Measured on the mock in headless Chromium on Metal, GPU time | Before | After |
