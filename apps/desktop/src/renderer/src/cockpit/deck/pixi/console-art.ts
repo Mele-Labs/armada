@@ -8,14 +8,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { Graphics } from "pixi.js";
 
 import { glyphOf } from "../flight-glyphs";
-import type { FacePaint } from "../instrument-mods";
+import type { FaceInk, FacePaint } from "../instrument-mods";
 import { hex, readPalette, type Rgba } from "./palette";
 
 export type Kind = "matrix" | "beacon" | "radar" | "trace" | "scope" | "needles" | "key" | "mod" | "dispatch";
 /** A dot of the Activity graph, 0 to 1 across the scope's box. */
 export type Dot = { x: number; y: number; r: number; colour: string };
 /** `focused` is the keyboard's focus: the ring for it is drawn here, so it lies on the surface rather than square across it. */
-export type BayState = { kind: Kind | null; pressed: boolean; calling: boolean; lit: boolean; focused: boolean; dots?: readonly Dot[]; /** The registry glyph a `key` facet wears. */ glyph?: string; /** What a mod draws on a `mod` facet's screen, in its own take. */ paint?: FacePaint; /** Told why a `paint` threw. */ faulted?: (why: string) => void };
+export type BayState = { kind: Kind | null; pressed: boolean; calling: boolean; lit: boolean; focused: boolean; dots?: readonly Dot[]; /** The registry glyph a `key` facet wears. */ glyph?: string; /** What a mod draws on a `mod` facet's screen, in its own take. */ paint?: FacePaint; /** It asks to be drawn again as time passes, where a face is otherwise drawn once. */ moves?: boolean; /** Moves each time the mod asks for `paint` to be drawn again. */ rev?: number; /** Told why a `paint` threw. */ faulted?: (why: string) => void };
 
 // ---- Materials ------------------------------------------------------------------------------------------------
 
@@ -59,6 +59,12 @@ export function materialsOf(t: Tones) {
     askLine: mix(t.ask, t.sunken, 0.45),
     askTop: mix(t.ask, t.fg, 0.55),
   };
+}
+
+/** What a mod's face draws in: the tokens the console's own instruments are lit with, as a canvas takes them. */
+export function faceInkOf(tone: Tones, mat: Materials): FaceInk {
+  const css = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
+  return { run: css(tone.run), ask: css(tone.ask), bad: css(tone.bad), good: css(tone.good), fg: css(tone.fg), muted: css(tone.muted), subtle: css(tone.subtle), off: css(mat.off) };
 }
 
 export function readTones(host: HTMLElement): Tones & { mono: string } {

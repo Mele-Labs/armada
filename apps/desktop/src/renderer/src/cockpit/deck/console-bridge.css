@@ -433,6 +433,8 @@
     & .console-bay > .deck-tile { width: 100%; height: 100%; }
     & .console-bay:has(> .deck-tile) > .console-bay__label { display: none; }
     & .console-bay > :is(.console-scope, .console-gauges) { border: var(--border-width) solid var(--border-default); background: var(--bg-sunken); }
+    /* A mod's face stands straight over the bay's label, which keeps the foot. */
+    & .console-instrument__face { position: absolute; inset: 0 0 var(--space-5); width: 100%; height: calc(100% - var(--space-5)); pointer-events: none; }
   }
 }
 
@@ -444,13 +446,5 @@
   :root:root :is(.deck-tile, .deck-tile::before, .console-socket, .deck-bay__door::before, .console-hud__beam, .console-hud__panel) { animation: none !important; }
 }
 
-/* The panel a mod's instrument opens stands in the HUD, outside the console's block. Mock only: the sample's rows. */
+/* The panel a mod's instrument opens stands in the HUD, outside the console's block. */
 .console-instrument__panel { position: absolute; inset: calc(var(--space-8) + var(--space-2)) var(--space-2) var(--space-2); padding: var(--space-3) var(--space-4); overflow: auto; background: var(--bg-base); font-size: var(--text-sm); color: var(--fg-default); }
-.instrument-sample__rows { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-2); }
-.instrument-sample__rows > li { display: grid; grid-template-columns: var(--space-3) var(--space-12) 1fr auto; align-items: center; gap: var(--space-3); }
-.instrument-sample__rows i { width: var(--space-3); height: var(--space-3); }
-.instrument-sample__rows code { font-family: var(--font-mono); }
-.instrument-sample__rows time { font-family: var(--font-mono); color: var(--fg-muted); }
-.instrument-sample__rows [data-age="new"] { background: var(--status-running); }
-.instrument-sample__rows [data-age="due"] { background: var(--status-awaiting-review); }
-.instrument-sample__rows [data-age="old"] { background: var(--status-completed-failed); }

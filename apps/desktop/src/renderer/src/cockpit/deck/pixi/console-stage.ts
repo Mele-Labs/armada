@@ -9,7 +9,7 @@ import "pixi.js/unsafe-eval";
 import { Application, BlurFilter, Container, Graphics, PerspectiveMesh, RendererType, RenderTexture, Sprite, Texture, Ticker } from "pixi.js";
 
 import type { FaceInk } from "../instrument-mods";
-import { drawLights, drawLive, drawPlate, glassOf, keySpots, materialsOf, readTones, screenOf, type BayState, type Materials, type Paint, type Tones } from "./console-art";
+import { drawLights, drawLive, drawPlate, faceInkOf, glassOf, keySpots, materialsOf, readTones, screenOf, type BayState, type Materials, type Paint, type Tones } from "./console-art";
 
 export type { BayState, Dot, Kind } from "./console-art";
 export type Rect = { x: number; y: number; w: number; h: number };
@@ -167,9 +167,12 @@ type Facet = {
   tex: RenderTexture;
   mesh: PerspectiveMesh;
   drawn: string;
-  /** What a mod draws, shown on the texture and among the lights. */
-  face?: { canvas: HTMLCanvasElement; draw: CanvasRenderingContext2D; texture: Texture; sprite: Sprite; glow: Sprite };
+  /** What a mod draws, shown on the texture and among the lights, and what it was last drawn from. */
+  face?: { canvas: HTMLCanvasElement; draw: CanvasRenderingContext2D; texture: Texture; sprite: Sprite; glow: Sprite; drawn?: FaceDrawn };
 };
+
+/** What a face's picture depends on. The ink is held once per theme, so the same object is the same ink. */
+type FaceDrawn = { paint: BayState["paint"]; rev: number | undefined; w: number; h: number; ink: FaceInk };
 
 const EMPTY = (): BayState => ({ kind: null, pressed: false, calling: false, lit: false, focused: false });
 
@@ -190,6 +193,7 @@ export class ConsoleStage {
   private spill = new Graphics();
   private tone: Tones | undefined;
   private mat: Materials | undefined;
+  private ink: FaceInk | undefined;
   private bays: BayState[] = [];
   private readonly plan: Plan;
   private source: () => BayState[] = () => [];
@@ -256,6 +260,7 @@ export class ConsoleStage {
   private setTone(): void {
     this.tone = readTones(this.host);
     this.mat = materialsOf(this.tone);
+    this.ink = faceInkOf(this.tone, this.mat);
   }
 
   /** A window dragged to another display changes the density with no change of size, and the textures follow it. */
@@ -459,7 +464,10 @@ export class ConsoleStage {
     app.renderer.render(app.stage);
   }
 
-  /** A mod's face: its canvas, sized to the screen at the texture's texels, drawn in the screen's own units and put on the facet. */
+  /**
+   * A mod's face: its canvas, sized to the screen at the texture's texels, drawn in the screen's own units and put on the facet.
+   * The owner's load rule: a tick where nothing changed draws nothing and uploads nothing, unless the mod asked to move. The console's own facets keep the ticker running either way.
+   */
   private paintFace(f: Facet, state: BayState, t: number): void {
     const { paint } = state;
     if (paint === undefined) {
@@ -482,8 +490,12 @@ export class ConsoleStage {
       f.face = { canvas, draw: canvas.getContext("2d")!, texture, sprite, glow };
     }
     const { face } = f;
+    face.sprite.visible = face.glow.visible = true;
+    const ink = this.ink!;
+    const was = face.drawn;
+    if ((state.moves !== true || this.still) && was !== undefined && was.paint === paint && was.rev === state.rev && was.w === box.w && was.h === box.h && was.ink === ink) return;
+    face.drawn = { paint, rev: state.rev, w: box.w, h: box.h, ink };
     for (const one of [face.sprite, face.glow]) {
-      one.visible = true;
       one.position.set(box.x, box.y);
       one.width = box.w;
       one.height = box.h;
@@ -491,18 +503,12 @@ export class ConsoleStage {
     face.draw.setTransform(cw / box.w, 0, 0, ch / box.h, 0, 0);
     face.draw.clearRect(0, 0, box.w, box.h);
     try {
-      paint(face.draw, { w: box.w, h: box.h, t, ink: this.ink() });
+      paint(face.draw, { w: box.w, h: box.h, t, ink });
     } catch (why) {
       state.faulted?.(why instanceof Error ? why.message : String(why));
       face.draw.clearRect(0, 0, box.w, box.h);
     }
     face.texture.source.update();
-  }
-
-  private ink(): FaceInk {
-    const css = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
-    const tone = this.tone!;
-    return { run: css(tone.run), ask: css(tone.ask), bad: css(tone.bad), good: css(tone.good), fg: css(tone.fg), muted: css(tone.muted), subtle: css(tone.subtle), off: css(this.mat!.off) };
   }
 
   private paintSpill(): void {

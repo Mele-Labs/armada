@@ -84,6 +84,7 @@ import "./deck.css";
 import "./power.css";
 import "./console-bridge.css";
 import { ConsoleBays, ConsoleRack } from "./ConsoleBays";
+import { InstrumentMounts } from "./instrument-mount";
 import { Standby } from "./Standby";
 import { powering, usePowerOn } from "../boot";
 
@@ -1125,6 +1126,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     <ClashesOpenHere ship={ship}>
     {/* A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up. */}
     <ReplayHost props={props} ship={ship} />
+    {panels.has("controls") ? <InstrumentMounts /> : null}
     <CallsOverField props={props} ship={ship} listed={listed} calling={calling} />
     <AutopilotAsked control={autopilot.control} />
     {/* Powering on, each panel comes online in turn and fills as Fleet answers (`power.css`). */}
