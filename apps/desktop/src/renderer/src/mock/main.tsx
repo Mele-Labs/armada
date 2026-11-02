@@ -40,6 +40,8 @@ if (asked !== null && asked !== scenario.name) {
 // `?console=skin|reshape` takes the Flight controls' console look one of two ways (`cockpit/deck/console.css`); without it the app is unchanged.
 const consoleTake = query.get("console");
 if (consoleTake !== null) document.documentElement.dataset.console = consoleTake;
+// The Calls HUD two ways: `screen` is the Job as it is, on a solid surface in the frame; `&calls=hud` restyles the same panels into the frame.
+if (consoleTake === "bridge") document.documentElement.dataset.calls = query.get("calls") === "hud" ? "hud" : "screen";
 // The bridge take's console is drawn on a canvas; `?pixi=0` keeps the CSS one.
 if (consoleTake === "bridge" && query.get("pixi") !== "0") {
   document.documentElement.dataset.consolePixi = "";

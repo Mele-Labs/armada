@@ -294,14 +294,101 @@
   & .console-hud__plot .armada-tl__dot:is(:hover, :focus-visible) { anchor-name: --console-hud-dot; }
   & .console-hud__plot .armada-tooltip__bubble[data-beside] { position-anchor: --console-hud-dot; position-area: block-start span-inline-end; margin: var(--space-3); position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline; }
 
-  /* Calls: the panels a Job draws, on the glass. The glass is thicker here, since words are read on it; the field still shows round them. */
-  & .console-hud[data-hud="calls"] .console-hud__glass { fill-opacity: 0.72; }
-  & .console-calls { position: absolute; inset: calc(var(--space-12) - var(--space-1)) var(--space-3) var(--space-3); display: grid; grid-template-columns: minmax(0, 1fr) calc(var(--space-12) * 6.5); gap: var(--space-3); min-height: 0; }
-  & .console-calls__thread { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: color-mix(in srgb, var(--bg-base) 45%, transparent); border: var(--border-width) solid color-mix(in srgb, currentColor 35%, transparent); }
-  & .console-calls__thread > .deck-pane { flex: 1 1 0; min-height: 0; background: none; animation: none; }
-  & .console-calls__side { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; min-height: 0; }
-  & .console-calls__side > .sv-story-body { flex: 1 1 0; min-height: 0; overflow: auto; padding-block: var(--space-2); background: color-mix(in srgb, var(--bg-base) 45%, transparent); border: var(--border-width) solid color-mix(in srgb, currentColor 35%, transparent); color: var(--fg-default); }
-  & .console-calls :is(.sv-panel, .armada-card) { background: none; border: 0; box-shadow: none; }
+  /* Calls: the panels a Job draws, in the frame. */
+  /* Both takes alike: where things stand. The card takes the height it needs on the composer, in the column's flow and not over the thread, and the thread has what is left. */
+  & .console-calls { position: absolute; inset: calc(var(--space-12) - var(--space-1)) var(--space-3) var(--space-3); display: grid; grid-template-columns: minmax(0, 1fr) clamp(calc(var(--space-12) * 4), 33%, calc(var(--space-12) * 6.5)); gap: var(--space-3); min-height: 0; }
+  & .console-calls__thread { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  & .console-calls__thread > .deck-pane { flex: 1 1 0; min-height: 0; animation: none; }
+  & .console-calls__side { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: auto; }
+  & .console-calls__so-far { flex: none; margin: 0; padding: var(--space-3); border-bottom: var(--border-width) solid var(--border-subtle); font-size: var(--text-sm); line-height: var(--leading-sm); color: var(--fg-default); }
+  & .console-calls__now { flex: 1 0 auto; display: flex; flex-direction: column; min-width: 0; }
+  & .console-calls__now > .sv-story-body { flex: 1 0 auto; padding-block: 0; color: var(--fg-default); }
+  /* The thread has what the question leaves. A question too long for the whole height scrolls its options, the card's own way, with Answer and Skip held. */
+  & .console-calls .sv-dock { flex: 0 1 auto; display: flex; flex-direction: column; min-height: 0; margin-block-start: 0; }
+  & .console-calls .sv-bands { position: static; flex: 0 1 auto; min-height: 0; }
+  & .console-calls .sv-bands > .armada-needs-panel { flex: 0 1 auto; min-height: 0; }
+  & .console-calls .armada-needs-panel__band { flex: none; }
+  & .console-calls .armada-needs-panel__reveal { flex: 0 1 auto; min-height: 0; }
+  & .console-calls .armada-needs-panel__shell { display: flex; flex-direction: column; }
+  & .console-calls .armada-needs-panel__body { flex: 0 1 auto; min-height: 0; max-height: none; }
+  & .console-calls .armada-needs-panel__detail:has(.armada-question-deck[data-flat]) .armada-question-deck__answers { flex: 0 1 auto; min-height: calc(var(--space-6) * 2); }
+  & .console-calls .armada-session-composer { flex: none; }
+  & .console-calls .armada-session-composer__editor { min-height: calc(var(--leading-sm) + var(--space-2) * 2); }
+  /* The menus and Send on one row down to the narrowest box the HUD draws. */
+  @container (max-width: 480px) {
+    & .console-calls .armada-session-composer__bar { gap: var(--space-1); }
+    & .console-calls .armada-session-composer__pick { min-width: 0; }
+    & .console-calls .armada-session-composer__bar .armada-select { padding-inline: var(--space-2) var(--space-6); }
+  }
+  /* A short window spends its height on the question and the thread's latest line, not the thread's own tools; Open Job has them. */
+  @media (max-height: 800px) {
+    & .console-calls .armada-session-frame__head { display: none; }
+  }
+  /* A narrow one gives the thread the width: the question on one line where it can be, and the box's row whole. */
+  @media (max-width: 1360px) {
+    & .console-calls { inset-inline: var(--space-2); column-gap: var(--space-2); grid-template-columns: minmax(0, 1fr) calc(var(--space-12) * 4); }
+    & .console-calls .armada-question-deck__ask { font-size: var(--text-base); line-height: var(--leading-base); }
+  }
+  & .console-calls .armada-session-thread__stage::after { display: none; }
+  & .console-calls .armada-session-composer__bar .armada-select-field,
+  & .console-calls .armada-session-composer__pick { flex: none; }
+  & .console-calls .armada-session-composer__bar .armada-select { field-sizing: content; width: auto; }
+
+  /* `screen`: the Job as it is, on a solid surface, a monitor in the frame. Its panels are the Job's quiet ones. */
+  &[data-calls="screen"] {
+    & .console-hud[data-hud="calls"] :is(.console-hud__glass, .console-hud__strip) { fill: var(--bg-sunken); fill-opacity: 1; }
+    & :is(.console-calls__thread, .console-calls__side) {
+      --edge: var(--border-default);
+      --radius-md: var(--border-width);
+      --radius-lg: var(--border-width);
+      border: var(--border-width) solid var(--border-default);
+      border-top: calc(var(--border-width) * 2) solid var(--border-strong);
+      background: var(--bg-raised);
+    }
+  }
+
+  /* `hud`: the same panels drawn into the frame. Hairlines in the frame's own ink, square corners, amber only on what calls. */
+  &[data-calls="hud"] {
+    & .console-hud[data-hud="calls"] .console-hud__panel { backdrop-filter: blur(var(--space-2)); }
+    & .console-hud[data-hud="calls"] .console-hud__glass { fill-opacity: 0.86; }
+    & .console-hud[data-hud="calls"] .console-hud__strip { fill-opacity: 0; }
+    & .console-calls {
+      --hud-rule: color-mix(in srgb, var(--cb-cyan) 28%, transparent);
+      --radius-md: 0;
+      --radius-lg: 0;
+      --glass-radius-chip: 0;
+      --glass-radius-control: 0;
+    }
+    & .console-calls__thread > .deck-pane { background: none; }
+    & .console-calls__side { border-inline-start: var(--border-width) solid var(--hud-rule); }
+    & .console-calls__so-far { border-bottom-color: var(--hud-rule); }
+    & .console-calls .sv-spine { background: none; }
+    & .console-calls :is(.sv-panel, .armada-card) { background: none; border: 0; box-shadow: none; }
+    & .console-calls .armada-session-frame__head { border-bottom: var(--border-width) solid var(--hud-rule); }
+    /* The head: a thin amber line and an amber label, nothing filled. */
+    & .console-calls .armada-needs-panel .armada-needs-panel__band.armada-needs-panel__band { height: calc(var(--h-badge) + var(--space-1)); border-top: var(--border-width) solid var(--cb-amber); border-radius: 0; background: none; color: var(--cb-amber); }
+    & .console-calls .armada-needs-panel__trigger { padding-inline: 0; }
+    & .console-calls .armada-needs-panel .armada-needs-panel__body.armada-needs-panel__body { padding-inline: 0; border: 0; background: none; }
+    /* An option is a row between hairlines. */
+    & .console-calls .armada-needs-panel .armada-question-deck__answers { gap: 0; }
+    & .console-calls .armada-needs-panel .armada-question-deck__answer.armada-question-deck__answer {
+      border: 0;
+      border-top: var(--border-width) solid var(--hud-rule);
+      border-radius: 0;
+      background: none;
+      box-shadow: none;
+      &:last-child { border-bottom: var(--border-width) solid var(--hud-rule); }
+      &:hover { background: color-mix(in srgb, var(--cb-cyan) 8%, transparent); }
+      &[data-on] { background: color-mix(in srgb, var(--cb-amber) 12%, transparent); box-shadow: inset calc(var(--border-width) * 2) 0 0 var(--cb-amber); }
+    }
+    & .console-calls .armada-needs-panel .armada-button.armada-button { border-radius: 0; background: none; border-color: var(--hud-rule); box-shadow: none; }
+    & .console-calls .armada-needs-panel .armada-button[data-variant="primary"].armada-button:not(:disabled) { border-color: var(--cb-cyan); background: none; color: var(--cb-cyan); box-shadow: none; &:hover { background: color-mix(in srgb, var(--cb-cyan) 16%, transparent); } }
+    /* The box: a rule over it, its controls quiet until pressed. */
+    & .console-calls .sv-dock .armada-session-composer.armada-session-composer { border: 0; border-top: var(--border-width) solid var(--hud-rule); border-radius: 0; background: none; &:focus-within { border-top-color: var(--cb-cyan); } }
+    & .console-calls .armada-session-composer__bar { border-top: 0; padding-inline: 0; }
+    & .console-calls .sv-dock .armada-session-composer :is(.armada-select.armada-select, .armada-button.armada-button) { border-color: transparent; border-radius: 0; background-color: transparent; box-shadow: none; color: var(--fg-muted); &:hover:not(:disabled) { background-color: color-mix(in srgb, var(--cb-cyan) 8%, transparent); color: var(--fg-default); } }
+    & .console-calls .armada-session-composer__editor { padding-inline: 0; }
+  }
   /* The HUD's head names the Job and closes it, so the thread's own name and way back are not drawn again. */
   & .console-calls .armada-session-frame__row:first-child { display: none; }
 

@@ -478,9 +478,10 @@ function openSessionFrom(ship: Ship, props: CockpitProps, id: string): void {
   else openSubject(ship, held);
 }
 
-/** The bridge take's Calls HUD: the Thread, Now and Open of the Job calling, as a Job draws them. */
+/** The bridge take's Calls HUD: the Thread and Now of the Job calling, as a Job draws them, and what it has done so far. */
 function CallsOverField({ props, ship, listed, calling }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; calling: ReadonlyMap<string, Item> }) {
   const acts = useShipActs(props);
+  const sessions = useSessions();
   const keys = useMemo(() => listed.map((one) => one.key), [listed]);
   const calls = useMemo(() => listed.filter((one) => one.kind === "session" && (calling.has(one.key) || toneOf(one) === "ask")).map((one) => one.key), [listed, calling]);
   return (
@@ -488,9 +489,13 @@ function CallsOverField({ props, ship, listed, calling }: { props: CockpitProps;
       keys={keys}
       calls={calls}
       nameOf={(key) => ship.subjects.find((one) => one.key === key)?.title}
+      soFarOf={(key) => {
+        const subject = ship.subjects.find((one) => one.key === key);
+        return sessions.find((one) => one.id === subject?.id)?.soFar;
+      }}
       pane={(key, side) => {
         const subject = ship.subjects.find((one) => one.key === key);
-        return subject === undefined ? null : <SessionPane key={key} subject={subject} props={props} acts={acts} ledger={null} hosts={{ side, zones: ["now", "next"] }} openSession={(id) => openSessionFrom(ship, props, id)} />;
+        return subject === undefined ? null : <SessionPane key={key} subject={subject} props={props} acts={acts} ledger={null} hosts={{ side, zones: ["now"] }} openSession={(id) => openSessionFrom(ship, props, id)} />;
       }}
       onOpen={(key) => {
         const subject = ship.subjects.find((one) => one.key === key);

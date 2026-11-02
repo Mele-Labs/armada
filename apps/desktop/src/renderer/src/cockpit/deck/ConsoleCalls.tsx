@@ -1,5 +1,5 @@
-// The bridge take's Calls HUD (mock). The panels in it are the Job's own: `SessionPane` for the thread and its Needs you card, `StoryColumn` for Now and
-// Open. What is here is which Job they show, and what moves him to the next: the order is the Jobs list's.
+// The bridge take's Calls HUD (mock). The panels in it are the Job's own: `SessionPane` for the thread and its Needs you card, `StoryColumn` for Now. What is
+// here is which Job they show, what it has done so far, and what moves him to the next: the order is the Jobs list's.
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Button, Kbd } from "@armada/components";
@@ -30,9 +30,11 @@ export const toggleCalls = () => (hud.open ? closeCalls() : set({ open: true, ke
 /** Bring a calling Job into the HUD. */
 export const showCall = (key: string) => set({ open: true, key });
 
+/** All the stage's height, for the question to stand whole: the brackets clear of the title bar above and the beam's collar clear of the console below. */
 const placeOf = (stage: Box): Box => {
-  const inset = Math.min(56, stage.width * 0.05);
-  return { left: Math.round(stage.left + inset), top: Math.round(stage.top + 12), width: Math.round(stage.width - inset * 2), height: Math.round(stage.height - 28) };
+  // A narrow stage has no width to give up: the box's selects need all of it.
+  const inset = stage.width < 800 ? 0 : Math.min(56, stage.width * 0.05);
+  return { left: Math.round(stage.left + inset), top: Math.round(stage.top + 6), width: Math.round(stage.width - inset * 2), height: Math.round(stage.height - 14) };
 };
 
 /** ⌥N, the family of the Needs you card's own ⌥E, ⌥X and ⌥↵. By the key's place: Option changes the character N types. */
@@ -40,7 +42,7 @@ const isNextKey = (event: KeyboardEvent) => event.altKey && !event.metaKey && !e
 /** Enter on anything that does not take Enter itself opens the Job. */
 const TAKES_ENTER = "button, a[href], input, textarea, select, [role='textbox'], [role='radio'], [role='checkbox'], [role='menuitem'], [role='option']";
 
-export function CallsHud({ keys, calls, nameOf, pane, onOpen }: { keys: readonly string[]; calls: readonly string[]; nameOf: (key: string) => string | undefined; pane: (key: string, side: HTMLElement | null) => ReactNode; onOpen: (key: string) => void }) {
+export function CallsHud({ keys, calls, nameOf, soFarOf, pane, onOpen }: { keys: readonly string[]; calls: readonly string[]; nameOf: (key: string) => string | undefined; soFarOf: (key: string) => string | undefined; pane: (key: string, side: HTMLElement | null) => ReactNode; onOpen: (key: string) => void }) {
   const { open, key } = useCallsHud();
   const facet = useRef<Element | null>(null);
   facet.current = open ? facetEl() : null;
@@ -82,6 +84,31 @@ export function CallsHud({ keys, calls, nameOf, pane, onOpen }: { keys: readonly
     }, 100);
     return () => window.clearInterval(land);
   }, [open, key]);
+  // The card takes its height from the thread here, which a thread at its end does not hear of: it keeps its latest line in view as it shrinks.
+  useEffect(() => {
+    if (!open) return;
+    const rows = body.current?.querySelector<HTMLElement>(".armada-session-thread__rows");
+    if (rows === null || rows === undefined) return;
+    let atEnd = true;
+    let was = rows.scrollTop;
+    const follow = () => {
+      if (atEnd) rows.scrollTop = rows.scrollHeight;
+    };
+    // Only a scroll back up leaves the end: one that lands short while the card is still opening does not.
+    const read = () => {
+      if (rows.scrollTop + rows.clientHeight >= rows.scrollHeight - 2) atEnd = true;
+      else if (rows.scrollTop < was) atEnd = false;
+      was = rows.scrollTop;
+    };
+    follow();
+    rows.addEventListener("scroll", read, { passive: true });
+    const watch = new ResizeObserver(follow);
+    watch.observe(rows);
+    return () => {
+      rows.removeEventListener("scroll", read);
+      watch.disconnect();
+    };
+  }, [open, key]);
   const next = useCallback(() => {
     const at = key === undefined ? -1 : keys.indexOf(key);
     const to = calls.find((one) => keys.indexOf(one) > at) ?? calls[0];
@@ -111,6 +138,7 @@ export function CallsHud({ keys, calls, nameOf, pane, onOpen }: { keys: readonly
   );
   if (!open) return null;
   const others = calls.some((one) => one !== key);
+  const soFar = key === undefined ? undefined : soFarOf(key);
   return (
     <ConsoleHud
       label="Calls"
@@ -144,7 +172,10 @@ export function CallsHud({ keys, calls, nameOf, pane, onOpen }: { keys: readonly
         key === undefined ? null : (
           <div ref={body} className="console-calls">
             <div className="console-calls__thread">{pane(key, side)}</div>
-            <div ref={setSide} className="console-calls__side" />
+            <div className="console-calls__side">
+              {soFar === undefined ? null : <p className="console-calls__so-far">{soFar}</p>}
+              <div ref={setSide} className="console-calls__now" />
+            </div>
           </div>
         )
       }
