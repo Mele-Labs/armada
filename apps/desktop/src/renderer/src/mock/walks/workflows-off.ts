@@ -5,7 +5,7 @@
 
 import { button, deckRow, inside, place, region, role, text, toSystemPage, walk } from "../walk";
 
-const armada = role("group", "Armada", { exact: true });
+const armada = role("group", "Shipped with Armada", { exact: true });
 const panel = (name: string) => region(name, { exact: true });
 
 const workflowsOff = walk("workflows-off", [

@@ -1,9 +1,13 @@
 // The key of a kind of tab: its tab comes to the front and its pane takes focus, or a tab of the kind opens where the Job has none.
 
-import type { LayerId } from "../session-view/layers";
+import type { Session } from "@armada/screens/src/draft/sessions";
+
+import { inPanes, type LayerId } from "../session-view/layers";
+import { openInPanel, type PanelItem } from "../shared-panel/store";
+import { KINDS } from "./kinds";
 import { labelFor } from "./PaneView";
-import { jobOpens, look, peek } from "./store";
-import { activate, holderOf, type TabKind } from "./tree";
+import { jobOpens, look, peek, rearrange } from "./store";
+import { activate, addTab, arrive, holderOf, panesOf, type TabKind } from "./tree";
 
 export function focusKind(jobId: string, kind: TabKind): void {
   const holder = holderOf(peek(jobId), kind);
@@ -20,5 +24,25 @@ export function focusLayer(jobId: string, layer: LayerId): boolean {
   const kind = TAB_OF[layer];
   if (kind === undefined) return false;
   focusKind(jobId, kind);
+  return true;
+}
+
+/** A draft's card as a tab named for the draft: its tab comes to the front where it has one, else it joins the thread's pane, or opens by the arrival rule with no thread. */
+export function focusDraft(jobId: string, row: string, title: string): void {
+  const arrangement = peek(jobId);
+  const open = panesOf(arrangement.root)
+    .flatMap((pane) => pane.tabs)
+    .find((tab) => tab.kind === "draft" && tab.row === row);
+  if (open !== undefined) return look(jobId, (one) => activate(one, open.id));
+  const holder = holderOf(arrangement, "draft") ?? holderOf(arrangement, "thread");
+  if (holder !== undefined) return look(jobId, (one) => addTab(one, holder.id, "draft", title, undefined, undefined, row));
+  rearrange(jobId, (one) => arrive(one, "draft", title, undefined, undefined, row), undefined, true);
+}
+
+/** Where a draft's card opens: its own tab on a Job drawn in panes, the side panel on any other and for a rule's draft. False where nothing opened. */
+export function openDraftCard(session: Session, card: PanelItem): boolean {
+  if (card.kind !== "draft" || !inPanes(session.id)) return openInPanel(card);
+  const row = session.rows.find((one) => one.id === card.row);
+  focusDraft(session.id, card.row, row?.kind === "draft" ? row.title : KINDS.draft.label);
   return true;
 }
