@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use super::repo::TempRepo;
-use crate::clash::{against, between, changed_between, changed_here, changed_on, file_against, file_between, landed_in, Verdict};
+use crate::clash::{against, between, between_commits, changed_between, changed_here, changed_on, file_against, file_between, landed_in, Verdict};
 
 fn lines() -> String {
     (1..=20).map(|n| format!("line {n}\n")).collect()
@@ -174,4 +174,45 @@ fn what_changed_between_two_commits_names_edits_deletions_and_both_sides_of_a_re
     assert_eq!(changed, ["gone.txt", "kept.txt", "new.txt", "old.txt"]);
     assert_eq!(changed_between(repo.root(), &to, &to), Ok(Vec::new()));
     assert!(changed_between(repo.root(), "0000000000000000000000000000000000000000", &to).is_err());
+}
+
+/// Two commits cut from one base, each editing `f.txt` at a line of its own choosing.
+fn two_heads(first: usize, second: usize) -> (TempRepo, String, String) {
+    let repo = TempRepo::with_a_commit();
+    repo.commit_one("f.txt", &lines(), "add f");
+    let heads: Vec<String> = [("one", first), ("two", second)]
+        .into_iter()
+        .map(|(branch, line)| {
+            repo.git(&["checkout", "-q", "-b", branch, "HEAD~0"]);
+            let mut text: Vec<String> = lines().lines().map(str::to_string).collect();
+            text[line - 1] = format!("{branch}'s");
+            repo.commit_one("f.txt", &(text.join("\n") + "\n"), branch);
+            let head = repo.head_str();
+            repo.git(&["checkout", "-q", "-"]);
+            head
+        })
+        .collect();
+    (repo, heads[0].clone(), heads[1].clone())
+}
+
+#[test]
+fn two_commits_changing_the_same_line_conflict_naming_the_file() {
+    let (repo, one, two) = two_heads(5, 5);
+    assert_eq!(between_commits(repo.root(), &one, &two), Ok(Verdict::Conflict(vec!["f.txt".into()])));
+}
+
+#[test]
+fn two_commits_changing_lines_far_apart_are_clean_and_a_ref_stands_for_its_commit() {
+    let (repo, one, two) = two_heads(1, 20);
+    assert_eq!(between_commits(repo.root(), &one, &two), Ok(Verdict::Clean));
+    repo.git(&["branch", "-f", "tip", &two]);
+    assert_eq!(between_commits(repo.root(), &one, "tip"), Ok(Verdict::Clean));
+}
+
+#[test]
+fn a_commit_the_repository_does_not_hold_is_not_checked() {
+    let (repo, one, _two) = two_heads(1, 20);
+    let missing = "0123456789abcdef0123456789abcdef01234567";
+    assert!(between_commits(repo.root(), &one, missing).is_err());
+    assert!(between_commits(repo.root(), &one, "--help").is_err());
 }

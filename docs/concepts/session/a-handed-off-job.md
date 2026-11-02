@@ -50,7 +50,7 @@ A Job's own answer wins over the setting: a quiet Job is never told or handed on
 A hand run there died partway, after the new Job was made and before it was linked, leaving two Jobs and a `handoff_starting` that never settled (19 Oct 2026).
 
 **The new Job carries on by itself.** Its first turn is Fleet's word to carry on; the owner need not write.
-Every process of it has a replace note in its system prompt, ending in the handoff and the brief: it is a new Job that continues the old one's work, the slots, branches and pull requests came to it, and nothing else the old Job started did.
+Every process of it has a replace note in its system prompt, ending in the handoff and the brief: it is a new Job that continues the old one's work, the slots, branches, pull requests and pages came to it, and nothing else the old Job started did.
 The old Job's thread stays reachable behind the new one through `replaces` and `replaced_by`.
 A card with no brief still hands on, with the handoff alone.
 
@@ -76,5 +76,7 @@ Where the old Job had ended, the new one is the live one and is told to carry on
 Otherwise the hand is rolled back as a failed step is, and `handoff_failed` stands with the reason `fleet stopped during the hand off`.
 The mark names the new Job (`detail.new`); a mark an older Fleet wrote without it is matched to the live Job of the same repository and title started within a minute of it.
 
-**What the hand does not move.** Artifacts, subagents and background commands stay on the old Job's ledger and are reached through the earlier Job; a server follows the slot it runs in.
+**What the hand copies.** Each [document](../document.md#a-job-that-takes-anothers-place) comes to the new Job with its revisions and his answer, and the old Job keeps its own.
+
+**What the hand does not move.** Other artifacts, subagents and background commands stay on the old Job's ledger and are reached through the earlier Job; a server follows the slot it runs in.
 After the yes the agent is told to stop, and its process ends when the old Job does.

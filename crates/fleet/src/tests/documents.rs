@@ -222,3 +222,149 @@ async fn a_write_the_tool_failed_keeps_nothing() {
     eventually(|| async { revisions_of(&record_of(&rig, &id).await, &answered).is_some() }).await;
     assert_eq!(revisions_of(&record_of(&rig, &id).await, &failed), None);
 }
+
+/// A Job at the rig's root with its process up, and the index of that process.
+async fn a_job(rig: &Rig) -> (SessionId, usize) {
+    let id = rig.start().await;
+    rig.send(&id, "write it up").await;
+    let at = process_at(rig, &id).await;
+    rig.stand_in.init(at);
+    (id, at)
+}
+
+async fn process_at(rig: &Rig, id: &SessionId) -> usize {
+    eventually(|| async { rig.stand_in.starts().iter().any(|one| one.session == id.as_str()) }).await;
+    rig.stand_in.starts().iter().position(|one| one.session == id.as_str()).unwrap()
+}
+
+/// A page under the rig's root, its folder made, and its path.
+fn page_at_root(rig: &Rig, name: &str) -> (std::path::PathBuf, String) {
+    let file = std::path::Path::new(&rig.root).join(".armada/documents").join(name);
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    let path = file.to_string_lossy().into_owned();
+    (file, path)
+}
+
+/// Ends the Job's turn and waits out the sweep it starts: pages are read in name order, so a new page
+/// named last is kept once every page before it was read.
+async fn turn_swept(rig: &Rig, id: &SessionId, at: usize, last: &str) {
+    let (file, path) = page_at_root(rig, last);
+    std::fs::write(&file, page(last, &[])).unwrap();
+    rig.stand_in.finishes(at, "Read it.");
+    eventually(|| async { revisions_of(&record_of(rig, id).await, &path).is_some() }).await;
+}
+
+/// Job `old` handed on, once it has ended, and the new Job with its process up.
+async fn handed_on(rig: &Rig, old: &SessionId) -> (SessionId, usize) {
+    use api::Sessions;
+    rig.fleet.handed_on(old.as_str(), None).await;
+    eventually(|| async { record_of(rig, old).await.state == ipc::SessionState::Ended }).await;
+    let listed = rig.fleet.list_sessions(None, None, None).await.unwrap().sessions;
+    let new = listed.into_iter().find(|one| one.id != *old).expect("the new job").id;
+    let at = process_at(rig, &new).await;
+    rig.stand_in.init(at);
+    (new, at)
+}
+
+fn waits_on(record: &ipc::SessionRecord, path: &str) -> bool {
+    record.waiting_for.iter().any(|one| one.id == format!("document:{path}"))
+}
+
+#[tokio::test]
+async fn a_page_handed_on_keeps_its_revisions_and_answer_until_a_real_edit_asks_again() {
+    use api::Sessions;
+    let rig = rig_placing(None);
+    let (old, at) = a_job(&rig).await;
+    let (file, path) = page_at_root(&rig, "lease.html");
+    std::fs::write(&file, page("Lease", &[("Clock", GOOD)])).unwrap();
+    writes(&rig, at, &path, "toolu_1", "Write", " +10").await;
+    eventually(|| async { revisions_of(&record_of(&rig, &old).await, &path).is_some_and(|kept| kept.len() == 1) }).await;
+    std::fs::write(&file, page("Lease, second", &[("Clock", GOOD)])).unwrap();
+    writes(&rig, at, &path, "toolu_2", "Write", " +10").await;
+    eventually(|| async { revisions_of(&record_of(&rig, &old).await, &path).is_some_and(|kept| kept.len() == 2) }).await;
+    let approve = super::document_answers::answer(&old, &path, "2", ipc::DocumentHow::Approved, None);
+    std::sync::Arc::clone(&rig.fleet).answer_document(approve).await.unwrap();
+
+    let (new, at) = handed_on(&rig, &old).await;
+
+    // Its first turn only read the page: it holds the second revision, answered, and nothing asks.
+    turn_swept(&rig, &new, at, "zz.html").await;
+    let record = record_of(&rig, &new).await;
+    let row = record.attachments.iter().find(|one| one.target == path).expect("the page came with the job");
+    assert_eq!(row.detail.get("revision").map(String::as_str), Some("2"), "{:?}", row.detail);
+    assert_eq!(row.detail.get("settled").map(String::as_str), Some("approved"), "{:?}", row.detail);
+    assert!(!waits_on(&record, &path), "{:?}", record.waiting_for);
+
+    // A real edit is the third revision of the same history, and asks again.
+    std::fs::write(&file, page("Lease, third", &[("Clock", GOOD)])).unwrap();
+    writes(&rig, at, &path, "toolu_3", "Write", " +10").await;
+    eventually(|| async { revisions_of(&record_of(&rig, &new).await, &path).is_some_and(|kept| kept.len() == 3) }).await;
+    let record = record_of(&rig, &new).await;
+    let kept = revisions_of(&record, &path).unwrap();
+    assert!(std::fs::read_to_string(&kept[1]).unwrap().contains("second"));
+    assert!(std::fs::read_to_string(&kept[2]).unwrap().contains("third"));
+    assert!(!record.attachments.iter().find(|one| one.target == path).unwrap().detail.contains_key("settled"));
+    assert!(waits_on(&record, &path), "{:?}", record.waiting_for);
+}
+
+#[tokio::test]
+async fn a_page_another_job_left_in_the_checkout_is_not_raised_until_this_job_changes_it() {
+    let rig = rig_placing(None);
+    let (first, at) = a_job(&rig).await;
+    let (file, path) = page_at_root(&rig, "lease.html");
+    std::fs::write(&file, page("Lease", &[])).unwrap();
+    writes(&rig, at, &path, "toolu_1", "Write", " +10").await;
+    eventually(|| async { revisions_of(&record_of(&rig, &first).await, &path).is_some() }).await;
+
+    let (other, at) = a_job(&rig).await;
+    turn_swept(&rig, &other, at, "zz.html").await;
+    assert_eq!(revisions_of(&record_of(&rig, &other).await, &path), None, "the first job's page, as it left it");
+
+    // A script of this Job's changes it: no Write names it, and the turn's end keeps it as this Job's.
+    std::fs::write(&file, page("Lease, changed", &[])).unwrap();
+    rig.send(&other, "change it").await;
+    rig.stand_in.finishes(at, "Changed.");
+    eventually(|| async { revisions_of(&record_of(&rig, &other).await, &path).is_some_and(|kept| kept.len() == 1) }).await;
+    assert!(waits_on(&record_of(&rig, &other).await, &path));
+}
+
+#[tokio::test]
+async fn a_page_handed_on_unanswered_still_asks_and_one_dismissed_stays_dismissed() {
+    use api::HostedSessions;
+    let rig = rig_placing(None);
+    let (old, at) = a_job(&rig).await;
+    let (asks, asks_path) = page_at_root(&rig, "asks.html");
+    std::fs::write(&asks, page("Asks", &[])).unwrap();
+    writes(&rig, at, &asks_path, "toolu_1", "Write", " +10").await;
+    let (dismissed, dismissed_path) = page_at_root(&rig, "dismissed.html");
+    std::fs::write(&dismissed, page("Dismissed", &[])).unwrap();
+    writes(&rig, at, &dismissed_path, "toolu_2", "Write", " +10").await;
+    eventually(|| async { revisions_of(&record_of(&rig, &old).await, &dismissed_path).is_some() }).await;
+    let dismiss = ipc::DismissWaiting { session_id: old.clone(), item_id: format!("document:{dismissed_path}"), reason: None, misread: false };
+    std::sync::Arc::clone(&rig.fleet).dismiss_waiting(dismiss).await.expect("dismissed");
+
+    let (new, at) = handed_on(&rig, &old).await;
+    turn_swept(&rig, &new, at, "zz.html").await;
+
+    let record = record_of(&rig, &new).await;
+    assert!(waits_on(&record, &asks_path), "{:?}", record.waiting_for);
+    assert!(!waits_on(&record, &dismissed_path), "{:?}", record.waiting_for);
+    // The old Job keeps its own files: the new Job reads copies under its own folder.
+    let (theirs, ours) = (revisions_of(&record_of(&rig, &old).await, &asks_path).unwrap(), revisions_of(&record, &asks_path).unwrap());
+    assert_ne!(theirs, ours);
+    assert_eq!(std::fs::read(&theirs[0]).unwrap(), std::fs::read(&ours[0]).unwrap());
+}
+
+#[tokio::test]
+async fn a_write_is_kept_even_with_the_bytes_another_job_left() {
+    let rig = rig_placing(None);
+    let (first, at) = a_job(&rig).await;
+    let (file, path) = page_at_root(&rig, "lease.html");
+    std::fs::write(&file, page("Lease", &[])).unwrap();
+    writes(&rig, at, &path, "toolu_1", "Write", " +10").await;
+    eventually(|| async { revisions_of(&record_of(&rig, &first).await, &path).is_some() }).await;
+
+    let (other, at) = a_job(&rig).await;
+    writes(&rig, at, &path, "toolu_2", "Write", " +10").await;
+    eventually(|| async { revisions_of(&record_of(&rig, &other).await, &path).is_some_and(|kept| kept.len() == 1) }).await;
+}

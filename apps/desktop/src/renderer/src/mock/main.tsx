@@ -16,6 +16,7 @@ import { forgetHowItWasRead, meetEveryGuide } from "./remembered";
 import { mountRunner } from "./review-walk-runner";
 import type { RunnerPage } from "./review-walk-runner";
 import { SCENARIOS, scenarioNamed } from "./scenario";
+import { storyFile } from "./story-files";
 import { mountNoWalk, mountWalk } from "./WalkPlayer";
 import { EVERY_WALK } from "./walks";
 
@@ -74,4 +75,4 @@ if (root !== null && picker !== null) {
 // The annotation layer (#1226), saving through this dev server's `annotationsServer`. Not in a
 // frame, and not inside a walk window's stand-in (`?walked`), whose own capture takes
 // ⌥⌘A there as main's walk window does.
-if (!framing && !query.has("walked") && !annotatesWith(scenario.name)) void import("../annotate/mount").then(({ mount }) => mount());
+if (!framing && !query.has("walked") && !annotatesWith(scenario.name)) void import("../annotate/mount").then(({ mount }) => mount(storyFile));

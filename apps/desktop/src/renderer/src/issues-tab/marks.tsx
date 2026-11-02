@@ -1,7 +1,7 @@
 // A Job working an issue: as its live state's glyph, the one the Cockpit's list draws, named by a tooltip that says which
 // Job; or as the shared Job card, where there is room for one.
 
-import { Bug, CircleDot, GitMerge, Save } from "lucide-react";
+import { Bug, CircleCheck, CircleDot, GitMerge, GitPullRequest, Save } from "lucide-react";
 import { JobCard, SessionMark, Tooltip, jobToneOf, type JobTone } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -35,6 +35,34 @@ const LOUD: readonly JobTone[] = ["ask", "live", "wait", "calm"];
 export function toneOfHolders(holders: readonly Session[]): JobTone | undefined {
   const tones = holders.map((one) => jobToneOf(stateOf(one).state));
   return LOUD.find((tone) => tones.includes(tone));
+}
+
+/** The Job an issue's card shows in its corner: the one in the loudest state. */
+export const loudestHolder = (holders: readonly Session[]): Session | undefined => {
+  const tone = toneOfHolders(holders);
+  return holders.find((one) => jobToneOf(stateOf(one).state) === tone);
+};
+
+/** An issue a pull request names. */
+export function LinkedPullRequestMark() {
+  return (
+    <Tooltip label="Has a pull request">
+      <span className="issues-mark" role="img" aria-label="Has a pull request">
+        <GitPullRequest size={12} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+}
+
+/** An issue that is closed. */
+export function ClosedMark() {
+  return (
+    <Tooltip label="Closed">
+      <span className="issues-mark" role="img" aria-label="Closed">
+        <CircleCheck size={12} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
 }
 
 /** A report not yet opened: a quiet ring, drawn in the muted ink. */

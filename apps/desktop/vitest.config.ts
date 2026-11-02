@@ -41,6 +41,9 @@ desktopBrowser.test = { ...desktopBrowser.test, exclude: [...configDefaults.excl
 // that serves the page, as `vite.mock.config.ts` does; without it a walk that picks a variant stops.
 const smokeBrowserProject = browserProject("smoke (browser)", smokeBrowser);
 smokeBrowserProject.plugins = [...(smokeBrowserProject.plugins ?? []), annotationStories()];
+// The story files the card draws import `storybook/test`; crawled here, as `vite.mock.config.ts` does, so Vite
+// bundles it before the first walk and never reloads a test to find it.
+smokeBrowserProject.optimizeDeps = { ...smokeBrowserProject.optimizeDeps, entries: ["../../packages/components/src/**/*.stories.tsx"] };
 
 // `electron.vite.config.ts` builds the walk finder into this module; a test that only loads
 // `capture/window.ts` needs the import to resolve, not the finder. `finder.test.ts` mocks its own.
