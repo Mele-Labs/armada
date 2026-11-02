@@ -25,8 +25,8 @@ const RELAY: u16 = 52010;
 fn bundle_in(app: &TempDir) -> String {
     let mod_dir = app.path().join("mod");
     for (file, text) in [
-        (".claude-plugin/marketplace.json", "{}"),
-        ("armada/.claude-plugin/plugin.json", r#"{"name":"armada","version":"1.0.0"}"#),
+        (adapters::agent_mod::COPY_MARKETPLACE, "{}"),
+        (adapters::MOD_INSTALLED_MANIFEST, r#"{"name":"armada","version":"1.0.0"}"#),
         ("armada/skills/reading-a-brief/SKILL.md", "Read the brief."),
     ] {
         let at = mod_dir.join(file);

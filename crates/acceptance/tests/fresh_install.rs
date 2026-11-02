@@ -4,7 +4,7 @@
 //!
 //! | Proved | Not proved |
 //! |---|---|
-//! | An app's bundle is found from the binary's own path, and a binary anywhere else has none | That the release workflow puts the mod there. `.github/workflows/checks.yml` fails its own step when it did not arrive |
+//! | An app's bundle is found from the binary's own path, and a binary anywhere else has none | That the release workflow puts the mod there. the release workflow fails its own step when it did not arrive |
 //! | An empty home's mod copy is filled from that bundle, a copy of the same version is left alone, and a bundle of another version replaces it whole, nothing of the old copy kept and no half copy left beside it | That a hosted Job's launch fills it and still starts when it cannot. `fleet`'s `fresh_install` tests, against a repository with no `armada.yml` |
 //! | Every act the rules name is offered at the door a Job in a root with no `armada.yml` stands at | That each answers there. `api`'s `door_without_manifest` tests call them |
 //!
@@ -40,8 +40,8 @@ fn written(at: &Path, text: &str) {
 /// The mod as the release lays it in an app: `plugins/`'s contents, at `version`.
 fn bundled(resources: &Path, version: &str, skill: &str) {
     let bundle = resources.join("mod");
-    written(&bundle.join(".claude-plugin/marketplace.json"), "{}");
-    written(&bundle.join("armada/.claude-plugin/plugin.json"), &format!("{{\"name\":\"armada\",\"version\":\"{version}\"}}"));
+    written(&bundle.join(adapters::agent_mod::COPY_MARKETPLACE), "{}");
+    written(&bundle.join(adapters::MOD_INSTALLED_MANIFEST), &format!("{{\"name\":\"armada\",\"version\":\"{version}\"}}"));
     written(&bundle.join("armada/skills").join(skill).join("SKILL.md"), skill);
 }
 
