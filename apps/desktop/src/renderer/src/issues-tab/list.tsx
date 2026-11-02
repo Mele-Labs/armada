@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { LoaderCircle, Pencil, Puzzle, X } from "lucide-react";
-import { Button, DropdownMenu, Input, Kbd, PrMark, Readout, SearchField, Skeleton, Stamp, Textarea, Tooltip, forgetKept, sendsOn, useKept } from "@armada/components";
+import { Button, DropdownMenu, Input, Kbd, ListCard, ListCardChip, ListCardMark, ListCardPending, ListCardTime, PrMark, SearchField, Skeleton, Textarea, Tooltip, forgetKept, sendsOn, useKept } from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import { jobIdOf } from "@armada/shell";
@@ -14,7 +14,7 @@ import { jobIdOf } from "@armada/shell";
 import { useSessions } from "../sessions-draft";
 import { askedOf, bandsIn, issueHoldings, readable, savedNames, type Asked, type Band } from "./bands";
 import { ISSUES_KEYS, capOf } from "./key-table";
-import { FixedMark, JobMark, KeptMark, UnreadMark, jobTitle, toneOfHolders, useHolders } from "./marks";
+import { ClosedMark, FixedMark, JobMark, KeptMark, LinkedPullRequestMark, UnreadMark, jobTitle, loudestHolder, toneOfHolders, useHolders } from "./marks";
 import { ASSIGNED, CLOSED, DESCRIBE, OPEN, savedChoice, savedName } from "./model";
 import type { ReadTracker, ReportedBug, Ticket } from "./model";
 import { jobOfReport, reportsShown } from "./reports";
@@ -240,15 +240,23 @@ function ReportRow({ report, unread, open }: { report: ReportedBug; unread: bool
   const job = jobOfReport(useSessions(), report.id);
   return (
     <li className="deck-list__item">
-      <button type="button" className="issues-row" data-report={report.id} data-selected={open || undefined} aria-current={open || undefined} aria-label={`${report.title}, from ${report.job_title}`} onClick={() => store.openReport(report.id)}>
-        <span className="issues-row__title">{report.title}</span>
-        <span className="issues-row__job-mark" data-tone={report.fixed === undefined ? toneOfHolders(job === undefined ? [] : [job]) : undefined}>{report.fixed !== undefined ? <FixedMark pullRequest={report.fixed.pull_request} /> : job === undefined ? null : <JobMark session={job} />}</span>
-        <span className="issues-row__mark">{report.kept ? <KeptMark /> : unread ? <UnreadMark /> : null}</span>
-        <Readout fixed className="issues-row__at">
-          <Stamp still first="age" at={report.at} />
-        </Readout>
-        <span className="issues-row__from">{report.job_title}</span>
-      </button>
+      <ListCard
+        className="issues-row"
+        data-report={report.id}
+        selected={open}
+        aria-label={`${report.title}, from ${report.job_title}`}
+        onClick={() => store.openReport(report.id)}
+        title={report.title}
+        marks={
+          <>
+            <ListCardMark>{report.fixed === undefined ? null : <FixedMark pullRequest={report.fixed.pull_request} />}</ListCardMark>
+            <ListCardMark>{job === undefined ? null : <JobMark session={job} />}</ListCardMark>
+            <ListCardMark>{report.kept ? <KeptMark /> : unread ? <UnreadMark /> : null}</ListCardMark>
+          </>
+        }
+        tag={<span className="issues-row__from">{report.job_title}</span>}
+        at={<ListCardTime at={report.at} said="Reported" />}
+      />
     </li>
   );
 }
@@ -478,25 +486,13 @@ function Rows({ band, asked, narrow, nested = false }: { band: Band; asked: Aske
   );
 }
 
-/** Rows as the list will draw them, in bars: a title of one line or two, and the reference under it. The lamp and the Job are the tracker's to say, so they wait. */
+/** Rows as the list will draw them, in bars: a title, and the reference under it. The marks are the tracker's to say, so they wait. */
 function PendingRows({ count }: { count: number }) {
   return (
     <>
       {Array.from({ length: count }, (_, at) => (
         <li key={at} className="deck-list__item">
-          <div className="issues-row" data-pending>
-            <span className="issues-row__skel">
-              <Skeleton width={`${72 - ((at * 11) % 24)}%`} />
-            </span>
-            {at % 2 === 1 ? (
-              <span className="issues-row__skel">
-                <Skeleton width={`${40 + ((at * 7) % 20)}%`} />
-              </span>
-            ) : null}
-            <span className="issues-row__skel-reference">
-              <Skeleton width="3rem" />
-            </span>
-          </div>
+          <ListCardPending width={`${72 - ((at * 11) % 24)}%`} />
         </li>
       ))}
     </>
@@ -547,36 +543,47 @@ function Row({ band, ticket, fields, open }: { band: Band; ticket: Ticket; field
   const [view] = useIssueView();
   const holders = useHolders(ticket.holders);
   const values = fields.flatMap((name) => (ticket.fields.find((one) => one.name === name)?.values ?? []).map((value) => ({ name, value })));
+  const tone = toneOfHolders(holders);
+  const lines = [
+    !view.job || holders.length === 0 ? null : (
+      <span key="held" className="issues-row__held">
+        {holders.map((one) => (
+          <span key={one.id} className="issues-row__job">
+            <JobMark session={one} />
+            <span className="issues-row__job-title">{jobTitle(one)}</span>
+          </span>
+        ))}
+      </span>
+    ),
+    !view.labels || values.length === 0 ? null : (
+      <span key="fields" className="issues-row__fields">
+        {values.map(({ name, value }) => (
+          <Tooltip key={`${name}:${value}`} label={name}>
+            <span className="issues-row__value">{value}</span>
+          </Tooltip>
+        ))}
+      </span>
+    ),
+  ].filter((one) => one !== null);
   return (
     <li className="deck-list__item">
-      <button type="button" className="issues-row" data-tone={toneOfHolders(holders)} data-lamp={view.state ? undefined : "off"} data-selected={open || undefined} aria-current={open || undefined} aria-label={`${ticket.reference} ${ticket.title}`} onClick={() => store.open(band.manifestId, ticket.reference)}>
-        <span className="issues-row__title">{ticket.title}</span>
-        {view.number ? <Readout className="issues-row__reference">{ticket.reference}</Readout> : null}
-        <span className="issues-row__jobs">
-          {holders.map((one) => (
-            <JobMark key={one.id} session={one} />
-          ))}
-        </span>
-        {!view.job || holders.length === 0 ? null : (
-          <span className="issues-row__held">
-            {holders.map((one) => (
-              <span key={one.id} className="issues-row__job">
-                <JobMark session={one} />
-                <span className="issues-row__job-title">{jobTitle(one)}</span>
-              </span>
-            ))}
-          </span>
-        )}
-        {!view.labels || values.length === 0 ? null : (
-          <span className="issues-row__fields">
-            {values.map(({ name, value }) => (
-              <Tooltip key={`${name}:${value}`} label={name}>
-                <span className="issues-row__value">{value}</span>
-              </Tooltip>
-            ))}
-          </span>
-        )}
-      </button>
+      <ListCard
+        className="issues-row"
+        selected={open}
+        needs={view.state && tone === "ask" && !open}
+        aria-label={`${ticket.reference} ${ticket.title}`}
+        onClick={() => store.open(band.manifestId, ticket.reference)}
+        title={ticket.title}
+        marks={
+          <>
+            <ListCardMark>{ticket.linked_pull_request ? <LinkedPullRequestMark /> : null}</ListCardMark>
+            <ListCardMark>{!view.state ? null : ticket.state === "closed" ? <ClosedMark /> : loudestHolder(holders) === undefined ? null : <JobMark session={loudestHolder(holders)!} />}</ListCardMark>
+          </>
+        }
+        {...(view.number ? { tag: <ListCardChip>{ticket.reference}</ListCardChip> } : {})}
+        at={<ListCardTime at={ticket.updated_at} said="Last updated" />}
+        {...(lines.length === 0 ? {} : { lines })}
+      />
     </li>
   );
 }

@@ -8,7 +8,7 @@
 import { createPortal } from "react-dom";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { ChartNoAxesGantt, ChevronDown, ChevronUp, CircleDashed, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Plane, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
-import { Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Switch, Tooltip, keyFor, tokenPx, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
+import { Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, ListCard, PausedMark, Switch, Tooltip, keyFor, tokenPx, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, SURFACE, jobIdOf, manifestLabel, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
@@ -58,7 +58,7 @@ import { ToolsMarkOf } from "../../tools-fixes";
 import { ReportedMark } from "../../issues-tab/marks";
 import { reportOfJob } from "../../issues-tab/reports";
 import { useIssues, useIssuesStore } from "../../issues-tab/store";
-import { columnsOf, restBonus, RowFields, useRowView } from "./row-view";
+import { columnsOf, restBonus, rowParts, useRowView } from "./row-view";
 import { FlightEdit } from "./FlightEdit";
 import { isWebAddress, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type FlightSet } from "./flight-controls";
 import { glyphOf as flightGlyph } from "./flight-glyphs";
@@ -281,26 +281,28 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
     return (
       <li key={one.key} className="deck-list__item" data-arrived={arrivedHere(one.key) || undefined} style={one.linked?.depth === undefined ? undefined : ({ "--deck-depth": one.linked.depth } as CSSProperties)} data-movable={band} data-lifted={dragging?.key === one.key || undefined} data-drop={dragging?.drop?.key === one.key ? (dragging.drop.after ? "after" : "before") : undefined} onContextMenu={one.kind === "session" ? (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: one.id, root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: event.currentTarget.querySelector<HTMLElement>(".deck-row") })) : (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: "", root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: null, viewOnly: true }))}>
         <Inspect card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} {...(toolsMissing === undefined ? {} : { tools: toolsMissingSaid(toolsMissing) })} />} name={one.title} side="beside" pin={false}>
-        <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined && !needs ? undefined : ""} data-needs={needs || undefined} data-lamp={lampOf(one)} data-linked={one.linked?.depth !== undefined || undefined} data-reply={one.reply} data-tone={toneOf(one)} data-past={one.past} data-paused={pausedIds.has(one.id) || undefined} data-selected={here || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={here || undefined} onPointerDown={band === undefined ? undefined : (event) => grab(event, one.key, band)} onClickCapture={(event) => swallowed() && (event.preventDefault(), event.stopPropagation())} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)} onKeyDown={one.kind === "session" ? (event) => {
+        <ListCard className="deck-row" data-row={one.key} data-calling={call === undefined && !needs ? undefined : ""} needs={needs} data-lamp={lampOf(one)} data-linked={one.linked?.depth !== undefined || undefined} data-reply={one.reply} data-tone={toneOf(one)} data-past={one.past} data-paused={pausedIds.has(one.id) || undefined} selected={here} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} onPointerDown={band === undefined ? undefined : (event) => grab(event, one.key, band)} onClickCapture={(event) => swallowed() && (event.preventDefault(), event.stopPropagation())} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)} onKeyDown={one.kind === "session" ? (event) => {
           // The earlier Job behind this row, where it took one's place. Not the registry's yet: the key waits on the look.
           if (event.key === "h" && one.earlier !== undefined && !event.metaKey && !event.ctrlKey && !event.altKey) return (event.preventDefault(), onEarlier(one.earlier));
           if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
           event.preventDefault();
           const box = event.currentTarget.getBoundingClientRect();
           setMenu({ id: one.id, root: one.root, title: one.title, x: box.left + box.width / 2, y: box.bottom, row: event.currentTarget });
-        } : undefined}>
-          <span className="deck-row__title">
-            {one.linked === undefined ? null : (
-              <Tooltip label={linkedSaid(one.linked)}>
-                <span className="deck-row__link" role="img" aria-label={linkedSaid(one.linked)}>
-                  <Link size={12} aria-hidden="true" />
-                </span>
-              </Tooltip>
-            )}
-            {one.title}
-          </span>
-          <RowFields view={view} earlier={earlier} tools={tooled} reported={reported} one={one} session={sessions.find((each) => each.id === one.id)} hit={hit} status={state} />
-        </button>
+        } : undefined}
+          title={
+            <span className="deck-row__title">
+              {one.linked === undefined ? null : (
+                <Tooltip label={linkedSaid(one.linked)}>
+                  <span className="deck-row__link" role="img" aria-label={linkedSaid(one.linked)}>
+                    <Link size={12} aria-hidden="true" />
+                  </span>
+                </Tooltip>
+              )}
+              {one.title}
+            </span>
+          }
+          {...rowParts({ view, earlier, tools: tooled, reported, one, session: sessions.find((each) => each.id === one.id), hit, status: state })}
+        />
         </Inspect>
         {one.earlier === undefined ? null : (
           <span className="deck-row__earlier">
@@ -338,7 +340,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
         <Filter rows={panel} />
         <PanelKey id="list" />
       </header>
-      <ul className="deck-list__rows" data-reordering={dragging === undefined ? undefined : ""} data-now={view.now || undefined} data-pr={view.pr || undefined} style={{ "--deck-cols": columns.template, "--deck-clash-right": columns.clashRight, "--deck-tools-right": columns.toolsRight, "--deck-reported-right": columns.reportedRight } as CSSProperties}>
+      <ul className="deck-list__rows" data-reordering={dragging === undefined ? undefined : ""} data-now={view.now || undefined} data-pr={view.pr || undefined} style={{ "--deck-clash-right": columns.clashRight, "--deck-tools-right": columns.toolsRight, "--deck-reported-right": columns.reportedRight } as CSSProperties}>
         {banding === undefined
           ? [...queuedIn(ideas, picked).map((idea) => <QueuedRow key={queuedKey(idea.id)} idea={idea} />), ...drawn.map(row)]
           : bandsOf(drawn, banding, queuedIn(ideas, picked)).map((band) => (

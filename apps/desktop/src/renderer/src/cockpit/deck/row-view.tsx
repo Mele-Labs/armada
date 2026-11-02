@@ -4,7 +4,7 @@
 // line, and rows grow by it; so is Active PRs, a line of its own under the name, or under Now where that is on.
 
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
-import { Readout, Stamp, Tooltip } from "@armada/components";
+import { ListCardChip, ListCardMark, ListCardTime, Tooltip } from "@armada/components";
 import type { SettingValue } from "@armada/protocol";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -80,15 +80,12 @@ export const viewEntries = (view: RowView): DropdownMenuEntry[] => [
   ...VIEW_FIELDS.map(({ id, label }): DropdownMenuEntry => ({ kind: "item", id: `view:${id}`, label, selected: view[id] })),
 ];
 
-/** Each column's width in px and its place among the others, in the menu's order. Now and Active PRs are lines and have no column. The columns are the same for every row, so none shifts. */
-const COLUMNS: readonly { field: Exclude<ViewField, "now" | "pr"> | "tools" | "reported"; width: number }[] = [
-  { field: "issue", width: 48 },
-  { field: "time", width: 52 },
+/** Each place in the card's corner, its width in px and its order. The other fields are on the card's lines. The places are the same for every row, so none shifts. */
+const COLUMNS: readonly { field: "conflicts" | "status" | "tools" | "reported"; width: number }[] = [
   { field: "conflicts", width: 16 },
   { field: "tools", width: 16 },
   { field: "reported", width: 16 },
   { field: "status", width: 36 },
-  { field: "workflow", width: 64 },
 ];
 /** The gap between columns, `--space-1`. */
 const GAP = 4;
@@ -105,7 +102,7 @@ const columnsOn = (view: RowView, earlier: boolean, tools: boolean, reported: bo
  * The row's columns: the title, then each field that is on. The conflicts column is kept while a row in the list carries the earlier-Job mark, which stands in the same place.
  * `clashRight` is where that column's own mark sits from the row's trailing edge, since the mark is drawn over the row and not in it.
  */
-export function columnsOf(view: RowView, earlier: boolean, tools = false, reported = false): { template: string; clashRight: string; toolsRight: string; reportedRight: string } {
+export function columnsOf(view: RowView, earlier: boolean, tools = false, reported = false): { clashRight: string; toolsRight: string; reportedRight: string } {
   const on = columnsOn(view, earlier, tools, reported);
   const after = on.slice(on.findIndex(({ field }) => field === "conflicts") + 1);
   // The tools mark is a button, so it too is drawn over the row, in its column's place.
@@ -113,11 +110,9 @@ export function columnsOf(view: RowView, earlier: boolean, tools = false, report
   // The reported-a-bug mark is a button too, drawn over its column the same way.
   const afterReported = on.slice(on.findIndex(({ field }) => field === "reported") + 1);
   return {
-    reportedRight: `calc(var(--space-3)${afterReported.map(({ field, width }) => ` + var(--deck-w-${field}, ${width}px) + ${GAP}px`).join("")})`,
-    toolsRight: `calc(var(--space-3)${afterTools.map(({ field, width }) => ` + var(--deck-w-${field}, ${width}px) + ${GAP}px`).join("")})`,
-    // A column's width is a variable of the list (`--deck-w-<field>`), so the stylesheet can take it to nothing where no row of the list has the field.
-    template: ["minmax(0, 1fr)", ...on.map(({ field, width }) => `var(--deck-w-${field}, ${width}px)`)].join(" "),
-    clashRight: `calc(var(--space-3)${after.map(({ field, width }) => ` + var(--deck-w-${field}, ${width}px) + ${GAP}px`).join("")})`,
+    reportedRight: `calc(var(--space-3) + var(--border-width)${afterReported.map(({ field, width }) => ` + var(--deck-w-${field}, ${width}px) + ${GAP}px`).join("")})`,
+    toolsRight: `calc(var(--space-3) + var(--border-width)${afterTools.map(({ field, width }) => ` + var(--deck-w-${field}, ${width}px) + ${GAP}px`).join("")})`,
+    clashRight: `calc(var(--space-3) + var(--border-width)${after.map(({ field, width }) => ` + var(--deck-w-${field}, ${width}px) + ${GAP}px`).join("")})`,
   };
 }
 
@@ -137,38 +132,57 @@ const workflowOf = (session: Session | undefined): { name: string; step: string 
   return { name: flow.name, step: (flow.at === undefined ? undefined : flow.steps[flow.at]) ?? flow.name };
 };
 
-const cell = (field: ViewField | "tools" | "reported", content: ReactNode) => (
-  <span className="deck-row__cell" data-field={field}>
-    {content}
-  </span>
-);
-
 /**
- * The cells of a row after its title, one for each field that is on, then Now's line and Active PRs' line. `status` and `hit` are the row's own: the state marks it drew before, and what a search
- * matched in place of its age.
+ * What a row draws on its card: the corner's marks, the tag line and the lines under, each from the fields that are on. `status` and `hit` are the row's own: the state marks it drew before,
+ * and what a search matched in place of its age.
  */
-export function RowFields({ view, earlier, tools, reported, one, session, hit, status }: { view: RowView; earlier: boolean; tools: boolean; reported: boolean; one: Subject; session: Session | undefined; hit: { short: string; whole: string } | undefined; status: ReactNode }) {
+export function rowParts({ view, earlier, tools, reported, one, session, hit, status }: { view: RowView; earlier: boolean; tools: boolean; reported: boolean; one: Subject; session: Session | undefined; hit: { short: string; whole: string } | undefined; status: ReactNode }): { marks?: ReactNode; tag?: ReactNode; at?: ReactNode; lines?: ReactNode } {
   const issue = issueOf(session);
   const issueText = issue === undefined ? undefined : /^\d+$/.test(issue.number) ? `#${issue.number}` : issue.number;
   const flow = workflowOf(session);
   const open = one.pr !== undefined && one.pr.stage !== "landed" ? one.pr : undefined;
-  return (
-    <>
-      {view.issue ? cell("issue", issue === undefined || issueText === undefined ? null : <Tooltip label={`Issue ${issueText}: ${issue.title}`}><Readout className="deck-row__issue">{issueText}</Readout></Tooltip>) : null}
-      {view.time
-        ? cell("time", hit !== undefined && hit.short !== "" ? <Tooltip label={hit.whole}><Readout className="deck-row__said" data-found="">{hit.short}</Readout></Tooltip> : one.at === undefined ? null : <Tooltip label="Last turn"><Readout className="deck-row__said"><Stamp still first="age" at={one.at} /></Readout></Tooltip>)
-        : null}
-      {view.conflicts || earlier ? cell("conflicts", null) : null}
-      {tools ? cell("tools", null) : null}
-      {reported ? cell("reported", null) : null}
-      {view.status ? cell("status", status) : null}
-      {view.workflow ? cell("workflow", flow === undefined ? null : <Tooltip label={`${flow.name}: ${flow.step}`}><span className="deck-row__flow">{flow.step}</span></Tooltip>) : null}
-      {view.now ? <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span> : null}
-      {view.pr && open !== undefined ? (
-        <span className="deck-row__prs">
-          <Tooltip label={`Pull request #${open.number}`}><Readout className="deck-row__chip">#{open.number}</Readout></Tooltip>
-        </span>
-      ) : null}
-    </>
-  );
+  const shownIssue = view.issue && issue !== undefined && issueText !== undefined;
+  const shownPr = view.pr && open !== undefined;
+  const at =
+    !view.time ? undefined
+    : hit !== undefined && hit.short !== "" ? <Tooltip label={hit.whole}><span className="deck-row__said" data-found="">{hit.short}</span></Tooltip>
+    : one.at === undefined ? undefined
+    : <ListCardTime at={one.at} said="Last turn" />;
+  const shownFlow = view.workflow && flow !== undefined;
+  return {
+    // The clash, tools, reported and earlier marks are buttons, drawn over their empty places from `Deck.tsx`.
+    ...(view.conflicts || earlier || tools || reported || view.status
+      ? {
+          marks: (
+            <>
+              {view.conflicts || earlier ? <ListCardMark /> : null}
+              {tools ? <ListCardMark /> : null}
+              {reported ? <ListCardMark /> : null}
+              {view.status ? <ListCardMark wide>{status}</ListCardMark> : null}
+            </>
+          ),
+        }
+      : {}),
+    ...(shownIssue || shownPr
+      ? {
+          tag: (
+            <>
+              {shownIssue ? <Tooltip label={`Issue ${issueText}: ${issue!.title}`}><span><ListCardChip>{issueText}</ListCardChip></span></Tooltip> : null}
+              {shownPr ? <Tooltip label={`Pull request #${open!.number}`}><span><ListCardChip>#{open!.number}</ListCardChip></span></Tooltip> : null}
+            </>
+          ),
+        }
+      : {}),
+    ...(at === undefined ? {} : { at }),
+    ...(view.now || shownFlow
+      ? {
+          lines: (
+            <>
+              {shownFlow ? <Tooltip label={`${flow!.name}: ${flow!.step}`}><span className="deck-row__flow">{flow!.step}</span></Tooltip> : null}
+              {view.now ? <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span> : null}
+            </>
+          ),
+        }
+      : {}),
+  };
 }

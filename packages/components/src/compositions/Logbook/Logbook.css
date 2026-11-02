@@ -71,64 +71,44 @@
 
 /* ---- The log ---------------------------------------------------------------------------------- */
 
-.armada-logbook__table { table-layout: fixed; background: transparent; outline: none; }
-.armada-logbook__col-kind { width: calc(var(--space-12) + var(--space-2)); }
-.armada-logbook__col-flags { width: calc(var(--space-12) - var(--space-4)); }
-.armada-logbook__col-jobs { width: var(--space-12); }
-.armada-logbook__col-when { width: calc(var(--space-12) + var(--space-8)); }
+.armada-logbook__table { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-2); outline: none; }
+.armada-logbook__table:focus-visible .armada-logbook__row[aria-selected="true"] { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.armada-logbook__group { display: flex; flex-direction: column; gap: var(--space-1); }
 
-/* The column head stays as the log scrolls; each section row stays under it until the next section pushes it out. A
-   collapsed table's borders belong to its grid and do not travel with a sticky cell, so each sticky row draws its rule
-   as a shadow, and a section row tucks a pixel under the head so no row shows between them at any scale. */
-.armada-logbook__table thead th {
+/* A section's head stays as the log scrolls, until the next one pushes it out. */
+.armada-logbook__section {
   position: sticky;
-  top: 0;
-  z-index: 4;
-  border-bottom: none;
-  box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--border-default);
-  background: var(--bg-raised);
-}
-.armada-logbook__section th {
-  position: sticky;
-  top: calc(var(--h-row-header) - var(--border-width));
+  top: calc(var(--space-2) * -1);
   z-index: 3;
-  height: var(--h-row-header);
+  display: flex;
+  align-items: center;
+  min-height: var(--h-row-header);
+  margin: 0;
   padding: 0 var(--space-3);
-  border-bottom: none;
-  box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--border-default);
-  background: var(--bg-sunken);
+  border-radius: var(--radius-inset, var(--radius-sm));
+  background: var(--bg-raised);
   color: var(--fg-default);
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   font-weight: var(--weight-medium);
   letter-spacing: var(--tracking-caps);
-  text-align: left;
   text-transform: uppercase;
 }
-
-.armada-logbook__topic th {
-  height: var(--h-row-header);
+.armada-logbook__topic {
+  margin: var(--space-2) 0 0;
   padding: 0 var(--space-3);
-  border-bottom: var(--border-width) solid var(--border-subtle);
-  background: var(--bg-raised);
   color: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   font-weight: var(--weight-medium);
   letter-spacing: var(--tracking-caps);
-  text-align: left;
   text-transform: uppercase;
 }
 
 .armada-logbook__row { cursor: default; }
-.armada-logbook__row .armada-table-cell { height: var(--h-row); padding-block: var(--space-1); }
-.armada-logbook__table:focus-visible .armada-logbook__row[data-selected] { border-left-color: var(--accent); }
-.armada-logbook__kind { color: var(--fg-muted); letter-spacing: var(--tracking-caps); }
-.armada-logbook__num { text-align: right; }
-.armada-logbook__flags { color: var(--fg-muted); }
-.armada-logbook__flags > * + * { margin-inline-start: var(--space-1); }
+.armada-logbook__jobs { font-family: var(--font-mono); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; }
 
 .armada-logbook__mark {
   display: inline-flex;

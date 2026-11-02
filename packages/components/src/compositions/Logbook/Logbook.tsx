@@ -27,6 +27,7 @@ import { Dialog } from "../../primitives/Dialog/Dialog";
 import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Kbd } from "../../primitives/Kbd/Kbd";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "../../primitives/Table/Table";
+import { ListCard, ListCardChip, ListCardMark } from "../ListCard/ListCard";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ageOf } from "../../time-format";
@@ -234,7 +235,7 @@ const optionId = (id: string) => `logbook-entry-${id}`;
 const draftKey = (id: string) => `logbook:${id}`;
 
 export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, topics, topic, onTopic, selected, onSelect, editing, onEdit, onSave, onLock, onForget, onTidy, tidying, tidied, onOrganize, organizing, proposal, onApplyAll, onApplyRow, onDismissRow, onCloseProposal, onOpenJob, also, refusal, now }: LogbookViewProps) {
-  const list = useRef<HTMLTableElement>(null);
+  const list = useRef<HTMLDivElement>(null);
   const part = useRef<HTMLElement>(null);
   const detail = useRef<HTMLElement>(null);
   const [forgetting, setForgetting] = useState<string>();
@@ -390,80 +391,65 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, to
       ) : (
         <div className="armada-logbook__page">
           <div className="armada-logbook__panel armada-logbook__log">
-            {/* The Table primitive's chrome, as a bare table so the keys can hold it. */}
-            <table
+            <div
               ref={list}
-              className="armada-table armada-logbook__table"
+              className="armada-logbook__table"
               role="grid"
               aria-label="Entries"
               tabIndex={0}
               aria-activedescendant={open === undefined ? undefined : optionId(open.id)}
             >
-              <colgroup>
-                <col className="armada-logbook__col-kind" />
-                <col />
-                <col className="armada-logbook__col-flags" />
-                <col className="armada-logbook__col-jobs" />
-                <col className="armada-logbook__col-when" />
-              </colgroup>
-              <TableHead>
-                <tr>
-                  <TableHeaderCell>Kind</TableHeaderCell>
-                  <TableHeaderCell>Entry</TableHeaderCell>
-                  <TableHeaderCell aria-label="Flags" />
-                  <TableHeaderCell className="armada-logbook__num">Jobs</TableHeaderCell>
-                  <TableHeaderCell className="armada-logbook__num">Last</TableHeaderCell>
-                </tr>
-              </TableHead>
               {panels.map((panel) => (
-                <TableBody key={panel.key} aria-labelledby={`logbook-panel-${panel.key}`}>
-                  <tr className="armada-logbook__section">
-                    <Tooltip label={panel.hint} asChild>
-                      <th scope="rowgroup" colSpan={5} id={`logbook-panel-${panel.key}`}>
-                        {panel.title}
-                      </th>
-                    </Tooltip>
-                  </tr>
+                <div key={panel.key} className="armada-logbook__group" role="rowgroup" aria-labelledby={`logbook-panel-${panel.key}`}>
+                  <Tooltip label={panel.hint} asChild>
+                    <h3 className="armada-logbook__section" id={`logbook-panel-${panel.key}`}>
+                      {panel.title}
+                    </h3>
+                  </Tooltip>
                   {panel.entries.map((entry, at) => (
                     <Fragment key={entry.id}>
-                    {topic !== undefined || topics === undefined || (at > 0 && topicOf(panel.entries[at - 1]!) === topicOf(entry)) ? null : (
-                      <tr className="armada-logbook__topic">
-                        <th scope="rowgroup" colSpan={5}>
-                          {topicLabel(topicOf(entry))}
-                        </th>
-                      </tr>
-                    )}
-                    <TableRow
-                      id={optionId(entry.id)}
-                      aria-selected={entry.id === selected}
-                      selected={entry.id === selected}
-                      className="armada-logbook__row"
-                      onClick={() => {
-                        onSelect(entry.id);
-                        list.current?.focus();
-                      }}
-                    >
-                      <TableCell variant="mono" className="armada-logbook__kind">
-                        <Tooltip label={KIND[entry.kind].said}>
-                          <span>{KIND[entry.kind].code}</span>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell truncates>{titleOf(entry)}</TableCell>
-                      <TableCell className="armada-logbook__flags">{flagsOf(entry, now)}</TableCell>
-                      <TableCell variant="mono" className="armada-logbook__num">
-                        {entry.confirmed_by}
-                      </TableCell>
-                      <TableCell variant="mono" className="armada-logbook__num">
-                        <Tooltip label={`Last confirmed ${dated(entry.last_confirmed)}`}>
-                          <time dateTime={entry.last_confirmed}>{ago(entry.last_confirmed, now)}</time>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
+                      {topic !== undefined || topics === undefined || (at > 0 && topicOf(panel.entries[at - 1]!) === topicOf(entry)) ? null : <h4 className="armada-logbook__topic">{topicLabel(topicOf(entry))}</h4>}
+                      <ListCard
+                        id={optionId(entry.id)}
+                        role="row"
+                        tabIndex={-1}
+                        aria-selected={entry.id === selected}
+                        selected={entry.id === selected}
+                        className="armada-logbook__row"
+                        aria-label={titleOf(entry)}
+                        onClick={() => {
+                          onSelect(entry.id);
+                          list.current?.focus();
+                        }}
+                        title={titleOf(entry)}
+                        marks={
+                          <>
+                            <ListCardMark>
+                              <Tooltip label={`Confirmed by ${entry.confirmed_by} ${entry.confirmed_by === 1 ? "Job" : "Jobs"}`}>
+                                <span className="armada-logbook__jobs">{entry.confirmed_by}</span>
+                              </Tooltip>
+                            </ListCardMark>
+                            <ListCardMark wide>{flagsOf(entry, now)}</ListCardMark>
+                          </>
+                        }
+                        tag={
+                          <Tooltip label={KIND[entry.kind].said}>
+                            <span>
+                              <ListCardChip>{KIND[entry.kind].code}</ListCardChip>
+                            </span>
+                          </Tooltip>
+                        }
+                        at={
+                          <Tooltip label={`Last confirmed ${dated(entry.last_confirmed)}`}>
+                            <time dateTime={entry.last_confirmed}>{ago(entry.last_confirmed, now)}</time>
+                          </Tooltip>
+                        }
+                      />
                     </Fragment>
                   ))}
-                </TableBody>
+                </div>
               ))}
-            </table>
+            </div>
           </div>
           <section ref={detail} className="armada-logbook__detail" aria-label={proposal === undefined ? "Entry" : "Proposal"} tabIndex={-1}>
             {proposal !== undefined ? (
