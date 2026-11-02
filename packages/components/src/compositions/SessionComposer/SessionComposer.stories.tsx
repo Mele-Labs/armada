@@ -126,7 +126,9 @@ export const RingBeforeTalk: Story = {
     const talk = canvas.getByRole("button", {
       name: "Talk",
     });
-    await expect(ring.compareDocumentPosition(talk) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await expect(
+      ring.compareDocumentPosition(talk) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   },
 };
 
