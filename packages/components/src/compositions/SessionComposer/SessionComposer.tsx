@@ -1,6 +1,6 @@
 import { useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
-import { Cpu, File, Lightbulb, Mic, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
+import { ChevronRight, Cpu, File, Lightbulb, Mic, MicOff, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { readKept, useKept, writeKept } from "../../keep";
@@ -877,9 +877,19 @@ export function SessionComposer({
   return box;
 }
 
+/** `**bold**` and `code` in a step, drawn as what they mark. */
+function marked(text: string): ReactNode[] {
+  return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/).filter((one) => one !== "").map((part, at) => {
+    if (part.startsWith("**")) return <strong key={at}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith("`")) return <code key={at}>{part.slice(1, -1)}</code>;
+    return part;
+  });
+}
+
 /** Why Talk could not hear, and what to do about it, in a card over the Talk button, with a button to the Settings pane that holds it where there is one. */
 function TalkGuide({ why, onOpen, onClose }: { why: TalkWhy; onOpen: ((pane: TalkPane) => void) | undefined; onClose: () => void }) {
-  const { title, steps, pane, action } = talkGuide(why);
+  const { title, steps, pane, action, path, toggle } = talkGuide(why);
+  const take = new URLSearchParams(window.location.search).get("take") ?? "steps";
   const card = useRef<HTMLDivElement>(null);
   // Esc, a press elsewhere, or coming back from Settings puts it away.
   useEffect(() => {
@@ -898,19 +908,48 @@ function TalkGuide({ why, onOpen, onClose }: { why: TalkWhy; onOpen: ((pane: Tal
       window.removeEventListener("mousedown", onDown);
     };
   }, [onClose]);
+  const walked = take === "path" && path !== undefined && toggle !== undefined;
   return (
     <div ref={card} className="armada-session-composer__guide" role="status" aria-label="Talk could not hear">
-      <p className="armada-session-composer__guide-title">{title}</p>
-      <ol className="armada-session-composer__steps">
-        {steps.map((step) => (
-          <li key={step}>{step}</li>
-        ))}
-      </ol>
-      {pane === undefined || action === undefined || onOpen === undefined ? null : (
-        <Button type="button" variant="ghost" size="sm" onClick={() => onOpen(pane)}>
-          {action}
-        </Button>
+      <div className="armada-session-composer__guide-head">
+        <span className="armada-session-composer__guide-glyph">
+          <MicOff size={16} strokeWidth={2} aria-hidden />
+        </span>
+        <p className="armada-session-composer__guide-title">{title}</p>
+      </div>
+      {walked ? (
+        <>
+          <p className="armada-session-composer__guide-path">
+            {path.map((crumb, at) => (
+              <span key={crumb}>
+                {at === 0 ? null : <ChevronRight size={12} strokeWidth={2} aria-hidden />}
+                {crumb}
+              </span>
+            ))}
+          </p>
+          <p className="armada-session-composer__guide-toggle">
+            <span>{toggle}</span>
+            <span className="armada-session-composer__guide-switch" aria-hidden />
+          </p>
+          <p className="armada-session-composer__guide-note">Turn it on, then press Talk again.</p>
+        </>
+      ) : (
+        <ol className="armada-session-composer__steps">
+          {steps.map((step) => (
+            <li key={step}>
+              <span>{marked(step)}</span>
+            </li>
+          ))}
+        </ol>
       )}
+      <div className="armada-session-composer__guide-foot">
+        {pane === undefined || action === undefined || onOpen === undefined ? null : (
+          <Button type="button" variant="primary" size="sm" onClick={() => onOpen(pane)}>
+            {action}
+          </Button>
+        )}
+        <Kbd>Esc</Kbd>
+      </div>
     </div>
   );
 }
