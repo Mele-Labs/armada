@@ -68,7 +68,8 @@ pub struct KeptSheet {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KeptFont {
     pub family: String,
-    pub weight: u16,
+    /// The `@font-face` value as written: `"400"`, or `"100 900"` for a variable font.
+    pub weight: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<String>,
     pub bytes: String,

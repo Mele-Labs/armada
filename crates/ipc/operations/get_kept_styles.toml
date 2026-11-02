@@ -4,9 +4,9 @@ transport = "HTTP"
 agent_access = "No"
 description = "The style set Fleet kept with a sketch, by the hash a mock node's kept names: its stylesheets in the order they apply, and its fonts"
 notes = """
-`GET /sessions/kept_styles?hash=`. Answers 200 with `KeptStyles`: `sheets`, each `{ path, css, edited }` in the order they apply, `edited` true where the Job's checkout held uncommitted changes to the file when it was kept; and `fonts`, each `{ family, weight, style?, bytes }` with `bytes` base64.
+`GET /sessions/kept_styles?hash=`. Answers 200 with `KeptStyles`: `sheets`, each `{ path, css, edited }` in the order they apply, `edited` true where the Job's checkout held uncommitted changes to the file when it was kept; and `fonts`, each `{ family, weight, style?, bytes }` with `weight` a string as the `@font-face` wrote it (`"400"`, or `"100 900"`) and `bytes` base64.
 
-**Read on demand and never on a record**: a sketch's scene carries only the hash, so a record that is published whole on every change does not carry the sheets. **The hash is content addressed, so an answer never changes** and Bridge may keep it for good. A hash Fleet does not hold is a 404.
+**Read on demand and never on a record**: a sketch's scene carries only the hash, so a record that is published whole on every change does not carry the sheets. **The hash is content addressed, so an answer never changes** and Bridge may keep it for good. A hash Fleet does not hold is a 404, and so is one that is not 32 lower-case hex characters. A document carries the hashes of its mocks in `detail.kept_styles`, as `{"<sketch title>#<node id>": "<hash>"}`.
 
-**Bridge only.** The agent names sheets in `styles` and never reads them back. Fleet's behaviour behind this route is not built yet: until it is, the route answers 404 for every hash.
+**Bridge only.** The agent names sheets in `styles` and never reads them back.
 """

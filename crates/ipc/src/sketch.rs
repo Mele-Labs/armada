@@ -12,6 +12,9 @@ use serde_json::Value;
 use crate::SessionId;
 
 pub(crate) mod screen;
+mod mocks;
+
+pub use mocks::{page_mocks, MockNode};
 
 /// What a node may be.
 pub const SCENE_KINDS: [&str; 8] = ["box", "group", "lane", "label", "code", "wire", "screen", "mock"];

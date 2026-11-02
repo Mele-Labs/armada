@@ -80,6 +80,8 @@ where
             let held = self.ledger_row(&store, &session)?.attachments;
             (session.harness, held)
         };
+        // Kept before `against` is read, so the earlier scene's `kept` rides in the size the cap counts.
+        let sketch = self.sketch_styled(&id, sketch, "show_sketch").await?;
         let sketch = match against {
             None => sketch,
             Some(title) => {

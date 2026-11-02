@@ -645,7 +645,7 @@ export type StyleSources = { sources: StyleSource[]; start?: string; packages?: 
 export type KeptSheet = { path: string; css: string; edited: boolean };
 
 /** A font a kept stylesheet names. `bytes` is base64. */
-export type KeptFont = { family: string; weight: number; style?: string; bytes: string };
+export type KeptFont = { family: string; weight: string; style?: string; bytes: string };
 
 /**
  * `GET /sessions/kept_styles?hash=`, Bridge's: the style set a `mock` node's `kept` names, `sheets` in the order they apply.
