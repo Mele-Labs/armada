@@ -16,7 +16,6 @@
 //! holds one row a session, so a reminder replaces an earlier tell, which costs nothing while the
 //! refusal reader is not in force (`tell_refusal::IN_FORCE`).
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
@@ -339,12 +338,7 @@ where
         let Some(model) = self.language_model().model() else { return sentences };
         // Read now, not on a later pass as the Needs you list is: the turn's end is the one look.
         let texts: Vec<String> = sentences.iter().chain(&misreads).cloned().collect();
-        let embedded = tokio::task::spawn_blocking(move || {
-            let borrowed: Vec<&str> = texts.iter().map(String::as_str).collect();
-            model.embed(&borrowed).ok().filter(|vectors| vectors.len() == texts.len()).map(|vectors| texts.into_iter().zip(vectors).collect::<HashMap<_, _>>())
-        })
-        .await;
-        let Ok(Some(vectors)) = embedded else { return sentences };
+        let Some(vectors) = self.item_vectors().embedded(model, texts).await else { return sentences };
         left_off_as_misread_sentences(sentences, &misreads, |text| vectors.get(text).cloned(), FOLDS_AT)
     }
 
