@@ -113,6 +113,8 @@ export type SessionRecord = {
   terminal?: TerminalFacts;
   /** A terminal session whose mod is older than its repository's, or reported no version. Since 23.62. */
   mod_out_of_date?: true;
+  /** The version its `armada` mod last reported. Absent until a mod has reported one. */
+  mod_version?: string;
   /**
    * A hosted session whose agent came up without some of its Armada tools, as Fleet read the CLI's init line. `mod`: the mod did not load; `door`: Fleet's MCP door did not
    * connect; `task_tools`: the CLI served no task list tools. Absent when nothing is missing.
