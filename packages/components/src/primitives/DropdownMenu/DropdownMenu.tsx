@@ -239,6 +239,9 @@ export function DropdownMenu({
   const query = field?.value ?? typed;
   const search = useRef<HTMLInputElement>(null);
   const visible = searchLabel === undefined || field !== undefined ? entries : filterEntries(entries, query);
+  // One icon column and one check column per menu, drawn on every row once any row has either, so labels line up.
+  const hasIcons = entries.some((entry) => entry.kind === "item" && entry.icon !== undefined);
+  const hasChecks = entries.some((entry) => entry.kind === "item" && entry.selected !== undefined);
   const choosable = visible.flatMap((entry) => (entry.kind === "item" && entry.disabled !== true && entry.submenu === undefined ? [entry] : []));
   // The row whose submenu is open, and the same fact for the Esc listener below, which is added once per opening.
   const [sub, setSub] = useState<string | null>(null);
@@ -433,7 +436,7 @@ export function DropdownMenu({
       {/* A menu open when its trigger turns off stays shut rather than sending
           from under a control that says it cannot. */}
       {shown ? layered(
-        <div ref={panel} className={panelClass === undefined ? "armada-dropdown-menu__panel" : `armada-dropdown-menu__panel ${panelClass}`} data-portal={Boolean(portal) || at !== undefined || undefined} data-searchable={searchLabel !== undefined || undefined} data-detailed={entries.some((entry) => entry.kind === "item" && entry.detail !== undefined) || undefined} role="menu" onKeyDown={moveFocus}>
+        <div ref={panel} className={panelClass === undefined ? "armada-dropdown-menu__panel" : `armada-dropdown-menu__panel ${panelClass}`} data-portal={Boolean(portal) || at !== undefined || undefined} data-searchable={searchLabel !== undefined || undefined} data-checks={hasChecks || undefined} data-detailed={entries.some((entry) => entry.kind === "item" && entry.detail !== undefined) || undefined} role="menu" onKeyDown={moveFocus}>
           {searchLabel === undefined ? null : (
             <div className="armada-dropdown-menu__search">
               <Input
@@ -534,7 +537,11 @@ export function DropdownMenu({
                   entry.onRight();
                 }}
               >
-                {entry.icon === undefined ? null : <entry.icon className="armada-dropdown-menu__icon" size={16} strokeWidth={2} aria-hidden />}
+                {entry.icon !== undefined ? (
+                  <entry.icon className="armada-dropdown-menu__icon" size={16} strokeWidth={2} aria-hidden />
+                ) : hasIcons ? (
+                  <span className="armada-dropdown-menu__icon" aria-hidden />
+                ) : null}
                 <span className="armada-dropdown-menu__text">
                   {entry.label}
                   <Count of={entry.count} />
@@ -543,8 +550,13 @@ export function DropdownMenu({
                 {entry.trail === undefined ? null : <span className="armada-dropdown-menu__trail">{entry.trail}</span>}
                 {entry.submenu !== undefined ? (
                   <ChevronRight className="armada-dropdown-menu__chevron" size={12} strokeWidth={2} aria-hidden />
-                ) : entry.selected ? (
-                  <Check className="armada-dropdown-menu__check" size={16} strokeWidth={2} aria-hidden />
+                ) : hasChecks ? (
+                  <>
+                    {entry.selected || !entry.shortcut ? null : <kbd className="armada-dropdown-menu__kbd">{entry.shortcut}</kbd>}
+                    <span className="armada-dropdown-menu__mark" aria-hidden>
+                      {entry.selected ? <Check className="armada-dropdown-menu__check" size={16} strokeWidth={2} aria-hidden /> : null}
+                    </span>
+                  </>
                 ) : entry.shortcut ? (
                   <kbd className="armada-dropdown-menu__kbd">{entry.shortcut}</kbd>
                 ) : null}

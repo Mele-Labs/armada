@@ -4,8 +4,8 @@
 // reads on opening and on Check again, and changes nothing.
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { CircleCheck, CircleDashed, CircleX, RotateCw, Stethoscope, TriangleAlert } from "lucide-react";
-import { Button, Stamp, Tooltip } from "@armada/components";
+import { CircleCheck, CircleDashed, CircleX, RotateCw, TriangleAlert } from "lucide-react";
+import { Button, CardHeader, CardReadout, CardTitle, Stamp, Tooltip } from "@armada/components";
 import type { Connection } from "@armada/protocol";
 import type { HealthRead } from "@armada/screens/src/overview-reads";
 
@@ -179,31 +179,31 @@ export function DoctorSurface({
   return (
     <div className="armada-cockpit armada-doctor" data-worst={worst}>
       <section className="armada-view" aria-label="Doctor" data-waiting={worst === undefined ? undefined : ""}>
-        <header className="armada-view__band">
-          <Stethoscope size={16} aria-hidden="true" />
-          <span className="armada-doctor__title">Doctor</span>
-          <span className="armada-doctor__summary" data-worst={worst}>
-            {summaryOf(grid)}
-          </span>
-          <span className="armada-view__keys">
-            {checkedAt === undefined ? null : (
-              <span>
-                checked <Stamp first="age" at={checkedAt} now={now} />
-              </span>
-            )}
-            <Button variant="ghost" size="sm" onClick={onCheck} disabled={reading}>
-              <RotateCw size={12} aria-hidden="true" />
-              Check again
-            </Button>
-          </span>
-        </header>
         <div className="armada-view__stage">
           <div className="armada-view__body" data-pane={current === undefined ? undefined : ""}>
-            <ul ref={list} className="armada-tiles armada-view__grid" role="listbox" aria-label="Modules" tabIndex={0} onKeyDown={move}>
-              {grid.rows.map((row) => (
-                <Tile key={row.key} row={row} selected={row.key === current?.key} onSelect={setSelected} />
-              ))}
-            </ul>
+            <div className="armada-doctor__modules">
+              <CardHeader>
+                <CardTitle>Modules</CardTitle>
+                <span className="armada-doctor__summary" data-worst={worst}>
+                  {summaryOf(grid)}
+                </span>
+                {checkedAt === undefined ? null : (
+                  <CardReadout>
+                    checked <Stamp first="age" at={checkedAt} now={now} />
+                  </CardReadout>
+                )}
+                <Tooltip label="Check again">
+                  <Button variant="ghost" iconOnly aria-label="Check again" onClick={onCheck} disabled={reading}>
+                    <RotateCw size={16} aria-hidden="true" />
+                  </Button>
+                </Tooltip>
+              </CardHeader>
+              <ul ref={list} className="armada-tiles armada-view__grid" role="listbox" aria-label="Modules" tabIndex={0} onKeyDown={move}>
+                {grid.rows.map((row) => (
+                  <Tile key={row.key} row={row} selected={row.key === current?.key} onSelect={setSelected} />
+                ))}
+              </ul>
+            </div>
             {current === undefined ? null : (
               <div className="armada-view__pane">
                 <Pane row={current} />

@@ -63,7 +63,7 @@ export function ModList({ kind, title, onOpenPull, onOpenJob, onCreate, onOpenMo
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         {onCreate === undefined ? null : (
-          <Button variant="secondary" size="sm" ground="card" onClick={onCreate}>
+          <Button variant="secondary" ground="card" onClick={onCreate}>
             Create mod
           </Button>
         )}

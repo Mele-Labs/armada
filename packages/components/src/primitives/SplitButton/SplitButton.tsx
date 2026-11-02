@@ -67,7 +67,7 @@ export type SplitButtonProps = {
    * segments. The title row's Dispatch is the one caller (#1087's correction
    * pass), always paired with `items={[]}` below.
    */
-  variant?: "secondary" | "primary" | "destructive" | "tonal";
+  variant?: "secondary" | "primary" | "destructive" | "tonal" | "ghost";
   /** The surface underneath: `card` fills `--bg-sunken`, `sunken` `--bg-raised`. Read by `secondary` only. */
   ground?: "card" | "sunken";
   /**

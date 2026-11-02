@@ -7,6 +7,7 @@ import { Button } from "../../primitives/Button/Button";
 import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Input } from "../../primitives/Input/Input";
 import { Select } from "../../primitives/Select/Select";
+import { Skeleton } from "../../primitives/Skeleton/Skeleton";
 import { Switch } from "../../primitives/Switch/Switch";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { KitServerAddForm, KIT_HERE_LABEL } from "../KitServers/KitServers";
@@ -80,6 +81,9 @@ export type KitBrowserProps = {
   };
 };
 
+/** The list's rows as bars while the setup read is out: widths varied so the column does not read as a table. */
+const PENDING_NAMES = ["8rem", "10rem", "6rem", "9rem", "7rem", "11rem", "5rem", "8rem"];
+
 export function KitBrowser({
   kind,
   label,
@@ -103,6 +107,8 @@ export function KitBrowser({
   const [adding, setAdding] = useState(false);
   const [comparing, setComparing] = useState<SharedRow | null>(null);
 
+  // `setup` is undefined until the read lands, and then never again: a kind read with nothing in it is an empty list, not this.
+  const pending = setup === undefined;
   const read = rowsOf(kind, setup, shared, servers?.rows);
   const rows = read.rows.filter((row) => holds(row.name, filter) && holds(row.name, narrow));
   // With nothing picked the detail shows the list's first item, so the page never draws a blank pane.
@@ -180,6 +186,23 @@ export function KitBrowser({
             <span className="armada-kit-browser__not-read-head">Not read</span>
             <span>{read.notRead}</span>
           </p>
+        ) : pending ? (
+          <div className="armada-scroll-area armada-kit-browser__scroll" data-pending="">
+            <ul className="armada-kit-browser__items">
+              {PENDING_NAMES.map((width, at) => (
+                <li key={at} className="armada-kit-browser__item">
+                  <div className="armada-kit-browser__row" data-pending="">
+                    <span className="armada-kit-browser__skel">
+                      <Skeleton width={width} />
+                    </span>
+                    <span className="armada-kit-browser__skel">
+                      <Skeleton width="3rem" />
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : (
           <div className="armada-scroll-area armada-kit-browser__scroll">
             <ul className="armada-kit-browser__items">{ordinary.map(item)}</ul>
@@ -196,14 +219,14 @@ export function KitBrowser({
         {pieces?.trashed == null || kind !== "skills" ? null : (
           <div className="armada-kit-browser__trashed" role="status">
             <span>Removed {pieces.trashed.name}. It is in the Trash.</span>
-            <Button variant="secondary" size="sm" ground="card" onClick={pieces.onUndo}>
+            <Button variant="ghost" size="sm" ground="card" onClick={pieces.onUndo}>
               Undo
             </Button>
           </div>
         )}
         {pieces === undefined ? null : (
           <div className="armada-kit-browser__foot">
-            <Button variant="secondary" size="sm" ground="card" data-nav-item="" onClick={pieces.onAdd}>
+            <Button variant="ghost" size="sm" ground="card" data-nav-item="" onClick={pieces.onAdd}>
               Add
             </Button>
           </div>
@@ -211,7 +234,7 @@ export function KitBrowser({
         {kind === "servers" && servers !== undefined ? (
           <div className="armada-kit-browser__foot">
             <Button
-              variant="secondary"
+              variant="ghost"
               size="sm"
               ground="card"
               data-nav-item=""
@@ -240,6 +263,23 @@ export function KitBrowser({
                 onPick(`servers:kit:${added.name}`);
               }}
             />
+          </div>
+        ) : pending ? (
+          <div className="armada-kit-browser__item-detail" data-pending="">
+            <header className="armada-kit-browser__head">
+              <span className="armada-kit-browser__skel" data-title="">
+                <Skeleton width="12rem" />
+              </span>
+            </header>
+            <span className="armada-kit-browser__skel">
+              <Skeleton width="60%" />
+            </span>
+            <span className="armada-kit-browser__skel" data-says="">
+              <Skeleton width="90%" />
+            </span>
+            <span className="armada-kit-browser__skel" data-says="">
+              <Skeleton width="75%" />
+            </span>
           </div>
         ) : row === undefined ? null : (
           <Detail
@@ -293,12 +333,12 @@ function SyncActs({ row, shared, onCompare }: { row: KitRow; shared: SharedHome 
         </Switch>
       )}
       {sync?.state !== "home" ? null : (
-        <Button variant="secondary" size="sm" ground="card" onClick={() => shared.bring(sync)}>
+        <Button variant="ghost" size="sm" ground="card" onClick={() => shared.bring(sync)}>
           Add to this machine
         </Button>
       )}
       {sync?.state !== "differs" ? null : (
-        <Button variant="secondary" size="sm" ground="card" onClick={() => onCompare(sync)}>
+        <Button variant="ghost" size="sm" ground="card" onClick={() => onCompare(sync)}>
           Compare with the home
         </Button>
       )}
@@ -337,7 +377,7 @@ function Detail({
   const remove =
     piece === undefined || pieces === undefined ? null : (
       <Button
-        variant="secondary"
+        variant="ghost"
         size="sm"
         ground="card"
         aria-label={`Remove ${row.name}`}
@@ -464,18 +504,18 @@ function Detail({
       <div className="armada-kit-browser__acts">
         {sync}
         {row.path === undefined ? null : (
-          <Button variant="secondary" size="sm" ground="card" onClick={() => onShowInFinder?.(row.path!)}>
+          <Button variant="ghost" size="sm" ground="card" onClick={() => onShowInFinder?.(row.path!)}>
             Show in Finder
           </Button>
         )}
         {row.removable !== true || onRemoveAllowed === undefined || row.sync?.state === "home" ? null : (
-          <Button variant="secondary" size="sm" ground="card" aria-label={`Remove ${row.name}`} onClick={() => onRemoveAllowed(row.name)}>
+          <Button variant="ghost" size="sm" ground="card" aria-label={`Remove ${row.name}`} onClick={() => onRemoveAllowed(row.name)}>
             Remove
           </Button>
         )}
         {remove}
         {kit === undefined || servers?.onForget === undefined ? null : (
-          <Button variant="secondary" size="sm" ground="card" aria-label={`Remove ${kit.name}`} onClick={() => servers.onForget?.(kit.name)}>
+          <Button variant="ghost" size="sm" ground="card" aria-label={`Remove ${kit.name}`} onClick={() => servers.onForget?.(kit.name)}>
             Remove
           </Button>
         )}

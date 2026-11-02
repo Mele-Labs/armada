@@ -4,33 +4,38 @@
 .armada-usage {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-2) var(--space-4) var(--space-8);
+  gap: var(--gap-panel);
+  padding: 0 0 var(--pad-page);
   box-sizing: border-box;
   height: 100%;
   min-height: 0;
   overflow-y: auto;
   container-type: inline-size;
 }
-.armada-usage > * { width: min(100%, 90rem); align-self: center; flex: none; }
+.armada-usage > * { width: 100%; flex: none; }
+/* The page runs to the foot: the columns take the height the window has, and a panel in one grows into what its column has over. */
+.armada-usage > .armada-usage__page { flex: 1 0 auto; }
 
 /* One column first, then two, then three */
 .armada-usage__page {
   display: grid;
-  gap: var(--space-4);
-  align-items: start;
+  gap: var(--gap-panel);
+  align-items: stretch;
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas: "tiles" "left" "centre";
 }
 .armada-usage__tilearea { grid-area: tiles; min-width: 0; }
 .armada-usage__left { grid-area: left; }
 .armada-usage__centre { grid-area: centre; }
-.armada-usage__left, .armada-usage__centre { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.armada-usage__left, .armada-usage__centre { display: flex; flex-direction: column; gap: var(--gap-panel); min-width: 0; }
+.armada-usage__left > .armada-usage__panel, .armada-usage__centre > .armada-usage__panel { flex: 1 1 auto; }
+.armada-usage__tilearea { display: flex; flex-direction: column; }
+.armada-usage__tilearea > .armada-usage__tiles { flex: 1 1 auto; }
 @container (min-width: 760px) {
-  .armada-usage__page { grid-template-columns: minmax(26rem, 28rem) minmax(0, 1fr); grid-template-areas: "tiles tiles" "left centre"; }
+  .armada-usage__page { grid-template-columns: minmax(26rem, 28rem) minmax(0, 1fr); grid-template-areas: "tiles tiles" "left centre"; grid-template-rows: auto 1fr; }
 }
 @container (min-width: 1150px) {
-  .armada-usage__page { grid-template-columns: minmax(28rem, 30rem) minmax(0, 1fr) 14rem; grid-template-areas: "left centre tiles"; }
+  .armada-usage__page { grid-template-columns: minmax(28rem, 30rem) minmax(0, 1fr) 14rem; grid-template-areas: "left centre tiles"; grid-template-rows: 1fr; }
 }
 
 .armada-usage__panel {
@@ -82,7 +87,7 @@
 .armada-usage__swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--model); }
 
 /* Headline tiles */
-.armada-usage__tiles { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.armada-usage__tiles { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--gap-panel); grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @container (min-width: 760px) { .armada-usage__tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @container (min-width: 1150px) { .armada-usage__tiles { grid-template-columns: minmax(0, 1fr); } }
 .armada-usage__tile {
@@ -241,3 +246,22 @@ g[data-quiet] > .armada-usage__seg-model { opacity: 0.3; }
 /* Under the rule's name and limit, in line with the name */
 .armada-usage__tellrow { grid-column: 1 / -1; padding-left: calc(14px + var(--space-3)); }
 .armada-usage__tell { color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+
+/* Pending: the skeleton bars stand where the text and the bars will be. Each wrapper takes the line the text takes, so a
+   row is the height it will be when the figures land. Doubled class, so the bar sizes win over Skeleton's own. */
+.armada-usage__skel { display: flex; align-items: center; min-height: var(--leading-2xs); }
+.armada-usage__skel[data-end] { justify-content: flex-end; }
+.armada-usage__shares .armada-usage__skel, .armada-usage__scope .armada-usage__skel, .armada-usage__legend .armada-usage__skel { min-height: var(--leading-xs); }
+.armada-usage__big .armada-usage__skel { min-height: var(--leading-2xl); }
+.armada-usage__tile > .armada-usage__skel { min-height: var(--leading-xs); }
+.armada-usage__colhead .armada-usage__skel, .armada-usage__rowhead .armada-usage__skel { min-height: var(--leading-2xs); }
+.armada-usage__colhead .armada-usage__skel { justify-content: center; }
+.armada-usage__legend li > .armada-usage__skel { width: 7rem; }
+.armada-usage .armada-usage__skel-track { height: 6px; border-radius: 3px; }
+.armada-usage .armada-usage__skel-meter { height: 4px; border-radius: 2px; }
+.armada-usage .armada-usage__skel-cell { height: 24px; }
+.armada-usage .armada-usage__skel-ramp { height: 14px; }
+.armada-usage__skel-chart { position: relative; width: 100%; border-bottom: var(--border-width) solid var(--border-subtle); box-sizing: content-box; }
+.armada-usage .armada-usage__skel-column { position: absolute; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+.armada-usage__panel, .armada-usage__tile { --skeleton-fill: var(--bg-raised); }
+.armada-usage .armada-usage__skel-dot { width: 14px; height: 14px; }

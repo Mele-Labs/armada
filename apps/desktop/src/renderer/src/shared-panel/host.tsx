@@ -1,4 +1,4 @@
-// The side panel's host: whatever `openInPanel` was last given, drawn over the app in the one panel. **Mounted once per window**
+// The side panel's host: whatever `openInPanel` was last given, drawn over the app in the one panel. Requests is the exception: a page, drawn by the app in place of the deck. **Mounted once per window**
 // beside the app, where the window serves the reads (`reads.tsx`). Closing hands focus back to what opened it.
 
 import { useMemo } from "react";
@@ -15,7 +15,6 @@ import { LanesPanel } from "./lanes";
 import { RulePanel } from "./rule";
 import { FileSide, useOpenFileKey } from "./file";
 import { PullRequestSide } from "./pull-request";
-import { RequestsPanel } from "./requests";
 import { RunPanel } from "./run";
 import { TeachSide } from "./teach";
 import { AttachmentsProvided } from "../attachments-provided";
@@ -45,7 +44,7 @@ export function SharedPanelHost() {
   return (
     <AttachmentsProvided>
     <ProseRefs.Provider value={refs}>
-    <OverTheApp open={open !== undefined}>
+    <OverTheApp open={open !== undefined && open.kind !== "requests"}>
       {open === undefined ? null : open.kind === "pr" ? (
         <PullRequestSide key={`pr:${open.number}`} item={open} />
       ) : open.kind === "issue" ? (
@@ -60,8 +59,6 @@ export function SharedPanelHost() {
         <ModPanel key={`mod:${open.name}`} item={open} />
       ) : open.kind === "run" ? (
         <RunPanel key={`run:${open.at}`} item={open} />
-      ) : open.kind === "requests" ? (
-        <RequestsPanel key={`requests:${open.sessionId ?? ""}:${open.from ?? ""}`} item={open} />
       ) : open.kind === "teach" ? (
         <TeachSide key={`teach:${open.sessionId}:${open.source}:${open.text}`} item={open} />
       ) : open.kind === "lane" ? (

@@ -40,22 +40,12 @@ type ReaderHosts = {
   onOpenSession: (id: string) => void;
 };
 
-/** The pane. With nothing open it is the head alone: an empty slot stays empty. */
+/** The pane. With nothing open it is the frame alone: an empty slot stays empty. */
 export function ReviewReader(hosts: ReaderHosts) {
   const { prs, open } = useReviews();
   const pr = prs.find((one) => one.key === open);
   if (pr === undefined) {
-    return (
-      <section className="deck-pane pr-reader" aria-label="Pull request" tabIndex={-1}>
-        <header className="deck-band deck-pane__head">
-          <Tooltip label="Pull request">
-            <span className="deck-pane__kind" role="img" aria-label="Pull request">
-              <GitPullRequest size={16} aria-hidden="true" />
-            </span>
-          </Tooltip>
-        </header>
-      </section>
-    );
+    return <section className="deck-pane pr-reader" aria-label="Pull request" tabIndex={-1} />;
   }
   return <Reader key={pr.key} pr={pr} {...hosts} />;
 }
@@ -82,6 +72,15 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
         </Tooltip>
         <h2 className="deck-pane__title">{`#${pr.number} ${pr.title}`}</h2>
         <span className="deck-pane__where">{pr.repository}</span>
+        <Tabs
+          compact
+          items={tabs}
+          value={work.view}
+          onChange={(id) => {
+            store.setView(pr.key, id);
+            if (id === "files") store.readPatches(pr.key);
+          }}
+        />
         <span className="deck-pane__acts">
           <Tooltip label="Go to the pull request" shortcut={REVIEW_KEYS.reader}>
             <Kbd>{REVIEW_KEYS.reader}</Kbd>
@@ -124,16 +123,6 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
         <DiffSize additions={pr.page.additions} deletions={pr.page.deletions} />
         <ReviewMark review={work.review} />
         <ChecksMark checks={pr.checks} />
-      </div>
-      <div className="pr-reader__tabs">
-        <Tabs
-          items={tabs}
-          value={work.view}
-          onChange={(id) => {
-            store.setView(pr.key, id);
-            if (id === "files") store.readPatches(pr.key);
-          }}
-        />
       </div>
       <div className="pr-reader__body">
         {work.page.state === "said" ? <p className="pr-reader__said" role="alert">{work.page.said}</p> : null}

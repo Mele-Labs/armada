@@ -842,7 +842,7 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* One focus state: the panel's edge and shadow lift (`depth.css`), the heading not filled. The thing focused inside keeps its own ring. */
 .deck-panel:focus,
 .deck-pane:focus { outline: none; }
-/* A cap leaves no room behind it until ⌘ is held: it is not drawn, not hidden, so nothing moves when it comes. `DeckBody` sets `data-reveal` on the root while ⌘ is down. */
+/* A cap leaves no room behind it until ⌘ is held: it is not drawn, not hidden, so nothing moves when it comes. `ShortcutRevealProvider` sets `data-reveal` on the root while ⌘ is down; the other pages' caps hide the same way in `depth.css`. */
 :root:not([data-reveal]) .deck :is(.deck-band, .sv-panel__band, .deck-controls, .deck-dispatch, .deck-queue, .deck-flight) :is(.armada-kbd, .armada-tooltip:has(> .armada-kbd)) { display: none; }
 /* A key is a quiet cap at the end of a heading, and in the corner of a tile. */
 .deck-band .armada-kbd { opacity: 0.7; }
@@ -1157,12 +1157,16 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
   cursor: pointer;
 }
 .deck-combo__option[data-active] { background: color-mix(in srgb, var(--fg-default) 9%, transparent); }
-.deck-combo__option[aria-selected="true"] { font-weight: var(--weight-heading); }
+/* The same rows as the shared menu's: muted label, the picked one in the strong colour, never a weight, and
+ * the check in a trailing column every row reserves. */
+.deck-combo__option { color: var(--fg-muted); }
+.deck-combo__option[aria-selected="true"] { color: var(--fg-default); }
+.deck-combo__mark-col { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 16px; height: 16px; }
 .deck-combo__option svg { flex: none; color: var(--fg-muted); }
 .deck-combo__label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .deck-combo .deck-combo__check, .deck-combo__list .deck-combo__check { color: var(--accent); }
 .deck-combo__rule { height: var(--border-width); margin: var(--space-1) var(--space-2); background: var(--border-default); }
-.deck-combo__add, .deck-combo__add svg { color: var(--accent); }
+.deck-combo__add svg { color: var(--accent); }
 .deck-combo__mark { display: inline-flex; flex: none; align-items: center; justify-content: center; width: var(--space-6); height: var(--space-6); padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--step-advanced); cursor: pointer; }
 .deck-combo__mark:hover { background: color-mix(in srgb, var(--fg-default) 9%, transparent); }
 /* A tooltip on a mark has to leave the list, which clips what it holds. */

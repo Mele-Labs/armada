@@ -107,6 +107,25 @@
     background-color var(--duration-fast) var(--ease);
 }
 
+/* In a panel's strip, beside its label: the track loses its border and wrap, and the tabs keep their regular height, at the
+   strip's own 12px, in sentence case. */
+.armada-tabs--compact {
+  flex-wrap: nowrap;
+  flex: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.armada-tabs--compact .armada-tabs__tab {
+  padding: 0 var(--space-2);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 /* A body under the strip, when the selected tab changes — `TabPanel`. Opacity
  * only, so nothing moves or reflows, at --duration-fast: the contract's "a body
  * crossfade". A switch is chrome a person summoned, not data arriving, so this

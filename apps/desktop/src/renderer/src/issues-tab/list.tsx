@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { LoaderCircle, Pencil, Puzzle, X } from "lucide-react";
-import { Button, DropdownMenu, Input, Kbd, PrMark, Readout, SearchField, Stamp, Textarea, Tooltip, forgetKept, sendsOn, useKept } from "@armada/components";
+import { Button, DropdownMenu, Input, Kbd, PrMark, Readout, SearchField, Skeleton, Stamp, Textarea, Tooltip, forgetKept, sendsOn, useKept } from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import { jobIdOf } from "@armada/shell";
@@ -18,6 +18,7 @@ import { FixedMark, JobMark, KeptMark, UnreadMark, jobTitle, toneOfHolders, useH
 import { ASSIGNED, CLOSED, DESCRIBE, OPEN, savedChoice, savedName } from "./model";
 import type { ReadTracker, ReportedBug, Ticket } from "./model";
 import { jobOfReport, reportsShown } from "./reports";
+import { issueFieldOf, issueViewEntries, useIssueView } from "./row-view";
 import { useIssues, useIssuesStore } from "./store";
 
 const BUILT_INS = [
@@ -53,6 +54,8 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
   useEffect(() => store.readTrackers(scope), [store, scopeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const bands = bandsIn(picked, repositories, snap.trackers ?? []);
+  // Until the trackers have answered or been refused, the list is the shape of what is coming. Trackers read with nothing in them are not this.
+  const pending = snap.trackers === undefined && snap.failed === undefined;
   const names = savedNames(bands);
   // A saved query removed from every repository in scope falls back to Open.
   const choice = savedName(kept) !== undefined && !names.includes(savedName(kept)!) ? OPEN : kept;
@@ -88,17 +91,31 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
     { kind: "separator", id: "describe-rule" },
     { kind: "item", id: DESCRIBE, label: "Describe a query…", selected: here === DESCRIBE, shortcut: capOf(ISSUES_KEYS.describe) },
   ];
+  // A right press on the list, or the menu key on a row, opens the View menu (`row-view.ts`) where it was pressed.
+  const [menu, setMenu] = useState<{ x: number; y: number; row: HTMLElement | null }>();
+  const [view, toggleField] = useIssueView();
   const triggerLabel = here === DESCRIBE ? "Describe a query" : (BUILT_INS.find((one) => one.id === choice)?.label ?? savedName(choice) ?? "");
 
   return (
-    <section className="deck-panel deck-list issues-list" aria-label="Issues" tabIndex={-1}>
-      <header className="deck-band">
-        Issues
-        {only !== undefined && only.tracker.state === "read" && only.tracker.mod !== undefined ? <ModMark mod={only.tracker.mod} /> : null}
-        <Tooltip label="Go to Issues" shortcut={ISSUES_KEYS.list}>
-          <Kbd>{ISSUES_KEYS.list}</Kbd>
-        </Tooltip>
-      </header>
+    <section
+      className="deck-panel deck-list issues-list"
+      aria-label="Issues"
+      tabIndex={-1}
+      onContextMenu={(event) => {
+        const target = event.target as Element;
+        if (target.closest("input, textarea, [role='menu']") !== null) return;
+        event.preventDefault();
+        setMenu({ x: event.clientX, y: event.clientY, row: target.closest<HTMLElement>(".issues-row") });
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
+        const row = (event.target as Element).closest<HTMLElement>(".issues-row");
+        if (row === null) return;
+        event.preventDefault();
+        const box = row.getBoundingClientRect();
+        setMenu({ x: box.left + box.width / 2, y: box.bottom, row });
+      }}
+    >
       {only !== undefined && only.tracker.state === "refused" ? (
         <Refused band={only} onTeach={onTeach} />
       ) : (
@@ -120,6 +137,7 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
                 choose(id);
               }}
             />
+            {only !== undefined && only.tracker.state === "read" && only.tracker.mod !== undefined ? <ModMark mod={only.tracker.mod} /> : null}
             <Tooltip label="Open the queries" shortcut={capOf(ISSUES_KEYS.queries)}>
               <Kbd>{capOf(ISSUES_KEYS.queries)}</Kbd>
             </Tooltip>
@@ -143,6 +161,7 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
               ) : (
                 <ul className="deck-list__rows issues-list__rows">
                   {shown ? <Reported narrow={narrow} choice={choice} /> : null}
+                  {pending ? <PendingBands bands={picked === null ? scope.length : 0} /> : null}
                   {asked.map(({ band, asked: one }) =>
                     band.tracker.state === "read" && one === undefined ? null : (
                       <li key={band.manifestId} className="deck-list__band" aria-label={band.label}>
@@ -166,6 +185,25 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
             </>
           )}
         </>
+      )}
+      {menu === undefined ? null : (
+        <DropdownMenu
+          triggerLabel="Issues"
+          at={{ x: menu.x, y: menu.y }}
+          open
+          entries={issueViewEntries(view)}
+          onOpenChange={(open) => {
+            if (open) return;
+            setMenu(undefined);
+            menu.row?.focus();
+          }}
+          onSelect={(chosen) => {
+            const field = issueFieldOf(chosen);
+            if (field === undefined) return;
+            toggleField(field);
+            setMenu({ ...menu });
+          }}
+        />
       )}
     </section>
   );
@@ -418,6 +456,14 @@ function Rows({ band, asked, narrow, nested = false }: { band: Band; asked: Aske
   const snap = useIssues();
   if (band.tracker.state !== "read" || asked?.state !== "query") return null;
   const run = store.runOf(band.manifestId, asked.query);
+  // A search not yet run, or running, is the shape of the rows it will draw. A search that came back empty is not this.
+  if (run === undefined || run.state === "running") {
+    return (
+      <ul className={nested ? "deck-list__group" : "deck-list__rows issues-list__rows"} aria-hidden>
+        <PendingRows count={nested ? 3 : 4} />
+      </ul>
+    );
+  }
   if (run?.state === "failed") {
     const tool = run.missing ?? run.needsSetup;
     return tool === undefined ? <p className="issues-list__said" role="alert">{run.said}</p> : <MissingTool manifestId={band.manifestId} query={asked.query} said={run.said} tool={tool} setup={run.missing === undefined} />;
@@ -429,6 +475,50 @@ function Rows({ band, asked, narrow, nested = false }: { band: Band; asked: Aske
         <Row key={ticket.reference} band={band} ticket={ticket} fields={asked.fields} open={snap.open?.manifestId === band.manifestId && snap.open.reference === ticket.reference} />
       ))}
     </ul>
+  );
+}
+
+/** Rows as the list will draw them, in bars: a title of one line or two, and the reference under it. The lamp and the Job are the tracker's to say, so they wait. */
+function PendingRows({ count }: { count: number }) {
+  return (
+    <>
+      {Array.from({ length: count }, (_, at) => (
+        <li key={at} className="deck-list__item">
+          <div className="issues-row" data-pending>
+            <span className="issues-row__skel">
+              <Skeleton width={`${72 - ((at * 11) % 24)}%`} />
+            </span>
+            {at % 2 === 1 ? (
+              <span className="issues-row__skel">
+                <Skeleton width={`${40 + ((at * 7) % 20)}%`} />
+              </span>
+            ) : null}
+            <span className="issues-row__skel-reference">
+              <Skeleton width="3rem" />
+            </span>
+          </div>
+        </li>
+      ))}
+    </>
+  );
+}
+
+/** Before any tracker has answered: a heading and rows for each repository on All, or the rows alone for one picked. */
+function PendingBands({ bands }: { bands: number }) {
+  if (bands === 0) return <PendingRows count={4} />;
+  return (
+    <>
+      {Array.from({ length: bands }, (_, at) => (
+        <li key={at} className="deck-list__band" aria-hidden>
+          <h3 className="issues-list__repository" data-pending>
+            <Skeleton width="30%" />
+          </h3>
+          <ul className="deck-list__group">
+            <PendingRows count={3} />
+          </ul>
+        </li>
+      ))}
+    </>
   );
 }
 
@@ -454,19 +544,20 @@ export function MissingTool({ manifestId, query, said, tool, setup = false }: { 
 
 function Row({ band, ticket, fields, open }: { band: Band; ticket: Ticket; fields: readonly string[]; open: boolean }) {
   const store = useIssuesStore()!;
+  const [view] = useIssueView();
   const holders = useHolders(ticket.holders);
   const values = fields.flatMap((name) => (ticket.fields.find((one) => one.name === name)?.values ?? []).map((value) => ({ name, value })));
   return (
     <li className="deck-list__item">
-      <button type="button" className="issues-row" data-tone={toneOfHolders(holders)} data-selected={open || undefined} aria-current={open || undefined} aria-label={`${ticket.reference} ${ticket.title}`} onClick={() => store.open(band.manifestId, ticket.reference)}>
-        <Readout fixed className="issues-row__reference">{ticket.reference}</Readout>
+      <button type="button" className="issues-row" data-tone={toneOfHolders(holders)} data-lamp={view.state ? undefined : "off"} data-selected={open || undefined} aria-current={open || undefined} aria-label={`${ticket.reference} ${ticket.title}`} onClick={() => store.open(band.manifestId, ticket.reference)}>
         <span className="issues-row__title">{ticket.title}</span>
+        {view.number ? <Readout className="issues-row__reference">{ticket.reference}</Readout> : null}
         <span className="issues-row__jobs">
           {holders.map((one) => (
             <JobMark key={one.id} session={one} />
           ))}
         </span>
-        {holders.length === 0 ? null : (
+        {!view.job || holders.length === 0 ? null : (
           <span className="issues-row__held">
             {holders.map((one) => (
               <span key={one.id} className="issues-row__job">
@@ -476,7 +567,7 @@ function Row({ band, ticket, fields, open }: { band: Band; ticket: Ticket; field
             ))}
           </span>
         )}
-        {values.length === 0 ? null : (
+        {!view.labels || values.length === 0 ? null : (
           <span className="issues-row__fields">
             {values.map(({ name, value }) => (
               <Tooltip key={`${name}:${value}`} label={name}>

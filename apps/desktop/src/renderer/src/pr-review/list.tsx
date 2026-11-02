@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { Check, History, LoaderCircle, RotateCw, X } from "lucide-react";
-import { Button, DropdownMenu, Input, Kbd, PrMark, Readout, SearchField, Textarea, Tooltip, agoOf, forgetKept, sendsOn, useKept } from "@armada/components";
+import { Button, DropdownMenu, Input, Kbd, PrMark, Readout, SearchField, Skeleton, Textarea, Tooltip, agoOf, forgetKept, sendsOn, useKept } from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 
@@ -16,6 +16,7 @@ import { REVIEW_KEYS, capOf } from "./key-table";
 import { openLinked } from "./link";
 import { ChecksMark, ReviewMark, RunFailed } from "./marks";
 import type { Find, ReviewPr } from "./model";
+import { reviewFieldOf, reviewViewEntries, useReviewView } from "./row-view";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
 
 const LISTS = [
@@ -47,6 +48,9 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
   const [narrow, setNarrow] = useKept<string>(SEARCH_KEEP, "");
   const [address, setAddress] = useState("");
   const [unopened, setUnopened] = useState<string | undefined>(undefined);
+  // A right press on the list, or the menu key on a row, opens the View menu (`row-view.ts`) where it was pressed.
+  const [menu, setMenu] = useState<{ x: number; y: number; row: HTMLElement | null }>();
+  const [view, toggleField] = useReviewView();
   // The box is drawn only when he chose it in the dropdown, in place of the list, until he sends or leaves it.
   // The list is read each time the view is opened, and on Refresh. Nothing reads it in between.
   useEffect(() => {
@@ -70,6 +74,8 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
   const shown = rows.filter(({ pr }) => matches(pr, narrow));
   const fetched = fetchedAt === undefined ? "Not fetched" : `Fetched ${agoOf(new Date(fetchedAt).toISOString())}`;
   const here = asking ? ASK : tab;
+  // Until the first read has answered or been refused, the rows are the shape of what is coming. A list read and empty is not this.
+  const pending = fetchedAt === undefined && failed === undefined;
   const entries: DropdownMenuEntry[] = [
     ...LISTS.map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.label, selected: here === one.id })),
     ...(finds.length === 0 ? [] : [{ kind: "separator", id: "finds-rule" } as const, { kind: "label", id: "finds-label", label: "Finds" } as const]),
@@ -101,20 +107,25 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
   };
 
   return (
-    <section className="deck-panel deck-list pr-list" aria-label="Pull requests" tabIndex={-1}>
-      <header className="deck-band">
-        Pull requests
-        <Tooltip label="Go to Pull requests" shortcut={REVIEW_KEYS.list}>
-          <Kbd>{REVIEW_KEYS.list}</Kbd>
-        </Tooltip>
-        <span className="pr-list__refresh">
-          <Tooltip label={fetching ? "Fetching" : fetched}>
-            <Button variant="ghost" size="sm" iconOnly aria-label="Refresh" disabled={fetching} onClick={() => store.fetch()}>
-              <RotateCw size={16} strokeWidth={2} aria-hidden data-fetching={fetching || undefined} className="pr-list__spin" />
-            </Button>
-          </Tooltip>
-        </span>
-      </header>
+    <section
+      className="deck-panel deck-list pr-list"
+      aria-label="Pull requests"
+      tabIndex={-1}
+      onContextMenu={(event) => {
+        const target = event.target as Element;
+        if (target.closest("input, textarea, [role='menu']") !== null) return;
+        event.preventDefault();
+        setMenu({ x: event.clientX, y: event.clientY, row: target.closest<HTMLElement>(".pr-row") });
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
+        const row = (event.target as Element).closest<HTMLElement>(".pr-row");
+        if (row === null) return;
+        event.preventDefault();
+        const box = row.getBoundingClientRect();
+        setMenu({ x: box.left + box.width / 2, y: box.bottom, row });
+      }}
+    >
       <div className="pr-list__search">
         <SearchField label="Search the pull requests" value={narrow} onValue={setNarrow} cap={REVIEW_KEYS.filter} />
       </div>
@@ -130,6 +141,13 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
             if (id !== ASK) store.setTab(id);
           }}
         />
+        <span className="pr-list__refresh">
+          <Tooltip label={fetching ? "Fetching" : fetched}>
+            <Button variant="ghost" size="sm" iconOnly aria-label="Refresh" disabled={fetching} onClick={() => store.fetch()}>
+              <RotateCw size={16} strokeWidth={2} aria-hidden data-fetching={fetching || undefined} className="pr-list__spin" />
+            </Button>
+          </Tooltip>
+        </span>
         <Tooltip label="Open the lists" shortcut={capOf(REVIEW_KEYS.lists)}>
           <Kbd>{capOf(REVIEW_KEYS.lists)}</Kbd>
         </Tooltip>
@@ -193,18 +211,21 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
       )}
       {find === undefined ? null : <FindHead find={find} />}
       <ul className="deck-list__rows pr-list__rows">
-        {shown.map(({ pr, reason }) => (
+        {pending ? <PendingRows view={view} /> : null}
+        {pending ? [] : shown.map(({ pr, reason }) => (
           <li key={pr.key} className="deck-list__item">
             <button type="button" className="pr-row" data-selected={open === pr.key || undefined} aria-current={open === pr.key || undefined} aria-label={`#${pr.number} ${pr.title}`} onClick={() => store.open(pr.key)}>
               <span className="pr-row__title">{pr.title}</span>
-              <ReviewMark review={work[pr.key]?.review ?? NO_WORK.review} />
-              <ChecksMark checks={pr.checks} />
-              <span className="pr-row__facts">
-                <span className="pr-row__author">{pr.page.author}</span>
-                <span className="pr-row__repository">{pr.repository}</span>
-                <Readout fixed className="pr-row__number">{`#${pr.number}`}</Readout>
-              </span>
-              {reason === undefined ? null : (
+              {view.state ? <ReviewMark review={work[pr.key]?.review ?? NO_WORK.review} /> : null}
+              {view.state ? <ChecksMark checks={pr.checks} /> : null}
+              {view.number ? <Readout className="pr-row__number">{`#${pr.number}`}</Readout> : null}
+              {view.author || view.repository ? (
+                <span className="pr-row__facts">
+                  {view.author ? <span className="pr-row__author">{pr.page.author}</span> : null}
+                  {view.repository ? <span className="pr-row__repository">{pr.repository}</span> : null}
+                </span>
+              ) : null}
+              {!view.reason || reason === undefined ? null : (
                 <Tooltip label={reason} asChild>
                   <span className="pr-row__reason" role="note" aria-label={reason}>
                     {reason}
@@ -217,7 +238,59 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
       </ul>
         </>
       )}
+      {menu === undefined ? null : (
+        <DropdownMenu
+          triggerLabel="Pull requests"
+          at={{ x: menu.x, y: menu.y }}
+          open
+          entries={reviewViewEntries(view)}
+          onOpenChange={(open) => {
+            if (open) return;
+            setMenu(undefined);
+            menu.row?.focus();
+          }}
+          onSelect={(chosen) => {
+            const field = reviewFieldOf(chosen);
+            if (field === undefined) return;
+            toggleField(field);
+            setMenu({ ...menu });
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+const PENDING_TITLES = ["72%", "58%", "66%", "50%"];
+
+/** The rows the list draws before the forge has answered: the loaded row's own fields as bars, no text, so nothing moves when they land. */
+function PendingRows({ view }: { view: ReturnType<typeof useReviewView>[0] }) {
+  return (
+    <>
+      {PENDING_TITLES.map((title) => (
+        <li key={title} className="deck-list__item" aria-hidden>
+          <div className="pr-row" data-pending>
+            <span className="pr-row__skel">
+              <Skeleton width={title} />
+            </span>
+            {view.state ? <Skeleton className="pr-row__skel-mark" /> : null}
+            {view.state ? <Skeleton className="pr-row__skel-mark" /> : null}
+            {view.number ? (
+              <span className="pr-row__number-skel">
+                <Skeleton width="3rem" />
+              </span>
+            ) : null}
+            {view.author || view.repository ? (
+              <span className="pr-row__facts">
+                <span className="pr-row__skel">
+                  <Skeleton width="40%" />
+                </span>
+              </span>
+            ) : null}
+          </div>
+        </li>
+      ))}
+    </>
   );
 }
 

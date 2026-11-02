@@ -166,6 +166,8 @@ export type IssuesSeedRepository = {
   writes?: WrittenQuery;
   /** A program the tracker lacks: every search is refused naming it until an install succeeds, or `fails` says why it will not. */
   lacks?: { tool: string; fails?: string };
+  /** What Fleet never answers: the trackers' read (any repository holding it stalls the whole read) or this repository's searches, so the list stays in its pending state. */
+  unanswered?: "tracker" | "run";
 };
 
 export type IssuesSeed = readonly IssuesSeedRepository[];
@@ -233,9 +235,13 @@ export function issuesTabSource(seed: IssuesSeed): IssuesSource {
   const stamped = (manifestId: string, one: Ticket): Ticket => ({ ...one, holders: of(manifestId)?.held?.[one.reference] ?? [] });
   const refused = <T,>(manifestId: string): Read<T> => ({ ok: false, said: `No tracker is read for ${manifestId}.` });
   return {
-    trackers: async (manifestIds) => ({ ok: true, value: [...repositories.values()].map((one) => one.tracker).filter((one) => manifestIds.includes(one.manifestId)) }),
+    trackers: async (manifestIds) => {
+      if (manifestIds.some((id) => of(id)?.unanswered === "tracker")) return new Promise<never>(() => {});
+      return { ok: true, value: [...repositories.values()].map((one) => one.tracker).filter((one) => manifestIds.includes(one.manifestId)) };
+    },
     run: async (manifestId, query) => {
       const one = of(manifestId);
+      if (one?.unanswered === "run") return new Promise<never>(() => {});
       if (one === undefined || one.tracker.state !== "read") return refused(manifestId);
       if (one.lacks !== undefined) return { ok: false, said: `searching the issues did not happen: ${one.lacks.tool} is not installed`, missing: one.lacks.tool };
       const matches = (one.language === "jql" ? byJql : byTerms)(query, one.me ?? "");

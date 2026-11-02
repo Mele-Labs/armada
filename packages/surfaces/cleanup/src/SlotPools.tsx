@@ -7,6 +7,7 @@
 // refusal is the one thing the read cannot carry.
 
 import { PoolSlots } from "@armada/components";
+import type { ReactNode } from "react";
 import type { TileRow } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 import type { ChangeSlotPool, Outcome, RescueSlot, WorktreeSlot } from "@armada/protocol";
@@ -23,9 +24,11 @@ export type SlotPoolsProps = {
   /** Rescue a stranded slot of one repository's pool. Absent draws none of its acts. */
   onRescue?: (manifestId: string, rescue: RescueSlot) => Promise<RescueOutcome>;
   onCopied?: (value: string) => void;
+  /** The first pool's strip takes these at its right: the page's way back to the list. */
+  bandActs?: ReactNode;
 };
 
-export function SlotPools({ slots, now, onChange, onRescue, onCopied }: SlotPoolsProps) {
+export function SlotPools({ slots, now, onChange, onRescue, onCopied, bandActs }: SlotPoolsProps) {
   const floor = useAtFloor();
   const { worked, acts, acting, refused } = useTileActs({ now, onChange, onRescue, onCopied });
 
@@ -45,13 +48,14 @@ export function SlotPools({ slots, now, onChange, onRescue, onCopied }: SlotPool
 
   return (
     <>
-      {[...pools].map(([manifestId, pool]) => (
+      {[...pools].map(([manifestId, pool], at) => (
         <section key={manifestId} className="armada-pool-slots__pool" aria-label={pools.size > 1 ? manifestId : undefined}>
           {/* Named for its repository only where there is more than one to tell apart. */}
           {pools.size > 1 ? <h3 className="armada-pool-slots__repo">{manifestId}</h3> : null}
           <PoolSlots
             floor={floor}
             rows={pool}
+            {...(at === 0 && bandActs !== undefined ? { bandActs } : {})}
             {...acts(manifestId)}
             {...(onCopied === undefined ? {} : { onCopied })}
             {...(refused[keyOf(manifestId)] === undefined ? {} : { addRefused: refused[keyOf(manifestId)] })}

@@ -4,7 +4,8 @@
 // grid is one already given back.
 
 import { useEffect, type ReactNode } from "react";
-import { Alert, Button } from "@armada/components";
+import { ArrowLeft } from "lucide-react";
+import { Alert, Button, Card, CardContent, CardHeader, CardTitle, Skeleton, Tooltip } from "@armada/components";
 
 import type { ChangeSlotPool, HeldWorktrees, Outcome, RescueSlot } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
@@ -46,6 +47,8 @@ export type WorktreesProps = {
   onRescueSlot?: (manifestId: string, rescue: RescueSlot) => Promise<RescueOutcome>;
 };
 
+const PENDING_BAYS = [0, 1, 2, 3, 4, 5];
+
 /** How often the pool is read again while a Scout reads a slot, so its files arrive as it goes. */
 const RESCUE_READ_MS = 1_000;
 
@@ -73,36 +76,79 @@ export function Worktrees({
     return () => clearInterval(timer);
   }, [scouting]);
 
-  /** The way out, at the top of every state — #1090 moved it here from the
-   *  page head that used to carry it. */
+  /** The way out, in the strip of the first panel in every state — #1090 moved it here from the
+   *  page head that used to carry it. The caller's bulk sweeps sit beside it. */
   const back = (
-    <div className="armada-screen__head-row">
-      <Button variant="ghost" size="sm" onClick={onClose}>
-        Back to the list
-      </Button>
+    <>
       {actions === undefined ? null : <div className="armada-screen__actions">{actions}</div>}
-    </div>
+      <Tooltip label="Back to the list">
+        <Button variant="ghost" iconOnly aria-label="Back to the list" onClick={onClose}>
+          <ArrowLeft size={16} aria-hidden="true" />
+        </Button>
+      </Tooltip>
+    </>
+  );
+  /** Before the read answers, or when it failed, there is no pool to carry the strip, so the strip is a panel of its own. */
+  const panel = (body?: ReactNode) => (
+    <Card>
+      <CardHeader>
+        <CardTitle>Worktree slots</CardTitle>
+        {back}
+      </CardHeader>
+      {body === undefined ? null : <CardContent>{body}</CardContent>}
+    </Card>
   );
 
   if (held.state === "failed") {
     return (
       <div className="armada-screen__pane">
-        {back}
-        <Alert tone="escalated" title="What fleet is holding could not be read">
-          {said(held.outcome)}
-        </Alert>
+        {panel(
+          <Alert tone="escalated" title="What fleet is holding could not be read">
+            {said(held.outcome)}
+          </Alert>,
+        )}
       </div>
     );
   }
-  // Before the read answers there is nothing yet to say, so only the way back is drawn.
+  // Before the read answers, bays stand where the pool's will: no text, so the slots land on them.
   if (held.state !== "read") {
-    return <div className="armada-screen__pane">{back}</div>;
+    return (
+      <div className="armada-screen__pane">
+        <div className="armada-pool-slots__views" aria-busy>
+          <div className="armada-pool-slots__view">
+            <div className="armada-pool-slots__band">
+              <span className="armada-pool-slots__label" aria-hidden>
+                Worktree slots
+              </span>
+              {back}
+            </div>
+            <ul className="armada-pool-slots armada-pool-slots--pending" aria-hidden>
+              {PENDING_BAYS.map((at) => (
+                <li key={at} className="armada-bay" data-bay="pending">
+                  <div className="armada-bay__band">
+                    <Skeleton width="40%" />
+                  </div>
+                  <div className="armada-bay__body">
+                    <Skeleton width="70%" />
+                    <Skeleton width="85%" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  // Read, and no slot in it: an empty slot stays empty, so only the way back is drawn.
+  if ((held.held.slots ?? []).length === 0) {
+    return <div className="armada-screen__pane">{panel()}</div>;
   }
 
   return (
     <div className="armada-screen__pane">
-      {back}
       <SlotPools
+        bandActs={back}
         slots={held.held.slots ?? []}
         now={now}
         onCopied={onCopied}
