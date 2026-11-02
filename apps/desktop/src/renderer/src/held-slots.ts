@@ -11,12 +11,13 @@ export type SlotHolder = { slot: number; job: { id: string; title: string }; qui
 export type SlotCall = WaitingItem & { holders?: SlotHolder[] };
 
 /** The rows a call draws under its choices: none for another item, a call with no holders, or where nothing serves Free. */
-export function heldSlotsOf(item: WaitingItem, free: ((slot: number) => void | Promise<unknown>) | undefined, open: (jobId: string) => void): HeldSlotsProps | undefined {
+export function heldSlotsOf(item: WaitingItem, free: ((slot: number) => void | Promise<unknown>) | undefined, open: (jobId: string) => void, create?: () => void | Promise<unknown>): HeldSlotsProps | undefined {
   const holders = (item as SlotCall).holders;
   if (item.source !== "slot_choice" || holders === undefined || holders.length === 0 || free === undefined) return undefined;
   return {
     rows: holders.map((one) => ({ slot: one.slot, job: one.job, quietSince: one.quiet_since, ...(one.keeps === undefined ? {} : { keeps: one.keeps }) })),
     onOpen: open,
     onFree: free,
+    ...(create === undefined ? {} : { onCreate: create }),
   };
 }

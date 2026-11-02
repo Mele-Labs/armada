@@ -65,6 +65,13 @@
   cursor: pointer;
 }
 
+.armada-held-slots__new {
+  min-width: 0;
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
 .armada-held-slots__job:hover {
   color: var(--accent);
 }

@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { KeyRound } from "lucide-react";
+import { KeyRound, Plus } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -25,6 +25,8 @@ export type HeldSlotsProps = {
   onOpen: (jobId: string) => void;
   /** Gives the slot to the Job the call is on. A promise keeps the row's Free pending, and every other off, until it settles. */
   onFree: (slot: number) => void | Promise<unknown>;
+  /** Makes one more slot for the Job the call is on, as the last row. Absent draws no such row. */
+  onCreate?: () => void | Promise<unknown>;
   now?: number;
 };
 
@@ -39,23 +41,25 @@ function quietWords(since: string, now: number): string {
 }
 
 /**
- * The slots a full pool is held by, drawn inside the call that offers to wait or add one: one row each, the longest quiet first, with the
- * Job that holds it and how long it has been quiet, and Free at the end. Free hands the slot to the waiting Job; the holder stays in the
+ * The slots a full pool is held by, drawn inside the call that offers to wait: one row each, the longest quiet first, with the Job that
+ * holds it and how long it has been quiet, and Free at the end, then a last row that creates a slot. Free hands the slot to the waiting Job; the holder stays in the
  * list and leases another when it next writes. Free is off, with its reason on hover, where the holder is running or has uncommitted work,
  * and the column stays drawn so the rows line up.
  *
  * **The list is one Tab stop.** Up and Down move between rows, Return frees the row, `o` opens its Job. The keys stop here, so the
  * call's own Return and arrows do not also act.
  */
-export function HeldSlots({ rows, onOpen, onFree, now = Date.now() }: HeldSlotsProps) {
+export function HeldSlots({ rows, onOpen, onFree, onCreate, now = Date.now() }: HeldSlotsProps) {
   const label = useId();
   const [at, setAt] = useState(0);
   const [out, setOut] = useState<number>();
+  const [creating, setCreating] = useState(false);
   const items = useRef<(HTMLLIElement | null)[]>([]);
   const ordered = [...rows].sort((a, b) => Date.parse(a.quietSince) - Date.parse(b.quietSince));
-  const here = Math.min(at, ordered.length - 1);
+  const last = ordered.length - (onCreate === undefined ? 1 : 0);
+  const here = Math.min(at, last);
   const go = (to: number) => {
-    const next = Math.min(ordered.length - 1, Math.max(0, to));
+    const next = Math.min(last, Math.max(0, to));
     setAt(next);
     items.current[next]?.focus();
   };
@@ -66,24 +70,31 @@ export function HeldSlots({ rows, onOpen, onFree, now = Date.now() }: HeldSlotsP
     setOut(row.slot);
     void sent.then(() => undefined, () => undefined).finally(() => setOut(undefined));
   };
-  const key = (event: KeyboardEvent<HTMLLIElement>, row: HeldSlotRow, index: number) => {
+  const create = () => {
+    if (creating || out !== undefined) return;
+    const sent = onCreate?.();
+    if (sent === undefined) return;
+    setCreating(true);
+    void sent.then(() => undefined, () => undefined).finally(() => setCreating(false));
+  };
+  const key = (event: KeyboardEvent<HTMLLIElement>, index: number, row?: HeldSlotRow) => {
     // Return and `o` are the row's own: on its Free or its Job they are that button's press.
     const own = event.target === event.currentTarget;
     if (event.key === "ArrowDown") go(index + 1);
     else if (event.key === "ArrowUp") go(index - 1);
     else if (event.key === "Home") go(0);
-    else if (event.key === "End") go(ordered.length - 1);
-    else if (own && event.key === "Enter") free(row);
-    else if (own && event.key === "o") onOpen(row.job.id);
+    else if (event.key === "End") go(last);
+    else if (own && event.key === "Enter") (row === undefined ? create() : free(row));
+    else if (own && event.key === "o" && row !== undefined) onOpen(row.job.id);
     else return;
     event.preventDefault();
     event.nativeEvent.stopPropagation();
   };
-  if (ordered.length === 0) return null;
+  if (ordered.length === 0 && onCreate === undefined) return null;
   return (
     <section className="armada-held-slots" aria-labelledby={label}>
       <h3 id={label} className="armada-held-slots__eyebrow">
-        Held slots
+        Slots
       </h3>
       <ul className="armada-held-slots__rows">
         {ordered.map((row, index) => {
@@ -96,7 +107,7 @@ export function HeldSlots({ rows, onOpen, onFree, now = Date.now() }: HeldSlotsP
               tabIndex={index === here ? 0 : -1}
               aria-label={`Slot ${row.slot}, ${row.job.title}, quiet for ${quiet}${row.keeps === undefined ? "" : `, Free is off: ${WHY[row.keeps]}`}`}
               onFocus={(event) => event.target === event.currentTarget && setAt(index)}
-              onKeyDown={(event) => key(event, row, index)}
+              onKeyDown={(event) => key(event, index, row)}
             >
               <Tooltip label={`Worktree slot ${row.slot}`}>
                 <span className="armada-ref-chip" role="img" aria-label={`Worktree slot ${row.slot}`}>
@@ -119,7 +130,7 @@ export function HeldSlots({ rows, onOpen, onFree, now = Date.now() }: HeldSlotsP
                     variant="secondary"
                     tabIndex={-1}
                     aria-label={`Free slot ${row.slot}`}
-                    disabled={row.keeps !== undefined || (out !== undefined && out !== row.slot)}
+                    disabled={row.keeps !== undefined || creating || (out !== undefined && out !== row.slot)}
                     pending={out === row.slot}
                     onClick={() => free(row)}
                   >
@@ -130,6 +141,29 @@ export function HeldSlots({ rows, onOpen, onFree, now = Date.now() }: HeldSlotsP
             </li>
           );
         })}
+        {onCreate === undefined ? null : (
+          <li
+            ref={(element) => void (items.current[ordered.length] = element)}
+            className="armada-held-slots__row"
+            tabIndex={here === ordered.length ? 0 : -1}
+            aria-label="New slot"
+            onFocus={(event) => event.target === event.currentTarget && setAt(ordered.length)}
+            onKeyDown={(event) => key(event, ordered.length)}
+          >
+            <span className="armada-ref-chip" aria-hidden>
+              <Plus size={12} strokeWidth={2} />
+            </span>
+            <span className="armada-held-slots__new">New slot</span>
+            <span />
+            <Tooltip label="Creates a slot for this Job" shortcut="↵">
+              <span className="armada-held-slots__act">
+                <Button size="sm" variant="secondary" tabIndex={-1} aria-label="Create a slot" disabled={out !== undefined} pending={creating} onClick={create}>
+                  {creating ? "Creating" : "Create"}
+                </Button>
+              </span>
+            </Tooltip>
+          </li>
+        )}
       </ul>
     </section>
   );

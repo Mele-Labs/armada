@@ -10,6 +10,6 @@ import { useSessionsDraft } from "../sessions-draft";
 export function SlotCallRows({ item, hosts }: { item: Item; hosts: Hosts }) {
   const draft = useSessionsDraft();
   const waiting = item.waiting;
-  const rows = waiting === undefined ? undefined : heldSlotsOf(waiting.item, draft?.freeSlot === undefined ? undefined : (slot) => draft.freeSlot?.(waiting.sessionId, waiting.item.id, slot), hosts.onOpenSession);
+  const rows = waiting === undefined ? undefined : heldSlotsOf(waiting.item, draft?.freeSlot === undefined ? undefined : (slot) => draft.freeSlot?.(waiting.sessionId, waiting.item.id, slot), hosts.onOpenSession, draft?.createSlot === undefined ? undefined : () => draft.createSlot?.(waiting.sessionId, waiting.item.id));
   return rows === undefined ? null : <HeldSlots {...rows} />;
 }

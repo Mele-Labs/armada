@@ -52,7 +52,7 @@ const callFor = (): SlotCall => ({
   text: "Every slot is in use",
   since: ago(1),
   source: "slot_choice",
-  options: [{ label: "Wait for a slot" }, { label: "Add a slot" }],
+  options: [{ label: "Wait for a slot" }],
   act: { kind: "answer", target: ITEM },
   holders: holders(),
 });
@@ -125,11 +125,14 @@ function sessions(control: BayControl): SessionsStore {
   const freed = new Set<number>();
   return {
     ...store,
-    // Wait for a slot (0) takes the call off and leaves the Job queued; Add a slot (1) makes one and takes it.
+    // Wait for a slot (0) takes the call off and leaves the Job queued.
     answerWaiting: (id, itemId, given) => {
       if (itemId !== ITEM) return store.answerWaiting?.(id, itemId, given);
-      if (given.choice === 1) return moveIn(id, Math.max(0, ...(control.pool?.get()?.slots ?? []).filter((one) => one.manifest_id === ARMADA).map((one) => one.slot)) + 1);
       store.edit(id, (one) => ({ ...one, waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== ITEM) }));
+    },
+    // One more bay, and the Job the call is on takes it.
+    createSlot: (id, itemId) => {
+      if (itemId === ITEM) moveIn(id, Math.max(0, ...(control.pool?.get()?.slots ?? []).filter((one) => one.manifest_id === ARMADA).map((one) => one.slot)) + 1);
     },
     // The slot goes to the Job the call is on. Its holder keeps its place in the list and loses the slot and its chip; the other waiting Job's call drops the row.
     freeSlot: (id, itemId, slot) => {

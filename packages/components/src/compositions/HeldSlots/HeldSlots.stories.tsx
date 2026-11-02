@@ -14,6 +14,7 @@ const meta: Meta<typeof HeldSlots> = {
     now: NOW,
     onOpen: fn(),
     onFree: fn(),
+    onCreate: fn(),
     rows: [
       { slot: 4, job: { id: "j2", title: "Rework the logbook filters" }, quietSince: hoursAgo(98) },
       { slot: 2, job: { id: "j1", title: "Move the run ledger" }, quietSince: hoursAgo(288) },
