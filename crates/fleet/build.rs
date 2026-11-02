@@ -40,8 +40,8 @@ fn main() {
 
 /// Where the built-in mods are, relative to this crate.
 const BUILT_IN: &str = "../../packages/mods";
-/// The files a mod can hold, `crate::mods`' four names. Anything else in a folder is not compiled in.
-const MOD_FILES: [&str; 4] = ["mod.toml", "theme.css", "layout.json", "tracker.toml"];
+/// The files a mod can hold, of `crate::mods`' names. Anything else in a folder is not compiled in.
+const MOD_FILES: [&str; 5] = ["mod.toml", "theme.css", "layout.json", "tracker.toml", "instrument.js"];
 
 /// Every folder under `packages/mods/`, its files as bytes, into `$OUT_DIR/built_in_mods.rs` for
 /// `crate::mods::built_in`. **Written as literals, never as paths**, so a target directory carried
