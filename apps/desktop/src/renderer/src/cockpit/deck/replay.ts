@@ -10,6 +10,7 @@ import type { TimelineEvent, TimelineKind } from "@armada/protocol";
 import { holdsText } from "@armada/screens/src/keys";
 
 import type { DroneIn, PrIn } from "./layout";
+import { hudIsOpen } from "./keys-model";
 import { MOST_PLAYING, droneOfEvent, playOfEvent } from "./plays";
 import { changeReplay, deckNow, stopReplay, useDeck } from "./store";
 
@@ -164,7 +165,7 @@ export function useReplayKeys(active: boolean, events: readonly TimelineEvent[],
   useEffect(() => {
     if (!active) return;
     const press = (event: KeyboardEvent) => {
-      if (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null || hudIsOpen()) return;
       const here = deckNow().replay;
       const { events: all, ownerOf: owner, rootOf: root, panelOf: panel } = latest.current;
       if (here === undefined || !claimsReplay(event, panel(event.target))) return;

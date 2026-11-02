@@ -128,14 +128,15 @@ test("a band's key brings its tab forward: ⌥1 Done, ⌥2 Now, ⌥3 Open", () =
   expect(layers()).toHaveLength(0);
 });
 
-test("Checks, Subagents, Bays, System and Workflow open as tabs, by the calls their keys and acts make, and open no layer", () => {
+test("Checks, Subagents, Bays, System, Workflow and Judge open as tabs, by the calls their keys and acts make, and open no layer", () => {
   mount();
   toggleLayer(ID, "checks");
   toggleLayer(ID, "subagents");
   showLayer(ID, "slot");
   toggleLayer(ID, "system");
   toggleLanes(ID);
-  for (const kind of ["checks", "subagents", "bays", "system", "workflow"]) {
+  showLayer(ID, "judge");
+  for (const kind of ["checks", "subagents", "bays", "system", "workflow", "judge"]) {
     expect(kinds().filter((one) => one === kind), kind).toHaveLength(1);
   }
   expect(layerOver(ID)).toBeUndefined();
