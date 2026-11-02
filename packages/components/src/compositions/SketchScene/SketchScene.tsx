@@ -4,7 +4,7 @@ import {
   ExternalLink, ScrollText, Server, Settings, ShieldCheck, SquarePlus, Terminal, Trash2, Undo2, Webhook, Wrench, X, Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { Button } from "../../primitives/Button/Button";
@@ -27,7 +27,7 @@ import { roundedPath, routeAll } from "./route";
 import { holdsStep, screenGuess, screenSteps, screenWidth } from "./screen";
 import { settle } from "./settle";
 import { ScreenView } from "./ScreenView";
-import { MockView, type MockNotes, type ResolveMockStyles } from "./MockView";
+import { MockStylesContext, MockView, type MockNotes, type ResolveMockStyles } from "./MockView";
 import { partAt, partsIn, splitPart, type MockPart } from "./mock-frame";
 import {
   CHANGE_SAID, NO_MARKS, SCENE_COLORS, cssMs, diffScenes, markJoin, markRemove, nextMarkId, parseScene, partLabel, withMarks,
@@ -43,6 +43,7 @@ import {
  * With `against`, the scene is read as a change to it: what it adds is green, what it drops is red,
  * what it alters is amber, and what it leaves is dimmed.
  */
+export { MockStylesContext } from "./MockView";
 export type { MockFont, MockStyles, ResolveMockStyles } from "./MockView";
 
 export type SketchSceneProps = {
@@ -416,7 +417,8 @@ const JOINS_THE_PICK = ["Meta", "Control"];
 const NO_NOTES: NodeData["notes"] = [];
 const NO_PARTS: NodeData["parts"] = [];
 
-export function SketchScene({ scene: given, against, title, onAsk, marks, onMarks, preview = false, autoplay = false, playing = false, notes: noteScope, within, marked, exporter, mockStyles }: SketchSceneProps) {
+export function SketchScene({ scene: given, against, title, onAsk, marks, onMarks, preview = false, autoplay = false, playing = false, notes: noteScope, within, marked, exporter, mockStyles: givenStyles }: SketchSceneProps) {
+  const mockStyles = givenStyles ?? useContext(MockStylesContext);
   const parsed = useMemo(() => parseScene(given), [given]);
   const before = useMemo(() => (against === undefined ? undefined : parseScene(against)), [against]);
   const diff = useMemo(() => (parsed === undefined || before === undefined ? undefined : diffScenes(before, parsed)), [parsed, before]);

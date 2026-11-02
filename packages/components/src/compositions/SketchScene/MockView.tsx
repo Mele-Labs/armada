@@ -3,7 +3,7 @@
 // not widened: nothing is written as an inline `<style>` or loaded from a `data:` address. The HTML becomes nodes of the frame's
 // own document, the sheets are constructed with the frame window's `CSSStyleSheet` and adopted, and a font is added from its bytes.
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { NoteNumber } from "../ViewerNotes/ViewerNotes";
@@ -24,6 +24,9 @@ export type MockStyles = {
 
 /** The host's answer for a node's `styles`, given the node's id and the paths the agent named. */
 export type ResolveMockStyles = (node: { id: string; styles: readonly string[] }) => Promise<MockStyles>;
+
+/** What the app around a sketch lends it to read a `mock`'s stylesheets with: provided once by the shell, read by every sketch. */
+export const MockStylesContext = createContext<ResolveMockStyles | undefined>(undefined);
 
 const NONE: MockStyles = { css: [], fonts: [], drawnWith: [] };
 const SHELL = "<!doctype html><html><head><meta charset=\"utf-8\"></head><body></body></html>";
@@ -127,7 +130,8 @@ export function MockView({ node, resolve, parts }: { node: SceneNode; resolve: R
         <iframe
           ref={frame}
           className="armada-mock__frame"
-          title={node.title ?? "Mock"}
+          title={`Frame ${node.title ?? "mock"}`}
+          role="group"
           sandbox="allow-same-origin"
           srcDoc={SHELL}
           tabIndex={-1}
