@@ -19,7 +19,7 @@ const AWAY_MS = 10 * 60_000;
 /** The key that turns it off from the question. */
 const OFF_KEY = "t";
 /** The owner's own controls for Autopilot: nothing pressed inside them is the first use of the window. */
-const OWN = `[${WALK_UI}], [data-keeps-autopilot], [data-hud="autopilot"], .ap-hud`;
+const OWN = `[data-keeps-autopilot], [data-hud="autopilot"], .ap-hud`;
 
 const watching: { on: boolean; asking: boolean; ask: () => void } = { on: false, asking: false, ask: () => undefined };
 let lastInput = Date.now();
@@ -46,6 +46,8 @@ function eatRest(types: readonly string[], last: string): void {
 
 function used(event: Event): void {
   if (!watching.on) return;
+  // A walk's own bar is not the owner at the window: it neither asks nor counts as being there.
+  if (event.target instanceof Element && event.target.closest(`[${WALK_UI}]`) !== null) return;
   const now = Date.now();
   const away = now - lastInput >= AWAY_MS;
   lastInput = now;
