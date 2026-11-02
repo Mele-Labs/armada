@@ -24,6 +24,8 @@ startLoopClock();
 watchClippedText();
 
 const query = new URLSearchParams(window.location.search);
+const glass = query.get("glass");
+if (glass !== null) document.documentElement.dataset.glass = glass;
 // `?take=overflow` draws a Thread head with too little room on one row, the name held at 18 characters (`job-panes/acts.tsx`); without it the head is as in the app.
 const take = query.get("take");
 if (take !== null) document.documentElement.dataset.headTake = take;

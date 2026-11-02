@@ -378,7 +378,7 @@
   .armada-studios-page > .armada-card,
   :where(.armada-logbook__panel, .armada-logbook__card, .armada-system-side, .armada-system__pane .armada-card:not([data-flat]), .armada-settings-index__body .armada-card, .armada-screen__pane > .armada-card, .armada-guides__panel, .armada-wf__list, .armada-pool-slots__view)
 ) {
-  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--glass-under, transparent));
 }
 /* The flight controls and Dispatch blur on a layer behind their keys instead (`deck.css`). */
 :root[data-look="new"] :is(
@@ -427,7 +427,7 @@
 ) {
   border: var(--border-width) solid var(--glass-edge);
   border-radius: var(--glass-radius);
-  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--glass-under, transparent));
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   box-shadow: var(--bezel), var(--glass-shadow);
@@ -496,21 +496,21 @@
 :root[data-look="new"] .deck-scope :is(.deck-combo__input, .armada-button) {
   border-color: var(--glass-edge);
   border-radius: var(--glass-radius-control);
-  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--glass-under, transparent));
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   box-shadow: var(--glass-highlight), var(--glass-shadow);
 }
 :root[data-look="new"] .deck-scope :is(.deck-combo__input:hover, .armada-button:hover:not(:disabled)) {
   border-color: var(--glass-edge-lifted);
-  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--glass-under, transparent));
 }
 :root[data-look="new"] .deck-scope .deck-combo[data-open] .deck-combo__input { border-color: var(--accent); }
 /* The Field and Progress beside an open Job are the same sheet. The Field keeps an opaque fill, since its drawing animates; its edge, corner and shadow are the sheet's. A state is the edge's colour and nothing around it. */
 :root[data-look="new"] .sv-panel {
   border-color: var(--glass-edge);
   border-radius: var(--glass-radius);
-  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--glass-under, transparent));
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   box-shadow: var(--bezel), var(--glass-shadow);
@@ -533,7 +533,7 @@
 :root[data-look="new"] .bf-zoom .armada-button {
   border-color: var(--glass-edge);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--glass-under, transparent));
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   box-shadow: var(--glass-highlight), var(--glass-shadow);
@@ -591,7 +591,7 @@
    is their ground, so neither draws one of its own. The chosen place is its brighter word on a faint wash. */
 :root[data-look="new"] .armada-title-bar[data-places] .armada-title-bar__center {
   --armada-notch-radius: calc(var(--glass-radius) * 2);
-  --armada-notch-ground: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
+  --armada-notch-ground: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--glass-under, transparent));
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   box-shadow: var(--glass-shadow);
@@ -614,7 +614,7 @@
 /* Menus, popovers, the palette and the inspect card float over the panels: the same material, more opaque, at the
    overlay level. The inspect card keeps its own hairline and tone edge. */
 :root[data-look="new"] :is(.armada-dropdown-menu__panel, .deck-combo__list, .armada-popover__panel, .armada-palette, .armada-inspect-card) {
-  background: color-mix(in srgb, var(--bg-overlay) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-overlay) var(--overlay-fill, 78%), transparent);
   -webkit-backdrop-filter: blur(var(--blur-overlay)) saturate(170%);
   backdrop-filter: blur(var(--blur-overlay)) saturate(170%);
 }
@@ -689,3 +689,20 @@
 
 /* A menu is portaled out of its page, so the page lists above never reach its rows: every menu's shortcut hint is drawn only while ⌘ is held. */
 :root:not([data-reveal]) .armada-dropdown-menu__kbd { display: none; }
+
+/* Mock takes for a Bridge with no backdrop blur: `?glass=solid` and `?glass=tint`. A frame then costs about a fifth, because it no longer re-blurs what is behind each panel. */
+:root[data-glass],
+:root[data-glass] *,
+:root[data-glass] *::before,
+:root[data-glass] *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+:root[data-glass="solid"] {
+  --glass-under: var(--bg-base);
+  --overlay-fill: 100%;
+}
+:root[data-glass="tint"] {
+  --glass-under: color-mix(in srgb, var(--bg-base) 88%, transparent);
+  --overlay-fill: 96%;
+}
