@@ -193,6 +193,10 @@
   .armada-session-composer__bar {
     gap: var(--space-1);
   }
+  /* The context ring keeps its place and loses its words; its label and tooltip still say the percent. */
+  .armada-session-composer__figure .armada-context-ring__percent {
+    display: none;
+  }
   .armada-session-composer__pick {
     min-width: 0;
   }
@@ -488,15 +492,6 @@ a.armada-inline-tag--link > svg {
 .armada-session-composer__steps strong {
   color: var(--fg-default);
   font-weight: var(--weight-medium);
-}
-
-.armada-session-composer__steps code {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
-  color: var(--fg-default);
 }
 
 .armada-session-composer__guide-foot {
