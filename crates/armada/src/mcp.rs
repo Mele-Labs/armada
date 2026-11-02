@@ -88,7 +88,8 @@ pub(crate) fn reached() -> Result<Reached, String> {
     let cwd = std::env::current_dir()
         .map_err(|why| format!("the working directory could not be read: {why}"))?;
     let session = std::env::var(adapters::leasing::Holder::SESSION_ENV).ok();
-    let standing = match door_for(standing_in(&cwd), session.as_deref())? {
+    let found = standing_in(&cwd).or_else(|why| served_here(&cwd).ok_or(why));
+    let standing = match door_for(found, session.as_deref())? {
         Door::Within(standing) => standing,
         Door::WithoutAManifest => {
             let at = runtime::machine_path().map_err(|why| why.to_string())?;
@@ -251,6 +252,57 @@ fn checkout_root(at: &Path) -> Option<&Path> {
     let armada = pool.parent()?;
     let kept = matches!(pool.file_name()?.to_str()?, "slots" | "worktrees");
     (kept && armada.file_name()? == ".armada").then(|| armada.parent()).flatten()
+}
+
+/// The Manifest Fleet serves at this root, where the disk holds none.
+///
+/// **Kit's copy is never on disk in the repository**, so the walk cannot find it while Fleet lists
+/// it as whole, and a Job there lost every tool but its own (2 Nov 2026). A Fleet that does not
+/// answer is `None`: the walk's own sentence says more than this one could.
+fn served_here(cwd: &Path) -> Option<Standing> {
+    let at = runtime::machine_path().ok()?;
+    let fleet = Loopback::at(listening(runtime::read(&at), &at).ok()?);
+    let answer = fleet.get(MANIFESTS).ok()?;
+    if answer.status != 200 {
+        return None;
+    }
+    let served: Vec<ManifestSummary> = ipc::decode("manifest list", &answer.body).ok()?;
+    let ceiling = std::env::var_os("HOME").map(PathBuf::from);
+    served_at(cwd, ceiling.as_deref(), &served)
+}
+
+/// [`found_in`]'s walk over what Fleet serves: the same three ends, the same slot rule.
+pub(crate) fn served_at(cwd: &Path, ceiling: Option<&Path>, served: &[ManifestSummary]) -> Option<Standing> {
+    let at_root = |root: &Path| {
+        let root_is = |manifest: &&ManifestSummary| {
+            Path::new(&manifest.path).parent().is_some_and(|parent| same_directory(parent, root))
+        };
+        served.iter().find(root_is).map(|manifest| Standing {
+            id: manifest.id.as_str().to_string(),
+            root: root.to_path_buf(),
+            started: (root != cwd).then(|| cwd.to_path_buf()),
+        })
+    };
+    let mut at = cwd;
+    loop {
+        if let Some(standing) = at_root(at) {
+            return Some(standing);
+        }
+        if at.join(REPOSITORY).exists() {
+            return checkout_root(at).and_then(at_root);
+        }
+        if Some(at) == ceiling {
+            return None;
+        }
+        at = at.parent()?;
+    }
+}
+
+/// Fleet writes a root as it was added and a process reads its cwd resolved, and the two differ
+/// wherever a path passes through a link, as `/tmp` does on macOS.
+fn same_directory(one: &Path, other: &Path) -> bool {
+    one == other
+        || matches!((one.canonicalize(), other.canonicalize()), (Ok(one), Ok(other)) if one == other)
 }
 
 /// The Manifest at a root the walk settled on.

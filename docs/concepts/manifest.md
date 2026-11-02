@@ -69,6 +69,7 @@ It is `manifests/<owner--name>.yml` under Kit's folder, under the synced folder,
 **A place that cannot be read reads as no Kit copy, and says so**: a synced folder that is not mounted, a bucket that refuses or is out of reach.
 The repository's own `armada.yml` stands, and the summary's `left_out` carries the sentence naming the place.
 A repository with no `armada.yml` and a place that cannot be read is not served for the Manifest, and Fleet's log says why.
+**A Job in such a repository stands in the Manifest Fleet serves for it.** `armada mcp` and `armada job` look on disk first, and where the disk holds none they ask Fleet which Manifest it serves at that root or the root of that slot, so a Job gets the same tools with Kit's copy as with a committed file.
 The summary's `kit.file` is the copy's address: a path on this Mac, or the bucket's `s3://`, `r2://` or `gs://` address.
 **A setup Session keeps it with `save_kit_manifest`**, which writes the file whole at that place after the person has said it is theirs and confirmed it (`docs/practices/protocol.md`, *A setup Session keeps the person's own armada.yml*).
 **Commit to repository** copies Kit's file to `armada.yml` at the workspace root on the Job's branch, and Kit's copy stays ([Kit](kit.md), *Commit to repository*).
