@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use api::{HostedSessions, Settings, Teaching};
+use api::{Autopilots, HostedSessions, Settings, Teaching};
 use adapter_traits::{OpenPull, PullMergeable, QueueEntry, QueueState};
 use ipc::{
     Condition, Does, FleetRule, Instead, Notice, ProposedFleet, RuleScope, SaveSettings, SaveTeaching, SessionId, SessionRow,
@@ -13,6 +13,7 @@ use ipc::{
 };
 use store::{AttachmentState, Holder, KeptAttachment};
 
+use super::autopilot_decisions::started;
 use super::session_host::{eventually, rig_placing, Rig};
 
 async fn ruled(rig: &Rig, notice: Notice, does: Does, scope: RuleScope) {
@@ -307,16 +308,19 @@ async fn working_switches_the_action_while_the_agent_is_mid_turn() {
 }
 
 #[tokio::test]
-async fn owner_away_is_sleep_mode_and_switches_the_action() {
+async fn owner_away_is_the_repositorys_autopilot_running_and_switches_the_action() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     ruled_when(&rig, Notice::PrChecksFailed, Does::Quiet, Condition::OwnerAway, Does::Tell).await;
 
     notice_to(&rig, &id, "while he is here").await;
     assert!(notices(&rig, &id).await.is_empty());
-    rig.fleet.store().lock().await.begin_sleep("2026-10-23T00:00:00Z").unwrap();
-    notice_to(&rig, &id, "while he sleeps").await;
+    started(&rig, &[]).await;
+    notice_to(&rig, &id, "while Autopilot runs").await;
     assert_eq!(notices(&rig, &id).await.len(), 1);
+    rig.fleet.pause_autopilot(rig.manifest.clone()).await.expect("paused");
+    notice_to(&rig, &id, "while Autopilot is paused").await;
+    assert_eq!(notices(&rig, &id).await.len(), 1, "a paused Autopilot is not away");
 }
 
 #[tokio::test]
@@ -330,11 +334,11 @@ async fn the_first_condition_that_holds_decides_and_a_mute_still_beats_a_rule_wi
     let word = Notice::PrChecksFailed.word().to_string();
     kept(&rig, FleetRule { notice: word, does: Does::Batch, scope: RuleScope::Everywhere, matches: None, when }).await;
     holding(&rig, &id, 7, &[("state", "open")], None).await;
-    rig.fleet.store().lock().await.begin_sleep("2026-10-23T00:00:00Z").unwrap();
+    started(&rig, &[]).await;
 
     notice_to(&rig, &id, "both hold").await;
     assert!(notices(&rig, &id).await.is_empty(), "owner_away is first, so quiet");
-    rig.fleet.store().lock().await.end_sleep().unwrap();
+    rig.fleet.pause_autopilot(rig.manifest.clone()).await.expect("paused");
     notice_to(&rig, &id, "only the pull request holds").await;
     assert_eq!(notices(&rig, &id).await.len(), 1, "the second condition decides once the first does not hold");
 

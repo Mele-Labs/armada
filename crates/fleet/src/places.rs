@@ -80,7 +80,7 @@ pub enum Asking {
     /// all, behind a proof**: a proof records a specific Job's outcome, and a
     /// seed only makes some later Job's first Check faster.
     SeedWarmup,
-    /// Measuring stale test map edges in a sleeping bay. Nobody waits on it, and it makes
+    /// Measuring stale test map edges in an Autopilot bay. Nobody waits on it, and it makes
     /// no seed's first Check faster: **last of all**, beside a warm-up.
     Recording,
 }

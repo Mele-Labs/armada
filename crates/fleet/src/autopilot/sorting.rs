@@ -1,8 +1,8 @@
 //! Which kind of decision a waiting item is, and so which box allows answering it. **Pure.** An item
 //! that is none of the kinds, or is destructive, waits for the person whatever is checked.
 //!
-//! The shape is Sleep's sort, widened: a question with a recommendation, a question without one, a
-//! plan, a draft, a walk, and a permission card read as a read or a write.
+//! The kinds are a question with a recommendation, a question without one, a plan, a draft, a
+//! walk, and a permission card read as a read or a write.
 
 use ipc::{AutopilotDecision, HelmCallInFlight, WaitingActKind, WaitingItem, WaitingSource};
 

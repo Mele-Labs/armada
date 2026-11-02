@@ -86,7 +86,6 @@ mod issue_queries;
 /// The projects a person keeps, across repositories: tasks he wrote and linked issues, in order.
 mod projects;
 mod session_waiting;
-mod sleep_night;
 /// A repository's Autopilot and what it picked. #2092.
 mod autopilot;
 mod autopilot_decisions;
@@ -214,7 +213,6 @@ pub use session_waiting::{KeptClosed, KeptWaiting};
 pub use session_checks::KeptSessionCheck;
 pub use test_map::{StaleTest, TestsReaching};
 pub use model_downshift::KeptDownshift;
-pub use sleep_night::{SleepRow, SleepSwitch};
 pub use autopilot::{KeptAutopilot, KeptPick};
 pub use autopilot_decisions::KeptDecision;
 pub use limits::SavedLimits;

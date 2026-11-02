@@ -1,4 +1,4 @@
-//! The loop beside the Sessions that Autopilot's picks, sleep mode, plan limits and the clash
+//! The loop beside the Sessions that Autopilot's picks, plan limits and the clash
 //! watch ride on.
 
 use std::sync::Arc;
@@ -66,16 +66,10 @@ where
                 pages_read = tokio::time::Instant::now();
                 fleet.pages_read().await;
             }
-            // Sleep mode's pass rides this tick, but looks only every `sleeping::EVERY`.
-            if slept.elapsed() >= crate::sleeping::EVERY {
+            // A free bay, while a repository's Autopilot runs, re-measures what main's moves made stale.
+            if slept.elapsed() >= crate::test_map_feed::EVERY {
                 slept = tokio::time::Instant::now();
-                if let Err(why) = Arc::clone(&fleet).sleep_pass().await {
-                    eprintln!("sleep mode did not pass over the jobs: {why:?}");
-                }
-                // A free bay, while he sleeps, re-measures what main's moves made stale.
-                if fleet.sleeping().await {
-                    fleet.test_map_slept_over();
-                }
+                fleet.test_map_slept_over();
             }
             // Sessions the plan's limit stopped, woken once it has reset.
             fleet.limits_lifted().await;

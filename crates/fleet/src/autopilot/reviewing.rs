@@ -1,6 +1,5 @@
 //! What a running Autopilot answered, as the person reviews it: the answers not yet kept, a press
 //! that keeps one, and a correction, which is sent to the Job as `Re: <asked>` and then the words.
-//! The shape is Sleep's review (`crate::sleeping`), over this table.
 
 use std::sync::Arc;
 

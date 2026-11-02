@@ -4,15 +4,15 @@
 //! | Moment | What runs |
 //! |---|---|
 //! | Main moves from one tip to another | The files between them mark their edges stale; each collector that costs nothing and needs no rebuild reads the stale tests again |
-//! | Sleep mode is on and a bay is free | Each collector that needs a rebuild measures its stale tests, one at a time |
+//! | A repository's Autopilot is running and a bay is free | Each collector that needs a rebuild measures its stale tests, one at a time |
 //!
 //! **Nothing that needs a rebuild runs when main moves.** A rebuild costs the machine a turn, and
-//! the map's rule is that it is paid on the forge's runner or in a sleeping bay.
+//! the map's rule is that it is paid on the forge's runner or in an Autopilot bay.
 //!
 //! **A collector that costs nothing reads main's own checkout** when that checkout is at the new
 //! tip, which Fleet keeps it at, since reading files changes none and a bay would be a lease
 //! taken from a person for a read. Where it is not at the tip, a bay at main's tip is leased the
-//! way the sleeping pass leases one, and given back.
+//! way the Autopilot pass leases one, and given back.
 //!
 //! **Feeders are read off the Manifest each time they are wanted** and not kept, so a Manifest
 //! that was reloaded is the one that is read, with no second place that has to hear of the reload.
@@ -22,7 +22,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use adapter_traits::{AgentHarness, Delivery, LapCost, SlotLeased, Vcs, WorkProduct, WorktreeSpec};
 use adapters::{clash, Feeder};
@@ -34,6 +34,9 @@ use crate::places::Asking;
 use crate::repositories::Served;
 use crate::test_map::{source_of, NotMapped};
 
+/// How often the notice loop looks for a repository whose Autopilot is running.
+pub(crate) const EVERY: Duration = Duration::from_secs(10);
+
 /// What Fleet remembers between a tip being seen and the pass that feeds the map from it.
 /// Never written down: the moves are re-derived from the forge, and a map a restart did
 /// not hear of is stale in the way a stale edge already says.
@@ -42,8 +45,8 @@ pub struct Feed {
     /// Per Manifest id, the earliest tip not yet fed and the latest.
     moved: Mutex<BTreeMap<String, (String, String)>>,
     added: Mutex<Vec<(String, Feeder)>>,
-    /// Whether a sleeping pass is under way, so the next tick does not start a second.
-    sleeping_bay: AtomicBool,
+    /// Whether an Autopilot pass is under way, so the next tick does not start a second.
+    autopilot_bay: AtomicBool,
     /// Per Manifest id, the changed files a model has not yet read: a move reads a bounded number.
     /// `crate::test_map_reading`.
     pub(crate) unread: Mutex<BTreeMap<String, BTreeSet<String>>>,
@@ -78,12 +81,12 @@ impl Feed {
     }
 }
 
-/// Clears [`Feed::sleeping_bay`] however the pass ends.
+/// Clears [`Feed::autopilot_bay`] however the pass ends.
 struct Going(Arc<Feed>);
 
 impl Drop for Going {
     fn drop(&mut self) {
-        self.0.sleeping_bay.store(false, Ordering::SeqCst);
+        self.0.autopilot_bay.store(false, Ordering::SeqCst);
     }
 }
 
@@ -144,15 +147,15 @@ where
         }
     }
 
-    /// Start a sleeping pass unless one is under way. It runs on a task of its own: a measured
+    /// Start an Autopilot pass unless one is under way. It runs on a task of its own: a measured
     /// test takes minutes, and the loop it rides on carries Sessions.
     pub(crate) fn test_map_slept_over(self: &Arc<Self>) {
-        if self.feed().sleeping_bay.swap(true, Ordering::SeqCst) {
+        if self.feed().autopilot_bay.swap(true, Ordering::SeqCst) {
             return;
         }
         let (fleet, going) = (Arc::clone(self), Going(Arc::clone(self.feed())));
         tokio::spawn(async move {
-            fleet.sleeping_bay_recorded().await;
+            fleet.autopilot_bay_recorded().await;
             drop(going);
         });
     }
@@ -229,14 +232,14 @@ where
         }
     }
 
-    /// While sleep is on: each stale test of a collector that needs a rebuild is measured in
-    /// a free bay at main's tip, one at a time, holding one of the machine's places and stopping
-    /// as soon as sleep goes off. **A repository whose map holds no edges has no stale test**, so
+    /// While a repository's Autopilot runs: each stale test of a collector that needs a rebuild is
+    /// measured in a free bay at main's tip, one at a time, holding one of the machine's places and
+    /// stopping as soon as that Autopilot is paused or stopped. **A repository whose map holds no edges has no stale test**, so
     /// it is never seeded from here; that is the forge's recording.
-    pub(crate) async fn sleeping_bay_recorded(&self) {
+    pub(crate) async fn autopilot_bay_recorded(&self) {
         for served in self.repositories().served() {
-            if !self.sleeping().await {
-                return;
+            if !self.autopilot_running(served.manifest().id().as_str()).await {
+                continue;
             }
             self.rebuilding_recorded_in(&served).await;
         }
@@ -255,7 +258,7 @@ where
         let place = self.room_asking(Asking::Recording).place().await;
         'feeders: for feeder in feeders.iter().filter(|feeder| rebuilds(feeder)) {
             for test in tests_of(&stale, feeder) {
-                if !self.sleeping().await {
+                if !self.autopilot_running(repository.as_str()).await {
                     break 'feeders;
                 }
                 self.recorded_in(&repository, feeder, &bay.path, vec![test]).await;
@@ -276,14 +279,14 @@ where
     /// The collectors the Checks of the root Manifest and every workspace's name, built to record
     /// in the checkout at `root`, and the ones the repository added. **A Check's key is its
     /// name at the root and `<dir>:<name>` in a workspace**, as a Job's rows spell it. Coverage
-    /// is built one wide for a sleeping bay and as wide as the Check runs elsewhere.
-    pub(crate) fn feeders_in(&self, served: &Served, root: &Path, sleeping: bool) -> Vec<Feeder> {
+    /// is built one wide for an Autopilot bay and as wide as the Check runs elsewhere.
+    pub(crate) fn feeders_in(&self, served: &Served, root: &Path, in_a_bay: bool) -> Vec<Feeder> {
         let workspaces = served.workspaces();
         let mut feeders = Vec::new();
         for manifest in std::iter::once(served.manifest()).chain(workspaces.iter()) {
             for name in manifest.check_names() {
                 let Some(check) = manifest.check(&name) else { continue };
-                let width = match sleeping {
+                let width = match in_a_bay {
                     true => CheckWidth::of(1),
                     false => self.places_width().narrowed_to(check.width()),
                 };

@@ -1,7 +1,7 @@
 //! A repository's Autopilot and what it picked. #2092, `docs/concepts/autopilot.md`.
 //!
 //! **Words, not enums.** The states are Fleet's vocabulary (`fleet::autopilot`); this keeps what
-//! it was handed, as `sleep_night` does, and Fleet refuses a word it does not know when it reads.
+//! it was handed, and Fleet refuses a word it does not know when it reads.
 
 use rusqlite::{params, OptionalExtension};
 

@@ -139,7 +139,7 @@ pub enum Condition {
     OpenPullRequest,
     /// The Job's agent is in the middle of a turn.
     Working,
-    /// The owner is away, which is sleep mode being on.
+    /// The owner is away: the Job's repository has an Autopilot running. A paused or stopped one is not away.
     OwnerAway,
 }
 

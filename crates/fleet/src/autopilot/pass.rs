@@ -243,6 +243,13 @@ where
         }))
     }
 
+    /// Whether `manifest_id`'s Autopilot is running: the owner is away. **A paused or stopped one is
+    /// not**, and a store that cannot say reads as not.
+    pub(crate) async fn autopilot_running(&self, manifest_id: &str) -> bool {
+        let kept = self.store().lock().await.autopilot(manifest_id);
+        matches!(kept, Ok(Some(kept)) if State::from_stored(&kept.state) == Some(State::Running))
+    }
+
     async fn set_aside(&self, kept: &KeptAutopilot, aside: SetAside) -> Result<(), Adrift> {
         let pick = KeptPick {
             pick_id: self.mint().ulid().as_str().to_string(),

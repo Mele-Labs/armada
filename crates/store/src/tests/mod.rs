@@ -95,3 +95,4 @@ pub fn open(dir: &TempDir) -> Store {
 }
 mod autopilot_boxes;
 mod autopilot_decisions;
+mod sleep_folded;

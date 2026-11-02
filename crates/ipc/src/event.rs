@@ -30,7 +30,6 @@ use crate::model_downshift::ModelDownshiftState;
 use crate::projects::Projects;
 use crate::agent_sign_in::AgentSignIn;
 use crate::plan_usage::PlanUsage;
-use crate::sleep::SleepState;
 use crate::timeline::TimelineAppended;
 use crate::autopilot::Autopilot;
 use crate::autopilot_decisions::AutopilotDecisions;
@@ -169,9 +168,7 @@ pub enum Event {
     // An agent's act on its Job browser, held by Fleet until Bridge answers it by `request_id`.
     #[serde(rename = "browser.request")]
     BrowserRequest(BrowserRequest),
-    // Sleep mode, or a repository's Autopilot (#2092), after any change to it, whole.
-    #[serde(rename = "sleep.changed")]
-    SleepChanged(SleepState),
+    // A repository's Autopilot (#2092), after any change to it, whole.
     #[serde(rename = "autopilot.changed")]
     AutopilotChanged(Autopilot),
     // The answers a running Autopilot gave and the person has not reviewed, whole.

@@ -63,7 +63,7 @@ the person's own message would, and the thread shows where they went.";
 
 const SETTINGS: &str = "\
 To change a setting the person asks for, find its key and values with get_settings, then save it \
-with save_settings. Limits, sleep mode, mods and Kit servers have their own tools.";
+with save_settings. Limits, Autopilot, mods and Kit servers have their own tools.";
 
 const WHERE_THEY_ARE: &str = "\
 Before what the person typed, one line says where they are in Bridge: the screen, the repository \

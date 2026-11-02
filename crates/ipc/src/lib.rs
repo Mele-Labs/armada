@@ -236,8 +236,6 @@ mod act_failed;
 mod autopilot;
 /// What a running Autopilot answered for the person, to review.
 mod autopilot_decisions;
-/// Sleep mode: the switch and the night it keeps.
-mod sleep;
 /// How much of the plan's windows is used.
 mod plan_usage;
 /// The default model stepping down while the weekly window runs out.
@@ -689,10 +687,6 @@ pub use plan_usage::{
 pub use accounts::{
     AccountFlow, Accounts, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SetUpState,
     SetUpSteps, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
-};
-pub use sleep::{
-    OverrideSleep, ReviewSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState,
-    SleepWalk,
 };
 pub use setup::{
     LeftOutWorkflow, ManifestFromKit, ManifestKitName, ManifestSummary, ModelChoices, ModelsRead, OfferedModel,

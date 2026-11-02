@@ -356,9 +356,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/agent/sign_in",
             get(crate::hosted_sessions::get_agent_sign_in::<D>).post(crate::hosted_sessions::start_agent_sign_in::<D>),
         )
-        .route("/sleep", get(crate::hosted_sessions::get_sleep::<D>).post(crate::hosted_sessions::set_sleep::<D>))
-        .route("/sleep/override", post(crate::hosted_sessions::override_sleep::<D>))
-        .route("/sleep/review", post(crate::hosted_sessions::review_sleep::<D>))
         .route("/sessions/waiting", post(crate::sessions::waiting_for::<D>))
         .route("/sessions/done", post(crate::sessions::all_done::<D>))
         .route("/sessions/defer_later", post(crate::sessions::defer_later::<D>))

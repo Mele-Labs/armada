@@ -23,7 +23,6 @@ import type { ModelDownshiftState } from "./model-downshift";
 import type { Projects } from "./projects";
 import type { AgentSignIn } from "./agent-sign-in";
 import type { PlanUsage } from "./plan-usage";
-import type { SleepState } from "./sleep";
 import type { TimelineAppended } from "./timeline";
 import type { ActFailed } from "./act-failed";
 import type { Autopilot, AutopilotDecisions } from "./autopilot";
@@ -95,8 +94,6 @@ export type Event =
   | ({ kind: "terminal.exited" } & JobTerminal)
   /** An agent's act on its Job browser, held by Fleet until Bridge answers it with `answer_browser_request`. Not replayed. */
   | ({ kind: "browser.request" } & BrowserRequest)
-  /** Sleep mode after any change to it, whole. */
-  | ({ kind: "sleep.changed" } & SleepState)
   /** A repository's Autopilot after any change to it, whole. #2092. */
   | ({ kind: "autopilot.changed" } & Autopilot)
   /** The answers Autopilot gave and the person has not reviewed, whole. */

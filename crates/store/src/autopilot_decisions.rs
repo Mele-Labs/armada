@@ -1,5 +1,5 @@
-//! What a running Autopilot answered for the person, kept for them to review. Not Sleep's table:
-//! Sleep's rows are a night's, and these are a repository's, kept until reviewed.
+//! What a running Autopilot answered for the person, kept for them to review. A repository's, kept
+//! until reviewed.
 
 use rusqlite::{params, OptionalExtension};
 

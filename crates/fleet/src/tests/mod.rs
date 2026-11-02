@@ -189,7 +189,6 @@ mod slot_reclaim;
 mod session_waiting;
 mod closed_waiting;
 mod session_later;
-mod sleeping;
 mod job_browser;
 mod session_running;
 mod session_terminal;

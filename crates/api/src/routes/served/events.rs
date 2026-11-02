@@ -40,12 +40,6 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
-    // Sleep mode after any change, whole.
-    Route {
-        operation: "sleep.changed",
-        method: "GET",
-        path: "/events",
-    },
     // The plan's windows after a session read them moving, whole.
     Route {
         operation: "plan_usage.changed",
