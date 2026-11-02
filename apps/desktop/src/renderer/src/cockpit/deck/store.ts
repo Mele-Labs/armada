@@ -79,6 +79,8 @@ export type DeckState = {
   before: { sel: Sel | undefined; view: DeckView } | undefined;
   /** A light on the merge queue that a call asked to open its card: the light pins it and lets go of the ask. */
   light?: "checkout";
+  /** How many times the Map key was pressed on the map at rest: the map goes home for each. */
+  homed: number;
 };
 
 const viewNamed = (value: string | null): DeckView => (value === "timeline" ? "timeline" : "map");
@@ -118,13 +120,22 @@ function fresh(): DeckState {
     here: true,
     from: undefined,
     before: undefined,
+    homed: 0,
   };
 }
 let state: DeckState = fresh();
 const listeners = new Set<() => void>();
 const subscribe = (on: () => void) => (listeners.add(on), () => void listeners.delete(on));
+/** The map is what the stage shows: no Job, call or Autopilot open, and the Map view chosen. */
+const onMap = (deck: Pick<DeckState, "sel" | "view">) => deck.sel === undefined && deck.view === "map";
 const set = (change: Partial<DeckState>) => {
+  const was = onMap(state);
   state = { ...state, ...change };
+  // Whatever way the map becomes the stage again, it is drawn whole: the camera he left is forgotten, and the drone the cursor holds is not locked on.
+  if (!was && onMap(state)) {
+    camera.current = undefined;
+    wide.now = true;
+  }
   listeners.forEach((one) => one());
 };
 
@@ -180,10 +191,6 @@ export const setHover = (hover: string | undefined) => state.hover !== hover && 
 
 export const select = (sel: Sel | undefined) => {
   forgetPlace();
-  if (sel === undefined && state.sel !== undefined) {
-    camera.current = undefined;
-    wide.now = true;
-  }
   set({ sel, from: undefined, ...(sel === undefined ? {} : { cursor: sel.kind === "session" ? sel.key : state.cursor }) });
 };
 /** Opens a thing from what is open, which back returns to: a holder in a bay's history. */
@@ -213,6 +220,8 @@ export const moveCursor = (key: string | undefined) => {
 /** Choosing a view is going back to it: what was open in the area is put away. */
 export const setView = (view: DeckView) => {
   writeRemembered(DECK_VIEW_KEY, view);
+  // The Map key with the map already the stage is the way back to the whole field.
+  if (view === "map" && onMap(state)) return set({ homed: state.homed + 1 });
   set({ view, sel: undefined, from: undefined });
 };
 /** Autopilot's configuration takes the area, and what was open is kept to come back to. */

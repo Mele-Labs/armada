@@ -97,6 +97,6 @@ export function playWalks(part: number, of: number): void {
       await walkThrough(script.steps);
       expect(heard).toEqual([]);
       // A step waits for its target to settle, so a long walk outruns the default 15 s.
-    }, Math.max(15_000, script.steps.length * 1_500));
+    }, Math.max(15_000, script.steps.length * 800));
   }
 }

@@ -1,6 +1,6 @@
 // Fleet's Judge as the mock answers it: the four routes (`ask_judge`, `send_judge_note`, `dismiss_judge_note`, `mark_judge_read`) over the Job the scenario
 // holds, publishing the readings on the Job as `judge_readings` does. A press reads for two seconds, then the reading arrives with its notes. A pull request, the plan
-// and a document are answered with notes, a commit with none, and a walk page, a sketch and a command with one note on the whole of them. When the press carried a
+// a document and the whole Job are answered with notes, a commit with none, and a walk page, a sketch and a command with one note on the whole of them. When the press carried a
 // prompt, the first note answers it. The mock does not read: it answers.
 
 import type { AskJudge, DismissJudgeNote, JudgeNote, JudgeReading, MarkJudgeRead, Outcome, SendJudgeNote } from "@armada/protocol";
@@ -13,6 +13,9 @@ import type { SessionsStore } from "./sessions/script";
 
 /** How long a judge reads before it answers. */
 const READS_MS = 2000;
+/** A prompt that makes the reading fail, so a walk can show one. */
+export const FAILS = "the deploy is safe";
+const FAILED = "The judge stopped before it answered. Fleet restarted while it was reading.";
 
 export const MIDDLEWARE = "crates/api/src/auth/middleware.rs";
 export const TOKENS = "crates/api/src/auth/tokens.rs";
@@ -46,8 +49,16 @@ export function notesFor({ artifact, prompt }: Pick<AskJudge, "artifact"> & { pr
       ];
     case "doc":
       return [
-        ...(asked ?? [answerTo(prompt, "Write-up, third paragraph", "p:2")]),
-        note("n2", `The write-up says a token lasts a day. The code sets thirty minutes.`, { where: `${TOKENS}:41`, about: "p:1" }),
+        ...(asked ?? [answerTo(prompt, "A token issued before the switch", "p:A token issued before the switch is read once and exchanged for a session token.")]),
+        note("n2", `The write-up says a token lasts a day. The code sets thirty minutes.`, { where: `${TOKENS}:41`, about: "p:A session token lasts a day, then the client signs in again." }),
+        note("n3", "The heading says how a token lives, and nothing under it says how one is revoked.", { where: "How a token lives", about: "p:How a token lives" }),
+        note("n4", "The write-up names no owner for the switch.", { where: artifact.title }),
+      ];
+    case "job":
+      return [
+        ...(asked ?? [answerTo(prompt, "Plan, group Move sign-in to session tokens", "g1")]),
+        note("n2", "No task says what happens to a request that still carries the old cookie.", { where: "Plan, task Check the token on every request", about: "T2" }),
+        note("n3", "A session token never expires when its lifetime is zero, so a misconfigured deploy signs people in for good.", { where: `${TOKENS}:41`, about: `${TOKENS}:41` }),
       ];
     case "page":
       return [note("n1", "The walk never shows a signed-out start, so the first sign-in after the switch is not seen.", { where: artifact.title })];
@@ -93,7 +104,8 @@ export function mockJudge(store: Pick<SessionsStore, "get" | "edit" | "send">): 
       put(job, reading);
       const handle = window.setTimeout(() => {
         timers.delete(handle);
-        put(job, { ...reading, state: "done", finished_at: new Date().toISOString(), notes: notesFor({ artifact, prompt }) });
+        const finished_at = new Date().toISOString();
+        put(job, prompt === FAILS ? { ...reading, state: "failed", finished_at, failed: FAILED } : { ...reading, state: "done", finished_at, notes: notesFor({ artifact, prompt }) });
       }, READS_MS);
       timers.add(handle);
       return { ok: true, value: reading };
