@@ -271,6 +271,8 @@ export type SessionComposerProps = {
   talk?: {
     listen: (onWord: (word: string) => void) => () => void;
   };
+  /** Drawn on the bar just left of Send, with room between: the Job's context ring. */
+  beforeSend?: ReactNode;
 };
 
 /** The message: its text holds a CHIP where each tag stands, and `tags` lists them in order. */
@@ -521,6 +523,7 @@ export function SessionComposer({
   focusFor,
   quick,
   talk,
+  beforeSend,
 }: SessionComposerProps) {
   // The selected option's own words, once a turn has resolved its model: "Opus 5.5" where the id is of the alias's family.
   const resolvedSaid = resolvedModel === undefined ? undefined : modelSaid(resolvedModel);
@@ -1354,6 +1357,9 @@ export function SessionComposer({
               <Mic size={16} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>
+        )}
+        {beforeSend === undefined ? null : (
+          <span className="armada-session-composer__figure">{beforeSend}</span>
         )}
         {slim ? <Tooltip label={sendLabel}>{sendButton}</Tooltip> : sendButton}
       </div>

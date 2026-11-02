@@ -1,6 +1,6 @@
-// A Session's head is one row, and the context is a tank. The terminal glyph holds the address in its tooltip, the title
+// A Session's head is one row, and the context is a ring beside Send in the composer. The terminal glyph holds the address in its tooltip, the title
 // carries the whole of itself in its tooltip (that it keeps to one line is the `HeadOneRow` story's, in a narrow frame), the acts are icons, and the model is not in the head: the
-// composer's Model select reads it. The tank fills to the percent and turns to the warning tone at 80. Through `App`
+// composer's Model select reads it. The ring fills to the percent and turns to the warning tone at 80. Through `App`
 // over the `session-head` scenario. The walk `session-head` shows how it reads.
 
 import { expect, onTestFinished, test } from "vitest";
@@ -28,18 +28,22 @@ async function open(title: RegExp) {
   await toSession(title);
 }
 
-/** How much of the tank is filled, read off its fill as drawn, and the tone it is drawn in. */
-function tank() {
-  const one = head()
-    .getByRole("button", {
-      name: /^Context/,
-    })
-    .element() as HTMLElement;
+/** How much of the ring is filled, read off its arc as drawn, and the tone it is drawn in. */
+function ringOf(one: HTMLElement) {
+  const arc = one.querySelector(".armada-context-ring__arc")!;
   return {
-    share: parseFloat(getComputedStyle(one, "::before").width) / one.clientWidth,
+    share: parseFloat(getComputedStyle(arc).strokeDasharray) / 100,
     tone: getComputedStyle(one).color,
   };
 }
+const tank = () =>
+  ringOf(
+    head()
+      .getByRole("button", {
+        name: /^Context/,
+      })
+      .element() as HTMLElement,
+  );
 
 test("The head is one row: the address in the glyph's tooltip, a one-line title, icon acts, and no model", async () => {
   mount("session-head");
@@ -68,17 +72,12 @@ test("The head is one row: the address in the glyph's tooltip, a one-line title,
   await expect.element(more).toBeVisible();
   expect(more.element().textContent).toBe("");
 
-  // The glyph, the title, the act, the tank and the state mark stand on one line.
+  // The glyph, the title, the act and the state mark stand on one line.
   const centre = (one: Element) =>
     one.getBoundingClientRect().top + one.getBoundingClientRect().height / 2;
   for (const one of [
     box,
     more.element(),
-    head()
-      .getByRole("button", {
-        name: /^Context/,
-      })
-      .element(),
     row()
       .getByRole("img", {
         name: "Working",
@@ -87,6 +86,20 @@ test("The head is one row: the address in the glyph's tooltip, a one-line title,
   ]) {
     expect(Math.abs(centre(one) - centre(glyph.element()))).toBeLessThan(8);
   }
+
+  // The context ring is in the composer, just left of Send, and not in the head.
+  const ring = head()
+    .getByRole("button", {
+      name: /^Context/,
+    })
+    .element();
+  expect(row().element().contains(ring)).toBe(false);
+  const send = head()
+    .getByRole("button", {
+      name: "Send",
+    })
+    .element();
+  expect(ring.getBoundingClientRect().right).toBeLessThan(send.getBoundingClientRect().left);
 
   await expect
     .element(
@@ -99,7 +112,7 @@ test("The head is one row: the address in the glyph's tooltip, a one-line title,
   await expect.element(model()).toHaveDisplayValue("Opus 5.5");
 });
 
-test("The tank fills to the percent and turns to the warning tone at 80, not before", async () => {
+test("The ring fills to the percent and turns to the warning tone at 80, not before", async () => {
   mount("session-head");
   await onScreen();
   await open(/How does armada interface/);
@@ -114,26 +127,25 @@ test("The tank fills to the percent and turns to the warning tone at 80, not bef
         name: "Context 84%",
       }),
     )
-    .toHaveTextContent("840k · 84%");
+    .toHaveTextContent("84%");
   const high = tank();
   expect(high.share).toBeCloseTo(0.84, 1);
   expect(high.tone).not.toBe(low.tone);
 
   // 72% is still the normal tone.
   await toSession(/Cart totals rounding/);
-  const resting = page
-    .getByRole("region", {
-      name: "Job s-b4a1d2c7",
-    })
-    .getByRole("button", {
-      name: /^Context/,
-    })
-    .element() as HTMLElement;
-  expect(parseFloat(getComputedStyle(resting, "::before").width) / resting.clientWidth).toBeCloseTo(
-    0.72,
-    1,
+  const resting = ringOf(
+    page
+      .getByRole("region", {
+        name: "Job s-b4a1d2c7",
+      })
+      .getByRole("button", {
+        name: /^Context/,
+      })
+      .element() as HTMLElement,
   );
-  expect(getComputedStyle(resting).color).toBe(low.tone);
+  expect(resting.share).toBeCloseTo(0.72, 1);
+  expect(resting.tone).toBe(low.tone);
 });
 
 test("The composer keeps the alias a person picks, whatever the last turn resolved", async () => {

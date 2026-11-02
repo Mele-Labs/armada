@@ -2774,18 +2774,6 @@ export function SessionView({
                       onOpen: () => goes.onOpenLoadout(session.id),
                     },
                   })}
-              {...(session.context === undefined
-                ? {}
-                : {
-                    context: {
-                      ...session.context,
-                      ...(session.contextBreakdown === undefined
-                        ? {}
-                        : {
-                            breakdown: session.contextBreakdown,
-                          }),
-                    },
-                  })}
               menu={{
                 entries: [
                   ...(deck?.acts ?? []).map(
@@ -2855,12 +2843,6 @@ export function SessionView({
                 : {
                     back: deck.back,
                   })}
-              // On the Cockpit only: Compact is in the context figure.
-              {...(deck?.flight === true
-                ? {
-                    compact: compactAct,
-                  }
-                : {})}
               {...{
                 actions: (
                   <>
@@ -3315,6 +3297,28 @@ export function SessionView({
                             setDrawn((was) => was.filter((one) => one.id !== id))
                           }
                           {...(composerHere ?? {})}
+                          // On the Cockpit only: Compact is in the context figure.
+                          {...(session.context === undefined
+                            ? {}
+                            : {
+                                beforeSend: (
+                                  <ContextFigure
+                                    fill={{
+                                      ...session.context,
+                                      ...(session.contextBreakdown === undefined
+                                        ? {}
+                                        : {
+                                            breakdown: session.contextBreakdown,
+                                          }),
+                                    }}
+                                    {...(deck?.flight === true
+                                      ? {
+                                          compact: compactAct,
+                                        }
+                                      : {})}
+                                  />
+                                ),
+                              })}
                           onSend={(sent) => {
                             // A held Job's first send begins it: the box is the first message.
                             if (starting !== undefined) return starting.begin(sent.text);

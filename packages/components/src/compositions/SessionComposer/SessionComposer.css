@@ -401,3 +401,10 @@ a.armada-inline-tag--link > svg {
     animation: none;
   }
 }
+
+/* The context ring, a step off Send. */
+.armada-session-composer__figure {
+  display: flex;
+  flex: none;
+  margin-inline-end: var(--space-3);
+}

@@ -241,30 +241,48 @@ function thresholdOf(fill: ContextFill): number | undefined {
     : at / fill.window;
 }
 
-/** The custom properties the tank reads: how full, and where the autocompact threshold is. */
-function tankStyle(fill: ContextFill): CSSProperties {
+/** The ring: a track and an arc laid from twelve o'clock to the fill, with a tick where the autocompact threshold is. */
+function Ring({ fill, percent }: { fill: ContextFill; percent: number }) {
   const threshold = thresholdOf(fill);
-  return {
-    "--fill": `${Math.min(Math.max(fill.tokens / fill.window, 0), 1) * 100}%`,
-    ...(threshold === undefined
-      ? {}
-      : {
-          "--threshold": `${threshold * 100}%`,
-        }),
-  } as CSSProperties;
+  const angle = threshold === undefined ? 0 : threshold * 2 * Math.PI;
+  const at = (radius: number) =>
+    [
+      8 + radius * Math.sin(angle),
+      8 - radius * Math.cos(angle),
+    ] as const;
+  const [x1, y1] = at(3.5);
+  const [x2, y2] = at(7);
+  return (
+    <>
+      <svg className="armada-context-ring" viewBox="0 0 16 16" aria-hidden>
+        <circle className="armada-context-ring__track" cx="8" cy="8" r="5.25" pathLength="100" />
+        <circle
+          className="armada-context-ring__arc"
+          cx="8"
+          cy="8"
+          r="5.25"
+          pathLength="100"
+          strokeDasharray={`${Math.min(Math.max(fill.tokens / fill.window, 0), 1) * 100} 100`}
+          transform="rotate(-90 8 8)"
+        />
+        {threshold === undefined ? null : (
+          <line className="armada-context-ring__tick" x1={x1} y1={y1} x2={x2} y2={y2} />
+        )}
+      </svg>
+      {`${percent}%`}
+    </>
+  );
 }
 
 /**
- * The context window as a tank: the live tokens and the percent in mono, on a pill filled to `tokens / window` in the
- * tone of how full it is (normal below 80, warning from 80, danger from 95), with a dotted line at the autocompact
- * threshold where the breakdown holds one. Where the breakdown is known it is a button: **hover or focus opens the
+ * The context window as a ring filled clockwise to `tokens / window`, the percent beside it in mono, in the tone of
+ * how full it is (normal below 80, warning from 80, danger from 95), with a tick at the autocompact threshold where
+ * the breakdown holds one. The tokens are in the tooltip, the popover and the card. Where the breakdown is known it is a button: **hover or focus opens the
  * card, a press keeps it open**, and Esc or a press outside closes it. Nothing is drawn without a window to fill.
  */
 export function ContextFigure({ fill, compact }: { fill: ContextFill; compact?: ContextCompact }) {
   if (fill.window <= 0) return null;
   const percent = Math.round((fill.tokens / fill.window) * 100);
-  const figure = `${tokensSaid(fill.tokens)} · ${percent}%`;
-  const threshold = thresholdOf(fill) !== undefined || undefined;
   // Offering Compact makes the figure a button that opens a small popover with the fill and Compact, where there is no breakdown to open a card of.
   if (fill.breakdown === undefined && compact !== undefined) {
     return (
@@ -277,10 +295,8 @@ export function ContextFigure({ fill, compact }: { fill: ContextFill; compact?: 
               type="button"
               className="armada-session-frame__context"
               aria-label={`Context ${percent}%`}
-              data-threshold={threshold}
-              style={tankStyle(fill)}
             >
-              {figure}
+              <Ring fill={fill} percent={percent} />
             </button>
           }
         >
@@ -302,10 +318,8 @@ export function ContextFigure({ fill, compact }: { fill: ContextFill; compact?: 
           role="img"
           aria-label={`Context ${percent}%`}
           data-level={usageLevel(percent)}
-          data-threshold={threshold}
-          style={tankStyle(fill)}
         >
-          {figure}
+          <Ring fill={fill} percent={percent} />
         </span>
       </Tooltip>
     );
@@ -327,10 +341,8 @@ export function ContextFigure({ fill, compact }: { fill: ContextFill; compact?: 
           type="button"
           className="armada-session-frame__context"
           aria-label={`Context ${percent}%`}
-          data-threshold={threshold}
-          style={tankStyle(fill)}
         >
-          {figure}
+          <Ring fill={fill} percent={percent} />
         </button>
       </Inspect>
     </span>

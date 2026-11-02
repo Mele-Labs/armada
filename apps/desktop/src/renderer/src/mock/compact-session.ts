@@ -695,6 +695,10 @@ const prune = other(PRUNE, "Prune the stale branches", {
   },
 });
 const names = other(NAMES, "Name the store migrations", {
+  context: {
+    tokens: 392_000,
+    window: 400_000,
+  },
   rows: [
     you("n-1", "13:10:00", "Name the store migrations by their order."),
     agent("n-2", "13:41:10", "The migrations are named. The pull request is ready for you."),
@@ -732,6 +736,10 @@ const names = other(NAMES, "Name the store migrations", {
   ],
 });
 const audit = other(AUDIT, "Rotate the audit log", {
+  context: {
+    tokens: 332_000,
+    window: 400_000,
+  },
   turn: {
     state: "working",
   },
