@@ -9,6 +9,7 @@ import type { Annotation } from "../../../shared/annotations";
 import { Layer, ON_KEY } from "../annotate/Layer";
 import { WiredSessions } from "../sessions-wired";
 import { devServerSink, type Sink } from "../annotate/sink";
+import { storyFile } from "./story-files";
 
 const AT = "2026-10-07T13:48:02.000Z";
 
@@ -91,6 +92,7 @@ function sinkOf(notes: Annotation[]): Sink {
     root: async () => "/Users/user/code/armada",
     // The notes are in memory, but the stories are the repository's own: the dev server serving this page has them.
     stories: devServerSink().stories!,
+    story: storyFile,
     capture: async () => PNG,
     saveShot: async (id, png) => {
       shots.set(id, png);
