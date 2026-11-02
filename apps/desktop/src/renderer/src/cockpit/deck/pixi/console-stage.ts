@@ -8,6 +8,7 @@
 import "pixi.js/unsafe-eval";
 import { Application, BlurFilter, Container, Graphics, PerspectiveMesh, RendererType, RenderTexture, Sprite, Texture, Ticker } from "pixi.js";
 
+import { onLoopTick } from "../../../loop-clock";
 import type { FaceInk } from "../instrument-mods";
 import { drawLights, drawLive, drawPlate, faceInkOf, glassOf, keySpots, materialsOf, readTones, screenOf, type BayState, type Materials, type Paint, type Tones } from "./console-art";
 
@@ -174,7 +175,7 @@ type Facet = {
 /** What a face's picture depends on. The ink is held once per theme, so the same object is the same ink. */
 type FaceDrawn = { paint: BayState["paint"]; rev: number | undefined; w: number; h: number; ink: FaceInk };
 
-/** How often the console's screens are read and drawn: the scope's dots and a face that asks to move change, nothing else does until a press or a call pokes it. */
+/** How often the console's screens are read and drawn under reduced motion: the scope's dots move, nothing else does until a press or a call pokes it. */
 const READ_EVERY_MS = 1000;
 
 const EMPTY = (): BayState => ({ kind: null, pressed: false, calling: false, lit: false, focused: false });
@@ -200,8 +201,10 @@ export class ConsoleStage {
   private bays: BayState[] = [];
   private readonly plan: Plan;
   private source: () => BayState[] = () => [];
-  private readonly still = true;
+  private still = false;
+  private watch: MediaQueryList | undefined;
   private reading: ReturnType<typeof setInterval> | undefined;
+  private offClock: (() => void) | undefined;
   private density: MediaQueryList | undefined;
   private themed: MutationObserver | undefined;
 
@@ -241,8 +244,10 @@ export class ConsoleStage {
     this.host.append(app.canvas);
     this.setTone();
     this.build();
-    app.ticker.maxFPS = 30;
-    app.ticker.add(this.tick);
+    this.watch = window.matchMedia("(prefers-reduced-motion: reduce)");
+    this.still = this.watch.matches;
+    this.watch.addEventListener("change", this.motion);
+    this.offClock = onLoopTick(this.onClock);
     this.themed = new MutationObserver((changes) => {
       if (changes.some((one) => one.attributeName === "data-theme")) {
         this.setTone();
@@ -301,13 +306,22 @@ export class ConsoleStage {
     app.stage.addChild(this.bloom);
   }
 
-  /** The console's lamps hold still: thirty frames a second of its bloom held the whole window's GPU (`motion.md`). What its screens read is drawn once a second, and not at all under a hidden window or a folded panel, where one frame is held. */
+  private readonly motion = (): void => {
+    this.still = this.watch?.matches ?? false;
+    this.settle();
+  };
+
+  /** The lamps move on the loop clock: thirty frames a second of the console's bloom held the whole window's GPU (`motion.md`). */
+  private readonly onClock = (): void => {
+    if (!this.still && !this.hidden && !document.hidden) this.frame();
+  };
+
+  /** Under reduced motion what its screens read is drawn once a second. A hidden window, an idle one or a folded panel holds one frame. */
   private readonly settle = (): void => {
     const root = document.documentElement;
     const quiet = this.hidden || document.hidden || root.hasAttribute("data-still") || root.hasAttribute("data-idle");
-    this.app?.ticker.stop();
     clearInterval(this.reading);
-    if (!quiet) this.reading = setInterval(() => this.frame(), READ_EVERY_MS);
+    if (!quiet && this.still) this.reading = setInterval(() => this.frame(), READ_EVERY_MS);
     if (this.app !== undefined) this.frame();
   };
 
@@ -335,7 +349,7 @@ export class ConsoleStage {
 
   /** Something the page changed: draw once more where no frame is coming. */
   poke(): void {
-    if (this.app !== undefined && (this.still || !this.app.ticker.started)) this.frame();
+    if (this.app !== undefined) this.frame();
   }
 
   /** Each facet's texture takes the size it lands at on screen, in device pixels. */
@@ -434,8 +448,6 @@ export class ConsoleStage {
     this.frame();
   }
 
-  private readonly tick = (): void => this.frame();
-
   private frame(): void {
     const { app, tone, mat } = this;
     if (app === undefined || tone === undefined || mat === undefined || this.world === undefined) return;
@@ -489,7 +501,7 @@ export class ConsoleStage {
     face.sprite.visible = face.glow.visible = true;
     const ink = this.ink!;
     const was = face.drawn;
-    // The lamps' time stands still, a face's does not, since `moves` is the mod's to ask for. Reduced motion holds it.
+    // A face moves only when it asks to, on the lamps' frames, since `moves` is the mod's to ask for. Reduced motion holds it.
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if ((state.moves !== true || still) && was !== undefined && was.paint === paint && was.rev === state.rev && was.w === box.w && was.h === box.h && was.ink === ink) return;
     face.drawn = { paint, rev: state.rev, w: box.w, h: box.h, ink };
@@ -523,13 +535,14 @@ export class ConsoleStage {
   destroy(): void {
     this.gone = true;
     clearInterval(this.reading);
+    this.offClock?.();
+    this.watch?.removeEventListener("change", this.motion);
     this.themed?.disconnect();
     this.density?.removeEventListener("change", this.redensify);
     document.removeEventListener("visibilitychange", this.settle);
     const app = this.app;
     if (app === undefined) return;
     this.app = undefined;
-    app.ticker.remove(this.tick);
     app.ticker.stop();
     this.facets.forEach((f) => {
       f.face?.texture.destroy(true);

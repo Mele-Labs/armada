@@ -89,6 +89,7 @@ async fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Verb::Job(act) => armada::job::run(act),
         Verb::Worktree(act) => worktree_verb(act),
         Verb::TestMap(TestMapAct::Record { check, out }) => record_the_test_map(&check, &out),
         Verb::WatchLine { reader, values } => watch_line(reader, values).await,

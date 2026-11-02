@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-import { startLoopClock } from "./loop-clock";
+import { onLoopTick, startLoopClock } from "./loop-clock";
 
 /** The parts of a CSS animation the clock touches. */
-function loop(currentTime: number, iterations = Infinity, target: unknown = {}): Animation {
-  return { currentTime, effect: { getComputedTiming: () => ({ iterations }), target }, pause: vi.fn() } as unknown as Animation;
+function loop(currentTime: number, iterations = Infinity, target: unknown = {}, duration = 1600): Animation {
+  return { currentTime, effect: { getComputedTiming: () => ({ iterations, duration, endTime: iterations * duration }), target }, pause: vi.fn(), finish: vi.fn() } as unknown as Animation;
 }
 
 let now = 1000;
@@ -72,6 +72,25 @@ test("leaves an animation that ends alone", () => {
   expect(entrance.currentTime).toBe(50);
 });
 
+test("steps a slow fade on the same tick, holds it while idle, and finishes it at its end", () => {
+  const fade = loop(0, 1, {}, 45_000);
+  animations = [fade];
+  stop = startLoopClock();
+
+  advance(200);
+  expect(fade.pause).toHaveBeenCalled();
+  advance(200);
+  expect(fade.currentTime).toBe(200);
+
+  marks.add("data-idle");
+  advance(600);
+  expect(fade.currentTime).toBe(200);
+  marks.delete("data-idle");
+
+  advance(45_000);
+  expect(fade.finish).toHaveBeenCalled();
+});
+
 test("moves nothing while the window is still", () => {
   const one = loop(0);
   animations = [one];
@@ -106,6 +125,30 @@ test("a loop that appears in an idle window is paused, so it does not run at the
   advance(200);
   expect(late.pause).toHaveBeenCalled();
   expect(late.currentTime).toBe(0);
+});
+
+test("a canvas's loop follows the same tick, holds while the window is still or idle, and stops when told", () => {
+  const follow = vi.fn();
+  const off = onLoopTick(follow);
+  stop = startLoopClock();
+
+  advance(600);
+  expect(follow).toHaveBeenCalledTimes(3);
+
+  marks.add("data-still");
+  advance(400);
+  marks.delete("data-still");
+  marks.add("data-idle");
+  advance(400);
+  expect(follow).toHaveBeenCalledTimes(3);
+
+  marks.delete("data-idle");
+  advance(200);
+  expect(follow).toHaveBeenCalledTimes(4);
+
+  off();
+  advance(400);
+  expect(follow).toHaveBeenCalledTimes(4);
 });
 
 test("a loop out of sight does not move, and the others do", () => {
