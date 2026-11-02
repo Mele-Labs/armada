@@ -151,8 +151,9 @@ where
         let path = self.host().path.clone();
         let folder = crate::runtime::mod_dir(&self.host().home);
         let trees: Vec<PathBuf> = self.repositories().served().iter().map(|one| PathBuf::from(one.root())).collect();
+        let bundle = self.host().mod_bundle.clone().map(PathBuf::from);
         let done = tokio::task::spawn_blocking(move || {
-            if let Err(said) = agent_mod::populated(&home, &folder, &trees, STEP_WITHIN) {
+            if let Err(said) = agent_mod::populated(&home, &folder, &trees, bundle.as_deref(), STEP_WITHIN) {
                 return Installed::Failed { step: Step::Populate, said };
             }
             agent_mod::install(asked, agent_mod::PROGRAM.as_ref(), &path, &home, &folder, STEP_WITHIN)
@@ -165,8 +166,9 @@ where
         })
     }
 
-    /// Fleet's copy of the mod filled before a hosted process loads it with `--plugin-dir`. Nothing
-    /// to do once it is; otherwise the script runs on a blocking thread. **A failure only means the
+    /// Fleet's copy of the mod filled before a hosted process loads it with `--plugin-dir`: from the
+    /// app's bundle where there is one, else from a served repository, and nothing once it is there.
+    /// Copying and the script run on a blocking thread. **A failure only means the
     /// process starts without the mod**, so it is logged and never fails the launch.
     pub(crate) async fn mod_filled_for_launch(&self) {
         if let Err(said) = self.mod_filled().await {
@@ -176,19 +178,36 @@ where
         }
     }
 
+    /// Fleet's copy of the mod made the app's as Fleet starts, where Fleet is an app's. **Nothing
+    /// without a bundle**: a Fleet run from a checkout or `~/.cargo/bin` fills it when a Job launches.
+    pub async fn mod_filled_at_start(&self) {
+        if self.host().mod_bundle.is_none() {
+            return;
+        }
+        if let Err(said) = self.mod_filled().await {
+            let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), "the mod's copy was not filled from the app, so a job starts without it")
+                .with_field("why", FieldValue::Str(said));
+            crate::transcript::note_aloud(&envelope);
+        }
+    }
+
     /// [`Self::mod_filled_for_launch`] saying why it could not, for a caller that refuses on it.
+    ///
+    /// **An app's bundle first**, filled again where its plugin version is not the copy's, so an
+    /// update to the app is an update to the mod. With none, a copy that is there is left as it is.
     pub(crate) async fn mod_filled(&self) -> Result<(), String> {
         let home = PathBuf::from(&self.host().home);
         let folder = crate::runtime::mod_dir(&self.host().home);
-        if agent_mod::is_populated(&folder) {
+        let bundle = self.host().mod_bundle.clone().map(PathBuf::from);
+        if bundle.is_none() && agent_mod::is_populated(&folder) {
             return Ok(());
         }
         let trees: Vec<PathBuf> = self.repositories().served().iter().map(|one| PathBuf::from(one.root())).collect();
-        // Only running the script waits on a blocking thread; a launch with nothing to copy from starts at once.
-        if !trees.iter().any(|tree| agent_mod::can_populate_from(tree)) {
-            return agent_mod::populated(&home, &folder, &[], STEP_WITHIN);
+        // Only copying or running the script waits on a blocking thread; a launch with nothing to copy from starts at once.
+        if bundle.is_none() && !trees.iter().any(|tree| agent_mod::can_populate_from(tree)) {
+            return agent_mod::populated(&home, &folder, &[], None, STEP_WITHIN);
         }
-        tokio::task::spawn_blocking(move || agent_mod::populated(&home, &folder, &trees, STEP_WITHIN))
+        tokio::task::spawn_blocking(move || agent_mod::populated(&home, &folder, &trees, bundle.as_deref(), STEP_WITHIN))
             .await
             .map_err(|why| why.to_string())?
     }

@@ -35,6 +35,28 @@ async fn tree_of(rig: &Rig, promoted: &ModPromoted) -> PathBuf {
     PathBuf::from(adapter_traits::slot_path(&rig.root, hosting.lease_slot.expect("a slot")))
 }
 
+/// An instrument's two files go in as a theme's do, under its own word.
+#[tokio::test]
+async fn promoting_an_instrument_commits_its_two_files_and_titles_it_by_its_kind() {
+    let rig = rig_placing(None);
+    std::fs::create_dir_all(Path::new(&rig.root).join("packages")).expect("packages/");
+    let toml = "name = \"reviews\"\nkind = \"instrument\"\nversion = \"0.1.0\"\nglyph = \"gauge\"\n";
+    let code = "export default function Reviews({ host }) {\n  return null;\n}\n";
+    let at = Path::new(&rig.fleet.host().mods_dir).join("reviews");
+    std::fs::create_dir_all(&at).expect("a folder");
+    std::fs::write(at.join("mod.toml"), toml).expect("mod.toml");
+    std::fs::write(at.join("instrument.js"), code).expect("instrument.js");
+    let made = rig.fleet.vcs().committed().len();
+
+    let promoted = Arc::clone(&rig.fleet).promote_mod(PromoteMod { name: "reviews".into(), manifest_id: None }).await.expect("promoted");
+
+    assert_eq!(promoted.title, "Add the reviews instrument mod");
+    let paths = ["packages/mods/reviews/mod.toml", "packages/mods/reviews/instrument.js"];
+    assert_eq!(rig.fleet.vcs().committed()[made].scope, CommitScope::Paths(paths.map(String::from).to_vec()));
+    let tree = tree_of(&rig, &promoted).await;
+    assert_eq!(std::fs::read_to_string(tree.join(paths[1])).expect("in the tree"), code);
+}
+
 /// **A Job of its own that sees it merged**: the mod's two files committed alone on the Job's
 /// branch, pushed, a pull request opened and held on the Job's row, and the Job told what to do
 /// with it. The checkout is never written.

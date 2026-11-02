@@ -65,6 +65,8 @@ export type Subject = {
   mod?: true;
   /** A Mod Job that builds a Custom tab: it has no row and no drone, and stays a subject only so the stage can open it from the tab's card. */
   tab?: true;
+  /** A Mod Job that builds an instrument and is asking him: it takes a row while no bay shows it (`listOf`). */
+  bayAsk?: true;
   mark: Mark;
   phase: Phase;
   /** He is owed something: a question, a reply, a done, a review, a failed Check. */
@@ -240,6 +242,7 @@ export function shipOf(input: Inputs): Ship {
   // panes hold the tab wear the needs-you mark.
   const madeTab = new Map(mods.filter((one) => one.kind === "tab" && one.made_by !== undefined).map((one) => [one.made_by!, one.name]));
   const tabOf = (session: Session): { jobs: readonly string[]; label: string } | undefined => {
+    if (session.modOfBay === true) return { jobs: [], label: session.title ?? "Instrument" };
     const mod = madeTab.get(session.id);
     if (session.modFor !== undefined) return { jobs: [session.modFor.job], label: customLabel(session.modFor.tab) ?? (mod === undefined ? "Custom tab" : tabTitle(mod)) };
     return mod === undefined ? undefined : { jobs: holders(mod), label: tabTitle(mod) };
@@ -310,6 +313,7 @@ export function shipOf(input: Inputs): Ship {
       ...(session.manifestId === undefined ? {} : { manifest: session.manifestId }),
       ...(session.mod === true ? { mod: true as const } : {}),
       ...(tabOf(session) === undefined ? {} : { tab: true as const }),
+      ...(session.modOfBay === true && stateOf(session).state === "waiting" ? { bayAsk: true as const } : {}),
       mark,
       phase: needs || (alarm && !stuck) ? "needs" : stuck || paused || session.waits !== undefined ? "held" : stateOf(session).state === "working" ? "working" : "done",
       needs,

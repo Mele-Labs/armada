@@ -34,12 +34,21 @@ extraResources:
     to: .
     filter:
       - "*.wav"
+  # The Claude Code mod, which Fleet fills its own copy from, so a Mac with only the app has it.
+  # `scripts/after-pack.cjs` refuses to pack without it, so the release job needs no step of its own.
+  - from: ../../plugins
+    to: mod
+    filter:
+      - "**/*"
+      - "!**/node_modules"
+      - "!**/*.test.ts"
 
 # Armada Voice, the helper Talk hears through (`native/voice/`). `beforePack` builds it and refuses to pack without
 # it, so the release job needs no step of its own. In `Contents/Helpers`, where codesign looks for nested code, rather
 # than in Resources. An app of its own so macOS asks for the microphone and speech recognition in its name:
 # `native/voice/build.mjs` says why.
 beforePack: native/voice/before-pack.cjs
+afterPack: scripts/after-pack.cjs
 extraFiles:
   - from: native/voice/build/Armada Voice.app
     to: Helpers/Armada Voice.app

@@ -83,6 +83,7 @@ import "./deck.css";
 import "./power.css";
 import "./console-bridge.css";
 import { ConsoleBays, ConsoleRack } from "./ConsoleBays";
+import { InstrumentMounts } from "./instrument-mount";
 import { TimelineHud, toggleTimeline, useTimelineLamp } from "./ConsoleTimeline";
 import { Standby } from "./Standby";
 import { powering, usePowerOn } from "../boot";
@@ -814,7 +815,7 @@ function FlightControl({ ship, props, listed, unified = false, withActivity = tr
   const deckTiles = tilesOf("deck", file, repositoryFileOf(useRepositoryFlight(opened?.root, session?.id))).filter((one) => !one.hidden);
   const clashes = useWriteClashes();
   // The Calls key's lamp pulses while a Job is asking him.
-  const asking = ship.subjects.some((one) => one.kind === "session" && toneOf(one) === "ask");
+  const asking = ship.subjects.some((one) => one.kind === "session" && one.bayAsk !== true && toneOf(one) === "ask");
   const views = useMemo(() => viewsOf(props.state), [props.state]);
   const lamp = useTimelineLamp(ship, views);
   const bays = session === undefined ? undefined : baysOf(session, props.state.held.state === "read" ? (props.state.held.held.slots ?? []) : [], clashes);
@@ -1041,6 +1042,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     <ClashesOpenHere ship={ship}>
     {/* A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up. */}
     <ReplayHost props={props} ship={ship} />
+    {panels.has("controls") ? <InstrumentMounts /> : null}
     <CallsOverField props={props} ship={ship} listed={listed} calling={calling} />
     <ArmSetup repositories={(props.state.holds.repositories ?? []).flatMap((one) => (one.manifest === undefined ? [] : [{ id: one.manifest.id, name: one.manifest.repository }]))} state={props.state} />
     <TimelineOverField props={props} ship={ship} />

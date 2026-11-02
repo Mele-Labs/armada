@@ -123,6 +123,7 @@ where
                     workflow_chosen: false,
                     from_job: None,
                     from_tab: None,
+                    mod_of_bay: false,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
             if holds_lifecycles {
