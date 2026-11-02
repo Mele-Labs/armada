@@ -1,7 +1,7 @@
 // The note card's tools in a real window: what each one does to the element on the page, what the list
 // of changes says, and that closing the card gives the page back. And the pictures a card takes.
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -367,5 +367,84 @@ describe("the Variant tool's tiles", () => {
     const disabled = page.getByRole("button", { name: "Disabled", exact: true });
     await expect.element(disabled).toBeVisible();
     await expect.poll(() => disabled.element().querySelector(".armada-annotate__preview")).toBeNull();
+  });
+
+  const MANY = Array.from({ length: 20 }, (_, at) => `Story${at}`);
+  const many: StoryIndex = { Chip: { file: index.Chip!.file, title: "Chip", stories: MANY.map((name) => ({ name, args: {}, file: FILE })) } };
+  const manyModule = {
+    default: { component: () => <i data-drawn="">drawn</i> },
+    ...Object.fromEntries(MANY.map((name) => [name, {}])),
+  } as unknown as StoryModule;
+
+  /** The tools as the layer draws them: in a card capped at `max` pixels, a line over them and the card's acts under them. */
+  async function inACard(max: number): Promise<{ card: HTMLElement; tiles: HTMLElement; over: HTMLElement; save: HTMLElement }> {
+    theme();
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mounted.push({ root, host });
+    const style = { "--annotate-card-x": "0px", "--annotate-card-y": "0px", "--annotate-card-max": `${max}px` } as CSSProperties;
+    root.render(
+      <div className="armada-annotate">
+        <div className="armada-annotate__card" data-card="" style={style}>
+          <div className="armada-annotate__body">
+            <p data-over="">The note</p>
+            <Tools id="20260916-222105-k3f9" element={target()} changes={[]} onChanges={() => undefined} keep="test:text" names={["Chip"]} stories={many} story={async () => manyModule} />
+            <div className="armada-annotate__actions">
+              <button type="button" data-save="">
+                Save note
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>,
+    );
+    await press("Variant");
+    await expect.poll(() => host.querySelector("[data-tiles] [data-drawn]")).not.toBeNull();
+    const one = <T extends HTMLElement>(selector: string): T => host.querySelector<T>(selector)!;
+    return { card: one("[data-card]"), tiles: one("[data-tiles]"), over: one("[data-over]"), save: one("[data-save]") };
+  }
+
+  test("scroll alone in a capped card, and what is over and under them stays put", async () => {
+    const { card, tiles, over, save } = await inACard(480);
+    expect(tiles.scrollHeight).toBeGreaterThan(tiles.clientHeight);
+    expect(card.scrollHeight).toBe(card.clientHeight);
+    const wasOver = over.getBoundingClientRect().top;
+    const wasSave = save.getBoundingClientRect().top;
+    expect(save.getBoundingClientRect().bottom).toBeLessThanOrEqual(card.getBoundingClientRect().bottom);
+
+    tiles.scrollTop = 200;
+    expect(tiles.scrollTop).toBe(200);
+    expect(over.getBoundingClientRect().top).toBe(wasOver);
+    expect(save.getBoundingClientRect().top).toBe(wasSave);
+    expect(card.scrollTop).toBe(0);
+  });
+
+  test("hand the scroll back to a card too short to hold them, and the acts stay in reach", async () => {
+    const { card, tiles, save } = await inACard(180);
+    expect(card.scrollHeight).toBeGreaterThan(card.clientHeight);
+    expect(tiles.clientHeight).toBeGreaterThan(0);
+    expect(save.getBoundingClientRect().bottom).toBeLessThanOrEqual(card.getBoundingClientRect().bottom);
+  });
+
+  test("leave a drawn story's own button as it draws", async () => {
+    const own = { default: {}, Disabled: { render: () => <button type="button" className="armada-button" data-own="" /> }, Loud: { render: () => <i /> } } as unknown as StoryModule;
+    theme();
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mounted.push({ root, host });
+    root.render(
+      <div className="armada-annotate">
+        <div className="armada-annotate__card">
+          <Tools id="20260916-222105-k3f9" element={target()} changes={[]} onChanges={() => undefined} keep="test:text" names={["Chip"]} stories={index} story={async () => own} />
+        </div>
+      </div>,
+    );
+    await press("Variant");
+    await expect.poll(() => host.querySelector("[data-own]")).not.toBeNull();
+    const tile = page.getByRole("button", { name: "Disabled", exact: true }).element();
+    expect(getComputedStyle(tile).flexDirection).toBe("column");
+    expect(getComputedStyle(host.querySelector("[data-own]")!).flexDirection).not.toBe("column");
   });
 });
