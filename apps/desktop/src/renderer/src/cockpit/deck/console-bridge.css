@@ -15,6 +15,7 @@
   --cb-scale: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 10' preserveAspectRatio='none'%3E%3Cpath d='M0 0h1v10H0zM8 5h1v5H8zM16 5h1v5h-1zM24 5h1v5h-1zM32 5h1v5h-1z'/%3E%3C/svg%3E");
   --cb-wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 16'%3E%3Cpath d='M0 8H6L9 2L13 14L17 8H26L29 5L32 11L35 8H40' fill='none' stroke='black' stroke-width='1.2'/%3E%3C/svg%3E");
   --cb-gauges: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 40' preserveAspectRatio='xMidYMax meet'%3E%3Cpath d='M4 36A26 26 0 0 1 56 36' fill='none' stroke='black' stroke-width='1.2'/%3E%3Cpath d='M4.0 36.0L9.0 36.0' stroke='black' stroke-width='1'/%3E%3Cpath d='M7.5 23.0L11.8 25.5' stroke='black' stroke-width='1'/%3E%3Cpath d='M17.0 13.5L19.5 17.8' stroke='black' stroke-width='1'/%3E%3Cpath d='M30.0 10.0L30.0 15.0' stroke='black' stroke-width='1'/%3E%3Cpath d='M43.0 13.5L40.5 17.8' stroke='black' stroke-width='1'/%3E%3Cpath d='M52.5 23.0L48.2 25.5' stroke='black' stroke-width='1'/%3E%3Cpath d='M56.0 36.0L51.0 36.0' stroke='black' stroke-width='1'/%3E%3Cpath d='M64 36A26 26 0 0 1 116 36' fill='none' stroke='black' stroke-width='1.2'/%3E%3Cpath d='M64.0 36.0L69.0 36.0' stroke='black' stroke-width='1'/%3E%3Cpath d='M67.5 23.0L71.8 25.5' stroke='black' stroke-width='1'/%3E%3Cpath d='M77.0 13.5L79.5 17.8' stroke='black' stroke-width='1'/%3E%3Cpath d='M90.0 10.0L90.0 15.0' stroke='black' stroke-width='1'/%3E%3Cpath d='M103.0 13.5L100.5 17.8' stroke='black' stroke-width='1'/%3E%3Cpath d='M112.5 23.0L108.2 25.5' stroke='black' stroke-width='1'/%3E%3Cpath d='M116.0 36.0L111.0 36.0' stroke='black' stroke-width='1'/%3E%3C/svg%3E");
+  --cb-reticle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M0 0h6v1H1v5H0zM14 0h6v6h-1V1h-5zM0 14h1v5h5v1H0zM19 14h1v6h-6v-1h5z'/%3E%3C/svg%3E");
   --cb-slot: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' preserveAspectRatio='none'%3E%3Cpath d='M1 0h8v3H1z'/%3E%3C/svg%3E");
 
   --cb-amber: var(--status-awaiting-review);
@@ -71,7 +72,6 @@
   }
   & .job-pane[data-focused] { --edge: var(--border-strong); border-color: var(--border-strong); }
   & .job-pane__strip { background: var(--bg-sunken); }
-  & :is(.job-pane__strip, .sv-panel__band) { font-family: var(--font-mono); }
   & .sv-panel:not(.job-pane__body *) > .sv-panel__band { background: var(--bg-sunken); border-bottom-color: var(--border-subtle); }
   /* The Job's tile grid stays a grid, in the columns' strips. */
   & .deck-controls__block[data-subject] .deck-tile {
@@ -79,7 +79,6 @@
     border-radius: 0;
     background: var(--bg-sunken);
     box-shadow: none;
-    font-family: var(--font-mono);
     &:hover { background: var(--bg-hover); }
     &:is([aria-pressed="true"], [data-on]) { border-color: var(--accent); background: var(--accent-muted); }
   }
@@ -248,20 +247,56 @@
     & .armada-tl__graph { padding: var(--space-4) var(--space-2) var(--space-3); }
     & .armada-tl__axis-line { border-top-color: var(--border-strong); }
     & .armada-tl__now { border-right-color: var(--cb-amber); opacity: 1; }
-    & .console-scope__open { position: absolute; z-index: 3; top: 0; right: 0; display: flex; }
-    & .console-scope__open .armada-button { width: var(--space-6); height: var(--space-6); min-height: 0; padding: 0; }
+    & .console-scope__graph { position: absolute; inset: 0; pointer-events: none; }
+    & .console-scope__press { position: absolute; z-index: 3; inset: 0; padding: 0; border: 0; background: none; cursor: pointer; }
+    & .console-scope__press:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+    &:has(.console-scope__press[aria-pressed="true"]) { border-color: var(--accent); }
   }
   /* A bay with nothing in it: dark and recessed, the socket's bolts the only mark. */
   & .console-bay[data-empty] { background: var(--bg-sunken); box-shadow: inset 0 calc(var(--border-width) * 4) 0 var(--deck-key-seat); }
 
-  /* Activity opened over the Cockpit's body. */
-  & .console-sheet { position: fixed; z-index: 20; display: flex; flex-direction: column; border: calc(var(--border-width) * 2) solid var(--border-strong); background: var(--bg-sunken); box-shadow: inset 0 0 0 var(--space-1) var(--bg-raised), inset 0 0 0 calc(var(--space-1) + var(--border-width)) var(--border-default); }
-  & .console-sheet__band { display: flex; justify-content: flex-end; padding: var(--space-2) var(--space-3) 0; }
-  & .console-sheet__body { position: relative; flex: 1 1 0; min-height: 0; margin: var(--space-2) var(--space-4) var(--space-4); border: calc(var(--border-width) * 2) solid var(--border-default); background: var(--bg-base); }
-  & .console-sheet .armada-tl { position: absolute; inset: 0; display: flex; flex-direction: column; }
-  & .console-sheet .armada-tl__graph { padding: var(--space-6); }
-  & .console-sheet .armada-tl__now { border-right-color: var(--cb-amber); opacity: 1; }
+  /* ---- Activity's HUD, projected over the field: hairlines and brackets on thin glass, drawn in pixels by `ConsoleHud`. Hard-edged; only `&lit=1` lets it glow. ---- */
+  & .console-hud { position: fixed; inset: 0; z-index: 20; color: var(--cb-cyan); pointer-events: none; }
+  & .console-hud__beam { position: absolute; inset: 0; width: 100%; height: 100%; animation: cb-hud-beam var(--duration-enter) var(--ease-out) backwards; }
+  & .console-hud__beam-fill { fill: currentColor; fill-opacity: 0.07; }
+  & .console-hud__beam-edge { fill: none; stroke: currentColor; stroke-opacity: 0.6; stroke-width: 1; stroke-dasharray: 2 4; }
+  & .console-hud__beam-collar { fill: none; stroke: currentColor; stroke-width: 3; }
+  & .console-hud__panel { position: absolute; outline: none; pointer-events: auto; animation: cb-hud-open var(--duration-enter) var(--ease-out) backwards; }
+  & .console-hud__panel:focus-visible { outline: none; }
+  & .console-hud__frame { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+  & .console-hud__glass { fill: var(--bg-base); fill-opacity: 0.62; }
+  & .console-hud__strip { fill: var(--bg-base); fill-opacity: 0.55; }
+  & .console-hud__line { fill: none; stroke: currentColor; stroke-width: 1; }
+  & .console-hud__edge { stroke-opacity: 0.45; }
+  & .console-hud__minor { stroke-opacity: 0.1; }
+  & .console-hud__major { stroke-opacity: 0.24; }
+  & .console-hud__centre { stroke-opacity: 0.5; }
+  & .console-hud__cross { stroke-opacity: 0.8; }
+  & .console-hud__tick { stroke-opacity: 0.6; }
+  & .console-hud__tick-major { stroke-opacity: 1; }
+  & .console-hud__bracket { stroke-width: 2; }
+  & .console-hud__now { stroke: var(--cb-amber); }
+  & .console-hud__now-mark { fill: var(--cb-amber); }
+  & .console-hud__at { fill: currentColor; fill-opacity: 0.85; font-family: var(--font-mono); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; text-anchor: middle; }
+  & .console-hud__name { position: absolute; top: var(--space-2); left: var(--space-4); margin: 0; font-size: var(--text-sm); line-height: var(--space-6); font-weight: var(--weight-heading); color: var(--fg-default); }
+  & .console-hud__close { position: absolute; top: var(--space-2); right: var(--space-3); color: var(--fg-default); }
+  & .console-hud__plot { position: absolute; }
+  & .console-hud__plot .armada-tl { position: absolute; inset: 0; display: block; padding: 0; }
+  & .console-hud__plot .armada-tl__plot { position: absolute; inset: 0; }
+  & .console-hud__plot :is(.armada-tl__axis-line, .armada-tl__now) { display: none; }
+  /* A dot under the pointer or the keys is taken in a target's corners, and the card hangs off it rather than off the plot. */
+  & .console-hud__plot .armada-tl__dot:is(:hover, :focus-visible, [data-lit]) {
+    outline: none;
+    z-index: 3;
+    &::before { content: ""; position: absolute; inset: calc(var(--space-2) * -1); background: var(--fg-default); mask-image: var(--cb-reticle); mask-size: 100% 100%; pointer-events: none; }
+  }
+  & .console-hud__plot .armada-tl__dot[data-lit]::before { background: var(--accent); }
+  & .console-hud__plot .armada-tl__dot:is(:hover, :focus-visible) { anchor-name: --console-hud-dot; }
+  & .console-hud__plot .armada-tooltip__bubble[data-beside] { position-anchor: --console-hud-dot; position-area: block-start span-inline-end; margin: var(--space-3); position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline; }
 
+  &[data-console-lit] .console-hud__frame :is(.console-hud__bracket, .console-hud__cross, .console-hud__tick-major, .console-hud__now, .console-hud__now-mark, .console-hud__at) { filter: drop-shadow(0 0 var(--space-1) currentColor); }
+  &[data-console-lit] :is(.console-hud__beam-edge, .console-hud__beam-collar) { filter: drop-shadow(0 0 var(--space-1) currentColor); }
+  &[data-console-lit] .console-hud__plot .armada-tl__dot { box-shadow: 0 0 var(--space-3) var(--tone); }
   /* ---- Dispatch: a guarded switch. The cover is flipped up on its hinge, a bracket frames the cap, and the arming lamp blinks. ---- */
   & .deck-foot .deck-dispatch .deck-dispatch__block {
     grid-auto-rows: var(--cb-dial);
@@ -379,7 +414,6 @@
     border-radius: 0;
     background: var(--bg-sunken);
     box-shadow: none;
-    font-family: var(--font-mono);
     &:hover, &[data-hover] { border-color: var(--border-strong); background: var(--bg-hover); }
     &[data-selected] { border-color: var(--accent); background: var(--accent-muted); }
     /* The door: the berth number, its lamp square in the corner. */
@@ -387,7 +421,6 @@
     & .deck-bay__door::before { top: var(--space-1); inset-inline-start: var(--space-1); width: var(--space-2); height: var(--space-2); border-radius: 0; background: var(--hue); }
     & .deck-bay__name { font-size: var(--text-lg); line-height: 1; }
     & .deck-bay__body { justify-content: center; gap: 0; padding: var(--space-1) var(--space-2); }
-    & .deck-bay__who { font-family: var(--font-mono); font-size: var(--text-xs); font-weight: var(--weight-body); letter-spacing: 0.02em; }
     & .deck-bay__branch { color: var(--fg-subtle); }
     /* Free: a dark, recessed berth with its lamp unlit. */
     &[data-bay="free"] { background: none; border-style: solid; }
@@ -426,7 +459,7 @@
       color: var(--fg-muted);
     }
   }
-  /* A strip: a lamp bar down its left edge, the title in mono, the state glyphs unchanged at its right. */
+  /* A strip: a lamp bar down its left edge, the state glyphs unchanged at its right. */
   & .deck-left > .deck-list .deck-row {
     --lamp-ink: var(--border-strong);
     min-height: calc(var(--space-6) + var(--space-3));
@@ -435,8 +468,6 @@
     border-radius: 0;
     background: var(--bg-sunken);
     box-shadow: none;
-    font-family: var(--font-mono);
-    letter-spacing: 0.02em;
     &::before { content: ""; position: absolute; z-index: 1; inset: 0 auto 0 0; width: var(--space-1); background: var(--lamp-ink); pointer-events: none; }
     &:hover, &[data-hover], &[data-cursor] { background: var(--bg-hover); }
     &:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
@@ -447,7 +478,6 @@
     /* Needs him: an amber lamp, and the strip's own pulse. */
     &[data-lamp="needs"] { --lamp-ink: var(--cb-amber); }
     &[data-selected] { border-color: var(--accent); background: var(--accent-muted); }
-    &[data-selected] .deck-row__title { font-weight: var(--weight-heading); }
     &[data-queued] { border-style: dashed; }
     &[data-queued]::before { display: none; }
   }
@@ -490,13 +520,14 @@
     & .console-bay .console-scope .armada-tl__dot { background: transparent; }
     & .console-bay .console-scope :is(.armada-tl__axis-line, .armada-tl__now) { display: none; }
     & .console-bay.console-bay .deck-tile.deck-tile:focus-visible { outline: none; }
-    & .console-bay .console-scope__open { opacity: 0; }
-    & .console-bay:is(:hover, :focus-within) .console-scope__open { opacity: 1; }
+    & .console-bay .console-scope__press:focus-visible { outline: none; }
     & .console-bay__label { position: absolute; z-index: 2; font-family: var(--font-mono); line-height: 1; letter-spacing: 0.02em; white-space: nowrap; color: var(--fg-muted); pointer-events: none; user-select: none; }
     & .console-bay:is(:hover, :focus-within) > .console-bay__label, & .console-bay:has([aria-pressed="true"]) > .console-bay__label { color: var(--fg-default); }
   }
 }
 
+@keyframes cb-hud-open { from { opacity: 0; clip-path: inset(46% -8px 46% -8px); } to { opacity: 1; clip-path: inset(-8px -8px -8px -8px); } }
+@keyframes cb-hud-beam { from { opacity: 0; } }
 @keyframes cb-turn { to { rotate: 360deg; } }
 @keyframes cb-slide { from { mask-position: 0 0; } to { mask-position: -40px 0; } }
 @keyframes cb-sway { to { transform: rotate(38deg); } }
@@ -505,5 +536,5 @@
 @keyframes cb-flick { to { clip-path: inset(0 8% 0 0); } }
 
 @media (prefers-reduced-motion: reduce) {
-  :root[data-console="bridge"] :is(.deck-tile, .deck-tile > *, .deck-tile::before, .deck-tile::after, .console-gauges > i, .console-socket, .deck-bay__door::before) { animation: none !important; }
+  :root[data-console="bridge"] :is(.deck-tile, .deck-tile > *, .deck-tile::before, .deck-tile::after, .console-gauges > i, .console-socket, .deck-bay__door::before, .console-hud__beam, .console-hud__panel) { animation: none !important; }
 }

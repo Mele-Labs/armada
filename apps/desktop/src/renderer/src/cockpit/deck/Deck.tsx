@@ -394,7 +394,7 @@ function Activity({ props, listed, ship }: { props: CockpitProps; listed: readon
 }
 
 /** The graph itself, which the bridge take also seats in a bay of the console as a scope. */
-function ActivityBody({ props, listed, ship }: { props: CockpitProps; listed: readonly Subject[]; ship: Ship }) {
+function ActivityBody({ props, listed, ship, dot }: { props: CockpitProps; listed: readonly Subject[]; ship: Ship; dot?: number }) {
   const needs = useDeck((deck) => deck.needs);
   const checks = useDeck((deck) => deck.checks);
   const sel = useDeck((deck) => deck.sel);
@@ -423,6 +423,7 @@ function ActivityBody({ props, listed, ship }: { props: CockpitProps; listed: re
       {...(of === undefined ? {} : { of })}
       onPick={(event) => setFocus(event.id, event.subject.kind === "main" ? undefined : `${event.subject.kind}:${event.subject.id}`)}
       {...(lit === undefined ? {} : { lit })}
+      {...(dot === undefined ? {} : { dot })}
     />
   );
 }
@@ -908,6 +909,7 @@ function FlightControl({ ship, props, listed, unified = false }: { ship: Ship; p
                 press: (id) => DECK_ACTS[id]?.press(),
                 calling: asking,
                 scope: <ActivityBody props={props} listed={listed} ship={ship} />,
+                hud: <ActivityBody props={props} listed={listed} ship={ship} dot={12} />,
                 ...(session === undefined ? { dispatch: <DispatchKey /> } : {}),
               }}
             />

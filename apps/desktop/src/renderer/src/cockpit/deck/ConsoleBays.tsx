@@ -3,10 +3,10 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Activity as ActivityGlyph, ChartNoAxesGantt, Gauge, Maximize2, Megaphone, PlugZap, Plus, Radar, ShieldCheck, X, type LucideIcon } from "lucide-react";
+import { Activity as ActivityGlyph, ChartNoAxesGantt, Gauge, Megaphone, PlugZap, Plus, Radar, ShieldCheck, type LucideIcon } from "lucide-react";
 import { Button, Kbd, Tooltip } from "@armada/components";
 
-import { useZoomBox } from "../../job-panes/zoom";
+import { ConsoleHud } from "./ConsoleHud";
 import { glyphOf } from "./flight-glyphs";
 import { ConsoleStage, type BayState, type Dot, type Kind, type Layout, type Plan } from "./pixi/console-stage";
 import { tileCap } from "./session-tiles";
@@ -87,6 +87,8 @@ export type Wiring = {
   calling: boolean;
   /** The Activity graph, drawn into the scope. */
   scope: ReactNode;
+  /** The same graph at the HUD's size. */
+  hud: ReactNode;
   /** The Dispatch key, which is the last facet of the arc where the console is drawn on a canvas. */
   dispatch?: ReactNode;
 };
@@ -128,41 +130,23 @@ function Key({ id, wiring }: { id: InstrumentId; wiring: Wiring }) {
   );
 }
 
-/** The Activity graph as a scope. Its press opens Activity over the Cockpit's body. */
+/** The Activity graph as a scope. The whole facet is one press, which opens the HUD over the field; its graph only feeds the picture, so its dots take neither pointer nor focus. */
 function Scope({ wiring }: { wiring: Wiring }) {
   const [open, setOpen] = useState(false);
-  const box = useZoomBox(open, 0);
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: globalThis.KeyboardEvent) => event.key === "Escape" && setOpen(false);
-    document.addEventListener("keydown", close);
-    return () => document.removeEventListener("keydown", close);
-  }, [open]);
+  const facet = useRef<HTMLDivElement>(null);
+  const close = () => {
+    setOpen(false);
+    facet.current?.querySelector<HTMLElement>(".console-scope__press")?.focus();
+  };
   return (
-    <div className="console-scope" data-tile="scope">
-      {wiring.scope}
-      <span className="console-scope__open">
-        <Tooltip label="Activity" asChild>
-          <Button variant="ghost" size="sm" iconOnly aria-label="Activity" aria-expanded={open} onClick={() => setOpen(true)}>
-            <Maximize2 size={12} aria-hidden="true" />
-          </Button>
-        </Tooltip>
-      </span>
-      {open && box !== undefined
-        ? createPortal(
-            <div className="console-sheet" role="dialog" aria-label="Activity" style={{ left: box.left, top: box.top, width: box.width, height: box.height }}>
-              <header className="console-sheet__band">
-                <Tooltip label="Close" shortcut="Esc" asChild>
-                  <Button variant="ghost" size="sm" iconOnly aria-label="Close" autoFocus onClick={() => setOpen(false)}>
-                    <X size={16} aria-hidden="true" />
-                  </Button>
-                </Tooltip>
-              </header>
-              <div className="console-sheet__body">{wiring.scope}</div>
-            </div>,
-            document.body,
-          )
-        : null}
+    <div ref={facet} className="console-scope" data-tile="scope">
+      <div className="console-scope__graph" inert>
+        {wiring.scope}
+      </div>
+      <Tooltip label="Activity" asChild>
+        <button type="button" className="console-scope__press" aria-label="Activity" aria-pressed={open} aria-haspopup="dialog" onClick={() => (open ? close() : setOpen(true))} />
+      </Tooltip>
+      {open ? <ConsoleHud graph={wiring.hud} facet={facet} onClose={close} /> : null}
     </div>
   );
 }
@@ -268,7 +252,7 @@ function CanvasBays({ wiring }: { wiring: Wiring }) {
           }
           list = dots.current.list;
         }
-        return { kind, pressed: el.querySelector("[aria-pressed='true']") !== null, calling: el.querySelector("[data-calling]") !== null, lit: el.matches(":hover, :focus-within"), focused: el.querySelector(".deck-tile:focus-visible") !== null, ...(list === undefined ? {} : { dots: list }) };
+        return { kind, pressed: el.querySelector("[aria-pressed='true']") !== null, calling: el.querySelector("[data-calling]") !== null, lit: el.matches(":hover, :focus-within"), focused: el.querySelector(":is(.deck-tile, .console-scope__press):focus-visible") !== null, ...(list === undefined ? {} : { dots: list }) };
       }),
     );
     stage.current?.poke();
