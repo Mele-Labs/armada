@@ -326,7 +326,7 @@ pub fn listening(read: Result<Presence, ReadError>, at: &Path) -> Result<u16, St
     // is a process the session started earlier (8 Oct 2026).
     if found.protocol_id != ProtocolId::current() {
         eprintln!(
-            "armada mcp: the Fleet running speaks protocol {} and this `armada` speaks {}; \
+            "armada: the Fleet running speaks protocol {} and this `armada` speaks {}; \
              relaying anyway, since the door reads none of it.",
             found.protocol_id,
             ProtocolId::current()
