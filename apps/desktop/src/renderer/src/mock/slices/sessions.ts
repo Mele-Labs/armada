@@ -83,6 +83,10 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
       ok: false,
       outcome: unanswered("/sessions/waiting/dismiss"),
     }),
+    freeSlot: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/slot_choice/free"),
+    }),
     reopenWaiting: async () => ({
       ok: false,
       outcome: unanswered("/sessions/waiting/reopen"),

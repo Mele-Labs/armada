@@ -85,9 +85,24 @@ any write. **Wait** leaves the job where it is in the line: when a slot is given
 back, Fleet leases one for the head of the line, writes the lease as it would for a
 first write and moves the job into it, whether or not its refused turn has ended:
 an idle job is resumed at once, one still finishing the turn is moved as that turn
-ends. **Add** is `Fleet::change_slot_pool(Add)` for the repository and a lease of the
-new slot to **that** job, not to the head of the line; the grant is held back
-while it does, so the head cannot take the new slot first. A slot freed before he
+ends. **Add** answers at once and makes the slot after: the pool list gains a slot, its
+checkout is made holding nothing, and the slot is leased to **that** job, not to the
+head of the line. The repository is marked as making a slot meanwhile, so the grant and
+a newcomer's first write leave the new slot to the job that asked. The call stays, with
+`creating_since`, so the wait can be read from it and a screen that is left and come
+back to still shows it; a second Add while one is out changes nothing, and Wait takes the
+call off while the slot is still made and still goes to that job. A slot that cannot be
+made is taken out of the pool list again, and the call returns with `create_refused`
+holding Fleet's words. **Free** is the call's third act, and only the owner's: the call
+lists, in `holders`, each slot a job Fleet hosts holds, longest quiet first, and `free_slot`
+parks that holder as a release of its bay does and leases the slot to the waiting job ahead
+of the line. A holder whose turn runs, or whose checkout holds files no commit has, is not
+offered (`keeps`) and is refused again at the press; the holder stays live with no slot and
+leases another when it next writes. **Fleet never frees a slot by itself**, however long
+its holder has been quiet. A Free works while a slot is being made: the job goes on with
+the freed slot and the new one stays free for the next in line. The rows are read when a
+job joins the line and every 15 seconds while a call is open, not on every publish, and a
+slot a terminal or a person holds has no row. A slot freed before he
 answers goes to the head as it always did, and the call goes with it. A slot is given
 back by a job closing or its
 terminal ending, a release or rescue from

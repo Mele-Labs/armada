@@ -1768,6 +1768,15 @@ export class WiredStore {
           request,
         });
       },
+      // A refusal, such as a holder that is working or holds uncommitted work, is a toast in Fleet's words; the call stands.
+      freeSlot: (id: string, itemId: string, slot: number) =>
+        this.plain(
+          this.api.freeSlot({
+            session_id: id,
+            item_id: itemId,
+            slot,
+          }),
+        ),
       // A refusal, such as an item whose subject has ended, is a toast in Fleet's words; the item returns to Needs you by Fleet's event.
       reopenWaiting: (id: string, itemId: string) =>
         this.plain(

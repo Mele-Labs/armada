@@ -34,6 +34,7 @@ import type {
   SettleLater,
   ClaimPullRequest,
   ConfirmWaiting,
+  FreeSlot,
   DismissWaiting,
   ReopenWaiting,
   Followed,
@@ -182,6 +183,8 @@ export type SessionsApi = {
   answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
   /** Settles one thing a session waits on: a numbered choice, the person's words, or a mode that leaves it to the agent. */
   answerWaiting: (answer: AnswerWaiting) => Promise<SessionActed>;
+  /** Gives back the slot a waiting Job's full-pool call lists, to that Job. Only a press. Fleet refuses, saying why, a holder that runs or holds uncommitted work and a slot that changed hands. */
+  freeSlot: (free: FreeSlot) => Promise<SessionActed>;
   /** Takes an open pull request nobody holds for a Session. Fleet refuses, naming the holder, where a live one has it. */
   claimPullRequest: (claim: ClaimPullRequest) => Promise<SessionActed<PullRequestClaimed>>;
   /** Holds an issue, by the forge's number or a tracker's key, on a Session's ledger. Fleet refuses a reference that is neither. */
@@ -485,6 +488,7 @@ export const SESSIONS_CHANNELS = {
   startModSession: "bridge:start-mod-session",
   answerSessionAsk: "bridge:answer-session-ask",
   answerWaiting: "bridge:answer-waiting",
+  freeSlot: "bridge:free-slot",
   claimPullRequest: "bridge:claim-pull-request",
   claimIssue: "bridge:claim-issue",
   settleLater: "bridge:settle-later",

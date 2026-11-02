@@ -17,6 +17,7 @@ import type {
   ClaimPullRequest,
   ConfirmLater,
   ConfirmWaiting,
+  FreeSlot,
   DismissWaiting,
   ReopenWaiting,
   NameSession,
@@ -437,6 +438,16 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
     if (answer.mode !== undefined && answer.mode !== "best" && answer.mode !== "quick")
       return unread;
     return connection()?.sessions.answerWaiting(answer) ?? unsent;
+  });
+  ipc.handle(CHANNELS.freeSlot, (_event, free: FreeSlot) => {
+    if (
+      !text(free?.session_id) ||
+      !text(free.item_id) ||
+      !Number.isInteger(free.slot) ||
+      free.slot < 1
+    )
+      return unread;
+    return connection()?.sessions.freeSlot(free) ?? unsent;
   });
   ipc.handle(CHANNELS.claimPullRequest, (_event, claim: ClaimPullRequest) => {
     if (!Number.isInteger(claim?.number) || claim.number < 1) return unread;

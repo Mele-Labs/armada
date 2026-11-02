@@ -1806,8 +1806,6 @@ export type SessionsDraft = {
    * slot's holder stays in its list and leases another when it next writes. Never sent by Fleet on its own. Absent where nothing serves it.
    */
   freeSlot?: (id: string, itemId: string, slot: number) => void | Promise<unknown>;
-  /** Starts one more slot for the Job whose `slot_choice` call (`itemId`) is open: the call stays, marked, until the slot is made and the Job moves on. Absent where nothing serves it. */
-  createSlot?: (id: string, itemId: string) => void | Promise<unknown>;
   /** Puts an item he closed back in Needs you. Absent where nothing serves it, and the Closed rows draw no Reopen. */
   reopenWaiting?: (id: string, itemId: string) => void | Promise<unknown>;
   /** Answers a sketch put to him: approved, or sent back with a note (`POST /sessions/sketch/answer`). Absent where nothing serves it. */

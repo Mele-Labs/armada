@@ -166,6 +166,7 @@ import type {
   ClaimPullRequest,
   ConfirmLater,
   ConfirmWaiting,
+  FreeSlot,
   DismissWaiting,
   ReopenWaiting,
   IssueClaimed,
@@ -519,6 +520,7 @@ type OldBridgeApi = {
   startModSession: (start: StartModSession) => Promise<SessionActed<ModSessionStarted>>;
   answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
   answerWaiting: (answer: AnswerWaiting) => Promise<SessionActed>;
+  freeSlot: (free: FreeSlot) => Promise<SessionActed>;
   claimPullRequest: (claim: ClaimPullRequest) => Promise<SessionActed<PullRequestClaimed>>;
   claimIssue: (claim: ClaimIssue) => Promise<SessionActed<IssueClaimed>>;
   settleLater: (settle: SettleLater) => Promise<SessionActed<LaterSettled>>;
@@ -984,6 +986,7 @@ const OLD_CHANNELS = {
   startModSession: "bridge:start-mod-session",
   answerSessionAsk: "bridge:answer-session-ask",
   answerWaiting: "bridge:answer-waiting",
+  freeSlot: "bridge:free-slot",
   claimPullRequest: "bridge:claim-pull-request",
   claimIssue: "bridge:claim-issue",
   settleLater: "bridge:settle-later",

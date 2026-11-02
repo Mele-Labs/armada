@@ -345,7 +345,8 @@ export type WaitingAct = {
  * person has not approved; it is approved, or sent changes, from its own card.
  * `slot_choice` (id `slot-choice`, text `Every slot is in use`, act `answer`) is Fleet asking what to do for a
  * Session that found every worktree slot held: its two options are `Wait for a slot` (choice 0) and `Add a slot`
- * (choice 1), answered with `answer_waiting` and a `choice`. No message goes to the agent. `delivery` (id `delivery`, text
+ * (choice 1), answered with `answer_waiting` and a `choice`. No message goes to the agent. It also carries `holders` (answered by
+ * `free_slot`), and while Add is under way `creating_since` and, where it failed, `create_refused`. `delivery` (id `delivery`, text
  * `How should this work be delivered?`, act `answer`) is Fleet asking a bug or feature Job's owner how the work leaves its
  * branch: `Auto land` (choice 0), `Open PR only` (choice 1), `Keep local` (choice 2), each with a description. The agent was
  * told to stop and is sent the choice. `words_address` (id `words:<mod>:<manifest id>`, text `Where does <name> open in <manifest id>?`,
@@ -495,6 +496,37 @@ export type WaitingItem = {
   place?: WindowPlace;
   /** A `replied` item whose sentence he said is a question (`confirm_waiting`). Absent where he has not. */
   confirmed?: boolean;
+  /** On a `slot_choice` item only: the slots a Job Fleet hosts holds, longest quiet first. Absent where Fleet has read none, and the call then draws two choices and no rows. */
+  holders?: SlotHolder[];
+  /** On a `slot_choice` item only: when Fleet began making the slot Add asked for. While it is present the call stays, and asks for nothing. */
+  creating_since?: string;
+  /** On a `slot_choice` item only: why the last slot Fleet tried to make was not made. Gone the next time Add is answered. */
+  create_refused?: string;
+};
+
+/** One slot a Job Fleet hosts holds, offered on a `slot_choice` call. `keeps` is why Free is off: its turn is running, or its checkout holds files no commit has. Fleet decides it. */
+export type SlotHolder = {
+  slot: number;
+  job: {
+    id: string;
+    title: string;
+  };
+  /** When the holder last finished a turn, and its lease time where it has not. */
+  quiet_since: string;
+  keeps?: "running" | "uncommitted";
+};
+
+/**
+ * `free_slot` (`POST /sessions/slot_choice/free`): the person gives back the slot a waiting Job's call lists, to that
+ * Job. `session_id` is the waiting Job and `item_id` its `slot_choice` item (`slot-choice`). Only a press: Fleet never
+ * frees a slot by itself. 409 where the call is gone, the holder runs (`fleet.slot_session_working`) or holds
+ * uncommitted work (`fleet.slot_uncommitted`), or the slot is no longer its holder's (`fleet.slot_holder_changed`).
+ * Answers the waiting Job's `SessionRecord`.
+ */
+export type FreeSlot = {
+  session_id: string;
+  item_id: string;
+  slot: number;
 };
 
 /**

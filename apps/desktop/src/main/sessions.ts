@@ -56,6 +56,7 @@ import type {
   WatchSummary,
   ClaimPullRequest,
   ConfirmWaiting,
+  FreeSlot,
   DismissWaiting,
   ReopenWaiting,
   Followed,
@@ -1112,6 +1113,11 @@ export class SessionsHost {
 
   async answerWaiting(answer: AnswerWaiting): Promise<SessionActed> {
     return await this.act("POST", "/sessions/waiting/answer", answer);
+  }
+
+  /** The person's Free of a slot a waiting Job's call lists. Fleet answers the waiting Job's record, which is folded, or refuses with its words. */
+  async freeSlot(free: FreeSlot): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/slot_choice/free", free);
   }
 
   /** A pull request nobody holds, taken for a session. Fleet shows the new row in the ledger, so nothing is folded here. */

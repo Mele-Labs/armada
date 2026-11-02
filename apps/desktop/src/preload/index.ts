@@ -178,6 +178,7 @@ import type {
   ClaimPullRequest,
   ConfirmLater,
   ConfirmWaiting,
+  FreeSlot,
   DismissWaiting,
   ReopenWaiting,
   IssueClaimed,
@@ -1073,6 +1074,7 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.answerSessionAsk, answer),
   answerWaiting: (answer: AnswerWaiting): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.answerWaiting, answer),
+  freeSlot: (free: FreeSlot): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.freeSlot, free),
   claimPullRequest: (claim: ClaimPullRequest): Promise<SessionActed<PullRequestClaimed>> =>
     ipcRenderer.invoke(CHANNELS.claimPullRequest, claim),
   claimIssue: (claim: ClaimIssue): Promise<SessionActed<IssueClaimed>> =>
