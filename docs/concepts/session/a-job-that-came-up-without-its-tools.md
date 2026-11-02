@@ -10,6 +10,11 @@ Fleet reads that `init` line and keeps three facts from it: whether the mod is a
 The mod counts as missing whenever the line lists no `armada` plugin, whether or not the launch passed `--plugin-dir`.
 Each `init` replaces the last, and the mark stays after the process is let go, so it says how the last one came up.
 
+**An installed app's Jobs find `armada` without the person's help.**
+The hosted door's configuration names Fleet's own binary by its path, and Fleet puts its own folder first on a Job's `PATH`, so `armada` resolves inside the app's bundle where no other entry would hold it.
+The installer links `~/.local/bin/armada` to it for a terminal Job.
+A repository's committed `.mcp.json` still names `armada` bare, since an absolute path would be wrong in another checkout.
+
 **A missing door, or a missing mod where the launch passed `--plugin-dir`, is mended by one restart.**
 Fleet ends the process and starts a replacement that resumes the conversation, as it does for a process that was gone before it took its lines, and sends it the lines the old one had not finished.
 A Job with no conversation yet starts fresh under the same id.
@@ -26,11 +31,11 @@ A line that finds Fleet with nothing unfinished to send, or the Job waiting to b
 
 **Restart the agent is the person's own press, and has no once-only guard.**
 The tools band and the mark's menu offer it for the `mod` piece, and it calls `mend_session_tools`.
-Fleet fills its copy of the mod first, then lets the process go and starts a replacement that resumes the conversation, sending it the lines the old one had not finished.
+Fleet fills its copy of the mod first (from the app's bundle, or a served repository where there is none), then lets the process go and starts a replacement that resumes the conversation, sending it the lines the old one had not finished.
 A Job with none has no turn to carry the restart, so Fleet tells the replacement `Fleet restarted your process with the armada mod. Nothing is asked of you.`: news, which leaves the agent's `all_done` standing, kept from any mute or rule since it answers the press.
 A Job waiting to be moved into a slot, or paused, is left as it is, because the move or the resume starts the process that loads the copy.
 The answer comes once the restart is under way, and the mark clears when the new process's own `init` line says nothing is missing.
-A copy that cannot be filled refuses the press with the script's words and restarts nothing; a terminal Job is refused too, since Fleet does not host its process.
+A copy that cannot be filled refuses the press with why and restarts nothing; a terminal Job is refused too, since Fleet does not host its process.
 **Fleet uses the same restart unasked** for a process whose reported mod is older than its copy, once it is between turns, and starts no replacement: the Job's next line does ([Installing the Claude Code mod](installing-the-claude-code-mod.md)).
 
 **Bridge draws the mark as the `unplug` glyph**, on the Job's row in the Jobs list and in its header, with a tooltip that is the label: the CLI's version, then a sentence for each piece missing, such as `Claude Code 2.1.312. No armada mod. No task tools.`
