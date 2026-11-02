@@ -1,7 +1,8 @@
 // Autopilot's members: one repository's Autopilot mid-run, so the Cockpit lane has something to draw.
 // Two picks started, one set aside with its reason, and one withdrawn by an earlier Stop. `pocket`'s is
-// paused by its Session cap, and Resume is refused, naming the cap, until Edit caps raises it. The acts
-// move it as Fleet would; what Fleet keeps and picks is `fleet::autopilot`'s. #2092, #2105.
+// paused by its Session cap, as is the one `autopilot-why` opens on. A start over a running or paused one
+// is refused as Fleet refuses it, so it has to be stopped first. The acts move it as Fleet would; what
+// Fleet keeps and picks is `fleet::autopilot`'s. #2092, #2105.
 
 import type { Autopilot, AutopilotProposal, Outcome } from "@armada/protocol";
 
@@ -90,16 +91,9 @@ function capped(manifestId: string): Autopilot {
   };
 }
 
-/** The cap that still holds, in Fleet's words for a Resume past it. Until is left to the mock's own record. */
-function held(autopilot: Autopilot): string | undefined {
-  if (autopilot.session_cap !== undefined && autopilot.sessions_started >= autopilot.session_cap) return "the Session cap is reached. Raise it, then resume";
-  if (autopilot.spend_cap_micros !== undefined && autopilot.spent_micros >= autopilot.spend_cap_micros) return "the spend cap is reached. Raise it, then resume";
-  return undefined;
-}
-
-const refused = (message: string): { ok: false; outcome: Outcome } => ({
+const refused = (code: string, message: string): { ok: false; outcome: Outcome } => ({
   ok: false,
-  outcome: { ok: false, why: "refused", error: { code: "fleet.autopilot_capped", message, run_id: "", fields: {}, chain: [] } },
+  outcome: { ok: false, why: "refused", error: { code, message, run_id: "", fields: {}, chain: [] } },
 });
 
 export const autopilot: Slice<AutopilotApi, Record<string, never>> = {
@@ -107,7 +101,14 @@ export const autopilot: Slice<AutopilotApi, Record<string, never>> = {
   state: {},
   api: (scenario) => {
     // `autopilot-back` is the Cockpit with Autopilot already running, started before the person left.
-    const kept = new Map<string, Autopilot>(scenario.name === "autopilot-back" ? [[BACK_MANIFEST, { ...running(BACK_MANIFEST), decisions: ["recommended", "open", "land"], picks: [] }]] : []);
+    // `autopilot-why` is the Cockpit after a cap brought it down while the person was away.
+    const kept = new Map<string, Autopilot>(
+      scenario.name === "autopilot-back"
+        ? [[BACK_MANIFEST, { ...running(BACK_MANIFEST), decisions: ["recommended", "open", "land"], picks: [] }]]
+        : scenario.name === "autopilot-why"
+          ? [[BACK_MANIFEST, capped(BACK_MANIFEST)]]
+          : [],
+    );
     const told = new Set<(autopilot: Autopilot) => void>();
     const of = (manifestId: string): Autopilot => kept.get(manifestId) ?? (manifestId === "pocket" ? capped(manifestId) : running(manifestId));
     const moved = (manifestId: string, change: Partial<Autopilot>) => {
@@ -131,13 +132,11 @@ export const autopilot: Slice<AutopilotApi, Record<string, never>> = {
         };
         return { ok: true, value: proposal };
       },
-      startAutopilot: async (manifestId, settings) =>
-        moved(manifestId, { ...settings, state: "running", picks: [], spent_micros: 0, sessions_started: 0, at_work: 0, ended_at: undefined, capped_by: undefined }),
-      updateAutopilot: async (manifestId, settings) => moved(manifestId, { until: undefined, spend_cap_micros: undefined, session_cap: undefined, ...settings }),
-      pauseAutopilot: async (manifestId) => moved(manifestId, { state: "paused" }),
-      resumeAutopilot: async (manifestId) => {
-        const holding = held(of(manifestId));
-        return holding === undefined ? moved(manifestId, { state: "running", capped_by: undefined }) : refused(`Autopilot stays paused: ${holding}`);
+      startAutopilot: async (manifestId, settings) => {
+        const was = kept.get(manifestId)?.state;
+        if (was === "running") return refused("fleet.autopilot_running", "Autopilot is running");
+        if (was === "paused") return refused("fleet.autopilot_not_running", "Autopilot is paused");
+        return moved(manifestId, { ...settings, state: "running", picks: [], spent_micros: 0, sessions_started: 0, at_work: 0, ended_at: undefined, capped_by: undefined });
       },
       stopAutopilot: async (manifestId) => moved(manifestId, { state: "stopped", ended_at: "2026-10-12T07:12:00.000Z" }),
       listAutopilots: async () => ({ ok: true, value: { autopilots: [...kept.values()] } }),

@@ -24,6 +24,11 @@
 .gs[data-lifted] .gs__lamp[data-lamp="arm"] { background: var(--cb-amber); box-shadow: 0 0 calc(var(--u) * 6) var(--cb-amber); animation: cb-blink calc(var(--duration-pulse) * 0.75) steps(2) infinite; }
 .gs[data-on] .gs__lamp[data-lamp="arm"] { animation: none; }
 .gs[data-on] .gs__lamp[data-lamp="on"] { background: var(--status-completed-success); box-shadow: 0 0 calc(var(--u) * 8) var(--status-completed-success); }
+/* The third lamp is a press: lit while answers wait, and its hit area is wider than the lamp. */
+.gs__lamp[data-lamp="answers"] { position: relative; padding: 0; cursor: default; }
+.gs__lamp[data-lamp="answers"]::before { content: ""; position: absolute; inset: calc(var(--u) * -4) calc(var(--u) * -3); }
+.gs__lamp[data-lamp="answers"][data-lit] { background: var(--cb-cyan); box-shadow: 0 0 calc(var(--u) * 6) var(--cb-cyan); cursor: pointer; }
+.gs__lamp[data-lamp="answers"]:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--u) * 2); }
 
 /* The well the switch stands in. */
 .gs__well { position: absolute; top: calc(var(--u) * 12); left: calc(var(--u) * 16); width: calc(var(--u) * 68); height: calc(var(--u) * 76); border: calc(var(--u) * 1) solid var(--border-strong); background: var(--bg-sunken); box-shadow: inset 0 calc(var(--u) * 3) 0 var(--deck-key-seat); }
@@ -91,6 +96,8 @@
   & .ap-hud__limits { display: grid; gap: var(--space-2); }
   & .ap-hud__limits .armada-input-field { display: grid; grid-template-columns: minmax(0, 1fr) calc(var(--space-12) + var(--space-8)); align-items: center; gap: var(--space-2); }
   & .ap-hud__sidings { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+  & .ap-hud__why { display: grid; gap: var(--space-1); margin: auto 0 0; padding: 0; list-style: none; font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--cb-amber); }
+  & .ap-hud__why + .ap-hud__go { margin-block-start: 0; }
   & .ap-hud__go { display: grid; margin-block-start: auto; }
   & .ap-hud__go .armada-tooltip { display: grid; }
   & .ap-hud__go .armada-button { border-radius: 0; }

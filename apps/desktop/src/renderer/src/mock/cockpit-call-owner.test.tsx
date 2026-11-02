@@ -41,13 +41,3 @@ test("a call whose Session the deck does not list opens the Session's page, not 
   await expect.element(page.getByRole("complementary", { name: "Helm" })).toBeVisible();
   expect(card()).toBeNull();
 });
-
-// What Autopilot answered is about no Job, Session or pull request the deck lists, so it is the one call the card is for.
-test("a call about nothing opens the card", async () => {
-  mount("autopilot-back");
-  await onScreen();
-  // The answers are calls already; the key brings one forward.
-  await userEvent.keyboard("w");
-  await expect.element(page.getByRole("region", { name: /^Call: / })).toBeVisible();
-  expect(card()).not.toBeNull();
-});

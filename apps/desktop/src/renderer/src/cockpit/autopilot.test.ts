@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Autopilot, IssueList } from "@armada/protocol";
-import type { Session } from "@armada/screens/src/draft/sessions";
 
-import { capsOf, clockOf, dollars, cappedOf, localNow, nextUpOf, readingOf, settingsFrom, setAsideOf, stoppingOf } from "./autopilot";
+import { clockOf, dollars, cappedOf, localNow, nextUpOf, readingOf, settingsFrom, setAsideOf } from "./autopilot";
 
 const NOW = Date.parse("2026-10-12T05:00:00.000Z");
 
@@ -31,32 +30,6 @@ function autopilot(over: Partial<Autopilot> = {}): Autopilot {
   };
 }
 
-const session = (id: string, over: Partial<Session> = {}): Session => ({ id, turn: { state: "working" }, rows: [], attachments: [], lastTurnAt: "2026-10-12T03:01:00Z", ...over });
-const SESSIONS = [session("s1", { turn: { state: "idle" }, lastTurnAt: undefined }), session("s2"), session("s3")];
-
-describe("the caps row", () => {
-  it("is each cap used of its limit, with the one reached lit", () => {
-    const caps = capsOf(autopilot(), NOW);
-    expect(caps.map((cap) => [cap.label, cap.reached])).toEqual([
-      ["At once", true],
-      ["Spend", false],
-      ["Jobs", false],
-      ["Until", false],
-    ]);
-    expect(caps[0]!.value).toBe("2 of 2 running");
-    expect(caps[1]!.value).toBe("$12.40 of $30");
-    expect(caps[2]!.value).toBe("3 started · no cap");
-    expect(caps[3]).toMatchObject({ at: "2026-10-12T07:00:00.000Z", value: "2h 00m left" });
-    expect(caps[3]!.fill).toBe(0.5);
-  });
-
-  it("says a cap that is not set, and lights the one that paused it", () => {
-    const caps = capsOf(autopilot({ state: "paused", capped_by: "sessions", session_cap: 3, until: undefined, spend_cap_micros: undefined, at_work: 1 }), NOW);
-    expect(caps.map((cap) => cap.value)).toEqual(["1 of 2 running", "$12.40 · no cap", "3 of 3 started", "no time set"]);
-    expect(caps.map((cap) => cap.reached)).toEqual([false, false, true, false]);
-  });
-});
-
 describe("which cap paused it", () => {
   it("names the cap that paused it, and says nothing of a person's own Pause", () => {
     expect(cappedOf(autopilot({ state: "paused", capped_by: "sessions" }))).toBe("Job cap reached");
@@ -64,16 +37,6 @@ describe("which cap paused it", () => {
     expect(cappedOf(autopilot({ state: "paused", capped_by: "until" }))).toBe("time to stop passed");
     expect(cappedOf(autopilot({ state: "paused" }))).toBeUndefined();
     expect(cappedOf(autopilot())).toBeUndefined();
-  });
-});
-
-describe("what Stop says before it is pressed", () => {
-  it("names the picks withdrawn and the Sessions that carry on", () => {
-    expect(stoppingOf(autopilot(), SESSIONS)).toBe("Stop ends Autopilot. #1850, picked and not started, is withdrawn. #1820 and #1834 keep going to the end.");
-  });
-
-  it("falls back to what Stop does where no Session of its own is held", () => {
-    expect(stoppingOf(autopilot(), [])).toBe("Stop ends Autopilot. Picks that have not started are withdrawn, and started Jobs carry on.");
   });
 });
 

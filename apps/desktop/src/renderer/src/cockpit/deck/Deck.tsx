@@ -23,6 +23,7 @@ import { sessionHolds } from "./session-prs";
 import { askToOpenSessionInCockpit } from "../../open-session";
 import { useQueued, useSessions, useSessionsDraft } from "../../sessions-draft";
 import { arrivedHere, noteArrivals } from "../../arrivals";
+import { AutopilotAnswersHud } from "./AutopilotAnswers";
 import { ArmSetup, GuardSwitch, openSetup } from "./AutopilotArm";
 import { useColumns } from "./columns";
 import { useSplits } from "./splits";
@@ -1043,6 +1044,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     <CallsOverField props={props} ship={ship} listed={listed} calling={calling} />
     <ArmSetup repositories={(props.state.holds.repositories ?? []).flatMap((one) => (one.manifest === undefined ? [] : [{ id: one.manifest.id, name: one.manifest.repository }]))} state={props.state} />
     <TimelineOverField props={props} ship={ship} />
+    <AutopilotAnswersHud ship={ship} onOpenSession={props.onOpenSession} />
     <AutopilotAsked />
     {/* Powering on, each panel comes online in turn and fills as Fleet answers (`power.css`). */}
     <div ref={deckMarks} className="armada-cockpit deck" data-power={powering(power) ? power : undefined}>

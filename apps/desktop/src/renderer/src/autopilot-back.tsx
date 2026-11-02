@@ -1,14 +1,17 @@
 // When the owner is back: while any Autopilot runs, the first key or press anywhere in the window after ten
 // minutes with neither asks whether to keep it on. It keeps running until they answer; nothing turns off by
 // itself. Keeping it on closes the question, and it comes back only after ten more minutes with no input.
+// Either answer then opens what Autopilot answered meanwhile, where there is any.
 // Presses inside the switch or the setup are the owner using Autopilot, so they are never the one that asks.
 // **The press that asks does not also act on what was under it.** Its own key-up, or its mouse-up and click, are
 // eaten too.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 
+import { useAutopilotDecided } from "./autopilot-decisions";
+import { showAnswers } from "./cockpit/deck/AutopilotAnswers";
 import { stopRunning, useRunning } from "./cockpit/deck/autopilots";
 import { WALK_UI } from "./walk-find";
 
@@ -65,6 +68,9 @@ export function AutopilotBack({ repositories }: { repositories: readonly Reposit
   const running = useRunning();
   const on = running.length > 0;
   const [asking, setAsking] = useState(false);
+  // Read when the question is answered, which the key listener below was set up before.
+  const waiting = useRef(false);
+  waiting.current = useAutopilotDecided().length > 0;
 
   useEffect(() => {
     watching.on = on;
@@ -79,10 +85,15 @@ export function AutopilotBack({ repositories }: { repositories: readonly Reposit
     };
   }, [on]);
 
+  // A frame later, so the key that answered has been heard and the question has given its focus back before the list takes it.
+  const review = () => {
+    if (waiting.current) window.requestAnimationFrame(showAnswers);
+  };
   const keep = () => {
     lastInput = Date.now();
     watching.asking = false;
     setAsking(false);
+    review();
   };
   const off = () => {
     keep();

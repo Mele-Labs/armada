@@ -21,6 +21,7 @@ import { forgetFirsts } from "../run-book";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
 import { AreasFrom } from "../cockpit/deck/areas-source";
+import { forgetAnswers } from "../cockpit/deck/AutopilotAnswers";
 import { forgetTimeline } from "../cockpit/deck/ConsoleTimeline";
 import { forgetDeck } from "../cockpit/deck/store";
 import { skipsMods } from "../theme-loader";
@@ -165,6 +166,7 @@ export function mountApp(
   if (shared === undefined) {
     forgetDeck();
     forgetTimeline();
+    forgetAnswers();
   }
   // A run kept past its card belongs to the Fleet that ran it.
   if (shared === undefined) forgetKeptRuns();

@@ -1,5 +1,5 @@
-// What Autopilot answered while the owner was away, which the Cockpit draws as calls to review
-// (`Dashboard`'s `useItems`). The list lives behind a source, the way Phone's does, so a Bridge with no
+// What Autopilot answered while the owner was away, which the Cockpit lists in a HUD opened from the Autopilot switch
+// (`cockpit/deck/AutopilotAnswers.tsx`). The list lives behind a source, the way Phone's does, so a Bridge with no
 // source draws none. The real one is `fleet-autopilot-decisions.ts`, over Fleet's `/autopilot/decisions`
 // routes; the mock's Fleet answers the same routes.
 

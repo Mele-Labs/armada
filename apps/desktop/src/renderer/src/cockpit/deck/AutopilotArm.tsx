@@ -8,9 +8,10 @@ import type { Autopilot } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeState } from "../../../../shared/bridge";
-import { settingsFrom } from "../autopilot";
+import { settingsFrom, whyOf } from "../autopilot";
+import { putAnswersAway, toggleAnswers, useAnswersHud, useAnswersWaiting } from "./AutopilotAnswers";
 import { AutopilotPicks } from "./AutopilotPicks";
-import { fold, isRunning, stopRunning, useAlive, useRunning } from "./autopilots";
+import { fold, isRunning, pausedIds, stopPaused, stopRunning, useAlive, useRunning } from "./autopilots";
 import { ConsoleHud, type Box } from "./ConsoleHud";
 import { deckNow, select } from "./store";
 import "./autopilot-arm.css";
@@ -99,7 +100,13 @@ async function start() {
   const read = settingsFrom(arm.instruction.trim() === "" ? "Work through the open issues" : arm.instruction, arm.fields, Date.now(), { work: arm.work, decisions: arm.decisions });
   if (!read.ok) return move({ refused: read.why });
   move({ starting: true, refused: undefined });
-  const answers = await Promise.all([...arm.repositories].map(async (manifest) => await window.armada.startAutopilot?.(manifest, read.settings)));
+  // Fleet refuses a start over a paused Autopilot, so a paused one is stopped first and the start is the same press.
+  const answers = await Promise.all(
+    [...arm.repositories].map(async (manifest) => {
+      await stopPaused(manifest);
+      return await window.armada.startAutopilot?.(manifest, read.settings);
+    }),
+  );
   const refusals: string[] = [];
   for (const one of answers) {
     if (one === undefined) continue;
@@ -110,13 +117,20 @@ async function start() {
 }
 
 const ready = (one: { repositories: ReadonlySet<string> }) => one.repositories.size > 0;
+/** Where an Autopilot a cap brought down is the one to start again, its repository is checked for him. */
+const checkPaused = () => {
+  const paused = pausedIds();
+  if (arm.repositories.size === 0 && paused.length > 0) move({ repositories: new Set(paused) });
+};
 /** What the HUD's beam comes up from. */
 const facetEl = () => document.querySelector<HTMLElement>(".console-bay > .gs");
 
 /** The console only stands over the field, so a Job open on the stage gives way to it. */
 export function openSetup() {
+  putAnswersAway();
   if (deckNow().sel !== undefined) select(undefined);
   window.requestAnimationFrame(() => {
+    checkPaused();
     move({ open: true });
     window.requestAnimationFrame(() => document.querySelector<HTMLElement>(".ap-hud input")?.focus());
   });
@@ -132,12 +146,16 @@ function closeSetup() {
 export function GuardSwitch() {
   const held = useShown();
   const plate = useRef<HTMLElement>(null);
+  const waiting = useAnswersWaiting();
+  const answers = useAnswersHud();
   const focusOn = (part: string) => plate.current?.querySelector<HTMLElement>(part)?.focus();
   const lift = () => {
     if (held.lifted) {
       if (held.on) void stopRunning();
       return move({ lifted: false, open: false });
     }
+    putAnswersAway();
+    checkPaused();
     move({ lifted: true, open: true });
     window.requestAnimationFrame(() => focusOn(".gs__bat"));
   };
@@ -154,9 +172,27 @@ export function GuardSwitch() {
   };
   return (
     <section ref={plate} className="gs deck-autopilot" aria-label="Autopilot switch" data-keeps-autopilot="" data-lifted={held.lifted || undefined} data-on={held.on || undefined}>
-      <span className="gs__lamps" aria-hidden="true">
-        <span className="gs__lamp" data-lamp="arm" />
-        <span className="gs__lamp" data-lamp="on" />
+      <span className="gs__lamps">
+        <span className="gs__lamp" data-lamp="arm" aria-hidden="true" />
+        <span className="gs__lamp" data-lamp="on" aria-hidden="true" />
+        {/* Lit while answers wait; unlit, it does nothing. */}
+        <Tooltip label="What Autopilot answered" asChild>
+          <button
+            type="button"
+            className="gs__lamp"
+            data-lamp="answers"
+            data-lit={waiting || undefined}
+            aria-label="What Autopilot answered"
+            aria-pressed={answers.open}
+            aria-disabled={!waiting}
+            tabIndex={waiting ? 0 : -1}
+            onClick={() => {
+              if (!waiting) return;
+              toggleAnswers();
+              move({ open: false });
+            }}
+          />
+        </Tooltip>
       </span>
       <div className="gs__well">
         <span className="gs__collar" aria-hidden="true" />
@@ -271,6 +307,10 @@ export function ArmSetup({ repositories, state }: { repositories: readonly { id:
   useEffect(() => {
     if (held.open && facetEl() === null) closeSetup();
   });
+  // A cap that brings the switch down while the setup is up leaves its repository checked, so Start begins it again.
+  useEffect(() => {
+    if (held.open) checkPaused();
+  }, [held.open, alive]);
   // The arm is kept outside this component, and the next Cockpit drawn must not open on it.
   useEffect(() => () => closeSetup(), []);
   if (!held.open || facet.current === null) return null;
@@ -290,6 +330,12 @@ export function ArmSetup({ repositories, state }: { repositories: readonly { id:
       {held.on ? "Stop Autopilot" : "Start Autopilot"}
     </Button>
   );
+  // What each checked repository's Autopilot has to say for itself; nothing where it is working.
+  const checked = repositories.filter((one) => held.repositories.has(one.id));
+  const lines = alive.flatMap((one) => {
+    const why = held.repositories.has(one.manifest_id) ? whyOf(one) : undefined;
+    return why === undefined ? [] : [checked.length > 1 ? `${checked.find((repo) => repo.id === one.manifest_id)?.name ?? one.manifest_id}: ${why}` : why];
+  });
   const field = (key: keyof AutopilotFields, label: string, extra?: { unit?: string; placeholder?: string }) => <Input label={label} mono value={held.fields[key]} {...extra} onChange={(event) => move({ fields: { ...held.fields, [key]: event.currentTarget.value } })} />;
   return (
     <ConsoleHud label="Autopilot setup" name="Autopilot" facet={facet} onClose={closeSetup} place={placeOf} head={HEAD} landsItself kind="autopilot" role="region" art={(w, h) => <Parts w={w} h={h} />}>
@@ -312,6 +358,13 @@ export function ArmSetup({ repositories, state }: { repositories: readonly { id:
                   </Checkbox>
                 ))}
               </Group>
+              {lines.length === 0 ? null : (
+                <ul className="ap-hud__why" aria-label="Why">
+                  {lines.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              )}
               <div className="ap-hud__go">
                 {held.on || ready(held) ? press : <Tooltip label="No repository checked">{press}</Tooltip>}
                 {held.refused === undefined ? null : (

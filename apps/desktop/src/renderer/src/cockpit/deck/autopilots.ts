@@ -57,6 +57,16 @@ export function useAlive(): Autopilot[] {
   return useMemo(() => [...all.values()].filter((one) => one.state !== "stopped"), [all]);
 }
 
+/** The repositories whose Autopilot a cap paused, read where a component is not. */
+export const pausedIds = (): string[] => [...held.values()].filter((one) => one.state === "paused").map((one) => one.manifest_id);
+
+/** Ends a paused Autopilot, which Fleet requires before a start over it. */
+export async function stopPaused(manifest: string): Promise<void> {
+  if (!served() || held.get(manifest)?.state !== "paused") return;
+  const stopped = await window.armada.stopAutopilot(manifest);
+  if (stopped.ok) fold(stopped.value);
+}
+
 /** Whether any Autopilot is running, read where a component is not. */
 export const isRunning = (): boolean => runningIn(held).length > 0;
 

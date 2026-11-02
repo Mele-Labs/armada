@@ -1,38 +1,28 @@
 // Back at the window with Autopilot running. After ten minutes with no input the first press asks whether to keep it on and does
-// not act on what was under it. Keep it on closes it. What Autopilot answered meanwhile is calls to review: Agree, a correction to
-// the Job, and Agree alone where there is no Job to correct. After ten more minutes the question comes back, and Turn it off puts
-// the switch down. Over `autopilot-back`, whose Fleet holds the answers (`slices/autopilot-decisions.ts`).
+// not act on what was under it. Either answer opens what Autopilot answered meanwhile, in a HUD the switch's lamp opens: Agree,
+// Change with words for the Job, and the Job itself with Back coming to that row. Over `autopilot-back`, whose Fleet holds the
+// answers (`slices/autopilot-decisions.ts`).
 
-import { button, deckRow, dialog, inside, region, role, text, walk } from "../walk";
+import { button, deckRow, dialog, inside, region, role, walk } from "../walk";
 
-const list = region("Jobs", { exact: true });
 const hardware = region("Autopilot switch");
 const asking = dialog("Autopilot is running");
-const lunch = region(/^Autopilot answered: Order the lunch/);
-const branch = region(/^Autopilot answered: Name the branch/);
-const landed = region(/^Autopilot answered: Pull request 1894/);
+const hud = dialog("What Autopilot answered");
+const answer = (job: string) => inside(hud, role("group", job));
 
 const autopilotBack = walk("autopilot-back", [
-  { look: inside(hardware, role("switch", "Autopilot")), say: "Autopilot is running: the switch stands up under its guard" },
-  { later: hardware, say: "Ten minutes pass with nobody at the window" },
-  { press: deckRow("Order the lunch"), say: "The first press asks. It does not open the Job under it" },
-  { look: asking, say: "Keep it on, or turn it off. Enter keeps it on, and so does Esc" },
-  { press: inside(asking, button("Keep it on")), say: "Keep it on closes it, and Autopilot runs on" },
-  { key: "w", on: list, say: "w brings the next call forward: an answer Autopilot gave" },
-  { look: lunch, say: "What was asked, and under it what it chose and why" },
-  { look: inside(lunch, text("Large")), say: "What it chose" },
-  { press: button(/Agree/), say: "Agree keeps the answer, and the card leaves" },
-  { key: "w", on: list, say: "The next answer" },
-  { look: branch, say: "An answer given in a Job" },
-  { press: button(/Change/), say: "Change goes to the Job's own box" },
-  { type: "feat\n", into: inside(branch, role("textbox", "Message")), say: "Enter sends the correction to the Job, and the card leaves" },
-  { key: "w", on: list, say: "The last answer" },
-  { look: landed, say: "A pull request it landed has no Job to correct, so Agree is the only act" },
-  { press: button(/Agree/), say: "Agree" },
-  { later: hardware, say: "Ten more minutes pass" },
-  { press: deckRow("Name the branch"), say: "The question comes back on the first press" },
-  { press: inside(asking, button("Turn it off")), say: "Turn it off stops Autopilot. The Jobs it started carry on" },
-  { look: inside(hardware, role("switch", "Autopilot")), say: "The switch goes down" },
+  { later: hardware, say: "Autopilot is running, and ten minutes pass with nobody at the window" },
+  { press: deckRow("Friday lunch"), say: "The first press asks. It does not open the Job under it" },
+  { press: inside(asking, button("Keep it on")), say: "Keep it on, and Autopilot runs on. Turn it off would do the same here" },
+  { look: hud, say: "Everything it answered that he has not reviewed: the Job, what was asked, what it chose and why, and when. The keys are in the list" },
+  { key: "Enter", on: answer("Friday lunch"), say: "Enter agrees with the row under the cursor, and it leaves the list" },
+  { key: "t", on: answer("Reconnect fix"), say: "t opens a box on the row to change the answer" },
+  { type: "feat\n", into: inside(hud, role("textbox", "Change")), say: "Enter sends the Job his words, and the row leaves" },
+  { key: "o", on: answer("Release notes"), say: "o opens the Job the answer was given in" },
+  { key: "Escape", on: region("Job: Release notes"), say: "Esc is Back, and it comes to the row he left" },
+  { look: answer("Release notes"), say: "Same row, same place. A landed pull request has no Job, so it offers only Agree" },
+  { key: "Escape", on: hud, say: "Esc puts the list away" },
+  { look: inside(hardware, button("What Autopilot answered")), say: "The lamp on the switch's plate stays lit while an answer waits. Pressing it opens the list again" },
 ]);
 
 export { autopilotBack as "autopilot-back" };

@@ -1,0 +1,26 @@
+/* What Autopilot answered, as a HUD over the map: the Timeline's glass, and one set of columns down every row. */
+
+:root:root {
+  & .console-hud[data-hud="autopilot-answers"] :is(.console-hud__glass, .console-hud__strip) { fill: var(--bg-sunken); fill-opacity: 0.94; }
+
+  & .console-ap { position: absolute; inset: var(--space-12) var(--border-width) var(--border-width); overflow-y: auto; color: var(--fg-default); }
+  & .console-ap__list { margin: 0; padding: 0; list-style: none; }
+  & :is(.console-ap__head, .console-ap__row) {
+    display: grid;
+    grid-template-columns: calc(var(--space-12) * 3) minmax(0, 3fr) minmax(0, 2fr) minmax(0, 4fr) calc(var(--space-12) * 1.5) calc(var(--space-8) * 3);
+    align-items: start;
+    gap: var(--space-3);
+    padding-inline: var(--space-4) var(--space-3);
+  }
+  & .console-ap__head { position: sticky; top: 0; z-index: 1; padding-block: var(--space-1); border-bottom: var(--border-width) solid var(--border-default); background: var(--bg-sunken); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-subtle); }
+  & .console-ap__row { min-height: var(--h-row-unit); padding-block: var(--space-2); border-bottom: var(--border-width) solid var(--border-subtle); border-left: var(--edge-active) solid transparent; font-size: var(--text-xs); line-height: var(--leading-xs); }
+  & .console-ap__row:hover { background: var(--bg-hover); }
+  & .console-ap__row:focus { outline: none; background: var(--bg-hover); border-left-color: var(--accent); }
+  & .console-ap__who { overflow: hidden; font-weight: var(--weight-medium); white-space: nowrap; text-overflow: ellipsis; }
+  & :is(.console-ap__asked, .console-ap__because) { color: var(--fg-muted); }
+  & .console-ap__chose { font-family: var(--font-mono); font-size: var(--text-2xs); }
+  & .console-ap__age { justify-self: end; font-family: var(--font-mono); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; color: var(--fg-muted); white-space: nowrap; }
+  & .console-ap__acts { display: grid; grid-template-columns: repeat(3, var(--space-8)); justify-content: end; align-items: center; }
+  & .console-ap__change { display: flex; align-items: flex-end; gap: var(--space-2); padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4); border-bottom: var(--border-width) solid var(--border-subtle); }
+  & .console-ap__change .armada-textarea-field { flex: 1 1 0; min-width: 0; }
+}

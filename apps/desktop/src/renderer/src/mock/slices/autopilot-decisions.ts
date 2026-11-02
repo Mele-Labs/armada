@@ -11,31 +11,43 @@ import type { Slice } from "../fake-context";
 /** The Sessions the answers were given in; the scenario `autopilot-back` opens them. */
 export const LUNCH_SESSION = "s21";
 export const BRANCH_SESSION = "s22";
+export const NOTES_SESSION = "s23";
 export const BACK_MANIFEST = repository().manifest!.id;
 
-const at = "2026-11-02T03:12:00.000Z";
+const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
 const LUNCH: AutopilotDecided = {
   id: `${LUNCH_SESSION}:q1`,
   manifest_id: BACK_MANIFEST,
   session_id: LUNCH_SESSION,
-  who: "Order the lunch",
+  who: "Friday lunch",
   kind: "recommended",
-  asked: "Which size?",
+  asked: "Which size should the order be?",
   chose: "Large",
   because: "The Job recommended Large, and the request names no size.",
-  at,
+  at: minutesAgo(250),
 };
 const BRANCH: AutopilotDecided = {
   id: `${BRANCH_SESSION}:q1`,
   manifest_id: BACK_MANIFEST,
   session_id: BRANCH_SESSION,
-  who: "Name the branch",
+  who: "Reconnect fix",
   kind: "open",
-  asked: "fix or feat?",
+  asked: "Branch prefix: fix or feat?",
   chose: "fix",
   because: "The change repairs a reconnect that dropped, so it fixes and adds nothing.",
-  at: "2026-11-02T03:40:00.000Z",
+  at: minutesAgo(190),
+};
+const NOTES: AutopilotDecided = {
+  id: `${NOTES_SESSION}:q1`,
+  manifest_id: BACK_MANIFEST,
+  session_id: NOTES_SESSION,
+  who: "Release notes",
+  kind: "open",
+  asked: "Which version heading?",
+  chose: "0.14",
+  because: "The last heading in the changelog is 0.13, and this build is the next minor.",
+  at: minutesAgo(140),
 };
 /** A pull request landed: nobody to tell, so Fleet refuses a correction. */
 const LANDED: AutopilotDecided = {
@@ -46,7 +58,7 @@ const LANDED: AutopilotDecided = {
   asked: "Land pull request 1894?",
   chose: "Landed",
   because: "Every check was green.",
-  at: "2026-11-02T04:05:00.000Z",
+  at: minutesAgo(95),
 };
 
 const noDecision = (): { ok: false; outcome: Outcome } => ({
@@ -54,7 +66,7 @@ const noDecision = (): { ok: false; outcome: Outcome } => ({
   outcome: { ok: false, why: "refused", error: { code: "fleet.autopilot_no_decision", message: "No such answer", run_id: "", fields: {}, chain: [] } },
 });
 
-const BACK: readonly AutopilotDecided[] = [LUNCH, BRANCH, LANDED];
+const BACK: readonly AutopilotDecided[] = [LUNCH, BRANCH, NOTES, LANDED];
 
 export const autopilotDecisions: Slice<AutopilotDecisionsApi, Record<string, never>> = {
   name: "autopilotDecisions",
