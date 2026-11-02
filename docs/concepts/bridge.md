@@ -55,9 +55,9 @@ The Cockpit is the window's first tab, and its own left column holds the reposit
 See [Cockpit](cockpit.md).
 Finer layout treatment within each journey remains UI/UX design phase work.
 
-**The title row** carries a wordmark, the tabs, the one bar that searches and dispatches (an icon and its key while the tabs are drawn), the plan's limits, once Helm's dock is closed its own reopen button, Fleet's status dot, and one menu holding the account, Sleep, Settings and Doctor.
+**The title row** carries a wordmark, the tabs, the one bar that searches and dispatches (an icon and its key while the tabs are drawn), the plan's limits, once Helm's dock is closed its own reopen button, Fleet's status dot, and one menu holding the account, Settings and Doctor.
 The account entry reads Sign in with GitHub while signed out and opens the [account](account.md) once signed in; Settings carries its key.
-The menu button carries a moon while Sleep is on and an amber dot while signed out.
+The menu button carries an amber dot while signed out.
 Below the row's narrow width the other controls are listed in the menu, and the tabs stay.
 
 | Tab | Opens | Key |

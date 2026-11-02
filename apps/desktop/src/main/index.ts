@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, net, Notification } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, net, Notification, shell } from "electron";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -35,7 +35,7 @@ import { openServerLink } from "./servers";
 import { handleRehearsal } from "./rehearsal-channels";
 import { handleRepositories } from "./repository-channels";
 import { handleSessions } from "./session-channels";
-import { handleSleep } from "./sleep-channels";
+import { handleAutopilotDecisions } from "./autopilot-decisions-channels";
 import { handleSketchShare } from "./sketch-share";
 import { handleAttachments } from "./attachments";
 import { handleAccounts } from "./accounts-channels";
@@ -549,7 +549,7 @@ void app.whenReady().then(() => {
   connection.sessions.onAsked(
     (sessionId, title, window, place, itemId) => void captureWindows.askedFor(sessionId, title, window, place, itemId),
   );
-  // Sleep mode or a repository's Autopilot changed in Fleet: every window gets the night, or it, whole.
+  // Autopilot's answers or a repository's Autopilot changed in Fleet: every window gets the list, or it, whole.
   const everyWindow = (channel: string, ...values: unknown[]): void => {
     for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(channel, ...values);
   };
@@ -602,7 +602,7 @@ void app.whenReady().then(() => {
   );
   connection.sessions.onBrowser((request) => void jobBrowsers.request(request));
   handleJobBrowsers({ ipc: ipcMain, browsers: jobBrowsers, known: (sessionId) => connection?.sessions.recordOf(sessionId) !== undefined });
-  connection.sleep.onChanged((state) => everyWindow(CHANNELS.sleepChanged, state));
+  connection.autopilotDecisions.onChanged((decisions) => everyWindow(CHANNELS.autopilotDecisionsChanged, decisions));
   connection.planUsage.onChanged((usage) => everyWindow(CHANNELS.planUsageChanged, usage));
   connection.modelDownshift.onChanged((state) => {
     downshiftNotice.read(state);
@@ -806,7 +806,7 @@ void app.whenReady().then(() => {
     },
     published: () => published,
   });
-  handleSleep({ ipc: ipcMain, connection: () => connection });
+  handleAutopilotDecisions({ ipc: ipcMain, connection: () => connection });
   handleSketchShare({ ipc: ipcMain });
   handleAttachments({ ipc: ipcMain });
   handleAccounts({ ipc: ipcMain, connection: () => connection });
@@ -831,6 +831,7 @@ void app.whenReady().then(() => {
   handleVoice({
     ipc: ipcMain,
     install: new WhisperInstall(whisperDir, whisperDisk(whisperDir, (url) => net.fetch(url)), (state) => everyWindow(CHANNELS.voiceWhisperChanged, state)),
+    openPane: (address) => void shell.openExternal(address),
     voice: {
       helper: process.platform === "darwin" && existsSync(voiceHelper) ? voiceHelper : null,
       spawn: (file, args) => spawn(file, args, { stdio: ["pipe", "pipe", "ignore"] }),

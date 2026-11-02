@@ -21,6 +21,8 @@ import { forgetFirsts } from "../run-book";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
 import { AreasFrom } from "../cockpit/deck/areas-source";
+import { forgetAnswers } from "../cockpit/deck/AutopilotAnswers";
+import { forgetArm } from "../cockpit/deck/AutopilotArm";
 import { forgetTimeline } from "../cockpit/deck/ConsoleTimeline";
 import { forgetDeck } from "../cockpit/deck/store";
 import { skipsMods } from "../theme-loader";
@@ -29,6 +31,7 @@ import { mountAnnotating } from "./annotating";
 import { eventsLater } from "./events-later";
 import { fakeBridge, heldSessions } from "./fake";
 import { alsoOnTimePassing } from "./time-passes";
+import { minutesPass } from "../autopilot-back";
 import { MockFleetBuild } from "./fleet-build";
 import type { FakeOptions } from "./fake";
 import { scenarioNamed } from "./scenario";
@@ -39,8 +42,8 @@ import { mockPhone, type PhoneMoment } from "./phone";
 import { TerminalWindows } from "./TerminalWindows";
 import { JobBrowserWindows } from "./JobBrowserWindows";
 import { WalkJobPanel } from "./WalkJobPanel";
-import { SleepSourceProvider } from "../sleep";
-import { mockSleep, overnight } from "./sleep";
+import { AutopilotDecisionsSourceProvider } from "../autopilot-decisions";
+import { createFleetAutopilotDecisions } from "../fleet-autopilot-decisions";
 import { PlanUsageSourceProvider } from "../plan-usage";
 import { AgentSignInSourceProvider } from "../agent-sign-in";
 import { DownshiftSourceProvider } from "../downshift";
@@ -148,7 +151,6 @@ export function mountApp(
   const api = shared ?? fakeBridge(chosen, options);
   // A window starts on Dark with the mods a machine starts with; a second window on the same main shares them.
   if (shared === undefined) mockThemes.reset();
-  mockSleep.reset(chosen.name === "sleep-cockpit" ? overnight() : undefined);
   if (shared === undefined) mockLayout.reset();
   if (shared === undefined && chosen.name === "system-sidebar") installSystemMods();
   if (shared === undefined && chosen.name === "mods-travel") installTravelMods();
@@ -165,6 +167,8 @@ export function mountApp(
   if (shared === undefined) {
     forgetDeck();
     forgetTimeline();
+    forgetAnswers();
+    forgetArm();
   }
   // A run kept past its card belongs to the Fleet that ran it.
   if (shared === undefined) forgetKeptRuns();
@@ -173,6 +177,7 @@ export function mountApp(
   mockPhone.reset(PHONE_MOMENTS[chosen.name] ?? "paired");
   window.armada = api;
   const planUsage = createFleetPlanUsage(withState(api));
+  const autopilotDecisions = createFleetAutopilotDecisions(withState(api));
   // The mods the lessons made, over the fake Fleet's mod list as a real window reads them; safe mode reads none.
   const taught = skipsMods() ? NO_TAUGHT : chosen.name === "mods-trackers" ? triable(createFleetTaught(withState(api))) : createFleetTaught(withState(api));
   const tweaks = skipsMods() ? NO_TWEAKS : createFleetTweaks(withState(api));
@@ -204,6 +209,8 @@ export function mountApp(
   // A scenario that adds to its timeline as time passes holds it here, and moves it when the fake's moment does.
   const timeline = chosen.draft?.eventsLater === undefined ? undefined : eventsLater(chosen.draft.events ?? [], chosen.draft.eventsLater);
   if (timeline !== undefined && shared === undefined) alsoOnTimePassing(timeline.advance);
+  // `autopilot-back` waits ten minutes with nobody at the window, which a walk cannot.
+  if (chosen.name === "autopilot-back" && shared === undefined) alsoOnTimePassing(() => minutesPass(10 * 60_000));
   // The palette starts as a window does: what was pinned and opened before, and nothing from an earlier pass.
   seedPaletteMemory({ pinned: chosen.draft?.palette?.pinned ?? [], recent: chosen.draft?.palette?.recent ?? [], aliases: chosen.draft?.palette?.aliases ?? {}, hotkeys: chosen.draft?.palette?.hotkeys ?? {} });
   const root = createRoot(host);
@@ -223,7 +230,7 @@ export function mountApp(
             <LayoutSourceProvider value={skipsMods() ? NO_LAYOUT_MODS : mockLayout}>
               <MockFleetBuild scenario={chosen.name}>
                 <PhoneSourceProvider value={mockPhone}>
-                  <SleepSourceProvider value={mockSleep}>
+                  <AutopilotDecisionsSourceProvider value={autopilotDecisions}>
                     <NumberedFrom held={mockNumbered}>
                       <PlanUsageSourceProvider value={planUsage}>
                         <AgentSignInSourceProvider value={agentSignIn}>
@@ -276,7 +283,7 @@ export function mountApp(
                         </AgentSignInSourceProvider>
                       </PlanUsageSourceProvider>
                     </NumberedFrom>
-                  </SleepSourceProvider>
+                  </AutopilotDecisionsSourceProvider>
                 </PhoneSourceProvider>
               </MockFleetBuild>
             </LayoutSourceProvider>

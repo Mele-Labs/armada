@@ -82,7 +82,7 @@ export type FleetDoes = "tell" | "quiet" | "batch" | "call";
  * what Fleet already keeps, never from the forge at the moment of sending, and a fact Fleet does not know does not hold.
  * `blocks_merge`: the Job has an open pull request that cannot merge now (it conflicts, fails a required check, or is
  * unmergeable in the merge queue). `open_pull_request`: it has an open one, a draft included. `working`: its agent is
- * mid-turn. `owner_away`: sleep mode is on.
+ * mid-turn. `owner_away`: the Job's repository has an Autopilot running; a paused or stopped one is not away.
  */
 export type FleetCondition = "blocks_merge" | "open_pull_request" | "working" | "owner_away";
 

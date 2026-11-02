@@ -262,17 +262,15 @@ export const InASlimWindow: Story = {
   },
 };
 
-/** The menu's own entries, Sleep, Settings with its key and Doctor. Pressing Settings or Doctor opens it and puts the panel away. */
+/** The menu's own entries, Settings with its key and Doctor. Pressing Settings or Doctor opens it and puts the panel away. */
 export const MenuEntries: Story = {
   args: {
     ...Full.args,
-    sleep: { on: false, onToggle: fn() },
     menu: { settings: { onOpen: fn(), shortcut: "⌘," }, doctor: { onOpen: fn() } },
   },
   play: async ({ args, canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
     const panel = canvas.getByRole("dialog", { name: "Menu" });
-    await expect(within(panel).getByRole("button", { name: "Sleep mode" })).toBeVisible();
     const settings = within(panel).getByRole("button", { name: "Settings" });
     await expect(settings.querySelector("kbd")).toBeInTheDocument();
     await userEvent.click(settings);
@@ -285,34 +283,16 @@ export const MenuEntries: Story = {
   },
 };
 
-/**
- * Sleep mode, an entry in the menu: the entry is pressed while it is on, and the moon rides on the menu button.
- */
-export const SleepModeToggle: Story = {
+/** The menu button on its own: its tooltip says no more than Menu. */
+export const MenuButton: Story = {
   args: {
     repositoryPicker: picker,
     onSearch: () => {},
     onDispatch: fn(),
     fleet: { state: "running", label: "Running" },
-    sleep: { on: false, onToggle: fn() },
   },
-  play: async ({ args, canvas, userEvent }) => {
+  play: async ({ canvas }) => {
     await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu");
-    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
-    const sleep = within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Sleep mode" });
-    await expect(sleep).toHaveAttribute("aria-pressed", "false");
-    await userEvent.click(sleep);
-    await expect(args.sleep?.onToggle).toHaveBeenCalledTimes(1);
-  },
-};
-
-/** Sleep is on: the menu button's tooltip says so, and its entry is pressed. */
-export const SleepModeOn: Story = {
-  args: { ...SleepModeToggle.args, sleep: { on: true, onToggle: fn() } },
-  play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu, sleep mode on");
-    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
-    await expect(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Sleep mode" })).toHaveAttribute("aria-pressed", "true");
   },
 };
 
@@ -341,7 +321,7 @@ const openAccount = fn();
 
 /** Nothing signed in: the button's tooltip says so, and the first entry is Sign in, which opens the account where the window keeps it. */
 export const SignedOut: Story = {
-  args: { ...SleepModeToggle.args, menu: { account: { onOpen: openAccount } } },
+  args: { ...MenuButton.args, menu: { account: { onOpen: openAccount } } },
   render: (args) => (
     <AccountProvider value={account([], signIn)}>
       <TitleBar {...args} />
@@ -358,7 +338,7 @@ export const SignedOut: Story = {
 
 /** Signed in, the entry reads Account with no login in it, and the button says nothing more than Menu. */
 export const SignedIn: Story = {
-  args: { ...SleepModeToggle.args, menu: { account: { onOpen: openAccount } } },
+  args: { ...MenuButton.args, menu: { account: { onOpen: openAccount } } },
   render: (args) => (
     <AccountProvider value={account(["nickmele"])}>
       <TitleBar {...args} />
@@ -374,7 +354,7 @@ export const SignedIn: Story = {
 
 /** A sign-in waiting on the person: the button's title and the account row carry the turn, so the way back is a mark. */
 export const SignInWaiting: Story = {
-  args: { ...SleepModeToggle.args, menu: { account: { onOpen: openAccount } } },
+  args: { ...MenuButton.args, menu: { account: { onOpen: openAccount } } },
   render: (args) => (
     <AccountProvider value={{ ...account([], signIn), flow: { phase: "code", code: "WDJB-MJHT" } }}>
       <TitleBar {...args} />
@@ -387,19 +367,10 @@ export const SignInWaiting: Story = {
   },
 };
 
-/** Signed out with Sleep on: both marks ride on the button, and the tooltip names both. */
-export const SignedOutAsleep: Story = {
-  args: { ...SleepModeToggle.args, sleep: { on: true, onToggle: fn() }, menu: { account: { onOpen: openAccount } } },
-  render: SignedOut.render!,
-  play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu, sleep mode on, signed out");
-  },
-};
-
 const inTwoHours = () => new Date(Date.now() + (2 * 60 + 14) * 60_000 + 30_000).toISOString();
 
 /**
- * The plan's limits as one ring beside Sleep, the 5-hour limit outside and the week inside. Hover or focus opens
+ * The plan's limits as one ring, the 5-hour limit outside and the week inside. Hover or focus opens
  * one card of both, a press keeps it open, and Esc closes it. The ring is named for both and how full each is.
  */
 export const PlanUsage: Story = {

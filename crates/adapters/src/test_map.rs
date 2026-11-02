@@ -4,10 +4,10 @@
 //! **It builds the workspace again, instrumented, so it must never run in a
 //! shared machine's foreground.** The build goes to `target/test-map` and
 //! leaves the warm one alone, but it is still a cold build of every member; the
-//! concept doc's rule puts it on the forge's runner or in a sleeping bay, and
+//! concept doc's rule puts it on the forge's runner or in an Autopilot bay, and
 //! keeping it there is whoever schedules it.
 //!
-//! **A sleeping bay still shares the machine**, so it runs as a Check does:
+//! **An Autopilot bay still shares the machine**, so it runs as a Check does:
 //! `width` wide, at utility priority, with cargo's jobs capped at `width`
 //! unless a build pool is offered. The caller holds Fleet's build pool around
 //! [`record`](TestCollector::record); this does not take it.

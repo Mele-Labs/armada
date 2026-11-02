@@ -12,7 +12,6 @@ import {
   FolderGit2,
   GitMerge,
   GitPullRequest,
-  Moon,
   Power,
   Reply,
   SquareTerminal,
@@ -31,7 +30,6 @@ import { viewsOf } from "./merge-line";
 import { stateOf } from "./session-state";
 import { useSessions } from "./sessions-draft";
 import { lineOf } from "./session-activity";
-import { useSleepDecided, type MorningDecided } from "./sleep";
 import { useDispatching } from "./dispatch-panel/dispatching";
 import { openInPanel } from "./shared-panel/store";
 import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
@@ -80,8 +78,6 @@ export type Item = {
   line?: string;
   /** A Session's recent cadence, each bar 0 to 1: a message tall, a tool call short. */
   spark?: readonly number[];
-  /** The decision Sleep made, where the item is one: the call keeps it or changes it. */
-  sleep?: MorningDecided;
   /** What a Session's call waits on: the item, which is what the call answers. */
   waiting?: { sessionId: string; item: WaitingItem };
   /** Who holds the pull request or red main the call is about, where somebody does: the card draws what they are doing. */
@@ -215,24 +211,6 @@ function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
   };
 }
 
-/** One thing Sleep decided for the owner, as a call: he agrees, changes it, or opens where it was decided. */
-function sleepItem(one: MorningDecided): Item {
-  return {
-    key: `sleep:${one.id}`,
-    icon: Moon,
-    kind: "Decided while you slept",
-    title: one.who,
-    fact: one.asked,
-    hue: "ask",
-    where: "",
-    body: [],
-    context: [one.corrected ?? one.chose],
-    contextHead: "Chose",
-    sleep: one,
-    acts: () => null,
-  };
-}
-
 /** `sessions` finds who made a branch in the line, so its row opens that Session. */
 function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, sessions: readonly Session[]): Item[] {
   const items: Item[] = [];
@@ -348,7 +326,6 @@ export function useItems(
 ): Item[] {
   const sessions = useSessions();
   const dismissed = useDismissed();
-  const slept = useSleepDecided();
   const walking = useOpenWalks();
   const viewed = useViewedVersion();
   const calls = tab === "command-central";
@@ -358,7 +335,6 @@ export function useItems(
       // A walk whose window is open is being looked at, so it is not a call yet.
       const unseen = (one: WaitingCall) => !(one.item.source === "walk" && one.item.act !== undefined && walking.has(one.item.act.target));
       items.push(...callsFromWaiting(sessions, viewedAt).filter(unseen).map((one) => waitingItem(one, hosts)));
-      items.push(...slept.map(sleepItem));
     } else {
       items.push(
         ...sessions
@@ -376,7 +352,7 @@ export function useItems(
       }),
     );
     return items.filter((item) => !answered.has(item.key));
-  }, [tab, state, picked, sessions, slept, walking, answered, dismissed, viewed]);
+  }, [tab, state, picked, sessions, walking, answered, dismissed, viewed]);
   // A call dismissed for good stays gone while its state stands; once the state clears, the next one shows.
   const standing = useMemo(() => new Set(items.map(identityOf)), [items]);
   const board = sessions.length > 0 || viewsOf(state).length > 0;

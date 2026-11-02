@@ -192,7 +192,7 @@ const walkTakes = (): Variation[] =>
   [
     { name: "Artifacts", walk: "ledger-in-cockpit" },
     { name: "Task marks", walk: "taskMarkTooltips" },
-    { name: "Sleep cockpit", walk: "sleepCockpit" },
+    { name: "Autopilot back", walk: "autopilot-back" },
   ].map(({ name, walk }) => {
     const url = new URL(mockPage());
     url.search = `?walk=${walk}&walked`;

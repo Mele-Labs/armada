@@ -111,6 +111,8 @@ export type Wiring = {
   dispatch?: ReactNode;
   /** The panel is folded away: the canvas holds its frame. */
   folded: boolean;
+  /** Autopilot's piece on the Map's lip, beside Dispatch. */
+  onLip?: ReactNode;
 };
 
 // ---- The bays ------------------------------------------------------------------------------------------
@@ -471,6 +473,12 @@ export function ConsoleBays({ wiring }: { wiring: Wiring }) {
           </div>
         );
       })}
+      {/* Beside the key's own bay, whose press and focus light the key on the canvas. */}
+      {wiring.onLip === undefined || layout?.inner[5] === undefined ? null : (
+        <div className="console-bay" style={{ left: layout.inner[5].x, top: layout.inner[5].y, width: layout.inner[5].w, height: layout.inner[5].h, pointerEvents: "none" }}>
+          {wiring.onLip}
+        </div>
+      )}
     </>
   );
 }
