@@ -10,7 +10,6 @@ const GUIDES_KEY = "armada.bridge.guides";
 
 /** Everything a window remembers about how it was last read. `guides-met.ts` says why a test forgets it. */
 const REMEMBERED = [
-  "armada.bridge.cockpit-timeline-take",
   "armada.bridge.cockpit-view",
   "armada.bridge.dashboard-tab",
   "armada.bridge.dispatch-kind",

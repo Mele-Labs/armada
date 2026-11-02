@@ -11,7 +11,7 @@ import { useDrawnEvents } from "../drawn-events";
 import { ConsoleHud, panelOf } from "./ConsoleHud";
 import { focusPanel } from "./keys";
 import type { Ship } from "./ship";
-import { deckNow, openWithBack, selOfSubject, useDeck } from "./store";
+import { deckNow, openWithBack, select, selOfSubject, useDeck } from "./store";
 import { movedRows, stuckRows, type HudRow } from "./timeline-rows";
 
 /** The strip the name stands in. */
@@ -31,7 +31,8 @@ const set = (next: Hud) => {
   hud = next;
   tell();
 };
-const sinceNow = (): number => {
+/** When he last closed the HUD, or how far the list reaches the first time. */
+export const timelineSince = (): number => {
   if (since !== undefined) return since;
   try {
     const kept = Number(window.localStorage.getItem(SINCE_KEY));
@@ -41,8 +42,13 @@ const sinceNow = (): number => {
   }
   return since;
 };
-const useSince = (): number => useSyncExternalStore(hear, sinceNow);
+const useSince = (): number => useSyncExternalStore(hear, timelineSince);
 export const useTimelineHud = (): Hud => useSyncExternalStore(hear, () => hud);
+/** A window that remembers nothing, as `forgetDeck` starts one: what is kept is read again. */
+export const forgetTimeline = () => {
+  since = undefined;
+  set(CLOSED);
+};
 
 const facetEl = () => document.querySelector<HTMLElement>('.console-bay .deck-tile[data-tile="timeline"]');
 /** Read when the HUD is placed, so one opened as the Job closes finds the key drawn in the same commit. */
@@ -64,6 +70,11 @@ const closeTimeline = () => {
 };
 export const openTimeline = () => set({ open: true, at: hud.at });
 export const toggleTimeline = () => (hud.open ? closeTimeline() : openTimeline());
+/** Up over the map, whatever the stage holds. */
+export const showTimeline = () => {
+  select(undefined);
+  openTimeline();
+};
 
 function useRows(ship: Ship, views: readonly MergeLineView[], from: number): { stuck: HudRow[]; moved: HudRow[] } {
   const events = useDrawnEvents(views);
