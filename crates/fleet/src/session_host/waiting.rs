@@ -107,8 +107,6 @@ pub(crate) struct WaitingReads {
     tell: Option<store::KeptTell>,
     /// The version, recording time and walk of the plan the person has not approved.
     plan: Option<(u32, String, Option<String>)>,
-    /// What the Session's judges raised, waiting and settled.
-    concerns: Vec<store::KeptConcern>,
     /// Every sentence read from a reply that he marked Not a question, in any Session.
     misreads: Vec<String>,
     /// Every sentence read from a reply that he confirmed with thumbs up, in any Session.
@@ -140,8 +138,6 @@ pub(crate) struct Waited {
     pub items: Vec<WaitingItem>,
     /// The items the person closed, newest first, and whether each would wait again.
     pub closed: Vec<ipc::ClosedWaiting>,
-    /// The concerns the person has settled, which wait on nothing.
-    pub settled: Vec<WaitingItem>,
     pub standing: ipc::SessionStanding,
     /// The windows holding back the plan he has not approved.
     pub plan_held: Vec<ipc::PlanHold>,
@@ -164,7 +160,6 @@ pub(crate) fn waiting_reads(
             .session_plan(&session.id)?
             .filter(|plan| plan.approved_at.is_none() && plan.set_aside_at.is_none())
             .map(|plan| (plan.version, plan.recorded_at, plan.walk)),
-        concerns: store.session_concerns(&session.id)?,
         misreads: store.misreads()?,
         confirmed: store.confirmed()?,
         word_asks: store.word_asks_of(&session.id)?,
@@ -214,8 +209,6 @@ pub(crate) fn step_reply_item(step: &str, ended: &str) -> WaitingItem {
         options: Vec::new(),
         steps: Vec::new(),
         place: None,
-        concern: None,
-        cites: Vec::new(),
         confirmed: false,
     }
 }
@@ -294,8 +287,6 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
             },
             steps: Vec::new(),
             place: None,
-            concern: None,
-            cites: Vec::new(),
             confirmed: false,
         };
     }
@@ -317,8 +308,6 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
             .collect(),
         steps: Vec::new(),
         place: None,
-        concern: None,
-        cites: Vec::new(),
         confirmed: false,
     }
 }
@@ -349,8 +338,6 @@ pub(crate) fn merged(
         options: Vec::new(),
         steps: Vec::new(),
         place: None,
-        concern: None,
-        cites: Vec::new(),
         confirmed: false,
     }));
     let same = |item: &WaitingItem, act: &Option<(String, String)>| {
@@ -384,8 +371,6 @@ pub(crate) fn merged(
                 .collect(),
             steps: one.steps,
             place: None,
-            concern: None,
-            cites: Vec::new(),
             confirmed: false,
         })
         .collect();
@@ -438,8 +423,6 @@ where
                     options: one.options.into_iter().map(|label| WaitingOption { label, description: None }).collect(),
                     steps: one.steps,
                     place: None,
-                    concern: None,
-                    cites: Vec::new(),
                     confirmed: false,
                 };
                 Some(ipc::ClosedWaiting { item, at: Instant::carried(&one.closed_at), ended })
@@ -454,7 +437,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, preview_offers, start_held, paused, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, turn_end, tell, plan, misreads, confirmed, word_asks, calls, preview_offers, start_held, paused, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -519,8 +502,6 @@ where
                     options: Vec::new(),
                     steps: Vec::new(),
                     place: None,
-                    concern: None,
-                    cites: Vec::new(),
                     confirmed: false,
                 });
             }
@@ -595,8 +576,6 @@ where
                     options: Vec::new(),
                     steps: Vec::new(),
                     place: None,
-                    concern: None,
-                    cites: Vec::new(),
                     confirmed: false,
                 });
             }
@@ -615,12 +594,6 @@ where
                     .zip(holds.as_ref())
                     .and_then(|((version, ..), holds)| super::planning::plan_called(&session.id, *version, holds))
                     .filter(|item| !dismissed.contains(&item.id)),
-            );
-            items.extend(
-                concerns
-                    .iter()
-                    .filter(|one| one.settled.is_none())
-                    .map(|one| crate::rail_keeping::concern_item(&session.id, one)),
             );
             // Taught words that open nowhere Fleet could find in this repository: asked once.
             items.extend(self.words_ask_items(&word_asks, &dismissed));
@@ -663,8 +636,6 @@ where
                         options,
                         steps: Vec::new(),
                         place: Some(place),
-                        concern: None,
-                        cites: Vec::new(),
                         confirmed: false,
                     })
                 }
@@ -687,8 +658,6 @@ where
                         options,
                         steps: Vec::new(),
                         place: None,
-                        concern: None,
-                        cites: Vec::new(),
                         confirmed: false,
                     })
                 }
@@ -736,14 +705,9 @@ where
         for one in items.iter_mut().filter(|one| one.source == WaitingSource::Replied) {
             one.confirmed = confirmed.contains(&one.text);
         }
-        let settled = concerns
-            .iter()
-            .filter(|one| one.settled.is_some())
-            .map(|one| crate::rail_keeping::concern_item(&session.id, one))
-            .collect();
         // **A paused Job raises nothing**: its items come back after Resume, if they are still owed.
         let items = if paused { Vec::new() } else { items };
-        Waited { items, closed: Vec::new(), settled, standing, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default() }
+        Waited { items, closed: Vec::new(), standing, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default() }
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.
@@ -1090,10 +1054,6 @@ where
                 SESSION_WAITING_EMPTY,
                 "a document is approved, or sent back, from its own card",
             )),
-            WaitingSource::Judge => Err(self.hosted_refusal(
-                SESSION_WAITING_EMPTY,
-                "a concern is sent to the agent, or dismissed, from its own card",
-            )),
             WaitingSource::SlotChoice => self.slot_chosen(&id, said.choice).await,
             // Fleet's, so the agent is told nothing: Do it carries the act out, Skip records it skipped.
             WaitingSource::RuleAct => self.rule_act_chosen(&id, &item.id, said.choice).await,
@@ -1194,12 +1154,6 @@ where
                 .find(|one| one.id == dismiss.item_id)
                 .ok_or_else(|| self.settled_already())?
         };
-        if item.source == WaitingSource::Judge {
-            return Err(self.hosted_refusal(
-                SESSION_WAITING_EMPTY,
-                "a concern is dismissed from its own card, which keeps it on the record as settled",
-            ));
-        }
         if item.source == WaitingSource::Delivery {
             return Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,

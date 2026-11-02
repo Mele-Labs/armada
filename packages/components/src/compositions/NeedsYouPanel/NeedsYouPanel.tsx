@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { BellRing, ChevronLeft, ChevronUp, MessageCircleQuestion, Scale, ThumbsDown, ThumbsUp } from "lucide-react";
+import { BellRing, ChevronLeft, ChevronUp, MessageCircleQuestion, ThumbsDown, ThumbsUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -63,7 +63,7 @@ function Thumbs({ misread, keep }: { misread: NonNullable<Thing["misread"]>; kee
   );
 }
 
-/** A question answered in the panel's place: the question, a judge's concern, or a row with choices or a reply box. The rest go where they point. */
+/** A question answered in the panel's place: the question, a card of Fleet's own, or a row with choices or a reply box. The rest go where they point. */
 const opensHere = (one: Thing): boolean => one.press === undefined && (one.row === undefined || one.row.options !== undefined || one.row.onReply !== undefined);
 
 /**
@@ -79,7 +79,6 @@ const opensHere = (one: Thing): boolean => one.press === undefined && (one.row =
 export function NeedsYouPanel({
   rows,
   question,
-  judges,
   cards,
   open: wanted,
   onOpen,
@@ -87,9 +86,7 @@ export function NeedsYouPanel({
   rows: readonly LedgerEntry[];
   /** `label` is the question's header, `text` the line its row reads, and `children` the card that answers it. */
   question?: { id: string; label: string; text: string; children: ReactNode };
-  /** A judge's concerns, after the question and before the items: `text` is the claim its row reads, `children` the card that sends or dismisses it. */
-  judges?: readonly { id: string; text: string; children: ReactNode }[];
-  /** Fleet's own asks with a card of their own, after the judges: `Glyph` and `said` mark the row, `children` is the card that settles it. */
+  /** Fleet's own asks with a card of their own, after the question: `Glyph` and `said` mark the row, `children` is the card that settles it. */
   cards?: readonly { id: string; text: string; Glyph: LucideIcon; said: string; children: ReactNode }[];
   open: boolean;
   onOpen: (next: boolean) => void;
@@ -109,7 +106,6 @@ export function NeedsYouPanel({
   const misreadOf = (row: LedgerEntry): Pick<Thing, "misread"> => (row.onMisread === undefined ? {} : { misread: { no: row.onMisread, ...(row.confirmed === true || row.onConfirmed === undefined ? {} : { yes: row.onConfirmed }) } });
   const questions: Thing[] = [
     ...(question === undefined ? [] : [{ key: `question:${question.id}`, Glyph: MessageCircleQuestion, said: question.label, tip: question.label, text: question.text, name: question.text, content: question.children }]),
-    ...(judges ?? []).map((one) => ({ key: `judge:${one.id}`, Glyph: Scale, said: "Judge", tip: "Judge", text: one.text, name: one.text, content: one.children })),
     ...(cards ?? []).map((one) => ({ key: `card:${one.id}`, Glyph: one.Glyph, said: one.said, tip: one.said, text: one.text, name: one.text, content: one.children })),
     ...rows.filter(asks).map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row, ...misreadOf(row) })),
   ];

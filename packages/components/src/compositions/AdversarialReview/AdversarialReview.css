@@ -1,11 +1,5 @@
-/* An adversarial review: the press, and the findings it brings. Tokens only; state is a mark with a tooltip,
+/* The Judge's notes. Tokens only; state is a mark with a tooltip,
    a finding's acts sit in one column so a list of them reads down, and a finding acted on is one muted line. */
-
-.armada-adversarial__press {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
 
 .armada-adversarial__mark {
   display: inline-flex;
@@ -56,6 +50,15 @@
   border-color: var(--status-piloted);
 }
 
+.armada-adversarial__heading {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .armada-adversarial__claim {
   display: flex;
   flex-direction: column;
@@ -93,15 +96,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.armada-adversarial__failed {
-  margin: 0;
-  padding: var(--space-2);
-  border-top: var(--border-width) solid var(--border-default);
-  color: var(--fg-muted);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
 }
 
 /* Findings pinned to the plan. One mechanism, wherever they sit: a hairline down the edge of the notes ties them to the thing above,

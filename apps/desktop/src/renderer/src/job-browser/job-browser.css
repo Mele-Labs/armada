@@ -1,4 +1,4 @@
-/* The Job browser: a head with who is driving, the address and the acts, over the page. It fills the side panel or its window. */
+/* The Job browser: a head with who is driving, the address and the acts, over the page. It fills its pane or its window. */
 .job-browser {
   display: flex;
   flex: 1 1 0;
@@ -91,51 +91,6 @@
 .job-browser-reminder > .armada-button { flex: none; }
 .job-browser-reminder__sent { flex: none; }
 
-/* The Job floating left of the Job browser's sheet, on the plate `Sheet` draws off its leading edge: held at the window's leading
-   edge instead, the full height, and the sheet takes the rest of the width. The sheet's handle resizes the thread, not the sheet
-   (BrowserSide), so the sheet's own width never applies: it is the remainder. */
-.armada-sheet-scrim > .armada-sheet__aside:has(> .job-browser-beside) {
-  align-self: stretch;
-  margin: var(--space-4) 0 var(--space-4) var(--space-4);
-  overflow: visible;
-}
-.armada-sheet-scrim:has(> .armada-sheet__aside > .job-browser-beside) > .armada-sheet {
-  flex: 1 1 0;
-  max-width: none;
-}
-.job-browser-beside {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  height: 100%;
-  padding: var(--space-2);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-lg);
-  background: var(--bg-overlay);
-  box-shadow: var(--shadow-overlay);
-}
-/* The handle between the thread and the browser spends no margin, so the two panels sit one `--space-2` apart. Its hit area still
-   reaches `--space-2` into each panel, over the panels' own edges. */
-.armada-sheet-scrim:has(> .armada-sheet__aside > .job-browser-beside) > .armada-dock-handle { margin-inline: 0; }
-.armada-sheet-scrim:has(> .armada-sheet__aside > .job-browser-beside) > .armada-dock-handle::after {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  inset-inline: calc(var(--space-2) * -1);
-}
-/* Folded, nothing is drawn, and the sheet takes the whole width: its handle has nothing to move. */
-.job-browser-beside:not([data-shown]) { display: none; }
-.armada-sheet-scrim:has(> .armada-sheet__aside > .job-browser-beside:not([data-shown])) > .armada-dock-handle { display: none; }
-.armada-sheet-scrim > .armada-sheet__aside:has(> .job-browser-beside:not([data-shown])) { margin: 0; }
-/* Wide enough that the composer's pickers keep their words, until dragged; never past what leaves the browser its floor, in a
-   window narrowed after the width was kept. The floor wins where the two meet. */
-.job-browser-beside {
-  width: calc(var(--space-12) * 9);
-  min-width: var(--w-dock-min);
-  max-width: calc(100vw - var(--w-work-min) - 2 * var(--space-4) - var(--space-2));
-}
-.job-browser-beside__job { display: flex; flex: 1 1 0; flex-direction: column; align-self: stretch; min-height: 0; overflow: hidden; }
 .job-browser__document { display: contents; }
 
 /* In a window of its own: the page, and the Job beside it on the right, as the walk window draws its Job. */

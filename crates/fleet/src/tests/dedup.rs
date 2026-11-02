@@ -21,8 +21,6 @@ fn item(id: &str, text: &str, since: &str, source: WaitingSource, act: bool) -> 
         options: Vec::new(),
         steps: Vec::new(),
         place: None,
-        concern: None,
-        cites: Vec::new(),
         confirmed: false,
     }
 }

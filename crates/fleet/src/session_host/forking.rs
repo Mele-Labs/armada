@@ -345,6 +345,8 @@ where
                     mod_job: false,
                     start_held: start.held,
                     workflow_chosen: false,
+                    from_job: None,
+                    from_tab: None,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
             let _ = store.mark_lifecycle_job(&id, &now);

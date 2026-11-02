@@ -18,14 +18,28 @@ const set = (next: Open | undefined) => {
 
 const focused = () => (document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null);
 
+// A Job drawn in panes has its views as tabs, so a press that would open one over the Job asks the Job's panes instead, which bring that tab forward or open it.
+const asTabs = new Map<string, (layer: LayerId) => boolean>();
+
+/** Hands the Job's views to its panes: `show` answers whether the layer is one with a tab, and has shown it. Returns the way back. */
+export function drawLayersAsTabs(session: string, show: (layer: LayerId) => boolean): () => void {
+  asTabs.set(session, show);
+  return () => void (asTabs.get(session) === show && asTabs.delete(session));
+}
+
+/** Whether the Job's panes took the layer as a tab, so none opens over the Job. */
+export const shownAsTab = (session: string, layer: LayerId): boolean => asTabs.get(session)?.(layer) === true;
+
 /** Opens the layer over the Session; the same key again, or Back, closes it. A different key swaps it, keeping where focus first was. */
 export function toggleLayer(session: string, layer: LayerId): void {
+  if (shownAsTab(session, layer)) return;
   if (open?.session === session && open.layer === layer) return closeLayer();
   set({ session, layer, from: open?.session === session ? open.from : focused() });
 }
 
 /** Opens the layer over the Session and leaves it open if it already is. The document layer is told which page it reads. */
 export function showLayer(session: string, layer: LayerId, page?: string): void {
+  if (shownAsTab(session, layer)) return;
   if (open?.session === session && open.layer === layer && open.page === page) return;
   set({ session, layer, from: open?.session === session ? open.from : focused(), ...(page === undefined ? {} : { page }) });
 }

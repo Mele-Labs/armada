@@ -376,6 +376,21 @@ fn a_fork_of_something_that_would_be_read_as_a_flag_is_refused() {
     assert!(launching(false, SessionMode::Auto).forking("--dangerous", NOTE).is_err());
 }
 
+/// A model switched off stays off because the CLI is told: a process and its subagents are held
+/// to the list, and a launch with none names no limit rather than an empty one.
+#[test]
+fn a_process_limited_to_the_models_on_says_so_in_its_settings() {
+    let models = [String::from("a-model"), String::from("another-model")];
+    let args = rendered(&launching(false, SessionMode::Auto).limited_to(&models));
+    let settings = value_after(&args, "--settings").expect("settings");
+    assert!(settings.contains(r#""availableModels":["a-model","another-model"]"#), "{settings}");
+    assert!(settings.contains(r#""enforceAvailableModels":true"#), "{settings}");
+
+    let args = rendered(&launching(false, SessionMode::Auto));
+    let settings = value_after(&args, "--settings").expect("settings");
+    assert!(!settings.contains("availableModels"), "{settings}");
+}
+
 #[test]
 fn another_sessions_message_is_accepted_and_the_first_write_is_held_by_a_hook() {
     let args = rendered(&launching(false, SessionMode::Auto));

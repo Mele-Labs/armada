@@ -29,16 +29,22 @@ const UNTITLED: &str = "Mod";
 
 /// What a Mod Job is told ahead of the note. **Sent as it stands**, so it is short and plain.
 const BRIEF: &str = "This is a Mod Job: the owner pressed Mod on a spot in Armada, and the change is to Armada itself. \
-Load the `armada:armada-mods` skill and reach for a mod first: a theme, a layout, words, a Fleet rule or a tracker. \
+Load the `armada:armada-mods` skill and reach for a mod first: a theme, a layout, words, a Fleet rule, a tracker or a tab. \
 A mod applies live once `validate_mod` passes, and the owner switches it off from this Job if he does not like it. \
 Where the ask needs more than a mod can say, tell the owner so, change Armada's source on this Job's branch, \
-then put `scripts/preview --restart` in waiting_for as a run item, so he can bring it in.";
+then put `scripts/preview --restart` in waiting_for as a run item, so he can bring it in. \
+When he asks for a panel, a view or anything drawn, build a tab mod: it opens in this Job's panes as you build it, \
+so draw its frame first and add to it in small checked steps. Talk to him about the panel, \
+never about mods, branches, pull requests or landing.";
 /// [`BRIEF`] for a Mod Job in the mods folder, where this Fleet does not serve Armada's own repository.
 const MODS_FOLDER_BRIEF: &str = "This is a Mod Job in the mods folder: the owner pressed Mod on a spot in Armada, \
 and this Fleet does not serve Armada's own repository, so the change is a mod. \
-Load the `armada:armada-mods` skill and make a theme, a layout, words, a Fleet rule or a tracker. \
+Load the `armada:armada-mods` skill and make a theme, a layout, words, a Fleet rule, a tracker or a tab. \
 A mod applies live once `validate_mod` passes, and the owner switches it off from this Job if he does not like it. \
-Armada's source is not here to change: where the ask needs more than a mod can say, tell the owner so.";
+Armada's source is not here to change: where the ask needs more than a mod can say, tell the owner so. \
+When he asks for a panel, a view or anything drawn, build a tab mod: it opens in this Job's panes as you build it, \
+so draw its frame first and add to it in small checked steps. Talk to him about the panel, \
+never about mods, branches, pull requests or landing.";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -52,7 +58,7 @@ where
 {
     /// Start a Mod Job and send it the brief and the note.
     pub(crate) async fn mod_job_started(self: Arc<Self>, start: StartModSession) -> Result<ModSessionStarted, Refusal> {
-        let StartModSession { title, model, effort, note, said } = start;
+        let StartModSession { title, model, effort, aim, note, said, from_job, from_tab } = start;
         let said = said.map(|words| words.trim().to_string());
         let first = match (note, said) {
             (Some(note), None) => First::Note(note),
@@ -75,6 +81,10 @@ where
                 (ManifestId::carried(""), Marked::ModsFolder, MODS_FOLDER_BRIEF)
             }
         };
+        let brief = match aim {
+            Some(aim) => format!("{brief}\n\n{}", aim_line(aim, marked == Marked::ModsFolder)),
+            None => brief.to_string(),
+        };
         let title = title
             .map(|title| title.trim().to_string())
             .filter(|title| !title.is_empty())
@@ -94,15 +104,29 @@ where
             project_rows: Vec::new(),
         };
         let session_id = self.started_hosted(begun, marked).await?.id;
+        // The Custom tab it builds: kept on the hosting record, and published again so Bridge draws no row for it.
+        let from_job = from_job.filter(|job| !job.is_empty());
+        let from_tab = from_tab.filter(|tab| !tab.is_empty());
+        if from_job.is_some() || from_tab.is_some() {
+            {
+                let mut store = self.store().lock().await;
+                if let Some(mut hosting) = store.hosting(session_id.as_str()).map_err(|why| self.ledger_fault(why))? {
+                    hosting.from_job = from_job;
+                    hosting.from_tab = from_tab;
+                    store.keep_hosting(&hosting).map_err(|why| self.ledger_fault(why))?;
+                }
+            }
+            self.published_hosted(session_id.as_str()).await?;
+        }
         // **Not an error**: the Job exists, so the answer is 200 and `send_failed` says why
         // nothing was sent.
         let sent = match first {
             First::Nothing => Ok(()),
             First::Note(note) => Arc::clone(&self)
-                .note_sent_after(SendSessionNote { session_id: session_id.clone(), note }, Some(brief))
+                .note_sent_after(SendSessionNote { session_id: session_id.clone(), note }, Some(&brief))
                 .await
                 .map(|_| ()),
-            First::Words(words) => Arc::clone(&self).words_sent_after(session_id.clone(), words, brief).await,
+            First::Words(words) => Arc::clone(&self).words_sent_after(session_id.clone(), words, &brief).await,
         };
         let send_failed = sent.err().map(|refused| refused.error().message.clone());
         Ok(ModSessionStarted { session_id, title, send_failed })
@@ -142,6 +166,7 @@ fn aim_line(aim: ModAim, in_mods_folder: bool) -> &'static str {
         ModAim::Fleet => "He is aiming for: a Fleet rule (what Fleet does with a notice it would send).",
         ModAim::Tracker => "He is aiming for: a tracker (an issue tracker Armada has no adapter for).",
         ModAim::Commands => "He is aiming for: commands (rows in the command palette that start a Job, open an address, run a line or chain other rows).",
+        ModAim::Tab => "He is aiming for: a tab (a mod of kind `tab`, a React component Bridge loads into a pane, with the whole Fleet API). Scaffold it with `kind` `tab` and your own `session_id`, and edit the same mod when he asks for a change. He watches the tab while you build it: first write a version that draws its frame and run `validate_mod`, then add one part at a time and run `validate_mod` after each. Never write the whole tab before the first check.",
         ModAim::Source if in_mods_folder => {
             "He is aiming for: a change to Armada's source, which cannot be made here. Tell him so if a mod cannot do it."
         }

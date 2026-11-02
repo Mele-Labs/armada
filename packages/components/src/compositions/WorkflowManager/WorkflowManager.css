@@ -7,7 +7,7 @@
   display: grid;
   grid-template-columns: var(--w-guide-list) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
-  column-gap: var(--space-6);
+  column-gap: var(--gap-panel);
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -22,6 +22,8 @@
   gap: var(--space-4);
   min-width: 0;
   min-height: 0;
+  /* A panel as the open workflow beside it is: its rows held off the frame. */
+  padding: var(--space-3);
 }
 
 .armada-wm__groups {
@@ -32,7 +34,6 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-bottom: var(--space-6);
 }
 
 .armada-wm__group {
@@ -88,18 +89,24 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--space-6) auto;
   align-items: center;
+  min-height: var(--h-control);
+  border-radius: var(--radius-md);
 }
+/* The wash is the row's, so it runs under the glyph and the switch to the row's edge, as the Cockpit's picked row does. */
+.armada-wm__row:hover { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
+.armada-wm__row:has(> .armada-wm__entry[aria-current="true"]) { background: var(--select-ground, var(--surface-row-selected)); }
 
 .armada-wm__entry {
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: 0 var(--space-3);
+  align-self: stretch;
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--fg-muted);
   font: inherit;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
   text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -107,11 +114,9 @@
   cursor: pointer;
 }
 .armada-wm__entry:hover {
-  background: var(--surface-row-hover);
   color: var(--fg-default);
 }
 .armada-wm__entry[aria-current="true"] {
-  background: var(--surface-row-selected);
   color: var(--fg-default);
 }
 .armada-wm__entry:focus-visible {
@@ -132,7 +137,7 @@
   align-items: center;
   justify-content: flex-end;
   min-width: var(--space-12);
-  padding-right: var(--space-2);
+  padding-right: var(--space-3);
 }
 .armada-wm__off-machine {
   color: var(--fg-muted);
@@ -151,7 +156,7 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-bottom: var(--space-6);
+  padding: var(--space-3);
 }
 
 /* Nothing in the column shrinks to fit it: a card with overflow hidden would otherwise squash to nothing, and the column scrolls instead. */
@@ -177,9 +182,9 @@
 .armada-wm__name {
   margin: 0;
   color: var(--fg-default);
-  font-family: var(--font-mono);
-  font-size: var(--text-base);
-  font-weight: var(--weight-heading);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
 }
 
 .armada-wm__for {
@@ -659,9 +664,11 @@
 
 /* ---- New workflow ----------------------------------------------------------------------------- */
 
+/* The page's one primary: Send's, at its own width. */
 .armada-wm__new {
   align-self: flex-start;
 }
+:root[data-look="new"] .armada-wm__new .armada-button { border-radius: var(--glass-radius-control); }
 
 /* ---- The Workspace's lanes ------------------------------------------------------------------- */
 
@@ -931,3 +938,10 @@
 .armada-wm-ws__actions > [type="submit"] {
   margin-inline-start: auto;
 }
+
+/* Pending: bars where the names and switches will be, each wrapper the line the text takes so a row is the height it will be. */
+.armada-wm__group[data-pending] { --skeleton-fill: var(--bg-sunken); }
+.armada-wm__group[data-pending] .armada-wm__row:hover { background: transparent; }
+.armada-wm__skel { display: flex; align-items: center; min-height: var(--leading-xs); }
+.armada-wm__group[data-pending] .armada-wm__caption .armada-skeleton { flex: none; }
+.armada-wm__group[data-pending] .armada-skeleton.armada-wm__skel-switch { width: var(--space-12); height: var(--space-4); }

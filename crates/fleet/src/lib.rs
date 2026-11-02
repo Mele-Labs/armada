@@ -66,7 +66,7 @@ mod rail_ends;
 mod rail_lifecycle;
 /// The repository's test paths by convention, which the rail asks about a file the agent wrote.
 mod test_paths;
-/// Where the rail and the judges meet the store, and a concern as a waiting item.
+/// Where the rail meets the store.
 mod rail_keeping;
 /// What Fleet does when a Session's step moves or shows a step skipped.
 pub mod linked_following;
@@ -145,11 +145,14 @@ mod model_downshifting;
 /// The models the harness offers, asked after Fleet is serving.
 pub mod models_read;
 pub mod phone;
-/// An adversarial review of a plan: the three operations Fleet serves for it.
-mod adversarial_serving;
-/// What an adversarial review is shown, and how its answer is read and pinned. Pure.
-pub mod adversarial_review;
-mod adversarial_keeping;
+/// The Judge's four operations Fleet serves: the one read-only call, the readings kept, and the person's acts.
+mod judge_serving;
+/// What a Judge is shown, and how its answer is read and pinned. Pure.
+pub mod judge;
+/// Each kind of artifact of a Job, read into the words a Judge is shown.
+mod judge_content;
+/// A reading between the store's rows and the wire, and the message a sent note is.
+mod judge_keeping;
 /// Kit against the shared home, and what this machine syncs. `docs/concepts/kit.md`.
 pub mod home;
 /// Mods: folders on this machine that change how Bridge looks.
@@ -170,6 +173,8 @@ mod session_limit;
 mod session_proposer;
 /// What the account writer is asked of a Session at work and how its answer reads.
 mod session_account;
+/// What the quick bar is offered beyond his saved lines: what the small model is asked, and how his sent lines rank.
+mod session_quick;
 pub mod peer;
 /// A form's edit sent as a pull request, pending until the checkout has it.
 mod pending_edit;

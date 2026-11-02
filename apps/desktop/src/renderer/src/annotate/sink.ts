@@ -1,11 +1,16 @@
 // Where the layer's notes are kept: main, over the dev-only preload entry, or a
 // vite dev server when the renderer runs in a browser. Both write the same files.
 
-import { ANNOTATIONS_PATH, type Annotation, type AnnotationsDevApi } from "../../../shared/annotations";
+import { ANNOTATIONS_PATH, STORIES_PATH, type Annotation, type AnnotationsDevApi, type StoryIndex } from "../../../shared/annotations";
 
 export type Sink = AnnotationsDevApi & {
   /** Named in the indicator, so a failed save says which path failed. */
   via: "main" | "dev server";
+  /**
+   * The index of the components' stories, `annotations-stories.ts`. Absent where nothing serves it,
+   * which is Electron: the layer then draws no file line and no Variant tool.
+   */
+  stories?: () => Promise<StoryIndex>;
 };
 
 export function mainSink(api: AnnotationsDevApi): Sink {
@@ -44,6 +49,12 @@ export function devServerSink(fetcher: Fetch = (url, init) => fetch(url, init)):
   return {
     via: "dev server",
     list: async () => (await (await ok(await fetcher(ANNOTATIONS_PATH))).json()) as Annotation[],
+    // A server without the plugin answers 404 or an HTML page; either is an empty index.
+    stories: async () => {
+      const response = await fetcher(STORIES_PATH);
+      if (!response.ok) return {};
+      return (await response.json().catch(() => ({}))) as StoryIndex;
+    },
     save: async (note) => {
       await ok(
         await fetcher(one(note.id), {

@@ -5,8 +5,8 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerDocument, AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, ReopenWaiting, NameSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SettleLater, StartModSession, TuneSession } from "@armada/protocol";
-import type { BeginSession, DismissFinding, ProjectRowRef, ReviewSubject, SendFinding, SetNoticeMute, StartAdversarialReview, StartAfter, StopWatch, DeleteWatch, DismissWait, ReadWatchLog } from "@armada/protocol";
+import type { AnswerDocument, AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissWaiting, ReopenWaiting, NameSession, RenameSession, SendPlanChanges, SendSessionMessage, SettleLater, StartModSession, TuneSession } from "@armada/protocol";
+import type { AskJudge, BeginSession, DismissJudgeNote, JudgeArtifact, JudgeKind, MarkJudgeRead, ProjectRowRef, SendJudgeNote, SetNoticeMute, StartAfter, StopWatch, DeleteWatch, DismissWait, ReadWatchLog } from "@armada/protocol";
 import { HELM_CALL_ANSWERS, isNotice } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PullRequestPress, PullRequestWrite, RingedNotes, TerminalMovedBack } from "../shared/api/sessions";
@@ -15,7 +15,7 @@ import { ringed } from "./held-notes-channels";
 import type { FleetConnection } from "./connection";
 import type { SessionPages } from "./session-page";
 import type { TerminalWindows } from "./terminal-windows";
-import type { LoadoutKind, LoadoutSource, McpServerAct } from "@armada/protocol";
+import type { LoadoutKind, LoadoutSource, McpServerAct, ModAim } from "@armada/protocol";
 
 type Hosts = {
   ipc: IpcMain;
@@ -26,7 +26,7 @@ type Hosts = {
   terminals: { windows: Pick<TerminalWindows, "show" | "close" | "sessionIds">; movedBack: (move: TerminalMovedBack) => void };
 };
 
-const BACK_TO: readonly TerminalMovedBack["to"][] = ["docked", "side panel"];
+const BACK_TO: readonly TerminalMovedBack["to"][] = ["docked"];
 
 const PRESSES: readonly PullRequestPress[] = ["read", "ready", "merge", "auto_merge"];
 const WRITES: readonly PullRequestWrite["kind"][] = ["comment", "approve", "request_changes"];
@@ -35,10 +35,14 @@ const WRITES: readonly PullRequestWrite["kind"][] = ["comment", "approve", "requ
 const ANSWERS: readonly string[] = HELM_CALL_ANSWERS;
 const MODES = ["ask", "auto", "accept_edits", "plan"];
 const DELIVERIES = ["auto_land", "open_pr", "keep_local"];
+const JUDGE_KINDS: readonly JudgeKind[] = ["job", "plan", "pull_request", "commit", "file", "page", "doc", "sketch", "command", "subagent", "issue", "note"];
+const MOD_AIMS: readonly ModAim[] = ["theme", "layout", "words", "fleet", "tracker", "commands", "tab", "source"];
 const MCP_ACTS: readonly McpServerAct[] = ["reconnect", "turn_on", "turn_off", "sign_in"];
 
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";
 const cells = (value: unknown): value is number => Number.isInteger(value) && (value as number) > 0 && (value as number) <= 65535;
+/** A kept style set is named by 32 hex digits. */
+const KEPT_HASH = /^[0-9a-f]{32}$/;
 const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } } as const;
 // **A request main cannot read is not a lost connection**: an answer missing from a list here
 // was told to the owner as Fleet not connected, while it was (16 Oct 2026).
@@ -114,8 +118,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
       if (typeof note?.said !== "string" || typeof note.address !== "string" || typeof note.place?.selector !== "string" || typeof note.place.location !== "string") return unread;
       if (typeof note.state !== "object" || note.state === null) return unread;
     }
-    for (const field of [start.title, start.model, start.effort, start.said]) if (field !== undefined && typeof field !== "string") return unread;
-    return connection()?.sessions.startMod({ ...(note === undefined ? {} : { note }), ...(start.said === undefined ? {} : { said: start.said }), ...(text(start.title) ? { title: start.title } : {}), ...(text(start.model) ? { model: start.model } : {}), ...(text(start.effort) ? { effort: start.effort } : {}) }) ?? unsent;
+    for (const field of [start.title, start.model, start.effort, start.said, start.from_job, start.from_tab]) if (field !== undefined && typeof field !== "string") return unread;
+    if (start.aim !== undefined && !MOD_AIMS.includes(start.aim)) return unread;
+    return connection()?.sessions.startMod({ ...(start.aim === undefined ? {} : { aim: start.aim }), ...(note === undefined ? {} : { note }), ...(start.said === undefined ? {} : { said: start.said }), ...(text(start.from_job) ? { from_job: start.from_job } : {}), ...(text(start.from_tab) ? { from_tab: start.from_tab } : {}), ...(text(start.title) ? { title: start.title } : {}), ...(text(start.model) ? { model: start.model } : {}), ...(text(start.effort) ? { effort: start.effort } : {}) }) ?? unsent;
   });
   ipc.handle(CHANNELS.answerSessionAsk,(_event, answer: AnswerSessionAsk) => {
     if (!text(answer?.session_id) || !text(answer.call) || !ANSWERS.includes(answer.answer)) return unread;
@@ -200,35 +205,25 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
     if (!text(changes?.session_id) || !Number.isInteger(changes.version) || changes.version < 1 || !Array.isArray(changes.marks)) return unread;
     return connection()?.sessions.sendPlanChanges({ session_id: changes.session_id, version: changes.version, marks: changes.marks, approve: changes.approve === true }) ?? unsent;
   });
-  ipc.handle(CHANNELS.judgeSession, (_event, judge: JudgeSession) => {
-    if (!text(judge?.session_id)) return unread;
-    return connection()?.sessions.judgeSession({ session_id: judge.session_id }) ?? unsent;
+  // A Judge's artifact is a kind Fleet knows with an id and a title: only those reach it.
+  const artifact = (one: JudgeArtifact | undefined): JudgeArtifact | undefined =>
+    one !== undefined && JUDGE_KINDS.includes(one.kind) && text(one.id) && typeof one.title === "string" ? { kind: one.kind, id: one.id, title: one.title } : undefined;
+  ipc.handle(CHANNELS.askJudge, (_event, ask: AskJudge) => {
+    const read = artifact(ask?.artifact);
+    if (!text(ask?.session_id) || read === undefined || (ask.prompt !== undefined && typeof ask.prompt !== "string")) return unread;
+    return connection()?.sessions.askJudge({ session_id: ask.session_id, artifact: read, prompt: ask.prompt ?? "" }) ?? unsent;
   });
-  ipc.handle(CHANNELS.sendConcern, (_event, send: SendConcern) => {
-    if (!text(send?.session_id) || !text(send.item_id)) return unread;
-    return connection()?.sessions.sendConcern({ session_id: send.session_id, item_id: send.item_id }) ?? unsent;
+  ipc.handle(CHANNELS.sendJudgeNote, (_event, send: SendJudgeNote) => {
+    if (!text(send?.session_id) || !text(send.reading) || !text(send.note)) return unread;
+    return connection()?.sessions.sendJudgeNote({ session_id: send.session_id, reading: send.reading, note: send.note }) ?? unsent;
   });
-  ipc.handle(CHANNELS.dismissConcern, (_event, dismiss: DismissConcern) => {
-    if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unread;
-    return connection()?.sessions.dismissConcern({ session_id: dismiss.session_id, item_id: dismiss.item_id }) ?? unsent;
+  ipc.handle(CHANNELS.dismissJudgeNote, (_event, dismiss: DismissJudgeNote) => {
+    if (!text(dismiss?.session_id) || !text(dismiss.reading) || !text(dismiss.note)) return unread;
+    return connection()?.sessions.dismissJudgeNote({ session_id: dismiss.session_id, reading: dismiss.reading, note: dismiss.note }) ?? unsent;
   });
-  // A review's subject is a plan, by its Job and the version read: only those reach Fleet.
-  const subject = (one: ReviewSubject | undefined): ReviewSubject | undefined =>
-    one?.kind === "plan" && text(one.session_id) && Number.isInteger(one.version) && one.version >= 1 ? { kind: "plan", session_id: one.session_id, version: one.version } : undefined;
-  ipc.handle(CHANNELS.startAdversarialReview, (_event, start: StartAdversarialReview) => {
-    const read = subject(start?.subject);
-    if (read === undefined) return unread;
-    return connection()?.sessions.startAdversarialReview({ subject: read, ...(start.again === true ? { again: true } : {}) }) ?? unsent;
-  });
-  ipc.handle(CHANNELS.sendFinding, (_event, send: SendFinding) => {
-    const read = subject(send?.subject);
-    if (read === undefined || !text(send.finding_id)) return unread;
-    return connection()?.sessions.sendFinding({ subject: read, finding_id: send.finding_id }) ?? unsent;
-  });
-  ipc.handle(CHANNELS.dismissFinding, (_event, dismiss: DismissFinding) => {
-    const read = subject(dismiss?.subject);
-    if (read === undefined || !text(dismiss.finding_id)) return unread;
-    return connection()?.sessions.dismissFinding({ subject: read, finding_id: dismiss.finding_id }) ?? unsent;
+  ipc.handle(CHANNELS.markJudgeRead, (_event, read: MarkJudgeRead) => {
+    if (!text(read?.session_id) || !text(read.reading)) return unread;
+    return connection()?.sessions.markJudgeRead({ session_id: read.session_id, reading: read.reading }) ?? unsent;
   });
   ipc.handle(CHANNELS.renameSession, (_event, rename: RenameSession) => {
     if (!text(rename?.session_id) || typeof rename.title !== "string" || rename.title.trim() === "") return unread;
@@ -322,11 +317,16 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
   ipc.handle(CHANNELS.readAttachmentHistory, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.attachmentHistory(sessionId) ?? unsent) : unread,
   );
+  // A hash and nothing else crosses: the renderer cannot name a path or an address through this.
+  ipc.handle(CHANNELS.readKeptStyles, (_event, hash: unknown) =>
+    typeof hash === "string" && KEPT_HASH.test(hash) ? (connection()?.sessions.keptStyles(hash) ?? unsent) : unread,
+  );
   ipc.handle(CHANNELS.readLoadoutItem, (_event, sessionId: string, item: unknown) => {
     const asked = loadoutItemAsk(item);
     return text(sessionId) && asked !== undefined ? (connection()?.sessions.loadoutItem(sessionId, asked) ?? unsent) : unread;
   });
   ipc.handle(CHANNELS.readSessionMcp, (_event, sessionId: string) => (text(sessionId) ? (connection()?.sessions.mcp(sessionId) ?? unsent) : unread));
+  ipc.handle(CHANNELS.readSessionQuick, (_event, sessionId: string) => (text(sessionId) ? (connection()?.sessions.quick(sessionId) ?? unsent) : unread));
   ipc.handle(CHANNELS.actOnSessionMcp, (_event, sessionId: string, server: string, act: McpServerAct) =>
     text(sessionId) && text(server) && MCP_ACTS.includes(act) ? (connection()?.sessions.actOnMcp(sessionId, server, act) ?? unsent) : unread,
   );

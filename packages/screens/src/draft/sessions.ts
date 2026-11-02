@@ -11,11 +11,10 @@
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import type { SketchSettled } from "@armada/components/src/compositions/SessionThread/sketch-answer";
-import type { AdversarialReviewState } from "@armada/components/src/compositions/AdversarialReview/review-state";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
 import type { PlanLandsIn } from "@armada/components/src/compositions/SessionThread/lands-in";
 import type { AnswerDocument, AnswerSketch, CallKind, CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, HeldOpenBy, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
-import type { McpServerAct, McpSignIn, SessionMcpServer, StepChange, StepPhase, ToolSubagent, WatchSummary } from "@armada/protocol";
+import type { JudgeArtifact, JudgeReading, McpServerAct, McpSignIn, SessionMcpServer, StepChange, StepPhase, ToolSubagent, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 import type { SessionLanes } from "@armada/components/src/compositions/LaneCanvas/build";
 
@@ -122,6 +121,8 @@ export type SessionAttachment =
       settled?: SketchSettled;
       /** When the newest revision was kept, as near as the record tells: its thread card stands at this time. */
       kept?: string;
+      /** A document: the kept style set of each `mock` in its sketches, by content hash, keyed `<sketch title>#<node id>`: `detail.kept_styles` on the wire. */
+      keptStyles?: Readonly<Record<string, string>>;
     }
   /**
    * The Session this one was forked to, and the one it was forked from. `id` is the other Session's.
@@ -167,7 +168,7 @@ export type SessionSketch = {
 export type DrawnSketch = { id: string; title: string; drawing: SessionSketch };
 
 // ---- What a Session works to ---------------------------------------------------------------------------
-// The plan, the workflow, the subagents on the field and the judges' concerns, drawn in the Session's own view on
+// The plan, the workflow and the subagents on the field, drawn in the Session's own view on
 // the Cockpit and on the Sessions page alike, from the record's plan, workflow, proposal and touches (`session-work.ts`). Progress is the agent's
 // task states with what Fleet observed beside them (`seen`), and a status ring no longer stands for it.
 
@@ -210,9 +211,6 @@ export type WorkDrone = { id: string; agent?: string; task?: string; path: strin
 /** A file of the repository as the Field draws it, a bar on the plot of its directory. `act` is what is being done to it now: made, changed or taken away. */
 export type WorkFile = { path: string; act?: "write" | "edit" | "remove" };
 
-/** A concern a judge raised at a step. It waits on the person; a judge never blocks. */
-export type WorkConcern = { id: string; /** The step it was raised after, where a boundary judge raised it; the Judge tile's carry none. */ step?: string; judge?: string; text: string; /** The refusal in its parts, which `text` joins: what should be seen, what was seen instead, and what the difference does. Absent on a concern kept before they were. */ expected?: string; produced?: string; consequence?: string; /** What it cites: a file, and `:line` where it names one. */ cites?: readonly string[] };
-
 /** A workflow a Session may follow: its steps in order. */
 export type WorkflowChoice = { id: string; name: string; steps: readonly string[]; /** The repository that holds it. Absent is any. */ manifestId?: string };
 
@@ -231,13 +229,6 @@ export type SessionWork = {
   field?: readonly WorkDrone[];
   /** The files the Field draws as bars on its plots. */
   files?: readonly WorkFile[];
-  concerns?: readonly WorkConcern[];
-  /** The latest adversarial review of the pending plan, each finding pinned to the group or task it is about on the card and in the plan in full. Absent is none run, which draws the press. */
-  adversarial?: AdversarialReviewState;
-  /** A judge is reading the work now. */
-  judging?: true;
-  /** The last reading's outcome: `concerns` 0 is how the tile says "No concerns". */
-  judged?: { at: string; concerns: number };
   /** The owner's setting turned workflows off: the picker, the steps and the proposer's mark for a workflow are not drawn. */
   railOff?: true;
   /** What the workflow ends in, which the Landing panel draws: the workflow's `lands`, as Fleet resolves it. Absent is a pull request. */
@@ -263,13 +254,18 @@ export type SessionWorkActs = {
   suggest: (id: string, marks: readonly PlanMark[], approving?: boolean) => void;
   /** Not yet: the plan is set aside, its call on him goes, and the agent is told to keep talking and record no plan until he asks for one. Absent where nothing serves it, and Not yet is not drawn. */
   setAside?: (id: string) => void;
-  /** Sends the concern to the Session as a message to the agent. */
-  sendConcern: (id: string, concern: string) => void;
-  dismissConcern: (id: string, concern: string) => void;
-  /** The acts of an adversarial review of the plan: run it (again, where one was run), and send or dismiss a finding by its id. The review lands on the plan by Fleet's events. */
-  adversarial?: { run: (id: string) => void; send: (id: string, finding: string) => void; dismiss: (id: string, finding: string) => void };
-  /** Sends a judge to read the Session's work so far against its plan. Fleet answers at once; the reading lands as `judging`, then `judged` and `concerns`. */
-  judge?: (id: string) => Promise<void>;
+};
+
+/**
+ * The Judge's acts (`docs/practices/protocol/a-job-is-judged-on-demand.md`). A reading lands on the Session's `judgeReadings` by Fleet's events, so each act
+ * answers nothing; a refusal is the draft's `said`. `reading` is a reading's id and `note` a note's.
+ */
+export type SessionJudgeActs = {
+  /** An empty `prompt` asks what was missed. */
+  ask: (id: string, artifact: JudgeArtifact, prompt: string) => void;
+  send: (id: string, reading: string, note: string) => void;
+  dismiss: (id: string, reading: string, note: string) => void;
+  markRead: (id: string, reading: string) => void;
 };
 
 /**
@@ -375,14 +371,12 @@ type SessionRowKinds =
   | { id: string; at: string; kind: "release"; slot: number; branch: string }
   /** A value the person changed through a panel, which the agent was told of: what it was and what it is now. */
   | { id: string; at: string; kind: "change"; what: string; from: string; to: string }
-  /** A judge's concern he dismissed: one settled line, and the agent was told nothing. */
-  | { id: string; at: string; kind: "concern"; step: string; text: string }
   /** The changes and notes he sent on the plan, one message with a line for each. */
   | { id: string; at: string; kind: "suggest"; lines: readonly SuggestLine[] }
   /** An `armada check` the agent ran in its slot: the Check's key, its run on the Checks page, where it stands, and where Fleet read it failed. */
   | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed"; target?: string; blame?: CheckBlame }
   /** A command the person ran from the thread or the band, which the Session was told: its exit (`code` is null where it was stopped) and the last lines it printed, as plain text. */
-  | { id: string; at: string; kind: "ran"; command: string; code: number | null; tail: string }
+  | { id: string; at: string; kind: "ran"; command: string; code: number | null; tail: string; /** Still running, since `since`. **A mock's field**: Fleet tells the Session of a run only when it ends. */ running?: true; since?: string }
   /**
    * An HTTP request sent from Requests, by him with this Session open or by its agent, and its answer. The request half is whole, to
    * reopen and send again; `status` is null where nothing answered and `error` says why.
@@ -582,6 +576,8 @@ export type Session = {
   helm?: true;
   /** A Mod Job: started from Mod, for modding Armada itself. */
   mod?: true;
+  /** A Mod Job that builds a Custom tab: the Job whose panes hold the tab, and the tab's id. It has no row of its own; the tab and its card are where it lives. */
+  modFor?: { job: string; tab: string };
   /** Absent until the first turn has named it; a blank Session is known by its id alone. */
   title?: string;
   /** The repository it works in, by Manifest id: what `#` reads issues and pull requests of. */
@@ -635,6 +631,8 @@ export type Session = {
   heldOpenBy?: readonly HeldOpenBy[];
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
   done?: { since: string; summary?: string };
+  /** What the Job has done, in a sentence or two. Fleet serves nothing like it, so the wire never sets it and a real Job has none; only the mock's `cockpit-ship` fills it. The Calls HUD draws it where it is present (`ConsoleCalls.tsx`). */
+  soFar?: string;
   /**
    * What Fleet read the Session to be doing: working, stuck, replied, done or idle. **The one answer**
    * the Sessions list, the Cockpit's tiles, lanes and calls all draw. Absent from a Fleet that does not
@@ -658,8 +656,10 @@ export type Session = {
   mode?: SessionMode;
   /** How the Job was started, read at the top of its story under the Brief. Absent falls back to what the Job holds now. A row left out is not drawn. */
   started?: { workflow?: string; delivery?: DeliveryChoice; model?: string; effort?: string; mode?: SessionMode; /** The Job it was started from. */ by?: { job: string; title: string } };
-  /** The plan, workflow, subagents and concerns the view draws round the thread. Absent draws the thread and its ledger as before. */
+  /** The plan, workflow and subagents the view draws round the thread. Absent draws the thread and its ledger as before. */
   work?: SessionWork;
+  /** What a Judge read of the Job's artifacts, one per artifact, the latest replacing the one before (`SessionRecord.judge_readings`). Absent is none asked. */
+  judgeReadings?: readonly JudgeReading[];
   /** Dispatched after another Session and not started: it holds no slot and runs nothing until the condition is met. Absent once it has started. */
   waits?: SessionWait;
   /** The Workspace's lanes as this Job holds them: its tickets, pull request and deploy, and the rules that fired. Mock-only: no Fleet serves a Workspace yet. Absent draws no Lanes view. */
@@ -1118,6 +1118,8 @@ export type SessionsDraft = {
   command?: (id: string, text: string) => void;
   /** The acts on a Session's `work`. */
   work?: SessionWorkActs;
+  /** Asks a Judge to read an artifact of a Job and acts on its notes. Absent where no Fleet serves a Judge, and no Judge is drawn. */
+  judge?: SessionJudgeActs;
   /** The acts on a Job's own copy of its workflow, lifecycles and rules. Absent where nothing serves them, and the lanes offer none. */
   copy?: JobCopyActs;
   /** Answers the permission a Session is held on. The mock offers two and names none. */

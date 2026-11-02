@@ -345,8 +345,6 @@ function sessions() {
       unpick: () => undefined,
       approve: (id: string) => go(id, 1, [row("Approved the plan.", "you"), row("Starting on the first group.", "agent")]),
       suggest: () => undefined,
-      sendConcern: () => undefined,
-      dismissConcern: () => undefined,
     },
     // Each moment the walk lets pass moves an approved Job on to its landing.
     later() {

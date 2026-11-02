@@ -4,6 +4,7 @@ import type { MouseEvent } from "react";
 import type { NamedUnits, SessionUsageSummary, UsageBreakdown, UsageRules as UsageRulesAnswer, UsageSummary } from "@armada/protocol";
 
 import { Kbd } from "../../primitives/Kbd/Kbd";
+import { Skeleton } from "../../primitives/Skeleton/Skeleton";
 import { Tabs } from "../../primitives/Tabs/Tabs";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import {
@@ -45,7 +46,7 @@ import { UsageRules } from "./UsageRules";
  */
 
 export type UsagePageProps = {
-  /** Fleet's summary of the last seven days. Absent until it has answered: the panels draw empty. */
+  /** Fleet's summary of the last seven days. Absent until it has answered: the panels draw the shape of what is coming. */
   summary?: UsageSummary | undefined;
   /** The titles Bridge holds for Jobs, by id. A Job with none shows its short id. */
   titles?: ReadonlyMap<string, string> | undefined;
@@ -83,10 +84,10 @@ function Band({ children, keys }: { children: string; keys?: string[] }) {
   );
 }
 
-function Fig({ tip, children }: { tip: string; children: string }) {
+function Fig({ tip, over, children }: { tip: string; over?: boolean; children: string }) {
   return (
     <Tooltip label={tip}>
-      <span className="armada-usage__fig">{children}</span>
+      <span className="armada-usage__fig" data-over={over || undefined}>{children}</span>
     </Tooltip>
   );
 }
@@ -102,10 +103,21 @@ function Scope({ title, unit }: { title: string; unit?: string }) {
 
 type Delta = { up: boolean; text: string; tip: string };
 
+/** The plan window's share where its tile lights, and the context past which a Job's peak does. */
+const PLAN_NEAR = 80;
+const PLAN_OVER = 95;
+const PEAK_OVER = 400_000;
+
 /** One headline figure, a delta against the period before, and a thin meter where the figure is a share of a limit. */
 function Tile({ name, figure, tip, meter, delta }: { name: string; figure: string; tip: string; meter?: number; delta?: Delta | undefined }) {
   return (
-    <li className="armada-usage__tile" aria-label={name}>
+    <li
+      className="armada-usage__tile"
+      aria-label={name}
+      // Every figure here is burn, so one going up is going the wrong way.
+      data-way={delta === undefined ? undefined : delta.up ? "worse" : "better"}
+      data-level={meter === undefined ? undefined : meter >= PLAN_OVER ? "over" : meter >= PLAN_NEAR ? "near" : undefined}
+    >
       <span className="armada-usage__name">{name}</span>
       <span className="armada-usage__big">
         <Fig tip={tip}>{figure}</Fig>
@@ -118,7 +130,7 @@ function Tile({ name, figure, tip, meter, delta }: { name: string; figure: strin
       <span className="armada-usage__deltaslot">
         {delta === undefined ? null : (
           <Tooltip label={delta.tip}>
-            <span className="armada-usage__delta" aria-label={delta.tip}>
+            <span className="armada-usage__delta" data-way={delta.up ? "worse" : "better"} aria-label={delta.tip}>
               {delta.up ? <ArrowUp size={12} aria-hidden /> : <ArrowDown size={12} aria-hidden />}
               {delta.text}
             </span>
@@ -406,6 +418,151 @@ function HeatMap({ heat, cell, weekday, onCell, onWeekday }: { heat: number[][];
   );
 }
 
+/**
+ * What the page draws until Fleet's summary has answered: the loaded layout's own shapes in skeleton bars, no text,
+ * so the figures land on them without a frame left blank or anything moving. A summary with nothing in it is not this.
+ */
+function Bar({ width, end }: { width: string; end?: boolean }) {
+  return (
+    <span className="armada-usage__skel" data-end={end || undefined}>
+      <Skeleton width={width} />
+    </span>
+  );
+}
+
+const JOB_BARS = ["100%", "62%", "48%", "36%", "30%", "24%"];
+
+function PendingJobs() {
+  return (
+    <ul className="armada-usage__sessions" aria-hidden>
+      {JOB_BARS.map((track, at) => (
+        <li key={track} className="armada-usage__session">
+          <span className="armada-usage__what">
+            <Bar width={`${60 + ((at * 13) % 30)}%`} />
+            <Skeleton className="armada-usage__skel-track" width={track} />
+          </span>
+          <Bar width="80%" end />
+          <Bar width="80%" end />
+          <Bar width="80%" end />
+          <Bar width="80%" />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const SHARE_BARS = ["100%", "30%", "8%"];
+
+function PendingShares() {
+  return (
+    <ul className="armada-usage__shares" aria-hidden>
+      {SHARE_BARS.map((track, at) => (
+        <li key={track}>
+          <Bar width={`${50 + at * 15}%`} />
+          <Skeleton className="armada-usage__skel-track" width={track} />
+          <Bar width="80%" end />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const DAY_FILL = [0.45, 0.7, 0.8, 0.65, 0.4, 0.95, 0.75];
+
+/** Seven bars on a base line, laid over the same box the chart's own drawing fills. */
+function PendingChart() {
+  return (
+    <div className="armada-usage__plot" aria-hidden>
+      <div className="armada-usage__skel-chart" style={{ aspectRatio: `${W} / ${H}` }}>
+        {DAY_FILL.map((fill, at) => (
+          <Skeleton
+            key={at}
+            className="armada-usage__skel-column"
+            style={{ left: `${(barX(at) / W) * 100}%`, width: `${(BAR / W) * 100}%`, height: `${(((BASE - TOP) * fill) / H) * 100}%`, bottom: `${((H - BASE) / H) * 100}%` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PendingLegend() {
+  return (
+    <ul className="armada-usage__legend" aria-hidden>
+      {[0, 1, 2].map((one) => (
+        <li key={one}>
+          <Bar width="100%" />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function PendingMap() {
+  return (
+    <div className="armada-usage__map" aria-hidden>
+      <div className="armada-usage__heat">
+        <div className="armada-usage__maprow">
+          <span />
+          {WEEKDAYS.map((name) => (
+            <span key={name} className="armada-usage__colhead">
+              <Bar width="60%" />
+            </span>
+          ))}
+        </div>
+        {HOURS.map((hour) => (
+          <div key={hour} className="armada-usage__maprow">
+            <span className="armada-usage__rowhead">
+              <Bar width="70%" />
+            </span>
+            {WEEKDAYS.map((name) => (
+              <Skeleton key={name} className="armada-usage__skel-cell" />
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="armada-usage__readout" />
+      <div className="armada-usage__ramp">
+        <Skeleton className="armada-usage__skel-ramp" width="14rem" />
+      </div>
+    </div>
+  );
+}
+
+function PendingRules() {
+  return (
+    <section className="armada-usage__panel" aria-label="Usage rules">
+      <Band>Usage rules</Band>
+      <ul className="armada-usage__rules" aria-hidden>
+        {[0, 1, 2, 3].map((one) => (
+          <li key={one} className="armada-usage__rule">
+            <Skeleton className="armada-usage__skel-dot" />
+            <Bar width="80%" />
+            <Bar width={`${45 + one * 10}%`} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function PendingTiles({ meter }: { meter: boolean }) {
+  return (
+    <ul className="armada-usage__tiles" aria-hidden>
+      {[meter, false, false, false].slice(meter ? 0 : 1).map((has, at) => (
+        <li key={at} className="armada-usage__tile">
+          <Bar width="60%" />
+          <span className="armada-usage__big">
+            <Bar width="45%" />
+          </span>
+          {has ? <Skeleton className="armada-usage__skel-meter" /> : null}
+          <span className="armada-usage__deltaslot" />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function SessionRow({ one, whole, top, cursor, picked, onPick }: { one: Row; whole: number; top: number; cursor: boolean; picked: boolean; onPick: () => void }) {
   const { session } = one;
   const subagent = `${Math.round(session.subagent_share * 100)}%`;
@@ -431,7 +588,7 @@ function SessionRow({ one, whole, top, cursor, picked, onPick }: { one: Row; who
       </span>
       <Fig tip="Share of the week's burn">{pct(shareOf(one.units, whole))}</Fig>
       <Fig tip="Share of this job's burn that ran in subagents">{subagent}</Fig>
-      <Fig tip="Peak context">{peak}</Fig>
+      <Fig tip="Peak context" over={session.peak_context >= PEAK_OVER}>{peak}</Fig>
       <Tooltip label="Models used">
         <span className="armada-usage__model">{models}</span>
       </Tooltip>
@@ -517,27 +674,32 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
   };
   const total = summary?.total.units ?? 0;
   const rest = summary?.rest;
+  const pending = summary === undefined;
 
   return (
-    <div className="armada-usage armada-page">
-      <h1 className="armada-page__title">Usage</h1>
-
+    <div className="armada-usage armada-page" aria-busy={pending || undefined}>
       <div className="armada-usage__page">
         <div className="armada-usage__left">
           <section className="armada-usage__panel" aria-label="Job list">
             <Band keys={["↑↓", "↵", "Esc"]}>Jobs</Band>
-            <div className="armada-usage__heads" aria-hidden>
-              <span />
-              <span>Week</span>
-              <span>Subagents</span>
-              <span>Peak context</span>
-              <span>Models</span>
-            </div>
-            <ul className="armada-usage__sessions" role="listbox" aria-label="Jobs" aria-activedescendant={active === undefined ? undefined : `usage-${active.id}`} tabIndex={0}>
-              {rows.map((one, at) => (
-                <SessionRow key={one.id} one={one} whole={total} top={top} cursor={at === cursor} picked={at === pick} onPick={() => { setCursor(at); setPick(at); setCell(undefined); }} />
-              ))}
-            </ul>
+            {pending ? null : (
+              <div className="armada-usage__heads" aria-hidden>
+                <span />
+                <span>Week</span>
+                <span>Subagents</span>
+                <span>Peak context</span>
+                <span>Models</span>
+              </div>
+            )}
+            {pending ? (
+              <PendingJobs />
+            ) : (
+              <ul className="armada-usage__sessions" role="listbox" aria-label="Jobs" aria-activedescendant={active === undefined ? undefined : `usage-${active.id}`} tabIndex={0}>
+                {rows.map((one, at) => (
+                  <SessionRow key={one.id} one={one} whole={total} top={top} cursor={at === cursor} picked={at === pick} onPick={() => { setCursor(at); setPick(at); setCell(undefined); }} />
+                ))}
+              </ul>
+            )}
             {rest === undefined ? null : (
               <div className="armada-usage__rest">
                 <span className="armada-usage__what">
@@ -553,7 +715,19 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
 
           <section className="armada-usage__panel" aria-label="Breakdown">
             <Band keys={["m", "t", "b", "y", "d"]}>Breakdown</Band>
-            {source === undefined ? null : (
+            {pending ? (
+              <>
+                <div className="armada-usage__scope" aria-hidden>
+                  <Bar width="8rem" />
+                </div>
+                <div className="armada-usage__tabs">
+                  <Tabs items={CUTS} value={cut} onChange={(id) => setCut(id as Cut)} />
+                </div>
+                <div className="armada-usage__cut">
+                  <PendingShares />
+                </div>
+              </>
+            ) : source === undefined ? null : (
               <>
                 <Scope title={source.title} />
                 <div className="armada-usage__tabs">
@@ -576,7 +750,15 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
         <div className="armada-usage__centre">
           <section className="armada-usage__panel" aria-label="Burn per day">
             <Band keys={["←→"]}>Burn per day</Band>
-            {source === undefined || days === undefined ? null : (
+            {pending ? (
+              <>
+                <div className="armada-usage__scope" aria-hidden>
+                  <Bar width="8rem" />
+                </div>
+                <PendingChart />
+                <PendingLegend />
+              </>
+            ) : source === undefined || days === undefined ? null : (
               <>
                 <Scope title={source.title} unit="M units" />
                 <DayChart days={days} mine={source.session === undefined ? undefined : source.days} mineName={source.title} day={day} onDay={setHoverDay} onPick={pickDay} />
@@ -585,13 +767,21 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
             )}
           </section>
 
+          {pending && rules === undefined ? <PendingRules /> : null}
           {rules === undefined || views === undefined ? null : (
             <UsageRules rules={views} pick={rulePick} onPick={setRulePick} titles={titles} job={picked?.id} now={Date.parse(rules.until)} />
           )}
 
           <section className="armada-usage__panel" aria-label="Day and hour">
             <Band keys={["←→", "[", "]"]}>Day and hour</Band>
-            {source === undefined ? null : (
+            {pending ? (
+              <>
+                <div className="armada-usage__scope" aria-hidden>
+                  <Bar width="8rem" />
+                </div>
+                <PendingMap />
+              </>
+            ) : source === undefined ? null : (
               <>
                 <Scope title={source.title} />
                 <HeatMap heat={heat} cell={cell} weekday={weekday} onCell={setCell} onWeekday={hoverWeekday} />
@@ -600,7 +790,9 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
           </section>
         </div>
 
-        <div className="armada-usage__tilearea">{summary === undefined || source === undefined ? null : <Tiles summary={summary} source={source} planPercent={planPercent} />}</div>
+        <div className="armada-usage__tilearea">
+          {pending ? <PendingTiles meter={planPercent !== undefined} /> : source === undefined ? null : <Tiles summary={summary} source={source} planPercent={planPercent} />}
+        </div>
       </div>
     </div>
   );

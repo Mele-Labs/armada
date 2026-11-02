@@ -111,8 +111,6 @@ where
                     options,
                     steps: Vec::new(),
                     place: None,
-                    concern: None,
-                    cites: Vec::new(),
                     confirmed: false,
                 })
             })

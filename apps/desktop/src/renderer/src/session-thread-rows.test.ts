@@ -42,6 +42,15 @@ describe("a show_sketch call in a Session's thread", () => {
     expect(rows).toEqual([{ id: "t1", at: "14:00:00", kind: "sketch", sketch: "sketch:Flow", title: "Flow", drawing: scene("one") }]);
   });
 
+  it("is given the kept style set Fleet wrote on the sketch it kept, which the call did not carry", () => {
+    const mock = { id: "row", kind: "mock" as const, x: 0, y: 0, w: 320, html: "<p>Hi</p>" };
+    const hash = "0123456789abcdef0123456789abcdef";
+    const kept = { ...drawn("Flow"), drawing: { nodes: [{ ...mock, kept: hash }], edges: [] } } as SessionAttachment;
+    const withCall = (node: typeof mock) => cards(threadRowsFrom([call("t1", { title: "Flow", scene: { nodes: [node], edges: [] } })], [kept]))[0]!.drawing as unknown as { nodes: { kept?: string }[] };
+    expect(withCall(mock).nodes[0]!.kept).toBe(hash);
+    expect(withCall({ ...mock, html: "<p>Changed</p>" }).nodes[0]!.kept).toBeUndefined();
+  });
+
   it("carries that Fleet marked the sketch withdrawn, so its card stops asking", () => {
     const rows = threadRowsFrom([call("t1", { title: "Flow", scene: scene("one") })], [{ ...drawn("Flow"), asked: true as const, withdrawn: true as const } as SessionAttachment]);
     expect(cards(rows)[0]).toMatchObject({ asked: true, withdrawn: true });

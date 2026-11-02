@@ -1,7 +1,8 @@
 import { useRef, type ReactNode } from "react";
 
 import { useTileGrid } from "../../tile-grid";
-import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "../../primitives/Table/Table";
+import { Skeleton } from "../../primitives/Skeleton/Skeleton";
+import { Table, TableBody, TableCell, TableRow } from "../../primitives/Table/Table";
 import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 
@@ -53,29 +54,30 @@ export type CheckListProps = {
   onOpenRow?: (id: string) => void;
   /** What the band over the glass holds: the host's filters. With it, the band and glass are drawn though no row is. */
   controls?: ReactNode;
+  /** The read has not landed: skeleton tiles stand after any row drawn, so the Checks pop in without a blank glass. A read that landed with no Check leaves the glass empty. */
+  pending?: boolean;
 };
 
-export function CheckList({ rows, openRow = null, onOpenRow, controls }: CheckListProps) {
+/** The bars a pending tile draws, widths varied so the column does not read as a table. */
+const PENDING = ["5rem", "4rem", "6rem", "4.5rem", "5.5rem", "4rem"];
+
+export function CheckList({ rows, openRow = null, onOpenRow, controls, pending = false }: CheckListProps) {
   const list = useRef<HTMLElement>(null);
   // One Tab stop for the rows; the arrows and j/k choose one, and Enter or o opens it.
   useTileGrid(list, { tile: ".armada-check-list__row", cursor: ".armada-check-list__open" });
-  if (rows.length === 0 && controls === undefined) return null;
+  if (rows.length === 0 && controls === undefined && !pending) return null;
   return (
     <section className="armada-check-list" aria-label="Checks" ref={list}>
       <StampSurface>
-        {controls === undefined ? null : <div className="armada-check-list__band">{controls}</div>}
+        {controls === undefined ? null : (
+          <div className="armada-check-list__band">
+            <span className="armada-check-list__label">Checks</span>
+            {controls}
+          </div>
+        )}
         <div className="armada-check-list__scroll">
-          {rows.length === 0 ? null : (
+          {rows.length === 0 && !pending ? null : (
           <Table className="armada-check-list__table">
-            <TableHead>
-              <TableRow>
-                <TableHeaderCell>State</TableHeaderCell>
-                <TableHeaderCell>Check</TableHeaderCell>
-                <TableHeaderCell>Requested by</TableHeaderCell>
-                <TableHeaderCell>Started</TableHeaderCell>
-                <TableHeaderCell>Took</TableHeaderCell>
-              </TableRow>
-            </TableHead>
             <TableBody>
               {rows.map((row) => (
                 <TableRow
@@ -119,6 +121,27 @@ export function CheckList({ rows, openRow = null, onOpenRow, controls }: CheckLi
                   <TableCell variant="metadata">{row.duration}</TableCell>
                 </TableRow>
               ))}
+              {pending
+                ? PENDING.map((name, at) => (
+                    <TableRow key={`pending-${at}`} className="armada-check-list__row" data-status="pending">
+                      <TableCell className="armada-check-list__state">
+                        <Skeleton className="armada-check-list__skel-mark" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton width={name} />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton width="12rem" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton width="6.5rem" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton width="2.5rem" />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                : null}
             </TableBody>
           </Table>
           )}

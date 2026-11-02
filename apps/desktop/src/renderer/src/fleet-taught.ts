@@ -26,7 +26,7 @@ export type FleetTaught = {
   validateMod: (name: string) => Promise<ModChecked | null>;
 };
 
-const KINDS: readonly TaughtKind[] = ["words", "fleet", "tweak", "tracker"];
+const KINDS: readonly TaughtKind[] = ["words", "fleet", "tweak", "tracker", "tab"];
 const isTaught = (kind: ModSummary["kind"]): kind is TaughtKind => (KINDS as readonly (string | undefined)[]).includes(kind);
 
 /** A window that lists no taught mod: safe mode, which reads no mod. */

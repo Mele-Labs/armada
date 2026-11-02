@@ -62,6 +62,14 @@ A page kept before this has no `asked` and asks nothing.
 The Job is told as his message: `Approved document: <title>, revision <n>` and to go on from it as written, or `Sent back document: <title>, revision <n>`, his note and to revise the page at its path.
 `detail` then keeps `settled`, `settled_at` and his `words`.
 
+**Rule.** His reply in the thread approves the page too, when a model call reads it as approving.
+Each minute, Fleet reads up to three of his replies sent since the newest revision was kept, once each, with `models.dispute` (`page_replies`).
+A Fleet notice, an answer to one of the Job's questions and a card's own message are not read.
+Read as approving, the revision is settled `approved` as his card would settle it, and the Job is told nothing more: it read his reply.
+A question, a change asked for first or anything else leaves the page asking.
+Why: on 31 Oct 2026 the owner told a Job "Run the plan and merge it" in the thread, the Job built and merged, and its row called him for the page until he asked why.
+A local model head was trained for this read and is not in force: too few of his approvals were typed to learn from ([the spike](../spikes/reply-approves-reader.md)).
+
 **Rule.** Approving a revision approves the plan the Job recorded behind it, and the plan is not asked while a page waits ([The plan](session/the-plan.md)).
 Why: a design plan's page is its plan's evidence, and asking for both put two approvals to him at once.
 A page sent back leaves the plan held.
@@ -89,6 +97,10 @@ The kit is Armada's type and colour tokens as plain styling for headings, paragr
 Its scene is JSON in a `<script type="application/json">` child, in the format `sketch-pane.md` owns.
 
 **Rule.** A scene that does not validate draws an empty frame, as in a `show_sketch` call.
+
+**Rule.** A scene may hold `mock` nodes, HTML drawn with the repository's stylesheets (`drawing-a-sketch.md`).
+Fleet keeps the style set of each when it keeps the page and records their hashes in the `detail.kept_styles` of the `document` artifact. The page is not rewritten.
+A mock it cannot style is named in the `document_sketch` notice.
 
 ## Sealing
 

@@ -79,6 +79,21 @@ describe("starting a Mod Job", () => {
     expect(startMod).toHaveBeenCalledWith({});
   });
 
+  it("passes the Job and tab a Custom tab started it from, and refuses either that is not a string", async () => {
+    const handlers = new Map<string, Handler>();
+    const startMod = vi.fn(async () => ({ ok: true }));
+    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
+    handleSessions({ ipc, connection: () => ({ sessions: { startMod } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+    const start = handlers.get(CHANNELS.startModSession);
+    await start?.({}, { said: "a list", from_job: "job-9", from_tab: "t4" });
+    expect(startMod).toHaveBeenCalledWith({ said: "a list", from_job: "job-9", from_tab: "t4" });
+    startMod.mockClear();
+    const notUnderstood = { ok: false, outcome: { ok: false, why: "not_understood" } };
+    expect(await start?.({}, { said: "a list", from_job: 9, from_tab: "t4" })).toEqual(notUnderstood);
+    expect(await start?.({}, { said: "a list", from_job: "job-9", from_tab: {} })).toEqual(notUnderstood);
+    expect(startMod).not.toHaveBeenCalled();
+  });
+
   it("passes his words as said, and answers not understood to a malformed note or words, sending nothing", async () => {
     const handlers = new Map<string, Handler>();
     const startMod = vi.fn(async () => ({ ok: true }));
@@ -92,6 +107,23 @@ describe("starting a Mod Job", () => {
     expect(await start?.({}, { note: { said: "x" } })).toEqual(notUnderstood);
     expect(await start?.({}, { said: 3 })).toEqual(notUnderstood);
     expect(await start?.({}, null)).toEqual(notUnderstood);
+    expect(startMod).not.toHaveBeenCalled();
+  });
+});
+
+describe("a Mod Job's aim", () => {
+  it("passes the aim Bridge named to Fleet, and refuses a word that is no aim, sending nothing", async () => {
+    const handlers = new Map<string, Handler>();
+    const startMod = vi.fn(async () => ({ ok: true }));
+    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
+    handleSessions({ ipc, connection: () => ({ sessions: { startMod } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+    const start = handlers.get(CHANNELS.startModSession);
+    await start?.({}, { said: "a track view", aim: "tab" });
+    expect(startMod).toHaveBeenCalledWith({ said: "a track view", aim: "tab" });
+    startMod.mockClear();
+    const notUnderstood = { ok: false, outcome: { ok: false, why: "not_understood" } };
+    expect(await start?.({}, { said: "x", aim: "panel" })).toEqual(notUnderstood);
+    expect(await start?.({}, { said: "x", aim: 3 })).toEqual(notUnderstood);
     expect(startMod).not.toHaveBeenCalled();
   });
 });
@@ -131,12 +163,14 @@ describe("a Job's terminal window", () => {
 
   it("moves a shell back into Bridge, closing its window and telling every window where it went and which shell it is", async () => {
     const { call, windows, movedBack } = terminalWired();
+    // The side panel is gone, and a window is where a shell moves from.
     await call(CHANNELS.moveTerminalBack, "a", "side panel");
     await call(CHANNELS.moveTerminalBack, "a", "window");
     await call(CHANNELS.moveTerminalBack, "", "docked");
+    await call(CHANNELS.moveTerminalBack, "a", "docked");
     await call(CHANNELS.moveTerminalBack, "b", "docked");
     expect(windows.close.mock.calls).toEqual([["a"], ["b"]]);
-    expect(movedBack.mock.calls).toEqual([[{ sessionId: "a", to: "side panel", shell: { runId: "r1", ended: true } }], [{ sessionId: "b", to: "docked" }]]);
+    expect(movedBack.mock.calls).toEqual([[{ sessionId: "a", to: "docked", shell: { runId: "r1", ended: true } }], [{ sessionId: "b", to: "docked" }]]);
   });
 
   it("reads what a shell has printed so far by its run id", async () => {

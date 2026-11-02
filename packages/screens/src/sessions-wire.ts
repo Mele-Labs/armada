@@ -6,7 +6,7 @@
 // so the pairing and the reading happen here, once, where a test can hold them. Nothing here reads a transcript: a row is drawn as it arrived and nothing is inferred from it.
 
 import { isNotice } from "@armada/protocol";
-import type { AppliedRule, Attachment, AttachmentHistory, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobLifecycles, ProposedField, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag, TimelineEvent, WaitingItem, WatchSummary, WorkflowSummary } from "@armada/protocol";
+import type { AppliedRule, Attachment, AttachmentHistory, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobLifecycles, ProposedField, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag, TimelineEvent, WatchSummary, WorkflowSummary } from "@armada/protocol";
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import { parseScene } from "@armada/components/src/compositions/SketchScene/scene";
@@ -14,8 +14,7 @@ import type { Scene } from "@armada/components/src/compositions/SketchScene/scen
 import { retroRowOf } from "./retro-row";
 import { waitOfWire } from "./session-waits";
 import { lanesOfJob } from "./session-lanes";
-import { changeOfEvent, linesOfWire, settledRowsOf, stepsWithIds, workOf } from "./session-work";
-import type { ReviewRefused } from "./session-work";
+import { changeOfEvent, linesOfWire, stepsWithIds, workOf } from "./session-work";
 import { share } from "./share";
 import type {
   Session,
@@ -55,8 +54,6 @@ export type Beside = {
   unpicked?: ReadonlySet<ProposedField>;
   /** `features.workflows` is off, so the workflow picker, the steps and the proposer's mark for a workflow are not drawn. */
   workflowsOff?: boolean;
-  /** Fleet's refusal of the last press of the plan's adversarial review, for the version it was pressed on. */
-  reviewRefused?: ReviewRefused;
   /** Moves when something `picture` answers has changed without its identity doing so. */
   epoch?: number;
 };
@@ -124,6 +121,43 @@ export function sceneOfWire(value: unknown): Scene | undefined {
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+
+const KEPT_HASH = /^[0-9a-f]{32}$/;
+
+/**
+ * `detail.kept_styles` of a document: JSON text of `{"<sketch title>#<node id>": "<hash>"}`. **Anything that is not that reads as none**, and an
+ * entry whose hash is not 32 hex digits is left out, so a row Fleet wrote badly is a document whose frames draw with no stylesheet of the app.
+ */
+export function keptStylesOfDetail(text: string | undefined): Record<string, string> | undefined {
+  if (text === undefined) return undefined;
+  try {
+    const read: unknown = JSON.parse(text);
+    if (typeof read !== "object" || read === null || Array.isArray(read)) return undefined;
+    const kept = Object.entries(read).filter((one): one is [string, string] => typeof one[1] === "string" && KEPT_HASH.test(one[1]));
+    return kept.length === 0 ? undefined : Object.fromEntries(kept);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * `scene` with the `kept` hash of each `mock` that `held` (the scene Fleet kept) carries for the same node. Fleet writes `kept` into the
+ * sketch it keeps and not into the `show_sketch` call the thread's card is read from, so the card is given it here. **Only a node the call
+ * and the kept scene draw alike takes it**: a hash is for one set of HTML and rules, and a node redrawn since has none to give.
+ */
+export function keptFrom(scene: Scene, held: Scene | undefined): Scene {
+  if (held === undefined) return scene;
+  const had = new Map(held.nodes.flatMap((one) => (one.kind === "mock" && one.kept !== undefined ? [[one.id, one] as const] : [])));
+  if (had.size === 0) return scene;
+  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  return {
+    ...scene,
+    nodes: scene.nodes.map((one) => {
+      const was = had.get(one.id);
+      return was === undefined || one.kind !== "mock" || one.kept !== undefined || one.html !== was.html || one.css !== was.css || !same(one.styles, was.styles) ? one : { ...one, kept: was.kept! };
+    }),
+  };
+}
 
 /** `detail.against`: JSON text of `{ title, scene }`. `undefined` when it is absent or is not that. */
 function earlierOf(text: string | undefined): Record<string, unknown> | undefined {
@@ -383,6 +417,7 @@ export function attachmentsOfRecord(record: Pick<SessionRecord, "attachments">, 
           ...(form === "file" && detail["by"] === "agent" && detail["shown"] !== undefined ? { shown: detail["shown"], by: "agent" as const, ...(detail["written"] === "true" ? { written: true as const } : {}) } : {}),
           ...(revisions.length === 0 ? {} : { revisions }),
           ...(form === "document" ? documentAskOf(one, detail) : {}),
+          ...(form === "document" ? ((kept) => (kept === undefined ? {} : { keptStyles: kept }))(keptStylesOfDetail(detail["kept_styles"])) : {}),
         });
         break;
       }
@@ -673,11 +708,11 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const handoff = ended ? undefined : standing("handoff_failed") ? ("failed" as const) : standing("handoff_starting") ? ("starting" as const) : undefined;
   const dead = ended ? ("ended" as const) : hosted === undefined && terminal?.listening !== true ? ("quiet" as const) : undefined;
   const title = cleanTitle(record.title);
-  const thread = rows === undefined ? [] : withChanges(rowsOfThread(record.id, rows, beside.picture, beside.repository), rows, record.id, beside.events, record.settled);
+  const thread = rows === undefined ? [] : withChanges(rowsOfThread(record.id, rows, beside.picture, beside.repository), rows, record.id, beside.events);
   const lapsed = rows === undefined || ended ? undefined : lapsedOf(rows);
   const activity = activityOf(record.activity);
   const account = accountOf(record.activity);
-  const work = workOf(record, { workflows: beside.workflows ?? NO_WORKFLOWS, attachments, rows, drawn: thread, unpicked: beside.unpicked ?? NO_PICKS, workflowsOff: beside.workflowsOff === true, ...(beside.reviewRefused === undefined ? {} : { reviewRefused: beside.reviewRefused }) });
+  const work = workOf(record, { workflows: beside.workflows ?? NO_WORKFLOWS, attachments, rows, drawn: thread, unpicked: beside.unpicked ?? NO_PICKS, workflowsOff: beside.workflowsOff === true });
   const flow = work?.workflow;
   const lanes =
     ended || beside.lifecycles === undefined
@@ -701,6 +736,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(hosted === undefined ? { terminal: true as const } : {}),
     ...(record.helm === true ? { helm: true as const } : {}),
     ...(record.mod === true ? { mod: true as const } : {}),
+    ...(record.from_job === undefined || record.from_tab === undefined ? {} : { modFor: { job: record.from_job, tab: record.from_tab } }),
     ...(dead === undefined ? {} : { dead }),
     ...(handoff === undefined ? {} : { handoff }),
     ...(handoff !== "failed" || handoffReason === undefined ? {} : { handoffReason }),
@@ -752,14 +788,16 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(ended || (record.held_open_by?.length ?? 0) === 0 ? {} : { heldOpenBy: record.held_open_by }),
     ...(record.started === undefined ? {} : { started: startedOfWire(record.started) }),
     ...(beside.watches === undefined || beside.watches.length === 0 ? {} : { watches: beside.watches }),
+    // Kept after the Job ends, as its artifacts are: a reading is the Judge's answer about one of them.
+    ...((record.judge_readings?.length ?? 0) === 0 ? {} : { judgeReadings: record.judge_readings }),
     ...(work === undefined ? {} : { work }),
     ...(lanes === undefined ? {} : { lanes }),
   };
 }
 
-/** The values the person changed through a panel, which the agent was told of, and the concerns he settled, as rows of the thread where they happened. */
-function withChanges(thread: SessionRow[], rows: readonly WireRow[], sessionId: string, events: readonly TimelineEvent[] | undefined, settled: readonly WaitingItem[] | undefined): SessionRow[] {
-  const changes = [...settledRowsOf(settled, thread)];
+/** The values the person changed through a panel, which the agent was told of, as rows of the thread where they happened. */
+function withChanges(thread: SessionRow[], rows: readonly WireRow[], sessionId: string, events: readonly TimelineEvent[] | undefined): SessionRow[] {
+  const changes: { at: string; row: SessionRow }[] = [];
   for (const event of events ?? []) {
     if (event.subject.kind !== "session" || event.subject.id !== sessionId) continue;
     const change = changeOfEvent(event.kind, event.says);
@@ -872,4 +910,4 @@ export class SessionMemo {
 const sameStarted = (a: Beside["started"], b: Beside["started"]): boolean => a === b || (a !== undefined && b !== undefined && a.size === b.size && [...a].every(([id, one]) => b.get(id)?.held === one.held && b.get(id)?.record === one.record));
 
 const sameBeside = (a: Beside, b: Beside): boolean =>
-  a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.watches === b.watches && a.lifecycles === b.lifecycles && sameStarted(a.started, b.started) && a.lifecycleRules === b.lifecycleRules && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff && a.reviewRefused === b.reviewRefused;
+  a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.watches === b.watches && a.lifecycles === b.lifecycles && sameStarted(a.started, b.started) && a.lifecycleRules === b.lifecycleRules && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff;

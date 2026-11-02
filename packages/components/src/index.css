@@ -21,6 +21,7 @@
 @import "./primitives/Kbd/Kbd.css";
 @import "./primitives/ScrollArea/ScrollArea.css";
 @import "./primitives/Separator/Separator.css";
+@import "./primitives/WorkingMark/WorkingMark.css";
 @import "./primitives/Skeleton/Skeleton.css";
 @import "./primitives/Table/Table.css";
 @import "./primitives/Alert/Alert.css";
@@ -410,6 +411,7 @@
 /* Bridge's look. Last, so it reads over every component above. */
 @import "./depth.css";
 @import "./pages.css";
+@import "./meaning.css";
 @import "./compositions/UsagePage/UsagePage.css";
 @import "./compositions/SessionThread/DisputedRow.css";
 @import "./compositions/SessionThread/StartFailedRow.css";
@@ -433,3 +435,5 @@
 @import "./compositions/SessionThread/SubagentRow.css";
 @import "./compositions/TaskChip/TaskChip.css";
 @import "./compositions/WorkspacesPage/WorkspacesPage.css";
+@import "./compositions/SessionComposer/QuickBar.css";
+@import "./compositions/ThreadSettings/ThreadSettings.css";

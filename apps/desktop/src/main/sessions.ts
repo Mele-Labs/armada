@@ -55,7 +55,6 @@ import type {
   WatchList,
   WatchSummary,
   ClaimPullRequest,
-  DismissConcern,
   ConfirmWaiting,
   DismissWaiting,
   ReopenWaiting,
@@ -69,12 +68,10 @@ import type {
   PullRequestPage,
   PullRequestState,
   ReadSessionWait,
-  JudgeSession,
   NameSession,
   RenameSession,
   RunSessionCommand,
  
-  SendConcern,
   SendPlanChanges,
   SendSessionMessage,
   SendSessionNote,
@@ -92,9 +89,11 @@ import type {
   SessionSubagent,
   SessionLoadout,
   AttachmentHistory,
+  KeptStyles,
   McpServerAct,
   SessionMcp,
   SessionMcpActed,
+  SessionQuick,
   SessionThread,
   SessionWait,
   StartSession,
@@ -108,10 +107,11 @@ import type {
   WindowClosed,
   WalkTold,
   WindowFailed,
-  AdversarialReview,
-  StartAdversarialReview,
-  SendFinding,
-  DismissFinding,
+  AskJudge,
+  DismissJudgeNote,
+  JudgeReading,
+  MarkJudgeRead,
+  SendJudgeNote,
   WalkStep,
   WindowSignIn,
   WindowTake,
@@ -131,6 +131,12 @@ const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
 
 /** A Bridge offline a few minutes still opens the page shown meanwhile, and a walk from before a restart stays closed. */
 export const REOPEN_WITHIN_MS = 15 * 60 * 1000;
+
+/**
+ * What a read of a Job's quick replies waits: Fleet gives its model twenty seconds (`ASK_WITHIN` in
+ * `crates/fleet/src/session_host/quick.rs`) and answers in words after, so this is that and a margin.
+ */
+export const QUICK_MS = 30_000;
 
 /**
  * What an act on a Job's MCP server waits: Fleet's longest bound on one, ninety seconds for a reconnect or a
@@ -860,41 +866,31 @@ export class SessionsHost {
     return await this.act("POST", "/sessions/plan/changes", changes);
   }
 
-  /** The person asked for a judge to read the work now. Fleet answers the record with `judging` set; the reading lands on it. */
-  async judgeSession(judge: JudgeSession): Promise<SessionActed> {
-    return await this.act("POST", "/sessions/judge", judge);
+  /** A Judge asked to read one artifact of a Job. Fleet answers the reading, not the record, so nothing is folded: the reading arrives on `session.changed`. */
+  async askJudge(ask: AskJudge): Promise<SessionActed<JudgeReading>> {
+    return await this.readingOf("/sessions/judge", ask);
   }
 
-  /** A judge's concern, sent to the agent as the person's message and settled. */
-  async sendConcern(send: SendConcern): Promise<SessionActed> {
-    return await this.act("POST", "/sessions/judge/send", send);
+  /** A Judge's note sent to the agent as the person's message, and settled. */
+  async sendJudgeNote(send: SendJudgeNote): Promise<SessionActed<JudgeReading>> {
+    return await this.readingOf("/sessions/judge/send", send);
   }
 
-  /** A judge's concern, settled with the agent told nothing. */
-  async dismissConcern(dismiss: DismissConcern): Promise<SessionActed> {
-    return await this.act("POST", "/sessions/judge/dismiss", dismiss);
+  /** A Judge's note settled with the agent told nothing. */
+  async dismissJudgeNote(dismiss: DismissJudgeNote): Promise<SessionActed<JudgeReading>> {
+    return await this.readingOf("/sessions/judge/dismiss", dismiss);
   }
 
-  /** An adversarial review started, or the one kept for the plan. Fleet answers the review, not the record, so nothing is folded: the review arrives on `session.changed`. */
-  async startAdversarialReview(start: StartAdversarialReview): Promise<SessionActed<AdversarialReview>> {
-    return await this.review("/adversarial_review", start);
+  /** A reading's notes opened. */
+  async markJudgeRead(read: MarkJudgeRead): Promise<SessionActed<JudgeReading>> {
+    return await this.readingOf("/sessions/judge/read", read);
   }
 
-  /** A finding sent to the agent as the person's message, and settled. */
-  async sendFinding(send: SendFinding): Promise<SessionActed<AdversarialReview>> {
-    return await this.review("/adversarial_review/send", send);
-  }
-
-  /** A finding settled with the agent told nothing. */
-  async dismissFinding(dismiss: DismissFinding): Promise<SessionActed<AdversarialReview>> {
-    return await this.review("/adversarial_review/dismiss", dismiss);
-  }
-
-  private async review(path: string, body: StartAdversarialReview | SendFinding | DismissFinding): Promise<SessionActed<AdversarialReview>> {
+  private async readingOf(path: string, body: AskJudge | SendJudgeNote | DismissJudgeNote | MarkJudgeRead): Promise<SessionActed<JudgeReading>> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "POST", path, body);
-    return answer.ok === true ? { ok: true, value: answer.body as AdversarialReview } : { ok: false, outcome: answer.outcome };
+    return answer.ok === true ? { ok: true, value: answer.body as JudgeReading } : { ok: false, outcome: answer.outcome };
   }
 
   /** The person closed a window a Session showed: its walk is over, and its waiting item stands. */
@@ -1060,6 +1056,14 @@ export class SessionsHost {
     return answer.ok === true ? { ok: true, value: answer.body as AttachmentHistory } : { ok: false, outcome: answer.outcome };
   }
 
+  /** The style set a `mock` node's `kept` names, by content hash: it never changes, so the window keeps what it reads. */
+  async keptStyles(hash: string): Promise<SessionActed<KeptStyles>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "GET", `/sessions/kept_styles?hash=${encodeURIComponent(hash)}`);
+    return answer.ok === true ? { ok: true, value: answer.body as KeptStyles } : { ok: false, outcome: answer.outcome };
+  }
+
   /** What one item of a session's Loadout says, as Fleet read it from disk. */
   async loadoutItem(sessionId: string, item: LoadoutItemAsk): Promise<SessionActed<LoadoutItemBody>> {
     const port = this.port();
@@ -1075,6 +1079,14 @@ export class SessionsHost {
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "GET", `/sessions/mcp?session_id=${encodeURIComponent(sessionId)}`);
     return answer.ok === true ? { ok: true, value: answer.body as SessionMcp } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** The answers to a Job's last message and the lines he sends often. Fleet keeps what it computed, so nothing is held here. */
+  async quick(sessionId: string): Promise<SessionActed<SessionQuick>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "GET", `/sessions/quick?session_id=${encodeURIComponent(sessionId)}`, undefined, QUICK_MS);
+    return answer.ok === true ? { ok: true, value: answer.body as SessionQuick } : { ok: false, outcome: answer.outcome };
   }
 
   /** One act on one server, answered once it settles with the servers after it and, for a sign-in, the page. */

@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
 import { Kbd } from "../../primitives/Kbd/Kbd";
+import { Skeleton } from "../../primitives/Skeleton/Skeleton";
 import { Switch, SwitchControl } from "../../primitives/Switch/Switch";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "../../primitives/Table/Table";
 import { Textarea } from "../../primitives/Textarea/Textarea";
@@ -87,7 +88,12 @@ export type WorkflowManagerProps = {
   workspace?: WorkspaceEditing;
   /** The switch for Jobs at the top and one on each row. Absent draws none. */
   switches?: WorkflowSwitches;
+  /** The list has not been read: a group of skeleton rows stands in the list. A list read with nothing in it is not pending, and draws nothing. */
+  pending?: boolean;
 };
+
+/** The names of a pending group's rows, as bars. */
+const PENDING_ROWS = ["6rem", "8rem", "5rem", "7rem", "9rem"];
 
 /** What a row adds to its ref beyond the id and the place: the Manifest it was read under, and the file it was left out at. */
 const refOf = (one: ManagedWorkflow): Pick<WorkflowRef, "manifestId" | "file"> => ({
@@ -186,10 +192,12 @@ export function WorkflowManager(props: WorkflowManagerProps) {
           </Switch>
         )}
         {props.onNew === undefined ? null : (
-          <Button variant="primary" size="default" className="armada-wm__new" onClick={props.onNew}>
-            <Plus size={16} strokeWidth={2} aria-hidden />
-            New workflow
-          </Button>
+          <div className="armada-wm__new">
+            <Button variant="primary" size="default" onClick={props.onNew}>
+              <Plus size={16} strokeWidth={2} aria-hidden />
+              New workflow
+            </Button>
+          </div>
         )}
         <Input
           ref={search}
@@ -260,6 +268,24 @@ export function WorkflowManager(props: WorkflowManagerProps) {
               </ul>
             </div>
           ))}
+          {props.pending === true ? (
+            <div className="armada-wm__group" data-pending="" aria-hidden="true">
+              <h3 className="armada-wm__caption">
+                <Skeleton width="4rem" />
+              </h3>
+              <ul className="armada-wm__rows">
+                {PENDING_ROWS.map((width, at) => (
+                  <li key={at} className="armada-wm__row">
+                    <span className="armada-wm__entry armada-wm__skel">
+                      <Skeleton width={width} />
+                    </span>
+                    <span />
+                    <span className="armada-wm__switch">{props.switches === undefined ? null : <Skeleton className="armada-wm__skel-switch" />}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       </div>
       <div className="armada-wm__detail" data-col="detail">
@@ -402,6 +428,7 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
             {workflow.source === "armada" && !lanes ? (
               <Act
                 label="Make my copy"
+                ghost
                 Glyph={CopyPlus}
                 onPress={() => void run(() => acts.onMakeCopy(ref))}
               />
@@ -423,6 +450,7 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
             {workflow.source === "armada" ? (
               <Act
                 label="Propose to Armada"
+                ghost
                 Glyph={GitPullRequestArrow}
                 disabled={said !== null && said.refused !== true}
                 onPress={() =>
@@ -474,10 +502,10 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
 }
 
 /** One act of the header's toolbar: a glyph with its tooltip, named for a reader who cannot see it. */
-function Act({ label, Glyph, onPress, pressed, disabled, destructive }: { label: string; Glyph: LucideIcon; onPress: () => void; pressed?: boolean; disabled?: boolean; destructive?: boolean }) {
+function Act({ label, Glyph, onPress, pressed, disabled, destructive, ghost }: { label: string; Glyph: LucideIcon; onPress: () => void; pressed?: boolean; disabled?: boolean; destructive?: boolean; ghost?: boolean }) {
   return (
     <Tooltip label={label}>
-      <Button variant={destructive === true ? "destructive" : "secondary"} size="sm" iconOnly aria-label={label} aria-pressed={pressed} disabled={disabled} onClick={onPress}>
+      <Button variant={destructive === true ? "destructive" : ghost === true ? "ghost" : "secondary"} size="sm" iconOnly aria-label={label} aria-pressed={pressed} disabled={disabled} onClick={onPress}>
         <Glyph size={16} strokeWidth={2} aria-hidden />
       </Button>
     </Tooltip>

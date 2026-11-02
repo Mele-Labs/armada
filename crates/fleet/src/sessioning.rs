@@ -46,12 +46,12 @@ pub(crate) struct LedgerReads {
     build: BuildReads,
     /// The plan the Session recorded, and the files it and its subagents touched.
     plan: Option<store::KeptPlan>,
-    /// The latest adversarial review of the plan, whatever version it read.
-    adversarial: Option<store::KeptAdversarialReview>,
+    /// The Job's Judge readings, the oldest asked first.
+    judge_readings: Vec<store::KeptJudgeReading>,
     touches: Vec<store::KeptTouch>,
     /// The pull requests the plan may land in: the Session's own and those of the Jobs its groups were handed to.
     pulls: Vec<crate::plan_record::PlanPull>,
-    /// What the workflow rail and the judge's last reading are derived from.
+    /// What the workflow rail is derived from.
     rail: crate::rail_keeping::RailReads,
     /// How the Job was started, and the Job that started it.
     started: Option<ipc::SessionStarted>,
@@ -732,6 +732,19 @@ where
         self.shown_file_read(id.as_str(), &path).await
     }
 
+    async fn get_style_sources(
+        &self,
+        caller: Option<api::Caller>,
+        session_id: Option<ipc::SessionId>,
+        path: Option<String>,
+    ) -> Result<ipc::StyleSources, Refusal> {
+        self.style_sources_read(caller, session_id, path).await
+    }
+
+    async fn get_kept_styles(&self, hash: String) -> Result<ipc::KeptStyles, Refusal> {
+        self.kept_styles_read(&hash).await
+    }
+
     async fn record_plan(
         &self,
         caller: Option<api::Caller>,
@@ -750,18 +763,6 @@ where
         sent: ipc::SendPlanChanges,
     ) -> Result<SessionRecord, Refusal> {
         self.plan_changes_sent(sent).await
-    }
-
-    async fn judge_session(self: Arc<Self>, judge: ipc::JudgeSession) -> Result<SessionRecord, Refusal> {
-        self.judge_asked(judge).await
-    }
-
-    async fn send_concern(self: Arc<Self>, send: ipc::SendConcern) -> Result<SessionRecord, Refusal> {
-        self.concern_sent(send).await
-    }
-
-    async fn dismiss_concern(self: Arc<Self>, dismiss: ipc::DismissConcern) -> Result<SessionRecord, Refusal> {
-        self.concern_dismissed(dismiss).await
     }
 
     async fn ask_in_window(

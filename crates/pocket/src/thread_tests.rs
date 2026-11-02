@@ -48,6 +48,15 @@ pub(crate) async fn stub_fleet(seen: Seen) -> u16 {
             }),
         )
         .route(
+            "/sessions/kept_styles",
+            get(|RawQuery(query): RawQuery| async move {
+                match query.as_deref() {
+                    Some("hash=0123456789abcdef0123456789abcdef") => (StatusCode::OK, r#"{"sheets":[],"fonts":[]}"#.to_string()),
+                    _ => (StatusCode::NOT_FOUND, r#"{"code":"fleet.no_such_kept_styles"}"#.to_string()),
+                }
+            }),
+        )
+        .route(
             "/sessions/ask/answer",
             post(move |headers: HeaderMap, body: String| async move {
                 wrote.lock().unwrap().push(("/sessions/ask/answer".into(), caller(&headers), body));
@@ -117,6 +126,15 @@ async fn a_picture_the_job_showed_reaches_the_phone_as_its_bytes() {
     assert_eq!(answer.headers()["content-type"], "image/png");
     assert_eq!(axum::body::to_bytes(answer.into_body(), 64).await.unwrap().as_ref(), [0x89, b'P']);
     let (status, _) = send(&phone, Method::GET, "/api/sessions/shown?session_id=h1&path=%2Fetc%2Fhosts", "").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn a_kept_style_set_reaches_the_phone_as_fleet_answers_it() {
+    let phone = phone_on(stub_fleet(Seen::default()).await).await;
+    let held = send(&phone, Method::GET, "/api/sessions/kept_styles?hash=0123456789abcdef0123456789abcdef", "").await;
+    assert_eq!(held, (StatusCode::OK, r#"{"sheets":[],"fonts":[]}"#.to_string()));
+    let (status, _) = send(&phone, Method::GET, "/api/sessions/kept_styles?hash=..%2F..%2Fsecret", "").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 

@@ -185,7 +185,8 @@ where
         .await
         .map_err(|why| self.mod_fault(format!("the mod could not be read: {why}")))?;
         let valid = found.valid();
-        let (mut css, mut layout, mut taught_words, mut taught_fleet, mut taught_commands) = (None, None, None, None, None);
+        let (mut css, mut layout, mut taught_words, mut taught_fleet, mut taught_commands, mut tab) = (None, None, None, None, None, None);
+        let glyph = found.manifest.glyph.clone();
         match found.files.map(|files| files.payload) {
             // A tweak is token values like a theme's, and Bridge injects it the same way.
             Some(Payload::Css(text) | Payload::Tweak(text)) => css = Some(text),
@@ -197,6 +198,8 @@ where
             Some(Payload::Fleet(text)) => taught_fleet = fleet_rules::read(&text).ok(),
             // Drawn in the palette by Bridge, which needs each row's blanks and not the text.
             Some(Payload::Commands(text)) => taught_commands = commands::read(&text).ok(),
+            // Loaded by Bridge as the text that passed, with the glyph `mod.toml` named.
+            Some(Payload::Tab(code)) => tab = Some(ipc::TabModule { glyph, code }),
             // A tracker is not Bridge's to apply; what it is checked against is `try_tracker_mod`.
             Some(Payload::Tracker(_)) | None => {}
         }
@@ -208,6 +211,7 @@ where
             words: taught_words,
             fleet: taught_fleet,
             commands: taught_commands,
+            tab,
             problems: found.problems,
         })
     }

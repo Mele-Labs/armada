@@ -6,7 +6,7 @@ use std::process::Command;
 
 use ipc::ModKind;
 
-use super::{manifest, slug_problem, FLEET, LAYOUT, MANIFEST, THEME, TRACKER, TWEAK, WORDS, COMMANDS};
+use super::{manifest, slug_problem, FLEET, LAYOUT, MANIFEST, TAB, THEME, TRACKER, TWEAK, WORDS, COMMANDS};
 
 /// Why a scaffold did not happen.
 #[derive(Debug, PartialEq, Eq)]
@@ -82,6 +82,20 @@ url = \"https://example.com/docs\"
 # [[command]]
 # name = \"Add a task\"
 # chain = [\"nav:projects\", \"act:add_task\"]
+";
+
+/// The starter tab: placeholder shapes, as any panel draws while it loads, so it validates and the
+/// tab reads as being built until it is edited. `host` is what Bridge hands the tab.
+const STARTER_TAB: &str = "\
+// A tab Bridge loads as part of itself. `host.React` is React, `host.armada` is the whole Fleet API,
+// `host.ui` is Bridge's components, `host.glyphs` its icons by registry name and `host.job.id` the Job the tab is in.
+// There is no `import`: everything the tab uses comes through `host`. Check it with validate_mod.
+export default function Tab({ host }) {
+  const { createElement: h } = host.React;
+  const { Skeleton } = host.ui;
+  const bars = [\"40%\", \"90%\", \"75%\", \"85%\", \"60%\"].map((width, at) => h(Skeleton, { key: at, width }));
+  return h(\"div\", { style: { display: \"grid\", gap: \"var(--space-3)\", padding: \"var(--space-4)\" } }, bars);
+}
 ";
 
 /// The starter tweak: no declaration, so the chosen theme draws as it did.
@@ -210,11 +224,15 @@ fn written(
         ModKind::Tweak => ("tweak", TWEAK, STARTER_TWEAK),
         ModKind::Tracker => ("tracker", TRACKER, STARTER_TRACKER),
         ModKind::Commands => ("commands", COMMANDS, STARTER_COMMANDS),
+        ModKind::Tab => ("tab", TAB, STARTER_TAB),
     };
     let mut toml = format!(
         "name = \"{name}\"\nkind = \"{word}\"\nversion = \"0.1.0\"\ndescription = \"{}\"\n",
         escape(description)
     );
+    if kind == ModKind::Tab {
+        toml.push_str("glyph = \"panel-top\"\n");
+    }
     if let Some(on) = taught.and_then(|one| one.taught_on) {
         toml.push_str(&format!("taught_on = \"{}\"\n", escape(on)));
     }

@@ -46,6 +46,8 @@ impl Sessions for FakeDaemon {
             loadout_summary: None,
             helm: false,
             r#mod: false,
+            from_job: None,
+            from_tab: None,
             auto_land: false,
             activity: None,
             build: None,
@@ -54,9 +56,7 @@ impl Sessions for FakeDaemon {
             plan: None,
             touches: Vec::new(),
             workflow_step: None,
-            judging: false,
-            judge: None,
-            settled: Vec::new(),
+            judge_readings: Vec::new(),
             closed: Vec::new(),
             waits: None,
             later: Vec::new(),
@@ -410,33 +410,6 @@ impl Sessions for FakeDaemon {
         .await
     }
 
-    async fn judge_session(self: std::sync::Arc<Self>, judge: ipc::JudgeSession) -> Result<SessionRecord, Refusal> {
-        self.report_session(SessionReport {
-            harness: String::new(),
-            session_id: judge.session_id,
-            fact: ipc::SessionFact::TurnCompleted { said: None },
-        })
-        .await
-    }
-
-    async fn send_concern(self: std::sync::Arc<Self>, send: ipc::SendConcern) -> Result<SessionRecord, Refusal> {
-        self.report_session(SessionReport {
-            harness: String::new(),
-            session_id: send.session_id,
-            fact: ipc::SessionFact::TurnCompleted { said: None },
-        })
-        .await
-    }
-
-    async fn dismiss_concern(self: std::sync::Arc<Self>, dismiss: ipc::DismissConcern) -> Result<SessionRecord, Refusal> {
-        self.report_session(SessionReport {
-            harness: String::new(),
-            session_id: dismiss.session_id,
-            fact: ipc::SessionFact::TurnCompleted { said: None },
-        })
-        .await
-    }
-
     async fn send_plan_changes(self: std::sync::Arc<Self>, changes: ipc::SendPlanChanges) -> Result<SessionRecord, Refusal> {
         self.report_session(SessionReport {
             harness: String::new(),
@@ -444,6 +417,23 @@ impl Sessions for FakeDaemon {
             fact: ipc::SessionFact::TurnCompleted { said: None },
         })
         .await
+    }
+
+    async fn get_style_sources(
+        &self,
+        _caller: Option<crate::Caller>,
+        _session_id: Option<ipc::SessionId>,
+        path: Option<String>,
+    ) -> Result<ipc::StyleSources, Refusal> {
+        Ok(ipc::StyleSources { sources: Vec::new(), start: path, packages: Vec::new() })
+    }
+
+    async fn get_kept_styles(&self, hash: String) -> Result<ipc::KeptStyles, Refusal> {
+        Err(Refusal::NotFound(ipc::WireError::raised(
+            "fleet.no_such_kept_styles",
+            format!("No kept styles {hash}."),
+            crate::tests::shapes::run_id(),
+        )))
     }
 
     async fn get_shown_file(&self, _id: ipc::SessionId, path: String) -> Result<crate::ShownFile, Refusal> {

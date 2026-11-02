@@ -5,7 +5,8 @@ import { afterEach, expect, onTestFinished, test } from "vitest";
 import { commands } from "vitest/browser";
 
 import { mountNoWalk, mountWalk } from "./WalkPlayer";
-import { PATIENCE_MS, button, text, walk } from "./walk";
+import { PATIENCE_MS, button, text, walk, walkThrough } from "./walk";
+import type { Step } from "./walk";
 
 let host: HTMLElement | undefined;
 afterEach(() => {
@@ -86,4 +87,37 @@ test("a press shows the cursor on its target first and reaches the page once the
   expect(pressed).toBe(0);
   await expect.poll(() => pressed).toBe(1);
   await expect.poll(() => window.__armadaWalk?.state().at).toBe(2);
+}, PATIENCE_MS + 5_000);
+
+/** A tab to drag onto an edge, and a Check whose press says whether the drop had landed before it. */
+function droppedThenChecked(): { at: HTMLElement; steps: Step[] } {
+  const at = mounted();
+  document.body.innerHTML = '<span id="tab" draggable="true">Tab</span><div id="edge">Edge</div><button id="check">Check</button>';
+  document.body.appendChild(at);
+  let dropped = false;
+  document.getElementById("edge")!.addEventListener("drop", () => (dropped = true));
+  document.getElementById("check")!.addEventListener("click", () => {
+    document.body.appendChild(document.createElement("p")).textContent = dropped ? "Dropped first" : "Pressed first";
+  });
+  return {
+    at,
+    steps: [
+      { drag: text("Tab"), onto: text("Edge"), say: "Drag the tab onto the edge" },
+      { press: button("Check"), say: "Check" },
+      { look: text("Dropped first"), say: "The drop landed before the press" },
+    ],
+  };
+}
+
+// jobLayouts stopped at step 24: its ⌘Z after a drop came before the drop had landed and took back the pane before it.
+test("a walk played straight through waits for a drop to land before its next step", async () => {
+  const { steps } = droppedThenChecked();
+  await walkThrough(steps);
+  expect(document.body.textContent).toContain("Dropped first");
+}, PATIENCE_MS + 5_000);
+
+test("a walk started on a later step runs a drop before it through to landing first", async () => {
+  const { at, steps } = droppedThenChecked();
+  mountWalk("probe", walk("none", steps), false, at, 2);
+  await expect.poll(() => window.__armadaWalk?.state(), { timeout: PATIENCE_MS + 2_000 }).toMatchObject({ at: 3, ready: true, stopped: false });
 }, PATIENCE_MS + 5_000);

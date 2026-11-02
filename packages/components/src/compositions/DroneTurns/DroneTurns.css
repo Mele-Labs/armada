@@ -321,33 +321,3 @@
   color: var(--fg-subtle);
   white-space: nowrap;
 }
-
-/* The inner dot of circle-dot, opacity and scale only, at --duration-pulse —
-   the step mark's carve-out, and the same reason: only motion says still
-   working. The ring holds still, so no row shifts and nothing reflows. */
-.armada-turns__mark[data-working] > svg > circle + circle {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: armada-turns-pulse var(--duration-pulse) var(--ease) infinite;
-}
-
-@keyframes armada-turns-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.45;
-    transform: scale(0.7);
-  }
-}
-
-/* The pulse stops, and the mark's tooltip and name — Working against Thinking —
-   carry live against finished alone. No hue is available to carry it: no
-   vocabulary colours a turn kind. */
-@media (prefers-reduced-motion: reduce) {
-  .armada-turns__mark[data-working] > svg > circle + circle {
-    animation: none;
-  }
-}

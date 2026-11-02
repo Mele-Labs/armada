@@ -4,7 +4,7 @@ import { seedDraft } from "@armada/components";
 import type { ForkPick, SessionThreadRow, SketchAnswer } from "@armada/components";
 import type { AnswerDocument, AnswerSketch } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionsDraft } from "@armada/screens/src/draft/sessions";
-import { fileCallOf, sketchCallOf } from "@armada/screens/src/sessions-wire";
+import { fileCallOf, keptFrom, sketchCallOf } from "@armada/screens/src/sessions-wire";
 import { sceneOfSketch } from "./session-sketch";
 
 type SketchCard = Extract<SessionThreadRow, { kind: "sketch" }>;
@@ -55,8 +55,10 @@ function sketchCardOf(row: { id: string; at: string; text: string }, ledger: rea
   const call = sketchCallOf(row.text);
   if (call === undefined) return undefined;
   const sketch = `sketch:${call.title}`;
-  if (!ledger.some((one) => one.kind === "sketch" && one.id === sketch)) return undefined;
-  return { id: row.id, at: row.at, kind: "sketch", sketch, title: call.title, drawing: call.scene, ...(call.against === undefined ? {} : { against: call.against }) };
+  const held = ledger.find((one) => one.kind === "sketch" && one.id === sketch);
+  if (held === undefined || held.kind !== "sketch") return undefined;
+  // The call is the agent's words, without the `kept` Fleet wrote on the sketch it kept.
+  return { id: row.id, at: row.at, kind: "sketch", sketch, title: call.title, drawing: keptFrom(call.scene, sceneOfSketch(held.drawing)), ...(call.against === undefined ? {} : { against: call.against }) };
 }
 
 /**
@@ -141,7 +143,7 @@ function rowsDrawn(rows: Session["rows"], ledger: readonly SessionAttachment[]):
   return rows.flatMap((row) => (row.kind === "browser_reminder" ? [] : [row])).map((row): SessionThreadRow => {
     if (row.kind === "tool") return sketchCardOf(row, ledger) ?? fileRowOf(row, ledger) ?? row;
     if (row.kind === "requested" || row.kind === "saved") return row;
-    if (row.kind === "lease" || row.kind === "release" || row.kind === "change" || row.kind === "suggest" || row.kind === "concern" || row.kind === "command" || row.kind === "compaction" || row.kind === "disputed" || row.kind === "window" || row.kind === "started" || row.kind === "waiter" || row.kind === "linked" || row.kind === "ran" || row.kind === "check" || row.kind === "retro" || row.kind === "draft") return row;
+    if (row.kind === "lease" || row.kind === "release" || row.kind === "change" || row.kind === "suggest" || row.kind === "command" || row.kind === "compaction" || row.kind === "disputed" || row.kind === "window" || row.kind === "started" || row.kind === "waiter" || row.kind === "linked" || row.kind === "ran" || row.kind === "check" || row.kind === "retro" || row.kind === "draft") return row;
     if (row.kind === "sent") {
       const { files, sketches, tags, ...rest } = row;
       return {

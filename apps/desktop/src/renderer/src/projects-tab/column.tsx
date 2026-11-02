@@ -6,7 +6,7 @@
 
 import { useState, type KeyboardEvent, type MouseEvent } from "react";
 import { Folder, GitBranch, Pencil, Plus, Trash2 } from "lucide-react";
-import { DropdownMenu, SearchField, Tooltip } from "@armada/components";
+import { DropdownMenu, SearchField, Skeleton, Tooltip } from "@armada/components";
 
 import { ConfirmCard } from "./confirm-card";
 import { NameProject, RenameProject, type Band } from "./list";
@@ -27,6 +27,26 @@ type Props = {
   onRepo: (manifestId: string) => void;
   onProject: (id: string) => void;
 };
+
+const VIEW_WIDTHS = ["52%", "44%", "48%"];
+const PROJECT_WIDTHS = ["58%", "46%", "54%"];
+const REPOSITORY_WIDTHS = ["40%", "34%"];
+
+/** The entries the column draws before the first read has answered: a glyph's square and a bar at the entry's own height, no text. */
+function PendingItems({ widths }: { widths: readonly string[] }) {
+  return (
+    <>
+      {widths.map((width, at) => (
+        <li key={at} className="deck-list__item" aria-hidden>
+          <div className="projects-item" data-pending>
+            <Skeleton className="projects-item__skel-mark" />
+            <Skeleton width={width} />
+          </div>
+        </li>
+      ))}
+    </>
+  );
+}
 
 export function Column({ bands, view, repo, query, searching, onQuery, onView, onRepo, onProject }: Props) {
   const store = useProjectsStore()!;
@@ -58,7 +78,8 @@ export function Column({ bands, view, repo, query, searching, onQuery, onView, o
         </li>
         <li>
           <ul className="deck-list__group projects-views" aria-label="Views">
-            {VIEW_IDS.map((id, at) => {
+            {snap.pending ? <PendingItems widths={VIEW_WIDTHS} /> : null}
+            {snap.pending ? [] : VIEW_IDS.map((id, at) => {
               const { Glyph, said } = VIEW_MARKS[id];
               const here = !searching && snap.open === undefined && repo === undefined && view === id;
               return (
@@ -85,7 +106,8 @@ export function Column({ bands, view, repo, query, searching, onQuery, onView, o
             </Tooltip>
           </div>
           <ul className="deck-list__group">
-            {snap.projects.map((one) => (
+            {snap.pending ? <PendingItems widths={PROJECT_WIDTHS} /> : null}
+            {snap.pending ? [] : snap.projects.map((one) => (
               <li key={one.id} className="deck-list__item">
                 {snap.renaming === one.id ? (
                   <RenameProject id={one.id} name={one.name} />
@@ -144,7 +166,8 @@ export function Column({ bands, view, repo, query, searching, onQuery, onView, o
             <h3 className="projects-section__label">Repositories</h3>
           </div>
           <ul className="deck-list__group">
-            {bands.map((band) => {
+            {snap.pending ? <PendingItems widths={REPOSITORY_WIDTHS} /> : null}
+            {snap.pending ? [] : bands.map((band) => {
               const here = !searching && snap.open === undefined && repo === band.manifestId;
               return (
                 <li key={band.manifestId} className="deck-list__item">

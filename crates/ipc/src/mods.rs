@@ -30,6 +30,8 @@ pub enum ModKind {
     Tracker,
     /// A `commands.toml`: rows added to Bridge's command palette.
     Commands,
+    /// A `tab.js`: a tab Bridge loads as part of itself, drawn with the whole Fleet API.
+    Tab,
 }
 
 /// Where a mod comes from. Ordered so a local mod is listed ahead of the built-in one of its name.
@@ -66,6 +68,9 @@ pub struct ModSummary {
     pub version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// A tab mod's glyph, by its name in the icon registry. Absent where `mod.toml` names none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub glyph: Option<String>,
     /// What Teach was pressed on, where a person taught this mod. Absent for a mod written by hand.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub taught_on: Option<String>,
@@ -155,12 +160,21 @@ pub struct StartModSession {
     pub model: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effort: Option<String>,
+    /// The kind of mod he is aiming for, which the brief names ahead of his first message. Absent names none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aim: Option<ModAim>,
     /// What he pointed at, as `send_session_note` takes it: the Job's first message. Neither: an empty Mod Job, whose brief rides ahead of his first message.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<SessionNote>,
     /// His words, where Mod was pressed on nothing: the Job's first message after the brief.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub said: Option<String>,
+    /// The Job whose panes hold the Custom tab this Job builds, and the tab's id there. Bridge sends them from a Custom tab; Fleet keeps them on the Job's record and Bridge
+    /// gives such a Job no row of its own, marking the tab and the Job that holds it where it waits on him. Absent on a Mod Job started anywhere else.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_job: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_tab: Option<String>,
 }
 
 /// What he picked in an empty Mod Job: the kind of mod he is aiming for, `source` for a change to Armada's code. Read with his first message only.
@@ -173,6 +187,7 @@ pub enum ModAim {
     Fleet,
     Tracker,
     Commands,
+    Tab,
     Source,
 }
 
@@ -217,6 +232,20 @@ pub struct ModChecked {
     /// A Commands mod's `commands.toml` as it was checked, present only where it passed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub commands: Option<CommandsFile>,
+    /// A tab mod's glyph and `tab.js` as they were checked, present only where it passed. Bridge
+    /// loads this text and no other.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tab: Option<TabModule>,
+}
+
+/// A tab mod as it was checked: what Bridge draws on the tab and the module it runs in the tab's body.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TabModule {
+    /// A name in the icon registry. Absent where `mod.toml` names none, and Bridge draws the Custom glyph.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub glyph: Option<String>,
+    /// The text of `tab.js`, an ES module whose default export is a React component.
+    pub code: String,
 }
 
 /// `try_tracker_mod`: run a tracker mod's Open query, and read one issue it listed, against a

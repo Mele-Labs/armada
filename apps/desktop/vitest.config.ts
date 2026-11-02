@@ -7,7 +7,7 @@
 // it loads reach a surface's code at runtime: every test under `mock/` (the
 // mock Fleet composes every surface through `fake.ts`, and `App` mounts them),
 // `annotate/Layer.test.tsx` (`openJobIn` from Jobs) and `left-column.test.ts`
-// (Overview's readings). The rest load `src/main`, `src/shared`, the
+// (Overview's readings). The rest load `src/main`, `src/preload`, `src/shared`, the
 // renderer's own modules and the shared packages, and the surfaces only as
 // types, which a bundler drops.
 //
@@ -25,6 +25,7 @@
 // which surfaces share.
 import { configDefaults, defineConfig } from "vitest/config";
 
+import { annotationStories } from "./src/main/annotations-stories";
 import { browserProject } from "./vitest.browser.preset";
 import WeightedShards from "./vitest.shard";
 
@@ -35,6 +36,11 @@ const smokeBrowser = ["src/renderer/src/mock/**/*.test.tsx", "src/renderer/src/a
 // The preset takes an `include` and nothing else, so what `smoke (browser)` owns is taken out here.
 const desktopBrowser = browserProject("desktop (browser)", ["src/renderer/**/*.test.tsx"]);
 desktopBrowser.test = { ...desktopBrowser.test, exclude: [...configDefaults.exclude, ...smokeBrowser] };
+
+// The walks play on the mock, whose note card reads the components' stories from the server
+// that serves the page, as `vite.mock.config.ts` does; without it a walk that picks a variant stops.
+const smokeBrowserProject = browserProject("smoke (browser)", smokeBrowser);
+smokeBrowserProject.plugins = [...(smokeBrowserProject.plugins ?? []), annotationStories()];
 
 // `electron.vite.config.ts` builds the walk finder into this module; a test that only loads
 // `capture/window.ts` needs the import to resolve, not the finder. `finder.test.ts` mocks its own.
@@ -53,7 +59,7 @@ export default defineConfig({
         test: {
           name: "desktop",
           environment: "node",
-          include: ["src/main/**/*.test.ts", "src/shared/**/*.test.ts", "src/renderer/**/*.test.ts"],
+          include: ["src/main/**/*.test.ts", "src/preload/**/*.test.ts", "src/shared/**/*.test.ts", "src/renderer/**/*.test.ts"],
           exclude: smokeNode,
         },
       },
@@ -65,7 +71,7 @@ export default defineConfig({
           include: smokeNode,
         },
       },
-      browserProject("smoke (browser)", smokeBrowser),
+      smokeBrowserProject,
     ],
   },
 });

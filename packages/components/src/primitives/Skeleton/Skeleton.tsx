@@ -1,15 +1,13 @@
+import { WorkingMark } from "../WorkingMark/WorkingMark";
 import type { HTMLAttributes } from "react";
 
 /**
- * Skeleton — the shape of data that has not arrived, in `--bg-hover` on the
- * surface it will land on.
+ * Skeleton — the shape of data that has not arrived, drawn as a row of
+ * telemetry cells in a wash of the foreground on the surface it will land on;
+ * see Skeleton.css.
  *
- * **It does not shimmer.** shadcn's skeleton pulses by default and the motion
- * contract forbids it: no entrance animations on data, and the one continuous
- * animation on a data surface is the running mark. A wall of breathing bars is
- * the thing that rule was written against. Absence of motion is also the
- * honest reading — a shimmer says something is happening, and a request that
- * has stalled looks identical to one that is about to return.
+ * **It does not shimmer or sweep.** The motion is a stepped readout lighting
+ * cell by cell, never a travelling highlight, and none under reduced motion.
  */
 export type SkeletonProps = HTMLAttributes<HTMLDivElement> & {
   /**
@@ -58,6 +56,7 @@ export function SkeletonText({
       aria-busy
       {...rest}
     >
+      <WorkingMark className="armada-skeleton-text__mark" />
       {widths.map((w, i) => (
         <Skeleton key={`${w}-${i}`} width={w} />
       ))}

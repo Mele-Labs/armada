@@ -37,10 +37,12 @@ The owner decided it on 10 Oct 2026, `.claude/decisions/2026-10-10-settings-json
 | Which keys exist | `config::settings`' table, which is also what Bridge's Settings page is drawn from |
 | Who changes it | Bridge through `save_settings`, or a person by hand. Fleet watches the file |
 | When a change is in force | A `live` key from the next time Fleet reads it; an `at_restart` key at the next start, and Bridge says so |
-| A file Fleet will not take | An unknown key, a wrong type or a value out of range refuses it whole. The last good settings stay in force, and Bridge shows the refusal |
+| A file Fleet will not take | A wrong type or a value out of range refuses it whole. The last good settings stay in force, and Bridge shows the refusal. A start reads them from `settings.last-good.json`, kept beside the file each time one is taken, and ships the defaults only where there is none |
+| A key this build does not have | Kept in the file and through every save, and read by nothing. Main and a preview take turns on one file, so one build's key must not cost the other its settings. A save that names one itself is refused |
+| A save while the file is refused | Refused too, naming the fault, and nothing is written. A save starts from the file as it stands, so it can never replace the file with what happens to be in force |
 | What wins over it | An environment variable such as `ARMADA_MODEL`; and a repository's own value, as before |
 
-**A person's Bridge preferences are keys too**: theme, spacing (`spacing.density`, Compact, Default or Roomy), layout, key bindings, time format, the fields a Job's row draws (`bridge.rowView`) and whether *Where things are* opens.
+**A person's Bridge preferences are keys too**: theme, spacing (`spacing.density`, Compact, Default or Roomy), layout, key bindings, time format, the fields a Job's row draws (`bridge.rowView`), how a Job's thread reads and what its quick bar offers (`thread.look`, one value Bridge owns, of which Fleet reads `learn`, `quickOff`, `quickOffFor` and the lines of `quick` and `forgotten` to write a Job's quick replies) and whether *Where things are* opens.
 A mod's on-off switch is not, and stays in Fleet's store.
 The binding rules are `../contracts/configuration.md`, *The Machine tier is one file*.
 

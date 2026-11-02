@@ -52,7 +52,9 @@ export type Step =
   /** Words pasted on a target, as a browser hands them over: a paste event carrying plain text. */
   | { paste: Target; text: string; say: string }
   /** Picked up by its middle and put down `by` this far away, in screen pixels — a node on a canvas. `shift` holds Shift down through it. */
-  | { drag: Target; by: { x: number; y: number }; shift?: true; say: string };
+  | { drag: Target; by: { x: number; y: number }; shift?: true; say: string }
+  /** A draggable thing carried by the browser's own drag and drop onto another element and let go there: a tab onto the gap between two panes. */
+  | { drag: Target; onto: Target; say: string };
 
 /** A walk is played at the window the test starts from unless it names its own: a narrow one shows what folds. */
 export type Walk = { scenario: string; steps: readonly Step[]; viewport?: { width: number; height: number } };
@@ -318,6 +320,26 @@ function drag(element: HTMLElement, by: { x: number; y: number }, shiftKey = fal
 }
 
 /**
+ * A thing carried by the browser's drag and drop, as the browser sends it: the start on the element, then an enter, an over and the drop on whatever is topmost where the target is, and the end back
+ * on the element. **The drop's targets draw as the drag starts**, so each event waits a beat for them. Settles once the drop has landed.
+ */
+async function dropOnto(element: HTMLElement, onto: HTMLElement | null): Promise<void> {
+  if (onto === null) return;
+  const box = onto.getBoundingClientRect();
+  const to = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const data = new DataTransfer();
+  const send = (target: Element, type: string) => target.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, composed: true, view: window, clientX: to.x, clientY: to.y, dataTransfer: data }));
+  const top = () => document.elementsFromPoint(to.x, to.y).find((one) => one.closest(`[${WALK_UI}]`) === null) ?? onto;
+  send(element, "dragstart");
+  await sleep(60);
+  send(top(), "dragenter");
+  send(top(), "dragover");
+  await sleep(60);
+  send(top(), "drop");
+  send(element, "dragend");
+}
+
+/**
  * A screenshot pasted as a browser delivers one: a paste event on the field
  * carrying a PNG in a clipboard of its own. **Never the machine's clipboard**,
  * so a walk, a test and a person's own copy cannot meet. The picture is drawn
@@ -400,17 +422,20 @@ let held: HTMLElement | null = null;
 /**
  * What the step does to its target when the walk moves past it. A look does nothing; a hover lets go, **unless the next
  * step presses**, as a pointer moves into the card it opened: a card closes a beat after its chip is let go, and a person
- * takes longer than that to press Next.
+ * takes longer than that to press Next. **Settles once what it did has landed**: a drop lands two beats after it starts,
+ * and a walk played faster than a person would otherwise look for the next target before it has.
  */
-export function act(step: Step, element: HTMLElement, next?: Step): void {
+export function act(step: Step, element: HTMLElement, next?: Step): Promise<void> {
   const letGo = held;
   held = null;
+  let landed = Promise.resolve();
   if ("hover" in step && next !== undefined && "press" in next) held = element;
   else if ("hover" in step) pointerOver(element, false);
   else if ("context" in step) pressContext(element);
   else if ("key" in step) pressKey(element, step.key);
   else if ("later" in step) timePasses();
   else if ("press" in step) press(element);
+  else if ("drag" in step && "onto" in step) landed = dropOnto(element, find(step.onto));
   else if ("drag" in step) drag(element, step.by, step.shift === true);
   else if ("type" in step) {
     // Words ending in a newline are sent with Enter, as a field that saves on it is used.
@@ -421,6 +446,7 @@ export function act(step: Step, element: HTMLElement, next?: Step): void {
   else if ("paste" in step) pasteScreenshot(element);
   else if ("select" in step) selectWords(element, step.select);
   if (letGo !== null) pointerOver(letGo, false);
+  return landed;
 }
 
 /** Every step, in order, on the app already mounted. Throws on the first one whose target never came. */
@@ -428,7 +454,7 @@ export async function walkThrough(steps: readonly Step[]): Promise<void> {
   for (const [at, step] of steps.entries()) {
     const element = await arrive(step);
     if (element === null) throw new Error(stopped(at, step));
-    act(step, element, steps[at + 1]);
+    await act(step, element, steps[at + 1]);
     // The Enter a newline sends comes a beat after the words, and a person takes longer than that to press Next: let it land before the next step looks.
     if ("type" in step && step.type.endsWith("\n")) await sleep(120);
   }

@@ -37,6 +37,7 @@ Since 20 Oct 2026, after he asked for a bigger change on a walk, the Job planned
 Since 26 Oct 2026, after he answered a question on a Job whose walk he had not opened, and the plan came to him ahead of the walk.
 **A document put to him holds the plan too, and his approval of the page approves the plan with it.** A Job whose evidence is a page, as a design plan's is, asks one approval: the plan is not raised while a page of the Job stands unanswered (`plan_holds`, hold `unapproved`, its `url` the page's path), and `answer_document` approving the page approves the pending plan version (`document_answered`).
 A page sent back leaves the plan held.
+A reply of his in the thread read as approving the page approves the plan the same way ([Document](../document.md)).
 Since 30 Oct 2026, after a design plan asked for its plan and its page at once, and the page's name in the thread opened nothing.
 **An Approve stands until the page is shown again.** Any file the Job writes under its folder marks every window it showed as changing (`detail.working`, `readiness.rs`) and changed (`detail.changed`); a window he approved since it was last shown holds nothing whatever those marks say, and one he has not approved that was changed waits to be shown again.
 A file outside the Job's folder, such as a memory note, marks nothing: the mod tells Fleet `wrote` only for a path under the session's directory.
@@ -96,9 +97,9 @@ The calls are counted per plan and kept with it: a hosted Job's from its process
 A hosted Job hears it at its next tool call; a terminal Job's mod is handed it.
 A merge's tasks go in the merge's own message instead.
 
-**An adversarial review rides on the plan as `adversarial`.** The owner presses it on a plan waiting for approval, and it comes back as findings pinned to the group or task each is about, with the plan's own task matcher doing the pinning.
+**A Judge's reading of the plan rides with it.** The owner presses the Judge on a plan waiting for approval, and it comes back as notes pinned to the group or task each is about, with the plan's own task matcher doing the pinning.
 It advises and gates nothing, and recording the plan again marks it out of date rather than dropping it.
-[Adversarial review](../adversarial-review.md) owns the rest.
+[Judge](../judge.md) owns the rest.
 
 **In a repository whose tracker is beads, an approved plan is also mirrored into the Job's issue.** Each group is filed as a child of the issue it holds, each task as a child of its group, and each group blocks the next in plan order ([tracker](../tracker.md), *Beads*).
 The plan in Fleet stays the source: nothing is read back from the backlog, and a task's bead follows `state_of`, not a word the agent said.

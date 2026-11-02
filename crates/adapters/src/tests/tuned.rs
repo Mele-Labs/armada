@@ -11,7 +11,7 @@ use crate::language_model::{shape, TUNED};
 fn the_committed_adapter_has_a_head_for_every_reading() {
     let tuned = Tuned::from_bytes(TUNED).expect("the committed adapter parses");
     assert!(!tuned.adapters.is_empty());
-    for reading in [TextReading::ReplyAsks, TextReading::TellRefused, TextReading::SentenceAsks, TextReading::SentenceFollowsUp, TextReading::ItemClear] {
+    for reading in [TextReading::ReplyAsks, TextReading::TellRefused, TextReading::SentenceAsks, TextReading::SentenceFollowsUp, TextReading::ItemClear, TextReading::ReplyApproves] {
         assert!(tuned.heads.contains_key(shape(reading).0), "{reading:?}");
     }
 }
@@ -51,9 +51,10 @@ fn digest_without(tuned: &Tuned, leave: &[&str]) -> String {
 
 /// A head added on the frozen adapter leaves what was there as it was: the same encoder layers and the
 /// same four heads, to the bit, so `asks`, `refused`, `sentence_asks` and `sentence_follows_up` read what
-/// they read before `item_clear` was trained. The digest is of the file as it stood with those four.
+/// they read before `item_clear` and `approves` were trained. The digest is of the file as it stood with
+/// those four.
 #[test]
 fn the_earlier_heads_and_the_adapter_are_the_bits_they_were() {
     let tuned = Tuned::from_bytes(TUNED).expect("the committed adapter parses");
-    assert_eq!(digest_without(&tuned, &["item_clear"]), "701d806879f35063f38b50886dc66764533b19b0c5275f40f03c7415815b4e30");
+    assert_eq!(digest_without(&tuned, &["item_clear", "approves"]), "701d806879f35063f38b50886dc66764533b19b0c5275f40f03c7415815b4e30");
 }

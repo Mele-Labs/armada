@@ -131,6 +131,11 @@
   --color-phase-live-edge: var(--phase-live-edge);
   --color-phase-live-bg: var(--phase-live-bg);
   --color-phase-live-rule: var(--phase-live-rule);
+  --color-usage-meter: var(--usage-meter);
+  --color-usage-worse: var(--usage-worse);
+  --color-usage-over: var(--usage-over);
+  --color-usage-better: var(--usage-better);
+  --color-setting-modified: var(--setting-modified);
   --color-sketch-blue: var(--sketch-blue);
   --color-sketch-teal: var(--sketch-teal);
   --color-sketch-green: var(--sketch-green);
@@ -274,9 +279,15 @@
    --duration-base — v4 has no --duration-* namespace; read it in CSS
    --duration-sheet — v4 has no --duration-* namespace; read it in CSS
    --duration-travel — v4 has no --duration-* namespace; read it in CSS
+   --duration-exit — v4 has no --duration-* namespace; read it in CSS
+   --ease-in — an exit curve read in CSS keyframes; v4 has no second ease slot
+   --duration-enter — v4 has no --duration-* namespace; read it in CSS
+   --ease-out — an enter curve read in CSS keyframes; v4 has no second ease slot
+   --duration-drift — v4 has no --duration-* namespace; read it in CSS
    --tooltip-delay — v4 has no --delay-* namespace; read it in CSS
    --tooltip-grace — v4 has no --delay-* namespace; read it in CSS
    --duration-pulse — v4 has no --duration-* namespace; read it in CSS
+   --duration-spin — v4 has no --duration-* namespace; read it in CSS
    --duration-decay — v4 has no --duration-* namespace; read it in CSS
    --duration-hold — v4 has no --duration-* namespace; read it in CSS
    --duration-answer — v4 has no --duration-* namespace; read it in CSS

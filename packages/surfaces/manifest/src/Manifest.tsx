@@ -164,14 +164,14 @@ export function Manifest(props: ManifestProps) {
   const onForm = editing.view === "form" && !props.settingUp;
   // What the view on screen is for, and the one thing about it that
   // surprises people — said once here rather than repeated on every row.
-  // **Moved from the page head #1090 removed**, and it still swaps with the
-  // toggle: Run's own summary is nothing here is a verdict, and the file and
-  // the forms share Save's own, because both write the one file.
+  // **Moved from the page head #1090 removed.** The run view says nothing: an
+  // empty slot stays empty. The file and the forms share Save's own, because
+  // both write the one file.
   const viewNote =
     props.settingUp || onlySetup
       ? null
       : rootless || editing.view === "run"
-        ? "Run one Check or Command against this checkout, as it is on disk. Nothing here is a verdict."
+        ? null
         : "Edit this repository's Manifest. Save writes the file to disk and stops, without staging or committing it.";
   const selected = props.settingUp || onlySetup ? "setup" : rootless ? "run" : editing.view;
   // Whether the two readings are offered. A repository with no root file
@@ -216,7 +216,9 @@ export function Manifest(props: ManifestProps) {
         data-lit={gone.size === 0 ? undefined : ""}
       >
       <div className="armada-screen__tabs">
+        <span className="armada-screen__label">Manifest</span>
         <Tabs
+          compact
           items={[
             ...(onlySetup
               ? []
@@ -239,20 +241,20 @@ export function Manifest(props: ManifestProps) {
             asks about them in conversation instead, from the reading this tab already holds. */}
         {selected !== "setup" || props.onSetUpWithSession === undefined ? null : (
           <div className="armada-screen__tabs-acts">
-            <Button variant="ghost" size="sm" pending={props.startingSession === true} onClick={props.onSetUpWithSession}>
+            <Button variant="ghost" pending={props.startingSession === true} onClick={props.onSetUpWithSession}>
               {props.startingSession === true ? "Starting a job" : "Set up with a job"}
             </Button>
           </div>
         )}
         {!reads ? null : (
           <div className="armada-screen__tabs-acts">
-            <Button variant="ghost" size="sm" onClick={() => setReading("drift")}>
+            <Button variant="ghost" onClick={() => setReading("drift")}>
               Drift
               {gone.size === 0 ? null : (
                 <span className="armada-screen__drifted">{`${gone.size} gone`}</span>
               )}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setReading("verify")}>
+            <Button variant="ghost" onClick={() => setReading("verify")}>
               Verify
               {verifySaid === undefined ? null : (
                 <span className="armada-screen__act-said">{verifySaid}</span>

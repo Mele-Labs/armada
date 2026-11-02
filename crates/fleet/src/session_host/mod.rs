@@ -30,6 +30,7 @@ pub(crate) mod asking_in_window;
 pub(crate) mod drafting;
 pub(crate) mod lapsed_asks;
 pub(crate) mod showing_file;
+pub(crate) mod styling;
 pub(crate) mod sketching;
 pub(crate) mod following;
 mod finishing;
@@ -58,6 +59,7 @@ mod noting;
 mod modding;
 mod auto_landing;
 mod pausing;
+pub(crate) mod quick;
 mod reach_folders;
 pub(crate) mod delivering;
 pub(crate) mod start_card;
@@ -76,8 +78,6 @@ pub(crate) mod releasing;
 mod rows;
 #[cfg(test)]
 pub(crate) use rows::mention_line;
-/// A judge reading a Session's work, and sending or dismissing what it raised.
-pub(crate) mod session_judging;
 pub(crate) mod signed_out;
 mod serving;
 pub(crate) use serving::NoticeBatches;
@@ -90,6 +90,7 @@ pub(crate) mod tell_refusal;
 pub(crate) mod reply_claims;
 pub(crate) mod unanswered;
 pub(crate) mod plan_asks;
+pub(crate) mod page_replies;
 pub(crate) mod standing;
 pub(crate) mod workflow_pick;
 mod standing_tick;
@@ -155,6 +156,10 @@ pub struct Hosts {
     account_every: AtomicU64,
     /// Waiting items, by session and item, whose answer or removal is being delivered now.
     settling: Arc<Mutex<std::collections::HashSet<(String, String)>>>,
+    /// His replies to each page already read for whether they approve it. Memory only.
+    page_reads: page_replies::Reads,
+    /// The quick bar's answers to each Job's last message, and the lines he sends often.
+    pub(crate) quick: quick::Kept,
 }
 
 /// One waiting item claimed while its answer or removal is delivered, let go when dropped. **Why
@@ -190,7 +195,13 @@ impl Hosts {
             activity_every: AtomicU64::new(activity::PUBLISH_EVERY.as_millis() as u64),
             account_every: AtomicU64::new(account::WRITE_EVERY.as_millis() as u64),
             settling: Arc::default(),
+            page_reads: page_replies::Reads::default(),
+            quick: quick::Kept::default(),
         }
+    }
+
+    pub(crate) fn page_reads(&self) -> &page_replies::Reads {
+        &self.page_reads
     }
 
     /// Claim a waiting item for one answer or removal. `None` where another is being delivered.
@@ -473,6 +484,9 @@ pub(crate) struct State {
     /// The person wrote, and the agent has written him nothing since but a status line. Sent back
     /// once a message, at its question or its turn's end (`unanswered`). In memory.
     pub owes_reply: bool,
+    /// The last thing the agent wrote him since his message was a lone line, which is a status line
+    /// if a tool call follows it and his answer if the question or the turn's end does. In memory.
+    pub reply_line: bool,
     /// The call id of the last question the stream showed, so the door reads a question only once
     /// what the agent wrote before it has been heard. In memory.
     pub question_heard: Option<String>,
@@ -492,8 +506,6 @@ pub(crate) struct State {
     pub spawns: crate::file_touching::Spawns,
     /// The agent's own subagent calls, whose rows carry their subagent, and the person's rows held behind one. In memory.
     pub call_rows: call_rows::CallRows,
-    /// How many judges are reading the Session's work now. In memory: a Fleet that restarts reads none.
-    pub judging: u32,
     /// The shell and watch calls of the stream, to pair with the task each starts. In memory.
     pub background: backgrounding::Calls,
     /// The commands the session ran and what came back, for `crate::run_memory`. In memory.
@@ -571,6 +583,7 @@ impl State {
             turn_began: None,
             said: None,
             owes_reply: false,
+            reply_line: false,
             question_heard: None,
             pages: HashMap::new(),
             helm: false,
@@ -579,7 +592,6 @@ impl State {
             proposal: proposing::ProposalState::default(),
             spawns: crate::file_touching::Spawns::default(),
             call_rows: call_rows::CallRows::default(),
-            judging: 0,
             background: backgrounding::Calls::default(),
             runs: crate::run_memory::RunLog::default(),
             controls: HashMap::new(),

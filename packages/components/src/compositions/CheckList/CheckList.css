@@ -64,14 +64,13 @@
   column-gap: 0;
   width: 100%;
   min-width: calc(var(--space-12) * 12);
-  padding: 0 var(--space-4) var(--space-4);
+  padding: var(--space-3) var(--space-4) var(--space-4);
   border-collapse: separate;
   background: transparent;
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
 
-.armada-check-list__table > thead,
 .armada-check-list__table > tbody,
 .armada-check-list__table tr {
   display: grid;
@@ -83,43 +82,11 @@
   row-gap: var(--space-2);
 }
 
-.armada-check-list__table th,
 .armada-check-list__table td {
   display: flex;
   align-items: center;
   min-width: 0;
   height: auto;
-}
-
-/* The column heads: a readout strip along the top of the glass, mono, standing still as it scrolls. */
-.armada-check-list__table > thead {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  margin: 0 calc(var(--space-4) * -1) var(--space-3);
-  padding: 0 var(--space-4);
-  border-bottom: var(--border-width) solid var(--border-subtle);
-  background: color-mix(in srgb, var(--bg-raised) 85%, var(--bg-sunken));
-}
-
-.armada-check-list__table > thead tr {
-  border: 0;
-}
-
-.armada-check-list .armada-table-header-cell {
-  height: auto;
-  padding: var(--space-2) var(--space-3);
-  border: 0;
-  background: transparent;
-  color: var(--fg-muted);
-  font-family: var(--font-mono);
-  font-weight: var(--weight-medium);
-  white-space: nowrap;
-}
-
-/* Started and Took read as figures, set to the column's trailing edge like the values under them. */
-.armada-check-list .armada-table-header-cell:nth-child(n + 4) {
-  justify-content: flex-end;
 }
 
 /* ---- A Check as a tile ---------------------------------------------------------------------- */
@@ -290,3 +257,9 @@
   font-family: var(--font-mono);
   white-space: pre-line;
 }
+
+/* Pending: tiles with no state yet, in the neutral hue, each bar standing where its text will. The tile keeps its own
+   height, so the rows are the height they will be when the Checks land. */
+.armada-check-list__row[data-status="pending"] { --skeleton-fill: var(--bg-raised); }
+.armada-check-list__row[data-status="pending"] .armada-table-cell { box-sizing: border-box; min-height: calc(var(--leading-xs) + var(--space-4)); }
+.armada-check-list__row .armada-skeleton.armada-check-list__skel-mark { width: calc(var(--space-4) - 2 * var(--border-width)); height: calc(var(--space-4) - 2 * var(--border-width)); border-radius: 50%; }

@@ -374,18 +374,7 @@ where
                 self.person_changed(&mut store, &id, ipc::ProposedField::Effort);
             }
         }
-        // A process runs on what it was started with, so a running one ends
-        // once its turn is over and the next message resumes on the new ones.
-        let runtime = self.hosts().of(&id);
-        {
-            let mut state = runtime.state();
-            if state.process.is_some() {
-                match state.turn {
-                    SessionTurn::Idle => Self::let_go(&mut state),
-                    SessionTurn::Working { .. } => state.restart_after_turn = true,
-                }
-            }
-        }
+        self.restarts_on_what_it_names(&id);
         self.published_hosted(&id).await
     }
 
@@ -459,6 +448,10 @@ where
     async fn get_session_mcp(&self, id: SessionId) -> Result<ipc::SessionMcp, Refusal> {
         let servers = self.session_mcp(id.as_str()).await?;
         Ok(ipc::SessionMcp { servers: super::mcp_servers::on_wire(servers) })
+    }
+
+    async fn get_session_quick(&self, id: SessionId) -> Result<ipc::SessionQuick, Refusal> {
+        self.session_quick(id.as_str()).await
     }
 
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {

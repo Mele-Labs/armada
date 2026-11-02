@@ -27,8 +27,8 @@
 mod acting;
 /// The account a machine is signed in to: its profiles, signing in and out.
 mod accounting;
-/// An adversarial review of a plan: started, and its findings sent or dismissed.
-mod adversarial_review;
+/// A Judge on demand: asked of an artifact, and its notes sent, dismissed or opened.
+mod judge;
 /// The shared home: Kit's rows against it, the acts that settle one, and what syncs.
 mod homing;
 mod amending;
@@ -115,6 +115,7 @@ mod served;
 mod servers;
 mod sessions;
 mod shown;
+mod styles;
 /// settings.json, read and saved.
 mod settling;
 mod sockets;
@@ -141,8 +142,8 @@ mod tests;
 
 pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
 pub use daemon::{
-    offerable, Accounts, Admitting, AdversarialReviews, AppRuns, Authoring, Commands, Conversations, Daemon,
-    Autopilots, HelmReach, HostedSessions, Issues, Lifecycles, Logbook, Teaching, Mods, Clashing,
+    offerable, Accounts, Admitting, AppRuns, Authoring, Commands, Conversations, Daemon,
+    Autopilots, HelmReach, HostedSessions, Issues, JudgeReadings, Lifecycles, Logbook, Teaching, Mods, Clashing,
     Projects, PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, Sessions, Settings, SharedHome, Steerer,
     ShownFile, StoredFile, Studios, Watches,
 };

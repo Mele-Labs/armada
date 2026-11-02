@@ -133,7 +133,6 @@ WebSocket event stream, read this first.
 | [A Job's build record](protocol/a-jobs-build-record.md) |
 | [A Job's plan and its file touches](protocol/a-jobs-plan-and-its-file-touches.md) |
 | [Protocol 23.91: a Job's request is read, and its workflow is on the record](protocol/protocol-23-91-a-jobs-request-is-read-and-its-workflow-is-on-the-record.md) |
-| [A Job's rail and its judges](protocol/a-jobs-rail-and-its-judges.md) |
 | [A terminal's permission prompt is a call](protocol/a-terminals-permission-prompt-is-a-call.md) |
 | [Helm is a Job](protocol/helm-is-a-job.md) |
 | [A waiting item's steps](protocol/a-waiting-items-steps.md) |
@@ -155,6 +154,7 @@ WebSocket event stream, read this first.
 | [A Job's delivery question](protocol/a-jobs-delivery-question.md) |
 | [A Job starts on its start card](protocol/a-job-starts-on-its-start-card.md) |
 | [A sketch wireframes a screen: the `screen` node](protocol/a-sketch-wireframes-a-screen-the-screen-node.md) |
+| [A sketch draws HTML in the repository's styles: the `mock` node, `get_style_sources` and `get_kept_styles`](protocol/a-sketch-draws-html-the-mock-node.md) |
 | [Autopilot starts Sessions, not Jobs](protocol/autopilot-starts-sessions-not-jobs.md) |
 | [Sessions absorb Jobs, group 1: the Job arms and piloting a Job leave the wire](protocol/sessions-absorb-jobs-group-1-the-job-arms-and-piloting-a-job-leave-the.md) |
 | [Sessions absorb Jobs, group 2: the Job surface leaves the wire](protocol/sessions-absorb-jobs-group-2-the-job-surface-leaves-the-wire.md) |
@@ -171,11 +171,12 @@ WebSocket event stream, read this first.
 | [A walk's notes, sent as one turn: `send_session_notes`](protocol/a-walks-notes-sent-as-one-turn.md) |
 | [The owner's notes on a pull request's lines: `list_pull_request_notes` and four more](protocol/the-owners-notes-on-a-pull-requests-lines.md) |
 | [A Job's MCP servers: `get_session_mcp`, `act_on_session_mcp`](protocol/a-jobs-mcp-servers.md) |
+| [A Job's quick replies: `get_session_quick`](protocol/a-jobs-quick-replies.md) |
 | [A background act's failure: `act.failed`](protocol/a-background-acts-failure-act-failed.md) |
 | [Kit's Add and Remove: a plugin or a skill](protocol/kit-add-and-remove-a-plugin-or-a-skill.md) |
 | [The shared home: Kit's rows against it, three acts, and what syncs](protocol/the-shared-home.md) |
 | [A Mod Job: `start_mod_session`, `mod` and `made_by`](protocol/a-mod-job.md) |
-| [An adversarial review of a plan: `start_adversarial_review`, `send_finding`, `dismiss_finding`](protocol/an-adversarial-review-of-a-plan.md) |
+| [A Job is judged on demand: `ask_judge`, `send_judge_note`, `dismiss_judge_note`, `mark_judge_read`](protocol/a-job-is-judged-on-demand.md) |
 | [The agents' account signed out: `agent_sign_in.changed`, `get_agent_sign_in`, `start_agent_sign_in`](protocol/the-agents-account-signed-out.md) |
 | [A repository's app, run from Bridge: `list_app_runs`, `start_app_run`, `app_run.changed` and four more](protocol/a-repositorys-app-run-from-bridge.md) |
 | [What a workflow lands in: `WorkflowSummary.lands`](protocol/what-a-workflow-lands-in.md) |

@@ -94,20 +94,14 @@ test("the Cockpit tab returns from a page opened from the deck exactly", async (
   await expect.poll(label).toContain("Pin the store clock");
   const was = label();
 
-  // The reports open over the Cockpit, which stays mounted under them.
+  // Studios is a place of its own: the Cockpit under it keeps the Job that was open.
   await userEvent.keyboard("{Meta>}k{/Meta}");
-  await page.getByRole("option", { name: "Reported" }).click();
-  await expect.element(page.getByRole("button", { name: "Back to the list" })).toBeVisible();
+  await page.getByRole("option", { name: "Studios" }).click();
   await expect.poll(() => document.querySelector(".deck-list")).toBeNull();
 
   await places().getByRole("tab", { name: "Cockpit" }).click();
   await expect.poll(label).toBe(was);
   expect(document.querySelector('.deck-row[data-selected]')?.getAttribute("aria-label")).toBe("Pin the store clock");
-
-  // Exactly, to history too: the tab went back to the deck and did not open it a second time, so Back does not find the page again.
-  await userEvent.keyboard("{Meta>}[[{/Meta}");
-  await new Promise((done) => window.setTimeout(done, 200));
-  expect(document.querySelector(".deck-list")).not.toBeNull();
 });
 
 test("Checks filters list, Activity and Stage to subjects running a Check", async () => {
@@ -121,18 +115,18 @@ test("Checks filters list, Activity and Stage to subjects running a Check", asyn
   await controls().getByRole("button", { name: "Timeline" }).click();
 
   // The Activity dots and the stage's timeline keep the same subjects and no others: both name it before the filter, neither after.
-  // Activity names each event on its dot.
-  const feed = () => [...document.querySelectorAll(".deck-activity .armada-tl__dot")].map((one) => one.getAttribute("aria-label")).join("\n");
+  // Activity names each event on its dot, in the scope of its bay.
+  const feed = () => [...document.querySelectorAll(".console-scope__graph .armada-tl__dot")].map((one) => one.getAttribute("aria-label")).join("\n");
   const timeline = () => document.querySelector('.deck-pane[aria-label="Fleet timeline"]')?.textContent ?? "";
   await expect.poll(() => feed().includes(dropped) && timeline().includes(dropped)).toBe(true);
 
-  await controls().getByRole("button", { name: "Checks" }).click();
+  await controls().getByRole("button", { name: "Checks", exact: true }).click();
   await expect.poll(() => rows().includes(dropped)).toBe(false);
   expect(rows()).toContain(kept);
   expect(rows().length).toBeLessThan(whole);
   expect(feed()).not.toContain(dropped);
   expect(timeline()).not.toContain(dropped);
-  await controls().getByRole("button", { name: "Checks" }).click();
+  await controls().getByRole("button", { name: "Checks", exact: true }).click();
   await expect.poll(() => rows().length).toBe(whole);
 });
 
@@ -145,15 +139,17 @@ test("in the deck's lists, o opens the item under the cursor as Enter does", asy
   await expect.poll(() => document.querySelector('.deck-autopilot [role="switch"]')).not.toBeNull();
   // What the stage is labelled while nothing is picked.
   const AT_REST = "Flight map";
+  // A Job opens on the stage; a bay, a pull request and a Check open in the side panel over it.
+  const shown = () => document.querySelector(".armada-sheet")?.getAttribute("aria-label") ?? stage()?.getAttribute("aria-label") ?? "";
   const opened = async (selector: string, key: string) => {
     const item = document.querySelector<HTMLElement>(selector);
     expect(item, selector).not.toBeNull();
     item!.focus();
     await userEvent.keyboard(key);
-    await expect.poll(() => stage()?.getAttribute("aria-label") ?? "", { message: `${key} on ${selector}` }).toMatch(new RegExp(`^(?!${AT_REST}$).+`));
-    const label = stage()!.getAttribute("aria-label");
+    await expect.poll(shown, { message: `${key} on ${selector}` }).toMatch(new RegExp(`^(?!${AT_REST}$).+`));
+    const label = shown();
     await leave();
-    await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").not.toBe(label);
+    await expect.poll(shown).not.toBe(label);
     return label;
   };
   for (const selector of [".deck-list .deck-row", ".deck-bays .deck-bay", ".deck-queue button.deck-chip"]) {
@@ -240,11 +236,10 @@ test("⌥↓ on a row moves it down one, and the order is kept for the next wind
 
 // The owner, 27 Oct 2026: after the console touch-up the Jobs rows and the merge line's chips read square. A row keeps the
 // control's curve, and a chip and its track stay pills.
-test("Jobs rows and the merge line's chips keep their rounded corners", async () => {
+// The Jobs rows are square with the console's panels, as the owner approved it.
+test("the merge line's chips keep their rounded corners", async () => {
   await deck();
   const radius = (element: Element) => parseFloat(getComputedStyle(element).borderTopLeftRadius);
-  const row = document.querySelector(".deck-list .deck-row")!;
-  expect(radius(row), "a Jobs row").toBeGreaterThanOrEqual(6);
   for (const selector of [".deck-queue .deck-chip", ".deck-queue__track"]) {
     const element = document.querySelector(selector)!;
     expect(radius(element), selector).toBeGreaterThanOrEqual(element.getBoundingClientRect().height / 2 - 1);

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { Item } from "../../Dashboard";
 import { DECK_ORDER_KEY } from "../../remembered-views";
 import type { Ship, Subject } from "./ship";
-import { arrivedOf, camera, deckNow, forgetDeck, incomingOf, keepOf, listOf, moveCursor, moveRow, openCall, placeNew, select, setScope, setView, toggleChecks, toggleNeeds, wide, withoutOpenSession } from "./store";
+import { arrivedOf, camera, deckNow, forgetDeck, incomingOf, keepOf, listOf, moveCursor, moveRow, openCall, placeNew, select, setScope, setView, toggleChecks, wide, withoutOpenSession } from "./store";
 
 const panelFor = vi.hoisted(() => vi.fn(() => true));
 vi.mock("../../shared-panel/store", () => ({ openPullRequestInPanel: panelFor }));
@@ -25,21 +25,20 @@ afterEach(() => {
 
 test("a window with nothing stored opens on the map, with no filter", () => {
   const now = deckNow();
-  expect([now.view, now.needs, now.checks]).toEqual(["map", false, false]);
+  expect([now.view, now.checks]).toEqual(["map", false]);
 });
 
-test("the view and the filters are remembered across a new window", () => {
+test("the view and the filter are remembered across a new window", () => {
   setView("timeline");
-  toggleNeeds();
   toggleChecks();
   forgetDeck();
 
   const now = deckNow();
-  expect([now.view, now.needs, now.checks]).toEqual(["timeline", true, true]);
+  expect([now.view, now.checks]).toEqual(["timeline", true]);
 
   toggleChecks();
   forgetDeck();
-  expect([deckNow().needs, deckNow().checks]).toEqual([true, false]);
+  expect(deckNow().checks).toBe(false);
 });
 
 test("what is open, the cursor and the visited calls are not remembered", () => {

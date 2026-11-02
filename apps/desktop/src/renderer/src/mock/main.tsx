@@ -3,6 +3,7 @@
 // root of its own whose own host stays empty because what it draws goes into the app's
 // left column through a portal.
 
+import { startLoopClock } from "../loop-clock";
 import { forgetAllKept, watchClippedText } from "@armada/components";
 
 import { forgetDismissals } from "../cockpit/dismissed";
@@ -18,9 +19,13 @@ import { SCENARIOS, scenarioNamed } from "./scenario";
 import { mountNoWalk, mountWalk } from "./WalkPlayer";
 import { EVERY_WALK } from "./walks";
 
+startLoopClock();
 watchClippedText();
 
 const query = new URLSearchParams(window.location.search);
+// `?take=overflow` draws a Thread head with too little room on one row, the name held at 18 characters (`job-panes/acts.tsx`); without it the head is as in the app.
+const take = query.get("take");
+if (take !== null) document.documentElement.dataset.headTake = take;
 // A walk names its scenario, so `?walk` wins over `?scenario`.
 // `?steps=` is a walk handed over whole, as `show_window` hands Bridge its steps.
 const inline = inlineWalk(query.get("steps"), query.get("scenario") ?? "every-state");

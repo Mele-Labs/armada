@@ -9,7 +9,7 @@ import type { CaptureRect } from "../shared/capture-window";
 import type { HeldKind } from "./capture/finder";
 import { PATIENCE_MS, pressEvents, typeEvents, type Sent } from "./capture/stepwalk";
 
-/** What an act does to one Job's page: Electron's view in the app (`job-browsers.ts`), a fake in a test. */
+/** What an act does to the Job's page: Electron's view in the app (`job-browsers.ts`), a fake in a test. */
 export type JobPage = {
   url(): string;
   title(): string;
@@ -33,10 +33,10 @@ export type ActsHost = {
   page(sessionId: string): JobPage | null;
   ownerDriving(sessionId: string): boolean;
   /**
-   * **An agent's `open` on a Job with no Job browser opens one in that Job's side panel**, on the address, as the owner
-   * chose on 28 Oct 2026 over refusing the agent until he opens it. Bridge draws the panel only for a Job he has open (29 Oct 2026).
+   * **An agent's `open` on a Job with no Browser tab opens a page for it**, on the address, as the owner chose on 28 Oct 2026 over refusing
+   * the agent until he opens one. Bridge opens a Browser tab for a Job he has open (29 Oct 2026), which takes the page over.
    */
-  openClosedInPanel(sessionId: string, url: string): JobPage;
+  openClosed(sessionId: string, url: string): JobPage;
   answer(body: AnswerBrowserRequest): Promise<unknown>;
 };
 
@@ -63,7 +63,7 @@ async function loaded(page: JobPage, url: string): Promise<Reply> {
 
 async function done(host: ActsHost, sessionId: string, act: BrowserAct): Promise<Reply> {
   const page = host.page(sessionId);
-  if (page === null) return act.kind === "open" ? loaded(host.openClosedInPanel(sessionId, act.url), act.url) : failed(CLOSED);
+  if (page === null) return act.kind === "open" ? loaded(host.openClosed(sessionId, act.url), act.url) : failed(CLOSED);
   if (host.ownerDriving(sessionId)) return { error: { kind: "owner_driving" } };
   switch (act.kind) {
     case "open":

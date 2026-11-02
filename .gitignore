@@ -1,6 +1,7 @@
 # Rust
 /target/
 tools/lm-train/target/
+tools/nli-spike/target/
 **/*.rs.bk
 
 # Cargo.lock is deliberately NOT ignored: Armada ships binaries, and a
@@ -25,6 +26,9 @@ electron.vite.config.*.mjs
 # already means "a JavaScript bundle" here would make one ignore line stand for
 # two very different things.
 release/
+
+# Armada Voice, built by `apps/desktop/native/voice/build.mjs` before Bridge is.
+apps/desktop/native/voice/build/
 
 # The gallery's own intermediate bundle. `out/` above does not match a leading
 # dot, so this was tracked: a 400kB generated file re-committed by anyone who
@@ -123,3 +127,8 @@ packages/tokens/themes/more/
 
 # Browser-check screenshots and logs an agent saves while looking at a page.
 .playwright-mcp/
+
+# The impeccable design hook's local state: a config with ignores and a cache of
+# its last read. Written into whatever folder a session works in, read by nothing
+# else, and not shared between worktrees.
+.impeccable/

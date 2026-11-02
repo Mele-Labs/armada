@@ -118,11 +118,15 @@
   background: var(--bg-hover);
 }
 
+/* The leading icon column. Every row of a menu with any icon reserves it (an empty span where a row
+ * has none), so labels line up. 16px is the glyphs' own size prop, which no token names. */
 .armada-dropdown-menu__icon {
   flex: none;
+  width: var(--space-4);
+  height: var(--space-4);
 }
 
-.armada-dropdown-menu__icon + .armada-dropdown-menu__text {
+.armada-dropdown-menu__text {
   flex: 1;
 }
 
@@ -185,6 +189,27 @@
   margin-left: var(--space-1);
 }
 
+/* An act that is on draws its glyph in --accent; one that is running does too, and pulses on the clock a running mark does (`still.ts` and the idle rule hold it). */
+.armada-dropdown-menu__item[data-state] > .armada-dropdown-menu__icon {
+  color: var(--accent);
+}
+
+.armada-dropdown-menu__item[data-state="running"] > .armada-dropdown-menu__icon {
+  animation: armada-act-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite;
+}
+
+@keyframes armada-act-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-dropdown-menu__item[data-state="running"] > .armada-dropdown-menu__icon {
+    animation: none;
+  }
+}
+
 /* Finished and still choosable: the whole row in --fg-subtle, never an opacity. */
 .armada-dropdown-menu__item[data-muted],
 .armada-dropdown-menu__item[data-muted] > .armada-dropdown-menu__detail {
@@ -199,9 +224,28 @@
   max-width: var(--w-dialog);
 }
 
-/* Same slot a kbd would take; never both on one item. */
+/* The trailing check column: reserved on every row of a menu that has any pick, so a picked row never
+ * moves its label. The check is the picked mark; a kbd, where a menu has no picks, takes its place. */
+.armada-dropdown-menu__mark {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
 .armada-dropdown-menu__check {
   flex: none;
+  color: var(--fg-default);
+}
+
+/* In a menu with picks, the picked row's label is the strong colour and the rest sit in the muted one;
+ * weight is the same on every row so no width jumps. Disabled, danger and finished rows keep their own. */
+.armada-dropdown-menu__panel[data-checks] > .armada-dropdown-menu__item:not([aria-current], [aria-disabled="true"], [data-muted], .armada-dropdown-menu__item--danger) {
+  color: var(--fg-muted);
+}
+.armada-dropdown-menu__panel[data-checks] > .armada-dropdown-menu__item[aria-current] {
   color: var(--fg-default);
 }
 
@@ -280,6 +324,29 @@
 /* A row under a heading item, as a repository is under its Workspace: one icon's width in. */
 .armada-dropdown-menu__item[data-member] {
   padding-inline-start: calc(var(--space-2) + var(--space-6));
+}
+
+/* A row that opens a submenu, and the submenu beside the menu: on the side the menu has room, which is the side away from the trigger's edge it is flush with. */
+.armada-dropdown-menu__sub {
+  position: relative;
+}
+
+.armada-dropdown-menu__flyout {
+  position: absolute;
+  top: calc((var(--space-1) + var(--border-width)) * -1);
+  left: 100%;
+  z-index: var(--z-menu);
+  min-width: var(--w-menu);
+  padding: var(--space-1) 0;
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  border: var(--border-width) solid var(--border-default);
+  box-shadow: var(--shadow-overlay);
+}
+
+.armada-dropdown-menu__panel[data-aligns="end"] .armada-dropdown-menu__flyout {
+  left: auto;
+  right: 100%;
 }
 
 .armada-dropdown-menu__label {

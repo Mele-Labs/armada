@@ -1,5 +1,5 @@
-// One view of a Session, on the Cockpit, which is the one place a Session is viewed: there is no Sessions page. With nothing selected, Activity
-// stands on the right beside Bays. With a Session selected the right column holds
+// One view of a Session, on the Cockpit, which is the one place a Session is viewed: there is no Sessions page. With nothing selected, Bays
+// stand on the right and Activity is a bay of the console. With a Session selected the right column holds
 // the Job's story (Done, Now and Open, the Field under the Jobs list), and the Ledger and the Dispatch controls give way. The proposer's values stand where they
 // already live: the name in the header, the model and effort in the composer, the workflow over its steps at the head of the story. The Session goes
 // from dispatched words to a pull request ready. Over the `one-session-view` scenario.
@@ -15,17 +15,14 @@ const building = region("Build", { exact: true });
 const verified = region("Verify", { exact: true });
 const wholePlanIn = (zone: typeof plan) => ({ press: inside(zone, button("Whole plan")), say: "One press opens the whole plan" } as const);
 const ask = role("article", "Waiting on you");
-const concern = (words: RegExp) => role("group", words);
 
 export const oneSessionView = walk("one-session-view", [
   { look: places, say: "A Job is viewed on the Cockpit, selected from its list" },
-  { look: region("Activity"), say: "The Cockpit with no Job selected. Activity stands on the right" },
-  { look: region("Bays"), say: "Bays, above it" },
-  { drag: role("separator", "Resize Bays and Activity"), by: { x: 0, y: -120 }, say: "Every gap between panels is a handle, and the cursor is a row resize over it. Dragged, the panel above and the one below trade height, each to its minimum" },
-  { key: "Home", on: role("separator", "Resize Bays and Activity"), say: "Home, or a double click on the gap, puts the two back to their own sizes" },
-  { drag: role("separator", "Resize the left column"), by: { x: 60, y: 0 }, say: "A gap between columns is a handle too: the left column widens and the middle gives the width" },
+  { look: role("button", "Activity"), say: "The Cockpit with no Job selected. Activity is a bay of the console" },
+  { look: region("Bays"), say: "Bays, on the right" },
+  { drag: role("separator", "Resize the left column"), by: { x: 60, y: 0 }, say: "A gap between columns is a handle: the left column widens and the middle gives the width" },
   { key: "Home", on: role("separator", "Resize the left column"), say: "Back to its width. Sizes are kept for this layout and come back as left" },
-  { press: deckRow("Retry the slot lease"), say: "A Job is selected. Its thread and composer fill the middle. Dispatch controls, Activity and Bays give way, and the right column tells the Job's story: Done, Now and Open, with the Field under the Jobs list" },
+  { press: deckRow("Retry the slot lease"), say: "A Job is selected. Its thread and composer fill the middle. The console and Bays give way, and the right column tells the Job's story: Done, Now and Open, with the Field under the Jobs list" },
   { look: role("button", /^Context/), say: "The header with every mark live: the state glyph leads the title, then the context tank, the fresh start mark and the stale mod. Back is the far right item. A clash is the glyph on the Bays key, not a mark in the bar" },
   { look: role("button", "More"), say: "Everything he does to the Job is behind the three dots. The pull request chip is gone, since Artifacts has it" },
   { press: role("button", "More"), say: "Open the Job page, Retro and End job, each with its glyph. Stop joins them while a turn runs, Fork on one that has ended" },
@@ -89,25 +86,8 @@ export const oneSessionView = walk("one-session-view", [
   { look: region("Field"), say: "The rust subagent stays, the protocol one is done and a bridge one has joined" },
   { look: region("Jobs", { exact: true }), say: "A Job calling him pulses its row here, and nothing is" },
   { look: role("button", "Judge"), say: "Flight control's tiles fill the panel, in two rows of four at this size and one row of seven where the panel is wide and low. The Judge tile is the sixth, on the 6 key, Release the seventh, and Artifacts, Subagents and Checks take 8, 9 and 0" },
-  { press: role("button", "Judge"), say: "Judge. He thinks something is going sideways, so a judge reads the work so far against the plan" },
-  { look: role("img", "Judge reading"), say: "While it reads, the tile shows the working mark and its tooltip says so" },
-  { key: "End", on: role("region", "Thread", { exact: true }), say: "The thread is at its last row, where a plan or a judge's concern waits as its last card. A question is a pill over the box" },
-  { press: inside(region("Needs you"), button("Needs you", { exact: true })), say: "A concern arrives as a glyph on the Needs you band. Nothing pulses for it: it is this Job's own. Alone, a press opens it: the claim, the file it cites, Send to job and Dismiss" },
-  { look: concern(/renewed after the retry/), say: "The concern, as the card has it" },
-  { look: inside(region("Needs you"), role("img", "Judge")), say: "It says what it is at a glance: the judge glyph on the band and in its row" },
-  { hover: inside(concern(/renewed after the retry/), button("Send to job")), say: "Send to job goes to the agent as his message, which the tooltip says" },
-  { press: inside(concern(/renewed after the retry/), button("Dismiss")), say: "Dismissed. It folds to one settled line in the thread, and the agent is told nothing" },
-  { look: role("region", "Concern dismissed"), say: "The settled line" },
-  { press: role("button", "Judge"), say: "Judge again" },
-  { look: role("img", "No concerns"), say: "It finds nothing: the tile shows a done mark for a moment, and its tooltip says No concerns" },
-  { later: places, say: "A judge reads the Build step" },
-  { press: inside(region("Needs you"), button("Needs you", { exact: true })), say: "A row for each concern, in the list. Nothing reaches the agent until he presses, and a judge never blocks the Job" },
-  { press: inside(region("Needs you"), button(/^Open .*lease lock/)), say: "A press opens one" },
-  { look: concern(/lease lock/), say: "The concern" },
-  { look: deckRow("Name the store migrations"), say: "At the same moment another Job asks for something, and its row in Jobs pulses. The concerns above do not: while a Job is selected its own calls are cards in its thread, so nothing shows twice" },
-  { press: inside(concern(/lease lock/), button("Send to job")), say: "Sent. It settles as his message to the agent, in the thread" },
-  { look: concern(/ceiling/), say: "The one left opens by itself" },
-  { press: inside(concern(/ceiling/), button("Dismiss")), say: "Dismissed. The agent is told nothing" },
+  { later: places, say: "Another Job asks for something" },
+  { look: deckRow("Name the store migrations"), say: "Its row in Jobs pulses" },
   { later: places, say: "The agent finishes and runs its checks" },
   { press: inside(verified, button(/Verify/)), say: "The step before the current one holds the finished groups, folded until pressed" },
   { look: inside(verified, text("Retry the lease when the pool is contended")), say: "Every task is done in the whole plan" },

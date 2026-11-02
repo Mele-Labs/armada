@@ -3,8 +3,8 @@ import { useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { ArrowUpToLine, Split } from "lucide-react";
 
-import { ConcernCard, SessionThread, type SessionThreadRow, type ThreadConcern } from "./SessionThread";
-import type { AdversarialReviewState, Finding } from "../AdversarialReview/AdversarialReview";
+import { SessionThread, type SessionThreadRow } from "./SessionThread";
+import type { Finding } from "../AdversarialReview/AdversarialReview";
 import { RequestOpen } from "./RequestedRow";
 
 /**
@@ -89,7 +89,7 @@ export const CommandAndCompaction: Story = {
   args: { rows: WORKED },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("/reload-plugins")).toBeVisible();
-    await expect(canvas.getAllByText("You")).toHaveLength(1);
+    await expect(canvas.getAllByRole("region", { name: "Your message" })).toHaveLength(1);
     await userEvent.click(canvas.getByText("Conversation compacted"));
     await expect(canvas.getByText(/continued from a previous conversation/)).toBeVisible();
   },
@@ -136,14 +136,13 @@ const YOURS: SessionThreadRow[] = [
 ];
 
 /**
- * What the person said and did are not the agent's row. A message is a card under a band with their
+ * What the person said and did are not the agent's row. A message is a bubble on the right, with no
  * name; an Approve and an answer are one line each, the target as a chip, and the raw text is gone.
  */
 export const YourWordsAndActs: Story = {
   args: { rows: YOURS },
   play: async ({ canvas }) => {
     const message = canvas.getByRole("region", { name: "Your message" });
-    await expect(within(message).getByText("You")).toBeVisible();
     await expect(within(message).getByText("Keep the pin in the test module.")).toBeVisible();
 
     const approved = canvas.getByRole("region", { name: "You approved" });
@@ -1095,7 +1094,7 @@ export const SetAsidePlanDrawsFolded: Story = {
   },
 };
 
-/** An adversarial review's findings, each about a part of `PLAIN_PLAN`: a task, a group, the whole plan, and a task the plan no longer holds. */
+/** A Judge's notes, each about a part of `PLAIN_PLAN`: a task, a group, the whole plan, and a task the plan no longer holds. */
 const FINDINGS: readonly Finding[] = [
   { id: "a1", about: "q1-1", consequence: "A restart drops the Sessions queued while Fleet was down", expected: "The queue is read back whole", found: "It reads the table before the store has opened it" },
   { id: "a2", about: "q3", consequence: "A queued Session cannot be told apart from a running one", expected: "A queued row reads as waiting", found: "Both draw the same mark" },
@@ -1103,11 +1102,10 @@ const FINDINGS: readonly Finding[] = [
   { id: "a4", about: "gone-task", consequence: "Two Fleets can take the same Session off the queue", expected: "One takes it, the other sees it gone", found: "Nothing holds the row while it is taken" },
 ];
 
-/** The plan card with a review's findings pinned to it, settled as Fleet would settle them: a press folds a finding to a line. */
-function Reviewed({ review: first, onRun, onSend, onDismiss }: { review: AdversarialReviewState; onRun?: () => void; onSend?: (id: string) => void; onDismiss?: (id: string) => void }) {
-  const [review, setReview] = useState(first);
-  const settle = (id: string, settled: "sent" | "dismissed") =>
-    setReview((was) => (was.state === "done" ? { ...was, findings: was.findings.map((one) => (one.id === id ? { ...one, settled } : one)) } : was));
+/** The plan card with a Judge's notes pinned to it, settled as Fleet would settle them: a press folds a note to a line. */
+function Judged({ onRun, onSend, onDismiss }: { onRun?: () => void; onSend?: (id: string) => void; onDismiss?: (id: string) => void }) {
+  const [findings, setFindings] = useState(FINDINGS);
+  const settle = (id: string, settled: "sent" | "dismissed") => setFindings((was) => was.map((one) => (one.id === id ? { ...one, settled } : one)));
   return (
     <SessionThread
       rows={LIVE_ROWS}
@@ -1115,12 +1113,12 @@ function Reviewed({ review: first, onRun, onSend, onDismiss }: { review: Adversa
       onOpenSession={() => undefined}
       approval={{
         ...PLAIN_PLAN,
-        adversarial: {
-          review,
+        judged: {
+          findings,
           onRun: onRun ?? (() => undefined),
           onSend: (id) => (onSend?.(id), settle(id, "sent")),
           onDismiss: (id) => (onDismiss?.(id), settle(id, "dismissed")),
-          shortcut: "r",
+          press: <button type="button" onClick={onRun}>Judge plan</button>,
         },
       }}
     />
@@ -1128,8 +1126,8 @@ function Reviewed({ review: first, onRun, onSend, onDismiss }: { review: Adversa
 }
 
 /** A finding sits under the task it is about, a group holding one carries its mark, and one about the whole plan, or a part it no longer holds, sits under the summary. */
-export const AdversarialFindingsPinnedToThePlan: Story = {
-  render: () => <Reviewed review={{ state: "done", findings: FINDINGS }} />,
+export const JudgeNotesPinnedToThePlan: Story = {
+  render: () => <Judged />,
   play: async ({ canvas }) => {
     const task = canvas.getByRole("list", { name: "Findings on Read it back when Fleet starts" });
     await expect(within(task).getByRole("group", { name: "Finding: A restart drops the Sessions queued while Fleet was down" })).toBeVisible();
@@ -1147,115 +1145,33 @@ export const AdversarialFindingsPinnedToThePlan: Story = {
   },
 };
 
-/** Send to agent and Dismiss fold a finding to one muted line in place, by press and by the registry's keys, and focus passes to the next. */
+/** Send to Job and Dismiss fold a note to one muted line in place, by press and by the registry's keys, and focus passes to the next. */
 export const SendAndDismissFoldAFinding: Story = {
-  render: (args) => <Reviewed review={{ state: "done", findings: FINDINGS }} onSend={args.approval?.adversarial?.onSend} onDismiss={args.approval?.adversarial?.onDismiss} />,
-  args: { approval: { ...PLAIN_PLAN, adversarial: { review: { state: "idle" }, onRun: fn(), onSend: fn(), onDismiss: fn() } } },
+  render: (args) => <Judged onSend={args.approval?.judged?.onSend} onDismiss={args.approval?.judged?.onDismiss} />,
+  args: { approval: { ...PLAIN_PLAN, judged: { findings: [], onRun: fn(), onSend: fn(), onDismiss: fn(), press: null } } },
   play: async ({ canvas, args }) => {
     const lost = canvas.getByRole("group", { name: "Finding: A restart drops the Sessions queued while Fleet was down" });
-    await userEvent.click(within(lost).getByRole("button", { name: "Send to agent" }));
-    await expect(args.approval!.adversarial!.onSend).toHaveBeenCalledWith("a1");
+    await userEvent.click(within(lost).getByRole("button", { name: "Send to Job" }));
+    await expect(args.approval!.judged!.onSend).toHaveBeenCalledWith("a1");
     await expect(canvas.getByRole("group", { name: "Finding sent: A restart drops the Sessions queued while Fleet was down" })).toBeVisible();
     await expect(canvas.queryByRole("group", { name: "Finding: A restart drops the Sessions queued while Fleet was down" })).toBeNull();
     const next = canvas.getByRole("group", { name: "Finding: Nothing proves the queue survives a restart" });
     next.focus();
     await userEvent.keyboard("d");
-    await expect(args.approval!.adversarial!.onDismiss).toHaveBeenCalledWith("a3");
+    await expect(args.approval!.judged!.onDismiss).toHaveBeenCalledWith("a3");
     await expect(canvas.getByRole("group", { name: "Finding dismissed: Nothing proves the queue survives a restart" })).toBeVisible();
     await waitFor(() => expect(canvas.getByRole("group", { name: "Finding: Two Fleets can take the same Session off the queue" })).toHaveFocus());
   },
 };
 
-/** A review of an older version keeps its findings on the plan, says which version it read, and offers Run again, by press and by its key. */
-export const StaleReviewOffersRunAgain: Story = {
-  render: (args) => <Reviewed review={{ state: "stale", read: 1, findings: FINDINGS }} onRun={args.approval?.adversarial?.onRun} />,
-  args: { approval: { ...PLAIN_PLAN, adversarial: { review: { state: "idle" }, onRun: fn(), onSend: fn(), onDismiss: fn() } } },
+/** The Judge's key opens its box from the card. */
+export const JudgeKeyOpensTheBox: Story = {
+  render: (args) => <Judged onRun={args.approval?.judged?.onRun} />,
+  args: { approval: { ...PLAIN_PLAN, judged: { findings: [], onRun: fn(), onSend: fn(), onDismiss: fn(), press: null } } },
   play: async ({ canvas, args }) => {
-    await expect(canvas.getByRole("img", { name: "Read v1" })).toBeInTheDocument();
-    await expect(canvas.getByRole("group", { name: "Finding: Nothing proves the queue survives a restart" })).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "Run again" }));
-    await expect(args.approval!.adversarial!.onRun).toHaveBeenCalledTimes(1);
     canvas.getByRole("article", { name: "Plan to approve" }).focus();
     await userEvent.keyboard("r");
-    await expect(args.approval!.adversarial!.onRun).toHaveBeenCalledTimes(2);
-  },
-};
-
-/** The cards a judge's concerns draw, as the Needs you panel holds them: ConcernCard alone, since the thread no longer draws them. */
-function Concerns({ concerns }: { concerns: readonly ThreadConcern[] }) {
-  return (
-    <div style={{ width: "calc(var(--space-12) * 10)", background: "var(--bg-raised)" }}>
-      {concerns.map((one) => (
-        <ConcernCard key={one.id} concern={one} onSend={fn()} onDismiss={fn()} />
-      ))}
-    </div>
-  );
-}
-
-/** A judge's concern says what it is: the glyph and Judge in its band, where it came from, the concern, its cites as chips, and Send says whose message it goes as. */
-export const JudgeConcernSaysWhatItIs: Story = {
-  args: { rows: LIVE_ROWS },
-  render: () => <Concerns concerns={[
-    { id: "c1", step: "Build", text: "The queue has no ceiling.", cites: ["crates/fleet/src/queue.rs:12", "crates/fleet/src/pool.rs"] },
-    { id: "c2", text: "A queued Session that is taken off is not told." },
-  ]} />,
-  play: async ({ canvas }) => {
-    const card = canvas.getByRole("group", { name: "Judge: The queue has no ceiling." });
-    await expect(within(card).getByRole("img", { name: "Judge" })).toBeInTheDocument();
-    await expect(card.querySelector(".armada-session-thread__eyebrow")?.textContent).toBe("Judge");
-    await expect(within(card).getByText("Build")).toBeInTheDocument();
-    await expect(within(card).getByText("crates/fleet/src/queue.rs:12")).toBeInTheDocument();
-    await expect(within(canvas.getByRole("group", { name: "Judge: A queued Session that is taken off is not told." })).getByText("Judge tile")).toBeInTheDocument();
-    await userEvent.hover(within(card).getByRole("button", { name: "Send to job" }));
-    await expect((await canvas.findAllByText("Goes to the agent as your message")).length).toBeGreaterThan(0);
-  },
-};
-
-/**
- * A concern with its parts is a claim: the consequence as the headline, then Expected and Found, each clamped to two lines with More
- * for the rest, so a row that fits has no More. A concern kept as text alone is its lines, in the same prose.
- */
-export const JudgeConcernIsAClaim: Story = {
-  args: { rows: LIVE_ROWS },
-  render: () => (
-    <Concerns
-      concerns={[
-        {
-          id: "c1",
-          text: "Expected: x\nProduced: y\nConsequence: z",
-          consequence: "Nothing in the dispatch panel reflects the feature, so a person starting a Session from it cannot tell it exists.",
-          expected: "A diff touching dispatch-panel that adds the queue act and the keys that start it, with a test beside each change, the registry rows those keys read from, and the generated vocabulary rebuilt from them, so the panel offers Queue wherever it offers Start.",
-          produced: "No file has changed yet.",
-          cites: ["apps/desktop/src/renderer/src/dispatch-panel/dispatching.tsx"],
-        },
-      ]}
-    />
-  ),
-  play: async ({ canvas }) => {
-    const card = canvas.getByRole("group", { name: /^Judge: / });
-    await expect(within(card).getByText(/^Nothing in the dispatch panel reflects the feature/)).toBeVisible();
-    await expect(within(card).getByText("Expected")).toBeVisible();
-    await expect(within(card).getByText("Found")).toBeVisible();
-    await expect(within(card).getByText("No file has changed yet.")).toBeVisible();
-    // Only the long row is clamped, and More opens it whole.
-    await expect(within(card).getAllByRole("button", { name: /^More of / })).toHaveLength(1);
-    const long = within(card).getByText(/^A diff touching dispatch-panel/);
-    const clamped = long.getBoundingClientRect().height;
-    await userEvent.click(within(card).getByRole("button", { name: "More of expected" }));
-    await expect(long.getBoundingClientRect().height).toBeGreaterThan(clamped);
-    await userEvent.click(within(card).getByRole("button", { name: "Less of expected" }));
-    await expect(long.getBoundingClientRect().height).toBe(clamped);
-  },
-};
-
-/** A concern kept before its parts were is its text, on its lines, in prose. */
-export const JudgeConcernWithoutPartsIsItsLines: Story = {
-  args: { rows: LIVE_ROWS },
-  render: () => <Concerns concerns={[{ id: "c1", text: "Expected: a test beside the change\nProduced: none\nConsequence: the change is unchecked" }]} />,
-  play: async ({ canvas }) => {
-    const card = canvas.getByRole("group", { name: /^Judge: / });
-    await expect(within(card).getByText("Consequence: the change is unchecked")).toBeVisible();
-    await expect(within(card).queryByRole("button", { name: /^More of / })).toBeNull();
+    await expect(args.approval!.judged!.onRun).toHaveBeenCalledTimes(1);
   },
 };
 

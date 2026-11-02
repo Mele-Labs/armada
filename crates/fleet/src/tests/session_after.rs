@@ -316,7 +316,6 @@ async fn record_with_plan(states: &[ipc::PlanTaskState]) -> SessionRecord {
         changes: None,
         sketch: None,
         held_by: Vec::new(),
-        adversarial: None,
     });
     record
 }
@@ -649,7 +648,7 @@ fn approving(waiting: &SessionId) -> ChangeWaiting {
         base: None,
         held: Some(false),
         workflow: Some("rail".into()),
-        model: Some("opus".into()),
+        model: Some("another-model".into()),
         effort: Some("high".into()),
     }
 }
@@ -663,11 +662,11 @@ async fn an_approval_and_the_picks_are_kept_and_published_on_the_wait() {
 
     let changed = Arc::clone(&rig.fleet).change_waiting(None, approving(&waiting.id)).await.expect("changed");
     assert!(!changed.held);
-    assert_eq!((changed.workflow.as_deref(), changed.model.as_deref(), changed.effort.as_deref()), (Some("rail"), Some("opus"), Some("high")));
+    assert_eq!((changed.workflow.as_deref(), changed.model.as_deref(), changed.effort.as_deref()), (Some("rail"), Some("another-model"), Some("high")));
 
     let wait = rig.record(&waiting.id).await.waits.expect("still waiting");
     assert!(!wait.held, "approved is read back from the record");
-    assert_eq!((wait.model.as_deref(), wait.effort.as_deref()), (Some("opus"), Some("high")), "and so are the picks");
+    assert_eq!((wait.model.as_deref(), wait.effort.as_deref()), (Some("another-model"), Some("high")), "and so are the picks");
 
     let withdrawn = ChangeWaiting { held: Some(true), model: Some(String::new()), workflow: None, effort: None, ..approving(&waiting.id) };
     let changed = Arc::clone(&rig.fleet).change_waiting(None, withdrawn).await.expect("withdrawn");
@@ -702,7 +701,7 @@ async fn an_approved_wait_starts_unheld_on_its_picks() {
     assert_eq!(started.workflow.as_deref(), Some("rail"));
     rig.processes_reach(processes + 1).await;
     let start = rig.stand_in.starts().pop().expect("the process");
-    assert_eq!((start.model.as_deref(), start.effort.as_deref()), (Some("opus"), Some("high")), "it runs on what he picked");
+    assert_eq!((start.model.as_deref(), start.effort.as_deref()), (Some("another-model"), Some("high")), "it runs on what he picked");
     assert!(rig.sent_to(processes).iter().any(|text| text.contains(BRIEF)), "and the brief went out unheld");
 }
 

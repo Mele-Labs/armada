@@ -674,9 +674,6 @@ pub enum WaitingSource {
     /// Fleet: the plan the agent recorded is not approved yet. Derived on every read: id
     /// `plan:<version>`. It is settled by `approve_plan` or `send_plan_changes`.
     Plan,
-    /// Fleet: a judge raised a concern about the work. Kept, id `judge:<n>`, with `concern` beside the
-    /// text. It is settled by `send_concern` or `dismiss_concern`.
-    Judge,
     /// Fleet: the session's first write found every worktree slot held and it is in the line for one,
     /// and the person has not said whether it waits or Fleet makes a slot. Derived on every read,
     /// never kept: id `slot-choice`, text `Every slot is in use`, an `answer` act, and exactly two
@@ -780,12 +777,6 @@ pub struct WaitingItem {
     /// Where a question asked in the walk window points. Present only on a `window_ask` item.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub place: Option<WindowPlace>,
-    /// What a `judge` item carries beside its text. Present only on that source.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub concern: Option<crate::session_rail::JudgeConcern>,
-    /// Where a `judge` item points: the files its quotation lands in, as the change leaves them.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cites: Vec<crate::session_rail::WaitingCite>,
     /// A `replied` item whose sentence he said is a question (`confirm_waiting`). Absent where he has not.
     #[serde(default, skip_serializing_if = "is_false")]
     pub confirmed: bool,
@@ -1180,6 +1171,11 @@ pub struct SessionRecord {
     /// A Mod Job, started from Mod for modding Armada itself. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub r#mod: bool,
+    /// The Job whose panes hold the Custom tab this Mod Job builds, and the tab's id there, as the start carried them. Absent on every other session.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_job: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_tab: Option<String>,
     /// Auto land is on: Fleet turns on the forge's auto-merge for each pull request the Session
     /// holds as it attaches, and off again when this is turned off. Absent is off. Hosted only.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -1212,16 +1208,10 @@ pub struct SessionRecord {
     /// has merged with no step after it. `docs/concepts/session.md`, *The rail*.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workflow_step: Option<u32>,
-    /// A judge is reading the work now. Held in memory: a Fleet that restarts reads nothing as reading.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub judging: bool,
-    /// The last reading's outcome. Absent until a judge has read. `concerns` 0 is "No concerns".
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub judge: Option<crate::session_rail::JudgeReading>,
-    /// Concerns the person has settled, oldest first, a bounded window. Each is a `judge` item with its
-    /// `concern.settled` set, for the thread to draw as one line. They are not in `waiting_for`.
+    /// The Judge's readings of this Job's artifacts, one per artifact with the latest replacing the one
+    /// before, oldest asked first. Absent until a Judge was asked. `docs/practices/protocol/a-job-is-judged-on-demand.md`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub settled: Vec<WaitingItem>,
+    pub judge_readings: Vec<crate::JudgeReading>,
     /// The items the person closed from `waiting_for`, newest first, each kept whole at the moment he did.
     /// A bounded window. Since 29 Oct 2026.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

@@ -8,11 +8,14 @@ import type { RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { jobIdOf, repositoryLabel } from "@armada/shell";
 
+import { useActsPlace } from "./job-panes/acts";
 import { useSessionsDraft } from "./sessions-draft";
 import { IN_A_TERMINAL, movedTo } from "./session-moved";
 
 export function SessionRepositoryOf({ session, repositories, onOpen }: { session: Session; repositories: readonly RepositorySummary[]; onOpen: (id: string) => void }): ReactNode {
   const move = useSessionsDraft()?.move;
+  // A head with no room for the name draws the repository as its icon alone.
+  const { chip } = useActsPlace();
   const served = repositories.filter((one) => one.manifest !== undefined);
   const here = served.find((one) => jobIdOf(one) === session.manifestId);
   if (move === undefined || session.helm === true || here === undefined) return null;
@@ -23,6 +26,7 @@ export function SessionRepositoryOf({ session, repositories, onOpen }: { session
   return (
     <SessionRepository
       name={repositoryLabel(here, repositories)}
+      {...(chip ? { icon: true } : {})}
       to={moved ? [] : served.filter((one) => one !== here).map((one) => ({ id: one.manifest!.id, name: repositoryLabel(one, repositories) }))}
       {...(session.terminal === true && session.dead === undefined ? { held: IN_A_TERMINAL } : {})}
       {...(holds ? { stays: branch === undefined ? {} : { branch } } : {})}

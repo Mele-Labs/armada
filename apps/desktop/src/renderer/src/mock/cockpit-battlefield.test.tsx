@@ -67,11 +67,17 @@ test("a drone that holds a call carries a call marker, and an off-screen one an 
   await expect.poll(() => [...document.querySelectorAll<HTMLElement>("[data-hit=call]")].some((one) => one.getAttribute("aria-label") === title && inside(one)), { timeout: 4000 }).toBe(true);
 });
 
+async function pressNewestDot() {
+  const dots = () => document.querySelectorAll<HTMLElement>('[data-hud="activity"] .armada-tl__dot');
+  await page.getByRole("button", { name: "Activity", exact: true }).click();
+  await expect.poll(() => dots().length).toBeGreaterThan(0);
+  [...dots()].at(-1)!.click();
+}
+
 test("pressing an Activity dot focuses its drone and Replay from here plays forward to Live and clears the focus", async () => {
   await map();
-  await expect.poll(() => document.querySelectorAll(".deck-activity .armada-tl__dot").length).toBeGreaterThan(0);
   // The newest event is the last dot: they are drawn oldest first.
-  [...document.querySelectorAll<HTMLElement>(".deck-activity .armada-tl__dot")].at(-1)!.click();
+  await pressNewestDot();
 
   // The drone the event is about is focused, the rest dimmed, and a line says what moved.
   await expect.element(page.getByRole("region", { name: "Event" })).toBeVisible();
@@ -91,11 +97,13 @@ test("pressing an Activity dot focuses its drone and Replay from here plays forw
 
 test("Esc leaves a replay for Live, and Space plays and pauses it", async () => {
   await map();
-  await expect.poll(() => document.querySelectorAll(".deck-activity .armada-tl__dot").length).toBeGreaterThan(0);
-  [...document.querySelectorAll<HTMLElement>(".deck-activity .armada-tl__dot")].at(-1)!.click();
+  await pressNewestDot();
   await page.getByRole("button", { name: "Replay from here" }).click();
   const bar = page.getByRole("region", { name: "Replay" });
   await expect.element(bar).toBeVisible();
+  // The first Esc puts Activity's HUD away; the keys are the replay's after that.
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => document.querySelector('[data-hud="activity"]')).toBeNull();
   field()!.focus();
   await userEvent.keyboard(" ");
   await expect.element(bar.getByRole("button", { name: "Play" })).toBeVisible();

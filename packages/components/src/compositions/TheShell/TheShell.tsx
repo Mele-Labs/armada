@@ -116,6 +116,13 @@ export function TheShell({
   dock,
   fleet,
 }: TheShellProps) {
+  // The field behind the glass holds still while the window is hidden: `screens.css` pauses on this mark.
+  useEffect(() => {
+    const mark = () => document.documentElement.toggleAttribute("data-hidden", document.hidden);
+    mark();
+    document.addEventListener("visibilitychange", mark);
+    return () => document.removeEventListener("visibilitychange", mark);
+  }, []);
   return (
     <ShortcutRevealProvider>
       <div className="armada-shell">
@@ -142,6 +149,8 @@ export function TheShell({
             {dock === undefined ? null : <Dock {...dock} />}
           </div>
         </div>
+        {/* The status bar: a screen draws into it (the Cockpit's merge line), and it is no height while nothing does. */}
+        <div className="armada-shell__status" />
       </div>
     </ShortcutRevealProvider>
   );

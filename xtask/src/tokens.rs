@@ -136,6 +136,14 @@ pub const THEME: &[(&str, Slot)] = &[
     ("--shadow-card", Slot::Literal),
     ("--shadow-primary", Slot::Literal),
     ("--tracking-caps", Slot::Literal),
+    (
+        "--ease-in",
+        Slot::CssOnly("an exit curve read in CSS keyframes; v4 has no second ease slot"),
+    ),
+    (
+        "--ease-out",
+        Slot::CssOnly("an enter curve read in CSS keyframes; v4 has no second ease slot"),
+    ),
     ("--ease", Slot::Named("ease", "base")),
     ("--leading-", Slot::Leading),
     // The semantic text colours. `--text-*` is overloaded in the source: a
@@ -164,6 +172,11 @@ pub const THEME: &[(&str, Slot)] = &[
     ),
     ("--degraded", Slot::Named("color", "degraded")),
     ("--degraded-dot", Slot::Named("color", "degraded-dot")),
+    ("--usage-meter", Slot::Named("color", "usage-meter")),
+    ("--usage-worse", Slot::Named("color", "usage-worse")),
+    ("--usage-over", Slot::Named("color", "usage-over")),
+    ("--usage-better", Slot::Named("color", "usage-better")),
+    ("--setting-modified", Slot::Named("color", "setting-modified")),
     (
         "--degraded-edge",
         Slot::CssOnly("a degraded edge's width, read beside --degraded"),

@@ -150,13 +150,13 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
   useEffect(() => {
     if (phase.is !== "seeking") return;
     let gone = false;
-    void arrive(steps[at]!).then((element) => {
+    void arrive(steps[at]!).then(async (element) => {
       if (gone) return;
       if (element === null) setPhase({ is: "stopped", at });
-      // A step before the one asked to start on runs straight through.
+      // A step before the one asked to start on runs straight through, once what it did has landed.
       else if (at < from) {
-        act(steps[at]!, element, steps[at + 1]);
-        setPhase({ is: "seeking", at: at + 1 });
+        await act(steps[at]!, element, steps[at + 1]);
+        if (!gone) setPhase({ is: "seeking", at: at + 1 });
       } else setPhase({ is: "ready", at, element });
     });
     return () => {

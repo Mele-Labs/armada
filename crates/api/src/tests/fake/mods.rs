@@ -30,6 +30,7 @@ impl Mods for FakeDaemon {
             kind: Some(ipc::ModKind::Theme),
             version: Some(String::from("0.1.0")),
             description: None,
+            glyph: None,
             taught_on: None,
             entry: None,
             made_by: None,
@@ -53,6 +54,7 @@ impl Mods for FakeDaemon {
             words: None,
             fleet: None,
             commands: None,
+            tab: None,
         })
     }
 

@@ -44,6 +44,7 @@ const pr = (number: number, title: string, branch: string, checks: SessionChecks
 const asking: Session = {
   id: "q1",
   title: "Cache key",
+  soFar: "Read the manifest loader and found reads happen once per Job. Added a cache behind it, unkeyed so far.",
   manifestId: ARMADA,
   context: { tokens: 54_000, window: 200_000 },
   turn: { state: "idle" },
@@ -73,6 +74,7 @@ const asking: Session = {
 const WORKING_REPLY: Session = {
   id: "r1",
   title: "Pin the store clock",
+  soFar: "Pinned the clock in all four store tests. Two files changed and the suite passed.",
   manifestId: ARMADA,
   turn: { state: "working" },
   lastTurnAt: ago(1),
@@ -84,6 +86,7 @@ const WORKING_REPLY: Session = {
 const done: Session = {
   id: "d1",
   title: "Changelog script",
+  soFar: "Wrote the changelog script and merged it.",
   manifestId: ARMADA,
   turn: { state: "idle" },
   lastTurnAt: ago(4),
@@ -138,6 +141,7 @@ const working: Session = {
 const stuck: Session = {
   id: "k1",
   title: "Service worker audit",
+  soFar: "Searched apps/pocket/src for caches.open. Reported nothing after that.",
   manifestId: POCKET,
   turn: { state: "working" },
   lastTurnAt: ago(25),
@@ -170,6 +174,7 @@ const queuedOwner: Session = {
 const red: Session = {
   id: "f1",
   title: "Fix the reconnect wait",
+  soFar: "Cut the first reconnect wait to five seconds and opened pull request 1896. desktop_test failed on it.",
   manifestId: ARMADA,
   turn: { state: "idle" },
   lastTurnAt: ago(22),

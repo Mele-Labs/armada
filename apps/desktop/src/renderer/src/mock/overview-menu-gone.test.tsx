@@ -4,7 +4,7 @@
 // rid of this dropdown."*
 //
 // Its items went somewhere, and each is pinned here: Refresh to `⇧⌘R` and the
-// palette, Reported to the palette alone. The two bulk sweeps went with the Jobs
+// palette, Reported bugs to the Issues tab. The two bulk sweeps went with the Jobs
 // they swept. Held disk is reached by name from the palette, and Settings from the System strip.
 
 import { describe, expect, test, vi } from "vitest";
@@ -43,23 +43,12 @@ describe("overview menu gone", () => {
     await expect.poll(() => state.mock.calls.length).toBe(1);
   });
 
-  test("the palette lists Refresh with its key, and Reported", async () => {
+  test("the palette lists Refresh", async () => {
     mount("default");
     await onScreen();
     const list = await palette();
 
-    await expect.element(list.getByRole("option", { name: /^Refresh.*⇧⌘R/ })).toBeInTheDocument();
-    await expect.element(list.getByRole("option", { name: "Reported" })).toBeInTheDocument();
+    await expect.element(list.getByRole("option", { name: /^Refresh/ })).toBeInTheDocument();
     expect(list.getByRole("option", { name: /^(Clear|Delete) \d+/ }).query()).toBeNull();
-  });
-
-  test("Reported, chosen from the palette, opens the reports", async () => {
-    mount("default");
-    await onScreen();
-    const list = await palette();
-
-    await list.getByRole("option", { name: "Reported" }).click();
-    // The mock serves no `/reports`, so what draws is the refusal and the way out.
-    await expect.element(page.getByRole("button", { name: "Back to the list" })).toBeVisible();
   });
 });

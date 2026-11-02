@@ -29,6 +29,8 @@
   min-width: 0;
   margin: 0 0 var(--pad-page);
   gap: var(--deck-gutter);
+  /* A Job's panes reach half a gutter past the deck's edge (`.job-panes__area`). Clipped here, that reach is nothing the screen around it can scroll sideways. */
+  overflow-x: clip;
 }
 /* The shell holds the page gutter (`--pad-page`) at the work's sides and the mount's top, the same on every tab, so the deck keeps only the foot. */
 .armada-screen__overview[data-deck] { padding: 0; }
@@ -81,6 +83,9 @@
 /* Ending a Job: a copy of its pane leaves over the stage while the timeline is already there. `exit.ts` plays it (Web Animations, opacity and transform only), at the rect it measured. */
 .deck-ghost { position: absolute; z-index: 1; display: flex; flex-direction: column; transform-origin: 0 0; pointer-events: none; }
 .deck-ghost > .deck-pane { flex: 1 1 0; }
+/* A pane arriving on the stage, a Job opened from the list or a view switched: a short rise and fade, quick enough to feel like the cockpit answering. Opacity and a --space-2 of travel only. */
+.deck-stage > .deck-pane { animation: deck-pane-in var(--duration-enter) var(--ease-out) backwards; }
+@keyframes deck-pane-in { from { opacity: 0; transform: translateY(var(--space-2)); } }
 .deck-stage[data-exit] > .deck-pane { animation: deck-appear var(--duration-travel) var(--ease) backwards; }
 @keyframes deck-appear { from { opacity: 0; } }
 /* The row the pane folded into takes its ended look over the same span the title colour does. */
@@ -375,13 +380,6 @@
 .deck-row__clash > * { pointer-events: auto; }
 .deck-list__rows:is([data-now], [data-pr]) :is(.deck-row__clash, .deck-row__earlier) { inset-block: calc(var(--space-1) / 2) auto; height: var(--deck-line); }
 
-/* ---- Activity: the beeswarm, in the narrow column under the list ---------------------------------------- */
-
-/* Activity rests at the height of the merge queue to the foot of the flight controls (`useActivityBeside`), so its edges
-   line up with the middle's. It gives way, never overlaps, when the column is shorter. */
-.deck-activity { flex: 0 1 var(--deck-activity, calc(var(--space-12) * 6)); min-height: calc(var(--space-12) * 3); }
-.deck-activity .armada-tl { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
-
 /* ---- A pane: one head, then its body -------------------------------------------------------------------- */
 
 .deck-pane__head { min-width: 0; }
@@ -412,6 +410,9 @@
 .deck-pane[data-frame] { gap: var(--space-2); }
 /* The Job's head: its name and state, then the views, the context figure, the menu and the way out at the far end. */
 .deck .deck-pane[data-frame] .armada-session-frame__head { justify-content: flex-end; }
+/* A head in the mock's `rows` take: its first row is the band every head is, and the row under it is as tall as its icons. */
+:root[data-look="new"] .deck .deck-pane[data-frame] .armada-session-frame__head[data-take="rows"] { justify-content: flex-start; min-height: 0; padding-block: 0; }
+:root[data-look="new"] .deck .deck-pane[data-frame] .armada-session-frame__head[data-take="rows"] > .armada-session-frame__row:first-child { min-height: var(--head-min, var(--h-row-header)); }
 /* The Job's panels: the title as tracked caps over a hairline, the body close under it. */
 .deck .sv-panel__band {
   gap: var(--space-2);
@@ -427,8 +428,9 @@
 .deck .armada-session-composer__bar .armada-button { height: var(--h-control); }
 .deck .armada-session-composer__bar .armada-button[data-icon-only="true"] { width: var(--h-control); }
 /* The thread: lines of a fold at a 24px pitch, and a Check's line a step under the prose with its mono a step under that. */
-.deck .armada-helm-thread__rows { gap: var(--space-2); }
-.deck .armada-helm-thread__rows > .armada-session-fold + .armada-session-fold { margin-block-start: calc((var(--space-2) - var(--space-1) / 2) * -1); }
+/* Messages, his and the agent's, take a further step of room either side (HelmThread.css); a run of folds stays at its pitch. */
+.deck .armada-helm-thread__rows { gap: var(--thread-gap, var(--space-3)); }
+.deck .armada-helm-thread__rows > .armada-session-fold + .armada-session-fold { margin-block-start: calc((var(--thread-gap, var(--space-3)) - var(--space-1) / 2) * -1); }
 .deck .armada-session-fold__head--press { font-size: var(--text-xs); line-height: var(--leading-xs); }
 .deck .armada-session-fold__head--press .mono { font-size: var(--text-2xs); }
 /* The glyphs a step lighter. */
@@ -835,7 +837,7 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* One focus state: the panel's edge and shadow lift (`depth.css`), the heading not filled. The thing focused inside keeps its own ring. */
 .deck-panel:focus,
 .deck-pane:focus { outline: none; }
-/* A cap leaves no room behind it until ⌘ is held: it is not drawn, not hidden, so nothing moves when it comes. `DeckBody` sets `data-reveal` on the root while ⌘ is down. */
+/* A cap leaves no room behind it until ⌘ is held: it is not drawn, not hidden, so nothing moves when it comes. `ShortcutRevealProvider` sets `data-reveal` on the root while ⌘ is down; the other pages' caps hide the same way in `depth.css`. */
 :root:not([data-reveal]) .deck :is(.deck-band, .sv-panel__band, .deck-controls, .deck-dispatch, .deck-queue, .deck-flight) :is(.armada-kbd, .armada-tooltip:has(> .armada-kbd)) { display: none; }
 /* A key is a quiet cap at the end of a heading, and in the corner of a tile. */
 .deck-band .armada-kbd { opacity: 0.7; }
@@ -1044,7 +1046,6 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-tile > .deck-tile__hides svg,
 .deck-controls__tiles > .deck-tile > .deck-tile__hides svg { width: var(--space-3); height: var(--space-3); }
 .deck-controls__tiles > .deck-tile .deck-tile__text { font-size: clamp(var(--text-2xs), 12cqmin, var(--text-base)); line-height: 1.2; }
-.deck-tile__done { color: var(--step-advanced); }
 .deck-tile__state { position: absolute; top: var(--space-1); left: var(--space-2); display: inline-flex; color: var(--fg-muted); }
 .deck-tile__state[data-on] { color: var(--accent); }
 .deck-controls__tiles > .deck-tile > .deck-tile__state svg { width: var(--space-3); height: var(--space-3); }
@@ -1151,12 +1152,16 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
   cursor: pointer;
 }
 .deck-combo__option[data-active] { background: color-mix(in srgb, var(--fg-default) 9%, transparent); }
-.deck-combo__option[aria-selected="true"] { font-weight: var(--weight-heading); }
+/* The same rows as the shared menu's: muted label, the picked one in the strong colour, never a weight, and
+ * the check in a trailing column every row reserves. */
+.deck-combo__option { color: var(--fg-muted); }
+.deck-combo__option[aria-selected="true"] { color: var(--fg-default); }
+.deck-combo__mark-col { display: inline-flex; flex: none; align-items: center; justify-content: center; width: var(--space-4); height: var(--space-4); }
 .deck-combo__option svg { flex: none; color: var(--fg-muted); }
 .deck-combo__label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .deck-combo .deck-combo__check, .deck-combo__list .deck-combo__check { color: var(--accent); }
 .deck-combo__rule { height: var(--border-width); margin: var(--space-1) var(--space-2); background: var(--border-default); }
-.deck-combo__add, .deck-combo__add svg { color: var(--accent); }
+.deck-combo__add svg { color: var(--accent); }
 .deck-combo__mark { display: inline-flex; flex: none; align-items: center; justify-content: center; width: var(--space-6); height: var(--space-6); padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--step-advanced); cursor: pointer; }
 .deck-combo__mark:hover { background: color-mix(in srgb, var(--fg-default) 9%, transparent); }
 /* A tooltip on a mark has to leave the list, which clips what it holds. */
@@ -1165,3 +1170,33 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-runs-layer { position: fixed; inset: 0; z-index: var(--z-modal); display: flex; align-items: center; justify-content: center; padding: var(--space-6); background: var(--scrim); }
 .deck-runs-layer .armada-runs-all { position: relative; inset: auto; width: min(var(--w-dialog-wide), 100%); max-height: 100%; border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-overlay); box-shadow: var(--shadow-overlay); }
 .deck-combo__empty { padding: var(--space-2); color: var(--fg-subtle); font-size: var(--text-sm); }
+
+/* A Job dispatched while the list is drawn lifts off into it, once (`arrivals.ts`; the keyframes are SessionFrame.css's). */
+.deck-list__item[data-arrived] {
+  animation: armada-lift-off calc(var(--duration-sheet) + var(--duration-base)) var(--ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-list__item[data-arrived] {
+    animation: none;
+  }
+}
+
+/* The merge line is the window's status bar: a child of the shell's own slot along the bottom edge (`InStatusBar` in `Deck.tsx`), outside the padded page,
+   the window's full width, 28px, with a hairline above it and no radius, side or bottom border. Its chips line up with the panels above by the page padding. */
+.deck.deck-statusbar { flex: none; width: 100%; margin: 0; gap: 0; }
+.deck-statusbar > .deck-queue.deck-panel[data-band-only] {
+  flex: none;
+  margin: 0;
+  border-width: var(--border-width) 0 0;
+  border-color: var(--border-default);
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--bg-sunken);
+  padding-bottom: var(--space-1);
+}
+.deck-statusbar > .deck-queue .deck-queue__row { box-sizing: border-box; min-height: calc(var(--h-control-sm) + var(--space-1)); padding: 0 var(--pad-page); }
+.deck-statusbar > .deck-queue .deck-queue__stack { height: calc(var(--h-control-sm) + var(--space-1)); }
+
+/* A panel zoomed by its header's double-click covers the Cockpit's body (set in `job-panes/zoom.ts`), with its own ground. */
+.deck-panel[data-zoomed], .sv-panel[data-zoomed] { background: var(--bg-raised); }

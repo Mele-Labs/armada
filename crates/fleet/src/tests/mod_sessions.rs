@@ -7,13 +7,13 @@ use std::sync::Arc;
 use api::{HostedSessions, Mods, Refusal, Sessions};
 use ipc::{ModAim, ModKind, ScaffoldMod, SendSessionMessage, SessionId, SessionRow, StartModSession};
 
-use super::session_dispute::serving;
+use super::session_dispute::{serving, serving_fitted};
 use super::session_host::{denied, eventually, Rig};
 use super::session_notes::{a_repository, note, turn_of, PATH, SAID};
 
 fn pointed(title: Option<&str>) -> StartModSession {
     let at = note(&SessionId::carried("unused"), "Other commands, 16.1% of the burn", None).note;
-    StartModSession { title: title.map(str::to_string), model: None, effort: None, note: Some(at), said: None }
+    StartModSession { title: title.map(str::to_string), model: None, effort: None, aim: None, note: Some(at), said: None, from_job: None, from_tab: None }
 }
 
 fn spoken(title: Option<&str>, said: Option<&str>) -> StartModSession {
@@ -21,10 +21,15 @@ fn spoken(title: Option<&str>, said: Option<&str>) -> StartModSession {
         title: title.map(str::to_string),
         model: None,
         effort: None,
+        aim: None,
         note: None,
         said: said.map(str::to_string),
+        from_job: None,
+        from_tab: None,
     }
 }
+
+const TAB_AIM: &str = "He is aiming for: a tab (a mod of kind `tab`, a React component Bridge loads into a pane, with the whole Fleet API). Scaffold it with `kind` `tab` and your own `session_id`, and edit the same mod when he asks for a change. He watches the tab while you build it: first write a version that draws its frame and run `validate_mod`, then add one part at a time and run `validate_mod` after each. Never write the whole tab before the first check.";
 
 fn said_by_him(id: &SessionId, text: &str) -> SendSessionMessage {
     SendSessionMessage { session_id: id.clone(), text: text.to_string(), attachments: Vec::new(), mentions: Vec::new() }
@@ -244,6 +249,7 @@ async fn an_empty_mod_jobs_first_message_names_what_he_is_aiming_for_between_the
         (ModAim::Fleet, "He is aiming for: a Fleet rule (what Fleet does with a notice it would send)."),
         (ModAim::Tracker, "He is aiming for: a tracker (an issue tracker Armada has no adapter for)."),
         (ModAim::Commands, "He is aiming for: commands (rows in the command palette that start a Job, open an address, run a line or chain other rows)."),
+        (ModAim::Tab, TAB_AIM),
         (ModAim::Source, "He is aiming for: a change to Armada's source."),
     ];
     for (aim, line) in aims {
@@ -326,4 +332,92 @@ async fn a_mod_a_job_scaffolds_lists_that_job_as_made_by() {
     assert_eq!(made_by("calmer"), Some(job));
     assert_eq!(made_by("by-hand"), None, "a call that names no Job records none");
     assert!(list.iter().all(|one| one.name != "stray"), "an unknown Job makes nothing");
+}
+
+#[tokio::test]
+async fn a_mod_job_started_with_a_tab_aim_is_briefed_on_the_tab_between_the_brief_and_his_words() {
+    for served in ["armada", "elsewhere"] {
+        let rig = serving(served).await;
+        let start = StartModSession { aim: Some(ModAim::Tab), ..spoken(None, Some("a list of pull requests waiting on me")) };
+
+        let started = Arc::clone(&rig.fleet).start_mod_session(start).await.expect("started");
+
+        assert_eq!(started.send_failed, None, "{served}");
+        let turn = turn_of(&rig).await;
+        let at = |wanted: &str| turn.find(wanted).unwrap_or_else(|| panic!("{served}: the turn carries {wanted}: {turn}"));
+        let order = [at("This is a Mod Job"), at(TAB_AIM), at("a list of pull requests waiting on me")];
+        assert!(order.windows(2).all(|pair| pair[0] < pair[1]), "{served}: the brief, the aim, his words: {turn}");
+        let rows = rig.rows(&started.session_id).await;
+        assert!(
+            matches!(&rows[..], [SessionRow::Message { text, .. }] if text == "a list of pull requests waiting on me"),
+            "{served}: the thread keeps his words alone: {rows:#?}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_mod_job_started_from_a_custom_tab_keeps_the_job_and_tab_it_came_from() {
+    let rig = serving("armada").await;
+    let start = StartModSession {
+        from_job: Some("job-9".to_string()),
+        from_tab: Some("t4".to_string()),
+        ..spoken(None, Some("a list of pull requests waiting on me"))
+    };
+
+    let started = Arc::clone(&rig.fleet).start_mod_session(start).await.expect("started");
+
+    let record = Arc::clone(&rig.fleet).get_session(started.session_id.clone()).await.expect("kept").session;
+    assert_eq!((record.from_job.as_deref(), record.from_tab.as_deref()), (Some("job-9"), Some("t4")), "{record:#?}");
+    let hosting = rig.fleet.store().lock().await.hosting(started.session_id.as_str()).expect("read").expect("hosted");
+    assert_eq!((hosting.from_job.as_deref(), hosting.from_tab.as_deref()), (Some("job-9"), Some("t4")), "kept on the hosting record");
+}
+
+#[tokio::test]
+async fn a_mod_job_started_anywhere_else_names_no_job_or_tab() {
+    let rig = serving("armada").await;
+
+    let started = started(&rig, None).await;
+
+    let record = Arc::clone(&rig.fleet).get_session(started.session_id).await.expect("kept").session;
+    assert_eq!((record.from_job, record.from_tab), (None, None));
+}
+
+#[tokio::test]
+async fn a_mod_job_has_no_workflow_and_is_not_asked_how_its_work_lands() {
+    let rig = serving_fitted("armada", |fittings| {
+        fittings.judge = Arc::new(testkit::FakeJudge::saying("workflow: feature\ntitle: Track view"));
+    })
+    .await;
+    let id = Arc::clone(&rig.fleet).start_mod_session(spoken(None, None)).await.expect("started").session_id;
+
+    Arc::clone(&rig.fleet)
+        .send_session_message(said_by_him(&id, "I want a track view of a job's events that plays as notes"))
+        .await
+        .expect("sent");
+
+    let turn = turn_of(&rig).await;
+    assert!(turn.contains("This is a Mod Job") && turn.contains("a track view"), "it starts on his words at once: {turn}");
+    assert!(!turn.contains("Stop now") && !turn.contains("follows the"), "no hold and no workflow lines: {turn}");
+    let hosting = rig.fleet.store().lock().await.hosting(id.as_str()).expect("read").expect("hosted");
+    assert_eq!(hosting.workflow, None, "no workflow: {hosting:#?}");
+    let rows = rig.rows(&id).await;
+    assert!(!rows.iter().any(|row| matches!(row, SessionRow::Delivery { .. })), "no delivery question: {rows:#?}");
+}
+
+#[tokio::test]
+async fn a_mod_job_writes_in_the_mods_folder_without_asking_and_a_plain_job_does_not() {
+    let rig = serving("armada").await;
+    let tab = rig.fleet.mods_dir().join("job-track/tab.js").to_string_lossy().into_owned();
+    let write = format!(r#"{{"file_path":"{tab}","content":"x"}}"#);
+    let allowed = |answer: &ipc::GateAnswer| {
+        matches!(answer, ipc::GateAnswer::Rewrite { rewritten } if rewritten.decision == "allow")
+    };
+
+    let modding = Arc::clone(&rig.fleet).start_mod_session(spoken(None, Some("a track view"))).await.expect("started");
+    let answer = rig.gate(&modding.session_id, "Write", &write).await;
+    assert!(allowed(&answer), "a Mod Job's own mod is written unasked: {answer:?}");
+
+    let plain = rig.start().await;
+    let answer = rig.gate(&plain, "Write", &write).await;
+    assert!(!allowed(&answer), "a plain Job is not let into the mods folder: {answer:?}");
 }

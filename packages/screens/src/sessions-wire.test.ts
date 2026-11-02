@@ -409,6 +409,15 @@ describe("the thread", () => {
     expect(kept({})).toEqual([row]);
   });
 
+  it("carries a document's kept styles, by the hash of each mock it draws", () => {
+    const hash = "0123456789abcdef0123456789abcdef";
+    const page = (detail: Record<string, string>) => ({ ...held("artifact", "/work/.armada/documents/findings.html"), detail: { form: "document", title: "Findings", ...detail } });
+    const read = (detail: Record<string, string>) => attachmentsOfRecord(record("a", { attachments: [page(detail)] }), beside());
+    expect(read({ kept_styles: JSON.stringify({ "Flow#card": hash }) })[0]).toMatchObject({ keptStyles: { "Flow#card": hash } });
+    expect(read({ kept_styles: "[not json" })[0]).not.toHaveProperty("keptStyles");
+    expect(read({})[0]).not.toHaveProperty("keptStyles");
+  });
+
   it("carries the notice a Fleet message was sent for, and no other row", () => {
     const wire: SessionRow[] = [
       { kind: "message", id: "n1", at: AT, from: { kind: "session", id: "fleet", title: "Fleet" }, text: "slot-4 is 23 commits behind master.", notice: "behind_base" },
@@ -509,6 +518,13 @@ describe("a session", () => {
   it("carries the Mod mark from the record", () => {
     expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ01", { mod: true }), undefined, beside())).toMatchObject({ mod: true });
     expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ02"), undefined, beside()).mod).toBeUndefined();
+  });
+
+  it("carries the Judge's readings from the record, and none where none were asked", () => {
+    const reading = { id: "r1", artifact: { kind: "pull_request" as const, id: "2418", title: "#2418" }, prompt: "", state: "done" as const, asked_at: AT, read: false, notes: [{ id: "n1", claim: "No ceiling" }] };
+    expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ01", { judge_readings: [reading] }), undefined, beside()).judgeReadings).toEqual([reading]);
+    expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ02"), undefined, beside()).judgeReadings).toBeUndefined();
+    expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ03", { judge_readings: [] }), undefined, beside()).judgeReadings).toBeUndefined();
   });
 
   it("carries its turn, ask, tuning and address", () => {

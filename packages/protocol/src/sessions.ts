@@ -15,7 +15,7 @@ import type { ProtocolId } from "./connection";
 import type { PlanWindow } from "./plan-usage";
 import type { WorkflowSummary } from "./setup";
 import type { FileTouch, SessionPlan } from "./session-plan";
-import type { JudgeConcern, JudgeReading, WaitingCite } from "./session-rail";
+import type { JudgeReading } from "./judge";
 import type { SessionWait, StartAfter } from "./session-waits";
 import type { WireError } from "./protocol";
 
@@ -102,6 +102,9 @@ export type SessionRecord = {
   helm?: true;
   /** A Mod Job: started from Mod, for modding Armada itself. */
   mod?: true;
+  /** The Job whose panes hold the Custom tab this Mod Job builds, and the tab's id there, as the start carried them. Absent on every other session. */
+  from_job?: string;
+  from_tab?: string;
   /** What a session Fleet hosts carries beyond a terminal's. Since 23.49. */
   hosted?: HostedFacts;
   /** What a session run in a terminal runs on, once its mod has said. Since 23.53. */
@@ -172,15 +175,11 @@ export type SessionRecord = {
    * after it, and while `features.workflows` is off. Since 16 Oct 2026.
    */
   workflow_step?: number;
-  /** A judge is reading the work now. Held in memory in Fleet. Absent when none is. Since 16 Oct 2026. */
-  judging?: boolean;
-  /** The last reading's outcome. Absent until a judge has read. `concerns` 0 is "No concerns". Since 16 Oct 2026. */
-  judge?: JudgeReading;
   /**
-   * Concerns the person has settled, oldest first, a bounded window: each a `judge` item with
-   * `concern.settled` set, for the thread to draw as one line. They are not in `waiting_for`. Since 16 Oct 2026.
+   * The Judge's readings of this Job's artifacts, one per artifact with the latest replacing the one before, oldest asked
+   * first. Absent until a Judge was asked. Since 31 Oct 2026.
    */
-  settled?: WaitingItem[];
+  judge_readings?: JudgeReading[];
   /**
    * The items the person closed from `waiting_for`, newest first, a bounded window: each kept whole at the moment he closed it.
    * `reopen_waiting` lets one wait again. Absent when none. Since 29 Oct 2026.
@@ -292,8 +291,7 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * has no reply and its `act` is a `message` on the Session, so a press opens it. Fleet also derives
  * `done` (id `done:<done_since>`, text `Done`) from the turn, so a Session that said it was done is on
  * the list whether or not the agent called a tool. `plan` (id `plan:<version>`) is a recorded plan the
- * person has not approved; it is approved, or sent changes, from its own card. `judge` (id `judge:<n>`) is a
- * concern a judge raised, with `concern` and `cites`; it is sent to the agent or dismissed from its own card.
+ * person has not approved; it is approved, or sent changes, from its own card.
  * `slot_choice` (id `slot-choice`, text `Every slot is in use`, act `answer`) is Fleet asking what to do for a
  * Session that found every worktree slot held: its two options are `Wait for a slot` (choice 0) and `Add a slot`
  * (choice 1), answered with `answer_waiting` and a `choice`. No message goes to the agent. `delivery` (id `delivery`, text
@@ -331,7 +329,7 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * page the Job wrote under `.armada/documents/` that he has not approved or sent back: a document artifact with `detail.asked` and no
  * `detail.settled`. Its press opens the document. `answer_document` answers it.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours" | "held_child" | "preview_offer" | "rule_act" | "sketch" | "document";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours" | "held_child" | "preview_offer" | "rule_act" | "sketch" | "document";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
@@ -397,10 +395,6 @@ export type WaitingItem = {
   /** The procedure the person follows, in order; its press opens them as steps. Absent when the item has none. */
   steps?: string[];
   place?: WindowPlace;
-  /** Present only on a `judge` item: what produced it, and how it was settled once it is. */
-  concern?: JudgeConcern;
-  /** Where a `judge` item points: the files its quotation lands in. Absent when it lands in none. */
-  cites?: WaitingCite[];
   /** A `replied` item whose sentence he said is a question (`confirm_waiting`). Absent where he has not. */
   confirmed?: boolean;
 };
@@ -618,6 +612,46 @@ export type SketchHow = "approved" | "sent_back";
  * `"true"`, and once answered `detail.settled`, `detail.settled_at` and his `detail.words`.
  */
 export type AnswerSketch = { session_id: string; sketch: string; drawn: string; how: SketchHow; words?: string };
+
+/**
+ * What a stylesheet found for a `mock` node is, by how a browser can use it. Closed set, crossing as a string:
+ * `css`, `css_module`, `tailwind_output`, `tailwind_reset`, `theme_css`, `tailwind_config`, `scss`, `less`, `theme_module`.
+ */
+export type StyleKind =
+  | "css"
+  | "css_module"
+  | "tailwind_output"
+  | "tailwind_reset"
+  | "theme_css"
+  | "tailwind_config"
+  | "scss"
+  | "less"
+  | "theme_module";
+
+/** A token read out of a stylesheet or theme file: its name and value, never the file's text. */
+export type StyleToken = { name: string; value: string };
+
+/** One stylesheet found near the code a Job works on. `usable` is whether a browser can use it as it stands. */
+export type StyleSource = { path: string; bytes: number; kind: StyleKind; usable: boolean; tokens: StyleToken[] };
+
+/**
+ * `GET /sessions/style_sources?path=&session_id=`, the agent's: the stylesheets nearest the code being worked on, closest
+ * first, for a `mock` node's `styles`. `start` is the path the search walked up from; `packages` is non-empty where Fleet
+ * would not guess between packages of the repository. An empty array is the same as an omitted one.
+ */
+export type StyleSources = { sources: StyleSource[]; start?: string; packages?: string[] };
+
+/** A stylesheet as Fleet kept it. `edited` is true where the Job's checkout held uncommitted changes to the file. */
+export type KeptSheet = { path: string; css: string; edited: boolean };
+
+/** A font a kept stylesheet names. `bytes` is base64. */
+export type KeptFont = { family: string; weight: string; style?: string; bytes: string };
+
+/**
+ * `GET /sessions/kept_styles?hash=`, Bridge's: the style set a `mock` node's `kept` names, `sheets` in the order they apply.
+ * Content addressed, so an answer never changes; a hash Fleet does not hold is a 404. Never carried on a record.
+ */
+export type KeptStyles = { sheets: KeptSheet[]; fonts: KeptFont[] };
 
 /** How the person answered a document put to him, as `detail.settled` holds it. */
 export type DocumentHow = "approved" | "sent_back";

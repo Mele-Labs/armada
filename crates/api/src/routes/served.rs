@@ -13,7 +13,7 @@
 //! in [`runs`](mod@runs), and every other row here. Each is a subject a reader opens on its own;
 //! [`SERVED`] stays one slice. The gate rule reads every file — `xtask/src/rules_protocol.rs`.
 
-mod adversarial_review;
+mod judge;
 mod authoring;
 mod autopilot;
 mod events;
@@ -61,7 +61,7 @@ pub const SERVED: &[Route] = &joined::<
             + repositories::ROUTES.len()
             + retro::ROUTES.len()
             + runs::ROUTES.len()
-            + adversarial_review::ROUTES.len()
+            + judge::ROUTES.len()
     },
 >([
     ROUTES,
@@ -76,7 +76,7 @@ pub const SERVED: &[Route] = &joined::<
     repositories::ROUTES,
     retro::ROUTES,
     runs::ROUTES,
-    adversarial_review::ROUTES,
+    judge::ROUTES,
 ]);
 
 /// The thirteen tables as one, in order. A count that disagrees with `N` fails the build.
@@ -379,6 +379,16 @@ const ROUTES: &[Route] = &[
         path: "/sessions/sketch",
     },
     Route {
+        operation: "get_style_sources",
+        method: "GET",
+        path: "/sessions/style_sources",
+    },
+    Route {
+        operation: "get_kept_styles",
+        method: "GET",
+        path: "/sessions/kept_styles",
+    },
+    Route {
         operation: "show_file",
         method: "POST",
         path: "/sessions/show_file",
@@ -397,21 +407,6 @@ const ROUTES: &[Route] = &[
         operation: "approve_plan",
         method: "POST",
         path: "/sessions/plan/approve",
-    },
-    Route {
-        operation: "judge_session",
-        method: "POST",
-        path: "/sessions/judge",
-    },
-    Route {
-        operation: "send_concern",
-        method: "POST",
-        path: "/sessions/judge/send",
-    },
-    Route {
-        operation: "dismiss_concern",
-        method: "POST",
-        path: "/sessions/judge/dismiss",
     },
     Route {
         operation: "send_plan_changes",

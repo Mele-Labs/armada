@@ -16,7 +16,7 @@
 //! - `peer` is the primitive `concurrency` rests on: a call attributed by the
 //!   connection it arrived on rather than by which Job was admitted first.
 mod act_failing;
-mod adversarial_review;
+mod judge;
 mod sending_checkout;
 mod agent_starts;
 mod held_children;
@@ -27,6 +27,8 @@ mod phone;
 mod showing_file;
 mod sketching;
 mod sketch_answers;
+mod sketch_styles;
+mod page_replies;
 mod document_answers;
 mod step_waits;
 mod documents;
@@ -126,6 +128,7 @@ mod claim_disputes;
 mod session_dispute_reading;
 mod session_done;
 mod session_finish_up;
+mod models_switched_off;
 mod session_host;
 mod session_mcp;
 mod plan_held;
@@ -137,6 +140,7 @@ mod subagent_rows;
 mod task_marks;
 mod session_provenance;
 mod session_proposal;
+mod session_quick;
 mod delivery_gate;
 mod start_card;
 mod session_rail;

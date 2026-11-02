@@ -197,8 +197,6 @@ fn item(id: String, text: &str, since: &str, source: WaitingSource) -> WaitingIt
         options: Vec::new(),
         steps: Vec::new(),
         place: None,
-        concern: None,
-        cites: Vec::new(),
         confirmed: false,
     }
 }

@@ -4,11 +4,10 @@
   display: grid;
   grid-template-columns: var(--w-guide-list) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
-  column-gap: var(--space-4);
+  column-gap: var(--gap-panel);
   flex: 1;
   min-width: 0;
   min-height: 0;
-  padding-bottom: var(--space-6);
 }
 
 .armada-workspaces__list,

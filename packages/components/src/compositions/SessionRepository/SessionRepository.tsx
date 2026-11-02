@@ -23,6 +23,8 @@ export type SessionRepositoryProps = {
   ends?: boolean;
   /** Resolves when the move is done; the host opens the new Session. */
   onMove: (id: string) => Promise<unknown>;
+  /** Draws the glyph alone, in a control's width, and names the repository in the tooltip: a head with no room for its name. */
+  icon?: boolean;
 };
 
 /**
@@ -30,11 +32,11 @@ export type SessionRepositoryProps = {
  * repository glyph, and a pick shows its facts in the same layer: where it goes and what stays behind. Move
  * is the one press that acts. Where there is no other repository the name is text and nothing opens.
  */
-export function SessionRepository({ name, to = [], held, stays, ends = false, onMove }: SessionRepositoryProps) {
+export function SessionRepository({ name, to = [], held, stays, ends = false, onMove, icon = false }: SessionRepositoryProps) {
   if (to.length === 0) {
     return (
-      <Tooltip label="Repository">
-        <span className="armada-session-repository" data-plain role="img" aria-label={`Repository ${name}`}>
+      <Tooltip label={icon ? name : "Repository"}>
+        <span className="armada-session-repository" data-plain {...(icon ? { "data-icon": "" } : {})} role="img" aria-label={`Repository ${name}`}>
           <FolderGit2 size={12} strokeWidth={2} aria-hidden />
           <span className="armada-session-repository__name">{name}</span>
         </span>
@@ -46,8 +48,8 @@ export function SessionRepository({ name, to = [], held, stays, ends = false, on
       align="start"
       label="Move to another repository"
       trigger={
-        <Tooltip label="Move to another repository">
-          <button type="button" className="armada-session-repository" aria-haspopup="dialog" aria-label={`Repository ${name}`}>
+        <Tooltip label={icon ? name : "Move to another repository"}>
+          <button type="button" className="armada-session-repository" {...(icon ? { "data-icon": "" } : {})} aria-haspopup="dialog" aria-label={`Repository ${name}`}>
             <FolderGit2 size={12} strokeWidth={2} aria-hidden />
             <span className="armada-session-repository__name">{name}</span>
             <ChevronDown size={12} strokeWidth={2} aria-hidden />

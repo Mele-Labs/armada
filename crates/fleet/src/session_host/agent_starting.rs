@@ -65,8 +65,6 @@ pub(crate) fn held_child_item(child: &HeldChild) -> WaitingItem {
         options: Vec::new(),
         steps: Vec::new(),
         place: None,
-        concern: None,
-        cites: Vec::new(),
         confirmed: false,
     }
 }

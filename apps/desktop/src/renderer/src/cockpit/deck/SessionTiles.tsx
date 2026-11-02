@@ -13,16 +13,20 @@
 // **A shell tile the repository committed asks once before it runs on this Mac**, showing its command, and asks again when the command
 // changes (`TileAskDialog`). A tile of the person's that hides the repository's carries the eclipse mark naming what it hides.
 //
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Circle, CircleCheck, CircleDot, LoaderCircle, Play } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { Circle, CircleDot, LoaderCircle, Play } from "lucide-react";
 import { Eclipse } from "lucide-react";
-import { Kbd, Tooltip, type SentFromComposer } from "@armada/components";
+import { Button, Kbd, Tooltip, type SentFromComposer } from "@armada/components";
 import type { TileAsk } from "@armada/protocol";
 import { useJobReportAsked } from "../../report";
 import { attachmentsOf, type HoldsReleased, type Session, type SessionTag, type SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import { provideJobFacts } from "../../job-facts";
+import { clearActs, publishActs, useActsPlace } from "../../job-panes/acts";
+import { JudgeAct } from "../../judge/JudgeAct";
+import { openJudge, useJudgeRecord } from "../../judge/store";
 import { useJobTerminal } from "../../job-shell-dock";
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
@@ -39,12 +43,9 @@ import { COMPACT, handTargets, heldOf, mute, nameOfHeldRow, offeredOf, plain, ti
 import { ShellBox, type ShellRun } from "./ShellBox";
 import { select, setView } from "./store";
 import { openRequestsInPanel } from "../../shared-panel/store";
-import { useJobBrowserTile } from "../../job-browser/JobBrowserPane";
-import { toggleLayer } from "../../session-view/layers";
+import { focusKind } from "../../job-panes/focus";
+import { toggleLayer, useLayer } from "../../session-view/layers";
 import type { SessionBays } from "../../session-view/slot-trouble";
-
-/** How long a judge that found nothing is shown as done. */
-const CLEAR_MS = 2400;
 
 /** The repository the report is about: its root and its name where it has one. */
 export type ReportRepository = { root: string; name?: string };
@@ -53,9 +54,10 @@ export type ReportRepository = { root: string; name?: string };
  * `startIn` is the root a report's new Session starts in (`reportRoot`); absent, the reported Session's own. `onOverflow` is told whether the
  * row holds more than it shows, and nothing while something else stands in its place.
  */
-export function SessionTiles({ session, draft, repository, startIn, bays, onOpenLink, expanded = false, onOverflow }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; bays?: SessionBays | undefined; onOpenLink?: (address: string) => void; expanded?: boolean; onOverflow?: (overflows: boolean | undefined) => void }) {
+export function SessionTiles({ session, draft, repository, startIn, bays, onOpenLink, expanded = false, onOverflow, head = false }: { head?: boolean; session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; bays?: SessionBays | undefined; onOpenLink?: (address: string) => void; expanded?: boolean; onOverflow?: (overflows: boolean | undefined) => void }) {
+  const { slot, away } = useActsPlace();
+  const layer = useLayer(session.id);
   const terminal = useJobTerminal(session.id, draft.terminalRuns !== undefined);
-  const browser = useJobBrowserTile(session.id);
   const flight = useRepositoryFlight(repository?.root, session.id);
   const tiles = tilesOf("job", useFlightFile(), repositoryFileOf(flight), committedFileOf(flight));
   /** The committed tile asking before its first run here, and what Fleet said to the last Run, if anything. */
@@ -63,18 +65,6 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   const [pending, setPending] = useState<string | undefined>();
   const [reporting, setReporting] = useState(false);
   useJobReportAsked(session.id, () => setReporting(true));
-  /** When the Judge tile was last pressed: a reading with no concerns is "No concerns" only if it landed after this. */
-  const [pressedAt, setPressedAt] = useState<number | undefined>();
-  const [clear, setClear] = useState(false);
-  const judged = session.work?.judged;
-  /** Fleet answers the press at once with the record `judging`, so the tile reads it from there; the press is working until that arrives. */
-  const judging = session.work?.judging === true || pending === "judge";
-  useEffect(() => {
-    if (pressedAt === undefined || judged === undefined || judged.concerns !== 0 || Date.parse(judged.at) < pressedAt) return;
-    setClear(true);
-    const handle = window.setTimeout(() => setClear(false), CLEAR_MS);
-    return () => window.clearTimeout(handle);
-  }, [pressedAt, judged?.at, judged?.concerns]);
   /** What a Shell action printed, standing in place of the tiles until Close. */
   const [shell, setShell] = useState<ShellRun | undefined>();
   /** Which run the box stands for, so an answer that lands after Close or after a second press is dropped. */
@@ -134,13 +124,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     compact: () => typed("compact", tileById("compact").words ?? `/${COMPACT}`, compact?.how ?? "message"),
     report: () => setReporting((open) => !open),
     map: () => setView("map"),
-    judge: () =>
-      void run("judge", async () => {
-        if (draft.work?.judge === undefined) return;
-        setClear(false);
-        setPressedAt(Date.now());
-        await draft.work.judge(session.id);
-      }),
+    judge: () => openJudge(session.id, { kind: "job", id: session.id }),
     release: () => setReleasing(true),
     artifacts: () => toggleLayer(session.id, "artifacts"),
     subagents: () => toggleLayer(session.id, "subagents"),
@@ -148,8 +132,9 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     slot: () => toggleLayer(session.id, "slot"),
     system: () => toggleLayer(session.id, "system"),
     requests: () => void openRequestsInPanel(session.id),
-    terminal: () => terminal?.press(),
-    browser: () => browser?.press(),
+    // A Job in panes has Terminal and Browser as tabs, so their keys bring that kind's tab forward or open one; a Session without panes keeps the Terminal tile.
+    terminal: () => (head ? focusKind(session.id, "terminal") : terminal?.press()),
+    browser: () => focusKind(session.id, "browser"),
     pause: () => void run("pause", async () => void (await (session.paused === true ? draft.resume : draft.pause)?.(session.id))),
   };
   const job: JobFacts = {
@@ -242,25 +227,26 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   const wrongs = [...(bays?.bays ?? []).flatMap((one) => (one.said === undefined ? [] : [one.said])), ...(clashSaid === undefined ? [] : [clashSaid])];
   const filledBy = session.context === undefined || session.context.window <= 0 ? undefined : Math.min(100, Math.round((session.context.tokens / session.context.window) * 100));
   const subagentsRunning = attachmentsOf(session, "subagent").filter((one) => one.state === "running").length;
+  const judging = useJudgeRecord(session.id, { kind: "job", id: session.id })?.state === "reading";
   const checksRunning = session.rows.some((one) => one.kind === "check" && one.state === "running");
   const tip: Record<SessionTileId, string> = {
     ask: "Ask the Job for an update",
-    land: on ? "Turn auto land off" : "Turn auto land on",
+    land: on ? "Auto land on" : "Auto land off",
     compact: filledBy === undefined ? "Compact the Job's context" : `Context ${filledBy}% full. Compact it`,
     report: "Report an issue with the Job",
     map: "Map",
-    judge: judging ? "Judge reading" : clear ? "No concerns" : "Send a judge to read the work",
+    judge: "Send a judge to read the work",
     release: "Release or hand over everything the Job holds",
     artifacts: "Everything the Job made or used",
-    subagents: subagentsRunning === 0 ? "Every subagent" : `Every subagent, ${subagentsRunning} running`,
-    checks: checksRunning ? "A Check the agent ran is still out. The agent gets its result when it ends" : "The Checks the agent ran. Each result went back to it as the run ended",
+    subagents: subagentsRunning === 0 ? "Every subagent" : "Subagents running",
+    checks: checksRunning ? "Checks running. The agent gets its result when it ends" : "The Checks the agent ran. Each result went back to it as the run ended",
     slot: wrongs.length === 0 ? "Every bay the Job holds" : wrongs.join(", "),
     system: "What the Job runs and costs the machine",
     requests: "Send a request with your cookie for its host",
     // A press while it is in its window brings the window forward and leaves the shell showing.
     terminal: terminal?.windowed === true ? "Bring the Job's terminal window to the front" : terminal?.shown === true ? "Hide the Job's terminal" : "Open the Job's terminal",
-    browser: "Open the Job browser in the side panel",
-    pause: session.paused === true ? "Resume" : "Pause",
+    browser: "Open the Job browser",
+    pause: session.paused === true ? "Paused" : "Pause",
   };
   const tipCustom = (tile: Tile): string => {
     const words = (tile.words ?? "").trim();
@@ -305,6 +291,24 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     const id = idOf(tile);
     return id === undefined ? offCustom(tile) : off[id];
   };
+  /** What a Job in panes draws in its Thread head: every act but the two the + menu opens as tabs. */
+  const acts = drawn.filter((one) => idOf(one) !== "terminal" && idOf(one) !== "browser");
+  const customAt = acts.findIndex((one) => one.builtIn === undefined);
+  const views = ["checks", "subagents"].flatMap((id) => tiles.filter((one) => one.builtIn !== undefined && one.id === id));
+  const icons = customAt < 0 ? [...acts, ...views] : [...acts.slice(0, customAt), ...views, ...acts.slice(customAt)];
+  const labelOfIcon = (tile: Tile) => (idOf(tile) === "pause" && session.paused === true ? "Resume" : tile.label);
+  /** What an act in the head says of itself on its glyph: a switch that is on, or a thing that is running. */
+  const stateOf = (tile: Tile): { state?: "on" | "running" } => {
+    const id = idOf(tile);
+    if ((id === "land" && on) || (id === "pause" && session.paused === true)) return { state: "on" };
+    if ((id === "checks" && checksRunning) || (id === "subagents" && subagentsRunning > 0) || (id === "judge" && judging)) return { state: "running" };
+    return {};
+  };
+  useEffect(() => {
+    if (!head) return;
+    publishActs(icons.map((tile) => ({ id: tile.id, label: labelOfIcon(tile), icon: idOf(tile) === "pause" && session.paused === true ? Play : glyphOf(tile.glyph, "zap"), ...stateOf(tile), off: whyOf(tile), run: () => (idOf(tile) === undefined ? pressCustom(tile) : press[idOf(tile)!]()) })));
+  });
+  useEffect(() => (head ? clearActs : undefined), [head]);
   // Over the whole window, never in the panel: the panel's glass is the containing block of anything fixed inside it, and clipped them.
   const dialog = releasing ? (
     <OverTheApp open>
@@ -325,10 +329,12 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
       }}
     />
   ) : null;
+  // A Job in panes has its acts in the Thread tab's head: icons there, the ellipsis menu's entries where the head is narrow, and out of sight with no head, so their keys still press them.
+  const aside = (node: ReactNode) => (head ? <OverTheApp open>{node}</OverTheApp> : node);
   if (released !== undefined) {
-    return <HoldsReleasedBox released={released.answer} to={released.to} unticked={released.unticked} nameOfRow={(row) => nameOfHeldRow(released.before, row)} onClose={() => setReleased(undefined)} />;
+    return aside(<HoldsReleasedBox released={released.answer} to={released.to} unticked={released.unticked} nameOfRow={(row) => nameOfHeldRow(released.before, row)} onClose={() => setReleased(undefined)} />);
   }
-  if (shell !== undefined) return <ShellBox run={shell} onClose={closeShell} />;
+  if (shell !== undefined) return aside(<ShellBox run={shell} onClose={closeShell} />);
   /** One tile, with every fact it carries. */
   const drawTile = (tile: Tile) => {
     const id = idOf(tile);
@@ -337,8 +343,6 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     const name = paused ? "Resume" : tile.label;
     const key = flightKey(tile);
     const why = whyOf(tile);
-    const reading = id === "judge" && judging;
-    const cleared = id === "judge" && clear && !reading;
     // Pressed, and Fleet has not answered: the tile already reads the new state (`pressed.ts`), and a going mark says so.
     const going = (id === "pause" && session.pressed?.includes("paused") === true) || (id === "land" && session.pressed?.includes("autoLand") === true);
     return (
@@ -349,24 +353,14 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
           aria-label={name}
           data-key={key}
           data-act={id === "pause" ? "pause" : undefined}
-          aria-pressed={id === undefined ? undefined : id === "map" || id === "release" || id === "pause" ? false : pending === tile.id || (id === "land" && on) || (id === "terminal" && terminal?.shown === true) || (id === "browser" && browser?.shown === true)}
+          aria-pressed={id === undefined ? undefined : id === "map" || id === "release" || id === "pause" ? false : pending === tile.id || (id === "land" && on) || (id === "terminal" && terminal?.shown === true)}
           data-on={paused || undefined}
           data-running={(id === "terminal" && terminal?.running === true) || undefined}
           aria-busy={pending === tile.id || undefined}
           aria-disabled={why !== undefined || undefined}
           onClick={() => why === undefined && (id === undefined ? pressCustom(tile) : press[id]())}
         >
-          {reading ? (
-            <span className="armada-session-mark" role="img" aria-label="Judge reading" data-pulsing>
-              <CircleDot size={20} strokeWidth={2} aria-hidden="true" />
-            </span>
-          ) : cleared ? (
-            <span className="armada-session-mark deck-tile__done" role="img" aria-label="No concerns">
-              <CircleCheck size={20} strokeWidth={2} aria-hidden="true" />
-            </span>
-          ) : (
-            <Glyph size={20} aria-hidden="true" />
-          )}
+          <Glyph size={20} aria-hidden="true" />
           <span className="deck-tile__text">{paused ? "Resume" : tile.text}</span>
           {id !== "land" && id !== "pause" ? null : (
             // A mark in the corner, so the tile keeps its place: a filled dot while on, a ring while off. Auto land is on while it is set and Pause while the Job is paused.
@@ -393,6 +387,58 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
       </Tooltip>
     );
   };
+  /** One act as an icon: its glyph, the tooltip naming it and its key, lit as pressed while on, and off with its reason as the tooltip. */
+  const drawIcon = (tile: Tile) => {
+    const id = idOf(tile);
+    if (id === "judge" && draft.judge !== undefined) return <JudgeAct key={tile.id} job={session.id} artifact={{ kind: "job", id: session.id, title: session.title ?? "the Job" }} {...(flightKey(tile) === undefined ? {} : { shortcut: flightKey(tile)! })} />;
+    const paused = id === "pause" && session.paused === true;
+    const Glyph = paused ? Play : glyphOf(tile.glyph, "zap");
+    const key = flightKey(tile);
+    const why = whyOf(tile);
+    const going = (id === "pause" && session.pressed?.includes("paused") === true) || (id === "land" && session.pressed?.includes("autoLand") === true);
+    const lit = id === "land" ? on : id === "pause" ? paused : id === "checks" || id === "subagents" ? layer === id : undefined;
+    const running = (id === "checks" && checksRunning) || (id === "subagents" && subagentsRunning > 0);
+    return (
+      <Tooltip key={tile.id} label={going ? "Sending" : (why ?? (id === undefined ? tipCustom(tile) : tip[id]))} {...(key === undefined ? {} : { shortcut: key })} asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          aria-label={labelOfIcon(tile)}
+          data-key={key}
+          data-act={id === "pause" ? "pause" : undefined}
+          aria-pressed={lit}
+          data-on={stateOf(tile).state === "on" || undefined}
+          data-running={running || undefined}
+          aria-busy={pending === tile.id || undefined}
+          aria-disabled={why !== undefined || undefined}
+          onClick={() => why === undefined && (id === undefined ? pressCustom(tile) : press[id]())}
+        >
+          <Glyph size={16} strokeWidth={2} aria-hidden="true" />
+        </Button>
+      </Tooltip>
+    );
+  };
+  if (head) {
+    // The acts a head has no room for are in the ellipsis menu, and drawn out of sight so their keys still press them.
+    const kept = icons.filter((one) => !away.includes(one.id));
+    const row = <>{kept.map(drawIcon)}</>;
+    const gone = icons.filter((one) => away.includes(one.id));
+    // Terminal and Browser are tabs here, not acts: their keys stay on buttons out of sight.
+    const kinds = (["terminal", "browser"] as const).map(tileById);
+    return (
+      <>
+        {dialog}
+        <div hidden className="job-acts">
+          {kinds.map((tile) => (
+            <button key={tile.id} type="button" tabIndex={-1} aria-label={tile.label} data-key={flightKey(tile)} aria-disabled={whyOf(tile) !== undefined || undefined} onClick={() => whyOf(tile) === undefined && press[tile.id as "terminal" | "browser"]()} />
+          ))}
+        </div>
+        {slot !== null ? createPortal(row, slot) : <div hidden className="job-acts">{row}</div>}
+        {gone.length === 0 ? null : <div hidden className="job-acts">{gone.map(drawIcon)}</div>}
+      </>
+    );
+  }
   return (
     <>
       {dialog}

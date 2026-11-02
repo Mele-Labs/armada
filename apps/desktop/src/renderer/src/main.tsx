@@ -3,10 +3,12 @@ import { createRoot } from "react-dom/client";
 
 import "./styles/index.css";
 import "@armada/components/src/look";
+import { startLoopClock } from "./loop-clock";
 import { watchStill } from "./still";
 import { wireJobBrowsers } from "./job-browser/store";
 
 watchStill();
+startLoopClock();
 watchClippedText();
 
 // Each Job's browser, held in main: the store folds what it shows, and the side panel opens where main asks.
@@ -21,9 +23,11 @@ import { createPhoneGatewaySource, PhoneSourceProvider } from "@armada/settings"
 import { App, WAITING } from "./App";
 import { TaughtSourceProvider } from "@armada/settings";
 import { Boundary, LayoutSourceProvider, createLayoutSource } from "@armada/shell";
-import { HapticsProvider, watchClippedText } from "@armada/components";
+import { HapticsProvider, MockStylesContext, watchClippedText } from "@armada/components";
+import { createKeptStyles } from "@armada/screens/src/kept-styles";
 import { WiredNumbered } from "./numbered-fleet";
 import { WiredSessions } from "./sessions-wired";
+import { ThreadLookSaved } from "./thread-look-here";
 import { SleepSourceProvider } from "./sleep";
 import { createFleetSleep } from "./fleet-sleep";
 import { createFleetPlanUsage } from "./fleet-plan-usage";
@@ -92,6 +96,11 @@ const PHONE = createPhoneGatewaySource(
   Date.now,
   (page) => void window.armada.openLink(page),
 );
+/** What a sketch's `mock` is drawn with: the style set Fleet kept for it, read by hash through the main process, once per hash. */
+const MOCK_STYLES = createKeptStyles(
+  (hash) => window.armada.readKeptStyles(hash).then((read) => (read.ok ? read.value : undefined)),
+  () => document.documentElement.getAttribute("data-theme"),
+);
 /** The moon in the title row and the night's decisions as Cockpit calls, over Fleet. */
 const SLEEP = createFleetSleep(withState(window.armada));
 /** The plan's windows in the title row, over Fleet. */
@@ -153,10 +162,14 @@ function Root() {
                                 <ReviewsFrom store={REVIEWS}>
                                   <IssuesFrom store={ISSUES}>
                                     <ProjectsFrom store={PROJECTS}>
-                                      <WiredSharedPanel>
-                                        <App />
-                                        <TweaksApplied />
-                                      </WiredSharedPanel>
+                                      <ThreadLookSaved>
+                                        <MockStylesContext.Provider value={MOCK_STYLES}>
+                                          <WiredSharedPanel>
+                                            <App />
+                                            <TweaksApplied />
+                                          </WiredSharedPanel>
+                                        </MockStylesContext.Provider>
+                                      </ThreadLookSaved>
                                     </ProjectsFrom>
                                   </IssuesFrom>
                                 </ReviewsFrom>

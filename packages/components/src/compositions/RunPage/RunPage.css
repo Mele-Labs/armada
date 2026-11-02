@@ -1,6 +1,6 @@
 /* The Manifest surface's runner — Journey 9's *Running one*, in the main
    checkout, drawn as the cockpit draws its glass: what the Manifest declares
-   is a deck of tiles on the left, each framed in how it last ran, and the
+   is a list of rows on the left, each carrying how it last ran, and the
    picked one's control and output stand in a raised readout on the right.
 
    **A page, not a sheet.** So it fills the panel it is mounted in rather than
@@ -49,9 +49,9 @@
    the run on the right. */
 .armada-run-page__edited {
   margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   color: var(--fg-subtle);
 }
 
@@ -103,35 +103,34 @@
 }
 
 .armada-run-page__entries {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(calc(var(--space-12) * 4), 1fr));
-  grid-auto-rows: min-content;
-  gap: var(--space-3);
+  display: flex;
+  flex-direction: column;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-/* --- an entry as a tile --------------------------------------------------- */
+/* --- an entry as a row ---------------------------------------------------- */
 
-/* The state is the frame: a weighted edge in the tile's hue, the cockpit
-   tile's. The hue is how it last ran, through `--run-*`, which alias Job
-   colours — how it looks and never what it counts for. Never run is unhued. */
+/* A row of the Cockpit's list: flat on the panel, 28px, a hairline between, the picked one a wash. The hue is how it last ran,
+   through `--run-*`, which alias Job colours — how it looks and never what it counts for. Never run is unhued; the chip at
+   the row's end carries it. */
 .armada-run-page__entry {
   --hue: var(--fg-subtle);
   position: relative;
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  flex-wrap: wrap;
+  align-items: center;
   min-width: 0;
-  min-height: calc(var(--space-12) * 2);
-  padding: var(--space-3);
-  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  min-height: var(--h-control);
+  padding: 0 var(--space-3);
+  border: 0;
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
-  transition:
-    border-color var(--duration-fast) var(--ease),
-    background var(--duration-fast) var(--ease);
+  background: transparent;
+  transition: background var(--duration-fast) var(--ease);
+}
+.armada-run-page__entry + .armada-run-page__entry {
+  border-top: var(--border-width) solid color-mix(in srgb, var(--fg-default) 10%, transparent);
 }
 
 .armada-run-page__entry[data-run="passed"] {
@@ -151,55 +150,38 @@
 }
 
 .armada-run-page__entry:hover {
-  background: color-mix(in srgb, var(--hue) 10%, var(--bg-raised));
+  background: color-mix(in srgb, var(--fg-default) 10%, transparent);
 }
 
-/* Ended on a code it did not expect, or up and serving: the whole edge in its hue. */
-.armada-run-page__entry[data-run="failed"],
-.armada-run-page__entry[data-run="starting"],
-.armada-run-page__entry[data-run="serving"] {
-  border-color: var(--hue);
-}
-
-/* Its line names something the checkout no longer has: lit, as a tile that
-   needs the owner is on the cockpit's glass. --notice-caution, the contract's
+/* Its line names something the checkout no longer has: tinted in --notice-caution, the contract's
    drift hue — behind, not broken, so never red. */
 .armada-run-page__entry[data-drifted] {
   --hue: var(--notice-caution);
-  border-color: var(--hue);
-  background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised));
-  box-shadow: 0 0 var(--space-4) color-mix(in srgb, var(--hue) 40%, transparent);
+  background: color-mix(in srgb, var(--hue) 8%, transparent);
 }
 
-/* The one picked: its hue deepens and an accent ring stands outside the frame,
-   so the picked tile reads on any hue. */
-.armada-run-page__entry:has(> [aria-current="true"]) {
-  background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised));
-  box-shadow: 0 0 0 calc(var(--border-width) * 2) var(--accent);
-}
-
+/* The one picked: the Cockpit's wash. */
+.armada-run-page__entry:has(> [aria-current="true"]),
 .armada-run-page__entry[data-drifted]:has(> [aria-current="true"]) {
-  box-shadow:
-    0 0 0 calc(var(--border-width) * 2) var(--accent),
-    0 0 var(--space-4) color-mix(in srgb, var(--hue) 40%, transparent);
+  background: var(--select-ground, var(--bg-hover));
 }
 
-/* The always-allowed rules: Fleet's own table and never the file, so dashed —
-   on the glass beside the Manifest's own, and told apart from them. */
+/* The always-allowed rules: Fleet's own table and never the file, so the line is the rule and the remove sits at its end. */
 .armada-run-page__entry:has(> .armada-run-page__allowed-run) {
   justify-content: space-between;
-  min-height: 0;
-  border-style: dashed;
-  background: var(--bg-raised);
+  gap: var(--space-3);
+  padding-block: var(--space-1);
 }
 
 .armada-run-page__entry-select {
   display: flex;
   flex: 1 1 auto;
-  flex-direction: column;
-  gap: var(--space-1);
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
   width: 100%;
   min-width: 0;
+  min-height: calc(var(--h-control) - var(--border-width));
   padding: 0;
   border: 0;
   background: none;
@@ -229,7 +211,8 @@
 /* The name, and drift's verdict at the trailing edge of the same line. */
 .armada-run-page__entry-head {
   display: flex;
-  align-items: baseline;
+  flex: 0 0 calc(var(--space-12) * 3);
+  align-items: center;
   gap: var(--space-2);
   min-width: 0;
 }
@@ -238,8 +221,8 @@
   flex: 1 1 auto;
   min-width: 0;
   font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   font-weight: var(--weight-medium);
   color: var(--fg-default);
   overflow: hidden;
@@ -262,11 +245,12 @@
 /* The declared line, two lines and then clamped: a tile has the room a 240px
    rail never did. */
 .armada-run-page__entry-run {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  display: block;
+  flex: 1 1 0;
+  min-width: 0;
   overflow: hidden;
-  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
@@ -281,12 +265,11 @@
    how it looks rather than what it counts for. */
 .armada-run-page__entry-facts {
   display: flex;
-  align-items: baseline;
+  flex: none;
+  align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  margin-top: auto;
-  padding-top: var(--space-2);
-  border-top: var(--border-width) solid color-mix(in srgb, var(--hue) 25%, var(--border-subtle));
+  margin-inline-start: auto;
 }
 
 .armada-run-page__entry-at,
@@ -319,7 +302,9 @@
 
 /* A plain sentence, never a bare tag. */
 .armada-run-page__entry-note {
+  flex: 1 1 100%;
   margin: 0;
+  padding-bottom: var(--space-1);
   font-family: var(--font-sans);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
@@ -327,14 +312,6 @@
 }
 
 /* --- the main column: control, panel, run list ---------------------------- */
-
-.armada-run-page__control-empty {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  color: var(--fg-subtle);
-}
 
 .armada-run-page__control {
   display: flex;

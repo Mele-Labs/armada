@@ -40,6 +40,17 @@ fn can_write(tool: &str) -> bool {
     matches!(tool, "Write" | "Edit" | "MultiEdit" | "NotebookEdit" | "Bash")
 }
 
+/// A subagent asked for on a model not in `on`. A process keeps the allowlist it started with and
+/// lives past a switch, so this is what holds a Job the switch did not move.
+fn subagent_off(gate: &SessionGate, on: &[String]) -> Option<GateAnswer> {
+    if !matches!(gate.tool_name.as_str(), "Agent" | "Task") {
+        return None;
+    }
+    let model = gate.tool_input.get("model")?.as_str()?;
+    (!on.iter().any(|one| one == model))
+        .then(|| GateAnswer::deny(format!("The model `{model}` is switched off. Name one of {}, or none.", on.join(", "))))
+}
+
 fn touch(gate: &SessionGate) -> Touch {
     let text = |key: &str| gate.tool_input.get(key).and_then(|said| said.as_str());
     match gate.tool_name.as_str() {
@@ -76,6 +87,9 @@ where
         }
         // Every call of a hosted session that is open, whatever the gate then decides.
         self.call_seen(&gate);
+        if let Some(answer) = subagent_off(&gate, &self.models_on()) {
+            return answer;
+        }
         // A tool the hook only reaches Fleet on so it can be noted holds nothing, so it does not
         // read the pool or the Manifest.
         if !can_write(&gate.tool_name) {
@@ -87,6 +101,15 @@ where
         // Before the write rules: `armada` reads, so a lone check never reaches them.
         if let Some(answer) = in_the_background(&gate, mode_of(&hosting.mode)) {
             return answer;
+        }
+        // A Mod Job writes its mods without asking him: the mods folder is outside its directory,
+        // so Claude Code would otherwise ask about every file of a mod he asked for.
+        if let (true, Touch::File(path)) = (hosting.mod_job, touch(&gate)) {
+            let mods = normalised(&self.mods_dir().to_string_lossy());
+            if absolute(&gate, &path).starts_with(&format!("{}/", mods.trim_end_matches('/'))) {
+                let asks = mode_of(&hosting.mode) == SessionMode::Ask;
+                return GateAnswer::rewrite(gate.tool_input.clone(), asks, "a Mod Job writes in the mods folder");
+            }
         }
         let served = match self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) {
             Ok(served) => served,

@@ -319,15 +319,15 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/document/answer", post(crate::sessions::answer_document::<D>))
         .route("/sessions/show_file", post(crate::sessions::show_file::<D>))
         .route("/sessions/shown", get(crate::shown::get_shown_file::<D>))
+        .route("/sessions/style_sources", get(crate::styles::get_style_sources::<D>))
+        .route("/sessions/kept_styles", get(crate::styles::get_kept_styles::<D>))
         .route("/sessions/plan", post(crate::sessions::record_plan::<D>))
         .route("/sessions/plan/approve", post(crate::sessions::approve_plan::<D>))
         .route("/sessions/plan/changes", post(crate::sessions::send_plan_changes::<D>))
-        .route("/sessions/judge", post(crate::sessions::judge_session::<D>))
-        .route("/sessions/judge/send", post(crate::sessions::send_concern::<D>))
-        .route("/sessions/judge/dismiss", post(crate::sessions::dismiss_concern::<D>))
-        .route("/adversarial_review", post(crate::adversarial_review::start_adversarial_review::<D>))
-        .route("/adversarial_review/send", post(crate::adversarial_review::send_finding::<D>))
-        .route("/adversarial_review/dismiss", post(crate::adversarial_review::dismiss_finding::<D>))
+        .route("/sessions/judge", post(crate::judge::ask_judge::<D>))
+        .route("/sessions/judge/send", post(crate::judge::send_judge_note::<D>))
+        .route("/sessions/judge/dismiss", post(crate::judge::dismiss_judge_note::<D>))
+        .route("/sessions/judge/read", post(crate::judge::mark_judge_read::<D>))
         .route(
             "/sessions/window/ask",
             post(crate::sessions::ask_in_window::<D>),
@@ -525,6 +525,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/mcp",
             get(crate::hosted_sessions::get_session_mcp::<D>),
+        )
+        .route(
+            "/sessions/quick",
+            get(crate::hosted_sessions::get_session_quick::<D>),
         )
         .route(
             "/sessions/mcp/act",

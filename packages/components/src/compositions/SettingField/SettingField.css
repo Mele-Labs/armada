@@ -145,3 +145,96 @@
   align-items: center;
   gap: var(--space-3);
 }
+
+/* A figure with a slider: the track takes the slack and the typed figure keeps a column of its own. A row with
+   marks keeps room under the rail for them. */
+.armada-setting-field__drag {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) calc(var(--space-12) * 3);
+  align-items: start;
+  gap: var(--space-4);
+}
+
+.armada-setting-field__drag:has(.armada-setting-field__marks) {
+  padding-bottom: var(--space-3);
+}
+
+/* The rail is a well cut into the panel and the fill is laid in it up to the figure (`--fill`, 0 to 1). Both are
+   drawn on the wrapper, under the input, whose own track is left clear. */
+.armada-setting-field__track {
+  display: grid;
+  align-items: center;
+  align-self: center;
+  min-width: 0;
+}
+
+.armada-setting-field__track > *,
+.armada-setting-field__track::before,
+.armada-setting-field__track::after {
+  grid-area: 1 / 1;
+}
+
+.armada-setting-field__track::before,
+.armada-setting-field__track::after {
+  content: "";
+  align-self: center;
+  height: var(--space-2);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+
+.armada-setting-field__track::before {
+  border: var(--border-width) solid var(--border-subtle);
+  box-sizing: border-box;
+  background: var(--bg-sunken);
+  box-shadow: inset 0 calc(2 * var(--border-width)) calc(3 * var(--border-width)) rgb(0 0 0 / 0.55), 0 var(--border-width) 0 var(--border-highlight);
+}
+
+.armada-setting-field__track::after {
+  justify-self: start;
+  margin-left: calc(var(--space-2) - var(--border-width));
+  width: calc((100% - var(--space-4)) * var(--fill) + var(--border-width));
+  background: var(--status-running);
+  box-shadow: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.4), inset 0 calc(-1 * var(--border-width)) 0 rgb(0 0 0 / 0.25);
+}
+
+.armada-setting-field__track > .armada-slider__input {
+  position: relative;
+  z-index: 1;
+}
+
+.armada-setting-field__track > .armada-slider__input::-webkit-slider-runnable-track {
+  height: var(--space-2);
+  background: transparent;
+}
+
+/* A ring cap standing proud of the rail. */
+.armada-setting-field__track > .armada-slider__input::-webkit-slider-thumb {
+  width: calc(var(--space-3) + var(--space-2));
+  height: calc(var(--space-3) + var(--space-2));
+  margin-top: calc((var(--space-2) - var(--space-3) - var(--space-2)) / 2);
+  box-sizing: border-box;
+  border: var(--space-1) solid var(--status-running);
+  border-radius: 50%;
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-lifted), inset 0 calc(2 * var(--border-width)) calc(3 * var(--border-width)) rgb(0 0 0 / 0.5);
+}
+
+/* A mark under each step, set in by half a thumb so it sits where the thumb's centre stops; blue up to the figure. */
+.armada-setting-field__marks {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 var(--space-2);
+  transform: translateY(calc(var(--space-4) + var(--space-1)));
+  pointer-events: none;
+}
+
+.armada-setting-field__marks > span {
+  width: var(--border-width);
+  height: var(--space-1);
+  background: var(--border-strong);
+}
+
+.armada-setting-field__marks > span[data-on] {
+  background: var(--status-running);
+}

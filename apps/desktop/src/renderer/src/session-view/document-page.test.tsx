@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { readPage } from "./document-page";
+import { readPage, sceneWithKept } from "./document-page";
 
 const CHART = `<svg viewBox="0 0 120 60" class="chart" role="img" aria-label="Failures by week" onload="steal()">
   <title>Failures by week</title>
@@ -75,5 +75,37 @@ describe("a chart drawn as inline SVG in a Job's page", () => {
 
   it("leaves no svg where the page's svg is not in the svg namespace", () => {
     expect(readPage(`<h1>T</h1><p>words</p>`).root.querySelector("svg")).toBeNull();
+  });
+});
+
+describe("the kept styles of a page's mocks", () => {
+  const A = "0123456789abcdef0123456789abcdef";
+  const B = "fedcba9876543210fedcba9876543210";
+  const SCENE = {
+    nodes: [
+      { id: "card", kind: "mock", x: 0, y: 0, w: 320, html: "<p>One</p>" },
+      { id: "row", kind: "mock", x: 0, y: 200, w: 320, html: "<p>Two</p>", kept: "ffffffffffffffffffffffffffffffff" },
+      { id: "plain", kind: "box", x: 400, y: 0, body: "A box" },
+    ],
+    edges: [],
+  };
+  const sketchesOf = (title: string) => readPage(`<h1>T</h1><armada-sketch title="${title}"><script type="application/json">${JSON.stringify(SCENE)}</script></armada-sketch>`).sketches;
+
+  it("land on the node the key names, in the sketch the key names", () => {
+    const [sketch] = sketchesOf("Flow");
+    const scene = sceneWithKept("Flow", sketch!.scene, { "Flow#card": A, "Other#row": B }) as typeof SCENE;
+    expect(scene.nodes.map((one) => (one as { kept?: string }).kept)).toEqual([A, undefined, undefined]);
+  });
+
+  it("are Fleet's: a kept the page wrote is dropped, and a box is left alone", () => {
+    const [sketch] = sketchesOf("Flow");
+    const scene = sceneWithKept("Flow", sketch!.scene, { "Flow#plain": B }) as typeof SCENE;
+    expect(scene.nodes.map((one) => (one as { kept?: string }).kept)).toEqual([undefined, undefined, undefined]);
+    expect(scene.nodes[2]).toEqual(SCENE.nodes[2]);
+  });
+
+  it("leave a scene that is not one as it is", () => {
+    expect(sceneWithKept("Flow", undefined, { "Flow#card": A })).toBeUndefined();
+    expect(sceneWithKept("Flow", { nodes: "no" }, { "Flow#card": A })).toEqual({ nodes: "no" });
   });
 });

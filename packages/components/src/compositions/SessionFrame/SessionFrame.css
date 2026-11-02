@@ -43,6 +43,47 @@
   color: var(--fg-muted);
 }
 
+/* The mock's second take of a head with too little room (`headTake="rows"`): the state, the name and the way out on a row of their own,
+   and the repository, the acts and the figures on a quieter row under it. Nothing here matches in the app. */
+.armada-session-frame__head[data-take="rows"] {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.armada-session-frame__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-session-frame__row[data-row="tools"] {
+  min-height: var(--h-control-sm);
+  padding-block-end: var(--space-1);
+  color: var(--fg-subtle);
+}
+
+/* The figures and the menu keep the row's far end. */
+.armada-session-frame__row[data-row="tools"] .armada-session-frame__context-host {
+  margin-inline-start: auto;
+}
+
+/* The toolbelt under the composer (`toolsUnder`): the quiet row of the rows take, with the figures at its far end. */
+.armada-session-frame__toolbelt {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: var(--h-control-sm);
+  color: var(--fg-subtle);
+}
+
+.armada-session-frame__toolbelt .armada-session-frame__context-host {
+  margin-inline-start: auto;
+}
+
 /* The terminal glyph carries the address in its tooltip. */
 .armada-session-frame__glyph {
   display: inline-flex;
@@ -388,4 +429,23 @@ button.armada-session-frame__context:focus-visible {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--fg-muted);
+}
+
+/* A Job just dispatched lifts off: its card and its row rise a step and fade in, once (`arrivals.ts` in Bridge says which).
+   The one entrance on a Job, which the owner asked for; reduced motion draws it in place. */
+@keyframes armada-lift-off {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-3));
+  }
+}
+
+.armada-session-frame[data-lifting] {
+  animation: armada-lift-off calc(var(--duration-sheet) + var(--duration-base)) var(--ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-session-frame[data-lifting] {
+    animation: none;
+  }
 }

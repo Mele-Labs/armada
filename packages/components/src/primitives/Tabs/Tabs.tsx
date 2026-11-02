@@ -48,9 +48,11 @@ export type TabsProps = {
   iconsOnly?: boolean;
   /** Each tab drawn as its `icon` before its label. A tab with no icon is its label alone. */
   icons?: boolean;
+  /** Sized to sit in a panel's strip, beside its label: one line, no border, the tabs at the strip's own type. */
+  compact?: boolean;
 };
 
-export function Tabs({ items, value, defaultValue, onChange, iconsOnly = false, icons = false }: TabsProps) {
+export function Tabs({ items, value, defaultValue, onChange, iconsOnly = false, icons = false, compact = false }: TabsProps) {
   const [internal, setInternal] = useState(defaultValue ?? items[0]?.id);
   const active = value ?? internal;
   const { strip, fill } = useSelectedFill(active, items.map((item) => item.id).join("\u0000"));
@@ -82,7 +84,7 @@ export function Tabs({ items, value, defaultValue, onChange, iconsOnly = false, 
   }
 
   return (
-    <div ref={strip} className="armada-tabs" role="tablist" onKeyDown={onKey}>
+    <div ref={strip} className={compact ? "armada-tabs armada-tabs--compact" : "armada-tabs"} role="tablist" onKeyDown={onKey}>
       {items.map((item) => {
         const Icon = iconsOnly ? item.icon : undefined;
         const hint = Icon === undefined ? item.hint : (item.hint ?? item.label);

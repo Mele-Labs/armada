@@ -8,7 +8,7 @@
 //! and the surfaces are the modules below, one per trait.
 
 mod accounts;
-mod adversarial_review;
+mod judge;
 mod app_runs;
 mod authoring;
 mod autopilots;
