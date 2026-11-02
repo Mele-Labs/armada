@@ -8,7 +8,7 @@ import { Button, Kbd, Tooltip } from "@armada/components";
 
 import { useZoomBox } from "../../job-panes/zoom";
 import { glyphOf } from "./flight-glyphs";
-import { ConsoleStage, type BayState, type Dot, type Kind, type Layout } from "./pixi/console-stage";
+import { ConsoleStage, type BayState, type Dot, type Kind, type Layout, type Plan } from "./pixi/console-stage";
 import { tileCap } from "./session-tiles";
 import type { tilesOf } from "./flight-controls";
 
@@ -33,27 +33,41 @@ const TIP_OF: Partial<Record<string, string>> = { checks: "Checks: only what is 
 
 // ---- What the bays hold ------------------------------------------------------------------------------
 
-const KEPT = "armada.console.bays";
+/** Which take of the console is drawn: the flat one, or on the canvas with the Map or Dispatch at its centre (`&centre=`). Each keeps its own bays. */
+type Take = "flat" | "map" | "dispatch";
+const takeOf = (): Take => {
+  const root = typeof document === "undefined" ? undefined : document.documentElement;
+  if (root === undefined || !root.hasAttribute("data-console-pixi")) return "flat";
+  return root.dataset.consoleCentre === "dispatch" ? "dispatch" : "map";
+};
 type Bays = readonly (InstrumentId | null)[];
-const FIRST: Bays = ["matrix", "beacon", "radar", "trace", "scope"];
+/** The flanking bays of each take. The centrepiece is not one of them. */
+const FIRST: Record<Take, Bays> = {
+  flat: ["matrix", "beacon", "radar", "trace", "scope"],
+  map: ["matrix", "beacon", "trace", "scope"],
+  dispatch: ["matrix", "beacon", "radar", "trace", "scope", "needles"],
+};
 const heard = new Set<() => void>();
+const kept = (take: Take) => (take === "flat" ? "armada.console.bays" : `armada.console.bays.${take}`);
 
-const read = (): Bays => {
+const read = (take: Take): Bays => {
   try {
-    const kept: unknown = JSON.parse(window.localStorage.getItem(KEPT) ?? "null");
-    if (Array.isArray(kept) && kept.length === FIRST.length && kept.every((one) => one === null || (typeof one === "string" && one in INSTRUMENTS))) return kept as Bays;
+    const found: unknown = JSON.parse(window.localStorage.getItem(kept(take)) ?? "null");
+    if (Array.isArray(found) && found.length === FIRST[take].length && found.every((one) => one === null || (typeof one === "string" && one in INSTRUMENTS))) return found as Bays;
   } catch {
     /* a bad record is the default */
   }
-  return FIRST;
+  return FIRST[take];
 };
-let bays: Bays = read();
+const held: Partial<Record<Take, Bays>> = {};
+const baysOf = (take: Take): Bays => (held[take] ??= read(take));
 
 /** Put an instrument in a bay, or empty it. */
 function seat(bay: number, id: InstrumentId | null): void {
-  bays = bays.map((one, at) => (at === bay ? id : one));
+  const take = takeOf();
+  held[take] = baysOf(take).map((one, at) => (at === bay ? id : one));
   try {
-    window.localStorage.setItem(KEPT, JSON.stringify(bays));
+    window.localStorage.setItem(kept(take), JSON.stringify(held[take]));
   } catch {
     /* kept for this page only */
   }
@@ -62,7 +76,7 @@ function seat(bay: number, id: InstrumentId | null): void {
 const useBays = (): Bays =>
   useSyncExternalStore(
     (hear) => (heard.add(hear), () => void heard.delete(hear)),
-    () => bays,
+    () => baysOf(takeOf()),
   );
 
 export type Wiring = {
@@ -190,12 +204,18 @@ function CanvasBays({ wiring }: { wiring: Wiring }) {
   const stage = useRef<ConsoleStage | undefined>(undefined);
   const els = useRef<(HTMLDivElement | null)[]>([]);
   const [layout, setLayout] = useState<Layout | undefined>();
-  const items: (InstrumentId | "dispatch" | null)[] = [...seated, wiring.dispatch === undefined ? null : "dispatch"];
+  const take = takeOf();
+  const dispatch = wiring.dispatch === undefined ? null : "dispatch";
+  // The centrepiece is fixed per take and the seated instruments flank it: the Map with Dispatch keyed on its lip, or Dispatch with the Map beside it.
+  const [plan, items]: [Plan, (InstrumentId | "dispatch" | null)[]] =
+    take === "dispatch"
+      ? [{ widths: [1, 1, 1, 1.9, 1, 1, 1], depths: [1, 1, 1, 1.9, 1, 1, 1], keyed: undefined }, [seated[0]!, seated[1]!, seated[2]!, dispatch, seated[3]!, seated[4]!, seated[5]!]]
+      : [{ widths: [1, 1, 1.9, 1, 1], depths: [1, 1, 1.9, 1, 1], keyed: 2 }, [seated[0]!, seated[1]!, "radar", seated[2]!, seated[3]!, dispatch]];
   const dots = useRef<{ at: number; list: Dot[] }>({ at: 0, list: [] });
   useLayoutEffect(() => {
     const canvas = host.current!;
     const block = canvas.parentElement!;
-    const made = ConsoleStage.start(canvas);
+    const made = ConsoleStage.start(canvas, plan);
     stage.current = made;
     const measure = () => {
       const next = made.resize(block.clientWidth);

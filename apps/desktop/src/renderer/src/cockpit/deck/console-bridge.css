@@ -288,7 +288,7 @@
     flex-direction: column;
     gap: var(--space-3);
   }
-  & .console-rack__bays { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-3); }
+  & .console-rack__bays { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--space-3); }
   & .console-socket {
     position: relative;
     display: flex;
@@ -463,12 +463,14 @@
   &[data-console-pixi] {
     & .deck-foot > .deck-controls:has(> .deck-controls__block:not([data-subject]):not(.console-rack)) { border-color: transparent; background: none; box-shadow: none; clip-path: none; &::before, &::after { display: none; } }
     & .deck-controls__block:not([data-subject]):not(.console-rack) { display: block; position: relative; isolation: auto; margin: 0 var(--space-3); padding: 0; border: 0; background: none; box-shadow: none; &::before, &::after { display: none; } }
+    & .deck-foot > .deck-controls:has(> .deck-controls__block:not([data-subject]):not(.console-rack)) { position: relative; border-width: 0; & > .deck-band { position: absolute; top: 0; right: var(--space-4); z-index: 3; min-height: 0; padding: 0; background: none; border: 0; } & > .deck-band .deck-band__name { display: none; } }
     & .console-pixi { position: absolute; inset: 0 auto auto 0; width: 100%; pointer-events: none; }
     & .console-pixi > canvas { display: block; pointer-events: none; }
     & .console-bay { position: absolute; display: grid; padding: 0; border: 0; background: none; box-shadow: none; &::before, &::after { display: none; } }
     & .console-bay.console-bay .deck-tile.deck-tile, & .console-bay.console-bay .deck-tile.deck-tile:is(:hover, [aria-pressed], [data-on], :active) { width: 100%; height: 100%; padding: 0; border-color: transparent; border-radius: 0; background: transparent; box-shadow: none; color: transparent; top: 0; }
     & .console-bay.console-bay .deck-tile.deck-tile > :not(.armada-tooltip__bubble), & .console-bay .deck-tile::before, & .console-bay .deck-tile::after { opacity: 0; }
     & .console-bay.console-bay .deck-tile.deck-tile::before, & .console-bay.console-bay .deck-tile.deck-tile::after { display: none; }
+    & .console-bay .deck-tile > :is(.console-a, .console-b) { display: none !important; }
     & .console-bay > :is(.console-scope, .console-gauges, .console-usage) { border: 0; background: none; box-shadow: none; &::before, &::after { display: none; } }
     & .console-bay > :is(.console-gauges, .console-usage) > * { opacity: 0; }
     & .console-bay .console-scope .armada-tl__dot { background: transparent; }
