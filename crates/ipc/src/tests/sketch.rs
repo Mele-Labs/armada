@@ -736,7 +736,7 @@ fn a_mock_part_of_the_wrong_type_is_refused_with_what_it_must_be() {
     assert!(refused(with_mock(mock)).contains("nodes[2] `m`: `css` is a list. It must be a string"));
     let mut mock = a_mock();
     mock["styles"] = json!("a.css");
-    assert!(refused(with_mock(mock)).contains("nodes[2] `m`: `styles` is a string. It must be a list of strings"));
+    assert!(refused(with_mock(mock)).contains("nodes[2] `m`: `styles` is `a.css`. It must be a list of strings"));
     let mut mock = a_mock();
     mock["styles"] = json!(["a.css", 3]);
     assert!(refused(with_mock(mock)).contains("nodes[2] `m`: `styles[1]` is a number"));
