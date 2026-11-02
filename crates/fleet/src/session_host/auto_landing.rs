@@ -19,6 +19,7 @@ use crate::daemon::Fleet;
 use crate::pull_owners::Owner;
 use crate::pull_requesting::{AUTO_MERGE_REFUSED, PR};
 use crate::repositories::Served;
+use super::queue_guard::{Blocker, Guard};
 
 /// The key a pull request's commit is kept under once Auto land has asked, or seen it merging.
 const AUTO_LAND: &str = "auto_land";
@@ -62,7 +63,7 @@ where
         let mut refused = Vec::new();
         for number in numbers {
             let done = match asked.on {
-                true => self.auto_merge_asked_for(&manifest, number).await,
+                true => self.auto_merge_asked_for(&manifest, number, None).await.map(|_| ()),
                 false => self.auto_merge_withdrawn(&manifest, number).await,
             };
             if let Err(refusal) = done {
@@ -92,15 +93,32 @@ where
     }
 
     /// Auto land's ask of the forge for one pull request: skipped where it is merged or closed
-    /// (the read settles its row), and refused as `enable_auto_merge` refuses otherwise.
-    async fn auto_merge_asked_for(&self, manifest: &ManifestId, number: u64) -> Result<(), Refusal> {
+    /// (the read settles its row), and refused as `enable_auto_merge` refuses otherwise. **Not made
+    /// while the pull request clashes with one ahead of it in the merge queue**, which is then the
+    /// `Ok(Some(_))`; the pull reading tells the Job and asks again once the clash is gone.
+    /// `head` is the commit where the caller has read it, else the forge is asked.
+    async fn auto_merge_asked_for(&self, manifest: &ManifestId, number: u64, head: Option<&str>) -> Result<Option<Blocker>, Refusal> {
         let served = self.served_named(Some(manifest))?;
         let before = self.pull_request_read(manifest, served.root(), number)?;
         if matches!(before.state, PullRequestStanding::Merged | PullRequestStanding::Closed) {
             self.ledger_follows(&before).await;
-            return Ok(());
+            return Ok(None);
         }
-        self.enable_auto_merge(manifest.clone(), number).await.map(|_| ())
+        let head = match head {
+            Some(head) => Some(head.to_string()),
+            None => {
+                let gate = served.manifest().ci_gate().to_string();
+                let read = self.forge_asked(served.root(), move |vcs: &V, root: &str| vcs.followed_pull(root, &gate, number)).await;
+                read.and_then(|pull| pull.head)
+            }
+        };
+        if let Some(head) = head {
+            match self.queue_guarded(&served, number, &head).await {
+                Guard::Hold(blocker) | Guard::Dequeue(blocker) => return Ok(Some(blocker)),
+                Guard::Go | Guard::Unchecked => {}
+            }
+        }
+        self.enable_auto_merge(manifest.clone(), number).await.map(|_| None)
     }
 
     /// Take auto-merge off one pull request that is open and has it. The forge's words come back
@@ -123,15 +141,21 @@ where
     }
 
     /// A pull request just attached to a Session: asked for auto-merge where Auto land is on.
-    /// `None` where it is off, or the forge took it; the forge's words where it did not.
+    /// `None` where it is off, or the forge took it, or it is held behind a clash (the pull reading
+    /// tells the Job so); the forge's words where it did not.
     pub(crate) async fn auto_land_attached(&self, session: &str, manifest: &str, number: u64) -> Option<String> {
+        self.auto_land_tried(session, manifest, number, None).await.err()
+    }
+
+    /// [`Self::auto_land_attached`], answering `Ok(Some(_))` for the pull request ahead that it is
+    /// held behind.
+    async fn auto_land_tried(&self, session: &str, manifest: &str, number: u64, head: Option<&str>) -> Result<Option<Blocker>, String> {
         if !self.auto_land_on(session).await {
-            return None;
+            return Ok(None);
         }
-        self.auto_merge_asked_for(&ManifestId::carried(manifest), number)
+        self.auto_merge_asked_for(&ManifestId::carried(manifest), number, head)
             .await
-            .err()
-            .map(|refusal| refusal.error().message.clone())
+            .map_err(|refusal| refusal.error().message.clone())
     }
 
     async fn auto_land_on(&self, session: &str) -> bool {
@@ -143,8 +167,14 @@ where
     /// that conflicts with nothing and that nothing merges is asked for auto-merge **once a commit**
     /// for each owner with Auto land on. A commit seen queued or on auto-merge counts as asked, so a
     /// merge someone stopped is not started again, nor a commit the queue dropped.
+    ///
+    /// **A pull request that clashes with one ahead in the merge queue is not asked, and is not kept
+    /// as asked**, so it is tested again on every reading and asked once the clash is gone. One
+    /// already queued is tested against what is ahead of it each reading, and taken out if it
+    /// now clashes.
     pub(crate) async fn auto_land_followed(self: &Arc<Self>, served: &Served, pull: &FollowedPull, head: &str) {
-        let merging = pull.auto_merge || pull.queue != PullQueue::Outside;
+        let queued = pull.queue != PullQueue::Outside;
+        let merging = pull.auto_merge || queued;
         let ready = pull.passed() && !pull.conflicting && !merging;
         if !merging && !ready {
             return;
@@ -153,20 +183,51 @@ where
         for owner in self.owners_of(served, pull.number, pull.branch.as_written(), false).await {
             let Owner::Session(id) = &owner;
             let recipient = owner.key();
+            if queued && self.queued_retested(served, pull, head, id, &recipient).await {
+                continue;
+            }
             let asked = self.store().lock().await.pull_notice_kept(root, pull.number, head, AUTO_LAND, &recipient);
             if asked.unwrap_or(true) || (ready && !self.auto_land_on(id).await) {
                 continue;
             }
             if ready {
-                if let Some(why) = self.auto_land_attached(id, manifest, pull.number).await {
-                    let number = pull.number;
-                    let _ = self
-                        .told_by_fleet(id, &format!("Auto land is on, and the forge would not turn on auto-merge for #{number}: {why}"), ipc::Notice::AutoLandRefused)
-                        .await;
+                match self.auto_land_tried(id, manifest, pull.number, Some(head)).await {
+                    Ok(Some(blocker)) => {
+                        self.hold_told(root, id, &recipient, (pull.number, head), &blocker, false).await;
+                        continue;
+                    }
+                    Ok(None) => {}
+                    Err(why) => {
+                        let number = pull.number;
+                        let _ = self
+                            .told_by_fleet(id, &format!("Auto land is on, and the forge would not turn on auto-merge for #{number}: {why}"), ipc::Notice::AutoLandRefused)
+                            .await;
+                    }
                 }
             }
             let now = self.now();
             let _ = self.store().lock().await.keep_pull_notice(root, pull.number, head, AUTO_LAND, &recipient, &now);
         }
+    }
+
+    /// A queued pull request of a Session with Auto land on, tested against the entries ahead of it:
+    /// taken out of the queue (and off auto-merge, which would queue it again) where it now clashes,
+    /// and the Job told. **True where it was taken out**, and its commit is no longer kept as asked,
+    /// so it is asked again once the clash is gone.
+    async fn queued_retested(self: &Arc<Self>, served: &Served, pull: &FollowedPull, head: &str, session: &str, recipient: &str) -> bool {
+        if !self.auto_land_on(session).await {
+            return false;
+        }
+        let Guard::Dequeue(blocker) = self.queue_guarded(served, pull.number, head).await else {
+            return false;
+        };
+        let (root, named) = (served.root(), pull.number.to_string());
+        if self.vcs().dequeue(root, &named).is_err() {
+            return false;
+        }
+        let _ = self.vcs().disable_auto_merge(root, &named);
+        let _ = self.store().lock().await.forget_pull_notices(root, pull.number, AUTO_LAND);
+        self.hold_told(root, session, recipient, (pull.number, head), &blocker, true).await;
+        true
     }
 }

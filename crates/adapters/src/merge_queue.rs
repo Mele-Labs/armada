@@ -1,7 +1,7 @@
 //! The forge's merge queue for the base branch, one call. `gh api graphql`
 //! reduced by `--jq` to `@tsv`, so the vendor's words stop in [`state_of`].
 
-use adapter_traits::{MergeQueue, QueueEntry, QueueState};
+use adapter_traits::{MergeQueue, Oid, QueueEntry, QueueState};
 
 use crate::main_ci::asked;
 
@@ -12,7 +12,8 @@ pub(crate) const QUERY: &str =
 
 const ENTRIES: &str = "\
     .data.repository.mergeQueue.entries.nodes[]? | \
-    [(.pullRequest.number | tostring), (.position | tostring), (.state // \"\")] | @tsv";
+    [(.pullRequest.number | tostring), (.position | tostring), (.state // \"\"), \
+    (.headCommit.oid // \"\")] | @tsv";
 
 /// The queue in position order. `None` where the forge would not answer; a
 /// repository with no queue answers with none waiting.
@@ -52,6 +53,7 @@ pub(crate) fn entry_of_line(line: &str) -> Option<QueueEntry> {
         number,
         position,
         state: state_of(field.next().unwrap_or_default()),
+        head: Oid::parse(field.next().unwrap_or_default()),
     })
 }
 
@@ -89,6 +91,16 @@ mod tests {
                 (24, 5, QueueState::InQueue),
             ]
         );
+    }
+
+    #[test]
+    fn an_entry_carries_its_head_where_the_forge_named_a_whole_one() {
+        let sha = "3".repeat(40);
+        let named = entry_of_line(&format!("20\t1\tQUEUED\t{sha}")).expect("an entry");
+        assert_eq!(named.head.as_ref().map(Oid::as_str), Some(sha.as_str()));
+        assert_eq!(entry_of_line("20\t1\tQUEUED\t").expect("an entry").head, None);
+        assert_eq!(entry_of_line("20\t1\tQUEUED\t-x").expect("an entry").head, None, "not a commit id");
+        assert_eq!(entry_of_line("20\t1\tQUEUED").expect("an entry").head, None);
     }
 
     #[test]
