@@ -238,7 +238,7 @@ export function useThreadLookHere(session: Session): { thread: Pick<SessionThrea
         onSave: (text) => source.setLook((was) => (text === "" || was.quick.some((one) => one.text === text) ? was : { ...was, quick: [...was.quick, { id: `saved:${Date.now()}`, text, kind: "saved" }] })),
         onHide: (scope: "job" | "all") => source.setLook((was) => (scope === "all" ? { ...was, quickOff: true } : was.quickOffFor.includes(session.id) ? was : { ...was, quickOffFor: [...was.quickOffFor, session.id] })),
       } }),
-      ...(source.listen === undefined ? {} : { talk: { listen: source.listen } }),
+      ...(source.listen === undefined ? {} : { talk: { listen: source.listen, ...(source.openSettings === undefined ? {} : { openSettings: source.openSettings }) } }),
     },
     head: <ThreadLookButton jobId={session.id} />,
   };
