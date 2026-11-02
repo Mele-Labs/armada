@@ -22,7 +22,7 @@ import { App, WAITING } from "./App";
 import { TaughtSourceProvider } from "@armada/settings";
 import { Boundary, LayoutSourceProvider, createLayoutSource } from "@armada/shell";
 import { HapticsProvider, MockStylesContext, watchClippedText } from "@armada/components";
-import { createKeptStyles } from "./fleet-kept-styles";
+import { createKeptStyles } from "@armada/screens/src/kept-styles";
 import { WiredNumbered } from "./numbered-fleet";
 import { WiredSessions } from "./sessions-wired";
 import { ThreadLookSaved } from "./thread-look-here";
@@ -96,7 +96,7 @@ const PHONE = createPhoneGatewaySource(
 );
 /** What a sketch's `mock` is drawn with: the style set Fleet kept for it, read by hash through the main process, once per hash. */
 const MOCK_STYLES = createKeptStyles(
-  (hash) => window.armada.readKeptStyles(hash),
+  (hash) => window.armada.readKeptStyles(hash).then((read) => (read.ok ? read.value : undefined)),
   () => document.documentElement.getAttribute("data-theme"),
 );
 /** The moon in the title row and the night's decisions as Cockpit calls, over Fleet. */

@@ -14,6 +14,21 @@ export const PAGE_ROOT = "armada-doc__page";
 
 export type PageSketch = { title: string; scene: unknown };
 
+/**
+ * A page's sketch scene (as its JSON was read) with each `mock` given the hash Fleet kept its styles under, from `kept`, keyed `<sketch title>#<node id>`.
+ * **`kept` is Fleet's and never the page's**: one a page wrote itself is dropped, so a frame is drawn with what Fleet kept and nothing a page names.
+ */
+export function sceneWithKept(title: string, scene: unknown, kept: Readonly<Record<string, string>> | undefined): unknown {
+  if (typeof scene !== "object" || scene === null || !("nodes" in scene) || !Array.isArray(scene.nodes)) return scene;
+  const nodes = scene.nodes.map((node: unknown) => {
+    if (typeof node !== "object" || node === null || !("kind" in node) || node.kind !== "mock") return node;
+    const { kept: _page, ...rest } = node as Record<string, unknown>;
+    const hash = typeof rest["id"] === "string" ? kept?.[`${title}#${rest["id"]}`] : undefined;
+    return hash === undefined ? rest : { ...rest, kept: hash };
+  });
+  return { ...scene, nodes };
+}
+
 export type Page = {
   title: string;
   /** The first paragraph after the title: the conclusion, as the Landing shows it. */
