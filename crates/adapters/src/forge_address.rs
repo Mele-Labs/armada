@@ -7,7 +7,10 @@
 //! well as any other. The path markers a ticket or pull request link carries
 //! are the only forge-shaped fact this reads.
 
-use std::path::Path;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::time::SystemTime;
 
 use git2::Repository;
 
@@ -58,9 +61,46 @@ impl ForgeAddress {
     }
 }
 
+/// What `remote_of` kept for a root: the answer, and the file it was read from as it stood.
+#[derive(Clone)]
+struct Kept {
+    /// The root's `.git`, or the root itself where bare: gone, the root is no longer a repository.
+    entry: PathBuf,
+    /// The repository's own config (the common dir's, so a worktree reads its main checkout's).
+    config: PathBuf,
+    modified: SystemTime,
+    address: Option<ForgeAddress>,
+}
+
+static REMEMBERED: Mutex<BTreeMap<PathBuf, Kept>> = Mutex::new(BTreeMap::new());
+
 /// The repository a checkout pushes to: `origin`, or the first remote it has.
+///
+/// Remembered by root until the repository's config moves: this is asked for every ticket and
+/// every pool read, and opening cold (directory reads, packed refs) was a quarter of Fleet's CPU.
 pub fn remote_of(root: &Path) -> Option<ForgeAddress> {
+    let kept = REMEMBERED.lock().ok().and_then(|seen| seen.get(root).cloned());
+    if let Some(kept) = kept {
+        let current = std::fs::metadata(&kept.config).and_then(|meta| meta.modified()).ok();
+        if kept.entry.exists() && current == Some(kept.modified) {
+            return kept.address;
+        }
+    }
     let repository = Repository::open(root).ok()?;
+    let address = remote_in(&repository);
+    // A linked worktree's git dir is `<common>/worktrees/<name>`; libgit2 0.19 has no `commondir`.
+    let common = if repository.is_worktree() { repository.path().ancestors().nth(2) } else { None };
+    let config = common.unwrap_or_else(|| repository.path()).join("config");
+    let entry = if repository.is_bare() { root.to_path_buf() } else { root.join(".git") };
+    if let Some(modified) = std::fs::metadata(&config).and_then(|meta| meta.modified()).ok() {
+        if let Ok(mut seen) = REMEMBERED.lock() {
+            seen.insert(root.to_path_buf(), Kept { entry, config, modified, address: address.clone() });
+        }
+    }
+    address
+}
+
+fn remote_in(repository: &Repository) -> Option<ForgeAddress> {
     let remote = repository.find_remote("origin").ok().or_else(|| {
         let names = repository.remotes().ok()?;
         repository.find_remote(names.iter().flatten().next()?).ok()
