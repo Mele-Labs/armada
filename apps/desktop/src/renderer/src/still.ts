@@ -1,7 +1,7 @@
 // A window nobody is looking at stops drawing motion. The map's loops (pings, glows, bobbing) hold
 // the compositor at the display's rate for as long as one runs, and the page does nothing the owner can see
-// while he is in another app. `styles/index.css` pauses every animation under `data-still`, and the map's
-// under `data-idle`, which a minute with no input sets (the owner, 15 Oct 2026: the machine over the motion).
+// while he is in another app. `styles/index.css` pauses every animation under `data-still`, and the loop clock
+// holds every loop under `data-idle`, which a minute with no input sets (the owner, 15 Oct 2026: the machine over the motion).
 
 /** How long with no pointer, key or wheel before the map stands still. */
 export const IDLE_MS = 60_000;

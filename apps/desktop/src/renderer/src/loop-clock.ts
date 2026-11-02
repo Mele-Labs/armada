@@ -6,35 +6,38 @@
 /** 5 frames a second: a pulse still reads as a pulse, and a spinner as turning. */
 const TICK_MS = 200;
 
-function held(one: Animation): boolean {
-  const effect = one.effect as KeyframeEffect | null;
-  if (effect?.target == null) return false;
-  return getComputedStyle(
-    effect.target,
-    effect.pseudoElement ?? undefined,
-  ).animationPlayState.includes("paused");
-}
-
-/** Takes over each infinite animation as it appears, and keeps its phase. `styles/index.css` still decides what stands still. */
+/** Takes over each infinite animation as it appears, and keeps its phase. A window nobody is using moves none of them, and a loop out of sight moves nothing anyone would see, though its move would still cost a frame. `styles/index.css` still decides what stands still. */
 export function startLoopClock(): () => void {
   const root = document.documentElement;
   const offsets = new WeakMap<Animation, number>();
+  const unseen = new WeakSet<Element>();
+  const watch = new IntersectionObserver((changes) => {
+    for (const one of changes) {
+      if (one.isIntersecting) unseen.delete(one.target);
+      else unseen.add(one.target);
+    }
+  });
   const tick = (): void => {
     if (root.hasAttribute("data-still")) return;
     const now = Number(document.timeline.currentTime);
     const idle = root.hasAttribute("data-idle");
     for (const one of document.getAnimations()) {
       if (one.effect?.getComputedTiming().iterations !== Infinity) continue;
+      const target = (one.effect as KeyframeEffect).target;
       let offset = offsets.get(one);
       if (offset === undefined) {
         offset = Number(one.currentTime) - now;
         offsets.set(one, offset);
         one.pause();
+        if (target != null) watch.observe(target);
       }
-      if (idle && held(one)) continue;
+      if (idle || (target != null && unseen.has(target))) continue;
       one.currentTime = now + offset;
     }
   };
   const timer = setInterval(tick, TICK_MS);
-  return () => clearInterval(timer);
+  return () => {
+    clearInterval(timer);
+    watch.disconnect();
+  };
 }

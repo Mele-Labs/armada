@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { startLoopClock } from "./loop-clock";
 
 /** The parts of a CSS animation the clock touches. */
-function loop(currentTime: number, iterations = Infinity, target = "running"): Animation {
+function loop(currentTime: number, iterations = Infinity, target: unknown = {}): Animation {
   return {
     currentTime,
     effect: {
@@ -20,6 +20,12 @@ let now = 1000;
 let animations: Animation[] = [];
 let marks = new Set<string>();
 let stop: () => void = () => undefined;
+let sight: (
+  changes: {
+    target: unknown;
+    isIntersecting: boolean;
+  }[],
+) => void = () => undefined;
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -36,9 +42,23 @@ beforeEach(() => {
     },
     getAnimations: () => animations,
   });
-  vi.stubGlobal("getComputedStyle", (target: string) => ({
-    animationPlayState: target,
-  }));
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      constructor(
+        hear: (
+          changes: {
+            target: unknown;
+            isIntersecting: boolean;
+          }[],
+        ) => void,
+      ) {
+        sight = hear;
+      }
+      observe(): void {}
+      disconnect(): void {}
+    },
+  );
 });
 
 afterEach(() => {
@@ -97,18 +117,62 @@ test("moves nothing while the window is still", () => {
   expect(one.currentTime).toBe(0);
 });
 
-test("holds a loop the idle rules pause, and moves the others", () => {
-  const running = loop(0);
-  const held = loop(0, Infinity, "paused");
+test("moves nothing in a window with no input for a minute, and picks each loop up again in phase", () => {
+  const one = loop(0);
   animations = [
-    running,
-    held,
+    one,
   ];
   stop = startLoopClock();
   advance(200);
 
   marks.add("data-idle");
+  advance(600);
+  expect(one.currentTime).toBe(0);
+
+  marks.delete("data-idle");
   advance(200);
-  expect(running.currentTime).toBe(200);
-  expect(held.currentTime).toBe(0);
+  expect(one.currentTime).toBe(800);
+});
+
+test("a loop that appears in an idle window is paused, so it does not run at the display's rate", () => {
+  stop = startLoopClock();
+  marks.add("data-idle");
+  const late = loop(0);
+  animations = [
+    late,
+  ];
+  advance(200);
+  expect(late.pause).toHaveBeenCalled();
+  expect(late.currentTime).toBe(0);
+});
+
+test("a loop out of sight does not move, and the others do", () => {
+  const away = {};
+  const seen = loop(0);
+  const scrolled = loop(0, Infinity, away);
+  animations = [
+    seen,
+    scrolled,
+  ];
+  stop = startLoopClock();
+  advance(200);
+  sight([
+    {
+      target: away,
+      isIntersecting: false,
+    },
+  ]);
+
+  advance(200);
+  expect(seen.currentTime).toBe(200);
+  expect(scrolled.currentTime).toBe(0);
+
+  sight([
+    {
+      target: away,
+      isIntersecting: true,
+    },
+  ]);
+  advance(200);
+  expect(scrolled.currentTime).toBe(400);
 });

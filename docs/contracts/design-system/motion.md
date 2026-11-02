@@ -112,6 +112,7 @@ The floor is why a window nobody is looking at stills its loops (`styles/index.c
 **Every loop moves on one clock.** Glass makes that floor expensive, because a frame redraws the blurred panels.
 One smooth loop of any size, a faint row pulse as much as the star field, held the GPU at 52% on the mock Cockpit, and steps on each loop's own schedule add up.
 `apps/desktop/src/renderer/src/loop-clock.ts` pauses every infinite animation in Bridge's main windows and moves them together 5 times a second.
+It moves none while the window has had no input for a minute, and skips a loop out of sight, since a move nobody can see still costs a frame.
 
 | Measured in Bridge on an M5 Pro at 3024 by 1964, on the mock Cockpit | GPU |
 |---|---|
