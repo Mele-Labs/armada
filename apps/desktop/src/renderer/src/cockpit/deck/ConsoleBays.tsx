@@ -6,7 +6,8 @@ import { createPortal } from "react-dom";
 import { Activity as ActivityGlyph, ChartNoAxesGantt, Gauge, Megaphone, PlugZap, Plus, Radar, ShieldCheck, type LucideIcon } from "lucide-react";
 import { Button, Kbd, Tooltip } from "@armada/components";
 
-import { ConsoleHud } from "./ConsoleHud";
+import { ActivityHud } from "./ConsoleHud";
+import { toggleCalls, useCallsHud } from "./ConsoleCalls";
 import { glyphOf } from "./flight-glyphs";
 import { ConsoleStage, type BayState, type Dot, type Kind, type Layout, type Plan } from "./pixi/console-stage";
 import { tileCap } from "./session-tiles";
@@ -104,6 +105,9 @@ function Key({ id, wiring }: { id: InstrumentId; wiring: Wiring }) {
   const tile = wiring.tiles.find((one) => one.id === tileId);
   const Glyph = glyphOf(tile?.glyph, "zap");
   const label = tile?.label ?? INSTRUMENTS[id].label;
+  // The Calls facet opens the Calls HUD here, where the deck's tile narrows the list.
+  const calls = tileId === "needs";
+  const hud = useCallsHud();
   return (
     <Tooltip label={TIP_OF[tileId] ?? label} {...(tile?.key === undefined ? {} : { shortcut: tile.key })} asChild>
       <button
@@ -113,8 +117,8 @@ function Key({ id, wiring }: { id: InstrumentId; wiring: Wiring }) {
         data-key={tile?.key}
         data-tile={tileId}
         data-calling={tileId === "needs" && wiring.calling ? "" : undefined}
-        aria-pressed={wiring.pressed(tileId)}
-        onClick={() => wiring.press(tileId)}
+        aria-pressed={calls ? hud.open : wiring.pressed(tileId)}
+        onClick={() => (calls ? toggleCalls() : wiring.press(tileId))}
       >
         <i className="console-a" aria-hidden="true" />
         <i className="console-b" aria-hidden="true" />
@@ -146,7 +150,7 @@ function Scope({ wiring }: { wiring: Wiring }) {
       <Tooltip label="Activity" asChild>
         <button type="button" className="console-scope__press" aria-label="Activity" aria-pressed={open} aria-haspopup="dialog" onClick={() => (open ? close() : setOpen(true))} />
       </Tooltip>
-      {open ? <ConsoleHud graph={wiring.hud} facet={facet} onClose={close} /> : null}
+      {open ? <ActivityHud graph={wiring.hud} facet={facet} onClose={close} /> : null}
     </div>
   );
 }

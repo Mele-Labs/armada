@@ -49,6 +49,7 @@ import { PanelKey, panelAt } from "./keys";
 import { queuedIn, queuedKey } from "./queued";
 import { toolsMissingSaid, type QueuedIdea } from "@armada/screens/src/draft/sessions";
 import { MapView } from "./MapPane";
+import { CallsHud, showCall, useCallsHud } from "./ConsoleCalls";
 import { sessionIdOf } from "../waiting";
 import { leaveFrom, onEnd, reducedMotion, useExiting } from "./exit";
 import { CallPane, PaneHead, SessionPane, ShellPanel } from "./panes";
@@ -475,6 +476,28 @@ function openSessionFrom(ship: Ship, props: CockpitProps, id: string): void {
   const held = ship.subjects.find((one) => one.kind === "session" && one.id === id);
   if (held === undefined) props.onOpenSession(id);
   else openSubject(ship, held);
+}
+
+/** The bridge take's Calls HUD: the Thread, Now and Open of the Job calling, as a Job draws them. */
+function CallsOverField({ props, ship, listed, calling }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; calling: ReadonlyMap<string, Item> }) {
+  const acts = useShipActs(props);
+  const keys = useMemo(() => listed.map((one) => one.key), [listed]);
+  const calls = useMemo(() => listed.filter((one) => one.kind === "session" && (calling.has(one.key) || toneOf(one) === "ask")).map((one) => one.key), [listed, calling]);
+  return (
+    <CallsHud
+      keys={keys}
+      calls={calls}
+      nameOf={(key) => ship.subjects.find((one) => one.key === key)?.title}
+      pane={(key, side) => {
+        const subject = ship.subjects.find((one) => one.key === key);
+        return subject === undefined ? null : <SessionPane key={key} subject={subject} props={props} acts={acts} ledger={null} hosts={{ side, zones: ["now", "next"] }} openSession={(id) => openSessionFrom(ship, props, id)} />;
+      }}
+      onOpen={(key) => {
+        const subject = ship.subjects.find((one) => one.key === key);
+        if (subject !== undefined) openSubject(ship, subject);
+      }}
+    />
+  );
 }
 
 function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; autopilot: ReturnType<typeof useAutopilotLane>; ledger: HTMLElement | null; hosts: Hosts | undefined }) {
@@ -1139,6 +1162,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const [sideHost, setSideHost] = useState<HTMLElement | null>(null);
   // A Session calling him pulses on its row; there is no panel of calls.
   const calling = useMemo(() => new Map(incoming.map((one) => [callOwnerOf(one), one] as const)), [incoming]);
+  const callsHud = useCallsHud();
   // The Field under the Jobs list is the open Job's, else the Cockpit's own map, and not a second map while the centre already draws it.
   const selectedJob = sel?.kind === "session" ? sessions.find((one) => `session:${one.id}` === sel.key) : undefined;
   const centreView = useDeck((deck) => deck.view);
@@ -1176,12 +1200,13 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     <ClashesOpenHere ship={ship}>
     {/* A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up. */}
     <ReplayHost props={props} ship={ship} />
+    {bridgeTake() ? <CallsOverField props={props} ship={ship} listed={listed} calling={calling} /> : null}
     <AutopilotAsked control={autopilot.control} />
     {/* Powering on, each panel comes online in turn and fills as Fleet answers (`power.css`). */}
     <div ref={deckMarks} className="armada-cockpit deck" data-power={powering(power) ? power : undefined}>
       <div ref={grid} className="deck-grid" data-bare={bare || unified || undefined} style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
-          <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "session" ? selected : undefined} builds={builds} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} onEarlier={(id) => openLinked({ kind: "session", key: `session:${id}` })} onMove={(key, target, after) => moveRow(ship, key, target, after)} onAutopilot={(root) => (props.onPickRepository?.(root), enterAutopilot())} onReported={(id) => (issuesStore?.openReport(id), props.onGoTo?.(SURFACE.issues))} />
+          <List subjects={listed} calling={calling} banding={banding} selected={callsHud.open ? callsHud.key : sel?.kind === "session" ? selected : undefined} builds={builds} picked={props.picked} found={found} onPick={(one) => (callsHud.open && one.kind === "session" && (calling.has(one.key) || toneOf(one) === "ask") ? showCall(one.key) : openSubject(ship, one))} onEarlier={(id) => openLinked({ kind: "session", key: `session:${id}` })} onMove={(key, target, after) => moveRow(ship, key, target, after)} onAutopilot={(root) => (props.onPickRepository?.(root), enterAutopilot())} onReported={(id) => (issuesStore?.openReport(id), props.onGoTo?.(SURFACE.issues))} />
           {panels.has("field") && docked ? <FieldDock session={selectedJob} repositories={props.state.holds.repositories ?? []} map={selectedJob === undefined ? <MapView props={props} ship={ship} listed={listed} /> : null} /> : null}
                     {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>

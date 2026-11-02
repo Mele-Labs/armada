@@ -101,7 +101,7 @@ export function useDeckKeys(press: (event: KeyboardEvent) => void): void {
   });
   useEffect(() => {
     const listen = (event: KeyboardEvent): void => {
-      if (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"], [data-hud="calls"]') !== null) return;
       // A layer opened over a Session's thread: Esc closes it, and is not the deck going back.
       if (event.key === "Escape" && document.querySelector("[data-keeps-escape]") !== null) return;
       // A menu or list open over the deck: Esc closes that, wherever focus is, and is not the deck going back.

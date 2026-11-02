@@ -60,7 +60,7 @@
   & .deck-foot > :is(.deck-controls:has(> .deck-controls__block:not([data-subject])), .deck-dispatch) > .deck-band { padding-inline: var(--space-6); }
 
   /* ---- The quiet panel: square, a hairline round it and a heavier one along its head, the console's hood at rest. The Cockpit's columns and every panel of an open Job wear the same one, so moving between them is one ship. ---- */
-  & :is(.deck-right > .deck-bays, .deck-left > .deck-list, .job-pane, .sv-panel:not(.job-pane__body *), .deck-foot > .deck-controls:has(> .deck-controls__block[data-subject])) {
+  & :is(.deck-right > .deck-bays, .deck-left > .deck-list, .job-pane, .sv-panel:not(.job-pane__body *, .console-calls *), .deck-foot > .deck-controls:has(> .deck-controls__block[data-subject])) {
     --edge: var(--border-default);
     --radius-md: var(--border-width);
     --radius-lg: var(--border-width);
@@ -72,7 +72,7 @@
   }
   & .job-pane[data-focused] { --edge: var(--border-strong); border-color: var(--border-strong); }
   & .job-pane__strip { background: var(--bg-sunken); }
-  & .sv-panel:not(.job-pane__body *) > .sv-panel__band { background: var(--bg-sunken); border-bottom-color: var(--border-subtle); }
+  & .sv-panel:not(.job-pane__body *, .console-calls *) > .sv-panel__band { background: var(--bg-sunken); border-bottom-color: var(--border-subtle); }
   /* The Job's tile grid stays a grid, in the columns' strips. */
   & .deck-controls__block[data-subject] .deck-tile {
     border: var(--border-width) solid var(--border-subtle);
@@ -262,7 +262,7 @@
   & .console-hud__beam-edge { fill: none; stroke: currentColor; stroke-opacity: 0.6; stroke-width: 1; stroke-dasharray: 2 4; }
   & .console-hud__beam-collar { fill: none; stroke: currentColor; stroke-width: 3; }
   & .console-hud__panel { position: absolute; outline: none; pointer-events: auto; animation: cb-hud-open var(--duration-enter) var(--ease-out) backwards; }
-  & .console-hud__panel:focus-visible { outline: none; }
+  & .console-hud__panel.console-hud__panel:focus-visible { outline: none; animation-name: cb-hud-open; animation-duration: var(--duration-enter); animation-timing-function: var(--ease-out); animation-fill-mode: backwards; }
   & .console-hud__frame { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
   & .console-hud__glass { fill: var(--bg-base); fill-opacity: 0.62; }
   & .console-hud__strip { fill: var(--bg-base); fill-opacity: 0.55; }
@@ -279,7 +279,7 @@
   & .console-hud__now-mark { fill: var(--cb-amber); }
   & .console-hud__at { fill: currentColor; fill-opacity: 0.85; font-family: var(--font-mono); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; text-anchor: middle; }
   & .console-hud__name { position: absolute; top: var(--space-2); left: var(--space-4); margin: 0; font-size: var(--text-sm); line-height: var(--space-6); font-weight: var(--weight-heading); color: var(--fg-default); }
-  & .console-hud__close { position: absolute; top: var(--space-2); right: var(--space-3); color: var(--fg-default); }
+  & .console-hud__acts { position: absolute; top: var(--space-2); right: var(--space-3); display: flex; align-items: center; gap: var(--space-2); color: var(--fg-default); }
   & .console-hud__plot { position: absolute; }
   & .console-hud__plot .armada-tl { position: absolute; inset: 0; display: block; padding: 0; }
   & .console-hud__plot .armada-tl__plot { position: absolute; inset: 0; }
@@ -294,7 +294,18 @@
   & .console-hud__plot .armada-tl__dot:is(:hover, :focus-visible) { anchor-name: --console-hud-dot; }
   & .console-hud__plot .armada-tooltip__bubble[data-beside] { position-anchor: --console-hud-dot; position-area: block-start span-inline-end; margin: var(--space-3); position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline; }
 
-  &[data-console-lit] .console-hud__frame :is(.console-hud__bracket, .console-hud__cross, .console-hud__tick-major, .console-hud__now, .console-hud__now-mark, .console-hud__at) { filter: drop-shadow(0 0 var(--space-1) currentColor); }
+  /* Calls: the panels a Job draws, on the glass. The glass is thicker here, since words are read on it; the field still shows round them. */
+  & .console-hud[data-hud="calls"] .console-hud__glass { fill-opacity: 0.72; }
+  & .console-calls { position: absolute; inset: calc(var(--space-12) - var(--space-1)) var(--space-3) var(--space-3); display: grid; grid-template-columns: minmax(0, 1fr) calc(var(--space-12) * 6.5); gap: var(--space-3); min-height: 0; }
+  & .console-calls__thread { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: color-mix(in srgb, var(--bg-base) 45%, transparent); border: var(--border-width) solid color-mix(in srgb, currentColor 35%, transparent); }
+  & .console-calls__thread > .deck-pane { flex: 1 1 0; min-height: 0; background: none; animation: none; }
+  & .console-calls__side { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; min-height: 0; }
+  & .console-calls__side > .sv-story-body { flex: 1 1 0; min-height: 0; overflow: auto; padding-block: var(--space-2); background: color-mix(in srgb, var(--bg-base) 45%, transparent); border: var(--border-width) solid color-mix(in srgb, currentColor 35%, transparent); color: var(--fg-default); }
+  & .console-calls :is(.sv-panel, .armada-card) { background: none; border: 0; box-shadow: none; }
+  /* The HUD's head names the Job and closes it, so the thread's own name and way back are not drawn again. */
+  & .console-calls .armada-session-frame__row:first-child { display: none; }
+
+  &[data-console-lit] .console-hud__frame :is(.console-hud__bracket, .console-hud__cross, .console-hud__tick-major, .console-hud__now, .console-hud__now-mark) { filter: drop-shadow(0 0 var(--space-1) currentColor); }
   &[data-console-lit] :is(.console-hud__beam-edge, .console-hud__beam-collar) { filter: drop-shadow(0 0 var(--space-1) currentColor); }
   &[data-console-lit] .console-hud__plot .armada-tl__dot { box-shadow: 0 0 var(--space-3) var(--tone); }
   /* ---- Dispatch: a guarded switch. The cover is flipped up on its hinge, a bracket frames the cap, and the arming lamp blinks. ---- */
