@@ -90,6 +90,8 @@ export type WatchSummary = {
   in_terminal?: string;
   /** `in_terminal` is a regular expression. Absent is false. */
   regex?: boolean;
+  /** Which of the Job's terminals a terminal watch waits on. Absent is the one the agent last used. */
+  terminal?: string;
   /** Where its environment came from, while Fleet holds it: absent for a terminal watch, an ended one, and one not run since Fleet started. */
   login_shell?: LoginShell;
 };
@@ -151,6 +153,7 @@ export type StartWatch = {
   | {
       in_terminal: string;
       regex?: boolean;
+      terminal?: string;
       gives_up_after?: string;
     }
 );
