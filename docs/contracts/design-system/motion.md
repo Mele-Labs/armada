@@ -11,7 +11,6 @@
 --duration-pulse   1600ms   a loop that says still working
 --duration-exit    140ms    a layer leaving, faster than it arrived
 --duration-enter   180ms    a screen fading up (= --duration-base)
---duration-drift   90s      unused while the field behind the glass holds still
 --duration-answer  1600ms   how long a control shows Fleet's answer
 --duration-hold    900ms    holding a destructive control to commit
 --duration-decay   45s      a changed row's mark fading
