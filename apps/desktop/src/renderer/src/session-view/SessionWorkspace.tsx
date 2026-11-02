@@ -21,7 +21,7 @@ import { DocumentLayer } from "./DocumentLayer";
 import { FieldLayer } from "./FieldLayer";
 import { ViewStrip, useJobViews } from "../cockpit/deck/JobViews";
 import { StoryColumn, placeZone, type StoryZone } from "./StoryColumn";
-import { BrowserBody, BrowserTabsSync, ChangesBody, FilesBody, IssuesBody, JobsBody, LedgerBody, PlanBody, PullsBody, RequestBody, TerminalBody, TerminalSync } from "../job-panes/bodies";
+import { BrowserBody, BrowserTabsSync, ChangesBody, DraftBody, FilesBody, IssuesBody, JobsBody, LedgerBody, PlanBody, PullsBody, RequestBody, TerminalBody, TerminalSync } from "../job-panes/bodies";
 import { CustomBody } from "../job-panes/custom-body";
 import { focusKind, focusLayer } from "../job-panes/focus";
 import { JobPanes } from "../job-panes/JobPanes";
@@ -63,7 +63,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   // A Job with a story in the Cockpit has its area in panes, thread and story among them, and no column of its own for the story.
   const paned = hosts !== undefined && hosts.zones === undefined && work !== undefined && draft !== undefined;
   const story = work !== undefined && draft !== undefined && side !== null;
-  // The views a Job's keys open over it are tabs here: Artifacts is the Ledger, Bays and Workflow their own, and none opens a layer.
+  // The views a Job's keys open over it are tabs here: Artifacts is the Ledger, Bays, Workflow and Judge their own, and none opens a layer.
   useEffect(() => (paned ? drawLayersAsTabs(id, (one) => focusLayer(id, one)) : undefined), [paned, id]);
   // With a story, every layer opens in the spine under the view strip; without one it covers the stage.
   const aside = story && layer !== undefined;
@@ -193,9 +193,11 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
         case "files":
           return <FilesBody session={session} />;
         case "request":
-          return <RequestBody session={session} />;
+          return <RequestBody session={session} tab={tab} />;
         case "custom":
           return <CustomBody tabId={tab.id} jobId={session.id} manifestId={session.manifestId} onOpenSession={onOpenSession} />;
+        case "draft":
+          return <DraftBody jobId={id} tab={tab} />;
         case "subagents":
           return <Layer id="subagents" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
         case "checks":
@@ -204,6 +206,8 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
           return <Layer id="lanes" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
         case "system":
           return <Layer id="system" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
+        case "judge":
+          return <Layer id="judge" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
         case "bays":
           return <Layer id="slot" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
       }

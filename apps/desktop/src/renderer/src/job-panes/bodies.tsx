@@ -14,6 +14,7 @@ import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { fileDiffOf } from "../shared-panel/pull-request-patches";
 import { usePanelReads, useReading } from "../shared-panel/reads";
 import { RequestsPanel } from "../shared-panel/requests";
+import { DraftCard } from "../shared-panel/rule";
 import { InlinePanel } from "../shared-panel/side";
 import { openInPanel, type PanelItem } from "../shared-panel/store";
 import { IssueRow } from "../session-view/IssuesBlock";
@@ -21,7 +22,7 @@ import { PullRow } from "../session-view/LedgerRow";
 import { Groups } from "../session-view/SessionLayers";
 import { artifactsOf, linkedSessionsOf } from "../session-view/artifacts";
 import { IssueJobCard } from "../issues-tab/marks";
-import { jobOpens, useJobPanes } from "./store";
+import { jobOpens, savedOfPage, useJobPanes } from "./store";
 import { hasKind, paneById, paneOfTab, type Tab } from "./tree";
 import { usePaneZoomed } from "./zoom";
 
@@ -260,13 +261,23 @@ export function FilesBody({ session }: { session: Session }) {
 }
 
 /** The Requests panel itself, for this Job: its list, its sending and the answer, with no sheet around it. */
-export function RequestBody({ session }: { session: Session }) {
+export function RequestBody({ session, tab }: { session: Session; tab?: Tab }) {
+  const saved = savedOfPage(tab?.page);
   return (
     <InlinePanel.Provider value>
       <div className="job-pane__panel">
-        <RequestsPanel item={{ kind: "requests", sessionId: session.id }} />
+        <RequestsPanel item={{ kind: "requests", sessionId: session.id, ...(saved === undefined ? {} : { saved }) }} />
       </div>
     </InlinePanel.Provider>
+  );
+}
+
+/** A draft the Job put to the person, as its card in the thread with the same answers. Answered, it settles here and the tab stays until it is closed. */
+export function DraftBody({ jobId, tab }: { jobId: string; tab: Tab }) {
+  return tab.row === undefined ? null : (
+    <div className="job-pane__scroll">
+      <DraftCard sessionId={jobId} rowId={tab.row} />
+    </div>
   );
 }
 

@@ -160,7 +160,7 @@
 :root[data-look="new"] :is(.deck-band, .armada-card-header) .armada-kbd { opacity: 1; }
 /* A page's panel header strip is the thread's head in height (`--strip-h`), the same label, centred, the hairline under. Group heads,
    the Cockpit's strips and a body's own eyebrows keep the legend's 24px. */
-:root[data-look="new"] :is(.armada-card-header, .armada-pool-slots__band, .armada-usage__band, .armada-wm-step__band, .armada-doctor__gaps-head, .armada-check-list__band, .armada-screen__tabs) {
+:root[data-look="new"] :is(.armada-card-header, .armada-pool-slots__band, .armada-usage__band, .armada-wm-step__band, .armada-doctor__gaps-head, .armada-check-list__band, .armada-screen__tabs, .armada-logbook__strip) {
   --strip-min: var(--strip-h);
 }
 /* The same strip where the page has no panel header of its own: a band that sits in a body takes no side padding, so its label lines
@@ -171,12 +171,14 @@
 :root[data-look="new"] .armada-usage__band > :first-child { flex: 1 1 auto; min-width: 0; color: var(--fg-default); }
 
 /* A detail pane's head is the thread's (`.armada-session-frame__head`): 36px, the title 14px at medium weight on one line, with the acts at the right. The meta under it is the body's. */
-:root[data-look="new"] :is(.issues-reader, .pr-reader, .projects-pane) > .deck-pane__head {
+:root[data-look="new"] :is(.issues-reader, .pr-reader, .projects-pane) > .deck-pane__head,
+:root[data-look="new"] .armada-logbook__card > .armada-logbook__head {
   align-items: center;
   min-height: var(--head-min, calc(var(--h-row-header) + var(--space-2)));
   padding: var(--head-pad, 0 var(--space-3));
 }
-:root[data-look="new"] :is(.issues-reader, .pr-reader, .projects-pane) > .deck-pane__head .deck-pane__title {
+:root[data-look="new"] :is(.issues-reader, .pr-reader, .projects-pane) > .deck-pane__head .deck-pane__title,
+:root[data-look="new"] .armada-logbook__card > .armada-logbook__head .armada-logbook__head-title {
   display: block;
   color: var(--fg-default);
   font-family: var(--font-sans);
@@ -191,7 +193,7 @@
 /* ---- The group head: the Cockpit's `deck-list__head` ----------------------------------------------------------- */
 /* A heading over a run of rows, in any list: 24px in a band of the text colour at 8%, the label in mono caps. Where the heading has
    a press of its own beside it (Add, New project), the row is the band and the label sits in it. */
-:root[data-look="new"] :is(.armada-system-side__head, .projects-section__head, .armada-wm__caption, .armada-guides__group-title) {
+:root[data-look="new"] :is(.armada-system-side__head, .projects-section__head, .armada-wm__caption, .armada-guides__group-title, .armada-logbook__section) {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -222,6 +224,8 @@
   text-transform: inherit;
 }
 :root[data-look="new"] :is(.armada-system-side__caption, .armada-wm__caption)::after { content: none; }
+/* The Logbook's group head scrolls with the list and holds its place, so what passes under it must not show through: the band's 8% over the list's solid ground, drawn as the one solid colour it comes to. */
+:root[data-look="new"] .armada-logbook__section { background: color-mix(in srgb, var(--fg-default) 8%, var(--bg-raised)); }
 :root[data-look="new"] .armada-card-header:has(+ .armada-card-content:empty) { box-shadow: none; }
 
 /* ---- Jobs and Sessions: a row's title, meta and state ------------------------------------------------------ */
@@ -261,6 +265,7 @@
    shows both, the frame and its lamp. A tab keeps its pill. */
 :root[data-look="new"] :is(
   .deck-row[data-selected],
+  .armada-list-card[data-selected],
   .pr-row[data-selected],
   .issues-row[data-selected],
   .projects-item[data-selected],
@@ -676,8 +681,8 @@
 }
 
 /* Every page's key caps are the Cockpit's: not drawn, not hidden, until ⌘ is held. `ShortcutRevealProvider` sets `data-reveal`
-   on the root for as long, and the key still works the rest of the time. The Logbook's own caps are its own. */
-:root:not([data-reveal]) :is(.armada-usage__page, .projects-top, .projects-list, .projects-pane, .armada-system-side, .armada-wm__list, .issues-list, .issues-reader, .pr-list, .pr-reader, .pr-ask-bar, .pr-tools) :is(.armada-kbd, .armada-tooltip:has(> .armada-kbd)) {
+   on the root for as long, and the key still works the rest of the time. */
+:root:not([data-reveal]) :is(.armada-logbook, .armada-usage__page, .projects-top, .projects-list, .projects-pane, .armada-system-side, .armada-wm__list, .issues-list, .issues-reader, .pr-list, .pr-reader, .pr-ask-bar, .pr-tools) :is(.armada-kbd, .armada-tooltip:has(> .armada-kbd)) {
   display: none;
 }
 :root:not([data-reveal]) .armada-usage__keys { display: none; }

@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight, MoveRight } from "lucide-react";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
@@ -87,6 +88,8 @@ export type LessonCardProps = {
   settled?: LessonSettled;
   /** The Session the item came from, on the Lessons list, where a press opens its retro. */
   from?: { label: string; exact?: string; onOpen: () => void };
+  /** Where the answers are drawn. Absent, in the card under the item; an element, in it, as a head's acts are; `null`, not drawn until the element is there. */
+  actsIn?: HTMLElement | null;
 };
 
 /**
@@ -129,12 +132,54 @@ export function LessonRoute({ who, landsIn }: { who?: Who; landsIn?: Lands }) {
  * **The words come first and the marks beside them stay**: a mark carries the
  * tooltip it always did, and never stands in for the word.
  */
-export function LessonCard({ item, evidence, answers, settled, from }: LessonCardProps) {
+export function LessonCard({ item, evidence, answers, settled, from, actsIn }: LessonCardProps) {
   const [showing, setShowing] = useState(false);
   const cites = item.cites ?? [];
   const asking = evidence !== undefined;
   const headed = item.title !== undefined && item.title !== "";
   const body = headed ? item.what : item.statement;
+  const answerButtons =
+    answers === undefined ? null : (
+      <>
+        {answers.agree === undefined ? null : (
+          <Tooltip label={answers.agree.tip}>
+            <Button
+              variant="ghost"
+              size="sm"
+              pending={answers.pressing === "agree"}
+              disabled={answers.pressing !== undefined && answers.pressing !== "agree"}
+              onClick={answers.agree.onAgree}
+            >
+              {answers.agree.label}
+            </Button>
+          </Tooltip>
+        )}
+        {answers.startSession === undefined ? null : (
+          <Tooltip label={answers.startSession.tip}>
+            <Button
+              variant="ghost"
+              size="sm"
+              pending={answers.pressing === "session"}
+              disabled={answers.pressing !== undefined && answers.pressing !== "session"}
+              onClick={answers.startSession.onStart}
+            >
+              Start Job
+            </Button>
+          </Tooltip>
+        )}
+        <Tooltip label={answers.disagreeTip}>
+          <Button
+            variant="ghost"
+            size="sm"
+            pending={answers.pressing === "disagree"}
+            disabled={answers.pressing !== undefined && answers.pressing !== "disagree"}
+            onClick={answers.onDisagree}
+          >
+            Reject change
+          </Button>
+        </Tooltip>
+      </>
+    );
   return (
     // Named by its headline, so one item is found among many, by a person using a
     // reader and by a walk alike.
@@ -199,43 +244,11 @@ export function LessonCard({ item, evidence, answers, settled, from }: LessonCar
               )}
             </span>
           ) : answers === undefined ? null : (
-            <>
-              {answers.agree === undefined ? null : (
-                <Tooltip label={answers.agree.tip}>
-                  <Button
-                    size="sm"
-                    pending={answers.pressing === "agree"}
-                    disabled={answers.pressing !== undefined && answers.pressing !== "agree"}
-                    onClick={answers.agree.onAgree}
-                  >
-                    {answers.agree.label}
-                  </Button>
-                </Tooltip>
-              )}
-              {answers.startSession === undefined ? null : (
-                <Tooltip label={answers.startSession.tip}>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    pending={answers.pressing === "session"}
-                    disabled={answers.pressing !== undefined && answers.pressing !== "session"}
-                    onClick={answers.startSession.onStart}
-                  >
-                    Start Job
-                  </Button>
-                </Tooltip>
-              )}
-              <Tooltip label={answers.disagreeTip}>
-                <Button
-                  size="sm"
-                  pending={answers.pressing === "disagree"}
-                  disabled={answers.pressing !== undefined && answers.pressing !== "disagree"}
-                  onClick={answers.onDisagree}
-                >
-                  Reject change
-                </Button>
-              </Tooltip>
-            </>
+            actsIn === undefined ? (
+              answerButtons
+            ) : actsIn === null ? null : (
+              createPortal(answerButtons, actsIn)
+            )
           )}
           {cites.length === 0 && !asking ? null : (
             <span className="armada-lesson__evidence-toggle">

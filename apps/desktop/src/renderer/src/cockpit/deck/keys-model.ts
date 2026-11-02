@@ -162,3 +162,9 @@ export function keySheetOf(): readonly SheetGroup[] {
     },
   ];
 }
+
+/**
+ * A console HUD is up (`ConsoleHud.tsx`, whichever bay opened it). **While it is, Esc is the HUD's and nothing else's**: the deck, a
+ * replay and the map's callout stand down for it, so no selection, replay or view goes with it. Layers above it keep their own claim, as they do over any HUD.
+ */
+export const hudIsOpen = (): boolean => document.querySelector("[data-hud]") !== null;

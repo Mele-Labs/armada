@@ -41,15 +41,15 @@ test("moves every loop on the same tick and keeps each one's phase", () => {
   animations = [first, second];
   stop = startLoopClock();
 
-  advance(100);
+  advance(200);
   expect(first.pause).toHaveBeenCalled();
   expect(second.pause).toHaveBeenCalled();
   expect(first.currentTime).toBe(900);
   expect(second.currentTime).toBe(300);
 
-  advance(100);
-  expect(first.currentTime).toBe(1000);
-  expect(second.currentTime).toBe(400);
+  advance(200);
+  expect(first.currentTime).toBe(1100);
+  expect(second.currentTime).toBe(500);
 });
 
 test("leaves an animation that ends alone", () => {
@@ -57,7 +57,7 @@ test("leaves an animation that ends alone", () => {
   animations = [entrance];
   stop = startLoopClock();
 
-  advance(300);
+  advance(600);
   expect(entrance.pause).not.toHaveBeenCalled();
   expect(entrance.currentTime).toBe(50);
 });
@@ -66,10 +66,10 @@ test("moves nothing while the window is still", () => {
   const one = loop(0);
   animations = [one];
   stop = startLoopClock();
-  advance(100);
+  advance(200);
 
   marks.add("data-still");
-  advance(300);
+  advance(600);
   expect(one.currentTime).toBe(0);
 });
 
@@ -78,10 +78,10 @@ test("holds a loop the idle rules pause, and moves the others", () => {
   const held = loop(0, Infinity, "paused");
   animations = [running, held];
   stop = startLoopClock();
-  advance(100);
+  advance(200);
 
   marks.add("data-idle");
-  advance(100);
-  expect(running.currentTime).toBe(100);
+  advance(200);
+  expect(running.currentTime).toBe(200);
   expect(held.currentTime).toBe(0);
 });

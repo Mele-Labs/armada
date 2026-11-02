@@ -58,6 +58,9 @@ The gap between two panels of a column is a handle too, and their heights are ke
 The foot of keys has no handle and is as tall as its keys, so a share kept from the older, taller foot cannot stretch it; a foot holding the Field still resizes.
 
 `Esc` returns the stage to what it was, and with nothing open it lets the cursor go, so no row is picked and the map holds no drone's card.
+On the Timeline it returns to the map, and a Job opened from a Timeline row returns to the Timeline first.
+A HUD of the console takes `Esc` for itself: it closes the HUD and nothing around it.
+The map comes back as the stage showing the whole battlefield, and pressing Map on the map at rest glides it there.
 A press on the list or the map away from a row or a drone lets go the same way.
 The state is held in `apps/desktop/src/renderer/src/cockpit/deck/store.ts`, so the title row, the body and the keys are one thing, and leaving the tab and coming back returns the same view.
 
@@ -111,25 +114,25 @@ An icon is off, with its reason as the tooltip, where its view has nothing in it
 
 ## The Jobs list
 
-A row is one line: the name, then status glyphs in fixed columns, so the glyphs line up from row to row.
-Rows are divided by a hairline and the repository groups are spaced apart.
+A row is a list card, the same card an issue, a pull request and a Logbook entry draw: the name, then status glyphs in fixed places in the corner, so the glyphs line up from row to row and the state is last.
+The console draws the card as a strip with its own edge and a lamp down its left side, and the repository groups are spaced apart.
 Hovering a row opens its full inspect card.
 
 A right press on a row, or on the list's empty room, opens a menu whose View group has seven checkable fields, in this order:
 
 | Field | Draws |
 |---|---|
-| Active PRs | The Job's open pull request, on a line of its own under the row, under Now where Now is on |
-| Issues | The issue attached to the Job |
-| Now | The last thing the Job said, as a second line |
-| Time | How long since its last turn |
-| Conflicts | The write-clash mark |
-| Status | The Job's state mark |
-| Workflow | The step of the Job's workflow it is at |
+| Active PRs | The Job's open pull request, as a number on the line under the name |
+| Issues | The issue attached to the Job, as a number on the line under the name |
+| Now | The last thing the Job said, on a line under those |
+| Time | How long since its last turn, as plain text: before the corner on a one-line row, at the end of the number's line otherwise |
+| Conflicts | The write-clash mark, in the corner |
+| Status | The Job's state mark, last in the corner |
+| Workflow | The step of the Job's workflow it is at, on a line under the number's |
 
 The default is Status and Conflicts.
-Every field except Now and Active PRs has a column of its own, the same for every row, so a row without the field leaves its place empty and nothing moves.
-A column no row fills collapses.
+The corner's places are the same for every row, so a row without a mark leaves its place empty and nothing moves.
+A row without any other field draws nothing for it.
 The choice is kept with Bridge's settings.
 
 ## Bays
@@ -217,7 +220,7 @@ Checks pulses while any of the Job's Checks runs, and is the one place that show
 Subagents pulses while any runs, and its tooltip says `Subagents running`, so no count is drawn.
 **A Job in panes draws each view as a tab, and opens no layer.**
 Its key, its icon and a call in the thread bring that kind's tab forward, or open one where the Job has none: in the pane that holds that kind, else in a new pane on the right.
-Artifacts is the Ledger tab, Bays and Workflow are tabs of their own, and a second press brings the tab forward and does not close it, since a tab closes by its ×, and Esc closes none.
+Artifacts is the Ledger tab, Bays, Workflow and the Judge of the whole Job are tabs of their own, and a second press brings the tab forward and does not close it, since a tab closes by its ×, and Esc closes none.
 `⌥1`, `⌥2` and `⌥3` bring the Done, Now and Open tabs forward in the same way, and `⌥W` the Workflow tab.
 The Field and the Job's document still float over the whole Job.
 

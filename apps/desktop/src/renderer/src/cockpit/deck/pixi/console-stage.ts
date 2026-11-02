@@ -168,6 +168,9 @@ type Facet = {
   drawn: string;
 };
 
+/** How often the console's screens are read and drawn: the scope's dots move, nothing else does until a press or a call pokes it. */
+const READ_EVERY_MS = 1000;
+
 const EMPTY = (): BayState => ({ kind: null, pressed: false, calling: false, lit: false, focused: false });
 
 export class ConsoleStage {
@@ -190,8 +193,8 @@ export class ConsoleStage {
   private bays: BayState[] = [];
   private readonly plan: Plan;
   private source: () => BayState[] = () => [];
-  private still = false;
-  private watch: MediaQueryList | undefined;
+  private readonly still = true;
+  private reading: ReturnType<typeof setInterval> | undefined;
   private density: MediaQueryList | undefined;
   private themed: MutationObserver | undefined;
 
@@ -233,9 +236,6 @@ export class ConsoleStage {
     this.build();
     app.ticker.maxFPS = 30;
     app.ticker.add(this.tick);
-    this.watch = window.matchMedia("(prefers-reduced-motion: reduce)");
-    this.still = this.watch.matches;
-    this.watch.addEventListener("change", this.motion);
     this.themed = new MutationObserver((changes) => {
       if (changes.some((one) => one.attributeName === "data-theme")) {
         this.setTone();
@@ -293,18 +293,14 @@ export class ConsoleStage {
     app.stage.addChild(this.bloom);
   }
 
-  private readonly motion = (): void => {
-    this.still = this.watch?.matches ?? false;
-    this.settle();
-  };
-
-  /** The ticker runs only while something moves: nothing under reduced motion, a hidden window or a folded panel, where one frame is held. */
+  /** The console's lamps hold still: thirty frames a second of its bloom held the whole window's GPU (`motion.md`). What its screens read is drawn once a second, and not at all under a hidden window or a folded panel, where one frame is held. */
   private readonly settle = (): void => {
     const root = document.documentElement;
     const quiet = this.hidden || document.hidden || root.hasAttribute("data-still") || root.hasAttribute("data-idle");
-    if (quiet || this.still) this.app?.ticker.stop();
-    else this.app?.ticker.start();
-    if (this.app !== undefined && (quiet || this.still)) this.frame();
+    this.app?.ticker.stop();
+    clearInterval(this.reading);
+    if (!quiet) this.reading = setInterval(() => this.frame(), READ_EVERY_MS);
+    if (this.app !== undefined) this.frame();
   };
 
   setHidden(hidden: boolean): void {
@@ -468,8 +464,8 @@ export class ConsoleStage {
 
   destroy(): void {
     this.gone = true;
+    clearInterval(this.reading);
     this.themed?.disconnect();
-    this.watch?.removeEventListener("change", this.motion);
     this.density?.removeEventListener("change", this.redensify);
     document.removeEventListener("visibilitychange", this.settle);
     const app = this.app;

@@ -52,11 +52,12 @@ A Judge act, a scale glyph, stands on every artifact in a Job's ledger and in th
 | Artifact | Where the act stands |
 | --- | --- |
 | Plan, pull request, commit, file | Its ledger row |
-| Walk page, document, sketch | Its ledger row |
+| Walk page, sketch | Its ledger row |
+| Document | Its ledger row and the head of its page |
 | Command, subagent, issue, note | Its ledger row |
 | The Job as a whole | The head of the Thread tab |
 
-The press opens a small box, **Verify that**, for an optional line naming what to check.
+On an artifact, the press opens a small box, **Verify that**, for an optional line naming what to check.
 Left empty, the Judge looks for **what the person or the agent missed**.
 
 > **Rule.** The Judge runs only when a person presses it.
@@ -72,6 +73,7 @@ The act on a row reads the state of the last reading.
 
 No count is drawn beside the act or the notes.
 A finished Judge puts a line in the thread saying so, and a press on it opens the artifact at its notes.
+The Judge of the whole Job has no artifact to stand in, so its press opens a Judge tab, which asks in a composer of its own and holds the reading ([The Judge](session/the-judge.md)).
 **A finished Judge raises no Needs you call**, since it asks nothing of the person.
 
 ## What the call is shown
@@ -103,11 +105,12 @@ It sits inside the artifact, on the part it names.
 | --- | --- |
 | A plan | The group or task it is about, or under the summary where it is about the whole plan |
 | A pull request or a commit | The diff line it names |
-| A document | The paragraph it names |
+| A document | The paragraph, heading, list item or table row it names |
 | Any other | The artifact's own view |
 
 A note stands out from the artifact around it, so a reader sees at once which lines are the artifact and which are the Judge's.
 **A note names its part by quoting that part's words, and Fleet pins it there.** For a plan Fleet uses the plan's own task matcher, the one that matches the agent's task list to the plan ([The plan](session/the-plan.md), *How far it got is observed*).
+A document's part is named by those words, never by a count, because the page Bridge draws is not divided the way Fleet divides its text.
 Where the quoted words match no part, the note sits on the artifact as a whole.
 
 Each note carries **Send to Job** and **Dismiss**.

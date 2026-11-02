@@ -143,11 +143,11 @@ Since 29 Oct 2026. The page holds **Workflows for Jobs** at the top and a switch
 | Setting | Shape | Switch |
 | --- | --- | --- |
 | `features.workflows` | A boolean, on unless Fleet says off | Workflows for Jobs, the same setting as Settings › Features |
-| `workflows.off` | A `Json` value, `{ "machine": ["<workflow id>"], "repositories": { "<manifest id>": ["<workflow id>"] } }` | A row's switch: the machine's list on All, the picked repository's list with one picked |
+| `workflows.off` | A `Json` value, `{ "machine": ["<workflow id>"], "repositories": { "<manifest id>": ["<workflow id>"] } }` | A row's switch: in a repository's group, that repository's list; in Armada's and Yours, the machine's list on All and the picked repository's with one picked |
 
 **The save is the whole value.** A row's press sends `workflows.off` with that one id added to or taken out of the list it concerns, and every other list as it was.
 A repository whose last workflow is switched back on has no entry left, and a value that is absent, null or does not read is nothing off (`apps/desktop/src/renderer/src/workflows-off.ts`).
-**A workflow off on the machine is off in every repository**, so with one picked its row says `Off on this machine` in place of a switch, and only the machine's switch turns it back on.
+**A workflow off on the machine is off in every repository**, so a row whose switch is a repository's says `Off on this machine` in place of a switch, and only the machine's switch turns it back on.
 
 **Where it is edited.** Settings draws no row for `workflows.off`: a Json setting is never drawn by the generic form (`drawn` in `packages/surfaces/settings/src/sections.ts`), and the Workflows section that holds nothing else is not offered.
 This page is the one place it is edited.

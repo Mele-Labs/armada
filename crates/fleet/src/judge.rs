@@ -390,14 +390,26 @@ fn diff_part(about: &str, words: &str, diff: &str) -> Option<Part> {
     Some(Part { about: place.clone(), place })
 }
 
+/// **Named by its words, not its place in the text**: Bridge draws the page as a person reads it, where a
+/// count of Fleet's blocks would name another paragraph or none, and another revision may have moved it.
 fn paragraph_part(words: &str, text: &str) -> Option<Part> {
-    let mut held: Option<(f64, usize)> = None;
-    for (at, paragraph) in text.split("\n\n").filter(|paragraph| !paragraph.trim().is_empty()).enumerate() {
+    let mut held: Option<(f64, &str)> = None;
+    for paragraph in text.split("\n\n").map(str::trim).filter(|paragraph| !paragraph.is_empty()) {
         if let Some(score) = said(&cut_norm(paragraph), words) {
             if held.is_none_or(|(best, _)| score > best) {
-                held = Some((score, at + 1));
+                held = Some((score, paragraph));
             }
         }
     }
-    held.map(|(_, number)| Part { about: format!("p:{number}"), place: format!("Paragraph {number}") })
+    held.map(|(_, paragraph)| Part { about: format!("p:{paragraph}"), place: opening_of(paragraph) })
+}
+
+/// How a paragraph is named to a person and to the agent: its first words.
+fn opening_of(paragraph: &str) -> String {
+    const WORDS: usize = 8;
+    let opening = paragraph.split_whitespace().take(WORDS).collect::<Vec<_>>().join(" ");
+    match paragraph.split_whitespace().count() > WORDS {
+        true => format!("{opening}..."),
+        false => opening,
+    }
 }
