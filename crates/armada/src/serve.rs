@@ -220,7 +220,10 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     let settings = crate::settings::in_machine(&machine);
     if let Some(refused) = settings.refused() {
         eprintln!("{} was not taken: {refused}", settings.path().display());
-        eprintln!("Fleet starts on the shipped settings; correct the file and save again");
+        eprintln!("Fleet starts on the last good copy, or the shipped settings where it has none; correct the file");
+    }
+    for key in settings.now().saved().document().keys().filter(|key| config::settings::entry(key).is_none()) {
+        println!("settings.json names `{key}`, which this build does not have: it is kept and not read");
     }
     let at_start = settings.at_start().clone();
     let turn_interval = Duration::from_millis(u64::from(whole(at_start.get(keys::TURN_INTERVAL_MS))));

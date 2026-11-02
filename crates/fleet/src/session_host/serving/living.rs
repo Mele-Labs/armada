@@ -75,6 +75,68 @@ where
         state.unstarted.clear();
     }
 
+    /// A process runs on what it was started with, so a running one ends once its turn is over
+    /// and the next message resumes on what the Job names now.
+    pub(crate) fn restarts_on_what_it_names(&self, id: &str) {
+        let runtime = self.hosts().of(id);
+        let mut state = runtime.state();
+        if state.process.is_some() {
+            match state.turn {
+                SessionTurn::Idle => Self::let_go(&mut state),
+                SessionTurn::Working { .. } => state.restart_after_turn = true,
+            }
+        }
+    }
+
+    /// A Job naming a model that is switched off goes back to the Job model, kept so its row says
+    /// what it runs on. Whoever named it, a hand-on, a fork or a Job from before the switch, and a
+    /// process that outlived a Fleet on it moves too.
+    async fn off_a_model_switched_off(&self, id: &str, mut hosting: KeptHosting) -> KeptHosting {
+        if hosting.model.as_ref().is_some_and(|model| !self.models_on().contains(model)) {
+            hosting.model = None;
+            let _ = self.store().lock().await.keep_hosting(&hosting);
+            self.restarts_on_what_it_names(id);
+        }
+        hosting
+    }
+
+    /// The models on were `was_on` before settings.json changed. Every open Job on one that is now
+    /// off moves as a change in its model picker moves it: when its turn is over.
+    pub(crate) async fn models_switched_off(&self, was_on: &[String]) {
+        let on = self.models_on();
+        if was_on.iter().all(|model| on.contains(model)) {
+            return;
+        }
+        let moved: Vec<String> = {
+            let mut store = self.store().lock().await;
+            let Ok(hostings) = store.hostings() else { return };
+            let mut moved = Vec::new();
+            for mut hosting in hostings {
+                // A Job naming none runs on what the Job model was when its process started.
+                let Some(runs_on) = hosting.model.as_ref().or(hosting.turn_model.as_ref()) else { continue };
+                if on.contains(runs_on) {
+                    continue;
+                }
+                let open = store.session(&hosting.session_id).ok().flatten().is_some_and(|session| session.state != store::SessionState::Ended);
+                if !open {
+                    continue;
+                }
+                if hosting.model.as_ref().is_some_and(|model| !on.contains(model)) {
+                    hosting.model = None;
+                    if store.keep_hosting(&hosting).is_err() {
+                        continue;
+                    }
+                }
+                moved.push(hosting.session_id);
+            }
+            moved
+        };
+        for id in moved {
+            self.restarts_on_what_it_names(&id);
+            let _ = self.published_hosted(&id).await;
+        }
+    }
+
     /// Start the session's process if none is running. A keeper a Fleet before
     /// this one started is reattached to rather than replaced.
     pub(crate) async fn ensure_process(
@@ -82,7 +144,8 @@ where
         id: &str,
         hosting: &KeptHosting,
     ) -> Result<(), String> {
-        self.process_of(id, hosting, true).await.map(|_| ())
+        let hosting = self.off_a_model_switched_off(id, hosting.clone()).await;
+        self.process_of(id, &hosting, true).await.map(|_| ())
     }
 
     /// Reattach to every hosted session whose keeper still answers, at boot.
@@ -191,6 +254,7 @@ where
                     name: address_of(id),
                     // None chosen is the Session default at the time the process starts, not when it was made.
                     model: hosting.model.clone().or_else(|| Some(self.session_model())),
+                    models: self.models_on(),
                     effort: hosting.effort.clone(),
                     mode: mode_of(&hosting.mode),
                     readable: vec![self.uploads_of(id).to_string_lossy().into_owned()],

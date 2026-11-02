@@ -397,6 +397,7 @@ A pinned older version is not listed.
 | --- | --- |
 | Held | `models.roster` in settings.json: the names switched on. Absent, every model the agent offers is on |
 | A switch | A save of `models.roster` through `save_settings`. It is live: the next definition checked and the next Job see it |
+| What it binds | Every Job's agent is started with the models on as the CLI's allowlist, so a `--model` or a subagent's own model outside it runs on one inside. A Job naming a model that is off goes back to the Job model when its process next starts, and a switch off moves the open Jobs on it when their turn ends. A process that outlives a switch keeps its allowlist, so Fleet's gate refuses a subagent asked for on a model that is off. A terminal Job is the person's own CLI and none of this reaches it |
 | Refused | A save that switches off a model a setting still names, in the same save: it names the setting. A definition naming a model switched off or not offered, as before |
 | Not read | Until the answer is in, or where the agent cannot give it, the built-in names are served and `list_models` says it did not read them, with the reason |
 

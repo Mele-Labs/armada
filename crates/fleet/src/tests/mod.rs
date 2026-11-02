@@ -128,6 +128,7 @@ mod claim_disputes;
 mod session_dispute_reading;
 mod session_done;
 mod session_finish_up;
+mod models_switched_off;
 mod session_host;
 mod session_mcp;
 mod plan_held;
