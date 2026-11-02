@@ -25,3 +25,5 @@ A shell that has exited is replaced by the next open under a new `run_id`.
 A Bridge before it never calls the routes and ignores the two event kinds.
 Bridge's half is `packages/protocol/src/sessions.ts` and `packages/protocol/src/events.ts`, written by hand like the rest.
 There is no number to take: `armada need --status` showed nothing standing on these paths.
+
+A Job later held several terminals, each with an ID: [A Job's several terminals](a-jobs-several-terminals.md). Everything above is its first terminal, `t1`.
