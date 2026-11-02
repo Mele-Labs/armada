@@ -22,8 +22,11 @@ export type MockStyles = {
   root?: Readonly<Record<string, string>>;
 };
 
-/** The host's answer for a node's `styles`, given the node's id and the paths the agent named. */
-export type ResolveMockStyles = (node: { id: string; styles: readonly string[] }) => Promise<MockStyles>;
+/**
+ * The host's answer for a node's styles, given the node's id, the paths the agent named, and `kept`, the hash of the style set Fleet
+ * kept when it drew the node. A host that holds the repository reads `styles`; one that holds only Fleet's answer reads `kept`.
+ */
+export type ResolveMockStyles = (node: { id: string; styles: readonly string[]; kept: string | undefined }) => Promise<MockStyles>;
 
 /** What the app around a sketch lends it to read a `mock`'s stylesheets with: provided once by the shell, read by every sketch. */
 export const MockStylesContext = createContext<ResolveMockStyles | undefined>(undefined);
@@ -47,6 +50,7 @@ export function MockView({ node, resolve, parts }: { node: SceneNode; resolve: R
   const [height, setHeight] = useState<number | undefined>(undefined);
   const [rings, setRings] = useState<readonly Ring[]>([]);
   const styles = node.styles;
+  const kept = node.kept;
   const stylesKey = (styles ?? []).join("\n");
 
   // What the host reads for this node. With no host, the frame is drawn with the node's own rules alone.
@@ -57,7 +61,7 @@ export function MockView({ node, resolve, parts }: { node: SceneNode; resolve: R
       return undefined;
     }
     setDrawn(undefined);
-    resolve({ id: node.id, styles: styles ?? [] }).then(
+    resolve({ id: node.id, styles: styles ?? [], kept }).then(
       (read) => live && setDrawn(read),
       () => live && setDrawn(NONE),
     );
@@ -65,7 +69,7 @@ export function MockView({ node, resolve, parts }: { node: SceneNode; resolve: R
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `stylesKey` stands for `styles`
-  }, [resolve, node.id, stylesKey]);
+  }, [resolve, node.id, stylesKey, kept]);
 
   // The frame, built: markup, then sheets, then fonts, and its height read once they are in.
   useEffect(() => {

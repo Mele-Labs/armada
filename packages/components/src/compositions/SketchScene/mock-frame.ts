@@ -45,6 +45,13 @@ export function mockNodes(target: Document, html: string): Node[] {
   return [...source.body.childNodes].map((one) => target.importNode(one, true));
 }
 
+/** The cleaned HTML as text, for a file that carries it: the same rules as `mockNodes`, drawn in a document that is thrown away. */
+export function mockMarkup(html: string): string {
+  const doc = document.implementation.createHTMLDocument("");
+  doc.body.replaceChildren(...mockNodes(doc, html));
+  return doc.body.innerHTML;
+}
+
 const hasOwnText = (one: Element) => [...one.childNodes].some((child) => child.nodeType === Node.TEXT_NODE && (child.textContent ?? "").trim() !== "");
 const words = (one: Element) => (one.textContent ?? "").replace(/\s+/g, " ").trim();
 const LABEL_LENGTH = 40;

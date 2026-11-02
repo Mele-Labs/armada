@@ -211,10 +211,15 @@ export function diffScenes(before: Scene, after: Scene): SceneDiff {
   };
 }
 
-/** What a part is called when somebody asks about it. */
+/** What a part is called when somebody asks about it. An element of a `mock` (`<node>#<key>`) is called by the name its author gave it, else by its mock. */
 export function partLabel(scene: Scene, id: string): string {
   const node = scene.nodes.find((one) => one.id === id);
   if (node !== undefined) return node.title ?? node.body?.split("\n")[0] ?? node.id;
+  const at = id.indexOf("#");
+  if (at > 0 && scene.nodes.some((one) => one.id === id.slice(0, at))) {
+    const key = id.slice(at + 1);
+    return key.startsWith("body") ? partLabel(scene, id.slice(0, at)) : key.replace(/\[\d+\]$/, "");
+  }
   const edge = scene.edges.find((one) => one.id === id);
   if (edge === undefined) return id;
   const name = (end: string) => partLabel(scene, end);

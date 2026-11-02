@@ -341,6 +341,18 @@
   outline-offset: var(--border-width);
 }
 
+/* What the diff says of a mock is drawn round its frame in the hue the other nodes take, since it has no frame of its own. */
+.armada-scene-node[data-kind="mock"][data-change="added"] .armada-mock__frame,
+.armada-scene-node[data-kind="mock"][data-change="removed"] .armada-mock__frame,
+.armada-scene-node[data-kind="mock"][data-change="changed"] .armada-mock__frame {
+  outline: var(--edge-active) solid var(--hue);
+  outline-offset: var(--border-width);
+}
+
+.armada-scene-node[data-kind="mock"][data-change="removed"] .armada-scene-node__caption {
+  text-decoration: line-through;
+}
+
 /* An element with a note, or picked for one, ringed over the frame where it stands. */
 .armada-mock__ring {
   position: absolute;

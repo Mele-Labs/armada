@@ -20,15 +20,15 @@ import { labelSize, placeLabels, type LabelMetrics, type LabelPlace, type Rect }
 import { sketchHtml } from "./export-html";
 import { sceneMermaid } from "./export-mermaid";
 import { screenMarkup, screenStyles } from "./export-screen";
-import { DEFAULT_METRICS, EXPORT_TOKENS, SANS, frameOf, sketchSvg, stepPlan, type ExportGeometry, type ExportMetrics, type SketchSvgInput } from "./export-svg";
+import { DEFAULT_METRICS, EXPORT_TOKENS, SANS, frameOf, sketchSvg, stepPlan, type ExportGeometry, type ExportMetrics, type MockMarkup, type SketchSvgInput } from "./export-svg";
 import { MERMAID_COPIED, savedSaid, sketchFileName, type SketchShareFile } from "./share";
 import { copyWith, saveWith, svgToPng, useSketchShareHost } from "./SketchShare";
 import { roundedPath, routeAll } from "./route";
 import { holdsStep, screenGuess, screenSteps, screenWidth } from "./screen";
 import { settle } from "./settle";
 import { ScreenView } from "./ScreenView";
-import { MockStylesContext, MockView, type MockNotes, type ResolveMockStyles } from "./MockView";
-import { partAt, partsIn, splitPart, type MockPart } from "./mock-frame";
+import { MockStylesContext, MockView, type MockNotes, type MockStyles, type ResolveMockStyles } from "./MockView";
+import { mockMarkup, partAt, partsIn, splitPart, type MockPart } from "./mock-frame";
 import {
   CHANGE_SAID, NO_MARKS, SCENE_COLORS, cssMs, diffScenes, markJoin, markRemove, nextMarkId, parseScene, partLabel, withMarks,
   type Scene, type SceneChange, type SceneEdge, type SceneIcon, type SceneMarks, type SceneNode, type SceneShape,
@@ -415,10 +415,29 @@ function overlay(kept: readonly SceneRfNode[], fresh: readonly SceneRfNode[]): S
 }
 const JOINS_THE_PICK = ["Meta", "Control"];
 const NO_NOTES: NodeData["notes"] = [];
+const NO_STYLES: MockStyles = { css: [], fonts: [], drawnWith: [] };
 const NO_PARTS: NodeData["parts"] = [];
 
 export function SketchScene({ scene: given, against, title, onAsk, marks, onMarks, preview = false, autoplay = false, playing = false, notes: noteScope, within, marked, exporter, mockStyles: givenStyles }: SketchSceneProps) {
-  const mockStyles = givenStyles ?? useContext(MockStylesContext);
+  const hostStyles = givenStyles ?? useContext(MockStylesContext);
+  // What was read for each `mock`, kept as it comes so a file can be made from it without reading again. A read that failed is kept as nothing read.
+  const readStyles = useRef(new Map<string, MockStyles>());
+  const mockStyles = useMemo<ResolveMockStyles | undefined>(
+    () =>
+      hostStyles === undefined
+        ? undefined
+        : async (node) => {
+            try {
+              const read = await hostStyles(node);
+              readStyles.current.set(node.id, read);
+              return read;
+            } catch (failed) {
+              readStyles.current.set(node.id, NO_STYLES);
+              throw failed;
+            }
+          },
+    [hostStyles],
+  );
   const parsed = useMemo(() => parseScene(given), [given]);
   const before = useMemo(() => (against === undefined ? undefined : parseScene(against)), [against]);
   const diff = useMemo(() => (parsed === undefined || before === undefined ? undefined : diffScenes(before, parsed)), [parsed, before]);
@@ -756,6 +775,24 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       return ((sheet.getBoundingClientRect().top - drawn.getBoundingClientRect().top) * drawn.offsetHeight) / drawn.getBoundingClientRect().height;
     };
     const screens = shown.nodes.some((one) => one.screen !== undefined) ? screenMarkup(shown, (id) => sheetTop(shown.nodes.find((one) => one.id === id)!), steps, screenStyles()) : undefined;
+    // Each `mock` as a file carries it: cleaned HTML and the sheets read for it, in a frame as tall as the canvas drew it. One not read yet is left as its frame.
+    const mocks: Record<string, MockMarkup> = {};
+    for (const one of shown.nodes) {
+      const read = mockStyles === undefined ? NO_STYLES : readStyles.current.get(one.id);
+      if (one.kind !== "mock" || one.html === undefined || read === undefined) continue;
+      const place = figure.current?.querySelector(`.react-flow__node[data-id="${CSS.escape(one.id)}"] .armada-scene-node`);
+      const stage = place?.querySelector(".armada-mock__stage");
+      const rect = layout.rects.get(one.id);
+      const measured = place instanceof HTMLElement && stage instanceof HTMLElement && place.offsetHeight > 0 && stage.offsetHeight > 0;
+      const top = measured ? ((stage.getBoundingClientRect().top - place.getBoundingClientRect().top) * place.offsetHeight) / place.getBoundingClientRect().height : one.title === undefined ? 0 : metrics.leadingSm + metrics.space2;
+      mocks[one.id] = {
+        top,
+        height: measured ? stage.offsetHeight : Math.max(0, (rect?.h ?? 0) - top),
+        html: mockMarkup(one.html),
+        css: [...read.css, ...(one.css === undefined ? [] : [one.css])].join("\n"),
+        root: read.root ?? {},
+      };
+    }
     const geometry: ExportGeometry = { rects: layout.rects, paths: layout.paths, places };
     const bodyLines: Record<string, string[]> = {};
     for (const one of shown.nodes) {
@@ -771,6 +808,7 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       tokens,
       icons,
       ...(screens === undefined ? {} : { screens }),
+      ...(Object.keys(mocks).length === 0 ? {} : { mocks }),
       state: { change: new Map([...(diff?.nodes ?? []), ...(diff?.edges ?? [])]), mine: composed?.mine ?? new Set(), struck: composed?.struck ?? new Set() },
       title: title ?? "Sketch",
       standalone: true,
@@ -782,6 +820,10 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   /** Told either way, since a save or a copy is otherwise silent. */
   const share = async (id: string) => {
     const name = title ?? "Sketch";
+    // A file is made of what the frames were drawn with, so a `mock` still being read is waited for.
+    if (id === "html" && mockStyles !== undefined) {
+      await Promise.all(shown.nodes.filter((one) => one.kind === "mock" && !readStyles.current.has(one.id)).map((one) => mockStyles({ id: one.id, styles: one.styles ?? [], kept: one.kept }).catch(() => undefined)));
+    }
     const input = exportInput(id === "html");
     const save = async (files: readonly SketchShareFile[]) => {
       const first = files[0]!;

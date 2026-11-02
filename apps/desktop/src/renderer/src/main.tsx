@@ -21,7 +21,8 @@ import { createPhoneGatewaySource, PhoneSourceProvider } from "@armada/settings"
 import { App, WAITING } from "./App";
 import { TaughtSourceProvider } from "@armada/settings";
 import { Boundary, LayoutSourceProvider, createLayoutSource } from "@armada/shell";
-import { HapticsProvider, watchClippedText } from "@armada/components";
+import { HapticsProvider, MockStylesContext, watchClippedText } from "@armada/components";
+import { createKeptStyles } from "./fleet-kept-styles";
 import { WiredNumbered } from "./numbered-fleet";
 import { WiredSessions } from "./sessions-wired";
 import { ThreadLookSaved } from "./thread-look-here";
@@ -93,6 +94,11 @@ const PHONE = createPhoneGatewaySource(
   Date.now,
   (page) => void window.armada.openLink(page),
 );
+/** What a sketch's `mock` is drawn with: the style set Fleet kept for it, read by hash through the main process, once per hash. */
+const MOCK_STYLES = createKeptStyles(
+  (hash) => window.armada.readKeptStyles(hash),
+  () => document.documentElement.getAttribute("data-theme"),
+);
 /** The moon in the title row and the night's decisions as Cockpit calls, over Fleet. */
 const SLEEP = createFleetSleep(withState(window.armada));
 /** The plan's windows in the title row, over Fleet. */
@@ -155,10 +161,12 @@ function Root() {
                                   <IssuesFrom store={ISSUES}>
                                     <ProjectsFrom store={PROJECTS}>
                                       <ThreadLookSaved>
-                                        <WiredSharedPanel>
-                                          <App />
-                                          <TweaksApplied />
-                                        </WiredSharedPanel>
+                                        <MockStylesContext.Provider value={MOCK_STYLES}>
+                                          <WiredSharedPanel>
+                                            <App />
+                                            <TweaksApplied />
+                                          </WiredSharedPanel>
+                                        </MockStylesContext.Provider>
                                       </ThreadLookSaved>
                                     </ProjectsFrom>
                                   </IssuesFrom>
