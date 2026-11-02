@@ -27,7 +27,8 @@
 
   /* ---- The bezel: a chamfered frame of steps, a rivet row on each side and a screw at each corner. ---- */
   & .deck-foot > :is(.deck-controls:has(> .deck-controls__block:not([data-subject])), .deck-dispatch),
-  & .deck-right > .deck-bays {
+  & .deck-right > .deck-bays,
+  & .deck-left > .deck-list {
     position: relative;
     border: calc(var(--border-width) * 2) solid var(--border-strong);
     border-radius: 0;
@@ -57,7 +58,7 @@
       mask-position: left 3px top 3px, right 3px top 3px, left 3px bottom 3px, right 3px bottom 3px, 24px top 0, 24px bottom 0, left 0 12px, right 0 12px;
     }
   }
-  & :is(.deck-foot > :is(.deck-controls:has(> .deck-controls__block:not([data-subject])), .deck-dispatch), .deck-right > .deck-bays) > .deck-band { padding-inline: var(--space-6); }
+  & :is(.deck-foot > :is(.deck-controls:has(> .deck-controls__block:not([data-subject])), .deck-dispatch), .deck-right > .deck-bays, .deck-left > .deck-list) > .deck-band { padding-inline: var(--space-6); }
 
   /* ---- The glass: a recess with its stencilled code along the top. ---- */
   & :is(.deck-controls__block:not([data-subject]), .deck-dispatch__block) {
@@ -382,6 +383,81 @@
     &:has(.deck-bay__who[data-gone]) .deck-bay__door { background: var(--bg-sunken); }
     &:has(.deck-bay__who[data-gone]) .deck-bay__door::after { inset: auto 0 0; bottom: 0; height: var(--space-3); background: var(--cb-amber); mask-image: var(--cb-hazard); mask-size: var(--space-2) 100%; mask-repeat: repeat-x; content: ""; }
   }
+
+  /* ---- The Jobs list as a flight-strip board: a plate for each repository, a strip for each Job. Same markup, same presses. ---- */
+  & .deck-left > .deck-list {
+    & > .deck-list__rows { margin: 0 var(--space-3) var(--space-3); padding: var(--space-2); gap: var(--space-3); border: calc(var(--border-width) * 2) solid var(--border-default); background: var(--bg-base); box-shadow: inset 0 calc(var(--border-width) * 3) 0 var(--deck-key-seat); }
+    & .deck-list__band, & .deck-list .deck-list__band + .deck-list__band { margin: 0; border: 0; }
+    & .deck-list__band + .deck-list__band { margin-top: var(--space-3); }
+    & .deck-list__group { gap: var(--space-1); }
+    & .deck-list__item + .deck-list__item { border-top: 0; }
+    /* The plate: stencilled, with a screw at each end. */
+    & .deck-list__head {
+      position: relative;
+      min-height: var(--space-6);
+      margin-bottom: var(--space-2);
+      padding: 0 var(--space-6);
+      border: calc(var(--border-width) * 2) solid var(--border-strong);
+      border-radius: 0;
+      background: var(--bg-sunken);
+      box-shadow: inset 0 calc(var(--border-width) * 2) 0 var(--deck-key-seat), 0 calc(var(--border-width) * 2) 0 var(--deck-key-lo);
+      font-size: var(--cb-code);
+      letter-spacing: 0.18em;
+      color: var(--fg-muted);
+      &::before, &::after { content: ""; position: absolute; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; background: var(--fg-subtle); opacity: 0.7; mask-image: var(--cb-screw); mask-size: 100% 100%; }
+      &::before { left: var(--space-2); }
+      &::after { right: var(--space-2); }
+    }
+  }
+  /* A strip: a lamp bar down its left edge, the title in mono, the state glyphs unchanged at its right. */
+  & .deck-left > .deck-list .deck-row {
+    --lamp-ink: var(--border-strong);
+    min-height: calc(var(--space-6) + var(--space-3));
+    padding-inline: var(--space-4) var(--space-2);
+    border: calc(var(--border-width) * 2) solid var(--border-strong);
+    border-radius: 0;
+    background: var(--bg-raised);
+    box-shadow: inset 0 0 0 var(--border-width) var(--bg-sunken), 0 calc(var(--border-width) * 2) 0 var(--deck-key-lo);
+    font-family: var(--font-mono);
+    letter-spacing: 0.02em;
+    &::before { content: ""; position: absolute; z-index: 1; inset: 0 auto 0 0; width: var(--space-2); background: var(--lamp-ink); pointer-events: none; }
+    &:hover, &[data-hover], &[data-cursor] { background: var(--bg-hover); }
+    &:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+    &[data-lamp="running"] { --lamp-ink: var(--cb-cyan); }
+    &[data-lamp="failed"] { --lamp-ink: var(--status-completed-failed); }
+    &[data-lamp="done"] { --lamp-ink: var(--status-completed-success); }
+    &[data-lamp="idle"] { --lamp-ink: var(--border-strong); }
+    /* Needs him: the bar is hazard, and the strip keeps its own pulse. */
+    &[data-lamp="needs"] { --lamp-ink: var(--cb-amber); border-color: var(--cb-amber); }
+    &[data-lamp="needs"]::before { width: var(--space-3); mask-image: var(--cb-hazard); mask-size: var(--space-2) var(--space-2); mask-repeat: repeat-y; }
+    &[data-lamp="needs"]::after { opacity: 0.1; }
+    /* Seated like a pressed key. */
+    &[data-selected] { border-color: var(--accent); background: var(--accent-muted); box-shadow: inset 0 calc(var(--border-width) * 3) 0 var(--deck-key-seat); }
+    &[data-selected] .deck-row__title { font-weight: var(--weight-heading); }
+    &[data-queued] { border-style: dashed; }
+    &[data-queued]::before { display: none; }
+  }
+  /* A child Job is a sub-strip on a square rail. */
+  & .deck-left > .deck-list .deck-list__item:has(> .deck-row[data-linked]) {
+    &::before { border-end-start-radius: 0; border-inline-start-width: calc(var(--border-width) * 2); border-block-end-width: calc(var(--border-width) * 2); border-color: var(--border-default); }
+    & > .deck-row { min-height: calc(var(--space-6) + var(--space-2)); }
+  }
+  & .deck-left > .deck-list .deck-list__rail { border-inline-start-width: calc(var(--border-width) * 2); border-color: var(--border-default); }
+
+  /* ---- The console wraps the viewer: the wings are angled in and raised, the middle bay lowest and nearest, Dispatch angled on the right wing.
+     The turns are on the bays and the panel, never on the keys, so a key's tooltip and focus ring still place from the key. ---- */
+  & .deck-controls__block:not([data-subject]):not(.console-rack) {
+    perspective: 760px;
+    perspective-origin: 50% 30%;
+    &::after { content: ""; position: absolute; z-index: -1; inset: auto var(--space-3) var(--space-1); height: var(--space-3); border-bottom: calc(var(--border-width) * 2) solid var(--border-strong); border-radius: 0 0 50% 50% / 0 0 100% 100%; pointer-events: none; }
+  }
+  & .console-bay[data-n="1"] { transform: translateY(calc(var(--space-2) * -1.5)) rotateY(26deg); }
+  & .console-bay[data-n="2"] { transform: translateY(calc(var(--space-1) * -1.5)) rotateY(13deg); }
+  & .console-bay[data-n="3"] { transform: translateY(var(--space-1)) translateZ(var(--space-6)); z-index: 1; }
+  & .console-bay[data-n="4"] { transform: translateY(calc(var(--space-1) * -1.5)) rotateY(-13deg); }
+  & .console-bay[data-n="5"] { transform: translateY(calc(var(--space-2) * -1.5)) rotateY(-26deg); }
+  & .deck-foot { perspective: 900px; perspective-origin: 30% 50%; }
+  & .deck-foot > .deck-dispatch { transform: translateY(calc(var(--space-2) * -1)) rotateY(-16deg); transform-origin: 0 50%; }
 }
 
 @keyframes cb-turn { to { rotate: 360deg; } }
