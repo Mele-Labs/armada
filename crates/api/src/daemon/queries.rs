@@ -56,6 +56,10 @@ pub trait Queries: Send + Sync + 'static {
     /// that is unhealthy.
     fn get_health(&self) -> impl Future<Output = Result<FleetHealth, Refusal>> + Send;
 
+    /// `get_debug_report` — the text of Copy debug report. `root` names the repository the report's
+    /// repository block is about; none leaves the block out. Names, versions and states only.
+    fn get_debug_report(&self, root: Option<String>) -> impl Future<Output = Result<ipc::DebugReport, Refusal>> + Send;
+
     /// `get_manifest` — one Manifest as Fleet resolved it.
     ///
     /// [`Refusal::NotFound`] is not the refusal here: a Manifest this Fleet

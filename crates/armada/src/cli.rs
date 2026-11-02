@@ -54,6 +54,8 @@ pub enum Verb {
     TestMap(TestMapAct),
     /// One reading of a watch recipe Armada ships, printed as the line Fleet reads. Fleet runs it.
     WatchLine { reader: String, values: Vec<String> },
+    /// The text of Copy debug report, printed. Exits 0 whether or not Fleet answered.
+    Report,
     /// What the verbs are.
     Help,
 }
@@ -96,6 +98,10 @@ const VERBS: &[(&str, &str)] = &[
     (
         TEST_MAP,
         "measure which tests reach which files, for CI to hand Fleet",
+    ),
+    (
+        "report",
+        "print the debug report to paste to whoever helps: versions, the mod, jobs and recent trouble",
     ),
     (
         WATCH_LINE,
@@ -208,6 +214,13 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
             Some(Verb::Clean {
                 everything: rest.iter().any(|arg| arg == "--all"),
             })
+        }
+        "report" => {
+            let positional = positionals(rest, &[], &mut faults);
+            if let Some(given) = positional.first() {
+                faults.push(Fault::StandingTakesNoPath { verb: verb.clone(), given: given.clone() });
+            }
+            Some(Verb::Report)
         }
         WORKTREE => worktree::read(rest, &mut faults),
         TEST_MAP => test_map::read(rest, &mut faults),

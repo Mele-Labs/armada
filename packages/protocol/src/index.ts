@@ -27,6 +27,7 @@ export * from "./flight-controls";
 export * from "./pull-request-notes";
 export * from "./folding";
 export * from "./forge";
+export * from "./debug-report";
 export * from "./health";
 export * from "./helm";
 export * from "./helm-calls";

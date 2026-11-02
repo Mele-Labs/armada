@@ -56,6 +56,7 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("validate_mod", &["name"]),
     ("get_requests", &["repository", "session_id"]),
     ("get_style_sources", &["path", "session_id"]),
+    ("get_debug_report", &["root"]),
     ("list_watches", &["session_id", "ended"]),
     ("list_closed_waiting", &["session_id"]),
     ("get_job_lifecycles", &["session_id"]),

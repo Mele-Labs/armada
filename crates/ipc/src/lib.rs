@@ -78,6 +78,9 @@ mod editing;
 mod enums;
 mod error;
 mod event;
+/// The text of Copy debug report, and the reading of Fleet's log it holds names from.
+pub mod debug_report;
+pub mod log_trouble;
 /// What `search_files` found under the checkout, for the `@` mention popup.
 mod files;
 /// What Fleet can say about its own health, and what it cannot. **Not
@@ -347,6 +350,7 @@ pub use event::{
     Cursor, Delivered, Event, Missed, Resync, StreamMessage,
 };
 pub use files::FilesFound;
+pub use debug_report::DebugReport;
 pub use health::{
     FleetHealth, HelmActionAuthority, Probe, Unprobed,
 };

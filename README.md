@@ -39,6 +39,7 @@ Every merge to `main` that passes `ci` is a release, tagged `v0.<minor>.<commits
 | `armada run <name>` | Runs one Command it declares. The merge line runs Checks; it does not run Commands |
 | `armada covers` | Reads changed paths on stdin and prints each Check they make run, by the same `when:` reading the merge line uses. Needs nothing running |
 | `armada clean [--all] [--force]` | **Destructive.** Gives this repository's worktrees and branches back, keeping any branch whose work is not merged, and naming each worktree slot still held. `--force` deletes unmerged branches too, and gives back a slot where it is clean and landed. `docs/practices/running-locally.md`, *Clearing up* |
+| `armada report` | Prints the debug report to paste to whoever helps: versions, the mod, the repository's `armada.yml`, each live Job's tools and what it came up without, and the last day's warnings from Fleet's log. Names, versions and states only, the home folder as `~`, nothing uploaded. Where Fleet does not answer it prints the install and the log and says so; it exits 0 either way. `docs/practices/protocol.md`, *The debug report* |
 | `armada worktree lease <branch>` | Leases a warm worktree from the repository's pool, waiting while every slot is held; `release` gives it back once clean and landed, `--status` lists who holds each. `docs/practices/running-locally.md`, *Leasing a worktree* |
 
 What holds today, and how each is known:

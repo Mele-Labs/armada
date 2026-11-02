@@ -52,6 +52,11 @@ where
         self.health().await
     }
 
+    /// The text of Copy debug report — `crate::debug_reporting`.
+    async fn get_debug_report(&self, root: Option<String>) -> Result<ipc::DebugReport, Refusal> {
+        self.debug_report(root).await
+    }
+
     /// What this repository declares — `crate::configured`.
     async fn get_manifest(&self, manifest_id: ManifestId) -> Result<ManifestConfig, Refusal> {
         self.manifest_config(manifest_id)
