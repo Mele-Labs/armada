@@ -25,7 +25,7 @@ const reading = (name: string) => frame().getByRole("img", { name });
 const act = (name: string) => frame().getByRole("button", { name, exact: true });
 const strip = () => page.getByRole("group", { name: "Last dispatch" });
 const palette = () => page.getByRole("dialog", { name: "Command palette" });
-const tile = () => page.getByRole("region", { name: "Dispatch controls" }).getByRole("button", { name: "Dispatch" });
+const tile = () => page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Dispatch", exact: true });
 
 /** The chips' names, in the order the row draws them. */
 const names = () => [...row().element().querySelectorAll("[role='radio'] .armada-dispatch-panel__name")].map((one) => one.textContent);
