@@ -720,6 +720,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(remove_repository_allowed_command::<D>),
         )
         .route("/requests/send", post(crate::requests::send_request::<D>))
+        .route("/requests/send_many", post(crate::requests::send_requests::<D>))
         .route("/requests", get(crate::requests::get_requests::<D>))
         .route("/requests/collections", post(crate::requests::save_request_collection::<D>))
         .route(
