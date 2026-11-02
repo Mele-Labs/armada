@@ -461,3 +461,24 @@ async fn a_write_in_the_slot_the_session_gave_back_is_not_its_own_though_its_dir
     let hosting = rig.fleet.store().lock().await.hosting(id.as_str()).unwrap().unwrap();
     assert_ne!(hosting.lease_slot, Some(1));
 }
+
+#[tokio::test]
+async fn a_job_cannot_cut_its_own_worktree_and_is_still_moved_at_its_first_write() {
+    let rig = rig_placing(Some(Placing::nothing()));
+    let id = rig.start().await;
+    rig.send(&id, "change a file").await;
+    rig.stand_in.init(0);
+    let cut = rig
+        .gate(&id, "EnterWorktree", r#"{"name":"context-ring-before-talk"}"#)
+        .await;
+    assert!(denied(&cut), "a resume would keep that worktree over the slot");
+    assert!(reason(&cut).contains("make the edit where you stand"), "{}", reason(&cut));
+    let hosting = rig.fleet.store().lock().await.hosting(id.as_str()).unwrap().unwrap();
+    assert_eq!(hosting.lease_slot, None, "the refusal leases nothing");
+    // The way out of one already entered stays open.
+    assert!(!denied(&rig.gate(&id, "ExitWorktree", r#"{"action":"keep"}"#).await));
+    let first = rig
+        .gate(&id, "Edit", &format!(r#"{{"file_path":"{}/src/lib.rs"}}"#, rig.root))
+        .await;
+    assert!(reason(&first).contains("Slot 1"), "{}", reason(&first));
+}
