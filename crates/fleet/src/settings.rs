@@ -19,6 +19,9 @@ use store::settings_file::{self, SettingValue, SettingsDocument};
 
 pub use serving::Reread;
 
+/// The last file Fleet took, beside settings.json.
+const LAST_GOOD_FILE: &str = "settings.last-good.json";
+
 /// The Machine's settings file, read.
 pub struct MachineSettings {
     path: PathBuf,
@@ -36,13 +39,16 @@ struct Held {
 
 impl MachineSettings {
     /// The file at `path` read against the table. **A file refused at start is
-    /// every default**, there being no last good read to keep, and the refusal
-    /// is held to be served and said.
+    /// the last good copy beside it**, every default only where there is none, and
+    /// the refusal is held to be served and said.
     pub fn at(path: PathBuf, supplied: Supplied, env: Env) -> MachineSettings {
         let base = Resolved::new(Saved::nothing(), supplied, env);
         let (saved, refused) = match read_checked(&path, &base) {
-            Ok(saved) => (saved, None),
-            Err(refused) => (Saved::nothing(), Some(refused)),
+            Ok(saved) => {
+                keep_last_good(&path, &saved);
+                (saved, None)
+            }
+            Err(refused) => (read_checked(&last_good_of(&path), &base).unwrap_or_else(|_| Saved::nothing()), Some(refused)),
         };
         let at_start = base.with(saved);
         MachineSettings {
@@ -124,6 +130,22 @@ impl MachineSettings {
                 })
                 .collect(),
         }
+    }
+}
+
+/// Where the last file taken is kept, beside it, for a start that refuses the file.
+fn last_good_of(path: &Path) -> PathBuf {
+    path.with_file_name(LAST_GOOD_FILE)
+}
+
+/// Keep `saved` as the last good copy. Nothing saved leaves the copy as it is: a file gone is
+/// not a file taken, and the copy is read only where one is refused.
+fn keep_last_good(path: &Path, saved: &Saved) {
+    if saved.document().is_empty() {
+        return;
+    }
+    if let Err(why) = settings_file::write(&last_good_of(path), saved.document()) {
+        eprintln!("the last good copy of {} was not kept: {why}", path.display());
     }
 }
 
