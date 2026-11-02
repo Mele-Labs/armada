@@ -16,7 +16,7 @@ const meta: Meta<typeof HeldSlots> = {
     onFree: fn(),
     rows: [
       { slot: 4, job: { id: "j2", title: "Rework the logbook filters" }, quietSince: hoursAgo(98) },
-      { slot: 2, job: { id: "j1", title: "Migration notes" }, quietSince: hoursAgo(288) },
+      { slot: 2, job: { id: "j1", title: "Move the run ledger" }, quietSince: hoursAgo(288) },
       { slot: 5, job: { id: "j3", title: "Pocket pairing flow" }, quietSince: hoursAgo(93) },
     ],
   },
@@ -39,7 +39,7 @@ export const Quiet: Story = {};
 export const FreeOff: Story = {
   args: {
     rows: [
-      { slot: 2, job: { id: "j1", title: "Migration notes" }, quietSince: hoursAgo(288), keeps: "uncommitted" },
+      { slot: 2, job: { id: "j1", title: "Move the run ledger" }, quietSince: hoursAgo(288), keeps: "uncommitted" },
       { slot: 4, job: { id: "j2", title: "Rework the logbook filters" }, quietSince: hoursAgo(1), keeps: "running" },
       { slot: 5, job: { id: "j3", title: "Pocket pairing flow" }, quietSince: hoursAgo(93) },
     ],

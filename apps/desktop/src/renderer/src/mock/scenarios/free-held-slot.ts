@@ -39,7 +39,7 @@ const holder = (id: string, title: string, slot: number, hours: number, keeps?: 
 });
 
 const HOLDERS: readonly Holder[] = [
-  holder("h1", "Migration notes", 1, 288),
+  holder("h1", "Move the run ledger", 1, 288),
   holder("h2", "Rework the logbook filters", 2, 98, "uncommitted"),
   holder("h3", "Pocket pairing flow", 3, 93),
 ];
