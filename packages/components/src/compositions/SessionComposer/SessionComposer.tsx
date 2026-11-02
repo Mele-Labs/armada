@@ -190,6 +190,8 @@ export type SessionComposerProps = {
   quick?: { asked: readonly string[]; phrases: readonly QuickPhrase[]; onSave: (text: string) => void; onAct?: (act: QuickAct) => void; /** Puts the bar away, for this Job or for all Jobs. Absent, the bar has no hide act. */ onHide?: (scope: "job" | "all") => void; };
   /** Talk: a press, or ⌥Space held in the box, listens, and each word heard joins the box. Nothing is sent by it. Absent draws no Talk. */
   talk?: { listen: (onWord: (word: string) => void) => () => void };
+  /** Drawn on the bar just left of Send, with room between: the Job's context ring. */
+  beforeSend?: ReactNode;
 };
 
 /** The message: its text holds a CHIP where each tag stands, and `tags` lists them in order. */
@@ -334,6 +336,7 @@ export function SessionComposer({
   focusFor,
   quick,
   talk,
+  beforeSend,
 }: SessionComposerProps) {
   // The selected option's own words, once a turn has resolved its model: "Opus 5.5" where the id is of the alias's family.
   const resolvedSaid = resolvedModel === undefined ? undefined : modelSaid(resolvedModel);
@@ -840,6 +843,7 @@ export function SessionComposer({
             </Button>
           </Tooltip>
         )}
+        {beforeSend === undefined ? null : <span className="armada-session-composer__figure">{beforeSend}</span>}
         {slim ? <Tooltip label={sendLabel}>{sendButton}</Tooltip> : sendButton}
       </div>
     </form>
