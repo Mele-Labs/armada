@@ -7,9 +7,9 @@
 // button reads Update Kit. Disagree discards it. A row's Session label opens
 // that Session's retro.
 
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
-import { Alert, Button, LessonList, LessonSplit, RetroSheet, Tabs, type LessonRow } from "@armada/components";
+import { Alert, Button, DropdownMenu, LessonList, LessonSplit, RetroSheet, Tabs, useStateMenu, type DropdownMenuEntry, type LessonRow } from "@armada/components";
 
 import { said } from "../copy";
 import {
@@ -174,6 +174,37 @@ export function Lessons({
     ];
   });
 
+  // Where the Logbook's State menu is drawn: in the strip of whatever frames Retros, so Retros can be left from any of them.
+  const state = useStateMenu();
+  const views = (
+    <DropdownMenu
+      align="start"
+      triggerLabel={VIEWS.find((one) => one.id === view)?.label ?? "Open"}
+      triggerAriaLabel="Show"
+      entries={VIEWS.map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.label, selected: one.id === view }))}
+      onSelect={(id) => setView(id as LessonsView)}
+    />
+  );
+  const review =
+    onReviewLessons === undefined || onAskLesson === undefined ? null : (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => {
+          // The review is of the open items, so the list it resolves them from is the open one.
+          setView("open");
+          reviews.setReviewing(true);
+        }}
+      >
+        Review
+      </Button>
+    );
+  const back = (
+    <Button variant="ghost" size="sm" onClick={leaveReview}>
+      Back to the list
+    </Button>
+  );
+
   const openRow = (sessionId: string, rowId: string) => {
     const row = rows.find((one) => one.id === rowId);
     setOpen({ subject: subjects.get(rowId) ?? { kind: "session", id: sessionId }, session: row?.session ?? sessionId });
@@ -182,16 +213,22 @@ export function Lessons({
   return (
     <div className="armada-screen__overview armada-lessons-page">
       {read?.ok === false ? (
-        <Alert tone="escalated" title="Retros could not be read">
-          {said(read.outcome)}
-        </Alert>
+        <Framed embedded={embedded} strip={state}>
+          <Alert tone="escalated" title="Retros could not be read">
+            {said(read.outcome)}
+          </Alert>
+        </Framed>
       ) : reviewing && onReviewLessons !== undefined && onAskLesson !== undefined ? (
-        <>
-          <div className="armada-lessons__bar">
-            <Button variant="ghost" size="sm" onClick={leaveReview}>
-              Back to the list
-            </Button>
-          </div>
+        <Framed
+          embedded={embedded}
+          strip={
+            <>
+              {state}
+              <span className="armada-lessons__strip-end">{back}</span>
+            </>
+          }
+          bar={<div className="armada-lessons__bar">{back}</div>}
+        >
           <LessonsReview
             lessons={read?.ok === true ? read.lessons : undefined}
             onReview={onReviewLessons}
@@ -206,40 +243,38 @@ export function Lessons({
             onList={leaveReview}
             paused={open !== null}
           />
-        </>
+        </Framed>
+      ) : embedded ? (
+        // Before the read answers, and with nothing under the tab, the frames are drawn with their strip and nothing in them.
+        <LessonSplit
+          rows={rows}
+          onOpen={openRow}
+          strip={
+            <>
+              {state}
+              {views}
+              <span className="armada-lessons__strip-end">{review}</span>
+            </>
+          }
+        />
       ) : (
         <>
-          {embedded ? null : <h1 className="armada-page__title">Retros</h1>}
+          <h1 className="armada-page__title">Retros</h1>
           <div className="armada-lessons__bar">
             {/* Where the fix lands, one place a tab. No count on any of them. */}
-            {embedded ? null : (
-              <Tabs
-                items={[...LESSONS_TABS]}
-                value={showing}
-                onChange={(id) => {
-                  const next = id as LessonsTab;
-                  setHeld(next);
-                  onTab?.(next);
-                }}
-              />
-            )}
-            <Tabs items={VIEWS} value={view} onChange={(id) => setView(id as LessonsView)} />
-            {onReviewLessons === undefined || onAskLesson === undefined ? null : (
-              <Button
-                size="sm"
-                onClick={() => {
-                  // The review is of the open items, so the list it resolves them from is the open one.
-                  setView("open");
-                  reviews.setReviewing(true);
-                }}
-              >
-                Review
-              </Button>
-            )}
+            <Tabs
+              items={[...LESSONS_TABS]}
+              value={showing}
+              onChange={(id) => {
+                const next = id as LessonsTab;
+                setHeld(next);
+                onTab?.(next);
+              }}
+            />
+            {views}
+            {review}
           </div>
-          {/* Before the read answers, and with nothing under the tab, nothing is drawn. */}
-          {/* Inside the Logbook the items are a list and the one open beside it, as the entries are. */}
-          {embedded ? <LessonSplit rows={rows} onOpen={openRow} /> : <LessonList rows={rows} onOpen={openRow} />}
+          <LessonList rows={rows} onOpen={openRow} />
         </>
       )}
       {open === null ? null : (
@@ -255,6 +290,27 @@ export function Lessons({
         />
       )}
     </div>
+  );
+}
+
+/**
+ * What the Retros page draws in place of its list, in a panel under its own strip when the Logbook holds it, so the State menu is
+ * where it is on the list. Drawn alone, the page's own bar stays where it was.
+ */
+function Framed({ embedded, strip, bar, children }: { embedded: boolean; strip: ReactNode; bar?: ReactNode; children: ReactNode }) {
+  if (!embedded) {
+    return (
+      <>
+        {bar}
+        {children}
+      </>
+    );
+  }
+  return (
+    <section className="armada-logbook__card armada-lessons-framed">
+      <div className="armada-logbook__band armada-logbook__strip">{strip}</div>
+      <div className="armada-lessons-framed__body">{children}</div>
+    </section>
   );
 }
 
