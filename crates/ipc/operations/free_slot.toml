@@ -1,0 +1,14 @@
+[operations.free_slot]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The person gives back a slot another Job holds, to the Job whose full-pool call lists it"
+notes = """
+`POST /sessions/slot_choice/free`, body `FreeSlot`: `session_id` (the waiting Job), `item_id` (its `slot_choice` item, `slot-choice`) and `slot`. Answered with the waiting Job's `SessionRecord`.
+
+**Only the person's press.** `agent_access` is `No`, and no path of Fleet's calls it: Fleet never frees a slot by itself, so a Job it does not name keeps its slot however long it has been quiet. The call lists a slot under `holders` only where a Job Fleet hosts holds it, longest quiet first; a slot a terminal or a person holds has no row.
+
+**Fleet looks again at the press, and refuses with nothing changed.** An item that is gone (the Job was granted a slot, left the line, or was answered Wait) is the 409 `answer_waiting` gives. A holder whose turn is running is a 409 `fleet.slot_session_working`, and one whose checkout holds files no commit has is a 409 `fleet.slot_uncommitted`: the row says which, in `keeps`, and Free is off there. A slot that is not held by the Job the row named, whether given back or leased again since, is a 409 `fleet.slot_holder_changed`.
+
+**What a free does.** The holder is parked as `change_slot_pool`'s `release` parks a Job's bay: its process is let go, its `slot` and `branch` ledger rows are given back, and its next message leases a slot again, so the Job is not ended. The slot then goes to the waiting Job ahead of the line, and the other waiting Jobs' rows drop it at once. **A free works while *Add a slot* is under way** for the same Job: the Job goes on with the freed slot, and the new slot, made after, stays free for the next Job.
+"""

@@ -212,6 +212,7 @@ mod session_mcp;
 /// The replies a Job's quick bar offers that no setting holds. `get_session_quick`.
 mod session_quick;
 mod slot_asking;
+mod slot_choice;
 mod session_retro_row;
 mod session_starts;
 mod session_waits;
@@ -598,6 +599,7 @@ pub use servers::{
     NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage,
     ServerOpened, ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
+pub use slot_choice::{FreeSlot, SlotHolder, SlotHolderJob, SlotKeeps};
 pub use slot_asking::{
     AskForSlot, AskForSlotAct, SlotAsked, SlotAskStanding,
 };

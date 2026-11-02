@@ -77,6 +77,7 @@ mod system;
 pub(crate) mod proposing;
 pub mod queueing;
 pub(crate) mod slot_asking;
+mod slot_holders;
 pub(crate) mod releasing;
 mod rows;
 #[cfg(test)]

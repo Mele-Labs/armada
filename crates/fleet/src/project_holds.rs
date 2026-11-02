@@ -53,6 +53,9 @@ pub(crate) fn task_done_item(asked: &KeptAsked) -> WaitingItem {
         steps: Vec::new(),
         place: None,
         confirmed: false,
+        holders: Vec::new(),
+        creating_since: None,
+        create_refused: None,
     }
 }
 

@@ -213,6 +213,9 @@ pub(crate) fn step_reply_item(step: &str, ended: &str) -> WaitingItem {
         steps: Vec::new(),
         place: None,
         confirmed: false,
+        holders: Vec::new(),
+        creating_since: None,
+        create_refused: None,
     }
 }
 
@@ -291,6 +294,9 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
             steps: Vec::new(),
             place: None,
             confirmed: false,
+            holders: Vec::new(),
+            creating_since: None,
+            create_refused: None,
         };
     }
     WaitingItem {
@@ -312,6 +318,9 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
         steps: Vec::new(),
         place: None,
         confirmed: false,
+        holders: Vec::new(),
+        creating_since: None,
+        create_refused: None,
     }
 }
 
@@ -342,6 +351,9 @@ pub(crate) fn merged(
         steps: Vec::new(),
         place: None,
         confirmed: false,
+        holders: Vec::new(),
+        creating_since: None,
+        create_refused: None,
     }));
     let same = |item: &WaitingItem, act: &Option<(String, String)>| {
         matches!((&item.act, act), (Some(a), Some((kind, target)))
@@ -375,6 +387,9 @@ pub(crate) fn merged(
             steps: one.steps,
             place: None,
             confirmed: false,
+            holders: Vec::new(),
+            creating_since: None,
+            create_refused: None,
         })
         .collect();
     items.extend(
@@ -427,6 +442,9 @@ where
                     steps: one.steps,
                     place: None,
                     confirmed: false,
+                    holders: Vec::new(),
+                    creating_since: None,
+                    create_refused: None,
                 };
                 Some(ipc::ClosedWaiting { item, at: Instant::carried(&one.closed_at), ended })
             })
@@ -506,6 +524,9 @@ where
                     steps: Vec::new(),
                     place: None,
                     confirmed: false,
+                    holders: Vec::new(),
+                    creating_since: None,
+                    create_refused: None,
                 });
             }
         }
@@ -580,6 +601,9 @@ where
                     steps: Vec::new(),
                     place: None,
                     confirmed: false,
+                    holders: Vec::new(),
+                    creating_since: None,
+                    create_refused: None,
                 });
             }
             // A Job its agent started waits on the person's Start; answering or dismissing it is refused.
@@ -640,6 +664,9 @@ where
                         steps: Vec::new(),
                         place: Some(place),
                         confirmed: false,
+                        holders: Vec::new(),
+                        creating_since: None,
+                        create_refused: None,
                     })
                 }
                 SessionRow::Draft { id, at, title, settled: None, change, .. } => {
@@ -662,6 +689,9 @@ where
                         steps: Vec::new(),
                         place: None,
                         confirmed: false,
+                        holders: Vec::new(),
+                        creating_since: None,
+                        create_refused: None,
                     })
                 }
                 _ => None,

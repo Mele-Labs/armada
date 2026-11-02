@@ -122,6 +122,9 @@ mod tests {
             steps: Vec::new(),
             place: None,
             confirmed: false,
+            holders: Vec::new(),
+            creating_since: None,
+            create_refused: None,
         }
     }
 

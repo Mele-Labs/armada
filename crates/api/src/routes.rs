@@ -376,6 +376,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::answer_waiting::<D>),
         )
         .route(
+            "/sessions/slot_choice/free",
+            post(crate::hosted_sessions::free_slot::<D>),
+        )
+        .route(
             "/sessions/waiting/dismiss",
             post(crate::hosted_sessions::dismiss_waiting::<D>),
         )

@@ -265,6 +265,14 @@ impl<F> Vcs for GitVcs<F> {
         crate::leasing::hosted::standing(pool, slot, job_id)
     }
 
+    fn make_slot(&self, pool: &SlotPool, slot: u32) -> Result<(), String> {
+        noted(crate::leasing::hosted::make(pool, slot))
+    }
+
+    fn slot_dirty(&self, pool: &SlotPool, slot: u32) -> Result<bool, String> {
+        crate::leasing::hosted::dirty(pool, slot)
+    }
+
     fn slot_after_merge(&self, pool: &SlotPool, slot: u32, merged: &str) -> adapter_traits::SlotAfterMerge {
         crate::leasing::hosted::after_merge(pool, slot, merged)
     }
