@@ -91,6 +91,12 @@ function opened(
   return { read, agree, disagree, start, open: openSession };
 }
 
+/** Picks Open or Accepted from the Show menu, which is where the page keeps them now. */
+const inView = async (name: "Open" | "Accepted") => {
+  await page.getByRole("button", { name: "Show" }).click();
+  await page.getByRole("menuitem", { name }).click();
+};
+
 const card = (title: RegExp | string) => page.getByRole("listitem").filter({ hasText: title });
 
 /** The label row's words in a card or a sheet. The marks beside them carry a tooltip's copy of each. */
@@ -257,7 +263,7 @@ test("a refused Update Kit shows the card's alert in Fleet's own words and keeps
 test("Accepted reads Updated Kit and the command on an item that applied one, and nothing on one that did not", async () => {
   const applied = lesson({ ...KIT_CHANGE, id: "l-applied", state: "accepted", applied: COMMAND });
   opened([], [applied, SAVED]);
-  await page.getByRole("tab", { name: "Accepted", exact: true }).click();
+  await inView("Accepted");
   await expect.element(card(/refused grep on a check log/).getByText("Updated Kit", { exact: true })).toBeVisible();
   await expect.element(card(/refused grep on a check log/).getByText("grep -n", { exact: true })).toBeVisible();
   expect(card(/allowed once already/).getByText("Updated Kit").elements()).toHaveLength(0);
@@ -270,19 +276,20 @@ test("a refused answer says why, and the item stays with both answers", async ()
   expect(card(/grep to be allowed/).getByRole("button", { name: /^(Start Job|Accept|Reject change)$/ }).elements()).toHaveLength(2);
 });
 
-test("Open and Accepted sit beside the places, and Accepted reads the saved items with no answers on them", async () => {
+test("Open and Accepted are a menu beside the places, and Accepted reads the saved items with no answers on them", async () => {
   const { read } = opened([ARMADA], [SAVED]);
   await expect.element(card(/blamed the Drone/)).toBeVisible();
   expect(read).toHaveBeenLastCalledWith("open");
-  await page.getByRole("tab", { name: "Accepted", exact: true }).click();
+  await inView("Accepted");
   await expect.element(card(/allowed once already/)).toBeVisible();
   expect(read).toHaveBeenLastCalledWith("accepted");
   expect(card(/blamed the Drone/).elements()).toHaveLength(0);
   expect(card(/allowed once already/).getByRole("button", { name: /^(Start Job|Accept|Reject change)$/ }).elements()).toHaveLength(0);
-  await page.getByRole("tab", { name: "Open", exact: true }).click();
+  await inView("Open");
   await expect.element(card(/blamed the Drone/)).toBeVisible();
+  // The places stay tabs; Open and Accepted are not among them.
   const tabs = page.getByRole("tab").elements().map((t) => t.textContent);
-  expect(tabs).toEqual(["All", "Armada", "Kit", "Manifest", "Open", "Accepted"]);
+  expect(tabs).toEqual(["All", "Armada", "Kit", "Manifest"]);
 });
 
 test("opening an item from an older Session retro reads that retro, and an unnumbered item reads the newest", async () => {
@@ -301,7 +308,7 @@ test("opening an item from an older Session retro reads that retro, and an unnum
 
 test("an empty list draws nothing", async () => {
   opened([]);
-  await expect.element(page.getByRole("tab", { name: "Open", exact: true })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Show" })).toBeVisible();
   expect(page.getByRole("list", { name: "Retros" }).elements()).toHaveLength(0);
 });
 
@@ -355,6 +362,26 @@ test("the retro sheet draws the same item, keeps its evidence behind a control, 
   await sheet.getByRole("button", { name: "Start Job", exact: true }).click();
   expect(start).toHaveBeenCalledWith("l-armada");
   await expect.element(sheet.getByText("Job started")).toBeVisible();
+});
+
+test("the retro sheet draws each item's answers in its card, ghost, and no head holds them", async () => {
+  mount(
+    <SessionRetroSheet
+      subject={{ kind: "session", id: "s-01K6Q3" }}
+      session="Retire two guides"
+      read={async () => ({ ok: true, retro: RETRO })}
+      onAgreeLesson={async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } })}
+      onDisagreeLesson={async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } })}
+      sessions={{ start: async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } }), open: () => {} }}
+      floor={false}
+      onClose={() => {}}
+    />,
+  );
+  const card = page.getByRole("dialog", { name: "Retro" }).getByRole("listitem");
+  for (const name of ["Start Job", "Reject change"]) {
+    await expect.element(card.getByRole("button", { name, exact: true })).toBeVisible();
+    await expect.element(card.getByRole("button", { name, exact: true })).toHaveAttribute("data-variant", "ghost");
+  }
 });
 
 test("the retro sheet shows an answered item as it stands, and offers buttons only on an open one", async () => {
