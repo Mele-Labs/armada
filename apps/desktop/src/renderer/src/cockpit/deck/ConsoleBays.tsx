@@ -26,6 +26,7 @@ import { Button, Kbd, Tooltip } from "@armada/components";
 
 import { ActivityHud } from "./ConsoleHud";
 import { toggleCalls, useCallsHud } from "./ConsoleCalls";
+import { useTimelineHud } from "./ConsoleTimeline";
 import { FlightActionSheet } from "./FlightActionSheet";
 import { entriesOf, isWebAddress, saveFlight, tilesOf, useFlightFile } from "./flight-controls";
 import { glyphOf } from "./flight-glyphs";
@@ -170,6 +171,8 @@ export type Wiring = {
   press: (tile: string) => void;
   /** A Job is asking him. */
   calling: boolean;
+  /** Something came in since he last closed the Timeline HUD. */
+  lamp: boolean;
   /** The Activity graph, drawn into the scope, and at the HUD's size; absent where a layout hides Activity. */
   scope?: {
     small: ReactNode;
@@ -194,6 +197,7 @@ function Key({ id, wiring }: { id: InstrumentId; wiring: Wiring }) {
   // The Calls facet opens the Calls HUD.
   const calls = tileId === "needs";
   const hud = useCallsHud();
+  const timeline = useTimelineHud();
   return (
     <Tooltip
       label={TIP_OF[tileId] ?? label}
@@ -211,7 +215,10 @@ function Key({ id, wiring }: { id: InstrumentId; wiring: Wiring }) {
         data-key={tile?.key}
         data-tile={tileId}
         data-calling={calls && wiring.calling ? "" : undefined}
-        aria-pressed={calls ? hud.open : wiring.pressed(tileId)}
+        data-lamp={tileId === "timeline" && wiring.lamp ? "" : undefined}
+        aria-pressed={
+          calls ? hud.open : tileId === "timeline" ? timeline.open : wiring.pressed(tileId)
+        }
         onClick={() => (calls ? toggleCalls() : wiring.press(tileId))}
       >
         <Glyph size={20} aria-hidden="true" />
@@ -452,6 +459,7 @@ export function ConsoleBays({ wiring }: { wiring: Wiring }) {
           kind,
           pressed: el.querySelector("[aria-pressed='true']") !== null,
           calling: el.querySelector("[data-calling]") !== null,
+          lamp: el.querySelector("[data-lamp]") !== null,
           lit: el.matches(":hover, :focus-within"),
           focused:
             el.querySelector(":is(.deck-tile, .console-scope__press):focus-visible") !== null,

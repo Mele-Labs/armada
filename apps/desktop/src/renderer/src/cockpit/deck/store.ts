@@ -10,7 +10,6 @@ import {
   DECK_FILTERS_KEY,
   DECK_ORDER_KEY,
   DECK_SCOPE_KEY,
-  DECK_VIEW_KEY,
   readRemembered,
   writeRemembered,
 } from "../../remembered-views";
@@ -27,7 +26,6 @@ export type Sel = {
   kind: "session" | "call" | "autopilot";
   key: string;
 };
-export type DeckView = "map" | "timeline";
 /** What the list holds: the live Sessions, the ones he paused, the Sessions Fleet cannot reach, the ones that ended, or every one of them. */
 export type Scope = "active" | "paused" | "quiet" | "ended" | "all";
 export const SCOPES: readonly {
@@ -83,7 +81,6 @@ export type DeckState = {
   cursor: string | undefined;
   /** The Session under the pointer or the keys, in the list or by a bay it holds: the other lights too. */
   hover: string | undefined;
-  view: DeckView;
   /** Narrowed to what has a Check running now. */
   checks: boolean;
   scope: Scope;
@@ -103,11 +100,12 @@ export type DeckState = {
   here: boolean;
   /** What was open when a holder was opened from it (a bay's history), so that back returns to it and not to the map. */
   from: Sel | undefined;
+  /** What back does instead of going to the map, where a HUD opened what is open: it comes back up. */
+  back: (() => void) | undefined;
   /** What the area held when Autopilot took it over, and comes back to when it is switched off. */
   before:
     | {
         sel: Sel | undefined;
-        view: DeckView;
       }
     | undefined;
   /** A light on the merge queue that a call asked to open its card: the light pins it and lets go of the ask. */
@@ -116,7 +114,6 @@ export type DeckState = {
   homed: number;
 };
 
-const viewNamed = (value: string | null): DeckView => (value === "timeline" ? "timeline" : "map");
 const filtersNamed = (value: string | null): string => value ?? "";
 const scopeNamed = (value: string | null): Scope =>
   SCOPES.find((one) => one.id === value)?.id ?? "active";
@@ -142,7 +139,6 @@ function fresh(): DeckState {
     replay: undefined,
     cursor: undefined,
     hover: undefined,
-    view: readRemembered(DECK_VIEW_KEY, viewNamed),
     checks: filters.includes("checks"),
     scope: readRemembered(DECK_SCOPE_KEY, scopeNamed),
     order: orderRead(),
@@ -153,6 +149,7 @@ function fresh(): DeckState {
     held: new Map(),
     here: true,
     from: undefined,
+    back: undefined,
     before: undefined,
     homed: 0,
   };
@@ -160,9 +157,8 @@ function fresh(): DeckState {
 let state: DeckState = fresh();
 const listeners = new Set<() => void>();
 const subscribe = (on: () => void) => (listeners.add(on), () => void listeners.delete(on));
-/** The map is what the stage shows: no Job, call or Autopilot open, and the Map view chosen. */
-const onMap = (deck: Pick<DeckState, "sel" | "view">) =>
-  deck.sel === undefined && deck.view === "map";
+/** The map is what the stage shows: no Job, call or Autopilot open. */
+const onMap = (deck: Pick<DeckState, "sel">) => deck.sel === undefined;
 const set = (change: Partial<DeckState>) => {
   const was = onMap(state);
   state = {
@@ -250,6 +246,7 @@ export const select = (sel: Sel | undefined) => {
   set({
     sel,
     from: undefined,
+    back: undefined,
     ...(sel === undefined
       ? {}
       : {
@@ -285,37 +282,45 @@ export const openSubject = (ship: Pick<Ship, "subjects">, subject: Subject): voi
   if (linkedPair(open, subject)) openLinked(selOfSubject(subject));
   else select(selOfSubject(subject));
 };
-/** Back from what is open: to what it was opened from, else to the map or timeline. */
-export const goBack = () =>
-  state.from === undefined
-    ? select(undefined)
-    : set({
-        sel: state.from,
-        from: undefined,
-        ...(state.from.kind === "session"
-          ? {
-              cursor: state.from.key,
-            }
-          : {}),
-      });
+/** Back from what is open: to what it was opened from, else to the map. */
+export const goBack = () => {
+  if (state.from !== undefined)
+    return set({
+      sel: state.from,
+      from: undefined,
+      ...(state.from.kind === "session"
+        ? {
+            cursor: state.from.key,
+          }
+        : {}),
+    });
+  const { back } = state;
+  select(undefined);
+  back?.();
+};
+/** Opens a thing from a HUD, which back brings up again. */
+export const openWithBack = (sel: Sel, back: () => void) => {
+  select(sel);
+  set({
+    back,
+  });
+};
 export const moveCursor = (key: string | undefined) => {
   if (state.cursor !== key)
     set({
       cursor: key,
     });
 };
-/** Choosing a view is going back to it: what was open in the area is put away. */
-export const setView = (view: DeckView) => {
-  writeRemembered(DECK_VIEW_KEY, view);
-  // The Map key with the map already the stage is the way back to the whole field.
-  if (view === "map" && onMap(state))
+/** The map: what was open in the area is put away. With the map already the stage, the Map key is the way back to the whole field. */
+export const showMap = () => {
+  if (onMap(state))
     return set({
       homed: state.homed + 1,
     });
   set({
-    view,
     sel: undefined,
     from: undefined,
+    back: undefined,
   });
 };
 /** Autopilot's configuration takes the area, and what was open is kept to come back to. */
@@ -324,7 +329,6 @@ export const enterAutopilot = () => {
   set({
     before: {
       sel: state.sel,
-      view: state.view,
     },
     sel: {
       kind: "autopilot",
@@ -337,7 +341,6 @@ export const leaveAutopilot = () => {
   const before = state.before;
   set({
     sel: before?.sel,
-    view: before?.view ?? state.view,
     before: undefined,
   });
 };
@@ -349,7 +352,6 @@ export const setFocus = (id: string | undefined, subject?: string) =>
     ...(id === undefined || state.focus === id
       ? {}
       : {
-          view: "map" as const,
           sel: undefined,
           ...(subject === undefined
             ? {}
@@ -370,7 +372,6 @@ export const startReplay = (from: number) => {
       plays: [],
       run: runs,
     },
-    view: "map",
     sel: undefined,
   });
 };

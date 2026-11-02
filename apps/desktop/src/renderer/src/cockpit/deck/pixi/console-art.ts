@@ -30,7 +30,8 @@ export type Dot = {
 export type BayState = {
   kind: Kind | null;
   pressed: boolean;
-  calling: boolean;
+  calling: boolean /** Something new to read: steady, as a call pulses. */;
+  lamp?: boolean;
   lit: boolean;
   focused: boolean;
   dots?: readonly Dot[] /** The registry glyph a `key` facet wears. */;
@@ -634,7 +635,7 @@ const INSTRUMENTS: Record<Exclude<Kind, "dispatch">, Instrument> = {
     fixed(g, b) {
       grid(g, b, Math.max(3, Math.round(b.w / 30)), 3);
     },
-    live(g, b, _s, t) {
+    live(g, b, s, t) {
       const period = Math.max(26, b.w / 3.4);
       const k = period / 40;
       const amp = Math.min(1, (b.h * 0.4) / 17);
@@ -661,6 +662,13 @@ const INSTRUMENTS: Record<Exclude<Kind, "dispatch">, Instrument> = {
         join: "bevel",
       });
       g.rect(b.x + b.w * 0.55, b.y, Math.max(2, 2.4 * b.u), b.h).fill(b.tone.ask);
+      if (s.lamp === true) {
+        const r = Math.max(3.5, 4 * b.u);
+        const x = b.x + b.w - r * 2;
+        const y = b.y + r * 2;
+        g.circle(x, y, r + 1.5).fill(b.mat.hood);
+        g.circle(x, y, r).fill(b.tone.fg);
+      }
     },
   },
   scope: {

@@ -10,10 +10,13 @@ vi.mock("./projects-tab/keys", () => ({
   focusAddTask,
 }));
 vi.mock("./cockpit/deck/store", () => ({
-  setView: vi.fn(),
+  showMap: vi.fn(),
+}));
+vi.mock("./cockpit/deck/ConsoleTimeline", () => ({
+  showTimeline: vi.fn(),
 }));
 
-import { setView } from "./cockpit/deck/store";
+import { showTimeline } from "./cockpit/deck/ConsoleTimeline";
 import { pageOf } from "./palette-page";
 import { carryOutRow, type RowWorld } from "./palette-rows";
 
@@ -190,7 +193,7 @@ describe("choosing a page's row", () => {
       },
       all,
     );
-    expect(setView).toHaveBeenCalledWith("timeline");
+    expect(showTimeline).toHaveBeenCalled();
     carryOutRow(
       {
         of: "page",

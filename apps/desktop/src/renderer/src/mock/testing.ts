@@ -52,17 +52,16 @@ export function mount(scenario: string | Scenario, options?: FakeOptions): Mount
   // So is the Dashboard's filter and its grid or map: a test that flipped either must not leak.
   localStorage.removeItem("armada.bridge.dashboard-tab");
   localStorage.removeItem("armada.bridge.cockpit-view");
-  localStorage.removeItem("armada.bridge.cockpit-timeline-take");
-  // And the flight deck's: the switch, its view and its filters.
+  // And the flight deck's: the switch, its filters and when the timeline was last closed.
   for (const key of [
     "deck-preview",
     "deck-system",
-    "deck-view",
     "deck-job-view",
     "deck-only",
     "deck-filters",
     "deck-scope",
     "deck-order",
+    "timeline-since",
   ])
     localStorage.removeItem(`armada.bridge.${key}`);
   for (const [key, value] of Object.entries(remembered)) localStorage.setItem(key, value);

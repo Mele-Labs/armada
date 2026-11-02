@@ -8,15 +8,28 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
   type RefObject,
 } from "react";
+import { BellRing, CircleX, GitMerge, SquareTerminal } from "lucide-react";
 import { Stamp, Tooltip } from "@armada/components";
 import type { DashboardTab } from "@armada/overview";
 import type { MergeLineView } from "@armada/screens";
 
-import { QUIET_KINDS, titleOf, type FleetEvent, type Subject } from "./fleet-events";
-import { GLYPH, STANDING_MARK, toneOf, useLanes, type Of } from "./Timeline";
+import { useSessions } from "../sessions-draft";
+import { stateOf } from "../session-state";
+import { useDrawnEvents } from "./drawn-events";
+import {
+  QUIET_KINDS,
+  lanesFor,
+  lanesOf,
+  titleOf,
+  type EventTone,
+  type FleetEvent,
+  type Lane,
+  type Subject,
+} from "./fleet-events";
 import "./activity-chart.css";
 
 const MINUTE = 60_000;
@@ -29,7 +42,72 @@ const MOST_CARD = 8;
 const NEAR = 1.5 * MINUTE;
 const NO_VIEWS: readonly MergeLineView[] = [];
 
+const TONE: Record<EventTone, string> = {
+  run: "var(--status-running)",
+  ask: "var(--status-awaiting-review)",
+  bad: "var(--status-completed-failed)",
+  ok: "var(--status-completed-success)",
+  idle: "var(--status-not-started)",
+};
+const toneOf = (tone: EventTone) =>
+  ({
+    ["--tone" as string]: TONE[tone],
+  }) as CSSProperties;
+const GLYPH = {
+  session: SquareTerminal,
+  main: GitMerge,
+};
+
 const newestFirst = (a: FleetEvent, b: FleetEvent) => Date.parse(b.at) - Date.parse(a.at);
+
+/** The Session the chart narrows to. */
+export type Of = {
+  kind: "session";
+  id: string;
+};
+
+/**
+ * Fleet's events named from what the window holds, narrowed by the filter and by `keep`. `most` keeps the newest that many events **of the
+ * subjects `keep` and `of` leave**, before the lanes are read, so a narrowed chart is never emptied by newer events of subjects it does not show.
+ */
+function useLanes(
+  now: number,
+  views: readonly MergeLineView[],
+  filter: DashboardTab,
+  keep: ((subject: Subject) => boolean) | undefined,
+  of: Of | undefined,
+  most: number,
+): Lane[] {
+  const sessions = useSessions();
+  const events = useDrawnEvents(views);
+  return useMemo(() => {
+    const drawn = events
+      .filter((one) =>
+        of !== undefined
+          ? one.subject.kind === of.kind && "id" in one.subject && one.subject.id === of.id
+          : keep === undefined || keep(one.subject),
+      )
+      .sort(newestFirst)
+      .slice(0, most);
+    const all = lanesOf(drawn, (id) => {
+      const held = sessions.find((one) => one.id === id);
+      return held === undefined ? undefined : stateOf(held).state;
+    });
+    // One Session picked: its lane alone, whatever its standing. A Session's subagents are events on its own lane.
+    if (of !== undefined)
+      return all.filter((lane) => lane.subject.kind === of.kind && lane.subject.id === of.id);
+    return lanesFor(all, filter).filter((lane) => keep === undefined || keep(lane.subject));
+  }, [
+    events,
+    now,
+    filter,
+    sessions,
+    keep,
+    of?.kind,
+    of?.id,
+    most,
+  ]);
+}
 
 /** What a card says: its newest events, each as the stacked row draws one, the glyph in the event's colour. Nothing in it can be pressed. */
 function Hour({ events, lit }: { events: readonly FleetEvent[]; lit: string | undefined }) {
@@ -37,12 +115,7 @@ function Hour({ events, lit }: { events: readonly FleetEvent[]; lit: string | un
     <span className="armada-tl__tip armada-tl__hour">
       {events.slice(0, MOST_CARD).map((event) => {
         const Kind = GLYPH[event.subject.kind];
-        const Owed =
-          event.tone === "ask"
-            ? STANDING_MARK.ask.icon
-            : event.tone === "bad"
-              ? STANDING_MARK.bad.icon
-              : undefined;
+        const Owed = event.tone === "ask" ? BellRing : event.tone === "bad" ? CircleX : undefined;
         return (
           <span
             key={event.id}

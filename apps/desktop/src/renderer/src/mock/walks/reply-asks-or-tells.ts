@@ -4,7 +4,6 @@
 
 import { button, deckRow, inside, region, role, text, walk } from "../walk";
 
-const timeline = region("Timeline");
 const list = region("Jobs", {
   exact: true,
 });
@@ -31,18 +30,6 @@ const replyAsksOrTells = walk("reply-asks-or-tells", [
     key: "c",
     on: list,
     say: "c goes to the first row that needs him",
-  },
-  {
-    press: inside(region(/^Flight control/), button(/^Timeline/)),
-    say: "The Timeline, from the flight controls",
-  },
-  {
-    look: inside(timeline, role("list", "Needs you")),
-    say: "The lane that needs him pulses",
-  },
-  {
-    look: inside(timeline, role("list", "Waiting")),
-    say: "The lanes that told wear the same faint mark",
   },
   {
     press: deckRow("Retry cap"),

@@ -27,6 +27,7 @@ import { forgetFirsts } from "../run-book";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
 import { AreasFrom } from "../cockpit/deck/areas-source";
+import { forgetTimeline } from "../cockpit/deck/ConsoleTimeline";
 import { forgetDeck } from "../cockpit/deck/store";
 import { skipsMods } from "../theme-loader";
 import { Themed } from "../theme";
@@ -201,7 +202,10 @@ export function mountApp(
   if (shared === undefined && chosen.name === "question-ticket-links")
     seedJiraKey(repository().root, "ops", "acme.atlassian.net");
   // Every window starts with the deck as it begins.
-  if (shared === undefined) forgetDeck();
+  if (shared === undefined) {
+    forgetDeck();
+    forgetTimeline();
+  }
   // A run kept past its card belongs to the Fleet that ran it.
   if (shared === undefined) forgetKeptRuns();
   // And with no repository having shown its first Job's card.

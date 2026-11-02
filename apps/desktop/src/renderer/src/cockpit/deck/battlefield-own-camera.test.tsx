@@ -8,7 +8,7 @@ import { afterEach, expect, test } from "vitest";
 
 import { Battlefield } from "./Battlefield";
 import type { DroneIn, RepoIn } from "./layout";
-import { camera, forgetDeck, setView } from "./store";
+import { camera, forgetDeck, showMap } from "./store";
 
 (
   globalThis as {
@@ -214,7 +214,7 @@ test("the Map key pressed on the map at rest sends a zoomed camera back to the w
   const zoomed = seen(field.host);
   expect(seen(map.host)).not.toBe(whole);
 
-  act(() => setView("map"));
+  act(() => showMap());
   await settle();
   expect(seen(map.host)).toBe(whole);
   expect(seen(field.host)).toBe(zoomed);

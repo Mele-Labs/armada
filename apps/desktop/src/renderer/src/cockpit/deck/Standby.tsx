@@ -2,7 +2,6 @@
 // middle, lit once as the panel comes online (`power.css`). No text, nothing to press, and nothing drawn once the deck is live.
 
 import {
-  ChartNoAxesGantt,
   ClipboardList,
   Gauge,
   Merge,
@@ -22,7 +21,6 @@ export type StandbyKind =
   | "queue"
   | "dispatch"
   | "autopilot"
-  | "timeline"
   | "ledger";
 
 /** Each panel's glyph, from the registry. */
@@ -33,7 +31,6 @@ const GLYPHS: Record<StandbyKind, LucideIcon> = {
   queue: Merge,
   dispatch: Send,
   autopilot: Plane,
-  timeline: ChartNoAxesGantt,
   ledger: NotebookText,
 };
 

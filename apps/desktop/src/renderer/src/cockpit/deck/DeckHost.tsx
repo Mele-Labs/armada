@@ -35,6 +35,7 @@ import { neighbourOf } from "./reorder";
 import { opensFor, placesOff } from "./system-page";
 import { TabBar } from "./TabBar";
 import { toggleLayer } from "../../session-view/layers";
+import { showTimeline, toggleTimeline } from "./ConsoleTimeline";
 import {
   callTrail,
   deckNow,
@@ -52,7 +53,7 @@ import {
   setFocus,
   setHere,
   setSearching,
-  setView,
+  showMap,
   showRows,
   useDeck,
 } from "./store";
@@ -467,13 +468,12 @@ export function DeckHost({
     }
     if (isPressed("deck_timeline", event)) {
       event.preventDefault();
-      setView("timeline");
-      return focusSoon("stage");
+      return state.sel !== undefined ? showTimeline() : toggleTimeline();
     }
     // `m` is the Dashboard's switch between its views, read by the deck as the map.
     if (isPressed("dashboard_view", event)) {
       event.preventDefault();
-      setView("map");
+      showMap();
       return focusSoon("stage");
     }
     // Zoom is the map's wherever focus is, while the map is what the stage is showing.
@@ -487,8 +487,7 @@ export function DeckHost({
         "Home",
       ].includes(event.key) &&
       !event.shiftKey &&
-      state.sel === undefined &&
-      state.view === "map"
+      state.sel === undefined
     ) {
       const field = document.querySelector(".bf");
       if (field !== null && !field.contains(target)) {
@@ -585,10 +584,6 @@ export function DeckHost({
         // A picked event lets go.
         event.preventDefault();
         setFocus(undefined);
-      } else if (state.view === "timeline") {
-        // The Timeline was what a bay's press opened: Esc closes it back to the map, drawn whole. A Job opened from it went back to it first, above.
-        event.preventDefault();
-        setView("map");
       } else if (state.cursor !== undefined) {
         // Then the cursor: no row is picked, and the map holds no drone's card.
         event.preventDefault();

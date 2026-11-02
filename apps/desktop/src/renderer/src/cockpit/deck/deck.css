@@ -116,7 +116,7 @@
   flex: 1 1 0;
 }
 
-/* Ending a Job: a copy of its pane leaves over the stage while the timeline is already there. `exit.ts` plays it (Web Animations, opacity and transform only), at the rect it measured. */
+/* Ending a Job: a copy of its pane leaves over the stage while the map is already there. `exit.ts` plays it (Web Animations, opacity and transform only), at the rect it measured. */
 .deck-ghost {
   position: absolute;
   z-index: 1;
@@ -872,10 +872,9 @@
   padding: var(--space-3);
 }
 
-/* ---- The timeline -------------------------------------------------------------------------------------------- */
+/* ---- The map -------------------------------------------------------------------------------------------------- */
 
-.deck-map,
-.deck-timeline {
+.deck-map {
   position: relative;
   display: flex;
   flex: 1 1 0;
@@ -888,10 +887,6 @@
 .deck-map {
   padding: 0;
   overflow: hidden;
-}
-.deck-timeline > * {
-  flex: 1 1 auto;
-  min-width: 0;
 }
 
 /* ---- The merge queue: one row in a glass panel under the stage, as dots or as chips -------------------- */

@@ -1,7 +1,8 @@
 // What happened across the Fleet, over Fleet: the last two hours read when the timeline first draws and once
 // Fleet is connected, then each `timeline.appended` added as it arrives. Fleet numbers an entry as it writes
-// it, so a read and an append that overlap never draw it twice. The mock's Fleet answers neither call, and
-// a scenario hands its entries to the window directly.
+// it, so a read and an append that overlap never draw it twice. Further back than the two hours, as far as
+// `reach` says, only what a Job came to is kept: the Timeline HUD's list runs from when he last closed it. The
+// mock's Fleet answers neither call, and a scenario hands its entries to the window directly.
 
 import type { TimelineAsk, TimelineEvent } from "@armada/protocol";
 
@@ -9,11 +10,19 @@ import type { FleetTimelineRead } from "../../shared/api/timeline";
 import type { BridgeState } from "../../shared/bridge";
 import { TICK_MS, throttled } from "./cockpit/deck/field";
 
-/** How far back the window reads. The lanes draw the last hour; the feed's earlier blocks reach past it. */
+/** How far back every entry is read. Activity draws the last hour and a bay's history the rest. */
 export const TIMELINE_WINDOW_MS = 2 * 60 * 60_000;
 
-/** Entries Bridge keeps in memory, the newest. */
+/** Entries Bridge keeps in memory, the newest, and the most Fleet answers at once. */
 const KEPT = 2000;
+
+/** What a Job came to: held past `KEPT` and past the window, since the Timeline HUD owes him each one until he closes it. */
+export const OUTCOME_KINDS: ReadonlySet<TimelineEvent["kind"]> = new Set([
+  "pr.merged",
+  "session.ended",
+  "main.red",
+  "main.green",
+]);
 
 /** What the timeline reads: the entries held, oldest first, kept current while something is subscribed. */
 export type TimelineSource = {
@@ -31,9 +40,11 @@ export type FleetTimelineHost = {
 
 const NONE: readonly TimelineEvent[] = [];
 
+/** `reach` is how far back, in epoch milliseconds, what a Job came to is still owed: read when a read starts. */
 export function createFleetTimeline(
   fleet: FleetTimelineHost,
   now: () => number = Date.now,
+  reach: () => number = () => now() - TIMELINE_WINDOW_MS,
 ): TimelineSource {
   let held: readonly TimelineEvent[] = NONE;
   let wasConnected = false;
@@ -54,27 +65,43 @@ export function createFleetTimeline(
       ]),
     );
     for (const one of more) seen.set(one.id, one);
-    held = [
+    const all = [
       ...seen.values(),
-    ]
-      .sort((a, b) => a.id - b.id)
-      .slice(-KEPT);
+    ].sort((a, b) => a.id - b.id);
+    held = [
+      ...all.slice(0, -KEPT).filter((one) => OUTCOME_KINDS.has(one.kind)),
+      ...all.slice(-KEPT),
+    ];
     tell.push();
   };
-  const read = (): void => {
-    const since = new Date(now() - TIMELINE_WINDOW_MS).toISOString();
-    void fleet
-      .getFleetTimeline({
+  // Fleet answers the newest of a window and says it cut the rest, so each page asks for what is older than the last one's oldest.
+  const read = async (): Promise<void> => {
+    const every = now() - TIMELINE_WINDOW_MS;
+    const since = new Date(Math.min(every, reach())).toISOString();
+    let until: string | undefined;
+    for (;;) {
+      const answer = await fleet.getFleetTimeline({
         since,
         limit: KEPT,
-      })
-      .then((answer) => {
-        if (answer.ok) merge(answer.value.events);
+        ...(until === undefined
+          ? {}
+          : {
+              until,
+            }),
       });
+      if (!answer.ok || stop === null) return;
+      merge(
+        answer.value.events.filter(
+          (one) => Date.parse(one.at) >= every || OUTCOME_KINDS.has(one.kind),
+        ),
+      );
+      until = answer.value.events[0]?.at;
+      if (answer.value.cut !== true || until === undefined) return;
+    }
   };
   const connectedIn = (facts: Pick<BridgeState, "connection">): void => {
     const connected = facts.connection.state === "connected";
-    if (connected && !wasConnected) read();
+    if (connected && !wasConnected) void read();
     wasConnected = connected;
   };
   const start = (): void => {
@@ -86,7 +113,7 @@ export function createFleetTimeline(
     );
     // Read at once whether or not Fleet answers: main answers from the picture it kept on disk until it does.
     void fleet.state().then((facts) => {
-      if (facts.connection.state !== "connected") read();
+      if (facts.connection.state !== "connected") void read();
       connectedIn(facts);
     });
     stop = () => {

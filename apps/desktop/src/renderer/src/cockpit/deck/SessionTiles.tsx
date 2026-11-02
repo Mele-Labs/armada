@@ -66,7 +66,7 @@ import {
   type SessionTileId,
 } from "./session-tiles";
 import { ShellBox, type ShellRun } from "./ShellBox";
-import { select, setView } from "./store";
+import { select, showMap } from "./store";
 import { openRequestsInPanel } from "../../shared-panel/store";
 import { focusKind } from "../../job-panes/focus";
 import { toggleLayer, useLayer } from "../../session-view/layers";
@@ -217,7 +217,7 @@ export function SessionTiles({
     compact: () =>
       typed("compact", tileById("compact").words ?? `/${COMPACT}`, compact?.how ?? "message"),
     report: () => setReporting((open) => !open),
-    map: () => setView("map"),
+    map: showMap,
     judge: () =>
       openJudge(session.id, {
         kind: "job",

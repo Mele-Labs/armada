@@ -194,7 +194,7 @@ function Graticule({ w, h }: { w: number; h: number }) {
 }
 
 /** Where the panel stands over the stage: the upper part of the field, leaving the rest of it open. */
-const panelOf = (stage: Box): Box => {
+export const panelOf = (stage: Box): Box => {
   const inset = Math.min(72, stage.width * 0.07);
   return {
     left: Math.round(stage.left + inset),
@@ -279,7 +279,7 @@ export function ConsoleHud({
   const [at, setAt] = useState<
     | {
         stage: Box;
-        facet: Box;
+        facet: Box | undefined;
       }
     | undefined
   >();
@@ -287,16 +287,17 @@ export function ConsoleHud({
   useLayoutEffect(() => {
     const stage = document.querySelector(".deck-stage");
     const from = facet.current;
-    if (stage === null || from === null) return;
+    if (stage === null) return;
+    // A key moved out of the bays leaves nothing to beam from, and the panel stands with no beam.
     const measure = () =>
       setAt({
         stage: boxOf(stage),
-        facet: boxOf(from),
+        facet: from === null ? undefined : boxOf(from),
       });
     measure();
     const watch = new ResizeObserver(measure);
     watch.observe(stage);
-    watch.observe(from);
+    if (from !== null) watch.observe(from);
     window.addEventListener("resize", measure);
     return () => {
       watch.disconnect();
@@ -323,6 +324,8 @@ export function ConsoleHud({
       )
         return;
       if (event.key === "Escape") {
+        // Taken already is the press that went back from a Job and brought this HUD up.
+        if (event.defaultPrevented) return;
         event.stopPropagation();
         event.preventDefault();
         // Words typed stay: the first Esc only leaves the box.
@@ -362,18 +365,25 @@ export function ConsoleHud({
   ]);
   if (at === undefined) return null;
   const box = place(at.stage);
-  const beam = beamOf(box, at.facet);
-  const edges = `M${beam.left} ${beam.foot}L${at.facet.left} ${at.facet.top}M${beam.right} ${beam.foot}L${at.facet.left + at.facet.width} ${at.facet.top}`;
+  const beam = at.facet === undefined ? undefined : beamOf(box, at.facet);
   return createPortal(
     <div className="console-hud" data-hud={kind}>
-      <svg className="console-hud__beam" aria-hidden="true">
-        <path
-          className="console-hud__beam-fill"
-          d={`M${beam.left} ${beam.foot}H${beam.right}L${at.facet.left + at.facet.width} ${at.facet.top}H${at.facet.left}Z`}
-        />
-        <path className="console-hud__beam-edge" d={edges} />
-        <path className="console-hud__beam-collar" d={`M${beam.left} ${beam.foot}H${beam.right}`} />
-      </svg>
+      {beam === undefined || at.facet === undefined ? null : (
+        <svg className="console-hud__beam" aria-hidden="true">
+          <path
+            className="console-hud__beam-fill"
+            d={`M${beam.left} ${beam.foot}H${beam.right}L${at.facet.left + at.facet.width} ${at.facet.top}H${at.facet.left}Z`}
+          />
+          <path
+            className="console-hud__beam-edge"
+            d={`M${beam.left} ${beam.foot}L${at.facet.left} ${at.facet.top}M${beam.right} ${beam.foot}L${at.facet.left + at.facet.width} ${at.facet.top}`}
+          />
+          <path
+            className="console-hud__beam-collar"
+            d={`M${beam.left} ${beam.foot}H${beam.right}`}
+          />
+        </svg>
+      )}
       <div
         ref={panel}
         className="console-hud__panel"

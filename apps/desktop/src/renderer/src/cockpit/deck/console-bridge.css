@@ -550,6 +550,101 @@
     fill: var(--bg-sunken);
     fill-opacity: 1;
   }
+  /* The Timeline HUD: rows to read, so the glass is dark enough for words over a moving map, and the same columns down the list. */
+  & .console-hud[data-hud="timeline"] :is(.console-hud__glass, .console-hud__strip) {
+    fill: var(--bg-sunken);
+    fill-opacity: 0.94;
+  }
+  & .console-tl {
+    position: absolute;
+    inset: var(--space-12) var(--border-width) var(--border-width);
+    overflow-y: auto;
+    color: var(--fg-default);
+  }
+  & .console-tl__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  & .console-tl__list + .console-tl__list {
+    border-top: calc(var(--border-width) * 3) solid var(--border-strong);
+  }
+  & .console-tl__row {
+    display: grid;
+    grid-template-columns: var(--space-4) minmax(0, 2fr) minmax(0, 3fr) calc(var(--space-12) * 1.5) var(
+        --space-4
+      );
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    height: var(--h-row-unit);
+    padding-inline: var(--space-4) var(--space-3);
+    border: 0;
+    border-bottom: var(--border-width) solid var(--border-subtle);
+    border-left: var(--edge-active) solid transparent;
+    background: transparent;
+    color: inherit;
+    font-size: var(--text-xs);
+    text-align: left;
+  }
+  & button.console-tl__row:hover {
+    background: var(--bg-hover);
+  }
+  & button.console-tl__row:focus {
+    outline: none;
+    background: var(--bg-hover);
+    border-left-color: var(--accent);
+  }
+  & .console-tl__title {
+    overflow: hidden;
+    font-weight: var(--weight-medium);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  & .console-tl__fact {
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    color: var(--fg-muted);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  & .console-tl__age {
+    justify-self: end;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    font-variant-numeric: tabular-nums;
+    color: var(--fg-muted);
+    white-space: nowrap;
+  }
+  & .console-tl__go {
+    color: var(--fg-subtle);
+  }
+  & .console-tl__glyph {
+    display: inline-flex;
+  }
+  & .console-tl__row[data-tone="ask"] .console-tl__glyph {
+    color: var(--status-awaiting-review);
+  }
+  & .console-tl__row[data-tone="bad"] .console-tl__glyph {
+    color: var(--status-completed-failed);
+  }
+  & .console-tl__row[data-tone="stuck"] .console-tl__glyph {
+    color: var(--status-escalated);
+  }
+  & .console-tl__row[data-tone="ok"] .console-tl__glyph {
+    color: var(--status-completed-success);
+  }
+  & .console-tl__list[data-stuck] .console-tl__row {
+    background: color-mix(in srgb, var(--bg-hover) 40%, transparent);
+  }
+  & .console-tl__list:not([data-stuck]) .console-tl__title {
+    font-weight: var(--weight-body);
+    color: var(--fg-muted);
+  }
+  & .console-deck[data-no-canvas] .deck-tile[data-lamp] {
+    border-color: var(--accent);
+  }
   & :is(.console-calls__thread, .console-calls__side) {
     --edge: var(--border-default);
     --radius-md: var(--border-width);

@@ -11,7 +11,6 @@ const bays = region("Bays");
 const jobs = region("Jobs", {
   exact: true,
 });
-const controls = region("Flight controls");
 const pull = (number: number) => role("dialog", `Pull request #${number}`);
 const issue = (number: number) => role("dialog", `Issue #${number}`);
 const bay = (name: string) => role("dialog", `Bay ${name}`);
@@ -98,18 +97,10 @@ const sharedSidePanel = walk("shared-side-panel", [
     say: "Cockpit",
   },
 
-  // A pull request a Job holds, from the timeline.
+  // A pull request a Job holds, from the merge queue.
   {
-    press: inside(controls, button("Timeline")),
-    say: "Timeline",
-  },
-  {
-    press: tab("Lanes"),
-    say: "Lanes",
-  },
-  {
-    press: inside(region("Timeline"), button(/^Checks failed: #1896/)),
-    say: "A mark on the timeline",
+    press: inside(queue, button(/^#1896/)),
+    say: "A pull request a Job holds",
   },
   {
     look: region("Failing checks"),
@@ -123,10 +114,6 @@ const sharedSidePanel = walk("shared-side-panel", [
     key: "Escape",
     on: pull(1896),
     say: "Esc",
-  },
-  {
-    press: inside(controls, button("Timeline")),
-    say: "Back to the map",
   },
 
   // A bay, from the Bays list and from a Job's Bays layer.

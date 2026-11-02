@@ -3,7 +3,7 @@
 // flight controls and Autopilot beside. The battlefield draws from the Fleet's own data: a drone for each
 // Session, resting by its pad until a path is known. The preview switch is on for this scenario. #2301.
 
-import { button, inside, region, role, tab, text, walk } from "../walk";
+import { button, inside, region, role, tab, walk } from "../walk";
 
 const places = role("navigation", "Places");
 const list = region("Jobs", {
@@ -11,6 +11,7 @@ const list = region("Jobs", {
 });
 const controls = region("Flight controls");
 const activity = role("dialog", "Activity");
+const timeline = role("dialog", "Timeline");
 const stage = (name: string | RegExp) => region(name);
 
 const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
@@ -175,7 +176,7 @@ const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
   },
   {
     look: inside(list, button("Migration notes")),
-    say: "The column, the feed, the map and the timeline narrow to the Jobs with a Check running now",
+    say: "The column, Activity and the map narrow to the Jobs with a Check running now",
   },
   {
     look: stage("Pull request #1896"),
@@ -212,24 +213,16 @@ const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
   },
   {
     press: inside(controls, button("Timeline")),
-    say: "The map and the timeline are one switch",
+    say: "Timeline opens its HUD over the map",
   },
   {
-    look: inside(region("Fleet timeline"), text(/Fix the reconnect wait/)),
-    say: "The timeline keeps the same filters",
-  },
-  {
-    press: inside(list, button("Fix the reconnect wait")),
-    say: "Pick the Job from the column",
+    look: inside(timeline, button(/Fix the reconnect wait/)),
+    say: "The Jobs stuck now, then what the others came to since he last closed it",
   },
   {
     key: "Escape",
-    on: stage(/^Job: Fix the reconnect wait/),
-    say: "Esc returns to the timeline, as it was left",
-  },
-  {
-    look: inside(region("Fleet timeline"), text(/Fix the reconnect wait/)),
-    say: "Still the timeline",
+    on: timeline,
+    say: "Esc puts it away, back on its bay",
   },
   {
     key: "c",

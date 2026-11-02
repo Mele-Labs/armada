@@ -23,7 +23,7 @@ import {
   placeNew,
   select,
   setScope,
-  setView,
+  showMap,
   toggleChecks,
   wide,
   withoutOpenSession,
@@ -54,27 +54,18 @@ afterEach(() => {
 test("a window with nothing stored opens on the map, with no filter", () => {
   const now = deckNow();
   expect([
-    now.view,
+    now.sel,
     now.checks,
   ]).toEqual([
-    "map",
+    undefined,
     false,
   ]);
 });
 
-test("the view and the filter are remembered across a new window", () => {
-  setView("timeline");
+test("the filter is remembered across a new window", () => {
   toggleChecks();
   forgetDeck();
-
-  const now = deckNow();
-  expect([
-    now.view,
-    now.checks,
-  ]).toEqual([
-    "timeline",
-    true,
-  ]);
+  expect(deckNow().checks).toBe(true);
 
   toggleChecks();
   forgetDeck();
@@ -82,7 +73,10 @@ test("the view and the filter are remembered across a new window", () => {
 });
 
 test("what is open, the cursor and the visited calls are not remembered", () => {
-  setView("timeline");
+  select({
+    kind: "session",
+    key: "session:a",
+  });
   forgetDeck();
   expect(deckNow().sel).toBeUndefined();
   expect(deckNow().visited.size).toBe(0);
@@ -95,9 +89,9 @@ test("storage that cannot be read or written is the plain default and does not s
     },
   });
   forgetDeck();
-  expect(deckNow().view).toBe("map");
-  expect(() => setView("timeline")).not.toThrow();
-  expect(deckNow().view).toBe("timeline");
+  expect(deckNow().checks).toBe(false);
+  expect(() => toggleChecks()).not.toThrow();
+  expect(deckNow().checks).toBe(true);
 });
 
 const call = (key: string, at: string | undefined): Item =>
@@ -341,21 +335,12 @@ const ZOOMED = {
 };
 
 test("the Map key from a Job forgets the camera and has the map drawn whole", () => {
-  setView("map");
   select({
     kind: "session",
     key: "session:a",
   });
   camera.current = ZOOMED;
-  setView("map");
-  expect(camera.current).toBeUndefined();
-  expect(wide.now).toBe(true);
-});
-
-test("coming back from the Timeline forgets the camera and has the map drawn whole", () => {
-  camera.current = ZOOMED;
-  setView("timeline");
-  setView("map");
+  showMap();
   expect(camera.current).toBeUndefined();
   expect(wide.now).toBe(true);
 });
@@ -378,15 +363,9 @@ test("leaving Autopilot or going back to a map left by a Job forgets the camera"
 test("the Map key on the map at rest asks it to go home, and keeps the camera for it to move", () => {
   camera.current = ZOOMED;
   const before = deckNow().homed;
-  setView("map");
+  showMap();
   expect(deckNow().homed).toBe(before + 1);
   expect(camera.current).toEqual(ZOOMED);
-});
-
-test("the Timeline key on the map does not ask the map home", () => {
-  const before = deckNow().homed;
-  setView("timeline");
-  expect(deckNow().homed).toBe(before);
 });
 
 test("the open Session's own calls are cards in its thread and do not call from its row, the others' stay", () => {

@@ -161,7 +161,7 @@ test("the Cockpit tab returns from a page opened from the deck exactly", async (
   );
 });
 
-test("Checks filters list, Activity and Stage to subjects running a Check", async () => {
+test("Checks filters list and Activity to subjects running a Check", async () => {
   await deck();
   const kept = "Migration notes";
   const dropped = "Pin the store clock";
@@ -171,24 +171,14 @@ test("Checks filters list, Activity and Stage to subjects running a Check", asyn
     ].map((one) => one.getAttribute("aria-label"));
   await expect.poll(() => rows().includes(dropped)).toBe(true);
   const whole = rows().length;
-  // The stage rests on the map or the timeline, whichever a test before left remembered: this asks for the timeline.
-  await controls()
-    .getByRole("button", {
-      name: "Timeline",
-    })
-    .click();
-
-  // The Activity dots and the stage's timeline keep the same subjects and no others: both name it before the filter, neither after.
-  // Activity names each event on its dot, in the scope of its bay.
+  // Activity names each event on its dot, in the scope of its bay: it names it before the filter and not after.
   const feed = () =>
     [
       ...document.querySelectorAll(".console-scope__graph .armada-tl__dot"),
     ]
       .map((one) => one.getAttribute("aria-label"))
       .join("\n");
-  const timeline = () =>
-    document.querySelector('.deck-pane[aria-label="Fleet timeline"]')?.textContent ?? "";
-  await expect.poll(() => feed().includes(dropped) && timeline().includes(dropped)).toBe(true);
+  await expect.poll(() => feed().includes(dropped)).toBe(true);
 
   await controls()
     .getByRole("button", {
@@ -200,7 +190,6 @@ test("Checks filters list, Activity and Stage to subjects running a Check", asyn
   expect(rows()).toContain(kept);
   expect(rows().length).toBeLessThan(whole);
   expect(feed()).not.toContain(dropped);
-  expect(timeline()).not.toContain(dropped);
   await controls()
     .getByRole("button", {
       name: "Checks",
