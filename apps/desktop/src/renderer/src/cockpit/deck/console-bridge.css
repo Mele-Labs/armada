@@ -52,7 +52,7 @@
   & .deck-foot > :is(.deck-controls:has(> .console-rack), .deck-dispatch) > .deck-band { padding-inline: var(--space-6); }
 
   /* ---- The quiet panel: square, a hairline round it and a heavier one along its head, the console's hood at rest. The Cockpit's columns and every panel of an open Job wear the same one, so moving between them is one ship. ---- */
-  & :is(.deck-right > .deck-bays, .deck-left > .deck-list, .job-pane, .sv-panel:not(.job-pane__body *, .console-calls *), .deck-foot > .deck-controls:has(> .deck-controls__block[data-subject])) {
+  & :is(.deck-right > .deck-bays, .deck-left > .deck-list, .armada-logbook__log, .job-pane, .sv-panel:not(.job-pane__body *, .console-calls *), .deck-foot > .deck-controls:has(> .deck-controls__block[data-subject])) {
     --edge: var(--border-default);
     --radius-md: var(--border-width);
     --radius-lg: var(--border-width);

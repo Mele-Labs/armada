@@ -579,10 +579,10 @@ impl Pool {
             }
             // A released slot sits detached on a branch that still names its
             // commits, so a lease loses nothing unless HEAD is all that does.
+            // **Asked of git, not walked in libgit2**: git reads the commit-graph, and libgit2
+            // walking past every remote ref took seconds a slot where git takes 40 ms.
             Ok(_) if record.is_none() => {
-                let named = git::unnamed_commits_in_process(&path)
-                    .unwrap_or_else(|| count(&path, &["HEAD", "--not", "--branches", "--remotes"]));
-                match named {
+                match count(&path, &["HEAD", "--not", "--branches", "--remotes"]) {
                     0 => None,
                     commits => Some(format!("{commits} commits no branch names")),
                 }
