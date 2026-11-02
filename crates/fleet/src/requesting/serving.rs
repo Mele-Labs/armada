@@ -5,18 +5,21 @@
 //! **the agent's own send and save are only kept**, since it holds the answer, and its send's whole
 //! body is saved in the Job's scratch folder. A send that places no Job writes nothing.
 
+use std::path::Path;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Requests};
 use ipc::{
     DeleteRequestEnvironment, RequestBy, RequestEnvironment, RequestSaved, RequestSent, RequestVariable, Requests as RequestsRead,
-    SaveRequestCollection, SaveRequestEnvironment, SaveRequestToCollection, SendRequest, ServerPhase,
+    SaveRequestCollection, SaveRequestEnvironment, RequestsSent, SaveRequestToCollection, SendRequest, SendRequests, ServerPhase,
     SessionId, SessionRow, WireError, SERVER_BASE_VARIABLE, SERVER_ENVIRONMENT_PREFIX,
 };
 
+use super::batching;
+use super::reading::read_body;
 use super::saving::{SavedTo, SECRET_UNKEPT};
-use super::{sent, Bounds, Sent, Unsent};
+use super::{sent, Bounds, Sent, Unsent, REQUEST_BODY_CAP};
 use crate::daemon::Fleet;
 
 /// A request that cannot be sent. A 422.
@@ -101,6 +104,20 @@ where
             .collect()
     }
 
+    /// Where a `body_file` may be read from: `job`'s scratch folder, and its slot once it holds one.
+    pub(super) async fn body_places(&self, job: Option<&str>) -> Vec<std::path::PathBuf> {
+        let Some(job) = job else { return Vec::new() };
+        let mut places = vec![self.scratch_of(job)];
+        if let Ok((_, hosting)) = self.session_and_hosting(job).await {
+            if hosting.lease_slot.is_some() {
+                if let Ok(served) = self.served_named(Some(&ipc::ManifestId::carried(&hosting.manifest_id))) {
+                    places.push(std::path::PathBuf::from(Self::directory_of(&served, &hosting)));
+                }
+            }
+        }
+        places
+    }
+
     /// Whether `job` is a Job whose thread is still written.
     async fn thread_open(&self, job: &str) -> bool {
         let hosted = self.session_and_hosting(job).await;
@@ -138,11 +155,15 @@ where
         self: Arc<Self>,
         caller: Option<api::Caller>,
         by: RequestBy,
-        send: SendRequest,
+        mut send: SendRequest,
     ) -> Result<RequestSent, Refusal> {
         let job = self.requesting_job(caller, send.session_id.as_ref());
         let root = self.requests_root(send.repository.as_deref(), job.as_deref()).await?;
         let filling = self.filling_for(root.as_deref(), job.as_deref()).await?;
+        let places = match send.body_file {
+            Some(_) => self.body_places(job.as_deref()).await,
+            None => Vec::new(),
+        };
         let requests = self.requests().clone();
         let id = job.as_deref().map(|job| self.row_id(job));
         // The file is named for the row, and only a Job still open has a scratch folder to keep it.
@@ -151,6 +172,9 @@ where
             _ => None,
         };
         let done = tokio::task::spawn_blocking(move || {
+            if let Some(file) = send.body_file.take() {
+                send.body = Some(read_body(&file, &places, REQUEST_BODY_CAP).map_err(Unsent::Refused)?);
+            }
             let mut done = sent(&*requests.sender, &*requests.secrets, by, &send, &filling, &Bounds::shipped())?;
             if let Some((folder, id)) = save_in {
                 done.save_body(&folder, &id);
@@ -167,6 +191,36 @@ where
             self.request_kept(&job, id, &done).await;
         }
         Ok(done.answer)
+    }
+
+    async fn send_requests(&self, caller: Option<api::Caller>, send: SendRequests) -> Result<RequestsSent, Refusal> {
+        let job = self
+            .requesting_job(caller, send.session_id.as_ref())
+            .ok_or_else(|| self.unplaced("Requests are sent from a Job, and nothing places one."))?;
+        if !self.thread_open(&job).await {
+            return Err(self.unplaced("The Job's thread is closed, and its scratch folder holds the answers."));
+        }
+        let root = self.requests_root(send.repository.as_deref(), Some(&job)).await?;
+        let filling = self.filling_for(root.as_deref(), Some(&job)).await?;
+        let places = self.body_places(Some(&job)).await;
+        let folder = self.scratch_of(&job);
+        let requests = self.requests().clone();
+        tokio::task::spawn_blocking(move || {
+            let mut files = Vec::with_capacity(send.body_files.len());
+            for named in &send.body_files {
+                let text = read_body(named, &places, REQUEST_BODY_CAP).map_err(Unsent::Refused)?;
+                let stem = Path::new(named).file_stem().map_or_else(String::new, |stem| stem.to_string_lossy().into_owned());
+                files.push((stem, text));
+            }
+            let items = batching::expanded(&send, &files).map_err(Unsent::Refused)?;
+            batching::run(&items, &*requests.sender, &*requests.secrets, &filling, &Bounds::shipped(), &send, &folder)
+        })
+        .await
+        .map_err(|why| Refusal::Fault(WireError::raised(REQUEST_UNSENT, why.to_string(), self.run_id())))?
+        .map_err(|unsent| match unsent {
+            Unsent::Refused(why) => Refusal::Unacceptable(WireError::raised(REQUEST_REFUSED, why, self.run_id())),
+            Unsent::Unkept(why) => Refusal::Fault(WireError::raised(SECRET_UNKEPT, why, self.run_id())),
+        })
     }
 
     async fn get_requests(

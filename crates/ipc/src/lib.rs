@@ -172,6 +172,8 @@ mod repositories;
 mod requester;
 /// Requests: an HTTP request the owner or an agent sends, its collections and environments.
 mod requests;
+/// `send_requests`: one template sent for each body file and each value, answered a line each.
+mod requests_batch;
 /// A Judge on demand: a read-only call on one artifact of a Job, answered with notes.
 mod judge;
 /// What an agent says about one pull request, and the review tools it is asked with.
@@ -512,6 +514,7 @@ pub use rehearsal::{
 pub use rehearsal::{
     CheckoutVerify, StartCheckoutVerify, VerifyGroup, VerifyStep, VerifyStepState,
 };
+pub use requests_batch::{RequestLine, RequestTemplate, RequestVary, RequestsSent, SendRequests};
 pub use requests::{
     DeleteRequestEnvironment, Placed, RequestBy, RequestCollection, RequestEnvironment, RequestEnvironmentRead,
     RequestBodySaved, RequestEnvironmentWrite, RequestHeader, RequestPlace, RequestSaved, RequestSent,

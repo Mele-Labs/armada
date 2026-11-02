@@ -210,6 +210,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/requests/send",
     },
     Route {
+        operation: "send_requests",
+        method: "POST",
+        path: "/requests/send_many",
+    },
+    Route {
         operation: "get_requests",
         method: "GET",
         path: "/requests",

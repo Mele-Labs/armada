@@ -57,6 +57,9 @@ pub struct SendRequest {
     /// Sent in place of the saved request's own, where given.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
+    /// A file under the Job's scratch folder or slot that Fleet reads as the body. Not with `body`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body_file: Option<String>,
     /// Whether the answer carries the body's text. `false`: only the status, the headers and where
     /// the body was saved come back.
     #[serde(default = "inline", skip_serializing_if = "is_inline")]
@@ -118,6 +121,8 @@ struct SendAsWritten {
     headers: Vec<RequestHeader>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     body: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    body_file: Option<String>,
     #[serde(default = "inline", skip_serializing_if = "is_inline")]
     body_inline: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -141,6 +146,9 @@ impl TryFrom<SendAsWritten> for SendRequest {
                 return Err("name a saved request with `saved`, or give `method` and `url`")
             }
         };
+        if written.body.is_some() && written.body_file.is_some() {
+            return Err("`body` and `body_file` both give the body: leave one out");
+        }
         Ok(SendRequest {
             session_id: written.session_id,
             repository: written.repository,
@@ -148,6 +156,7 @@ impl TryFrom<SendAsWritten> for SendRequest {
             environment: written.environment,
             headers: written.headers,
             body: written.body,
+            body_file: written.body_file,
             body_inline: written.body_inline,
             pick: written.pick,
         })
@@ -172,6 +181,7 @@ impl From<SendRequest> for SendAsWritten {
             environment: send.environment,
             headers: send.headers,
             body: send.body,
+            body_file: send.body_file,
             body_inline: send.body_inline,
             pick: send.pick,
         }
