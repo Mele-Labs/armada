@@ -383,11 +383,28 @@ machine-wide `armada.yml`. It refuses on
 now holds, and every refusal is an MCP session that opened: a handshake saying
 why, with no tools.
 
+**`armada job` is the door's second client**, not a second door. It lists with
+the door's own `tools/list` and calls with `tools/call`, over the path the relay
+posts to and by the same `reached()`, so which acts a Job may call, which Job is
+calling and how long an answer may be are the door's decisions and the CLI
+repeats none of them. An act added to the inventory is callable from the CLI the
+day it ships, because the list is generated from the same `agent_access` column.
+The CLI names two things itself: `status`, which reads the Job's own line from
+`list_sessions`, and `dispatch`, which is `start_another_job` with `repo=` read as
+the `manifest_id` of the repository that name is. It adds no route.
+
 **It confers nothing.** The listener is loopback with no authentication in
 front of it, so every process on this machine was already inside that boundary
 and the relay adds no authority to one. A page in a browser is the one caller
-that is not — see *Fleet answers no page in a browser* above. What names a terminal agent is still
-open. Publishing the door in the repository is safe for a different reason: a
+that is not — see *Fleet answers no page in a browser* above. **What names a
+terminal agent was measured on 2 Nov 2026**: an agent run with `ARMADA_SESSION` and
+`CLAUDE_CODE_SESSION_ID` unset (`claude -p`) saw `CLAUDE_CODE_SESSION_ID` in its
+Bash equal to the `session_id` its result reported, so the agent sets it in every
+command it runs and a terminal Job is named by it. `armada job` passes
+`ARMADA_SESSION`, else that, as `session_id` where the act takes one. That was
+`-p`, not an interactive terminal, which was not run, so the interactive case is
+still open. A Job Fleet hosts is placed by its process tree and needs none.
+Publishing the door in the repository is safe for a different reason: a
 Drone is spawned under `--strict-mcp-config` against a document of Armada's
 own, so it never reads the repository's.
 

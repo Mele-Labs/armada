@@ -368,3 +368,36 @@ async fn read_only_refuses_every_command_and_still_reads() {
     );
 }
 
+
+/// **`armada job` speaks the door's own two methods**, so what it sends is what the router reads:
+/// its list names the acts under their Job names, a `name=value` field fills a path segment, and a
+/// refusal comes back as the sentence it reads.
+#[tokio::test]
+async fn the_messages_armada_job_sends_are_the_ones_the_door_answers() {
+    use ipc::job_cli::{acts, list_message, outcome, Outcome};
+
+    let app = wired(holding_one());
+    let (_, listed) = call(&app, &list_message()).await;
+    let all = acts(listed.as_bytes()).expect("the door's list reads");
+    assert!(all.iter().any(|act| act.name == "list_jobs"), "the Job's name is the one listed");
+    assert!(all.iter().all(|act| act.name != ipc::door::ASKS_A_PERSON), "the harness's tool is not an act");
+    let studio = all.iter().find(|act| act.name == "get_studio").expect("an act that takes a segment");
+
+    let message = studio
+        .call_message(&[("studio_id".to_string(), "01STUDIO".to_string())], None, None)
+        .expect("a call");
+    let (_, answered) = call(&app, &message).await;
+    match outcome(answered.as_bytes()) {
+        Outcome::Done(said) => assert!(said.contains("01STUDIO"), "{said}"),
+        Outcome::Refused(why) => panic!("{why}"),
+    }
+
+    let message = studio
+        .call_message(&[("studio_id".to_string(), "99".to_string())], None, None)
+        .expect("a call");
+    let (_, answered) = call(&app, &message).await;
+    match outcome(answered.as_bytes()) {
+        Outcome::Refused(why) => assert!(why.contains("no_such_studio"), "{why}"),
+        Outcome::Done(said) => panic!("{said}"),
+    }
+}
