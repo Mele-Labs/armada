@@ -277,13 +277,24 @@ A file that will not read leaves the built-in tiles, and a save that fails stays
 
 ### The rack
 
-With no Job open, Edit shows every bay as an open socket and a tray of the instruments Armada ships.
+With no Job open, Edit shows every bay as an open socket and a tray of the instruments Armada ships, then the Page tiles, then the instrument mods.
 `Enter` on a socket takes the keys to the tray, the arrows move along it, and `Enter` seats the instrument; a bay can be emptied.
 Done keeps it. Cancel or `Esc` puts back what stood before.
 Which instrument is in which bay is kept in the window's storage, as a panel's fold is, since the file above is the wire's and Fleet refuses a key it does not know.
 A Page tile of the deck is an instrument in the tray under its own label, and goes in any bay as the others do, by drag or by keyboard.
 It is drawn as a key with its glyph and label, and a press opens its address, with the tooltip *Open* and the address.
 Its bay is kept as the others' are; if the tile is deleted, the bay is an empty socket.
+An instrument mod is listed in the tray with its label and a stencil drawn from the label, and takes any of the four bays as Armada's own instruments and Page tiles do.
+The Map stays in the centre, and a Job's own tiles are untouched.
+A mod's face is drawn on its bay, and pressing the bay stands the mod's panel over the field.
+The mod's file and what it may use are in [Mod](mods.md), *instrument.js*.
+A bay whose mod throws, is invalid or is switched off is an empty socket with the reason in a tooltip, and keeps its seat until the file next loads well.
+Make one, at the end of the tray, opens a sheet; what he writes starts a Mod Job with the aim `instrument`.
+The bay he picked shows the Job being built at once, holding a seat on the Job until the mod is listed and then on the mod.
+The Job's card opens from the bay, above it, with its question, its thread and a box to message it, and the bay pulses while the Job waits on him.
+Such a Job has no row in the Jobs list, except a pulsing row under Mods while it waits and no bay can show it, because another Job's tiles are up, the console is folded or the bay's socket is empty.
+Where the console's canvas does not start, a mod's face stands straight in its bay with its label.
+`Tab` and `Enter` reach a bay and `Esc` closes its panel; an instrument has no chord of its own.
 The `+` at the end of the tray opens the same sheet as the Job's `+` tile, offering only Page, and saves the tile when its sheet saves, whether or not the rack is then left with Cancel.
 Bridge refuses a `kind` on a built-in id and `on_text` or `off_text` off the Auto land tile before it saves; the words are the ones the tile sends with the flag.
 Comments typed into the file by hand are lost on a save.
