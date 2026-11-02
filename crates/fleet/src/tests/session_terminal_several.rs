@@ -10,7 +10,8 @@ use testkit::FakeWorkProduct;
 
 use crate::tests::daemon::a_fleet;
 use crate::tests::session_running::{rig, Rig};
-use crate::tests::session_terminal::{ends, next_terminal, shortly, typing};
+use crate::tests::session_host::eventually;
+use crate::tests::session_terminal::{next_terminal, shortly, typing};
 
 async fn opened(rig: &Rig, terminal: Option<&str>, new: bool) -> Result<SessionRunUnderway, Refusal> {
     let open = OpenTerminal { session_id: rig.session.clone(), terminal: terminal.map(str::to_string), new, cols: None, rows: None };
@@ -42,6 +43,13 @@ fn said<T: std::fmt::Debug>(refused: Result<T, Refusal>) -> String {
     }
 }
 
+/// Stop a shell and wait for it to go, where it is still there: a runtime that shuts down waits on a
+/// shell still open, so a test ends its shells before it asserts.
+async fn ends(rig: &Rig, run_id: &str) {
+    let _ = rig.fleet.stop_session_run(ipc::StopSessionRun { run_id: run_id.into() }).await;
+    eventually(|| async { rig.observes(run_id).await.live.is_err() }).await;
+}
+
 fn printed_line(printed: &str, line: &str) -> bool {
     printed.lines().any(|one| one.trim() == line)
 }
@@ -68,13 +76,13 @@ async fn an_id_is_never_given_twice_in_a_job_and_the_open_ones_are_listed_by_num
     let rig = rig().await;
     let one = opened(&rig, None, true).await.expect("opened");
     let two = opened(&rig, None, true).await.expect("opened");
-    assert_eq!((one.terminal.as_deref(), two.terminal.as_deref()), (Some("t1"), Some("t2")));
     ends(&rig, &two.run_id).await;
     let three = opened(&rig, None, true).await.expect("opened");
     let open = listed(&rig).await;
     ends(&rig, &one.run_id).await;
     ends(&rig, &three.run_id).await;
 
+    assert_eq!((one.terminal.as_deref(), two.terminal.as_deref()), (Some("t1"), Some("t2")));
     assert_eq!(three.terminal.as_deref(), Some("t3"), "t2 ended and is not given again");
     let ids: Vec<&str> = open.iter().map(|one| one.terminal.as_str()).collect();
     assert_eq!(ids, ["t1", "t3"]);
@@ -85,26 +93,33 @@ async fn an_id_is_never_given_twice_in_a_job_and_the_open_ones_are_listed_by_num
 #[tokio::test]
 async fn opening_a_named_terminal_that_ended_starts_a_new_shell_under_the_same_id() {
     let rig = rig().await;
-    let before = opened(&rig, None, false).await.expect("opened");
-    assert_eq!(before.terminal.as_deref(), Some("t1"));
-    let running = opened(&rig, Some("t1"), false).await.expect("opened");
-    assert_eq!(running.run_id, before.run_id, "the running shell is handed back");
-    ends(&rig, &before.run_id).await;
+    let one = opened(&rig, None, true).await.expect("opened");
+    let two = opened(&rig, None, true).await.expect("opened");
+    let running = opened(&rig, Some("t2"), false).await.expect("opened");
+    ends(&rig, &two.run_id).await;
 
-    let after = opened(&rig, Some("t1"), false).await.expect("opened");
+    let after = opened(&rig, Some("t2"), false).await.expect("opened");
+    let open = listed(&rig).await;
+    ends(&rig, &one.run_id).await;
     ends(&rig, &after.run_id).await;
-    assert_eq!(after.terminal.as_deref(), Some("t1"));
-    assert_ne!(after.run_id, before.run_id);
+    assert_eq!((running.terminal.as_deref(), running.run_id.as_str()), (Some("t2"), two.run_id.as_str()), "the running shell is handed back");
+    assert_eq!(after.terminal.as_deref(), Some("t2"));
+    assert_ne!(after.run_id, two.run_id);
+    let ids: Vec<&str> = open.iter().map(|one| one.terminal.as_str()).collect();
+    assert_eq!(ids, ["t1", "t2"], "and no third was minted");
 }
 
 #[tokio::test]
 async fn opening_an_id_the_job_never_had_or_both_new_and_an_id_is_refused() {
     let rig = rig().await;
     let one = opened(&rig, None, false).await.expect("opened");
-    let never = said(opened(&rig, Some("t7"), false).await);
-    let odd = said(opened(&rig, Some("t01"), false).await);
-    let both = said(opened(&rig, Some("t1"), true).await);
+    let (never, odd, both) = (
+        opened(&rig, Some("t7"), false).await,
+        opened(&rig, Some("t01"), false).await,
+        opened(&rig, Some("t1"), true).await,
+    );
     ends(&rig, &one.run_id).await;
+    let (never, odd, both) = (said(never), said(odd), said(both));
     assert!(never.contains("t7"), "{never}");
     assert!(odd.contains("t01"), "{odd}");
     assert!(both.contains("new") && both.contains("terminal"), "{both}");
@@ -117,11 +132,12 @@ async fn opening_with_neither_takes_the_lowest_open_terminal_else_reopens_the_lo
     let two = opened(&rig, None, true).await.expect("opened");
     ends(&rig, &one.run_id).await;
     let lowest_open = opened(&rig, None, false).await.expect("opened");
-    assert_eq!((lowest_open.terminal.as_deref(), lowest_open.run_id.as_str()), (Some("t2"), two.run_id.as_str()));
-
     ends(&rig, &two.run_id).await;
     let reopened = opened(&rig, None, false).await.expect("opened");
     ends(&rig, &reopened.run_id).await;
+    ends(&rig, &lowest_open.run_id).await;
+
+    assert_eq!((lowest_open.terminal.as_deref(), lowest_open.run_id.as_str()), (Some("t2"), two.run_id.as_str()));
     assert_eq!(reopened.terminal.as_deref(), Some("t1"), "the lowest the Job has had");
 }
 
@@ -162,17 +178,18 @@ async fn the_refusal_for_a_replaced_shell_is_per_terminal() {
     let t2 = types(&rig, None, true, "echo two").await.expect("typed");
     ends(&rig, &t2.run_id).await;
     let replaced = opened(&rig, Some("t2"), false).await.expect("opened");
-    assert_eq!(replaced.terminal.as_deref(), Some("t2"));
-    assert_ne!(replaced.run_id, t2.run_id);
     shortly(|| async { !rig.observes(&replaced.run_id).await.history.is_empty() }).await;
 
-    let refused = said(types(&rig, Some("t2"), false, "echo again").await);
+    let refused = types(&rig, Some("t2"), false, "echo again").await;
     let other = types(&rig, Some("t1"), false, "echo still-$((1 + 1))").await;
-    let read = rig.fleet.read_terminal(None, reading(&rig, Some("t2"))).await.expect("read");
+    let read = rig.fleet.read_terminal(None, reading(&rig, Some("t2"))).await;
     let typed = types(&rig, Some("t2"), false, "echo now-$((1 + 1))").await;
     ends(&rig, &t1.run_id).await;
     ends(&rig, &replaced.run_id).await;
 
+    assert_eq!(replaced.terminal.as_deref(), Some("t2"));
+    assert_ne!(replaced.run_id, t2.run_id);
+    let (refused, read) = (said(refused), read.expect("read"));
     assert!(refused.starts_with("nothing was typed") && refused.contains("t2") && refused.contains(&replaced.run_id), "{refused}");
     assert!(printed_line(&other.expect("t1 was not replaced").printed, "still-2"));
     assert_eq!(read.terminal, "t2");
@@ -183,12 +200,14 @@ async fn the_refusal_for_a_replaced_shell_is_per_terminal() {
 async fn naming_a_terminal_that_is_not_open_is_refused_for_typing_reading_and_new_with_an_id() {
     let rig = rig().await;
     let one = opened(&rig, None, false).await.expect("opened");
-    let never = said(types(&rig, Some("t5"), false, "echo hi").await);
-    let read_never = said(rig.fleet.read_terminal(None, reading(&rig, Some("t5"))).await);
-    let both = said(types(&rig, Some("t1"), true, "echo hi").await);
+    let never = types(&rig, Some("t5"), false, "echo hi").await;
+    let read_never = rig.fleet.read_terminal(None, reading(&rig, Some("t5"))).await;
+    let both = types(&rig, Some("t1"), true, "echo hi").await;
     ends(&rig, &one.run_id).await;
-    let ended = said(types(&rig, Some("t1"), false, "echo hi").await);
-    let read_ended = said(rig.fleet.read_terminal(None, reading(&rig, Some("t1"))).await);
+    let ended = types(&rig, Some("t1"), false, "echo hi").await;
+    let read_ended = rig.fleet.read_terminal(None, reading(&rig, Some("t1"))).await;
+    let (never, read_never, both) = (said(never), said(read_never), said(both));
+    let (ended, read_ended) = (said(ended), said(read_ended));
 
     assert_eq!(never, "terminal t5 is not open. list_terminals names the open ones");
     assert_eq!(ended, "terminal t1 is not open. list_terminals names the open ones");
@@ -273,13 +292,15 @@ async fn ending_the_job_ends_every_one_of_its_shells() {
         .await
         .unwrap();
 
+    let mut outlived = Vec::new();
     for run in [&one.run_id, &two.run_id] {
         if !shortly(|| async { rig.observes(run).await.live.is_err() }).await {
-            ends(&rig, &one.run_id).await;
-            ends(&rig, &two.run_id).await;
-            panic!("{run} outlived its Job");
+            outlived.push(run.clone());
+            ends(&rig, run).await;
         }
     }
+    assert_ne!(one.run_id, two.run_id, "two shells");
+    assert!(outlived.is_empty(), "{outlived:?} outlived its Job");
 }
 
 #[tokio::test]
