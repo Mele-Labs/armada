@@ -1,9 +1,10 @@
 //! Where a repository's files are, and which of them an agent has changed. `docs/concepts/fleet.md`,
 //! *The territory*.
 //!
-//! **Git answers, and only from objects.** The directories are the base head's tree; a slot's changes
-//! are its tree as it stands (`snapshot::tree_as_it_stands`, through a scratch index, so the real
-//! one is never written) against the tree of its merge base. No directory is walked.
+//! **Git answers.** The directories are the base head's tree; a slot's changes are its work tree
+//! against its merge base, plus the files it has not yet tracked. Both are asked of git, which
+//! trusts its index's stat cache, and with optional locks off, so the slot's git folder is never
+//! written and its holder's `git commit` is never refused for a lock this took.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -100,12 +101,17 @@ pub fn text_at(root: &Path, head: &str, path: &str, most: usize) -> Result<Optio
 /// not yet tracked. Repository-relative, sorted.
 pub fn changed_since(worktree: &Path, base: &str) -> Result<Vec<String>, NotRead> {
     let met = git(worktree, &["merge-base", "HEAD", base])?;
-    let standing = crate::snapshot::tree_as_it_stands(worktree)
-        .map_err(|why| NotRead(format!("{} could not be read as a tree: {why:?}", worktree.display())))?;
-    let listed = git(worktree, &["diff-tree", "-r", "--name-only", "-z", met.trim(), &standing])?;
-    let mut paths: Vec<String> =
-        listed.split('\0').filter(|name| !name.is_empty()).map(str::to_string).collect();
+    // A rename is both its paths: the one it left and the one it made.
+    let tracked = git(worktree, &["--no-optional-locks", "diff", "--name-only", "--no-renames", "-z", met.trim()])?;
+    let untracked = git(worktree, &["--no-optional-locks", "ls-files", "--others", "--exclude-standard", "-z"])?;
+    let mut paths: Vec<String> = tracked
+        .split('\0')
+        .chain(untracked.split('\0'))
+        .filter(|name| !name.is_empty())
+        .map(str::to_string)
+        .collect();
     paths.sort();
+    paths.dedup();
     Ok(paths)
 }
 
