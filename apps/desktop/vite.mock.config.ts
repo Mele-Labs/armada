@@ -17,6 +17,10 @@ export default defineConfig({
   // `annotationStories` serves the index of the components' stories, which the
   // note card draws a component's file and its variants from.
   plugins: [react({ babel: { plugins: [annotationSource()] } }), tailwindcss(), annotationsServer(), annotationStories()],
+  // The story files the card's Variant tool draws load only when the tool opens, and they import
+  // `storybook/test`, which Vite would then find, bundle and reload the page for, mid-walk.
+  // Crawled here, it is bundled at start with the rest.
+  optimizeDeps: { entries: ["index.html", "../../../../../../packages/components/src/**/*.stories.tsx"] },
   // No `server.open`: `pnpm mock` asks for a browser with `--open`, and a Job
   // serving this for Evidence (`armada.yml`) must not open one on the owner's screen.
 });

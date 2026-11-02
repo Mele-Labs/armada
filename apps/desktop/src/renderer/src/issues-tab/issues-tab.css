@@ -8,15 +8,10 @@
 .deck-grid[data-issues] .deck-handle { display: revert; }
 
 /* A Job's state, as the Job card reads it. */
-.issues-row,
 .issues-reader { --hue: var(--border-subtle); }
-.issues-row[data-tone="calm"],
 .issues-reader[data-tone="calm"] { --hue: var(--fg-subtle); }
-.issues-row[data-tone="live"],
 .issues-reader[data-tone="live"] { --hue: var(--status-running); }
-.issues-row[data-tone="ask"],
 .issues-reader[data-tone="ask"] { --hue: var(--status-awaiting-review); }
-.issues-row[data-tone="wait"],
 .issues-reader[data-tone="wait"] { --hue: var(--status-handed-in); }
 
 /* ---- The list ------------------------------------------------------------------------------------------- */
@@ -46,31 +41,8 @@
   text-transform: uppercase;
 }
 
-.issues-row {
-  position: relative;
-  display: grid;
-  align-items: center;
-  column-gap: var(--space-2);
-  row-gap: var(--space-1);
-  width: 100%;
-  min-width: 0;
-  padding: var(--space-2) var(--space-3);
-  border: 0;
-  color: var(--fg-default);
-  font: inherit;
-  font-family: var(--font-sans);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  text-align: left;
-  cursor: pointer;
-}
-.issues-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
-.issues-row__reference { flex: none; color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); line-height: var(--leading-2xs); }
-.issues-row__title { min-width: 0; overflow: hidden; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
-.issues-row[data-selected] .issues-row__title { font-weight: var(--weight-heading); }
-.issues-row__jobs { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--hue); }
 .issues-row__held { display: flex; flex-direction: column; min-width: 0; gap: var(--space-1); }
-.issues-row__job { display: flex; align-items: center; min-width: 0; gap: var(--space-2); color: var(--hue); font-size: var(--text-2xs); font-weight: var(--weight-medium); }
+.issues-row__job { display: flex; align-items: center; min-width: 0; gap: var(--space-2); color: var(--fg-muted); font-size: var(--text-2xs); font-weight: var(--weight-medium); }
 .issues-row__job .armada-session-mark > svg { width: var(--space-3); height: var(--space-3); }
 .issues-row__job-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .issues-row__fields { display: flex; flex-wrap: wrap; min-width: 0; gap: var(--space-1); }
@@ -91,12 +63,9 @@
 
 /* What is open is framed by its shape (`depth.css`), as the Cockpit's Jobs row. */
 
-/* An issue is a row on the panel: a hairline edge, a lamp at its left in the state of the Job working it (running, needs him, failed, idle), the
-   reference as a tag over the title, which takes two lines, and the Job named under it. State is the lamp and nothing else on the row; a row
-   that needs him keeps a faint tint and its lamp pulses. */
-.issues-surface .issues-list__rows,
-.issues-surface .issues-list .deck-list__group { gap: var(--space-1); }
-.issues-surface .issues-list__rows { padding: var(--space-1); }
+/* An issue is a `ListCard` on the panel. */
+.issues-surface .issues-list__rows { --row-min: 0; --row-pad: calc(var(--space-1) / 2) var(--space-3) var(--space-2); padding: var(--space-1); }
+.issues-row__from { min-width: 0; overflow: hidden; color: var(--fg-muted); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
 .issues-surface .issues-list .deck-list__band + .deck-list__band { margin-top: var(--space-3); }
 .issues-surface .issues-list__repository {
   min-height: var(--h-control-sm);
@@ -105,36 +74,6 @@
   border-radius: var(--radius-inset, var(--radius-sm));
   background: var(--chip);
 }
-.issues-surface .issues-row {
-  --lamp-hue: var(--fg-subtle);
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "title" "reference" "held" "fields";
-  row-gap: 0;
-  padding-inline-start: var(--lamp-gutter, var(--space-3));
-  border: var(--border-width) solid var(--border-subtle);
-  border-radius: var(--radius-inset, var(--radius-sm));
-  background: var(--chip);
-}
-.issues-surface .issues-row::before { content: ""; position: absolute; inset-inline-start: var(--space-3); inset-block-start: calc(var(--space-2) + var(--leading-xs) / 2 - var(--lamp, var(--dot)) / 2); width: var(--lamp, var(--dot)); height: var(--lamp, var(--dot)); border-radius: 50%; background: var(--lamp-hue); pointer-events: none; }
-.issues-surface .issues-row[data-tone="live"] { --lamp-hue: var(--status-running); }
-.issues-surface .issues-row[data-tone="ask"] { --lamp-hue: var(--status-awaiting-review); background: color-mix(in srgb, var(--status-awaiting-review) 6%, var(--chip)); }
-.issues-surface .issues-row[data-tone="wait"] { --lamp-hue: var(--status-handed-in); }
-.issues-surface .issues-row[data-tone="ask"]::before { animation: deck-lamp-pulse 1.6s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { .issues-surface .issues-row[data-tone="ask"]::before { animation: none; } }
-.issues-surface .issues-row:hover { background: var(--chip-hover); }
-.issues-surface .issues-row[data-selected] { border-color: transparent; }
-/* The number is a line of its own under the title, as the Jobs row's is a field of its own; the lines under it are spaced by their own margin so a line the person has off takes no room. */
-.issues-surface .issues-row__reference { grid-area: reference; justify-self: start; margin-top: var(--space-1); border-color: transparent; border-radius: var(--radius-md); background: color-mix(in srgb, var(--fg-default) 10%, transparent); color: var(--fg-default); font-weight: var(--weight-body); }
-.issues-surface .issues-row__title { grid-area: title; display: -webkit-box; font-size: var(--text-xs); white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.issues-surface .issues-row__jobs { display: none; }
-.issues-surface .issues-row__held { grid-area: held; margin-top: var(--space-1); }
-.issues-surface .issues-row__fields { grid-area: fields; margin-top: var(--space-1); }
-
-/* State off: no lamp, no tint, and the title takes the lamp's room. */
-.issues-surface .issues-row[data-lamp="off"] { padding-inline-start: var(--space-3); }
-.issues-surface .issues-row[data-lamp="off"]::before { content: none; }
-.issues-surface .issues-row[data-lamp="off"][data-tone="ask"]:not(:hover) { background: var(--chip); }
-
 /* ---- A query, as the tracker reads it ------------------------------------------------------------------- */
 
 .issues-query { display: flex; flex: none; flex-direction: column; gap: var(--space-2); margin: 0 var(--space-2) var(--space-2); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-inset, var(--radius-sm)); background: var(--bg-sunken); }
@@ -184,23 +123,8 @@
 /* ---- Reported bugs ------------------------------------------------------------------------------------- */
 
 /* A report is a row on the same panel: its title, a fixed column for its one mark, a fixed column for its age, and the Job it came from under. The first mark is the Job that works it, or the pull request that fixed it; with neither, it is empty. */
-.issues-surface .issues-row[data-report] {
-  grid-template-columns: minmax(0, 1fr) var(--space-4) var(--space-4) auto;
-  grid-template-areas: "title job mark at" "from from from from";
-  row-gap: var(--space-1);
-  padding-inline-start: var(--space-3);
-}
-.issues-surface .issues-row[data-report]::before { content: none; }
-.issues-row__job-mark { grid-area: job; display: flex; align-items: center; justify-content: center; color: var(--fg-subtle); }
-.issues-row__job-mark[data-tone="live"] { color: var(--status-running); }
-.issues-row__job-mark[data-tone="ask"] { color: var(--status-awaiting-review); }
-.issues-row__job-mark[data-tone="wait"] { color: var(--status-handed-in); }
-.issues-row__job-mark .armada-session-mark > svg { width: var(--space-3); height: var(--space-3); }
 .issues-mark--fixed { color: var(--status-completed-success); }
-.issues-row__mark { grid-area: mark; display: flex; align-items: center; justify-content: center; color: var(--fg-muted); }
 .issues-mark { display: inline-flex; }
-.issues-row__at { --readout-chars: 7; grid-area: at; justify-self: end; align-self: start; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
-.issues-row__from { grid-area: from; min-width: 0; overflow: hidden; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); text-overflow: ellipsis; white-space: nowrap; }
 
 /* The reader's parts for a report: each a tile like the description, the steps numbered, the errors and paths in mono. */
 .issues-reader__from { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; }
@@ -213,9 +137,10 @@
 .issues-surface .issues-report__part[aria-label="Logs"] { background: var(--bg-sunken); }
 
 /* Pending: a row and a heading as they will be, in bars. Each wrapper takes the line the text takes, so a row is the height it lands at. */
-.issues-row[data-pending], .issues-list__repository[data-pending] { --skeleton-fill: var(--bg-raised); }
+/* The hue of the Job working an issue, which `meaning.css` draws as the bar and the ground. */
+.issues-surface .issues-row[data-tone="live"] { --lamp-hue: var(--status-running); }
+.issues-surface .issues-row[data-tone="ask"] { --lamp-hue: var(--status-awaiting-review); }
+.issues-surface .issues-row[data-tone="wait"] { --lamp-hue: var(--status-handed-in); }
 .issues-surface .issues-row[data-pending] { cursor: default; }
 .issues-surface .issues-row[data-pending]::before { content: none; }
 .issues-surface .issues-row[data-pending]:hover { background: var(--chip); }
-.issues-row__skel { display: flex; align-items: center; min-height: var(--leading-xs); min-width: 0; }
-.issues-row__skel-reference { display: flex; align-items: center; margin-top: var(--space-1); min-height: calc(var(--leading-2xs) + var(--space-1) + var(--border-width) * 2); }

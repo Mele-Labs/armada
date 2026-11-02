@@ -7,13 +7,14 @@ import { createRoot } from "react-dom/client";
 
 import { WiredSessions } from "../sessions-wired";
 import { Layer } from "./Layer";
-import { devServerSink, mainSink } from "./sink";
+import { devServerSink, mainSink, type Sink } from "./sink";
 
-export function mount(): void {
+/** `story` loads a story file for the card's Variant tiles: the mock's, which has the files; Electron passes none. */
+export function mount(story?: Sink["story"]): void {
   const host = document.createElement("div");
   host.setAttribute("data-armada-annotate", "");
   document.body.append(host);
-  const sink = window.armadaDev !== undefined ? mainSink(window.armadaDev) : devServerSink();
+  const sink = window.armadaDev !== undefined ? mainSink(window.armadaDev) : { ...devServerSink(), story };
   createRoot(host).render(
     <StrictMode>
       <WiredSessions>
