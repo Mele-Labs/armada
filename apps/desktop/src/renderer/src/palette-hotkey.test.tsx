@@ -2,6 +2,7 @@
 // before a field or a terminal can keep it, and leaves a key that is being recorded in Settings to the recorder.
 
 import { Eye } from "lucide-react";
+import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { userEvent } from "vitest/browser";
@@ -73,7 +74,8 @@ function mountClosed(open = false) {
       open: () => false,
     },
   };
-  root.render(<PaletteMount {...props} />);
+  // Flushed, because the window starts listening in an effect: a key pressed before it, on a loaded runner, was never heard.
+  flushSync(() => root.render(<PaletteMount {...props} />));
   return surface;
 }
 

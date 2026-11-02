@@ -183,18 +183,6 @@ const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
     say: "The pull request that was open stays. Back on the map every drone that is not running a Check is dimmed, and Activity is narrowed to the same",
   },
   {
-    press: inside(region("Autopilot"), role("switch", "Autopilot")),
-    say: "Autopilot is a compact card beside the controls. Its switch takes the middle area for its configuration",
-  },
-  {
-    look: stage("Autopilot lane"),
-    say: "The lane, in the area the map was in. The controls and the merge queue stay",
-  },
-  {
-    press: inside(region("Autopilot"), role("switch", "Autopilot")),
-    say: "Switched off, the area is as it was left",
-  },
-  {
     press: inside(controls, button(/^Checks$/)),
     say: "Pressed again, the filter is put away and the column is whole",
   },

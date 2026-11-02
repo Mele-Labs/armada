@@ -14,7 +14,7 @@ import { manifest } from "./slices/manifest";
 import { overview } from "./slices/overview";
 import { sessions } from "./slices/sessions";
 import { settings } from "./slices/settings";
-import { sleep } from "./slices/sleep";
+import { autopilotDecisions } from "./slices/autopilot-decisions";
 import { accounts } from "./slices/accounts";
 import { planUsage } from "./slices/plan-usage";
 import { modelDownshift } from "./slices/model-downshift";
@@ -64,7 +64,7 @@ const BY_NAME = {
   checks,
   lessons,
   sessions,
-  sleep,
+  autopilotDecisions,
   accounts,
   planUsage,
   modelDownshift,

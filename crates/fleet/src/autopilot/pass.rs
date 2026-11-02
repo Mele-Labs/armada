@@ -109,6 +109,11 @@ where
             self.autopilot_told(&manifest_id).await;
             return Ok(0);
         }
+        // The backlog is not on Autopilot: nothing is picked, and what it already holds carries on.
+        if !gathered.kept.on_backlog {
+            self.told_if_moved(&gathered);
+            return Ok(0);
+        }
         let mut room = gathered.room();
         if room == 0 {
             self.told_if_moved(&gathered);
@@ -236,6 +241,13 @@ where
         Ok(now.is_some_and(|now| {
             now.run_id == kept.run_id && State::from_stored(&now.state) == Some(State::Running)
         }))
+    }
+
+    /// Whether `manifest_id`'s Autopilot is running: the owner is away. **A paused or stopped one is
+    /// not**, and a store that cannot say reads as not.
+    pub(crate) async fn autopilot_running(&self, manifest_id: &str) -> bool {
+        let kept = self.store().lock().await.autopilot(manifest_id);
+        matches!(kept, Ok(Some(kept)) if State::from_stored(&kept.state) == Some(State::Running))
     }
 
     async fn set_aside(&self, kept: &KeptAutopilot, aside: SetAside) -> Result<(), Adrift> {

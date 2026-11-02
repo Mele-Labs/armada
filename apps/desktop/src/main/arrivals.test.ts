@@ -67,7 +67,7 @@ function fakeHost(questionsOver: BridgeState["questions"] = []): {
     now: () => 0,
     repositories: {} as unknown as RepositoryReads,
     rehearsal: {} as unknown as RehearsalConnection,
-    sleep: {
+    autopilotDecisions: {
       changed: () => {},
     },
     planUsage: {

@@ -461,14 +461,6 @@ export const MOCK_SETTINGS: SettingsList = {
     ),
     row(
       "Features",
-      "features.autopilotPanel",
-      "Autopilot panel",
-      "Shows the Autopilot panel in the Cockpit",
-      BOOLEAN,
-      false,
-    ),
-    row(
-      "Features",
       "features.reachFolders",
       "Folders jobs reach",
       "Folders outside its slots a job may read and write with no card, and folders it may not.",

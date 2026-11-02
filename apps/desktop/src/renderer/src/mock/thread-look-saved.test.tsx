@@ -154,6 +154,7 @@ test("Talk hears through this Mac's voice with the engine the look names, into t
   });
   const voice = {
     listen,
+    openSettings: () => undefined,
     whisper: async () => ({
       state: "absent" as const,
     }),
@@ -181,10 +182,55 @@ test("Talk hears through this Mac's voice with the engine the look names, into t
       name: "Talk",
     }),
   );
-  expect(listen).toHaveBeenCalledWith("dictation", expect.any(Function));
+  expect(listen).toHaveBeenCalledWith("dictation", expect.any(Function), expect.any(Function));
   const box = view.getByRole("textbox", {
     name: "Message",
   });
   await expect.element(box).toHaveFocus();
   await expect.element(box).toHaveTextContent("ship it");
+});
+
+test("Talk refused by macOS leaves the button and says what to turn on, with a way to its Settings pane", async () => {
+  const openSettings = vi.fn();
+  const listen = (
+    _engine: string,
+    _onWord: (word: string) => void,
+    onEnd?: (why?: "microphone_denied") => void,
+  ) => {
+    queueMicrotask(() => onEnd?.("microphone_denied"));
+    return () => undefined;
+  };
+  const voice = {
+    listen,
+    openSettings,
+    whisper: async () => ({
+      state: "absent" as const,
+    }),
+    onWhisper: () => () => undefined,
+    installWhisper: async () => ({
+      ok: true as const,
+    }),
+  };
+  const app = mount({
+    ...s235SessionHead,
+    behaves: (handle) => ({
+      ...s235SessionHead.behaves!(handle),
+      voice,
+    }),
+  });
+  await onScreen();
+  const view = await toSession(/How does armada interface/);
+  const talk = view.getByRole("button", {
+    name: "Talk",
+  });
+  await userEvent.click(talk);
+  await expect.element(view.getByText("The microphone is off for Armada Voice")).toBeVisible();
+  await expect.element(talk).toHaveAttribute("aria-pressed", "false");
+  await userEvent.click(
+    view.getByRole("button", {
+      name: "Open Microphone settings",
+    }),
+  );
+  expect(openSettings).toHaveBeenCalledWith("microphone");
+  void app;
 });

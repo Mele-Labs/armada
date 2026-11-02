@@ -1,0 +1,8 @@
+[operations.review_autopilot_decision]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Keep one answer Autopilot gave, so it leaves the review"
+notes = """
+`POST /autopilot/decisions/review`, body `ReviewAutopilotDecision`: `id` of an answer. Marks it reviewed, answers with `AutopilotDecisions` and publishes `autopilot.decisions_changed`. An id nothing holds is a 409 `fleet.autopilot_no_decision`.
+"""

@@ -10,6 +10,8 @@ You start Autopilot on a repository at 11pm with one sentence: *"work through
 the open issues that don't need design decisions, two at a time, until 7am."*
 In the morning the clear ones ran and wait for you or landed, the ones it was
 unsure of sit on a pile with its reason, and nothing ran past the caps you set.
+The questions, plans and drafts you let it answer are answered and on record with
+what it chose and why, and you agree with each or change it.
 
 **This is the scope's whole promise run without a person at the dispatch.**
 Every pick is an ordinary Job, briefed on its issue and on the workflow the
@@ -23,6 +25,9 @@ flowchart LR
   PICK -->|"sure"| SES["Session, briefed on the issue"]
   PICK -->|"unsure"| ASIDE["Set aside, with its reason"]
   SES -->|"asks a question, or is done"| CARD["Call in its thread"]
+  CARD -->|"a kind you checked"| DEC["One fresh call per decision<br/>holds no place"]
+  DEC -->|"sure"| ANS["Answered, on record to agree with or change"]
+  DEC -->|"not sure"| CARD
   SES -->|"Session ends"| AP
 ```
 
@@ -38,6 +43,25 @@ flowchart LR
 chooses each Job's workflow the way the [Proposer](../concepts/job-proposer.md)
 does. Work whose shape is unknown gets a workflow that plans first.
 
+## It answers what you checked, and keeps what it answered
+
+| Shape | Why not |
+|---|---|
+| A helper agent that stays up while you are away | An orchestrator that holds a conversation is the third attempt `docs/scope.md` records as abandoned, and it would hold a place |
+| Every decision answered, or none | A person who is away wants a plan approved and a destructive command left alone |
+| **One fresh call per decision, per repository** | It reads the instruction and that repository's earlier answers from the record, names a way and says whether it is sure, and ends. No clear answer means it waits for you |
+
+You check at start what goes on autopilot, the backlog and Jobs already running, and which kinds of decision it may answer:
+a question with or without a recommended answer, a plan, a draft, a walk, landing a green pull request, an issue it was unsure of, fixing a red main, Reads and Writes.
+Run commands count as Writes.
+
+> **Rule.** A destructive decision always waits, and so does a Job in a terminal and a command Fleet cannot read.
+> Why: a held decision costs a glance. A terminal's own prompt is answered in the terminal, and Fleet answers only what it can read whole.
+
+A red main starts one Job, once for each red commit, with no call.
+Each answer is on record with what was chosen and why, in a list of its own, opened from a lamp on the switch's plate, where you Agree, Change it by sending the Job a correction, or open the Job.
+Autopilot keeps running when you come back: the first press or key after ten minutes with neither asks whether to keep it on or turn it off.
+
 ## What a person sets
 
 | Setting | Notes |
@@ -47,13 +71,17 @@ does. Work whose shape is unknown gets a workflow that plans first.
 | Until | A time. Optional |
 | Spend | A dollar total across its Jobs. Optional |
 | Jobs started | How many Jobs it may start. Optional |
+| On autopilot | The backlog, Jobs already running, or both |
+| Decisions | The kinds it may answer |
+
+The caps and the boxes are set at start. While it runs the switch is the only control: Bridge has no Pause, Resume or editing of caps.
 
 > **Rule.** Each cap stops the next pick and never a running Job.
 > Why: a Job's cost arrives as it works. A cap that read as "spending stops
 > here" would be believed.
 
 The first cap reached
-pauses Autopilot and says which one it was; raising it lets Resume carry on (#2105).
+pauses Autopilot and the setup says which one it was beside Start, which begins it again (#2105).
 
 ## What happens to a pick
 
@@ -77,6 +105,7 @@ pauses Autopilot and says which one it was; raising it lets Resume carry on (#21
 | Stop | None | Carry on | Withdrawn, closed | Ends |
 
 Neither one stops a Job that is working.
+Bridge draws the switch alone: it is Stop, and Start begins a stopped or paused one again.
 `2026-10-11-pause-drains-stop-withdraws.md`.
 
 ## Where it stands
@@ -89,7 +118,8 @@ Neither one stops a Job that is working.
 | The Autopilot record, caps, picker, Pause and Stop | Built, #2092's Fleet half: [`../concepts/autopilot.md`](../concepts/autopilot.md). The picker is one model call made the way the Proposer's is, not an agent. A Job waiting on a person, or idle, holds no place |
 | The set-aside pile's acts | Built: a person dispatches a pick, which starts a Job, or dismisses it |
 | The acceptance test | `crates/acceptance/tests/autopilot.rs`, passing |
-| The Cockpit lane | Built, #2092's Bridge half, and #2105's quotes, cap pause, Edit caps and All line (the All line since replaced by the header control that asks for a repository): [`../concepts/autopilot.md`](../concepts/autopilot.md), *In Bridge* |
+| The Cockpit lane | Built, #2092's Bridge half, and #2105's quotes and cap pause: [`../concepts/autopilot.md`](../concepts/autopilot.md), *In Bridge*. The switch on the Map's lip, the setup, and the list of answers replaced Pause, Resume and Edit caps |
+| The decisions | Built: [`../concepts/autopilot.md`](../concepts/autopilot.md), *How a decision happens* |
 
 ## What it depends on
 

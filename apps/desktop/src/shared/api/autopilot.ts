@@ -1,4 +1,4 @@
-// Autopilot: a repository works its own backlog from one sentence until the owner pauses or stops it.
+// Autopilot: a repository works its own backlog from one sentence until the owner stops it.
 // #2092, `docs/concepts/autopilot.md`. A slice imports protocol, never another slice; `../api.ts` and
 // `../bridge.ts` compose them.
 
@@ -30,12 +30,6 @@ export type AutopilotApi = {
   ) => Promise<AutopilotActed<AutopilotProposal>>;
   /** Start with what the person confirmed. */
   startAutopilot: (manifestId: string, settings: AutopilotSettings) => Promise<AutopilotActed>;
-  /** New settings for one running or paused, in its state: never a resume. Raising the cap that paused it lets Resume through. */
-  updateAutopilot: (manifestId: string, settings: AutopilotSettings) => Promise<AutopilotActed>;
-  /** No new picks; the Sessions it started finish. */
-  pauseAutopilot: (manifestId: string) => Promise<AutopilotActed>;
-  /** Refused (409 `fleet.autopilot_capped`) while a cap it reached still holds, naming the cap. */
-  resumeAutopilot: (manifestId: string) => Promise<AutopilotActed>;
   /** No new picks, what it picked and has not started withdrawn, and the end. */
   stopAutopilot: (manifestId: string) => Promise<AutopilotActed>;
   listAutopilots: () => Promise<AutopilotActed<AutopilotList>>;
@@ -50,9 +44,6 @@ export type AutopilotApi = {
 export const AUTOPILOT_CHANNELS = {
   proposeAutopilot: "bridge:propose-autopilot",
   startAutopilot: "bridge:start-autopilot",
-  updateAutopilot: "bridge:update-autopilot",
-  pauseAutopilot: "bridge:pause-autopilot",
-  resumeAutopilot: "bridge:resume-autopilot",
   stopAutopilot: "bridge:stop-autopilot",
   listAutopilots: "bridge:list-autopilots",
   getAutopilot: "bridge:get-autopilot",

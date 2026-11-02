@@ -29,7 +29,6 @@ import { openInPanel } from "../shared-panel/store";
 import { viewsOf } from "../merge-line";
 import { runnerOf, waitingRunKey } from "../session-runner";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
-import { useSleepSource } from "../sleep";
 import { attachPr } from "./claims";
 import { answerWaiting } from "./answer-waiting";
 import { dismissItem, dismissWaiting } from "./dismissed";
@@ -215,8 +214,6 @@ function mainRedSaid(views: ReturnType<typeof viewsOf>, root: string): string {
 
 /** Where `o` goes: the Session, or the pull request the call is about. */
 function opener(item: Item, hosts: Hosts, state: BridgeState): (() => void) | undefined {
-  const slept = item.sleep?.sessionId;
-  if (slept !== undefined) return () => hosts.onOpenSession(slept);
   const session = sessionIdOf(item.key);
   if (session !== undefined) return () => hosts.onOpenSession(session);
   const pull = pullOf(item, state);
@@ -417,11 +414,6 @@ export function useAnswering(
       }),
     );
 
-  // A Sleep decision is agreed with, or changed in words; either way it is reviewed and the call leaves.
-  const slept = useSleepSource();
-  const sleep = item.sleep;
-  const reviewed = (id: string) => slept?.review(id);
-
   /** Where a pull request the Session names is, from its own attachments or the repository's open ones. */
   const pullAddress = (number: number): string | undefined => {
     const attached = sessions
@@ -454,11 +446,6 @@ export function useAnswering(
       once: true,
     });
   const actsOf = (): Answer[] => {
-    // Agreeing is the whole answer; where it was decided opens from the card's own Open.
-    if (sleep !== undefined)
-      return [
-        oneTap("Agree", () => (reviewed(sleep.id), finish())),
-      ];
     if (waiting !== undefined) {
       const given = waiting.item;
       // A walk needs no choice: approving is what Fleet does with an answer that names none.
@@ -729,13 +716,6 @@ export function useAnswering(
       : {
           owner,
         }),
-    ...(sleep !== undefined
-      ? {
-          reply: (text: string, accepted?: () => void) => (
-            slept?.override(sleep.id, text), reviewed(sleep.id), accepted?.(), finish()
-          ),
-        }
-      : {}),
     ...(replies
       ? {
           reply: (text: string, accepted?: () => void) =>
@@ -766,11 +746,7 @@ export function useAnswering(
         }
       : {}),
     pending: shown,
-    // A Sleep decision is dismissed by reviewing it on Fleet, so it never comes back.
-    dismiss: () =>
-      sleep === undefined
-        ? wait("dismiss", () => dismissItem(item), dismissed)
-        : (reviewed(sleep.id), dismissed()),
+    dismiss: () => wait("dismiss", () => dismissItem(item), dismissed),
     ...(waiting?.item.source === "agent"
       ? {
           remove: (reason: string) => wait("dismiss", () => dismissItem(item, reason), dismissed),

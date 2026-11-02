@@ -317,13 +317,12 @@ mod taking_red;
 /// Signing in to an account with the forge's device flow, and enrolling the machine with the store.
 pub mod signing_in;
 pub mod slots;
-mod sleeping;
 /// The lock on the store, which names a holder past a quarter second.
 mod store_lock;
 /// The test map: collectors as plugs, laps written as edges, the map read for paths.
 /// `docs/concepts/test-map.md`.
 pub mod test_map;
-/// Fleet feeding the test map from main moving and from a sleeping bay.
+/// Fleet feeding the test map from main moving and from an Autopilot bay.
 mod test_map_feed;
 /// A model reading the changed files no collector can measure into the test map.
 mod test_map_reading;

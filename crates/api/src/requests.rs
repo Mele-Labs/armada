@@ -41,6 +41,20 @@ pub(crate) async fn send_request<D: Requests>(
     }
 }
 
+pub(crate) async fn send_requests<D: Requests>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let send: ipc::SendRequests = match ipc::decode_body("requests to send", &body) {
+        Ok(send) => send,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().send_requests(crate::acting::asking(), send).await {
+        Ok(sent) => answer(StatusCode::OK, &sent, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?repository=&session_id=`, each optional; the session is read only where the connection
 /// places no Job.
 #[derive(Deserialize)]

@@ -59,7 +59,8 @@ import {
 import { CallAlerts } from "./cockpit/CallAlerts";
 import { DockCount } from "./cockpit/DockCount";
 import { DeckHost, DeckPlaces } from "./cockpit/deck/DeckHost";
-import { HELM_HOME, SLEEP_HOME, useCallingHomes } from "./cockpit/deck/homes";
+import { HELM_HOME, useCallingHomes } from "./cockpit/deck/homes";
+import { AutopilotBack } from "./autopilot-back";
 import { useRepositoryRuns } from "./cockpit/deck/repository-runs";
 import { opensFor, placesOff } from "./cockpit/deck/system-page";
 import { focusPanel } from "./cockpit/deck/keys";
@@ -692,7 +693,7 @@ export function App() {
   const pickedRepository = repositories.find((one) => one.root === state.repository) ?? null;
   const repositoryRuns = useRepositoryRuns(repositories);
   const scoped = pickedRepository?.manifest;
-  // A call no Session's row holds pulses the control that already shows it: Sleep's menu and Helm's button here.
+  // A call no Session's row holds pulses the control that already shows it: Helm's button here.
   const callingHomes = useCallingHomes(state, pickedRepository);
   // All repositories: no one picked from a listing that has any. The Manifest asks which.
   const all = pickedRepository === null && repositories.length > 0;
@@ -828,6 +829,7 @@ export function App() {
                 <SketchSharing onCopied={setCopied} onSaid={setTelling}>
                   <DispatchingProvider value={dispatching}>
                     <DispatchFailure.Provider value={dispatchFailure}>
+                      <AutopilotBack repositories={repositories} />
                       <Shell
                         connection={state.connection}
                         repositories={repositories}
@@ -849,14 +851,6 @@ export function App() {
                           ? {}
                           : {
                               onTeach: () => teachBridge("title_bar", ""),
-                            })}
-                        {...(titleRow.sleep === undefined
-                          ? {}
-                          : {
-                              sleep: {
-                                ...titleRow.sleep,
-                                calling: callingHomes.has(SLEEP_HOME),
-                              },
                             })}
                         helmCalling={callingHomes.has(HELM_HOME)}
                         wordmark={<ArmadaMark size={20} title="Armada" />}

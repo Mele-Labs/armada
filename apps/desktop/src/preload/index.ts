@@ -78,6 +78,7 @@ import type {
 import type {
   ActFailed,
   AgentSignIn,
+  AutopilotDecisions,
   AllWorkspaces,
   BugReport,
   ChangeJobCopy,
@@ -119,7 +120,6 @@ import type {
   PlanUsage,
   SharedHomeRead,
   SignedOut,
-  SleepState,
   TimelineAsk,
   TimelineEvent,
 } from "@armada/protocol";
@@ -231,7 +231,7 @@ import type {
   TerminalMovedBack,
 } from "../shared/api/sessions";
 import type { RequestRepositoryRead } from "../shared/api/dispatch";
-import type { SleepActed } from "../shared/api/sleep";
+import type { AutopilotDecisionsActed } from "../shared/api/autopilot-decisions";
 import type { AccountsActed } from "../shared/api/accounts";
 import type { PlanUsageRead } from "../shared/api/plan-usage";
 import type { ModelDownshiftRead } from "../shared/api/model-downshift";
@@ -623,7 +623,8 @@ const api: BridgeApi = {
   // Sessions Fleet hosts. **Each names a session by its id and nothing else of Fleet's**: the
   // repository a new one starts in is the window's own pick, read in main, and a pull request is
   // named by its number against the session that holds it. No path and no port crosses.
-  getSleep: (): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.getSleep),
+  getAutopilotDecisions: (): Promise<AutopilotDecisionsActed> =>
+    ipcRenderer.invoke(CHANNELS.getAutopilotDecisions),
   // A repository's open issues, by its Manifest (#91), and the Autopilot that works them (#2092).
   listIssues: (manifestId: string, refresh: boolean): Promise<IssuesRead> =>
     ipcRenderer.invoke(CHANNELS.listIssues, manifestId, refresh),
@@ -1014,15 +1015,17 @@ const api: BridgeApi = {
     name: string,
   ): Promise<AccountsActed<SharedHomeRead>> =>
     ipcRenderer.invoke(CHANNELS.setHomeRepository, login, owner, name),
-  setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
-  overrideSleep: (id: string, text: string): Promise<SleepActed> =>
-    ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
-  reviewSleep: (id: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.reviewSleep, id),
-  onSleepChanged: (onChanged: (state: SleepState) => void): (() => void) => {
-    const handler = (_event: unknown, state: SleepState): void => onChanged(state);
-    ipcRenderer.on(CHANNELS.sleepChanged, handler);
+  overrideAutopilotDecision: (id: string, text: string): Promise<AutopilotDecisionsActed> =>
+    ipcRenderer.invoke(CHANNELS.overrideAutopilotDecision, id, text),
+  reviewAutopilotDecision: (id: string): Promise<AutopilotDecisionsActed> =>
+    ipcRenderer.invoke(CHANNELS.reviewAutopilotDecision, id),
+  onAutopilotDecisionsChanged: (
+    onChanged: (decisions: AutopilotDecisions) => void,
+  ): (() => void) => {
+    const handler = (_event: unknown, decisions: AutopilotDecisions): void => onChanged(decisions);
+    ipcRenderer.on(CHANNELS.autopilotDecisionsChanged, handler);
     return () => {
-      ipcRenderer.removeListener(CHANNELS.sleepChanged, handler);
+      ipcRenderer.removeListener(CHANNELS.autopilotDecisionsChanged, handler);
     };
   },
   startSession: (

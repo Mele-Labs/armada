@@ -400,8 +400,8 @@ const walkTakes = (): Variation[] =>
       walk: "taskMarkTooltips",
     },
     {
-      name: "Sleep cockpit",
-      walk: "sleepCockpit",
+      name: "Autopilot back",
+      walk: "autopilot-back",
     },
   ].map(({ name, walk }) => {
     const url = new URL(mockPage());

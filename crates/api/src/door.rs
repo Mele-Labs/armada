@@ -189,6 +189,7 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "list_manifests",
     // A request is sent from the Job, not from a repository.
     "send_request",
+    "send_requests",
     "get_requests",
     "save_request_to_collection",
     // The Job's shell stands in its own worktree or directory, read inside no Manifest.

@@ -1,0 +1,8 @@
+[operations."autopilot.decisions_changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "The answers Autopilot gave and the person has not reviewed, whole, after any change to them"
+notes = """
+Carries `AutopilotDecisions`, as `get_autopilot_decisions` answers it. Published when a pass answers something, and on a review or a correction. It is rare: a pass makes at most four calls for a repository, so it adds nothing to the unbounded-sink risk `docs/practices/protocol.md` names. The rows ride whole, so a reconnecting Bridge replaces what it holds and cannot believe it missed one.
+"""

@@ -1,5 +1,4 @@
-// The title row at rest, its one menu with the account, Sleep and Settings, Sleep turned on and the moon
-// on the menu button, and Settings opening. Over `title-bar-menu`.
+// The title row at rest, its one menu with the account and Settings, and Settings opening. Over `title-bar-menu`.
 
 import { button, dialog, inside, place, walk } from "../walk";
 
@@ -19,19 +18,13 @@ const titleBarMenu = walk("title-bar-menu", [
     say: "Open the menu",
   },
   {
-    press: inside(
+    look: inside(
       MENU,
-      button("Sleep mode", {
+      button("Settings", {
         exact: true,
       }),
     ),
-    say: "Account, Sleep and Settings: turn Sleep on",
-  },
-  {
-    look: button("Menu", {
-      exact: true,
-    }),
-    say: "The moon rides on the menu button",
+    say: "The account and Settings",
   },
   {
     press: inside(

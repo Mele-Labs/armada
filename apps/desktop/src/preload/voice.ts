@@ -27,6 +27,7 @@ export function voicePreload(
         });
         return () => void ipc.invoke(CHANNELS.voiceStop, id);
       },
+      openSettings: (pane) => void ipc.invoke(CHANNELS.voiceOpenSettings, pane),
       whisper: () => ipc.invoke(CHANNELS.voiceWhisper),
       onWhisper: (listener) => {
         const handler = (_event: unknown, state: WhisperState): void => listener(state);

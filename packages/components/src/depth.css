@@ -83,7 +83,6 @@
     .armada-overview-summary__count,
     .armada-pr-status__place,
     .deck-bay__name,
-    .armada-autopilot__cap dd,
     .armada-title-bar__usage-meter
   ) {
   font-family: var(--font-figure);

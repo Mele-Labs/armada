@@ -93,8 +93,6 @@ export type ShellProps = {
   onCompose: () => void;
   /** Opens the command palette from the title row's search field. */
   onSearch: () => void;
-  /** Sleep mode's control, in the title row beside Helm's. Absent draws none. */
-  sleep?: TheShellProps["sleep"];
   /** The plan's limits, in the title row. Absent draws none. */
   planUsage?: TheShellProps["planUsage"];
   /** Teach on the title row. Absent draws no menu. */
@@ -154,7 +152,6 @@ export function Shell({
   fleet,
   onCompose,
   onSearch,
-  sleep,
   planUsage,
   onTeach,
   places,
@@ -286,11 +283,6 @@ export function Shell({
         },
       }}
       onSearch={onSearch}
-      {...(sleep === undefined
-        ? {}
-        : {
-            sleep,
-          })}
       {...(planUsage === undefined
         ? {}
         : {

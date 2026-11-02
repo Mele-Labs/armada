@@ -6,7 +6,6 @@ import {
   Gauge,
   Merge,
   NotebookText,
-  Plane,
   Rows3,
   Send,
   type LucideIcon,
@@ -14,14 +13,7 @@ import {
 
 import { powering, usePowerOn } from "../boot";
 
-export type StandbyKind =
-  | "jobs"
-  | "bays"
-  | "controls"
-  | "queue"
-  | "dispatch"
-  | "autopilot"
-  | "ledger";
+export type StandbyKind = "jobs" | "bays" | "controls" | "queue" | "dispatch" | "ledger";
 
 /** Each panel's glyph, from the registry. */
 const GLYPHS: Record<StandbyKind, LucideIcon> = {
@@ -30,7 +22,6 @@ const GLYPHS: Record<StandbyKind, LucideIcon> = {
   controls: Gauge,
   queue: Merge,
   dispatch: Send,
-  autopilot: Plane,
   ledger: NotebookText,
 };
 

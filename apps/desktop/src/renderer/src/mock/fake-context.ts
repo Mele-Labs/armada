@@ -49,7 +49,7 @@ export type SliceName =
   | "checks"
   | "lessons"
   | "sessions"
-  | "sleep"
+  | "autopilotDecisions"
   | "accounts"
   | "planUsage"
   | "modelDownshift"

@@ -39,6 +39,9 @@ export type VoiceWhy =
   | "digest_mismatch"
   | "unpack_failed";
 
+/** The System Settings panes Talk's guide opens. The same as `TalkPane` in `@armada/components`' `thread-look.ts`. */
+export type VoicePane = "microphone" | "speech" | "sound";
+
 export type VoiceApi = {
   /** **Absent in the mock**, whose look source plays Talk from a script. */
   voice?: {
@@ -53,6 +56,8 @@ export type VoiceApi = {
       onWord: (word: string) => void,
       onEnd?: (why?: VoiceWhy) => void,
     ) => () => void;
+    /** Opens the System Settings pane that holds what Talk was refused: Microphone, Speech Recognition, or Sound's input list. */
+    openSettings: (pane: VoicePane) => void;
     whisper: () => Promise<WhisperState>;
     onWhisper: (listener: (state: WhisperState) => void) => () => void;
     /** Downloads whisper.cpp and its model into Bridge's data folder. Resolves when it is installed or has given up. */
@@ -87,4 +92,5 @@ export const VOICE_CHANNELS = {
   voiceWhisper: "bridge:voice-whisper",
   voiceWhisperChanged: "bridge:voice-whisper-changed",
   voiceInstallWhisper: "bridge:voice-install-whisper",
+  voiceOpenSettings: "bridge:voice-open-settings",
 } as const;

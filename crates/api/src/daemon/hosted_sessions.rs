@@ -163,28 +163,6 @@ pub trait HostedSessions: Send + Sync + 'static {
     /// while one runs starts nothing.
     fn start_agent_sign_in(self: Arc<Self>) -> impl Future<Output = Result<ipc::AgentSignIn, Refusal>> + Send;
 
-    /// `get_sleep`: the switch and the night's rows.
-    fn get_sleep(&self) -> impl Future<Output = Result<ipc::SleepState, Refusal>> + Send;
-
-    /// `set_sleep`: on starts a new night, off keeps it for the review.
-    fn set_sleep(
-        self: Arc<Self>,
-        set: ipc::SetSleep,
-    ) -> impl Future<Output = Result<ipc::SleepState, Refusal>> + Send;
-
-    /// `override_sleep`: tell the session what the owner would have said. [`Refusal::IllegalMove`]
-    /// where no decision holds the id, [`Refusal::Unacceptable`] for blank words.
-    fn override_sleep(
-        self: Arc<Self>,
-        over: ipc::OverrideSleep,
-    ) -> impl Future<Output = Result<ipc::SleepState, Refusal>> + Send;
-
-    /// `review_sleep`: the owner kept a decision. [`Refusal::IllegalMove`] where no decision holds the id.
-    fn review_sleep(
-        self: Arc<Self>,
-        review: ipc::ReviewSleep,
-    ) -> impl Future<Output = Result<ipc::SleepState, Refusal>> + Send;
-
     /// `tune_session`.
     fn tune_session(
         &self,

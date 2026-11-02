@@ -23,10 +23,9 @@ import type { ModelDownshiftState } from "./model-downshift";
 import type { Projects } from "./projects";
 import type { AgentSignIn } from "./agent-sign-in";
 import type { PlanUsage } from "./plan-usage";
-import type { SleepState } from "./sleep";
 import type { TimelineAppended } from "./timeline";
 import type { ActFailed } from "./act-failed";
-import type { Autopilot } from "./autopilot";
+import type { Autopilot, AutopilotDecisions } from "./autopilot";
 import type { WatchesChanged } from "./watches";
 import type { BugReportsChanged } from "./bug-reports";
 import type { JobLifecyclesChanged } from "./lifecycles";
@@ -149,14 +148,14 @@ export type Event =
   | ({
       kind: "browser.request";
     } & BrowserRequest)
-  /** Sleep mode after any change to it, whole. */
-  | ({
-      kind: "sleep.changed";
-    } & SleepState)
   /** A repository's Autopilot after any change to it, whole. #2092. */
   | ({
       kind: "autopilot.changed";
     } & Autopilot)
+  /** The answers Autopilot gave and the person has not reviewed, whole. */
+  | ({
+      kind: "autopilot.decisions_changed";
+    } & AutopilotDecisions)
   /** A Job's watches after any change to one, whole, as `list_watches` answers. */
   | ({
       kind: "watches.changed";

@@ -12,10 +12,6 @@ export const autopilotPreload: AutopilotApi = {
     ipcRenderer.invoke(CHANNELS.proposeAutopilot, manifestId, sentence, localNow),
   startAutopilot: (manifestId, settings: AutopilotSettings) =>
     ipcRenderer.invoke(CHANNELS.startAutopilot, manifestId, settings),
-  updateAutopilot: (manifestId, settings: AutopilotSettings) =>
-    ipcRenderer.invoke(CHANNELS.updateAutopilot, manifestId, settings),
-  pauseAutopilot: (manifestId) => ipcRenderer.invoke(CHANNELS.pauseAutopilot, manifestId),
-  resumeAutopilot: (manifestId) => ipcRenderer.invoke(CHANNELS.resumeAutopilot, manifestId),
   stopAutopilot: (manifestId) => ipcRenderer.invoke(CHANNELS.stopAutopilot, manifestId),
   listAutopilots: () => ipcRenderer.invoke(CHANNELS.listAutopilots),
   getAutopilot: (manifestId) => ipcRenderer.invoke(CHANNELS.getAutopilot, manifestId),
