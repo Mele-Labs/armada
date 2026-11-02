@@ -1,4 +1,4 @@
-import { Ban, Check, CircleDashed, CopyPlus, GitCompare, GitPullRequestArrow, Layers, Link2, ListMinus, ListPlus, LoaderCircle, Plus, Trash2, Undo2 } from "lucide-react";
+import { Ban, Briefcase, Check, CircleDashed, CopyPlus, FolderGit2, GitCompare, GitPullRequestArrow, Layers, Link2, ListMinus, ListPlus, LoaderCircle, Plus, Trash2, Undo2 } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
@@ -115,6 +115,18 @@ function replacesOf(one: ManagedWorkflow, all: readonly ManagedWorkflow[]): stri
   return undefined;
 }
 
+/**
+ * In a repository's group, what marks a row as custom rather than shipped with Armada: the repository's own copy, or Yours.
+ * Shipped with Armada has none.
+ */
+function customOf(one: ManagedWorkflow, all: readonly ManagedWorkflow[], name: string): { Glyph: LucideIcon; label: string } | undefined {
+  if (one.leftOut !== undefined) return undefined;
+  const replaces = all.some((other) => other.id === one.id && other.source === "armada" && other.leftOut === undefined) ? ", replaces Armada's" : "";
+  if (one.source === "repository") return { Glyph: FolderGit2, label: `${name}'s own copy${replaces}` };
+  if (one.source === "yours") return { Glyph: Briefcase, label: `Yours${replaces}` };
+  return undefined;
+}
+
 /** A row's switch: the machine's where `at` is null, else that repository's, and a badge in its place where the machine has the workflow off. */
 function RowSwitch({ id, at, switches }: { id: string; at: SwitchedIn | null; switches: WorkflowSwitches }) {
   const offOnMachine = switches.machine.includes(id);
@@ -152,12 +164,12 @@ export function WorkflowManager(props: WorkflowManagerProps) {
       const name = rows[0]?.repository ?? repository;
       // A repository's own group switches its rows there, on All too.
       const at: SwitchedIn | null = from === "" ? pickedIn : { manifestId: from, name };
-      return { key: `repository@${from}`, label: `${name} repository`, rows, at };
+      return { key: `repository@${from}`, label: `${name} repository`, rows, at, name: name as string | undefined };
     });
     return [
-      { key: "armada", label: "Shipped with Armada", rows: found.filter((one) => one.source === "armada" && one.runsIn === undefined), at: pickedIn },
+      { key: "armada", label: "Shipped with Armada", rows: found.filter((one) => one.source === "armada" && one.runsIn === undefined), at: pickedIn, name: undefined },
       ...fromRepositories,
-      { key: "yours", label: "Yours", rows: found.filter((one) => one.source === "yours" && one.runsIn === undefined), at: pickedIn },
+      { key: "yours", label: "Yours", rows: found.filter((one) => one.source === "yours" && one.runsIn === undefined), at: pickedIn, name: undefined },
     ].filter((group) => group.rows.length > 0);
   }, [workflows, query, repository, pickedIn]);
 
@@ -241,13 +253,16 @@ export function WorkflowManager(props: WorkflowManagerProps) {
               <ul className="armada-wm__rows">
                 {group.rows.map((one) => {
                   const on = picked !== null && keyOf(one) === keyOf(picked);
-                  const replaces = replacesOf(one, workflows);
+                  // In a repository's group a custom row carries its own mark and the accent; Shipped with Armada carries neither.
+                  const custom = group.name === undefined ? undefined : customOf(one, workflows, group.name);
+                  const replaces = group.name === undefined ? replacesOf(one, workflows) : undefined;
                   const out = one.leftOut;
                   return (
                     <li key={keyOf(one)} className="armada-wm__row">
                       <button
                         type="button"
                         className="armada-wm__entry"
+                        data-custom={custom === undefined ? undefined : ""}
                         data-nav-item=""
                         aria-current={on ? "true" : undefined}
                         tabIndex={on || (!pickedHere && one === shown[0]) ? 0 : -1}
@@ -260,6 +275,12 @@ export function WorkflowManager(props: WorkflowManagerProps) {
                           <Tooltip label={out.said}>
                             <span role="img" aria-label="Left out">
                               <Ban size={14} strokeWidth={2} aria-hidden />
+                            </span>
+                          </Tooltip>
+                        ) : custom !== undefined ? (
+                          <Tooltip label={custom.label}>
+                            <span role="img" aria-label={custom.label}>
+                              <custom.Glyph size={14} strokeWidth={2} aria-hidden />
                             </span>
                           </Tooltip>
                         ) : replaces === undefined ? null : (

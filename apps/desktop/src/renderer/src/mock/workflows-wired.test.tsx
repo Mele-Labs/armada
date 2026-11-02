@@ -49,7 +49,7 @@ test("the list is Fleet's, grouped as Armada, the repository and Yours, and Arma
   }
   await expect.element(REPOSITORY.getByRole("button", { name: "feature", exact: true })).toBeVisible();
   await expect.element(YOURS.getByRole("button", { name: "docs_only", exact: true })).toBeVisible();
-  await expect.element(page.getByRole("img", { name: "This repository's copy replaces Armada's" })).toBeVisible();
+  await expect.element(page.getByRole("img", { name: "armada's own copy, replaces Armada's" })).toBeVisible();
   await expect.element(page.getByText("adding or changing something a person uses")).toBeVisible();
   expect(page.getByRole("textbox", { name: "Words" }).elements()).toHaveLength(0);
 });

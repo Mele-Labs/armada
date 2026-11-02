@@ -23,7 +23,7 @@ export const workflowsManaged = walk("workflows", [
   { look: ARMADA, say: "Armada's: read-only" },
   { look: REPOSITORY, say: "This repository's copies" },
   { look: YOURS, say: "Yours" },
-  { hover: role("img", "This repository's copy replaces Armada's"), say: "This repository's feature replaces Armada's" },
+  { hover: role("img", "armada's own copy, replaces Armada's"), say: "armada's own feature replaces Armada's" },
   { press: inside(REPOSITORY, button("feature", { exact: true })), say: "The repository's feature" },
   { look: inside(step("Walk"), text("you approve the walk")), say: "Walk ends when you approve the walk" },
   { look: inside(step("Walk"), role("group", /^Cockpit timeline rail/)), say: "Drifted here: a Job Fleet nudged at Walk, with Open Job and Not a drift" },
