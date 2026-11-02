@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Setting, SettingsList } from "@armada/protocol";
 import * as request from "./request";
-import { publishSettings, textSetting } from "./settings";
+import { publishSettings, switchReduceMotion, textSetting } from "./settings";
 
 function setting(key: string, value: Setting["value"]): Setting {
   return {
@@ -63,5 +63,42 @@ describe("textSetting", () => {
     expect(textSetting(held, "editor.command")).toBe("code -g {file}:{line}");
     expect(textSetting(held, "timeouts.checkSeconds")).toBe("");
     expect(textSetting(null, "editor.command")).toBe("");
+  });
+});
+
+describe("Reduce motion", () => {
+  const follows = (list: Setting[]): boolean[] => {
+    const heard: boolean[] = [];
+    switchReduceMotion((on) => heard.push(on));
+    publishSettings(
+      {
+        settings: list,
+      } as SettingsList,
+      () => undefined,
+    );
+    return heard;
+  };
+
+  it("follows features.reduceMotion on every published list", () => {
+    expect(
+      follows([
+        setting("features.reduceMotion", true),
+      ]),
+    ).toEqual([
+      true,
+    ]);
+    expect(
+      follows([
+        setting("features.reduceMotion", false),
+      ]),
+    ).toEqual([
+      false,
+    ]);
+  });
+
+  it("stays off on a list without the key", () => {
+    expect(follows([])).toEqual([
+      false,
+    ]);
   });
 });

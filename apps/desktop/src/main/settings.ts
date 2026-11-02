@@ -2,9 +2,9 @@
 // and published in `BridgeState`. `preferences.ts`' shape, and its own class for the same reason:
 // what an act needs is `Board`, so nothing here can drift from what the socket believes.
 //
-// **Main reads three of the settings itself**, and every publish goes through `publishSettings` so
-// none of them can be missed: the command wait, the reconnect interval, and the editor and terminal
-// `open.ts` and `terminal.ts` read off the published list.
+// **Main reads four of the settings itself**, and every publish goes through `publishSettings` so
+// none of them can be missed: the command wait, the reconnect interval, Reduce motion, and the editor
+// and terminal `open.ts` and `terminal.ts` read off the published list.
 
 import type { Outcome, SaveSettings, SettingsList, SettingValue } from "@armada/protocol";
 import type { DeepLinks } from "./deep-link";
@@ -31,6 +31,13 @@ export function switchDeepLinks(links: DeepLinks): void {
   deepLinks = links;
 }
 
+let reduceMotion: ((on: boolean) => void) | undefined;
+
+/** Hands settings what follows `features.reduceMotion`: off unless the list says true. */
+export function switchReduceMotion(follow: (on: boolean) => void): void {
+  reduceMotion = follow;
+}
+
 /** Publish a list, and follow the settings main itself acts on. */
 export function publishSettings(
   list: SettingsList,
@@ -41,6 +48,7 @@ export function publishSettings(
   const reconnect = settingOf(list, "timeouts.bridgeReconnectMs");
   if (typeof reconnect === "number") followReconnectMs(reconnect);
   deepLinks?.follow(settingOf(list, "features.deepLinks") !== false);
+  reduceMotion?.(settingOf(list, "features.reduceMotion") === true);
   publish({
     settings: list,
   });

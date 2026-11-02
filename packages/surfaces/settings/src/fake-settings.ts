@@ -437,6 +437,14 @@ export const MOCK_SETTINGS: SettingsList = {
     ),
     row(
       "Features",
+      "features.reduceMotion",
+      "Reduce motion",
+      "Stops Armada's animations. Nothing else on this Mac changes.",
+      BOOLEAN,
+      false,
+    ),
+    row(
+      "Features",
       "features.deepLinks",
       "Open pull request links",
       "A link that starts armada://pull opens Bridge on that pull request's review. Off, Armada does not claim the link from macOS and ignores one it is handed.",
