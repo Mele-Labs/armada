@@ -20,11 +20,12 @@ test("a hidden Activity, Bays or Flight control is not drawn, and the Jobs list 
   mount("one-session-view");
   await onScreen();
   await expect.element(list()).toBeVisible();
-  expect(panels("Activity")).toHaveLength(1);
+  const activity = () => document.querySelectorAll('.console-scope__press[aria-label="Activity"]');
+  expect(activity()).toHaveLength(1);
   expect(panels("Bays")).toHaveLength(1);
   expect(panels("Flight controls")).toHaveLength(1);
   install('{"version":1,"dashboard.panels":{"hidden":["activity","bays","controls","list"]}}');
-  await expect.poll(() => panels("Activity").length).toBe(0);
+  await expect.poll(() => activity().length).toBe(0);
   expect(panels("Bays")).toHaveLength(0);
   expect(panels("Flight controls")).toHaveLength(0);
   await expect.element(list()).toBeVisible();

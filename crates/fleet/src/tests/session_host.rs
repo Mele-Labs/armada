@@ -717,7 +717,7 @@ async fn tuning_ends_an_idle_process_and_the_next_message_resumes_on_the_new_set
         .fleet
         .tune_session(TuneSession {
             session_id: id.clone(),
-            model: Some("sonnet".into()),
+            model: Some("another-model".into()),
             effort: Some("high".into()),
             mode: SessionMode::Plan,
         })
@@ -731,7 +731,7 @@ async fn tuning_ends_an_idle_process_and_the_next_message_resumes_on_the_new_set
             hosted.mode,
             hosted.running
         ),
-        (Some("sonnet"), Some("high"), SessionMode::Plan, false)
+        (Some("another-model"), Some("high"), SessionMode::Plan, false)
     );
     assert!(rig.stand_in.process(0).ended.load(Ordering::SeqCst));
 
@@ -740,7 +740,7 @@ async fn tuning_ends_an_idle_process_and_the_next_message_resumes_on_the_new_set
     assert!(next.resuming);
     assert_eq!(
         (next.model.as_deref(), next.effort.as_deref(), next.mode),
-        (Some("sonnet"), Some("high"), SessionMode::Plan)
+        (Some("another-model"), Some("high"), SessionMode::Plan)
     );
 }
 

@@ -11,7 +11,7 @@
 
 // A page whose policy has no `unsafe-eval` cannot use Pixi's generated uniform code; this swaps it for the same code written out.
 import "pixi.js/unsafe-eval";
-import { Application, Container, Ticker } from "pixi.js";
+import { Application, Container, RendererType, Ticker } from "pixi.js";
 
 import type { Cam } from "../camera";
 import type { Size } from "../layout";
@@ -133,8 +133,14 @@ export class Stage {
     // it started starts it too, so this runs on that path as well.
     Ticker.system.stop();
     if (this.gone) {
-      app.destroy(true, { children: true });
+      // Never `destroy(true)`: that releases Pixi's pools, which the console's stage shares with this one (`console-stage.ts`).
+      app.destroy({ removeView: true }, { children: true });
       return;
+    }
+    // With no WebGL Pixi starts its 2D renderer, which cannot draw these meshes and throws on each frame.
+    if (app.renderer.type === RendererType.CANVAS) {
+      app.destroy({ removeView: true }, { children: true });
+      throw new Error("WebGL is not available");
     }
     this.app = app;
     // The pane was measured while this was starting.

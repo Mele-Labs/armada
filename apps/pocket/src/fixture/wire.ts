@@ -1,7 +1,7 @@
 // Two Macs' worth of what the Phone Gateway serves, for the fixture Gateway (`fixture/gateway.ts`) and the
 // acceptance test. Times are counted back from `now`, so the ages read the same whenever it is opened.
 
-import type { ModelChoices, PlanUsage, SessionRecord, SessionRow, SessionThread } from "@armada/protocol";
+import type { KeptStyles, ModelChoices, PlanUsage, SessionRecord, SessionRow, SessionThread } from "@armada/protocol";
 
 import type { PhoneSession } from "../gateway";
 
@@ -10,6 +10,8 @@ export type FixtureMac = {
   needs: PhoneSession[];
   live: PhoneSession[];
   threads: Record<string, SessionThread>;
+  /** What `/api/sessions/kept_styles` serves, by hash. */
+  kept: Record<string, KeptStyles>;
   /** What `/api/sessions/shown` serves, by session and path. */
   shown: Record<string, Record<string, string>>;
   repositories: string[];
@@ -40,17 +42,27 @@ const WINDOW = 400_000;
 
 const ago = (now: number, minutes: number) => new Date(now - minutes * 60_000).toISOString();
 
+const KEPT_HASH = "0123456789abcdef0123456789abcdef";
+const KEPT_STYLES: KeptStyles = {
+  sheets: [{ path: "apps/pocket/src/styles.css", css: ".row { display: flex; align-items: center; gap: 8px; padding: 12px; border: 1px solid; } .lamp { inline-size: 8px; block-size: 8px; border-radius: 50%; background: currentColor; }", edited: false }],
+  fonts: [],
+};
+
 const SKETCH_SCENE = {
   nodes: [
     { id: "phone", kind: "box", x: 0, y: 0, title: "Phone", body: "One app, a list per Mac" },
     { id: "studio", kind: "box", x: 260, y: -80, title: "studio", body: "Fleet serves the phone" },
     { id: "laptop", kind: "box", x: 260, y: 80, title: "laptop", body: "Fleet serves the phone" },
+    { id: "card", kind: "mock", x: 600, y: 0, w: 360, title: "Job row", html: '<div class="row" data-part="row"><span class="lamp"></span>Needs you</div>', kept: KEPT_HASH },
   ],
   edges: [
     { id: "a", from: "phone", to: "studio", label: "signed" },
     { id: "b", from: "phone", to: "laptop", label: "signed" },
   ],
 };
+
+/** The scene as the agent wrote it in its `show_sketch` call: Fleet adds `kept` to the sketch it keeps and leaves the call as it was. */
+const SKETCH_CALL_SCENE = { ...SKETCH_SCENE, nodes: SKETCH_SCENE.nodes.map(({ kept: _kept, ...node }: { kept?: string }) => node) };
 
 function record(now: number, id: string, title: string, started: number, extra: Partial<SessionRecord> = {}): SessionRecord {
   return {
@@ -214,7 +226,7 @@ export function fixtureMacs(now: number, origins: { studio: string; laptop: stri
       message("a2-2", ago(now, 22), "agent", "Here is what the phone says about itself now."),
       tool("a2-3", ago(now, 20), "show_file docs/concepts/pocket.md"),
       message("a2-4", ago(now, 16), "agent", "And how the phone reaches each Mac."),
-      tool("a2-5", ago(now, 15), `show_sketch ${JSON.stringify({ title: "Phone home", scene: SKETCH_SCENE })}`),
+      tool("a2-5", ago(now, 15), `show_sketch ${JSON.stringify({ title: "Phone home", scene: SKETCH_CALL_SCENE })}`),
       { kind: "window", id: "a2-6", at: ago(now, 6), title: "Needs you band", url: "http://127.0.0.1:5173/walk" },
       tool("a2-7", ago(now, 2), "Edit apps/pocket/src/pocket.css"),
     ],
@@ -281,6 +293,7 @@ export function fixtureMacs(now: number, origins: { studio: string; laptop: stri
       threads: { a1, a2, d1, p1, c1, r1, e1 },
       usage: usageAt(now, 2, 42, 61),
       models: MODELS,
+      kept: { [KEPT_HASH]: KEPT_STYLES },
       shown: { a2: { "/Users/owner/armada/docs/concepts/pocket.md": "# Pocket\n\nThe phone app. It shows a Job's whole thread and any file or sketch the Job showed.\n" } },
       repositories: ["armada"],
     },
@@ -289,6 +302,7 @@ export function fixtureMacs(now: number, origins: { studio: string; laptop: stri
       needs: [plan, describe],
       live: [plan, describe, reading],
       threads: { b1, b2, b3 },
+      kept: {},
       shown: {},
       repositories: ["store"],
       usage: usageAt(now, 30, 40, 60),

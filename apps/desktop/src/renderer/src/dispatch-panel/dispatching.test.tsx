@@ -312,13 +312,16 @@ test("with no repository chosen Queue for later asks for one, and the pick queue
   await expect.element(request).toBeVisible();
   await userEvent.click(request);
   await userEvent.keyboard("Draft the export notes");
+  // The reading settles first, so the press finds nothing to wait on. A press while it is out is the next test's.
+  const sheet = page.getByRole("region", { name: "Dispatch" });
+  await expect.element(sheet).toHaveAttribute("data-reading", "unresolved");
 
   await userEvent.click(queueButton());
+  await expect.element(sheet).toHaveAttribute("data-asking", "true");
   expect(fleet.queue).not.toHaveBeenCalled();
 
   await userEvent.click(page.getByRole("radio", { name: /Repository billing/ }));
-  // The queue waits on the repository's reading, which a loaded CI runner can take past the 1s default.
-  await expect.poll(() => fleet.queue.mock.calls.length, { timeout: 5000 }).toBe(1);
+  expect(fleet.queue).toHaveBeenCalledTimes(1);
   expect(fleet.queue.mock.calls[0]?.[0]).toMatchObject({ text: "Draft the export notes", root: "/Users/user/billing", repository: "billing" });
   expect(fleet.start).not.toHaveBeenCalled();
 });

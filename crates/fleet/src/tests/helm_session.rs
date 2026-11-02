@@ -170,7 +170,7 @@ async fn starting_fresh_ends_it_and_the_next_message_starts_a_new_one_on_the_sam
     rig.fleet
         .tune_session(TuneSession {
             session_id: first.id.clone(),
-            model: Some("opus".into()),
+            model: Some("another-model".into()),
             effort: Some("high".into()),
             mode: ipc::SessionMode::Auto,
         })
@@ -192,7 +192,7 @@ async fn starting_fresh_ends_it_and_the_next_message_starts_a_new_one_on_the_sam
     assert_eq!(last.session, next.id.as_str());
     assert_eq!(
         (last.model.as_deref(), last.effort.as_deref()),
-        (Some("opus"), Some("high")),
+        (Some("another-model"), Some("high")),
         "kept through Start fresh"
     );
 
@@ -215,19 +215,19 @@ async fn the_message_that_starts_it_may_say_what_it_runs_on() {
 
     let made = rig
         .asking(
-            AskHelm { model: Some("opus".into()), effort: Some("low".into()), ..words("hi") },
+            AskHelm { model: Some("another-model".into()), effort: Some("low".into()), ..words("hi") },
             None,
         )
         .await
         .expect("taken");
     let hosted = made.hosted.expect("hosted facts");
-    assert_eq!((hosted.model.as_deref(), hosted.effort.as_deref()), (Some("opus"), Some("low")));
+    assert_eq!((hosted.model.as_deref(), hosted.effort.as_deref()), (Some("another-model"), Some("low")));
     // A live Session keeps the tuning it has.
     let kept = rig
-        .asking(AskHelm { model: Some("sonnet".into()), ..words("again") }, None)
+        .asking(AskHelm { model: Some("a-model".into()), ..words("again") }, None)
         .await
         .expect("taken");
-    assert_eq!(kept.hosted.expect("hosted facts").model.as_deref(), Some("opus"));
+    assert_eq!(kept.hosted.expect("hosted facts").model.as_deref(), Some("another-model"));
 }
 
 #[tokio::test]

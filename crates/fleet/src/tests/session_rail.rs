@@ -268,18 +268,18 @@ async fn how_a_job_started_is_sent_and_a_later_tuning_does_not_change_it() {
     let rig = ruled(Arc::new(FakeJudge::with_no_objection()));
     let id = rig.start().await;
     rig.fleet
-        .tune_session(ipc::TuneSession { session_id: id.clone(), model: Some("opus".into()), effort: Some("high".into()), mode: ipc::SessionMode::Plan })
+        .tune_session(ipc::TuneSession { session_id: id.clone(), model: Some("another-model".into()), effort: Some("high".into()), mode: ipc::SessionMode::Plan })
         .await
         .expect("tuned");
     rig.send(&id, REQUEST).await;
     rig.stand_in.init(0);
     let started = record(&rig, &id).await.started.expect("kept as the process first ran");
-    assert_eq!(started.model.as_deref(), Some("opus"));
+    assert_eq!(started.model.as_deref(), Some("another-model"));
     assert_eq!(started.effort.as_deref(), Some("high"));
     assert_eq!(started.mode, Some(ipc::SessionMode::Plan));
 
     rig.fleet
-        .tune_session(ipc::TuneSession { session_id: id.clone(), model: Some("sonnet".into()), effort: None, mode: ipc::SessionMode::Auto })
+        .tune_session(ipc::TuneSession { session_id: id.clone(), model: Some("a-model".into()), effort: None, mode: ipc::SessionMode::Auto })
         .await
         .expect("tuned");
     assert_eq!(record(&rig, &id).await.started, Some(started), "what it began with stands");

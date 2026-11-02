@@ -337,7 +337,7 @@ function dronesOf(i: SceneInputs): DroneSpec[] {
       dim: i.focus !== undefined && i.focus !== drone.key,
       call: i.callOf(drone.key),
       leaving: !i.calls.has(drone.key),
-      clashes: i.clashed.get(drone.key) ?? 0,
+      clashes: Math.min(i.clashed.get(drone.key) ?? 0, 1),
       loop: i.loops.has(drone.key),
       calling: drone.calling,
       aim: aimTile === undefined || aimed === undefined ? undefined : { tile: aimTile.path, at: aimed, wide: Math.min(aimTile.rect.w, 150) * 0.86, deep: Math.min(aimTile.rect.h * FLAT, 100) * 0.86 },

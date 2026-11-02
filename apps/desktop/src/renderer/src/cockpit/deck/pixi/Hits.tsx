@@ -14,7 +14,7 @@ import { keyed, onPlane } from "../bf-parts";
 import { arcsOf, bandOf, roadOf, type BuildIn } from "../build";
 import type { CallTone } from "../field";
 import { alongOf, type P3, type Point } from "../layout";
-import { clashLines, clashTip, droneTip, goalSaid, goalTip, outpostTip, padTip, payloadSaid, payloadTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "../tip";
+import { clashLines, clashTip, clashesTip, droneTip, goalSaid, goalTip, outpostTip, padTip, payloadSaid, payloadTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "../tip";
 import { plateAt } from "./plates";
 import type { View } from "./project";
 import type { ArcSpec, Crate, DroneSpec, OutpostSpec, PixiSceneIn, Placed, WorkerSpec } from "./scene";
@@ -154,30 +154,26 @@ function Call({ spec, tone, acts, big, say }: { spec: DroneSpec; tone: CallTone;
   );
 }
 
-/** The marks of the write clashes a drone is in. Fleet's are read one drone at a time, by a hook. */
+/** The one mark for the write clashes a drone is in. Fleet's are read one drone at a time, by a hook. */
 function Clashes({ spec, acts, big }: { spec: DroneSpec; acts: MutableRefObject<HitActs>; big: number }) {
   const d = spec.drone;
   const clashes = useClashesOf(d.kind, d.key.slice(d.kind.length + 1));
-  return (
-    <>
-      {clashes.map((clash, i) => (
-        <ClashMark key={`${clash.with.kind}:${clash.with.id}`} spec={spec} i={i} big={big} acts={acts} clash={clash} />
-      ))}
-    </>
-  );
+  const [first] = clashes;
+  return first === undefined ? null : <ClashMark spec={spec} big={big} acts={acts} first={first} clashes={clashes} />;
 }
 
-function ClashMark({ spec, i, big, acts, clash }: { spec: DroneSpec; i: number; big: number; acts: MutableRefObject<HitActs>; clash: ReturnType<typeof useClashesOf>[number] }) {
-  const ref = usePlaced<HTMLDivElement>((view) => clashSpot(view, spec, i, big));
+function ClashMark({ spec, big, acts, first: clash, clashes }: { spec: DroneSpec; big: number; acts: MutableRefObject<HitActs>; first: ReturnType<typeof useClashesOf>[number]; clashes: ReturnType<typeof useClashesOf> }) {
+  const ref = usePlaced<HTMLDivElement>((view) => clashSpot(view, spec, 0, big));
   const openClash = useOpenClash();
-  const opens = clash.with.kind !== "main";
+  const several = clashes.length > 1;
+  const opens = !several && clash.with.kind !== "main";
   return (
     <div
       ref={ref}
       className="bf-hits__item"
       role={opens ? "button" : "img"}
       tabIndex={opens ? 0 : -1}
-      aria-label={clashSaid(clash)}
+      aria-label={several ? `Conflicts with ${clashes.map((one) => one.with.label).join(", ")}` : clashSaid(clash)}
       data-hit="clash"
       data-key={spec.drone.key}
       data-opens={opens || undefined}
@@ -186,7 +182,7 @@ function ClashMark({ spec, i, big, acts, clash }: { spec: DroneSpec; i: number; 
         if (opens) openClash(clash.with);
       }}
       onKeyDown={(event) => opens && keyed(event, () => openClash(clash.with))}
-      {...speaking((target) => acts.current.tip(clashTip(clash), target), () => acts.current.tip(undefined))}
+      {...speaking((target) => acts.current.tip(several ? clashesTip(clashes) : clashTip(clash), target), () => acts.current.tip(undefined))}
     />
   );
 }

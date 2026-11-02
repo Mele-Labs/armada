@@ -307,17 +307,17 @@ fn the_threads_look_is_one_json_value_that_is_kept_whole() {
     assert_eq!(nothing.get(s::THREAD_LOOK), None, "nothing saved is Bridge's default");
 }
 
+/// Main and a preview take turns on one file, so a key one of them wrote is not a fault in
+/// the other: it stays in the document, and what the table does have is taken.
 #[test]
-fn an_unknown_key_refuses_the_file_and_names_the_key() {
-    let (key, reason) = refusal(&[
+fn a_key_this_build_does_not_have_is_kept_and_the_rest_is_taken() {
+    let pairs = [
         ("limits.dronesAtOnce", SettingValue::Integer(3)),
-        ("limits.dronesAtOnse", SettingValue::Integer(3)),
-    ]);
-    assert_eq!(key.as_deref(), Some("limits.dronesAtOnse"));
-    assert_eq!(
-        reason,
-        "settings.json names `limits.dronesAtOnse`, which is not a setting Armada has"
-    );
+        ("a.key.of.another.build", SettingValue::Integer(3)),
+    ];
+    let saved = checked(&document(&pairs), &supplied(), &Env::none()).expect("taken");
+    assert_eq!(saved.document(), &document(&pairs));
+    assert_eq!(saved.get("limits.dronesAtOnce"), Some(&SettingValue::Integer(3)));
 }
 
 #[test]

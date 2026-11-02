@@ -243,8 +243,8 @@ async fn a_refused_write_keeps_the_offer_and_the_default() {
     let home = TempDir::new();
     let fleet = fleet_in(&home);
     feed(&fleet, 85, WEEK).await;
-    // A directory where the file goes: the rename over it fails, as a full disk or a lock would.
-    std::fs::create_dir(settings_file_in(&home)).unwrap();
+    // A directory where the file is first written beside itself: the write fails, as a full disk or a lock would.
+    std::fs::create_dir(home.path().join(format!(".settings.json.{}.tmp", std::process::id()))).unwrap();
     assert!(matches!(fleet.accept_downshift().await, Err(Refusal::Fault(_))));
     assert_eq!(state(&fleet).await, Some(offered(85)));
     assert_eq!(fleet.session_model(), "a-model");

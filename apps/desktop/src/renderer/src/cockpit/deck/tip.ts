@@ -105,3 +105,6 @@ export const clashLines = (clash: Pick<Clash, "keys">): readonly string[] => [cl
 
 /** What a drone's clash mark says: the other party, and the paths that conflict. */
 export const clashTip = (clash: ClashView): Tip => ({ label: "Write clash", title: clash.with.label, hue: "ask", lines: clash.paths });
+
+/** What a drone's one clash mark says where it is in several: each other party with its paths. */
+export const clashesTip = (clashes: readonly ClashView[]): Tip => ({ label: "Write clash", title: "Conflicts with", hue: "ask", lines: clashes.map((clash) => `${clash.with.label} · ${clash.paths.join(", ")}`) });

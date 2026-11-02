@@ -8,7 +8,7 @@ import { StrictMode, useEffect } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { Boundary, LayoutSourceProvider } from "@armada/shell";
-import { HapticsProvider, forgetAllKept, forgetKeptRuns, writeKept } from "@armada/components";
+import { HapticsProvider, MockStylesContext, forgetAllKept, forgetKeptRuns, writeKept } from "@armada/components";
 
 import "../styles/index.css";
 import "@armada/components/src/look";
@@ -47,6 +47,7 @@ import { createMockAgentSignIn } from "./agent-sign-in";
 import { createMockDownshift } from "./downshift";
 import { createFleetPlanUsage } from "../fleet-plan-usage";
 import { mockThemes, promoteThemesWith } from "./themes";
+import { hiFiStyles } from "./hi-fi-styles";
 import { installTrackerMods, triable } from "./trackers";
 import { installSystemMods, installTravelMods } from "./system-mods";
 import { provideKitModels } from "../kit-models";
@@ -211,6 +212,7 @@ export function mountApp(
       <Boundary region="the window" usable={false} bridge={chosen.state.bridge}>
         {/* As `main.tsx` mounts it, so a test can read what a press asked the trackpad to play. */}
         <HapticsProvider perform={(pattern) => api.tap(pattern)}>
+          <MockStylesContext.Provider value={hiFiStyles}>
           <Themed source={mockThemes}>
             <TaughtSourceProvider value={taught}>
             <TweakSourceProvider source={tweaks}>
@@ -277,6 +279,7 @@ export function mountApp(
             </TweakSourceProvider>
             </TaughtSourceProvider>
           </Themed>
+          </MockStylesContext.Provider>
           <OnScreen say={say} />
         </HapticsProvider>
       </Boundary>

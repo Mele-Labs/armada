@@ -89,6 +89,7 @@ import type {
   SessionSubagent,
   SessionLoadout,
   AttachmentHistory,
+  KeptStyles,
   McpServerAct,
   SessionMcp,
   SessionMcpActed,
@@ -1053,6 +1054,14 @@ export class SessionsHost {
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "GET", `/sessions/attachment_history?session_id=${encodeURIComponent(sessionId)}`);
     return answer.ok === true ? { ok: true, value: answer.body as AttachmentHistory } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** The style set a `mock` node's `kept` names, by content hash: it never changes, so the window keeps what it reads. */
+  async keptStyles(hash: string): Promise<SessionActed<KeptStyles>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "GET", `/sessions/kept_styles?hash=${encodeURIComponent(hash)}`);
+    return answer.ok === true ? { ok: true, value: answer.body as KeptStyles } : { ok: false, outcome: answer.outcome };
   }
 
   /** What one item of a session's Loadout says, as Fleet read it from disk. */
