@@ -82,7 +82,7 @@ export type StartSession = {
   project_rows?: ProjectRowRef[];
 };
 
-export type TagKind = "session" | "pull_request" | "branch" | "issue" | "report";
+export type TagKind = "session" | "pull_request" | "branch" | "issue" | "report" | "terminal";
 
 /** What a message names with `@`. Fleet writes the line that tells the agent. */
 export type SessionTag = {

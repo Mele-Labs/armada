@@ -205,7 +205,7 @@ import { useBackfilled } from "./backfilled";
 import { ARTIFACT_SAID, cardOf, checksSaid, shownOnly, type Known } from "./session-cards";
 import { useNumbered } from "./numbered";
 import { RunsPlaceCard, RunsPlaceControl } from "./RunsPlaceControl";
-import { composerFocusAsked } from "./session-focus";
+import { composerFocusAsked, onComposerFocusAsked } from "./session-focus";
 import { NO_SYNCED, cardOn, profilesOf, useRunBook } from "./run-book";
 import { boundProfile, rootOfSession, sentTo } from "./run-places";
 import { SessionRepositoryOf } from "./session-move";
@@ -1797,6 +1797,20 @@ export function SessionView({
   }, [
     session.id,
   ]);
+  // A box already on screen is asked again, as a chip put in it by a tab calls for.
+  useEffect(
+    () =>
+      onComposerFocusAsked((id) => {
+        if (id === session.id)
+          setFocusFor({
+            key: session.id,
+            at: Date.now(),
+          });
+      }),
+    [
+      session.id,
+    ],
+  );
   // The old Session is writing the handoff a fresh one opens on.
   const [handing, setHanding] = useState(false);
   // Whether the Needs you panel on the composer is up, and for which Session.

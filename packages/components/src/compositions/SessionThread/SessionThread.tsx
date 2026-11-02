@@ -905,6 +905,7 @@ const TAG_KIND = {
   branch: "Branch",
   issue: "Issue",
   report: "Reported bug",
+  terminal: "Terminal",
 } as const;
 
 /**
@@ -1639,7 +1640,7 @@ export function YourMessage({
     refs === null
       ? undefined
       : (tag: ComposerTag): void =>
-          tag.kind === "branch" || tag.kind === "report"
+          tag.kind === "branch" || tag.kind === "report" || tag.kind === "terminal"
             ? undefined
             : refs.open({
                 kind: tag.kind,
@@ -1898,7 +1899,7 @@ function Row({
     refs === null
       ? undefined
       : (tag: ComposerTag): void =>
-          tag.kind === "branch" || tag.kind === "report"
+          tag.kind === "branch" || tag.kind === "report" || tag.kind === "terminal"
             ? undefined
             : refs.open({
                 kind: tag.kind,

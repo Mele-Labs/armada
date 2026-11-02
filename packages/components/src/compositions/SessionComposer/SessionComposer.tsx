@@ -114,6 +114,7 @@ const KIND_SAID: Record<ComposerTag["kind"], string> = {
   branch: "Branch",
   issue: "Issue",
   report: "Reported bug",
+  terminal: "Terminal",
 };
 
 /**
@@ -353,6 +354,28 @@ export function quoteIntoDraft(draftKey: string, quote: string): void {
       tags: was.tags,
     },
   );
+}
+
+/**
+ * Puts a chip for `tag` at the end of the box kept for a Session, as though it had been picked there and not sent.
+ * One the box already holds is not added twice.
+ */
+export function tagIntoDraft(draftKey: string, tag: ComposerTag): void {
+  const key = `session:${draftKey}`;
+  const was = readKept<Draft>(key, reviveDraft) ?? BLANK;
+  if (was.tags.some((one) => one.kind === tag.kind && one.id === tag.id)) return;
+  const next: Draft = {
+    ...was,
+    text: `${was.text}${was.text === "" || was.text.endsWith(" ") ? "" : " "}${CHIP} `,
+    tags: [
+      ...was.tags,
+      tag,
+    ],
+  };
+  writeKept<Draft>(key, next, {
+    text: next.text,
+    tags: next.tags,
+  });
 }
 
 /** Words put after what the box holds, a space between. */
