@@ -28,7 +28,7 @@ import type { RepositoryReads } from "./repositories";
 import type { BridgeStateFleet } from "./socket";
 import type { SessionsHost } from "./sessions";
 import { publishSettings, readSettings } from "./settings";
-import type { SleepHost } from "./sleep";
+import type { AutopilotDecisionsHost } from "./autopilot-decisions";
 import type { PlanUsageHost } from "./plan-usage";
 import type { ModelDownshiftHost } from "./model-downshift";
 import type { ProjectsHost } from "./projects";
@@ -59,8 +59,8 @@ export interface ArrivalHost {
   readonly sessions: Pick<SessionsHost, "again" | "changed" | "row" | "terminal" | "watchesChanged" | "browser">;
   /** What Fleet holds disk for, read once for nobody so the first surface to open has a list, and again on a slot lease or release — `holding.ts`. */
   readonly held: Pick<HeldReader, "warm" | "again">;
-  /** Sleep mode, told when Fleet changes the night — `sleep.ts`. */
-  readonly sleep: Pick<SleepHost, "changed">;
+  /** Autopilot's answers, told when Fleet changes them — `autopilot-decisions.ts`. */
+  readonly autopilotDecisions: Pick<AutopilotDecisionsHost, "changed">;
   /** The plan's windows, told when a session reports a newer reading — `plan-usage.ts`. */
   readonly planUsage: Pick<PlanUsageHost, "changed">;
   /** The default model's step down, told when Fleet moves it and read once per connection — `model-downshift.ts`. */
@@ -289,15 +289,15 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.sessions.watchesChanged(change);
     return;
   }
-  if (event.kind === "sleep.changed") {
-    // The night travels whole.
+  if (event.kind === "autopilot.decisions_changed") {
+    // The list travels whole.
     host.publish({ connection });
-    const { kind: _kind, ...state } = event;
-    host.sleep.changed(state);
+    const { kind: _kind, ...decisions } = event;
+    host.autopilotDecisions.changed(decisions);
     return;
   }
   if (event.kind === "plan_usage.changed") {
-    // Above the tail for `sleep.changed`'s reason: no Job to find, and the reading travels whole.
+    // Above the tail for `autopilot.decisions_changed`'s reason: no Job to find, and the reading travels whole.
     host.publish({ connection });
     const { kind: _kind, ...usage } = event;
     host.planUsage.changed(usage);

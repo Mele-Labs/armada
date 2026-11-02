@@ -37,7 +37,7 @@ import type { ChecksState } from "./api/checks";
 import { LESSONS_CHANNELS } from "./api/lessons";
 import { SESSIONS_CHANNELS, SESSIONS_NOTHING_YET } from "./api/sessions";
 import type { SessionsState } from "./api/sessions";
-import { SLEEP_CHANNELS } from "./api/sleep";
+import { AUTOPILOT_DECISIONS_CHANNELS } from "./api/autopilot-decisions";
 import { ACCOUNTS_CHANNELS } from "./api/accounts";
 import { PLAN_USAGE_CHANNELS } from "./api/plan-usage";
 import { MODEL_DOWNSHIFT_CHANNELS } from "./api/model-downshift";
@@ -168,7 +168,7 @@ export const CHANNELS = {
   ...CHECKS_CHANNELS,
   ...LESSONS_CHANNELS,
   ...SESSIONS_CHANNELS,
-  ...SLEEP_CHANNELS,
+  ...AUTOPILOT_DECISIONS_CHANNELS,
   ...ACCOUNTS_CHANNELS,
   ...PLAN_USAGE_CHANNELS,
   ...MODEL_DOWNSHIFT_CHANNELS,

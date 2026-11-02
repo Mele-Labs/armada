@@ -23,7 +23,7 @@ import type { DispatchApi } from "./api/dispatch";
 import type { ChecksApi } from "./api/checks";
 import type { LessonsApi } from "./api/lessons";
 import type { SessionsApi } from "./api/sessions";
-import type { SleepApi } from "./api/sleep";
+import type { AutopilotDecisionsApi } from "./api/autopilot-decisions";
 import type { AccountsApi } from "./api/accounts";
 import type { PlanUsageApi } from "./api/plan-usage";
 import type { ModelDownshiftApi } from "./api/model-downshift";
@@ -69,7 +69,7 @@ export type BridgeApi = CoreApi<BridgeState> &
   ChecksApi &
   LessonsApi &
   SessionsApi &
-  SleepApi &
+  AutopilotDecisionsApi &
   AccountsApi &
   PlanUsageApi &
   ModelDownshiftApi &

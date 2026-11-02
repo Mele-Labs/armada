@@ -37,7 +37,7 @@ import type { ModChecked } from "@armada/protocol";
 import type { ForgetReviewSearch, OpenReviewWalk, PullReviewLists, PullThreadResolved, RememberedPlace, RememberedPlaces, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, ReviewWalk, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
 import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../shared/review-walk";
 import type { ChosenHold, SessionHeld, SessionHoldsReleased, SetNoticeMute } from "@armada/protocol";
-import type { ActFailed, AgentSignIn, AllWorkspaces, BugReport, ChangeJobCopy, ChangeSessionSteps, JobCopy, JobPieceProposed, KeepDrafts, KeepJobPiece, WorkflowChange, BugReportDropped, BugReports, DeleteLifecyclePiece, JobLifecycles, LifecyclePieceDeleted, LifecyclePieceSaved, SaveLifecyclePiece, RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, ProjectRowRef, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NameProject, NewProjectIssue, NewProjectTask, ProjectTask, Projects, TickProjectTask, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
+import type { ActFailed, AgentSignIn, AutopilotDecisions, AllWorkspaces, BugReport, ChangeJobCopy, ChangeSessionSteps, JobCopy, JobPieceProposed, KeepDrafts, KeepJobPiece, WorkflowChange, BugReportDropped, BugReports, DeleteLifecyclePiece, JobLifecycles, LifecyclePieceDeleted, LifecyclePieceSaved, SaveLifecyclePiece, RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, ProjectRowRef, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NameProject, NewProjectIssue, NewProjectTask, ProjectTask, Projects, TickProjectTask, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
 import type { DeleteWatch, DismissWait, ReadWatchLog, StopWatch, WatchList, WatchLog, WatchSummary } from "@armada/protocol";
 import type { ApproveRepositoryTile, RepositoryTile } from "@armada/protocol";
@@ -50,7 +50,7 @@ import type { AnswerDocument, AnswerSessionAsk, AnswerSketch, AnswerWaiting, App
 import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds, PageShot } from "@armada/screens/src/draft/sessions";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, RingedNotes, SessionActed, TerminalMovedBack } from "../shared/api/sessions";
 import type { RequestRepositoryRead } from "../shared/api/dispatch";
-import type { SleepActed } from "../shared/api/sleep";
+import type { AutopilotDecisionsActed } from "../shared/api/autopilot-decisions";
 import type { AccountsActed } from "../shared/api/accounts";
 import type { PlanUsageRead } from "../shared/api/plan-usage";
 import type { ModelDownshiftRead } from "../shared/api/model-downshift";
@@ -375,7 +375,7 @@ const api: BridgeApi = {
   // Sessions Fleet hosts. **Each names a session by its id and nothing else of Fleet's**: the
   // repository a new one starts in is the window's own pick, read in main, and a pull request is
   // named by its number against the session that holds it. No path and no port crosses.
-  getSleep: (): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.getSleep),
+  getAutopilotDecisions: (): Promise<AutopilotDecisionsActed> => ipcRenderer.invoke(CHANNELS.getAutopilotDecisions),
   // A repository's open issues, by its Manifest (#91), and the Autopilot that works them (#2092).
   listIssues: (manifestId: string, refresh: boolean): Promise<IssuesRead> => ipcRenderer.invoke(CHANNELS.listIssues, manifestId, refresh),
   getIssue: (manifestId: string, reference: string): Promise<IssueNumberRead> => ipcRenderer.invoke(CHANNELS.getIssue, manifestId, reference),
@@ -602,14 +602,13 @@ const api: BridgeApi = {
   setHomeKind: (login: string, kind: HomeKind, on: boolean): Promise<AccountsActed<HomeKinds>> => ipcRenderer.invoke(CHANNELS.setHomeKind, login, kind, on),
   setHomeItem: (row: HomeRowAt, on: boolean): Promise<AccountsActed<HomeKinds>> => ipcRenderer.invoke(CHANNELS.setHomeItem, row, on),
   setHomeRepository: (login: string, owner: string, name: string): Promise<AccountsActed<SharedHomeRead>> => ipcRenderer.invoke(CHANNELS.setHomeRepository, login, owner, name),
-  setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
-  overrideSleep: (id: string, text: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
-  reviewSleep: (id: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.reviewSleep, id),
-  onSleepChanged: (onChanged: (state: SleepState) => void): (() => void) => {
-    const handler = (_event: unknown, state: SleepState): void => onChanged(state);
-    ipcRenderer.on(CHANNELS.sleepChanged, handler);
+  overrideAutopilotDecision: (id: string, text: string): Promise<AutopilotDecisionsActed> => ipcRenderer.invoke(CHANNELS.overrideAutopilotDecision, id, text),
+  reviewAutopilotDecision: (id: string): Promise<AutopilotDecisionsActed> => ipcRenderer.invoke(CHANNELS.reviewAutopilotDecision, id),
+  onAutopilotDecisionsChanged: (onChanged: (decisions: AutopilotDecisions) => void): (() => void) => {
+    const handler = (_event: unknown, decisions: AutopilotDecisions): void => onChanged(decisions);
+    ipcRenderer.on(CHANNELS.autopilotDecisionsChanged, handler);
     return () => {
-      ipcRenderer.removeListener(CHANNELS.sleepChanged, handler);
+      ipcRenderer.removeListener(CHANNELS.autopilotDecisionsChanged, handler);
     };
   },
   startSession: (title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean, projectRows?: readonly ProjectRowRef[]): Promise<SessionActed> =>

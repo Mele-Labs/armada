@@ -147,7 +147,7 @@ import type {
 import type { ModSessionStarted, StartModSession, AnswerDocument, AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissWaiting, ReopenWaiting, IssueClaimed, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, NameSession, RenameSession, SendPlanChanges, NotesSent, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, KeptStyles, McpServerAct, SessionMcp, SessionMcpActed, SessionQuick, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, DismissWait, ReadWatchLog, WatchList, WatchLog } from "@armada/protocol";
 import type { RequestRepositoryRead } from "./api/dispatch";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, RingedNotes, SessionActed, SessionsRead, TerminalMovedBack } from "./api/sessions";
-import type { SleepActed } from "./api/sleep";
+import type { AutopilotDecisionsActed } from "./api/autopilot-decisions";
 import type { AccountsActed } from "./api/accounts";
 import type { HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, SharedHomeRead } from "@armada/protocol";
 import type { PlanUsageRead } from "./api/plan-usage";
@@ -179,7 +179,7 @@ import { VOICE_CHANNELS, type VoiceApi } from "./api/voice";
 import { PROJECTS_CHANNELS, type ProjectsApi } from "./api/projects";
 import { BUG_REPORTS_CHANNELS, type BugReportsApi } from "./api/bug-reports";
 import { LIFECYCLES_CHANNELS, type LifecyclesApi } from "./api/lifecycles";
-import type { ActFailed, AgentSignIn, ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
+import type { ActFailed, AgentSignIn, AutopilotDecisions, ModelDownshiftState, PlanUsage, SignedOut, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
 import type { BridgeState, HistoryStep, Summons } from "./bridge";
@@ -408,7 +408,7 @@ type OldBridgeApi = {
     sendJudgeNote: (send: SendJudgeNote) => Promise<SessionActed<JudgeReading>>;
     dismissJudgeNote: (dismiss: DismissJudgeNote) => Promise<SessionActed<JudgeReading>>;
     markJudgeRead: (read: MarkJudgeRead) => Promise<SessionActed<JudgeReading>>;
-    getSleep: () => Promise<SleepActed>;
+    getAutopilotDecisions: () => Promise<AutopilotDecisionsActed>;
     getPlanUsage: () => Promise<PlanUsageRead>;
     getWriteClashes: () => Promise<WriteClashesRead>;
     readClashFile: (sessionId: string, other: { kind: ClashSide; id: string }, path: string) => Promise<ClashFileAnswer>;
@@ -443,9 +443,8 @@ type OldBridgeApi = {
     installIssueTool: (manifestId: string, tool: string) => Promise<IssueQueryActed<InstalledTool>>;
     getPullRequest: (manifestId: string, number: number) => Promise<PullRequestNumberRead>;
     refreshPullRequest: (manifestId: string, number: number) => Promise<PullRequestNumberRead>;
-    setSleep: (on: boolean) => Promise<SleepActed>;
-    overrideSleep: (id: string, text: string) => Promise<SleepActed>;
-    reviewSleep: (id: string) => Promise<SleepActed>;
+    overrideAutopilotDecision: (id: string, text: string) => Promise<AutopilotDecisionsActed>;
+    reviewAutopilotDecision: (id: string) => Promise<AutopilotDecisionsActed>;
     getAccounts: () => Promise<AccountsActed>;
     startSignIn: () => Promise<AccountsActed>;
     signOut: (accountId: number) => Promise<AccountsActed<SignedOut>>;
@@ -459,7 +458,7 @@ type OldBridgeApi = {
     setHomeKind: (login: string, kind: HomeKind, on: boolean) => Promise<AccountsActed<HomeKinds>>;
     setHomeItem: (row: HomeRowAt, on: boolean) => Promise<AccountsActed<HomeKinds>>;
     setHomeRepository: (login: string, owner: string, name: string) => Promise<AccountsActed<SharedHomeRead>>;
-    onSleepChanged: (onChanged: (state: SleepState) => void) => () => void;
+    onAutopilotDecisionsChanged: (onChanged: (decisions: AutopilotDecisions) => void) => () => void;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     runSessionCommand: (sessionId: string, command: string) => Promise<SessionActed>;
     renameSession: (rename: RenameSession) => Promise<SessionActed>;
@@ -746,7 +745,7 @@ const OLD_CHANNELS = {
     sendJudgeNote: "bridge:send-judge-note",
     dismissJudgeNote: "bridge:dismiss-judge-note",
     markJudgeRead: "bridge:mark-judge-read",
-    getSleep: "bridge:get-sleep",
+    getAutopilotDecisions: "bridge:get-autopilot-decisions",
     getPlanUsage: "bridge:get-plan-usage",
     getWriteClashes: "bridge:get-write-clashes",
     readClashFile: "bridge:read-clash-file",
@@ -781,9 +780,8 @@ const OLD_CHANNELS = {
     installIssueTool: "bridge:install-issue-tool",
     getPullRequest: "bridge:get-pull-request",
     refreshPullRequest: "bridge:refresh-pull-request",
-    setSleep: "bridge:set-sleep",
-    overrideSleep: "bridge:override-sleep",
-    reviewSleep: "bridge:review-sleep",
+    overrideAutopilotDecision: "bridge:override-autopilot-decision",
+    reviewAutopilotDecision: "bridge:review-autopilot-decision",
     getAccounts: "bridge:get-accounts",
     startSignIn: "bridge:start-sign-in",
     signOut: "bridge:sign-out",
@@ -797,7 +795,7 @@ const OLD_CHANNELS = {
     setHomeKind: "bridge:set-home-kind",
     setHomeItem: "bridge:set-home-item",
     setHomeRepository: "bridge:set-home-repository",
-    sleepChanged: "bridge:sleep-changed",
+    autopilotDecisionsChanged: "bridge:autopilot-decisions-changed",
     tuneSession: "bridge:tune-session",
     runSessionCommand: "bridge:run-session-command",
     renameSession: "bridge:rename-session",

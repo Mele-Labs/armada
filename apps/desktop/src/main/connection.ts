@@ -42,7 +42,7 @@ import { startingIdentity } from "./runtime-file";
 import { FleetSocket, type BridgeStateFleet } from "./socket";
 import { Modding } from "./mods";
 import { SessionsHost } from "./sessions";
-import { SleepHost } from "./sleep";
+import { AutopilotDecisionsHost } from "./autopilot-decisions";
 import { AccountsHost } from "./accounts";
 import { PlanUsageHost } from "./plan-usage";
 import { ModelDownshiftHost } from "./model-downshift";
@@ -159,8 +159,8 @@ export class FleetConnection {
     (change) => this.publish(change),
     () => this.connected()?.port ?? null,
   );
-  /** Sleep mode — `sleep.ts`. */
-  readonly sleep: SleepHost = new SleepHost(() => this.connected()?.port ?? null);
+  /** Autopilot's answers — `autopilot-decisions.ts`. */
+  readonly autopilotDecisions: AutopilotDecisionsHost = new AutopilotDecisionsHost(() => this.connected()?.port ?? null);
   /** The account and its profiles — `accounts.ts`. */
   readonly accounts: AccountsHost = new AccountsHost(() => this.connected()?.port ?? null);
   /** The plan's windows — `plan-usage.ts`. */
@@ -301,7 +301,7 @@ export class FleetConnection {
       mods: this.mods,
       sessions: this.sessions,
       held: this.held,
-      sleep: this.sleep,
+      autopilotDecisions: this.autopilotDecisions,
       planUsage: this.planUsage,
       modelDownshift: this.modelDownshift,
       projects: this.projects,

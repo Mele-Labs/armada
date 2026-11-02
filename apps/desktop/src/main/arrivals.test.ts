@@ -45,7 +45,7 @@ function fakeHost(
     now: () => 0,
     repositories: {} as unknown as RepositoryReads,
     rehearsal: {} as unknown as RehearsalConnection,
-    sleep: { changed: () => {} },
+    autopilotDecisions: { changed: () => {} },
     planUsage: { changed: () => {} },
     modelDownshift: { changed: () => {}, seed: async () => {} },
     projects: { changed: () => {} },
