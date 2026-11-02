@@ -233,6 +233,31 @@ pub(crate) fn disable_auto_merge(in_repo: &str, pull_request: &str) -> Result<()
     }
 }
 
+/// Take a pull request out of the forge's merge queue; one not in it is done. The forge's own words
+/// come back on a refusal, as [`enable_auto_merge`]'s do.
+pub(crate) fn dequeue(in_repo: &str, pull_request: &str) -> Result<(), String> {
+    let view = ["pr", "view", pull_request, "--json", "id,isInMergeQueue", "--jq", "[.id, (.isInMergeQueue | tostring)] | @tsv"];
+    let read = run_in(in_repo, FORGE, &view).map_err(|why| format!("`{FORGE}` would not run: {why}"))?;
+    if !read.status.success() {
+        return Err(said(&read));
+    }
+    let text = String::from_utf8_lossy(&read.stdout);
+    let (id, queued) = text.trim().split_once('\t').unwrap_or_default();
+    if queued != "true" || id.is_empty() {
+        return Ok(());
+    }
+    let query = format!("query={DEQUEUE}");
+    let id = format!("id={id}");
+    let run = run_in(in_repo, FORGE, &["api", "graphql", "-f", &query, "-f", &id])
+        .map_err(|why| format!("`{FORGE}` would not run: {why}"))?;
+    match run.status.success() {
+        true => Ok(()),
+        false => Err(said(&run)),
+    }
+}
+
+const DEQUEUE: &str = "mutation($id:ID!){dequeuePullRequest(input:{id:$id}){clientMutationId}}";
+
 /// The remote a `merge_by: push` lands on, and the one `crate::base` reads a
 /// default branch from.
 pub(crate) const REMOTE: &str = "origin";

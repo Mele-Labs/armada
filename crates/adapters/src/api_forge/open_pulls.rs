@@ -318,6 +318,7 @@ pub(crate) struct Entry {
     position: Option<u32>,
     state: Option<String>,
     pull_request: Option<Numbered>,
+    head_commit: Option<Oid>,
 }
 
 #[derive(Deserialize)]
@@ -348,6 +349,7 @@ pub(crate) fn queue_of(entries: impl IntoIterator<Item = Entry>) -> MergeQueue {
                 number: entry.pull_request?.number?,
                 position: entry.position?,
                 state: state_of(entry.state.as_deref().unwrap_or_default()),
+                head: entry.head_commit.and_then(|it| it.oid).and_then(|it| adapter_traits::Oid::parse(&it)),
             })
         })
         .collect();
