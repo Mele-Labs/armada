@@ -75,7 +75,8 @@ pub fn load(models: &Path) -> Result<Arc<dyn TextModel>, String> {
     let weights = std::fs::read(at.join("model.safetensors")).map_err(|why| why.to_string())?;
     let encoder = encoding::Encoder::load(&vocab, weights, LAYERS)?;
     let tuned = encoding::Tuned::from_bytes(TUNED)?;
-    Ok(Arc::new(Local { encoder, tuned }))
+    let pool = rayon::ThreadPoolBuilder::new().num_threads(THREADS).thread_name(|at| format!("language-model-{at}")).build().map_err(|why| why.to_string())?;
+    Ok(Arc::new(Local { encoder, tuned, pool }))
 }
 
 /// One file at the pinned revision, checked against its digest and only then put where `load` reads,
@@ -94,9 +95,17 @@ fn fetch(name: &str, digest: &str, to: &Path) -> Result<(), String> {
     std::fs::write(&partial, &bytes).and_then(|()| std::fs::rename(&partial, to)).map_err(|why| why.to_string())
 }
 
+/// How wide a read runs, measured on 18 cores in release with 20 reads of 7 sentences: a wide pool
+/// spent 6.7 to 10 CPU-seconds, two threads 2.5 to 2.8, at 1.3 to 1.5 times the wall per read. One thread
+/// was 2 times the wall, so two is the smallest that holds the speed.
+const THREADS: usize = 2;
+
 struct Local {
     encoder: encoding::Encoder,
     tuned: encoding::Tuned,
+    /// Where gemm's work lands: `candle-core` asks for every core, and what it spawns goes to the pool it
+    /// is called inside.
+    pool: rayon::ThreadPool,
 }
 
 impl TextModel for Local {
@@ -105,11 +114,11 @@ impl TextModel for Local {
     }
 
     fn embed(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, NotEmbedded> {
-        self.encoder.embed(texts).map_err(NotEmbedded)
+        self.pool.install(|| self.encoder.embed(texts)).map_err(NotEmbedded)
     }
 
     fn read(&self, reading: TextReading, texts: &[&str]) -> Result<Vec<f32>, NotEmbedded> {
         let (head, longest, keep) = shape(reading);
-        self.encoder.read(&self.tuned, head, texts, longest, keep).map_err(NotEmbedded)
+        self.pool.install(|| self.encoder.read(&self.tuned, head, texts, longest, keep)).map_err(NotEmbedded)
     }
 }

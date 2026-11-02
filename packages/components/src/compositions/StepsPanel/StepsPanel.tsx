@@ -145,6 +145,45 @@ function CommandToCopy({
   );
 }
 
+/**
+ * A procedure's steps as a card holds them, numbered as the panel numbers them, with no tick, edit or reply:
+ * each `backticked` command is drawn whole under its step with the keys the panel gives it.
+ */
+export function StepLines({
+  steps,
+  runner,
+}: {
+  steps: readonly string[];
+  /** Runs a command where the Job works. Left out, a command is copied and not run. */
+  runner?: CodeRunner | undefined;
+}) {
+  return (
+    <ol className="armada-guide-steps armada-step-list__list">
+      {steps.map((line, at) => {
+        const parts = partsOf(line);
+        return (
+          <li key={at} className="armada-guide-steps__step armada-step-list__step">
+            <span className="armada-guide-steps__ordinal armada-step-list__ordinal mono">
+              {at + 1}
+            </span>
+            <div className="armada-step-list__body">
+              <span>{parts.words}</span>
+              {parts.commands.map((command, which) => (
+                <CommandToCopy
+                  key={which}
+                  command={command}
+                  label={`Copy step ${at + 1} command`}
+                  runner={runner}
+                />
+              ))}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export function StepsPanel({
   name,
   address,
