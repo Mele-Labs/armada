@@ -131,6 +131,7 @@ fn own(method: &str, url: &str, session: Option<&SessionId>) -> SendRequest {
         environment: None,
         headers: Vec::new(),
         body: None,
+        body_file: None,
         body_inline: true,
         pick: None,
     }
@@ -311,6 +312,7 @@ fn saved(collection: &str, request: &str) -> SendRequest {
         environment: Some("staging".to_string()),
         headers: Vec::new(),
         body: None,
+        body_file: None,
         body_inline: true,
         pick: None,
     }

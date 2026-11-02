@@ -212,3 +212,22 @@ fn pick_reads_one_value_many_or_says_why_not() {
     assert!(crate::pick_json("nope secret", "$.a").unwrap_err().contains("not JSON"));
     assert!(!crate::pick_json("nope secret", "$.a").unwrap_err().contains("secret"));
 }
+
+#[test]
+fn a_send_names_its_body_once_and_a_batch_refuses_what_it_does_not_name() {
+    let base = r#"{"method":"POST","url":"https://api.example.test/x","headers":[]"#;
+    let both = format!(r#"{base},"body":"{{}}","body_file":"/tmp/a.json"}}"#);
+    let why = decode::<SendRequest>("a send", both.as_bytes()).expect_err("refused");
+    assert!(why.why.contains("body_file"), "{}", why.why);
+    let file = decode::<SendRequest>("a send", format!(r#"{base},"body_file":"/tmp/a.json"}}"#).as_bytes()).expect("reads");
+    assert_eq!(file.body_file.as_deref(), Some("/tmp/a.json"));
+
+    let batch = r#"{"environment":"staging","template":{"method":"GET","url":"https://api.example.test/{{id}}"},"body_files":["/tmp/a.json"],"vary":{"name":"id","values":["1","2"]}}"#;
+    let send = decode::<crate::SendRequests>("a batch", batch.as_bytes()).expect("reads");
+    assert!(send.concurrency.is_none() && send.stop_after.is_none() && send.template.headers.is_empty());
+    let again = decode::<crate::SendRequests>("a batch", encode(&send).expect("plain data").as_bytes()).expect("reads");
+    assert_eq!(again, send);
+    for odd in [batch.replace("\"vary\"", "\"varies\""), batch.replace("\"method\"", "\"verb\"")] {
+        assert!(decode::<crate::SendRequests>("a batch", odd.as_bytes()).is_err(), "{odd}");
+    }
+}

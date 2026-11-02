@@ -90,3 +90,4 @@ mod taught_mods;
 mod watch_wire;
 mod workflow_changes;
 mod workflows_off;
+mod autopilot_boxes;

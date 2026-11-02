@@ -95,3 +95,6 @@ pub fn at(value: &str) -> Timestamp {
 pub fn open(dir: &TempDir) -> Store {
     Store::open(&dir.db()).expect("a fresh store opens")
 }
+mod autopilot_boxes;
+mod autopilot_decisions;
+mod sleep_folded;

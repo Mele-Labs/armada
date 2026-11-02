@@ -14,10 +14,12 @@
 //! characters is left, since replacing every `dark` in a body would wreck the body and hide
 //! nothing worth hiding. An encoded echo (percent, base64) is not caught.
 
+pub(crate) mod batching;
 mod copying;
 mod files;
 mod filling;
 mod kept;
+mod reading;
 mod saving;
 mod serving;
 

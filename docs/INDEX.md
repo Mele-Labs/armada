@@ -147,7 +147,8 @@ approximations.
   the reasoning an issue body buries when it closes.
   - [`capabilities/autopilot.md`](capabilities/autopilot.md) — a repository
     works its own backlog from one plain-language instruction, within caps a
-    person sets, until they pause or stop it.
+    person sets, answering the decisions they check, until a cap or the switch
+    stops it.
   - [`capabilities/merge-line.md`](capabilities/merge-line.md) — the retired
     merge line, and what replaces each part of it. The full design is archived.
 

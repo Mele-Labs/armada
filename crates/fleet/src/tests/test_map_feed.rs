@@ -1,4 +1,4 @@
-//! Fleet feeding the test map from main moving and from a sleeping bay: which stale tests are
+//! Fleet feeding the test map from main moving and from an Autopilot bay: which stale tests are
 //! read again, where, in what order, and what is never run. The collectors are fakes; what a
 //! real one makes of a checkout is `adapters`' to assert.
 
@@ -9,10 +9,13 @@ use adapter_traits::{CollectorSource, Lap, LapCost, LapGrain, NotRecorded, TestC
 use adapters::Feeder;
 use api::Queries as _;
 use core_model::{FieldValue, Level, ManifestId};
+use store::KeptAutopilot;
 use testkit::{FakeCollector, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
 use crate::tests::tmp::TempDir;
+
+const RUN: &str = "01RUN";
 
 type Rig = Fleet<testkit::FakeHarness, FakeVcs, FakeWorkProduct>;
 
@@ -99,12 +102,25 @@ impl Repo {
         files.into_iter().map(|edge| (edge.commit, edge.stale)).collect()
     }
 
-    async fn sleeping(&self, on: bool) {
-        let mut store = self.fleet.store().lock().await;
-        match on {
-            true => store.begin_sleep("2026-10-22T00:00:00.000Z").unwrap(),
-            false => store.end_sleep().unwrap(),
-        }
+    /// This repository's Autopilot, started and running.
+    async fn autopilot_running(&self) {
+        let kept = KeptAutopilot {
+            manifest_id: self.id.as_str().to_string(),
+            run_id: RUN.to_string(),
+            instruction: "Fix what is open".to_string(),
+            at_once: 1,
+            until: None,
+            spend_cap_micros: None,
+            session_cap: None,
+            state: "running".to_string(),
+            started_at: "2026-10-22T00:00:00.000Z".to_string(),
+            ended_at: None,
+            capped_by: None,
+            on_backlog: false,
+            on_running: true,
+            decisions: Vec::new(),
+        };
+        self.fleet.store().lock().await.start_autopilot(&kept).unwrap();
     }
 
     /// Fleet stopped and started again over the same home: its store is kept and its memory is not.
@@ -207,7 +223,7 @@ async fn a_cheap_test_that_comes_back_with_no_lap_is_gone_and_its_edges_with_it(
 }
 
 #[tokio::test]
-async fn a_measured_test_that_is_gone_is_forgotten_by_the_sleeping_pass_and_the_rest_are_measured() {
+async fn a_measured_test_that_is_gone_is_forgotten_by_the_autopilot_pass_and_the_rest_are_measured() {
     let repo = a_repository();
     let before = measured_collector();
     // m2 was removed from the suite.
@@ -217,9 +233,9 @@ async fn a_measured_test_that_is_gone_is_forgotten_by_the_sleeping_pass_and_the_
             .answering_by_name(),
     );
     a_stale_map(&repo, &before, now.clone()).await;
-    repo.sleeping(true).await;
+    repo.autopilot_running().await;
 
-    repo.fleet.sleeping_bay_recorded().await;
+    repo.fleet.autopilot_bay_recorded().await;
 
     assert_eq!(reaching_f(&repo).await, [("rust".to_string(), "m1".to_string())]);
     assert!(repo.stale().await.is_empty());
@@ -339,7 +355,7 @@ async fn a_stale_map(repo: &Repo, coverage: &Arc<FakeCollector>, planted: Arc<dy
 }
 
 #[tokio::test]
-async fn a_sleeping_bay_measures_the_stale_tests_one_at_a_time_holding_a_place() {
+async fn an_autopilot_bay_measures_the_stale_tests_one_at_a_time_holding_a_place() {
     let repo = a_repository();
     let coverage = measured_collector();
     // Read the places and the bays held while it runs.
@@ -355,9 +371,9 @@ async fn a_sleeping_bay_measures_the_stale_tests_one_at_a_time_holding_a_place()
         },
     });
     a_stale_map(&repo, &coverage, spied).await;
-    repo.sleeping(true).await;
+    repo.autopilot_running().await;
 
-    repo.fleet.sleeping_bay_recorded().await;
+    repo.fleet.autopilot_bay_recorded().await;
 
     let asked = coverage.asked().split_off(1);
     assert_eq!(
@@ -373,7 +389,7 @@ async fn a_sleeping_bay_measures_the_stale_tests_one_at_a_time_holding_a_place()
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn sleep_going_off_between_tests_stops_the_pass_and_gives_the_bay_back() {
+async fn autopilot_pausing_between_tests_stops_the_pass_and_gives_the_bay_back() {
     let repo = a_repository();
     let coverage = measured_collector();
     let spied = Arc::new(Spy {
@@ -381,14 +397,14 @@ async fn sleep_going_off_between_tests_stops_the_pass_and_gives_the_bay_back() {
         then: {
             let fleet = repo.fleet.clone();
             Box::new(move || {
-                tokio::runtime::Handle::current().block_on(async { fleet.store().lock().await.end_sleep().unwrap() })
+                tokio::runtime::Handle::current().block_on(async { fleet.store().lock().await.move_autopilot(RUN, "paused", None, None).unwrap(); })
             })
         },
     });
     a_stale_map(&repo, &coverage, spied).await;
-    repo.sleeping(true).await;
+    repo.autopilot_running().await;
 
-    repo.fleet.sleeping_bay_recorded().await;
+    repo.fleet.autopilot_bay_recorded().await;
 
     assert_eq!(coverage.asked().len(), 2, "the recording that made the edges, and the first test only");
     assert_eq!(repo.stale().await, [("rust".to_string(), "m2".to_string())], "the second was left stale");
@@ -396,7 +412,7 @@ async fn sleep_going_off_between_tests_stops_the_pass_and_gives_the_bay_back() {
 }
 
 #[tokio::test]
-async fn with_no_free_bay_a_sleeping_pass_records_nothing_and_waits_for_none() {
+async fn with_no_free_bay_an_autopilot_pass_records_nothing_and_waits_for_none() {
     let repo = a_repository();
     let coverage = measured_collector();
     a_stale_map(&repo, &coverage, coverage.clone()).await;
@@ -405,9 +421,9 @@ async fn with_no_free_bay_a_sleeping_pass_records_nothing_and_waits_for_none() {
     for slot in 1..=pool {
         repo.fleet.vcs().hold_slot(&root, slot, "a-session");
     }
-    repo.sleeping(true).await;
+    repo.autopilot_running().await;
 
-    repo.fleet.sleeping_bay_recorded().await;
+    repo.fleet.autopilot_bay_recorded().await;
 
     assert_eq!(coverage.asked().len(), 1, "no test was measured");
     assert_eq!(repo.stale().await.len(), 2);
@@ -415,12 +431,12 @@ async fn with_no_free_bay_a_sleeping_pass_records_nothing_and_waits_for_none() {
 }
 
 #[tokio::test]
-async fn with_sleep_off_nothing_is_leased_or_measured() {
+async fn with_no_autopilot_running_nothing_is_leased_or_measured() {
     let repo = a_repository();
     let coverage = measured_collector();
     a_stale_map(&repo, &coverage, coverage.clone()).await;
 
-    repo.fleet.sleeping_bay_recorded().await;
+    repo.fleet.autopilot_bay_recorded().await;
 
     assert_eq!(coverage.asked().len(), 1);
     assert_eq!(repo.held_bays(), 0);
@@ -433,16 +449,16 @@ async fn a_map_with_no_stale_edge_takes_no_bay_so_a_new_repository_is_not_seeded
     let repo = a_repository();
     let coverage = measured_collector();
     repo.fleet.feed().add(&repo.id, Feeder::new("rust", coverage.clone(), None));
-    repo.sleeping(true).await;
+    repo.autopilot_running().await;
 
-    repo.fleet.sleeping_bay_recorded().await;
+    repo.fleet.autopilot_bay_recorded().await;
 
     assert!(coverage.asked().is_empty(), "a map holding no edges is the forge's to seed");
     assert!(repo.fleet.vcs().parked_slots().is_empty());
 }
 
 #[tokio::test]
-async fn a_sleeping_pass_leaves_a_cheap_collectors_stale_tests_to_main_moving() {
+async fn an_autopilot_pass_leaves_a_cheap_collectors_stale_tests_to_main_moving() {
     let repo = a_repository();
     let imports = static_collector();
     repo.recorded_once("web", &imports, imports.clone()).await;
@@ -454,9 +470,9 @@ async fn a_sleeping_pass_leaves_a_cheap_collectors_stale_tests_to_main_moving() 
         .await
         .mark_test_map_stale(&repo.id, &["f.txt".to_string()])
         .unwrap();
-    repo.sleeping(true).await;
+    repo.autopilot_running().await;
 
-    repo.fleet.sleeping_bay_recorded().await;
+    repo.fleet.autopilot_bay_recorded().await;
 
     assert_eq!(imports.asked().len(), 1, "only the recording that made the edges");
     assert_eq!(repo.fleet.vcs().parked_slots().len(), 0, "no bay for a collector that costs nothing");
