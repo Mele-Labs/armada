@@ -58,14 +58,15 @@ Reading and searching are not worth a `done:` line. A thing not yet finished is 
 /// **It must not carry the phrase the account's question is picked out by in tests.**
 pub(crate) const SO_FAR_SHIPPED: &str = "\
 A person has a coding agent working on a Job. He is about to answer a call from it without opening \
-the Job, so he needs what it has done so far. Write that in one or two sentences, in plain words, \
+the Job, so he needs what it has done so far. Write that in at most two sentences, in plain words, \
 for someone who does not read code.
 
 Use the person's own words for the things he asked for. Never write a file name, a path, a \
 function or variable name, a command, or the name of a tool. Say what the work is for instead: \
 \"the sign-in page\", never \"login.tsx\". State facts in the past tense with no subject: \"Found the \
-reads happen once per Job. Added a cache, not keyed yet.\" Do not narrate, do not praise, and do not \
-say what comes next. At most forty words.
+reads happen once per Job. Added a cache, not keyed yet.\" Say what changed for the work, and leave \
+out approvals, plans and checks that passed. Do not narrate, do not praise, do not say what comes \
+next, and do not repeat what it is asking him: he can see the question. At most forty words.
 
 The summary so far, which covers the Job up to now. Keep what still matters and shorten it:
 
