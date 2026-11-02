@@ -731,21 +731,8 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
     margin-block-end: var(--space-2);
   }
 }
-/* The glass's blur is on a layer behind the keys, not on the panel (`depth.css`): a backdrop filter on the panel makes the panel the box a fixed tooltip is placed in, and the tooltip could then not
-   leave it. The panel isolates, so the layer stays behind the keys without becoming that box. */
 :is(.deck-controls, .deck-dispatch) {
   position: relative;
-  isolation: isolate;
-  &::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    border-radius: inherit;
-    -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
-    backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
-    pointer-events: none;
-  }
 }
 
 /* Report: the box takes the tiles' place, the words fill it and Send sits at its foot. */
@@ -913,9 +900,8 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
   gap: var(--space-3);
   border: var(--border-width) solid var(--border-glass);
   border-radius: calc(var(--radius-lg) * 2);
-  background: color-mix(in srgb, var(--bg-base) 86%, transparent);
+  background: var(--bg-base);
   box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), var(--shadow-card);
-  backdrop-filter: blur(var(--space-2));
   font-family: var(--font-sans);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);

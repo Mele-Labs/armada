@@ -45,7 +45,7 @@
 
 .armada-lessons-split__card { flex: none; border-bottom: var(--border-width) solid var(--border-default); }
 :root[data-look] .armada-lessons-page .armada-lessons-split .armada-lessons-split__card .armada-lessons,
-.armada-lessons-split__card .armada-lessons { border: 0; border-radius: 0; background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.armada-lessons-split__card .armada-lessons { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 :root .armada-lessons-split__card .armada-lessons > .armada-lesson { align-items: stretch; padding: var(--space-4); border: 0; background: transparent; }
 .armada-lessons-split__card .armada-lesson__labels { display: none; }
 /* The headline is the head's title and the answers are the head's acts, so the card keeps what is left. */
