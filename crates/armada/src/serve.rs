@@ -338,6 +338,9 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         let events = events.clone();
         let reconciliation = reconciliation.clone();
         async move {
+            // An app's own copy of the mod, before any Job reads it: filled on a fresh install and
+            // replaced when an update brings another version.
+            fleet.mod_filled_at_start().await;
             let reconciled = match fleet.reconcile().await {
                 Ok(reconciled) => reconciled,
                 Err(why) => return Err(why.to_string()),
@@ -524,10 +527,12 @@ struct MachineFacts {
 fn machine_facts(settings: &Resolved) -> Result<MachineFacts, Box<dyn Error>> {
     let home = std::env::var("HOME")?;
     let user = std::env::var("USER")?;
+    let own = this_binary().and_then(|exe| Some(exe.parent()?.to_string_lossy().to_string()));
     let path = drone_path_over(
         &home,
         &std::env::var("PATH").unwrap_or_default(),
         &settings.get(keys::HARNESS_DRONE_PATH),
+        own.as_deref(),
     );
     // Unnamed is the ordinary case and the adapter's default answers it. Named
     // and wrong is somebody having tried to point Fleet at something, and is
@@ -607,6 +612,9 @@ fn assemble(
     // session that scaffolds one makes it again if it is gone.
     let mods_dir = machine.join("mods");
     std::fs::create_dir_all(&mods_dir)?;
+    // The mod an app carries beside this binary, where this is an app's. A symlinked `armada`, such
+    // as the one the installer links, is followed to the app first.
+    let mod_bundle = this_binary().and_then(|exe| adapters::agent_mod::bundle_beside(&exe));
 
     // Where the machine's agent-facing files sit: the Session door and the scout's servers are
     // written beside this path.
@@ -641,6 +649,7 @@ fn assemble(
             keepers_dir: keepers_dir.to_string_lossy().to_string(),
             studio_frames_dir: studio_frames_dir.to_string_lossy().to_string(),
             mods_dir: mods_dir.to_string_lossy().to_string(),
+            mod_bundle: mod_bundle.map(|bundle| bundle.to_string_lossy().to_string()),
             mod_switches,
             built_in_mods: fleet::mods::BuiltIns::compiled(),
             kit_home,
@@ -737,6 +746,12 @@ fn assemble(
 /// directories below is where that installer writes.
 const PER_USER_DRONE_PATH: &[&str] = &[".cargo/bin", ".local/bin"];
 
+/// This binary's own path, a symlink to it followed: the installer links `armada` into `~/.local/bin`
+/// and the app's own folder is where the binary is.
+fn this_binary() -> Option<std::path::PathBuf> {
+    std::env::current_exe().ok()?.canonicalize().ok()
+}
+
 /// The `PATH` a Drone gets: the per-user directories above, then the standard
 /// system locations.
 ///
@@ -751,7 +766,7 @@ pub(crate) fn drone_path(home: &str) -> String {
 #[cfg(test)]
 pub(crate) fn drone_path_with(home: &str, inherited: &str) -> String {
     let shipped = config::settings::Resolved::default().get(keys::HARNESS_DRONE_PATH);
-    drone_path_over(home, inherited, &shipped)
+    drone_path_over(home, inherited, &shipped, None)
 }
 
 /// The per-user directories, Fleet's own `PATH`, then `system` —
@@ -761,17 +776,22 @@ pub(crate) fn drone_path_with(home: &str, inherited: &str) -> String {
 /// Drones load all his user settings; their `PATH` follows. Fleet's `PATH` is
 /// the one `scripts/restart` wrote from his shell. Relative entries and
 /// repeats are dropped.
-pub(crate) fn drone_path_over(home: &str, inherited: &str, system: &[String]) -> String {
-    let mut entries: Vec<String> = PER_USER_DRONE_PATH
-        .iter()
-        .map(|dir| format!("{home}/{dir}"))
-        .collect();
+///
+/// **`own` goes first**: the folder this binary runs from, so `armada` resolves for a Job whichever
+/// way it was installed. An app's is `Contents/Resources/bin`, which no other entry is.
+pub(crate) fn drone_path_over(home: &str, inherited: &str, system: &[String], own: Option<&str>) -> String {
+    let mut entries: Vec<String> = own.filter(|dir| dir.starts_with('/')).map(String::from).into_iter().collect();
+    for dir in PER_USER_DRONE_PATH.iter().map(|dir| format!("{home}/{dir}")) {
+        if !entries.contains(&dir) {
+            entries.push(dir);
+        }
+    }
     for dir in inherited.split(':').filter(|dir| dir.starts_with('/')) {
         if !entries.iter().any(|had| had == dir) && !system.iter().any(|one| one == dir) {
             entries.push(dir.to_string());
         }
     }
-    entries.extend(system.iter().cloned());
+    entries.extend(system.iter().filter(|dir| !entries.contains(dir)).cloned().collect::<Vec<_>>());
     entries.join(":")
 }
 

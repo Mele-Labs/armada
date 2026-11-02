@@ -147,7 +147,7 @@ pub use daemon::{
     Projects, PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, Sessions, Settings, SharedHome, Steerer,
     ShownFile, StoredFile, Studios, Watches,
 };
-pub use door::{door_within, door_without_a_manifest, offered, Scope, DOOR_PATH};
+pub use door::{door_within, door_without_a_manifest, offered, offered_without_a_manifest, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, SessionCheckLive, FOLLOW};
 pub use mcp::Caller;
 pub use reconciling::Reconciliation;

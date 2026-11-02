@@ -169,3 +169,20 @@ fn a_drones_path_carries_fleets_own_path_between_per_user_and_system() {
         ]
     );
 }
+
+/// An app's `armada` sits in `Contents/Resources/bin`, which no other entry names, so a Job finds it
+/// only if Fleet's own folder is on the path, and ahead of any other `armada` that is.
+#[test]
+fn a_drones_path_puts_the_folder_fleet_runs_from_first_and_once() {
+    let system = vec![String::from("/usr/bin")];
+    let app = "/Applications/Armada.app/Contents/Resources/bin";
+
+    let path = crate::serve::drone_path_over("/home/user", "/usr/bin", &system, Some(app));
+    let entries: Vec<&str> = path.split(':').collect();
+    assert_eq!(entries, [app, "/home/user/.cargo/bin", "/home/user/.local/bin", "/usr/bin"]);
+
+    // A dev Fleet runs from a folder the path holds already: it moves to the front, and is not repeated.
+    let path = crate::serve::drone_path_over("/home/user", "/usr/bin", &system, Some("/home/user/.cargo/bin"));
+    let entries: Vec<&str> = path.split(':').collect();
+    assert_eq!(entries, ["/home/user/.cargo/bin", "/home/user/.local/bin", "/usr/bin"]);
+}

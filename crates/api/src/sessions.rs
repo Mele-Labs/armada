@@ -967,13 +967,10 @@ pub(crate) async fn start_another_session<D: Sessions>(
             .collect();
         return answer(StatusCode::OK, &ipc::SessionsHeld { jobs }, served.run_id());
     }
-    let start = match (manifest_id, title, message) {
-        (Some(manifest_id), Some(title), Some(message)) => {
-            ipc::StartAnotherSession { manifest_id, title, message, group, after }
-        }
-        (None, _, _) => return unreadable("missing field `manifest_id`"),
-        (_, None, _) => return unreadable("missing field `title`"),
-        (_, _, None) => return unreadable("missing field `message`"),
+    let start = match (title, message) {
+        (Some(title), Some(message)) => ipc::StartAnotherSession { manifest_id, title, message, group, after },
+        (None, _) => return unreadable("missing field `title`"),
+        (_, None) => return unreadable("missing field `message`"),
     };
     match served
         .shared()

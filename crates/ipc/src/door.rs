@@ -512,8 +512,10 @@ fn instructions(scope: &str) -> String {
 /// What a session standing in no Manifest is told at the handshake.
 const WITHOUT_A_MANIFEST: &str = "No armada.yml is served here, so nothing here is \
      answered inside a Manifest: no other Jobs, Drones, runs or servers. This job's own acts are \
-     served — what it is waiting for, that it is done, a page shown or asked about in the \
-     window, a sketch drawn, and the mods on this machine — and those are the only tools listed.";
+     served — what it is waiting for, its follow-ups and watches, that it is finished and done, a \
+     bug or a wrong notice reported, a page shown or asked about in the window, a sketch drawn, a \
+     Job started in a repository, the Manifests Fleet holds, and the mods on this machine — and \
+     those are the only tools listed.";
 
 /// One sentence added to an answer a relay is carrying through.
 ///
