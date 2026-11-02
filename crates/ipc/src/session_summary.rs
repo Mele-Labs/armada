@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::hosted_sessions::SessionTurn;
 use crate::ids::{Instant, ManifestId};
 use crate::sessions::{
-    AttachmentState, SessionId, SessionOrigin, SessionRecord, SessionState,
+    AttachmentState, SessionId, SessionOrigin, SessionRecord, SessionState, ToolMissing,
 };
 
 /// Which row `list_sessions` answers with.
@@ -74,6 +74,13 @@ pub struct SessionSummary {
     pub branch: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pull_requests: Vec<HeldPullRequest>,
+    /// The version its `armada` mod last reported. Absent until one has, which is how `armada job
+    /// status` tells a mod that never loaded from one that did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mod_version: Option<String>,
+    /// What a hosted Job's agent came up without, as Fleet read it. Empty where nothing is missing.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tools_missing: Vec<ToolMissing>,
 }
 
 /// `list_sessions` with `view=summary`: the most recently seen first.
@@ -116,6 +123,12 @@ impl SessionSummary {
                     })
                 })
                 .collect(),
+            mod_version: record.mod_version.clone(),
+            tools_missing: record
+                .tools_missing
+                .as_ref()
+                .map(|missing| missing.missing.clone())
+                .unwrap_or_default(),
         }
     }
 }
