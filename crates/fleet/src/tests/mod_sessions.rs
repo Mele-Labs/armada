@@ -373,7 +373,7 @@ async fn a_mod_job_aimed_at_an_instrument_is_told_the_steps_and_the_face_contrac
             "Bridge keeps the component mounted while its panel is closed",
             "`host.face(paint)` registers what is drawn on the bay, and what the component returns stands in the panel",
             "`(draw, { w, h, t, ink }) => void` on a 2D canvas context",
-            "`host.face(paint, { moves: true })` asks for repaints over time; otherwise a face repaints only when the component calls `host.face` again",
+            "`host.face(paint, { moves: true })` asks for a repaint once a second; otherwise a face repaints only when the component calls `host.face` again",
         ];
         for wanted in told {
             assert!(turn.contains(wanted), "{served}: the turn carries {wanted}: {turn}");

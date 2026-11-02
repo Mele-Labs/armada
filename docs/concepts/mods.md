@@ -335,7 +335,7 @@ export default function Instrument({ host }) {
 > **Rule.** A face repaints only when the component calls `host.face` again, or the screen's size or the theme changes.
 > Why: a still face costs no canvas work, and most instruments show a figure that changes when its data does.
 
-`host.face(paint, { moves: true })` repaints over time, and is for something that moves.
+`host.face(paint, { moves: true })` repaints once a second, as the console reads its screens, and is for something that moves.
 A new `host.face` call retries a paint that threw.
 Bridge keeps the component mounted while its panel is closed, so its state survives, and what it returns stands in the panel over the field when the bay is pressed.
 Where the window has no WebGL the same canvas stands straight in the bay with its label.
@@ -349,7 +349,7 @@ Seats are kept in the window's storage. [Cockpit](cockpit.md), *The rack*.
 
 **A Mod Job that builds an instrument lives on its bay.**
 Make one in the rack starts it with `aim` set to `instrument`, and the bay he picked holds a seat on the Job until the mod is listed, then on the mod, the mod whose `made_by` is that Job.
-The Job's card opens from the bay, above it, with its open ask, its thread and a composer that messages it, and the bay pulses while the Job waits on him.
+The Job's card opens from the bay, above it, with its open ask, its thread and a composer that messages it, and the bay lights while the Job waits on him.
 The Job has no row in the Jobs list, except a pulsing row under Mods while it waits on him and no bay can show it: another Job's tiles are up, the console is folded, or the bay's socket is empty.
 
 ## Tracker mods

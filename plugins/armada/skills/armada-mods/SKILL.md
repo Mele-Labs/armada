@@ -427,7 +427,7 @@ Job's card stays on the bay. **The scaffold already passes** and moves, a bar go
 so the bay reads as being built until you replace it. Write `instrument.js` in steps that
 each pass `validate_mod`, and name the mod by what it shows (`review-queue`), since the name
 is its label. This Job has no row in the Jobs list: its card opens from the bay, with your
-question, the thread and a box to message you, and the bay pulses while you wait on him.
+question, the thread and a box to message you, and the bay lights while you wait on him.
 
 ## The file
 
@@ -459,7 +459,7 @@ bay is pressed.
 | `ink` | `run`, `ask`, `bad`, `good`, `fg`, `muted`, `subtle`, `off`: the theme's colours. Draw in these and never a hex |
 
 A face repaints only when the component calls `host.face` again, or the screen's size or the
-theme changes. `host.face(paint, { moves: true })` repaints over time: use it only for
+theme changes. `host.face(paint, { moves: true })` repaints once a second: use it only for
 something that moves, since a still face costs no canvas work. The starter moves; replace it
 with a still face unless the figure moves.
 

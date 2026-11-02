@@ -186,7 +186,7 @@ export const buildingFace: FacePaint = (draw, { w, h, t, ink }) => {
   draw.fillStyle = ink.off;
   draw.fillRect(8, h / 2 - 2, w - 16, 4);
   draw.fillStyle = ink.run;
-  draw.fillRect(8 + ((t * 0.5) % 1) * (w - 16 - bar), h / 2 - 2, bar, 4);
+  draw.fillRect(8 + ((t * 0.125) % 1) * (w - 16 - bar), h / 2 - 2, bar, 4);
 };
 /** `buildingFace` as a bay draws it. */
 export const BUILDING: Face = { paint: buildingFace, moves: true, rev: 0 };

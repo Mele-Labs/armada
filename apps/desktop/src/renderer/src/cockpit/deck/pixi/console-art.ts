@@ -275,7 +275,7 @@ const INSTRUMENTS: Record<Exclude<Kind, "dispatch">, Instrument> = {
   mod: {
     fixed() {},
     live(g, b, s, t) {
-      if (s.calling) g.rect(b.x, b.y, b.w, b.h).stroke({ width: Math.max(2, 2.5 * b.u), color: b.tone.ask, alpha: 0.45 + 0.55 * Math.abs(Math.sin(t * 3.4)) });
+      if (s.calling) g.rect(b.x, b.y, b.w, b.h).stroke({ width: Math.max(2, 2.5 * b.u), color: b.tone.ask, alpha: 0.7 + 0.3 * Math.abs(Math.sin(t * 3.4)) });
     },
   },
   matrix: {

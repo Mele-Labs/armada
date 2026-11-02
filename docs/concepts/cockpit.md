@@ -291,7 +291,7 @@ The mod's file and what it may use are in [Mod](mods.md), *instrument.js*.
 A bay whose mod throws, is invalid or is switched off is an empty socket with the reason in a tooltip, and keeps its seat until the file next loads well.
 Make one, at the end of the tray, opens a sheet; what he writes starts a Mod Job with the aim `instrument`.
 The bay he picked shows the Job being built at once, holding a seat on the Job until the mod is listed and then on the mod.
-The Job's card opens from the bay, above it, with its question, its thread and a box to message it, and the bay pulses while the Job waits on him.
+The Job's card opens from the bay, above it, with its question, its thread and a box to message it, and the bay lights while the Job waits on him.
 Such a Job has no row in the Jobs list, except a pulsing row under Mods while it waits and no bay can show it, because another Job's tiles are up, the console is folded or the bay's socket is empty.
 Where the console's canvas does not start, a mod's face stands straight in its bay with its label.
 `Tab` and `Enter` reach a bay and `Esc` closes its panel; an instrument has no chord of its own.

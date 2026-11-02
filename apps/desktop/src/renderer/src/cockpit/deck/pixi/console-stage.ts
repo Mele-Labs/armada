@@ -174,6 +174,9 @@ type Facet = {
 /** What a face's picture depends on. The ink is held once per theme, so the same object is the same ink. */
 type FaceDrawn = { paint: BayState["paint"]; rev: number | undefined; w: number; h: number; ink: FaceInk };
 
+/** How often the console's screens are read and drawn: the scope's dots and a face that asks to move change, nothing else does until a press or a call pokes it. */
+const READ_EVERY_MS = 1000;
+
 const EMPTY = (): BayState => ({ kind: null, pressed: false, calling: false, lit: false, focused: false });
 
 export class ConsoleStage {
@@ -197,8 +200,8 @@ export class ConsoleStage {
   private bays: BayState[] = [];
   private readonly plan: Plan;
   private source: () => BayState[] = () => [];
-  private still = false;
-  private watch: MediaQueryList | undefined;
+  private readonly still = true;
+  private reading: ReturnType<typeof setInterval> | undefined;
   private density: MediaQueryList | undefined;
   private themed: MutationObserver | undefined;
 
@@ -240,9 +243,6 @@ export class ConsoleStage {
     this.build();
     app.ticker.maxFPS = 30;
     app.ticker.add(this.tick);
-    this.watch = window.matchMedia("(prefers-reduced-motion: reduce)");
-    this.still = this.watch.matches;
-    this.watch.addEventListener("change", this.motion);
     this.themed = new MutationObserver((changes) => {
       if (changes.some((one) => one.attributeName === "data-theme")) {
         this.setTone();
@@ -301,18 +301,14 @@ export class ConsoleStage {
     app.stage.addChild(this.bloom);
   }
 
-  private readonly motion = (): void => {
-    this.still = this.watch?.matches ?? false;
-    this.settle();
-  };
-
-  /** The ticker runs only while something moves: nothing under reduced motion, a hidden window or a folded panel, where one frame is held. */
+  /** The console's lamps hold still: thirty frames a second of its bloom held the whole window's GPU (`motion.md`). What its screens read is drawn once a second, and not at all under a hidden window or a folded panel, where one frame is held. */
   private readonly settle = (): void => {
     const root = document.documentElement;
     const quiet = this.hidden || document.hidden || root.hasAttribute("data-still") || root.hasAttribute("data-idle");
-    if (quiet || this.still) this.app?.ticker.stop();
-    else this.app?.ticker.start();
-    if (this.app !== undefined && (quiet || this.still)) this.frame();
+    this.app?.ticker.stop();
+    clearInterval(this.reading);
+    if (!quiet) this.reading = setInterval(() => this.frame(), READ_EVERY_MS);
+    if (this.app !== undefined) this.frame();
   };
 
   setHidden(hidden: boolean): void {
@@ -448,7 +444,8 @@ export class ConsoleStage {
     let moved = false;
     this.facets.forEach((f, i) => {
       const state = this.bays[i] ?? EMPTY();
-      this.paintFace(f, state, t);
+      // The lamps' time stands still, a face's does not: `moves` is the mod's to ask for.
+      this.paintFace(f, state, performance.now() / 1000);
       const key = `${state.kind}|${state.pressed}|${state.lit}|${state.focused}|${state.calling}|${state.glyph ?? ""}`;
       if (f.drawn !== key) {
         drawPlate(f.plate, f.paint, state, tone, mat);
@@ -466,7 +463,7 @@ export class ConsoleStage {
 
   /**
    * A mod's face: its canvas, sized to the screen at the texture's texels, drawn in the screen's own units and put on the facet.
-   * The owner's load rule: a tick where nothing changed draws nothing and uploads nothing, unless the mod asked to move. The console's own facets keep the ticker running either way.
+   * The owner's load rule: a read where nothing changed draws nothing and uploads nothing, unless the mod asked to move, which it does once a read.
    */
   private paintFace(f: Facet, state: BayState, t: number): void {
     const { paint } = state;
@@ -524,8 +521,8 @@ export class ConsoleStage {
 
   destroy(): void {
     this.gone = true;
+    clearInterval(this.reading);
     this.themed?.disconnect();
-    this.watch?.removeEventListener("change", this.motion);
     this.density?.removeEventListener("change", this.redensify);
     document.removeEventListener("visibilitychange", this.settle);
     const app = this.app;

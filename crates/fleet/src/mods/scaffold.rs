@@ -104,14 +104,14 @@ const STARTER_INSTRUMENT: &str = "\
 // An instrument Bridge seats in a bay of the Cockpit console. Bridge keeps this component mounted while its panel is closed.
 // `host.face(paint)` registers what is drawn on the bay, and what the component returns stands in the panel.
 // `paint` is `(draw, { w, h, t, ink }) => void` on a 2D canvas context. `host.face(paint, { moves: true })` asks for repaints
-// over time; otherwise the face repaints only when the component calls `host.face` again.
+// once a second; otherwise the face repaints only when the component calls `host.face` again.
 // There is no `import`: everything the instrument uses comes through `host`. Check it with validate_mod.
 const paint = (draw, { w, h, t, ink }) => {
   const bar = w * 0.22;
   draw.fillStyle = ink.off;
   draw.fillRect(8, h / 2 - 2, w - 16, 4);
   draw.fillStyle = ink.run;
-  draw.fillRect(8 + ((t * 0.5) % 1) * (w - 16 - bar), h / 2 - 2, bar, 4);
+  draw.fillRect(8 + ((t * 0.125) % 1) * (w - 16 - bar), h / 2 - 2, bar, 4);
 };
 
 export default function Instrument({ host }) {

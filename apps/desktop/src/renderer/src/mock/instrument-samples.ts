@@ -6,7 +6,7 @@ export const STARTER = `const paint = (draw, { w, h, t, ink }) => {
   draw.fillStyle = ink.off;
   draw.fillRect(8, h / 2 - 2, w - 16, 4);
   draw.fillStyle = ink.run;
-  draw.fillRect(8 + ((t * 0.5) % 1) * (w - 16 - w * 0.22), h / 2 - 2, w * 0.22, 4);
+  draw.fillRect(8 + ((t * 0.125) % 1) * (w - 16 - w * 0.22), h / 2 - 2, w * 0.22, 4);
 };
 
 export default function Instrument({ host }) {
