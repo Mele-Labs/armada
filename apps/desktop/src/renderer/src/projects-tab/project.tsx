@@ -188,7 +188,7 @@ function Card({ row, sub, repository, labels, movable, adding, editing, state, s
       {state === "asking" ? (
         <span className="projects-row__ask">
           <Tooltip label="Mark done" shortcut={capOf(PROJECTS_KEYS.markDone)} asChild>
-            <Button variant="secondary" size="sm" tabIndex={-1} data-mark-done onClick={() => store.settle(row.id, true)}>
+            <Button variant="ghost" size="sm" tabIndex={-1} data-mark-done onClick={() => store.settle(row.id, true)}>
               Mark done
             </Button>
           </Tooltip>

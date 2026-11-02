@@ -158,7 +158,9 @@ export function RepositoryCombobox({
       {row.root === null ? <Layers size={16} aria-hidden="true" /> : <FolderGit2 size={16} aria-hidden="true" />}
       <span className="deck-combo__label">{row.label}</span>
       {mark(row)}
-      {(picked === null ? row.root === null : row.root === picked.root) ? <Check className="deck-combo__check" size={16} aria-hidden="true" /> : null}
+      <span className="deck-combo__mark-col" aria-hidden="true">
+        {(picked === null ? row.root === null : row.root === picked.root) ? <Check className="deck-combo__check" size={16} aria-hidden="true" /> : null}
+      </span>
     </li>
   );
   const [first, ...rest] = rows;
@@ -214,6 +216,7 @@ export function RepositoryCombobox({
                 >
                   {id === NEW_ROW ? <FolderPlus size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
                   <span className="deck-combo__label">{id === NEW_ROW ? "New project" : "Add a repository"}</span>
+                  <span className="deck-combo__mark-col" aria-hidden="true" />
                 </li>
               ))}
             </ul>,

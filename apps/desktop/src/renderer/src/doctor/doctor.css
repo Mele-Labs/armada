@@ -10,7 +10,6 @@
 .armada-doctor .armada-view__body[data-pane] { grid-template-columns: minmax(0, 1fr) calc(var(--space-12) * 9); }
 .armada-doctor .armada-view__pane { padding-left: 0; }
 
-.armada-doctor__title { color: var(--fg-default); font-family: var(--font-sans); font-weight: var(--weight-heading); }
 .armada-doctor__summary { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .armada-doctor__summary[data-worst] { color: var(--hue); }
 

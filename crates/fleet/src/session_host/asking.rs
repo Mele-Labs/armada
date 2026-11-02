@@ -421,8 +421,10 @@ where
 
     /// What the person chose, as a message of theirs in the thread: the ask row settles into a
     /// collapsed tool line, which is not where a person looks for what they said. **Its id names the
-    /// ask row it answers** ([`answers_a_question`]), so it is not read as words on a walk.
+    /// ask row it answers** ([`answers_a_question`]), so it is not read as words on a walk. It is his
+    /// message, so the agent owes him a reply before its next question (`unanswered`).
     async fn person_said(&self, id: &str, ask: &str, text: String) {
+        super::unanswered::owed(&mut self.hosts().of(id).state());
         let row = SessionRow::Message {
             id: format!("{ask}{SAID}"),
             at: self.instant(),

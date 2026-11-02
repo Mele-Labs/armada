@@ -10,7 +10,7 @@ import type { KitKindId, KitPiecesProps, KitRef, KitSetupRead } from "@armada/co
 import type { ModelChoices, SettingsList } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
 import { addressReads, addressTyped, useKit, type KitSlice } from "@armada/screens/src/manifest-kit";
-import { ModList, SETTINGS_SECTIONS, SettingsFile, SettingsSectionsView, taughtOf, useTaught, useThemes } from "@armada/settings";
+import { ModList, SettingsSectionsView, taughtOf, useSettingsFile, useTaught, useThemes } from "@armada/settings";
 import { Boundary, useLayouts, type BoundaryProps } from "@armada/shell";
 
 import { entryOf, entryOfKind, foundBy, SYSTEM_ENTRIES, SYSTEM_GROUPS, type SystemEntryDef } from "./system-entries";
@@ -124,6 +124,11 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
     setEntry(entryOfKind(to.kind));
   };
 
+  // The file opens in the side panel where one is drawn, and in the machine's editor where none is.
+  const settingsFile = useSettingsFile({
+    settings,
+    onOpen: async () => (settings?.path !== undefined && openInPanel({ kind: "file", path: settings.path, from: "settings" }) ? { ok: true } : window.armada.openSettingsFile()),
+  });
   const settingsFor = (def: SystemEntryDef): ReactNode => (
     <div className="armada-system__pane" data-col="detail">
       {def.id === "kit:harness" && kit.setup !== undefined ? (
@@ -132,15 +137,9 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
           <span className="armada-system__heading-home">{kit.setup.home}</span>
         </p>
       ) : null}
-      {def.sections?.some((id) => SETTINGS_SECTIONS.find((one) => one.id === id)?.schema === true) ? (
-        <SettingsFile
-          settings={settings}
-          // The file opens in the side panel where one is drawn, and in the machine's editor where none is.
-          onOpen={async () => (settings?.path !== undefined && openInPanel({ kind: "file", path: settings.path, from: "settings" }) ? { ok: true } : window.armada.openSettingsFile())}
-        />
-      ) : null}
       <SettingsSectionsView
         ids={def.sections ?? []}
+        file={settingsFile}
         settings={settings}
         live={live}
         onSaveSettings={(changes) => window.armada.saveSettings(changes)}

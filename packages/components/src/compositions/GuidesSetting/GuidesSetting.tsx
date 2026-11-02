@@ -26,13 +26,12 @@ export function GuidesSetting({ onReadGuides }: GuidesSettingProps) {
       <Switch
         checked={!off}
         onChange={(event) => onOff(!event.currentTarget.checked)}
-        description="A card opens once for a piece you have not met, and never again for that one. The ? beside a piece opens its guide whatever this says."
       >
         Open a guide the first time I meet a piece
       </Switch>
       {onReadGuides === undefined ? null : (
         <div className="armada-guides-setting__go">
-          <Button variant="secondary" size="sm" ground="card" onClick={onReadGuides}>
+          <Button variant="ghost" size="sm" onClick={onReadGuides}>
             Read all guides
           </Button>
         </div>

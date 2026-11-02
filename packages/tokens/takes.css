@@ -64,6 +64,7 @@
      legend strip; what sits in it nests inside its curve; and what is picked is told by a frame, not a hue. ---- */
   --bezel: inset 0 0 0 var(--border-width) var(--border-subtle);  /* the hairline inside a panel's edge, an inset shadow and not an element */
   --legend-h: var(--h-control-sm);                                 /* a panel's header: 24px, the same on every panel */
+  --strip-h: calc(var(--space-8) + var(--space-1));                /* a page panel's header strip: 36px, the thread's head; the Cockpit's strips stay at --legend-h */
   --radius-floor: 2px;                                             /* the least a corner is cut to */
   --radius-bezel: calc(var(--radius-lg) - var(--border-width) * 2); /* content flush against the bezel: the panel's curve less its edge and hairline */
   --radius-inset: max(calc(var(--radius-bezel) - var(--space-1)), var(--radius-floor)); /* content a gutter (4px) inside: a row, a chip, a bay, a track */

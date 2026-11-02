@@ -113,14 +113,14 @@
 /* 24px, the label in tracked caps at the left, then a mono readout and the panel's ghost icon buttons at the right, and one
    hairline under it, drawn inset so the strip keeps its height. The Cockpit's band, a Card's header, the Logbook's band and the
    Job's band are this one strip; a filled or dimmed band is a state in the wrong place, and a lamp says state (below). */
-:root[data-look="new"] :is(.deck-band, .armada-card-header, .armada-logbook__band, .sv-panel__band, .armada-pool-slots__band) {
+:root[data-look="new"] :is(.deck-band, .armada-card-header, .armada-logbook__band, .sv-panel__band, .armada-pool-slots__band, .armada-usage__band, .armada-wm-step__band, .pr-desc > .pr-what__head, .armada-doctor__gaps-head, .issues-reader__eyebrow, .armada-check-list__band, .armada-screen__tabs) {
   display: flex;
   flex: none;
   align-items: center;
   justify-content: flex-start;
   gap: var(--space-2);
   box-sizing: border-box;
-  min-height: var(--legend-h);
+  min-height: var(--strip-min, var(--legend-h));
   padding: 0 var(--space-1) 0 var(--space-3);
   border: 0;
   border-radius: 0;
@@ -134,7 +134,7 @@
   text-transform: uppercase;
   box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--head-rule);
 }
-:root[data-look="new"] :is(.deck-band, .armada-card-header, .armada-logbook__band, .sv-panel__band, .armada-pool-slots__band) :is(.armada-card-title, .deck-band__name, .sv-panel__label) {
+:root[data-look="new"] :is(.deck-band, .armada-card-header, .armada-logbook__band, .sv-panel__band, .armada-pool-slots__band, .armada-usage__band, .armada-wm-step__band, .pr-desc > .pr-what__head) :is(.armada-card-title, .deck-band__name, .sv-panel__label, .armada-pool-slots__label) {
   flex: 1 1 auto;
   min-width: 0;
   margin: 0;
@@ -158,6 +158,70 @@
   text-transform: none;
 }
 :root[data-look="new"] :is(.deck-band, .armada-card-header) .armada-kbd { opacity: 1; }
+/* A page's panel header strip is the thread's head in height (`--strip-h`), the same label, centred, the hairline under. Group heads,
+   the Cockpit's strips and a body's own eyebrows keep the legend's 24px. */
+:root[data-look="new"] :is(.armada-card-header, .armada-pool-slots__band, .armada-usage__band, .armada-wm-step__band, .armada-doctor__gaps-head, .armada-check-list__band, .armada-screen__tabs) {
+  --strip-min: var(--strip-h);
+}
+/* The same strip where the page has no panel header of its own: a band that sits in a body takes no side padding, so its label lines
+   up with what it heads, and a label that is the strip itself reads in the title's colour. */
+:root[data-look="new"] :is(.armada-doctor__gaps-head, .issues-reader__eyebrow, .pr-desc > .pr-what__head) { padding-inline: 0; margin: 0; color: var(--fg-default); }
+:root[data-look="new"] .pr-desc > .pr-what__head .pr-what__title { flex: 1 1 auto; margin: 0; color: inherit; font: inherit; letter-spacing: inherit; line-height: inherit; text-transform: inherit; }
+:root[data-look="new"] :is(.armada-check-list__label, .armada-screen__label) { flex: none; margin: 0 var(--space-2) 0 0; color: var(--fg-default); }
+:root[data-look="new"] .armada-usage__band > :first-child { flex: 1 1 auto; min-width: 0; color: var(--fg-default); }
+
+/* A detail pane's head is the thread's (`.armada-session-frame__head`): 36px, the title 14px at medium weight on one line, with the acts at the right. The meta under it is the body's. */
+:root[data-look="new"] :is(.issues-reader, .pr-reader, .projects-pane) > .deck-pane__head {
+  align-items: center;
+  min-height: var(--head-min, calc(var(--h-row-header) + var(--space-2)));
+  padding: var(--head-pad, 0 var(--space-3));
+}
+:root[data-look="new"] :is(.issues-reader, .pr-reader, .projects-pane) > .deck-pane__head .deck-pane__title {
+  display: block;
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-sm);
+  letter-spacing: 0;
+  text-transform: none;
+}
+:root[data-look="new"] .armada-usage__keys { margin-left: auto; }
+
+/* ---- The group head: the Cockpit's `deck-list__head` ----------------------------------------------------------- */
+/* A heading over a run of rows, in any list: 24px in a band of the text colour at 8%, the label in mono caps. Where the heading has
+   a press of its own beside it (Add, New project), the row is the band and the label sits in it. */
+:root[data-look="new"] :is(.armada-system-side__head, .projects-section__head, .armada-wm__caption, .armada-guides__group-title) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  min-height: var(--h-control-sm);
+  margin: 0;
+  padding: 0 var(--space-1) 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--fg-default) 8%, transparent);
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  line-height: var(--leading-xs);
+  text-transform: uppercase;
+}
+:root[data-look="new"] :is(.armada-system-side__caption, .projects-section__label) {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  text-transform: inherit;
+}
+:root[data-look="new"] :is(.armada-system-side__caption, .armada-wm__caption)::after { content: none; }
 :root[data-look="new"] .armada-card-header:has(+ .armada-card-content:empty) { box-shadow: none; }
 
 /* ---- Jobs and Sessions: a row's title, meta and state ------------------------------------------------------ */
@@ -226,14 +290,12 @@
 :root[data-look="new"] .deck-combo[data-open] .deck-combo__input { border-color: var(--accent); }
 :root[data-look="new"] .deck-combo__list { border-color: var(--edge-overlay); }
 :root[data-look="new"] .deck-combo__option { transition: background-color var(--duration-fast) var(--ease); }
-:root[data-look="new"] .deck-combo__option[data-scope] { font-weight: var(--weight-heading); }
 :root[data-look="new"] .armada-dropdown-menu__panel { padding: var(--space-1); border-radius: var(--radius-lg); }
 :root[data-look="new"] .armada-dropdown-menu__item {
   border-radius: var(--radius-md);
   transition: background-color var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
 }
 :root[data-look="new"] .armada-dropdown-menu__item:hover:not([aria-disabled="true"]) { background: var(--bg-step); }
-:root[data-look="new"] .armada-dropdown-menu__item[aria-current] { font-weight: var(--weight-heading); }
 :root[data-look="new"] .armada-dropdown-menu__item[aria-current] .armada-dropdown-menu__check { color: var(--accent); }
 :root[data-look="new"] .armada-dropdown-menu__separator { margin: var(--space-1) var(--space-2); }
 
@@ -347,6 +409,35 @@
   padding: 0;
 }
 :root[data-look="new"] :where(.armada-system__pane, .armada-settings-index__body, .armada-screen__pane) .armada-card > .armada-card-header + .armada-card-content { padding: var(--space-3); }
+/* The rest of the pages' panels are the same sheet: System's Kit and Workspaces columns, the Guides and Workflows lists and the open workflow,
+   Usage's panels and its figures, Doctor's three, the Checks list and the Manifest's. The `:where()` keeps them from weighing more than the
+   Cockpit's own. Nothing here is a fill of its own: no solid ground, no well, and no graph paper, which stays on the Flight map. */
+:root[data-look="new"] :where(
+  .armada-kit-browser__list, .armada-kit-browser__detail, .armada-workspaces__list, .armada-workspaces__detail,
+  .armada-guides__list, .armada-wm__list, .armada-wm__detail,
+  .armada-usage__panel, .armada-usage__tile,
+  .armada-doctor__modules, .armada-doctor-pane, .armada-doctor__gaps,
+  .armada-requests__panel,
+  .armada-check-list, .armada-screen__viewscreen
+) {
+  border: var(--border-width) solid var(--glass-edge);
+  border-radius: var(--glass-radius);
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+  box-shadow: var(--bezel), var(--glass-shadow);
+}
+:root[data-look="new"] :where(
+  .armada-kit-browser__list, .armada-kit-browser__detail, .armada-workspaces__list, .armada-workspaces__detail,
+  .armada-guides__list, .armada-wm__list, .armada-wm__detail,
+  .armada-usage__panel, .armada-doctor__modules, .armada-doctor-pane, .armada-doctor__gaps,
+  .armada-requests__panel,
+  .armada-check-list, .armada-screen__viewscreen
+):focus-within {
+  border-color: var(--glass-edge-lifted);
+  box-shadow: var(--bezel), var(--glass-shadow-lifted);
+}
+:root[data-look="new"] :where(.armada-check-list__scroll, .armada-screen__glass) { background: none; }
 /* ---- The grid the glass hovers over ---------------------------------------------------------------------------- */
 /* A grid of 1px dots on the shell, under every panel, static, drawn from the `--grid-*` tokens in `takes.css`. Dots, not
    lines, so the map's own lines never cross a second set behind it. It is what the blur samples, so the glass has
@@ -583,3 +674,13 @@
 @media (prefers-reduced-motion: reduce) {
   :root[data-look="new"] .armada-palette { animation: none; }
 }
+
+/* Every page's key caps are the Cockpit's: not drawn, not hidden, until ⌘ is held. `ShortcutRevealProvider` sets `data-reveal`
+   on the root for as long, and the key still works the rest of the time. The Logbook's own caps are its own. */
+:root:not([data-reveal]) :is(.armada-usage__page, .projects-top, .projects-list, .projects-pane, .armada-system-side, .armada-wm__list, .issues-list, .issues-reader, .pr-list, .pr-reader, .pr-ask-bar, .pr-tools) :is(.armada-kbd, .armada-tooltip:has(> .armada-kbd)) {
+  display: none;
+}
+:root:not([data-reveal]) .armada-usage__keys { display: none; }
+
+/* A menu is portaled out of its page, so the page lists above never reach its rows: every menu's shortcut hint is drawn only while ⌘ is held. */
+:root:not([data-reveal]) .armada-dropdown-menu__kbd { display: none; }

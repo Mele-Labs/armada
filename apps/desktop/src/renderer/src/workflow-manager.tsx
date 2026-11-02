@@ -268,6 +268,7 @@ function Held({ current, repository, root, served }: { current: string | null; r
   return (
     <WorkflowManager
       repository={repository}
+      pending={listed === null}
       switches={{
         forJobs,
         onForJobs: (on) => void saveSetting("features.workflows", on),

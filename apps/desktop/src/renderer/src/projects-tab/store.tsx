@@ -40,6 +40,8 @@ export type ProjectsSnapshot = {
   showDone: boolean;
   /** The row the palette chose, by id, until the page has brought its card into view. */
   reveal: string | undefined;
+  /** The first read has not been answered. False once it has, whether the answer was projects, nothing or a refusal. */
+  pending: boolean;
 };
 
 export type ProjectsStore = ReturnType<typeof createProjectsStore>;
@@ -92,7 +94,7 @@ const wireRows = (wire: Projects | undefined, key: string) => (key === LOOSE ? w
 const idsOf = (wire: Projects | undefined, key: string): Set<string> => new Set(wireRows(wire, key).map((row) => row.id));
 
 export function createProjectsStore(source: ProjectsSource, pulls: PullsServed = {}) {
-  let snap: ProjectsSnapshot = { projects: [], loose: [], open: undefined, selected: [], anchor: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, naming: false, lastRepo: undefined, showDone: false, reveal: undefined };
+  let snap: ProjectsSnapshot = { projects: [], loose: [], open: undefined, selected: [], anchor: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, naming: false, lastRepo: undefined, showDone: false, reveal: undefined, pending: true };
   const listeners = new Set<() => void>();
   const set = (next: Partial<ProjectsSnapshot>) => {
     snap = { ...snap, ...next };
@@ -233,9 +235,13 @@ export function createProjectsStore(source: ProjectsSource, pulls: PullsServed =
     follow: () => source.onProjectsChanged(heard),
     /** Reads his projects, as a window does when it opens and whenever Fleet is reached again. */
     load: () => {
-      void source.listProjects().then((read) => {
-        if (read.ok) heard(read.value);
-      });
+      void source
+        .listProjects()
+        .then((read) => {
+          if (read.ok) heard(read.value);
+        })
+        .catch(() => undefined)
+        .then(() => set({ pending: false }));
     },
     /** The row `rowId` is asked for by Fleet, for a Job started with it. */
     refOf: (rowId: string): ProjectRowRef | undefined => (homeOf(rowId) === undefined ? undefined : { row: rowId }),
@@ -518,7 +524,7 @@ export function useProjectsStore(): ProjectsStore | undefined {
   return useContext(Held);
 }
 
-const NEVER: ProjectsSnapshot = { projects: [], loose: [], open: undefined, selected: [], anchor: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, naming: false, lastRepo: undefined, showDone: false, reveal: undefined };
+const NEVER: ProjectsSnapshot = { projects: [], loose: [], open: undefined, selected: [], anchor: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, naming: false, lastRepo: undefined, showDone: false, reveal: undefined, pending: false };
 const NONE = () => () => undefined;
 
 export function useProjects(): ProjectsSnapshot {

@@ -610,7 +610,7 @@
   border-bottom: var(--border-width) solid var(--border-subtle);
   background: color-mix(in srgb, var(--bg-raised) 60%, transparent);
   color: var(--fg-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
@@ -653,5 +653,11 @@
    for a layer to round into, and the Edit and file views scroll through it. */
 .armada-screen__layered {
   position: relative;
+  /* The panel stops at the window's inset, as every other page's does. */
+  padding-bottom: var(--pad-page);
 }
 
+
+/* Pending: bars stand where the Studios' rows will be. The row takes the height a row has with its Open control, so none moves when they land. */
+.armada-studio-list--pending { --skeleton-fill: var(--bg-raised); }
+.armada-studio-list--pending .armada-table-cell { height: var(--h-row); }

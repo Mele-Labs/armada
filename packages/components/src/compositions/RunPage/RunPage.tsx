@@ -667,11 +667,7 @@ function RunPageControl({
   onRun: (entry: RunPageEntry) => void;
 }) {
   if (entry === null) {
-    return (
-      <p className="armada-run-page__control-empty">
-        Pick a Check or a Command from the list to run it in this checkout.
-      </p>
-    );
+    return null;
   }
 
   return (

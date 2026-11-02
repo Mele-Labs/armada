@@ -35,9 +35,9 @@ const summary = (): UsageSummary => usageSummaryNow(0);
 
 test("before Fleet has answered, every panel is drawn and none holds a figure", () => {
   const host = mount({});
-  expect([...host.querySelectorAll(".armada-usage__band")].map((one) => one.firstElementChild?.textContent)).toEqual(["Jobs", "Breakdown", "Burn per day", "Day and hour"]);
+  expect([...host.querySelectorAll(".armada-usage__band")].map((one) => one.firstElementChild?.textContent)).toEqual(["Jobs", "Breakdown", "Burn per day", "Usage rules", "Day and hour"]);
   expect(host.querySelectorAll('[role="option"]')).toHaveLength(0);
-  expect(host.querySelector(".armada-usage__tiles")).toBeNull();
+  expect(host.querySelector(".armada-usage__fig")).toBeNull();
   expect(host.querySelector("svg")).toBeNull();
   expect(host.querySelector('[role="grid"]')).toBeNull();
 });

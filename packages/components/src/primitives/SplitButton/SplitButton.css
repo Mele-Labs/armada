@@ -280,6 +280,31 @@
   color: var(--accent-hover);
 }
 
+/* Ghost — `Button`'s: no fill and no edge, --fg-muted text that comes up to --fg-default on hover. The divider stays as a hairline
+ * so the caret still reads as its own segment. */
+.armada-split-button__control[data-variant="ghost"] {
+  background: transparent;
+  border-color: transparent;
+}
+
+.armada-split-button__control[data-variant="ghost"] .armada-split-button__action:not(:disabled),
+.armada-split-button__control[data-variant="ghost"] .armada-split-button__caret:not(:disabled) {
+  color: var(--fg-muted);
+}
+
+.armada-split-button__control[data-variant="ghost"] .armada-split-button__caret:not(:disabled) {
+  border-inline-start-color: var(--border-subtle);
+}
+
+.armada-split-button__control[data-variant="ghost"] .armada-split-button__action:hover:not(:disabled),
+.armada-split-button__control[data-variant="ghost"] .armada-split-button__action[data-preview-hover],
+.armada-split-button__control[data-variant="ghost"] .armada-split-button__caret:hover:not(:disabled),
+.armada-split-button__control[data-variant="ghost"] .armada-split-button__caret[data-preview-hover],
+.armada-split-button__control[data-variant="ghost"] .armada-split-button__caret[aria-expanded="true"] {
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}
+
 /* Disabled is --fg-subtle with hover suppressed. Never opacity. Every variant
  * collapses onto this one rendering, `Button`'s reasoning exactly: --fg-subtle
  * on an accent fill is unreadable, and a disabled control has no variant left

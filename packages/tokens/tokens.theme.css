@@ -131,6 +131,11 @@
   --color-phase-live-edge: var(--phase-live-edge);
   --color-phase-live-bg: var(--phase-live-bg);
   --color-phase-live-rule: var(--phase-live-rule);
+  --color-usage-meter: var(--usage-meter);
+  --color-usage-worse: var(--usage-worse);
+  --color-usage-over: var(--usage-over);
+  --color-usage-better: var(--usage-better);
+  --color-setting-modified: var(--setting-modified);
   --color-sketch-blue: var(--sketch-blue);
   --color-sketch-teal: var(--sketch-teal);
   --color-sketch-green: var(--sketch-green);

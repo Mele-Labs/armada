@@ -47,13 +47,7 @@
   overflow: hidden;
 }
 
-/* A pool with a stranded bay in it: the frame takes the warning hue, and its edge is lit. */
-.armada-pool-slots__view:has(.armada-bay[data-bay="stranded"]) {
-  border-color: var(--slot-stranded);
-  box-shadow:
-    inset 0 0 calc(var(--space-12) * 1.5) color-mix(in srgb, var(--slot-stranded) 10%, transparent),
-    0 0 var(--space-6) color-mix(in srgb, var(--slot-stranded) 12%, transparent);
-}
+.armada-pool-slots__label { flex: 1 1 auto; }
 
 .armada-pool-slots__band {
   display: flex;
@@ -648,3 +642,7 @@
     animation: none;
   }
 }
+
+/* Pending: bays with bars where the band and the body will be, until the pool has been read. */
+.armada-bay[data-bay="pending"] { --skeleton-fill: var(--bg-hover); }
+.armada-bay[data-bay="pending"] .armada-bay__band { min-height: var(--leading-xs); padding-block: var(--space-2); }

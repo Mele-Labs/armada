@@ -305,7 +305,7 @@ test("a Studio row opens from anywhere on it, and its rename is behind the row's
   open(studying().scenario);
   await toSystemPage("Studios");
 
-  const row = page.getByRole("row").nth(1);
+  const row = page.getByRole("row").nth(0);
   await expect.element(row).toBeVisible();
 
   // The name is text now: nothing inside it is a press, so the row can be one.

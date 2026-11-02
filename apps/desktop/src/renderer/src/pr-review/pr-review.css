@@ -6,8 +6,8 @@
 
 /* ---- The list ------------------------------------------------------------------------------------------- */
 
-.pr-list__refresh { display: inline-flex; margin-left: auto; text-transform: none; letter-spacing: 0; }
-.pr-list__search { padding: 0 var(--space-2) var(--space-2); }
+.pr-list__refresh { display: inline-flex; text-transform: none; letter-spacing: 0; }
+.pr-list__search { padding: var(--space-2) var(--space-2); }
 .pr-list__pick { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2) var(--space-2); }
 .pr-list__pick .armada-dropdown-menu__trigger { flex: 1 1 0; min-width: 0; }
 .pr-list__pick .armada-dropdown-menu__trigger { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -18,7 +18,7 @@
 .pr-find .armada-textarea-field { flex: 1 1 0; min-width: 0; }
 .pr-find__head { display: flex; flex: none; align-items: center; gap: var(--space-2); padding: 0 var(--space-3) var(--space-1); }
 .pr-find__acts { display: inline-flex; margin-left: auto; }
-.pr-row__reason { grid-column: 1 / -1; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.pr-row__reason { grid-column: 1 / -1; margin-top: var(--space-1); min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
 .pr-list__spin[data-fetching] { animation: pr-review-spin var(--duration-pulse) linear infinite; }
 
 .pr-row {
@@ -26,7 +26,7 @@
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   column-gap: var(--space-3);
-  row-gap: var(--space-1);
+  row-gap: 0;
   width: 100%;
   padding: var(--space-2) var(--space-3);
   border: 0;
@@ -44,8 +44,9 @@
 /* What is open is framed by its shape (`depth.css`). */
 .pr-row__title { min-width: 0; overflow: hidden; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
 .pr-row[data-selected] .pr-row__title { font-weight: var(--weight-heading); }
-.pr-row__facts { grid-column: 1 / -1; display: flex; min-width: 0; align-items: baseline; gap: var(--space-2); color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
-.pr-row__number { margin-inline-start: auto; }
+.pr-row__facts { grid-column: 1 / -1; margin-top: var(--space-1); display: flex; min-width: 0; align-items: baseline; gap: var(--space-2); color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+/* The number is a line of its own under the title, a chip lighter and rounder than the shared readout; a line the person has off takes no room. */
+.pr-row__number { grid-column: 1 / -1; justify-self: start; margin-top: var(--space-1); border-color: transparent; border-radius: var(--radius-md); background: color-mix(in srgb, var(--fg-default) 10%, transparent); color: var(--fg-default); font-weight: var(--weight-body); }
 .pr-row__author { flex: none; }
 .pr-row__repository { min-width: 0; overflow: hidden; color: var(--fg-subtle); text-overflow: ellipsis; white-space: nowrap; }
 
@@ -53,16 +54,10 @@
 
 .pr-reader { min-height: 0; }
 .pr-reader .deck-pane__acts { gap: var(--space-2); }
-/* A pull request's title is drawn in its own case: the band it sits in sets caps and tracking, which a title does not take. */
-.pr-reader .deck-pane__title { text-transform: none; letter-spacing: 0; }
-/* The head has the room a panel head has: space above and below, a title that wraps to two lines before it meets the repository, and its buttons centred on it. */
-.pr-reader > .deck-pane__head { align-items: center; padding: var(--space-4) var(--space-4) var(--space-2); }
-.pr-reader .deck-pane__title { display: -webkit-box; overflow: hidden; font-family: var(--font-sans); font-size: var(--text-lg); line-height: var(--leading-lg); white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .pr-reader .deck-pane__kind { align-self: center; }
 .pr-reader__meta { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); padding: var(--space-1) var(--space-4) var(--space-3); }
 .pr-reader__branch { min-width: 0; max-width: 100%; overflow: hidden; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); text-overflow: ellipsis; white-space: nowrap; }
 .pr-reader__who { color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
-.pr-reader__tabs { flex: none; padding: 0 var(--space-4) var(--space-2); }
 .pr-reader__body { flex: 1 1 0; min-height: 0; padding: var(--space-2) var(--space-4) var(--space-4); overflow-y: auto; overscroll-behavior: contain; border-top: var(--border-width) solid var(--border-subtle); }
 
 /* ---- What hangs under a line ---------------------------------------------------------------------------- */
@@ -373,3 +368,12 @@
 
 /* The owner's notes for the Job, waiting to be sent: a count and the one press that sends them. */
 .pr-notes-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px dashed var(--you-edge); border-radius: var(--radius-md); }
+
+/* Pending: the row as it will be, in bars. The wrapper takes the line the text takes, so the row is the height it lands at. */
+.pr-row[data-pending] { --skeleton-fill: var(--bg-raised); cursor: default; }
+.pr-row[data-pending]:hover { background: none; }
+/* The loaded first line is as tall as the review mark's line box: the glyph and the line it sits on. */
+.pr-row__skel { display: flex; align-items: center; min-height: calc(var(--space-4) + var(--space-1) + var(--border-width)); min-width: 0; }
+.pr-row__facts .pr-row__skel { min-height: var(--leading-2xs); flex: 1 1 0; }
+.pr-row .pr-row__skel-mark { width: var(--space-4); height: var(--space-4); }
+.pr-row__number-skel { grid-column: 1 / -1; display: flex; align-items: center; margin-top: var(--space-1); min-height: calc(var(--leading-2xs) + var(--space-1) + var(--border-width) * 2); }
