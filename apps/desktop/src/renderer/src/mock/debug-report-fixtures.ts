@@ -18,7 +18,7 @@ const TAIL = "bridge protocol 5.2  fleet protocol 5.2  taken 2026-11-02T09:31:12
 
 const INSTALL = block("Install", [
   ["armada", "0.14.2"],
-  ["runs from", "~/Applications/Armada.app/Contents/Resources/armada"],
+  ["runs from", "~/Applications/Armada.app/Contents/Resources/bin/armada"],
   ["armada resolves", "no"],
   ["claude code", "2.1.310"],
 ]);
@@ -46,7 +46,7 @@ const HEALTHY = block("Job  Add retry to the sync worker", [
   ["mod", "0.14.2"],
   ["door", "connected"],
   ["missing", "nothing"],
-  ["tools", "Bash, Edit, Glob, Grep, Read, Write\nmcp__armada__job_dispatch, mcp__armada__job_status"],
+  ["tools", "Bash, Edit, Glob, Grep, Read, Write\nmcp__armada-fleet__waiting_for, mcp__armada-fleet__start_another_job"],
   ["skills", "armada:reading-a-brief, armada:verify-before-done"],
 ]);
 
