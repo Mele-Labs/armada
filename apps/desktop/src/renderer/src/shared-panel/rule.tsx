@@ -1,12 +1,13 @@
 // A rule on a Job's lanes, in the side panel. One that is waiting on the person for something shows the drafted ask as its own card, with its acts, answered here; the card is the
 // thread's (`DraftRow`), so Send, Edit and Withdraw are the ones the thread shows and answering here settles the same item. One that has acts Fleet kept says what each is and where it
-// stands, for each instance it was done to.
+// stands, for each instance it was done to. A draft no rule left is answered here the same way, from its own card.
 
 import { useRef } from "react";
 import { Ban, Check, Clock, MessageCircleQuestion } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { DraftRow, Tooltip } from "@armada/components";
 import type { DraftAnswer } from "@armada/components";
+import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { dismissWaiting } from "../cockpit/dismissed";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
@@ -70,20 +71,19 @@ function ActsPanel({ item }: { item: Extract<PanelItem, { kind: "rule" }> }) {
   );
 }
 
-export function RulePanel({ item }: { item: Extract<PanelItem, { kind: "rule" }> }) {
-  const session = useSessions().find((one) => one.id === item.sessionId);
+/** A draft card from the Job's thread, answered beside it: `heading` where the panel is named for something other than the card, as a rule is. */
+function DraftSide({ sessionId, rowId, crumb, heading }: { sessionId: string; rowId: string; crumb: string; heading?: string }) {
+  const session = useSessions().find((one) => one.id === sessionId);
   const draft = useSessionsDraft();
   const back = useBack();
-  const rule = session?.lanes?.job.copy.rules.find((one) => one.id === item.rule);
-  const found = item.row === undefined ? undefined : session?.rows.find((one) => one.id === item.row);
+  const found = session?.rows.find((one) => one.id === rowId);
   // **Sending leaves the panel as it is**: the card settles to what was sent, and the way back stays. The last card read is held, so a read that comes a beat late never takes the panel away.
   const held = useRef<{ row: Extract<NonNullable<typeof found>, { kind: "draft" }>; title: string } | undefined>(undefined);
-  if (found !== undefined && found.kind === "draft") held.current = { row: found, title: rule?.label ?? found.title };
-  if (item.row === undefined) return <ActsPanel item={item} />;
+  if (found !== undefined && found.kind === "draft") held.current = { row: found, title: heading ?? found.title };
   if (session === undefined || held.current === undefined) return null;
   const { row, title } = held.current;
   return (
-    <SidePanel title={`Rule: ${title}`} heading={title} crumb="Rule" back={back} onClose={closePanel}>
+    <SidePanel title={`${crumb}: ${title}`} heading={title} crumb={crumb} back={back} onClose={closePanel}>
       <ul className="sv-lanes__ask" aria-label="Waiting on you">
         <DraftRow
           row={row}
@@ -94,4 +94,30 @@ export function RulePanel({ item }: { item: Extract<PanelItem, { kind: "rule" }>
       </ul>
     </SidePanel>
   );
+}
+
+export function RulePanel({ item }: { item: Extract<PanelItem, { kind: "rule" }> }) {
+  const rule = useSessions()
+    .find((one) => one.id === item.sessionId)
+    ?.lanes?.job.copy.rules.find((one) => one.id === item.rule);
+  if (item.row === undefined) return <ActsPanel item={item} />;
+  return <DraftSide sessionId={item.sessionId} rowId={item.row} crumb="Rule" {...(rule === undefined ? {} : { heading: rule.label })} />;
+}
+
+/** A draft a Job put to the person, answered beside the thread it may sit far back in. */
+export function DraftPanel({ item }: { item: Extract<PanelItem, { kind: "draft" }> }) {
+  return <DraftSide sessionId={item.sessionId} rowId={item.row} crumb="Draft" />;
+}
+
+/**
+ * Where a draft waiting on the person (`draft:<card>`) is answered beside the Job: its rule's panel where a rule on the Job's lanes left it, its own card otherwise.
+ * Absent for a proposed workflow, which Needs you answers from its facts, and for an item that is no draft card.
+ */
+export function draftPanelOf(session: Session, itemId: string): PanelItem | undefined {
+  const rowId = itemId.startsWith("draft:") ? itemId.slice("draft:".length) : undefined;
+  const row = rowId === undefined ? undefined : session.rows.find((one) => one.id === rowId);
+  if (rowId === undefined || row === undefined || row.kind !== "draft") return undefined;
+  const fired = session.lanes?.job.fired.find((one) => one.needs === rowId);
+  if (fired !== undefined) return { kind: "rule", sessionId: session.id, rule: fired.rule, row: rowId };
+  return row.workflow !== undefined || row.change !== undefined ? undefined : { kind: "draft", sessionId: session.id, row: rowId };
 }
