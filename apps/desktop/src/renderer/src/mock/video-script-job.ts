@@ -1,6 +1,6 @@
-// A Job that writes a video script as its document and puts each revision to him, as a sketch is put to him. Two moments of it,
-// each a scenario: `document-waits-in-needs-you` with revision 1 waiting, and `document-asks-again` with revision 2 waiting after
-// revision 1 was approved. The page carries what Fleet's artifact does: `asked`, `revision` and, once answered, `settled`, which a
+// A Job that writes a video script as its document and puts each revision to him, as a sketch is put to him. Three moments of it,
+// each a scenario: `document-waits-in-needs-you` with revision 1 waiting, `document-asks-again` with revision 2 waiting after
+// revision 1 was approved, and `document-handed-on` with the Job that took its place holding revision 2 as he answered it. The page carries what Fleet's artifact does: `asked`, `revision` and, once answered, `settled`, which a
 // new revision drops.
 
 import { repository } from "@armada/screens/src/fixtures/repository";
@@ -53,14 +53,32 @@ function job(stage: 1 | 2): Session {
   };
 }
 
-export function videoScriptScenario(name: string, says: string, stage: 1 | 2): Scenario {
+// The Job that took the first one's place holds the page with his answer, kept before anything in its own thread. Its first turn only read it.
+function handedOn(): Session {
+  return {
+    id: ID,
+    title: "Demo marketing video",
+    turn: { state: "idle" },
+    standing: "idle",
+    lastTurnAt: ago(1),
+    work: { landing: "document" },
+    rows: [
+      { id: "h1", at: ago(3), kind: "tool", text: "Read .armada/documents/video-script.html" },
+      { id: "h2", at: ago(2), kind: "message", from: { kind: "agent" }, text: "The script stands as approved. The shot list is next." },
+    ],
+    attachments: [{ kind: "artifact", form: "document", id: VIDEO_SCRIPT_PATH, title: VIDEO_SCRIPT_TITLE, revisions: [VIDEO_SCRIPT_R1, VIDEO_SCRIPT_R2], asked: true, revision: "2", kept: ago(180), settled: { how: "approved", at: ago(170) } }],
+    waitingFor: [],
+  };
+}
+
+export function videoScriptScenario(name: string, says: string, stage: 1 | 2 | "handed_on"): Scenario {
   const base = holding(name, says);
   return {
     ...base,
     state: { ...base.state, repository: repository().root },
     draft: {
       sessions: () => {
-        const store = sessionsStore([job(stage)]);
+        const store = sessionsStore([stage === "handed_on" ? handedOn() : job(stage)]);
         return {
           ...store,
           // Each revision is a file Fleet keeps, which the reading layer draws.
