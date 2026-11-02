@@ -21,7 +21,7 @@ import { DocumentLayer } from "./DocumentLayer";
 import { FieldLayer } from "./FieldLayer";
 import { ViewStrip, useJobViews } from "../cockpit/deck/JobViews";
 import { StoryColumn, placeZone, type StoryZone } from "./StoryColumn";
-import { BrowserBody, BrowserTabsSync, ChangesBody, FilesBody, IssuesBody, JobsBody, LedgerBody, PlanBody, PullsBody, RequestBody, TerminalBody, TerminalSync } from "../job-panes/bodies";
+import { BrowserBody, BrowserTabsSync, ChangesBody, DraftBody, FilesBody, IssuesBody, JobsBody, LedgerBody, PlanBody, PullsBody, RequestBody, TerminalBody, TerminalSync } from "../job-panes/bodies";
 import { CustomBody } from "../job-panes/custom-body";
 import { focusKind, focusLayer } from "../job-panes/focus";
 import { JobPanes } from "../job-panes/JobPanes";
@@ -196,6 +196,8 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
           return <RequestBody session={session} tab={tab} />;
         case "custom":
           return <CustomBody tabId={tab.id} jobId={session.id} manifestId={session.manifestId} onOpenSession={onOpenSession} />;
+        case "draft":
+          return <DraftBody jobId={id} tab={tab} />;
         case "subagents":
           return <Layer id="subagents" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
         case "checks":

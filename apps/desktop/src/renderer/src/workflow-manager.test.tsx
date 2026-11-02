@@ -95,10 +95,10 @@ const words = (name: string) => step_(name).getByRole("textbox", { name: "Words"
 
 test("workflows are grouped by where they come from, the repository's by its name, a copy marked with what it replaces", async () => {
   draw();
-  for (const name of ["Armada", "armada repository", "Yours"]) await expect.element(page.getByRole("group", { name, exact: true })).toBeVisible();
-  await expect.element(page.getByRole("group", { name: "Armada", exact: true }).getByRole("button", { name: "bug", exact: true })).toBeVisible();
+  for (const name of ["Shipped with Armada", "armada repository", "Yours"]) await expect.element(page.getByRole("group", { name, exact: true })).toBeVisible();
+  await expect.element(page.getByRole("group", { name: "Shipped with Armada", exact: true }).getByRole("button", { name: "bug", exact: true })).toBeVisible();
   await expect.element(page.getByRole("group", { name: "armada repository", exact: true }).getByRole("button", { name: "feature", exact: true })).toBeVisible();
-  await expect.element(page.getByRole("img", { name: "This repository's copy replaces Armada's" })).toBeVisible();
+  await expect.element(page.getByRole("img", { name: "armada's own copy, replaces Armada's" })).toBeVisible();
   // Armada's row has nothing to replace.
   expect(page.getByRole("img", { name: /replaces/ }).elements()).toHaveLength(1);
 });

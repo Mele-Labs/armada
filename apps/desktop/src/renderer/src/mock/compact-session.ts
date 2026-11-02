@@ -244,11 +244,13 @@ const prune = other(PRUNE, "Prune the stale branches", {
   asked: { command: "git push origin --delete armada/old-retry armada/old-lease", call: "p-q1", offers: ["allow_once", "refuse"] },
 });
 const names = other(NAMES, "Name the store migrations", {
+  context: { tokens: 392_000, window: 400_000 },
   rows: [you("n-1", "13:10:00", "Name the store migrations by their order."), agent("n-2", "13:41:10", "The migrations are named. The pull request is ready for you.")],
   attachments: [{ kind: "branch", name: "fix/migration-names", slot: 2 }, { kind: "pull_request", number: 2377, title: "Name the store migrations", branch: "fix/migration-names", address: "https://git.example/armada/pull/2377", checks: { state: "passed" }, state: "open", auto: false }],
   waitingFor: [{ id: "w-names", text: "Approve #2377", since: ago(18), source: "agent", act: { kind: "approve_pr", target: "2377" } }],
 });
 const audit = other(AUDIT, "Rotate the audit log", {
+  context: { tokens: 332_000, window: 400_000 },
   turn: { state: "working" },
   standing: "working",
   lastTurnAt: ago(1),

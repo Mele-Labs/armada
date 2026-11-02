@@ -158,9 +158,9 @@ function TabButton({ jobId, pane, tab, zoomed, dragging, onDrag }: { jobId: stri
   );
 }
 
-/** The kinds the + offers. A Job has one thread, so it is offered only when none is open. */
+/** The kinds the + offers. A Job has one thread, so it is offered only when none is open. A Draft tab is one draft's, opened from where the draft is listed. */
 function addEntries(thread: boolean, built: readonly { name: string; glyph?: string | undefined }[]): DropdownMenuEntry[] {
-  const kinds = TAB_KINDS.filter((kind) => kind !== "custom" && (kind !== "thread" || !thread)).map((kind): DropdownMenuEntry => ({ kind: "item", id: kind, label: KINDS[kind].label, icon: KINDS[kind].Glyph }));
+  const kinds = TAB_KINDS.filter((kind) => kind !== "custom" && kind !== "draft" && (kind !== "thread" || !thread)).map((kind): DropdownMenuEntry => ({ kind: "item", id: kind, label: KINDS[kind].label, icon: KINDS[kind].Glyph }));
   // Under the rule, the tabs a Mod Job built by name, then Custom, which builds another.
   const { Glyph } = KINDS.custom;
   return [...kinds, { kind: "separator", id: "custom-rule" }, ...built.map((one): DropdownMenuEntry => ({ kind: "item", id: `mod:${one.name}`, label: tabTitle(one.name), icon: tabGlyph(one.glyph) })), { kind: "item", id: "custom", label: KINDS.custom.label, icon: Glyph }];
