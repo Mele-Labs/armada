@@ -16,6 +16,7 @@ mod booting;
 mod clean;
 mod cli;
 mod declared;
+mod job;
 mod kit;
 mod leasing;
 mod locating;

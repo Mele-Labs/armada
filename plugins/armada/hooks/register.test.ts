@@ -387,6 +387,54 @@ test('what Fleet missed is told again when it answers, and nothing is lost to th
   expect(facts(posts)).toContainEqual({ kind: 'titled', title: 'fix the ledger' })
 })
 
+test('what happened while Fleet was out of reach is sent behind the state when it answers, in order', async ($, on) => {
+  let up = false
+  const { posts, clock } = world(on, { running: () => up })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  await $.prompt.submit({ text: 'fix the ledger', origin: { kind: 'user' } } as never)
+  await $.turn.complete({ answer: 'done', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' })
+  await clock.settle()
+  expect(posts).toEqual([])
+
+  up = true
+  await clock.advance(31_000)
+  await $.turn.complete({ answer: 'and again', durationMs: 1, isAborted: false, turnId: 't2', reason: 'answer' })
+  await clock.settle()
+
+  const told = kinds(posts)
+  expect(told[0]).toBe('started')
+  expect(told.indexOf('titled')).toBeGreaterThan(0)
+  const turns = told.map((kind, at) => (kind === 'turn_completed' ? at : -1)).filter(at => at >= 0)
+  expect(turns.length).toBeGreaterThanOrEqual(2)
+  expect(told.indexOf('titled')).toBeLessThan(turns[0]!)
+  expect(told.at(-1)).toBe(told[turns.at(-1)!])
+})
+
+test('the reports owed to Fleet are bounded and the oldest go first', async ($, on) => {
+  let up = false
+  const { posts, clock } = world(on, { running: () => up })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  for (let at = 0; at < 260; at += 1) {
+    await $.turn.complete({ answer: `a${at}`, durationMs: 1, isAborted: false, turnId: `t${at}`, reason: 'answer' })
+  }
+  await clock.settle()
+  expect(posts).toEqual([])
+
+  up = true
+  await clock.advance(31_000)
+  await $.turn.complete({ answer: 'last', durationMs: 1, isAborted: false, turnId: 'last', reason: 'answer' })
+  await clock.settle()
+
+  const turns = facts(posts).filter(fact => fact.kind === 'turn_completed')
+  // The 200 newest of the 260 owed, then the report that found Fleet back.
+  expect(turns.length).toBe(201)
+  expect(turns[0]).toMatchObject({ said: 'a60' })
+  expect(turns.at(-2)).toMatchObject({ said: 'a259' })
+  expect(turns.at(-1)).toMatchObject({ said: 'last' })
+})
+
 test('a Fleet that is slow to answer is waited on for a moment and is not treated as gone', async ($, on) => {
   const { attempts, clock } = world(on, { slowReports: true })
   await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
@@ -1599,6 +1647,41 @@ test('a session that puts the lines in waiting_for after it is sent back stops, 
   await clock.settle()
   expect(second.block).toBeUndefined()
   expect(waitingPosts(posts)).toEqual([])
+})
+
+test('a list set by armada job waiting_for from Bash reads as a list set, as the tool does', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '{}', stderr: '', interrupted: false }, text: '{}' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.prompt.submit({ text: 'build the detector', origin: { kind: 'user' } } as never)
+  expect((await $.classic.Stop(stop(OWED))).block).toBeDefined()
+
+  await $.tool.call({
+    tool: 'Bash',
+    command: `armada job waiting_for '{"items":[{"id":"merge","text":"Approve the detector"}]}'`,
+  } as never)
+  const second = await $.classic.Stop(stop('Both are in Bridge now.', { stop_hook_active: true }))
+  await clock.settle()
+  expect(second.block).toBeUndefined()
+  expect(waitingPosts(posts)).toEqual([])
+})
+
+test('one armada job command is allowed without a prompt, and the same line with a second command is not', async ($, on) => {
+  world(on)
+  on('tool.check', () => ({ decision: 'ask' as const }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  const decide = async (command: string) => (await $.tool.check({ tool: 'Bash', input: { command } })).decision
+
+  expect(await decide('armada job dispatch repo=web title="Fix it"')).toBe('allow')
+  expect(await decide('armada job status; rm -rf ~')).toBe('ask')
+  expect(await decide('cargo build')).toBe('ask')
+})
+
+test('a Drone is not given the armada job shortcut', async ($, on) => {
+  world(on, { env: { ARMADA_DRONE: '1' } })
+  on('tool.check', () => ({ decision: 'ask' as const }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  expect((await $.tool.check({ tool: 'Bash', input: { command: 'armada job status' } })).decision).toBe('ask')
 })
 
 test('a list that already holds the lines, a question asked, or no lines at all lets the turn stop', async ($, on) => {
