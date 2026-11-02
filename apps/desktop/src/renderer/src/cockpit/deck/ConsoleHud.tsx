@@ -160,6 +160,8 @@ export function ConsoleHud({ label, name, acts, facet, onClose, place, art, head
       // A menu or a confirm open over the HUD keeps its own keys.
       if (popupIsOpen() || [...document.querySelectorAll('[role="dialog"], [role="alertdialog"]')].some((one) => one !== panel.current)) return;
       if (event.key === "Escape") {
+        // Taken already is the press that went back from a Job and brought this HUD up.
+        if (event.defaultPrevented) return;
         event.stopPropagation();
         event.preventDefault();
         // Words typed stay: the first Esc only leaves the box.

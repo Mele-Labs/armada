@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useRef, useSyncExternalStore, type RefObject } from "react";
 import { ChevronRight } from "lucide-react";
-import { Stamp, Tooltip, timeSaid, useTimeFormat } from "@armada/components";
+import { Stamp, Tooltip, isPressed, timeSaid, useTimeFormat } from "@armada/components";
 import type { MergeLineView } from "@armada/screens";
 
 import { useSessions } from "../../sessions-draft";
@@ -144,6 +144,13 @@ export function TimelineHud({ ship, views }: { ship: Ship; views: readonly Merge
     return () => window.cancelAnimationFrame(land);
   }, [open, at]);
   const onKey = (event: KeyboardEvent): boolean => {
+    // The deck stands down while a HUD is up, so `t` is heard here: it closes what it opened. Taken already is the press that opened it.
+    if (!event.defaultPrevented && isPressed("deck_timeline", event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeTimeline();
+      return true;
+    }
     // The press, taken here as the deck takes its own, so a walk playing does not also step on it.
     if (event.key === "Enter" && document.activeElement instanceof HTMLElement && document.activeElement.matches("button.console-tl__row")) {
       event.preventDefault();

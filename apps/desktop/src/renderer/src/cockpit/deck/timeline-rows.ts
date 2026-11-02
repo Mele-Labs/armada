@@ -44,7 +44,7 @@ export function stuckRows(subjects: readonly Subject[], sessions: readonly Sessi
     const fact = item?.text ?? failed;
     const owed = (event: FleetEvent) => event.tone === "ask" || event.tone === "bad";
     // A Job gone quiet owes nothing, and how long it has been quiet is the fact.
-    const at = item?.since ?? newestOf(events, one.key, owed)?.at ?? (toneOfStuck(one) === "stuck" ? newestOf(events, one.key)?.at : undefined);
+    const at = item?.since ?? newestOf(events, one.key, owed)?.at ?? newestOf(events, one.key)?.at;
     return { key: one.key, title: one.title, tone: toneOfStuck(one), Glyph: one.mark.Glyph, said: one.mark.said, opens: one, ...(fact === undefined ? {} : { fact }), ...(at === undefined ? {} : { at }) };
   });
 }
