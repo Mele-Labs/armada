@@ -39,6 +39,7 @@ One look, drawn by `packages/components/src/depth.css`, `pages.css` and the role
 Elevation is a solid lightness step, a 1px hairline and a small neutral shadow. **No
 gradients, no glows, no sheen and no texture** on a surface, a control or a state. Colour is the theme's: nothing in these
 files names a hue, and a shade is a `color-mix` of a theme token.
+The lit screens and lamps of the Cockpit's console are the owner's one exception to no glows (1 Nov 2026), and it reaches nothing else.
 
 **Four levels of lift**, each a shadow and the edge that goes with it:
 

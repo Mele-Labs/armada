@@ -1,9 +1,9 @@
-// The bridge take's modular console (mock): five bays, each a socket that takes any instrument, and the rack that seats them. What is in
-// each bay is kept in localStorage. Drawn only where `data-console="bridge"` is set (`console-bridge.css`); the markup is the same either way.
+// The console: four bays round the Map, each a socket that takes any instrument, and the rack that seats them. The canvas is the picture
+// (`pixi/console-stage.ts`); over each projected facet stands the instrument's own button, unseen, which keeps its press, label, tooltip and focus.
 
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Activity as ActivityGlyph, ChartNoAxesGantt, Gauge, Megaphone, PlugZap, Plus, Radar, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Activity as ActivityGlyph, ChartNoAxesGantt, Gauge, Megaphone, Radar, ShieldCheck, type LucideIcon } from "lucide-react";
 import { Button, Kbd, Tooltip } from "@armada/components";
 
 import { ActivityHud } from "./ConsoleHud";
@@ -13,71 +13,59 @@ import { ConsoleStage, type BayState, type Dot, type Kind, type Layout, type Pla
 import { tileCap } from "./session-tiles";
 import type { tilesOf } from "./flight-controls";
 
-export type InstrumentId = "matrix" | "beacon" | "radar" | "trace" | "scope" | "needles" | "usage";
+export type InstrumentId = "matrix" | "beacon" | "radar" | "trace" | "scope" | "needles";
 type Tile = ReturnType<typeof tilesOf>[number];
 
-/** The code is a stencil on the console, decoration only. `mod` names the mod an instrument comes from. */
-export const INSTRUMENTS: Record<InstrumentId, { code: string; label: string; Icon: LucideIcon; mod?: string }> = {
+/** The code is a stencil on the console, decoration only. */
+export const INSTRUMENTS: Record<InstrumentId, { code: string; label: string; Icon: LucideIcon }> = {
   matrix: { code: "CHK", label: "Checks", Icon: ShieldCheck },
   beacon: { code: "ALM", label: "Calls", Icon: Megaphone },
   radar: { code: "RDR", label: "Map", Icon: Radar },
   trace: { code: "TLM", label: "Timeline", Icon: ChartNoAxesGantt },
   scope: { code: "ACT", label: "Activity", Icon: ActivityGlyph },
   needles: { code: "GGE", label: "Gauges", Icon: Gauge },
-  usage: { code: "USE", label: "Plan usage", Icon: PlugZap, mod: "plan-usage" },
 };
-const BUILT_IN: readonly InstrumentId[] = ["matrix", "beacon", "radar", "trace", "scope", "needles"];
-const FROM_MODS: readonly InstrumentId[] = ["usage"];
+const IN_THE_TRAY = Object.keys(INSTRUMENTS) as InstrumentId[];
 /** The deck tile each key instrument stands for, which holds its words, glyph and key. */
 const TILE_OF: Partial<Record<InstrumentId, string>> = { matrix: "checks", beacon: "needs", radar: "map", trace: "timeline" };
 const TIP_OF: Partial<Record<string, string>> = { checks: "Checks: only what is running one" };
 
 // ---- What the bays hold ------------------------------------------------------------------------------
 
-/** Which take of the console is drawn: the flat one, or on the canvas with the Map or Dispatch at its centre (`&centre=`). Each keeps its own bays. */
-type Take = "flat" | "map" | "dispatch";
-const takeOf = (): Take => {
-  const root = typeof document === "undefined" ? undefined : document.documentElement;
-  if (root === undefined || !root.hasAttribute("data-console-pixi")) return "flat";
-  return root.dataset.consoleCentre === "dispatch" ? "dispatch" : "map";
-};
 type Bays = readonly (InstrumentId | null)[];
-/** The flanking bays of each take. The centrepiece is not one of them. */
-const FIRST: Record<Take, Bays> = {
-  flat: ["matrix", "beacon", "radar", "trace", "scope"],
-  map: ["matrix", "beacon", "trace", "scope"],
-  dispatch: ["matrix", "beacon", "radar", "trace", "scope", "needles"],
-};
+/** The bays either side of the Map, which is not one of them. */
+const FIRST: Bays = ["matrix", "beacon", "trace", "scope"];
+/** A viewer's convenience kept as a fold is (`collapse.ts`): `flight-controls.toml` is the wire's, and Fleet refuses a key it does not know. */
+const KEPT = "armada.console.bays";
 const heard = new Set<() => void>();
-const kept = (take: Take) => (take === "flat" ? "armada.console.bays" : `armada.console.bays.${take}`);
 
-const read = (take: Take): Bays => {
+const read = (): Bays => {
   try {
-    const found: unknown = JSON.parse(window.localStorage.getItem(kept(take)) ?? "null");
-    if (Array.isArray(found) && found.length === FIRST[take].length && found.every((one) => one === null || (typeof one === "string" && one in INSTRUMENTS))) return found as Bays;
+    const found: unknown = JSON.parse(window.localStorage.getItem(KEPT) ?? "null");
+    if (Array.isArray(found) && found.length === FIRST.length && found.every((one) => one === null || (typeof one === "string" && one in INSTRUMENTS))) return found as Bays;
   } catch {
     /* a bad record is the default */
   }
-  return FIRST[take];
+  return FIRST;
 };
-const held: Partial<Record<Take, Bays>> = {};
-const baysOf = (take: Take): Bays => (held[take] ??= read(take));
+let held: Bays | undefined;
+const baysOf = (): Bays => (held ??= read());
 
-/** Put an instrument in a bay, or empty it. */
-function seat(bay: number, id: InstrumentId | null): void {
-  const take = takeOf();
-  held[take] = baysOf(take).map((one, at) => (at === bay ? id : one));
+function keepBays(bays: Bays): void {
+  held = bays;
   try {
-    window.localStorage.setItem(kept(take), JSON.stringify(held[take]));
+    window.localStorage.setItem(KEPT, JSON.stringify(bays));
   } catch {
     /* kept for this page only */
   }
   heard.forEach((one) => one());
 }
+/** Put an instrument in a bay, or empty it. */
+const seat = (bay: number, id: InstrumentId | null): void => keepBays(baysOf().map((one, at) => (at === bay ? id : one)));
 const useBays = (): Bays =>
   useSyncExternalStore(
     (hear) => (heard.add(hear), () => void heard.delete(hear)),
-    () => baysOf(takeOf()),
+    baysOf,
   );
 
 export type Wiring = {
@@ -86,26 +74,23 @@ export type Wiring = {
   press: (tile: string) => void;
   /** A Job is asking him. */
   calling: boolean;
-  /** The Activity graph, drawn into the scope. */
-  scope: ReactNode;
-  /** The same graph at the HUD's size. */
-  hud: ReactNode;
-  /** The Dispatch key, which is the last facet of the arc where the console is drawn on a canvas. */
+  /** The Activity graph, drawn into the scope, and at the HUD's size; absent where a layout hides Activity. */
+  scope?: { small: ReactNode; large: ReactNode };
+  /** The Dispatch key on the Map's lip; absent with a Job open or where a layout hides Dispatch. */
   dispatch?: ReactNode;
+  /** The panel is folded away: the canvas holds its frame. */
+  folded: boolean;
 };
-
-/** Whether the console is drawn on a canvas (`?console=bridge`, unless `?pixi=0`). */
-const onCanvas = () => typeof document !== "undefined" && document.documentElement.hasAttribute("data-console-pixi");
 
 // ---- The bays ------------------------------------------------------------------------------------------
 
-/** A key instrument is the deck's own tile, drawn as an instrument: it does what the tile does. */
+/** A key instrument is the deck's own tile: it does what the tile does. */
 function Key({ id, wiring }: { id: InstrumentId; wiring: Wiring }) {
   const tileId = TILE_OF[id]!;
   const tile = wiring.tiles.find((one) => one.id === tileId);
   const Glyph = glyphOf(tile?.glyph, "zap");
   const label = tile?.label ?? INSTRUMENTS[id].label;
-  // The Calls facet opens the Calls HUD here, where the deck's tile narrows the list.
+  // The Calls facet opens the Calls HUD.
   const calls = tileId === "needs";
   const hud = useCallsHud();
   return (
@@ -116,12 +101,10 @@ function Key({ id, wiring }: { id: InstrumentId; wiring: Wiring }) {
         aria-label={label}
         data-key={tile?.key}
         data-tile={tileId}
-        data-calling={tileId === "needs" && wiring.calling ? "" : undefined}
+        data-calling={calls && wiring.calling ? "" : undefined}
         aria-pressed={calls ? hud.open : wiring.pressed(tileId)}
         onClick={() => (calls ? toggleCalls() : wiring.press(tileId))}
       >
-        <i className="console-a" aria-hidden="true" />
-        <i className="console-b" aria-hidden="true" />
         <Glyph size={20} aria-hidden="true" />
         <span className="deck-tile__text">{tile?.text ?? label}</span>
         {tile?.key === undefined ? null : (
@@ -135,7 +118,7 @@ function Key({ id, wiring }: { id: InstrumentId; wiring: Wiring }) {
 }
 
 /** The Activity graph as a scope. The whole facet is one press, which opens the HUD over the field; its graph only feeds the picture, so its dots take neither pointer nor focus. */
-function Scope({ wiring }: { wiring: Wiring }) {
+function Scope({ graph }: { graph: NonNullable<Wiring["scope"]> }) {
   const [open, setOpen] = useState(false);
   const facet = useRef<HTMLDivElement>(null);
   const close = () => {
@@ -145,38 +128,22 @@ function Scope({ wiring }: { wiring: Wiring }) {
   return (
     <div ref={facet} className="console-scope" data-tile="scope">
       <div className="console-scope__graph" inert>
-        {wiring.scope}
+        {graph.small}
       </div>
       <Tooltip label="Activity" asChild>
         <button type="button" className="console-scope__press" aria-label="Activity" aria-pressed={open} aria-haspopup="dialog" onClick={() => (open ? close() : setOpen(true))} />
       </Tooltip>
-      {open ? <ActivityHud graph={wiring.hud} facet={facet} onClose={close} /> : null}
+      {open ? <ActivityHud graph={graph.large} facet={facet} onClose={close} /> : null}
     </div>
   );
 }
 
 function Seated({ id, wiring }: { id: InstrumentId; wiring: Wiring }) {
-  if (id === "scope") return <Scope wiring={wiring} />;
+  if (id === "scope") return wiring.scope === undefined ? null : <Scope graph={wiring.scope} />;
   if (id === "needles") {
     return (
       <Tooltip label={INSTRUMENTS.needles.label} asChild>
-        <div className="console-gauges" role="img" aria-label={INSTRUMENTS.needles.label}>
-          <i />
-          <i />
-        </div>
-      </Tooltip>
-    );
-  }
-  if (id === "usage") {
-    return (
-      <Tooltip label={INSTRUMENTS.usage.label} asChild>
-        <div className="console-usage" role="img" aria-label={INSTRUMENTS.usage.label}>
-          <span className="console-usage__mod" aria-hidden="true">
-            {INSTRUMENTS.usage.mod}
-          </span>
-          <i style={{ ["--v" as string]: "42%" }} />
-          <i style={{ ["--v" as string]: "71%" }} />
-        </div>
+        <div className="console-gauges" role="img" aria-label={INSTRUMENTS.needles.label} />
       </Tooltip>
     );
   }
@@ -184,27 +151,25 @@ function Seated({ id, wiring }: { id: InstrumentId; wiring: Wiring }) {
 }
 
 const DOTS_EVERY = 400;
+/** The Map is the wide facet at the middle, with Dispatch keyed on its lip. */
+const PLAN: Plan = { widths: [1, 1, 1.9, 1, 1], depths: [1, 1, 1.9, 1, 1], keyed: 2 };
 
-/** The console drawn on a canvas: the canvas is the picture, and over each projected facet stands the instrument's own button, unseen, which keeps its press, label, tooltip and focus. */
-function CanvasBays({ wiring }: { wiring: Wiring }) {
+/** The console's row of bays. A bay with nothing in it is a dark, recessed socket. */
+export function ConsoleBays({ wiring }: { wiring: Wiring }) {
   const seated = useBays();
   const host = useRef<HTMLDivElement>(null);
   const stage = useRef<ConsoleStage | undefined>(undefined);
   const els = useRef<(HTMLDivElement | null)[]>([]);
   const [layout, setLayout] = useState<Layout | undefined>();
-  const take = takeOf();
   const dispatch = wiring.dispatch === undefined ? null : "dispatch";
-  const lit = document.documentElement.hasAttribute("data-console-lit");
-  // The centrepiece is fixed per take and the seated instruments flank it: the Map with Dispatch keyed on its lip, or Dispatch with the Map beside it.
-  const [plan, items]: [Plan, (InstrumentId | "dispatch" | null)[]] =
-    take === "dispatch"
-      ? [{ widths: [1, 1, 1, 1.9, 1, 1, 1], depths: [1, 1, 1, 1.9, 1, 1, 1], keyed: undefined, lit }, [seated[0]!, seated[1]!, seated[2]!, dispatch, seated[3]!, seated[4]!, seated[5]!]]
-      : [{ widths: [1, 1, 1.9, 1, 1], depths: [1, 1, 1.9, 1, 1], keyed: 2, lit }, [seated[0]!, seated[1]!, "radar", seated[2]!, seated[3]!, dispatch]];
+  const shown = (id: InstrumentId | null) => (id === "scope" && wiring.scope === undefined ? null : id);
+  const items: (InstrumentId | "dispatch" | null)[] = [shown(seated[0]!), shown(seated[1]!), "radar", shown(seated[2]!), shown(seated[3]!), dispatch];
   const dots = useRef<{ at: number; list: Dot[] }>({ at: 0, list: [] });
   useLayoutEffect(() => {
     const canvas = host.current!;
     const block = canvas.parentElement!;
-    const made = ConsoleStage.start(canvas, plan);
+    // The buttons are placed from the layout whether or not a canvas ever comes; without one they have to be seen.
+    const made = ConsoleStage.start(canvas, PLAN, () => block.setAttribute("data-no-canvas", ""));
     stage.current = made;
     const measure = () => {
       const next = made.resize(block.clientWidth);
@@ -220,17 +185,23 @@ function CanvasBays({ wiring }: { wiring: Wiring }) {
     block.addEventListener("pointerleave", poke, true);
     block.addEventListener("focusin", poke);
     block.addEventListener("focusout", poke);
+    // A HUD opening presses a facet with no render of this component, and with no frame coming the canvas has to hear of it.
+    const marks = new MutationObserver(poke);
+    marks.observe(block, { subtree: true, attributes: true, attributeFilter: ["aria-pressed", "data-calling"] });
     return () => {
       watch.disconnect();
+      marks.disconnect();
       block.removeEventListener("pointerenter", poke, true);
       block.removeEventListener("pointerleave", poke, true);
       block.removeEventListener("focusin", poke);
       block.removeEventListener("focusout", poke);
       block.style.height = "";
+      block.removeAttribute("data-no-canvas");
       made.destroy();
       stage.current = undefined;
     };
   }, []);
+  useLayoutEffect(() => stage.current?.setHidden(wiring.folded), [wiring.folded]);
   // What each frame draws is read from the buttons, so a press, a hover or a call changes the picture with no state of its own.
   useLayoutEffect(() => {
     stage.current?.setSource((): BayState[] =>
@@ -250,7 +221,8 @@ function CanvasBays({ wiring }: { wiring: Wiring }) {
                   ? []
                   : [...el.querySelectorAll<HTMLElement>(".armada-tl__dot")].map((dot) => {
                       const box = dot.getBoundingClientRect();
-                      return { x: (box.left + box.width / 2 - plot.left) / plot.width, y: (box.top + box.height / 2 - plot.top) / plot.height, r: Math.max(1.6, box.width / 2), colour: getComputedStyle(dot).getPropertyValue("--tone") || "#888" };
+                      const style = getComputedStyle(dot);
+                      return { x: (box.left + box.width / 2 - plot.left) / plot.width, y: (box.top + box.height / 2 - plot.top) / plot.height, r: Math.max(1.6, box.width / 2), colour: style.getPropertyValue("--tone") || style.color };
                     }),
             };
           }
@@ -294,24 +266,6 @@ function CanvasBays({ wiring }: { wiring: Wiring }) {
   );
 }
 
-/** The console's row of bays. A bay with nothing in it is a dark, recessed socket. */
-export function ConsoleBays({ wiring }: { wiring: Wiring }) {
-  return onCanvas() ? <CanvasBays wiring={wiring} /> : <FlatBays wiring={wiring} />;
-}
-
-function FlatBays({ wiring }: { wiring: Wiring }) {
-  const seated = useBays();
-  return (
-    <>
-      {seated.map((id, at) => (
-        <div key={at} className="console-bay" data-n={at + 1} data-empty={id === null || undefined}>
-          {id === null ? null : <Seated id={id} wiring={wiring} />}
-        </div>
-      ))}
-    </>
-  );
-}
-
 // ---- The rack: every bay an open socket, and a tray of instruments to put in them ---------------------------
 
 /** Left and Right move between the buttons of the row the key was pressed in. */
@@ -330,12 +284,19 @@ export function ConsoleRack({ host, onDone }: { host: HTMLElement | null; onDone
   const [armed, setArmed] = useState<number | undefined>();
   const [over, setOver] = useState<number | undefined>();
   const last = useRef(0);
-  const sockets = useRef<(HTMLButtonElement | null)[]>([]);
+  const rack = useRef<HTMLDivElement>(null);
+  // Found in the page: `Tooltip` takes the ref of the button it wraps.
+  const focusSocket = (bay: number) => rack.current?.querySelectorAll<HTMLElement>(".console-socket")[bay]?.focus();
   const tray = useRef<HTMLDivElement>(null);
+  const before = useRef(seated);
+  const cancel = () => {
+    keepBays(before.current);
+    onDone();
+  };
   const put = (bay: number, id: InstrumentId | null) => {
     seat(bay, id);
     setArmed(undefined);
-    sockets.current[bay]?.focus();
+    focusSocket(bay);
   };
   const drop = (bay: number) => (event: DragEvent<HTMLElement>) => {
     event.preventDefault();
@@ -346,17 +307,18 @@ export function ConsoleRack({ host, onDone }: { host: HTMLElement | null; onDone
   useEffect(() => {
     if (armed !== undefined) tray.current?.querySelector<HTMLElement>("button")?.focus();
   }, [armed]);
+  // Edit, which opened this, has gone from under the keys.
+  useEffect(() => focusSocket(0), []);
   const tile = (id: InstrumentId) => {
-    const { Icon, code, label, mod } = INSTRUMENTS[id];
+    const { Icon, code, label } = INSTRUMENTS[id];
     return (
-      <Tooltip key={id} label={mod === undefined ? label : `${label}, ${mod}`} asChild>
+      <Tooltip key={id} label={label} asChild>
         <button
           type="button"
           role="option"
           aria-selected={false}
           aria-label={label}
           className="console-tray__item"
-          data-mod={mod}
           draggable
           onDragStart={(event) => event.dataTransfer.setData("text/plain", id)}
           onClick={() => put(armed ?? last.current, id)}
@@ -365,11 +327,6 @@ export function ConsoleRack({ host, onDone }: { host: HTMLElement | null; onDone
           <span className="console-tray__code" aria-hidden="true">
             {code}
           </span>
-          {mod === undefined ? null : (
-            <span className="console-tray__mod" aria-hidden="true">
-              {mod}
-            </span>
-          )}
         </button>
       </Tooltip>
     );
@@ -381,7 +338,7 @@ export function ConsoleRack({ host, onDone }: { host: HTMLElement | null; onDone
         : createPortal(
             <>
               <Tooltip label="Leave without saving" shortcut="Esc">
-                <Button variant="ghost" size="sm" onClick={onDone}>
+                <Button variant="ghost" size="sm" onClick={cancel}>
                   Cancel
                 </Button>
               </Tooltip>
@@ -392,14 +349,15 @@ export function ConsoleRack({ host, onDone }: { host: HTMLElement | null; onDone
             host,
           )}
       <div
+        ref={rack}
         className="deck-controls__block console-rack"
         data-flight-editing=""
         onKeyDown={(event) => {
-          if (event.key === "Escape" && armed !== undefined) {
-            event.stopPropagation();
-            setArmed(undefined);
-            sockets.current[armed]?.focus();
-          }
+          if (event.key !== "Escape") return;
+          event.stopPropagation();
+          if (armed === undefined) return cancel();
+          setArmed(undefined);
+          focusSocket(armed);
         }}
       >
         <div className="console-rack__bays" onKeyDown={(event) => along(event, ".console-socket")}>
@@ -417,7 +375,6 @@ export function ConsoleRack({ host, onDone }: { host: HTMLElement | null; onDone
                   data-over={over === at || undefined}
                   aria-label={`Bay ${at + 1}${meta === undefined ? "" : `, ${meta.label}`}`}
                   aria-pressed={armed === at}
-                  ref={(element) => void (sockets.current[at] = element)}
                   onFocus={() => (last.current = at)}
                   onClick={() => setArmed(armed === at ? undefined : at)}
                   onKeyDown={(event) => {
@@ -442,15 +399,7 @@ export function ConsoleRack({ host, onDone }: { host: HTMLElement | null; onDone
           })}
         </div>
         <div className="console-tray" ref={tray} role="listbox" aria-label="Instruments" onKeyDown={(event) => along(event, ".console-tray__item")}>
-          {BUILT_IN.map(tile)}
-          <span className="console-tray__rule" aria-hidden="true" />
-          {FROM_MODS.map(tile)}
-          <Tooltip label="Make one" asChild>
-            <Button variant="ghost" size="sm" className="console-tray__make">
-              <Plus size={14} aria-hidden="true" />
-              Make one
-            </Button>
-          </Tooltip>
+          {IN_THE_TRAY.map(tile)}
         </div>
       </div>
     </>

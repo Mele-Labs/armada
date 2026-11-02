@@ -1,5 +1,5 @@
-// The bridge take's Calls HUD (mock). The panels in it are the Job's own: `SessionPane` for the thread and its Needs you card, `StoryColumn` for Now. What is
-// here is which Job they show, what it has done so far, and what moves him to the next: the order is the Jobs list's.
+// The Calls HUD. The panels in it are the Job's own: `SessionPane` for the thread and its Needs you card, `StoryColumn` for Now. What is
+// here is which Job they show, its summary where it has one, and what moves him to the next: the order is the Jobs list's.
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Button, Kbd } from "@armada/components";
@@ -42,7 +42,7 @@ const isNextKey = (event: KeyboardEvent) => event.altKey && !event.metaKey && !e
 /** Enter on anything that does not take Enter itself opens the Job. */
 const TAKES_ENTER = "button, a[href], input, textarea, select, [role='textbox'], [role='radio'], [role='checkbox'], [role='menuitem'], [role='option']";
 
-export function CallsHud({ keys, calls, nameOf, soFarOf, pane, onOpen }: { keys: readonly string[]; calls: readonly string[]; nameOf: (key: string) => string | undefined; soFarOf: (key: string) => string | undefined; pane: (key: string, side: HTMLElement | null) => ReactNode; onOpen: (key: string) => void }) {
+export function CallsHud({ keys, calls, nameOf, summaryOf, pane, onOpen }: { keys: readonly string[]; calls: readonly string[]; nameOf: (key: string) => string | undefined; summaryOf: (key: string) => string | undefined; pane: (key: string, side: HTMLElement | null) => ReactNode; onOpen: (key: string) => void }) {
   const { open, key } = useCallsHud();
   const facet = useRef<Element | null>(null);
   facet.current = open ? facetEl() : null;
@@ -69,6 +69,8 @@ export function CallsHud({ keys, calls, nameOf, soFarOf, pane, onOpen }: { keys:
   useEffect(() => {
     if (open && facetEl() === null) set(CLOSED);
   });
+  // The HUD is kept outside this component, and the next Cockpit drawn must not open on it.
+  useEffect(() => () => set(CLOSED), []);
   // On each Job that comes in, the keys go to its question, so a number or an arrow answers it as in the Job.
   useEffect(() => {
     if (!open) return;
@@ -138,7 +140,7 @@ export function CallsHud({ keys, calls, nameOf, soFarOf, pane, onOpen }: { keys:
   );
   if (!open) return null;
   const others = calls.some((one) => one !== key);
-  const soFar = key === undefined ? undefined : soFarOf(key);
+  const summary = key === undefined ? undefined : summaryOf(key);
   return (
     <ConsoleHud
       label="Calls"
@@ -173,7 +175,7 @@ export function CallsHud({ keys, calls, nameOf, soFarOf, pane, onOpen }: { keys:
           <div ref={body} className="console-calls">
             <div className="console-calls__thread">{pane(key, side)}</div>
             <div className="console-calls__side">
-              {soFar === undefined ? null : <p className="console-calls__so-far">{soFar}</p>}
+              {summary === undefined ? null : <p className="console-calls__so-far">{summary}</p>}
               <div ref={setSide} className="console-calls__now" />
             </div>
           </div>

@@ -1,20 +1,12 @@
-/* The Flight controls as a starship console, the third take: `?console=bridge`. Mock-only, like `console.css`: nothing applies without `data-console="bridge"` on the root.
-   The drama is structure: stepped bezels, recesses, hard shadows, masks and motion. No gradients, no glow. The Job's grid and the editor (`data-subject`) are not the console: they wear the quiet panel, like the columns.
-   The small mono codes are decoration (`content` with an empty alternative), and the instrument parts are `aria-hidden` spans. */
+/* The Flight controls as a starship console. The picture is `console-stage.ts`'s canvas, and what stands over it is each facet's own button, unseen. The rest is the quiet panels the columns and an open Job wear, the Calls and Activity HUDs, the rack, and the guarded Dispatch switch an open Job keeps.
+   The lit screens and lamps are the owner's exception to the no-glows rule, for the console alone (`docs/contracts/design-system/tokens.md`). */
 
-:root[data-console="bridge"] {
+/* Twice, for the weight these rules were tuned at over `deck.css` and the panels' own. */
+:root:root {
   --cb-screw: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath fill-rule='evenodd' d='M4 .5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7zM1.8 3.6h4.4v.8H1.8z'/%3E%3C/svg%3E");
   --cb-rivet: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 4'%3E%3Ccircle cx='6' cy='2' r='1.4'/%3E%3C/svg%3E");
   --cb-rivety: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 12'%3E%3Ccircle cx='2' cy='6' r='1.4'/%3E%3C/svg%3E");
   --cb-hazard: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 6' preserveAspectRatio='none'%3E%3Cpath d='M4 0h4L4 6H0z'/%3E%3C/svg%3E");
-  --cb-cell: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 7'%3E%3Crect width='5' height='5'/%3E%3C/svg%3E");
-  --cb-ticks: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(0 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(5 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(10 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(15 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(20 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(25 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(30 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(35 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(40 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(45 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(50 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(55 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(60 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(65 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(70 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(75 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(80 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(85 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(90 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(95 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(100 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(105 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(110 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(115 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(120 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(125 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(130 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(135 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(140 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(145 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(150 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(155 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(160 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(165 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(170 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(175 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(180 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(185 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(190 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(195 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(200 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(205 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(210 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(215 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(220 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(225 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(230 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(235 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(240 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(245 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(250 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(255 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(260 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(265 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(270 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(275 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(280 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(285 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(290 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(295 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(300 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(305 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(310 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(315 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(320 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(325 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='7' transform='rotate(330 50 50)' stroke='black' stroke-width='1.4'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(335 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(340 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(345 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(350 50 50)' stroke='black' stroke-width='0.8'/%3E%3Cline x1='50' y1='2' x2='50' y2='4.5' transform='rotate(355 50 50)' stroke='black' stroke-width='0.8'/%3E%3C/svg%3E");
-  --cb-cross: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg stroke='black' stroke-width='.6'%3E%3Cpath d='M50 12V88M12 50H88'/%3E%3C/g%3E%3Ccircle cx='62' cy='36' r='2.2'/%3E%3Ccircle cx='38' cy='66' r='1.8'/%3E%3Ccircle cx='68' cy='60' r='1.5'/%3E%3C/svg%3E");
-  --cb-sweep: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 50L50 4A46 46 0 0 0 23.6 12.3Z' fill-opacity='.38'/%3E%3Cpath d='M50 50V4' stroke='black' stroke-width='1.2'/%3E%3C/svg%3E");
-  --cb-ring: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='black' stroke-width='7' stroke-dasharray='12 12'/%3E%3C/svg%3E");
-  --cb-scale: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 10' preserveAspectRatio='none'%3E%3Cpath d='M0 0h1v10H0zM8 5h1v5H8zM16 5h1v5h-1zM24 5h1v5h-1zM32 5h1v5h-1z'/%3E%3C/svg%3E");
-  --cb-wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 16'%3E%3Cpath d='M0 8H6L9 2L13 14L17 8H26L29 5L32 11L35 8H40' fill='none' stroke='black' stroke-width='1.2'/%3E%3C/svg%3E");
-  --cb-gauges: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 40' preserveAspectRatio='xMidYMax meet'%3E%3Cpath d='M4 36A26 26 0 0 1 56 36' fill='none' stroke='black' stroke-width='1.2'/%3E%3Cpath d='M4.0 36.0L9.0 36.0' stroke='black' stroke-width='1'/%3E%3Cpath d='M7.5 23.0L11.8 25.5' stroke='black' stroke-width='1'/%3E%3Cpath d='M17.0 13.5L19.5 17.8' stroke='black' stroke-width='1'/%3E%3Cpath d='M30.0 10.0L30.0 15.0' stroke='black' stroke-width='1'/%3E%3Cpath d='M43.0 13.5L40.5 17.8' stroke='black' stroke-width='1'/%3E%3Cpath d='M52.5 23.0L48.2 25.5' stroke='black' stroke-width='1'/%3E%3Cpath d='M56.0 36.0L51.0 36.0' stroke='black' stroke-width='1'/%3E%3Cpath d='M64 36A26 26 0 0 1 116 36' fill='none' stroke='black' stroke-width='1.2'/%3E%3Cpath d='M64.0 36.0L69.0 36.0' stroke='black' stroke-width='1'/%3E%3Cpath d='M67.5 23.0L71.8 25.5' stroke='black' stroke-width='1'/%3E%3Cpath d='M77.0 13.5L79.5 17.8' stroke='black' stroke-width='1'/%3E%3Cpath d='M90.0 10.0L90.0 15.0' stroke='black' stroke-width='1'/%3E%3Cpath d='M103.0 13.5L100.5 17.8' stroke='black' stroke-width='1'/%3E%3Cpath d='M112.5 23.0L108.2 25.5' stroke='black' stroke-width='1'/%3E%3Cpath d='M116.0 36.0L111.0 36.0' stroke='black' stroke-width='1'/%3E%3C/svg%3E");
   --cb-reticle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M0 0h6v1H1v5H0zM14 0h6v6h-1V1h-5zM0 14h1v5h5v1H0zM19 14h1v6h-6v-1h5z'/%3E%3C/svg%3E");
   --cb-slot: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' preserveAspectRatio='none'%3E%3Cpath d='M1 0h8v3H1z'/%3E%3C/svg%3E");
 
@@ -27,7 +19,7 @@
   & .deck-foot { --cb-dial: calc(var(--tile) * 1.75); }
 
   /* ---- The bezel: a chamfered frame of steps, a rivet row on each side and a screw at each corner. Only the console wears it; the columns are quiet (below). ---- */
-  & .deck-foot > :is(.deck-controls:has(> .deck-controls__block:not([data-subject])), .deck-dispatch) {
+  & .deck-foot > :is(.deck-controls:has(> .console-rack), .deck-dispatch) {
     position: relative;
     border: calc(var(--border-width) * 2) solid var(--border-strong);
     border-radius: 0;
@@ -57,7 +49,7 @@
       mask-position: left 3px top 3px, right 3px top 3px, left 3px bottom 3px, right 3px bottom 3px, 24px top 0, 24px bottom 0, left 0 12px, right 0 12px;
     }
   }
-  & .deck-foot > :is(.deck-controls:has(> .deck-controls__block:not([data-subject])), .deck-dispatch) > .deck-band { padding-inline: var(--space-6); }
+  & .deck-foot > :is(.deck-controls:has(> .console-rack), .deck-dispatch) > .deck-band { padding-inline: var(--space-6); }
 
   /* ---- The quiet panel: square, a hairline round it and a heavier one along its head, the console's hood at rest. The Cockpit's columns and every panel of an open Job wear the same one, so moving between them is one ship. ---- */
   & :is(.deck-right > .deck-bays, .deck-left > .deck-list, .job-pane, .sv-panel:not(.job-pane__body *, .console-calls *), .deck-foot > .deck-controls:has(> .deck-controls__block[data-subject])) {
@@ -84,7 +76,7 @@
   }
 
   /* ---- The glass: a recess with its stencilled code along the top. ---- */
-  & :is(.deck-controls__block:not([data-subject]), .deck-dispatch__block) {
+  & :is(.console-rack, .deck-dispatch__block) {
     position: relative;
     isolation: isolate;
     margin: 0 var(--space-3) var(--space-3);
@@ -95,7 +87,7 @@
     box-shadow: inset 0 calc(var(--border-width) * 3) 0 var(--deck-key-seat);
     gap: var(--space-3);
   }
-  & .deck-controls__block:not([data-subject])::before {
+  & .console-rack::before {
     content: "SYS 01   NAV 0412.7   RNG 0.42   HDG 271" / "";
     position: absolute;
     top: var(--space-1);
@@ -108,8 +100,8 @@
     color: var(--fg-subtle);
   }
 
-  /* ---- Every key is an instrument: a hard-edged slab with its own recess. ---- */
-  & :is(.deck-controls__block:not([data-subject]), .deck-dispatch__block) .deck-tile {
+  /* ---- The Dispatch key an open Job keeps: a hard-edged slab with its own recess. ---- */
+  & .deck-dispatch__block .deck-tile {
     position: relative;
     isolation: isolate;
     justify-content: flex-end;
@@ -125,137 +117,27 @@
     &:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
     & > svg { position: relative; z-index: 1; width: var(--space-4); height: var(--space-4); }
     & .deck-tile__text { position: relative; z-index: 1; }
-    & > .console-a, & > .console-b { position: absolute; display: block; z-index: -1; pointer-events: none; }
-    & > .console-b { display: none; }
-  }
-  & .deck-controls__block:not([data-subject]) .deck-tile[data-tile] > :is(.console-a, .console-b) { display: block; }
-
-  /* The recess the readout sits in, with its three-letter code. */
-  & .deck-tile:is([data-tile="checks"], [data-tile="needs"], [data-tile="timeline"])::before {
-    content: var(--cb-label) / "";
-    position: absolute;
-    z-index: -1;
-    inset: var(--space-2) var(--space-2) auto;
-    height: calc(var(--space-12) - var(--space-4) + var(--space-2) + var(--space-1) * 2);
-    box-sizing: border-box;
-    padding: var(--space-1);
-    border: var(--border-width) solid var(--border-default);
-    background: var(--bg-base);
-    box-shadow: inset 0 calc(var(--border-width) * 2) 0 var(--deck-key-seat);
-    font-family: var(--font-mono);
-    font-size: var(--cb-code);
-    line-height: 1;
-    letter-spacing: 0.14em;
-    text-align: left;
-    color: var(--fg-subtle);
-  }
-  & .deck-controls__block:not([data-subject]) .deck-tile[data-tile="checks"] { --cb-label: "CHK"; }
-  & .deck-controls__block:not([data-subject]) .deck-tile[data-tile="needs"] { --cb-label: "ALM"; }
-  & .deck-controls__block:not([data-subject]) .deck-tile[data-tile="timeline"] { --cb-label: "TLM"; }
-
-  /* Checks: an LED matrix, three rows, its lit part flickering between readings, and three LEDs. */
-  & .deck-controls__block:not([data-subject]) .deck-tile[data-tile="checks"] {
-    & > .console-a, & > .console-b { inset: var(--space-6) var(--space-4) auto; height: calc(7px * 3); mask-image: var(--cb-cell); mask-size: 7px 7px; mask-repeat: repeat; }
-    & > .console-a { background: var(--border-strong); }
-    & > .console-b { background: var(--cb-cyan); clip-path: inset(0 38% 0 0); animation: cb-flick calc(var(--duration-pulse) * 3) steps(8) infinite alternate; }
-    &::after { content: ""; position: absolute; z-index: -1; top: var(--space-3); right: var(--space-4); width: var(--space-1); height: var(--space-1); background: var(--cb-cyan); box-shadow: calc(var(--space-2) * -1) 0 0 var(--cb-cyan), calc(var(--space-2) * -2) 0 0 var(--border-strong); }
-    &:is([aria-pressed="true"], [data-on]) > .console-b { clip-path: inset(0 0 0 0); animation: none; }
   }
 
-  /* Calls: a beacon lamp in a recessed socket, ringed by a hazard band that turns while a call is waiting. */
-  & .deck-controls__block:not([data-subject]) .deck-tile[data-tile="needs"] {
-    & > .console-a { top: var(--space-3); left: 50%; width: calc(var(--space-8) + var(--space-1)); height: calc(var(--space-8) + var(--space-1)); margin-inline-start: calc((var(--space-8) + var(--space-1)) / -2); box-sizing: border-box; border: calc(var(--border-width) * 3) solid var(--border-strong); border-radius: 50%; background: var(--bg-sunken); box-shadow: inset 0 calc(var(--border-width) * 3) 0 var(--deck-key-seat); }
-    & > .console-b { top: calc(var(--space-3) + var(--space-2)); left: 50%; width: var(--space-6); height: var(--space-6); margin-inline-start: calc(var(--space-6) / -2); border-radius: 50%; background: color-mix(in srgb, var(--cb-amber) 22%, var(--bg-sunken)); box-shadow: inset 0 0 0 var(--space-1) color-mix(in srgb, var(--cb-amber) 12%, var(--bg-sunken)); }
-    &::after { content: ""; position: absolute; z-index: -1; top: var(--space-2); left: 50%; width: calc(var(--space-12) - var(--space-1)); height: calc(var(--space-12) - var(--space-1)); margin-inline-start: calc((var(--space-12) - var(--space-1)) / -2); background: var(--cb-amber); mask-image: var(--cb-ring); mask-size: 100% 100%; opacity: 0.22; }
-    &[data-calling] > .console-b { background: var(--cb-amber); box-shadow: inset 0 0 0 var(--space-1) color-mix(in srgb, var(--cb-amber) 55%, var(--bg-base)); animation: cb-beacon var(--duration-pulse) steps(2) infinite; }
-    &[data-calling]::after { opacity: 1; animation: cb-turn calc(var(--duration-pulse) * 3) linear infinite; }
-    &:is([aria-pressed="true"], [data-on]) > .console-b { background: var(--cb-amber); }
-  }
 
-  /* Map: a radar. Range rings, a crosshair with contacts, bearing ticks and a sweep that turns. */
-  & .deck-controls__block:not([data-subject]) .deck-tile[data-tile="map"] {
-    width: var(--cb-dial);
-    height: var(--cb-dial);
-    justify-self: center;
-    justify-content: center;
-    padding: 0;
-    border: calc(var(--border-width) * 3) solid var(--border-strong);
-    border-radius: 50%;
-    background: var(--bg-sunken);
-    box-shadow:
-      inset 0 0 0 11px var(--bg-base), inset 0 0 0 12px var(--border-strong),
-      inset 0 0 0 22px var(--bg-base), inset 0 0 0 23px var(--border-default),
-      inset 0 0 0 33px var(--bg-base), inset 0 0 0 34px var(--border-default),
-      0 calc(var(--border-width) * 3) 0 var(--deck-key-lo);
-    &:is([aria-pressed="true"], [data-on], :active) { box-shadow: inset 0 0 0 11px var(--bg-base), inset 0 0 0 12px var(--accent), inset 0 0 0 22px var(--bg-base), inset 0 0 0 23px var(--border-default), inset 0 0 0 33px var(--bg-base), inset 0 0 0 34px var(--border-default), 0 var(--border-width) 0 var(--deck-key-lo); background: var(--bg-sunken); }
-    & .deck-tile__text { display: none; }
-    &::before { content: ""; position: absolute; z-index: -1; inset: 12px; background: var(--border-strong); mask-image: var(--cb-cross); mask-size: 100% 100%; }
-    &::after { content: ""; position: absolute; z-index: -1; inset: 2px; background: var(--fg-subtle); mask-image: var(--cb-ticks); mask-size: 100% 100%; }
-    & > .console-a { inset: 12px; border-radius: 50%; background: var(--cb-cyan); mask-image: var(--cb-sweep); mask-size: 100% 100%; animation: cb-turn calc(var(--duration-pulse) * 2.5) linear infinite; }
-    & .deck-tile__key { top: auto; right: auto; bottom: var(--space-2); left: 50%; translate: -50% 0; }
-  }
 
-  /* Timeline: a telemetry strip, a trace and a scale sliding past a fixed cursor. */
-  & .deck-controls__block:not([data-subject]) .deck-tile[data-tile="timeline"] {
-    & > .console-a { inset: calc(var(--space-12) - var(--space-3)) var(--space-4) auto; height: var(--space-3); background: var(--border-strong); mask-image: var(--cb-scale); mask-size: 40px 100%; mask-repeat: repeat-x; animation: cb-slide calc(var(--duration-pulse) * 1.5) linear infinite; }
-    & > .console-b { inset: var(--space-6) var(--space-4) auto; height: var(--space-4); background: var(--cb-cyan); mask-image: var(--cb-wave); mask-size: 40px 100%; mask-repeat: repeat-x; animation: cb-slide calc(var(--duration-pulse) * 3) linear infinite; }
-    &::after { content: ""; position: absolute; z-index: -1; top: var(--space-3); height: calc(var(--space-8) + var(--space-2)); left: 50%; width: var(--border-width); background: var(--cb-amber); }
-  }
 
-  /* ---- Needle gauges over a vent grille: an instrument for any bay. ---- */
-  & .console-bay > .console-gauges {
-    position: relative;
-    container-type: inline-size;
-    border: calc(var(--border-width) * 2) solid var(--border-strong);
-    background: var(--bg-base);
-    box-shadow: inset 0 calc(var(--border-width) * 3) 0 var(--deck-key-seat);
-    --gw: calc(100cqw - var(--space-3));
-    &::before { content: ""; position: absolute; inset: var(--space-2) var(--space-2) auto; aspect-ratio: 3; background: var(--border-strong); mask-image: var(--cb-gauges); mask-size: 100% 100%; }
-    &::after { content: ""; position: absolute; inset: auto var(--space-2) var(--space-2); height: var(--space-8); background: var(--border-default); mask-image: var(--cb-slot); mask-size: 100% 6px; mask-repeat: repeat-y; }
-    & > i { position: absolute; width: var(--space-1); height: calc(var(--gw) / 120 * 22); top: calc(var(--space-2) + var(--gw) / 120 * 36 - var(--gw) / 120 * 22); margin-inline-start: -2px; transform-origin: 50% 100%; background: var(--cb-amber); }
-    & > i:nth-of-type(1) { left: calc(var(--space-2) + var(--gw) / 120 * 30); transform: rotate(-35deg); animation: cb-sway calc(var(--duration-pulse) * 2) ease-in-out infinite alternate; }
-    & > i:nth-of-type(2) { left: calc(var(--space-2) + var(--gw) / 120 * 90); background: var(--cb-cyan); transform: rotate(20deg); animation: cb-sway calc(var(--duration-pulse) * 2.7) ease-in-out infinite alternate-reverse; }
-  }
 
-  /* ---- A mod's instrument (mock): two segmented meters under the mod's name. ---- */
-  & .console-bay > .console-usage {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: var(--space-3);
-    padding: var(--space-4) var(--space-2) var(--space-2);
-    border: calc(var(--border-width) * 2) solid var(--border-strong);
-    background: var(--bg-base);
-    box-shadow: inset 0 calc(var(--border-width) * 3) 0 var(--deck-key-seat);
-    & > .console-usage__mod { position: absolute; top: var(--space-1); left: var(--space-2); font-family: var(--font-mono); font-size: var(--cb-code); line-height: 1; letter-spacing: 0.14em; color: var(--fg-subtle); }
-    & > i { position: relative; display: block; height: 7px; background: var(--border-strong); mask-image: var(--cb-cell); mask-size: 7px 7px; mask-repeat: repeat-x; }
-    & > i::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--v); background: var(--cb-cyan); }
-    & > i:nth-of-type(2)::before { background: var(--cb-amber); }
-  }
-
-  /* ---- The Activity graph as a scope: a recess, a graticule line and its sweep of dots. ---- */
+  /* ---- The Activity graph as a scope: the graph feeds the canvas its dots, and one press stands over all of it. ---- */
   & .console-bay > .console-scope {
     position: relative;
     overflow: hidden;
-    border: calc(var(--border-width) * 2) solid var(--border-strong);
-    background: var(--bg-base);
-    box-shadow: inset 0 calc(var(--border-width) * 3) 0 var(--deck-key-seat);
-    &::before { content: "ACT" / ""; position: absolute; z-index: 2; top: var(--space-1); left: var(--space-1); font-family: var(--font-mono); font-size: var(--cb-code); line-height: 1; letter-spacing: 0.14em; color: var(--fg-subtle); pointer-events: none; }
-    &::after { content: ""; position: absolute; z-index: 0; inset: auto var(--space-2) var(--space-1); height: var(--space-1); background: var(--border-strong); mask-image: var(--cb-scale); mask-size: 40px 100%; mask-repeat: repeat-x; pointer-events: none; }
     & .armada-tl { position: absolute; inset: 0; display: flex; flex-direction: column; }
     & .armada-tl__graph { padding: var(--space-4) var(--space-2) var(--space-3); }
-    & .armada-tl__axis-line { border-top-color: var(--border-strong); }
-    & .armada-tl__now { border-right-color: var(--cb-amber); opacity: 1; }
+    & :is(.armada-tl__axis-line, .armada-tl__now) { display: none; }
     & .console-scope__graph { position: absolute; inset: 0; pointer-events: none; }
     & .console-scope__press { position: absolute; z-index: 3; inset: 0; padding: 0; border: 0; background: none; cursor: pointer; }
     & .console-scope__press:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
     &:has(.console-scope__press[aria-pressed="true"]) { border-color: var(--accent); }
   }
-  /* A bay with nothing in it: dark and recessed, the socket's bolts the only mark. */
-  & .console-bay[data-empty] { background: var(--bg-sunken); box-shadow: inset 0 calc(var(--border-width) * 4) 0 var(--deck-key-seat); }
 
-  /* ---- Activity's HUD, projected over the field: hairlines and brackets on thin glass, drawn in pixels by `ConsoleHud`. Hard-edged; only `&lit=1` lets it glow. ---- */
+
+  /* ---- Activity's HUD, projected over the field: hairlines and brackets on thin glass, drawn in pixels by `ConsoleHud`. Hard-edged, and lit where the console is. ---- */
   & .console-hud { position: fixed; inset: 0; z-index: 20; color: var(--cb-cyan); pointer-events: none; }
   & .console-hud__beam { position: absolute; inset: 0; width: 100%; height: 100%; animation: cb-hud-beam var(--duration-enter) var(--ease-out) backwards; }
   & .console-hud__beam-fill { fill: currentColor; fill-opacity: 0.07; }
@@ -294,8 +176,8 @@
   & .console-hud__plot .armada-tl__dot:is(:hover, :focus-visible) { anchor-name: --console-hud-dot; }
   & .console-hud__plot .armada-tooltip__bubble[data-beside] { position-anchor: --console-hud-dot; position-area: block-start span-inline-end; margin: var(--space-3); position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline; }
 
-  /* Calls: the panels a Job draws, in the frame. */
-  /* Both takes alike: where things stand. The card takes the height it needs on the composer, in the column's flow and not over the thread, and the thread has what is left. */
+  /* Calls: the Job as it is, a monitor in the frame, on a solid surface and in its quiet panels. */
+  /* Where things stand. The card takes the height it needs on the composer, in the column's flow and not over the thread, and the thread has what is left. */
   & .console-calls { position: absolute; inset: calc(var(--space-12) - var(--space-1)) var(--space-3) var(--space-3); display: grid; grid-template-columns: minmax(0, 1fr) clamp(calc(var(--space-12) * 4), 33%, calc(var(--space-12) * 6.5)); gap: var(--space-3); min-height: 0; }
   & .console-calls__thread { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
   & .console-calls__thread > .deck-pane { flex: 1 1 0; min-height: 0; animation: none; }
@@ -334,67 +216,22 @@
   & .console-calls .armada-session-composer__pick { flex: none; }
   & .console-calls .armada-session-composer__bar .armada-select { field-sizing: content; width: auto; }
 
-  /* `screen`: the Job as it is, on a solid surface, a monitor in the frame. Its panels are the Job's quiet ones. */
-  &[data-calls="screen"] {
-    & .console-hud[data-hud="calls"] :is(.console-hud__glass, .console-hud__strip) { fill: var(--bg-sunken); fill-opacity: 1; }
-    & :is(.console-calls__thread, .console-calls__side) {
-      --edge: var(--border-default);
-      --radius-md: var(--border-width);
-      --radius-lg: var(--border-width);
-      border: var(--border-width) solid var(--border-default);
-      border-top: calc(var(--border-width) * 2) solid var(--border-strong);
-      background: var(--bg-raised);
-    }
+  & .console-hud[data-hud="calls"] :is(.console-hud__glass, .console-hud__strip) { fill: var(--bg-sunken); fill-opacity: 1; }
+  & :is(.console-calls__thread, .console-calls__side) {
+    --edge: var(--border-default);
+    --radius-md: var(--border-width);
+    --radius-lg: var(--border-width);
+    border: var(--border-width) solid var(--border-default);
+    border-top: calc(var(--border-width) * 2) solid var(--border-strong);
+    background: var(--bg-raised);
   }
 
-  /* `hud`: the same panels drawn into the frame. Hairlines in the frame's own ink, square corners, amber only on what calls. */
-  &[data-calls="hud"] {
-    & .console-hud[data-hud="calls"] .console-hud__panel { backdrop-filter: blur(var(--space-2)); }
-    & .console-hud[data-hud="calls"] .console-hud__glass { fill-opacity: 0.86; }
-    & .console-hud[data-hud="calls"] .console-hud__strip { fill-opacity: 0; }
-    & .console-calls {
-      --hud-rule: color-mix(in srgb, var(--cb-cyan) 28%, transparent);
-      --radius-md: 0;
-      --radius-lg: 0;
-      --glass-radius-chip: 0;
-      --glass-radius-control: 0;
-    }
-    & .console-calls__thread > .deck-pane { background: none; }
-    & .console-calls__side { border-inline-start: var(--border-width) solid var(--hud-rule); }
-    & .console-calls__so-far { border-bottom-color: var(--hud-rule); }
-    & .console-calls .sv-spine { background: none; }
-    & .console-calls :is(.sv-panel, .armada-card) { background: none; border: 0; box-shadow: none; }
-    & .console-calls .armada-session-frame__head { border-bottom: var(--border-width) solid var(--hud-rule); }
-    /* The head: a thin amber line and an amber label, nothing filled. */
-    & .console-calls .armada-needs-panel .armada-needs-panel__band.armada-needs-panel__band { height: calc(var(--h-badge) + var(--space-1)); border-top: var(--border-width) solid var(--cb-amber); border-radius: 0; background: none; color: var(--cb-amber); }
-    & .console-calls .armada-needs-panel__trigger { padding-inline: 0; }
-    & .console-calls .armada-needs-panel .armada-needs-panel__body.armada-needs-panel__body { padding-inline: 0; border: 0; background: none; }
-    /* An option is a row between hairlines. */
-    & .console-calls .armada-needs-panel .armada-question-deck__answers { gap: 0; }
-    & .console-calls .armada-needs-panel .armada-question-deck__answer.armada-question-deck__answer {
-      border: 0;
-      border-top: var(--border-width) solid var(--hud-rule);
-      border-radius: 0;
-      background: none;
-      box-shadow: none;
-      &:last-child { border-bottom: var(--border-width) solid var(--hud-rule); }
-      &:hover { background: color-mix(in srgb, var(--cb-cyan) 8%, transparent); }
-      &[data-on] { background: color-mix(in srgb, var(--cb-amber) 12%, transparent); box-shadow: inset calc(var(--border-width) * 2) 0 0 var(--cb-amber); }
-    }
-    & .console-calls .armada-needs-panel .armada-button.armada-button { border-radius: 0; background: none; border-color: var(--hud-rule); box-shadow: none; }
-    & .console-calls .armada-needs-panel .armada-button[data-variant="primary"].armada-button:not(:disabled) { border-color: var(--cb-cyan); background: none; color: var(--cb-cyan); box-shadow: none; &:hover { background: color-mix(in srgb, var(--cb-cyan) 16%, transparent); } }
-    /* The box: a rule over it, its controls quiet until pressed. */
-    & .console-calls .sv-dock .armada-session-composer.armada-session-composer { border: 0; border-top: var(--border-width) solid var(--hud-rule); border-radius: 0; background: none; &:focus-within { border-top-color: var(--cb-cyan); } }
-    & .console-calls .armada-session-composer__bar { border-top: 0; padding-inline: 0; }
-    & .console-calls .sv-dock .armada-session-composer :is(.armada-select.armada-select, .armada-button.armada-button) { border-color: transparent; border-radius: 0; background-color: transparent; box-shadow: none; color: var(--fg-muted); &:hover:not(:disabled) { background-color: color-mix(in srgb, var(--cb-cyan) 8%, transparent); color: var(--fg-default); } }
-    & .console-calls .armada-session-composer__editor { padding-inline: 0; }
-  }
   /* The HUD's head names the Job and closes it, so the thread's own name and way back are not drawn again. */
   & .console-calls .armada-session-frame__row:first-child { display: none; }
 
-  &[data-console-lit] .console-hud__frame :is(.console-hud__bracket, .console-hud__cross, .console-hud__tick-major, .console-hud__now, .console-hud__now-mark) { filter: drop-shadow(0 0 var(--space-1) currentColor); }
-  &[data-console-lit] :is(.console-hud__beam-edge, .console-hud__beam-collar) { filter: drop-shadow(0 0 var(--space-1) currentColor); }
-  &[data-console-lit] .console-hud__plot .armada-tl__dot { box-shadow: 0 0 var(--space-3) var(--tone); }
+  & .console-hud__frame :is(.console-hud__bracket, .console-hud__cross, .console-hud__tick-major, .console-hud__now, .console-hud__now-mark) { filter: drop-shadow(0 0 var(--space-1) currentColor); }
+  & :is(.console-hud__beam-edge, .console-hud__beam-collar) { filter: drop-shadow(0 0 var(--space-1) currentColor); }
+  & .console-hud__plot .armada-tl__dot { box-shadow: 0 0 var(--space-3) var(--tone); }
   /* ---- Dispatch: a guarded switch. The cover is flipped up on its hinge, a bracket frames the cap, and the arming lamp blinks. ---- */
   & .deck-foot .deck-dispatch .deck-dispatch__block {
     grid-auto-rows: var(--cb-dial);
@@ -417,27 +254,6 @@
     }
   }
 
-  /* ---- The row of five bays; a bay is a socket that takes any instrument. ---- */
-  & .deck-controls__block:not([data-subject]):not(.console-rack) {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    grid-auto-rows: calc(var(--cb-dial) + var(--space-2));
-    align-items: stretch;
-  }
-  & .console-bay {
-    position: relative;
-    display: grid;
-    min-width: 0;
-    min-height: 0;
-    padding: var(--space-1);
-    border: var(--border-width) solid var(--border-subtle);
-    background: var(--bg-sunken);
-    &::before, &::after { content: ""; position: absolute; z-index: 2; width: 5px; height: 5px; background: var(--fg-subtle); opacity: 0.6; mask-image: var(--cb-screw); mask-size: 100% 100%; pointer-events: none; }
-    &::before { top: 0; left: 0; }
-    &::after { right: 0; bottom: 0; }
-    & > :is(.deck-tile, .console-scope, .console-gauges, .console-usage) { min-width: 0; }
-    & > .deck-tile { height: auto; }
-    & > .deck-tile[data-tile="map"] { align-self: center; justify-self: center; height: var(--cb-dial); }
-  }
 
   /* ---- The rack: open sockets and a tray. ---- */
   & .console-rack {
@@ -488,12 +304,8 @@
     &:hover { background: var(--bg-hover); color: var(--fg-default); }
     &:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
     &:active { top: var(--border-width); cursor: grabbing; }
-    &[data-mod] { border-style: dashed; }
   }
-  & .console-tray__code, & .console-tray__mod { font-family: var(--font-mono); font-size: var(--cb-code); line-height: 1; letter-spacing: 0.14em; }
-  & .console-tray__mod { color: var(--fg-subtle); }
-  & .console-tray__rule { align-self: stretch; width: calc(var(--border-width) * 2); background: var(--border-default); }
-  & .console-tray__make { margin-inline-start: auto; align-self: center; }
+  & .console-tray__code { font-family: var(--font-mono); font-size: var(--cb-code); line-height: 1; letter-spacing: 0.14em; }
 
   /* ---- The berth rack: the worktree bays as a docking rack, a berth to a row. ---- */
   & .deck-right > .deck-bays {
@@ -586,53 +398,46 @@
   }
   & .deck-left > .deck-list .deck-list__rail { border-inline-start-width: calc(var(--border-width) * 2); border-color: var(--border-default); }
 
-  /* ---- The console wraps the viewer: the wings are angled in and raised, the middle bay lowest and nearest, Dispatch angled on the right wing.
-     The turns are on the bays and the panel, never on the keys, so a key's tooltip and focus ring still place from the key. ---- */
-  &:not([data-console-pixi]) .deck-controls__block:not([data-subject]):not(.console-rack) {
-    perspective: 760px;
-    perspective-origin: 50% 30%;
-    &::after { content: ""; position: absolute; z-index: -1; inset: auto var(--space-3) var(--space-1); height: var(--space-3); border-bottom: calc(var(--border-width) * 2) solid var(--border-strong); border-radius: 0 0 50% 50% / 0 0 100% 100%; pointer-events: none; }
-  }
-  &:not([data-console-pixi]) .console-bay[data-n="1"] { transform: translateY(calc(var(--space-2) * -1)) rotateY(15deg); }
-  &:not([data-console-pixi]) .console-bay[data-n="2"] { transform: translateY(calc(var(--space-1) * -1.5)) rotateY(7deg); }
-  &:not([data-console-pixi]) .console-bay[data-n="3"] { transform: translateY(var(--space-1)) translateZ(var(--space-6)); z-index: 1; }
-  &:not([data-console-pixi]) .console-bay[data-n="4"] { transform: translateY(calc(var(--space-1) * -1.5)) rotateY(-7deg); }
-  &:not([data-console-pixi]) .console-bay[data-n="5"] { transform: translateY(calc(var(--space-2) * -1)) rotateY(-15deg); }
-  &:not([data-console-pixi]) .deck-foot { perspective: 900px; perspective-origin: 30% 50%; }
-  &:not([data-console-pixi]) .deck-foot > .deck-dispatch { transform: translateY(calc(var(--space-2) * -1)) rotateY(-9deg); transform-origin: 0 50%; }
 
-  /* ---- Drawn on a canvas (`console-stage.ts`): the picture is Pixi's, and what stands over it is each facet's own button, unseen. ---- */
-  &[data-console-pixi] {
-    & .deck-foot > .deck-controls:has(> .deck-controls__block:not([data-subject]):not(.console-rack)) { border-color: transparent; background: none; box-shadow: none; clip-path: none; &::before, &::after { display: none; } }
-    & .deck-controls__block:not([data-subject]):not(.console-rack) { display: block; position: relative; isolation: auto; margin: 0 var(--space-3); padding: 0; border: 0; background: none; box-shadow: none; &::before, &::after { display: none; } }
-    & .deck-foot > .deck-controls:has(> .deck-controls__block:not([data-subject]):not(.console-rack)) { position: relative; border-width: 0; & > .deck-band { position: absolute; top: 0; right: var(--space-4); z-index: 3; min-height: 0; padding: 0; background: none; border: 0; } & > .deck-band .deck-band__name { display: none; } }
-    & .console-pixi { position: absolute; inset: 0 auto auto 0; width: 100%; pointer-events: none; }
-    & .console-pixi > canvas { display: block; pointer-events: none; }
-    & .console-bay { position: absolute; display: grid; padding: 0; border: 0; background: none; box-shadow: none; &::before, &::after { display: none; } }
+  /* ---- The console: a canvas, and over each projected facet its own button, its place set from `layoutOf`. ---- */
+  & .deck-foot > .deck-controls:has(> .console-deck) {
+    position: relative;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    clip-path: none;
+    &::before, &::after { display: none; }
+    /* Folded, the band is all there is and the way back: it stands as any panel's does. */
+    &:not([data-collapsed]) > .deck-band { position: absolute; top: 0; right: var(--space-4); z-index: 3; min-height: 0; padding: 0; background: none; border: 0; }
+    &:not([data-collapsed]) > .deck-band .deck-band__name { display: none; }
+  }
+  & .console-deck.console-deck { display: block; position: relative; isolation: auto; margin: 0 var(--space-3); padding: 0; border: 0; background: none; box-shadow: none; &::before, &::after { display: none; } }
+  & .console-pixi { position: absolute; inset: 0 auto auto 0; width: 100%; pointer-events: none; }
+  & .console-pixi > canvas { display: block; pointer-events: none; }
+  & .console-bay { position: absolute; display: grid; min-width: 0; min-height: 0; & > :is(.deck-tile, .console-scope, .console-gauges) { min-width: 0; } & > .deck-tile { height: auto; } }
+  & .console-bay__label { position: absolute; z-index: 2; font-family: var(--font-mono); line-height: 1; letter-spacing: 0.02em; white-space: nowrap; color: var(--fg-muted); pointer-events: none; user-select: none; }
+  & .console-bay:is(:hover, :focus-within) > .console-bay__label, & .console-bay:has([aria-pressed="true"]) > .console-bay__label { color: var(--fg-default); }
+  /* The canvas draws the keys, its focus ring among them, so the buttons over it are unseen. */
+  & .console-deck:not([data-no-canvas]) {
     & .console-bay.console-bay .deck-tile.deck-tile, & .console-bay.console-bay .deck-tile.deck-tile:is(:hover, [aria-pressed], [data-on], :active) { width: 100%; height: 100%; padding: 0; border-color: transparent; border-radius: 0; background: transparent; box-shadow: none; color: transparent; top: 0; }
-    & .console-bay.console-bay .deck-tile.deck-tile > :not(.armada-tooltip__bubble), & .console-bay .deck-tile::before, & .console-bay .deck-tile::after { opacity: 0; }
+    & .console-bay.console-bay .deck-tile.deck-tile > :not(.armada-tooltip__bubble) { opacity: 0; }
     & .console-bay.console-bay .deck-tile.deck-tile::before, & .console-bay.console-bay .deck-tile.deck-tile::after { display: none; }
-    & .console-bay .deck-tile > :is(.console-a, .console-b) { display: none !important; }
-    & .console-bay > :is(.console-scope, .console-gauges, .console-usage) { border: 0; background: none; box-shadow: none; &::before, &::after { display: none; } }
-    & .console-bay > :is(.console-gauges, .console-usage) > * { opacity: 0; }
     & .console-bay .console-scope .armada-tl__dot { background: transparent; }
-    & .console-bay .console-scope :is(.armada-tl__axis-line, .armada-tl__now) { display: none; }
-    & .console-bay.console-bay .deck-tile.deck-tile:focus-visible { outline: none; }
-    & .console-bay .console-scope__press:focus-visible { outline: none; }
-    & .console-bay__label { position: absolute; z-index: 2; font-family: var(--font-mono); line-height: 1; letter-spacing: 0.02em; white-space: nowrap; color: var(--fg-muted); pointer-events: none; user-select: none; }
-    & .console-bay:is(:hover, :focus-within) > .console-bay__label, & .console-bay:has([aria-pressed="true"]) > .console-bay__label { color: var(--fg-default); }
+    & .console-bay.console-bay .deck-tile.deck-tile:focus-visible, & .console-bay .console-scope__press:focus-visible { outline: none; }
+  }
+  /* No WebGL, so no canvas: the buttons stand where their facets would be, as the deck's plain keys, and a key says its own word. */
+  & .console-deck[data-no-canvas] {
+    & .console-bay > .deck-tile { width: 100%; height: 100%; }
+    & .console-bay:has(> .deck-tile) > .console-bay__label { display: none; }
+    & .console-bay > :is(.console-scope, .console-gauges) { border: var(--border-width) solid var(--border-default); background: var(--bg-sunken); }
   }
 }
 
 @keyframes cb-hud-open { from { opacity: 0; clip-path: inset(46% -8px 46% -8px); } to { opacity: 1; clip-path: inset(-8px -8px -8px -8px); } }
 @keyframes cb-hud-beam { from { opacity: 0; } }
-@keyframes cb-turn { to { rotate: 360deg; } }
-@keyframes cb-slide { from { mask-position: 0 0; } to { mask-position: -40px 0; } }
-@keyframes cb-sway { to { transform: rotate(38deg); } }
 @keyframes cb-blink { 50% { opacity: 0.15; } }
-@keyframes cb-beacon { 50% { opacity: 0.6; } }
-@keyframes cb-flick { to { clip-path: inset(0 8% 0 0); } }
 
 @media (prefers-reduced-motion: reduce) {
-  :root[data-console="bridge"] :is(.deck-tile, .deck-tile > *, .deck-tile::before, .deck-tile::after, .console-gauges > i, .console-socket, .deck-bay__door::before, .console-hud__beam, .console-hud__panel) { animation: none !important; }
+  :root:root :is(.deck-tile, .deck-tile::before, .console-socket, .deck-bay__door::before, .console-hud__beam, .console-hud__panel) { animation: none !important; }
 }
+

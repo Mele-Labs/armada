@@ -1,12 +1,12 @@
-// The bridge take's console drawn on a canvas (mock): a cone section of a cockpit dashboard seen from the pilot seat, its facets joined edge to
+// The console drawn on a canvas: a cone section of a cockpit dashboard seen from the pilot seat, its facets joined edge to
 // edge, the wings sweeping toward the viewer. Each facet is drawn flat, with its instrument, onto a texture (`console-art.ts`), and the texture is put
 // on the facet's projected quad, so the instrument skews with the surface. Hood, lip, front wall and ribs are bands of flat polygons, lit from above.
 // The page lays a transparent button and a straight label over each facet (`ConsoleBays.tsx`), which keep the presses, tooltips and words.
-// No gradients and no glow: the depth is the projection, the layering and the hard edges. `&lit=1` alone adds the screens' light: one blur over all of it (`bloom`).
+// The depth is the projection, the layering and the hard edges, and the screens' light is one blur over all of it (`bloom`), the owner's exception to the no-glows rule.
 // Does not touch the map's stage.
 
 import "pixi.js/unsafe-eval";
-import { Application, BlurFilter, Container, Graphics, PerspectiveMesh, RenderTexture, Ticker } from "pixi.js";
+import { Application, BlurFilter, Container, Graphics, PerspectiveMesh, RendererType, RenderTexture, Ticker } from "pixi.js";
 
 import { drawLights, drawLive, drawPlate, glassOf, keySpots, materialsOf, readTones, type BayState, type Materials, type Paint, type Tones } from "./console-art";
 
@@ -20,8 +20,8 @@ export type Label = { x: number; y: number; angle: number; size: number };
 /** Where each facet's button goes, and how tall the canvas has to be. */
 export type Layout = { width: number; height: number; inner: Rect[]; labels: Label[]; rim: Rect | undefined };
 
-/** How wide each facet is, in units of one ordinary facet, and which facet carries Dispatch as a key on its lip (none where Dispatch is a facet). */
-export type Plan = { widths: readonly number[]; depths: readonly number[]; keyed: number | undefined; lit: boolean };
+/** How wide each facet is, in units of one ordinary facet, and which facet carries Dispatch as a key on its lip. */
+export type Plan = { widths: readonly number[]; depths: readonly number[]; keyed: number };
 const FW = 190;
 const FH = 108;
 /** A facet's texture holds this many texels for each device pixel it lands on, so it is never magnified and nothing minifies enough to shimmer. */
@@ -38,7 +38,7 @@ const CONE = { R: 1800, U: 150, slope: (30 * Math.PI) / 180, step: 0.11, behind:
 
 /** A piece of a structural rib, by the face it crosses and which of its three columns: lit, flat, shaded. */
 type RibFace = "rim" | "deck" | "lip" | "wall";
-type World = { quads: Quad[]; lips: Quad[]; rims: Quad[]; ends: Quad[]; floor: Quad[]; shade: Quad[]; ribs: { face: RibFace; column: number; quad: Quad }[]; keyQuad: Quad | undefined; keyAspect: number; height: number };
+type World = { quads: Quad[]; lips: Quad[]; rims: Quad[]; ends: Quad[]; floor: Quad[]; shade: Quad[]; ribs: { face: RibFace; column: number; quad: Quad }[]; keyQuad: Quad; keyAspect: number; height: number };
 
 function worldOf(width: number, plan: Plan): World {
   const { R, U: baseU, slope, step, behind, focal, lipY, raise, thick, rim, key, rib } = CONE;
@@ -60,8 +60,6 @@ function worldOf(width: number, plan: Plan): World {
   const rims: Quad[] = [];
   const floor: Quad[] = [];
   const shade: Quad[] = [];
-  let keyQuad: Quad | undefined;
-  let keyAspect = 1;
   plan.widths.forEach((_, i) => {
     const [a, b] = [edges[i]!, edges[i + 1]!];
     const t = tOf(i);
@@ -69,10 +67,6 @@ function worldOf(width: number, plan: Plan): World {
     quads.push([at(a, U), at(b, U), at(b, 0), at(a, 0)]);
     const lip: Quad = [at(a, 0), at(b, 0), at(b, 0, t), at(a, 0, t)];
     lips.push(lip);
-    if (i === plan.keyed) {
-      keyQuad = lip;
-      keyAspect = (R * (b - a)) / t;
-    }
     rims.push([at(a, U, 0, rim), at(b, U, 0, rim), at(b, U), at(a, U)]);
     floor.push([at(a, 0, t), at(b, 0, t), at(b, 0, t + thick * 0.9), at(a, 0, t + thick * 0.9)]);
     const near = U - 12;
@@ -105,7 +99,7 @@ function worldOf(width: number, plan: Plan): World {
   const scale = (width - margin * 2) / (maxX - minX);
   const move = (p: P): P => ({ x: (p.x - minX) * scale + margin, y: (p.y - minY) * scale + margin });
   const fit = (q: Quad): Quad => [move(q[0]), move(q[1]), move(q[2]), move(q[3])];
-  return { quads: quads.map(fit), lips: lips.map(fit), rims: rims.map(fit), ends: ends.map(fit), floor: floor.map(fit), shade: shade.map(fit), ribs: ribs.map((one) => ({ ...one, quad: fit(one.quad) })), keyQuad: keyQuad === undefined ? undefined : fit(keyQuad), keyAspect, height: Math.ceil((maxY - minY) * scale + margin * 2) };
+  return { quads: quads.map(fit), lips: lips.map(fit), rims: rims.map(fit), ends: ends.map(fit), floor: floor.map(fit), shade: shade.map(fit), ribs: ribs.map((one) => ({ ...one, quad: fit(one.quad) })), keyQuad: fit(lips[plan.keyed]!), keyAspect: (R * (edges[plan.keyed + 1]! - edges[plan.keyed]!)) / tOf(plan.keyed), height: Math.ceil((maxY - minY) * scale + margin * 2) };
 }
 
 const boxOf = (q: Quad): Rect => {
@@ -137,7 +131,7 @@ function labelsOf(world: World, plan: Plan): Label[] {
     }
     return { ...inQuad(lip, 0.5, 0.58), angle: edge(lip), size };
   });
-  if (world.keyQuad !== undefined) labels.push({ ...inQuad(world.keyQuad, keySpots(span(world.keyQuad[3], world.keyQuad[2])).word, 0.64), angle: edge(world.keyQuad), size: 12 });
+  labels.push({ ...inQuad(world.keyQuad, keySpots(span(world.keyQuad[3], world.keyQuad[2])).word, 0.64), angle: edge(world.keyQuad), size: 12 });
   return labels;
 }
 
@@ -149,7 +143,7 @@ export function layoutOf(width: number, plan: Plan): Layout {
     const lip = world.lips[i]!;
     return i === plan.keyed ? box : { ...box, h: Math.max(lip[2].y, lip[3].y) - box.y };
   });
-  if (world.keyQuad !== undefined) inner.push(boxOf(world.keyQuad));
+  inner.push(boxOf(world.keyQuad));
   const first = world.rims[0]!;
   const last = world.rims.at(-1)!;
   return { width, height: world.height, inner, labels: labelsOf(world, plan), rim: { x: first[0].x, y: Math.min(first[0].y, last[1].y), w: last[1].x - first[0].x, h: first[3].y - first[0].y } };
@@ -164,8 +158,8 @@ type Facet = {
   plate: Graphics;
   /** The screen's moving layer. */
   live: Graphics;
-  /** Where the console is lit (`&lit=1`): the facet's light sources on a coarse texture of their own, `live` among them, and that texture on the facet's quad. */
-  light: { root: Container; art: Container; fixed: Graphics; tex: RenderTexture; mesh: PerspectiveMesh } | undefined;
+  /** The facet's light sources on a coarse texture of their own, `live` among them, and that texture on the facet's quad. */
+  light: { root: Container; art: Container; fixed: Graphics; tex: RenderTexture; mesh: PerspectiveMesh };
   /** The surface's true proportions, which keep a circle on it a circle before the projection. */
   aspect: number;
   paint: Paint;
@@ -186,7 +180,7 @@ export class ConsoleStage {
   private shell = new Graphics();
   private over = new Graphics();
   private ribs = new Graphics();
-  /** Every facet's lights, under one blur, added over the rest. Only where the console is lit. */
+  /** Every facet's lights, under one blur, added over the rest. */
   private bloom: Container | undefined;
   private blur: BlurFilter | undefined;
   /** The light each screen throws onto the nose of the lip below it. */
@@ -194,27 +188,43 @@ export class ConsoleStage {
   private tone: Tones | undefined;
   private mat: Materials | undefined;
   private bays: BayState[] = [];
-  private plan: Plan = { widths: [1, 1, 1, 1, 1], depths: [1, 1, 1, 1, 1], keyed: undefined, lit: false };
+  private readonly plan: Plan;
   private source: () => BayState[] = () => [];
   private still = false;
   private watch: MediaQueryList | undefined;
   private density: MediaQueryList | undefined;
   private themed: MutationObserver | undefined;
 
-  private constructor(private readonly host: HTMLElement) {}
+  private constructor(private readonly host: HTMLElement, plan: Plan) {
+    this.plan = plan;
+  }
 
-  static start(host: HTMLElement, plan: Plan): ConsoleStage {
-    const stage = new ConsoleStage(host);
-    stage.plan = plan;
-    stage.init().catch((error: unknown) => console.error("the console's canvas did not start", error));
+  /** Starts the canvas in `host`, as the map's stage does. It is ready a moment later; where WebGL will not start, `onFailed` is told and nothing is drawn. */
+  static start(host: HTMLElement, plan: Plan, onFailed: () => void): ConsoleStage {
+    const stage = new ConsoleStage(host, plan);
+    stage.init().catch((error: unknown) => {
+      console.error("the console's canvas did not start", error);
+      if (!stage.gone) onFailed();
+    });
     return stage;
   }
 
   private async init(): Promise<void> {
+    // Bloom at 30 frames takes the window with it on a software renderer, which draws about one a second: such a machine gets the plain keys.
+    // Asked here, as Pixi keeps its first answer for the window and the map's stage asks without this.
+    const probe = document.createElement("canvas").getContext("webgl2", { failIfMajorPerformanceCaveat: true });
+    probe?.getExtension("WEBGL_lose_context")?.loseContext();
+    if (probe === null) throw new Error("no hardware WebGL");
     const app = new Application();
     await app.init({ preference: "webgl", antialias: true, backgroundAlpha: 0, autoDensity: true, resolution: densityNow(), width: Math.max(1, this.width), height: 120, autoStart: false, sharedTicker: false, powerPreference: "low-power" });
     Ticker.system.stop();
-    if (this.gone) return void app.destroy(true, { children: true });
+    // Never `destroy(true)`: that releases Pixi's pools, which every stage in the window shares, and the map stops drawing.
+    if (this.gone) return void app.destroy({ removeView: true }, { children: true });
+    // With no WebGL Pixi starts its 2D renderer, which cannot draw a mesh and throws on each frame.
+    if (app.renderer.type === RendererType.CANVAS) {
+      app.destroy({ removeView: true }, { children: true });
+      throw new Error("no hardware WebGL");
+    }
     this.app = app;
     app.stage.eventMode = "none";
     app.canvas.setAttribute("aria-hidden", "true");
@@ -226,14 +236,18 @@ export class ConsoleStage {
     this.watch = window.matchMedia("(prefers-reduced-motion: reduce)");
     this.still = this.watch.matches;
     this.watch.addEventListener("change", this.motion);
-    this.themed = new MutationObserver(() => {
-      this.setTone();
-      this.rebuild();
+    this.themed = new MutationObserver((changes) => {
+      if (changes.some((one) => one.attributeName === "data-theme")) {
+        this.setTone();
+        this.rebuild();
+      }
+      this.settle();
     });
     this.themed.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-still", "data-idle"] });
     document.addEventListener("visibilitychange", this.settle);
     this.watchDensity();
     this.resize(this.width);
+    this.settle();
   }
 
   private setTone(): void {
@@ -258,7 +272,7 @@ export class ConsoleStage {
     if (app === undefined) return;
     this.world = worldOf(Math.max(1, this.width), this.plan);
     const shapes = this.plan.widths.map((w, i) => (FW * w) / (FH * this.plan.depths[i]!));
-    if (this.plan.keyed !== undefined) shapes.push(this.world.keyAspect);
+    shapes.push(this.world.keyAspect);
     for (const aspect of shapes) {
       const root = new Container();
       const art = new Container();
@@ -268,19 +282,15 @@ export class ConsoleStage {
       root.addChild(art);
       const tex = RenderTexture.create({ width: 2, height: 2, resolution: 1, antialias: true });
       const mesh = new PerspectiveMesh({ texture: tex, verticesX: 20, verticesY: 20 });
-      this.facets.push({ root, art, plate, live, light: this.plan.lit ? lightOf(live) : undefined, aspect, paint: { W: 1, H: 1, f: 1, lipKey: false, named: false }, tex, mesh, drawn: "" });
+      this.facets.push({ root, art, plate, live, light: lightOf(live), aspect, paint: { W: 1, H: 1, f: 1, lipKey: false, named: false }, tex, mesh, drawn: "" });
     }
-    const keyed = this.plan.keyed === undefined ? [] : [this.facets.at(-1)!.mesh];
-    const flat = this.plan.keyed === undefined ? this.facets : this.facets.slice(0, -1);
-    app.stage.addChild(this.shell, ...flat.map((f) => f.mesh), this.over, ...keyed, this.ribs);
-    if (this.plan.lit) {
-      this.blur = new BlurFilter({ strength: BLOOM.spread, quality: 3, resolution: 1, blendMode: "add" });
-      this.bloom = new Container();
-      this.bloom.alpha = BLOOM.strength;
-      this.bloom.filters = [this.blur];
-      this.bloom.addChild(this.spill, ...this.facets.map((f) => f.light!.mesh));
-      app.stage.addChild(this.bloom);
-    }
+    app.stage.addChild(this.shell, ...this.facets.slice(0, -1).map((f) => f.mesh), this.over, this.facets.at(-1)!.mesh, this.ribs);
+    this.blur = new BlurFilter({ strength: BLOOM.spread, quality: 3, resolution: 1, blendMode: "add" });
+    this.bloom = new Container();
+    this.bloom.alpha = BLOOM.strength;
+    this.bloom.filters = [this.blur];
+    this.bloom.addChild(this.spill, ...this.facets.map((f) => f.light.mesh));
+    app.stage.addChild(this.bloom);
   }
 
   private readonly motion = (): void => {
@@ -330,7 +340,6 @@ export class ConsoleStage {
     if (world === undefined || app === undefined) return;
     this.facets.forEach((f, i) => {
       const q = i < world.quads.length ? world.quads[i]! : world.keyQuad;
-      if (q === undefined) return;
       f.mesh.setCorners(q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y);
       const across = Math.max(span(q[0], q[1]), span(q[3], q[2]));
       const down = Math.max(span(q[0], q[3]), span(q[1], q[2]));
@@ -349,17 +358,15 @@ export class ConsoleStage {
       }
       f.art.scale.set(tw / W, th / H);
       f.drawn = "";
-      if (f.light !== undefined) {
-        const [lw, lh] = [Math.ceil(across * LIGHT_TEXELS), Math.ceil(down * LIGHT_TEXELS)];
-        if (f.light.tex.width !== lw || f.light.tex.height !== lh) {
-          const was = f.light.tex;
-          f.light.tex = RenderTexture.create({ width: lw, height: lh, resolution: 1 });
-          f.light.mesh.texture = f.light.tex;
-          was.destroy(true);
-        }
-        f.light.mesh.setCorners(q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y);
-        f.light.art.scale.set(lw / W, lh / H);
+      const [lw, lh] = [Math.ceil(across * LIGHT_TEXELS), Math.ceil(down * LIGHT_TEXELS)];
+      if (f.light.tex.width !== lw || f.light.tex.height !== lh) {
+        const was = f.light.tex;
+        f.light.tex = RenderTexture.create({ width: lw, height: lh, resolution: 1 });
+        f.light.mesh.texture = f.light.tex;
+        was.destroy(true);
       }
+      f.light.mesh.setCorners(q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y);
+      f.light.art.scale.set(lw / W, lh / H);
     });
   }
 
@@ -439,12 +446,12 @@ export class ConsoleStage {
         f.drawn = key;
         moved = true;
       }
-      if (f.light !== undefined && (moved || state.kind === "dispatch")) drawLights(f.light.fixed, f.paint, state, tone, mat, t);
+      if (moved || state.kind === "dispatch") drawLights(f.light.fixed, f.paint, state, tone, mat, t);
       drawLive(f.live, f.paint, state, tone, mat, t);
       app.renderer.render({ container: f.root, target: f.tex, clear: true, clearColor: [0, 0, 0, 0] });
-      if (f.light !== undefined) app.renderer.render({ container: f.light.root, target: f.light.tex, clear: true, clearColor: [0, 0, 0, 0] });
+      app.renderer.render({ container: f.light.root, target: f.light.tex, clear: true, clearColor: [0, 0, 0, 0] });
     });
-    if (moved && this.plan.lit) this.paintSpill();
+    if (moved) this.paintSpill();
     app.renderer.render(app.stage);
   }
 
@@ -472,11 +479,12 @@ export class ConsoleStage {
     app.ticker.stop();
     this.facets.forEach((f) => {
       f.tex.destroy(true);
-      f.light?.tex.destroy(true);
-      f.light?.root.destroy({ children: true });
+      f.light.tex.destroy(true);
+      f.light.root.destroy({ children: true });
       f.root.destroy({ children: true });
     });
     app.destroy({ removeView: true }, { children: true });
+    this.blur?.destroy();
   }
 }
 

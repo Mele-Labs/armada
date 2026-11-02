@@ -1,5 +1,5 @@
 // With a Job open on the flight deck's stage, the flight controls are that Session's: Report hands off to a new Session, Auto land is Fleet's flag on the Session
-// and sends the agent its words, and Release is one of them. Activity gives its place to the Job's own panels and returns when it closes. The brief is
+// and sends the agent its words, and Release is one of them. The console's Activity gives its place to the Job's own panels and returns when it closes. The brief is
 // the owner's ask of 15 Oct 2026.
 
 import { beforeEach, expect, test } from "vitest";
@@ -14,8 +14,8 @@ beforeEach(() => localStorage.clear());
 const list = () => page.getByRole("region", { name: "Jobs", exact: true });
 const controls = () => page.getByRole("region", { name: "Flight controls" });
 const pane = () => page.getByRole("region", { name: "Job: Pin the store clock" });
-// Activity names each event on its dot.
-const feed = () => [...document.querySelectorAll(".deck-activity .armada-tl__dot")].map((one) => one.getAttribute("aria-label")).join("\n");
+// Activity names each event on its dot, in the scope of its bay.
+const feed = () => [...document.querySelectorAll(".console-scope__graph .armada-tl__dot")].map((one) => one.getAttribute("aria-label")).join("\n");
 const tiles = () => [...document.querySelectorAll(".deck-controls .deck-tile")].map((one) => one.getAttribute("aria-label"));
 
 async function open() {
@@ -30,7 +30,7 @@ test("with a Job open the flight controls are that Session's, and the four retur
   await open();
   await expect.poll(tiles).toEqual(["Auto land", "Pause", "Judge", "Report issue with job", "Release everything the Job holds", "Terminal", "Browser", "Requests"]);
   await pane().getByRole("button", { name: "Back" }).click();
-  await expect.poll(tiles).toEqual(["Checks", "Needs me", "Map", "Timeline"]);
+  await expect.poll(tiles).toEqual(["Checks", "Calls", "Map", "Timeline"]);
 });
 
 test("Report is offered where the Session's repository is known", async () => {
@@ -64,7 +64,7 @@ test("with a Job open Activity gives its place to the Job's own panels, and retu
 
   await list().getByRole("button", { name: "Pin the store clock", exact: true }).click();
   await expect.element(pane()).toBeVisible();
-  await expect.element(page.getByRole("region", { name: "Activity", exact: true })).not.toBeInTheDocument();
+  await expect.element(controls().getByRole("button", { name: "Activity", exact: true })).not.toBeInTheDocument();
 
   await pane().getByRole("button", { name: "Back" }).click();
   await expect.poll(() => feed().includes(other)).toBe(true);
@@ -95,6 +95,6 @@ test("closing the Job takes Collapse away, with the Job's tiles", async () => {
   await open();
   await controls().getByRole("button", { name: "Expand", exact: true }).click();
   await pane().getByRole("button", { name: "Back" }).click();
-  await expect.poll(tiles).toEqual(["Checks", "Needs me", "Map", "Timeline"]);
+  await expect.poll(tiles).toEqual(["Checks", "Calls", "Map", "Timeline"]);
   expect(controls().element().querySelector('[aria-label="Expand"], [aria-label="Collapse"]')).toBeNull();
 });

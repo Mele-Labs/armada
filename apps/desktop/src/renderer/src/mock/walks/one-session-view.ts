@@ -1,5 +1,5 @@
-// One view of a Session, on the Cockpit, which is the one place a Session is viewed: there is no Sessions page. With nothing selected, Activity
-// stands on the right beside Bays. With a Session selected the right column holds
+// One view of a Session, on the Cockpit, which is the one place a Session is viewed: there is no Sessions page. With nothing selected, Bays
+// stand on the right and Activity is a bay of the console. With a Session selected the right column holds
 // the Job's story (Done, Now and Open, the Field under the Jobs list), and the Ledger and the Dispatch controls give way. The proposer's values stand where they
 // already live: the name in the header, the model and effort in the composer, the workflow over its steps at the head of the story. The Session goes
 // from dispatched words to a pull request ready. Over the `one-session-view` scenario.
@@ -18,13 +18,11 @@ const ask = role("article", "Waiting on you");
 
 export const oneSessionView = walk("one-session-view", [
   { look: places, say: "A Job is viewed on the Cockpit, selected from its list" },
-  { look: region("Activity"), say: "The Cockpit with no Job selected. Activity stands on the right" },
-  { look: region("Bays"), say: "Bays, above it" },
-  { drag: role("separator", "Resize Bays and Activity"), by: { x: 0, y: -120 }, say: "Every gap between panels is a handle, and the cursor is a row resize over it. Dragged, the panel above and the one below trade height, each to its minimum" },
-  { key: "Home", on: role("separator", "Resize Bays and Activity"), say: "Home, or a double click on the gap, puts the two back to their own sizes" },
-  { drag: role("separator", "Resize the left column"), by: { x: 60, y: 0 }, say: "A gap between columns is a handle too: the left column widens and the middle gives the width" },
+  { look: role("button", "Activity"), say: "The Cockpit with no Job selected. Activity is a bay of the console" },
+  { look: region("Bays"), say: "Bays, on the right" },
+  { drag: role("separator", "Resize the left column"), by: { x: 60, y: 0 }, say: "A gap between columns is a handle: the left column widens and the middle gives the width" },
   { key: "Home", on: role("separator", "Resize the left column"), say: "Back to its width. Sizes are kept for this layout and come back as left" },
-  { press: deckRow("Retry the slot lease"), say: "A Job is selected. Its thread and composer fill the middle. Dispatch controls, Activity and Bays give way, and the right column tells the Job's story: Done, Now and Open, with the Field under the Jobs list" },
+  { press: deckRow("Retry the slot lease"), say: "A Job is selected. Its thread and composer fill the middle. The console and Bays give way, and the right column tells the Job's story: Done, Now and Open, with the Field under the Jobs list" },
   { look: role("button", /^Context/), say: "The header with every mark live: the state glyph leads the title, then the context tank, the fresh start mark and the stale mod. Back is the far right item. A clash is the glyph on the Bays key, not a mark in the bar" },
   { look: role("button", "More"), say: "Everything he does to the Job is behind the three dots. The pull request chip is gone, since Artifacts has it" },
   { press: role("button", "More"), say: "Open the Job page, Retro and End job, each with its glyph. Stop joins them while a turn runs, Fork on one that has ended" },

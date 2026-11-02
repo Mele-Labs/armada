@@ -37,19 +37,6 @@ if (asked !== null && asked !== scenario.name) {
   console.warn(`no mock scenario named ${asked}; showing ${scenario.name}`);
 }
 
-// `?console=skin|reshape` takes the Flight controls' console look one of two ways (`cockpit/deck/console.css`); without it the app is unchanged.
-const consoleTake = query.get("console");
-if (consoleTake !== null) document.documentElement.dataset.console = consoleTake;
-// The Calls HUD two ways: `screen` is the Job as it is, on a solid surface in the frame; `&calls=hud` restyles the same panels into the frame.
-if (consoleTake === "bridge") document.documentElement.dataset.calls = query.get("calls") === "hud" ? "hud" : "screen";
-// The bridge take's console is drawn on a canvas; `?pixi=0` keeps the CSS one.
-if (consoleTake === "bridge" && query.get("pixi") !== "0") {
-  document.documentElement.dataset.consolePixi = "";
-  // `&centre=dispatch` puts Dispatch at the middle of the arc; the Map is there otherwise.
-  document.documentElement.dataset.consoleCentre = query.get("centre") === "dispatch" ? "dispatch" : "map";
-  if (query.get("lit") === "1") document.documentElement.setAttribute("data-console-lit", "");
-}
-
 // A walk starts from the window its test starts from, so what it shows is what CI ran. A replay in the
 // same browser must not inherit the Sessions the last one viewed, the calls it dismissed or the drafts it left.
 if (script !== undefined) {

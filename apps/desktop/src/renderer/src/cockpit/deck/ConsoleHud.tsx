@@ -1,4 +1,4 @@
-// The bridge take's HUD (mock): real panels projected over the field, the map still drawing behind. One hard-edged frame, Activity and Calls both,
+// The console's HUD: real panels projected over the field, the map still drawing behind. One hard-edged frame, Activity and Calls both,
 // drawn in pixels so the hairlines stay on the pixel grid. Not tilted: a transform would soften the words and put cards out of place, so what says
 // "projected" is the beam down to the facet it comes from.
 
@@ -8,6 +8,8 @@ import { X } from "lucide-react";
 import { Button, Tooltip } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
+
+import { keyPressed } from "./flight-controls";
 
 type Box = { left: number; top: number; width: number; height: number };
 export type { Box };
@@ -164,6 +166,14 @@ export function ConsoleHud({ label, name, acts, facet, onClose, place, art, head
         else onClose();
         return;
       }
+      // The deck stands down while a HUD is up, so the facet's own key is heard here: it closes what it opened. Taken already is the press that opened it.
+      const own = facet.current instanceof HTMLElement ? facet.current.dataset.key : undefined;
+      if (own !== undefined && !event.defaultPrevented && keyPressed(own, event)) {
+        event.stopPropagation();
+        event.preventDefault();
+        onClose();
+        return;
+      }
       if (onKey?.(event) === true) return;
       if (event.key !== "Tab" || panel.current === null) return;
       const stops = [...panel.current.querySelectorAll<HTMLElement>(STOPS)].filter((one) => one.checkVisibility());
@@ -174,7 +184,7 @@ export function ConsoleHud({ label, name, acts, facet, onClose, place, art, head
     };
     document.addEventListener("keydown", key, true);
     return () => document.removeEventListener("keydown", key, true);
-  }, [onClose, onKey]);
+  }, [facet, onClose, onKey]);
   if (at === undefined) return null;
   const box = place(at.stage);
   const beam = beamOf(box, at.facet);
