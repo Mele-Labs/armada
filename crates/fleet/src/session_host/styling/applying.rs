@@ -14,9 +14,10 @@ use super::choosing::Styled;
 use super::choosing::{relative_to, style_mocks};
 use super::walk::sources_near;
 use crate::daemon::Fleet;
+use crate::session_host::sketching::SKETCH_REFUSED;
 
 const JOB_UNKNOWN: &str = "fleet.style_job_unknown";
-const SKETCH_REFUSED: &str = "fleet.sketch_refused";
+const STYLES_UNFINISHED: &str = "fleet.sketch_styles_unfinished";
 
 /// Most files read or changed that the walk is started from.
 const FILES_AT_MOST: usize = 40;
@@ -105,7 +106,7 @@ where
         let look = self.job_look(id).await?;
         tokio::task::spawn_blocking(move || style_mocks(&look.checkout, &look.tiers, &look.attachments, &mocks))
             .await
-            .map_err(|why| self.hosted_fault(SKETCH_REFUSED, &format!("keeping the styles did not finish: {why}")))
+            .map_err(|why| self.hosted_fault(STYLES_UNFINISHED, &format!("keeping the styles did not finish: {why}")))
     }
 
     /// `sketch` with `kept` on each `mock`, or the refusal that tells the agent what to change.

@@ -21,6 +21,7 @@ use crate::daemon::Fleet;
 
 const STYLE_SOURCES_UNNAMED: &str = "fleet.style_sources_unnamed";
 const STYLE_SOURCES_OUTSIDE: &str = "fleet.style_sources_outside";
+const STYLE_SOURCES_UNFINISHED: &str = "fleet.style_sources_unfinished";
 const NO_SUCH_KEPT_STYLES: &str = "fleet.no_such_kept_styles";
 
 impl<H, V, W> Fleet<H, V, W>
@@ -51,7 +52,7 @@ where
         let named = path.map(|path| path.trim().to_string()).filter(|path| !path.is_empty());
         let found = tokio::task::spawn_blocking(move || applying::sources_for(&look, named.as_deref()))
             .await
-            .map_err(|why| self.hosted_fault(STYLE_SOURCES_OUTSIDE, &format!("the walk did not finish: {why}")))?;
+            .map_err(|why| self.hosted_fault(STYLE_SOURCES_UNFINISHED, &format!("the walk did not finish: {why}")))?;
         found.map_err(|why| self.hosted_refusal(STYLE_SOURCES_OUTSIDE, &why))
     }
 

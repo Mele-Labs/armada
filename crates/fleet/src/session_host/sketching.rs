@@ -27,7 +27,7 @@ use ipc::{
 use super::documents::{keep, one_name, revisions_in};
 use crate::daemon::Fleet;
 
-const SKETCH_REFUSED: &str = "fleet.sketch_refused";
+pub(crate) const SKETCH_REFUSED: &str = "fleet.sketch_refused";
 const SKETCH_UNNAMED: &str = "fleet.sketch_unnamed";
 const SKETCH_AGAINST_UNKNOWN: &str = "fleet.sketch_against_unknown";
 const SKETCH_NOT_OPEN: &str = "fleet.sketch_not_open";

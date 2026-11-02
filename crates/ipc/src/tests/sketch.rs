@@ -17,6 +17,7 @@ use crate::ShowSketch;
 const SCENE_TS: &str = include_str!("../../../../packages/components/src/compositions/SketchScene/scene.ts");
 const SCREEN_TS: &str = include_str!("../../../../packages/components/src/compositions/SketchScene/screen.ts");
 const OPERATION: &str = include_str!("../../operations/show_sketch.toml");
+const MOCK_ICONS_TS: &str = include_str!("../../../../packages/components/src/compositions/SketchScene/mock-icons.ts");
 
 /// The strings of `export const <name> = [ ... ] as const;` in a source file.
 fn listed_in(source: &str, name: &str) -> Vec<String> {
@@ -332,6 +333,31 @@ fn the_tool_description_names_every_kind_icon_and_wire_part() {
         assert!(OPERATION.contains(word), "show_sketch.toml does not name `{word}`");
     }
     assert!(OPERATION.contains("ASCII"), "the description must forbid ASCII art");
+}
+
+/// The names `MOCK_ICONS` in `mock-icons.ts` is keyed by.
+fn mock_icon_names() -> Vec<String> {
+    let body = &MOCK_ICONS_TS[MOCK_ICONS_TS.find("export const MOCK_ICONS").expect("the source still exports MOCK_ICONS")..];
+    let body = &body[body.find("= {").unwrap() + 3..body.find("};").unwrap()];
+    body.split(',')
+        .filter_map(|entry| entry.split_once(':'))
+        .map(|(name, _)| name.trim().trim_matches('"').to_string())
+        .collect()
+}
+
+#[test]
+fn the_tool_description_lists_exactly_the_glyphs_a_mock_may_name() {
+    let marker = "no error says so: ";
+    let at = OPERATION.find(marker).expect("the description lists the glyphs after the marker") + marker.len();
+    let listed: Vec<&str> = OPERATION[at..].split(". ").next().unwrap().split(", ").collect();
+    let names = mock_icon_names();
+    assert!(names.len() > 50, "{names:?}");
+    for name in &names {
+        assert!(listed.contains(&name.as_str()), "show_sketch.toml does not list the mock glyph `{name}` of mock-icons.ts");
+    }
+    for name in &listed {
+        assert!(names.iter().any(|one| one == name), "show_sketch.toml lists `{name}`, which mock-icons.ts does not draw");
+    }
 }
 
 #[test]
