@@ -55,11 +55,11 @@ const PROGRAM: &str = "armada";
 /// below — including "Armada is not running" — is an MCP session that opened.
 pub fn speak() -> ExitCode {
     match reached() {
-        Ok((fleet, door, adopted)) => {
-            if let Some(said) = &adopted {
+        Ok(reached) => {
+            if let Some(said) = &reached.adopted {
                 eprintln!("armada mcp: {said}");
             }
-            carried(&fleet, &door, adopted.as_deref())
+            carried(&reached.fleet, &reached.door, reached.adopted.as_deref())
         }
         Err(why) => {
             // Said on stderr as well, once: the person who started the session
@@ -70,19 +70,37 @@ pub fn speak() -> ExitCode {
     }
 }
 
+/// What a caller that reached a Fleet holds: the Fleet, the door path naming its Manifest, what
+/// the walk adopted, and the Manifest it stands in, where it stands in one.
+///
+/// **Shared by the relay and by `armada job`**, so the two find Fleet, refuse a stale port and scope
+/// themselves to a Manifest by one piece of code.
+pub(crate) struct Reached {
+    pub(crate) fleet: Loopback,
+    pub(crate) door: String,
+    pub(crate) adopted: Option<String>,
+    pub(crate) standing: Option<Standing>,
+}
+
 /// The Fleet this session may talk to, the door path naming its Manifest, and
 /// what the walk adopted — or the sentence saying why there is not one.
-fn reached() -> Result<(Loopback, String, Option<String>), String> {
+pub(crate) fn reached() -> Result<Reached, String> {
     let cwd = std::env::current_dir()
         .map_err(|why| format!("the working directory could not be read: {why}"))?;
     let session = std::env::var(adapters::leasing::Holder::SESSION_ENV).ok();
-    let standing = match door_for(standing_in(&cwd), session.as_deref())? {
+    let found = standing_in(&cwd).or_else(|why| served_here(&cwd).ok_or(why));
+    let standing = match door_for(found, session.as_deref())? {
         Door::Within(standing) => standing,
         Door::WithoutAManifest => {
             let at = runtime::machine_path().map_err(|why| why.to_string())?;
             let fleet = Loopback::at(listening(runtime::read(&at), &at)?);
             answering(&fleet)?;
-            return Ok((fleet, api::door_without_a_manifest(), None));
+            return Ok(Reached {
+                fleet,
+                door: api::door_without_a_manifest(),
+                adopted: None,
+                standing: None,
+            });
         }
     };
     let adopted = standing.adopted();
@@ -96,7 +114,12 @@ fn reached() -> Result<(Loopback, String, Option<String>), String> {
         None => why,
     })?;
     answering(&fleet)?;
-    Ok((fleet, api::door_within(standing.id()), adopted))
+    Ok(Reached {
+        fleet,
+        door: api::door_within(standing.id()),
+        adopted,
+        standing: Some(standing),
+    })
 }
 
 /// Which door a relay posts to.
@@ -231,6 +254,57 @@ fn checkout_root(at: &Path) -> Option<&Path> {
     (kept && armada.file_name()? == ".armada").then(|| armada.parent()).flatten()
 }
 
+/// The Manifest Fleet serves at this root, where the disk holds none.
+///
+/// **Kit's copy is never on disk in the repository**, so the walk cannot find it while Fleet lists
+/// it as whole, and a Job there lost every tool but its own (2 Nov 2026). A Fleet that does not
+/// answer is `None`: the walk's own sentence says more than this one could.
+fn served_here(cwd: &Path) -> Option<Standing> {
+    let at = runtime::machine_path().ok()?;
+    let fleet = Loopback::at(listening(runtime::read(&at), &at).ok()?);
+    let answer = fleet.get(MANIFESTS).ok()?;
+    if answer.status != 200 {
+        return None;
+    }
+    let served: Vec<ManifestSummary> = ipc::decode("manifest list", &answer.body).ok()?;
+    let ceiling = std::env::var_os("HOME").map(PathBuf::from);
+    served_at(cwd, ceiling.as_deref(), &served)
+}
+
+/// [`found_in`]'s walk over what Fleet serves: the same three ends, the same slot rule.
+pub(crate) fn served_at(cwd: &Path, ceiling: Option<&Path>, served: &[ManifestSummary]) -> Option<Standing> {
+    let at_root = |root: &Path| {
+        let root_is = |manifest: &&ManifestSummary| {
+            Path::new(&manifest.path).parent().is_some_and(|parent| same_directory(parent, root))
+        };
+        served.iter().find(root_is).map(|manifest| Standing {
+            id: manifest.id.as_str().to_string(),
+            root: root.to_path_buf(),
+            started: (root != cwd).then(|| cwd.to_path_buf()),
+        })
+    };
+    let mut at = cwd;
+    loop {
+        if let Some(standing) = at_root(at) {
+            return Some(standing);
+        }
+        if at.join(REPOSITORY).exists() {
+            return checkout_root(at).and_then(at_root);
+        }
+        if Some(at) == ceiling {
+            return None;
+        }
+        at = at.parent()?;
+    }
+}
+
+/// Fleet writes a root as it was added and a process reads its cwd resolved, and the two differ
+/// wherever a path passes through a link, as `/tmp` does on macOS.
+fn same_directory(one: &Path, other: &Path) -> bool {
+    one == other
+        || matches!((one.canonicalize(), other.canonicalize()), (Ok(one), Ok(other)) if one == other)
+}
+
 /// The Manifest at a root the walk settled on.
 ///
 /// **A file that is there and will not parse ends the walk too.** Carrying on
@@ -304,7 +378,7 @@ pub fn listening(read: Result<Presence, ReadError>, at: &Path) -> Result<u16, St
     // is a process the session started earlier (8 Oct 2026).
     if found.protocol_id != ProtocolId::current() {
         eprintln!(
-            "armada mcp: the Fleet running speaks protocol {} and this `armada` speaks {}; \
+            "armada: the Fleet running speaks protocol {} and this `armada` speaks {}; \
              relaying anyway, since the door reads none of it.",
             found.protocol_id,
             ProtocolId::current()

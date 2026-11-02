@@ -46,6 +46,8 @@ engine with a note and a few more tools, one per repository.
                 add  ─▶ Fleet makes a slot, leases it to this session ahead of the
                         line and resumes it there
  later writes ─▶ held to the slot
+ the harness's EnterWorktree ─▶ refused, whatever the mode: a resume keeps that
+                worktree over the slot, and the job could then write nowhere
  quiet for a while ─▶ the process is ended; the next message resumes it, leased a
                 slot first if it holds none and the line ahead of it is empty
  close ─▶ the slot is parked on its own branch, the row ends

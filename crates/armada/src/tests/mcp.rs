@@ -11,7 +11,7 @@ use fleet::process::StartedAt;
 use fleet::runtime::{Presence, RuntimeFile, Staleness};
 use ipc::{ManifestId, ManifestSummary, ProtocolId};
 
-use crate::mcp::{door_for, found_in, posted_patiently, Door, listening, noting, publish, refused, standing_in, stands_in};
+use crate::mcp::{door_for, found_in, posted_patiently, served_at, Door, listening, noting, publish, refused, standing_in, stands_in};
 use crate::tests::{repository, TempDir};
 
 fn file(id: ProtocolId) -> RuntimeFile {
@@ -124,6 +124,36 @@ fn a_slot_or_job_worktree_with_no_manifest_stands_in_its_repositorys() {
     let other = root.path().join("vendor/.armada/elsewhere/x");
     std::fs::create_dir_all(other.join(".git")).expect("another repository");
     assert!(standing_in(&other).is_err(), "only a slot or a Job's worktree is its root's");
+}
+
+/// **A repository kept in Kit has no `armada.yml` on disk and Fleet serves its Manifest**, so a Job
+/// there and in its slots stands in it. Another repository below it, and a root Fleet does not
+/// serve, still stand in none.
+#[test]
+fn a_manifest_fleet_serves_with_nothing_on_disk_is_stood_in() {
+    let root = TempDir::new();
+    std::fs::create_dir_all(root.path().join(".git")).expect("a repository");
+    let mut served = manifest("01KITMANIFEST");
+    served.path = root.path().join("armada.yml").display().to_string();
+    let served = [served];
+
+    let at_root = served_at(root.path(), None, &served).expect("its root");
+    assert_eq!(at_root.id(), "01KITMANIFEST");
+    assert_eq!(at_root.adopted(), None);
+
+    let slot = root.path().join(".armada/slots/slot-1");
+    std::fs::create_dir_all(slot.join("crates/x")).expect("a slot");
+    std::fs::write(slot.join(".git"), "gitdir: elsewhere\n").expect("a worktree's .git");
+    assert_eq!(served_at(&slot, None, &served).expect("its slot").id(), "01KITMANIFEST");
+    assert_eq!(served_at(&slot.join("crates/x"), None, &served).expect("below its slot").id(), "01KITMANIFEST");
+
+    let theirs = root.path().join("vendor/theirs");
+    std::fs::create_dir_all(theirs.join(".git")).expect("another repository");
+    assert!(served_at(&theirs, None, &served).is_none(), "another repository ends the walk");
+
+    let elsewhere = TempDir::new();
+    std::fs::create_dir_all(elsewhere.path().join(".git")).expect("an unserved repository");
+    assert!(served_at(elsewhere.path(), None, &served).is_none());
 }
 
 /// **A session Fleet hosts is relayed in a root with no Manifest**: Setup's
