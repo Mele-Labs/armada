@@ -136,15 +136,14 @@ impl Sessions for FakeDaemon {
         self.runs_nothing_here()
     }
 
-    /// Opens nothing: answers the run id a shell for the Job would have, under the terminal asked
-    /// for, `t2` where `new` is, else `t1`.
+    /// Opens nothing: answers the run id a shell for the Job would have, under the terminal asked for, `t2` where `new` is, else `t1`.
     async fn open_terminal(
         self: std::sync::Arc<Self>,
         open: ipc::OpenTerminal,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
         let terminal = open.terminal.unwrap_or_else(|| String::from(if open.new { "t2" } else { "t1" }));
         Ok(ipc::SessionRunUnderway {
-            run_id: format!("shell-of-{}-{terminal}", open.session_id.as_str()),
+            run_id: format!("shell-of-{}", open.session_id.as_str()),
             terminal: Some(terminal),
         })
     }

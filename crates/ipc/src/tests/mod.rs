@@ -88,6 +88,8 @@ mod document_answers;
 mod step_reading;
 mod taught_mods;
 mod watch_wire;
+/// A Job's terminals: the IDs on the bodies, answers and events, the list and the rename.
+mod terminal_wire;
 mod workflow_changes;
 mod workflows_off;
 mod autopilot_boxes;

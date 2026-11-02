@@ -114,6 +114,19 @@ async fn a_hosted_session_with_no_manifest_is_offered_its_permission_tool_and_it
     assert!(!said.contains("inside Manifest"), "{said}");
 }
 
+/// **A Job's terminals stand in its own worktree**, so all three tools are read inside no Manifest.
+#[tokio::test]
+async fn a_hosted_session_with_no_manifest_is_offered_its_terminals() {
+    let (_, app) = hosting_a_session();
+
+    let listed = posted(&app, SESSION, LISTING).await;
+
+    for tool in ["type_in_terminal", "read_terminal", "list_terminals"] {
+        assert!(listed.contains(&named(tool)), "`{tool}` is offered: {listed}");
+    }
+    assert!(!listed.contains(&named("rename_terminal")), "{listed}");
+}
+
 /// What `--permission-prompt-tool` sends, answered by the daemon rather than
 /// refused as a tool that is not there.
 #[tokio::test]

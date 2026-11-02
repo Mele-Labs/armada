@@ -237,3 +237,21 @@ fn back_to_back_readings_that_read_the_same_are_one_with_first_last_and_count() 
     let again: Vec<WatchReading> = decode("readings", json.as_bytes()).expect("round trip");
     assert_eq!(again, runs);
 }
+
+#[test]
+fn a_terminal_watch_may_name_which_terminal_and_only_with_in_terminal() {
+    let named: StartWatch =
+        decode("a watch to start", br#"{"name":"Server up","in_terminal":"ready","terminal":"t2"}"#).expect("a named terminal");
+    assert_eq!(
+        named.starts,
+        WatchStarts::Terminal { text: String::from("ready"), regex: false, terminal: Some(String::from("t2")), gives_up_after: None }
+    );
+    let again: StartWatch = decode("a watch to start", encode(&named).expect("plain data").as_bytes()).expect("round trip");
+    assert_eq!(again, named);
+
+    let unnamed: StartWatch = decode("a watch to start", br#"{"name":"x","in_terminal":"up"}"#).expect("an unnamed one");
+    assert!(!encode(&unnamed).expect("plain data").contains("\"terminal\":"), "an unnamed terminal is not written");
+
+    let alone = r#"{"name":"x","command":["a"],"every":"60s","terminal":"t2"}"#;
+    assert!(decode::<StartWatch>("a watch to start", alone.as_bytes()).is_err(), "{alone}");
+}
