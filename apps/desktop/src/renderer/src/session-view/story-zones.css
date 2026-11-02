@@ -69,7 +69,7 @@
    heavier through Now, and dashed for what is to come; each band is the marker on it. The selectors are doubled over the glass sheet's own. */
 .sv-spine { --ground: color-mix(in srgb, var(--bg-raised) 40%, var(--bg-base)); --line: var(--space-4); --lead: calc(var(--line) + var(--space-4)); position: relative; display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; padding: 0 var(--space-2) var(--space-4); border-radius: var(--radius-lg); background: var(--ground); overflow-y: auto; overscroll-behavior: contain; }
 .sv-spine .sv-story__head { padding-inline-start: var(--lead); }
-.sv-spine .sv-panel.sv-panel[data-area][data-area] { position: relative; flex: none; border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; overflow: visible; }
+.sv-spine .sv-panel.sv-panel[data-area][data-area] { position: relative; flex: none; border: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; }
 .sv-spine .sv-panel.sv-panel[data-area][data-area]::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: var(--line); border-inline-start: var(--border-width) solid var(--border-strong); pointer-events: none; }
 .sv-spine .sv-panel.sv-panel:is([data-area="now"], [data-area="step-now"])[data-area]::before { border-inline-start: calc(var(--border-width) * 2) solid var(--fg-default); inset-inline-start: calc(var(--line) - var(--border-width) / 2); }
 .sv-spine .sv-panel.sv-panel:is([data-area="next"], [data-area="step-next"])[data-area]::before { border-inline-start: var(--border-width) dashed var(--border-strong); }

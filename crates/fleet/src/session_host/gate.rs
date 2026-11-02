@@ -2,13 +2,14 @@
 //! first one, and until then nothing can write the main checkout**. Since 23.49.
 //!
 //! The process's directory is fixed when it starts, so the lease cannot move it
-//! in place (spike 24 measured the built-in worktree tool refusing a permission
-//! door). The hook leases the slot, denies the write, and the turn ends;
+//! in place. The hook leases the slot, denies the write, and the turn ends;
 //! `hearing::moved_into` then resumes the session with the slot as its
-//! directory. A session resumed with no slot is leased one before its process
-//! starts ([`Fleet::leased_for_resume`]), so no first call moves it. **A line the
-//! hook cannot read as a read is a write**, so a shell line it does not know
-//! leases a slot rather than touching the checkout.
+//! directory. **The built-in worktree tool is refused**: the harness lets it
+//! through by name, and a resume keeps its worktree over that directory (spike 24).
+//! A session resumed with no slot is leased one before its process starts
+//! ([`Fleet::leased_for_resume`]), so no first call moves it. **A line the hook
+//! cannot read as a read is a write**, so a shell line it does not know leases a
+//! slot rather than touching the checkout.
 //!
 //! **A full pool queues the session** (`queueing`) rather than telling it to try
 //! again: it is denied, told its place and told to stop, and Fleet leases and moves
@@ -51,6 +52,18 @@ fn subagent_off(gate: &SessionGate, on: &[String]) -> Option<GateAnswer> {
         .then(|| GateAnswer::deny(format!("The model `{model}` is switched off. Name one of {}, or none.", on.join(", "))))
 }
 
+/// The harness's own worktree tool. **Its worktree outlives a resume**, so the move into a slot
+/// leaves the session there, writing nowhere: the harness holds it to that worktree, and this gate
+/// reads the worktree as the main checkout.
+fn own_worktree(gate: &SessionGate) -> Option<GateAnswer> {
+    (gate.tool_name == "EnterWorktree").then(|| {
+        GateAnswer::deny(
+            "A job Fleet hosts does not cut its own worktree. Fleet leases one at its first write \
+             and moves the job there, so make the edit where you stand.",
+        )
+    })
+}
+
 fn touch(gate: &SessionGate) -> Touch {
     let text = |key: &str| gate.tool_input.get(key).and_then(|said| said.as_str());
     match gate.tool_name.as_str() {
@@ -88,6 +101,9 @@ where
         // Every call of a hosted session that is open, whatever the gate then decides.
         self.call_seen(&gate);
         if let Some(answer) = subagent_off(&gate, &self.models_on()) {
+            return answer;
+        }
+        if let Some(answer) = own_worktree(&gate) {
             return answer;
         }
         // A tool the hook only reaches Fleet on so it can be noted holds nothing, so it does not
