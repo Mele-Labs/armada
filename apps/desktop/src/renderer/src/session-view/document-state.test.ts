@@ -11,6 +11,13 @@ const job = (...attachments: ReturnType<typeof page>[]) => ({ id: "j", attachmen
 describe("the page a Job's document layer reads", () => {
   const two = job(page("/w/a.html", "Findings", ["/s/a/r1.html", "/s/a/r2.html"]), page("/w/b.html", "Costs", ["/s/b/r1.html"]));
 
+  it("carries the kept styles of the page it names", () => {
+    const hash = "0123456789abcdef0123456789abcdef";
+    const kept = job({ ...page("/w/a.html", "Findings", ["/s/a/r1.html"]), keptStyles: { "Flow#card": hash } });
+    expect(documentOf(kept)?.keptStyles).toEqual({ "Flow#card": hash });
+    expect(documentOf(two)).not.toHaveProperty("keptStyles");
+  });
+
   it("takes the first page where none is asked for", () => {
     expect(documentOf(two)).toEqual({ id: "/w/a.html", title: "Findings", revisions: ["/s/a/r1.html", "/s/a/r2.html"], waits: false });
   });

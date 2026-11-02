@@ -82,3 +82,43 @@ test("a sketch that gave no markup stands as its caption", () => {
   expect(saved.querySelector(".armada-doc__sketch-mount")?.children).toHaveLength(0);
   expect(saved.querySelector("figcaption")?.textContent).toBe("Flow");
 });
+
+const MOCK_SCENE = {
+  nodes: [{ id: "row", kind: "mock", x: 0, y: 0, w: 320, title: "Job row", html: '<div class="lamp" data-part="lamp" onclick="steal()">Needs you<script>steal()</script></div>', css: ".lamp { margin: 0; }" }],
+  edges: [],
+};
+const KEPT_CSS = ".lamp { color: rgb(255, 0, 0); }";
+
+test("a mock is saved as a sealed frame holding its html and the kept rules, with nothing to fetch and nothing that runs", async () => {
+  const host = document.createElement("div");
+  host.style.cssText = "inline-size: 900px; block-size: 400px";
+  document.body.append(host);
+  const exporter: { current: (() => string | undefined) | null } = { current: null };
+  const mockStyles = async () => ({ css: [KEPT_CSS], fonts: [], drawnWith: ["packages/tokens/tokens.css"], root: { "data-theme": "dark" } });
+  const root = createRoot(host);
+  act(() => root.render(<SketchScene scene={MOCK_SCENE} title="Row" exporter={exporter} mockStyles={mockStyles} />));
+  let svg: string | undefined;
+  await vi.waitFor(() => {
+    svg = exporter.current?.();
+    expect(svg).toContain("<iframe");
+  });
+  act(() => root.unmount());
+  host.remove();
+
+  const page = readPage(SOURCE);
+  const html = savedPage(page, [svg], {});
+  const saved = new DOMParser().parseFromString(html, "text/html");
+  const frame = saved.querySelector("iframe");
+  // No permission at all: the frame gets an origin of its own and runs nothing.
+  expect(frame?.getAttribute("sandbox")).toBe("");
+  const inside = new DOMParser().parseFromString(frame?.getAttribute("srcdoc") ?? "", "text/html");
+  expect(inside.querySelector("style")?.textContent).toContain(KEPT_CSS);
+  expect(inside.querySelector("style")?.textContent).toContain(".lamp { margin: 0; }");
+  expect(inside.documentElement.getAttribute("data-theme")).toBe("dark");
+  expect(inside.body.textContent).toContain("Needs you");
+  expect(inside.querySelector('[data-part="lamp"]')).not.toBeNull();
+  expect(inside.querySelector("script, [onclick]")).toBeNull();
+  expect(inside.querySelector('meta[http-equiv="Content-Security-Policy"]')?.getAttribute("content")).toContain("default-src 'none'");
+  expect(saved.querySelector("script")).toBeNull();
+  expect(html).not.toMatch(/steal|<script|href="http|@import|url\((?!#)/i);
+});

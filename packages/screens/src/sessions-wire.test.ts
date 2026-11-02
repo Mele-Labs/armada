@@ -409,6 +409,15 @@ describe("the thread", () => {
     expect(kept({})).toEqual([row]);
   });
 
+  it("carries a document's kept styles, by the hash of each mock it draws", () => {
+    const hash = "0123456789abcdef0123456789abcdef";
+    const page = (detail: Record<string, string>) => ({ ...held("artifact", "/work/.armada/documents/findings.html"), detail: { form: "document", title: "Findings", ...detail } });
+    const read = (detail: Record<string, string>) => attachmentsOfRecord(record("a", { attachments: [page(detail)] }), beside());
+    expect(read({ kept_styles: JSON.stringify({ "Flow#card": hash }) })[0]).toMatchObject({ keptStyles: { "Flow#card": hash } });
+    expect(read({ kept_styles: "[not json" })[0]).not.toHaveProperty("keptStyles");
+    expect(read({})[0]).not.toHaveProperty("keptStyles");
+  });
+
   it("carries the notice a Fleet message was sent for, and no other row", () => {
     const wire: SessionRow[] = [
       { kind: "message", id: "n1", at: AT, from: { kind: "session", id: "fleet", title: "Fleet" }, text: "slot-4 is 23 commits behind master.", notice: "behind_base" },
