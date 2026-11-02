@@ -25,6 +25,7 @@ import { neighbourOf } from "./reorder";
 import { opensFor, placesOff } from "./system-page";
 import { TabBar } from "./TabBar";
 import { toggleLayer } from "../../session-view/layers";
+import { openTimeline, toggleTimeline } from "./ConsoleTimeline";
 import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, moveCursor, moveRow, openCall, openSubject, release, select, selOfSubject, setFocus, setHere, setSearching, setView, showRows, useDeck } from "./store";
 import { useListed } from "./listed";
 import { useShip } from "./ship";
@@ -285,8 +286,11 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
     }
     if (isPressed("deck_timeline", event)) {
       event.preventDefault();
-      setView("timeline");
-      return focusSoon("stage");
+      if (state.sel !== undefined) {
+        select(undefined);
+        return openTimeline();
+      }
+      return toggleTimeline();
     }
     // `m` is the Dashboard's switch between its views, read by the deck as the map.
     if (isPressed("dashboard_view", event)) {

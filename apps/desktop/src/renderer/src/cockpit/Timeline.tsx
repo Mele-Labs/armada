@@ -15,8 +15,8 @@ import type { MergeLineView } from "@armada/screens";
 import { useSessions } from "../sessions-draft";
 import { openInPanel } from "../shared-panel/store";
 import { stateOf } from "../session-state";
-import { timelineOwner } from "./owner";
-import { QUIET_KINDS, STANDINGS, fromWire, keyOf, lanesFor, lanesOf, titleOf, useFleetEvents, type EventTone, type FleetEvent, type Lane, type Standing, type Subject } from "./fleet-events";
+import { useDrawnEvents } from "./drawn-events";
+import { QUIET_KINDS, STANDINGS, keyOf, lanesFor, lanesOf, titleOf, type EventTone, type FleetEvent, type Lane, type Standing, type Subject } from "./fleet-events";
 import "./timeline.css";
 
 type Take = "feed" | "lanes" | "split";
@@ -403,19 +403,8 @@ function Split({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open
  * never emptied by newer events of subjects it does not show.
  */
 export function useLanes(now: number, views: readonly MergeLineView[], filter: DashboardTab, keep: ((subject: Subject) => boolean) | undefined, of?: Of, most?: number): Lane[] {
-  const wire = useFleetEvents();
   const sessions = useSessions();
-  const events = useMemo(() => {
-    // Only a pull request's opening and its merge carry its branch, so the other entries read it from those.
-    const branches = new Map(wire.flatMap((one) => (one.subject.kind === "pull_request" && one.detail !== undefined && (one.kind === "pr.opened" || one.kind === "pr.merged") ? [[one.subject.number, one.detail] as const] : [])));
-    return wire.flatMap((one) => {
-      const drawn = fromWire(one, {
-        session: (id) => sessions.find((row) => row.id === id)?.title,
-        pull: (number) => timelineOwner(views, sessions, number, branches.get(number)),
-      });
-      return drawn === undefined ? [] : [drawn];
-    });
-  }, [wire, views, sessions]);
+  const events = useDrawnEvents(views);
   return useMemo(() => {
     const drawn =
       most === undefined

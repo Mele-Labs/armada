@@ -75,6 +75,8 @@ export type DeckState = {
   here: boolean;
   /** What was open when a holder was opened from it (a bay's history), so that back returns to it and not to the map. */
   from: Sel | undefined;
+  /** What back does instead of going to the map, where a HUD opened what is open: it comes back up. */
+  back: (() => void) | undefined;
   /** What the area held when Autopilot took it over, and comes back to when it is switched off. */
   before: { sel: Sel | undefined; view: DeckView } | undefined;
   /** A light on the merge queue that a call asked to open its card: the light pins it and lets go of the ask. */
@@ -117,6 +119,7 @@ function fresh(): DeckState {
     held: new Map(),
     here: true,
     from: undefined,
+    back: undefined,
     before: undefined,
   };
 }
@@ -184,7 +187,7 @@ export const select = (sel: Sel | undefined) => {
     camera.current = undefined;
     wide.now = true;
   }
-  set({ sel, from: undefined, ...(sel === undefined ? {} : { cursor: sel.kind === "session" ? sel.key : state.cursor }) });
+  set({ sel, from: undefined, back: undefined, ...(sel === undefined ? {} : { cursor: sel.kind === "session" ? sel.key : state.cursor }) });
 };
 /** Opens a thing from what is open, which back returns to: a holder in a bay's history. */
 export const openFrom = (sel: Sel) => set({ from: state.sel, sel, cursor: sel.kind === "session" ? sel.key : state.cursor });
@@ -206,14 +209,24 @@ export const openSubject = (ship: Pick<Ship, "subjects">, subject: Subject): voi
   else select(selOfSubject(subject));
 };
 /** Back from what is open: to what it was opened from, else to the map or timeline. */
-export const goBack = () => (state.from === undefined ? select(undefined) : set({ sel: state.from, from: undefined, ...(state.from.kind === "session" ? { cursor: state.from.key } : {}) }));
+export const goBack = () => {
+  if (state.from !== undefined) return set({ sel: state.from, from: undefined, ...(state.from.kind === "session" ? { cursor: state.from.key } : {}) });
+  const { back } = state;
+  select(undefined);
+  back?.();
+};
+/** Opens a thing from a HUD, which back brings up again. */
+export const openWithBack = (sel: Sel, back: () => void) => {
+  select(sel);
+  set({ back });
+};
 export const moveCursor = (key: string | undefined) => {
   if (state.cursor !== key) set({ cursor: key });
 };
 /** Choosing a view is going back to it: what was open in the area is put away. */
 export const setView = (view: DeckView) => {
   writeRemembered(DECK_VIEW_KEY, view);
-  set({ view, sel: undefined, from: undefined });
+  set({ view, sel: undefined, from: undefined, back: undefined });
 };
 /** Autopilot's configuration takes the area, and what was open is kept to come back to. */
 export const enterAutopilot = () => {

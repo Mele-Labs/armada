@@ -84,6 +84,7 @@ import "./deck.css";
 import "./power.css";
 import "./console-bridge.css";
 import { ConsoleBays, ConsoleRack } from "./ConsoleBays";
+import { TimelineHud, toggleTimeline, useTimelineLamp } from "./ConsoleTimeline";
 import { Standby } from "./Standby";
 import { powering, usePowerOn } from "../boot";
 
@@ -441,6 +442,12 @@ function openSessionFrom(ship: Ship, props: CockpitProps, id: string): void {
   const held = ship.subjects.find((one) => one.kind === "session" && one.id === id);
   if (held === undefined) props.onOpenSession(id);
   else openSubject(ship, held);
+}
+
+/** The Timeline HUD. */
+function TimelineOverField({ props, ship }: { props: CockpitProps; ship: Ship }) {
+  const views = useMemo(() => viewsOf(props.state), [props.state]);
+  return <TimelineHud ship={ship} views={views} />;
 }
 
 /** The Calls HUD: the Thread and Now of the Job calling, as a Job draws them. */
@@ -813,7 +820,7 @@ type Deck = Pick<DeckState, "checks" | "sel" | "view">;
 const DECK_ACTS: Record<string, { pressed: (deck: Deck) => boolean; press: () => void }> = {
   checks: { pressed: (deck) => deck.checks, press: toggleChecks },
   map: { pressed: (deck) => deck.sel === undefined && deck.view === "map", press: () => setView("map") },
-  timeline: { pressed: (deck) => deck.sel === undefined && deck.view === "timeline", press: () => setView("timeline") },
+  timeline: { pressed: () => false, press: toggleTimeline },
 };
 
 /**
@@ -844,6 +851,8 @@ function FlightControl({ ship, props, listed, unified = false, withActivity = tr
   const clashes = useWriteClashes();
   // The Calls key's lamp pulses while a Job is asking him.
   const asking = ship.subjects.some((one) => one.kind === "session" && toneOf(one) === "ask");
+  const views = useMemo(() => viewsOf(props.state), [props.state]);
+  const lamp = useTimelineLamp(ship, views);
   const bays = session === undefined ? undefined : baysOf(session, props.state.held.state === "read" ? (props.state.held.held.slots ?? []) : [], clashes);
   const set: FlightSet = session !== undefined && draft !== undefined ? "job" : "deck";
   // Picking something else puts the other set under the tiles, and an edit of this one ends.
@@ -892,6 +901,7 @@ function FlightControl({ ship, props, listed, unified = false, withActivity = tr
               pressed: (id) => DECK_ACTS[id]?.pressed(deck) ?? false,
               press: (id) => DECK_ACTS[id]?.press(),
               calling: asking,
+              lamp,
               open: props.onOpenLink,
               folded: folded.collapsed,
               ...(withActivity ? { scope: { small: <ActivityBody props={props} listed={listed} ship={ship} />, large: <ActivityBody props={props} listed={listed} ship={ship} dot={12} /> } } : {}),
@@ -1126,6 +1136,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     {/* A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up. */}
     <ReplayHost props={props} ship={ship} />
     <CallsOverField props={props} ship={ship} listed={listed} calling={calling} />
+    <TimelineOverField props={props} ship={ship} />
     <AutopilotAsked control={autopilot.control} />
     {/* Powering on, each panel comes online in turn and fills as Fleet answers (`power.css`). */}
     <div ref={deckMarks} className="armada-cockpit deck" data-power={powering(power) ? power : undefined}>
