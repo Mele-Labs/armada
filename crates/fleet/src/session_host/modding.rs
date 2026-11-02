@@ -104,15 +104,17 @@ where
             project_rows: Vec::new(),
         };
         let session_id = self.started_hosted(begun, marked).await?.id;
-        // The Custom tab it builds: kept on the hosting record, and published again so Bridge draws no row for it.
+        // The Custom tab it builds, or that it builds an instrument: kept on the hosting record, and published again so Bridge draws no row for it.
         let from_job = from_job.filter(|job| !job.is_empty());
         let from_tab = from_tab.filter(|tab| !tab.is_empty());
-        if from_job.is_some() || from_tab.is_some() {
+        let mod_of_bay = aim == Some(ModAim::Instrument);
+        if from_job.is_some() || from_tab.is_some() || mod_of_bay {
             {
                 let mut store = self.store().lock().await;
                 if let Some(mut hosting) = store.hosting(session_id.as_str()).map_err(|why| self.ledger_fault(why))? {
                     hosting.from_job = from_job;
                     hosting.from_tab = from_tab;
+                    hosting.mod_of_bay = mod_of_bay;
                     store.keep_hosting(&hosting).map_err(|why| self.ledger_fault(why))?;
                 }
             }
@@ -167,6 +169,9 @@ fn aim_line(aim: ModAim, in_mods_folder: bool) -> &'static str {
         ModAim::Tracker => "He is aiming for: a tracker (an issue tracker Armada has no adapter for).",
         ModAim::Commands => "He is aiming for: commands (rows in the command palette that start a Job, open an address, run a line or chain other rows).",
         ModAim::Tab => "He is aiming for: a tab (a mod of kind `tab`, a React component Bridge loads into a pane, with the whole Fleet API). Scaffold it with `kind` `tab` and your own `session_id`, and edit the same mod when he asks for a change. He watches the tab while you build it: first write a version that draws its frame and run `validate_mod`, then add one part at a time and run `validate_mod` after each. Never write the whole tab before the first check.",
+        ModAim::Instrument => "He is aiming for: an instrument (a mod of kind `instrument`, one file `instrument.js`, an ES module whose default export is a React component with the prop `host`, seated in a bay of the Cockpit console). Build this and not a tab.\n\
+Steps. 1: call `scaffold_mod` with `kind` `instrument` and your own `session_id`; the starter passes as it is. 2: edit `instrument.js` in the `path` it answers, and no other file. 3: run `validate_mod` after each edit and fix every problem it names. 4: edit the same mod when he asks for a change; the bay reloads when the file changes.\n\
+Contract. Bridge keeps the component mounted while its panel is closed. `host.face(paint)` registers what is drawn on the bay, and what the component returns stands in the panel. `paint` is `(draw, { w, h, t, ink }) => void` on a 2D canvas context, and `ink` holds the colours `run`, `ask`, `bad`, `good`, `fg`, `muted`, `subtle` and `off`. `host.face(paint, { moves: true })` asks for a repaint once a second; otherwise a face repaints only when the component calls `host.face` again. There is no `import`: everything the instrument uses comes through `host`.",
         ModAim::Source if in_mods_folder => {
             "He is aiming for: a change to Armada's source, which cannot be made here. Tell him so if a mod cannot do it."
         }

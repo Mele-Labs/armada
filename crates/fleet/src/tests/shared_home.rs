@@ -373,9 +373,11 @@ fn a_mod_only_the_home_has_carries_the_kind_its_mod_toml_names() {
         .with("dusk/mod.toml", "name = \"dusk\"\nkind = \"theme\"\n")
         .with("dusk/theme.css", ":root {}\n")
         .with("deck/mod.toml", "name = \"deck\"\nkind = \"layout\"\n")
-        .with("deck/layout.json", "{}\n");
+        .with("deck/layout.json", "{}\n")
+        .with("reviews/mod.toml", "name = \"reviews\"\nkind = \"instrument\"\n")
+        .with("reviews/instrument.js", "export default () => null;\n");
     let a = a.opened();
-    for name in ["dusk", "deck"] {
+    for name in ["dusk", "deck", "reviews"] {
         home::add(&a.places(), &at(HomeKind::Mods, name), "mac-a").unwrap_or_else(|why| panic!("{name} is added: {}", why.said()));
     }
 
@@ -385,5 +387,6 @@ fn a_mod_only_the_home_has_carries_the_kind_its_mod_toml_names() {
     assert_eq!(state(&rows, HomeKind::Mods, "deck"), HomeRowState::Home);
     assert_eq!(kind_of("deck"), Some(ModKind::Layout), "{rows:?}");
     assert_eq!(kind_of("dusk"), Some(ModKind::Theme), "{rows:?}");
+    assert_eq!(kind_of("reviews"), Some(ModKind::Instrument), "{rows:?}");
     assert!(rows.iter().filter(|row| row.kind != HomeKind::Mods).all(|row| row.mod_kind.is_none()), "{rows:?}");
 }

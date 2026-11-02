@@ -157,6 +157,7 @@ async fn a_run_on_a_jobs_worktree_names_the_job_its_branch_and_its_bay() {
             workflow_chosen: false,
             from_job: None,
             from_tab: None,
+            mod_of_bay: false,
         };
         store.keep_hosting(&hosting).expect("a hosting");
         // A Job with no bay has nothing to run.

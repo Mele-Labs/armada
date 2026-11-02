@@ -49,6 +49,7 @@ impl Sessions for FakeDaemon {
             r#mod: false,
             from_job: None,
             from_tab: None,
+            mod_of_bay: false,
             auto_land: false,
             activity: None,
             build: None,
