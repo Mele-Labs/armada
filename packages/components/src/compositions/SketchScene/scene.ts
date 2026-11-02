@@ -55,6 +55,8 @@ export type SceneNode = {
   css?: string;
   /** The repository paths of the stylesheets a `mock` is drawn with; the host reads them. */
   styles?: readonly string[];
+  /** The kept style set Fleet drew this with, by content hash; written by Fleet, never by the agent. */
+  kept?: string;
   /** Where the node comes in the order the scene plays its steps. */
   step?: number;
   /** A `box`'s outline. */
@@ -82,13 +84,13 @@ const oneOf = <T extends string>(list: readonly T[]) => (value: unknown): value 
 
 function nodeOf(value: unknown): SceneNode | undefined {
   if (!isRecord(value)) return undefined;
-  const { id, kind, x, y, w, h, title, body, icon, lang, wire, step, screen, shape, color, html, css, styles } = value;
+  const { id, kind, x, y, w, h, title, body, icon, lang, wire, step, screen, shape, color, html, css, styles, kept } = value;
   if (!isText(id) || id === "" || !oneOf(SCENE_KINDS)(kind) || !isNumber(x) || !isNumber(y)) return undefined;
   if (!optional(w, isNumber) || !optional(h, isNumber) || !optional(title, isText) || !optional(body, isText)) return undefined;
   if (!optional(icon, oneOf(SCENE_ICONS)) || !optional(lang, isText) || !optional(wire, oneOf(WIRE_PARTS)) || !optional(step, isNumber)) return undefined;
   if (!optional(shape, oneOf(SCENE_SHAPES)) || !optional(color, oneOf(SCENE_COLORS))) return undefined;
   if ((kind === "group" || kind === "lane") && (!isNumber(w) || !isNumber(h))) return undefined;
-  if (kind === "mock" && (!isText(html) || html.trim() === "" || !isNumber(w) || !optional(css, isText) || !(styles === undefined || (Array.isArray(styles) && styles.every(isText))))) return undefined;
+  if (kind === "mock" && (!isText(html) || html.trim() === "" || !isNumber(w) || !optional(css, isText) || !(styles === undefined || (Array.isArray(styles) && styles.every(isText))) || !optional(kept, isText))) return undefined;
   const drawn = kind === "screen" ? readScreen(screen) : undefined;
   if (kind === "screen" && drawn === undefined) return undefined;
   return {
@@ -101,7 +103,7 @@ function nodeOf(value: unknown): SceneNode | undefined {
     ...(lang === undefined ? {} : { lang: lang as string }),
     ...(wire === undefined ? {} : { wire: wire as WirePart }),
     ...(drawn === undefined ? {} : { screen: drawn }),
-    ...(kind !== "mock" ? {} : { html: html as string, ...(css === undefined ? {} : { css: css as string }), ...(styles === undefined ? {} : { styles: styles as string[] }) }),
+    ...(kind !== "mock" ? {} : { html: html as string, ...(css === undefined ? {} : { css: css as string }), ...(styles === undefined ? {} : { styles: styles as string[] }), ...(kept === undefined ? {} : { kept: kept as string }) }),
     ...(step === undefined ? {} : { step: step as number }),
     ...(shape === undefined ? {} : { shape: shape as SceneShape }),
     ...(color === undefined ? {} : { color: color as SceneColor }),

@@ -1,0 +1,12 @@
+[operations.get_style_sources]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Use this before drawing a mock node in show_sketch: it names the stylesheets closest to the code you are working on, to put in the mock's styles. Optional path (a file or folder in the repository to search from; default the Job's current work) and session_id. Answers sources, closest first, each {path, bytes, kind, usable, tokens}: kind is one of css, css_module, tailwind_output, tailwind_reset, theme_css, tailwind_config, scss, less, theme_module; usable is whether a browser can use the file as it stands, and only a usable one belongs in styles; tokens are the names and values the file defines, never its text. Also start, the path the search began from, and packages, a list of package paths when the repository has several and Fleet would not guess between them: call again with a path inside the one you are working on"
+notes = """
+`GET /sessions/style_sources?path=&session_id=`. Answers 200 with `StyleSources`: `sources`, each `StyleSource` `{ path, bytes, kind, usable, tokens[] }` closest first; `start?`, the path the search walked up from; and `packages[]`, non-empty where Fleet would not guess between packages of the repository.
+
+`kind` is a string, one of `css`, `css_module`, `tailwind_output`, `tailwind_reset`, `theme_css`, `tailwind_config`, `scss`, `less`, `theme_module`. `tokens` is `[{ name, value }]` read from the file.
+
+**The Job** is the one the connection places when Fleet hosts it, else `session_id`. `agent_access` is `Yes`: the agent names the sheets in a `mock` node's `styles`, and has to know which there are. Fleet's behaviour behind this route is not built yet: until it is, the route answers 422 `fleet.style_sources_not_built`.
+"""

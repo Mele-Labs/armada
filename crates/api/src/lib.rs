@@ -115,6 +115,7 @@ mod served;
 mod servers;
 mod sessions;
 mod shown;
+mod styles;
 /// settings.json, read and saved.
 mod settling;
 mod sockets;

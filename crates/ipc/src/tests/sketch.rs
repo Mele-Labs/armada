@@ -9,7 +9,7 @@ use crate::sketch::screen::{
     SCREEN_GAPS, SCREEN_ICONS, SCREEN_TEXTS, SCREEN_VARIANTS, SPECS,
 };
 use crate::sketch::{
-    EDGE_FIELDS, NODE_FIELDS, MOST_EDGES, MOST_NODES, MOST_SCENE_BYTES, MOST_TITLE_CHARS, SCENE_COLORS, SCENE_ICONS, SCENE_KINDS,
+    EDGE_FIELDS, NODE_FIELDS, MOST_EDGES, MOST_MOCKS, MOST_NODES, MOST_SCENE_BYTES, MOST_TITLE_CHARS, SCENE_COLORS, SCENE_ICONS, SCENE_KINDS,
     SCENE_SHAPES, WIRE_PARTS,
 };
 use crate::ShowSketch;
@@ -258,6 +258,8 @@ const AHEAD_OF_SCENE_TS: [&str; 1] = ["step"];
 #[test]
 fn the_fields_the_checker_takes_are_the_fields_scene_ts_types() {
     let mut node = fields_in_scene_ts("SceneNode");
+    // `kept` is Fleet's to write and an agent's to be refused, so scene.ts types it and NODE_FIELDS does not.
+    node.retain(|field| field != "kept");
     node.sort();
     let mut ours: Vec<&str> = NODE_FIELDS.to_vec();
     ours.sort_unstable();
@@ -687,4 +689,96 @@ fn a_screen_with_many_faults_says_a_dozen_of_them_and_counts_the_rest() {
     let said = refused(screen_node(json!({ "type": "column", "children": rows })));
     assert_eq!(said.matches("`nope`").count(), 12, "{said}");
     assert!(said.contains("; and 8 more"), "{said}");
+}
+
+fn with_mock(mock: serde_json::Value) -> serde_json::Value {
+    let mut scene = two_boxes();
+    scene["nodes"].as_array_mut().unwrap().push(mock);
+    scene
+}
+
+fn a_mock() -> serde_json::Value {
+    json!({ "id": "m", "kind": "mock", "x": 0, "y": 200, "w": 320, "html": "<button class=\"btn\">Save</button>",
+            "css": ".btn { color: red }", "styles": ["packages/components/src/Button/Button.css"] })
+}
+
+#[test]
+fn a_mock_with_its_width_and_html_is_kept_with_its_css_and_styles() {
+    sent("Flow", with_mock(a_mock())).checked().unwrap();
+    let mut bare = a_mock();
+    bare.as_object_mut().unwrap().retain(|name, _| !matches!(name.as_str(), "css" | "styles"));
+    sent("Flow", with_mock(bare)).checked().unwrap();
+}
+
+#[test]
+fn a_mock_without_its_width_or_html_is_refused_naming_the_part() {
+    let mut mock = a_mock();
+    mock.as_object_mut().unwrap().remove("w");
+    assert!(refused(with_mock(mock)).contains("nodes[2] `m`: a `mock` needs `w`, the width of its frame"));
+    let mut mock = a_mock();
+    mock.as_object_mut().unwrap().remove("html");
+    assert!(refused(with_mock(mock)).contains("nodes[2] `m`: a `mock` needs `html`, the HTML it draws"));
+    let mut mock = a_mock();
+    mock["html"] = json!("  \n ");
+    assert!(refused(with_mock(mock)).contains("nodes[2] `m`: `html` is blank"));
+}
+
+#[test]
+fn a_mock_part_of_the_wrong_type_is_refused_with_what_it_must_be() {
+    let mut mock = a_mock();
+    mock["html"] = json!(7);
+    assert!(refused(with_mock(mock)).contains("nodes[2] `m`: `html` is a number. It must be a string"));
+    let mut mock = a_mock();
+    mock["w"] = json!("wide");
+    assert!(refused(with_mock(mock)).contains("nodes[2] `m`: `w` is `wide`. It must be a number"));
+    let mut mock = a_mock();
+    mock["css"] = json!(["a"]);
+    assert!(refused(with_mock(mock)).contains("nodes[2] `m`: `css` is a list. It must be a string"));
+    let mut mock = a_mock();
+    mock["styles"] = json!("a.css");
+    assert!(refused(with_mock(mock)).contains("nodes[2] `m`: `styles` is a string. It must be a list of strings"));
+    let mut mock = a_mock();
+    mock["styles"] = json!(["a.css", 3]);
+    assert!(refused(with_mock(mock)).contains("nodes[2] `m`: `styles[1]` is a number"));
+}
+
+#[test]
+fn html_css_and_styles_are_for_a_mock_and_refused_on_any_other_kind() {
+    for name in ["html", "css", "styles"] {
+        let mut scene = two_boxes();
+        scene["nodes"][0][name] = if name == "styles" { json!(["a.css"]) } else { json!("x") };
+        let said = refused(scene);
+        assert!(said.contains(&format!("nodes[0] `a`: `{name}` is for a `mock` node, and this is a `box`")), "{said}");
+    }
+}
+
+#[test]
+fn a_sketch_holds_at_most_twelve_mocks_and_says_to_split_it() {
+    let mocks = |count: usize| {
+        let nodes: Vec<_> = (0..count)
+            .map(|at| json!({ "id": format!("m{at}"), "kind": "mock", "x": at * 10, "y": 0, "w": 100, "html": "<p>x</p>" }))
+            .collect();
+        json!({ "nodes": nodes, "edges": [] })
+    };
+    assert_eq!(MOST_MOCKS, 12);
+    sent("Flow", mocks(MOST_MOCKS)).checked().unwrap();
+    let said = refused(mocks(MOST_MOCKS + 1));
+    assert!(said.contains("`nodes` holds 13 `mock` nodes and a sketch holds at most 12. Split it into two sketches"), "{said}");
+}
+
+#[test]
+fn the_kept_style_set_is_fleets_to_write_and_an_agent_that_sends_it_is_refused() {
+    let mut mock = a_mock();
+    mock["kept"] = json!("abc123");
+    let said = refused(with_mock(mock));
+    assert!(said.contains("nodes[2] `m`: has `kept`, which Fleet writes when it keeps the sketch. Leave it out"), "{said}");
+    assert!(!said.contains("does not take"), "{said}");
+}
+
+#[test]
+fn a_mocks_html_and_css_count_in_the_scene_bytes() {
+    let mut mock = a_mock();
+    mock["html"] = json!("x".repeat(MOST_SCENE_BYTES));
+    let said = refused(with_mock(mock));
+    assert!(said.contains("a sketch holds at most 32768"), "{said}");
 }
