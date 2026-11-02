@@ -194,6 +194,7 @@ where
         let sketch = match checked.sketch {
             None => None,
             Some(sketch) => {
+                let sketch = self.sketch_styled(&id, sketch, "record_plan").await?;
                 let named = (format!("{TARGET_PREFIX}{}", sketch.title), sketch.title.clone());
                 self.report_session(SessionReport {
                     harness: session.harness.clone(),

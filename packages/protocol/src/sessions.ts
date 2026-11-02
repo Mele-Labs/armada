@@ -613,6 +613,46 @@ export type SketchHow = "approved" | "sent_back";
  */
 export type AnswerSketch = { session_id: string; sketch: string; drawn: string; how: SketchHow; words?: string };
 
+/**
+ * What a stylesheet found for a `mock` node is, by how a browser can use it. Closed set, crossing as a string:
+ * `css`, `css_module`, `tailwind_output`, `tailwind_reset`, `theme_css`, `tailwind_config`, `scss`, `less`, `theme_module`.
+ */
+export type StyleKind =
+  | "css"
+  | "css_module"
+  | "tailwind_output"
+  | "tailwind_reset"
+  | "theme_css"
+  | "tailwind_config"
+  | "scss"
+  | "less"
+  | "theme_module";
+
+/** A token read out of a stylesheet or theme file: its name and value, never the file's text. */
+export type StyleToken = { name: string; value: string };
+
+/** One stylesheet found near the code a Job works on. `usable` is whether a browser can use it as it stands. */
+export type StyleSource = { path: string; bytes: number; kind: StyleKind; usable: boolean; tokens: StyleToken[] };
+
+/**
+ * `GET /sessions/style_sources?path=&session_id=`, the agent's: the stylesheets nearest the code being worked on, closest
+ * first, for a `mock` node's `styles`. `start` is the path the search walked up from; `packages` is non-empty where Fleet
+ * would not guess between packages of the repository. An empty array is the same as an omitted one.
+ */
+export type StyleSources = { sources: StyleSource[]; start?: string; packages?: string[] };
+
+/** A stylesheet as Fleet kept it. `edited` is true where the Job's checkout held uncommitted changes to the file. */
+export type KeptSheet = { path: string; css: string; edited: boolean };
+
+/** A font a kept stylesheet names. `bytes` is base64. */
+export type KeptFont = { family: string; weight: string; style?: string; bytes: string };
+
+/**
+ * `GET /sessions/kept_styles?hash=`, Bridge's: the style set a `mock` node's `kept` names, `sheets` in the order they apply.
+ * Content addressed, so an answer never changes; a hash Fleet does not hold is a 404. Never carried on a record.
+ */
+export type KeptStyles = { sheets: KeptSheet[]; fonts: KeptFont[] };
+
 /** How the person answered a document put to him, as `detail.settled` holds it. */
 export type DocumentHow = "approved" | "sent_back";
 

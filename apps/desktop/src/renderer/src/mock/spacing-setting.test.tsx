@@ -1,5 +1,5 @@
 // Settings, Bridge, Spacing (`spacing.density`): Compact and Roomy put their token set on the root with no reload, and Default takes it
-// off again. Flight control's keys keep Default's height in Compact, where the smaller steps would cut their names. Through `App` on the
+// off again. Flight control's keys are no shorter in Compact, where the smaller steps would cut their names: the console scales with the width Compact gives it. Through `App` on the
 // flight deck's ship.
 
 import { expect, test } from "vitest";
@@ -45,11 +45,11 @@ test("Compact and Roomy change the steps with no reload, and Default puts them b
   expect(step()).toBe("4px");
 });
 
-test("Flight control's keys are as tall in Compact as in Default", async () => {
+test("Flight control's keys are no shorter in Compact than in Default", async () => {
   const app = await deck();
   const shipped = key();
   await app.api.saveSettings({ [KEY]: "compact" });
   await expect.poll(() => root().dataset["spacing"]).toBe("compact");
-  expect(key()).toBe(shipped);
+  expect(key()).toBeGreaterThanOrEqual(shipped);
   await app.api.saveSettings({ [KEY]: "default" });
 });

@@ -311,6 +311,7 @@ export function DocumentLayer({ session }: { session: Session }) {
                   root={showing ? diff.root : page.root}
                   css={page.css}
                   sketches={page.sketches}
+                  keptStyles={doc?.keptStyles}
                   against={showing ? before?.sketches : undefined}
                   scope={scope}
                   viewer={viewer}

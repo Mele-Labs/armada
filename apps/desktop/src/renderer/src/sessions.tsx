@@ -32,6 +32,7 @@ import {
   SessionComposer,
   quoteIntoDraft,
   SessionFrame,
+  SessionToolbelt,
   type DropdownMenuEntry,
   SessionLedger,
   SessionThread,
@@ -1225,6 +1226,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         {...(toolsFixing === undefined ? {} : { toolsFixes: toolsFixing })}
         {...(toolsBand ? {} : { toolsApparent: true })}
         {...(deck?.flight === true ? { headTake: headTake() } : {})}
+        toolsUnder
         repository={<SessionRepositoryOf key={session.id} session={session} repositories={repositories} onOpen={onOpen} />}
         {...(fresh === undefined ? {} : { fresh })}
         {...(session.loadout === undefined ? {} : { loadout: { summary: session.loadout, onOpen: () => goes.onOpenLoadout(session.id) } })}
@@ -1435,6 +1437,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
               }}
             />
           )}
+          <SessionToolbelt />
           </div>
           </>
           </ThreadKeys>

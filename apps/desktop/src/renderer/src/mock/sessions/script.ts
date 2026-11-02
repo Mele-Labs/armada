@@ -14,6 +14,7 @@ import { removedSaid } from "./removed";
 import { AUTO_MERGE, AUTO_MERGE_TITLE } from "./auto-merge-sketch";
 import { DATA_FLOW, DATA_FLOW_TITLE } from "./data-flow-sketch";
 import { SHAPES, SHAPES_TITLE } from "./shapes-sketch";
+import { ONE_CARD, ONE_CARD_TITLE } from "./hi-fi";
 import { FLOW_SCENE, FLOW_TITLE, MEMBERS_SCENE, MEMBERS_TITLE, OPEN_SCENE, OPEN_TITLE } from "./screens";
 import { PINNED, PINNED_TITLE, READS, READS_AGAIN, READS_TITLE, SEQUENCE, SEQUENCE_TITLE, WORKFLOW, WORKFLOW_TITLE } from "./sketches";
 import type { Scene } from "@armada/components";
@@ -63,6 +64,9 @@ export const HUBBER = "s15";
 
 /** The Session that draws screens: a desktop window, a web app in a browser frame, and two phone screens joined by an arrow. */
 export const WIRER = "s16";
+
+/** The Session that draws one card as hi-fi parts: HTML in the app's own classes over the app's own stylesheets. */
+export const HIFIER = "s17";
 
 const idle = { state: "idle" } as const;
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -682,6 +686,12 @@ export function sessionsStore(
           showSketch(id, MEMBERS_TITLE, MEMBERS_SCENE);
           showSketch(id, FLOW_TITLE, FLOW_SCENE);
           addTo(id, [said("Session screen, team settings and sign in flow.")]);
+          finishOf(id);
+        });
+      } else if (id === HIFIER) {
+        after(900, () => {
+          showSketch(id, ONE_CARD_TITLE, ONE_CARD);
+          addTo(id, [said("The card, and the three lists that draw it.")]);
           finishOf(id);
         });
       } else if (id === MINE && !started) {

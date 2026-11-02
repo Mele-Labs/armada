@@ -6,6 +6,8 @@
 export type FiberLike = {
   type?: unknown;
   return?: FiberLike | null;
+  child?: FiberLike | null;
+  stateNode?: unknown;
   _debugOwner?: FiberLike | { name?: unknown } | null;
 };
 
@@ -36,6 +38,22 @@ export function fiberOf(node: object | null): FiberLike | null {
       if (key.startsWith("__reactFiber$")) return (at as Record<string, FiberLike>)[key] ?? null;
     }
     at = at.parentNode ?? null;
+  }
+  return null;
+}
+
+/**
+ * The first element the component named `component` draws, found from `element` inside it: up to
+ * the nearest fiber of that name, then down its first children to one that holds a DOM node.
+ * Null where React keeps no fiber on the page or nothing of that name sits above `element`.
+ */
+export function hostRootOf(element: Element, component: string): Element | null {
+  for (let at = fiberOf(element); at != null; at = at.return ?? null) {
+    if (componentName(at.type) !== component) continue;
+    for (let down = at.child; down != null; down = down.child ?? null) {
+      if (down.stateNode instanceof Element) return down.stateNode;
+    }
+    return null;
   }
   return null;
 }

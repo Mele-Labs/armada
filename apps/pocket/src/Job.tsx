@@ -32,6 +32,7 @@ import { getJson } from "./client";
 import { holderOf, macOf, start, useFleet } from "./fleet";
 import type { ModelsBody } from "./gateway";
 import { actsOn, attempt, useJob, type Acts } from "./jobState";
+import { WithKeptStyles } from "./keptStyles";
 import type { Machine } from "./machines";
 import { draftPath, filePath, go, jobPath, sketchPath } from "./router";
 import { approvalOf, askedOf, asksOf, draftsOf, linksOf, rowsOf, runsOf, sessionOfThread, type JobLink, type OpenDraft } from "./thread";
@@ -334,17 +335,19 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
           back={<Back label="Home" onClick={home} />}
         >
           <div className="armada-session-frame__centre">
-            <SessionThread
-              sessionId={`${machine.origin} ${id}`}
-              rows={rowsOf(session)}
-              {...(approval === undefined ? {} : { approval })}
-              working={session.turn.state === "working"}
-              onAnswer={onAnswer}
-              onOpenSession={openJob}
-              onOpenFile={(path) => go(filePath(machine.origin, id, path))}
-              onOpenSketch={(sketch) => go(sketchPath(machine.origin, id, sketch))}
-              trailing={trailing}
-            />
+            <WithKeptStyles machine={machine}>
+              <SessionThread
+                sessionId={`${machine.origin} ${id}`}
+                rows={rowsOf(session)}
+                {...(approval === undefined ? {} : { approval })}
+                working={session.turn.state === "working"}
+                onAnswer={onAnswer}
+                onOpenSession={openJob}
+                onOpenFile={(path) => go(filePath(machine.origin, id, path))}
+                onOpenSketch={(sketch) => go(sketchPath(machine.origin, id, sketch))}
+                trailing={trailing}
+              />
+            </WithKeptStyles>
             {session.dead !== undefined ? null : (
               <div className="pk-dock">
                 <SessionComposer

@@ -3,6 +3,7 @@
 // root of its own whose own host stays empty because what it draws goes into the app's
 // left column through a portal.
 
+import { startLoopClock } from "../loop-clock";
 import { forgetAllKept, watchClippedText } from "@armada/components";
 
 import { forgetDismissals } from "../cockpit/dismissed";
@@ -18,6 +19,7 @@ import { SCENARIOS, scenarioNamed } from "./scenario";
 import { mountNoWalk, mountWalk } from "./WalkPlayer";
 import { EVERY_WALK } from "./walks";
 
+startLoopClock();
 watchClippedText();
 
 const query = new URLSearchParams(window.location.search);
