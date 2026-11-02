@@ -360,12 +360,13 @@ fn the_typescript_mirror_names_every_field_and_every_tag_rust_sends() {
         assert!(MIRROR.contains(&format!("\"{tag}\"")), "lifecycles.ts does not spell the tag `{tag}`");
     }
 
-    // The acts sampled are the acts the mirror spells, no more and no fewer.
+    // The acts sampled are the acts the mirror spells, no more and no fewer. The leading space
+    // matches the field however the formatter lays its union member out, and no `exact:` or `react:`.
     let sampled: Vec<String> = every_act()
         .iter()
         .map(|act| serde_json::to_value(act).unwrap()["act"].as_str().expect("tagged by act").to_string())
         .collect();
-    let spelled = MIRROR.matches("{ act: \"").count();
+    let spelled = MIRROR.matches(" act: \"").count();
     assert_eq!(sampled.len(), spelled, "{sampled:?}");
 }
 

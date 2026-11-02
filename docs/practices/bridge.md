@@ -583,7 +583,11 @@ Without a config, a formatter falls back to its own default, which is how `npx p
 
 **Formatting only.**
 No lint rules and no import sorting, and quotes stay double: several gate rules and tests split source text on `"`.
-An object or list stays on one line when it fits, and breaks one item per line when it does not.
+
+**Every object and list literal is one item per line, even a short one** (`expand: "always"`), so a field added beside another is a line of its own.
+The owner chose it on 2 Nov 2026 over breaking only what passes the width, knowing it makes the tree much taller: the reformat added about 414,000 lines where breaking only long lines added 164,000.
+A test that reads TypeScript as text matches a field, such as ` act: "`, and never the braces around it on one line.
+Function arguments, imports and type unions still break only past the width.
 
 **What is left unformatted, and why.** Each is listed in `biome.jsonc`.
 

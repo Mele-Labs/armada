@@ -1,11 +1,15 @@
 // The formatter for the TypeScript half: apps/ and packages/, nothing else.
-// A fixed width breaks a long expression one item per line, so two features
-// stop sharing a line and stop conflicting on it. Formatting only: no lint, no
+// A fixed width, and every literal one item per line, so two features stop
+// sharing a line and stop conflicting on it. Formatting only: no lint, no
 // import sorting. docs/practices/bridge.md, *The formatter*.
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "root": true,
-  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "files": {
     "includes": [
       "apps/**",
@@ -28,15 +32,28 @@
     "indentStyle": "space",
     "indentWidth": 2,
     "lineEnding": "lf",
-    "lineWidth": 100
+    "lineWidth": 100,
+    // Every object and list literal one item per line, even a short one, so
+    // an added field is a line of its own. The owner's choice, 2 Nov 2026.
+    "expand": "always"
   },
   // Double quotes: several gate rules and tests split source on `"`.
   "javascript": {
-    "formatter": { "quoteStyle": "double", "jsxQuoteStyle": "double" }
+    "formatter": {
+      "quoteStyle": "double",
+      "jsxQuoteStyle": "double"
+    }
   },
   "json": {
-    "parser": { "allowComments": true, "allowTrailingCommas": true }
+    "parser": {
+      "allowComments": true,
+      "allowTrailingCommas": true
+    }
   },
-  "linter": { "enabled": false },
-  "assist": { "enabled": false }
+  "linter": {
+    "enabled": false
+  },
+  "assist": {
+    "enabled": false
+  }
 }
