@@ -19,7 +19,6 @@ const APP = [TOKENS, BASE, JOB_CARD];
 const PANEL = `
 *, *::before, *::after { box-sizing: border-box; }
 .panel { display: flex; flex-direction: column; min-width: 0; border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-base); box-shadow: var(--shadow-card); }
-.band { padding: var(--space-2) var(--space-3); border-block-end: var(--border-width) solid var(--border-subtle); color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
 .cards { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2); }
 .armada-job-card[data-tone="bad"] { --hue: var(--status-completed-failed); }
 .armada-job-card[data-tone="good"] { --hue: var(--status-completed-success); }
@@ -37,7 +36,7 @@ const card = (one: Card) => `
   <span class="armada-job-card__at">${one.age}</span>
 </div>`;
 
-const panel = (band: string, cards: Card[]) => `<div class="panel"><div class="band">${band}</div><div class="cards">${cards.map(card).join("")}</div></div>`;
+const panel = (cards: Card[]) => `<div class="panel"><div class="cards">${cards.map(card).join("")}</div></div>`;
 
 const mock = (id: string, x: number, y: number, w: number, title: string, html: string, css: string, styles: string[] | undefined): SceneNode => ({
   id, kind: "mock", x, y, w, title, html, ...(css === "" ? {} : { css }), ...(styles === undefined ? {} : { styles }),
@@ -45,7 +44,6 @@ const mock = (id: string, x: number, y: number, w: number, title: string, html: 
 
 const ANATOMY = `
 <div class="panel">
-  <div class="band">The card</div>
   <div class="cards">
     ${`<div class="armada-job-card" data-tone="ask" data-part="Card">
       <span class="armada-job-card__kind" data-part="Kind"><i data-icon="bot" data-size="14"></i></span>
@@ -72,7 +70,6 @@ const ANATOMY_CSS = `${PANEL}
 
 const LOGBOOK = `
 <div class="panel">
-  <div class="band">Logbook</div>
   <ul class="log">
     <li><i data-icon="rocket" data-size="14"></i><span class="at">14:40</span><span>Slot 3 leased, branch cut</span></li>
     <li><i data-icon="git-branch" data-size="14"></i><span class="at">14:52</span><span>First commit on fix/walk-bar</span></li>
@@ -90,7 +87,6 @@ const LOGBOOK_CSS = `${PANEL}
 
 const RULES = `
 <div class="panel">
-  <div class="band">The one rule</div>
   <table class="rules">
     <thead><tr><th>Part</th><th>Carries</th><th>Never</th></tr></thead>
     <tbody>
@@ -118,28 +114,28 @@ export const ONE_CARD: Scene = scene(
   [
     mock("anatomy", 0, 0, 360, "The card", ANATOMY, ANATOMY_CSS, APP),
     mock(
-      "issues", 460, 0, 320, "Issues",
-      panel("Issues", [
+      "issues", 520, 0, 320, "Issues",
+      panel([
         { tone: "ask", title: "Walk bar loses Approve after a reload", mark: "circle-alert", issue: "#3131", says: "Drawing the card", age: "12m" },
         { title: "Skeleton rows jump on the Usage page", mark: "circle", issue: "#3098", age: "2d" },
       ]),
       PANEL, APP,
     ),
     mock(
-      "prs", 840, 0, 320, "Pull requests",
-      panel("Pull requests", [
+      "prs", 520, 250, 320, "Pull requests",
+      panel([
         { tone: "bad", title: "Spell the lengths with tokens", mark: "circle-x", issue: "#3150", age: "4m" },
         { tone: "good", title: "Fix the joblayouts walk holds", mark: "circle-check", issue: "#3149", age: "1h" },
       ]),
       PANEL, APP,
     ),
     mock(
-      "jobs", 1220, 0, 320, "Cockpit Jobs",
-      panel("Cockpit Jobs: asked first", [{ tone: "live", title: "One card for every list", kind: "bot", mark: "circle-dot", says: "Drawing the card", age: "now" }]),
+      "jobs", 520, 500, 320, "Cockpit Jobs: asked first",
+      panel([{ tone: "live", title: "One card for every list", kind: "bot", mark: "circle-dot", says: "Drawing the card", age: "now" }]),
       PANEL, APP,
     ),
-    mock("logbook", 460, 420, 340, "Logbook", LOGBOOK, LOGBOOK_CSS, APP),
-    mock("rules", 880, 420, 420, "The one rule", RULES, RULES_CSS, APP),
+    mock("logbook", 960, 0, 360, "Logbook", LOGBOOK, LOGBOOK_CSS, APP),
+    mock("rules", 960, 280, 420, "The one rule", RULES, RULES_CSS, APP),
     mock("plain", 0, 420, 240, "Without a sheet", PLAIN, PLAIN_CSS, undefined),
   ],
   [arrow("anatomy", "issues"), arrow("anatomy", "prs"), arrow("anatomy", "jobs")],

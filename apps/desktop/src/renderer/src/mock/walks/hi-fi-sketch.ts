@@ -8,7 +8,7 @@ import { kit, toSessions } from "../sessions/walk-kit";
 import { ONE_CARD_TITLE } from "../sessions/hi-fi";
 
 function steps(): Step[] {
-  const { message, thread, close } = kit(false);
+  const { message, thread } = kit(false);
   const panel = dialog(`Sketch ${ONE_CARD_TITLE}`);
   const frame = (title: string) => inside(panel, role("group", `Frame ${title}`, { exact: true }));
   return [
@@ -23,7 +23,6 @@ function steps(): Step[] {
     { type: "Keep the failed tone this red\n", into: role("textbox", "Note"), say: "The note is about that element, and its number stands on it" },
     { look: inside(panel, text(/tokens\.css, base\.css, JobCard\.css/)), say: "Under each part, the stylesheets it was drawn with" },
     { look: inside(panel, text("No stylesheet of the app")), say: "A part drawn with none says so" },
-    { press: close(panel), say: "Close" },
   ];
 }
 
