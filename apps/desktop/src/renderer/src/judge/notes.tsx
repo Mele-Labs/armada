@@ -1,10 +1,10 @@
 // What a judge found, drawn inside the artifact on the part it names. A note is drawn by `FindingNotes`: the heading `You should know`, the claim, where it is,
 // and Send to Job or Dismiss. A note settled folds to one muted line. Nothing here counts notes.
 
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { FindingNotes, useFindingKeys, type DiffFile, type Finding } from "@armada/components";
 
-import { useJudgeApi, useJudgeRecord, useJudgeRecords, type JudgeArtifact, type JudgeNote } from "./store";
+import { notesBrought, useJudgeApi, useJudgeRecord, useNotesAsked, type JudgeArtifact, type JudgeNote } from "./store";
 
 const NONE: readonly JudgeNote[] = [];
 
@@ -58,11 +58,6 @@ export function JudgeNotes({ job, artifact, label, only, draws = true }: { job: 
   );
 }
 
-/** A note block at the top of a view that has no parts to pin to: the notes whose part is the whole of it. */
-export function JudgeNoteBlock({ job, artifact }: { job: string; artifact: Pick<JudgeArtifact, "kind" | "id"> }) {
-  return <JudgeNotes job={job} artifact={artifact} label="Notes from the judge" only={(note) => note.about === undefined} />;
-}
-
 /** The line a diff's line has in the new file: counted from the hunk headers, since the diff draws no numbers. Absent for a line that is only removed. */
 export function newLineAt(file: DiffFile, index: number): number | undefined {
   let at = 0;
@@ -98,21 +93,24 @@ export function useDiffUnder(job: string, artifact: Pick<JudgeArtifact, "kind" |
   }, [notes, job, kind, id]);
 }
 
-/** Kinds that have a view of their own to hold their notes. */
-const OWN_VIEW: ReadonlySet<string> = new Set(["plan", "pull_request", "doc"]);
+/** The artifacts a judge's notes are drawn inside elsewhere: the plan on its card, a pull request on its Files tab, a document on its page, the whole Job on the Judge tab. */
+const OWN_VIEW: ReadonlySet<string> = new Set(["job", "plan", "pull_request", "doc"]);
 
-/** The notes of the artifacts that have no view of their own, at the head of the Job's thread: each headed by what it is about. */
-export function JudgeLooseNotes({ job }: { job: string }) {
-  const records = useJudgeRecords(job).filter((one) => one.state === "done" && !OWN_VIEW.has(one.artifact.kind) && one.notes.length > 0);
-  if (records.length === 0) return null;
+/** Whether a reading of this artifact stands under its row in the Job's artifacts. */
+export const notedUnderRow = (artifact: Pick<JudgeArtifact, "kind">): boolean => !OWN_VIEW.has(artifact.kind);
+
+/** The notes of an artifact with no view of its own, under its row: every note of the reading, each saying where it is. A press that asked for them brings them into view. */
+export function JudgeRowNotes({ job, artifact }: { job: string; artifact: Pick<JudgeArtifact, "kind" | "id"> }) {
+  const asked = useNotesAsked(job, artifact);
+  const place = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!asked) return;
+    place.current?.scrollIntoView({ block: "center" });
+    notesBrought();
+  }, [asked]);
   return (
-    <div className="judge-loose">
-      {records.map((one) => (
-        <section key={one.id} aria-label={`Notes on ${one.artifact.title}`}>
-          <p className="judge-loose__title">{one.artifact.title}</p>
-          <JudgeNoteBlock job={job} artifact={one.artifact} />
-        </section>
-      ))}
+    <div ref={place}>
+      <JudgeNotes job={job} artifact={artifact} label="Notes from the judge" />
     </div>
   );
 }

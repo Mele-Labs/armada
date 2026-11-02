@@ -8,7 +8,7 @@ import { Kbd, Sheet, Tooltip } from "@armada/components";
 
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
-import { PANELS, keySheetOf, panelKey, type Panel, type PanelId } from "./keys-model";
+import { PANELS, hudIsOpen, keySheetOf, panelKey, type Panel, type PanelId } from "./keys-model";
 
 const rootOf = (panel: Panel) => document.querySelector<HTMLElement>(panel.root) ?? undefined;
 const present = () => PANELS.filter((one) => rootOf(one) !== undefined);
@@ -102,7 +102,7 @@ export function useDeckKeys(press: (event: KeyboardEvent) => void): void {
   });
   useEffect(() => {
     const listen = (event: KeyboardEvent): void => {
-      if (document.querySelector('[role="dialog"], [role="alertdialog"], [data-hud="calls"]') !== null) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null || hudIsOpen()) return;
       // A layer opened over a Session's thread: Esc closes it, and is not the deck going back.
       if (event.key === "Escape" && document.querySelector("[data-keeps-escape]") !== null) return;
       // A menu or list open over the deck: Esc closes that, wherever focus is, and is not the deck going back.
