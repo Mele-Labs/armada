@@ -81,7 +81,7 @@ fn a_scaffolded_instrument_is_valid_at_once_wears_a_registry_glyph_and_paints_wi
     assert_eq!(found.manifest.glyph.as_deref(), Some("gauge"));
     assert!(Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../packages/icons/icons/gauge.toml")).is_file(), "the glyph is in the registry");
     let starter = std::fs::read_to_string(mods.join("reviews/instrument.js")).expect("the starter");
-    for wanted in ["host.face(paint)", "ink.run", "export default function Instrument({ host })", "return el("] {
+    for wanted in ["host.face(paint, { moves: true })", "ink.run", "export default function Instrument({ host })", "return el("] {
         assert!(starter.contains(wanted), "{wanted}: {starter}");
     }
 }

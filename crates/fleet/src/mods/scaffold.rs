@@ -106,17 +106,18 @@ const STARTER_INSTRUMENT: &str = "\
 // `paint` is `(draw, { w, h, t, ink }) => void` on a 2D canvas context. `host.face(paint, { moves: true })` asks for repaints
 // over time; otherwise the face repaints only when the component calls `host.face` again.
 // There is no `import`: everything the instrument uses comes through `host`. Check it with validate_mod.
-const paint = (draw, { w, h, ink }) => {
+const paint = (draw, { w, h, t, ink }) => {
+  const bar = w * 0.22;
   draw.fillStyle = ink.off;
   draw.fillRect(8, h / 2 - 2, w - 16, 4);
   draw.fillStyle = ink.run;
-  draw.fillRect(8, h / 2 - 2, (w - 16) / 3, 4);
+  draw.fillRect(8 + ((t * 0.5) % 1) * (w - 16 - bar), h / 2 - 2, bar, 4);
 };
 
 export default function Instrument({ host }) {
   const { createElement: el, useEffect } = host.React;
   useEffect(() => {
-    host.face(paint);
+    host.face(paint, { moves: true });
   }, []);
   const bar = (width, at) => el(\"div\", { key: at, style: { width, height: \"var(--space-2)\", background: \"color-mix(in srgb, var(--fg-default) 7%, transparent)\" } });
   return el(\"div\", { style: { display: \"grid\", gap: \"var(--space-3)\", padding: \"var(--space-4)\" } }, [\"40%\", \"90%\", \"75%\"].map(bar));

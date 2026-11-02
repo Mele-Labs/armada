@@ -2,17 +2,17 @@
 // Main build starts as Fleet's starter and is rewritten when the Job finishes.
 
 /** What `scaffold_mod` writes for an instrument (`crates/fleet/src/mods/scaffold.rs`). */
-export const STARTER = `const paint = (draw, { w, h, ink }) => {
+export const STARTER = `const paint = (draw, { w, h, t, ink }) => {
   draw.fillStyle = ink.off;
   draw.fillRect(8, h / 2 - 2, w - 16, 4);
   draw.fillStyle = ink.run;
-  draw.fillRect(8, h / 2 - 2, (w - 16) / 3, 4);
+  draw.fillRect(8 + ((t * 0.5) % 1) * (w - 16 - w * 0.22), h / 2 - 2, w * 0.22, 4);
 };
 
 export default function Instrument({ host }) {
   const { createElement: el, useEffect } = host.React;
   useEffect(() => {
-    host.face(paint);
+    host.face(paint, { moves: true });
   }, []);
   const bar = (width, at) => el("div", { key: at, style: { width, height: "var(--space-2)", background: "color-mix(in srgb, var(--fg-default) 7%, transparent)" } });
   return el("div", { style: { display: "grid", gap: "var(--space-3)", padding: "var(--space-4)" } }, ["40%", "90%", "75%"].map(bar));

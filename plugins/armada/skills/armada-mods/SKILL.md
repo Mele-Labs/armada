@@ -1,6 +1,6 @@
 ---
 name: armada-mods
-description: How a job makes a mod end to end — a theme (colours), a layout (which tabs, panels and places are drawn, and in what order), a tracker (an issue tracker Armada was not built for), a tab (a React component drawn in a pane of a Job), or an instrument (a React component with a face drawn on a bay of the Cockpit console). Scaffold it, edit its one file, check it, and tell the owner where to see it. Load when the owner asks for a different look, colours, a theme, to move, hide or reorder something in Bridge, or to use an issue tracker Armada does not support, for a tab that shows something in a Job's panes, or for an instrument or something on the console's bays.
+description: How a job makes a mod end to end — a theme (colours), a layout (which tabs, panels and places are drawn, and in what order), a tracker (an issue tracker Armada was not built for), a tab (a React component drawn in a pane of a Job), or an instrument (a React component with a face drawn on a bay of the Cockpit console). Scaffold it, edit its one file, check it, and tell the owner where to see it. Load when the owner asks for a different look, colours, a theme, to move, hide or reorder something in Bridge, to use an issue tracker Armada does not support, for a tab that shows something in a Job's panes, or for an instrument or something on the console's bays.
 ---
 
 # Making a mod
