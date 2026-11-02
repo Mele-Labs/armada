@@ -260,7 +260,7 @@ function glyphOn(g: Graphics, name: string, cx: number, cy: number, size: number
     drawn.set(at, svg);
   }
   const k = size / BOARD;
-  g.save().translateTransform(cx, cy).scaleTransform(k, k).translateTransform(-BOARD / 2, -BOARD / 2).svg(svg).restore();
+  g.save().setTransform(k, 0, 0, k, cx - (BOARD / 2) * k, cy - (BOARD / 2) * k).svg(svg).restore();
 }
 
 const INSTRUMENTS: Record<Exclude<Kind, "dispatch">, Instrument> = {
@@ -374,11 +374,12 @@ const INSTRUMENTS: Record<Exclude<Kind, "dispatch">, Instrument> = {
   key: {
     // A cap standing on the screen's floor, its top edge lit as the matrix cells' are, and the glyph on it. The word is the lip's, DOM text.
     fixed(g, b, s) {
-      const side = Math.min(b.w, b.h) * 0.86;
+      const side = Math.min(b.w, b.h) * 0.78;
       const [x, y] = [b.cx - side / 2, b.cy - side / 2];
-      g.roundRect(x, y, side, side, side * 0.12).fill(b.mat.off);
-      g.rect(x + side * 0.04, y, side * 0.92, Math.min(side * 0.14, b.hy * 3)).fill(b.mat.offTop);
-      glyphOn(g, s.glyph ?? "zap", b.cx, b.cy, side * 0.5, s.pressed ? b.tone.accent : s.lit ? b.tone.fg : b.tone.muted);
+      g.roundRect(x, y + side * 0.08, side, side, side * 0.12).fill(b.mat.gap);
+      g.roundRect(x, y, side, side, side * 0.12).fill(b.mat.hood);
+      g.rect(x + side * 0.06, y, side * 0.88, Math.min(side * 0.1, b.hy * 2.5)).fill(b.mat.glint);
+      glyphOn(g, s.glyph ?? "zap", b.cx, b.cy, side * 0.5, s.pressed ? b.tone.accent : b.tone.fg);
     },
   },
   needles: {

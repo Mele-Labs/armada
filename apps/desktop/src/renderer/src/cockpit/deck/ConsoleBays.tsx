@@ -34,6 +34,8 @@ const TILE_OF: Partial<Record<InstrumentId, string>> = { matrix: "checks", beaco
 const TIP_OF: Partial<Record<string, string>> = { checks: "Checks: only what is running one" };
 
 const PAGE = "page:";
+/** A Page tile's stencil, as the instruments have one: the first letters of its label. Decoration only. */
+const stencilOf = (label: string): string => label.replace(/[^a-z0-9]/gi, "").slice(0, 3).toUpperCase();
 const isSeat = (one: unknown): one is Seat => typeof one === "string" && (one in INSTRUMENTS || one.startsWith(PAGE));
 /** The Page tiles the owner added to the deck, which the tray offers. */
 const pagesOf = (tiles: readonly Tile[]): Tile[] => tiles.filter((one) => one.builtIn === undefined && one.kind === "page");
@@ -411,7 +413,7 @@ export function ConsoleRack({ host, tiles, onDone }: { host: HTMLElement | null;
           {seated.map((id, at) => {
             const page = pageOf(id, tiles);
             // A Page tile since deleted is an empty socket here as it is on the console.
-            const meta = id === null || (id.startsWith(PAGE) && page === undefined) ? undefined : page !== undefined ? { label: page.label, Icon: glyphOf(page.glyph, "zap"), code: undefined } : INSTRUMENTS[id as InstrumentId];
+            const meta = id === null || (id.startsWith(PAGE) && page === undefined) ? undefined : page !== undefined ? { label: page.label, Icon: glyphOf(page.glyph, "zap"), code: stencilOf(page.label) } : INSTRUMENTS[id as InstrumentId];
             const Icon = meta?.Icon;
             return (
               <Tooltip key={at} label={meta?.label ?? `Bay ${at + 1}`} asChild>
@@ -449,7 +451,7 @@ export function ConsoleRack({ host, tiles, onDone }: { host: HTMLElement | null;
         </div>
         <div className="console-tray" ref={tray} role="listbox" aria-label="Instruments" onKeyDown={(event) => along(event, ".console-tray__item")}>
           {IN_THE_TRAY.map((id) => item(id, INSTRUMENTS[id].label, INSTRUMENTS[id].Icon, INSTRUMENTS[id].code))}
-          {pages.map((one) => item(`${PAGE}${one.id}`, one.label, glyphOf(one.glyph, "zap")))}
+          {pages.map((one) => item(`${PAGE}${one.id}`, one.label, glyphOf(one.glyph, "zap"), stencilOf(one.label)))}
           <Tooltip label="Add an action" asChild>
             <button type="button" role="option" aria-selected={false} aria-label="Add action" className="console-tray__item" onClick={() => setAdding(true)}>
               <Plus size={16} aria-hidden="true" />
