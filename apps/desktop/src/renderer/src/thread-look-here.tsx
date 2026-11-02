@@ -216,7 +216,10 @@ function Held({ seed, children }: { seed: ThreadLookSeed; children: ReactNode })
       listen: (onWord, onEnd) => {
         // A seed with no words plays a refusal: the microphone is off, as on a Mac that has not allowed it, unless it says otherwise.
         if (seed.heard === "") {
-          const refused = window.setTimeout(() => onEnd?.(seed.refusal ?? "microphone_denied"), WORD_MS);
+          const refused = window.setTimeout(
+            () => onEnd?.(seed.refusal ?? "microphone_denied"),
+            WORD_MS,
+          );
           return () => window.clearTimeout(refused);
         }
         const words = seed.heard.split(/\s+/).filter((one) => one !== "");
