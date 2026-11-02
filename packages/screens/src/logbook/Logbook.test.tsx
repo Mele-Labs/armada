@@ -8,6 +8,8 @@ import { afterEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookOrganize, LogbookOrganizeApplied, LogbookOrganizeDismissed, LogbookOrganizing, LogbookRead, LogbookTidy, OrganizeProposal } from "@armada/protocol";
 
+import { useStateMenu } from "@armada/components";
+
 import { Logbook } from "./Logbook";
 import { forgetTidyWatch } from "./tidy-watch";
 import { mount, rerender, unmount } from "../mounted";
@@ -391,9 +393,19 @@ test("an entry's line reads its title, or the first clause of its rule where it 
   await expect.element(detail().getByText(/never rake/)).toBeVisible();
 });
 
+/** What a host draws under Retros: its own frames hold the State menu, so Retros can be left from them. */
+function Fixes() {
+  return (
+    <div>
+      {useStateMenu()}
+      <p>The retro items</p>
+    </div>
+  );
+}
+
 test("the retro items are a tab of their own, drawn in place of the entries", async () => {
   const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: true, entries: [WIDGETS], tidy: { running: false }, organize: { running: false } }));
-  mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onOrganize={NONE} onDismissOrganize={DISMISSED} onApplyOrganize={NOTHING} fixes={<p>The retro items</p>} />);
+  mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onOrganize={NONE} onDismissOrganize={DISMISSED} onApplyOrganize={NOTHING} fixes={<Fixes />} />);
   await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
   expect(page.getByText("The retro items").elements()).toHaveLength(0);
   await inState("Retros");
@@ -406,7 +418,7 @@ test("the retro items are a tab of their own, drawn in place of the entries", as
 
 test("asked for the retro items, the Logbook opens on Retros, and turns to it again when asked while open", async () => {
   const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: true, entries: [WIDGETS], tidy: { running: false }, organize: { running: false } }));
-  const at = (toFixes: number) => <Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onOrganize={NONE} onDismissOrganize={DISMISSED} onApplyOrganize={NOTHING} fixes={<p>The retro items</p>} toFixes={toFixes} />;
+  const at = (toFixes: number) => <Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onOrganize={NONE} onDismissOrganize={DISMISSED} onApplyOrganize={NOTHING} fixes={<Fixes />} toFixes={toFixes} />;
   mount(at(1));
   await expect.element(page.getByText("The retro items")).toBeVisible();
   await inState("In use");
