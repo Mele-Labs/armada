@@ -5,7 +5,7 @@ import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions"
 import { openInPanel } from "../shared-panel/store";
 import { documentOf } from "../session-view/document-state";
 import { showLayer } from "../session-view/layers";
-import type { JudgeArtifact, JudgeKind } from "./store";
+import { askForNotes, type JudgeArtifact, type JudgeKind } from "./store";
 
 /** The artifact kind of a ledger group, for the rows whose key is the address or path. */
 const BY_GROUP: Readonly<Record<string, JudgeKind>> = { page: "page", file: "file", doc: "doc" };
@@ -42,15 +42,19 @@ export function artifactOfRow(row: { key: string; title: string; sub?: string | 
   }
 }
 
-/** Opens the artifact at its notes: a pull request on its Files tab, a document in the reading layer, the plan on the card; any other on the Job's artifacts. */
+/** Opens the artifact at its notes: the whole Job on the Judge tab, a pull request on its Files tab, a document in the reading layer, the plan on the card; any other under its row in the Job's artifacts. */
 export function openAtNotes(session: Session, artifact: Pick<JudgeArtifact, "kind" | "id">): void {
+  if (artifact.kind === "job") return showLayer(session.id, "judge");
   if (artifact.kind === "pull_request") {
     const pr = attachmentsOf(session, "pull_request").find((one) => String(one.number) === artifact.id);
     if (pr !== undefined) return void openInPanel({ kind: "pr", number: pr.number, address: pr.address, tab: "files", ...(session.manifestId === undefined ? {} : { manifestId: session.manifestId }) });
   }
   if (artifact.kind === "doc") {
     const page = documentOf(session, artifact.id);
-    if (page !== undefined) return showLayer(session.id, "document", page.id);
+    if (page !== undefined) {
+      askForNotes(session.id, artifact);
+      return showLayer(session.id, "document", page.id);
+    }
   }
   if (artifact.kind === "plan") {
     const note = document.querySelector<HTMLElement>(".armada-session-thread__plan [data-finding]");
@@ -59,5 +63,6 @@ export function openAtNotes(session: Session, artifact: Pick<JudgeArtifact, "kin
       return note.focus();
     }
   }
+  askForNotes(session.id, artifact);
   showLayer(session.id, "artifacts");
 }

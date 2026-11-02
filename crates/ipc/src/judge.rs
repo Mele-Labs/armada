@@ -76,7 +76,7 @@ pub struct JudgeNote {
     /// Unique within its reading.
     pub id: String,
     /// The part it is about, in the artifact's own terms: a plan group or task id, `path:line` of a
-    /// diff, a document's paragraph. Absent, the artifact as a whole.
+    /// diff, `p:` and the words of a document's block. Absent, the artifact as a whole.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub about: Option<String>,
     /// What is wrong, in a line. Heads the note.

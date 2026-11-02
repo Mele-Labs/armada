@@ -4,6 +4,7 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { changeReplay, deckNow, startReplay } from "../cockpit/deck/store";
 import { forgetBays } from "../cockpit/deck/ConsoleBays";
 import { saveFlight } from "../cockpit/deck/flight-controls";
 import { ConsoleStage } from "../cockpit/deck/pixi/console-stage";
@@ -109,6 +110,94 @@ test("pressing Activity opens its HUD, reads pressed, and Esc returns to the fac
   await expect.poll(() => hud("activity")).toBeNull();
   expect(document.activeElement).toBe(facet("Activity").element());
   await expect.element(facet("Activity")).toHaveAttribute("aria-pressed", "false");
+});
+
+/** A row under the cursor with the map as the stage, so what Esc would do around the HUD is the cursor going. */
+async function cursored() {
+  await deck();
+  await controls().getByRole("button", { name: "Map" }).click();
+  const row = document.querySelector<HTMLElement>(".deck-list .deck-row")!;
+  (document.activeElement as HTMLElement | null)?.blur();
+  row.focus();
+  await expect.poll(() => deckNow().cursor).toBeDefined();
+  return deckNow().cursor;
+}
+const around = () => {
+  const now = deckNow();
+  return { cursor: now.cursor, sel: now.sel, view: now.view, focus: now.focus, replay: now.replay, checks: now.checks };
+};
+
+for (const [name, ready] of [
+  ["Activity", async () => expect.element(page.getByRole("dialog", { name: "Activity" })).toBeVisible()],
+  ["Calls", async () => expect.element(calls().getByRole("radio", { name: /^Hash/ })).toBeVisible()],
+] as const) {
+  test(`Esc in the ${name} HUD closes it and leaves the cursor, the selection and the view as they were`, async () => {
+    const cursor = await cursored();
+    await facet(name).click();
+    await ready();
+    const before = around();
+    await userEvent.keyboard("{Escape}");
+    await expect.poll(() => hud(name.toLowerCase())).toBeNull();
+    expect(around()).toEqual(before);
+    expect(deckNow().cursor).toBe(cursor);
+    expect(document.activeElement).toBe(facet(name).element());
+  });
+
+  test(`Esc in the ${name} HUD does not leave a replay`, async () => {
+    await cursored();
+    startReplay(Date.now() - 60_000);
+    // Paused: a replay that plays on ends itself at Live, which is not what Esc did.
+    changeReplay({ playing: false });
+    await facet(name).click();
+    await ready();
+    await userEvent.keyboard("{Escape}");
+    await expect.poll(() => hud(name.toLowerCase())).toBeNull();
+    expect(deckNow().replay).toBeDefined();
+  });
+
+  test(`Esc from the Jobs list with the ${name} HUD open closes only the HUD`, async () => {
+    await cursored();
+    await facet(name).click();
+    await ready();
+    const before = around();
+    const row = document.querySelector<HTMLElement>(".deck-list .deck-row")!;
+    row.focus();
+    await userEvent.keyboard("{Escape}");
+    await expect.poll(() => hud(name.toLowerCase())).toBeNull();
+    expect(around()).toEqual(before);
+  });
+}
+
+test("Esc on the Timeline closes it back to the map, and a Job opened from it goes back to the Timeline first", async () => {
+  await deck();
+  await facet("Timeline").click();
+  await expect.poll(() => deckNow().view).toBe("timeline");
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => deckNow().view).toBe("map");
+  expect(deckNow().sel).toBeUndefined();
+
+  await facet("Timeline").click();
+  const row = document.querySelector<HTMLElement>(".deck-list .deck-row")!;
+  row.click();
+  await expect.poll(() => deckNow().sel).toBeDefined();
+  // The Job's box may hold focus: its first Esc leaves the box, as it does today, and the next goes back.
+  for (let i = 0; i < 3 && deckNow().sel !== undefined; i += 1) {
+    await userEvent.keyboard("{Escape}");
+    await new Promise((done) => window.setTimeout(done, 100));
+  }
+  expect(deckNow().sel).toBeUndefined();
+  expect(deckNow().view).toBe("timeline");
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => deckNow().view).toBe("map");
+});
+
+test("Esc on the map at rest closes no view, and the Checks filter is not a view Esc leaves", async () => {
+  await deck();
+  await facet("Checks").click();
+  await expect.element(facet("Checks")).toHaveAttribute("aria-pressed", "true");
+  await userEvent.keyboard("{Escape}");
+  expect(deckNow().view).toBe("map");
+  expect(deckNow().checks).toBe(true);
 });
 
 test("an instrument is seated in a bay from the rack by keyboard, and Esc takes an edit back", async () => {
