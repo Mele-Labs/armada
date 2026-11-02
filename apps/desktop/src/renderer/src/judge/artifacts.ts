@@ -42,8 +42,9 @@ export function artifactOfRow(row: { key: string; title: string; sub?: string | 
   }
 }
 
-/** Opens the artifact at its notes: a pull request on its Files tab, a document in the reading layer, the plan on the card; any other on the Job's artifacts. */
+/** Opens the artifact at its notes: the whole Job on the Judge tab, a pull request on its Files tab, a document in the reading layer, the plan on the card; any other under its row in the Job's artifacts. */
 export function openAtNotes(session: Session, artifact: Pick<JudgeArtifact, "kind" | "id">): void {
+  if (artifact.kind === "job") return showLayer(session.id, "judge");
   if (artifact.kind === "pull_request") {
     const pr = attachmentsOf(session, "pull_request").find((one) => String(one.number) === artifact.id);
     if (pr !== undefined) return void openInPanel({ kind: "pr", number: pr.number, address: pr.address, tab: "files", ...(session.manifestId === undefined ? {} : { manifestId: session.manifestId }) });
@@ -62,5 +63,6 @@ export function openAtNotes(session: Session, artifact: Pick<JudgeArtifact, "kin
       return note.focus();
     }
   }
+  askForNotes(session.id, artifact);
   showLayer(session.id, "artifacts");
 }

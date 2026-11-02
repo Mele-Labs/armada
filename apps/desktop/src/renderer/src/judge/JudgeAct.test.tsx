@@ -7,7 +7,8 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { JudgeReading } from "@armada/protocol";
 
 import { JudgeAct } from "./JudgeAct";
-import { provideJudge, putReadings, type JudgeApi, type JudgeArtifact } from "./store";
+import { closeLayer, layerOver } from "../session-view/layers";
+import { openJudge, provideJudge, putReadings, type JudgeApi, type JudgeArtifact } from "./store";
 import "../styles/index.css";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -30,6 +31,7 @@ afterEach(() => {
     host.remove();
   }
   provideJudge(undefined);
+  act(() => closeLayer());
 });
 
 function mount(artifact = ARTIFACT) {
@@ -134,4 +136,34 @@ test("no count is drawn, whatever the reading holds", () => {
   act(() => putReadings(JOB, [reading({ notes: [{ id: "n1", claim: "One" }, { id: "n2", claim: "Two" }, { id: "n3", claim: "Three" }] })]));
   const host = mount();
   expect(host.textContent).not.toMatch(/\d/);
+});
+
+const WHOLE: JudgeArtifact = { kind: "job", id: JOB, title: "Switch sign-in" };
+
+test("the Judge of the whole Job opens no box: its press and its key bring the Judge tab forward", () => {
+  const host = mount(WHOLE);
+  const button = host.querySelector<HTMLButtonElement>("button[data-judge='job']")!;
+  expect(button.getAttribute("aria-haspopup")).toBeNull();
+  act(() => button.click());
+  expect(popover()).toBeNull();
+  expect(layerOver(JOB)).toBe("judge");
+  act(() => closeLayer());
+  act(() => openJudge(JOB, WHOLE));
+  expect(popover()).toBeNull();
+  expect(layerOver(JOB)).toBe("judge");
+});
+
+test("a press on an artifact's Judge leaves the tabs as they are", () => {
+  const host = mount();
+  act(() => press(host).click());
+  expect(layerOver(JOB)).toBeUndefined();
+});
+
+test("an act a narrow head has put out of sight opens its box in the middle of the window", () => {
+  const host = mount();
+  host.hidden = true;
+  act(() => openJudge(JOB, ARTIFACT));
+  const at = popover()!.getBoundingClientRect();
+  expect(at.top).toBeGreaterThan(0);
+  expect(Math.abs(at.left + at.width / 2 - window.innerWidth / 2)).toBeLessThan(2);
 });

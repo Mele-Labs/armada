@@ -1,5 +1,5 @@
 // Fleet's Judge as the mock answers it: the four routes (`ask_judge`, `send_judge_note`, `dismiss_judge_note`, `mark_judge_read`) over the Job the scenario
-// holds, publishing the readings on the Job as `judge_readings` does. A press reads for two seconds, then the reading arrives with its notes. A pull request, the plan
+// holds, publishing the readings on the Job as `judge_readings` does. A press reads for two seconds (three for the whole Job), then the reading arrives with its notes. A pull request, the plan
 // a document and the whole Job are answered with notes, a commit with none, and a walk page, a sketch and a command with one note on the whole of them. When the press carried a
 // prompt, the first note answers it. The mock does not read: it answers.
 
@@ -13,6 +13,11 @@ import type { SessionsStore } from "./sessions/script";
 
 /** How long a judge reads before it answers. */
 const READS_MS = 2000;
+/** The Judge tab's skeleton is on screen long enough to be looked at. */
+const READS_JOB_MS = 3000;
+/** A prompt that makes the reading fail, so a walk can show one. */
+export const FAILS = "the deploy is safe";
+const FAILED = "The judge stopped before it answered. Fleet restarted while it was reading.";
 
 export const MIDDLEWARE = "crates/api/src/auth/middleware.rs";
 export const TOKENS = "crates/api/src/auth/tokens.rs";
@@ -101,8 +106,9 @@ export function mockJudge(store: Pick<SessionsStore, "get" | "edit" | "send">): 
       put(job, reading);
       const handle = window.setTimeout(() => {
         timers.delete(handle);
-        put(job, { ...reading, state: "done", finished_at: new Date().toISOString(), notes: notesFor({ artifact, prompt }) });
-      }, READS_MS);
+        const finished_at = new Date().toISOString();
+        put(job, prompt === FAILS ? { ...reading, state: "failed", finished_at, failed: FAILED } : { ...reading, state: "done", finished_at, notes: notesFor({ artifact, prompt }) });
+      }, artifact.kind === "job" ? READS_JOB_MS : READS_MS);
       timers.add(handle);
       return { ok: true, value: reading };
     },

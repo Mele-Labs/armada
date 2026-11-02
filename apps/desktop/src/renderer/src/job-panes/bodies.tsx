@@ -18,7 +18,6 @@ import { InlinePanel } from "../shared-panel/side";
 import { openInPanel, type PanelItem } from "../shared-panel/store";
 import { IssueRow } from "../session-view/IssuesBlock";
 import { PullRow } from "../session-view/LedgerRow";
-import { JudgeLooseNotes } from "../judge/notes";
 import { Groups } from "../session-view/SessionLayers";
 import { artifactsOf, linkedSessionsOf } from "../session-view/artifacts";
 import { IssueJobCard } from "../issues-tab/marks";
@@ -178,7 +177,6 @@ export function LedgerBody({ session, entries, onOpenSession }: { session: Sessi
   const groups = useMemo(() => artifactsOf(session, entries, { sessions, open: onOpenSession }), [session, entries, sessions, onOpenSession]);
   return (
     <div className="job-pane__scroll">
-      <JudgeLooseNotes job={session.id} />
       <Groups groups={groups} session={session} />
     </div>
   );

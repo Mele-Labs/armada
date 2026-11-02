@@ -1,5 +1,5 @@
 // The Judge act: a balance on an artifact's row, in the Thread's head for the whole Job, and on the plan card. A press opens a small popover that asks what
-// to verify; nothing is read until Judge is pressed in it, and once a reading has notes the box leads to them. The icon then reads the state of the last reading: a pulsing mark while it reads, a dot while its
+// to verify; nothing is read until Judge is pressed in it, and once a reading has notes the box leads to them. The Judge of the whole Job opens no popover: its press brings the Judge tab forward, which asks in a box of its own (`JudgeTab.tsx`). The icon then reads the state of the last reading: a pulsing mark while it reads, a dot while its
 // notes are unread, a check after a clean one. A reading that failed says why in the tooltip and leaves the balance as it was. No count is drawn.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -7,9 +7,10 @@ import { createPortal } from "react-dom";
 import { CircleCheck, CircleDot, Scale } from "lucide-react";
 import { Button, Textarea, Tooltip } from "@armada/components";
 
+import { showLayer } from "../session-view/layers";
 import { useSessions } from "../sessions-draft";
 import { openAtNotes } from "./artifacts";
-import { keyOf, registerOpener, useJudgeApi, useJudgeRecord, type JudgeArtifact } from "./store";
+import { askForNotes, keyOf, registerOpener, useJudgeApi, useJudgeRecord, type JudgeArtifact } from "./store";
 import "./judge.css";
 
 const PLACEHOLDER = "existing sign-ins survive the switch";
@@ -25,6 +26,8 @@ function JudgePopover({ job, artifact, anchor, into, noted, onRun, onClose }: { 
   useLayoutEffect(() => {
     const at = anchor.getBoundingClientRect();
     const width = panel.current?.offsetWidth ?? 0;
+    // An act a narrow head has put in its ellipsis menu has no box to stand under, so the popover opens in the middle of the window.
+    if (at.width === 0) return setPlace({ top: window.innerHeight / 4, left: (window.innerWidth - width) / 2 });
     setPlace({ top: at.bottom + 4, left: Math.max(8, Math.min(at.right - width, window.innerWidth - width - 8)) });
   }, [anchor]);
   useEffect(() => {
@@ -102,7 +105,13 @@ export function JudgeAct({ job, artifact, label = "Judge", size = 16, shortcut, 
   // The Tooltip takes the button's ref for itself, so the act finds its button through a box that draws nothing.
   const wrap = useRef<HTMLSpanElement>(null);
   const button = () => wrap.current?.querySelector("button") ?? null;
-  useEffect(() => registerOpener(job, artifact, () => setOpen(true)), [job, artifact.kind, artifact.id]);
+  const whole = artifact.kind === "job";
+  // The tab takes the keyboard in its box as it comes forward, as the popover's box does.
+  const toTab = () => {
+    askForNotes(job, artifact);
+    showLayer(job, "judge");
+  };
+  useEffect(() => registerOpener(job, artifact, () => (whole ? toTab() : setOpen(true))), [job, artifact.kind, artifact.id]);
   if (api === undefined) return null;
   const reading = record?.state === "reading";
   const unread = record?.state === "done" && !record.read && record.notes.some((one) => one.settled === undefined);
@@ -116,7 +125,7 @@ export function JudgeAct({ job, artifact, label = "Judge", size = 16, shortcut, 
   return (
     <span ref={wrap} className="judge-act">
       <Tooltip label={said} {...(shortcut === undefined ? {} : { shortcut })} asChild>
-        <Button variant="ghost" size="sm" iconOnly aria-label={label} aria-haspopup="dialog" aria-expanded={open} aria-busy={reading || undefined} data-running={reading || undefined} data-judge={artifact.kind} onClick={() => setOpen(!open)}>
+        <Button variant="ghost" size="sm" iconOnly aria-label={label} {...(whole ? {} : { "aria-haspopup": "dialog" as const, "aria-expanded": open })} aria-busy={reading || undefined} data-running={reading || undefined} data-judge={artifact.kind} onClick={() => (whole ? toTab() : setOpen(!open))}>
           {reading ? (
             <span className="armada-session-mark" role="img" aria-label="Judge reading" data-pulsing>
               <CircleDot size={size} strokeWidth={2} aria-hidden="true" />

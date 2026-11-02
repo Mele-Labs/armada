@@ -20,8 +20,9 @@ import { closeLayer, type LayerId } from "./layers";
 import { SystemSections } from "./SystemLayer";
 import { artifactOfRow } from "../judge/artifacts";
 import { JudgeAct } from "../judge/JudgeAct";
-import { JudgeLooseNotes } from "../judge/notes";
-import { useJudgeApi } from "../judge/store";
+import { JudgeTab } from "../judge/JudgeTab";
+import { JudgeRowNotes, notedUnderRow } from "../judge/notes";
+import { keyOf, useJudgeApi, useJudgeRecords } from "../judge/store";
 import { Fact, Glyphed, LedgerRow, PullRow } from "./LedgerRow";
 import { openSlotKeyInPanel } from "../shared-panel/store";
 import { LanesBody } from "../shared-panel/lanes";
@@ -139,6 +140,7 @@ export function Row({ row, kind, sessionId }: { row: ArtifactRow; kind: string; 
       {...(judge === undefined ? {} : { act: judge })}
       {...(row.picture === undefined ? {} : { act: <Thumb sessionId={sessionId} path={row.picture} name={`Picture of ${row.title}`} /> })}
       {...(row.closed === undefined ? {} : { act: <ReopenAct name={row.title} onPress={row.closed.onReopen} /> })}
+      {...(artifact === undefined || !notedUnderRow(artifact) ? {} : { under: <JudgeRowNotes job={sessionId} artifact={artifact} /> })}
       meta={
         <>
           {row.sub === undefined ? null : <code className="sv-ledger__sub">{row.sub}</code>}
@@ -171,7 +173,12 @@ const COMMANDS_SHOWN = 10;
 function Group({ group, session }: { group: { id: string; label: string; rows: readonly ArtifactRow[] }; session: Session }) {
   const [all, setAll] = useState(false);
   const capped = group.id === "command" && group.rows.length > COMMANDS_SHOWN;
-  const rows = capped && !all ? group.rows.slice(0, COMMANDS_SHOWN) : group.rows;
+  // A row a judge left notes under is drawn past the cap, so the notes stand where the reading's line leads.
+  const noted = useJudgeRecords(session.id).filter((one) => one.notes.length > 0).map((one) => keyOf(one.artifact));
+  const rows = capped && !all ? group.rows.filter((row, at) => {
+    const artifact = artifactOfRow(row, group.id);
+    return at < COMMANDS_SHOWN || (artifact !== undefined && noted.includes(keyOf(artifact)));
+  }) : group.rows;
   return (
     <section className="sv-layer__group" aria-label={group.label}>
       <h4 className="sv-layer__group-label">{group.label}</h4>
@@ -269,7 +276,6 @@ export function ArtifactsLayer({ session, entries, onOpenSession, onOpenSketch }
         </>
       }
     >
-      <JudgeLooseNotes job={session.id} />
       {view === "list" ? <Groups groups={shown} session={session} /> : graph.nodes.length === 0 ? null : <ArtifactGraph nodes={graph.nodes} edges={graph.edges} label="Artifact graph" />}
     </Shell>
   );
@@ -428,11 +434,21 @@ export function SystemLayer({ session, bays }: { session: Session; bays: Session
 }
 
 /** The layer that is open. */
+/** The Judge of the whole Job: how its reading stands, and the box that asks it. */
+function JudgeLayer({ session }: { session: Session }) {
+  return (
+    <Shell label="Judge">
+      <JudgeTab job={session.id} title={session.title ?? "the Job"} />
+    </Shell>
+  );
+}
+
 export function Layer({ id, session, entries, bays, onOpenCheck, onOpenSession, onOpenSketch }: { id: LayerId; session: Session; entries: readonly LedgerEntry[]; bays: SessionBays | undefined; onOpenCheck: (run: number) => void; onOpenSession: (id: string) => void; onOpenSketch?: (sketch: string, at?: string) => void }) {
   if (id === "artifacts") return <ArtifactsLayer session={session} entries={entries} onOpenSession={onOpenSession} {...(onOpenSketch === undefined ? {} : { onOpenSketch })} />;
   if (id === "subagents") return <SubagentsLayer session={session} entries={entries} />;
   if (id === "checks") return <ChecksLayer session={session} onOpenCheck={onOpenCheck} />;
   if (id === "lanes") return <LanesLayer session={session} />;
+  if (id === "judge") return <JudgeLayer session={session} />;
   if (id === "system") return <SystemLayer session={session} bays={bays} />;
   return <BaysLayer session={session} bays={bays} />;
 }

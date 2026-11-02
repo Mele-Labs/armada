@@ -57,7 +57,7 @@ A Judge act, a scale glyph, stands on every artifact in a Job's ledger and in th
 | Command, subagent, issue, note | Its ledger row |
 | The Job as a whole | The head of the Thread tab |
 
-The press opens a small box, **Verify that**, for an optional line naming what to check.
+On an artifact, the press opens a small box, **Verify that**, for an optional line naming what to check.
 Left empty, the Judge looks for **what the person or the agent missed**.
 
 > **Rule.** The Judge runs only when a person presses it.
@@ -73,6 +73,7 @@ The act on a row reads the state of the last reading.
 
 No count is drawn beside the act or the notes.
 A finished Judge puts a line in the thread saying so, and a press on it opens the artifact at its notes.
+The Judge of the whole Job has no artifact to stand in, so its press opens a Judge tab, which asks in a composer of its own and holds the reading ([The Judge](session/the-judge.md)).
 **A finished Judge raises no Needs you call**, since it asks nothing of the person.
 
 ## What the call is shown

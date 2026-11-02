@@ -217,7 +217,7 @@ Checks pulses while any of the Job's Checks runs, and is the one place that show
 Subagents pulses while any runs, and its tooltip says `Subagents running`, so no count is drawn.
 **A Job in panes draws each view as a tab, and opens no layer.**
 Its key, its icon and a call in the thread bring that kind's tab forward, or open one where the Job has none: in the pane that holds that kind, else in a new pane on the right.
-Artifacts is the Ledger tab, Bays and Workflow are tabs of their own, and a second press brings the tab forward and does not close it, since a tab closes by its ×, and Esc closes none.
+Artifacts is the Ledger tab, Bays, Workflow and the Judge of the whole Job are tabs of their own, and a second press brings the tab forward and does not close it, since a tab closes by its ×, and Esc closes none.
 `⌥1`, `⌥2` and `⌥3` bring the Done, Now and Open tabs forward in the same way, and `⌥W` the Workflow tab.
 The Field and the Job's document still float over the whole Job.
 
