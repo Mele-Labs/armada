@@ -85,6 +85,11 @@ export type ManagedWorkflow = {
   repository?: string;
   steps: readonly ManagedStep[];
   /**
+   * Set on Armada's or Yours drawn in the group of a repository that keeps no copy of it: that repository's Manifest.
+   * The row is what runs there, read only, and drawn beside its own row in Armada's or Yours.
+   */
+  runsIn?: string;
+  /**
    * Set on a file Fleet left out: its sentence for why, and the file that names it. Such a copy has no steps
    * to draw, and is found by its file and not by its id.
    */
@@ -92,7 +97,7 @@ export type ManagedWorkflow = {
 };
 
 /** One workflow copy: the source and the id name it, the Manifest it is read and acted on under, and the file where it was left out. */
-export type WorkflowRef = Pick<ManagedWorkflow, "id" | "source" | "manifestId"> & { file?: string };
+export type WorkflowRef = Pick<ManagedWorkflow, "id" | "source" | "manifestId" | "runsIn"> & { file?: string };
 
 /**
  * What names a copy: a row, which carries the file it was left out at under `leftOut`, or a ref, which carries it itself.
@@ -101,7 +106,7 @@ export type WorkflowRef = Pick<ManagedWorkflow, "id" | "source" | "manifestId"> 
  */
 export const keyOf = (one: WorkflowRef & { leftOut?: { file: string } }) => {
   const file = one.leftOut?.file ?? one.file;
-  const repository = one.source === "repository" && one.manifestId !== undefined ? `@${one.manifestId}` : "";
+  const repository = one.source === "repository" && one.manifestId !== undefined ? `@${one.manifestId}` : one.runsIn === undefined ? "" : `>${one.runsIn}`;
   return `${one.source}${repository}:${one.id}${file === undefined ? "" : `:${file}`}`;
 };
 
@@ -134,12 +139,18 @@ export type Suggestions = Readonly<Record<string, Readonly<Record<string, Sugges
 
 /**
  * Which workflows Jobs may take. `forJobs` is the setting that turns the workflow system on or off. `machine` is the ids off on this
- * machine. `repository` is the repository picked and the ids off in it, and is null on All, where a switch is the machine's.
+ * machine, and `repositories` the ids off in each repository by its Manifest id. `repository` is the repository picked, and is null
+ * on All. A row in a repository's group switches it in that repository; in Armada's and Yours, in the picked one, or on the machine
+ * on All. `onSwitch` names the Manifest, or null for the machine.
  */
 export type WorkflowSwitches = {
   forJobs: boolean;
   onForJobs: (on: boolean) => void;
   machine: readonly string[];
-  repository: { name: string; off: readonly string[] } | null;
-  onSwitch: (workflowId: string, on: boolean) => void;
+  repositories: Readonly<Record<string, readonly string[]>>;
+  repository: SwitchedIn | null;
+  onSwitch: (workflowId: string, on: boolean, manifestId: string | null) => void;
 };
+
+/** A repository a row's switch acts in: its Manifest, and its name for the tooltip. */
+export type SwitchedIn = { manifestId: string; name: string };
