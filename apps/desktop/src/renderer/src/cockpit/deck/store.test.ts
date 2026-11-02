@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { Item } from "../../Dashboard";
 import { DECK_ORDER_KEY } from "../../remembered-views";
 import type { Ship, Subject } from "./ship";
-import { arrivedOf, camera, deckNow, forgetDeck, incomingOf, keepOf, listOf, moveCursor, moveRow, openCall, placeNew, select, setScope, setView, toggleChecks, wide, withoutOpenSession } from "./store";
+import { arrivedOf, camera, deckNow, enterAutopilot, forgetDeck, goBack, incomingOf, keepOf, leaveAutopilot, listOf, moveCursor, moveRow, openCall, placeNew, select, setScope, setView, toggleChecks, wide, withoutOpenSession } from "./store";
 
 const panelFor = vi.hoisted(() => vi.fn(() => true));
 vi.mock("../../shared-panel/store", () => ({ openPullRequestInPanel: panelFor }));
@@ -142,6 +142,51 @@ test("selecting with nothing open to close leaves the camera and the map as they
   select(undefined);
   expect(camera.current).toEqual({ x: 1, y: 2, eye: 3, tilt: true });
   expect(wide.now).toBe(false);
+});
+
+const ZOOMED = { x: 1, y: 2, eye: 3, tilt: true };
+
+test("the Map key from a Job forgets the camera and has the map drawn whole", () => {
+  setView("map");
+  select({ kind: "session", key: "session:a" });
+  camera.current = ZOOMED;
+  setView("map");
+  expect(camera.current).toBeUndefined();
+  expect(wide.now).toBe(true);
+});
+
+test("coming back from the Timeline forgets the camera and has the map drawn whole", () => {
+  camera.current = ZOOMED;
+  setView("timeline");
+  setView("map");
+  expect(camera.current).toBeUndefined();
+  expect(wide.now).toBe(true);
+});
+
+test("leaving Autopilot or going back to a map left by a Job forgets the camera", () => {
+  camera.current = ZOOMED;
+  enterAutopilot();
+  leaveAutopilot();
+  expect(camera.current).toBeUndefined();
+
+  select({ kind: "session", key: "session:a" });
+  camera.current = ZOOMED;
+  goBack();
+  expect(camera.current).toBeUndefined();
+});
+
+test("the Map key on the map at rest asks it to go home, and keeps the camera for it to move", () => {
+  camera.current = ZOOMED;
+  const before = deckNow().homed;
+  setView("map");
+  expect(deckNow().homed).toBe(before + 1);
+  expect(camera.current).toEqual(ZOOMED);
+});
+
+test("the Timeline key on the map does not ask the map home", () => {
+  const before = deckNow().homed;
+  setView("timeline");
+  expect(deckNow().homed).toBe(before);
 });
 
 test("the open Session's own calls are cards in its thread and do not call from its row, the others' stay", () => {

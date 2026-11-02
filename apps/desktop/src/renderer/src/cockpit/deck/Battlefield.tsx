@@ -27,7 +27,7 @@ import { bodiesOf, labelsOf, plotNamed } from "./labels";
 import type { Play } from "./plays";
 import { FLAT, bigOf, layoutOf, type DroneIn, type P3, type Point, type PrIn, type RepoIn, type Size, type Tile } from "./layout";
 import type { BuildIn } from "./build";
-import { aimAt, camera as kept, wide } from "./store";
+import { aimAt, camera as kept, useDeck, wide } from "./store";
 import { TipLayer } from "./TipLayer";
 import { steadyTips, type Waits } from "./tip-hover";
 
@@ -281,6 +281,15 @@ export function Battlefield({ repos, drones: given, pads, goals, prs: givenPrs, 
     was.current = scope;
     homeAgain();
   }, [scope]);
+
+  // The Map key pressed on the map at rest: the window's map goes home, as the Home key does. A Job's Field is not the stage and keeps its camera.
+  const homed = useDeck((deck) => deck.homed);
+  const homedWas = useRef(homed);
+  useEffect(() => {
+    if (homedWas.current === homed) return;
+    homedWas.current = homed;
+    if (own === undefined) homeAgain();
+  }, [homed]);
 
   // An own camera is at the whole field for each `own` and each new size of the pane, and stays where he leaves it between those.
   useEffect(() => {
