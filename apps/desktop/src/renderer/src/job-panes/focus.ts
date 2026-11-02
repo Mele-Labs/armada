@@ -17,7 +17,7 @@ export function focusKind(jobId: string, kind: TabKind): void {
 }
 
 /** The tab that draws each view a Job's layers open over it, for a Job in panes. The Field and the document float over the whole Job and have none. */
-const TAB_OF: Partial<Record<LayerId, TabKind>> = { artifacts: "ledger", checks: "checks", subagents: "subagents", slot: "bays", system: "system", lanes: "workflow" };
+const TAB_OF: Partial<Record<LayerId, TabKind>> = { artifacts: "ledger", checks: "checks", subagents: "subagents", slot: "bays", system: "system", lanes: "workflow", judge: "judge" };
 
 /** A view's key for a Job in panes: its tab comes to the front, or opens by the arrival rule. False where the view has no tab and opens over the Job. */
 export function focusLayer(jobId: string, layer: LayerId): boolean {
