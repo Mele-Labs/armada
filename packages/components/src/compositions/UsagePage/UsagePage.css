@@ -257,11 +257,11 @@ g[data-quiet] > .armada-usage__seg-model { opacity: 0.3; }
 .armada-usage__colhead .armada-usage__skel, .armada-usage__rowhead .armada-usage__skel { min-height: var(--leading-2xs); }
 .armada-usage__colhead .armada-usage__skel { justify-content: center; }
 .armada-usage__legend li > .armada-usage__skel { width: 7rem; }
-.armada-usage .armada-usage__skel-track { height: 6px; border-radius: 3px; }
-.armada-usage .armada-usage__skel-meter { height: 4px; border-radius: 2px; }
-.armada-usage .armada-usage__skel-cell { height: 24px; }
-.armada-usage .armada-usage__skel-ramp { height: 14px; }
+.armada-usage .armada-usage__skel-track { height: calc(var(--space-2) - var(--space-1) / 2); border-radius: var(--radius-sm); }
+.armada-usage .armada-usage__skel-meter { height: var(--space-1); border-radius: var(--radius-sm); }
+.armada-usage .armada-usage__skel-cell { height: var(--space-6); }
+.armada-usage .armada-usage__skel-ramp { height: calc(var(--space-4) - 2 * var(--border-width)); }
 .armada-usage__skel-chart { position: relative; width: 100%; border-bottom: var(--border-width) solid var(--border-subtle); box-sizing: content-box; }
 .armada-usage .armada-usage__skel-column { position: absolute; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
 .armada-usage__panel, .armada-usage__tile { --skeleton-fill: var(--bg-raised); }
-.armada-usage .armada-usage__skel-dot { width: 14px; height: 14px; }
+.armada-usage .armada-usage__skel-dot { width: calc(var(--space-4) - 2 * var(--border-width)); height: calc(var(--space-4) - 2 * var(--border-width)); }

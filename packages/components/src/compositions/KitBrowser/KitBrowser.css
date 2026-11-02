@@ -330,5 +330,5 @@
 .armada-kit-browser__skel { display: flex; align-items: center; min-height: var(--leading-xs); }
 .armada-kit-browser__skel[data-says] { min-height: var(--leading-sm); }
 .armada-kit-browser__skel[data-title] { min-height: var(--leading-sm); }
-.armada-kit-browser__item-detail[data-pending] { display: flex; flex-direction: column; gap: var(--space-3); }
+.armada-kit-browser [data-pending].armada-kit-browser__item-detail { display: flex; flex-direction: column; gap: var(--space-3); }
 .armada-kit-browser [data-pending] { --skeleton-fill: var(--bg-sunken); }

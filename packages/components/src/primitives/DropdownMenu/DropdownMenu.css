@@ -122,8 +122,8 @@
  * has none), so labels line up. 16px is the glyphs' own size prop, which no token names. */
 .armada-dropdown-menu__icon {
   flex: none;
-  width: 16px;
-  height: 16px;
+  width: var(--space-4);
+  height: var(--space-4);
 }
 
 .armada-dropdown-menu__text {
@@ -231,8 +231,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: var(--space-4);
+  height: var(--space-4);
 }
 
 .armada-dropdown-menu__check {
