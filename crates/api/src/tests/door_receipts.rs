@@ -105,6 +105,7 @@ fn long_lived() -> SessionRecord {
         ],
         done_since: Some(at()),
         done_summary: None,
+        so_far: None,
         standing: None,
         held_until: None,
         context_breakdown: None,

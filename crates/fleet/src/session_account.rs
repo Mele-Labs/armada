@@ -4,7 +4,8 @@
 //! **Nothing here calls a model or touches a Session.** The question is laid from what Fleet
 //! detected, and the answer is read into lines the person can be shown. A line that names a file,
 //! a path, a code identifier or a tool is dropped on the way in, because the prompt asks the model
-//! not to write one and a model is not held to it.
+//! not to write one and a model is not held to it. The Job's running summary, `so_far`, is asked and
+//! read here too: one or two plain sentences, dropped whole where they name code.
 
 use crate::prompts::fill;
 
@@ -18,6 +19,8 @@ pub(crate) const SAID_MOST: usize = 8;
 /// The most lines a written account keeps, and the longest one.
 const DONE_AT_MOST: usize = 5;
 const LINE_AT_MOST: usize = 140;
+/// The longest running summary kept.
+const SO_FAR_AT_MOST: usize = 280;
 
 /// The prompt as it ships. **Not an editable setting**, as the Session proposer's is not: the answer
 /// is read by these field names.
@@ -51,6 +54,77 @@ Answer with nothing but the lines below, in this order.
 
 Reading and searching are not worth a `done:` line. A thing not yet finished is not done.";
 
+/// The prompt for the Job's running summary. Not an editable setting, for the reason `SHIPPED` is not.
+/// **It must not carry the phrase the account's question is picked out by in tests.**
+pub(crate) const SO_FAR_SHIPPED: &str = "\
+A person has a coding agent working on a Job. He is about to answer a call from it without opening \
+the Job, so he needs what it has done so far. Write that in at most two sentences, in plain words, \
+for someone who does not read code.
+
+Use the person's own words for the things he asked for. Never write a file name, a path, a \
+function or variable name, a command, or the name of a tool. Say what the work is for instead: \
+\"the sign-in page\", never \"login.tsx\". State facts in the past tense with no subject: \"Found the \
+reads happen once per Job. Added a cache, not keyed yet.\" Say what changed for the work, and leave \
+out approvals, plans and checks that passed. Do not narrate, do not praise, do not say what comes \
+next, and do not repeat what it is asking him: he can see the question. At most forty words.
+
+The summary so far, which covers the Job up to now. Keep what still matters and shorten it:
+
+{last}
+
+The person's last message:
+
+{message}
+
+What was finished this turn:
+
+{done}
+
+What the agent said this turn, oldest first:
+
+{said}
+
+Answer with nothing but the new summary.";
+
+/// What the model is shown of the Job to write its running summary.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct JobSoFar {
+    /// The summary kept so far.
+    pub last: Option<String>,
+    /// The person's last message.
+    pub message: Option<String>,
+    /// What was finished this turn, from the kept account.
+    pub done: Vec<String>,
+    /// What the agent said this turn, oldest first.
+    pub said: Vec<String>,
+}
+
+impl JobSoFar {
+    /// The question, filled in.
+    pub(crate) fn question(&self) -> String {
+        let said: Vec<String> = self.said.iter().map(|one| cut(one, SAID_AT_MOST)).collect();
+        let nothing = "(nothing yet)".to_string();
+        fill(
+            SO_FAR_SHIPPED,
+            &[
+                ("last", self.last.as_deref().unwrap_or("(nothing yet)")),
+                ("message", &self.message.as_deref().map_or(nothing, |one| cut(one, MESSAGE_AT_MOST))),
+                ("done", &listed(&self.done, "nothing yet")),
+                ("said", &listed(&said, "nothing yet")),
+            ],
+        )
+    }
+}
+
+/// The model's answer for the running summary, read: one line, or `None` where it says nothing or
+/// names code.
+pub(crate) fn read_so_far(reply: &str) -> Option<String> {
+    let joined = reply.lines().map(str::trim).filter(|line| !line.is_empty()).collect::<Vec<_>>().join(" ");
+    let line = joined.trim_matches('`').trim().trim_matches(['"', '\u{201c}', '\u{201d}']).trim();
+    let nothing = line.is_empty() || ["none", "nothing", "n/a"].contains(&line.to_lowercase().trim_end_matches('.'));
+    (!nothing && !names_code(line)).then(|| cut(line, SO_FAR_AT_MOST))
+}
+
 /// What the model is shown of the turn so far.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct TurnSoFar {
@@ -68,10 +142,6 @@ pub(crate) struct TurnSoFar {
 impl TurnSoFar {
     /// The question, filled in.
     pub(crate) fn question(&self) -> String {
-        let listed = |lines: &[String], none: &str| match lines.is_empty() {
-            true => format!("  ({none})"),
-            false => lines.iter().map(|one| format!("  - {one}")).collect::<Vec<_>>().join("\n"),
-        };
         let said: Vec<String> = self.said.iter().map(|one| cut(one, SAID_AT_MOST)).collect();
         let (groups, group_line) = match self.groups.is_empty() {
             true => (String::new(), ""),
@@ -92,6 +162,14 @@ impl TurnSoFar {
                 ("groups", &groups),
             ],
         )
+    }
+}
+
+/// `lines` as a list, or `(none)` where there are none.
+fn listed(lines: &[String], none: &str) -> String {
+    match lines.is_empty() {
+        true => format!("  ({none})"),
+        false => lines.iter().map(|one| format!("  - {one}")).collect::<Vec<_>>().join("\n"),
     }
 }
 

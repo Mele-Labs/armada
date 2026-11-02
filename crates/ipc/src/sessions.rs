@@ -1150,6 +1150,11 @@ pub struct SessionRecord {
     /// What the agent said the Job achieved, given with `all_done`. Stands and clears with `done_since`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub done_summary: Option<String>,
+    /// A hosted Job's running summary of what it has done, one or two sentences a small model
+    /// rewrites when a turn ends and when a call goes to the person. Absent until one is written,
+    /// and for a Job run in a terminal.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub so_far: Option<String>,
     /// What the Session is doing, derived by Fleet on every read from its turn, its thread and
     /// `done_since`. Absent from a Fleet that predates it, and Bridge then draws the Session as it
     /// drew it before. Since 23.86.

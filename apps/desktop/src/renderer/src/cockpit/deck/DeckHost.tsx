@@ -25,7 +25,8 @@ import { neighbourOf } from "./reorder";
 import { opensFor, placesOff } from "./system-page";
 import { TabBar } from "./TabBar";
 import { toggleLayer } from "../../session-view/layers";
-import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, moveCursor, moveRow, openCall, openSubject, release, select, selOfSubject, setFocus, setHere, setSearching, setView, showRows, useDeck } from "./store";
+import { showTimeline, toggleTimeline } from "./ConsoleTimeline";
+import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, moveCursor, moveRow, openCall, openSubject, release, select, selOfSubject, setFocus, setHere, setSearching, showMap, showRows, useDeck } from "./store";
 import { useListed } from "./listed";
 import { useShip } from "./ship";
 import { useOpenSessionInCockpitAsked } from "../../open-session";
@@ -285,17 +286,16 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
     }
     if (isPressed("deck_timeline", event)) {
       event.preventDefault();
-      setView("timeline");
-      return focusSoon("stage");
+      return state.sel !== undefined ? showTimeline() : toggleTimeline();
     }
     // `m` is the Dashboard's switch between its views, read by the deck as the map.
     if (isPressed("dashboard_view", event)) {
       event.preventDefault();
-      setView("map");
+      showMap();
       return focusSoon("stage");
     }
     // Zoom is the map's wherever focus is, while the map is what the stage is showing.
-    if (["+", "=", "-", "_", "0", "Home"].includes(event.key) && !event.shiftKey && state.sel === undefined && state.view === "map") {
+    if (["+", "=", "-", "_", "0", "Home"].includes(event.key) && !event.shiftKey && state.sel === undefined) {
       const field = document.querySelector(".bf");
       if (field !== null && !field.contains(target)) {
         event.preventDefault();
@@ -363,10 +363,6 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
         // A picked event lets go.
         event.preventDefault();
         setFocus(undefined);
-      } else if (state.view === "timeline") {
-        // The Timeline was what a bay's press opened: Esc closes it back to the map, drawn whole. A Job opened from it went back to it first, above.
-        event.preventDefault();
-        setView("map");
       } else if (state.cursor !== undefined) {
         // Then the cursor: no row is picked, and the map holds no drone's card.
         event.preventDefault();

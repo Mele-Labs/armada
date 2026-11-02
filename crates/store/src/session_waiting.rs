@@ -162,6 +162,28 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// The running summary of what a hosted Job has done, if one was written.
+    pub fn so_far(&self, session_id: &str) -> Result<Option<String>, WriteError> {
+        self.conn
+            .query_row("SELECT text FROM session_so_far WHERE session_id = ?1", [session_id], |row| row.get(0))
+            .optional()
+            .map_err(fault("reading what a job has done so far"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Keep the running summary, replacing the last. `at` is RFC3339.
+    pub fn keep_so_far(&mut self, session_id: &str, text: &str, at: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT INTO session_so_far (session_id, text, at) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(session_id) DO UPDATE SET text = excluded.text, at = excluded.at",
+                params![session_id, text, at],
+            )
+            .map(|_| ())
+            .map_err(fault("keeping what a job has done so far"))
+            .map_err(WriteError::Database)
+    }
+
     /// Forget that the agent said it was done. Whether there was anything to forget.
     pub fn clear_done(&mut self, session_id: &str) -> Result<bool, WriteError> {
         self.conn
