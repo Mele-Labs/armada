@@ -72,7 +72,7 @@ describe("what crosses from the renderer", () => {
   });
 
   it("is asked of Fleet with the root encoded, or without one for All", () => {
-    expect(debugReportPath("/Users/user/my app")).toBe("/debug_report?root=%2FUsers%2Fada%2Fmy%20app");
+    expect(debugReportPath("/Users/user/my app")).toBe("/debug_report?root=%2FUsers%2Fuser%2Fmy%20app");
     expect(debugReportPath(null)).toBe("/debug_report");
   });
 });
