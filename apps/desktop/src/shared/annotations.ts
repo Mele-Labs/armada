@@ -24,11 +24,14 @@ export const STORIES_PATH = "/__armada/stories";
 /** The literal args of a story: only strings, numbers and booleans, since the rest cannot be read off a file. */
 export type StoryArgs = Record<string, string | number | boolean>;
 
+/** One story: its name as exported, its literal args, and the story file it is in, from the repository root. */
+export type IndexedStory = { name: string; args: StoryArgs; file: string };
+
 /**
  * The stories that exist, by component name: the component's file from the repository root,
  * the story file's title, and each story's name as exported with its literal args.
  */
-export type StoryIndex = Record<string, { file: string; title: string; stories: { name: string; args: StoryArgs }[] }>;
+export type StoryIndex = Record<string, { file: string; title: string; stories: IndexedStory[] }>;
 
 /**
  * The attribute a development build stamps each element's own JSX onto, as
@@ -107,16 +110,29 @@ export type AppContext = {
 export type Source = { file: string; line: number };
 
 /** Which of the note card's tools made a change. */
-export type ChangeKind = "size" | "colour" | "fill" | "spacing" | "text";
+export type ChangeKind = "size" | "colour" | "fill" | "spacing" | "text" | "variant";
 
-export const CHANGE_KINDS: readonly ChangeKind[] = ["size", "colour", "fill", "spacing", "text"];
+export const CHANGE_KINDS: readonly ChangeKind[] = ["size", "colour", "fill", "spacing", "text", "variant"];
+
+/** What `before` reads for a variant swap on a component that had no `data-variant`. */
+export const AS_DRAWN = "as drawn";
+
+/** Where a component is defined: its name, and the file it is in from the repository root. */
+export type Definition = { component: string; file: string };
+
+/** The innermost of `names`, nearest first, that the story index knows, and its file. */
+export function definitionOf(names: readonly string[], index: StoryIndex): Definition | undefined {
+  const known = names.find((name) => index[name] !== undefined);
+  return known === undefined ? undefined : { component: known, file: index[known]!.file };
+}
 
 /**
  * One edit the person made to the element on the page, to show what he wants. `property` is the CSS
  * property, or `text` for its words. `before` is what the page drew before it, as computed; `after` what
- * he picked, as computed; `token` the design token he picked it as, where he picked one.
+ * he picked, as computed; `token` the design token he picked it as, where he picked one. A `variant`
+ * change is a story picked on the page: `after` is its name and `story` the file it is in.
  */
-export type StyleChange = { kind: ChangeKind; property: string; before: string; after: string; token?: string };
+export type StyleChange = { kind: ChangeKind; property: string; before: string; after: string; token?: string; story?: string };
 
 /**
  * One note. Written for the agent that reads it, so each field is something a
@@ -143,6 +159,11 @@ export type Annotation = {
    * the mock stamps and Bridge under `pnpm dev` does not.
    */
   source?: Source;
+  /**
+   * The innermost component in the chain that has stories, and its file. Absent where the stories
+   * were not indexed, which is anywhere but the mock, and where no component in the chain has any.
+   */
+  definition?: Definition;
   /** The components above it, nearest first. */
   owners: string[];
   /**
@@ -240,6 +261,10 @@ function isSource(v: unknown): v is Source {
   return isRecord(v) && isString(v["file"]) && isNumber(v["line"]);
 }
 
+function isDefinition(v: unknown): v is Definition {
+  return isRecord(v) && isString(v["component"]) && isString(v["file"]);
+}
+
 function isSent(v: unknown): v is Sent {
   if (!isRecord(v) || !isString(v["at"])) return false;
   return isString(v["sessionId"]) && isString(v["title"]);
@@ -267,7 +292,8 @@ function isStyleChange(v: unknown): v is StyleChange {
     isString(v["property"]) &&
     isString(v["before"]) &&
     isString(v["after"]) &&
-    (v["token"] === undefined || isString(v["token"]))
+    (v["token"] === undefined || isString(v["token"])) &&
+    (v["story"] === undefined || isString(v["story"]))
   );
 }
 
@@ -287,6 +313,7 @@ export function isAnnotation(value: unknown): value is Annotation {
     isString(value["text"]) &&
     isNullableString(value["component"]) &&
     (value["source"] === undefined || isSource(value["source"])) &&
+    (value["definition"] === undefined || isDefinition(value["definition"])) &&
     Array.isArray(value["owners"]) &&
     value["owners"].every(isString) &&
     (value["ownersFrom"] === "owner" || value["ownersFrom"] === "parent") &&
@@ -328,6 +355,7 @@ export function serializeAnnotation(note: Annotation): string {
     text: note.text,
     component: note.component,
     ...(note.source === undefined ? {} : { source: note.source }),
+    ...(note.definition === undefined ? {} : { definition: note.definition }),
     owners: note.owners,
     ownersFrom: note.ownersFrom,
     selector: note.selector,
@@ -373,6 +401,7 @@ export function requestOf(note: Annotation): string {
     `- Selector: ${note.selector}`,
   ];
   if (note.source !== undefined) lines.push(`- Source: ${note.source.file}:${note.source.line}`);
+  if (note.definition !== undefined) lines.push(definitionLine(note.definition));
   if (note.screen !== null) lines.push(`- Screen: ${note.screen}`);
   if (note.layer !== null) lines.push(`- Inside: ${note.layer}`);
   if (note.scenario !== null) lines.push(`- Mock scenario: ${note.scenario}`);
@@ -381,6 +410,9 @@ export function requestOf(note: Annotation): string {
   if (changed.length > 0) lines.push("", ...changed);
   return lines.join("\n");
 }
+
+/** The line naming a component and the file it is defined in. */
+export const definitionLine = (definition: Definition): string => `- Component: ${definition.component} in ${definition.file}`;
 
 const quoted = (change: StyleChange, value: string): string => (change.kind === "text" ? JSON.stringify(value) : value === "" ? "none" : value);
 
@@ -393,7 +425,11 @@ export function changeLines(note: Pick<Annotation, "selector" | "changes">): str
   if (changes.length === 0) return [];
   return [
     `Changes he made on the page to show what he wants, on ${note.selector}:`,
-    ...changes.map((change) => `- ${change.property}: ${quoted(change, change.before)} → ${quoted(change, change.after)}${change.token === undefined ? "" : ` (${change.token})`}`),
+    ...changes.map((change) =>
+      change.kind === "variant"
+        ? `- variant: ${change.before} → ${change.after} (story ${change.after} in ${change.story ?? "no story file"})`
+        : `- ${change.property}: ${quoted(change, change.before)} → ${quoted(change, change.after)}${change.token === undefined ? "" : ` (${change.token})`}`,
+    ),
   ];
 }
 

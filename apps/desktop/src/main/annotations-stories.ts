@@ -15,7 +15,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import ts from "typescript";
 import type { Plugin } from "vite";
 
-import { STORIES_PATH, type StoryArgs, type StoryIndex } from "../shared/annotations";
+import { STORIES_PATH, type IndexedStory, type StoryArgs, type StoryIndex } from "../shared/annotations";
 import { repositoryRoot } from "./annotations";
 
 /** Where the components' stories are, from the repository root. */
@@ -129,7 +129,7 @@ function importOf(file: ts.SourceFile, from: string, local: string): { name: str
  * exports. Null where it names no component this can find a file for. Throws
  * where the file cannot be read, which `storyIndex` reports and carries on past.
  */
-export function readStoryFile(path: string, root: string, text: string = readFileSync(path, "utf8")): { name: string; file: string; title: string; stories: { name: string; args: StoryArgs }[] } | null {
+export function readStoryFile(path: string, root: string, text: string = readFileSync(path, "utf8")): { name: string; file: string; title: string; stories: IndexedStory[] } | null {
   const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const meta = metaOf(source);
   if (meta === null) return null;
@@ -140,13 +140,14 @@ export function readStoryFile(path: string, root: string, text: string = readFil
   if (imported === null) return null;
   const titled = propertyOf(meta, "title");
   const title = titled === null ? null : literalOf(titled);
-  const stories: { name: string; args: StoryArgs }[] = [];
+  const stories: IndexedStory[] = [];
+  const storyFile = relative(root, path).split(sep).join("/");
   for (const statement of source.statements) {
     if (!ts.isVariableStatement(statement) || !statement.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) continue;
     for (const declaration of statement.declarationList.declarations) {
       if (!ts.isIdentifier(declaration.name) || declaration.initializer === undefined) continue;
       const story = bare(declaration.initializer);
-      if (ts.isObjectLiteralExpression(story)) stories.push({ name: declaration.name.text, args: argsOf(story) });
+      if (ts.isObjectLiteralExpression(story)) stories.push({ name: declaration.name.text, args: argsOf(story), file: storyFile });
     }
   }
   return { name: imported.name, file: relative(root, imported.file).split(sep).join("/"), title: typeof title === "string" ? title : imported.name, stories };
