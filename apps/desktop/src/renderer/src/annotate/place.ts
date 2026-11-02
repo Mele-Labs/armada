@@ -113,9 +113,12 @@ export function metricsOf(element: Element): Metrics {
  * How tall the card would be uncapped, taken from its content rather than its
  * box: a card already capped by a previous placement still reports what it
  * wants, so the side it is on cannot flip back and forth between two frames.
+ * The Variant tool's tiles scroll inside the card, so what they hide counts too.
  */
 export function sizeOf(node: HTMLElement): CardSize {
-  return { width: node.offsetWidth, height: node.scrollHeight + node.offsetHeight - node.clientHeight };
+  const tiles = node.querySelector("[data-tiles]");
+  const inTiles = tiles === null ? 0 : tiles.scrollHeight - tiles.clientHeight;
+  return { width: node.offsetWidth, height: node.scrollHeight + inTiles + node.offsetHeight - node.clientHeight };
 }
 
 export function samePlacementInput(a: { size: CardSize; metrics: Metrics }, b: { size: CardSize; metrics: Metrics }): boolean {
