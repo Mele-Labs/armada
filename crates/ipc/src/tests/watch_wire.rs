@@ -138,6 +138,7 @@ fn watches_changed_carries_the_jobs_list_with_its_history_and_verdicts() {
         }],
         in_terminal: None,
         regex: false,
+        terminal: None,
         login_shell: Some(LoginShell::FellBack { why: "zsh took longer than 15s to start.".into() }),
     };
     let event = Event::WatchesChanged(WatchList { session_id: SessionId::carried("s1"), watches: vec![watch] });
@@ -162,7 +163,12 @@ fn a_terminal_start_waits_on_text_and_takes_no_command() {
     .expect("a terminal start");
     assert_eq!(
         start.starts,
-        WatchStarts::Terminal { text: String::from("Listening on \\d+"), regex: true, gives_up_after: Some(String::from("10m")) }
+        WatchStarts::Terminal {
+            text: String::from("Listening on \\d+"),
+            regex: true,
+            terminal: None,
+            gives_up_after: Some(String::from("10m")),
+        }
     );
     let again: StartWatch = decode("a watch to start", encode(&start).expect("plain data").as_bytes()).expect("round trip");
     assert_eq!(again, start);

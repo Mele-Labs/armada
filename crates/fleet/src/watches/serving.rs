@@ -154,7 +154,8 @@ where
                 let gives_up_after = gives_up_after.map(|written| self.span("gives_up_after", &written)).transpose()?;
                 Ok(Resolved { command, recipe: None, environment: None, every, gives_up_after, in_terminal: None })
             }
-            WatchStarts::Terminal { text, regex, gives_up_after } => {
+            // `terminal` is read once the store keeps it; a Job has one shell until then.
+            WatchStarts::Terminal { text, regex, gives_up_after, terminal: _ } => {
                 if text.trim().is_empty() {
                     return Err(self.watch_unacceptable(REFUSED, "`in_terminal` is what to wait for, and it is blank."));
                 }

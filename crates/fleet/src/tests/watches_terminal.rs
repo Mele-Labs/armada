@@ -15,7 +15,7 @@ fn waits_for(rig: &Rig, text: &str, regex: bool) -> StartWatch {
     StartWatch {
         session_id: Some(rig.session.clone()),
         name: String::from("Server up"),
-        starts: WatchStarts::Terminal { text: text.to_string(), regex, gives_up_after: Some(String::from("10m")) },
+        starts: WatchStarts::Terminal { text: text.to_string(), regex, terminal: None, gives_up_after: Some(String::from("10m")) },
         follows: None,
         set_aside: Vec::new(),
     }

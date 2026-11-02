@@ -10,12 +10,15 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, SessionRunEvent};
-use ipc::{JobTerminal, ReadTerminal, TerminalScreen, TerminalTyped, TypeInTerminal};
+use ipc::{JobTerminal, JobTerminals, ListTerminals, ListedTerminal, ReadTerminal, RenameTerminal, TerminalScreen, TerminalTyped, TypeInTerminal};
 use tokio::sync::broadcast::error::RecvError;
 use tokio::time::Instant;
 
 use super::{other, plain, refusal, size, Ended, Launch, SessionRuns, COLS, ROWS};
 use crate::daemon::Fleet;
+
+/// The one terminal a Job has until it can hold several: every answer names it.
+pub(crate) const FIRST_TERMINAL: &str = "t1";
 
 /// How long the shell prints nothing before an agent's typing is answered.
 const QUIET: Duration = Duration::from_millis(1500);
@@ -213,6 +216,12 @@ impl SessionRuns {
         Some((id, held, Some(matched)))
     }
 
+    /// The run id of `session`'s shell, where one is in flight.
+    fn shell_in_flight(&self, session: &str) -> Option<String> {
+        let id = self.shells.lock().expect("not poisoned").get(session).cloned()?;
+        self.in_flight(&id).map(|_| id)
+    }
+
     /// What `session`'s shell prints from now on, where one is in flight: a terminal watch's.
     pub(crate) fn shell_heard(&self, session: &str) -> Option<tokio::sync::broadcast::Receiver<SessionRunEvent>> {
         let id = self.shells.lock().expect("not poisoned").get(session).cloned()?;
@@ -281,6 +290,7 @@ where
         if opened {
             self.publish(ipc::Event::TerminalOpened(JobTerminal {
                 session_id: ipc::SessionId::carried(session_id),
+                terminal: FIRST_TERMINAL.to_string(),
                 run_id: run_id.clone(),
             }));
         }
@@ -334,6 +344,7 @@ where
             .ok_or_else(|| self.not_in_flight())?;
         self.saw_shell(&session, &run_id).await;
         Ok(TerminalTyped {
+            terminal: FIRST_TERMINAL.to_string(),
             run_id,
             echoed: echoed(&typed.text, &printed),
             printed: kept(plain::last_lines(&printed, TYPED_LINES)),
@@ -361,7 +372,27 @@ where
             .await
             .ok_or_else(|| refusal("this job has no terminal open. type_in_terminal opens one", self.run_id()))?;
         self.saw_shell(&session, &run_id).await;
-        Ok(TerminalScreen { run_id, screen: kept(plain::last_lines(&held, lines)), matched })
+        Ok(TerminalScreen { terminal: FIRST_TERMINAL.to_string(), run_id, screen: kept(plain::last_lines(&held, lines)), matched })
+    }
+
+    /// The Job's open terminals: its one shell, where one is in flight.
+    pub(crate) fn job_terminals_listed(
+        &self,
+        caller: Option<api::Caller>,
+        asked: ListTerminals,
+    ) -> Result<JobTerminals, Refusal> {
+        let session = self.shell_job(caller, asked.session_id.as_ref())?;
+        let terminals = self.session_runs().shell_in_flight(&session).into_iter().map(listed).collect();
+        Ok(JobTerminals { terminals })
+    }
+
+    /// The Job's open terminal as it stands. **The name is not kept yet**: it reads `Terminal 1`.
+    pub(crate) fn job_terminal_renamed(&self, rename: RenameTerminal) -> Result<ListedTerminal, Refusal> {
+        let session = rename.session_id.as_str().trim();
+        match self.session_runs().shell_in_flight(session) {
+            Some(run_id) if rename.terminal == FIRST_TERMINAL => Ok(listed(run_id)),
+            _ => Err(refusal(format!("this job has no open terminal {}", rename.terminal), self.run_id())),
+        }
     }
 
     /// The shell `session`'s agent last typed into or read. **Kept in the store**, since the restart
@@ -387,7 +418,13 @@ where
         self.session_runs().shell_ended(session, run_id);
         self.publish(ipc::Event::TerminalExited(JobTerminal {
             session_id: ipc::SessionId::carried(session),
+            terminal: FIRST_TERMINAL.to_string(),
             run_id: run_id.to_string(),
         }));
     }
+}
+
+/// The row for the Job's one shell, with the default name.
+fn listed(run_id: String) -> ListedTerminal {
+    ListedTerminal { terminal: FIRST_TERMINAL.to_string(), name: String::from("Terminal 1"), run_id, running: false }
 }

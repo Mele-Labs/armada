@@ -1,15 +1,24 @@
-//! A Job's shell: the one terminal the person and the Job's agent both type into. Typing into it,
-//! resizing it, watching it and stopping it are the run operations, on its `run_id`.
+//! A Job's terminals: shells the person and the Job's agent both type into, each named `t1`, `t2`
+//! and so on. Typing into one, resizing it, watching it and stopping it are the run operations, on
+//! its `run_id`.
 
 use serde::{Deserialize, Serialize};
 
 use crate::sessions::SessionId;
 
-/// `open_terminal`: the person opens the Job's shell in Bridge. `POST /sessions/terminal/open`.
-/// Answered 200 with `SessionRunUnderway`: the shell already open, or one opened now.
+/// `open_terminal`: the person opens one of the Job's terminals in Bridge.
+/// `POST /sessions/terminal/open`. Answered 200 with `SessionRunUnderway`: the shell already open,
+/// or one opened now. 422 for a `terminal` the Job never had, and for `new` with `terminal`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OpenTerminal {
     pub session_id: SessionId,
+    /// Which terminal: its running shell, or a new shell under the same ID where it has ended.
+    /// Absent with `new` absent is the Job's first terminal, `t1` where it has none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal: Option<String>,
+    /// Mint the next ID and start a shell under it. Absent is `false`. Not read with `terminal`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub new: bool,
     /// The terminal's size in cells where it opens now. Absent is 80 by 24.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cols: Option<u16>,
@@ -32,8 +41,8 @@ pub struct StartTerminalRun {
     pub rows: Option<u16>,
 }
 
-/// `type_in_terminal`: the Job's agent types into the Job's shell, opening it where it has none.
-/// `POST /sessions/terminal/type`. Answered 200 with `TerminalTyped`.
+/// `type_in_terminal`: the Job's agent types into one of the Job's terminals. `POST
+/// /sessions/terminal/type`. Answered 200 with `TerminalTyped`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TypeInTerminal {
     /// Written as it is: Ctrl-C is the character 3.
@@ -51,6 +60,13 @@ pub struct TypeInTerminal {
     /// Which Job. **Read only where the connection places no hosted Job**: a terminal one's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
+    /// Which terminal. Refused 422 where it is not open. Absent with `new` absent is the one the
+    /// agent last used, else a new one. **Never the person's by default.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal: Option<String>,
+    /// Open a new terminal of the agent's own, then type. Absent is `false`. Not read with `terminal`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub new: bool,
 }
 
 fn pressed() -> bool {
@@ -60,6 +76,8 @@ fn pressed() -> bool {
 /// `type_in_terminal`'s answer: what the shell printed after the text was typed, as plain lines.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TerminalTyped {
+    /// Which terminal was typed into: `t1`, `t2`.
+    pub terminal: String,
     pub run_id: String,
     /// The screen's lines, escapes and overwrites resolved. The last 200 at most.
     pub printed: String,
@@ -70,8 +88,8 @@ pub struct TerminalTyped {
     pub echoed: bool,
 }
 
-/// `read_terminal`: the Job's agent reads the Job's shell. `GET /sessions/terminal/read`, these as
-/// its query. Answered 200 with `TerminalScreen`.
+/// `read_terminal`: the Job's agent reads one of the Job's terminals. `GET /sessions/terminal/read`,
+/// these as its query. Answered 200 with `TerminalScreen`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReadTerminal {
     /// Which Job. **Read only where the connection places no hosted Job**, as `TypeInTerminal`'s.
@@ -89,12 +107,18 @@ pub struct ReadTerminal {
     /// The longest to wait for `until`. Absent is 10; at most 60. Read only with `until`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wait_seconds: Option<u64>,
+    /// Which terminal. Absent is the one the agent last used, else the Job's first open one. Refused
+    /// 422 where it is not open, or where the Job has none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal: Option<String>,
 }
 
-/// `read_terminal`'s answer: the last lines of the Job's shell, as its screen drew them.
+/// `read_terminal`'s answer: the last lines of a Job's terminal, as its screen drew them.
 /// `GET /sessions/terminal/read`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TerminalScreen {
+    /// Which terminal was read: `t1`, `t2`.
+    pub terminal: String,
     pub run_id: String,
     /// The screen's lines, escapes and overwrites resolved.
     pub screen: String,
@@ -103,10 +127,50 @@ pub struct TerminalScreen {
     pub matched: Option<bool>,
 }
 
-/// `terminal.opened` and `terminal.exited` on `/events`: a Job's shell opened or ended, so a pane
-/// can follow it. What it prints is `observe_session_run`'s, on `run_id`.
+/// `list_terminals`: the Job's open terminals. `GET /sessions/terminal/list`, these as its query.
+/// Answered 200 with `JobTerminals`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ListTerminals {
+    /// Which Job. **Read only where the connection places no hosted Job**, as `TypeInTerminal`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
+/// `list_terminals`' answer: the Job's open terminals, the first opened first. One whose shell has
+/// ended is not listed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobTerminals {
+    pub terminals: Vec<ListedTerminal>,
+}
+
+/// One open terminal of a Job.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ListedTerminal {
+    /// `t1`, `t2`.
+    pub terminal: String,
+    /// What the person calls it: `Terminal 2` until they rename it.
+    pub name: String,
+    pub run_id: String,
+    /// Whether a program other than the shell has the foreground.
+    pub running: bool,
+}
+
+/// `rename_terminal`: the person names one of a Job's terminals. `POST /sessions/terminal/rename`.
+/// Answered 200 with the terminal as `ListedTerminal`. 422 for a terminal the Job has not open.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RenameTerminal {
+    pub session_id: SessionId,
+    pub terminal: String,
+    /// Blank restores the default name, `Terminal N`.
+    pub name: String,
+}
+
+/// `terminal.opened` and `terminal.exited` on `/events`: one of a Job's shells opened or ended, so a
+/// pane can follow it. What it prints is `observe_session_run`'s, on `run_id`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JobTerminal {
     pub session_id: SessionId,
+    /// Which terminal: `t1`, `t2`.
+    pub terminal: String,
     pub run_id: String,
 }

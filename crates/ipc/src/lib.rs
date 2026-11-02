@@ -646,7 +646,8 @@ pub use sessions::{
     WalkTold, WindowClosed, WindowFailed, WithdrawDraft, WithdrawSketch, WithdrawWindow,
 };
 pub use terminals::{
-    JobTerminal, OpenTerminal, ReadTerminal, StartTerminalRun, TerminalScreen, TerminalTyped, TypeInTerminal,
+    JobTerminal, JobTerminals, ListTerminals, ListedTerminal, OpenTerminal, ReadTerminal, RenameTerminal, StartTerminalRun, TerminalScreen,
+    TerminalTyped, TypeInTerminal,
 };
 pub use job_browser::{
     AnswerBrowserRequest, BrowserAct, BrowserAnswer, BrowserClick, BrowserError, BrowserEvaluate, BrowserLook,

@@ -143,6 +143,10 @@ pub(crate) fn mention_line(tags: &[(SessionTag, Option<String>)]) -> Option<Stri
             ),
             TagKind::Report => format!("reported bug \"{}\"", tag.title),
             TagKind::Branch => format!("branch {}", tag.id),
+            TagKind::Terminal => format!(
+                "terminal {} \"{}\" (pass {} as `terminal` to type_in_terminal or read_terminal)",
+                tag.id, tag.title, tag.id
+            ),
         })
         .collect();
     Some(format!("The person named: {}.", named.join("; ")))

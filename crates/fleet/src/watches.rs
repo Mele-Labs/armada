@@ -340,6 +340,8 @@ pub(crate) fn summary(kept: &KeptWatchWhole, login: Option<&LoginEnvironment>) -
             .collect(),
         in_terminal: held.in_terminal.clone(),
         regex: held.regex,
+        // The store keeps no terminal yet, so a terminal watch reads the Job's one shell.
+        terminal: None,
         login_shell: login.filter(|_| held.live).map(LoginEnvironment::wire),
     }
 }

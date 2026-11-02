@@ -631,8 +631,12 @@ fn describe_in(operation: &str, name: &str) -> String {
         ("get_requests", "repository") => String::from(
             "A repository root, as `list_repositories` names it. Absent, your Job's repository",
         ),
+        ("read_terminal", "terminal") => String::from(
+            "The terminal to read: an ID such as `t2`, as the person hands it to you or `list_terminals` \
+             names it. Absent, the one you last typed into or read, else the Job's first open one",
+        ),
         ("read_terminal", "until") => String::from(
-            "Text to wait for in what the shell printed since your last `type_in_terminal`, your own \
+            "Text to wait for in what the terminal printed since your last `type_in_terminal`, your own \
              text's echo included. Absent, the read does not wait",
         ),
         ("read_terminal", "regex") => String::from(
@@ -642,7 +646,7 @@ fn describe_in(operation: &str, name: &str) -> String {
             "How long to wait for `until`. Absent is 10; at most 60. Read only with `until`",
         ),
         ("read_terminal", "lines") => String::from("How many of the last lines to read. Absent is 60; at most 500"),
-        ("read_terminal", "session_id") => String::from(
+        ("read_terminal" | "list_terminals", "session_id") => String::from(
             "Your Job's id, only where you run in a terminal. A Job Armada hosts is known by its \
              connection and needs none",
         ),

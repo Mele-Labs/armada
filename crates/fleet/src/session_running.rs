@@ -37,6 +37,7 @@ use crate::daemon::Fleet;
 use crate::mint::{Mint, UlidMint};
 
 pub(crate) use ended::{fenced, Ended};
+pub(crate) use job_shell::FIRST_TERMINAL;
 
 /// Bytes of output a run keeps.
 const RING: usize = 256 * 1024;
@@ -409,7 +410,7 @@ where
             .session_runs()
             .start(launch, move |ended| async move { fleet.session_run_ended(ended).await })
         {
-            Ok(run_id) => Ok(SessionRunUnderway { run_id }),
+            Ok(run_id) => Ok(SessionRunUnderway { run_id, terminal: None }),
             Err(why) => Err(refusal(
                 format!("the command could not start in {dir}: {why}"),
                 self.run_id(),
@@ -439,7 +440,7 @@ where
             size: size(cols, rows),
         };
         match self.session_runs().start(launch, |_| async {}) {
-            Ok(run_id) => Ok(SessionRunUnderway { run_id }),
+            Ok(run_id) => Ok(SessionRunUnderway { run_id, terminal: None }),
             Err(why) => Err(refusal(
                 format!("the command could not start in {}: {why}", start.dir),
                 self.run_id(),
@@ -478,7 +479,7 @@ where
         stop: StopSessionRun,
     ) -> Result<SessionRunUnderway, Refusal> {
         if self.session_runs().stop(&stop.run_id) {
-            Ok(SessionRunUnderway { run_id: stop.run_id })
+            Ok(SessionRunUnderway { run_id: stop.run_id, terminal: None })
         } else {
             Err(self.not_in_flight())
         }
@@ -489,7 +490,7 @@ where
         write: WriteSessionRun,
     ) -> Result<SessionRunUnderway, Refusal> {
         if self.session_runs().write(&write.run_id, write.data).await {
-            Ok(SessionRunUnderway { run_id: write.run_id })
+            Ok(SessionRunUnderway { run_id: write.run_id, terminal: None })
         } else {
             Err(self.not_in_flight())
         }
@@ -503,7 +504,7 @@ where
             return Err(self.no_cells());
         }
         if self.session_runs().resize(&resize.run_id, size(resize.cols, resize.rows)) {
-            Ok(SessionRunUnderway { run_id: resize.run_id })
+            Ok(SessionRunUnderway { run_id: resize.run_id, terminal: None })
         } else {
             Err(self.not_in_flight())
         }

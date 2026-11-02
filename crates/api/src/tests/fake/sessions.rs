@@ -136,12 +136,17 @@ impl Sessions for FakeDaemon {
         self.runs_nothing_here()
     }
 
-    /// Opens nothing: answers the run id a shell for the Job would have.
+    /// Opens nothing: answers the run id a shell for the Job would have, under the terminal asked
+    /// for, `t2` where `new` is, else `t1`.
     async fn open_terminal(
         self: std::sync::Arc<Self>,
         open: ipc::OpenTerminal,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
-        Ok(ipc::SessionRunUnderway { run_id: format!("shell-of-{}", open.session_id.as_str()) })
+        let terminal = open.terminal.unwrap_or_else(|| String::from(if open.new { "t2" } else { "t1" }));
+        Ok(ipc::SessionRunUnderway {
+            run_id: format!("shell-of-{}-{terminal}", open.session_id.as_str()),
+            terminal: Some(terminal),
+        })
     }
 
     async fn start_terminal_run(
@@ -151,20 +156,55 @@ impl Sessions for FakeDaemon {
         self.runs_nothing_here()
     }
 
+    /// Types nothing: answers the text back as printed, under the terminal asked for, `t2` where
+    /// `new` is, else `t1`.
     async fn type_in_terminal(
         self: std::sync::Arc<Self>,
         _caller: Option<crate::Caller>,
-        _typed: ipc::TypeInTerminal,
+        typed: ipc::TypeInTerminal,
     ) -> Result<ipc::TerminalTyped, Refusal> {
-        self.runs_nothing_here()
+        let terminal = typed.terminal.unwrap_or_else(|| String::from(if typed.new { "t2" } else { "t1" }));
+        Ok(ipc::TerminalTyped {
+            run_id: format!("shell-{terminal}"),
+            terminal,
+            printed: typed.text,
+            still_printing: false,
+            echoed: true,
+        })
     }
 
+    /// Reads nothing: answers an empty screen under the terminal asked for, else `t1`.
     async fn read_terminal(
         &self,
         _caller: Option<crate::Caller>,
-        _asked: ipc::ReadTerminal,
+        asked: ipc::ReadTerminal,
     ) -> Result<ipc::TerminalScreen, Refusal> {
-        self.runs_nothing_here()
+        let terminal = asked.terminal.unwrap_or_else(|| String::from("t1"));
+        Ok(ipc::TerminalScreen { run_id: format!("shell-{terminal}"), terminal, screen: String::new(), matched: None })
+    }
+
+    /// Two terminals, the second with a program running in it.
+    async fn list_terminals(
+        &self,
+        _caller: Option<crate::Caller>,
+        _asked: ipc::ListTerminals,
+    ) -> Result<ipc::JobTerminals, Refusal> {
+        let row = |terminal: &str, name: &str, running| ipc::ListedTerminal {
+            terminal: terminal.into(),
+            name: name.into(),
+            run_id: format!("shell-{terminal}"),
+            running,
+        };
+        Ok(ipc::JobTerminals { terminals: vec![row("t1", "Terminal 1", false), row("t2", "dev server", true)] })
+    }
+
+    /// Echoes the terminal back under the name given, `Terminal N` where it is blank.
+    async fn rename_terminal(&self, rename: ipc::RenameTerminal) -> Result<ipc::ListedTerminal, Refusal> {
+        let name = match rename.name.trim() {
+            "" => format!("Terminal {}", rename.terminal.trim_start_matches('t')),
+            named => named.to_string(),
+        };
+        Ok(ipc::ListedTerminal { run_id: format!("shell-{}", rename.terminal), terminal: rename.terminal, name, running: false })
     }
 
     async fn drive_browser(
