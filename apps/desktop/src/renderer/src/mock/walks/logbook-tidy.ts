@@ -19,7 +19,8 @@ const logbookTidy = walk("logbook-tidy", [
   { look: text("Merged 8 entries"), say: "How many it merged, and nothing else" },
   { look: inside(ENTRIES, text(/Run pnpm exec vitest run/)), say: "In use is down to the entries that were kept" },
   { look: inside(ENTRY, text(/^Merged/)), say: "The open one keeps what it absorbed under Earlier, as Merged" },
-  { press: role("tab", "Archived"), say: "The merged ones are under Archived, kept and searchable" },
+  { press: button("State"), say: "State" },
+  { press: role("menuitem", "Archived"), say: "The merged ones are under Archived, kept and searchable" },
 ]);
 
 export { logbookTidy as "logbook-tidy" };

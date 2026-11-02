@@ -210,7 +210,7 @@ mark until the press answers.
 
 | Where | What |
 | --- | --- |
-| **Retros**, a tab of the Logbook (glyph `rewind`, Proposed, on the palette's row) | `list_lessons`, narrowed to the picker's pick and every repository on All, newest first, with no place tabs. On the left a log, a line an item: whose way it got in and where its fix lands, its title, its Job and when it was written. On the right the open item's card with its own acts, and its record; its Job opens that Job's retro |
+| **Retros**, a tab of the Logbook (glyph `rewind`, Proposed, on the palette's row) | `list_lessons`, narrowed to the picker's pick and every repository on All, newest first, with no place tabs. On the left a list, a card an item: whose way it got in and where its fix lands as marks, its title, its Job and when it was written, under a strip of State, Show (Open or Accepted) and Review. On the right the open item under its own head, which holds its title and its acts; its card holds what happened and what would change, and its record says whose way it got in, where its fix lands, its Job and when it was written. The Job opens that Job's retro |
 | **Retro**, in a Job's thread | One card that stays, below |
 
 Both read when they open and again when the window regains focus, because
@@ -223,6 +223,7 @@ words with their marks beside them and each its own hue, then the `title`, what
 happened, the `fix` under the label `What would change`, and the answers.
 The cited record rows sit behind an `Evidence` control.
 `packages/components/src/compositions/LessonCard`.
+The Retros page splits the open item: its title and answers are the head's, its route is the record's, and its card keeps the rest. The sheet and the review draw it whole, answers in the card.
 
 **The hues are not status hues.** Whose way: Agent `--tool-change`, You
 `--tool-look`, Fleet `--tool-run`. Where: Armada `--accent`, Kit `--diff-add-fg`,

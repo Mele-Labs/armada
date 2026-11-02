@@ -127,6 +127,16 @@ test("one card at a time, with the model's reason and the list's own answers", a
   await expect.element(page.getByRole("button", { name: "Reject change" })).toBeVisible();
 });
 
+test("the review draws the answers in its card, as the sheet does, and they are ghost", async () => {
+  opened();
+  await start();
+  const card = page.getByRole("listitem");
+  for (const name of ["Start Job", "Reject change"]) {
+    await expect.element(card.getByRole("button", { name, exact: true })).toBeVisible();
+    await expect.element(card.getByRole("button", { name, exact: true })).toHaveAttribute("data-variant", "ghost");
+  }
+});
+
 test("an answer is the list's answer, and the review moves on to the next card", async () => {
   const { startSession } = opened();
   await start();
