@@ -2,12 +2,13 @@
 // edge, the wings sweeping toward the viewer. Each facet is drawn flat, with its instrument, onto a texture (`console-art.ts`), and the texture is put
 // on the facet's projected quad, so the instrument skews with the surface. Hood, lip, front wall and ribs are bands of flat polygons, lit from above.
 // The page lays a transparent button and a straight label over each facet (`ConsoleBays.tsx`), which keep the presses, tooltips and words.
-// No gradients and no glow: the depth is the projection, the layering and the hard edges. Does not touch the map's stage.
+// No gradients and no glow: the depth is the projection, the layering and the hard edges. `&lit=1` alone adds the screens' light: one blur over all of it (`bloom`).
+// Does not touch the map's stage.
 
 import "pixi.js/unsafe-eval";
-import { Application, Container, Graphics, PerspectiveMesh, RenderTexture, Ticker } from "pixi.js";
+import { Application, BlurFilter, Container, Graphics, PerspectiveMesh, RenderTexture, Ticker } from "pixi.js";
 
-import { drawLive, drawPlate, keySpots, materialsOf, readTones, type BayState, type Materials, type Paint, type Tones } from "./console-art";
+import { drawLights, drawLive, drawPlate, glassOf, keySpots, materialsOf, readTones, type BayState, type Materials, type Paint, type Tones } from "./console-art";
 
 export type { BayState, Dot, Kind } from "./console-art";
 export type Rect = { x: number; y: number; w: number; h: number };
@@ -20,11 +21,16 @@ export type Label = { x: number; y: number; angle: number; size: number };
 export type Layout = { width: number; height: number; inner: Rect[]; labels: Label[]; rim: Rect | undefined };
 
 /** How wide each facet is, in units of one ordinary facet, and which facet carries Dispatch as a key on its lip (none where Dispatch is a facet). */
-export type Plan = { widths: readonly number[]; depths: readonly number[]; keyed: number | undefined };
+export type Plan = { widths: readonly number[]; depths: readonly number[]; keyed: number | undefined; lit: boolean };
 const FW = 190;
 const FH = 108;
 /** A facet's texture holds this many texels for each device pixel it lands on, so it is never magnified and nothing minifies enough to shimmer. */
 const TEXELS = 1.5;
+/** The lights are only blurred, so their textures can be coarse: this many texels for each CSS pixel. */
+const LIGHT_TEXELS = 0.75;
+/** How far the light spreads, in CSS pixels on a console 1056 wide, and how much of it lands. */
+const BLOOM = { spread: 9, strength: 0.75 };
+const SPILL = 0.4;
 
 // ---- The projection: a pinhole over a cone ----------------------------------------------------------------
 
@@ -131,7 +137,7 @@ function labelsOf(world: World, plan: Plan): Label[] {
     }
     return { ...inQuad(lip, 0.5, 0.58), angle: edge(lip), size };
   });
-  if (world.keyQuad !== undefined) labels.push({ ...inQuad(world.keyQuad, keySpots(span(world.keyQuad[3], world.keyQuad[2])).word, 0.6), angle: edge(world.keyQuad), size: 12 });
+  if (world.keyQuad !== undefined) labels.push({ ...inQuad(world.keyQuad, keySpots(span(world.keyQuad[3], world.keyQuad[2])).word, 0.64), angle: edge(world.keyQuad), size: 12 });
   return labels;
 }
 
@@ -156,8 +162,10 @@ type Facet = {
   root: Container;
   art: Container;
   plate: Graphics;
-  /** The screen's moving layer. A lit-screen effect would attach here, once, as a filter on this layer. */
+  /** The screen's moving layer. */
   live: Graphics;
+  /** Where the console is lit (`&lit=1`): the facet's light sources on a coarse texture of their own, `live` among them, and that texture on the facet's quad. */
+  light: { root: Container; art: Container; fixed: Graphics; tex: RenderTexture; mesh: PerspectiveMesh } | undefined;
   /** The surface's true proportions, which keep a circle on it a circle before the projection. */
   aspect: number;
   paint: Paint;
@@ -178,10 +186,15 @@ export class ConsoleStage {
   private shell = new Graphics();
   private over = new Graphics();
   private ribs = new Graphics();
+  /** Every facet's lights, under one blur, added over the rest. Only where the console is lit. */
+  private bloom: Container | undefined;
+  private blur: BlurFilter | undefined;
+  /** The light each screen throws onto the nose of the lip below it. */
+  private spill = new Graphics();
   private tone: Tones | undefined;
   private mat: Materials | undefined;
   private bays: BayState[] = [];
-  private plan: Plan = { widths: [1, 1, 1, 1, 1], depths: [1, 1, 1, 1, 1], keyed: undefined };
+  private plan: Plan = { widths: [1, 1, 1, 1, 1], depths: [1, 1, 1, 1, 1], keyed: undefined, lit: false };
   private source: () => BayState[] = () => [];
   private still = false;
   private watch: MediaQueryList | undefined;
@@ -255,11 +268,19 @@ export class ConsoleStage {
       root.addChild(art);
       const tex = RenderTexture.create({ width: 2, height: 2, resolution: 1, antialias: true });
       const mesh = new PerspectiveMesh({ texture: tex, verticesX: 20, verticesY: 20 });
-      this.facets.push({ root, art, plate, live, aspect, paint: { W: 1, H: 1, f: 1, lipKey: false, named: false }, tex, mesh, drawn: "" });
+      this.facets.push({ root, art, plate, live, light: this.plan.lit ? lightOf(live) : undefined, aspect, paint: { W: 1, H: 1, f: 1, lipKey: false, named: false }, tex, mesh, drawn: "" });
     }
     const keyed = this.plan.keyed === undefined ? [] : [this.facets.at(-1)!.mesh];
     const flat = this.plan.keyed === undefined ? this.facets : this.facets.slice(0, -1);
     app.stage.addChild(this.shell, ...flat.map((f) => f.mesh), this.over, ...keyed, this.ribs);
+    if (this.plan.lit) {
+      this.blur = new BlurFilter({ strength: BLOOM.spread, quality: 3, resolution: 1, blendMode: "add" });
+      this.bloom = new Container();
+      this.bloom.alpha = BLOOM.strength;
+      this.bloom.filters = [this.blur];
+      this.bloom.addChild(this.spill, ...this.facets.map((f) => f.light!.mesh));
+      app.stage.addChild(this.bloom);
+    }
   }
 
   private readonly motion = (): void => {
@@ -327,6 +348,16 @@ export class ConsoleStage {
       }
       f.art.scale.set(tw / W, th / H);
       f.drawn = "";
+      if (f.light !== undefined) {
+        const [lw, lh] = [Math.ceil(across * LIGHT_TEXELS), Math.ceil(down * LIGHT_TEXELS)];
+        if (f.light.tex.width !== lw || f.light.tex.height !== lh) {
+          f.light.tex.destroy(true);
+          f.light.tex = RenderTexture.create({ width: lw, height: lh, resolution: 1 });
+          f.light.mesh.texture = f.light.tex;
+        }
+        f.light.mesh.setCorners(q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y);
+        f.light.art.scale.set(lw / W, lh / H);
+      }
     });
   }
 
@@ -386,6 +417,7 @@ export class ConsoleStage {
     };
     world.ribs.forEach(({ face, column, quad }) => fill(ribs, quad, faces[face]![column]!));
     this.fitFacets();
+    if (this.blur !== undefined) this.blur.strength = (BLOOM.spread * this.width) / 1056;
     this.frame();
   }
 
@@ -396,17 +428,33 @@ export class ConsoleStage {
     if (app === undefined || tone === undefined || mat === undefined || this.world === undefined) return;
     const t = this.still ? 0 : performance.now() / 1000;
     this.bays = this.source();
+    let moved = false;
     this.facets.forEach((f, i) => {
       const state = this.bays[i] ?? EMPTY();
-      const key = `${state.kind}|${state.pressed}|${state.lit}|${state.focused}`;
+      const key = `${state.kind}|${state.pressed}|${state.lit}|${state.focused}|${state.calling}`;
       if (f.drawn !== key) {
         drawPlate(f.plate, f.paint, state, tone, mat);
         f.drawn = key;
+        moved = true;
       }
+      if (f.light !== undefined && (moved || state.kind === "dispatch")) drawLights(f.light.fixed, f.paint, state, tone, mat, t);
       drawLive(f.live, f.paint, state, tone, mat, t);
       app.renderer.render({ container: f.root, target: f.tex, clear: true, clearColor: [0, 0, 0, 0] });
+      if (f.light !== undefined) app.renderer.render({ container: f.light.root, target: f.light.tex, clear: true, clearColor: [0, 0, 0, 0] });
     });
+    if (moved && this.plan.lit) this.paintSpill();
     app.renderer.render(app.stage);
+  }
+
+  private paintSpill(): void {
+    const { world, tone, spill } = this;
+    if (world === undefined || tone === undefined) return;
+    spill.clear();
+    world.lips.forEach((q, i) => {
+      const state = this.bays[i];
+      if (i === this.plan.keyed || state === undefined || state.kind === null || state.kind === "dispatch") return;
+      spill.poly(partOf(q, 0.04, 0, 0.96, 0.3).flatMap((p) => [p.x, p.y])).fill({ color: glassOf(state, tone), alpha: SPILL });
+    });
   }
 
   destroy(): void {
@@ -420,9 +468,25 @@ export class ConsoleStage {
     this.app = undefined;
     app.ticker.remove(this.tick);
     app.ticker.stop();
-    this.facets.forEach((f) => (f.tex.destroy(true), f.root.destroy({ children: true })));
+    this.facets.forEach((f) => {
+      f.tex.destroy(true);
+      f.light?.tex.destroy(true);
+      f.light?.root.destroy({ children: true });
+      f.root.destroy({ children: true });
+    });
     app.destroy({ removeView: true }, { children: true });
   }
+}
+
+/** A facet's light sources. The moving layer is shown here too, through a second Graphics on the same drawing, which costs no second drawing. */
+function lightOf(live: Graphics): NonNullable<Facet["light"]> {
+  const root = new Container();
+  const art = new Container();
+  const fixed = new Graphics();
+  art.addChild(fixed, new Graphics(live.context));
+  root.addChild(art);
+  const tex = RenderTexture.create({ width: 2, height: 2, resolution: 1 });
+  return { root, art, fixed, tex, mesh: new PerspectiveMesh({ texture: tex, verticesX: 8, verticesY: 8 }) };
 }
 
 const densityNow = () => Math.min(window.devicePixelRatio || 1, 2);

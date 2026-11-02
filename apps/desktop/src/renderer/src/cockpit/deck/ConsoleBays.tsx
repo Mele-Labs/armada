@@ -206,11 +206,12 @@ function CanvasBays({ wiring }: { wiring: Wiring }) {
   const [layout, setLayout] = useState<Layout | undefined>();
   const take = takeOf();
   const dispatch = wiring.dispatch === undefined ? null : "dispatch";
+  const lit = document.documentElement.hasAttribute("data-console-lit");
   // The centrepiece is fixed per take and the seated instruments flank it: the Map with Dispatch keyed on its lip, or Dispatch with the Map beside it.
   const [plan, items]: [Plan, (InstrumentId | "dispatch" | null)[]] =
     take === "dispatch"
-      ? [{ widths: [1, 1, 1, 1.9, 1, 1, 1], depths: [1, 1, 1, 1.9, 1, 1, 1], keyed: undefined }, [seated[0]!, seated[1]!, seated[2]!, dispatch, seated[3]!, seated[4]!, seated[5]!]]
-      : [{ widths: [1, 1, 1.9, 1, 1], depths: [1, 1, 1.9, 1, 1], keyed: 2 }, [seated[0]!, seated[1]!, "radar", seated[2]!, seated[3]!, dispatch]];
+      ? [{ widths: [1, 1, 1, 1.9, 1, 1, 1], depths: [1, 1, 1, 1.9, 1, 1, 1], keyed: undefined, lit }, [seated[0]!, seated[1]!, seated[2]!, dispatch, seated[3]!, seated[4]!, seated[5]!]]
+      : [{ widths: [1, 1, 1.9, 1, 1], depths: [1, 1, 1.9, 1, 1], keyed: 2, lit }, [seated[0]!, seated[1]!, "radar", seated[2]!, seated[3]!, dispatch]];
   const dots = useRef<{ at: number; list: Dot[] }>({ at: 0, list: [] });
   useLayoutEffect(() => {
     const canvas = host.current!;

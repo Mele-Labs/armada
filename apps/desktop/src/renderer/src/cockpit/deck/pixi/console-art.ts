@@ -1,7 +1,7 @@
 // What the canvas console is made of (mock): the materials, mixed from the theme's tokens, and each facet's flat picture. A facet is a fixed plate,
-// redrawn only when its state changes, and a live layer on the recessed screen (the stage's `live` Graphics, the one place a lit-screen effect would attach).
+// redrawn only when its state changes, and a live layer on the recessed screen.
 // Units are CSS pixels across, and 1/f CSS pixels down, f being how far the surface is foreshortened: `hy` is the height of a line that lands at
-// 1.5 CSS pixels. Depth comes from hard-edged bands, lit from above; no gradients and no glow.
+// 1.5 CSS pixels. Depth comes from hard-edged bands, lit from above; no gradients and no glow, but for `&lit=1`, which adds soft light from the screens (`drawLights`).
 
 import type { Graphics } from "pixi.js";
 
@@ -221,6 +221,18 @@ function grid(g: Graphics, b: Box, across: number, down: number): void {
   for (let k = 1; k < down; k += 1) g.rect(b.x, b.y + (b.h * k) / down, b.w, b.hy * 0.8).fill(b.mat.off);
 }
 
+/** The level bars beside the radar; `litOnly` leaves out those that are off. */
+function radarBars(g: Graphics, b: Box, x: number, room: number, side: number, litOnly: boolean): void {
+  const bars = Math.max(3, Math.floor(room / 11));
+  const ground = b.y + b.h * 0.62;
+  for (let k = 0; k < bars; k += 1) {
+    const on = (k + side) % 3 === 0;
+    if (!on && litOnly) continue;
+    const tall = b.h * (0.16 + 0.085 * ((k * 3 + side * 2) % 5));
+    g.rect(x + (k * room) / bars, ground - tall, (room / bars) * 0.62, tall).fill(on ? b.tone.run : b.mat.offTop);
+  }
+}
+
 const collar = (g: Graphics, b: Box, r: number, ring: number) => {
   g.circle(b.cx, b.cy + ring * 0.8, r).fill(b.mat.gap);
   g.circle(b.cx, b.cy, r).fill(b.mat.cap);
@@ -283,12 +295,8 @@ const INSTRUMENTS: Record<Exclude<Kind, "dispatch">, Instrument> = {
         for (const side of [0, 1]) {
           const x = side === 0 ? b.x + 7 * b.u : b.x + b.w - 7 * b.u - room;
           g.rect(side === 0 ? x + room + 3 * b.u : x - 3 * b.u - 1.5, b.y, 1.5, b.h).fill(b.mat.off);
-          const bars = Math.max(3, Math.floor(room / 11));
+          radarBars(g, b, x, room, side, false);
           const ground = b.y + b.h * 0.62;
-          for (let k = 0; k < bars; k += 1) {
-            const tall = b.h * (0.16 + 0.085 * ((k * 3 + side * 2) % 5));
-            g.rect(x + (k * room) / bars, ground - tall, (room / bars) * 0.62, tall).fill((k + side) % 3 === 0 ? b.tone.run : b.mat.offTop);
-          }
           g.rect(x, ground + b.hy, room, b.hy).fill(b.mat.offTop);
           const rule = Math.max(b.hy, 2.6 * b.u * b.v);
           for (let k = 0; k < 2; k += 1) g.rect(x, b.y + b.h * (0.74 + k * 0.13), room * (0.5 + ((k + side) % 2) * 0.35), rule).fill(b.mat.offTop);
@@ -390,10 +398,31 @@ function capOf(g: Graphics, l: Look, x: number, y: number, r: number, s: BayStat
   const inner = r - Math.max(2.5, r * 0.11);
   g.circle(x, y, inner).fill(s.pressed ? tone.accentMuted : mat.hood);
   g.circle(x, y, inner * 0.8).fill(s.pressed ? tone.accentMuted : mat.hull);
-  const k = r / 38;
-  g.poly([x - 21 * k, y + 5 * k, x + 23 * k, y - 15 * k, x + 7 * k, y + 19 * k, x - 2 * k, y + 8 * k]).fill(tone.accent);
-  g.poly([x - 2 * k, y + 8 * k, x + 23 * k, y - 15 * k, x + 7 * k, y + 19 * k]).fill(mix(tone.accent, tone.sunken, 0.45));
+  planeOf(g, x, y, r, tone.accent);
+  g.poly(shadeOfPlane(x, y, r)).fill(mix(tone.accent, tone.sunken, 0.45));
 }
+
+function planeOf(g: Graphics, x: number, y: number, r: number, colour: number): void {
+  const k = r / 38;
+  g.poly([x - 21 * k, y + 5 * k, x + 23 * k, y - 15 * k, x + 7 * k, y + 19 * k, x - 2 * k, y + 8 * k]).fill(colour);
+}
+const shadeOfPlane = (x: number, y: number, r: number) => {
+  const k = r / 38;
+  return [x - 2 * k, y + 8 * k, x + 23 * k, y - 15 * k, x + 7 * k, y + 19 * k];
+};
+
+/** Where the Dispatch cap stands on each of its two plates. */
+function capSpotOf(l: Look, lipKey: boolean): { x: number; y: number; r: number } {
+  const { W, H, u, v } = l;
+  if (lipKey) {
+    const strip = 9 * u * v;
+    const rest = H - strip;
+    return { x: W * keySpots(W).cap, y: strip + rest * 0.45, r: Math.min(rest * 0.38, 34 * u) };
+  }
+  const floor = pitFloorOf(l);
+  return { x: W / 2, y: floor.y + floor.h / 2 - v, r: Math.min(floor.w / 2 - 22 * u, floor.h / 2 - 1.5) };
+}
+const pitFloorOf = (l: Look): Rect => inset(pitOf(l), BEZEL(l.u) + Math.max(2, 4.5 * l.u), (BEZEL(l.u) + Math.max(2, 4.5 * l.u)) * l.v);
 
 const pitOf = (l: Look): Rect => {
   const { W, H, u, v } = l;
@@ -409,8 +438,7 @@ function dispatchPlate(g: Graphics, l: Look, s: BayState): void {
   g.rect(0, 6 * u * v, 6 * u, STRIP * u * v).fill(mat.hull);
   g.rect(W - 6 * u, 6 * u * v, 6 * u, STRIP * u * v).fill(mat.hull);
   const floor = well(g, l, pitOf(l), s.focused ? tone.fg : s.pressed ? tone.accent : s.lit ? tone.muted : mat.hood, s.pressed ? tone.accentMuted : mat.hullShade);
-  const [cx, cy] = [W / 2, floor.y + floor.h / 2 - 1 * v];
-  const r = Math.min(floor.w / 2 - 22 * u, floor.h / 2 - 1.5);
+  const { x: cx, y: cy, r } = capSpotOf(l, false);
   if (W > 200) {
     for (const side of [-1, 1]) {
       const [rail, tall] = [13 * u, floor.h - 4 * u * v];
@@ -436,9 +464,9 @@ function keyPlate(g: Graphics, l: Look, s: BayState): void {
   plateOf(g, l);
   hazard(g, l, 0, strip);
   const rest = H - strip;
-  const rr = Math.min(rest * 0.38, 34 * u);
   const spots = keySpots(W);
-  capOf(g, l, W * spots.cap, strip + rest * 0.45, rr, s);
+  const cap = capSpotOf(l, true);
+  capOf(g, l, cap.x, cap.y, cap.r, s);
   if (spots.full) {
     const inset = 18 * u;
     const room = W * 0.15;
@@ -494,23 +522,55 @@ function paintPlate(g: Graphics, l: Look, p: Paint, s: BayState): void {
   INSTRUMENTS[s.kind].fixed(g, b);
 }
 
+/** Dispatch's arming lamp: where it stands, if the plate has room for it, and whether it is on at this moment. */
+function lampOf(l: Look, lipKey: boolean): Rect | undefined {
+  const { u, v, hy, W, H } = l;
+  if (lipKey) {
+    if (!keySpots(W).full) return undefined;
+    const strip = 9 * u * v;
+    return { x: W * 0.53, y: strip + (H - strip) * 0.19, w: W * 0.16, h: Math.max(hy * 1.4, 4 * u * v) };
+  }
+  return { x: W / 2 - 11 * u, y: pitFloorOf(l).y + 3 * u * v, w: 22 * u, h: Math.max(hy * 1.2, 4 * u * v) };
+}
+const armed = (t: number) => Math.floor(t * 1.4) % 2 === 0;
+
 /** What moves on a facet's screen, drawn each frame. */
 export function drawLive(g: Graphics, p: Paint, s: BayState, tone: Tones, mat: Materials, t: number): void {
   g.clear();
   if (s.kind === null) return;
   const l = lookOf(tone, mat, p.W, p.H, p.f);
   if (s.kind === "dispatch") {
-    const on = Math.floor(t * 1.4) % 2 === 0 ? tone.ask : mat.off;
-    if (p.lipKey) {
-      if (!keySpots(p.W).full) return;
-      const strip = 9 * l.u * l.v;
-      const rest = p.H - strip;
-      g.rect(p.W * 0.53, strip + rest * 0.27, p.W * 0.16, Math.max(l.hy * 1.4, 4 * l.u * l.v)).fill(on);
-      return;
-    }
-    const floor = inset(pitOf(l), BEZEL(l.u) + Math.max(2, 4.5 * l.u), (BEZEL(l.u) + Math.max(2, 4.5 * l.u)) * l.v);
-    g.rect(p.W / 2 - 11 * l.u, floor.y + 3 * l.u * l.v, 22 * l.u, Math.max(l.hy * 1.2, 4 * l.u * l.v)).fill(on);
+    const lamp = lampOf(l, p.lipKey);
+    if (lamp !== undefined) g.rect(lamp.x, lamp.y, lamp.w, lamp.h).fill(armed(t) ? tone.ask : mat.off);
     return;
   }
   INSTRUMENTS[s.kind].live?.(g, floorOf(l, p.named), s, t);
 }
+
+// ---- The lights (`&lit=1`) ----------------------------------------------------------------------------------------
+
+/** What gives light on a facet besides its moving marks: the screen's own glass, and the marks of the plate that are lit. The stage blurs this with what moves, once, and adds it over the whole console. Dispatch's lamp blinks, so its facet is redrawn each frame. */
+export function drawLights(g: Graphics, p: Paint, s: BayState, tone: Tones, mat: Materials, t: number): void {
+  g.clear();
+  if (s.kind === null) return;
+  const l = lookOf(tone, mat, p.W, p.H, p.f);
+  if (s.kind === "dispatch") {
+    const cap = capSpotOf(l, p.lipKey);
+    g.circle(cap.x, cap.y, cap.r * 0.8).fill({ color: tone.accent, alpha: 0.32 });
+    planeOf(g, cap.x, cap.y, cap.r, tone.accent);
+    const lamp = lampOf(l, p.lipKey);
+    if (lamp !== undefined && armed(t)) g.rect(lamp.x - 3 * l.u, lamp.y - 3 * l.u * l.v, lamp.w + 6 * l.u, lamp.h + 6 * l.u * l.v).fill(tone.ask);
+    return;
+  }
+  const b = floorOf(l, p.named);
+  g.rect(b.x, b.y, b.w, b.h).fill({ color: glassOf(s, tone), alpha: s.pressed ? GLASS * 0.7 : GLASS });
+  if (s.kind === "needles" || s.kind === "usage") INSTRUMENTS[s.kind].fixed(g, b);
+  if (s.kind === "radar") {
+    const room = (b.w - (Math.min(b.w, b.h) - 2)) / 2 - 10 * b.u;
+    if (room > 36) for (const side of [0, 1]) radarBars(g, b, side === 0 ? b.x + 7 * b.u : b.x + b.w - 7 * b.u - room, room, side, true);
+  }
+}
+/** How strongly a screen's glass is lit. */
+const GLASS = 0.25;
+/** The colour a facet's screen throws, or undefined where it has no screen. */
+export const glassOf = (s: BayState, tone: Tones): number => (s.kind === "beacon" && s.calling ? tone.ask : s.pressed ? tone.accent : tone.run);

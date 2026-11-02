@@ -45,6 +45,7 @@ if (consoleTake === "bridge" && query.get("pixi") !== "0") {
   document.documentElement.dataset.consolePixi = "";
   // `&centre=dispatch` puts Dispatch at the middle of the arc; the Map is there otherwise.
   document.documentElement.dataset.consoleCentre = query.get("centre") === "dispatch" ? "dispatch" : "map";
+  if (query.get("lit") === "1") document.documentElement.setAttribute("data-console-lit", "");
 }
 
 // A walk starts from the window its test starts from, so what it shows is what CI ran. A replay in the
