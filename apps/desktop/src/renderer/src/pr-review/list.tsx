@@ -6,8 +6,8 @@
 // since a Drone looking costs, and again only when he asks for it again.
 
 import { useEffect, useState } from "react";
-import { Check, History, LoaderCircle, RotateCw, X } from "lucide-react";
-import { Button, DropdownMenu, Input, Kbd, PrMark, Readout, SearchField, Skeleton, Textarea, Tooltip, agoOf, forgetKept, sendsOn, useKept } from "@armada/components";
+import { Bot, Check, History, LoaderCircle, RotateCw, X } from "lucide-react";
+import { Button, DropdownMenu, Input, Kbd, ListCard, ListCardChip, ListCardMark, ListCardPending, ListCardTime, PrMark, SearchField, Textarea, Tooltip, agoOf, forgetKept, sendsOn, useKept } from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 
@@ -211,28 +211,47 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
       )}
       {find === undefined ? null : <FindHead find={find} />}
       <ul className="deck-list__rows pr-list__rows">
-        {pending ? <PendingRows view={view} /> : null}
+        {pending ? <PendingRows /> : null}
         {pending ? [] : shown.map(({ pr, reason }) => (
           <li key={pr.key} className="deck-list__item">
-            <button type="button" className="pr-row" data-checks={pr.checks} data-selected={open === pr.key || undefined} aria-current={open === pr.key || undefined} aria-label={`#${pr.number} ${pr.title}`} onClick={() => store.open(pr.key)}>
-              <span className="pr-row__title">{pr.title}</span>
-              {view.state ? <ReviewMark review={work[pr.key]?.review ?? NO_WORK.review} /> : null}
-              {view.state ? <ChecksMark checks={pr.checks} /> : null}
-              {view.number ? <Readout className="pr-row__number">{`#${pr.number}`}</Readout> : null}
-              {view.author || view.repository ? (
-                <span className="pr-row__facts">
-                  {view.author ? <span className="pr-row__author">{pr.page.author}</span> : null}
-                  {view.repository ? <span className="pr-row__repository">{pr.repository}</span> : null}
-                </span>
-              ) : null}
-              {!view.reason || reason === undefined ? null : (
-                <Tooltip label={reason} asChild>
-                  <span className="pr-row__reason" role="note" aria-label={reason}>
-                    {reason}
-                  </span>
-                </Tooltip>
-              )}
-            </button>
+            <ListCard
+              className="pr-row"
+              data-checks={pr.checks}
+              selected={open === pr.key}
+              aria-label={`#${pr.number} ${pr.title}`}
+              onClick={() => store.open(pr.key)}
+              title={pr.title}
+              marks={
+                <>
+                  <ListCardMark>{pr.holder === undefined ? null : <HolderMark title={pr.holder.title} />}</ListCardMark>
+                  <ListCardMark wide>
+                    {view.state ? <ReviewMark review={work[pr.key]?.review ?? NO_WORK.review} /> : null}
+                    {view.state ? <ChecksMark checks={pr.checks} /> : null}
+                  </ListCardMark>
+                </>
+              }
+              {...(view.number ? { tag: <ListCardChip>{`#${pr.number}`}</ListCardChip> } : {})}
+              at={<ListCardTime at={pr.updatedAt} said="Last updated" />}
+              lines={
+                view.author || view.repository || (view.reason && reason !== undefined) ? (
+                  <>
+                    {view.author || view.repository ? (
+                      <span className="pr-row__facts">
+                        {view.author ? <span className="pr-row__author">{pr.page.author}</span> : null}
+                        {view.repository ? <span className="pr-row__repository">{pr.repository}</span> : null}
+                      </span>
+                    ) : null}
+                    {!view.reason || reason === undefined ? null : (
+                      <Tooltip label={reason} asChild>
+                        <span className="pr-row__reason" role="note" aria-label={reason}>
+                          {reason}
+                        </span>
+                      </Tooltip>
+                    )}
+                  </>
+                ) : undefined
+              }
+            />
           </li>
         ))}
       </ul>
@@ -263,34 +282,28 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
 
 const PENDING_TITLES = ["72%", "58%", "66%", "50%"];
 
-/** The rows the list draws before the forge has answered: the loaded row's own fields as bars, no text, so nothing moves when they land. */
-function PendingRows({ view }: { view: ReturnType<typeof useReviewView>[0] }) {
+/** The rows the list draws before the forge has answered: the card's title and number as bars, no text, so nothing moves when they land. */
+function PendingRows() {
   return (
     <>
       {PENDING_TITLES.map((title) => (
         <li key={title} className="deck-list__item" aria-hidden>
-          <div className="pr-row" data-pending>
-            <span className="pr-row__skel">
-              <Skeleton width={title} />
-            </span>
-            {view.state ? <Skeleton className="pr-row__skel-mark" /> : null}
-            {view.state ? <Skeleton className="pr-row__skel-mark" /> : null}
-            {view.number ? (
-              <span className="pr-row__number-skel">
-                <Skeleton width="3rem" />
-              </span>
-            ) : null}
-            {view.author || view.repository ? (
-              <span className="pr-row__facts">
-                <span className="pr-row__skel">
-                  <Skeleton width="40%" />
-                </span>
-              </span>
-            ) : null}
-          </div>
+          <ListCardPending width={title} />
         </li>
       ))}
     </>
+  );
+}
+
+/** The Job that holds a pull request, named by its tooltip. */
+function HolderMark({ title }: { title: string }) {
+  const said = `Job: ${title}`;
+  return (
+    <Tooltip label={said}>
+      <span className="pr-review__mark" role="img" aria-label={said}>
+        <Bot size={12} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
   );
 }
 
