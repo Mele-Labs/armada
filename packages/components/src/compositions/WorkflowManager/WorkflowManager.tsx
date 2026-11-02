@@ -60,6 +60,8 @@ export type WorkflowManagerProps = {
   agent: AgentState;
   /** Every act answers with Fleet's sentence where it was refused, and with nothing where it went through. */
   onMakeCopy: (one: WorkflowRef) => Promise<WorkflowActAnswer>;
+  /** Makes the copy of a row that runs in a repository keeping none (`runsIn`) in that repository. Absent draws no act. */
+  onCopyInto?: (one: WorkflowRef) => Promise<WorkflowActAnswer>;
   /** The Job it started, to open; or Fleet's sentence. `note` is what to say beside it where the brief was not sent. */
   onPropose: (one: WorkflowRef) => Promise<WorkflowActAnswer | { jobId: string; note?: string }>;
   onSaveWords: (one: WorkflowRef, stepId: string, words: string) => Promise<WorkflowActAnswer>;
@@ -338,15 +340,22 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
   };
   const lanes = acts.workspace !== undefined;
   // **In the lanes the first change on Armada's workflow makes the person's own copy**, once, and the change is written to it.
-  const yours: WorkflowRef = { id: workflow.id, source: "yours", ...(workflow.manifestId === undefined ? {} : { manifestId: workflow.manifestId }) };
+  // What runs in a repository that keeps no copy is copied into that repository instead.
+  const runsIn = workflow.runsIn;
+  const yours: WorkflowRef =
+    runsIn === undefined
+      ? { id: workflow.id, source: "yours", ...(workflow.manifestId === undefined ? {} : { manifestId: workflow.manifestId }) }
+      : { id: workflow.id, source: "repository", manifestId: runsIn };
+  const copied = workflow.source !== "armada" && runsIn === undefined;
+  const copyInto = runsIn === undefined ? undefined : acts.onCopyInto;
   const copying = useRef<Promise<WorkflowActAnswer> | undefined>(undefined);
   useEffect(() => {
     copying.current = undefined;
-  }, [workflow.source]);
+  }, [workflow.source, runsIn]);
   /** Fleet's sentence where the copy was refused. */
   const ensureCopy = (): Promise<WorkflowActAnswer> => {
-    if (workflow.source !== "armada") return Promise.resolve(undefined);
-    copying.current ??= acts.onMakeCopy(ref).then((refused) => {
+    if (copied) return Promise.resolve(undefined);
+    copying.current ??= (copyInto ?? acts.onMakeCopy)(ref).then((refused) => {
       if (refused !== undefined) {
         copying.current = undefined;
         setSaid({ words: refused, refused: true });
@@ -357,10 +366,10 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
   };
   /** Writes a change to the workflow's own definition, or to the copy the change makes. */
   const inCopy = async (act: (to: WorkflowRef) => Promise<WorkflowActAnswer>): Promise<WorkflowActAnswer> => {
-    if (workflow.source !== "armada") return act(ref);
+    if (copied) return act(ref);
     return (await ensureCopy()) ?? act(yours);
   };
-  const first = workflow.source === "armada" || comparable || (workflow.leftOut !== undefined && armada !== undefined);
+  const first = runsIn === undefined && (workflow.source === "armada" || comparable || (workflow.leftOut !== undefined && armada !== undefined));
   const header = workflow.leftOut === undefined ? (
     <p className="armada-wm__for">
       <span className="armada-wm__fact-label">For requests</span>
@@ -431,6 +440,11 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
           {header}
         </div>
         <div className="armada-wm__acts" role="toolbar" aria-label="Acts">
+          {copyInto === undefined ? null : (
+            <div className="armada-wm__acts-group" role="group" aria-label="This repository's">
+              <Act label={`Copy into ${workflow.repository ?? acts.repository}`} ghost Glyph={CopyPlus} onPress={() => void run(() => copyInto(ref))} />
+            </div>
+          )}
           {first ? (
           <div className="armada-wm__acts-group" role="group" aria-label="Armada's">
             {workflow.source === "armada" && !lanes ? (

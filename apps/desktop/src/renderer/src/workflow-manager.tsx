@@ -321,6 +321,17 @@ function Held({ current, repository, root, served }: { current: string | null; r
         open({ id: one.id, source: "yours", ...(one.manifestId === undefined ? {} : { manifestId: one.manifestId }) }, armadaOf(rows, one.id));
         return undefined;
       }}
+      onCopyInto={async (one) => {
+        const manifestId = one.runsIn ?? manifestFor(one);
+        const running = await readWorkflowDefinition(one.id, wireOf(one), manifestId);
+        if (!running.ok) return refusalWords(running.outcome);
+        const saved = await saveWorkflow({ manifestId, body: { scope: "repository", definition: running.definition.definition, overwrite: false } });
+        // A copy the repository already keeps is the one to open.
+        if (!saved.ok && !refusedWith(saved.outcome, "fleet.workflow_exists")) return refusalWords(saved.outcome);
+        await reread();
+        open({ id: one.id, source: "repository", ...(manifestId === null ? {} : { manifestId }) }, armadaOf(rows, one.id));
+        return undefined;
+      }}
       onPropose={async (one) => {
         const armada = await readWorkflowDefinition(one.id, "armada", manifestFor(one));
         if (!armada.ok) return refusalWords(armada.outcome);
