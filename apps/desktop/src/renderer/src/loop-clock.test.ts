@@ -3,8 +3,8 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { startLoopClock } from "./loop-clock";
 
 /** The parts of a CSS animation the clock touches. */
-function loop(currentTime: number, iterations = Infinity, target: unknown = {}): Animation {
-  return { currentTime, effect: { getComputedTiming: () => ({ iterations }), target }, pause: vi.fn() } as unknown as Animation;
+function loop(currentTime: number, iterations = Infinity, target: unknown = {}, duration = 1600): Animation {
+  return { currentTime, effect: { getComputedTiming: () => ({ iterations, duration, endTime: iterations * duration }), target }, pause: vi.fn(), finish: vi.fn() } as unknown as Animation;
 }
 
 let now = 1000;
@@ -70,6 +70,25 @@ test("leaves an animation that ends alone", () => {
   advance(600);
   expect(entrance.pause).not.toHaveBeenCalled();
   expect(entrance.currentTime).toBe(50);
+});
+
+test("steps a slow fade on the same tick, holds it while idle, and finishes it at its end", () => {
+  const fade = loop(0, 1, {}, 45_000);
+  animations = [fade];
+  stop = startLoopClock();
+
+  advance(200);
+  expect(fade.pause).toHaveBeenCalled();
+  advance(200);
+  expect(fade.currentTime).toBe(200);
+
+  marks.add("data-idle");
+  advance(600);
+  expect(fade.currentTime).toBe(200);
+  marks.delete("data-idle");
+
+  advance(45_000);
+  expect(fade.finish).toHaveBeenCalled();
 });
 
 test("moves nothing while the window is still", () => {

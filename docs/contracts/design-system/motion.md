@@ -33,7 +33,9 @@ is still working. A *decay* (45s) is for a person returning: a change
 away from the focus of attention is missed, and a one-shot flash is only
 seen by someone already looking, so a changed row keeps a mark that
 fades slowly enough to still be there when they look back. A decay is
-neither a loop nor an entrance, so neither rule below governs it.
+neither a loop nor an entrance, so the rule on entrances does not govern
+it, but it takes the loops' clock: one left at the display's rate read
+34.9% GPU on the mock against 2.0%, and 3.0% on the clock.
 
 **No entrance animations on data.** A Job Board that animates rows in on
 every poll is unusable. The rule is about data. **Chrome that a person
@@ -111,7 +113,7 @@ The floor is why a window nobody is looking at stills its loops (`styles/index.c
 
 **Every loop moves on one clock.** Glass makes that floor expensive, because a frame redraws the blurred panels.
 One smooth loop of any size, a faint row pulse as much as the star field, held the GPU at 52% on the mock Cockpit, and steps on each loop's own schedule add up.
-`apps/desktop/src/renderer/src/loop-clock.ts` pauses every infinite animation in Bridge's main windows and moves them together 5 times a second.
+`apps/desktop/src/renderer/src/loop-clock.ts` pauses every infinite animation in Bridge's main windows, and any that runs 5 seconds or more, and moves them together 5 times a second.
 It moves none while the window has had no input for a minute, and skips a loop out of sight, since a move nobody can see still costs a frame.
 
 | Measured in Bridge on an M5 Pro at 3024 by 1964, on the mock Cockpit | GPU |

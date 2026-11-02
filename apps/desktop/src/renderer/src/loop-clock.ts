@@ -6,7 +6,10 @@
 /** 5 frames a second: a pulse still reads as a pulse, and a spinner as turning. */
 const TICK_MS = 200;
 
-/** Takes over each infinite animation as it appears, and keeps its phase. A window nobody is using moves none of them, and a loop out of sight moves nothing anyone would see, though its move would still cost a frame. `styles/index.css` still decides what stands still. */
+/** An animation that ends takes the clock too if it runs this long, since nobody sees its steps: one changed row's 45-second fade held the window's frames for all 45. */
+const SLOW_MS = 5_000;
+
+/** Takes over each infinite or slow animation as it appears, and keeps its phase. A window nobody is using moves none of them, and a loop out of sight moves nothing anyone would see, though its move would still cost a frame. `styles/index.css` still decides what stands still. */
 export function startLoopClock(): () => void {
   const root = document.documentElement;
   const offsets = new WeakMap<Animation, number>();
@@ -22,7 +25,10 @@ export function startLoopClock(): () => void {
     const now = Number(document.timeline.currentTime);
     const idle = root.hasAttribute("data-idle");
     for (const one of document.getAnimations()) {
-      if (one.effect?.getComputedTiming().iterations !== Infinity) continue;
+      const timing = one.effect?.getComputedTiming();
+      if (timing === undefined || one.playState === "finished") continue;
+      const endless = timing.iterations === Infinity;
+      if (!endless && !(Number(timing.duration) >= SLOW_MS)) continue;
       const target = (one.effect as KeyframeEffect).target;
       let offset = offsets.get(one);
       if (offset === undefined) {
@@ -32,7 +38,8 @@ export function startLoopClock(): () => void {
         if (target != null) watch.observe(target);
       }
       if (idle || (target != null && unseen.has(target))) continue;
-      one.currentTime = now + offset;
+      if (!endless && now + offset >= Number(timing.endTime)) one.finish();
+      else one.currentTime = now + offset;
     }
   };
   const timer = setInterval(tick, TICK_MS);
