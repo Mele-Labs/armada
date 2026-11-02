@@ -119,7 +119,7 @@
 .issues-surface .issues-row[data-tone="live"] { --lamp-hue: var(--status-running); }
 .issues-surface .issues-row[data-tone="ask"] { --lamp-hue: var(--status-awaiting-review); background: color-mix(in srgb, var(--status-awaiting-review) 6%, var(--chip)); }
 .issues-surface .issues-row[data-tone="wait"] { --lamp-hue: var(--status-handed-in); }
-.issues-surface .issues-row[data-tone="ask"]::before { animation: deck-lamp-pulse 1.6s var(--loop-pulse) infinite; }
+.issues-surface .issues-row[data-tone="ask"]::before { animation: deck-lamp-pulse 1.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .issues-surface .issues-row[data-tone="ask"]::before { animation: none; } }
 .issues-surface .issues-row:hover { background: var(--chip-hover); }
 .issues-surface .issues-row[data-selected] { border-color: transparent; }
