@@ -214,7 +214,7 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
         {pending ? <PendingRows view={view} /> : null}
         {pending ? [] : shown.map(({ pr, reason }) => (
           <li key={pr.key} className="deck-list__item">
-            <button type="button" className="pr-row" data-selected={open === pr.key || undefined} aria-current={open === pr.key || undefined} aria-label={`#${pr.number} ${pr.title}`} onClick={() => store.open(pr.key)}>
+            <button type="button" className="pr-row" data-checks={pr.checks} data-selected={open === pr.key || undefined} aria-current={open === pr.key || undefined} aria-label={`#${pr.number} ${pr.title}`} onClick={() => store.open(pr.key)}>
               <span className="pr-row__title">{pr.title}</span>
               {view.state ? <ReviewMark review={work[pr.key]?.review ?? NO_WORK.review} /> : null}
               {view.state ? <ChecksMark checks={pr.checks} /> : null}
