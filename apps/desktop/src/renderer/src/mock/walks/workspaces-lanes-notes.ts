@@ -259,7 +259,7 @@ const notes = walk("workspaces-lanes", [
   },
   {
     press: inside(
-      group("Armada"),
+      group("Shipped with Armada"),
       button("planning", {
         exact: true,
       }),

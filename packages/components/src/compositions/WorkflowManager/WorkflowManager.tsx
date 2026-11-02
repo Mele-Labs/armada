@@ -1,8 +1,10 @@
 import {
   Ban,
+  Briefcase,
   Check,
   CircleDashed,
   CopyPlus,
+  FolderGit2,
   GitCompare,
   GitPullRequestArrow,
   Layers,
@@ -51,6 +53,7 @@ import type {
   Suggestions,
   WorkflowActAnswer,
   WorkflowRef,
+  SwitchedIn,
   WorkflowSource,
   WorkflowSwitches,
 } from "./types";
@@ -81,6 +84,8 @@ export type WorkflowManagerProps = {
   agent: AgentState;
   /** Every act answers with Fleet's sentence where it was refused, and with nothing where it went through. */
   onMakeCopy: (one: WorkflowRef) => Promise<WorkflowActAnswer>;
+  /** Makes the copy of a row that runs in a repository keeping none (`runsIn`) in that repository. Absent draws no act. */
+  onCopyInto?: (one: WorkflowRef) => Promise<WorkflowActAnswer>;
   /** The Job it started, to open; or Fleet's sentence. `note` is what to say beside it where the brief was not sent. */
   onPropose: (one: WorkflowRef) => Promise<
     | WorkflowActAnswer
@@ -136,11 +141,16 @@ const PENDING_ROWS = [
 ];
 
 /** What a row adds to its ref beyond the id and the place: the Manifest it was read under, and the file it was left out at. */
-const refOf = (one: ManagedWorkflow): Pick<WorkflowRef, "manifestId" | "file"> => ({
+const refOf = (one: ManagedWorkflow): Pick<WorkflowRef, "manifestId" | "runsIn" | "file"> => ({
   ...(one.manifestId === undefined
     ? {}
     : {
         manifestId: one.manifestId,
+      }),
+  ...(one.runsIn === undefined
+    ? {}
+    : {
+        runsIn: one.runsIn,
       }),
   ...(one.leftOut === undefined
     ? {}
@@ -163,21 +173,62 @@ function replacesOf(one: ManagedWorkflow, all: readonly ManagedWorkflow[]): stri
   return undefined;
 }
 
-/** A row's switch: the machine's on All, the repository's with one picked, and a badge in its place where the machine has the workflow off. */
-function RowSwitch({ id, switches }: { id: string; switches: WorkflowSwitches }) {
-  const { repository } = switches;
+/**
+ * In a repository's group, what marks a row as custom rather than shipped with Armada: the repository's own copy, or Yours.
+ * Shipped with Armada has none.
+ */
+function customOf(
+  one: ManagedWorkflow,
+  all: readonly ManagedWorkflow[],
+  name: string,
+):
+  | {
+      Glyph: LucideIcon;
+      label: string;
+    }
+  | undefined {
+  if (one.leftOut !== undefined) return undefined;
+  const replaces = all.some(
+    (other) => other.id === one.id && other.source === "armada" && other.leftOut === undefined,
+  )
+    ? ", replaces Armada's"
+    : "";
+  if (one.source === "repository")
+    return {
+      Glyph: FolderGit2,
+      label: `${name}'s own copy${replaces}`,
+    };
+  if (one.source === "yours")
+    return {
+      Glyph: Briefcase,
+      label: `Yours${replaces}`,
+    };
+  return undefined;
+}
+
+/** A row's switch: the machine's where `at` is null, else that repository's, and a badge in its place where the machine has the workflow off. */
+function RowSwitch({
+  id,
+  at,
+  switches,
+}: {
+  id: string;
+  at: SwitchedIn | null;
+  switches: WorkflowSwitches;
+}) {
   const offOnMachine = switches.machine.includes(id);
-  if (repository !== null && offOnMachine)
+  if (at !== null && offOnMachine)
     return <span className="armada-wm__off-machine">Off on this machine</span>;
-  const on = repository === null ? !offOnMachine : !repository.off.includes(id);
-  const label = `${on ? "On" : "Off"} ${repository === null ? "on this machine" : `in ${repository.name}`}`;
+  const on =
+    at === null ? !offOnMachine : !(switches.repositories[at.manifestId] ?? []).includes(id);
+  const label = `${on ? "On" : "Off"} ${at === null ? "on this machine" : `in ${at.name}`}`;
   return (
     <Tooltip label={label}>
       <SwitchControl
         size="sm"
         label={label}
         checked={on}
-        onChange={(event) => switches.onSwitch(id, event.target.checked)}
+        onChange={(event) => switches.onSwitch(id, event.target.checked, at?.manifestId ?? null)}
       />
     </Tooltip>
   );
@@ -194,42 +245,58 @@ export function WorkflowManager(props: WorkflowManagerProps) {
   const search = useRef<HTMLInputElement>(null);
   // Words typed and not saved, kept across leaving a workflow.
   const [drafts, setDrafts] = useState<Readonly<Record<string, string>>>({});
+  // The repository picked, which Armada's and Yours switch in; null on All, where they switch the machine.
+  const pickedIn = props.switches?.repository ?? null;
 
   const groups = useMemo(() => {
     const wanted = query.trim().toLowerCase();
     const found = workflows.filter((one) => one.id.toLowerCase().includes(wanted));
-    // A repository's copies sit in a group of its own, in the order the repositories were listed.
+    // Each repository has a group of its own, in the order the repositories were listed: the copies it keeps and what else runs there.
+    const inRepository = (one: ManagedWorkflow) =>
+      one.source === "repository" || one.runsIn !== undefined;
     const fromRepositories = [
-      ...new Set(
-        found.filter((one) => one.source === "repository").map((one) => one.manifestId ?? ""),
-      ),
+      ...new Set(found.filter(inRepository).map((one) => one.manifestId ?? "")),
     ].map((from) => {
-      const rows = found.filter(
-        (one) => one.source === "repository" && (one.manifestId ?? "") === from,
-      );
+      const rows = found.filter((one) => inRepository(one) && (one.manifestId ?? "") === from);
+      const name = rows[0]?.repository ?? repository;
+      // A repository's own group switches its rows there, on All too.
+      const at: SwitchedIn | null =
+        from === ""
+          ? pickedIn
+          : {
+              manifestId: from,
+              name,
+            };
       return {
         key: `repository@${from}`,
-        label: `${rows[0]?.repository ?? repository} repository`,
+        label: `${name} repository`,
         rows,
+        at,
+        name: name as string | undefined,
       };
     });
     return [
       {
         key: "armada",
-        label: "Armada",
-        rows: found.filter((one) => one.source === "armada"),
+        label: "Shipped with Armada",
+        rows: found.filter((one) => one.source === "armada" && one.runsIn === undefined),
+        at: pickedIn,
+        name: undefined,
       },
       ...fromRepositories,
       {
         key: "yours",
         label: "Yours",
-        rows: found.filter((one) => one.source === "yours"),
+        rows: found.filter((one) => one.source === "yours" && one.runsIn === undefined),
+        at: pickedIn,
+        name: undefined,
       },
     ].filter((group) => group.rows.length > 0);
   }, [
     workflows,
     query,
     repository,
+    pickedIn,
   ]);
 
   const shown = groups.flatMap((group) => group.rows);
@@ -331,13 +398,18 @@ export function WorkflowManager(props: WorkflowManagerProps) {
               <ul className="armada-wm__rows">
                 {group.rows.map((one) => {
                   const on = picked !== null && keyOf(one) === keyOf(picked);
-                  const replaces = replacesOf(one, workflows);
+                  // In a repository's group a custom row carries its own mark and the accent; Shipped with Armada carries neither.
+                  const custom =
+                    group.name === undefined ? undefined : customOf(one, workflows, group.name);
+                  const replaces =
+                    group.name === undefined ? replacesOf(one, workflows) : undefined;
                   const out = one.leftOut;
                   return (
                     <li key={keyOf(one)} className="armada-wm__row">
                       <button
                         type="button"
                         className="armada-wm__entry"
+                        data-custom={custom === undefined ? undefined : ""}
                         data-nav-item=""
                         aria-current={on ? "true" : undefined}
                         tabIndex={on || (!pickedHere && one === shown[0]) ? 0 : -1}
@@ -358,6 +430,12 @@ export function WorkflowManager(props: WorkflowManagerProps) {
                               <Ban size={14} strokeWidth={2} aria-hidden />
                             </span>
                           </Tooltip>
+                        ) : custom !== undefined ? (
+                          <Tooltip label={custom.label}>
+                            <span role="img" aria-label={custom.label}>
+                              <custom.Glyph size={14} strokeWidth={2} aria-hidden />
+                            </span>
+                          </Tooltip>
                         ) : replaces === undefined ? null : (
                           <Tooltip label={replaces}>
                             <span role="img" aria-label={replaces}>
@@ -368,7 +446,7 @@ export function WorkflowManager(props: WorkflowManagerProps) {
                       </span>
                       <span className="armada-wm__switch">
                         {out !== undefined || props.switches === undefined ? null : (
-                          <RowSwitch id={one.id} switches={props.switches} />
+                          <RowSwitch id={one.id} at={group.at} switches={props.switches} />
                         )}
                       </span>
                     </li>
@@ -410,7 +488,10 @@ export function WorkflowManager(props: WorkflowManagerProps) {
             workflow={current}
             armada={workflows.find(
               (one) =>
-                one.source === "armada" && one.id === current.id && one.leftOut === undefined,
+                one.source === "armada" &&
+                one.id === current.id &&
+                one.leftOut === undefined &&
+                one.runsIn === undefined,
             )}
             drafts={drafts}
             setDrafts={setDrafts}
@@ -450,7 +531,9 @@ function Detail({
     ...refOf(workflow),
   };
   const key = keyOf(workflow);
-  const editable = workflow.source !== "armada" && workflow.leftOut === undefined;
+  // What runs in a repository that keeps no copy is Armada's or Yours as read there, and is edited where it is kept.
+  const editable =
+    workflow.source !== "armada" && workflow.leftOut === undefined && workflow.runsIn === undefined;
   const comparable = editable && armada !== undefined;
   const [comparing, setComparing] = useState(false);
   // What the last act said, as a fact beside the acts: or Fleet's sentence for why it was refused, or the Job a proposal started.
@@ -481,25 +564,37 @@ function Detail({
   };
   const lanes = acts.workspace !== undefined;
   // **In the lanes the first change on Armada's workflow makes the person's own copy**, once, and the change is written to it.
-  const yours: WorkflowRef = {
-    id: workflow.id,
-    source: "yours",
-    ...(workflow.manifestId === undefined
-      ? {}
+  // What runs in a repository that keeps no copy is copied into that repository instead.
+  const runsIn = workflow.runsIn;
+  const yours: WorkflowRef =
+    runsIn === undefined
+      ? {
+          id: workflow.id,
+          source: "yours",
+          ...(workflow.manifestId === undefined
+            ? {}
+            : {
+                manifestId: workflow.manifestId,
+              }),
+        }
       : {
-          manifestId: workflow.manifestId,
-        }),
-  };
+          id: workflow.id,
+          source: "repository",
+          manifestId: runsIn,
+        };
+  const copied = workflow.source !== "armada" && runsIn === undefined;
+  const copyInto = runsIn === undefined ? undefined : acts.onCopyInto;
   const copying = useRef<Promise<WorkflowActAnswer> | undefined>(undefined);
   useEffect(() => {
     copying.current = undefined;
   }, [
     workflow.source,
+    runsIn,
   ]);
   /** Fleet's sentence where the copy was refused. */
   const ensureCopy = (): Promise<WorkflowActAnswer> => {
-    if (workflow.source !== "armada") return Promise.resolve(undefined);
-    copying.current ??= acts.onMakeCopy(ref).then((refused) => {
+    if (copied) return Promise.resolve(undefined);
+    copying.current ??= (copyInto ?? acts.onMakeCopy)(ref).then((refused) => {
       if (refused !== undefined) {
         copying.current = undefined;
         setSaid({
@@ -515,13 +610,14 @@ function Detail({
   const inCopy = async (
     act: (to: WorkflowRef) => Promise<WorkflowActAnswer>,
   ): Promise<WorkflowActAnswer> => {
-    if (workflow.source !== "armada") return act(ref);
+    if (copied) return act(ref);
     return (await ensureCopy()) ?? act(yours);
   };
   const first =
-    workflow.source === "armada" ||
-    comparable ||
-    (workflow.leftOut !== undefined && armada !== undefined);
+    runsIn === undefined &&
+    (workflow.source === "armada" ||
+      comparable ||
+      (workflow.leftOut !== undefined && armada !== undefined));
   const header =
     workflow.leftOut === undefined ? (
       <p className="armada-wm__for">
@@ -607,6 +703,16 @@ function Detail({
           {header}
         </div>
         <div className="armada-wm__acts" role="toolbar" aria-label="Acts">
+          {copyInto === undefined ? null : (
+            <div className="armada-wm__acts-group" role="group" aria-label="This repository's">
+              <Act
+                label={`Copy into ${workflow.repository ?? acts.repository}`}
+                ghost
+                Glyph={CopyPlus}
+                onPress={() => void run(() => copyInto(ref))}
+              />
+            </div>
+          )}
           {first ? (
             <div className="armada-wm__acts-group" role="group" aria-label="Armada's">
               {workflow.source === "armada" && !lanes ? (
@@ -673,7 +779,7 @@ function Detail({
             </div>
           ) : null}
           {workflow.source !== "armada" && editable ? actsFor?.(ref) : null}
-          {workflow.source === "armada" ? null : (
+          {workflow.source === "armada" || workflow.runsIn !== undefined ? null : (
             <div className="armada-wm__acts-group" role="group" aria-label="Delete" data-end="">
               <Act
                 label="Delete"

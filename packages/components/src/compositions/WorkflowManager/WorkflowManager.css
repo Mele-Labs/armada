@@ -122,6 +122,10 @@
 .armada-wm__entry[aria-current="true"] {
   color: var(--fg-default);
 }
+/* A custom row in a repository's group: that repository's own copy, or Yours. */
+.armada-wm__entry[data-custom] {
+  color: var(--accent);
+}
 .armada-wm__entry:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);

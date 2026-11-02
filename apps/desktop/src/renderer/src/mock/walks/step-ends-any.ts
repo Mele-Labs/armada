@@ -5,7 +5,7 @@
 import { button, deckRow, inside, region, role, text, toSystemPage, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const ARMADA = role("group", "Armada", {
+const ARMADA = role("group", "Shipped with Armada", {
   exact: true,
 });
 const propose = role("group", "Propose", {

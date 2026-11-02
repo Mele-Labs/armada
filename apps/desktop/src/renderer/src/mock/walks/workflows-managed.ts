@@ -14,7 +14,7 @@ const group = (name: string) =>
   role("group", name, {
     exact: true,
   });
-const ARMADA = group("Armada");
+const ARMADA = group("Shipped with Armada");
 const REPOSITORY = group("armada repository");
 const YOURS = group("Yours");
 const step = (name: string) => group(name);
@@ -36,8 +36,8 @@ export const workflowsManaged = walk("workflows", [
     say: "Yours",
   },
   {
-    hover: role("img", "This repository's copy replaces Armada's"),
-    say: "This repository's feature replaces Armada's",
+    hover: role("img", "armada's own copy, replaces Armada's"),
+    say: "armada's own feature replaces Armada's",
   },
   {
     press: inside(

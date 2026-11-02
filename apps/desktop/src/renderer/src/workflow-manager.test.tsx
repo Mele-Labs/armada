@@ -192,7 +192,7 @@ const words = (name: string) =>
 test("workflows are grouped by where they come from, the repository's by its name, a copy marked with what it replaces", async () => {
   draw();
   for (const name of [
-    "Armada",
+    "Shipped with Armada",
     "armada repository",
     "Yours",
   ])
@@ -208,7 +208,7 @@ test("workflows are grouped by where they come from, the repository's by its nam
     .element(
       page
         .getByRole("group", {
-          name: "Armada",
+          name: "Shipped with Armada",
           exact: true,
         })
         .getByRole("button", {
@@ -233,7 +233,7 @@ test("workflows are grouped by where they come from, the repository's by its nam
   await expect
     .element(
       page.getByRole("img", {
-        name: "This repository's copy replaces Armada's",
+        name: "armada's own copy, replaces Armada's",
       }),
     )
     .toBeVisible();

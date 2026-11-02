@@ -5,7 +5,7 @@
 
 import { button, deckRow, inside, place, region, role, text, toSystemPage, walk } from "../walk";
 
-const armada = role("group", "Armada", {
+const armada = role("group", "Shipped with Armada", {
   exact: true,
 });
 const panel = (name: string) =>

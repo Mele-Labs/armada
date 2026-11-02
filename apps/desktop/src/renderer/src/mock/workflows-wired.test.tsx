@@ -6,6 +6,7 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { mount, onScreen, toSystemPage, unmountAfterEach } from "./testing";
+import { workflowsEmptyRepository } from "./scenarios/workflows-empty-repository";
 import { workflowing, workflowingOnAll } from "./workflows-fleet";
 
 unmountAfterEach();
@@ -30,7 +31,7 @@ const group = (name: string) =>
     name,
     exact: true,
   });
-const ARMADA = group("Armada");
+const ARMADA = group("Shipped with Armada");
 const REPOSITORY = group("armada repository");
 const YOURS = group("Yours");
 const stepCard = (name: string) => group(name);
@@ -103,7 +104,7 @@ test("the list is Fleet's, grouped as Armada, the repository and Yours, and Arma
   await expect
     .element(
       page.getByRole("img", {
-        name: "This repository's copy replaces Armada's",
+        name: "armada's own copy, replaces Armada's",
       }),
     )
     .toBeVisible();
@@ -274,7 +275,14 @@ test("Delete removes the copy, and the list opens what runs in its place", async
       name: "Delete",
     })
     .click();
-  await expect.element(REPOSITORY).not.toBeInTheDocument();
+  // The repository's group stays, listing what runs there, but its own copy is gone and no row carries the mark.
+  await expect
+    .element(
+      page.getByRole("img", {
+        name: "armada's own copy, replaces Armada's",
+      }),
+    )
+    .not.toBeInTheDocument();
   await expect
     .element(
       ARMADA.getByRole("button", {
@@ -822,4 +830,103 @@ test("on All repositories a copy's words, edited on its lanes, save under its ow
   await userEvent.tab();
   await expect.poll(() => saved.length).toBe(1);
   expect(saved[0]!.scope).toBe("repository");
+});
+
+const LIGHTHOUSE_ID = "01M1CNPKTV0018H2M1CXDNBK0L";
+
+async function onAllWithAnEmptyRepository() {
+  const app = mount(workflowsEmptyRepository);
+  await onScreen();
+  await toSystemPage("Workflows");
+  return app;
+}
+
+test("on All a repository that keeps no copies has a group listing the workflows that run there", async () => {
+  await onAllWithAnEmptyRepository();
+  const lighthouse = group("lighthouse repository");
+  await expect.element(lighthouse).toBeVisible();
+  await expect.element(group("harbor repository")).toBeVisible();
+  await expect
+    .element(
+      lighthouse.getByRole("button", {
+        name: "bug",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      lighthouse.getByRole("button", {
+        name: "feature",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+});
+
+test("a switch in a repository's group turns that workflow off under that repository's Manifest, not the machine", async () => {
+  const app = await onAllWithAnEmptyRepository();
+  const saved: Record<string, unknown>[] = [];
+  const original = app.api.saveSettings;
+  app.api.saveSettings = async (values) => {
+    saved.push(values);
+    return original(values);
+  };
+  // The switch's native box is clipped, so the label around it is what is pressed.
+  (
+    group("lighthouse repository")
+      .getByRole("switch", {
+        name: "On in lighthouse",
+      })
+      .first()
+      .element()
+      .closest("label") as HTMLLabelElement
+  ).click();
+  await expect.poll(() => saved.length).toBe(1);
+  const off = saved[0]!["workflows.off"] as {
+    machine?: string[];
+    repositories?: Record<string, string[]>;
+  };
+  expect(off.repositories?.[LIGHTHOUSE_ID]).toHaveLength(1);
+  expect(off.machine ?? []).toEqual([]);
+  await expect
+    .element(
+      group("lighthouse repository").getByRole("switch", {
+        name: "Off in lighthouse",
+      }),
+    )
+    .toBeVisible();
+});
+
+test("Copy into lighthouse on a row that runs there saves a repository copy under that Manifest", async () => {
+  const app = await onAllWithAnEmptyRepository();
+  const saves: {
+    manifestId: string | null;
+    scope: string;
+  }[] = [];
+  const original = app.api.saveWorkflow;
+  app.api.saveWorkflow = async (saving) => {
+    saves.push({
+      manifestId: saving.manifestId,
+      scope: saving.body.scope,
+    });
+    return original(saving);
+  };
+  await group("lighthouse repository")
+    .getByRole("button", {
+      name: "bug",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("button", {
+      name: "Copy into lighthouse",
+      exact: true,
+    })
+    .click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(saves[0]).toEqual({
+    manifestId: LIGHTHOUSE_ID,
+    scope: "repository",
+  });
 });
