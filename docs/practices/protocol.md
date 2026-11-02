@@ -1350,6 +1350,20 @@ Bridge's half is `ahead` on `WorktreeSlot` in `packages/protocol/src/holding.ts`
 **Why Fleet carries it.** A Job is told to merge the base only when its slot has commits of its own, since a branch level with an old base has nothing stale to push (`crates/fleet/src/behind_bay.rs`).
 **Skew.** An older Fleet sends no `ahead`, and Bridge draws nothing from it.
 
+## A Job's summary: `so_far` on `SessionRecord`
+
+Since 2 Nov 2026. `crates/ipc/src/sessions.rs`, `crates/fleet/src/session_host/account.rs`, `crates/store/migrations/20261102T1200Z-session_so_far.table.sql`.
+**One optional field on an existing type**: no route, no event kind and no enum value.
+The protocol ID moves with `crates/ipc/src`, and Bridge's half is `so_far` on `SessionRecord` in `packages/protocol/src/sessions.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionRecord.so_far` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | One or two plain sentences on what the Job has done so far, at most 280 characters. Absent until one is written, for a Job that has ended and for a Job run in a terminal |
+
+**Why a field on the record.** The summary is the Job's and not one message's, so it does not live on `activity`, which a message from him clears.
+**When it goes out.** Fleet publishes `session.changed` when the summary changes, after a turn ends and after a question or permission is put to him.
+**Skew.** An older Fleet sends no `so_far`, and Bridge draws nothing from it.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

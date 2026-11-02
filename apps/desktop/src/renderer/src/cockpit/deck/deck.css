@@ -80,7 +80,7 @@
 .deck-stage { position: relative; display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; gap: var(--deck-gutter); }
 .deck-stage > .deck-pane { flex: 1 1 0; }
 
-/* Ending a Job: a copy of its pane leaves over the stage while the timeline is already there. `exit.ts` plays it (Web Animations, opacity and transform only), at the rect it measured. */
+/* Ending a Job: a copy of its pane leaves over the stage while the map is already there. `exit.ts` plays it (Web Animations, opacity and transform only), at the rect it measured. */
 .deck-ghost { position: absolute; z-index: 1; display: flex; flex-direction: column; transform-origin: 0 0; pointer-events: none; }
 .deck-ghost > .deck-pane { flex: 1 1 0; }
 /* A pane arriving on the stage, a Job opened from the list or a view switched: a short rise and fade, quick enough to feel like the cockpit answering. Opacity and a --space-2 of travel only. */
@@ -417,13 +417,11 @@
 /* A call: the real card, in this area and not over the window. */
 .deck-call.armada-cockpit__scrim { position: static; flex: 1 1 0; min-height: 0; background: none; pointer-events: auto; padding: var(--space-3); }
 
-/* ---- The timeline -------------------------------------------------------------------------------------------- */
+/* ---- The map -------------------------------------------------------------------------------------------------- */
 
-.deck-map,
-.deck-timeline { position: relative; display: flex; flex: 1 1 0; min-width: 0; min-height: 0; padding: var(--space-2); overflow: auto; }
+.deck-map { position: relative; display: flex; flex: 1 1 0; min-width: 0; min-height: 0; padding: var(--space-2); overflow: auto; }
 /* The battlefield runs edge to edge in its pane. */
 .deck-map { padding: 0; overflow: hidden; }
-.deck-timeline > * { flex: 1 1 auto; min-width: 0; }
 
 /* ---- The merge queue: one row in a glass panel under the stage, as dots or as chips -------------------- */
 

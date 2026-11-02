@@ -17,6 +17,8 @@ pub const DISPUTE_REVIEWS: Flag = Flag("features.disputeReviews");
 pub const NOTIFICATIONS: Flag = Flag("features.notifications");
 /// Read by Bridge alone: whether moves and presses make their quiet sound.
 pub const UI_SOUNDS: Flag = Flag("features.uiSounds");
+/// Read by Bridge alone: whether Bridge's windows hold still, as they do under the Mac's own Reduce Motion.
+pub const REDUCE_MOTION: Flag = Flag("features.reduceMotion");
 /// Read by Bridge alone: whether Armada claims `armada://` from the OS and opens a pull request's review from a link.
 pub const DEEP_LINKS: Flag = Flag("features.deepLinks");
 /// The folders every session may reach past its slots with no card, and the ones it may not:
@@ -180,6 +182,18 @@ pub(super) const FEATURES: &[Entry] = &[
         description: "A quiet tick when you move through a list or press a control.",
         kind: Kind::Boolean,
         shipped: Shipped::Boolean(true),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: REDUCE_MOTION.0,
+        section: Section::Features,
+        title: "Reduce motion",
+        description: "Stops Armada's animations. Nothing else on this Mac changes.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(false),
         applies: Applies::Live,
         row: None,
         env: None,

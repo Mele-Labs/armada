@@ -31,6 +31,7 @@ import { ThreadLookSaved } from "./thread-look-here";
 import { AutopilotDecisionsSourceProvider } from "./autopilot-decisions";
 import { createFleetAutopilotDecisions } from "./fleet-autopilot-decisions";
 import { createFleetPlanUsage } from "./fleet-plan-usage";
+import { timelineSince } from "./cockpit/deck/ConsoleTimeline";
 import { createFleetTimeline } from "./fleet-timeline";
 import { canReport } from "./report";
 import { withState } from "./state-feed";
@@ -109,7 +110,7 @@ const PLAN_USAGE = createFleetPlanUsage(withState(window.armada));
 const DOWNSHIFT = createFleetDownshift(withState(window.armada));
 /** The Fleet-wide "Claude is signed out" alert and its one press, over Fleet. */
 const AGENT_SIGN_IN = createFleetAgentSignIn(withState(window.armada));
-const TIMELINE = createFleetTimeline(withState(window.armada));
+const TIMELINE = createFleetTimeline(withState(window.armada), Date.now, timelineSince);
 /** The mark on a row whose changes would conflict with another agent's, over Fleet. */
 const CLASHES = createFleetClashes(withState(window.armada));
 /** The directories the deck's map is drawn in and what each slot's holder has changed, over Fleet. */

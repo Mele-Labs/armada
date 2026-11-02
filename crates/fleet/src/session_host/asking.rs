@@ -270,6 +270,8 @@ where
         self.hosts().of(id).state().asked = Some(waiting.clone());
         self.row_put(id, put(SessionAskState::Waiting, None)).await;
         let _ = self.published_hosted(&session.id).await;
+        // The person is about to answer without opening the Job: bring its summary up to date.
+        self.so_far_wanted(id);
 
         let held = asks.hold();
         let mut said_aloud = None;

@@ -31,7 +31,7 @@ async fn reading(answer: &str) -> (Rig, Arc<Held>, Arc<FakeJudge>) {
 
 /// The questions put about a notice's replies, the proposer's apart.
 fn read_asks(judge: &FakeJudge) -> Vec<String> {
-    judge.asked().into_iter().filter(|asked| asked.contains(PUSHBACK)).collect()
+    judge.asked().into_iter().filter(|asked| asked.contains(PUSHBACK) && asked.starts_with("A tool that supervises")).collect()
 }
 
 async fn disputes(rig: &Rig, id: &SessionId) -> Vec<SessionRow> {

@@ -45,6 +45,7 @@ mod session_rail;
 mod session_tells;
 mod session_later;
 mod session_done;
+mod session_so_far;
 mod later_marks;
 mod claim_misreads;
 mod workflow_nudges;
