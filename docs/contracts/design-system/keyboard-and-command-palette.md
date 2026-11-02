@@ -397,7 +397,7 @@ ring is the cursor.
 A floating layer, so `--bg-overlay` and a shadow.
 
 ```
-surface    glass (Depth): --bg-overlay at 78%, blurred · 1px light edge ·
+surface    glass (Depth): --bg-overlay · 1px light edge ·
            --radius-lg · --shadow-overlay
 width      1.2 × --palette-width (560px) · max-height 400px · scroll-area beyond
 anchor     opens horizontally centred across the window; field top-aligned at

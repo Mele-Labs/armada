@@ -293,7 +293,6 @@
   padding-inline: calc(var(--armada-notch-gap) - var(--border-width));
   border-radius: 0 0 var(--armada-notch-radius) var(--armada-notch-radius);
   background: var(--armada-notch-ground);
-  backdrop-filter: blur(var(--glass-blur));
   box-shadow: var(--shadow-card);
 }
 
@@ -325,9 +324,7 @@
   );
 }
 
-/* A tooltip here hangs below the notch and is centred under its icon. The notch's blur used to make it the box a fixed
- * bubble was placed in, so an anchored one had no room below and flipped over its icon; the bubble is in the top layer now, and
- * only the gap under the notch is this file's. */
+/* A tooltip here hangs below the notch and is centred under its icon. The bubble is in the top layer, and only the gap under the notch is this file's. */
 .armada-title-bar[data-places] .armada-title-bar__center .armada-tooltip__bubble {
   position-area: block-end;
   position-try-fallbacks: flip-block;

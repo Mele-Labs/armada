@@ -546,13 +546,11 @@
 }
 
 /* ---- Panels as glass ----------------------------------------------------------------------------------------- */
-/* A light frosted sheet over the shell's canvas: the text colour at 10% over a heavy blur saturated as macOS materials and
-   visionOS do it, a crisp edge, and a soft wide shadow. No sheen, no glow, no gradient border. Inside the edge, one pixel in,
+/* A solid light sheet over the shell's canvas: the text colour at 10% over the base, a crisp edge, and a soft wide shadow. No sheen, no glow, no gradient border. Inside the edge, one pixel in,
    is a hairline (`--bezel`, an inset shadow and not a second element) so a panel reads as an instrument's bezel; what a panel
    holds takes its curve less the edge and the hairline (`--radius-bezel`), or less a gutter more (`--radius-inset`), never
    less than `--radius-floor`. Panels, panes and the layers that float over them are glass; rows, fields and wells inside a
-   panel are frosted chips on it. The blur samples what is behind the panel, which is the canvas and the star field, and
-   redraws on each tick of the loop clock (`motion.md`). The map is not a panel: it has no frame at all (`.deck-pane[data-bare]`) and the grid shows round it.
+   panel are chips on it. A panel blurs nothing behind it, since a blur made every frame several times dearer (`motion.md`). The map is not a panel: it has no frame at all (`.deck-pane[data-bare]`) and the grid shows round it.
    Every value is a token (`takes.css`).
 
    The pages that are not the Cockpit draw their panels as it does (the `:where()` names them without weighing more than the
@@ -575,28 +573,7 @@
       .armada-pool-slots__view
     )
   ) {
-  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
-}
-/* The flight controls and Dispatch blur on a layer behind their keys instead (`deck.css`). */
-:root[data-look="new"]
-  :is(
-    .deck-panel:not(.deck-controls, .deck-dispatch),
-    .deck-pane:not([data-bare]),
-    .armada-studios-page > .armada-card,
-    :where(
-      .armada-logbook__panel,
-      .armada-logbook__card,
-      .armada-system-side,
-      .armada-system__pane .armada-card:not([data-flat]),
-      .armada-settings-index__body .armada-card,
-      .armada-screen__pane > .armada-card,
-      .armada-guides__panel,
-      .armada-wf__list,
-      .armada-pool-slots__view
-    )
-  ) {
-  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--bg-base));
 }
 :root[data-look="new"]
   :is(
@@ -687,9 +664,7 @@
   ) {
   border: var(--border-width) solid var(--glass-edge);
   border-radius: var(--glass-radius);
-  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
-  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--bg-base));
   box-shadow: var(--bezel), var(--glass-shadow);
 }
 :root[data-look="new"]
@@ -717,8 +692,7 @@
 }
 /* ---- The grid the glass hovers over ---------------------------------------------------------------------------- */
 /* A grid of 1px dots on the shell, under every panel, static, drawn from the `--grid-*` tokens in `takes.css`. Dots, not
-   lines, so the map's own lines never cross a second set behind it. It is what the blur samples, so the glass has
-   something to be glass over. On a pseudo-element, so the shell's own pool of light
+   lines, so the map's own lines never cross a second set behind it. On a pseudo-element, so the shell's own pool of light
    stays underneath and the grid sits between it and the panels. */
 :root[data-look="new"] .armada-shell {
   position: relative;
@@ -762,7 +736,7 @@
 :root[data-look="new"] .deck-pane[data-frame] .armada-session-frame__body {
   padding: var(--body-pad, var(--space-3));
 }
-/* The message box is a frosted chip on the sheet, at the chip radius. */
+/* The message box is a chip on the sheet, at the chip radius. */
 :root[data-look="new"] .deck-pane .armada-session-composer {
   border-color: var(--chip-edge);
   border-radius: var(--glass-radius-chip);
@@ -798,16 +772,14 @@
 :root[data-look="new"] .deck-scope :is(.deck-combo__input, .armada-button) {
   border-color: var(--glass-edge);
   border-radius: var(--glass-radius-control);
-  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
-  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--bg-base));
   box-shadow: var(--glass-highlight), var(--glass-shadow);
 }
 :root[data-look="new"]
   .deck-scope
   :is(.deck-combo__input:hover, .armada-button:hover:not(:disabled)) {
   border-color: var(--glass-edge-lifted);
-  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--bg-base));
 }
 :root[data-look="new"] .deck-scope .deck-combo[data-open] .deck-combo__input {
   border-color: var(--accent);
@@ -816,9 +788,7 @@
 :root[data-look="new"] .sv-panel {
   border-color: var(--glass-edge);
   border-radius: var(--glass-radius);
-  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
-  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--bg-base));
   box-shadow: var(--bezel), var(--glass-shadow);
   transition:
     border-color var(--duration-base) var(--ease),
@@ -826,8 +796,6 @@
 }
 :root[data-look="new"] .sv-panel[data-area="field"] {
   background: var(--glass-field, var(--bg-glass));
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
 }
 :root[data-look="new"] .sv-panel:focus-within {
   border-color: var(--glass-edge-lifted);
@@ -847,14 +815,12 @@
 :root[data-look="new"] .bf-zoom .armada-button {
   border-color: var(--glass-edge);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
-  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--bg-base));
   box-shadow: var(--glass-highlight), var(--glass-shadow);
 }
 
 /* ---- Chips and controls on the sheet ---------------------------------------------------------------------------- */
-/* The material is the tokens' (`takes.css`). What sits inside a sheet is a frosted chip: the tiles, rows, fields and
+/* The material is the tokens' (`takes.css`). What sits inside a sheet is a chip: the tiles, rows, fields and
    selects, with the control radius on the buttons and toolbars. The headers keep the tracked caps and the rule. */
 :root[data-look="new"] .deck-row {
   border-radius: var(--row-radius, var(--glass-radius-chip));
@@ -942,13 +908,11 @@
 :root[data-look="new"] .armada-session-frame__head .armada-button {
   border-radius: var(--glass-radius-control);
 }
-/* The places and the search beside them sit on the title bar's notch: frosted glass hanging from the top edge, which
+/* The places and the search beside them sit on the title bar's notch: a sheet hanging from the top edge, which
    is their ground, so neither draws one of its own. The chosen place is its brighter word on a faint wash. */
 :root[data-look="new"] .armada-title-bar[data-places] .armada-title-bar__center {
   --armada-notch-radius: calc(var(--glass-radius) * 2);
-  --armada-notch-ground: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
-  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+  --armada-notch-ground: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--bg-base));
   box-shadow: var(--glass-shadow);
 }
 :root[data-look="new"]
@@ -956,8 +920,6 @@
   border-color: transparent;
   border-radius: var(--glass-radius-control);
   background: transparent;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
   box-shadow: none;
 }
 :root[data-look="new"] .deck-places .armada-tabs__fill {
@@ -979,9 +941,7 @@
     .armada-palette,
     .armada-inspect-card
   ) {
-  background: color-mix(in srgb, var(--bg-overlay) 78%, transparent);
-  -webkit-backdrop-filter: blur(var(--blur-overlay)) saturate(170%);
-  backdrop-filter: blur(var(--blur-overlay)) saturate(170%);
+  background: var(--bg-overlay);
 }
 :root[data-look="new"]
   :is(.armada-dropdown-menu__panel, .deck-combo__list, .armada-popover__panel, .armada-palette) {
