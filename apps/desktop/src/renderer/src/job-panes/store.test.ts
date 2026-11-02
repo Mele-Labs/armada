@@ -88,6 +88,7 @@ describe("layouts", () => {
       ],
       [
         "open",
+        "deferred",
       ],
     ]);
   });
@@ -144,6 +145,7 @@ describe("layouts", () => {
       ],
       [
         "open",
+        "deferred",
       ],
     ]);
   });
@@ -345,6 +347,7 @@ describe("kept across a restart", () => {
       ],
       [
         "open",
+        "deferred",
       ],
     ]);
   });
@@ -366,6 +369,7 @@ describe("kept across a restart", () => {
       ],
       [
         "open",
+        "deferred",
       ],
     ]);
   });

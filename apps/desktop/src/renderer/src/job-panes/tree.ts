@@ -9,6 +9,7 @@ export const TAB_KINDS = [
   "done",
   "now",
   "open",
+  "deferred",
   "plan",
   "changes",
   "pulls",
