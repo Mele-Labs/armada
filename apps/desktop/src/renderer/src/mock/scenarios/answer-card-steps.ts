@@ -60,7 +60,7 @@ const SESSION: Session = {
       steps: [
         "Update to a build with #3197",
         "Start a Job in the repository that failed before, and let it work for two turns",
-        "In that Job's terminal, run `echo $CLAUDE_CODE_SESSION_ID`, `armada job status` and `armada report`",
+        "In that Job's terminal, run `echo $ARMADA_SESSION`, `armada job status` and `armada report`",
         "Paste all three outputs back here",
       ],
     },

@@ -21,7 +21,7 @@ const TITLE = "Ask the other engineer to send back three command outputs";
 const STEPS = [
   "Update to a build with #3197",
   "Start a Job in the repository that failed before, and let it work for two turns",
-  "In that Job's terminal, run `echo $CLAUDE_CODE_SESSION_ID`, `armada job status` and `armada report`",
+  "In that Job's terminal, run `echo $ARMADA_SESSION`, `armada job status` and `armada report`",
   "Paste all three outputs back here",
 ];
 const OPTIONS = [
@@ -47,7 +47,7 @@ afterEach(() => {
 
 function mount(node: React.ReactNode) {
   const host = document.createElement("div");
-  host.style.width = "640px";
+  host.style.width = "calc(var(--space-12) * 8)";
   document.body.append(host);
   const root = createRoot(host);
   roots.push({
