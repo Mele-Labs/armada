@@ -4,12 +4,17 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { forgetBays } from "../cockpit/deck/ConsoleBays";
+import { saveFlight } from "../cockpit/deck/flight-controls";
 import { ConsoleStage } from "../cockpit/deck/pixi/console-stage";
 import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 // The seated bays are kept in the window's storage, so one test would hand them to the next.
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+  forgetBays();
+});
 
 const controls = () => page.getByRole("region", { name: "Flight controls" });
 const facet = (name: string) => controls().getByRole("button", { name, exact: true });
@@ -127,6 +132,71 @@ test("an instrument is seated in a bay from the rack by keyboard, and Esc takes 
 
   await userEvent.keyboard("{Escape}");
   await expect.poll(() => seated()?.[0]).toBe("matrix");
+});
+
+const DOCS = { id: "my-docs", kind: "page", name: "Docs", text: "https://docs.example/guide" } as const;
+const edit = () => page.elementLocator(document.querySelector(".deck-controls .deck-band [aria-label='Edit']")!);
+const bay = (n: number) => document.querySelector(`.console-bay[data-n="${n}"]`);
+
+/** Edit, then the keys: Enter on Bay 1 to reach the tray, the arrows to `name`, Enter to seat it, and Done. */
+async function seatFirst(name: string) {
+  await edit().click();
+  await expect.element(page.getByRole("button", { name: /^Bay 1/ })).toHaveAttribute("aria-label", "Bay 1, Checks");
+  await userEvent.keyboard("{Enter}");
+  await expect.poll(() => document.activeElement?.closest(".console-tray")).not.toBeNull();
+  for (let i = 0; i < 12 && document.activeElement?.getAttribute("aria-label") !== name; i += 1) await userEvent.keyboard("{ArrowRight}");
+  expect(document.activeElement?.getAttribute("aria-label")).toBe(name);
+  await userEvent.keyboard("{Enter}");
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+}
+
+test("a Page tile on the deck is an instrument in the rack's tray, under its own label", async () => {
+  await deck();
+  await saveFlight("deck", [DOCS]);
+  await edit().click();
+  await expect.element(page.getByRole("option", { name: "Docs", exact: true })).toBeInTheDocument();
+});
+
+test("a Page tile is seated in a bay by keyboard and its key stands in that bay", async () => {
+  await deck();
+  await saveFlight("deck", [DOCS]);
+  await seatFirst("Docs");
+  await expect.element(facet("Docs")).toBeInTheDocument();
+  expect(bay(1)?.contains(facet("Docs").element())).toBe(true);
+  expect(facet("Checks").query()).toBeNull();
+  expect(seated()?.[0]).toBe("page:my-docs");
+});
+
+test("pressing a seated Page tile opens its address, and its tooltip says so", async () => {
+  const app = await deck();
+  const open = vi.spyOn(app.api, "openLink").mockResolvedValue({ ok: true });
+  await saveFlight("deck", [DOCS]);
+  await seatFirst("Docs");
+  await facet("Docs").hover();
+  await expect.element(page.getByText("Open https://docs.example/guide")).toBeInTheDocument();
+  await facet("Docs").click();
+  expect(open).toHaveBeenCalledWith("https://docs.example/guide");
+});
+
+test("a seated Page tile that is deleted leaves an empty socket", async () => {
+  await deck();
+  await saveFlight("deck", [DOCS]);
+  await seatFirst("Docs");
+  await expect.element(facet("Docs")).toBeInTheDocument();
+  await saveFlight("deck", []);
+  await expect.poll(() => facet("Docs").query()).toBeNull();
+  expect(bay(1)?.hasAttribute("data-empty")).toBe(true);
+  expect(bay(1)?.querySelector("button")).toBeNull();
+});
+
+test("the rack adds a Page tile with the form it always had, and the tile lands in the tray", async () => {
+  await deck();
+  await edit().click();
+  await page.getByRole("option", { name: "Add action" }).click();
+  await page.getByRole("textbox", { name: "Name" }).fill("Docs");
+  await page.getByRole("textbox", { name: "Address" }).fill("https://docs.example/guide");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect.element(page.getByRole("option", { name: "Docs", exact: true })).toBeInTheDocument();
 });
 
 test("a Job with a summary draws it", async () => {

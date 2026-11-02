@@ -240,7 +240,7 @@ The owner's ask of 18 Oct 2026.
 | Move a tile | Drag it, or `Alt` with an arrow while it is focused, or `Space` to lift it, the arrows to move it and `Space` to drop it |
 | Hide or show a tile | `Delete` or `Backspace`. A hidden tile is drawn quiet and dashed, keeps its place and has no key |
 | Change a tile | `Enter` or a press opens its sheet |
-| Add an action | The `+` tile |
+| Add an action | The `+` tile; in the rack, the `+` at the end of the tray |
 | Leave | Done saves; `Esc` leaves without saving |
 
 The tiles keep the size they have outside Edit.
@@ -251,7 +251,7 @@ Hidden tiles and `+` follow the shown ones.
 | Words | Sends the Job its words through `draft.send` | The Job's tiles |
 | Slash command | Types the command to the Job as the context figure's Compact does, and is off where the agent or terminal has not listed it | The Job's tiles |
 | Shell command | Runs the line in the Job's bay through `run_session_shell` (`docs/concepts/kit.md`, *Flight controls*). The output stands in place of the tiles, where they were, until Close. Off where the Job holds no bay | The Job's tiles |
-| Page | Opens the address as Bridge opens an external page. `{branch}`, `{pr}` and `{repository}` are filled from the Job, and the tile is off where one cannot be | The Job's tiles |
+| Page | Opens the address as Bridge opens an external page. `{branch}`, `{pr}` and `{repository}` are filled from the Job, and the tile is off where one cannot be | The Job's tiles and the deck's |
 
 A built-in has a name, a glyph, a key and whether it is shown; Auto land also has the words it sends and Compact the command it types, and Reset puts Armada's own back.
 A key is set by pressing it in the tile's sheet: a digit, a letter, or a chord with ⌘, ⌃ or ⌥ such as `⌥R` or `⇧⌘J`, spelled as the keymap spells it and kept so in the file.
@@ -278,7 +278,10 @@ With no Job open, Edit shows every bay as an open socket and a tray of the instr
 `Enter` on a socket takes the keys to the tray, the arrows move along it, and `Enter` seats the instrument; a bay can be emptied.
 Done keeps it. Cancel or `Esc` puts back what stood before.
 Which instrument is in which bay is kept in the window's storage, as a panel's fold is, since the file above is the wire's and Fleet refuses a key it does not know.
-A Page tile a file already holds for the deck is kept in the file and not drawn.
+A Page tile of the deck is an instrument in the tray under its own label, and goes in any bay as the others do, by drag or by keyboard.
+It is drawn as a key with its glyph and label, and a press opens its address, with the tooltip *Open* and the address.
+Its bay is kept as the others' are; if the tile is deleted, the bay is an empty socket.
+The `+` at the end of the tray opens the same sheet as the Job's `+` tile, offering only Page, and saves the tile when its sheet saves, whether or not the rack is then left with Cancel.
 Bridge refuses a `kind` on a built-in id and `on_text` or `off_text` off the Auto land tile before it saves; the words are the ones the tile sends with the flag.
 Comments typed into the file by hand are lost on a save.
 

@@ -3,15 +3,18 @@
 // Units are CSS pixels across, and 1/f CSS pixels down, f being how far the surface is foreshortened: `hy` is the height of a line that lands at
 // 1.5 CSS pixels. Depth comes from hard-edged bands, lit from above, with soft light from the screens (`drawLights`), the owner's exception to the no-glows rule.
 
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import type { Graphics } from "pixi.js";
 
+import { glyphOf } from "../flight-glyphs";
 import { hex, readPalette, type Rgba } from "./palette";
 
-export type Kind = "matrix" | "beacon" | "radar" | "trace" | "scope" | "needles" | "dispatch";
+export type Kind = "matrix" | "beacon" | "radar" | "trace" | "scope" | "needles" | "key" | "dispatch";
 /** A dot of the Activity graph, 0 to 1 across the scope's box. */
 export type Dot = { x: number; y: number; r: number; colour: string };
 /** `focused` is the keyboard's focus: the ring for it is drawn here, so it lies on the surface rather than square across it. */
-export type BayState = { kind: Kind | null; pressed: boolean; calling: boolean; lit: boolean; focused: boolean; dots?: readonly Dot[] };
+export type BayState = { kind: Kind | null; pressed: boolean; calling: boolean; lit: boolean; focused: boolean; dots?: readonly Dot[]; /** The registry glyph a `key` facet wears. */ glyph?: string };
 
 // ---- Materials ------------------------------------------------------------------------------------------------
 
@@ -194,7 +197,7 @@ function fasten(g: Graphics, l: Look, mx: number, my: number): void {
 
 // ---- The instruments -------------------------------------------------------------------------------------------
 
-type Instrument = { fixed: (g: Graphics, b: Box) => void; live?: (g: Graphics, b: Box, s: BayState, t: number) => void };
+type Instrument = { fixed: (g: Graphics, b: Box, s: BayState) => void; live?: (g: Graphics, b: Box, s: BayState, t: number) => void };
 
 const matrixCells = (b: Box) => {
   const cw = clamp(b.w / 15, 4.5, 10);
@@ -240,6 +243,25 @@ const collar = (g: Graphics, b: Box, r: number, ring: number) => {
   g.circle(b.cx, b.cy, r).fill(b.mat.cap);
   g.circle(b.cx, b.cy, r - ring).fill(b.mat.gap);
 };
+
+/** The side of lucide's own drawing board. */
+const BOARD = 24;
+const drawn = new Map<string, string>();
+
+/** A registry glyph stroked on the plate, `size` across and centred on (`cx`, `cy`). The canvas reads lucide's own SVG, which the rest of the app shows. */
+function glyphOn(g: Graphics, name: string, cx: number, cy: number, size: number, stroke: number): void {
+  const colour = `#${stroke.toString(16).padStart(6, "0")}`;
+  const at = `${name}|${colour}`;
+  let svg = drawn.get(at);
+  if (svg === undefined) {
+    svg = renderToStaticMarkup(createElement(glyphOf(name, "zap")))
+      .replace(/ stroke="currentColor"/, "")
+      .replace(/<(path|circle|rect|line|polyline|polygon|ellipse)\b/g, `<$1 fill="none" stroke="${colour}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`);
+    drawn.set(at, svg);
+  }
+  const k = size / BOARD;
+  g.save().translateTransform(cx, cy).scaleTransform(k, k).translateTransform(-BOARD / 2, -BOARD / 2).svg(svg).restore();
+}
 
 const INSTRUMENTS: Record<Exclude<Kind, "dispatch">, Instrument> = {
   matrix: {
@@ -347,6 +369,16 @@ const INSTRUMENTS: Record<Exclude<Kind, "dispatch">, Instrument> = {
     },
     live(g, b, s) {
       for (const d of s.dots ?? []) g.circle(b.x + 4 + d.x * (b.w - 8), b.y + 3 * b.v + d.y * (b.h - 6 * b.v), Math.max(2.4, d.r * 1.1)).fill(cssHex(d.colour));
+    },
+  },
+  key: {
+    // A cap standing on the screen's floor, its top edge lit as the matrix cells' are, and the glyph on it. The word is the lip's, DOM text.
+    fixed(g, b, s) {
+      const side = Math.min(b.w, b.h) * 0.86;
+      const [x, y] = [b.cx - side / 2, b.cy - side / 2];
+      g.roundRect(x, y, side, side, side * 0.12).fill(b.mat.off);
+      g.rect(x + side * 0.04, y, side * 0.92, Math.min(side * 0.14, b.hy * 3)).fill(b.mat.offTop);
+      glyphOn(g, s.glyph ?? "zap", b.cx, b.cy, side * 0.5, s.pressed ? b.tone.accent : s.lit ? b.tone.fg : b.tone.muted);
     },
   },
   needles: {
@@ -471,7 +503,7 @@ function paintPlate(g: Graphics, l: Look, p: Paint, s: BayState): void {
   }
   well(g, l, room, s.focused ? tone.fg : s.pressed ? tone.accent : s.lit ? tone.muted : mat.gap, s.pressed ? mix(mat.screen, tone.accentMuted, 0.65) : mat.screen);
   fasten(g, l, 5 * l.u, 5 * l.u * l.v);
-  INSTRUMENTS[s.kind].fixed(g, b);
+  INSTRUMENTS[s.kind].fixed(g, b, s);
 }
 
 /** Dispatch's arming lamp: where it stands, if the plate has room for it, and whether it is on at this moment. */
@@ -511,9 +543,11 @@ export function drawLights(g: Graphics, p: Paint, s: BayState, tone: Tones, mat:
     if (lamp !== undefined && armed(t)) g.rect(lamp.x - 3 * l.u, lamp.y - 3 * l.u * l.v, lamp.w + 6 * l.u, lamp.h + 6 * l.u * l.v).fill(tone.ask);
     return;
   }
+  // A key throws no light: it is a cap, not a screen.
+  if (s.kind === "key") return;
   const b = floorOf(l, p.named);
   g.rect(b.x, b.y, b.w, b.h).fill({ color: glassOf(s, tone), alpha: s.pressed ? GLASS * 0.7 : GLASS });
-  if (s.kind === "needles") INSTRUMENTS[s.kind].fixed(g, b);
+  if (s.kind === "needles") INSTRUMENTS[s.kind].fixed(g, b, s);
   if (s.kind === "radar") {
     const room = (b.w - (Math.min(b.w, b.h) - 2)) / 2 - 10 * b.u;
     if (room > 36) for (const side of [0, 1]) radarBars(g, b, side === 0 ? b.x + 7 * b.u : b.x + b.w - 7 * b.u - room, room, side, true);

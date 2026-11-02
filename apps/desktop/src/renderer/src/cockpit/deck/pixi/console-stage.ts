@@ -440,7 +440,7 @@ export class ConsoleStage {
     let moved = false;
     this.facets.forEach((f, i) => {
       const state = this.bays[i] ?? EMPTY();
-      const key = `${state.kind}|${state.pressed}|${state.lit}|${state.focused}|${state.calling}`;
+      const key = `${state.kind}|${state.pressed}|${state.lit}|${state.focused}|${state.calling}|${state.glyph ?? ""}`;
       if (f.drawn !== key) {
         drawPlate(f.plate, f.paint, state, tone, mat);
         f.drawn = key;
@@ -461,7 +461,7 @@ export class ConsoleStage {
     spill.clear();
     world.lips.forEach((q, i) => {
       const state = this.bays[i];
-      if (i === this.plan.keyed || state === undefined || state.kind === null || state.kind === "dispatch") return;
+      if (i === this.plan.keyed || state === undefined || state.kind === null || state.kind === "dispatch" || state.kind === "key") return;
       spill.poly(partOf(q, 0.04, 0, 0.96, 0.3).flatMap((p) => [p.x, p.y])).fill({ color: glassOf(state, tone), alpha: SPILL });
     });
   }

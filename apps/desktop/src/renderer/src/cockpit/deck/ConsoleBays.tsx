@@ -3,17 +3,20 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Activity as ActivityGlyph, ChartNoAxesGantt, Gauge, Megaphone, Radar, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Activity as ActivityGlyph, ChartNoAxesGantt, Gauge, Megaphone, Plus, Radar, ShieldCheck, type LucideIcon } from "lucide-react";
 import { Button, Kbd, Tooltip } from "@armada/components";
 
 import { ActivityHud } from "./ConsoleHud";
 import { toggleCalls, useCallsHud } from "./ConsoleCalls";
+import { FlightActionSheet } from "./FlightActionSheet";
+import { entriesOf, isWebAddress, saveFlight, tilesOf, useFlightFile } from "./flight-controls";
 import { glyphOf } from "./flight-glyphs";
 import { ConsoleStage, type BayState, type Dot, type Kind, type Layout, type Plan } from "./pixi/console-stage";
 import { tileCap } from "./session-tiles";
-import type { tilesOf } from "./flight-controls";
 
 export type InstrumentId = "matrix" | "beacon" | "radar" | "trace" | "scope" | "needles";
+/** What a bay holds: one of Armada's instruments, or a Page tile of the owner's, by its id in the file. */
+export type Seat = InstrumentId | `page:${string}`;
 type Tile = ReturnType<typeof tilesOf>[number];
 
 /** The code is a stencil on the console, decoration only. */
@@ -30,9 +33,16 @@ const IN_THE_TRAY = Object.keys(INSTRUMENTS) as InstrumentId[];
 const TILE_OF: Partial<Record<InstrumentId, string>> = { matrix: "checks", beacon: "needs", radar: "map", trace: "timeline" };
 const TIP_OF: Partial<Record<string, string>> = { checks: "Checks: only what is running one" };
 
+const PAGE = "page:";
+const isSeat = (one: unknown): one is Seat => typeof one === "string" && (one in INSTRUMENTS || one.startsWith(PAGE));
+/** The Page tiles the owner added to the deck, which the tray offers. */
+const pagesOf = (tiles: readonly Tile[]): Tile[] => tiles.filter((one) => one.builtIn === undefined && one.kind === "page");
+/** The Page tile a seat stands for, or nothing for an instrument, and for a tile since deleted. */
+const pageOf = (seat: Seat | "dispatch" | null, tiles: readonly Tile[]): Tile | undefined => (typeof seat === "string" && seat.startsWith(PAGE) ? pagesOf(tiles).find((one) => one.id === seat.slice(PAGE.length)) : undefined);
+
 // ---- What the bays hold ------------------------------------------------------------------------------
 
-type Bays = readonly (InstrumentId | null)[];
+type Bays = readonly (Seat | null)[];
 /** The bays either side of the Map, which is not one of them. */
 const FIRST: Bays = ["matrix", "beacon", "trace", "scope"];
 /** A viewer's convenience kept as a fold is (`collapse.ts`): `flight-controls.toml` is the wire's, and Fleet refuses a key it does not know. */
@@ -42,7 +52,7 @@ const heard = new Set<() => void>();
 const read = (): Bays => {
   try {
     const found: unknown = JSON.parse(window.localStorage.getItem(KEPT) ?? "null");
-    if (Array.isArray(found) && found.length === FIRST.length && found.every((one) => one === null || (typeof one === "string" && one in INSTRUMENTS))) return found as Bays;
+    if (Array.isArray(found) && found.length === FIRST.length && found.every((one) => one === null || isSeat(one))) return found as Bays;
   } catch {
     /* a bad record is the default */
   }
@@ -50,6 +60,10 @@ const read = (): Bays => {
 };
 let held: Bays | undefined;
 const baysOf = (): Bays => (held ??= read());
+/** The next read is the storage's again, as a test that cleared the storage needs. */
+export const forgetBays = (): void => {
+  held = undefined;
+};
 
 function keepBays(bays: Bays): void {
   held = bays;
@@ -61,7 +75,7 @@ function keepBays(bays: Bays): void {
   heard.forEach((one) => one());
 }
 /** Put an instrument in a bay, or empty it. */
-const seat = (bay: number, id: InstrumentId | null): void => keepBays(baysOf().map((one, at) => (at === bay ? id : one)));
+const seat = (bay: number, id: Seat | null): void => keepBays(baysOf().map((one, at) => (at === bay ? id : one)));
 const useBays = (): Bays =>
   useSyncExternalStore(
     (hear) => (heard.add(hear), () => void heard.delete(hear)),
@@ -76,6 +90,8 @@ export type Wiring = {
   calling: boolean;
   /** The Activity graph, drawn into the scope, and at the HUD's size; absent where a layout hides Activity. */
   scope?: { small: ReactNode; large: ReactNode };
+  /** Opens a page, as Bridge opens an external one. */
+  open: (address: string) => void;
   /** The Dispatch key on the Map's lip; absent with a Job open or where a layout hides Dispatch. */
   dispatch?: ReactNode;
   /** The panel is folded away: the canvas holds its frame. */
@@ -117,6 +133,25 @@ function Key({ id, wiring }: { id: InstrumentId; wiring: Wiring }) {
   );
 }
 
+/** A Page tile of the owner's seated in a bay: a key that opens its address. */
+function PageKey({ tile, wiring }: { tile: Tile; wiring: Wiring }) {
+  const Glyph = glyphOf(tile.glyph, "zap");
+  const address = (tile.words ?? "").trim();
+  return (
+    <Tooltip label={`Open ${address}`} {...(tile.key === undefined ? {} : { shortcut: tile.key })} asChild>
+      <button type="button" className="deck-tile" aria-label={tile.label} data-key={tile.key} data-tile={tile.id} onClick={() => isWebAddress(address) && wiring.open(address)}>
+        <Glyph size={20} aria-hidden="true" />
+        <span className="deck-tile__text">{tile.text}</span>
+        {tile.key === undefined ? null : (
+          <Kbd className="deck-tile__key" aria-hidden="true">
+            {tileCap(tile.key)}
+          </Kbd>
+        )}
+      </button>
+    </Tooltip>
+  );
+}
+
 /** The Activity graph as a scope. The whole facet is one press, which opens the HUD over the field; its graph only feeds the picture, so its dots take neither pointer nor focus. */
 function Scope({ graph }: { graph: NonNullable<Wiring["scope"]> }) {
   const [open, setOpen] = useState(false);
@@ -138,16 +173,20 @@ function Scope({ graph }: { graph: NonNullable<Wiring["scope"]> }) {
   );
 }
 
-function Seated({ id, wiring }: { id: InstrumentId; wiring: Wiring }) {
-  if (id === "scope") return wiring.scope === undefined ? null : <Scope graph={wiring.scope} />;
-  if (id === "needles") {
+function Seated({ id, wiring }: { id: Seat; wiring: Wiring }) {
+  const page = pageOf(id, wiring.tiles);
+  if (page !== undefined) return <PageKey tile={page} wiring={wiring} />;
+  if (!(id in INSTRUMENTS)) return null;
+  const instrument = id as InstrumentId;
+  if (instrument === "scope") return wiring.scope === undefined ? null : <Scope graph={wiring.scope} />;
+  if (instrument === "needles") {
     return (
       <Tooltip label={INSTRUMENTS.needles.label} asChild>
         <div className="console-gauges" role="img" aria-label={INSTRUMENTS.needles.label} />
       </Tooltip>
     );
   }
-  return <Key id={id} wiring={wiring} />;
+  return <Key id={instrument} wiring={wiring} />;
 }
 
 const DOTS_EVERY = 400;
@@ -162,8 +201,9 @@ export function ConsoleBays({ wiring }: { wiring: Wiring }) {
   const els = useRef<(HTMLDivElement | null)[]>([]);
   const [layout, setLayout] = useState<Layout | undefined>();
   const dispatch = wiring.dispatch === undefined ? null : "dispatch";
-  const shown = (id: InstrumentId | null) => (id === "scope" && wiring.scope === undefined ? null : id);
-  const items: (InstrumentId | "dispatch" | null)[] = [shown(seated[0]!), shown(seated[1]!), "radar", shown(seated[2]!), shown(seated[3]!), dispatch];
+  // A bay holding a Page tile since deleted is an empty socket.
+  const shown = (id: Seat | null) => (id === "scope" && wiring.scope === undefined ? null : id !== null && id.startsWith(PAGE) && pageOf(id, wiring.tiles) === undefined ? null : id);
+  const items: (Seat | "dispatch" | null)[] = [shown(seated[0]!), shown(seated[1]!), "radar", shown(seated[2]!), shown(seated[3]!), dispatch];
   const dots = useRef<{ at: number; list: Dot[] }>({ at: 0, list: [] });
   useLayoutEffect(() => {
     const canvas = host.current!;
@@ -208,7 +248,8 @@ export function ConsoleBays({ wiring }: { wiring: Wiring }) {
       items.map((id, at) => {
         const el = els.current[at];
         if (id === null || el === null || el === undefined) return { kind: null, pressed: false, calling: false, lit: false, focused: false };
-        const kind: Kind = id === "dispatch" ? "dispatch" : id;
+        const page = pageOf(id, wiring.tiles);
+        const kind: Kind = id === "dispatch" ? "dispatch" : page === undefined ? (id as InstrumentId) : "key";
         let list: Dot[] | undefined;
         if (id === "scope") {
           const now = performance.now();
@@ -228,7 +269,7 @@ export function ConsoleBays({ wiring }: { wiring: Wiring }) {
           }
           list = dots.current.list;
         }
-        return { kind, pressed: el.querySelector("[aria-pressed='true']") !== null, calling: el.querySelector("[data-calling]") !== null, lit: el.matches(":hover, :focus-within"), focused: el.querySelector(":is(.deck-tile, .console-scope__press):focus-visible") !== null, ...(list === undefined ? {} : { dots: list }) };
+        return { kind, pressed: el.querySelector("[aria-pressed='true']") !== null, calling: el.querySelector("[data-calling]") !== null, lit: el.matches(":hover, :focus-within"), focused: el.querySelector(":is(.deck-tile, .console-scope__press):focus-visible") !== null, ...(list === undefined ? {} : { dots: list }), ...(page === undefined ? {} : { glyph: page.glyph }) };
       }),
     );
     stage.current?.poke();
@@ -256,7 +297,7 @@ export function ConsoleBays({ wiring }: { wiring: Wiring }) {
                 aria-hidden="true"
                 style={{ left: label.x - room.x, top: label.y - room.y, fontSize: label.size, transform: `translate(-50%, -50%) rotate(${label.angle}rad)` }}
               >
-                {id === "dispatch" ? "Dispatch" : INSTRUMENTS[id].label}
+                {id === "dispatch" ? "Dispatch" : (pageOf(id, wiring.tiles)?.label ?? INSTRUMENTS[id as InstrumentId].label)}
               </span>
             )}
           </div>
@@ -279,8 +320,11 @@ function along(event: KeyboardEvent<HTMLElement>, selector: string) {
 }
 
 /** The rack. Focus a bay and press Enter to pick it, then choose from the tray with the arrows and Enter; or drag an instrument onto a bay. Delete empties the bay. */
-export function ConsoleRack({ host, onDone }: { host: HTMLElement | null; onDone: () => void }) {
+export function ConsoleRack({ host, tiles, onDone }: { host: HTMLElement | null; tiles: readonly Tile[]; onDone: () => void }) {
   const seated = useBays();
+  const file = useFlightFile();
+  const [adding, setAdding] = useState(false);
+  const pages = pagesOf(tiles);
   const [armed, setArmed] = useState<number | undefined>();
   const [over, setOver] = useState<number | undefined>();
   const last = useRef(0);
@@ -293,7 +337,7 @@ export function ConsoleRack({ host, onDone }: { host: HTMLElement | null; onDone
     keepBays(before.current);
     onDone();
   };
-  const put = (bay: number, id: InstrumentId | null) => {
+  const put = (bay: number, id: Seat | null) => {
     seat(bay, id);
     setArmed(undefined);
     focusSocket(bay);
@@ -302,15 +346,15 @@ export function ConsoleRack({ host, onDone }: { host: HTMLElement | null; onDone
     event.preventDefault();
     setOver(undefined);
     const id = event.dataTransfer.getData("text/plain");
-    if (id in INSTRUMENTS) put(bay, id as InstrumentId);
+    if (id in INSTRUMENTS || pageOf(id as Seat, tiles) !== undefined) put(bay, id as Seat);
   };
   useEffect(() => {
     if (armed !== undefined) tray.current?.querySelector<HTMLElement>("button")?.focus();
   }, [armed]);
   // Edit, which opened this, has gone from under the keys.
   useEffect(() => focusSocket(0), []);
-  const tile = (id: InstrumentId) => {
-    const { Icon, code, label } = INSTRUMENTS[id];
+  /** One thing the tray offers: an instrument by its stencil, or a Page tile by its own label and glyph. */
+  const item = (id: Seat, label: string, Icon: LucideIcon, code?: string) => {
     return (
       <Tooltip key={id} label={label} asChild>
         <button
@@ -324,13 +368,16 @@ export function ConsoleRack({ host, onDone }: { host: HTMLElement | null; onDone
           onClick={() => put(armed ?? last.current, id)}
         >
           <Icon size={16} aria-hidden="true" />
-          <span className="console-tray__code" aria-hidden="true">
-            {code}
-          </span>
+          {code === undefined ? null : (
+            <span className="console-tray__code" aria-hidden="true">
+              {code}
+            </span>
+          )}
         </button>
       </Tooltip>
     );
   };
+  const all = tilesOf("deck", file);
   return (
     <>
       {host === null
@@ -362,7 +409,9 @@ export function ConsoleRack({ host, onDone }: { host: HTMLElement | null; onDone
       >
         <div className="console-rack__bays" onKeyDown={(event) => along(event, ".console-socket")}>
           {seated.map((id, at) => {
-            const meta = id === null ? undefined : INSTRUMENTS[id];
+            const page = pageOf(id, tiles);
+            // A Page tile since deleted is an empty socket here as it is on the console.
+            const meta = id === null || (id.startsWith(PAGE) && page === undefined) ? undefined : page !== undefined ? { label: page.label, Icon: glyphOf(page.glyph, "zap"), code: undefined } : INSTRUMENTS[id as InstrumentId];
             const Icon = meta?.Icon;
             return (
               <Tooltip key={at} label={meta?.label ?? `Bay ${at + 1}`} asChild>
@@ -370,7 +419,7 @@ export function ConsoleRack({ host, onDone }: { host: HTMLElement | null; onDone
                   type="button"
                   className="console-socket"
                   data-n={at + 1}
-                  data-empty={id === null || undefined}
+                  data-empty={meta === undefined || undefined}
                   data-armed={armed === at || undefined}
                   data-over={over === at || undefined}
                   aria-label={`Bay ${at + 1}${meta === undefined ? "" : `, ${meta.label}`}`}
@@ -388,7 +437,7 @@ export function ConsoleRack({ host, onDone }: { host: HTMLElement | null; onDone
                   onDrop={drop(at)}
                 >
                   {Icon === undefined ? null : <Icon size={20} aria-hidden="true" />}
-                  {meta === undefined ? null : (
+                  {meta?.code === undefined ? null : (
                     <span className="console-socket__code" aria-hidden="true">
                       {meta.code}
                     </span>
@@ -399,9 +448,32 @@ export function ConsoleRack({ host, onDone }: { host: HTMLElement | null; onDone
           })}
         </div>
         <div className="console-tray" ref={tray} role="listbox" aria-label="Instruments" onKeyDown={(event) => along(event, ".console-tray__item")}>
-          {IN_THE_TRAY.map(tile)}
+          {IN_THE_TRAY.map((id) => item(id, INSTRUMENTS[id].label, INSTRUMENTS[id].Icon, INSTRUMENTS[id].code))}
+          {pages.map((one) => item(`${PAGE}${one.id}`, one.label, glyphOf(one.glyph, "zap")))}
+          <Tooltip label="Add an action" asChild>
+            <button type="button" role="option" aria-selected={false} aria-label="Add action" className="console-tray__item" onClick={() => setAdding(true)}>
+              <Plus size={16} aria-hidden="true" />
+            </button>
+          </Tooltip>
         </div>
       </div>
+      {/* Over the whole window and outside the rack, whose keys the sheet's Esc is not. */}
+      {adding ? (
+        createPortal(
+          <FlightActionSheet
+            set="deck"
+            tile={undefined}
+            tiles={all}
+            entries={entriesOf(all)}
+            onClose={() => setAdding(false)}
+            onSave={(entry) => {
+              void saveFlight("deck", [...entriesOf(all), entry]);
+              setAdding(false);
+            }}
+          />,
+          document.body,
+        )
+      ) : null}
     </>
   );
 }

@@ -877,7 +877,7 @@ function FlightControl({ ship, props, listed, unified = false, withActivity = tr
         <span className="deck-band__acts" ref={setActs} />
       </header>
       {editing && set === "deck" ? (
-        <ConsoleRack host={acts} onDone={() => setEditing(false)} />
+        <ConsoleRack host={acts} tiles={deckTiles} onDone={() => setEditing(false)} />
       ) : editing ? (
         <FlightEdit set={set} host={acts} repository={opened} sessionId={session?.id} onClose={() => setEditing(false)} />
       ) : session !== undefined && draft !== undefined ? (
@@ -890,6 +890,7 @@ function FlightControl({ ship, props, listed, unified = false, withActivity = tr
               pressed: (id) => DECK_ACTS[id]?.pressed(deck) ?? false,
               press: (id) => DECK_ACTS[id]?.press(),
               calling: asking,
+              open: props.onOpenLink,
               folded: folded.collapsed,
               ...(withActivity ? { scope: { small: <ActivityBody props={props} listed={listed} ship={ship} />, large: <ActivityBody props={props} listed={listed} ship={ship} dot={12} /> } } : {}),
               ...(withDispatch && session === undefined ? { dispatch: <DispatchKey /> } : {}),
