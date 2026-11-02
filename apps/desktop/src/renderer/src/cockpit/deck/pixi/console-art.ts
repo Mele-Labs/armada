@@ -360,7 +360,13 @@ const INSTRUMENTS: Record<Exclude<Kind, "dispatch">, Instrument> = {
       }
       g.stroke({ width: Math.max(2.4, b.hy * 1.1), color: b.tone.run, join: "bevel" });
       g.rect(b.x + b.w * 0.55, b.y, Math.max(2, 2.4 * b.u), b.h).fill(b.tone.ask);
-      if (s.lamp === true) g.circle(b.x + b.w - 6 * b.u, b.y + 6 * b.u, Math.max(3, 3 * b.u)).fill(b.tone.accent);
+      if (s.lamp === true) {
+        const r = Math.max(3.5, 4 * b.u);
+        const x = b.x + b.w - r * 2;
+        const y = b.y + r * 2;
+        g.circle(x, y, r + 1.5).fill(b.mat.hood);
+        g.circle(x, y, r).fill(b.tone.fg);
+      }
     },
   },
   scope: {

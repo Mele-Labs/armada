@@ -9,8 +9,9 @@ import type { MergeLineView } from "@armada/screens";
 import { useSessions } from "../../sessions-draft";
 import { useDrawnEvents } from "../drawn-events";
 import { ConsoleHud, panelOf } from "./ConsoleHud";
+import { focusPanel } from "./keys";
 import type { Ship } from "./ship";
-import { openWithBack, selOfSubject, useDeck } from "./store";
+import { deckNow, openWithBack, selOfSubject, useDeck } from "./store";
 import { movedRows, stuckRows, type HudRow } from "./timeline-rows";
 
 /** The strip the name stands in. */
@@ -132,6 +133,13 @@ export function TimelineHud({ ship, views }: { ship: Ship; views: readonly Merge
     return () => window.cancelAnimationFrame(land);
   }, [open, at]);
   const onKey = (event: KeyboardEvent): boolean => {
+    // The press, taken here as the deck takes its own, so a walk playing does not also step on it.
+    if (event.key === "Enter" && document.activeElement instanceof HTMLElement && document.activeElement.matches("button.console-tl__row")) {
+      event.preventDefault();
+      event.stopPropagation();
+      document.activeElement.click();
+      return true;
+    }
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp" && event.key !== "Home" && event.key !== "End") return false;
     const rows = [...(body.current?.querySelectorAll<HTMLElement>("button.console-tl__row") ?? [])];
     if (rows.length === 0) return false;
@@ -146,6 +154,7 @@ export function TimelineHud({ ship, views }: { ship: Ship; views: readonly Merge
     if (row.opens === undefined) return;
     set({ open: false, at: row.key });
     openWithBack(selOfSubject(row.opens), openTimeline);
+    window.requestAnimationFrame(() => focusPanel("stage", deckNow().cursor));
   };
   if (!open) return null;
   return (

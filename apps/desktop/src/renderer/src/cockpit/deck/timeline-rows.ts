@@ -42,15 +42,17 @@ export function stuckRows(subjects: readonly Subject[], sessions: readonly Sessi
     const item = session === undefined ? undefined : waitingOf(session)[0];
     const failed = one.pr?.ci === "failed" ? `#${one.pr.number} checks failed` : undefined;
     const fact = item?.text ?? failed;
-    const at = item?.since ?? newestOwed(events, one.key)?.at;
+    const owed = (event: FleetEvent) => event.tone === "ask" || event.tone === "bad";
+    // A Job gone quiet owes nothing, and how long it has been quiet is the fact.
+    const at = item?.since ?? newestOf(events, one.key, owed)?.at ?? (toneOfStuck(one) === "stuck" ? newestOf(events, one.key)?.at : undefined);
     return { key: one.key, title: one.title, tone: toneOfStuck(one), Glyph: one.mark.Glyph, said: one.mark.said, opens: one, ...(fact === undefined ? {} : { fact }), ...(at === undefined ? {} : { at }) };
   });
 }
 
-function newestOwed(events: readonly FleetEvent[], key: string): FleetEvent | undefined {
+function newestOf(events: readonly FleetEvent[], key: string, counts: (event: FleetEvent) => boolean = () => true): FleetEvent | undefined {
   let newest: FleetEvent | undefined;
   for (const one of events) {
-    if (keyOf(one.subject) !== key || (one.tone !== "ask" && one.tone !== "bad")) continue;
+    if (keyOf(one.subject) !== key || !counts(one)) continue;
     if (newest === undefined || Date.parse(one.at) > Date.parse(newest.at)) newest = one;
   }
   return newest;
@@ -88,7 +90,8 @@ export function movedRows(events: readonly FleetEvent[], since: number, stuck: r
     const opens = subjects.find((one) => one.key === key);
     return {
       key,
-      title: newest.subject.kind === "main" ? "main" : newest.subject.title,
+      // Every repository is listed, so a main says whose.
+      title: newest.subject.kind === "main" ? `${newest.repo} main`.trim() : newest.subject.title,
       tone,
       Glyph,
       said,
