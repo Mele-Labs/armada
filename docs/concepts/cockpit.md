@@ -112,7 +112,7 @@ An icon is off, with its reason as the tooltip, where its view has nothing in it
 ## The Jobs list
 
 A row is a list card, the same card an issue, a pull request and a Logbook entry draw: the name, then status glyphs in fixed places in the corner, so the glyphs line up from row to row and the state is last.
-Rows are divided by a hairline and the repository groups are spaced apart.
+The console draws the card as a strip with its own edge and a lamp down its left side, and the repository groups are spaced apart.
 Hovering a row opens its full inspect card.
 
 A right press on a row, or on the list's empty room, opens a menu whose View group has seven checkable fields, in this order:
