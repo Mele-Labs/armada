@@ -121,8 +121,8 @@ export type VoiceChild = {
 };
 
 export type VoiceHosts = {
-  /** Armada Voice's executable, or null where this Bridge was built without it. */
-  helper: string | null;
+  /** Armada Voice's executable, or null where it is not built. Read at each press, so one built since start is found. */
+  helper: () => string | null;
   /** Where Install put whisper.cpp and its model, or null before it has. */
   whisper: () => {
     library: string;
@@ -170,7 +170,8 @@ export function hear(
     };
   }
 
-  if (hosts.helper === null) {
+  const helper = hosts.helper();
+  if (helper === null) {
     end("helper_missing");
     return () => {};
   }
@@ -190,7 +191,7 @@ export function hear(
     ];
   }
 
-  const child = hosts.spawn(hosts.helper, args);
+  const child = hosts.spawn(helper, args);
   const settled = new Settled();
   let released = false;
   let cancelKill = (): void => {};
@@ -229,7 +230,10 @@ export function hear(
   };
 }
 
-/** Armada Voice's executable: built beside the sources in development, in `Contents/Helpers` packaged. */
+/**
+ * Armada Voice's executable: built beside the sources in a dev build, in `Contents/Helpers` in a real one. Pass
+ * `!DEV_BUILD`, never `app.isPackaged`, which reads true for the dev copy named Armada (`dev-build.ts`).
+ */
 export function helperPath(packaged: boolean, appPath: string, resourcesPath: string): string {
   const app = packaged
     ? join(resourcesPath, "..", "Helpers", "Armada Voice.app")
