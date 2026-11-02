@@ -10,6 +10,9 @@ import { withState } from "../state-feed";
 import { BUILT_IN_SWATCHES, modSwatch } from "../swatches";
 import { Themed } from "../theme";
 import { TerminalWindow } from "./TerminalWindow";
+import { startMotionRules } from "../still";
+
+startMotionRules();
 
 // A Job's shell in a window of its own, a fourth renderer entry beside Bridge's, the bar's and the walk panel's: a Bridge
 // document with Bridge's preload, which main loads on `?session=` and closes when the shell moves back (`main/terminal-windows.ts`).

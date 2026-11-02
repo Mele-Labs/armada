@@ -115,7 +115,9 @@ The owner chose solid panels on 2 Nov 2026.
 
 **Every loop moves on one clock.** A smooth loop holds the display's frames.
 One smooth loop of any size, a faint row pulse as much as the star field, held the GPU at 52% on the mock Cockpit, and steps on each loop's own schedule add up.
-`apps/desktop/src/renderer/src/loop-clock.ts` pauses every infinite animation in Bridge's main windows, and any that runs 5 seconds or more, and moves them together 5 times a second.
+`apps/desktop/src/renderer/src/loop-clock.ts` pauses every infinite animation in each Bridge document, and any that runs 5 seconds or more, and moves them together 5 times a second.
+Every renderer entry starts it through `startMotionRules` in `still.ts`, the walk window's page, bar and panel without the focus half, since they hold that window's focus in turn.
+A mock page left open read 120 to 180% of a core in headless Chromium, and 0 to 1% once idle.
 It moves none while the window has had no input for a minute, and skips a loop out of sight, since a move nobody can see still costs a frame.
 
 | Measured in Bridge on an M5 Pro at 3024 by 1964, on the mock Cockpit | GPU |
