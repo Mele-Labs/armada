@@ -140,7 +140,8 @@ export function pointedAt(
   return rowAt(page, target, title, revision);
 }
 
-function rowAt(
+/** The table row `target` is in, as a note names it, and where it stands. */
+export function rowAt(
   page: HTMLElement,
   target: EventTarget | null,
   title: string,

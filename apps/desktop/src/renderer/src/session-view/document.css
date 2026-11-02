@@ -295,6 +295,40 @@ td > .armada-doc__anchor {
   outline-offset: calc(var(--edge-active) * -1);
 }
 
+/* The reactions a hovered table row offers: a small bar over the row's right end, the thread's own responses. */
+.armada-doc__reactions {
+  position: fixed;
+  z-index: 1;
+  display: flex;
+  gap: 0;
+  padding: calc(var(--space-1) / 2);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  transform: translate(-100%, 0);
+}
+.armada-doc__reaction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--h-control-sm);
+  block-size: var(--h-control-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-size: var(--text-sm);
+  line-height: 1;
+  cursor: pointer;
+}
+.armada-doc__reaction:hover {
+  background: var(--surface-row-hover);
+}
+.armada-doc__reaction:focus-visible {
+  outline: var(--edge-active) solid var(--edge-focus);
+  outline-offset: calc(var(--edge-active) * -1);
+}
+
 /* Approve and Send back while the newest revision waits on him: a card of its own over Contents, its keys on one line. */
 .armada-doc__approve {
   display: flex;

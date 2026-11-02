@@ -18,11 +18,12 @@ import {
   SketchScene,
   type DocumentTarget,
   type NotedRef,
+  type QuickResponse,
   type ViewerNotes,
   type ViewerNotesScope,
 } from "@armada/components";
 
-import { placeOf, pointedAt, rangeOf, rowOf } from "./document-find";
+import { placeOf, pointedAt, rangeOf, rowAt, rowOf, type Pointed } from "./document-find";
 import { PAGE_ROOT, sceneWithKept, sectionOf, type PageSketch } from "./document-page";
 import { openLink } from "../commands";
 
@@ -97,6 +98,8 @@ type Props = {
       current: (() => string | undefined) | null;
     }[]
   >;
+  /** The thread's quick responses: a table row the pointer is on offers each as a one-press note. Absent, a row offers none. */
+  responses?: readonly QuickResponse[] | undefined;
 };
 
 const highlights = (): HighlightRegistry | undefined =>
@@ -122,8 +125,11 @@ export function DocumentPage({
   lit,
   onLit,
   exporters,
+  responses,
 }: Props) {
   const [mounts, setMounts] = useState<readonly Mount[]>([]);
+  // The row the pointer is on, as a note would name it: the reaction bar stands at its right end.
+  const [reacting, setReacting] = useState<Pointed | undefined>(undefined);
   // Held between renders: a scene that is a new object each time is drawn from the start each time.
   const scenes = useMemo(
     () => sketches.map((one) => sceneWithKept(one.title, one.scene, keptStyles)),
@@ -376,8 +382,23 @@ export function DocumentPage({
   // The pointer over a note's place in the page lights that note in the margin.
   const onMouseMove = (event: MouseEvent<HTMLElement>) => {
     const el = page.current;
-    if (el === null || !margin) return;
+    if (el === null) return;
     const target = event.target as Element;
+    if (viewer.on && responses !== undefined && responses.length > 0) {
+      const row =
+        target.closest("tbody tr") === null ? undefined : rowAt(el, target, title, revision);
+      setReacting((was) =>
+        row === undefined ||
+        (was?.about.target.kind === "row" &&
+          row.about.target.kind === "row" &&
+          was.about.target.row === row.about.target.row)
+          ? row === undefined
+            ? undefined
+            : was
+          : row,
+      );
+    }
+    if (!margin) return;
     const here = (): PageNote | undefined => {
       const part = target.closest(".react-flow__node")?.getAttribute("data-id");
       const sketch = target.closest(".armada-doc__sketch")?.getAttribute("data-title");
@@ -416,7 +437,17 @@ export function DocumentPage({
             },
     );
   };
-  const onMouseLeave = () => onLit((was) => (was?.from === "page" ? undefined : was));
+  const onMouseLeave = (event: MouseEvent<HTMLElement>) => {
+    onLit((was) => (was?.from === "page" ? undefined : was));
+    // The bar stands outside the page, so the pointer going to it has not left the row.
+    if (
+      !(
+        event.relatedTarget instanceof Element &&
+        event.relatedTarget.closest(".armada-doc__reactions") !== null
+      )
+    )
+      setReacting(undefined);
+  };
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     viewer.onKeyDown(event);
@@ -502,6 +533,34 @@ export function DocumentPage({
           one.el,
           `${String(one.n)}:${String(one.writing)}`,
         ),
+      )}
+      {reacting === undefined || responses === undefined ? null : (
+        <div
+          className="armada-doc__reactions"
+          role="group"
+          aria-label="React to this row"
+          style={{
+            top: reacting.anchor.top,
+            left: reacting.anchor.right,
+          }}
+          onMouseLeave={() => setReacting(undefined)}
+        >
+          {responses.map((one) => (
+            <button
+              key={one.id}
+              type="button"
+              className="armada-doc__reaction"
+              aria-label={one.name}
+              title={one.name}
+              onClick={() => {
+                viewer.react(reacting.about, `${one.emoji} ${one.name}`);
+                setReacting(undefined);
+              }}
+            >
+              {one.emoji}
+            </button>
+          ))}
+        </div>
       )}
       {viewer.layer}
     </>

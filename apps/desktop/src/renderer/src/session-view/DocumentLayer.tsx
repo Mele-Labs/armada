@@ -24,6 +24,7 @@ import {
   setHeldOn,
   sketchFileName,
   useHeldOn,
+  useThreadLook,
   useViewerNotes,
   type DropdownMenuEntry,
   type NotedRef,
@@ -140,6 +141,8 @@ export function DocumentLayer({ session }: { session: Session }) {
     }[]
   >([]);
   const shared = useContext(SketchShareContext);
+  // The reactions the thread offers on an agent's line are the ones a table row offers.
+  const responses = useThreadLook()?.look.responses;
 
   const revision = Math.min(pinned ?? latest, latest);
   const page = pages[revision - 1];
@@ -641,6 +644,7 @@ export function DocumentLayer({ session }: { session: Session }) {
                   lit={lit}
                   onLit={setLit}
                   exporters={exporters}
+                  responses={responses}
                 />
                 {doc === undefined ? null : (
                   <JudgedPage
