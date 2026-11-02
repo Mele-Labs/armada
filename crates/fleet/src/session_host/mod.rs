@@ -483,6 +483,9 @@ pub(crate) struct State {
     /// The person wrote, and the agent has written him nothing since but a status line. Sent back
     /// once a message, at its question or its turn's end (`unanswered`). In memory.
     pub owes_reply: bool,
+    /// The last thing the agent wrote him since his message was a lone line, which is a status line
+    /// if a tool call follows it and his answer if the question or the turn's end does. In memory.
+    pub reply_line: bool,
     /// The call id of the last question the stream showed, so the door reads a question only once
     /// what the agent wrote before it has been heard. In memory.
     pub question_heard: Option<String>,
@@ -579,6 +582,7 @@ impl State {
             turn_began: None,
             said: None,
             owes_reply: false,
+            reply_line: false,
             question_heard: None,
             pages: HashMap::new(),
             helm: false,
