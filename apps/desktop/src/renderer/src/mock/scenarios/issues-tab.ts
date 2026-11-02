@@ -226,7 +226,7 @@ const SESSIONS = (): Session[] => [
     lastTurnAt: now(),
     standing: "working",
     rows: [ask("c1-u", "#2810 Coupon field accepts an expired code"), say("c1-a", "The expiry check compares a UTC date with a local one. Changing it to compare in UTC.")],
-    attachments: [],
+    attachments: [{ kind: "issue", number: "2810", title: "Coupon field accepts an expired code", address: `${GH}2810`, state: "open" }],
   },
   {
     id: "01ISSUECERTSBBBBBBBBBBBBBB",

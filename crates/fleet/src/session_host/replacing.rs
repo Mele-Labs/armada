@@ -19,8 +19,9 @@
 //!
 //! **The order is the point.** The new Job is started first, then the two are linked and published,
 //! so Bridge folds the old Job behind the new one at once and the new Job's first process is told the
-//! handoff. Then the old Job's ledger is handed on with `release_session_holds` and its target, the
-//! old Job is ended as `move_session` ends one, and the new Job is told to carry on, so the person
+//! handoff. The new Job is given the old one's documents. Then the old Job's ledger is handed on with
+//! `release_session_holds` and its target, the old Job is ended as `move_session` ends one, and the
+//! new Job is told to carry on, so the person
 //! need not write first. A failure at any step puts back what moved and closes the new Job, so the
 //! old Job stands as it was and there are never two live ones. A Fleet that stopped mid-hand does
 //! the same at its next start: [`Fleet::handoffs_healed`].
@@ -90,8 +91,8 @@ pub(crate) fn replace_note(old_title: Option<&str>, old: &str, when: &str, conte
         .unwrap_or_default();
     format!(
         "This job took the place of {title}({old}) at {when}, and that job has ended. You are a new job: \
-         you start without its conversation, and what it left for you is below. The slots, branches and \
-         pull requests it held were handed to you and are yours: carry on in them. Nothing else it started \
+         you start without its conversation, and what it left for you is below. The slots, branches, \
+         pull requests and pages it held were handed to you and are yours: carry on in them. Nothing else it started \
          is yours: its subagents, background tasks and shells, windows and peer jobs stay its own. A \
          task-notification about its background work belongs to it: do not act on it, relaunch that work, \
          or report it to the owner as yours. If it held no slot, your first write leases one.\n\n{context}"
@@ -315,6 +316,7 @@ where
             self.handoff_undone(old, &new).await;
             return Err(why);
         }
+        self.pages_carried(old, &new).await;
         let _ = self.published_hosted(old).await;
         let _ = self.published_hosted(&new).await;
         let handed = self

@@ -261,6 +261,7 @@
    shows both, the frame and its lamp. A tab keeps its pill. */
 :root[data-look="new"] :is(
   .deck-row[data-selected],
+  .armada-list-card[data-selected],
   .pr-row[data-selected],
   .issues-row[data-selected],
   .projects-item[data-selected],
