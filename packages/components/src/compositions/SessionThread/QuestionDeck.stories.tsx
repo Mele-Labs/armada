@@ -109,3 +109,62 @@ export const ATicketInAQuestionLinks: Story = {
     ).not.toBeChecked();
   },
 };
+
+/**
+ * What a call asks the person to follow sits under the question and above the choices. The choices keep their keys:
+ * a number picks its tile, and Answer sends what was picked.
+ */
+export const ADetailSitsBetweenTheQuestionAndItsChoices: Story = {
+  args: {
+    flat: true,
+    canSkip: false,
+    detail: <p>Update to a build with the fix</p>,
+    questions: [
+      {
+        question: "Did the engineer send the outputs back?",
+        header: "",
+        multi_select: false,
+        options: [
+          {
+            label: "Sent",
+            description: "",
+          },
+          {
+            label: "Not needed",
+            description: "",
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    const detail = canvas.getByText("Update to a build with the fix");
+    const sent = canvas.getByRole("radio", {
+      name: "Sent",
+    });
+    await expect(detail).toBeVisible();
+    await expect(
+      detail.compareDocumentPosition(sent) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    sent.focus();
+    await userEvent.keyboard("2");
+    await expect(
+      canvas.getByRole("radio", {
+        name: "Not needed",
+      }),
+    ).toBeChecked();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: /Answer/,
+      }),
+    );
+    await expect(args.onAnswer).toHaveBeenCalledWith("allow_once", [
+      {
+        question: "Did the engineer send the outputs back?",
+        chosen: [
+          "Not needed",
+        ],
+      },
+    ]);
+  },
+};
