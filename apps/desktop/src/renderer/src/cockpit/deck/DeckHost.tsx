@@ -585,6 +585,10 @@ export function DeckHost({
         // A picked event lets go.
         event.preventDefault();
         setFocus(undefined);
+      } else if (state.view === "timeline") {
+        // The Timeline was what a bay's press opened: Esc closes it back to the map, drawn whole. A Job opened from it went back to it first, above.
+        event.preventDefault();
+        setView("map");
       } else if (state.cursor !== undefined) {
         // Then the cursor: no row is picked, and the map holds no drone's card.
         event.preventDefault();

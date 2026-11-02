@@ -59,7 +59,7 @@ import {
   type Tile,
 } from "./layout";
 import type { BuildIn } from "./build";
-import { aimAt, camera as kept, wide } from "./store";
+import { aimAt, camera as kept, useDeck, wide } from "./store";
 import { TipLayer } from "./TipLayer";
 import { steadyTips, type Waits } from "./tip-hover";
 
@@ -70,6 +70,7 @@ import type { Light, LinkIn } from "./off-floor";
 import { MOST_LOOPS } from "./doing";
 import type { Slab } from "./lens";
 import { LensWires } from "./LensWires";
+import { hudIsOpen } from "./keys-model";
 import { useCamera } from "./useCamera";
 import { clipLayout, useFill, useGlide } from "./glide";
 import { usePowerOn } from "../boot";
@@ -528,6 +529,17 @@ export function Battlefield({
     scope,
   ]);
 
+  // The Map key pressed on the map at rest: the window's map goes home, as the Home key does. A Job's Field is not the stage and keeps its camera.
+  const homed = useDeck((deck) => deck.homed);
+  const homedWas = useRef(homed);
+  useEffect(() => {
+    if (homedWas.current === homed) return;
+    homedWas.current = homed;
+    if (own === undefined) homeAgain();
+  }, [
+    homed,
+  ]);
+
   // An own camera is at the whole field for each `own` and each new size of the pane, and stays where he leaves it between those.
   useEffect(() => {
     if (own !== undefined) homeAgain();
@@ -633,7 +645,7 @@ export function Battlefield({
   // Esc puts the callout away; it comes back when the pointer or focus comes to something again.
   useEffect(() => {
     const away = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape" || hudIsOpen()) return;
       tips.clear();
     };
     window.addEventListener("keydown", away, true);

@@ -58,6 +58,9 @@ The gap between two panels of a column is a handle too, and their heights are ke
 The foot of keys has no handle and is as tall as its keys, so a share kept from the older, taller foot cannot stretch it; a foot holding the Field still resizes.
 
 `Esc` returns the stage to what it was, and with nothing open it lets the cursor go, so no row is picked and the map holds no drone's card.
+On the Timeline it returns to the map, and a Job opened from a Timeline row returns to the Timeline first.
+A HUD of the console takes `Esc` for itself: it closes the HUD and nothing around it.
+The map comes back as the stage showing the whole battlefield, and pressing Map on the map at rest glides it there.
 A press on the list or the map away from a row or a drone lets go the same way.
 The state is held in `apps/desktop/src/renderer/src/cockpit/deck/store.ts`, so the title row, the body and the keys are one thing, and leaving the tab and coming back returns the same view.
 

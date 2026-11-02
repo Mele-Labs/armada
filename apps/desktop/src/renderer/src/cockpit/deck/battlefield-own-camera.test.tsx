@@ -8,7 +8,7 @@ import { afterEach, expect, test } from "vitest";
 
 import { Battlefield } from "./Battlefield";
 import type { DroneIn, RepoIn } from "./layout";
-import { camera } from "./store";
+import { camera, forgetDeck, setView } from "./store";
 
 (
   globalThis as {
@@ -84,6 +84,7 @@ afterEach(() => {
     host.remove();
   }
   camera.current = undefined;
+  forgetDeck();
 });
 
 function draw(own: string | undefined) {
@@ -183,4 +184,39 @@ test("a zoom stays until the Field is given another Session, and then it is the 
   field.render("b");
   await settle();
   expect(seen(field.host)).toBe(whole);
+});
+
+test("the Map key pressed on the map at rest sends a zoomed camera back to the whole field, and a Field keeps its zoom", async () => {
+  const map = draw(undefined);
+  const field = draw("a");
+  await settle();
+  const whole = seen(map.host);
+  const wholeField = seen(field.host);
+
+  for (const one of [
+    map,
+    field,
+  ]) {
+    act(() => {
+      one.host.querySelector(".bf")!.dispatchEvent(
+        new WheelEvent("wheel", {
+          deltaY: -240,
+          ctrlKey: true,
+          clientX: PANE.width / 2,
+          clientY: PANE.height / 2,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+  }
+  await settle();
+  const zoomed = seen(field.host);
+  expect(seen(map.host)).not.toBe(whole);
+
+  act(() => setView("map"));
+  await settle();
+  expect(seen(map.host)).toBe(whole);
+  expect(seen(field.host)).toBe(zoomed);
+  expect(zoomed).not.toBe(wholeField);
 });
