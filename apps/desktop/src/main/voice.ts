@@ -1,6 +1,7 @@
 // Talk's three engines, heard in main. Apple's and Whisper's run Armada Voice (`native/voice/`), which prints one JSON
 // object a line; Dictation is macOS's own, started in whatever box has focus. The renderer names an engine and gets
-// words back, and never a path or a process.
+// words back, and never a path or a process. A voice that cannot hear hands over to the next, so the owner is asked
+// only for what macOS withholds.
 
 import { join } from "node:path";
 
@@ -129,6 +130,8 @@ export type VoiceHosts = {
     model: string;
   } | null;
   spawn: (file: string, args: readonly string[]) => VoiceChild;
+  /** Starts Whisper's install, or joins the one running: pressing Talk on Whisper before it is here fetches it. */
+  installWhisper: () => void;
   /** macOS Dictation, sent to the first responder: `Menu.sendActionToFirstResponder`. */
   dictate: (action: "startDictation:" | "stopDictation:") => void;
   /** Calls `run` after `ms`; the returned function cancels it. */
@@ -144,11 +147,76 @@ export const RELEASE_GRACE_MS: Record<"apple" | "whisper", number> = {
   whisper: 120_000,
 };
 
+/** The voices tried for a chosen engine, in order. Dictation is last wherever it is there, and always can start. */
+const VOICES: Record<VoiceEngine, readonly VoiceEngine[]> = {
+  apple: [
+    "apple",
+    "whisper",
+    "dictation",
+  ],
+  whisper: [
+    "whisper",
+    "apple",
+    "dictation",
+  ],
+  dictation: [
+    "dictation",
+  ],
+};
+
+/** Another voice would not help with these, or only the owner can settle them. */
+const FINAL_WHYS: readonly VoiceWhy[] = [
+  "microphone_denied",
+  "speech_denied",
+  "microphone_unavailable",
+];
+
 /**
- * Starts hearing with `engine`. `onWord` gets each word once; `onEnd` is called once, when nothing more will come,
- * with why where it ended early. The returned stop is the release: the helper finishes what it heard and ends.
+ * Starts hearing with `engine`, and with the next voice where it cannot: Apple, Whisper and Dictation in the order
+ * `VOICES` gives. `onWord` gets each word once; `onEnd` is called once, when nothing more will come, with why only
+ * where the owner has to act. The returned stop is the release: the voice finishes what it heard and ends.
  */
 export function hear(
+  engine: VoiceEngine,
+  hosts: VoiceHosts,
+  onWord: (word: string) => void,
+  onEnd: (why?: VoiceWhy) => void,
+): () => void {
+  if (engine === "whisper" && hosts.whisper() === null) hosts.installWhisper();
+  // Filtered before anything starts: a voice that ended inside the next one's start would lose its stop to the
+  // assignment below.
+  const voices = VOICES[engine].filter(
+    (one) =>
+      one === "dictation" ||
+      (hosts.helper() !== null && (one === "apple" || hosts.whisper() !== null)),
+  );
+  let released = false;
+  let given = false;
+  let stopCurrent = (): void => {};
+  const start = (at: number): void => {
+    stopCurrent = hearWith(
+      voices[at] as VoiceEngine,
+      hosts,
+      (word) => {
+        given = true;
+        onWord(word);
+      },
+      (why) => {
+        if (why !== undefined && FINAL_WHYS.includes(why)) onEnd(why);
+        else if (why === undefined || released || given || at + 1 >= voices.length) onEnd();
+        else start(at + 1);
+      },
+    );
+  };
+  start(0);
+  return () => {
+    released = true;
+    stopCurrent();
+  };
+}
+
+/** One voice, heard to its end. `helper_missing` and `whisper_absent` here are a voice that could not hear. */
+function hearWith(
   engine: VoiceEngine,
   hosts: VoiceHosts,
   onWord: (word: string) => void,

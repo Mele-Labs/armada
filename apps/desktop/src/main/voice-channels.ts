@@ -37,7 +37,7 @@ type Hosts = {
   ipc: {
     handle: Handle;
   };
-  voice: Omit<VoiceHosts, "whisper">;
+  voice: Omit<VoiceHosts, "whisper" | "installWhisper">;
   install: WhisperInstall;
   openPane: (address: string) => void;
 };
@@ -71,6 +71,7 @@ export function handleVoice({ ipc, voice, install, openPane }: Hosts): void {
       {
         ...voice,
         whisper: () => install.paths(),
+        installWhisper: () => void install.install(),
       },
       (word) =>
         send({
