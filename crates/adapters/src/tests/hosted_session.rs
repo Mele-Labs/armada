@@ -298,23 +298,19 @@ fn the_output_style_carries_the_rules_verbatim() {
     }
 }
 
-/// A CLI lists the task and armada tools by name only until they are loaded, so the rules hand the
-/// agent the one `ToolSearch` line that loads them. Without it an agent calls `waiting_for` blind.
+/// The rules teach `armada job` first: every act is one shell command, the list and the help are
+/// the CLI's own, `dispatch` is named, and the MCP tools are the stated alternative. The harness's
+/// task tools are not acts, so they keep the one `ToolSearch` line that loads them.
 #[test]
-fn the_rules_name_the_one_tool_search_line_that_loads_the_task_and_armada_tools() {
+fn the_rules_teach_armada_job_and_keep_the_one_line_that_loads_the_task_tools() {
     let tools = rules().split("\n\n").find(|block| block.starts_with("Tools.")).expect("a tools paragraph");
-    // The paragraph also names the bare `select:` prefix, for any other tool; only a line with tools after it loads some.
-    let loading = || tools.split('`').filter(|quoted| quoted.starts_with("select:") && quoted.len() > "select:".len());
-    let line = loading().next().expect("a select: line in backticks");
-    let door = format!("mcp__{}__waiting_for", ipc::door::SERVER);
-    for named in ["TaskCreate", "TaskUpdate", door.as_str()] {
-        assert!(line.split([':', ',']).any(|one| one == named), "{named} in {line}");
+    for named in ["`armada job <act>`", "`armada job`", "`armada job <act> --help`", "`armada job status`", "armada job dispatch repo=", "-` with the body on stdin"] {
+        assert!(tools.contains(named), "{named} in the tools paragraph");
     }
     let prefix = format!("mcp__{}__", ipc::door::SERVER);
-    for tool in line.trim_start_matches("select:").split(',').filter_map(|tool| tool.strip_prefix(prefix.as_str())) {
-        assert!(ipc::door::REACHABLE.iter().any(|row| row.operation == tool), "{tool} is a door tool");
-    }
-    assert_eq!(loading().count(), 1, "one line, not several calls");
+    assert!(tools.contains(&format!("`{prefix}<act>`")), "the MCP tools are named as the alternative");
+    let line = tools.split('`').find(|quoted| quoted.starts_with("select:")).expect("a select: line in backticks");
+    assert_eq!(line, "select:TaskCreate,TaskUpdate", "only the harness's own tools are loaded by search");
 }
 
 /// Helm's note is appended to every process of its Session after the rules, and a blank one is
