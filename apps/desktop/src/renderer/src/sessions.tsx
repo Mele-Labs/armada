@@ -126,6 +126,7 @@ import type { Drawing } from "@armada/screens/src/draft/sketch";
 import type { DeliveryChoice, HeldWorktrees, Notice, RepositorySummary } from "@armada/protocol";
 import { askToTell } from "./tell";
 import { SessionRefs } from "./helm-refs";
+import { openSavedRequest } from "./job-panes/store";
 import { openInPanel } from "./shared-panel/store";
 import { draftPanelOf } from "./shared-panel/rule";
 import { openDraftCard } from "./job-panes/focus";
@@ -952,7 +953,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const withJudged = useJudgedRows(session, withStarts);
   const planJudge = usePlanJudge(session);
   const openRequest = useCallback((row: RequestedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, start: startOf(row), from: row.id }), [session.id]);
-  const openSaved = useCallback((row: SavedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, saved: { collection: row.collectionId, request: row.request }, from: row.id }), [session.id]);
+  const openSaved = useCallback((row: SavedThreadRow) => openSavedRequest(session.id, row.collectionId, row.request), [session.id]);
   // A run drawn as a terminal: a block's run is drawn under the block, and one typed in the box is docked above it.
   const runner = draft === undefined ? undefined : runnerOf(draft, session);
   const docked = useJobDock(session.id, "page", useTerminalDock(useCodeRun(runner, dockRunKey(session.id, "page")), dockRunKey(session.id, "page")), draft?.terminalRuns !== undefined, deck?.shell === true);

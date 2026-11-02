@@ -22,7 +22,7 @@ import { PullRow } from "../session-view/LedgerRow";
 import { Groups } from "../session-view/SessionLayers";
 import { artifactsOf, linkedSessionsOf } from "../session-view/artifacts";
 import { IssueJobCard } from "../issues-tab/marks";
-import { jobOpens, useJobPanes } from "./store";
+import { jobOpens, savedOfPage, useJobPanes } from "./store";
 import { hasKind, paneById, paneOfTab, type Tab } from "./tree";
 import { usePaneZoomed } from "./zoom";
 
@@ -261,11 +261,12 @@ export function FilesBody({ session }: { session: Session }) {
 }
 
 /** The Requests panel itself, for this Job: its list, its sending and the answer, with no sheet around it. */
-export function RequestBody({ session }: { session: Session }) {
+export function RequestBody({ session, tab }: { session: Session; tab?: Tab }) {
+  const saved = savedOfPage(tab?.page);
   return (
     <InlinePanel.Provider value>
       <div className="job-pane__panel">
-        <RequestsPanel item={{ kind: "requests", sessionId: session.id }} />
+        <RequestsPanel item={{ kind: "requests", sessionId: session.id, ...(saved === undefined ? {} : { saved }) }} />
       </div>
     </InlinePanel.Provider>
   );
