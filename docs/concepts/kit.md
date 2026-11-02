@@ -59,6 +59,7 @@ Bridge's Add sheet writes one with scope Kit or the repository; a definition add
 
 **Flight controls are the third.** `~/.armada/flight-controls.toml` holds the Cockpit's tiles as a person arranged them, since 18 Oct 2026: their order, which are hidden, what a built-in sends, and actions of their own.
 It has a `version` and two lists, `[[job]]` for the tiles while a Job is open and `[[deck]]` for those with none.
+Which instrument stands in which bay of the console is not in it: that is the window's own (`docs/concepts/cockpit.md`, *The rack*).
 A built-in tile a list does not name is appended by Bridge in Armada's order, so a file that says nothing is Armada's own.
 A tile's `kind` marks an action of the person's own: `words` or `command` sent to the Job, `shell` run in the Job's bay, or `page` opened.
 

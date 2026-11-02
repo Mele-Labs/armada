@@ -380,13 +380,6 @@
 .deck-row__clash > * { pointer-events: auto; }
 .deck-list__rows:is([data-now], [data-pr]) :is(.deck-row__clash, .deck-row__earlier) { inset-block: calc(var(--space-1) / 2) auto; height: var(--deck-line); }
 
-/* ---- Activity: the beeswarm, in the narrow column under the list ---------------------------------------- */
-
-/* Activity rests at the height of the merge queue to the foot of the flight controls (`useActivityBeside`), so its edges
-   line up with the middle's. It gives way, never overlaps, when the column is shorter. */
-.deck-activity { flex: 0 1 var(--deck-activity, calc(var(--space-12) * 6)); min-height: calc(var(--space-12) * 3); }
-.deck-activity .armada-tl { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
-
 /* ---- A pane: one head, then its body -------------------------------------------------------------------- */
 
 .deck-pane__head { min-width: 0; }

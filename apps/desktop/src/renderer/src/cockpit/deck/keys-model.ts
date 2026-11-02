@@ -9,7 +9,7 @@ import { actionOf, formatSlot, slotsOf } from "@armada/components";
 import { PAUSE_KEY, SESSION_TILES, tileKey } from "./session-tiles";
 import { ARTIFACTS_KEY, BAND_KEYS, WHOLE_KEY } from "../../session-view/story";
 
-export type PanelId = "list" | "activity" | "stage" | "bays" | "queue" | "controls" | "dispatch" | "autopilot";
+export type PanelId = "list" | "stage" | "bays" | "queue" | "controls" | "dispatch" | "autopilot";
 
 /** The slot of `deck_panel` that goes to the first row of the list that needs him, which is no panel of its own. */
 export type NeedsSlot = "needs";
@@ -23,24 +23,23 @@ export type Panel = {
   items?: string;
   /** Where focus lands when there is no better place. */
   home?: string;
-  /** Left out of the round Tab and F6 go: its keys act while focus is in it. */
-  aside?: true;
+  /** Where focus goes while the panel is not drawn because something else carries its one press. */
+  elsewhere?: string;
 };
 
 /** In the order Tab goes round them. */
 export const PANELS: readonly Panel[] = [
   { id: "list", name: "Jobs", root: ".deck-list", items: ".deck-row" },
-  { id: "activity", name: "Activity", root: ".deck-activity", items: ".armada-tl__dot", aside: true },
   { id: "stage", name: "the stage", root: ".deck-stage > .deck-pane" },
   { id: "bays", name: "Bays", root: ".deck-bays", items: ".deck-bay" },
   { id: "queue", name: "Merge queue", root: ".deck-queue", items: "button" },
-  { id: "controls", name: "Flight control", root: ".deck-controls", items: ".deck-tile" },
-  { id: "dispatch", name: "Dispatch", root: ".deck-dispatch", items: ".deck-tile" },
+  { id: "controls", name: "Flight control", root: ".deck-controls", items: ".deck-tile, .console-scope__press" },
+  { id: "dispatch", name: "Dispatch", root: ".deck-dispatch", items: ".deck-tile", elsewhere: ".deck-controls .deck-dispatch__tile" },
   { id: "autopilot", name: "Autopilot", root: ".deck-autopilot", items: "button", home: '[role="switch"]' },
 ];
 
 /** The panels that are lists of items to open: where `o` opens the one under the cursor as Enter does. Not the stage, whose page has keys of its own, nor the controls. */
-export const OPENS: readonly PanelId[] = ["list", "activity", "bays", "queue"];
+export const OPENS: readonly PanelId[] = ["list", "bays", "queue"];
 
 /** The panels `deck_panel`'s slots go to, in the order the row lists its keys. */
 export const PANEL_SLOTS: readonly (PanelId | NeedsSlot)[] = ["list", "bays", "needs", "queue", "controls", "autopilot", "dispatch"];
@@ -48,7 +47,7 @@ export const PANEL_SLOTS: readonly (PanelId | NeedsSlot)[] = ["list", "bays", "n
 /** The panel a slot of `deck_panel` goes to. */
 export const panelOfSlot = (slot: number): PanelId | NeedsSlot | undefined => PANEL_SLOTS[slot];
 
-/** The key that goes to a panel, as this person has it, or `""` for a panel with no key (Activity and the stage are reached by Tab and by their own acts). */
+/** The key that goes to a panel, as this person has it, or `""` for a panel with no key (the stage is reached by Tab and by its own acts). */
 export function panelKey(id: PanelId | NeedsSlot): string {
   const at = PANEL_SLOTS.indexOf(id);
   const slot = at < 0 ? undefined : slotsOf("deck_panel")[at];

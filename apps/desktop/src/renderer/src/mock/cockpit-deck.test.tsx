@@ -115,18 +115,18 @@ test("Checks filters list, Activity and Stage to subjects running a Check", asyn
   await controls().getByRole("button", { name: "Timeline" }).click();
 
   // The Activity dots and the stage's timeline keep the same subjects and no others: both name it before the filter, neither after.
-  // Activity names each event on its dot.
-  const feed = () => [...document.querySelectorAll(".deck-activity .armada-tl__dot")].map((one) => one.getAttribute("aria-label")).join("\n");
+  // Activity names each event on its dot, in the scope of its bay.
+  const feed = () => [...document.querySelectorAll(".console-scope__graph .armada-tl__dot")].map((one) => one.getAttribute("aria-label")).join("\n");
   const timeline = () => document.querySelector('.deck-pane[aria-label="Fleet timeline"]')?.textContent ?? "";
   await expect.poll(() => feed().includes(dropped) && timeline().includes(dropped)).toBe(true);
 
-  await controls().getByRole("button", { name: "Checks" }).click();
+  await controls().getByRole("button", { name: "Checks", exact: true }).click();
   await expect.poll(() => rows().includes(dropped)).toBe(false);
   expect(rows()).toContain(kept);
   expect(rows().length).toBeLessThan(whole);
   expect(feed()).not.toContain(dropped);
   expect(timeline()).not.toContain(dropped);
-  await controls().getByRole("button", { name: "Checks" }).click();
+  await controls().getByRole("button", { name: "Checks", exact: true }).click();
   await expect.poll(() => rows().length).toBe(whole);
 });
 
@@ -236,11 +236,10 @@ test("⌥↓ on a row moves it down one, and the order is kept for the next wind
 
 // The owner, 27 Oct 2026: after the console touch-up the Jobs rows and the merge line's chips read square. A row keeps the
 // control's curve, and a chip and its track stay pills.
-test("Jobs rows and the merge line's chips keep their rounded corners", async () => {
+// The Jobs rows are square with the console's panels, as the owner approved it.
+test("the merge line's chips keep their rounded corners", async () => {
   await deck();
   const radius = (element: Element) => parseFloat(getComputedStyle(element).borderTopLeftRadius);
-  const row = document.querySelector(".deck-list .deck-row")!;
-  expect(radius(row), "a Jobs row").toBeGreaterThanOrEqual(6);
   for (const selector of [".deck-queue .deck-chip", ".deck-queue__track"]) {
     const element = document.querySelector(selector)!;
     expect(radius(element), selector).toBeGreaterThanOrEqual(element.getBoundingClientRect().height / 2 - 1);
