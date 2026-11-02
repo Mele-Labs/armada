@@ -5,7 +5,8 @@
 //! The reply is the one the owner reported on 27 Oct 2026: a plan's summary that put his walk after
 //! his approval, and was reminded to show it.
 
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use adapter_traits::{NotEmbedded, TextModel, TextReading};
@@ -32,6 +33,8 @@ const ANSWERED: &str = "I disputed Fleet's notice: the walk comes after the plan
 /// Near [`SET_OFF`] by the fake model's reading: it names a task list.
 const NEAR: &str = "Once you approve the walk, Fleet saves the task list for each repo.";
 const ASKED: &str = "Open the walk and approve it.";
+/// Near [`SET_OFF`] too, and not a sentence the model has been handed before.
+const NEARER: &str = "Once you approve the walk, Fleet files the task list under each repo.";
 
 #[test]
 fn the_walk_reader_names_the_sentence_of_the_disputed_reply_that_set_it_off() {
@@ -147,4 +150,96 @@ async fn once_learnt_a_near_sentence_is_not_reminded_and_a_real_ask_still_is() {
 
     replies(&rig, &id, ASKED).await;
     assert_eq!(sent_with(&rig, WALK_REMINDER), 2, "a walk asked for is still reminded");
+}
+
+/// [`Fake`]'s reading, with every batch it was handed kept and the embed failing on demand.
+#[derive(Default)]
+struct Counting {
+    batches: Mutex<Vec<Vec<String>>>,
+    failing: AtomicBool,
+}
+
+impl TextModel for Counting {
+    fn model(&self) -> &str {
+        "fake@0"
+    }
+
+    fn embed(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, NotEmbedded> {
+        self.batches.lock().unwrap().push(texts.iter().map(ToString::to_string).collect());
+        if self.failing.load(Ordering::SeqCst) {
+            return Err(NotEmbedded(String::from("failed on purpose")));
+        }
+        Fake.embed(texts)
+    }
+
+    fn read(&self, reading: TextReading, texts: &[&str]) -> Result<Vec<f32>, NotEmbedded> {
+        Fake.read(reading, texts)
+    }
+}
+
+impl Counting {
+    fn handed(&self) -> Vec<Vec<String>> {
+        self.batches.lock().unwrap().clone()
+    }
+}
+
+/// A rig whose walk reminder was disputed and learnt from, the model counting what it is handed from
+/// here on: the reminder's own reading is not what these tests count.
+async fn learnt() -> (Rig, SessionId, Arc<Counting>) {
+    let rig = checked_by("misread: yes").await;
+    let model = Arc::new(Counting::default());
+    rig.fleet.language_model().loaded(Arc::clone(&model) as Arc<dyn TextModel>);
+    let id = reminded(&rig).await;
+    Arc::clone(&rig.fleet).dispute_fleet(None, disputing(&id, WHY)).await.expect("disputed");
+    model.batches.lock().unwrap().clear();
+    (rig, id, model)
+}
+
+fn batch(texts: &[&str]) -> Vec<String> {
+    texts.iter().map(ToString::to_string).collect()
+}
+
+/// The turn's end used to embed the kept sentence again on every reply (31 of them in the report).
+/// Now the kept misread is embedded once and a later reply hands the model only its own new sentence.
+#[tokio::test]
+async fn a_later_turns_end_embeds_only_the_sentences_not_seen_before() {
+    let (rig, id, model) = learnt().await;
+
+    replies(&rig, &id, NEAR).await;
+    replies(&rig, &id, NEARER).await;
+    replies(&rig, &id, ASKED).await;
+
+    assert_eq!(model.handed(), [batch(&[NEAR, SET_OFF]), batch(&[NEARER]), batch(&[ASKED])]);
+    assert_eq!(sent_with(&rig, WALK_REMINDER), 2, "the near sentences are held off and the real ask is reminded, as before");
+}
+
+/// The same reply twice is read from what is kept: the model is not asked again.
+#[tokio::test]
+async fn a_reply_said_twice_is_embedded_once() {
+    let (rig, id, model) = learnt().await;
+
+    replies(&rig, &id, NEAR).await;
+    replies(&rig, &id, NEAR).await;
+
+    assert_eq!(model.handed(), [batch(&[NEAR, SET_OFF])]);
+    assert_eq!(sent_with(&rig, WALK_REMINDER), 1, "held off both times");
+}
+
+/// A batch that fails leaves the sentences as they were, so the walk is reminded, and keeps nothing:
+/// the next turn's end embeds the whole batch again.
+#[tokio::test]
+async fn a_failed_embed_leaves_the_sentences_alone_and_keeps_nothing() {
+    let (rig, id, model) = learnt().await;
+    model.failing.store(true, Ordering::SeqCst);
+
+    replies(&rig, &id, NEAR).await;
+    assert_eq!(sent_with(&rig, WALK_REMINDER), 2, "no vectors, so the near sentence is not held off");
+
+    // The next turn answers the reminder, which is not read for a claim.
+    replies(&rig, &id, ANSWERED).await;
+    model.failing.store(false, Ordering::SeqCst);
+    replies(&rig, &id, NEAR).await;
+
+    assert_eq!(model.handed(), [batch(&[NEAR, SET_OFF]), batch(&[NEAR, SET_OFF])]);
+    assert_eq!(sent_with(&rig, WALK_REMINDER), 2, "read now, it is held off");
 }

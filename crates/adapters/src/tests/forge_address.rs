@@ -62,6 +62,74 @@ fn a_checkouts_origin_is_its_address() {
     assert_eq!(remote_of(repo.root()), Some(address("https://github.com/mele-labs/armada")));
 }
 
+/// Run `git` in a directory that is not a `TempRepo` root, and assert it worked.
+fn git_in(at: &std::path::Path, args: &[&str]) {
+    let run = std::process::Command::new("git")
+        .arg("-C")
+        .arg(at)
+        .args(args)
+        .output()
+        .expect("git on PATH");
+    assert!(run.status.success(), "git {args:?} failed: {}", String::from_utf8_lossy(&run.stderr));
+}
+
+/// A cold `Repository::open` fails where `.git/HEAD` is missing and a kept answer does not, so
+/// taking HEAD away is how a test sees that no cold open happened.
+#[test]
+fn a_checkouts_address_is_answered_from_memory_until_its_config_moves() {
+    let repo = TempRepo::with_a_commit();
+    let a = "https://github.com/mele-labs/armada";
+    repo.git(&["remote", "add", "origin", a]);
+    assert_eq!(remote_of(repo.root()), Some(address(a)), "read once, opening it");
+
+    let head = repo.root().join(".git/HEAD");
+    let away = repo.root().join(".git/HEAD.away");
+    std::fs::rename(&head, &away).unwrap();
+    assert_eq!(
+        remote_of(repo.root()),
+        Some(address(a)),
+        "a second read answers from memory: opening the repository again fails with HEAD gone"
+    );
+
+    std::fs::rename(&away, &head).unwrap();
+    let b = "https://github.com/mele-labs/elsewhere";
+    repo.git(&["remote", "set-url", "origin", b]);
+    assert_eq!(remote_of(repo.root()), Some(address(b)), "a moved config is read again");
+}
+
+#[test]
+fn a_directory_that_is_no_repository_is_not_remembered_as_one() {
+    let repo = TempRepo::with_a_commit();
+    let plain = repo.root().with_extension("plain");
+    std::fs::create_dir_all(&plain).unwrap();
+    assert_eq!(remote_of(&plain), None, "not a repository yet");
+
+    git_in(&plain, &["init", "-q"]);
+    git_in(&plain, &["remote", "add", "origin", "https://github.com/mele-labs/armada"]);
+    assert_eq!(
+        remote_of(&plain),
+        Some(address("https://github.com/mele-labs/armada")),
+        "a miss is not kept: the directory became a repository"
+    );
+}
+
+#[test]
+fn a_linked_worktree_answers_for_its_main_checkouts_remote_and_sees_it_move() {
+    let repo = TempRepo::with_a_commit();
+    let a = "https://github.com/mele-labs/armada";
+    repo.git(&["remote", "add", "origin", a]);
+    let linked = repo.root().with_extension("linked");
+    repo.git(&["worktree", "add", "-q", "-b", "linked", &linked.to_string_lossy()]);
+    let linked = linked.canonicalize().unwrap();
+
+    assert_eq!(remote_of(&linked), Some(address(a)), "the worktree reads its main checkout's config");
+
+    let b = "https://github.com/mele-labs/elsewhere";
+    repo.git(&["remote", "set-url", "origin", b]);
+    assert_eq!(remote_of(&linked), Some(address(b)), "set-url from the main checkout is seen through the worktree");
+    assert_eq!(remote_of(repo.root()), Some(address(b)));
+}
+
 #[test]
 fn the_issues_linked_into_one_repository_are_its_own_and_nothing_else() {
     let armada = address("https://github.com/mele-labs/armada");

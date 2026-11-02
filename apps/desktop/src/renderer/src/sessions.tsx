@@ -1381,6 +1381,18 @@ export function entriesOf(
               : {
                   held,
                 }),
+            ...(one.steps === undefined
+              ? {}
+              : {
+                  steps: {
+                    lines: one.steps,
+                    ...(runner === undefined
+                      ? {}
+                      : {
+                          runner,
+                        }),
+                  },
+                }),
           }),
       ...(act !== undefined ||
       one.steps !== undefined ||

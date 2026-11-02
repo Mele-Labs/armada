@@ -55,6 +55,7 @@ import { RunnableBlock, useCodeRun, type CodeRunner } from "../../primitives/Pro
 import { endedSaid } from "../../primitives/TerminalPane/TerminalPane";
 import { QuestionDeck } from "../SessionThread/QuestionDeck";
 import { HeldSlots, type HeldSlotsProps } from "../HeldSlots/HeldSlots";
+import { StepLines } from "../StepsPanel/StepsPanel";
 import { LinkedSession, type LinkedSessionProps } from "../LinkedSession/LinkedSession";
 
 /**
@@ -191,6 +192,11 @@ export type LedgerEntry = {
   onOther?: (text: string) => void | Promise<unknown>;
   /** A full pool's call: the slots it is held by, drawn under its choices with a Free on each. */
   held?: HeldSlotsProps;
+  /** The procedure a question with choices asks the person to follow, drawn under its words and above the choices. */
+  steps?: {
+    lines: readonly string[];
+    runner?: CodeRunner;
+  };
   /**
    * A `waiting` row with no `act`: what the person types under it, sent as his answer. With this and no
    * `act` the row's press opens a reply box in place of doing something, and its glyph is Reply.
@@ -996,7 +1002,16 @@ export function LedgerRows({
                 ]}
                 canSkip={false}
                 flat
-                {...(row.held === undefined ? {} : { beneath: <HeldSlots {...row.held} /> })}
+                {...(row.held === undefined
+                  ? {}
+                  : {
+                      beneath: <HeldSlots {...row.held} />,
+                    })}
+                {...(row.steps === undefined
+                  ? {}
+                  : {
+                      detail: <StepLines steps={row.steps.lines} runner={row.steps.runner} />,
+                    })}
                 onAnswer={(_, answers) => {
                   const chosen = answers?.[0]?.chosen[0];
                   if (chosen === undefined) return;

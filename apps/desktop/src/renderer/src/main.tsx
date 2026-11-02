@@ -3,12 +3,10 @@ import { createRoot } from "react-dom/client";
 
 import "./styles/index.css";
 import "@armada/components/src/look";
-import { startLoopClock } from "./loop-clock";
-import { watchStill } from "./still";
+import { startMotionRules } from "./still";
 import { wireJobBrowsers } from "./job-browser/store";
 
-watchStill();
-startLoopClock();
+startMotionRules();
 watchClippedText();
 
 // Each Job's browser, held in main: the store folds what it shows, and the side panel opens where main asks.

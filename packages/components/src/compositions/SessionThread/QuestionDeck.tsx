@@ -99,6 +99,7 @@ export function QuestionDeck({
   flat,
   keep,
   beneath,
+  detail,
 }: {
   questions: readonly AskedQuestion[];
   /** A promise holds Answer disabled until it settles, so a second press cannot send it again. */
@@ -110,6 +111,8 @@ export function QuestionDeck({
   keep?: string;
   /** Drawn under the options and above Answer, where a question has more to offer than choices: the slots a full pool is held by. */
   beneath?: ReactNode;
+  /** What the question in front carries under its words and above its answers: the steps a call asks the person to follow. */
+  detail?: ReactNode;
 }) {
   const [held, setHeld, clearHeld] = useKept<Held>(
     keep === undefined ? undefined : `question:${keep}`,
@@ -407,6 +410,7 @@ export function QuestionDeck({
             <p className="armada-question-deck__ask">
               <RefText text={one.question} />
             </p>
+            {detail}
             <div
               className="armada-question-deck__answers"
               role={one.multi_select ? "group" : "radiogroup"}
