@@ -129,6 +129,37 @@ pub enum QueueState {
     Unmergeable,
 }
 
+/// A whole commit id: 40 or 64 hex digits, and nothing else, so it is never read by git as an
+/// option. `Copy`, so a queue entry stays so.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct Oid {
+    digits: [u8; 64],
+    len: u8,
+}
+
+impl Oid {
+    /// `None` for anything but a whole commit id.
+    pub fn parse(text: &str) -> Option<Oid> {
+        let whole = matches!(text.len(), 40 | 64) && text.bytes().all(|byte| byte.is_ascii_hexdigit());
+        if !whole {
+            return None;
+        }
+        let mut digits = [0; 64];
+        digits[..text.len()].copy_from_slice(text.to_ascii_lowercase().as_bytes());
+        Some(Oid { digits, len: text.len() as u8 })
+    }
+
+    pub fn as_str(&self) -> &str {
+        core::str::from_utf8(&self.digits[..usize::from(self.len)]).unwrap_or_default()
+    }
+}
+
+impl core::fmt::Debug for Oid {
+    fn fmt(&self, out: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(out, "Oid({})", self.as_str())
+    }
+}
+
 /// One entry in the base branch's merge queue.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct QueueEntry {
@@ -136,6 +167,8 @@ pub struct QueueEntry {
     /// 1 is the next to merge.
     pub position: u32,
     pub state: QueueState,
+    /// The pull request's head as the queue holds it. `None` where the forge named none.
+    pub head: Option<Oid>,
 }
 
 /// The merge queue, in order. `None` from the call that returns it is a forge

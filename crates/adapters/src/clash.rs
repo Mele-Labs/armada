@@ -42,6 +42,18 @@ pub fn against(worktree: &Path, tip: &str) -> Result<Verdict, NotChecked> {
     merged(worktree, &head_of(worktree)?, tip, &tree_of(worktree)?, &tip_tree)
 }
 
+/// Whether the commits `one` and `other` conflict, read in the checkout at `repo`. Either may be a
+/// ref, so a pull request's head against `origin/<base>` is the same call as against another's head.
+/// Both must be reachable in `repo`, and no worktree is read or written.
+pub fn between_commits(repo: &Path, one: &str, other: &str) -> Result<Verdict, NotChecked> {
+    if one.starts_with('-') || other.starts_with('-') {
+        return Err(NotChecked(format!("`{one}` and `{other}` must both be commits")));
+    }
+    let one_tree = rev_parse(repo, &format!("{one}^{{tree}}"))?;
+    let other_tree = rev_parse(repo, &format!("{other}^{{tree}}"))?;
+    merged(repo, one, other, &one_tree, &other_tree)
+}
+
 /// The paths `tip` changed since it and the worktree's `HEAD` last met.
 pub fn changed_on(worktree: &Path, tip: &str) -> Result<Vec<String>, NotChecked> {
     let base = merge_base(worktree, &head_of(worktree)?, tip)?;

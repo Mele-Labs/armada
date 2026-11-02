@@ -94,7 +94,7 @@ pub use judge::{Ask, CallProgress, Heard, JudgeCall, ModelClient, Reading};
 pub use landable::{Landable, UncheckedHead};
 pub use link_lookup::{IssueAddress, LinkLookup, LookupCall};
 pub use main_ci::{
-    CiRun, CiRuns, CiState, MergeQueue, MergedPull, OpenPull, OpenPulls, PullFacts,
+    CiRun, CiRuns, CiState, MergeQueue, MergedPull, Oid, OpenPull, OpenPulls, PullFacts,
     PullMergeable, PullReview, QueueEntry, QueueState, RecentlyMerged, RecentlyMergedPulls,
 };
 pub use manifest_edit::{ManifestEditSent, ManifestEditToSend, ManifestOnTheBase, PullRequestFor};

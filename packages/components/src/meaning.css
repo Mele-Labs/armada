@@ -75,7 +75,7 @@
   border-color: color-mix(in srgb, var(--lamp-hue) 40%, var(--border-subtle));
   background: color-mix(in srgb, var(--lamp-hue) 12%, var(--chip));
 }
-:root[data-look="new"] .issues-surface .issues-row:is([data-tone="live"], [data-tone="ask"], [data-tone="wait"])::after {
+:root[data-look="new"] .issues-surface .issues-row:is([data-tone="live"], [data-tone="ask"], [data-tone="wait"])::before {
   content: "";
   position: absolute;
   inset-block: 0;

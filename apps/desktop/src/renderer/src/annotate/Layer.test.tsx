@@ -174,6 +174,17 @@ test("a window too short for the card gives it its own scroll rather than an edg
   expect([again.x, again.y, again.width, again.height]).toEqual([rect.x, rect.y, rect.width, rect.height]);
 });
 
+test("a capped card keeps Cancel and Save note in reach before anything is scrolled", async () => {
+  const card = await cardOnTheTallSheet({ width: 1324, height: 260 });
+  const rect = rectOf(card);
+  expect((card.element() as HTMLElement).scrollTop).toBe(0);
+  for (const name of ["Cancel", "Save note"]) {
+    const button = rectOf(card.getByRole("button", { name }));
+    expect(button.top).toBeGreaterThanOrEqual(rect.top);
+    expect(button.bottom).toBeLessThanOrEqual(rect.bottom);
+  }
+});
+
 // A batch of notes has been fixed and the layer is turned on again. What the
 // owner saw was every fixed note still pinned to its screen, numbered, so a new
 // note came up as 9 while one was open. A done note is now out of the drawing

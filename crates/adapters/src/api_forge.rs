@@ -381,6 +381,10 @@ impl Forge for ApiForge {
         )
     }
 
+    fn dequeue(&self, in_repo: &str, pull_request: &str) -> Result<(), String> {
+        self.written_on_pull(in_repo, pull_request, readiness::dequeue, |gh| gh.dequeue(in_repo, pull_request), identity)
+    }
+
     fn pull_request_facts(
         &self,
         in_repo: &str,

@@ -3,11 +3,14 @@
 // change listed with what it was. Pictures he pastes or drops on the card sit under them.
 
 import { useEffect, useLayoutEffect, useMemo, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ALargeSmall, PaintBucket, Palette, SquareDashed, SwatchBook, TextCursorInput, Undo2, X } from "lucide-react";
 import { Button, Textarea, Tooltip } from "@armada/components";
 
 import { AS_DRAWN, isPng, type ChangeKind, type IndexedStory, type StoryIndex, type StyleChange } from "../../../shared/annotations";
 import { asHex, computed, putOn, takeOff, tokenValue, variantOf, wordsOf, type Swap } from "./restyle";
+import type { Sink } from "./sink";
+import { StoryBoundary, storyElement, type StoryModule } from "./story";
 import { COLOURS, FILLS, SIZES, SPACES, step } from "./tokens";
 
 const TOOLS: readonly { kind: ChangeKind; label: string; icon: ReactNode }[] = [
@@ -22,7 +25,8 @@ const TOOLS: readonly { kind: ChangeKind; label: string; icon: ReactNode }[] = [
 /** Left and right move between the buttons of a row, so a row is one stop on Tab and its buttons are a key apart. */
 function arrows(event: KeyboardEvent<HTMLElement>): void {
   if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
-  const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")];
+  // A story drawn in a tile is inert, and its own buttons are not stops.
+  const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")].filter((one) => one.closest("[inert]") === null);
   const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
   if (at === -1) return;
   event.preventDefault();
@@ -49,7 +53,7 @@ function useRestyled(element: Element | null, changes: readonly StyleChange[], i
 const NO_NAMES: readonly string[] = [];
 const NO_STORIES: StoryIndex = {};
 
-/** `id` is the note's, which names the rule its Size and Colour are written in. `names` is the chain, nearest first; `stories` the index its Variant tool draws from. */
+/** `id` is the note's, which names the rule its Size and Colour are written in. `names` is the chain, nearest first; `stories` the index its Variant tool draws from, and `story` loads a story file so each is drawn over its name. */
 export function Tools({
   id,
   element,
@@ -58,6 +62,7 @@ export function Tools({
   keep,
   names = NO_NAMES,
   stories = NO_STORIES,
+  story,
 }: {
   id: string;
   element: Element | null;
@@ -66,6 +71,7 @@ export function Tools({
   keep: string;
   names?: readonly string[];
   stories?: StoryIndex;
+  story?: Sink["story"];
 }) {
   const [tool, setTool] = useState<ChangeKind | null>(null);
   // The nearest component in the chain that has stories, whose variants the Variant tool lists.
@@ -151,7 +157,7 @@ export function Tools({
       )}
       {element !== null && tool === "text" && hasWords && <Textarea label="Text" rows={2} keep={keep} value={textNow} onChange={(event) => typed(event.target.value)} />}
       {element !== null && tool === "variant" && target !== undefined && (
-        <Stories label="Variant" stories={stories[target]!.stories} current={picked?.after} onPick={pickStory} />
+        <Stories label="Variant" stories={stories[target]!.stories} current={picked?.after} onPick={pickStory} load={story} />
       )}
       <Changes changes={changes} onChanges={onChanges} />
     </div>
@@ -177,16 +183,41 @@ function Scale({ label, sample, tokens, current, element, onPick }: { label: str
   );
 }
 
-/** A component's stories as buttons reading each story's name as exported, with its args as the tooltip where it sets any. */
-function Stories({ label, stories, current, onPick }: { label: string; stories: readonly IndexedStory[]; current: string | undefined; onPick: (story: IndexedStory) => void }) {
+/** The story files loaded so far, per loader: a file is asked for once, however many tiles and cards want it. */
+const LOADED = new WeakMap<NonNullable<Sink["story"]>, Map<string, Promise<StoryModule | null>>>();
+
+function moduleOf(load: NonNullable<Sink["story"]>, file: string): Promise<StoryModule | null> {
+  const files = LOADED.get(load) ?? new Map<string, Promise<StoryModule | null>>();
+  LOADED.set(load, files);
+  const held = files.get(file) ?? load(file).catch(() => null);
+  files.set(file, held);
+  return held;
+}
+
+/** A component's stories as buttons reading each story's name as exported, with its args as the tooltip where it sets any. Each is drawn small over its name where `load` gives the story file. */
+function Stories({ label, stories, current, onPick, load }: { label: string; stories: readonly IndexedStory[]; current: string | undefined; onPick: (story: IndexedStory) => void; load: Sink["story"] }) {
+  // Undefined while the file loads; null where it cannot be had, and the tiles are then names alone.
+  const [loaded, setLoaded] = useState<{ file: string; module: StoryModule | null } | undefined>(undefined);
+  const file = stories[0]?.file;
+  useEffect(() => {
+    if (load === undefined || file === undefined) return undefined;
+    let live = true;
+    void moduleOf(load, file).then((module) => live && setLoaded({ file, module }));
+    return () => {
+      live = false;
+    };
+  }, [load, file]);
+  const module = loaded !== undefined && loaded.file === file ? loaded.module : undefined;
+  const drawn = load !== undefined && module !== null;
   return (
     <div className="armada-annotate__picker" role="group" aria-label={label} onKeyDown={arrows}>
       <span className="armada-annotate__picker-label">{label}</span>
-      <div className="armada-annotate__picker-steps">
+      <div className="armada-annotate__picker-steps" data-tiles={drawn ? "" : undefined}>
         {stories.map((story) => {
           const args = Object.entries(story.args).map(([key, value]) => `${key} ${String(value)}`);
           const button = (
             <Button key={story.name} variant="ghost" size="sm" aria-pressed={current === story.name} onClick={() => onPick(story)}>
+              {drawn && <Preview module={module} name={story.name} />}
               {story.name}
             </Button>
           );
@@ -200,6 +231,24 @@ function Stories({ label, stories, current, onPick }: { label: string; stories: 
         })}
       </div>
     </div>
+  );
+}
+
+/**
+ * A story at half size, `zoom` laying it out at twice the tile's width. A skeleton block while `module` loads, and nothing
+ * where the story cannot be drawn or throws. It is a portal because a story's own button cannot be a child of the tile's.
+ */
+function Preview({ module, name }: { module: StoryModule | undefined; name: string }) {
+  const [host, setHost] = useState<HTMLElement | null>(null);
+  const element = useMemo(() => (module === undefined ? null : storyElement(module, name)), [module, name]);
+  if (module !== undefined && element === null) return null;
+  return (
+    <StoryBoundary>
+      <span className="armada-annotate__preview" aria-hidden inert>
+        <span className="armada-annotate__preview-story" ref={setHost} />
+        {host !== null && createPortal(element, host)}
+      </span>
+    </StoryBoundary>
   );
 }
 
