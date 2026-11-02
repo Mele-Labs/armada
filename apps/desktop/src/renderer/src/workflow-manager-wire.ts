@@ -104,7 +104,7 @@ export function suggestionsOf(
  * Manifest it is read and acted on under: a repository's copy has its own, and Armada's and Yours are the same
  * under every one, so theirs is the first that listed them.
  */
-export type Listed = { id: string; source: WorkflowSource; manifestId?: string; leftOut?: { said: string; file: string }; forRequests?: string };
+export type Listed = { id: string; source: WorkflowSource; manifestId?: string; runsIn?: string; leftOut?: { said: string; file: string }; forRequests?: string };
 
 /**
  * The rows of the list from what Fleet answered: each workflow it runs, a row for each definition of the same id a
@@ -141,9 +141,27 @@ export function listedOf(workflows: readonly WorkflowSummary[], leftOut: readonl
   return out;
 }
 
+/**
+ * The rows of each repository in `manifestIds` that keeps no copy of its own: the workflows that run there, Armada's
+ * or Yours, each marked `runsIn` so it draws in that repository's group. Fleet lists each Manifest's running
+ * workflows under its own `manifest_id`, Armada's and Kit's included.
+ */
+export function runningIn(workflows: readonly WorkflowSummary[], rows: readonly Listed[], manifestIds: readonly string[]): Listed[] {
+  const keeps = new Set(rows.filter((one) => one.source === "repository").map((one) => one.manifestId));
+  return manifestIds
+    .filter((manifestId) => !keeps.has(manifestId))
+    .flatMap((manifestId) =>
+      workflows.flatMap((one): Listed[] => {
+        const source = placeOf(one.source ?? "");
+        if (one.manifest_id !== manifestId || source === undefined || source === "repository") return [];
+        return [{ id: one.id, source, manifestId, runsIn: manifestId, ...(one.for_requests === undefined ? {} : { forRequests: one.for_requests }) }];
+      }),
+    );
+}
+
 /** Armada's row of this id, if it carries one. */
 export const armadaOf = (rows: readonly Listed[], id: string): Listed | undefined =>
-  rows.find((one) => one.source === "armada" && one.id === id && one.leftOut === undefined);
+  rows.find((one) => one.source === "armada" && one.id === id && one.leftOut === undefined && one.runsIn === undefined);
 
 /** Whether Armada carries a workflow of this id among the rows. */
 export const armadaCarries = (rows: readonly Listed[], id: string): boolean => armadaOf(rows, id) !== undefined;

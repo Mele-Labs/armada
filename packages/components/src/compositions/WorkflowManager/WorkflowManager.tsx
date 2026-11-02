@@ -96,8 +96,9 @@ export type WorkflowManagerProps = {
 const PENDING_ROWS = ["6rem", "8rem", "5rem", "7rem", "9rem"];
 
 /** What a row adds to its ref beyond the id and the place: the Manifest it was read under, and the file it was left out at. */
-const refOf = (one: ManagedWorkflow): Pick<WorkflowRef, "manifestId" | "file"> => ({
+const refOf = (one: ManagedWorkflow): Pick<WorkflowRef, "manifestId" | "runsIn" | "file"> => ({
   ...(one.manifestId === undefined ? {} : { manifestId: one.manifestId }),
+  ...(one.runsIn === undefined ? {} : { runsIn: one.runsIn }),
   ...(one.leftOut === undefined ? {} : { file: one.leftOut.file }),
 });
 
@@ -140,15 +141,16 @@ export function WorkflowManager(props: WorkflowManagerProps) {
   const groups = useMemo(() => {
     const wanted = query.trim().toLowerCase();
     const found = workflows.filter((one) => one.id.toLowerCase().includes(wanted));
-    // A repository's copies sit in a group of its own, in the order the repositories were listed.
-    const fromRepositories = [...new Set(found.filter((one) => one.source === "repository").map((one) => one.manifestId ?? ""))].map((from) => {
-      const rows = found.filter((one) => one.source === "repository" && (one.manifestId ?? "") === from);
+    // A repository's copies sit in a group of its own, in the order the repositories were listed; one that keeps none holds what runs there.
+    const inRepository = (one: ManagedWorkflow) => one.source === "repository" || one.runsIn !== undefined;
+    const fromRepositories = [...new Set(found.filter(inRepository).map((one) => one.manifestId ?? ""))].map((from) => {
+      const rows = found.filter((one) => inRepository(one) && (one.manifestId ?? "") === from);
       return { key: `repository@${from}`, label: `${rows[0]?.repository ?? repository} repository`, rows };
     });
     return [
-      { key: "armada", label: "Armada", rows: found.filter((one) => one.source === "armada") },
+      { key: "armada", label: "Armada", rows: found.filter((one) => one.source === "armada" && one.runsIn === undefined) },
       ...fromRepositories,
-      { key: "yours", label: "Yours", rows: found.filter((one) => one.source === "yours") },
+      { key: "yours", label: "Yours", rows: found.filter((one) => one.source === "yours" && one.runsIn === undefined) },
     ].filter((group) => group.rows.length > 0);
   }, [workflows, query, repository]);
 
@@ -295,7 +297,7 @@ export function WorkflowManager(props: WorkflowManagerProps) {
             key={props.workspace === undefined ? keyOf(current) : current.id}
             {...props}
             workflow={current}
-            armada={workflows.find((one) => one.source === "armada" && one.id === current.id && one.leftOut === undefined)}
+            armada={workflows.find((one) => one.source === "armada" && one.id === current.id && one.leftOut === undefined && one.runsIn === undefined)}
             drafts={drafts}
             setDrafts={setDrafts}
           />
@@ -316,7 +318,8 @@ type DetailProps = WorkflowManagerProps & {
 function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions, suggesting, actsFor, jobFor, ...acts }: DetailProps) {
   const ref: WorkflowRef = { id: workflow.id, source: workflow.source, ...refOf(workflow) };
   const key = keyOf(workflow);
-  const editable = workflow.source !== "armada" && workflow.leftOut === undefined;
+  // What runs in a repository that keeps no copy is Armada's or Yours as read there, and is edited where it is kept.
+  const editable = workflow.source !== "armada" && workflow.leftOut === undefined && workflow.runsIn === undefined;
   const comparable = editable && armada !== undefined;
   const [comparing, setComparing] = useState(false);
   // What the last act said, as a fact beside the acts: or Fleet's sentence for why it was refused, or the Job a proposal started.
@@ -465,7 +468,7 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
           </div>
           ) : null}
           {workflow.source !== "armada" && editable ? actsFor?.(ref) : null}
-          {workflow.source === "armada" ? null : (
+          {workflow.source === "armada" || workflow.runsIn !== undefined ? null : (
             <div className="armada-wm__acts-group" role="group" aria-label="Delete" data-end="">
               <Act label="Delete" Glyph={Trash2} destructive onPress={() => void run(() => acts.onDelete(ref))} />
             </div>

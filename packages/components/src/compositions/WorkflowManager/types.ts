@@ -85,6 +85,11 @@ export type ManagedWorkflow = {
   repository?: string;
   steps: readonly ManagedStep[];
   /**
+   * Set on Armada's or Yours drawn in the group of a repository that keeps no copy of it: that repository's Manifest.
+   * The row is what runs there, read only, and drawn beside its own row in Armada's or Yours.
+   */
+  runsIn?: string;
+  /**
    * Set on a file Fleet left out: its sentence for why, and the file that names it. Such a copy has no steps
    * to draw, and is found by its file and not by its id.
    */
@@ -92,7 +97,7 @@ export type ManagedWorkflow = {
 };
 
 /** One workflow copy: the source and the id name it, the Manifest it is read and acted on under, and the file where it was left out. */
-export type WorkflowRef = Pick<ManagedWorkflow, "id" | "source" | "manifestId"> & { file?: string };
+export type WorkflowRef = Pick<ManagedWorkflow, "id" | "source" | "manifestId" | "runsIn"> & { file?: string };
 
 /**
  * What names a copy: a row, which carries the file it was left out at under `leftOut`, or a ref, which carries it itself.
@@ -101,7 +106,7 @@ export type WorkflowRef = Pick<ManagedWorkflow, "id" | "source" | "manifestId"> 
  */
 export const keyOf = (one: WorkflowRef & { leftOut?: { file: string } }) => {
   const file = one.leftOut?.file ?? one.file;
-  const repository = one.source === "repository" && one.manifestId !== undefined ? `@${one.manifestId}` : "";
+  const repository = one.source === "repository" && one.manifestId !== undefined ? `@${one.manifestId}` : one.runsIn === undefined ? "" : `>${one.runsIn}`;
   return `${one.source}${repository}:${one.id}${file === undefined ? "" : `:${file}`}`;
 };
 
