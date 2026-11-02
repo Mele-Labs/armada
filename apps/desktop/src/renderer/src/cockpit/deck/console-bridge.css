@@ -446,18 +446,34 @@
 
   /* ---- The console wraps the viewer: the wings are angled in and raised, the middle bay lowest and nearest, Dispatch angled on the right wing.
      The turns are on the bays and the panel, never on the keys, so a key's tooltip and focus ring still place from the key. ---- */
-  & .deck-controls__block:not([data-subject]):not(.console-rack) {
+  &:not([data-console-pixi]) .deck-controls__block:not([data-subject]):not(.console-rack) {
     perspective: 760px;
     perspective-origin: 50% 30%;
     &::after { content: ""; position: absolute; z-index: -1; inset: auto var(--space-3) var(--space-1); height: var(--space-3); border-bottom: calc(var(--border-width) * 2) solid var(--border-strong); border-radius: 0 0 50% 50% / 0 0 100% 100%; pointer-events: none; }
   }
-  & .console-bay[data-n="1"] { transform: translateY(calc(var(--space-2) * -1.5)) rotateY(26deg); }
-  & .console-bay[data-n="2"] { transform: translateY(calc(var(--space-1) * -1.5)) rotateY(13deg); }
-  & .console-bay[data-n="3"] { transform: translateY(var(--space-1)) translateZ(var(--space-6)); z-index: 1; }
-  & .console-bay[data-n="4"] { transform: translateY(calc(var(--space-1) * -1.5)) rotateY(-13deg); }
-  & .console-bay[data-n="5"] { transform: translateY(calc(var(--space-2) * -1.5)) rotateY(-26deg); }
-  & .deck-foot { perspective: 900px; perspective-origin: 30% 50%; }
-  & .deck-foot > .deck-dispatch { transform: translateY(calc(var(--space-2) * -1)) rotateY(-16deg); transform-origin: 0 50%; }
+  &:not([data-console-pixi]) .console-bay[data-n="1"] { transform: translateY(calc(var(--space-2) * -1.5)) rotateY(26deg); }
+  &:not([data-console-pixi]) .console-bay[data-n="2"] { transform: translateY(calc(var(--space-1) * -1.5)) rotateY(13deg); }
+  &:not([data-console-pixi]) .console-bay[data-n="3"] { transform: translateY(var(--space-1)) translateZ(var(--space-6)); z-index: 1; }
+  &:not([data-console-pixi]) .console-bay[data-n="4"] { transform: translateY(calc(var(--space-1) * -1.5)) rotateY(-13deg); }
+  &:not([data-console-pixi]) .console-bay[data-n="5"] { transform: translateY(calc(var(--space-2) * -1.5)) rotateY(-26deg); }
+  &:not([data-console-pixi]) .deck-foot { perspective: 900px; perspective-origin: 30% 50%; }
+  &:not([data-console-pixi]) .deck-foot > .deck-dispatch { transform: translateY(calc(var(--space-2) * -1)) rotateY(-16deg); transform-origin: 0 50%; }
+
+  /* ---- Drawn on a canvas (`console-stage.ts`): the picture is Pixi's, and what stands over it is each facet's own button, unseen. ---- */
+  &[data-console-pixi] {
+    & .deck-foot > .deck-controls:has(> .deck-controls__block:not([data-subject]):not(.console-rack)) { border-color: transparent; background: none; box-shadow: none; clip-path: none; &::before, &::after { display: none; } }
+    & .deck-controls__block:not([data-subject]):not(.console-rack) { display: block; position: relative; isolation: auto; margin: 0 var(--space-3); padding: 0; border: 0; background: none; box-shadow: none; &::before, &::after { display: none; } }
+    & .console-pixi { position: absolute; inset: 0 auto auto 0; width: 100%; pointer-events: none; }
+    & .console-pixi > canvas { display: block; pointer-events: none; }
+    & .console-bay { position: absolute; display: grid; padding: 0; border: 0; background: none; box-shadow: none; &::before, &::after { display: none; } }
+    & .console-bay.console-bay .deck-tile.deck-tile, & .console-bay.console-bay .deck-tile.deck-tile:is(:hover, [aria-pressed], [data-on], :active) { width: 100%; height: 100%; padding: 0; border-color: transparent; border-radius: 0; background: transparent; box-shadow: none; color: transparent; top: 0; }
+    & .console-bay.console-bay .deck-tile.deck-tile > :not(.armada-tooltip__bubble), & .console-bay .deck-tile::before, & .console-bay .deck-tile::after { opacity: 0; }
+    & .console-bay.console-bay .deck-tile.deck-tile::before, & .console-bay.console-bay .deck-tile.deck-tile::after { display: none; }
+    & .console-bay > :is(.console-scope, .console-gauges, .console-usage) { border: 0; background: none; box-shadow: none; &::before, &::after { display: none; } }
+    & .console-bay > :is(.console-gauges, .console-usage) > * { opacity: 0; }
+    & .console-bay .console-scope .armada-tl__dot { background: transparent; }
+    & .console-bay .console-scope :is(.armada-tl__axis-line, .armada-tl__now) { display: none; }
+  }
 }
 
 @keyframes cb-turn { to { rotate: 360deg; } }

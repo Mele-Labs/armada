@@ -1,13 +1,14 @@
 // The bridge take's modular console (mock): five bays, each a socket that takes any instrument, and the rack that seats them. What is in
 // each bay is kept in localStorage. Drawn only where `data-console="bridge"` is set (`console-bridge.css`); the markup is the same either way.
 
-import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Activity as ActivityGlyph, ChartNoAxesGantt, Gauge, Maximize2, Megaphone, PlugZap, Plus, Radar, ShieldCheck, X, type LucideIcon } from "lucide-react";
 import { Button, Kbd, Tooltip } from "@armada/components";
 
 import { useZoomBox } from "../../job-panes/zoom";
 import { glyphOf } from "./flight-glyphs";
+import { ConsoleStage, type BayState, type Dot, type Kind, type Layout } from "./pixi/console-stage";
 import { tileCap } from "./session-tiles";
 import type { tilesOf } from "./flight-controls";
 
@@ -72,7 +73,12 @@ export type Wiring = {
   calling: boolean;
   /** The Activity graph, drawn into the scope. */
   scope: ReactNode;
+  /** The Dispatch key, which is the last facet of the arc where the console is drawn on a canvas. */
+  dispatch?: ReactNode;
 };
+
+/** Whether the console is drawn on a canvas (`?console=bridge`, unless `?pixi=0`). */
+const onCanvas = () => typeof document !== "undefined" && document.documentElement.hasAttribute("data-console-pixi");
 
 // ---- The bays ------------------------------------------------------------------------------------------
 
@@ -175,8 +181,106 @@ function Seated({ id, wiring }: { id: InstrumentId; wiring: Wiring }) {
   return <Key id={id} wiring={wiring} />;
 }
 
+const DOTS_EVERY = 400;
+
+/** The console drawn on a canvas: the canvas is the picture, and over each projected facet stands the instrument's own button, unseen, which keeps its press, label, tooltip and focus. */
+function CanvasBays({ wiring }: { wiring: Wiring }) {
+  const seated = useBays();
+  const host = useRef<HTMLDivElement>(null);
+  const stage = useRef<ConsoleStage | undefined>(undefined);
+  const els = useRef<(HTMLDivElement | null)[]>([]);
+  const [layout, setLayout] = useState<Layout | undefined>();
+  const items: (InstrumentId | "dispatch" | null)[] = [...seated, wiring.dispatch === undefined ? null : "dispatch"];
+  const dots = useRef<{ at: number; list: Dot[] }>({ at: 0, list: [] });
+  useLayoutEffect(() => {
+    const canvas = host.current!;
+    const block = canvas.parentElement!;
+    const made = ConsoleStage.start(canvas);
+    stage.current = made;
+    const measure = () => {
+      const next = made.resize(block.clientWidth);
+      canvas.style.height = `${next.height}px`;
+      block.style.height = `${next.height}px`;
+      setLayout((was) => (was !== undefined && was.width === next.width && was.height === next.height ? was : next));
+    };
+    measure();
+    const watch = new ResizeObserver(measure);
+    watch.observe(block);
+    const poke = () => made.poke();
+    block.addEventListener("pointerenter", poke, true);
+    block.addEventListener("pointerleave", poke, true);
+    block.addEventListener("focusin", poke);
+    block.addEventListener("focusout", poke);
+    return () => {
+      watch.disconnect();
+      block.removeEventListener("pointerenter", poke, true);
+      block.removeEventListener("pointerleave", poke, true);
+      block.removeEventListener("focusin", poke);
+      block.removeEventListener("focusout", poke);
+      block.style.height = "";
+      made.destroy();
+      stage.current = undefined;
+    };
+  }, []);
+  // What each frame draws is read from the buttons, so a press, a hover or a call changes the picture with no state of its own.
+  useLayoutEffect(() => {
+    stage.current?.setSource((): BayState[] =>
+      items.map((id, at) => {
+        const el = els.current[at];
+        if (id === null || el === null || el === undefined) return { kind: null, pressed: false, calling: false, lit: false, code: "", label: "" };
+        const meta = id === "dispatch" ? { code: "DSP", label: "Dispatch" } : INSTRUMENTS[id];
+        const kind: Kind = id === "dispatch" ? "dispatch" : id;
+        let list: Dot[] | undefined;
+        if (id === "scope") {
+          const now = performance.now();
+          if (now - dots.current.at > DOTS_EVERY) {
+            const plot = el.querySelector<HTMLElement>(".armada-tl__plot")?.getBoundingClientRect();
+            dots.current = {
+              at: now,
+              list:
+                plot === undefined || plot.width === 0
+                  ? []
+                  : [...el.querySelectorAll<HTMLElement>(".armada-tl__dot")].map((dot) => {
+                      const box = dot.getBoundingClientRect();
+                      return { x: (box.left + box.width / 2 - plot.left) / plot.width, y: (box.top + box.height / 2 - plot.top) / plot.height, r: Math.max(1.6, box.width / 2), colour: getComputedStyle(dot).getPropertyValue("--tone") || "#888" };
+                    }),
+            };
+          }
+          list = dots.current.list;
+        }
+        return { kind, pressed: el.querySelector("[aria-pressed='true']") !== null, calling: el.querySelector("[data-calling]") !== null, lit: el.matches(":hover, :focus-within"), code: meta.code, label: meta.label, ...(list === undefined ? {} : { dots: list }) };
+      }),
+    );
+    stage.current?.poke();
+  });
+  return (
+    <>
+      <div ref={host} className="console-pixi" />
+      {items.map((id, at) => {
+        const room = layout?.inner[at];
+        return (
+          <div
+            key={at}
+            ref={(element) => void (els.current[at] = element)}
+            className="console-bay"
+            data-n={at + 1}
+            data-empty={id === null || undefined}
+            style={room === undefined ? { display: "none" } : { left: room.x, top: room.y, width: room.w, height: room.h }}
+          >
+            {id === null ? null : id === "dispatch" ? wiring.dispatch : <Seated id={id} wiring={wiring} />}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 /** The console's row of bays. A bay with nothing in it is a dark, recessed socket. */
 export function ConsoleBays({ wiring }: { wiring: Wiring }) {
+  return onCanvas() ? <CanvasBays wiring={wiring} /> : <FlatBays wiring={wiring} />;
+}
+
+function FlatBays({ wiring }: { wiring: Wiring }) {
   const seated = useBays();
   return (
     <>

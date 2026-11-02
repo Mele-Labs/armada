@@ -823,6 +823,8 @@ const DECK_ACTS: Record<string, { pressed: (deck: Deck) => boolean; press: () =>
   timeline: { pressed: (deck) => deck.sel === undefined && deck.view === "timeline", press: () => setView("timeline") },
 };
 /** The mock's third console take draws instrument parts inside the keys (`console-bridge.css`). */
+/** The console is drawn on a canvas (`console-stage.ts`), Dispatch among its facets. */
+const bridgeCanvas = () => typeof document !== "undefined" && document.documentElement.hasAttribute("data-console-pixi");
 const bridgeTake = () => typeof document !== "undefined" && document.documentElement.dataset.console === "bridge";
 
 const DECK_TIPS: Record<string, string> = { checks: "Checks: only what is running one" };
@@ -906,6 +908,7 @@ function FlightControl({ ship, props, listed, unified = false }: { ship: Ship; p
                 press: (id) => DECK_ACTS[id]?.press(),
                 calling: asking,
                 scope: <ActivityBody props={props} listed={listed} ship={ship} />,
+                ...(session === undefined ? { dispatch: <DispatchKey /> } : {}),
               }}
             />
           ) : null}
@@ -954,17 +957,26 @@ function DispatchDeck() {
         <PanelKey id="dispatch" />
       </header>
       <div className="deck-dispatch__block">
-        <Tooltip label="Dispatch" shortcut={keyFor("new_job")} asChild>
-          <button type="button" className="deck-tile deck-dispatch__tile" aria-label="Dispatch" onClick={() => dispatching.openNew()}>
-            <Send size={20} aria-hidden="true" />
-            <span className="deck-tile__text">Dispatch</span>
-            <Kbd className="deck-tile__key" aria-hidden="true">
-              {keyFor("new_job")}
-            </Kbd>
-          </button>
-        </Tooltip>
+        <DispatchKey />
       </div>
     </section>
+  );
+}
+
+/** The Dispatch key: the panel's one tile, and the last facet of the bridge take's console arc. */
+function DispatchKey() {
+  const dispatching = useDispatching();
+  if (dispatching === undefined) return null;
+  return (
+    <Tooltip label="Dispatch" shortcut={keyFor("new_job")} asChild>
+      <button type="button" className="deck-tile deck-dispatch__tile" aria-label="Dispatch" onClick={() => dispatching.openNew()}>
+        <Send size={20} aria-hidden="true" />
+        <span className="deck-tile__text">Dispatch</span>
+        <Kbd className="deck-tile__key" aria-hidden="true">
+          {keyFor("new_job")}
+        </Kbd>
+      </button>
+    </Tooltip>
   );
 }
 
@@ -1180,7 +1192,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
           {footed ? (
             <div className="deck-foot">
               {panels.has("controls") ? <FlightControl ship={ship} props={props} listed={listed} /> : null}
-              {!panels.has("dispatch") ? null : <DispatchDeck />}
+              {!panels.has("dispatch") || (bridgeCanvas() && onStage === undefined) ? null : <DispatchDeck />}
               {!autopilotShown || !panels.has("autopilot") ? null : <AutopilotPanel autopilot={autopilot} />}
             </div>
           ) : null}

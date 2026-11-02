@@ -40,6 +40,8 @@ if (asked !== null && asked !== scenario.name) {
 // `?console=skin|reshape` takes the Flight controls' console look one of two ways (`cockpit/deck/console.css`); without it the app is unchanged.
 const consoleTake = query.get("console");
 if (consoleTake !== null) document.documentElement.dataset.console = consoleTake;
+// The bridge take's console is drawn on a canvas; `?pixi=0` keeps the CSS one.
+if (consoleTake === "bridge" && query.get("pixi") !== "0") document.documentElement.dataset.consolePixi = "";
 
 // A walk starts from the window its test starts from, so what it shows is what CI ran. A replay in the
 // same browser must not inherit the Sessions the last one viewed, the calls it dismissed or the drafts it left.
