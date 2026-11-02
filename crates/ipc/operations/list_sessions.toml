@@ -6,6 +6,8 @@ description = "The agent jobs on the ledger, most recently seen first, narrowed 
 notes = """
 `GET /sessions?manifest_id=&q=&state=&view=`. Since 23.43. `view` is `full` (absent) or `summary`:`full` is every job with its whole ledger, as Bridge reads it, and `summary` is `SessionSummaries`, a line each of what is held now. **The agent's door asks for `summary` itself, and for `state=live` where it names none**; an agent cannot ask for `full`, which ran to 696 KB on a live Fleet against the door's 64 KB. `q` finds a job by its title, a branch name, a pull request number (`#12` or `12`, whole) or a slot (`3` or `slot-3`). `state` is `live` or `ended`. `manifest_id` narrows to one repository's; absent, every job on the machine, a terminal job in no repository Fleet serves included.
 
+A line carries `mod_version` (what the job's mod last reported, absent until one has) and `tools_missing` (what a hosted agent came up without). `armada job status` reads both.
+
 A terminal job carries `mod_out_of_date` (since 23.62) where its mod is older than its repository's, or reported no version.
 
 A job run in a terminal is a first-class row, the same shape a Bridge-hosted one will have.

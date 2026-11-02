@@ -38,6 +38,7 @@ mod booting;
 pub mod clean;
 pub mod cli;
 pub mod declared;
+pub mod job;
 pub mod leasing;
 pub mod locating;
 pub mod loopback;

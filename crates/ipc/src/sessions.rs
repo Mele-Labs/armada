@@ -1130,6 +1130,10 @@ pub struct SessionRecord {
     /// repository's. Since 23.62.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub mod_out_of_date: bool,
+    /// The version its `armada` mod last reported, on a session of either origin. Absent until a mod
+    /// has reported one, which is how a session whose mod never loaded is told from one whose mod did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mod_version: Option<String>,
     /// A hosted session whose agent came up without some of its Armada pieces, as Fleet read the CLI's
     /// first line of the process. Absent when nothing is missing, on a session a terminal runs and once
     /// the session ends. Held in memory: a Fleet that restarts has none until the next turn starts.
