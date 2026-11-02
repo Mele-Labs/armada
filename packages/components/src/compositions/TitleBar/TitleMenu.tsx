@@ -1,15 +1,15 @@
-import { Menu, Moon, Settings, Stethoscope, UserCheck } from "lucide-react";
+import { Menu, Settings, Stethoscope, UserCheck } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "../../primitives/Button/Button";
 import { KbdCmd } from "../../primitives/Kbd/Kbd";
 import { AccountBadge, AccountMark, accountNeed, useAccount } from "../Account/Account";
 
 /**
- * The title row's one menu: the account, Sleep, Settings and Doctor behind a single registry glyph, so the
- * row carries four things and not seven (the owner, 14 Oct 2026).
+ * The title row's one menu: the account, Settings and Doctor behind a single registry glyph, so the
+ * row carries three things and not six (the owner, 14 Oct 2026).
  *
- * **State that matters stays on the button.** Sleep on puts the moon on it, and nothing is signed in
- * puts an attention dot there, so neither needs the menu opened to be read. Off, the row shows no moon.
+ * **State that matters stays on the button.** Nothing signed in puts an attention dot there, so it is read
+ * without the menu opened.
  *
  * The account entry is one row: Account and its mark, or Sign in, and never a login, since no profile is the active one. **It opens the account where the window keeps it**,
  * a page or a panel from the rail, and never holds the account itself: a sign-in in flight is the window's, so putting
@@ -17,8 +17,6 @@ import { AccountBadge, AccountMark, accountNeed, useAccount } from "../Account/A
  * mark. Below the narrow bound the row's other controls are listed under these, which is the menu the row had before.
  */
 export type TitleMenuProps = {
-  /** Sleep mode's toggle. Absent draws no entry. */
-  sleep?: { on: boolean; onToggle: () => void; calling?: boolean };
   /** Opens the account, a page or a panel. Absent draws no account entry. */
   onAccount?: () => void;
   /** Opens the Settings page. Absent draws no entry. */
@@ -29,13 +27,12 @@ export type TitleMenuProps = {
   narrow?: ReactNode;
 };
 
-export function TitleMenu({ sleep, settings, doctor, onAccount, narrow }: TitleMenuProps) {
+export function TitleMenu({ settings, doctor, onAccount, narrow }: TitleMenuProps) {
   const account = useAccount();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const signedOut = account !== undefined && account.profiles.length === 0;
   const need = account === undefined ? undefined : accountNeed(account);
-  const sleeping = sleep?.on === true;
 
   const away = useRef(() => {});
   away.current = () => setOpen(false);
@@ -59,19 +56,17 @@ export function TitleMenu({ sleep, settings, doctor, onAccount, narrow }: TitleM
     };
   }, [open]);
 
-  if (account === undefined && sleep === undefined && settings === undefined && doctor === undefined && narrow === undefined) return null;
+  if (account === undefined && settings === undefined && doctor === undefined && narrow === undefined) return null;
 
   const said = [
     "Menu",
-    ...(sleeping ? ["sleep mode on"] : []),
     ...(signedOut ? ["signed out"] : []),
     ...(need === undefined ? [] : [`${need.said.slice(0, 1).toLowerCase()}${need.said.slice(1)}`]),
   ].join(", ");
   return (
-    // Pressing anywhere in the menu is not the first use of Bridge that turns Sleep off.
-    <div className="armada-title-bar__menu armada-popover" ref={root} data-keeps-sleep="">
+    <div className="armada-title-bar__menu armada-popover" ref={root}>
       <span className="armada-popover__trigger">
-        <span className="armada-title-menu__button" data-calling={sleep?.calling === true ? "" : undefined}>
+        <span className="armada-title-menu__button">
           <Button
             variant="ghost"
             size="sm"
@@ -86,11 +81,6 @@ export function TitleMenu({ sleep, settings, doctor, onAccount, narrow }: TitleM
           >
             <Menu size={16} strokeWidth={2} aria-hidden />
           </Button>
-          {sleeping ? (
-            <span className="armada-title-menu__moon" aria-hidden>
-              <Moon size={12} strokeWidth={2} fill="currentColor" />
-            </span>
-          ) : null}
           {account !== undefined && need !== undefined ? (
             <AccountBadge account={account} />
           ) : signedOut ? (
@@ -122,14 +112,6 @@ export function TitleMenu({ sleep, settings, doctor, onAccount, narrow }: TitleM
                   ) : signedOut ? (
                     <span className="armada-title-menu__attention armada-title-menu__attention--row" aria-hidden />
                   ) : null}
-                </button>
-              )}
-              {sleep === undefined ? null : (
-                <button type="button" className="armada-title-menu__item" aria-label="Sleep mode" aria-pressed={sleep.on} onClick={sleep.onToggle}>
-                  <span className="armada-title-menu__glyph">
-                    <Moon size={16} strokeWidth={2} fill={sleep.on ? "currentColor" : "none"} aria-hidden />
-                  </span>
-                  <span>Sleep</span>
                 </button>
               )}
               {settings === undefined ? null : (

@@ -90,7 +90,6 @@ export const MOCK_SETTINGS: SettingsList = {
     row("Features", "features.uiSounds", "Interface sounds", "A quiet tick when you move through a list or press a control.", BOOLEAN, true),
     row("Features", "features.deepLinks", "Open pull request links", "A link that starts armada://pull opens Bridge on that pull request's review. Off, Armada does not claim the link from macOS and ignores one it is handed.", BOOLEAN, true),
     row("Features", "features.notifications", "Notifications", "A macOS notification when a job needs you and Bridge is not in front.", BOOLEAN, true),
-    row("Features", "features.autopilotPanel", "Autopilot panel", "Shows the Autopilot panel in the Cockpit", BOOLEAN, false),
     row("Features", "features.reachFolders", "Folders jobs reach", "Folders outside its slots a job may read and write with no card, and folders it may not.", { kind: "json" }, {}, { saved: { block: ["/Users/user/.ssh"] } }),
     row("Editor", "editor.command", "Editor command", "The editor Bridge opens a file in. {file} and {line} are filled in. Empty uses $VISUAL, then $EDITOR, then this Mac's default.", TEXT, ""),
     row("Terminal", "terminal.app", "Terminal", "The terminal Bridge opens a worktree in.", { kind: "choice", options: ["Terminal", "iTerm", "Ghostty", "Warp", "WezTerm", "Custom"] }, "Terminal"),

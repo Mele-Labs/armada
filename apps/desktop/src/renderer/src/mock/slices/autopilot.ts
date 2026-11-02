@@ -7,6 +7,7 @@ import type { Autopilot, AutopilotProposal, Outcome } from "@armada/protocol";
 
 import type { AutopilotApi } from "../../../../shared/api/autopilot";
 import type { Slice } from "../fake-context";
+import { BACK_MANIFEST } from "./autopilot-decisions";
 
 function running(manifestId: string): Autopilot {
   return {
@@ -104,8 +105,9 @@ const refused = (message: string): { ok: false; outcome: Outcome } => ({
 export const autopilot: Slice<AutopilotApi, Record<string, never>> = {
   name: "autopilot",
   state: {},
-  api: () => {
-    const kept = new Map<string, Autopilot>();
+  api: (scenario) => {
+    // `autopilot-back` is the Cockpit with Autopilot already running, started before the person left.
+    const kept = new Map<string, Autopilot>(scenario.name === "autopilot-back" ? [[BACK_MANIFEST, { ...running(BACK_MANIFEST), decisions: ["recommended", "open", "land"], picks: [] }]] : []);
     const told = new Set<(autopilot: Autopilot) => void>();
     const of = (manifestId: string): Autopilot => kept.get(manifestId) ?? (manifestId === "pocket" ? capped(manifestId) : running(manifestId));
     const moved = (manifestId: string, change: Partial<Autopilot>) => {

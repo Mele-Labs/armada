@@ -777,10 +777,8 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-dispatch__tile .deck-tile__text { font-weight: var(--weight-heading); }
 .deck-dispatch__tile .deck-tile__key { opacity: 0.9; }
 
-/* Autopilot is one row, its name and its switch. */
+/* Autopilot's switch keeps its own size. */
 .deck-autopilot { flex: 0 0 auto; align-self: flex-start; }
-.deck-autopilot > .deck-band { justify-content: space-between; gap: var(--space-4); }
-.deck-autopilot > .deck-band .armada-switch { min-height: 0; gap: var(--space-3); color: var(--fg-muted); font: inherit; letter-spacing: inherit; text-transform: inherit; }
 
 .deck-bays,
 .deck-ledger { flex: 3 1 0; }

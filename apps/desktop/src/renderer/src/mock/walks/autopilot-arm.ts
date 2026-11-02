@@ -1,5 +1,5 @@
 // Autopilot's setup and its guarded switch, on the whole ship: quick boxes for the repositories, what goes on autopilot and who takes each kind of decision, then two acts
-// to turn it on. A mock: the boxes are not on the wire yet.
+// to turn it on.
 
 import { button, inside, region, role, walk } from "../walk";
 
@@ -15,9 +15,9 @@ const autopilotArm = walk("cockpit-ship-flightdeck", [
   { look: region("On autopilot"), say: "What goes on autopilot: its backlog, the Jobs already running, or both" },
   { look: region("Instruction"), say: "Several lines of instruction" },
   { look: region("Limits"), say: "Jobs at a time, the time to stop at, the most to spend and the most Jobs to start" },
-  { look: region("Decisions"), say: "Checked, the co-commander decides. Unchecked, it blocks until you are back" },
+  { look: region("Decisions"), say: "Checked, Autopilot decides. Unchecked, it blocks until you are back" },
   { press: box("Fix a red main"), say: "One press moves a decision across" },
-  { look: inside(region("Permissions"), role("checkbox", "Destructive")), say: "Reads and Writes are yours to hand over. Destructive stays locked, as you set for Sleep" },
+  { look: inside(region("Permissions"), role("checkbox", "Destructive")), say: "Reads and Writes are yours to hand over. Destructive stays locked" },
   { press: inside(setup, button("Start Autopilot")), say: "One press starts it, and the console's switch flips with it" },
   { press: inside(setup, button("Stop Autopilot")), say: "One press stops it. Jobs it started carry on" },
   { key: "Enter", on: box("armada"), say: "By keys: a opens the setup, arrows move, Space checks, Enter goes to Start, Enter starts" },

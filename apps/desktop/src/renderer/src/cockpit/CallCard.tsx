@@ -157,17 +157,19 @@ export function CallCard({
   const answer = useAnswering(item, hosts, state, finish, dismiss);
   const [text, setText] = useState(() => DRAFTS.get(item.key) ?? "");
   const change = (next: string) => (DRAFTS.set(item.key, next), setText(next));
-  // A Sleep decision's text box is hidden until Change asks for it, and stays where words were left in it.
+  // An Autopilot answer's text box is hidden until Change asks for it, and stays where words were left in it.
   const [changing, setChanging] = useState(() => text.trim() !== "");
   const focusReply = () => document.querySelector<HTMLElement>(".armada-callcard__reply textarea, .armada-callcard__composer [role=textbox]")?.focus();
   // A call that comes from a Session, and takes words, ends in that Session's own box rather than a bare one.
   const sessions = useSessions();
-  const sleep = item.sleep;
-  const home = sessions.find((one) => one.id === (sleep?.sessionId ?? sessionIdOf(item.key)));
+  const autopilot = item.autopilot;
+  const home = sessions.find((one) => one.id === (autopilot?.session_id ?? sessionIdOf(item.key)));
+  // Where Fleet takes a correction, Change opens the box. An answer it refuses to correct offers Agree alone.
+  const changes = autopilot !== undefined && answer.reply !== undefined;
   const composed = home !== undefined && home.dead === undefined && answer.reply !== undefined;
   const boxed = composed;
   // The acts are on the rail beside the card; the row under it is for the glass too narrow to hold the rail.
-  // A Sleep decision's box is hidden until the owner asks for it; a Session's is always there.
+  // An Autopilot answer's box is hidden until the owner asks for it; a Session's is always there.
   const openChange = () => (changing || composed ? focusReply() : setChanging(true));
   // Words in the box are what he just typed, so they win over a picked answer: Send and Enter send them.
   const held = answer.pending !== undefined;
@@ -188,7 +190,7 @@ export function CallCard({
     canSend,
     send,
     // t reaches the Session's own box too, which is always there.
-    ...(sleep === undefined && !composed ? {} : { change: openChange }),
+    ...(!changes && !composed ? {} : { change: openChange }),
     // A key cannot dismiss for good by itself: the cover lifts first. Removing an item the agent stated opens its reason box instead.
     dismiss: removable ? () => setRemoving(true) : dismissable ? cover.press : () => undefined,
   };
@@ -216,8 +218,8 @@ export function CallCard({
     else if (words.trim() !== "") answer.reply?.(words.trim());
   };
 
-  const changeLabel = sleep === undefined ? "Message" : sleep.corrected === undefined ? "Change" : "Change again";
-  const openLabel = sleep === undefined ? OPENS(item) : "Open the Job";
+  const changeLabel = autopilot === undefined ? "Message" : "Change";
+  const openLabel = autopilot === undefined ? OPENS(item) : "Open the Job";
 
   // A card made only of acts is split: the decision on the left, a quiet group of ghosts on the right.
   // The first act is the primary and Enter runs it, until there are words in the box, which Enter sends.
@@ -236,7 +238,7 @@ export function CallCard({
             );
             return one.says === undefined ? button : <Tooltip key={one.id} label={one.says}>{button}</Tooltip>;
           })}
-      {sleep === undefined ? null : (
+      {!changes ? null : (
         <Button variant="secondary" disabled={held} onClick={openChange}>
           {changeLabel}
           <Kbd>{keyFor("call_reply")}</Kbd>
@@ -291,7 +293,7 @@ export function CallCard({
               <Keycap key={one.id} label={one.label} keys={first ? "↵" : String(at + 1)} primary={first} pending={answer.pending === one.id} disabled={held && answer.pending !== one.id} {...(one.says === undefined ? {} : { says: one.says })} onPress={() => one.run()} />
             );
           })}
-      {sleep === undefined ? null : <Keycap label={changeLabel} keys={keyFor("call_reply")} disabled={held} onPress={openChange} />}
+      {!changes ? null : <Keycap label={changeLabel} keys={keyFor("call_reply")} disabled={held} onPress={openChange} />}
       {actsOnly && !words ? null : <Keycap primary label={lone && !words ? openLabel : "Send"} keys="↵" disabled={!canSend} onPress={send} />}
     </>
   );
@@ -342,7 +344,7 @@ export function CallCard({
               </p>
             )}
             {origin === "" ? null : <p className="armada-callcard__origin">{origin}</p>}
-            {sleep !== undefined || item.context === undefined || item.context.length === 0 ? null : (
+            {autopilot !== undefined || item.context === undefined || item.context.length === 0 ? null : (
               <section aria-label={item.contextHead ?? "Why it asks"}>
                 <pre className="armada-callcard__why">{item.context.slice(0, 3).join("\n")}</pre>
               </section>
@@ -376,10 +378,17 @@ export function CallCard({
             );
           })()
         )}
-        {sleep === undefined || item.context === undefined ? null : (
-          <section aria-label={item.contextHead ?? "Chose"}>
-            <pre className="armada-callcard__why">{item.context.slice(0, 1).join("\n")}</pre>
-          </section>
+        {autopilot === undefined ? null : (
+          <>
+            <section aria-label="Chose">
+              <pre className="armada-callcard__why">{autopilot.chose}</pre>
+            </section>
+            {autopilot.because.trim() === "" ? null : (
+              <section aria-label="Because">
+                <pre className="armada-callcard__why">{autopilot.because}</pre>
+              </section>
+            )}
+          </>
         )}
         {answer.attaching === undefined ? null : <AttachPicker attaching={answer.attaching} />}
         {numbered.length === 0 && standing.length === 0 || answer.attaching !== undefined ? null : (
@@ -404,8 +413,8 @@ export function CallCard({
             {removing ? <RemoveBox name={item.fact} keep={`remove:${item.key}`} onRemove={answer.remove} onClose={() => setRemoving(false)} /> : null}
           </div>
         )}
-        {boxed || answer.reply === undefined || (sleep !== undefined && !changing) ? null : (
-          <Reply label={sleep === undefined ? "Type something" : "Change"} text={text} change={change} send={sendWords} pending={answer.pending === "reply"} held={held} {...(sleep === undefined ? {} : { focus: true, close: () => setChanging(false) })} />
+        {boxed || answer.reply === undefined || (autopilot !== undefined && !changing) ? null : (
+          <Reply label={autopilot === undefined ? "Type something" : "Change"} text={text} change={change} send={sendWords} pending={answer.pending === "reply"} held={held} {...(autopilot === undefined ? {} : { focus: true, close: () => setChanging(false) })} />
         )}
         <div className="armada-callcard__acts" data-split={actsOnly || undefined} data-consoled>
           {actsOnly ? <div className="armada-callcard__decide">{decide}</div> : decide}

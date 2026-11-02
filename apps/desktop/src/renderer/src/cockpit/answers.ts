@@ -21,7 +21,7 @@ import { openInPanel } from "../shared-panel/store";
 import { viewsOf } from "../merge-line";
 import { runnerOf, waitingRunKey } from "../session-runner";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
-import { useSleepSource } from "../sleep";
+import { correctable, useAutopilotDecisionsSource } from "../autopilot-decisions";
 import { attachPr } from "./claims";
 import { answerWaiting } from "./answer-waiting";
 import { dismissItem, dismissWaiting } from "./dismissed";
@@ -138,8 +138,8 @@ function mainRedSaid(views: ReturnType<typeof viewsOf>, root: string): string {
 
 /** Where `o` goes: the Session, or the pull request the call is about. */
 function opener(item: Item, hosts: Hosts, state: BridgeState): (() => void) | undefined {
-  const slept = item.sleep?.sessionId;
-  if (slept !== undefined) return () => hosts.onOpenSession(slept);
+  const answered = item.autopilot?.session_id;
+  if (answered !== undefined) return () => hosts.onOpenSession(answered);
   const session = sessionIdOf(item.key);
   if (session !== undefined) return () => hosts.onOpenSession(session);
   const pull = pullOf(item, state);
@@ -271,10 +271,10 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   };
   const candidates: Owner[] = sessions.filter((one) => one.dead === undefined).map((one): Owner => ({ kind: "session", id: one.id, title: one.title ?? one.id }));
 
-  // A Sleep decision is agreed with, or changed in words; either way it is reviewed and the call leaves.
-  const slept = useSleepSource();
-  const sleep = item.sleep;
-  const reviewed = (id: string) => slept?.review(id);
+  // An answer of Autopilot's is agreed with, or changed in words; either way it is reviewed and the call leaves.
+  const decisions = useAutopilotDecisionsSource();
+  const autopilot = item.autopilot;
+  const reviewed = (id: string) => decisions?.review(id);
 
   /** Where a pull request the Session names is, from its own attachments or the repository's open ones. */
   const pullAddress = (number: number): string | undefined => {
@@ -295,7 +295,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   const oneTap = (label: string, run: () => void): Answer => answer(label, run, { once: true });
   const actsOf = (): Answer[] => {
     // Agreeing is the whole answer; where it was decided opens from the card's own Open.
-    if (sleep !== undefined) return [oneTap("Agree", () => (reviewed(sleep.id), finish()))];
+    if (autopilot !== undefined) return [oneTap("Agree", () => (reviewed(autopilot.id), finish()))];
     if (waiting !== undefined) {
       const given = waiting.item;
       // A walk needs no choice: approving is what Fleet does with an answer that names none.
@@ -422,15 +422,16 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     open,
     ...(waiting?.item.act?.kind === "walk" ? { openWalk: () => draft?.openWindow?.(waiting.sessionId, waiting.item.act!.target) } : {}),
     ...(owner === undefined ? {} : { owner }),
-    ...(sleep !== undefined
-      ? { reply: (text: string, accepted?: () => void) => (slept?.override(sleep.id, text), reviewed(sleep.id), accepted?.(), finish()) }
+    // Fleet refuses a correction of an answer with no Job, a landed pull request or a red main, so those offer Agree alone.
+    ...(autopilot !== undefined && correctable(autopilot)
+      ? { reply: (text: string, accepted?: () => void) => (decisions?.override(autopilot.id, text), reviewed(autopilot.id), accepted?.(), finish()) }
       : {}),
     ...(replies ? { reply: (text: string, accepted?: () => void) => sendWaiting("reply", { text }, accepted) } : {}),
     ...(attaching ? { attaching: { candidates, choose: attach, close: () => setAttaching(false) } } : {}),
     ...(waiting?.item.act?.kind === "run" && runner !== undefined && restart === undefined && !waiting.item.act.target.startsWith("/") ? { run: guarded } : {}),
     pending: shown,
-    // A Sleep decision is dismissed by reviewing it on Fleet, so it never comes back.
-    dismiss: () => (sleep === undefined ? wait("dismiss", () => dismissItem(item), dismissed) : (reviewed(sleep.id), dismissed())),
+    // An answer of Autopilot's is dismissed by reviewing it on Fleet, so it never comes back.
+    dismiss: () => (autopilot === undefined ? wait("dismiss", () => dismissItem(item), dismissed) : (reviewed(autopilot.id), dismissed())),
     ...(waiting?.item.source === "agent" ? { remove: (reason: string) => wait("dismiss", () => dismissItem(item, reason), dismissed) } : {}),
   };
 }

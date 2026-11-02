@@ -1,6 +1,7 @@
-// The Cockpit after a night of Sleep mode: Sleep still on with the night's decisions made
-// (`mock/sleep.ts`), which arrive as calls once the first press turns the moon off. Both were made in
-// Sessions, which are here to be opened. The walk `sleepCockpit` plays it.
+// The Cockpit with Autopilot running and the person back at the window: ten minutes passed with nobody
+// there, so the first press asks whether to keep it on. What it answered meanwhile (`slices/autopilot-decisions.ts`)
+// waits as calls to review. Two were answered in Sessions, which are here to be opened. The walk
+// `autopilot-back` plays it.
 
 import { repository } from "@armada/screens/src/fixtures/repository";
 
@@ -8,12 +9,12 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { connected } from "../moment";
 import type { Scenario } from "../moment";
-import { BRANCH_SESSION, LUNCH_SESSION } from "../sleep";
+import { BRANCH_SESSION, LUNCH_SESSION } from "../slices/autopilot-decisions";
 import { s200Sessions } from "./sessions";
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-/** A Session that stopped on one question, the one Sleep answered. */
+/** A Session that stopped on one question, the one Autopilot answered. */
 const asked = (id: string, title: string, request: string, question: string, at: number): Session => ({
   id,
   title,
@@ -32,11 +33,11 @@ const naming = asked(BRANCH_SESSION, "Name the branch", "Name the branch for the
 function build(): Scenario {
   const sessions = s200Sessions.draft!.sessions!;
   return {
-    name: "sleep-cockpit",
-    says: "The Cockpit with a night of Sleep decisions to review",
+    name: "autopilot-back",
+    says: "The Cockpit with Autopilot running and its answers to review",
     state: { ...connected([], [repository()]), repository: repository().root },
     draft: { sessions: (board) => sessions(board, [lunch, naming]) },
   };
 }
 
-export const s209SleepCockpit: Scenario = build();
+export const s209AutopilotBack: Scenario = build();

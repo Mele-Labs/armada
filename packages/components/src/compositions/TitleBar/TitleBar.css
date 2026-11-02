@@ -39,7 +39,7 @@
  * person actually grabs the window by.
  *
  * `Button` takes no `className` to carry a title-bar-only hook on, so the
- * picker and sleep get a wrapper `<div>` this row owns itself. */
+ * picker gets a wrapper `<div>` this row owns itself. */
 .armada-title-bar__picker,
 .armada-title-bar__repository,
 .armada-title-bar__places,
@@ -768,8 +768,7 @@
   position: relative;
 }
 
-.armada-title-bar__helm[data-calling]::after,
-.armada-title-menu__button[data-calling]::after {
+.armada-title-bar__helm[data-calling]::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -780,7 +779,7 @@
   pointer-events: none;
 }
 
-/* The Helm button is rounder than the menu's. */
+/* The Helm button is rounder than the default. */
 .armada-title-bar__helm[data-calling]::after {
   border-radius: var(--radius-lg);
 }
@@ -792,8 +791,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .armada-title-bar__helm[data-calling]::after,
-  .armada-title-menu__button[data-calling]::after {
+  .armada-title-bar__helm[data-calling]::after {
     animation: none;
   }
 }

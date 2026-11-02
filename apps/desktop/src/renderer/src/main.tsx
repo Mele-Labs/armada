@@ -28,8 +28,8 @@ import { createKeptStyles } from "@armada/screens/src/kept-styles";
 import { WiredNumbered } from "./numbered-fleet";
 import { WiredSessions } from "./sessions-wired";
 import { ThreadLookSaved } from "./thread-look-here";
-import { SleepSourceProvider } from "./sleep";
-import { createFleetSleep } from "./fleet-sleep";
+import { AutopilotDecisionsSourceProvider } from "./autopilot-decisions";
+import { createFleetAutopilotDecisions } from "./fleet-autopilot-decisions";
 import { createFleetPlanUsage } from "./fleet-plan-usage";
 import { createFleetTimeline } from "./fleet-timeline";
 import { canReport } from "./report";
@@ -101,8 +101,8 @@ const MOCK_STYLES = createKeptStyles(
   (hash) => window.armada.readKeptStyles(hash).then((read) => (read.ok ? read.value : undefined)),
   () => document.documentElement.getAttribute("data-theme"),
 );
-/** The moon in the title row and the night's decisions as Cockpit calls, over Fleet. */
-const SLEEP = createFleetSleep(withState(window.armada));
+/** What Autopilot answered while the owner was away, as Cockpit calls to review, over Fleet. */
+const AUTOPILOT_DECISIONS = createFleetAutopilotDecisions(withState(window.armada));
 /** The plan's windows in the title row, over Fleet. */
 const PLAN_USAGE = createFleetPlanUsage(withState(window.armada));
 /** The default model's offered step down on the weekly meter, over Fleet. */
@@ -149,7 +149,7 @@ function Root() {
             <TaughtSourceProvider value={TAUGHT}>
             <TweakSourceProvider source={TWEAKS}>
             <PhoneSourceProvider value={PHONE}>
-              <SleepSourceProvider value={SLEEP}>
+              <AutopilotDecisionsSourceProvider value={AUTOPILOT_DECISIONS}>
                 <WiredNumbered>
                   <PlanUsageSourceProvider value={PLAN_USAGE}>
                     <DownshiftSourceProvider value={DOWNSHIFT}>
@@ -182,7 +182,7 @@ function Root() {
                     </DownshiftSourceProvider>
                   </PlanUsageSourceProvider>
                 </WiredNumbered>
-              </SleepSourceProvider>
+              </AutopilotDecisionsSourceProvider>
             </PhoneSourceProvider>
             </TweakSourceProvider>
             </TaughtSourceProvider>

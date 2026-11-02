@@ -7,10 +7,10 @@
 
 import { createPortal } from "react-dom";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { ChartNoAxesGantt, ChevronDown, ChevronUp, CircleDashed, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Plane, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
-import { Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, ListCard, PausedMark, Switch, Tooltip, keyFor, tokenPx, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
+import { ChartNoAxesGantt, ChevronDown, ChevronUp, CircleDashed, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
+import { Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, ListCard, PausedMark, Tooltip, keyFor, tokenPx, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
-import { FIND_A_REPOSITORY, SURFACE, jobIdOf, manifestLabel, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
+import { SURFACE, jobIdOf, manifestLabel, useLayout } from "@armada/shell";
 
 import type { Item } from "../../Dashboard";
 import { clashingOf, useWriteClashes } from "../../clashes";
@@ -22,9 +22,7 @@ import { viewsOf } from "../../merge-line";
 import { sessionHolds } from "./session-prs";
 import { askToOpenSessionInCockpit } from "../../open-session";
 import { useQueued, useSessions, useSessionsDraft } from "../../sessions-draft";
-import { useSetting } from "../../use-setting";
 import { arrivedHere, noteArrivals } from "../../arrivals";
-import { useAutopilotLane } from "../AutopilotLane";
 import { ArmSetup, GuardSwitch, openSetup } from "./AutopilotArm";
 import { useColumns } from "./columns";
 import { useSplits } from "./splits";
@@ -53,7 +51,7 @@ import { MapView } from "./MapPane";
 import { CallsHud, showCall, useCallsHud } from "./ConsoleCalls";
 import { sessionIdOf } from "../waiting";
 import { leaveFrom, onEnd, reducedMotion, useExiting } from "./exit";
-import { CallPane, PaneHead, SessionPane, ShellPanel } from "./panes";
+import { CallPane, SessionPane, ShellPanel } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { RowMenu, type RowMenuAt } from "./RowMenu";
 import { ToolsMarkOf } from "../../tools-fixes";
@@ -471,7 +469,7 @@ function CallsOverField({ props, ship, listed, calling }: { props: CockpitProps;
   );
 }
 
-function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; autopilot: ReturnType<typeof useAutopilotLane>; ledger: HTMLElement | null; hosts: Hosts | undefined }) {
+function Stage({ props, ship, listed, ledger, hosts }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; ledger: HTMLElement | null; hosts: Hosts | undefined }) {
   const sel = useDeck((deck) => deck.sel);
   const view = useDeck((deck) => deck.view);
   const acts = useShipActs(props);
@@ -511,7 +509,7 @@ function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: Cockp
   );
   if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} props={props} acts={acts} ledger={ledger} hosts={hosts} openSession={openSession} />;
   if (call !== undefined) return <CallPane item={call} props={props} />;
-  if (lane) return <AutopilotPane props={props} autopilot={autopilot} />;
+  if (lane) return <AutopilotPane />;
   if (view === "map") return <MapView props={props} ship={ship} listed={listed} />;
   return <TimelineView props={props} ship={ship} listed={listed} />;
 }
@@ -941,72 +939,13 @@ function DispatchKey() {
   );
 }
 
-/** The repository's picker, where none is chosen. Choosing one opens the Autopilot lane for it. */
-function RepositoryPicker({ props, autopilot }: { props: CockpitProps; autopilot: ReturnType<typeof useAutopilotLane> }) {
-  const [recent, remember] = useRecentRepositories();
-  return (
-    <DropdownMenu
-      align="end"
-      portal
-      icon={Plane}
-      triggerLabel="Repository"
-      searchLabel={FIND_A_REPOSITORY}
-      entries={repositoryEntries(props.state.holds.repositories ?? [], { onlySetUp: true, recent })}
-      onSelect={(chosen) => {
-        const root = rootOf(chosen);
-        remember(root);
-        autopilot.control?.openNext();
-        props.onPickRepository?.(root);
-      }}
-    />
-  );
-}
-
-/**
- * Autopilot as one row beside the controls: the switch is its title, and the repository, the state and the bar are left to the lane it opens. Switching it on gives the stage to its
- * configuration; off, the stage is as it was. Drawn only while Settings, Features has the Autopilot panel on (`features.autopilotPanel`).
- */
-function AutopilotPanel({ autopilot }: { autopilot: ReturnType<typeof useAutopilotLane> }) {
-  const control = autopilot.control;
-  const open = useDeck((deck) => deck.sel?.kind === "autopilot");
-  const state = control?.state ?? "off";
-  const flip = () => {
-    if (!open) return enterAutopilot();
-    leaveAutopilot();
-    if (control?.open === true) control.toggle();
-  };
-  return (
-    <section className="deck-panel deck-autopilot" aria-label="Autopilot" tabIndex={-1}>
-      <Standby kind="autopilot" />
-      <header className="deck-band">
-        <Switch size="sm" checked={open || state !== "off"} onChange={flip} disabled={control === undefined}>
-          Autopilot
-        </Switch>
-        <PanelKey id="autopilot" />
-      </header>
-    </section>
-  );
-}
-
-/** The lane on the stage: the real bar for the chosen repository, or the picker while none is. */
-function AutopilotPane({ props, autopilot }: { props: CockpitProps; autopilot: ReturnType<typeof useAutopilotLane> }) {
-  // The bar is the lane's own, drawn while its control has it open; opening this pane is what opens it.
-  const control = autopilot.control;
-  const panelled = useSetting("features.autopilotPanel") === true;
+/** Asking for the lane brings the setup up over the field, where Autopilot is set up. */
+function AutopilotPane() {
   useEffect(() => {
-    if (panelled && props.picked !== null && control !== undefined && !control.open) control.openNext();
-    // MOCK: the setup is a HUD over the field, and asking for the lane brings it up there.
-    if (!panelled) (leaveAutopilot(), openSetup());
-  }, [panelled, props.picked, control]);
-  if (!panelled) return null;
-  return (
-    <section className="deck-pane" aria-label="Autopilot lane">
-      <PaneHead glyph={Plane} kind="Autopilot" title="Autopilot" />
-      <div className="deck-pane__body">{props.picked === null ? <RepositoryPicker props={props} autopilot={autopilot} /> : autopilot.bar}
-        {autopilot.sidings}
-      </div>
-    </section>
-  );
+    leaveAutopilot();
+    openSetup();
+  }, []);
+  return null;
 }
 
 // ---- The body ------------------------------------------------------------------------------------------
@@ -1029,14 +968,13 @@ function ClashesOpenHere({ ship, children }: { ship: Ship; children: ReactNode }
 }
 
 /**
- * An Autopilot's strip, opened, brings the lane up for it once. A part of its own: the dispatching the window holds is a new object
+ * An Autopilot's strip, opened, brings the setup up for it once. A part of its own: the dispatching the window holds is a new object
  * each time the window draws, so a body that read it drew again every second.
  */
-function AutopilotAsked({ control }: { control: ReturnType<typeof useAutopilotLane>["control"] }) {
+function AutopilotAsked() {
   const dispatching = useDispatching();
   useEffect(() => {
-    if (dispatching?.autopilotAsked !== true || control === undefined) return;
-    control.openNext();
+    if (dispatching?.autopilotAsked !== true) return;
     enterAutopilot();
     dispatching.autopilotShown();
   });
@@ -1078,7 +1016,6 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const visited = useDeck((deck) => deck.visited);
   const sel = useDeck((deck) => deck.sel);
   const exiting = useExiting();
-  const autopilot = useAutopilotLane({ picked: props.picked, state: props.state, now: props.now });
   // A call an alert asked for is opened as a row of the list opens one, once this is on screen. `at` makes a second press land.
   const { bring, onBrought } = props;
   useEffect(() => {
@@ -1113,9 +1050,8 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const deckMarks = useMarking(DECK_MARKS);
   // What a layout leaves drawn of the deck's panels. A right column it empties, or a foot, is not drawn and gives its room to the stage.
   const panels = new Set(useLayout("dashboard.panels").shown.map((one) => one.id));
-  const autopilotShown = useSetting("features.autopilotPanel") === true;
   const bare = !reading && !panels.has("bays");
-  const footed = !unified && (panels.has("controls") || panels.has("dispatch") || (autopilotShown && panels.has("autopilot")));
+  const footed = !unified && (panels.has("controls") || panels.has("dispatch"));
   const layout = unified ? "session" : reading ? "reading" : bare ? "bare" : "idle";
   // The Jobs list rests as wide as the fields chosen for its rows need (`row-view.tsx`); a width dragged to is kept as dragged.
   const rowView = useRowView();
@@ -1132,8 +1068,8 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     {/* A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up. */}
     <ReplayHost props={props} ship={ship} />
     <CallsOverField props={props} ship={ship} listed={listed} calling={calling} />
-    <ArmSetup repositories={(props.state.holds.repositories ?? []).flatMap((one) => (one.manifest === undefined ? [] : [{ id: one.manifest.id, name: one.manifest.repository }]))} sidings={autopilot.sidings} />
-    <AutopilotAsked control={autopilot.control} />
+    <ArmSetup repositories={(props.state.holds.repositories ?? []).flatMap((one) => (one.manifest === undefined ? [] : [{ id: one.manifest.id, name: one.manifest.repository }]))} state={props.state} />
+    <AutopilotAsked />
     {/* Powering on, each panel comes online in turn and fills as Fleet answers (`power.css`). */}
     <div ref={deckMarks} className="armada-cockpit deck" data-power={powering(power) ? power : undefined}>
       <div ref={grid} className="deck-grid" data-bare={bare || unified || undefined} style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
@@ -1144,7 +1080,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
         </div>
         <div className="deck-centre">
           <div className="deck-stage" data-exit={exiting ? "" : undefined}>
-            <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading && !unified ? ledgerHost : null} hosts={hosts} />
+            <Stage props={props} ship={ship} listed={listed} ledger={reading && !unified ? ledgerHost : null} hosts={hosts} />
             {/* A Job drawn in panes holds its shell as a tab. */}
             {onStage === undefined || unified ? null : <ShellPanel key={onStage} sessionId={onStage} />}
           </div>
@@ -1153,7 +1089,6 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
               {panels.has("controls") ? <FlightControl ship={ship} props={props} listed={listed} withActivity={panels.has("activity")} withDispatch={panels.has("dispatch")} /> : null}
               {/* With no Job open Dispatch is a key on the console, while the console is drawn. */}
               {!panels.has("dispatch") || (panels.has("controls") && onStage === undefined) ? null : <DispatchDeck />}
-              {!autopilotShown || !panels.has("autopilot") ? null : <AutopilotPanel autopilot={autopilot} />}
             </div>
           ) : null}
           {unified && panels.has("controls") ? <FlightControl ship={ship} props={props} listed={listed} unified /> : null}

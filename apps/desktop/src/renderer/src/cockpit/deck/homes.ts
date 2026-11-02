@@ -4,7 +4,6 @@
 //   main is red            `main:<root>`      main's light in the merge queue
 //   a held checkout        `checkout:<root>`  the same light, which carries the checkout mark
 //   a pull request         `pull:<number>`    that pull request's chip in the merge queue (failing, unmergeable, or merge by hand)
-//   Sleep decided          `sleep`            the title row's menu button, where Sleep's entry is
 //   Helm's own Session     `helm`             the title row's Helm button, while the dock is shut
 
 import type { RepositorySummary } from "@armada/protocol";
@@ -16,7 +15,6 @@ import { useSessions } from "../../sessions-draft";
 import { sessionIdOf } from "../waiting";
 import { incomingOf, useDeck } from "./store";
 
-export const SLEEP_HOME = "sleep";
 export const HELM_HOME = "helm";
 
 const NO_HOSTS = { onOpenSession: () => {}, onOpenLink: () => {} };
@@ -25,7 +23,6 @@ const NONE: ReadonlySet<string> = new Set();
 /** The home a call pulses, or none where a Session's row holds it. */
 export function homeOf(item: Item, sessions: readonly Session[]): string | undefined {
   const helm = (id: string | undefined) => (id !== undefined && sessions.find((one) => one.id === id)?.helm === true ? HELM_HOME : undefined);
-  if (item.key.startsWith("sleep:")) return SLEEP_HOME;
   if (/^(main|checkout|pull):/.test(item.key)) return item.ownedBy === undefined ? item.key : helm(item.ownedBy.id);
   return helm(sessionIdOf(item.key));
 }

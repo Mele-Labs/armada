@@ -1,16 +1,21 @@
-// Autopilot's setup and its guarded switch. MOCK: the boxes are held here, and the repositories, the instruction, the limits and the checked boxes reach Fleet at start. Fleet keeps the boxes and nothing acts on them yet.
+// Autopilot's setup and its guarded switch. The repositories, the instruction, the limits and the checked boxes reach Fleet at start, and the switch and Start read Fleet's record (`autopilots.ts`): on where any Autopilot is running, whoever started it.
 // The switch is two acts: the guard flips up, then the red switch flips. Closing the guard on a live switch pushes it off, as the hardware does.
 
 import { useEffect, useRef, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
 import { Lock } from "lucide-react";
 import { Button, Checkbox, Input, Textarea, Tooltip, useTimeFormat, type AutopilotFields } from "@armada/components";
+import type { Autopilot } from "@armada/protocol";
+import { refusalWords } from "@armada/screens/src/refusal-words";
 
+import type { BridgeState } from "../../../../shared/bridge";
 import { settingsFrom } from "../autopilot";
+import { AutopilotPicks } from "./AutopilotPicks";
+import { fold, isRunning, stopRunning, useAlive, useRunning } from "./autopilots";
 import { ConsoleHud, type Box } from "./ConsoleHud";
 import { deckNow, select } from "./store";
 import "./autopilot-arm.css";
 
-type Arm = { open: boolean; lifted: boolean; on: boolean; repositories: ReadonlySet<string>; work: ReadonlySet<string>; decisions: ReadonlySet<string>; instruction: string; fields: AutopilotFields };
+type Arm = { open: boolean; lifted: boolean; starting: boolean; refused: string | undefined; repositories: ReadonlySet<string>; work: ReadonlySet<string>; decisions: ReadonlySet<string>; instruction: string; fields: AutopilotFields };
 
 const WORK = [
   { id: "backlog", label: "Work the backlog" },
@@ -54,7 +59,8 @@ const DECISIONS: readonly { name: string; items: readonly Decision[] }[] = [
 let arm: Arm = {
   open: false,
   lifted: false,
-  on: false,
+  starting: false,
+  refused: undefined,
   repositories: new Set(),
   work: new Set(["backlog", "running"]),
   decisions: new Set(["recommended", "plan", "draft", "land", "red", "reads"]),
@@ -77,16 +83,33 @@ const flipped = (set: ReadonlySet<string>, id: string) => {
   return next;
 };
 
-function start() {
-  const read = settingsFrom(arm.instruction.trim() === "" ? "Work through the open issues" : arm.instruction, arm.fields, Date.now(), { work: arm.work, decisions: arm.decisions });
-  if (!read.ok) return;
-  for (const manifest of arm.repositories) void window.armada.startAutopilot?.(manifest, read.settings);
+/** The record the switch, Start and the boxes read: Fleet's, where an Autopilot is running, else what is being set up. */
+function useShown() {
+  const held = useArm();
+  const running = useRunning();
+  const on = running.length > 0;
+  return { ...held, on, lifted: held.lifted || on, running };
 }
-function stop() {
-  for (const manifest of arm.repositories) void window.armada.stopAutopilot?.(manifest);
+type Shown = ReturnType<typeof useShown>;
+
+const workOf = (running: readonly Autopilot[]) => new Set(running.flatMap((one) => [...(one.on_autopilot.backlog ? ["backlog"] : []), ...(one.on_autopilot.running ? ["running"] : [])]));
+
+/** Starts the checked repositories. Fleet's record turns the switch on; a refusal is said in the setup and the switch stays off. */
+async function start() {
+  const read = settingsFrom(arm.instruction.trim() === "" ? "Work through the open issues" : arm.instruction, arm.fields, Date.now(), { work: arm.work, decisions: arm.decisions });
+  if (!read.ok) return move({ refused: read.why });
+  move({ starting: true, refused: undefined });
+  const answers = await Promise.all([...arm.repositories].map(async (manifest) => await window.armada.startAutopilot?.(manifest, read.settings)));
+  const refusals: string[] = [];
+  for (const one of answers) {
+    if (one === undefined) continue;
+    if (one.ok) fold(one.value);
+    else refusals.push(refusalWords(one.outcome));
+  }
+  move({ starting: false, refused: refusals.length === 0 ? undefined : [...new Set(refusals)].join(" ") });
 }
 
-const ready = (one: Arm) => one.repositories.size > 0;
+const ready = (one: { repositories: ReadonlySet<string> }) => one.repositories.size > 0;
 /** What the HUD's beam comes up from. */
 const facetEl = () => document.querySelector<HTMLElement>(".console-bay > .gs");
 
@@ -101,38 +124,36 @@ export function openSetup() {
 /** A guard left up on a switch that is not lit falls with the setup. */
 function closeSetup() {
   if (!arm.open) return;
-  move({ open: false, lifted: arm.on });
+  move({ open: false, lifted: isRunning(), refused: undefined });
   document.querySelector<HTMLElement>(".console-bay > .gs .gs__guard")?.focus();
 }
 
 /** The hardware. */
 export function GuardSwitch() {
-  const held = useArm();
+  const held = useShown();
   const plate = useRef<HTMLElement>(null);
   const focusOn = (part: string) => plate.current?.querySelector<HTMLElement>(part)?.focus();
   const lift = () => {
     if (held.lifted) {
-      if (held.on) stop();
-      return move({ lifted: false, on: false, open: false });
+      if (held.on) void stopRunning();
+      return move({ lifted: false, open: false });
     }
     move({ lifted: true, open: true });
     window.requestAnimationFrame(() => focusOn(".gs__bat"));
   };
   const flip = () => {
-    if (!held.lifted) return;
+    if (!held.lifted || held.starting) return;
     if (held.on) {
-      stop();
-      move({ on: false });
+      void stopRunning();
       // The switch is down, then the guard falls on it, and the keys go back to the guard.
       window.setTimeout(() => (move({ lifted: false }), focusOn(".gs__guard")), 180);
       return;
     }
     if (!ready(held)) return;
-    start();
-    move({ on: true });
+    void start();
   };
   return (
-    <section ref={plate} className="gs deck-autopilot" aria-label="Autopilot switch" data-lifted={held.lifted || undefined} data-on={held.on || undefined}>
+    <section ref={plate} className="gs deck-autopilot" aria-label="Autopilot switch" data-keeps-autopilot="" data-lifted={held.lifted || undefined} data-on={held.on || undefined}>
       <span className="gs__lamps" aria-hidden="true">
         <span className="gs__lamp" data-lamp="arm" />
         <span className="gs__lamp" data-lamp="on" />
@@ -145,7 +166,7 @@ export function GuardSwitch() {
             role="switch"
             aria-checked={held.on}
             aria-label="Autopilot"
-            aria-disabled={!held.lifted || (!held.on && !ready(held))}
+            aria-disabled={!held.lifted || held.starting || (!held.on && !ready(held))}
             tabIndex={held.lifted ? 0 : -1}
             className="gs__bat"
             onClick={flip}
@@ -211,9 +232,9 @@ const Group = ({ name, children }: { name: string; children: ReactNode }) => (
   </section>
 );
 
-function DecisionRow({ one, checked }: { one: Decision; checked: boolean }) {
+function DecisionRow({ one, checked, running }: { one: Decision; checked: boolean; running: boolean }) {
   const box = (
-    <Checkbox checked={checked} disabled={one.locked !== undefined} onChange={() => move({ decisions: flipped(arm.decisions, one.id) })}>
+    <Checkbox checked={checked} disabled={one.locked !== undefined || running} onChange={() => move({ decisions: flipped(arm.decisions, one.id) })}>
       {one.label}
     </Checkbox>
   );
@@ -222,7 +243,7 @@ function DecisionRow({ one, checked }: { one: Decision; checked: boolean }) {
       {one.tip === undefined ? box : <Tooltip label={one.tip}>{box}</Tooltip>}
       {one.locked === undefined ? (
         <span className="ap-hud__who" data-on={checked || undefined}>
-          {checked ? "Co-commander" : "Blocks"}
+          {checked ? "Autopilot" : "Blocks"}
         </span>
       ) : (
         <Tooltip label={one.locked}>
@@ -236,9 +257,13 @@ function DecisionRow({ one, checked }: { one: Decision; checked: boolean }) {
   );
 }
 
-/** The setup, a HUD over the field, with a plain button that moves the console's switch with it: which repositories, what goes on autopilot, its limits, and for each kind of decision who takes it. */
-export function ArmSetup({ repositories, sidings }: { repositories: readonly { id: string; name: string }[]; sidings: ReactNode }) {
-  const held = useArm();
+/** The setup, a HUD over the field, with a plain button that moves the console's switch with it: which repositories, what goes on autopilot, its limits, and for each kind of decision who takes it. While one is running it shows what that one was started with. */
+export function ArmSetup({ repositories, state }: { repositories: readonly { id: string; name: string }[]; state: BridgeState }) {
+  const live = useShown();
+  const running = live.running.length > 0;
+  const alive = useAlive();
+  // What a running Autopilot was started with is Fleet's and cannot be changed here; the boxes show it.
+  const held: Shown = running ? { ...live, repositories: new Set(live.running.map((one) => one.manifest_id)), work: workOf(live.running), decisions: new Set(live.running.flatMap((one) => one.decisions)) } : live;
   const { hour12 } = useTimeFormat();
   const facet = useRef<Element | null>(null);
   facet.current = held.open ? facetEl() : null;
@@ -251,16 +276,17 @@ export function ArmSetup({ repositories, sidings }: { repositories: readonly { i
   if (!held.open || facet.current === null) return null;
   // One press and no guard: the guard is the switch's, and the switch moves to match.
   const go = () => {
+    if (held.starting) return;
     if (held.on) {
-      stop();
-      move({ on: false, lifted: false });
+      void stopRunning();
+      move({ lifted: false });
     } else if (ready(held)) {
-      start();
-      move({ on: true, lifted: true });
+      void start();
+      move({ lifted: true });
     }
   };
   const press = (
-    <Button variant={held.on ? "secondary" : "primary"} disabled={!held.on && !ready(held)} onClick={go}>
+    <Button variant={held.on ? "secondary" : "primary"} disabled={!held.on && !ready(held)} pending={held.starting} onClick={go}>
       {held.on ? "Stop Autopilot" : "Start Autopilot"}
     </Button>
   );
@@ -274,20 +300,25 @@ export function ArmSetup({ repositories, sidings }: { repositories: readonly { i
             <div className="ap-hud__column">
               <Group name="Repositories">
                 {repositories.map((one) => (
-                  <Checkbox key={one.id} checked={held.repositories.has(one.id)} onChange={() => move({ repositories: flipped(held.repositories, one.id) })}>
+                  <Checkbox key={one.id} checked={held.repositories.has(one.id)} disabled={running} onChange={() => move({ repositories: flipped(held.repositories, one.id) })}>
                     {one.name}
                   </Checkbox>
                 ))}
               </Group>
               <Group name="On autopilot">
                 {WORK.map((one) => (
-                  <Checkbox key={one.id} checked={held.work.has(one.id)} onChange={() => move({ work: flipped(held.work, one.id) })}>
+                  <Checkbox key={one.id} checked={held.work.has(one.id)} disabled={running} onChange={() => move({ work: flipped(held.work, one.id) })}>
                     {one.label}
                   </Checkbox>
                 ))}
               </Group>
               <div className="ap-hud__go">
                 {held.on || ready(held) ? press : <Tooltip label="No repository checked">{press}</Tooltip>}
+                {held.refused === undefined ? null : (
+                  <p className="ap-hud__refused" role="alert">
+                    {held.refused}
+                  </p>
+                )}
               </div>
             </div>
             <div className="ap-hud__column">
@@ -302,13 +333,17 @@ export function ArmSetup({ repositories, sidings }: { repositories: readonly { i
                   {field("sessions", "Jobs in total")}
                 </div>
               </Group>
-              {sidings === undefined ? null : <div className="ap-hud__sidings">{sidings}</div>}
+              {alive.length === 0 ? null : (
+                <div className="ap-hud__sidings">
+                  <AutopilotPicks on={alive} state={state} onRefused={(why) => move({ refused: why })} />
+                </div>
+              )}
             </div>
             <section className="ap-hud__column ap-hud__decisions" aria-label="Decisions">
               {DECISIONS.map((group) => (
                 <Group key={group.name} name={group.name}>
                   {group.items.map((one) => (
-                    <DecisionRow key={one.id} one={one} checked={held.decisions.has(one.id)} />
+                    <DecisionRow key={one.id} one={one} checked={held.decisions.has(one.id)} running={running} />
                   ))}
                 </Group>
               ))}

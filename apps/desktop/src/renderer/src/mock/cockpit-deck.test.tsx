@@ -133,9 +133,7 @@ test("Checks filters list, Activity and Stage to subjects running a Check", asyn
 // **The owner, 15 Oct 2026**: when navigating the lists, `o` opens the item along with Enter. `open` is the registry's own row
 // for it, in the `list` scope the deck's lists are in, so this is the deck reading a key the registry already ships.
 test("in the deck's lists, o opens the item under the cursor as Enter does", async () => {
-  const app = await deck();
-  // The Autopilot panel is off until the Features switch turns it on.
-  await app.api.saveSettings({ "features.autopilotPanel": true });
+  await deck();
   await expect.poll(() => document.querySelector('.deck-autopilot [role="switch"]')).not.toBeNull();
   // What the stage is labelled while nothing is picked.
   const AT_REST = "Flight map";

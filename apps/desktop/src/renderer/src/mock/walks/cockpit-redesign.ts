@@ -1,8 +1,8 @@
 // The Cockpit's density redesign end to end, for review before it lands: icon Places, one-line Job rows with the View menu and the hover
-// card, Bays with no glyphs, the deck with no name bands and its keys as tiles, an open Job's head views and Flight control lamps, and the
-// Autopilot panel's switch. Over the `flight-control` scenario.
+// card, Bays with no glyphs, the deck with no name bands and its keys as tiles, and an open Job's head views and Flight control lamps.
+// Over the `flight-control` scenario.
 
-import { button, deckRow, inside, place, region, role, toSystemPage, walk } from "../walk";
+import { button, deckRow, inside, place, region, role, walk } from "../walk";
 
 const list = region("Jobs", { exact: true });
 
@@ -27,12 +27,7 @@ const cockpitRedesign = walk("flight-control", [
   { hover: inside(region("Flight controls"), button("Edit")), say: "Edit is the pen" },
   { press: deckRow("Draft the release notes"), say: "A Job just begun" },
   { hover: button("Checks"), say: "Checks is off. The tooltip says why" },
-  ...toSystemPage("Features", "Features"),
-  { look: role("switch", /^Autopilot panel/), say: "The Autopilot panel is off unless this is on" },
-  { press: role("switch", /^Autopilot panel/), say: "On" },
-  { press: place("Cockpit"), say: "Back to the Cockpit" },
   { press: button("Back", { exact: true }), say: "Close the Job" },
-  { look: region("Autopilot"), say: "With no Job open, the Autopilot panel is drawn" },
 ]);
 
 export { cockpitRedesign as "cockpit-redesign" };

@@ -26,7 +26,7 @@ export type TheShellProps = {
   wordmark?: TitleBarProps["wordmark"];
   /** The picked repository's name in the title row, read-only. See `TitleBar`. */
   repository?: TitleBarProps["repository"];
-  /** What the title row's one menu opens besides the account and Sleep. */
+  /** What the title row's one menu opens besides the account. */
   menu?: TitleBarProps["menu"];
   /** The picker's entries, for the title row's narrow menu. */
   repositoryMenu?: TitleBarProps["repositoryMenu"];
@@ -36,8 +36,6 @@ export type TheShellProps = {
   onDispatch?: () => void;
   /** Disabled while nothing is connected to dispatch into. */
   dispatchDisabled?: boolean;
-  /** Sleep mode's control in the title row, beside Helm's. Absent draws none. */
-  sleep?: TitleBarProps["sleep"];
   /** The plan's limits, as figures in the title row. Absent draws none. */
   planUsage?: TitleBarProps["planUsage"];
   /** The panel body. The one region that scrolls. No head above it: #1090
@@ -109,7 +107,6 @@ export function TheShell({
   onSearch,
   onDispatch,
   dispatchDisabled,
-  sleep,
   planUsage,
   onTeach,
   children,
@@ -133,7 +130,6 @@ export function TheShell({
           onDispatch={onDispatch}
           dispatchDisabled={dispatchDisabled}
           helm={helmButtonOf(dock)}
-          {...(sleep === undefined ? {} : { sleep })}
           {...(planUsage === undefined ? {} : { planUsage })}
           {...(onTeach === undefined ? {} : { onTeach })}
           {...(places === undefined ? {} : { places })}

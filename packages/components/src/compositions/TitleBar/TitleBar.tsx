@@ -242,18 +242,7 @@ export type TitleBarProps = {
     onOpen: () => void;
   };
   /**
-   * Sleep mode, an entry in the row's menu: the machine keeps working until it
-   * is blocked on the owner. While on, the menu's button carries the moon.
-   * **Absent draws no entry**, so a Bridge with no sleep to offer shows none.
-   */
-  sleep?: {
-    on: boolean;
-    onToggle: () => void;
-    /** A decision Sleep made is waiting for him: the menu's button is tinted and pulses as a calling row does. */
-    calling?: boolean;
-  };
-  /**
-   * What the row's one menu opens besides the account and Sleep. **Absent draws no entry**: a Bridge with
+   * What the row's one menu opens besides the account. **Absent draws no entry**: a Bridge with
    * no Settings page to offer shows none.
    */
   menu?: {
@@ -264,7 +253,7 @@ export type TitleBarProps = {
     doctor?: { onOpen: () => void };
   };
   /**
-   * The plan's limits, as two fill meters beside Sleep. **Absent draws nothing; an empty array draws the
+   * The plan's limits, as two fill meters. **Absent draws nothing; an empty array draws the
    * rings loading**, Fleet's answer before any Session has reported. Not Fleet's dot: that stays liveness
    * and nothing else.
    */
@@ -356,7 +345,6 @@ export function TitleBar({
   onDispatch,
   dispatchDisabled = false,
   helm,
-  sleep,
   menu,
   planUsage,
   fleet,
@@ -513,10 +501,9 @@ export function TitleBar({
           </span>
         )}
 
-        {/* The row's one menu, at every width: the account, Sleep, Settings and Doctor, and under them, where the
+        {/* The row's one menu, at every width: the account, Settings and Doctor, and under them, where the
             row is narrow, everything the row above carries. */}
         <TitleMenu
-          {...(sleep === undefined ? {} : { sleep })}
           {...(menu?.settings === undefined ? {} : { settings: menu.settings })}
           {...(menu?.doctor === undefined ? {} : { doctor: menu.doctor })}
           {...(menu?.account === undefined ? {} : { onAccount: menu.account.onOpen })}

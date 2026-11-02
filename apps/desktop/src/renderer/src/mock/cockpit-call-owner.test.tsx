@@ -42,12 +42,11 @@ test("a call whose Session the deck does not list opens the Session's page, not 
   expect(card()).toBeNull();
 });
 
-// What Sleep decided is about no Job, Session or pull request, so it is the one call the card is for.
+// What Autopilot answered is about no Job, Session or pull request the deck lists, so it is the one call the card is for.
 test("a call about nothing opens the card", async () => {
-  mount("sleep-cockpit");
+  mount("autopilot-back");
   await onScreen();
-  // The first key turns Sleep off, and the decisions arrive as calls; the next brings one forward.
-  await userEvent.keyboard("w");
+  // The answers are calls already; the key brings one forward.
   await userEvent.keyboard("w");
   await expect.element(page.getByRole("region", { name: /^Call: / })).toBeVisible();
   expect(card()).not.toBeNull();

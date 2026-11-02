@@ -98,7 +98,7 @@ export type Wiring = {
   dispatch?: ReactNode;
   /** The panel is folded away: the canvas holds its frame. */
   folded: boolean;
-  /** MOCK: Autopilot's piece on the Map's lip, beside Dispatch. */
+  /** Autopilot's piece on the Map's lip, beside Dispatch. */
   onLip?: ReactNode;
 };
 
