@@ -37,6 +37,10 @@ if (asked !== null && asked !== scenario.name) {
   console.warn(`no mock scenario named ${asked}; showing ${scenario.name}`);
 }
 
+// `?console=skin|reshape` takes the Flight controls' console look one of two ways (`cockpit/deck/console.css`); without it the app is unchanged.
+const consoleTake = query.get("console");
+if (consoleTake !== null) document.documentElement.dataset.console = consoleTake;
+
 // A walk starts from the window its test starts from, so what it shows is what CI ran. A replay in the
 // same browser must not inherit the Sessions the last one viewed, the calls it dismissed or the drafts it left.
 if (script !== undefined) {

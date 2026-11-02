@@ -82,6 +82,7 @@ import { PullRequestMenuOn } from "../../pull-request-menu";
 import "../cockpit.css";
 import "./deck.css";
 import "./power.css";
+import "./console.css";
 import { Standby } from "./Standby";
 import { powering, usePowerOn } from "../boot";
 
@@ -841,6 +842,8 @@ function FlightControl({ ship, props, unified = false }: { ship: Ship; props: Co
   const opened = session !== undefined ? repository : props.picked === null ? undefined : { root: props.picked.root, ...(props.picked.manifest === undefined ? {} : { name: props.picked.manifest.repository }) };
   const deckTiles = tilesOf("deck", file, repositoryFileOf(useRepositoryFlight(opened?.root, session?.id))).filter((one) => !one.hidden);
   const clashes = useWriteClashes();
+  // The Calls key's lamp pulses while a Job is asking him (`console.css`).
+  const asking = ship.subjects.some((one) => one.kind === "session" && toneOf(one) === "ask");
   const bays = session === undefined ? undefined : baysOf(session, props.state.held.state === "read" ? (props.state.held.held.slots ?? []) : [], clashes);
   const set: FlightSet = session !== undefined && draft !== undefined ? "job" : "deck";
   // Picking something else puts the other set under the tiles, and an edit of this one ends.
@@ -892,6 +895,8 @@ function FlightControl({ ship, props, unified = false }: { ship: Ship; props: Co
                   className="deck-tile"
                   aria-label={tile.label}
                   data-key={tile.key}
+                  data-tile={tile.builtIn === undefined ? undefined : tile.id}
+                  data-calling={tile.id === "needs" && asking ? "" : undefined}
                   aria-pressed={act?.pressed(deck)}
                   onClick={() => (act === undefined ? isWebAddress(address) && props.onOpenLink(address) : act.press())}
                 >

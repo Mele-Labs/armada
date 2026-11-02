@@ -1,0 +1,207 @@
+/* The Flight controls as a console panel. Mock-only: the page sets `data-console="skin"` or `"reshape"` on the root from `?console=`, and without it nothing here applies.
+   Skin restyles the six-column grid; reshape also seats Map as a round dial in the middle. The Job's grid and the editor (`data-subject`) stay on the plain look in both. */
+
+/* The shapes are masks, so their colour is a token: a screw head, and the slanted bars of a hazard edge. */
+:root[data-console] {
+  --console-screw: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath fill-rule='evenodd' d='M4 .5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7zM1.8 3.6h4.4v.8H1.8z'/%3E%3C/svg%3E");
+  --console-hazard: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 6' preserveAspectRatio='none'%3E%3Cpath d='M4 0h4L4 6H0z'/%3E%3C/svg%3E");
+  --console-tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 4' preserveAspectRatio='none'%3E%3Cpath d='M0 1h1v3H0zM3 2.5h1V4H3z'/%3E%3C/svg%3E");
+  --console-chamfer: var(--space-2);
+  --console-screw-size: 7px;
+  --console-lit: var(--accent);
+  --console-off: var(--border-default);
+  --console-cyan: var(--status-running);
+  --console-amber: var(--status-awaiting-review);
+
+  & .deck-foot { --console-dial: calc(var(--tile) * 1.5); }
+
+  /* ---- The bezel: a dark chamfered frame with a screw at each corner. ---- */
+  & .deck-foot > :is(.deck-controls:has(> .deck-controls__block:not([data-subject])), .deck-dispatch) {
+    --chamfer-reach: 200px;
+    border: calc(var(--border-width) * 2) solid var(--border-strong);
+    border-radius: 0;
+    background: var(--bg-sunken);
+    /* The corners are cut and everything else is left open, so a tooltip above a key and the focus ring still draw outside the panel. */
+    clip-path: polygon(
+      0 var(--console-chamfer), var(--console-chamfer) 0, var(--console-chamfer) calc(var(--chamfer-reach) * -1),
+      calc(100% - var(--console-chamfer)) calc(var(--chamfer-reach) * -1), calc(100% - var(--console-chamfer)) 0, 100% var(--console-chamfer),
+      calc(100% + var(--chamfer-reach)) var(--console-chamfer), calc(100% + var(--chamfer-reach)) calc(100% - var(--console-chamfer)), 100% calc(100% - var(--console-chamfer)),
+      calc(100% - var(--console-chamfer)) 100%, calc(100% - var(--console-chamfer)) calc(100% + var(--chamfer-reach)), var(--console-chamfer) calc(100% + var(--chamfer-reach)),
+      var(--console-chamfer) 100%, 0 calc(100% - var(--console-chamfer)), calc(var(--chamfer-reach) * -1) calc(100% - var(--console-chamfer)), calc(var(--chamfer-reach) * -1) var(--console-chamfer)
+    );
+    &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      background-color: var(--fg-subtle);
+      opacity: 0.7;
+      pointer-events: none;
+      mask:
+        var(--console-screw) left var(--space-1) top var(--space-1) / var(--console-screw-size) var(--console-screw-size) no-repeat,
+        var(--console-screw) right var(--space-1) top var(--space-1) / var(--console-screw-size) var(--console-screw-size) no-repeat,
+        var(--console-screw) left var(--space-1) bottom var(--space-1) / var(--console-screw-size) var(--console-screw-size) no-repeat,
+        var(--console-screw) right var(--space-1) bottom var(--space-1) / var(--console-screw-size) var(--console-screw-size) no-repeat;
+    }
+  }
+  & .deck-foot > .deck-controls:has(> .deck-controls__block:not([data-subject])) > .deck-band,
+  & .deck-foot > .deck-dispatch > .deck-band { padding-inline: var(--space-4); }
+
+  /* ---- The glass the keys sit behind. ---- */
+  & .deck-controls__block:not([data-subject]),
+  & .deck-dispatch__block {
+    margin: 0 var(--space-3) var(--space-3);
+    padding: var(--space-2);
+    border: var(--border-width) solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    background: var(--bg-base);
+    box-shadow: inset 0 calc(var(--border-width) * 2) 0 var(--deck-key-seat);
+  }
+
+  /* ---- A key: a lit screen with a lamp in its corner. ---- */
+  & :is(.deck-controls__block:not([data-subject]), .deck-dispatch__block) .deck-tile {
+    position: relative;
+    isolation: isolate;
+    border-color: var(--border-default);
+    border-radius: var(--radius-sm);
+    background: var(--bg-sunken);
+    box-shadow: inset 0 calc(var(--border-width) * 2) 0 var(--deck-key-seat);
+    &:hover { background: var(--bg-raised); color: var(--fg-default); }
+    &:is([aria-pressed="true"], [data-on], :active) {
+      border-color: var(--console-lit);
+      background: var(--accent-muted);
+      box-shadow: inset 0 calc(var(--border-width) * 2) 0 var(--deck-key-seat);
+    }
+    &:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+    /* The status lamp. */
+    &::before {
+      content: "";
+      position: absolute;
+      top: var(--space-1);
+      left: var(--space-1);
+      width: var(--space-1);
+      height: var(--space-1);
+      border-radius: 50%;
+      background: var(--console-off);
+    }
+    &:is([aria-pressed="true"], [data-on])::before { background: var(--console-lit); }
+  }
+  & .deck-controls__block:not([data-subject]) .deck-tile[data-tile] > svg { position: relative; z-index: 1; }
+
+  /* Checks: a thin ring gauge round the glyph, a quarter of it lit, and the lamp is a row of three LEDs. */
+  & .deck-tile[data-tile="checks"] {
+    &::before { box-shadow: calc(var(--space-1) * 2) 0 0 var(--console-off), calc(var(--space-1) * 4) 0 0 var(--console-off); }
+    &:is([aria-pressed="true"], [data-on])::before { background: var(--console-cyan); box-shadow: calc(var(--space-1) * 2) 0 0 var(--console-cyan), calc(var(--space-1) * 4) 0 0 var(--console-off); }
+    &::after {
+      content: "";
+      position: absolute;
+      top: var(--space-1);
+      left: 50%;
+      z-index: -1;
+      width: calc(var(--space-8) - var(--space-1));
+      height: calc(var(--space-8) - var(--space-1));
+      margin-inline-start: calc((var(--space-8) - var(--space-1)) / -2);
+      box-sizing: border-box;
+      border: var(--border-width) solid var(--border-default);
+      border-top-color: var(--console-cyan);
+      border-radius: 50%;
+    }
+  }
+
+  /* Calls: an amber lamp, dim until a Job is asking him, then lit and pulsing. */
+  & .deck-tile[data-tile="needs"] {
+    &::before { width: var(--space-2); height: var(--space-2); box-sizing: border-box; border: var(--border-width) solid var(--console-amber); background: transparent; opacity: 0.5; }
+    &[data-calling]::before { background: var(--console-amber); opacity: 1; animation: deck-lamp-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }
+    &:is([aria-pressed="true"], [data-on])::before { background: var(--console-amber); opacity: 1; }
+  }
+
+  /* Map: a dial, two rings and a lit mark at its top. */
+  & .deck-tile[data-tile="map"]::after {
+    content: "";
+    position: absolute;
+    top: calc(var(--space-1) + var(--border-width));
+    left: 50%;
+    z-index: -1;
+    width: calc(var(--space-8) - var(--space-2));
+    height: calc(var(--space-8) - var(--space-2));
+    margin-inline-start: calc((var(--space-8) - var(--space-2)) / -2);
+    box-sizing: border-box;
+    border: var(--border-width) solid var(--border-default);
+    border-top-color: var(--console-lit);
+    border-radius: 50%;
+    outline: var(--border-width) solid var(--border-subtle);
+    outline-offset: var(--space-1);
+  }
+
+  /* Timeline: a scale of ticks along the bottom, like a telemetry strip. */
+  & .deck-tile[data-tile="timeline"] {
+    padding-bottom: var(--space-2);
+    &::after {
+      content: "";
+      position: absolute;
+      inset: auto var(--space-2) var(--space-1);
+      height: var(--space-1);
+      background-color: var(--border-strong);
+      mask: var(--console-tick) left bottom / 6px 100% repeat-x;
+    }
+    &:is([aria-pressed="true"], [data-on])::after { background-color: var(--console-lit); }
+  }
+
+  /* ---- Dispatch: its own module, a hazard edge over a raised cap. ---- */
+  & .deck-foot > .deck-dispatch {
+    border-color: var(--border-strong);
+    & .deck-dispatch__block { position: relative; padding-top: var(--space-3); }
+    & .deck-dispatch__block::before {
+      content: "";
+      position: absolute;
+      inset: var(--space-1) var(--space-2) auto;
+      height: var(--space-2);
+      background-color: var(--console-amber);
+      mask: var(--console-hazard) left top / var(--space-2) 100% repeat-x;
+      opacity: 0.85;
+    }
+    & .deck-dispatch__tile {
+      border-color: var(--border-strong);
+      background: var(--bg-overlay);
+      box-shadow: inset 0 var(--border-width) 0 var(--deck-key-hi), 0 calc(var(--border-width) * 3) 0 var(--deck-key-lo);
+      &::before { display: none; }
+      &:hover { background: var(--bg-hover); }
+      &:is([aria-pressed="true"], :active) {
+        border-color: var(--accent);
+        box-shadow: inset 0 calc(var(--border-width) * 2) 0 var(--deck-key-seat);
+        top: var(--border-width);
+      }
+    }
+  }
+}
+
+/* ---- Reshape: Map is a round dial at the middle of the row, two keys each side. ---- */
+:root[data-console="reshape"] {
+  & .deck-controls__block:not([data-subject]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) var(--console-dial) repeat(2, minmax(0, 1fr));
+    grid-auto-rows: var(--console-dial);
+    align-items: center;
+    & > .deck-tile { height: var(--tile); grid-row: 1; }
+    & > .deck-tile[data-tile="map"] {
+      grid-column: 3;
+      width: var(--console-dial);
+      height: var(--console-dial);
+      justify-self: center;
+      border-radius: 50%;
+      border-color: var(--border-strong);
+      box-shadow: inset 0 calc(var(--border-width) * 2) 0 var(--deck-key-seat);
+      &::before { top: 50%; left: auto; right: var(--space-3); margin-top: calc(var(--space-1) / -2); }
+      &::after {
+        top: var(--space-2);
+        width: calc(var(--console-dial) - var(--space-8));
+        height: calc(var(--console-dial) - var(--space-8));
+        margin-inline-start: calc((var(--console-dial) - var(--space-8)) / -2);
+      }
+      & .deck-tile__key { top: auto; right: auto; bottom: var(--space-2); left: 50%; translate: -50% 0; }
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-console] .deck-tile[data-tile="needs"][data-calling]::before { animation: none; }
+}
