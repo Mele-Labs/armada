@@ -92,7 +92,7 @@ pub fn remote_of(root: &Path) -> Option<ForgeAddress> {
     let common = if repository.is_worktree() { repository.path().ancestors().nth(2) } else { None };
     let config = common.unwrap_or_else(|| repository.path()).join("config");
     let entry = if repository.is_bare() { root.to_path_buf() } else { root.join(".git") };
-    if let Some(modified) = std::fs::metadata(&config).and_then(|meta| meta.modified()).ok() {
+    if let Ok(modified) = std::fs::metadata(&config).and_then(|meta| meta.modified()) {
         if let Ok(mut seen) = REMEMBERED.lock() {
             seen.insert(root.to_path_buf(), Kept { entry, config, modified, address: address.clone() });
         }
