@@ -841,7 +841,7 @@ function FlightControl({ ship, props, listed, unified = false, withActivity = tr
   const deckTiles = tilesOf("deck", file, repositoryFileOf(useRepositoryFlight(opened?.root, session?.id))).filter((one) => !one.hidden);
   const clashes = useWriteClashes();
   // The Calls key's lamp pulses while a Job is asking him.
-  const asking = ship.subjects.some((one) => one.kind === "session" && toneOf(one) === "ask");
+  const asking = ship.subjects.some((one) => one.kind === "session" && one.bayAsk !== true && toneOf(one) === "ask");
   const bays = session === undefined ? undefined : baysOf(session, props.state.held.state === "read" ? (props.state.held.held.slots ?? []) : [], clashes);
   const set: FlightSet = session !== undefined && draft !== undefined ? "job" : "deck";
   // Picking something else puts the other set under the tiles, and an edit of this one ends.

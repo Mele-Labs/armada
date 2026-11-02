@@ -8,13 +8,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { Graphics } from "pixi.js";
 
 import { glyphOf } from "../flight-glyphs";
+import type { FacePaint } from "../instrument-mods";
 import { hex, readPalette, type Rgba } from "./palette";
 
-export type Kind = "matrix" | "beacon" | "radar" | "trace" | "scope" | "needles" | "key" | "dispatch";
+export type Kind = "matrix" | "beacon" | "radar" | "trace" | "scope" | "needles" | "key" | "mod" | "dispatch";
 /** A dot of the Activity graph, 0 to 1 across the scope's box. */
 export type Dot = { x: number; y: number; r: number; colour: string };
 /** `focused` is the keyboard's focus: the ring for it is drawn here, so it lies on the surface rather than square across it. */
-export type BayState = { kind: Kind | null; pressed: boolean; calling: boolean; lit: boolean; focused: boolean; dots?: readonly Dot[]; /** The registry glyph a `key` facet wears. */ glyph?: string };
+export type BayState = { kind: Kind | null; pressed: boolean; calling: boolean; lit: boolean; focused: boolean; dots?: readonly Dot[]; /** The registry glyph a `key` facet wears. */ glyph?: string; /** What a mod draws on a `mod` facet's screen, in its own take. */ paint?: FacePaint; /** Told why a `paint` threw. */ faulted?: (why: string) => void };
 
 // ---- Materials ------------------------------------------------------------------------------------------------
 
@@ -264,6 +265,13 @@ function glyphOn(g: Graphics, name: string, cx: number, cy: number, size: number
 }
 
 const INSTRUMENTS: Record<Exclude<Kind, "dispatch">, Instrument> = {
+  // A mod's screen is its own: the stage puts what it draws over this.
+  mod: {
+    fixed() {},
+    live(g, b, s, t) {
+      if (s.calling) g.rect(b.x, b.y, b.w, b.h).stroke({ width: Math.max(2, 2.5 * b.u), color: b.tone.ask, alpha: 0.45 + 0.55 * Math.abs(Math.sin(t * 3.4)) });
+    },
+  },
   matrix: {
     fixed(g, b) {
       const { cw, ch, cols, rows, at } = matrixCells(b);
@@ -478,6 +486,13 @@ function floorOf(l: Look, named: boolean): Box {
 
 export type Paint = { W: number; H: number; f: number; lipKey: boolean; named: boolean };
 
+/** The screen's floor in a facet's own units, where a mod's instrument draws. */
+export function screenOf(p: Pick<Paint, "W" | "H" | "f" | "named">): Rect {
+  const look = { W: p.W, H: p.H, f: p.f, v: 1 / p.f, u: clamp(p.W / 180, 0.5, 1.4), hy: 1.5 / p.f } as Look;
+  const { x, y, w, h } = floorOf(look, p.named);
+  return { x, y, w, h };
+}
+
 /** The fixed part of a facet. */
 export function drawPlate(g: Graphics, p: Paint, s: BayState, tone: Tones, mat: Materials): void {
   const l = lookOf(tone, mat, p.W, p.H, p.f);
@@ -557,4 +572,4 @@ export function drawLights(g: Graphics, p: Paint, s: BayState, tone: Tones, mat:
 /** How strongly a screen's glass is lit. */
 const GLASS = 0.25;
 /** The colour a facet's screen throws, or undefined where it has no screen. */
-export const glassOf = (s: BayState, tone: Tones): number => (s.kind === "beacon" && s.calling ? tone.ask : s.pressed ? tone.accent : tone.run);
+export const glassOf = (s: BayState, tone: Tones): number => ((s.kind === "beacon" || s.kind === "mod") && s.calling ? tone.ask : s.pressed ? tone.accent : tone.run);

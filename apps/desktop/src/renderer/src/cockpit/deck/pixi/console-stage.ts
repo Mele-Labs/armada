@@ -6,9 +6,10 @@
 // Does not touch the map's stage.
 
 import "pixi.js/unsafe-eval";
-import { Application, BlurFilter, Container, Graphics, PerspectiveMesh, RendererType, RenderTexture, Ticker } from "pixi.js";
+import { Application, BlurFilter, Container, Graphics, PerspectiveMesh, RendererType, RenderTexture, Sprite, Texture, Ticker } from "pixi.js";
 
-import { drawLights, drawLive, drawPlate, glassOf, keySpots, materialsOf, readTones, type BayState, type Materials, type Paint, type Tones } from "./console-art";
+import type { FaceInk } from "../instrument-mods";
+import { drawLights, drawLive, drawPlate, glassOf, keySpots, materialsOf, readTones, screenOf, type BayState, type Materials, type Paint, type Tones } from "./console-art";
 
 export type { BayState, Dot, Kind } from "./console-art";
 export type Rect = { x: number; y: number; w: number; h: number };
@@ -166,6 +167,8 @@ type Facet = {
   tex: RenderTexture;
   mesh: PerspectiveMesh;
   drawn: string;
+  /** What a mod draws, shown on the texture and among the lights. */
+  face?: { canvas: HTMLCanvasElement; draw: CanvasRenderingContext2D; texture: Texture; sprite: Sprite; glow: Sprite };
 };
 
 const EMPTY = (): BayState => ({ kind: null, pressed: false, calling: false, lit: false, focused: false });
@@ -440,6 +443,7 @@ export class ConsoleStage {
     let moved = false;
     this.facets.forEach((f, i) => {
       const state = this.bays[i] ?? EMPTY();
+      this.paintFace(f, state, t);
       const key = `${state.kind}|${state.pressed}|${state.lit}|${state.focused}|${state.calling}|${state.glyph ?? ""}`;
       if (f.drawn !== key) {
         drawPlate(f.plate, f.paint, state, tone, mat);
@@ -453,6 +457,52 @@ export class ConsoleStage {
     });
     if (moved) this.paintSpill();
     app.renderer.render(app.stage);
+  }
+
+  /** A mod's face: its canvas, sized to the screen at the texture's texels, drawn in the screen's own units and put on the facet. */
+  private paintFace(f: Facet, state: BayState, t: number): void {
+    const { paint } = state;
+    if (paint === undefined) {
+      if (f.face !== undefined) f.face.sprite.visible = f.face.glow.visible = false;
+      return;
+    }
+    const box = screenOf(f.paint);
+    const [cw, ch] = [Math.max(2, Math.ceil(box.w * f.art.scale.x)), Math.max(2, Math.ceil(box.h * f.art.scale.y))];
+    if (f.face === undefined || f.face.canvas.width !== cw || f.face.canvas.height !== ch) {
+      f.face?.sprite.destroy();
+      f.face?.glow.destroy();
+      f.face?.texture.destroy(true);
+      const canvas = document.createElement("canvas");
+      canvas.width = cw;
+      canvas.height = ch;
+      const texture = Texture.from(canvas);
+      const [sprite, glow] = [new Sprite(texture), new Sprite(texture)];
+      f.art.addChild(sprite);
+      f.light.art.addChild(glow);
+      f.face = { canvas, draw: canvas.getContext("2d")!, texture, sprite, glow };
+    }
+    const { face } = f;
+    for (const one of [face.sprite, face.glow]) {
+      one.visible = true;
+      one.position.set(box.x, box.y);
+      one.width = box.w;
+      one.height = box.h;
+    }
+    face.draw.setTransform(cw / box.w, 0, 0, ch / box.h, 0, 0);
+    face.draw.clearRect(0, 0, box.w, box.h);
+    try {
+      paint(face.draw, { w: box.w, h: box.h, t, ink: this.ink() });
+    } catch (why) {
+      state.faulted?.(why instanceof Error ? why.message : String(why));
+      face.draw.clearRect(0, 0, box.w, box.h);
+    }
+    face.texture.source.update();
+  }
+
+  private ink(): FaceInk {
+    const css = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
+    const tone = this.tone!;
+    return { run: css(tone.run), ask: css(tone.ask), bad: css(tone.bad), good: css(tone.good), fg: css(tone.fg), muted: css(tone.muted), subtle: css(tone.subtle), off: css(this.mat!.off) };
   }
 
   private paintSpill(): void {
@@ -478,6 +528,7 @@ export class ConsoleStage {
     app.ticker.remove(this.tick);
     app.ticker.stop();
     this.facets.forEach((f) => {
+      f.face?.texture.destroy(true);
       f.tex.destroy(true);
       f.light.tex.destroy(true);
       f.light.root.destroy({ children: true });

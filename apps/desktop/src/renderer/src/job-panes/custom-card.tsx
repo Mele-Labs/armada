@@ -80,7 +80,7 @@ function Message({ job, tabId }: { job: Session; tabId: string }) {
  * `children` is the tab's label, which the card hangs off. `summon` opens the card with the caret in its composer, as the tab's menu asks; `onSummoned` lets go of the ask. With no Job, or
  * while the first build is still the tab's own body, the label is drawn as it is.
  */
-export function ModJobCard({ tabId, job, building, summon, onSummoned, children }: { tabId: string; job: Session | undefined; building: boolean; summon: boolean; onSummoned: () => void; children: ReactElement }) {
+export function ModJobCard({ tabId, job, building, summon, onSummoned, side = "beside", around = ".job-pane", children }: { tabId: string; job: Session | undefined; building: boolean; summon: boolean; onSummoned: () => void; /** Where the card stands, and what against: a pane's tab beside its pane unless said. */ side?: "beside" | "above"; around?: string; children: ReactElement }) {
   if (job === undefined || building) return children;
   const working = job.turn.state === "working";
   const asking = job.asked !== undefined;
@@ -90,8 +90,8 @@ export function ModJobCard({ tabId, job, building, summon, onSummoned, children 
   return (
     <Inspect
       name={title}
-      side="beside"
-      around=".job-pane"
+      side={side}
+      around={around}
       pin={false}
       held={working || asking}
       summoned={summon}

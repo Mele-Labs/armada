@@ -307,6 +307,9 @@
   }
   & .console-tray__code { font-family: var(--font-mono); font-size: var(--cb-code); line-height: 1; letter-spacing: 0.14em; }
 
+  /* ---- A mod's instrument. ---- */
+  & .console-bay > .console-scope.console-instrument { overflow: visible; }
+
   /* ---- The berth rack: the worktree bays as a docking rack, a berth to a row. ---- */
   & .deck-right > .deck-bays {
     flex: 1 1 0;
@@ -441,3 +444,13 @@
   :root:root :is(.deck-tile, .deck-tile::before, .console-socket, .deck-bay__door::before, .console-hud__beam, .console-hud__panel) { animation: none !important; }
 }
 
+/* The panel a mod's instrument opens stands in the HUD, outside the console's block. Mock only: the sample's rows. */
+.console-instrument__panel { position: absolute; inset: calc(var(--space-8) + var(--space-2)) var(--space-2) var(--space-2); padding: var(--space-3) var(--space-4); overflow: auto; background: var(--bg-base); font-size: var(--text-sm); color: var(--fg-default); }
+.instrument-sample__rows { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-2); }
+.instrument-sample__rows > li { display: grid; grid-template-columns: var(--space-3) var(--space-12) 1fr auto; align-items: center; gap: var(--space-3); }
+.instrument-sample__rows i { width: var(--space-3); height: var(--space-3); }
+.instrument-sample__rows code { font-family: var(--font-mono); }
+.instrument-sample__rows time { font-family: var(--font-mono); color: var(--fg-muted); }
+.instrument-sample__rows [data-age="new"] { background: var(--status-running); }
+.instrument-sample__rows [data-age="due"] { background: var(--status-awaiting-review); }
+.instrument-sample__rows [data-age="old"] { background: var(--status-completed-failed); }

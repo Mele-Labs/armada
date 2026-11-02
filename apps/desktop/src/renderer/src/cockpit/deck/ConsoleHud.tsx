@@ -83,7 +83,7 @@ function Graticule({ w, h }: { w: number; h: number }) {
 }
 
 /** Where the panel stands over the stage: the upper part of the field, leaving the rest of it open. */
-const panelOf = (stage: Box): Box => {
+export const panelOf = (stage: Box): Box => {
   const inset = Math.min(72, stage.width * 0.07);
   return { left: Math.round(stage.left + inset), top: Math.round(stage.top + 24), width: Math.round(stage.width - inset * 2), height: Math.round(Math.max(280, stage.height * 0.62)) };
 };
