@@ -188,10 +188,10 @@ test("an Autopilot is read first, and started from what was read", async () => {
   expect(start).toHaveBeenCalledTimes(1);
   expect(start.mock.calls[0]![0]).toBe(repository().manifest!.id);
 
-  // Opening it from the strip puts the Cockpit's Autopilot bar up for that repository.
-  expect(page.getByRole("region", { name: "Autopilot lane" }).query()).toBeNull();
+  // Opening it from the strip puts Autopilot's setup up over the Cockpit's field.
+  expect(page.getByRole("region", { name: "Autopilot setup" }).query()).toBeNull();
   await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("region", { name: "Autopilot lane" })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Autopilot setup" })).toBeVisible();
 });
 
 /** An Autopilot read and started from the sheet, which is what leaves the strip. */

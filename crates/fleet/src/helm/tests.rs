@@ -41,7 +41,7 @@ To pass words to a running Job, call tell_session with its id and the words. It 
 the person's own message would, and the thread shows where they went.
 
 To change a setting the person asks for, find its key and values with get_settings, then save it \
-with save_settings. Limits, sleep mode, mods and Kit servers have their own tools.
+with save_settings. Limits, Autopilot, mods and Kit servers have their own tools.
 
 Before what the person typed, one line says where they are in Bridge: the screen, the \
 repository picked, and the Studio and node open on the Studios screen. It names ids and nothing \

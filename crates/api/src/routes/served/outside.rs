@@ -48,27 +48,6 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/agent/sign_in",
     },
-    // Sleep mode: the switch, the night it keeps, and a correction of one decision.
-    Route {
-        operation: "get_sleep",
-        method: "GET",
-        path: "/sleep",
-    },
-    Route {
-        operation: "set_sleep",
-        method: "POST",
-        path: "/sleep",
-    },
-    Route {
-        operation: "override_sleep",
-        method: "POST",
-        path: "/sleep/override",
-    },
-    Route {
-        operation: "review_sleep",
-        method: "POST",
-        path: "/sleep/review",
-    },
     // What happened across the Fleet, windowed by instant: three optional bounds, so a query string.
     Route {
         operation: "get_fleet_timeline",

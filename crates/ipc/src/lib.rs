@@ -236,8 +236,8 @@ mod test_map;
 mod act_failed;
 /// Autopilot: a repository working its own backlog. #2092.
 mod autopilot;
-/// Sleep mode: the switch and the night it keeps.
-mod sleep;
+/// What a running Autopilot answered for the person, to review.
+mod autopilot_decisions;
 /// How much of the plan's windows is used.
 mod plan_usage;
 /// The default model stepping down while the weekly window runs out.
@@ -647,8 +647,11 @@ pub use job_browser::{
 };
 pub use act_failed::{ActFailed, BackgroundAct};
 pub use autopilot::{
-    Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState,
-    AutopilotProposal, AutopilotQuoted, AutopilotSettings, AutopilotState, ProposeAutopilot,
+    Autopilot, AutopilotCap, AutopilotDecision, AutopilotList, AutopilotPick, AutopilotPickState,
+    AutopilotProposal, AutopilotQuoted, AutopilotSettings, AutopilotState, AutopilotWork, ProposeAutopilot,
+};
+pub use autopilot_decisions::{
+    AutopilotDecided, AutopilotDecisions, OverrideAutopilotDecision, ReviewAutopilotDecision,
 };
 pub use context_breakdown::{
     ContextBreakdown, ContextCategory, ContextKind, ContextMcpTool, ContextMemoryFile,
@@ -686,10 +689,6 @@ pub use plan_usage::{
 pub use accounts::{
     AccountFlow, Accounts, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SetUpState,
     SetUpSteps, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
-};
-pub use sleep::{
-    OverrideSleep, ReviewSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState,
-    SleepWalk,
 };
 pub use setup::{
     LeftOutWorkflow, ManifestFromKit, ManifestKitName, ManifestSummary, ModelChoices, ModelsRead, OfferedModel,

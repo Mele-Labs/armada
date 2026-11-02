@@ -157,7 +157,7 @@ The person chooses the place: the repository's own `.armada/workflows/`, or Kit'
 **The door is a Job's door plus Helm's extras**: `tell_session`, `ask_the_person` and the other `Helm only` rows.
 Every operation the door offers is tagged,.
 
-**Helm changes any setting on an ask.** Nick asked for it on 15 Oct 2026, so `save_settings`, `set_sleep`, `set_mod_enabled`, `set_repository_profile`, the Kit server acts, `get_limits` and `get_model_downshift` read `Helm only`, beside `save_limits` and `save_preferences`, which already did.
+**Helm changes any setting on an ask.** Nick asked for it on 15 Oct 2026, so `save_settings`, `set_mod_enabled`, `set_repository_profile`, the Kit server acts, `get_limits` and `get_model_downshift` read `Helm only`, beside `save_limits` and `save_preferences`, which already did.
 The note's Settings line sends Helm to `get_settings` for a key and the values it takes.
 A read-only Helm calls none of them, so it cannot raise its own authority.
 

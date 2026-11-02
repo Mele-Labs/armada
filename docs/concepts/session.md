@@ -63,6 +63,5 @@ You ask who has `fleet/session-ledger`, and the answer is a job by its title, st
 | [The Job browser](session/job-browser.md) |
 | [A terminal job's thread](session/a-terminal-jobs-thread.md) |
 | [Not built](session/not-built.md) |
-| [Sleep mode](session/sleep-mode.md) |
 | [A mod that is out of date](session/a-mod-that-is-out-of-date.md) |
 | [Installing the Claude Code mod](session/installing-the-claude-code-mod.md) |

@@ -14,7 +14,7 @@ import { manifest } from "./slices/manifest";
 import { overview } from "./slices/overview";
 import { sessions } from "./slices/sessions";
 import { settings } from "./slices/settings";
-import { sleep } from "./slices/sleep";
+import { autopilotDecisions } from "./slices/autopilot-decisions";
 import { accounts } from "./slices/accounts";
 import { planUsage } from "./slices/plan-usage";
 import { modelDownshift } from "./slices/model-downshift";
@@ -50,7 +50,7 @@ import { pullRequestNotes } from "./slices/pull-request-notes";
 export type AnySlice = Slice<Partial<BridgeApi>, Partial<BridgeState>>;
 
 /** **A `Record` over every name**, so a surface with no entry here fails typecheck. */
-const BY_NAME = { core, studios, manifest, setup, workflows, helm, settings, overview, cleanup, dispatch, checks, lessons, sessions, sleep, accounts, planUsage, modelDownshift, projects, bugReports, lifecycles, agentSignIn, clashes, reviews, territory, timeline, actFailed, bayHistory, sessionSystem, usageSummary, issues, autopilot, sketchShare, attachments, files, flightControls, onboarding, requests, sharing, logbook, teaching, pullRequestNotes } satisfies Record<
+const BY_NAME = { core, studios, manifest, setup, workflows, helm, settings, overview, cleanup, dispatch, checks, lessons, sessions, autopilotDecisions, accounts, planUsage, modelDownshift, projects, bugReports, lifecycles, agentSignIn, clashes, reviews, territory, timeline, actFailed, bayHistory, sessionSystem, usageSummary, issues, autopilot, sketchShare, attachments, files, flightControls, onboarding, requests, sharing, logbook, teaching, pullRequestNotes } satisfies Record<
   SliceName,
   AnySlice
 >;

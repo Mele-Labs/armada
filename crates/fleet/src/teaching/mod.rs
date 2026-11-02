@@ -98,7 +98,7 @@ const FLEET_BLOCK: &str =
      `does`. `if` is one of exactly these: `blocks_merge` (the Job has an open pull request that \
      cannot merge now: it conflicts, fails a required check or is unmergeable in the merge queue), \
      `open_pull_request` (the Job has an open pull request), `working` (the Job's agent is in the \
-     middle of a turn) or `owner_away` (the person is away and sleep mode is on). Fleet can test no \
+     middle of a turn) or `owner_away` (the person is away: the repository's Autopilot is running). Fleet can test no \
      other condition and you must never invent one: put the person's own words for each other \
      condition they name in `untestable`, a list of strings, and leave it out of `when`.";
 const TWEAK_BLOCK: &str =

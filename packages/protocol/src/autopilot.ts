@@ -15,6 +15,15 @@ export type AutopilotCap = "until" | "spend" | "sessions";
 /** What became of one pick. `withdrawn`: its Session had not run when Autopilot was stopped. */
 export type AutopilotPickState = "started" | "set_aside" | "withdrawn" | "dismissed";
 
+/** What a person put on Autopilot. A body without it reads as the backlog alone. */
+export type AutopilotWork = { backlog: boolean; running: boolean };
+
+/**
+ * A kind of decision a helper may answer. The set is closed, and there is no destructive one: that
+ * always waits for a person, and Fleet refuses a body naming it.
+ */
+export type AutopilotDecision = "recommended" | "open" | "plan" | "draft" | "walk" | "land" | "unsure" | "red" | "reads" | "writes";
+
 /** One pick. `workflow_id` is absent where the picker was unsure of that too. */
 export type AutopilotPick = {
   pick_id: string;
@@ -48,6 +57,10 @@ export type Autopilot = {
   ended_at?: string;
   /** Where a cap rather than a person paused it. Cleared by Resume. */
   capped_by?: AutopilotCap;
+  /** What was put on Autopilot at start, as checked: whether the backlog and what is running are on it. */
+  on_autopilot: AutopilotWork;
+  /** The kinds of decision a helper may answer, as checked at start. */
+  decisions: AutopilotDecision[];
   spent_micros: number;
   /** How many Sessions it has started, which `session_cap` is held to. */
   sessions_started: number;
@@ -74,6 +87,10 @@ export type AutopilotSettings = {
   until?: string;
   spend_cap_micros?: number;
   session_cap?: number;
+  /** Only a start keeps it; an update ignores it. Absent reads as `{ backlog: true, running: false }`. */
+  on_autopilot?: AutopilotWork;
+  /** Only a start keeps it; an update ignores it. Absent reads as none. */
+  decisions?: AutopilotDecision[];
 };
 
 /**
@@ -94,3 +111,34 @@ export type AutopilotQuoted = {
  * was read from. A start sends back the settings alone. #2105.
  */
 export type AutopilotProposal = AutopilotSettings & { quoted: AutopilotQuoted };
+
+/**
+ * One answer Autopilot gave while the person was away. `id` is `<job>:<item>` for a Job's item, so an
+ * item is answered once. `chose` is the way it took in the item's own words and `because` the helper's
+ * reason in its own. `session_id` is the Job it answered for or started, which a correction is sent to.
+ */
+export type AutopilotDecided = {
+  id: string;
+  manifest_id: string;
+  session_id?: string;
+  /** The Job's name. */
+  who: string;
+  kind: AutopilotDecision;
+  asked: string;
+  chose: string;
+  because: string;
+  at: string;
+};
+
+/**
+ * `GET /autopilot/decisions`, what `POST /autopilot/decisions/review` and `/override` answer, and
+ * `autopilot.decisions_changed` published whole: every repository's answers not yet reviewed, in the
+ * order they were given.
+ */
+export type AutopilotDecisions = { to_review: AutopilotDecided[] };
+
+/** `POST /autopilot/decisions/review`: the person kept one answer as it was. */
+export type ReviewAutopilotDecision = { id: string };
+
+/** `POST /autopilot/decisions/override`: the person's correction, sent to the Job the answer was for. */
+export type OverrideAutopilotDecision = { id: string; text: string };
