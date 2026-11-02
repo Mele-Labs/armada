@@ -105,7 +105,9 @@ export function SvPanel({
   keycap?: string | undefined /** A mark of its own on the spine line, in place of the dot. */;
   marker?: ReactNode /** A step the person skipped: drawn muted, with the word. */;
   skipped?: boolean;
-  menu?: BandMenu | undefined /** Alone in a pane whose tab names it: no label, never folded, and a band only where it holds a lamp or acts. */;
+  menu?:
+    | BandMenu
+    | undefined /** Alone in a pane whose tab names it: no label, never folded, and a band only where it holds a lamp or acts. */;
   bare?: boolean;
   children?: ReactNode;
 }) {
@@ -242,7 +244,11 @@ export function SvPanel({
           {bare === true ? null : keycap === undefined ? (
             <h3 className="sv-panel__label">{label}</h3>
           ) : (
-            <Tooltip asChild label={collapsed ? `Open ${label}` : `Fold ${label}`} shortcut={keycap}>
+            <Tooltip
+              asChild
+              label={collapsed ? `Open ${label}` : `Fold ${label}`}
+              shortcut={keycap}
+            >
               <h3 className="sv-panel__label">{label}</h3>
             </Tooltip>
           )}
