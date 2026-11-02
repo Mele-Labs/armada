@@ -18,6 +18,18 @@ export const ANNOTATIONS_DIR = [".armada", "annotations"] as const;
 /** The path a vite dev server answers on, for the renderer in a browser. */
 export const ANNOTATIONS_PATH = "/__armada/annotations";
 
+/** The path a vite dev server answers the story index on, `annotations-stories.ts`. */
+export const STORIES_PATH = "/__armada/stories";
+
+/** The literal args of a story: only strings, numbers and booleans, since the rest cannot be read off a file. */
+export type StoryArgs = Record<string, string | number | boolean>;
+
+/**
+ * The stories that exist, by component name: the component's file from the repository root,
+ * the story file's title, and each story's name as exported with its literal args.
+ */
+export type StoryIndex = Record<string, { file: string; title: string; stories: { name: string; args: StoryArgs }[] }>;
+
 /**
  * The attribute a development build stamps each element's own JSX onto, as
  * `<path>:<line>` from the repository root. `annotations-source.ts` writes it
