@@ -82,7 +82,7 @@ pub(super) fn caller() -> Option<api::Caller> {
 }
 
 pub(super) fn begins(rig: &Rig, title: &str, message: &str) -> StartAnotherSession {
-    StartAnotherSession { manifest_id: rig.manifest.clone(), title: title.into(), message: message.into(), group: None, after: None }
+    StartAnotherSession { manifest_id: Some(rig.manifest.clone()), title: title.into(), message: message.into(), group: None, after: None }
 }
 
 /// A transcript line the agent CLI wrote: `kind` is `user` or `assistant`.

@@ -88,6 +88,11 @@ async fn a_hosted_session_with_no_manifest_is_offered_its_permission_tool_and_it
         "scaffold_mod",
         "validate_mod",
         "try_tracker_mod",
+        "defer_later",
+        "finish_up",
+        "start_another_job",
+        "start_watch",
+        "list_manifests",
     ] {
         assert!(
             listed.contains(&named(tool)),
@@ -176,4 +181,27 @@ async fn a_caller_that_is_no_hosted_session_is_offered_nothing() {
     .await;
     assert!(refused.contains("\"isError\":true"), "{refused}");
     assert!(daemon.asked_to_run.lock().expect("not poisoned").is_empty());
+}
+
+/// **Every act the rules name is offered here.** A hosted Job is told these rules and a repository
+/// with no `armada.yml` has no other door, so a name the rules gain that this door does not list is
+/// a Job told to call what is not there. It was 13 acts before this held.
+#[test]
+fn every_act_the_rules_name_is_offered_with_no_manifest() {
+    let rules = include_str!("../../../adapters/src/session_rules.md").replace("mcp__armada-fleet__", "");
+    let operations: Vec<&str> = crate::SERVED.iter().map(|route| route.operation).collect();
+    let offered = crate::offered_without_a_manifest();
+    let mut named = Vec::new();
+    for span in rules.split('`').skip(1).step_by(2) {
+        for word in span.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')) {
+            let operation = ipc::door::RENAMED.iter().find(|(tool, _)| *tool == word).map_or(word, |(_, operation)| *operation);
+            if operations.contains(&operation) {
+                named.push((word, operation));
+            }
+        }
+    }
+    assert!(named.len() >= 10, "the rules name operations, or this read none: {named:?}");
+    for (word, operation) in named {
+        assert!(offered.contains(&operation), "`{word}` is named in the rules and is not offered with no armada.yml");
+    }
 }

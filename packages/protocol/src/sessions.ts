@@ -415,12 +415,13 @@ export type AnswerWaiting = {
 };
 
 /**
- * `POST /sessions/start_another`, the agent's: a new Session in `manifest_id`'s repository, held on its start card
+ * `POST /sessions/start_another`, the agent's: a new Session in `manifest_id`'s repository, or the caller's own where it is absent, held on its start card
  * with `message` as its first message (`hosted.start.message`); nothing runs until the person presses Start. The
  * caller is placed by its connection.
  */
 export type StartAnotherSession = {
-  manifest_id: string;
+  /** The repository the Session starts in. Absent, the caller's own. */
+  manifest_id?: string;
   title: string;
   message: string;
   /**
