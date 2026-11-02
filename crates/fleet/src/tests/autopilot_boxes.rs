@@ -1,6 +1,6 @@
 //! The claim, written before the code: **the boxes a person checked when they started Autopilot
 //! are what the running Autopilot reports.** What goes on autopilot, and which kinds of decision a
-//! helper may answer. Nothing acts on them yet: Fleet keeps them.
+//! helper may answer. What acts on them is `autopilot_decisions`.
 //!
 //! A start replaces them along with everything else. A change of settings leaves them where they
 //! were, since the Cockpit's Edit caps sends no boxes and must not clear what was checked.

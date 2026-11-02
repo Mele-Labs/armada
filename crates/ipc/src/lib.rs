@@ -234,6 +234,8 @@ mod test_map;
 mod act_failed;
 /// Autopilot: a repository working its own backlog. #2092.
 mod autopilot;
+/// What a running Autopilot answered for the person, to review.
+mod autopilot_decisions;
 /// Sleep mode: the switch and the night it keeps.
 mod sleep;
 /// How much of the plan's windows is used.
@@ -647,6 +649,9 @@ pub use act_failed::{ActFailed, BackgroundAct};
 pub use autopilot::{
     Autopilot, AutopilotCap, AutopilotDecision, AutopilotList, AutopilotPick, AutopilotPickState,
     AutopilotProposal, AutopilotQuoted, AutopilotSettings, AutopilotState, AutopilotWork, ProposeAutopilot,
+};
+pub use autopilot_decisions::{
+    AutopilotDecided, AutopilotDecisions, OverrideAutopilotDecision, ReviewAutopilotDecision,
 };
 pub use context_breakdown::{
     ContextBreakdown, ContextCategory, ContextKind, ContextMcpTool, ContextMemoryFile,

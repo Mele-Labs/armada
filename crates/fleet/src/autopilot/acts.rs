@@ -397,6 +397,24 @@ where
             .await
     }
 
+    async fn get_autopilot_decisions(&self) -> Result<ipc::AutopilotDecisions, Refusal> {
+        self.autopilot_decisions_state().await
+    }
+
+    async fn review_autopilot_decision(
+        &self,
+        review: ipc::ReviewAutopilotDecision,
+    ) -> Result<ipc::AutopilotDecisions, Refusal> {
+        self.autopilot_decision_reviewed(review).await
+    }
+
+    async fn override_autopilot_decision(
+        self: Arc<Self>,
+        over: ipc::OverrideAutopilotDecision,
+    ) -> Result<ipc::AutopilotDecisions, Refusal> {
+        self.autopilot_decision_overridden(over).await
+    }
+
     async fn dismiss_set_aside(
         &self,
         manifest_id: ManifestId,

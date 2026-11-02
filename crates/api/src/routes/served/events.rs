@@ -88,6 +88,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // The answers Autopilot gave and the person has not reviewed, whole.
+    Route {
+        operation: "autopilot.decisions_changed",
+        method: "GET",
+        path: "/events",
+    },
     // A Job's watches after any change to one, whole, as `list_watches` answers them.
     Route {
         operation: "watches.changed",

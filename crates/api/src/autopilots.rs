@@ -142,3 +142,27 @@ pub(crate) async fn dismiss_set_aside<D: Autopilots>(
         .await;
     answered(StatusCode::OK, dismissed, served.run_id())
 }
+
+/// The answers not yet reviewed, for every repository.
+pub(crate) async fn get_autopilot_decisions<D: Autopilots>(State(served): State<Served<D>>) -> Response {
+    let held = served.daemon().get_autopilot_decisions().await;
+    answered(StatusCode::OK, held, served.run_id())
+}
+
+pub(crate) async fn review_autopilot_decision<D: Autopilots>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let review: ipc::ReviewAutopilotDecision = match ipc::decode_body("a kept Autopilot decision", &body) {
+        Ok(review) => review,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    let kept = served.daemon().review_autopilot_decision(review).await;
+    answered(StatusCode::OK, kept, served.run_id())
+}
+
+pub(crate) async fn override_autopilot_decision<D: Autopilots>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let over: ipc::OverrideAutopilotDecision = match ipc::decode_body("a correction of an Autopilot decision", &body) {
+        Ok(over) => over,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    let corrected = served.shared().override_autopilot_decision(over).await;
+    answered(StatusCode::OK, corrected, served.run_id())
+}

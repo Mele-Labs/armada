@@ -89,4 +89,19 @@ impl Autopilots for FakeDaemon {
     ) -> Result<Autopilot, Refusal> {
         Err(none_here())
     }
+
+    async fn get_autopilot_decisions(&self) -> Result<ipc::AutopilotDecisions, Refusal> {
+        Ok(ipc::AutopilotDecisions::default())
+    }
+
+    async fn review_autopilot_decision(&self, _review: ipc::ReviewAutopilotDecision) -> Result<ipc::AutopilotDecisions, Refusal> {
+        Err(none_here())
+    }
+
+    async fn override_autopilot_decision(
+        self: std::sync::Arc<Self>,
+        _over: ipc::OverrideAutopilotDecision,
+    ) -> Result<ipc::AutopilotDecisions, Refusal> {
+        Err(none_here())
+    }
 }

@@ -20,6 +20,7 @@ mod pass;
 pub mod picking;
 pub mod sentence;
 mod red;
+mod reviewing;
 mod set_aside;
 pub(crate) mod sorting;
 mod starting;

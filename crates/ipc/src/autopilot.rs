@@ -112,7 +112,7 @@ pub struct Autopilot {
     /// The cap that stopped it, where one did rather than a person.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capped_by: Option<AutopilotCap>,
-    /// What was put on Autopilot at start. Kept as checked: nothing acts on it yet.
+    /// What was put on Autopilot at start, as checked: whether the backlog and what is running are on it.
     pub on_autopilot: AutopilotWork,
     /// The kinds of decision a helper may answer, as checked at start.
     pub decisions: BTreeSet<AutopilotDecision>,

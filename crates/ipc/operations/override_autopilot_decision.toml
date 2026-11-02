@@ -1,0 +1,8 @@
+[operations.override_autopilot_decision]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Correct one answer Autopilot gave, by telling the Job what the person would have said"
+notes = """
+`POST /autopilot/decisions/override`, body `OverrideAutopilotDecision`: `id` of an answer and `text`. Sends the Job the message `Re: <asked>` and the text on the next line, marks the answer corrected and reviewed, answers with `AutopilotDecisions` and publishes `autopilot.decisions_changed`. The correction is kept beside the answer and read by the helper the next time it decides for that repository. An id nothing holds, or an answer with no Job to send to, is a 409 `fleet.autopilot_no_decision`; blank text is a 422 `fleet.autopilot_decision_empty`.
+"""

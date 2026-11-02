@@ -177,4 +177,7 @@ pub(crate) fn mounted<D: Issues + Autopilots>() -> Router<Served<D>> {
             "/autopilots/:repository/picks/:pick_id/dismiss",
             post(ap::dismiss_set_aside::<D>),
         )
+        .route("/autopilot/decisions", get(ap::get_autopilot_decisions::<D>))
+        .route("/autopilot/decisions/review", post(ap::review_autopilot_decision::<D>))
+        .route("/autopilot/decisions/override", post(ap::override_autopilot_decision::<D>))
 }

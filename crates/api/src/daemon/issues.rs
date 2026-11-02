@@ -155,4 +155,21 @@ pub trait Autopilots: Send + Sync + 'static {
         manifest_id: ManifestId,
         pick_id: String,
     ) -> impl Future<Output = Result<Autopilot, Refusal>> + Send;
+
+    /// `get_autopilot_decisions`: the answers a running Autopilot gave that are not yet reviewed.
+    fn get_autopilot_decisions(&self) -> impl Future<Output = Result<ipc::AutopilotDecisions, Refusal>> + Send;
+
+    /// `review_autopilot_decision`: the person kept one. [`Refusal::IllegalMove`] where none holds the id.
+    fn review_autopilot_decision(
+        &self,
+        review: ipc::ReviewAutopilotDecision,
+    ) -> impl Future<Output = Result<ipc::AutopilotDecisions, Refusal>> + Send;
+
+    /// `override_autopilot_decision`: tell the Job what the person would have said.
+    /// [`Refusal::IllegalMove`] where none holds the id, [`Refusal::Unacceptable`] for blank words.
+    /// **Takes the `Arc`** because the Job is sent the message from a task of its own.
+    fn override_autopilot_decision(
+        self: Arc<Self>,
+        over: ipc::OverrideAutopilotDecision,
+    ) -> impl Future<Output = Result<ipc::AutopilotDecisions, Refusal>> + Send;
 }

@@ -305,7 +305,10 @@ where
             reviewed: false,
             corrected: None,
         };
-        let _ = self.store().lock().await.add_autopilot_decision(&one);
+        let new = self.store().lock().await.add_autopilot_decision(&one).unwrap_or(false);
+        if new {
+            let _ = self.autopilot_decisions_published().await;
+        }
     }
 
     /// The answer, as Bridge's press makes it: a choice on a question, a card or a draft, nothing

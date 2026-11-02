@@ -33,6 +33,7 @@ use crate::plan_usage::PlanUsage;
 use crate::sleep::SleepState;
 use crate::timeline::TimelineAppended;
 use crate::autopilot::Autopilot;
+use crate::autopilot_decisions::AutopilotDecisions;
 use crate::watches::WatchList;
 use crate::bug_reports::BugReports;
 use crate::job_copy::KeepDraftsChanged;
@@ -173,6 +174,9 @@ pub enum Event {
     SleepChanged(SleepState),
     #[serde(rename = "autopilot.changed")]
     AutopilotChanged(Autopilot),
+    // The answers a running Autopilot gave and the person has not reviewed, whole.
+    #[serde(rename = "autopilot.decisions_changed")]
+    AutopilotDecisionsChanged(AutopilotDecisions),
     // The plan's windows after a session read them moving, whole. `docs/concepts/machine.md`.
     #[serde(rename = "plan_usage.changed")]
     PlanUsageChanged(PlanUsage),
