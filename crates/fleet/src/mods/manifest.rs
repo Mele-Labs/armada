@@ -23,7 +23,7 @@ pub(crate) struct Manifest {
     pub(crate) kind: Option<ModKind>,
     pub(crate) version: Option<String>,
     pub(crate) description: Option<String>,
-    /// A tab mod's glyph, by its name in the icon registry.
+    /// A tab or instrument mod's glyph, by its name in the icon registry.
     pub(crate) glyph: Option<String>,
     /// What Teach was pressed on, where a person taught the mod.
     pub(crate) taught_on: Option<String>,
@@ -100,6 +100,7 @@ pub(crate) fn read(text: &str, folder: &str) -> (Manifest, Vec<String>) {
         Some("tracker") => manifest.kind = Some(ModKind::Tracker),
         Some("commands") => manifest.kind = Some(ModKind::Commands),
         Some("tab") => manifest.kind = Some(ModKind::Tab),
+        Some("instrument") => manifest.kind = Some(ModKind::Instrument),
         Some(other) => problems.push(format!("mod.toml `kind` is `{other}`, which is not a kind of mod this build has")),
     }
     match version {

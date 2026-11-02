@@ -5,3 +5,10 @@
   status = "Proposed"
   reserved = "A test map edge that a run measured, on a changed file's row and on the tests under it. Never a speed, a load or a progress figure, and never a Check result, which is the shield-* family."
   notes = "Proposed 22 Oct 2026 for the walk `test-map-reach`. The map's four sources are told apart by silhouette: a dial for the run that saw it. Tooltip `Measured`. Refused: `crosshair`, reserved to the battlefield's locate; `activity`, reserved to the Asker view; `flask-conical`, reserved to a Record row about a case and never a test."
+
+[[icons.gauge.usage]]
+  means = "A mod of kind instrument, by default"
+  group = "Mods"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 2 Nov 2026 as the glyph a scaffolded instrument mod names in `mod.toml`, and the kind's mark on a mod row. A dial read off an instrument is what the kind is. Borrowed and not minted: the owner may rule otherwise."

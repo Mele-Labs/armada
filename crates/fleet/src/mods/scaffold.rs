@@ -6,7 +6,7 @@ use std::process::Command;
 
 use ipc::ModKind;
 
-use super::{manifest, slug_problem, FLEET, LAYOUT, MANIFEST, TAB, THEME, TRACKER, TWEAK, WORDS, COMMANDS};
+use super::{manifest, slug_problem, FLEET, INSTRUMENT, LAYOUT, MANIFEST, TAB, THEME, TRACKER, TWEAK, WORDS, COMMANDS};
 
 /// Why a scaffold did not happen.
 #[derive(Debug, PartialEq, Eq)]
@@ -95,6 +95,31 @@ export default function Tab({ host }) {
   const { Skeleton } = host.ui;
   const bars = [\"40%\", \"90%\", \"75%\", \"85%\", \"60%\"].map((width, at) => h(Skeleton, { key: at, width }));
   return h(\"div\", { style: { display: \"grid\", gap: \"var(--space-3)\", padding: \"var(--space-4)\" } }, bars);
+}
+";
+
+/// The starter instrument: a face drawn in `ink`, and placeholder shapes in its panel, so it validates and
+/// the bay reads as being built until it is edited. `host` is what Bridge hands the instrument.
+const STARTER_INSTRUMENT: &str = "\
+// An instrument Bridge seats in a bay of the Cockpit console. Bridge keeps this component mounted while its panel is closed.
+// `host.face(paint)` registers what is drawn on the bay, and what the component returns stands in the panel.
+// `paint` is `(draw, { w, h, t, ink }) => void` on a 2D canvas context. `host.face(paint, { moves: true })` asks for repaints
+// over time; otherwise the face repaints only when the component calls `host.face` again.
+// There is no `import`: everything the instrument uses comes through `host`. Check it with validate_mod.
+const paint = (draw, { w, h, ink }) => {
+  draw.fillStyle = ink.off;
+  draw.fillRect(8, h / 2 - 2, w - 16, 4);
+  draw.fillStyle = ink.run;
+  draw.fillRect(8, h / 2 - 2, (w - 16) / 3, 4);
+};
+
+export default function Instrument({ host }) {
+  const { createElement: el, useEffect } = host.React;
+  useEffect(() => {
+    host.face(paint);
+  }, []);
+  const bar = (width, at) => el(\"div\", { key: at, style: { width, height: \"var(--space-2)\", background: \"color-mix(in srgb, var(--fg-default) 7%, transparent)\" } });
+  return el(\"div\", { style: { display: \"grid\", gap: \"var(--space-3)\", padding: \"var(--space-4)\" } }, [\"40%\", \"90%\", \"75%\"].map(bar));
 }
 ";
 
@@ -225,6 +250,7 @@ fn written(
         ModKind::Tracker => ("tracker", TRACKER, STARTER_TRACKER),
         ModKind::Commands => ("commands", COMMANDS, STARTER_COMMANDS),
         ModKind::Tab => ("tab", TAB, STARTER_TAB),
+        ModKind::Instrument => ("instrument", INSTRUMENT, STARTER_INSTRUMENT),
     };
     let mut toml = format!(
         "name = \"{name}\"\nkind = \"{word}\"\nversion = \"0.1.0\"\ndescription = \"{}\"\n",
@@ -232,6 +258,9 @@ fn written(
     );
     if kind == ModKind::Tab {
         toml.push_str("glyph = \"panel-top\"\n");
+    }
+    if kind == ModKind::Instrument {
+        toml.push_str("glyph = \"gauge\"\n");
     }
     if let Some(on) = taught.and_then(|one| one.taught_on) {
         toml.push_str(&format!("taught_on = \"{}\"\n", escape(on)));

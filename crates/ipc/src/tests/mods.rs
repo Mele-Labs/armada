@@ -2,7 +2,7 @@
 //! empty field is left out and never `null`, and the event carries the list whole.
 
 use crate::{
-    decode, encode, Delivered, Event, Instant, ModChecked, ModKind, ModList, ModOrigin, ModSummary, Preferences,
+    decode, encode, Delivered, Event, Instant, InstrumentModule, ModAim, ModChecked, ModKind, ModList, ModOrigin, ModSummary, Preferences,
     SavePreference, ScaffoldMod, StreamMessage,
 };
 
@@ -118,7 +118,7 @@ fn a_layout_mod_and_the_owners_choices_are_left_out_when_empty_and_never_null() 
     assert_eq!(scaffold(None), r#"{"name":"tidy"}"#, "a theme scaffold is the body it always was");
     assert_eq!(scaffold(Some(ModKind::Layout)), r#"{"name":"tidy","kind":"layout"}"#);
 
-    let checked = ModChecked { name: "tidy".into(), valid: true, problems: vec![], css: None, layout: Some("{}".into()), words: None, fleet: None, commands: None, tab: None };
+    let checked = ModChecked { name: "tidy".into(), valid: true, problems: vec![], css: None, layout: Some("{}".into()), words: None, fleet: None, commands: None, tab: None, instrument: None };
     assert_eq!(encode(&checked).expect("plain data"), r#"{"name":"tidy","valid":true,"problems":[],"layout":"{}"}"#);
 
     assert!(!encode(&Preferences::default()).expect("plain data").contains("layout_choices"));
@@ -127,4 +127,19 @@ fn a_layout_mod_and_the_owners_choices_are_left_out_when_empty_and_never_null() 
     assert_eq!(decode::<Preferences>("preferences", json.as_bytes()).expect("round-trips"), chosen);
     let before_it: Preferences = decode("preferences", br#"{"where_things_are_open":true}"#).expect("an older Fleet's");
     assert_eq!(before_it.layout_choices, "");
+}
+
+#[test]
+fn an_instrument_is_spelled_as_its_kind_and_its_module_is_left_out_when_absent() {
+    assert_eq!(encode(&ModKind::Instrument).expect("plain data"), r#""instrument""#);
+    assert_eq!(encode(&ModAim::Instrument).expect("plain data"), r#""instrument""#);
+
+    let absent = ModChecked { name: "reviews".into(), valid: false, problems: vec!["why".into()], css: None, layout: None, words: None, fleet: None, commands: None, tab: None, instrument: None };
+    assert!(!encode(&absent).expect("plain data").contains("instrument"));
+
+    let module = InstrumentModule { glyph: Some("gauge".into()), code: "export default () => null;".into() };
+    let checked = ModChecked { valid: true, problems: vec![], instrument: Some(module), ..absent };
+    let json = encode(&checked).expect("plain data");
+    assert!(json.contains(r#""instrument":{"glyph":"gauge","code":"export default () => null;"}"#), "{json}");
+    assert_eq!(decode::<ModChecked>("a check", json.as_bytes()).expect("round-trips"), checked);
 }
