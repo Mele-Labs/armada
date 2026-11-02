@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Autopilot, IssueList } from "@armada/protocol";
 
-import { clockOf, dollars, cappedOf, localNow, nextUpOf, readingOf, settingsFrom, setAsideOf } from "./autopilot";
+import { clockOf, dollars, cappedOf, localNow, nextUpOf, readingOf, settingsFrom, setAsideOf, whyOf } from "./autopilot";
 
 const NOW = Date.parse("2026-10-12T05:00:00.000Z");
 
@@ -37,6 +37,15 @@ describe("which cap paused it", () => {
     expect(cappedOf(autopilot({ state: "paused", capped_by: "until" }))).toBe("time to stop passed");
     expect(cappedOf(autopilot({ state: "paused" }))).toBeUndefined();
     expect(cappedOf(autopilot())).toBeUndefined();
+  });
+});
+
+describe("what the HUD says for an Autopilot", () => {
+  it("says the cap, or the fault of the last pass, and nothing where there is nothing to say", () => {
+    expect(whyOf(autopilot({ state: "paused", capped_by: "sessions" }))).toBe("Job cap reached");
+    expect(whyOf(autopilot({ fault: "the tracker refused" }))).toBe("Last pass picked nothing: the tracker refused");
+    expect(whyOf(autopilot())).toBeUndefined();
+    expect(whyOf(autopilot({ state: "stopped", fault: "the tracker refused" }))).toBeUndefined();
   });
 });
 

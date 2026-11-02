@@ -57,7 +57,7 @@ const DECISIONS: readonly { name: string; items: readonly Decision[] }[] = [
   },
 ];
 
-let arm: Arm = {
+const BEGUN: Arm = {
   open: false,
   lifted: false,
   starting: false,
@@ -68,11 +68,14 @@ let arm: Arm = {
   instruction: "",
   fields: { atOnce: "2", until: "", spend: "", sessions: "" },
 };
+let arm = BEGUN;
 const heard = new Set<() => void>();
 const move = (change: Partial<Arm>) => {
   arm = { ...arm, ...change };
   heard.forEach((one) => one());
 };
+/** A window that remembers nothing, as `forgetDeck` starts one. */
+export const forgetArm = () => move(BEGUN);
 const useArm = () =>
   useSyncExternalStore(
     (hear) => (heard.add(hear), () => void heard.delete(hear)),
