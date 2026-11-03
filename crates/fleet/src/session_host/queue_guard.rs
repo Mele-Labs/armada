@@ -59,7 +59,7 @@ pub(crate) fn ahead_of(number: u64, queue: &[QueueEntry]) -> Vec<QueueEntry> {
     let mut ahead: Vec<QueueEntry> = queue
         .iter()
         .filter(|entry| entry.number != number && own.map_or(true, |at| entry.position < at))
-        .copied()
+        .cloned()
         .collect();
     ahead.sort_by_key(|entry| entry.position);
     ahead

@@ -1,0 +1,8 @@
+[operations."terminal.shown"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "An agent asked for one of its Job's terminals to be brought to the front, by show_terminal: its session_id, terminal and run_id"
+notes = """
+`JobTerminal`: `session_id`, `terminal` and `run_id`. Published once for each `show_terminal` that names an open terminal. Bridge brings that terminal's tab to the front in the Job's panes, opening the pane where it is not drawn, and does not move the person to the Job.
+"""

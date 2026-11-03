@@ -333,6 +333,8 @@ Turning it off runs `gh pr merge --disable-auto` on the Job's open pull requests
 It runs `git merge-tree` of the pull request's head against each pull request ahead of it in the base's merge queue; against the base itself it keeps the forge's own conflict flag.
 On a clash Fleet does not turn auto-merge on: it holds the pull request and tells the Job, once per head commit and blocker, which pull request it waits on and the files that conflict, in the existing Auto land refused notice.
 A held pull request is re-tested on every pull reading and asked for auto-merge once the test is clean, because the blocker merged or left the queue or the Job pushed a resolution; it is never marked as asked, so the once-a-commit rule does not strand it.
+**A pull request that passed and is neither on auto-merge nor queued after Fleet asked is asked once more, then the Job is told**, each once a commit: the forge drops the request when it queues the pull request, and a merge queue that drops it between two readings leaves nothing to merge it.
+A commit seen only on auto-merge is not counted as asked.
 A hold at attach, or when the flag is turned on, is told on the next pull reading, not at once.
 A pull request already queued is re-tested against the entries ahead of it when the queue changes, and one that now clashes is taken out of the queue and off auto-merge and held the same way.
 That ends a loop: a pull request queued behind one it conflicts with is marked unmergeable by the forge, leaves the queue and is queued again.

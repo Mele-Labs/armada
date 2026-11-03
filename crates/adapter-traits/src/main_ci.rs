@@ -161,7 +161,7 @@ impl core::fmt::Debug for Oid {
 }
 
 /// One entry in the base branch's merge queue.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct QueueEntry {
     pub number: u64,
     /// 1 is the next to merge.
@@ -169,6 +169,8 @@ pub struct QueueEntry {
     pub state: QueueState,
     /// The pull request's head as the queue holds it. `None` where the forge named none.
     pub head: Option<Oid>,
+    /// When it joined the queue, as the forge wrote it (RFC 3339). `None` where the forge named none.
+    pub enqueued_at: Option<FromOutside>,
 }
 
 /// The merge queue, in order. `None` from the call that returns it is a forge

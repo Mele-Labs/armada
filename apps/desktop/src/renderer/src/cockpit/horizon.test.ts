@@ -254,6 +254,31 @@ describe("the landings as dots", () => {
     });
   });
 
+  test("a pull request's card carries when it was opened, last changed and joined the queue", () => {
+    const served = lines([
+      pull(2, "feat/first", {
+        ci: "passed",
+        opened_at: "2026-11-03T09:00:00Z",
+        updated_at: "2026-11-03T14:50:00Z",
+        queue: {
+          state: "queued",
+          position: 1,
+          enqueued_at: "2026-11-03T14:00:00Z",
+        },
+      }),
+      pull(3, "feat/quiet"),
+    ]);
+    const views = mergeLineViews(served, null, []);
+    const [queued, quiet] = dotsOf(views[0]!, served, []);
+    expect(queued!.card).toMatchObject({
+      opened: "2026-11-03T09:00:00Z",
+      updated: "2026-11-03T14:50:00Z",
+      queuedAt: "2026-11-03T14:00:00Z",
+    });
+    expect(quiet!.card).not.toHaveProperty("updated");
+    expect(quiet!.card).not.toHaveProperty("queuedAt");
+  });
+
   test("one row to main: the landings first, then the queue, then the open ones", () => {
     const served = {
       lines: [
