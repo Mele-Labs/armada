@@ -585,6 +585,7 @@ function lines(moment: "rest" | "red" | "fixed"): MergeLines {
                 queue: {
                   state: "queued",
                   position: 1,
+                  enqueued_at: ago(18),
                 },
                 opened_at: ago(70),
                 updated_at: ago(3),
