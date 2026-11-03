@@ -3,9 +3,10 @@
 
 import type { ReactNode } from "react";
 import { CircleDot, Power, Square } from "lucide-react";
-import { Button, DropdownMenu, Skeleton, Tooltip, useKept } from "@armada/components";
+import { Button, DropdownMenu, JobSplit, Skeleton, Tooltip, useKept } from "@armada/components";
 import { SlidersHorizontal } from "lucide-react";
 
+import { useJobTime } from "../job-time";
 import { openInPanel } from "../shared-panel/store";
 import {
   HISTORY,
@@ -337,9 +338,38 @@ export function SystemSections({
   const [shown, setShown] = useKept<Column[]>(COLUMNS_KEY, [
     "port",
   ]);
-  if (readAt === undefined) return <Loading />;
+  const time = useJobTime();
+  const spent = time === undefined || time === "pending" ? undefined : time.jobs.find((one) => one.id === sessionId);
+  const timed =
+    time === undefined || (time !== "pending" && spent === undefined) ? null : (
+      <Section label="Time">
+        {spent === undefined || time === "pending" ? (
+          <ul className="sv-layer__rows" aria-busy>
+            {[
+              "90%",
+              "76%",
+              "62%",
+            ].map((width) => (
+              <li key={width} className="sv-skeleton">
+                <Skeleton width={width} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <JobSplit job={spent} usual={time.usual[spent.workflow]} />
+        )}
+      </Section>
+    );
+  if (readAt === undefined)
+    return (
+      <>
+        {timed}
+        <Loading />
+      </>
+    );
   return (
     <>
+      {timed}
       <Section
         label="Processes"
         aside={<ColumnMenu shown={shown} onChange={setShown} />}

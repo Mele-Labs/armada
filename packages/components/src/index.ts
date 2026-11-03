@@ -509,6 +509,8 @@ export * from "./compositions/LoadoutMark/LoadoutMark";
 export * from "./compositions/LoadoutSheet/LoadoutSheet";
 export * from "./loadout";
 export * from "./compositions/UsagePage/UsagePage";
+export type { Bucket, TimeJob, TimeSplit, TimeWeek, UsageTime } from "./compositions/UsagePage/usage-time";
+export { JobSplit } from "./compositions/UsagePage/TimeView";
 
 export * from "./compositions/FilePanel/FilePanel";
 export {

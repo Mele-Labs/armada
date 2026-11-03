@@ -39,6 +39,9 @@ import {
 } from "./usage-view";
 import type { ChartDay, Row, ShareRow } from "./usage-view";
 import { UsageRules } from "./UsageRules";
+import { Band, Bar, Fig, Scope } from "./usage-parts";
+import type { UsageTime } from "./usage-time";
+import { TimeView } from "./TimeView";
 
 /**
  * Where the tokens went, laid out as the cockpit is: the Jobs that burned it on the left with one breakdown under them,
@@ -48,7 +51,8 @@ import { UsageRules } from "./UsageRules";
  * Keys: `↓ j` and `↑ k` move down the Jobs, `↵ o` picks the one under the cursor, `Esc` clears the hour cell and then
  * the pick, `m` `t` `b` `y` `d` set the breakdown to model, tool, Bash use, token type or day, `← → h l` step the
  * weekday and `[ ]` step the 3 hour block on the map (the first of these lands on the busiest cell). `1` to `9` pick the
- * usage rule at that place, and `Esc` clears it before the Job pick.
+ * usage rule at that place, and `Esc` clears it before the Job pick. Where Time is offered, `v` switches the page between
+ * tokens and time, and the Time view keeps its own keys.
  */
 
 export type UsagePageProps = {
@@ -60,7 +64,20 @@ export type UsagePageProps = {
   planPercent?: number | undefined;
   /** Fleet's usage rules with their trips. Absent draws no rules panel. */
   rules?: UsageRulesAnswer | undefined;
+  /** Where the time went. Absent offers no Time view; `pending` offers it with its panels drawing the shape of what is coming. */
+  time?: UsageTime | "pending" | undefined;
 };
+
+const VIEWS = [
+  {
+    id: "tokens",
+    label: "Tokens",
+  },
+  {
+    id: "time",
+    label: "Time",
+  },
+];
 
 type Cut = "model" | "tool" | "bash" | "token" | "day";
 const CUTS = [
@@ -103,40 +120,6 @@ type Source = {
   days: ChartDay[];
   session?: SessionUsageSummary;
 };
-
-function Band({ children, keys }: { children: string; keys?: string[] }) {
-  return (
-    <div className="armada-usage__band">
-      <span>{children}</span>
-      {keys === undefined ? null : (
-        <span className="armada-usage__keys">
-          {keys.map((one) => (
-            <Kbd key={one}>{one}</Kbd>
-          ))}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function Fig({ tip, over, children }: { tip: string; over?: boolean; children: string }) {
-  return (
-    <Tooltip label={tip}>
-      <span className="armada-usage__fig" data-over={over || undefined}>
-        {children}
-      </span>
-    </Tooltip>
-  );
-}
-
-function Scope({ title, unit }: { title: string; unit?: string }) {
-  return (
-    <div className="armada-usage__scope">
-      <span className="armada-usage__title">{title}</span>
-      {unit === undefined ? null : <span className="armada-usage__unit">{unit}</span>}
-    </div>
-  );
-}
 
 type Delta = {
   up: boolean;
@@ -699,14 +682,6 @@ function HeatMap({
  * What the page draws until Fleet's summary has answered: the loaded layout's own shapes in skeleton bars, no text,
  * so the figures land on them without a frame left blank or anything moving. A summary with nothing in it is not this.
  */
-function Bar({ width, end }: { width: string; end?: boolean }) {
-  return (
-    <span className="armada-usage__skel" data-end={end || undefined}>
-      <Skeleton width={width} />
-    </span>
-  );
-}
-
 const JOB_BARS = [
   "100%",
   "62%",
@@ -953,7 +928,8 @@ function SessionRow({
   );
 }
 
-export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProps) {
+export function UsagePage({ summary, titles, planPercent, rules, time }: UsagePageProps) {
+  const [view, setView] = useState<"tokens" | "time">("tokens");
   const [cursor, setCursor] = useState(-1);
   const [rulePick, setRulePick] = useState(-1);
   const [pick, setPick] = useState(-1);
@@ -1007,6 +983,8 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
     ],
   );
   const ruleCount = views?.length ?? 0;
+  const viewed = useRef(view);
+  viewed.current = view;
   const latest = useRef({
     cursor,
     pick,
@@ -1015,6 +993,7 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
     count: rows.length,
     rulePick,
     ruleCount,
+    timed: time !== undefined,
   });
   latest.current = {
     cursor,
@@ -1024,6 +1003,7 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
     count: rows.length,
     rulePick,
     ruleCount,
+    timed: time !== undefined,
   };
 
   useEffect(() => {
@@ -1042,6 +1022,11 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
           ].includes(target.tagName))
       )
         return;
+      if (event.key === "v" && latest.current.timed) {
+        setView((now) => (now === "tokens" ? "time" : "tokens"));
+        return event.preventDefault();
+      }
+      if (viewed.current === "time") return;
       const last = latest.current.count - 1;
       const onControl =
         target instanceof HTMLElement && target.closest("button, [role=tab]") !== null;
@@ -1113,9 +1098,24 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
   const total = summary?.total.units ?? 0;
   const rest = summary?.rest;
   const pending = summary === undefined;
+  const switcher =
+    time === undefined ? null : (
+      <div className="armada-usage__views">
+        <Tabs items={VIEWS} value={view} onChange={(id) => setView(id as typeof view)} />
+        <Kbd>v</Kbd>
+      </div>
+    );
+  if (view === "time" && time !== undefined)
+    return (
+      <div className="armada-usage armada-page">
+        {switcher}
+        <TimeView time={time} />
+      </div>
+    );
 
   return (
     <div className="armada-usage armada-page" aria-busy={pending || undefined}>
+      {switcher}
       <div className="armada-usage__page">
         <div className="armada-usage__left">
           <section className="armada-usage__panel" aria-label="Job list">
