@@ -8,7 +8,7 @@ import {
   type NoteAnchor,
 } from "@armada/components";
 
-import { rowText, sectionOf } from "./document-page";
+import { rowText, sectionOf } from "@armada/screens/src/document-page";
 
 /** Text the reader did not write into the page: a struck word, a sketch's labels, the numbers that mark a note. */
 const NOT_TEXT = "del, .armada-doc__sketch, .armada-doc__anchor";

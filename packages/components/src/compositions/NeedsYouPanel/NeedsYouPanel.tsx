@@ -13,6 +13,7 @@ import type { LucideIcon } from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
 import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { isPressed } from "../../keymap";
 import { useEscapeFold } from "./useEscapeFold";
 import { useScrimFold } from "./useScrimFold";
 import { StartAct } from "./StartAct";
@@ -142,11 +143,17 @@ const opensHere = (one: Thing): boolean =>
  *
  * **A question that arrives opens the panel once**, by its `id`, and again each time he comes into its Session, and moves focus into it only when that would not interrupt
  * typing. A plan waiting for approval is not here: the thread's card shows it whole and takes Approve and Not yet. Needs you alone never opens it. `open` is the host's, so a ledger row can raise it too.
+ *
+ * **What he reads rather than answers is on the review sheet**, a plan, sketch, draft, document or walk: `review` lists those, and they are one row of the list, with a glyph for
+ * each on the band, and `onReview` opens the sheet. A Job with nothing else has no list to fold, so a press anywhere on the band opens the sheet. `⇧⌘Y` does the same where review has
+ * items, and folds this card open or shut where it has none.
  */
 export function NeedsYouPanel({
   rows,
   question,
   cards,
+  review,
+  onReview,
   open: wanted,
   onOpen,
 }: {
@@ -166,6 +173,13 @@ export function NeedsYouPanel({
     said: string;
     children: ReactNode;
   }[];
+  /** What waits on the sheet, in its order: `Glyph` and `said` mark each. Absent or empty, the list has no row for the sheet. */
+  review?: readonly {
+    key: string;
+    Glyph: LucideIcon;
+    said: string;
+  }[];
+  onReview?: () => void;
   open: boolean;
   onOpen: (next: boolean) => void;
 }) {
@@ -260,8 +274,10 @@ export function NeedsYouPanel({
     .join("\n");
   // A band with nothing to list (a restart alone) is never drawn open: the host may still hold it open from an earlier arrival.
   const open = wanted && things.length > 0;
+  const sheet = onReview !== undefined && review !== undefined && review.length > 0;
+  // One question opens straight to its answer, unless the sheet's row must be seen beside it.
   const only =
-    things.length === 1 && questions.length === 1 && opensHere(questions[0]!)
+    !sheet && things.length === 1 && questions.length === 1 && opensHere(questions[0]!)
       ? questions[0]!.key
       : undefined;
   const shown = at ?? (open ? only : undefined);
@@ -332,7 +348,31 @@ export function NeedsYouPanel({
   // Dimmed, the thread is not there to be pressed: a press on it folds the panel.
   useScrimFold(section, open, () => host.current(false));
   useEscapeFold(section, open && menu === undefined, () => host.current(false));
-  if (empty && restarts.length === 0) return null;
+  const press = () => {
+    quiet.current = false;
+    if (!open) landing.current = "";
+    onOpen(!open);
+  };
+  // `⇧⌘Y` reaches what waits on him: the sheet where it has items, else this card.
+  const wide = useRef<() => void>(() => undefined);
+  wide.current = () => {
+    if (sheet) {
+      trigger.current?.focus();
+      onReview();
+    } else if (!empty) {
+      press();
+    }
+  };
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || !isPressed("needs_you", event)) return;
+      event.preventDefault();
+      wide.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  if (empty && restarts.length === 0 && !sheet) return null;
   const fold = () => {
     onOpen(false);
     trigger.current?.focus();
@@ -373,11 +413,6 @@ export function NeedsYouPanel({
       ]?.focus();
     }
   };
-  const press = () => {
-    quiet.current = false;
-    if (!open) landing.current = "";
-    onOpen(!open);
-  };
   return (
     <section
       ref={section}
@@ -393,9 +428,10 @@ export function NeedsYouPanel({
           type="button"
           className="armada-needs-panel__trigger"
           aria-label="Needs you"
-          aria-expanded={open}
-          aria-disabled={empty || undefined}
-          onClick={empty ? undefined : press}
+          aria-expanded={empty ? undefined : open}
+          aria-haspopup={empty && sheet ? "dialog" : undefined}
+          aria-disabled={(empty && !sheet) || undefined}
+          onClick={empty ? (sheet ? onReview : undefined) : press}
         >
           <BellRing size={12} strokeWidth={2} aria-hidden />
           <span className="armada-needs-panel__label">Needs you</span>
@@ -407,6 +443,15 @@ export function NeedsYouPanel({
                 </span>
               </Tooltip>
             ))}
+            {sheet
+              ? review.map((one) => (
+                  <Tooltip key={one.key} label={one.said}>
+                    <span className="armada-session-mark" role="img" aria-label={one.said}>
+                      <one.Glyph size={12} strokeWidth={2} aria-hidden />
+                    </span>
+                  </Tooltip>
+                ))
+              : null}
           </span>
           {empty ? null : (
             <ChevronUp className="armada-needs-panel__fold" size={12} strokeWidth={2} aria-hidden />
@@ -530,6 +575,40 @@ export function NeedsYouPanel({
                     </section>
                   ),
                 )}
+                {sheet ? (
+                  <section className="armada-session-ledger__group" aria-label="To review">
+                    <h3 className="armada-session-ledger__eyebrow">To review</h3>
+                    <ul className="armada-session-ledger__rows">
+                      <li className="armada-session-ledger__row" aria-label="Review">
+                        <button
+                          type="button"
+                          className="armada-session-ledger__open"
+                          aria-label="Review"
+                          aria-haspopup="dialog"
+                          data-thing="review"
+                          onClick={onReview}
+                        >
+                          <span className="armada-needs-panel__glyphs">
+                            {review.map((one) => (
+                              <Tooltip key={one.key} label={one.said}>
+                                <span
+                                  className="armada-session-mark"
+                                  role="img"
+                                  aria-label={one.said}
+                                >
+                                  <one.Glyph size={12} strokeWidth={2} aria-hidden />
+                                </span>
+                              </Tooltip>
+                            ))}
+                          </span>
+                          <span className="armada-session-ledger__text">
+                            {review.map((one) => one.said).join(", ")}
+                          </span>
+                        </button>
+                      </li>
+                    </ul>
+                  </section>
+                ) : null}
                 {actions.map((group) => (
                   <section
                     key={group.label}
