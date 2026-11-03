@@ -44,12 +44,14 @@ export type JobBrowser = {
   loads: number;
   /** The sentence for the agent act running now (`shared/browser-act.ts`); absent at rest. Main does not say yet, so a wired page is at rest. */
   acting?: string;
+  /** **The mock's**: the tab whose page asked, which `site.pending` waits on. The app's request is an item in the Job's Needs you instead. */
+  asked?: string;
   /** In a window of its own, which its pane gives way to. */
   windowed: boolean;
   pins: readonly BrowserPin[];
   site: SiteSettings;
   /** **The mock's**: what is drawn where the page goes. In the app the page is a view main places over the pane. */
-  page?: (url: string, sessionId: string) => ReactNode;
+  page?: (url: string, sessionId: string, tabId: string) => ReactNode;
 };
 
 /** Main's, where the bridge has one: the browser is real. */
@@ -158,7 +160,12 @@ export const browserTabIds = (arrangement: Arrangement): string[] =>
  * by whatever is drawing them: a tab closed while another is in front draws nothing to say so.
  */
 export function reportTabs(sessionId: string, tabIds: readonly string[]): void {
-  if (wired === undefined) return;
+  // **The mock**: the page that asked is gone with its tab, and its request with it.
+  if (wired === undefined) {
+    const asked = held[sessionId]?.asked;
+    if (asked !== undefined && !tabIds.includes(asked)) dismissRequest(sessionId, asked);
+    return;
+  }
   reported.set(sessionId, tabIds);
   // What main no longer holds is not kept here either.
   const mine = `${sessionId}/`;
@@ -187,7 +194,7 @@ export function seedJobBrowser(
   sessionId: string,
   seed: {
     visited: string[];
-    page: (url: string, sessionId: string) => ReactNode;
+    page: (url: string, sessionId: string, tabId: string) => ReactNode;
   },
 ): void {
   visits.set(sessionId, {
@@ -303,12 +310,17 @@ export function setDefault(
   }));
 }
 /** **The mock's** page asking. A decided site is answered at once; only an undecided one raises the bubble. */
-export function requestPermission(sessionId: string, permission: SitePermission): void {
+export function requestPermission(
+  sessionId: string,
+  permission: SitePermission,
+  tabId: string,
+): void {
   edit(sessionId, (one) => {
     const host = hostOf(one.url);
     if (effectiveChoice(one.site, host, permission) !== "ask") return one;
     return {
       ...one,
+      asked: tabId,
       site: {
         ...one.site,
         pending: {
@@ -324,7 +336,7 @@ export function answerRequest(sessionId: string, tabId: string, choice: "allow" 
     void wired.answer(sessionId, tabId, choice);
     return;
   }
-  edit(keyOf(sessionId, tabId), (one) => {
+  edit(keyOf(sessionId, tabId), ({ asked: _tab, ...one }) => {
     const asked = one.site.pending;
     if (asked === null) return one;
     return {
@@ -343,13 +355,13 @@ export function answerRequest(sessionId: string, tabId: string, choice: "allow" 
     };
   });
 }
-/** Esc on the bubble: the site stays undecided. */
+/** The request refused now and nothing kept: the site stays undecided. */
 export function dismissRequest(sessionId: string, tabId: string): void {
   if (wired !== undefined) {
     void wired.answer(sessionId, tabId, "dismiss");
     return;
   }
-  edit(keyOf(sessionId, tabId), (one) => ({
+  edit(keyOf(sessionId, tabId), ({ asked: _tab, ...one }) => ({
     ...one,
     site: {
       ...one.site,
@@ -429,4 +441,36 @@ export function useBrowserWindows(): readonly string[] {
     () => held,
   );
   return Object.keys(all).filter((id) => all[id]!.windowed);
+}
+
+/** **The mock's**: what a page asks, with the tab it asked on. */
+export type BrowserAsk = {
+  tabId: string;
+  permission: SitePermission;
+  host: string;
+};
+
+/** **The mock's**: each change in what a Job's page is asking, `null` once it is settled, dismissed or its tab closed. The app's comes from Fleet as an item in the Job's Needs you. */
+export function watchBrowserAsks(
+  hear: (sessionId: string, ask: BrowserAsk | null) => void,
+): () => void {
+  const said = new Map<string, string>();
+  const check = () => {
+    for (const [sessionId, one] of Object.entries(held)) {
+      const ask: BrowserAsk | null =
+        one.site.pending === null || one.asked === undefined
+          ? null
+          : {
+              tabId: one.asked,
+              permission: one.site.pending.permission,
+              host: one.site.pending.host,
+            };
+      const now = ask === null ? "" : `${ask.tabId} ${ask.permission} ${ask.host}`;
+      if ((said.get(sessionId) ?? "") === now) continue;
+      said.set(sessionId, now);
+      hear(sessionId, ask);
+    }
+  };
+  listeners.add(check);
+  return () => void listeners.delete(check);
 }

@@ -1,7 +1,7 @@
-// Site settings in the Job browser: the lock before the address opens what the page may use, for this site and as the default for every site, and a page that asks
-// raises a bubble under the lock. Allow on Local network is confirmed first, with the risk said. Always open to the person. Mock only: nothing is wired. Over the `job-layouts` scenario.
+// Site settings in the Job browser: the lock before the address opens what the page may use, for this site and as the default for every site. Allow on Local network
+// is confirmed first, with the risk said. Always open to the person; a page's ask is in Needs you (`browser-ask-in-needs-you`). Mock only: nothing is wired. Over the `job-layouts` scenario.
 
-import { button, deckRow, dialog, inside, region, role, tab, text, walk } from "../walk";
+import { button, deckRow, dialog, inside, region, role, tab, walk } from "../walk";
 import type { Step, Target } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
@@ -25,7 +25,6 @@ const browser = inside(
     exact: true,
   }),
 );
-const page = inside(browser, role("article", "Fernwood Supply checkout"));
 const lock = inside(
   browser,
   button("Site settings", {
@@ -57,8 +56,6 @@ const view = (name: string) =>
       exact: true,
     }),
   );
-const okta = inside(page, button("Connect Okta Verify"));
-const bubble = inside(browser, role("alertdialog", "Site request"));
 
 const confirm = (title: string) => inside(browser, dialog(title));
 const site = confirm("Allow local network for localhost:5173?");
@@ -89,23 +86,6 @@ const steps: Step[] = [
   {
     press: item("Browser"),
     say: "Browser",
-  },
-  {
-    press: okta,
-    say: "The page asks for the local network",
-  },
-  {
-    look: inside(bubble, text("It can reach apps on this Mac and devices on your network.")),
-    say: "The ask says what Local network reaches",
-  },
-  {
-    press: inside(
-      bubble,
-      button("Block", {
-        exact: true,
-      }),
-    ),
-    say: "Block, for now",
   },
   {
     press: lock,

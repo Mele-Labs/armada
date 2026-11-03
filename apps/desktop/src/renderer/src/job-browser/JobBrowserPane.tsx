@@ -41,9 +41,7 @@ import {
   type SitePermission,
 } from "../../../shared/site-permissions";
 import {
-  answerRequest,
   browserToPane,
-  dismissRequest,
   goBack,
   goForward,
   jobBrowserApi,
@@ -197,14 +195,16 @@ function NoteCard({
 /** **The mock's** page, drawn from fixtures, and the notes pinned on it. While Capture is on, a press on a part of the page picks it instead of pressing it. */
 function FixturePage({
   sessionId,
+  tabId,
   browser,
   draw,
   annotating,
   onPicked,
 }: {
   sessionId: string;
+  tabId: string;
   browser: JobBrowser;
-  draw: (url: string, sessionId: string) => ReactNode;
+  draw: (url: string, sessionId: string, tabId: string) => ReactNode;
   annotating: boolean;
   onPicked: () => void;
 }) {
@@ -242,7 +242,7 @@ function FixturePage({
       onClickCapture={pick}
     >
       <div key={`${url}:${browser.loads}`} className="job-browser__document">
-        {draw(url, sessionId)}
+        {draw(url, sessionId, tabId)}
       </div>
       {browser.pins
         .filter((pin) => pin.url === url)
@@ -331,7 +331,7 @@ function LivePage({
   const [picture, setPicture] = useState<string>();
   const [picked, setPicked] = useState<Picked>();
   const [ring, setRing] = useState<Box | null>(null);
-  // The app annotation layer, the site-settings popover, the page's ask, a dialog, a tab's menu and the drop zones of a tab being dragged all lie over the
+  // The app annotation layer, the site-settings popover, a dialog, a tab's menu and the drop zones of a tab being dragged all lie over the
   // page's native view, which would hide them, so while one is up the page is hidden and its picture shown, as under Capture.
   const [layerOn, setLayerOn] = useState(false);
   const held = capturing || layerOn;
@@ -348,7 +348,7 @@ function LivePage({
     const follow = () => {
       setLayerOn(
         document.querySelector(
-          "[data-armada-annotate], .job-browser__site-panel, .job-browser__ask, .armada-dialog-scrim, .armada-dropdown-menu__panel, .job-pane__drops",
+          "[data-armada-annotate], .job-browser__site-panel, .armada-dialog-scrim, .armada-dropdown-menu__panel, .job-pane__drops",
         ) !== null,
       );
       const box = frame.current?.getBoundingClientRect();
@@ -626,58 +626,6 @@ function SiteSettingsPanel({
   );
 }
 
-/** The page's ask, under the lock. Esc leaves the site undecided. */
-function AskBubble({
-  sessionId,
-  tabId,
-  browser,
-}: {
-  sessionId: string;
-  tabId: string;
-  browser: JobBrowser;
-}) {
-  const asked = browser.site.pending;
-  const open = asked !== null;
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (event: globalThis.KeyboardEvent) =>
-      event.key === "Escape" && dismissRequest(sessionId, tabId);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [
-    open,
-    sessionId,
-    tabId,
-  ]);
-  if (asked === null) return null;
-  const label =
-    SITE_PERMISSIONS.find((one) => one.permission === asked.permission)?.label ?? asked.permission;
-  return (
-    <div className="job-browser__ask" role="alertdialog" aria-label="Site request">
-      <span className="job-browser__ask-words">
-        <span>{`${asked.host} wants to use ${label}`}</span>
-        {asked.permission === "local_network" ? (
-          <span className="job-browser__ask-risk">
-            It can reach apps on this Mac and devices on your network.
-          </span>
-        ) : null}
-      </span>
-      <div className="job-browser__ask-acts">
-        <Button variant="ghost" size="sm" onClick={() => answerRequest(sessionId, tabId, "block")}>
-          Block
-        </Button>
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => answerRequest(sessionId, tabId, "allow")}
-        >
-          Allow
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 /** What each Local network confirmation says: the site's own, and the one for every site. */
 const LOCAL_NETWORK = {
   site: (host: string) => ({
@@ -691,7 +639,7 @@ const LOCAL_NETWORK = {
 } as const;
 
 /**
- * The lock before the address: site settings in a popover, and the page's ask under it. Allow on Local network is confirmed in a
+ * The lock before the address: site settings in a popover. Allow on Local network is confirmed in a
  * Dialog first, held here beside the popover, which is put away while it is asked: Esc cancels, Enter confirms.
  */
 function SiteLock({
@@ -741,7 +689,6 @@ function SiteLock({
           />
         )}
       </Popover>
-      <AskBubble sessionId={sessionId} tabId={tabId} browser={browser} />
       <Dialog
         open={asking !== null}
         title={said?.title ?? ""}
@@ -908,6 +855,7 @@ export function JobBrowserPane({
       {away ? null : browser.page !== undefined ? (
         <FixturePage
           sessionId={sessionId}
+          tabId={tabId}
           browser={browser}
           draw={browser.page}
           annotating={capturing}
