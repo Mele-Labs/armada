@@ -461,6 +461,41 @@ export function runsOf(session: Session, wire: WireThread): readonly RunItem[] {
   });
 }
 
+/**
+ * What Fleet puts on a Job's list that is pressed and not answered. Press Start on a Job this one started opens that Job, which opens
+ * as its start card; Fleet refuses to answer or dismiss it. A call a Fleet rule raised is dismissed, and opens the Job it names.
+ */
+export type PressItem = {
+  item: WaitingItem;
+  /** The Job a press opens. */
+  opens?: string;
+  dismissible: boolean;
+};
+
+export function pressesOf(session: Session): readonly PressItem[] {
+  if (session.dead !== undefined) return [];
+  return (session.waitingFor ?? []).flatMap((one): PressItem[] => {
+    if (one.source !== "held_child" && one.source !== "fleet_call") return [];
+    return [
+      {
+        item: one,
+        ...(one.act?.kind === "message"
+          ? {
+              opens: one.act.target,
+            }
+          : {}),
+        dismissible: one.source === "fleet_call",
+      },
+    ];
+  });
+}
+
+/** The walks and the questions in a walk the Job waits on: pages the phone cannot show, each said to open on the Mac. */
+export const onMacOf = (session: Session): readonly WaitingItem[] =>
+  session.dead === undefined
+    ? (session.waitingFor ?? []).filter((one) => one.source === "walk" || one.source === "window_ask")
+    : [];
+
 export type OpenDraft = {
   id: string;
   title: string;
@@ -468,15 +503,16 @@ export type OpenDraft = {
   before?: string;
 };
 
-/** The drafts the agent proposed that wait on the owner, each settled on the Mac as the item `draft:<row id>`. */
+/**
+ * The drafts the agent proposed that wait on the owner, each settled on the Mac as the item `draft:<row id>`. **A workflow change is
+ * one**: Fleet lists its proposal only while its change is ready, so a card is drawn only where the item is held, never off the row.
+ */
 export function draftsOf(session: Session): readonly OpenDraft[] {
   if (session.dead !== undefined) return [];
   const waiting = new Set((session.waitingFor ?? []).map((one) => one.id));
   return session.rows.flatMap((row) =>
     row.kind === "draft" &&
     row.settled === undefined &&
-    row.workflow === undefined &&
-    row.change === undefined &&
     waiting.has(`draft:${row.id}`)
       ? [
           {

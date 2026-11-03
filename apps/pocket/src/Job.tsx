@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  AppWindow,
   Check,
   CirclePause,
   CornerDownRight,
@@ -53,6 +54,9 @@ import {
   choicesOf,
   draftsOf,
   linksOf,
+  onMacOf,
+  pressesOf,
+  OPEN_ON_MAC,
   rowsOf,
   runsOf,
   sessionOfThread,
@@ -270,6 +274,48 @@ function RunCard({
         )}
       </CardFooter>
     </Card>
+  );
+}
+
+/** Something Fleet lists that is pressed and not answered: a Job to open, a call to dismiss. */
+function PressCard({
+  item,
+  open,
+  dismiss,
+}: {
+  item: WaitingItem;
+  open?: () => void;
+  dismiss?: () => Promise<boolean>;
+}) {
+  return (
+    <Card className="pk-card" role="group" aria-label={item.text}>
+      <CardHeader>
+        <CardTitle>{item.text}</CardTitle>
+      </CardHeader>
+      <CardFooter className="pk-card__acts">
+        {dismiss === undefined ? null : (
+          <Button variant="secondary" onClick={() => void dismiss()}>
+            Dismiss
+          </Button>
+        )}
+        {open === undefined ? null : (
+          <Button variant="primary" onClick={open}>
+            Open
+          </Button>
+        )}
+      </CardFooter>
+    </Card>
+  );
+}
+
+/** A walk, or a question asked in one, points at a page that is only on the Mac: the Job says so, and takes no answer here. */
+function OnMac({ item }: { item: WaitingItem }) {
+  return (
+    <p className="pk-onmac" role="group" aria-label={item.text}>
+      <AppWindow size={14} aria-hidden="true" />
+      <span className="pk-onmac__says">{item.text}</span>
+      <span className="pk-onmac__where">{OPEN_ON_MAC}</span>
+    </p>
   );
 }
 
@@ -585,6 +631,8 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
         };
   const runs = runsOf(session, read.thread);
   const drafts = draftsOf(session);
+  const presses = pressesOf(session);
+  const onMac = onMacOf(session);
   const links = linksOf(read.thread);
   const openJob = (other: string) => go(jobPath(machine.origin, other));
   const onMenu = (entry: string) => {
@@ -679,6 +727,28 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
           }
         />
       ))}
+      {presses.map(({ item, opens, dismissible }) => (
+        <PressCard
+          key={item.id}
+          item={item}
+          {...(opens === undefined || opens === id
+            ? {}
+            : {
+                open: () => openJob(opens),
+              })}
+          {...(dismissible
+            ? {
+                dismiss: () =>
+                  run(() =>
+                    acts.dismissWaiting({
+                      session_id: id,
+                      item_id: item.id,
+                    }),
+                  ),
+              }
+            : {})}
+        />
+      ))}
       {drafts.map((draft) => (
         <DraftCard
           key={draft.id}
@@ -744,6 +814,9 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
           </Button>
         </div>
       )}
+      {onMac.map((item) => (
+        <OnMac key={item.id} item={item} />
+      ))}
       <Trouble says={says} />
     </div>
   );
@@ -753,7 +826,9 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
       planPending ||
       asksOf(session).length > 0 ||
       runs.length > 0 ||
-      drafts.length > 0,
+      drafts.length > 0 ||
+      presses.length > 0 ||
+      onMac.length > 0,
     session.turn.state === "working",
     session.dead !== undefined,
     doneSince !== undefined && session.turn.state !== "working",
