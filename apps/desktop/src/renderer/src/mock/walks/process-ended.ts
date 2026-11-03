@@ -50,4 +50,4 @@ const processEnded = walk("process-ended", [
   },
 ]);
 
-export { processEnded as "process-ended" };
+export { processEnded };

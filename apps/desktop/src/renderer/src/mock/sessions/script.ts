@@ -1685,7 +1685,7 @@ export function sessionsStore(
             };
           }),
         }));
-        after(2500, () =>
+        after(15000, () =>
           edit(id, (one) => ({
             ...one,
             waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== itemId),
