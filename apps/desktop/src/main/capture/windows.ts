@@ -180,7 +180,7 @@ export class CaptureWindows {
   }
 
   /**
-   * A pull request's walk joins the walk window, as a Job's does. **No waiting item stands for it**: Bridge keeps it from
+   * A pull request's walk joins the walk window, which is the only walk that still has one. **No waiting item stands for it**: Bridge keeps it from
    * when it is held until it is approved or the window closes, either of which closes its held walk. A web walk loads
    * the place it was written against; **an API walk loads a runner of Armada's own on loopback** (`runner.ts`) whose
    * buttons its steps press. The page is pinned to its own origin and no other, and a note goes to the Session holding the
