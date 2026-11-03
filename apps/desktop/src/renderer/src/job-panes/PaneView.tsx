@@ -25,6 +25,7 @@ import { shellsOf } from "../job-shell";
 import { askComposerFocus } from "../session-focus";
 import { hostOf, peekJobBrowser } from "../job-browser/store";
 import { useModList } from "../mod-list";
+import { useWalkState } from "../job-walk/store";
 import { stateOf } from "../session-state";
 import { useSessions } from "../sessions-draft";
 import { select } from "../cockpit/deck/store";
@@ -207,6 +208,9 @@ function TabButton({
       : (glyphOf?.(tab) ?? KINDS[tab.kind].Glyph);
   const building = tab.kind === "custom" && custom.stage === "building";
   const modJob = useSessions().find((one) => one.id === custom.job);
+  // A walk's tab pulses until it has been in front of him, in the row's own hue and rhythm.
+  const unseen = !useWalkState(jobId, tab.kind === "walk" ? tab.page : undefined).seen;
+  const owes = tab.kind === "walk" && unseen;
   // The tab's glyph turns while its Job works, on the first build and on each change after it.
   // The Mod Job is held on a question to him: the tab wears the mark a Job's row wears when it needs him.
   const asking =
@@ -287,6 +291,7 @@ function TabButton({
       className="job-pane__tab"
       data-active={active || undefined}
       data-dragging={dragging || undefined}
+      data-owes={owes || undefined}
       draggable={!renaming}
       onPointerDown={(event) => {
         grabbed.current = (event.target as Element).closest(".job-pane__close") !== null;
@@ -461,7 +466,10 @@ function addEntries(
   }[],
 ): DropdownMenuEntry[] {
   const kinds = family.kinds
-    .filter((kind) => kind !== "custom" && kind !== "draft" && (kind !== "thread" || !thread))
+    .filter(
+      (kind) =>
+        kind !== "custom" && kind !== "draft" && kind !== "walk" && (kind !== "thread" || !thread),
+    )
     .flatMap((kind): DropdownMenuEntry[] => [
     {
       kind: "item",

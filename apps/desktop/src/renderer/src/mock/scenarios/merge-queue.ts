@@ -44,12 +44,16 @@ const more: Session[] = [
   },
 ];
 
+const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+
 function line(): MergeLine {
   const pull = (number: number, branch: string) => ({
     number,
     title: branch,
     branch,
     url: `${PULL}${number}`,
+    opened_at: ago(26 * 60),
+    updated_at: ago(12),
   });
   return {
     root: repository().root,
@@ -72,6 +76,7 @@ function line(): MergeLine {
           queue: {
             state: "queued",
             position: 2,
+            enqueued_at: ago(9),
           },
         },
         {
@@ -80,6 +85,7 @@ function line(): MergeLine {
           queue: {
             state: "awaiting_checks",
             position: 1,
+            enqueued_at: ago(41),
           },
         },
         {

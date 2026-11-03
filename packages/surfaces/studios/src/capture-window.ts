@@ -91,6 +91,8 @@ export type CaptureWindowState = {
   };
   /** Whether the page is ready to walk, as its Session says. Absent: nobody has said. */
   readiness?: CaptureReadiness;
+  /** What the Session changed and what to look at, in its words, where it passed one with the page. A walk in a pane draws it behind its `?`. */
+  brief?: string;
   /** The walk the page is playing. Absent: the page is not a walk. **Main bounds it; the page said it.** */
   walk?: CaptureWalk;
   /** Every walk the one walk window holds, and which is on screen. Absent: a Studio's window, which holds one page. */

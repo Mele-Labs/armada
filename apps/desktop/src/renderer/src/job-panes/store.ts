@@ -628,6 +628,36 @@ export function createPaneFamily(spec: FamilySpec) {
     else rearrange(jobId, change, undefined, true);
   }
 
+  /** A shell the Job's agent showed comes to the front of its pane, or opens in front where it has no tab, and the focus stays where it was. `first` is as `jobOpensTerminal`'s. */
+  function jobShowsTerminal(jobId: string, terminal: string | null, first: boolean): void {
+    const arrangement = peek(jobId);
+    const open = panesOf(arrangement.root)
+      .flatMap((one) => one.tabs)
+      .find(
+        (tab) =>
+          tab.kind === "terminal" &&
+          ((terminal !== null && tab.terminal === terminal) || (first && tab.terminal === undefined)),
+      );
+    const focusKept = (now: Arrangement, next: Arrangement): Arrangement =>
+      next === now
+        ? now
+        : {
+            ...next,
+            focus: now.focus,
+          };
+    if (open !== undefined) {
+      look(jobId, (now) => focusKept(now, activate(now, open.id)));
+      return;
+    }
+    const change = (now: Arrangement) =>
+      focusKept(
+        now,
+        arrive(now, "terminal", undefined, undefined, undefined, undefined, terminal ?? undefined),
+      );
+    if (hasKind(arrangement, "terminal")) look(jobId, change);
+    else rearrange(jobId, change, undefined, true);
+  }
+
   /** A saved request opens in the Job's Requests tab: the one there is comes to the front on it, and with none a tab opens. */
   function openSavedRequest(jobId: string, collection: string, request: string): void {
     const page = savedPage(collection, request);
@@ -747,6 +777,7 @@ export function createPaneFamily(spec: FamilySpec) {
     look,
     jobOpens,
     jobOpensTerminal,
+    jobShowsTerminal,
     openSavedRequest,
     takeLayout,
     updateLayout,
@@ -807,6 +838,7 @@ export const {
   look,
   jobOpens,
   jobOpensTerminal,
+  jobShowsTerminal,
   openSavedRequest,
   takeLayout,
   updateLayout,

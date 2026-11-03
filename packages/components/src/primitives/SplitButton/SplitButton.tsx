@@ -4,6 +4,16 @@ import { ChevronDown } from "lucide-react";
 import type { ButtonAnswer } from "../Button/Button";
 import { Tooltip } from "../Tooltip/Tooltip";
 import { useHold } from "../HoldButton/useHold";
+import { KbdChord } from "../Kbd/Kbd";
+
+/** How a key drawn on a keycap is named to assistive technology. */
+const KEY_NAMES: Record<string, string> = {
+  "⌘": "Meta",
+  "⌥": "Alt",
+  "⌃": "Control",
+  "⇧": "Shift",
+  "↵": "Enter",
+};
 
 /**
  * The likely action, with the rest one click away — a button and a dropdown
@@ -150,6 +160,8 @@ export type SplitButtonProps = {
    * every other row's `Reconnect`. Absent names the face by its label. Not read while a hold is offered.
    */
   faceLabel?: string;
+  /** The face's binding, drawn as a keycap inside it after the label and named to assistive technology. Absent draws none. */
+  shortcut?: readonly string[];
 };
 
 export function SplitButton({
@@ -171,6 +183,7 @@ export function SplitButton({
   hold,
   menuLabel = "More actions",
   faceLabel,
+  shortcut,
 }: SplitButtonProps) {
   const [open, setOpen] = useState(defaultOpen);
   const describedBy = useId();
@@ -206,6 +219,11 @@ export function SplitButton({
         : {
             "aria-label": faceLabel,
           })}
+      {...(shortcut === undefined
+        ? {}
+        : {
+            "aria-keyshortcuts": shortcut.map((key) => KEY_NAMES[key] ?? key).join("+"),
+          })}
       {...(faceDescribedBy === undefined || holding
         ? {}
         : {
@@ -239,6 +257,14 @@ export function SplitButton({
         <>
           {icon}
           {pending ? (pendingLabel ?? children) : children}
+          {shortcut === undefined ? null : (
+            <KbdChord
+              keys={[
+                ...shortcut,
+              ]}
+              aria-hidden
+            />
+          )}
         </>
       )}
     </button>

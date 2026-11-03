@@ -136,6 +136,20 @@ pub struct ListTerminals {
     pub session_id: Option<SessionId>,
 }
 
+/// `show_terminal`: the agent brings one of its Job's terminals to the front in Bridge, without
+/// moving the person to the Job. `POST /sessions/terminal/show`. Answered 200 with the terminal as
+/// `ListedTerminal`, and `terminal.shown` follows. 422 where it is not open.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ShowTerminal {
+    /// Which terminal. Absent is the one the agent last used where it is open, else the Job's
+    /// first open one, as `ReadTerminal`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal: Option<String>,
+    /// Which Job. **Read only where the connection places no hosted Job**, as `TypeInTerminal`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
 /// `list_terminals`' answer: the Job's open terminals, the first opened first. One whose shell has
 /// ended is not listed.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -165,8 +179,8 @@ pub struct RenameTerminal {
     pub name: String,
 }
 
-/// `terminal.opened` and `terminal.exited` on `/events`: one of a Job's shells opened or ended, so a
-/// pane can follow it. What it prints is `observe_session_run`'s, on `run_id`.
+/// `terminal.opened`, `terminal.exited` and `terminal.shown` on `/events`: one of a Job's shells
+/// opened, ended or was brought to the front, so a pane can follow it. What it prints is `observe_session_run`'s, on `run_id`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JobTerminal {
     pub session_id: SessionId,

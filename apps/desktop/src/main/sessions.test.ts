@@ -20,6 +20,7 @@ import type {
   WatchSummary,
 } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
+import { originsOfWindow, takesOfWindow } from "./session-file";
 import { REOPEN_WITHIN_MS, SessionsHost, THREADS_HELD, withRow, withSession } from "./sessions";
 
 let listening: Server | null = null;
@@ -798,7 +799,7 @@ it("opens a window with no sign-in where Fleet holds none or does not answer", a
   );
 });
 
-it("opens the window with its takes, from the row that shows it and from the ledger that reopens it, and reads a ledger that is not takes as none", async () => {
+it("holds the walk with its takes from the row that shows it, and reads a ledger that is not takes as none", async () => {
   const sent: Sent[] = [];
   const url = "http://localhost:5173/";
   const takes = [
@@ -823,17 +824,19 @@ it("opens the window with its takes, from the row that shows it and from the led
     since: AT,
     changed_at: AT,
   });
+  const kept = record("a", {
+    attachments: [
+      attached(JSON.stringify(takes)),
+    ],
+  });
+  const refused = record("b", {
+    attachments: [
+      attached(`[{"name":"x","url":"javascript:1"}]`),
+    ],
+  });
   const port = await fleet(sent, [
-    record("a", {
-      attachments: [
-        attached(JSON.stringify(takes)),
-      ],
-    }),
-    record("b", {
-      attachments: [
-        attached(`[{"name":"x","url":"javascript:1"}]`),
-      ],
-    }),
+    kept,
+    refused,
   ]);
   const { sessions } = host(port);
   const opened: unknown[] = [];
@@ -857,32 +860,18 @@ it("opens the window with its takes, from the row that shows it and from the led
     },
   });
   await vi.waitFor(() => expect(opened.length).toBe(1));
-  expect(sessions.openWindow("a", url)).toEqual({
-    ok: true,
-  });
-  expect(sessions.openWindow("b", url)).toEqual({
-    ok: true,
-  });
   expect(opened).toEqual([
     [
       "a",
       url,
       takes,
     ],
-    [
-      "a",
-      url,
-      takes,
-    ],
-    [
-      "b",
-      url,
-      [],
-    ],
   ]);
+  expect(takesOfWindow(kept, url)).toEqual(takes);
+  expect(takesOfWindow(refused, url)).toEqual([]);
 });
 
-it("reopens a window from the ledger with the origins it may pass through and no sign-in, and reads origins that are not a list as none", async () => {
+it("reads the origins a window may pass through off the ledger, takes no sign-in for a page nobody showed, and reads origins that are not a list as none", async () => {
   const sent: Sent[] = [];
   const url = "https://staging.example.com/app";
   const attached = (origins: string) => ({
@@ -897,21 +886,23 @@ it("reopens a window from the ledger with the origins it may pass through and no
     since: AT,
     changed_at: AT,
   });
+  const kept = record("a", {
+    attachments: [
+      attached(
+        JSON.stringify([
+          "https://login.example.org",
+        ]),
+      ),
+    ],
+  });
+  const refused = record("b", {
+    attachments: [
+      attached(`{"login":"https://login.example.org"}`),
+    ],
+  });
   const port = await fleet(sent, [
-    record("a", {
-      attachments: [
-        attached(
-          JSON.stringify([
-            "https://login.example.org",
-          ]),
-        ),
-      ],
-    }),
-    record("b", {
-      attachments: [
-        attached(`{"login":"https://login.example.org"}`),
-      ],
-    }),
+    kept,
+    refused,
   ]);
   const { sessions } = host(port);
   const opened: unknown[] = [];
@@ -923,26 +914,11 @@ it("reopens a window from the ledger with the origins it may pass through and no
     ]),
   );
   await sessions.again(port);
-  expect(sessions.openWindow("a", url)).toEqual({
-    ok: true,
-  });
-  expect(sessions.openWindow("b", url)).toEqual({
-    ok: true,
-  });
-  expect(opened).toEqual([
-    [
-      "a",
-      [
-        "https://login.example.org",
-      ],
-      [],
-    ],
-    [
-      "b",
-      [],
-      [],
-    ],
+  expect(opened).toEqual([]);
+  expect(originsOfWindow(kept, url)).toEqual([
+    "https://login.example.org",
   ]);
+  expect(originsOfWindow(refused, url)).toEqual([]);
   expect(sent.some((one) => one.path === "/sessions/window/sign_in")).toBe(false);
 });
 
@@ -1036,67 +1012,6 @@ it("brings the walk forward when a Session asks in it, once, and never for an an
   );
   await new Promise((done) => setTimeout(done, 20));
   expect(forward.length).toBe(1);
-});
-
-it("reopens only an address the ledger shows as a window", async () => {
-  const sent: Sent[] = [];
-  const url = "http://localhost:5173/";
-  const port = await fleet(sent, [
-    record("a", {
-      attachments: [
-        {
-          kind: "artifact",
-          target: url,
-          state: "standing",
-          detail: {
-            form: "window",
-            title: "Findings",
-          },
-          since: AT,
-          changed_at: AT,
-        },
-        {
-          kind: "artifact",
-          target: "/repo/notes.md",
-          state: "standing",
-          detail: {
-            form: "file",
-          },
-          since: AT,
-          changed_at: AT,
-        },
-      ],
-    }),
-  ]);
-  const { sessions } = host(port);
-  const opened: string[][] = [];
-  sessions.onWindow((id, title, address) =>
-    opened.push([
-      id,
-      title,
-      address,
-    ]),
-  );
-  await sessions.again(port);
-  expect(sessions.openWindow("a", url)).toEqual({
-    ok: true,
-  });
-  expect(sessions.openWindow("a", "http://evil.example/")).toMatchObject({
-    ok: false,
-  });
-  expect(sessions.openWindow("a", "/repo/notes.md")).toMatchObject({
-    ok: false,
-  });
-  expect(sessions.openWindow("nobody", url)).toMatchObject({
-    ok: false,
-  });
-  expect(opened).toEqual([
-    [
-      "a",
-      "Findings",
-      url,
-    ],
-  ]);
 });
 
 it("sends each act to its own route with the session named, and folds what Fleet answers", async () => {
@@ -2400,6 +2315,91 @@ it("lets an ended shell's output go when its Job's next shell opens, and a block
     runId: "r2",
     ended: true,
   });
+});
+
+/** A Fleet that holds each observe socket open and counts the ones opened for each run, and prints `hi` on each. */
+async function observedFleet(): Promise<{
+  port: number;
+  observed: Map<string, number>;
+}> {
+  const observed = new Map<string, number>();
+  const sockets = new WebSocketServer({
+    noServer: true,
+  });
+  const server = createServer();
+  server.on("upgrade", (request, socket, head) => {
+    const runId = decodeURIComponent(
+      /\/sessions\/run\/([^/]+)\/observe/.exec(request.url ?? "")?.[1] ?? "",
+    );
+    observed.set(runId, (observed.get(runId) ?? 0) + 1);
+    sockets.handleUpgrade(request, socket, head, (ws) =>
+      ws.send(
+        JSON.stringify({
+          kind: "output",
+          text: "hi\r\n",
+        }),
+      ),
+    );
+  });
+  // Sockets held open would keep `close` waiting, so they go first.
+  const close = server.close.bind(server);
+  server.close = (done) => {
+    sockets.clients.forEach((one) => one.terminate());
+    sockets.close();
+    return close(done);
+  };
+  listening = server;
+  await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
+  return {
+    port: (server.address() as AddressInfo).port,
+    observed,
+  };
+}
+
+const printedOf = (sessions: SessionsHost, runId: string) =>
+  new Promise<void>((done) =>
+    sessions.onRun((id, message) => id === runId && message.kind === "output" && done()),
+  );
+
+it("follows a terminal the agent shows that it was not following, and tells the window it was shown", async () => {
+  const { port, observed } = await observedFleet();
+  const { sessions } = host(port);
+  const told: string[] = [];
+  sessions.onTerminal((change, terminal) => told.push(`${change} ${terminal.terminal}`));
+  const printed = printedOf(sessions, "r2");
+  sessions.terminal("shown", {
+    session_id: "a",
+    terminal: "t2",
+    run_id: "r2",
+  });
+  await printed;
+  expect(observed.get("r2")).toBe(1);
+  expect(sessions.soFar("r2")).toBe("hi\r\n");
+  expect(told).toEqual([
+    "shown t2",
+  ]);
+});
+
+it("does not follow again a terminal it follows when the agent shows it", async () => {
+  const { port, observed } = await observedFleet();
+  const { sessions } = host(port);
+  let printed = printedOf(sessions, "r2");
+  sessions.terminal("opened", {
+    session_id: "a",
+    terminal: "t2",
+    run_id: "r2",
+  });
+  await printed;
+  printed = printedOf(sessions, "r2");
+  sessions.terminal("shown", {
+    session_id: "a",
+    terminal: "t2",
+    run_id: "r2",
+  });
+  // A second observe would replay what the run held, and the first socket is still open to hear it.
+  await new Promise((done) => setTimeout(done, 50));
+  expect(observed.get("r2")).toBe(1);
+  expect(sessions.soFar("r2")).toBe("hi\r\n");
 });
 
 it("keeps each of a Job's terminals' output apart, and lets one go only when its own next shell opens", async () => {

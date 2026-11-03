@@ -245,10 +245,10 @@ async fn a_pull_request_that_failed_conflicts_or_is_already_merging_is_not_asked
     }
 }
 
-/// A commit seen merging is not started again: someone took it off auto-merge, or the queue
-/// dropped it, and asking again would undo the one and fail the other a second time.
+/// A commit seen merging that is then green and neither queued nor on auto-merge is asked once
+/// more, whoever took it off: with Auto land on, Fleet merges a green pull request.
 #[tokio::test]
-async fn a_commit_that_left_the_queue_or_auto_merge_is_not_asked_again() {
+async fn a_commit_that_left_the_queue_or_auto_merge_is_asked_once_more() {
     let mut queued = checked(CiState::Passed);
     queued.queue = PullQueue::Waiting;
     let mut on_auto_merge = checked(CiState::Passed);
@@ -261,8 +261,32 @@ async fn a_commit_that_left_the_queue_or_auto_merge_is_not_asked_again() {
         rig.fleet.vcs().main_ci.followed_are(Some(vec![checked(CiState::Passed)]));
         read_the_pull_reading(&rig).await;
 
-        assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0, "{named}");
+        assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1, "{named}");
     }
+}
+
+/// #3217: the queue dropped a green pull request between two readings and nothing merged it, and
+/// nobody was told. Asked once more, then the Job is told, once.
+#[tokio::test]
+async fn a_green_pull_request_that_nothing_merges_is_asked_once_more_then_told_to_the_job() {
+    let mut queued = checked(CiState::Passed);
+    queued.queue = PullQueue::Waiting;
+    let (rig, _id) = opened_by_the_job(true).await;
+    rig.fleet.vcs().main_ci.followed_are(Some(vec![queued]));
+    read_the_pull_reading(&rig).await;
+
+    rig.fleet.vcs().main_ci.followed_are(Some(vec![checked(CiState::Passed)]));
+    for _ in 0..3 {
+        read_the_pull_reading(&rig).await;
+    }
+
+    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1, "once more, not every reading");
+    let sent: Vec<String> = (0..rig.stand_in.starts().len())
+        .flat_map(|at| rig.stand_in.process(at).sent.lock().unwrap().clone())
+        .collect();
+    let said = sent.join("\n");
+    assert_eq!(said.matches("neither on auto-merge nor in the merge queue").count(), 1, "{said}");
+    assert!(said.contains("#12"), "{said}");
 }
 
 #[tokio::test]

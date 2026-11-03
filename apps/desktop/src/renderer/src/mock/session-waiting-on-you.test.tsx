@@ -1,5 +1,5 @@
 // A Session that waits on the person, through `App`: its row in the Cockpit's list has a hand, the band at the
-// foot of its thread opens to a list, the question first, a press on the page item opens the window,
+// foot of its thread opens to a list, the question first, a press on the page item opens its walk,
 // and the question's own row opens the card that answers it.
 // The walk `session-waiting-on-you` draws it; this holds that the presses reach the same code.
 
@@ -10,7 +10,7 @@ import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-test("Waiting on you: row hand, the band opens, page item opens the window, the card answers", async () => {
+test("Waiting on you: row hand, the band opens, page item opens its walk, the card answers", async () => {
   mount("session-waiting-on-you");
   await onScreen();
   const list = page.getByRole("region", {
@@ -80,16 +80,11 @@ test("Waiting on you: row hand, the band opens, page item opens the window, the 
   );
   await expect
     .element(
-      page.getByRole("dialog", {
-        name: "Bridge's window on Pin the store clock",
+      page.getByRole("tab", {
+        name: "Look at the findings page",
       }),
     )
     .toBeVisible();
-  await userEvent.click(
-    page.getByRole("button", {
-      name: "Close window",
-    }),
-  );
 
   await userEvent.click(
     band.getByRole("button", {

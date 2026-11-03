@@ -8,6 +8,7 @@ import {
   CircleDashed,
   Cpu,
   Diff,
+  Eye,
   FileDiff,
   FileText,
   Files,
@@ -139,6 +140,10 @@ export const KINDS: Readonly<
   draft: {
     label: "Draft",
     Glyph: NotebookPen,
+  },
+  walk: {
+    label: "Walk",
+    Glyph: Eye,
   },
   "pr-overview": {
     label: "Overview",

@@ -805,6 +805,8 @@ export type ShowWindow = {
   origins?: string[];
   /** Addresses on the shown origin or one of `origins`, loaded in order before the page. A secret: Fleet keeps it in memory and writes it nowhere. */
   sign_in?: string[];
+  /** The Job's line or two on what changed and what to look at, drawn on the walk's tab. At most 400 characters; longer is refused. */
+  brief?: string;
 };
 
 /** `POST /sessions/window/sign_in`: Bridge, opening a window, asks for the sign-in addresses held for it. */
@@ -1155,7 +1157,7 @@ export type RenameTerminal = {
   name: string;
 };
 
-/** `terminal.opened` and `terminal.exited` on `/events`: one of a Job's shells opened or ended, so a pane can follow it. What it prints is `observe_session_run`'s, on `run_id`. */
+/** `terminal.opened`, `terminal.shown` and `terminal.exited` on `/events`: one of a Job's shells opened, was shown or ended, so a pane can follow it. What it prints is `observe_session_run`'s, on `run_id`. */
 export type JobTerminal = {
   session_id: string;
   /** `t1`, `t2`. */
