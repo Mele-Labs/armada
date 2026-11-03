@@ -6,6 +6,7 @@ import {
   MIN_PANE_H,
   MIN_PANE_W,
   addTab,
+  arriveWalk,
   arrive,
   build,
   closePane,
@@ -416,5 +417,56 @@ describe("showing a page", () => {
     expect(tabOfKind(shown, "request").page).toBe("page");
     expect(holderOf(shown, "request")!.active).toBe(request.id);
     expect(showPage(arrangement, "nope", "page")).toBe(arrangement);
+  });
+});
+
+describe("a walk arriving", () => {
+  const thread = () =>
+    build([
+      "thread",
+    ]);
+  const walkTabs = (arrangement: Arrangement) =>
+    panesOf(arrangement.root)
+      .flatMap((pane) => pane.tabs)
+      .filter((tab) => tab.kind === "walk");
+
+  test("the first one splits the thread's pane to its right, named by its page and keeping the page's address, and takes the focus", () => {
+    const arranged = arriveWalk(thread(), "Billing", "http://x/billing", false);
+    expect(kindsOf(arranged)).toEqual([
+      [
+        "thread",
+      ],
+      [
+        "walk",
+      ],
+    ]);
+    const tab = walkTabs(arranged)[0]!;
+    expect(tab.label).toBe("Billing");
+    expect(tab.page).toBe("http://x/billing");
+    expect(arranged.focus).toBe(holderOf(arranged, "walk")!.id);
+  });
+
+  test("a second one joins the pane that holds a walk and comes to the front", () => {
+    const first = arriveWalk(thread(), "Billing", "http://x/billing", false);
+    const second = arriveWalk(first, "Settings", "http://x/settings", false);
+    expect(panesOf(second.root)).toHaveLength(2);
+    expect(walkTabs(second).map((tab) => tab.label)).toEqual([
+      "Billing",
+      "Settings",
+    ]);
+    expect(holderOf(second, "walk")!.active).toBe(walkTabs(second)[1]!.id);
+  });
+
+  test("one that arrives behind leaves the tab in front and the focus where they were", () => {
+    const first = arriveWalk(thread(), "Billing", "http://x/billing", false);
+    const focus = holderOf(first, "thread")!.id;
+    const there = {
+      ...first,
+      focus,
+    };
+    const second = arriveWalk(there, "Settings", "http://x/settings", true);
+    expect(walkTabs(second)).toHaveLength(2);
+    expect(holderOf(second, "walk")!.active).toBe(walkTabs(first)[0]!.id);
+    expect(second.focus).toBe(focus);
   });
 });

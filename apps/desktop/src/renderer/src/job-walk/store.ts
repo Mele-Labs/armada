@@ -128,7 +128,10 @@ const changeHeld = (jobId: string, notes: readonly PanelHeldNote[]): void => {
 
 /** The notes held on the Job, live. */
 export const useHeldNotes = (jobId: string | undefined): readonly PanelHeldNote[] =>
-  useSyncExternalStore(subscribe, () => (jobId === undefined ? NONE : (held.get(jobId) ?? NONE)));
+  useSyncExternalStore(subscribe, () => (jobId === undefined ? NONE : heldOf(jobId)));
+
+/** The notes the Job holds now. */
+export const heldOf = (jobId: string): readonly PanelHeldNote[] => held.get(jobId) ?? NONE;
 
 /** A note taken on `on`, which names the walk and the take it was taken on. */
 export const holdNote = (jobId: string, said: string, on: string): void =>
