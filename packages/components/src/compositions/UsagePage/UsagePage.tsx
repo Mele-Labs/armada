@@ -44,7 +44,7 @@ import { HourChart, HourRows, PendingHours } from "./HourChart";
 import type { HourPlot } from "./HourChart";
 import { LIST_KEYS, inBuilds } from "./usage-builds";
 import type { UsageBuilds } from "./usage-builds";
-import { SHOWN, blockOfHour, latestHour, markersOf, weekdayOfHour } from "./usage-hours";
+import { SHOWN, blockOfHour, latestHour, weekdayOfHour } from "./usage-hours";
 import type { UsageHours } from "./usage-hours";
 
 /**
@@ -365,6 +365,7 @@ function burnPlot(hours: UsageHours): HourPlot {
   const names = foldModels(hours.flatMap((one) => one.burn ?? [])).map((one) => one.name);
   return {
     key: "burn",
+    figure: "burn",
     height: BURN_HEIGHT,
     steps: true,
     direct: true,
@@ -1116,7 +1117,7 @@ export function UsagePage({ summary, titles, planPercent, rules, time, builds, h
                     burn,
                   ]}
                   label="Burn per hour, last 48 hours, in million cost units, by model"
-                  markers={markersOf(drawn, listed ?? [])}
+                  builds={listed ?? []}
                   pick={build}
                   onPick={setBuild}
                   hour={shown}

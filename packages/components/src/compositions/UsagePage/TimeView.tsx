@@ -7,7 +7,7 @@ import { HourChart, HourRows, PendingHours } from "./HourChart";
 import type { HourPlot } from "./HourChart";
 import { FIGURE_NAME, LIST_KEYS, TIME_FIGURES, inBuilds, lapse } from "./usage-builds";
 import type { Build, UsageBuilds } from "./usage-builds";
-import { SHOWN, latestHour, markersOf } from "./usage-hours";
+import { SHOWN, latestHour } from "./usage-hours";
 import type { UsageHours } from "./usage-hours";
 import { Band, Bar, Fig, Scope } from "./usage-parts";
 import { pct, shareOf } from "./usage-view";
@@ -260,6 +260,7 @@ const UNIT: Readonly<Record<(typeof TIME_FIGURES)[number], { unit: string; per: 
 const plotsOf = (hours: UsageHours): HourPlot[] =>
   TIME_FIGURES.map((figure) => ({
     key: figure,
+    figure,
     title: FIGURE_NAME[figure],
     unit: UNIT[figure].unit,
     height: PLOT_HEIGHT,
@@ -461,7 +462,7 @@ export function TimeView({ time, builds, hours, build, onBuild }: TimeViewProps)
                 hours={drawn}
                 plots={plotsOf(drawn)}
                 label={HOURS_LABEL}
-                markers={listed === undefined ? [] : markersOf(drawn, listed)}
+                builds={listed ?? []}
                 pick={build?.id}
                 onPick={(id) => onBuild?.(id)}
                 hour={shown}

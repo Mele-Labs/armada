@@ -36,8 +36,8 @@ export const jobTime = walk("usage/time", [
     say: "Most time first; the usual for its workflow shows where it runs far over",
   },
   {
-    press: role("button", /^7ac3d52,/),
-    say: "Press the marker where Checks stepped up, or its row 7ac3d52 in Builds: the Jobs and the split narrow to that build, and its span is shaded. Esc clears it",
+    press: role("button", /^7ac3d52/),
+    say: "Press the flag where Checks stepped up, or its row 7ac3d52 in Builds: the Jobs and the split narrow to that build, and its span is shaded. Esc clears it",
   },
   {
     look: region("Split", {

@@ -236,39 +236,13 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Burn per day */
+/* Burn per hour */
 .armada-usage__plot {
   position: relative;
   margin: 0 var(--space-3);
 }
-.armada-usage__chart {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-.armada-usage__grid {
-  stroke: var(--border-subtle);
-  stroke-width: 1;
-}
-.armada-usage__base {
-  stroke: var(--border-strong);
-  stroke-width: 1;
-}
-.armada-usage__tick {
-  fill: var(--fg-subtle);
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-.armada-usage__tick[data-on] {
-  fill: var(--fg-default);
-}
 .armada-usage__peak {
   fill: var(--fg-default);
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-.armada-usage__direct {
-  fill: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: 12px;
 }
@@ -280,18 +254,6 @@
 g[data-quiet] > .armada-usage__seg-model {
   opacity: 0.3;
 }
-.armada-usage__daywash {
-  fill: var(--bg-step);
-}
-.armada-usage__cross {
-  stroke: var(--border-strong);
-  stroke-width: 1;
-  stroke-dasharray: 3 3;
-}
-.armada-usage__hits {
-  position: absolute;
-  inset: 0;
-}
 .armada-usage__hit {
   position: absolute;
   top: 0;
@@ -301,42 +263,6 @@ g[data-quiet] > .armada-usage__seg-model {
   border: 0;
   background: transparent;
   cursor: default;
-}
-.armada-usage__pop {
-  position: absolute;
-  top: var(--space-1);
-  z-index: var(--z-tooltip);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 11rem;
-  max-width: 16rem;
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  background: var(--bg-overlay);
-  box-shadow: var(--shadow-overlay);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  pointer-events: none;
-  transform: translateX(var(--space-4));
-}
-.armada-usage__pop[data-flip] {
-  transform: translateX(calc(-100% - var(--space-4)));
-}
-.armada-usage__popday {
-  color: var(--fg-muted);
-}
-.armada-usage__popline {
-  display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--fg-muted);
-}
-.armada-usage__popline[data-total] {
-  border-top: var(--border-width) solid var(--border-subtle);
-  padding-top: var(--space-1);
 }
 .armada-usage__legend {
   list-style: none;
