@@ -32,8 +32,13 @@ export const jobTime = walk("usage/time", [
     say: "↵ opens its split",
   },
   {
-    look: region("Job split"),
+    look: role("list", "Job split"),
     say: "Most time first; the usual for its workflow shows where it runs far over",
+  },
+  {
+    key: "Escape",
+    on: role("dialog"),
+    say: "Esc closes it",
   },
   {
     press: role("button", /^7ac3d52/),

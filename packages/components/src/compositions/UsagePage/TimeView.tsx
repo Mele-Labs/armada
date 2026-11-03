@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
+import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Skeleton } from "../../primitives/Skeleton/Skeleton";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { BuildsPanel } from "./UsageBuilds";
@@ -476,8 +477,8 @@ export function TimeView({ time, builds, hours, build, onBuild }: TimeViewProps)
           )}
         </section>
 
-        <section className="armada-usage__panel" aria-label={picked === undefined ? "Split" : "Job split"}>
-          <Band>{picked === undefined ? "The split" : "Job split"}</Band>
+        <section className="armada-usage__panel" aria-label="Split">
+          <Band>The split</Band>
           {ready === undefined ? (
             <>
               <div className="armada-usage__scope" aria-hidden>
@@ -485,16 +486,25 @@ export function TimeView({ time, builds, hours, build, onBuild }: TimeViewProps)
               </div>
               <PendingRows />
             </>
-          ) : picked === undefined ? (
+          ) : (
             <>
               <Scope title={build === undefined ? "All Jobs" : `Build ${build.id}`} />
               <SplitRows split={build === undefined ? ready.total : build.split} />
             </>
-          ) : (
-            <JobSplit job={picked} usual={ready.usual[picked.workflow]} />
           )}
         </section>
       </div>
+      <Sheet
+        open={picked !== undefined}
+        title={picked?.title ?? "Job split"}
+        subtitle={picked === undefined ? undefined : span(sumOf(picked.split))}
+        kind="job-split"
+        onClose={() => setPick(-1)}
+      >
+        {picked === undefined || ready === undefined ? null : (
+          <SplitRows split={picked.split} usual={ready.usual[picked.workflow]} workflow={picked.workflow} />
+        )}
+      </Sheet>
     </div>
   );
 }
