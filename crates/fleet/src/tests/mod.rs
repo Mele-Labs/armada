@@ -179,6 +179,7 @@ mod session_pause_waiting;
 mod session_pause_work;
 mod system_processes;
 mod session_start_failed;
+mod session_process_death;
 mod session_queue;
 mod session_slot_asking;
 mod session_slot_choice;

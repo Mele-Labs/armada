@@ -526,11 +526,11 @@ const RESTART_POLL: std::time::Duration = std::time::Duration::from_secs(1);
 /// **Only the relay of a Job Fleet hosts waits.** Such an agent can start while Fleet restarts, and
 /// a door that went mute on the first miss serves no tools for the life of the process. `armada
 /// job` calls `reached` directly and keeps its one try.
-pub(crate) fn reached_patiently(
+pub(crate) fn reached_patiently<T>(
     patience: std::time::Duration,
     poll: std::time::Duration,
-    mut reach: impl FnMut() -> Result<Reached, String>,
-) -> Result<Reached, String> {
+    mut reach: impl FnMut() -> Result<T, String>,
+) -> Result<T, String> {
     let began = std::time::Instant::now();
     loop {
         match reach() {

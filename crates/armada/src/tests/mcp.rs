@@ -6,12 +6,13 @@
 //! the wording is the whole product for an agent that cannot be connected.
 
 use std::path::Path;
+use std::time::Duration;
 
 use fleet::process::StartedAt;
 use fleet::runtime::{Presence, RuntimeFile, Staleness};
 use ipc::{ManifestId, ManifestSummary, ProtocolId};
 
-use crate::mcp::{door_for, found_in, posted_patiently, said_at_handshake, served_at, Door, listening, noting, publish, refused, standing_in, stands_in};
+use crate::mcp::{door_for, found_in, posted_patiently, reached_patiently, said_at_handshake, served_at, Door, listening, noting, publish, refused, standing_in, stands_in};
 use crate::tests::{repository, TempDir};
 
 fn file(id: ProtocolId) -> RuntimeFile {
@@ -459,4 +460,35 @@ fn a_call_made_while_fleet_is_down_waits_for_it_and_is_answered() {
     assert_eq!(answer.status, 200);
     assert_eq!(answer.body, b"ok");
     fleet.join().expect("the stand-in Fleet");
+}
+
+#[test]
+fn a_door_that_misses_at_first_is_retried_until_fleet_answers() {
+    let mut tries = 0;
+    let reached = reached_patiently(Duration::from_secs(5), Duration::from_millis(1), || {
+        tries += 1;
+        if tries < 3 { Err(format!("miss {tries}")) } else { Ok(tries) }
+    });
+    assert_eq!(reached, Ok(3));
+}
+
+#[test]
+fn a_door_gives_up_after_its_patience_with_the_last_miss() {
+    let mut tries = 0;
+    let reached: Result<u32, String> = reached_patiently(Duration::from_millis(30), Duration::from_millis(5), || {
+        tries += 1;
+        Err(format!("miss {tries}"))
+    });
+    assert!(tries > 1, "it kept trying while it had patience");
+    assert_eq!(reached, Err(format!("miss {tries}")));
+}
+
+#[test]
+fn a_door_with_no_patience_tries_exactly_once() {
+    let mut tries = 0;
+    let reached: Result<u32, String> = reached_patiently(Duration::ZERO, Duration::from_millis(1), || {
+        tries += 1;
+        Err("miss".to_string())
+    });
+    assert_eq!((tries, reached), (1, Err("miss".to_string())));
 }
