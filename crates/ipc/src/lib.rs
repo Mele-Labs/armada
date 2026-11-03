@@ -223,6 +223,7 @@ mod teaching;
 mod taught_mods;
 mod notices;
 mod session_import;
+mod pre_pr;
 mod sessions;
 /// A Job's shell, shared by the person and its agent.
 mod terminals;
@@ -647,6 +648,7 @@ pub use sessions::{
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
     WalkTold, WindowClosed, WindowFailed, WithdrawDraft, WithdrawSketch, WithdrawWindow,
 };
+pub use pre_pr::{CheckBeforePr, PrePrCheckRan, PrePrChecked};
 pub use terminals::{
     JobTerminal, JobTerminals, ListTerminals, ListedTerminal, OpenTerminal, ReadTerminal, RenameTerminal, ShowTerminal, StartTerminalRun, TerminalScreen,
     TerminalTyped, TypeInTerminal,

@@ -10,6 +10,10 @@
 //! **The first pull request the Session waited on opens is the wait's** and is kept on it, so a second
 //! one never moves a wait that has named #N. A pull request that merged before the wait was made is
 //! not the one it waits for.
+//!
+//! **A wait follows the work.** A Session handed on for context did not end its work, so no wait reads
+//! that as an end: each one moves to the Session that took its place ([`Fleet::waits_followed`]), down
+//! a whole chain of hands.
 
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -29,6 +33,9 @@ pub(crate) enum Verdict {
     Waiting { pull: Option<WaitPull> },
     /// The condition holds. `said` is why, in a line the new Session's first message carries.
     Met { said: String, pull: Option<WaitPull> },
+    /// The Session ended with no successor and the condition unmet, so it can no longer be met: a closed
+    /// Session gives its pull requests back and hears no merge. `said` is the same line, saying that.
+    Stranded { said: String, pull: Option<WaitPull> },
 }
 
 /// Whether the ledger says this pull request merged.
@@ -57,20 +64,33 @@ pub(crate) fn judged(wait: &KeptWait, on: &SessionRecord) -> Verdict {
     let title = on.title.clone().unwrap_or_else(|| on.id.as_str().to_string());
     let pull = pull_on(wait, on);
     let seen = pull.and_then(pull_wire);
+    // Its work carried on: the wait is about to follow it, whichever comes first.
+    let handed = on.attachments.iter().any(|one| one.kind == crate::session_host::replacing::REPLACED_BY && one.state == AttachmentState::Spent);
+    let over = on.state == ipc::SessionState::Ended && !handed;
+    let part_of = |plan: Option<&ipc::SessionPlan>| plan.and_then(|plan| crate::session_host::after::plan_part_title(plan, &wait.part)).unwrap_or_else(|| wait.part.clone());
     match wait.condition.as_str() {
         "group_done" | "task_done" => match on.plan.as_ref().filter(|plan| crate::session_host::after::plan_part_done(plan, wait)) {
-            Some(plan) => Verdict::Met { said: format!("{} is done in {title}", crate::session_host::after::plan_part_title(plan, &wait.part).unwrap_or_else(|| wait.part.clone())), pull: seen },
+            Some(plan) => Verdict::Met { said: format!("{} is done in {title}", part_of(Some(plan))), pull: seen },
+            None if over => Verdict::Stranded { said: format!("{title} ended with {} not done", part_of(on.plan.as_ref())), pull: seen },
             None => Verdict::Waiting { pull: seen },
         },
         "pr_pushed" => match &seen {
             Some(one) => Verdict::Met { said: format!("pull request #{} is pushed", one.number), pull: seen.clone() },
+            None if over => Verdict::Stranded { said: format!("{title} ended with no pull request"), pull: None },
             None => Verdict::Waiting { pull: None },
         },
         "pr_lands" => match (pull, &seen) {
             (Some(pull), Some(one)) if merged(pull) => Verdict::Met { said: format!("pull request #{} landed", one.number), pull: seen.clone() },
+            _ if over => Verdict::Stranded {
+                said: match wait.pull_number.as_deref() {
+                    Some(number) => format!("{title} ended with pull request #{number} not landed"),
+                    None => format!("{title} ended with no pull request"),
+                },
+                pull: seen,
+            },
             _ => Verdict::Waiting { pull: seen },
         },
-        _ if on.state == ipc::SessionState::Ended => Verdict::Met { said: format!("{title} ended"), pull: seen },
+        _ if over => Verdict::Met { said: format!("{title} ended"), pull: seen },
         _ => Verdict::Waiting { pull: seen },
     }
 }
@@ -95,6 +115,7 @@ where
         }
     });
     tokio::spawn(async move {
+        fleet.waits_left_followed().await;
         let mut watched: HashSet<String> = HashSet::new();
         let open = fleet.store().lock().await.open_waits().unwrap_or_default();
         for wait in open {
@@ -150,6 +171,11 @@ where
             }
             let (met, pull) = match judged(&wait, &record) {
                 Verdict::Met { said, pull } => (Some(said), pull),
+                // What he approved has not happened, so it is his to start, whatever he approved.
+                Verdict::Stranded { said, pull } => {
+                    wait.held = true;
+                    (Some(said), pull)
+                }
                 Verdict::Waiting { pull } => (None, pull),
             };
             if let Some(one) = pull.filter(|one| wait.pull_number.as_deref() != Some(one.number.to_string().as_str())) {

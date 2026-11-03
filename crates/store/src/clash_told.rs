@@ -30,4 +30,40 @@ impl Store {
             .map_err(fault("keeping that a Job was told of a clash"))
             .map_err(WriteError::Database)
     }
+
+    /// The files `session` was already told it conflicts on with `peer`.
+    pub fn clash_paths_told(&self, session: &str, peer: &str) -> Result<Vec<String>, WriteError> {
+        let doing = "reading which files a Job was told it clashes on";
+        let mut statement = self
+            .conn
+            .prepare("SELECT path FROM clash_told_paths WHERE session_id = ?1 AND peer_id = ?2")
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = statement
+            .query_map((session, peer), |row| row.get::<_, String>(0))
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(fault(doing)).map_err(WriteError::Database)
+    }
+
+    /// Keep that `session` was told it conflicts with `peer` on these files.
+    pub fn keep_clash_paths_told(
+        &mut self,
+        session: &str,
+        peer: &str,
+        paths: &[String],
+        at: &Timestamp,
+    ) -> Result<(), WriteError> {
+        for path in paths {
+            self.conn
+                .execute(
+                    "INSERT INTO clash_told_paths (session_id, peer_id, path, told_at) VALUES (?1, ?2, ?3, ?4) \
+                     ON CONFLICT DO NOTHING",
+                    (session, peer, path, at.as_str()),
+                )
+                .map_err(fault("keeping which files a Job was told it clashes on"))
+                .map_err(WriteError::Database)?;
+        }
+        Ok(())
+    }
 }

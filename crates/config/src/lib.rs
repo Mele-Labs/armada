@@ -73,7 +73,7 @@ pub use catalogue::{
 };
 pub use error::{Disagreement, Fault, LoadError, Refusal, ResolveError, UnknownCheck};
 pub use fields::{workflow_fields, Field};
-pub use gating::{gating, owner, Gate, GateWhy};
+pub use gating::{gating, owner, pre_pr_checks, reaching, Gate, GateWhy};
 pub use lifecycle::{parse as parse_lifecycle, LifecycleError};
 pub use live::{Adopted, Frozen, LiveKey, Moved, Reloads};
 pub use piece::{LeftOut as PieceLeftOut, Written as PieceWritten};
