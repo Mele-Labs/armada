@@ -1,5 +1,4 @@
-//! Whether a session's walk is open, and the one thing that depends on it: a question the agent
-//! asks meanwhile is refused rather than held. `docs/concepts/session.md`, *Showing a window*.
+//! Whether a session's walk is open. `docs/concepts/session.md`, *Showing a window*.
 //!
 //! **Read off the thread, not off the waiting list.** The `walk:` item settles at the person's
 //! first message after the window opened, and a note taken in the window is such a message, so
@@ -13,19 +12,6 @@ use crate::daemon::Fleet;
 
 const WINDOW_WITHDRAW_UNNAMED: &str = "fleet.window_withdraw_unnamed";
 const WINDOW_WITHDRAW_NOT_SHOWN: &str = "fleet.window_withdraw_not_shown";
-
-/// What the agent reads when its question is refused during a walk. **A sentence may follow it**
-/// naming a way to ask about the page itself.
-pub(crate) const WALK_OPEN_ASK: &str = "Refused: the owner is walking a page you showed him, and a question held open here would keep his notes and his Approve from reaching you until he answered it. Your question is kept, whole, in his Needs you list, where he answers it after the walk, and his answer reaches you as his message. Do not add it to waiting_for. End your turn so what he sends reaches you.";
-
-/// The sentence that follows [`WALK_OPEN_ASK`]: a question about the page has a way in that holds
-/// nothing back. `docs/concepts/session.md`, *Asking in the window*.
-pub(crate) const WALK_ASK_THE_PAGE: &str = "If the question is about the page you showed him, ask it in the window instead: call ask_in_window with the page's url and a CSS selector for the place.";
-
-/// The whole refusal of a question asked during a walk.
-pub(crate) fn walk_open_refusal() -> String {
-    format!("{WALK_OPEN_ASK} {WALK_ASK_THE_PAGE}")
-}
 
 /// What Bridge's Approve sends the session, ahead of the address. **Of several takes it names the
 /// one approved between**: `Approved B, Needs you first: <address>`.
@@ -163,8 +149,7 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The address of the session's open walk. **A thread that will not read is no walk**: the
-    /// question is then put to the person, as before walks were read.
+    /// The address of the session's open walk. **A thread that will not read is no walk.**
     pub(crate) async fn walk_open(&self, session: &str) -> Option<String> {
         let rows = self.rows_of(session).await.ok()?;
         open_walk(&rows).map(str::to_string)
@@ -177,10 +162,10 @@ where
             return;
         };
         let open = rows.into_iter().rev().find_map(|row| match row {
-            SessionRow::Window { id, at, title, url: shown, variations, steps, origins, ended_at: None }
+            SessionRow::Window { id, at, title, url: shown, variations, steps, origins, brief, ended_at: None }
                 if shown == url || variations.iter().any(|take| take.url == url) =>
             {
-                Some(SessionRow::Window { id, at, title, url: shown, variations, steps, origins, ended_at: Some(self.instant()) })
+                Some(SessionRow::Window { id, at, title, url: shown, variations, steps, origins, brief, ended_at: Some(self.instant()) })
             }
             _ => None,
         });

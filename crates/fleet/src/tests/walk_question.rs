@@ -1,14 +1,12 @@
-//! **A question asked while the owner walks a page is refused, not held.** An open question keeps
-//! the agent's turn open, and his notes and his Approve from the window queue behind it until he
-//! answers. So while a walk is open the question is refused to the agent, which is told to end its
-//! turn, and kept whole in the thread for the person to answer after. `docs/concepts/session.md`, *Showing a window*.
+//! **A walk is a tab beside the thread, and the Job may ask while it is open.** A question is put to
+//! the person as it is at any other time. `docs/concepts/session.md`, *Showing a window*.
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use api::{HostedSessions, Next, Sessions};
 use ipc::{
-    Event, RunOrNot, SessionFact, SessionId, SessionReport, SessionRow, SessionVoice, ShowWindow, WindowClosed,
+    Event, SessionFact, SessionId, SessionReport, SessionRow, SessionVoice, ShowWindow, WindowClosed,
     WindowFailed, WindowTake,
 };
 
@@ -40,43 +38,38 @@ async fn walking(rig: &Rig, id: &SessionId) -> Option<String> {
 }
 
 #[tokio::test]
-async fn a_question_while_a_walk_is_open_is_refused_with_what_to_do_instead_and_notes_still_reach_the_agent() {
+async fn a_question_while_a_walk_is_open_is_put_to_the_person_and_notes_still_reach_the_agent() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     show(&rig, &id, ONE).await;
 
+    let (fleet, session) = (Arc::clone(&rig.fleet), id.as_str().to_string());
     let asking = ipc::decode("an ask", QUESTION.as_bytes()).unwrap();
-    let RunOrNot::Deny { message } = rig.fleet.session_permission(id.as_str(), asking).await.unwrap() else {
-        panic!("a question during a walk is not held for the person");
-    };
-    assert!(message.contains("Needs you"), "{message}");
-    assert!(message.contains("Do not add it to waiting_for"), "{message}");
-    assert!(message.contains("End your turn"), "{message}");
-    assert!(message.contains("ask_in_window"), "a question about the page has its own way in: {message}");
-    let now = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap();
-    assert!(now.session.hosted.and_then(|hosted| hosted.asked).is_none(), "no card was put up");
-    // The question stays whole, settled so the lapsed reading takes it up: every option and its
-    // description, not a bare line of text for a reply box.
-    let kept: Vec<_> = now
-        .rows
-        .iter()
-        .filter_map(|row| match row {
-            SessionRow::Ask { ask, state, .. } => Some((ask, state)),
-            _ => None,
-        })
-        .collect();
-    let [(ask, state)] = kept.as_slice() else { panic!("one ask row keeps the question: {:?}", now.rows) };
-    assert_eq!(**state, ipc::SessionAskState::Kept);
-    let questions = &ask.questions;
-    assert_eq!(questions.len(), 1);
-    assert_eq!(questions[0].question, "Which clock?");
-    assert_eq!(questions[0].header, "Clock");
-    let labels: Vec<&str> = questions[0].options.iter().map(|one| one.label.as_str()).collect();
+    let held = tokio::spawn(async move { fleet.session_permission(&session, asking).await });
+    let card = std::sync::Mutex::new(None);
+    super::session_host::eventually(|| async {
+        let asked = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.hosted.and_then(|hosted| hosted.asked);
+        let up = asked.is_some();
+        *card.lock().unwrap() = asked;
+        up
+    })
+    .await;
+    assert!(!held.is_finished(), "the question is held for his answer, not refused");
+    let card = card.into_inner().unwrap().expect("a card is up");
+    assert_eq!(card.questions[0].question, "Which clock?");
+    let labels: Vec<&str> = card.questions[0].options.iter().map(|one| one.label.as_str()).collect();
     assert_eq!(labels, ["Fake", "Frozen"]);
-    assert!(rig.fleet.hosts().asks().waiting().is_empty(), "and nothing waits on an answer");
+    let now = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap();
+    assert!(
+        !now.rows.iter().any(|row| matches!(row, SessionRow::Ask { state: ipc::SessionAskState::Kept, .. })),
+        "nothing is kept aside: {:?}",
+        now.rows
+    );
+    assert_eq!(walking(&rig, &id).await.as_deref(), Some(ONE), "the walk stays open while he is asked");
 
     rig.send(&id, "The header is off\nOn header, top, at http://localhost:5173/one").await;
     assert_eq!(walking(&rig, &id).await.as_deref(), Some(ONE), "a note is not the walk's end");
+    held.abort();
 }
 
 #[tokio::test]
@@ -164,6 +157,68 @@ async fn takes_reach_the_row_bridge_opens_and_the_ledger_a_reopen_reads_and_a_ta
     }
     let windows = rig.rows(&id).await.into_iter().filter(|row| matches!(row, SessionRow::Window { .. })).count();
     assert_eq!(windows, 1, "a refused call writes no row");
+}
+
+const BRIEF: &str = "The header moved under the title. Look at it at 320 px.";
+
+async fn shown_with_brief(rig: &Rig, id: &SessionId, brief: Option<&str>) -> Result<ipc::SessionRecord, api::Refusal> {
+    let shown = ShowWindow {
+        url: ONE.into(),
+        title: None,
+        session_id: Some(id.clone()),
+        variations: Vec::new(),
+        brief: brief.map(str::to_string),
+        ..Default::default()
+    };
+    rig.fleet.show_window(None, shown).await
+}
+
+fn window_brief(rows: Vec<SessionRow>) -> Option<Option<String>> {
+    rows.into_iter().rev().find_map(|row| match row {
+        SessionRow::Window { brief, .. } => Some(brief),
+        _ => None,
+    })
+}
+
+#[tokio::test]
+async fn a_brief_reaches_the_row_and_the_ledger_stays_when_the_walk_ends_and_a_blank_one_is_none() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let record = shown_with_brief(&rig, &id, Some(&format!("  {BRIEF}  "))).await.expect("shown");
+
+    let kept = record
+        .attachments
+        .iter()
+        .find(|one| one.detail.get("form").map(String::as_str) == Some("window"))
+        .expect("the window is on the ledger");
+    assert_eq!(kept.detail.get("brief").map(String::as_str), Some(BRIEF), "Bridge reads it where it reads the title");
+    assert_eq!(window_brief(rig.rows(&id).await), Some(Some(BRIEF.to_string())), "and on the row, trimmed");
+
+    closed(&rig, &id, ONE).await;
+    assert_eq!(window_brief(rig.rows(&id).await), Some(Some(BRIEF.to_string())), "an ended walk keeps it");
+
+    let record = shown_with_brief(&rig, &id, Some("   ")).await.expect("shown again");
+    let kept = record
+        .attachments
+        .iter()
+        .find(|one| one.detail.get("form").map(String::as_str) == Some("window"))
+        .expect("the window is on the ledger");
+    assert_eq!(kept.detail.get("brief"), None, "a blank brief is none, and none replaces the last");
+    assert_eq!(window_brief(rig.rows(&id).await), Some(None));
+}
+
+#[tokio::test]
+async fn a_brief_over_four_hundred_characters_is_refused_and_writes_nothing() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+
+    assert!(shown_with_brief(&rig, &id, Some(&"x".repeat(401))).await.is_err(), "401 characters");
+    let windows = rig.rows(&id).await.into_iter().filter(|row| matches!(row, SessionRow::Window { .. })).count();
+    assert_eq!(windows, 0, "a refused call writes no row");
+    let kept = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.attachments;
+    assert!(!kept.iter().any(|one| one.detail.get("form").map(String::as_str) == Some("window")), "nor an artifact");
+
+    shown_with_brief(&rig, &id, Some(&"é".repeat(400))).await.expect("400 characters, counted as characters and not bytes");
 }
 
 #[tokio::test]

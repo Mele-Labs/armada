@@ -209,6 +209,24 @@ export type SessionAttachment =
       kept?: string;
       /** A document: the kept style set of each `mock` in its sketches, by content hash, keyed `<sketch title>#<node id>`: `detail.kept_styles` on the wire. */
       keptStyles?: Readonly<Record<string, string>>;
+      /** A walk (form `window`) as its Job's tab draws it: the page's takes by name, and the steps, each pointing at a place on the page by name. **A mock's field**: nothing in Fleet carries it yet. */
+      /** A walk (form `window`) as Fleet recorded it: the takes by name, the steps by their words and the brief, from the row's `detail`. **A walk is owed while its waiting item is**; this field says only what to draw. */
+      window?: {
+        brief?: string;
+        takes: readonly string[];
+        steps: readonly {
+          say: string;
+        }[];
+      };
+      walk?: {
+        /** What the Job changed and what to look at, in its words. Absent on a walk shown without one. */
+        brief?: string;
+        takes?: readonly string[];
+        steps: readonly {
+          say: string;
+          target: string;
+        }[];
+      };
     }
   /**
    * The Session this one was forked to, and the one it was forked from. `id` is the other Session's.
@@ -1697,10 +1715,12 @@ export type SessionsDraft = {
   /** Has Fleet name a Session from its first message and the names he gave others. Resolves when it answers; a refusal is said as `rename`'s is. Absent where nothing serves it. */
   nameForMe?: (id: string) => Promise<void>;
   /**
-   * Opens, or opens again, a page a Session showed, in a window of Bridge's own. **A note captured in
-   * it goes to the Session** as a message that wakes it. Absent where nothing serves it.
+   * Presses a page a Session showed open: the Session opens in the Cockpit and the page's walk comes to the front
+   * of its panes, as a tab made for it when it has none. **There is no window of the walk's own.** Absent where nothing serves it.
    */
   openWindow?: (id: string, url: string) => void;
+  /** The mock's Approve on a walk's bar, which ends the walk as Fleet does on Bridge's: the item it held goes. **Absent on a real Bridge**, where the walk's own bar answers Fleet. */
+  approveWalk?: (id: string, url: string) => void;
   /** Opens a file a Session wrote. Absent in the mock, whose files are not on this machine. */
   openFile?: (id: string, path: string) => void;
   /** Reads a file the Session's ledger names, for the panel an Artifacts row opens. */

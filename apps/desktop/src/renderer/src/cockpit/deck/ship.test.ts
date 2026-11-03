@@ -2,8 +2,9 @@
 // tells has no item, raises no call, and is calm with a quiet mark.
 
 import type { Session } from "@armada/screens/src/draft/sessions";
-import { expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
+import { approveWalk, forgetWalks } from "../../job-walk/store";
 import { callsFromWaiting } from "../waiting";
 import { groupOf } from "./order";
 import { shipOf } from "./ship";
@@ -701,4 +702,102 @@ test("an instrument's Mod Job takes a row only while it asks and no bay shows it
     "holder",
   ]);
   expect(job(true).subjects.find((one) => one.id === "holder")!.needs).toBe(false);
+});
+
+// A Job's walk is a tab of the Job now, so there is no window open to hold its call back: the walk waits on him from the moment it is owed,
+// whether or not its tab is open, until he approves it.
+describe("a walk he has not approved", () => {
+  const PAGE = "http://localhost:5394/?walk=billing";
+  const base = (): Session => ({
+    ...reply("walker"),
+    standing: "working",
+  });
+  const real = (waiting: boolean): Session =>
+    ({
+      ...base(),
+      attachments: [
+        {
+          kind: "artifact",
+          form: "window",
+          id: PAGE,
+          title: "Billing",
+          window: {
+            takes: [],
+            steps: [],
+          },
+        },
+      ],
+      waitingFor: waiting
+        ? [
+            {
+              id: `walk:${PAGE}`,
+              text: "Billing",
+              since: SINCE,
+              source: "walk",
+              act: {
+                kind: "walk",
+                target: PAGE,
+              },
+            },
+          ]
+        : [],
+    }) as unknown as Session;
+  const mock = (): Session =>
+    ({
+      ...base(),
+      attachments: [
+        {
+          kind: "artifact",
+          form: "window",
+          id: "walk:billing",
+          title: "Billing",
+          walk: {
+            steps: [],
+          },
+        },
+      ],
+    }) as unknown as Session;
+  const of = (session: Session) =>
+    shipOf({
+      sessions: [
+        session,
+      ],
+      lines: [],
+      slots: [],
+      repositories: [],
+      calls: [],
+      now: Date.parse(SINCE) + 60_000,
+    }).subjects.find((one) => one.id === "walker")!;
+
+  test("a walk Fleet lists calls on its Job's row and in Needs you, and stops when Fleet drops the item", () => {
+    expect(of(real(true))).toMatchObject({
+      needs: true,
+      mark: {
+        tone: "ask",
+        bucket: "needs",
+      },
+    });
+    expect(
+      callsFromWaiting([
+        real(true),
+      ]).map((one) => one.item.source),
+    ).toEqual([
+      "walk",
+    ]);
+    expect(of(real(false)).needs).toBe(false);
+  });
+
+  test("the mock's walk, which has no Fleet, calls on the row until the mock approves it", () => {
+    expect(of(mock())).toMatchObject({
+      needs: true,
+      mark: {
+        tone: "ask",
+        bucket: "needs",
+        said: "Walk waits on you",
+      },
+    });
+    approveWalk("walker", "walk:billing");
+    expect(of(mock()).needs).toBe(false);
+    forgetWalks();
+  });
 });

@@ -514,3 +514,84 @@
   > .armada-tooltip__bubble {
   display: none;
 }
+
+/* A walk in a Job's pane: two rows, always. The first holds the takes under their lead at its start and Reload, Capture and Approve at its end; the second holds Back, the
+   step's count, Next and the line. The count keeps one width so the line, the one track that gives, starts in the same place. Approve keeps one width too, so Send notes
+   takes the place Approve left and nothing beside it moves. Only the takes and the Approve slot give, and the takes scroll before anything else does. */
+.armada-capture-bar__take-lead {
+  flex: none;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+/* The contract's segmented control for a choice not yet pressed: one track, hairlines between its segments, the chosen one solid. */
+.armada-capture-bar__take-row {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  height: var(--h-control-sm);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.armada-capture-bar__take-row > .armada-capture-bar__take {
+  border-radius: 0;
+  padding-block: 0;
+  padding-inline: var(--space-2);
+}
+
+.armada-capture-bar__take-row > .armada-capture-bar__take + .armada-capture-bar__take {
+  border-inline-start: var(--border-width) solid var(--border-default);
+}
+
+.armada-capture-bar__take-row > .armada-capture-bar__take:focus-visible {
+  outline-offset: calc(var(--focus-ring-width) * -1);
+}
+
+.armada-capture-bar__walk > .armada-capture-bar__take-row,
+.armada-capture-bar__walk > .armada-capture-bar__approve {
+  flex-shrink: 1;
+}
+
+.armada-capture-bar__icons--end {
+  margin-inline-start: auto;
+}
+
+.armada-capture-bar__approve {
+  display: flex;
+  width: calc(var(--space-8) * 6);
+  min-width: calc(var(--space-8) * 4);
+}
+
+.armada-capture-bar__approve > .armada-button,
+.armada-capture-bar__approve > .armada-split-button,
+.armada-capture-bar__approve .armada-split-button__control {
+  width: 100%;
+  min-width: 0;
+}
+
+.armada-capture-bar__approve .armada-split-button__action {
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
+}
+
+.armada-capture-bar__approve-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.armada-capture-bar__walk-count {
+  min-width: 6ch;
+  margin-inline-start: 0;
+  text-align: center;
+}
+
+.armada-capture-bar__brief {
+  margin: 0;
+  outline: none;
+}

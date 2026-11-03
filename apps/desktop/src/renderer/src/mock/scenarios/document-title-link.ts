@@ -5,7 +5,6 @@
 
 import type { Session, SessionRow, WorkflowChoice } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
-import { openWalkWindow } from "@armada/screens/src/fixtures/walk-window";
 
 import { walkPage } from "../audit-job";
 import { mockAreas } from "../cockpit-areas";
@@ -147,38 +146,26 @@ function sessions() {
             why: "unreadable" as const,
           }),
     // His Approve of the page takes it off his list and settles the plan with it.
-    openWindow: (to: string, at: string) => {
-      if (to !== JOB) return base.openWindow?.(to, at);
-      openWalkWindow(ROLLOUT_DOC_TITLE, at, {
-        title: ROLLOUT_DOC_TITLE,
-        job: ROLLOUT_DOC_TITLE,
-        into: "Session",
-        onNote: () => undefined,
-        readiness: "ready",
-        onApprove: async () => {
-          base.edit(JOB, (one) => ({
-            ...one,
-            rows: [
-              ...one.rows,
-              you("t-3", "14:09:00", `Approved: ${at}`),
-            ],
-            waitingFor: withWalkCall(one.waitingFor, URL),
-            work:
-              one.work?.plan === undefined
-                ? one.work
-                : {
-                    ...one.work,
-                    plan: {
-                      ...one.work.plan,
-                      approved: true,
-                    },
-                  },
-          }));
-          return {
-            ok: true,
-          };
-        },
-      });
+    approveWalk: (to: string, at: string) => {
+      if (to !== JOB) return base.approveWalk?.(to, at);
+      base.edit(JOB, (one) => ({
+        ...one,
+        rows: [
+          ...one.rows,
+          you("t-3", "14:09:00", `Approved: ${at}`),
+        ],
+        waitingFor: withWalkCall(one.waitingFor, URL),
+        work:
+          one.work?.plan === undefined
+            ? one.work
+            : {
+                ...one.work,
+                plan: {
+                  ...one.work.plan,
+                  approved: true,
+                },
+              },
+      }));
     },
   };
 }

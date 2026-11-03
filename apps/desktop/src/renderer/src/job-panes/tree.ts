@@ -27,6 +27,7 @@ export const TAB_KINDS = [
   "judge",
   "custom",
   "draft",
+  "walk",
 ] as const;
 export type TabKind = (typeof TAB_KINDS)[number];
 
@@ -927,6 +928,82 @@ export function arrive(
       b: made,
     },
   };
+}
+
+/** The share of a first walk's split that the thread keeps: the walk is the wider side. */
+const WALK_SPLIT = 0.4;
+/** The share of the area the thread and a walk are given between them, so the walk is not squeezed out of the story column's width. */
+const WALK_ROOM = 0.78;
+
+/**
+ * A walk the Job opened: its tab joins the pane that holds a walk tab, and the first one opens as a split on the thread's right, the walk the wider
+ * side. `behind` leaves the front tab and the focus where they were, for a Job he is in.
+ */
+export function arriveWalk(
+  arrangement: Arrangement,
+  label: string,
+  page: string,
+  behind: boolean,
+): Arrangement {
+  const holder = holderOf(arrangement, "walk");
+  const thread = holderOf(arrangement, "thread");
+  if (holder === undefined && thread === undefined) return arrive(arrangement, "walk", label, page);
+  let arrived: Arrangement;
+  if (holder !== undefined) arrived = addTab(arrangement, holder.id, "walk", label, page);
+  else {
+    const [splitId, afterSplit] = mint(arrangement, "s");
+    const [fresh, afterPane] = mint(afterSplit, "p");
+    const [tabId, next] = mint(afterPane, "t");
+    const made: Pane = {
+      type: "pane",
+      id: fresh,
+      tabs: [
+        tabOf(tabId, "walk", distinct(arrangement, label), page),
+      ],
+      active: tabId,
+    };
+    const split = (node: Node): Node =>
+      node.type === "pane"
+        ? node.id === thread!.id
+          ? {
+              type: "split",
+              id: splitId,
+              dir: "row",
+              ratio: WALK_SPLIT,
+              a: node,
+              b: made,
+            }
+          : node
+        : {
+            ...node,
+            // The thread and the walk take the room between them from the side they share a split with.
+            ratio:
+              node.dir === "row" && panesOf(node.a).some((one) => one.id === thread!.id)
+                ? Math.max(node.ratio, WALK_ROOM)
+                : node.ratio,
+            a: split(node.a),
+            b: split(node.b),
+          };
+    arrived = {
+      ...next,
+      root: split(arrangement.root),
+      focus: fresh,
+    };
+  }
+  if (!behind) return arrived;
+  const kept = {
+    ...arrived,
+    focus: arrangement.focus,
+  };
+  return holder === undefined
+    ? kept
+    : {
+        ...kept,
+        root: mapPane(kept.root, holder.id, (one) => ({
+          ...(one as Pane),
+          active: holder.active,
+        })),
+      };
 }
 
 /** The same arrangement, as a copy no other holds. */

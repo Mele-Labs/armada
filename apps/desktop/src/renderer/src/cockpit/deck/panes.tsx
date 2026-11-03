@@ -33,6 +33,7 @@ import type { Acts } from "./acts";
 import { MarkGlyph } from "./shared";
 import type { Subject } from "./ship";
 import { toneOf } from "./order";
+import { useTrailingNotes } from "../../job-walk/held";
 import { answered, goBack, leaveAutopilot, select, useDeck } from "./store";
 
 /** The way back, which every pane's head ends on: to the bay it was opened from, else to the map or timeline. */
@@ -117,6 +118,8 @@ export function SessionPane({
   const sessions = useSessions();
   const session = sessions.find((one) => one.id === subject.id);
   const draft = useSessionsDraft();
+  // The notes taken on its walks and not sent end its thread.
+  const trailing = useTrailingNotes(session);
   // Open on the stage is being in it, as on the Sessions page: its reply is read, so its call does not come back.
   useViewing(session?.id);
   // Back from a Session it follows finds the thread where he left it.
@@ -163,6 +166,11 @@ export function SessionPane({
           onWant: () => {},
         }}
         repositories={state.holds.repositories ?? []}
+        {...(trailing === undefined
+          ? {}
+          : {
+              trailing,
+            })}
         deck={{
           ledger,
           ...(hosts === undefined

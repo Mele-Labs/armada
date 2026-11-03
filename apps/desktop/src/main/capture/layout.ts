@@ -64,6 +64,9 @@ export function panelQuery(subject: PanelSubject): Record<string, string> {
   };
 }
 
+/** The bar of a Job's walk drawn as a tab: **two rows, always**, so the page does not move between walks. */
+export const PANE_BAR_ROWS = 2;
+
 /**
  * How many rows the bar draws. **A queued bar's takes sit in its first row**, beside the walks, so it has a second row
  * only for the walk's steps or a status, pending notes included; any other bar gives the takes and the walk a row each,
@@ -87,6 +90,9 @@ export function barRows(bar: {
  * the bar's draws (0 or absent: none), and the panel's width (0: none, or closed).
  */
 export type WalkFrame = {
+  /** Where the frame starts in the window's content: a pane's, inside Bridge's own window. Absent: the window's own corner. */
+  x?: number;
+  y?: number;
   width: number;
   height: number;
   strip: number;
@@ -112,24 +118,28 @@ export function walkLayout(
 } {
   const panel = Math.max(0, Math.min(frame.panel, frame.width - floor));
   const column = frame.width - panel;
+  const [x, y] = [
+    frame.x ?? 0,
+    frame.y ?? 0,
+  ];
   return {
     page: {
-      x: 0,
-      y: frame.strip,
+      x,
+      y: y + frame.strip,
       width: column,
       height: Math.max(0, frame.height - frame.strip),
     },
     bar: {
-      x: 0,
-      y: 0,
+      x,
+      y,
       width: column,
       height: frame.covered
         ? frame.height
         : Math.min(frame.height, Math.max(frame.strip, Math.ceil(frame.hang ?? 0))),
     },
     panel: {
-      x: column,
-      y: 0,
+      x: x + column,
+      y,
       width: panel,
       height: panel === 0 ? 0 : frame.height,
     },
