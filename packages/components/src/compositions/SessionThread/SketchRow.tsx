@@ -61,18 +61,19 @@ export function ApprovalAnswers({
   const noteKey = `${keep}:note`;
   const [noting, setNoting] = useState(() => readKept<string>(noteKey) !== undefined);
   const [note, setNote] = useState("");
-  useEffect(() => {
-    if (settled !== undefined) forgetKept(noteKey);
-  }, [
-    settled,
-    noteKey,
-  ]);
-  const state = settled === undefined ? undefined : SETTLED[settled.how];
   const cancel = () => {
     forgetKept(noteKey);
     setNote("");
     setNoting(false);
   };
+  // The next revision of a sketch is the same card, so a note sent or settled is put away here, not left open on it.
+  useEffect(() => {
+    if (settled !== undefined) cancel();
+  }, [
+    settled,
+    noteKey,
+  ]);
+  const state = settled === undefined ? undefined : SETTLED[settled.how];
   return (
     <>
       {open && noting ? (
@@ -106,11 +107,12 @@ export function ApprovalAnswers({
                 size="sm"
                 variant="primary"
                 disabled={note.trim() === ""}
-                onClick={() =>
+                onClick={() => {
                   onAnswer(id, {
                     text: note.trim(),
-                  })
-                }
+                  });
+                  cancel();
+                }}
               >
                 Send back
               </Button>
