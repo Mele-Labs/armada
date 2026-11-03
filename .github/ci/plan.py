@@ -53,7 +53,7 @@ COMPONENT_NAMES = {"components_test", "storybook"}
 
 # Keys CI deliberately does not run, and why.
 EXCLUDED = {
-    "apps/desktop:format_check": "the `format` job runs it on every change, so a Job's handoff Check would repeat it",
+    "apps/desktop:format_check": "the `format` job runs it on every change, so a Job's pre-PR Check would repeat it",
 }
 
 # Check names a pull request's own run keeps with `--quick`: the ones that
