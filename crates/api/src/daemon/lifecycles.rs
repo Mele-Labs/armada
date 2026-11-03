@@ -10,6 +10,7 @@ use std::future::Future;
 use ipc::{
     AllWorkspaces, DeleteLifecyclePiece, JobLifecycles, KeepDrafts, LifecyclePieceDeleted, LifecyclePieceSaved, ManifestId,
     RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, SaveLifecyclePiece, SessionId,
+    TeachTicketWord, TicketWordTaught,
 };
 
 use crate::daemon::Refusal;
@@ -70,6 +71,16 @@ pub trait Lifecycles: Send + Sync + 'static {
         &self,
         save: SaveLifecyclePiece,
     ) -> impl Future<Output = Result<LifecyclePieceSaved, Refusal>> + Send;
+
+    /// `teach_ticket_word` — a tracker's own status read as one Ticket state: put on that state in
+    /// the Ticket lifecycle Kit keeps for the repository's Workspace and in every live Job's copy
+    /// there, and taken off any other. [`Refusal::Unacceptable`] for a blank word, a state the
+    /// Ticket lacks, or a Ticket that would not parse; [`Refusal::NotFound`] where Fleet serves no
+    /// such repository.
+    fn teach_ticket_word(
+        &self,
+        teach: TeachTicketWord,
+    ) -> impl Future<Output = Result<TicketWordTaught, Refusal>> + Send;
 
     /// `delete_lifecycle_piece` — delete the Kit file that declares one piece.
     /// [`Refusal::Unacceptable`] where Kit holds none.

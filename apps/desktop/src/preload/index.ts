@@ -96,6 +96,8 @@ import type {
   LifecyclePieceDeleted,
   LifecyclePieceSaved,
   SaveLifecyclePiece,
+  TeachTicketWord,
+  TicketWordTaught,
   RepositoryAutonomy,
   RepositoryLifecycleRules,
   RepositoryLifecycles,
@@ -718,6 +720,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.listKeepDrafts, manifestId),
   saveLifecyclePiece: (body: SaveLifecyclePiece): Promise<LifecyclesActed<LifecyclePieceSaved>> =>
     ipcRenderer.invoke(CHANNELS.saveLifecyclePiece, body),
+  teachTicketWord: (body: TeachTicketWord): Promise<LifecyclesActed<TicketWordTaught>> =>
+    ipcRenderer.invoke(CHANNELS.teachTicketWord, body),
   deleteLifecyclePiece: (
     body: DeleteLifecyclePiece,
   ): Promise<LifecyclesActed<LifecyclePieceDeleted>> =>
