@@ -34,7 +34,7 @@ const autopilotReports = walk("autopilot-reports", [
   },
   {
     look: inside(setup, region(/^Set aside/)),
-    say: "A report it was unsure of waits here, named R- and the last six characters of its id, with the picker's reason",
+    say: "A report Autopilot was unsure of waits here with its reason",
   },
 ]);
 

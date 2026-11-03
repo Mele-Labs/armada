@@ -397,9 +397,19 @@
     gap: var(--space-2);
   }
   & .ap-hud__sidings {
-    flex: 1 1 0;
-    min-height: 0;
-    overflow-y: auto;
+    flex: none;
+    /* The HUD's column is too narrow for the row's three columns: the reason and the acts take its whole width. */
+    & .armada-autopilot-aside__row {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+    & .armada-autopilot-aside__title {
+      white-space: normal;
+    }
+    & .armada-autopilot-aside__why,
+    & .armada-autopilot-aside__row > .armada-autopilot-aside__acts {
+      grid-column: 1 / -1;
+      grid-row: auto;
+    }
   }
   & .ap-hud__why {
     display: grid;
