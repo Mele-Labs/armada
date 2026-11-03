@@ -1157,7 +1157,7 @@ export type RenameTerminal = {
   name: string;
 };
 
-/** `terminal.opened` and `terminal.exited` on `/events`: one of a Job's shells opened or ended, so a pane can follow it. What it prints is `observe_session_run`'s, on `run_id`. */
+/** `terminal.opened`, `terminal.shown` and `terminal.exited` on `/events`: one of a Job's shells opened, was shown or ended, so a pane can follow it. What it prints is `observe_session_run`'s, on `run_id`. */
 export type JobTerminal = {
   session_id: string;
   /** `t1`, `t2`. */

@@ -39,6 +39,13 @@ import type { ReviewsHost } from "./reviews";
 import type { TimelineHost } from "./timeline";
 import type { ActFailures } from "./act-failed";
 import type { StudioReads } from "./studios";
+import type { TerminalChange } from "../shared/api/sessions";
+
+const TERMINAL_CHANGES = {
+  "terminal.opened": "opened",
+  "terminal.shown": "shown",
+  "terminal.exited": "exited",
+} as const satisfies Record<string, TerminalChange>;
 
 /** What the arrival switch reaches on `FleetConnection`, and nothing more. */
 export interface ArrivalHost {
@@ -481,13 +488,17 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.sessions.row(change);
     return;
   }
-  if (event.kind === "terminal.opened" || event.kind === "terminal.exited") {
+  if (
+    event.kind === "terminal.opened" ||
+    event.kind === "terminal.shown" ||
+    event.kind === "terminal.exited"
+  ) {
     // Nothing is folded: a shell is not part of the Session's record. The window is told, and what
     // the shell prints arrives as a run's does.
     host.publish({
       connection,
     });
-    host.sessions.terminal(event.kind === "terminal.opened" ? "opened" : "exited", {
+    host.sessions.terminal(TERMINAL_CHANGES[event.kind], {
       session_id: event.session_id,
       terminal: event.terminal,
       run_id: event.run_id,

@@ -108,10 +108,12 @@ export type RingedNotes = {
 };
 
 /** What a person can do to a pull request a Session holds, without leaving Bridge. */
-/** A Job's shell opening or ending, as `terminal.opened` and `terminal.exited` carry it: `terminal` is which, by the ID Fleet minted. */
+/** A Job's shell opening, shown by its agent, or ending, as `terminal.opened`, `terminal.shown` and `terminal.exited` carry it: `terminal` is which, by the ID Fleet minted. */
 export type JobTerminalChange = JobTerminal & {
-  change: "opened" | "exited";
+  change: TerminalChange;
 };
+
+export type TerminalChange = "opened" | "shown" | "exited";
 
 /** One Job's terminal window: the terminal it holds, absent for the Job's first. */
 export type TerminalWindowId = {

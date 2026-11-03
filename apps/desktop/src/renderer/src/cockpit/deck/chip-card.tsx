@@ -62,6 +62,39 @@ export function chipCardOf(dot: Dot, openJob?: (id: string) => void): SessionLed
               value: String(card.place),
             },
           ]),
+      ...(card.opened === undefined
+        ? []
+        : [
+            {
+              label: "Opened",
+              value: {
+                at: card.opened,
+                age: true as const,
+              },
+            },
+          ]),
+      ...(card.updated === undefined
+        ? []
+        : [
+            {
+              label: "Updated",
+              value: {
+                at: card.updated,
+                age: true as const,
+              },
+            },
+          ]),
+      ...(card.queuedAt === undefined
+        ? []
+        : [
+            {
+              label: "In queue",
+              value: {
+                at: card.queuedAt,
+                age: true as const,
+              },
+            },
+          ]),
       ...(card.branch === card.heading
         ? []
         : [

@@ -1037,6 +1037,14 @@ where
         self.job_terminals_listed(caller, asked).await
     }
 
+    async fn show_terminal(
+        &self,
+        caller: Option<api::Caller>,
+        asked: ipc::ShowTerminal,
+    ) -> Result<ipc::ListedTerminal, Refusal> {
+        self.job_terminal_shown(caller, asked).await
+    }
+
     async fn rename_terminal(&self, rename: ipc::RenameTerminal) -> Result<ipc::ListedTerminal, Refusal> {
         self.job_terminal_renamed(rename).await
     }

@@ -1,6 +1,6 @@
 // A rule or lifecycle with a Keep for every Job draft waiting on Approve wears the clock, and one the repository does not hold yet is drawn from its draft (armada-7gs). Over the `workspaces-pieces-keeps` scenario.
 
-import { button, inside, region, role, tab, toSystemPage, walk } from "../walk";
+import { button, inside, region, role, toSystemPage, walk } from "../walk";
 
 const group = (name: string) =>
   role("group", name, {
@@ -17,12 +17,12 @@ const workflowsPendingKeep = walk(
     ...toSystemPage("Workflows", "Workflows, from System"),
     {
       press: inside(
-        group("Runs in"),
-        tab("store-web", {
+        group("store-web repository"),
+        button("feature", {
           exact: true,
         }),
       ),
-      say: "store-web's tab",
+      say: "store-web's own copy of feature",
     },
     {
       hover: inside(

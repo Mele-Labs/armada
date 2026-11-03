@@ -1,11 +1,16 @@
-// A repository in two Workspaces (30 Oct 2026): the Runs in row has a group of tabs for the default, one for the Workspaces and one for the repositories. api is in Platform and Mobile, which set
+// A repository in two Workspaces (30 Oct 2026): the row picked in the list sets the level, so api's own copy edits api. api is in Platform and Mobile, which set
 // Mark ready differently, so api runs the default's, the canvas warns, and the panel keeps either Workspace's as api's own. A mock, no Fleet behind it.
 
 import { button, inside, region, role, text, toSystemPage, walk } from "../walk";
 
-const RUNS_IN = role("group", "Runs in", {
-  exact: true,
-});
+const API_COPY = inside(
+  role("group", "api repository", {
+    exact: true,
+  }),
+  button("feature", {
+    exact: true,
+  }),
+);
 const LANES = region("Workflow", {
   exact: true,
 });
@@ -16,22 +21,12 @@ const tabs = walk(
   [
     ...toSystemPage("Workflows", "Workflows, on api"),
     {
-      look: inside(
-        RUNS_IN,
-        role("tab", "Mobile", {
-          exact: true,
-        }),
-      ),
-      say: "Default, then Platform and Mobile, then api, web and ios",
+      press: API_COPY,
+      say: "api's own copy of feature",
     },
     {
-      press: inside(
-        RUNS_IN,
-        role("tab", "api", {
-          exact: true,
-        }),
-      ),
-      say: "api",
+      look: text("Edits here change api only"),
+      say: "The picked row sets the level: edits here change api only",
     },
     {
       look: inside(

@@ -224,6 +224,8 @@ export function workflowsServed(
     nudges?: readonly MockNudge[];
     /** The Manifests Fleet lists workflows under, in place of the three of `workflows-managed.ts`. */
     served?: readonly string[];
+    /** The Manifest that holds the repository copies, in place of the first of `workflows-managed.ts`'s. */
+    holds?: string;
   } = {},
 ): Served {
   const started = Date.now();
@@ -236,7 +238,7 @@ export function workflowsServed(
       text: JSON.stringify(definition, null, 2),
       ...(source === "repository"
         ? {
-            manifest: FIRST,
+            manifest: options.holds ?? FIRST,
           }
         : {}),
     }),

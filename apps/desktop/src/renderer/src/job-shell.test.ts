@@ -626,6 +626,51 @@ describe("a terminal the Job's agent opens", () => {
   });
 });
 
+describe("a terminal the Job's agent shows", () => {
+  it("does not end the shell, opens no second tab, and tells the Job and terminal it showed", async () => {
+    const { api, tell, print } = severalApi();
+    const shells = new JobShells(api);
+    const opened = vi.fn();
+    const shown = vi.fn();
+    await drawn(shells, "a");
+    tell({
+      session_id: "a",
+      terminal: "t2",
+      run_id: "r2",
+      change: "opened",
+    });
+    shells.onOpened(opened);
+    shells.onShown(shown);
+    tell({
+      session_id: "a",
+      terminal: "t2",
+      run_id: "r2",
+      change: "shown",
+    });
+    expect(shells.shell("a#t2")?.ended).toBe(false);
+    expect(opened).not.toHaveBeenCalled();
+    expect(shown).toHaveBeenCalledWith("a", "t2", false, "a#t2");
+    print("r2", "still here\r\n");
+    expect(shells.shell("a#t2")?.out).toContain("still here");
+  });
+
+  it("is told as the Job's first where it is, and is followed where nothing opened it before", () => {
+    const { api, tell, print } = severalApi();
+    const shells = new JobShells(api);
+    const shown = vi.fn();
+    shells.onShown(shown);
+    tell({
+      session_id: "b",
+      terminal: "t1",
+      run_id: "r1",
+      change: "shown",
+    });
+    print("r1", "hello\r\n");
+    expect(shown).toHaveBeenCalledWith("b", "t1", true, "b");
+    expect(shells.shell("b")?.out).toContain("hello");
+  });
+});
+
 describe("a terminal's window", () => {
   const window2: TerminalWindowId = {
     sessionId: "a",
