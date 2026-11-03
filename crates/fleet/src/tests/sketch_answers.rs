@@ -260,3 +260,45 @@ fn the_rail_reads_the_newest_approval_of_any_sketch_off_the_thread() {
     assert_eq!(sketch_approved(&rows), Some("2026-10-28T09:06:00.000Z"), "his newest approval, never the agent's words");
     assert_eq!(sketch_approved(&rows[3..]), None);
 }
+
+fn titled(id: &SessionId, title: &str, against: Option<&str>) -> ShowSketch {
+    let against = against.map(|earlier| format!(r#","against":"{earlier}""#)).unwrap_or_default();
+    ipc::decode(
+        "a sketch to show",
+        format!(r#"{{"title":"{title}","session_id":"{}","scene":{}{against}}}"#, id.as_str(), scene(title)).as_bytes(),
+    )
+    .unwrap()
+}
+
+#[tokio::test]
+async fn three_sketches_each_drawn_against_the_last_leave_nothing_waiting_once_the_newest_is_approved() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.show_sketch(None, titled(&id, "Plan", None)).await.unwrap();
+    rig.fleet.show_sketch(None, titled(&id, "Plan (DSCR only)", Some("Plan"))).await.unwrap();
+    let record = rig.fleet.show_sketch(None, titled(&id, "Plan (alerts)", Some("Plan (DSCR only)"))).await.unwrap();
+    assert_eq!(record.waiting_for.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), ["sketch:Plan (alerts)"]);
+
+    let drawn = record.attachments.iter().find(|one| one.target == "sketch:Plan (alerts)").unwrap().detail["drawn"].clone();
+    let mut approve = answer(&id, &drawn, SketchHow::Approved, None);
+    approve.sketch = "sketch:Plan (alerts)".into();
+    let record = Arc::clone(&rig.fleet).answer_sketch(approve).await.unwrap();
+    assert!(record.waiting_for.is_empty(), "no earlier sketch comes back: {:?}", record.waiting_for);
+}
+
+#[test]
+fn a_job_holding_two_sketches_left_open_lists_only_the_newest() {
+    let open = |title: &str, at: &str| -> Attachment {
+        ipc::decode(
+            "an attachment",
+            format!(
+                r#"{{"kind":"artifact","target":"sketch:{title}","state":"standing","detail":{{"form":"sketch","title":"{title}","asked":"true"}},"since":"{at}","changed_at":"{at}"}}"#
+            )
+            .as_bytes(),
+        )
+        .unwrap()
+    };
+    let held = [open("Newer", "2026-11-02T10:00:00Z"), open("Older", "2026-10-30T10:00:00Z")];
+    let listed: Vec<String> = crate::session_host::sketching::sketch_items(&held, "job").map(|one| one.id).collect();
+    assert_eq!(listed, ["sketch:Newer"]);
+}

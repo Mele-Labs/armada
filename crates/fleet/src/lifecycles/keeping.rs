@@ -77,6 +77,11 @@ where
     });
     let telling = Arc::clone(&fleet);
     tokio::spawn(async move {
+        // A Job told to wait may have nothing holding it by now, with no move left to say so.
+        let told_to_wait = telling.store().lock().await.lifecycle_jobs_held().unwrap_or_default();
+        for job in told_to_wait {
+            telling.lifecycles_clear_told(&job).await;
+        }
         while let Some(job) = cleared.recv().await {
             telling.lifecycles_clear_told(&job).await;
         }

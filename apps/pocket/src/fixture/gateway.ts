@@ -177,6 +177,8 @@ function act(mac: FixtureMac, path: string, sent: Record<string, unknown>): Answ
   switch (path) {
     case "/api/sessions/begin": {
       if (job.start === undefined) return said(409, "This Job is not on its start card.");
+      // A Job that was told to press Start on this one stops waiting for it.
+      for (const other of Object.values(mac.threads)) drop(other.session, `start:${id}`);
       if (job.start.asks_delivery && sent["delivery"] === undefined)
         return said(422, "Choose how the work lands.");
       const message =
@@ -262,6 +264,69 @@ function act(mac: FixtureMac, path: string, sent: Record<string, unknown>): Answ
         202,
       );
     }
+    case "/api/sessions/sketch/answer":
+    case "/api/sessions/document/answer": {
+      const sketch = path.includes("/sketch/");
+      const named = String(sent[sketch ? "sketch" : "document"] ?? "");
+      const target = sketch ? named : named.replace(/^document:/, "");
+      const held = record.attachments.find((one) => one.target === target);
+      const detail = held?.detail;
+      const refuse = (status: number, code: string, message: string) =>
+        json(
+          {
+            code,
+            message,
+          },
+          status,
+        );
+      if (detail === undefined || detail["asked"] !== "true" || detail["settled"] !== undefined)
+        return refuse(
+          422,
+          sketch ? "fleet.sketch_not_open" : "fleet.document_not_open",
+          "that page is not waiting on an answer",
+        );
+      // The job draws it again after he read it: the new drawing is in the thread, and this answer is refused.
+      const again = sketch ? mac.redraws?.[`${id} ${target}`] : undefined;
+      if (again !== undefined) {
+        delete mac.redraws?.[`${id} ${target}`];
+        Object.assign(detail, again.detail);
+        push(thread, {
+          kind: "tool",
+          id: rowId(id),
+          at: now(),
+          text: again.call,
+        });
+        settle(mac, thread);
+        return refuse(
+          409,
+          "fleet.sketch_redrawn",
+          "the sketch is not the drawing that was read: the job has drawn it again since",
+        );
+      }
+      if (sketch ? sent["drawn"] !== detail["drawn"] : sent["revision"] !== detail["revision"])
+        return refuse(
+          409,
+          sketch ? "fleet.sketch_redrawn" : "fleet.document_revised",
+          "that page changed since it was read",
+        );
+      const how = sent["how"];
+      const words = typeof sent["words"] === "string" ? sent["words"] : undefined;
+      if (how === "sent_back" && (words === undefined || words.trim() === ""))
+        return refuse(
+          422,
+          sketch ? "fleet.sketch_answer_empty" : "fleet.document_answer_empty",
+          "sending back takes a note",
+        );
+      detail["settled"] = String(how);
+      detail["settled_at"] = now();
+      if (words !== undefined) detail["words"] = words;
+      drop(record, named);
+      if (how === "sent_back")
+        job.turn = {
+          state: "working",
+        };
+      return answered();
+    }
     case "/api/sessions/waiting/answer":
     case "/api/sessions/waiting/dismiss": {
       const given = sent as AnswerWaiting & DismissWaiting;
@@ -273,11 +338,13 @@ function act(mac: FixtureMac, path: string, sent: Record<string, unknown>): Answ
         if (row.kind !== "draft" || row.id !== draft) return row;
         const how = path.endsWith("dismiss")
           ? "withdrawn"
-          : given.fixed !== undefined
-            ? "fixed"
-            : given.text !== undefined
-              ? "sent_back"
-              : "approved";
+          : row.change !== undefined && given.choice !== undefined && given.choice !== 0
+            ? "withdrawn"
+            : given.fixed !== undefined
+              ? "fixed"
+              : given.text !== undefined
+                ? "sent_back"
+                : "approved";
         const words = given.text ?? given.reason;
         return {
           ...row,

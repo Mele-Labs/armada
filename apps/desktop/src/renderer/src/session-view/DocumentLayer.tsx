@@ -48,7 +48,7 @@ import {
 } from "./DocumentPage";
 import { diffPages } from "./document-diff";
 import { placeOf } from "./document-find";
-import { readPage, type Page } from "./document-page";
+import { readPage, type Page } from "@armada/screens/src/document-page";
 import { savedPage, valuesOf } from "./document-save";
 import { clearVisit, documentOf, useDocumentVisit } from "./document-state";
 import { closeLayer, useLayerPage } from "./layers";
