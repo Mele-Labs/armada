@@ -308,6 +308,11 @@ pub trait Forge {
         pull_request: &str,
     ) -> Option<Vec<crate::PatchedFile>>;
 
+    /// Every comment on a pull request, in no order: the conversation's, each review's body and
+    /// every comment on the diff, **one forge call**. `None` is the forge's silence, for
+    /// [`landed`](crate::Delivery::landed)'s reason; no comments is `Some(vec![])`.
+    fn pull_request_comments(&self, in_repo: &str, number: u64) -> Option<Vec<crate::PullComment>>;
+
     /// Write on a pull request: a comment, an approval, a request for changes.
     ///
     /// **A write to the forge, taken only from a person's ask**, like

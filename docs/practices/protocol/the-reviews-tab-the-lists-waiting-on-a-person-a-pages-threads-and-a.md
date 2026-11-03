@@ -14,6 +14,8 @@ Bridge's half is `packages/protocol/src/pull-reviews.ts` and `pull-requests.ts`,
 | `PullReviewRow.team` | Fleet writes, Bridge reads | The team asked, left out off the Team list |
 | `PullRequestPage.head`, `.body` | Fleet writes, Bridge reads | The whole head commit and the description, left out where the forge gave none |
 | `PullRequestPage.threads` | Fleet writes, Bridge reads | `Vec<PullReviewThread>`, left out when empty: `id`, `path`, `line?`, `side`, `resolved`, `comments[]`. A page whose threads the forge would not give is a 500 `fleet.pull_request_unreadable`, not a page |
+| `PullRequestEntry.id`, `.edited_at`, `.bot` | Fleet writes, Bridge reads | The forge's own id for a comment or a review, always. `edited_at` is left out when it was never edited, and always where Fleet read the page through `gh pr view`, which gives no edit time. `bot` is left out for a person, and `gh pr view` gives no author type, so a bot it read is one only where its login ends `[bot]` |
+| `PullReviewThreadComment.edited_at`, `.bot` | Fleet writes, Bridge reads | As on `PullRequestEntry`. The threads are one GraphQL read on both paths, so both are always read |
 | `WritePullRequest.comments` | Bridge writes, Fleet reads | `Vec<PullReviewComment>`, left out when empty: `kind` `line` (path, line, side), `file` (path) or `reply` (thread), each with `body`. Set, the write is one review with `kind` as the verdict, and `body` may be empty |
 | `WritePullRequest.commit` | Bridge writes, Fleet reads | The commit the person read, left out for the branch as it stands |
 | Fleet's check (`pull_request_panel.rs`, `write_of`) | Fleet refuses | 422 `fleet.pull_request_write_blank` for a comment with a blank `body`, as for a plain comment, nothing sent to the forge |

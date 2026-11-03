@@ -50,6 +50,7 @@ import type {
   StartWhen,
 } from "@armada/screens/src/draft/sessions";
 import { conditionSaid, firstLineOf, startsFrom } from "@armada/screens/src/session-waits";
+import { evaluateMessage } from "@armada/screens/src/draft/evaluate-comment";
 import { readWait } from "./reads-waits";
 
 /** The draft the window reads, and what only the mock does: take the next turn, stop, and take a claim Fleet would have put in the ledger. */
@@ -1544,15 +1545,21 @@ export function sessionsStore(
             dead: "ended" as const,
           })),
       ),
-    // The comment reads as sent. Nothing reaches an agent here.
-    sendComment: (id, comment) =>
+    // Evaluate's message lands in the Job's thread as his own, and a triaged comment of the same id reads as sent.
+    evaluateComment: async (id, comment) => {
+      store.send(id, {
+        text: evaluateMessage(comment),
+        files: [],
+        sketches: [],
+        tags: [],
+      });
       edit(id, (one) => {
         const lanes = one.lanes;
         if (lanes?.job.triage === undefined) return one;
         const triage = {
           ...lanes.job.triage,
           comments: lanes.job.triage.comments.map((it) =>
-            it.id === comment
+            it.id === comment.id
               ? {
                   ...it,
                   sent: true as const,
@@ -1570,7 +1577,9 @@ export function sessionsStore(
             },
           },
         };
-      }),
+      });
+      return true;
+    },
     tune: (id, tuning) =>
       edit(id, (one) => {
         const { model, effort, ...rest } = one;

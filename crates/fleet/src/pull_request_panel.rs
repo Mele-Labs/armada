@@ -136,15 +136,35 @@ fn page_of(manifest_id: ManifestId, number: u64, facts: PullRequestPageFacts) ->
             .conversation
             .into_iter()
             .map(|said| match said {
-                Said::Comment { author, at, body } => PullRequestEntry::Comment { author, at, body },
-                Said::Review {
+                Said::Comment {
+                    id,
                     author,
+                    bot,
                     at,
+                    edited_at,
+                    body,
+                } => PullRequestEntry::Comment {
+                    id,
+                    author,
+                    bot,
+                    at,
+                    edited_at,
+                    body,
+                },
+                Said::Review {
+                    id,
+                    author,
+                    bot,
+                    at,
+                    edited_at,
                     verdict,
                     body,
                 } => PullRequestEntry::Review {
+                    id,
                     author,
+                    bot,
                     at,
+                    edited_at,
                     verdict: verdict_of(verdict),
                     body,
                 },
@@ -210,7 +230,9 @@ fn page_of(manifest_id: ManifestId, number: u64, facts: PullRequestPageFacts) ->
                     .map(|said| PullReviewThreadComment {
                         id: said.id,
                         author: said.author,
+                        bot: said.bot,
                         at: said.at,
+                        edited_at: said.edited_at,
                         body: said.body,
                     })
                     .collect(),

@@ -7,6 +7,8 @@ It names the pull request, what happened and the branch.
 For failed checks it lists each failing check with its log address, and the last lines of the first two logs.
 A merge tells the Job to call `finish_up`, which releases its slot and deletes the merged branch, and never to delete the branch by hand or ask the owner to: ending the Job parks its slot and keeps the branch.
 `docs/concepts/fleet.md`, *Telling the owner of a pull request*, has the triggers.
+**A Job is told when a reviewer comments on its pull request (decided 3 Nov 2026).** Fleet files every comment in `comments-<number>.md` in the Job's scratch folder and sends one line naming the file, such as `#53488: 2 new comments from a reviewer, in <file>`.
+The agent reads the file only if it bears on the work, and never replies on the pull request for the owner.
 
 | Job | What happens |
 |---|---|

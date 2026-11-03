@@ -198,6 +198,8 @@ mod promoting;
 pub mod prompts;
 /// What happened to a pull request, told to the Sessions and Jobs that own it.
 mod pull_notices;
+/// Every comment on a pull request, filed for the Job that holds it, and a line when a reviewer speaks.
+mod pull_comments;
 mod pull_waits;
 /// A pull request nobody reported, attached to the Session that worked its branch.
 mod claiming;

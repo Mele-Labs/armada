@@ -93,6 +93,11 @@ export type UnifiedDiffProps = {
   cut?: ReactNode;
   /** Where the reading came from. Under the diff, never inside it. */
   note?: ReactNode;
+  /**
+   * Draw the lines without each file's own header, for a host that has already said which file it is
+   * (a thread on the diff heads itself with `path:line`). The group keeps the path as its name.
+   */
+  bare?: boolean;
   /** A clipboard write is silent, so the surface confirms it with a toast. */
   onCopied?: (value: string) => void;
   /**
@@ -124,6 +129,7 @@ export function UnifiedDiff({
   onCopied,
   under,
   onLine,
+  bare = false,
 }: UnifiedDiffProps) {
   const copy = useCallback(
     (event: MouseEvent<HTMLElement>, value: string) => {
@@ -159,30 +165,32 @@ export function UnifiedDiff({
           data-diff-path={file.path}
           data-folded={file.folded === true || undefined}
         >
-          <header
-            className="armada-diff__head"
-            data-outside={file.outsidePlan === true || undefined}
-          >
-            {/* The title carries the whole path however narrow the pane gets,
+          {bare ? null : (
+            <header
+              className="armada-diff__head"
+              data-outside={file.outsidePlan === true || undefined}
+            >
+              {/* The title carries the whole path however narrow the pane gets,
                 and so does the clipboard: a copy that truncated with the
                 display would be worse than the overflow it was fixing. */}
-            <span
-              className="armada-diff__path"
-              title={file.path}
-              onClick={(event) => copy(event, file.path)}
-            >
-              {file.path}
-            </span>
-            {file.meta === undefined ? null : (
-              <span className="armada-diff__meta">{file.meta}</span>
-            )}
-            <span className="armada-diff__mark">
-              {file.outsidePlan === true ? OUTSIDE_PLAN : null}
-            </span>
-            {file.actions === undefined ? null : (
-              <span className="armada-diff__actions">{file.actions}</span>
-            )}
-          </header>
+              <span
+                className="armada-diff__path"
+                title={file.path}
+                onClick={(event) => copy(event, file.path)}
+              >
+                {file.path}
+              </span>
+              {file.meta === undefined ? null : (
+                <span className="armada-diff__meta">{file.meta}</span>
+              )}
+              <span className="armada-diff__mark">
+                {file.outsidePlan === true ? OUTSIDE_PLAN : null}
+              </span>
+              {file.actions === undefined ? null : (
+                <span className="armada-diff__actions">{file.actions}</span>
+              )}
+            </header>
+          )}
           {/* `pre` per line rather than one block: a hunk header and a changed
               line take different surfaces, and a single block cannot carry
               them. Nothing wraps — a diff that reflowed would move a marker

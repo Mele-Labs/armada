@@ -24,7 +24,14 @@ fn page_changing(paths: &[&str]) -> PullRequestPageFacts {
 }
 
 fn a_bot_saying(body: &str) -> Said {
-    Said::Comment { author: "preview-bot".into(), at: "2026-10-16T09:00:00Z".into(), body: body.into() }
+    Said::Comment {
+        id: "IC_1".into(),
+        author: "preview-bot".into(),
+        bot: true,
+        at: "2026-10-16T09:00:00Z".into(),
+        edited_at: None,
+        body: body.into(),
+    }
 }
 
 fn deployed(address: &str) -> WalkPlace {

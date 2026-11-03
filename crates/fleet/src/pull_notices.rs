@@ -213,6 +213,7 @@ where
             if self.followed_told(served, &base, &before, pull).await {
                 queued.push(pull.number);
             }
+            self.comments_told(served, pull, &mine).await;
         }
         let _ = self.store().lock().await.keep_pulls_queued(&root, &queued);
         self.merges_told(served, &base, &mine).await;
