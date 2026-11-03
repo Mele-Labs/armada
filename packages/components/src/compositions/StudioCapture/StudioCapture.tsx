@@ -51,6 +51,8 @@ export type StudioCaptureProps = {
   aimed: boolean;
   /** The binding that turns capture off, from the action registry. */
   binding: readonly string[];
+  /** What the note's text is kept under while it is typed, as `Textarea`'s `keep`. Absent: it is not kept. */
+  keep?: string;
 };
 
 const place = (box: CaptureBox): CSSProperties =>
@@ -116,6 +118,7 @@ export function StudioCapture(props: StudioCaptureProps) {
     aim,
     aimed,
     binding,
+    keep,
   } = props;
   const savable = aimed && !saving && note.trim() !== "";
 
@@ -218,7 +221,16 @@ export function StudioCapture(props: StudioCaptureProps) {
             data-side={spot?.side}
           >
             <p className="armada-capture__chain">{held.chain}</p>
-            <Textarea label="Note" value={note} onChange={(event) => onNote(event.target.value)} />
+            <Textarea
+              label="Note"
+              value={note}
+              onChange={(event) => onNote(event.target.value)}
+              {...(keep === undefined
+                ? {}
+                : {
+                    keep,
+                  })}
+            />
             {refused === undefined ? null : <p className="armada-capture__refused">{refused}</p>}
             <div className="armada-capture__acts">
               <Button variant="ghost" size="sm" onClick={onCancel}>

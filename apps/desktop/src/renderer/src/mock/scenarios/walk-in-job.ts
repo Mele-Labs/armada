@@ -1,12 +1,12 @@
 // A Job's walk as a tab of the Job, and no window. Three Jobs on the Cockpit: one with two walks, Billing with three takes and five steps and Settings with none and three, one with a single
 // walk, and one running with none. A walk's tab is waiting in its Job's panes before he opens it, the Job's row pulses while it owes him a walk, and each tab pulses until it has been in front
-// of him. Draft data, nothing here reaches Fleet. The walk `walk-in-job` plays it.
+// of him. Draft data, nothing here reaches Fleet. The walks `walk-in-job` and `walk-in-job-notes` play it.
 
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { forgetPanes } from "../../job-panes/store";
-import { forgetWalks } from "../../job-walk/store";
+import { forgetWalks, showAgain, workingJobs } from "../../job-walk/store";
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
@@ -193,7 +193,7 @@ function sessions() {
     forgetPanes();
     forgetWalks();
   }
-  return sessionsStore(
+  const store = sessionsStore(
     [
       account,
       clock,
@@ -208,6 +208,26 @@ function sessions() {
     ]),
     [],
   );
+  // Time passing is the Job done with the notes it was sent: it says so and shows the page again.
+  const passes = store.later;
+  store.later = () => {
+    passes();
+    for (const id of workingJobs()) {
+      store.edit(id, (one) => ({
+        ...one,
+        turn: {
+          state: "idle",
+        },
+        lastTurnAt: new Date().toISOString(),
+        rows: [
+          ...one.rows,
+          agent(`reply-${one.rows.length}`, "14:20:00", "The notes are in and the page is up again."),
+        ],
+      }));
+      showAgain(id);
+    }
+  };
+  return store;
 }
 
 export const walkInJob: Scenario = {

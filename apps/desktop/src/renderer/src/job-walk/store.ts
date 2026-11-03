@@ -2,6 +2,7 @@
 // for another Job and come back to is as he left it, and so is one whose tab was dragged to another pane.
 
 import { useSyncExternalStore } from "react";
+import type { PanelHeldNote } from "@armada/studios/api";
 
 export type WalkState = {
   take: number;
@@ -10,6 +11,8 @@ export type WalkState = {
   /** The tab has been in front of him since it arrived: it stops pulsing. */
   seen: boolean;
   approved: boolean;
+  /** What the Job says of the page: still changing after it took the notes, ready once it shows the page again. Absent until it has said. */
+  readiness?: "ready" | "working";
 };
 
 const FRESH: WalkState = {
@@ -23,6 +26,9 @@ const key = (jobId: string, walk: string) => `${jobId}\n${walk}`;
 let states = new Map<string, WalkState>();
 /** The walks whose tab has been opened once, so one he closes by its × is not opened again. */
 let arrived = new Set<string>();
+/** The notes taken on each Job's walks and not sent. They belong to the Job: leaving it, closing a tab or approving without them leaves them held. */
+let held = new Map<string, readonly PanelHeldNote[]>();
+let minted = 0;
 let version = 0;
 const listeners = new Set<() => void>();
 
@@ -45,6 +51,7 @@ const subscribe = (hear: () => void) => {
 export function forgetWalks(): void {
   states = new Map();
   arrived = new Set();
+  held = new Map();
   version += 1;
   listeners.forEach((hear) => hear());
 }
@@ -87,4 +94,94 @@ export function arrivedBefore(jobId: string, walk: string): boolean {
   if (arrived.has(at)) return true;
   arrived.add(at);
   return false;
+}
+
+// ---- Notes held on a Job ---------------------------------------------------------------------------------
+
+const NONE: readonly PanelHeldNote[] = [];
+
+const changeHeld = (jobId: string, notes: readonly PanelHeldNote[]): void => {
+  held = new Map(held);
+  if (notes.length === 0) held.delete(jobId);
+  else held.set(jobId, notes);
+  version += 1;
+  listeners.forEach((hear) => hear());
+};
+
+/** The notes held on the Job, live. */
+export const useHeldNotes = (jobId: string | undefined): readonly PanelHeldNote[] =>
+  useSyncExternalStore(subscribe, () => (jobId === undefined ? NONE : (held.get(jobId) ?? NONE)));
+
+/** A note taken on `on`, which names the walk and the take it was taken on. */
+export const holdNote = (jobId: string, said: string, on: string): void =>
+  changeHeld(jobId, [
+    ...(held.get(jobId) ?? NONE),
+    {
+      id: `held-${(minted += 1)}`,
+      at: new Date().toISOString(),
+      said,
+      on,
+    },
+  ]);
+
+export function editNote(jobId: string, id: string, said: string): boolean {
+  const notes = held.get(jobId) ?? NONE;
+  if (said.trim() === "" || !notes.some((one) => one.id === id)) return false;
+  changeHeld(
+    jobId,
+    notes.map((one) =>
+      one.id === id
+        ? {
+            ...one,
+            said: said.trim(),
+          }
+        : one,
+    ),
+  );
+  return true;
+}
+
+export function removeNote(jobId: string, id: string): boolean {
+  const notes = held.get(jobId) ?? NONE;
+  if (!notes.some((one) => one.id === id)) return false;
+  changeHeld(
+    jobId,
+    notes.filter((one) => one.id !== id),
+  );
+  return true;
+}
+
+/** The notes the Job holds, taken off it: they are being sent. */
+export function takeHeld(jobId: string): readonly PanelHeldNote[] {
+  const notes = held.get(jobId) ?? NONE;
+  changeHeld(jobId, NONE);
+  return notes;
+}
+
+/** The Job took the notes and is changing its page: each walk it holds reads still changing. */
+export function workingOn(jobId: string, walks: readonly string[]): void {
+  for (const walk of walks)
+    change(jobId, walk, {
+      readiness: "working",
+    });
+}
+
+/** The Jobs with a page they are changing. */
+export const workingJobs = (): string[] => [
+  ...new Set(
+    [
+      ...states,
+    ]
+      .filter(([, one]) => one.readiness === "working")
+      .map(([at]) => at.split("\n")[0]!),
+  ),
+];
+
+/** The Job shows its page again: every walk it was changing is ready. */
+export function showAgain(jobId: string): void {
+  for (const [at, one] of states)
+    if (at.startsWith(`${jobId}\n`) && one.readiness === "working")
+      change(jobId, at.slice(jobId.length + 1), {
+        readiness: "ready",
+      });
 }

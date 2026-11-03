@@ -1,8 +1,19 @@
 // A walk as its Job's tab draws it: the bar at the top, then the page under it. It takes plain props and assumes nothing of the tab around it, so the review sheet can host it too.
 // **The page is a slot.** The mock has no native page view, so it draws a fixture there and rings the step's target in DOM; the real wiring lays Bridge's own page over the same area.
+// **A note is taken as the capture window takes one**: Note arms the page, a press picks what is under it, and a card beside the pick holds the words and Capture. The note is held
+// on the Job, not sent (`docs/practices/capture-window.md`, *Pending notes*).
 
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Button, Textarea, WalkBar } from "@armada/components";
+import {
+  ACTION,
+  StudioCapture,
+  WalkBar,
+  type CaptureBarHeld,
+  type CaptureBarPanel,
+  type CaptureBarReadiness,
+  type CaptureBox,
+} from "@armada/components";
+import { described } from "@armada/screens/src/fixtures/walk-window";
 
 import "./job-walk.css";
 
@@ -20,20 +31,31 @@ export type WalkViewProps = {
   /** The step on screen, from 0. */
   step: number;
   onStep: (to: number) => void;
-  /** Sends a note to the Job the walk belongs to. */
-  onNote: (text: string) => void;
+  /** A note captured: its words, and where it was taken as the walk, the take and the element name it. */
+  onNote: (said: string, on: string) => void;
   onApprove: () => void;
   /** Names what the note's text is kept under while it is typed. */
   noteKey: string;
+  /** What a note goes to, as the capture bar says it: `Onto <the Job>`. */
+  aim: string;
+  /** Notes held on the Job, and the thread beside the walk. */
+  held?: CaptureBarHeld;
+  panel?: CaptureBarPanel;
+  readiness?: CaptureBarReadiness;
   /** The page, drawn in the area under the bar. Mock only. */
   page: ReactNode;
 };
 
-type Box = {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+/** The box of `target` in the page area's own pixels, as it is now; with `scrolled`, in the area's scrolled content. */
+const boxOf = (host: HTMLElement, target: HTMLElement, scrolled: boolean): CaptureBox => {
+  const from = host.getBoundingClientRect();
+  const at = target.getBoundingClientRect();
+  return {
+    x: Math.round(at.left - from.left + (scrolled ? host.scrollLeft : 0)),
+    y: Math.round(at.top - from.top + (scrolled ? host.scrollTop : 0)),
+    width: Math.round(at.width),
+    height: Math.round(at.height),
+  };
 };
 
 export function WalkView({
@@ -47,44 +69,83 @@ export function WalkView({
   onNote,
   onApprove,
   noteKey,
+  aim,
+  held,
+  panel,
+  readiness,
   page,
 }: WalkViewProps) {
   const area = useRef<HTMLDivElement>(null);
-  const [box, setBox] = useState<Box | null>(null);
+  const content = useRef<HTMLDivElement>(null);
+  const [ring, setRing] = useState<CaptureBox | null>(null);
   const [loads, setLoads] = useState(0);
-  const [noting, setNoting] = useState(false);
-  const [text, setText] = useState("");
+  // A note being taken: the page armed for a press, then what the press picked and the words typed.
+  const [armed, setArmed] = useState(false);
+  const [hovered, setHovered] = useState<{
+    box: CaptureBox;
+    named: string;
+  } | null>(null);
+  const [picked, setPicked] = useState<{
+    box: CaptureBox;
+    element: string;
+  } | null>(null);
+  const [said, setSaid] = useState("");
   const aimed = steps[step]?.target;
+  const taken = takes?.[take];
 
-  // The ring is measured after every draw, and kept only when it moved.
+  // The step's ring is measured after every draw, and kept only when it moved.
   useLayoutEffect(() => {
     const host = area.current;
     const target =
       aimed === undefined
         ? null
         : host?.querySelector<HTMLElement>(`[data-walk-target="${aimed}"]`);
-    if (host === null || target === null || target === undefined) return setBox(null);
-    const from = host.getBoundingClientRect();
-    const at = target.getBoundingClientRect();
-    const next = {
-      x: Math.round(at.left - from.left + host.scrollLeft),
-      y: Math.round(at.top - from.top + host.scrollTop),
-      w: Math.round(at.width),
-      h: Math.round(at.height),
-    };
-    setBox((was) =>
-      was !== null && was.x === next.x && was.y === next.y && was.w === next.w && was.h === next.h
+    if (host === null || target === null || target === undefined) return setRing(null);
+    const next = boxOf(host, target, true);
+    setRing((was) =>
+      was !== null &&
+      was.x === next.x &&
+      was.y === next.y &&
+      was.width === next.width &&
+      was.height === next.height
         ? was
         : next,
     );
   });
 
-  const close = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key !== "Escape") return;
-    event.preventDefault();
-    event.stopPropagation();
-    setNoting(false);
+  /** What the page holds under a point on the cover. */
+  const under = (x: number, y: number): HTMLElement | null =>
+    (document
+      .elementsFromPoint(x, y)
+      .find((one) => one !== content.current && content.current?.contains(one)) as
+      | HTMLElement
+      | undefined) ?? null;
+
+  const pick = (target: HTMLElement) => {
+    const host = area.current;
+    if (host === null) return;
+    setHovered(null);
+    setArmed(false);
+    setPicked({
+      box: boxOf(host, target, false),
+      element: described(target),
+    });
   };
+
+  const cancel = () => {
+    setArmed(false);
+    setHovered(null);
+    setPicked(null);
+    setSaid("");
+  };
+
+  const save = () => {
+    if (picked === null || said.trim() === "") return;
+    onNote(said.trim(), [name, taken, picked.element].filter((one) => one !== undefined).join(", "));
+    cancel();
+  };
+
+  const capturing = armed || picked !== null;
 
   return (
     <div className="job-walk">
@@ -106,56 +167,111 @@ export function WalkView({
         said={steps[step]?.say ?? ""}
         onBack={() => onStep(Math.max(0, step - 1))}
         onNext={() => onStep(Math.min(steps.length - 1, step + 1))}
-        noting={noting}
-        onNote={() => setNoting((one) => !one)}
+        noting={armed}
+        onNote={() => (capturing ? cancel() : setArmed(true))}
         onApprove={onApprove}
+        {...(held === undefined
+          ? {}
+          : {
+              held,
+            })}
+        {...(panel === undefined
+          ? {}
+          : {
+              panel,
+            })}
+        {...(readiness === undefined
+          ? {}
+          : {
+              readiness,
+            })}
       />
-      <div className="job-walk__page" ref={area}>
-        <div key={loads}>{page}</div>
-        {box === null ? null : (
+      <div
+        className="job-walk__page"
+        ref={area}
+        onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
+          if (event.key !== "Escape" || !capturing) return;
+          event.preventDefault();
+          event.stopPropagation();
+          cancel();
+        }}
+      >
+        <div key={loads} ref={content}>
+          {page}
+        </div>
+        {ring === null || capturing ? null : (
           <div
             className="job-walk__ring"
             role="img"
             aria-label="The target of this step"
             style={{
-              left: box.x,
-              top: box.y,
-              width: box.w,
-              height: box.h,
+              left: ring.x,
+              top: ring.y,
+              width: ring.width,
+              height: ring.height,
             }}
           />
         )}
-        {!noting ? null : (
-          <form
-            className="job-walk__note"
-            aria-label="Note"
-            onKeyDown={close}
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (text.trim() === "") return;
-              onNote(text.trim());
-              setText("");
-              setNoting(false);
+        {!armed ? null : (
+          <button
+            type="button"
+            className="job-walk__pick"
+            aria-label="Pick on the page"
+            // eslint-disable-next-line jsx-a11y/no-autofocus
+            autoFocus
+            onMouseMove={(event) => {
+              const host = area.current;
+              const hit = under(event.clientX, event.clientY);
+              setHovered(
+                host === null || hit === null
+                  ? null
+                  : {
+                      box: boxOf(host, hit, false),
+                      named: described(hit),
+                    },
+              );
             }}
-          >
-            <Textarea
-              label="Note"
-              rows={3}
-              keep={`walk-note:${noteKey}`}
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              // eslint-disable-next-line jsx-a11y/no-autofocus
-              autoFocus
-            />
-            <div className="job-walk__note-acts">
-              <Button variant="ghost" size="sm" type="button" onClick={() => setNoting(false)}>
-                Close
-              </Button>
-              <Button variant="primary" size="sm" type="submit" disabled={text.trim() === ""}>
-                Send
-              </Button>
-            </div>
-          </form>
+            onClick={(event) => {
+              // From the keyboard, which has no point, the press picks the step's ringed target.
+              const found =
+                event.detail === 0
+                  ? aimed === undefined
+                    ? null
+                    : (area.current?.querySelector<HTMLElement>(`[data-walk-target="${aimed}"]`) ??
+                      null)
+                  : under(event.clientX, event.clientY);
+              if (found !== null) pick(found);
+            }}
+          />
+        )}
+        {!capturing ? null : (
+          <StudioCapture
+            aim={aim}
+            aimed
+            binding={[
+              ...(ACTION.capture_note?.shortcut ?? ""),
+            ]}
+            note={said}
+            onNote={setSaid}
+            onSave={save}
+            onCancel={cancel}
+            keep={`walk-note:${noteKey}`}
+            {...(hovered === null
+              ? {}
+              : {
+                  hovered,
+                })}
+            {...(picked === null
+              ? {}
+              : {
+                  held: {
+                    box: picked.box,
+                    chain: [name, taken, picked.element]
+                      .filter((one) => one !== undefined)
+                      .join(", "),
+                  },
+                })}
+          />
         )}
       </div>
     </div>

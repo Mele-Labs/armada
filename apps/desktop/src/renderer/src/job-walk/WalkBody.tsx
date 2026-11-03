@@ -3,10 +3,20 @@
 import { useEffect } from "react";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
-import { rearrange } from "../job-panes/store";
-import { closeTab, type Tab } from "../job-panes/tree";
+import { focusKind } from "../job-panes/focus";
+import { rearrange, useJobPanes } from "../job-panes/store";
+import { closeTab, panesOf, type Tab } from "../job-panes/tree";
+import { useSendHeld } from "./held";
 import { mockPage } from "./mock-pages";
-import { approveWalk, goToStep, markSeen, pickTake, useWalkState } from "./store";
+import {
+  approveWalk,
+  goToStep,
+  holdNote,
+  markSeen,
+  pickTake,
+  useHeldNotes,
+  useWalkState,
+} from "./store";
 import { walksOf } from "./walks";
 import { WalkView } from "./WalkView";
 
@@ -20,6 +30,13 @@ export function WalkBody({ session, tab }: { session: Session; tab: Tab }) {
   const jobId = session.id;
   const walk = walksOf(session).find((one) => one.id === tab.page);
   const state = useWalkState(jobId, tab.page);
+  const notes = useHeldNotes(jobId);
+  const send = useSendHeld(session);
+  // The thread beside the walk is in front where its pane shows it; the status brings it when it is not.
+  const { arrangement } = useJobPanes(jobId);
+  const threadFront = panesOf(arrangement.root).some(
+    (pane) => pane.tabs.find((one) => one.id === pane.active)?.kind === "thread",
+  );
   // Drawn in front of him: the tab stops pulsing.
   useEffect(() => {
     if (tab.page !== undefined) markSeen(jobId, tab.page);
@@ -39,9 +56,27 @@ export function WalkBody({ session, tab }: { session: Session; tab: Tab }) {
       step={state.step}
       onStep={(to) => goToStep(jobId, walk.id, to)}
       noteKey={`${jobId}:${walk.id}`}
-      // Mock only: a note goes nowhere yet.
-      onNote={() => {}}
+      aim={`Onto ${session.title ?? session.id}`}
+      onNote={(said, on) => holdNote(jobId, said, on)}
       onApprove={() => approveWalkTab(jobId, tab)}
+      {...(notes.length === 0
+        ? {}
+        : {
+            held: {
+              notes: notes.length === 1 ? ("one" as const) : ("several" as const),
+              onSendAndApprove: () => void send().then(() => approveWalkTab(jobId, tab)),
+            },
+          })}
+      panel={{
+        kind: "session",
+        open: threadFront,
+        onToggle: () => focusKind(jobId, "thread"),
+      }}
+      {...(state.readiness === undefined
+        ? {}
+        : {
+            readiness: state.readiness,
+          })}
       page={mockPage(walk.title, take)}
     />
   );
