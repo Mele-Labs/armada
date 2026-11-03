@@ -322,14 +322,11 @@ where
         record.started = reads.started;
         self.rail_drawn(session, &reads.rail, reply_owed_since.as_deref(), &mut record);
         // Held open only when what it waits on is all that is left, read once the rail has drawn its wait: a
-        // turn running, an item owed or a command the agent backgrounded each says more than a watch or a pull request does.
+        // turn running or an item owed says more than a watch or a pull request does. A command the agent
+        // backgrounded does not: nothing on the row speaks for it, and a dev server outlives the work.
         let between = session.state == store::SessionState::Live
             && matches!(record.standing, Some(ipc::SessionStanding::Idle | ipc::SessionStanding::Replied))
-            && record.waiting_for.is_empty()
-            && !record
-                .attachments
-                .iter()
-                .any(|one| one.kind == "background" && one.state == ipc::AttachmentState::Standing);
+            && record.waiting_for.is_empty();
         if between {
             let pulls = record.attachments.iter().filter_map(pull_request_wait);
             record.held_open_by = reads.watching.into_iter().map(|name| ipc::HeldOpenBy::Watch { name }).chain(pulls).collect();
