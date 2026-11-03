@@ -1,4 +1,4 @@
-// A Job's browsers: a page for each Browser tab of the Job's panes, which the Job's agent and the person drive together, drawn in the
+// A Job's browsers: a page for each Browser tab of the Job's panes, which the Job's agent and the person both use at any time, drawn in the
 // tab's pane, or in a window of its own with the Job's thread beside the page, as the walk window draws it. **Main holds the pages**
 // (`main/job-browsers.ts`) and tells this store what each shows; the acts here go to main. The mock has no `jobBrowser` on its bridge, so
 // there this store plays the browser itself over a page drawn from fixtures (`mock/scenarios/job-browser.ts`), **one for the Job**
@@ -6,6 +6,9 @@
 
 import { useSyncExternalStore, type ReactNode } from "react";
 
+import type { BrowserAct } from "@armada/protocol";
+
+import { describeAct } from "../../../shared/browser-act";
 import type { JobBrowserApi, JobBrowserState } from "../../../shared/api/job-browser";
 import {
   effectiveChoice,
@@ -17,9 +20,6 @@ import {
 import { viewingNow } from "../cockpit/viewed";
 import { jobOpens, look, peek } from "../job-panes/store";
 import { activate, panesOf, type Arrangement } from "../job-panes/tree";
-
-/** Who is driving the page: the agent through Armada's tools, or the person, who took it over. */
-export type BrowserDriver = "agent" | "you";
 
 /** A note the person pinned on part of the page, at that part's box within the page. Only the mock draws them. */
 export type BrowserPin = {
@@ -42,7 +42,8 @@ export type JobBrowser = {
   forward: boolean;
   /** Bumped by Reload, so the mock's page is drawn again. */
   loads: number;
-  driver: BrowserDriver;
+  /** The sentence for the agent act running now (`shared/browser-act.ts`); absent at rest. Main does not say yet, so a wired page is at rest. */
+  acting?: string;
   /** In a window of its own, which its pane gives way to. */
   windowed: boolean;
   pins: readonly BrowserPin[];
@@ -104,7 +105,6 @@ export function wireJobBrowsers(api: Wired): () => void {
         back: state.back,
         forward: state.forward,
         loads: was?.loads ?? 0,
-        driver: state.driver === "owner" ? "you" : "agent",
         windowed: state.windowed,
         pins: was?.pins ?? [],
         site: state.site,
@@ -187,7 +187,6 @@ export function seedJobBrowser(
   sessionId: string,
   seed: {
     visited: string[];
-    driver?: BrowserDriver;
     page: (url: string, sessionId: string) => ReactNode;
   },
 ): void {
@@ -205,7 +204,6 @@ export function seedJobBrowser(
       back: false,
       forward: false,
       loads: 0,
-      driver: seed.driver ?? "agent",
       windowed: false,
       pins: [],
       site: NO_SETTINGS,
@@ -237,18 +235,16 @@ function walked(
   moved(sessionId);
 }
 
-/** Take over, or hand back to the agent. */
-export function toggleDriver(sessionId: string, tabId: string): void {
-  if (wired !== undefined) void wired.drive(sessionId, tabId);
-  else
-    edit(keyOf(sessionId, tabId), (one) => ({
-      ...one,
-      driver: one.driver === "agent" ? "you" : "agent",
-      site: {
-        ...one.site,
-        pending: null,
-      },
-    }));
+/** **The mock's**: an agent act starts, or with none ends, as the mark in the toolbar tells it. */
+export function actInMock(sessionId: string, act?: BrowserAct): void {
+  edit(sessionId, ({ acting: _was, ...one }) => ({
+    ...one,
+    ...(act === undefined
+      ? {}
+      : {
+          acting: describeAct(act),
+        }),
+  }));
 }
 
 /** The host a page is on. */
@@ -306,10 +302,9 @@ export function setDefault(
     },
   }));
 }
-/** **The mock's** page asking. While the agent drives it is refused and nothing is kept; a decided site is answered at once; only an undecided one raises the bubble. */
+/** **The mock's** page asking. A decided site is answered at once; only an undecided one raises the bubble. */
 export function requestPermission(sessionId: string, permission: SitePermission): void {
   edit(sessionId, (one) => {
-    if (one.driver !== "you") return one;
     const host = hostOf(one.url);
     if (effectiveChoice(one.site, host, permission) !== "ask") return one;
     return {

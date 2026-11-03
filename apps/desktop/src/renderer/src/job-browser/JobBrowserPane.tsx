@@ -1,4 +1,4 @@
-// The Job browser's pane: a Browser tab's page, which the Job's agent drives with Armada's tools and the person can take over and annotate. In its
+// The Job browser's pane: a Browser tab's page, which the Job's agent works with Armada's tools and the person uses and annotates at any time. In its
 // pane of the Job's panes (`job-panes/bodies.tsx`), or in a window of its own with the thread beside the page. The store says what it holds.
 
 import {
@@ -18,17 +18,18 @@ import {
   ClipboardList,
   Crosshair,
   Download,
+  ExternalLink,
   Image,
   LockKeyhole,
   MapPin,
+  Monitor,
   Network,
   PanelRight,
   Radio,
   RefreshCw,
-  UserCheck,
   type LucideIcon,
 } from "lucide-react";
-import { ACTION, Button, Input, Kbd, Popover, Textarea, Tooltip } from "@armada/components";
+import { ACTION, Button, Dialog, Input, Kbd, Popover, Textarea, Tooltip } from "@armada/components";
 import type { ThreadCard } from "@armada/components";
 
 import { useSessions, useSessionsDraft } from "../sessions-draft";
@@ -53,7 +54,6 @@ import {
   reload,
   setChoice,
   setDefault,
-  toggleDriver,
   urlOf,
   type BrowserPin,
   type JobBrowser,
@@ -61,17 +61,22 @@ import {
 import { takesAnnotateChord } from "./chord";
 import "./job-browser.css";
 
-/** Who drives, and what a press on the mark does: the mark is the toggle. */
-const DRIVER = {
-  agent: {
-    said: "Agent driving. Take over",
-    glyph: <Bot size={16} strokeWidth={2} aria-hidden />,
-  },
-  you: {
-    said: "You're driving. Hand back to the agent",
-    glyph: <UserCheck size={16} strokeWidth={2} aria-hidden />,
-  },
-} as const;
+/** The agent's mark: at rest dim, and while an act runs lit and pulsing, its tooltip the act. A mark and not a press, held in a slot that does not move. */
+function AgentMark({ acting }: { acting: string | undefined }) {
+  const said = acting ?? "No agent act running";
+  return (
+    <Tooltip label={said} asChild>
+      <span
+        className="job-browser__mark"
+        role="img"
+        aria-label={said}
+        data-acting={acting === undefined ? undefined : ""}
+      >
+        <Bot size={16} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+}
 
 /** The walk window's note key, from the action registry rather than retyped: `⌥⌘C`. */
 const CAPTURE = ACTION.capture_note?.shortcut ?? "";
@@ -211,11 +216,11 @@ function FixturePage({
     const into = frame.current;
     const part =
       event.target instanceof HTMLElement ? event.target.closest<HTMLElement>(PART) : null;
-    if (!annotating && browser.driver === "you") return;
-    // The agent's page takes no press but a note's.
+    // The page takes every press but under Capture, which picks a part for a note.
+    if (!annotating) return;
     event.preventDefault();
     event.stopPropagation();
-    if (!annotating || into === null || part === null || !into.contains(part)) return;
+    if (into === null || part === null || !into.contains(part)) return;
     const at = into.getBoundingClientRect();
     const box = part.getBoundingClientRect();
     setPicked({
@@ -234,7 +239,6 @@ function FixturePage({
       ref={frame}
       className="job-browser__page"
       data-annotating={annotating ? "" : undefined}
-      data-driver={browser.driver}
       onClickCapture={pick}
     >
       <div key={`${url}:${browser.loads}`} className="job-browser__document">
@@ -327,7 +331,7 @@ function LivePage({
   const [picture, setPicture] = useState<string>();
   const [picked, setPicked] = useState<Picked>();
   const [ring, setRing] = useState<Box | null>(null);
-  // The app annotation layer, the site-settings popover, the page's ask, a tab's menu and the drop zones of a tab being dragged all lie over the
+  // The app annotation layer, the site-settings popover, the page's ask, a dialog, a tab's menu and the drop zones of a tab being dragged all lie over the
   // page's native view, which would hide them, so while one is up the page is hidden and its picture shown, as under Capture.
   const [layerOn, setLayerOn] = useState(false);
   const held = capturing || layerOn;
@@ -344,7 +348,7 @@ function LivePage({
     const follow = () => {
       setLayerOn(
         document.querySelector(
-          "[data-armada-annotate], .job-browser__site-panel, .job-browser__ask, .armada-dropdown-menu__panel, .job-pane__drops",
+          "[data-armada-annotate], .job-browser__site-panel, .job-browser__ask, .armada-dialog-scrim, .armada-dropdown-menu__panel, .job-pane__drops",
         ) !== null,
       );
       const box = frame.current?.getBoundingClientRect();
@@ -494,7 +498,7 @@ function LivePage({
   );
 }
 
-/** The glyph each permission is known by. Camera and Microphone borrow Image and Radio: the registry has no camera or microphone. */
+/** The glyph each permission is known by. Camera and Microphone borrow Image and Radio, and Fullscreen borrows Monitor: the registry has none of them. */
 const PERMISSION_GLYPH: Record<SitePermission, LucideIcon> = {
   local_network: Network,
   camera: Image,
@@ -503,6 +507,8 @@ const PERMISSION_GLYPH: Record<SitePermission, LucideIcon> = {
   clipboard: ClipboardList,
   location: MapPin,
   downloads: Download,
+  popups: ExternalLink,
+  fullscreen: Monitor,
 };
 
 /** A row of segments of which one is chosen: arrows move the choice, and Tab stops once. */
@@ -510,7 +516,6 @@ function Segments<T extends string>({
   label,
   value,
   options,
-  disabled,
   onChange,
 }: {
   label: string;
@@ -519,7 +524,6 @@ function Segments<T extends string>({
     value: T;
     label: string;
   }[];
-  disabled?: boolean;
   onChange: (value: T) => void;
 }) {
   const move = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -529,7 +533,7 @@ function Segments<T extends string>({
         : event.key === "ArrowLeft" || event.key === "ArrowUp"
           ? -1
           : 0;
-    if (step === 0 || disabled === true) return;
+    if (step === 0) return;
     event.preventDefault();
     const at = options.findIndex((one) => one.value === value);
     const next = options[(at + step + options.length) % options.length]!;
@@ -547,7 +551,6 @@ function Segments<T extends string>({
           data-value={one.value}
           aria-checked={one.value === value}
           tabIndex={one.value === value ? 0 : -1}
-          disabled={disabled === true}
           onClick={() => onChange(one.value)}
         >
           {one.label}
@@ -572,19 +575,23 @@ const CHOICE_OPTIONS = CHOICES.map((one) => ({
   label: one.label,
 }));
 
-/** Site settings: what the page may use, for this site and as the default for every one. Changing them takes the page over. */
+/** What a press on Allow for Local network asks first: the site's, or every site's. */
+type LocalNetworkAsk = "site" | "all";
+
+/** Site settings: what the page may use, for this site and as the default for every one. Allow on Local network is asked about first, by `onAsk`. */
 function SiteSettingsPanel({
   sessionId,
   tabId,
   browser,
+  onAsk,
 }: {
   sessionId: string;
   tabId: string;
   browser: JobBrowser;
+  onAsk: (scope: LocalNetworkAsk) => void;
 }) {
   const [view, setView] = useState<"site" | "all">("site");
   const host = hostOf(urlOf(browser));
-  const locked = browser.driver !== "you";
   return (
     <div className="job-browser__site-panel">
       <Segments label="Settings for" value={view} options={VIEWS} onChange={setView} />
@@ -592,24 +599,24 @@ function SiteSettingsPanel({
       <ul className="job-browser__permissions">
         {SITE_PERMISSIONS.map(({ permission, label }) => {
           const Glyph = PERMISSION_GLYPH[permission];
+          const value =
+            view === "site"
+              ? effectiveChoice(browser.site, host, permission)
+              : browser.site.defaults[permission];
           return (
             <li key={permission} className="job-browser__permission">
               <Glyph size={16} strokeWidth={2} aria-hidden />
               <span className="job-browser__permission-label">{label}</span>
               <Segments<Choice>
                 label={label}
-                value={
-                  view === "site"
-                    ? effectiveChoice(browser.site, host, permission)
-                    : browser.site.defaults[permission]
-                }
+                value={value}
                 options={CHOICE_OPTIONS}
-                disabled={locked}
-                onChange={(choice) =>
-                  view === "site"
-                    ? setChoice(sessionId, tabId, host, permission, choice)
-                    : setDefault(sessionId, tabId, permission, choice)
-                }
+                onChange={(choice) => {
+                  if (permission === "local_network" && choice === "allow" && value !== "allow")
+                    onAsk(view);
+                  else if (view === "site") setChoice(sessionId, tabId, host, permission, choice);
+                  else setDefault(sessionId, tabId, permission, choice);
+                }}
               />
             </li>
           );
@@ -647,7 +654,14 @@ function AskBubble({
     SITE_PERMISSIONS.find((one) => one.permission === asked.permission)?.label ?? asked.permission;
   return (
     <div className="job-browser__ask" role="alertdialog" aria-label="Site request">
-      <span>{`${asked.host} wants to use ${label}`}</span>
+      <span className="job-browser__ask-words">
+        <span>{`${asked.host} wants to use ${label}`}</span>
+        {asked.permission === "local_network" ? (
+          <span className="job-browser__ask-risk">
+            It can reach apps on this Mac and devices on your network.
+          </span>
+        ) : null}
+      </span>
       <div className="job-browser__ask-acts">
         <Button variant="ghost" size="sm" onClick={() => answerRequest(sessionId, tabId, "block")}>
           Block
@@ -664,7 +678,22 @@ function AskBubble({
   );
 }
 
-/** The lock before the address: site settings in a popover, and the page's ask under it. */
+/** What each Local network confirmation says: the site's own, and the one for every site. */
+const LOCAL_NETWORK = {
+  site: (host: string) => ({
+    title: `Allow local network for ${host}?`,
+    body: "This site can reach apps on this Mac and devices on your network. That includes pages the agent opens on it.",
+  }),
+  all: () => ({
+    title: "Allow local network on all sites?",
+    body: "Every site can reach apps on this Mac and devices on your network. That includes pages the agent opens.",
+  }),
+} as const;
+
+/**
+ * The lock before the address: site settings in a popover, and the page's ask under it. Allow on Local network is confirmed in a
+ * Dialog first, held here beside the popover, which is put away while it is asked: Esc cancels, Enter confirms.
+ */
 function SiteLock({
   sessionId,
   tabId,
@@ -674,27 +703,67 @@ function SiteLock({
   tabId: string;
   browser: JobBrowser;
 }) {
-  const said = browser.driver === "you" ? "Site settings" : "Take over to change site settings";
+  const [asking, setAsking] = useState<{
+    scope: LocalNetworkAsk;
+    host: string;
+  } | null>(null);
+  const said =
+    asking === null
+      ? null
+      : asking.scope === "site"
+        ? LOCAL_NETWORK.site(asking.host)
+        : LOCAL_NETWORK.all();
+  const done = () => setAsking(null);
   return (
     <span className="job-browser__site">
       <Popover
         label="Site settings"
         trigger={
-          <Tooltip label={said}>
-            <Button variant="ghost" size="sm" iconOnly aria-label={said}>
+          <Tooltip label="Site settings">
+            <Button variant="ghost" size="sm" iconOnly aria-label="Site settings">
               <LockKeyhole size={16} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>
         }
       >
-        <SiteSettingsPanel sessionId={sessionId} tabId={tabId} browser={browser} />
+        {(close) => (
+          <SiteSettingsPanel
+            sessionId={sessionId}
+            tabId={tabId}
+            browser={browser}
+            onAsk={(scope) => {
+              setAsking({
+                scope,
+                host: hostOf(urlOf(browser)),
+              });
+              close();
+            }}
+          />
+        )}
       </Popover>
       <AskBubble sessionId={sessionId} tabId={tabId} browser={browser} />
+      <Dialog
+        open={asking !== null}
+        title={said?.title ?? ""}
+        tone="neutral"
+        initialFocus="confirm"
+        confirmLabel="Allow"
+        onCancel={done}
+        onConfirm={() => {
+          if (asking === null) return;
+          if (asking.scope === "site")
+            setChoice(sessionId, tabId, asking.host, "local_network", "allow");
+          else setDefault(sessionId, tabId, "local_network", "allow");
+          done();
+        }}
+      >
+        {said?.body}
+      </Dialog>
     </span>
   );
 }
 
-/** The address: the page's, and while the person drives, one he types, which Enter goes to. */
+/** The address: the page's, or one typed, which Enter goes to. */
 function Address({
   sessionId,
   tabId,
@@ -712,16 +781,14 @@ function Address({
       url,
     ],
   );
-  const driving = browser.driver === "you";
   return (
     <Input
       aria-label="Address"
       mono
-      readOnly={!driving}
-      value={driving ? typed : url}
+      value={typed}
       onChange={(event) => setTyped(event.target.value)}
       onKeyDown={(event) => {
-        if (event.key !== "Enter" || !driving) return;
+        if (event.key !== "Enter") return;
         event.preventDefault();
         const to = typed.trim();
         if (to !== "" && to !== url) navigate(sessionId, tabId, to);
@@ -731,7 +798,7 @@ function Address({
 }
 
 /**
- * The pane: who is driving, which a press on its mark changes; Back, Forward and Reload; the address; Capture, the walk window's
+ * The pane: the agent's mark, lit while an act runs; Back, Forward and Reload; the address; Capture, the walk window's
  * note control. A page in a window of its own is moved back to its pane from the window, or from the pane it left, which draws none of it.
  */
 export function JobBrowserPane({
@@ -758,7 +825,6 @@ export function JobBrowserPane({
     ],
   );
   useEffect(() => takesAnnotateChord(() => setCapturing((was) => !was)), []);
-  const driver = DRIVER[browser.driver];
   // The page is in the window the pane gave way to, and only one of the two places it.
   const away = placed === "pane" && browser.windowed;
   const keys = (event: KeyboardEvent<HTMLElement>) => {
@@ -792,18 +858,7 @@ export function JobBrowserPane({
       onKeyDown={keys}
     >
       <header className="job-browser__head">
-        <Tooltip label={driver.said}>
-          <Button
-            variant="ghost"
-            size="sm"
-            iconOnly
-            data-driver={browser.driver}
-            aria-label={driver.said}
-            onClick={() => toggleDriver(sessionId, tabId)}
-          >
-            {driver.glyph}
-          </Button>
-        </Tooltip>
+        <AgentMark acting={browser.acting} />
         <span className="job-browser__acts">
           <IconAct
             label="Back"

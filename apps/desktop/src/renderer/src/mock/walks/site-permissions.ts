@@ -1,9 +1,8 @@
-// Site settings in the Job browser: the lock before the address opens what the page may use, for this site and as the default for
-// every site, and a page that asks raises a bubble under the lock. While the agent drives the choices are fixed and a page's ask is
-// refused unseen. Mock only: nothing is wired. Over the `job-layouts` scenario, with the person taking the page over first.
+// Site settings in the Job browser: the lock before the address opens what the page may use, for this site and as the default for every site, and a page that asks
+// raises a bubble under the lock. Allow on Local network is confirmed first, with the risk said. Always open to the person. Mock only: nothing is wired. Over the `job-layouts` scenario.
 
-import { button, deckRow, dialog, inside, region, role, tab, walk } from "../walk";
-import type { Step } from "../walk";
+import { button, deckRow, dialog, inside, region, role, tab, text, walk } from "../walk";
+import type { Step, Target } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const pane = (name: string) =>
@@ -61,6 +60,17 @@ const view = (name: string) =>
 const okta = inside(page, button("Connect Okta Verify"));
 const bubble = inside(browser, role("alertdialog", "Site request"));
 
+const confirm = (title: string) => inside(browser, dialog(title));
+const site = confirm("Allow local network for localhost:5173?");
+const everywhere = confirm("Allow local network on all sites?");
+const inDialog = (target: Target, name: string) =>
+  inside(
+    target,
+    button(name, {
+      exact: true,
+    }),
+  );
+
 const steps: Step[] = [
   toSessions,
   {
@@ -81,37 +91,69 @@ const steps: Step[] = [
     say: "Browser",
   },
   {
-    press: inside(browser, button(/^Agent driving/)),
-    say: "Take the page over",
-  },
-  {
-    look: browser,
-    say: "The Job browser, with you driving",
-  },
-  {
     press: lock,
     say: "The lock before the address opens Site settings",
   },
   {
     look: inside(
       settings,
-      role("radiogroup", "Local network", {
+      role("radiogroup", "Fullscreen", {
         exact: true,
       }),
     ),
-    say: "Seven permissions, each Ask, Allow or Block",
+    say: "Popups and Fullscreen follow Downloads",
   },
   {
-    press: choose("Notifications", "Block"),
-    say: "Notifications, Block, for this site",
+    press: choose("Local network", "Allow"),
+    say: "Allow on Local network asks first",
+  },
+  {
+    look: site,
+    say: "The confirmation names the site and what it can reach",
+  },
+  {
+    press: inDialog(site, "Cancel"),
+    say: "Cancel",
+  },
+  {
+    press: lock,
+    say: "Local network is still Ask",
+  },
+  {
+    press: choose("Local network", "Allow"),
+    say: "Allow again",
+  },
+  {
+    press: inDialog(site, "Allow"),
+    say: "Allow confirms. Enter does too",
+  },
+  {
+    press: lock,
+    say: "Reopen Site settings",
   },
   {
     press: view("All sites"),
     say: "All sites edits the defaults",
   },
   {
-    press: choose("Camera", "Block"),
-    say: "Camera, Block, everywhere",
+    press: choose("Local network", "Allow"),
+    say: "Allow on Local network for every site",
+  },
+  {
+    look: everywhere,
+    say: "Its own confirmation",
+  },
+  {
+    press: inDialog(everywhere, "Cancel"),
+    say: "Cancel",
+  },
+  {
+    press: lock,
+    say: "Reopen Site settings",
+  },
+  {
+    press: choose("Local network", "Ask"),
+    say: "Back to Ask for this site, which needs no confirmation",
   },
   {
     press: lock,
@@ -122,8 +164,8 @@ const steps: Step[] = [
     say: "The page asks for the local network",
   },
   {
-    look: bubble,
-    say: "The site and what it wants, with Block and Allow",
+    look: inside(bubble, text("It can reach apps on this Mac and devices on your network.")),
+    say: "The ask says what Local network reaches",
   },
   {
     press: inside(
@@ -132,35 +174,7 @@ const steps: Step[] = [
         exact: true,
       }),
     ),
-    say: "Allow",
-  },
-  {
-    press: lock,
-    say: "Reopen Site settings",
-  },
-  {
-    look: choose("Local network", "Allow"),
-    say: "Local network now shows Allow for this site",
-  },
-  {
-    press: lock,
-    say: "Close",
-  },
-  {
-    press: inside(browser, button(/^You're driving/)),
-    say: "Hand back to the agent",
-  },
-  {
-    look: inside(browser, button("Take over to change site settings")),
-    say: "The lock says why the choices are fixed",
-  },
-  {
-    press: okta,
-    say: "The page asks again",
-  },
-  {
-    look: page,
-    say: "No bubble appears while the agent drives",
+    say: "Allow needs no second press",
   },
 ];
 

@@ -7,11 +7,13 @@ export type SitePermission =
   | "notifications"
   | "clipboard"
   | "location"
-  | "downloads";
+  | "downloads"
+  | "popups"
+  | "fullscreen";
 
 export type Choice = "ask" | "allow" | "block";
 
-/** The seven, in the order they are listed. */
+/** The nine, in the order they are listed. */
 export const SITE_PERMISSIONS: readonly {
   permission: SitePermission;
   label: string;
@@ -43,6 +45,14 @@ export const SITE_PERMISSIONS: readonly {
   {
     permission: "downloads",
     label: "Downloads",
+  },
+  {
+    permission: "popups",
+    label: "Popups",
+  },
+  {
+    permission: "fullscreen",
+    label: "Fullscreen",
   },
 ];
 
@@ -86,7 +96,9 @@ export const NO_SETTINGS: SiteSettings = {
     notifications: "ask",
     clipboard: "ask",
     location: "ask",
-    downloads: "block",
+    downloads: "ask",
+    popups: "allow",
+    fullscreen: "allow",
   },
   pending: null,
 };
