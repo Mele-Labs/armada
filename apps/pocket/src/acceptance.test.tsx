@@ -1049,4 +1049,37 @@ describe("the lists stay fresh", {
     await until(() => connects() === 3);
     await until(() => listReads().length === 3);
   });
+
+  describe("coming back to the app", () => {
+    const seen = (state: "hidden" | "visible") => {
+      Object.defineProperty(document, "visibilityState", {
+        value: state,
+        configurable: true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+    };
+    const away = async (path: string, ms: number) => {
+      await begin();
+      window.history.replaceState(null, "", path);
+      const left = Date.now();
+      seen("hidden");
+      const clock = vi.spyOn(Date, "now").mockReturnValue(left + ms);
+      seen("visible");
+      clock.mockRestore();
+      return window.location.pathname;
+    };
+    const JOB = `/jobs/${encodeURIComponent(STUDIO)}/a2`;
+
+    it("opens on the list after five minutes on a Job", async () => {
+      expect(await away(JOB, 5 * 60_000)).toBe("/");
+    });
+
+    it("stays on the Job after a quick switch", async () => {
+      expect(await away(JOB, 5 * 60_000 - 1)).toBe(JOB);
+    });
+
+    it("stays on Dispatch however long, since he may be typing there", async () => {
+      expect(await away("/dispatch", 60 * 60_000)).toBe("/dispatch");
+    });
+  });
 });

@@ -31,6 +31,10 @@ Dispatch, Enter breaks the line and only the button sends.
 `src/viewport.ts` sizes the app to the visual viewport, so a screen's bottom bar
 and the message box sit above the keyboard, which iOS leaves the layout under.
 
+Back after five minutes or more on a Job, a draft, or a file or sketch it
+showed, the app opens on the list (`homeWhenBack` in `src/router.tsx`). A quick
+switch stays where it was, and so do Dispatch and Pair.
+
 Every call is signed with that Mac's key in `src/client.ts`. Each key is made
 when its Mac is paired, non-extractable, and kept in IndexedDB
 (`src/machines.ts`). `public/sw.js` is the service worker; a tapped push opens
