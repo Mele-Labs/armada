@@ -48,7 +48,9 @@ export type SessionUsage = {
  * One thing a session took or did. `kind` is open: `slot`, `branch`, `pr`,
  * `job`, `studio`, `subagent` and `message` today, and a word Fleet has not met
  * is kept as it arrived. `target` is what the kind is of: a slot number, a
- * branch, a pull request number, a Job id.
+ * branch, a pull request number, a Job id. An `issue` row's `detail`, once the tracker is read, carries
+ * `title`, `state` (`open` or `closed`), `status` (the tracker's own word for it, such as `Ready for QA`,
+ * as a Ticket lifecycle reads it and `teach_ticket_word` takes it) and `address`.
  */
 export type Attachment = {
   kind: string;

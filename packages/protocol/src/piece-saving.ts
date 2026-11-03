@@ -69,6 +69,29 @@ export type LifecyclePieceSaved = {
   replaced: boolean;
 };
 
+/**
+ * `teach_ticket_word`'s body (`POST /lifecycles/ticket/teach`): a tracker's own status read as one state of the Ticket, from the menu on a
+ * ticket. Fleet puts `word` on `state` in the Ticket lifecycle Kit holds for the repository's Workspace, takes it off any other state, and
+ * adds it to the copy every live Job there froze. 422 `fleet.piece_unfit` where the result does not parse; 404 where Fleet serves no such
+ * repository.
+ */
+export type TeachTicketWord = {
+  /** The repository the ticket was read in. */
+  manifest_id: string;
+  /** The tracker's status as it said it, such as `Ready for QA`. Matched exactly, so its case is kept. */
+  word: string;
+  /** The Ticket state it reads as: `todo`, `in_progress`, `in_review` or `closed`. */
+  state: string;
+};
+
+/** What `teach_ticket_word` wrote. */
+export type TicketWordTaught = {
+  /** The Ticket lifecycle as written to Kit. */
+  saved: LifecyclePieceSaved;
+  /** The live Jobs whose own copy took the word, by session id. */
+  jobs: string[];
+};
+
 /** `delete_lifecycle_piece`'s body (`POST /lifecycles/pieces/delete`): delete the Kit file that declares this piece. 422 `fleet.piece_not_kept` where Kit holds none. */
 export type DeleteLifecyclePiece = {
   kind: LifecyclePieceKind;

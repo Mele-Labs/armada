@@ -310,10 +310,16 @@ export function wireOf(
         lifecycle: one.lifecycle,
         key: one.id,
         label: one.label,
-        standing: {
-          kind: "in",
-          state: one.state,
-        },
+        standing:
+          one.unmapped === undefined
+            ? {
+                kind: "in",
+                state: one.state,
+              }
+            : {
+                kind: "unmapped",
+                said: one.unmapped,
+              },
         links: linked(one),
       }),
     ),

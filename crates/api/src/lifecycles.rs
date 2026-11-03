@@ -110,6 +110,18 @@ pub(crate) async fn save_lifecycle_piece<D: Lifecycles>(State(served): State<Ser
     }
 }
 
+/// A tracker's status read as one Ticket state, in the Workspace's Ticket and every live Job's copy.
+pub(crate) async fn teach_ticket_word<D: Lifecycles>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: ipc::TeachTicketWord = match ipc::decode_body("a ticket's status to teach", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().teach_ticket_word(asked).await {
+        Ok(taught) => answer(StatusCode::OK, &taught, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Delete the Kit file that declares one piece.
 pub(crate) async fn delete_lifecycle_piece<D: Lifecycles>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let asked: ipc::DeleteLifecyclePiece = match ipc::decode_body("a piece to delete", &body) {

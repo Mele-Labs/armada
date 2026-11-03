@@ -369,4 +369,9 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/lifecycles/pieces/delete",
     },
+    Route {
+        operation: "teach_ticket_word",
+        method: "POST",
+        path: "/lifecycles/ticket/teach",
+    },
 ];

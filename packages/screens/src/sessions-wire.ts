@@ -641,6 +641,11 @@ export function attachmentsOfRecord(
           title: detail["title"] ?? "",
           address: detail["address"] ?? "",
           state: detail["state"] === "closed" ? "closed" : "open",
+          ...(detail["status"] === undefined || detail["status"] === ""
+            ? {}
+            : {
+                status: detail["status"],
+              }),
           ...(pulls.length === 0
             ? {}
             : {

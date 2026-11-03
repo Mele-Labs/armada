@@ -19,6 +19,8 @@ import type {
   RepositoryLifecycles,
   RepositoryWorkspaces,
   SaveLifecyclePiece,
+  TeachTicketWord,
+  TicketWordTaught,
   WorkflowChange,
 } from "@armada/protocol";
 import type { LifecyclesActed } from "../shared/api/lifecycles";
@@ -91,6 +93,11 @@ export class LifecyclesHost {
   /** `POST /lifecycles/pieces/save`. */
   save(body: SaveLifecyclePiece): Promise<LifecyclesActed<LifecyclePieceSaved>> {
     return this.send("/lifecycles/pieces/save", body);
+  }
+
+  /** `POST /lifecycles/ticket/teach`. */
+  teach(body: TeachTicketWord): Promise<LifecyclesActed<TicketWordTaught>> {
+    return this.send("/lifecycles/ticket/teach", body);
   }
 
   /** `POST /lifecycles/pieces/delete`. */

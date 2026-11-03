@@ -31,6 +31,15 @@ import { jobIdOf } from "@armada/shell";
 
 import { useSessions } from "../sessions-draft";
 import {
+  readTicketStates,
+  teachTicketWord,
+  ticketStateOf,
+  ticketWordEntries,
+  ticketWordOf,
+  ticketMarkOf,
+  useTicketStates,
+} from "../ticket-word-menu";
+import {
   askedOf,
   bandsIn,
   issueHoldings,
@@ -233,12 +242,29 @@ export function IssuesList({
       shortcut: capOf(ISSUES_KEYS.describe),
     },
   ];
-  // A right press on the list, or the menu key on a row, opens the View menu (`row-view.ts`) where it was pressed.
+  // A right press on the list, or the menu key on a row, opens the View menu (`row-view.ts`) where it was pressed. On a ticket's row the
+  // Ticket states come first, the one the ticket's status reads as ticked once the lifecycle is read again.
   const [menu, setMenu] = useState<{
     x: number;
     y: number;
     row: HTMLElement | null;
+    ticket?: TicketAt;
   }>();
+  const openMenu = (x: number, y: number, row: HTMLElement | null) => {
+    const ticket = ticketAt(row);
+    setMenu({
+      x,
+      y,
+      row,
+      ...(ticket === undefined
+        ? {}
+        : {
+            ticket,
+          }),
+    });
+    if (ticket !== undefined) readTicketStates(ticket.manifestId);
+  };
+  const states = useTicketStates(menu?.ticket?.manifestId);
   const [view, toggleField] = useIssueView();
   const triggerLabel =
     here === DESCRIBE
@@ -254,11 +280,7 @@ export function IssuesList({
         const target = event.target as Element;
         if (target.closest("input, textarea, [role='menu']") !== null) return;
         event.preventDefault();
-        setMenu({
-          x: event.clientX,
-          y: event.clientY,
-          row: target.closest<HTMLElement>(".issues-row"),
-        });
+        openMenu(event.clientX, event.clientY, target.closest<HTMLElement>(".issues-row"));
       }}
       onKeyDown={(event) => {
         if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
@@ -266,11 +288,7 @@ export function IssuesList({
         if (row === null) return;
         event.preventDefault();
         const box = row.getBoundingClientRect();
-        setMenu({
-          x: box.left + box.width / 2,
-          y: box.bottom,
-          row,
-        });
+        openMenu(box.left + box.width / 2, box.bottom, row);
       }}
     >
       {only !== undefined && only.tracker.state === "refused" ? (
@@ -370,13 +388,27 @@ export function IssuesList({
             y: menu.y,
           }}
           open
-          entries={issueViewEntries(view)}
+          entries={[
+            ...(menu.ticket === undefined
+              ? []
+              : [
+                  ...ticketWordEntries(menu.ticket.reference, menu.ticket.word, states),
+                  {
+                    kind: "separator",
+                    id: "ticket-word-rule",
+                  } as const,
+                ]),
+            ...issueViewEntries(view),
+          ]}
           onOpenChange={(open) => {
             if (open) return;
             setMenu(undefined);
             menu.row?.focus();
           }}
           onSelect={(chosen) => {
+            const state = ticketStateOf(chosen);
+            if (state !== undefined && menu.ticket !== undefined)
+              return void teachTicketWord(menu.ticket.manifestId, menu.ticket.word, state);
             const field = issueFieldOf(chosen);
             if (field === undefined) return;
             toggleField(field);
@@ -389,6 +421,24 @@ export function IssuesList({
     </section>
   );
 }
+
+/** The ticket a row stands for, as the row names it. */
+type TicketAt = {
+  manifestId: string;
+  reference: string;
+  word: string;
+};
+
+const ticketAt = (row: HTMLElement | null): TicketAt | undefined => {
+  const { manifest, reference, word } = row?.dataset ?? {};
+  return manifest === undefined || reference === undefined || word === undefined
+    ? undefined
+    : {
+        manifestId: manifest,
+        reference,
+        word,
+      };
+};
 
 /** Whether a report answers the words in the bar: its title or the Job it came from. */
 const reportMatches = (report: ReportedBug, words: string): boolean => {
@@ -902,6 +952,11 @@ function Row({
     })),
   );
   const tone = toneOfHolders(holders);
+  const word = ticketWordOf(
+    ticket.fields.find((one) => one.name === "Status")?.values[0],
+    ticket.state,
+  );
+  const read = ticketMarkOf(useTicketStates(band.manifestId), word);
   const lines = [
     !view.job || holders.length === 0 ? null : (
       <span key="held" className="issues-row__held">
@@ -929,6 +984,9 @@ function Row({
         className="issues-row"
         selected={open}
         data-tone={tone}
+        data-manifest={band.manifestId}
+        data-reference={ticket.reference}
+        data-word={word}
         needs={view.state && tone === "ask" && !open}
         aria-label={`${ticket.reference} ${ticket.title}`}
         onClick={() => store.open(band.manifestId, ticket.reference)}
@@ -940,9 +998,20 @@ function Row({
               {ticket.linked_pull_request ? <LinkedPullRequestMark /> : null}
             </ListCardMark>
             <ListCardMark>
-              {!view.state ? null : ticket.state === "closed" ? (
+              {!view.state ? null : read !== undefined ? (
+                <Tooltip label={read.said}>
+                  <span className="issues-mark" role="img" aria-label={read.said}>
+                    <read.Glyph size={12} strokeWidth={2} aria-hidden />
+                  </span>
+                </Tooltip>
+              ) : ticket.state === "closed" ? (
                 <ClosedMark />
-              ) : loudestHolder(holders) === undefined ? null : (
+              ) : null}
+            </ListCardMark>
+            <ListCardMark>
+              {!view.state ||
+              ticket.state === "closed" ||
+              loudestHolder(holders) === undefined ? null : (
                 <JobMark session={loudestHolder(holders)!} />
               )}
             </ListCardMark>

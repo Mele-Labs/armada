@@ -1318,6 +1318,32 @@ Any other kind, or a piece main does not hold, is a 422 `fleet.commit_refused`.
 Were a pair to meet anyway, a Fleet without the routes answers 404, and one without `remove` refuses a commit body that carries it, since `CommitToRepository` denies unknown fields, so a removal is never read as a copy.
 **No event.** Nothing is published: a save is read by the next read.
 
+## A ticket's status taught: `teach_ticket_word`, and `status` on an `issue` row
+
+Since 3 Nov 2026. `crates/ipc/src/piece_saving.rs` and `crates/fleet/src/piece_saving/teaching.rs`.
+**Additive only**: one operation, one route and one detail key, all new.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `teach_ticket_word` (`POST /lifecycles/ticket/teach`, Bridge only) | Bridge sends, Fleet answers 200 | `TeachTicketWord` `{ manifest_id, word, state }`; answers `TicketWordTaught` `{ saved, jobs }`, `saved` a `LifecyclePieceSaved` and `jobs` the session ids of the live Jobs whose copy took the word. 422 `fleet.piece_unfit`; 404 for a repository Fleet does not serve; 500 `fleet.piece_unwritable` |
+| `status` in an `issue` row's `detail` | Fleet writes, Bridge reads | The tracker's own word for the issue's state, as the Ticket lifecycle reads it: its `Status` field, else `Open` or `Closed`. Written beside `state` each time the issue ledger reads the tracker |
+| `bridge:teach-ticket-word` (`teachTicketWord`) | Renderer asks main | The body above, checked for its shape in main before Fleet is asked |
+
+**The Ticket that runs for the repository is the start**, so the words its tracker declares and those a person listed carry over.
+`word` is taken off every state that lists it, matched exactly, and added to `state`'s.
+It is written through `save_lifecycle_piece`'s own save, with overwrite, at one scope.
+That scope is the running Ticket's own where it is scoped to the repository or to a Workspace, since a Kit file there outranks a committed one at the same reach.
+Otherwise it is the Workspace that holds the repository, the lowest id where several do, and else the repository itself.
+A repository's committed `.armada/` is never written.
+**Every live Job the scope reaches has the same move made on its own copy's Ticket**, so what it changed in its copy stays.
+This is the one place a Job's frozen copy changes after it starts, by the owner's choice: a ticket in front of him moves the moment he says what its status means.
+Each ticket those Jobs hold whose last tracker word is `word` is read again against the Ticket it read before, so the move is recorded and `job_lifecycles.changed` goes out without waiting for the tracker's next read.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream gains no event**, but one teaching publishes a burst: `job_lifecycles.changed` for each ticket that moved and the row and lanes of each Job whose copy took the word.
+The burst is bounded by the live Jobs in the scope and adds nothing the unbounded WebSocket sink does not already carry; it does not make that sink safer.
+
 ## A document asks for his approval: `answer_document`, `document` on `WaitingSource`, and `asked`, `revision`, `kept_at` and `settled` on a document
 
 Since 30 Oct 2026. `crates/ipc/operations/answer_document.toml`, `crates/fleet/src/session_host/document_answers.rs`.
