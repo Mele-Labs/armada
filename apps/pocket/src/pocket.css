@@ -348,12 +348,15 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
   padding: 0;
 }
 
+/* Each column stops at the screen's width: an auto one grows to its widest line, and the whole thread then pans sideways. */
 .pk-trailing {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
 }
 .pk-ask {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
 }
 .pk-ask .pk-question {
@@ -447,7 +450,11 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
 /* A Run card and a Draft card at the thread's end, their presses at the footer's end. */
 .pk-card {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
+}
+.pk-card .armada-card-title {
+  white-space: normal;
 }
 .pk-card__command {
   display: block;
