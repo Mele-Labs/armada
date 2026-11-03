@@ -79,6 +79,8 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/sessions/waiting/answer", post(forward::forward))
         .route("/api/sessions/plan/approve", post(forward::forward))
         .route("/api/sessions/plan/changes", post(forward::forward))
+        .route("/api/sessions/sketch/answer", post(forward::forward))
+        .route("/api/sessions/document/answer", post(forward::forward))
         .route("/api/sessions/message", post(forward::forward))
         .route("/api/sessions/fork", post(session_routes::fork))
         .route("/api/sessions/begin", post(forward::forward))
