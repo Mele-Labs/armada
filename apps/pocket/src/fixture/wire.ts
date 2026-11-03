@@ -404,6 +404,113 @@ export function fixtureMacs(
     context_window: WINDOW,
   });
 
+  // Two Jobs waiting on another: one on a pull request and not approved, one approved, on a part of a plan, with Fleet's question open.
+  const after = phone({
+    id: "w1",
+    title: "Draw the slot pool on the phone",
+    repository: "armada",
+    kind: "hosted",
+    waiting: false,
+    working: false,
+    started_at: ago(now, 22),
+    starts_when: {
+      on: {
+        id: "p1",
+        title: parent.title!,
+      },
+      when: "lands",
+      pull_number: 3232,
+    },
+  });
+  const afterPlan = phone({
+    id: "w2",
+    title: "Move the slot docs",
+    repository: "store",
+    kind: "hosted",
+    waiting: false,
+    working: false,
+    started_at: ago(now, 35),
+    starts_when: {
+      on: {
+        id: "b1",
+        title: plan.title!,
+      },
+      when: "plan",
+      part_title: "Rename in the crate",
+    },
+  });
+
+  const w1: SessionThread = {
+    session: record(now, "w1", after.title!, 22, {
+      waits: {
+        on: {
+          id: "p1",
+          title: parent.title!,
+        },
+        condition: {
+          kind: "pr_lands",
+        },
+        base: "main",
+        needs: "The fields the phone reads for a slot",
+        brief:
+          "Draw the slot pool on the phone: one row a slot, with what holds it and for how long.\n\nUse the fields the Job this waits on adds to the list. Keep the rows the Cockpit's.",
+        pull: {
+          number: 3232,
+          branch: "armada/session-p1",
+        },
+        by: "you",
+        held: true,
+      },
+    }),
+    rows: [],
+  };
+  const w2: SessionThread = {
+    session: record(now, "w2", afterPlan.title!, 35, {
+      waits: {
+        on: {
+          id: "b1",
+          title: plan.title!,
+        },
+        condition: {
+          kind: "group_done",
+          group: "g1",
+        },
+        base: "main",
+        brief: "Move every page that says pool to the new name, once the crate has it.",
+        part_title: "Rename in the crate",
+        by: "agent",
+        held: false,
+      },
+      waiting_for: [
+        {
+          id: "delivery",
+          text: "How should this work be delivered?",
+          since: ago(now, 3),
+          source: "delivery",
+          act: {
+            kind: "answer",
+            target: "delivery",
+          },
+          options: [
+            {
+              label: "Auto land",
+              description: "Open a pull request, watch ci, merge it.",
+            },
+            {
+              label: "Open PR only",
+              description: "Stop at the open pull request.",
+            },
+            {
+              label: "Keep local",
+              description: "Stop at the commit on the job's branch. Nothing is pushed.",
+            },
+          ],
+        },
+      ],
+    }),
+    rows: [],
+  };
+
   const d1: SessionThread = {
     session: record(now, "d1", draft.title!, 4, {
       workflow: "build",
@@ -1243,10 +1350,12 @@ ${Array.from(
         parent,
         child,
         showed,
+        after,
         finished,
         idle,
       ],
       threads: {
+        w1,
         a1,
         a2,
         d1,
@@ -1301,8 +1410,10 @@ ${Array.from(
         plan,
         describe,
         reading,
+        afterPlan,
       ],
       threads: {
+        w2,
         b1,
         b2,
         b3,
