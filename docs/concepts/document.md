@@ -106,7 +106,7 @@ A Write or Edit is always kept, since the tool call says the Job wrote it.
 | Notable rows | Each `<tr>` in a `<tbody>` |
 
 **Rule.** A page may link `armada-kit.css` and add its own `<style>`; its own rules win over the kit's.
-The kit is Armada's type and colour tokens as plain styling for headings, paragraphs, tables, code, quotes and figures, in `apps/desktop/src/renderer/src/session-view/document-kit.ts`.
+The kit is Armada's type and colour tokens as plain styling for headings, paragraphs, tables, code, quotes and figures, in `packages/screens/src/document-kit.ts`.
 
 **Rule.** `<armada-sketch title="…">` is the kit's one element, and Bridge draws it as a live sketch.
 Its scene is JSON in a `<script type="application/json">` child, in the format `sketch-pane.md` owns.
@@ -120,7 +120,7 @@ A mock it cannot style is named in the `document_sketch` notice.
 ## Sealing
 
 **Rule.** A page is read with `DOMParser`, which runs no script and loads nothing, and rebuilt element by element from an allow list.
-Why: the page is drawn inside Bridge's own page. The code is `document-page.ts`.
+Why: the page is drawn inside Bridge's own page. The code is `packages/screens/src/document-page.ts`, which Bridge and the phone both read a page with.
 
 | Kept | Dropped |
 |---|---|

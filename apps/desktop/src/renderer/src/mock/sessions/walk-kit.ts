@@ -18,6 +18,18 @@ export const toSessions: Step = {
   say: "Cockpit",
 };
 
+/** The Needs you band on the composer, and the press that opens the Job's review sheet on the oldest thing it waits on. */
+export const needsBand = inside(
+  region("Needs you"),
+  button("Needs you", {
+    exact: true,
+  }),
+);
+export const openNeeds: Step = {
+  press: needsBand,
+  say: "The Needs you band opens everything the Job waits on",
+};
+
 export function kit(_narrow: boolean) {
   const artifacts = region("Artifacts", {
     exact: true,

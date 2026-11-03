@@ -1215,6 +1215,18 @@ destructive = false
 confirms = true
 notes = "The no of the target card in a Job's thread: Deny a permission, Skip a question, Keep going after done, Withdraw a draft. Every press opens a dialog listing each waiting card with a no, the target picked. Read by the key's place on the keyboard, since Option changes the character X types. Decided by the owner on 28 Oct 2026."
 
+[actions.needs_you]
+kind = "Action"
+tier = "Global"
+verb = "Needs you"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⇧⌘Y"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Opens the review sheet on the Job on screen when a plan, sketch, draft, document or walk waits on the person, oldest first, each answered where it stands; the Review key on the band opens the same sheet. Where none does, it folds the Needs you card open or shut, which holds the questions, commands, pull requests and messages. Nothing happens where nothing waits."
+
 [actions.handoff_retry]
 kind = "Action"
 tier = "Contextual"

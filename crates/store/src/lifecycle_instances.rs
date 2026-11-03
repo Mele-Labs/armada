@@ -94,6 +94,23 @@ impl Store {
             .map_err(failing("asking whether a job's agent was told to wait on its lifecycle instances"))
     }
 
+    /// The live Jobs whose agents were told to wait on their instances and have not yet been told
+    /// they are over, the longest told first.
+    pub fn lifecycle_jobs_held(&self) -> Result<Vec<String>, WriteError> {
+        let doing = "reading the jobs told to wait on their lifecycle instances";
+        let mut statement = self
+            .conn
+            .prepare(
+                "SELECT lifecycle_jobs.session_id FROM lifecycle_jobs \
+                 JOIN sessions ON sessions.id = lifecycle_jobs.session_id \
+                 WHERE lifecycle_jobs.held_at <> '' AND sessions.state = 'live' \
+                 ORDER BY lifecycle_jobs.held_at, lifecycle_jobs.session_id",
+            )
+            .map_err(failing(doing))?;
+        let rows = statement.query_map([], |row| row.get::<_, String>(0)).map_err(failing(doing))?;
+        rows.collect::<Result<_, _>>().map_err(failing(doing))
+    }
+
     /// The agent was told they are over. **True where it had been told to wait**, and only once.
     pub fn release_lifecycle_job(&mut self, session_id: &str) -> Result<bool, WriteError> {
         self.conn

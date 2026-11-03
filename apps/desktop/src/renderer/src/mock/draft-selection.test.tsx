@@ -72,6 +72,8 @@ async function open(name?: string) {
   );
   await onScreen();
   await toSession("A live hosted one");
+  // The Job's click is not awaited, so the thread's rows can come after the view.
+  await expect.element(card()).toBeVisible();
 }
 
 const card = () =>

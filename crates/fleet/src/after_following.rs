@@ -188,7 +188,10 @@ where
             }
             match met {
                 Some(said) => self.wait_met(wait, said).await,
-                None => remaining += 1,
+                None => {
+                    self.waiter_told_of_wait(&wait.session_id).await;
+                    remaining += 1;
+                }
             }
         }
         remaining

@@ -348,16 +348,26 @@ describe("the keys on a Job's thread cards", () => {
     ).toBeNull();
   });
 
-  it("lists the four and the hand off band's r and d under Job thread", () => {
+  it("lists the four, the Needs you sheet's key and the hand off band's r and d under Job thread", () => {
     const group = KEYMAP_GROUPS.find((one) => one.title === "Job thread");
     expect(actsInGroup(group!).map((act) => act.id)).toEqual([
       "thread_yes",
       "thread_change",
       "thread_send_back",
       "thread_no",
+      "needs_you",
       "handoff_retry",
       "handoff_dispatch",
     ]);
+    expect(
+      isPressed(
+        "needs_you",
+        press("y", {
+          meta: true,
+          shift: true,
+        }),
+      ),
+    ).toBe(true);
     expect(isPressed("handoff_retry", press("r"))).toBe(true);
     expect(isPressed("handoff_dispatch", press("d"))).toBe(true);
     expect(

@@ -46,6 +46,8 @@ function view() {
     visible: true,
     /** What the page answers to whether a field has the cursor. */
     field: false,
+    /** Whether the view has the keyboard. */
+    focus: false,
     handlers,
     closed: false,
     setBounds(bounds: unknown) {
@@ -61,6 +63,7 @@ function view() {
       },
       send: () => {},
       isDestroyed: () => stub.closed,
+      isFocused: () => stub.focus,
       close: () => void (stub.closed = true),
       setWindowOpenHandler: () => {},
       getURL: () => ADDRESS,
@@ -81,11 +84,16 @@ function view() {
   return stub;
 }
 
-/** Bridge's window: the views added to it, in order. */
+/** Bridge's window: the views added to it, in order, and how many times its own page was given the keyboard. */
 function host() {
   const children: unknown[] = [];
+  const focused = vi.fn();
   return {
     children,
+    focused,
+    webContents: {
+      focus: focused,
+    },
     isDestroyed: () => false,
     contentView: {
       addChildView: (child: unknown) => void children.push(child),
@@ -308,6 +316,53 @@ it("holds both views as pictures and hides them under a layer of Bridge's own, a
   shown.thaw();
   expect(page.visible && bar.visible).toBe(true);
 });
+
+it.each([
+  [
+    "page",
+    () => page,
+  ],
+  [
+    "bar",
+    () => bar,
+  ],
+])(
+  "gives the keyboard back to Bridge's window when a layer of its own holds the %s that has it",
+  async (_name, which) => {
+    const shown = walk();
+    shown.show();
+    which().focus = true;
+    await shown.freeze();
+    expect(bridge!.focused).toHaveBeenCalledTimes(1);
+  },
+);
+
+it("leaves the keyboard where it is when a layer holds views that do not have it", async () => {
+  const shown = walk();
+  shown.show();
+  await shown.freeze();
+  expect(bridge!.focused).not.toHaveBeenCalled();
+});
+
+it.each([
+  [
+    "page",
+    () => page,
+  ],
+  [
+    "bar",
+    () => bar,
+  ],
+])(
+  "gives the keyboard back to Bridge's window when hide puts away the %s that has it",
+  (_name, which) => {
+    const shown = walk();
+    shown.show();
+    which().focus = true;
+    shown.hide();
+    expect(bridge!.focused).toHaveBeenCalledTimes(1);
+  },
+);
 
 it("takes both views out of Bridge's window and closes their pages when the walk goes", () => {
   const shown = walk();
