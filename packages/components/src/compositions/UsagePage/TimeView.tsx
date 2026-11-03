@@ -236,7 +236,7 @@ function PendingRows() {
   );
 }
 
-const PLOT_HEIGHT = 52;
+const PLOT_HEIGHT = 96;
 const UNIT: Readonly<Record<(typeof TIME_FIGURES)[number], { unit: string; per: number }>> = {
   model: {
     unit: "s",
