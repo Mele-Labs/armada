@@ -1,7 +1,7 @@
 // The walks a Job owes him, read from what the Job showed in a window: each `window` artifact that carries a walk. The tab of each is `sync.tsx`'s, and the real wiring reads the
 // same attachments, so nothing here knows the mock.
 
-import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
+import { attachmentsOf, owesOf, type Session } from "@armada/screens/src/draft/sessions";
 
 import { isApproved } from "./store";
 
@@ -13,32 +13,52 @@ export type JobWalk = {
   /** What the Job changed and what to look at, in its words. Absent: it said nothing. */
   brief?: string;
   takes: readonly string[];
+  /** The mock's steps point at a place on its page by name; a real walk's page is another program's, so its steps carry their words only. */
   steps: readonly {
     say: string;
-    target: string;
+    target?: string;
   }[];
+  /** Read from the mock's field, whose walk is owed until the mock approves it. A real walk is owed while Fleet says it waits. */
+  mock: boolean;
 };
 
 /** Every walk the Job showed. */
 export const walksOf = (session: Session): JobWalk[] =>
-  attachmentsOf(session, "artifact").flatMap((one) =>
-    one.form !== "window" || one.walk === undefined
-      ? []
-      : [
-          {
-            id: one.id,
-            title: one.title,
-            ...(one.walk.brief === undefined
-              ? {}
-              : {
-                  brief: one.walk.brief,
-                }),
-            takes: one.walk.takes ?? [],
-            steps: one.walk.steps,
-          },
-        ],
-  );
+  attachmentsOf(session, "artifact").flatMap((one): JobWalk[] => {
+    if (one.form !== "window") return [];
+    const read = one.walk ?? one.window;
+    if (read === undefined) return [];
+    return [
+      {
+        id: one.id,
+        title: one.title,
+        ...(read.brief === undefined
+          ? {}
+          : {
+              brief: read.brief,
+            }),
+        takes: read.takes ?? [],
+        steps: read.steps,
+        mock: one.walk !== undefined,
+      },
+    ];
+  });
 
-/** The walks he has not approved. */
-export const owedWalks = (session: Session): JobWalk[] =>
-  walksOf(session).filter((one) => !isApproved(session.id, one.id));
+/**
+ * The walks he is owed. A real walk is owed while the Job's waiting item for it stands, which is what Needs you reads: Fleet drops it when he approves the page or the Job withdraws it.
+ * The mock has no Fleet, so it keeps its own approval.
+ */
+export const owedWalks = (session: Session): JobWalk[] => {
+  const waiting = new Set(
+    owesOf(session).flatMap((one) =>
+      one.source === "walk" && one.act?.kind === "walk"
+        ? [
+            one.act.target,
+          ]
+        : [],
+    ),
+  );
+  return walksOf(session).filter((one) =>
+    one.mock ? !isApproved(session.id, one.id) : waiting.has(one.id),
+  );
+};

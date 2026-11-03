@@ -31,6 +31,7 @@ import {
 import { ACTION, Button, Input, Kbd, Popover, Textarea, Tooltip } from "@armada/components";
 import type { ThreadCard } from "@armada/components";
 
+import { holdLayerUp } from "../hold-layers";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import {
   CHOICES,
@@ -342,11 +343,7 @@ function LivePage({
     let moving = 0;
     let last: Box | undefined;
     const follow = () => {
-      setLayerOn(
-        document.querySelector(
-          "[data-armada-annotate], .job-browser__site-panel, .job-browser__ask, .armada-dropdown-menu__panel, .job-pane__drops",
-        ) !== null,
-      );
+      setLayerOn(holdLayerUp());
       const box = frame.current?.getBoundingClientRect();
       if (box !== undefined) {
         const now = {

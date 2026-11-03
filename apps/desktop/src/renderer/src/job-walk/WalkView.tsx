@@ -25,7 +25,7 @@ export type WalkViewProps = {
   onTake: (at: number) => void;
   steps: readonly {
     say: string;
-    target: string;
+    target?: string | undefined;
   }[];
   /** The step on screen, from 0. */
   step: number;

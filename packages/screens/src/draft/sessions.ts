@@ -210,6 +210,14 @@ export type SessionAttachment =
       /** A document: the kept style set of each `mock` in its sketches, by content hash, keyed `<sketch title>#<node id>`: `detail.kept_styles` on the wire. */
       keptStyles?: Readonly<Record<string, string>>;
       /** A walk (form `window`) as its Job's tab draws it: the page's takes by name, and the steps, each pointing at a place on the page by name. **A mock's field**: nothing in Fleet carries it yet. */
+      /** A walk (form `window`) as Fleet recorded it: the takes by name, the steps by their words and the brief, from the row's `detail`. **A walk is owed while its waiting item is**; this field says only what to draw. */
+      window?: {
+        brief?: string;
+        takes: readonly string[];
+        steps: readonly {
+          say: string;
+        }[];
+      };
       walk?: {
         /** What the Job changed and what to look at, in its words. Absent on a walk shown without one. */
         brief?: string;

@@ -476,6 +476,68 @@ export function revisionsOfDetail(kept: string | undefined): string[] {
   }
 }
 
+/**
+ * What a Job's walk (a `window` row) shows, from its `detail`: the names of its takes (`variations`, a JSON list of `{name, url}`), the words of its steps (`steps`, a JSON list of
+ * `WalkStep`, each with a `say`) and its `brief`. **Anything that is not a list reads as none**, as `revisionsOfDetail` does.
+ */
+export function walkOfDetail(detail: Readonly<Record<string, string>>): {
+  brief?: string;
+  takes: string[];
+  steps: {
+    say: string;
+  }[];
+} {
+  const list = (kept: string | undefined): unknown[] => {
+    if (kept === undefined) return [];
+    try {
+      const read: unknown = JSON.parse(kept);
+      return Array.isArray(read) ? read : [];
+    } catch {
+      return [];
+    }
+  };
+  const brief = detail["brief"]?.trim();
+  return {
+    ...(brief === undefined || brief === ""
+      ? {}
+      : {
+          brief,
+        }),
+    takes: list(detail["variations"]).flatMap((one) =>
+      typeof (
+        one as {
+          name?: unknown;
+        } | null
+      )?.name === "string"
+        ? [
+            (
+              one as {
+                name: string;
+              }
+            ).name,
+          ]
+        : [],
+    ),
+    steps: list(detail["steps"]).flatMap((one) =>
+      typeof (
+        one as {
+          say?: unknown;
+        } | null
+      )?.say === "string"
+        ? [
+            {
+              say: (
+                one as {
+                  say: string;
+                }
+              ).say,
+            },
+          ]
+        : [],
+    ),
+  };
+}
+
 /** A pull request the ledger holds, with what Fleet last read of it. A merged one is `spent`; a closed one is let go. */
 function pullRequestOf(one: Attachment): SessionAttachment | undefined {
   if (one.state === "given_back") return undefined;
@@ -779,6 +841,11 @@ export function attachmentsOfRecord(
             : {
                 revisions,
               }),
+          ...(form === "window"
+            ? {
+                window: walkOfDetail(detail),
+              }
+            : {}),
           ...(form === "document" ? documentAskOf(one, detail) : {}),
           ...(form === "document"
             ? ((kept) =>
