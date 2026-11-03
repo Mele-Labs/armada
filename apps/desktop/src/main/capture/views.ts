@@ -161,11 +161,23 @@ function bridgeView(): WebContentsView {
   return view;
 }
 
-/** The bar. **Fully transparent**: it paints its own strip and nothing else, so the page shows through it. */
-export function barView(): WebContentsView {
+/**
+ * The bar. **Fully transparent**: it paints its own strip and nothing else, so the page shows through it. `pane`: a Job's walk drawn
+ * as a tab of Bridge's window, whose document draws the walk's own bar (`?seat=pane`) and nothing of a window's.
+ */
+export function barView(pane = false): WebContentsView {
   const view = bridgeView();
   view.setBackgroundColor("#00000000");
-  void view.webContents.loadFile(join(__dirname, "../renderer/capture.html"));
+  void view.webContents.loadFile(
+    join(__dirname, "../renderer/capture.html"),
+    pane
+      ? {
+          query: {
+            seat: "pane",
+          },
+        }
+      : {},
+  );
   return view;
 }
 

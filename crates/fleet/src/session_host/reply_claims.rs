@@ -2,7 +2,7 @@
 //! `docs/concepts/session/waiting-on-the-person.md`.
 //!
 //! **Fleet takes a Job's word only through a call**: a done is `all_done`, a walk is `show_window`. A
-//! reply that says either in prose leaves the person with no Done item and no walk window, so the turn
+//! reply that says either in prose leaves the person with no Done item and no walk, so the turn
 //! it ended is followed by one reminder through `told_by_fleet`, and the agent makes the call or says
 //! what is left.
 //!
@@ -31,7 +31,7 @@ pub(crate) const DONE_REMINDER: &str =
     "Your reply says the work is done, and all_done is not called. If nothing is left, call all_done; if something is, say what.";
 
 /// What the agent reads when its reply asks the owner to walk something and no window of it is open.
-pub(crate) const WALK_REMINDER: &str = "Your reply asks the owner to walk something, and no walk window of this job is open. Build each walk and call show_window for it.";
+pub(crate) const WALK_REMINDER: &str = "Your reply asks the owner to walk something, and no walk of this job is open. Build each walk and call show_window for it.";
 
 /// The tells as `store::KeptTell::kind` spells them.
 pub(crate) const REMINDED_DONE: &str = "reminded_done";
@@ -66,7 +66,7 @@ pub(crate) struct Backed {
     pub done: bool,
     /// Anything is on its waiting list.
     pub waiting: bool,
-    /// A walk window of it waits on the person.
+    /// A walk of it waits on the person.
     pub walk: bool,
     /// A subagent of it is still at work, so the turn that ended is not the end of its work.
     pub subagents: bool,

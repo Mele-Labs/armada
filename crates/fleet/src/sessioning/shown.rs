@@ -55,6 +55,19 @@ pub(super) fn takes_shown(url: &str, named: Vec<ipc::WindowTake>) -> Result<Vec<
     Ok(takes)
 }
 
+/// Most characters a walk's brief runs to. It rides the window row and the artifact, which are
+/// published whole on every change, so it is a line or two and not a document.
+const MOST_BRIEF: usize = 400;
+
+/// The brief a call named, trimmed, or why it cannot be shown. **Blank is none.**
+pub(super) fn brief_shown(named: Option<String>) -> Result<Option<String>, &'static str> {
+    let brief = named.map(|text| text.trim().to_string()).filter(|text| !text.is_empty());
+    match brief {
+        Some(text) if text.chars().count() > MOST_BRIEF => Err("a `brief` of at most 400 characters"),
+        other => Ok(other),
+    }
+}
+
 /// Most steps one walk carries, and most the walk weighs once written. **It rides on the session's
 /// record** as the window's artifact, which is published whole on every change.
 const MOST_STEPS: usize = 200;
