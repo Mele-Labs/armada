@@ -44,6 +44,11 @@ export function permissionsOf(permission: string, details: Details): SitePermiss
       return [
         "location",
       ];
+    case "fullscreen":
+    case "pointerLock":
+      return [
+        "fullscreen",
+      ];
     default:
       return null;
   }
@@ -80,6 +85,11 @@ export function check(wants: SitePermission[], host: string, rules: Rules): bool
 
 export function downloadOf(host: string, rules: Rules): Choice {
   return effectiveChoice(rules.settings(), host, "downloads");
+}
+
+/** What a page opening a popup is given, by the choice for the host it opens it from: Allow unless the owner chose otherwise. */
+export function popupOf(host: string, rules: Rules): Choice {
+  return effectiveChoice(rules.settings(), host, "popups");
 }
 
 /** The host of a web address, or null for anything else. */

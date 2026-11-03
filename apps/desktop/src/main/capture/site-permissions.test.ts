@@ -9,7 +9,15 @@ import {
   type SitePermission,
   type SiteSettings,
 } from "../../shared/site-permissions";
-import { check, decide, downloadOf, hostOf, permissionsOf, type Rules } from "./site-permissions";
+import {
+  check,
+  decide,
+  downloadOf,
+  hostOf,
+  permissionsOf,
+  popupOf,
+  type Rules,
+} from "./site-permissions";
 
 const HOST = "login.example.com";
 
@@ -94,7 +102,122 @@ describe("which permissions a request names", () => {
       "notifications",
     ]);
     expect(permissionsOf("midi", {})).toBeNull();
-    expect(permissionsOf("fullscreen", {})).toBeNull();
+  });
+
+  it("reads Electron's fullscreen and pointer lock as the one Fullscreen row", () => {
+    expect(permissionsOf("fullscreen", {})).toEqual([
+      "fullscreen",
+    ]);
+    expect(permissionsOf("pointerLock", {})).toEqual([
+      "fullscreen",
+    ]);
+  });
+});
+
+describe("fullscreen and pointer lock", () => {
+  it("are given by default, and never asked", async () => {
+    const one = rules();
+    expect(
+      await decide(
+        [
+          "fullscreen",
+        ],
+        HOST,
+        one.made,
+      ),
+    ).toBe(true);
+    expect(
+      check(
+        [
+          "fullscreen",
+        ],
+        HOST,
+        one.made,
+      ),
+    ).toBe(true);
+    expect(one.asked).toEqual([]);
+  });
+
+  it("are refused where the site's choice is Block, and asked where it is Ask", async () => {
+    expect(
+      await decide(
+        [
+          "fullscreen",
+        ],
+        HOST,
+        rules({
+          site: {
+            fullscreen: "block",
+          },
+        }).made,
+      ),
+    ).toBe(false);
+    const ask = rules({
+      defaults: {
+        fullscreen: "ask",
+      },
+      answer: "allow",
+    });
+    expect(
+      await decide(
+        [
+          "fullscreen",
+        ],
+        HOST,
+        ask.made,
+      ),
+    ).toBe(true);
+    expect(ask.asked).toEqual([
+      "fullscreen",
+    ]);
+    expect(
+      check(
+        [
+          "fullscreen",
+        ],
+        HOST,
+        ask.made,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("a page opening a popup", () => {
+  it("is allowed by default, blocked or asked as the host's own choice or the default says", () => {
+    expect(popupOf(HOST, rules().made)).toBe("allow");
+    expect(
+      popupOf(
+        HOST,
+        rules({
+          site: {
+            popups: "block",
+          },
+        }).made,
+      ),
+    ).toBe("block");
+    expect(
+      popupOf(
+        HOST,
+        rules({
+          defaults: {
+            popups: "ask",
+          },
+        }).made,
+      ),
+    ).toBe("ask");
+    expect(
+      popupOf(
+        HOST,
+        rules({
+          defaults: {
+            popups: "block",
+          },
+          site: {
+            popups: "allow",
+          },
+        }).made,
+      ),
+    ).toBe("allow");
   });
 });
 

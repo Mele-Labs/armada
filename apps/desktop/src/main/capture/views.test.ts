@@ -159,6 +159,17 @@ it("withholds every permission, and gives the page no preload", () => {
   expect(world.views[0]?.webPreferences).not.toHaveProperty("preload");
 });
 
+it("keeps the walk window's dialogs off, and a Job browser's page may turn them on", () => {
+  pageView("01ARMADA");
+  view(pin("01ARMADA"), {
+    disableDialogs: false,
+  });
+  expect(world.views.map((one) => one.webPreferences["disableDialogs"])).toEqual([
+    true,
+    false,
+  ]);
+});
+
 it("paints the page Bridge's ground until it draws, never white", () => {
   pageView(null);
   expect(world.views[0]?.background).toBe(

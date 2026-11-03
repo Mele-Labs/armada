@@ -33,19 +33,40 @@ import { burnRing, type Burn } from "./capture/burn";
 import { PageFinder } from "./capture/finder";
 import { askSource } from "./capture/layer";
 import { sessionNoteBody } from "./capture/pinned-note";
-import { decidesPermissions } from "./capture/permissions";
+import { decidesPermissions, type Decider } from "./capture/permissions";
+import { openPopup, openPopupOn, type Popup, type PopupHold } from "./capture/popup";
 import {
   check,
   decide,
   downloadOf,
   hostOf,
   permissionsOf,
+  popupOf,
   type Rules,
 } from "./capture/site-permissions";
 import { pageView } from "./capture/views";
 import { actOn, LOAD_MS, type ActsHost, type JobPage } from "./job-browser-acts";
 import { boundsOf } from "./session-page-bounds";
 import type { SiteSettingsStore } from "./site-permission-store";
+
+/** Where the page's view is: the rect the pane reported, kept inside the window, or the whole window while the page is fullscreen. */
+export function viewBounds(
+  reported: unknown,
+  content: {
+    width: number;
+    height: number;
+  },
+  fullscreen: boolean,
+) {
+  return fullscreen
+    ? {
+        x: 0,
+        y: 0,
+        width: content.width,
+        height: content.height,
+      }
+    : boundsOf(reported, content);
+}
 
 /** The window a pane is drawn in. Opaque here: Electron's `BrowserWindow` in the app, a token in a test. */
 export type Host = object;
@@ -652,13 +673,17 @@ export function makeBrowserPage(
   told: PageTold,
   store: SiteSettingsStore,
 ): BrowserPage {
-  const view: WebContentsView = pageView({
+  const pin = {
     run: "",
     name: "",
     origin: "",
     url: "about:blank",
     manifestId,
     through: [],
+  };
+  // Electron has no per-site switch for dialogs, and `prompt` is not supported by Electron: `alert` and `confirm` show, and an act waits on one.
+  const view: WebContentsView = pageView(pin, {
+    disableDialogs: false,
   });
   const contents = view.webContents;
   const key = manifestId ?? "none";
@@ -674,7 +699,7 @@ export function makeBrowserPage(
       told.changed();
     },
   };
-  decidesPermissions(contents, {
+  const decider: Decider = {
     request: async (permission, requestingUrl, details) => {
       const wants = permissionsOf(permission, details);
       const host = hostOf(requestingUrl);
@@ -697,14 +722,68 @@ export function makeBrowserPage(
         if (answer === "allow") redownload();
       });
     },
-  });
+  };
+  decidesPermissions(contents, decider);
   // Its acts wait on frames, which a hidden page would otherwise stop drawing.
   contents.setBackgroundThrottling(false);
-  // A page that opens another opens it here, and only on the web.
+  // **Popups**, which the page opens as real windows in the repository's session: no preload and sandboxed (`capture/popup.ts`), the web only,
+  // and each answers permissions as the page does. They close with the page's tab.
+  const popups = new Set<Popup>();
+  const adopt = (open: (hold: PopupHold) => Popup | null): Popup | null => {
+    const window = parent ?? parkIn();
+    if (window === null || window.isDestroyed()) return null;
+    let popup: Popup | null = null;
+    popup = open({
+      parent: window,
+      allowed: (address) => webOrigin(address) !== null,
+      refuse: () => {},
+      closed: () => {
+        if (popup !== null) popups.delete(popup);
+      },
+    });
+    if (popup === null) return null;
+    popups.add(popup);
+    decidesPermissions(popup.contents, decider);
+    return popup;
+  };
   contents.setWindowOpenHandler(({ url }) => {
-    if (webOrigin(url) !== null) void contents.loadURL(url).catch(() => undefined);
+    const opener = hostOf(contents.getURL());
+    const deny = {
+      action: "deny" as const,
+    };
+    if (webOrigin(url) === null || opener === null) return deny;
+    const choice = popupOf(opener, rules);
+    if (choice === "block") return deny;
+    if (choice === "ask") {
+      void told.ask("popups", opener).then((answer) => {
+        if (answer === "dismiss") return;
+        rules.remember(opener, "popups", answer);
+        if (answer !== "allow") return;
+        // A window Bridge opens after the answer is not the page's, so `window.opener` is lost.
+        const popup = adopt((hold) =>
+          openPopupOn(
+            hold,
+            pageView(pin, {
+              disableDialogs: false,
+            }),
+          ),
+        );
+        if (popup !== null) void popup.contents.loadURL(url).catch(() => undefined);
+      });
+      return deny;
+    }
+    const window = parent ?? parkIn();
+    if (window === null || window.isDestroyed()) return deny;
     return {
-      action: "deny",
+      action: "allow" as const,
+      // Electron made the contents, and wants them back whatever became of the window; the page keeps `window.opener` through them.
+      createWindow: (options) =>
+        adopt((hold) => openPopup(hold, options))?.contents ??
+        (
+          options as {
+            webContents: Electron.WebContents;
+          }
+        ).webContents,
     };
   });
   contents.on("will-navigate", (event, url) => {
@@ -727,6 +806,24 @@ export function makeBrowserPage(
   let parent: BrowserWindow | null = null;
   let shown = false;
   let hidden = false;
+  // The rect the pane last reported, and whether the page is fullscreen: a view is not resized by its window, so the page is sized here.
+  let reported: unknown = null;
+  let full = false;
+  const fit = (): void => {
+    if (parent !== null && !parent.isDestroyed())
+      view.setBounds(viewBounds(reported, parent.getContentBounds(), full));
+  };
+  const refit = (): void => {
+    if (full) fit();
+  };
+  contents.on("enter-html-full-screen", () => {
+    full = true;
+    fit();
+  });
+  contents.on("leave-html-full-screen", () => {
+    full = false;
+    fit();
+  });
   const viewportOf = () => {
     const box = view.getBounds();
     return {
@@ -736,9 +833,15 @@ export function makeBrowserPage(
   };
   const into = (window: BrowserWindow | null): void => {
     if (parent === window) return;
-    if (parent !== null && !parent.isDestroyed()) parent.contentView.removeChildView(view);
+    if (parent !== null && !parent.isDestroyed()) {
+      parent.contentView.removeChildView(view);
+      parent.off("resize", refit);
+    }
     parent = window;
-    if (window !== null && !window.isDestroyed()) window.contentView.addChildView(view);
+    if (window !== null && !window.isDestroyed()) {
+      window.contentView.addChildView(view);
+      window.on("resize", refit);
+    }
   };
   view.setVisible(false);
   into(parkIn());
@@ -840,7 +943,8 @@ export function makeBrowserPage(
       into(window);
       shown = true;
       view.setVisible(!hidden);
-      view.setBounds(boundsOf(bounds, window.getContentBounds()));
+      reported = bounds;
+      fit();
     },
     leave: (host) => {
       if (parent !== host) return;
@@ -853,6 +957,10 @@ export function makeBrowserPage(
     destroy: () => {
       shown = false;
       into(null);
+      for (const popup of [
+        ...popups,
+      ])
+        popup.close();
       if (!contents.isDestroyed()) contents.close();
     },
     hide: (on) => {
