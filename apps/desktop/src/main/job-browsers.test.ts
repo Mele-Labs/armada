@@ -28,6 +28,8 @@ function fakePage(): BrowserPage & {
   moves: (Host | "away")[];
   bounds: unknown[];
   destroyed: boolean;
+  loads: string[];
+  went: string[];
 } {
   const page = {
     name: `page ${(pageNumber += 1)}`,
@@ -35,11 +37,16 @@ function fakePage(): BrowserPage & {
     moves: [] as (Host | "away")[],
     bounds: [] as unknown[],
     destroyed: false,
+    loads: [] as string[],
+    went: [] as string[],
     url: () => "http://localhost:5173/cart",
     title: () => "Cart",
-    load: async () => ({
-      loaded: true as const,
-    }),
+    load: async (url: string) => {
+      page.loads.push(url);
+      return {
+        loaded: true as const,
+      };
+    },
     find: async () => null,
     focus: async () => null,
     send: () => {},
@@ -64,7 +71,7 @@ function fakePage(): BrowserPage & {
       page.at = null;
     },
     hide: () => {},
-    go: () => {},
+    go: (to: string) => void page.went.push(to),
     back: () => false,
     forward: () => false,
     viewport: () => ({
@@ -158,15 +165,14 @@ describe("a page asking for a permission", () => {
     expect(states.at(-1)?.site.pending).toBeNull();
   });
 
-  it("is dismissed when the owner hands the page back, and by a second ask while one waits", async () => {
+  it("is dismissed by a second ask while one waits, and by the owner dismissing it", async () => {
     const { held, tellers } = browsers();
     held.tabs("01JOB", [
       "t1",
     ]);
-    held.drive("01JOB", "t1");
     const first = tellers[0]!.ask("camera", "login.example.com");
     expect(await tellers[0]!.ask("microphone", "login.example.com")).toBe("dismiss");
-    held.drive("01JOB", "t1");
+    held.answer("01JOB", "t1", "dismiss");
     expect(await first).toBe("dismiss");
   });
 
@@ -191,6 +197,44 @@ describe("a page asking for a permission", () => {
         "allow",
       ],
     ]);
+  });
+});
+
+describe("what the owner does in a page", () => {
+  it("loads an address he typed, on the web only, with nothing handed over first", () => {
+    const { held, pages } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    held.navigate("01JOB", "t1", "https://example.com/pay");
+    held.navigate("01JOB", "t1", "file:///etc/hosts");
+    held.navigate("01JOB", "t1", "javascript:alert(1)");
+    expect(pages[0]!.loads).toEqual([
+      "https://example.com/pay",
+    ]);
+  });
+
+  it("goes back, forward and reload on the chords, with nothing handed over first", () => {
+    const { held, tellers, pages } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    tellers[0]!.chord("back");
+    tellers[0]!.chord("forward");
+    tellers[0]!.chord("reload");
+    expect(pages[0]!.went).toEqual([
+      "back",
+      "forward",
+      "reload",
+    ]);
+  });
+
+  it("has no driver in its state", () => {
+    const { held } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    expect(held.list()[0]).not.toHaveProperty("driver");
   });
 });
 
@@ -285,17 +329,6 @@ describe("a Browser tab's page moving between its pane and a window", () => {
       }),
     ]);
     expect(states.at(-1)?.windowed).toBe(false);
-  });
-
-  it("hands the page to the owner and back, and says so", () => {
-    const { held, states } = browsers();
-    held.tabs("01JOB", [
-      "t1",
-    ]);
-    held.drive("01JOB", "t1");
-    expect(states.at(-1)?.driver).toBe("owner");
-    held.drive("01JOB", "t1");
-    expect(states.at(-1)?.driver).toBe("agent");
   });
 });
 

@@ -55,9 +55,6 @@ export function handleJobBrowsers({
     const host = hostOf(event);
     if (text(sessionId) && text(tabId) && host !== null) browsers.unplace(host, sessionId, tabId);
   });
-  ipc.handle(CHANNELS.jobBrowserDrive, (_event, sessionId: unknown, tabId: unknown) => {
-    if (text(sessionId) && text(tabId)) browsers.drive(sessionId, tabId);
-  });
   ipc.handle(CHANNELS.jobBrowserGo, (_event, sessionId: unknown, tabId: unknown, to: unknown) => {
     const going = GOES.find((one) => one === to);
     if (text(sessionId) && text(tabId) && going !== undefined) browsers.go(sessionId, tabId, going);

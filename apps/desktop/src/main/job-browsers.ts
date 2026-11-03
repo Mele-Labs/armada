@@ -1,8 +1,8 @@
-// Each Job's browser: one page per Browser tab of the Job's panes, keyed by the Job and the tab. The Job's agent drives the Job's page
-// (`jobsPage`) through `browser.request` and the owner may take any over.
+// Each Job's browser: one page per Browser tab of the Job's panes, keyed by the Job and the tab. The Job's agent acts on the Job's page
+// (`jobsPage`) through `browser.request`, and the owner uses any of them at any time.
 // **One view for the tab's life**, put over its pane and moved to a window of its own and back, hidden and not destroyed while another tab is in
 // front of it, so the page keeps its history, its sign-in and what was typed; it is destroyed with its tab, or with its Job. The page is a
-// `pageView` (`capture/views.ts`): no preload, sandboxed, every permission refused bar local network access while the owner drives, in its
+// `pageView` (`capture/views.ts`): no preload, sandboxed, every permission answered from the owner's saved choices, in its
 // repository's session. Main places it over the rect the pane reports, as `SessionPages` does.
 //
 // `docs/practices/protocol/the-job-browser.md` is the wire. What may cross back from the page is the bounded answers there.
@@ -52,7 +52,6 @@ type Chord = "capture" | "back" | "forward" | "reload";
 export type PageTold = {
   changed: () => void;
   chord: (chord: Chord) => void;
-  driving: () => boolean;
   /** Asks the owner; resolves when he answers, or `dismiss` where one is already waiting. */
   ask: (permission: SitePermission, host: string) => Promise<Answer>;
 };
@@ -127,7 +126,6 @@ type Held = {
   /** The tab this page belongs to. `UNATTACHED` until the first Browser tab is there to take the page an agent opened. */
   tabId: string;
   page: BrowserPage;
-  driver: "agent" | "owner";
   window: BrowserWindowHeld | null;
   /** The picture Capture holds still, and the part of it the owner picked. */
   frozen: Picture | null;
@@ -198,7 +196,6 @@ export class JobBrowsers {
       title: one.page.title(),
       back: one.page.back(),
       forward: one.page.forward(),
-      driver: one.driver,
       windowed: one.window !== null,
       site: {
         ...one.page.settings(),
@@ -224,7 +221,6 @@ export class JobBrowsers {
     // The tab is read off `one` and not closed over, since the first tab takes over the page an agent opened (`tabs`).
     const page = this.make.page(sessionId, {
       changed: () => this.told(sessionId, one.tabId),
-      driving: () => one.driver === "owner",
       ask: (permission, host) => {
         // One question at a time: a second is refused now, as a dismissed one.
         if (this.one(sessionId, one.tabId) !== one || one.asking !== null)
@@ -242,13 +238,12 @@ export class JobBrowsers {
         const host = page.hostOf();
         if (chord === "capture") {
           if (host !== null) this.tell.capture(sessionId, one.tabId, host);
-        } else if (one.driver === "owner") page.go(chord);
+        } else page.go(chord);
       },
     });
     const one: Held = {
       tabId,
       page,
-      driver: "agent",
       window: null,
       frozen: null,
       holding: null,
@@ -358,15 +353,6 @@ export class JobBrowsers {
     this.one(sessionId, tabId)?.page.leave(host);
   }
 
-  /** Take over, or hand back to the agent. */
-  drive(sessionId: string, tabId: string): void {
-    const one = this.one(sessionId, tabId);
-    if (one === undefined) return;
-    one.driver = one.driver === "agent" ? "owner" : "agent";
-    this.settle(one, "dismiss");
-    this.told(sessionId, tabId);
-  }
-
   private settle(one: Held, answer: Answer): void {
     const asking = one.asking;
     one.asking = null;
@@ -401,10 +387,10 @@ export class JobBrowsers {
     this.one(sessionId, tabId)?.page.go(to);
   }
 
-  /** An address the owner typed. Only while he drives, as the pane offers it, and only the web. */
+  /** An address the owner typed, and only the web. */
   navigate(sessionId: string, tabId: string, url: string): void {
     const one = this.one(sessionId, tabId);
-    if (one === undefined || one.driver !== "owner" || webOrigin(url) === null) return;
+    if (one === undefined || webOrigin(url) === null) return;
     void one.page.load(url, LOAD_MS);
   }
 
@@ -433,7 +419,6 @@ export class JobBrowsers {
 
   private readonly acts: ActsHost = {
     page: (sessionId) => this.jobsHeld(sessionId)?.page ?? null,
-    ownerDriving: (sessionId) => this.jobsHeld(sessionId)?.driver === "owner",
     openClosed: (sessionId) => {
       const one = this.ensure(sessionId, UNATTACHED);
       this.told(sessionId, UNATTACHED);
@@ -570,13 +555,12 @@ export function makeBrowserPage(
   });
   const contents = view.webContents;
   const key = manifestId ?? "none";
-  // **Only while the owner drives**, from the choices kept for this repository; a question goes to the owner, and an unparsable host is refused.
+  // From the choices kept for this repository; a question goes to the owner, and an unparsable host is refused.
   const rules: Rules = {
     settings: () => ({
       ...store.settingsOf(key),
       pending: null,
     }),
-    driving: told.driving,
     ask: told.ask,
     remember: (host, permission, choice) => {
       store.choose(key, host, permission, choice);

@@ -28,7 +28,6 @@ export const jobBrowserPreload: Required<JobBrowserApi> = {
     place: (sessionId, tabId, bounds) =>
       ipcRenderer.invoke(CHANNELS.jobBrowserPlace, sessionId, tabId, bounds),
     unplace: (sessionId, tabId) => ipcRenderer.invoke(CHANNELS.jobBrowserUnplace, sessionId, tabId),
-    drive: (sessionId, tabId) => ipcRenderer.invoke(CHANNELS.jobBrowserDrive, sessionId, tabId),
     go: (sessionId, tabId, to) => ipcRenderer.invoke(CHANNELS.jobBrowserGo, sessionId, tabId, to),
     navigate: (sessionId, tabId, url) =>
       ipcRenderer.invoke(CHANNELS.jobBrowserNavigate, sessionId, tabId, url),

@@ -1,4 +1,4 @@
-// What a Job browser's page is given when it asks: the saved choice, the default beneath it, and never while the agent drives.
+// What a Job browser's page is given when it asks: the saved choice, the default beneath it, and the person's answer where it is Ask.
 
 import { describe, expect, it } from "vitest";
 
@@ -15,7 +15,6 @@ const HOST = "login.example.com";
 
 function rules(
   over: {
-    driving?: boolean;
     site?: Partial<Record<SitePermission, Choice>>;
     defaults?: Partial<SiteSettings["defaults"]>;
     answer?: Answer;
@@ -38,7 +37,6 @@ function rules(
         ...over.defaults,
       },
     }),
-    driving: () => over.driving ?? true,
     ask: async (permission) => {
       asked.push(permission);
       return over.answer ?? "dismiss";
@@ -100,48 +98,7 @@ describe("which permissions a request names", () => {
   });
 });
 
-describe("a request while the agent drives", () => {
-  it("is refused whatever was saved, and never asks", async () => {
-    const one = rules({
-      driving: false,
-      site: {
-        local_network: "allow",
-      },
-    });
-    expect(
-      await decide(
-        [
-          "local_network",
-        ],
-        HOST,
-        one.made,
-      ),
-    ).toBe(false);
-    expect(
-      check(
-        [
-          "local_network",
-        ],
-        HOST,
-        one.made,
-      ),
-    ).toBe(false);
-    expect(
-      downloadOf(
-        HOST,
-        rules({
-          driving: false,
-          site: {
-            downloads: "allow",
-          },
-        }).made,
-      ),
-    ).toBe("block");
-    expect(one.asked).toEqual([]);
-  });
-});
-
-describe("a request while the owner drives", () => {
+describe("a request from a page", () => {
   it("is given where the site's choice is Allow, and refused where it is Block", async () => {
     expect(
       await decide(
@@ -263,30 +220,6 @@ describe("a request while the owner drives", () => {
     expect(one.kept).toEqual([]);
   });
 
-  it("refuses an answer that arrives after the page was handed back, and keeps nothing", async () => {
-    let driving = true;
-    const kept: unknown[] = [];
-    const one: Rules = {
-      settings: () => NO_SETTINGS,
-      driving: () => driving,
-      ask: async () => {
-        driving = false;
-        return "allow";
-      },
-      remember: (...args) => void kept.push(args),
-    };
-    expect(
-      await decide(
-        [
-          "local_network",
-        ],
-        HOST,
-        one,
-      ),
-    ).toBe(false);
-    expect(kept).toEqual([]);
-  });
-
   it("gives camera and microphone together only when both are", async () => {
     expect(
       await decide(
@@ -347,8 +280,8 @@ describe("a request while the owner drives", () => {
     expect(one.asked).toEqual([]);
   });
 
-  it("reads a download from its own choice, blocked until chosen", () => {
-    expect(downloadOf(HOST, rules().made)).toBe("block");
+  it("reads a download from its own choice, asked until chosen", () => {
+    expect(downloadOf(HOST, rules().made)).toBe("ask");
     expect(
       downloadOf(
         HOST,

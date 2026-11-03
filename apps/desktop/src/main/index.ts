@@ -697,7 +697,7 @@ void app.whenReady().then(() => {
     for (const panel of captureWindows.panels()) panel.send(channel, ...values);
   };
   terminalWindows.onChanged((windows) => everyDocument(CHANNELS.terminalWindowsChanged, windows));
-  // Each Job's browser, which its agent drives through Fleet's held calls and the owner may take over.
+  // Each Job's browser, which its agent acts on through Fleet's held calls and the owner uses at any time.
   const siteFile = join(app.getPath("userData"), "site-permissions.json");
   const siteSettings = new SiteSettingsStore({
     read: () => {

@@ -16,9 +16,8 @@ export type JobBrowserState = {
   title: string;
   back: boolean;
   forward: boolean;
-  driver: "agent" | "owner";
   windowed: boolean;
-  /** What this repository has decided for each site, and the request a driven page has waiting. */
+  /** What this repository has decided for each site, and the request the page has waiting. */
   site: SiteSettings;
 };
 
@@ -40,7 +39,6 @@ export type JobBrowserApi = {
     show: (sessionId: string, tabId: string) => Promise<void>;
     place: (sessionId: string, tabId: string, bounds: PageBounds) => Promise<void>;
     unplace: (sessionId: string, tabId: string) => Promise<void>;
-    drive: (sessionId: string, tabId: string) => Promise<void>;
     go: (sessionId: string, tabId: string, to: "back" | "forward" | "reload") => Promise<void>;
     navigate: (sessionId: string, tabId: string, url: string) => Promise<void>;
     toWindow: (sessionId: string, tabId: string) => Promise<void>;
@@ -91,7 +89,6 @@ export const JOB_BROWSER_CHANNELS = {
   jobBrowserCapture: "bridge:job-browser-capture",
   jobBrowserPlace: "bridge:job-browser-place",
   jobBrowserUnplace: "bridge:job-browser-unplace",
-  jobBrowserDrive: "bridge:job-browser-drive",
   jobBrowserGo: "bridge:job-browser-go",
   jobBrowserNavigate: "bridge:job-browser-navigate",
   jobBrowserToWindow: "bridge:job-browser-to-window",

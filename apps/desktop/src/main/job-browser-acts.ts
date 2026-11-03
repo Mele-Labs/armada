@@ -58,7 +58,6 @@ export type JobPage = {
 
 export type ActsHost = {
   page(sessionId: string): JobPage | null;
-  ownerDriving(sessionId: string): boolean;
   /**
    * **An agent's `open` on a Job with no Browser tab opens a page for it**, on the address, as the owner chose on 28 Oct 2026 over refusing
    * the agent until he opens one. Bridge opens a Browser tab for a Job he has open (29 Oct 2026), which takes the page over.
@@ -117,12 +116,6 @@ async function done(host: ActsHost, sessionId: string, act: BrowserAct): Promise
     return act.kind === "open"
       ? loaded(host.openClosed(sessionId, act.url), act.url)
       : failed(CLOSED);
-  if (host.ownerDriving(sessionId))
-    return {
-      error: {
-        kind: "owner_driving",
-      },
-    };
   switch (act.kind) {
     case "open":
       return loaded(page, act.url);

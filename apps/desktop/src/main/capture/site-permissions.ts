@@ -51,25 +51,22 @@ export function permissionsOf(permission: string, details: Details): SitePermiss
 
 export type Rules = {
   settings(): SiteSettings;
-  driving(): boolean;
   ask(permission: SitePermission, host: string): Promise<Answer>;
   remember(host: string, permission: SitePermission, choice: Choice): void;
 };
 
-/** Whether a request is given: **never while the agent drives**, and asked of the person where the choice is Ask. */
+/** Whether a request is given: from the saved choices, and asked of the person where the choice is Ask. */
 export async function decide(
   wants: SitePermission[],
   host: string,
   rules: Rules,
 ): Promise<boolean> {
-  if (!rules.driving()) return false;
   for (const want of wants) {
     const choice = effectiveChoice(rules.settings(), host, want);
     if (choice === "block") return false;
     if (choice === "allow") continue;
     const answer = await rules.ask(want, host);
-    // The owner may have handed the page back while the question stood.
-    if (answer === "dismiss" || !rules.driving()) return false;
+    if (answer === "dismiss") return false;
     rules.remember(host, want, answer);
     if (answer === "block") return false;
   }
@@ -78,14 +75,11 @@ export async function decide(
 
 /** The synchronous check Electron makes: given only what is already allowed, and never asks. */
 export function check(wants: SitePermission[], host: string, rules: Rules): boolean {
-  return (
-    rules.driving() &&
-    wants.every((want) => effectiveChoice(rules.settings(), host, want) === "allow")
-  );
+  return wants.every((want) => effectiveChoice(rules.settings(), host, want) === "allow");
 }
 
 export function downloadOf(host: string, rules: Rules): Choice {
-  return rules.driving() ? effectiveChoice(rules.settings(), host, "downloads") : "block";
+  return effectiveChoice(rules.settings(), host, "downloads");
 }
 
 /** The host of a web address, or null for anything else. */

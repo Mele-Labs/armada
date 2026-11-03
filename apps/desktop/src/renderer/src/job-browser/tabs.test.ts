@@ -31,7 +31,6 @@ const state = (tabId: string, url: string): JobBrowserState => ({
   title: "",
   back: false,
   forward: false,
-  driver: "agent",
   windowed: false,
   site: NO_SETTINGS,
 });
