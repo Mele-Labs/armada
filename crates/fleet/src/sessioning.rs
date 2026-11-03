@@ -1037,6 +1037,14 @@ where
         self.job_terminals_listed(caller, asked).await
     }
 
+    async fn check_before_pr(
+        &self,
+        caller: Option<api::Caller>,
+        asked: ipc::CheckBeforePr,
+    ) -> Result<ipc::PrePrChecked, Refusal> {
+        self.pre_pr_checked(caller, asked).await
+    }
+
     async fn show_terminal(
         &self,
         caller: Option<api::Caller>,

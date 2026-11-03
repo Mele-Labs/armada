@@ -156,6 +156,22 @@ pub(crate) async fn observe_session_run<D: Sessions>(
     }
 }
 
+/// 200 with what the pre-PR Checks came to. 422 for a call that places no Job. **The Job is placed by
+/// the connection**, as `show_window`'s is.
+pub(crate) async fn check_before_pr<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::CheckBeforePr = match ipc::decode_body("a pull request about to open", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().check_before_pr(crate::acting::asking(), asked).await {
+        Ok(checked) => answer(StatusCode::OK, &checked, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A session shows the person a page. 200 with the row, or with a [`Receipt`] through the agent's door; 422 for an address that is not `http` or
 /// `https`, or a call that places no session. **The session is placed by the connection** where the
 /// call arrived through the agent's door.

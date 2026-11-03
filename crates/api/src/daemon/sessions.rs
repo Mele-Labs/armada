@@ -142,6 +142,15 @@ pub trait Sessions: Send + Sync + 'static {
         asked: ipc::ListTerminals,
     ) -> impl Future<Output = Result<ipc::JobTerminals, Refusal>> + Send;
 
+    /// `check_before_pr` — runs the Checks the repository declares `runs_at: pre_pr` that the
+    /// Job's changes reach, and answers what they came to. `caller` places a hosted Job as
+    /// `show_window`'s does. [`Refusal::Unacceptable`] for a call that places no Job.
+    fn check_before_pr(
+        &self,
+        caller: Option<crate::Caller>,
+        asked: ipc::CheckBeforePr,
+    ) -> impl Future<Output = Result<ipc::PrePrChecked, Refusal>> + Send;
+
     /// `show_terminal` — publishes `terminal.shown` so Bridge brings the terminal's tab to the
     /// front, and answers the terminal. An unnamed one is `read_terminal`'s default. `caller`
     /// places the Job as `type_in_terminal`'s does. [`Refusal::Unacceptable`] for a call that
