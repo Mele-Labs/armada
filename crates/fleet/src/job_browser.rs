@@ -30,7 +30,6 @@ const ENDED_KEPT: usize = 64;
 const REFUSED: &str = "fleet.browser_refused";
 const UNPLACED: &str = "fleet.browser_unplaced";
 const NO_BRIDGE: &str = "fleet.browser_no_bridge";
-const OWNER_DRIVING: &str = "fleet.browser_owner_driving";
 const TARGET_NOT_FOUND: &str = "fleet.browser_target_not_found";
 const TIMED_OUT: &str = "fleet.browser_timed_out";
 const FAILED: &str = "fleet.browser_failed";
@@ -40,7 +39,6 @@ const WITHDRAWN: &str = "fleet.browser_request_withdrawn";
 const ANSWERED: &str = "fleet.browser_request_answered";
 const ANSWER_REFUSED: &str = "fleet.browser_answer_refused";
 
-pub(crate) const OWNER_DRIVING_SAID: &str = "The owner is driving the Job browser. Ask him to hand it back, or wait.";
 pub(crate) const UNANSWERED_SAID: &str = "Bridge did not answer. Is the Job browser open?";
 
 type Done = Result<BrowserAnswer, BrowserError>;
@@ -189,7 +187,6 @@ where
         };
         match done {
             Ok(answer) => Ok(cut(answer)),
-            Err(BrowserError::OwnerDriving) => Err(stuck(OWNER_DRIVING, String::from(OWNER_DRIVING_SAID))),
             Err(BrowserError::NotFound) => Err(refused(TARGET_NOT_FOUND, not_found(&act))),
             Err(BrowserError::TimedOut) => Err(refused(TIMED_OUT, timed_out(&act))),
             Err(BrowserError::Failed { why }) => Err(refused(FAILED, format!("The Job browser could not do that: {}", why.trim()))),

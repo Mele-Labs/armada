@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-Since 28 Oct 2026. A Job's agent drives a page in Bridge, the Job's page, in a Browser tab the owner sees and may take over.
+Since 28 Oct 2026. A Job's agent drives a page in Bridge, the Job's page, in a Browser tab the owner sees and uses at any time too.
 Eight operations, eight routes, one event kind, one report kind and one row kind.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/sessions.ts`, written by hand, field for field; the row is in `hosted-sessions.ts` and the event in `events.ts`.
@@ -54,7 +54,6 @@ Answered 200 with `BrowserRequestAnswered` `{ request_id, session_id }`.
 
 | `error.kind` | When | What the agent reads | Code and status |
 | --- | --- | --- | --- |
-| `owner_driving` | The owner took the browser over | "The owner is driving the Job browser. Ask him to hand it back, or wait." | `fleet.browser_owner_driving`, 409 |
 | `not_found` | The act's target is not on the page | "Nothing on the page is a button named "Save". browser_snapshot shows what is there." | `fleet.browser_target_not_found`, 422 |
 | `timed_out` | `wait_for` ran out, or a page did not load | ""Saved" did not appear on the page within 5000 ms.", or the address did not finish loading | `fleet.browser_timed_out`, 422 |
 | `failed`, with `why` | Anything else: an expression that threw | "The Job browser could not do that: " and `why` | `fleet.browser_failed`, 422 |

@@ -1275,9 +1275,6 @@ export type BrowserAnswer =
 /** Why Bridge could not do an act. Fleet words each for the agent; `failed`'s `why` reaches it after "The Job browser could not do that:". */
 export type BrowserError =
   | {
-      kind: "owner_driving";
-    }
-  | {
       kind: "not_found";
     }
   | {

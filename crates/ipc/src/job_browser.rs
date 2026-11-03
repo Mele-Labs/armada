@@ -155,8 +155,6 @@ pub enum BrowserAnswer {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum BrowserError {
-    /// The owner took the browser over.
-    OwnerDriving,
     /// The act's target is not on the page.
     NotFound,
     /// `wait_for` ran out, or a page did not load in Bridge's own time.
