@@ -55,6 +55,7 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
+  white-space: nowrap;
 }
 
 /* The view switch over the page */
@@ -167,7 +168,7 @@
 .armada-time__heads,
 .armada-time__row {
   display: grid;
-  grid-template-columns: 13ch minmax(0, 1fr) 8ch 6ch;
+  grid-template-columns: 16ch minmax(0, 1fr) 8ch 6ch;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-1) var(--space-4);
