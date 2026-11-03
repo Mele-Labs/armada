@@ -46,7 +46,7 @@ const issue: Issue = {
   state: "open",
 };
 
-async function mount(issues: readonly Issue[] = []) {
+async function mount(issues: readonly Issue[] = [], flat = false) {
   const onConfirm = vi.fn();
   const onDrop = vi.fn();
   const host = document.createElement("div");
@@ -61,6 +61,11 @@ async function mount(issues: readonly Issue[] = []) {
         onRemind={() => undefined}
         onConfirm={onConfirm}
         onDrop={onDrop}
+        {...(flat
+          ? {
+              flat,
+            }
+          : {})}
       />,
     ),
   );
@@ -68,13 +73,34 @@ async function mount(issues: readonly Issue[] = []) {
     root,
     host,
   });
-  act(() => host.querySelector<HTMLElement>("button.sv-later__row")!.click());
+  if (!flat) act(() => host.querySelector<HTMLElement>("button.sv-later__row")!.click());
   return {
     host,
     onConfirm,
     onDrop,
   };
 }
+
+test("in a pane of its own it is flat: the follow-ups are listed with no fold button to open first", async () => {
+  const { host } = await mount([], true);
+  const block = host.querySelector("section.sv-later")!;
+  expect(block.hasAttribute("data-flat")).toBe(true);
+  expect(host.querySelector("button.sv-later__row")).toBeNull();
+  expect(
+    [
+      ...block.querySelectorAll(".sv-later__text"),
+    ].map((one) => one.textContent),
+  ).toEqual([
+    "Check the retry on Windows",
+    "Name the fixture loader",
+  ]);
+});
+
+test("beside other zones it is not flat: it is folded to its row until pressed", async () => {
+  const { host } = await mount();
+  expect(host.querySelector("section.sv-later")?.hasAttribute("data-flat")).toBe(false);
+  expect(host.querySelector("button.sv-later__row")).not.toBeNull();
+});
 
 const button = (host: HTMLElement, label: string) =>
   host.querySelector<HTMLElement>(`[aria-label="${label}"]`);

@@ -1,4 +1,4 @@
-// A Job's area in panes. Every Job opens on Default: its thread, with Done, Now and Open stacked on its right. ⌘D splits a pane to the right and ⌘⌥D below it, a new pane opens empty,
+// A Job's area in panes. Every Job opens on Default: its thread, with Open, Done and Deferred as tabs of one pane over Now on its right. ⌘D splits a pane to the right and ⌘⌥D below it, a new pane opens empty,
 // and + adds a tab of any kind to it. While a Job is open the title bar's right side holds only the Layout control, named "Layout: Default · edited" and wears a mark once the area is rearranged. ⌘L opens its menu: Save as turns it into a name field,
 // the layout rows are this Job's own and carry no tag, the last row, New Jobs open on, trails the layout new Jobs open on and opens a submenu to change it, Update overwrites the layout the Job is on. A page the Job opens by itself joins the pane that holds a browser and leaves the
 // layout as it was. The Job's acts (Auto land, Pause, Judge, Checks, Subagents) are icons in the Thread's head beside the context meter, and the merge line a strip along the window's bottom edge. ⌘Z takes back the last change and ⇧⌘Z puts it back. A tab dragged onto the gap between two panes lights the gap and drops into a new pane there, and so does one dragged onto an outer edge of the area. A Changes tab picks where its diff comes from, a Ledger tab lists what is attached, Subagents, Checks and Workflow tabs draw those views, Custom builds a tab of its own from a description, and a built tab's hover card is the Mod Job that built it, to message while the tab changes, and ⌥⌘↵ zooms a pane over the Job's own area, to the right of the Jobs list, and puts it back. Mock only: nothing is kept. Over the `job-layouts` scenario.
@@ -31,7 +31,7 @@ const steps: Step[] = [
   toSessions,
   {
     press: deckRow("Retry the slot lease"),
-    say: "A Job opens on Default: its thread, and Done, Now and Open stacked beside it",
+    say: "A Job opens on Default: its thread, and Open, Done and Deferred as tabs of one pane over Now beside it",
   },
   {
     hover: inside(role("toolbar", "Job acts"), button("Auto land")),

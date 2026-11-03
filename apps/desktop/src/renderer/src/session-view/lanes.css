@@ -333,12 +333,20 @@
   flex-direction: column;
   min-height: 0;
 }
-.sv-lanes__layer > .sv-lanes__body {
+/* In a layer or a pane the canvas fills what there is and pans inside it, however short that is. */
+.sv-lanes__layer .sv-lanes__host {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.sv-lanes__layer .sv-lanes__into,
+.sv-lanes__layer .sv-lanes__body:not([data-away]) {
   flex: 1 1 auto;
   min-height: 0;
 }
-.sv-lanes__layer > .sv-lanes__body > .armada-lane-canvas {
+.sv-lanes__layer .sv-lanes__body > .armada-lane-canvas {
   flex: 1 1 auto;
   height: auto;
-  min-height: calc(var(--space-12) * 8);
+  min-height: 0;
 }

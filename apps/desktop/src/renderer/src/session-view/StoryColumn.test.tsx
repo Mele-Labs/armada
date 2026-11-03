@@ -482,3 +482,106 @@ test("a pane's one zone is marked single and draws no zone-name label, while the
     ).toContain(zone);
   }
 });
+
+// A Job on a workflow, at Walk: Propose is finished, Refine and Deliver are still to come.
+const FLOW = [
+  "Propose",
+  "Walk",
+  "Refine",
+  "Deliver",
+];
+const later = {
+  id: "g2",
+  title: "Later work",
+  agent: "docs-writer",
+  paths: [],
+  tasks: [
+    {
+      id: "t3",
+      text: "Say when it retries",
+      state: "open" as const,
+    },
+  ],
+};
+const onFlow = (off = false) => {
+  const planned = {
+    ...plan,
+    groups: [
+      plan.groups[0]!,
+      later,
+    ],
+  };
+  const flowing = {
+    plan: planned,
+    ...(off
+      ? {
+          railOff: true,
+        }
+      : {}),
+    workflow: {
+      name: "Product",
+      steps: FLOW,
+      at: 1,
+    },
+  } as unknown as SessionWork;
+  return {
+    one: {
+      ...session("idle"),
+      work: flowing,
+    } as unknown as Session,
+    own: {
+      work: flowing,
+      ed: {
+        ...ed,
+        plan: planned,
+      },
+    },
+  };
+};
+const panels = (host: HTMLElement) =>
+  [
+    ...host.querySelectorAll("section.sv-panel"),
+  ].map((one) => one.getAttribute("aria-label"));
+
+test("on a workflow, a pane for Now holds the step it is at and the steps still to come, and a pane for Open holds neither", () => {
+  const { one, own } = onFlow();
+  const now = mount(one, own, "now");
+  expect(panels(now)).toEqual([
+    "Walk",
+    "Refine",
+    "Deliver",
+  ]);
+  const open = mount(one, own, "next");
+  expect(panels(open)).not.toContain("Refine");
+  expect(panels(open)).not.toContain("Deliver");
+  expect(open.textContent).not.toContain("Pull request");
+});
+
+test("with the workflow off, a pane for Now lists the steps and route still to come, and a pane for Open lists only what is open", () => {
+  const { one, own } = onFlow(true);
+  const now = mount(one, own, "now");
+  const ahead = now.querySelector('section[aria-label="Now"] ol[aria-label="Ahead"]')!;
+  expect(ahead.textContent).toContain("Refine");
+  expect(ahead.textContent).toContain("Deliver");
+  const open = mount(one, own, "next");
+  expect(open.querySelector('ol[aria-label="Ahead"]')).toBeNull();
+  expect(open.textContent).toContain("Later work");
+  expect(open.textContent).not.toContain("Refine");
+});
+
+test("a finished step in a pane of its own keeps its mark in the row beside its name", () => {
+  const { one, own } = onFlow();
+  const done = mount(one, own, "done");
+  const propose = done.querySelector<HTMLElement>('section[aria-label="Propose"]')!;
+  const band = propose.querySelector(".sv-panel__band")!;
+  const mark = band.querySelector<HTMLElement>('[role="img"][aria-label="Done"]')!;
+  expect(mark, "the mark stands in the band with the name").not.toBeNull();
+  expect(band.querySelector(".sv-panel__label")?.textContent).toContain("Propose");
+  expect(getComputedStyle(mark).position).toBe("static");
+  // On the spine the same mark hangs on the line, out of the row.
+  const spine = mount(one, own);
+  const online = spine.querySelector<HTMLElement>(
+    'section[aria-label="Propose"] [role="img"][aria-label="Done"]',
+  )!;
+  expect(getComputedStyle(online).position).toBe("absolute");
+});

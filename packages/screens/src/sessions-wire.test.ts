@@ -7,6 +7,7 @@ import type {
   HelmCallInFlight,
   SessionRecord,
   SessionRow,
+  WorkflowSummary,
 } from "@armada/protocol";
 import {
   ENDED_LISTED_DAYS,
@@ -1695,6 +1696,64 @@ describe("a session's trail", () => {
         until: "2026-10-13T09:00:00Z",
       },
     ]);
+  });
+});
+
+describe("a session's lanes", () => {
+  const step = (step_id: string, label: string) =>
+    ({
+      step_id,
+      label,
+      checks: [],
+      judge_checks: [],
+    }) as unknown as WorkflowSummary["steps"][number];
+  const FEATURE = {
+    id: "feature",
+    name: "Feature",
+    version: 1,
+    manifest_id: "armada",
+    steps: [
+      step("plan", "Plan"),
+      step("land", "Land"),
+    ],
+  } as WorkflowSummary;
+  const onFeature = {
+    ...beside(),
+    workflows: [
+      FEATURE,
+    ],
+  };
+
+  it("draws the steps of its workflow before any lifecycles are read, as a Job that holds nothing has none", () => {
+    const lanes = sessionOfRecord(
+      record("a", {
+        workflow: "feature",
+      }),
+      undefined,
+      onFeature,
+    ).lanes;
+    expect(lanes?.job.copy.steps.map((one) => one.label)).toEqual([
+      "Plan",
+      "Land",
+    ]);
+    expect(lanes?.job.instances).toEqual([]);
+  });
+
+  it("draws none for a Job on no workflow that has lifecycles unread", () => {
+    expect(sessionOfRecord(record("a"), undefined, onFeature).lanes).toBeUndefined();
+  });
+
+  it("draws none once the session ended, workflow or not", () => {
+    expect(
+      sessionOfRecord(
+        record("a", {
+          workflow: "feature",
+          state: "ended",
+        }),
+        undefined,
+        onFeature,
+      ).lanes,
+    ).toBeUndefined();
   });
 });
 

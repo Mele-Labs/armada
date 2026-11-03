@@ -8,10 +8,13 @@ import { forgetKept, readKept, writeKept } from "@armada/components";
 
 import {
   TAB_KINDS,
+  activate,
+  addTab,
   arrive,
   arriveTerminalBehind,
   build,
   copyOf,
+  focusPane,
   hasKind,
   holderOf,
   showPage,
@@ -29,7 +32,7 @@ import {
 
 export const DEFAULT_LAYOUT = "Default";
 
-/** Today's arrangement: the Job's thread, and Done, Now and Open stacked to its right, all in view. */
+/** Today's arrangement: the Job's thread, and to its right Open, Done and Deferred as tabs of one pane over Now. */
 const defaultArrangement = (): Arrangement =>
   build({
     dir: "row",
@@ -39,21 +42,15 @@ const defaultArrangement = (): Arrangement =>
     ],
     b: {
       dir: "column",
-      ratio: 0.18,
+      ratio: 0.4,
       a: [
+        "open",
         "done",
+        "deferred",
       ],
-      b: {
-        dir: "column",
-        ratio: 0.65,
-        a: [
-          "now",
-        ],
-        b: [
-          "open",
-          "deferred",
-        ],
-      },
+      b: [
+        "now",
+      ],
     },
   });
 
@@ -84,6 +81,7 @@ type State = {
 
 const SHARED = "job-panes:shared";
 const JOB = "job-panes:job:";
+const DEFERRED_GIVEN = "job-panes:deferred-given";
 
 const isNode = (one: unknown): boolean => {
   const node = one as Node | undefined;
@@ -147,15 +145,63 @@ const reviveShared = (stored: unknown): Shared => {
   };
 };
 
-const initial = (): State => ({
-  jobs: {},
-  ...(readKept(SHARED, reviveShared) ?? {
-    saved: {},
-    forAll: DEFAULT_LAYOUT,
-    versions: {},
-    base: undefined,
-  }),
-});
+/** The arrangement with a Deferred tab at the end of the pane that holds Open, its front tab and focus as they were. */
+const withDeferred = (arrangement: Arrangement): Arrangement => {
+  const open = holderOf(arrangement, "open");
+  if (open === undefined || hasKind(arrangement, "deferred")) return arrangement;
+  const added = addTab(arrangement, open.id, "deferred");
+  const fronted = open.active === undefined ? added : activate(added, open.active);
+  return focusPane(fronted, arrangement.focus);
+};
+
+/**
+ * What was kept before Open and Deferred were two tabs has no Deferred tab, and follow-ups stand nowhere else. Given one once, so a person who closes the tab
+ * afterwards keeps it closed.
+ */
+export function giveKeptPanesDeferred(): void {
+  if (typeof window === "undefined") return;
+  if (readKept(DEFERRED_GIVEN, (stored) => stored === true) === true) return;
+  for (const key of Object.keys(window.localStorage)) {
+    if (!key.startsWith(`armada:kept:${JOB}`)) continue;
+    const name = key.slice("armada:kept:".length);
+    try {
+      const entry = readKept<Entry>(name, reviveEntry);
+      if (entry !== undefined)
+        writeKept(name, {
+          ...entry,
+          arrangement: withDeferred(entry.arrangement),
+        });
+    } catch {
+      // Not a Job's panes any more: `keptEntry` sets it aside the same way.
+    }
+  }
+  const shared = readKept(SHARED, reviveShared);
+  if (shared !== undefined)
+    writeKept(SHARED, {
+      ...shared,
+      base: shared.base === undefined ? undefined : withDeferred(shared.base),
+      saved: Object.fromEntries(
+        Object.entries(shared.saved).map(([name, one]) => [
+          name,
+          withDeferred(one),
+        ]),
+      ),
+    });
+  writeKept(DEFERRED_GIVEN, true);
+}
+
+const initial = (): State => {
+  giveKeptPanesDeferred();
+  return {
+    jobs: {},
+    ...(readKept(SHARED, reviveShared) ?? {
+      saved: {},
+      forAll: DEFAULT_LAYOUT,
+      versions: {},
+      base: undefined,
+    }),
+  };
+};
 
 /** A Job's own panes as they were kept, where there are any. */
 const keptEntry = (jobId: string): Entry | undefined => {
@@ -187,6 +233,7 @@ function keep(was: State, next: State): void {
 /** Everything kept of the panes, gone, and the window as it opens with none: a test or a mock starts from here. */
 export function forgetPanes(): void {
   forgetKept(SHARED);
+  forgetKept(DEFERRED_GIVEN);
   for (const key of Object.keys(window.localStorage))
     if (key.startsWith(`armada:kept:${JOB}`)) forgetKept(key.slice("armada:kept:".length));
   histories.clear();

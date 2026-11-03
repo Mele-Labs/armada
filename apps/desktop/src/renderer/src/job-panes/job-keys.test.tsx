@@ -215,13 +215,13 @@ const front = (kind: string) =>
 // A view drawn as a layer over the Job, with the head and Back of one.
 const layers = () => document.querySelectorAll("section.sv-layer:not([data-in-pane])");
 
-test("the story is the Done, Now and Open tabs in order, with no right column or layer", () => {
+test("the story is the Open, Done and Now tabs in order, with no right column or layer", () => {
   mount();
   const all = tabs().map((one) => one.toLowerCase());
   const at = (name: string) => all.findIndex((one) => one.includes(name));
-  expect(at("done")).toBeGreaterThanOrEqual(0);
+  expect(at("open")).toBeGreaterThanOrEqual(0);
+  expect(at("open")).toBeLessThan(at("done"));
   expect(at("done")).toBeLessThan(at("now"));
-  expect(at("now")).toBeLessThan(at("open"));
   expect(kinds()).toEqual(
     expect.arrayContaining([
       "thread",
