@@ -67,7 +67,7 @@ around `nodeIntegration: false`.
 
 > **Rule.** A Job's window may open one popup, and only onto the shown origin or a named one
 > (`origins`). It is a child window of the walk's, in the same partition, with the same navigation hold
-> and no preload; it closes when the page calls `window.close()` or the walk window closes. Every other
+> and no preload; it closes when the page calls `window.close()` or its walk closes. Every other
 > popup is refused, as are a second one, one a popup opens, and any popup of a Run's or a Job's window.
 > *A popup a Job's page opened* has the review.
 > Why: a provider that signs in through a popup cannot be walked in a window that denies every
@@ -92,12 +92,12 @@ around `nodeIntegration: false`.
 > from a Bridge that connects late, and a secret that is only ever in memory and
 > only until its job ends is no wider a thing to keep.
 
-> **Rule.** A Bridge that connects puts in the walk window each live Job's
+> **Rule.** A Bridge that connects opens as a tab of its Job each live Job's
 > newest shown page that has not ended, was not opened by this Bridge and was shown
 > in the last 15 minutes (`REOPEN_WITHIN_MS`, `sessions.ts`), and takes the
-> Job's sign-in then. A window the person closed has ended, and is not
-> opened again by this. Once the walk window is up, every walk standing on a
-> Job's waiting items joins it (*One window for every walk*).
+> Job's sign-in then. A walk the person closed has ended, and is not
+> opened again by this. Every walk standing on a Job's waiting items has its
+> tab (*A Job's walk is a tab*).
 > Why: a page shown while Bridge was offline for a few minutes had no window to
 > open and no way to ask for its sign-in. A walk from before a restart is stale,
 > and opening it on every launch would put old windows on the screen.
@@ -365,7 +365,8 @@ this window, and that is another security review. `#1294`.
 > over. The owner, 19 Oct 2026, of the walk bar: "consolidate all of this down
 > to at most 2 bars".
 
-The walk window's bar holds these, in this order:
+The walk window's bar holds these, in this order.
+It is the pull request walk's bar; a Job's walk has a bar of its own on its tab (*A Job's walk is a tab*).
 
 | Row | Holds, in order |
 |---|---|
@@ -428,13 +429,12 @@ Each entry carries its Job's name, the page's title, its address, its readiness 
 > Why: the person walked the page and it is right, and the one who opened the
 > window is the one waiting to hear it. A Studio's window has nobody to tell.
 
-> **Rule.** A Job's walk that leaves the walk window is told to Fleet as
+> **Rule.** A Job's walk that leaves is told to Fleet as
 > `window_closed`, with the address it opened on, whether it left approved,
-> because its waiting item was settled elsewhere, or with the window closed by
+> because its waiting item was settled elsewhere, or with its tab closed by
 > whoever closed it (`left`, `walk-window.ts`). Closing settles nothing: the
 > walk's waiting item stands until Approve.
-> Why: it ends the Job's walk, and a Job refuses its own questions
-> while one is open (`docs/concepts/session.md`, *Showing a window*).
+> Why: it ends the Job's walk (`docs/concepts/session.md`, *Showing a window*).
 
 > **Rule.** A page the window cannot show is told to whoever opened the walk:
 > a Job as `window_failed`, which Fleet passes on as its own notice. A load that failed, an HTTP
@@ -475,28 +475,29 @@ Each entry carries its Job's name, the page's title, its address, its readiness 
 
 ## One window for every walk
 
-Every walk a Job showed and every pull request's walk is in one OS window, oldest shown first.
+Every pull request's walk is in one OS window, oldest shown first.
+A Job's walk is not: it is a tab of its Job (*A Job's walk is a tab*).
 The owner approved the mock walk `walkQueue`, 19 Oct 2026.
 
 | Step | Held by | What happens |
 |---|---|---|
 | A walk comes on screen | `walk-window.ts` | Its page is made the first time. Only the walk on screen draws the bar and lays the views out; the bar and the panel are the window's |
-| The window closes | Main | Every walk in it leaves; a Job's walk items stand, and come back with the next walk window |
+| The window closes | Main | Every walk in it leaves |
 | A key on the page | `before-input-event` | The keys in *What a person sees*, but ⌘↵, are taken from the page and handed to the bar. ⌘↵ reaches the page, and approves only when no field there has the cursor |
 
-> **Rule.** Every Job's walk and every pull request review walk is in one window,
-> in one queue, oldest first by when each was shown. There is one entry per walk:
-> a Job with two walks is named twice. A Run's window and a Studio's window keep
-> their own windows.
+> **Rule.** Every pull request review walk is in one window,
+> in one queue, oldest first by when each was shown. There is one entry per walk.
+> A Run's window and a Studio's window keep their own windows, and a Job's walk
+> opens none.
 > Why: the owner, 19 Oct 2026, chose one window for every walk in place of one
-> OS window per Job.
+> OS window per Job, and a Job's walk has since moved to a tab beside its thread.
 
-> **Rule.** The queue is read from Fleet's `walk:` waiting items (id `walk:<url>`,
+> **Rule.** The Job walks are read from Fleet's `walk:` waiting items (id `walk:<url>`,
 > with its `since`), one per address a Job showed and the owner has not approved,
-> and from Bridge main's own pull request review walks, which have no waiting
-> item and are kept from when they are held (`queue.ts`). The window follows the
-> items while it is up: a walk that stands joins it, and one whose item went
-> leaves it unless its window reads working (next rule). A walk that stands opens no window (`windows.ts`).
+> and the pull request review walks are Bridge main's own, which have no waiting
+> item and are kept from when they are held (`queue.ts`). The tabs follow the
+> items while Bridge is up: a walk that stands has its tab, and one whose item went
+> leaves unless its window reads working (next rule). A walk that stands opens no window (`windows.ts`).
 > Why: only the owner's Approve settles a `walk:` item and closing the window
 > leaves it standing, so Fleet's items already are the walks he has not approved.
 > A list Bridge kept beside them would drift from them.
@@ -509,12 +510,13 @@ The owner approved the mock walk `walkQueue`, 19 Oct 2026.
 > "When i send notes, it shouldn't immediately jump me to the next walk. There is a bit too much bouncing around."
 > And: "Sometimes the walk disappears after i send notes so I can't actually tell that the job is working on it."
 
-> **Rule.** The first walk opens the window behind, without taking focus, on that
+> **Rule.** The first pull request walk opens the window behind, without taking focus, on that
 > walk with every standing walk queued around it. A walk that arrives while the
 > window is open joins the queue in its place, and never raises the window, takes
-> focus or switches the page.
+> focus or switches the page. A Job's walk opens no window, takes no focus and switches no page:
+> its tab opens beside the thread and pulses until it has been seen.
 > Why: a person partway through one walk should not have the page change under
-> him because another Job showed its own.
+> him because another walk was shown.
 
 > **Rule.** Approve settles the walk on screen and moves to the next. Approving
 > the last walk closes the window. A pull request's walk tells nobody, and its
@@ -531,6 +533,28 @@ The owner approved the mock walk `walkQueue`, 19 Oct 2026.
 > word back. It writes nothing and leaves no listener.
 > Why: ⌘↵ is a page's own Send in a field, and taking it there would break the page being walked.
 
+## A Job's walk is a tab
+
+A Job's `show_window` opens no window.
+The walk is a tab of the Job in the Cockpit, beside the thread and named after its page, drawn by Bridge's own window in the frame the Job's pane reports (`apps/desktop/src/main/capture/job-walks.ts`).
+The owner approved the mock walk `walk-in-job`.
+
+| What | Holds |
+|---|---|
+| Opening | Nothing is raised and no focus changes. The Job's row and the tab pulse until it has been seen |
+| Tabs | One per walk. A Job with several walks has several tabs, and several approvals are several `show_window` calls |
+| Leaving the Job | The page, take, step and notes are kept, so returning to the Job finds the walk as it was |
+| × on a tab | The walk stays owed. The row keeps pulsing, and pressing it brings the tab back |
+| Approve | Closes the tab |
+
+The bar is two rows on every walk.
+The first holds the takes under *Pick one* (absent with no takes), *What to look at*, Reload, Capture and Approve; the second holds Back, the step's count, Next and the line.
+*What to look at* opens the `brief` the Job passed to `show_window`, and is absent with none.
+Takes are alternatives: the person picks one, and Approve names the take on screen.
+A note is held on the Job and listed at the end of its thread (*Pending notes*).
+While any is held, Approve becomes Send notes, a split button whose caret offers sending them and approving, or approving without them.
+A pull request's walk keeps the walk window (*One window for every walk*).
+
 ## A question asked in the window
 
 A Job's `ask_in_window` names a page on the origin of its window and a
@@ -540,7 +564,7 @@ review above.
 
 | Step | Held by | What happens |
 |---|---|---|
-| The question arrives | Main, off Fleet's row | The walk window comes forward on the walk asked about, opening on it if it is closed. **A walk not on screen is marked** on its entry and the page stays; going to it shows the question |
+| The question arrives | Main, off Fleet's row | The walk asked about shows the question on its bar, wherever its tab is, and is made first when it has no tab. **A walk not on screen is marked** and the page stays; going to it shows the question |
 | The page moves | Main | `loadURL` of the question's address, **only on the pinned origin**, and not when the page is already there |
 | The place is found | One ask, `apps/desktop/src/main/capture/locate.ts` | The element the selector finds, its box, and one scroll that brings it into view |
 | It is drawn | The bar's view, over the whole frame | An outline at the box and the card beside it, as capture's are |
@@ -711,6 +735,7 @@ press on it, which showing it already exposed him to.
 
 ## The panel beside the page
 
+A Job's own walk draws no panel: its tab sits beside the Job's thread (*A Job's walk is a tab*).
 The walk window draws the Job of the walk on screen in a third view, on
 the window's right edge at full height, and swaps it as the walk changes.
 The Job panel is the Cockpit's own `SessionView` for that Job.
@@ -820,7 +845,7 @@ He approved holding them, listing them, and sending them once.
 | Hold | Main, `apps/desktop/src/main/capture/held-notes.ts` | Kept per Job, each note with its own id and time, in `held-notes.json` under Bridge's `userData`, so a restart keeps them |
 | List | The panel, `apps/desktop/src/renderer/src/walk-panel/HeldNotes.tsx` | The last entry of the Job's thread, a turn of the owner's that is not sent and grows as notes are taken: each note's picture with its box ringed over it and tagged with its place in the list, what it is on and its words. Removing a note renumbers the rest. The words are edited in place and saved as the field is left; each note has a Remove. Send notes sits at its foot |
 | Send notes | Main, `sendHeld` in `apps/desktop/src/main/held-notes-channels.ts` | Every note the Job holds goes as one turn through `send_session_notes` (`docs/practices/protocol/a-walks-notes-sent-as-one-turn.md`), each picture with its ring burned in (`apps/desktop/src/main/capture/burn.ts`) and tagged with its place in the turn, the number Fleet's line for it names. The notes that were in the turn are dropped once Fleet takes it. A refusal keeps them all and the panel says why |
-| Approve | The bar | While the Job holds notes, Approve and ⌘↵ ask first: send them and approve, approve without them, or go back |
+| Approve | The bar | While the Job holds notes, Approve and ⌘↵ ask first: send them and approve, approve without them, or go back. On a Job's tab Approve is Send notes while any is held (*A Job's walk is a tab*) |
 
 > **Rule.** A held note belongs to the Job, not to the walk it was taken on.
 > Approving without them, closing the window or restarting Bridge leaves them held.
@@ -971,7 +996,7 @@ letting that one window open, and it is a capability added to this window.
 | What it is | A child window of the walk's around the contents Electron made for it (`createWindow`), in the page's partition, sandboxed, `contextIsolation` on, `nodeIntegration` off, no preload |
 | What holds it | The page's own hold: `will-navigate`, `will-redirect` and `will-frame-navigate` against the same origins. A download, a dialog and every permission but local network access meet the partition's refusals; that one is granted on the same origins as the page's |
 | What it can reach | The page that opened it, as any popup reaches its opener, and the repository's cookie jar. Nothing of Bridge's: it is not Bridge's window's opener, and the page has no preload for it to find |
-| When it closes | The page calls `window.close()`, the person closes it, or the walk window closes |
+| When it closes | The page calls `window.close()`, the person closes it, or its walk closes |
 | What a failure does | Nothing reaches main uncaught. A popup that cannot be built is closed and refused as every popup was |
 
 > **Rule.** The popup is built on the contents Electron hands `createWindow`, never on a view of

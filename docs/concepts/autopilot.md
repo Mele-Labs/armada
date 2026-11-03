@@ -83,7 +83,7 @@ A call that fails rests as the picker's does.
 | `open` | A question with options and none recommended | Chooses the option the call names |
 | `plan` | A plan waiting for approval | Approves it |
 | `draft` | A draft waiting on the person | Approves it as written |
-| `walk` | A walk window not yet approved | Approves it |
+| `walk` | A walk not yet approved | Approves it |
 | `land` | A Job's pull request, once every deciding check has passed and nothing conflicts or already merges it | Asks the forge to merge when its checks pass, as Auto land does. A Job with Auto land on is left to it, and a commit pushed since is decided again |
 | `unsure` | An issue the picker set aside | Starts it, as dispatching it from the pile does |
 | `red` | A red main | Starts one Job, once for each red commit, with no call. The Job holds the red's claim before it is briefed, so a Fleet that holds it refuses this one |

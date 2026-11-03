@@ -45,15 +45,15 @@ A dismissal a Job's own process makes (a walk it withdrew, a pull request that m
 The job takes back a draft of its own with `withdraw_draft`, and is sent nothing; both are in [Proposing a draft](proposing-a-draft.md).
 The message goes before the item is dropped, so a send that fails leaves the item standing to try again.
 A nothing-held id is refused as for `answer_waiting`.
-**Every walk window of a job waits until the person approves it.** One item per page, `walk:<url>`, for each standing window he has not approved since it was last shown: an Approve at or after the newest `window` row showing the page or one of its takes.
+**Every walk of a job waits until the person approves it.** One item per page, `walk:<url>`, for each standing window he has not approved since it was last shown: an Approve at or after the newest `window` row showing the page or one of its takes.
 Approving a newer walk leaves an older one waiting.
-A message, a note and closing the window settle nothing, and a page shown again waits again.
+A message, a note and closing the tab settle nothing, and a page shown again waits again.
 A window the job is changing raises no item while it is changing.
 A page changed after it was shown (`detail.changed` on its artifact, set with `working`) raises none even when it is ready, however often the turn ends between fixes.
 It waits again, with its `since` at that instant, only when the job shows it again with `show_window`.
 `dismiss_waiting` drops one, and an ended job has none.
 **The job takes a walk back with `withdraw_window`** (`url`, `session_id`) when he has moved past it, as when he asked for a bigger change instead of approving.
-It writes the dismissal `dismiss_waiting` writes for `walk:<url>`, so the item leaves the list and the window holds no pending plan, and it ends the walk, so the job's questions are not refused for it.
+It writes the dismissal `dismiss_waiting` writes for `walk:<url>`, so the item leaves the list and the window holds no pending plan, and it ends the walk.
 Only a window the job showed can be withdrawn.
 Showing the page again with `show_window` lifts the dismissal, so a withdrawn walk waits again, and so does one he dismissed himself.
 **Every sketch a job shows waits until the person answers it.** One item per title, `sketch:<title>`, source `sketch`, its text the title and its act `message` on the job, for each sketch put to him whose `detail.settled` is unset.
@@ -123,7 +123,7 @@ The mod's first-message note tells the agent to clear `waiting_for`, then call `
 A close that says the work or the job is done, finished or complete, or that nothing is left, while no `done_since` stands and nothing is on the job's waiting list, sends the agent: "Your reply says the work is done, and all_done is not called.
 If nothing is left, call all_done; if something is, say what."
 A sentence that defers or negates it, with "once", "after", "when", "until", "if", "before", "not" or "n't", and a question, claim nothing.
-A reply whose close, or a table cell near its end, asks the owner to walk, approve or leave notes on something, while no walk window of the job waits on him, sends: "Your reply asks the owner to walk something, and no walk window of this job is open.
+A reply whose close, or a table cell near its end, asks the owner to walk, approve or leave notes on something, while no walk of the job waits on him, sends: "Your reply asks the owner to walk something, and no walk window of this job is open.
 Build each walk and call show_window for it."
 A reply that claims both is reminded of the walk only, since the work is not done while a walk is owed.
 The reminder goes through `told_by_fleet` and starts a turn, in which the agent makes the call or says what is left.
