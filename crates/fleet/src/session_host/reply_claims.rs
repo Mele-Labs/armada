@@ -289,7 +289,7 @@ where
         if self.hosts().of(id).state().helm {
             return None;
         }
-        let (session, reads, done, subagents) = {
+        let (session, reads, done, subagents, landed) = {
             let store = self.store().lock().await;
             let session = store.session(id).ok().flatten()?;
             if session.state == store::SessionState::Ended {
@@ -303,13 +303,11 @@ where
                 return None;
             }
             let done = store.done_since(id).ok().flatten().is_some();
-            let subagents = store
-                .attachments_of(&store::Holder::session(id))
-                .ok()?
-                .iter()
-                .any(|one| one.kind == "subagent" && one.state == store::AttachmentState::Standing);
+            let held = store.attachments_of(&store::Holder::session(id)).ok()?;
+            let subagents = held.iter().any(|one| one.kind == "subagent" && one.state == store::AttachmentState::Standing);
+            let landed = held.iter().any(|one| one.kind == "pr" && crate::build_record::merged(one));
             let reads = self.ledger_reads(&store, &session).ok()?;
-            (session, reads, done, subagents)
+            (session, reads, done, subagents, landed)
         };
         let items = self.ledger_waiting(&session, reads);
         let backed = Backed {
@@ -318,6 +316,11 @@ where
             walk: items.iter().any(|item| item.source == WaitingSource::Walk),
             subagents,
         };
+        // A Job whose pull request merged and has no walk open is on follow-up work, and its replies about
+        // the walks it showed are history, not an ask.
+        if landed && !backed.walk {
+            return None;
+        }
         let walk = self.not_misread(Claim::Walk, walk_sentences(said)).await;
         let done = self.not_misread(Claim::Done, done_sentences(said)).await;
         decided(!walk.is_empty(), !done.is_empty(), &backed)
