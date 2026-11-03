@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { readPage, sceneWithKept } from "./document-page";
+import { readPage, sceneWithKept } from "@armada/screens/src/document-page";
 
 const CHART = `<svg viewBox="0 0 120 60" class="chart" role="img" aria-label="Failures by week" onload="steal()">
   <title>Failures by week</title>

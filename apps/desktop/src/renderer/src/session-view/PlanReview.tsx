@@ -30,6 +30,190 @@ import { AddGroup, GroupEditor, SendChanges, type FindingPins, type PlanEditing 
 import { OverTheApp } from "./OverTheApp";
 import { viewOf } from "./plan-marks";
 
+type PlanBodyProps = {
+  plan: WorkPlan;
+  revision?: PlanRevision;
+  ed: PlanEditing;
+  /** Edit plan: the rows are drawn in place of the diff against the version before. */
+  editing: boolean;
+  pullRequests?: {
+    onOpen: (number: number) => void;
+  };
+  jobOf?: (group: string) =>
+    | {
+        title: string;
+        state: SessionState;
+        said: string;
+        at?: string | number;
+        onOpen: () => void;
+      }
+    | undefined;
+  issueOf?: (group: string) => JobCardIssue | undefined;
+  findings?: {
+    findings: readonly Finding[];
+    onSend: (id: string) => void;
+    onDismiss: (id: string) => void;
+  };
+};
+
+/**
+ * The plan as it is read for review: every group with its paths and tasks, each taking quick edits and notes in place, and the sketch drawn with it.
+ * **No frame of its own**: the plan's layer wraps it in a sheet with Approve and Send changes at the foot, and the Job's review sheet draws it
+ * in its right pane with its own answers.
+ */
+export function PlanBody({
+  plan,
+  revision,
+  ed,
+  editing,
+  pullRequests,
+  jobOf,
+  issueOf,
+  findings,
+}: PlanBodyProps) {
+  const unchanged = useUnchanged(revision);
+  // Marks already made are the rows' to show, so a plan holding any opens on them.
+  const diff = revision !== undefined && !editing && ed.marks.length === 0;
+  const groups = viewOf(plan, ed.marks);
+  const keys = useFindingKeys(findings?.findings, {
+    onSend: (id) => findings?.onSend(id),
+    onDismiss: (id) => findings?.onDismiss(id),
+  });
+  const pins: FindingPins | undefined =
+    findings === undefined
+      ? undefined
+      : {
+          anchors: anchorsOf(
+            findings.findings,
+            groups.flatMap((group) => [
+              group.id,
+              ...group.tasks.map((task) => task.id),
+            ]),
+          ),
+          onSend: keys.send,
+          onDismiss: keys.dismiss,
+        };
+  return (
+    <div className="sv-review">
+      <div className="sv-review__groups" {...(pins === undefined ? {} : keys.bind)}>
+        {diff ? (
+          <PlanRevisionView revision={revision} unchanged={unchanged} />
+        ) : (
+          <>
+            {pins === undefined ? null : (
+              <FindingNotes
+                findings={pins.anchors.whole}
+                label="Findings on the plan"
+                onSend={pins.onSend}
+                onDismiss={pins.onDismiss}
+              />
+            )}
+            {landingsOf(groups, pullRequests !== undefined).map((run) => {
+              const editors = run.groups.map((group) => (
+                <section
+                  key={group.id}
+                  className="sv-group sv-review__group"
+                  data-open
+                  aria-label={group.title}
+                >
+                  <GroupEditor
+                    group={group}
+                    ed={ed}
+                    {...(pins === undefined
+                      ? {}
+                      : {
+                          pins,
+                        })}
+                  />
+                </section>
+              ));
+              // A group that goes to a Job of its own is that Job's card alone, its issue a chip in it: a placeholder until it is handed, then the Job. The Job plans its own
+              // tasks, so the group has no editor here.
+              if (run.own !== undefined) {
+                const job = jobOf?.(run.own.id);
+                const issue = issueOf?.(run.own.id);
+                const chip =
+                  issue === undefined
+                    ? {}
+                    : {
+                        issue,
+                      };
+                return (
+                  <div
+                    key={run.key}
+                    className="sv-review__landing"
+                    role="group"
+                    aria-label={run.own.title}
+                  >
+                    {job === undefined ? (
+                      <JobCard placeholder={run.own.title} {...chip} />
+                    ) : (
+                      <JobCard
+                        title={job.title}
+                        state={job.state}
+                        said={job.said}
+                        handedFrom={run.own.title}
+                        {...chip}
+                        {...(job.at === undefined
+                          ? {}
+                          : {
+                              at: job.at,
+                            })}
+                        onOpen={job.onOpen}
+                      />
+                    )}
+                  </div>
+                );
+              }
+              return run.landsIn === undefined ? (
+                editors
+              ) : (
+                <div
+                  key={run.key}
+                  className="sv-review__landing"
+                  role="group"
+                  aria-label={`Lands in ${run.landsIn.pullRequest === undefined ? run.key : `#${run.landsIn.pullRequest.number}`}`}
+                >
+                  <LandsInChip landsIn={run.landsIn} onOpen={pullRequests?.onOpen} />
+                  {editors}
+                </div>
+              );
+            })}
+            <AddGroup ed={ed} />
+          </>
+        )}
+      </div>
+      {plan.sketch === undefined ? null : (
+        <div className="sv-review__sketch">
+          <SketchReading scene={plan.sketch.scene} title={plan.sketch.title} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The plan in the Job's review sheet: its summary first, as the thread's plan card reads it, then its body with the one switch the sheet's own head has no place for, Edit plan, which draws the rows in place of the diff against
+ * the version before. Approve and Send back are the sheet's, not drawn here.
+ */
+export function PlanPane(props: Omit<PlanBodyProps, "editing">) {
+  const [editing, setEditing] = useState(false);
+  const { revision, plan, ed } = props;
+  return (
+    <div className="armada-job-review__fill">
+      {plan.summary === undefined ? null : <p className="sv-blueprint__summary">{plan.summary}</p>}
+      {revision === undefined || plan.approved || ed.marks.length > 0 ? null : (
+        <div className="sv-review__foot">
+          <Button variant="ghost" size="sm" onClick={() => setEditing(!editing)}>
+            {editing ? "Show changes" : "Edit plan"}
+          </Button>
+        </div>
+      )}
+      <PlanBody {...props} editing={editing} />
+    </div>
+  );
+}
+
 export function PlanReview({
   open,
   plan,
@@ -73,9 +257,6 @@ export function PlanReview({
 }) {
   const floor = useAtFloor();
   const [editing, setEditing] = useState(false);
-  const unchanged = useUnchanged(revision);
-  // Marks already made are the rows' to show, so a plan holding any opens on them.
-  const diff = revision !== undefined && !editing && ed.marks.length === 0;
   const marked = ed.marks.length > 0;
   const settled = plan.approved ? (
     <Tooltip label="Plan approved">
@@ -101,25 +282,38 @@ export function PlanReview({
       )}
     </div>
   );
-  const groups = viewOf(plan, ed.marks);
-  const keys = useFindingKeys(findings?.findings, {
-    onSend: (id) => findings?.onSend(id),
-    onDismiss: (id) => findings?.onDismiss(id),
-  });
-  const pins: FindingPins | undefined =
-    findings === undefined
-      ? undefined
-      : {
-          anchors: anchorsOf(
-            findings.findings,
-            groups.flatMap((group) => [
-              group.id,
-              ...group.tasks.map((task) => task.id),
-            ]),
-          ),
-          onSend: keys.send,
-          onDismiss: keys.dismiss,
-        };
+  const body = (
+    <PlanBody
+      plan={plan}
+      editing={editing}
+      ed={ed}
+      {...(revision === undefined
+        ? {}
+        : {
+            revision,
+          })}
+      {...(findings === undefined
+        ? {}
+        : {
+            findings,
+          })}
+      {...(pullRequests === undefined
+        ? {}
+        : {
+            pullRequests,
+          })}
+      {...(jobOf === undefined
+        ? {}
+        : {
+            jobOf,
+          })}
+      {...(issueOf === undefined
+        ? {}
+        : {
+            issueOf,
+          })}
+    />
+  );
   return (
     <OverTheApp open={open}>
       <Sheet
@@ -135,101 +329,7 @@ export function PlanReview({
         closeBinding="Esc"
         onClose={onClose}
       >
-        <div className="sv-review">
-          <div className="sv-review__groups" {...(pins === undefined ? {} : keys.bind)}>
-            {diff ? (
-              <PlanRevisionView revision={revision} unchanged={unchanged} />
-            ) : (
-              <>
-                {pins === undefined ? null : (
-                  <FindingNotes
-                    findings={pins.anchors.whole}
-                    label="Findings on the plan"
-                    onSend={pins.onSend}
-                    onDismiss={pins.onDismiss}
-                  />
-                )}
-                {landingsOf(groups, pullRequests !== undefined).map((run) => {
-                  const editors = run.groups.map((group) => (
-                    <section
-                      key={group.id}
-                      className="sv-group sv-review__group"
-                      data-open
-                      aria-label={group.title}
-                    >
-                      <GroupEditor
-                        group={group}
-                        ed={ed}
-                        {...(pins === undefined
-                          ? {}
-                          : {
-                              pins,
-                            })}
-                      />
-                    </section>
-                  ));
-                  // A group that goes to a Job of its own is that Job's card alone, its issue a chip in it: a placeholder until it is handed, then the Job. The Job plans its own
-                  // tasks, so the group has no editor here.
-                  if (run.own !== undefined) {
-                    const job = jobOf?.(run.own.id);
-                    const issue = issueOf?.(run.own.id);
-                    const chip =
-                      issue === undefined
-                        ? {}
-                        : {
-                            issue,
-                          };
-                    return (
-                      <div
-                        key={run.key}
-                        className="sv-review__landing"
-                        role="group"
-                        aria-label={run.own.title}
-                      >
-                        {job === undefined ? (
-                          <JobCard placeholder={run.own.title} {...chip} />
-                        ) : (
-                          <JobCard
-                            title={job.title}
-                            state={job.state}
-                            said={job.said}
-                            handedFrom={run.own.title}
-                            {...chip}
-                            {...(job.at === undefined
-                              ? {}
-                              : {
-                                  at: job.at,
-                                })}
-                            onOpen={job.onOpen}
-                          />
-                        )}
-                      </div>
-                    );
-                  }
-                  return run.landsIn === undefined ? (
-                    editors
-                  ) : (
-                    <div
-                      key={run.key}
-                      className="sv-review__landing"
-                      role="group"
-                      aria-label={`Lands in ${run.landsIn.pullRequest === undefined ? run.key : `#${run.landsIn.pullRequest.number}`}`}
-                    >
-                      <LandsInChip landsIn={run.landsIn} onOpen={pullRequests?.onOpen} />
-                      {editors}
-                    </div>
-                  );
-                })}
-                <AddGroup ed={ed} />
-              </>
-            )}
-          </div>
-          {plan.sketch === undefined ? null : (
-            <div className="sv-review__sketch">
-              <SketchReading scene={plan.sketch.scene} title={plan.sketch.title} />
-            </div>
-          )}
-        </div>
+        {body}
       </Sheet>
     </OverTheApp>
   );

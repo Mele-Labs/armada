@@ -474,6 +474,13 @@
   min-height: 0;
   padding: var(--space-4);
 }
+/* In the review sheet the pane already pads its bodies, so the plan sits where a draft or a document does, under its summary. */
+.armada-job-review__fill > .sv-review {
+  padding: 0;
+}
+.armada-job-review__fill > .sv-blueprint__summary {
+  margin-block-end: var(--space-3);
+}
 .sv-review:not(:has(.sv-review__sketch)) {
   grid-template-columns: minmax(0, 1fr);
 }

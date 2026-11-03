@@ -4,7 +4,7 @@
 
 import { onOneLine, type NotedRef } from "@armada/components";
 
-import { rowText } from "./document-page";
+import { rowText } from "@armada/screens/src/document-page";
 
 const LEAF = "h1,h2,h3,h4,h5,h6,p,li,td,th,figcaption,caption,blockquote,dt,dd,pre,summary";
 /** Blocks drawn struck where they stood. A removed cell has no place to stand in a row that still has the others. */

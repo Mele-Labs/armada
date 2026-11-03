@@ -407,10 +407,23 @@ export class CaptureWindow {
     ]);
     this.frozen = true;
     this.layout();
+    this.keyboardToBridge();
     return {
       page,
       bar,
     };
+  }
+
+  /**
+   * A view hidden while it has the keyboard keeps it, so the keys of the layer of Bridge's own now over it (the review sheet's arrows and Tab) would go to a page nobody sees.
+   * A pane's views hand it back to Bridge's window. Esc and the ⌘ keys were handed over already (`holdPaneKeys`), which is why this was not noticed on them.
+   */
+  private keyboardToBridge(): void {
+    if (this.seat?.pane === undefined) return;
+    const window = this.host();
+    if (window === null || !("webContents" in window)) return;
+    if (!this.page.webContents.isFocused() && !this.bar.webContents.isFocused()) return;
+    (window as Electron.BrowserWindow).webContents.focus();
   }
 
   thaw(): void {
@@ -469,6 +482,7 @@ export class CaptureWindow {
     this.page.setVisible(false);
     // A pane's bar is its own: it goes with the page, and comes back with it.
     if (this.seat?.pane !== undefined) this.bar.setVisible(false);
+    this.keyboardToBridge();
   }
 
   /** This walk comes on screen: its page, its title and the bar drawn for it, and the panel as last left. */

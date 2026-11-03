@@ -17,7 +17,7 @@ import { useSessionsDraft } from "../sessions-draft";
 import { artifactsOf, type ArtifactRow } from "./artifacts";
 import { DeliveryRoute } from "./DeliveryRoute";
 import { documentOf } from "./document-state";
-import { readPage } from "./document-page";
+import { readPage } from "@armada/screens/src/document-page";
 import { showLayer } from "./layers";
 import { IssueRow, issuesOutsidePlan } from "./IssuesBlock";
 import { LaterBlock } from "./LaterBlock";
