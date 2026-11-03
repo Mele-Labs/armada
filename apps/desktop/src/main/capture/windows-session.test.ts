@@ -89,8 +89,7 @@ beforeEach(() => {
   walkWindows.windows = [];
 });
 
-const place = (shown: CaptureWindows, session: string, url: string) =>
-  placeAt(shown, session, url);
+const place = (shown: CaptureWindows, session: string, url: string) => placeAt(shown, session, url);
 
 it("keeps a Session's window in its repository's cookie jar, and two repositories apart", () => {
   const shown = windows(record("a", "01ARMADA"), record("b", "01WIDGETS"), record("c"));

@@ -34,12 +34,7 @@ import { startRunner } from "./runner";
 import { JobWalks, type JobWalk } from "./job-walks";
 import { forwardTo } from "./pane-keys";
 import { WalkWindow, type Queued, type WalkWindowBoard } from "./walk-window";
-import {
-  CaptureWindow,
-  type CaptureBoard,
-  type LandsOn,
-  type WalkSizes,
-} from "./window";
+import { CaptureWindow, type CaptureBoard, type LandsOn, type WalkSizes } from "./window";
 
 /** One spacing token, in CSS pixels. */
 function token(name: string): number {

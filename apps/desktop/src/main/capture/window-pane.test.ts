@@ -16,7 +16,12 @@ vi.mock("electron", () => ({
   shell: {},
 }));
 
-type Handler = (event: { preventDefault: () => void }, input: unknown) => void;
+type Handler = (
+  event: {
+    preventDefault: () => void;
+  },
+  input: unknown,
+) => void;
 type Stub = ReturnType<typeof view>;
 
 const views = vi.hoisted(() => ({
@@ -64,7 +69,12 @@ function view() {
       executeJavaScriptInIsolatedWorld: () => Promise.resolve(stub.field),
       capturePage: () =>
         Promise.resolve({
-          toPNG: () => Buffer.from([1, 2, 3]),
+          toPNG: () =>
+            Buffer.from([
+              1,
+              2,
+              3,
+            ]),
         }),
     },
   };
@@ -283,8 +293,16 @@ it("holds both views as pictures and hides them under a layer of Bridge's own, a
   shown.show();
   const frozen = await shown.freeze();
   expect(frozen).toEqual({
-    page: new Uint8Array([1, 2, 3]),
-    bar: new Uint8Array([1, 2, 3]),
+    page: new Uint8Array([
+      1,
+      2,
+      3,
+    ]),
+    bar: new Uint8Array([
+      1,
+      2,
+      3,
+    ]),
   });
   expect(page.visible || bar.visible).toBe(false);
   shown.thaw();

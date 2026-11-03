@@ -498,7 +498,13 @@ describe("a walk arriving", () => {
     });
     const arranged = arriveWalk(arrangement, "Billing", "http://x/billing", false);
     expect(arranged.root.type).toBe("split");
-    expect((arranged.root as { ratio: number }).ratio).toBeGreaterThanOrEqual(0.78);
+    expect(
+      (
+        arranged.root as {
+          ratio: number;
+        }
+      ).ratio,
+    ).toBeGreaterThanOrEqual(0.78);
     expect(panesOf(arranged.root)).toHaveLength(3);
     const again = arriveWalk(arranged, "Billing", "http://x/billing2", false);
     const labels = walkTabs(again).map((tab) => tab.label);

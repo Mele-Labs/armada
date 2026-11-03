@@ -190,7 +190,10 @@ type Page = {
 };
 
 const pages = () => made.pages as Page[];
-const windows_ = () => electron.windows as { calls: string[] }[];
+const windows_ = () =>
+  electron.windows as {
+    calls: string[];
+  }[];
 
 const at = (time: string) => `2026-10-19T${time}:00Z`;
 const url = (name: string) => `https://${name}.example.com/app`;
@@ -476,9 +479,16 @@ it("makes a walk shown again with a sign-in afresh in its place, in the frame it
   const shown = holding(record("a", walk("a", at("09:01"))));
   shown.openForSession("a", "Walk a", url("a"));
   placeAt(shown, "a", url("a"));
-  shown.openForSession("a", "Walk a", url("a"), [], [], [
-    link,
-  ]);
+  shown.openForSession(
+    "a",
+    "Walk a",
+    url("a"),
+    [],
+    [],
+    [
+      link,
+    ],
+  );
   expect(pages()).toHaveLength(2);
   expect(pages()[0]!.events).toContain("dispose");
   expect(pages()[1]!.args[6]).toEqual([
@@ -490,9 +500,16 @@ it("makes a walk shown again with a sign-in afresh in its place, in the frame it
 it("holds a sign-in until the walk's page is first made, and hands it to that page alone", () => {
   const link = "https://a.example.com/dev/login";
   const shown = holding(record("a", walk("a", at("09:01"))));
-  shown.openForSession("a", "Walk a", url("a"), [], [], [
-    link,
-  ]);
+  shown.openForSession(
+    "a",
+    "Walk a",
+    url("a"),
+    [],
+    [],
+    [
+      link,
+    ],
+  );
   expect(pages()).toHaveLength(0);
   placeAt(shown, "a", url("a"));
   expect(pages()[0]!.args[6]).toEqual([

@@ -37,16 +37,7 @@ async function draw(props: Partial<WalkBarProps> = {}) {
     host,
   });
   await act(async () =>
-    root.render(
-      <WalkBar
-        name="Billing"
-        at={0}
-        of={0}
-        said=""
-        {...calls}
-        {...props}
-      />,
-    ),
+    root.render(<WalkBar name="Billing" at={0} of={0} said="" {...calls} {...props} />),
   );
   return calls;
 }
@@ -56,7 +47,9 @@ afterEach(() => {
     root.unmount();
     host.remove();
   }
-  document.querySelectorAll(".armada-popover__panel, .armada-dropdown-menu__panel").forEach((one) => one.remove());
+  document
+    .querySelectorAll(".armada-popover__panel, .armada-dropdown-menu__panel")
+    .forEach((one) => one.remove());
 });
 
 const group = () =>
@@ -152,9 +145,13 @@ test("the question mark appears with a brief, and opens it", async () => {
     brief: "Billing now shows the plan card. Look at the price.",
   });
   await button("What to look at").click();
-  await expect.element(page.getByText("Look at the price.", {
-    exact: false,
-  })).toBeVisible();
+  await expect
+    .element(
+      page.getByText("Look at the price.", {
+        exact: false,
+      }),
+    )
+    .toBeVisible();
 });
 
 test("while the Job is still changing, Approve reads Not ready and is off", async () => {
