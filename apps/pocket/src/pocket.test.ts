@@ -6,7 +6,7 @@ import { homeOf, type Mac } from "./fleet";
 import { answer } from "./fixture/gateway";
 import { fixtureMacs } from "./fixture/wire";
 import { asksOf, choicesOf, rowsOf, runsOf, sessionOfThread, takesWords } from "./thread";
-import { fit } from "./viewport";
+import { fit, followScreen } from "./viewport";
 import type { PhoneSession } from "./gateway";
 import { codeFromInput, linkOf } from "./pairing";
 import { routeOf } from "./router";
@@ -365,6 +365,60 @@ describe("the visible screen", () => {
       } as unknown as HTMLElement,
     };
   };
+  it("marks a keyboard when iOS shortens the layout's height with it", () => {
+    const one = root();
+    const view = {
+      width: 402,
+      height: 874,
+      offsetTop: 0,
+      scale: 1,
+    };
+    const follow = followScreen(view, one.element, () => undefined);
+    follow();
+    expect(one.keyboard()).toBe(false);
+    view.height = 500;
+    follow();
+    expect(one.keyboard()).toBe(true);
+    view.height = 874;
+    follow();
+    expect(one.keyboard()).toBe(false);
+  });
+  it("measures the screen again when it turns", () => {
+    const one = root();
+    const view = {
+      width: 402,
+      height: 874,
+      offsetTop: 0,
+      scale: 1,
+    };
+    const follow = followScreen(view, one.element, () => undefined);
+    follow();
+    view.width = 874;
+    view.height = 402;
+    follow();
+    expect(one.keyboard()).toBe(false);
+  });
+  it("undoes a pan, and not a pinch zoom's", () => {
+    const one = root();
+    const view = {
+      width: 402,
+      height: 500,
+      offsetTop: 0,
+      scale: 1,
+    };
+    let unpanned = 0;
+    const follow = followScreen(view, one.element, () => {
+      unpanned += 1;
+    });
+    follow();
+    expect(unpanned).toBe(0);
+    view.offsetTop = 300;
+    follow();
+    expect(unpanned).toBe(1);
+    view.scale = 2;
+    follow();
+    expect(unpanned).toBe(1);
+  });
   it("takes the visual viewport's height and pan, and marks a keyboard", () => {
     const one = root();
     fit(
