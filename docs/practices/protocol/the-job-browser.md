@@ -80,11 +80,16 @@ Bridge tells Fleet with `raise_browser_ask` and `end_browser_ask`, both `agent_a
 Answered 200 with `BrowserAskNoted` `{ session_id, ask_id }`.
 A blank `ask_id` or `text` is refused with 422 `fleet.browser_ask_refused`, and a Job Fleet does not know with 404 under the same code.
 
+**The words are Bridge's**, from `apps/desktop/src/shared/browser-ask.ts`: `text` is `Allow {Label} for {host}?`, and `options` are Allow and Block, in that order.
+Local network's Allow carries the description "It can reach apps on this Mac and devices on your network."
+Fleet keeps what it is given and reads none of it.
+
 Fleet lists it in the Job's `waiting_for` as `{ id: "browser_ask:<ask_id>", text, since, source: "browser_ask", act: { kind: "answer", target: <the id> }, options }`.
 It holds no slot and changes nothing about the Job's standing.
 Bridge's Needs you list calls the owner for it as it does for a permission.
 
-`POST /sessions/browser/ask/end`, body `EndBrowserAsk` `{ session_id, ask_id }`, is Bridge saying the tab settled it or closed.
+`POST /sessions/browser/ask/end`, body `EndBrowserAsk` `{ session_id, ask_id }`, is Bridge saying the ask is over.
+**Bridge calls it on every end but Fleet's own answer**: the person answered or dismissed it in the tab, the tab closed, or the Job is gone.
 Fleet takes the item away and publishes no event.
 Answered 200 with `BrowserAskNoted` also where Fleet holds none, since either side may end first.
 
@@ -94,8 +99,14 @@ Answered 200 with `BrowserAskNoted` also where Fleet holds none, since either si
 
 `browser.ask_answered` goes out on the channel `browser.request` does.
 `answer_waiting` with a `choice` on a `browser_ask` item publishes it with that index, and `dismiss_waiting` publishes it with `choice: null`.
+**`0` is Allow, `1` is Block and `null` is dismissed**, which the page's ask takes as a refusal now that keeps nothing.
 Either way Fleet has taken the item off the list first, and Bridge settles the page's ask the way it was answered.
+An event for an ask the tab no longer holds is ignored, so a late one does nothing.
 **Not replayed**, as `browser.request` is not.
+
+**One ask at a time a tab.**
+Bridge refuses a second ask in a tab as a dismissed one, so Fleet holds at most one item a tab.
+An ask raised during an agent's act waits on the person, and the agent's held call may run out meanwhile, as *How one act travels* says.
 
 **The agent is told nothing and is not woken** by raising, answering, dismissing or ending.
 No message goes to it, no row is written on its thread, and nothing is `Re:`.
@@ -110,6 +121,12 @@ That is the same count `fleet.browser_no_bridge` reads.
 A Fleet that has no reader between a Bridge closing and another opening keeps the old asks until the next read of any Job.
 
 **The event stream.** One small event an answer, from a person's press, so the unmeasured sink risk is neither better nor worse.
+
+## What stays in Bridge
+
+**Three things cross no seam to Fleet**: `JobBrowserState.acting`, which names the act in progress for the agent mark, the route that reads the Mac's site defaults, and the `defaultsChanged` notice.
+They are Bridge's own channels, in `apps/desktop/src/shared/api/job-browser.ts`, between its main process and its pane.
+The person's choices in Site settings, which answer a page's permission, download, popup or fullscreen request, stay in Bridge too: Fleet holds only the ask that a row set to Ask raises.
 
 ## The reminder row
 
