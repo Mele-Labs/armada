@@ -62,6 +62,10 @@ sha2 = "0.10"
 # `candle-core` always builds a tokenizer crate with a C regex library, which nothing here uses.
 candle-core = "0.9"
 candle-nn = "0.9"
+# The pool a read runs on, `language_model.rs`: `candle-core` sizes gemm's threads by every core
+# and nothing else, so a 7-sentence read cost 18 threads' spinning for the speed of two. The
+# version `candle-core` already holds, so nothing new is compiled.
+rayon = "1"
 
 [dev-dependencies]
 # A test that calls the GitHub client from inside a runtime, as Fleet's handlers do.

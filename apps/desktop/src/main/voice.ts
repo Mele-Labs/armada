@@ -1,10 +1,12 @@
 // Talk's three engines, heard in main. Apple's and Whisper's run Armada Voice (`native/voice/`), which prints one JSON
 // object a line; Dictation is macOS's own, started in whatever box has focus. The renderer names an engine and gets
-// words back, and never a path or a process.
+// words back, and never a path or a process. A voice that cannot hear hands over to the next, so the owner is asked
+// only for what macOS withholds.
 
 import { join } from "node:path";
 
 import type { VoiceEngine, VoiceWhy } from "../shared/api/voice";
+import { isDevBuild } from "./dev-build";
 
 /** One line Armada Voice prints. */
 export type HelperLine =
@@ -121,14 +123,16 @@ export type VoiceChild = {
 };
 
 export type VoiceHosts = {
-  /** Armada Voice's executable, or null where this Bridge was built without it. */
-  helper: string | null;
+  /** Armada Voice's executable, or null where it is not built. Read at each press, so one built since start is found. */
+  helper: () => string | null;
   /** Where Install put whisper.cpp and its model, or null before it has. */
   whisper: () => {
     library: string;
     model: string;
   } | null;
   spawn: (file: string, args: readonly string[]) => VoiceChild;
+  /** Starts Whisper's install, or joins the one running: pressing Talk on Whisper before it is here fetches it. */
+  installWhisper: () => void;
   /** macOS Dictation, sent to the first responder: `Menu.sendActionToFirstResponder`. */
   dictate: (action: "startDictation:" | "stopDictation:") => void;
   /** Calls `run` after `ms`; the returned function cancels it. */
@@ -144,11 +148,76 @@ export const RELEASE_GRACE_MS: Record<"apple" | "whisper", number> = {
   whisper: 120_000,
 };
 
+/** The voices tried for a chosen engine, in order. Dictation is last wherever it is there, and always can start. */
+const VOICES: Record<VoiceEngine, readonly VoiceEngine[]> = {
+  apple: [
+    "apple",
+    "whisper",
+    "dictation",
+  ],
+  whisper: [
+    "whisper",
+    "apple",
+    "dictation",
+  ],
+  dictation: [
+    "dictation",
+  ],
+};
+
+/** Another voice would not help with these, or only the owner can settle them. */
+const FINAL_WHYS: readonly VoiceWhy[] = [
+  "microphone_denied",
+  "speech_denied",
+  "microphone_unavailable",
+];
+
 /**
- * Starts hearing with `engine`. `onWord` gets each word once; `onEnd` is called once, when nothing more will come,
- * with why where it ended early. The returned stop is the release: the helper finishes what it heard and ends.
+ * Starts hearing with `engine`, and with the next voice where it cannot: Apple, Whisper and Dictation in the order
+ * `VOICES` gives. `onWord` gets each word once; `onEnd` is called once, when nothing more will come, with why only
+ * where the owner has to act. The returned stop is the release: the voice finishes what it heard and ends.
  */
 export function hear(
+  engine: VoiceEngine,
+  hosts: VoiceHosts,
+  onWord: (word: string) => void,
+  onEnd: (why?: VoiceWhy) => void,
+): () => void {
+  if (engine === "whisper" && hosts.whisper() === null) hosts.installWhisper();
+  // Filtered before anything starts: a voice that ended inside the next one's start would lose its stop to the
+  // assignment below.
+  const voices = VOICES[engine].filter(
+    (one) =>
+      one === "dictation" ||
+      (hosts.helper() !== null && (one === "apple" || hosts.whisper() !== null)),
+  );
+  let released = false;
+  let given = false;
+  let stopCurrent = (): void => {};
+  const start = (at: number): void => {
+    stopCurrent = hearWith(
+      voices[at] as VoiceEngine,
+      hosts,
+      (word) => {
+        given = true;
+        onWord(word);
+      },
+      (why) => {
+        if (why !== undefined && FINAL_WHYS.includes(why)) onEnd(why);
+        else if (why === undefined || released || given || at + 1 >= voices.length) onEnd();
+        else start(at + 1);
+      },
+    );
+  };
+  start(0);
+  return () => {
+    released = true;
+    stopCurrent();
+  };
+}
+
+/** One voice, heard to its end. `helper_missing` and `whisper_absent` here are a voice that could not hear. */
+function hearWith(
   engine: VoiceEngine,
   hosts: VoiceHosts,
   onWord: (word: string) => void,
@@ -170,7 +239,8 @@ export function hear(
     };
   }
 
-  if (hosts.helper === null) {
+  const helper = hosts.helper();
+  if (helper === null) {
     end("helper_missing");
     return () => {};
   }
@@ -190,7 +260,7 @@ export function hear(
     ];
   }
 
-  const child = hosts.spawn(hosts.helper, args);
+  const child = hosts.spawn(helper, args);
   const settled = new Settled();
   let released = false;
   let cancelKill = (): void => {};
@@ -229,10 +299,18 @@ export function hear(
   };
 }
 
-/** Armada Voice's executable: built beside the sources in development, in `Contents/Helpers` packaged. */
-export function helperPath(packaged: boolean, appPath: string, resourcesPath: string): string {
-  const app = packaged
-    ? join(resourcesPath, "..", "Helpers", "Armada Voice.app")
-    : join(appPath, "native", "voice", "build", "Armada Voice.app");
+/**
+ * Armada Voice's executable: built beside the sources in a dev build, in `Contents/Helpers` in a real one. A dev build
+ * is told by `isDevBuild`, because `packaged` alone reads true for the dev copy named Armada.
+ */
+export function helperPath(
+  packaged: boolean,
+  defaultApp: boolean | undefined,
+  appPath: string,
+  resourcesPath: string,
+): string {
+  const app = isDevBuild(packaged, defaultApp)
+    ? join(appPath, "native", "voice", "build", "Armada Voice.app")
+    : join(resourcesPath, "..", "Helpers", "Armada Voice.app");
   return join(app, "Contents", "MacOS", "armada-voice");
 }

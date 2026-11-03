@@ -13,6 +13,9 @@ import { WiredSessions } from "../sessions-wired";
 import { withState } from "../state-feed";
 import { BUILT_IN_SWATCHES, modSwatch } from "../swatches";
 import { Themed } from "../theme";
+import { startMotionRules } from "../still";
+
+startMotionRules();
 
 // A Browser tab's page in a window of its own, a fifth renderer entry: a Bridge document with Bridge's preload, which main loads on
 // `?session=` and `&tab=` and closes when the page moves back to its pane (`main/job-browsers.ts`). The page is main's view, placed over

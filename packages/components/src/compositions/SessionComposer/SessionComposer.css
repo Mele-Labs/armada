@@ -494,15 +494,6 @@ a.armada-inline-tag--link > svg {
   font-weight: var(--weight-medium);
 }
 
-.armada-session-composer__steps code {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
-  color: var(--fg-default);
-}
-
 .armada-session-composer__guide-foot {
   display: flex;
   align-items: center;
