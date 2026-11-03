@@ -111,6 +111,10 @@ async fn told(rig: &Rig, id: &SessionId) -> Vec<String> {
         .collect()
 }
 
+async fn told_of_what_waits(rig: &Rig, id: &SessionId) -> bool {
+    rig.rows(id).await.iter().any(|row| matches!(row, SessionRow::Waiter { event: WaiterEvent::Waits, .. }))
+}
+
 /// The parent's End list holds `child`, as Bridge reads it off the wire.
 async fn end_lists(rig: &Rig, parent: &SessionId, child: &SessionId) -> bool {
     let held = rig.fleet.get_job_lifecycles(None, Some(parent.clone())).await.expect("read");
@@ -181,13 +185,15 @@ async fn a_chain_holds_its_parent_one_job_at_a_time_as_each_runs() {
     let other = a_job_with_no_process(&rig).await;
     let first = waiting_on(&rig, &parent, "First", &other, true).await;
     let second = waiting_on(&rig, &parent, "Second", &first, true).await;
-    tokio::time::sleep(Duration::from_millis(300)).await;
-    assert_eq!(rig.processes_up(), 1, "being waited on does not start the one that waits");
+    // The word would start it once the proposer has read it, so what shows at once is the row.
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    assert!(!told_of_what_waits(&rig, &first).await, "being waited on does not tell the one that still waits, since a word would start it");
+    assert_eq!(rig.processes_up(), 1);
     assert!(all_done(&rig, &parent).await.is_ok(), "neither has begun");
 
     end(&rig, &other).await;
     runs(&rig, &first).await;
-    eventually(|| async { rig.rows(&first).await.iter().any(|row| matches!(row, SessionRow::Waiter { event: WaiterEvent::Waits, .. })) }).await;
+    eventually(|| async { told_of_what_waits(&rig, &first).await }).await;
     assert_eq!(holding(&rig, &parent).await, ["First is Running"], "the one after it still waits");
     assert!(all_done(&rig, &parent).await.is_err());
 
@@ -265,14 +271,15 @@ async fn a_parent_refused_before_this_is_told_at_fleets_start_though_no_move_com
 }
 
 #[tokio::test]
-async fn a_parent_told_to_wait_on_a_job_ended_on_its_card_hears_that_it_ended() {
+async fn a_parent_told_to_wait_hears_of_a_job_ended_on_its_card_and_of_the_one_that_has_not_begun() {
     let rig = rig(None);
     let parent = a_parent(&rig).await;
     let child = on_its_card(&rig, &parent, CHILD).await;
+    on_its_card(&rig, &parent, "Still on its card").await;
     rig.fleet.store().lock().await.hold_lifecycle_job(parent.as_str(), "t0").expect("kept");
 
     end(&rig, &child).await;
 
     eventually(|| async { !told(&rig, &parent).await.is_empty() }).await;
-    assert_eq!(told(&rig, &parent).await, [format!("{CHILD} is Ended. Nothing holds this Job open.")]);
+    assert_eq!(told(&rig, &parent).await, [format!("{CHILD} is Ended. Nothing holds this Job open: Still on its card has not begun, so you may finish.")]);
 }
