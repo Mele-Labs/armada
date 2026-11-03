@@ -1,5 +1,5 @@
-// A page's ask in the Job browser is an item in the Job's Needs you, drawn as any other: the Job's row calls, the panel on the composer lists it, and its Allow and Block
-// settle it for that site. Closing the Browser tab takes the item away with the page that asked. Mock only: nothing is wired. Over the `job-layouts` scenario.
+// A page's ask in the Job browser is in the page and in the Job's Needs you, one ask drawn twice: the Job's row calls, the panel on the composer lists it, and the bubble
+// under the head asks it. Allow and Block in either settle it for that site and take both away. Mock only: nothing is wired. Over the `job-layouts` scenario.
 
 import { button, deckRow, inside, region, role, tab, text, walk } from "../walk";
 import type { Step } from "../walk";
@@ -33,6 +33,7 @@ const lock = inside(
   }),
 );
 const settings = inside(browser, role("dialog", "Site settings"));
+const bubble = inside(browser, role("alertdialog", "Site request"));
 const needs = region("Needs you", {
   exact: true,
 });
@@ -62,14 +63,14 @@ const steps: Step[] = [
     say: "The page asks for the local network",
   },
   {
-    look: deckRow("Retry the slot lease"),
-    say: "The Job's row calls, as any ask does",
+    look: inside(bubble, text("It can reach apps on this Mac and devices on your network.")),
+    say: "The ask is in the browser, with what Local network reaches",
   },
   {
     press: button("Needs you", {
       exact: true,
     }),
-    say: "The ask is in Needs you, on the composer",
+    say: "The same ask is in Needs you, on the composer",
   },
   {
     look: inside(card, text("It can reach apps on this Mac and devices on your network.")),
@@ -92,6 +93,10 @@ const steps: Step[] = [
       }),
     ),
     say: "Answer",
+  },
+  {
+    look: page,
+    say: "The bubble is gone from the page",
   },
   {
     press: lock,
@@ -120,31 +125,21 @@ const steps: Step[] = [
     say: "The page asks for the location",
   },
   {
-    press: button("Needs you", {
-      exact: true,
-    }),
-    say: "Its ask is in Needs you",
-  },
-  {
-    look: inside(needs, text("Allow Location for localhost:5173?")),
+    look: inside(bubble, text("localhost:5173 wants to use Location")),
     say: "Other asks carry no risk line",
   },
   {
-    context: inside(
-      pane("localhost:5173"),
-      tab("localhost:5173", {
+    press: inside(
+      bubble,
+      button("Block", {
         exact: true,
       }),
     ),
-    say: "The tab's menu",
-  },
-  {
-    press: item("Close"),
-    say: "Close the Browser tab",
+    say: "Block, in the browser",
   },
   {
     look: deckRow("Retry the slot lease"),
-    say: "The ask is gone with the page that asked",
+    say: "The item is gone from Needs you, and the row no longer calls",
   },
 ];
 

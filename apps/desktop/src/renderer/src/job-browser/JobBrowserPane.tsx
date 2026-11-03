@@ -11,37 +11,26 @@ import {
   type ReactNode,
 } from "react";
 import {
-  Bell,
   Bot,
   ChevronLeft,
   ChevronRight,
-  ClipboardList,
   Crosshair,
-  Download,
-  ExternalLink,
-  Image,
   LockKeyhole,
-  MapPin,
-  Monitor,
-  Network,
   PanelRight,
-  Radio,
   RefreshCw,
-  type LucideIcon,
 } from "lucide-react";
-import { ACTION, Button, Dialog, Input, Kbd, Popover, Textarea, Tooltip } from "@armada/components";
+import { ACTION, Button, Input, Kbd, Popover, Textarea, Tooltip } from "@armada/components";
 import type { ThreadCard } from "@armada/components";
 
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import {
-  CHOICES,
-  SITE_PERMISSIONS,
   effectiveChoice,
-  type Choice,
-  type SitePermission,
+  labelOfPermission,
 } from "../../../shared/site-permissions";
 import {
+  answerRequest,
   browserToPane,
+  dismissRequest,
   goBack,
   goForward,
   jobBrowserApi,
@@ -56,6 +45,7 @@ import {
   type BrowserPin,
   type JobBrowser,
 } from "./store";
+import { LocalNetworkConfirm, PermissionRows, Segments, type LocalNetworkAsk } from "./SitePermissionRows";
 import { takesAnnotateChord } from "./chord";
 import "./job-browser.css";
 
@@ -331,7 +321,7 @@ function LivePage({
   const [picture, setPicture] = useState<string>();
   const [picked, setPicked] = useState<Picked>();
   const [ring, setRing] = useState<Box | null>(null);
-  // The app annotation layer, the site-settings popover, a dialog, a tab's menu and the drop zones of a tab being dragged all lie over the
+  // The app annotation layer, the site-settings popover, the page's ask, a dialog, a tab's menu and the drop zones of a tab being dragged all lie over the
   // page's native view, which would hide them, so while one is up the page is hidden and its picture shown, as under Capture.
   const [layerOn, setLayerOn] = useState(false);
   const held = capturing || layerOn;
@@ -348,7 +338,7 @@ function LivePage({
     const follow = () => {
       setLayerOn(
         document.querySelector(
-          "[data-armada-annotate], .job-browser__site-panel, .armada-dialog-scrim, .armada-dropdown-menu__panel, .job-pane__drops",
+          "[data-armada-annotate], .job-browser__site-panel, .job-browser__ask, .armada-dialog-scrim, .armada-dropdown-menu__panel, .job-pane__drops",
         ) !== null,
       );
       const box = frame.current?.getBoundingClientRect();
@@ -498,68 +488,6 @@ function LivePage({
   );
 }
 
-/** The glyph each permission is known by. Camera and Microphone borrow Image and Radio, and Fullscreen borrows Monitor: the registry has none of them. */
-const PERMISSION_GLYPH: Record<SitePermission, LucideIcon> = {
-  local_network: Network,
-  camera: Image,
-  microphone: Radio,
-  notifications: Bell,
-  clipboard: ClipboardList,
-  location: MapPin,
-  downloads: Download,
-  popups: ExternalLink,
-  fullscreen: Monitor,
-};
-
-/** A row of segments of which one is chosen: arrows move the choice, and Tab stops once. */
-function Segments<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: readonly {
-    value: T;
-    label: string;
-  }[];
-  onChange: (value: T) => void;
-}) {
-  const move = (event: KeyboardEvent<HTMLDivElement>) => {
-    const step =
-      event.key === "ArrowRight" || event.key === "ArrowDown"
-        ? 1
-        : event.key === "ArrowLeft" || event.key === "ArrowUp"
-          ? -1
-          : 0;
-    if (step === 0) return;
-    event.preventDefault();
-    const at = options.findIndex((one) => one.value === value);
-    const next = options[(at + step + options.length) % options.length]!;
-    onChange(next.value);
-    event.currentTarget.querySelector<HTMLElement>(`[data-value="${next.value}"]`)?.focus();
-  };
-  return (
-    <div className="job-browser__segments" role="radiogroup" aria-label={label} onKeyDown={move}>
-      {options.map((one) => (
-        <button
-          key={one.value}
-          type="button"
-          role="radio"
-          className="job-browser__segment"
-          data-value={one.value}
-          aria-checked={one.value === value}
-          tabIndex={one.value === value ? 0 : -1}
-          onClick={() => onChange(one.value)}
-        >
-          {one.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 const VIEWS = [
   {
     value: "site",
@@ -570,14 +498,6 @@ const VIEWS = [
     label: "All sites",
   },
 ] as const;
-const CHOICE_OPTIONS = CHOICES.map((one) => ({
-  value: one.choice,
-  label: one.label,
-}));
-
-/** What a press on Allow for Local network asks first: the site's, or every site's. */
-type LocalNetworkAsk = "site" | "all";
-
 /** Site settings: what the page may use, for this site and as the default for every one. Allow on Local network is asked about first, by `onAsk`. */
 function SiteSettingsPanel({
   sessionId,
@@ -588,7 +508,7 @@ function SiteSettingsPanel({
   sessionId: string;
   tabId: string;
   browser: JobBrowser;
-  onAsk: (scope: LocalNetworkAsk) => void;
+  onAsk: (ask: LocalNetworkAsk) => void;
 }) {
   const [view, setView] = useState<"site" | "all">("site");
   const host = hostOf(urlOf(browser));
@@ -596,47 +516,83 @@ function SiteSettingsPanel({
     <div className="job-browser__site-panel">
       <Segments label="Settings for" value={view} options={VIEWS} onChange={setView} />
       {view === "site" ? <span className="job-browser__site-host">{host}</span> : null}
-      <ul className="job-browser__permissions">
-        {SITE_PERMISSIONS.map(({ permission, label }) => {
-          const Glyph = PERMISSION_GLYPH[permission];
-          const value =
+      <PermissionRows
+        valueOf={(permission) =>
+          view === "site"
+            ? effectiveChoice(browser.site, host, permission)
+            : browser.site.defaults[permission]
+        }
+        onChoose={(permission, choice) => {
+          if (view === "site") setChoice(sessionId, tabId, host, permission, choice);
+          else setDefault(sessionId, tabId, permission, choice);
+        }}
+        onAskLocalNetwork={() =>
+          onAsk(
             view === "site"
-              ? effectiveChoice(browser.site, host, permission)
-              : browser.site.defaults[permission];
-          return (
-            <li key={permission} className="job-browser__permission">
-              <Glyph size={16} strokeWidth={2} aria-hidden />
-              <span className="job-browser__permission-label">{label}</span>
-              <Segments<Choice>
-                label={label}
-                value={value}
-                options={CHOICE_OPTIONS}
-                onChange={(choice) => {
-                  if (permission === "local_network" && choice === "allow" && value !== "allow")
-                    onAsk(view);
-                  else if (view === "site") setChoice(sessionId, tabId, host, permission, choice);
-                  else setDefault(sessionId, tabId, permission, choice);
-                }}
-              />
-            </li>
-          );
-        })}
-      </ul>
+              ? {
+                  scope: "site",
+                  host,
+                }
+              : {
+                  scope: "all",
+                },
+          )
+        }
+      />
     </div>
   );
 }
 
-/** What each Local network confirmation says: the site's own, and the one for every site. */
-const LOCAL_NETWORK = {
-  site: (host: string) => ({
-    title: `Allow local network for ${host}?`,
-    body: "This site can reach apps on this Mac and devices on your network. That includes pages the agent opens on it.",
-  }),
-  all: () => ({
-    title: "Allow local network on all sites?",
-    body: "Every site can reach apps on this Mac and devices on your network. That includes pages the agent opens.",
-  }),
-} as const;
+/** The page's ask, over the page under the head, the same one Needs you carries: answering either takes both away. Esc leaves the site undecided. */
+function AskBubble({
+  sessionId,
+  tabId,
+  browser,
+}: {
+  sessionId: string;
+  tabId: string;
+  browser: JobBrowser;
+}) {
+  const asked = browser.site.pending;
+  const open = asked !== null && (browser.asked === undefined || browser.asked === tabId);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: globalThis.KeyboardEvent) =>
+      event.key === "Escape" && dismissRequest(sessionId, tabId);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [
+    open,
+    sessionId,
+    tabId,
+  ]);
+  if (!open) return null;
+  const label = labelOfPermission(asked.permission);
+  return (
+    <div className="job-browser__ask" role="alertdialog" aria-label="Site request">
+      <span className="job-browser__ask-words">
+        <span>{`${asked.host} wants to use ${label}`}</span>
+        {asked.permission === "local_network" ? (
+          <span className="job-browser__ask-risk">
+            It can reach apps on this Mac and devices on your network.
+          </span>
+        ) : null}
+      </span>
+      <div className="job-browser__ask-acts">
+        <Button variant="ghost" size="sm" onClick={() => answerRequest(sessionId, tabId, "block")}>
+          Block
+        </Button>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => answerRequest(sessionId, tabId, "allow")}
+        >
+          Allow
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 /**
  * The lock before the address: site settings in a popover. Allow on Local network is confirmed in a
@@ -651,16 +607,7 @@ function SiteLock({
   tabId: string;
   browser: JobBrowser;
 }) {
-  const [asking, setAsking] = useState<{
-    scope: LocalNetworkAsk;
-    host: string;
-  } | null>(null);
-  const said =
-    asking === null
-      ? null
-      : asking.scope === "site"
-        ? LOCAL_NETWORK.site(asking.host)
-        : LOCAL_NETWORK.all();
+  const [asking, setAsking] = useState<LocalNetworkAsk | null>(null);
   const done = () => setAsking(null);
   return (
     <span className="job-browser__site">
@@ -679,33 +626,23 @@ function SiteLock({
             sessionId={sessionId}
             tabId={tabId}
             browser={browser}
-            onAsk={(scope) => {
-              setAsking({
-                scope,
-                host: hostOf(urlOf(browser)),
-              });
+            onAsk={(ask) => {
+              setAsking(ask);
               close();
             }}
           />
         )}
       </Popover>
-      <Dialog
-        open={asking !== null}
-        title={said?.title ?? ""}
-        tone="neutral"
-        initialFocus="confirm"
-        confirmLabel="Allow"
+      <LocalNetworkConfirm
+        asking={asking}
         onCancel={done}
-        onConfirm={() => {
-          if (asking === null) return;
-          if (asking.scope === "site")
-            setChoice(sessionId, tabId, asking.host, "local_network", "allow");
+        onConfirm={(asked) => {
+          if (asked.scope === "site")
+            setChoice(sessionId, tabId, asked.host, "local_network", "allow");
           else setDefault(sessionId, tabId, "local_network", "allow");
           done();
         }}
-      >
-        {said?.body}
-      </Dialog>
+      />
     </span>
   );
 }
@@ -852,6 +789,7 @@ export function JobBrowserPane({
           ) : null}
         </span>
       </header>
+      <AskBubble sessionId={sessionId} tabId={tabId} browser={browser} />
       {away ? null : browser.page !== undefined ? (
         <FixturePage
           sessionId={sessionId}

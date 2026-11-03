@@ -308,6 +308,11 @@ export const SYSTEM_ENTRIES: readonly SystemEntryDef[] = [
     ],
   },
   {
+    id: "bridge:browser",
+    label: "Browser",
+    group: "bridge",
+  },
+  {
     id: "bridge:phone",
     label: "Phone",
     group: "bridge",

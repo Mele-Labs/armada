@@ -71,6 +71,38 @@ const listeners = new Set<() => void>();
 /** The Browser tabs of each Job in pane order, as main was last told them. */
 const reported = new Map<string, readonly string[]>();
 
+/**
+ * **The mock's**: the defaults every Job's browser reads, one set for all of them. A Job's own `site.defaults` is not read; `shared` puts these
+ * in its place. In the app main keeps the defaults, so none of this is used there.
+ */
+let sharedDefaults: SiteSettings["defaults"] = NO_SETTINGS.defaults;
+const sharedViews = new WeakMap<
+  JobBrowser,
+  {
+    defaults: SiteSettings["defaults"];
+    view: JobBrowser;
+  }
+>();
+
+/** The browser as the mock draws it: its own sites over the one set of defaults. The same object comes back while neither has changed. */
+function shared(one: JobBrowser): JobBrowser {
+  if (wired !== undefined) return one;
+  const was = sharedViews.get(one);
+  if (was?.defaults === sharedDefaults) return was.view;
+  const view: JobBrowser = {
+    ...one,
+    site: {
+      ...one.site,
+      defaults: sharedDefaults,
+    },
+  };
+  sharedViews.set(one, {
+    defaults: sharedDefaults,
+    view,
+  });
+  return view;
+}
+
 /** What a tab's page is held under. **The mock plays one browser for the Job**, so every one of its tabs is held under the Job. */
 const keyOf = (sessionId: string, tabId: string): string =>
   wired === undefined ? sessionId : `${sessionId}/${tabId}`;
@@ -129,13 +161,14 @@ export function wireJobBrowsers(api: Wired): () => void {
 
 /** The tab's browser as it stands now, for a caller that is not drawing it; without a tab, the Job's first. */
 export function peekJobBrowser(sessionId: string, tabId?: string): JobBrowser | undefined {
-  if (tabId !== undefined) return held[keyOf(sessionId, tabId)];
-  return (
-    held[sessionId] ??
-    (reported.get(sessionId) ?? [])
-      .map((one) => held[keyOf(sessionId, one)])
-      .find((one) => one !== undefined)
-  );
+  const one =
+    tabId !== undefined
+      ? held[keyOf(sessionId, tabId)]
+      : (held[sessionId] ??
+        (reported.get(sessionId) ?? [])
+          .map((one) => held[keyOf(sessionId, one)])
+          .find((one) => one !== undefined));
+  return one === undefined ? undefined : shared(one);
 }
 
 /** The tab's browser as it stands, or nothing where it has none. */
@@ -145,8 +178,32 @@ export function useJobBrowser(sessionId: string | undefined, tabId = ""): JobBro
       listeners.add(hear);
       return () => listeners.delete(hear);
     },
-    () => (sessionId === undefined ? undefined : held[keyOf(sessionId, tabId)]),
+    () => {
+      const one = sessionId === undefined ? undefined : held[keyOf(sessionId, tabId)];
+      return one === undefined ? undefined : shared(one);
+    },
   );
+}
+
+/** **The mock's**: the defaults every Job's browser reads, for System › Browser. Where main holds them the app has none here yet, so these are the shipped ones. */
+export function useBrowserDefaults(): SiteSettings["defaults"] {
+  return useSyncExternalStore(
+    (hear) => {
+      listeners.add(hear);
+      return () => listeners.delete(hear);
+    },
+    () => (wired === undefined ? sharedDefaults : NO_SETTINGS.defaults),
+  );
+}
+
+/** **The mock's**: one default for every Job's browser. Main's route takes a tab and a repository, so where it is wired this does nothing until one without them exists. */
+export function setBrowserDefault(permission: SitePermission, choice: Choice): void {
+  if (wired !== undefined) return;
+  sharedDefaults = {
+    ...sharedDefaults,
+    [permission]: choice,
+  };
+  told();
 }
 
 /** The ids of an arrangement's Browser tabs in pane order, which is the order the Job's page is looked for in. */
@@ -298,16 +355,7 @@ export function setDefault(
     void wired.setDefault(sessionId, tabId, permission, choice);
     return;
   }
-  edit(keyOf(sessionId, tabId), (one) => ({
-    ...one,
-    site: {
-      ...one.site,
-      defaults: {
-        ...one.site.defaults,
-        [permission]: choice,
-      },
-    },
-  }));
+  setBrowserDefault(permission, choice);
 }
 /** **The mock's** page asking. A decided site is answered at once; only an undecided one raises the bubble. */
 export function requestPermission(
@@ -317,7 +365,7 @@ export function requestPermission(
 ): void {
   edit(sessionId, (one) => {
     const host = hostOf(one.url);
-    if (effectiveChoice(one.site, host, permission) !== "ask") return one;
+    if (effectiveChoice(shared(one).site, host, permission) !== "ask") return one;
     return {
       ...one,
       asked: tabId,
