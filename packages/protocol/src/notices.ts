@@ -9,6 +9,7 @@ export const NOTICES = [
   "pr_auto_merge",
   "pr_queued",
   "pr_handed",
+  "pr_comments",
   "slot_free",
   "slot_kept",
   "build_moved",

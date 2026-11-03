@@ -59,7 +59,14 @@ fn reviewer(login: &str, verdict: Option<ReviewSaid>) -> Reviewer {
 }
 
 fn comment(author: &str) -> Said {
-    Said::Comment { author: author.into(), at: "t".into(), body: "b".into() }
+    Said::Comment {
+        id: "IC_1".into(),
+        author: author.into(),
+        bot: false,
+        at: "t".into(),
+        edited_at: None,
+        body: "b".into(),
+    }
 }
 
 #[test]

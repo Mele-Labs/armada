@@ -8,12 +8,13 @@
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
-use adapter_traits::{FilePatch, Forge, ReviewList, ReviewListAsk};
+use adapter_traits::{FilePatch, Forge, ReviewList, ReviewListAsk, Said};
 
 use super::github_api::{api, ok, serve, Reply};
 use super::repo::TempRepo;
 use crate::github_api::ApiFailure;
 use crate::pull_request_detail::{folded, profile_from, with_profiles, with_teams};
+use crate::pull_request_comments::comments_folded;
 use crate::pull_request_patch::listed;
 use crate::pull_request_threads::threads_folded;
 use crate::pull_review_lists::{listed_folded, Teams};
@@ -28,6 +29,8 @@ const REVIEWED_MORE_FILES: &str = include_str!("github_answers/page_reviewed_mor
 const REVIEWED_GH: &str = include_str!("github_answers/page_reviewed.tsv");
 const THREADS: &str = include_str!("github_answers/threads_reviewed.json");
 const THREADS_GH: &str = include_str!("github_answers/threads_reviewed.tsv");
+const COMMENTS: &str = include_str!("github_answers/comments_reviewed.json");
+const COMMENTS_GH: &str = include_str!("github_answers/comments_reviewed.tsv");
 const PATCHES: &str = include_str!("github_answers/patches_2190.json");
 const PATCHES_GH: &str = include_str!("github_answers/patches_2190.tsv");
 /// What GitHub answers for the threads of a pull request nobody has commented a line of.
@@ -171,6 +174,15 @@ fn a_reviewed_page_over_the_api_is_the_page_gh_reads_with_its_people_read_at_onc
 
     let page = forge.pull_request_page(&repo.root_str(), "7").unwrap();
     let mut expected = folded(&lines(REVIEWED_GH)).unwrap();
+    // `gh pr view` prints neither when a comment was edited nor the author's type, so a bot
+    // whose login lacks `[bot]` reads as a person there. The API reads both.
+    for said in &mut expected.conversation {
+        match said {
+            Said::Comment { id, edited_at, .. } if id == "IC_1" => *edited_at = Some("2026-10-15T10:30:00Z".into()),
+            Said::Comment { id, bot, .. } if id == "IC_2" => *bot = true,
+            _ => {}
+        }
+    }
     expected.threads = threads_folded(&lines(THREADS_GH));
     with_profiles(&mut expected.reviewers, |login| match login {
         "grace" => profile_from("Grace Hopper\thttps://github.com/grace"),
@@ -182,6 +194,20 @@ fn a_reviewed_page_over_the_api_is_the_page_gh_reads_with_its_people_read_at_onc
     assert_eq!(page.files.len(), 4, "the second page of files is read on");
     assert_eq!(page.reviewers[2].name.as_deref(), Some("Grace Hopper"));
     assert_eq!(page.reviewers[2].team.as_deref(), Some("reviewers"));
+}
+
+#[test]
+fn comments_over_the_api_are_the_comments_gh_reads() {
+    let server = serve(|seen| match (seen.method.as_str(), seen.target.as_str()) {
+        ("POST", "/graphql") if seen.body.contains("reviewThreads") => ok(COMMENTS),
+        _ => not_found(),
+    });
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
+    let repo = on_github();
+
+    let comments = forge.pull_request_comments(&repo.root_str(), 2190).unwrap();
+    assert_eq!(comments, comments_folded(&lines(COMMENTS_GH)));
+    assert_eq!(comments.len(), 6, "the review with no body is dropped");
 }
 
 #[test]

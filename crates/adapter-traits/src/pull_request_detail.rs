@@ -67,17 +67,25 @@ pub struct Reviewer {
     pub team: Option<String>,
 }
 
-/// One thing said on the pull request.
+/// One thing said on the pull request. `id` is the forge's own, so a later read finds the same
+/// one; `edited_at` is absent when it was never edited, and always from `gh pr view`, which does
+/// not say; `bot` is whether an app wrote it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Said {
     Comment {
+        id: String,
         author: String,
+        bot: bool,
         at: String,
+        edited_at: Option<String>,
         body: String,
     },
     Review {
+        id: String,
         author: String,
+        bot: bool,
         at: String,
+        edited_at: Option<String>,
         verdict: ReviewSaid,
         body: String,
     },

@@ -141,12 +141,14 @@ const PAGE: PullRequestPage = {
   conversation: [
     {
       kind: "comment",
+      id: "IC_1",
       author: "claude",
       at: ago(95),
       body: "Open pull requests go through `openPullRequest`:\n\n- the setting is read once\n- the browser stays one press away",
     },
     {
       kind: "review",
+      id: "PRR_1",
       author: "reviewer",
       at: ago(60),
       verdict: "changes_requested",
@@ -154,6 +156,7 @@ const PAGE: PullRequestPage = {
     },
     {
       kind: "review",
+      id: "PRR_2",
       author: "reviewer",
       at: ago(40),
       verdict: "approved",
@@ -161,6 +164,7 @@ const PAGE: PullRequestPage = {
     },
     {
       kind: "review",
+      id: "PRR_3",
       author: "nick",
       at: ago(12),
       verdict: "commented",
@@ -277,6 +281,137 @@ export const Conversation: Story = {
         selector: ".armada-pr-status__fact",
       }),
     ).toBeInTheDocument();
+  },
+};
+
+/** The page with a thread on a line, its reply, and a resolved thread on a whole file. */
+const THREADED: PullRequestPage = {
+  ...PAGE,
+  threads: [
+    {
+      id: "PRRT_1",
+      path: "crates/config/settings.toml",
+      line: 16,
+      side: "right",
+      resolved: false,
+      comments: [
+        {
+          id: "PRRC_1",
+          author: "marta",
+          at: ago(66),
+          body: "Say what `armada` opens here.",
+        },
+        {
+          id: "PRRC_2",
+          author: "nick",
+          at: ago(50),
+          body: "The side panel.",
+        },
+      ],
+    },
+    {
+      id: "PRRT_2",
+      path: "apps/desktop/src/main/forge.ts",
+      side: "right",
+      resolved: true,
+      comments: [
+        {
+          id: "PRRC_3",
+          author: "nina",
+          at: ago(30),
+          body: "Read the setting once.",
+        },
+      ],
+    },
+  ],
+};
+
+/**
+ * Every comment in the Conversation, the ones on a line or a file too, each thread headed by where it is with the
+ * lines it is about and its replies under it. Evaluate on a thread's comment hands it on with its place, and the
+ * sent mark takes the button's place.
+ */
+export const ConversationWithThreads: Story = {
+  args: {
+    ...withPage,
+    page: THREADED,
+    evaluate: {
+      onEvaluate: fn(),
+      sent: (id: string) => id === "PRRC_2",
+    },
+    excerpt: (thread) =>
+      thread.line === undefined
+        ? undefined
+        : {
+            path: thread.path,
+            lines: [
+              {
+                kind: "hunk",
+                text: "@@ -14,1 +14,3 @@",
+              },
+              {
+                kind: "context",
+                text: ' openIssuesIn = "browser"',
+              },
+              {
+                kind: "added",
+                text: '+openPullRequestsIn = "armada"',
+              },
+            ],
+          },
+  },
+  play: async ({ canvas, args, userEvent }) => {
+    const onLine = within(
+      canvas.getByRole("article", {
+        name: "Thread on crates/config/settings.toml:16",
+      }),
+    );
+    await expect(onLine.getByText('+openPullRequestsIn = "armada"')).toBeInTheDocument();
+    await expect(
+      onLine.getByRole("article", {
+        name: "nick",
+      }),
+    ).toBeInTheDocument();
+    await expect(
+      onLine.getByRole("img", {
+        name: "Sent to the Job",
+      }),
+    ).toBeInTheDocument();
+    const onFile = within(
+      canvas.getByRole("article", {
+        name: "Thread on apps/desktop/src/main/forge.ts",
+      }),
+    );
+    await expect(
+      onFile.getByRole("img", {
+        name: "Resolved",
+      }),
+    ).toBeInTheDocument();
+    // A review with no words has nothing to weigh.
+    await expect(
+      canvas
+        .getAllByRole("button", {
+          name: /^Evaluate: /,
+        })
+        .map((one) => one.getAttribute("aria-label")),
+    ).toEqual([
+      "Evaluate: claude",
+      "Evaluate: marta on crates/config/settings.toml:16",
+      "Evaluate: reviewer",
+      "Evaluate: nina on apps/desktop/src/main/forge.ts",
+      "Evaluate: nick",
+    ]);
+    await userEvent.click(
+      onLine.getByRole("button", {
+        name: "Evaluate: marta on crates/config/settings.toml:16",
+      }),
+    );
+    await expect(args.evaluate!.onEvaluate).toHaveBeenCalledWith({
+      id: "PRRC_1",
+      author: "marta",
+      body: "Say what `armada` opens here.",
+      where: "crates/config/settings.toml:16",
+    });
   },
 };
 

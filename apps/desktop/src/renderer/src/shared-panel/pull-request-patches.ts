@@ -1,8 +1,10 @@
 // Every changed file's diff for the pull request panel's Files tab, drawn from the one read of its patches.
 
-import type { PullRequestPatches, UnifiedDiffProps } from "@armada/components";
-import type { PullRequestFilePatch } from "@armada/protocol";
+import type { DiffFile, PullRequestPatches, UnifiedDiffProps } from "@armada/components";
+import type { PullRequestFilePatch, PullReviewThread } from "@armada/protocol";
 import { drawnOf } from "@armada/screens/src/drawn-patch";
+
+import { indexOfPlace, linesOfPatch, sliceAround } from "../pr-review/patch";
 
 import type { PatchesRead } from "./reads";
 
@@ -74,3 +76,38 @@ const withLines = (
         ...diff,
         ...lines,
       };
+
+/**
+ * The lines of the diff each thread on a line is about, as the review tool cuts them: the line and a few either side, inside
+ * its hunk. A thread on a file, a patch not read, or a patch that no longer holds the line draws none.
+ */
+export function excerptsOf(
+  read: PatchesRead | undefined,
+): ((thread: PullReviewThread) => DiffFile | undefined) | undefined {
+  if (read === undefined || !read.ok) return undefined;
+  const patches = new Map(
+    read.files.map((file) => [
+      file.path,
+      file.patch,
+    ]),
+  );
+  return (thread) => {
+    const patch = patches.get(thread.path);
+    if (thread.line === undefined || patch === undefined) return undefined;
+    const lines = linesOfPatch(thread.path, patch);
+    const place = {
+      line: thread.line,
+      side: thread.side,
+    };
+    if (indexOfPlace(lines, place) < 0) return undefined;
+    return {
+      path: thread.path,
+      lines: sliceAround(lines, {
+        path: thread.path,
+        side: thread.side,
+        start: thread.line,
+        end: thread.line,
+      }),
+    };
+  };
+}

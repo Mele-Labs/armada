@@ -143,18 +143,31 @@ pub struct PullRequestReviewer {
     pub team: Option<String>,
 }
 
-/// One thing said on the pull request, in the order it was said.
+/// One thing said on the pull request, in the order it was said. `id` is the forge's own, which
+/// a later read names the same one by. `edited_at` is left out when it was never edited, and
+/// always where Fleet read the page through `gh pr view`, which does not say. `bot` is left out
+/// for a person.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum PullRequestEntry {
     Comment {
+        id: String,
         author: String,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        bot: bool,
         at: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        edited_at: Option<String>,
         body: String,
     },
     Review {
+        id: String,
         author: String,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        bot: bool,
         at: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        edited_at: Option<String>,
         verdict: PullRequestVerdict,
         body: String,
     },

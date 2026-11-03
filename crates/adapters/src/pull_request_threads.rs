@@ -7,12 +7,13 @@
 use adapter_traits::{DiffSide, ReviewThreadFacts, ThreadSaid};
 
 use crate::delivery::{read_in, run_in, said, FORGE};
+use crate::pull_request_detail::{by_a_bot, edited};
 use crate::under_review::as_written;
 
 pub(crate) const QUERY: &str = "query($owner:String!,$name:String!,$number:Int!){\
     repository(owner:$owner,name:$name){pullRequest(number:$number){\
     reviewThreads(first:100){nodes{id isResolved isOutdated path line diffSide \
-    comments(first:50){nodes{id author{login} createdAt body}}}}}}}";
+    comments(first:50){nodes{id author{__typename login} createdAt lastEditedAt body}}}}}}}";
 
 /// `// ""` on every field so a `null` cannot stop jq mid-stream. A thread whose line is `null`
 /// prints no line, and so does an outdated one: the line it names has changed under it.
@@ -22,7 +23,8 @@ const REDUCTION: &str = "\
       ((.isOutdated // false) | tostring), (.path // \"\"), ((.line // \"\") | tostring), \
       (.diffSide // \"\")], \
      (.comments.nodes[]? | \
-      [\"tc\", (.id // \"\"), (.author.login // \"\"), (.createdAt // \"\"), (.body // \"\")])) \
+      [\"tc\", (.id // \"\"), (.author.login // \"\"), (.author.__typename // \"\"), (.createdAt // \"\"), \
+       (.lastEditedAt // \"\"), (.body // \"\")])) \
     | @tsv";
 
 /// The author the forge shows for an account that no longer exists.
@@ -92,12 +94,14 @@ pub(crate) fn threads_folded(lines: &[String]) -> Vec<ReviewThreadFacts> {
                 });
             }
             "tc" => {
-                let (id, author, at, body) = (next(), next(), next(), next());
+                let (id, author, kind, at, edited_at, body) = (next(), next(), next(), next(), next(), next());
                 if let Some(thread) = threads.last_mut() {
                     thread.comments.push(ThreadSaid {
                         id,
+                        bot: by_a_bot(&kind, &author),
                         author: if author.is_empty() { GHOST.to_string() } else { author },
                         at,
+                        edited_at: edited(edited_at),
                         body,
                     });
                 }

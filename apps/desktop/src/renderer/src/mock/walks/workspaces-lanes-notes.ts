@@ -292,11 +292,11 @@ const notes = walk("workspaces-lanes", [
   {
     look: inside(
       PR_PANEL,
-      button("Send to Job: Maya on src/cart/totals.ts:42", {
+      button("Evaluate: Maya on src/cart/totals.ts:42", {
         exact: true,
       }),
     ),
-    say: "The triage is a mark on the comment, with its acts",
+    say: "The triage is a mark on the comment, beside Evaluate",
   },
 
   {

@@ -25,6 +25,8 @@ pub enum Notice {
     PrQueued,
     /// A pull request Fleet opened is this Job's to see merged.
     PrHanded,
+    /// "#N: 2 new comments from <login>, in <file>": a human reviewer commented or edited.
+    PrComments,
     /// The branch a Session's slot is leased on merged, so the slot is free to reuse.
     SlotFree,
     /// What keeps a Session's slot after its branch merged.
@@ -93,6 +95,7 @@ impl Notice {
             Notice::PrAutoMerge => "pr_auto_merge",
             Notice::PrQueued => "pr_queued",
             Notice::PrHanded => "pr_handed",
+            Notice::PrComments => "pr_comments",
             Notice::SlotFree => "slot_free",
             Notice::SlotKept => "slot_kept",
             Notice::BuildMoved => "build_moved",
