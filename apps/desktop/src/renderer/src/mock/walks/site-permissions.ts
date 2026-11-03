@@ -91,6 +91,23 @@ const steps: Step[] = [
     say: "Browser",
   },
   {
+    press: okta,
+    say: "The page asks for the local network",
+  },
+  {
+    look: inside(bubble, text("It can reach apps on this Mac and devices on your network.")),
+    say: "The ask says what Local network reaches",
+  },
+  {
+    press: inside(
+      bubble,
+      button("Block", {
+        exact: true,
+      }),
+    ),
+    say: "Block, for now",
+  },
+  {
     press: lock,
     say: "The lock before the address opens Site settings",
   },
@@ -101,7 +118,7 @@ const steps: Step[] = [
         exact: true,
       }),
     ),
-    say: "Popups and Fullscreen follow Downloads",
+    say: "Popups and Fullscreen follow Downloads. Every row works, whoever is on the page",
   },
   {
     press: choose("Local network", "Allow"),
@@ -112,20 +129,8 @@ const steps: Step[] = [
     say: "The confirmation names the site and what it can reach",
   },
   {
-    press: inDialog(site, "Cancel"),
-    say: "Cancel",
-  },
-  {
-    press: lock,
-    say: "Local network is still Ask",
-  },
-  {
-    press: choose("Local network", "Allow"),
-    say: "Allow again",
-  },
-  {
     press: inDialog(site, "Allow"),
-    say: "Allow confirms. Enter does too",
+    say: "Allow. Enter does too, and Esc cancels",
   },
   {
     press: lock,
@@ -145,36 +150,7 @@ const steps: Step[] = [
   },
   {
     press: inDialog(everywhere, "Cancel"),
-    say: "Cancel",
-  },
-  {
-    press: lock,
-    say: "Reopen Site settings",
-  },
-  {
-    press: choose("Local network", "Ask"),
-    say: "Back to Ask for this site, which needs no confirmation",
-  },
-  {
-    press: lock,
-    say: "Close",
-  },
-  {
-    press: okta,
-    say: "The page asks for the local network",
-  },
-  {
-    look: inside(bubble, text("It can reach apps on this Mac and devices on your network.")),
-    say: "The ask says what Local network reaches",
-  },
-  {
-    press: inside(
-      bubble,
-      button("Allow", {
-        exact: true,
-      }),
-    ),
-    say: "Allow needs no second press",
+    say: "Cancel keeps the choice as it was",
   },
 ];
 
