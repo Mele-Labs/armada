@@ -19,6 +19,17 @@ Until the model loads the list is accepted as it was; the walk rules read no mod
 An ended job holds nothing.
 **Bridge shows the list on the composer**, as a **Needs you** band folded to one glyph an item, named on hover; a press rides it up as the header of a panel and dims the thread.
 The panel opens as a list, a row each and no act on the row; a press on a row opens that one to do its act, and Back or Esc returns to the list.
+**What he reads rather than answers is on a sheet, and the rest stays on the card.**
+A plan, sketch, draft, document and walk are the review items: they are one **Review** row in the panel's list, with a glyph for each, named on hover, with no count, and it opens one sheet over the thread.
+A question, command, pull request, message and Fleet's own cards stay on the card, answered where they stand, as above.
+A Job with both keeps the question on the card and lists only the review items on the sheet; a Job with no review items has no Review row and never opens the sheet.
+A Job with only review items has nothing to fold, so a press anywhere on the band opens the sheet.
+The sheet lists the items oldest first, the list on the left and the selected item on the right, and each item has its own answer, with Approve naming the item, such as `Approve Plan v2`.
+`⌘↵` approves, `⌥R` sends back with a note, `↑` and `↓` move, and Esc closes the sheet and returns focus to what opened it.
+After an answer the next open item comes up, and the last answer closes the sheet.
+A walk plays in the sheet's pane, its page and bar the walk's own, so the walk's bar holds the only Approve.
+The same walk may be a tab of the Job behind the sheet: the page is the sheet's while it is open and returns to the tab when it closes.
+`⇧⌘Y` (`needs_you`, `crates/core-model/domain/actions.toml`) opens the sheet when the Job has review items, and otherwise folds the card open or shut.
 The owner, 12 Oct 2026: "when the session is not completed, the 'needs you' items in the right panel move to a panel in the thread like this that is locked to the bottom.
 Maybe it's collapsed by default?" A question or permission is left out of the band, since its own card shows it.
 The band stays when the agent says it is done, above the done callout; the ledger holds no section for them.

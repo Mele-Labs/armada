@@ -324,8 +324,8 @@ function LivePage({
   const [picture, setPicture] = useState<string>();
   const [picked, setPicked] = useState<Picked>();
   const [ring, setRing] = useState<Box | null>(null);
-  // Whatever lies over the page's native view (a zoomed pane, the palette, a dialog, a tab's menu, the drop zones of a tab being dragged) would be hidden by it, so while one is up
-  // the page is hidden and its picture shown, as under Capture.
+  // Whatever lies over the page's native view (a zoomed pane, the palette, a dialog, a tab's menu, the Job's review sheet, the drop zones of a tab being dragged) would be hidden by it,
+  // so while one is up the page is hidden and its picture shown, as under Capture.
   const [layerOn, setLayerOn] = useState(false);
   const held = capturing || layerOn;
   const aiming = useRef({

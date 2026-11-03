@@ -7,7 +7,8 @@ is paired with, each directly: the Phone Gateway that Fleet serves on that Mac
 
 `pnpm -C apps/pocket fixture` serves it on a fixture Gateway with two Macs,
 `studio` on Vite's port (5173) and `laptop` on the next one, so the app opens
-on a list at `http://localhost:5173/`. `POCKET_FIXTURE_UNPAIRED=laptop` makes
+on a list at `http://localhost:5173/`. The Job `Review what a Job waits on` holds one of each thing a Job waits on; the first answer to its
+sketch `Slot layout` is refused as redrawn, and the thread then shows the new drawing. `POCKET_FIXTURE_UNPAIRED=laptop` makes
 `laptop` answer 401, as a Mac that forgot the phone does. The fixture is
 `src/fixture/`.
 
@@ -16,7 +17,7 @@ goes to `/pair`. Routes: `/` every Mac's Jobs (Drafts, Needs you, Running, under
 the plan's 5-hour and weekly limits), `/pair` (`?code=…` from a pairing link,
 `?origin=…` to pair a Mac again), `/dispatch`, a Job at
 `/jobs/<Mac origin, encoded>/<id>`, and what it showed under it at
-`/file?path=…` and `/sketch?id=…`. A draft Job, one held on its start card,
+`/file?path=…`, `/sketch?id=…` and `/document?page=…`. A draft Job, one held on its start card,
 opens at `/drafts/<Mac origin, encoded>/<id>`: its brief to edit, how the work
 lands where its workflow asks, Send and Discard. A Job that has begun opens as
 a Job from there, and a held one opens as a draft from `/jobs/…`.
@@ -24,7 +25,13 @@ a Job from there, and a held one opens as a draft from `/jobs/…`.
 A Job's thread ends in what waits on the owner: a question, one of Fleet's own
 choices (how the work lands, every slot held, tasks done, a rule's act, a
 watch's failure, where taught words open), a Run card for a command to run on
-the Mac, a Draft card to approve or send back. The header's ⋯ menu holds Stop,
+the Mac, a Draft card to approve or send back (a proposed workflow change is
+one), a document or a sketch to approve or send back on its own card, a card to
+open a Job started and held on its start card, and a Fleet call to dismiss. A
+walk, and a question asked in one, are a line saying to open it on the Mac. A
+document opens at its own route as its newest revision, read by the page reader
+Bridge uses (`packages/screens/src/document-page.ts`), with a wide table
+scrolling inside its own box. The header's ⋯ menu holds Stop,
 Pause or Resume, Fork, model, effort and End job. In its message box and in
 Dispatch, Enter breaks the line and only the button sends.
 

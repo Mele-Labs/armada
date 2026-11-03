@@ -380,6 +380,11 @@ where
     async fn waiter_told(self: &Arc<Self>, waiting: &str, also: &str) {
         let kept = self.store().lock().await.wait_of(waiting).ok().flatten();
         let Some(wait) = kept.filter(|one| one.started_at.is_none() && !one.told) else { return };
+        // A word would start a Job that itself still waits, ahead of what it waits for: it is told once it has started.
+        let on_waits = self.store().lock().await.wait_of(&wait.on_session).ok().flatten().is_some_and(|one| one.started_at.is_none());
+        if on_waits {
+            return;
+        }
         if !matches!(self.store().lock().await.claim_wait_told(waiting), Ok(true)) {
             return;
         }

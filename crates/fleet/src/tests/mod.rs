@@ -173,6 +173,7 @@ mod lifecycle_ends_read;
 mod lifecycle_waking;
 mod lifecycle_applying;
 mod lifecycle_holding;
+mod lifecycle_not_begun;
 mod attached_line;
 mod session_pause;
 mod session_pause_waiting;
