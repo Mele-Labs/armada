@@ -11,14 +11,7 @@ const LANES = region("Workflow", {
   exact: true,
 });
 const PANEL = role("dialog");
-const RUNS_IN = group("Runs in");
-const tab = (name: string) =>
-  inside(
-    RUNS_IN,
-    role("tab", name, {
-      exact: true,
-    }),
-  );
+const STORE_WEB = group("store-web repository");
 const kept = inside(PANEL, group("Where it is kept"));
 
 // Played in a wide window, so each rule's label stands in the canvas beside the panel and a ring never lands on what the panel covers.
@@ -31,12 +24,21 @@ const pieces = walk(
       say: "The feature workflow over a lane each for Ticket, Pull request and Deploy, read from the lifecycles Fleet keeps",
     },
     {
-      look: RUNS_IN,
-      say: "Default, all of my-store, and a tab for each of its repositories",
+      look: text("Edits here change every Workspace and repository that keeps the default"),
+      say: "Armada's feature is picked, so edits go to the default",
     },
     {
-      press: tab("store-web"),
-      say: "store-web's tab: its own Ticket names In review as In QA",
+      press: inside(
+        STORE_WEB,
+        button("feature", {
+          exact: true,
+        }),
+      ),
+      say: "store-web's own copy: the line says edits here change store-web only, and its Ticket names In review as In QA",
+    },
+    {
+      look: text("Edits here change store-web only"),
+      say: "The picked row sets the level",
     },
     {
       look: inside(
@@ -158,19 +160,6 @@ const pieces = walk(
         }),
       ),
       say: "Delete takes its file out of your Kit",
-    },
-    {
-      press: tab("my-store"),
-      say: "my-store's tab",
-    },
-    {
-      press: inside(
-        LANES,
-        button("Mark ready", {
-          exact: true,
-        }),
-      ),
-      say: "A rule for my-store alone",
     },
   ],
   {
