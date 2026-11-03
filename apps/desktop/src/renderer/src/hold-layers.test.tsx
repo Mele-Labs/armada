@@ -18,7 +18,7 @@ afterEach(() => {
 
 test("the annotation layer's idle host is no layer", () => {
   mount((host) => host.setAttribute("data-armada-annotate", ""));
-  expect(holdLayerUp()).toBe(false);
+  expect(holdLayerUp(null)).toBe(false);
 });
 
 test("the annotation layer drawn holds the view", () => {
@@ -26,13 +26,13 @@ test("the annotation layer drawn holds the view", () => {
     layer.className = "armada-annotate";
     layer.setAttribute("data-armada-annotate", "");
   });
-  expect(holdLayerUp()).toBe(true);
+  expect(holdLayerUp(null)).toBe(true);
 });
 
 test("a dialog's scrim holds the view, and nothing up does not", () => {
-  expect(holdLayerUp()).toBe(false);
+  expect(holdLayerUp(null)).toBe(false);
   mount((scrim) => {
     scrim.className = "armada-dialog-scrim";
   });
-  expect(holdLayerUp()).toBe(true);
+  expect(holdLayerUp(null)).toBe(true);
 });

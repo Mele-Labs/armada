@@ -58,7 +58,7 @@ function LiveWalk({ jobId, walkId, api }: { jobId: string; walkId: string; api: 
     let moving = 0;
     let last: Box | undefined;
     const follow = () => {
-      setHeld(holdLayerUp());
+      setHeld(holdLayerUp(frame.current));
       const box = frame.current?.getBoundingClientRect();
       if (box !== undefined) {
         const now = {

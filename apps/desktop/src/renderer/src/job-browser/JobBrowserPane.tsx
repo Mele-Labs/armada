@@ -324,8 +324,8 @@ function LivePage({
   const [picture, setPicture] = useState<string>();
   const [picked, setPicked] = useState<Picked>();
   const [ring, setRing] = useState<Box | null>(null);
-  // The app annotation layer, the site-settings popover, the page's ask, a dialog, a tab's menu and the drop zones of a tab being dragged all lie over the
-  // page's native view, which would hide them, so while one is up the page is hidden and its picture shown, as under Capture.
+  // Whatever lies over the page's native view (a zoomed pane, the palette, a dialog, a tab's menu, the drop zones of a tab being dragged) would be hidden by it, so while one is up
+  // the page is hidden and its picture shown, as under Capture.
   const [layerOn, setLayerOn] = useState(false);
   const held = capturing || layerOn;
   const aiming = useRef({
@@ -339,7 +339,7 @@ function LivePage({
     let moving = 0;
     let last: Box | undefined;
     const follow = () => {
-      setLayerOn(holdLayerUp());
+      setLayerOn(holdLayerUp(frame.current));
       const box = frame.current?.getBoundingClientRect();
       if (box !== undefined) {
         const now = {
