@@ -7,6 +7,7 @@ import {
   CircleDashed,
   Cpu,
   Diff,
+  Eye,
   Files,
   FolderTree,
   GitPullRequest,
@@ -133,5 +134,9 @@ export const KINDS: Readonly<
   draft: {
     label: "Draft",
     Glyph: NotebookPen,
+  },
+  walk: {
+    label: "Walk",
+    Glyph: Eye,
   },
 };

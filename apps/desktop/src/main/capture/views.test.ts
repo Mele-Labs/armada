@@ -66,6 +66,7 @@ vi.mock("electron", () => {
         setUserAgent: (agent: string) => void (part["agent"] = agent),
         webRequest: {
           onBeforeSendHeaders: (handler: BeforeSend) => void (part["beforeSend"] = handler),
+          onBeforeRequest: () => {},
         },
         setPermissionRequestHandler: (handler: unknown) => void (part["permission"] = handler),
         setPermissionCheckHandler: (handler: unknown) => void (part["check"] = handler),

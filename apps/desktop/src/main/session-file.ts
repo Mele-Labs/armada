@@ -37,6 +37,14 @@ export function titleOfWindow(record: SessionRecord | undefined, url: string): s
   return shown === undefined ? null : (shown.detail?.["title"] ?? url);
 }
 
+/** What the Session said to look at on the window at `url`, or `undefined` where it said nothing. */
+export function briefOfWindow(record: SessionRecord | undefined, url: string): string | undefined {
+  const kept = record?.attachments.find(
+    (one) => one.kind === "artifact" && one.target === url && one.detail?.["form"] === "window",
+  )?.detail?.["brief"];
+  return kept === undefined || kept.trim() === "" ? undefined : kept;
+}
+
 /**
  * The takes the Session showed at `url`, as its ledger keeps them in the window's `detail`, or none.
  * **Anything that is not a list of `{name, url}` reads as none**: the ledger is Fleet's, but a

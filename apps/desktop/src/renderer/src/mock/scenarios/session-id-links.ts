@@ -7,6 +7,7 @@ import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
+import { walkCall } from "../plan-call";
 import { s200Sessions } from "./sessions";
 
 const now = new Date().toISOString();
@@ -147,6 +148,21 @@ const walker: Session = {
   ...quiet,
   id: "d3adbeef0001",
   title: "Walk links",
+  attachments: [
+    {
+      kind: "artifact",
+      form: "window",
+      id: WALK,
+      title: "Walk links page",
+      window: {
+        takes: [],
+        steps: [],
+      },
+    },
+  ],
+  waitingFor: [
+    walkCall(WALK, "Walk links page", now),
+  ],
   rows: [
     {
       id: "w1",

@@ -1323,7 +1323,7 @@ const testWalk: WalkHandle = (() => {
 })();
 
 /** What was picked, the way a person names it: its role or tag and its words. */
-function described(element: HTMLElement): string {
+export function described(element: HTMLElement): string {
   const role = element.getAttribute("role") ?? element.tagName.toLowerCase();
   const words = (element.getAttribute("aria-label") ?? element.textContent ?? "")
     .trim()

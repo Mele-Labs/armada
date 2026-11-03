@@ -10,10 +10,10 @@ If the question is not related to the walk it should wait."
 
 | | |
 |---|---|
-| What it may ask about | An address on the origin of a window the job showed, or of any of its takes (the window swaps to that take), whether or not its walk is still open: a closed window is opened again. Anything else is refused with a reason that names `AskUserQuestion`, which Fleet keeps whole while he walks |
+| What it may ask about | An address on the origin of a window the job showed, or of any of its takes (the window swaps to that take), whether or not its walk is still open: a closed window is opened again. Anything else is refused with a reason that names `AskUserQuestion`, which is asked as at any other time |
 | What the call does | Keeps a `window_ask` row on the thread and answers at once. **It does not wait**: the job ends its turn, and the answer arrives as a message from the person |
-| What Bridge does | Brings the job's walk window forward, opening it if it is closed, moves the page to the address, scrolls the place into view, outlines it, and draws the question on a card of the window's own bar. `docs/practices/capture-window.md` |
-| How it waits | `window_ask:<row>` in the Needs you panel, with its options and its `place`. Its act is a walk of the window it was asked in, so a press there opens the window with the card |
+| What Bridge does | Opens the job's walk as a tab if it has none, moves the page to the address, scrolls the place into view, outlines it, and draws the question on a card of the walk's own bar, wherever its tab is. `docs/practices/capture-window.md` |
+| How it waits | `window_ask:<row>` in the Needs you panel, with its options and its `place`. Its act is a walk of the window it was asked in, so a press there opens the tab with the card |
 | How it is answered | An option, words of the person's own, or both, through `answer_waiting`. The job gets `Re: <question>` with the option and the words beneath it, and the row keeps the answer. It settles the question only: the walk it was asked in waits until his Approve. `dismiss_waiting` drops it with nothing sent |
 | While Autopilot runs | Recorded as a walk is and never answered by it: it is about what is on the page |
 

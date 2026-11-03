@@ -19,5 +19,5 @@ There is no number to take: the protocol ID moves with the wire files, and `arma
 The call hands it to main once.
 
 **Skew.** The ID moves, so a Bridge and a Fleet that differ are refused and the lifeboat serves.
-A Bridge that predates the row field opens the window with no origins, as it has no word for them.
+A Bridge that predates the row field opens the tab with no origins, as it has no word for them.
 The migration is none: the ledger's `detail` holds strings and `origins` is one more.

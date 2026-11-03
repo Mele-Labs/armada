@@ -20,7 +20,6 @@ use ipc::{
 
 use super::handoff_answers::HandoffAnswer;
 use super::serving::mode_of;
-use super::walking::walk_open_refusal;
 use crate::daemon::Fleet;
 use crate::helm::{
     answering, blocked_folder, guarded_in_a_session, pages_opened, restarted, unanswered, Because, Folders,
@@ -140,17 +139,6 @@ where
         id: &str,
         asking: AskingToRun,
     ) -> Result<RunOrNot, Refusal> {
-        // A question held open during a walk would hold back every note and the Approve.
-        if asking.tool_name == ipc::ASKS_A_QUESTION && self.walk_open(id).await.is_some() {
-            let manifest = match self.session_and_hosting(id).await {
-                Ok((_, hosting)) => ManifestId::carried(&hosting.manifest_id),
-                Err(_) => ManifestId::carried(""),
-            };
-            self.walk_refused_ask(id, &manifest, &asking).await;
-            return Ok(RunOrNot::Deny {
-                message: walk_open_refusal(),
-            });
-        }
         // He reads only what the agent writes, so a question with no answer to his message before it
         // is sent back for the answer.
         if asking.tool_name == ipc::ASKS_A_QUESTION && self.question_unanswered(id, asking.tool_use_id.as_deref()).await {
@@ -413,18 +401,6 @@ where
         tokens.map(|_| picked)
     }
 
-    /// A question refused for a walk, kept on the thread whole: every question, header, option and
-    /// description, in an ask row settled `Kept`, which Bridge draws in Needs you as the question that
-    /// lapsed. **Never put on the table**: the call is withdrawn as it is minted, so nothing waits on
-    /// an answer and the card is not a live one.
-    async fn walk_refused_ask(&self, id: &str, manifest: &ManifestId, asking: &AskingToRun) {
-        let asks = self.hosts().asks();
-        let (kept, _) = asks.minted(manifest, asking, &self.now());
-        let _ = asks.withdraw(&kept.call);
-        self.row_put(id, self.ask_row(id, &kept, SessionAskState::Kept, None)).await;
-        let _ = self.published_hosted(id).await;
-    }
-
     /// What the person chose, as a message of theirs in the thread: the ask row settles into a
     /// collapsed tool line, which is not where a person looks for what they said. **Its id names the
     /// ask row it answers** ([`answers_a_question`]), so it is not read as words on a walk. It is his
@@ -467,15 +443,6 @@ where
         self.terminal_ask_closed(id, SessionAskState::Unanswered)
             .await;
         let question = asking.tool_name == ipc::ASKS_A_QUESTION;
-        // A walk holds back a question, which would hold back his notes. A permission is the
-        // terminal's own prompt, and is put to him whatever he is walking.
-        if question && self.walk_open(id).await.is_some() {
-            let manifest = ManifestId::carried(session.manifest_id.as_deref().unwrap_or_default());
-            self.walk_refused_ask(id, &manifest, &asking).await;
-            return Ok(TerminalAsked::Refused {
-                message: walk_open_refusal(),
-            });
-        }
         let asks = self.hosts().asks();
         let manifest = ManifestId::carried(session.manifest_id.as_deref().unwrap_or_default());
         // The channel is not waited on; the answer is kept by whoever gives it.
