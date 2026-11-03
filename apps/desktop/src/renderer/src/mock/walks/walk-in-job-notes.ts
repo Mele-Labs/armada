@@ -1,12 +1,13 @@
-// Notes taken on a Job's walk are held on the Job, not sent, as they are in the walk window. Note arms the page, a press picks what is under it, and the card beside the pick holds the words and
-// Capture. The notes wait as the last entry of the Job's thread, beside the walk, each editable and removable, with Send notes. While any are held the bar says so and Approve asks first. They stay
-// held when you leave the Job. Sent, the walk stays, still changing, until the Job shows the page again. A walk tab closed with its × comes back when you press the Job's row. Over the `walk-in-job` scenario.
+// Notes taken on a Job's walk are held on the Job, not sent, as they are in the walk window. Capture arms the page, a press picks what is under it, and the card beside the pick holds the words and
+// Capture. The notes wait as the last entry of the Job's thread, beside the walk, each editable and removable. While any are held Approve on the bar becomes Send notes, with approving behind its
+// caret. They stay held when you leave the Job. Sent, the walk stays, still changing, until the Job shows the page again. A walk tab closed with its × comes back when you press the Job's row. Over the
+// `walk-in-job` scenario.
 
 import { button, deckRow, inside, region, role, tab, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 const billing = role("group", "Walk Billing");
-const takes = inside(billing, role("toolbar", "Takes"));
+const takes = inside(billing, role("radiogroup", "Pick one"));
 const card = role("dialog", "Capture a note");
 const held = region("Pending notes");
 const note = (said: string) => role("listitem", said);
@@ -19,11 +20,11 @@ const capture = (said: string, say: string): Step[] => [
   {
     press: inside(
       billing,
-      button("Note", {
+      button("Capture", {
         exact: true,
       }),
     ),
-    say: "Note arms the page",
+    say: "Capture on the bar arms the page",
   },
   {
     press: button("Pick on the page"),
@@ -57,7 +58,7 @@ const walkInJobNotes = walk("walk-in-job", [
     say: "The Billing walk",
   },
   {
-    press: inside(takes, button("Roomy")),
+    press: inside(takes, role("radio", "Roomy")),
     say: "The Roomy take",
   },
   ...capture(FIRST, "Type the note. The card sits beside what you picked"),
@@ -66,7 +67,7 @@ const walkInJobNotes = walk("walk-in-job", [
     say: "The next step",
   },
   {
-    press: inside(takes, button("With table")),
+    press: inside(takes, role("radio", "With table")),
     say: "Another take",
   },
   ...capture(SECOND, "A second note, on another part"),
@@ -75,20 +76,21 @@ const walkInJobNotes = walk("walk-in-job", [
     say: "The notes wait at the end of the thread, each naming its walk and take",
   },
   {
-    look: inside(billing, text("Notes pending in the thread")),
-    say: "The bar says the notes are pending, not sent",
+    look: inside(
+      billing,
+      button("Send notes", {
+        exact: true,
+      }),
+    ),
+    say: "Approve on the bar has become Send notes",
   },
   {
-    press: inside(billing, button(/^Approve/)),
-    say: "Approve asks first while notes are pending",
+    press: inside(billing, button("Approve options")),
+    say: "Behind the caret you can send the notes and approve With table, or approve it without them",
   },
   {
-    look: role("menuitem", "Send notes and approve"),
-    say: "Send them and approve, approve without them, or go back",
-  },
-  {
-    press: role("menuitem", "Go back"),
-    say: "Go back approves nothing",
+    press: inside(billing, button("Approve options")),
+    say: "Close it. Nothing was sent or approved",
   },
   {
     press: deckRow("Pin the store clock"),
@@ -103,8 +105,13 @@ const walkInJobNotes = walk("walk-in-job", [
     say: "The notes are still held",
   },
   {
-    press: inside(held, button("Send notes")),
-    say: "Send notes sends what is held as one turn",
+    press: inside(
+      billing,
+      button("Send notes", {
+        exact: true,
+      }),
+    ),
+    say: "Send notes on the bar sends what is held as one turn",
   },
   {
     look: inside(region("Pane: Thread"), text(/^The plan card needs the renewal date/)),

@@ -3,9 +3,8 @@
 import { useEffect } from "react";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
-import { focusKind } from "../job-panes/focus";
-import { rearrange, useJobPanes } from "../job-panes/store";
-import { closeTab, panesOf, type Tab } from "../job-panes/tree";
+import { rearrange } from "../job-panes/store";
+import { closeTab, type Tab } from "../job-panes/tree";
 import { useSendHeld } from "./held";
 import { mockPage } from "./mock-pages";
 import {
@@ -32,12 +31,7 @@ export function WalkBody({ session, tab }: { session: Session; tab: Tab }) {
   const state = useWalkState(jobId, tab.page);
   const notes = useHeldNotes(jobId);
   const send = useSendHeld(session);
-  // The thread beside the walk is in front where its pane shows it; the status brings it when it is not.
-  const { arrangement } = useJobPanes(jobId);
-  const threadFront = panesOf(arrangement.root).some(
-    (pane) => pane.tabs.find((one) => one.id === pane.active)?.kind === "thread",
-  );
-  // Drawn in front of him: the tab stops pulsing.
+  // Drawn in front of the person: the tab stops pulsing.
   useEffect(() => {
     if (tab.page !== undefined) markSeen(jobId, tab.page);
   }, [
@@ -64,14 +58,10 @@ export function WalkBody({ session, tab }: { session: Session; tab: Tab }) {
         : {
             held: {
               notes: notes.length === 1 ? ("one" as const) : ("several" as const),
+              onSend: () => void send(),
               onSendAndApprove: () => void send().then(() => approveWalkTab(jobId, tab)),
             },
           })}
-      panel={{
-        kind: "session",
-        open: threadFront,
-        onToggle: () => focusKind(jobId, "thread"),
-      }}
       {...(state.readiness === undefined
         ? {}
         : {

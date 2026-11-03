@@ -8,10 +8,16 @@
   height: 100%;
 }
 
-.job-walk__page {
+/* The area under the bar. The page scrolls inside it, and the cover and the note's layer sit over it as siblings, so a scrolled page never carries them away. */
+.job-walk__stage {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+.job-walk__page {
+  position: absolute;
+  inset: 0;
   overflow: auto;
   background: var(--bg-raised);
 }
@@ -36,7 +42,7 @@
   cursor: crosshair;
 }
 
-.job-walk__page .armada-capture {
+.job-walk__stage .armada-capture {
   position: absolute;
 }
 

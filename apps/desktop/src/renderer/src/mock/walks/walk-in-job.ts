@@ -1,12 +1,13 @@
-// A Job's walk is a tab of the Job, and no window opens. The Job's row pulses while it owes him a walk, and each tab pulses until it has been in front of him. Billing has three takes by name and
-// Approve names the one on screen, Settings has none and a bar of one row. Leaving for another Job and coming back finds the page, take and step as he left them, and approving closes the tab. ←
-// and → walk the takes, Tab reaches every control and ⌘↵ approves. Over the `walk-in-job` scenario.
+// A Job's walk is a tab of the Job, and no window opens. The Job's row pulses while it owes you a walk, and each tab pulses until it has been in front of you. The bar is two rows on every walk: the first has
+// the takes under Pick one, then Reload, Capture and Approve, and the second has Back, the step's count, Next and the line. Billing has three takes by name and Approve names the one on screen; Settings has
+// none. Leaving for another Job and coming back finds the page, take and step as you left them, and approving closes the tab. ← and → walk the takes, Tab reaches every control and ⌘↵ approves. Over the
+// `walk-in-job` scenario.
 
 import { button, deckRow, inside, role, tab, text, walk } from "../walk";
 
 const billing = role("group", "Walk Billing");
 const settings = role("group", "Walk Settings");
-const takes = inside(billing, role("toolbar", "Takes"));
+const takes = inside(billing, role("radiogroup", "Pick one"));
 
 const walkInJob = walk("walk-in-job", [
   {
@@ -28,7 +29,11 @@ const walkInJob = walk("walk-in-job", [
     say: "Billing is in front and has stopped pulsing. Settings still pulses",
   },
   {
-    press: inside(takes, button("Roomy")),
+    look: inside(billing, text("Pick one")),
+    say: "Pick one lists the takes, and the filled mark is the one on screen",
+  },
+  {
+    press: inside(takes, role("radio", "Roomy")),
     say: "A take swaps with one press",
   },
   {
@@ -47,7 +52,7 @@ const walkInJob = walk("walk-in-job", [
     press: tab("Settings", {
       exact: true,
     }),
-    say: "Settings has no takes, so its bar is one row",
+    say: "Settings has no takes, so Pick one is not there, and its bar is the same two rows",
   },
   {
     look: inside(
@@ -56,7 +61,7 @@ const walkInJob = walk("walk-in-job", [
         exact: true,
       }),
     ),
-    say: "Approve is at the row's end",
+    say: "Approve is at the end of the first row, where it is on every walk",
   },
   {
     press: deckRow("Pin the store clock"),

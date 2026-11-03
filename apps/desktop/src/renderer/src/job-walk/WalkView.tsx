@@ -8,10 +8,9 @@ import {
   ACTION,
   StudioCapture,
   WalkBar,
-  type CaptureBarHeld,
-  type CaptureBarPanel,
   type CaptureBarReadiness,
   type CaptureBox,
+  type WalkBarHeld,
 } from "@armada/components";
 import { described } from "@armada/screens/src/fixtures/walk-window";
 
@@ -38,9 +37,8 @@ export type WalkViewProps = {
   noteKey: string;
   /** What a note goes to, as the capture bar says it: `Onto <the Job>`. */
   aim: string;
-  /** Notes held on the Job, and the thread beside the walk. */
-  held?: CaptureBarHeld;
-  panel?: CaptureBarPanel;
+  /** Notes held on the Job, which turn Approve into Send notes. */
+  held?: WalkBarHeld;
   readiness?: CaptureBarReadiness;
   /** The page, drawn in the area under the bar. Mock only. */
   page: ReactNode;
@@ -71,7 +69,6 @@ export function WalkView({
   noteKey,
   aim,
   held,
-  panel,
   readiness,
   page,
 }: WalkViewProps) {
@@ -146,15 +143,27 @@ export function WalkView({
   };
 
   const capturing = armed || picked !== null;
+  const toggle = () => (capturing ? cancel() : setArmed(true));
+  const binding = [
+    ...(ACTION.capture_note?.shortcut ?? ""),
+  ];
 
   return (
-    <div className="job-walk">
+    <div
+      className="job-walk"
+      onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
+        // The registry's own key, as the Capture button's tooltip shows it; ⌥ changes what `key` reads, so the key is named by its place.
+        if (event.metaKey && event.altKey && !event.ctrlKey && event.code === "KeyC") {
+          event.preventDefault();
+          event.stopPropagation();
+          toggle();
+        }
+      }}
+    >
       <WalkBar
         name={name}
         {...(takes === undefined || takes.length === 0
-          ? {
-              onReload: () => setLoads((one) => one + 1),
-            }
+          ? {}
           : {
               takes: {
                 names: takes,
@@ -167,18 +176,15 @@ export function WalkView({
         said={steps[step]?.say ?? ""}
         onBack={() => onStep(Math.max(0, step - 1))}
         onNext={() => onStep(Math.min(steps.length - 1, step + 1))}
-        noting={armed}
-        onNote={() => (capturing ? cancel() : setArmed(true))}
+        onReload={() => setLoads((one) => one + 1)}
+        capturing={capturing}
+        binding={binding}
+        onCapture={toggle}
         onApprove={onApprove}
         {...(held === undefined
           ? {}
           : {
               held,
-            })}
-        {...(panel === undefined
-          ? {}
-          : {
-              panel,
             })}
         {...(readiness === undefined
           ? {}
@@ -187,8 +193,7 @@ export function WalkView({
             })}
       />
       <div
-        className="job-walk__page"
-        ref={area}
+        className="job-walk__stage"
         onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
           if (event.key !== "Escape" || !capturing) return;
           event.preventDefault();
@@ -196,22 +201,24 @@ export function WalkView({
           cancel();
         }}
       >
-        <div key={loads} ref={content}>
-          {page}
+        <div className="job-walk__page" ref={area}>
+          <div key={loads} ref={content}>
+            {page}
+          </div>
+          {ring === null || capturing ? null : (
+            <div
+              className="job-walk__ring"
+              role="img"
+              aria-label="The target of this step"
+              style={{
+                left: ring.x,
+                top: ring.y,
+                width: ring.width,
+                height: ring.height,
+              }}
+            />
+          )}
         </div>
-        {ring === null || capturing ? null : (
-          <div
-            className="job-walk__ring"
-            role="img"
-            aria-label="The target of this step"
-            style={{
-              left: ring.x,
-              top: ring.y,
-              width: ring.width,
-              height: ring.height,
-            }}
-          />
-        )}
         {!armed ? null : (
           <button
             type="button"
@@ -248,9 +255,7 @@ export function WalkView({
           <StudioCapture
             aim={aim}
             aimed
-            binding={[
-              ...(ACTION.capture_note?.shortcut ?? ""),
-            ]}
+            binding={binding}
             note={said}
             onNote={setSaid}
             onSave={save}

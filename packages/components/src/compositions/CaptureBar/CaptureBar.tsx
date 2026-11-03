@@ -2,21 +2,23 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Circle,
+  CircleDot,
   Crosshair,
   LoaderCircle,
   MessageCircleQuestion,
-  MessageSquarePlus,
   RefreshCw,
   RotateCcw,
   Search,
   UserCheck,
 } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 
 import { Button } from "../../primitives/Button/Button";
 import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Kbd, KbdChord } from "../../primitives/Kbd/Kbd";
+import { SplitButton } from "../../primitives/SplitButton/SplitButton";
 import { Switch } from "../../primitives/Switch/Switch";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SessionMark, sessionGlyphOf } from "../SessionFrame/SessionFrame";
@@ -656,22 +658,8 @@ function TakesMenu({
  * page loading, notes pending, or frames refused, in that order. **Never a row of its own**: it sits at the end of the walk's row, or alone where there is no walk.
  */
 function StatusItem(
-  props: Pick<
-    CaptureBarProps,
-    | "serving"
-    | "refused"
-    | "question"
-    | "framesRefused"
-    | "loading"
-    | "held"
-    | "approval"
-    | "panel"
-    | "onFollowRefused"
-    | "onShowQuestion"
-  > & {
+  props: CaptureBarProps & {
     landsOn: string | null;
-    /** Where held notes wait. Absent: the Job panel. */
-    heldIn?: string;
   },
 ) {
   const { serving, refused, question, framesRefused, landsOn } = props;
@@ -715,8 +703,7 @@ function StatusItem(
   }
   if (props.held !== undefined) {
     const one = props.held.notes === "one";
-    const where = props.heldIn ?? "the Job panel";
-    const tip = `Not sent. Send notes in ${where} sends them to the Job as one turn.`;
+    const tip = "Not sent. Send notes in the Job panel sends them to the Job as one turn.";
     const { panel } = props;
     // With the panel hidden the notes are out of sight, so the status opens it rather than pointing at it.
     if (panel !== undefined && !panel.open) {
@@ -735,7 +722,7 @@ function StatusItem(
     }
     return (
       <StatusLine
-        text={`${one ? "Note" : "Notes"} pending in ${where}`}
+        text={`${one ? "Note" : "Notes"} pending in the Job panel`}
         tip={tip}
         tone="held"
       />
@@ -1169,40 +1156,42 @@ export function CaptureBar(props: CaptureBarProps) {
   );
 }
 
+export type WalkBarHeld = CaptureBarHeld & {
+  /** Sends the held notes to the Job as one turn, and stays on the walk. */
+  onSend: () => void;
+};
+
 /**
- * The bar of a walk drawn in a Job's own pane, over the page. **Not a capture window's bar**: it has no address and no Autoplay, and its Notes go to the Job it
- * sits in. It is `CaptureBar`'s rows, pills, status line and Approve ask, in at most two. A walk with takes has them by name in the first row, one press to swap, with Approve at its end naming
- * the take on screen, and the step's count, line, Back, Next and Note in the second. A walk without takes is one row: the same, with Reload, and Approve last. The line is the one track that
- * gives, so Back, Next and Note stay where they are as it changes. **Notes held on the Job are the status**, after the line and before Back: on a walk with no takes it is a second row of its own,
- * since the first has no room. ← and → in the takes walk them and swap; ⌘↵ approves while no field holds the cursor, and asks first while notes are held.
+ * The bar of a walk drawn in a Job's own pane, over the page. **Not a capture window's bar**: it has no address and no Autoplay, and its Capture goes to the Job it sits in.
+ * **Always two rows, so the tabs under it never move between walks.** The first holds the takes at its start, under *Pick one*, and Reload, Capture and Approve at its end in that order;
+ * the second holds Back, the step's count, Next and then the line, which is the one track that gives. A walk with neither steps nor takes is the first row alone.
+ * ← and → in the takes walk them and swap; ⌘↵ is Approve's while no field holds the cursor, and Send notes' while notes are held.
+ * **Notes held on the Job are not a status.** They turn Approve into *Send notes*, with approving, with or without them, behind its caret.
  */
 export type WalkBarProps = {
   /** The walk's name, as the group is labelled. */
   name: string;
-  /** The page's takes by name. **Absent: the walk has one page**, and the bar is one row. */
+  /** The page's takes by name. **Absent: the walk has one page**, and no takes are drawn. */
   takes?: CaptureBarVariations;
-  /** The step on screen, counted from 1, of this many. **`of` 0: the walk has no steps**, and the line, Back and Next are not drawn. */
+  /** The step on screen, counted from 1, of this many. **`of` 0: the walk has no steps**, and the count, line, Back and Next are not drawn. */
   at: number;
   of: number;
   /** The step's line. */
   said: string;
   onBack: () => void;
   onNext: () => void;
-  /** Reload, for a walk with no takes. */
-  onReload?: () => void;
-  /** Takes a note: the page is armed for a press that picks what it lands on. */
-  onNote: () => void;
+  onReload: () => void;
+  /** Arms the page for a press that picks what a note lands on, or lets go of it. */
+  onCapture: () => void;
   /** A note is being taken. */
-  noting?: boolean;
+  capturing?: boolean;
+  /** The key that turns capture on and off, from the action registry, as the tooltip shows it. */
+  binding?: readonly string[];
   onApprove: () => void;
-  /** Notes held on the Job, not sent: the status says so, and Approve asks first. */
-  held?: CaptureBarHeld;
-  /** Whether the Job's thread is in view, and the press that brings it. The status reads *Note pending* with *Show note* while it is not. */
-  panel?: CaptureBarPanel;
+  /** Notes held on the Job, not sent: Approve becomes Send notes. */
+  held?: WalkBarHeld;
   /** Ready to walk, or still changing, as the Job says: *Not ready* disables Approve. Absent: nobody has said. */
   readiness?: CaptureBarReadiness;
-  /** Where the Approve ask draws its menu. */
-  menuLayer?: HTMLElement | null | false;
 };
 
 const TAKE_KEYS = [
@@ -1211,8 +1200,6 @@ const TAKE_KEYS = [
   "Home",
   "End",
 ];
-
-const NO_REFUSAL = () => {};
 
 export function WalkBar({
   name,
@@ -1223,23 +1210,17 @@ export function WalkBar({
   onBack,
   onNext,
   onReload,
-  onNote,
-  noting = false,
+  onCapture,
+  capturing = false,
+  binding = [],
   onApprove,
   held,
-  panel,
   readiness,
-  menuLayer,
 }: WalkBarProps) {
-  const [asking, setAsking] = useState(false);
+  const lead = useId();
   const taking = takes?.names[takes.at];
   const steps = of > 0;
   const unapprovable = readiness === "working";
-  const asked = (id: string): void => {
-    setAsking(false);
-    if (id === "send") held?.onSendAndApprove();
-    else if (id === "without") onApprove();
-  };
   // ← and → walk the takes, Home and End go to the ends; the take reached is on screen and holds the focus.
   const walkTakes = (event: KeyboardEvent<HTMLDivElement>) => {
     if (takes === undefined || !TAKE_KEYS.includes(event.key)) return;
@@ -1258,104 +1239,56 @@ export function WalkBar({
       row.querySelectorAll<HTMLElement>("[data-take]")[to]?.focus(),
     );
   };
-  const chord = (
-    <KbdChord
-      keys={[
-        ...QUEUE_KEYS.approve,
+  const approving = taking === undefined ? "Approve" : `Approve ${taking}`;
+  const approve = unapprovable ? (
+    <Button variant="secondary" ground="sunken" size="sm" disabled>
+      Not ready
+    </Button>
+  ) : held !== undefined ? (
+    <SplitButton
+      variant="secondary"
+      ground="sunken"
+      size="sm"
+      shortcut={QUEUE_KEYS.approve}
+      note="Sends the notes to the Job as one turn"
+      menuLabel="Approve options"
+      onAction={held.onSend}
+      items={[
+        {
+          label: taking === undefined ? "Send notes and approve" : `Send notes and approve ${taking}`,
+          onSelect: held.onSendAndApprove,
+        },
+        {
+          label: `${approving} without notes`,
+          note: "The notes stay held on the Job",
+          onSelect: onApprove,
+        },
       ]}
-      aria-label="⌘↵ approves"
-    />
-  );
-  const approve =
-    held !== undefined && !unapprovable ? (
-      <>
-        <DropdownMenu
-          portal={menuLayer ?? true}
-          triggerLabel={taking === undefined ? "Approve" : `Approve ${taking}`}
-          entries={HELD_ASK}
-          open={asking}
-          onOpenChange={setAsking}
-          onSelect={asked}
-        />
-        {chord}
-      </>
-    ) : (
-      <>
-        <Button
-          variant="secondary"
-          ground="sunken"
-          size="sm"
-          disabled={unapprovable}
-          onClick={onApprove}
-        >
-          {unapprovable ? null : <Check size={12} strokeWidth={2} aria-hidden />}
-          {unapprovable ? "Not ready" : taking === undefined ? "Approve" : `Approve ${taking}`}
-        </Button>
-        {chord}
-      </>
-    );
-  const status =
-    held === undefined ? null : (
-      <StatusItem
-        serving
-        framesRefused={0}
-        onFollowRefused={NO_REFUSAL}
-        held={held}
-        heldIn="the thread"
-        {...(panel === undefined
-          ? {}
-          : {
-              panel,
-            })}
-        landsOn={null}
+    >
+      Send notes
+    </SplitButton>
+  ) : (
+    <Button
+      variant="secondary"
+      ground="sunken"
+      size="sm"
+      aria-keyshortcuts="Meta+Enter"
+      onClick={onApprove}
+    >
+      <Check size={12} strokeWidth={2} aria-hidden />
+      <span className="armada-capture-bar__approve-label">{approving}</span>
+      <KbdChord
+        keys={[
+          ...QUEUE_KEYS.approve,
+        ]}
+        aria-hidden
       />
-    );
+    </Button>
+  );
   const mark =
     readiness === undefined ? null : (
       <SessionMark state={READINESS[readiness].mark} said={READINESS[readiness].said} />
     );
-  const count = !steps ? null : (
-    <>
-      <span className="armada-capture-bar__walk-where armada-capture-bar__walk-count">
-        {at} of {of}
-      </span>
-      <span className="armada-capture-bar__walk-said" title={said}>
-        {said}
-      </span>
-    </>
-  );
-  const move = !steps ? null : (
-    <>
-      <Tooltip label="Replay to the step before">
-        <Button variant="ghost" size="sm" disabled={at <= 1} onClick={onBack}>
-          <ChevronLeft size={12} strokeWidth={2} aria-hidden />
-          Back
-        </Button>
-      </Tooltip>
-      <Tooltip label="Act on the ringed target and go on">
-        <Button variant="primary" size="sm" disabled={at >= of} onClick={onNext}>
-          Next
-          <ChevronRight size={12} strokeWidth={2} aria-hidden />
-        </Button>
-      </Tooltip>
-    </>
-  );
-  const reload =
-    onReload === undefined ? null : (
-      <Tooltip label="Reload" shortcut={QUEUE_KEYS.reload.join("")}>
-        <Button variant="ghost" size="sm" iconOnly aria-label="Reload" onClick={onReload}>
-          <RefreshCw size={16} strokeWidth={2} aria-hidden />
-        </Button>
-      </Tooltip>
-    );
-  const note = (
-    <Button variant="ghost" size="sm" aria-pressed={noting} onClick={onNote}>
-      <MessageSquarePlus size={12} strokeWidth={2} aria-hidden />
-      Note
-    </Button>
-  );
-  // With no steps the line's place is held empty, so the status and Note keep theirs.
-  const filler = steps ? null : <span className="armada-capture-bar__walk-said" />;
   return (
     <div
       className="armada-capture-bar armada-capture-bar--walk"
@@ -1367,8 +1300,8 @@ export function WalkBar({
             event.preventDefault();
             event.stopPropagation();
             if (held === undefined) onApprove();
-            else setAsking(true);
-          } else if (event.code === "KeyR" && onReload !== undefined) {
+            else held.onSend();
+          } else if (event.code === "KeyR") {
             event.preventDefault();
             event.stopPropagation();
             onReload();
@@ -1376,31 +1309,16 @@ export function WalkBar({
         }
       }}
     >
-      {takes === undefined ? (
-        <>
-          <div className="armada-capture-bar__row armada-capture-bar__walk">
-            {mark}
-            {count}
-            {filler}
-            {move}
-            {reload}
-            {note}
-            <span className="armada-capture-bar__acts armada-capture-bar__acts--end">
-              {approve}
+      <div className="armada-capture-bar__row armada-capture-bar__walk">
+        {mark}
+        {takes === undefined ? null : (
+          <>
+            <span id={lead} className="armada-capture-bar__take-lead">
+              Pick one
             </span>
-          </div>
-          {status === null ? null : (
-            <div className="armada-capture-bar__row armada-capture-bar__walk">{status}</div>
-          )}
-        </>
-      ) : (
-        <>
-          <div className="armada-capture-bar__row armada-capture-bar__takes">
-            {mark}
             <div
-              role="toolbar"
-              aria-label="Takes"
-              aria-orientation="horizontal"
+              role="radiogroup"
+              aria-labelledby={lead}
               className="armada-capture-bar__take-row"
               onKeyDown={walkTakes}
             >
@@ -1408,26 +1326,89 @@ export function WalkBar({
                 <button
                   key={one}
                   type="button"
+                  role="radio"
                   data-take=""
-                  aria-pressed={to === takes.at}
+                  aria-checked={to === takes.at}
                   tabIndex={to === takes.at ? 0 : -1}
                   className="armada-capture-bar__take"
                   onClick={() => takes.onPick(to)}
                 >
+                  {to === takes.at ? (
+                    <CircleDot size={12} strokeWidth={2} aria-hidden />
+                  ) : (
+                    <Circle size={12} strokeWidth={2} aria-hidden />
+                  )}
                   {one}
                 </button>
               ))}
             </div>
-            <span className="armada-capture-bar__acts">{approve}</span>
-          </div>
-          <div className="armada-capture-bar__row armada-capture-bar__walk">
-            {count}
-            {filler}
-            {status}
-            {move}
-            {note}
-          </div>
-        </>
+          </>
+        )}
+        <span className="armada-capture-bar__icons armada-capture-bar__icons--end">
+          <Tooltip label="Reload" shortcut={QUEUE_KEYS.reload.join("")}>
+            <Button variant="ghost" size="sm" iconOnly aria-label="Reload" onClick={onReload}>
+              <RefreshCw size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+          <Tooltip
+            label={capturing ? "Capturing" : "Capture"}
+            {...(binding.length === 0
+              ? {}
+              : {
+                  shortcut: binding.join(""),
+                })}
+          >
+            <Button
+              variant={capturing ? "primary" : "ghost"}
+              size="sm"
+              iconOnly
+              aria-label="Capture"
+              aria-pressed={capturing}
+              onClick={onCapture}
+            >
+              <Crosshair size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+        </span>
+        <span className="armada-capture-bar__approve">{approve}</span>
+      </div>
+      {!steps && takes === undefined ? null : (
+        <div className="armada-capture-bar__row armada-capture-bar__walk">
+          {!steps ? null : (
+            <>
+              <Tooltip label="Replay to the step before">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  aria-label="Back"
+                  disabled={at <= 1}
+                  onClick={onBack}
+                >
+                  <ChevronLeft size={16} strokeWidth={2} aria-hidden />
+                </Button>
+              </Tooltip>
+              <span className="armada-capture-bar__walk-where armada-capture-bar__walk-count">
+                {at} of {of}
+              </span>
+              <Tooltip label="Act on the ringed target and go on">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  iconOnly
+                  aria-label="Next"
+                  disabled={at >= of}
+                  onClick={onNext}
+                >
+                  <ChevronRight size={16} strokeWidth={2} aria-hidden />
+                </Button>
+              </Tooltip>
+              <span className="armada-capture-bar__walk-said" title={said}>
+                {said}
+              </span>
+            </>
+          )}
+        </div>
       )}
     </div>
   );
