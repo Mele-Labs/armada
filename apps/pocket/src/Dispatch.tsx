@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { Button, Textarea } from "@armada/components";
+import { forgetKept } from "@armada/components/src/keep";
 
 import { call, getJson, refusal } from "./client";
 import { loadLists, start, useFleet } from "./fleet";
@@ -15,6 +16,8 @@ type Choice = {
   machine: Machine;
   repository: string;
 };
+
+const KEEP = "pocket:dispatch";
 
 export function Dispatch() {
   const fleet = useFleet();
@@ -66,7 +69,8 @@ export function Dispatch() {
       setTrouble(refusal(why, picked.machine));
       return;
     }
-    setLine("");
+    // Leaving unmounts the box in this same batch, before an emptied value could forget the text.
+    forgetKept(KEEP);
     void loadLists(picked.machine.origin);
     go("/");
   };
@@ -75,12 +79,11 @@ export function Dispatch() {
       <Band title="Dispatch" onBack={() => go("/")} back="Home" />
       <div className="pk-body">
         <Textarea
-          keep="pocket:dispatch"
+          keep={KEEP}
           rows={3}
           aria-label="Job"
           placeholder="Job"
           value={line}
-          enterKeyHint="send"
           autoCapitalize="sentences"
           onChange={(event) => setLine(event.target.value)}
         />

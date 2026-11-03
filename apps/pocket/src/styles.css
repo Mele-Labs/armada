@@ -13,3 +13,11 @@ body,
   height: 100%;
   overflow: hidden;
 }
+
+/* The visible screen, which the keyboard shortens and may pan (`viewport.ts`). */
+#root {
+  position: fixed;
+  inset-inline: 0;
+  top: var(--pk-visible-top, 0);
+  height: var(--pk-visible-height, 100%);
+}
