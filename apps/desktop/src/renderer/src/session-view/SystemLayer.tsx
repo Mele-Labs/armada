@@ -356,7 +356,7 @@ export function SystemSections({
             ))}
           </ul>
         ) : (
-          <JobSplit job={spent} usual={time.usual[spent.workflow]} />
+          <JobSplit job={spent} usual={time.usual[spent.workflow]} flush />
         )}
       </Section>
     );

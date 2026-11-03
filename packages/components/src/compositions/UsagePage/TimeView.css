@@ -167,7 +167,7 @@
 .armada-time__heads,
 .armada-time__row {
   display: grid;
-  grid-template-columns: 15ch minmax(0, 1fr) 9ch 7ch;
+  grid-template-columns: 13ch minmax(0, 1fr) 8ch 6ch;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-1) var(--space-4);
@@ -212,4 +212,10 @@
 }
 .armada-time__row .armada-usage__fig[data-over] {
   font-weight: var(--weight-medium);
+}
+/* In a Job's own tab there is no panel to pad against */
+.armada-time__jobsplit[data-flush] .armada-usage__scope,
+.armada-time__jobsplit[data-flush] .armada-time__heads,
+.armada-time__jobsplit[data-flush] .armada-time__row {
+  padding-inline: 0;
 }

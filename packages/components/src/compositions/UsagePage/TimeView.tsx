@@ -385,9 +385,18 @@ export function SplitRows({
 }
 
 /** One Job's split, for the panel that holds it: its title and total over its buckets, each against its workflow's usual. */
-export function JobSplit({ job, usual }: { job: TimeJob; usual: TimeSplit | undefined }) {
+export function JobSplit({
+  job,
+  usual,
+  flush,
+}: {
+  job: TimeJob;
+  usual: TimeSplit | undefined;
+  /** Drawn in a Job's own tab rather than a panel: no side padding of its own. */
+  flush?: boolean;
+}) {
   return (
-    <div className="armada-time__jobsplit">
+    <div className="armada-time__jobsplit" data-flush={flush || undefined}>
       <div className="armada-usage__scope">
         <Tooltip label={job.title}>
           <span className="armada-usage__title">{job.title}</span>
