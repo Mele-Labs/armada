@@ -5,6 +5,7 @@ import {
   clockOf,
   dollars,
   cappedOf,
+  fieldsOf,
   localNow,
   nextUpOf,
   readingOf,
@@ -283,6 +284,7 @@ describe("the start form", () => {
       until: clockOf("2026-10-12T07:00:00.000Z"),
       spend: "30",
       sessions: "",
+      weekly: "",
     });
     // A blank quote is no quote: the form says the sentence did not say it.
     expect(reading.quoted).toEqual({
@@ -328,6 +330,68 @@ describe("the start form", () => {
     });
     const bare = settingsFrom("x", fields, NOW);
     expect(bare.ok && "on_autopilot" in bare.settings).toBe(false);
+  });
+
+  it("sends the Reported bugs box as it was checked", () => {
+    const fields = {
+      atOnce: "1",
+      until: "",
+      spend: "",
+      sessions: "",
+      weekly: "",
+    };
+    const checked = settingsFrom("x", fields, NOW, {
+      work: new Set([
+        "reports",
+      ]),
+      decisions: new Set(),
+    });
+    expect(checked.ok && checked.settings.on_autopilot).toEqual({
+      backlog: false,
+      running: false,
+      reports: true,
+    });
+    const unchecked = settingsFrom("x", fields, NOW, {
+      work: new Set([
+        "backlog",
+      ]),
+      decisions: new Set(),
+    });
+    expect(unchecked.ok && unchecked.settings.on_autopilot?.reports).toBe(false);
+  });
+
+  it("sends the weekly stop, and none at the slider's far end or where it was never moved", () => {
+    const weekly = (value: string) => {
+      const read = settingsFrom(
+        "x",
+        {
+          atOnce: "1",
+          until: "",
+          spend: "",
+          sessions: "",
+          weekly: value,
+        },
+        NOW,
+      );
+      return read.ok ? read.settings.weekly_cap_percent : "refused";
+    };
+    expect(weekly("70")).toBe(70);
+    expect(weekly("100")).toBeUndefined();
+    expect(weekly("")).toBeUndefined();
+  });
+
+  it("opens Edit caps on the weekly stop it holds, and blank where it holds none", () => {
+    const settings = {
+      instruction: "x",
+      at_once: 1,
+    };
+    expect(
+      fieldsOf({
+        ...settings,
+        weekly_cap_percent: 70,
+      }).weekly,
+    ).toBe("70");
+    expect(fieldsOf(settings).weekly).toBe("");
   });
 
   it("takes what the person confirmed, and refuses a field it cannot read", () => {
