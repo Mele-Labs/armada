@@ -186,7 +186,7 @@ WebSocket event stream, read this first.
 | [The Workflows page: `get_workflow_steps`, `delete_workflow_copy`, `reset_workflow_copy`, `mark_not_a_drift`](protocol/the-workflows-page.md) |
 | [Triggers leave the wire](protocol/triggers-leave-the-wire.md) |
 | [The pull request a plan's group lands in: `lands_in`](protocol/the-pull-request-a-plan-groups-lands-in.md) |
-| [The Job browser: seven acts held for Bridge, `answer_browser_request`, and the `browser_reminder` row](protocol/the-job-browser.md) |
+| [The Job browser: seven acts held for Bridge, `answer_browser_request`, a page's ask in Needs you, and the `browser_reminder` row](protocol/the-job-browser.md) |
 | [Several Jobs started in one call: `jobs` on `start_another_session`](protocol/several-jobs-started-in-one-call.md) |
 | [Autopilot's boxes: `on_autopilot` and `decisions`](protocol/autopilot-boxes.md) |
 | [Autopilot's reports box and weekly cap: `on_autopilot.reports`, `weekly_cap_percent`, `weekly`](protocol/autopilot-reports-and-weekly-cap.md) |

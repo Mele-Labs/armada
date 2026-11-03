@@ -194,6 +194,7 @@ mod session_waiting;
 mod closed_waiting;
 mod session_later;
 mod job_browser;
+mod browser_asks;
 mod session_running;
 mod session_terminal;
 mod session_terminal_reading;

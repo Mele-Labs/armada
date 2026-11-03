@@ -1,0 +1,8 @@
+[operations."browser.ask_answered"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "The owner answered or dismissed a page's ask in Needs you: session_id, ask_id and choice, the option's index or null for a dismissal"
+notes = """
+`BrowserAskAnswered`: `session_id`, `ask_id` and `choice`, a number or `null`. Published on `answer_waiting` with a `choice` on a `browser_ask` item, with that index, and on `dismiss_waiting`, with `null`. Either way Fleet has already taken the item off the list. Bridge settles the page's ask the way it was answered in the tab. **Not replayed**: a Bridge that connects after it was published never sees it. The agent is told nothing.
+"""

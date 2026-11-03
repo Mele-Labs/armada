@@ -317,6 +317,40 @@ test("Shift+Enter in a quote adds another quote line", async () => {
   expect(box().querySelectorAll("blockquote > *")).toHaveLength(2);
 });
 
+test("where Enter breaks, it adds a line and only Send sends", async () => {
+  const sent = vi.fn();
+  writeKept(
+    `session:${KEY}`,
+    {
+      text: "one",
+      tags: [],
+      files: [],
+    },
+    {
+      text: "one",
+      tags: [],
+    },
+  );
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  roots.push({
+    root,
+    host,
+  });
+  root.render(<SessionComposer {...props(sent)} focusFor={KEY} enterBreaks />);
+  await keys("{Enter}two");
+  expect(kept()?.text).toBe("one\ntwo");
+  expect(sent).not.toHaveBeenCalled();
+  await page
+    .getByRole("button", {
+      name: "Send",
+    })
+    .click();
+  expect(sent).toHaveBeenCalledTimes(1);
+  expect(sent.mock.calls[0]![0].text).toBe("one\ntwo");
+});
+
 test("Enter in a list item starts the next item", async () => {
   const sent = vi.fn();
   typed("- a", sent);

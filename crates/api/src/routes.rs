@@ -307,6 +307,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/browser/wait_for", post(crate::browsing::browser_wait_for::<D>))
         .route("/sessions/browser/evaluate", post(crate::browsing::browser_evaluate::<D>))
         .route("/sessions/browser/answer", post(crate::browsing::answer_browser_request::<D>))
+        .route("/sessions/browser/ask", post(crate::browsing::raise_browser_ask::<D>))
+        .route("/sessions/browser/ask/end", post(crate::browsing::end_browser_ask::<D>))
         .route(
             "/sessions/window",
             post(crate::sessions::show_window::<D>),
