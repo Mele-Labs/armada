@@ -5,7 +5,7 @@ import type { IpcMain } from "electron";
 
 import { CHANNELS } from "../shared/bridge";
 import type { FleetConnection } from "./connection";
-import { deleteOf, handleLifecycles, keepOf, saveOf } from "./lifecycles-channels";
+import { deleteOf, handleLifecycles, keepOf, saveOf, teachOf } from "./lifecycles-channels";
 
 const lifecycle = {
   kind: "lifecycle",
@@ -112,6 +112,85 @@ describe("a piece to delete", () => {
       }),
     ).toBeNull();
     expect(deleteOf(undefined)).toBeNull();
+  });
+});
+
+describe("a tracker's status to teach as a Ticket state", () => {
+  it("names the repository, the word as the tracker says it and the state, and nothing else", () => {
+    expect(
+      teachOf({
+        manifest_id: "01WEB",
+        word: "Ready for QA",
+        state: "in_review",
+        extra: true,
+      }),
+    ).toEqual({
+      manifest_id: "01WEB",
+      word: "Ready for QA",
+      state: "in_review",
+    });
+    expect(
+      teachOf({
+        manifest_id: "01WEB",
+        word: " ",
+        state: "in_review",
+      }),
+    ).toBeNull();
+    expect(
+      teachOf({
+        word: "Ready for QA",
+        state: "in_review",
+      }),
+    ).toBeNull();
+    expect(
+      teachOf({
+        manifest_id: "01WEB",
+        word: "Ready for QA",
+        state: 3,
+      }),
+    ).toBeNull();
+    expect(teachOf(null)).toBeNull();
+  });
+
+  it("is sent to Fleet whole, and a body of another shape never leaves main", () => {
+    const handlers = new Map<string, (event: unknown, ...args: unknown[]) => unknown>();
+    const ipc = {
+      handle: (channel: string, handler: (event: unknown, ...args: unknown[]) => unknown) =>
+        void handlers.set(channel, handler),
+    } as unknown as IpcMain;
+    const teach = vi.fn(() => ({
+      ok: true,
+    }));
+    handleLifecycles({
+      ipc,
+      connection: () =>
+        ({
+          lifecycles: {
+            teach,
+          },
+        }) as unknown as FleetConnection,
+    });
+    const handler = handlers.get(CHANNELS.teachTicketWord)!;
+    const body = {
+      manifest_id: "01WEB",
+      word: "Ready for QA",
+      state: "in_review",
+    };
+    expect(handler({}, body)).toEqual({
+      ok: true,
+    });
+    expect(teach).toHaveBeenCalledWith(body);
+    expect(
+      handler(
+        {},
+        {
+          manifest_id: "01WEB",
+        },
+      ),
+    ).toMatchObject({
+      ok: false,
+    });
+    expect(teach).toHaveBeenCalledTimes(1);
   });
 });
 
