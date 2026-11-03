@@ -1,6 +1,6 @@
-// The Job's right column as one story in three zones. **Done** is what the Job has made, folded until pressed, in the order it made it (`ledger.ts`), read By step (each finished
+// The Job's right column as one story in three zones. **Done** is what the Job has made and finished (a pull request once merged, an issue once closed), folded until pressed, in the order it made it (`ledger.ts`), read By step (each finished
 // group or workflow step with its outputs beneath it) or By kind (Documents, Pull requests, Issues and Artifacts, newest first). **Now** is what it is doing
-// this minute: the agent, the group being worked with its live line, subagents, Checks, watches, and whatever waits on him,
+// this minute: the agent, the group being worked with its live line, the pull requests not merged and issues not closed, subagents, Checks, watches, and whatever waits on him,
 // which pulses. **Open** is the plan's groups still to come, the workflow's steps still to come, the outputs the route still owes (a pull request, its
 // ci, the merge queue, main; a document; a mod and its Check; findings) and the follow-ups not yet settled. The plan is the spine: a finished group moves to
 // Done carrying what it produced, and a pending output moves there when its data arrives.
@@ -52,7 +52,7 @@ import { childrenOf } from "./linked";
 import { LaterBlock } from "./LaterBlock";
 import { finishedChild, inHandOf, looseChildrenOf } from "./linked";
 import { OpenGroupMenu, useOpenGroupShown } from "./OpenGroup";
-import { WALK_STEP, byKind, madeOf, reportOf, stepOf, type Made } from "./ledger";
+import { WALK_STEP, byKind, madeOf, reportOf, stepOf, unlandedOf, type Made } from "./ledger";
 import { AddGroup, SendChanges, type PlanEditing } from "./PlanEdit";
 import { Group } from "./PlanGroup";
 import { stepsOf } from "./PlanSteps";
@@ -211,6 +211,11 @@ export function StoryColumn({
     freshestOf(a) === freshestOf(b) ? 0 : freshestOf(b) > freshestOf(a) ? 1 : -1,
   );
   const upcoming = by("upcoming");
+  // An issue still open and a pull request not merged stand in Now; one a group still to finish works stands under that group.
+  const unlanded = unlandedOf(
+    session,
+    groups.filter((group) => !finished.includes(group)),
+  );
   const broke =
     approved && groups.some((group) => group.tasks.some((task) => task.state === "failed"));
 
@@ -303,9 +308,10 @@ export function StoryColumn({
   // With a workflow and a plan group being worked, the list follows the plan's tasks; otherwise it stands under the Agent row.
   const afterPlan = stepped && working.length > 0;
 
-  const prs = made.filter((one) => one.shape === "pr");
+  // Done holds only merged pull requests, so it is landed once it holds one and none is still open.
   const landed =
-    prs.length > 0 && prs.every((one) => one.shape === "pr" && one.pr.state === "merged");
+    made.some((one) => one.shape === "pr") &&
+    !session.attachments.some((one) => one.kind === "pull_request" && one.state !== "merged");
   const asks = owed.length > 0 || walks.length > 0 || asking !== undefined;
   const nowState: PanelState | undefined = asks
     ? "asks"
@@ -485,6 +491,11 @@ export function StoryColumn({
         {underway.map((step) => (
           <RouteBeat key={step.key} step={step} />
         ))}
+        {unlanded.length === 0 ? null : (
+          <li className="sv-beat sv-beat--made">
+            <MadeList session={session} list={unlanded} label="Not landed" />
+          </li>
+        )}
         {checking.map((one) =>
           one.kind === "check" ? (
             <WorkBeat key={one.id} mark={<Mark state="working" />} name={one.name} system />

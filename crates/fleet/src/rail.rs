@@ -157,6 +157,9 @@ pub(crate) struct Extra {
     pub plan_expects_walk: bool,
     /// The steps the person wrote on after they began: a message passes a step that waits on a lifecycle.
     pub messaged: StepBits,
+    /// A pull request of the Job merged, as its ledger holds it. **The build forgets a merge once more
+    /// work follows**, so the rail reads this where the build no longer says.
+    pub landed: bool,
 }
 
 /// The most steps the person can skip: the bits of [`Skipped`].
@@ -217,6 +220,11 @@ pub(crate) struct Facts {
     pub lifecycle_met: StepBits,
 }
 
+/// Whether the Job landed: its build says so, or its ledger holds a merged pull request.
+pub(crate) fn landed_by(extra: Extra, build: Option<&ipc::SessionBuild>) -> bool {
+    extra.landed || build.is_some_and(|build| build.phase == BuildPhase::Landed || build.landed_at.is_some())
+}
+
 impl Facts {
     pub(crate) fn of(record: &SessionRecord, extra: Extra) -> Facts {
         let reached = |id: BuildStopId| {
@@ -240,7 +248,7 @@ impl Facts {
             checked: extra.checked || reached(BuildStopId::Checks),
             pushed: reached(BuildStopId::Pushed),
             pr_opened: reached(BuildStopId::Pr),
-            landed: record.build.as_ref().is_some_and(|build| build.phase == BuildPhase::Landed || build.landed_at.is_some()),
+            landed: landed_by(extra, record.build.as_ref()),
             walk_shown: extra.walk_shown,
             walk_approved: extra.walk_approved,
             any_walk_approved: extra.any_walk_approved,
@@ -481,6 +489,10 @@ impl Skip {
 /// only once is the caller's.
 pub(crate) fn skipped(steps: &[RailStep], facts: &Facts) -> Vec<(usize, Skip)> {
     let facts = &facts.waived(steps);
+    // A Job whose pull request merged is past every step it could have skipped, whatever it does next.
+    if facts.landed {
+        return Vec::new();
+    }
     let mut found = Vec::new();
     if let Some(at) = steps.iter().position(|step| step.records_plan).filter(|_| !facts.plan_approved) {
         // Where the workflow walks, a rough mock may be edited while the plan is discussed.

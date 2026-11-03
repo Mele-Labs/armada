@@ -71,6 +71,7 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
             checked: store.session_has_run_a_check(&session.id)?,
             plan_expects_walk: plan.is_some_and(|plan| plan.seen || plan.walk.is_some()),
             messaged: messaged_on(&rows, &rail.visits),
+            landed: store.attachments_of(&Holder::session(&session.id))?.iter().any(|one| one.kind == "pr" && crate::build_record::merged(one)),
             document_approved: store
                 .attachments_of(&Holder::session(&session.id))?
                 .iter()

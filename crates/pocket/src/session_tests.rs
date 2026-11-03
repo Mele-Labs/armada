@@ -615,3 +615,73 @@ fn a_live_job_that_said_it_is_done_carries_the_claim_and_its_summary() {
     let plain = phone_row("", "{}");
     assert!(!plain.contains("done_since") && !plain.contains("done_summary"), "{plain}");
 }
+
+/// A hosted Job whose turn is `turn`, with `facts` added inside its hosted facts and `tail` after them.
+fn hosted_row(turn: &str, facts: &str, tail: &str) -> String {
+    let hosted = format!(r#","hosted":{{"turn":{{"state":"{turn}"}},"mode":"auto","running":true{facts}}}"#);
+    phone_row(&format!("{hosted}{tail}"), "{}")
+}
+
+#[test]
+fn every_kind_of_ask_holds_a_job_at_work_as_waiting_and_a_slot_being_made_does_not() {
+    let working = |item: String| hosted_row("working", "", &format!(r#","standing":"working"{}"#, owing(&[item])));
+    for source in ["plan", "task_done", "sketch", "document", "delivery", "slot_choice"] {
+        let row = working(owed(source, source, "02:00"));
+        assert!(row.contains(r#""waiting":true"#), "{source} in {row}");
+        assert!(row.contains(r#""waiting_since":"2026-10-08T02:00:00.000Z""#), "{source} in {row}");
+    }
+    // Fleet is at it: nothing here needs him yet.
+    let making = working(owed("slot", "slot_choice", "02:00").replace(r#""source""#, r#""creating_since":"2026-10-08T02:01:00.000Z","source""#));
+    assert!(making.contains(r#""waiting":false"#), "{making}");
+    // Another item waits until the turn ends.
+    let agent = working(owed("a1", "agent", "02:00"));
+    assert!(agent.contains(r#""waiting":false"#), "{agent}");
+    let ended = hosted_row("idle", "", &owing(&[owed("a1", "agent", "02:00")]));
+    assert!(ended.contains(r#""waiting":true"#), "{ended}");
+}
+
+#[test]
+fn a_job_parked_for_any_reason_asks_nothing_of_him_and_is_not_working() {
+    // Each also owes a plan and has a turn running, so only the parking keeps it from waiting and working.
+    let owes = format!(r#","standing":"working"{}"#, owing(&[owed("plan:1", "plan", "02:00")]));
+    let wait = r#","waits":{"on":{"id":"p0","title":"Parent"},"condition":{"kind":"ends"},"base":"main","brief":"B","by":"you","held":false}"#;
+    let cases = [
+        ("paused", hosted_row("working", r#","paused":{"at":"2026-10-08T03:00:00.000Z","resuming":false}"#, &owes)),
+        ("start_failed", hosted_row("working", r#","start_failed":{"cause":"no such program"}"#, &owes)),
+        ("starts_when", hosted_row("working", "", &format!("{owes}{wait}"))),
+        ("limited_until", hosted_row("working", "", &format!(r#"{owes},"held_until":"2026-10-08T09:00:00.000Z""#))),
+    ];
+    for (name, row) in cases {
+        assert!(row.contains(r#""waiting":false"#) && row.contains(r#""working":false"#), "{name} in {row}");
+        assert!(!row.contains("waiting_since"), "{name} in {row}");
+    }
+}
+
+#[test]
+fn what_holds_a_job_is_carried_as_facts_and_left_out_when_absent() {
+    let plain = hosted_row("idle", "", "");
+    for field in ["standing", "limited_until", "held_open_by", "starts_when", "start_failed"] {
+        assert!(!plain.contains(&format!("\"{field}\"")), "{field} in {plain}");
+    }
+    assert!(plain.contains(r#""paused":false"#), "{plain}");
+
+    let held = hosted_row(
+        "idle",
+        r#","paused":{"at":"2026-10-08T03:00:00.000Z","resuming":true},"start_failed":{"cause":"no such program","log":["LOG-LINE-9"]}"#,
+        &format!(
+            r#","standing":"idle","held_until":"2026-10-08T09:00:00.000Z","held_open_by":[{{"kind":"watch","name":"QA deploy"}},{{"kind":"pull_request","number":7,"on":{{"kind":"queue"}}}},{{"kind":"pull_request","number":8,"on":{{"kind":"checks","auto_merge":true}}}},{{"kind":"pull_request","number":9,"on":{{"kind":"auto_merge"}}}}],"waits":{{"on":{{"id":"p0","title":"Parent"}},"condition":{{"kind":"task_done","task":"t1"}},"base":"main","brief":"BRIEF-SECRET","by":"agent","held":false,"pull":{{"number":4,"branch":"b"}},"part_title":"Build it"}}"#
+        ),
+    );
+    assert!(held.contains(r#""standing":"idle""#) && held.contains(r#""paused":true"#), "{held}");
+    assert!(held.contains(r#""limited_until":"2026-10-08T09:00:00.000Z""#), "{held}");
+    assert!(held.contains(r#""start_failed":"no such program""#) && !held.contains("LOG-LINE-9"), "{held}");
+    assert!(
+        held.contains(r#""held_open_by":[{"kind":"watch","name":"QA deploy"},{"kind":"pull_request","number":7,"on":"queue"},{"kind":"pull_request","number":8,"on":"checks","auto_merge":true},{"kind":"pull_request","number":9,"on":"auto_merge"}]"#),
+        "{held}"
+    );
+    assert!(
+        held.contains(r#""starts_when":{"on":{"id":"p0","title":"Parent"},"when":"plan","part_title":"Build it","pull_number":4}"#),
+        "{held}"
+    );
+    assert!(!held.contains("BRIEF-SECRET"), "{held}");
+}
