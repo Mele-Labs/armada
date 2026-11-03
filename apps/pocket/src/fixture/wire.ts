@@ -551,7 +551,12 @@ export function fixtureMacs(
     }),
     rows: [
       message("l1-1", ago(now, 15), "you", "A slot loses its lease when Fleet restarts."),
-      message("l1-2", ago(now, 2), "agent", "Found it: the lease row is read before the store opens."),
+      message(
+        "l1-2",
+        ago(now, 2),
+        "agent",
+        "Found it: the lease row is read before the store opens.",
+      ),
     ],
   };
 

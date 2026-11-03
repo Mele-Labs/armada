@@ -336,7 +336,9 @@ describe("the headers and the thread's width", () => {
     expect(depth).toContain(".pr-desc > .pr-what__head");
     const band = rule(':root[data-look="new"] .pk-app .deck-band');
     expect(band).toMatch(/padding-top:\s*env\(safe-area-inset-top\)/);
-    expect(band).toMatch(/min-height:\s*calc\(var\(--h-title-bar\) \+ env\(safe-area-inset-top\)\)/);
+    expect(band).toMatch(
+      /min-height:\s*calc\(var\(--h-title-bar\) \+ env\(safe-area-inset-top\)\)/,
+    );
   });
   it("stops every column of the thread's end at the screen, so a long line cannot pan it", () => {
     for (const one of [
@@ -492,9 +494,16 @@ describe("what the owner is asked beside the thread", () => {
       "first_message",
       "fleet_call",
     ];
-    expect(asksOf(session([...asked, ...left].map((one) => item(one)))).map((one) => one.source)).toEqual(
-      asked,
-    );
+    expect(
+      asksOf(
+        session(
+          [
+            ...asked,
+            ...left,
+          ].map((one) => item(one)),
+        ),
+      ).map((one) => one.source),
+    ).toEqual(asked);
   });
   it("keeps a command for its Run card", () => {
     expect(
@@ -512,13 +521,33 @@ describe("what the owner is asked beside the thread", () => {
   });
   it("offers words only where Fleet takes them", () => {
     expect(
-      (["delivery", "slot_choice", "task_done", "rule_act"] as const).map((one) =>
-        takesWords(item(one)),
-      ),
-    ).toEqual([false, false, false, false]);
+      (
+        [
+          "delivery",
+          "slot_choice",
+          "task_done",
+          "rule_act",
+        ] as const
+      ).map((one) => takesWords(item(one))),
+    ).toEqual([
+      false,
+      false,
+      false,
+      false,
+    ]);
     expect(
-      (["agent", "watch_not_ours", "words_address"] as const).map((one) => takesWords(item(one))),
-    ).toEqual([true, true, true]);
+      (
+        [
+          "agent",
+          "watch_not_ours",
+          "words_address",
+        ] as const
+      ).map((one) => takesWords(item(one))),
+    ).toEqual([
+      true,
+      true,
+      true,
+    ]);
   });
   it("keeps each option's index on the wire, without an address's Other", () => {
     expect(
@@ -536,10 +565,19 @@ describe("what the owner is asked beside the thread", () => {
             },
           ],
         }),
-      ).map((one) => [one.label, one.choice]),
+      ).map((one) => [
+        one.label,
+        one.choice,
+      ]),
     ).toEqual([
-      ["a", 0],
-      ["b", 1],
+      [
+        "a",
+        0,
+      ],
+      [
+        "b",
+        1,
+      ],
     ]);
   });
   it("asks nothing while the slot it asked for is being made", () => {

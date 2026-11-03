@@ -37,7 +37,12 @@ async function opened() {
     host,
   });
   root.render(
-    <SessionThread sessionId="s" rows={rows} onAnswer={() => undefined} onOpenSession={() => undefined} />,
+    <SessionThread
+      sessionId="s"
+      rows={rows}
+      onAnswer={() => undefined}
+      onOpenSession={() => undefined}
+    />,
   );
   const thread = await vi.waitFor(() => {
     const found = host.querySelector<HTMLElement>(".armada-session-thread__rows");
@@ -50,7 +55,9 @@ async function opened() {
     thread,
     gap: () => Math.round(thread.scrollHeight - thread.scrollTop - thread.clientHeight),
     // Below what he reads, so the browser's scroll anchoring does not keep the end for it.
-    lastRow: [...thread.querySelectorAll<HTMLElement>("li")].at(-1)!,
+    lastRow: [
+      ...thread.querySelectorAll<HTMLElement>("li"),
+    ].at(-1)!,
   };
 }
 

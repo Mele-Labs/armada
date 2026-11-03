@@ -373,7 +373,11 @@ export const takesWords = (item: WaitingItem): boolean => !CHOICE_ONLY.includes(
  * The options to press, each with its index on the wire. An address's `Other` is the words box, since Fleet refuses it
  * without words, and a slot being made asks for nothing.
  */
-export const choicesOf = (item: WaitingItem): readonly (WaitingOption & { choice: number })[] =>
+export const choicesOf = (
+  item: WaitingItem,
+): readonly (WaitingOption & {
+  choice: number;
+})[] =>
   item.creating_since === undefined
     ? (item.options ?? []).flatMap((option, choice) =>
         item.source === "words_address" && option.label === "Other"

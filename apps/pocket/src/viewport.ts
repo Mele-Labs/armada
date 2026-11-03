@@ -21,11 +21,7 @@ export function fit(view: Visible, fullHeight: number, root: HTMLElement): void 
  * Reads each change of the visual viewport. The screen's height is the tallest it has been at this width, since iOS may shorten
  * `innerHeight` with the keyboard. A pan is undone here, before it paints: the app would follow it a frame late, and flicker.
  */
-export function followScreen(
-  view: Screen,
-  root: HTMLElement,
-  unpan: () => void,
-): () => void {
+export function followScreen(view: Screen, root: HTMLElement, unpan: () => void): () => void {
   let width = view.width;
   let full = view.height;
   return () => {
