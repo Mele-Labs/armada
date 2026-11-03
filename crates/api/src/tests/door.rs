@@ -122,6 +122,8 @@ fn the_terminal_tools_take_the_terminal_and_the_list_is_offered() {
     assert!(shape("read_terminal").query.contains(&"terminal"), "{:?}", shape("read_terminal").query);
     let list = shape("list_terminals");
     assert_eq!((list.method, list.path, list.query), ("GET", "/sessions/terminal/list", &["session_id"][..]));
+    let show = shape("show_terminal");
+    assert_eq!((show.method, show.path, show.query), ("POST", "/sessions/terminal/show", &[][..]));
     assert!(
         offered().iter().all(|shape| shape.operation != "rename_terminal"),
         "naming a tab is the person's act, not a tool"

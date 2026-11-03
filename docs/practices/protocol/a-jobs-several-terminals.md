@@ -19,7 +19,8 @@ IDs are a plain `String` on the wire, as `run_id` is.
 | `ReadTerminal` (`read_terminal`) | agent sends | Gains `terminal?`. Named: that terminal. Absent: the agent's last used where it is open, else the lowest-numbered open, else 422 |
 | `list_terminals` (`GET /sessions/terminal/list`, `agent_access = "Yes"`) | agent reads | `ListTerminals` `{ session_id? }`; answers `JobTerminals` `{ terminals: [{ terminal, name, run_id, running }] }`. Open terminals only, lowest number first. `running` means a program other than the shell has the foreground |
 | `rename_terminal` (`POST /sessions/terminal/rename`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `RenameTerminal` `{ session_id, terminal, name }`; answers `ListedTerminal`, the terminal as it now stands. A blank `name` restores the default, `Terminal N`. 422 for a terminal the Job has not open |
-| `JobTerminal` (`terminal.opened`, `terminal.exited`) | Fleet publishes | Gains `terminal`, **required** |
+| `show_terminal` (`POST /sessions/terminal/show`, `agent_access = "Yes"`) | agent sends | `ShowTerminal` `{ terminal?, session_id? }`; answers `ListedTerminal`. Absent `terminal` is the agent's last used where it is open, else the lowest-numbered open. 422 where the terminal is not open or the Job has none |
+| `JobTerminal` (`terminal.opened`, `terminal.exited`, `terminal.shown`) | Fleet publishes | Gains `terminal`, **required**. `terminal.shown` is published once for each `show_terminal` that answers: Bridge brings that terminal's tab to the front in the Job's panes, or opens one there, and the person stays where they are |
 | `start_watch` with `in_terminal` | agent sends | Gains `terminal?`; unnamed is the agent's last used where it is open, else the lowest open, fixed when the watch starts. `terminal` without `in_terminal` is refused as the body is read, 400. `WatchSummary` gains `terminal?` |
 | `TagKind` | Bridge sends | Gains `Terminal`: the tag's `id` is `t2` and its `title` the terminal's name. Fleet's line to the agent tells it to pass the ID as `terminal`. The TypeScript union already held `"terminal"` |
 
@@ -27,7 +28,7 @@ IDs are a plain `String` on the wire, as `run_id` is.
 They are required because every answer and event of a terminal names which one, and an absent one would read as `t1` by habit.
 The pair is refused whenever the IDs differ, so neither is built against the other.
 
-**The agent door.** `list_terminals` is a door tool and is served with no Manifest, as `type_in_terminal` and `read_terminal` are.
+**The agent door.** `list_terminals` and `show_terminal` are door tools and are served with no Manifest, as `type_in_terminal` and `read_terminal` are.
 Their descriptions say a Job has several terminals, that the person can hand over an ID, that `list_terminals` names them, that an unnamed call means the agent's last used, and that `new` opens its own.
 `rename_terminal` is the person's act and stays off the door.
 
