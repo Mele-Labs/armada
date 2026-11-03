@@ -74,23 +74,36 @@ const kinds = (
 ) => panes(arrangement).map((pane) => pane.tabs.map((tab) => tab.kind));
 
 describe("layouts", () => {
-  test("a Job opens on Default: its thread with Done, Now and Open stacked to the right", async () => {
+  test("a Job opens on Default: its thread, and to its right Open, Done and Deferred as tabs of one pane over Now", async () => {
     const s = await start();
     expect(kinds(s.peek("a"), (x) => s.panesOf(x.root))).toEqual([
       [
         "thread",
       ],
       [
+        "open",
         "done",
+        "deferred",
       ],
       [
         "now",
       ],
-      [
-        "open",
-        "deferred",
-      ],
     ]);
+    // The pane over Now takes the upper 40%, so Now keeps the lower 60%, and Open is the tab in front.
+    const arrangement = s.peek("a");
+    expect(
+      (
+        arrangement.root as unknown as {
+          b: unknown;
+        }
+      ).b,
+    ).toMatchObject({
+      type: "split",
+      dir: "column",
+      ratio: 0.4,
+    });
+    const upper = s.panesOf(arrangement.root)[1]!;
+    expect(upper.tabs.find((tab) => tab.id === upper.active)?.kind).toBe("open");
   });
 
   test("rearranging marks the Job edited, Update keeps it as the layout for every Job not edited, and Reset takes it back", async () => {
@@ -138,14 +151,12 @@ describe("layouts", () => {
         "thread",
       ],
       [
+        "open",
         "done",
+        "deferred",
       ],
       [
         "now",
-      ],
-      [
-        "open",
-        "deferred",
       ],
     ]);
   });
@@ -340,14 +351,12 @@ describe("kept across a restart", () => {
         "thread",
       ],
       [
+        "open",
         "done",
+        "deferred",
       ],
       [
         "now",
-      ],
-      [
-        "open",
-        "deferred",
       ],
     ]);
   });
@@ -362,15 +371,148 @@ describe("kept across a restart", () => {
         "thread",
       ],
       [
+        "open",
         "done",
+        "deferred",
       ],
       [
         "now",
       ],
+    ]);
+  });
+});
+
+describe("a Deferred tab given to what was kept", () => {
+  /** What was kept before Open and Deferred were two tabs: Open in front beside Done, and no Deferred anywhere. */
+  const before = async () => {
+    const { build } = await import("./tree");
+    return build(
+      {
+        dir: "row",
+        ratio: 0.5,
+        a: [
+          "thread",
+        ],
+        b: [
+          "done",
+          "open",
+        ],
+      },
+      "open",
+    );
+  };
+  const keep = (key: string, value: unknown) =>
+    kept.setItem(`armada:kept:${key}`, JSON.stringify(value));
+  const entryFor = (arrangement: Arrangement) => ({
+    arrangement,
+    layout: "Default",
+    edited: false,
+    chosen: false,
+    version: 0,
+  });
+  /** The kinds of the pane that holds Open, and the kind of the tab it shows. */
+  const openPane = (
+    s: Awaited<ReturnType<typeof start>>,
+    arrangement: Arrangement,
+  ): {
+    kinds: string[];
+    front: string | undefined;
+  } => {
+    const pane = s
+      .panesOf(arrangement.root)
+      .find((one) => one.tabs.some((tab) => tab.kind === "open"))!;
+    return {
+      kinds: pane.tabs.map((tab) => tab.kind),
+      front: pane.tabs.find((tab) => tab.id === pane.active)?.kind,
+    };
+  };
+
+  test("a Job's kept panes that hold Open and no Deferred get one after it, with Open still in front", async () => {
+    keep("job-panes:job:old", entryFor(await before()));
+    const s = await start();
+    expect(openPane(s, s.peek("old"))).toEqual({
+      kinds: [
+        "done",
+        "open",
+        "deferred",
+      ],
+      front: "open",
+    });
+    expect(kept.getItem("armada:kept:job-panes:deferred-given")).toBe("true");
+  });
+
+  test("the kept base of Default and every saved layout get one too", async () => {
+    keep("job-panes:shared", {
+      saved: {
+        Wide: await before(),
+      },
+      forAll: "Default",
+      versions: {},
+      base: await before(),
+    });
+    const s = await start();
+    const shared = JSON.parse(kept.getItem("armada:kept:job-panes:shared")!) as {
+      saved: Record<string, Arrangement>;
+      base: Arrangement;
+    };
+    for (const one of [
+      shared.base,
+      shared.saved.Wide!,
+    ])
+      expect(openPane(s, one)).toEqual({
+        kinds: [
+          "done",
+          "open",
+          "deferred",
+        ],
+        front: "open",
+      });
+  });
+
+  test("a kept arrangement with no Open, or with a Deferred already, is left as it was", async () => {
+    const { build } = await import("./tree");
+    const files = build([
+      "thread",
+      "files",
+    ]);
+    const both = build([
+      "open",
+      "deferred",
+    ]);
+    keep("job-panes:job:files", entryFor(files));
+    keep("job-panes:job:both", entryFor(both));
+    const s = await start();
+    expect(kinds(s.peek("files"), (x) => s.panesOf(x.root))).toEqual([
+      [
+        "thread",
+        "files",
+      ],
+    ]);
+    expect(kinds(s.peek("both"), (x) => s.panesOf(x.root))).toEqual([
       [
         "open",
         "deferred",
       ],
+    ]);
+  });
+
+  test("a person who closes the tab keeps it closed across the next start", async () => {
+    keep("job-panes:job:old", entryFor(await before()));
+    const first = await start();
+    const arrangement = first.peek("old");
+    const deferred = first
+      .panesOf(arrangement.root)
+      .flatMap((pane) => pane.tabs)
+      .find((tab) => tab.kind === "deferred")!;
+    first.rearrange("old", (x) => first.closeTab(x, deferred.id));
+    expect(openPane(first, first.peek("old")).kinds).toEqual([
+      "done",
+      "open",
+    ]);
+    const second = await start();
+    expect(openPane(second, second.peek("old")).kinds).toEqual([
+      "done",
+      "open",
     ]);
   });
 });

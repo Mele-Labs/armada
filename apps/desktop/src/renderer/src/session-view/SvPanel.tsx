@@ -92,6 +92,7 @@ export function SvPanel({
   skipped,
   menu,
   bare,
+  still,
   children,
 }: {
   label: string;
@@ -108,12 +109,14 @@ export function SvPanel({
   menu?:
     | BandMenu
     | undefined /** Alone in a pane whose tab names it: no label, never folded, and a band only where it holds a lamp or acts. */;
-  bare?: boolean;
+  bare?: boolean /** Keeps its label but never folds: there is nothing under it to fold, or it stands in a list that is read whole. */;
+  still?: boolean;
   children?: ReactNode;
 }) {
   // Pressing the band folds the panel to it.
   const { collapsed: kept, band: own } = useCollapse(area);
-  const collapsed = bare === true ? false : fold !== undefined ? !fold.open : kept;
+  const collapsed =
+    bare === true || still === true ? false : fold !== undefined ? !fold.open : kept;
   // A panel the layout lists can be hidden, and one it does not list is always drawn. A workflow's step zones answer to the zone they stand for. Teach is offered on the frame,
   // wherever the window offers it.
   const listed = STEP_ZONE[area] ?? area;
@@ -152,7 +155,7 @@ export function SvPanel({
       flip();
     },
   });
-  const folding = fold !== undefined ? pressed(fold.open, fold.toggle) : own;
+  const folding = still === true ? {} : fold !== undefined ? pressed(fold.open, fold.toggle) : own;
   // The band's menu is opened before the frame's Teach menu sees the press, which a press already handled leaves shut.
   const band =
     menu === undefined
@@ -241,7 +244,7 @@ export function SvPanel({
           {state === undefined ? null : (
             <StateMark state={state} said={SAID[area]?.[state] ?? MARK[state].said} />
           )}
-          {bare === true ? null : keycap === undefined ? (
+          {bare === true ? null : keycap === undefined || still === true ? (
             <h3 className="sv-panel__label">{label}</h3>
           ) : (
             <Tooltip
