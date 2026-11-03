@@ -48,12 +48,15 @@ impl Process for Standing {
 #[derive(Default)]
 pub(super) struct StandIn {
     started: Mutex<Vec<(Start, Sink, Arc<Standing>)>>,
+    /// Held by a test to keep every start waiting, as a slow slot lease or spawn does.
+    gate: Mutex<()>,
 }
 
 pub(super) struct Shared(pub(super) Arc<StandIn>);
 
 impl Processes for Shared {
     fn start(&self, start: &Start, sink: Sink) -> Result<Arc<dyn Process>, String> {
+        drop(self.0.gate.lock().unwrap());
         let mut started = self.0.started.lock().unwrap();
         let process = Arc::new(Standing {
             sent: Mutex::new(Vec::new()),
@@ -631,6 +634,40 @@ async fn a_subagents_edit_is_the_hosted_sessions_work_in_its_build() {
         listed.sessions[0].build.as_ref().is_some_and(|build| build.phase == ipc::BuildPhase::Implement)
     })
     .await;
+}
+
+/// A start that takes long is not the send's to wait on: Bridge gives a send twenty seconds, and a
+/// start past them read as `bridge.not_sent` while the message was already on the thread.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_message_is_taken_while_the_process_it_needs_is_still_starting() {
+    let rig = rig();
+    let id = rig.start().await;
+    rig.send(&id, "hello").await;
+    rig.stand_in.init(0);
+    rig.stand_in.finishes(0, "ready");
+    eventually(|| async { rig.turn(&id).await == SessionTurn::Idle }).await;
+    rig.fleet
+        .tune_session(TuneSession { session_id: id.clone(), model: None, effort: None, mode: SessionMode::Auto })
+        .await
+        .unwrap();
+    assert!(rig.stand_in.process(0).ended.load(Ordering::SeqCst));
+
+    let held = rig.stand_in.gate.lock().unwrap();
+    // On its own task: a send that waits on the start holds the thread it runs on.
+    let fleet = Arc::clone(&rig.fleet);
+    let sent = SendSessionMessage { session_id: id.clone(), text: "again".into(), attachments: Vec::new(), mentions: Vec::new() };
+    let sending = tokio::spawn(async move { fleet.send_session_message(sent).await });
+    tokio::time::timeout(Duration::from_secs(5), sending)
+        .await
+        .expect("the send answers while the process is still starting")
+        .unwrap()
+        .unwrap();
+    assert_eq!(rig.stand_in.starts().len(), 1, "the start is still held");
+    drop(held);
+
+    eventually(|| async { rig.stand_in.starts().len() == 2 }).await;
+    let line = rig.stand_in.process(1).sent.lock().unwrap()[0].clone();
+    assert!(line.contains("again"), "the message reaches the new process: {line}");
 }
 
 #[tokio::test]
