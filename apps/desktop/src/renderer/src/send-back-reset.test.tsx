@@ -15,14 +15,41 @@ test("after Send back, the next revision asks with the note box shut and empty",
   const card = () => <ApprovalAnswers id="s1" keep="sketch:s1" open onAnswer={onAnswer} />;
   mount(card());
 
-  await userEvent.click(page.getByRole("button", { name: "Send back" }));
-  await userEvent.type(page.getByRole("textbox", { name: "Note" }), "Make the arrow clearer");
-  await userEvent.click(page.getByRole("button", { name: "Send back" }));
-  expect(onAnswer).toHaveBeenCalledWith("s1", { text: "Make the arrow clearer" });
+  await userEvent.click(
+    page.getByRole("button", {
+      name: "Send back",
+    }),
+  );
+  await userEvent.type(
+    page.getByRole("textbox", {
+      name: "Note",
+    }),
+    "Make the arrow clearer",
+  );
+  await userEvent.click(
+    page.getByRole("button", {
+      name: "Send back",
+    }),
+  );
+  expect(onAnswer).toHaveBeenCalledWith("s1", {
+    text: "Make the arrow clearer",
+  });
 
   // The Job shows revision 2: the same card, asking again.
   rerender(card());
 
-  await expect.element(page.getByRole("button", { name: "Approve" })).toBeVisible();
-  expect(page.getByRole("textbox", { name: "Note" }).query()).toBeNull();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Approve",
+      }),
+    )
+    .toBeVisible();
+  expect(
+    page
+      .getByRole("textbox", {
+        name: "Note",
+      })
+      .query(),
+  ).toBeNull();
 });
