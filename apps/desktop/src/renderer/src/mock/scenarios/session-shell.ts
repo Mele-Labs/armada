@@ -491,8 +491,7 @@ export const onTerminalWindowRaised = (on: (id: TerminalWindowId) => void): (() 
   live?.onRaised(on) ?? (() => undefined);
 
 /** The Job's agent opens a terminal that no window hears of, so it has no tab. */
-export const agentOpensTerminalAway = (sessionId: string): void =>
-  live?.agentOpensAway(sessionId);
+export const agentOpensTerminalAway = (sessionId: string): void => live?.agentOpensAway(sessionId);
 
 /** The Job's agent shows one of its running terminals. False where it is not running. */
 export const agentShowsTerminal = (sessionId: string, terminal: string): boolean =>

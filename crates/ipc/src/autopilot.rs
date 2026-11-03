@@ -23,6 +23,8 @@ pub enum AutopilotCap {
     Until,
     Spend,
     Sessions,
+    /// The account's weekly usage reached the percent set.
+    Weekly,
 }
 
 /// What became of one pick.
@@ -45,11 +47,14 @@ pub enum AutopilotPickState {
 pub struct AutopilotWork {
     pub backlog: bool,
     pub running: bool,
+    /// Bugs agents reported in Armada itself. A body from before the box reads as off.
+    #[serde(default)]
+    pub reports: bool,
 }
 
 impl Default for AutopilotWork {
     fn default() -> Self {
-        Self { backlog: true, running: false }
+        Self { backlog: true, running: false, reports: false }
     }
 }
 
@@ -105,6 +110,9 @@ pub struct Autopilot {
     pub spend_cap_micros: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_cap: Option<u32>,
+    /// The reading of the weekly usage, in percent, that pauses it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weekly_cap_percent: Option<u32>,
     pub state: AutopilotState,
     pub started_at: Instant,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -156,6 +164,8 @@ pub struct AutopilotSettings {
     pub spend_cap_micros: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_cap: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weekly_cap_percent: Option<u32>,
     /// What goes on Autopilot. **Only a start keeps it**: `update_autopilot` ignores it, since the
     /// Cockpit's Edit caps sends none. A body without it reads as the backlog alone.
     #[serde(default)]

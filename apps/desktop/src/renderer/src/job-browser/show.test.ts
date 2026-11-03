@@ -4,6 +4,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 import { jobOpens, look, peek } from "../job-panes/store";
 import { build } from "../job-panes/tree";
+import { NO_SETTINGS } from "../../../shared/site-permissions";
 import { viewingNow } from "../cockpit/viewed";
 import { wireJobBrowsers } from "./store";
 
@@ -37,6 +38,8 @@ beforeEach(() => {
   const api = {
     list: async () => [],
     onChanged: () => () => undefined,
+    defaults: async () => NO_SETTINGS.defaults,
+    onDefaultsChanged: () => () => undefined,
     onShow: (listener: (sessionId: string) => void) => {
       show = listener;
       return () => undefined;

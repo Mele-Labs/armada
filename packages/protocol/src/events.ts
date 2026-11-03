@@ -30,7 +30,7 @@ import type { WatchesChanged } from "./watches";
 import type { BugReportsChanged } from "./bug-reports";
 import type { JobLifecyclesChanged } from "./lifecycles";
 import type { KeepDraftsChanged } from "./job-copy";
-import type { BrowserRequest, JobTerminal, SessionRecord } from "./sessions";
+import type { BrowserAskAnswered, BrowserRequest, JobTerminal, SessionRecord } from "./sessions";
 import type { RepositoryList } from "./setup";
 import type { Studio, StudioDeleted, StudioHelmActed } from "./studio";
 import type { HelmAskingToRun, HelmCallAnswered } from "./helm-calls";
@@ -152,6 +152,10 @@ export type Event =
   | ({
       kind: "browser.request";
     } & BrowserRequest)
+  /** The owner answered or dismissed a page's ask in Needs you, which Bridge raised with `raise_browser_ask`. Not replayed. */
+  | ({
+      kind: "browser.ask_answered";
+    } & BrowserAskAnswered)
   /** A repository's Autopilot after any change to it, whole. #2092. */
   | ({
       kind: "autopilot.changed";

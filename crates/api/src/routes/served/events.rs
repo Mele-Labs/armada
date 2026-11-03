@@ -152,6 +152,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // The owner answered or dismissed a page's ask in Needs you, for Bridge to settle in the tab.
+    Route {
+        operation: "browser.ask_answered",
+        method: "GET",
+        path: "/events",
+    },
     // A Studio after a write, whole, and a Studio deleted.
     Route {
         operation: "studio.changed",

@@ -694,7 +694,8 @@ export function useAnswering(
     waiting.item.source !== "walk" &&
     waiting.item.source !== "permission" &&
     waiting.item.source !== "first_message" &&
-    waiting.item.source !== "task_done";
+    waiting.item.source !== "task_done" &&
+    waiting.item.source !== "browser_ask";
 
   return {
     ask: item.fact,

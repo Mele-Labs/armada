@@ -13,6 +13,7 @@ import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { seedJobBrowser } from "../../job-browser/store";
+import { serveBrowserAsks } from "../browser-ask";
 import { seedBuilt } from "../../job-panes/custom";
 import { forgetPanes, jobOpens, look, peek, seedLayouts } from "../../job-panes/store";
 import { arrive, build, panesOf } from "../../job-panes/tree";
@@ -919,6 +920,8 @@ export const sJobLayouts: Scenario = {
         ],
       }));
       // The Jobs it started stand beside the story's own; the merged list keeps one identity until the store changes, as a store's does.
+      // A page's ask in the Job browser is an item in the Job's Needs you.
+      const asks = serveBrowserAsks(store);
       let base: readonly Session[] | undefined;
       let held: Session | undefined;
       let merged: readonly Session[] = [];
@@ -964,6 +967,16 @@ export const sJobLayouts: Scenario = {
           modJobs.add(id);
           changeTurn(asking, id);
         },
+        answerWaiting: (
+          id: string,
+          itemId: string,
+          given: Parameters<NonNullable<typeof store.answerWaiting>>[2],
+        ) =>
+          asks.answer(id, itemId, "choice" in given ? given.choice : undefined)
+            ? undefined
+            : store.answerWaiting?.(id, itemId, given),
+        drop: (id: string, itemId: string, reason?: string) =>
+          asks.drop(id, itemId) ? undefined : store.drop(id, itemId, reason),
         terminalRuns: true as const,
         // A message to a Mod Job is the person's row and its next turn, and not the canned reply the store plays for any other Job.
         send: (id: string, sent: Parameters<typeof store.send>[1]) => {
@@ -1010,6 +1023,7 @@ export const sJobLayouts: Scenario = {
           revision = 0;
           turns.clear();
           disposeShells();
+          asks.stop();
           store.dispose();
         },
       };

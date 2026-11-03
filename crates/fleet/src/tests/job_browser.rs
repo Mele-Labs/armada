@@ -11,7 +11,7 @@ use ipc::{
     SessionRow, WalkTarget,
 };
 
-use crate::job_browser::{OWNER_DRIVING_SAID, UNANSWERED_SAID};
+use crate::job_browser::UNANSWERED_SAID;
 use crate::tests::session_running::{rig, Rig};
 
 fn save_button() -> WalkTarget {
@@ -80,10 +80,10 @@ async fn a_held_call_answers_with_what_bridge_did() {
 
     let call = driving(&rig, BrowserAct::Snapshot);
     let request = requested(&mut watching).await;
-    let error = Some(BrowserError::OwnerDriving);
+    let error = Some(BrowserError::NotFound);
     rig.fleet.answer_browser_request(answer(&request.request_id, None, error)).await.expect("taken");
-    let (status, code, message) = refused(call.await.unwrap().expect_err("the owner drives"));
-    assert_eq!((status, code.as_str(), message.as_str()), (409, "fleet.browser_owner_driving", OWNER_DRIVING_SAID));
+    let (status, code, _) = refused(call.await.unwrap().expect_err("nothing there"));
+    assert_eq!((status, code.as_str()), (422, "fleet.browser_target_not_found"));
 }
 
 #[tokio::test]

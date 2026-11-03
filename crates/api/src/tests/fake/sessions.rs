@@ -237,6 +237,14 @@ impl Sessions for FakeDaemon {
         Ok(ipc::BrowserRequestAnswered { request_id: answer.request_id, session_id: ipc::SessionId::carried("s1") })
     }
 
+    async fn raise_browser_ask(&self, ask: ipc::RaiseBrowserAsk) -> Result<ipc::BrowserAskNoted, Refusal> {
+        Ok(ipc::BrowserAskNoted { session_id: ask.session_id, ask_id: ask.ask_id })
+    }
+
+    async fn end_browser_ask(&self, ask: ipc::EndBrowserAsk) -> Result<ipc::BrowserAskNoted, Refusal> {
+        Ok(ipc::BrowserAskNoted { session_id: ask.session_id, ask_id: ask.ask_id })
+    }
+
     async fn report_session_check(
         &self,
         call: ipc::SessionCheckCall,

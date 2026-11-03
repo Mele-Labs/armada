@@ -51,7 +51,7 @@ does. Work whose shape is unknown gets a workflow that plans first.
 | Every decision answered, or none | A person who is away wants a plan approved and a destructive command left alone |
 | **One fresh call per decision, per repository** | It reads the instruction and that repository's earlier answers from the record, names a way and says whether it is sure, and ends. No clear answer means it waits for you |
 
-You check at start what goes on autopilot, the backlog and Jobs already running, and which kinds of decision it may answer:
+You check at start what goes on autopilot, the backlog, Jobs already running and, on Armada's own repository, the bugs agents reported, and which kinds of decision it may answer:
 a question with or without a recommended answer, a plan, a draft, a walk, landing a green pull request, an issue it was unsure of, fixing a red main, Reads and Writes.
 Run commands count as Writes.
 
@@ -71,7 +71,8 @@ Autopilot keeps running when you come back: the first press or key after ten min
 | Until | A time. Optional |
 | Spend | A dollar total across its Jobs. Optional |
 | Jobs started | How many Jobs it may start. Optional |
-| On autopilot | The backlog, Jobs already running, or both |
+| Weekly usage | A percent of your account's week. Optional. It pauses at that reading, and never when there is none |
+| On autopilot | The backlog, Jobs already running, and on Armada's own repository the bugs agents reported, in any mix |
 | Decisions | The kinds it may answer |
 
 The caps and the boxes are set at start. While it runs the switch is the only control: Bridge has no Pause, Resume or editing of caps.

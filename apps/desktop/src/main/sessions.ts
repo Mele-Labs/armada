@@ -35,7 +35,10 @@ import type {
   CheckoutToPullRequest,
   JobTerminal,
   AnswerBrowserRequest,
+  BrowserAskAnswered,
   BrowserRequest,
+  EndBrowserAsk,
+  RaiseBrowserAsk,
   OpenTerminal,
   JobTerminals,
   ListedTerminal,
@@ -269,6 +272,7 @@ export class SessionsHost {
   /** Where a Job's shell opening or ending goes: main's, set once. */
   private terminalChanged: (change: TerminalChange, terminal: JobTerminal) => void = () => {};
   private browserAsked: (request: BrowserRequest) => void = () => {};
+  private browserAskHeard: (answered: BrowserAskAnswered) => void = () => {};
   /** The socket each running block is read on, by run id. */
   private readonly runs = new Map<string, WebSocket>();
   /** What each run printed, by run id: a running one's, and each Job's last shell's after it ends. */
@@ -461,6 +465,40 @@ export class SessionsHost {
   /** `browser.request`: an agent's act, which Fleet holds until `answerBrowser` names it. */
   browser(request: BrowserRequest): void {
     this.browserAsked(request);
+  }
+
+  /** Say who settles a page's ask when the person answers it in Needs you: main's, as `onBrowser` is. */
+  onBrowserAskAnswered(heard: (answered: BrowserAskAnswered) => void): void {
+    this.browserAskHeard = heard;
+  }
+
+  /** `browser.ask_answered`: the person answered or dismissed a page's ask in Needs you. */
+  browserAskAnswered(answered: BrowserAskAnswered): void {
+    this.browserAskHeard(answered);
+  }
+
+  /** `raise_browser_ask`: a page in the Job's browser asks the person, and Fleet lists it in Needs you. Bridge's tab has its own bubble, so a refusal is not fatal. */
+  async raiseBrowserAsk(body: RaiseBrowserAsk): Promise<Outcome> {
+    return this.noteBrowserAsk("/sessions/browser/ask", body);
+  }
+
+  /** `end_browser_ask`: the ask was settled in the tab or the tab went. Fleet answers 200 where it holds none. */
+  async endBrowserAsk(body: EndBrowserAsk): Promise<Outcome> {
+    return this.noteBrowserAsk("/sessions/browser/ask/end", body);
+  }
+
+  private async noteBrowserAsk(
+    path: string,
+    body: RaiseBrowserAsk | EndBrowserAsk,
+  ): Promise<Outcome> {
+    const port = this.port();
+    if (port === null) return NOT_CONNECTED;
+    const answer = await ask(port, "POST", path, body);
+    return answer.ok === true
+      ? {
+          ok: true,
+        }
+      : answer.outcome;
   }
 
   /** `answer_browser_request`. A refusal is Fleet's to word for the agent, and its call stays held; nothing is retried here. */

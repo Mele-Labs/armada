@@ -559,7 +559,11 @@ export function PaneView({
     void shells.openTerminals(jobId).then((open) => {
       const tabbed = panesOf(peek(jobId).root).flatMap((one) =>
         one.tabs.flatMap((tab) =>
-          tab.kind !== "terminal" ? [] : [shells.keyOf(jobId, tab.terminal)],
+          tab.kind !== "terminal"
+            ? []
+            : [
+                shells.keyOf(jobId, tab.terminal),
+              ],
         ),
       );
       setUntabbed(open.filter((one) => !tabbed.includes(shells.keyOf(jobId, one.terminal))));

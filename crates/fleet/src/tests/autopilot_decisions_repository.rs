@@ -256,7 +256,8 @@ async fn without_running_only_the_jobs_autopilot_started_are_answered() {
         until: None,
         spend_cap_micros: None,
         session_cap: None,
-        on_autopilot: AutopilotWork { backlog: false, running },
+        weekly_cap_percent: None,
+        on_autopilot: AutopilotWork { backlog: false, running, reports: false },
         decisions: [AutopilotDecision::Recommended].into_iter().collect(),
     };
     rig.fleet.start_autopilot(rig.manifest.clone(), settings(false)).await.expect("started");
@@ -304,7 +305,8 @@ async fn with_the_backlog_off_the_pass_picks_no_issues() {
             until: None,
             spend_cap_micros: None,
             session_cap: None,
-            on_autopilot: AutopilotWork { backlog, running: false },
+            weekly_cap_percent: None,
+            on_autopilot: AutopilotWork { backlog, running: false, reports: false },
             decisions: Default::default(),
         };
         rig.fleet.start_autopilot(rig.manifest.clone(), settings).await.expect("started");

@@ -374,6 +374,16 @@ const ROUTES: &[Route] = &[
         path: "/sessions/browser/answer",
     },
     Route {
+        operation: "raise_browser_ask",
+        method: "POST",
+        path: "/sessions/browser/ask",
+    },
+    Route {
+        operation: "end_browser_ask",
+        method: "POST",
+        path: "/sessions/browser/ask/end",
+    },
+    Route {
         operation: "show_window",
         method: "POST",
         path: "/sessions/window",
