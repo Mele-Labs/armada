@@ -158,7 +158,7 @@ impl fmt::Display for Unsettable {
             Unsettable::AlreadyOver(Cap::Until) => "the time to stop has already passed",
             Unsettable::AlreadyOver(Cap::Spend) => "a spend cap of nothing would start nothing",
             Unsettable::AlreadyOver(Cap::Sessions) => "a Job cap of none would start nothing",
-            Unsettable::AlreadyOver(Cap::Weekly) => "weekly usage is already past that",
+            Unsettable::AlreadyOver(Cap::Weekly) => "weekly usage has already reached that",
         })
     }
 }
