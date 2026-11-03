@@ -116,6 +116,8 @@ ended.
 
 Every row carries a `cite`, `ask:1` and the like, unique within the record.
 
+What the buckets count, and how the usual is taken, is [Where a Job's time went](session/where-a-jobs-time-went.md).
+
 **The agent is asked once, and only between turns.** Where the Job is
 hosted, its process is running and its turn is idle, Fleet sends it one fixed
 message from Fleet, "What got in your way since <time>? One line per thing, or

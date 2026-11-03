@@ -35,6 +35,7 @@ You ask who has `fleet/session-ledger`, and the answer is a job by its title, st
 | [The Judge](session/the-judge.md) |
 | [What fills the context window](session/what-fills-the-context-window.md) |
 | [Where the tokens went](session/where-the-tokens-went.md) |
+| [Where a Job's time went](session/where-a-jobs-time-went.md) |
 | [A job that hit the plan's limit](session/a-job-that-hit-the-plans-limit.md) |
 | [A Job whose sign-in expired](session/a-job-whose-sign-in-expired.md) |
 | [A Job that came up without its tools](session/a-job-that-came-up-without-its-tools.md) |
