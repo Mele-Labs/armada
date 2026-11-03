@@ -127,7 +127,7 @@ const steps: Step[] = [
   },
   {
     look: inside(needs, text("Allow Location for localhost:5173?")),
-    say: "No second line under Allow",
+    say: "Other asks carry no risk line",
   },
   {
     context: inside(

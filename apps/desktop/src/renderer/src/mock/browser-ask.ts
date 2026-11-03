@@ -18,12 +18,12 @@ const PREFIX = "browser_ask:";
 
 const RISK = "It can reach apps on this Mac and devices on your network.";
 
-/** The Needs you item for a page's ask. `fleet_call` is the nearest source the wire has: a call the person takes off with no word to the agent. */
+/** The Needs you item for a page's ask: Allow and Block, with what Local network reaches under Allow. */
 export const browserAskItem = (ask: BrowserAsk, since: string): WaitingItem => ({
   id: `${PREFIX}${ask.tabId}`,
   text: `Allow ${labelOfPermission(ask.permission)} for ${ask.host}?`,
   since,
-  source: "fleet_call",
+  source: "browser_ask",
   act: {
     kind: "answer",
     target: `${PREFIX}${ask.tabId}`,
@@ -69,7 +69,6 @@ export function serveBrowserAsks(store: SessionsStore): {
     answer: (id, itemId, choice) => {
       if (!itemId.startsWith(PREFIX)) return false;
       const tab = itemId.slice(PREFIX.length);
-      // The ask card's own Other has no word the page can take, so it refuses the request now.
       if (choice === 0) answerRequest(id, tab, "allow");
       else if (choice === 1) answerRequest(id, tab, "block");
       else dismissRequest(id, tab);

@@ -396,6 +396,7 @@ export type WaitingSource =
   | "delivery"
   | "words_address"
   | "fleet_call"
+  | "browser_ask"
   | "task_done"
   | "watch_not_ours"
   | "held_child"
