@@ -198,6 +198,7 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "type_in_terminal",
     "read_terminal",
     "list_terminals",
+    "show_terminal",
     // The Job browser is the Job's own, read inside no Manifest.
     "browser_open",
     "browser_click",

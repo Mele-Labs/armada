@@ -120,12 +120,102 @@ describe("the ledger", () => {
       form: "window",
       id: "http://localhost:40108/?walk=queue",
       title: "Queue for later walk",
+      window: {
+        takes: [],
+        steps: [],
+      },
     });
     expect(attachments.map((one) => one.kind).sort()).toEqual([
       "artifact",
       "branch",
       "slot",
     ]);
+  });
+
+  it("reads a walk's takes by name, its steps by their words and its brief from the window row's detail", () => {
+    const [walk] = attachmentsOfRecord(
+      record("a", {
+        attachments: [
+          held("artifact", "http://localhost:40108/?walk=billing", {
+            form: "window",
+            title: "Billing page",
+            brief: "  The plan card changed  ",
+            variations: JSON.stringify([
+              {
+                name: "Compact",
+                url: "http://localhost:40108/?take=compact",
+              },
+              {
+                name: "Roomy",
+                url: "http://localhost:40108/?take=roomy",
+              },
+            ]),
+            steps: JSON.stringify([
+              {
+                say: "Look at the card",
+                look: {
+                  role: "region",
+                  name: "Plan",
+                },
+              },
+              {
+                say: "Press upgrade",
+                press: {
+                  role: "button",
+                  name: "Upgrade",
+                },
+              },
+            ]),
+          }),
+        ],
+      }),
+      beside(),
+    );
+    expect(walk).toMatchObject({
+      kind: "artifact",
+      form: "window",
+      window: {
+        brief: "The plan card changed",
+        takes: [
+          "Compact",
+          "Roomy",
+        ],
+        steps: [
+          {
+            say: "Look at the card",
+          },
+          {
+            say: "Press upgrade",
+          },
+        ],
+      },
+    });
+  });
+
+  it("reads a walk detail that is not a list as none, and a blank brief as no brief", () => {
+    const [walk] = attachmentsOfRecord(
+      record("a", {
+        attachments: [
+          held("artifact", "http://localhost:40108/?walk=odd", {
+            form: "window",
+            title: "Odd",
+            brief: "   ",
+            variations: "not json",
+            steps: JSON.stringify({
+              say: "one",
+            }),
+          }),
+        ],
+      }),
+      beside(),
+    );
+    expect(walk).toMatchObject({
+      window: {
+        takes: [],
+        steps: [],
+      },
+    });
+    expect(walk).not.toHaveProperty("window.brief");
   });
 
   it("leaves out what a session let go, and keeps a merged pull request as merged", () => {
@@ -1250,6 +1340,10 @@ describe("the thread", () => {
         form: "window",
         id: "http://localhost:5173/",
         title: "Findings",
+        window: {
+          takes: [],
+          steps: [],
+        },
       },
     ]);
   });

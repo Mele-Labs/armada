@@ -49,6 +49,7 @@ import type {
 import { useAtFloor } from "@armada/shell";
 
 import { RunFailed, SOURCE_MARK, TOOL_MARK } from "./marks";
+import { KeptMark, NotRun } from "./results";
 import type { ReviewPr, ToolDef, WalkWork } from "./model";
 import { areaShown, placeWords, walkOf } from "./runs";
 import type { WalkWritten } from "./runs";
@@ -197,7 +198,18 @@ function actOf(step: WalkStep): {
   };
 }
 
-export function WalkView({ pr, tool }: { pr: ReviewPr; tool: ToolDef }) {
+/** `back` false leaves out the way back to the overview, for the Walk in a tab of its own; `onRun` is then the press that starts it where it has not. */
+export function WalkView({
+  pr,
+  tool,
+  back = true,
+  onRun,
+}: {
+  pr: ReviewPr;
+  tool: ToolDef;
+  back?: boolean;
+  onRun?: (again: boolean) => void;
+}) {
   const store = useReviewStore()!;
   const work = useReviews().work[pr.key] ?? NO_WORK;
   const walk = work.walk;
@@ -217,21 +229,24 @@ export function WalkView({ pr, tool }: { pr: ReviewPr; tool: ToolDef }) {
       data-source={tool.source}
     >
       <header className="pr-results__head">
-        <Tooltip label="Back to the overview" shortcut="Esc">
-          <Button
-            variant="ghost"
-            size="sm"
-            iconOnly
-            aria-label="Back to the overview"
-            onClick={() => store.setView(pr.key, "explanation")}
-          >
-            <ArrowLeft size={16} strokeWidth={2} aria-hidden />
-          </Button>
-        </Tooltip>
+        {back ? (
+          <Tooltip label="Back to the overview" shortcut="Esc">
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Back to the overview"
+              onClick={() => store.setView(pr.key, "explanation")}
+            >
+              <ArrowLeft size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+        ) : null}
         <PrMark Glyph={mark.Glyph} said={tool.name} />
         <h3 className="pr-results__title">{tool.name}</h3>
         <PrMark Glyph={source.Glyph} said={source.said} />
         <span className="pr-results__acts">
+          {back ? null : <KeptMark run={run} head={pr.head} />}
           <Tooltip label="Walk it again, for this pull request">
             <Button
               variant="ghost"
@@ -239,7 +254,7 @@ export function WalkView({ pr, tool }: { pr: ReviewPr; tool: ToolDef }) {
               iconOnly
               aria-label="Run again"
               disabled={going || finding}
-              onClick={() => store.spend(tool.name, () => store.findPlace(pr.key))}
+              onClick={() => store.spendUnasked(() => store.findPlace(pr.key), false)}
             >
               <RotateCw size={16} strokeWidth={2} aria-hidden />
             </Button>
@@ -251,6 +266,9 @@ export function WalkView({ pr, tool }: { pr: ReviewPr; tool: ToolDef }) {
           <PrMark Glyph={RefreshCw} said="Out of date" />
           {`Ran on ${run.head.slice(0, 7)}. The pull request is at ${pr.head.slice(0, 7)}.`}
         </p>
+      ) : null}
+      {onRun !== undefined && walk.find.state === "idle" && run === undefined ? (
+        <NotRun onRun={onRun} />
       ) : null}
       <Found walk={walk} />
       {walk.said === undefined ? null : <RunFailed said={walk.said} />}

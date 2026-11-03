@@ -8,6 +8,7 @@
 //! **Moved one method at a time.** A method not yet read over the API is `gh`'s, unchanged.
 
 mod ci;
+mod comments;
 mod connection;
 mod diff;
 mod issues;
@@ -120,14 +121,24 @@ fn numbered(pull_request: &str) -> Option<u64> {
     pull_request.parse().ok()
 }
 
-/// `{ "login": ... }`, the shape every actor takes.
+/// `{ "login": ... }`, the shape every actor takes, with its `__typename` where a query asks.
 #[derive(Deserialize)]
 struct Login {
     login: Option<String>,
+    #[serde(rename = "__typename")]
+    kind: Option<String>,
 }
 
 fn login_of(actor: Option<Login>) -> String {
     actor.and_then(|it| it.login).unwrap_or_default()
+}
+
+/// The actor's login, and whether it is an app's.
+fn author_of(actor: Option<Login>) -> (String, bool) {
+    let kind = actor.as_ref().and_then(|it| it.kind.clone()).unwrap_or_default();
+    let login = login_of(actor);
+    let bot = crate::pull_request_detail::by_a_bot(&kind, &login);
+    (login, bot)
 }
 
 /// A GraphQL list, whatever it holds; a `null` one is empty.
@@ -450,6 +461,14 @@ impl Forge for ApiForge {
         let gh = |gh: &GhForge| gh.pull_request_patches(in_repo, pull_request);
         let Some(number) = numbered(pull_request) else { return gh(&self.gh) };
         self.read(in_repo, |api, repository| patches::read(api, repository, number).map(Some), gh)
+    }
+
+    fn pull_request_comments(&self, in_repo: &str, number: u64) -> Option<Vec<adapter_traits::PullComment>> {
+        self.read(
+            in_repo,
+            |api, repository| comments::read(api, repository, number),
+            |gh| gh.pull_request_comments(in_repo, number),
+        )
     }
 
     fn write_pull_request(

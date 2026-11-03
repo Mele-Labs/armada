@@ -5,17 +5,12 @@
 import { PanelsTopLeft } from "lucide-react";
 import { DropdownMenu, Tooltip, useKept, type DropdownMenuEntry } from "@armada/components";
 
-import {
-  nameTaken,
-  resetLayout,
-  saveLayoutAs,
-  setLayoutForAll,
-  takeLayout,
-  updateLayout,
-} from "./store";
+import { jobPanes, type PaneFamily } from "./store";
 
 type Props = {
   jobId: string;
+  /** Whose layouts these are: a Job's, unless a pull request's are named. */
+  family?: PaneFamily;
   layout: string;
   edited: boolean;
   layouts: readonly string[];
@@ -28,6 +23,7 @@ type Props = {
 
 export function LayoutControl({
   jobId,
+  family = jobPanes,
   layout,
   edited,
   layouts,
@@ -37,7 +33,9 @@ export function LayoutControl({
   naming,
   onNaming,
 }: Props) {
-  const [name, setName, clearName] = useKept(`job-layout-name:${jobId}`, "");
+  const { nameTaken, resetLayout, saveLayoutAs, setLayoutForAll, takeLayout, updateLayout } =
+    family;
+  const [name, setName, clearName] = useKept(`${family.name}-layout-name:${jobId}`, "");
   const label = name.trim();
   const taken = label !== "" && nameTaken(label);
 
@@ -89,7 +87,7 @@ export function LayoutControl({
         {
           kind: "item",
           id: "new",
-          label: "New Jobs open on",
+          label: family.forAllLabel,
           detail: forAll,
           submenu: layouts.map((one) => ({
             id: `new:${one}`,

@@ -35,6 +35,7 @@ import type {
   CaptureWindowState,
 } from "../../shared/capture-window";
 import { CHANNELS } from "../../shared/bridge";
+import type { JobWalkFrozen } from "../../shared/api/job-walk";
 import {
   isPinned,
   loopbackOrigin,
@@ -49,10 +50,12 @@ import {
 import { aimed, bounded, chainOf, readOf, rectOf, type PageRead } from "./bounds";
 import {
   barRows,
+  PANE_BAR_ROWS,
   panelFor,
   walkLayout,
   type LandsOn,
   type PanelSubject,
+  type Rect,
   type ReviewWalkOwner,
 } from "./layout";
 import { FailedLoads, lookSource, looked } from "./failed";
@@ -103,8 +106,6 @@ export type CaptureBoard = {
   sessionApproved: (sessionId: string, address: string, take?: Take) => Promise<Outcome>;
   /** The Session's question, answered from the bar: `answer_waiting` on its item, which wakes it. */
   answerAsk: (sessionId: string, itemId: string, answer: CaptureAnswer) => Promise<Outcome>;
-  /** The Session windows open changed: one opened, or one closed. Optional, for a board that draws none. */
-  windowsChanged?: () => void;
   /** A Session's window closed, whoever closed it: its walk is over, so the Session may ask again. */
   sessionClosed: (sessionId: string, address: string) => void;
   /** A Session's window could not show its page: Fleet tells the Session. */
@@ -176,7 +177,8 @@ export type PanelKept = {
  * draws the bar. `walk-window.ts` holds it.
  */
 export type WalkSeat = {
-  window: BaseWindow;
+  /** The walk window. `null` in a pane's seat, whose window is Bridge's own and is asked for through `pane.host`. */
+  window: BaseWindow | null;
   bar: WebContentsView;
   panel: WebContentsView | null;
   onScreen: (walk: CaptureWindow) => boolean;
@@ -186,18 +188,38 @@ export type WalkSeat = {
   key: (key: CaptureQueueKey) => void;
   /** The owner approved this walk: it leaves the window. */
   settled: (walk: CaptureWindow) => void;
+  /** Present where the walk is drawn in a pane of Bridge's own window, with a bar and a page that are its own. */
+  pane?: PaneFrame;
+};
+
+/**
+ * Where a Job's walk draws when it is a tab: **inside a frame its pane reports**, in Bridge's own window. The page and the bar are
+ * views over that frame and nothing of the window's, so there is no panel and no queue. With no frame reported, both are parked hidden.
+ */
+export type PaneFrame = {
+  /** Bridge's own window as it stands. `null`: none is up, which a walk outlives. */
+  host: () => BaseWindow | null;
+  /** The frame in the window's content, in CSS pixels. `null`: no pane shows this walk. */
+  frame: () => Rect | null;
+  /** A press the page or the bar heard that is Bridge's own window's: handed to it. `true`: it was, and the view does not hear it. */
+  forward: (input: Electron.Input) => boolean;
 };
 
 /** The world the page is asked in whether a field has the cursor. Its own, apart from the finder's. */
 const FIELD_WORLD = 2001;
 
 export class CaptureWindow {
-  private readonly window: BaseWindow;
+  /** The window of its own, or the walk window. `null` in a pane's seat, where `host()` is Bridge's own. */
+  private readonly window: BaseWindow | null;
+  /** Bridge's window the views of a pane's walk were last added to. */
+  private attachedTo: BaseWindow | null = null;
   private readonly page: WebContentsView;
   private readonly bar: WebContentsView;
   private readonly board: CaptureBoard;
   /** The one walk window this walk is queued in. `null`: a window of its own, as a Studio's is. */
   private readonly seat: WalkSeat | null;
+  /** A pane's walk held still under a layer of Bridge's own: its views are hidden and their pictures are drawn in the pane. */
+  private frozen = false;
   /** Taken out of the walk window: its page is gone, and it answers nothing. */
   private disposed = false;
   /** What the page is pinned to: **the take on screen's**, which moves only to another the Session declared. */
@@ -211,6 +233,8 @@ export class CaptureWindow {
   private at = 0;
   private readiness: CaptureReadiness | undefined = undefined;
   private readonly landsOn: LandsOn;
+  /** What the Job said to look at, for the bar's `?`. */
+  private readonly brief: string | undefined;
   private readonly sizes: WalkSizes;
   /** The Session beside the page, and the view it is drawn in. `null`: a Studio's window. */
   private readonly subject: PanelSubject | null;
@@ -283,6 +307,7 @@ export class CaptureWindow {
     signIn: readonly string[] = [],
     steps: readonly WalkStep[] = [],
     seat?: WalkSeat,
+    brief?: string,
   ) {
     this.pin = pin;
     this.opened = pin.url;
@@ -293,9 +318,14 @@ export class CaptureWindow {
     this.sizes = sizes;
     this.kept = kept;
     this.seat = seat ?? null;
+    this.brief = brief;
     this.subject = panelFor(landsOn);
 
-    if (seat === undefined) {
+    if (seat?.pane !== undefined) {
+      this.window = null;
+      this.bar = seat.bar;
+      this.panel = null;
+    } else if (seat === undefined) {
       this.window = new BaseWindow({
         // The page keeps the width it had before there was a panel, where the screen has room for both.
         width: Math.min(
@@ -322,24 +352,24 @@ export class CaptureWindow {
     // The walk's row is drawn from the first frame, so the page does not move down when it begins.
     if (this.stepwalk !== null) this.walk = this.stepwalk.state();
 
-    if (seat !== undefined) {
+    const own = this.window;
+    if (own === null) {
+      // A pane's: placed in Bridge's window when its pane reports a frame, and not before.
+    } else if (seat !== undefined) {
       // Under the bar and the panel, which the walk window put up before any page.
-      this.window.contentView.addChildView(this.page, 0);
+      own.contentView.addChildView(this.page, 0);
     } else {
-      this.window.contentView.addChildView(this.page);
-      this.window.contentView.addChildView(this.bar);
-      if (this.panel !== null) this.window.contentView.addChildView(this.panel);
-      this.window.on("resize", () => this.resized());
-      this.window.on("focus", () => {
+      own.contentView.addChildView(this.page);
+      own.contentView.addChildView(this.bar);
+      if (this.panel !== null) own.contentView.addChildView(this.panel);
+      own.on("resize", () => this.resized());
+      own.on("focus", () => {
         this.board.focused(pin.run, true);
       });
-      this.window.on("blur", () => this.board.focused(pin.run, false));
-      this.window.on("closed", () => {
+      own.on("blur", () => this.board.focused(pin.run, false));
+      own.on("closed", () => {
         this.board.focused(pin.run, false);
-        if ("session" in landsOn) {
-          this.board.sessionClosed(landsOn.session.id, this.opened);
-          this.board.windowsChanged?.();
-        }
+        if ("session" in landsOn) this.board.sessionClosed(landsOn.session.id, this.opened);
         if ("review" in landsOn) this.board.reviewClosed(landsOn.review);
         this.stop();
         // A view's document outlives a closed `BaseWindow` unless it is closed with it.
@@ -356,7 +386,44 @@ export class CaptureWindow {
     this.holdThePage();
     this.lookTimer = setInterval(() => void this.lookAtThePage(), LOOK_MS);
     void this.start(pin.url, signIn);
-    if (seat === undefined) this.window.show();
+    if (own !== null && seat === undefined) own.show();
+  }
+
+  /** Both views as pictures, held still while a layer of Bridge's own lies over the frame: they are hidden until `thaw`. */
+  async freeze(): Promise<JobWalkFrozen | null> {
+    if (this.seat?.pane === undefined || !this.open) return null;
+    const picture = async (contents: Electron.WebContents): Promise<Uint8Array | null> => {
+      if (contents.isDestroyed()) return null;
+      try {
+        const png = (await contents.capturePage()).toPNG();
+        return png.byteLength === 0 ? null : new Uint8Array(png);
+      } catch {
+        return null;
+      }
+    };
+    const [page, bar] = await Promise.all([
+      picture(this.page.webContents),
+      picture(this.bar.webContents),
+    ]);
+    this.frozen = true;
+    this.layout();
+    return {
+      page,
+      bar,
+    };
+  }
+
+  thaw(): void {
+    if (!this.frozen) return;
+    this.frozen = false;
+    this.layout();
+  }
+
+  /** The window the views are in: the walk's own, the walk window, or in a pane's seat Bridge's own, which may be none. */
+  private host(): BaseWindow | null {
+    const pane = this.seat?.pane;
+    const window = pane === undefined ? this.window : pane.host();
+    return window !== null && !window.isDestroyed() ? window : null;
   }
 
   /** Everything that runs on its own beside the page, stopped. */
@@ -378,8 +445,16 @@ export class CaptureWindow {
     if (this.disposed) return;
     this.disposed = true;
     this.stop();
-    if (!this.window.isDestroyed()) this.window.contentView.removeChildView(this.page);
+    const where = this.seat?.pane === undefined ? this.window : this.attachedTo;
+    if (where !== null && !where.isDestroyed()) {
+      where.contentView.removeChildView(this.page);
+      // A pane's bar is its own, so it goes with the walk; the walk window's is the window's.
+      if (this.seat?.pane !== undefined) where.contentView.removeChildView(this.bar);
+    }
+    this.attachedTo = null;
     if (!this.page.webContents.isDestroyed()) this.page.webContents.close();
+    if (this.seat?.pane !== undefined && !this.bar.webContents.isDestroyed())
+      this.bar.webContents.close();
   }
 
   /**
@@ -392,13 +467,17 @@ export class CaptureWindow {
     this.hang = null;
     if (this.walk?.autoplay === true) void this.walkAct("autoplay_off");
     this.page.setVisible(false);
+    // A pane's bar is its own: it goes with the page, and comes back with it.
+    if (this.seat?.pane !== undefined) this.bar.setVisible(false);
   }
 
   /** This walk comes on screen: its page, its title and the bar drawn for it, and the panel as last left. */
   show(): void {
     if (this.kept !== null) this.panelOpen = this.kept.open;
     this.page.setVisible(true);
-    if (!this.window.isDestroyed()) this.window.setTitle(titled(this.pin));
+    // Bridge's own window keeps its title: only a window of the walk's own is named for the page.
+    if (this.seat?.pane === undefined && this.window !== null && !this.window.isDestroyed())
+      this.window.setTitle(titled(this.pin));
     this.tell();
     this.relocateSoon();
   }
@@ -447,7 +526,7 @@ export class CaptureWindow {
 
   /** Whether this window is still on screen, or this walk still in its window. */
   get open(): boolean {
-    return !this.disposed && !this.window.isDestroyed();
+    return !this.disposed && (this.seat?.pane !== undefined || !this.window?.isDestroyed());
   }
 
   /** The held walk this window plays, where it is a pull request's. */
@@ -517,7 +596,8 @@ export class CaptureWindow {
     this.holding = null;
     this.refusedAddress = undefined;
     this.framesRefused = 0;
-    if (this.onScreen()) this.window.setTitle(titled(this.pin));
+    if (this.onScreen() && this.seat?.pane === undefined && this.window !== null)
+      this.window.setTitle(titled(this.pin));
     this.tell();
     // The steps are the window's and not a take's: another take starts them over. Not yet begun, the load holds them again.
     if (this.stepwalk !== null && this.stepsBegun) this.stepwalk.act("replay");
@@ -547,15 +627,16 @@ export class CaptureWindow {
   }
 
   raise(): void {
-    if (this.window.isDestroyed()) return;
-    if (this.window.isMinimized()) this.window.restore();
-    this.window.focus();
+    const window = this.window;
+    if (window === null || window.isDestroyed()) return;
+    if (window.isMinimized()) window.restore();
+    window.focus();
   }
 
   /** Close the window, or take this walk out of the walk window. */
   close(): void {
     if (this.seat !== null) this.dispose();
-    else if (!this.window.isDestroyed()) this.window.close();
+    else if (this.window !== null && !this.window.isDestroyed()) this.window.close();
   }
 
   /** Whether an IPC call came from this window's own bar and no other document. **A queued walk's only while it is on screen.** */
@@ -643,7 +724,12 @@ export class CaptureWindow {
             },
           }
         : {}),
-      ...(this.subject === null
+      ...(this.brief === undefined
+        ? {}
+        : {
+            brief: this.brief,
+          }),
+      ...(this.subject === null || this.panel === null
         ? {}
         : {
             panel: {
@@ -739,7 +825,15 @@ export class CaptureWindow {
     this.tell();
     const first = !this.shownAsks.has(question.id);
     this.shownAsks.add(question.id);
-    if (forward && first && !this.window.isDestroyed()) this.window.showInactive();
+    // Bridge's own window is never raised for a walk: the question is on the bar of a tab.
+    if (
+      forward &&
+      first &&
+      this.seat?.pane === undefined &&
+      this.window !== null &&
+      !this.window.isDestroyed()
+    )
+      this.window.showInactive();
     if (
       !this.serving ||
       this.page.webContents.isDestroyed() ||
@@ -1093,8 +1187,10 @@ export class CaptureWindow {
    * Notes held on the Job take the queued bar's second row as well, and the page loading takes it on either.
    */
   private layout(): void {
-    if (this.window.isDestroyed() || !this.open || !this.onScreen()) return;
-    const { width, height } = this.window.getContentBounds();
+    if (this.seat?.pane !== undefined) return this.layoutInPane(this.seat.pane);
+    const window = this.window;
+    if (window === null || window.isDestroyed() || !this.open || !this.onScreen()) return;
+    const { width, height } = window.getContentBounds();
     const folded = this.asked !== null && !this.askShown;
     const said =
       !this.serving || this.refusedAddress !== undefined || this.framesRefused > 0 || folded;
@@ -1128,6 +1224,45 @@ export class CaptureWindow {
     if (this.panel === null) return;
     this.panel.setBounds(at.panel);
     this.panel.setVisible(at.panel.width > 0);
+  }
+
+  /**
+   * A Job's walk as a tab: **the page and the bar lie inside the frame its pane reports**, in Bridge's window, the bar above the page.
+   * No frame, or no window: both are parked hidden, keeping their page, step and take, so the walk is as it was when its pane is back.
+   * The bar is two rows always, so the page does not move between walks.
+   */
+  private layoutInPane(pane: PaneFrame): void {
+    if (!this.open) return;
+    const host = this.host();
+    const frame = pane.frame();
+    if (host === null || frame === null || this.frozen) {
+      this.page.setVisible(false);
+      this.bar.setVisible(false);
+      return;
+    }
+    if (this.attachedTo !== host) {
+      if (this.attachedTo !== null && !this.attachedTo.isDestroyed()) {
+        this.attachedTo.contentView.removeChildView(this.page);
+        this.attachedTo.contentView.removeChildView(this.bar);
+      }
+      host.contentView.addChildView(this.page);
+      host.contentView.addChildView(this.bar);
+      this.attachedTo = host;
+    }
+    const at = walkLayout(
+      {
+        ...frame,
+        strip: this.sizes.bar * PANE_BAR_ROWS,
+        covered: this.covered(),
+        hang: this.hang ?? 0,
+        panel: 0,
+      },
+      0,
+    );
+    this.page.setVisible(true);
+    this.bar.setVisible(true);
+    this.page.setBounds(at.page);
+    this.bar.setBounds(at.bar);
   }
 
   private tell(): void {
@@ -1164,7 +1299,8 @@ export class CaptureWindow {
       if (
         !mayOpenPopup({
           session: "session" in this.landsOn || "review" in this.landsOn,
-          standing: this.popup !== null,
+          // A walk in a pane with no window of Bridge's up has nothing to hang a popup on.
+          standing: this.popup !== null || this.host() === null,
           allowed: allowed(url),
         })
       ) {
@@ -1219,9 +1355,14 @@ export class CaptureWindow {
                   this.panel,
                 ]),
           ]
-        : [
-            this.page,
-          ];
+        : this.seat.pane === undefined
+          ? [
+              this.page,
+            ]
+          : [
+              this.page,
+              this.bar,
+            ];
     for (const view of own) {
       view.webContents.on("before-input-event", (event, input) => {
         if (!isCaptureBinding(input)) return;
@@ -1229,11 +1370,13 @@ export class CaptureWindow {
         this.toggleCapture();
       });
     }
-    if (this.seat === null) this.bar.webContents.on("did-finish-load", () => this.tell());
+    if (this.seat === null || this.seat.pane !== undefined)
+      this.bar.webContents.on("did-finish-load", () => this.tell());
     // The queue's keys reach the bar from the page, which holds the keyboard most of a walk. ⌘↵ is the page's own in a
     // field, so it is never taken from the page: it approves only once the page says no field has the cursor.
     const seat = this.seat;
-    if (seat !== null) {
+    if (seat?.pane !== undefined) this.holdPaneKeys(seat.pane, seat);
+    else if (seat !== null) {
       contents.on("before-input-event", (event, input) => {
         const key = queueKeyOf(input);
         if (key === null) return;
@@ -1294,6 +1437,37 @@ export class CaptureWindow {
     });
   }
 
+  /**
+   * The keys of a walk in a pane, heard on its page and on its bar. **The bar's own win first**: ⌘↵ Approve and ⌘R Reload, and the capture binding
+   * above. A page's own ⌘↵ is its own in a field, so it approves only once the page says no field has the cursor. Every other press with ⌘ or ⌃
+   * held, and Esc, is Bridge's own window's and is handed to it (`pane.forward`): the page and the bar hold the keyboard most of a walk, and
+   * Bridge's renderer hears nothing while they do.
+   */
+  private holdPaneKeys(pane: PaneFrame, seat: WalkSeat): void {
+    for (const view of [
+      this.page,
+      this.bar,
+    ]) {
+      const fromBar = view === this.bar;
+      view.webContents.on("before-input-event", (event, input) => {
+        if (isCaptureBinding(input)) return;
+        const key = queueKeyOf(input);
+        if (key === "approve" || key === "reload") {
+          // The bar acts on its own press; the page's is handed to it.
+          if (fromBar) return;
+          if (key === "reload") {
+            event.preventDefault();
+            seat.key(key);
+          } else void this.inAField().then((field) => !field && this.open && seat.key("approve"));
+          return;
+        }
+        // Esc belongs to the bar while it covers the page (capture, a question and the ring each take it) or has a menu or popover open.
+        if (input.key === "Escape" && (this.covered() || this.hang !== null)) return;
+        if (pane.forward(input)) event.preventDefault();
+      });
+    }
+  }
+
   /** The page started or stopped loading: the bar is told. */
   private loadingNow(loading: boolean): void {
     if (this.loading === loading) return;
@@ -1309,18 +1483,22 @@ export class CaptureWindow {
     allowed: (address: string) => boolean,
     options: Electron.BrowserWindowConstructorOptions,
   ): Electron.WebContents {
-    const popup = openPopup(
-      {
-        parent: this.window,
-        allowed,
-        refuse: (address, what) => this.refuse(address, what),
-        closed: () => {
-          this.popup = null;
-          this.watchSignIn();
-        },
-      },
-      options,
-    );
+    const parent = this.host();
+    const popup =
+      parent === null
+        ? null
+        : openPopup(
+            {
+              parent,
+              allowed,
+              refuse: (address, what) => this.refuse(address, what),
+              closed: () => {
+                this.popup = null;
+                this.watchSignIn();
+              },
+            },
+            options,
+          );
     // Electron wants the contents it made back whatever happened; a popup that was not built is closed already.
     if (popup === null)
       return (

@@ -65,6 +65,11 @@ The site file in main is `{ defaults: {...}, "<repoKey>": { sites } }`.
 Moving a row away from Allow does not confirm.
 Why: a page the agent opens gets what the person allowed.
 
+**Armada makes the Local network check itself** (`reachTest`), since Electron switches off Chromium's (`LocalNetworkAccessChecks`, which `--enable-features` cannot turn back on) and so never asks a session for `local-network-access`.
+Each request a page makes from a more public address to a more private one takes the row's answer: public, then this network, then this Mac.
+A host name is looked up and its answer kept for a minute, so a site's own name for 127.0.0.1 counts as this Mac.
+Not checked: an address opened in the page itself, typed or set by the page, so the person can always go to one; WebRTC; a service worker's own requests, which carry no page; and a name whose answer changes inside its minute.
+
 | Row | What the page gets |
 |---|---|
 | Downloads | The row answers a download. Allow goes through Electron's save dialog |
@@ -82,9 +87,10 @@ An act on a page held by a dialog runs out on Fleet's hold.
 ## A page's ask
 
 **A page that asks for something the row says Ask for is one ask, shown in two places.**
-A bubble in the tab reads *Allow {Label} for {host}?* with Allow and Block, and an item in the Job's Needs you carries the same words, so the row calls and the person answers from the thread.
+A strip above the page reads *Allow {Label} for {host}?* with Allow and Block, and an item in the Job's Needs you carries the same words, so the row calls and the person answers from the thread.
+The strip moves the page down and never covers it, so the page and every other tab stay usable while the ask waits.
 **Answering in either takes both away and is remembered for that host.**
-Esc on the bubble, or the item's dismiss, refuses it now and keeps nothing.
+Esc in Bridge, or the item's dismiss, refuses it now and keeps nothing.
 Closing the tab ends the ask, and the page and its history go with the tab, while cookies stay in the repository's session.
 **The agent is told nothing and is not woken.**
 An ask raised during an agent's act waits on the person, and the agent's call may time out meanwhile.

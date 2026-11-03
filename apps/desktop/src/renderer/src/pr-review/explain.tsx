@@ -20,7 +20,8 @@ import {
 import { Button, Kbd, Prose, PrMark, SessionComposer, Tooltip, agoOf } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
-import { RunFailed, SOURCE_MARK } from "./marks";
+import { HidesMark, RunFailed, SOURCE_MARK } from "./marks";
+import { NotRun } from "./results";
 import type { Account, Asked, ReviewPr, ToolDef } from "./model";
 import { REVIEW_KEYS, capOf } from "./key-table";
 import { NO_WORK, useReviewStore, useReviews, type ReviewStore } from "./store";
@@ -64,21 +65,23 @@ export function pressExplanation(store: ReviewStore, pr: ReviewPr, def: ToolDef)
   chooseQuick(store, pr, def.id);
 }
 
-/** What was chosen: the explanation, or the answer to a question of his. Nothing where nothing is chosen. */
+/** What was chosen: the explanation, or the answer to a question of his. Nothing where nothing is chosen. `explanations` false draws only an answer, where each explanation has a tab of its own. */
 export function Explained({
   pr,
   send,
   onOpenLink,
+  explanations = true,
 }: {
   pr: ReviewPr;
   send: Send;
   onOpenLink: (address: string) => void;
+  explanations?: boolean;
 }) {
   const reviews = useReviews();
   const work = reviews.work[pr.key] ?? NO_WORK;
-  const chosen = onlyExplanations(toolsOf(reviews, pr.manifestId)).find(
-    (one) => one.id === work.kind,
-  );
+  const chosen = explanations
+    ? onlyExplanations(toolsOf(reviews, pr.manifestId)).find((one) => one.id === work.kind)
+    : undefined;
   const asked = work.asks.find((one) => one.id === work.kind);
   if (chosen !== undefined)
     return <Chosen pr={pr} def={chosen} send={send} onOpenLink={onOpenLink} />;
@@ -133,7 +136,7 @@ function Asks({ pr }: { pr: ReviewPr }) {
                 iconOnly
                 aria-label="Run again"
                 disabled={running}
-                onClick={() => store.spend("Ask", () => store.askAgain(pr.key, one.id))}
+                onClick={() => store.spendUnasked(() => store.askAgain(pr.key, one.id), false)}
               >
                 <RotateCw size={16} strokeWidth={2} aria-hidden />
               </Button>
@@ -188,16 +191,19 @@ function Answer({ asked }: { asked: Asked }) {
   );
 }
 
-function Chosen({
+/** One explanation, as chosen under the description or in a tab of its own. `onRun` is the press that runs it where nothing is kept for it yet. */
+export function Chosen({
   pr,
   def,
   send,
   onOpenLink,
+  onRun,
 }: {
   pr: ReviewPr;
   def: ToolDef;
   send: Send;
   onOpenLink: (address: string) => void;
+  onRun?: (again: boolean) => void;
 }) {
   const store = useReviewStore()!;
   const work = useReviews().work[pr.key] ?? NO_WORK;
@@ -212,6 +218,7 @@ function Chosen({
       <header className="pr-what__head">
         <h3 className="pr-what__title">{def.name}</h3>
         <PrMark Glyph={source.Glyph} said={source.said} />
+        <HidesMark tool={def} />
         <span className="pr-what__source" data-by="agent">
           <PrMark Glyph={Bot} said="Explained by an agent when you chose it" />
         </span>
@@ -233,7 +240,7 @@ function Chosen({
               iconOnly
               aria-label="Run again"
               disabled={running}
-              onClick={() => store.spend(def.name, () => store.explainAgain(pr.key, def))}
+              onClick={() => store.spendUnasked(() => store.explainAgain(pr.key, def), false)}
             >
               <RotateCw size={16} strokeWidth={2} aria-hidden />
             </Button>
@@ -248,7 +255,11 @@ function Chosen({
         </p>
       ) : run?.state === "failed" ? (
         <RunFailed said={run.said} />
-      ) : kept === undefined ? null : def.id === "how-it-works" ? (
+      ) : kept === undefined ? (
+        onRun === undefined ? null : (
+          <NotRun onRun={onRun} />
+        )
+      ) : def.id === "how-it-works" ? (
         <>
           <Prose text={pr.explanation.summary} />
           <div className="pr-themes">

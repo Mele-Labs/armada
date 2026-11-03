@@ -1,5 +1,5 @@
-// The dock's count is the Cockpit's calls: what he has already been in, and a walk he has open, are
-// not calls, so they are not counted either. A Job with two items calling is one Job calling.
+// The dock's count is the Cockpit's calls: what he has already been in is not a call, so it is not counted either. A Job's walk is a call
+// until he approves it, open in a tab of the Job or not. A Job with two items calling is one Job calling.
 
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { createRoot, type Root } from "react-dom/client";
@@ -30,17 +30,12 @@ beforeEach(() => {
   forgetDismissals();
   forgetViewed();
   dockCount = vi.fn();
-  // Main alone knows which walk windows are open; this one is.
   (
     window as {
       armada?: unknown;
     }
   ).armada = {
     dockCount,
-    getSessionWindows: async () => [
-      WALK,
-    ],
-    onSessionWindows: () => () => undefined,
   };
 });
 afterEach(() => {
@@ -122,13 +117,21 @@ async function draw(sessions: Session[], state: BridgeState = read) {
 
 const told = () => dockCount.mock.calls.at(-1)?.[0];
 
-test("a Job he has been in since it asked, and a walk he has open, leave the dock at nothing", async () => {
+test("a Job he has been in since it asked leaves the dock at nothing", async () => {
+  markViewed("dev-mode", Date.parse("2026-10-26T13:08:00Z"));
+  await draw([
+    restart,
+  ]);
+  await expect.poll(told).toBe(0);
+});
+
+test("a Job's walk counts while he has not approved it, though its tab is open", async () => {
   markViewed("dev-mode", Date.parse("2026-10-26T13:08:00Z"));
   await draw([
     restart,
     walk,
   ]);
-  await expect.poll(told).toBe(0);
+  await expect.poll(told).toBe(1);
 });
 
 test("a Job calling counts once, however many of its items call", async () => {

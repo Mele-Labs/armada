@@ -35,6 +35,7 @@ import { neighbourOf } from "./reorder";
 import { opensFor, placesOff } from "./system-page";
 import { TabBar } from "./TabBar";
 import { toggleLayer } from "../../session-view/layers";
+import { WalkTabsSync } from "../../job-walk/sync";
 import { openSetup } from "./AutopilotArm";
 import { showTimeline, toggleTimeline } from "./ConsoleTimeline";
 import {
@@ -600,5 +601,10 @@ export function DeckHost({
     }
   });
 
-  return <DeckKeySheet open={keySheet} onClose={() => setKeySheet(false)} />;
+  return (
+    <>
+      <DeckKeySheet open={keySheet} onClose={() => setKeySheet(false)} />
+      <WalkTabsSync here={here} />
+    </>
+  );
 }

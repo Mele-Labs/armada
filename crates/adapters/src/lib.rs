@@ -108,6 +108,7 @@ pub mod onto_base;
 mod history;
 mod outside;
 mod pull_reading;
+mod pull_request_comments;
 mod pull_request_detail;
 mod pull_request_diff;
 mod pull_request_facts;

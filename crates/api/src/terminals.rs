@@ -92,6 +92,23 @@ pub(crate) async fn list_terminals<D: Sessions>(
     }
 }
 
+/// 200 with the terminal shown, once `terminal.shown` is published. 422 for a call that places no
+/// Job, or a terminal that is not open. **The Job is placed by the connection** as
+/// `type_in_terminal`'s is.
+pub(crate) async fn show_terminal<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::ShowTerminal = match ipc::decode_body("a terminal to show", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().show_terminal(crate::acting::asking(), asked).await {
+        Ok(shown) => answer(StatusCode::OK, &shown, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// 200 with the terminal as it now stands. 422 for a terminal the Job has not open.
 pub(crate) async fn rename_terminal<D: Sessions>(
     State(served): State<Served<D>>,

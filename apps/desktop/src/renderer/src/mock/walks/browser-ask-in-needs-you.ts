@@ -1,4 +1,4 @@
-// A page's ask in the Job browser is in the page and in the Job's Needs you, one ask drawn twice: the Job's row calls, the panel on the composer lists it, and the bubble
+// A page's ask in the Job browser is in the page and in the Job's Needs you, one ask drawn twice: the Job's row calls, the panel on the composer lists it, and the strip
 // under the head asks it. Allow and Block in either settle it for that site and take both away. Mock only: nothing is wired. Over the `job-layouts` scenario.
 
 import { button, deckRow, inside, region, role, tab, text, walk } from "../walk";
@@ -33,7 +33,7 @@ const lock = inside(
   }),
 );
 const settings = inside(browser, role("dialog", "Site settings"));
-const bubble = inside(browser, role("alertdialog", "Site request"));
+const strip = inside(browser, role("alertdialog", "Site request"));
 const needs = region("Needs you", {
   exact: true,
 });
@@ -63,7 +63,7 @@ const steps: Step[] = [
     say: "The page asks for the local network",
   },
   {
-    look: inside(bubble, text("It can reach apps on this Mac and devices on your network.")),
+    look: inside(strip, text("It can reach apps on this Mac and devices on your network.")),
     say: "The ask is in the browser, with what Local network reaches",
   },
   {
@@ -96,7 +96,7 @@ const steps: Step[] = [
   },
   {
     look: page,
-    say: "The bubble is gone from the page",
+    say: "The ask is gone from the page",
   },
   {
     press: lock,
@@ -125,12 +125,12 @@ const steps: Step[] = [
     say: "The page asks for the location",
   },
   {
-    look: inside(bubble, text("localhost:5173 wants to use Location")),
+    look: inside(strip, text("localhost:5173 wants to use Location")),
     say: "Other asks carry no risk line",
   },
   {
     press: inside(
-      bubble,
+      strip,
       button("Block", {
         exact: true,
       }),

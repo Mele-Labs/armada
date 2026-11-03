@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{JobTerminal, JobTerminals, ListTerminals, ListedTerminal, RenameTerminal};
+use ipc::{JobTerminal, JobTerminals, ListTerminals, ListedTerminal, RenameTerminal, ShowTerminal};
 use store::KeptJobTerminal;
 
 use super::{refusal, SessionRuns};
@@ -190,6 +190,37 @@ where
         let mut store = self.store().lock().await;
         store.keep_job_terminal_name(session, number, rename.name.trim()).map_err(|why| self.ledger_fault(why))?;
         let kept = store.job_terminals(session).map_err(|why| self.ledger_fault(why))?;
+        Ok(self.listed(&kept, number, run_id))
+    }
+
+    /// The agent's ask that Bridge bring a terminal to the front, `terminal.shown`. The terminal as
+    /// it stands. Not a use: the agent's last used stays where it was.
+    pub(crate) async fn job_terminal_shown(
+        &self,
+        caller: Option<api::Caller>,
+        asked: ShowTerminal,
+    ) -> Result<ListedTerminal, Refusal> {
+        let session = self.shell_job(caller, asked.session_id.as_ref())?;
+        let (number, run_id) = match asked.terminal.as_deref() {
+            Some(named) => self.terminal_named_open(&session, named)?,
+            None => {
+                let number = self
+                    .terminal_read_by_default(&session)
+                    .await
+                    .ok_or_else(|| refusal("this job has no terminal open. type_in_terminal opens one", self.run_id()))?;
+                let run_id = self
+                    .session_runs()
+                    .shell_open(&session, number)
+                    .ok_or_else(|| self.terminal_not_open(&terminal_id(number)))?;
+                (number, run_id)
+            }
+        };
+        let kept = self.terminals_kept(&session).await?;
+        self.publish(ipc::Event::TerminalShown(JobTerminal {
+            session_id: ipc::SessionId::carried(&session),
+            terminal: terminal_id(number),
+            run_id: run_id.clone(),
+        }));
         Ok(self.listed(&kept, number, run_id))
     }
 

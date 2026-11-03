@@ -1,0 +1,14 @@
+[operations.show_terminal]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Bring one of this Job's terminals to the front in Bridge, so the person sees it when they look at the Job. Bridge does not move the person to the Job: a person on another Job stays there. Use it after starting something the person should watch, such as a dev server. Optional terminal (an ID such as t2; left out, the one you last typed into or read, else the Job's first open one); optional session_id, only where you run in a terminal. A terminal that is not open is refused. The answer is the terminal: its ID, name, run_id and whether a program other than the shell is running in it"
+notes = """
+`POST /sessions/terminal/show`, body `ShowTerminal`: `terminal?` and `session_id?`. Answered 200 with `ListedTerminal`: `{ terminal, name, run_id, running }`. An unnamed `terminal` is read as `read_terminal`'s is: the agent's last used where it is open, else the lowest-numbered open one. A named terminal that is not open is refused with 422, as is a Job with none open.
+
+**The Job is the one the connection places when Fleet hosts it**, else `session_id`. Nothing placing one is refused with 422.
+
+`terminal.shown` follows on `/events`, carrying `JobTerminal`. Bridge brings that terminal's tab to the front in the Job's panes and does not change which Job the person is on. Showing a terminal does not count as the agent using it, so it does not move the agent's last used.
+
+`agent_access` is `Yes`: the agent points the person at a terminal it shares with them, which the person's tabs already show.
+"""

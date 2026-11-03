@@ -83,6 +83,7 @@ mod pull_request_detail;
 mod pull_request_facts;
 mod pull_request_patch;
 mod pull_request_review;
+mod pull_request_comments;
 mod pull_request_threads;
 mod pull_review_lists;
 mod reading_in;

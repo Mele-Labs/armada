@@ -290,6 +290,10 @@ impl Forge for FakeVcs {
         self.patches_read(pull_request)
     }
 
+    fn pull_request_comments(&self, _in_repo: &str, number: u64) -> Option<Vec<adapter_traits::PullComment>> {
+        self.main_ci.comments(number)
+    }
+
     fn write_pull_request(
         &self,
         _in_repo: &str,
