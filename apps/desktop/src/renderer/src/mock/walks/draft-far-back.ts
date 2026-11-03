@@ -1,11 +1,10 @@
-// A draft far back in a long thread, behind Show earlier, is listed in Needs you; the sheet the band opens draws its card, answered there, and the item
-// leaves the list. Over `draft-far-back`.
+// A draft far back in a long thread, behind Show earlier, is listed in Needs you; its press opens the card as a tab of its own beside Thread, answered
+// there, and the item leaves Needs you. Over `draft-far-back`.
 
-import { button, deckRow, dialog, inside, region, role, text, walk } from "../walk";
-import { openNeeds } from "../sessions/walk-kit";
+import { button, deckRow, inside, region, role, tab, text, walk } from "../walk";
 
-const sheet = dialog("Tidy the settings page");
-const list = inside(sheet, role("group", "Waiting on you"));
+const needs = region("Needs you");
+const card = role("tabpanel", "Description for #57");
 
 const draftFarBack = walk("draft-far-back", [
   {
@@ -21,22 +20,46 @@ const draftFarBack = walk("draft-far-back", [
     ),
     say: "The draft is far back in the thread, behind Show earlier",
   },
-  openNeeds,
   {
-    look: inside(list, button(/Description for #57/)),
+    press: inside(needs, button(/^Needs you/)),
+    say: "Needs you opens",
+  },
+  {
+    look: inside(needs, button(/Open Description for #57/)),
     say: "The draft is listed there",
   },
   {
-    press: inside(list, button(/Description for #57/)),
-    say: "A press draws its card in the sheet",
+    press: inside(needs, button(/Open Description for #57/)),
+    say: "A press opens its card as a tab on the Job",
   },
   {
-    look: inside(sheet, role("group", "Answers")),
-    say: "The whole draft, with Approve, Edit, Note and Withdraw under it",
+    look: tab("Description for #57", {
+      exact: true,
+    }),
+    say: "The tab is named for the draft, beside Thread",
   },
   {
-    press: inside(sheet, button(/^Approve/)),
+    look: inside(card, role("group", "Answers")),
+    say: "The tab is in front: the whole draft, with Approve, Edit, Note and Withdraw under it",
+  },
+  {
+    press: inside(
+      card,
+      button("Approve", {
+        exact: true,
+      }),
+    ),
     say: "Approve",
+  },
+  {
+    look: inside(card, role("img", "Approved")),
+    say: "The card is settled as approved in its tab, and the draft leaves Needs you",
+  },
+  {
+    press: tab("Thread", {
+      exact: true,
+    }),
+    say: "Back to Thread; the draft's tab stays until it is closed",
   },
   {
     look: text("Updated #57 with the description."),

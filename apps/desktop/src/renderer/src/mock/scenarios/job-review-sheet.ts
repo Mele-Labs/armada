@@ -19,6 +19,12 @@ const CHILD_TITLE = "Add the retry metrics";
 const READ_ID = "review-only";
 const READ_TITLE = "Draw the retry curve";
 const READ_SKETCH = "sketch:Retry curve";
+const READ_TABLE = "sketch:Retry table";
+const ONE_WALK_ID = "review-one-walk";
+const ONE_WALK_TITLE = "Check the usage page";
+const ONE_SKETCH_ID = "review-one-sketch";
+const ONE_SKETCH_TITLE = "Sketch the cap";
+const ONE_SKETCH = "sketch:The cap";
 const COMMAND = "scripts/rebuild-index";
 const DESIGN_PATH = "documents/retry-design/r1.html";
 const SKETCH = "sketch:Backoff curve";
@@ -369,7 +375,77 @@ const askJob = (): Session => ({
   ],
 });
 
-/** A Job with only something to review: the card has nothing, so a press on the band opens the sheet. */
+/** A Job with one walk: no sheet, a row on the card that brings its tab forward. */
+const oneWalkJob = (): Session => ({
+  id: ONE_WALK_ID,
+  title: ONE_WALK_TITLE,
+  turn: {
+    state: "idle",
+  },
+  lastTurnAt: minutesAgo(1),
+  rows: [
+    {
+      id: "w1",
+      at: "13:20:00",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "The usage page is ready to walk.",
+    },
+  ],
+  attachments: [
+    {
+      kind: "artifact",
+      form: "window",
+      id: walkUrl(),
+      title: "Usage page",
+      window: {
+        takes: [],
+        steps: [],
+      },
+    },
+  ],
+  waitingFor: [
+    walkCall(walkUrl(), "Usage page", minutesAgo(2)),
+  ],
+});
+
+/** A Job with one sketch: no sheet and no row, since its card in the thread holds it. */
+const oneSketchJob = (): Session => ({
+  id: ONE_SKETCH_ID,
+  title: ONE_SKETCH_TITLE,
+  turn: {
+    state: "idle",
+  },
+  lastTurnAt: minutesAgo(1),
+  rows: [],
+  attachments: [
+    {
+      kind: "sketch",
+      id: ONE_SKETCH,
+      title: "The cap",
+      by: "agent",
+      drawing: CURVE,
+      asked: true,
+      drawn: "drawn-1",
+    },
+  ],
+  waitingFor: [
+    {
+      id: ONE_SKETCH,
+      text: "The cap",
+      since: minutesAgo(2),
+      source: "sketch",
+      act: {
+        kind: "message",
+        target: ONE_SKETCH_ID,
+      },
+    },
+  ],
+});
+
+/** A Job with only things to review: the card has nothing, so a press on the band opens the sheet. */
 const readJob = (): Session => ({
   id: READ_ID,
   title: READ_TITLE,
@@ -398,11 +474,30 @@ const readJob = (): Session => ({
       asked: true,
       drawn: "drawn-1",
     },
+    {
+      kind: "sketch",
+      id: READ_TABLE,
+      title: "Retry table",
+      by: "agent",
+      drawing: CURVE,
+      asked: true,
+      drawn: "drawn-1",
+    },
   ],
   waitingFor: [
     {
       id: READ_SKETCH,
       text: "Retry curve",
+      since: minutesAgo(3),
+      source: "sketch",
+      act: {
+        kind: "message",
+        target: READ_ID,
+      },
+    },
+    {
+      id: READ_TABLE,
+      text: "Retry table",
       since: minutesAgo(2),
       source: "sketch",
       act: {
@@ -478,6 +573,8 @@ export const s310JobReviewSheet: Scenario = {
         askJob(),
         childJob(),
         readJob(),
+        oneWalkJob(),
+        oneSketchJob(),
       ]);
       return {
         ...base,
