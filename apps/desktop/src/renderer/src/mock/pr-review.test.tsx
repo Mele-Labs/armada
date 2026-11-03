@@ -741,11 +741,14 @@ test("a press on a thread brings Files forward at its line, with the thread unde
   await reviews();
   await open(1899);
   const files = reader(1899).getByRole("region", { name: "Pane: Files" });
-  await go(1899).click();
+  // The protocol file is the last of the changes, so its line is below the fold until Files is sent to it.
+  await comments(1899)
+    .getByRole("button", { name: /^Go to packages\/protocol\/src\/plan-usage\.ts:\d+ in Files$/ })
+    .click();
   await expect
     .element(reader(1899).getByRole("tab", { name: "Files", exact: true }))
     .toHaveAttribute("aria-selected", "true");
-  const thread = files.getByRole("article", { name: /^Thread on .+ by devon$/ });
+  const thread = files.getByRole("article", { name: /^Thread on .+ by priya$/ });
   await expect.element(thread).toBeVisible();
   // The line before the thread is the one it is on, drawn by index, and scrolled into the pane's view.
   const box = files.element().querySelector(".pr-pane__files")!.getBoundingClientRect();

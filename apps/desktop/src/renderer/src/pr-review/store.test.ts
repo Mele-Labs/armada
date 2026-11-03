@@ -1335,6 +1335,18 @@ test("a press starts a run only when nothing is kept, and Run again asks for ano
   });
 });
 
+test("a Run pressed in a tab runs at once, and with Don't ask again ticked turns the asking off for every act after", async () => {
+  const { store } = await opened();
+  expect(store.get().askFirst).toBe(true);
+  let ran = 0;
+  store.spendUnasked(() => ran++, false);
+  expect(ran).toBe(1);
+  expect(store.get().askFirst).toBe(true);
+  store.spendUnasked(() => ran++, true);
+  expect(ran).toBe(2);
+  expect(store.get().askFirst).toBe(false);
+});
+
 test("a run that moves on the stream is replaced whole, a late start does not take a finished run back, and a dismissed finding stays put", async () => {
   const { store, calls, key } = await opened();
   const done = run({
