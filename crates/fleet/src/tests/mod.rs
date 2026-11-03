@@ -192,6 +192,7 @@ mod tell_refusal;
 mod reply_claims;
 mod unanswered;
 mod session_standing;
+mod session_stops;
 pub(crate) mod slot_leases;
 mod slot_reclaim;
 mod session_waiting;

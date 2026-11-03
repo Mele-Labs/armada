@@ -768,10 +768,77 @@ pub enum SessionStanding {
     /// The turn ended on a message of the agent's that only reports, and the person has not answered
     /// since. Under Idle: it is the unread mark, and raises no item. One that asks is an item instead.
     Replied,
+    /// Nothing runs and nothing is asked, and nothing that excuses a stop stands. `SessionRecord::stopped` says why.
+    Stopped,
     /// The agent said, through `all_done`, that nothing is left, and the person has not answered.
     Done,
     /// Nothing is owed. What a `done` becomes once the person dismisses it.
     Idle,
+}
+
+/// Why a Job stopped, read from what Fleet saw.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StopReason {
+    /// It ended its turn with nothing running and nothing asked, and stopped again after it was told.
+    TurnEnded,
+    /// As `TurnEnded`, with tasks still open on its list.
+    TasksOpen,
+    /// Its process ended during a turn and starting it again did not bring it back.
+    ProcessGone,
+    /// As `ProcessGone`, and the process ended while Fleet was not running.
+    FleetDown,
+}
+
+/// Where Fleet stands on starting a stopped Job's process again.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StopRestart {
+    /// Nothing to start: its process did not end.
+    None,
+    Queued,
+    Running,
+    Failed,
+}
+
+/// Where a repair Job stands, once a restart failed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StopRepair {
+    Running,
+    Failed,
+    /// Fleet is unhealthy, so it started none.
+    Held,
+}
+
+/// A stretch Fleet was not running.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FleetAway {
+    pub from: Instant,
+    pub to: Instant,
+}
+
+/// A Job that is not running and was not parked: why, since when, and what Fleet is doing about it.
+/// **Raises no item**: the mark and, once Fleet has run out of things to try, the call reach the person.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionStopped {
+    pub reason: StopReason,
+    pub at: Instant,
+    /// With `tasks_open`: the tasks still open.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tasks: Vec<String>,
+    /// With `process_gone`: the last thing the process said.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub said: Option<String>,
+    pub restart: StopRestart,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repair: Option<StopRepair>,
+    /// Fleet has run out of things to try: only the person moves it now.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub gave_up: bool,
+    /// With `fleet_down`: the stretch Fleet was not running.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub down: Option<FleetAway>,
 }
 
 /// One thing a session is waiting on the person for.
@@ -1109,6 +1176,8 @@ pub struct ToolsMissing {
 pub enum HeldOpenBy {
     /// A live watch of the Job, by its name.
     Watch { name: String },
+    /// A Job it started that is still running, by its title.
+    Job { name: String },
     /// A pull request of its own that is open and whose Checks have not failed.
     PullRequest { number: u64, on: PullRequestWait },
 }
@@ -1274,6 +1343,18 @@ pub struct SessionRecord {
     /// in the background. Empty otherwise. Not a Needs you item. `docs/design/fleet-watches-ci-and-deploys-for-a-job.md`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub held_open_by: Vec<HeldOpenBy>,
+    /// Why it stopped, with `standing` `stopped`. Absent otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stopped: Option<SessionStopped>,
+    /// When Fleet tells it to carry on, while a stop nothing excuses has not been told about. Absent otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stop_told_by: Option<Instant>,
+    /// When the turn running now began. Absent between turns.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turn_since: Option<Instant>,
+    /// The last time Fleet heard anything from the running turn. Absent between turns.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_heard_at: Option<Instant>,
     /// How the Job was started, as it stood when its process first ran, so a later change of model,
     /// effort or mode does not rewrite it. Absent for a Job started before Fleet kept it, and for a
     /// terminal session.

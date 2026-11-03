@@ -4,12 +4,12 @@
 // its age, and never from whether the agent called a tool. A reply is unread until he has been in the
 // Session since it ended (`cockpit/viewed.ts`), and then the Session stands as it would without one.
 
-import { limitHeldSaid } from "@armada/components";
+import { limitHeldSaid, timeFormat, timeSaid } from "@armada/components";
 import type { SessionState, WaitingLine } from "@armada/components";
 import { attachmentsOf, isBlank, owesOf, standingOf } from "@armada/screens/src/draft/sessions";
 
 import { creatingSlot } from "./held-slots";
-import type { Session } from "@armada/screens/src/draft/sessions";
+import type { Session, Stopped } from "@armada/screens/src/draft/sessions";
 import type { HeldOpenBy } from "@armada/protocol";
 import { startsWhenSaid } from "@armada/screens/src/session-waits";
 
@@ -29,6 +29,11 @@ function waitOf(one: HeldOpenBy): WaitingLine {
     return {
       kind: "watch",
       said: `Held open by ${one.name}`,
+    };
+  if (one.kind === "job")
+    return {
+      kind: "watch",
+      said: `Waiting on ${one.name}`,
     };
   const { number, on } = one;
   if (on.kind === "queue")
@@ -57,6 +62,48 @@ export function waitsOf(session: Session): WaitingLine[] {
   return (session.heldOpenBy ?? []).map(waitOf);
 }
 
+/** Where Fleet stands on bringing a stopped Job back, in its own words. None while it has not started or failed to. */
+export const restartSaid = (stopped: Stopped): string | undefined =>
+  stopped.restart === "queued"
+    ? "Restart queued"
+    : stopped.restart === "running"
+      ? "Restarting"
+      : stopped.restart === "failed"
+        ? "Restart failed"
+        : undefined;
+
+/** Where a repair Job stands on a Job whose restart failed. */
+export const repairSaid = (stopped: Stopped): string | undefined =>
+  stopped.repair === "running"
+    ? "Repair Job running"
+    : stopped.repair === "failed"
+      ? "Repair Job failed"
+      : stopped.repair === "held"
+        ? "No repair Job: Fleet is unhealthy"
+        : undefined;
+
+/** Why a Job stopped, as the first line of Now and the mark's tooltip say it. The tasks it left open are named in Now. */
+export function stoppedSaid(stopped: Stopped): string {
+  switch (stopped.reason) {
+    case "turn_ended":
+      return "Stopped: ended its turn with nothing running";
+    case "tasks_open":
+      return "Stopped: ended its turn with tasks open";
+    case "process_gone":
+      return "Stopped: process ended";
+    case "fleet_down": {
+      const clock = {
+        ...timeFormat(),
+        seconds: false,
+        date: false,
+      };
+      return stopped.down === undefined
+        ? "Stopped: Fleet was down"
+        : `Stopped: Fleet was down, ${timeSaid(stopped.down.from, clock)} to ${timeSaid(stopped.down.to, clock)}`;
+    }
+  }
+}
+
 /** Parked by him: nothing is asked of him, whatever it was waiting on, until he resumes it. An ended or unreachable Job reads as that. */
 export function stateOf(session: Session): {
   state: SessionState;
@@ -83,6 +130,18 @@ export function stateOf(session: Session): {
       state: "unstarted",
       said: `Failed to start: ${session.startFailed.cause}`,
     };
+  // Not running, and not parked: it ended its turn with nothing running, its process ended, Fleet was down, or he stopped it. It raises no item: this mark and its call reach him, as stuck does.
+  if (session.stopped !== undefined) {
+    const restart = repairSaid(session.stopped) ?? restartSaid(session.stopped);
+    return {
+      // Amber only once Fleet has given up on bringing it back: while a nudge or a restart is coming, nothing is asked of him.
+      state: session.stopped.gaveUp === true ? "stopped_asks" : "stopped",
+      said:
+        restart === undefined
+          ? stoppedSaid(session.stopped)
+          : `${stoppedSaid(session.stopped)} · ${restart}`,
+    };
+  }
   // Dispatched after another Session: nothing runs, and nothing is asked of him, until its condition is met.
   if (session.waits !== undefined)
     return {
@@ -144,10 +203,28 @@ export function stateOf(session: Session): {
   }
   // Fleet's word covers what a turn of its own does not: a subagent at work, a terminal's turn.
   if (standing === "working") {
-    const subagent = attachmentsOf(session, "subagent").some((one) => one.state === "running");
+    if (attachmentsOf(session, "subagent").some((one) => one.state === "running"))
+      return {
+        state: "subagent",
+        said: "Subagent working",
+      };
+    const command = attachmentsOf(session, "background").find((one) => one.state === "running");
+    const check = session.rows.find((row) => row.kind === "check" && row.state === "running");
+    const running = command?.task ?? (check?.kind === "check" ? check.name : undefined);
+    if (running !== undefined)
+      // A reply that asks beside a command it left running is his to answer first.
+      return owesOf(session).length > 0
+        ? {
+            state: "waiting",
+            said: "Waiting on you",
+          }
+        : {
+            state: "running",
+            said: `Running: ${running}`,
+          };
     return {
       state: "working",
-      said: subagent ? "Subagent working" : "Working",
+      said: "Working",
     };
   }
   if (isBlank(session))

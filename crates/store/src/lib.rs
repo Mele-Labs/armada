@@ -23,6 +23,7 @@
 mod build_notice;
 mod devices;
 mod error;
+mod fleet_outages;
 /// The session each Helm conversation resumes, one row per conversation.
 mod helm_sessions;
 /// The model and effort a person chose for a Helm conversation.
@@ -30,6 +31,7 @@ mod helm_tuning;
 /// What a session Fleet hosts keeps beside its ledger row, and its thread.
 mod hosted_sessions;
 mod session_checks;
+mod stop_nudges;
 mod session_build;
 mod session_plan;
 mod session_focus;
@@ -177,6 +179,7 @@ pub use run_memory::{KeptPlace, KeptRun};
 pub use logbook::{
     logbook_words, LogEntry, LogEvidence, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState, LogTopic,
 };
+pub use stop_nudges::KeptStop;
 pub use session_waits::KeptWait;
 pub use session_open_turn::KeptOpenTurn;
 pub use session_build::{KeptBuild, KeptTask, LandedPull, RoadAsk, RoadTimes, WorkTimes};

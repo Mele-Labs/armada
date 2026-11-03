@@ -18,7 +18,7 @@ import {
   Unplug,
   type LucideIcon,
 } from "lucide-react";
-import { Button, briefOf, limitHeldSaid, sessionGlyphOf } from "@armada/components";
+import { Button, briefOf, bucketOf, limitHeldSaid, sessionGlyphOf } from "@armada/components";
 import type { BayActs } from "@armada/cleanup";
 import type { Outcome, RepositorySummary, WaitingItem } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -176,7 +176,7 @@ function sessionItem(session: Session, hosts: Hosts): Item {
   const replied = read === "replied";
   const finished = read === "done";
   const drafted = read === "draft";
-  const working = read === "working" || stuck;
+  const working = bucketOf(read) === "working" || stuck;
   const waiting = session.asked !== undefined && !ended;
   const limited = ended ? undefined : session.limitedUntil;
   const line = lineOf(session);
@@ -248,7 +248,7 @@ function sessionItem(session: Session, hosts: Hosts): Item {
             : working && limited === undefined
               ? "running"
               : "queued",
-    live: read === "working" && limited === undefined,
+    live: bucketOf(read) === "working" && limited === undefined,
     where: session.address ?? "",
     body: waiting
       ? [

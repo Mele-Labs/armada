@@ -73,6 +73,7 @@ export const NOTICE_NAMES: Record<SessionNotice, string> = {
   main_red: "main red",
   rail_nudge: "rail nudge",
   rail_step: "step instructions",
+  stop_nudge: "stop nudge",
   usage_trip: "usage notice",
   limit_wake: "limit wake",
   sign_in_wake: "sign-in wake",

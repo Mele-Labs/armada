@@ -61,6 +61,16 @@ pub(crate) struct LedgerReads {
     later: Vec<store::KeptLater>,
     /// The names of its live watches, the oldest first.
     watching: Vec<String>,
+    /// What of its lifecycles keeps it open.
+    holding: Vec<crate::lifecycles::ending::Flying>,
+    /// The stop it was told about and the stop passed over.
+    stop: store::KeptStop,
+    /// The turn it has open, which says if its process died in it and Fleet's one restart is spent.
+    open_turn: Option<store::KeptOpenTurn>,
+    /// Its repair Job ended or said it is done, so it is not coming back that way.
+    repair_over: bool,
+    /// The stretches Fleet was away while its open turn was: the last, oldest first.
+    away: Vec<(String, String)>,
     /// What the start card is drawn from, for a Job that waits on it.
     start: Option<crate::session_host::start_card::StartReads>,
 }

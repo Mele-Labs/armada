@@ -32,6 +32,7 @@ mod review_runs;
 mod walk_places;
 mod pull_request_notes;
 mod session_checks;
+mod stop_nudges;
 mod session_ledger;
 mod session_loadout;
 mod session_turn_usage;
