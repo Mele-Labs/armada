@@ -3,7 +3,7 @@
 // fault is said where there is something to say.
 
 import { expect, test, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import type { Outcome } from "@armada/protocol";
 
 import { mount, onScreen, unmountAfterEach } from "./testing";
@@ -164,6 +164,71 @@ test("Start sends the repository, the limits and the boxes that were checked", a
       "writes",
     ].sort(),
   );
+});
+
+test("Reported bugs is offered only while armada is checked, off at first, and Start sends it as checked", async () => {
+  const app = await ready("autopilot-reports");
+  const start = vi.spyOn(app.api, "startAutopilot");
+  await hardware()
+    .getByRole("button", {
+      name: "Lift guard",
+    })
+    .click();
+  const reports = setup().getByRole("checkbox", {
+    name: "Reported bugs",
+  });
+  await expect.element(reports).not.toBeInTheDocument();
+
+  await setup()
+    .getByRole("checkbox", {
+      name: "armada",
+    })
+    .click();
+  await expect.element(reports).not.toBeChecked();
+  await reports.click();
+  await setup()
+    .getByRole("button", {
+      name: "Start Autopilot",
+    })
+    .click();
+
+  await expect.poll(() => start.mock.calls.length).toBe(1);
+  const [, settings] = start.mock.calls[0]!;
+  expect(settings.on_autopilot?.reports).toBe(true);
+  // The slider was never moved, so it sits on No limit.
+  expect(settings.weekly_cap_percent).toBeUndefined();
+});
+
+test("the weekly slider starts at the week as it stands, reads No limit at its far end, and Start sends where it stopped", async () => {
+  const app = await ready("autopilot-reports");
+  const start = vi.spyOn(app.api, "startAutopilot");
+  await hardware()
+    .getByRole("button", {
+      name: "Lift guard",
+    })
+    .click();
+  await setup()
+    .getByRole("checkbox", {
+      name: "armada",
+    })
+    .click();
+  const slider = setup().getByRole("slider", {
+    name: "Stop at weekly usage",
+  });
+  await expect.element(slider).toHaveAttribute("aria-valuetext", "No limit");
+  (slider.element() as HTMLInputElement).focus();
+  await userEvent.keyboard("{Home}");
+  await expect.element(slider).toHaveAttribute("aria-valuetext", "62%");
+  await userEvent.keyboard("{ArrowRight}");
+  await expect.element(slider).toHaveAttribute("aria-valuetext", "63%");
+  await setup()
+    .getByRole("button", {
+      name: "Start Autopilot",
+    })
+    .click();
+
+  await expect.poll(() => start.mock.calls.length).toBe(1);
+  expect(start.mock.calls[0]![1].weekly_cap_percent).toBe(63);
 });
 
 test("a paused Autopilot is stopped first, in the same press, and the line says which cap stopped it", async () => {

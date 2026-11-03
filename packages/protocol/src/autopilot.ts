@@ -10,7 +10,7 @@ export type AutopilotState = "running" | "paused" | "stopped";
  * The cap that paused it. It stays named until a person's Resume, which Fleet refuses (409
  * `fleet.autopilot_capped`, naming the cap) while any cap is still reached. #2105.
  */
-export type AutopilotCap = "until" | "spend" | "sessions";
+export type AutopilotCap = "until" | "spend" | "sessions" | "weekly";
 
 /** What became of one pick. `withdrawn`: its Session had not run when Autopilot was stopped. */
 export type AutopilotPickState = "started" | "set_aside" | "withdrawn" | "dismissed";
@@ -19,6 +19,8 @@ export type AutopilotPickState = "started" | "set_aside" | "withdrawn" | "dismis
 export type AutopilotWork = {
   backlog: boolean;
   running: boolean;
+  /** Bugs agents reported in Armada itself. Only the armada repository's Autopilot reads them. */
+  reports: boolean;
 };
 
 /**
@@ -65,6 +67,8 @@ export type Autopilot = {
   until?: string;
   spend_cap_micros?: number;
   session_cap?: number;
+  /** The reading of the weekly usage, in percent, that pauses it. */
+  weekly_cap_percent?: number;
   state: AutopilotState;
   started_at: string;
   ended_at?: string;
@@ -105,6 +109,7 @@ export type AutopilotSettings = {
   until?: string;
   spend_cap_micros?: number;
   session_cap?: number;
+  weekly_cap_percent?: number;
   /** Only a start keeps it; an update ignores it. Absent reads as `{ backlog: true, running: false }`. */
   on_autopilot?: AutopilotWork;
   /** Only a start keeps it; an update ignores it. Absent reads as none. */

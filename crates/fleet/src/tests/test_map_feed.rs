@@ -112,12 +112,14 @@ impl Repo {
             until: None,
             spend_cap_micros: None,
             session_cap: None,
+            weekly_cap_percent: None,
             state: "running".to_string(),
             started_at: "2026-10-22T00:00:00.000Z".to_string(),
             ended_at: None,
             capped_by: None,
             on_backlog: false,
             on_running: true,
+            on_reports: false,
             decisions: Vec::new(),
         };
         self.fleet.store().lock().await.start_autopilot(&kept).unwrap();

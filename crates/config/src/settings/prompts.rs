@@ -148,7 +148,7 @@ pub(super) const PROMPTS: &[Entry] = &[
         PromptSection::Autopilot,
         PROMPT_AUTOPILOT_PICKER,
         "Choosing the next issue",
-        "What Autopilot's picker is asked for each pick. {instruction} is the person's instruction, {issues} the open issues nothing is working on and {workflows} the workflows the repository holds. Its answer is read by field name, so keep the field names.",
+        "What Autopilot's picker is asked for each pick. {instruction} is the person's instruction, {issues} the open issues nothing is working on, with the bugs agents reported where the repository is Armada's own, and {workflows} the workflows the repository holds. Its answer is read by field name, so keep the field names.",
         &["instruction", "issues", "workflows"],
     ),
     prompt(

@@ -9,7 +9,8 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
-use ipc::{CloseSession, SessionId, SessionVoice, SetSessionWorkflow, StartSession};
+use ipc::{CloseSession, SessionId, SessionTag, SessionVoice, SetSessionWorkflow, StartSession, TagKind};
+use store::KeptBugReport;
 
 use crate::daemon::Fleet;
 use crate::enriching::{enrich, Enriched};
@@ -17,6 +18,9 @@ use crate::repositories::Served;
 
 /// Who the brief is from in the Session's thread.
 const AUTOPILOT: &str = "Autopilot";
+
+/// The address a reported bug is offered and picked under, in place of a tracker's.
+pub(super) const REPORT_URL: &str = "report:";
 
 /// The issue a Session is started on.
 pub(super) struct Issue<'a> {
@@ -47,7 +51,16 @@ where
         workflow: Option<&str>,
         because: Option<&str>,
     ) -> Result<String, Refusal> {
-        let brief = self.issue_brief(served, issue, because).await;
+        // A reported bug has no page to read: it is briefed from the report, and held by the Job.
+        let report = match issue.url.strip_prefix(REPORT_URL) {
+            Some(id) => self.store().lock().await.bug_report(id).ok().flatten(),
+            None => None,
+        };
+        let brief = match (&report, issue.url.starts_with(REPORT_URL)) {
+            (Some(report), _) => foot(report_brief(report), because),
+            (None, true) => foot(issue.title.to_string(), because),
+            (None, false) => self.issue_brief(served, issue, because).await,
+        };
         let record = self
             .start_session(StartSession {
                 manifest_id: ipc::ManifestId::carried(served.manifest().id().as_str()),
@@ -79,6 +92,10 @@ where
             let _ = self.closed_and_parked(CloseSession { session_id: SessionId::carried(&id) }).await;
             return Err(why);
         }
+        if let Some(report) = report {
+            let tag = SessionTag { kind: TagKind::Report, id: report.id, title: report.title, url: None };
+            self.reports_named(&id, served.manifest().id().as_str(), &[tag]).await;
+        }
         Ok(id)
     }
 
@@ -92,9 +109,29 @@ where
                 format!("{}\n\n{}\n\n{}", issue.url, issue.title, issue.excerpt)
             }
         };
-        match because {
-            Some(why) => format!("{}\n\nAutopilot picked this issue: {why}", body.trim_end()),
-            None => body.trim_end().to_string(),
-        }
+        foot(body, because)
     }
+}
+
+/// `body`, with the picker's reason said at its foot where Autopilot chose.
+fn foot(body: String, because: Option<&str>) -> String {
+    match because {
+        Some(why) => format!("{}\n\nAutopilot picked this issue: {why}", body.trim_end()),
+        None => body.trim_end().to_string(),
+    }
+}
+
+/// A report as a brief, the parts Bridge's own brief of one has: the title, what happened, then the
+/// steps numbered, the errors and the logs, each left out where empty.
+fn report_brief(report: &KeptBugReport) -> String {
+    let mut brief = format!("{}\n\n{}", report.title, report.what);
+    let mut part = |name: &str, lines: Vec<String>| {
+        if !lines.is_empty() {
+            brief.push_str(&format!("\n\n{name}\n{}", lines.join("\n")));
+        }
+    };
+    part("Steps", report.steps.iter().enumerate().map(|(at, one)| format!("{}. {one}", at + 1)).collect());
+    part("Errors", report.errors.clone());
+    part("Logs", report.logs.clone());
+    brief
 }
