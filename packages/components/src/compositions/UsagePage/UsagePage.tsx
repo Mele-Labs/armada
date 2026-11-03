@@ -42,6 +42,9 @@ import { UsageRules } from "./UsageRules";
 import { Band, Bar, Fig, Scope } from "./usage-parts";
 import type { UsageTime } from "./usage-time";
 import { TimeView } from "./TimeView";
+import { BuildsPanel } from "./UsageBuilds";
+import { LIST_KEYS, inBuilds } from "./usage-builds";
+import type { UsageBuilds } from "./usage-builds";
 
 /**
  * Where the tokens went, laid out as the cockpit is: the Jobs that burned it on the left with one breakdown under them,
@@ -52,7 +55,9 @@ import { TimeView } from "./TimeView";
  * the pick, `m` `t` `b` `y` `d` set the breakdown to model, tool, Bash use, token type or day, `← → h l` step the
  * weekday and `[ ]` step the 3 hour block on the map (the first of these lands on the busiest cell). `1` to `9` pick the
  * usage rule at that place, and `Esc` clears it before the Job pick. Where Time is offered, `v` switches the page between
- * tokens and time, and the Time view keeps its own keys.
+ * tokens and time, and the Time view keeps its own keys. Where builds are offered, `c` moves focus to the Builds list, whose
+ * keys are its own while it holds focus (`↑↓ j k` move, `↵ o` pick), and `Esc` clears the build pick after the Job pick. A picked
+ * build narrows the Jobs, the burn, the day and hour map and the tiles on this view, and the Jobs, the weeks and the split on Time.
  */
 
 export type UsagePageProps = {
@@ -66,6 +71,8 @@ export type UsagePageProps = {
   rules?: UsageRulesAnswer | undefined;
   /** Where the time went. Absent offers no Time view; `pending` offers it with its panels drawing the shape of what is coming. */
   time?: UsageTime | "pending" | undefined;
+  /** The builds the figures are read against. Absent offers no Builds panel; `pending` draws its shape. */
+  builds?: UsageBuilds | "pending" | undefined;
 };
 
 const VIEWS = [
@@ -119,6 +126,8 @@ type Source = {
   usage: UsageBreakdown;
   days: ChartDay[];
   session?: SessionUsageSummary;
+  /** A Job or a build is picked: the figures are its share of the week. */
+  scoped: boolean;
 };
 
 type Delta = {
@@ -221,13 +230,13 @@ function Tiles({
   source: Source;
   planPercent: number | undefined;
 }) {
-  const { usage, session } = source;
+  const { usage, scoped } = source;
   const today = source.days[6]!.units;
   const change = percentDelta(today, source.days[5]!.units);
   const planShare =
     planPercent === undefined
       ? undefined
-      : session === undefined
+      : !scoped
         ? planPercent
         : Math.round(shareOf(usage.units, summary.total.units) * planPercent) / 100;
   const hadBefore = summary.prior.units > 0;
@@ -240,9 +249,11 @@ function Tiles({
           name="Weekly plan used"
           figure={`${Math.round(planShare * 10) / 10}%`}
           tip={
-            session === undefined
+            !scoped
               ? "Share of the 7 day plan window used"
-              : "Share of the 7 day plan window this job used"
+              : source.session === undefined
+                ? "Share of the 7 day plan window this build used"
+                : "Share of the 7 day plan window this job used"
           }
           meter={planShare}
         />
@@ -266,7 +277,7 @@ function Tiles({
         figure={`${Math.round(subagent)}%`}
         tip="Share of the burn that ran in subagents"
         delta={
-          session === undefined
+          !scoped
             ? points(subagent, summary.prior.subagent_share * 100, hadBefore)
             : undefined
         }
@@ -276,7 +287,7 @@ function Tiles({
         figure={`${Math.round(above)}%`}
         tip="Share of the burn from requests above 200k tokens of context"
         delta={
-          session === undefined
+          !scoped
             ? points(above, summary.prior.above_200k_share * 100, hadBefore)
             : undefined
         }
@@ -928,7 +939,7 @@ function SessionRow({
   );
 }
 
-export function UsagePage({ summary, titles, planPercent, rules, time }: UsagePageProps) {
+export function UsagePage({ summary, titles, planPercent, rules, time, builds }: UsagePageProps) {
   const [view, setView] = useState<"tokens" | "time">("tokens");
   const [cursor, setCursor] = useState(-1);
   const [rulePick, setRulePick] = useState(-1);
@@ -936,14 +947,19 @@ export function UsagePage({ summary, titles, planPercent, rules, time }: UsagePa
   const [cut, setCut] = useState<Cut>("model");
   const [cell, setCell] = useState<Cell | undefined>(undefined);
   const [hoverDay, setHoverDay] = useState<number | undefined>(undefined);
+  const [build, setBuild] = useState<string | undefined>(undefined);
 
-  const rows = useMemo(
-    () => (summary === undefined ? [] : rowsOf(summary, titles)),
-    [
-      summary,
-      titles,
-    ],
-  );
+  const listed = builds === undefined || builds === "pending" ? undefined : builds;
+  const pickedBuild = listed?.find((one) => one.id === build);
+  const rows = useMemo(() => {
+    if (summary === undefined) return [];
+    const all = rowsOf(summary, titles);
+    return pickedBuild === undefined ? all : all.filter((one) => pickedBuild.jobs.includes(one.id));
+  }, [
+    summary,
+    titles,
+    pickedBuild,
+  ]);
   const picked = rows[pick];
   const whole = useMemo(
     () => (summary === undefined ? undefined : chartDays(summary, summary.total.by_day)),
@@ -953,22 +969,32 @@ export function UsagePage({ summary, titles, planPercent, rules, time }: UsagePa
   );
   const source: Source | undefined = useMemo(() => {
     if (summary === undefined || whole === undefined) return undefined;
-    if (picked === undefined)
+    if (picked !== undefined)
       return {
-        title: "All jobs",
-        usage: summary.total,
-        days: whole,
+        title: picked.title,
+        usage: picked.session.usage,
+        days: chartDays(summary, picked.session.usage.by_day),
+        session: picked.session,
+        scoped: true,
+      };
+    if (pickedBuild !== undefined)
+      return {
+        title: `Build ${pickedBuild.id}`,
+        usage: pickedBuild.usage,
+        days: chartDays(summary, pickedBuild.usage.by_day),
+        scoped: true,
       };
     return {
-      title: picked.title,
-      usage: picked.session.usage,
-      days: chartDays(summary, picked.session.usage.by_day),
-      session: picked.session,
+      title: "All jobs",
+      usage: summary.total,
+      days: whole,
+      scoped: false,
     };
   }, [
     summary,
     whole,
     picked,
+    pickedBuild,
   ]);
   const heat = useMemo(
     () => heatOf(source?.usage.hour_grid ?? []),
@@ -994,6 +1020,8 @@ export function UsagePage({ summary, titles, planPercent, rules, time }: UsagePa
     rulePick,
     ruleCount,
     timed: time !== undefined,
+    build,
+    listed: builds !== undefined,
   });
   latest.current = {
     cursor,
@@ -1004,6 +1032,8 @@ export function UsagePage({ summary, titles, planPercent, rules, time }: UsagePa
     rulePick,
     ruleCount,
     timed: time !== undefined,
+    build,
+    listed: builds !== undefined,
   };
 
   useEffect(() => {
@@ -1026,6 +1056,11 @@ export function UsagePage({ summary, titles, planPercent, rules, time }: UsagePa
         setView((now) => (now === "tokens" ? "time" : "tokens"));
         return event.preventDefault();
       }
+      if (event.key === "c" && latest.current.listed) {
+        document.querySelector<HTMLElement>("[data-builds]")?.focus();
+        return event.preventDefault();
+      }
+      if (inBuilds(target) && LIST_KEYS.includes(event.key)) return;
       if (viewed.current === "time") return;
       const last = latest.current.count - 1;
       const onControl =
@@ -1050,6 +1085,7 @@ export function UsagePage({ summary, titles, planPercent, rules, time }: UsagePa
       else if (/^[1-9]$/.test(event.key) && Number(event.key) <= latest.current.ruleCount)
         setRulePick(Number(event.key) - 1);
       else if (event.key === "Escape" && latest.current.pick >= 0) setPick(-1);
+      else if (event.key === "Escape" && latest.current.build !== undefined) setBuild(undefined);
       else if ((event.key === "ArrowRight" || event.key === "l") && !onTab) step(1, 0);
       else if ((event.key === "ArrowLeft" || event.key === "h") && !onTab) step(-1, 0);
       else if (event.key === "]") step(0, 1);
@@ -1061,6 +1097,14 @@ export function UsagePage({ summary, titles, planPercent, rules, time }: UsagePa
     window.addEventListener("keydown", pressed);
     return () => window.removeEventListener("keydown", pressed);
   }, []);
+
+  useEffect(() => {
+    setCursor(-1);
+    setPick(-1);
+    setCell(undefined);
+  }, [
+    build,
+  ]);
 
   useEffect(() => {
     const row = rows[cursor];
@@ -1109,7 +1153,7 @@ export function UsagePage({ summary, titles, planPercent, rules, time }: UsagePa
     return (
       <div className="armada-usage armada-page">
         {switcher}
-        <TimeView time={time} />
+        <TimeView time={time} builds={builds} build={pickedBuild} onBuild={setBuild} />
       </div>
     );
 
@@ -1181,6 +1225,10 @@ export function UsagePage({ summary, titles, planPercent, rules, time }: UsagePa
               </div>
             )}
           </section>
+
+          {builds === undefined ? null : (
+            <BuildsPanel builds={builds} view="tokens" pick={build} onPick={setBuild} />
+          )}
 
           <section className="armada-usage__panel" aria-label="Breakdown">
             <Band
@@ -1273,7 +1321,7 @@ export function UsagePage({ summary, titles, planPercent, rules, time }: UsagePa
                 <Scope title={source.title} unit="M units" />
                 <DayChart
                   days={days}
-                  mine={source.session === undefined ? undefined : source.days}
+                  mine={source.scoped ? source.days : undefined}
                   mineName={source.title}
                   day={day}
                   onDay={setHoverDay}

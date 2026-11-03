@@ -11,6 +11,7 @@ function build(): Scenario {
     draft: {
       ...usageWeek.draft,
       time: "pending",
+      builds: "pending",
     },
   };
 }

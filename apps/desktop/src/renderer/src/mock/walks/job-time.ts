@@ -1,6 +1,7 @@
 // The Usage page's Time view: switch to it, read the weeks, then open the slowest Job's split.
 // Keys on the page: v switches between tokens and time. In Time, ↓ j and ↑ k move down the Jobs, ↵ o opens one,
-// ← → h l step the weeks and Esc clears the week and then the Job.
+// ← → h l step the weeks and Esc clears the week, then the Job, then the build. c moves focus to the Builds list, where
+// ↓ j and ↑ k move and ↵ o pick.
 
 import { button, deckRow, inside, place, region, role, tab, viaPalette, walk } from "../walk";
 
@@ -38,6 +39,28 @@ export const jobTime = walk("usage/time", [
   {
     look: region("Job split"),
     say: "Most time first; the usual for its workflow shows where it runs far over",
+  },
+  {
+    look: region("Builds", {
+      exact: true,
+    }),
+    say: "The builds, newest first: the figures hold while Checks jumps at one build and stays up",
+  },
+  {
+    press: role("option", /^7ac3d52,/),
+    say: "Press the build where Checks jumped: the Jobs, the weeks and the split narrow to it. Esc clears it",
+  },
+  {
+    look: region("Split", {
+      exact: true,
+    }),
+    say: "The split is that build's",
+  },
+  {
+    press: tab("Tokens", {
+      exact: true,
+    }),
+    say: "Tokens keeps the build and draws the same panel: burn per turn holds across them",
   },
   {
     press: place("Cockpit"),

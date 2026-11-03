@@ -608,3 +608,45 @@ export function usageSummaryNow(tzOffsetMinutes: number, now = Date.now()): Usag
     },
   };
 }
+
+/**
+ * A build's own usage: `units` laid on the hours it ran, from `from` to `to`, on whichever of the last seven days they fall,
+ * and the week's splits nudged by `seed` so each build reads differently.
+ */
+export function buildUsage(opts: {
+  units: number;
+  from: number;
+  to: number;
+  seed: number;
+  tzOffsetMinutes: number;
+  now: number;
+}): UsageBreakdown {
+  const days = Array.from(
+    {
+      length: 7,
+    },
+    (_, at) => dayOf(opts.now - (6 - at) * DAY_MS, opts.tzOffsetMinutes),
+  );
+  const weights = [
+    0, 0, 0, 0, 0, 0, 0,
+  ];
+  for (let at = opts.from; at < opts.to; at += 3_600_000) {
+    const day = dayOf(at, opts.tzOffsetMinutes);
+    if (days.includes(day)) weights[weekdayOf(day)]! += 1;
+  }
+  return jobUsage(
+    {
+      id: "",
+      title: "",
+      units: opts.units,
+      subagent: 70,
+      peak: 0,
+      models: [],
+      byModel: WEEK_MODELS,
+      above200: 56,
+      days: weights,
+    },
+    opts.seed,
+    days,
+  ).usage;
+}

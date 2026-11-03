@@ -1,0 +1,102 @@
+/* The Builds panel under the same mono band as the others: a row a build, in fixed columns. The glyph column and each
+   figure's change slot stay where a row lacks one. A build with too few turns to compare steps its text down. */
+.armada-builds__heads,
+.armada-builds__row {
+  --figures: 1;
+  display: grid;
+  grid-template-columns: var(--space-4) 8ch 7ch repeat(var(--figures), var(--cell));
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+.armada-builds__heads[data-view="time"],
+.armada-builds__rows[data-view="time"] > .armada-builds__row {
+  --figures: 4;
+}
+.armada-builds__heads,
+.armada-builds__row {
+  --cell: calc(12ch + var(--space-1));
+}
+.armada-builds__heads {
+  border-bottom: var(--border-width) solid var(--head-rule);
+  color: var(--fg-subtle);
+}
+.armada-builds__head {
+  display: grid;
+  grid-template-columns: 5ch 7ch;
+  gap: var(--space-1);
+}
+.armada-builds__head > span {
+  grid-column: 1;
+  justify-self: end;
+  white-space: nowrap;
+}
+.armada-builds__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  overflow-x: auto;
+}
+.armada-builds__rows:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--edge-focus);
+}
+.armada-builds__row {
+  min-height: var(--h-row);
+  border-bottom: var(--border-width) solid var(--head-rule);
+  cursor: default;
+}
+.armada-builds__row:last-child {
+  border-bottom: 0;
+}
+.armada-builds__row:hover,
+.armada-builds__row[data-cursor] {
+  background: var(--bg-step);
+}
+.armada-builds__row[aria-selected="true"] {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: inset var(--bar, 2px) 0 0 var(--accent);
+}
+.armada-builds__kind {
+  display: inline-flex;
+}
+.armada-builds__glyph {
+  display: inline-flex;
+  color: var(--fg-muted);
+}
+.armada-builds__commit {
+  color: var(--fg-default);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.armada-builds__started {
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+.armada-builds__cell {
+  display: grid;
+  grid-template-columns: 5ch 7ch;
+  align-items: center;
+  gap: var(--space-1);
+}
+.armada-builds__cell > :first-child {
+  justify-self: end;
+}
+.armada-builds__cell > .armada-usage__skel {
+  justify-self: stretch;
+}
+.armada-builds__chip {
+  display: flex;
+  justify-content: flex-start;
+  min-height: var(--leading-2xs);
+}
+.armada-builds__row[data-few] .armada-builds__commit,
+.armada-builds__row[data-few] .armada-builds__started,
+.armada-builds__row[data-few] .armada-usage__fig {
+  color: var(--fg-subtle);
+}
+.armada-builds__row[data-few] .armada-builds__commit {
+  font-weight: inherit;
+}

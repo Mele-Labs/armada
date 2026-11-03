@@ -7,6 +7,7 @@ import { UsagePage } from "@armada/components";
 import type { UsageRules, UsageSummary } from "@armada/protocol";
 
 import type { BridgeState } from "../../shared/bridge";
+import { useBuilds } from "./job-builds";
 import { useJobTime } from "./job-time";
 import { usePlanUsage } from "./plan-usage";
 
@@ -52,6 +53,7 @@ export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" 
     ],
   );
   const time = useJobTime();
+  const builds = useBuilds();
   const planPercent = usePlanUsage()?.find((one) => one.kind === "seven_day")?.percentUsed;
   return <UsagePage
       summary={summary}
@@ -59,5 +61,6 @@ export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" 
       planPercent={planPercent}
       rules={rules}
       time={time}
+      builds={builds}
     />;
 }

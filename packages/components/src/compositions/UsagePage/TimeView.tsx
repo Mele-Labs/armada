@@ -3,6 +3,9 @@ import type { MouseEvent } from "react";
 
 import { Skeleton } from "../../primitives/Skeleton/Skeleton";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { BuildsPanel } from "./UsageBuilds";
+import { LIST_KEYS, inBuilds } from "./usage-builds";
+import type { Build, UsageBuilds } from "./usage-builds";
 import { Band, Bar, Fig, Scope } from "./usage-parts";
 import { pct, shareOf } from "./usage-view";
 import {
@@ -25,8 +28,11 @@ import type { Bucket, TimeJob, TimeSplit, TimeWeek, UsageTime } from "./usage-ti
  * window's place, each bucket against the usual of that Job's workflow where it is far over.
  *
  * Keys: `↑↓ j k` move down the Jobs, `↵ o` opens the one under the cursor, `← → h l` step the weeks and `Esc` clears the
- * week and then the Job.
+ * week, then the Job, then the build. Picking a build in the Builds panel narrows the Jobs to the ones that ran on it, the weeks
+ * to the one it began in and the split to its own.
  */
+
+const NONE: TimeSplit = Object.fromEntries(BUCKETS.map((one) => [one, 0])) as unknown as TimeSplit;
 
 /** A bucket's name over its swatch, with what the bucket means on hover. */
 function BucketName({ bucket }: { bucket: Bucket }) {
@@ -116,7 +122,9 @@ function WeekChart({
     const at = Math.floor((x - LEFT) / slot);
     onWeek(at >= 0 && at < weeks.length ? at : undefined);
   };
-  const last = weeks.length - 1;
+  const drawnAt = totals.flatMap((total, at) => (total > 0 ? [at] : []));
+  const first = drawnAt[0];
+  const last = drawnAt[drawnAt.length - 1];
   const shown = week === undefined ? undefined : weeks[week];
   return (
     <div className="armada-usage__plot" onMouseMove={place} onMouseLeave={() => onWeek(undefined)}>
@@ -164,22 +172,27 @@ function WeekChart({
             </g>
           );
         })}
-        {drawn(stack(weeks[last]!.median)).map((part) =>
+        {(last === undefined ? [] : drawn(stack(weeks[last]!.median))).map((part) =>
           y(part.low) - y(part.high) < 14 ? null : (
             <text
               key={part.bucket}
               className="armada-usage__direct"
-              x={barX(last) + bar + 6}
+              x={barX(last!) + bar + 6}
               y={(y(part.low) + y(part.high)) / 2 + 4}
             >
               {BUCKET_LABEL[part.bucket]}
             </text>
           ),
         )}
-        {[
-          0,
-          last,
-        ].map((at) => (
+        {(first === undefined || last === undefined
+          ? []
+          : [
+              ...new Set([
+                first,
+                last,
+              ]),
+            ]
+        ).map((at) => (
           <text
             key={at}
             className="armada-usage__peak"
@@ -502,15 +515,27 @@ function PendingLegend() {
 type TimeViewProps = {
   /** Fleet's reading of where the time went. `pending` until it has answered: the panels draw the shape of what is coming. */
   time: UsageTime | "pending";
+  /** The builds on offer. Absent draws no Builds panel. */
+  builds?: UsageBuilds | "pending" | undefined;
+  /** The picked build: the panels narrow to it. */
+  build?: Build | undefined;
+  onBuild?: (id: string | undefined) => void;
 };
 
-export function TimeView({ time }: TimeViewProps) {
+export function TimeView({ time, builds, build, onBuild }: TimeViewProps) {
   const [cursor, setCursor] = useState(-1);
   const [pick, setPick] = useState(-1);
   const [week, setWeek] = useState<number | undefined>(undefined);
   const [hover, setHover] = useState<number | undefined>(undefined);
   const ready = time === "pending" ? undefined : time;
-  const jobs = ready?.jobs ?? [];
+  const jobs = (build === undefined ? ready?.jobs : ready?.jobs.filter((one) => build.jobs.includes(one.id))) ?? [];
+  const weeks =
+    ready === undefined || build === undefined
+      ? ready?.weeks
+      : ready.weeks.map((one, at) => ({
+          from: one.from,
+          median: at === build.week ? build.median : NONE,
+        }));
   const picked = jobs[pick];
   const latest = useRef({
     cursor,
@@ -518,6 +543,7 @@ export function TimeView({ time }: TimeViewProps) {
     week,
     count: jobs.length,
     weeks: ready?.weeks.length ?? 0,
+    build,
   });
   latest.current = {
     cursor,
@@ -525,6 +551,7 @@ export function TimeView({ time }: TimeViewProps) {
     week,
     count: jobs.length,
     weeks: ready?.weeks.length ?? 0,
+    build,
   };
 
   useEffect(() => {
@@ -546,6 +573,7 @@ export function TimeView({ time }: TimeViewProps) {
       const onControl =
         target instanceof HTMLElement && target.closest("button, [role=tab]") !== null;
       const onTab = target instanceof HTMLElement && target.closest("[role=tab]") !== null;
+      if (inBuilds(target) && LIST_KEYS.includes(event.key)) return;
       const now = latest.current;
       const stepWeek = (by: number) =>
         setWeek((at) =>
@@ -563,6 +591,7 @@ export function TimeView({ time }: TimeViewProps) {
         setPick(now.cursor);
       } else if (event.key === "Escape" && now.week !== undefined) setWeek(undefined);
       else if (event.key === "Escape" && now.pick >= 0) setPick(-1);
+      else if (event.key === "Escape" && now.build !== undefined) onBuild?.(undefined);
       else if ((event.key === "ArrowRight" || event.key === "l") && !onTab) stepWeek(1);
       else if ((event.key === "ArrowLeft" || event.key === "h") && !onTab) stepWeek(-1);
       else return;
@@ -571,6 +600,14 @@ export function TimeView({ time }: TimeViewProps) {
     window.addEventListener("keydown", pressed);
     return () => window.removeEventListener("keydown", pressed);
   }, []);
+
+  useEffect(() => {
+    setCursor(-1);
+    setPick(-1);
+    setWeek(undefined);
+  }, [
+    build,
+  ]);
 
   useEffect(() => {
     const row = jobs[cursor];
@@ -631,6 +668,9 @@ export function TimeView({ time }: TimeViewProps) {
             </>
           )}
         </section>
+        {builds === undefined ? null : (
+          <BuildsPanel builds={builds} view="time" pick={build?.id} onPick={(id) => onBuild?.(id)} />
+        )}
       </div>
 
       <div className="armada-time__centre">
@@ -653,7 +693,7 @@ export function TimeView({ time }: TimeViewProps) {
           ) : (
             <>
               <Scope title="Median Job, active time" unit="min" />
-              <WeekChart weeks={ready.weeks} week={shown} onWeek={setHover} />
+              <WeekChart weeks={weeks!} week={shown} onWeek={setHover} />
               <Legend />
             </>
           )}
@@ -670,8 +710,8 @@ export function TimeView({ time }: TimeViewProps) {
             </>
           ) : picked === undefined ? (
             <>
-              <Scope title="All Jobs" />
-              <SplitRows split={ready.total} />
+              <Scope title={build === undefined ? "All Jobs" : `Build ${build.id}`} />
+              <SplitRows split={build === undefined ? ready.total : build.split} />
             </>
           ) : (
             <JobSplit job={picked} usual={ready.usual[picked.workflow]} />
