@@ -30,6 +30,12 @@ where
     let adrift = Arc::new(adrift);
     crate::autopilot::keep_autopiloting(Arc::clone(&fleet), tick, Arc::clone(&adrift));
     crate::autopilot::keep_deciding(Arc::clone(&fleet), tick, Arc::clone(&adrift));
+    // The line for a slot and the moves into one live in memory, so a wait a restart cut off ended with it.
+    let waits = Arc::clone(&fleet);
+    tokio::spawn(async move {
+        let at = waits.now().as_str().to_string();
+        let _ = waits.store().lock().await.end_all_slot_waits(&at);
+    });
     // The week's transcripts, read once and in the background, a while after Fleet is up.
     let backfill = Arc::clone(&fleet);
     tokio::spawn(async move {

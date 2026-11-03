@@ -441,6 +441,7 @@ where
             }
             Taken::Moving(moving) => {
                 self.line_left(id).await;
+                self.slot_wait_began(id, "move").await;
                 self.moved_if_idle(id, moving).await;
             }
         }
@@ -449,8 +450,22 @@ where
     /// Out of the line, and the call taken off his list if it was still there.
     pub(crate) async fn line_left(&self, id: &str) {
         if self.hosts().slot_queue().leave(id) {
+            self.slot_wait_ended(id, Some("line")).await;
             let _ = self.published_hosted(id).await;
         }
+    }
+
+    /// A wait for a slot began (`line` or `move`), kept for the split of the Job's time. A fault
+    /// here fails nothing: the wait is only counted.
+    pub(crate) async fn slot_wait_began(&self, id: &str, phase: &str) {
+        let at = self.now().as_str().to_string();
+        let _ = self.store().lock().await.begin_slot_wait(id, phase, &at);
+    }
+
+    /// The wait of `phase` ended, or every standing wait of the Job where it is `None`.
+    pub(crate) async fn slot_wait_ended(&self, id: &str, phase: Option<&str>) {
+        let at = self.now().as_str().to_string();
+        let _ = self.store().lock().await.end_slot_waits(id, phase, &at);
     }
 
     /// Start the move now if the session's turn is over. Decided under the

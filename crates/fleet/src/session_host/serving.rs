@@ -418,6 +418,7 @@ where
             state.reattached_busy = false;
             state.woken_by.clear();
         }
+        self.slot_wait_ended(&id, Some("move")).await;
         self.calls_let_go(&id).await;
         self.published_hosted(&id).await
     }

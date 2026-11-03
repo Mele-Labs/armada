@@ -73,6 +73,8 @@ where
                     state.controls.clear();
                     (working, complaint, lost)
                 };
+                // The move it was waiting on is not made: `moving` went with the process.
+                self.slot_wait_ended(id, Some("move")).await;
                 if working {
                     self.kept_restart(
                         id,
@@ -563,6 +565,7 @@ where
             unstarted
         };
         let Ok((_, hosting)) = self.session_and_hosting(id).await else {
+            self.slot_wait_ended(id, Some("move")).await;
             return;
         };
         let arrived = format!(
@@ -594,6 +597,8 @@ where
                 .await;
             }
         }
+        // The wait ends where the Job is told, not where its process starts.
+        self.slot_wait_ended(id, Some("move")).await;
         let _ = self.published_hosted(id).await;
     }
 
