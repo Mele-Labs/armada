@@ -670,6 +670,8 @@ function StatusItem(
     | "onShowQuestion"
   > & {
     landsOn: string | null;
+    /** Where held notes wait. Absent: the Job panel. */
+    heldIn?: string;
   },
 ) {
   const { serving, refused, question, framesRefused, landsOn } = props;
@@ -713,7 +715,8 @@ function StatusItem(
   }
   if (props.held !== undefined) {
     const one = props.held.notes === "one";
-    const tip = "Not sent. Send notes in the Job panel sends them to the Job as one turn.";
+    const where = props.heldIn ?? "the Job panel";
+    const tip = `Not sent. Send notes in ${where} sends them to the Job as one turn.`;
     const { panel } = props;
     // With the panel hidden the notes are out of sight, so the status opens it rather than pointing at it.
     if (panel !== undefined && !panel.open) {
@@ -732,7 +735,7 @@ function StatusItem(
     }
     return (
       <StatusLine
-        text={`${one ? "Note" : "Notes"} pending in the Job panel`}
+        text={`${one ? "Note" : "Notes"} pending in ${where}`}
         tip={tip}
         tone="held"
       />
@@ -1298,6 +1301,7 @@ export function WalkBar({
         framesRefused={0}
         onFollowRefused={NO_REFUSAL}
         held={held}
+        heldIn="the thread"
         {...(panel === undefined
           ? {}
           : {

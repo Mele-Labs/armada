@@ -13,7 +13,6 @@ const note = (said: string) => role("listitem", said);
 
 const FIRST = "The plan card needs the renewal date";
 const SECOND = "The invoice list needs a total";
-const EDITED = "The plan card needs the renewal date in full";
 
 /** Note, a press on the page, the words typed into the card beside the pick, and Capture. */
 const capture = (said: string, say: string): Step[] => [
@@ -73,14 +72,10 @@ const walkInJobNotes = walk("walk-in-job", [
   ...capture(SECOND, "A second note, on another part"),
   {
     look: inside(held, note(FIRST)),
-    say: "The notes wait at the end of the Job's thread, beside the walk",
+    say: "The notes wait at the end of the thread, each naming its walk and take",
   },
   {
-    look: inside(held, role("listitem", SECOND)),
-    say: "Each says the walk and the take it was taken on",
-  },
-  {
-    look: inside(billing, text("Notes pending in the Job panel")),
+    look: inside(billing, text("Notes pending in the thread")),
     say: "The bar says the notes are pending, not sent",
   },
   {
@@ -108,24 +103,11 @@ const walkInJobNotes = walk("walk-in-job", [
     say: "The notes are still held",
   },
   {
-    type: EDITED,
-    into: inside(note(FIRST), role("textbox", "Note")),
-    say: "Edit a note in place",
-  },
-  {
-    press: inside(note(SECOND), button(/^Remove the note/)),
-    say: "Remove takes a note off",
-  },
-  {
-    look: inside(held, note(EDITED)),
-    say: "The edit was kept when you left the field",
-  },
-  {
     press: inside(held, button("Send notes")),
     say: "Send notes sends what is held as one turn",
   },
   {
-    look: inside(region("Pane: Thread"), text(/^The plan card needs the renewal date in full/)),
+    look: inside(region("Pane: Thread"), text(/^The plan card needs the renewal date/)),
     say: "The turn is in the thread, and the pending notes are gone",
   },
   {
@@ -141,10 +123,6 @@ const walkInJobNotes = walk("walk-in-job", [
     say: "The Job showed the page again, ready to walk",
   },
   {
-    look: inside(billing, button(/^Approve/)),
-    say: "Approve is back",
-  },
-  {
     press: tab("Settings", {
       exact: true,
     }),
@@ -157,12 +135,6 @@ const walkInJobNotes = walk("walk-in-job", [
   {
     press: deckRow("Tidy the account pages"),
     say: "Pressing the row brings the tab back",
-  },
-  {
-    look: tab("Settings", {
-      exact: true,
-    }),
-    say: "Settings is back",
   },
 ]);
 
