@@ -1667,6 +1667,34 @@ export function sessionsStore(
           tags: [],
         });
       const chosen = given.choice === undefined ? given.text : item.options?.[given.choice]?.label;
+      // A Job that stopped is asked to carry on: the answer is a message to it, and it runs again.
+      if ((item.source as string) === "stopped") {
+        edit(id, (one) => {
+          const { stopped, ...rest } = one;
+          void stopped;
+          return {
+            ...rest,
+            turn: {
+              state: "working",
+            },
+            standing: "working",
+            waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== itemId),
+          };
+        });
+        addTo(id, [
+          row((rid, stamp) => ({
+            id: rid,
+            at: stamp,
+            kind: "message",
+            from: {
+              kind: "you",
+            },
+            text: chosen ?? "Carry on",
+          })),
+          said("Carrying on."),
+        ]);
+        return;
+      }
       // A watch that ended not ours is Fleet's own ask: Ignore tells the agent nothing, Fix it is a message naming what broke.
       if (item.source === "watch_not_ours") {
         edit(id, (one) => ({
