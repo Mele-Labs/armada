@@ -245,10 +245,10 @@ async fn a_pull_request_that_failed_conflicts_or_is_already_merging_is_not_asked
     }
 }
 
-/// A commit seen merging is not started again: someone took it off auto-merge, or the queue
-/// dropped it, and asking again would undo the one and fail the other a second time.
+/// A commit seen merging that is then green and neither queued nor on auto-merge is asked once
+/// more, whoever took it off: with Auto land on, Fleet merges a green pull request.
 #[tokio::test]
-async fn a_commit_that_left_the_queue_or_auto_merge_is_not_asked_again() {
+async fn a_commit_that_left_the_queue_or_auto_merge_is_asked_once_more() {
     let mut queued = checked(CiState::Passed);
     queued.queue = PullQueue::Waiting;
     let mut on_auto_merge = checked(CiState::Passed);
@@ -261,7 +261,7 @@ async fn a_commit_that_left_the_queue_or_auto_merge_is_not_asked_again() {
         rig.fleet.vcs().main_ci.followed_are(Some(vec![checked(CiState::Passed)]));
         read_the_pull_reading(&rig).await;
 
-        assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0, "{named}");
+        assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1, "{named}");
     }
 }
 
