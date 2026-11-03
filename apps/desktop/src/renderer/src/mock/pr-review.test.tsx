@@ -3,11 +3,12 @@
 // comments placed by path, line and side. A refused review keeps what he wrote. Hand-run with the rest of `mock/`.
 
 import type { WritePullRequest } from "@armada/protocol";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { MockForge } from "./review-forge";
 import { s262PrReview } from "./scenarios/pr-review";
+import { s262PrReviewPanes } from "./scenarios/pr-review-panes";
 import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
@@ -44,8 +45,8 @@ const row = (number: number) =>
     name: new RegExp(`^#${number} `),
   });
 
-async function reviews() {
-  const app = mount(s262PrReview);
+async function reviews(scenario = s262PrReview) {
+  const app = mount(scenario);
   await onScreen();
   await page
     .getByRole("navigation", {
@@ -130,12 +131,11 @@ test("a review goes out as one call with its line comment placed, and then it is
   await expect.element(reader(1899)).toBeVisible();
   // The changes are in the explanation, which an agent reads once he has said it may run.
   await pick(1899, "How it works");
-  await page
-    .getByRole("dialog", {
-      name: "How it works",
-    })
+  // The tab holds the Run: opening it spends nothing while the setting asks first.
+  await reader(1899)
     .getByRole("button", {
       name: "Run",
+      exact: true,
     })
     .click();
   await expect
@@ -330,12 +330,11 @@ test("a tool that found nothing draws its picture and says what it checked", asy
   await reviews();
   await open(212);
   await pick(212, "Risks");
-  await page
-    .getByRole("dialog", {
-      name: "Risks",
-    })
+  // The tab holds the Run: opening it spends nothing while the setting asks first.
+  await reader(212)
     .getByRole("button", {
       name: "Run",
+      exact: true,
     })
     .click();
   const results = page.getByRole("region", {
@@ -395,12 +394,11 @@ test("a run that fails shows Fleet's reason where the result would be, and Run a
   );
   await open(212);
   await pick(212, "Risks");
-  await page
-    .getByRole("dialog", {
-      name: "Risks",
-    })
+  // The tab holds the Run: opening it spends nothing while the setting asks first.
+  await reader(212)
     .getByRole("button", {
       name: "Run",
+      exact: true,
     })
     .click();
   const results = page.getByRole("region", {
@@ -570,12 +568,11 @@ test("the tools pane's + lists the explanations beside the tools, and no Comment
       name: "How it works",
     })
     .click();
-  await page
-    .getByRole("dialog", {
-      name: "How it works",
-    })
+  // The tab holds the Run: opening it spends nothing while the setting asks first.
+  await reader(1899)
     .getByRole("button", {
       name: "Run",
+      exact: true,
     })
     .click();
   await expect
@@ -627,3 +624,242 @@ test("a tool whose name is taken is refused in Fleet's words, beside Save", asyn
     )
     .toBeVisible();
 });
+
+/** A test that opens panes, runs a tool and reads more than once, which a busy machine draws slowly. */
+const SLOW = 90_000;
+
+/** The + menu's rows as the person reads them, each with the number or hint it carries. */
+const menuRows = () => page.getByRole("menuitem").elements().map((one) => one.textContent ?? "");
+
+test("the tools pane's + offers the pull request's tabs, every tool with its number, and Add a tool", async () => {
+  await reviews();
+  await open(1899);
+  await plus(1899).click();
+  await expect.element(page.getByRole("menuitem", { name: "Add a tool" })).toBeVisible();
+  const rows = menuRows();
+  expect(rows.slice(0, 6)).toEqual([
+    "Overview",
+    "Files",
+    "Checks",
+    "Commits",
+    "Review",
+    "Comments",
+  ]);
+  // The explanations come first, then the tools; the first nine carry the key that opens them.
+  expect(rows.slice(6, 9).map((one) => one.replace(/Armada's tool$/, ""))).toEqual([
+    "How it works1",
+    "User Impact2",
+    "How to Test3",
+  ]);
+  expect(rows.find((one) => one.startsWith("Test gaps"))).toMatch(/^Test gaps9/);
+  expect(rows.at(-1)).toBe("Add a tool");
+  // None of the Job's own kinds is offered.
+  for (const jobs of ["Browser", "Terminal", "Thread", "Custom"])
+    expect(rows, jobs).not.toContain(jobs);
+}, SLOW);
+
+test("opening a tool again from + brings its tab forward and opens no second", async () => {
+  await reviews();
+  await open(1899);
+  await pick(1899, "Risks");
+  await pick(1899, "Possible bugs");
+  const tabs = (name: string) => reader(1899).getByRole("tab", { name, exact: true });
+  await expect.element(tabs("Possible bugs")).toHaveAttribute("aria-selected", "true");
+  await pick(1899, "Risks");
+  await expect.element(tabs("Risks")).toHaveAttribute("aria-selected", "true");
+  expect(tabs("Risks").elements()).toHaveLength(1);
+}, SLOW);
+
+test("a tool opened with Don't ask again ticked on a Run lets the next one run with no Run to press", async () => {
+  await reviews();
+  await open(1899);
+  await pick(1899, "Risks");
+  await expect.element(reader(1899).getByText("Running this uses tokens.")).toBeVisible();
+  await reader(1899).getByRole("checkbox", { name: "Don't ask again" }).click();
+  await reader(1899).getByRole("button", { name: "Run", exact: true }).click();
+  await expect
+    .element(reader(1899).getByRole("region", { name: "Risks results" }))
+    .toBeVisible();
+  // The next tool opens and runs: its tab holds no Run and says nothing about tokens.
+  await pick(1899, "Possible bugs");
+  await expect.element(reader(1899).getByRole("region", { name: "Possible bugs results" })).toBeVisible();
+  await expect.element(reader(1899).getByText("Running this uses tokens.")).not.toBeInTheDocument();
+}, SLOW);
+
+test("an empty tools pane lists the tools, and a row opens its tool's tab", async () => {
+  await reviews();
+  await open(1899);
+  const tools = reader(1899).getByRole("list", { name: "Tools" });
+  await expect.element(tools).toBeVisible();
+  await expect.element(tools.getByRole("button", { name: "Risks" })).toBeVisible();
+  await expect.element(reader(1899).getByRole("button", { name: "Add a tool" })).toBeVisible();
+  await tools.getByRole("button", { name: "Risks" }).click();
+  await expect.element(reader(1899).getByRole("tab", { name: "Risks", exact: true })).toBeVisible();
+}, SLOW);
+
+const comments = (number: number) =>
+  reader(number).getByRole("region", {
+    name: "Comments",
+    exact: true,
+  });
+const go = (number: number) =>
+  comments(number).getByRole("button", {
+    name: /^Go to crates\/fleet\/src\/plan_usage\.rs:\d+ in Files$/,
+  });
+
+test("Comments lists each open thread by its file and line, folds the resolved under their count, and opens a thread in place with Reply and Resolve", async () => {
+  await reviews();
+  await open(1899);
+  await expect.element(go(1899)).toBeVisible();
+  await expect
+    .element(
+      comments(1899).getByRole("button", {
+        name: /^Go to packages\/protocol\/src\/plan-usage\.ts:\d+ in Files$/,
+      }),
+    )
+    .toBeVisible();
+  // The resolved one is not listed until its fold is opened, and the fold says how many it holds.
+  const fold = comments(1899).getByRole("button", { name: /^Resolved/ });
+  await expect.element(fold).toHaveTextContent("1");
+  await expect
+    .element(comments(1899).getByRole("list", { name: "Resolved threads" }))
+    .not.toBeInTheDocument();
+  await fold.click();
+  await expect
+    .element(comments(1899).getByRole("list", { name: "Resolved threads" }))
+    .toBeVisible();
+
+  await expect.element(comments(1899).getByRole("button", { name: "Reply" })).not.toBeInTheDocument();
+  await comments(1899)
+    .getByRole("button", { name: /^Open the thread on crates\/fleet\/src\/plan_usage\.rs:/ })
+    .click();
+  await expect.element(comments(1899).getByRole("button", { name: "Reply" })).toBeVisible();
+  await expect.element(comments(1899).getByRole("button", { name: "Resolve", exact: true })).toBeVisible();
+}, SLOW);
+
+test("a press on a thread brings Files forward at its line, with the thread under it", async () => {
+  await reviews();
+  await open(1899);
+  const files = reader(1899).getByRole("region", { name: "Pane: Files" });
+  await go(1899).click();
+  await expect
+    .element(reader(1899).getByRole("tab", { name: "Files", exact: true }))
+    .toHaveAttribute("aria-selected", "true");
+  const thread = files.getByRole("article", { name: /^Thread on .+ by devon$/ });
+  await expect.element(thread).toBeVisible();
+  // The line before the thread is the one it is on, drawn by index, and scrolled into the pane's view.
+  const box = files.element().querySelector(".pr-pane__files")!.getBoundingClientRect();
+  await vi.waitFor(() => {
+    const at = thread.element().getBoundingClientRect();
+    expect(at.top).toBeGreaterThanOrEqual(box.top - 1);
+    expect(at.bottom).toBeLessThanOrEqual(box.bottom + 1);
+  });
+  expect(files.element().querySelector("[data-diff-line]")).not.toBeNull();
+}, SLOW);
+
+/** Another pull request and back: the first reader is drawn again from what was kept. */
+async function leaveAndReturn() {
+  await row(212).click();
+  await expect.element(reader(212)).toBeVisible();
+  await row(1899).click();
+  await expect.element(reader(1899)).toBeVisible();
+}
+
+test("Files comes back scrolled to where he was, and the threads he had open in Comments are open", async () => {
+  await reviews();
+  await open(1899);
+  await reader(1899).getByRole("tab", { name: "Files", exact: true }).click();
+  const files = reader(1899).getByRole("region", { name: "Pane: Files" });
+  await expect.element(files.getByRole("region", { name: "crates/fleet/src/plan_usage.rs" })).toBeVisible();
+  const scroller = () => files.element().querySelector<HTMLElement>(".pr-pane__files")!;
+  await vi.waitFor(() => {
+    scroller().scrollTop = 150;
+    expect(scroller().scrollTop).toBeGreaterThan(100);
+  });
+  const where = scroller().scrollTop;
+  await new Promise((done) => setTimeout(done, 300));
+  // A thread opened in Comments is kept per pull request too.
+  await comments(1899)
+    .getByRole("button", { name: /^Open the thread on packages\/protocol\/src\/plan-usage\.ts:/ })
+    .click();
+  await expect
+    .element(comments(1899).getByRole("article", { name: /^Thread on packages\/protocol\/src\/plan-usage\.ts/ }))
+    .toBeVisible();
+
+  await leaveAndReturn();
+  await expect
+    .element(comments(1899).getByRole("article", { name: /^Thread on packages\/protocol\/src\/plan-usage\.ts/ }))
+    .toBeVisible();
+  await vi.waitFor(() => {
+    expect(Math.abs(scroller().scrollTop - where)).toBeLessThanOrEqual(2);
+  });
+}, SLOW);
+
+/** The panes scenario, where a commit is pushed to #1899 and the next read of the lists brings it. */
+async function pushed() {
+  await reviews(s262PrReviewPanes);
+}
+const moved = (number: number) => reader(number).getByRole("status", { name: "Pull request changed" });
+const refresh = () => list().getByRole("button", { name: "Refresh" });
+/** The commit he last looked at, as it is kept for #1899. */
+const seenOf = () => localStorage.getItem("armada:kept:pr-review:mele-labs/armada#1899:seen-head");
+
+/** Runs Risks on #1899, then leaves, has the lists read again and comes back. */
+async function movedAfterARun() {
+  await pushed();
+  await open(1899);
+  await pick(1899, "Risks");
+  await reader(1899).getByRole("button", { name: "Run", exact: true }).click();
+  // Done, not only started: a run still going is not one kept on the older commit.
+  await expect
+    .element(reader(1899).getByRole("region", { name: "Risks results" }).getByRole("img", { name: /^Kept\. Ran/ }))
+    .toBeVisible();
+  await row(212).click();
+  await expect.element(reader(212)).toBeVisible();
+  await refresh().click();
+  await row(1899).click();
+  await expect.element(reader(1899)).toBeVisible();
+  await expect.element(moved(1899)).toBeVisible();
+}
+
+test("a pull request that moved since he ran something says so, from one commit to the next", async () => {
+  await movedAfterARun();
+  await expect.element(moved(1899)).toHaveTextContent("02d7a8c");
+  await expect.element(moved(1899)).toHaveTextContent("e4f5a6b");
+}, SLOW);
+
+test("a pull request that moved with nothing run on the older commit says nothing, and the new commit is recorded as seen", async () => {
+  await pushed();
+  await open(1899);
+  await row(212).click();
+  await expect.element(reader(212)).toBeVisible();
+  await refresh().click();
+  await row(1899).click();
+  await expect.element(reader(1899)).toBeVisible();
+  await expect.element(moved(1899)).not.toBeInTheDocument();
+  await vi.waitFor(() => expect(seenOf()).toContain("e4f5a6b"));
+}, SLOW);
+
+test("closing the line marks the new commit seen, and it stays gone when he comes back", async () => {
+  await movedAfterARun();
+  await moved(1899).getByRole("button", { name: "Mark as seen" }).click();
+  await expect.element(moved(1899)).not.toBeInTheDocument();
+  await vi.waitFor(() => expect(seenOf()).toContain("e4f5a6b"));
+  await leaveAndReturn();
+  await expect.element(moved(1899)).not.toBeInTheDocument();
+}, SLOW);
+
+test("Re-run runs what was kept on the older commit again at once, and the line goes", async () => {
+  await movedAfterARun();
+  await reader(1899).getByRole("tab", { name: "Risks", exact: true }).click();
+  await expect
+    .element(reader(1899).getByRole("region", { name: "Risks results" }).getByRole("img", { name: /^Out of date\. Ran on/ }))
+    .toBeVisible();
+  await moved(1899).getByRole("button", { name: "Re-run" }).click();
+  await expect.element(moved(1899)).not.toBeInTheDocument();
+  // It ran on the new commit, with no box asking first.
+  await expect
+    .element(reader(1899).getByRole("region", { name: "Risks results" }).getByRole("img", { name: /^Kept\. Ran .* on e4f5a6b/ }))
+    .toBeVisible();
+  await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+}, SLOW);
