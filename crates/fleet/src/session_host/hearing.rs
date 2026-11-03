@@ -75,6 +75,8 @@ where
                 };
                 // The move it was waiting on is not made: `moving` went with the process.
                 self.slot_wait_ended(id, Some("move")).await;
+                // Fleet letting a process go changes the generation, so one heard here ended on its own.
+                self.stop_kept(id).await;
                 if working {
                     self.kept_restart(
                         id,

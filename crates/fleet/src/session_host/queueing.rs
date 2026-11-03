@@ -462,6 +462,12 @@ where
         let _ = self.store().lock().await.begin_slot_wait(id, phase, &at);
     }
 
+    /// A Job's process ended on its own, kept for the split of the Job's time.
+    pub(crate) async fn stop_kept(&self, id: &str) {
+        let at = self.now().as_str().to_string();
+        let _ = self.store().lock().await.keep_session_stop(id, &at);
+    }
+
     /// The wait of `phase` ended, or every standing wait of the Job where it is `None`.
     pub(crate) async fn slot_wait_ended(&self, id: &str, phase: Option<&str>) {
         let at = self.now().as_str().to_string();

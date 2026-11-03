@@ -56,6 +56,7 @@ mod loadout_keeping;
 mod turn_ingest;
 mod usage_following;
 pub mod job_time;
+mod job_timing;
 pub mod usage_rules;
 mod usage_summarising;
 mod turn_usage_keeping;

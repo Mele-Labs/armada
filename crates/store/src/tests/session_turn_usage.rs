@@ -2,7 +2,7 @@
 //! changes nothing, and a read by session and time window returns the model, the four token fields
 //! and the names of the tools the turn called.
 
-use crate::session_turn_usage::KeptTurnUsage;
+use crate::session_turn_usage::{KeptOpenCall, KeptReading, KeptToolResult, KeptTurnTimes, KeptTurnUsage};
 use crate::tests::{open, TempDir};
 
 fn at(minute: u32) -> String {
@@ -92,4 +92,36 @@ fn a_transcript_offset_is_kept_with_its_turns_and_survives_a_reopen() {
     assert_eq!(store.keep_turns_read("s1", &[turn("m1", 1, &[])], &Default::default(), "/a.jsonl", 300).unwrap(), 0);
     drop(store);
     assert_eq!(open(&dir).transcript_offset("/a.jsonl").unwrap(), Some(300));
+}
+
+fn reading(times: KeptTurnTimes, open: &[(&str, &str)]) -> KeptReading {
+    KeptReading {
+        times: vec![times],
+        open: open
+            .iter()
+            .map(|(call, message)| KeptOpenCall { tool_use_id: (*call).into(), message_id: (*message).into() })
+            .collect(),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn a_result_read_after_its_call_ends_the_turn_s_tools_and_a_repeat_keeps_the_times() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let first = KeptTurnTimes {
+        message_id: "m1".into(),
+        model_began: Some(at(1)),
+        tools_began: Some(at(2)),
+        tools_ended: None,
+    };
+    store.keep_turns_read("s1", &[turn("m1", 2, &["Bash"])], &reading(first, &[("t1", "m1")]), "/a.jsonl", 10).unwrap();
+    let late = KeptReading { late: vec![KeptToolResult { tool_use_id: "t1".into(), at: at(5) }], ..Default::default() };
+    store.keep_turns_read("s1", &[], &late, "/a.jsonl", 20).unwrap();
+    // The message heard again with its own calls and no result: the upsert must not drop the end.
+    let again = KeptTurnTimes { message_id: "m1".into(), model_began: Some(at(1)), tools_began: Some(at(2)), tools_ended: None };
+    store.keep_turns_read("s1", &[turn("m1", 2, &["Bash"])], &reading(again, &[]), "/a.jsonl", 30).unwrap();
+    let timed = store.turns_timed("s1").unwrap();
+    assert_eq!((timed[0].tools_began.as_deref(), timed[0].tools_ended.as_deref()), (Some(at(2).as_str()), Some(at(5).as_str())));
+    assert_eq!(timed[0].model_began.as_deref(), Some(at(1).as_str()));
 }

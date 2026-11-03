@@ -34,13 +34,25 @@ where
     let waits = Arc::clone(&fleet);
     tokio::spawn(async move {
         let at = waits.now().as_str().to_string();
-        let _ = waits.store().lock().await.end_all_slot_waits(&at);
+        let mut store = waits.store().lock().await;
+        let _ = store.end_all_slot_waits(&at);
+        // Away for longer than a few missed beats is an outage, the split of a Job's time counts as stopped.
+        let _ = store.fleet_started(&at, crate::job_timing::OUTAGE_SECONDS);
     });
     // The week's transcripts, read once and in the background, a while after Fleet is up.
     let backfill = Arc::clone(&fleet);
     tokio::spawn(async move {
         tokio::time::sleep(crate::turn_ingest::BACKFILL_AFTER).await;
         backfill.turns_backfilled(false).await;
+    });
+    // Where each ended Job's time went, kept as they end and, the first time, for those that ended before.
+    let timing = Arc::clone(&fleet);
+    tokio::spawn(async move {
+        tokio::time::sleep(crate::job_timing::AFTER).await;
+        loop {
+            timing.jobs_timed().await;
+            tokio::time::sleep(crate::job_timing::EVERY).await;
+        }
     });
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(tick);
@@ -50,8 +62,14 @@ where
         let mut measured = tokio::time::Instant::now();
         let mut disputes_read = tokio::time::Instant::now();
         let mut pages_read = tokio::time::Instant::now();
+        let mut alive = tokio::time::Instant::now();
         loop {
             ticker.tick().await;
+            if alive.elapsed() >= crate::job_timing::BEAT {
+                alive = tokio::time::Instant::now();
+                let at = fleet.now().as_str().to_string();
+                let _ = fleet.store().lock().await.keep_fleet_alive(&at);
+            }
             // A subagent its parent sent more work, read as running again from its own transcript.
             if followed.elapsed() >= crate::subagents_resumed::EVERY {
                 followed = tokio::time::Instant::now();

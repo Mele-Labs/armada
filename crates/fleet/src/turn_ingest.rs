@@ -122,7 +122,7 @@ where
     }
 
     /// One transcript, read from its kept offset to its end in bounded reads.
-    async fn transcript_taken_in(&self, file: &TranscriptFile, from_start: bool) -> usize {
+    pub(crate) async fn transcript_taken_in(&self, file: &TranscriptFile, from_start: bool) -> usize {
         let key = file.path.to_string_lossy().to_string();
         let (mut changed, mut first) = (0, true);
         loop {
