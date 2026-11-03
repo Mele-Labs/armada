@@ -30,8 +30,12 @@ const prReviewPanes = walk("pr-review", [
     say: "It opens in panes, as a Job does. Overview, Files, Checks, Commits and Review are tabs of the main pane",
   },
   {
-    look: toolsPane,
-    say: "To the right, the pane the tools open in",
+    look: inside(toolsPane, role("list", "Tools")),
+    say: "To the right, the pane the tools open in. Until one opens it lists them all, each with its key, shown while ⌘ is held, and what is kept",
+  },
+  {
+    look: inside(toolsPane, button("Add a tool")),
+    say: "Add a tool, under the list",
   },
   {
     look: comments,

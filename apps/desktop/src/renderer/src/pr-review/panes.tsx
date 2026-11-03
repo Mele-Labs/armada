@@ -4,8 +4,11 @@
 // spends does. Comments lists the threads, and a press on one brings Files forward at its line.
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { SquarePlus } from "lucide-react";
+import { LoaderCircle, SquarePlus } from "lucide-react";
 import {
+  Button,
+  Kbd,
+  PrMark,
   PrChecks,
   PrCommits,
   PullRequestFilesView,
@@ -38,7 +41,7 @@ import { SOURCE_MARK, TOOL_MARK } from "./marks";
 import type { ReviewPr, Thread, ToolDef } from "./model";
 import { indexOfPlace } from "./patch";
 import { Overview } from "./reader";
-import { ToolResults } from "./results";
+import { KeptMark, ToolResults } from "./results";
 import { NO_WORK, useReviewStore, useReviews, type ReviewStore } from "./store";
 import { isWalk, tilesOf, toolsOf } from "./tools";
 import { WalkView } from "./walk";
@@ -236,6 +239,63 @@ function ToolBody({
   );
 }
 
+/** What a pull request's pane with no tab draws: every explanation and tool, as + lists them, and Add a tool under them. A row opens its tool's tab here. */
+function ToolList({
+  pr,
+  tools,
+  onPress,
+  onAdd,
+}: {
+  pr: ReviewPr;
+  tools: readonly ToolDef[];
+  onPress: (tool: ToolDef) => void;
+  onAdd: () => void;
+}) {
+  const work = useReviews().work[pr.key] ?? NO_WORK;
+  return (
+    <div className="job-pane__scroll pr-tool-list">
+      <ul className="pr-tool-list__rows" aria-label="Tools">
+        {tools.map((tool, at) => {
+          const run = tool.kind === "explanation" ? work.explains[tool.id] : work.runs[tool.id];
+          const { Glyph } = TOOL_MARK[tool.mark];
+          return (
+            <li key={tool.id}>
+              <button
+                type="button"
+                className="pr-tool-list__row"
+                data-tool={tool.mark}
+                aria-label={tool.name}
+                onClick={() => onPress(tool)}
+              >
+                <span className="pr-tool-list__glyph">
+                  <Glyph size={16} strokeWidth={2} aria-hidden />
+                </span>
+                <span className="pr-tool-list__name">{tool.name}</span>
+                <span className="pr-tool-list__key">
+                  {at < 9 ? <Kbd aria-hidden="true">{at + 1}</Kbd> : null}
+                </span>
+                <span className="pr-tool-list__mark">
+                  {run?.state === "running" ? (
+                    <PrMark Glyph={LoaderCircle} said="Running" tone="running" />
+                  ) : (
+                    <KeptMark run={run} head={pr.head} />
+                  )}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="pr-tool-list__add">
+        <Button variant="ghost" size="sm" onClick={onAdd}>
+          <SquarePlus size={16} strokeWidth={2} aria-hidden />
+          Add a tool
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /** The pull request's panes. `controls` is where its Layout control stands, in the reader's head. */
 export function PrPanes({
   pr,
@@ -406,6 +466,14 @@ export function PrPanes({
           entries,
           onSelect: choose,
         }}
+        empty={(pane) => (
+          <ToolList
+            pr={pr}
+            tools={tools}
+            onPress={(tool) => press(tool, pane.id)}
+            onAdd={() => setAdding(true)}
+          />
+        )}
         glyphOf={(tab) => {
           if (tab.kind !== "pr-tool") return undefined;
           const tool = tools.find((one) => one.id === tab.page);

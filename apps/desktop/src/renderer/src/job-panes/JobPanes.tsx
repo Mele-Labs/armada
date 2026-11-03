@@ -136,6 +136,7 @@ export function JobPanes({
   controls: place,
   add,
   glyphOf,
+  empty,
 }: {
   jobId: string;
   body: (tab: Tab) => ReactNode;
@@ -145,6 +146,8 @@ export function JobPanes({
   controls?: Element | null;
   add?: AddMenu;
   glyphOf?: (tab: Tab) => LucideIcon | undefined;
+  /** What a pane with no tab draws in its body; absent, it draws nothing. */
+  empty?: (pane: Pane) => ReactNode;
 }) {
   const { droppableEdge, droppableGap, measured, rearrange, useJobPanes } = family;
   const { arrangement, layout, edited, layouts, forAll } = useJobPanes(jobId);
@@ -258,7 +261,7 @@ export function JobPanes({
                     add={add}
                     glyphOf={glyphOf}
                   >
-                    {active === undefined ? null : body(active)}
+                    {active === undefined ? (empty?.(pane) ?? null) : body(active)}
                   </PaneView>
                 </div>
               );

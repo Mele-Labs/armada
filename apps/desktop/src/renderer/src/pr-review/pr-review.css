@@ -1318,3 +1318,61 @@
 }
 
 /* Pending: the row as it will be, in bars. The wrapper takes the line the text takes, so the row is the height it lands at. */
+
+/* ---- A pull request's pane with no tab: every tool, one row each, in fixed columns -------------------- */
+
+.pr-tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.pr-tool-list__rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* The glyph, the key and the mark keep their columns on a row that has no key or no mark. */
+.pr-tool-list__row {
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, 1fr) var(--space-6) var(--space-4);
+  align-items: center;
+  column-gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.pr-tool-list__row:hover {
+  background: color-mix(in srgb, var(--fg-default) 10%, transparent);
+}
+.pr-tool-list__row:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+.pr-tool-list__glyph {
+  color: var(--tool-hue);
+}
+.pr-tool-list__glyph,
+.pr-tool-list__mark {
+  display: inline-flex;
+  align-items: center;
+}
+.pr-tool-list__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pr-tool-list__key {
+  display: inline-flex;
+  justify-content: flex-end;
+}
