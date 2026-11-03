@@ -1307,6 +1307,37 @@ export function WalkBar({
     readiness === undefined ? null : (
       <SessionMark state={READINESS[readiness].mark} said={READINESS[readiness].said} />
     );
+  const twoRows = steps || takes !== undefined;
+  // At the end of the second row, which has the room; the first is full of the takes and Approve.
+  const whatToLookAt =
+    brief === undefined ? null : (
+      <Popover
+        label="What to look at"
+        align="end"
+        onOpenChange={(open) => {
+          setAsked(open);
+          // The panel took the focus in with it, so closing hands it back. A press elsewhere has already moved it.
+          if (!open && document.activeElement === document.body) ask.current?.focus();
+        }}
+        trigger={
+          <Tooltip label="What to look at">
+            <Button
+              ref={ask}
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="What to look at"
+              aria-haspopup="dialog"
+              aria-expanded={asked}
+            >
+              <CircleHelp size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+        }
+      >
+        <WalkBrief said={brief} />
+      </Popover>
+    );
   return (
     <div
       className="armada-capture-bar armada-capture-bar--walk"
@@ -1363,35 +1394,7 @@ export function WalkBar({
           </>
         )}
         <span className="armada-capture-bar__icons armada-capture-bar__icons--end">
-          {brief === undefined ? (
-            <span className="armada-capture-bar__icon-slot" aria-hidden />
-          ) : (
-            <Popover
-              label="What to look at"
-              onOpenChange={(open) => {
-                setAsked(open);
-                // The panel took the focus in with it, so closing hands it back. A press elsewhere has already moved it.
-                if (!open && document.activeElement === document.body) ask.current?.focus();
-              }}
-              trigger={
-                <Tooltip label="What to look at">
-                  <Button
-                    ref={ask}
-                    variant="ghost"
-                    size="sm"
-                    iconOnly
-                    aria-label="What to look at"
-                    aria-haspopup="dialog"
-                    aria-expanded={asked}
-                  >
-                    <CircleHelp size={16} strokeWidth={2} aria-hidden />
-                  </Button>
-                </Tooltip>
-              }
-            >
-              <WalkBrief said={brief} />
-            </Popover>
-          )}
+          {twoRows ? null : whatToLookAt}
           <Tooltip label="Reload" shortcut={QUEUE_KEYS.reload.join("")}>
             <Button variant="ghost" size="sm" iconOnly aria-label="Reload" onClick={onReload}>
               <RefreshCw size={16} strokeWidth={2} aria-hidden />
@@ -1419,7 +1422,7 @@ export function WalkBar({
         </span>
         <span className="armada-capture-bar__approve">{approve}</span>
       </div>
-      {!steps && takes === undefined ? null : (
+      {!twoRows ? null : (
         <div className="armada-capture-bar__row armada-capture-bar__walk">
           {!steps ? null : (
             <>
@@ -1454,6 +1457,11 @@ export function WalkBar({
                 {said}
               </span>
             </>
+          )}
+          {whatToLookAt === null ? null : (
+            <span className="armada-capture-bar__icons armada-capture-bar__icons--end">
+              {whatToLookAt}
+            </span>
           )}
         </div>
       )}

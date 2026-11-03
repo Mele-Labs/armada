@@ -572,13 +572,6 @@
   text-align: center;
 }
 
-/* The brief's place on a walk that has none: the button's own square, so Reload and Capture keep theirs. */
-.armada-capture-bar__icon-slot {
-  flex: none;
-  width: var(--h-control-sm);
-  height: var(--h-control-sm);
-}
-
 .armada-capture-bar__brief {
   margin: 0;
   outline: none;
