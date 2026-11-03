@@ -115,7 +115,7 @@ The agent's own `waiting_for` replaces its items and no others, so it cannot hol
 A dismissal is not kept as a closed item, since the tab owns the ask and there is nothing to reopen.
 
 **Held in memory only.**
-A Fleet that restarts loses the items, and Bridge still has its bubble.
+A Fleet that restarts loses the items, and Bridge still has its strip.
 Where no client holds `/events` open, Fleet drops every ask on the next read, since nothing can act on the answer, and a Bridge that opens later starts with none.
 That is the same count `fleet.browser_no_bridge` reads.
 A Fleet that has no reader between a Bridge closing and another opening keeps the old asks until the next read of any Job.

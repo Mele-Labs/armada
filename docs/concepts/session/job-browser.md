@@ -87,9 +87,10 @@ An act on a page held by a dialog runs out on Fleet's hold.
 ## A page's ask
 
 **A page that asks for something the row says Ask for is one ask, shown in two places.**
-A bubble in the tab reads *Allow {Label} for {host}?* with Allow and Block, and an item in the Job's Needs you carries the same words, so the row calls and the person answers from the thread.
+A strip above the page reads *Allow {Label} for {host}?* with Allow and Block, and an item in the Job's Needs you carries the same words, so the row calls and the person answers from the thread.
+The strip moves the page down and never covers it, so the page and every other tab stay usable while the ask waits.
 **Answering in either takes both away and is remembered for that host.**
-Esc on the bubble, or the item's dismiss, refuses it now and keeps nothing.
+Esc in Bridge, or the item's dismiss, refuses it now and keeps nothing.
 Closing the tab ends the ask, and the page and its history go with the tab, while cookies stay in the repository's session.
 **The agent is told nothing and is not woken.**
 An ask raised during an agent's act waits on the person, and the agent's call may time out meanwhile.
