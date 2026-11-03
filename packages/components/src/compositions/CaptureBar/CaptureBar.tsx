@@ -2,8 +2,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Circle,
-  CircleDot,
   CircleHelp,
   Crosshair,
   LoaderCircle,
@@ -1382,11 +1380,6 @@ export function WalkBar({
                   className="armada-capture-bar__take"
                   onClick={() => takes.onPick(to)}
                 >
-                  {to === takes.at ? (
-                    <CircleDot size={12} strokeWidth={2} aria-hidden />
-                  ) : (
-                    <Circle size={12} strokeWidth={2} aria-hidden />
-                  )}
                   {one}
                 </button>
               ))}

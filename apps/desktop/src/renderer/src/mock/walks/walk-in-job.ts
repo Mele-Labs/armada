@@ -49,7 +49,7 @@ const walkInJob = walk("walk-in-job", [
   },
   {
     look: inside(billing, text("Pick one")),
-    say: "Pick one lists the takes, and the filled mark is the one on screen",
+    say: "Pick one lists the takes, and the filled one is on screen",
   },
   {
     press: inside(takes, role("radio", "Roomy")),
