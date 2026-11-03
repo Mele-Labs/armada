@@ -213,7 +213,7 @@ function sessions() {
 export const walkInJob: Scenario = {
   ...holding(
     "walk-in-job",
-    "A Job's walk as a tab beside its thread: the row and the tab pulse until he opens them, and approving closes the tab",
+    "A Job's walk as a tab beside its thread: the row and the tab pulse until opened, and approving closes the tab",
   ),
   draft: {
     sessions,

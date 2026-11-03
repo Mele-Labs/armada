@@ -15,7 +15,7 @@ const walkInJob = walk("walk-in-job", [
   },
   {
     look: deckRow("Tidy the account pages"),
-    say: "The row of a Job that owes him a walk pulses",
+    say: "The row of a Job with a walk pulses",
   },
   {
     press: deckRow("Tidy the account pages"),
@@ -74,7 +74,7 @@ const walkInJob = walk("walk-in-job", [
   },
   {
     look: inside(billing, button(/^Approve Roomy$/)),
-    say: "The take is the one he left",
+    say: "The take is the one you left",
   },
   {
     look: inside(billing, text("2 of 5")),
