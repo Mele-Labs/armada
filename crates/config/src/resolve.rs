@@ -369,6 +369,7 @@ fn resolve_step(
     // this is a plan step; this is the other way one can be, folded in
     // beside it rather than replacing it. `#1006`.
     .also_recording_the_plan(step.records_plan())
+    .leaving_the_plan_unasked(step.plan_unasked())
     .asking_delivery(step.asks_delivery())
     .walking_the_work(step.walks())
     .ending_on(step.ends_on().to_vec())

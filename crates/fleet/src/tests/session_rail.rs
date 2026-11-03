@@ -42,6 +42,7 @@ pub(super) fn step(label: &str) -> RailStep {
         about: None,
         instructions: None,
         records_plan: false,
+        plan_unasked: false,
         follows_plan: false,
         delivers: false,
         asks_delivery: false,

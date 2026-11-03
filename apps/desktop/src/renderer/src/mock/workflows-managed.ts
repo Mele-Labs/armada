@@ -180,7 +180,7 @@ export const MANAGED_ENDS: Readonly<
     ],
   },
   walk: {
-    ends: "you approve every walk you were shown",
+    ends: "you approve every walk",
     passedOver: "nothing would be seen",
   },
   refine: {
