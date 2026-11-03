@@ -73,12 +73,14 @@ function initial(): Record<number, PullRequestPage> {
   const conversation2209: PullRequestEntry[] = [
     {
       kind: "comment",
+      id: "IC_1",
       author: "claude",
       at: minutesAgo(95),
       body: "Every link goes through `openPullRequest` now.\n\n- the setting is read once, in main\n- **Open in browser** stays on the panel\n\n```ts\nconst where = settings.links.openPullRequestsIn;\n```",
     },
     {
       kind: "review",
+      id: "PRR_1",
       author: "marta",
       at: minutesAgo(70),
       verdict: "changes_requested",
@@ -86,12 +88,14 @@ function initial(): Record<number, PullRequestPage> {
     },
     {
       kind: "comment",
+      id: "IC_2",
       author: "nick",
       at: minutesAgo(52),
       body: "Added the default. `armada` is the value.",
     },
     {
       kind: "review",
+      id: "PRR_2",
       author: "marta",
       at: minutesAgo(40),
       verdict: "approved",
@@ -99,6 +103,7 @@ function initial(): Record<number, PullRequestPage> {
     },
     {
       kind: "review",
+      id: "PRR_3",
       author: "nick",
       at: minutesAgo(12),
       verdict: "commented",
@@ -281,6 +286,7 @@ function initial(): Record<number, PullRequestPage> {
       conversation: [
         {
           kind: "comment",
+          id: "IC_3",
           author: "marta",
           at: minutesAgo(280),
           body: "Reads `placeOf` from the merge lines Fleet serves.\n\nDraws nothing when the pull request is in none.",
@@ -385,12 +391,14 @@ function initial(): Record<number, PullRequestPage> {
       conversation: [
         {
           kind: "comment",
+          id: "IC_4",
           author: "claude",
           at: minutesAgo(40),
           body: "The clash is read from `git merge-tree`, not guessed from the paths.",
         },
         {
           kind: "review",
+          id: "PRR_4",
           author: "nick",
           at: minutesAgo(18),
           verdict: "changes_requested",
@@ -512,6 +520,7 @@ function initial(): Record<number, PullRequestPage> {
       conversation: [
         {
           kind: "comment",
+          id: "IC_5",
           author: "nick",
           at: minutesAgo(18),
           body: "Reads the forge again when its first answer is empty.",
@@ -624,16 +633,19 @@ export function pullRequestPages(): PullRequestPages {
           said: "A comment needs words.",
         };
       const at = new Date().toISOString();
+      const id = `mock:${number}:${page.conversation.length + 1}`;
       const entry: PullRequestEntry =
         write.kind === "comment"
           ? {
               kind: "comment",
+              id,
               author: "nick",
               at,
               body,
             }
           : {
               kind: "review",
+              id,
               author: "nick",
               at,
               verdict: write.kind === "approve" ? "approved" : "changes_requested",

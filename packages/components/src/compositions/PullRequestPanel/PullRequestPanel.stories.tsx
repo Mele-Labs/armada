@@ -141,12 +141,14 @@ const PAGE: PullRequestPage = {
   conversation: [
     {
       kind: "comment",
+      id: "IC_1",
       author: "claude",
       at: ago(95),
       body: "Open pull requests go through `openPullRequest`:\n\n- the setting is read once\n- the browser stays one press away",
     },
     {
       kind: "review",
+      id: "PRR_1",
       author: "reviewer",
       at: ago(60),
       verdict: "changes_requested",
@@ -154,6 +156,7 @@ const PAGE: PullRequestPage = {
     },
     {
       kind: "review",
+      id: "PRR_2",
       author: "reviewer",
       at: ago(40),
       verdict: "approved",
@@ -161,6 +164,7 @@ const PAGE: PullRequestPage = {
     },
     {
       kind: "review",
+      id: "PRR_3",
       author: "nick",
       at: ago(12),
       verdict: "commented",

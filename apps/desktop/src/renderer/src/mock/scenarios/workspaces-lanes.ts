@@ -948,8 +948,9 @@ const page = (): PullRequestPage => ({
   review: "none",
   approvals: 0,
   body: "Adds gift cards to the cart and the balance endpoint.\n\nARM-41, ARM-42.",
-  conversation: COMMENTS.map((one) => ({
+  conversation: COMMENTS.map((one, index) => ({
     kind: "comment" as const,
+    id: `IC_812_${index + 1}`,
     author: one.author,
     at: local("13:02"),
     body: one.text,

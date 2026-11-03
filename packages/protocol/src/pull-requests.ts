@@ -81,18 +81,28 @@ export type PullRequestReviewer = {
   team?: string;
 };
 
-/** One thing said on the pull request, in the order it was said. */
+/**
+ * One thing said on the pull request, in the order it was said. `id` is the forge's own, which a
+ * later read names the same one by. `edited_at` is absent when it was never edited, and always
+ * where Fleet read the page through `gh pr view`, which does not say. `bot` is absent for a person.
+ */
 export type PullRequestEntry =
   | {
       kind: "comment";
+      id: string;
       author: string;
+      bot?: boolean;
       at: string;
+      edited_at?: string;
       body: string;
     }
   | {
       kind: "review";
+      id: string;
       author: string;
+      bot?: boolean;
       at: string;
+      edited_at?: string;
       verdict: "approved" | "changes_requested" | "commented";
       body: string;
     };
