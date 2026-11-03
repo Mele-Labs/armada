@@ -1249,7 +1249,7 @@ describe("a draft Job, and the acts on a Job", {
         expect(inGroup(START, "Dismiss")).toBeUndefined();
         await press(inGroup(START, "Open"));
         await vi.waitFor(() =>
-          expect(window.location.pathname).toBe(`/jobs/${encodeURIComponent(STUDIO)}/d1`),
+          expect(window.location.pathname).toBe(`/drafts/${encodeURIComponent(STUDIO)}/d1`),
         );
         expect(posted[STUDIO]).toEqual([]);
       });
