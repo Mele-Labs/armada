@@ -92,6 +92,7 @@ import { queuedIn, queuedKey } from "./queued";
 import { toolsMissingSaid, type QueuedIdea } from "@armada/screens/src/draft/sessions";
 import { MapView } from "./MapPane";
 import { CallsHud, showCall, useCallsHud } from "./ConsoleCalls";
+import { creatingSlot } from "../../held-slots";
 import { sessionIdOf } from "../waiting";
 import { leaveFrom, onEnd, reducedMotion, useExiting } from "./exit";
 import { CallPane, SessionPane, ShellPanel } from "./panes";
@@ -551,7 +552,13 @@ function List({
           <ListCard
             className="deck-row"
             data-row={one.key}
-            data-calling={call === undefined && !needs ? undefined : ""}
+            data-calling={
+              (call === undefined ||
+                (call.waiting !== undefined && creatingSlot(call.waiting.item))) &&
+              !needs
+                ? undefined
+                : ""
+            }
             needs={needs}
             data-lamp={lampOf(one)}
             data-linked={one.linked?.depth !== undefined || undefined}

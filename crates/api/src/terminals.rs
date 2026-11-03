@@ -1,5 +1,5 @@
-//! A Job's shell: the person's open from Bridge, and the agent's typing and reading through the
-//! door. Its output, keys, size and stop are the run routes, on its `run_id`.
+//! A Job's terminals: the person's open and rename from Bridge, and the agent's typing, reading and
+//! listing through the door. A shell's output, keys, size and stop are the run routes, on its `run_id`.
 
 use axum::body::Bytes;
 use axum::extract::{Query, State};
@@ -11,7 +11,7 @@ use crate::daemon::Sessions;
 use crate::served::Served;
 
 /// 200 with the shell's run id, open already or opened now. 422 for a Job that has ended or that
-/// Fleet does not know, or a size with no cells.
+/// Fleet does not know, a size with no cells, a `terminal` the Job never had, and `new` with `terminal`.
 pub(crate) async fn open_terminal<D: Sessions>(
     State(served): State<Served<D>>,
     body: Bytes,
@@ -72,6 +72,37 @@ pub(crate) async fn read_terminal<D: Sessions>(
         .map(|id| ipc::SessionId::carried(id.as_str().trim()));
     match served.daemon().read_terminal(crate::acting::asking(), asked).await {
         Ok(screen) => answer(StatusCode::OK, &screen, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// 200 with the Job's open terminals. 422 for a call that places no Job.
+/// **The Job is placed by the connection** as `type_in_terminal`'s is.
+pub(crate) async fn list_terminals<D: Sessions>(
+    State(served): State<Served<D>>,
+    Query(mut asked): Query<ipc::ListTerminals>,
+) -> Response {
+    asked.session_id = asked
+        .session_id
+        .filter(|id| !id.as_str().trim().is_empty())
+        .map(|id| ipc::SessionId::carried(id.as_str().trim()));
+    match served.daemon().list_terminals(crate::acting::asking(), asked).await {
+        Ok(listed) => answer(StatusCode::OK, &listed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// 200 with the terminal as it now stands. 422 for a terminal the Job has not open.
+pub(crate) async fn rename_terminal<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let rename: ipc::RenameTerminal = match ipc::decode_body("a terminal to rename", &body) {
+        Ok(rename) => rename,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().rename_terminal(rename).await {
+        Ok(renamed) => answer(StatusCode::OK, &renamed, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

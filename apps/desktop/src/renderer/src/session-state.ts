@@ -7,6 +7,8 @@
 import { limitHeldSaid } from "@armada/components";
 import type { SessionState, WaitingLine } from "@armada/components";
 import { attachmentsOf, isBlank, owesOf, standingOf } from "@armada/screens/src/draft/sessions";
+
+import { creatingSlot } from "./held-slots";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { HeldOpenBy } from "@armada/protocol";
 import { startsWhenSaid } from "@armada/screens/src/session-waits";
@@ -115,7 +117,7 @@ export function stateOf(session: Session): {
   if (
     owesOf(session).some(
       (one) =>
-        one.source === "slot_choice" ||
+        (one.source === "slot_choice" && !creatingSlot(one)) ||
         one.source === "delivery" ||
         one.source === "plan" ||
         one.source === "task_done" ||

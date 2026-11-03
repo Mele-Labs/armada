@@ -507,6 +507,68 @@ fn read_terminals_waiting_arguments_say_what_they_do() {
     }
 }
 
+/// A Job has several terminals, and only the door's text tells the agent so. The tools' descriptions
+/// say it can be handed an ID, where the IDs are listed, what leaving one out means, and what `new`
+/// is, and no longer call the terminal the one the person sees.
+#[test]
+fn the_terminal_tools_tell_an_agent_a_job_has_several_terminals() {
+    let described = |operation: &str| -> &'static str {
+        REACHABLE.iter().find(|row| row.operation == operation).unwrap_or_else(|| panic!("{operation} is not a door tool")).description
+    };
+    for operation in ["type_in_terminal", "read_terminal", "list_terminals"] {
+        let said = described(operation);
+        assert!(said.contains("several terminals"), "{operation}: {said}");
+        assert!(said.contains("t2"), "{operation} gives no example ID: {said}");
+        assert!(said.contains("hand"), "{operation} does not say the person can hand over an ID: {said}");
+        assert!(!said.contains("the one the person sees"), "{operation}: {said}");
+        assert!(!said.contains("this Job's terminal,"), "{operation}: {said}");
+    }
+    for operation in ["type_in_terminal", "read_terminal"] {
+        let said = described(operation);
+        assert!(said.contains("list_terminals"), "{operation} does not name the list: {said}");
+        assert!(said.contains("last"), "{operation} does not say what an unnamed terminal is: {said}");
+        assert!(said.contains("terminal (an ID such as t2)"), "{operation}: {said}");
+    }
+    let typing = described("type_in_terminal");
+    assert!(typing.contains("optional new"), "{typing}");
+    assert!(typing.contains("never the person's terminal"), "{typing}");
+}
+
+/// `list_terminals` is the agent's to call and `rename_terminal` is the person's.
+#[test]
+fn the_agent_may_list_terminals_and_may_not_rename_one() {
+    let reachable: Vec<&str> = REACHABLE.iter().map(|row| row.operation).collect();
+    assert!(reachable.contains(&"list_terminals"), "{reachable:?}");
+    assert!(!reachable.contains(&"rename_terminal"), "naming a tab is the person's act");
+}
+
+/// The arguments the terminal tools take are their own words, not the default text of a name any
+/// route may take.
+#[test]
+fn the_terminal_tools_arguments_say_what_they_do() {
+    let listed = |operation: &'static str, path: &'static str, query: &'static [&'static str]| -> Value {
+        serde_json::from_str(
+            &answer(Answered::Tools {
+                id: crate::door::CallId::of(json!(1)),
+                shapes: vec![Shape { operation, method: "GET", path, query }],
+                always_loads: None,
+            })
+            .expect("an answer"),
+        )
+        .expect("the answer is JSON")
+    };
+    let read = listed("read_terminal", "/sessions/terminal/read", &["terminal", "session_id"]);
+    let schema = &read["result"]["tools"][0]["inputSchema"]["properties"];
+    let terminal = schema["terminal"]["description"].as_str().expect("described");
+    assert!(!terminal.contains("this route names"), "{terminal}");
+    assert!(terminal.contains("t2") && terminal.contains("list_terminals"), "{terminal}");
+
+    let list = listed("list_terminals", "/sessions/terminal/list", &["session_id"]);
+    let schema = &list["result"]["tools"][0]["inputSchema"]["properties"];
+    let session = schema["session_id"]["description"].as_str().expect("described");
+    assert!(!session.contains("this route names"), "{session}");
+}
+
 /// A row the inventory marks `always_loaded` carries the harness's key in `_meta`, and only where
 /// the harness names one.
 #[test]

@@ -138,6 +138,7 @@ fn watches_changed_carries_the_jobs_list_with_its_history_and_verdicts() {
         }],
         in_terminal: None,
         regex: false,
+        terminal: None,
         login_shell: Some(LoginShell::FellBack { why: "zsh took longer than 15s to start.".into() }),
     };
     let event = Event::WatchesChanged(WatchList { session_id: SessionId::carried("s1"), watches: vec![watch] });
@@ -162,7 +163,12 @@ fn a_terminal_start_waits_on_text_and_takes_no_command() {
     .expect("a terminal start");
     assert_eq!(
         start.starts,
-        WatchStarts::Terminal { text: String::from("Listening on \\d+"), regex: true, gives_up_after: Some(String::from("10m")) }
+        WatchStarts::Terminal {
+            text: String::from("Listening on \\d+"),
+            regex: true,
+            terminal: None,
+            gives_up_after: Some(String::from("10m")),
+        }
     );
     let again: StartWatch = decode("a watch to start", encode(&start).expect("plain data").as_bytes()).expect("round trip");
     assert_eq!(again, start);
@@ -230,4 +236,22 @@ fn back_to_back_readings_that_read_the_same_are_one_with_first_last_and_count() 
     assert_eq!(json.matches("count").count(), 2, "a lone reading carries no count: {json}");
     let again: Vec<WatchReading> = decode("readings", json.as_bytes()).expect("round trip");
     assert_eq!(again, runs);
+}
+
+#[test]
+fn a_terminal_watch_may_name_which_terminal_and_only_with_in_terminal() {
+    let named: StartWatch =
+        decode("a watch to start", br#"{"name":"Server up","in_terminal":"ready","terminal":"t2"}"#).expect("a named terminal");
+    assert_eq!(
+        named.starts,
+        WatchStarts::Terminal { text: String::from("ready"), regex: false, terminal: Some(String::from("t2")), gives_up_after: None }
+    );
+    let again: StartWatch = decode("a watch to start", encode(&named).expect("plain data").as_bytes()).expect("round trip");
+    assert_eq!(again, named);
+
+    let unnamed: StartWatch = decode("a watch to start", br#"{"name":"x","in_terminal":"up"}"#).expect("an unnamed one");
+    assert!(!encode(&unnamed).expect("plain data").contains("\"terminal\":"), "an unnamed terminal is not written");
+
+    let alone = r#"{"name":"x","command":["a"],"every":"60s","terminal":"t2"}"#;
+    assert!(decode::<StartWatch>("a watch to start", alone.as_bytes()).is_err(), "{alone}");
 }

@@ -98,6 +98,7 @@ export function QuestionDeck({
   canSkip,
   flat,
   keep,
+  beneath,
   detail,
 }: {
   questions: readonly AskedQuestion[];
@@ -108,6 +109,8 @@ export function QuestionDeck({
   flat?: boolean;
   /** What these questions are about: the picks and the question in front are kept under it, as a message not yet sent is, and go when it is answered or skipped. */
   keep?: string;
+  /** Drawn under the options and above Answer, where a question has more to offer than choices: the slots a full pool is held by. */
+  beneath?: ReactNode;
   /** What the question in front carries under its words and above its answers: the steps a call asks the person to follow. */
   detail?: ReactNode;
 }) {
@@ -470,6 +473,7 @@ export function QuestionDeck({
                 onChange={(event) => setWords(at(words, front, event.target.value))}
               />
             ) : null}
+            {beneath}
             <div className="armada-session-thread__answers" role="group" aria-label="Answers">
               {last ? (
                 <Button

@@ -32,6 +32,7 @@ fn summary(session_id: SessionId, name: String, command: Vec<String>, recipe: Op
         verdicts: Vec::new(),
         in_terminal: None,
         regex: false,
+        terminal: None,
         login_shell: None,
     }
 }

@@ -189,6 +189,7 @@ import { firstContactOf, machineOf } from "./settings-surface";
 import { fleetBuildOf, useFleetBuild } from "./fleet-build";
 import { useBuildFailed } from "./build-failed";
 import { stateOf } from "./state-feed";
+import { onCopiedAnnounced } from "./copied";
 import { shellsOf } from "./job-shell";
 import { usePower } from "./cockpit/boot";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
@@ -215,6 +216,12 @@ export function App() {
   // connection and is never reset from here — a drop that happened, happened.
   const [acknowledged, setAcknowledged] = useState(0);
   const [copied, setCopied] = useCopied();
+  useEffect(
+    () => onCopiedAnnounced(setCopied),
+    [
+      setCopied,
+    ],
+  );
   // What the app is telling somebody, as a sentence it already wrote. Today
   // that is only an open that did not happen; a click ending in nothing on
   // screen is the defect the openable records were added against.

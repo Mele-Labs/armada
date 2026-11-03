@@ -16,7 +16,7 @@ use ipc::{ChangeSlotPool, ManifestId, SessionRow, SessionTurn, SlotAct, SlotPool
 use store::{Holder, KeptHosting};
 
 use crate::daemon::Fleet;
-use crate::leasing::{pool_of, SLOT_SESSION_WORKING};
+use crate::leasing::{pool_of, SLOT_SESSION_WORKING, SLOT_UNCOMMITTED};
 use crate::repositories::Served;
 use crate::saving::released_answer;
 
@@ -44,7 +44,7 @@ where
             let hosting = self.store().lock().await.hosting(holder).ok().flatten();
             if let Some(hosting) = hosting {
                 let served = self.served_named(manifest_id)?;
-                let released = self.hosted_released(&served, slot, hosting).await;
+                let released = self.hosted_released(&served, slot, hosting, false).await;
                 if released.is_ok() {
                     self.hosts().slot_freed();
                 }
@@ -60,11 +60,16 @@ where
     /// mid-turn as `fleet.slot_session_working`, with nothing ended and the rows
     /// standing. An idle session's process is let go the way a tune lets it go,
     /// and its next message resumes it.
-    async fn hosted_released(
+    /// **`refuse_uncommitted` is the person's Free of a slot a waiting Job's call lists**: a
+    /// checkout holding files no commit has is refused as `fleet.slot_uncommitted`, where a Clear
+    /// commits them to the Job's branch. Asked after the turn, so a Job that is running is
+    /// refused as working first, and before anything is ended.
+    pub(super) async fn hosted_released(
         &self,
         served: &Served,
         slot: u32,
         mut hosting: KeptHosting,
+        refuse_uncommitted: bool,
     ) -> Result<SlotPoolChanged, Refusal> {
         let id = hosting.session_id.clone();
         let pool = pool_of(served);
@@ -91,6 +96,27 @@ where
             .ok()
             .flatten()
             .and_then(|kept| kept.title);
+        let working = matches!(self.hosts().of(&id).state().turn, SessionTurn::Working { .. });
+        if refuse_uncommitted && !working {
+            let dirty = {
+                let (vcs, pool) = (Arc::clone(self.vcs()), pool.clone());
+                tokio::task::spawn_blocking(move || vcs.slot_dirty(&pool, slot))
+                    .await
+                    .expect("git panicked reading a slot")
+            };
+            match dirty {
+                Ok(false) => {}
+                Ok(true) => {
+                    let name = title.as_deref().unwrap_or("The job");
+                    return Err(Refusal::IllegalMove(WireError::raised(
+                        SLOT_UNCOMMITTED,
+                        format!("{name} has uncommitted work"),
+                        self.run_id(),
+                    )));
+                }
+                Err(why) => return Err(self.slot_park_refusal(SlotParkRefused::Vcs(why))),
+            }
+        }
         {
             let runtime = self.hosts().of(&id);
             let mut state = runtime.state();

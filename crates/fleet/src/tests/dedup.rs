@@ -22,6 +22,9 @@ fn item(id: &str, text: &str, since: &str, source: WaitingSource, act: bool) -> 
         steps: Vec::new(),
         place: None,
         confirmed: false,
+        holders: Vec::new(),
+        creating_since: None,
+        create_refused: None,
     }
 }
 

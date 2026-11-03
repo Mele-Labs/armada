@@ -322,7 +322,7 @@ export function SessionWorkspace({
         case "browser":
           return <BrowserBody jobId={id} tab={tab} />;
         case "terminal":
-          return <TerminalBody jobId={id} />;
+          return <TerminalBody jobId={id} tab={tab} />;
         case "changes":
           return <ChangesBody session={session} />;
         case "plan":

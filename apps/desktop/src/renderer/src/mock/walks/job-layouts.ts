@@ -97,7 +97,7 @@ const steps: Step[] = [
   },
   {
     press: item("Terminal"),
-    say: "Terminal, named by its shell",
+    say: "Terminal",
   },
   {
     look: layout("Default · edited"),
@@ -115,8 +115,8 @@ const steps: Step[] = [
   },
   {
     drag: inside(
-      pane("zsh"),
-      tab("zsh", {
+      pane("Terminal 1"),
+      tab("Terminal 1", {
         exact: true,
       }),
     ),
@@ -125,8 +125,8 @@ const steps: Step[] = [
   },
   {
     look: inside(
-      pane("zsh"),
-      tab("zsh", {
+      pane("Terminal 1"),
+      tab("Terminal 1", {
         exact: true,
       }),
     ),
@@ -139,8 +139,8 @@ const steps: Step[] = [
   },
   {
     drag: inside(
-      pane("zsh"),
-      tab("zsh", {
+      pane("Terminal 1"),
+      tab("Terminal 1", {
         exact: true,
       }),
     ),
@@ -149,8 +149,8 @@ const steps: Step[] = [
   },
   {
     look: inside(
-      pane("zsh"),
-      tab("zsh", {
+      pane("Terminal 1"),
+      tab("Terminal 1", {
         exact: true,
       }),
     ),

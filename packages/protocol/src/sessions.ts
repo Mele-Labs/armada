@@ -345,7 +345,8 @@ export type WaitingAct = {
  * person has not approved; it is approved, or sent changes, from its own card.
  * `slot_choice` (id `slot-choice`, text `Every slot is in use`, act `answer`) is Fleet asking what to do for a
  * Session that found every worktree slot held: its two options are `Wait for a slot` (choice 0) and `Add a slot`
- * (choice 1), answered with `answer_waiting` and a `choice`. No message goes to the agent. `delivery` (id `delivery`, text
+ * (choice 1), answered with `answer_waiting` and a `choice`. No message goes to the agent. It also carries `holders` (answered by
+ * `free_slot`), and while Add is under way `creating_since` and, where it failed, `create_refused`. `delivery` (id `delivery`, text
  * `How should this work be delivered?`, act `answer`) is Fleet asking a bug or feature Job's owner how the work leaves its
  * branch: `Auto land` (choice 0), `Open PR only` (choice 1), `Keep local` (choice 2), each with a description. The agent was
  * told to stop and is sent the choice. `words_address` (id `words:<mod>:<manifest id>`, text `Where does <name> open in <manifest id>?`,
@@ -495,6 +496,37 @@ export type WaitingItem = {
   place?: WindowPlace;
   /** A `replied` item whose sentence he said is a question (`confirm_waiting`). Absent where he has not. */
   confirmed?: boolean;
+  /** On a `slot_choice` item only: the slots a Job Fleet hosts holds, longest quiet first. Absent where Fleet has read none, and the call then draws two choices and no rows. */
+  holders?: SlotHolder[];
+  /** On a `slot_choice` item only: when Fleet began making the slot Add asked for. While it is present the call stays, and asks for nothing. */
+  creating_since?: string;
+  /** On a `slot_choice` item only: why the last slot Fleet tried to make was not made. Gone the next time Add is answered. */
+  create_refused?: string;
+};
+
+/** One slot a Job Fleet hosts holds, offered on a `slot_choice` call. `keeps` is why Free is off: its turn is running, or its checkout holds files no commit has. Fleet decides it. */
+export type SlotHolder = {
+  slot: number;
+  job: {
+    id: string;
+    title: string;
+  };
+  /** When the holder last finished a turn, and its lease time where it has not. */
+  quiet_since: string;
+  keeps?: "running" | "uncommitted";
+};
+
+/**
+ * `free_slot` (`POST /sessions/slot_choice/free`): the person gives back the slot a waiting Job's call lists, to that
+ * Job. `session_id` is the waiting Job and `item_id` its `slot_choice` item (`slot-choice`). Only a press: Fleet never
+ * frees a slot by itself. 409 where the call is gone, the holder runs (`fleet.slot_session_working`) or holds
+ * uncommitted work (`fleet.slot_uncommitted`), or the slot is no longer its holder's (`fleet.slot_holder_changed`).
+ * Answers the waiting Job's `SessionRecord`.
+ */
+export type FreeSlot = {
+  session_id: string;
+  item_id: string;
+  slot: number;
 };
 
 /**
@@ -986,6 +1018,8 @@ export type StartSessionRun = {
 /** `start_session_run`, answered 202: the run is underway; what it prints is on `observe_session_run`. */
 export type SessionRunUnderway = {
   run_id: string;
+  /** Which terminal, where the run is a Job's shell: `t1`, `t2`. Absent for any other run. */
+  terminal?: string;
 };
 
 /** `stop_session_run`: end a run's process group. `POST /sessions/run/stop`. Answered 200 with the same body. */
@@ -1033,9 +1067,11 @@ export type SessionRunMessage =
       stopped: boolean;
     };
 
-/** `open_terminal`: the person opens the Job's shell in Bridge. `POST /sessions/terminal/open`. Answered 200 with `SessionRunUnderway`: the shell already open, or one opened now. `cols` and `rows` are the size in cells where it opens now; absent is 80 by 24. */
+/** `open_terminal`: the person opens one of the Job's terminals in Bridge. `POST /sessions/terminal/open`. Answered 200 with `SessionRunUnderway`: the shell already open, or one opened now. `terminal` names one, its running shell or a new shell under the same ID where it has ended; absent with `new` absent is the Job's first terminal, `t1` where it has none. `new` true mints the next ID and starts a shell under it. A `terminal` the Job never had, and `new` with `terminal`, are refused 422. `cols` and `rows` are the size in cells where it opens now; absent is 80 by 24. */
 export type OpenTerminal = {
   session_id: string;
+  terminal?: string;
+  new?: boolean;
   cols?: number;
   rows?: number;
 };
@@ -1048,42 +1084,77 @@ export type StartTerminalRun = {
   rows?: number;
 };
 
-/** `type_in_terminal`: the Job's agent types into the Job's shell, opening it where it has none. `POST /sessions/terminal/type`. Answered 200 with `TerminalTyped`. `text` is written as it is; `enter` absent is true; `clear` absent is true, which writes Ctrl-U before `text`; `wait_seconds` absent is 10, at most 60; `session_id` is read only where the connection places no hosted Job. */
+/** `type_in_terminal`: the Job's agent types into one of the Job's terminals. `POST /sessions/terminal/type`. Answered 200 with `TerminalTyped`. `text` is written as it is; `enter` absent is true; `clear` absent is true, which writes Ctrl-U before `text`; `wait_seconds` absent is 10, at most 60; `session_id` is read only where the connection places no hosted Job. `terminal` names one and is refused 422 where it is not open; `new` true opens a new terminal, then types; neither is the one the agent last used, else a new one, never the person's by default. `new` with `terminal` is refused 422. */
 export type TypeInTerminal = {
   text: string;
   enter?: boolean;
   clear?: boolean;
   wait_seconds?: number;
   session_id?: string;
+  terminal?: string;
+  new?: boolean;
 };
 
-/** `type_in_terminal`'s answer: what the shell printed after the text was typed, as plain lines, the last 200 at most. `still_printing` is whether output was still arriving when the wait ran out. `echoed` is false where the text typed never appeared in what was printed. */
+/** `type_in_terminal`'s answer: what the terminal printed after the text was typed, as plain lines, the last 200 at most. `terminal` is which one was typed into. `still_printing` is whether output was still arriving when the wait ran out. `echoed` is false where the text typed never appeared in what was printed. */
 export type TerminalTyped = {
+  terminal: string;
   run_id: string;
   printed: string;
   still_printing: boolean;
   echoed: boolean;
 };
 
-/** `read_terminal`: the Job's agent reads the Job's shell. `GET /sessions/terminal/read`, these as its query. `lines` absent is 60, at most 500; `until` is waited for in what the shell printed since the agent last typed, as text or, with `regex`, a regular expression; `wait_seconds` absent is 10, at most 60. */
+/** `read_terminal`: the Job's agent reads one of the Job's terminals. `GET /sessions/terminal/read`, these as its query. `terminal` absent is the one the agent last used, else the Job's first open one; refused 422 where it is not open. `lines` absent is 60, at most 500; `until` is waited for in what the terminal printed since the agent last typed, as text or, with `regex`, a regular expression; `wait_seconds` absent is 10, at most 60. */
 export type ReadTerminal = {
   session_id?: string;
+  terminal?: string;
   lines?: number;
   until?: string;
   regex?: boolean;
   wait_seconds?: number;
 };
 
-/** `read_terminal`'s answer: the last lines of the Job's shell, as its screen drew them. `GET /sessions/terminal/read`. `matched` is whether `until` was printed before the wait ran out, absent where the read named none. */
+/** `read_terminal`'s answer: the last lines of a Job's terminal, as its screen drew them. `GET /sessions/terminal/read`. `terminal` is which one was read. `matched` is whether `until` was printed before the wait ran out, absent where the read named none. */
 export type TerminalScreen = {
+  terminal: string;
   run_id: string;
   screen: string;
   matched?: boolean;
 };
 
-/** `terminal.opened` and `terminal.exited` on `/events`: a Job's shell opened or ended, so a pane can follow it. What it prints is `observe_session_run`'s, on `run_id`. */
+/** `list_terminals`: the Job's open terminals. `GET /sessions/terminal/list`. `session_id` is read only where the connection places no hosted Job. */
+export type ListTerminals = {
+  session_id?: string;
+};
+
+/** `list_terminals`' answer: the Job's open terminals, the first opened first. One whose shell has ended is not listed. */
+export type JobTerminals = {
+  terminals: ListedTerminal[];
+};
+
+/** One open terminal of a Job. */
+export type ListedTerminal = {
+  /** `t1`, `t2`. */
+  terminal: string;
+  /** What the person calls it: `Terminal 2` until they rename it. */
+  name: string;
+  run_id: string;
+  /** Whether a program other than the shell has the foreground. */
+  running: boolean;
+};
+
+/** `rename_terminal`: the person names one of a Job's terminals. `POST /sessions/terminal/rename`. Answered 200 with `ListedTerminal`. A blank `name` restores the default, `Terminal N`. 422 for a terminal the Job has not open. */
+export type RenameTerminal = {
+  session_id: string;
+  terminal: string;
+  name: string;
+};
+
+/** `terminal.opened` and `terminal.exited` on `/events`: one of a Job's shells opened or ended, so a pane can follow it. What it prints is `observe_session_run`'s, on `run_id`. */
 export type JobTerminal = {
   session_id: string;
+  /** `t1`, `t2`. */
+  terminal: string;
   run_id: string;
 };
 

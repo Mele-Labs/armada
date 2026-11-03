@@ -1,7 +1,6 @@
-// The Job's shell: one terminal a Job keeps open in its worktree, which the person types into and the agent types into
-// through its tools. It is a Terminal tab like any other: + opens it at the pane's size, ⌥⇧0 brings it forward or opens one,
-// and closing the last Terminal tab puts it away with the shell still running. A block Run docks in the Job.
-// Its window of its own is the walk `job-shell-window`.
+// A terminal in a Job: + then Terminal opens a new shell in a tab and the pane tells it its size, ⌥⇧0 brings the Terminal tab forward or opens one,
+// and closing a Terminal tab ends its shell. The Job's agent types into a terminal of its own, which arrives as a tab behind. A block Run docks in the Job.
+// Several terminals side by side are the walk `job-terminals`; a terminal in a window of its own is the walk `job-shell-window`.
 // Over the `session-shell` scenario.
 
 import { button, deckRow, inside, region, role, tab, text, walk } from "../walk";
@@ -10,13 +9,18 @@ import { toSessions } from "../sessions/walk-kit";
 
 const job = region(/^Job: /);
 const thread = inside(job, region(/^Pane: Thread/));
-const here = region(/^Pane: (Thread|zsh)/);
-const pane = inside(
-  here,
-  role("group", "Terminal", {
-    exact: true,
-  }),
-);
+const here = region(/^Pane: (Thread|Terminal)/);
+const shellIn = (name: string) =>
+  inside(
+    region(`Pane: ${name}`, {
+      exact: true,
+    }),
+    role("group", "Terminal", {
+      exact: true,
+    }),
+  );
+const pane = shellIn("Terminal 1");
+const agents = shellIn("Terminal 2");
 const typed = role("textbox", "Terminal input");
 const block = inside(thread, role("group", /wrangler deploy/));
 // The server's newest line, which shows at any height the pane is dragged to.
@@ -50,25 +54,63 @@ const steps: Step[] = [
     say: "The worktree's files",
   },
   {
-    look: inside(pane, text(/VITE v6\.3\.5/)),
-    say: "The agent typed pnpm dev into the same shell",
+    look: inside(
+      here,
+      tab("Terminal 2", {
+        exact: true,
+      }),
+    ),
+    say: "The Job's agent opened a terminal of its own, behind this one",
   },
   {
-    look: inside(pane, printing),
+    press: inside(
+      here,
+      tab("Terminal 2", {
+        exact: true,
+      }),
+    ),
+    say: "Terminal 2",
+  },
+  {
+    look: inside(agents, text(/VITE v6\.3\.5/)),
+    say: "The agent typed pnpm dev into it",
+  },
+  {
+    look: inside(agents, printing),
     say: "The server's output streams in",
   },
   {
     key: "Control+c",
-    on: typed,
+    on: inside(agents, typed),
     say: "Ctrl-C",
   },
   {
-    look: inside(pane, text(/\^C/)),
+    look: inside(agents, text(/\^C/)),
     say: "The server stopped and the prompt is back",
   },
   {
-    press: button(/^Close zsh/),
-    say: "Closed the tab. The shell keeps running",
+    press: inside(agents, button("End shell")),
+    say: "Ended the shell",
+  },
+  {
+    look: inside(agents, text("Shell ended")),
+    say: "Shell ended",
+  },
+  {
+    press: inside(agents, button("New shell")),
+    say: "New shell",
+  },
+  {
+    look: inside(agents, button("End shell")),
+    say: "A new shell, in the same tab",
+  },
+  {
+    press: button("Close Terminal 2"),
+    say: "Closed the tab. Its shell ends",
+  },
+  {
+    press: button("Close Terminal 1"),
+    say: "Closed the other one too",
   },
   {
     key: "Alt+Shift+0",
@@ -78,24 +120,8 @@ const steps: Step[] = [
     say: "⌥⇧0 opens a Terminal tab where the Job has none",
   },
   {
-    look: inside(pane, text(/\^C/)),
-    say: "The same shell, as it was left",
-  },
-  {
-    press: inside(pane, button("End shell")),
-    say: "Ended the shell",
-  },
-  {
-    look: inside(pane, text("Shell ended")),
-    say: "Shell ended",
-  },
-  {
-    press: inside(pane, button("New shell")),
-    say: "New shell",
-  },
-  {
-    look: inside(pane, button("End shell")),
-    say: "A new shell, in the same tab",
+    look: inside(shellIn("Terminal 1"), text(/slot-1 %/)),
+    say: "A new shell, with nothing from the one that was closed",
   },
   {
     press: inside(
@@ -108,7 +134,7 @@ const steps: Step[] = [
   },
   {
     look: inside(job, button("Stop")),
-    say: "The run docks in the Job, and the shell stays in its tab",
+    say: "The run docks in the Job, and the terminal stays in its tab",
   },
 ];
 

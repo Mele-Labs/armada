@@ -17,9 +17,11 @@ import type {
   ClaimPullRequest,
   ConfirmLater,
   ConfirmWaiting,
+  FreeSlot,
   DismissWaiting,
   ReopenWaiting,
   NameSession,
+  OpenTerminal,
   RenameSession,
   SendPlanChanges,
   SendSessionMessage,
@@ -50,6 +52,7 @@ import type {
   PullRequestWrite,
   RingedNotes,
   TerminalMovedBack,
+  TerminalWindowId,
 } from "../shared/api/sessions";
 import { isRing } from "../shared/ring";
 import { ringed } from "./held-notes-channels";
@@ -63,9 +66,9 @@ type Hosts = {
   connection: () => FleetConnection | null;
   windowIdOf: (event: Electron.IpcMainInvokeEvent) => number;
   pages: SessionPages;
-  /** Each Job's terminal window, and where a shell moved back out of one is told: every window. */
+  /** Each terminal's window, and where a shell moved back out of one is told: every window. */
   terminals: {
-    windows: Pick<TerminalWindows, "show" | "close" | "sessionIds">;
+    windows: Pick<TerminalWindows, "show" | "close" | "ids">;
     movedBack: (move: TerminalMovedBack) => void;
   };
 };
@@ -132,6 +135,24 @@ const MCP_ACTS: readonly McpServerAct[] = [
 ];
 
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";
+/** A terminal's window by the Job and the terminal, the Job's first named by none. */
+const windowOf = (sessionId: string, terminal: string | undefined): TerminalWindowId => ({
+  sessionId,
+  ...(terminal === undefined
+    ? {}
+    : {
+        terminal,
+      }),
+});
+/** What an open may name beyond the Job: nothing, or a terminal's ID and a `new`. Fleet refuses both at once. */
+const opensTerminal = (
+  which: unknown,
+): which is Pick<OpenTerminal, "terminal" | "new"> | undefined =>
+  which === undefined ||
+  (typeof which === "object" &&
+    which !== null &&
+    (!("terminal" in which) || which.terminal === undefined || text(which.terminal)) &&
+    (!("new" in which) || which.new === undefined || typeof which.new === "boolean"));
 const cells = (value: unknown): value is number =>
   Number.isInteger(value) && (value as number) > 0 && (value as number) <= 65535;
 /** A kept style set is named by 32 hex digits. */
@@ -437,6 +458,16 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
     if (answer.mode !== undefined && answer.mode !== "best" && answer.mode !== "quick")
       return unread;
     return connection()?.sessions.answerWaiting(answer) ?? unsent;
+  });
+  ipc.handle(CHANNELS.freeSlot, (_event, free: FreeSlot) => {
+    if (
+      !text(free?.session_id) ||
+      !text(free.item_id) ||
+      !Number.isInteger(free.slot) ||
+      free.slot < 1
+    )
+      return unread;
+    return connection()?.sessions.freeSlot(free) ?? unsent;
   });
   ipc.handle(CHANNELS.claimPullRequest, (_event, claim: ClaimPullRequest) => {
     if (!Number.isInteger(claim?.number) || claim.number < 1) return unread;
@@ -970,20 +1001,47 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
           }) ?? unsent)
         : unread,
   );
-  ipc.handle(CHANNELS.openTerminal, (_event, sessionId: string, cols?: number, rows?: number) =>
-    text(sessionId) &&
-    (cols === undefined) === (rows === undefined) &&
-    (cols === undefined || (cells(cols) && cells(rows)))
-      ? (connection()?.sessions.openTerminal({
-          session_id: sessionId,
-          ...(cols === undefined || rows === undefined
-            ? {}
-            : {
-                cols,
-                rows,
-              }),
-        }) ?? unsent)
-      : unread,
+  ipc.handle(
+    CHANNELS.openTerminal,
+    (_event, sessionId: string, cols?: number, rows?: number, which?: unknown) =>
+      text(sessionId) &&
+      (cols === undefined) === (rows === undefined) &&
+      (cols === undefined || (cells(cols) && cells(rows))) &&
+      opensTerminal(which)
+        ? (connection()?.sessions.openTerminal({
+            session_id: sessionId,
+            ...(cols === undefined || rows === undefined
+              ? {}
+              : {
+                  cols,
+                  rows,
+                }),
+            ...(which?.terminal === undefined
+              ? {}
+              : {
+                  terminal: which.terminal,
+                }),
+            ...(which?.new === true
+              ? {
+                  new: true,
+                }
+              : {}),
+          }) ?? unsent)
+        : unread,
+  );
+  ipc.handle(CHANNELS.listTerminals, (_event, sessionId: unknown) =>
+    text(sessionId) ? (connection()?.sessions.listTerminals(sessionId) ?? unsent) : unread,
+  );
+  ipc.handle(
+    CHANNELS.renameTerminal,
+    (_event, sessionId: unknown, terminal: unknown, name: unknown) =>
+      text(sessionId) && text(terminal) && typeof name === "string"
+        ? (connection()?.sessions.renameTerminal({
+            session_id: sessionId,
+            terminal,
+            name,
+          }) ?? unsent)
+        : unread,
   );
   ipc.handle(
     CHANNELS.startTerminalRun,
@@ -1004,28 +1062,42 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
           }) ?? unsent)
         : unread,
   );
-  ipc.handle(CHANNELS.openTerminalWindow, (_event, sessionId: unknown) => {
-    if (text(sessionId)) terminals.windows.show(sessionId);
+  ipc.handle(CHANNELS.openTerminalWindow, (_event, sessionId: unknown, terminal: unknown) => {
+    if (text(sessionId) && (terminal === undefined || text(terminal)))
+      terminals.windows.show(windowOf(sessionId, terminal));
   });
-  ipc.handle(CHANNELS.getTerminalWindows, () => terminals.windows.sessionIds());
+  ipc.handle(CHANNELS.getTerminalWindows, () => terminals.windows.ids());
   ipc.handle(CHANNELS.readTerminalSoFar, (_event, runId: unknown) =>
     text(runId) ? (connection()?.sessions.soFar(runId) ?? null) : null,
   );
   // The window closes here; the document that draws the Job's dock opens the shell where it went.
-  ipc.handle(CHANNELS.moveTerminalBack, (_event, sessionId: unknown, to: unknown) => {
-    if (!text(sessionId) || !BACK_TO.includes(to as TerminalMovedBack["to"])) return;
-    terminals.windows.close(sessionId);
-    const shell = connection()?.sessions.shellNow(sessionId) ?? null;
-    terminals.movedBack({
-      sessionId,
-      to: to as TerminalMovedBack["to"],
-      ...(shell === null
-        ? {}
-        : {
-            shell,
-          }),
-    });
-  });
+  ipc.handle(
+    CHANNELS.moveTerminalBack,
+    (_event, sessionId: unknown, to: unknown, terminal: unknown) => {
+      if (
+        !text(sessionId) ||
+        !BACK_TO.includes(to as TerminalMovedBack["to"]) ||
+        !(terminal === undefined || text(terminal))
+      )
+        return;
+      terminals.windows.close(windowOf(sessionId, terminal));
+      const shell = connection()?.sessions.shellNow(sessionId, terminal) ?? null;
+      terminals.movedBack({
+        sessionId,
+        ...(terminal === undefined
+          ? {}
+          : {
+              terminal,
+            }),
+        to: to as TerminalMovedBack["to"],
+        ...(shell === null
+          ? {}
+          : {
+              shell,
+            }),
+      });
+    },
+  );
   ipc.handle(CHANNELS.catchUpCheckout, (_event, manifestId: string) =>
     text(manifestId)
       ? (connection()?.sessions.catchUpCheckout({

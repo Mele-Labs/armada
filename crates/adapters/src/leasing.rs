@@ -376,20 +376,7 @@ impl Pool {
         if lock.is_none() || !self.leasable(number) || self.state_of(number) != SlotState::Unmade {
             return Ok(Leased::Full(Full { slots }));
         }
-        let path = self.path_of(number);
-        git(
-            &self.root,
-            &[
-                "worktree",
-                "add",
-                "--detach",
-                "--quiet",
-                &path.to_string_lossy(),
-                &from,
-            ],
-        )
-        .map_err(LeaseRefused::Vcs)?;
-        let seeded_from = self.seeded(&path, seed);
+        let seeded_from = self.made(number, &from, seed).map_err(LeaseRefused::Vcs)?;
         let lease = self.point(number, onto, branch, &from, holder, since, seeded_from)?;
         drop(lock);
         Ok(Leased::Took(Lease {
@@ -397,6 +384,33 @@ impl Pool {
             made: true,
             ..lease
         }))
+    }
+
+    /// Make slot `number`'s checkout if it is open and not made, and leave it free: the slow half of
+    /// a lease, which `take` does under the same lock. **Nothing is done where another take has the
+    /// slot's lock**, so a lease running meanwhile finds it busy and never half made, and nothing
+    /// where it is made already.
+    pub fn make(&self, number: usize, seed: Seed<'_>) -> Result<(), LeaseRefused> {
+        let Some(lock) = self.locked(number).map_err(LeaseRefused::Vcs)? else {
+            return Ok(());
+        };
+        if !self.leasable(number) || self.state_of(number) != SlotState::Unmade {
+            return Ok(());
+        }
+        self.made(number, &self.base_ref(), seed).map_err(LeaseRefused::Vcs)?;
+        drop(lock);
+        Ok(())
+    }
+
+    /// `git worktree add` for slot `number` at `from`, and its seed paths cloned in. The caller
+    /// holds the slot's lock. The commit the seed came from, where it started warm.
+    fn made(&self, number: usize, from: &str, seed: Seed<'_>) -> Result<Option<String>, String> {
+        let path = self.path_of(number);
+        git(
+            &self.root,
+            &["worktree", "add", "--detach", "--quiet", &path.to_string_lossy(), from],
+        )?;
+        Ok(self.seeded(&path, seed))
     }
 
     /// Give a slot back: refused while it holds uncommitted files or commits

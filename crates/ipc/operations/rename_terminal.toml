@@ -1,0 +1,10 @@
+[operations.rename_terminal]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Name one of a Job's terminals, so its tab reads as the person wants"
+notes = """
+`POST /sessions/terminal/rename`, body `RenameTerminal`: `session_id`, `terminal` and `name`. Answered 200 with `ListedTerminal`: the terminal as it now stands, `{ terminal, name, run_id, running }`. A blank `name` restores the default, `Terminal N`. A terminal the Job has not open is refused with 422, one whose shell has ended or one it never had. The name is kept in the store with the terminal's number, so it outlives the shell and a Fleet restart, and nothing is published for it.
+
+`agent_access` is `No`: naming a tab is the person's own act.
+"""

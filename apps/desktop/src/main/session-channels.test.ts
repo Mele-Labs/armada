@@ -457,24 +457,43 @@ function terminalWired() {
   const windows = {
     show: vi.fn(),
     close: vi.fn(),
-    sessionIds: () => [
-      "a",
+    ids: () => [
+      {
+        sessionId: "a",
+      },
+      {
+        sessionId: "a",
+        terminal: "t2",
+      },
     ],
   };
   const movedBack = vi.fn();
-  const shellNow = (sessionId: string) =>
-    sessionId === "a"
+  const shellNow = vi.fn((sessionId: string, terminal?: string) =>
+    sessionId === "a" && (terminal === undefined || terminal === "t2")
       ? {
-          runId: "r1",
+          runId: terminal === undefined ? "r1" : "r2",
           ended: true,
         }
-      : null;
+      : null,
+  );
+  const open = vi.fn(async () => ({
+    ok: true,
+  }));
+  const listTerminals = vi.fn(async () => ({
+    ok: true,
+  }));
+  const renameTerminal = vi.fn(async () => ({
+    ok: true,
+  }));
   handleSessions({
     ipc,
     connection: () => ({
       sessions: {
         soFar,
         shellNow,
+        openTerminal: open,
+        listTerminals,
+        renameTerminal,
       },
     }),
     windowIdOf: () => undefined,
@@ -490,39 +509,174 @@ function terminalWired() {
     windows,
     movedBack,
     soFar,
+    shellNow,
+    open,
+    listTerminals,
+    renameTerminal,
   };
 }
 
-describe("a Job's terminal window", () => {
-  it("opens a Job's window by its id, and nothing for an id that is not one", async () => {
-    const { call, windows } = terminalWired();
-    await call(CHANNELS.openTerminalWindow, "a");
-    await call(CHANNELS.openTerminalWindow, "");
-    await call(CHANNELS.openTerminalWindow, 7);
-    expect(windows.show.mock.calls).toEqual([
+describe("a Job's terminals", () => {
+  it("opens the terminal it names, a new one, or the first, and passes Fleet's refusal of both at once on", async () => {
+    const { call, open } = terminalWired();
+    await call(CHANNELS.openTerminal, "a", 80, 24, {
+      terminal: "t2",
+    });
+    await call(CHANNELS.openTerminal, "a", undefined, undefined, {
+      new: true,
+    });
+    await call(CHANNELS.openTerminal, "a");
+    await call(CHANNELS.openTerminal, "a", undefined, undefined, {
+      terminal: "t1",
+      new: true,
+    });
+    expect(open.mock.calls).toEqual([
+      [
+        {
+          session_id: "a",
+          cols: 80,
+          rows: 24,
+          terminal: "t2",
+        },
+      ],
+      [
+        {
+          session_id: "a",
+          new: true,
+        },
+      ],
+      [
+        {
+          session_id: "a",
+        },
+      ],
+      [
+        {
+          session_id: "a",
+          terminal: "t1",
+          new: true,
+        },
+      ],
+    ]);
+  });
+
+  it("opens nothing for a terminal that is not an ID or a new that is not a flag", async () => {
+    const { call, open } = terminalWired();
+    await call(CHANNELS.openTerminal, "a", undefined, undefined, {
+      terminal: 2,
+    });
+    await call(CHANNELS.openTerminal, "a", undefined, undefined, {
+      terminal: "",
+    });
+    await call(CHANNELS.openTerminal, "a", undefined, undefined, {
+      new: "yes",
+    });
+    await call(CHANNELS.openTerminal, "", undefined, undefined, undefined);
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it("lists a Job's terminals and names one, each by the Job's id", async () => {
+    const { call, listTerminals, renameTerminal } = terminalWired();
+    await call(CHANNELS.listTerminals, "a");
+    await call(CHANNELS.listTerminals, 3);
+    await call(CHANNELS.renameTerminal, "a", "t2", "server");
+    await call(CHANNELS.renameTerminal, "a", "t2", "");
+    await call(CHANNELS.renameTerminal, "a", "", "x");
+    expect(listTerminals.mock.calls).toEqual([
       [
         "a",
       ],
     ]);
+    expect(renameTerminal.mock.calls).toEqual([
+      [
+        {
+          session_id: "a",
+          terminal: "t2",
+          name: "server",
+        },
+      ],
+      [
+        {
+          session_id: "a",
+          terminal: "t2",
+          name: "",
+        },
+      ],
+    ]);
+  });
+});
+
+describe("a terminal's window", () => {
+  it("opens a window by the Job's id and the terminal's, and nothing for an id that is not one", async () => {
+    const { call, windows } = terminalWired();
+    await call(CHANNELS.openTerminalWindow, "a");
+    await call(CHANNELS.openTerminalWindow, "a", "t2");
+    await call(CHANNELS.openTerminalWindow, "");
+    await call(CHANNELS.openTerminalWindow, 7);
+    await call(CHANNELS.openTerminalWindow, "a", 2);
+    expect(windows.show.mock.calls).toEqual([
+      [
+        {
+          sessionId: "a",
+        },
+      ],
+      [
+        {
+          sessionId: "a",
+          terminal: "t2",
+        },
+      ],
+    ]);
     expect(await call(CHANNELS.getTerminalWindows)).toEqual([
-      "a",
+      {
+        sessionId: "a",
+      },
+      {
+        sessionId: "a",
+        terminal: "t2",
+      },
     ]);
   });
 
   it("moves a shell back into Bridge, closing its window and telling every window where it went and which shell it is", async () => {
-    const { call, windows, movedBack } = terminalWired();
+    const { call, windows, movedBack, shellNow } = terminalWired();
     // The side panel is gone, and a window is where a shell moves from.
     await call(CHANNELS.moveTerminalBack, "a", "side panel");
     await call(CHANNELS.moveTerminalBack, "a", "window");
     await call(CHANNELS.moveTerminalBack, "", "docked");
     await call(CHANNELS.moveTerminalBack, "a", "docked");
+    await call(CHANNELS.moveTerminalBack, "a", "docked", "t2");
     await call(CHANNELS.moveTerminalBack, "b", "docked");
     expect(windows.close.mock.calls).toEqual([
       [
+        {
+          sessionId: "a",
+        },
+      ],
+      [
+        {
+          sessionId: "a",
+          terminal: "t2",
+        },
+      ],
+      [
+        {
+          sessionId: "b",
+        },
+      ],
+    ]);
+    expect(shellNow.mock.calls).toEqual([
+      [
         "a",
+        undefined,
+      ],
+      [
+        "a",
+        "t2",
       ],
       [
         "b",
+        undefined,
       ],
     ]);
     expect(movedBack.mock.calls).toEqual([
@@ -532,6 +686,17 @@ describe("a Job's terminal window", () => {
           to: "docked",
           shell: {
             runId: "r1",
+            ended: true,
+          },
+        },
+      ],
+      [
+        {
+          sessionId: "a",
+          terminal: "t2",
+          to: "docked",
+          shell: {
+            runId: "r2",
             ended: true,
           },
         },

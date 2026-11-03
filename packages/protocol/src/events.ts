@@ -136,11 +136,11 @@ export type Event =
   | ({
       kind: "session.row";
     } & SessionRowChanged)
-  /** A Job's shell opened, by the person's `open_terminal` or its agent's first `type_in_terminal`. */
+  /** One of a Job's terminals opened, by the person's `open_terminal` or its agent's `type_in_terminal`. */
   | ({
       kind: "terminal.opened";
     } & JobTerminal)
-  /** A Job's shell ended: it exited, was stopped, or its Job ended. */
+  /** One of a Job's terminals ended: it exited, was stopped, or its Job ended. */
   | ({
       kind: "terminal.exited";
     } & JobTerminal)

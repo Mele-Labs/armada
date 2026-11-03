@@ -12,6 +12,7 @@ use ipc::{DeleteWatch, DismissWait, ReadWatchLog, SessionId, StartWatch, StopWat
 use store::{KeptWatch, KeptWatchSetAside, KeptWatchVerdict};
 
 use super::running::Folder;
+use crate::session_running::terminal_id;
 use super::telling::{owed, unsaid};
 use super::*;
 use crate::daemon::Fleet;
@@ -24,8 +25,9 @@ struct Resolved {
     environment: Option<String>,
     every: u32,
     gives_up_after: Option<u32>,
-    /// A terminal watch's text, and whether it is a pattern. Its command is empty.
-    in_terminal: Option<(String, bool)>,
+    /// A terminal watch's text, whether it is a pattern, and the terminal it listens to. Its
+    /// command is empty.
+    in_terminal: Option<(String, bool, String)>,
 }
 
 /// A recipe as a start or a try runs it: its command filled, and what else it names.
@@ -154,21 +156,24 @@ where
                 let gives_up_after = gives_up_after.map(|written| self.span("gives_up_after", &written)).transpose()?;
                 Ok(Resolved { command, recipe: None, environment: None, every, gives_up_after, in_terminal: None })
             }
-            WatchStarts::Terminal { text, regex, gives_up_after } => {
+            WatchStarts::Terminal { text, regex, gives_up_after, terminal } => {
                 if text.trim().is_empty() {
                     return Err(self.watch_unacceptable(REFUSED, "`in_terminal` is what to wait for, and it is blank."));
                 }
                 super::listening::wanted(&text, regex).map_err(|why| self.watch_unacceptable(REFUSED, why))?;
-                if self.session_runs().shell_heard(job).is_none() {
+                let Some(number) = self.terminal_watched(job, terminal.as_deref()).await else {
                     return Err(self.watch_illegal(
                         TERMINAL_CLOSED,
-                        "This Job has no terminal open, so nothing would print. type_in_terminal opens it.",
+                        match &terminal {
+                            Some(named) => format!("This Job's terminal {named} is not open, so nothing would print. list_terminals names the open ones."),
+                            None => String::from("This Job has no terminal open, so nothing would print. type_in_terminal opens it."),
+                        },
                     ));
-                }
+                };
                 let gives_up_after = gives_up_after.map(|written| self.span("gives_up_after", &written)).transpose()?;
                 // How soon it listens again after its terminal ended: the fastest a watch may run.
                 let every = u32::try_from(self.machine_settings().now().get(keys::WATCH_EVERY_SECONDS).as_secs()).unwrap_or(u32::MAX);
-                Ok(Resolved { command: Vec::new(), recipe: None, environment: None, every, gives_up_after, in_terminal: Some((text, regex)) })
+                Ok(Resolved { command: Vec::new(), recipe: None, environment: None, every, gives_up_after, in_terminal: Some((text, regex, terminal_id(number))) })
             }
         }
     }
@@ -259,9 +264,9 @@ where
         if gives_up_after > GIVE_UP_CAP_SECONDS {
             return Err(self.watch_unacceptable(GIVES_UP_TOO_LATE, "A watch gives up after a day at most: `24h`."));
         }
-        let (in_terminal, regex) = match resolved.in_terminal {
-            Some((text, regex)) => (Some(text), regex),
-            None => (None, false),
+        let (in_terminal, regex, terminal) = match resolved.in_terminal {
+            Some((text, regex, terminal)) => (Some(text), regex, Some(terminal)),
+            None => (None, false, None),
         };
         let mut watch = core_model::Watch::new(name, resolved.command, resolved.every, gives_up_after);
         watch.follows = start.follows;
@@ -292,6 +297,7 @@ where
             unsaid: None,
             in_terminal,
             regex,
+            terminal,
         };
         // A terminal watch runs nothing, so no environment is read for it.
         if kept.in_terminal.is_none() {

@@ -83,6 +83,10 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
       ok: false,
       outcome: unanswered("/sessions/waiting/dismiss"),
     }),
+    freeSlot: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/slot_choice/free"),
+    }),
     reopenWaiting: async () => ({
       ok: false,
       outcome: unanswered("/sessions/waiting/reopen"),
@@ -302,6 +306,14 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     openTerminal: async () => ({
       ok: false,
       outcome: unanswered("/sessions/terminal/open"),
+    }),
+    listTerminals: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/terminal/list"),
+    }),
+    renameTerminal: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/terminal/rename"),
     }),
     startTerminalRun: async () => ({
       ok: false,

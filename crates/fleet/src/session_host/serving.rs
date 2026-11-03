@@ -266,6 +266,10 @@ where
         self.settle_waiting(said).await
     }
 
+    async fn free_slot(self: Arc<Self>, free: ipc::FreeSlot) -> Result<SessionRecord, Refusal> {
+        self.slot_freed_for(free).await
+    }
+
     async fn dismiss_waiting(
         self: Arc<Self>,
         dismiss: ipc::DismissWaiting,

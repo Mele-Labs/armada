@@ -1247,7 +1247,7 @@ export type ClaudeFolder = {
  * is meant: another Session, a pull request, a branch or an issue.
  */
 export type SessionTag = {
-  kind: "session" | "pull_request" | "branch" | "issue" | "report";
+  kind: "session" | "pull_request" | "branch" | "issue" | "report" | "terminal";
   id: string;
   title: string;
   /** The forge's address of an issue or a pull request. */
@@ -1801,6 +1801,11 @@ export type SessionsDraft = {
       fixed?: string;
     },
   ) => void | Promise<unknown>;
+  /**
+   * Gives one slot a full pool is held by to the Job whose `slot_choice` call (`itemId`) lists it: the call goes, the Job moves on, and the
+   * slot's holder stays in its list and leases another when it next writes. Never sent by Fleet on its own. Absent where nothing serves it.
+   */
+  freeSlot?: (id: string, itemId: string, slot: number) => void | Promise<unknown>;
   /** Puts an item he closed back in Needs you. Absent where nothing serves it, and the Closed rows draw no Reopen. */
   reopenWaiting?: (id: string, itemId: string) => void | Promise<unknown>;
   /** Answers a sketch put to him: approved, or sent back with a note (`POST /sessions/sketch/answer`). Absent where nothing serves it. */

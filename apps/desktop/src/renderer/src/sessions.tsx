@@ -97,6 +97,7 @@ import type {
 } from "@armada/components";
 import { sessionOf } from "@armada/screens/src/lessons/retro";
 import { askToOpenRetro } from "./open-retro";
+import { ADD_CHOICE, drawsHeldSlots, heldSlotsOf } from "./held-slots";
 import { useDispatchFailureHere } from "./failure-session";
 import { handoffOf } from "./session-handoff";
 import { chooseFolder, openLink, readRetro, readWorkflowChanges, searchFiles } from "./commands";
@@ -205,7 +206,7 @@ import { useBackfilled } from "./backfilled";
 import { ARTIFACT_SAID, cardOf, checksSaid, shownOnly, type Known } from "./session-cards";
 import { useNumbered } from "./numbered";
 import { RunsPlaceCard, RunsPlaceControl } from "./RunsPlaceControl";
-import { composerFocusAsked } from "./session-focus";
+import { composerFocusAsked, onComposerFocusAsked } from "./session-focus";
 import { NO_SYNCED, cardOn, profilesOf, useRunBook } from "./run-book";
 import { boundProfile, rootOfSession, sentTo } from "./run-places";
 import { SessionRepositoryOf } from "./session-move";
@@ -1223,6 +1224,7 @@ export function entriesOf(
   release?: LedgerRelease["rowOf"],
   scopes: ProposedScopes = new Map(),
   begin?: BeginChild,
+  freeSlot?: (itemId: string, slot: number) => void | Promise<unknown>,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
   // A recorded plan, and a sketch or a document put to him, are cards in the thread, so the ledger does not list them again. A watch that ended not ours is a card in Needs you.
@@ -1257,6 +1259,19 @@ export function entriesOf(
     const panel = card ? draftPanelOf(session, one.id) : undefined;
     // Fleet's offer of a restart reads its sentence, with the key beside it and Skip at its end.
     const offer = one.source === "preview_offer" && restart !== undefined;
+    // A full pool's call also lists the slots it is held by, each with a Free.
+    // Create is the call's Add choice, answered as it always was, so a Fleet that cannot free is not asked to make a slot another way.
+    const held = heldSlotsOf(
+      one,
+      freeSlot === undefined ? undefined : (slot) => freeSlot(one.id, slot),
+      open,
+      answerWaiting === undefined
+        ? undefined
+        : () =>
+            answerWaiting(one.id, {
+              choice: ADD_CHOICE,
+            }),
+    );
     return {
       key: `waiting${one.id}`,
       kind: "waiting",
@@ -1339,7 +1354,8 @@ export function entriesOf(
         : {
             // Fleet's `Other` on a words question takes the person's own address, which the deck's own Other already does: pressed as a choice it would send none.
             options: one.options.flatMap((option, at) =>
-              one.source === "words_address" && option.label === "Other"
+              (one.source === "words_address" && option.label === "Other") ||
+              (at === ADD_CHOICE && drawsHeldSlots(one, freeSlot !== undefined))
                 ? []
                 : [
                     {
@@ -1360,6 +1376,11 @@ export function entriesOf(
               answerWaiting(one.id, {
                 text,
               }),
+            ...(held === undefined
+              ? {}
+              : {
+                  held,
+                }),
             ...(one.steps === undefined
               ? {}
               : {
@@ -1809,6 +1830,20 @@ export function SessionView({
   }, [
     session.id,
   ]);
+  // A box already on screen is asked again, as a chip put in it by a tab calls for.
+  useEffect(
+    () =>
+      onComposerFocusAsked((id) => {
+        if (id === session.id)
+          setFocusFor({
+            key: session.id,
+            at: Date.now(),
+          });
+      }),
+    [
+      session.id,
+    ],
+  );
   // The old Session is writing the handoff a fresh one opens on.
   const [handing, setHanding] = useState(false);
   // Whether the Needs you panel on the composer is up, and for which Session.
@@ -2245,6 +2280,9 @@ export function SessionView({
       released.rowOf,
       scopes,
       beginChild,
+      draft.freeSlot === undefined
+        ? undefined
+        : (itemId, slot) => draft.freeSlot?.(id, itemId, slot),
     ),
     ...closedOf(
       session,

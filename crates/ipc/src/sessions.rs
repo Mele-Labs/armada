@@ -347,6 +347,9 @@ pub struct StartSessionRun {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionRunUnderway {
     pub run_id: String,
+    /// Which terminal, where the run is a Job's shell: `t1`, `t2`. Absent for any other run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal: Option<String>,
 }
 
 /// `stop_session_run`: end a run's process group. `POST /sessions/run/stop`. Answered 200 with the same body.
@@ -679,7 +682,10 @@ pub enum WaitingSource {
     /// never kept: id `slot-choice`, text `Every slot is in use`, an `answer` act, and exactly two
     /// options, `Wait for a slot` (choice 0) and `Add a slot` (choice 1), labels only. Answering
     /// with a `choice` settles it and no message goes to the agent: it was told to end its turn and
-    /// is moved in when a slot is granted. A free-text answer is refused.
+    /// is moved in when a slot is granted. A free-text answer is refused. **It also carries the slots
+    /// to free** (`holders`, answered by `free_slot`), and while *Add a slot* is under way
+    /// `creating_since` and, where it failed, `create_refused`. Choice 1 answers at once: the slot is
+    /// made after. A Job's call with no `holders` is two choices and no rows.
     SlotChoice,
     /// Fleet: a bug or feature Job started and its first message did not say how the work is
     /// delivered. Derived on every read from the thread's `delivery` row while it has no choice: id
@@ -780,6 +786,19 @@ pub struct WaitingItem {
     /// A `replied` item whose sentence he said is a question (`confirm_waiting`). Absent where he has not.
     #[serde(default, skip_serializing_if = "is_false")]
     pub confirmed: bool,
+    /// On a `slot_choice` item only: the slots a Job Fleet hosts holds, longest quiet first, each
+    /// with why Free is off where it is. Absent where Fleet has read none yet and where a terminal
+    /// or a person holds every slot, and the call then reads as two choices and no rows.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub holders: Vec<crate::slot_choice::SlotHolder>,
+    /// On a `slot_choice` item only: when Fleet began making the slot *Add a slot* asked for. While it
+    /// is present the Job's call stays on the list for the person to see the wait, and asks for nothing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub creating_since: Option<Instant>,
+    /// On a `slot_choice` item only: why the last slot Fleet tried to make was not made. Gone the next
+    /// time *Add a slot* is answered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub create_refused: Option<String>,
 }
 
 /// One item as the agent states it. Fleet stamps `since` and `source`.

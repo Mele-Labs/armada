@@ -114,6 +114,20 @@ fn the_workflow_reads_take_the_workflow_and_its_place() {
     }
 }
 
+/// **A terminal is named in the query**, and the list is a tool of its own: a tool that left
+/// `terminal` out of its schema could never be handed the ID the person gave.
+#[test]
+fn the_terminal_tools_take_the_terminal_and_the_list_is_offered() {
+    let shape = |operation: &str| offered().into_iter().find(|shape| shape.operation == operation).expect(operation);
+    assert!(shape("read_terminal").query.contains(&"terminal"), "{:?}", shape("read_terminal").query);
+    let list = shape("list_terminals");
+    assert_eq!((list.method, list.path, list.query), ("GET", "/sessions/terminal/list", &["session_id"][..]));
+    assert!(
+        offered().iter().all(|shape| shape.operation != "rename_terminal"),
+        "naming a tab is the person's act, not a tool"
+    );
+}
+
 /// Every tool, called. **The door's half of `every_operation_the_table_names_is_routed`**:
 /// that one proves a path is in the router, and this proves the door builds a
 /// request that reaches it. A tool that answers "no such tool" or a route that

@@ -37,12 +37,14 @@ struct Slot {
     stranded: Option<(StrandedWork, String)>,
     /// The Session whose process tree held it before its holder went.
     last_session: Option<String>,
+    /// Being made now, so no lease takes it: the real pool's lock on a half-made checkout.
+    making: bool,
 }
 
 impl Slot {
     /// Free, open and one of the pool's.
     fn leasable(&self) -> bool {
-        self.held_by.is_none() && !self.closed && !self.removed && self.stranded.is_none()
+        self.held_by.is_none() && !self.closed && !self.removed && self.stranded.is_none() && !self.making
     }
 
     /// As the disk has it.
@@ -100,6 +102,14 @@ pub(super) struct FakeSlots {
     /// Where every hosted park waits, where a case holds them.
     park_gate: Mutex<Option<std::sync::Arc<super::ParkGate>>>,
     parked: Mutex<Vec<(u32, String)>>,
+    /// Where every `make_slot` waits, where a case holds them.
+    make_gate: Mutex<Option<std::sync::Arc<super::ParkGate>>>,
+    /// What the next `make_slot` answers instead of making the slot.
+    make_refusal: Mutex<Option<String>>,
+    /// Every slot made by `make_slot`, in order.
+    made: Mutex<Vec<u32>>,
+    /// The slots a case says hold files no commit has.
+    dirty: Mutex<std::collections::BTreeSet<u32>>,
     /// Every lease of an existing branch: the branch, the slot, the Job.
     reseated: Mutex<Vec<(String, u32, String)>>,
     /// What a slot holds after its branch merged, where a case says; a slot nothing was said of
@@ -287,6 +297,41 @@ impl FakeSlots {
             commit: Some(format!("wip-{session}")),
             files: vec![String::from("wip.txt")],
         })
+    }
+
+    /// Make slot `slot` where it is not made: waits at the gate a case installed, and is refused
+    /// with what a case scripted. A lease meanwhile finds the slot unavailable, as the real pool's.
+    pub(super) fn make(&self, pool: &SlotPool, slot: u32) -> Result<(), String> {
+        let started = self.with(pool, |slots| match slots.get_mut(slot as usize - 1) {
+            Some(at) if !at.made && at.leasable() => {
+                at.making = true;
+                true
+            }
+            _ => false,
+        });
+        if !started {
+            return Ok(());
+        }
+        let gate = self.make_gate.lock().expect("not poisoned").clone();
+        if let Some(gate) = gate {
+            gate.pass();
+        }
+        let refused = self.make_refusal.lock().expect("not poisoned").take();
+        self.with(pool, |slots| {
+            let at = &mut slots[slot as usize - 1];
+            at.making = false;
+            at.made = refused.is_none();
+        });
+        if let Some(why) = refused {
+            return Err(why);
+        }
+        let _ = std::fs::create_dir_all(slot_path(pool.repo_root(), slot));
+        self.made.lock().expect("not poisoned").push(slot);
+        Ok(())
+    }
+
+    pub(super) fn is_dirty(&self, slot: u32) -> bool {
+        self.dirty.lock().expect("not poisoned").contains(&slot)
     }
 
     pub(super) fn standing(&self, pool: &SlotPool, slot: u32, job: &str) -> SlotStanding {
@@ -615,6 +660,33 @@ impl FakeVcs {
     /// slot on the base, or one another holds.
     pub fn refuse_next_park(&self, why: SlotParkRefused) {
         self.slots.refuse_next_park(why);
+    }
+
+    /// Hold every `make_slot` at a gate until the test opens it (or drops the hold).
+    pub fn hold_makes(&self) -> super::ParkHold {
+        let gate = std::sync::Arc::new(super::ParkGate::default());
+        *self.slots.make_gate.lock().expect("not poisoned") = Some(std::sync::Arc::clone(&gate));
+        super::ParkHold(gate)
+    }
+
+    /// Make the next `make_slot` refuse with `why`, as git does for a checkout it cannot add.
+    pub fn refuse_next_make(&self, why: &str) {
+        *self.slots.make_refusal.lock().expect("not poisoned") = Some(why.to_string());
+    }
+
+    /// Every slot made by `make_slot`, in order.
+    pub fn made_slots(&self) -> Vec<u32> {
+        self.slots.made.lock().expect("not poisoned").clone()
+    }
+
+    /// Say whether slot `slot` holds files no commit has.
+    pub fn dirty_slot(&self, slot: u32, dirty: bool) {
+        let mut slots = self.slots.dirty.lock().expect("not poisoned");
+        if dirty {
+            slots.insert(slot);
+        } else {
+            slots.remove(&slot);
+        }
     }
 
     /// Hold every park at a gate until the test opens it (or drops the hold).

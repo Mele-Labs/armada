@@ -1,4 +1,4 @@
-// A Job's terminal window in the mock: Bridge's own window on the shell, drawn over the page because a browser has no
+// A terminal's window in the mock: Bridge's own window on the shell, drawn over the page because a browser has no
 // second window, as the walk window is. **`TerminalWindow` itself, over a copy of the fake's api**: a window of its own has
 // its own shell store in the real app, and one made here meets a shell that printed before it opened the way a real one does.
 // The OS close is the Close window button; the shell keeps running and the fake reports the Job has no window.
@@ -7,23 +7,27 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@armada/components";
 
 import type { BridgeApi } from "../../../shared/api";
+import type { TerminalWindowId } from "../../../shared/api/sessions";
+import { TerminalWindow, useTerminalName, windowTitleOf } from "../terminal-window/TerminalWindow";
 import { useSessions } from "../sessions-draft";
-import { TerminalWindow, windowTitleOf } from "../terminal-window/TerminalWindow";
 import { closeTerminalWindow, onTerminalWindowRaised } from "./scenarios/session-shell";
 import "./mock.css";
 
+/** A window under one key: the Job's id, and the terminal's ID where it has one. */
+const keyOf = ({ sessionId, terminal }: TerminalWindowId): string =>
+  terminal === undefined ? sessionId : `${sessionId}#${terminal}`;
+
 function Frame({
   api,
-  sessionId,
+  window: { sessionId, terminal },
   front,
   raised,
 }: {
   api: BridgeApi;
-  sessionId: string;
+  window: TerminalWindowId;
   front: boolean;
   raised: number;
 }) {
-  const title = windowTitleOf(useSessions().find((one) => one.id === sessionId)?.title);
   // A store of its own, as a window's document has.
   const own = useMemo(
     () => ({
@@ -32,6 +36,10 @@ function Frame({
     [
       api,
     ],
+  );
+  const title = windowTitleOf(
+    useTerminalName(own, sessionId, terminal),
+    useSessions().find((one) => one.id === sessionId)?.title,
   );
   const frame = useRef<HTMLElement>(null);
   // The page's title comes back with the window, which sets the document's.
@@ -60,20 +68,33 @@ function Frame({
     >
       <div className="armada-mock-terminal-window__strip">
         <span>{title}</span>
-        <Button variant="secondary" size="sm" onClick={() => closeTerminalWindow(sessionId)}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() =>
+            closeTerminalWindow({
+              sessionId,
+              ...(terminal === undefined
+                ? {}
+                : {
+                    terminal,
+                  }),
+            })
+          }
+        >
           Close window
         </Button>
       </div>
       <div className="armada-mock-terminal-window__document">
-        <TerminalWindow api={own} sessionId={sessionId} />
+        <TerminalWindow api={own} sessionId={sessionId} terminal={terminal} />
       </div>
     </section>
   );
 }
 
-/** The Jobs whose shell has a window of its own, each drawn as one, the last opened or raised in front. */
+/** The terminals that have a window of their own, each drawn as one, the last opened or raised in front. */
 export function TerminalWindows({ api }: { api: BridgeApi }) {
-  const [open, setOpen] = useState<readonly string[]>([]);
+  const [open, setOpen] = useState<readonly TerminalWindowId[]>([]);
   const [front, setFront] = useState<string>();
   const [raised, setRaised] = useState<Readonly<Record<string, number>>>({});
   useEffect(() => {
@@ -81,27 +102,28 @@ export function TerminalWindows({ api }: { api: BridgeApi }) {
     if (typeof api.onTerminalWindows !== "function") return;
     let live = true;
     let known: readonly string[] = [];
-    const hear = (sessionIds: readonly string[]) => {
+    const hear = (windows: readonly TerminalWindowId[]) => {
       if (!live) return;
-      const opened = sessionIds.filter((one) => !known.includes(one));
-      known = sessionIds;
+      const keys = windows.map(keyOf);
+      const opened = keys.filter((one) => !known.includes(one));
+      known = keys;
       if (opened.length > 0) setFront(opened[opened.length - 1]);
-      setOpen(sessionIds);
+      setOpen(windows);
     };
     let heard = false;
-    const off = api.onTerminalWindows((sessionIds) => {
+    const off = api.onTerminalWindows((windows) => {
       heard = true;
-      hear(sessionIds);
+      hear(windows);
     });
     // A fake that left Sessions out answers a refusal, not a list.
-    void api.getTerminalWindows().then((sessionIds) => {
-      if (!heard && Array.isArray(sessionIds)) hear(sessionIds);
+    void api.getTerminalWindows().then((windows) => {
+      if (!heard && Array.isArray(windows)) hear(windows);
     });
-    const offRaised = onTerminalWindowRaised((sessionId) => {
-      setFront(sessionId);
+    const offRaised = onTerminalWindowRaised((id) => {
+      setFront(keyOf(id));
       setRaised((was) => ({
         ...was,
-        [sessionId]: (was[sessionId] ?? 0) + 1,
+        [keyOf(id)]: (was[keyOf(id)] ?? 0) + 1,
       }));
     });
     return () => {
@@ -114,13 +136,13 @@ export function TerminalWindows({ api }: { api: BridgeApi }) {
   ]);
   return (
     <>
-      {open.map((sessionId) => (
+      {open.map((one) => (
         <Frame
-          key={sessionId}
+          key={keyOf(one)}
           api={api}
-          sessionId={sessionId}
-          front={front === sessionId}
-          raised={raised[sessionId] ?? 0}
+          window={one}
+          front={front === keyOf(one)}
+          raised={raised[keyOf(one)] ?? 0}
         />
       ))}
     </>

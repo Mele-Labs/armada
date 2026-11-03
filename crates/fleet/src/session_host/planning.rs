@@ -52,6 +52,9 @@ pub(crate) fn plan_item(session: &str, version: u32, since: &str) -> WaitingItem
         steps: Vec::new(),
         place: None,
         confirmed: false,
+        holders: Vec::new(),
+        creating_since: None,
+        create_refused: None,
     }
 }
 

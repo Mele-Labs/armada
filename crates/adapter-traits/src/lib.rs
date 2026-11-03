@@ -492,6 +492,16 @@ pub trait Vcs {
     /// Where the slot a Job's record names stands now.
     fn slot_standing(&self, pool: &SlotPool, slot: u32, job_id: &str) -> SlotStanding;
 
+    /// Make slot `slot`'s checkout if it is not made, and do nothing if it is. **The slow half of a
+    /// lease, taken apart so a caller can do it holding nothing**: a lease that finds the slot made
+    /// is quick. The slot's own lock is held while it is made, so a lease running meanwhile finds it
+    /// busy and takes another or none, never a half-made one. `Err` is the sentence git gave.
+    fn make_slot(&self, pool: &SlotPool, slot: u32) -> Result<(), alloc::string::String>;
+
+    /// Whether slot `slot` holds files no commit has, as `git status` says. A slot that is not
+    /// made has none. `Err` is the sentence git gave.
+    fn slot_dirty(&self, pool: &SlotPool, slot: u32) -> Result<bool, alloc::string::String>;
+
     /// What slot `slot` holds now that the pull request from `merged`, the branch it was leased
     /// on, has merged. **Read only**: Fleet decides from it whether to give the slot back, and
     /// never gives back one that answers anything but [`SlotAfterMerge::Idle`]. An adapter that

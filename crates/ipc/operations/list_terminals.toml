@@ -1,0 +1,12 @@
+[operations.list_terminals]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "List this Job's open terminals: for each its ID such as t2, its name, and whether a program other than the shell is running in it. A Job has several terminals and the person may hand you one by ID. Pass an ID as terminal to type_in_terminal or read_terminal. Optional session_id, only where you run in a terminal"
+notes = """
+`GET /sessions/terminal/list?session_id=`, the query `ListTerminals`. Answered 200 with `JobTerminals`: `terminals`, each `{ terminal, name, run_id, running }`, lowest number first. `name` is `Terminal N` until the person renames it with `rename_terminal`. `running` is `true` where a program other than the shell has the foreground, such as a dev server. Only open terminals are listed: one whose shell has ended is not.
+
+**The Job is the one the connection places when Fleet hosts it**, else `session_id`. Nothing placing one is refused with 422.
+
+`agent_access` is `Yes`: the agent reads the list of terminals it shares with the person, which the person's tabs already show.
+"""

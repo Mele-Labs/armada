@@ -1,4 +1,4 @@
-import { Bug, GitBranch, GitPullRequest, SquareTerminal, Ticket } from "lucide-react";
+import { Bug, GitBranch, GitPullRequest, SquareTerminal, Terminal, Ticket } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -10,7 +10,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * on it: its `id` is the report's, its `title` the report's.
  */
 export type ComposerTag = {
-  kind: "session" | "pull_request" | "branch" | "issue" | "report";
+  kind: "session" | "pull_request" | "branch" | "issue" | "report" | "terminal";
   id: string;
   title: string;
   /** The forge's address of an issue or a pull request, sent with it. */
@@ -35,6 +35,7 @@ export const TAG_GLYPH: Record<ComposerTag["kind"], LucideIcon> = {
   branch: GitBranch,
   issue: Ticket,
   report: Bug,
+  terminal: Terminal,
 };
 
 /**
@@ -98,4 +99,5 @@ const TAG_KIND_SAID: Record<ComposerTag["kind"], string> = {
   branch: "Branch",
   issue: "Issue",
   report: "Reported bug",
+  terminal: "Terminal",
 };

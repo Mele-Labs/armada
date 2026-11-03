@@ -280,6 +280,14 @@ impl Vcs for FakeVcs {
         self.slots.standing(pool, slot, job_id)
     }
 
+    fn make_slot(&self, pool: &SlotPool, slot: u32) -> Result<(), String> {
+        self.noted(self.slots.make(pool, slot))
+    }
+
+    fn slot_dirty(&self, _pool: &SlotPool, slot: u32) -> Result<bool, String> {
+        Ok(self.slots.is_dirty(slot))
+    }
+
     fn slot_after_merge(&self, _pool: &SlotPool, slot: u32, _merged: &str) -> adapter_traits::SlotAfterMerge {
         self.slots.after_merge(slot)
     }

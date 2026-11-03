@@ -340,6 +340,7 @@ pub(crate) fn summary(kept: &KeptWatchWhole, login: Option<&LoginEnvironment>) -
             .collect(),
         in_terminal: held.in_terminal.clone(),
         regex: held.regex,
+        terminal: held.terminal.clone(),
         login_shell: login.filter(|_| held.live).map(LoginEnvironment::wire),
     }
 }

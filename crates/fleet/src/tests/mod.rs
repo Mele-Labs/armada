@@ -197,6 +197,7 @@ mod session_running;
 mod session_terminal;
 mod session_terminal_reading;
 mod session_terminal_replaced;
+mod session_terminal_several;
 mod session_terminal_typing;
 mod session_shell;
 mod sessioning;
