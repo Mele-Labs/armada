@@ -9,7 +9,7 @@
 
 import { BadgeCheck, Bug, CalendarClock, Footprints, type LucideIcon } from "lucide-react";
 import type { LedgerEntry } from "@armada/components";
-import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
+import { attachmentsOf, type FleetAct, type Session } from "@armada/screens/src/draft/sessions";
 
 import { artifactsOf, type ArtifactRow } from "./artifacts";
 import { documentOf } from "./document-state";
@@ -17,7 +17,7 @@ import { issueOfGroup, type Issue, type PullRequest } from "./IssuesBlock";
 import { showLayer } from "./layers";
 
 /** The lists "By kind" makes. */
-export type Bucket = "job" | "document" | "pull_request" | "issue" | "artifact";
+export type Bucket = "job" | "document" | "pull_request" | "issue" | "artifact" | "fleet";
 
 export const BUCKETS: readonly {
   id: Bucket;
@@ -42,6 +42,10 @@ export const BUCKETS: readonly {
   {
     id: "artifact",
     label: "Artifacts",
+  },
+  {
+    id: "fleet",
+    label: "Fleet",
   },
 ];
 
@@ -72,6 +76,11 @@ export type Made = {
       shape: "job";
       child: Session;
       open: () => void;
+    }
+  /** Something Fleet did for the Job, over. */
+  | {
+      shape: "fleet";
+      act: FleetAct;
     }
 );
 
@@ -259,6 +268,16 @@ export function madeOf(
       child,
       open: () => opts.jobs?.open(child.id),
     });
+  // What Fleet did for it, oldest first like the rest of a kind.
+  for (const act of (session.fleetActs ?? [])
+    .filter((one) => one.state === "over")
+    .sort((a, b) => Date.parse(a.at) - Date.parse(b.at)))
+    out.push({
+      shape: "fleet",
+      key: `fleet:${act.id}`,
+      bucket: "fleet",
+      act,
+    });
   return out;
 }
 
@@ -326,6 +345,8 @@ const MADE_BY: readonly {
 
 /** The finished workflow step an output stands under in By step, or none where no finished step made it. */
 export const stepOf = (one: Made, done: readonly string[]): string | undefined => {
+  // What Fleet did while a step was current stands under that step.
+  if (one.shape === "fleet") return done.find((name) => name === one.act.step);
   const by = MADE_BY.find((kind) => kind.is(one));
   return by === undefined
     ? undefined

@@ -46,6 +46,7 @@ pub(crate) mod handoff_answers;
 pub(crate) mod replacing;
 pub(crate) mod linking;
 mod hearing;
+mod reviving;
 mod tools_missing;
 mod init_kept;
 mod mod_moved;
@@ -69,6 +70,7 @@ pub(crate) mod start_card;
 pub(crate) mod fleet_calls;
 pub(crate) mod preview_offers;
 pub(crate) mod rule_asks;
+pub(crate) mod stopping;
 pub(crate) mod planning;
 mod places;
 mod process;
@@ -138,6 +140,8 @@ pub struct Hosts {
     /// The Sessions last published as stuck, so a Session that goes quiet, or is heard from again, is
     /// published when it does and not only when something else moves. Memory only.
     stuck: Mutex<std::collections::HashSet<String>>,
+    /// The Jobs whose stop is owed a word.
+    stops_owed: stopping::Owed,
     asks: Asks,
     runtime: Mutex<HashMap<String, Arc<Runtime>>>,
     minted: AtomicU64,
@@ -188,6 +192,7 @@ impl Hosts {
             quiet,
             stuck_after: Mutex::new(standing::STUCK_AFTER),
             stuck: Mutex::new(std::collections::HashSet::new()),
+            stops_owed: stopping::Owed::default(),
             asks: Asks::holding_for(hold),
             runtime: Mutex::new(HashMap::new()),
             minted: AtomicU64::new(0),
@@ -282,6 +287,10 @@ impl Hosts {
         let moved = was.symmetric_difference(&now).cloned().collect();
         *was = now;
         moved
+    }
+
+    pub(crate) fn stops_owed(&self) -> &stopping::Owed {
+        &self.stops_owed
     }
 
     pub(crate) fn helm_starting(&self) -> &tokio::sync::Mutex<()> {

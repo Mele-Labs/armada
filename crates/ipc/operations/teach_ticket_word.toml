@@ -1,0 +1,16 @@
+[operations.teach_ticket_word]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Read a tracker's own status as one state of the Ticket, in the Ticket lifecycle Kit keeps for the repository's Workspace and in the copy every live Job there froze"
+notes = """
+`POST /lifecycles/ticket/teach`, from the menu on a ticket. The body is `TeachTicketWord` `{ manifest_id, word, state }`: the repository the ticket was read in, the tracker's status as it said it (`Ready for QA`, matched exactly and trimmed), and the Ticket state it reads as (`todo`, `in_progress`, `in_review` or `closed`). The answer is a `TicketWordTaught` `{ saved, jobs }`: `saved` the Ticket as written to Kit, as `save_lifecycle_piece` answers, and `jobs` the live Jobs whose own copy took the word, by session id.
+
+**The Ticket that runs for the repository is the start**, so the words its tracker declares and the ones a person listed carry over. `word` is taken off every state that lists it and added to `state`'s. It is saved in Kit through `save_lifecycle_piece`'s own write, with overwrite, at one scope. That is the scope of the running Ticket where a Kit or repository file scoped to the repository or to a Workspace holds it, and else the Workspace that holds the repository (the lowest id where several do) or, where none does, the repository itself. A repository's committed `.armada/` is never written.
+
+**A live Job's copy takes the word too**, the one exception to a Job keeping the copy it started with: each live Job in a repository the scope reaches has the same move made on its own Ticket, so its own edits stay. A Job that froze no copy reads Kit's. Each ticket a Job in those repositories holds whose last tracker word is `word` is read again at once, so its standing moves and `job_lifecycles.changed` goes out without waiting for the tracker's next read.
+
+422 `fleet.piece_unfit` for a blank word, a state the Ticket does not have or does not read from the tracker, and a Ticket that would not parse; 404 where Fleet serves no such repository; 500 `fleet.piece_unwritable` where the file cannot be written.
+
+`agent_access` is `Bridge only`, as `save_lifecycle_piece`'s: the person's own pieces decide how every Job of theirs reads a ticket.
+"""

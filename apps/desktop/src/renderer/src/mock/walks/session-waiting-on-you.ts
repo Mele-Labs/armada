@@ -1,8 +1,8 @@
 // A Session that waits on the person: its row has a hand, the Needs you panel on its
-// composer is up with the question, and the page item is a walk on the sheet the Review row opens. Over the `session-waiting-on-you` scenario. Told twice: wide, and
+// composer is up with the question and the items, a press on the page item opens its walk, and the question is its first part. Over the `session-waiting-on-you` scenario. Told twice: wide, and
 // below the breakpoint.
 
-import { button, dialog, inside, region, role, tab, walk } from "../walk";
+import { button, inside, region, role, tab, walk } from "../walk";
 import type { Step } from "../walk";
 import { NARROW, toSessions } from "../sessions/walk-kit";
 
@@ -12,11 +12,6 @@ function steps(): Step[] {
   });
   const needs = region("Needs you");
   const mine = inside(sessions, button(/Pin the store clock/));
-  const sheet = dialog("Pin the store clock");
-  const page = inside(
-    inside(sheet, role("group", "Waiting on you")),
-    button(/Look at the findings page/),
-  );
   return [
     {
       hover: inside(sessions, role("img", /^Waiting on you/)),
@@ -27,32 +22,14 @@ function steps(): Step[] {
       say: "Opened",
     },
     {
-      look: inside(needs, button("Open Which clock?")),
-      say: "The question is a row on the card",
-    },
-    {
-      press: inside(
-        needs,
-        button("Review", {
-          exact: true,
-        }),
-      ),
-      say: "The page item is a walk, so it is on the sheet Review opens",
-    },
-    {
-      look: page,
-      say: "Its walk plays in the sheet",
-    },
-    {
-      key: "Escape",
-      on: page,
-      say: "Esc closes the sheet",
+      press: inside(needs, button("Open Look at the findings page")),
+      say: "A page item's row brings its walk to the front of the Job's panes",
     },
     {
       look: tab("Look at the findings page", {
         exact: true,
       }),
-      say: "The walk is also a tab of the Job",
+      say: "The walk is a tab of the Job",
     },
     {
       press: button("Close Look at the findings page"),
@@ -60,7 +37,7 @@ function steps(): Step[] {
     },
     {
       press: inside(needs, button("Open Which clock?")),
-      say: "The question opens on the card",
+      say: "The question is the first row",
     },
     {
       look: role("article", "Waiting on you"),

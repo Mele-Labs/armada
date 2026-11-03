@@ -193,6 +193,8 @@ where
             Some(_) => crate::plan_keeping::pulls_read(store, &session.id, &held).map_err(fault)?,
             None => Vec::new(),
         };
+        let stop = store.session_stop(&session.id).map_err(fault)?;
+        let open_turn = store.open_turn(&session.id).map_err(fault)?;
         Ok(LedgerReads {
             wait,
             rail,
@@ -209,6 +211,17 @@ where
             pulls,
             later: store.later_of(&session.id).map_err(fault)?,
             watching: store.live_watch_names(&session.id).map_err(fault)?,
+            holding: self.lifecycles_holding(store, &session.id),
+            repair_over: stop.repair_job.as_deref().is_some_and(|repair| {
+                let ended = store.session(repair).ok().flatten().is_none_or(|one| one.state == store::SessionState::Ended);
+                ended || store.done_since(repair).ok().flatten().is_some()
+            }),
+            away: open_turn
+                .as_ref()
+                .and_then(|turn| Some(store.fleet_outages_between(&turn.since, turn.ended_at.as_deref()?).unwrap_or_default()))
+                .unwrap_or_default(),
+            stop,
+            open_turn,
             start,
             started,
         })
@@ -292,6 +305,9 @@ where
         let waited = self.waiting_from(reads.waiting, session, &record.attachments);
         record.waiting_for = waited.items;
         record.closed = waited.closed;
+        let parked = waited.start_held || waited.paused;
+        let spoke = waited.spoke;
+        let died_saying = waited.died_saying;
         let plan_held = waited.plan_held;
         record.standing = (session.state == store::SessionState::Live).then_some(waited.standing);
         record.build = reads.build.record(record.standing == Some(ipc::SessionStanding::Stuck), workers_of(&record.attachments));
@@ -332,7 +348,52 @@ where
                 .any(|one| one.kind == "background" && one.state == ipc::AttachmentState::Standing);
         if between {
             let pulls = record.attachments.iter().filter_map(pull_request_wait);
-            record.held_open_by = reads.watching.into_iter().map(|name| ipc::HeldOpenBy::Watch { name }).chain(pulls).collect();
+            let started = reads.holding.iter().filter(|one| one.lifecycle == JOB_LIFECYCLE).map(|one| ipc::HeldOpenBy::Job { name: one.label.clone() });
+            record.held_open_by = reads.watching.into_iter().map(|name| ipc::HeldOpenBy::Watch { name }).chain(started).chain(pulls).collect();
+        }
+        let excused = !between
+            || parked
+            || !record.held_open_by.is_empty()
+            || record.helm
+            // Its process died in the turn: Fleet is starting it again, or it reads as dead below.
+            || reads.open_turn.as_ref().is_some_and(|turn| turn.ended_at.is_some())
+            || record.waits.is_some()
+            || record.held_until.is_some()
+            // A ticket lives as long as its work: only what is under way elsewhere excuses a stop.
+            || reads.holding.iter().any(|one| one.lifecycle != TICKET_LIFECYCLE)
+            || record.attachments.iter().any(open_pull_request)
+            || (session.origin != "bridge" && !self.hosts().terminals().listening(&session.id))
+            || self.hosts().of(&session.id).state().moving.is_some();
+        let stop = session.last_turn_at.as_deref().filter(|_| !excused);
+        let read = stop.map(|stop| crate::session_host::stopping::read(stop, &reads.stop, spoke.as_deref(), self.now().epoch_millis().unwrap_or(0)));
+        if read == Some(crate::session_host::stopping::Read::Stopped) {
+            record.standing = Some(ipc::SessionStanding::Stopped);
+            record.stopped = stop.map(|stop| crate::session_host::stopping::stopped(stop, &record));
+        }
+        let owed = stop.filter(|_| read == Some(crate::session_host::stopping::Read::Owed)).map(|stop| {
+            let from = [Some(stop), spoke.as_deref()].into_iter().flatten().filter_map(|at| core_model::Timestamp::from_rfc3339(at).epoch_millis()).max();
+            (stop, from.unwrap_or(0))
+        });
+        self.hosts().stops_owed().noted(&session.id, owed);
+        // Dead with the restart spent: nothing ends a turn here, so no turn's end says it.
+        let dead = session.state == store::SessionState::Live
+            && !parked
+            && reads.open_turn.as_ref().is_some_and(crate::session_host::stopping::restart_spent)
+            && self.hosts().of(&session.id).state().process.is_none();
+        if dead {
+            record.standing = Some(ipc::SessionStanding::Stopped);
+            record.stopped = reads.open_turn.as_ref().map(|turn| crate::session_host::stopping::dead(turn, &reads.stop, reads.repair_over, &reads.away, died_saying));
+        }
+        record.stop_told_by = owed.map(|(_, from)| wire_instant(&crate::clock::rfc3339_utc(from + crate::session_host::stopping::STOP_AFTER.as_millis() as i64)));
+        // How long the running turn has been at it and when it was last heard, which Now says beside it.
+        if session.origin == "bridge" {
+            let runtime = self.hosts().of(&session.id);
+            let state = runtime.state();
+            if matches!(state.turn, ipc::SessionTurn::Working { .. }) {
+                record.turn_since = state.turn_began.as_deref().map(wire_instant);
+                let quiet = state.last_active.elapsed().as_millis() as i64;
+                record.last_heard_at = self.now().epoch_millis().map(|now| wire_instant(&crate::clock::rfc3339_utc(now - quiet)));
+            }
         }
         record
     }
@@ -438,6 +499,18 @@ where
 /// What an own pull request waits on, read from its attachment's detail as Bridge reads a pull request: open,
 /// its Checks not failed, and in the queue, set to merge or on its Checks. A merged, given back or draft one waits on nothing,
 /// nor does one the person dismissed from the Waiting band.
+/// The lifecycle a Job it started is held under.
+const JOB_LIFECYCLE: &str = "job";
+/// The lifecycle of the ticket a Job works.
+const TICKET_LIFECYCLE: &str = "ticket";
+
+/// A pull request of its own that has not merged, whatever it waits on.
+fn open_pull_request(one: &ipc::Attachment) -> bool {
+    one.kind == crate::pull_requesting::PR
+        && one.state == ipc::AttachmentState::Standing
+        && one.detail.get("state").map(String::as_str) != Some("merged")
+}
+
 fn pull_request_wait(one: &ipc::Attachment) -> Option<ipc::HeldOpenBy> {
     let detail = |key: &str| one.detail.get(key).map(String::as_str);
     if one.kind != crate::pull_requesting::PR

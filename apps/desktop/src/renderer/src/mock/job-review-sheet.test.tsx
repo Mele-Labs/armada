@@ -1,6 +1,6 @@
 // A Job's Needs you card and review sheet over real Jobs, through `App` on `job-review-sheet`. What he answers (a question, a command, a Job its agent started) is a row of the card and is
-// answered there; what he reads (a plan, sketch, draft, document, walk) is one Review row on it, which opens the sheet. A Job with nothing to review has no such row, and a Job with only
-// review items opens the sheet from the band. The walk of the same name draws it; this holds that the presses reach the same code.
+// answered there; what he reads (a plan, sketch, draft, document, walk) is one Review row on it, which opens the sheet. A Job with nothing to review has no such row, a Job with only
+// review items opens the sheet from the band, and one item alone stays where it lives. The walk of the same name draws it; this holds that the presses reach the same code.
 
 import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -30,6 +30,8 @@ beforeEach(() => {
 const JOB = "Retry backoff cap";
 const ASK_JOB = "Name the cache key";
 const READ_JOB = "Draw the retry curve";
+const ONE_WALK_JOB = "Check the usage page";
+const ONE_SKETCH_JOB = "Sketch the cap";
 /** What he reads, oldest first. The question and the command are on the card. */
 const ORDER = [
   "Plan v2",
@@ -202,7 +204,7 @@ test("⇧⌘Y folds the card where the Job has nothing to review, and opens no s
   expect(sheet(ASK_JOB).query()).toBeNull();
 });
 
-test("a Job with only something to review opens the sheet from a press on the band", async () => {
+test("a Job with only things to review opens the sheet from a press on the band", async () => {
   await open(/Draw the retry curve/);
   await expect.element(bandKey()).toBeVisible();
   // There is no list worth folding, so the card has no Review row.
@@ -212,7 +214,48 @@ test("a Job with only something to review opens the sheet from a press on the ba
   await expect.element(sheet(READ_JOB)).toBeVisible();
   expect(names(READ_JOB)).toEqual([
     "Retry curve",
+    "Retry table",
   ]);
+});
+
+test("the sheet stays open on the last item when an answer leaves one", async () => {
+  await open(/Draw the retry curve/);
+  await userEvent.click(bandKey());
+  await expect.element(sheet(READ_JOB)).toBeVisible();
+  await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
+  await expect.element(detail(READ_JOB, "Retry table")).toBeVisible();
+  await expect.element(sheet(READ_JOB)).toBeVisible();
+  await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
+  await expect.element(sheet(READ_JOB)).not.toBeInTheDocument();
+});
+
+test("one walk is a row on the card that brings its tab forward, and no sheet", async () => {
+  await open(/Check the usage page/);
+  await expect.element(bandKey()).toBeVisible();
+  await userEvent.click(bandKey());
+  await expect.element(card("Usage page")).toBeVisible();
+  expect(reviewRow().query()).toBeNull();
+  expect(sheet(ONE_WALK_JOB).query()).toBeNull();
+  await userEvent.keyboard(SHIFT_META_Y);
+  expect(sheet(ONE_WALK_JOB).query()).toBeNull();
+  await userEvent.keyboard(SHIFT_META_Y);
+  await userEvent.click(card("Usage page"));
+  await expect
+    .element(
+      page.getByRole("tab", {
+        name: "Usage page",
+      }),
+    )
+    .toHaveAttribute("aria-selected", "true");
+  expect(sheet(ONE_WALK_JOB).query()).toBeNull();
+});
+
+test("one sketch is its card in the thread, with no band and no sheet", async () => {
+  await open(/Sketch the cap/);
+  await expect.element(thread().getByText("The cap")).toBeVisible();
+  expect(bandKey().query()).toBeNull();
+  await userEvent.keyboard(SHIFT_META_Y);
+  expect(sheet(ONE_SKETCH_JOB).query()).toBeNull();
 });
 
 test("⇧⌘Y opens the sheet on a Job with only something to review", async () => {

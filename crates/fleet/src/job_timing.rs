@@ -30,9 +30,6 @@ pub(crate) const AFTER: Duration = Duration::from_secs(45);
 pub(crate) const EVERY: Duration = Duration::from_secs(30);
 /// How long it rests between Jobs: a Job read from the top is up to a few transcripts.
 const PAUSE: Duration = Duration::from_millis(250);
-/// How often Fleet says it is up, and how long unseen counts as away.
-pub(crate) const BEAT: Duration = Duration::from_secs(15);
-pub(crate) const OUTAGE_SECONDS: i64 = 90;
 
 fn millis(stamp: &str) -> Option<i64> {
     Timestamp::from_rfc3339(stamp).epoch_millis()

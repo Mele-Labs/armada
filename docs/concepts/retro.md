@@ -107,7 +107,7 @@ ended.
 | --- | --- |
 | `asks` | The ask rows on a hosted Job's thread: what was asked, the answer and how long it waited |
 | `refusals` | Tool results the agent CLI's transcript shows were refused: a hook's `Refused`, the harness's denial, the person declining |
-| `restarts` | A hosted Job's process resumed, reattached after Fleet came back, or gone while a turn ran |
+| `restarts` | A hosted Job's process resumed, reattached after Fleet came back, gone while a turn ran, or started again by Fleet after that |
 | `failed_tools` | The other tool results that errored, each joined to its call: `tried` is the call, `because` the error |
 | `corrections` | Every message the person sent, unfiltered. The call reads which of them redirected the agent |
 | `subagents` | What went wrong in each subagent's own transcript |

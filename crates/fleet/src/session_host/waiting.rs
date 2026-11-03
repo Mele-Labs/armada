@@ -123,6 +123,8 @@ pub(crate) struct WaitingReads {
     start_held: bool,
     /// The Job is paused, and raises nothing until it is resumed.
     paused: bool,
+    /// A Check of its own is running.
+    checks_running: bool,
     /// The project tasks it finished and nobody has said are done.
     asked_tasks: Vec<store::KeptAsked>,
     /// Its watches that ended not ours.
@@ -141,6 +143,14 @@ pub(crate) struct Waited {
     /// The items the person closed, newest first, and whether each would wait again.
     pub closed: Vec<ipc::ClosedWaiting>,
     pub standing: ipc::SessionStanding,
+    /// When the person last wrote to it. A Fleet word typed into a terminal reads back as his, and is left out.
+    pub spoke: Option<String>,
+    /// The last thing a process of it said as it ended, from Fleet's note in the thread.
+    pub died_saying: Option<String>,
+    /// It waits on its start card.
+    pub start_held: bool,
+    /// It is paused.
+    pub paused: bool,
     /// The windows holding back the plan he has not approved.
     pub plan_held: Vec<ipc::PlanHold>,
 }
@@ -170,6 +180,7 @@ pub(crate) fn waiting_reads(
         preview_offers: store.preview_offers_of(&session.id)?,
         start_held: store.hosting(&session.id)?.is_some_and(|one| one.start_held),
         paused: store.hosting(&session.id)?.is_some_and(|one| one.paused_at.is_some()),
+        checks_running: !store.running_session_checks(&session.id)?.is_empty(),
         asked_tasks: store.asked_project_tasks(&session.id)?,
         not_ours: store.ended_watches_in(&session.id, core_model::WatchState::NotOurs.as_wire())?,
         ready_changes: store.ready_workflow_change_ids()?,
@@ -458,7 +469,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, tell, plan, misreads, confirmed, word_asks, calls, preview_offers, start_held, paused, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, tell, plan, misreads, confirmed, word_asks, calls, preview_offers, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -474,6 +485,17 @@ where
         });
         let last_spoke = spoke.max();
         let spoke_at = last_spoke.map(|at| at.as_str().to_string());
+        let his_word = rows.iter().filter_map(|row| match row {
+            SessionRow::Message { from: SessionVoice::You, at, text, .. } if !text.starts_with("Fleet:") => Some(at),
+            _ => None,
+        });
+        let his_word = his_word.max().map(|at| at.as_str().to_string());
+        let died_saying = rows.iter().rev().find_map(|row| match row {
+            SessionRow::Message { from: SessionVoice::Session { id, .. }, text, .. } if id == "fleet" => {
+                text.strip_prefix(super::stopping::PROCESS_ENDED).map(|said| said.trim_start_matches([':', ' ']).to_string()).filter(|said| !said.is_empty())
+            }
+            _ => None,
+        });
         // Every window he has not approved since it was last shown waits, until he approves it or a
         // newer window shows the same page. A message or a note does not settle it. One changed after
         // it was shown waits again only when the Job shows it again, however long it has been ready.
@@ -582,7 +604,9 @@ where
         let standing = if ended || paused {
             ipc::SessionStanding::Idle
         } else {
-            super::standing::standing(&seen, self.hosts().stuck_after())
+            let beside = checks_running
+                || attachments.iter().any(|one| one.kind == super::backgrounding::KIND && one.state == ipc::AttachmentState::Standing);
+            super::standing::beside_the_turn(super::standing::standing(&seen, self.hosts().stuck_after()), beside)
         };
         if !ended {
             // A Job on its start card waits for the person to send its first message, until Start.
@@ -742,7 +766,7 @@ where
         }
         // **A paused Job raises nothing**: its items come back after Resume, if they are still owed.
         let items = if paused { Vec::new() } else { items };
-        Waited { items, closed: Vec::new(), standing, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default() }
+        Waited { items, closed: Vec::new(), standing, spoke: his_word, died_saying, start_held, paused, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default() }
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.

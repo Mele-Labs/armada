@@ -1,17 +1,16 @@
 // A Session that waits on the person, through `App`: its row in the Cockpit's list has a hand, the band at the
-// foot of its thread opens to a list, the question first, the page item is a walk and so is the Review row, which opens the sheet that plays it,
+// foot of its thread opens to a list, the question first, a press on the page item opens its walk,
 // and the question's own row opens the card that answers it.
 // The walk `session-waiting-on-you` draws it; this holds that the presses reach the same code.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { detail, reviewRow, sheet } from "./review-sheet-kit";
 import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-test("Waiting on you: row hand, the band opens, the page item is on the Review row, the card answers", async () => {
+test("Waiting on you: row hand, the band opens, page item opens its walk, the card answers", async () => {
   mount("session-waiting-on-you");
   await onScreen();
   const list = page.getByRole("region", {
@@ -27,10 +26,46 @@ test("Waiting on you: row hand, the band opens, the page item is on the Review r
     .toBeVisible();
   await toSession(/Pin the store clock/);
 
+  // What waits on him is in the Needs you panel, and Artifacts holds none of it.
+  await userEvent.click(
+    page
+      .getByRole("region", {
+        name: "Flight controls",
+      })
+      .getByRole("button", {
+        name: "Artifacts",
+        exact: true,
+      }),
+  );
+  const artifacts = page.getByRole("region", {
+    name: "Artifacts",
+    exact: true,
+  });
+  await expect.element(artifacts).toBeVisible();
+  await expect
+    .element(
+      artifacts.getByRole("region", {
+        name: "Waiting on you",
+      }),
+    )
+    .not.toBeInTheDocument();
+  await expect
+    .element(
+      artifacts.getByRole("button", {
+        name: "Which clock?",
+      }),
+    )
+    .not.toBeInTheDocument();
+  await userEvent.click(
+    artifacts.getByRole("button", {
+      name: "Back",
+    }),
+  );
+  await expect.element(artifacts).not.toBeInTheDocument();
   const band = page.getByRole("region", {
     name: "Needs you",
   });
-  // The panel is open on the question when he comes in. The question is the first row of the list, and the page item is a walk, so it is the Review row and not a row of its own.
+  // The question arrives with the panel open to the list, and is its first row.
   await expect
     .element(
       band.getByRole("button", {
@@ -38,24 +73,11 @@ test("Waiting on you: row hand, the band opens, the page item is on the Review r
       }),
     )
     .toBeVisible();
-  expect(
-    band
-      .getByRole("button", {
-        name: "Open Look at the findings page",
-      })
-      .query(),
-  ).toBeNull();
-  await userEvent.click(reviewRow());
-  await expect.element(sheet("Pin the store clock")).toBeVisible();
-  await expect
-    .element(
-      detail("Pin the store clock", "Look at the findings page").getByRole("button", {
-        name: /^Approve/,
-      }),
-    )
-    .toBeVisible();
-  await userEvent.keyboard("{Escape}");
-  await expect.element(sheet("Pin the store clock")).not.toBeInTheDocument();
+  await userEvent.click(
+    band.getByRole("button", {
+      name: "Open Look at the findings page",
+    }),
+  );
   await expect
     .element(
       page.getByRole("tab", {
