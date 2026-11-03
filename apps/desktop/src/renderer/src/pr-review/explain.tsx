@@ -203,7 +203,7 @@ export function Chosen({
   def: ToolDef;
   send: Send;
   onOpenLink: (address: string) => void;
-  onRun?: () => void;
+  onRun?: (again: boolean) => void;
 }) {
   const store = useReviewStore()!;
   const work = useReviews().work[pr.key] ?? NO_WORK;

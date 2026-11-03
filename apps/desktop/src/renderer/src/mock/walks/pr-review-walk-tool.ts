@@ -58,21 +58,19 @@ const fromThePullRequest: Step[] = [
   },
   walkKey(
     1907,
-    "8 opens it, after the four explanations and the other tools. It plays the change, which costs, so it asks first",
+    "8 opens it, after the four explanations and the other tools. It plays the change, which costs, so its tab waits for Run",
   ),
   {
-    look: dialog("Walk"),
-    say: "The same question every tool that spends asks",
+    look: inside(reader(1907), text("Running this uses tokens.")),
+    say: "The same line every tool that spends shows beside Run",
   },
   {
-    key: " ",
-    on: dialog("Walk"),
-    say: "Space turns the question off on this machine",
+    press: inside(reader(1907), role("checkbox", "Don't ask again")),
+    say: "Don't ask again turns the question off on this machine",
   },
   {
-    key: "Enter",
-    on: dialog("Walk"),
-    say: "↵ runs it",
+    press: inside(reader(1907), button("Run")),
+    say: "Run plays it",
   },
   {
     hover: inside(results, role("img", "Armada's tool")),

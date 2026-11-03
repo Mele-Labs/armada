@@ -2,8 +2,9 @@
 // change's own title, with the hunk one press away. Armada's alone, hatched, and never posted. Where a Session of his
 // holds the pull request, a finding can be sent to it. A way back to the overview is always at the head.
 
+import { useState } from "react";
 import { ArrowLeft, History, LoaderCircle, Play, RefreshCw, RotateCw } from "lucide-react";
-import { Button, PrMark, Tooltip, agoOf } from "@armada/components";
+import { Button, Checkbox, PrMark, Tooltip, agoOf } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
 import { changesOf, isFile, ownerOf, placeOfFinding } from "./changes";
@@ -32,15 +33,28 @@ export function KeptMark({ run, head }: { run: AgentRun | undefined; head: strin
   );
 }
 
-/** What a tool or an explanation shows before it has run: the press that runs it. */
-export function NotRun({ onRun }: { onRun: () => void }) {
+/**
+ * What a tool or an explanation shows before it has run: the press that runs it. While the setting asks first, it says the run spends
+ * tokens and offers Don't ask again, which `onRun` is told of, so a tab asks where the box would have.
+ */
+export function NotRun({ onRun }: { onRun: (again: boolean) => void }) {
+  const { askFirst } = useReviews();
+  const [again, setAgain] = useState(false);
   return (
-    <p className="pr-results__clean">
-      <Button variant="secondary" size="sm" onClick={onRun}>
+    <div className="pr-results__clean pr-results__not-run">
+      <Button variant="secondary" size="sm" onClick={() => onRun(askFirst && again)}>
         <Play size={16} strokeWidth={2} aria-hidden />
         Run
       </Button>
-    </p>
+      {askFirst ? (
+        <>
+          <span className="pr-results__spends">Running this uses tokens.</span>
+          <Checkbox checked={again} onChange={(event) => setAgain(event.target.checked)}>
+            Don't ask again
+          </Checkbox>
+        </>
+      ) : null}
+    </div>
   );
 }
 
@@ -56,7 +70,7 @@ export function ToolResults({
   tool: ToolDef;
   send: ReturnType<typeof useSendFindings>;
   back?: boolean;
-  onRun?: () => void;
+  onRun?: (again: boolean) => void;
 }) {
   const store = useReviewStore()!;
   const work = useReviews().work[pr.key] ?? NO_WORK;

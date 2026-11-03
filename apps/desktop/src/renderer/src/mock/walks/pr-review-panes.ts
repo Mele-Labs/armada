@@ -2,7 +2,7 @@
 // over Comments to its right. A tool opens in a tab of its own, from + or by its number. Comments lists the threads by file and
 // line, and a press on one brings Files forward at its line. Over the `pr-review` scenario.
 
-import { button, dialog, inside, place, region, role, tab, walk } from "../walk";
+import { button, inside, place, region, role, tab, text, walk } from "../walk";
 
 const list = region("Pull requests");
 const reader = region("Pull request #1899");
@@ -51,10 +51,14 @@ const prReviewPanes = walk("pr-review", [
   },
   {
     press: role("menuitem", "Risks"),
-    say: "Risks. Nothing is kept for it, so opening it runs it, and that spends tokens",
+    say: "Risks. Nothing is kept for it and running it spends tokens, so its tab waits for Run",
   },
   {
-    press: inside(dialog("Risks"), button("Run")),
+    look: inside(reader, text("Running this uses tokens.")),
+    say: "The line beside Run says so, with Don't ask again",
+  },
+  {
+    press: inside(reader, button("Run")),
     say: "Run",
   },
   {
@@ -67,8 +71,16 @@ const prReviewPanes = walk("pr-review", [
     say: "6 opens Possible bugs, the sixth entry of +",
   },
   {
-    press: inside(dialog("Possible bugs"), button("Run")),
-    say: "It asks first too",
+    look: inside(reader, text("Running this uses tokens.")),
+    say: "It waits for Run too",
+  },
+  {
+    press: inside(reader, role("checkbox", "Don't ask again")),
+    say: "Don't ask again, for every tool on this machine",
+  },
+  {
+    press: inside(reader, button("Run")),
+    say: "Run",
   },
   {
     look: inside(reader, tab("Possible bugs")),
@@ -77,6 +89,18 @@ const prReviewPanes = walk("pr-review", [
   {
     look: inside(reader, region("Possible bugs results")),
     say: "In front",
+  },
+  {
+    press: inside(inside(reader, region("Pane: Possible bugs")), button("Add tab")),
+    say: "Another tool from +",
+  },
+  {
+    press: role("menuitem", "Why"),
+    say: "Why. The question is off, so opening its tab runs it",
+  },
+  {
+    look: inside(reader, tab("Why")),
+    say: "Its tab opens and runs, with no Run to press",
   },
   {
     look: inside(open, button(/^Go to crates\/fleet\/src\/plan_usage\.rs:\d+ in Files$/)),

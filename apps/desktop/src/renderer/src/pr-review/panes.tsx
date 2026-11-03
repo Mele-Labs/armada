@@ -101,21 +101,34 @@ export function openToolTab(key: string, tool: ToolDef, paneId?: string): void {
   prPanes.rearrange(key, (now) => arrive(now, "pr-tool", tool.name, tool.id), undefined, true);
 }
 
-/** Runs a tool or an explanation that has nothing kept for this pull request, asking first. One kept, or running, is only shown. */
-export function runIfNotRun(store: ReviewStore, pr: ReviewPr, tool: ToolDef): void {
+/**
+ * Runs a tool or an explanation that has nothing kept for this pull request. One kept, or running, is only shown. Opening it
+ * (`pressed` left out) runs it only where the setting no longer asks first; its tab says so and holds the Run. A press on that Run
+ * is `pressed`, which runs at once, and `again` turns the asking off.
+ */
+export function runIfNotRun(
+  store: ReviewStore,
+  pr: ReviewPr,
+  tool: ToolDef,
+  pressed?: { again: boolean },
+): void {
   const work = store.get().work[pr.key] ?? NO_WORK;
+  const spend = (run: () => void) => {
+    if (pressed !== undefined) store.spendUnasked(run, pressed.again);
+    else if (!store.get().askFirst) run();
+  };
   if (tool.kind === "explanation") {
     const kept = work.explains[tool.id];
     if (kept !== undefined && kept.state !== "idle") return;
-    return store.spend(tool.name, () => store.explain(pr.key, tool));
+    return spend(() => store.explain(pr.key, tool));
   }
   const kept = work.runs[tool.id];
   // The Walk is found a place before it is written, and one already looking, asking or failed to find shows as it stands.
   const finding = isWalk(tool) && work.walk.find.state !== "idle";
   if (!tool.agent || finding || (kept !== undefined && kept.state !== "idle"))
     store.runTool(pr.key, tool);
-  else if (isWalk(tool)) store.spend(tool.name, () => store.findPlace(pr.key));
-  else store.spend(tool.name, () => store.runTool(pr.key, tool));
+  else if (isWalk(tool)) spend(() => store.findPlace(pr.key));
+  else spend(() => store.runTool(pr.key, tool));
 }
 
 const typing = (target: EventTarget | null): boolean =>
@@ -225,7 +238,7 @@ function ToolBody({
   const store = useReviewStore()!;
   const tool = toolsOf(useReviews(), pr.manifestId).find((one) => one.id === id);
   if (tool === undefined) return null;
-  const run = () => runIfNotRun(store, pr, tool);
+  const run = (again: boolean) => runIfNotRun(store, pr, tool, { again });
   return (
     <div className="job-pane__scroll">
       {tool.kind === "explanation" ? (

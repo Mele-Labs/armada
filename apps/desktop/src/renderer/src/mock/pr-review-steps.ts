@@ -182,20 +182,18 @@ export const theExplanation: Step[] = [
     on: role("menuitem", "How it works"),
     say: "Esc puts it away",
   },
-  byKey(1907, "How to Test", "3 is How to Test. No kept result, so it asks first"),
+  byKey(1907, "How to Test", "3 is How to Test. No kept result, so its tab waits for Run"),
   {
-    look: dialog("How to Test"),
-    say: "Running it uses tokens. Focus is in the box",
+    look: inside(reader(1907), text("Running this uses tokens.")),
+    say: "The line beside Run says so",
   },
   {
-    key: " ",
-    on: dialog("How to Test"),
-    say: "Space turns the question off for every act that spends tokens. It is a setting on this machine",
+    press: inside(reader(1907), role("checkbox", "Don't ask again")),
+    say: "Don't ask again turns the question off for every act that spends tokens. It is a setting on this machine",
   },
   {
-    key: "Enter",
-    on: dialog("How to Test"),
-    say: "↵ runs. Esc would cancel",
+    press: inside(reader(1907), button("Run")),
+    say: "Run",
   },
   {
     look: inside(reader(1907), region("How to Test")),

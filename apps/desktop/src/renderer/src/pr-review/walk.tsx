@@ -208,7 +208,7 @@ export function WalkView({
   pr: ReviewPr;
   tool: ToolDef;
   back?: boolean;
-  onRun?: () => void;
+  onRun?: (again: boolean) => void;
 }) {
   const store = useReviewStore()!;
   const work = useReviews().work[pr.key] ?? NO_WORK;

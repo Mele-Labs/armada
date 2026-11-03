@@ -1168,6 +1168,16 @@
 .pr-results__stale .armada-pr-mark {
   color: var(--status-awaiting-review);
 }
+.pr-results__not-run {
+  align-items: center;
+  gap: var(--space-3);
+}
+.pr-results__spends {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
 .pr-results__stale {
   display: flex;
   align-items: center;

@@ -3,7 +3,7 @@
 // explanations are the first entries of the tools pane's +.
 // Over the `pr-review` scenario.
 
-import { button, dialog, inside, region, role, tab, walk } from "../walk";
+import { button, inside, region, role, tab, walk } from "../walk";
 
 const list = region("Pull requests");
 const reader = (number: number) => region(`Pull request #${number}`);
@@ -146,8 +146,8 @@ const prReviewStaysOpen = walk("pr-review", [
     say: "How it works, from +",
   },
   {
-    press: inside(dialog("How it works"), button("Run")),
-    say: "It spends tokens, so it asks first",
+    press: inside(reader(1899), button("Run")),
+    say: "It spends tokens, so its tab waits for Run",
   },
   {
     look: inside(reader(1899), role("region", "Theme: Fleet keeps the last read")),
