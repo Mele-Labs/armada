@@ -20,7 +20,7 @@ import {
 import { Button, Kbd, Prose, PrMark, SessionComposer, Tooltip, agoOf } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
-import { RunFailed, SOURCE_MARK } from "./marks";
+import { HidesMark, RunFailed, SOURCE_MARK } from "./marks";
 import { NotRun } from "./results";
 import type { Account, Asked, ReviewPr, ToolDef } from "./model";
 import { REVIEW_KEYS, capOf } from "./key-table";
@@ -218,6 +218,7 @@ export function Chosen({
       <header className="pr-what__head">
         <h3 className="pr-what__title">{def.name}</h3>
         <PrMark Glyph={source.Glyph} said={source.said} />
+        <HidesMark tool={def} />
         <span className="pr-what__source" data-by="agent">
           <PrMark Glyph={Bot} said="Explained by an agent when you chose it" />
         </span>

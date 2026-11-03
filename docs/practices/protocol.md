@@ -380,7 +380,7 @@ Since 19 Oct 2026. `docs/concepts/workflow.md`, *Where a definition comes from*,
 **Additive only**: one field on two existing types; no operation, route, event kind or error.
 The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/setup.ts` and `review-runs.ts`, written by hand, field for field.
-Bridge marks a workflow row that carries it with the eclipse glyph, its tooltip naming what it hides, and says on a review tool's row in the tools menu what it replaces.
+Bridge marks a workflow row that carries it with the eclipse glyph, its tooltip naming what it hides, and draws it on a review tool's row in the tools menu and in the empty tools pane's list, and on its tab's head, naming what it hides; the menu row's hover also says what it replaces.
 
 | Where | Side | Carries |
 | --- | --- | --- |

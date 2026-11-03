@@ -8,7 +8,7 @@ import { Button, Checkbox, PrMark, Tooltip, agoOf } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
 import { changesOf, isFile, ownerOf, placeOfFinding } from "./changes";
-import { RunFailed, SOURCE_MARK, TOOL_MARK } from "./marks";
+import { HidesMark, RunFailed, SOURCE_MARK, TOOL_MARK } from "./marks";
 import type { AgentRun, ReviewPr, ToolDef } from "./model";
 import { NothingFound } from "./nothing-found";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
@@ -110,6 +110,7 @@ export function ToolResults({
         <PrMark Glyph={mark.Glyph} said={tool.name} />
         <h3 className="pr-results__title">{tool.name}</h3>
         <PrMark Glyph={source.Glyph} said={source.said} />
+        <HidesMark tool={tool} />
         <span className="pr-results__acts">
           {back ? null : <KeptMark run={run} head={pr.head} />}
           <Tooltip label="Run again, for this pull request">

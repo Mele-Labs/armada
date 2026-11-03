@@ -39,7 +39,7 @@ import { CommentsView } from "./comments";
 import { CommentsPane, ThreadHere } from "./comments-pane";
 import { Chosen } from "./explain";
 import { AddTool } from "./flight";
-import { SOURCE_MARK, TOOL_MARK } from "./marks";
+import { HidesMark, SOURCE_MARK, TOOL_MARK } from "./marks";
 import type { ReviewPr, Thread, ToolDef } from "./model";
 import { indexOfPlace } from "./patch";
 import { Overview } from "./reader";
@@ -337,6 +337,9 @@ function ToolList({
                   <Glyph size={16} strokeWidth={2} aria-hidden />
                 </span>
                 <span className="pr-tool-list__name">{tool.name}</span>
+                <span className="pr-tool-list__hides">
+                  <HidesMark tool={tool} />
+                </span>
                 <span className="pr-tool-list__key">
                   {at < 9 ? <Kbd aria-hidden="true">{at + 1}</Kbd> : null}
                 </span>
@@ -442,6 +445,11 @@ export function PrPanes({
         label: tool.name,
         icon: TOOL_MARK[tool.mark].Glyph,
         hint: whenceOf(tool),
+        ...(tool.hides === "repository"
+          ? {
+              trail: <HidesMark tool={tool} />,
+            }
+          : {}),
         ...(at < 9
           ? {
               shortcut: String(at + 1),

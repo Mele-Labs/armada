@@ -1365,10 +1365,10 @@
   padding: 0;
   list-style: none;
 }
-/* The glyph, the key and the mark keep their columns on a row that has no key or no mark. */
+/* The glyph, the eclipse, the key and the mark keep their columns on a row that has no key or no mark. */
 .pr-tool-list__row {
   display: grid;
-  grid-template-columns: var(--space-4) minmax(0, 1fr) var(--space-6) var(--space-4);
+  grid-template-columns: var(--space-4) minmax(0, 1fr) var(--space-4) var(--space-6) var(--space-4);
   align-items: center;
   column-gap: var(--space-2);
   width: 100%;
@@ -1394,6 +1394,7 @@
   color: var(--tool-hue);
 }
 .pr-tool-list__glyph,
+.pr-tool-list__hides,
 .pr-tool-list__mark {
   display: inline-flex;
   align-items: center;

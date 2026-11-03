@@ -191,7 +191,9 @@ A new one is his, and nothing of it reaches the repository or anyone else until 
 His are read from `~/.armada/review-tools/` on this Mac, whatever place the repository's other pieces are kept at.
 
 **His own wins over the repository's**, so a teammate's commit never replaces a tool he set up.
-Where Kit's hides a repository tool of the same id that says something else, `list_review_tools` carries `hides: "repository"` on it, and Bridge says on its row in the tools pane's `+` what it replaces; two copies that are the same carry nothing.
+Where Kit's hides a repository tool of the same id that says something else, `list_review_tools` carries `hides: "repository"` on it, and Bridge draws the eclipse glyph on it, its tooltip naming the repository's tool it hides.
+The glyph is on the tool's row in the tools pane's `+` and in the empty tools pane's list, and on its tab's head; the `+` row's hover also says what it replaces.
+Two copies that are the same carry nothing.
 
 **The name lower cased with its words joined by a dash is the id**, so two places define the same thing by naming it the same.
 A file that does not fit (no front matter, an unknown key, no prompt, two files of one id in one place) is left out and named, and the rest stand.
