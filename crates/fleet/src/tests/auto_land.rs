@@ -265,6 +265,30 @@ async fn a_commit_that_left_the_queue_or_auto_merge_is_asked_once_more() {
     }
 }
 
+/// #3217: the queue dropped a green pull request between two readings and nothing merged it, and
+/// nobody was told. Asked once more, then the Job is told, once.
+#[tokio::test]
+async fn a_green_pull_request_that_nothing_merges_is_asked_once_more_then_told_to_the_job() {
+    let mut queued = checked(CiState::Passed);
+    queued.queue = PullQueue::Waiting;
+    let (rig, _id) = opened_by_the_job(true).await;
+    rig.fleet.vcs().main_ci.followed_are(Some(vec![queued]));
+    read_the_pull_reading(&rig).await;
+
+    rig.fleet.vcs().main_ci.followed_are(Some(vec![checked(CiState::Passed)]));
+    for _ in 0..3 {
+        read_the_pull_reading(&rig).await;
+    }
+
+    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1, "once more, not every reading");
+    let sent: Vec<String> = (0..rig.stand_in.starts().len())
+        .flat_map(|at| rig.stand_in.process(at).sent.lock().unwrap().clone())
+        .collect();
+    let said = sent.join("\n");
+    assert_eq!(said.matches("neither on auto-merge nor in the merge queue").count(), 1, "{said}");
+    assert!(said.contains("#12"), "{said}");
+}
+
 #[tokio::test]
 async fn a_forge_that_will_not_land_a_passed_pull_request_is_told_to_the_job() {
     let (rig, _id) = opened_by_the_job(true).await;
