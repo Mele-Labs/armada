@@ -44,6 +44,20 @@ pub(crate) fn lease(
     }
 }
 
+/// Make slot `slot`'s checkout where it is not made, and leave it free.
+pub(crate) fn make(slots: &SlotPool, slot: u32) -> Result<(), String> {
+    pool(slots).make(slot as usize, &not_here).map_err(|refused| refused.said())
+}
+
+/// Whether slot `slot` holds files no commit has. A slot not made holds none.
+pub(crate) fn dirty(slots: &SlotPool, slot: u32) -> Result<bool, String> {
+    let at = pool(slots).path_of(slot as usize);
+    if !at.exists() {
+        return Ok(false);
+    }
+    super::git::dirty(&at).map(|files| !files.is_empty())
+}
+
 /// A slot onto `branch`, which exists, at its tip: the other half of a park.
 pub(crate) fn lease_existing(
     slots: &SlotPool,

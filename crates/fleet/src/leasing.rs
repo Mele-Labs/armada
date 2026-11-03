@@ -43,6 +43,8 @@ pub(crate) const SLOT_NOT_PARKABLE: &str = "fleet.slot_not_parkable";
 /// A release of a hosted session's slot while its turn runs: the park ends every process in
 /// the slot, its agent's too. A 409.
 pub(crate) const SLOT_SESSION_WORKING: &str = "fleet.slot_session_working";
+/// A free of a hosted Job's slot while its checkout holds files no commit has. A 409.
+pub(crate) const SLOT_UNCOMMITTED: &str = "fleet.slot_uncommitted";
 /// The pool's one slot, removed.
 const SLOT_LAST: &str = "fleet.slot_last";
 /// git refused, and this is what it said. A 500.

@@ -343,6 +343,57 @@ describe("a full pool holds the Session on him", () => {
   });
 });
 
+describe("a slot being made does not hold the Session on him", () => {
+  const making = {
+    id: "slot-choice",
+    text: "Every slot is in use",
+    since: TURN_ENDED,
+    source: "slot_choice",
+    options: [
+      {
+        label: "Wait for a slot",
+      },
+      {
+        label: "Add a slot",
+      },
+    ],
+    creating_since: TURN_ENDED,
+  };
+
+  test("a Session at work with a call whose slot Fleet is making reads as working", () => {
+    const held = session({
+      turn: {
+        state: "working",
+      },
+      standing: "working",
+      waitingFor: [
+        making,
+      ],
+    });
+    expect(stateOf(held).state).not.toBe("waiting");
+  });
+
+  test("the same call once the slot failed asks for him again", () => {
+    const { creating_since: _, ...refused } = making;
+    const held = session({
+      turn: {
+        state: "working",
+      },
+      standing: "working",
+      waitingFor: [
+        {
+          ...refused,
+          create_refused: "no space left on the disk",
+        },
+      ],
+    });
+    expect(stateOf(held)).toEqual({
+      state: "waiting",
+      said: "Waiting on you",
+    });
+  });
+});
+
 describe("a Job held on its start card is a draft", () => {
   const first = {
     id: "unsent:s1",

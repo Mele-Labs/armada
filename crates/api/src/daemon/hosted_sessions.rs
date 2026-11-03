@@ -110,6 +110,14 @@ pub trait HostedSessions: Send + Sync + 'static {
         said: ipc::AnswerWaiting,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `free_slot`: the person gives back a slot a Job holds to the waiting Job whose call lists it.
+    /// [`Refusal::IllegalMove`] where the call is gone, the holder is working or holds uncommitted work,
+    /// or the slot is no longer the holder's.
+    fn free_slot(
+        self: Arc<Self>,
+        free: ipc::FreeSlot,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `dismiss_waiting`: the person drops one item for good. [`Refusal::IllegalMove`] where
     /// nothing holds the item.
     fn dismiss_waiting(

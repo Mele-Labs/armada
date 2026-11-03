@@ -73,6 +73,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn free_slot(self: Arc<Self>, _free: ipc::FreeSlot) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn dismiss_waiting(
         self: Arc<Self>,
         _dismiss: ipc::DismissWaiting,

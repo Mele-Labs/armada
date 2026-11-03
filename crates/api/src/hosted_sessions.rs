@@ -152,6 +152,22 @@ pub(crate) async fn answer_waiting<D: HostedSessions>(
     }
 }
 
+/// The person gives back a slot another Job holds, to the Job whose full-pool call lists it. 200 with the
+/// waiting Job's row; 409 where the call is gone, the holder runs or holds work, or the slot changed hands.
+pub(crate) async fn free_slot<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let free: ipc::FreeSlot = match ipc::decode_body("the freeing of a held slot", &body) {
+        Ok(free) => free,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().free_slot(free).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The person drops one thing a session waits on for good. 200 with the row; 409 where nothing holds it.
 pub(crate) async fn dismiss_waiting<D: HostedSessions>(
     State(served): State<Served<D>>,

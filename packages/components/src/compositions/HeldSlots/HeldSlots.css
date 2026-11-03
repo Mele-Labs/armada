@@ -1,0 +1,108 @@
+/* The slots a full pool is held by, under the call's choices. One grid, so the quiet figure and Free keep their columns on every row,
+   whether or not Free is on. */
+.armada-held-slots {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-self: stretch;
+  min-width: 0;
+}
+
+.armada-held-slots__eyebrow {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-held-slots__rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-held-slots__row {
+  display: grid;
+  grid-template-columns: calc(var(--space-6) * 2) minmax(0, 1fr) calc(var(--space-6) * 3) calc(
+      var(--space-6) *
+      3
+    );
+  align-items: center;
+  column-gap: var(--space-2);
+  min-height: var(--h-row);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-inset);
+}
+
+.armada-held-slots__row:hover {
+  background: var(--bg-hover);
+}
+
+.armada-held-slots__row:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(-1 * var(--focus-ring-width));
+}
+
+.armada-held-slots__row > .armada-ref-chip {
+  justify-self: start;
+}
+
+.armada-held-slots__job {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  text-align: start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.armada-held-slots__new {
+  min-width: 0;
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-held-slots__refused {
+  grid-column: 2 / -1;
+  margin: 0;
+  padding-block-end: var(--space-1);
+  color: var(--status-completed-failed);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-held-slots__job:hover {
+  color: var(--accent);
+}
+
+.armada-held-slots__quiet {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: end;
+  white-space: nowrap;
+}
+
+.armada-held-slots__act {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* A control that is off draws no hover of its own, so the hover lands on the cell that carries the reason. */
+.armada-held-slots__act .armada-button:disabled {
+  pointer-events: none;
+}

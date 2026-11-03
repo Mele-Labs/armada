@@ -305,6 +305,9 @@ fn a_permission_is_a_read_or_a_write_and_only_where_fleet_can_read_all_of_it() {
         steps: Vec::new(),
         place: None,
         confirmed: false,
+        holders: Vec::new(),
+        creating_since: None,
+        create_refused: None,
     };
     let kind = |card: ipc::HelmCallInFlight| sorted(&item(&card), Some(&card));
     assert_eq!(kind(card("Read", "src/lib.rs")), Some(AutopilotDecision::Reads));
@@ -444,6 +447,9 @@ fn everything_but_the_kinds_waits_whatever_is_checked() {
             steps: Vec::new(),
             place: None,
             confirmed: false,
+            holders: Vec::new(),
+            creating_since: None,
+            create_refused: None,
         };
         assert_eq!(sorted(&one, None), None, "{source:?}");
     }
@@ -457,6 +463,9 @@ fn everything_but_the_kinds_waits_whatever_is_checked() {
         steps: Vec::new(),
         place: None,
         confirmed: false,
+        holders: Vec::new(),
+        creating_since: None,
+        create_refused: None,
     };
     assert_eq!(sorted(&errand, None), None, "an errand always waits");
 }

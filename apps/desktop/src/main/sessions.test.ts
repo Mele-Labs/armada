@@ -1146,6 +1146,11 @@ it("sends each act to its own route with the session named, and folds what Fleet
     session_id: "a",
     url: "http://localhost:5173/",
   });
+  await sessions.freeSlot({
+    session_id: "a",
+    item_id: "slot-choice",
+    slot: 2,
+  });
   expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual([
     "POST /sessions/start",
     "POST /sessions/message",
@@ -1155,7 +1160,13 @@ it("sends each act to its own route with the session named, and folds what Fleet
     "POST /sessions/begin",
     "POST /sessions/close",
     "POST /sessions/window/closed",
+    "POST /sessions/slot_choice/free",
   ]);
+  expect(sent[8]!.body).toEqual({
+    session_id: "a",
+    item_id: "slot-choice",
+    slot: 2,
+  });
   expect(sent[1]!.body).toEqual({
     session_id: "a",
     text: "hi",

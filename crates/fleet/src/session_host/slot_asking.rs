@@ -110,13 +110,14 @@ impl SlotQueue {
         }
     }
 
-    /// Whether a slot of `manifest` is held for a command, other than `session`'s own.
+    /// Whether a slot of `manifest` is held for a command, or being made for a Job, other than `except`'s own.
     pub(crate) fn reserved(&self, manifest: &str, except: Option<&str>, now: Tick) -> bool {
         let waiting = self.waiting.lock().expect("the line is not held across a panic");
         waiting
             .wants
             .iter()
             .any(|(one, want)| want.manifest == manifest && Some(one.as_str()) != except && want.holds(now))
+            || waiting.making.iter().any(|(one, at)| at == manifest && Some(one.as_str()) != except)
     }
 
     /// Forget the commands not heard from. The Sessions whose list or reservation that changed.

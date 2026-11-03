@@ -24,6 +24,7 @@ import type { AnswerWaiting } from "@armada/protocol";
 import type { BridgeState } from "../../../shared/bridge";
 import { restartOf } from "../build-change";
 import { askToEnd } from "../end-job";
+import { choicesDrawn } from "../held-slots";
 import { useDispatching } from "../dispatch-panel/dispatching";
 import { openInPanel } from "../shared-panel/store";
 import { viewsOf } from "../merge-line";
@@ -483,32 +484,37 @@ export function useAnswering(
         ];
       }
       if (given.options !== undefined && given.options.length > 0) {
-        return given.options.map((option, at) =>
-          answer(
-            plainLabel(option.label),
-            (words) =>
-              sendWaiting(plainLabel(option.label), {
-                choice: at,
-                ...(words === undefined || words === ""
-                  ? {}
-                  : {
-                      text: words,
-                    }),
-              }),
-            {
-              ...("description" in option && typeof option.description === "string"
-                ? {
-                    description: option.description,
-                  }
-                : {}),
-              ...(RECOMMENDED.test(option.label)
-                ? {
-                    recommended: true,
-                  }
-                : {}),
-            },
-          ),
-        );
+        return choicesDrawn(given, draft?.freeSlot !== undefined)
+          .map((at) => ({
+            option: given.options![at]!,
+            at,
+          }))
+          .map(({ option, at }) =>
+            answer(
+              plainLabel(option.label),
+              (words) =>
+                sendWaiting(plainLabel(option.label), {
+                  choice: at,
+                  ...(words === undefined || words === ""
+                    ? {}
+                    : {
+                        text: words,
+                      }),
+                }),
+              {
+                ...("description" in option && typeof option.description === "string"
+                  ? {
+                      description: option.description,
+                    }
+                  : {}),
+                ...(RECOMMENDED.test(option.label)
+                  ? {
+                      recommended: true,
+                    }
+                  : {}),
+              },
+            ),
+          );
       }
       // An errand for him follows its act. A line with none is a word to the agent, in the text box.
       const act = given.act;
