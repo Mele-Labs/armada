@@ -31,10 +31,36 @@ describe("the merge line chip's card", () => {
         queuedAt: "2026-11-03T14:00:00Z",
       }),
     ).facts;
-    expect(facts.filter((fact) => ["Opened", "Updated", "In queue"].includes(fact.label))).toEqual([
-      { label: "Opened", value: { at: "2026-11-03T09:00:00Z", age: true } },
-      { label: "Updated", value: { at: "2026-11-03T14:50:00Z", age: true } },
-      { label: "In queue", value: { at: "2026-11-03T14:00:00Z", age: true } },
+    expect(
+      facts.filter((fact) =>
+        [
+          "Opened",
+          "Updated",
+          "In queue",
+        ].includes(fact.label),
+      ),
+    ).toEqual([
+      {
+        label: "Opened",
+        value: {
+          at: "2026-11-03T09:00:00Z",
+          age: true,
+        },
+      },
+      {
+        label: "Updated",
+        value: {
+          at: "2026-11-03T14:50:00Z",
+          age: true,
+        },
+      },
+      {
+        label: "In queue",
+        value: {
+          at: "2026-11-03T14:00:00Z",
+          age: true,
+        },
+      },
     ]);
   });
 

@@ -1417,7 +1417,12 @@ export function LedgerPreview({
         .filter((fact) => card.state !== undefined || fact.label !== "State")
         .map((fact) => ({
           label: fact.label,
-          value: typeof fact.value === "string" ? fact.value : <Stamp at={fact.value.at} first={fact.value.age === true ? "age" : "clock"} />,
+          value:
+            typeof fact.value === "string" ? (
+              fact.value
+            ) : (
+              <Stamp at={fact.value.at} first={fact.value.age === true ? "age" : "clock"} />
+            ),
           ...(fact.mono === true
             ? {
                 mono: true,
