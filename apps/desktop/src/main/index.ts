@@ -697,7 +697,7 @@ void app.whenReady().then(() => {
     for (const panel of captureWindows.panels()) panel.send(channel, ...values);
   };
   terminalWindows.onChanged((windows) => everyDocument(CHANNELS.terminalWindowsChanged, windows));
-  // Each Job's browser, which its agent drives through Fleet's held calls and the owner may take over.
+  // Each Job's browser, which its agent acts on through Fleet's held calls and the owner uses at any time.
   const siteFile = join(app.getPath("userData"), "site-permissions.json");
   const siteSettings = new SiteSettingsStore({
     read: () => {
@@ -718,15 +718,20 @@ void app.whenReady().then(() => {
           told,
           siteSettings,
         ),
+      defaults: () => siteSettings.defaults(),
+      setDefault: (permission, choice) => siteSettings.setDefault(permission, choice),
       window: (sessionId, tabId, told) =>
         makeBrowserWindow(sessionId, tabId, bridgeWindow()?.getBounds() ?? null, told),
     },
     {
       changed: (state) => everyWindow(CHANNELS.jobBrowserChanged, state),
+      defaultsChanged: (defaults) => everyWindow(CHANNELS.jobBrowserDefaultsChanged, defaults),
       show: (sessionId) => bridgeWindow()?.webContents.send(CHANNELS.jobBrowserShown, sessionId),
       capture: (sessionId, tabId, host) =>
         (host as BrowserWindow).webContents.send(CHANNELS.jobBrowserCapture, sessionId, tabId),
       answer: async (body) => connection?.sessions.answerBrowser(body),
+      raiseAsk: async (body) => connection?.sessions.raiseBrowserAsk(body),
+      endAsk: async (body) => connection?.sessions.endBrowserAsk(body),
       note: async (body) => {
         const sent = await connection?.sessions.sendNote(body);
         return sent === undefined
@@ -740,6 +745,7 @@ void app.whenReady().then(() => {
     },
   );
   connection.sessions.onBrowser((request) => void jobBrowsers.request(request));
+  connection.sessions.onBrowserAskAnswered((answered) => jobBrowsers.askAnswered(answered));
   handleJobBrowsers({
     ipc: ipcMain,
     browsers: jobBrowsers,

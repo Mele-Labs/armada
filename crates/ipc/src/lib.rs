@@ -652,8 +652,9 @@ pub use terminals::{
     TerminalTyped, TypeInTerminal,
 };
 pub use job_browser::{
-    AnswerBrowserRequest, BrowserAct, BrowserAnswer, BrowserClick, BrowserError, BrowserEvaluate, BrowserLook,
-    BrowserOpen, BrowserRequest, BrowserRequestAnswered, BrowserType, BrowserWaitFor,
+    AnswerBrowserRequest, BrowserAct, BrowserAnswer, BrowserAskAnswered, BrowserAskNoted, BrowserClick, BrowserError,
+    BrowserEvaluate, BrowserLook, BrowserOpen, BrowserRequest, BrowserRequestAnswered, BrowserType, BrowserWaitFor,
+    EndBrowserAsk, RaiseBrowserAsk,
 };
 pub use act_failed::{ActFailed, BackgroundAct};
 pub use autopilot::{

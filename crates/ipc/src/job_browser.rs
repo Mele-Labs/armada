@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::sessions::SessionId;
+use crate::sessions::{SessionId, WaitingOption};
 use crate::walk_steps::WalkTarget;
 
 /// `browser_open`: the agent loads a page. `POST /sessions/browser/open`.
@@ -155,8 +155,6 @@ pub enum BrowserAnswer {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum BrowserError {
-    /// The owner took the browser over.
-    OwnerDriving,
     /// The act's target is not on the page.
     NotFound,
     /// `wait_for` ran out, or a page did not load in Bridge's own time.
@@ -182,4 +180,51 @@ pub struct AnswerBrowserRequest {
 pub struct BrowserRequestAnswered {
     pub request_id: String,
     pub session_id: SessionId,
+}
+
+/// `raise_browser_ask`: Bridge says a page in a Job's browser asks the owner something, and Fleet
+/// lists it in the Job's Needs you. `POST /sessions/browser/ask`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RaiseBrowserAsk {
+    pub session_id: SessionId,
+    /// Bridge's tab id. A tab has one ask at a time, so the same id again replaces it.
+    pub ask_id: String,
+    pub text: String,
+    pub options: Vec<WaitingOption>,
+}
+
+/// `end_browser_ask`: the ask was settled in the tab, or the tab closed.
+/// `POST /sessions/browser/ask/end`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EndBrowserAsk {
+    pub session_id: SessionId,
+    pub ask_id: String,
+}
+
+/// What `raise_browser_ask` and `end_browser_ask` answer: the ask they named.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BrowserAskNoted {
+    pub session_id: SessionId,
+    pub ask_id: String,
+}
+
+/// `browser.ask_answered`: the owner answered a page's ask in Needs you, or dismissed it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BrowserAskAnswered {
+    pub session_id: SessionId,
+    pub ask_id: String,
+    /// The option's index, or `None` for a dismissal. **Always sent**: `null` is the dismissal.
+    #[serde(deserialize_with = "stated")]
+    pub choice: Option<u32>,
+}
+
+/// An `Option` whose key must be present, since `null` is a value here and not an absence.
+fn stated<'de, D, T>(input: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(input)
 }

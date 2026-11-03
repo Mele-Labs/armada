@@ -1,4 +1,4 @@
-/* The Job browser: a head with who is driving, the address and the acts, over the page. It fills its pane or its window. */
+/* The Job browser: a head with the agent's mark, the address and the acts, over the page. It fills its pane or its window. */
 .job-browser {
   display: flex;
   flex: 1 1 0;
@@ -7,6 +7,8 @@
   min-height: 0;
   height: 100%;
   background: var(--bg-sunken);
+  /* The page's ask is placed against the pane, so it never crosses the pane's edge. */
+  position: relative;
 }
 
 .job-browser__head {
@@ -20,9 +22,31 @@
   border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
-/* The mark of who drives is the toggle. The person driving is the state worth seeing from across the room. */
-.job-browser__head .armada-button[data-driver="you"] {
+/* The agent's mark holds the size of an icon button, so lighting it moves nothing. Dim at rest; lit in --accent and pulsing while an act runs, as a running mark does. */
+.job-browser__mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--h-control-sm);
+  height: var(--h-control-sm);
+  color: var(--fg-subtle);
+}
+.job-browser__mark[data-acting] {
   color: var(--accent);
+}
+.job-browser__mark[data-acting] > svg {
+  animation: job-browser-mark-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite;
+}
+@keyframes job-browser-mark-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .job-browser__mark[data-acting] > svg {
+    animation: none;
+  }
 }
 
 .job-browser__head > .armada-input-field {
@@ -43,11 +67,6 @@
   min-height: 0;
   overflow: auto;
   background: var(--bg-base);
-}
-/* The agent's page takes no press from the person until he takes it over or annotates. */
-.job-browser__page[data-driver="agent"]:not([data-annotating])
-  > :not(.job-browser__pin, .job-browser__note) {
-  pointer-events: none;
 }
 .job-browser__page[data-annotating] {
   cursor: crosshair;
@@ -157,9 +176,8 @@
   border-radius: var(--radius-sm);
 }
 
-/* Site settings: the lock before the address, its popover of seven rows, and the page's ask under it. */
+/* Site settings: the lock before the address, its popover of nine rows. */
 .job-browser__site {
-  position: relative;
   display: inline-flex;
   flex: none;
 }
@@ -186,6 +204,14 @@
   align-items: center;
   gap: var(--space-2);
   color: var(--fg-muted);
+}
+/* System › Browser: the same rows, held to the width the lock's popover gives them so a label and its segments stay together. */
+.job-browser__defaults {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  max-width: calc(var(--space-12) * 7);
 }
 .job-browser__permission-label {
   flex: 1 1 0;
@@ -219,21 +245,19 @@
   outline: calc(var(--border-width) * 2) solid var(--accent);
   outline-offset: calc(var(--border-width) * -2);
 }
-.job-browser__segment:disabled {
-  cursor: default;
-  opacity: 0.5;
-}
 
+/* The page's ask: under the head, inside the pane. Its width is the text's, bounded by the pane less its margins, and its text wraps. */
 .job-browser__ask {
   position: absolute;
-  top: calc(100% + var(--space-1));
-  left: 0;
+  top: calc(var(--h-control-sm) + var(--space-3));
+  left: var(--space-2);
   z-index: var(--z-menu);
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   width: max-content;
-  max-width: calc(var(--space-12) * 7);
+  max-width: min(calc(var(--space-12) * 7), calc(100% - var(--space-4)));
   padding: var(--space-3);
   border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-lg);
@@ -241,6 +265,15 @@
   box-shadow: var(--shadow-overlay);
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
+  overflow-wrap: anywhere;
+}
+.job-browser__ask-words {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.job-browser__ask-risk {
+  color: var(--fg-muted);
 }
 .job-browser__ask-acts {
   display: flex;

@@ -1,9 +1,8 @@
-// Site settings in the Job browser: the lock before the address opens what the page may use, for this site and as the default for
-// every site, and a page that asks raises a bubble under the lock. While the agent drives the choices are fixed and a page's ask is
-// refused unseen. Mock only: nothing is wired. Over the `job-layouts` scenario, with the person taking the page over first.
+// Site settings in the Job browser: the lock before the address opens what the page may use, for this site and as the default for every site. Allow on Local network
+// is confirmed first, with the risk said. Always open to the person; a page's ask is in Needs you (`browser-ask-in-needs-you`). Mock only: nothing is wired. Over the `job-layouts` scenario.
 
 import { button, deckRow, dialog, inside, region, role, tab, walk } from "../walk";
-import type { Step } from "../walk";
+import type { Step, Target } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const pane = (name: string) =>
@@ -26,7 +25,6 @@ const browser = inside(
     exact: true,
   }),
 );
-const page = inside(browser, role("article", "Fernwood Supply checkout"));
 const lock = inside(
   browser,
   button("Site settings", {
@@ -58,8 +56,17 @@ const view = (name: string) =>
       exact: true,
     }),
   );
-const okta = inside(page, button("Connect Okta Verify"));
-const bubble = inside(browser, role("alertdialog", "Site request"));
+
+const confirm = (title: string) => inside(browser, dialog(title));
+const site = confirm("Allow local network for localhost:5173?");
+const everywhere = confirm("Allow local network on all sites?");
+const inDialog = (target: Target, name: string) =>
+  inside(
+    target,
+    button(name, {
+      exact: true,
+    }),
+  );
 
 const steps: Step[] = [
   toSessions,
@@ -81,86 +88,49 @@ const steps: Step[] = [
     say: "Browser",
   },
   {
-    press: inside(browser, button(/^Agent driving/)),
-    say: "Take the page over",
-  },
-  {
-    look: browser,
-    say: "The Job browser, with you driving",
-  },
-  {
     press: lock,
     say: "The lock before the address opens Site settings",
   },
   {
     look: inside(
       settings,
-      role("radiogroup", "Local network", {
+      role("radiogroup", "Fullscreen", {
         exact: true,
       }),
     ),
-    say: "Seven permissions, each Ask, Allow or Block",
+    say: "Popups and Fullscreen follow Downloads. Every row works, whoever is on the page",
   },
   {
-    press: choose("Notifications", "Block"),
-    say: "Notifications, Block, for this site",
+    press: choose("Local network", "Allow"),
+    say: "Allow on Local network asks first",
   },
   {
-    press: view("All sites"),
-    say: "All sites edits the defaults",
+    look: site,
+    say: "The confirmation names the site and what it can reach",
   },
   {
-    press: choose("Camera", "Block"),
-    say: "Camera, Block, everywhere",
-  },
-  {
-    press: lock,
-    say: "Close",
-  },
-  {
-    press: okta,
-    say: "The page asks for the local network",
-  },
-  {
-    look: bubble,
-    say: "The site and what it wants, with Block and Allow",
-  },
-  {
-    press: inside(
-      bubble,
-      button("Allow", {
-        exact: true,
-      }),
-    ),
-    say: "Allow",
+    press: inDialog(site, "Allow"),
+    say: "Allow. Enter does too, and Esc cancels",
   },
   {
     press: lock,
     say: "Reopen Site settings",
   },
   {
-    look: choose("Local network", "Allow"),
-    say: "Local network now shows Allow for this site",
+    press: view("All sites"),
+    say: "All sites edits the defaults",
   },
   {
-    press: lock,
-    say: "Close",
+    press: choose("Local network", "Allow"),
+    say: "Allow on Local network for every site",
   },
   {
-    press: inside(browser, button(/^You're driving/)),
-    say: "Hand back to the agent",
+    look: everywhere,
+    say: "Its own confirmation",
   },
   {
-    look: inside(browser, button("Take over to change site settings")),
-    say: "The lock says why the choices are fixed",
-  },
-  {
-    press: okta,
-    say: "The page asks again",
-  },
-  {
-    look: page,
-    say: "No bubble appears while the agent drives",
+    press: inDialog(everywhere, "Cancel"),
+    say: "Cancel keeps the choice as it was",
   },
 ];
 

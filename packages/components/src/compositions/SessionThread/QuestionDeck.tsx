@@ -100,6 +100,7 @@ export function QuestionDeck({
   keep,
   beneath,
   detail,
+  noOther,
 }: {
   questions: readonly AskedQuestion[];
   /** A promise holds Answer disabled until it settles, so a second press cannot send it again. */
@@ -113,6 +114,8 @@ export function QuestionDeck({
   beneath?: ReactNode;
   /** What the question in front carries under its words and above its answers: the steps a call asks the person to follow. */
   detail?: ReactNode;
+  /** The choices are all there is: no Other, where words would have nowhere to go. */
+  noOther?: boolean;
 }) {
   const [held, setHeld, clearHeld] = useKept<Held>(
     keep === undefined ? undefined : `question:${keep}`,
@@ -266,10 +269,14 @@ export function QuestionDeck({
             },
           }
         : {}),
-      change: {
-        verb: "Other",
-        run: openOther,
-      },
+      ...(noOther === true
+        ? {}
+        : {
+            change: {
+              verb: "Other",
+              run: openOther,
+            },
+          }),
       ...(canSkip
         ? {
             no: {
@@ -291,7 +298,7 @@ export function QuestionDeck({
     const n = Number(event.key);
     if (!Number.isInteger(n) || n < 1) return;
     if (n <= one.options.length) choose(one.options[n - 1]!.label);
-    else if (n === one.options.length + 1) other();
+    else if (noOther !== true && n === one.options.length + 1) other();
     else return;
     event.preventDefault();
   };
@@ -446,21 +453,23 @@ export function QuestionDeck({
                   </button>
                 );
               })}
-              <button
-                type="button"
-                role={one.multi_select ? "checkbox" : "radio"}
-                aria-checked={using[front] === true}
-                aria-label="Other"
-                className="armada-question-deck__answer"
-                data-on={using[front] === true || undefined}
-                onClick={other}
-              >
-                <kbd>{one.options.length + 1}</kbd>
-                <span className="armada-question-deck__option">
-                  <span>Other</span>
-                </span>
-                <ThreadKbd act="change" on={target} />
-              </button>
+              {noOther === true ? null : (
+                <button
+                  type="button"
+                  role={one.multi_select ? "checkbox" : "radio"}
+                  aria-checked={using[front] === true}
+                  aria-label="Other"
+                  className="armada-question-deck__answer"
+                  data-on={using[front] === true || undefined}
+                  onClick={other}
+                >
+                  <kbd>{one.options.length + 1}</kbd>
+                  <span className="armada-question-deck__option">
+                    <span>Other</span>
+                  </span>
+                  <ThreadKbd act="change" on={target} />
+                </button>
+              )}
             </div>
             {previewed?.preview === undefined || looking === null ? null : (
               <PreviewCard text={previewed.preview} row={looking.row} frame={looking.frame} />

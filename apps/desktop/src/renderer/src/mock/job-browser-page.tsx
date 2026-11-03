@@ -13,7 +13,7 @@ export function resetCheckout(): void {
   code = "SPRING10";
 }
 
-export function CheckoutPage({ sessionId }: { sessionId?: string }) {
+export function CheckoutPage({ sessionId, tabId }: { sessionId?: string; tabId?: string }) {
   return (
     <article className="armada-mock-checkout" aria-label="Fernwood Supply checkout">
       <h1>Checkout</h1>
@@ -36,19 +36,19 @@ export function CheckoutPage({ sessionId }: { sessionId?: string }) {
       <p>Discount $8.40</p>
       <p className="armada-mock-checkout__total">Total $84.00</p>
       <Button variant="primary">Place order</Button>
-      {sessionId === undefined ? null : (
+      {sessionId === undefined || tabId === undefined ? null : (
         <div className="armada-mock-checkout__asks">
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => requestPermission(sessionId, "local_network")}
+            onClick={() => requestPermission(sessionId, "local_network", tabId)}
           >
             Connect Okta Verify
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => requestPermission(sessionId, "location")}
+            onClick={() => requestPermission(sessionId, "location", tabId)}
           >
             Use my location
           </Button>
@@ -81,7 +81,7 @@ function NotFound({ url }: { url: string }) {
 }
 
 /** The page at an address on the shop's dev server. */
-export function shopPage(url: string, sessionId?: string) {
+export function shopPage(url: string, sessionId?: string, tabId?: string) {
   const path = url.replace(/^https?:\/\/[^/]+/, "");
   return path === "/checkout" ? (
     <CheckoutPage
@@ -89,6 +89,11 @@ export function shopPage(url: string, sessionId?: string) {
         ? {}
         : {
             sessionId,
+          })}
+      {...(tabId === undefined
+        ? {}
+        : {
+            tabId,
           })}
     />
   ) : path === "/cart" ? (
