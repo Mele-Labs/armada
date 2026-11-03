@@ -5,8 +5,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { SessionSystem } from "@armada/protocol";
 
+import { holdJobTime } from "../job-time";
 import { sessionSystem, seedSystem } from "../mock/slices/session-system";
 import { openInPanel } from "../shared-panel/store";
+import { SLOW, TIME } from "../usage-time-fixtures";
 import { SystemSections } from "./SystemLayer";
 
 vi.mock("../shared-panel/store", () => ({
@@ -31,6 +33,7 @@ beforeEach(() => {
   ).armada = sessionSystem.api(undefined as never, undefined as never);
 });
 afterEach(() => {
+  holdJobTime(undefined);
   for (const { root, host } of roots.splice(0)) {
     act(() => root.unmount());
     host.remove();
@@ -162,4 +165,28 @@ test("CPU and memory draw as a graph of readings, and disk stays a meter", async
   expect(second.querySelector('section[aria-label="Memory"] svg.sv-graph')).not.toBeNull();
   expect(second.querySelector('section[aria-label="Disk"] [role="meter"]')).not.toBeNull();
   expect(second.querySelector('section[aria-label="CPU"] h4')?.textContent).toContain("40%");
+});
+
+test("the Time section draws the Job's split where the window holds one", async () => {
+  holdJobTime(TIME);
+  seed(SLOW.id);
+  const host = await mount(SLOW.id);
+
+  const time = host.querySelector('section[aria-label="Time"]');
+  expect(time).not.toBeNull();
+  expect(time!.querySelector("h4")?.textContent).toBe("Time");
+  expect(time!.textContent).toContain(SLOW.title);
+  expect(time!.querySelectorAll('ul[aria-label="Job split"] > li').length).toBe(7);
+});
+
+test("the Time section is left out where the window holds no split, or none for this Job", async () => {
+  seed("no-time");
+  const none = await mount("no-time");
+  expect(none.querySelector('section[aria-label="Time"]')).toBeNull();
+
+  holdJobTime(TIME);
+  seed("not-in-the-window");
+  const other = await mount("not-in-the-window");
+  expect(other.querySelector('section[aria-label="Time"]')).toBeNull();
+  expect(other.querySelector('section[aria-label="Processes"]')).not.toBeNull();
 });
