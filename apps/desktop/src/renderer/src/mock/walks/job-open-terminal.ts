@@ -1,11 +1,10 @@
 // A terminal the Job's agent opened while the person was away has no tab: + lists it under Terminal, and picking it opens it in a tab.
 // Mock only: nothing is kept. Over the `session-shell-away` scenario.
 
-import { button, deckRow, inside, region, role, tab, text, walk } from "../walk";
+import { button, deckRow, inside, region, role, tab, walk } from "../walk";
 import type { Step } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const job = region(/^Job: /);
 const here = region(/^Pane: (Thread|Terminal)/);
 
 const steps: Step[] = [
@@ -15,8 +14,13 @@ const steps: Step[] = [
     say: "Opened",
   },
   {
-    later: inside(job, text(/Starting the dev server in the terminal/)),
-    say: "The agent says it started the dev server in a terminal. The Job has no tab for it",
+    later: inside(
+      here,
+      tab("Thread", {
+        exact: true,
+      }),
+    ),
+    say: "Time passes: the agent opens a terminal. The Job has no tab for it",
   },
   {
     press: inside(here, button("Add tab")),
