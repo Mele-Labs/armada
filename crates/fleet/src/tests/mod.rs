@@ -162,6 +162,7 @@ mod lifecycle_handing;
 mod lifecycle_keeping;
 mod lifecycle_serving;
 mod piece_saving;
+mod ticket_teaching;
 mod lifecycle_reading;
 mod rule_acting;
 mod rule_asking;
