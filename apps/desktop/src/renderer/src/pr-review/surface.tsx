@@ -1,5 +1,5 @@
-// The Reviews page: the review surface in a frame of its own. The list is the left column, the reader the stage
-// and the review tools a Flight control at its foot, in the Cockpit's own grid.
+// The Reviews page: the review surface in a frame of its own. The list is the left column and the reader the stage, in the
+// Cockpit's own grid. The review tools are tabs of the reader's panes.
 
 import { useRef } from "react";
 import { DockHandle } from "@armada/components";
@@ -8,7 +8,9 @@ import type { RepositorySummary } from "@armada/protocol";
 import { useColumns } from "../cockpit/deck/columns";
 import { ReviewList } from "./list";
 import { ReviewReader } from "./reader";
-import { ReviewFlight } from "./flight";
+import { SpendConfirm } from "./flight";
+import { ReviewKeys } from "./keys";
+import { WalkSheets } from "./walk";
 import { PickedRepository } from "./piece-root";
 import "../cockpit/cockpit.css";
 import "../cockpit/deck/deck.css";
@@ -62,7 +64,9 @@ export function ReviewsSurface({
             <div className="deck-stage">
               <ReviewReader onOpenLink={onOpenLink} onOpenSession={onOpenSession} />
             </div>
-            <ReviewFlight />
+            <SpendConfirm />
+            <WalkSheets />
+            <ReviewKeys />
           </div>
         </div>
       </div>

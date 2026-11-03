@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { LoaderCircle, Minimize2, Plus, X } from "lucide-react";
+import { LoaderCircle, Minimize2, Plus, X, type LucideIcon } from "lucide-react";
 import {
   Button,
   Dialog,
@@ -34,11 +34,10 @@ import { customLabel, peekCustom, seedBuilt, tabTitle, useCustom, useCustomTick 
 import { tabGlyph } from "./tab-glyph";
 import { splitFocused, focusIn } from "./keys";
 import { KINDS } from "./kinds";
-import { droppable, jobOpens, look, peek, rearrange } from "./store";
+import { usePaneFamily, type PaneFamily } from "./store";
 import { moveToWindow, whyNotWindow } from "./windows";
 import { toggleZoom } from "./zoom";
 import {
-  TAB_KINDS,
   activate,
   addTab,
   closePane,
@@ -173,6 +172,7 @@ function TabButton({
   zoomed,
   dragging,
   onDrag,
+  glyphOf,
 }: {
   jobId: string;
   pane: Pane;
@@ -180,7 +180,10 @@ function TabButton({
   zoomed: boolean;
   dragging: boolean;
   onDrag: (tabId: string | undefined) => void;
+  glyphOf?: ((tab: Tab) => LucideIcon | undefined) | undefined;
 }) {
+  const family = usePaneFamily();
+  const { look, rearrange, peek, jobOpens } = family;
   const label = labelOf(tab);
   const active = pane.active === tab.id;
   const custom = useCustom(tab.id, tab.kind === "custom");
@@ -202,7 +205,7 @@ function TabButton({
   const Glyph =
     tab.kind === "custom" && custom.stage === "built"
       ? tabGlyph(custom.glyph)
-      : KINDS[tab.kind].Glyph;
+      : (glyphOf?.(tab) ?? KINDS[tab.kind].Glyph);
   const building = tab.kind === "custom" && custom.stage === "building";
   const modJob = useSessions().find((one) => one.id === custom.job);
   // A walk's tab pulses until it has been in front of him, in the row's own hue and rhythm.
@@ -264,7 +267,7 @@ function TabButton({
           kind: "session",
           key: `session:${custom.job}`,
         });
-    else if (id === "right" || id === "down") splitFocused(jobId, id);
+    else if (id === "right" || id === "down") splitFocused(family, jobId, id);
     else if (id === "close") close();
     else if (id === "copy") copyAnnounced(terminalIdOf(tab));
     // A beat after the menu has shut, which gives focus back to the tab: the box and the field take it after.
@@ -451,6 +454,7 @@ function RenameField({
 
 /** The kinds the + offers. A Job has one thread, so it is offered only when none is open. A Draft tab is one draft's, opened from where the draft is listed. */
 function addEntries(
+  family: PaneFamily,
   thread: boolean,
   built: readonly {
     name: string;
@@ -461,28 +465,30 @@ function addEntries(
     name: string;
   }[],
 ): DropdownMenuEntry[] {
-  const kinds = TAB_KINDS.filter(
-    (kind) =>
-      kind !== "custom" && kind !== "draft" && kind !== "walk" && (kind !== "thread" || !thread),
-  ).flatMap((kind): DropdownMenuEntry[] => [
-    {
-      kind: "item",
-      id: kind,
-      label: KINDS[kind].label,
-      icon: KINDS[kind].Glyph,
-    },
-    // Right under the new shell: the Job's shells that have no tab, the agent's among them.
-    ...(kind !== "terminal"
-      ? []
-      : open.map(
-          (one): DropdownMenuEntry => ({
-            kind: "item",
-            id: `terminal:${one.terminal}`,
-            label: `Open ${one.name}`,
-            icon: KINDS.terminal.Glyph,
-          }),
-        )),
-  ]);
+  const kinds = family.kinds
+    .filter(
+      (kind) =>
+        kind !== "custom" && kind !== "draft" && kind !== "walk" && (kind !== "thread" || !thread),
+    )
+    .flatMap((kind): DropdownMenuEntry[] => [
+      {
+        kind: "item",
+        id: kind,
+        label: KINDS[kind].label,
+        icon: KINDS[kind].Glyph,
+      },
+      // Right under the new shell: the Job's shells that have no tab, the agent's among them.
+      ...(kind !== "terminal"
+        ? []
+        : open.map(
+            (one): DropdownMenuEntry => ({
+              kind: "item",
+              id: `terminal:${one.terminal}`,
+              label: `Open ${one.name}`,
+              icon: KINDS.terminal.Glyph,
+            }),
+          )),
+    ]);
   // Under the rule, the tabs a Mod Job built by name, then Custom, which builds another.
   const { Glyph } = KINDS.custom;
   return [
@@ -509,9 +515,9 @@ function addEntries(
 }
 
 /** `+` Terminal: a new shell, in a tab of this pane in front. */
-function newTerminal(jobId: string, paneId: string): void {
+function newTerminal(family: PaneFamily, jobId: string, paneId: string): void {
   const open = (terminal: string | undefined) =>
-    rearrange(jobId, (arrangement) =>
+    family.rearrange(jobId, (arrangement) =>
       addTab(arrangement, paneId, "terminal", undefined, undefined, undefined, undefined, terminal),
     );
   const shells = shellsOf(window.armada);
@@ -520,15 +526,27 @@ function newTerminal(jobId: string, paneId: string): void {
 }
 
 /** `+` Open <name>: a shell the Job already has, in a tab of this pane in front. */
-function openTerminalTab(jobId: string, paneId: string, terminal: string, name: string): void {
+function openTerminalTab(
+  family: PaneFamily,
+  jobId: string,
+  paneId: string,
+  terminal: string,
+  name: string,
+): void {
   const shells = shellsOf(window.armada);
   // The Job's first shell is the one a tab with no ID draws.
   const own = shells?.keyOf(jobId, terminal) === jobId ? undefined : terminal;
-  rearrange(jobId, (arrangement) =>
+  family.rearrange(jobId, (arrangement) =>
     addTab(arrangement, paneId, "terminal", name, undefined, undefined, undefined, own),
   );
   shells?.show("page", shells.keyOf(jobId, terminal), true);
 }
+
+/** What a family other than the Jobs' offers under +, in place of the Job's kinds and mods, and what a pick does in the pane it was made in. */
+export type AddMenu = {
+  entries: (pane: Pane) => DropdownMenuEntry[];
+  onSelect: (id: string, pane: Pane) => void;
+};
 
 export function PaneView({
   jobId,
@@ -539,6 +557,8 @@ export function PaneView({
   dragging,
   gapLit,
   onDrag,
+  add,
+  glyphOf,
   children,
 }: {
   jobId: string;
@@ -549,8 +569,12 @@ export function PaneView({
   dragging: string | undefined /** A gap between panes is lit, so no pane is. */;
   gapLit: boolean;
   onDrag: (tabId: string | undefined) => void;
+  add?: AddMenu | undefined;
+  glyphOf?: ((tab: Tab) => LucideIcon | undefined) | undefined;
   children: ReactNode;
 }) {
+  const family = usePaneFamily();
+  const { look, rearrange, peek, droppable } = family;
   const [over, setOver] = useState<Side | "middle" | undefined>(undefined);
   // The Job's shells with no tab, as Fleet lists them each time the + opens.
   const [untabbed, setUntabbed] = useState<
@@ -700,24 +724,28 @@ export function PaneView({
             zoomed={zoomed}
             dragging={dragging === tab.id}
             onDrag={onDrag}
+            glyphOf={glyphOf}
           />
         ))}
         <DropdownMenu
           triggerLabel="Add tab"
           icon={Plus}
           portal
-          entries={addEntries(thread, built, untabbed)}
-          onOpenChange={(open) => open && listUntabbed()}
+          entries={
+            add === undefined ? addEntries(family, thread, built, untabbed) : add.entries(pane)
+          }
+          onOpenChange={(open) => open && add === undefined && listUntabbed()}
           onSelect={(id) => {
+            if (add !== undefined) return add.onSelect(id, pane);
             if (id.startsWith("terminal:")) {
               const terminal = id.slice("terminal:".length);
               const named = untabbed.find((one) => one.terminal === terminal);
-              return openTerminalTab(jobId, pane.id, terminal, named?.name ?? terminal);
+              return openTerminalTab(family, jobId, pane.id, terminal, named?.name ?? terminal);
             }
             const mod = id.startsWith("mod:") ? id.slice("mod:".length) : undefined;
             const kind = (mod === undefined ? id : "custom") as TabKind;
             // A terminal here is a new shell, whose ID Fleet gives; its tab opens when Fleet has answered.
-            if (kind === "terminal") return newTerminal(jobId, pane.id);
+            if (kind === "terminal") return newTerminal(family, jobId, pane.id);
             rearrange(jobId, (arrangement) =>
               kind === "thread" && hasKind(arrangement, "thread")
                 ? arrangement

@@ -32,16 +32,50 @@ Natural Search is a run across every repository, and the Walk tool is a run that
 
 **The pull request open in the reader stays open until another one is opened.** Esc never closes it, and a reload of Bridge opens it again.
 
+**A pull request reopens as he left it**: its tabs and layout, how far Files was scrolled, the threads he had open, and a reply he had begun.
+These are kept on this Mac, for each pull request.
+
+**A pull request that has moved says so under its header.** It shows only where he last looked at it on an older commit and had run tools or explanations on it.
+The line holds the two commits, how many commits came between, Re-run and a close.
+Re-run runs each tool and explanation kept on the older commit again, and not a question he asked.
+Re-run and the close both mark the new commit seen, so the line does not come back until the head moves again.
+
 **A pull request opened by its link has a row above whichever list is chosen**, since no list from the forge holds it. Bridge keeps the last ten across a reload.
 
 **A file's patch is read the first time its change is shown.** The forge numbers a line by path, line and side; the diff draws no numbers, so `apps/desktop/src/renderer/src/pr-review/patch.ts` is the one place the two meet.
+
+## The panes
+
+**A pull request is drawn in the split panes a Job is, and its layouts are its own.** Panes, tabs, dragging a tab, and the Layout control in the title bar are [A Job open](session/a-job-open.md)'s, with the owner a pull request and not a Job.
+The Layout control saves, updates and resets a pull request's layout, and picks the one new pull requests open on.
+**Pull request layouts are kept apart from Jobs'**, so arranging one never moves the other.
+
+| Pane | Holds |
+|---|---|
+| Main | Overview, Files, Checks, Commits and Review, one tab each |
+| Tools | A tab for each review tool and explanation he opens, and empty until he opens one |
+| Comments | Every review thread the forge holds, by file and line |
+
+**A tool or explanation is opened from the tools pane's `+`, which lists the explanations first and then the tools, with Add a tool under them.**
+The keys `1` to `9` open them in that order, and the key after the last adds a tool.
+An empty tools pane lists the same rows, each with its key.
+A row says on hover where the tool is defined and what it replaces.
+
+**A tool tab with nothing kept opens on its Run line.** The line says "Running this uses tokens." beside Don't ask again, and a press on Run runs it.
+Where Don't ask again is set, opening a tab with nothing kept runs it.
+Run again in a tab runs with no question, since he pressed it on a result he can see.
+Natural Search and a new question keep the box every act that spends asks with.
+
+**The Comments pane lists every thread, open or resolved, by `file:line`.** Resolved threads fold under their count.
+A thread opens in place, to read, reply and resolve.
+A press on one brings Files forward at its line with the thread under it.
 
 ## A review
 
 **Drafts are held in Bridge until Submit.** A draft is a line comment, a comment on a file, or a reply to a thread.
 
-**Review is a tab of the reader, after Commits**, with the count of drafts waiting on Submit.
-It holds the forge's conversation, the threads on each change and his review; it is not a tile in Flight control.
+**Review is a tab of the main pane, after Commits**, with the count of drafts waiting on Submit.
+It holds the forge's conversation, the threads on each change and his review; it is not a tool.
 
 **A pending comment names its file, line and code, and a press goes to it in the diff**, opening the diff again where it was folded.
 
@@ -65,8 +99,8 @@ It holds the forge's conversation, the threads on each change and his review; it
 
 The Review tab is not a run. It is the forge's conversation.
 
-**Flight control's tiles are the explanations first and then the tools**, numbered 1 to 9.
-An explanation is shown under the description and a tool's result in place of it; a question he asked is listed above the description.
+**Each explanation and each tool is a tab of the tools pane, and its result is the tab** ([The panes](#the-panes)).
+An answer to a question he asked is shown under the Overview description, and a question he asked is listed above it.
 
 **What the agent is given:** the definition's prompt, the pull request's title, description, head commit and diff, and a checkout of the head to read.
 **It can read and nothing else**: Fleet leases a bay (a slot of the repository's pool) on a branch of its own at the head, makes one model call with the read tools only, and gives the bay back clean, so a run holds no shell, edits nothing and reaches no network.
@@ -78,7 +112,7 @@ A Why link is an http or https address.
 **An answer that fails any of this is a failed run with its reason, and is never a result.** A failed run does not count as kept, so pressing again runs again.
 
 **A result is kept for the commit it read.** It is keyed by repository, pull request, head commit and kind and name.
-Pressing a run that has a kept result shows it with no run and no spend.
+Opening a run that has a kept result shows it with no run and no spend.
 A pull request whose head moved still shows the old result, with the commit it ran on, and Bridge marks it out of date.
 Run again is the one press that spends on a commit that already has an answer.
 A run's cost is kept with it.
@@ -112,7 +146,7 @@ Progress is `review_run.changed`, as for any run.
 
 ## Walk
 
-**The Walk tool is a review tool in the Flight control, and it asks first like the others.** It is a run that writes a walk against a place.
+**The Walk tool is a review tool, a tab of the tools pane, and it asks first like the others.** It is a run that writes a walk against a place.
 The place is where the change runs: a web address, an API base, or both.
 It is Fleet's and never the agent's.
 Fleet validates it before the run starts, puts it in the brief, and writes it into the kept result itself, so a walk cannot name a place it was not asked to write against.
@@ -157,7 +191,9 @@ A new one is his, and nothing of it reaches the repository or anyone else until 
 His are read from `~/.armada/review-tools/` on this Mac, whatever place the repository's other pieces are kept at.
 
 **His own wins over the repository's**, so a teammate's commit never replaces a tool he set up.
-Where Kit's hides a repository tool of the same id that says something else, `list_review_tools` carries `hides: "repository"` on it, and Bridge marks its tile with the eclipse glyph; two copies that are the same carry nothing.
+Where Kit's hides a repository tool of the same id that says something else, `list_review_tools` carries `hides: "repository"` on it, and Bridge draws the eclipse glyph on it, its tooltip naming the repository's tool it hides.
+The glyph is on the tool's row in the tools pane's `+` and in the empty tools pane's list, and on its tab's head; the `+` row's hover also says what it replaces.
+Two copies that are the same carry nothing.
 
 **The name lower cased with its words joined by a dash is the id**, so two places define the same thing by naming it the same.
 A file that does not fit (no front matter, an unknown key, no prompt, two files of one id in one place) is left out and named, and the rest stand.
@@ -190,6 +226,9 @@ The wire is [the owner's notes on a pull request's lines](../practices/protocol/
 | Page and review | `crates/ipc/operations/get_pull_request_detail.toml`, `crates/ipc/operations/write_pull_request.toml` |
 | Lists in Fleet | `crates/fleet/src/pull_review_lists.rs` |
 | Store | `apps/desktop/src/renderer/src/pr-review/store.tsx` |
+| The panes and the tools list | `apps/desktop/src/renderer/src/pr-review/panes.tsx`; the layouts are `prPanes` in `apps/desktop/src/renderer/src/job-panes/store.ts` |
+| The Comments pane | `apps/desktop/src/renderer/src/pr-review/comments-pane.tsx` |
+| The line for a moved pull request | `apps/desktop/src/renderer/src/pr-review/moved.tsx` |
 | Runs in Bridge | `apps/desktop/src/renderer/src/pr-review/store-agent.ts`, `runs.ts` |
 | Natural Search in Bridge | `apps/desktop/src/renderer/src/pr-review/store-search.ts`, `crates/fleet/src/review_searches.rs` |
 | The Walk in Bridge | `apps/desktop/src/renderer/src/pr-review/store-walk.ts`, `walk.tsx`; the window is `apps/desktop/src/main/capture/` |

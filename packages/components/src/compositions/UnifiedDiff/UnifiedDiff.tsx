@@ -202,6 +202,7 @@ export function UnifiedDiff({
                   className="armada-diff__line"
                   data-kind={line.kind}
                   data-collides={line.collides === undefined ? undefined : ""}
+                  data-diff-line={i}
                   key={i}
                 >
                   {onLine === undefined || line.kind === "hunk" ? null : (

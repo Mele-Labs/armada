@@ -51,15 +51,16 @@ export function openBuiltTabs(
   }
 }
 
-export function useBuiltTabs(jobId: string): void {
+/** `on` is false where the owner is not a Job, which no mod is made by. */
+export function useBuiltTabs(jobId: string, on = true): void {
   const mods = useModList();
   const sessions = useSessions();
-  useEffect(
-    () => openBuiltTabs(jobId, mods, sessions),
-    [
-      jobId,
-      mods,
-      sessions,
-    ],
-  );
+  useEffect(() => {
+    if (on) openBuiltTabs(jobId, mods, sessions);
+  }, [
+    jobId,
+    mods,
+    sessions,
+    on,
+  ]);
 }
