@@ -805,6 +805,8 @@ export type ShowWindow = {
   origins?: string[];
   /** Addresses on the shown origin or one of `origins`, loaded in order before the page. A secret: Fleet keeps it in memory and writes it nowhere. */
   sign_in?: string[];
+  /** The Job's line or two on what changed and what to look at, drawn on the walk's tab. At most 400 characters; longer is refused. */
+  brief?: string;
 };
 
 /** `POST /sessions/window/sign_in`: Bridge, opening a window, asks for the sign-in addresses held for it. */

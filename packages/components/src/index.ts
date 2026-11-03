@@ -473,8 +473,13 @@ export {
   Mark as PrMark,
   DiffSize,
   COMMENT_READ,
+  whereOfThread,
 } from "./compositions/PullRequestPanel/PullRequestTabs";
-export type { EntryTriage } from "./compositions/PullRequestPanel/PullRequestTabs";
+export type {
+  CommentEvaluate,
+  EntryTriage,
+  EvaluatedComment,
+} from "./compositions/PullRequestPanel/PullRequestTabs";
 export type {
   FileReach,
   FilesReach,

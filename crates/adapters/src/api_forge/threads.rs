@@ -4,7 +4,7 @@
 use adapter_traits::{DiffSide, ReviewThreadFacts, ThreadSaid};
 use serde::Deserialize;
 
-use super::{login_of, Login, Nodes};
+use super::{author_of, Login, Nodes};
 use crate::pull_request_threads::GHOST;
 
 /// `pullRequest` as the threads query asks for it.
@@ -32,6 +32,7 @@ struct Comment {
     id: Option<String>,
     author: Option<Login>,
     created_at: Option<String>,
+    last_edited_at: Option<String>,
     body: Option<String>,
 }
 
@@ -50,11 +51,13 @@ pub(crate) fn threads(pull: Option<Threads>) -> Vec<ReviewThreadFacts> {
             resolved: thread.is_resolved == Some(true),
             comments: Nodes::all(thread.comments)
                 .map(|said| {
-                    let author = login_of(said.author);
+                    let (author, bot) = author_of(said.author);
                     ThreadSaid {
                         id: said.id.unwrap_or_default(),
                         author: if author.is_empty() { GHOST.to_string() } else { author },
+                        bot,
                         at: said.created_at.unwrap_or_default(),
+                        edited_at: said.last_edited_at,
                         body: said.body.unwrap_or_default(),
                     }
                 })

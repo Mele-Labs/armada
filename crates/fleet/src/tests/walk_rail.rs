@@ -249,6 +249,7 @@ fn window(n: u32, url: &str) -> SessionRow {
         variations: Vec::new(),
         steps: Vec::new(),
         origins: Vec::new(),
+        brief: None,
         ended_at: None,
     }
 }

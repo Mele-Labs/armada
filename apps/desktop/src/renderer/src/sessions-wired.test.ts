@@ -11,6 +11,7 @@ import { forgetKept, writeKept } from "@armada/components";
 import { inFlight } from "@armada/components/src/compositions/LaneCanvas/build";
 import { aimKey } from "./session-view/mod-aim";
 import { QUEUED_KEY } from "./queued-ideas";
+import { evaluateMessage } from "@armada/screens/src/draft/evaluate-comment";
 import { WiredStore } from "./sessions-wired";
 
 const AT = "2026-10-07T13:48:02Z";
@@ -575,6 +576,30 @@ it("sends no aim where none was picked, and keeps the pick when Fleet refuses th
     aim: "source",
   });
   forgetKept(aimKey("new"));
+});
+
+it("sends Evaluate to the Job through Fleet as the message that names the comment, and leaves the composer's aim for its own message", async () => {
+  const { store, sendSessionMessage } = await starting("ok");
+  writeKept(aimKey("new"), "theme");
+  const comment = {
+    pullRequest: 812,
+    id: "PRRC_812_1",
+    author: "Maya",
+    where: "src/cart/totals.ts:42",
+    body: "This rounds before the discount.",
+  };
+
+  expect(await store.draft.evaluateComment!("new", comment)).toBe(true);
+  expect(sendSessionMessage).toHaveBeenLastCalledWith({
+    session_id: "new",
+    text: evaluateMessage(comment),
+  });
+  expect(await store.draft.send("new", FIRST)).toBe(true);
+  expect(sendSessionMessage).toHaveBeenLastCalledWith({
+    session_id: "new",
+    text: "a dark theme",
+    aim: "theme",
+  });
 });
 
 it("leaves a pick out of the start where the idea has none, so the proposer fills it in", async () => {

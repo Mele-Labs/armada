@@ -2,13 +2,14 @@
 // change's own title, with the hunk one press away. Armada's alone, hatched, and never posted. Where a Session of his
 // holds the pull request, a finding can be sent to it. A way back to the overview is always at the head.
 
-import { ArrowLeft, LoaderCircle, RefreshCw, RotateCw } from "lucide-react";
-import { Button, PrMark, Tooltip } from "@armada/components";
+import { useState } from "react";
+import { ArrowLeft, History, LoaderCircle, Play, RefreshCw, RotateCw } from "lucide-react";
+import { Button, Checkbox, PrMark, Tooltip, agoOf } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
 import { changesOf, isFile, ownerOf, placeOfFinding } from "./changes";
-import { RunFailed, SOURCE_MARK, TOOL_MARK } from "./marks";
-import type { ReviewPr, ToolDef } from "./model";
+import { HidesMark, RunFailed, SOURCE_MARK, TOOL_MARK } from "./marks";
+import type { AgentRun, ReviewPr, ToolDef } from "./model";
 import { NothingFound } from "./nothing-found";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
 import { isExplained } from "./tools";
@@ -16,14 +17,60 @@ import { BareChanges, ThemeBlock } from "./themes";
 import { PieceActs } from "../sharing/PieceActs";
 import { useRootFor } from "./piece-root";
 
+/** A result kept for the commit it ran on, as its tab's head says it: kept, or out of date where the pull request has moved. */
+export function KeptMark({ run, head }: { run: AgentRun | undefined; head: string }) {
+  if (run?.state !== "done") return null;
+  const stale = run.head !== head;
+  return (
+    <PrMark
+      Glyph={stale ? RefreshCw : History}
+      said={
+        stale
+          ? `Out of date. Ran on ${run.head.slice(0, 7)}, the pull request is at ${head.slice(0, 7)}`
+          : `Kept. Ran ${agoOf(new Date(run.at).toISOString())} on ${run.head.slice(0, 7)}`
+      }
+    />
+  );
+}
+
+/**
+ * What a tool or an explanation shows before it has run: the press that runs it. While the setting asks first, it says the run spends
+ * tokens and offers Don't ask again, which `onRun` is told of, so a tab asks where the box would have.
+ */
+export function NotRun({ onRun }: { onRun: (again: boolean) => void }) {
+  const { askFirst } = useReviews();
+  const [again, setAgain] = useState(false);
+  return (
+    <div className="pr-results__clean pr-results__not-run">
+      <Button variant="secondary" size="sm" onClick={() => onRun(askFirst && again)}>
+        <Play size={16} strokeWidth={2} aria-hidden />
+        Run
+      </Button>
+      {askFirst ? (
+        <>
+          <span className="pr-results__spends">Running this uses tokens.</span>
+          <Checkbox checked={again} onChange={(event) => setAgain(event.target.checked)}>
+            Don't ask again
+          </Checkbox>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/** `back` false leaves out the way back to the overview, for a result in a tab of its own; `onRun` is then the press that runs it where it has not run. */
 export function ToolResults({
   pr,
   tool,
   send,
+  back = true,
+  onRun,
 }: {
   pr: ReviewPr;
   tool: ToolDef;
   send: ReturnType<typeof useSendFindings>;
+  back?: boolean;
+  onRun?: (again: boolean) => void;
 }) {
   const store = useReviewStore()!;
   const work = useReviews().work[pr.key] ?? NO_WORK;
@@ -47,21 +94,25 @@ export function ToolResults({
       data-source={tool.source}
     >
       <header className="pr-results__head">
-        <Tooltip label="Back to the overview">
-          <Button
-            variant="ghost"
-            size="sm"
-            iconOnly
-            aria-label="Back to the overview"
-            onClick={() => store.setView(pr.key, "explanation")}
-          >
-            <ArrowLeft size={16} strokeWidth={2} aria-hidden />
-          </Button>
-        </Tooltip>
+        {back ? (
+          <Tooltip label="Back to the overview">
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Back to the overview"
+              onClick={() => store.setView(pr.key, "explanation")}
+            >
+              <ArrowLeft size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+        ) : null}
         <PrMark Glyph={mark.Glyph} said={tool.name} />
         <h3 className="pr-results__title">{tool.name}</h3>
         <PrMark Glyph={source.Glyph} said={source.said} />
+        <HidesMark tool={tool} />
         <span className="pr-results__acts">
+          {back ? null : <KeptMark run={run} head={pr.head} />}
           <Tooltip label="Run again, for this pull request">
             <Button
               variant="ghost"
@@ -69,7 +120,7 @@ export function ToolResults({
               iconOnly
               aria-label="Run again"
               disabled={running}
-              onClick={() => store.spend(tool.name, () => store.rerun(pr.key, tool))}
+              onClick={() => store.spendUnasked(() => store.rerun(pr.key, tool), false)}
             >
               <RotateCw size={16} strokeWidth={2} aria-hidden />
             </Button>
@@ -101,6 +152,8 @@ export function ToolResults({
         </p>
       ) : run?.state === "failed" ? (
         <RunFailed said={run.said} />
+      ) : onRun !== undefined && (run === undefined || run.state === "idle") ? (
+        <NotRun onRun={onRun} />
       ) : mine.length === 0 ? (
         <NothingFound mark={tool.mark} changes={all.length} />
       ) : (

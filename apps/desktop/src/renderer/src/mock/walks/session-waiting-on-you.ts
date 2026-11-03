@@ -1,8 +1,8 @@
 // A Session that waits on the person: its row has a hand, the Needs you panel on its
-// composer is up with the question and the items, a press on the page item opens the window, and the question is its first part. Over the `session-waiting-on-you` scenario. Told twice: wide, and
+// composer is up with the question and the items, a press on the page item opens its walk, and the question is its first part. Over the `session-waiting-on-you` scenario. Told twice: wide, and
 // below the breakpoint.
 
-import { button, dialog, inside, region, role, walk } from "../walk";
+import { button, inside, region, role, tab, walk } from "../walk";
 import type { Step } from "../walk";
 import { NARROW, toSessions } from "../sessions/walk-kit";
 
@@ -23,15 +23,17 @@ function steps(): Step[] {
     },
     {
       press: inside(needs, button("Open Look at the findings page")),
-      say: "A page item's row opens the window itself",
+      say: "A page item's row brings its walk to the front of the Job's panes",
     },
     {
-      look: dialog("Bridge's window on Pin the store clock"),
-      say: "The window",
+      look: tab("Look at the findings page", {
+        exact: true,
+      }),
+      say: "The walk is a tab of the Job",
     },
     {
-      press: button("Close window"),
-      say: "Closed",
+      press: button("Close Look at the findings page"),
+      say: "Closed with its ×. The walk is still owed",
     },
     {
       press: inside(needs, button("Open Which clock?")),

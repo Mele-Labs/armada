@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { isPressed, pressedSlot } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 
-import { look, peek, rearrange, redo, undo } from "./store";
+import { jobPanes, type PaneFamily } from "./store";
 import { toggleZoom } from "./zoom";
 import {
   cycleTab,
@@ -35,13 +35,25 @@ export function focusIn(paneId: string): void {
   });
 }
 
-export function splitFocused(jobId: string, into: "right" | "down", paneId?: string): void {
-  rearrange(jobId, (arrangement) => splitPane(arrangement, paneId ?? arrangement.focus, into));
-  focusIn(peek(jobId).focus);
+export function splitFocused(
+  family: PaneFamily,
+  jobId: string,
+  into: "right" | "down",
+  paneId?: string,
+): void {
+  family.rearrange(jobId, (arrangement) =>
+    splitPane(arrangement, paneId ?? arrangement.focus, into),
+  );
+  focusIn(family.peek(jobId).focus);
 }
 
-export function usePaneKeys(jobId: string, openLayouts: () => void): void {
+export function usePaneKeys(
+  jobId: string,
+  openLayouts: () => void,
+  family: PaneFamily = jobPanes,
+): void {
   useEffect(() => {
+    const { look, peek, redo, undo } = family;
     const listen = (event: KeyboardEvent) => {
       if (
         event.defaultPrevented ||
@@ -60,9 +72,9 @@ export function usePaneKeys(jobId: string, openLayouts: () => void): void {
       const here = (now: Arrangement) =>
         inside != null && paneById(now, inside) !== undefined ? inside : now.focus;
       if (isPressed("pane_split_right", event))
-        return take(() => splitFocused(jobId, "right", here(peek(jobId))));
+        return take(() => splitFocused(family, jobId, "right", here(peek(jobId))));
       if (isPressed("pane_split_down", event))
-        return take(() => splitFocused(jobId, "down", here(peek(jobId))));
+        return take(() => splitFocused(family, jobId, "down", here(peek(jobId))));
       if (isPressed("layout_menu", event)) return take(openLayouts);
       if (!holdsText(event.target) && isPressed("pane_zoom", event))
         return take(() => toggleZoom(jobId, here(peek(jobId))));
@@ -93,5 +105,6 @@ export function usePaneKeys(jobId: string, openLayouts: () => void): void {
   }, [
     jobId,
     openLayouts,
+    family,
   ]);
 }

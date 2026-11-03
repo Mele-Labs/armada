@@ -4,9 +4,10 @@ verdict	grace	APPROVED
 verdict	linus	CHANGES_REQUESTED
 requested	person	barbara
 requested	team	reviewers
-comment	ada	2026-10-15T10:00:00Z	First.
-review	grace	2026-10-15T09:30:00Z	APPROVED	
-review	linus	2026-10-15T11:00:00Z	CHANGES_REQUESTED	Not\tlike this.
+comment	IC_1	ada	2026-10-15T10:00:00Z	First.
+comment	IC_2	preview-app	2026-10-15T10:45:00Z	Preview is up.
+review	PRR_1	grace	2026-10-15T09:30:00Z	APPROVED	
+review	PRR_2	linus	2026-10-15T11:00:00Z	CHANGES_REQUESTED	Not\tlike this.
 check	test	IN_PROGRESS			https://github.com/Mele-Labs/armada/actions/runs/1/job/2
 check	build	COMPLETED	FAILURE	65	https://github.com/Mele-Labs/armada/actions/runs/1/job/3
 check	needs		PENDING		

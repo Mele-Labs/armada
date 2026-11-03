@@ -35,7 +35,8 @@ const FIELDS: &str = "baseRefName,author,createdAt,additions,deletions,mergeable
 /// `// ""` on every field, so a `null` cannot stop jq mid-stream. Seconds are
 /// worked out here because jq reads the timestamps; `try` makes one it cannot
 /// read no figure. A draft review (`PENDING`) is its author's alone, and a
-/// review with no body and no verdict says nothing.
+/// review with no body and no verdict says nothing. `pr view` gives a comment
+/// and a review its id, but no edit time and only the author's login.
 const REDUCTION: &str = "\
     ([\"head\", (.baseRefName // \"\"), (.author.login // \"\"), (.createdAt // \"\"), \
       (.additions // 0), (.deletions // 0), (.mergeable // \"\"), (.reviewDecision // \"\"), \
@@ -48,10 +49,11 @@ const REDUCTION: &str = "\
         [\"requested\", (if .__typename == \"Team\" then \"team\" else \"person\" end), \
          (.login // .slug // .name // \"\")]), \
     (.comments // [] | .[] | \
-        [\"comment\", (.author.login // \"\"), (.createdAt // \"\"), (.body // \"\")]), \
+        [\"comment\", (.id // \"\"), (.author.login // \"\"), (.createdAt // \"\"), (.body // \"\")]), \
     (.reviews // [] | .[] | select(.state != \"PENDING\") | \
         select((.body // \"\") != \"\" or .state == \"APPROVED\" or .state == \"CHANGES_REQUESTED\") | \
-        [\"review\", (.author.login // \"\"), (.submittedAt // \"\"), (.state // \"\"), (.body // \"\")]), \
+        [\"review\", (.id // \"\"), (.author.login // \"\"), (.submittedAt // \"\"), (.state // \"\"), \
+         (.body // \"\")]), \
     (.statusCheckRollup // [] | .[] | \
         [\"check\", (.name // .context // \"\"), (.status // \"\"), (.conclusion // .state // \"\"), \
          (if .status == \"COMPLETED\" and .startedAt and .completedAt \
@@ -204,16 +206,25 @@ pub(crate) fn folded(lines: &[String]) -> Option<PullRequestPageFacts> {
                     parts.requested.push((kind, name));
                 }
             }
-            "comment" => parts.said.push(Said::Comment {
-                author: next(),
-                at: next(),
-                body: next(),
-            }),
-            "review" => {
-                let (author, at, state, body) = (next(), next(), next(), next());
-                parts.said.push(Said::Review {
+            "comment" => {
+                let (id, author, at, body) = (next(), next(), next(), next());
+                parts.said.push(Said::Comment {
+                    id,
+                    bot: by_a_bot("", &author),
                     author,
                     at,
+                    edited_at: None,
+                    body,
+                });
+            }
+            "review" => {
+                let (id, author, at, state, body) = (next(), next(), next(), next(), next());
+                parts.said.push(Said::Review {
+                    id,
+                    bot: by_a_bot("", &author),
+                    author,
+                    at,
+                    edited_at: None,
                     verdict: review_said(&state),
                     body,
                 });
@@ -383,6 +394,18 @@ pub(crate) fn review_said(state: &str) -> ReviewSaid {
         "CHANGES_REQUESTED" => ReviewSaid::ChangesRequested,
         _ => ReviewSaid::Commented,
     }
+}
+
+/// An app's account: GraphQL types it `Bot`. Where only a login is given, the REST spelling,
+/// `name[bot]`, is the one sign; `gh pr view` prints a bot's login without it, so a bot it read
+/// is not told apart.
+pub(crate) fn by_a_bot(kind: &str, login: &str) -> bool {
+    kind == "Bot" || login.ends_with("[bot]")
+}
+
+/// The forge prints no edit as `null`, which the reductions print as nothing.
+pub(crate) fn edited(at: String) -> Option<String> {
+    (!at.is_empty()).then_some(at)
 }
 
 /// A check run has `status` and, once over, `conclusion`; a status context has

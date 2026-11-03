@@ -5,7 +5,6 @@
 import type { Scenario } from "../moment";
 import {
   AUDIT_FILES,
-  AUDIT_TAKES,
   BUSY,
   ROTATION,
   approved,
@@ -43,7 +42,7 @@ export const s274FieldExpandPlan: Scenario = {
           waitingOn(AUDIT_FILES),
         ),
       );
-      return walkActs(store, BUSY, AUDIT_FILES, AUDIT_TAKES);
+      return walkActs(store, BUSY, AUDIT_FILES);
     },
   },
 };

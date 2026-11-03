@@ -281,12 +281,14 @@ const marta = build({
   conversation: [
     {
       kind: "comment",
+      id: "IC_1",
       author: "marta",
       at: minutesAgo(190),
       body: "Asked for review from @nick: the Rust side is the part to read.",
     },
     {
       kind: "review",
+      id: "PRR_1",
       author: "devon",
       at: minutesAgo(120),
       verdict: "commented",
@@ -786,6 +788,7 @@ const devon = build({
   conversation: [
     {
       kind: "comment",
+      id: "IC_2",
       author: "devon",
       at: minutesAgo(60),
       body: "Draft shape is in `bay-history.ts`. The Rust side reads the same rows the timeline does.",
@@ -1080,6 +1083,7 @@ const reconnect = build({
   conversation: [
     {
       kind: "comment",
+      id: "IC_3",
       author: "drone",
       at: minutesAgo(38),
       body: "The first wait is 5 seconds and doubles up to the cap. desktop_test is red on the resize case, which this does not touch.",
@@ -1620,7 +1624,9 @@ const hub = quick({
   conversation: [
     {
       kind: "comment",
+      id: "IC_4",
       author: "preview-bot",
+      bot: true,
       at: minutesAgo(280),
       body: "Preview ready: https://pr-1907.preview.armada.dev\n\nBuilt from the last commit. Taken down when the pull request closes.",
     },

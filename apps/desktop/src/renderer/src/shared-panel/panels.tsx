@@ -164,8 +164,10 @@ export function IssuePanel({
     `${item.root ?? ""}#${item.number}`,
   );
   if (read === undefined) return null;
-  const entries: PullRequestEntry[] = read.comments.map((one) => ({
+  // An issue's comments carry no id on the wire; this one only names the row on this panel.
+  const entries: PullRequestEntry[] = read.comments.map((one, index) => ({
     kind: "comment",
+    id: `issue-comment-${index}`,
     author: one.author,
     at: one.at,
     body: one.body,

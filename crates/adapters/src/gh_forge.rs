@@ -206,6 +206,10 @@ impl Forge for GhForge {
         crate::pull_request_patch::read_every(in_repo, pull_request)
     }
 
+    fn pull_request_comments(&self, in_repo: &str, number: u64) -> Option<Vec<adapter_traits::PullComment>> {
+        crate::pull_request_comments::read(in_repo, number)
+    }
+
     fn write_pull_request(
         &self,
         in_repo: &str,
