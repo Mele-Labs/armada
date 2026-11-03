@@ -1,7 +1,7 @@
 // The message Evaluate sends a Job about one comment on its pull request. The Job answers in its
 // own waiting list and never on the forge: `.claude/decisions/2026-11-03-pull-request-comments-reach-the-job.md`.
 
-import type { EvaluatedComment } from "@armada/components";
+import type { EvaluatedComment } from "@armada/components/src/compositions/PullRequestPanel/evaluated-comment";
 
 /** A comment Evaluate hands to the Job that holds its pull request. */
 export type CommentToEvaluate = EvaluatedComment & {

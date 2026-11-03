@@ -48,6 +48,7 @@ import { TabPanel, Tabs } from "../../primitives/Tabs/Tabs";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { CommentRead } from "../LaneCanvas/model";
 import { ranFor } from "./pull-request-format";
+import type { EvaluatedComment } from "./evaluated-comment";
 import { ReachTests, ReachToggle, type FilesReach, type ReachTest } from "./PullRequestReach";
 
 /**
@@ -96,14 +97,7 @@ export type EntryTriage = {
   where?: string;
 };
 
-/** One comment the person may hand to the Job to weigh. */
-export type EvaluatedComment = {
-  id: string;
-  author: string;
-  body: string;
-  /** `path:line`, or `path` for a comment on a whole file. Absent on the conversation. */
-  where?: string;
-};
+export type { EvaluatedComment };
 
 /** Evaluate asks the Job to weigh a comment and bring a proposal. Nothing is posted to the forge. */
 export type CommentEvaluate = {
