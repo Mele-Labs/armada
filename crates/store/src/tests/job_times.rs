@@ -1,7 +1,7 @@
 //! Where a Job's time went, kept: a Job is waiting to be split until a row of the current reading
 //! of the fold stands for its end, so a fix to the fold reaches the rows already kept.
 
-use crate::{KeptBuildSplit, KeptJobTime, KeptPullRequestWait, KeptSession, NewBuild, SessionFigures, SessionState};
+use crate::{KeptBuildSplit, KeptJobTime, KeptPullRequestWait, KeptSession, NewBuild, SessionFigures, SessionState, Store};
 use crate::tests::{open, TempDir};
 
 fn ended(id: &str, at: &str) -> KeptSession {
@@ -134,4 +134,24 @@ fn the_builds_jobs_were_told_of_become_builds_when_the_migration_runs() {
         [("b".into(), "2026-10-12T09:00:00.000Z".into(), None, false), ("a".into(), "2026-10-13T10:01:00.000Z".into(), None, false)],
         "a build begins when the first Job was told of it, and its contents are unknown"
     );
+}
+
+#[test]
+fn a_row_kept_before_the_fold_column_existed_comes_up_as_the_first_reading() {
+    let dir = TempDir::new();
+    let before = crate::migrations::MIGRATIONS.iter().position(|one| one.name == "job_times.fold").unwrap();
+    drop(Store::open_with(&dir.db(), &crate::migrations::MIGRATIONS[..before]).expect("the store as it was"));
+    let conn = rusqlite::Connection::open(dir.db()).unwrap();
+    conn.execute(
+        "INSERT INTO job_times (session_id, began_at, ended_at, model_ms, tools_ms, checks_ms, subagents_ms, slot_ms, you_ms, pull_request_ms,
+         stopped_ms, idle_ms, tool_times_missing, model_starts_guessed, timeline_cut, kept_at)
+         VALUES ('old', 'b', 'e', 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 'k')",
+        [],
+    )
+    .unwrap();
+    drop(conn);
+
+    let store = open(&dir);
+
+    assert_eq!(store.job_time("old").unwrap().unwrap().fold, 0, "a row the fold never read, so every fold since is later than it");
 }

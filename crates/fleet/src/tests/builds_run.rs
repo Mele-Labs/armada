@@ -62,6 +62,7 @@ async fn a_preview_is_kept_with_what_scripts_preview_recorded_it_holds_and_only_
     let kept = builds(&rig).await;
     assert_eq!(kept.len(), 2);
     assert_eq!((kept[1].commit_id.as_str(), kept[1].main_commit.clone(), kept[1].branches.len()), (next.as_str(), None, 0));
+    assert!(!kept[1].looked, "nothing recorded it, so git is still to be asked");
 }
 
 #[tokio::test]

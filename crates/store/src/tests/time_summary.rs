@@ -64,7 +64,11 @@ fn an_hour_has_its_burn_by_model_and_the_median_of_what_ran_in_it_and_an_empty_h
     check(&store, "s1", at(10, 20, 0), at(10, 21, 30));
     store
         .keep_job_time(&KeptJobTime {
-            waits: vec![KeptPullRequestWait { target: "9".into(), began_at: at(12, 0, 0), ended_at: at(12, 40, 0), wait_ms: 600_000 }],
+            waits: vec![
+                KeptPullRequestWait { target: "9".into(), began_at: at(12, 0, 0), ended_at: at(12, 40, 0), wait_ms: 600_000 },
+                // Everything else was running the whole of it, so it waited on nothing.
+                KeptPullRequestWait { target: "8".into(), began_at: at(12, 10, 0), ended_at: at(12, 20, 0), wait_ms: 0 },
+            ],
             ..crate::KeptJobTime { session_id: "s1".into(), began_at: at(9, 0, 0), ended_at: at(13, 0, 0), kept_at: at(13, 0, 0), ..Default::default() }
         })
         .unwrap();
@@ -81,7 +85,7 @@ fn an_hour_has_its_burn_by_model_and_the_median_of_what_ran_in_it_and_an_empty_h
     assert_eq!(first.medians.pull_request, None);
     assert_eq!(last.burn, [("small".to_string(), 1.0)]);
     assert_eq!((last.medians.model, last.medians.tools, last.medians.checks), (Some(7.0), None, None));
-    assert_eq!(last.medians.pull_request, Some(600.0));
+    assert_eq!(last.medians.pull_request, Some(600.0), "a stint that waited on nothing is no wait to take the median of");
 }
 
 #[test]
@@ -149,16 +153,17 @@ fn the_time_of_the_jobs_that_ended_in_a_window_the_slowest_and_the_usual_of_each
         job("d", "feature", "2026-11-02T13:00:00.000Z", 1_000, 1_000),
         job("e", "", "2026-11-02T14:00:00.000Z", 9_000, 0),
         job("old", "bug", "2026-10-01T10:00:00.000Z", 999_000, 0),
+        job("later", "bug", "2026-11-03T06:00:00.000Z", 888_000, 0),
     ] {
         store.keep_job_time(&one).unwrap();
     }
     let read = store.usage_time(Some("2026-11-02T00:00:00.000Z"), Some("2026-11-03T00:00:00.000Z"), &at(0, 0, 0), 2).unwrap().unwrap();
 
-    assert_eq!(read.jobs, 5, "old ended before the window");
+    assert_eq!(read.jobs, 5, "old ended before the window and later after it");
     assert_eq!((read.total.you, read.total.idle), (70_000, 7_000));
     let order: Vec<&str> = read.slowest.iter().map(|one| one.session_id.as_str()).collect();
     assert_eq!(order, ["b", "c"], "longest first, as many as asked for, and none from outside the window");
-    // The usual is of every Job kept of the workflow, the old one too: 10, 20, 30 and 999 seconds.
+    // The usual is of every Job kept of the workflow, outside the window too: 10, 20, 30, 888 and 999 seconds.
     let usual: Vec<(&str, u32, i64, i64)> = read.usual.iter().map(|(name, one)| (name.as_str(), one.jobs, one.split.you, one.split.idle)).collect();
-    assert_eq!(usual, [("bug", 4, 25_000, 500), ("feature", 1, 1_000, 1_000)], "a Job with no workflow is in none");
+    assert_eq!(usual, [("bug", 5, 30_000, 0), ("feature", 1, 1_000, 1_000)], "a Job with no workflow is in none");
 }
