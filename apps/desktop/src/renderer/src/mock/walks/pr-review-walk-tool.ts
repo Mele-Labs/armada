@@ -1,15 +1,20 @@
 // The Walk review tool: Armada plays the pull request's change where it runs, in its own walk window, as a walk of a page or
 // a run of requests. Where it runs is found in his order, one source at a time: the pull request, what Armada remembers of the
 // area, then him, and the answer is remembered for the area. Walk it holds a pulled-down place up, a line at a time, and opens the
-// window on it. Over the `pr-review` scenario, after `pr-review-tab`, which it extends nothing of.
+// window on it. Walk opens in a tab of the pull request's tools pane. Over the `pr-review` scenario, after `pr-review-tab`, which it
+// extends nothing of.
 
 import { button, dialog, inside, place, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 const list = region("Pull requests");
-const flight = region("Flight controls");
 const reader = (number: number) => region(`Pull request #${number}`);
-const tool = inside(flight, button("Walk"));
+/** Walk is the eighth entry of the tools pane's +: after the four explanations and Armada's other three tools. */
+const walkKey = (number: number, say: string): Step => ({
+  key: "8",
+  on: reader(number),
+  say,
+});
 const results = region("Walk results");
 const fact = (words: string) =>
   inside(inside(results, role("list", "Where it runs")), role("listitem", words));
@@ -39,18 +44,22 @@ const fromThePullRequest: Step[] = [
     say: "A pull request with a preview deployed",
   },
   {
-    look: tool,
-    say: "Walk is a tool of Armada's, in the Flight control with the rest. It has a colour of its own",
+    press: inside(inside(reader(1907), region("Empty pane")), button("Add tab")),
+    say: "The tools pane's + lists the tools",
   },
   {
-    hover: inside(tool, role("img", "Armada's tool")),
-    say: "Defined where the other tools are",
+    look: pick("Walk"),
+    say: "Walk is a tool of Armada's, listed with the rest. It has a colour of its own",
   },
   {
-    key: "8",
-    on: reader(1907),
-    say: "8 presses it, after the four explanations and the other tools. It plays the change, which costs, so it asks first",
+    key: "Escape",
+    on: pick("Walk"),
+    say: "Esc puts the list away",
   },
+  walkKey(
+    1907,
+    "8 opens it, after the four explanations and the other tools. It plays the change, which costs, so it asks first",
+  ),
   {
     look: dialog("Walk"),
     say: "The same question every tool that spends asks",
@@ -64,6 +73,10 @@ const fromThePullRequest: Step[] = [
     key: "Enter",
     on: dialog("Walk"),
     say: "↵ runs it",
+  },
+  {
+    hover: inside(results, role("img", "Armada's tool")),
+    say: "In a tab of its own, defined where the other tools are",
   },
   {
     look: fact("From the pull request"),
@@ -122,7 +135,7 @@ const fromThePullRequest: Step[] = [
     say: "Closed",
   },
   {
-    look: inside(tool, role("img", /^Kept/)),
+    look: inside(results, role("img", /^Kept/)),
     say: "The walk is kept for the commit it was written on, as a tool's result is",
   },
 ];
@@ -132,10 +145,7 @@ const fromMemory: Step[] = [
     press: inside(list, button(/#1899/)),
     say: "A pull request that touches Fleet",
   },
-  {
-    press: tool,
-    say: "Walk. The question is off, so it runs",
-  },
+  walkKey(1899, "8: Walk. The question is off, so it runs"),
   {
     look: inside(fact("From the pull request"), role("img", "Nothing found")),
     say: "The pull request says nothing about where it runs",
@@ -203,10 +213,7 @@ const asked: Step[] = [
     press: inside(list, button(/#1903/)),
     say: "A pull request with nothing posted on it, in an area nothing is remembered for",
   },
-  {
-    press: tool,
-    say: "Walk",
-  },
+  walkKey(1903, "8: Walk"),
   {
     look: sheet,
     say: "The pull request says nothing, and nothing is remembered for apps/desktop, so it asks him. Keyboard first: focus is on the choice",

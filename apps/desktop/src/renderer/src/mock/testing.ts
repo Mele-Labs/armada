@@ -8,6 +8,7 @@ import type { Mock } from "vitest";
 import { commands, page, userEvent } from "vitest/browser";
 
 import { forgetViewed } from "../cockpit/viewed";
+import { prPanes } from "../job-panes/store";
 import type { FakeOptions } from "./fake";
 import { mountApp } from "./mount";
 import type { Mounted } from "./mount";
@@ -40,6 +41,8 @@ export function unmountAfterEach(): void {
     mounted = [];
     remembered = {};
     forgetAllKept();
+    // A pull request's panes are held in memory as well as kept, so one test's tabs are not the next one's.
+    prPanes.forget();
     // Having been in a Session drops its calls and reads its reply, so a test must not leave him in one for the next.
     forgetViewed();
   });

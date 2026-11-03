@@ -24,15 +24,21 @@ const yours = () =>
   page.getByRole("region", {
     name: "Your review",
   });
-const tile = (name: string) =>
-  page
-    .getByRole("region", {
-      name: "Flight controls",
-    })
+/** The tools pane's +, the second of the reader's three panes, and one of its entries. */
+const plus = (number: number) =>
+  reader(number)
     .getByRole("button", {
+      name: "Add tab",
+    })
+    .nth(1);
+async function pick(number: number, name: string) {
+  await plus(number).click();
+  await page
+    .getByRole("menuitem", {
       name,
-      exact: true,
-    });
+    })
+    .click();
+}
 const row = (number: number) =>
   list().getByRole("button", {
     name: new RegExp(`^#${number} `),
@@ -123,7 +129,7 @@ test("a review goes out as one call with its line comment placed, and then it is
   await open(1899);
   await expect.element(reader(1899)).toBeVisible();
   // The changes are in the explanation, which an agent reads once he has said it may run.
-  await tile("How it works").click();
+  await pick(1899, "How it works");
   await page
     .getByRole("dialog", {
       name: "How it works",
@@ -145,14 +151,18 @@ test("a review goes out as one call with its line comment placed, and then it is
       exact: true,
     })
     .click();
-  const serve = reader(1899).getByRole("article", {
+  // How it works is open in the tools pane beside it, with the same changes: the comment is written in Review's.
+  const review = reader(1899).getByRole("region", {
+    name: "Pane: Review",
+  });
+  const serve = review.getByRole("article", {
     name: "Change: Serve it while it is fresh",
   });
-  const form = reader(1899).getByRole("form", {
+  const form = review.getByRole("form", {
     name: "Comment",
   });
   const addComment = async (words: string) => {
-    await reader(1899)
+    await review
       .getByRole("textbox", {
         name: "Comment",
       })
@@ -319,14 +329,7 @@ test("a review the forge refuses keeps the comment and the summary, and says why
 test("a tool that found nothing draws its picture and says what it checked", async () => {
   await reviews();
   await open(212);
-  await page
-    .getByRole("region", {
-      name: "Flight controls",
-    })
-    .getByRole("button", {
-      name: "Risks",
-    })
-    .click();
+  await pick(212, "Risks");
   await page
     .getByRole("dialog", {
       name: "Risks",
@@ -359,6 +362,7 @@ test("a pull request one of his Sessions holds opens with what was kept for it, 
       }),
     )
     .toBeVisible();
+  await pick(1896, "How it works");
   const how = reader(1896).getByRole("region", {
     name: "How it works",
   });
@@ -369,7 +373,7 @@ test("a pull request one of his Sessions holds opens with what was kept for it, 
       }),
     )
     .toBeVisible();
-  await tile("Why").click();
+  await pick(1896, "Why");
   await expect
     .element(
       reader(1896)
@@ -390,14 +394,7 @@ test("a run that fails shows Fleet's reason where the result would be, and Run a
     "The answer was not valid JSON",
   );
   await open(212);
-  await page
-    .getByRole("region", {
-      name: "Flight controls",
-    })
-    .getByRole("button", {
-      name: "Risks",
-    })
-    .click();
+  await pick(212, "Risks");
   await page
     .getByRole("dialog", {
       name: "Risks",
@@ -532,7 +529,8 @@ test("a pending comment says the file, line and code it is on, and a press goes 
   await expect
     .element(
       reader(1899).getByRole("tab", {
-        name: "Review · 1",
+        name: "Review",
+        exact: true,
       }),
     )
     .toBeVisible();
@@ -564,18 +562,22 @@ test("a pending comment says the file, line and code it is on, and a press goes 
   await expect.element(card).toHaveFocus();
 });
 
-test("Flight control holds the explanations beside the tools, and no Comments tile", async () => {
+test("the tools pane's + lists the explanations beside the tools, and no Comments tool", async () => {
   await reviews();
   await open(1899);
-  await expect.element(tile("Comments")).not.toBeInTheDocument();
+  await plus(1899).click();
   await expect
     .element(
-      reader(1899).getByRole("region", {
-        name: "Quick actions",
+      page.getByRole("menuitem", {
+        name: "Risks",
       }),
     )
-    .not.toBeInTheDocument();
-  await tile("How it works").click();
+    .toBeVisible();
+  await page
+    .getByRole("menuitem", {
+      name: "How it works",
+    })
+    .click();
   await page
     .getByRole("dialog", {
       name: "How it works",
@@ -591,21 +593,19 @@ test("Flight control holds the explanations beside the tools, and no Comments ti
       }),
     )
     .toBeVisible();
-  await expect.element(tile("How it works")).toHaveAttribute("aria-pressed", "true");
-  await expect.element(tile("Risks")).toBeVisible();
+  await expect
+    .element(
+      reader(1899).getByRole("tab", {
+        name: "How it works",
+      }),
+    )
+    .toHaveAttribute("aria-selected", "true");
 });
 
 test("a tool whose name is taken is refused in Fleet's words, beside Save", async () => {
   await reviews();
   await open(1899);
-  await page
-    .getByRole("region", {
-      name: "Flight controls",
-    })
-    .getByRole("button", {
-      name: "Add a tool",
-    })
-    .click();
+  await pick(1899, "Add a tool");
   const sheet = page.getByRole("dialog", {
     name: "Add a tool",
   });

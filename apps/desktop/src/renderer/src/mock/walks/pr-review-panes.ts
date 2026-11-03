@@ -1,0 +1,137 @@
+// An open pull request in the panes a Job's are drawn in: Overview, Files, Checks, Commits and Review in the main pane, the tools
+// over Comments to its right. A tool opens in a tab of its own, from + or by its number. Comments lists the threads by file and
+// line, and a press on one brings Files forward at its line. Over the `pr-review` scenario.
+
+import { button, dialog, inside, place, region, role, tab, walk } from "../walk";
+
+const list = region("Pull requests");
+const reader = region("Pull request #1899");
+const toolsPane = inside(reader, region("Empty pane"));
+const comments = inside(
+  reader,
+  region("Comments", {
+    exact: true,
+  }),
+);
+const open = inside(comments, role("list", "Open threads"));
+const files = inside(reader, region("Pane: Files"));
+
+const prReviewPanes = walk("pr-review", [
+  {
+    press: place("Reviews"),
+    say: "Reviews",
+  },
+  {
+    press: inside(list, button(/#1899/)),
+    say: "A pull request a teammate asked for, with comments on the forge",
+  },
+  {
+    look: inside(reader, tab("Overview")),
+    say: "It opens in panes, as a Job does. Overview, Files, Checks, Commits and Review are tabs of the main pane",
+  },
+  {
+    look: toolsPane,
+    say: "To the right, the pane the tools open in",
+  },
+  {
+    look: comments,
+    say: "And Comments under it",
+  },
+  {
+    press: inside(toolsPane, button("Add tab")),
+    say: "+ lists every explanation and tool, each with its number, and Add a tool last",
+  },
+  {
+    look: role("menuitem", "Add a tool"),
+    say: "Add a tool is the last entry",
+  },
+  {
+    press: role("menuitem", "Risks"),
+    say: "Risks. Nothing is kept for it, so opening it runs it, and that spends tokens",
+  },
+  {
+    press: inside(dialog("Risks"), button("Run")),
+    say: "Run",
+  },
+  {
+    look: inside(reader, region("Risks results")),
+    say: "Its result, in a tab of its own",
+  },
+  {
+    key: "6",
+    on: reader,
+    say: "6 opens Possible bugs, the sixth entry of +",
+  },
+  {
+    press: inside(dialog("Possible bugs"), button("Run")),
+    say: "It asks first too",
+  },
+  {
+    look: inside(reader, tab("Possible bugs")),
+    say: "A tab beside Risks",
+  },
+  {
+    look: inside(reader, region("Possible bugs results")),
+    say: "In front",
+  },
+  {
+    look: inside(open, button(/^Go to crates\/fleet\/src\/plan_usage\.rs:\d+ in Files$/)),
+    say: "Comments lists each open thread by its file and line",
+  },
+  {
+    press: inside(comments, button(/^Resolved/)),
+    say: "The resolved ones are folded under their count",
+  },
+  {
+    look: inside(comments, role("list", "Resolved threads")),
+    say: "Opened",
+  },
+  {
+    press: inside(open, button(/^Open the thread on crates\/fleet\/src\/plan_usage\.rs:/)),
+    say: "A thread opens in place",
+  },
+  {
+    look: inside(comments, role("article", /^Thread on .+ by devon$/)),
+    say: "To read, reply and resolve it here",
+  },
+  {
+    press: inside(comments, button("Reply")),
+    say: "Reply",
+  },
+  {
+    type: "A const is fine until someone asks for it.",
+    into: inside(comments, role("textbox", "Reply")),
+    say: "His reply",
+  },
+  {
+    press: inside(comments, button("Add to review")),
+    say: "It joins his pending review, posted with Submit",
+  },
+  {
+    look: inside(comments, role("article", "Pending comment")),
+    say: "Under the thread",
+  },
+  {
+    press: inside(open, button(/^Go to crates\/fleet\/src\/plan_usage\.rs:\d+ in Files$/)),
+    say: "A press on the thread goes to it in Files",
+  },
+  {
+    look: inside(files, role("article", /^Thread on .+ by devon$/)),
+    say: "Files comes forward at its line, with the thread under the line",
+  },
+  {
+    press: inside(reader, button(/^Layout: Default/)),
+    say: "The Layout control, in the pull request's head",
+  },
+  {
+    look: role("menuitem", "New pull requests open on"),
+    say: "Update, Save as, Reset, and the layout new pull requests open on, kept apart from the Jobs' layouts",
+  },
+  {
+    key: "Escape",
+    on: role("menuitem", "New pull requests open on"),
+    say: "Esc puts it away",
+  },
+]);
+
+export { prReviewPanes as "pr-review-panes" };

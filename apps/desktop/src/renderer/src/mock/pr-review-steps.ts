@@ -1,24 +1,38 @@
-// What the two review walks share: everything from the list on. They differ only in how the review surface is reached
-// (the Cockpit's Flight control, or a tab of its own) and in what they do on leaving it. Not under `walks/`, where
-// every file is a walk.
+// What the review walks share: everything from the list on. The open pull request is drawn in panes, and each explanation and
+// tool opens in a tab of the tools pane, from its + or by its number. Not under `walks/`, where every file is a walk.
 
 import { button, dialog, inside, place, region, role, tab, text } from "./walk";
 import type { Step } from "./walk";
 
 const list = region("Pull requests");
-const flight = region("Flight controls");
 const yours = region("Your review");
 const reader = (number: number) => region(`Pull request #${number}`);
 const theme = (title: string) => region(`Theme: ${title}`);
 const change = (title: string) => role("article", `Change: ${title}`);
 const thread = (title: string, by: string) => role("article", `Thread on ${title} by ${by}`);
 const finding = (title: string) => role("article", `Finding: ${title}`);
-const tool = (name: string) => inside(flight, button(name));
 const results = (name: string) => region(`${name} results`);
 const asked = (words: RegExp) =>
   inside(inside(region("Questions asked"), role("list", "Asked")), role("listitem", words));
-/** The explanations are Flight control's first tiles. */
-const explanation = (name: string) => tool(name);
+/** The pane the tools open in, named by the tab in front of it, or empty before any opened. */
+const toolsPane = (number: number, front?: string) =>
+  inside(reader(number), region(front === undefined ? "Empty pane" : `Pane: ${front}`));
+const plus = (number: number, front?: string) =>
+  inside(toolsPane(number, front), button("Add tab"));
+/** A tool or explanation by its number, as + lists them: the four explanations, then Armada's tools, then the repository's and the Kit's. */
+const NUMBER = {
+  "How it works": "1",
+  "User Impact": "2",
+  "How to Test": "3",
+  Why: "4",
+  Risks: "5",
+  "Possible bugs": "6",
+} as const;
+const byKey = (number: number, name: keyof typeof NUMBER, say: string): Step => ({
+  key: NUMBER[name],
+  on: reader(number),
+  say,
+});
 
 const pick = (name: string | RegExp) => role("menuitem", name);
 
@@ -48,10 +62,6 @@ export const toTheList: Step[] = [
   {
     press: pick("Team"),
     say: "Team: a team he is on was asked",
-  },
-  {
-    look: inside(list, role("note", "@Mele-Labs/bridge")),
-    say: "Each row names the team that was asked",
   },
   {
     look: inside(list, button(/#1899/)),
@@ -107,10 +117,6 @@ export const toTheList: Step[] = [
     say: "Running, in the list",
   },
   {
-    look: inside(list, role("note", /which you changed on 14 Oct/)),
-    say: "What it found, each with one line on why it matched",
-  },
-  {
     press: lists,
     say: "The find is saved in the dropdown under his words",
   },
@@ -124,7 +130,7 @@ export const toTheList: Step[] = [
   },
 ];
 
-/** A teammate's pull request: its description comes first, and each explanation is a choice that runs once. */
+/** A teammate's pull request: its description comes first, and each explanation is a tab that runs once. */
 export const theExplanation: Step[] = [
   {
     press: lists,
@@ -155,23 +161,28 @@ export const theExplanation: Step[] = [
     say: "↵ opens a pull request with a long description",
   },
   {
-    look: explanation("How it works"),
-    say: "The explanations are the first tiles in Flight control, beside the tools",
+    look: toolsPane(1907),
+    say: "It opens in panes. The explanations and the tools open in tabs of the pane on the right",
   },
   {
     look: inside(reader(1907), region("Description")),
-    say: "With nothing chosen the description is open",
+    say: "Overview is in front, and its description is open",
   },
   {
     key: "Shift+Q",
     on: list,
-    say: "⇧Q goes to the explanation tiles, from any part",
+    say: "⇧Q opens the tools pane's +, from any part",
   },
   {
-    key: "3",
-    on: explanation("How it works"),
-    say: "Each tile has its number. 3 is How to Test. No kept result, so it asks first",
+    look: role("menuitem", "How it works"),
+    say: "The four explanations first, then the tools, each with its number",
   },
+  {
+    key: "Escape",
+    on: role("menuitem", "How it works"),
+    say: "Esc puts it away",
+  },
+  byKey(1907, "How to Test", "3 is How to Test. No kept result, so it asks first"),
   {
     look: dialog("How to Test"),
     say: "Running it uses tokens. Focus is in the box",
@@ -188,7 +199,7 @@ export const theExplanation: Step[] = [
   },
   {
     look: inside(reader(1907), region("How to Test")),
-    say: "The explanation fills the body",
+    say: "The explanation fills its own tab",
   },
   {
     hover: inside(
@@ -205,26 +216,31 @@ export const theExplanation: Step[] = [
     say: "The description does not cover this area, so the step comes from the nearest README. Its path opens it",
   },
   {
+    key: "Shift+D",
+    on: reader(1907),
+    say: "⇧D folds the description, beside it in Overview",
+  },
+  {
     look: inside(reader(1907), button("Show the description")),
-    say: "The description has tucked away into one row",
+    say: "Folded into one row",
   },
   {
     key: "Shift+D",
     on: reader(1907),
-    say: "⇧D opens it again when he wants to read it",
+    say: "⇧D opens it again",
   },
   {
     look: inside(reader(1907), region("Description")),
-    say: "Open, above the explanation",
+    say: "Open",
   },
-  {
-    key: "2",
-    on: reader(1907),
-    say: "2 is User Impact. The question is off now, so it runs without asking",
-  },
+  byKey(
+    1907,
+    "User Impact",
+    "2 is User Impact. The question is off now, so it runs without asking",
+  ),
   {
     look: inside(reader(1907), role("listitem", "Restarting Fleet")),
-    say: "What a user sees differently, before and after",
+    say: "What a user sees differently, before and after, in a tab beside How to Test",
   },
   {
     key: "Escape",
@@ -253,11 +269,15 @@ export const theExplanation: Step[] = [
     say: "The author's own description",
   },
   {
-    look: explanation("How to Test"),
-    say: "The explanations are tiles below. Nothing has run on this one",
+    look: toolsPane(1899),
+    say: "Nothing has run on this one, so the tools pane is empty",
   },
   {
-    press: explanation("How to Test"),
+    press: plus(1899),
+    say: "Its + lists every explanation and tool",
+  },
+  {
+    press: pick("How to Test"),
     say: "How to Test. An agent reads the pull request, once",
   },
   {
@@ -276,26 +296,20 @@ export const theExplanation: Step[] = [
     look: inside(inside(reader(1899), region("How to Test")), role("img", /^Kept/)),
     say: "It is kept for the commit it read, as a tool's result is",
   },
-  {
-    press: explanation("User Impact"),
-    say: "What it changes for you, as someone who uses it",
-  },
+  byKey(1899, "User Impact", "2: what it changes for you, as someone who uses it"),
   {
     look: inside(reader(1899), role("listitem", "The plan meters in the title bar")),
     say: "What they see or can do differently, before and after",
   },
   {
-    press: explanation("How to Test"),
-    say: "Back to how to test it",
+    press: inside(reader(1899), tab("How to Test")),
+    say: "Back to how to test it, by its tab",
   },
   {
     look: inside(reader(1899), role("list", "Steps")),
     say: "Shown at once. Nothing runs and nothing is spent",
   },
-  {
-    press: explanation("Why"),
-    say: "Why it was needed",
-  },
+  byKey(1899, "Why", "4: why it was needed"),
   {
     look: inside(reader(1899), button(/#1871/)),
     say: "The problem, what it cost, and the issue the pull request names",
@@ -306,7 +320,7 @@ export const theExplanation: Step[] = [
   },
   {
     look: inside(reader(1899), role("textbox", "Ask about this PR")),
-    say: "Ask is not a tile. It is a composer at the foot of the reader, there while a pull request is open",
+    say: "Ask is not a tool. It is a composer at the foot of the reader, there while a pull request is open",
   },
   {
     look: inside(reader(1899), role("list", "Asked")),
@@ -346,51 +360,38 @@ export const theExplanation: Step[] = [
   },
   {
     look: region("Answer"),
-    say: "The answer, in the body, with nothing run",
+    say: "The answer, under the description, with nothing run",
   },
-  {
-    look: tool("Risks"),
-    say: "The review tools are tiles in the Flight control, and they work on any pull request",
-  },
-  {
-    hover: inside(tool("Risks"), role("img", "Armada's tool")),
-    say: "A tool shows where it is defined. This one is Armada's",
-  },
-  {
-    press: tool("Risks"),
-    say: "Risks runs for this pull request only when pressed",
-  },
+  byKey(1899, "Risks", "5 is Risks, the first of the review tools. They work on any pull request"),
   {
     look: inside(results("Risks"), finding("A second watch loses the first interval")),
     say: "Not explained yet, so a result is pinned to a file and its lines",
   },
   {
-    look: inside(tool("Risks"), role("img", /^Kept/)),
-    say: "A finished result is kept: the tile says when it ran and on which commit",
+    hover: inside(results("Risks"), role("img", "Armada's tool")),
+    say: "A tool shows where it is defined. This one is Armada's",
   },
   {
-    press: inside(results("Risks"), button("Back to the overview")),
-    say: "Back to the overview",
+    look: inside(results("Risks"), role("img", /^Kept/)),
+    say: "A finished result is kept: its head says when it ran and on which commit",
   },
   {
-    press: tool("Risks"),
-    say: "Pressed again, it shows at once. Nothing runs and nothing is spent",
+    press: inside(reader(1899), tab("Why")),
+    say: "Another tab",
   },
+  byKey(1899, "Risks", "5 again brings Risks forward. Nothing runs and nothing is spent"),
   {
     look: inside(results("Risks"), finding("A second watch loses the first interval")),
     say: "The same result, kept",
   },
-  {
-    press: inside(results("Risks"), button("Back to the overview")),
-    say: "Back to the overview",
-  },
-  {
-    press: explanation("How it works"),
-    say: "How it works is the themes view. An agent reads it the first time, like the rest",
-  },
+  byKey(
+    1899,
+    "How it works",
+    "1 is How it works, the themes view. An agent reads it the first time, like the rest",
+  ),
   {
     look: inside(reader(1899), region("How it works")),
-    say: "What it does in a few plain sentences, under the description",
+    say: "What it does in a few plain sentences",
   },
   {
     look: theme("Fleet keeps the last read"),
@@ -414,22 +415,12 @@ export const theExplanation: Step[] = [
 ];
 
 export const theTools: Step[] = [
-  {
-    press: tool("Risks"),
-    say: "Risks again, now that it is explained",
-  },
+  byKey(1899, "Risks", "Risks again, now that it is explained"),
   {
     look: inside(results("Risks"), theme("Bridge asks once a minute")),
     say: "The same result sits under its theme and then its change",
   },
-  {
-    press: inside(results("Risks"), button("Back to the overview")),
-    say: "Back to the overview",
-  },
-  {
-    press: tool("Possible bugs"),
-    say: "Possible bugs",
-  },
+  byKey(1899, "Possible bugs", "6 is Possible bugs"),
   {
     look: inside(results("Possible bugs"), finding("A reset inside the minute is served late")),
     say: "One bug, on the change that serves the read",
@@ -441,7 +432,7 @@ export const theTools: Step[] = [
         exact: true,
       }),
     ),
-    say: "Review is a tab of the pull request: the forge's conversation and line comments, and his review. It runs no agent",
+    say: "Review is a tab of the main pane: the forge's conversation and line comments, and his review. It runs no agent",
   },
   {
     look: inside(reader(1899), yours),
@@ -490,20 +481,17 @@ export const theTools: Step[] = [
     say: "A pull request a tool has nothing to say about",
   },
   {
-    press: tool("Risks"),
+    key: "5",
+    on: region(/^Pull request #/),
     say: "Risks, on this one",
   },
   {
     look: inside(results("Risks"), role("img", "Nothing found")),
     say: "Nothing found is a small picture in the tool's colour, with what was checked under it",
   },
-  {
-    press: inside(results("Risks"), button("Back to the overview")),
-    say: "Back to the overview",
-  },
 ];
 
-/** One of his Sessions holds the pull request, so it knows why and the explanation is there at open. */
+/** One of his Sessions holds the pull request, so it knows why and the explanation is kept from the start. */
 export const theSessionsOwn: Step[] = [
   {
     press: lists,
@@ -521,42 +509,30 @@ export const theSessionsOwn: Step[] = [
     look: inside(reader(1896), button("Job: Fix the reconnect wait")),
     say: "The Job that holds it is in the head",
   },
-  {
-    look: inside(reader(1896), region("Description")),
-    say: "The description is tucked away, since an explanation is already shown",
-  },
+  byKey(1896, "How it works", "1: How it works"),
   {
     look: inside(reader(1896), region("How it works")),
-    say: "How it works is already under it",
+    say: "Already there, since the Job's agent explained it",
   },
   {
     hover: inside(inside(reader(1896), region("How it works")), role("img", /^Kept/)),
     say: "Kept for the commit it read, so nothing is run to get it",
   },
-  {
-    press: explanation("Why"),
-    say: "Why was kept the same way",
-  },
+  byKey(1896, "Why", "4: Why was kept the same way"),
   {
     look: inside(reader(1896), button(/#1859/)),
     say: "The problem, what it cost, and the issue it names, with no run",
   },
-  {
-    press: explanation("How to Test"),
-    say: "No run is kept for this one yet, so it runs on choice",
-  },
+  byKey(1896, "How to Test", "3: No run is kept for How to Test yet, so it runs on opening"),
   {
     look: inside(reader(1896), role("note", /link mark says reconnecting/)),
     say: "Steps to try the change on this branch",
   },
   {
-    press: explanation("How it works"),
-    say: "Back to how it works",
+    press: inside(reader(1896), tab("How it works")),
+    say: "Back to how it works, by its tab",
   },
-  {
-    press: tool("Possible bugs"),
-    say: "Possible bugs",
-  },
+  byKey(1896, "Possible bugs", "6: Possible bugs"),
   {
     look: inside(results("Possible bugs"), finding("The attempt count is never reset")),
     say: "A bug, on the change it is in",
@@ -582,12 +558,8 @@ export const theSessionsOwn: Step[] = [
     say: "Refresh reads the list again, and a commit has been pushed to this one",
   },
   {
-    look: inside(tool("Possible bugs"), role("img", /Out of date/)),
+    look: inside(results("Possible bugs"), role("img", /Out of date/)),
     say: "The kept result is marked out of date, naming the commit it ran on",
-  },
-  {
-    press: tool("Possible bugs"),
-    say: "Pressed, it still shows the old result",
   },
   {
     look: inside(results("Possible bugs"), role("note", "Ran on an older commit")),
@@ -623,16 +595,20 @@ export const theSessionsOwn: Step[] = [
 
 export const theNewTool: Step[] = [
   {
-    look: tool("Migration safety"),
+    press: plus(1896, "Possible bugs"),
+    say: "The tools pane's + again",
+  },
+  {
+    look: pick("Migration safety"),
     say: "This repository defines a tool of its own, shared with everyone on it",
   },
   {
-    hover: inside(tool("Test gaps"), role("img", /Replaces the repository's Test gaps/)),
+    hover: pick("Test gaps"),
     say: "His own tool replaces a repository's or Armada's of the same name, so his Test gaps stands in for the repository's",
   },
   {
-    press: tool("Add a tool"),
-    say: "Add a tool",
+    press: pick("Add a tool"),
+    say: "Add a tool, the last entry",
   },
   {
     type: "Docs drift",
@@ -653,11 +629,15 @@ export const theNewTool: Step[] = [
     say: "Fleet writes the file, in the repository's review-tools folder",
   },
   {
-    look: tool("Docs drift"),
-    say: "Its tile carries the repository's glyph",
+    press: plus(1896, "Possible bugs"),
+    say: "+ again",
   },
   {
-    press: tool("Add a tool"),
+    look: pick("Docs drift"),
+    say: "The new tool is listed with the rest",
+  },
+  {
+    press: pick("Add a tool"),
     say: "The same sheet adds an explanation",
   },
   {
@@ -683,11 +663,16 @@ export const theNewTool: Step[] = [
     say: "Written the same way",
   },
   {
-    press: inside(reader(1896), tab("Overview")),
-    say: "Back to the overview",
+    press: plus(1896, "Possible bugs"),
+    say: "+ once more",
   },
   {
-    look: explanation("What it changes for support"),
-    say: "It is one more quick action, carrying the repository's glyph",
+    look: pick("What it changes for support"),
+    say: "It is one more entry, among the explanations",
+  },
+  {
+    key: "Escape",
+    on: pick("What it changes for support"),
+    say: "Esc puts it away",
   },
 ];

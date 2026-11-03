@@ -217,6 +217,9 @@
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
+.pr-threads__said > .pr-card__who {
+  flex: none;
+}
 .pr-threads__body {
   min-width: 0;
   overflow: hidden;

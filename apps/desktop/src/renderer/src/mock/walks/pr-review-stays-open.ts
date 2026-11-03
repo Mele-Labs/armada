@@ -1,6 +1,6 @@
 // A pull request he opened stays open until he opens another: Esc stops at the list, and one opened by its link keeps a row
 // above whichever list is chosen. Review is a tab of the reader, and each pending comment there goes to its line. The
-// explanations are Flight control's first tiles.
+// explanations are the first entries of the tools pane's +.
 // Over the `pr-review` scenario.
 
 import { button, dialog, inside, region, role, tab, walk } from "../walk";
@@ -9,13 +9,7 @@ const list = region("Pull requests");
 const reader = (number: number) => region(`Pull request #${number}`);
 const yours = region("Your review");
 const lists = inside(list, button("List"));
-const tile = (name: string) =>
-  inside(
-    region("Flight controls"),
-    button(name, {
-      exact: true,
-    }),
-  );
+const plus = inside(inside(reader(1899), region("Empty pane")), button("Add tab"));
 
 const prReviewStaysOpen = walk("pr-review", [
   {
@@ -128,10 +122,6 @@ const prReviewStaysOpen = walk("pr-review", [
     say: "Add to review. Nothing reaches the forge until Submit",
   },
   {
-    look: inside(reader(1899), tab("Review · 1")),
-    say: "The tab counts what is waiting",
-  },
-  {
     look: inside(yours, button(/^Go to your comment on /)),
     say: "It waits in his review with the file, the line and the code it is on. X takes it out",
   },
@@ -144,12 +134,16 @@ const prReviewStaysOpen = walk("pr-review", [
     say: "His comment, under the line it is on",
   },
   {
-    look: tile("How it works"),
-    say: "Flight control holds everything that runs: the four explanations first, then the tools. There is no Comments tile now",
+    press: plus,
+    say: "The tools pane's + holds everything that runs: the four explanations first, then the tools. There is no Comments entry",
   },
   {
-    press: tile("How it works"),
-    say: "How it works, from its tile",
+    look: role("menuitem", "User Impact"),
+    say: "User Impact, How to Test and Why are beside How it works, each with its number",
+  },
+  {
+    press: role("menuitem", "How it works"),
+    say: "How it works, from +",
   },
   {
     press: inside(dialog("How it works"), button("Run")),
@@ -157,11 +151,7 @@ const prReviewStaysOpen = walk("pr-review", [
   },
   {
     look: inside(reader(1899), role("region", "Theme: Fleet keeps the last read")),
-    say: "The explanation is under the description, as before",
-  },
-  {
-    look: tile("User Impact"),
-    say: "User Impact, How to Test and Why are tiles beside it, each with its number",
+    say: "The explanation is in a tab of its own",
   },
 ]);
 
