@@ -129,6 +129,7 @@ function shellFleet() {
   const open = (
     sessionId: string,
     which: Pick<OpenTerminal, "terminal" | "new"> = {},
+    away = false,
   ):
     | {
         runId: string;
@@ -162,13 +163,14 @@ function shellFleet() {
         ended: false,
       },
     );
-    // Main follows the shell before the window hears it opened, so nothing it prints is missed.
-    tell({
-      session_id: sessionId,
-      run_id: runId,
-      change: "opened",
-      terminal,
-    });
+    // Main follows the shell before the window hears it opened, so nothing it prints is missed. Opened while the window was away, nobody hears.
+    if (!away)
+      tell({
+        session_id: sessionId,
+        run_id: runId,
+        change: "opened",
+        terminal,
+      });
     const shell = startShell(
       WORKTREE,
       (text) =>
@@ -232,6 +234,16 @@ function shellFleet() {
       })!;
       agentIn.set(sessionId, terminal);
       window.setTimeout(() => shells.get(runId)?.write(`${words}\r`), 400);
+    },
+    /** The agent opened a terminal while the person was away: Fleet has it, and no window heard it open. */
+    agentOpensAway: (sessionId: string) => {
+      open(
+        sessionId,
+        {
+          new: true,
+        },
+        true,
+      );
     },
     dispose: () =>
       [
@@ -466,6 +478,9 @@ export const closeTerminalWindow = (id: TerminalWindowId) => live?.closeWindow(i
 export const onTerminalWindowRaised = (on: (id: TerminalWindowId) => void): (() => void) =>
   live?.onRaised(on) ?? (() => undefined);
 
+/** The Job's agent opens a terminal that no window hears of, so it has no tab. */
+export const agentOpensTerminalAway = (sessionId: string): void => live?.agentOpensAway(sessionId);
+
 /** The shell's half of Fleet for a scenario in another file: this window's shells, which a Job's Terminal tab and Flight control's Terminal open. */
 export function shellApi(): ShellFleet["api"] {
   live = shellFleet();
@@ -477,10 +492,15 @@ export const disposeShells = (): void => live?.dispose();
 
 const base = s256SessionRunInTerminal;
 
-export const s322SessionShell: Scenario = {
+/** The Job's shells over `session-run-in-terminal`; `agent` is what the Job's agent does each time passes. */
+export const shellScenario = (
+  name: string,
+  says: string,
+  agent: (sessionId: string) => void,
+): Scenario => ({
   ...base,
-  name: "session-shell",
-  says: "A Job's shell, open in its worktree, which the person and the Job's agent both type into",
+  name,
+  says,
   // A served line, so the Cockpit draws the merge queue under the Job and the docked shell between them.
   state: {
     ...base.state,
@@ -528,7 +548,7 @@ export const s322SessionShell: Scenario = {
               },
             ],
           }));
-          live?.agentTypes(SHELL_JOB, AGENT_TYPES);
+          agent(SHELL_JOB);
         },
         dispose: () => {
           live?.dispose();
@@ -537,4 +557,10 @@ export const s322SessionShell: Scenario = {
       };
     },
   },
-};
+});
+
+export const s322SessionShell = shellScenario(
+  "session-shell",
+  "A Job's shell, open in its worktree, which the person and the Job's agent both type into",
+  (sessionId) => live?.agentTypes(sessionId, AGENT_TYPES),
+);
