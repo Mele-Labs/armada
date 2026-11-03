@@ -778,15 +778,10 @@ test("on All repositories each repository's copies sit in a group of its own, an
   ).toHaveLength(1);
 });
 
-test("on All repositories a copy is drawn over its own repository's lanes, and Armada's over the first's", async () => {
+test("on All repositories a copy says its edits change its own repository only, and Armada's says the default", async () => {
   mount(workflowingOnAll());
   await onScreen();
   await toSystemPage("Workflows");
-  const runsIn = (name: string) =>
-    group("Runs in").getByRole("tab", {
-      name,
-      exact: true,
-    });
   await expect
     .element(
       page.getByRole("region", {
@@ -795,15 +790,23 @@ test("on All repositories a copy is drawn over its own repository's lanes, and A
       }),
     )
     .toBeVisible();
-  await expect.element(runsIn("armada")).toBeVisible();
+  await expect
+    .element(
+      page.getByText("Edits here change every Workspace and repository that keeps the default"),
+    )
+    .toBeVisible();
   await group("ledger repository")
     .getByRole("button", {
       name: "bug",
       exact: true,
     })
     .click();
-  await expect.element(runsIn("ledger")).toBeVisible();
-  expect(runsIn("armada").elements()).toHaveLength(0);
+  await expect.element(page.getByText("Edits here change ledger only")).toBeVisible();
+  expect(
+    page
+      .getByText("Edits here change every Workspace and repository that keeps the default")
+      .elements(),
+  ).toHaveLength(0);
 });
 
 test("on All repositories a copy's words, edited on its lanes, save under its own repository", async () => {

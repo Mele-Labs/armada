@@ -765,11 +765,13 @@ fn queue_of(pull: &OpenPull, queue: &[QueueEntry]) -> Option<HubQueue> {
                 QueueState::Unmergeable => HubQueueState::Unmergeable,
             },
             position: Some(entry.position),
+            enqueued_at: entry.enqueued_at.as_ref().map(|it| ipc::Instant::carried(it.as_written())),
         });
     }
     (pull.auto_merge && pull.ci == Some(CiState::Pending)).then_some(HubQueue {
         state: HubQueueState::WaitingForCi,
         position: None,
+        enqueued_at: None,
     })
 }
 

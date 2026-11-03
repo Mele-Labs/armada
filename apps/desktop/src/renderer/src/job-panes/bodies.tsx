@@ -33,7 +33,7 @@ import { PullRow } from "../session-view/LedgerRow";
 import { Groups } from "../session-view/SessionLayers";
 import { artifactsOf, linkedSessionsOf } from "../session-view/artifacts";
 import { IssueJobCard } from "../issues-tab/marks";
-import { jobOpensTerminal, savedOfPage, useJobPanes } from "./store";
+import { jobOpensTerminal, jobShowsTerminal, savedOfPage, useJobPanes } from "./store";
 import { paneById, paneOfTab, type Tab } from "./tree";
 import { usePaneZoomed } from "./zoom";
 
@@ -491,6 +491,19 @@ export function DraftBody({ jobId, tab }: { jobId: string; tab: Tab }) {
       <DraftCard sessionId={jobId} rowId={tab.row} />
     </div>
   );
+}
+
+/**
+ * A shell the agent showed comes to the front in its Job's panes, whichever Job is on screen, and the person stays where they are.
+ * One with a window of its own stays there. Mounted once, for the window.
+ */
+export function useShownTerminals(): void {
+  useEffect(() => {
+    const shells = shellsOf(window.armada);
+    return shells?.onShown((jobId, terminal, first, key) => {
+      if (!shells.hasWindow(key)) jobShowsTerminal(jobId, terminal, first);
+    });
+  }, []);
 }
 
 /**

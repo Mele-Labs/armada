@@ -612,3 +612,78 @@ describe("a terminal the Job opens itself", () => {
     ]);
   });
 });
+
+describe("a terminal the Job's agent shows", () => {
+  /** The Job's Terminal tabs by terminal and whether each is in front of its pane. */
+  async function terminals() {
+    const s = await start();
+    const tabs = (id: string) =>
+      s.panesOf(s.peek(id).root).flatMap((pane) =>
+        pane.tabs
+          .filter((tab) => tab.kind === "terminal")
+          .map((tab) => ({
+            terminal: tab.terminal,
+            front: pane.active === tab.id,
+          })),
+      );
+    return {
+      s,
+      tabs,
+    };
+  }
+
+  test("comes to the front where its tab is behind, opens none beside it, and leaves the focus where it was", async () => {
+    const { s, tabs } = await terminals();
+    s.rearrange("a", (now) =>
+      s.addTab(now, now.focus, "terminal", undefined, undefined, undefined, undefined, "t2"),
+    );
+    s.rearrange("a", (now) => s.addTab(now, now.focus, "files"));
+    expect(tabs("a")).toEqual([
+      {
+        terminal: "t2",
+        front: false,
+      },
+    ]);
+    const before = s.peek("a");
+    s.jobShowsTerminal("a", "t2", false);
+    expect(tabs("a")).toEqual([
+      {
+        terminal: "t2",
+        front: true,
+      },
+    ]);
+    expect(s.peek("a").focus).toBe(before.focus);
+  });
+
+  test("opens a tab in front where the Job has none for it, and leaves the focus where it was", async () => {
+    const { s, tabs } = await terminals();
+    s.rearrange("a", (now) =>
+      s.addTab(now, now.focus, "terminal", undefined, undefined, undefined, undefined, "t1"),
+    );
+    const before = s.peek("a");
+    s.jobShowsTerminal("a", "t2", false);
+    expect(tabs("a")).toEqual([
+      {
+        terminal: "t1",
+        front: false,
+      },
+      {
+        terminal: "t2",
+        front: true,
+      },
+    ]);
+    expect(s.peek("a").focus).toBe(before.focus);
+  });
+
+  test("is the Job's own arrangement it changes, with none of its panes drawn, and no other Job's", async () => {
+    const { s, tabs } = await terminals();
+    s.jobShowsTerminal("away", "t2", false);
+    expect(tabs("away")).toEqual([
+      {
+        terminal: "t2",
+        front: true,
+      },
+    ]);
+    expect(tabs("a")).toEqual([]);
+  });
+});

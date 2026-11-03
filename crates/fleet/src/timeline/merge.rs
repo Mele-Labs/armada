@@ -120,7 +120,7 @@ fn pulls(before: &MergeLineHub, now: &MergeLineHub, at: &str, manifest: &Option<
             }));
         }
         if was.map(|was| &was.queue) != Some(&one.queue) {
-            facts.extend(one.queue.map(|queue| match (queue.state, queue.position) {
+            facts.extend(one.queue.as_ref().map(|queue| match (queue.state, queue.position) {
                 (HubQueueState::InQueue | HubQueueState::Queued, Some(place)) => {
                     on(K::PrQueued, T::Idle, &format!("Queued, place {place}"))
                 }

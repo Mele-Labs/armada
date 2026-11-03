@@ -556,6 +556,36 @@ export function jobOpensTerminal(jobId: string, terminal: string | null, first: 
   else rearrange(jobId, change, undefined, true);
 }
 
+/** A shell the Job's agent showed comes to the front of its pane, or opens in front where it has no tab, and the focus stays where it was. `first` is as `jobOpensTerminal`'s. */
+export function jobShowsTerminal(jobId: string, terminal: string | null, first: boolean): void {
+  const arrangement = peek(jobId);
+  const open = panesOf(arrangement.root)
+    .flatMap((one) => one.tabs)
+    .find(
+      (tab) =>
+        tab.kind === "terminal" &&
+        ((terminal !== null && tab.terminal === terminal) || (first && tab.terminal === undefined)),
+    );
+  const focusKept = (now: Arrangement, next: Arrangement): Arrangement =>
+    next === now
+      ? now
+      : {
+          ...next,
+          focus: now.focus,
+        };
+  if (open !== undefined) {
+    look(jobId, (now) => focusKept(now, activate(now, open.id)));
+    return;
+  }
+  const change = (now: Arrangement) =>
+    focusKept(
+      now,
+      arrive(now, "terminal", undefined, undefined, undefined, undefined, terminal ?? undefined),
+    );
+  if (hasKind(arrangement, "terminal")) look(jobId, change);
+  else rearrange(jobId, change, undefined, true);
+}
+
 /** A saved request, as the page a Requests tab shows: its collection and its id. */
 export const savedPage = (collection: string, request: string): string =>
   JSON.stringify([
