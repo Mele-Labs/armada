@@ -38,6 +38,7 @@
       "label": "Undo the change",
       "about": "Takes the named change back out and nothing else, then runs the repository's checks.",
       "records_plan": true,
+      "plan_unasked": true,
       "follows_plan": true,
       "evidence": {
         "submitted": { "type": "diff" }

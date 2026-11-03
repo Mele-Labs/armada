@@ -21,11 +21,16 @@
 //! **Steps before the plan, and the walk.** A step before the recording step is current until a plan
 //! is recorded, or until any end its `ends_on` lists holds (`awaits_reply` is `replied`); the
 //! recording step is then entered when a plan is recorded. A `walks` step is current from the plan's
-//! approval until he approves a window the Job showed, at or after that approval, and is passed over
+//! approval until he has approved every window the Job showed since, and is passed over
 //! when no walk is expected and its own work is done: its tasks finished where it follows the plan, else
 //! at once. The step after it is entered once it is passed, whatever fact would have entered it.
 //! **A push never passes a walk**: the delivering step is entered on a push only past every walk before
 //! it, and after his Approve only on a push made since.
+//!
+//! **One approval is enough.** A recording step that lists ends is ended by the plan's approval, and a
+//! plan recorded after one of its listed ends holds stands with no card ([`plan_stands`]), as a plan
+//! recorded on a `plan_unasked` step does. The step stays current until that plan is recorded, since
+//! the steps after it work from the tasks.
 //!
 //! **A step the person skipped is passed and never entered**, so the Job moves on past it. A skipped
 //! recording step reads as a plan approved once the Job has edited, since no plan is coming.
@@ -59,6 +64,8 @@ pub(crate) struct RailStep {
     /// What the agent is told on entering the step.
     pub instructions: Option<String>,
     pub records_plan: bool,
+    /// A plan this step records stands without a card.
+    pub plan_unasked: bool,
     pub follows_plan: bool,
     pub delivers: bool,
     /// Entering the step asks how the work is delivered.
@@ -110,6 +117,7 @@ pub(crate) fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
             about: step.about().map(str::to_string),
             instructions: step.instructions().map(str::to_string),
             records_plan: step.records_plan(),
+            plan_unasked: step.plan_unasked(),
             follows_plan: step.follows_plan(),
             delivers: step.delivers(),
             asks_delivery: step.asks_delivery(),
@@ -130,8 +138,8 @@ pub(crate) struct Extra {
     pub replied: bool,
     /// The Job showed a window.
     pub walk_shown: bool,
-    /// The person approved a window the Job showed at or after the plan's approval: what passes a
-    /// `walks` step.
+    /// The person approved every window the Job showed since the plan's approval, and at least one:
+    /// what passes a `walks` step.
     pub walk_approved: bool,
     /// The person approved a window the Job showed, whenever: what a `walk_approved` end reads.
     pub any_walk_approved: bool,
@@ -305,6 +313,27 @@ impl Facts {
             Fit::PrOpened => self.pr_opened,
         }
     }
+}
+
+/// Whether a plan recorded now stands with no card: its step does not ask, or he already approved one
+/// of the things it lists.
+pub(crate) fn plan_stands(steps: &[RailStep], extra: Extra) -> bool {
+    let facts = Facts {
+        replied: extra.replied,
+        any_walk_approved: extra.any_walk_approved,
+        sketch_approved: extra.sketch_approved,
+        document_approved: extra.document_approved,
+        draft_approved: extra.draft_approved,
+        idea_picked: extra.idea_picked,
+        ..Facts::default()
+    };
+    recorder(steps).is_some_and(|at| steps[at].plan_unasked || facts.any_ended(at, &steps[at].ends_on))
+}
+
+/// Whether a plan held behind the walks he has now approved stands with them: its step lists a walk
+/// approved. **Only a held plan**: one already put to him stays his to answer.
+pub(crate) fn walk_settles_plan(steps: &[RailStep]) -> bool {
+    recorder(steps).is_some_and(|at| steps[at].ends_on.contains(&StepEnd::WalkApproved))
 }
 
 /// The step that records the plan.
@@ -571,6 +600,11 @@ pub(crate) fn stalled(steps: &[RailStep], record: &SessionRecord, extra: Extra) 
     }
     if step.walks && step.follows_plan && !Facts::of(record, extra).walk_expected() {
         return Some((at, rail_ends::End::TasksDone));
+    }
+    // He approved what it proposed, and the tasks that move it on are the Job's to record.
+    let facts = Facts::of(record, extra);
+    if step.records_plan && !facts.plan_recorded && facts.any_ended(at, &step.ends_on) {
+        return Some((at, rail_ends::End::PlanRecorded));
     }
     let end = rail_ends::end_of(steps, at).filter(|end| end.by_the_job())?;
     Some((at, end))

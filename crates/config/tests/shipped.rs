@@ -395,8 +395,6 @@ fn feature_and_bug_run_the_steps_the_owner_chose() {
         steps_of("feature"),
         expect(&[
             ("propose", false, &[WalkApproved, SketchApproved, DraftApproved, IdeaPicked, DocumentApproved]),
-            ("discuss", false, &[]),
-            ("approve_plan", false, &[]),
             ("walk", true, &[]),
             ("refine", false, &[]),
             ("deliver", false, &[]),

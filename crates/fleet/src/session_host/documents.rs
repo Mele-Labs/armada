@@ -151,7 +151,7 @@ where
 }
 
 /// The paths a document's `revisions` names, oldest first, and none where it names none.
-fn revisions_named(detail: &BTreeMap<String, String>) -> Vec<String> {
+pub(super) fn revisions_named(detail: &BTreeMap<String, String>) -> Vec<String> {
     detail.get("revisions").and_then(|kept| ipc::decode("a document's revisions", kept.as_bytes()).ok()).unwrap_or_default()
 }
 

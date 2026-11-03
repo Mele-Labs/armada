@@ -55,6 +55,7 @@
       "label": "Read the diff",
       "about": "Reads the pull request's diff and writes down what it changes. The pull request itself is only read. The notes are what Assess works from.",
       "records_plan": true,
+      "plan_unasked": true,
       "evidence": {
         "submitted": { "type": "facts_note" }
       },
