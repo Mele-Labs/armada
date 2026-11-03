@@ -6,6 +6,26 @@
   align-items: center;
   gap: var(--space-1);
 }
+/* The reading in a pane with no sheet round it: its bar over the body, which takes the rest of the pane. */
+.armada-doc[data-pane] {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+.armada-doc__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) 0;
+}
+.armada-doc__loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  grid-column: 1 / -1;
+}
 .armada-doc__menus {
   display: contents;
 }

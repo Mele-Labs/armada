@@ -16,6 +16,7 @@ import {
   NoteNumber,
   RevisionMenu,
   Sheet,
+  Skeleton,
   SketchShareContext,
   Tooltip,
   aboutSaid,
@@ -114,9 +115,30 @@ function sentAbout(session: Session, title: string): SentNote[] {
 /** Whether the Notes margin is shown: hidden once, it stays hidden each time a page opens, until shown again or the window reloads. */
 let marginShown = true;
 
+/** The document the layer is open on, over the Job: a sheet of its own, with Approve and Send back at the head of its left column. */
 export function DocumentLayer({ session }: { session: Session }) {
+  return <DocumentReading session={session} page={useLayerPage(session.id)} framed />;
+}
+
+/**
+ * The same reading with no sheet round it, for a pane that holds it: `page` is the document's path, and its own bar holds the revision, Changes,
+ * Notes, Judge and Share. Approve and Send back are the pane's host's.
+ */
+export function DocumentBody({ session, page }: { session: Session; page: string }) {
+  return <DocumentReading session={session} page={page} />;
+}
+
+function DocumentReading({
+  session,
+  page: at,
+  framed = false,
+}: {
+  session: Session;
+  page: string | undefined;
+  framed?: boolean;
+}) {
   const draft = useSessionsDraft();
-  const doc = documentOf(session, useLayerPage(session.id));
+  const doc = documentOf(session, at);
   const pages = useRevisions(draft, session.id, doc?.revisions ?? []);
   const latest = pages.length;
   const [pinned, setPinned] = useState<number | undefined>(undefined);
@@ -453,8 +475,205 @@ export function DocumentLayer({ session }: { session: Session }) {
       />
     );
 
+  const reading = (
+    <section
+      ref={layer}
+      className="armada-doc__body"
+      aria-label="Document"
+      data-notes={margin ? "" : undefined}
+    >
+      {page === undefined ? (
+        framed ? null : (
+          <div className="armada-doc__loading">
+            <Skeleton width="40%" />
+            <Skeleton />
+            <Skeleton width="85%" />
+          </div>
+        )
+      ) : (
+        <>
+          <div className="armada-doc__side">
+            {!framed || doc?.waits !== true || draft?.answerDocument === undefined ? null : (
+              <div className="armada-doc__approve">
+                <ApprovalAnswers
+                  id={doc.id}
+                  keep={`document:${session.id}:${doc.id}:layer`}
+                  open
+                  onAnswer={(id, answer) =>
+                    void draft.answerDocument?.(documentAnswerOf(session, id, answer))
+                  }
+                />
+              </div>
+            )}
+            <nav className="armada-doc__rail" aria-label="Contents" data-rail="">
+              {page.sections.map((one) => (
+                <button
+                  key={one.id}
+                  type="button"
+                  className="armada-doc__section"
+                  aria-current={current === one.id ? "location" : undefined}
+                  onClick={() => toSection(one.id)}
+                >
+                  {one.title}
+                </button>
+              ))}
+            </nav>
+            <aside className="armada-doc__notes" aria-label="Notes on the page" hidden={!margin}>
+              <header className="armada-doc__notes-head">
+                <h4 className="armada-doc__label">Notes</h4>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={held.length === 0}
+                  onClick={viewer.send}
+                >
+                  Send to Job
+                  <KbdBinding binding="⌘↵" />
+                </Button>
+              </header>
+              {held.length === 0 ? null : (
+                <ol className="armada-doc__list" aria-label="Notes held">
+                  {held.map((note, index) => (
+                    <li
+                      key={`${String(index)}:${note.text}`}
+                      className="armada-doc__note"
+                      data-lit={lit?.id === `held:${String(index)}` ? "" : undefined}
+                      {...lights(`held:${String(index)}`)}
+                    >
+                      <NoteNumber n={index + 1} />
+                      <button
+                        type="button"
+                        className="armada-doc__note-body"
+                        onClick={() =>
+                          note.about.kind === "document" &&
+                          pageRef.current !== null &&
+                          placeOf(pageRef.current, note.about.target)?.scrollIntoView({
+                            block: "center",
+                          })
+                        }
+                      >
+                        <span className="armada-doc__about">{aboutSaid(note.about)}</span>
+                        <span>{note.text}</span>
+                      </button>
+                      <Tooltip label="Remove">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          iconOnly
+                          aria-label={`Remove note ${String(index + 1)}`}
+                          onClick={() =>
+                            setHeldOn(scope.key, (was) => ({
+                              ...was,
+                              notes: was.notes.filter((_, one) => one !== index),
+                            }))
+                          }
+                        >
+                          <X size={16} strokeWidth={2} aria-hidden />
+                        </Button>
+                      </Tooltip>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              {sent.length === 0 ? null : (
+                <ol className="armada-doc__list" aria-label="Notes sent">
+                  {sent.map((note, index) => {
+                    const change = answers[index];
+                    return (
+                      <li
+                        key={`${String(index)}:${note.body}`}
+                        className="armada-doc__note"
+                        data-sent=""
+                        data-lit={lit?.id === `sent:${String(index)}` ? "" : undefined}
+                        {...lights(`sent:${String(index)}`)}
+                      >
+                        <NoteNumber n={note.n} />
+                        <button
+                          type="button"
+                          className="armada-doc__note-body"
+                          onClick={() =>
+                            pageRef.current !== null &&
+                            placeOf(pageRef.current, note.ref.target)?.scrollIntoView({
+                              block: "center",
+                            })
+                          }
+                        >
+                          <span className="armada-doc__about">
+                            {aboutSaid({
+                              kind: "document",
+                              place: note.ref.place,
+                              target: note.ref.target,
+                            })}
+                          </span>
+                          <span>{note.body}</span>
+                        </button>
+                        {change === undefined ? null : (
+                          <button
+                            type="button"
+                            className="armada-doc__answer"
+                            onClick={() => toChange(change.id)}
+                          >
+                            <Tooltip
+                              label={`${CHANGE_SAID[change.kind]} in revision ${String(revision)}`}
+                            >
+                              <span
+                                className="armada-doc__answer-mark"
+                                role="img"
+                                aria-label={`${CHANGE_SAID[change.kind]} in revision ${String(revision)}`}
+                              >
+                                <FileDiff size={12} strokeWidth={2} aria-hidden />
+                              </span>
+                            </Tooltip>
+                            <span className="armada-doc__answer-said">{change.said}</span>
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </aside>
+          </div>
+          <div ref={scroller} className="armada-doc__scroll" onScroll={onScroll}>
+            <DocumentPage
+              title={title}
+              revision={revision}
+              root={showing ? diff.root : page.root}
+              css={page.css}
+              sketches={page.sketches}
+              keptStyles={doc?.keptStyles}
+              against={showing ? before?.sketches : undefined}
+              scope={scope}
+              viewer={viewer}
+              page={pageRef}
+              sent={sent}
+              focus={focus}
+              margin={margin}
+              notes={notes}
+              lit={lit}
+              onLit={setLit}
+              exporters={exporters}
+              responses={responses}
+            />
+            {doc === undefined ? null : (
+              <JudgedPage
+                page={pageRef}
+                root={showing ? diff.root : page.root}
+                job={session.id}
+                artifact={{
+                  kind: "doc",
+                  id: doc.id,
+                }}
+              />
+            )}
+          </div>
+        </>
+      )}
+      <div ref={setMenus} className="armada-doc__menus" />
+    </section>
+  );
   // Keys are heard around the whole sheet, its head included. A menu open in the head is `under`, so its Esc closes it and not the sheet.
-  return (
+  return framed ? (
     <div className="armada-doc" onKeyDown={onKeyDown}>
       <Sheet
         kind="document"
@@ -471,198 +690,16 @@ export function DocumentLayer({ session }: { session: Session }) {
         under={sharing || revising}
         onClose={closeLayer}
       >
-        <section
-          ref={layer}
-          className="armada-doc__body"
-          aria-label="Document"
-          data-notes={margin ? "" : undefined}
-        >
-          {page === undefined ? null : (
-            <>
-              <div className="armada-doc__side">
-                {doc?.waits !== true || draft?.answerDocument === undefined ? null : (
-                  <div className="armada-doc__approve">
-                    <ApprovalAnswers
-                      id={doc.id}
-                      keep={`document:${session.id}:${doc.id}:layer`}
-                      open
-                      onAnswer={(id, answer) =>
-                        void draft.answerDocument?.(documentAnswerOf(session, id, answer))
-                      }
-                    />
-                  </div>
-                )}
-                <nav className="armada-doc__rail" aria-label="Contents" data-rail="">
-                  {page.sections.map((one) => (
-                    <button
-                      key={one.id}
-                      type="button"
-                      className="armada-doc__section"
-                      aria-current={current === one.id ? "location" : undefined}
-                      onClick={() => toSection(one.id)}
-                    >
-                      {one.title}
-                    </button>
-                  ))}
-                </nav>
-                <aside
-                  className="armada-doc__notes"
-                  aria-label="Notes on the page"
-                  hidden={!margin}
-                >
-                  <header className="armada-doc__notes-head">
-                    <h4 className="armada-doc__label">Notes</h4>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      disabled={held.length === 0}
-                      onClick={viewer.send}
-                    >
-                      Send to Job
-                      <KbdBinding binding="⌘↵" />
-                    </Button>
-                  </header>
-                  {held.length === 0 ? null : (
-                    <ol className="armada-doc__list" aria-label="Notes held">
-                      {held.map((note, index) => (
-                        <li
-                          key={`${String(index)}:${note.text}`}
-                          className="armada-doc__note"
-                          data-lit={lit?.id === `held:${String(index)}` ? "" : undefined}
-                          {...lights(`held:${String(index)}`)}
-                        >
-                          <NoteNumber n={index + 1} />
-                          <button
-                            type="button"
-                            className="armada-doc__note-body"
-                            onClick={() =>
-                              note.about.kind === "document" &&
-                              pageRef.current !== null &&
-                              placeOf(pageRef.current, note.about.target)?.scrollIntoView({
-                                block: "center",
-                              })
-                            }
-                          >
-                            <span className="armada-doc__about">{aboutSaid(note.about)}</span>
-                            <span>{note.text}</span>
-                          </button>
-                          <Tooltip label="Remove">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              iconOnly
-                              aria-label={`Remove note ${String(index + 1)}`}
-                              onClick={() =>
-                                setHeldOn(scope.key, (was) => ({
-                                  ...was,
-                                  notes: was.notes.filter((_, one) => one !== index),
-                                }))
-                              }
-                            >
-                              <X size={16} strokeWidth={2} aria-hidden />
-                            </Button>
-                          </Tooltip>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                  {sent.length === 0 ? null : (
-                    <ol className="armada-doc__list" aria-label="Notes sent">
-                      {sent.map((note, index) => {
-                        const change = answers[index];
-                        return (
-                          <li
-                            key={`${String(index)}:${note.body}`}
-                            className="armada-doc__note"
-                            data-sent=""
-                            data-lit={lit?.id === `sent:${String(index)}` ? "" : undefined}
-                            {...lights(`sent:${String(index)}`)}
-                          >
-                            <NoteNumber n={note.n} />
-                            <button
-                              type="button"
-                              className="armada-doc__note-body"
-                              onClick={() =>
-                                pageRef.current !== null &&
-                                placeOf(pageRef.current, note.ref.target)?.scrollIntoView({
-                                  block: "center",
-                                })
-                              }
-                            >
-                              <span className="armada-doc__about">
-                                {aboutSaid({
-                                  kind: "document",
-                                  place: note.ref.place,
-                                  target: note.ref.target,
-                                })}
-                              </span>
-                              <span>{note.body}</span>
-                            </button>
-                            {change === undefined ? null : (
-                              <button
-                                type="button"
-                                className="armada-doc__answer"
-                                onClick={() => toChange(change.id)}
-                              >
-                                <Tooltip
-                                  label={`${CHANGE_SAID[change.kind]} in revision ${String(revision)}`}
-                                >
-                                  <span
-                                    className="armada-doc__answer-mark"
-                                    role="img"
-                                    aria-label={`${CHANGE_SAID[change.kind]} in revision ${String(revision)}`}
-                                  >
-                                    <FileDiff size={12} strokeWidth={2} aria-hidden />
-                                  </span>
-                                </Tooltip>
-                                <span className="armada-doc__answer-said">{change.said}</span>
-                              </button>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ol>
-                  )}
-                </aside>
-              </div>
-              <div ref={scroller} className="armada-doc__scroll" onScroll={onScroll}>
-                <DocumentPage
-                  title={title}
-                  revision={revision}
-                  root={showing ? diff.root : page.root}
-                  css={page.css}
-                  sketches={page.sketches}
-                  keptStyles={doc?.keptStyles}
-                  against={showing ? before?.sketches : undefined}
-                  scope={scope}
-                  viewer={viewer}
-                  page={pageRef}
-                  sent={sent}
-                  focus={focus}
-                  margin={margin}
-                  notes={notes}
-                  lit={lit}
-                  onLit={setLit}
-                  exporters={exporters}
-                  responses={responses}
-                />
-                {doc === undefined ? null : (
-                  <JudgedPage
-                    page={pageRef}
-                    root={showing ? diff.root : page.root}
-                    job={session.id}
-                    artifact={{
-                      kind: "doc",
-                      id: doc.id,
-                    }}
-                  />
-                )}
-              </div>
-            </>
-          )}
-          <div ref={setMenus} className="armada-doc__menus" />
-        </section>
+        {reading}
       </Sheet>
+    </div>
+  ) : (
+    <div className="armada-doc" data-pane="" onKeyDown={onKeyDown}>
+      <div className="armada-doc__bar">
+        {revisionMenu}
+        {tools}
+      </div>
+      {reading}
     </div>
   );
 }
