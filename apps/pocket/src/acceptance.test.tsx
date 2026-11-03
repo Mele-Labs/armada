@@ -1478,8 +1478,10 @@ describe("the lists stay fresh", {
       await begin();
       window.history.replaceState(null, "", path);
       const left = Date.now();
+      // Held across both, since the app reads the clock itself: a tick after `left` would make the time away too short.
+      const clock = vi.spyOn(Date, "now").mockReturnValue(left);
       seen("hidden");
-      const clock = vi.spyOn(Date, "now").mockReturnValue(left + ms);
+      clock.mockReturnValue(left + ms);
       seen("visible");
       clock.mockRestore();
       return window.location.pathname;
