@@ -213,6 +213,10 @@ The author runs them locally and pushes.
 It runs `pnpm format:check`, which is `biome ci`, over the whole tree, so a file the change did not touch fails it too.
 Like `foundations`, it is a job of its own and runs on every change: a root Check never sees the paths a workspace owns, and the formatter reads them all in about a second.
 
+**A Job runs it before its pull request opens.**
+`apps/desktop/armada.yml` declares `format_check` with `runs_at: handoff`, so it runs once, last, on the step before delivery.
+It is declared there because a Bridge change reaches that manifest; a change under `apps/store` or `apps/pocket` alone does not, and CI is the first to read it.
+
 **To fix a red `format`, run `pnpm format` and commit what it changes.**
 A Drone is refused a bare `pnpm`, so it runs `armada run format`.
 `biome.jsonc` says what is formatted and what is left alone, and `docs/practices/bridge.md`, *The formatter*, says why.
