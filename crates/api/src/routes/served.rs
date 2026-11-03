@@ -389,6 +389,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/window",
     },
     Route {
+        operation: "check_before_pr",
+        method: "POST",
+        path: "/sessions/pre_pr",
+    },
+    Route {
         operation: "withdraw_window",
         method: "POST",
         path: "/sessions/withdraw_window",

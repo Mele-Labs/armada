@@ -106,6 +106,7 @@ pub(crate) mod uploads;
 pub(crate) mod waiting;
 pub(crate) mod readiness;
 pub(crate) mod walking;
+pub(crate) mod pre_pr;
 pub(crate) mod walk_asks;
 pub(crate) mod step_skipping;
 pub(crate) mod job_copying;
