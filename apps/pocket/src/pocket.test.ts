@@ -786,7 +786,7 @@ describe("what a Job waits on, on the phone", () => {
 
     it("carries how he answered it", () => {
       const thread = wire();
-      settle(thread, "/Users/owner/armada/.armada/documents/slot-pool.html");
+      settle(thread, "/Users/user/armada/.armada/documents/slot-pool.html");
       const cards = documents(thread);
       expect(cards).toHaveLength(2);
       expect(cards[0]).toMatchObject({
@@ -800,7 +800,7 @@ describe("what a Job waits on, on the phone", () => {
 
     it("answers with the revision the ledger holds, and an empty one for a page it never gave", () => {
       const held = session();
-      const page = "/Users/owner/armada/.armada/documents/phone-reach.html";
+      const page = "/Users/user/armada/.armada/documents/phone-reach.html";
       expect(
         documentAnswerOf(held, page, {
           choice: 0,
@@ -828,7 +828,7 @@ describe("what a Job waits on, on the phone", () => {
     });
 
     it("reads the newest revision to draw, and waits only while it is asked and not settled", () => {
-      const page = "/Users/owner/armada/.armada/documents/phone-reach.html";
+      const page = "/Users/user/armada/.armada/documents/phone-reach.html";
       expect(documentOf(session(), page)).toMatchObject({
         title: "Phone reach",
         revision: 2,

@@ -177,7 +177,7 @@ function record(
     harness: "claude",
     origin: "bridge",
     manifest_id: "armada",
-    cwd: "/Users/owner/armada",
+    cwd: "/Users/user/armada",
     title,
     state: "live",
     started_at: ago(now, started),
@@ -783,7 +783,7 @@ export function fixtureMacs(
       attachments: [
         {
           kind: "artifact",
-          target: "/Users/owner/armada/docs/concepts/pocket.md",
+          target: "/Users/user/armada/docs/concepts/pocket.md",
           state: "standing",
           detail: {
             form: "file",
@@ -849,7 +849,7 @@ export function fixtureMacs(
   const b1: SessionThread = {
     session: record(now, "b1", plan.title!, 90, {
       manifest_id: "store",
-      cwd: "/Users/owner/store",
+      cwd: "/Users/user/store",
       waiting_for: [
         {
           id: "plan",
@@ -925,7 +925,7 @@ export function fixtureMacs(
   const b3: SessionThread = {
     session: record(now, "b3", describe.title!, 30, {
       manifest_id: "store",
-      cwd: "/Users/owner/store",
+      cwd: "/Users/user/store",
       usage: {
         context_tokens: 121_500,
         context_window: WINDOW,
@@ -975,11 +975,11 @@ export function fixtureMacs(
     context_tokens: 88_000,
     context_window: WINDOW,
   });
-  const PLAIN_PAGE = "/Users/owner/armada/.armada/documents/slot-pool.html";
-  const WIDE_PAGE = "/Users/owner/armada/.armada/documents/phone-reach.html";
-  const PLAIN_R1 = "/Users/owner/.armada/kept/f1/slot-pool-r1.html";
-  const WIDE_R1 = "/Users/owner/.armada/kept/f1/phone-reach-r1.html";
-  const WIDE_R2 = "/Users/owner/.armada/kept/f1/phone-reach-r2.html";
+  const PLAIN_PAGE = "/Users/user/armada/.armada/documents/slot-pool.html";
+  const WIDE_PAGE = "/Users/user/armada/.armada/documents/phone-reach.html";
+  const PLAIN_R1 = "/Users/user/.armada/kept/f1/slot-pool-r1.html";
+  const WIDE_R1 = "/Users/user/.armada/kept/f1/phone-reach-r1.html";
+  const WIDE_R2 = "/Users/user/.armada/kept/f1/phone-reach-r2.html";
   const PLAIN_HTML = `<!doctype html><html><head><title>Slot pool</title><link rel="stylesheet" href="armada-kit.css"></head><body>
 <h1>Slot pool</h1>
 <p>Four slots are enough for this machine, and the pool gives the idle ones back first.</p>
@@ -1266,7 +1266,7 @@ ${Array.from(
       },
       shown: {
         a2: {
-          "/Users/owner/armada/docs/concepts/pocket.md":
+          "/Users/user/armada/docs/concepts/pocket.md":
             "# Pocket\n\nThe phone app. It shows a Job's whole thread and any file or sketch the Job showed.\n",
         },
         f1: {

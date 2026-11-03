@@ -932,8 +932,8 @@ describe("a draft Job, and the acts on a Job", {
 
   describe("what a Job waits on", () => {
     const F1 = `/jobs/${encodeURIComponent(STUDIO)}/f1`;
-    const SLOT_POOL = "/Users/owner/armada/.armada/documents/slot-pool.html";
-    const PHONE_REACH = "/Users/owner/armada/.armada/documents/phone-reach.html";
+    const SLOT_POOL = "/Users/user/armada/.armada/documents/slot-pool.html";
+    const PHONE_REACH = "/Users/user/armada/.armada/documents/phone-reach.html";
     const POOL_CARD = "Document: Slot pool, Revision 1";
     const REACH_CARD = "Document: Phone reach, Revision 2";
     const f1 = () => macs[STUDIO]!.threads["f1"]!;
