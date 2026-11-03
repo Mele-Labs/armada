@@ -191,9 +191,12 @@ fn each_named_check_resolved_to_the_command_the_manifest_holds() {
         .workspaces()
         .iter()
         .flat_map(|manifest| {
-            manifest.checks_as_written().iter().map(|name| {
+            manifest.checks_as_written().iter().filter_map(|name| {
                 let declared = manifest.check(name).expect("a written Check is declared");
-                (manifest.dir(), name.as_str(), declared.run())
+                // A `pre_pr` Check runs when a pull request opens and is in no
+                // workflow step, so a step's resolved list never holds it.
+                (declared.runs_at() != core_model::RunsAt::PrePr)
+                    .then(|| (manifest.dir(), name.as_str(), declared.run()))
             })
         })
         .collect();

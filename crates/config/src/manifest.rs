@@ -135,7 +135,7 @@ const CHECK_KEYS: &[&str] = &[
 ];
 /// The values `checks.<name>.runs_at` takes, spelled as `core_model::RunsAt`
 /// spells them. #849.
-const RUNS_AT_LEGAL: &[&str] = &["everywhere", "gate", "handoff"];
+const RUNS_AT_LEGAL: &[&str] = &["everywhere", "gate", "handoff", "pre_pr"];
 /// The keys M1 reads inside `checks.<name>.narrow`.
 const NARROW_KEYS: &[&str] = &["run", "each", "from", "under", "except", "outside"];
 /// The keys read inside `checks.<name>.one_test`. #999.

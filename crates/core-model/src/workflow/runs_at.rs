@@ -1,5 +1,5 @@
-//! Where a Check runs: in a Drone's own mid-step run, at a step's gate, or once
-//! before the work is handed off. #849.
+//! Where a Check runs: in a Drone's own mid-step run, at a step's gate, once
+//! before the work is handed off, or when a pull request is about to open. #849.
 //!
 //! **The repository declares it once and every workflow inherits it**, the rule
 //! `when` and `narrow` already follow — so there is no step-level spelling and
@@ -19,11 +19,20 @@ pub enum RunsAt {
     /// Only at the gate of the last step before handoff, and there only once
     /// every other Check on that gate has passed.
     Handoff,
+    /// Only when an agent goes to open a pull request, and only when a change
+    /// reaches this Check's workspace. Never in a Drone's run, at a gate or in
+    /// `every_manifest_check`.
+    PrePr,
 }
 
 impl RunsAt {
     /// Every value, in the order a reader meets them.
-    pub const ALL: [RunsAt; 3] = [RunsAt::Everywhere, RunsAt::Gate, RunsAt::Handoff];
+    pub const ALL: [RunsAt; 4] = [
+        RunsAt::Everywhere,
+        RunsAt::Gate,
+        RunsAt::Handoff,
+        RunsAt::PrePr,
+    ];
 
     /// The spelling `armada.yml`, a frozen row and the wire all use.
     pub fn as_wire(self) -> &'static str {
@@ -31,6 +40,7 @@ impl RunsAt {
             RunsAt::Everywhere => "everywhere",
             RunsAt::Gate => "gate",
             RunsAt::Handoff => "handoff",
+            RunsAt::PrePr => "pre_pr",
         }
     }
 
