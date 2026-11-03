@@ -5,7 +5,6 @@ const HOLD_LAYERS = [
   // The layer drawn, and not its host: `[data-armada-annotate]` stays in the document for as long as a dev build runs, on or off.
   ".armada-annotate",
   ".job-browser__site-panel",
-  ".job-browser__ask",
   ".armada-dialog-scrim",
   ".armada-job-review",
   ".armada-dropdown-menu__panel",
