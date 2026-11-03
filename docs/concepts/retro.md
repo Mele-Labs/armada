@@ -112,6 +112,7 @@ ended.
 | `corrections` | Every message the person sent, unfiltered. The call reads which of them redirected the agent |
 | `subagents` | What went wrong in each subagent's own transcript |
 | `notes` | What the agent said got in its way, below |
+| `time` | The Job's whole time in each bucket beside the usual for its workflow, and the buckets far over it. **A single row, present only where some bucket is far over**: twice its usual and at least ten minutes beyond it. It covers the Job, not only the stretch since the last retro, and is `time:1` |
 
 Every row carries a `cite`, `ask:1` and the like, unique within the record.
 
@@ -148,6 +149,11 @@ cap, as the Judge's calls never have.
   is not the agent's.
 - A fault of Armada's goes to `who: fleet` and `lands_in: armada`.
 - One item per cause. Fewer, truer items beat many.
+- Where the record holds `time`, write one item for the bucket that cost the
+  most time over its usual, say why from the other rows, and say where the fix
+  lands, citing `time:1` and those rows. Where no row shows why, "unclear" is
+  the answer. Where `time` is absent, write no item about time. The cite rule
+  and the place rule hold for it as for any item.
 - Write the three texts in plain words: short sentences with concrete facts,
   plain verbs, no dashes, no "not X but Y", no lists of three for rhythm, no
   stock words, no vague "associated with", no closing line, no first sentence

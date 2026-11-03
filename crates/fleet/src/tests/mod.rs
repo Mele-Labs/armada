@@ -36,6 +36,7 @@ mod step_waits;
 mod documents;
 mod building;
 mod builds_run;
+mod retro_timing;
 mod checkouts_apart;
 mod committing;
 mod daemon;

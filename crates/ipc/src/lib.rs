@@ -571,7 +571,7 @@ pub use review_walks::{
     WalkSource, WalkTried, SEARCH_RUN_SCOPE,
 };
 pub use retro::{
-    Lesson, Lessons, RecordAct, RecordAsked, RecordRefusal, RecordSaid, Retro, RetroAnswered,
+    Lesson, Lessons, RecordAct, RecordAsked, RecordRefusal, RecordSaid, RecordSplit, RecordTime, Retro, RetroAnswered,
     RetroChange, RetroChangeAnswered, RetroItem, RetroRecord, RetroSession, RetroState,
     RetroWritten,
 };
