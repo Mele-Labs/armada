@@ -314,7 +314,7 @@ fn a_weekly_cap_already_past_is_refused_at_start_and_resume_waits_until_it_is_ra
     );
     assert_eq!(
         Unsettable::AlreadyOver(Cap::Weekly).to_string(),
-        "weekly usage is already past that"
+        "weekly usage has already reached that"
     );
     assert!(Settings::confirmed("fix the flakes", 2, eighty.clone(), &now(), Some(79)).is_ok());
     assert!(Settings::confirmed("fix the flakes", 2, eighty.clone(), &now(), None).is_ok(), "no reading");

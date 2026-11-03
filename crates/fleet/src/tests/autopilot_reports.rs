@@ -293,7 +293,7 @@ async fn a_start_past_the_weekly_cap_is_refused_and_so_is_an_update_to_one() {
 
     let refused = rig.fleet.start_autopilot(rig.manifest.clone(), capped_at(80)).await.unwrap_err();
     assert_eq!(refused.status(), 422, "{refused:?}");
-    assert!(refused.error().message.contains("weekly usage is already past that"), "{refused:?}");
+    assert!(refused.error().message.contains("weekly usage has already reached that"), "{refused:?}");
 
     rig.fleet.start_autopilot(rig.manifest.clone(), capped_at(90)).await.expect("under it");
     let refused = rig.fleet.update_autopilot(rig.manifest.clone(), capped_at(80)).await.unwrap_err();
