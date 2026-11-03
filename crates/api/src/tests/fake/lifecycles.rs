@@ -5,7 +5,7 @@ use ipc::{
     AllWorkspaces, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, SaveLifecyclePiece,
     HeldInstance, InstanceLink, InstanceMove, InstanceStanding, Instant, JobLifecycles, LifecycleDefinition,
     LifecycleStateDefinition, LifecycleTransition, ManifestId, PieceScope, RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles,
-    RepositoryWorkspaces, SessionId, StateReadFrom,
+    RepositoryWorkspaces, SessionId, StateReadFrom, TeachTicketWord, TicketWordTaught,
 };
 
 use super::FakeDaemon;
@@ -129,6 +129,17 @@ impl Lifecycles for FakeDaemon {
             return Err(refused("fleet.piece_exists", format!("/kit/{id}.yml already declares `{id}` and nothing was written.")));
         }
         Ok(LifecyclePieceSaved { kind, file: format!("/kit/{id}.yml"), id, scope, replaced: kept })
+    }
+
+    /// Writes nothing: answers the Ticket within the repository it was given, and refuses a blank word,
+    /// so a route test can tell the body arrived whole.
+    async fn teach_ticket_word(&self, teach: TeachTicketWord) -> Result<TicketWordTaught, Refusal> {
+        if teach.word.trim().is_empty() {
+            return Err(refused("fleet.piece_unfit", "The word is blank.".to_string()));
+        }
+        let scope = PieceScope::Within { id: teach.manifest_id.as_str().to_string() };
+        let saved = LifecyclePieceSaved { kind: LifecyclePieceKind::Lifecycle, id: "ticket".into(), scope, file: "/kit/ticket.yml".into(), replaced: false };
+        Ok(TicketWordTaught { saved, jobs: vec![SessionId::carried(THE_LIFECYCLE_JOB)] })
     }
 
     async fn delete_lifecycle_piece(&self, delete: DeleteLifecyclePiece) -> Result<LifecyclePieceDeleted, Refusal> {

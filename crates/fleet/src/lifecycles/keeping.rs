@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use core_model::{Observed, StepId};
+use core_model::{Lifecycle, Observed, StepId};
 use ipc::{AttachmentState, Event, SessionRecord, SessionState};
 use store::KeptRead;
 use tokio::sync::mpsc;
@@ -189,6 +189,20 @@ where
         key: &str,
         seen: Observed<'_>,
     ) -> Option<Transition> {
+        self.lifecycle_seen_since(session, lifecycle, key, seen, None).await
+    }
+
+    /// [`lifecycle_seen`](Self::lifecycle_seen), with the Job's instances rebuilt against `before`, the
+    /// lifecycles it read until one was just changed. **Rebuilt against the new ones, a word already
+    /// seen stands where they put it**, so reading it again would move nothing and record nothing.
+    pub(crate) async fn lifecycle_seen_since(
+        &self,
+        session: &str,
+        lifecycle: &str,
+        key: &str,
+        seen: Observed<'_>,
+        before: Option<&[Lifecycle]>,
+    ) -> Option<Transition> {
         let at = self.now().as_str().to_string();
         let mut store = self.store().lock().await;
         let manifest = store.session(session).ok().flatten()?.manifest_id?;
@@ -198,7 +212,7 @@ where
         if kept.iter().any(|one| one.lifecycle == lifecycle && one.key == key && !one.ended_at.is_empty()) {
             return None;
         }
-        let mut held = rebuilt(&lifecycles, &kept);
+        let mut held = rebuilt(before.unwrap_or(&lifecycles), &kept);
         let subject = subject_of(&held, lifecycle, key)?;
         let transition = read_instance(&mut held, &lifecycles, &subject, &seen, &at)?;
         let (from, to) = (transition.moved.from.as_wire(), transition.moved.to.as_wire());
