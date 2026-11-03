@@ -199,7 +199,7 @@ export const MANAGED_ENDS: Readonly<
     ends: "the cause is named",
   },
   fix: {
-    ends: "you approve the walk",
+    ends: "you approve every walk",
     passedOver: "nothing would be seen",
   },
   tests: {
@@ -215,7 +215,7 @@ export const MANAGED_ENDS: Readonly<
     ends: "the mock runs",
   },
   show: {
-    ends: "you approve the walk",
+    ends: "you approve every walk",
   },
   draft: {
     ends: "the page reads right",

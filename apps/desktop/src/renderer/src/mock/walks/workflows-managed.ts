@@ -49,8 +49,8 @@ export const workflowsManaged = walk("workflows", [
     say: "The repository's feature",
   },
   {
-    look: inside(step("Walk"), text("you approve the walk")),
-    say: "Walk ends when you approve the walk",
+    look: inside(step("Walk"), text("you approve every walk")),
+    say: "Walk ends when you approve every walk",
   },
   {
     look: inside(step("Walk"), role("group", /^Cockpit timeline rail/)),

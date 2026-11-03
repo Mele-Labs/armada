@@ -121,7 +121,7 @@ test("the list is Fleet's, grouped as Armada, the repository and Yours, and Arma
 test("a copy's steps say what ends each and when one is passed over, from Fleet", async () => {
   await workflows();
   await pickRepositoryFeature();
-  await expect.element(stepCard("Walk")).toHaveTextContent("you approve the walk");
+  await expect.element(stepCard("Walk")).toHaveTextContent("you approve every walk");
   await expect.element(stepCard("Walk")).toHaveTextContent("nothing would be seen");
   await expect.element(stepCard("Deliver")).toHaveTextContent("it is merged");
 });

@@ -55,8 +55,8 @@ from its words, so changing a `label` or `instructions` never changes either. Th
 fields can say, read in this order, the first that fits:
 - `delivers: true`: the step ends when its pull request is merged.
 - `records_plan: true`, or a submitted evidence `type` of `plan`: it ends when the person approves
-the plan.
-- `walks: true`: it ends when the person approves the walk they are shown, and it is passed over
+the plan, or anything its `ends_on` lists, or, with `plan_unasked: true`, when a plan is recorded.
+- `walks: true`: it ends when the person approves every walk they are shown, and it is passed over
 when nothing would be seen. No other step is ever passed over.
 - A step before the one that records the plan ends when a plan is recorded, or, with `awaits_reply:
 true`, when the person replies.

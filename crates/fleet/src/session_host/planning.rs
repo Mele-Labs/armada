@@ -287,9 +287,9 @@ where
     /// stands with it, where the step lists a walk, rather than coming up as a second card. **Before the
     /// send**, so what he is owed never shows the plan for a moment.
     pub(crate) async fn plan_settled_by_walk(self: &Arc<Self>, id: &str, address: &str) -> Result<(), Refusal> {
-        let Some(steps) = self.plan_steps(id).await.filter(|steps| rail::walk_settles_plan(steps)) else {
+        if !self.plan_steps(id).await.is_some_and(|steps| rail::walk_settles_plan(&steps)) {
             return Ok(());
-        };
+        }
         let (plan, since) = {
             let store = self.store().lock().await;
             let session = store.session(id).map_err(|why| self.ledger_fault(why))?;
