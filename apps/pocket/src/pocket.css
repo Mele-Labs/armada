@@ -554,11 +554,10 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
 .pk-doc__page .armada-doc__sketch {
   margin: var(--space-6) 0;
 }
+/* No aspect ratio: with a minimum height, it would widen the sketch past the screen. */
 .pk-doc__page .armada-doc__sketch .armada-sketch {
   margin: 0;
-  block-size: auto;
-  aspect-ratio: 16 / 7;
-  min-block-size: calc(var(--space-12) * 6);
+  block-size: calc(var(--space-12) * 6);
 }
 .pk-doc__page .pk-doc__scroll {
   margin: 0 0 var(--space-4);

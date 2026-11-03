@@ -372,6 +372,7 @@ const CHOICE_ONLY: readonly WaitingSource[] = [
   "slot_choice",
   "task_done",
   "rule_act",
+  "browser_ask",
 ];
 /** The sources answered beside the thread. The rest are answered from their own cards, or on the Mac. */
 const ASKS: readonly WaitingSource[] = [
@@ -501,6 +502,8 @@ export type OpenDraft = {
   title: string;
   text: string;
   before?: string;
+  /** A proposed workflow, which Fleet also lets him drop: its item's second option. */
+  proposed?: true;
 };
 
 /**
@@ -509,7 +512,10 @@ export type OpenDraft = {
  */
 export function draftsOf(session: Session): readonly OpenDraft[] {
   if (session.dead !== undefined) return [];
-  const waiting = new Set((session.waitingFor ?? []).map((one) => one.id));
+  const waiting = new Map((session.waitingFor ?? []).map((one) => [
+    one.id,
+    one,
+  ]));
   return session.rows.flatMap((row) =>
     row.kind === "draft" &&
     row.settled === undefined &&
@@ -524,6 +530,11 @@ export function draftsOf(session: Session): readonly OpenDraft[] {
               : {
                   before: row.before,
                 }),
+            ...((waiting.get(`draft:${row.id}`)?.options?.length ?? 0) > 1
+              ? {
+                  proposed: true as const,
+                }
+              : {}),
           },
         ]
       : [],

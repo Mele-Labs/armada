@@ -288,23 +288,21 @@ function PressCard({
   dismiss?: () => Promise<boolean>;
 }) {
   return (
-    <Card className="pk-card" role="group" aria-label={item.text}>
-      <CardHeader>
-        <CardTitle>{item.text}</CardTitle>
-      </CardHeader>
-      <CardFooter className="pk-card__acts">
+    <div className="pk-ask" role="group" aria-label={item.text}>
+      <p className="pk-question">{item.text}</p>
+      <div className="pk-choices" role="group" aria-label="Options">
+        {open === undefined ? null : (
+          <Button variant="secondary" onClick={open}>
+            Open
+          </Button>
+        )}
         {dismiss === undefined ? null : (
           <Button variant="secondary" onClick={() => void dismiss()}>
             Dismiss
           </Button>
         )}
-        {open === undefined ? null : (
-          <Button variant="primary" onClick={open}>
-            Open
-          </Button>
-        )}
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -325,11 +323,13 @@ function DraftCard({
   keep,
   approve,
   sendBack,
+  dismiss,
 }: {
   draft: OpenDraft;
   keep: string;
   approve: () => Promise<boolean>;
   sendBack: (note: string) => Promise<boolean>;
+  dismiss: () => Promise<boolean>;
 }) {
   const [noting, setNoting] = useState(false);
   const [note, setNote] = useState("");
@@ -372,6 +372,11 @@ function DraftCard({
           </>
         ) : (
           <>
+            {draft.proposed === true ? (
+              <Button variant="ghost" onClick={() => void dismiss()}>
+                Dismiss
+              </Button>
+            ) : null}
             <Button variant="secondary" onClick={() => setNoting(true)}>
               Send back
             </Button>
@@ -769,6 +774,15 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
                 session_id: id,
                 item_id: `draft:${draft.id}`,
                 text: note,
+              }),
+            )
+          }
+          dismiss={() =>
+            run(() =>
+              acts.answerWaiting({
+                session_id: id,
+                item_id: `draft:${draft.id}`,
+                choice: 1,
               }),
             )
           }

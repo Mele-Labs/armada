@@ -1147,6 +1147,24 @@ ${Array.from(
             },
           ],
         },
+        {
+          id: "browser_ask:tab-1",
+          text: "localhost wants to use your camera",
+          since: ago(now, 7),
+          source: "browser_ask",
+          act: {
+            kind: "answer",
+            target: "browser_ask:tab-1",
+          },
+          options: [
+            {
+              label: "Allow",
+            },
+            {
+              label: "Block",
+            },
+          ],
+        },
         asking("start:d1", `Press Start on "${draft.title!}"`, "held_child", "d1"),
         asking("call:1", "main went red after this Job's last push", "fleet_call", "f1"),
         asking("walk:http://127.0.0.1:5173/walk", "Pool band", "walk", "f1"),
