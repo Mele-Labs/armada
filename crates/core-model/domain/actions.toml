@@ -627,7 +627,7 @@ shortcut = "l r f"
 scope = "review"
 destructive = false
 confirms = false
-notes = "Moves focus to a part of the Reviews tab: `l` the list of pull requests, `r` the pull request open in the reader, `f` the review tools at its foot. The deck's own letters for the same places (`l` and `f` of `deck_panel`), in the scope of the tab that has the same three parts. Three letters in one row because they are one act with a target; a part's key is its slot in this row, so Settings → Keyboard moves the key and the tab follows."
+notes = "Moves focus to a part of the Reviews tab: `l` the list of pull requests, `r` the pull request open in the reader, `f` the tools pane beside it. The deck's own letters for the same places (`l` and `f` of `deck_panel`), in the scope of the tab that has the same three parts. Three letters in one row because they are one act with a target; a part's key is its slot in this row, so Settings → Keyboard moves the key and the tab follows."
 
 [actions.review_lists]
 kind = "Action"
@@ -668,14 +668,14 @@ notes = "Moves focus to the search bar under the column's head. Typing narrows t
 [actions.review_quick]
 kind = "Action"
 tier = "Contextual"
-verb = "Go to the explanations"
+verb = "Open the tools menu"
 icon = ""
 icon_absent = "undecided"
 shortcut = "Q"
 scope = "review"
 destructive = false
 confirms = false
-notes = "Moves focus to the bar of explanations above the description, for the pull request that is open. Mock-backed until agent runs land."
+notes = "Opens the + menu of the tools pane for the pull request that is open, which lists every review tool and explanation with its number, then Add a tool."
 
 [actions.review_ask]
 kind = "Action"
@@ -699,7 +699,7 @@ shortcut = "D"
 scope = "review"
 destructive = false
 confirms = false
-notes = "Shows or hides the description of the open pull request, which tucks away once an explanation is chosen."
+notes = "Shows or hides the description of the open pull request on its Overview tab."
 
 [actions.review_where]
 kind = "Action"
