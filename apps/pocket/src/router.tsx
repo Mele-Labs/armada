@@ -1,6 +1,6 @@
 // Paths without a library. `/` home, `/pair` (`?code=…` from a pairing link, `?origin=…` to pair a Mac
 // again), `/dispatch`, and a Job at `/jobs/<Mac origin, encoded>/<id>`, with `/file?path=…` and
-// `/sketch?id=…` under it for what the Job showed, and a draft Job at `/drafts/<Mac origin, encoded>/<id>`. `_` for the Mac is a push that did not say which.
+// `/sketch?id=…` and `/document?page=…` under it for what the Job showed, and a draft Job at `/drafts/<Mac origin, encoded>/<id>`. `_` for the Mac is a push that did not say which.
 
 import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
@@ -42,7 +42,7 @@ export function homeWhenBack(): void {
     hidden = undefined;
     if (away < AWAY_MS) return;
     const { screen } = routeOf(window.location.pathname + window.location.search);
-    if (screen === "job" || screen === "draft" || screen === "file" || screen === "sketch")
+    if (screen === "job" || screen === "draft" || screen === "file" || screen === "sketch" || screen === "document")
       go("/", true);
   });
 }
@@ -80,6 +80,12 @@ export type Route =
       origin: string;
       id: string;
       sketch: string;
+    }
+  | {
+      screen: "document";
+      origin: string;
+      id: string;
+      page: string;
     };
 
 export const jobPath = (origin: string, id: string) =>
@@ -90,6 +96,8 @@ export const filePath = (origin: string, id: string, path: string) =>
   `${jobPath(origin, id)}/file?path=${encodeURIComponent(path)}`;
 export const sketchPath = (origin: string, id: string, sketch: string) =>
   `${jobPath(origin, id)}/sketch?id=${encodeURIComponent(sketch)}`;
+export const documentPath = (origin: string, id: string, page: string) =>
+  `${jobPath(origin, id)}/document?page=${encodeURIComponent(page)}`;
 export const pairPath = (origin?: string) =>
   origin === undefined ? "/pair" : `/pair?origin=${encodeURIComponent(origin)}`;
 
@@ -119,7 +127,7 @@ export function routeOf(whole: string): Route {
       origin: decodeURIComponent(draft[1]!),
       id: decodeURIComponent(draft[2]!),
     };
-  const job = /^\/jobs\/([^/]+)\/([^/]+)(?:\/(file|sketch))?$/.exec(url.pathname);
+  const job = /^\/jobs\/([^/]+)\/([^/]+)(?:\/(file|sketch|document))?$/.exec(url.pathname);
   if (job !== null) {
     const mac = decodeURIComponent(job[1]!);
     const id = decodeURIComponent(job[2]!);
@@ -136,6 +144,13 @@ export function routeOf(whole: string): Route {
         origin: mac,
         id,
         sketch: query.get("id") ?? "",
+      };
+    if (job[3] === "document" && mac !== "_")
+      return {
+        screen: "document",
+        origin: mac,
+        id,
+        page: query.get("page") ?? "",
       };
     return {
       screen: "job",

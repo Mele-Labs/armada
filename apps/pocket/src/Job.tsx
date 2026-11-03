@@ -37,14 +37,15 @@ import { tokensSaid } from "@armada/components/src/compositions/SessionFrame/Con
 import type { HelmCallAnswer, QuestionAnswer, WaitingItem } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
+import { documentAnswerOf, sketchAnswerOf } from "@armada/screens/src/thread-cards";
 
 import { getJson } from "./client";
 import { holderOf, macOf, start, useFleet } from "./fleet";
 import type { ModelsBody } from "./gateway";
-import { actsOn, attempt, useJob, type Acts } from "./jobState";
+import { actsOn, attempt, attemptPage, useJob, type Acts } from "./jobState";
 import { WithKeptStyles } from "./keptStyles";
 import type { Machine } from "./machines";
-import { draftPath, filePath, go, jobPath, sketchPath } from "./router";
+import { documentPath, draftPath, filePath, go, jobPath, sketchPath } from "./router";
 import {
   approvalOf,
   askedOf,
@@ -102,12 +103,14 @@ const standing = (
 /** Runs a reply and keeps its refusal to show. */
 function useReply(machine: Machine): [
   string,
-  (act: () => Promise<void>) => Promise<boolean>,
+  (act: () => Promise<void>, page?: () => void) => Promise<boolean>,
 ] {
   const [says, setSays] = useState("");
-  const run = async (act: () => Promise<void>) => {
+  // `page` is given for an answer to a sketch or a document: what to read again where the page changed under him.
+  const run = async (act: () => Promise<void>, page?: () => void) => {
     setSays("");
-    const refused = await attempt(act, machine);
+    const refused =
+      page === undefined ? await attempt(act, machine) : await attemptPage(act, machine, page);
     if (refused !== null) setSays(refused);
     return refused === null;
   };
@@ -805,6 +808,16 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
                 onOpenSession={openJob}
                 onOpenFile={(path) => go(filePath(machine.origin, id, path))}
                 onOpenSketch={(sketch) => go(sketchPath(machine.origin, id, sketch))}
+                onAnswerSketch={(sketch, answer) =>
+                  void run(() => acts.answerSketch(sketchAnswerOf(session, sketch, answer)), reread)
+                }
+                onOpenDocument={(page) => go(documentPath(machine.origin, id, page))}
+                onAnswerDocument={(page, answer) =>
+                  void run(
+                    () => acts.answerDocument(documentAnswerOf(session, page, answer)),
+                    reread,
+                  )
+                }
                 trailing={trailing}
               />
             </WithKeptStyles>

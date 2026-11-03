@@ -545,3 +545,32 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
+
+/* A Job's document: the sealed page drawn at the screen's width, its tables scrolling inside their own boxes. */
+.pk-doc__page {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pk-doc__page .armada-doc__sketch {
+  margin: var(--space-6) 0;
+}
+.pk-doc__page .armada-doc__sketch .armada-sketch {
+  margin: 0;
+  block-size: auto;
+  aspect-ratio: 16 / 7;
+  min-block-size: calc(var(--space-12) * 6);
+}
+.pk-doc__page .pk-doc__scroll {
+  margin: 0 0 var(--space-4);
+  overflow-x: auto;
+}
+.pk-doc__page.armada-doc__page .pk-doc__scroll > table {
+  inline-size: max-content;
+  min-inline-size: 100%;
+  margin: 0;
+}
+.pk-doc__answers {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}

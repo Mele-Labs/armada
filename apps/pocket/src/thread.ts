@@ -9,6 +9,7 @@ import type {
   PlanApproval,
   Scene,
   SessionThreadRow,
+  SketchSettled,
 } from "@armada/components";
 import type {
   SessionThread as WireThread,
@@ -29,6 +30,7 @@ import {
   sessionOfRecord,
   sketchCallOf,
 } from "@armada/screens/src/sessions-wire";
+import { withDocuments } from "@armada/screens/src/thread-cards";
 
 const NOTHING_BESIDE = {
   picture: () => undefined,
@@ -143,6 +145,28 @@ function withSketchState(rows: SessionThreadRow[], ledger: Ledger): SessionThrea
         ? sceneOfSketch(held.against.drawing)
         : undefined;
     const earlier = before?.kind === "sketch" ? before.drawing : kept;
+    const latest = last.get(row.sketch) === row.id;
+    // What he was asked, and how he answered, belong to the sketch as it stands: the latest card holds them.
+    const answer =
+      !latest || held?.kind !== "sketch"
+        ? {}
+        : {
+            ...(held.asked === true
+              ? {
+                  asked: true as const,
+                }
+              : {}),
+            ...(held.withdrawn === true
+              ? {
+                  withdrawn: true as const,
+                }
+              : {}),
+            ...(held.settled === undefined
+              ? {}
+              : {
+                  settled: held.settled,
+                }),
+          };
     return {
       ...row,
       ...(earlier === undefined
@@ -150,11 +174,12 @@ function withSketchState(rows: SessionThreadRow[], ledger: Ledger): SessionThrea
         : {
             againstScene: earlier,
           }),
-      ...(last.get(row.sketch) === row.id
+      ...(latest
         ? {}
         : {
             replaced: true as const,
           }),
+      ...answer,
     };
   });
 }
@@ -257,7 +282,7 @@ export function rowsOf(session: Session): SessionThreadRow[] {
             }),
       };
     });
-  return withSketchState(drawn, ledger);
+  return withDocuments(withSketchState(drawn, ledger), ledger);
 }
 
 export type Asked = {
@@ -536,6 +561,43 @@ export function sketchOf(
       ? {}
       : {
           against: sceneOfSketch(held.against.drawing),
+        }),
+  };
+}
+
+/** A page the Job wrote as its document, by the ledger id the thread's card names. `waits` is its newest revision put to him and not answered. */
+export function documentOf(
+  session: Session,
+  page: string,
+):
+  | {
+      title: string;
+      revisions: readonly string[];
+      revision: number;
+      waits: boolean;
+      settled?: SketchSettled;
+      keptStyles?: Readonly<Record<string, string>>;
+    }
+  | undefined {
+  const held = session.attachments.find(
+    (one) => one.kind === "artifact" && one.form === "document" && one.id === page,
+  );
+  if (held?.kind !== "artifact" || held.revisions === undefined || held.revisions.length === 0)
+    return undefined;
+  return {
+    title: held.title,
+    revisions: held.revisions,
+    revision: held.revision === undefined ? held.revisions.length : Number(held.revision),
+    waits: held.asked === true && held.settled === undefined,
+    ...(held.settled === undefined
+      ? {}
+      : {
+          settled: held.settled,
+        }),
+    ...(held.keptStyles === undefined
+      ? {}
+      : {
+          keptStyles: held.keptStyles,
         }),
   };
 }
