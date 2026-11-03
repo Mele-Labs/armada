@@ -26,7 +26,13 @@ test("the + lists a terminal the agent opened unseen, and opens it in a tab", as
   await expect.element(threadPane()).toBeVisible();
   timePasses();
   // The agent's terminal is open in Fleet, and the Job drew no tab for it.
-  expect(page.getByRole("tab", { name: "Terminal 1" }).elements()).toHaveLength(0);
+  expect(
+    page
+      .getByRole("tab", {
+        name: "Terminal 1",
+      })
+      .elements(),
+  ).toHaveLength(0);
 
   await threadPane()
     .getByRole("button", {

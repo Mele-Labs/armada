@@ -479,8 +479,7 @@ export const onTerminalWindowRaised = (on: (id: TerminalWindowId) => void): (() 
   live?.onRaised(on) ?? (() => undefined);
 
 /** The Job's agent opens a terminal that no window hears of, so it has no tab. */
-export const agentOpensTerminalAway = (sessionId: string): void =>
-  live?.agentOpensAway(sessionId);
+export const agentOpensTerminalAway = (sessionId: string): void => live?.agentOpensAway(sessionId);
 
 /** The shell's half of Fleet for a scenario in another file: this window's shells, which a Job's Terminal tab and Flight control's Terminal open. */
 export function shellApi(): ShellFleet["api"] {

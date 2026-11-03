@@ -247,7 +247,12 @@ export class JobShells {
   }
 
   /** The Job's open terminals as Fleet lists them, the agent's included. Empty where Fleet serves no list or refuses it. */
-  async openTerminals(sessionId: string): Promise<{ terminal: string; name: string }[]> {
+  async openTerminals(sessionId: string): Promise<
+    {
+      terminal: string;
+      name: string;
+    }[]
+  > {
     if (this.api.listTerminals === undefined) return [];
     const listed = await this.api.listTerminals(sessionId);
     return listed.ok
