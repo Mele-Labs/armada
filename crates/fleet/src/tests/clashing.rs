@@ -48,7 +48,8 @@ fn a_repository() -> (TempDir, Hosted) {
     git(home.path(), &["-c", "init.defaultBranch=main", "init", "--quiet"]);
     std::fs::write(home.path().join("f.txt"), twenty_lines()).unwrap();
     std::fs::write(home.path().join("g.txt"), "g\n").unwrap();
-    git(home.path(), &["add", "f.txt", "g.txt"]);
+    std::fs::write(home.path().join("h.txt"), "h\n").unwrap();
+    git(home.path(), &["add", "f.txt", "g.txt", "h.txt"]);
     git(home.path(), &["commit", "--quiet", "-m", "start"]);
     let mut fittings = fittings(&home, FakeWorkProduct::changed(&["src/log.rs"]));
     fittings.concurrency = Concurrency::of(2);
