@@ -1026,11 +1026,10 @@ export const toolsMissingSaid = (tools: ToolsMissing): string =>
   ].join(" ");
 
 // ---- What Fleet saw a Job do, and what it did for it ---------------------------------------------------------
-// Draft, mock-only: nothing in Fleet or the protocol carries it yet. A Job that stopped says why and what Fleet is doing about it, and
-// every act Fleet took on the Job's behalf stands as one more worker beside the agent.
+// A Job that stopped says why and what Fleet is doing about it, and every act Fleet took on the Job's behalf stands as one more worker beside the agent.
 
-/** Why a Job stopped: it ended its turn with nothing running and nothing asked, with tasks open or not, its process ended, Fleet was down, or he stopped it. */
-export type StoppedReason = "turn_ended" | "tasks_open" | "process_gone" | "fleet_down" | "you";
+/** Why a Job stopped: it ended its turn with nothing running and nothing asked, with tasks open or not, its process ended, or Fleet was down. */
+export type StoppedReason = "turn_ended" | "tasks_open" | "process_gone" | "fleet_down";
 
 /** A Job that is not running and was not parked. `at` is when Fleet saw it; `restart` is where Fleet stands on bringing it back. */
 export type Stopped = {

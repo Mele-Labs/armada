@@ -30,6 +30,11 @@ function waitOf(one: HeldOpenBy): WaitingLine {
       kind: "watch",
       said: `Held open by ${one.name}`,
     };
+  if (one.kind === "job")
+    return {
+      kind: "watch",
+      said: `Waiting on ${one.name}`,
+    };
   const { number, on } = one;
   if (on.kind === "queue")
     return {
@@ -96,8 +101,6 @@ export function stoppedSaid(stopped: Stopped): string {
         ? "Stopped: Fleet was down"
         : `Stopped: Fleet was down, ${timeSaid(stopped.down.from, clock)} to ${timeSaid(stopped.down.to, clock)}`;
     }
-    case "you":
-      return "Stopped by you";
   }
 }
 

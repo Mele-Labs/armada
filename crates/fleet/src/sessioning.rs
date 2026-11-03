@@ -61,6 +61,10 @@ pub(crate) struct LedgerReads {
     later: Vec<store::KeptLater>,
     /// The names of its live watches, the oldest first.
     watching: Vec<String>,
+    /// What of its lifecycles keeps it open.
+    holding: Vec<crate::lifecycles::ending::Flying>,
+    /// The stop it was told about and the stop passed over.
+    stop: store::KeptStop,
     /// What the start card is drawn from, for a Job that waits on it.
     start: Option<crate::session_host::start_card::StartReads>,
 }

@@ -217,6 +217,14 @@ export type SessionRecord = {
    * `waiting_for`. Absent or empty is none.
    */
   held_open_by?: HeldOpenBy[];
+  /** Why it stopped, with `standing` `stopped`. Absent otherwise. */
+  stopped?: SessionStopped;
+  /** When Fleet tells it to carry on, while a stop nothing excuses has not been told about. Absent otherwise. */
+  stop_told_by?: string;
+  /** When the turn running now began. Absent between turns. */
+  turn_since?: string;
+  /** The last time Fleet heard anything from the running turn. Absent between turns. */
+  last_heard_at?: string;
   /**
    * How the Job was started, as it stood when its process first ran: a later change of model, effort or mode does not rewrite it.
    * Absent for a Job started before Fleet kept it and for a terminal session.
@@ -417,10 +425,35 @@ export type WaitingSource =
  */
 export type SessionStanding = "working" | "stuck" | "replied" | "stopped" | "done" | "idle";
 
+/** Why a Job stopped, read from what Fleet saw. `crates/ipc/src/sessions.rs`. */
+export type StopReason = "turn_ended" | "tasks_open" | "process_gone" | "fleet_down";
+
+/**
+ * A Job that is not running and was not parked. `restart` and `repair` say where Fleet stands on bringing it back; `gave_up` is
+ * that it has run out of things to try. Raises no item: the mark and the call reach the person.
+ */
+export type SessionStopped = {
+  reason: StopReason;
+  at: string;
+  tasks?: string[];
+  said?: string;
+  restart: "none" | "queued" | "running" | "failed";
+  repair?: "running" | "failed" | "held";
+  gave_up?: boolean;
+  down?: {
+    from: string;
+    to: string;
+  };
+};
+
 /** One thing, not the person, that keeps a Session open: a fact, never a sentence. `crates/ipc/src/sessions.rs`. */
 export type HeldOpenBy =
   | {
       kind: "watch";
+      name: string;
+    }
+  | {
+      kind: "job";
       name: string;
     }
   | {

@@ -33,6 +33,8 @@ import { lanesOfJob } from "./session-lanes";
 import { changeOfEvent, linesOfWire, stepsWithIds, workOf } from "./session-work";
 import { share } from "./share";
 import type {
+  FleetAct,
+  FleetActKind,
   Session,
   SessionActivity,
   SessionAsk,
@@ -1430,6 +1432,87 @@ export function cleanTitle(title: string | undefined): string | undefined {
 }
 
 /** A session, whole. `rows` are the thread where it was opened and none where it was not; `reading` while Fleet has not answered a read of it. */
+/** The kind of act a Fleet word is, by the notice it was sent for. Fleet's background model reads write no row, so they are none of these. */
+function fleetActKindOf(notice: unknown): FleetActKind {
+  switch (notice) {
+    case "stop_nudge":
+    case "rail_nudge":
+      return "nudge";
+    case "rail_step":
+      return "step";
+    case "slot_free":
+    case "slot_kept":
+    case "slot_stranded":
+      return "slot";
+    case "limit_wake":
+    case "sign_in_wake":
+      return "restart";
+    default:
+      return "told";
+  }
+}
+
+/**
+ * Everything Fleet did, does or will do for a Job, read from what is kept and never from the agent: each word and note of its own in the
+ * thread is over, the nudge coming and the repair running are read off the record.
+ */
+function fleetActsOf(rows: readonly WireRow[], record: SessionRecord): FleetAct[] {
+  const over = rows.flatMap((row): FleetAct[] =>
+    row.kind === "message" && row.from.kind === "session" && row.from.title === "Fleet"
+      ? [
+          {
+            id: row.id,
+            at: row.at,
+            state: "over",
+            kind: fleetActKindOf(row.notice),
+            said: (row.text.split("\n")[0] ?? "").replace(/^Fleet: /, ""),
+          },
+        ]
+      : [],
+  );
+  const coming: FleetAct[] =
+    record.stop_told_by === undefined
+      ? []
+      : [
+          {
+            id: "stop-nudge",
+            at: record.stop_told_by,
+            until: record.stop_told_by,
+            state: "coming",
+            kind: "nudge",
+            said: "Tell it to carry on or name what it waits on",
+            why: "Its turn ended with nothing running and nothing asked",
+          },
+        ];
+  const repairing: FleetAct[] =
+    record.stopped?.repair === "running"
+      ? [
+          {
+            id: "repair",
+            at: record.stopped.at,
+            state: "under_way",
+            kind: "restart",
+            said: "Repair Job running",
+            why: "The restart failed",
+          },
+        ]
+      : [];
+  return [...over, ...repairing, ...coming];
+}
+
+/** The tool call the running turn is in, where the thread's last row is one: what the agent row names while a turn runs. */
+function openCallOf(rows: readonly WireRow[], record: SessionRecord): Pick<Session, "openCall"> {
+  const last = rows[rows.length - 1];
+  return record.turn_since === undefined || last?.kind !== "tool"
+    ? {}
+    : {
+        openCall: {
+          text: last.text,
+          since: last.at,
+        },
+      };
+}
+
 export function sessionOfRecord(
   record: SessionRecord,
   rows: readonly WireRow[] | undefined,
@@ -1854,6 +1937,36 @@ export function sessionOfRecord(
                 }
               : {}),
           })),
+        }),
+    ...(ended || record.stopped === undefined
+      ? {}
+      : {
+          stopped: {
+            reason: record.stopped.reason,
+            at: record.stopped.at,
+            restart: record.stopped.restart,
+            ...(record.stopped.said === undefined ? {} : { said: record.stopped.said }),
+            ...(record.stopped.tasks === undefined ? {} : { tasks: record.stopped.tasks }),
+            ...(record.stopped.repair === undefined ? {} : { repair: record.stopped.repair }),
+            ...(record.stopped.gave_up === true ? { gaveUp: true as const } : {}),
+            ...(record.stopped.down === undefined ? {} : { down: record.stopped.down }),
+          },
+        }),
+    ...(ended || record.turn_since === undefined
+      ? {}
+      : {
+          turnSince: record.turn_since,
+        }),
+    ...(ended || record.last_heard_at === undefined
+      ? {}
+      : {
+          lastHeardAt: record.last_heard_at,
+        }),
+    ...(ended || rows === undefined ? {} : openCallOf(rows, record)),
+    ...(rows === undefined && record.stop_told_by === undefined && record.stopped === undefined
+      ? {}
+      : {
+          fleetActs: fleetActsOf(rows ?? [], record),
         }),
     ...(ended || (record.held_open_by?.length ?? 0) === 0
       ? {}

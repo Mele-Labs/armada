@@ -419,6 +419,10 @@ where
             state.woken_by.clear();
         }
         self.calls_let_go(&id).await;
+        // He stopped it: the stop this leaves is his, and Fleet says nothing about it.
+        if let Some(stop) = &session.last_turn_at {
+            let _ = self.store().lock().await.pass_over_stop(&id, stop);
+        }
         self.published_hosted(&id).await
     }
 

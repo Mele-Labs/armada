@@ -44,6 +44,7 @@ where
         let mut measured = tokio::time::Instant::now();
         let mut disputes_read = tokio::time::Instant::now();
         let mut pages_read = tokio::time::Instant::now();
+        let mut stops_swept: Option<tokio::time::Instant> = None;
         loop {
             ticker.tick().await;
             // A subagent its parent sent more work, read as running again from its own transcript.
@@ -77,6 +78,12 @@ where
             fleet.sign_in_wakes_owed().await;
             // A turn that went quiet is stuck by time passing, which no event says: published when it does.
             fleet.standing_checked().await;
+            // A stop nothing excuses, told once a minute after it: every live Job read at start and now and then.
+            if stops_swept.is_none_or(|at| at.elapsed() >= crate::session_host::stopping::SWEEP) {
+                stops_swept = Some(tokio::time::Instant::now());
+                fleet.stops_swept().await;
+            }
+            fleet.stops_told().await;
             // Who wrote the same file as whom, once the wait after a write is over.
             fleet.clashes_checked().await;
             // What main's moves made stale in the test map, read again where that costs nothing.

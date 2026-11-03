@@ -148,6 +148,15 @@ pub(crate) fn standing(seen: &Seen, stuck_after: Duration) -> SessionStanding {
     }
 }
 
+/// How a Session stands between turns with a background command or a Check of its own running: working,
+/// where it would be resting. **An ask in its reply still raises its item**, which [`derived`] reads apart.
+pub(crate) fn beside_the_turn(standing: SessionStanding, running: bool) -> SessionStanding {
+    match standing {
+        SessionStanding::Idle | SessionStanding::Replied if running => SessionStanding::Working,
+        other => other,
+    }
+}
+
 /// The items Fleet derives from the turn: the done, a reply that asks, and one that turns a Fleet tell down.
 pub(crate) fn derived(seen: &Seen) -> Vec<WaitingItem> {
     let mut items = Vec::new();

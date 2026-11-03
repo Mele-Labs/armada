@@ -31,16 +31,25 @@ where
         news: bool,
         kept: Option<Written>,
     ) -> Result<bool, Refusal> {
+        // A word that wakes a Job clears what it was told of its stop, so the stop after it gets a nudge
+        // of its own. **Not the nudge itself, and not a word mid-turn**, or a Job and Fleet could loop.
+        let wakes = !news
+            && !matches!(kept, Some(Written::Noticed(ipc::Notice::StopNudge)))
+            && !matches!(self.hosts().of(session).state().turn, SessionTurn::Working { .. });
         if let Some(terminal) = self.terminal_session(session).await? {
             if terminal.state == store::SessionState::Ended {
                 return Ok(false);
             }
             let said = format!("{FLEET_NAME}: {text}");
-            return Ok(self.hosts().terminals().hold(
+            let told = self.hosts().terminals().hold(
                 session,
                 said,
                 super::super::terminal::LISTENING_FOR,
-            ));
+            );
+            if told && wakes {
+                let _ = self.store().lock().await.clear_stop_told(session);
+            }
+            return Ok(told);
         }
         let (held, hosting) = self.session_and_hosting(session).await?;
         if held.state == store::SessionState::Ended || hosting.paused_at.is_some() {
@@ -73,6 +82,9 @@ where
         Arc::clone(self)
             .send_hosted_written(sent, Written::Row(row), None, None, false)
             .await?;
+        if wakes {
+            let _ = self.store().lock().await.clear_stop_told(session);
+        }
         // News asks nothing, so there is nothing in the agent's replies to read against it. With
         // dispute reviews off nothing is kept, so switching them on reads none sent before.
         if !news && self.dispute_reviews_on() {

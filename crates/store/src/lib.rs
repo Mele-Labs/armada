@@ -30,6 +30,7 @@ mod helm_tuning;
 /// What a session Fleet hosts keeps beside its ledger row, and its thread.
 mod hosted_sessions;
 mod session_checks;
+mod session_stops;
 mod session_build;
 mod session_plan;
 mod session_focus;
@@ -176,6 +177,7 @@ pub use run_memory::{KeptPlace, KeptRun};
 pub use logbook::{
     logbook_words, LogEntry, LogEvidence, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState, LogTopic,
 };
+pub use session_stops::KeptStop;
 pub use session_waits::KeptWait;
 pub use session_build::{KeptBuild, KeptTask, LandedPull, RoadAsk, RoadTimes, WorkTimes};
 pub use session_turn_usage::KeptTurnUsage;
