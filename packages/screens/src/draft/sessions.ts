@@ -52,6 +52,7 @@ import type {
   WatchSummary,
 } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
+import type { CommentToEvaluate } from "./evaluate-comment";
 import type { SessionLanes } from "@armada/components/src/compositions/LaneCanvas/build";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
@@ -1634,8 +1635,12 @@ export type SessionsDraft = {
   retro?: (id: string) => Promise<boolean>;
   /** Ends a Session: the slot is parked and the row ends. Absent in the mock except where a scenario scripts the end. */
   close?: (id: string) => void;
-  /** The person sends a triaged comment on the Job's pull request (`comment` is its id in `Session.lanes`) to the Job's agent, and it reads as sent. Mock-only: no Fleet reads a pull request's comments yet. Absent draws no Send to Job. */
-  sendComment?: (id: string, comment: string) => void;
+  /**
+   * The person's Evaluate on a comment of the Job's pull request: the Job is sent `evaluateMessage`, which asks it to weigh
+   * the comment and bring a proposal, and nothing is posted to the forge. Resolves to whether the message arrived. Absent
+   * draws no Evaluate.
+   */
+  evaluateComment?: (id: string, comment: CommentToEvaluate) => Promise<boolean>;
   /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
   stop?: (id: string) => void;
   /** The person drops a follow-up the Session kept (`later` is its id in `Session.later`), and Fleet takes it off the list; `misread` is thumbs down, Not deferred, which says Fleet should not have kept it. */

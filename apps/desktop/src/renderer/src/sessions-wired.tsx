@@ -43,6 +43,10 @@ import type {
   WorkflowChoice,
 } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
+import {
+  evaluateMessage,
+  type CommentToEvaluate,
+} from "@armada/screens/src/draft/evaluate-comment";
 import { askToTell, NOT_REACHABLE, raiseOutcome, type RefusedAct } from "./tell";
 import { actFields } from "./raised";
 
@@ -962,6 +966,20 @@ export class WiredStore {
     return true;
   }
 
+  /** Evaluate's message, sent as the person's own. The composer's tags and aim stay with the message being written. */
+  private async evaluating(id: string, comment: CommentToEvaluate): Promise<boolean> {
+    this.say(undefined);
+    const done = await this.api.sendSessionMessage({
+      session_id: id,
+      text: evaluateMessage(comment),
+    });
+    if (!done.ok) {
+      this.tell(done.outcome);
+      return false;
+    }
+    return true;
+  }
+
   /** One call: a new Session starts as a copy of a dead one's conversation. Resolves to it once the window holds it. */
   private async forking(id: string): Promise<string | undefined> {
     this.say(undefined);
@@ -1597,6 +1615,7 @@ export class WiredStore {
       said: () => this.refusal,
       setTags: (id, tags) => this.tagged(id, tags),
       send: (id, sent) => this.sending(id, sent),
+      evaluateComment: (id, comment) => this.evaluating(id, comment),
       tune: (id, tuning) =>
         void this.plain(
           this.api.tuneSession({

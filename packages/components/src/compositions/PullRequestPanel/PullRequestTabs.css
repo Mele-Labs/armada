@@ -75,12 +75,29 @@
   border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
-/* A human comment the agent read: its mark, where it was left and the act that hands it to the Job sit at the head's trailing edge. */
-.armada-pr-card__triage {
+/* What the agent made of a comment, then Evaluate, at the head's trailing edge. */
+.armada-pr-card__trail {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   margin-inline-start: auto;
+}
+.armada-pr-card__triage {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+/* Evaluate and its sent mark share one cell: the button keeps the cell's width once the mark replaces it. */
+.armada-pr-card__act {
+  display: inline-grid;
+  align-items: center;
+  justify-items: end;
+}
+.armada-pr-card__act > * {
+  grid-area: 1 / 1;
+}
+.armada-pr-card__act > [data-room] {
+  visibility: hidden;
 }
 .armada-pr-card__triage[data-read="change"] > .armada-pr-mark {
   color: var(--fg-default);
@@ -112,6 +129,33 @@
   min-width: 0;
   padding: var(--space-3);
   overflow-wrap: anywhere;
+}
+
+/* A thread on the diff: where it is, heavy and in the code's face, over the lines it is about and every comment on it. */
+.armada-pr-thread__where {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+}
+.armada-pr-card[data-resolved] .armada-pr-thread__where {
+  color: var(--fg-muted);
+}
+.armada-pr-thread__code {
+  min-width: 0;
+  overflow-x: auto;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+.armada-pr-thread {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.armada-pr-thread__comment + .armada-pr-thread__comment {
+  border-top: var(--border-width) solid var(--border-subtle);
 }
 
 /* A bare glyph, named on hover, in the hue of what it says. */

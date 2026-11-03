@@ -25,7 +25,6 @@ import {
   MessageSquareOff,
   MessageSquareReply,
   ScrollText,
-  Send,
   ShieldCheck,
   ShieldOff,
   ShieldX,
@@ -38,9 +37,11 @@ import type {
   PullRequestEntry,
   PullRequestFile,
   PullRequestPage,
+  PullReviewThread,
 } from "@armada/protocol";
 
 import { Button } from "../../primitives/Button/Button";
+import { UnifiedDiff, type DiffFile } from "../UnifiedDiff/UnifiedDiff";
 import { Prose } from "../../primitives/Prose/Prose";
 import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
 import { TabPanel, Tabs } from "../../primitives/Tabs/Tabs";
@@ -58,7 +59,7 @@ import { ReachTests, ReachToggle, type FilesReach, type ReachTest } from "./Pull
 export type PullRequestTabsProps = {
   page: Pick<
     PullRequestPage,
-    "author" | "created_at" | "conversation" | "checks" | "files" | "commits"
+    "author" | "created_at" | "conversation" | "checks" | "files" | "commits" | "threads"
   >;
   /** What its author wrote of it, as Markdown. The first entry of the conversation. Absent or blank draws none. */
   description?: string;
@@ -78,22 +79,42 @@ export type PullRequestTabsProps = {
   /** The tab shown, where the host holds it. Absent leaves the tabs to choose for themselves. */
   tab?: string;
   onTab?: (id: string) => void;
-  /** What Fleet's agent made of an entry, where it read it as a human comment on the pull request: its mark, and the acts on it. */
+  /** What Fleet's agent made of an entry, where it read it as a human comment on the pull request: its mark. */
   triage?: (entry: PullRequestEntry) => EntryTriage | undefined;
   /** The entry the panel was opened at: scrolled to and marked. */
   focused?: (entry: PullRequestEntry) => boolean;
+  /** Evaluate on every comment, review and thread comment. Absent draws none. */
+  evaluate?: CommentEvaluate | undefined;
+  /** The lines of the diff a thread on a line is about, where the host has read them. Absent or undefined draws none. */
+  excerpt?: ((thread: PullReviewThread) => DiffFile | undefined) | undefined;
 };
 
-/** What the agent made of one human comment, and what may be done with it. */
+/** What the agent made of one human comment. */
 export type EntryTriage = {
   read: CommentRead;
   /** Where in the code it was left. */
   where?: string;
-  /** It was sent to the Job. */
-  sent?: boolean;
-  /** Hands it to the Job's agent. Absent, the comment has no act. */
-  onSend?: () => void;
 };
+
+/** One comment the person may hand to the Job to weigh. */
+export type EvaluatedComment = {
+  id: string;
+  author: string;
+  body: string;
+  /** `path:line`, or `path` for a comment on a whole file. Absent on the conversation. */
+  where?: string;
+};
+
+/** Evaluate asks the Job to weigh a comment and bring a proposal. Nothing is posted to the forge. */
+export type CommentEvaluate = {
+  onEvaluate: (comment: EvaluatedComment) => void;
+  /** It was sent to the Job: the act is a mark in its place. */
+  sent: (id: string) => boolean;
+};
+
+/** Where a thread is: `path:line`, or `path` for one on the whole file. */
+export const whereOfThread = (thread: Pick<PullReviewThread, "path" | "line">): string =>
+  thread.line === undefined ? thread.path : `${thread.path}:${thread.line}`;
 
 /** What the agent made of a comment, as a glyph and the words its tooltip reads. */
 export const COMMENT_READ: Readonly<
@@ -150,6 +171,8 @@ export function PullRequestTabs({
   onTab,
   triage,
   focused,
+  evaluate,
+  excerpt,
 }: PullRequestTabsProps) {
   const [own, setOwn] = useState("conversation");
   const tab = held ?? own;
@@ -177,6 +200,9 @@ export function PullRequestTabs({
           <Conversation
             page={page}
             description={description ?? ""}
+            threads={page.threads}
+            evaluate={evaluate}
+            excerpt={excerpt}
             {...(triage === undefined
               ? {}
               : {
@@ -316,8 +342,8 @@ export function Mark({
   );
 }
 
-/** The agent's read of a human comment, on the comment: its glyph, where in the code it was left, and the act that hands it to the Job, or the mark that it was handed. */
-function Triaged({ triage, who }: { triage: EntryTriage; who: string }) {
+/** The agent's read of a human comment, on the comment: its glyph, and where in the code it was left. */
+function Triaged({ triage }: { triage: EntryTriage }) {
   const { Glyph, said } = COMMENT_READ[triage.read];
   return (
     <span className="armada-pr-card__triage" data-read={triage.read}>
@@ -325,23 +351,76 @@ function Triaged({ triage, who }: { triage: EntryTriage; who: string }) {
       {triage.where === undefined ? null : (
         <code className="armada-pr-card__where">{triage.where}</code>
       )}
-      {triage.sent === true ? (
-        <Mark Glyph={Check} said="Sent to the Job" tone="success" />
-      ) : triage.onSend === undefined ? null : (
-        <Tooltip label="Send to Job">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            iconOnly
-            aria-label={`Send to Job: ${who}${triage.where === undefined ? "" : ` on ${triage.where}`}`}
-            onClick={triage.onSend}
-          >
-            <Send size={16} strokeWidth={2} aria-hidden />
-          </Button>
-        </Tooltip>
-      )}
     </span>
+  );
+}
+
+/**
+ * Evaluate, at the head's trailing edge, or the mark that it was sent. **The sent mark takes the
+ * button's cell**, and the button is kept in it unseen, so the column does not move down the list.
+ */
+function Evaluate({
+  evaluate,
+  comment,
+  named = comment.where,
+}: {
+  evaluate: CommentEvaluate;
+  comment: EvaluatedComment;
+  /** The place its name gives, where the comment's own is not the one a reader tells it by. */
+  named?: string | undefined;
+}) {
+  const sent = evaluate.sent(comment.id);
+  return (
+    <span className="armada-pr-card__act">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        data-room={sent || undefined}
+        inert={sent || undefined}
+        aria-hidden={sent || undefined}
+        aria-label={`Evaluate: ${comment.author}${named === undefined ? "" : ` on ${named}`}`}
+        onClick={() => evaluate.onEvaluate(comment)}
+      >
+        Evaluate
+      </Button>
+      {sent ? <Mark Glyph={Check} said="Sent to the Job" tone="success" /> : null}
+    </span>
+  );
+}
+
+/** The head of one comment: what it is, who, when, and the act on it. */
+function CommentHead({
+  mark,
+  who,
+  at,
+  triage,
+  act,
+}: {
+  mark?: ReactNode;
+  who: string | undefined;
+  at: string | undefined;
+  triage?: EntryTriage | undefined;
+  act?: ReactNode;
+}) {
+  return (
+    <header className="armada-pr-card__head">
+      {mark}
+      {who === undefined ? null : <b className="armada-pr-card__who">{who}</b>}
+      {at === undefined ? null : <Stamp first="age" at={at} className="armada-pr-card__ago" />}
+      <span className="armada-pr-card__trail">
+        {triage === undefined ? null : <Triaged triage={triage} />}
+        {act}
+      </span>
+    </header>
+  );
+}
+
+function Body({ text }: { text: string }) {
+  return text.trim() === "" ? null : (
+    <div className="armada-pr-card__body">
+      <Prose text={text} />
+    </div>
   );
 }
 
@@ -352,6 +431,7 @@ function Entry({
   mark,
   body,
   triage,
+  act,
   focus,
 }: {
   title?: string;
@@ -360,7 +440,8 @@ function Entry({
   mark?: ReactNode;
   body: string;
   triage?: EntryTriage | undefined;
-  focus?: boolean;
+  act?: ReactNode;
+  focus?: boolean | undefined;
 }) {
   const card = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -379,35 +460,146 @@ function Entry({
         aria-label={title ?? who}
         data-focus={focus || undefined}
       >
-        <header className="armada-pr-card__head">
-          {mark}
-          {who === undefined ? null : <b className="armada-pr-card__who">{who}</b>}
-          {at === undefined ? null : <Stamp first="age" at={at} className="armada-pr-card__ago" />}
-          {triage === undefined ? null : <Triaged triage={triage} who={who ?? ""} />}
-        </header>
-        {body.trim() === "" ? null : (
-          <div className="armada-pr-card__body">
-            <Prose text={body} />
-          </div>
-        )}
+        <CommentHead mark={mark} who={who} at={at} triage={triage} act={act} />
+        <Body text={body} />
       </article>
     </li>
   );
 }
 
+/**
+ * A thread on the diff: headed by where it is, then the lines it is about where the host read them,
+ * then its first comment and every reply in the order they were said.
+ */
+function ThreadEntry({
+  thread,
+  excerpt,
+  evaluate,
+}: {
+  thread: PullReviewThread;
+  excerpt: DiffFile | undefined;
+  evaluate: CommentEvaluate | undefined;
+}) {
+  const where = whereOfThread(thread);
+  return (
+    <li className="armada-pr-entry">
+      <article
+        className="armada-pr-card"
+        aria-label={`Thread on ${where}`}
+        data-resolved={thread.resolved || undefined}
+      >
+        <header className="armada-pr-card__head">
+          {thread.resolved ? <Mark Glyph={Check} said="Resolved" tone="success" /> : null}
+          <code className="armada-pr-thread__where">{where}</code>
+        </header>
+        {excerpt === undefined ? null : (
+          <div className="armada-pr-thread__code">
+            <UnifiedDiff
+              files={[
+                excerpt,
+              ]}
+            />
+          </div>
+        )}
+        <ol className="armada-pr-thread" aria-label={`Comments on ${where}`}>
+          {thread.comments.map((one) => (
+            <li key={one.id} className="armada-pr-thread__comment">
+              <article aria-label={one.author}>
+                <CommentHead
+                  who={one.author}
+                  at={one.at}
+                  act={
+                    evaluate === undefined ? undefined : (
+                      <Evaluate
+                        evaluate={evaluate}
+                        comment={{
+                          id: one.id,
+                          author: one.author,
+                          body: one.body,
+                          where,
+                        }}
+                      />
+                    )
+                  }
+                />
+                <Body text={one.body} />
+              </article>
+            </li>
+          ))}
+        </ol>
+      </article>
+    </li>
+  );
+}
+
+type Said =
+  | {
+      kind: "entry";
+      at: number;
+      entry: PullRequestEntry;
+    }
+  | {
+      kind: "thread";
+      at: number;
+      thread: PullReviewThread;
+    };
+
+const timeOf = (at: string): number => {
+  const ms = Date.parse(at);
+  return Number.isNaN(ms) ? 0 : ms;
+};
+
+/** The conversation and the threads on the diff in the order they were said, a thread by its first comment. */
+function inOrder(
+  conversation: readonly PullRequestEntry[],
+  threads: readonly PullReviewThread[],
+): Said[] {
+  return [
+    ...conversation.map(
+      (entry): Said => ({
+        kind: "entry",
+        at: timeOf(entry.at),
+        entry,
+      }),
+    ),
+    ...threads.flatMap((thread): Said[] =>
+      thread.comments[0] === undefined
+        ? []
+        : [
+            {
+              kind: "thread",
+              at: timeOf(thread.comments[0].at),
+              thread,
+            },
+          ],
+    ),
+  ].sort((a, b) => a.at - b.at);
+}
+
+/**
+ * The description, then everything said on the pull request in time order. **`threads` are drawn
+ * only where they are passed**, since a surface that draws them on the diff already holds them.
+ */
 export function Conversation({
   page,
   description,
+  threads,
   triage,
   focused,
+  evaluate,
+  excerpt,
 }: {
   page: PullRequestTabsProps["page"];
   description: string;
+  threads?: readonly PullReviewThread[] | undefined;
   triage?: PullRequestTabsProps["triage"];
   focused?: PullRequestTabsProps["focused"];
+  evaluate?: CommentEvaluate | undefined;
+  excerpt?: PullRequestTabsProps["excerpt"];
 }) {
   const first = description.trim() !== "";
-  if (!first && page.conversation.length === 0) return null;
+  const said = inOrder(page.conversation, threads ?? []);
+  if (!first && said.length === 0) return null;
   return (
     <StampSurface>
       <ul className="armada-pr-list" aria-label="Conversation">
@@ -420,11 +612,22 @@ export function Conversation({
             body={description}
           />
         ) : null}
-        {page.conversation.map((entry, at) => {
+        {said.map((one) => {
+          if (one.kind === "thread")
+            return (
+              <ThreadEntry
+                key={`thread:${one.thread.id}`}
+                thread={one.thread}
+                excerpt={excerpt?.(one.thread)}
+                evaluate={evaluate}
+              />
+            );
+          const { entry } = one;
           const verdict = entry.kind === "review" ? VERDICT[entry.verdict] : undefined;
+          const read = triage?.(entry);
           return (
             <Entry
-              key={`${at}:${entry.at}`}
+              key={`${entry.kind}:${entry.id}`}
               who={entry.author}
               at={entry.at}
               mark={
@@ -433,7 +636,20 @@ export function Conversation({
                 )
               }
               body={entry.body}
-              triage={triage?.(entry)}
+              triage={read}
+              act={
+                evaluate === undefined || entry.body.trim() === "" ? undefined : (
+                  <Evaluate
+                    evaluate={evaluate}
+                    named={read?.where}
+                    comment={{
+                      id: entry.id,
+                      author: entry.author,
+                      body: entry.body,
+                    }}
+                  />
+                )
+              }
               focus={focused?.(entry)}
             />
           );

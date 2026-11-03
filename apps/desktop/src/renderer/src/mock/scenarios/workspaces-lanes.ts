@@ -19,6 +19,10 @@ import type { PullRequestPage } from "@armada/protocol";
 
 import { manifesting } from "../manifest-fake";
 import { sessionsStore } from "../sessions/script";
+import {
+  evaluateMessage,
+  type CommentToEvaluate,
+} from "@armada/screens/src/draft/evaluate-comment";
 import { sharedPanelReads } from "../shared-panel-reads";
 import type { PanelReads, PullRequestRead } from "../../shared-panel/reads";
 import { offerWorkflow, workflowsServed } from "../workflows-fleet";
@@ -761,10 +765,17 @@ function sessions(begin = 0, started = false) {
       if (!sent.includes("ask")) sent.push("ask");
       store.edit(id, (one) => at(moment)(settled(one)));
     },
-    // A comment sent to the Job: it reads as sent on the lane.
-    sendComment: (id: string, comment: string) => {
-      if (!sent.includes(comment)) sent.push(comment);
+    // Evaluate on a comment: its message reaches the Job, and the comment reads as sent on the lane.
+    evaluateComment: async (id: string, comment: CommentToEvaluate) => {
+      store.send(id, {
+        text: evaluateMessage(comment),
+        files: [],
+        sketches: [],
+        tags: [],
+      });
+      if (!sent.includes(comment.id)) sent.push(comment.id);
       store.edit(id, at(moment));
+      return true;
     },
     // The person adds to a Job's own copy from its lanes: the lanes draw it at once and mark it as made by them. Keep for every Job, for the workflow or for a piece, is taken, and the mock holds no proposal for it.
     copy: {
@@ -948,9 +959,10 @@ const page = (): PullRequestPage => ({
   review: "none",
   approvals: 0,
   body: "Adds gift cards to the cart and the balance endpoint.\n\nARM-41, ARM-42.",
-  conversation: COMMENTS.map((one, index) => ({
+  // The forge's id is the triage's, which is how the panel puts a read on its comment.
+  conversation: COMMENTS.map((one) => ({
     kind: "comment" as const,
-    id: `IC_812_${index + 1}`,
+    id: one.id,
     author: one.author,
     at: local("13:02"),
     body: one.text,

@@ -97,6 +97,9 @@ export type PullRequestPanelProps = {
   /** What Fleet's agent made of a human comment, and the entry the panel was opened at. Drawn on the Conversation tab. */
   triage?: PullRequestTabsProps["triage"];
   focused?: PullRequestTabsProps["focused"];
+  /** Evaluate on each comment, and the lines a thread is about. Drawn on the Conversation tab. */
+  evaluate?: PullRequestTabsProps["evaluate"];
+  excerpt?: PullRequestTabsProps["excerpt"];
   /** What Fleet refused, or anything else the host holds for the body. */
   children?: ReactNode;
   reading?: undefined;
@@ -405,6 +408,8 @@ function filled(
     more,
     triage,
     focused,
+    evaluate,
+    excerpt,
     back,
     children,
   }: PullRequestPanelProps,
@@ -576,6 +581,8 @@ function filled(
                 : {
                     focused,
                   })}
+              evaluate={evaluate}
+              excerpt={excerpt}
               tab={tab}
               onTab={onTab}
             />

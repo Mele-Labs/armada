@@ -11,6 +11,7 @@ import {
   repositoryOfAddress,
 } from "@armada/components";
 import type {
+  CommentEvaluate,
   DiffFile,
   EntryTriage,
   FilesReach,
@@ -37,7 +38,7 @@ import { useTerminalRun } from "./terminal-run";
 import { loadNotes, messageOf, sendNotes as recordSent } from "./job-notes";
 import type { NoteHandle } from "./job-notes";
 import { NotesBar, ResolvedToggle, useLineNotes } from "./job-notes-lines";
-import { patchesOf } from "./pull-request-patches";
+import { excerptsOf, patchesOf } from "./pull-request-patches";
 import { usePanelReads, useReading } from "./reads";
 import type { PatchesRead, PullRequestRead, PullRequestRefused, Reading } from "./reads";
 
@@ -190,30 +191,39 @@ function Drawn({
   );
   const { sentBack, sendBack } = useSendBack(owner?.id ?? "", draft?.send);
   const back = useBack();
-  // What the Job's agent made of each human comment, where this pull request is the one a Job triaged: drawn on the comment with the act that sends it to the Job.
+  // What the Job's agent made of each human comment, where this pull request is the one a Job triaged, found by the forge's id.
   const triage = owner?.lanes?.job.triage;
-  const sendComment = draft?.sendComment;
   const triaged = (entry: PullRequestEntry): EntryTriage | undefined => {
-    if (entry.kind !== "comment" || triage === undefined || owner === undefined) return undefined;
-    const one = triage.comments.find(
-      (each) => each.author === entry.author && each.text === entry.body,
-    );
-    if (one === undefined) return undefined;
-    return {
-      read: one.read,
-      where: one.where,
-      ...(one.sent === true
-        ? {
-            sent: true,
-          }
-        : {}),
-      ...(sendComment === undefined
-        ? {}
-        : {
-            onSend: () => sendComment(owner.id, one.id),
-          }),
-    };
+    if (entry.kind !== "comment" || triage === undefined) return undefined;
+    const one = triage.comments.find((each) => each.id === entry.id);
+    return one === undefined
+      ? undefined
+      : {
+          read: one.read,
+          where: one.where,
+        };
   };
+  // Evaluate on any comment hands it to the Job that holds the pull request; what arrived reads as sent while the panel is open.
+  const [evaluated, setEvaluated] = useState<ReadonlySet<string>>(new Set());
+  const evaluateComment = draft?.evaluateComment;
+  const evaluate: CommentEvaluate | undefined =
+    owner === undefined || evaluateComment === undefined
+      ? undefined
+      : {
+          onEvaluate: (comment) =>
+            void evaluateComment(owner.id, {
+              ...comment,
+              pullRequest: item.number,
+            }).then(
+              (went) =>
+                went &&
+                here.current &&
+                setEvaluated((was) => new Set(was).add(`${owner.id}#${item.number}:${comment.id}`)),
+            ),
+          sent: (id) =>
+            evaluated.has(`${owner.id}#${item.number}:${id}`) ||
+            triage?.comments.some((one) => one.id === id && one.sent === true) === true,
+        };
   const opened = item.comment;
   const focused = (entry: PullRequestEntry): boolean =>
     opened !== undefined && entry.author === opened.author && entry.body === opened.body;
@@ -248,10 +258,13 @@ function Drawn({
   const reviewed = useRef(false);
   reviewed.current = (written ?? read?.page)?.reviewers?.length ? true : false;
   const head = read?.page.head;
+  // The lines a thread on a line is about come from the same read, so the Conversation reads it too where one is.
+  const onLine = (read?.page.threads ?? []).some((one) => one.line !== undefined);
+  const wantsPatches = tab === "files" || (tab === "conversation" && onLine);
   const patchesRun = useRef(0);
   useEffect(() => {
     if (
-      tab !== "files" ||
+      !wantsPatches ||
       !paged ||
       readPatches === undefined ||
       (patches !== undefined && patches.head === head)
@@ -280,7 +293,7 @@ function Drawn({
           }),
       );
   }, [
-    tab,
+    wantsPatches,
     paged,
     head,
     patches,
@@ -397,6 +410,15 @@ function Drawn({
     ],
   );
   const marks = reach === undefined || reach.answer === "reading" ? undefined : reach.answer;
+  const excerpt = useMemo(
+    () =>
+      excerptsOf(
+        patches === undefined || patches.answer === "reading" ? undefined : patches.answer,
+      ),
+    [
+      patches,
+    ],
+  );
 
   if (read === undefined) {
     const repository = item.repository ?? repositoryOfAddress(item.address);
@@ -711,6 +733,8 @@ function Drawn({
           : {
               focused,
             })}
+        evaluate={evaluate}
+        excerpt={excerpt}
         {...(shownPatches === undefined
           ? {}
           : {

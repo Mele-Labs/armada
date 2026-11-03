@@ -65,7 +65,7 @@ const PR_PANEL = role("dialog", /#812/);
 // What goes back to the Workflow: a button where the panel opened over the Workflow's own, and Close where it opened over the docked one.
 const back = (panel: Target) =>
   either(inside(panel, button(/^Back/)), inside(panel, button("Close")));
-const SEND_MAYA = button("Send to Job: Maya on src/cart/totals.ts:42", {
+const EVALUATE_MAYA = button("Evaluate: Maya on src/cart/totals.ts:42", {
   exact: true,
 });
 // On a window wider than 1800px the same lanes are a layer in the spine, under the views.
@@ -341,12 +341,12 @@ export const workspacesLanes = walk("workspaces-lanes", [
     say: "A comment opens the pull request at that comment",
   },
   {
-    look: inside(PR_PANEL, SEND_MAYA),
-    say: "The triage is on the comment itself: a mark for what it needs, where in the code, and its act",
+    look: inside(PR_PANEL, EVALUATE_MAYA),
+    say: "The triage is on the comment itself: a mark for what it needs, where in the code, and Evaluate",
   },
   {
-    press: inside(PR_PANEL, SEND_MAYA),
-    say: "Send to Job hands the comment to the agent",
+    press: inside(PR_PANEL, EVALUATE_MAYA),
+    say: "Evaluate asks the agent to weigh the comment and bring you a proposal",
   },
   {
     look: inside(PR_PANEL, role("img", "Sent to the Job")),
