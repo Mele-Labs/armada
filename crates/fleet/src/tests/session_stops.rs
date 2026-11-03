@@ -5,10 +5,11 @@
 use std::sync::Arc;
 
 use api::{HostedSessions, Watches};
-use ipc::{SessionId, SessionRecord, SessionRow, SessionStanding, SetWaitingFor, StartWatch, StopReason, StopSession, WaitingInput, WatchStarts};
+use ipc::{SessionId, SessionRecord, SessionRow, SessionStanding, SetWaitingFor, StartWatch, StopReason, StopRepair, StopRestart, StopSession, WaitingInput, WatchStarts};
 use store::KeptStop;
 
 use crate::session_host::stopping::{self, read, Read};
+use crate::session_host::Heard;
 
 use super::session_host::{eventually, rig_placing, Rig};
 
@@ -21,7 +22,7 @@ fn millis(at: &str) -> i64 {
 }
 
 fn told(stop: &str, unheard: bool) -> KeptStop {
-    KeptStop { told: Some((stop.to_string(), TOLD.to_string())), unheard, passed_over: None }
+    KeptStop { told: Some((stop.to_string(), TOLD.to_string())), unheard, ..KeptStop::default() }
 }
 
 #[test]
@@ -189,4 +190,89 @@ async fn a_job_that_has_not_ended_a_turn_has_no_stop() {
     let row = record(&rig, &id).await;
     assert!(row.stop_told_by.is_none());
     assert!(row.stopped.is_none());
+}
+
+fn spent() -> store::KeptOpenTurn {
+    store::KeptOpenTurn { session_id: "a".into(), since: ENDED.into(), ended_at: Some(LATER.into()), started_again: 1 }
+}
+
+#[test]
+fn a_turn_is_dead_only_once_its_one_restart_is_spent() {
+    assert!(stopping::restart_spent(&spent()));
+    assert!(!stopping::restart_spent(&store::KeptOpenTurn { started_again: 0, ..spent() }), "Fleet is on it");
+    assert!(!stopping::restart_spent(&store::KeptOpenTurn { ended_at: None, ..spent() }), "its process spoke again");
+}
+
+#[test]
+fn a_dead_job_says_where_fleet_stands_and_amber_only_once_it_has_run_out() {
+    let dead = |kept: &KeptStop, over| stopping::dead(&spent(), kept, over, &[], None);
+    let waiting = dead(&KeptStop::default(), false);
+    assert_eq!((waiting.reason, waiting.restart, waiting.repair, waiting.gave_up), (StopReason::ProcessGone, StopRestart::Failed, None, false));
+    let running = dead(&KeptStop { repair_job: Some("r".into()), ..KeptStop::default() }, false);
+    assert_eq!((running.repair, running.gave_up), (Some(StopRepair::Running), false));
+    let failed = dead(&KeptStop { repair_job: Some("r".into()), ..KeptStop::default() }, true);
+    assert_eq!((failed.repair, failed.gave_up), (Some(StopRepair::Failed), true));
+    let held = dead(&KeptStop { repair_held: true, ..KeptStop::default() }, false);
+    assert_eq!((held.repair, held.gave_up), (Some(StopRepair::Held), true));
+    let itself = dead(&KeptStop { repairs: Some("a".into()), ..KeptStop::default() }, false);
+    assert_eq!((itself.repair, itself.gave_up), (None, true), "a repair Job gets no repair of its own");
+}
+
+#[test]
+fn a_process_lost_while_fleet_was_away_says_so() {
+    let away = [(ENDED.to_string(), LATER.to_string())];
+    let dead = stopping::dead(&spent(), &KeptStop::default(), false, &away, Some("gone".into()));
+    assert_eq!(dead.reason, StopReason::FleetDown);
+    assert_eq!(dead.said.as_deref(), Some("gone"));
+    assert!(dead.down.is_some());
+}
+
+/// A Job dead with its restart spent: two processes, each gone in the open turn.
+async fn dead_job(rig: &Rig) -> SessionId {
+    let id = rig.start().await;
+    rig.send(&id, "go").await;
+    eventually(|| async { rig.stand_in.starts().len() == 1 }).await;
+    rig.stand_in.init(0);
+    eventually(|| async { rig.fleet.store().lock().await.open_turn(id.as_str()).unwrap().is_some() }).await;
+    rig.stand_in.hears(0, Heard::Gone);
+    eventually(|| async { rig.stand_in.starts().len() == 2 }).await;
+    rig.stand_in.init(1);
+    rig.stand_in.hears(1, Heard::Gone);
+    eventually(|| async { record(rig, &id).await.stopped.is_some() }).await;
+    id
+}
+
+#[tokio::test]
+async fn a_dead_job_reads_stopped_gets_one_repair_job_nested_under_it_and_no_nudge() {
+    let rig = rig_placing(None);
+    let id = dead_job(&rig).await;
+    let row = record(&rig, &id).await;
+    assert_eq!(row.standing, Some(SessionStanding::Stopped));
+    assert_eq!(row.stopped.as_ref().map(|one| one.restart), Some(StopRestart::Failed));
+    assert!(row.waiting_for.is_empty(), "no item");
+
+    rig.fleet.stops_told().await;
+    let row = record(&rig, &id).await;
+    let stopped = row.stopped.as_ref().expect("still stopped");
+    assert_eq!((stopped.repair, stopped.gave_up), (Some(StopRepair::Running), false));
+    assert_eq!(nudges(&rig.rows(&id).await), 0, "a dead Job hears no nudge");
+
+    let kept = rig.fleet.store().lock().await.session_stop(id.as_str()).unwrap();
+    let repair = kept.repair_job.expect("a repair Job");
+    let child = record(&rig, &SessionId::carried(repair.as_str())).await;
+    assert!(child.title.as_deref().is_some_and(|title| title.starts_with("Repair: ")), "{:?}", child.title);
+    assert!(child.attachments.iter().any(|one| one.kind == "started_by" && one.target == id.as_str()), "nested under it");
+    assert!(!rig.fleet.store().lock().await.hosting(&repair).unwrap().unwrap().start_held, "no start card: he presses nothing");
+    eventually(|| async { rig.stand_in.starts().len() == 3 }).await;
+
+    rig.fleet.stops_told().await;
+    assert_eq!(rig.fleet.store().lock().await.session_stop(id.as_str()).unwrap().repair_job.as_deref(), Some(repair.as_str()), "one");
+    let started = rig.stand_in.starts().len();
+    rig.fleet.stops_told().await;
+    assert_eq!(rig.stand_in.starts().len(), started, "and no second");
+
+    // It ended and the Job is still dead: Fleet has run out, and the row reaches him.
+    super::session_queue::close(&rig, &SessionId::carried(repair.as_str())).await;
+    let stopped = record(&rig, &id).await.stopped.expect("still stopped");
+    assert_eq!((stopped.repair, stopped.gave_up), (Some(StopRepair::Failed), true));
 }

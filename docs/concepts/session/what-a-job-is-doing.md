@@ -60,8 +60,13 @@ His own Stop press passes over the stop it leaves, as the migration did for ever
 Some stops are fine and get nudged too, which is what reading a week of them after landing is for.
 Kept in `stop_nudges` (one row a Job).
 
-**A stopped Job asks him to press nothing.** It raises no item.
-A live agent that stopped again reads amber with `gave_up`: its process is fine, so a repair Job would have nothing to fix.
+**A stopped Job asks him to press nothing** (the owner, 3 Nov 2026: "If the app detects a stopped job, it should restart it. If it fails to restart it should dispatch a repair job unless fleet is down and the app is in a unhealthy state"). It raises no item.
+A process that dies in a turn is started again once ([What a restart does to a job](a-job-fleet-hosts.md)). One that dies again, with `session_open_turn` showing the restart spent, ends no turn, so no turn's end says it: the ledger reads it `stopped`, `process_gone`, or `fleet_down` where its open turn overlapped a stretch in `fleet_outages`.
+Fleet then starts a repair Job in the same repository, nested under it, with no start card, one at a time and never for a repair Job (`repairs_started`).
+If a probe of `get_health` fails, a new Job would fail the same way, so it starts none and the row says so.
+The row reads amber with `gave_up` only once Fleet has run out: its repair Job ended or said it is done with the Job still dead, Fleet is unhealthy, or the dead Job is itself a repair Job.
+A live agent that stopped again reads amber too: its process is fine, so a repair Job would have nothing to fix.
+A turn beginning clears the repair, so a later death gets its own.
 
 **Fleet's own acts stand in Now, Open and Done**, read from what is kept: each word and note of Fleet's in the thread is over, the nudge coming and the repair running are read off the row.
 Background model reads write no row, so they are none of these.

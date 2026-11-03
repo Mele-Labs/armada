@@ -1431,7 +1431,6 @@ export function cleanTitle(title: string | undefined): string | undefined {
   return flat === "" ? undefined : flat;
 }
 
-/** A session, whole. `rows` are the thread where it was opened and none where it was not; `reading` while Fleet has not answered a read of it. */
 /** The kind of act a Fleet word is, by the notice it was sent for. Fleet's background model reads write no row, so they are none of these. */
 function fleetActKindOf(notice: unknown): FleetActKind {
   switch (notice) {
@@ -1513,6 +1512,7 @@ function openCallOf(rows: readonly WireRow[], record: SessionRecord): Pick<Sessi
       };
 }
 
+/** A session, whole. `rows` are the thread where it was opened and none where it was not; `reading` while Fleet has not answered a read of it. */
 export function sessionOfRecord(
   record: SessionRecord,
   rows: readonly WireRow[] | undefined,

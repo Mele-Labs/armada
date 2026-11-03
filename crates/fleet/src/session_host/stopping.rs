@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use api::HostedSessions;
 use store::KeptStop;
 
 use crate::daemon::Fleet;
@@ -91,6 +92,41 @@ pub(crate) fn stopped(stop: &str, record: &ipc::SessionRecord) -> ipc::SessionSt
     }
 }
 
+/// What Fleet's note in the thread begins with when a process ends.
+pub(crate) const PROCESS_ENDED: &str = "The job's process ended";
+
+/// Its process died with the turn open and Fleet's one restart did not bring it back.
+pub(crate) fn restart_spent(turn: &store::KeptOpenTurn) -> bool {
+    turn.ended_at.is_some() && turn.started_again >= 1
+}
+
+/// What the row says of a Job dead with its restart spent: a repair Job is at it, or Fleet has run out.
+/// `away` is the outages its open turn overlapped. A repair Job gets no repair of its own.
+pub(crate) fn dead(
+    turn: &store::KeptOpenTurn,
+    kept: &KeptStop,
+    repair_over: bool,
+    away: &[(String, String)],
+    said: Option<String>,
+) -> ipc::SessionStopped {
+    let repair = match (&kept.repair_job, repair_over) {
+        (Some(_), true) => Some(ipc::StopRepair::Failed),
+        (Some(_), false) => Some(ipc::StopRepair::Running),
+        (None, _) => kept.repair_held.then_some(ipc::StopRepair::Held),
+    };
+    let down = away.last().map(|(from, to)| ipc::FleetAway { from: ipc::Instant::carried(from), to: ipc::Instant::carried(to) });
+    ipc::SessionStopped {
+        reason: if down.is_some() { ipc::StopReason::FleetDown } else { ipc::StopReason::ProcessGone },
+        at: ipc::Instant::carried(turn.ended_at.as_deref().unwrap_or(&turn.since)),
+        tasks: Vec::new(),
+        said,
+        restart: ipc::StopRestart::Failed,
+        repair,
+        gave_up: kept.repairs.is_some() || matches!(repair, Some(ipc::StopRepair::Failed | ipc::StopRepair::Held)),
+        down,
+    }
+}
+
 /// The Jobs whose stop is owed a word, by when it ended and the last thing that could have moved it, so
 /// the tick reads no Job it has nothing to say to.
 #[derive(Default)]
@@ -162,5 +198,74 @@ where
             self.hosts().stops_owed().noted(&id, None);
             let _ = self.published_hosted(&id).await;
         }
+        self.repairs_started().await;
+    }
+
+    /// A Job dead with its restart spent gets a repair Job, one at a time and never for a repair Job,
+    /// unless Fleet itself is unhealthy, when a new Job would fail the same way and he is told instead.
+    async fn repairs_started(self: &Arc<Self>) {
+        let (dead, running) = {
+            let store = self.store().lock().await;
+            let turns = store.open_turns().unwrap_or_default();
+            let dead: Vec<String> = turns
+                .iter()
+                .filter(|turn| restart_spent(turn))
+                .filter(|turn| self.hosts().of(&turn.session_id).state().process.is_none())
+                .filter(|turn| store.session_stop(&turn.session_id).is_ok_and(|kept| kept.repair_job.is_none() && kept.repairs.is_none()))
+                .filter(|turn| store.session(&turn.session_id).ok().flatten().is_some_and(|one| one.state == store::SessionState::Live))
+                .map(|turn| turn.session_id.clone())
+                .collect();
+            (dead, store.repair_running().unwrap_or(true))
+        };
+        let Some(id) = dead.into_iter().next().filter(|_| !running) else { return };
+        let healthy = self.health().await.is_ok_and(|health| !health.probes.iter().any(|one| one.outcome == "fail"));
+        let held = self.store().lock().await.session_stop(&id).is_ok_and(|kept| kept.repair_held);
+        if !healthy {
+            if !held {
+                let _ = self.store().lock().await.keep_repair_held(&id, true);
+                let _ = self.published_hosted(&id).await;
+            }
+            return;
+        }
+        if self.repair_started(&id).await.is_err() {
+            let _ = self.store().lock().await.keep_repair_held(&id, true);
+            let _ = self.published_hosted(&id).await;
+        }
+    }
+
+    /// Start a Job in the same repository, nested under the dead one, with no start card: he asked to press nothing.
+    async fn repair_started(self: &Arc<Self>, id: &str) -> Result<(), api::Refusal> {
+        let (session, hosting) = self.session_and_hosting(id).await?;
+        let title = session.title.clone().unwrap_or_else(|| id.to_string());
+        let manifest = ipc::ManifestId::carried(&hosting.manifest_id);
+        let made = self
+            .start_session(ipc::StartSession {
+                manifest_id: manifest,
+                title: Some(format!("Repair: {title}")),
+                model: None,
+                effort: None,
+                mode: None,
+                root: None,
+                fork: None,
+                request: None,
+                after: None,
+                held: false,
+                project_rows: Vec::new(),
+            })
+            .await?;
+        let repair = made.id.as_str().to_string();
+        self.started_linked(id, &repair, &hosting.manifest_id, None).await?;
+        self.store().lock().await.keep_repair_started(id, &repair).map_err(|why| self.ledger_fault(why))?;
+        let brief = format!(
+            "Job {id}, \"{title}\", lost its process during a turn, and Fleet's one restart did not bring it back. Find why from \
+             its log and what its process last said, fix what stopped it, then send it a message so it carries on. If it cannot \
+             be brought back, name what it needs with waiting_for. Then call finish_up and all_done."
+        );
+        Arc::clone(self)
+            .send_session_message(ipc::SendSessionMessage { session_id: made.id.clone(), text: brief, attachments: Vec::new(), mentions: Vec::new() })
+            .await?;
+        self.fleet_note(id, format!("Started a repair Job, {}", format_args!("Repair: {title}"))).await;
+        let _ = self.published_hosted(id).await;
+        Ok(())
     }
 }

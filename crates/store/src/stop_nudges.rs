@@ -14,6 +14,12 @@ pub struct KeptStop {
     pub unheard: bool,
     /// The stop never read as one: the person's Stop press, or one standing when this was first kept.
     pub passed_over: Option<String>,
+    /// The Job started to bring it back after its restart failed.
+    pub repair_job: Option<String>,
+    /// An unhealthy Fleet started no repair Job.
+    pub repair_held: bool,
+    /// On a repair Job: the Job it repairs. It never gets one of its own.
+    pub repairs: Option<String>,
 }
 
 impl Store {
@@ -29,11 +35,18 @@ impl Store {
     pub fn session_stop(&self, session: &str) -> Result<KeptStop, WriteError> {
         self.conn
             .query_row(
-                "SELECT told_stop, told_at, unheard, passed_over FROM stop_nudges WHERE session_id = ?1",
+                "SELECT told_stop, told_at, unheard, passed_over, repair_job, repair_held, repairs FROM stop_nudges WHERE session_id = ?1",
                 [session],
                 |row| {
                     let told: (Option<String>, Option<String>) = (row.get(0)?, row.get(1)?);
-                    Ok(KeptStop { told: told.0.zip(told.1), unheard: row.get(2)?, passed_over: row.get(3)? })
+                    Ok(KeptStop {
+                        told: told.0.zip(told.1),
+                        unheard: row.get(2)?,
+                        passed_over: row.get(3)?,
+                        repair_job: row.get(4)?,
+                        repair_held: row.get(5)?,
+                        repairs: row.get(6)?,
+                    })
                 },
             )
             .optional()
@@ -64,6 +77,67 @@ impl Store {
             )
             .map(|_| ())
             .map_err(fault("clearing that a Job was told of its stop"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Keep that `repair` was started to bring `session` back.
+    pub fn keep_repair_started(&mut self, session: &str, repair: &str) -> Result<(), WriteError> {
+        let doing = "keeping a repair Job";
+        self.conn
+            .execute(
+                "INSERT INTO stop_nudges (session_id, repair_job) VALUES (?1, ?2)
+                 ON CONFLICT (session_id) DO UPDATE SET repair_job = ?2, repair_held = 0",
+                (session, repair),
+            )
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        self.conn
+            .execute(
+                "INSERT INTO stop_nudges (session_id, repairs) VALUES (?1, ?2)
+                 ON CONFLICT (session_id) DO UPDATE SET repairs = ?2",
+                (repair, session),
+            )
+            .map(|_| ())
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)
+    }
+
+    /// Keep whether an unhealthy Fleet held back a repair Job for `session`.
+    pub fn keep_repair_held(&mut self, session: &str, held: bool) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT INTO stop_nudges (session_id, repair_held) VALUES (?1, ?2)
+                 ON CONFLICT (session_id) DO UPDATE SET repair_held = ?2",
+                (session, held),
+            )
+            .map(|_| ())
+            .map_err(fault("keeping that a repair Job was held back"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Its turn began again, so a later death is a new one and gets a repair of its own.
+    pub fn clear_repair(&mut self, session: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "UPDATE stop_nudges SET repair_job = NULL, repair_held = 0
+                 WHERE session_id = ?1 AND (repair_job IS NOT NULL OR repair_held = 1)",
+                [session],
+            )
+            .map(|_| ())
+            .map_err(fault("clearing a Job's repair"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Whether a repair Job is live now. Fleet runs one at a time.
+    pub fn repair_running(&self) -> Result<bool, WriteError> {
+        self.conn
+            .query_row(
+                "SELECT EXISTS (SELECT 1 FROM stop_nudges n JOIN sessions s ON s.id = n.session_id
+                 WHERE n.repairs IS NOT NULL AND s.state = 'live')",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(fault("reading whether a repair Job is live"))
             .map_err(WriteError::Database)
     }
 

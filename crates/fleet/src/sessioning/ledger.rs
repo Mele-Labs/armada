@@ -193,6 +193,8 @@ where
             Some(_) => crate::plan_keeping::pulls_read(store, &session.id, &held).map_err(fault)?,
             None => Vec::new(),
         };
+        let stop = store.session_stop(&session.id).map_err(fault)?;
+        let open_turn = store.open_turn(&session.id).map_err(fault)?;
         Ok(LedgerReads {
             wait,
             rail,
@@ -210,7 +212,16 @@ where
             later: store.later_of(&session.id).map_err(fault)?,
             watching: store.live_watch_names(&session.id).map_err(fault)?,
             holding: self.lifecycles_holding(store, &session.id),
-            stop: store.session_stop(&session.id).map_err(fault)?,
+            repair_over: stop.repair_job.as_deref().is_some_and(|repair| {
+                let ended = store.session(repair).ok().flatten().is_none_or(|one| one.state == store::SessionState::Ended);
+                ended || store.done_since(repair).ok().flatten().is_some()
+            }),
+            away: open_turn
+                .as_ref()
+                .and_then(|turn| Some(store.fleet_outages_between(&turn.since, turn.ended_at.as_deref()?).unwrap_or_default()))
+                .unwrap_or_default(),
+            stop,
+            open_turn,
             start,
             started,
         })
@@ -296,6 +307,7 @@ where
         record.closed = waited.closed;
         let parked = waited.start_held || waited.paused;
         let spoke = waited.spoke;
+        let died_saying = waited.died_saying;
         let plan_held = waited.plan_held;
         record.standing = (session.state == store::SessionState::Live).then_some(waited.standing);
         record.build = reads.build.record(record.standing == Some(ipc::SessionStanding::Stuck), workers_of(&record.attachments));
@@ -343,6 +355,8 @@ where
             || parked
             || !record.held_open_by.is_empty()
             || record.helm
+            // Its process died in the turn: Fleet is starting it again, or it reads as dead below.
+            || reads.open_turn.as_ref().is_some_and(|turn| turn.ended_at.is_some())
             || record.waits.is_some()
             || record.held_until.is_some()
             // A ticket lives as long as its work: only what is under way elsewhere excuses a stop.
@@ -361,6 +375,15 @@ where
             (stop, from.unwrap_or(0))
         });
         self.hosts().stops_owed().noted(&session.id, owed);
+        // Dead with the restart spent: nothing ends a turn here, so no turn's end says it.
+        let dead = session.state == store::SessionState::Live
+            && !parked
+            && reads.open_turn.as_ref().is_some_and(crate::session_host::stopping::restart_spent)
+            && self.hosts().of(&session.id).state().process.is_none();
+        if dead {
+            record.standing = Some(ipc::SessionStanding::Stopped);
+            record.stopped = reads.open_turn.as_ref().map(|turn| crate::session_host::stopping::dead(turn, &reads.stop, reads.repair_over, &reads.away, died_saying));
+        }
         record.stop_told_by = owed.map(|(_, from)| wire_instant(&crate::clock::rfc3339_utc(from + crate::session_host::stopping::STOP_AFTER.as_millis() as i64)));
         // How long the running turn has been at it and when it was last heard, which Now says beside it.
         if session.origin == "bridge" {

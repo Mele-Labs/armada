@@ -145,6 +145,8 @@ pub(crate) struct Waited {
     pub standing: ipc::SessionStanding,
     /// When the person last wrote to it. A Fleet word typed into a terminal reads back as his, and is left out.
     pub spoke: Option<String>,
+    /// The last thing a process of it said as it ended, from Fleet's note in the thread.
+    pub died_saying: Option<String>,
     /// It waits on its start card.
     pub start_held: bool,
     /// It is paused.
@@ -488,6 +490,12 @@ where
             _ => None,
         });
         let his_word = his_word.max().map(|at| at.as_str().to_string());
+        let died_saying = rows.iter().rev().find_map(|row| match row {
+            SessionRow::Message { from: SessionVoice::Session { id, .. }, text, .. } if id == "fleet" => {
+                text.strip_prefix(super::stopping::PROCESS_ENDED).map(|said| said.trim_start_matches([':', ' ']).to_string()).filter(|said| !said.is_empty())
+            }
+            _ => None,
+        });
         // Every window he has not approved since it was last shown waits, until he approves it or a
         // newer window shows the same page. A message or a note does not settle it. One changed after
         // it was shown waits again only when the Job shows it again, however long it has been ready.
@@ -758,7 +766,7 @@ where
         }
         // **A paused Job raises nothing**: its items come back after Resume, if they are still owed.
         let items = if paused { Vec::new() } else { items };
-        Waited { items, closed: Vec::new(), standing, spoke: his_word, start_held, paused, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default() }
+        Waited { items, closed: Vec::new(), standing, spoke: his_word, died_saying, start_held, paused, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default() }
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.

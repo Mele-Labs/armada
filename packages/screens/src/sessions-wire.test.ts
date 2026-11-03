@@ -4958,7 +4958,7 @@ describe("what Fleet saw of a Job and did for it", () => {
     ...(notice === undefined ? {} : { notice }),
   });
 
-  test("a stop says why and what Fleet is doing about it", () => {
+  it("a stop says why and what Fleet is doing about it", () => {
     const one = sessionOfRecord(
       record("a", {
         standing: "stopped",
@@ -4971,6 +4971,7 @@ describe("what Fleet saw of a Job and did for it", () => {
         },
       }),
       [],
+      beside(),
     );
     expect(one.standing).toBe("stopped");
     expect(one.stopped).toEqual({
@@ -4985,7 +4986,7 @@ describe("what Fleet saw of a Job and did for it", () => {
     ]);
   });
 
-  test("each of Fleet's words is an act that is over, and nothing the agent said is", () => {
+  it("each of Fleet's words is an act that is over, and nothing the agent said is", () => {
     const one = sessionOfRecord(record("a"), [
       fleetSaid("r1", "Fleet: your turn ended\nCarry on.", "stop_nudge"),
       fleetSaid("r2", "Step moved.", "rail_step"),
@@ -4998,15 +4999,15 @@ describe("what Fleet saw of a Job and did for it", () => {
         },
         text: "Done.",
       } as SessionRow,
-    ]);
+    ], beside());
     expect(one.fleetActs?.map((act) => [act.id, act.state, act.kind, act.said])).toEqual([
       ["r1", "over", "nudge", "your turn ended"],
       ["r2", "over", "step", "Step moved."],
     ]);
   });
 
-  test("the nudge coming stands in Open, with when", () => {
-    const one = sessionOfRecord(record("a", { stop_told_by: "2026-11-03T10:01:00.000Z" }), []);
+  it("the nudge coming stands in Open, with when", () => {
+    const one = sessionOfRecord(record("a", { stop_told_by: "2026-11-03T10:01:00.000Z" }), [], beside());
     expect(one.fleetActs).toEqual([
       expect.objectContaining({
         state: "coming",
@@ -5016,7 +5017,7 @@ describe("what Fleet saw of a Job and did for it", () => {
     ]);
   });
 
-  test("a running turn says when it began, when it was last heard and the call it is in", () => {
+  it("a running turn says when it began, when it was last heard and the call it is in", () => {
     const one = sessionOfRecord(
       record("a", {
         turn_since: "2026-11-03T10:00:00.000Z",
@@ -5030,6 +5031,7 @@ describe("what Fleet saw of a Job and did for it", () => {
           text: "Bash cargo check",
         } as SessionRow,
       ],
+      beside(),
     );
     expect(one.turnSince).toBe("2026-11-03T10:00:00.000Z");
     expect(one.lastHeardAt).toBe("2026-11-03T10:02:00.000Z");

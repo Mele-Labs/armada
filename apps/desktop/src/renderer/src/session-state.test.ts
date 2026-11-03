@@ -139,7 +139,7 @@ describe("working is what Fleet derived, not only a turn of its own", () => {
         }),
       ),
     ).toEqual({
-      state: "working",
+      state: "subagent",
       said: "Subagent working",
     });
   });
