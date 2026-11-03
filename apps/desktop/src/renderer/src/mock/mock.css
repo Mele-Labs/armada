@@ -214,7 +214,8 @@
   max-width: calc(100vw - var(--space-4));
   resize: both;
   overflow: hidden;
-  z-index: 50;
+  /* Over every layer: in the app this is a window of its own, which no sheet in Bridge lies over. */
+  z-index: calc(var(--z-modal) + 1);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);

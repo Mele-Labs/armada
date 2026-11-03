@@ -135,9 +135,12 @@ export function DraftRow({
   onAnswer,
   onWithdraw,
   onTeach,
+  headed = false,
 }: {
   row: DraftThreadRow;
   keep: string;
+  /** Its Approve and Send back are in the head of the sheet it is drawn in, named for it, so the card keeps what is its own: the text, Edit and Withdraw. */
+  headed?: boolean;
   onAnswer?: (rowId: string, answer: DraftAnswer) => void;
   onWithdraw?: (rowId: string, reason?: string) => void;
   onTeach?: (pick: TeachPick) => void;
@@ -268,7 +271,7 @@ export function DraftRow({
                       run: approveFixed,
                     },
                   }
-              : noting
+              : noting || headed
                 ? {}
                 : {
                     yes: {
@@ -284,7 +287,7 @@ export function DraftRow({
                     run: () => openBox("edit"),
                   },
                 }),
-            ...(editing || proposed !== undefined || rule !== undefined
+            ...(editing || headed || proposed !== undefined || rule !== undefined
               ? {}
               : {
                   sendBack: {
@@ -463,17 +466,19 @@ export function DraftRow({
               </>
             ) : (
               <>
-                <Button size="sm" variant="primary" onClick={approve}>
-                  {rule === undefined ? "Approve" : "Send"}
-                  <ThreadKbd act="yes" on={target} />
-                </Button>
+                {headed ? null : (
+                  <Button size="sm" variant="primary" onClick={approve}>
+                    {rule === undefined ? "Approve" : "Send"}
+                    <ThreadKbd act="yes" on={target} />
+                  </Button>
+                )}
                 {proposed !== undefined ? null : (
                   <>
                     <Button size="sm" variant="secondary" onClick={() => setMode("edit")}>
                       Edit
                       <ThreadKbd act="change" on={target} />
                     </Button>
-                    {rule !== undefined ? null : (
+                    {rule !== undefined || headed ? null : (
                       <Button size="sm" variant="secondary" onClick={() => setMode("note")}>
                         Note
                         <ThreadKbd act="sendBack" on={target} />
@@ -503,12 +508,16 @@ export function DraftRow({
               label: "Edit",
               icon: Pencil,
             },
-            {
-              kind: "item",
-              id: "note",
-              label: "Add note",
-              icon: MessageSquarePlus,
-            },
+            ...(headed
+              ? []
+              : [
+                  {
+                    kind: "item" as const,
+                    id: "note",
+                    label: "Add note",
+                    icon: MessageSquarePlus,
+                  },
+                ]),
           ]}
           onOpenChange={(now) => {
             if (!now) setMenu(undefined);

@@ -56,10 +56,6 @@ import {
   SavedOpen,
   type NoticeChoice,
   SketchPad,
-  SketchPreview,
-  SketchReading,
-  RevisionMenu,
-  sketchAtRevision,
   StepsPanel,
   SubagentMarks,
   useCodeRun,
@@ -108,11 +104,11 @@ import {
   notOursParts,
   watchSaid,
 } from "./session-view/watch-marks";
+import { drawnAsScene, SketchBody } from "./session-view/SketchBody";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress, type PictureMarked } from "./session-artifact";
 import { linkEntry, useStartedBy } from "./session-started";
 import {
   readingOfSketch,
-  sceneOfSketch,
   useSketchRevisions,
   withRevisionScenes,
   withSketchRevisions,
@@ -227,9 +223,15 @@ import { useCompactAct } from "./cockpit/deck/compact-act";
 import { holdsDelivery, stateOf, waitsOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
 import type { LoadoutAt } from "./session-loadout";
-import { changeLines } from "./session-view/plan-marks";
+import { addNote, changeLines } from "./session-view/plan-marks";
 import { planRevision } from "./session-view/plan-revision";
-import { PlanReview } from "./session-view/PlanReview";
+import { PlanPane, PlanReview } from "./session-view/PlanReview";
+import {
+  cardRowsOf,
+  JobReviewSheet,
+  waitingOf,
+  type ReviewParts,
+} from "./session-view/JobReviewSheet";
 import { groupTitleOf, linkedPropsOf } from "./session-view/linked";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
 import { askToEnd, dropAsk } from "./end-job";
@@ -826,81 +828,9 @@ export function ReadingSheet({
                 : "";
   const artifact = one?.kind === "artifact" ? one : undefined;
   // The agent's sketch is a scene, which wants the width.
-  // A sketch put to him and not yet answered carries the thread card's Approve and Send back.
-  const answer =
-    one?.kind === "sketch" &&
-    one.asked === true &&
-    one.withdrawn !== true &&
-    one.settled === undefined &&
-    draft?.answerSketch !== undefined
-      ? {
-          sketch: one.id,
-          keep: `sketch:${sessionId}:${one.id}`,
-          onAnswer: (sketch: string, given: SketchAnswer) =>
-            void draft.answerSketch?.(
-              sketchAnswerOf(
-                {
-                  id: sessionId,
-                  attachments: [
-                    one,
-                  ],
-                },
-                sketch,
-                given,
-              ),
-            ),
-          onWithdraw: (sketch: string) => void dismissWaiting(sessionId, sketch),
-        }
-      : undefined;
-  const drawnByAgent = one?.kind === "sketch" && (one.by === "agent" || "nodes" in one.drawing);
-  // A sketch with revisions offers each drawing, as the thread card does, at the end of the reading's band.
-  const sketch = one?.kind === "sketch" ? one : undefined;
-  const revisions = useSketchRevisions(
-    draft,
-    sessionId,
-    sketch === undefined
-      ? NO_ATTACHMENTS
-      : [
-          sketch,
-        ],
-  ).get(sketch?.id ?? "");
-  const [picked, setPicked] = useState<
-    | {
-        id: string;
-        revision: number;
-      }
-    | undefined
-  >(undefined);
+  const drawnByAgent = one?.kind === "sketch" && drawnAsScene(one);
+  // The sketch's own revision menu is open: its Esc closes the menu and not the sheet.
   const [revising, setRevising] = useState(false);
-  const reading = sketch === undefined ? undefined : readingOfSketch(sketch);
-  const shown =
-    reading === undefined
-      ? undefined
-      : sketchAtRevision(
-          revisions,
-          picked?.id === sketch?.id ? picked?.revision : undefined,
-          reading,
-        );
-  const revisionMenu =
-    revisions === undefined || shown?.revision === undefined || sketch === undefined ? undefined : (
-      <RevisionMenu
-        count={revisions.length}
-        revision={shown.revision}
-        align="end"
-        open={revising}
-        onOpenChange={setRevising}
-        onPick={(revision) =>
-          setPicked(
-            revision === revisions.length
-              ? undefined
-              : {
-                  id: sketch.id,
-                  revision,
-                },
-          )
-        }
-      />
-    );
   const background = one?.kind === "background" ? one : undefined;
   const Glyph =
     artifact !== undefined
@@ -967,49 +897,20 @@ export function ReadingSheet({
           // The sheet's body pads it already: a second pad doubled the margin.
           <StepsPanel {...steps} onOpenInBrowser={onOpenLink} />
         ) : one?.kind === "sketch" ? (
-          one.by === "agent" || "nodes" in one.drawing ? (
-            <SketchReading
-              key={shown?.revision}
-              scene={shown?.scene ?? sceneOfSketch(one.drawing)}
-              title={one.title}
-              {...(shown?.against === undefined
-                ? {}
-                : {
-                    against: shown.against,
-                  })}
-              {...(shown?.earlier === true
-                ? {}
-                : {
-                    notes: {
-                      key: `sketch:${sessionId}:${one.id}`,
-                      job: sessionId,
-                    },
-                  })}
-              {...(marked?.parts === undefined || shown?.earlier === true
-                ? {}
-                : {
-                    marked: marked.parts,
-                  })}
-              {...(answer === undefined
-                ? {}
-                : {
-                    answer,
-                  })}
-              {...(revisionMenu === undefined
-                ? {}
-                : {
-                    menu: revisionMenu,
-                  })}
-            />
-          ) : (
-            <SketchPreview
-              label={one.title}
-              boxes={one.drawing.boxes}
-              lines={one.drawing.lines}
-              strokes={one.drawing.strokes ?? []}
-              pictures={[]}
-            />
-          )
+          // A sketch put to him and not yet answered carries the thread card's Approve and Send back.
+          <SketchBody
+            key={one.id}
+            sessionId={sessionId}
+            one={one}
+            draft={draft}
+            answers
+            onRevising={setRevising}
+            {...(marked?.parts === undefined
+              ? {}
+              : {
+                  marked: marked.parts,
+                })}
+          />
         ) : one?.kind === "subagent" ? (
           <SubagentThread sessionId={sessionId} one={one} thread={subagentThread} />
         ) : one?.kind === "background" ? (
@@ -1227,18 +1128,10 @@ export function entriesOf(
   freeSlot?: (itemId: string, slot: number) => void | Promise<unknown>,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
-  // A recorded plan, and a sketch or a document put to him, are cards in the thread, so the ledger does not list them again. A watch that ended not ours is a card in Needs you.
-  // A draft is listed: its card can sit behind Show earlier in a long thread, and Needs you is where it is found.
+  // A recorded plan, a sketch and a document put to him are listed with the rest, as carriers of the review sheet's items; the Needs you card does not list them. A watch that ended not ours is a card in Needs you.
+  // A draft is listed: its card can sit behind Show earlier in a long thread, and the review sheet is where it is found.
   const waiting = (
-    session.dead === "ended"
-      ? []
-      : owesOf(session).filter(
-          (one) =>
-            one.source !== "plan" &&
-            one.source !== "sketch" &&
-            one.source !== "document" &&
-            one.source !== "watch_not_ours",
-        )
+    session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "watch_not_ours")
   ).map((one): LedgerEntry => {
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act =
@@ -1766,7 +1659,6 @@ function handoffFailure(session: Session): DebugPayload {
 /** One Session open: its conversation in the middle and what it holds at the side, one panel. */
 const NO_SKETCHES: DrawnSketch[] = [];
 const NO_ROWS: SessionThreadRow[] = [];
-const NO_ATTACHMENTS: readonly SessionAttachment[] = [];
 
 const NO_REPOSITORIES: readonly RepositorySummary[] = [];
 
@@ -1801,6 +1693,8 @@ export function SessionView({
   const [reading, setReading] = useState<Reading | undefined>();
   /** The plan opened in full to review. */
   const [reviewing, setReviewing] = useState(false);
+  /** The Job the review sheet over everything waiting on him is open for. */
+  const [reviewSheetFor, setReviewSheetFor] = useState<string | undefined>();
   // What he marked on the plan, held until he sends it: the review overlay's and the Plan panel's alike.
   const [marks, setMarks] = useState<PlanMark[]>([]);
   useEffect(
@@ -2326,7 +2220,7 @@ export function SessionView({
       )
       .map((one) => `waiting${one.id}`),
   );
-  const needs = entries.filter(
+  const waitingRows = entries.filter(
     (one) => one.kind === "waiting" && (doneShown || !carded.has(one.key)),
   );
   const ledger = entries.filter((one) => one.kind !== "waiting");
@@ -2603,7 +2497,88 @@ export function SessionView({
               }),
           onReview: () => setReviewing(true),
         };
-  const waits = needs.length > 0 || question !== undefined || notOurs.length > 0;
+  // What he reads rather than answers, a plan, sketch, draft, document and walk, is on the one sheet: each answer calls what the item's card or row calls, so there is no second path to Fleet.
+  const reviewParts: ReviewParts = {
+    session,
+    draft,
+    title: jobTitle(session),
+    rows: waitingRows,
+    ...(session.work?.plan === undefined || approval === undefined || planEditing === undefined
+      ? {}
+      : {
+          plan: {
+            body: (
+              <PlanPane
+                plan={session.work.plan}
+                ed={planEditing}
+                jobOf={(group) => jobOf(group).job}
+                issueOf={(group) =>
+                  cardIssueOf(
+                    issueOfGroup(
+                      session,
+                      session.work?.plan?.groups.find((one) => one.id === group)?.issue,
+                    )?.issue,
+                    session.manifestId,
+                  ).issue
+                }
+                {...(opensPrs
+                  ? {
+                      pullRequests: {
+                        onOpen: (number: number) =>
+                          read({
+                            kind: "pull_request",
+                            number,
+                          }),
+                      },
+                    }
+                  : {})}
+                {...planRevision(session.work.plan)}
+                {...(planJudge !== undefined
+                  ? {
+                      findings: planJudge,
+                    }
+                  : {})}
+              />
+            ),
+            approve: approvePlan,
+            // His note goes with what he marked, as his changes, on the plan's first group: the note is about the plan and the marks have no place for a whole.
+            sendBack: (note: string) => {
+              const group = session.work?.plan?.groups[0]?.id;
+              draft.work?.suggest(
+                session.id,
+                group === undefined
+                  ? marks
+                  : addNote(
+                      marks,
+                      {
+                        group,
+                      },
+                      note,
+                    ),
+              );
+              setMarks([]);
+            },
+          },
+        }),
+    drafts: new Map(
+      session.rows.flatMap((one) =>
+        one.kind === "draft"
+          ? [
+              [
+                one.id,
+                one,
+              ] as const,
+            ]
+          : [],
+      ),
+    ),
+  };
+  const reviewWaiting = waitingOf(reviewParts);
+  const sheetOpen = reviewSheetFor === session.id;
+  // The card keeps the rest: whatever the sheet did not build, and never a plan, sketch or document, which the thread's card or the sheet reads.
+  const needs = cardRowsOf(session, waitingRows, reviewWaiting);
+  const waits =
+    needs.length > 0 || question !== undefined || notOurs.length > 0 || reviewWaiting.length > 0;
   // While Needs you is up the band holds his answers, so the quick bar is not drawn over the box until it goes.
   const composerHere =
     lookHere === undefined
@@ -3200,6 +3175,12 @@ export function SessionView({
                                 question,
                               })}
                           cards={notOurs}
+                          review={reviewWaiting.map((one) => ({
+                            key: one.id,
+                            Glyph: one.mark.Glyph,
+                            said: one.said,
+                          }))}
+                          onReview={() => setReviewSheetFor(session.id)}
                         />
                         {failedShown ? (
                           <HandoffBand
@@ -3479,6 +3460,12 @@ export function SessionView({
               : {
                   marked: markedOf(reading)!,
                 })}
+          />
+          <JobReviewSheet
+            parts={reviewParts}
+            waiting={reviewWaiting}
+            open={sheetOpen}
+            onClose={() => setReviewSheetFor(undefined)}
           />
           <ClashFileSheet session={session} draft={draft} />
           <SketchSheet
