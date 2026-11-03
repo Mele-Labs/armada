@@ -303,6 +303,7 @@ describe("the start form", () => {
       until: "",
       spend: "",
       sessions: "",
+      weekly: "",
     };
     const boxes = {
       work: new Set([
@@ -337,6 +338,7 @@ describe("the start form", () => {
         until: "7am",
         spend: "$30.50",
         sessions: "",
+        weekly: "",
       },
       NOW,
     );
@@ -365,6 +367,7 @@ describe("the start form", () => {
           until: "",
           spend: "",
           sessions: "",
+          weekly: "",
         },
         NOW,
       ),
@@ -380,6 +383,7 @@ describe("the start form", () => {
           until: "soon",
           spend: "",
           sessions: "",
+          weekly: "",
         },
         NOW,
       ),
@@ -395,6 +399,7 @@ describe("the start form", () => {
           until: "",
           spend: "lots",
           sessions: "",
+          weekly: "",
         },
         NOW,
       ),

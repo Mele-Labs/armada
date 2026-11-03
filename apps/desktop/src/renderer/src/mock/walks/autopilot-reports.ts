@@ -29,6 +29,10 @@ const autopilotReports = walk("autopilot-reports", [
     say: "Check it to let Autopilot pick up the bugs agents reported",
   },
   {
+    look: inside(setup, role("textbox", "Weekly usage up to")),
+    say: "A new limit: Autopilot starts no more Jobs once your weekly usage reaches this percent",
+  },
+  {
     press: inside(setup, button("Start Autopilot")),
     say: "Start begins it with the box as set",
   },

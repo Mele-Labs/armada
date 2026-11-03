@@ -13,6 +13,7 @@ const FIELDS: AutopilotFields = {
   until: "07:00",
   spend: "30",
   sessions: "",
+  weekly: "",
 };
 
 const meta: Meta<typeof AutopilotFieldInputs> = {

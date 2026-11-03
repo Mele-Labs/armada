@@ -166,6 +166,7 @@ const BEGUN: Arm = {
     until: "",
     spend: "",
     sessions: "",
+    weekly: "",
   },
 };
 let arm = BEGUN;
@@ -767,21 +768,11 @@ export function ArmSetup({
                     unit: "$",
                   })}
                   {field("sessions", "Jobs in total")}
+                  {field("weekly", "Weekly usage up to", {
+                    unit: "%",
+                  })}
                 </div>
               </Group>
-              {alive.length === 0 ? null : (
-                <div className="ap-hud__sidings">
-                  <AutopilotPicks
-                    on={alive}
-                    state={state}
-                    onRefused={(why) =>
-                      move({
-                        refused: why,
-                      })
-                    }
-                  />
-                </div>
-              )}
             </div>
             <section className="ap-hud__column ap-hud__decisions" aria-label="Decisions">
               {DECISIONS.map((group) => (
@@ -797,6 +788,19 @@ export function ArmSetup({
                 </Group>
               ))}
             </section>
+            {alive.length === 0 ? null : (
+              <div className="ap-hud__sidings">
+                <AutopilotPicks
+                  on={alive}
+                  state={state}
+                  onRefused={(why) =>
+                    move({
+                      refused: why,
+                    })
+                  }
+                />
+              </div>
+            )}
           </div>
         );
       }}

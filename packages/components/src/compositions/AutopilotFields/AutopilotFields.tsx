@@ -9,6 +9,7 @@ export type AutopilotFields = {
   until: string;
   spend: string;
   sessions: string;
+  weekly: string;
 };
 
 /** What Fleet read the sentence as: the fields, and the person's own words each was read from, where it said any. */
@@ -42,9 +43,14 @@ const FIELDS: readonly (readonly [
     "Jobs",
     "no cap",
   ],
+  [
+    "weekly",
+    "Weekly usage, in percent",
+    "no cap",
+  ],
 ];
 
-/** The four settings as fields, each with the words it was read from where the form is a reading. */
+/** The settings as fields, each with the words it was read from where the form is a reading. */
 function Fields({
   fields,
   onChange,

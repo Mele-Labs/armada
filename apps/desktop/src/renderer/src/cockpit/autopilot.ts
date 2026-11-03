@@ -34,6 +34,7 @@ export function cappedOf(autopilot: Autopilot): string | undefined {
     sessions: "Job cap reached",
     spend: "spend cap reached",
     until: "time to stop passed",
+    weekly: "weekly usage cap reached",
   };
   return reached[autopilot.capped_by];
 }
@@ -106,6 +107,7 @@ export function fieldsOf(settings: AutopilotSettings): AutopilotFields {
     spend:
       settings.spend_cap_micros === undefined ? "" : dollars(settings.spend_cap_micros).slice(1),
     sessions: settings.session_cap === undefined ? "" : String(settings.session_cap),
+    weekly: settings.weekly_cap_percent === undefined ? "" : String(settings.weekly_cap_percent),
   };
 }
 
@@ -221,6 +223,15 @@ export function settingsFrom(
         why: "Jobs is a whole number, 1 or more, or blank for no cap.",
       };
     settings.session_cap = sessions;
+  }
+  if (fields.weekly.trim() !== "") {
+    const weekly = whole(fields.weekly.trim().replace(/%$/, ""));
+    if (!(weekly >= 1 && weekly <= 100))
+      return {
+        ok: false,
+        why: "Weekly usage is a percent from 1 to 100, or blank for no cap.",
+      };
+    settings.weekly_cap_percent = weekly;
   }
   if (boxes !== undefined) {
     settings.on_autopilot = {

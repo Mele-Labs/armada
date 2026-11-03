@@ -290,7 +290,6 @@
     flex-direction: column;
     gap: var(--space-3);
     min-width: 0;
-    min-height: 100%;
     padding: var(--space-3) var(--space-4) var(--space-6) calc(var(--space-4) + var(--space-2));
   }
   & .ap-hud__column:first-child {
@@ -396,20 +395,12 @@
     align-items: center;
     gap: var(--space-2);
   }
+  /* What Autopilot is choosing from and what it set aside: a row across the HUD, too wide for a column. */
   & .ap-hud__sidings {
-    flex: none;
-    /* The HUD's column is too narrow for the row's three columns: the reason and the acts take its whole width. */
-    & .armada-autopilot-aside__row {
-      grid-template-columns: auto minmax(0, 1fr);
-    }
-    & .armada-autopilot-aside__title {
-      white-space: normal;
-    }
-    & .armada-autopilot-aside__why,
-    & .armada-autopilot-aside__row > .armada-autopilot-aside__acts {
-      grid-column: 1 / -1;
-      grid-row: auto;
-    }
+    grid-column: 1 / -1;
+    padding-block: var(--space-3);
+    border-block-start: var(--border-width) solid color-mix(in srgb, var(--cb-cyan) 35%, transparent);
+    background: var(--bg-base);
   }
   & .ap-hud__why {
     display: grid;
