@@ -309,7 +309,7 @@ keep running when Fleet stops.
 | Fleet stops | pipes close, agent exits, subagents die | agent and subagents run on |
 | Fleet boots | next message resumes the conversation, in-flight work lost | Fleet reattaches, the thread continues from what the agent said while it was down |
 | The next message | `--resume` | a line on the same process's stdin |
-| A keeper that is gone | | a dead socket is removed; the next message resumes, as before |
+| A keeper that is gone | | a dead socket is removed; a Job with a turn open starts again, once, and any other resumes on the next message |
 
 **The keeper holds the offset.** Fleet acknowledges each line it has taken; on
 attach the keeper replays from the last acknowledgement. A line taken but not
@@ -327,6 +327,24 @@ return to must not run one for ever. The permission door (`armada mcp`) waits up
 to 90 seconds for a Fleet that is restarting before it fails a call. It reads
 Fleet's port once, so a Fleet that comes back on another port is not found; the
 port is claimed from the store and is normally the same.
+
+**A hosted Job's door also waits at its start.**
+An agent can start while Fleet restarts, and a door that finds no Fleet serves a handshake with no tools for the life of the process.
+The first tool call then ends the process, because `--permission-prompt-tool` names a tool it cannot find.
+So the door of a Job Fleet hosts tries again each second for up to 90 seconds before it serves that, and the CLI waits for it, up to the 120 second `MCP_TIMEOUT`.
+A terminal Job's door and `armada job` try once, since each has somebody to tell at once.
+
+**A Job whose process dies mid-turn starts again by itself, once.**
+Fleet keeps each open turn in the store (`session_open_turn`).
+The row is written on the first line of a turn, and deleted when the turn ends, when the person presses Stop, pauses or closes the Job, and when a reattached turn goes quiet.
+So a turn still open with no process is a death nobody asked for, whether Fleet heard the process go or came back to find no keeper.
+Fleet marks the turn ended and sends the Job a word that starts a process, which resumes the conversation.
+At boot it starts such Jobs one at a time, five seconds apart.
+A Job that is paused, ended, held on its start card or waiting on the plan's limit is not started, and its turn is closed.
+
+**The start is once for the turn.**
+The count stays on the row until a turn finishes, so a process that dies again before that starts nothing, and a Fleet restart does not reset it.
+The Job then reads as stopped.
 
 **`END` takes the keeper's socket and spool away at once**, from Fleet's side,
 so the next message starts a new keeper instead of reattaching to an agent that
