@@ -5,7 +5,12 @@
 // `POST /sessions/sketch/answer` settles it on the ledger. The Workflows page's feature Propose ends on any of six
 // (`workflows-managed.ts`). The walk `step-ends-any` plays it.
 
-import type { Session, WorkGroup, WorkPlan, WorkTaskState } from "@armada/screens/src/draft/sessions";
+import type {
+  Session,
+  WorkGroup,
+  WorkPlan,
+  WorkTaskState,
+} from "@armada/screens/src/draft/sessions";
 
 import { approved, shown, waitingOn, walkPage } from "../audit-job";
 import type { Scenario } from "../moment";
@@ -266,7 +271,12 @@ export const stepEndsAny: Scenario = {
                     plan: plan(
                       true,
                       "p-4",
-                      tasks("P", "open", "Add Pause at the end of the row", "Draw the row as paused"),
+                      tasks(
+                        "P",
+                        "open",
+                        "Add Pause at the end of the row",
+                        "Draw the row as paused",
+                      ),
                     ),
                     workflow: {
                       name: "Feature",
