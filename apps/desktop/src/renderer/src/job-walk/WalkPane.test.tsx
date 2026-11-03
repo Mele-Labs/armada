@@ -159,3 +159,118 @@ test("on a real Bridge it reports its frame, holds still pictures under a layer 
   await act(async () => root.unmount());
   expect(api.unplace).toHaveBeenCalledWith("job", WALK);
 });
+
+// A walk drawn twice: as a tab of the Job, and in the review sheet over it. Main holds one pair of views for it, so the pane in front (the sheet's) has them and the tab's yields.
+const SHEET_FRAME = {
+  x: 200,
+  y: 80,
+  width: 500,
+  height: 300,
+};
+const api = () => ({
+  place: vi.fn(async () => undefined),
+  unplace: vi.fn(async () => undefined),
+  freeze: vi.fn(async () => ({
+    page: PNG,
+    bar: PNG,
+  })),
+  thaw: vi.fn(async () => undefined),
+});
+/** A pane in a host of its own, in the review sheet when it is `front`: the layer holds the frame it draws. */
+const drawPane = async (front: boolean) => {
+  const box = front ? SHEET_FRAME : FRAME;
+  const host = document.createElement("div");
+  host.style.cssText = `position:fixed;left:${box.x}px;top:${box.y}px;width:${box.width}px;height:${box.height}px;display:flex`;
+  if (front) host.className = "armada-job-review";
+  document.body.append(host);
+  const root = createRoot(host);
+  roots.push({
+    root,
+    host,
+  });
+  await act(async () =>
+    root.render(
+      <SessionsFrom held={held}>
+        <WalkPane jobId="job" walkId={WALK} front={front} />
+      </SessionsFrom>,
+    ),
+  );
+  return root;
+};
+const frames = (count: number) =>
+  new Promise<void>((done) => {
+    let left = count;
+    const next = () => (--left <= 0 ? done() : requestAnimationFrame(next));
+    requestAnimationFrame(next);
+  });
+
+test("while the sheet's pane holds the walk, the tab's pane places nothing and freezes nothing", async () => {
+  const live = api();
+  armada({
+    jobWalk: live,
+  });
+  const tab = await drawPane(false);
+  await expect.poll(() => live.place.mock.calls.length).toBe(1);
+  expect(live.place).toHaveBeenLastCalledWith("job", WALK, FRAME);
+
+  await drawPane(true);
+  await expect.poll(() => live.place.mock.calls.length).toBe(2);
+  expect(live.place).toHaveBeenLastCalledWith("job", WALK, SHEET_FRAME);
+  // The sheet is the ground of its own pane and over the tab's: only the pane in front is a view to leave be, so nothing is held.
+  await frames(5);
+  expect(live.freeze).not.toHaveBeenCalled();
+  // The tab moves under the sheet and says nothing.
+  const at = roots[0]!.host;
+  at.style.left = "10px";
+  await frames(5);
+  expect(live.place).toHaveBeenCalledTimes(2);
+  expect(live.unplace).not.toHaveBeenCalled();
+
+  // A menu over the sheet holds the one view the walk has, once.
+  const menu = document.createElement("div");
+  menu.className = "armada-dropdown-menu__panel";
+  document.body.append(menu);
+  await expect.poll(() => live.freeze.mock.calls.length).toBe(1);
+  await frames(5);
+  expect(live.freeze).toHaveBeenCalledTimes(1);
+  menu.remove();
+  await act(async () => tab.unmount());
+});
+
+test("a pane that goes while another draws the walk does not unplace the view the other placed", async () => {
+  const live = api();
+  armada({
+    jobWalk: live,
+  });
+  await drawPane(false);
+  await expect.poll(() => live.place.mock.calls.length).toBe(1);
+  const sheet = await drawPane(true);
+  await expect.poll(() => live.place.mock.calls.length).toBe(2);
+
+  // The sheet closes: the tab is the only pane again, and places its own frame. The hide between would stop a walk that plays by itself.
+  await act(async () => sheet.unmount());
+  await expect.poll(() => live.place.mock.calls.length).toBe(3);
+  expect(live.place).toHaveBeenLastCalledWith("job", WALK, FRAME);
+  expect(live.unplace).not.toHaveBeenCalled();
+
+  // The last pane to go lets go of the views.
+  await act(async () => roots[0]!.root.unmount());
+  expect(live.unplace).toHaveBeenCalledTimes(1);
+  expect(live.unplace).toHaveBeenCalledWith("job", WALK);
+});
+
+test("a tab's pane that goes while the sheet's draws the walk leaves the sheet's views placed", async () => {
+  const live = api();
+  armada({
+    jobWalk: live,
+  });
+  const tab = await drawPane(false);
+  await expect.poll(() => live.place.mock.calls.length).toBe(1);
+  await drawPane(true);
+  await expect.poll(() => live.place.mock.calls.length).toBe(2);
+
+  await act(async () => tab.unmount());
+  await frames(5);
+  expect(live.unplace).not.toHaveBeenCalled();
+  expect(live.place).toHaveBeenCalledTimes(2);
+});
