@@ -8,6 +8,7 @@
 //! **Moved one method at a time.** A method not yet read over the API is `gh`'s, unchanged.
 
 mod ci;
+mod comments;
 mod connection;
 mod diff;
 mod issues;
@@ -460,6 +461,14 @@ impl Forge for ApiForge {
         let gh = |gh: &GhForge| gh.pull_request_patches(in_repo, pull_request);
         let Some(number) = numbered(pull_request) else { return gh(&self.gh) };
         self.read(in_repo, |api, repository| patches::read(api, repository, number).map(Some), gh)
+    }
+
+    fn pull_request_comments(&self, in_repo: &str, number: u64) -> Option<Vec<adapter_traits::PullComment>> {
+        self.read(
+            in_repo,
+            |api, repository| comments::read(api, repository, number),
+            |gh| gh.pull_request_comments(in_repo, number),
+        )
     }
 
     fn write_pull_request(
