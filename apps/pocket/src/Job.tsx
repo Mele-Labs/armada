@@ -579,7 +579,11 @@ function WaitingFacts({
             }}
           >
             {START_WHEN.map((one) => (
-              <option key={one.id} value={one.id} disabled={one.id === "plan" && parts.length === 0}>
+              <option
+                key={one.id}
+                value={one.id}
+                disabled={one.id === "plan" && parts.length === 0}
+              >
                 {one.label}
               </option>
             ))}
@@ -954,55 +958,55 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
               </footer>
             </div>
           ) : (
-          <div className="armada-session-frame__centre">
-            <WithKeptStyles machine={machine}>
-              <SessionThread
-                sessionId={`${machine.origin} ${id}`}
-                rows={rowsOf(session)}
-                {...(approval === undefined
-                  ? {}
-                  : {
-                      approval,
-                    })}
-                working={session.turn.state === "working"}
-                onAnswer={onAnswer}
-                onOpenSession={openJob}
-                onOpenFile={(path) => go(filePath(machine.origin, id, path))}
-                onOpenSketch={(sketch) => go(sketchPath(machine.origin, id, sketch))}
-                trailing={trailing}
-              />
-            </WithKeptStyles>
-            {session.dead !== undefined ? null : (
-              <div className="pk-dock">
-                <SessionComposer
-                  bare
-                  enterBreaks
+            <div className="armada-session-frame__centre">
+              <WithKeptStyles machine={machine}>
+                <SessionThread
+                  sessionId={`${machine.origin} ${id}`}
+                  rows={rowsOf(session)}
+                  {...(approval === undefined
+                    ? {}
+                    : {
+                        approval,
+                      })}
                   working={session.turn.state === "working"}
-                  model={null}
-                  effort={null}
-                  models={NONE}
-                  efforts={NONE}
-                  onTune={NOBODY}
-                  commands={NONE}
-                  taggable={NONE}
-                  tags={NONE}
-                  onTags={NOBODY}
-                  drawn={NONE}
-                  onDraw={NOBODY}
-                  onRemoveDrawn={NOBODY}
-                  draftKey={keep("message")}
-                  onSend={(sent) =>
-                    run(() =>
-                      acts.message({
-                        session_id: id,
-                        text: sent.text.trim(),
-                      }),
-                    )
-                  }
+                  onAnswer={onAnswer}
+                  onOpenSession={openJob}
+                  onOpenFile={(path) => go(filePath(machine.origin, id, path))}
+                  onOpenSketch={(sketch) => go(sketchPath(machine.origin, id, sketch))}
+                  trailing={trailing}
                 />
-              </div>
-            )}
-          </div>
+              </WithKeptStyles>
+              {session.dead !== undefined ? null : (
+                <div className="pk-dock">
+                  <SessionComposer
+                    bare
+                    enterBreaks
+                    working={session.turn.state === "working"}
+                    model={null}
+                    effort={null}
+                    models={NONE}
+                    efforts={NONE}
+                    onTune={NOBODY}
+                    commands={NONE}
+                    taggable={NONE}
+                    tags={NONE}
+                    onTags={NOBODY}
+                    drawn={NONE}
+                    onDraw={NOBODY}
+                    onRemoveDrawn={NOBODY}
+                    draftKey={keep("message")}
+                    onSend={(sent) =>
+                      run(() =>
+                        acts.message({
+                          session_id: id,
+                          text: sent.text.trim(),
+                        }),
+                      )
+                    }
+                  />
+                </div>
+              )}
+            </div>
           )}
         </SessionFrame>
       </div>

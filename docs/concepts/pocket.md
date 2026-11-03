@@ -130,6 +130,13 @@ The phone sends Fleet's own body shapes.
 | `POST /api/sessions/sketch/answer` | `answer_sketch` |
 | `POST /api/sessions/document/answer` | `answer_document` |
 | `POST /api/sessions/message` | a message to the Job |
+| `POST /api/sessions/change_waiting` | `change_waiting`, for when a waiting Job starts and whether it is approved |
+| `POST /api/sessions/start_waiting` | `start_waiting_now` |
+
+**A Job that waits on another opens to its waiting screen**, in place of its thread and message box.
+It holds what Bridge's waiting pane holds: the brief, the Job it waits on, the condition as a select, what it needs, where it starts from, Approve and Start now.
+The workflow, model and effort it starts on stay on the Mac.
+The items it holds are answered under those facts, since a waiting Job does not reach Needs you.
 
 **What a Job waits on is answered beside its thread**, each item only as Fleet takes it.
 `delivery`, `slot_choice`, `task_done` and `rule_act` take a choice alone, `watch_not_ours` a choice or words, `words_address` an address or words holding `{match}`, and the agent's own items a choice or words.
