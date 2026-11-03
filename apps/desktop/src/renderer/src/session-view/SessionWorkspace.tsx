@@ -36,6 +36,7 @@ import {
   TerminalBody,
   TerminalSync,
 } from "../job-panes/bodies";
+import { WalkBody } from "../job-walk/WalkBody";
 import { CustomBody } from "../job-panes/custom-body";
 import { focusKind, focusLayer } from "../job-panes/focus";
 import { JobPanes } from "../job-panes/JobPanes";
@@ -350,6 +351,8 @@ export function SessionWorkspace({
           );
         case "draft":
           return <DraftBody jobId={id} tab={tab} />;
+        case "walk":
+          return <WalkBody session={session} tab={tab} />;
         case "subagents":
           return (
             <Layer

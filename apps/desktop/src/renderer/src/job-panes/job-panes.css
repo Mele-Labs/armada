@@ -168,6 +168,29 @@
 .job-pane__tab[data-dragging] {
   opacity: 0.5;
 }
+/* A walk's tab he has not opened: the Job row's tint and pulse, on opacity alone, and still under reduced motion. */
+.job-pane__tab[data-owes] {
+  position: relative;
+}
+.job-pane__tab[data-owes]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--status-awaiting-review);
+  opacity: 0.06;
+  pointer-events: none;
+  animation: job-pane-owes-pulse 1.6s ease-in-out infinite;
+}
+@keyframes job-pane-owes-pulse {
+  50% {
+    opacity: 0.14;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .job-pane__tab[data-owes]::after {
+    animation: none;
+  }
+}
 .job-pane__label {
   display: inline-flex;
   align-items: center;

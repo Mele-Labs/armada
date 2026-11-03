@@ -209,6 +209,14 @@ export type SessionAttachment =
       kept?: string;
       /** A document: the kept style set of each `mock` in its sketches, by content hash, keyed `<sketch title>#<node id>`: `detail.kept_styles` on the wire. */
       keptStyles?: Readonly<Record<string, string>>;
+      /** A walk (form `window`) as its Job's tab draws it: the page's takes by name, and the steps, each pointing at a place on the page by name. **A mock's field**: nothing in Fleet carries it yet. */
+      walk?: {
+        takes?: readonly string[];
+        steps: readonly {
+          say: string;
+          target: string;
+        }[];
+      };
     }
   /**
    * The Session this one was forked to, and the one it was forked from. `id` is the other Session's.

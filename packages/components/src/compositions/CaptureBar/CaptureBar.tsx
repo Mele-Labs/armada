@@ -5,6 +5,7 @@ import {
   Crosshair,
   LoaderCircle,
   MessageCircleQuestion,
+  MessageSquarePlus,
   RefreshCw,
   RotateCcw,
   Search,
@@ -1149,6 +1150,175 @@ export function CaptureBar(props: CaptureBarProps) {
           ) : null}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * The bar of a walk drawn in a Job's own pane, over the page. **Not a capture window's bar**: it has no address, no Capture and no Autoplay, and its Notes go to the Job it
+ * sits in. It is `CaptureBar`'s rows and pills, in at most two. A walk with takes has them by name in the first row, one press to swap, with Approve at its end naming the
+ * take on screen, and the step's count, line, Back, Next and Note in the second. A walk without takes is one row: the same, with Reload, and Approve last. The line is the one track that
+ * gives, so Back, Next and Note stay where they are as it changes. ← and → in the takes walk them and swap; ⌘↵ approves while no field holds the cursor.
+ */
+export type WalkBarProps = {
+  /** The walk's name, as the group is labelled. */
+  name: string;
+  /** The page's takes by name. **Absent: the walk has one page**, and the bar is one row. */
+  takes?: CaptureBarVariations;
+  /** The step on screen, counted from 1, of this many. */
+  at: number;
+  of: number;
+  /** The step's line. */
+  said: string;
+  onBack: () => void;
+  onNext: () => void;
+  /** Reload, for a walk with no takes. */
+  onReload?: () => void;
+  onNote: () => void;
+  /** The note's field is open. */
+  noting?: boolean;
+  onApprove: () => void;
+};
+
+const TAKE_KEYS = [
+  "ArrowLeft",
+  "ArrowRight",
+  "Home",
+  "End",
+];
+
+export function WalkBar({
+  name,
+  takes,
+  at,
+  of,
+  said,
+  onBack,
+  onNext,
+  onReload,
+  onNote,
+  noting = false,
+  onApprove,
+}: WalkBarProps) {
+  const taking = takes?.names[takes.at];
+  // ← and → walk the takes, Home and End go to the ends; the take reached is on screen and holds the focus.
+  const walkTakes = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (takes === undefined || !TAKE_KEYS.includes(event.key)) return;
+    if ((event.target as HTMLElement).closest("[data-take]") === null) return;
+    const last = takes.names.length - 1;
+    const to =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? last
+          : Math.min(last, Math.max(0, takes.at + (event.key === "ArrowRight" ? 1 : -1)));
+    event.preventDefault();
+    const row = event.currentTarget;
+    takes.onPick(to);
+    window.requestAnimationFrame(() =>
+      row.querySelectorAll<HTMLElement>("[data-take]")[to]?.focus(),
+    );
+  };
+  const approve = (
+    <>
+      <Button variant="secondary" ground="sunken" size="sm" onClick={onApprove}>
+        <Check size={12} strokeWidth={2} aria-hidden />
+        {taking === undefined ? "Approve" : `Approve ${taking}`}
+      </Button>
+      <KbdChord
+        keys={[
+          ...QUEUE_KEYS.approve,
+        ]}
+        aria-label="⌘↵ approves"
+      />
+    </>
+  );
+  const steps = (
+    <>
+      <span className="armada-capture-bar__walk-where armada-capture-bar__walk-count">
+        {at} of {of}
+      </span>
+      <span className="armada-capture-bar__walk-said" title={said}>
+        {said}
+      </span>
+      <Tooltip label="Replay to the step before">
+        <Button variant="ghost" size="sm" disabled={at <= 1} onClick={onBack}>
+          <ChevronLeft size={12} strokeWidth={2} aria-hidden />
+          Back
+        </Button>
+      </Tooltip>
+      <Tooltip label="Act on the ringed target and go on">
+        <Button variant="primary" size="sm" disabled={at >= of} onClick={onNext}>
+          Next
+          <ChevronRight size={12} strokeWidth={2} aria-hidden />
+        </Button>
+      </Tooltip>
+      {onReload === undefined ? null : (
+        <Tooltip label="Reload" shortcut={QUEUE_KEYS.reload.join("")}>
+          <Button variant="ghost" size="sm" iconOnly aria-label="Reload" onClick={onReload}>
+            <RefreshCw size={16} strokeWidth={2} aria-hidden />
+          </Button>
+        </Tooltip>
+      )}
+      <Button variant="ghost" size="sm" aria-expanded={noting} onClick={onNote}>
+        <MessageSquarePlus size={12} strokeWidth={2} aria-hidden />
+        Note
+      </Button>
+    </>
+  );
+  return (
+    <div
+      className="armada-capture-bar armada-capture-bar--walk"
+      role="group"
+      aria-label={`Walk ${name}`}
+      onKeyDown={(event) => {
+        if (event.metaKey && !event.altKey && !event.ctrlKey && !event.shiftKey) {
+          if (event.key === "Enter" && !inAField(event.target)) {
+            event.preventDefault();
+            event.stopPropagation();
+            onApprove();
+          } else if (event.code === "KeyR" && onReload !== undefined) {
+            event.preventDefault();
+            event.stopPropagation();
+            onReload();
+          }
+        }
+      }}
+    >
+      {takes === undefined ? (
+        <div className="armada-capture-bar__row armada-capture-bar__walk">
+          {steps}
+          <span className="armada-capture-bar__acts armada-capture-bar__acts--end">{approve}</span>
+        </div>
+      ) : (
+        <>
+          <div className="armada-capture-bar__row armada-capture-bar__takes">
+            <div
+              role="toolbar"
+              aria-label="Takes"
+              aria-orientation="horizontal"
+              className="armada-capture-bar__take-row"
+              onKeyDown={walkTakes}
+            >
+              {takes.names.map((one, to) => (
+                <button
+                  key={one}
+                  type="button"
+                  data-take=""
+                  aria-pressed={to === takes.at}
+                  tabIndex={to === takes.at ? 0 : -1}
+                  className="armada-capture-bar__take"
+                  onClick={() => takes.onPick(to)}
+                >
+                  {one}
+                </button>
+              ))}
+            </div>
+            <span className="armada-capture-bar__acts">{approve}</span>
+          </div>
+          <div className="armada-capture-bar__row armada-capture-bar__walk">{steps}</div>
+        </>
+      )}
     </div>
   );
 }

@@ -1,0 +1,186 @@
+/* A walk in a Job's pane: the bar over the page. The bar is `CaptureBar.css`'s; this is the page's area and the mock's fixture inside it. Every value a token. */
+.job-walk {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.job-walk__page {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: var(--bg-raised);
+}
+
+/* The step's target, ringed in DOM: an outline off the element's edge, so it reads on a filled control too. */
+.job-walk__ring {
+  position: absolute;
+  box-sizing: border-box;
+  border-radius: var(--radius-sm);
+  outline: calc(var(--border-width) * 2) solid var(--accent);
+  outline-offset: calc(var(--border-width) * 2);
+  pointer-events: none;
+}
+
+.job-walk__note {
+  position: absolute;
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(calc(var(--space-8) * 10), calc(100% - var(--space-6)));
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+}
+
+.job-walk__note-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* The mock's page. Plain elements: a real walk's page is another program's. */
+.job-walk-mock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: calc(var(--space-8) * 18);
+  padding: var(--space-6);
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+}
+
+.job-walk-mock[data-density="roomy"] {
+  gap: var(--space-6);
+  padding: var(--space-8);
+  font-size: var(--text-base);
+}
+
+.job-walk-mock__title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-heading);
+}
+
+.job-walk-mock__sub {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--weight-heading);
+}
+
+.job-walk-mock__strong {
+  margin: 0;
+  font-weight: var(--weight-medium);
+}
+
+.job-walk-mock__muted {
+  margin: 0;
+  color: var(--fg-muted);
+}
+
+.job-walk-mock__card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+}
+
+.job-walk-mock__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-block-end: var(--space-2);
+}
+
+.job-walk-mock__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.job-walk-mock__item {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding-block: var(--space-1);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.job-walk-mock[data-density="roomy"] .job-walk-mock__item {
+  padding-block: var(--space-4);
+}
+
+.job-walk-mock__table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: start;
+}
+
+.job-walk-mock__table th {
+  color: var(--fg-muted);
+  font-weight: var(--weight-medium);
+  text-align: start;
+}
+
+.job-walk-mock__table th,
+.job-walk-mock__table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.job-walk-mock__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: fit-content;
+}
+
+.job-walk-mock__input {
+  min-width: calc(var(--space-8) * 6);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font: inherit;
+}
+
+.job-walk-mock__check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: fit-content;
+}
+
+.job-walk-mock__button {
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font: inherit;
+}
+
+.job-walk-mock__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+}

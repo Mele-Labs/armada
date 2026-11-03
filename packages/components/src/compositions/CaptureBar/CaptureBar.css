@@ -514,3 +514,31 @@
   > .armada-tooltip__bubble {
   display: none;
 }
+
+/* A walk in a Job's pane: the takes' row holds the pills together at its start, one press to swap, and Approve at its end. The step count keeps one
+   width so the line, the one track that gives, starts in the same place; Back, Next and Note follow it and stay where they are. */
+.armada-capture-bar__take-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.armada-capture-bar__walk-count {
+  min-width: 6ch;
+  margin-inline-start: 0;
+}
+
+.armada-capture-bar__acts--end {
+  margin-inline-start: 0;
+}
+
+.armada-capture-bar--walk .armada-capture-bar__takes {
+  overflow: visible;
+}
+
+.armada-capture-bar__take[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
