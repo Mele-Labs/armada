@@ -166,6 +166,25 @@ const MODEL_WAIT: &str = "ROUND(unixepoch(t.at, 'subsec') - unixepoch(t.model_be
 const TOOLS_RAN: &str = "ROUND(unixepoch(t.tools_ended, 'subsec') - unixepoch(t.tools_began, 'subsec'), 3)";
 const CHECK_RAN: &str = "ROUND(unixepoch(r.ended_at, 'subsec') - unixepoch(r.started_at, 'subsec'), 3)";
 
+/// The turns a read is made of, copied once into `read_turns` as `(k, model, session_id, units, md, td)`:
+/// the key a figure is grouped by, the burn, and the seconds of the model's wait and the tools' run
+/// (null where the turn is a subagent's, has no such span, or its tools wait on the owner). The
+/// medians and the burn then come from this one pass, which is most of what a read costs.
+/// `prefix` is a `WITH` the key may read from, and `from_where` is `FROM … t WHERE …`.
+fn take_turns(conn: &Connection, prefix: &str, key: &str, from_where: &str, args: &[&dyn rusqlite::ToSql]) -> Result<(), WriteError> {
+    conn.execute_batch("DROP TABLE IF EXISTS temp.read_turns").map_err(reading)?;
+    let asking = not_asking();
+    let sql = format!(
+        "CREATE TEMP TABLE read_turns AS {prefix} SELECT {key} AS k, t.model AS model, t.session_id AS session_id, {units} AS units,
+                CASE WHEN t.subagent = 0 AND t.model_began IS NOT NULL THEN {MODEL_WAIT} END AS md,
+                CASE WHEN t.subagent = 0 AND t.tools_began IS NOT NULL AND t.tools_ended IS NOT NULL {asking} THEN {TOOLS_RAN} END AS td
+         {from_where}",
+        units = crate::usage_summary::units(),
+    );
+    conn.execute(&sql, args).map_err(reading)?;
+    Ok(())
+}
+
 /// The four sources of medians: each selects `(k, d)`, the key a figure is grouped by and its seconds.
 struct Sources {
     model: String,
@@ -175,16 +194,12 @@ struct Sources {
 }
 
 impl Sources {
-    /// `turns` is `FROM … t WHERE …` over the turns to count, `runs` and `waits` the same over Check
-    /// runs as `r` and pull request waits as `p`, each keyed by the expressions given.
-    fn of(prefix: &str, turns: &str, turn_key: &str, runs: &str, run_key: &str, waits: &str, wait_key: &str) -> Sources {
-        let asking = not_asking();
+    /// The turns' two come from `read_turns`; `runs` and `waits` are `FROM … WHERE …` over Check runs
+    /// as `r` and pull request waits as `p`, each keyed by the expression given, after `prefix`.
+    fn of(prefix: &str, runs: &str, run_key: &str, waits: &str, wait_key: &str) -> Sources {
         Sources {
-            model: format!("{prefix} SELECT {turn_key} AS k, {MODEL_WAIT} AS d {turns} AND t.subagent = 0 AND t.model_began IS NOT NULL"),
-            tools: format!(
-                "{prefix} SELECT {turn_key} AS k, {TOOLS_RAN} AS d {turns} AND t.subagent = 0 AND t.tools_began IS NOT NULL \
-                 AND t.tools_ended IS NOT NULL {asking}"
-            ),
+            model: "SELECT k, md AS d FROM temp.read_turns".to_string(),
+            tools: "SELECT k, td AS d FROM temp.read_turns".to_string(),
             checks: format!("{prefix} SELECT {run_key} AS k, {CHECK_RAN} AS d {runs}"),
             pull_requests: format!("{prefix} SELECT {wait_key} AS k, p.wait_ms / 1000.0 AS d {waits} AND p.wait_ms > 0"),
         }
@@ -193,10 +208,10 @@ impl Sources {
 
 fn all_medians(conn: &Connection, sources: &Sources, args: &[&dyn rusqlite::ToSql]) -> Result<Vec<(i64, Medians)>, WriteError> {
     let mut by_key: std::collections::BTreeMap<i64, Medians> = std::collections::BTreeMap::new();
-    for (k, d) in medians_of(conn, &sources.model, args)? {
+    for (k, d) in medians_of(conn, &sources.model, &[])? {
         by_key.entry(k).or_default().model = Some(d);
     }
-    for (k, d) in medians_of(conn, &sources.tools, args)? {
+    for (k, d) in medians_of(conn, &sources.tools, &[])? {
         by_key.entry(k).or_default().tools = Some(d);
     }
     for (k, d) in medians_of(conn, &sources.checks, args)? {
@@ -247,24 +262,20 @@ impl Store {
         };
         let hour_of = |column: &str| format!("CAST((unixepoch({column}) - unixepoch(?1)) / 3600 AS INTEGER)");
         let args: [&dyn rusqlite::ToSql; 2] = [&since, &until];
+        take_turns(conn, "", &hour_of("t.at"), "FROM session_turn_usage t WHERE t.at >= ?1 AND t.at < ?2", &args)?;
         let sources = Sources::of(
             "",
-            "FROM session_turn_usage t WHERE t.at >= ?1 AND t.at < ?2",
-            &hour_of("t.at"),
             "FROM session_check_runs r WHERE r.ended_at >= ?1 AND r.ended_at < ?2",
             &hour_of("r.ended_at"),
             "FROM job_time_pull_requests p WHERE p.ended_at >= ?1 AND p.ended_at < ?2",
             &hour_of("p.ended_at"),
         );
         let mut found: std::collections::BTreeMap<u32, HourFigures> = std::collections::BTreeMap::new();
-        let sql = format!(
-            "SELECT {} AS h, model, SUM({}) AS u FROM session_turn_usage WHERE at >= ?1 AND at < ?2 GROUP BY h, model ORDER BY h, u DESC",
-            hour_of("at"),
-            crate::usage_summary::units()
-        );
-        let mut statement = conn.prepare(&sql).map_err(reading)?;
+        let mut statement = conn
+            .prepare("SELECT k, model, SUM(units) AS u FROM temp.read_turns GROUP BY k, model ORDER BY k, u DESC")
+            .map_err(reading)?;
         let rows = statement
-            .query_map(args, |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?, row.get::<_, f64>(2)?)))
+            .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?, row.get::<_, f64>(2)?)))
             .map_err(reading)?;
         for row in rows {
             let (hour, model, units) = row.map_err(reading)?;
@@ -272,11 +283,13 @@ impl Store {
                 found.entry(hour).or_default().burn.push((model, units));
             }
         }
+        drop(statement);
         for (hour, medians) in all_medians(conn, &sources, &args)? {
             if let Ok(hour) = u32::try_from(hour) {
                 found.entry(hour).or_default().medians = medians;
             }
         }
+        conn.execute_batch("DROP TABLE IF EXISTS temp.read_turns").map_err(reading)?;
         let mut out = Vec::with_capacity(found.len());
         for (hour, mut one) in found {
             one.hour = hour;
@@ -296,10 +309,9 @@ impl Store {
             return Ok(None);
         };
         let args: [&dyn rusqlite::ToSql; 1] = [&since];
+        take_turns(conn, CHOSEN, "b.id", "FROM sel b JOIN session_turn_usage t ON t.at >= b.started_at AND t.at < b.stop", &args)?;
         let sources = Sources::of(
             CHOSEN,
-            "FROM sel b JOIN session_turn_usage t ON t.at >= b.started_at AND t.at < b.stop WHERE 1 = 1",
-            "b.id",
             "FROM sel b JOIN session_check_runs r ON r.ended_at >= b.started_at AND r.ended_at < b.stop",
             "b.id",
             "FROM sel b JOIN job_time_pull_requests p ON p.ended_at >= b.started_at AND p.ended_at < b.stop WHERE 1 = 1",
@@ -309,9 +321,10 @@ impl Store {
 
         let mut figures = Vec::new();
         let sql = format!(
-            "{CHOSEN} SELECT b.id, b.until, COUNT(t.message_id), COALESCE(SUM({}), 0), COALESCE(GROUP_CONCAT(DISTINCT t.session_id), '')
-             FROM sel b LEFT JOIN session_turn_usage t ON t.at >= b.started_at AND t.at < b.stop GROUP BY b.id ORDER BY b.started_at, b.id",
-            crate::usage_summary::units()
+            "{CHOSEN} SELECT b.id, b.until, COALESCE(a.c, 0), COALESCE(a.u, 0), COALESCE(a.j, '')
+             FROM sel b LEFT JOIN (
+                 SELECT k, COUNT(*) AS c, SUM(units) AS u, GROUP_CONCAT(DISTINCT session_id) AS j FROM temp.read_turns GROUP BY k
+             ) a ON a.k = b.id ORDER BY b.started_at, b.id"
         );
         let mut statement = conn.prepare(&sql).map_err(reading)?;
         let rows = statement
@@ -324,6 +337,7 @@ impl Store {
             rest.push(row.map_err(reading)?);
         }
         drop(statement);
+        conn.execute_batch("DROP TABLE IF EXISTS temp.read_turns").map_err(reading)?;
         let kept = self.builds()?;
         for (id, until, turns, units, jobs) in rest {
             let Some(build) = kept.iter().find(|one| one.id == id).cloned() else { continue };
