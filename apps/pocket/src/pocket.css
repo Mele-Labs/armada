@@ -453,7 +453,8 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
 }
-.pk-card .armada-card-title {
+/* A card's title is the look's one line of a legend strip; here it is the whole of what is asked, so it wraps. */
+:root[data-look="new"] .pk-app .pk-card .armada-card-header .armada-card-title {
   white-space: normal;
 }
 .pk-card__command {
