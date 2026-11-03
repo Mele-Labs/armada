@@ -123,7 +123,7 @@ The mod's first-message note tells the agent to clear `waiting_for`, then call `
 A close that says the work or the job is done, finished or complete, or that nothing is left, while no `done_since` stands and nothing is on the job's waiting list, sends the agent: "Your reply says the work is done, and all_done is not called.
 If nothing is left, call all_done; if something is, say what."
 A sentence that defers or negates it, with "once", "after", "when", "until", "if", "before", "not" or "n't", and a question, claim nothing.
-A reply whose close, or a table cell near its end, asks the owner to walk, approve or leave notes on something, while no walk of the job waits on him, sends: "Your reply asks the owner to walk something, and no walk window of this job is open.
+A reply whose close, or a table cell near its end, asks the owner to walk, approve or leave notes on something, while no walk of the job waits on him, sends: "Your reply asks the owner to walk something, and no walk of this job is open.
 Build each walk and call show_window for it."
 A reply that claims both is reminded of the walk only, since the work is not done while a walk is owed.
 The reminder goes through `told_by_fleet` and starts a turn, in which the agent makes the call or says what is left.

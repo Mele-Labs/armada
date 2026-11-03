@@ -1,4 +1,4 @@
-// The one walk window: every walk a Job showed and every pull request's walk, queued oldest shown first —
+// The walk window: every pull request's walk, queued oldest shown first. A Job's walk is a tab of the Job (`job-walks.ts`) —
 // `docs/practices/capture-window.md`. The owner approved the mock walk `walkQueue`.
 //
 // **One OS window, one bar and one panel; a page each.** A walk's page is made the first time it comes on screen and
