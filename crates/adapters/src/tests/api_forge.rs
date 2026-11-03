@@ -8,7 +8,7 @@
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
-use adapter_traits::{FilePatch, Forge, ReviewList, ReviewListAsk};
+use adapter_traits::{FilePatch, Forge, ReviewList, ReviewListAsk, Said};
 
 use super::github_api::{api, ok, serve, Reply};
 use super::repo::TempRepo;
@@ -171,6 +171,15 @@ fn a_reviewed_page_over_the_api_is_the_page_gh_reads_with_its_people_read_at_onc
 
     let page = forge.pull_request_page(&repo.root_str(), "7").unwrap();
     let mut expected = folded(&lines(REVIEWED_GH)).unwrap();
+    // `gh pr view` prints neither when a comment was edited nor the author's type, so a bot
+    // whose login lacks `[bot]` reads as a person there. The API reads both.
+    for said in &mut expected.conversation {
+        match said {
+            Said::Comment { id, edited_at, .. } if id == "IC_1" => *edited_at = Some("2026-10-15T10:30:00Z".into()),
+            Said::Comment { id, bot, .. } if id == "IC_2" => *bot = true,
+            _ => {}
+        }
+    }
     expected.threads = threads_folded(&lines(THREADS_GH));
     with_profiles(&mut expected.reviewers, |login| match login {
         "grace" => profile_from("Grace Hopper\thttps://github.com/grace"),

@@ -120,14 +120,24 @@ fn numbered(pull_request: &str) -> Option<u64> {
     pull_request.parse().ok()
 }
 
-/// `{ "login": ... }`, the shape every actor takes.
+/// `{ "login": ... }`, the shape every actor takes, with its `__typename` where a query asks.
 #[derive(Deserialize)]
 struct Login {
     login: Option<String>,
+    #[serde(rename = "__typename")]
+    kind: Option<String>,
 }
 
 fn login_of(actor: Option<Login>) -> String {
     actor.and_then(|it| it.login).unwrap_or_default()
+}
+
+/// The actor's login, and whether it is an app's.
+fn author_of(actor: Option<Login>) -> (String, bool) {
+    let kind = actor.as_ref().and_then(|it| it.kind.clone()).unwrap_or_default();
+    let login = login_of(actor);
+    let bot = crate::pull_request_detail::by_a_bot(&kind, &login);
+    (login, bot)
 }
 
 /// A GraphQL list, whatever it holds; a `null` one is empty.

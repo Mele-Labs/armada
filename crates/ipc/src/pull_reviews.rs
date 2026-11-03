@@ -104,8 +104,14 @@ pub enum DiffSide {
 pub struct PullReviewThreadComment {
     pub id: String,
     pub author: String,
+    /// Whether an app wrote it. Left out for a person.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub bot: bool,
     /// RFC 3339.
     pub at: String,
+    /// When it was last edited, RFC 3339. Left out when it never was.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub edited_at: Option<String>,
     /// Markdown.
     pub body: String,
 }
