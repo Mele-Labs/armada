@@ -102,7 +102,8 @@ Fleet reads it off the row, never off the Job's words: the turn ended on a reply
 Those are a plan recorded, an edit, a Check run, a commit, a pull request opened, a push and a walk shown, and, on a `walks` step that follows the plan with no walk expected, the plan's tasks finished.
 A step the owner ends, by a reply or an approval, and a delivering step, which ends on the merge, never stall.
 The message names the step and what ends it, and says to do it or ask the owner what is still open, and to name what it waits on with `waiting_for`.
-It is that stop's one word, the `stop_nudge` ([What a Job is doing](what-a-job-is-doing.md)), so one stop never draws two messages and the stop after it reads `stopped`. It is not kept against the workflow, since it is no drift.
+It is that stop's one word, the `stop_nudge` ([What a Job is doing](what-a-job-is-doing.md)), so one stop never draws two messages and the stop after it reads `stopped`.
+It is not kept against the workflow, since it is no drift.
 
 **With `features.workflows` off, or a Job's workflow in `workflows.off`** (Settings, live; the owner's decision of 16 Oct 2026) there is no step, no nudge and no step judge, even for a Job that already has a workflow, and the first turn does not tell the agent the steps.
 The Job keeps the workflow it has.
