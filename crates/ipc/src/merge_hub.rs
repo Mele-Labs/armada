@@ -401,12 +401,16 @@ pub enum HubReview {
 }
 
 /// One pull request's place in the merge queue. Since 23.70.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HubQueue {
     pub state: HubQueueState,
     /// 1 is the next to merge. Absent for `waiting_for_ci`, which has no entry yet.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position: Option<u32>,
+    /// When the forge says it joined the queue. Absent from an older Fleet, for `waiting_for_ci`,
+    /// and where the forge named none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enqueued_at: Option<Instant>,
 }
 
 /// What the queue says of a pull request. **Strict**: Bridge picks a mark from

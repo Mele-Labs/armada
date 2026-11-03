@@ -1,5 +1,5 @@
-// The 29 Oct 2026 notes on Workspaces, lifecycles and rules, each change straight to: a pick opens the side panel with its settings as fields saved as they are changed, Runs in opens on a
-// Default tab and a tab that differs from the level above carries the changed mark, the box that tells an agent what to change stands under the tabs, the first change on Armada's workflow makes your own, the canvas draws each kind in its own shape,
+// The 29 Oct 2026 notes on Workspaces, lifecycles and rules, each change straight to: a pick opens the side panel with its settings as fields saved as they are changed, the row picked in the list sets the level an edit lands on,
+// the box that tells an agent what to change stands under the title, the first change on Armada's workflow makes your own, the canvas draws each kind in its own shape,
 // the Job's Workflow opens in the side panel with the Now beat opening the rule that waits on you, and a comment's triage is on the comment in the pull request. A third Job changes its
 // own copy of the workflow and starts two Jobs; Workflow opens: in the side panel under 1800px, in the spine from it and in the spine on a wider one. The long walk is `workspaces-lanes`.
 // A mock, no Fleet behind it.
@@ -17,7 +17,6 @@ const LANES = region("Workflow", {
 });
 const PANEL = role("dialog");
 const YOURS = group("Yours");
-const RUNS_IN = group("Runs in");
 const ASK = role("textbox", "Tell an agent what to change");
 const statuses = () =>
   role("textbox", "Jira statuses", {
@@ -31,13 +30,6 @@ const closePanel = {
   press: inside(PANEL, button("Close")),
   say: "Close the panel",
 } as const;
-const tab = (name: string) =>
-  inside(
-    RUNS_IN,
-    role("tab", name, {
-      exact: true,
-    }),
-  );
 
 const views = role("toolbar", "Views", {
   exact: true,
@@ -77,12 +69,12 @@ const inSpine = (name: string) =>
 const notes = walk("workspaces-lanes", [
   ...toSystemPage("Workflows", "Workflows, from System"),
   {
-    look: RUNS_IN,
-    say: "Runs in opens on Default, the workflow as it runs anywhere no Workspace or repository changed it. Edits here change every Workspace and repository that keeps the default",
+    look: text("Edits here change every Workspace and repository that keeps the default"),
+    say: "The picked row sets the level: Armada's feature is the default, the workflow as it runs anywhere no Workspace or repository changed it",
   },
   {
     look: ASK,
-    say: "Tell an agent what to change stands under the title and the tabs, in view without scrolling",
+    say: "Tell an agent what to change stands under the title, in view without scrolling",
   },
   {
     look: inside(
@@ -140,80 +132,19 @@ const notes = walk("workspaces-lanes", [
   },
   closePanel,
   {
-    press: tab("my-store"),
-    say: "my-store carries the changed mark: it differs from Default. Edits here change my-store's repositories that keep my-store's",
-  },
-  {
-    press: inside(
-      LANES,
-      button("Ticket: In review", {
-        exact: true,
-      }),
-    ),
-    say: "In review for all of my-store",
-  },
-  {
-    look: inside(PANEL, statuses()),
-    say: "Jira statuses is a field in the panel, and it saves as it changes",
-  },
-  {
-    look: inside(PANEL, text("Changed for my-store")),
-    say: "Marked as changed for my-store, with a way back to the default",
-  },
-  closePanel,
-  {
-    press: tab("store-api"),
-    say: "store-api's tab. Edits here change store-api only, and the node that differs there carries a mark",
-  },
-  {
-    press: inside(
-      LANES,
-      button("Ticket: In review", {
-        exact: true,
-      }),
-    ),
-    say: "In review, marked",
-  },
-  {
-    look: inside(PANEL, text("Changed for store-api")),
-    say: "Peer Review is store-api's own, marked as changed for store-api, with a way back to my-store's",
-  },
-  {
-    press: inside(
-      PANEL,
-      button("Use my-store's", {
-        exact: true,
-      }),
-    ),
-    say: "Use my-store's drops store-api's own value. Edits on a repository's tab change that repository only",
-  },
-  {
-    look: inside(PANEL, statuses()),
-    say: "store-api reads my-store's again",
-  },
-  closePanel,
-  {
     press: inside(
       LANES,
       button("Step: Open PR", {
         exact: true,
       }),
     ),
-    say: "Adding, deleting and connecting work on every tab. Open PR, on store-api",
+    say: "Adding, deleting and connecting work on the default too. Open PR",
   },
   {
     press: button("Add after step Open PR"),
-    say: "A step added on store-api runs in store-api only",
-  },
-  {
-    look: tab("store-api"),
-    say: "store-api carries the changed mark again: it has a step my-store does not",
+    say: "A step added on the default runs in every Workspace and repository that keeps it",
   },
   closePanel,
-  {
-    press: tab("Default"),
-    say: "Default does not draw that step. What is added on Default belongs to the workflow, for every Workspace and repository",
-  },
   {
     drag: role("button", "Connect from step Build"),
     by: {

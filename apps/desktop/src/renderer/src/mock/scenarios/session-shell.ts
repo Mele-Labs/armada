@@ -2,7 +2,7 @@
 // into from Bridge and the agent types into through its tools. Over `session-run-in-terminal`, so the block
 // Run in "Deploy the store" docks beside them as a tab. Fleet's half is here: `openTerminal` opens a shell and
 // mints its ID (t1, t2, never reused in a Job), hands back one already open, the run calls act on it by its id, and
-// `terminal.opened` and `terminal.exited` follow it. `listTerminals` names the open ones and says whether a program holds the
+// `terminal.opened` and `terminal.exited` follow it, and `terminal.shown` is the agent's `show_terminal`. `listTerminals` names the open ones and says whether a program holds the
 // foreground in each, and `renameTerminal` keeps the person's name for the agent's list.
 // Each time passes, the agent opens a terminal of its own, once, and types `pnpm dev` into it. The walk `job-terminals` plays it.
 
@@ -245,6 +245,18 @@ function shellFleet() {
         true,
       );
     },
+    /** The agent's `show_terminal` on one of the Job's running terminals. False for one not running, which Fleet refuses. */
+    agentShows: (sessionId: string, terminal: string): boolean => {
+      const runId = openIn.get(sessionId)?.get(terminal);
+      if (runId === undefined) return false;
+      tell({
+        session_id: sessionId,
+        run_id: runId,
+        change: "shown",
+        terminal,
+      });
+      return true;
+    },
     dispose: () =>
       [
         ...shells.values(),
@@ -480,6 +492,10 @@ export const onTerminalWindowRaised = (on: (id: TerminalWindowId) => void): (() 
 
 /** The Job's agent opens a terminal that no window hears of, so it has no tab. */
 export const agentOpensTerminalAway = (sessionId: string): void => live?.agentOpensAway(sessionId);
+
+/** The Job's agent shows one of its running terminals. False where it is not running. */
+export const agentShowsTerminal = (sessionId: string, terminal: string): boolean =>
+  live?.agentShows(sessionId, terminal) ?? false;
 
 /** The shell's half of Fleet for a scenario in another file: this window's shells, which a Job's Terminal tab and Flight control's Terminal open. */
 export function shellApi(): ShellFleet["api"] {
