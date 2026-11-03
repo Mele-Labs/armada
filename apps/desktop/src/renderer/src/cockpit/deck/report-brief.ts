@@ -54,6 +54,8 @@ function stateOf(session: Session): string {
       ? session.attachments.find((one) => one.kind === "subagent" && one.state === "running")
       : undefined;
   if (running?.kind === "subagent") return `${base}, a subagent working: ${running.task}`;
+  if (session.standing === "stopped" && session.stopped !== undefined)
+    return `${base}, stopped: ${session.stopped.reason}`;
   return `${base}, read by Fleet as ${session.standing}`;
 }
 
