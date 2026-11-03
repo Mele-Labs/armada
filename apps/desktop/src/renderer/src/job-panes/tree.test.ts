@@ -469,4 +469,39 @@ describe("a walk arriving", () => {
     expect(holderOf(second, "walk")!.active).toBe(walkTabs(first)[0]!.id);
     expect(second.focus).toBe(focus);
   });
+
+  test("with no thread and no walk pane, it opens by the ordinary arrival of a tab, named by its page", () => {
+    const arrangement = build([
+      "terminal",
+    ]);
+    const arranged = arriveWalk(arrangement, "Billing", "http://x/billing", false);
+    expect(kindsOf(arranged).flat().sort()).toEqual([
+      "terminal",
+      "walk",
+    ]);
+    expect(walkTabs(arranged)[0]).toMatchObject({
+      label: "Billing",
+      page: "http://x/billing",
+    });
+  });
+
+  test("beside a thread that shares a split, it takes the room from the side it shares with, and a walk of that name already open is named apart", () => {
+    const arrangement = build({
+      dir: "row",
+      ratio: 0.5,
+      a: [
+        "thread",
+      ],
+      b: [
+        "terminal",
+      ],
+    });
+    const arranged = arriveWalk(arrangement, "Billing", "http://x/billing", false);
+    expect(arranged.root.type).toBe("split");
+    expect((arranged.root as { ratio: number }).ratio).toBeGreaterThanOrEqual(0.78);
+    expect(panesOf(arranged.root)).toHaveLength(3);
+    const again = arriveWalk(arranged, "Billing", "http://x/billing2", false);
+    const labels = walkTabs(again).map((tab) => tab.label);
+    expect(new Set(labels).size).toBe(2);
+  });
 });
