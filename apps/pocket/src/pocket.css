@@ -1,4 +1,11 @@
 /* Pocket (#1997), and v2: every Mac on one list, a Job's thread. Tokens only. */
+/* The keyboard covers the home indicator, so nothing above it keeps clear of one. */
+:root {
+  --pk-inset-bottom: env(safe-area-inset-bottom);
+}
+:root[data-keyboard] {
+  --pk-inset-bottom: 0px;
+}
 .pk-app {
   height: 100%;
   display: flex;
@@ -34,6 +41,12 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
   font-weight: var(--weight-heading);
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
+}
+/* The look's legend strip outweighs the rule above and draws a header under the status bar; its `:is()` takes the weight of
+   its heaviest selector, so this needs the same four classes. */
+:root[data-look="new"] .pk-app .deck-band {
+  min-height: calc(var(--h-title-bar) + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
 }
 .pk-band__title {
   flex: 1;
@@ -206,7 +219,11 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
 }
 .pk-dock {
   flex: none;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: var(--pk-inset-bottom);
+}
+/* Enter breaks the line here, so Send is the only way a message goes, and takes the touch height. */
+.pk-dock .armada-button[type="submit"] {
+  height: var(--h-title-bar);
 }
 .pk-body {
   flex: 1;
@@ -231,7 +248,7 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
 .pk-bar {
   display: grid;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom));
+  padding: var(--space-3) var(--space-4) calc(var(--space-4) + var(--pk-inset-bottom));
   background: var(--bg-overlay);
   border-top: var(--border-width) solid var(--border-strong);
 }
@@ -344,6 +361,30 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
 }
 .pk-ask .pk-choices {
   margin-top: 0;
+}
+/* A choice's description is drawn, since a phone shows no title: the press grows to hold it. A Button takes no class of its own. */
+.pk-ask .pk-choices {
+  grid-template-columns: minmax(0, 1fr);
+}
+.pk-ask .pk-choices .armada-button {
+  height: auto;
+  min-height: var(--space-12);
+  padding-block: var(--space-2);
+  justify-content: flex-start;
+  border-color: var(--border-default);
+  background: var(--bg-raised);
+  text-align: left;
+  white-space: normal;
+}
+.pk-choice__words {
+  display: grid;
+  gap: var(--space-1);
+}
+.pk-choice__says {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-body);
 }
 
 .pk-shown__text {

@@ -123,6 +123,10 @@ The phone sends Fleet's own body shapes.
 | `POST /api/sessions/plan/changes` | `send_plan_changes` |
 | `POST /api/sessions/message` | a message to the Job |
 
+**What a Job waits on is answered beside its thread**, each item only as Fleet takes it.
+`delivery`, `slot_choice`, `task_done` and `rule_act` take a choice alone, `watch_not_ours` a choice or words, `words_address` an address or words holding `{match}`, and the agent's own items a choice or words.
+A `slot_choice`'s slots to free stay on the Mac. The other sources are answered from their own cards or on the Mac.
+
 **`POST /api/sessions/answer`** is the older, checked answer, kept for the app's Needs you rows:
 
 - **A Terminal Job carries an ask only while Fleet holds its question**: from `asked_at` for `holding_for_seconds`, by the Gateway's clock.

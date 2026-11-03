@@ -6,7 +6,7 @@
 import { useEffect, useState } from "react";
 import { Quote, Repeat } from "lucide-react";
 import { Button, Radio, RadioGroup, Textarea, Tooltip } from "@armada/components";
-import { readKept } from "@armada/components/src/keep";
+import { forgetKept, readKept } from "@armada/components/src/keep";
 import type { DeliveryChoice, SessionThread as WireThread } from "@armada/protocol";
 
 import { macOf, start, useFleet } from "./fleet";
@@ -67,7 +67,8 @@ function Card({
     setSays("");
     const refused = await attempt(run, machine);
     if (refused !== null) return setSays(refused);
-    setBrief("");
+    // Leaving unmounts the box in this same batch, before an emptied value could forget the text.
+    forgetKept(keep);
     go(then, true);
   };
   const facts: readonly [

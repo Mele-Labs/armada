@@ -10,7 +10,12 @@ import type {
   Scene,
   SessionThreadRow,
 } from "@armada/components";
-import type { SessionThread as WireThread, WaitingItem } from "@armada/protocol";
+import type {
+  SessionThread as WireThread,
+  WaitingItem,
+  WaitingOption,
+  WaitingSource,
+} from "@armada/protocol";
 import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
 import {
   planAsked,
@@ -336,13 +341,50 @@ export function approvalOf(session: Session, onApprove: () => void): PlanApprova
   };
 }
 
+/** Fleet's items that a choice settles from here, which take no words. */
+const CHOICE_ONLY: readonly WaitingSource[] = [
+  "delivery",
+  "slot_choice",
+  "task_done",
+  "rule_act",
+];
+/** The sources answered beside the thread. The rest are answered from their own cards, or on the Mac. */
+const ASKS: readonly WaitingSource[] = [
+  "agent",
+  "watch_not_ours",
+  "words_address",
+  ...CHOICE_ONLY,
+];
+
 /**
- * What the agent itself asked the owner, beside the thread: an item with its choices, answered on the Mac's `waiting/answer`.
+ * What the owner is asked beside the thread: an item with its choices, answered on the Mac's `waiting/answer`.
  * An item whose act is a command is a Run card (`runsOf`) instead.
  */
 export const asksOf = (session: Session): readonly WaitingItem[] =>
   session.dead === undefined
-    ? (session.waitingFor ?? []).filter((one) => one.source === "agent" && one.act?.kind !== "run")
+    ? (session.waitingFor ?? []).filter(
+        (one) => ASKS.includes(one.source) && one.act?.kind !== "run",
+      )
+    : [];
+
+export const takesWords = (item: WaitingItem): boolean => !CHOICE_ONLY.includes(item.source);
+
+/**
+ * The options to press, each with its index on the wire. An address's `Other` is the words box, since Fleet refuses it
+ * without words, and a slot being made asks for nothing.
+ */
+export const choicesOf = (item: WaitingItem): readonly (WaitingOption & { choice: number })[] =>
+  item.creating_since === undefined
+    ? (item.options ?? []).flatMap((option, choice) =>
+        item.source === "words_address" && option.label === "Other"
+          ? []
+          : [
+              {
+                ...option,
+                choice,
+              },
+            ],
+      )
     : [];
 
 export type RunItem = {
