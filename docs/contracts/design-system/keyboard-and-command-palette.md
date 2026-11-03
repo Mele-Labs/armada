@@ -111,7 +111,7 @@ t              show the timeline   (deck only)
 /              search the list   (deck only)
 ⌥↑ ⌥↓          move the row up or down   (deck only)
 g              go to a page, then c, j, s or y   (deck only)
-l r f          go to a part of Reviews: the list, the reader, the review tools   (review only)
+l r f          go to a part of Reviews: the list, the reader, the tools pane   (review only)
 L              open the lists   (review only)
 /              search the pull requests   (review only)
 N              Natural Search   (review only)
@@ -188,9 +188,10 @@ They stand down in a text field.
 Its key is `/` on each page, and on a page with nothing focused the bar takes it.
 
 **The Reviews tab has a scope of its own, `review`.** Its list takes `j`, `k`, `Enter` and `o` as
-any list does; the rest are its own: `l r f` go to the list, the reader and the review tools,
-`L` opens the lists, `/` goes to the search bar that narrows the list on show and `N` is Natural Search, `Q` the explanation tiles in Flight control, `A` the question box, `D` the
-description and `W` the places changes run. They stand down in a text field and while a dialog is up.
+any list does; the rest are its own: `l r f` go to the list, the reader and the tools pane,
+`L` opens the lists, `/` goes to the search bar that narrows the list on show and `N` is Natural Search, `Q` the tools pane's `+` menu, which lists the explanations first, `A` the question box, `D` the
+description and `W` the places changes run.
+The digits `1` to `9` open the tool in that place of the menu, and the key after the last adds a tool; they are not acts in the registry. They stand down in a text field and while a dialog is up.
 
 **The Issues tab has a scope of its own, `issues`.** Its list takes `j`, `k`, `Enter` and `o` as any
 list does; `l r` go to the list and the reader, `L` opens the queries, `/` goes to the search bar that narrows the loaded rows, `D` describes a query and `s`
