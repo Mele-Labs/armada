@@ -62,6 +62,7 @@ mod plan_beads;
 mod judge_readings;
 mod fleet_calls;
 mod preview_offers;
+mod session_open_turn;
 mod issue_queries;
 mod projects;
 mod settings_file;
