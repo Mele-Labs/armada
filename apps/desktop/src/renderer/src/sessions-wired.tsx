@@ -96,6 +96,7 @@ import { catchingUp } from "./checkout-catch-up";
 import { uploadOfFile, uploadOfSketch, wireTagOf } from "./session-uploads";
 import { readHistory } from "./session-history";
 import { SessionsFrom } from "./sessions-draft";
+import { openJobWalk } from "./job-walk/open";
 import type { TimelineSource } from "./fleet-timeline";
 import { markViewed } from "./cockpit/viewed";
 import { aimOf, forgetAim } from "./session-view/mod-aim";
@@ -1538,7 +1539,7 @@ export class WiredStore {
       writePullRequest: async (id, number, write) =>
         pageRead(await this.api.writePullRequest(id, number, write)),
       openFile: (id, path) => void this.api.openSessionFile(id, path),
-      openWindow: (id, url) => void this.api.openSessionWindow(id, url),
+      openWindow: (id, url) => openJobWalk(id, url),
       readArtifact: (id, path) => this.api.readSessionArtifact(id, path),
       page: {
         show: (id, address, bounds) => void this.api.showSessionPage(id, address, bounds),

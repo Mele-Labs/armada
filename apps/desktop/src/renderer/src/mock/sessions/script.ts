@@ -6,14 +6,9 @@
 // Session would do next, applied when a walk's `later` step lets time pass or,
 // for the first, when the person sends a message.
 
-import {
-  closeWalkWindow,
-  markWalkWindow,
-  mockPage,
-  openWalkWindow,
-  type Variation,
-} from "@armada/screens/src/fixtures/walk-window";
-import { askToOpenSession } from "../../open-session";
+import { mockPage, type Variation } from "@armada/screens/src/fixtures/walk-window";
+import { openJobWalk } from "../../job-walk/open";
+import { showAgain, workingOn } from "../../job-walk/store";
 import { askToTell } from "../../tell";
 import { walkCall, withWalkCall } from "../plan-call";
 import { removedSaid } from "./removed";
@@ -625,68 +620,30 @@ export function sessionsStore(
     }));
   const finish = () => finishOf(MINE);
 
-  /** The window on a page a Session showed. **A note taken in it is a message to that Session**, which wakes it. */
-  const openWindow = (id: string, url: string) => {
+  /** A page a Session showed is pressed open: the Job opens in the Cockpit with its walk in front. */
+  const openWindow = (id: string, url: string) => openJobWalk(id, url);
+  /**
+   * Approve on a walk's bar. **It is a message from the person too, and wakes the Session**, and the item Fleet held for the page goes: his Approve is what takes the
+   * page off Needs you.
+   */
+  const approveWalk = (id: string, url: string) => {
     const session = now.find((one) => one.id === id);
-    if (session === undefined) return;
-    // The window's own title, apart from the Session's name. One titled by its address has none.
-    const shown = session.attachments.find(
+    const shown = session?.attachments.find(
       (one) => one.kind === "artifact" && one.form === "window" && one.id === url,
     );
-    openWalkWindow(session.title ?? id, url, {
-      title:
-        shown?.kind === "artifact" && shown.title !== undefined && shown.title !== url
-          ? shown.title
-          : null,
-      job: session.title ?? id,
-      into: "Session",
-      onOpenOwner: () => askToOpenSession(id),
-      // A note taken on one of several takes names it first, so the Session knows which page it is about.
-      onNote: (note, picked) => {
-        const on =
-          picked.variation === undefined
-            ? ""
-            : `${picked.variation.letter}, ${picked.variation.name}: `;
-        return store.send(id, {
-          text: `${note}\nOn ${on}${picked.element}, ${picked.location}`,
-          files: [],
-          sketches: [],
-          tags: [],
-        });
-      },
-      // Approve is a message from the person too, and wakes the Session the same way.
-      onApprove: async (address, variation) => {
-        const which = variation === undefined ? "" : ` ${variation.letter}, ${variation.name}`;
-        await store.send(id, {
-          text: `Approved${which}: ${address}`,
-          files: [],
-          sketches: [],
-          tags: [],
-        });
-        // His Approve is what takes the page off Needs you.
-        edit(id, (one) => ({
-          ...one,
-          waitingFor: withWalkCall(one.waitingFor, url),
-        }));
-        return {
-          ok: true,
-        };
-      },
-      ...(id === VARIER
-        ? {
-            variations: takes(),
-          }
-        : id === WALKER
-          ? {
-              variations: walkTakes(),
-            }
-          : {}),
-      // Shown is said to be ready: a Session shows a page when it is done with it.
-      readiness: "ready",
+    void store.send(id, {
+      text: `Approved: ${shown?.kind === "artifact" ? shown.title : url}`,
+      files: [],
+      sketches: [],
+      tags: [],
     });
+    edit(id, (one) => ({
+      ...one,
+      waitingFor: withWalkCall(one.waitingFor, url),
+    }));
   };
-  /** The Session shows a page: its window opens by itself, and the ledger and the thread keep it. */
-  const showWindow = (id: string, url: string, title: string) => {
+  /** The Session shows a page: its walk is a tab of the Job, and the ledger and the thread keep it. */
+  const showWindow = (id: string, url: string, title: string, takes: readonly string[] = []) => {
     addTo(
       id,
       [
@@ -709,10 +666,13 @@ export function sessionsStore(
               form: "window",
               id: url,
               title,
+              window: {
+                takes,
+                steps: [],
+              },
             },
           ],
     );
-    openWindow(id, url);
     holdWalk(id, url, title);
   };
   /** A shown page waits in Needs you until he approves it, whether or not its window is open. */
@@ -1428,7 +1388,7 @@ export function sessionsStore(
             addTo(id, [
               said("Noted. I will change that."),
             ]);
-            markWalkWindow("working");
+            workingOn(id, [mockPage()]);
             // A page being changed is not put to him until it is ready.
             edit(id, (one) => ({
               ...one,
@@ -1439,7 +1399,7 @@ export function sessionsStore(
                 tool("Edit report/clock.tsx"),
                 said("Changed. The window is ready again."),
               ]);
-              markWalkWindow("ready");
+              showAgain(id);
               holdWalk(id, mockPage(), SHOWN);
               finishOf(id);
             });
@@ -1455,7 +1415,13 @@ export function sessionsStore(
               tool(`show_window ${walks ? WALKED : VARIED}, 3 variations`),
               said(walks ? "Three walks are in a window." : "Three layouts are in a window."),
             ]);
-            showWindow(id, (walks ? walkTakes() : takes())[0]!.url, walks ? WALKED : VARIED);
+            const shown = walks ? walkTakes() : takes();
+            showWindow(
+              id,
+              shown[0]!.url,
+              walks ? WALKED : VARIED,
+              shown.map((one) => one.name),
+            );
           } else {
             addTo(id, [
               said("Noted. I will change that."),
@@ -1654,6 +1620,7 @@ export function sessionsStore(
       return true;
     },
     openWindow,
+    approveWalk,
     // What the mock's files hold, since none is on this machine: a picture for an image, text for the rest.
     readArtifact: async (_id, path) =>
       path.endsWith(".output")
@@ -1948,7 +1915,6 @@ export function sessionsStore(
     },
     dispose: () => {
       timers.forEach((one) => window.clearTimeout(one));
-      closeWalkWindow();
     },
     attach: (id, attachment) =>
       addTo(

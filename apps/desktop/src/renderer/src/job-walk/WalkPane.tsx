@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { holdLayerUp } from "../hold-layers";
-import { useSessions } from "../sessions-draft";
+import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { useSendHeld } from "./held";
 import { mockPage } from "./mock-pages";
 import { approveWalk, goToStep, holdNote, pickTake, useHeldNotes, useWalkState } from "./store";
@@ -136,7 +136,13 @@ function MockWalk({ jobId, walkId }: { jobId: string; walkId: string }) {
   const state = useWalkState(jobId, walkId);
   const notes = useHeldNotes(jobId);
   const send = useSendHeld(session);
+  const draft = useSessionsDraft();
   if (session === undefined || walk === undefined) return null;
+  // The mock's Approve settles the walk in `store.ts`, and ends it as Fleet does for a walk Fleet holds an item for.
+  const approve = () => {
+    approveWalk(jobId, walk.id);
+    draft?.approveWalk?.(jobId, walk.id);
+  };
   const take = walk.takes.length === 0 ? undefined : walk.takes[state.take];
   return (
     <WalkView
@@ -155,14 +161,14 @@ function MockWalk({ jobId, walkId }: { jobId: string; walkId: string }) {
       noteKey={`${jobId}:${walk.id}`}
       aim={`Onto ${session.title ?? session.id}`}
       onNote={(said, on) => holdNote(jobId, said, on)}
-      onApprove={() => approveWalk(jobId, walk.id)}
+      onApprove={approve}
       {...(notes.length === 0
         ? {}
         : {
             held: {
               notes: notes.length === 1 ? ("one" as const) : ("several" as const),
               onSend: () => void send(),
-              onSendAndApprove: () => void send().then(() => approveWalk(jobId, walk.id)),
+              onSendAndApprove: () => void send().then(approve),
             },
           })}
       {...(state.readiness === undefined

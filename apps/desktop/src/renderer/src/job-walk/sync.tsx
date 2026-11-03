@@ -6,8 +6,15 @@ import { useEffect } from "react";
 import { useSessions } from "../sessions-draft";
 import { useDeck } from "../cockpit/deck/store";
 import { look, peek, rearrange } from "../job-panes/store";
-import { arriveWalk, closeTab, hasKind, panesOf, type Arrangement } from "../job-panes/tree";
-import { arrivedBefore, useWalksVersion } from "./store";
+import {
+  activate,
+  arriveWalk,
+  closeTab,
+  hasKind,
+  panesOf,
+  type Arrangement,
+} from "../job-panes/tree";
+import { arrivedBefore, pressedWalks, settlePressed, useWalksVersion } from "./store";
 import { owedWalks, type JobWalk } from "./walks";
 
 /**
@@ -46,6 +53,23 @@ export function WalkTabsSync({ here }: { here: boolean }) {
     sessions,
     walks,
     inJob,
+  ]);
+  // A walk pressed open comes to the front, in the pane that holds it or in a tab made for it. It waits here for its Job to be one the sessions hold.
+  useEffect(() => {
+    for (const one of pressedWalks()) {
+      const session = sessions.find((session) => session.id === one.jobId);
+      if (session === undefined) continue;
+      settlePressed(one.jobId, one.walk);
+      const tab = tabsOf(one.jobId).find((tab) => tab.page === one.walk);
+      if (tab !== undefined) look(one.jobId, (arrangement) => activate(arrangement, tab.id));
+      else {
+        const walk = owedWalks(session).find((owed) => owed.id === one.walk);
+        if (walk !== undefined) arrange(one.jobId, walk, false);
+      }
+    }
+  }, [
+    sessions,
+    walks,
   ]);
   // Pressing the Job's row brings back the tab of a walk he closed and has not approved, in front.
   useEffect(() => {

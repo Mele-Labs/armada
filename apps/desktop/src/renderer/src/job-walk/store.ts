@@ -28,6 +28,8 @@ let states = new Map<string, WalkState>();
 let arrived = new Set<string>();
 /** The notes taken on each Job's walks and not sent. They belong to the Job: leaving it, closing a tab or approving without them leaves them held. */
 let held = new Map<string, readonly PanelHeldNote[]>();
+/** Walks he pressed open, waiting for `sync.tsx` to bring their tab to the front. */
+let pressed: { jobId: string; walk: string }[] = [];
 let minted = 0;
 let version = 0;
 const listeners = new Set<() => void>();
@@ -52,6 +54,7 @@ export function forgetWalks(): void {
   states = new Map();
   arrived = new Set();
   held = new Map();
+  pressed = [];
   version += 1;
   listeners.forEach((hear) => hear());
 }
@@ -87,6 +90,21 @@ export const approveWalk = (jobId: string, walk: string): void =>
   change(jobId, walk, {
     approved: true,
   });
+
+/** A walk he pressed open, from Needs you or the Job's own rows: its tab comes to the front, and one he had closed or never had is made. */
+export function bringWalkForward(jobId: string, walk: string): void {
+  pressed = [...pressed, { jobId, walk }];
+  version += 1;
+  listeners.forEach((hear) => hear());
+}
+
+/** The walks pressed open and not yet brought forward. */
+export const pressedWalks = (): readonly { jobId: string; walk: string }[] => pressed;
+
+/** A pressed walk brought forward, or one that has no Job to bring it to. */
+export function settlePressed(jobId: string, walk: string): void {
+  pressed = pressed.filter((one) => one.jobId !== jobId || one.walk !== walk);
+}
 
 /** Whether the walk's tab has been opened once; the first call says no and remembers. */
 export function arrivedBefore(jobId: string, walk: string): boolean {
