@@ -1,0 +1,86 @@
+/* The hour charts: lines, never areas. A line takes its colour from the model or the time bucket it names. Build markers
+   are hairlines through the plot, solid for main and dashed for a preview, so no colour is spent on the difference. */
+.armada-hours__line {
+  fill: none;
+  stroke-width: 2px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.armada-hours__line[data-model] {
+  stroke: var(--model);
+}
+.armada-hours__line[data-time] {
+  stroke: var(--bucket);
+}
+.armada-hours__dot[data-model],
+.armada-hours__point[data-model] {
+  fill: var(--model);
+}
+.armada-hours__dot[data-time],
+.armada-hours__point[data-time] {
+  fill: var(--bucket);
+}
+.armada-hours__point {
+  stroke: var(--bg-sunken);
+  stroke-width: 2px;
+}
+.armada-hours__marker {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+.armada-hours__marker[data-preview] {
+  stroke-dasharray: 3 3;
+}
+.armada-hours__marker[data-picked] {
+  stroke: var(--fg-muted);
+}
+.armada-hours .armada-usage__cross {
+  stroke: var(--fg-default);
+  stroke-dasharray: none;
+}
+.armada-hours .armada-usage__pop {
+  min-width: 15rem;
+}
+.armada-hours .armada-usage__hits {
+  pointer-events: none;
+}
+.armada-hours__hit {
+  position: absolute;
+  width: var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+/* The chart's twin: read by roles, not drawn */
+.armada-hours__twin {
+  position: absolute;
+  width: var(--border-width);
+  height: var(--border-width);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  list-style: none;
+}
+
+/* Pending: each plot's line as short bars on a base line */
+.armada-hours__skel {
+  position: relative;
+  width: 100%;
+}
+.armada-hours__skel-base {
+  position: absolute;
+  height: var(--border-width);
+  background: var(--border-default);
+}
+.armada-usage .armada-hours__skel-dash {
+  position: absolute;
+  height: var(--space-1);
+  border-radius: var(--radius-sm);
+}

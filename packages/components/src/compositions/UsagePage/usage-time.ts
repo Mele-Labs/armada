@@ -42,17 +42,6 @@ export const BUCKET_MEANS: Readonly<Record<Bucket, string>> = {
   idle: "Nothing running and nothing asked",
 };
 
-/** The buckets that are the Job at work, or waiting on the system: the weekly chart leaves out the three that are waiting on a person, on a stopped agent or on nothing. */
-export const ACTIVE: readonly Bucket[] = BUCKETS.filter(
-  (one) => one !== "you" && one !== "stopped" && one !== "idle",
-);
-
-/** One week: the median Job's seconds in each bucket, among the Jobs that ended in it. `from` is its Monday as a date. */
-export type TimeWeek = {
-  from: string;
-  median: TimeSplit;
-};
-
 /** One Job: its split, and the workflow whose usual it is read against. */
 export type TimeJob = {
   id: string;
@@ -62,8 +51,6 @@ export type TimeJob = {
 };
 
 export type UsageTime = {
-  /** Oldest first. */
-  weeks: readonly TimeWeek[];
   /** Every second of the window, by bucket. */
   total: TimeSplit;
   /** Slowest first. */

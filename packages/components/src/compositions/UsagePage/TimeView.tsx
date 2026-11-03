@@ -1,38 +1,37 @@
 import { useEffect, useRef, useState } from "react";
-import type { MouseEvent } from "react";
 
 import { Skeleton } from "../../primitives/Skeleton/Skeleton";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { BuildsPanel } from "./UsageBuilds";
-import { LIST_KEYS, inBuilds } from "./usage-builds";
+import { HourChart, HourRows, PendingHours } from "./HourChart";
+import type { HourPlot } from "./HourChart";
+import { FIGURE_NAME, LIST_KEYS, TIME_FIGURES, inBuilds, lapse } from "./usage-builds";
 import type { Build, UsageBuilds } from "./usage-builds";
+import { SHOWN, latestHour, markersOf } from "./usage-hours";
+import type { UsageHours } from "./usage-hours";
 import { Band, Bar, Fig, Scope } from "./usage-parts";
 import { pct, shareOf } from "./usage-view";
 import {
-  ACTIVE,
   BUCKETS,
   BUCKET_LABEL,
   BUCKET_MEANS,
   bySpent,
-  dayName,
   farOver,
   span,
   spanSaid,
   sumOf,
 } from "./usage-time";
-import type { Bucket, TimeJob, TimeSplit, TimeWeek, UsageTime } from "./usage-time";
+import type { Bucket, TimeJob, TimeSplit, UsageTime } from "./usage-time";
 
 /**
  * Where the time went, laid out as the tokens view is: the slowest Jobs on the left, each with its split as one thin bar,
- * and in the centre the median Job week by week over the split of the whole window. Picking a Job puts its own split in the
+ * and in the centre the four figures hour by hour over the split of the whole window. Picking a Job puts its own split in the
  * window's place, each bucket against the usual of that Job's workflow where it is far over.
  *
- * Keys: `↑↓ j k` move down the Jobs, `↵ o` opens the one under the cursor, `← → h l` step the weeks and `Esc` clears the
- * week, then the Job, then the build. Picking a build in the Builds panel narrows the Jobs to the ones that ran on it, the weeks
- * to the one it began in and the split to its own.
+ * Keys: `↑↓ j k` move down the Jobs, `↵ o` opens the one under the cursor, `← → h l` step the hours and `Esc` clears the
+ * hour, then the Job, then the build. Picking a build, in the Builds panel or on a marker, narrows the Jobs to the ones that
+ * ran on it and the split to its own, and shades its span on the hour chart.
  */
-
-const NONE: TimeSplit = Object.fromEntries(BUCKETS.map((one) => [one, 0])) as unknown as TimeSplit;
 
 /** A bucket's name over its swatch, with what the bucket means on hover. */
 function BucketName({ bucket }: { bucket: Bucket }) {
@@ -43,231 +42,6 @@ function BucketName({ bucket }: { bucket: Bucket }) {
         <span className="armada-usage__name">{BUCKET_LABEL[bucket]}</span>
       </span>
     </Tooltip>
-  );
-}
-
-function Legend() {
-  return (
-    <ul className="armada-usage__legend" aria-label="Buckets">
-      {BUCKETS.map((one) => (
-        <li key={one}>
-          <BucketName bucket={one} />
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-const W = 520;
-const H = 226;
-const LEFT = 36;
-const RIGHT = 96;
-const TOP = 16;
-const BASE = 196;
-const TICK = 30 * 60;
-
-type Part = {
-  bucket: Bucket;
-  low: number;
-  high: number;
-};
-
-/** The active buckets stacked bottom to top in their own order, so a bucket keeps its place week to week. */
-function stack(split: TimeSplit): Part[] {
-  let low = 0;
-  return ACTIVE.flatMap((bucket) => {
-    if (split[bucket] <= 0) return [];
-    const part = {
-      bucket,
-      low,
-      high: low + split[bucket],
-    };
-    low += split[bucket];
-    return [
-      part,
-    ];
-  });
-}
-
-function WeekChart({
-  weeks,
-  week,
-  onWeek,
-}: {
-  weeks: readonly TimeWeek[];
-  week: number | undefined;
-  onWeek: (week: number | undefined) => void;
-}) {
-  const slot = (W - LEFT - RIGHT) / weeks.length;
-  const bar = slot - 18;
-  const barX = (at: number) => LEFT + at * slot + (slot - bar) / 2;
-  const totals = weeks.map((one) => sumOf(one.median, ACTIVE));
-  const peak = Math.max(...totals);
-  const top = Math.max(TICK, Math.ceil(peak / TICK) * TICK);
-  const y = (seconds: number) => BASE - ((BASE - TOP) * seconds) / top;
-  const ticks = Array.from(
-    {
-      length: Math.round(top / TICK) + 1,
-    },
-    (_, i) => i * TICK,
-  );
-  const column = (x: number, low: number, high: number, round: boolean) => {
-    const r = round ? Math.min(4, (y(low) - y(high)) / 2) : 0;
-    return `M${x},${y(low)} V${y(high) + r} Q${x},${y(high)} ${x + r},${y(high)} H${x + bar - r} Q${x + bar},${y(high)} ${x + bar},${y(high) + r} V${y(low)} Z`;
-  };
-  const drawn = (parts: Part[]) => parts.filter((one) => y(one.low) - y(one.high) >= 1);
-  const place = (event: MouseEvent<HTMLDivElement>) => {
-    const box = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - box.left) / box.width) * W;
-    const at = Math.floor((x - LEFT) / slot);
-    onWeek(at >= 0 && at < weeks.length ? at : undefined);
-  };
-  const drawnAt = totals.flatMap((total, at) => (total > 0 ? [at] : []));
-  const first = drawnAt[0];
-  const last = drawnAt[drawnAt.length - 1];
-  const shown = week === undefined ? undefined : weeks[week];
-  return (
-    <div className="armada-usage__plot" onMouseMove={place} onMouseLeave={() => onWeek(undefined)}>
-      <svg
-        className="armada-usage__chart"
-        viewBox={`0 0 ${W} ${H}`}
-        role="img"
-        aria-label="Median active time per Job, by week, in minutes, by bucket"
-      >
-        {ticks.map((tick) => (
-          <g key={tick}>
-            <line
-              className="armada-usage__grid"
-              x1={LEFT}
-              x2={W - RIGHT}
-              y1={y(tick)}
-              y2={y(tick)}
-            />
-            <text className="armada-usage__tick" x={LEFT - 6} y={y(tick) + 4} textAnchor="end">
-              {tick / 60}
-            </text>
-          </g>
-        ))}
-        {week === undefined ? null : (
-          <rect
-            className="armada-usage__daywash"
-            x={LEFT + week * slot}
-            y={TOP - 8}
-            width={slot}
-            height={BASE - TOP + 8}
-          />
-        )}
-        {weeks.map((one, at) => {
-          const parts = drawn(stack(one.median));
-          return (
-            <g key={one.from}>
-              {parts.map((part, i) => (
-                <path
-                  key={part.bucket}
-                  className="armada-time__seg"
-                  data-time={part.bucket}
-                  d={column(barX(at), part.low, part.high, i === parts.length - 1)}
-                />
-              ))}
-            </g>
-          );
-        })}
-        {(last === undefined ? [] : drawn(stack(weeks[last]!.median))).map((part) =>
-          y(part.low) - y(part.high) < 14 ? null : (
-            <text
-              key={part.bucket}
-              className="armada-usage__direct"
-              x={barX(last!) + bar + 6}
-              y={(y(part.low) + y(part.high)) / 2 + 4}
-            >
-              {BUCKET_LABEL[part.bucket]}
-            </text>
-          ),
-        )}
-        {(first === undefined || last === undefined
-          ? []
-          : [
-              ...new Set([
-                first,
-                last,
-              ]),
-            ]
-        ).map((at) => (
-          <text
-            key={at}
-            className="armada-usage__peak"
-            x={barX(at) + bar / 2}
-            y={y(totals[at]!) - 6}
-            textAnchor="middle"
-          >
-            {span(totals[at]!)}
-          </text>
-        ))}
-        {weeks.map((one, at) => (
-          <text
-            key={one.from}
-            className="armada-usage__tick"
-            data-on={week === at || undefined}
-            x={barX(at) + bar / 2}
-            y={BASE + 16}
-            textAnchor="middle"
-          >
-            {dayName(one.from)}
-          </text>
-        ))}
-        <line className="armada-usage__base" x1={LEFT} x2={W - RIGHT} y1={BASE} y2={BASE} />
-        {week === undefined ? null : (
-          <line
-            className="armada-usage__cross"
-            x1={barX(week) + bar / 2}
-            x2={barX(week) + bar / 2}
-            y1={TOP - 8}
-            y2={BASE}
-          />
-        )}
-      </svg>
-      <div className="armada-usage__hits" aria-hidden>
-        {weeks.map((one, at) => (
-          <button
-            key={one.from}
-            type="button"
-            tabIndex={-1}
-            className="armada-usage__hit"
-            style={{
-              left: `${((LEFT + at * slot) / W) * 100}%`,
-              width: `${(slot / W) * 100}%`,
-            }}
-            onClick={() => onWeek(at)}
-          />
-        ))}
-      </div>
-      {shown === undefined || week === undefined ? null : (
-        <div
-          className="armada-usage__pop"
-          role="status"
-          data-flip={week >= weeks.length / 2 || undefined}
-          style={{
-            left: `${((barX(week) + bar / 2) / W) * 100}%`,
-          }}
-        >
-          <span className="armada-usage__popday">{`Week of ${dayName(shown.from)}`}</span>
-          {stack(shown.median)
-            .reverse()
-            .map((part) => (
-              <span key={part.bucket} className="armada-usage__popline">
-                <span className="armada-time__swatch" data-time={part.bucket} aria-hidden />
-                <span>{BUCKET_LABEL[part.bucket]}</span>
-                <span className="armada-usage__fig">{span(shown.median[part.bucket])}</span>
-              </span>
-            ))}
-          <span className="armada-usage__popline" data-total>
-            <span />
-            <span>Active</span>
-            <span className="armada-usage__fig">{span(totals[week]!)}</span>
-          </span>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -447,44 +221,6 @@ function PendingJobs() {
   );
 }
 
-const WEEK_FILL = [
-  0.5,
-  0.54,
-  0.6,
-  0.7,
-  0.82,
-  0.95,
-];
-
-/** Six bars on a base line, laid over the same box the chart's own drawing fills. */
-function PendingChart() {
-  const slot = (W - LEFT - RIGHT) / WEEK_FILL.length;
-  const bar = slot - 18;
-  return (
-    <div className="armada-usage__plot" aria-hidden>
-      <div
-        className="armada-usage__skel-chart"
-        style={{
-          aspectRatio: `${W} / ${H}`,
-        }}
-      >
-        {WEEK_FILL.map((fill, at) => (
-          <Skeleton
-            key={at}
-            className="armada-usage__skel-column"
-            style={{
-              left: `${((LEFT + at * slot + (slot - bar) / 2) / W) * 100}%`,
-              width: `${(bar / W) * 100}%`,
-              height: `${(((BASE - TOP) * fill) / H) * 100}%`,
-              bottom: `${((H - BASE) / H) * 100}%`,
-            }}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function PendingRows() {
   return (
     <ul className="armada-time__rows" aria-hidden>
@@ -500,57 +236,92 @@ function PendingRows() {
   );
 }
 
-function PendingLegend() {
-  return (
-    <ul className="armada-usage__legend" aria-hidden>
-      {BUCKETS.map((one) => (
-        <li key={one}>
-          <Bar width="100%" />
-        </li>
-      ))}
-    </ul>
-  );
-}
+const PLOT_HEIGHT = 52;
+const UNIT: Readonly<Record<(typeof TIME_FIGURES)[number], { unit: string; per: number }>> = {
+  model: {
+    unit: "s",
+    per: 1,
+  },
+  tools: {
+    unit: "s",
+    per: 1,
+  },
+  checks: {
+    unit: "min",
+    per: 60,
+  },
+  pull_request: {
+    unit: "min",
+    per: 60,
+  },
+};
+
+/** The four figures as small charts, each with its own scale in seconds or minutes. */
+const plotsOf = (hours: UsageHours): HourPlot[] =>
+  TIME_FIGURES.map((figure) => ({
+    key: figure,
+    title: FIGURE_NAME[figure],
+    unit: UNIT[figure].unit,
+    height: PLOT_HEIGHT,
+    say: (value) => lapse(value * UNIT[figure].per),
+    series: [
+      {
+        key: figure,
+        name: FIGURE_NAME[figure],
+        time: figure,
+        values: hours.map((one) => {
+          const seconds = one[figure];
+          return seconds === undefined ? undefined : seconds / UNIT[figure].per;
+        }),
+      },
+    ],
+  }));
+
+const PENDING_PLOTS = TIME_FIGURES.map((figure) => ({
+  key: figure,
+  title: figure,
+  height: PLOT_HEIGHT,
+}));
+
+const HOURS_LABEL =
+  "Median per hour, last 48 hours: model wait per turn and tools per call in seconds, Checks per run and pull request wait in minutes";
 
 type TimeViewProps = {
   /** Fleet's reading of where the time went. `pending` until it has answered: the panels draw the shape of what is coming. */
   time: UsageTime | "pending";
   /** The builds on offer. Absent draws no Builds panel. */
   builds?: UsageBuilds | "pending" | undefined;
+  /** The last 48 hours, an hour a point. `pending` draws the chart's shape; absent draws no chart. */
+  hours?: UsageHours | "pending" | undefined;
   /** The picked build: the panels narrow to it. */
   build?: Build | undefined;
   onBuild?: (id: string | undefined) => void;
 };
 
-export function TimeView({ time, builds, build, onBuild }: TimeViewProps) {
+export function TimeView({ time, builds, hours, build, onBuild }: TimeViewProps) {
   const [cursor, setCursor] = useState(-1);
   const [pick, setPick] = useState(-1);
-  const [week, setWeek] = useState<number | undefined>(undefined);
+  const [hour, setHour] = useState<number | undefined>(undefined);
   const [hover, setHover] = useState<number | undefined>(undefined);
   const ready = time === "pending" ? undefined : time;
   const jobs = (build === undefined ? ready?.jobs : ready?.jobs.filter((one) => build.jobs.includes(one.id))) ?? [];
-  const weeks =
-    ready === undefined || build === undefined
-      ? ready?.weeks
-      : ready.weeks.map((one, at) => ({
-          from: one.from,
-          median: at === build.week ? build.median : NONE,
-        }));
+  const drawn = hours === undefined || hours === "pending" ? undefined : hours;
+  const listed = builds === undefined || builds === "pending" ? undefined : builds;
   const picked = jobs[pick];
   const latest = useRef({
     cursor,
     pick,
-    week,
+    hour,
     count: jobs.length,
-    weeks: ready?.weeks.length ?? 0,
+    last: drawn === undefined ? 0 : latestHour(drawn),
     build,
   });
   latest.current = {
     cursor,
     pick,
-    week,
+    hour,
     count: jobs.length,
-    weeks: ready?.weeks.length ?? 0,
+    last: drawn === undefined ? 0 : latestHour(drawn),
     build,
   };
 
@@ -575,25 +346,19 @@ export function TimeView({ time, builds, build, onBuild }: TimeViewProps) {
       const onTab = target instanceof HTMLElement && target.closest("[role=tab]") !== null;
       if (inBuilds(target) && LIST_KEYS.includes(event.key)) return;
       const now = latest.current;
-      const stepWeek = (by: number) =>
-        setWeek((at) =>
-          at === undefined
-            ? by > 0
-              ? 0
-              : now.weeks - 1
-            : Math.min(now.weeks - 1, Math.max(0, at + by)),
-        );
+      const stepHour = (by: number) =>
+        setHour((at) => (at === undefined ? now.last : Math.min(SHOWN - 1, Math.max(0, at + by))));
       if (event.key === "ArrowDown" || event.key === "j")
         setCursor((at) => Math.min(now.count - 1, at + 1));
       else if (event.key === "ArrowUp" || event.key === "k") setCursor((at) => Math.max(0, at - 1));
       else if ((event.key === "Enter" || event.key === "o") && !onControl) {
         if (now.cursor < 0) return;
         setPick(now.cursor);
-      } else if (event.key === "Escape" && now.week !== undefined) setWeek(undefined);
+      } else if (event.key === "Escape" && now.hour !== undefined) setHour(undefined);
       else if (event.key === "Escape" && now.pick >= 0) setPick(-1);
       else if (event.key === "Escape" && now.build !== undefined) onBuild?.(undefined);
-      else if ((event.key === "ArrowRight" || event.key === "l") && !onTab) stepWeek(1);
-      else if ((event.key === "ArrowLeft" || event.key === "h") && !onTab) stepWeek(-1);
+      else if ((event.key === "ArrowRight" || event.key === "l") && !onTab) stepHour(1);
+      else if ((event.key === "ArrowLeft" || event.key === "h") && !onTab) stepHour(-1);
       else return;
       event.preventDefault();
     }
@@ -604,7 +369,7 @@ export function TimeView({ time, builds, build, onBuild }: TimeViewProps) {
   useEffect(() => {
     setCursor(-1);
     setPick(-1);
-    setWeek(undefined);
+    setHour(undefined);
   }, [
     build,
   ]);
@@ -621,7 +386,7 @@ export function TimeView({ time, builds, build, onBuild }: TimeViewProps) {
   ]);
 
   const active = jobs[cursor];
-  const shown = hover ?? week;
+  const shown = hover ?? hour;
 
   return (
     <div className="armada-time" aria-busy={ready === undefined || undefined}>
@@ -674,27 +439,36 @@ export function TimeView({ time, builds, build, onBuild }: TimeViewProps) {
       </div>
 
       <div className="armada-time__centre">
-        <section className="armada-usage__panel" aria-label="Week by week">
+        <section className="armada-usage__panel" aria-label="Hour by hour">
           <Band
             keys={[
               "←→",
             ]}
           >
-            Week by week
+            Hour by hour
           </Band>
-          {ready === undefined ? (
+          {ready === undefined || hours === "pending" ? (
             <>
               <div className="armada-usage__scope" aria-hidden>
                 <Bar width="8rem" />
               </div>
-              <PendingChart />
-              <PendingLegend />
+              <PendingHours plots={PENDING_PLOTS} />
             </>
-          ) : (
+          ) : drawn === undefined ? null : (
             <>
-              <Scope title="Median Job, active time" unit="min" />
-              <WeekChart weeks={weeks!} week={shown} onWeek={setHover} />
-              <Legend />
+              <Scope title="Median per hour" />
+              <HourChart
+                hours={drawn}
+                plots={plotsOf(drawn)}
+                label={HOURS_LABEL}
+                markers={listed === undefined ? [] : markersOf(drawn, listed)}
+                pick={build?.id}
+                onPick={(id) => onBuild?.(id)}
+                hour={shown}
+                onHover={setHover}
+                onSelect={setHour}
+              />
+              <HourRows hours={drawn} plots={plotsOf(drawn)} label="Median per hour" />
             </>
           )}
         </section>

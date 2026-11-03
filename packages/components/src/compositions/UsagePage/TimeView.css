@@ -87,7 +87,7 @@
 /* The Builds panel under the Jobs wants room for four figures and their changes */
 @container (min-width: 1150px) {
   .armada-time {
-    grid-template-columns: minmax(30rem, 34rem) minmax(0, 1fr);
+    grid-template-columns: minmax(36rem, 38rem) minmax(0, 1fr);
   }
 }
 .armada-time__left,

@@ -4,7 +4,7 @@
 .armada-builds__row {
   --figures: 1;
   display: grid;
-  grid-template-columns: var(--space-4) 8ch 7ch repeat(var(--figures), var(--cell));
+  grid-template-columns: var(--space-4) 8ch 13ch repeat(var(--figures), var(--cell));
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
@@ -17,7 +17,7 @@
 }
 .armada-builds__heads,
 .armada-builds__row {
-  --cell: calc(12ch + var(--space-1));
+  --cell: calc(13ch + var(--space-1));
 }
 .armada-builds__heads {
   border-bottom: var(--border-width) solid var(--head-rule);
@@ -25,7 +25,7 @@
 }
 .armada-builds__head {
   display: grid;
-  grid-template-columns: 5ch 7ch;
+  grid-template-columns: 6ch 7ch;
   gap: var(--space-1);
 }
 .armada-builds__head > span {
@@ -77,7 +77,7 @@
 }
 .armada-builds__cell {
   display: grid;
-  grid-template-columns: 5ch 7ch;
+  grid-template-columns: 6ch 7ch;
   align-items: center;
   gap: var(--space-1);
 }

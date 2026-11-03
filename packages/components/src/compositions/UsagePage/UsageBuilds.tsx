@@ -10,11 +10,12 @@ import {
   FIGURE_NAME,
   TIME_FIGURES,
   TOO_FEW,
+  buildTip,
   changeOf,
   shown,
+  startedAt,
 } from "./usage-builds";
 import type { Build, Figure, UsageBuilds } from "./usage-builds";
-import { dayName } from "./usage-time";
 
 /**
  * The builds the figures are read against, newest first, one row each: its commit, when it began, and the view's figures
@@ -30,12 +31,6 @@ const FIGURES: Readonly<Record<"tokens" | "time", readonly Figure[]>> = {
     "burn",
   ],
   time: TIME_FIGURES,
-};
-
-const localDay = (instant: string): string => {
-  const at = new Date(instant);
-  const part = (n: number) => String(n).padStart(2, "0");
-  return `${at.getFullYear()}-${part(at.getMonth() + 1)}-${part(at.getDate())}`;
 };
 
 type Move = ReturnType<typeof changeOf>;
@@ -74,7 +69,7 @@ function BuildRow({
   const few = build.turns < TOO_FEW;
   const preview = build.branches.length > 0;
   const fewTip = `${build.turns} turns, too few to compare`;
-  const day = dayName(localDay(build.started));
+  const day = startedAt(build.started);
   const moves = figures.map((one) => changeOf(build, before, one));
   const said = figures.map((one, at) => {
     const move = moves[at];
@@ -97,7 +92,7 @@ function BuildRow({
     >
       <span className="armada-builds__kind">
         {preview ? (
-          <Tooltip label={`Preview of main ${build.commit} with ${build.branches.join(", ")}`}>
+          <Tooltip label={buildTip(build)}>
             <span className="armada-builds__glyph">
               <GitMerge size={12} aria-hidden />
             </span>
@@ -107,7 +102,7 @@ function BuildRow({
       {preview ? (
         <span className="armada-builds__commit">{build.id}</span>
       ) : (
-        <Tooltip label={`Main ${build.commit}`}>
+        <Tooltip label={buildTip(build)}>
           <span className="armada-builds__commit">{build.id}</span>
         </Tooltip>
       )}
@@ -209,7 +204,7 @@ export function BuildsPanel({ builds, view, pick, onPick }: Props) {
             <span>Started</span>
             {figures.map((one) => (
               <span key={one} className="armada-builds__head">
-                <Tooltip label={FIGURE_NAME[one]}>
+                <Tooltip label={FIGURE_MEANS[one]}>
                   <span>{FIGURE_HEAD[one]}</span>
                 </Tooltip>
               </span>

@@ -24,6 +24,7 @@ import { ClashesFrom } from "../clashes";
 import { FleetEventsFrom, FleetEventsOver } from "../cockpit/fleet-events";
 import { NumberedFrom } from "../numbered";
 import { holdBuilds } from "../job-builds";
+import { holdHours } from "../job-hours";
 import { holdJobTime } from "../job-time";
 import { forgetFirsts } from "../run-book";
 import { SessionsFrom } from "../sessions-draft";
@@ -275,6 +276,7 @@ export function mountApp(
   // Where the time went is held as the scenario has it, and nothing from an earlier pass.
   holdJobTime(chosen.draft?.time);
   holdBuilds(chosen.draft?.builds);
+  holdHours(chosen.draft?.hours);
   // The palette starts as a window does: what was pinned and opened before, and nothing from an earlier pass.
   seedPaletteMemory({
     pinned: chosen.draft?.palette?.pinned ?? [],

@@ -1,6 +1,6 @@
-// The Usage page's Time view: switch to it, read the weeks, then open the slowest Job's split.
+// The Usage page's Time view: switch to it, read the hours, then open the slowest Job's split and pick a build.
 // Keys on the page: v switches between tokens and time. In Time, ↓ j and ↑ k move down the Jobs, ↵ o opens one,
-// ← → h l step the weeks and Esc clears the week, then the Job, then the build. c moves focus to the Builds list, where
+// ← → h l step the hours and Esc clears the hour, then the Job, then the build. c moves focus to the Builds list, where
 // ↓ j and ↑ k move and ↵ o pick.
 
 import { button, deckRow, inside, place, region, role, tab, viaPalette, walk } from "../walk";
@@ -18,18 +18,13 @@ export const jobTime = walk("usage/time", [
     say: "Time sits beside Tokens; v switches between them",
   },
   {
-    look: region("Week by week"),
-    say: "The median Job by week: Model holds still while Checks and Pull request grow",
+    look: region("Hour by hour"),
+    say: "The four figures by the hour: Model, Tools and Pull request hold while Checks steps up at a build's marker",
   },
   {
     key: "ArrowDown",
     on: JOBS,
     say: "↓ moves the cursor to the slowest Job",
-  },
-  {
-    key: "ArrowDown",
-    on: JOBS,
-    say: "↓ again, to the next one",
   },
   {
     key: "Enter",
@@ -41,14 +36,8 @@ export const jobTime = walk("usage/time", [
     say: "Most time first; the usual for its workflow shows where it runs far over",
   },
   {
-    look: region("Builds", {
-      exact: true,
-    }),
-    say: "The builds, newest first: the figures hold while Checks jumps at one build and stays up",
-  },
-  {
-    press: role("option", /^7ac3d52,/),
-    say: "Press the build where Checks jumped: the Jobs, the weeks and the split narrow to it. Esc clears it",
+    press: role("button", /^7ac3d52,/),
+    say: "Press the marker where Checks stepped up, or its row 7ac3d52 in Builds: the Jobs and the split narrow to that build, and its span is shaded. Esc clears it",
   },
   {
     look: region("Split", {
@@ -60,7 +49,7 @@ export const jobTime = walk("usage/time", [
     press: tab("Tokens", {
       exact: true,
     }),
-    say: "Tokens keeps the build and draws the same panel: burn per turn holds across them",
+    say: "Tokens keeps the build and shades its span on Burn per hour: burn per turn holds across the builds",
   },
   {
     press: place("Cockpit"),

@@ -3,6 +3,7 @@
 
 import type { UsageBreakdown } from "@armada/protocol";
 
+import { dayName } from "./usage-time";
 import type { TimeSplit } from "./usage-time";
 import { percentDelta } from "./usage-view";
 
@@ -29,10 +30,8 @@ export type Build = {
   jobs: readonly string[];
   /** What the Tokens view shows when the build is picked. */
   usage: UsageBreakdown;
-  /** What the Time view shows: the split of the build's Jobs together, and the median Job in the week it began. */
+  /** What the Time view shows: the split of the build's Jobs together. */
   split: TimeSplit;
-  week: number;
-  median: TimeSplit;
 };
 
 /** Newest first. */
@@ -61,11 +60,12 @@ export const FIGURE_NAME: Readonly<Record<Figure, string>> = {
   pull_request: "Pull request wait",
 };
 
+/** A column's head: the figure with its unit. */
 export const FIGURE_HEAD: Readonly<Record<Figure, string>> = {
-  burn: "Burn",
-  model: "Model",
-  tools: "Tools",
-  checks: "Checks",
+  burn: "Burn / turn",
+  model: "Model / turn",
+  tools: "Tools / call",
+  checks: "Checks / run",
   pull_request: "Pull request",
 };
 
@@ -74,7 +74,7 @@ export const FIGURE_MEANS: Readonly<Record<Figure, string>> = {
   model: "The median wait on the model's answer, per turn",
   tools: "The median time a tool ran in the main thread, per call",
   checks: "The median time a Check queued or ran, per run",
-  pull_request: "The median time in CI and the merge queue with nothing else running, per pull request",
+  pull_request: "The median wait in CI and the merge queue with nothing else running, per pull request",
 };
 
 /** A figure as a reader takes it: `5.2s`, `41s`, `8.6m`, and whole minutes from a quarter hour. */
@@ -85,6 +85,20 @@ export function lapse(seconds: number): string {
   const minutes = Math.round(seconds / 60);
   return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
 }
+
+const part = (n: number): string => String(n).padStart(2, "0");
+
+/** When a build began, in the reader's own clock: `Nov 3 14:36`. */
+export function startedAt(instant: string): string {
+  const at = new Date(instant);
+  return `${dayName(`${at.getFullYear()}-${part(at.getMonth() + 1)}-${part(at.getDate())}`)} ${part(at.getHours())}:${part(at.getMinutes())}`;
+}
+
+/** What hovering a build says: its commit, and for a preview what it holds. */
+export const buildTip = (build: Build): string =>
+  build.branches.length > 0
+    ? `Preview of main ${build.commit} with ${build.branches.join(", ")}`
+    : `Main ${build.commit}`;
 
 /** Burn per turn in thousands of units. */
 export const thousands = (units: number): string => `${Math.round(units / 1000)}k`;

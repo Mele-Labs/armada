@@ -19,6 +19,7 @@ import type {
   SyncKindWord,
   Syncs,
   UsageBuilds,
+  UsageHours,
   UsageTime,
 } from "@armada/components";
 import type { AreaSource } from "../cockpit/deck/areas";
@@ -54,6 +55,8 @@ export type MockDraft = {
   time?: UsageTime | "pending";
   /** The builds the Usage page reads its figures against, newest first; `pending` holds them unanswered. No wire serves them yet. Mock only. */
   builds?: UsageBuilds | "pending";
+  /** The last 48 hours the Usage page draws as lines, an hour a point; `pending` holds them unanswered. No wire serves them yet. Mock only. */
+  hours?: UsageHours | "pending";
   /** What Fleet did, for the Cockpit's timeline: no wire serves it yet. */
   events?: readonly TimelineEvent[];
   /** Entries added to the timeline as each walk `later` step lets time pass, one batch a step, each built then so it is dated then, or time passing over those held (`events-later.ts`). Mock only. */
