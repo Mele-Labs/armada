@@ -636,7 +636,8 @@ export function createPaneFamily(spec: FamilySpec) {
       .find(
         (tab) =>
           tab.kind === "terminal" &&
-          ((terminal !== null && tab.terminal === terminal) || (first && tab.terminal === undefined)),
+          ((terminal !== null && tab.terminal === terminal) ||
+            (first && tab.terminal === undefined)),
       );
     const focusKept = (now: Arrangement, next: Arrangement): Arrangement =>
       next === now

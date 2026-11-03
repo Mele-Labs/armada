@@ -150,7 +150,14 @@ export function ChecksMark({ checks }: { checks: ReviewPr["checks"] }) {
 }
 
 /** Kit's tool standing in for the repository's of the same id that says something else: the eclipse, naming what it hides. Nothing where it hides nothing. */
-export function HidesMark({ tool }: { tool: { name: string; hides?: ToolSource } }) {
+export function HidesMark({
+  tool,
+}: {
+  tool: {
+    name: string;
+    hides?: ToolSource;
+  };
+}) {
   if (tool.hides !== "repository") return null;
   return <PrMark Glyph={Eclipse} said={`Hides the repository's ${tool.name}`} />;
 }

@@ -471,23 +471,23 @@ function addEntries(
         kind !== "custom" && kind !== "draft" && kind !== "walk" && (kind !== "thread" || !thread),
     )
     .flatMap((kind): DropdownMenuEntry[] => [
-    {
-      kind: "item",
-      id: kind,
-      label: KINDS[kind].label,
-      icon: KINDS[kind].Glyph,
-    },
-    // Right under the new shell: the Job's shells that have no tab, the agent's among them.
-    ...(kind !== "terminal"
-      ? []
-      : open.map(
-          (one): DropdownMenuEntry => ({
-            kind: "item",
-            id: `terminal:${one.terminal}`,
-            label: `Open ${one.name}`,
-            icon: KINDS.terminal.Glyph,
-          }),
-        )),
+      {
+        kind: "item",
+        id: kind,
+        label: KINDS[kind].label,
+        icon: KINDS[kind].Glyph,
+      },
+      // Right under the new shell: the Job's shells that have no tab, the agent's among them.
+      ...(kind !== "terminal"
+        ? []
+        : open.map(
+            (one): DropdownMenuEntry => ({
+              kind: "item",
+              id: `terminal:${one.terminal}`,
+              label: `Open ${one.name}`,
+              icon: KINDS.terminal.Glyph,
+            }),
+          )),
     ]);
   // Under the rule, the tabs a Mod Job built by name, then Custom, which builds another.
   const { Glyph } = KINDS.custom;
