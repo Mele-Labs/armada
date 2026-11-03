@@ -35,6 +35,7 @@ mod document_answers;
 mod step_waits;
 mod documents;
 mod building;
+mod builds_run;
 mod checkouts_apart;
 mod committing;
 mod daemon;

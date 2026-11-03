@@ -167,6 +167,7 @@ where
         if restarting_in(&support, SystemTime::now()) {
             return;
         }
+        self.build_kept(&support, build, &commit).await;
         if self.sweeping().lock().await.build_told.as_deref() == Some(commit.as_str()) {
             return;
         }

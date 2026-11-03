@@ -5,7 +5,7 @@
 use std::time::Duration;
 
 use super::repo::TempRepo;
-use crate::{branch_in_build, branch_tip, fetch_main, position_against_main, BranchInBuild};
+use crate::{branch_in_build, branch_tip, build_made_of, fetch_main, position_against_main, BranchInBuild, BuildMade};
 
 fn point_origin_main_at(repo: &TempRepo, commit: &str) {
     let opened = repo.open();
@@ -183,4 +183,40 @@ fn a_branch_tip_is_the_local_branch_and_a_missing_branch_has_none() {
     branch_at(&repo, "armada/work", &work);
     assert_eq!(branch_tip(&repo.root_str(), "armada/work"), Some(work));
     assert_eq!(branch_tip(&repo.root_str(), "armada/gone"), None);
+}
+
+/// A merge of `side` into `first`, worded as `scripts/preview` words it.
+fn merged(repo: &TempRepo, first: &str, side: &str, branch: &str) -> String {
+    let opened = repo.open();
+    let find = |id: &str| opened.find_commit(git2::Oid::from_str(id).expect("an object id")).expect("a commit");
+    let (first, side) = (find(first), find(side));
+    let who = git2::Signature::now("armada", "armada@example.invalid").expect("a signature");
+    let tree = first.tree().expect("a tree");
+    let message = format!("Merge branch '{branch}' into preview");
+    opened.commit(None, &who, &who, &message, &tree, &[&first, &side]).expect("a merge").to_string()
+}
+
+#[test]
+fn a_preview_is_read_from_its_merges_down_to_the_main_commit_under_them() {
+    let repo = TempRepo::with_a_commit();
+    let base = repo.head_str();
+    point_origin_main_at(&repo, &base);
+    let one = child_of(&repo, &base, "one");
+    let two = child_of(&repo, &base, "two");
+    let first = merged(&repo, &base, &one, "armada/a");
+    let preview = merged(&repo, &first, &two, "armada/b");
+    let made = build_made_of(&repo.root_str(), &preview).expect("a preview");
+    assert_eq!(made, BuildMade { preview: true, main_commit: base, branches: vec!["armada/b".into(), "armada/a".into()] });
+}
+
+#[test]
+fn a_commit_on_origin_main_is_a_main_build_and_one_that_is_neither_is_not_said() {
+    let repo = TempRepo::with_a_commit();
+    let base = repo.head_str();
+    let landed = child_of(&repo, &base, "landed");
+    point_origin_main_at(&repo, &landed);
+    assert_eq!(build_made_of(&repo.root_str(), &landed), Some(BuildMade { preview: false, main_commit: landed.clone(), branches: vec![] }));
+    let loose = child_of(&repo, &base, "a branch's own");
+    assert_eq!(build_made_of(&repo.root_str(), &loose), None, "not a preview, and not main's");
+    assert_eq!(build_made_of(&repo.root_str(), "0123456789abcdef0123456789abcdef01234567"), None, "not here at all");
 }

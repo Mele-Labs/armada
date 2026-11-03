@@ -1,7 +1,7 @@
 //! The fold of a Job's time: values in, a split out, with no Fleet. A second goes to the first
 //! bucket in the order that claims it, and the buckets sum to the whole.
 
-use crate::job_time::{fold, spans_between, stints, Span, Times, Turn};
+use crate::job_time::{by_build, cuts_inside, fold, spans_between, stints, Span, Split, Times, Turn};
 use crate::job_timing::turn_of;
 use store::KeptTurnTimed;
 
@@ -133,4 +133,44 @@ fn a_turn_that_called_the_question_tool_is_read_as_waiting_on_the_owner_and_no_o
     let shell = turn_of(&kept(&["Bash"])).unwrap();
     assert!(!shell.asked_owner && shell.called_tools);
     assert!(!turn_of(&kept(&[])).unwrap().called_tools);
+}
+
+#[test]
+fn the_split_is_cut_where_a_build_began_inside_the_job_and_the_slices_sum_to_it() {
+    let mut times = job(1000);
+    times.turns = vec![turn(100, 300)];
+    // The first and last begin outside, and the third as the Job ended: none of them cut it.
+    times.builds = vec![-50, 250, 500, 1000, 2000];
+    let folded = fold(&times);
+    assert_eq!(folded.slices.len(), 3);
+    assert_eq!((folded.slices[0].model, folded.slices[0].idle), (150, 100));
+    assert_eq!((folded.slices[1].model, folded.slices[1].idle), (50, 200));
+    assert_eq!((folded.slices[2].model, folded.slices[2].idle), (0, 500));
+    let mut sum = Split::default();
+    for slice in &folded.slices {
+        sum = Split { model: sum.model + slice.model, idle: sum.idle + slice.idle, ..sum };
+    }
+    assert_eq!(sum, folded.split);
+    assert_eq!(cuts_inside(0, 1000, &times.builds), [250, 500]);
+}
+
+#[test]
+fn a_stretch_that_crosses_a_build_is_given_to_both_of_them() {
+    let mut times = job(1000);
+    times.owner = vec![span(100, 900)];
+    times.builds = vec![300, 600];
+    let slices = fold(&times).slices;
+    assert_eq!(slices.iter().map(|slice| slice.you).collect::<Vec<_>>(), [200, 300, 300]);
+}
+
+#[test]
+fn each_slice_is_named_for_the_build_running_in_it_and_the_stretch_before_any_is_build_0() {
+    let mut times = job(1000);
+    times.builds = vec![250, 500];
+    let folded = fold(&times);
+    // A build (began, id) that was running as the Job began, and one that began after the Job.
+    let running = by_build(&folded, 0, 1000, &[(-100, 7), (250, 8), (500, 9), (2000, 10)]);
+    assert_eq!(running.iter().map(|(id, _)| *id).collect::<Vec<_>>(), [7, 8, 9]);
+    let before = by_build(&folded, 0, 1000, &[(250, 8), (500, 9)]);
+    assert_eq!(before.iter().map(|(id, _)| *id).collect::<Vec<_>>(), [0, 8, 9]);
 }

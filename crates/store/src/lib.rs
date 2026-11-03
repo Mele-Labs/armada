@@ -36,6 +36,7 @@ mod session_focus;
 mod session_rail;
 mod session_limit;
 mod session_loadout;
+mod fleet_builds;
 mod job_times;
 mod process_stops;
 mod session_slot_waits;
@@ -181,6 +182,7 @@ pub use logbook::{
 };
 pub use session_waits::KeptWait;
 pub use session_build::{KeptBuild, KeptTask, LandedPull, RoadAsk, RoadTimes, WorkTimes};
+pub use fleet_builds::{KeptFleetBuild, KeptBuildSplit, KeptPullRequestWait, NewBuild};
 pub use job_times::{KeptCheckSpan, KeptJobTime, KeptTurnTimed};
 pub use session_slot_waits::KeptSlotWait;
 pub use session_turn_usage::{KeptOpenCall, KeptReading, KeptToolResult, KeptTurnTimes, KeptTurnUsage};

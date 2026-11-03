@@ -8,8 +8,23 @@
 //! **Where two buckets claim a second, the first in [`Bucket`]'s order takes it.** Work wins over
 //! waiting, and a wait the Job is not in (the pull request, a stopped agent) wins over nothing.
 //! A claim that reaches back past a restart starts at the restart: the gap is not work.
+//!
+//! **The split is also cut where each build began** ([`Folded::slices`]), so time is the build's
+//! that was running when it passed and not the build the Job started on.
 
 use std::cmp::Ordering;
+
+const BUCKETS: [Bucket; 9] = [
+    Bucket::Checks,
+    Bucket::Subagents,
+    Bucket::Tools,
+    Bucket::Model,
+    Bucket::Slot,
+    Bucket::You,
+    Bucket::PullRequest,
+    Bucket::Stopped,
+    Bucket::Idle,
+];
 
 /// Where a stretch went, in the order that settles a second two of them claim.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -75,6 +90,9 @@ pub struct Times {
     pub stopped: Vec<Span>,
     /// When the agent's process came back, or died: a stretch of work does not run across one.
     pub restarts: Vec<i64>,
+    /// When each build began, whether inside the Job or not. The split is also given cut at those
+    /// inside it ([`cuts_inside`]).
+    pub builds: Vec<i64>,
 }
 
 /// Milliseconds in each bucket. They sum to the Job's whole.
@@ -104,6 +122,26 @@ impl Split {
             + self.idle
     }
 
+    fn plus(&mut self, other: &Split) {
+        for bucket in BUCKETS {
+            self.add(bucket, other.get(bucket));
+        }
+    }
+
+    pub fn get(&self, bucket: Bucket) -> i64 {
+        match bucket {
+            Bucket::Checks => self.checks,
+            Bucket::Subagents => self.subagents,
+            Bucket::Tools => self.tools,
+            Bucket::Model => self.model,
+            Bucket::Slot => self.slot,
+            Bucket::You => self.you,
+            Bucket::PullRequest => self.pull_request,
+            Bucket::Stopped => self.stopped,
+            Bucket::Idle => self.idle,
+        }
+    }
+
     fn add(&mut self, bucket: Bucket, millis: i64) {
         let held = match bucket {
             Bucket::Checks => &mut self.checks,
@@ -121,9 +159,12 @@ impl Split {
 }
 
 /// The split, and where it stands on a guess.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Folded {
     pub split: Split,
+    /// The split cut at the builds that began inside the Job: one more than there are
+    /// [`cuts_inside`] of them, the first running from the Job's start to the first. They sum to `split`.
+    pub slices: Vec<Split>,
     /// A turn of the main thread called tools and has no end for them (the Job's last turn is
     /// left out, since a run cut off mid-tool has none), so those tools' time reads as the model's.
     pub tool_times_missing: bool,
@@ -161,10 +202,11 @@ fn bucket_of(slot: usize) -> Bucket {
 /// [`Split::total`] is the whole; a Job that ends before it began has none.
 pub fn fold(times: &Times) -> Folded {
     let (began, ended) = (times.began, times.ended);
-    let mut folded = Folded::default();
+    let mut folded = Folded { slices: vec![Split::default()], ..Folded::default() };
     if ended <= began {
         return folded;
     }
+    let cuts = cuts_inside(began, ended, &times.builds);
     let mut restarts = times.restarts.clone();
     restarts.sort_unstable();
     let mut claims: Vec<(Span, Rank)> = Vec::new();
@@ -222,13 +264,35 @@ pub fn fold(times: &Times) -> Folded {
         before = before.max(turn.at);
         anchor = before.max(turn.tools_ended.unwrap_or(0));
     }
-    folded.split = swept(began, ended, &claims);
+    folded.slices = swept(began, ended, &claims, &cuts);
+    for slice in &folded.slices {
+        folded.split.plus(slice);
+    }
     folded
 }
 
+/// The instants among `starts` strictly inside a Job, in order and once each. A Job's slices are
+/// cut there, so a build that began as the Job did, or as it ended, takes none of it.
+pub fn cuts_inside(began: i64, ended: i64, starts: &[i64]) -> Vec<i64> {
+    let mut cuts: Vec<i64> = starts.iter().copied().filter(|at| *at > began && *at < ended).collect();
+    cuts.sort_unstable();
+    cuts.dedup();
+    cuts
+}
+
+/// A Job's slices with the build each fell in: `builds` are `(began, id)`, and the id is 0 for the
+/// stretch before the first build known.
+pub fn by_build(folded: &Folded, began: i64, ended: i64, builds: &[(i64, i64)]) -> Vec<(i64, Split)> {
+    let starts: Vec<i64> = builds.iter().map(|(at, _)| *at).collect();
+    let cuts = cuts_inside(began, ended, &starts);
+    let id_at = |at: i64| builds.iter().filter(|(began, _)| *began <= at).max_by_key(|(began, id)| (*began, *id)).map_or(0, |(_, id)| *id);
+    std::iter::once(id_at(began)).chain(cuts.iter().map(|cut| id_at(*cut))).zip(folded.slices.iter().copied()).collect()
+}
+
 /// Walk the claims' edges in order, a count of the claims standing at each rank, and give each
-/// stretch between two edges to the first rank with one standing, or to Idle.
-fn swept(began: i64, ended: i64, claims: &[(Span, Rank)]) -> Split {
+/// stretch between two edges to the first rank with one standing, or to Idle. A stretch is cut at
+/// each of `cuts`, and each piece goes to the slice it falls in.
+fn swept(began: i64, ended: i64, claims: &[(Span, Rank)], cuts: &[i64]) -> Vec<Split> {
     let mut edges: Vec<(i64, usize, i32)> = Vec::with_capacity(claims.len() * 2);
     for (span, rank) in claims {
         edges.push((span.from, slot_of(*rank), 1));
@@ -238,18 +302,29 @@ fn swept(began: i64, ended: i64, claims: &[(Span, Rank)]) -> Split {
         Ordering::Equal => a.2.cmp(&b.2),
         other => other,
     });
-    let mut split = Split::default();
+    let mut slices = vec![Split::default(); cuts.len() + 1];
     let mut standing = [0i32; RANKS];
     let mut at = began;
     for (edge, rank, change) in edges {
         if edge > at {
-            split.add(standing.iter().position(|held| *held > 0).map_or(Bucket::Idle, bucket_of), edge - at);
+            give(&mut slices, cuts, standing.iter().position(|held| *held > 0).map_or(Bucket::Idle, bucket_of), at, edge);
             at = edge;
         }
         standing[rank] += change;
     }
-    split.add(Bucket::Idle, ended - at);
-    split
+    give(&mut slices, cuts, Bucket::Idle, at, ended);
+    slices
+}
+
+/// Add the stretch `from..to` to a bucket, split among the slices it crosses.
+fn give(slices: &mut [Split], cuts: &[i64], bucket: Bucket, mut from: i64, to: i64) {
+    let mut slice = cuts.partition_point(|cut| *cut <= from);
+    while from < to {
+        let upto = cuts.get(slice).map_or(to, |cut| (*cut).min(to));
+        slices[slice].add(bucket, upto - from);
+        from = upto;
+        slice += 1;
+    }
 }
 
 /// The stretches that begin at each of `opens` and end at the first of `closes` after it, or at

@@ -19,7 +19,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::turn_lines;
 use core_model::Timestamp;
 use ipc::SessionRow;
-use store::{AttachmentState, Holder, KeptJobTime, KeptTurnTimed};
+use store::{AttachmentState, Holder, KeptBuildSplit, KeptJobTime, KeptPullRequestWait, KeptTurnTimed};
 
 use crate::daemon::Fleet;
 use crate::job_time::{self, Span, Times, Turn};
@@ -122,11 +122,12 @@ where
         let outages = store.fleet_outages_between(&began_at, &ended_at).ok()?;
         let plan = store.session_plan(id).ok()?;
         let oldest = store.timeline_oldest().ok()?;
+        let builds = store.builds().ok()?;
         drop(store);
 
         let (began, ended) = (millis(&began_at), millis(&ended_at));
         let (Some(began), Some(ended)) = (began, ended) else {
-            return Some(self.job_time_of(id, &session.manifest_id, &hosting, &began_at, &ended_at, job_time::Folded::default(), false, kept_at));
+            return Some(self.job_time_of(id, &session.manifest_id, &hosting, &began_at, &ended_at, job_time::Folded::default(), false, kept_at, Vec::new(), Vec::new()));
         };
         let at = |stamp: &String| millis(stamp);
 
@@ -155,9 +156,9 @@ where
         }
 
         // A subagent and a pull request each stand from the first standing version to the first
-        // that does not.
+        // that does not, one stint a target.
         let stood = |kind: &str| {
-            let mut kept: Vec<Span> = Vec::new();
+            let mut kept: Vec<(String, Span)> = Vec::new();
             let mut targets: Vec<(&str, &str)> = versions
                 .iter()
                 .filter(|one| one.kind == kind)
@@ -171,10 +172,11 @@ where
                     .filter(|one| one.kind == kind && one.manifest_id == manifest && one.target == target)
                     .filter_map(|one| Some((millis(&one.at)?, one.state == AttachmentState::Standing)))
                     .collect();
-                kept.extend(job_time::stints(&one, ended));
+                kept.extend(job_time::stints(&one, ended).into_iter().map(|span| (target.to_string(), span)));
             }
             kept
         };
+        let pull_requests = stood(crate::pull_requesting::PR);
 
         // A death is a stop, and the process coming back ends it; a process Fleet let go is neither.
         let stop_opens: Vec<i64> = stops.iter().filter_map(at).chain(restarts.iter().filter(|one| one.kind == "ended").filter_map(|one| millis(&one.at))).collect();
@@ -182,7 +184,7 @@ where
         let mut stopped = job_time::spans_between(&stop_opens, &back, ended);
         stopped.extend(spans(outages.iter().map(|(from, to)| (millis(from), millis(to)))));
 
-        let folded = job_time::fold(&Times {
+        let times = Times {
             began,
             ended,
             turns: turns.iter().filter_map(turn_of).collect(),
@@ -192,15 +194,46 @@ where
                 let to = run.ended_at.as_deref().and_then(millis).or_else(|| Some(from? + run.took_ms? as i64));
                 (from, to)
             })),
-            subagents: stood("subagent"),
+            subagents: stood("subagent").into_iter().map(|(_, span)| span).collect(),
             slot: spans(slot_waits.iter().map(|wait| (millis(&wait.began_at), Some(wait.ended_at.as_deref().and_then(millis).unwrap_or(ended))))),
             owner,
-            pull_request: stood(crate::pull_requesting::PR),
+            pull_request: pull_requests.iter().map(|(_, span)| *span).collect(),
             stopped,
             restarts: restarts.iter().filter_map(|one| millis(&one.at)).chain(stops.iter().filter_map(at)).collect(),
-        });
+            builds: builds.iter().filter_map(|one| millis(&one.build.started_at)).collect(),
+        };
+        let folded = job_time::fold(&times);
+        let started: Vec<(i64, i64)> = builds.iter().filter_map(|one| Some((millis(&one.build.started_at)?, one.id))).collect();
+        let by_build = job_time::by_build(&folded, began, ended, &started)
+            .into_iter()
+            .map(|(build_id, split)| KeptBuildSplit {
+                build_id,
+                model_ms: split.model,
+                tools_ms: split.tools,
+                checks_ms: split.checks,
+                subagents_ms: split.subagents,
+                slot_ms: split.slot,
+                you_ms: split.you,
+                pull_request_ms: split.pull_request,
+                stopped_ms: split.stopped,
+                idle_ms: split.idle,
+            })
+            .collect();
+        // Another stint's pull request time is not this one's: each is folded alone.
+        let waits = pull_requests
+            .iter()
+            .map(|(target, span)| {
+                let alone = Times { pull_request: vec![*span], builds: Vec::new(), ..times.clone() };
+                KeptPullRequestWait {
+                    target: target.clone(),
+                    began_at: crate::clock::rfc3339_utc(span.from),
+                    ended_at: crate::clock::rfc3339_utc(span.to),
+                    wait_ms: job_time::fold(&alone).split.pull_request,
+                }
+            })
+            .collect();
         let cut = oldest.as_deref().is_some_and(|oldest| began_at.as_str() < oldest);
-        Some(self.job_time_of(id, &session.manifest_id, &hosting, &began_at, &ended_at, folded, cut, kept_at))
+        Some(self.job_time_of(id, &session.manifest_id, &hosting, &began_at, &ended_at, folded, cut, kept_at, by_build, waits))
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -214,6 +247,8 @@ where
         folded: job_time::Folded,
         timeline_cut: bool,
         kept_at: String,
+        builds: Vec<KeptBuildSplit>,
+        waits: Vec<KeptPullRequestWait>,
     ) -> KeptJobTime {
         let split = folded.split;
         KeptJobTime {
@@ -236,6 +271,8 @@ where
             timeline_cut,
             kept_at,
             fold: job_time::FOLD,
+            builds,
+            waits,
         }
     }
 }

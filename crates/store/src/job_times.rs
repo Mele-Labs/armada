@@ -7,6 +7,7 @@
 use rusqlite::{params, OptionalExtension};
 
 use crate::error::{fault, WriteError};
+use crate::fleet_builds::{write_parts, KeptBuildSplit, KeptPullRequestWait};
 use crate::open::Store;
 
 /// One Job's split. The figures sum to `ended_at` less `began_at`.
@@ -32,6 +33,10 @@ pub struct KeptJobTime {
     pub kept_at: String,
     /// The reading of the fold that made the row (`job_time::FOLD`).
     pub fold: i64,
+    /// The split cut at each build, summing to the figures above, and each pull request's wait.
+    /// Kept with the row and replaced with it.
+    pub builds: Vec<KeptBuildSplit>,
+    pub waits: Vec<KeptPullRequestWait>,
 }
 
 /// A turn as the split reads it.
@@ -62,40 +67,42 @@ const COLUMNS: &str = "session_id, repository, workflow, began_at, ended_at, mod
      model_starts_guessed, timeline_cut, kept_at, fold";
 
 impl Store {
-    /// Keep a Job's split, replacing the one it had.
+    /// Keep a Job's split, replacing the one it had, with its parts in the same transaction.
     pub fn keep_job_time(&mut self, time: &KeptJobTime) -> Result<(), WriteError> {
-        self.conn
-            .execute(
-                &format!("INSERT OR REPLACE INTO job_times ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)"),
-                params![
-                    time.session_id,
-                    time.repository,
-                    time.workflow,
-                    time.began_at,
-                    time.ended_at,
-                    time.model_ms,
-                    time.tools_ms,
-                    time.checks_ms,
-                    time.subagents_ms,
-                    time.slot_ms,
-                    time.you_ms,
-                    time.pull_request_ms,
-                    time.stopped_ms,
-                    time.idle_ms,
-                    time.tool_times_missing,
-                    time.model_starts_guessed,
-                    time.timeline_cut,
-                    time.kept_at,
-                    time.fold,
-                ],
-            )
-            .map(|_| ())
-            .map_err(failed("keeping where a job's time went"))
+        let doing = "keeping where a job's time went";
+        let tx = self.conn.transaction().map_err(failed(doing))?;
+        tx.execute(
+            &format!("INSERT OR REPLACE INTO job_times ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)"),
+            params![
+                time.session_id,
+                time.repository,
+                time.workflow,
+                time.began_at,
+                time.ended_at,
+                time.model_ms,
+                time.tools_ms,
+                time.checks_ms,
+                time.subagents_ms,
+                time.slot_ms,
+                time.you_ms,
+                time.pull_request_ms,
+                time.stopped_ms,
+                time.idle_ms,
+                time.tool_times_missing,
+                time.model_starts_guessed,
+                time.timeline_cut,
+                time.kept_at,
+                time.fold,
+            ],
+        )
+        .map_err(failed(doing))?;
+        write_parts(&tx, &time.session_id, &time.builds, &time.waits).map_err(failed(doing))?;
+        tx.commit().map_err(failed(doing))
     }
 
     /// A Job's split, if one is kept.
     pub fn job_time(&self, session_id: &str) -> Result<Option<KeptJobTime>, WriteError> {
-        self.conn
+        let kept = self.conn
             .query_row(&format!("SELECT {COLUMNS} FROM job_times WHERE session_id = ?1"), [session_id], |row| {
                 Ok(KeptJobTime {
                     session_id: row.get(0)?,
@@ -117,10 +124,18 @@ impl Store {
                     timeline_cut: row.get(16)?,
                     kept_at: row.get(17)?,
                     fold: row.get(18)?,
+                    builds: Vec::new(),
+                    waits: Vec::new(),
                 })
             })
             .optional()
-            .map_err(failed("reading where a job's time went"))
+            .map_err(failed("reading where a job's time went"))?;
+        let Some(mut kept) = kept else {
+            return Ok(None);
+        };
+        kept.builds = self.job_time_builds_of(session_id)?;
+        kept.waits = self.job_time_waits_of(session_id)?;
+        Ok(Some(kept))
     }
 
     /// The most recently ended Job with no split, or whose split was made for an earlier end (one
