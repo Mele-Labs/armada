@@ -170,6 +170,20 @@ pub trait Sessions: Send + Sync + 'static {
         answer: ipc::AnswerBrowserRequest,
     ) -> impl Future<Output = Result<ipc::BrowserRequestAnswered, Refusal>> + Send;
 
+    /// `raise_browser_ask` — Bridge says a page asks the owner something. Fleet holds it in memory and
+    /// lists it in the Job's Needs you; the agent is told nothing. The same `ask_id` replaces it.
+    fn raise_browser_ask(
+        &self,
+        ask: ipc::RaiseBrowserAsk,
+    ) -> impl Future<Output = Result<ipc::BrowserAskNoted, Refusal>> + Send;
+
+    /// `end_browser_ask` — the ask was settled in the tab, or the tab closed. Answers where none is
+    /// held, since either side may end first.
+    fn end_browser_ask(
+        &self,
+        ask: ipc::EndBrowserAsk,
+    ) -> impl Future<Output = Result<ipc::BrowserAskNoted, Refusal>> + Send;
+
     /// `show_window` — a session shows the person a page. `caller` is the connection the call
     /// arrived on, where it came through the agent's door: it places a hosted session. Answers with
     /// the row. [`Refusal::Unacceptable`] for an address that is not `http` or `https`, or a call

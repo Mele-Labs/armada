@@ -746,6 +746,14 @@ pub enum WaitingSource {
     /// to carry out and `Skip` records it skipped; **neither sends the agent a word**. Dismissing it
     /// is Skip. Listed only while the Job is live.
     RuleAct,
+    /// Fleet: a page in the Job's browser asks the owner for something, and Bridge told Fleet with
+    /// `raise_browser_ask`. Held in memory, never kept: id `browser_ask:<ask_id>`, `ask_id` being
+    /// Bridge's tab id, text and options as Bridge sent them, an `answer` act whose `target` is the
+    /// id. Answering with a `choice` publishes `browser.ask_answered` with that index and removes
+    /// it, and dismissing publishes it with no choice: **the agent is told nothing and is not
+    /// woken**. A free-text answer is refused. Gone when `end_browser_ask` names it, when Fleet
+    /// restarts, and when no client holds `/events` open.
+    BrowserAsk,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,

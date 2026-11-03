@@ -5,6 +5,8 @@ const HOLD_LAYERS = [
   "[data-armada-annotate]",
   ".job-browser__site-panel",
   ".job-browser__ask",
+  ".armada-dialog-scrim",
+  ".armada-job-review",
   ".armada-dropdown-menu__panel",
   ".armada-popover__panel",
   ".job-pane__drops",

@@ -1057,6 +1057,14 @@ where
         self.browser_request_answered(answer).await
     }
 
+    async fn raise_browser_ask(&self, ask: ipc::RaiseBrowserAsk) -> Result<ipc::BrowserAskNoted, Refusal> {
+        self.browser_ask_raised(ask).await
+    }
+
+    async fn end_browser_ask(&self, ask: ipc::EndBrowserAsk) -> Result<ipc::BrowserAskNoted, Refusal> {
+        self.browser_ask_ended(ask).await
+    }
+
     async fn rename_session(&self, rename: ipc::RenameSession) -> Result<SessionRecord, Refusal> {
         let title = rename
             .title

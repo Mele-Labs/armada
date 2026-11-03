@@ -87,8 +87,18 @@ function sessionFor(manifestId: string | null): Session {
  */
 const GROUND = tokens.tokens.find((one) => one.name === "--bg-base")?.value;
 
-/** The page: another repository's running app, with no preload and a session of its own. */
-export function pageView(pin: Pinned): WebContentsView {
+/**
+ * The page: another repository's running app, with no preload and a session of its own. **`disableDialogs`** is true unless a Job browser's
+ * page says otherwise: its `alert` and `confirm` are the owner's to see, where the walk window's would pass for Armada's.
+ */
+export function pageView(
+  pin: Pinned,
+  {
+    disableDialogs = true,
+  }: {
+    disableDialogs?: boolean;
+  } = {},
+): WebContentsView {
   const view = new WebContentsView({
     webPreferences: {
       session: sessionFor(pin.manifestId),
@@ -101,7 +111,7 @@ export function pageView(pin: Pinned): WebContentsView {
       webviewTag: false,
       spellcheck: false,
       // A dialog the page draws would be a dialog that looks like Armada's.
-      disableDialogs: true,
+      disableDialogs,
       // Neither loosened. A page's own CSP is what governs it, and Bridge
       // rewrites no header to make an awkward app render.
       webSecurity: true,

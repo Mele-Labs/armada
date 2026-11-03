@@ -18,15 +18,17 @@ pub struct KeptAutopilot {
     pub until: Option<String>,
     pub spend_cap_micros: Option<u64>,
     pub session_cap: Option<u32>,
+    pub weekly_cap_percent: Option<u32>,
     /// `running`, `paused` or `stopped`.
     pub state: String,
     pub started_at: String,
     pub ended_at: Option<String>,
-    /// `until`, `spend` or `sessions`: the cap that stopped it. Absent where a person did, or nothing has.
+    /// `until`, `spend`, `sessions` or `weekly`: the cap that stopped it. Absent where a person did, or nothing has.
     pub capped_by: Option<String>,
     /// The boxes checked at start: whether the backlog is on Autopilot, and what is running.
     pub on_backlog: bool,
     pub on_running: bool,
+    pub on_reports: bool,
     /// The kinds of decision a helper may answer, as the words Fleet gave. Kept in order.
     pub decisions: Vec<String>,
 }
@@ -51,7 +53,8 @@ pub struct KeptPick {
 
 const AUTOPILOT: &str =
     "manifest_id, run_id, instruction, at_once, until, spend_cap_micros, job_cap, \
-                         state, started_at, ended_at, capped_by, on_backlog, on_running, decisions";
+                         state, started_at, ended_at, capped_by, on_backlog, on_running, decisions, \
+                         on_reports, weekly_cap_percent";
 const PICK: &str =
     "pick_id, run_id, manifest_id, issue_number, issue_title, issue_url, workflow_id, \
                     started_session, state, reason, at, issue_reference";
@@ -79,6 +82,8 @@ fn autopilot_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptAutopilot> {
             .filter(|word| !word.is_empty())
             .map(str::to_string)
             .collect(),
+        on_reports: row.get(14)?,
+        weekly_cap_percent: row.get(15)?,
     })
 }
 
@@ -140,7 +145,7 @@ impl Store {
             .execute(
                 &format!(
                     "INSERT OR REPLACE INTO autopilots ({AUTOPILOT})
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)"
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)"
                 ),
                 params![
                     kept.manifest_id,
@@ -157,6 +162,8 @@ impl Store {
                     kept.on_backlog,
                     kept.on_running,
                     kept.decisions.join(","),
+                    kept.on_reports,
+                    kept.weekly_cap_percent,
                 ],
             )
             .map(|_| ())
@@ -188,7 +195,7 @@ impl Store {
         self.conn
             .execute(
                 "UPDATE autopilots SET instruction = ?2, at_once = ?3, until = ?4,
-                     spend_cap_micros = ?5, job_cap = ?6
+                     spend_cap_micros = ?5, job_cap = ?6, weekly_cap_percent = ?7
                  WHERE run_id = ?1",
                 params![
                     kept.run_id,
@@ -197,6 +204,7 @@ impl Store {
                     kept.until,
                     kept.spend_cap_micros.map(|micros| micros as i64),
                     kept.session_cap,
+                    kept.weekly_cap_percent,
                 ],
             )
             .map(|changed| changed > 0)

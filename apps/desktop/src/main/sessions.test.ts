@@ -1146,6 +1146,66 @@ it("pauses and resumes a session on their own routes with the session named", as
   ]);
 });
 
+it("raises and ends a page's ask on their own routes, and hears the person's answer to it", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [
+    record("a"),
+  ]);
+  const { sessions } = host(port);
+  const heard: unknown[] = [];
+  sessions.onBrowserAskAnswered((answered) => void heard.push(answered));
+  const options = [
+    {
+      label: "Allow",
+    },
+    {
+      label: "Block",
+    },
+  ];
+  expect(
+    await sessions.raiseBrowserAsk({
+      session_id: "a",
+      ask_id: "t1",
+      text: "Allow Camera for login.example.com?",
+      options,
+    }),
+  ).toEqual({
+    ok: true,
+  });
+  await sessions.endBrowserAsk({
+    session_id: "a",
+    ask_id: "t1",
+  });
+  sessions.browserAskAnswered({
+    session_id: "a",
+    ask_id: "t1",
+    choice: null,
+  });
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual([
+    "POST /sessions/browser/ask",
+    "POST /sessions/browser/ask/end",
+  ]);
+  expect(sent.map((one) => one.body)).toEqual([
+    {
+      session_id: "a",
+      ask_id: "t1",
+      text: "Allow Camera for login.example.com?",
+      options,
+    },
+    {
+      session_id: "a",
+      ask_id: "t1",
+    },
+  ]);
+  expect(heard).toEqual([
+    {
+      session_id: "a",
+      ask_id: "t1",
+      choice: null,
+    },
+  ]);
+});
+
 it("starts a Job that did not start again on its own route with the session named", async () => {
   const sent: Sent[] = [];
   const port = await fleet(sent, [

@@ -10,7 +10,7 @@ Bridge's half is `packages/protocol/src/autopilot.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `AutopilotSettings.on_autopilot` (`start_autopilot`'s body) | Bridge sends, Fleet keeps | `AutopilotWork`: `backlog` and `running`, booleans. Absent reads as `backlog` true, `running` false |
+| `AutopilotSettings.on_autopilot` (`start_autopilot`'s body) | Bridge sends, Fleet keeps | `AutopilotWork`: `backlog` and `running`, booleans, and later `reports` ([its note](autopilot-reports-and-weekly-cap.md)). Absent reads as `backlog` true, `running` false |
 | `AutopilotSettings.decisions` | Bridge sends, Fleet keeps | A set of `AutopilotDecision`: `recommended`, `open`, `plan`, `draft`, `walk`, `land`, `unsure`, `red`, `reads`, `writes`. Absent reads as none |
 | `Autopilot.on_autopilot`, `Autopilot.decisions` | Fleet writes, Bridge reads | What was checked at start, always present. A record kept before them reads as the defaults above |
 | `update_autopilot` | unchanged route | Ignores both fields and keeps what the run holds, since the Cockpit's Edit caps sends none |
