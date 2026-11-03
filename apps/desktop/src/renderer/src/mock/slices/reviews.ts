@@ -51,6 +51,15 @@ const withPages = (forge: ReviewsApi, pages: PullRequestPages): ReviewsApi => ({
           value: page,
         };
   },
+  readReviewPatches: async (manifestId, number) => {
+    const files = pages.patches(number);
+    return files === undefined
+      ? forge.readReviewPatches(manifestId, number)
+      : {
+          ok: true,
+          value: files,
+        };
+  },
   writeReview: async (manifestId, write) => {
     if (pages.read(write.pull_request) === undefined) return forge.writeReview(manifestId, write);
     const done = pages.write(write.pull_request, write);

@@ -8,8 +8,10 @@ import type {
   PullRequestCommit,
   PullRequestEntry,
   PullRequestFile,
+  PullRequestFilePatches,
   PullRequestPage,
   PullRequestReviewer,
+  PullReviewThread,
 } from "@armada/protocol";
 
 const PULL = "https://github.com/mele-labs/armada/pull/";
@@ -110,6 +112,44 @@ function initial(): Record<number, PullRequestPage> {
       body: "The queue estimate waits on the forge.",
     },
   ];
+  // A line comment with a reply, and a resolved comment on a whole file, said between the conversation's entries.
+  const threads2209: PullReviewThread[] = [
+    {
+      id: "PRRT_1",
+      path: "crates/config/settings.toml",
+      line: 16,
+      side: "right",
+      resolved: false,
+      comments: [
+        {
+          id: "PRRC_1",
+          author: "marta",
+          at: minutesAgo(66),
+          body: "Say what `armada` opens here: the side panel, or a window of its own.",
+        },
+        {
+          id: "PRRC_2",
+          author: "nick",
+          at: minutesAgo(50),
+          body: "The side panel. I will name it in the comment above the key.",
+        },
+      ],
+    },
+    {
+      id: "PRRT_2",
+      path: "apps/desktop/src/main/forge.ts",
+      side: "right",
+      resolved: true,
+      comments: [
+        {
+          id: "PRRC_3",
+          author: "nina",
+          at: minutesAgo(30),
+          body: "This file reads the setting on every link. Read it once when the window opens.",
+        },
+      ],
+    },
+  ];
   return {
     2209: {
       manifest_id: "armada",
@@ -143,6 +183,7 @@ function initial(): Record<number, PullRequestPage> {
         },
       ],
       conversation: conversation2209,
+      threads: threads2209,
       checks: checks(2209, [
         [
           "build",
@@ -561,6 +602,8 @@ function initial(): Record<number, PullRequestPage> {
 /** What a write does to a pull request's page: it joins the conversation and moves the review, and the next read shows it, as the forge would. */
 export type PullRequestPages = {
   read: (number: number) => PullRequestPage | undefined;
+  /** Every file's patch, where the scenario holds them. Absent leaves the read to the forge. */
+  patches: (number: number) => PullRequestFilePatches | undefined;
   write: (
     number: number,
     write: {
@@ -573,6 +616,36 @@ export type PullRequestPages = {
         said: string;
       };
 };
+
+/** The patches a pull request's threads stand on. A file not here has none, as the forge says of a binary or a large one. */
+const PATCHES: Record<number, Record<string, string>> = {
+  2209: {
+    "crates/config/settings.toml": [
+      "@@ -12,3 +12,9 @@",
+      " [links]",
+      " # Where a link to an issue opens.",
+      ' openIssuesIn = "browser"',
+      "+# Where a link to a pull request opens: armada or browser.",
+      '+openPullRequestsIn = "armada"',
+      "+",
+      "+[links.panel]",
+      '+width = "wide"',
+      "+remember = true",
+    ].join("\n"),
+    "apps/desktop/src/main/forge.ts": [
+      "@@ -30,7 +30,9 @@",
+      " export function openLink(address: string) {",
+      "-  return shell.openExternal(address);",
+      "+  const where = settings().links.openPullRequestsIn;",
+      '+  if (where === "armada" && isPullRequest(address)) return openInPanel(address);',
+      "+  return shell.openExternal(address);",
+      " }",
+    ].join("\n"),
+  },
+};
+
+const NO_PATCH =
+  "The forge sent no patch for this file. It is binary, or the change is too large for the forge to show.";
 
 /** Pull requests whose reviewers the forge names late: from this read of the page on, not before. The panel reads once on open, so the second read is the first one it asks for after Ready for review, two seconds on. */
 const ASSIGNED_ON_READ: Record<
@@ -621,6 +694,28 @@ export function pullRequestPages(): PullRequestPages {
   };
   return {
     read,
+    patches: (number) => {
+      const page = pages[number];
+      const held = PATCHES[number];
+      if (page === undefined || held === undefined) return undefined;
+      return {
+        files: page.files.map((file) => {
+          const patch = held[file.path];
+          return {
+            manifest_id: page.manifest_id,
+            number,
+            path: file.path,
+            ...(patch === undefined
+              ? {
+                  said: NO_PATCH,
+                }
+              : {
+                  patch,
+                }),
+          };
+        }),
+      };
+    },
     write: (number, write) => {
       const page = pages[number];
       if (page === undefined)
