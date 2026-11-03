@@ -43,17 +43,7 @@ where
     /// already started again for this turn stays on its row, which is what the person is told of.
     /// Whether the process was started.
     pub(crate) async fn died_with_a_turn_open(self: &Arc<Self>, id: &str) -> bool {
-        let Ok((session, hosting)) = self.session_and_hosting(id).await else {
-            return false;
-        };
-        // A limit's own wake starts a Job held for one, and only the person's Resume lifts a pause.
-        let held_for_a_limit = matches!(self.store().lock().await.session_limit(id), Ok(Some(_)));
-        if session.state == store::SessionState::Ended
-            || hosting.paused_at.is_some()
-            || hosting.start_held
-            || held_for_a_limit
-        {
-            self.turn_closed(id).await;
+        if self.kept_from_starting(id).await {
             return false;
         }
         let at = self.now().as_str().to_string();
@@ -65,6 +55,23 @@ where
         let _ = self.store().lock().await.turn_started_again(id);
         self.kept_restart(id, "started_again", None).await;
         self.told_of_a_death(id, STARTED_AGAIN).await.unwrap_or(false)
+    }
+
+    /// Whether nothing may start this Job by itself, in which case its open turn is closed. A limit's
+    /// own wake starts a Job held for one, and only the person's Resume lifts a pause.
+    async fn kept_from_starting(&self, id: &str) -> bool {
+        let Ok((session, hosting)) = self.session_and_hosting(id).await else {
+            return true;
+        };
+        let held_for_a_limit = matches!(self.store().lock().await.session_limit(id), Ok(Some(_)));
+        let kept = session.state == store::SessionState::Ended
+            || hosting.paused_at.is_some()
+            || hosting.start_held
+            || held_for_a_limit;
+        if kept {
+            self.turn_closed(id).await;
+        }
+        kept
     }
 
     /// Start again the Jobs whose turn was open when their process was lost with Fleet down.
@@ -80,6 +87,9 @@ where
             }
             // Started again already and still dead: it sits in Needs you, and says nothing twice.
             if row.ended_at.is_some() && row.started_again >= 1 {
+                continue;
+            }
+            if self.kept_from_starting(&id).await {
                 continue;
             }
             self.kept_restart(&id, "ended", Some("the job's process was gone when Fleet came back"))
