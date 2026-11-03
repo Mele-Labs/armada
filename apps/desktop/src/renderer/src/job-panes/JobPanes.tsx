@@ -12,12 +12,13 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { DockHandle } from "@armada/components";
+import type { LucideIcon } from "lucide-react";
 
 import { LayoutControl } from "./LayoutControl";
-import { PaneView } from "./PaneView";
+import { PaneView, type AddMenu } from "./PaneView";
 import { useBuiltTabs } from "./mod-tabs";
 import { usePaneKeys } from "./keys";
-import { droppableEdge, droppableGap, measured, rearrange, useJobPanes } from "./store";
+import { PaneFamilyContext, jobPanes, type PaneFamily } from "./store";
 import { endZoom, useZoomBox, usePaneZoomed } from "./zoom";
 import {
   RATIO_MIN,
@@ -123,18 +124,29 @@ function useJobSlot(): Element | null {
 
 /**
  * `body` draws the tab in front of each pane. `bar` is what stands beside the Layout control in the title bar, and `over` is laid across the panes, as a view the Job opens is.
+ * `family` is whose panes these are, a Job's unless a pull request's are named; `jobId` is then the owner's key. `controls` is where the Layout control stands in place of
+ * the title bar, and draws nothing while it is `null`. `add` is the family's own + menu, and `glyphOf` a tab's glyph where its kind's is not it.
  */
 export function JobPanes({
   jobId,
   body,
   bar,
   over,
+  family = jobPanes,
+  controls: place,
+  add,
+  glyphOf,
 }: {
   jobId: string;
   body: (tab: Tab) => ReactNode;
   bar?: ReactNode;
   over?: ReactNode;
+  family?: PaneFamily;
+  controls?: Element | null;
+  add?: AddMenu;
+  glyphOf?: (tab: Tab) => LucideIcon | undefined;
 }) {
+  const { droppableEdge, droppableGap, measured, rearrange, useJobPanes } = family;
   const { arrangement, layout, edited, layouts, forAll } = useJobPanes(jobId);
   const [menu, setMenu] = useState(false);
   const [naming, setNaming] = useState(false);
@@ -161,8 +173,8 @@ export function JobPanes({
       ? zoomedId
       : undefined;
   const box = useZoomBox(zoomed !== undefined, 0, area);
-  usePaneKeys(jobId, openMenu);
-  useBuiltTabs(jobId);
+  usePaneKeys(jobId, openMenu, family);
+  useBuiltTabs(jobId, family === jobPanes);
   const slot = useJobSlot();
   useEffect(
     () => measured(jobId, size),
@@ -179,6 +191,7 @@ export function JobPanes({
     <>
       <LayoutControl
         jobId={jobId}
+        family={family}
         layout={layout}
         edited={edited}
         layouts={layouts}
@@ -193,170 +206,180 @@ export function JobPanes({
   );
 
   return (
-    <div className="job-panes">
-      {slot === null ? (
-        <div className="job-panes__bar">{controls}</div>
-      ) : (
-        createPortal(controls, slot)
-      )}
-      <div className="job-panes__area" ref={area}>
-        {panesOf(arrangement.root)
-          .sort(byCreation)
-          .map((pane) => {
-            const rect = rects.get(pane.id)!;
-            const active = pane.tabs.find((tab) => tab.id === pane.active);
-            return (
-              <div
-                key={pane.id}
-                className="job-panes__cell"
-                data-zoomed={pane.id === zoomed || undefined}
-                style={
-                  pane.id === zoomed && box !== undefined
-                    ? {
-                        position: "fixed",
-                        left: box.left,
-                        top: box.top,
-                        width: box.width,
-                        height: box.height,
-                        zIndex: 20,
-                      }
-                    : {
-                        left: pct(rect.x),
-                        top: pct(rect.y),
-                        width: pct(rect.w),
-                        height: pct(rect.h),
-                      }
-                }
-              >
-                <PaneView
-                  jobId={jobId}
-                  pane={pane}
-                  focused={arrangement.focus === pane.id}
-                  zoomed={pane.id === zoomed}
-                  thread={thread}
-                  dragging={dragging}
-                  gapLit={lit !== undefined}
-                  onDrag={setDragging}
-                >
-                  {active === undefined ? null : body(active)}
-                </PaneView>
-              </div>
-            );
-          })}
-        {size.w === 0 || zoomed !== undefined
-          ? null
-          : splits.map((split) => {
-              const across = split.dir === "column";
-              const extent = (across ? split.rect.h * size.h : split.rect.w * size.w) || 1;
-              const first = extent * split.ratio;
-              // Each side keeps the room its panes need, or the share the ratio keeps where the area is too small for that.
-              const low = Math.max(extent * RATIO_MIN, minExtent(split.a, split.dir));
-              const high = extent - Math.max(extent * RATIO_MIN, minExtent(split.b, split.dir));
-              const at = across
-                ? split.rect.y + split.rect.h * split.ratio
-                : split.rect.x + split.rect.w * split.ratio;
-              const place = across
-                ? {
-                    top: `calc(${pct(at)} - var(--space-1))`,
-                    left: pct(split.rect.x),
-                    width: pct(split.rect.w),
-                  }
-                : {
-                    left: `calc(${pct(at)} - var(--space-1))`,
-                    top: pct(split.rect.y),
-                    height: pct(split.rect.h),
-                  };
-              const gap = across
-                ? {
-                    top: pct(at),
-                    left: pct(split.rect.x),
-                    width: pct(split.rect.w),
-                  }
-                : {
-                    left: pct(at),
-                    top: pct(split.rect.y),
-                    height: pct(split.rect.h),
-                  };
+    <PaneFamilyContext.Provider value={family}>
+      <div className="job-panes">
+        {place !== undefined ? (
+          place === null ? null : (
+            createPortal(controls, place)
+          )
+        ) : slot === null ? (
+          <div className="job-panes__bar">{controls}</div>
+        ) : (
+          createPortal(controls, slot)
+        )}
+        <div className="job-panes__area" ref={area}>
+          {panesOf(arrangement.root)
+            .sort(byCreation)
+            .map((pane) => {
+              const rect = rects.get(pane.id)!;
+              const active = pane.tabs.find((tab) => tab.id === pane.active);
               return (
-                <Fragment key={split.id}>
-                  <div className="job-panes__line" data-axis={across ? "y" : "x"} style={place}>
-                    <DockHandle
-                      quiet
-                      axis={across ? "y" : "x"}
-                      grows="right"
-                      label="the panes"
-                      width={first}
-                      min={low <= high ? low : first}
-                      max={low <= high ? high : first}
-                      onResize={(px) =>
-                        rearrange(
-                          jobId,
-                          (now) => resizeSplit(now, split.id, px / extent),
-                          `resize ${split.id}`,
-                        )
-                      }
-                      onReset={() => rearrange(jobId, (now) => resizeSplit(now, split.id, 0.5))}
-                    />
-                  </div>
-                  {dragging === undefined ? null : (
-                    <div
-                      className="job-panes__gap"
-                      data-axis={across ? "y" : "x"}
-                      data-lit={lit === split.id || undefined}
-                      style={gap}
-                      aria-hidden="true"
-                      onDragOver={(event) => {
-                        if (droppableGap(jobId, dragging, split.id)) {
-                          event.preventDefault();
-                          setLit(split.id);
-                        } else event.dataTransfer.dropEffect = "none";
-                      }}
-                      onDragLeave={() => setLit((now) => (now === split.id ? undefined : now))}
-                      onDrop={(event) => {
-                        const id = event.dataTransfer.getData("text/plain");
-                        event.preventDefault();
-                        setLit(undefined);
-                        setDragging(undefined);
-                        if (id !== "") rearrange(jobId, (now) => moveTabToGap(now, id, split.id));
-                      }}
-                    >
-                      <div className="job-panes__gap-bar" />
-                    </div>
-                  )}
-                </Fragment>
+                <div
+                  key={pane.id}
+                  className="job-panes__cell"
+                  data-zoomed={pane.id === zoomed || undefined}
+                  style={
+                    pane.id === zoomed && box !== undefined
+                      ? {
+                          position: "fixed",
+                          left: box.left,
+                          top: box.top,
+                          width: box.width,
+                          height: box.height,
+                          zIndex: 20,
+                        }
+                      : {
+                          left: pct(rect.x),
+                          top: pct(rect.y),
+                          width: pct(rect.w),
+                          height: pct(rect.h),
+                        }
+                  }
+                >
+                  <PaneView
+                    jobId={jobId}
+                    pane={pane}
+                    focused={arrangement.focus === pane.id}
+                    zoomed={pane.id === zoomed}
+                    thread={thread}
+                    dragging={dragging}
+                    gapLit={lit !== undefined}
+                    onDrag={setDragging}
+                    add={add}
+                    glyphOf={glyphOf}
+                  >
+                    {active === undefined ? null : body(active)}
+                  </PaneView>
+                </div>
               );
             })}
-        {dragging === undefined || zoomed !== undefined
-          ? null
-          : EDGES.map(({ side, axis, place }) => (
-              <div
-                key={side}
-                className="job-panes__gap"
-                data-axis={axis}
-                data-edge={side}
-                data-lit={lit === `edge:${side}` || undefined}
-                style={place}
-                aria-hidden="true"
-                onDragOver={(event) => {
-                  if (droppableEdge(jobId, dragging, side)) {
+          {size.w === 0 || zoomed !== undefined
+            ? null
+            : splits.map((split) => {
+                const across = split.dir === "column";
+                const extent = (across ? split.rect.h * size.h : split.rect.w * size.w) || 1;
+                const first = extent * split.ratio;
+                // Each side keeps the room its panes need, or the share the ratio keeps where the area is too small for that.
+                const low = Math.max(extent * RATIO_MIN, minExtent(split.a, split.dir));
+                const high = extent - Math.max(extent * RATIO_MIN, minExtent(split.b, split.dir));
+                const at = across
+                  ? split.rect.y + split.rect.h * split.ratio
+                  : split.rect.x + split.rect.w * split.ratio;
+                const place = across
+                  ? {
+                      top: `calc(${pct(at)} - var(--space-1))`,
+                      left: pct(split.rect.x),
+                      width: pct(split.rect.w),
+                    }
+                  : {
+                      left: `calc(${pct(at)} - var(--space-1))`,
+                      top: pct(split.rect.y),
+                      height: pct(split.rect.h),
+                    };
+                const gap = across
+                  ? {
+                      top: pct(at),
+                      left: pct(split.rect.x),
+                      width: pct(split.rect.w),
+                    }
+                  : {
+                      left: pct(at),
+                      top: pct(split.rect.y),
+                      height: pct(split.rect.h),
+                    };
+                return (
+                  <Fragment key={split.id}>
+                    <div className="job-panes__line" data-axis={across ? "y" : "x"} style={place}>
+                      <DockHandle
+                        quiet
+                        axis={across ? "y" : "x"}
+                        grows="right"
+                        label="the panes"
+                        width={first}
+                        min={low <= high ? low : first}
+                        max={low <= high ? high : first}
+                        onResize={(px) =>
+                          rearrange(
+                            jobId,
+                            (now) => resizeSplit(now, split.id, px / extent),
+                            `resize ${split.id}`,
+                          )
+                        }
+                        onReset={() => rearrange(jobId, (now) => resizeSplit(now, split.id, 0.5))}
+                      />
+                    </div>
+                    {dragging === undefined ? null : (
+                      <div
+                        className="job-panes__gap"
+                        data-axis={across ? "y" : "x"}
+                        data-lit={lit === split.id || undefined}
+                        style={gap}
+                        aria-hidden="true"
+                        onDragOver={(event) => {
+                          if (droppableGap(jobId, dragging, split.id)) {
+                            event.preventDefault();
+                            setLit(split.id);
+                          } else event.dataTransfer.dropEffect = "none";
+                        }}
+                        onDragLeave={() => setLit((now) => (now === split.id ? undefined : now))}
+                        onDrop={(event) => {
+                          const id = event.dataTransfer.getData("text/plain");
+                          event.preventDefault();
+                          setLit(undefined);
+                          setDragging(undefined);
+                          if (id !== "") rearrange(jobId, (now) => moveTabToGap(now, id, split.id));
+                        }}
+                      >
+                        <div className="job-panes__gap-bar" />
+                      </div>
+                    )}
+                  </Fragment>
+                );
+              })}
+          {dragging === undefined || zoomed !== undefined
+            ? null
+            : EDGES.map(({ side, axis, place }) => (
+                <div
+                  key={side}
+                  className="job-panes__gap"
+                  data-axis={axis}
+                  data-edge={side}
+                  data-lit={lit === `edge:${side}` || undefined}
+                  style={place}
+                  aria-hidden="true"
+                  onDragOver={(event) => {
+                    if (droppableEdge(jobId, dragging, side)) {
+                      event.preventDefault();
+                      setLit(`edge:${side}`);
+                    } else event.dataTransfer.dropEffect = "none";
+                  }}
+                  onDragLeave={() => setLit((now) => (now === `edge:${side}` ? undefined : now))}
+                  onDrop={(event) => {
+                    const id = event.dataTransfer.getData("text/plain");
                     event.preventDefault();
-                    setLit(`edge:${side}`);
-                  } else event.dataTransfer.dropEffect = "none";
-                }}
-                onDragLeave={() => setLit((now) => (now === `edge:${side}` ? undefined : now))}
-                onDrop={(event) => {
-                  const id = event.dataTransfer.getData("text/plain");
-                  event.preventDefault();
-                  setLit(undefined);
-                  setDragging(undefined);
-                  if (id !== "") rearrange(jobId, (now) => moveTabToEnd(now, id, side));
-                }}
-              >
-                <div className="job-panes__gap-bar" />
-              </div>
-            ))}
-        {over === undefined || over === null ? null : <div className="job-panes__over">{over}</div>}
+                    setLit(undefined);
+                    setDragging(undefined);
+                    if (id !== "") rearrange(jobId, (now) => moveTabToEnd(now, id, side));
+                  }}
+                >
+                  <div className="job-panes__gap-bar" />
+                </div>
+              ))}
+          {over === undefined || over === null ? null : (
+            <div className="job-panes__over">{over}</div>
+          )}
+        </div>
       </div>
-    </div>
+    </PaneFamilyContext.Provider>
   );
 }

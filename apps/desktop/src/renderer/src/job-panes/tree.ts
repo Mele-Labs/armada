@@ -2,7 +2,7 @@
 // of them active. Every operation here is pure: it takes an arrangement and returns the next one, so the store, the keys and the menus share one set of rules.
 // Tab, pane and split ids come from the arrangement's own counter, so two Jobs never need to agree on any.
 
-export const TAB_KINDS = [
+export const JOB_TAB_KINDS = [
   "thread",
   "browser",
   "terminal",
@@ -27,6 +27,20 @@ export const TAB_KINDS = [
   "judge",
   "custom",
   "draft",
+] as const;
+/** A pull request's tabs on the Reviews page. A tool's tab names its tool by id in `page`, an explanation's too. */
+export const PR_TAB_KINDS = [
+  "pr-overview",
+  "pr-files",
+  "pr-checks",
+  "pr-commits",
+  "pr-review",
+  "pr-tool",
+  "pr-comments",
+] as const;
+export const TAB_KINDS = [
+  ...JOB_TAB_KINDS,
+  ...PR_TAB_KINDS,
 ] as const;
 export type TabKind = (typeof TAB_KINDS)[number];
 
