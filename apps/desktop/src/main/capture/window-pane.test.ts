@@ -326,13 +326,16 @@ it.each([
     "bar",
     () => bar,
   ],
-])("gives the keyboard back to Bridge's window when a layer of its own holds the %s that has it", async (_name, which) => {
-  const shown = walk();
-  shown.show();
-  which().focus = true;
-  await shown.freeze();
-  expect(bridge!.focused).toHaveBeenCalledTimes(1);
-});
+])(
+  "gives the keyboard back to Bridge's window when a layer of its own holds the %s that has it",
+  async (_name, which) => {
+    const shown = walk();
+    shown.show();
+    which().focus = true;
+    await shown.freeze();
+    expect(bridge!.focused).toHaveBeenCalledTimes(1);
+  },
+);
 
 it("leaves the keyboard where it is when a layer holds views that do not have it", async () => {
   const shown = walk();
@@ -350,13 +353,16 @@ it.each([
     "bar",
     () => bar,
   ],
-])("gives the keyboard back to Bridge's window when hide puts away the %s that has it", (_name, which) => {
-  const shown = walk();
-  shown.show();
-  which().focus = true;
-  shown.hide();
-  expect(bridge!.focused).toHaveBeenCalledTimes(1);
-});
+])(
+  "gives the keyboard back to Bridge's window when hide puts away the %s that has it",
+  (_name, which) => {
+    const shown = walk();
+    shown.show();
+    which().focus = true;
+    shown.hide();
+    expect(bridge!.focused).toHaveBeenCalledTimes(1);
+  },
+);
 
 it("takes both views out of Bridge's window and closes their pages when the walk goes", () => {
   const shown = walk();

@@ -221,7 +221,7 @@ test("while the sheet's pane holds the walk, the tab's pane places nothing and f
   expect(live.freeze).not.toHaveBeenCalled();
   // The tab moves under the sheet and says nothing.
   const at = roots[0]!.host;
-  at.style.left = "10px";
+  at.style.left = `${at.offsetWidth}px`;
   await frames(5);
   expect(live.place).toHaveBeenCalledTimes(2);
   expect(live.unplace).not.toHaveBeenCalled();

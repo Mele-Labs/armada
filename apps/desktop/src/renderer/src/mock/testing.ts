@@ -292,7 +292,8 @@ export async function toSession(
       return typeof title === "string" ? name === title : title.test(name);
     });
   await expect.poll(() => row() !== undefined).toBe(true);
-  await userEvent.click(row()!);
+  // The element's own click: a label locator can also name the map's hit layer, which draws the same Job.
+  row()!.click();
   const view = page.getByRole("region", {
     name: /^Job: /,
   });
