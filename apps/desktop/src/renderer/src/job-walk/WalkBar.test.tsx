@@ -15,6 +15,7 @@ import "../styles/index.css";
   }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
+const BAR_WIDTH = 900;
 const roots: {
   root: Root;
   host: HTMLElement;
@@ -29,7 +30,7 @@ async function draw(props: Partial<WalkBarProps> = {}) {
     onApprove: vi.fn(),
   };
   const host = document.createElement("div");
-  host.style.cssText = "position:fixed;left:0;top:0;width:900px";
+  host.style.cssText = `position:fixed;left:0;top:0;width:${BAR_WIDTH}px`;
   document.body.append(host);
   const root = createRoot(host);
   roots.push({

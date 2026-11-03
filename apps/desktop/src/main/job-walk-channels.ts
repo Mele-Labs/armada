@@ -63,12 +63,14 @@ export function handleJobWalks({ ipc, store, captureWindows, send }: Hosts): voi
           : NOT_HELD;
     },
   );
-  ipc.handle(CHANNELS.jobWalkRemoveNote, (_event, sessionId: unknown, id: unknown): Outcome =>
-    text(sessionId) && text(id) && store.remove(sessionId, id)
-      ? {
-          ok: true,
-        }
-      : NOT_HELD,
+  ipc.handle(
+    CHANNELS.jobWalkRemoveNote,
+    (_event, sessionId: unknown, id: unknown): Outcome =>
+      text(sessionId) && text(id) && store.remove(sessionId, id)
+        ? {
+            ok: true,
+          }
+        : NOT_HELD,
   );
   ipc.handle(CHANNELS.jobWalkSendNotes, async (_event, sessionId: unknown) =>
     text(sessionId) ? await sendHeld(store, sessionId, send) : NOT_HELD,
@@ -79,5 +81,6 @@ export function handleJobWalks({ ipc, store, captureWindows, send }: Hosts): voi
 export function tellJobWalkHeld(store: HeldNotes, sessionId: string): void {
   const notes = shownOf(store.of(sessionId));
   for (const window of BrowserWindow.getAllWindows())
-    if (!window.isDestroyed()) window.webContents.send(CHANNELS.jobWalkHeldChanged, sessionId, notes);
+    if (!window.isDestroyed())
+      window.webContents.send(CHANNELS.jobWalkHeldChanged, sessionId, notes);
 }

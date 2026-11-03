@@ -56,9 +56,18 @@ beforeEach(forgetWalks);
 
 describe("walksOf", () => {
   test.each([
-    ["http://localhost:5471/?walk=walk-in-job&real=takes", "walk-in-job"],
-    ["https://staging.example.com/account/billing/", "billing"],
-    ["https://staging.example.com/", "staging.example.com"],
+    [
+      "http://localhost:5471/?walk=walk-in-job&real=takes",
+      "walk-in-job",
+    ],
+    [
+      "https://staging.example.com/account/billing/",
+      "billing",
+    ],
+    [
+      "https://staging.example.com/",
+      "staging.example.com",
+    ],
   ])("names a page the Job did not name, %s", (address, name) => {
     expect(
       walksOf(

@@ -130,7 +130,13 @@ export class JobWalks {
 
   /** Every walk made. */
   get made(): CaptureWindow[] {
-    return this.walks.flatMap((one) => (one.walk === null ? [] : [one.walk]));
+    return this.walks.flatMap((one) =>
+      one.walk === null
+        ? []
+        : [
+            one.walk,
+          ],
+    );
   }
 
   /** Every walk in it, with its page taken out of the window. */

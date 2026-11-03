@@ -58,9 +58,15 @@ const roots: {
   root: Root;
   host: HTMLElement;
 }[] = [];
+const FRAME = {
+  x: 40,
+  y: 30,
+  width: 600,
+  height: 400,
+};
 const draw = async () => {
   const host = document.createElement("div");
-  host.style.cssText = "position:fixed;left:40px;top:30px;width:600px;height:400px;display:flex";
+  host.style.cssText = `position:fixed;left:${FRAME.x}px;top:${FRAME.y}px;width:${FRAME.width}px;height:${FRAME.height}px;display:flex`;
   document.body.append(host);
   const root = createRoot(host);
   roots.push({
@@ -135,12 +141,7 @@ test("on a real Bridge it reports its frame, holds still pictures under a layer 
   });
   const root = await draw();
   await expect.poll(() => api.place.mock.calls.length).toBeGreaterThan(0);
-  expect(api.place).toHaveBeenLastCalledWith("job", WALK, {
-    x: 40,
-    y: 30,
-    width: 600,
-    height: 400,
-  });
+  expect(api.place).toHaveBeenLastCalledWith("job", WALK, FRAME);
   // Nothing drawn in it but the frame: the page and the bar are main's.
   expect(document.querySelectorAll(".job-walk__live img")).toHaveLength(0);
   expect(api.freeze).not.toHaveBeenCalled();

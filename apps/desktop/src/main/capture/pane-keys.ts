@@ -74,10 +74,26 @@ export function keyCodeOf(input: PaneInput): string {
 /** The modifiers a press holds, as `sendInputEvent` names them. */
 export function modifiersOf(input: PaneInput): ("meta" | "alt" | "shift" | "control")[] {
   return [
-    ...(input.meta ? (["meta"] as const) : []),
-    ...(input.alt ? (["alt"] as const) : []),
-    ...(input.shift ? (["shift"] as const) : []),
-    ...(input.control ? (["control"] as const) : []),
+    ...(input.meta
+      ? ([
+          "meta",
+        ] as const)
+      : []),
+    ...(input.alt
+      ? ([
+          "alt",
+        ] as const)
+      : []),
+    ...(input.shift
+      ? ([
+          "shift",
+        ] as const)
+      : []),
+    ...(input.control
+      ? ([
+          "control",
+        ] as const)
+      : []),
   ];
 }
 

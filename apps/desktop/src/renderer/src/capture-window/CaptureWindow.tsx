@@ -584,146 +584,147 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
                 })}
           />
         ) : (
-        <CaptureBar
-          // In place under their triggers, where this document is let down over the page as they open: a menu laid out in a
-          // layer of its own is placed once, against the strip's height, and stays cut short after the view has grown.
-          {...(api.overhang === undefined
-            ? {}
-            : {
-                menuLayer: false,
-              })}
-          {...(state.shown.name === null
-            ? {}
-            : {
-                run: state.shown.name,
-              })}
-          address={state.shown.address}
-          studio={studio ?? keptIn}
-          {...(state.session !== undefined
-            ? {
-                session: state.session.title,
-              }
-            : state.review?.holder === undefined
+          <CaptureBar
+            // In place under their triggers, where this document is let down over the page as they open: a menu laid out in a
+            // layer of its own is placed once, against the strip's height, and stays cut short after the view has grown.
+            {...(api.overhang === undefined
               ? {}
               : {
-                  session: state.review.holder,
+                  menuLayer: false,
                 })}
-          {...(state.session === undefined
-            ? {}
-            : {
-                onOpenOwner: () => void api.openOwner(),
-              })}
-          serving={state.serving}
-          armed={armed}
-          framesRefused={state.framesRefused}
-          {...(state.refused === undefined
-            ? {}
-            : {
-                refused: {
-                  address: state.refused.address,
-                  said: REFUSED_SAID[state.refused.what] ?? "Navigation",
-                  offerable: state.refused.offerable,
-                },
-              })}
-          onArm={(on) => void api.arm(on)}
-          onReload={() => void api.reload()}
-          onFollowRefused={() => void api.followRefused()}
-          binding={BINDING}
-          // A Studio's window has nobody to tell; a Session's has its owner, and a pull request's walk in the walk window ends.
-          {...(state.studio === null &&
-          (state.session !== undefined || (state.review !== undefined && state.queue !== undefined))
-            ? {
-                onApprove: () => void approve(),
-              }
-            : {})}
-          {...(approval === undefined ||
-          approval.walk !== walkOnScreen ||
-          approval.at !== (state.variations?.at ?? 0)
-            ? {}
-            : {
-                approval: approval.state,
-              })}
-          {...(state.held === undefined || api.sendNotes === undefined
-            ? {}
-            : {
-                held: {
-                  notes: state.held,
-                  onSendAndApprove: () => void sendAndApprove(api.sendNotes!),
-                },
-              })}
-          {...(state.loading === true
-            ? {
-                loading: true,
-              }
-            : {})}
-          {...(state.readiness === undefined
-            ? {}
-            : {
-                readiness: state.readiness,
-              })}
-          {...(state.walk === undefined
-            ? {}
-            : {
-                walk: {
-                  ...state.walk,
-                  onBack: () => void api.walkBack(),
-                  onNext: () => void api.walkNext(),
-                  onAutoplay: (on: boolean) => void api.walkAutoplay(on),
-                  onReplay: () => void api.walkReplay(),
-                  guide:
-                    state.walk.guide === undefined
-                      ? undefined
-                      : {
-                          shown: !state.walk.guide.folded,
-                          onShow: (shown: boolean) => void api.walkGuide(shown),
-                          ...(state.walk.guide.stopped === undefined
-                            ? {}
-                            : {
-                                stopped: state.walk.guide.stopped,
-                              }),
-                          ...(state.walk.guide.signingIn === true
-                            ? {
-                                signingIn: true,
-                              }
-                            : {}),
-                          ...(state.walk.guide.waiting === true
-                            ? {
-                                waiting: true,
-                              }
-                            : {}),
-                        },
-                },
-              })}
-          {...(state.variations === undefined
-            ? {}
-            : {
-                variations: {
-                  names: state.variations.names,
-                  at: state.variations.at,
-                  onPick: (at: number) => void api.pick(at),
-                },
-              })}
-          {...(ask === undefined || ask.shown
-            ? {}
-            : {
-                question: ask.question,
-                onShowQuestion: () => void api.showAsk(true),
-              })}
-          {...(panel === undefined
-            ? {}
-            : {
-                panel: {
-                  kind: panel.kind,
-                  open: panel.open,
-                  onToggle: (open: boolean) => void api.panel(open),
-                },
-              })}
-          {...(state.queue === undefined || state.queue.entries.length === 0
-            ? {}
-            : {
-                queue: queueOf(state.queue, api),
-              })}
-        />
+            {...(state.shown.name === null
+              ? {}
+              : {
+                  run: state.shown.name,
+                })}
+            address={state.shown.address}
+            studio={studio ?? keptIn}
+            {...(state.session !== undefined
+              ? {
+                  session: state.session.title,
+                }
+              : state.review?.holder === undefined
+                ? {}
+                : {
+                    session: state.review.holder,
+                  })}
+            {...(state.session === undefined
+              ? {}
+              : {
+                  onOpenOwner: () => void api.openOwner(),
+                })}
+            serving={state.serving}
+            armed={armed}
+            framesRefused={state.framesRefused}
+            {...(state.refused === undefined
+              ? {}
+              : {
+                  refused: {
+                    address: state.refused.address,
+                    said: REFUSED_SAID[state.refused.what] ?? "Navigation",
+                    offerable: state.refused.offerable,
+                  },
+                })}
+            onArm={(on) => void api.arm(on)}
+            onReload={() => void api.reload()}
+            onFollowRefused={() => void api.followRefused()}
+            binding={BINDING}
+            // A Studio's window has nobody to tell; a Session's has its owner, and a pull request's walk in the walk window ends.
+            {...(state.studio === null &&
+            (state.session !== undefined ||
+              (state.review !== undefined && state.queue !== undefined))
+              ? {
+                  onApprove: () => void approve(),
+                }
+              : {})}
+            {...(approval === undefined ||
+            approval.walk !== walkOnScreen ||
+            approval.at !== (state.variations?.at ?? 0)
+              ? {}
+              : {
+                  approval: approval.state,
+                })}
+            {...(state.held === undefined || api.sendNotes === undefined
+              ? {}
+              : {
+                  held: {
+                    notes: state.held,
+                    onSendAndApprove: () => void sendAndApprove(api.sendNotes!),
+                  },
+                })}
+            {...(state.loading === true
+              ? {
+                  loading: true,
+                }
+              : {})}
+            {...(state.readiness === undefined
+              ? {}
+              : {
+                  readiness: state.readiness,
+                })}
+            {...(state.walk === undefined
+              ? {}
+              : {
+                  walk: {
+                    ...state.walk,
+                    onBack: () => void api.walkBack(),
+                    onNext: () => void api.walkNext(),
+                    onAutoplay: (on: boolean) => void api.walkAutoplay(on),
+                    onReplay: () => void api.walkReplay(),
+                    guide:
+                      state.walk.guide === undefined
+                        ? undefined
+                        : {
+                            shown: !state.walk.guide.folded,
+                            onShow: (shown: boolean) => void api.walkGuide(shown),
+                            ...(state.walk.guide.stopped === undefined
+                              ? {}
+                              : {
+                                  stopped: state.walk.guide.stopped,
+                                }),
+                            ...(state.walk.guide.signingIn === true
+                              ? {
+                                  signingIn: true,
+                                }
+                              : {}),
+                            ...(state.walk.guide.waiting === true
+                              ? {
+                                  waiting: true,
+                                }
+                              : {}),
+                          },
+                  },
+                })}
+            {...(state.variations === undefined
+              ? {}
+              : {
+                  variations: {
+                    names: state.variations.names,
+                    at: state.variations.at,
+                    onPick: (at: number) => void api.pick(at),
+                  },
+                })}
+            {...(ask === undefined || ask.shown
+              ? {}
+              : {
+                  question: ask.question,
+                  onShowQuestion: () => void api.showAsk(true),
+                })}
+            {...(panel === undefined
+              ? {}
+              : {
+                  panel: {
+                    kind: panel.kind,
+                    open: panel.open,
+                    onToggle: (open: boolean) => void api.panel(open),
+                  },
+                })}
+            {...(state.queue === undefined || state.queue.entries.length === 0
+              ? {}
+              : {
+                  queue: queueOf(state.queue, api),
+                })}
+          />
         )}
       </div>
       {ask === undefined || !asking ? null : (

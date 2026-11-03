@@ -141,7 +141,16 @@ export function WalkView({
 
   const save = () => {
     if (picked === null || said.trim() === "") return;
-    onNote(said.trim(), [name, taken, picked.element].filter((one) => one !== undefined).join(", "));
+    onNote(
+      said.trim(),
+      [
+        name,
+        taken,
+        picked.element,
+      ]
+        .filter((one) => one !== undefined)
+        .join(", "),
+    );
     cancel();
   };
 
@@ -279,7 +288,11 @@ export function WalkView({
               : {
                   held: {
                     box: picked.box,
-                    chain: [name, taken, picked.element]
+                    chain: [
+                      name,
+                      taken,
+                      picked.element,
+                    ]
                       .filter((one) => one !== undefined)
                       .join(", "),
                   },

@@ -131,12 +131,7 @@ import type {
 } from "@armada/screens/src/draft/sessions";
 import { withThreadRow } from "@armada/screens/src/retro-row";
 import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
-import {
-  openSessionFile,
-  readSessionArtifact,
-  readSteps,
-  titleOfWindow,
-} from "./session-file";
+import { openSessionFile, readSessionArtifact, readSteps, titleOfWindow } from "./session-file";
 import { ask, MODEL_CALL_MS, sessionFileOf } from "./request";
 import { HOST } from "./runtime-file";
 

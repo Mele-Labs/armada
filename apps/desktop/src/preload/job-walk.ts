@@ -23,11 +23,9 @@ export const jobWalkPreload: Required<JobWalkApi> = {
         onChanged(notes);
       };
       ipcRenderer.on(CHANNELS.jobWalkHeldChanged, handler);
-      void ipcRenderer
-        .invoke(CHANNELS.jobWalkHeld, sessionId)
-        .then((notes: PanelHeldNote[]) => {
-          if (!pushed) onChanged(notes);
-        });
+      void ipcRenderer.invoke(CHANNELS.jobWalkHeld, sessionId).then((notes: PanelHeldNote[]) => {
+        if (!pushed) onChanged(notes);
+      });
       return () => ipcRenderer.removeListener(CHANNELS.jobWalkHeldChanged, handler);
     },
     editNote: (sessionId, id, said) =>

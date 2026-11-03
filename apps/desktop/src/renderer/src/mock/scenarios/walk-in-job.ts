@@ -225,7 +225,11 @@ function sessions() {
         lastTurnAt: new Date().toISOString(),
         rows: [
           ...one.rows,
-          agent(`reply-${one.rows.length}`, "14:20:00", "The notes are in and the page is up again."),
+          agent(
+            `reply-${one.rows.length}`,
+            "14:20:00",
+            "The notes are in and the page is up again.",
+          ),
         ],
       }));
       showAgain(id);

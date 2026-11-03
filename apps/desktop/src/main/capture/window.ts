@@ -826,7 +826,13 @@ export class CaptureWindow {
     const first = !this.shownAsks.has(question.id);
     this.shownAsks.add(question.id);
     // Bridge's own window is never raised for a walk: the question is on the bar of a tab.
-    if (forward && first && this.seat?.pane === undefined && this.window !== null && !this.window.isDestroyed())
+    if (
+      forward &&
+      first &&
+      this.seat?.pane === undefined &&
+      this.window !== null &&
+      !this.window.isDestroyed()
+    )
       this.window.showInactive();
     if (
       !this.serving ||

@@ -188,76 +188,79 @@ const heldNotes = new HeldNotes(join(app.getPath("userData"), "held-notes.json")
   tellHeld(heldNotes, captureWindows, sessionId);
   tellJobWalkHeld(heldNotes, sessionId);
 });
-const captureWindows = new CaptureWindows({
-  capture: async (studioId, said, capture, frame) =>
-    (await connection?.studios.captureNote(studioId, said, capture, frame)) ?? UNSENT,
-  holdNote: (note, ring) => void heldNotes.hold(note, ring),
-  heldOn: (sessionId) => heldNotes.of(sessionId).length,
-  // A pull request's walk no Session holds: the note stays in Armada. No Approve.
-  reviewNote: async (review, said, capture) => {
-    tellWindows(
-      CHANNELS.reviewWalkNote,
-      reviewNoteOf(review, said, capture, new Date().toISOString()),
-    );
-    return {
-      ok: true,
-    };
+const captureWindows = new CaptureWindows(
+  {
+    capture: async (studioId, said, capture, frame) =>
+      (await connection?.studios.captureNote(studioId, said, capture, frame)) ?? UNSENT,
+    holdNote: (note, ring) => void heldNotes.hold(note, ring),
+    heldOn: (sessionId) => heldNotes.of(sessionId).length,
+    // A pull request's walk no Session holds: the note stays in Armada. No Approve.
+    reviewNote: async (review, said, capture) => {
+      tellWindows(
+        CHANNELS.reviewWalkNote,
+        reviewNoteOf(review, said, capture, new Date().toISOString()),
+      );
+      return {
+        ok: true,
+      };
+    },
+    reviewClosed: (review) => {
+      void connection?.reviews.closeWalk(review.manifestId, review.walkId);
+      tellWindows(CHANNELS.reviewWalkClosed, review.walkId);
+    },
+    sessionApproved: async (sessionId, address, take) => {
+      const sent = await connection?.sessions.send({
+        session_id: sessionId,
+        text: approvedText(address, take),
+      });
+      return sent === undefined
+        ? UNSENT
+        : sent.ok
+          ? {
+              ok: true,
+            }
+          : sent.outcome;
+    },
+    // The Session's question in its window settles as the item it is under Waiting on you.
+    answerAsk: async (sessionId, itemId, answer) => {
+      const sent = await connection?.sessions.answerWaiting({
+        session_id: sessionId,
+        item_id: itemId,
+        ...answer,
+      });
+      return sent === undefined
+        ? UNSENT
+        : sent.ok
+          ? {
+              ok: true,
+            }
+          : sent.outcome;
+    },
+    sessionClosed: (sessionId, address) => {
+      void connection?.sessions.windowClosed({
+        session_id: sessionId,
+        url: address,
+      });
+    },
+    sessionFailed: (sessionId, address, why) => {
+      void connection?.sessions.windowFailed({
+        session_id: sessionId,
+        url: address,
+        why,
+      });
+    },
+    stage: stagePng,
+    focused: (serverId, on) => {
+      if (on) walkFocused.add(serverId);
+      else walkFocused.delete(serverId);
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed())
+          window.webContents.send(CHANNELS.walkFocused, walkFocused.size > 0);
+      }
+    },
   },
-  reviewClosed: (review) => {
-    void connection?.reviews.closeWalk(review.manifestId, review.walkId);
-    tellWindows(CHANNELS.reviewWalkClosed, review.walkId);
-  },
-  sessionApproved: async (sessionId, address, take) => {
-    const sent = await connection?.sessions.send({
-      session_id: sessionId,
-      text: approvedText(address, take),
-    });
-    return sent === undefined
-      ? UNSENT
-      : sent.ok
-        ? {
-            ok: true,
-          }
-        : sent.outcome;
-  },
-  // The Session's question in its window settles as the item it is under Waiting on you.
-  answerAsk: async (sessionId, itemId, answer) => {
-    const sent = await connection?.sessions.answerWaiting({
-      session_id: sessionId,
-      item_id: itemId,
-      ...answer,
-    });
-    return sent === undefined
-      ? UNSENT
-      : sent.ok
-        ? {
-            ok: true,
-          }
-        : sent.outcome;
-  },
-  sessionClosed: (sessionId, address) => {
-    void connection?.sessions.windowClosed({
-      session_id: sessionId,
-      url: address,
-    });
-  },
-  sessionFailed: (sessionId, address, why) => {
-    void connection?.sessions.windowFailed({
-      session_id: sessionId,
-      url: address,
-      why,
-    });
-  },
-  stage: stagePng,
-  focused: (serverId, on) => {
-    if (on) walkFocused.add(serverId);
-    else walkFocused.delete(serverId);
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (!window.isDestroyed())
-        window.webContents.send(CHANNELS.walkFocused, walkFocused.size > 0);
-    }
-  },
-}, () => bridgeWindow());
+  () => bridgeWindow(),
+);
 
 /** Bridge's own windows, apart from a Job's terminal window: a summons, the dock tile and a terminal window's place read these. */
 const bridgeWindows = new Set<BrowserWindow>();

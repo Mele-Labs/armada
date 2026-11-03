@@ -1388,7 +1388,9 @@ export function sessionsStore(
             addTo(id, [
               said("Noted. I will change that."),
             ]);
-            workingOn(id, [mockPage()]);
+            workingOn(id, [
+              mockPage(),
+            ]);
             // A page being changed is not put to him until it is ready.
             edit(id, (one) => ({
               ...one,

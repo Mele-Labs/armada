@@ -103,11 +103,7 @@ function BillingPage({ take }: { take: string }) {
                 <span className="job-walk-mock__muted">{one.on}</span>
                 <span>{one.amount}</span>
                 <span {...aim(at === 0, "status")}>{one.state}</span>
-                <button
-                  type="button"
-                  className="job-walk-mock__link"
-                  {...aim(at === 0, "receipt")}
-                >
+                <button type="button" className="job-walk-mock__link" {...aim(at === 0, "receipt")}>
                   Receipt
                 </button>
               </li>

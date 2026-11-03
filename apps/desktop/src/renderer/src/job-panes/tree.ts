@@ -947,8 +947,7 @@ export function arriveWalk(
 ): Arrangement {
   const holder = holderOf(arrangement, "walk");
   const thread = holderOf(arrangement, "thread");
-  if (holder === undefined && thread === undefined)
-    return arrive(arrangement, "walk", label, page);
+  if (holder === undefined && thread === undefined) return arrive(arrangement, "walk", label, page);
   let arrived: Arrangement;
   if (holder !== undefined) arrived = addTab(arrangement, holder.id, "walk", label, page);
   else {

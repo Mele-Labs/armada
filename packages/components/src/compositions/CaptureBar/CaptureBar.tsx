@@ -1271,7 +1271,8 @@ export function WalkBar({
       onAction={held.onSend}
       items={[
         {
-          label: taking === undefined ? "Send notes and approve" : `Send notes and approve ${taking}`,
+          label:
+            taking === undefined ? "Send notes and approve" : `Send notes and approve ${taking}`,
           onSelect: held.onSendAndApprove,
         },
         {
