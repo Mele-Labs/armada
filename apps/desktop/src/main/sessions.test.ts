@@ -2402,6 +2402,91 @@ it("lets an ended shell's output go when its Job's next shell opens, and a block
   });
 });
 
+/** A Fleet that holds each observe socket open and counts the ones opened for each run, and prints `hi` on each. */
+async function observedFleet(): Promise<{
+  port: number;
+  observed: Map<string, number>;
+}> {
+  const observed = new Map<string, number>();
+  const sockets = new WebSocketServer({
+    noServer: true,
+  });
+  const server = createServer();
+  server.on("upgrade", (request, socket, head) => {
+    const runId = decodeURIComponent(
+      /\/sessions\/run\/([^/]+)\/observe/.exec(request.url ?? "")?.[1] ?? "",
+    );
+    observed.set(runId, (observed.get(runId) ?? 0) + 1);
+    sockets.handleUpgrade(request, socket, head, (ws) =>
+      ws.send(
+        JSON.stringify({
+          kind: "output",
+          text: "hi\r\n",
+        }),
+      ),
+    );
+  });
+  // Sockets held open would keep `close` waiting, so they go first.
+  const close = server.close.bind(server);
+  server.close = (done) => {
+    sockets.clients.forEach((one) => one.terminate());
+    sockets.close();
+    return close(done);
+  };
+  listening = server;
+  await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
+  return {
+    port: (server.address() as AddressInfo).port,
+    observed,
+  };
+}
+
+const printedOf = (sessions: SessionsHost, runId: string) =>
+  new Promise<void>((done) =>
+    sessions.onRun((id, message) => id === runId && message.kind === "output" && done()),
+  );
+
+it("follows a terminal the agent shows that it was not following, and tells the window it was shown", async () => {
+  const { port, observed } = await observedFleet();
+  const { sessions } = host(port);
+  const told: string[] = [];
+  sessions.onTerminal((change, terminal) => told.push(`${change} ${terminal.terminal}`));
+  const printed = printedOf(sessions, "r2");
+  sessions.terminal("shown", {
+    session_id: "a",
+    terminal: "t2",
+    run_id: "r2",
+  });
+  await printed;
+  expect(observed.get("r2")).toBe(1);
+  expect(sessions.soFar("r2")).toBe("hi\r\n");
+  expect(told).toEqual([
+    "shown t2",
+  ]);
+});
+
+it("does not follow again a terminal it follows when the agent shows it", async () => {
+  const { port, observed } = await observedFleet();
+  const { sessions } = host(port);
+  let printed = printedOf(sessions, "r2");
+  sessions.terminal("opened", {
+    session_id: "a",
+    terminal: "t2",
+    run_id: "r2",
+  });
+  await printed;
+  printed = printedOf(sessions, "r2");
+  sessions.terminal("shown", {
+    session_id: "a",
+    terminal: "t2",
+    run_id: "r2",
+  });
+  // A second observe would replay what the run held, and the first socket is still open to hear it.
+  await new Promise((done) => setTimeout(done, 50));
+  expect(observed.get("r2")).toBe(1);
+  expect(sessions.soFar("r2")).toBe("hi\r\n");
+});
+
 it("keeps each of a Job's terminals' output apart, and lets one go only when its own next shell opens", async () => {
   const done = (text: string): SessionRunMessage[] => [
     {
