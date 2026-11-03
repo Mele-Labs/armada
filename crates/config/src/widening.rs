@@ -12,7 +12,8 @@ use crate::manifest::Manifest;
 use crate::resolve::lifted;
 
 /// What `every_manifest_check` lifts from one manifest. A handoff-only Check is
-/// left to the step that runs it before handoff.
+/// left to the step that runs it before handoff, and a pre-PR one to the moment
+/// a pull request opens.
 pub(crate) fn every_check_of(manifest: &Manifest, runs_handoff: bool) -> Vec<ResolvedCheck> {
     manifest
         .checks_as_written()
@@ -22,6 +23,9 @@ pub(crate) fn every_check_of(manifest: &Manifest, runs_handoff: bool) -> Vec<Res
                 .check(name)
                 .expect("`checks_as_written` holds the keys of `checks`");
             if !declared.gates() {
+                return None;
+            }
+            if declared.runs_at() == RunsAt::PrePr {
                 return None;
             }
             if declared.runs_at() == RunsAt::Handoff && !runs_handoff {

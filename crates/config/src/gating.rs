@@ -14,6 +14,8 @@
 //! An empty `changed` gates nothing, where a Check with no `when` run against
 //! it still reads as always. Which of the two a Job wants is the caller's.
 
+use core_model::RunsAt;
+
 use crate::manifest::Manifest;
 
 /// One manifest that gates a change.
@@ -50,6 +52,73 @@ pub fn gating(root: &Manifest, workspaces: &[Manifest], changed: &[String]) -> V
                 dir: manifest.dir().to_string(),
                 why,
             })
+        })
+        .collect()
+}
+
+/// Every Check `changed` hits, as the manifest that declares it and its name: the root's, then each
+/// workspace's in the order its manifest writes them.
+///
+/// **A manifest is asked only about the paths it owns**, relative to its own directory, so a root
+/// Check never sees a workspace's path. With no workspace it is every Check whose `when` covers
+/// `changed`. `armada covers` and the pre-PR Checks read this one answer.
+pub fn reaching<'a>(
+    root: &'a Manifest,
+    workspaces: &'a [Manifest],
+    changed: &[String],
+) -> Vec<(&'a Manifest, &'a str)> {
+    let hit = |manifest: &'a Manifest, paths: &[String]| -> Vec<(&'a Manifest, &'a str)> {
+        manifest
+            .checks_as_written()
+            .iter()
+            .filter(|name| {
+                manifest
+                    .check(name)
+                    .is_some_and(|check| check.gates() && check.covers(paths))
+            })
+            .map(|name| (manifest, name.as_str()))
+            .collect()
+    };
+    if workspaces.is_empty() {
+        return hit(root, changed);
+    }
+    gating(root, workspaces, changed)
+        .into_iter()
+        .filter_map(|gate| {
+            std::iter::once(root)
+                .chain(workspaces)
+                .find(|one| one.dir() == gate.dir)
+        })
+        .flat_map(|manifest| {
+            let dir = manifest.dir();
+            let owned: Vec<String> = changed
+                .iter()
+                .filter(|path| owner(workspaces, path) == dir)
+                .map(|path| {
+                    let path = path.trim_start_matches('/');
+                    path.strip_prefix(dir)
+                        .map_or(path, |rest| rest.trim_start_matches('/'))
+                        .to_string()
+                })
+                .collect();
+            hit(manifest, &owned)
+        })
+        .collect()
+}
+
+/// The Checks declared `runs_at: pre_pr` that `changed` reaches, which a pull request about to open
+/// waits on. **Gated as [`reaching`] gates**: no new rule of when a workspace's Check applies.
+pub fn pre_pr_checks<'a>(
+    root: &'a Manifest,
+    workspaces: &'a [Manifest],
+    changed: &[String],
+) -> Vec<(&'a Manifest, &'a str)> {
+    reaching(root, workspaces, changed)
+        .into_iter()
+        .filter(|(manifest, name)| {
+            manifest
+                .check(name)
+                .is_some_and(|check| check.runs_at() == RunsAt::PrePr)
         })
         .collect()
 }
