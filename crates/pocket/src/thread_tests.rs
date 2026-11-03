@@ -167,6 +167,8 @@ async fn the_routes_the_job_screens_use_are_signed_and_reach_fleet_without_api()
         "/sessions/tune",
         "/sessions/run/start",
         "/sessions/waiting/dismiss",
+        "/sessions/sketch/answer",
+        "/sessions/document/answer",
     ];
     for path in posts {
         let (status, said) = send(&phone, Method::POST, &format!("/api{path}"), body).await;
@@ -183,4 +185,21 @@ async fn the_routes_the_job_screens_use_are_signed_and_reach_fleet_without_api()
         posts.iter().map(|path| ("POST".to_string(), path.to_string(), body.to_string())).collect();
     want.extend(["/plan_usage", "/models"].map(|path| ("GET".to_string(), path.to_string(), String::new())));
     assert_eq!(*heard.lock().unwrap(), want, "each reached Fleet once, on its own path, with its body as signed");
+}
+
+/// The phone tells a page redrawn or revised since he read it from a refusal by Fleet's own status and code.
+#[tokio::test]
+async fn a_sketch_or_document_answer_fleet_refuses_comes_back_as_it_refused() {
+    let app = Router::new()
+        .route("/sessions/sketch/answer", post(|| async { (StatusCode::CONFLICT, r#"{"code":"fleet.sketch_redrawn"}"#) }))
+        .route("/sessions/document/answer", post(|| async { (StatusCode::UNPROCESSABLE_ENTITY, r#"{"code":"fleet.document_not_open"}"#) }));
+    let listener = crate::bind(0).await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    tokio::spawn(async move { axum::serve(listener, app).await });
+    let phone = phone_on(port).await;
+
+    let redrawn = send(&phone, Method::POST, "/api/sessions/sketch/answer", "{}").await;
+    assert_eq!(redrawn, (StatusCode::CONFLICT, r#"{"code":"fleet.sketch_redrawn"}"#.to_string()));
+    let refused = send(&phone, Method::POST, "/api/sessions/document/answer", "{}").await;
+    assert_eq!(refused, (StatusCode::UNPROCESSABLE_ENTITY, r#"{"code":"fleet.document_not_open"}"#.to_string()));
 }

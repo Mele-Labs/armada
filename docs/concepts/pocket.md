@@ -76,7 +76,7 @@ The opt-in is the file `pocket` in Armada's machine directory, `~/Library/Applic
 | Replay | A signature seen inside that window is refused the second time |
 | Pairing | A code lives five minutes and claims once. `/pair` answers ten requests a minute, wrong codes included. A claim is not a device until the owner confirms it in Bridge |
 | Subscriptions | A push endpoint must be `https`, so a phone cannot make the Mac post to loopback |
-| Shown files | A file is read only where the Job showed it with `show_file`. Fleet refuses any other path with 404 |
+| Shown files | A file is read only where the Job showed it with `show_file`, or kept it as a revision of its document. Fleet refuses any other path with 404 |
 
 **A refused signature says which failure it is**, so the app can tell this Mac does not know the phone from a request that went wrong.
 
@@ -95,6 +95,7 @@ The opt-in is the file `pocket` in Armada's machine directory, `~/Library/Applic
 | Running | The live Jobs not waiting on the owner and not done, one with a turn running marked working and the rest idle | `GET /api/sessions` |
 | A Job | Its whole thread, as Bridge reads it | `GET /api/sessions/one?session_id=` |
 | A file | A file the Job showed: its text, or a picture | `GET /api/sessions/shown?session_id=&path=` |
+| A document | A revision the Job kept of its page, as text | `GET /api/sessions/shown?session_id=&path=`, `path` one its record's `revisions` names |
 | This Mac | The name its rows are labelled with: the first label of its address, or its host name | `GET /api/machine` |
 
 **The lists are narrowed.** `crates/pocket/src/phone_sessions.rs` builds `PhoneSession` field by field, so a field Fleet adds to the Job record does not reach a list until someone writes it there.
@@ -105,9 +106,11 @@ The opt-in is the file `pocket` in Armada's machine directory, `~/Library/Applic
 |---|---|
 | A Job's whole thread and its record, its folder on the Mac among it | A walk's window: its row says to open it on the Mac |
 | A file the Job showed, up to 1 MiB, as text or a picture's bytes | A file the Job did not show, or one over 1 MiB (413) |
+| A revision the Job kept of its document, up to 1 MiB, as text | The page in the worktree, or a revision another Job kept |
 | A sketch the Job drew, from the scene its record carries | A terminal |
 
-**`/api/sessions/shown`** is Fleet's `get_shown_file`, which reads only a path the Job's record holds as an artifact of form `file` it showed.
+**`/api/sessions/shown`** is Fleet's `get_shown_file`, which reads only a path the Job's record holds as an artifact of form `file` it showed, or one a `document` artifact's `revisions` names.
+**The phone asks for a revision by its kept path**, as the record names it, oldest first, so a page has no route of its own.
 A picture (`png`, `jpg`, `jpeg`, `gif`, `webp`, `heic`) comes as its bytes under its type; anything else must be UTF-8 and comes as `{ path, text }`.
 
 ## What the phone can do
@@ -121,7 +124,12 @@ The phone sends Fleet's own body shapes.
 | `POST /api/sessions/waiting/answer` | the answer to an item the Job waits on |
 | `POST /api/sessions/plan/approve` | `approve_plan` |
 | `POST /api/sessions/plan/changes` | `send_plan_changes` |
+| `POST /api/sessions/sketch/answer` | `answer_sketch` |
+| `POST /api/sessions/document/answer` | `answer_document` |
 | `POST /api/sessions/message` | a message to the Job |
+
+**A 409 is read by its code.** Fleet's `fleet.sketch_redrawn` and `fleet.document_revised` say the page changed since he read it.
+The Gateway's own 409 for a signature sent before carries no such code.
 
 **`POST /api/sessions/answer`** is the older, checked answer, kept for the app's Needs you rows:
 
