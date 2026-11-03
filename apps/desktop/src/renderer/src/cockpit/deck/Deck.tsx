@@ -552,7 +552,13 @@ function List({
           <ListCard
             className="deck-row"
             data-row={one.key}
-            data-calling={(call === undefined || (call.waiting !== undefined && creatingSlot(call.waiting.item))) && !needs ? undefined : ""}
+            data-calling={
+              (call === undefined ||
+                (call.waiting !== undefined && creatingSlot(call.waiting.item))) &&
+              !needs
+                ? undefined
+                : ""
+            }
             needs={needs}
             data-lamp={lampOf(one)}
             data-linked={one.linked?.depth !== undefined || undefined}

@@ -12,7 +12,10 @@ export type HeldKeeps = "running" | "uncommitted";
 export type HeldSlotRow = {
   slot: number;
   /** The Job that holds it. Its name opens it. */
-  job: { id: string; title: string };
+  job: {
+    id: string;
+    title: string;
+  };
   /** The instant the holder last did anything, as RFC 3339. */
   quietSince: string;
   /** Absent where Free is on. */
@@ -34,7 +37,10 @@ export type HeldSlotsProps = {
   now?: number;
 };
 
-const WHY: Record<HeldKeeps, string> = { running: "Running now", uncommitted: "Uncommitted work" };
+const WHY: Record<HeldKeeps, string> = {
+  running: "Running now",
+  uncommitted: "Uncommitted work",
+};
 
 const plural = (n: number, unit: string) => `${n} ${unit}${n === 1 ? "" : "s"}`;
 
@@ -62,7 +68,15 @@ function ranFor(since: string, now: number): string {
  * **The list is one Tab stop.** Up and Down move between rows, Return frees the row, `o` opens its Job. The keys stop here, so the
  * call's own Return and arrows do not also act.
  */
-export function HeldSlots({ rows, onOpen, onFree, onCreate, creatingSince, createRefused, now = Date.now() }: HeldSlotsProps) {
+export function HeldSlots({
+  rows,
+  onOpen,
+  onFree,
+  onCreate,
+  creatingSince,
+  createRefused,
+  now = Date.now(),
+}: HeldSlotsProps) {
   const label = useId();
   const [at, setAt] = useState(0);
   const [out, setOut] = useState<number>();
@@ -73,9 +87,13 @@ export function HeldSlots({ rows, onOpen, onFree, onCreate, creatingSince, creat
     if (creatingSince === undefined) return;
     const timer = setInterval(() => tick((n) => n + 1), 1000);
     return () => clearInterval(timer);
-  }, [creatingSince]);
+  }, [
+    creatingSince,
+  ]);
   const items = useRef<(HTMLLIElement | null)[]>([]);
-  const ordered = [...rows].sort((a, b) => Date.parse(a.quietSince) - Date.parse(b.quietSince));
+  const ordered = [
+    ...rows,
+  ].sort((a, b) => Date.parse(a.quietSince) - Date.parse(b.quietSince));
   const last = ordered.length - (onCreate === undefined ? 1 : 0);
   const here = Math.min(at, last);
   const go = (to: number) => {
@@ -88,14 +106,24 @@ export function HeldSlots({ rows, onOpen, onFree, onCreate, creatingSince, creat
     const sent = onFree(row.slot);
     if (sent === undefined) return;
     setOut(row.slot);
-    void sent.then(() => undefined, () => undefined).finally(() => setOut(undefined));
+    void sent
+      .then(
+        () => undefined,
+        () => undefined,
+      )
+      .finally(() => setOut(undefined));
   };
   const create = () => {
     if (making || out !== undefined) return;
     const sent = onCreate?.();
     if (sent === undefined) return;
     setCreating(true);
-    void sent.then(() => undefined, () => undefined).finally(() => setCreating(false));
+    void sent
+      .then(
+        () => undefined,
+        () => undefined,
+      )
+      .finally(() => setCreating(false));
   };
   const key = (event: KeyboardEvent<HTMLLIElement>, index: number, row?: HeldSlotRow) => {
     // Return and `o` are the row's own: on its Free or its Job they are that button's press.
@@ -104,7 +132,7 @@ export function HeldSlots({ rows, onOpen, onFree, onCreate, creatingSince, creat
     else if (event.key === "ArrowUp") go(index - 1);
     else if (event.key === "Home") go(0);
     else if (event.key === "End") go(last);
-    else if (own && event.key === "Enter") (row === undefined ? create() : free(row));
+    else if (own && event.key === "Enter") row === undefined ? create() : free(row);
     else if (own && event.key === "o" && row !== undefined) onOpen(row.job.id);
     else return;
     event.preventDefault();
@@ -130,20 +158,42 @@ export function HeldSlots({ rows, onOpen, onFree, onCreate, creatingSince, creat
               onKeyDown={(event) => key(event, index, row)}
             >
               <Tooltip label={`Worktree slot ${row.slot}`}>
-                <span className="armada-ref-chip" role="img" aria-label={`Worktree slot ${row.slot}`}>
+                <span
+                  className="armada-ref-chip"
+                  role="img"
+                  aria-label={`Worktree slot ${row.slot}`}
+                >
                   <KeyRound size={12} strokeWidth={2} aria-hidden />
                   {row.slot}
                 </span>
               </Tooltip>
               <Tooltip label="Open Job" shortcut="o">
-                <button type="button" className="armada-held-slots__job" tabIndex={-1} onClick={() => onOpen(row.job.id)}>
+                <button
+                  type="button"
+                  className="armada-held-slots__job"
+                  tabIndex={-1}
+                  onClick={() => onOpen(row.job.id)}
+                >
                   {row.job.title}
                 </button>
               </Tooltip>
               <Tooltip label={`Quiet for ${quiet}`}>
-                <span className="armada-held-slots__quiet">{ageOf(Date.parse(row.quietSince), now)}</span>
+                <span className="armada-held-slots__quiet">
+                  {ageOf(Date.parse(row.quietSince), now)}
+                </span>
               </Tooltip>
-              <Tooltip label={row.keeps === undefined ? "Gives the slot to the waiting Job. The holder leases another when it next writes." : WHY[row.keeps]} {...(row.keeps === undefined ? { shortcut: "↵" } : {})}>
+              <Tooltip
+                label={
+                  row.keeps === undefined
+                    ? "Gives the slot to the waiting Job. The holder leases another when it next writes."
+                    : WHY[row.keeps]
+                }
+                {...(row.keeps === undefined
+                  ? {
+                      shortcut: "↵",
+                    }
+                  : {})}
+              >
                 <span className="armada-held-slots__act">
                   <Button
                     size="sm"
@@ -184,9 +234,31 @@ export function HeldSlots({ rows, onOpen, onFree, onCreate, creatingSince, creat
                 <span className="armada-held-slots__quiet">{ranFor(creatingSince, now)}</span>
               </Tooltip>
             )}
-            <Tooltip label={making ? "This Job goes on once the slot is made" : "Creates a slot for this Job"} {...(making ? {} : { shortcut: "↵" })}>
+            <Tooltip
+              label={
+                making ? "This Job goes on once the slot is made" : "Creates a slot for this Job"
+              }
+              {...(making
+                ? {}
+                : {
+                    shortcut: "↵",
+                  })}
+            >
               <span className="armada-held-slots__act">
-                <Button size="sm" variant="secondary" tabIndex={-1} aria-label="Create a slot" disabled={out !== undefined} pending={making} {...(createRefused === undefined || making ? {} : { answer: "refused" as const })} onClick={create}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  tabIndex={-1}
+                  aria-label="Create a slot"
+                  disabled={out !== undefined}
+                  pending={making}
+                  {...(createRefused === undefined || making
+                    ? {}
+                    : {
+                        answer: "refused" as const,
+                      })}
+                  onClick={create}
+                >
                   {making ? "Creating" : "Create"}
                 </Button>
               </span>
