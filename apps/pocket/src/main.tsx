@@ -6,8 +6,10 @@ import "./styles.css";
 import "@armada/components/src/look";
 import "./pocket.css";
 import { Root } from "./App";
+import { fitToVisibleScreen } from "./viewport";
 
 if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js");
+fitToVisibleScreen();
 
 async function begin() {
   // The fixture Gateway's two Macs, paired before the app reads its list (`pnpm fixture`).

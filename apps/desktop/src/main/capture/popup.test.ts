@@ -86,7 +86,7 @@ vi.mock("electron", () => {
 
 import { BaseWindow } from "electron";
 import { may } from "./permissions";
-import { mayOpenPopup, openPopup, type PopupHold } from "./popup";
+import { mayOpenPopup, openPopup, openPopupOn, type PopupHold } from "./popup";
 
 let next = 0;
 
@@ -324,6 +324,41 @@ describe("the popup", () => {
     expect(fake.state.closed).toBe(1);
     expect(calls.closed).toBe(1);
     popup?.close(); // already gone: nothing is closed twice
+    expect(fake.state.closed).toBe(1);
+  });
+
+  it("can be built around a view the caller made, with the same window and the same holds", () => {
+    const parent = new BaseWindow({});
+    const refused: string[] = [];
+    const guard: PopupHold = {
+      parent,
+      allowed: (address) => address.startsWith(SHOWN),
+      refuse: (address) => void refused.push(address),
+      closed: () => {},
+    };
+    const fake = made();
+    const view = {
+      webContents: fake.contents,
+      setBounds: () => {},
+    };
+    const popup = openPopupOn(guard, view as never);
+    const window = world.windows[1] as Fake;
+    expect(popup?.contents).toBe(fake.contents);
+    expect(window.shown).toBe(true);
+    expect(window.children).toEqual([
+      view,
+    ]);
+    fake.contents.emit(
+      "will-navigate",
+      {
+        preventDefault: () => {},
+      },
+      `${NAMED}/x`,
+    );
+    expect(refused).toEqual([
+      `${NAMED}/x`,
+    ]);
+    popup?.close();
     expect(fake.state.closed).toBe(1);
   });
 

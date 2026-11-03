@@ -24,6 +24,29 @@ export function go(path: string, replace = false): void {
   listeners.forEach((listener) => listener());
 }
 
+/** Hidden this long, the app comes back on the list. */
+const AWAY_MS = 5 * 60_000;
+
+/**
+ * iOS resumes a suspended Home Screen app on whatever it last showed. A while later that is an old Job, so it opens on the list.
+ * Dispatch and Pair stay, since he may be typing there. A tapped push loads a fresh page, which has no time hidden, and its Job opens.
+ */
+export function homeWhenBack(): void {
+  let hidden: number | undefined;
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      hidden ??= Date.now();
+      return;
+    }
+    const away = hidden === undefined ? 0 : Date.now() - hidden;
+    hidden = undefined;
+    if (away < AWAY_MS) return;
+    const { screen } = routeOf(window.location.pathname + window.location.search);
+    if (screen === "job" || screen === "draft" || screen === "file" || screen === "sketch")
+      go("/", true);
+  });
+}
+
 export type Route =
   | {
       screen: "home";

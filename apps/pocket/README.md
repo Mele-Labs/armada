@@ -21,9 +21,19 @@ opens at `/drafts/<Mac origin, encoded>/<id>`: its brief to edit, how the work
 lands where its workflow asks, Send and Discard. A Job that has begun opens as
 a Job from there, and a held one opens as a draft from `/jobs/…`.
 
-A Job's thread ends in what waits on the owner: a question, a Run card for a
-command to run on the Mac, a Draft card to approve or send back. The header's
-⋯ menu holds Stop, Pause or Resume, Fork, model, effort and End job.
+A Job's thread ends in what waits on the owner: a question, one of Fleet's own
+choices (how the work lands, every slot held, tasks done, a rule's act, a
+watch's failure, where taught words open), a Run card for a command to run on
+the Mac, a Draft card to approve or send back. The header's ⋯ menu holds Stop,
+Pause or Resume, Fork, model, effort and End job. In its message box and in
+Dispatch, Enter breaks the line and only the button sends.
+
+`src/viewport.ts` sizes the app to the visual viewport, so a screen's bottom bar
+and the message box sit above the keyboard, which iOS leaves the layout under.
+
+Back after five minutes or more on a Job, a draft, or a file or sketch it
+showed, the app opens on the list (`homeWhenBack` in `src/router.tsx`). A quick
+switch stays where it was, and so do Dispatch and Pair.
 
 Every call is signed with that Mac's key in `src/client.ts`. Each key is made
 when its Mac is paired, non-extractable, and kept in IndexedDB

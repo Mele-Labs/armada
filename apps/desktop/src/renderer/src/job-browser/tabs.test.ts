@@ -31,7 +31,6 @@ const state = (tabId: string, url: string): JobBrowserState => ({
   title: "",
   back: false,
   forward: false,
-  driver: "agent",
   windowed: false,
   site: NO_SETTINGS,
 });
@@ -45,6 +44,8 @@ const api = {
   },
   onShow: () => () => undefined,
   tabs: vi.fn(async () => undefined),
+  defaults: async () => NO_SETTINGS.defaults,
+  onDefaultsChanged: () => () => undefined,
   show: vi.fn(async () => undefined),
   toWindow: vi.fn(async () => undefined),
 };
@@ -61,6 +62,16 @@ test("each tab holds its own page: two tabs, two addresses", () => {
   changed(state("t2", "http://localhost:5174"));
   expect(peekJobBrowser("job", "t1")?.url).toBe("http://localhost:5173");
   expect(peekJobBrowser("job", "t2")?.url).toBe("http://localhost:5174");
+});
+
+test("the sentence for the agent's running act is carried to the tab's page, and dropped when main says none", () => {
+  changed({
+    ...state("t1", "http://localhost:5173"),
+    acting: "Reading the page",
+  });
+  expect(peekJobBrowser("job", "t1")?.acting).toBe("Reading the page");
+  changed(state("t1", "http://localhost:5173"));
+  expect(peekJobBrowser("job", "t1")).not.toHaveProperty("acting");
 });
 
 test("main is told the Job's tabs, and what it no longer holds is let go here", () => {

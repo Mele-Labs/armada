@@ -7,6 +7,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { Refused, call, getJson, refusal, whenUnpaired } from "./client";
 import type { LiveChange, PhoneSession, SessionsBody } from "./gateway";
 import { keepMachine, machines, type Machine } from "./machines";
+import { homeWhenBack } from "./router";
 import { events } from "./sse";
 
 export type Mac = {
@@ -195,6 +196,7 @@ export function start(): Promise<void> {
       () => document.visibilityState === "visible" && reconnectAll(),
     );
     window.addEventListener("online", reconnectAll);
+    homeWhenBack();
     const held = await machines();
     fleet = {
       ...fleet,

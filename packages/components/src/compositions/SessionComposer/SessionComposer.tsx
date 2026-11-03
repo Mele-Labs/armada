@@ -243,6 +243,8 @@ export type SessionComposerProps = {
   modeHidden?: boolean;
   /** The box and its Send alone on one row: `textOnly`, with no mode and no chips, for words that go to something other than a turn. */
   bare?: boolean;
+  /** Enter breaks the line and only Send sends, for a phone's keyboard, where a slip of the return key would send half a message. */
+  enterBreaks?: boolean;
   /**
    * What the message is about, the Session's id. Its text, its tags and its files are kept under it, so leaving
    * the Session and coming back, or reloading Bridge, finds them (the text; a file's bytes do not
@@ -553,6 +555,7 @@ export function SessionComposer({
   modeLocked = false,
   modeHidden = false,
   bare = false,
+  enterBreaks = false,
   textOnly: textOnlyAsked = false,
   attachOnly = false,
   draftKey,
@@ -954,7 +957,12 @@ export function SessionComposer({
       read();
       return;
     }
-    if (event.key === "Enter" && event.shiftKey && !event.nativeEvent.isComposing && !open) {
+    if (
+      event.key === "Enter" &&
+      (event.shiftKey || enterBreaks) &&
+      !event.nativeEvent.isComposing &&
+      !open
+    ) {
       event.preventDefault();
       document.execCommand("insertLineBreak");
       return;
@@ -963,7 +971,12 @@ export function SessionComposer({
       // `⌥↵` answers a card waiting in the Job's thread instead, when one is (`thread-keys.tsx`).
       if (yesWaits && isPressed("thread_yes", event)) return;
       // Enter sends and Shift+Enter breaks the line; a key that confirms an IME candidate is neither.
-      if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey &&
+        !enterBreaks &&
+        !event.nativeEvent.isComposing
+      ) {
         event.preventDefault();
         send();
       }
@@ -974,6 +987,7 @@ export function SessionComposer({
       setActive((current + (event.key === "ArrowDown" ? 1 : items.length - 1)) % items.length);
     } else if (
       event.key === "Enter" &&
+      !enterBreaks &&
       token?.trigger === "/" &&
       items[current]!.id === token.query
     ) {

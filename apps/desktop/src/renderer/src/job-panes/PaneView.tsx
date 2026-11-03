@@ -455,17 +455,32 @@ function addEntries(
     name: string;
     glyph?: string | undefined;
   }[],
+  open: readonly {
+    terminal: string;
+    name: string;
+  }[],
 ): DropdownMenuEntry[] {
   const kinds = family.kinds
     .filter((kind) => kind !== "custom" && kind !== "draft" && (kind !== "thread" || !thread))
-    .map(
-      (kind): DropdownMenuEntry => ({
-        kind: "item",
-        id: kind,
-        label: KINDS[kind].label,
-        icon: KINDS[kind].Glyph,
-      }),
-    );
+    .flatMap((kind): DropdownMenuEntry[] => [
+    {
+      kind: "item",
+      id: kind,
+      label: KINDS[kind].label,
+      icon: KINDS[kind].Glyph,
+    },
+    // Right under the new shell: the Job's shells that have no tab, the agent's among them.
+    ...(kind !== "terminal"
+      ? []
+      : open.map(
+          (one): DropdownMenuEntry => ({
+            kind: "item",
+            id: `terminal:${one.terminal}`,
+            label: `Open ${one.name}`,
+            icon: KINDS.terminal.Glyph,
+          }),
+        )),
+    ]);
   // Under the rule, the tabs a Mod Job built by name, then Custom, which builds another.
   const { Glyph } = KINDS.custom;
   return [
@@ -502,6 +517,23 @@ function newTerminal(family: PaneFamily, jobId: string, paneId: string): void {
   void shells.openNew(jobId, open);
 }
 
+/** `+` Open <name>: a shell the Job already has, in a tab of this pane in front. */
+function openTerminalTab(
+  family: PaneFamily,
+  jobId: string,
+  paneId: string,
+  terminal: string,
+  name: string,
+): void {
+  const shells = shellsOf(window.armada);
+  // The Job's first shell is the one a tab with no ID draws.
+  const own = shells?.keyOf(jobId, terminal) === jobId ? undefined : terminal;
+  family.rearrange(jobId, (arrangement) =>
+    addTab(arrangement, paneId, "terminal", name, undefined, undefined, undefined, own),
+  );
+  shells?.show("page", shells.keyOf(jobId, terminal), true);
+}
+
 /** What a family other than the Jobs' offers under +, in place of the Job's kinds and mods, and what a pick does in the pane it was made in. */
 export type AddMenu = {
   entries: (pane: Pane) => DropdownMenuEntry[];
@@ -536,6 +568,29 @@ export function PaneView({
   const family = usePaneFamily();
   const { look, rearrange, peek, droppable } = family;
   const [over, setOver] = useState<Side | "middle" | undefined>(undefined);
+  // The Job's shells with no tab, as Fleet lists them each time the + opens.
+  const [untabbed, setUntabbed] = useState<
+    {
+      terminal: string;
+      name: string;
+    }[]
+  >([]);
+  const listUntabbed = () => {
+    const shells = shellsOf(window.armada);
+    if (shells === null) return;
+    void shells.openTerminals(jobId).then((open) => {
+      const tabbed = panesOf(peek(jobId).root).flatMap((one) =>
+        one.tabs.flatMap((tab) =>
+          tab.kind !== "terminal"
+            ? []
+            : [
+                shells.keyOf(jobId, tab.terminal),
+              ],
+        ),
+      );
+      setUntabbed(open.filter((one) => !tabbed.includes(shells.keyOf(jobId, one.terminal))));
+    });
+  };
   // A Custom tab turning over changes the words and glyph of its tab.
   useCustomTick();
   const built = useModList()
@@ -668,12 +723,20 @@ export function PaneView({
           triggerLabel="Add tab"
           icon={Plus}
           portal
-          entries={add === undefined ? addEntries(family, thread, built) : add.entries(pane)}
+          entries={
+            add === undefined ? addEntries(family, thread, built, untabbed) : add.entries(pane)
+          }
+          onOpenChange={(open) => open && add === undefined && listUntabbed()}
           onSelect={(id) => {
             if (add !== undefined) return add.onSelect(id, pane);
+            if (id.startsWith("terminal:")) {
+              const terminal = id.slice("terminal:".length);
+              const named = untabbed.find((one) => one.terminal === terminal);
+              return openTerminalTab(family, jobId, pane.id, terminal, named?.name ?? terminal);
+            }
             const mod = id.startsWith("mod:") ? id.slice("mod:".length) : undefined;
             const kind = (mod === undefined ? id : "custom") as TabKind;
-            // A terminal is always a new shell, whose ID Fleet gives; its tab opens when Fleet has answered.
+            // A terminal here is a new shell, whose ID Fleet gives; its tab opens when Fleet has answered.
             if (kind === "terminal") return newTerminal(family, jobId, pane.id);
             rearrange(jobId, (arrangement) =>
               kind === "thread" && hasKind(arrangement, "thread")

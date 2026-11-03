@@ -183,7 +183,7 @@ export type LedgerEntry = {
   finished?: boolean;
   /** A `waiting` row: what its press does, which is its glyph and what the glyph's tooltip names. */
   act?: WaitingActKind;
-  /** A `waiting` row for a question with choices: drawn as the question deck, the row's name its question, `onOther` taking the words of Other. */
+  /** A `waiting` row for a question with choices: drawn as the question deck, the row's name its question, `onOther` taking the words of Other, and no Other without it. */
   options?: readonly {
     label: string;
     description?: string;
@@ -1002,6 +1002,7 @@ export function LedgerRows({
                 ]}
                 canSkip={false}
                 flat
+                noOther={row.onOther === undefined}
                 {...(row.held === undefined
                   ? {}
                   : {

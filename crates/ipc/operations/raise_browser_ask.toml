@@ -1,0 +1,12 @@
+[operations.raise_browser_ask]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Bridge says a page in a Job's browser asks the owner for something: session_id, ask_id (the tab's id), text and options, so Fleet lists it in the Job's Needs you"
+notes = """
+`POST /sessions/browser/ask`, body `RaiseBrowserAsk`: `session_id`, `ask_id`, `text` and `options`, a list of `WaitingOption`. Answered 200 with `BrowserAskNoted`, `session_id` and `ask_id`.
+
+Fleet holds it in memory and lists it in the Job's `waiting_for` as `{ id: "browser_ask:<ask_id>", text, since, source: "browser_ask", act: { kind: "answer", target: <the id> }, options }`. **The same `ask_id` again replaces it**, keeping the `since` of the first: a tab has one ask at a time. **The agent is told nothing and is not woken.** An answer or a dismissal in Needs you publishes `browser.ask_answered`, and `end_browser_ask` takes it away where the tab settled it first.
+
+Never written down: Fleet restarting loses it, and so does no client holding `/events` open, since nothing could act on the answer. `agent_access` is `Bridge only`.
+"""
