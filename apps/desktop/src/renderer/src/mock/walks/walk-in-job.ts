@@ -8,7 +8,7 @@ const billing = role("group", "Walk Billing");
 const settings = role("group", "Walk Settings");
 const takes = inside(billing, role("toolbar", "Takes"));
 
-export const walkInJob = walk("walk-in-job", [
+const walkInJob = walk("walk-in-job", [
   {
     press: deckRow("Fold Jobs into Sessions"),
     say: "A Job with no walk is open. No window opens",
@@ -98,3 +98,5 @@ export const walkInJob = walk("walk-in-job", [
     say: "The next Job with a walk",
   },
 ]);
+
+export { walkInJob as "walk-in-job" };
