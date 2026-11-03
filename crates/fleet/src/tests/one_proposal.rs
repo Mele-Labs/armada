@@ -193,6 +193,26 @@ async fn a_plan_recorded_after_an_approved_sketch_stands_with_no_card_and_a_walk
 }
 
 #[tokio::test]
+async fn a_job_stopped_after_his_approval_with_no_plan_is_nudged_to_record_it() {
+    let (rig, id) = rig_with(LISTS).await;
+    let mut stopped = record(&rig, &id).await;
+    stopped.workflow_step = Some(0);
+    stopped.standing = Some(ipc::SessionStanding::Replied);
+    stopped.waiting_for.clear();
+    let steps = feature();
+    assert!(rail::stalled(&steps, &stopped, Extra::default()).is_none(), "nothing approved: the proposal is his to answer");
+
+    let approved = Extra { sketch_approved: true, ..Extra::default() };
+    let (at, end) = rail::stalled(&steps, &stopped, approved).expect("stopped with his approval and no tasks");
+    assert_eq!((at, end.clone()), (0, crate::rail_ends::End::PlanRecorded));
+    let nudge = rail::stall_nudge("rail", &steps[0], end);
+    assert!(nudge.contains("record_plan"), "{nudge}");
+
+    stopped.plan = rig.fleet.record_plan(None, plan(&id), true).await.expect("recorded").plan;
+    assert!(rail::stalled(&steps, &stopped, approved).is_none(), "the plan is recorded, so Fleet moves it on");
+}
+
+#[tokio::test]
 async fn a_rough_walk_he_approved_is_the_walk_and_no_second_one_is_asked() {
     let (rig, id) = rig_with(LISTS).await;
     show(&rig, &id, PAGE).await;
