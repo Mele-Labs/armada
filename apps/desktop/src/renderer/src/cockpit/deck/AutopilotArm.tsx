@@ -511,12 +511,13 @@ function Parts({ w, h }: { w: number; h: number }) {
 }
 
 /** All the stage's height it needs, for every decision to stand whole: the brackets clear of the title bar above and the beam's collar clear of the console below. */
+/** Over the side columns too: the setup needs the room more than they do while it is open. */
 const placeOf = (stage: Box): Box => {
-  const inset = stage.width < 800 ? 0 : Math.min(56, stage.width * 0.05);
+  const width = Math.min(window.innerWidth - 24, 1200);
   return {
-    left: Math.round(stage.left + inset),
+    left: Math.round((window.innerWidth - width) / 2),
     top: Math.round(stage.top + 6),
-    width: Math.round(stage.width - inset * 2),
+    width: Math.round(width),
     height: Math.round(Math.min(stage.height - 14, 560)),
   };
 };

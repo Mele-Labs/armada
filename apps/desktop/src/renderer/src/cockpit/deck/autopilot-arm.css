@@ -387,6 +387,7 @@
   }
   & .ap-hud__limits {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-2);
   }
   & .ap-hud__weekly {
@@ -403,7 +404,9 @@
       flex: 1;
       min-width: 0;
     }
+    /* As wide as its longest words, so the track stays put under the thumb. */
     & .armada-slider__value {
+      width: 8ch;
       white-space: nowrap;
     }
   }
