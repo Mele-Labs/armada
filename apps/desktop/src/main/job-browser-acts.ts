@@ -12,6 +12,7 @@ import type {
   WalkTarget,
 } from "@armada/protocol";
 
+import { describeAct } from "../shared/browser-act";
 import type { CaptureRect } from "../shared/capture-window";
 import type { HeldKind } from "./capture/finder";
 import { PATIENCE_MS, pressEvents, typeEvents, type Sent } from "./capture/stepwalk";
@@ -58,6 +59,8 @@ export type JobPage = {
 
 export type ActsHost = {
   page(sessionId: string): JobPage | null;
+  /** An act starts on the Job's page, as the sentence says it; the returned call ends that act, and only that one. */
+  acting(sessionId: string, sentence: string): () => void;
   /**
    * **An agent's `open` on a Job with no Browser tab opens a page for it**, on the address, as the owner chose on 28 Oct 2026 over refusing
    * the agent until he opens one. Bridge opens a Browser tab for a Job he has open (29 Oct 2026), which takes the page over.
@@ -194,13 +197,19 @@ async function done(host: ActsHost, sessionId: string, act: BrowserAct): Promise
   }
 }
 
-/** Do the act and answer it. A throw on the way is answered as `failed`, so the agent's call never waits out Fleet's hold. */
+/**
+ * Do the act and answer it. A throw on the way is answered as `failed`, so the agent's call never waits out Fleet's hold.
+ * **The act is marked on the page while it runs** and unmarked as it answers, whatever became of it.
+ */
 export async function actOn(host: ActsHost, request: BrowserRequest): Promise<void> {
   let reply: Reply;
+  const end = host.acting(request.session_id, describeAct(request.act));
   try {
     reply = await done(host, request.session_id, request.act);
   } catch (error) {
     reply = failed(error instanceof Error ? error.message : String(error));
+  } finally {
+    end();
   }
   await host.answer({
     request_id: request.request_id,

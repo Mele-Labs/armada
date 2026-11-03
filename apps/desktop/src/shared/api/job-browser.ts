@@ -17,6 +17,8 @@ export type JobBrowserState = {
   back: boolean;
   forward: boolean;
   windowed: boolean;
+  /** The sentence for the agent's act running on this page now (`shared/browser-act.ts`); absent at rest. */
+  acting?: string;
   /** What this repository has decided for each site, and the request the page has waiting. */
   site: SiteSettings;
 };

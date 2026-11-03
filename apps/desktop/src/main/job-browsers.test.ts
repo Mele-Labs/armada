@@ -647,6 +647,113 @@ describe("the Job's page", () => {
   });
 });
 
+describe("the mark of an agent's act", () => {
+  const act = (id: string, over: BrowserRequest["act"]): BrowserRequest => ({
+    session_id: "01JOB",
+    request_id: id,
+    act: over,
+  });
+  /** A page whose snapshot waits to be released, so an act can be seen while it runs. */
+  function slow(page: ReturnType<typeof fakePage>) {
+    const release: (() => void)[] = [];
+    page.snapshot = () =>
+      new Promise<string>((resolve) => {
+        release.push(() => resolve("page"));
+      });
+    return release;
+  }
+  const mark = (held: JobBrowsers) => held.list()[0]?.acting;
+
+  it("is on the Job's page while the act runs, and gone when it answers", async () => {
+    const { held, pages, states } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    const release = slow(pages[0]!);
+    expect(mark(held)).toBeUndefined();
+    const snapshot = held.request(
+      act("r2", {
+        kind: "snapshot",
+      }),
+    );
+    expect(mark(held)).toBe("Reading the page");
+    expect(states.at(-1)?.acting).toBe("Reading the page");
+    release[0]!();
+    await snapshot;
+    expect(mark(held)).toBeUndefined();
+    expect(states.at(-1)).not.toHaveProperty("acting");
+  });
+
+  it("is gone when the act throws", async () => {
+    const { held, pages } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    let crash: () => void = () => {};
+    pages[0]!.snapshot = () =>
+      new Promise<string>((_resolve, reject) => {
+        crash = () => reject(new Error("crashed"));
+      });
+    const running = held.request(
+      act("r1", {
+        kind: "snapshot",
+      }),
+    );
+    expect(mark(held)).toBe("Reading the page");
+    crash();
+    await running;
+    expect(mark(held)).toBeUndefined();
+  });
+
+  it("shows the latest of two overlapping acts, and each clears only its own", async () => {
+    const { held, pages } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    const release = slow(pages[0]!);
+    const first = held.request(
+      act("r1", {
+        kind: "snapshot",
+      }),
+    );
+    const second = held.request(
+      act("r2", {
+        kind: "evaluate",
+        expression: "1",
+      }),
+    );
+    expect(mark(held)).toBe("Running a script");
+    // The later act answers first: the earlier one's mark is what is left.
+    await second;
+    expect(mark(held)).toBe("Reading the page");
+    release[0]!();
+    await first;
+    expect(mark(held)).toBeUndefined();
+  });
+
+  it("is on the page an agent opened for a Job with no tab, and stays on it when the first tab takes it", async () => {
+    const { held, pages, states } = browsers();
+    const opening = held.request(
+      act("r1", {
+        kind: "open",
+        url: "http://localhost:5173",
+      }),
+    );
+    // The page exists now, and its load has not answered.
+    expect(pages).toHaveLength(1);
+    expect(mark(held)).toBe("Opening localhost:5173");
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    expect(states.at(-1)).toMatchObject({
+      tabId: "t1",
+      acting: "Opening localhost:5173",
+    });
+    await opening;
+    expect(mark(held)).toBeUndefined();
+  });
+});
+
 describe("a note taken on a Job's browser", () => {
   it("sends the whole frozen page with the part he picked ringed in its pixels, tagged 1", async () => {
     const page = fakePage();

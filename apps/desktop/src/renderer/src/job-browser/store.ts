@@ -42,7 +42,7 @@ export type JobBrowser = {
   forward: boolean;
   /** Bumped by Reload, so the mock's page is drawn again. */
   loads: number;
-  /** The sentence for the agent act running now (`shared/browser-act.ts`); absent at rest. Main does not say yet, so a wired page is at rest. */
+  /** The sentence for the agent act running now (`shared/browser-act.ts`); absent at rest. Main says it, and the mock plays it. */
   acting?: string;
   /** **The mock's**: the tab whose page asked, which `site.pending` waits on. The app's request is an item in the Job's Needs you instead. */
   asked?: string;
@@ -142,6 +142,11 @@ export function wireJobBrowsers(api: Wired): () => void {
         windowed: state.windowed,
         pins: was?.pins ?? [],
         site: state.site,
+        ...(state.acting === undefined
+          ? {}
+          : {
+              acting: state.acting,
+            }),
       },
     };
     told();

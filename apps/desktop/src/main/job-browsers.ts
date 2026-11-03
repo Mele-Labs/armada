@@ -122,6 +122,12 @@ export type JobBrowserTell = {
   note(body: SendSessionNote): Promise<Outcome>;
 };
 
+/** One agent act running: its sentence, and the page it runs on, which is none until an `open` on a closed browser makes one. */
+type Mark = {
+  sentence: string;
+  on: Held | null;
+};
+
 type Held = {
   /** The tab this page belongs to. `UNATTACHED` until the first Browser tab is there to take the page an agent opened. */
   tabId: string;
@@ -159,6 +165,8 @@ export function jobsPage(
 }
 
 export class JobBrowsers {
+  /** The acts running for each Job, oldest first. */
+  private readonly running = new Map<string, Mark[]>();
   /** Each Job's pages by tab. */
   private readonly held = new Map<string, Map<string, Held>>();
   /** The Browser tabs of each Job in pane order, as the renderer last reported them. */
@@ -189,6 +197,7 @@ export class JobBrowsers {
   private stateOf(sessionId: string, tabId: string): JobBrowserState | undefined {
     const one = this.one(sessionId, tabId);
     if (one === undefined) return undefined;
+    const acting = this.markOf(sessionId, one);
     return {
       sessionId,
       tabId,
@@ -197,6 +206,11 @@ export class JobBrowsers {
       back: one.page.back(),
       forward: one.page.forward(),
       windowed: one.window !== null,
+      ...(acting === undefined
+        ? {}
+        : {
+            acting,
+          }),
       site: {
         ...one.page.settings(),
         pending:
@@ -208,6 +222,15 @@ export class JobBrowsers {
               },
       },
     };
+  }
+
+  /** The latest act running on the page, so overlapping acts show the newest. */
+  private markOf(sessionId: string, one: Held): string | undefined {
+    return [
+      ...(this.running.get(sessionId) ?? []),
+    ]
+      .reverse()
+      .find((mark) => mark.on === one)?.sentence;
   }
 
   private told(sessionId: string, tabId: string): void {
@@ -300,6 +323,7 @@ export class JobBrowsers {
     ])
       this.drop(sessionId, tabId);
     this.held.delete(sessionId);
+    this.running.delete(sessionId);
     this.order.delete(sessionId);
     this.lastShown.delete(sessionId);
   }
@@ -419,8 +443,27 @@ export class JobBrowsers {
 
   private readonly acts: ActsHost = {
     page: (sessionId) => this.jobsHeld(sessionId)?.page ?? null,
+    acting: (sessionId, sentence) => {
+      const mark: Mark = {
+        sentence,
+        on: this.jobsHeld(sessionId) ?? null,
+      };
+      this.running.set(sessionId, [
+        ...(this.running.get(sessionId) ?? []),
+        mark,
+      ]);
+      if (mark.on !== null) this.told(sessionId, mark.on.tabId);
+      return () => {
+        const rest = (this.running.get(sessionId) ?? []).filter((one) => one !== mark);
+        if (rest.length > 0) this.running.set(sessionId, rest);
+        else this.running.delete(sessionId);
+        if (mark.on !== null) this.told(sessionId, mark.on.tabId);
+      };
+    },
     openClosed: (sessionId) => {
       const one = this.ensure(sessionId, UNATTACHED);
+      // The act that opened it is on it.
+      for (const mark of this.running.get(sessionId) ?? []) mark.on ??= one;
       this.told(sessionId, UNATTACHED);
       this.tell.show(sessionId);
       return one.page;
