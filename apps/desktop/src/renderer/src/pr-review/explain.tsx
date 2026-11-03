@@ -21,6 +21,7 @@ import { Button, Kbd, Prose, PrMark, SessionComposer, Tooltip, agoOf } from "@ar
 
 import type { useSendFindings } from "./acts";
 import { RunFailed, SOURCE_MARK } from "./marks";
+import { NotRun } from "./results";
 import type { Account, Asked, ReviewPr, ToolDef } from "./model";
 import { REVIEW_KEYS, capOf } from "./key-table";
 import { NO_WORK, useReviewStore, useReviews, type ReviewStore } from "./store";
@@ -64,21 +65,23 @@ export function pressExplanation(store: ReviewStore, pr: ReviewPr, def: ToolDef)
   chooseQuick(store, pr, def.id);
 }
 
-/** What was chosen: the explanation, or the answer to a question of his. Nothing where nothing is chosen. */
+/** What was chosen: the explanation, or the answer to a question of his. Nothing where nothing is chosen. `explanations` false draws only an answer, where each explanation has a tab of its own. */
 export function Explained({
   pr,
   send,
   onOpenLink,
+  explanations = true,
 }: {
   pr: ReviewPr;
   send: Send;
   onOpenLink: (address: string) => void;
+  explanations?: boolean;
 }) {
   const reviews = useReviews();
   const work = reviews.work[pr.key] ?? NO_WORK;
-  const chosen = onlyExplanations(toolsOf(reviews, pr.manifestId)).find(
-    (one) => one.id === work.kind,
-  );
+  const chosen = explanations
+    ? onlyExplanations(toolsOf(reviews, pr.manifestId)).find((one) => one.id === work.kind)
+    : undefined;
   const asked = work.asks.find((one) => one.id === work.kind);
   if (chosen !== undefined)
     return <Chosen pr={pr} def={chosen} send={send} onOpenLink={onOpenLink} />;
@@ -188,16 +191,19 @@ function Answer({ asked }: { asked: Asked }) {
   );
 }
 
-function Chosen({
+/** One explanation, as chosen under the description or in a tab of its own. `onRun` is the press that runs it where nothing is kept for it yet. */
+export function Chosen({
   pr,
   def,
   send,
   onOpenLink,
+  onRun,
 }: {
   pr: ReviewPr;
   def: ToolDef;
   send: Send;
   onOpenLink: (address: string) => void;
+  onRun?: () => void;
 }) {
   const store = useReviewStore()!;
   const work = useReviews().work[pr.key] ?? NO_WORK;
@@ -248,7 +254,11 @@ function Chosen({
         </p>
       ) : run?.state === "failed" ? (
         <RunFailed said={run.said} />
-      ) : kept === undefined ? null : def.id === "how-it-works" ? (
+      ) : kept === undefined ? (
+        onRun === undefined ? null : (
+          <NotRun onRun={onRun} />
+        )
+      ) : def.id === "how-it-works" ? (
         <>
           <Prose text={pr.explanation.summary} />
           <div className="pr-themes">

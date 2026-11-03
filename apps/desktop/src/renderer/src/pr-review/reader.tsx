@@ -1,9 +1,9 @@
-// The reader: one pull request, description first. Under it he can choose an explanation (`explain.tsx`): how it works
-// (its changes grouped into themes by what they make happen, each in the order it was made with why), what it changes
-// for him, how to test it, or why it was needed. An explanation names no list of files: a path is a caption on a change,
-// and a hunk is its evidence, folded until opened. The Files tab is that list, every changed file's diff as the pull
-// request panel draws them. Checks and Commits stay reachable. A tool pressed in the Flight control below replaces
-// the body with what it found, and the way back is at its head.
+// The reader: one pull request, its head and its facts over its panes (`panes.tsx`), the split-pane tabs a Job's are drawn in.
+// Overview is the description first. Each explanation (`explain.tsx`) is a tab of its own: how it works (its changes grouped into
+// themes by what they make happen, each in the order it was made with why), what it changes for him, how to test it, or why it was
+// needed. An explanation names no list of files: a path is a caption on a change, and a hunk is its evidence, folded until opened.
+// The Files tab is that list, every changed file's diff as the pull request panel draws them. Checks, Commits and Review are tabs
+// too, and each tool's result is a tab in the tools pane.
 
 import { useState } from "react";
 import {
@@ -14,51 +14,15 @@ import {
   GitPullRequest,
   SquareTerminal,
 } from "lucide-react";
-import {
-  Badge,
-  Button,
-  DiffSize,
-  Kbd,
-  PrChecks,
-  PrCommits,
-  PullRequestFilesView,
-  Prose,
-  Tabs,
-  Tooltip,
-  agoOf,
-} from "@armada/components";
+import { Badge, Button, DiffSize, Kbd, Prose, Tooltip, agoOf } from "@armada/components";
 
-import { patchesOf } from "../shared-panel/pull-request-patches";
-
-import { useSendFindings } from "./acts";
-import { CommentsView } from "./comments";
+import type { useSendFindings } from "./acts";
 import { AskComposer, AskedOf, Explained } from "./explain";
 import { REVIEW_KEYS, capOf } from "./key-table";
 import { ChecksMark, ReviewMark } from "./marks";
 import type { ReviewPr } from "./model";
-import { ToolResults } from "./results";
+import { PrPanes } from "./panes";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
-import { isWalk, toolsOf } from "./tools";
-import { WalkView } from "./walk";
-
-const TABS = [
-  {
-    id: "explanation",
-    label: "Overview",
-  },
-  {
-    id: "files",
-    label: "Files",
-  },
-  {
-    id: "checks",
-    label: "Checks",
-  },
-  {
-    id: "commits",
-    label: "Commits",
-  },
-];
 
 const STATE = {
   open: {
@@ -97,19 +61,10 @@ function Reader({
   const store = useReviewStore()!;
   const reviews = useReviews();
   const work = reviews.work[pr.key] ?? NO_WORK;
-  const send = useSendFindings(pr);
   const state = STATE[pr.draft ? "draft" : "open"];
   const opened = agoOf(pr.page.created_at);
-  const tool = toolsOf(reviews, pr.manifestId).find((one) => one.id === work.view);
-  // His review is a tab of its own, the Comments tool's view, counting the comments that wait on Submit.
-  const pending = work.drafts.length;
-  const tabs = [
-    ...TABS,
-    {
-      id: "comments",
-      label: pending === 0 ? "Review" : `Review · ${pending}`,
-    },
-  ];
+  // Where the panes' Layout control stands: the head, once it is drawn.
+  const [layout, setLayout] = useState<HTMLSpanElement | null>(null);
 
   return (
     <section
@@ -125,16 +80,8 @@ function Reader({
         </Tooltip>
         <h2 className="deck-pane__title">{`#${pr.number} ${pr.title}`}</h2>
         <span className="deck-pane__where">{pr.repository}</span>
-        <Tabs
-          compact
-          items={tabs}
-          value={work.view}
-          onChange={(id) => {
-            store.setView(pr.key, id);
-            if (id === "files") store.readPatches(pr.key);
-          }}
-        />
         <span className="deck-pane__acts">
+          <span className="pr-reader__layout" ref={setLayout} />
           <Tooltip label="Go to the pull request" shortcut={REVIEW_KEYS.reader}>
             <Kbd>{REVIEW_KEYS.reader}</Kbd>
           </Tooltip>
@@ -196,61 +143,36 @@ function Reader({
         <ReviewMark review={work.review} />
         <ChecksMark checks={pr.checks} />
       </div>
-      <div className="pr-reader__body">
-        {work.page.state === "said" ? (
-          <p className="pr-reader__said" role="alert">
-            {work.page.said}
-          </p>
-        ) : null}
-        {work.view === "files" ? (
-          <PullRequestFilesView
-            rows={pr.page.files}
-            patches={patchesOf(
-              work.every.state === "read"
-                ? {
-                    ok: true,
-                    files: work.every.files,
-                  }
-                : work.every.state === "said"
-                  ? {
-                      ok: false,
-                      said: work.every.said,
-                    }
-                  : undefined,
-            )}
-          />
-        ) : null}
-        {work.view === "checks" ? <PrChecks rows={pr.page.checks} onOpenLink={onOpenLink} /> : null}
-        {work.view === "commits" ? <PrCommits rows={pr.page.commits} /> : null}
-        {work.view === "comments" ? <CommentsView pr={pr} send={send} /> : null}
-        {tool !== undefined && tool.agent ? (
-          isWalk(tool) ? (
-            <WalkView pr={pr} tool={tool} />
-          ) : (
-            <ToolResults pr={pr} tool={tool} send={send} />
-          )
-        ) : null}
-        {work.view === "explanation" ? (
-          <Overview pr={pr} send={send} onOpenLink={onOpenLink} />
-        ) : null}
+      {work.page.state === "said" ? (
+        <p className="pr-reader__said" role="alert">
+          {work.page.said}
+        </p>
+      ) : null}
+      <div className="pr-reader__panes">
+        <PrPanes pr={pr} onOpenLink={onOpenLink} controls={layout} />
       </div>
       <AskComposer pr={pr} />
     </section>
   );
 }
 
+/** `explanations` false leaves the explanations to tabs of their own: what is drawn under the description is an answer to his question alone. */
 export function Overview({
   pr,
   send,
   onOpenLink,
+  explanations = true,
 }: {
   pr: ReviewPr;
   send: ReturnType<typeof useSendFindings>;
   onOpenLink: (address: string) => void;
+  explanations?: boolean;
 }) {
   const work = useReviews().work[pr.key] ?? NO_WORK;
-  // **The description tucks away once an explanation is shown**, into one row that opens it again. With nothing chosen it is open.
-  const shown = work.kind !== undefined;
+  // **The description tucks away once an explanation or an answer is shown**, into one row that opens it again. With nothing chosen it is open.
+  const shown = explanations
+    ? work.kind !== undefined
+    : work.asks.some((one) => one.id === work.kind);
   const [chosen, setChosen] = useState<boolean | undefined>(undefined);
   const open = chosen ?? !shown;
   return (
@@ -281,7 +203,7 @@ export function Overview({
         </header>
         {open ? <Prose text={pr.body} /> : null}
       </section>
-      <Explained pr={pr} send={send} onOpenLink={onOpenLink} />
+      <Explained pr={pr} send={send} onOpenLink={onOpenLink} explanations={explanations} />
     </div>
   );
 }
