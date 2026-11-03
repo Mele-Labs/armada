@@ -1,6 +1,6 @@
 // A Jira ticket at Ready for QA, a status no Ticket state lists, taught from its row's menu: a right press on the ticket in Done lists the Ticket
-// states with none ticked, In review teaches it, and the Job's Workflow then has the ticket in In review. The same ticket's row in the Issues tab
-// has In review ticked, on the ContextMenu key. Over the `ticket-word` scenario. Mock only.
+// states with none ticked, In review teaches it, the row's glyph becomes In review's, and the Job's Workflow then has the ticket in In review. The
+// same ticket's row in the Issues tab wears that glyph and has In review ticked, on the ContextMenu key. Over the `ticket-word` scenario. Mock only.
 
 import { button, deckRow, inside, place, region, role, tab, text, walk } from "../walk";
 
@@ -49,6 +49,15 @@ const ticketWord = walk("ticket-word", [
     say: "In review",
   },
   {
+    look: inside(
+      row,
+      role("img", "Ticket state: In review", {
+        exact: true,
+      }),
+    ),
+    say: "The ticket's glyph is In review's now, and its tooltip names the state",
+  },
+  {
     context: row,
     say: "The menu again",
   },
@@ -64,6 +73,15 @@ const ticketWord = walk("ticket-word", [
   {
     press: place("Issues"),
     say: "The Issues tab",
+  },
+  {
+    look: inside(
+      issues,
+      role("img", "Ticket state: In review", {
+        exact: true,
+      }),
+    ),
+    say: "Its row there has In review's glyph too",
   },
   {
     key: "ContextMenu",

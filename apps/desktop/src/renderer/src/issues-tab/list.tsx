@@ -4,7 +4,7 @@
 // it chose for the rows, and what it matched, and Save keeps it under a name. A saved query's text is his to edit by hand,
 // which runs it again as written. The choice is remembered for each repository, and for All.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { LoaderCircle, Pencil, Puzzle, X } from "lucide-react";
 import {
   Button,
@@ -31,12 +31,13 @@ import { jobIdOf } from "@armada/shell";
 
 import { useSessions } from "../sessions-draft";
 import {
-  readTicketWord,
+  readTicketStates,
   teachTicketWord,
   ticketStateOf,
   ticketWordEntries,
   ticketWordOf,
-  type TicketReading,
+  ticketMarkOf,
+  useTicketStates,
 } from "../ticket-word-menu";
 import {
   askedOf,
@@ -242,38 +243,28 @@ export function IssuesList({
     },
   ];
   // A right press on the list, or the menu key on a row, opens the View menu (`row-view.ts`) where it was pressed. On a ticket's row the
-  // Ticket states come first, once the lifecycle is read, so the one the ticket's status reads as is ticked as the menu opens.
+  // Ticket states come first, the one the ticket's status reads as ticked once the lifecycle is read again.
   const [menu, setMenu] = useState<{
     x: number;
     y: number;
     row: HTMLElement | null;
     ticket?: TicketAt;
   }>();
-  // An answer to an older press is not drawn.
-  const pressed = useRef(0);
   const openMenu = (x: number, y: number, row: HTMLElement | null) => {
-    const mine = (pressed.current += 1);
     const ticket = ticketAt(row);
-    if (ticket === undefined)
-      return setMenu({
-        x,
-        y,
-        row,
-      });
-    void readTicketWord(ticket.manifestId, ticket.word).then((reading) =>
-      mine !== pressed.current
-        ? undefined
-        : setMenu({
-            x,
-            y,
-            row,
-            ticket: {
-              ...ticket,
-              reading,
-            },
+    setMenu({
+      x,
+      y,
+      row,
+      ...(ticket === undefined
+        ? {}
+        : {
+            ticket,
           }),
-    );
+    });
+    if (ticket !== undefined) readTicketStates(ticket.manifestId);
   };
+  const states = useTicketStates(menu?.ticket?.manifestId);
   const [view, toggleField] = useIssueView();
   const triggerLabel =
     here === DESCRIBE
@@ -398,14 +389,10 @@ export function IssuesList({
           }}
           open
           entries={[
-            ...(menu.ticket?.reading === undefined
+            ...(menu.ticket === undefined
               ? []
               : [
-                  ...ticketWordEntries(
-                    menu.ticket.reference,
-                    menu.ticket.word,
-                    menu.ticket.reading,
-                  ),
+                  ...ticketWordEntries(menu.ticket.reference, menu.ticket.word, states),
                   {
                     kind: "separator",
                     id: "ticket-word-rule",
@@ -435,12 +422,11 @@ export function IssuesList({
   );
 }
 
-/** The ticket a row stands for, as the row names it, and the Ticket states read for its status. */
+/** The ticket a row stands for, as the row names it. */
 type TicketAt = {
   manifestId: string;
   reference: string;
   word: string;
-  reading?: TicketReading;
 };
 
 const ticketAt = (row: HTMLElement | null): TicketAt | undefined => {
@@ -966,6 +952,11 @@ function Row({
     })),
   );
   const tone = toneOfHolders(holders);
+  const word = ticketWordOf(
+    ticket.fields.find((one) => one.name === "Status")?.values[0],
+    ticket.state,
+  );
+  const read = ticketMarkOf(useTicketStates(band.manifestId), word);
   const lines = [
     !view.job || holders.length === 0 ? null : (
       <span key="held" className="issues-row__held">
@@ -995,10 +986,7 @@ function Row({
         data-tone={tone}
         data-manifest={band.manifestId}
         data-reference={ticket.reference}
-        data-word={ticketWordOf(
-          ticket.fields.find((one) => one.name === "Status")?.values[0],
-          ticket.state,
-        )}
+        data-word={word}
         needs={view.state && tone === "ask" && !open}
         aria-label={`${ticket.reference} ${ticket.title}`}
         onClick={() => store.open(band.manifestId, ticket.reference)}
@@ -1010,9 +998,20 @@ function Row({
               {ticket.linked_pull_request ? <LinkedPullRequestMark /> : null}
             </ListCardMark>
             <ListCardMark>
-              {!view.state ? null : ticket.state === "closed" ? (
+              {!view.state ? null : read !== undefined ? (
+                <Tooltip label={read.said}>
+                  <span className="issues-mark" role="img" aria-label={read.said}>
+                    <read.Glyph size={12} strokeWidth={2} aria-hidden />
+                  </span>
+                </Tooltip>
+              ) : ticket.state === "closed" ? (
                 <ClosedMark />
-              ) : loudestHolder(holders) === undefined ? null : (
+              ) : null}
+            </ListCardMark>
+            <ListCardMark>
+              {!view.state ||
+              ticket.state === "closed" ||
+              loudestHolder(holders) === undefined ? null : (
                 <JobMark session={loudestHolder(holders)!} />
               )}
             </ListCardMark>

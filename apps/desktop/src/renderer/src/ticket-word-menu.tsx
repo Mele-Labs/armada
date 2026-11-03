@@ -1,12 +1,19 @@
 // A ticket's menu of the Ticket lifecycle's states, wherever a ticket row is drawn: choosing one teaches Armada that the tracker's status
 // reads as that state (`teachTicketWord`), in the Workspace's Ticket lifecycle and every live Job's copy, so the Jobs' lanes follow by
-// `job_lifecycles.changed`. The state the status reads as now is ticked, from the running Ticket lifecycle read each time the menu opens.
-// A refusal is the window's toast, in Fleet's words.
+// `job_lifecycles.changed`. The running Ticket lifecycle is read once per repository for every row drawn from it, again as a menu opens
+// and after a teach: a row's mark is the state its status reads as, and the menu ticks it. A refusal is the window's toast, in Fleet's words.
 
-import { useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import {
+  useState,
+  useSyncExternalStore,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
+import { CircleCheck, CircleDashed, CircleDot, Eye, type LucideIcon } from "lucide-react";
 import { DropdownMenu } from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
-import type { AppliedLifecycle } from "@armada/protocol";
+import type { AppliedLifecycle, LifecycleStateDefinition } from "@armada/protocol";
 
 import { raiseOutcome } from "./tell";
 
@@ -30,6 +37,14 @@ const TICKET_STATES = [
   },
 ] as const;
 
+/** The registry's glyph for each Ticket state (`packages/icons`: circle-dashed, circle-dot, eye, circle-check). */
+const GLYPH: Readonly<Record<string, LucideIcon>> = {
+  todo: CircleDashed,
+  in_progress: CircleDot,
+  in_review: Eye,
+  closed: CircleCheck,
+};
+
 const PICK = "ticket-state:";
 const REACH: Readonly<Record<string, number>> = {
   everywhere: 0,
@@ -43,14 +58,8 @@ export const ticketWordOf = (status: string | undefined, state: "open" | "closed
   return said !== "" ? said : state === "closed" ? "Closed" : "Open";
 };
 
-/** The menu's states, each labelled as the running Ticket lifecycle labels it, and the one whose tracker words hold `word` exactly. */
-export type TicketReading = {
-  states: readonly {
-    id: string;
-    label: string;
-  }[];
-  ticked?: string;
-};
+/** The running Ticket lifecycle's states for a repository. Empty where it has none, or the read was refused. */
+type TicketStates = readonly LifecycleStateDefinition[];
 
 /** The Ticket lifecycle that runs for the repository: of those not replaced, the one kept nearest it. */
 function runningTicket(applied: readonly AppliedLifecycle[]): AppliedLifecycle | undefined {
@@ -59,51 +68,129 @@ function runningTicket(applied: readonly AppliedLifecycle[]): AppliedLifecycle |
     .sort((a, b) => (REACH[b.kept.rank.reach] ?? 0) - (REACH[a.kept.rank.reach] ?? 0))[0];
 }
 
-export async function readTicketWord(manifestId: string, word: string): Promise<TicketReading> {
-  const read = await window.armada.listLifecycles(manifestId);
-  const ticket = read.ok ? runningTicket(read.value.lifecycles)?.lifecycle : undefined;
-  const ticked = ticket?.states.find(
-    (one) => one.read.source === "tracker" && one.read.words.includes(word),
-  )?.id;
-  return {
-    states: TICKET_STATES.map(({ id, label }) => ({
-      id,
-      label: ticket?.states.find((one) => one.id === id)?.label ?? label,
-    })),
-    ...(ticked === undefined
-      ? {}
-      : {
-          ticked,
-        }),
+// ---- One reading per repository, shared by its rows ------------------------------------------------------------------------
+
+const held = new Map<string, TicketStates>();
+const asked = new Map<string, number>();
+const hearing = new Map<string, Set<() => void>>();
+
+function told(manifestId: string): void {
+  for (const one of hearing.get(manifestId) ?? []) one();
+}
+
+/** Reads the repository's Ticket lifecycle again. An answer to an older read is dropped; a refusal reads as no states. */
+function readAgain(manifestId: string): void {
+  const mine = (asked.get(manifestId) ?? 0) + 1;
+  asked.set(manifestId, mine);
+  void window.armada
+    .listLifecycles(manifestId)
+    .then(
+      (read) => (read.ok ? (runningTicket(read.value.lifecycles)?.lifecycle.states ?? []) : []),
+      () => [],
+    )
+    .then((states) => {
+      if (asked.get(manifestId) !== mine) return;
+      held.set(manifestId, states);
+      told(manifestId);
+    });
+}
+
+/** The first row drawn from a repository reads it; when the last goes, the reading goes with it, so a window drawn again reads afresh. */
+function follow(manifestId: string, onChange: () => void): () => void {
+  const all = hearing.get(manifestId) ?? new Set();
+  hearing.set(manifestId, all);
+  all.add(onChange);
+  if (all.size === 1) readAgain(manifestId);
+  return () => {
+    all.delete(onChange);
+    if (all.size > 0) return;
+    hearing.delete(manifestId);
+    held.delete(manifestId);
+    asked.delete(manifestId);
   };
 }
 
-/** The heading and a choosable item for each state, the one the word reads as now ticked. */
+const NOTHING = () => () => undefined;
+// One subscribe per repository, so a row drawn again does not leave and follow afresh.
+const following = new Map<string, (onChange: () => void) => () => void>();
+const followerOf = (manifestId: string) => {
+  const known = following.get(manifestId);
+  if (known !== undefined) return known;
+  const made = (onChange: () => void) => follow(manifestId, onChange);
+  following.set(manifestId, made);
+  return made;
+};
+
+/** The repository's Ticket states, `undefined` until read. */
+export function useTicketStates(manifestId: string | undefined): TicketStates | undefined {
+  return useSyncExternalStore(manifestId === undefined ? NOTHING : followerOf(manifestId), () =>
+    manifestId === undefined ? undefined : held.get(manifestId),
+  );
+}
+
+/** The state whose tracker words hold `word` exactly. */
+const readAs = (
+  states: TicketStates | undefined,
+  word: string,
+): LifecycleStateDefinition | undefined =>
+  states?.find((one) => one.read.source === "tracker" && one.read.words.includes(word));
+
+// ---- The mark ----------------------------------------------------------------------------------------------------------------
+
+/** The glyph and words of the Ticket state a status reads as. `undefined` where it reads as none the registry draws: the row keeps its Open or Closed. */
+export function ticketMarkOf(
+  states: TicketStates | undefined,
+  word: string,
+):
+  | {
+      Glyph: LucideIcon;
+      said: string;
+    }
+  | undefined {
+  const state = readAs(states, word);
+  const Glyph = state === undefined ? undefined : GLYPH[state.id];
+  return state === undefined || Glyph === undefined
+    ? undefined
+    : {
+        Glyph,
+        said: `Ticket state: ${state.label}`,
+      };
+}
+
+// ---- The menu ----------------------------------------------------------------------------------------------------------------
+
+/** The heading and a choosable item for each state, the one the word reads as now ticked. Before the read lands, none is. */
 export const ticketWordEntries = (
   reference: string,
   word: string,
-  reading: TicketReading,
-): DropdownMenuEntry[] => [
-  {
-    kind: "label",
-    id: "ticket-word",
-    label: `${reference} is ${word}. In Armada that is`,
-  },
-  ...reading.states.map(
-    (one): DropdownMenuEntry => ({
-      kind: "item",
-      id: `${PICK}${one.id}`,
-      label: one.label,
-      selected: reading.ticked === one.id,
-    }),
-  ),
-];
+  states: TicketStates | undefined,
+): DropdownMenuEntry[] => {
+  const ticked = readAs(states, word)?.id;
+  return [
+    {
+      kind: "label",
+      id: "ticket-word",
+      label: `${reference} is ${word}. In Armada that is`,
+    },
+    ...TICKET_STATES.map(
+      ({ id, label }): DropdownMenuEntry => ({
+        kind: "item",
+        id: `${PICK}${id}`,
+        label: states?.find((one) => one.id === id)?.label ?? label,
+        selected: ticked === id,
+      }),
+    ),
+  ];
+};
 
 /** The state a pick names, where it is one of the menu's. */
 export const ticketStateOf = (chosen: string): string | undefined =>
   chosen.startsWith(PICK) ? chosen.slice(PICK.length) : undefined;
 
-/** One call. Success shows in the lanes by Fleet's event; a refusal is the toast. */
+/** A menu opening reads the lifecycle again, so a tick reflects a word taught elsewhere. */
+export const readTicketStates = (manifestId: string): void => readAgain(manifestId);
+
+/** One call. The rows read the lifecycle again once it is taken; a refusal is the toast. */
 export async function teachTicketWord(
   manifestId: string,
   word: string,
@@ -114,14 +201,14 @@ export async function teachTicketWord(
     word,
     state,
   });
-  if (!done.ok) raiseOutcome(done.outcome);
+  if (!done.ok) return raiseOutcome(done.outcome);
+  readAgain(manifestId);
 }
 
 type At = {
   x: number;
   y: number;
   from: HTMLElement;
-  reading?: TicketReading;
 };
 
 /** What a ticket row spreads onto its own element, and the menu to draw beside it. */
@@ -133,38 +220,26 @@ export type TicketWordMenu = {
   menu: ReactNode;
 };
 
-/** A row read in no repository has no Workspace to teach, and no menu. The menu draws once the lifecycle is read, so its tick does not arrive late. */
+/** A row read in no repository has no Workspace to teach, and no menu. `states` is the row's own reading, which the menu ticks from. */
 export function useTicketWordMenu(
   manifestId: string | undefined,
   reference: string,
   word: string,
+  states: TicketStates | undefined,
 ): TicketWordMenu {
   const [at, setAt] = useState<At | undefined>(undefined);
-  // An answer to an older open, or to a menu since closed, is not drawn.
-  const latest = useRef(0);
   if (manifestId === undefined)
     return {
       on: {},
       menu: null,
     };
   const open = (x: number, y: number, from: HTMLElement) => {
-    const mine = (latest.current += 1);
     setAt({
       x,
       y,
       from,
     });
-    void readTicketWord(manifestId, word).then((reading) => {
-      if (mine !== latest.current) return;
-      setAt((was) =>
-        was === undefined
-          ? was
-          : {
-              ...was,
-              reading,
-            },
-      );
-    });
+    readAgain(manifestId);
   };
   const on: TicketWordMenu["on"] = {
     onContextMenu: (event) => {
@@ -179,7 +254,7 @@ export function useTicketWordMenu(
     },
   };
   const menu =
-    at?.reading === undefined ? null : (
+    at === undefined ? null : (
       <DropdownMenu
         triggerLabel={reference}
         at={{
@@ -187,10 +262,9 @@ export function useTicketWordMenu(
           y: at.y,
         }}
         open
-        entries={ticketWordEntries(reference, word, at.reading)}
+        entries={ticketWordEntries(reference, word, states)}
         onOpenChange={(opened) => {
           if (opened) return;
-          latest.current += 1;
           setAt(undefined);
           at.from.focus();
         }}

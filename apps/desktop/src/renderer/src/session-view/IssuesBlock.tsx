@@ -2,7 +2,8 @@
 // that work none of them. A pull request works an issue whose forge number it closes, or one whose row names it, as a tracker's issue's row
 // does. A pull request working two of its issues stands under both. A press opens the issue or the pull request in the side
 // panel. A plan group that names an issue is that issue's place: its pull requests stand in the group, and this block lists only the issues no
-// group names. An issue wears the registry's `ticket` glyph and its state is its frame; a pull request's state is its edge, named by its tooltip.
+// group names. An issue wears the registry's `ticket` glyph and its state is its frame, or the glyph of the Ticket state its tracker's status reads as;
+// a pull request's state is its edge, named by its tooltip.
 
 import { Bug, Ticket } from "lucide-react";
 import { PullRequestChip, Tooltip } from "@armada/components";
@@ -16,7 +17,12 @@ import {
 import { usePullRequestMenu } from "../pull-request-menu";
 import { checksSaid } from "../session-cards";
 import { openInPanel } from "../shared-panel/store";
-import { ticketWordOf, useTicketWordMenu } from "../ticket-word-menu";
+import {
+  ticketMarkOf,
+  ticketWordOf,
+  useTicketStates,
+  useTicketWordMenu,
+} from "../ticket-word-menu";
 import "./issues-block.css";
 
 export type Issue = Extract<
@@ -124,12 +130,14 @@ const ISSUE_SAID = {
   open: "Open",
   closed: "Closed",
 } as const;
-function IssueMark({ issue }: { issue: Issue }) {
-  const said = ISSUE_SAID[issue.state];
+/** The Ticket state the tracker's status reads as, where the running Ticket lifecycle lists it; else the issue's Open or Closed. */
+function IssueMark({ issue, read }: { issue: Issue; read: ReturnType<typeof ticketMarkOf> }) {
+  const said = read?.said ?? ISSUE_SAID[issue.state];
+  const Glyph = read?.Glyph ?? Ticket;
   return (
     <Tooltip label={said}>
       <span className="sv-row__mark" data-state={issue.state} role="img" aria-label={said}>
-        <Ticket size={12} strokeWidth={2} aria-hidden />
+        <Glyph size={12} strokeWidth={2} aria-hidden />
       </span>
     </Tooltip>
   );
@@ -137,11 +145,9 @@ function IssueMark({ issue }: { issue: Issue }) {
 
 /** An issue as one row: its state glyph, number and title, which opens the issue in the side panel. Its menu teaches which Ticket state the tracker's status is. */
 export function IssueRow({ issue, manifestId }: { issue: Issue; manifestId: string | undefined }) {
-  const { on, menu } = useTicketWordMenu(
-    manifestId,
-    issueLabel(issue.number),
-    ticketWordOf(issue.status, issue.state),
-  );
+  const word = ticketWordOf(issue.status, issue.state);
+  const states = useTicketStates(manifestId);
+  const { on, menu } = useTicketWordMenu(manifestId, issueLabel(issue.number), word, states);
   return (
     <>
       <button
@@ -152,7 +158,7 @@ export function IssueRow({ issue, manifestId }: { issue: Issue; manifestId: stri
         onClick={() => openIssuePanel(issue, manifestId)}
         {...on}
       >
-        <IssueMark issue={issue} />
+        <IssueMark issue={issue} read={ticketMarkOf(states, word)} />
         <code className="sv-row__num">{issueLabel(issue.number)}</code>
         <span className="sv-row__title">{issue.title}</span>
       </button>
