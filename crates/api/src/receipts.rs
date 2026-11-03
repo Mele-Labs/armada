@@ -81,6 +81,10 @@ enum Set<'a> {
 /// window that holds it.
 const PLAN_HELD: &str = "The owner is not asked to approve this plan until he has approved every page you showed. A page you changed after showing it waits until you show it again with show_window.";
 
+/// What the agent reads when its plan stands as it is recorded: its step does not ask, or the owner
+/// already approved what the step lists. Without it the agent waits on a card he is never shown.
+const PLAN_STANDS: &str = "This plan stands approved as recorded: its step does not ask the owner, or he already approved what it lists, so Fleet puts no plan to him. Carry on with its tasks, and do not wait for or ask about its approval.";
+
 /// What settles a window that holds the plan, said after its address.
 fn settled_by(why: ipc::PlanHoldWhy) -> &'static str {
     match why {
@@ -108,6 +112,9 @@ struct PlanReceipt<'a> {
     /// it waits on his approval.
     #[serde(skip_serializing_if = "Option::is_none")]
     held: Option<String>,
+    /// Said where the plan was approved as it was recorded, so the agent goes on rather than waiting.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stands: Option<&'static str>,
     groups: Vec<GroupReceipt<'a>>,
 }
 
@@ -222,6 +229,7 @@ impl<'a> Receipt<'a> {
                     item.source == WaitingSource::Plan && item.id == format!("plan:{}", plan.version)
                 }))
             .then(|| plan_held(&plan.held_by)),
+            stands: plan.approved.then_some(PLAN_STANDS),
             groups: plan
                 .groups
                 .iter()
