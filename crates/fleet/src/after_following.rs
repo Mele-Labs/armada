@@ -10,6 +10,10 @@
 //! **The first pull request the Session waited on opens is the wait's** and is kept on it, so a second
 //! one never moves a wait that has named #N. A pull request that merged before the wait was made is
 //! not the one it waits for.
+//!
+//! **A wait follows the work.** A Session handed on for context did not end its work, so no wait reads
+//! that as an end: each one moves to the Session that took its place ([`Fleet::waits_followed`]), down
+//! a whole chain of hands.
 
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -57,6 +61,8 @@ pub(crate) fn judged(wait: &KeptWait, on: &SessionRecord) -> Verdict {
     let title = on.title.clone().unwrap_or_else(|| on.id.as_str().to_string());
     let pull = pull_on(wait, on);
     let seen = pull.and_then(pull_wire);
+    // Its work carried on: the wait is about to follow it, whichever comes first.
+    let handed = on.attachments.iter().any(|one| one.kind == crate::session_host::replacing::REPLACED_BY && one.state == AttachmentState::Spent);
     match wait.condition.as_str() {
         "group_done" | "task_done" => match on.plan.as_ref().filter(|plan| crate::session_host::after::plan_part_done(plan, wait)) {
             Some(plan) => Verdict::Met { said: format!("{} is done in {title}", crate::session_host::after::plan_part_title(plan, &wait.part).unwrap_or_else(|| wait.part.clone())), pull: seen },
@@ -70,7 +76,7 @@ pub(crate) fn judged(wait: &KeptWait, on: &SessionRecord) -> Verdict {
             (Some(pull), Some(one)) if merged(pull) => Verdict::Met { said: format!("pull request #{} landed", one.number), pull: seen.clone() },
             _ => Verdict::Waiting { pull: seen },
         },
-        _ if on.state == ipc::SessionState::Ended => Verdict::Met { said: format!("{title} ended"), pull: seen },
+        _ if on.state == ipc::SessionState::Ended && !handed => Verdict::Met { said: format!("{title} ended"), pull: seen },
         _ => Verdict::Waiting { pull: seen },
     }
 }
@@ -95,6 +101,7 @@ where
         }
     });
     tokio::spawn(async move {
+        fleet.waits_left_followed().await;
         let mut watched: HashSet<String> = HashSet::new();
         let open = fleet.store().lock().await.open_waits().unwrap_or_default();
         for wait in open {

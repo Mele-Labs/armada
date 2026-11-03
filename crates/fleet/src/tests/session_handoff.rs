@@ -38,7 +38,7 @@ fn asking(ask: &str) -> AskingToRun {
 }
 
 /// The Job asks, and the owner presses `label` on the card.
-async fn asked_and_answered(rig: &Rig, id: &SessionId, label: &str) -> Option<RunOrNot> {
+pub(super) async fn asked_and_answered(rig: &Rig, id: &SessionId, label: &str) -> Option<RunOrNot> {
     asked_by(rig, id, label, ASK).await
 }
 
