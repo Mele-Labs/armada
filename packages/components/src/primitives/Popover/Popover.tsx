@@ -20,6 +20,8 @@ export type PopoverProps = {
   defaultOpen?: boolean;
   /** Names the layer, where more than one popover can be open on a page in turn. */
   label?: string;
+  /** Called when the layer opens or closes, for a trigger that says `aria-expanded` or takes the focus back. */
+  onOpenChange?: (open: boolean) => void;
 };
 
 export function Popover({
@@ -28,9 +30,19 @@ export function Popover({
   align = "start",
   defaultOpen = false,
   label,
+  onOpenChange,
 }: PopoverProps) {
   const [open, setOpen] = useState(defaultOpen);
   const root = useRef<HTMLDivElement>(null);
+  const told = useRef(defaultOpen);
+  useEffect(() => {
+    if (told.current === open) return;
+    told.current = open;
+    onOpenChange?.(open);
+  }, [
+    open,
+    onOpenChange,
+  ]);
 
   // Esc closes an overlay, per the global tier, and stops there. Marked taken as well as stopped:
   // a sheet listening on the same window cannot be stopped, and reads the mark instead.

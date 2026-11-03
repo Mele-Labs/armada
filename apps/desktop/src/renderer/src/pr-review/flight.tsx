@@ -1,211 +1,24 @@
-// The review's Flight control: one tile per explanation and then per review tool, keyed 1 to 9, in the Cockpit's own tile
-// language. **Each runs for the open pull request only when pressed**, because an agent run is expensive, and shows running
-// on its tile. An explanation is shown under the description, and a tool's result in place of it. The tools are definitions from three places, as workflows are, and each tile carries its place as a
-// small glyph: Armada's, his Kit's (`~/.armada/review-tools/`), or the repository's (`.armada/review-tools/`).
-// The last tile adds one: Fleet writes the file, in the Kit's folder or the repository's.
+// What every act on the review that spends asks first, and the sheet that adds a tool. The tools are definitions from three places, as
+// workflows are: Armada's, his Kit's (`~/.armada/review-tools/`), or the repository's (`.armada/review-tools/`). Each opens in a tab of
+// the pull request's panes (`panes.tsx`), and Add a tool is the last entry of their + menu.
 
 import { useEffect, useRef, useState } from "react";
-import { CircleX, History, LoaderCircle, RefreshCw, SquarePlus } from "lucide-react";
-import { Eclipse } from "lucide-react";
 import {
   Button,
   Checkbox,
   Dialog,
   Input,
-  Kbd,
-  PrMark,
   Radio,
   RadioGroup,
   Sheet,
   Textarea,
   Tooltip,
-  agoOf,
   forgetKept,
 } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 
-import { ReviewKeys } from "./keys";
-import { SOURCE_MARK, TOOL_MARK } from "./marks";
 import type { ReviewPr, ToolDef } from "./model";
-import { NO_WORK, useReviewStore, useReviews } from "./store";
-import { pressExplanation } from "./explain";
-import { isWalk, tilesOf, toolsOf } from "./tools";
-import { WalkSheets } from "./walk";
-
-/** What a tile says under its glyph, where the tool's name is long. */
-const SHORT: Record<string, string> = {
-  "api-breaking-changes": "API breaks",
-};
-
-const WHOSE = {
-  armada: "Armada's",
-  kit: "the Kit's",
-  repository: "the repository's",
-} as const;
-
-const typing = (target: EventTarget | null): boolean =>
-  target instanceof HTMLElement &&
-  (target.isContentEditable ||
-    [
-      "INPUT",
-      "TEXTAREA",
-      "SELECT",
-    ].includes(target.tagName));
-
-/** The tiles, as a block for a Flight control panel to hold. */
-export function ReviewTools() {
-  const store = useReviewStore()!;
-  const reviews = useReviews();
-  const pr = reviews.prs.find((one) => one.key === reviews.open);
-  const work = pr === undefined ? NO_WORK : (reviews.work[pr.key] ?? NO_WORK);
-  const tools = tilesOf(toolsOf(reviews, pr?.manifestId));
-  const [adding, setAdding] = useState(false);
-  const { sheet } = reviews;
-
-  const press = (tool: ToolDef) => {
-    if (pr === undefined) return;
-    if (tool.kind === "explanation") return pressExplanation(store, pr, tool);
-    const kept = work.runs[tool.id];
-    // The Walk is found a place before it is written, and one already looking, asking or failed to find shows as it stands.
-    const finding = isWalk(tool) && work.walk.find.state !== "idle";
-    // A kept result opens at once. Only a run that has not happened asks first.
-    if (!tool.agent || finding || (kept !== undefined && kept.state !== "idle"))
-      store.runTool(pr.key, tool);
-    else if (isWalk(tool)) store.spend(tool.name, () => store.findPlace(pr.key));
-    else store.spend(tool.name, () => store.runTool(pr.key, tool));
-  };
-
-  // The keys 1 to 9 press the tiles, where no box is being typed in.
-  useEffect(() => {
-    const down = (event: KeyboardEvent) => {
-      if (
-        event.metaKey ||
-        event.ctrlKey ||
-        event.altKey ||
-        event.shiftKey ||
-        typing(event.target) ||
-        adding ||
-        sheet !== undefined
-      )
-        return;
-      const at = Number(event.key) - 1;
-      if (!Number.isInteger(at) || at < 0 || at > 8) return;
-      if (at < tools.length) press(tools[at]!);
-      else if (at === tools.length) setAdding(true);
-      else return;
-      event.preventDefault();
-    };
-    window.addEventListener("keydown", down);
-    return () => window.removeEventListener("keydown", down);
-  });
-
-  const count = tools.length + 1;
-  return (
-    <>
-      <div
-        className="deck-controls__block pr-tools"
-        data-n={count}
-        style={
-          {
-            "--n": count,
-          } as React.CSSProperties
-        }
-      >
-        {tools.map((tool, at) => {
-          const explains = tool.kind === "explanation";
-          const run = explains ? work.explains[tool.id] : work.runs[tool.id];
-          const pressed = explains
-            ? work.view === "explanation" && work.kind === tool.id
-            : work.view === tool.id;
-          const running = run?.state === "running";
-          const blocked = pr === undefined;
-          const kept = run?.state === "done" && tool.agent ? run : undefined;
-          // A result is kept for the commit it ran on. A newer commit marks it out of date, and it is still shown.
-          const stale = kept !== undefined && pr !== undefined && kept.head !== pr.head;
-          const mark = TOOL_MARK[tool.mark];
-          const source = SOURCE_MARK[tool.source];
-          return (
-            <Tooltip key={tool.id} label={tool.name} shortcut={String(at + 1)} asChild>
-              <button
-                type="button"
-                className="deck-tile pr-tool"
-                aria-label={tool.name}
-                aria-pressed={pressed}
-                aria-disabled={blocked || undefined}
-                aria-busy={running || undefined}
-                data-tool={tool.mark}
-                data-source={tool.source}
-                data-explains={explains || undefined}
-                data-stale={stale || undefined}
-                onClick={() => press(tool)}
-              >
-                {running ? (
-                  <LoaderCircle size={16} aria-hidden="true" className="pr-tool__spin" />
-                ) : (
-                  <mark.Glyph size={16} aria-hidden="true" />
-                )}
-                <span className="deck-tile__text pr-tool__text">{SHORT[tool.id] ?? tool.name}</span>
-                <Kbd className="deck-tile__key" aria-hidden="true">
-                  {at + 1}
-                </Kbd>
-                {run?.state === "failed" && tool.agent ? (
-                  <span className="pr-tool__kept">
-                    <PrMark Glyph={CircleX} said={`Failed. ${run.said}`} tone="failed" />
-                  </span>
-                ) : null}
-                {kept === undefined ? null : (
-                  <span className="pr-tool__kept">
-                    <PrMark
-                      Glyph={stale ? RefreshCw : History}
-                      said={
-                        stale
-                          ? `Out of date. Ran on ${kept.head.slice(0, 7)}, the pull request is at ${pr!.head.slice(0, 7)}`
-                          : `Kept. Ran ${agoOf(new Date(kept.at).toISOString())} on ${kept.head.slice(0, 7)}`
-                      }
-                    />
-                  </span>
-                )}
-                {tool.hides !== "repository" ? null : (
-                  <span className="pr-tool__hides">
-                    <PrMark Glyph={Eclipse} said={`Hides the repository's ${tool.name}`} />
-                  </span>
-                )}
-                <span className="pr-tool__source" data-source={tool.source}>
-                  <PrMark
-                    Glyph={source.Glyph}
-                    said={
-                      tool.replaces === undefined
-                        ? source.said
-                        : `${source.said}. Replaces ${WHOSE[tool.replaces]} ${tool.name}`
-                    }
-                  />
-                </span>
-              </button>
-            </Tooltip>
-          );
-        })}
-        <Tooltip label="Add a tool" shortcut={String(tools.length + 1)} asChild>
-          <button
-            type="button"
-            className="deck-tile pr-tool"
-            aria-label="Add a tool"
-            onClick={() => setAdding(true)}
-          >
-            <SquarePlus size={16} aria-hidden="true" />
-            <span className="deck-tile__text pr-tool__text">Add a tool</span>
-            <Kbd className="deck-tile__key" aria-hidden="true">
-              {tools.length + 1}
-            </Kbd>
-          </button>
-        </Tooltip>
-      </div>
-      <AddTool open={adding} pr={pr} onClose={() => setAdding(false)} />
-      <SpendConfirm />
-      <WalkSheets />
-      <ReviewKeys />
-    </>
-  );
-}
+import { useReviewStore, useReviews } from "./store";
 
 /** Asks before an agent runs, since it spends tokens. **One box for all of it**, so every act that spends behaves the same. */
 export function SpendConfirm() {
@@ -295,19 +108,8 @@ export function SpendDialog({
   );
 }
 
-/** The Reviews page's panel: the same tiles under the same band as the Cockpit's Flight control, at the foot of the review surface. */
-export function ReviewFlight() {
-  return (
-    <div className="deck-foot">
-      <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1}>
-        <header className="deck-band">Flight control</header>
-        <ReviewTools />
-      </section>
-    </div>
-  );
-}
-
-function AddTool({
+/** The sheet that adds a tool or an explanation: Fleet writes the file, in the Kit's folder or the repository's. */
+export function AddTool({
   open,
   pr,
   onClose,
@@ -374,17 +176,14 @@ function AddTool({
         }}
       >
         <RadioGroup label="Kind">
-          <Tooltip label="Finds things on a pull request, as a tile in the Flight control" asChild>
+          <Tooltip label="Finds things on a pull request, in a tab of its own" asChild>
             <span className="pr-add__choice">
               <Radio name="kind" checked={kind === "tool"} onChange={() => setKind("tool")}>
                 Tool
               </Radio>
             </span>
           </Tooltip>
-          <Tooltip
-            label="Tells him one thing about a pull request, chosen under its description"
-            asChild
-          >
+          <Tooltip label="Tells him one thing about a pull request, in a tab of its own" asChild>
             <span className="pr-add__choice">
               <Radio
                 name="kind"

@@ -84,8 +84,12 @@ pub enum DiffSide {
 pub struct ThreadSaid {
     pub id: String,
     pub author: String,
+    /// Whether an app wrote it.
+    pub bot: bool,
     /// As the forge prints it (RFC 3339).
     pub at: String,
+    /// When it was last edited, as the forge prints it. Absent when it never was.
+    pub edited_at: Option<String>,
     pub body: String,
 }
 

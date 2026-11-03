@@ -5,6 +5,7 @@
 Since 16 Oct 2026. The owner, 16 Oct 2026, short of room: a right column, no Ledger, more Flight control keys, and an Artifacts view for "everything that was created or used during a session".
 Approved on `?walk=compactSessionView`; the calls were the thread's last card (`?walk=compactCallsInThread`) until 17 Oct 2026, when they became the Needs you panel on the composer.
 `docs/concepts/cockpit.md` has the layout.
+A Job's panes, their tabs and the Layout control are also what a pull request in Reviews is drawn in, with layouts of its own ([Pull review](../pull-review.md), *The panes*).
 
 | On screen | From |
 |---|---|

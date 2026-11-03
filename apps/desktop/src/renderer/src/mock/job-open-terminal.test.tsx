@@ -65,3 +65,45 @@ test("the + lists a terminal the agent opened unseen, and opens it in a tab", as
   // It is the shell the agent has, not a second one.
   expect(shellCalls()!.started).toHaveLength(1);
 });
+
+test("a Job's + keeps its own entries, the agent's unseen terminal among them, and offers none of a pull request's tabs and no Walk", async () => {
+  mount(s323SessionShellAway);
+  await onScreen();
+  await toSession(/Deploy the store/);
+  await expect.element(threadPane()).toBeVisible();
+  timePasses();
+  await threadPane()
+    .getByRole("button", {
+      name: "Add tab",
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("menuitem", {
+        name: "Open Terminal 1",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  const rows = page
+    .getByRole("menuitem")
+    .elements()
+    .map((one) => one.textContent ?? "");
+  for (const own of [
+    "Browser",
+    "Terminal",
+    "Open Terminal 1",
+    "Files",
+    "Checks",
+  ])
+    expect(rows, own).toContain(own);
+  for (const theirs of [
+    "Overview",
+    "Commits",
+    "Review",
+    "Comments",
+    "Add a tool",
+    "Walk",
+  ])
+    expect(rows, theirs).not.toContain(theirs);
+}, 90_000);

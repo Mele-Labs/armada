@@ -52,6 +52,7 @@ import type {
   WatchSummary,
 } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
+import type { CommentToEvaluate } from "./evaluate-comment";
 import type { SessionLanes } from "@armada/components/src/compositions/LaneCanvas/build";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
@@ -209,6 +210,24 @@ export type SessionAttachment =
       kept?: string;
       /** A document: the kept style set of each `mock` in its sketches, by content hash, keyed `<sketch title>#<node id>`: `detail.kept_styles` on the wire. */
       keptStyles?: Readonly<Record<string, string>>;
+      /** A walk (form `window`) as its Job's tab draws it: the page's takes by name, and the steps, each pointing at a place on the page by name. **A mock's field**: nothing in Fleet carries it yet. */
+      /** A walk (form `window`) as Fleet recorded it: the takes by name, the steps by their words and the brief, from the row's `detail`. **A walk is owed while its waiting item is**; this field says only what to draw. */
+      window?: {
+        brief?: string;
+        takes: readonly string[];
+        steps: readonly {
+          say: string;
+        }[];
+      };
+      walk?: {
+        /** What the Job changed and what to look at, in its words. Absent on a walk shown without one. */
+        brief?: string;
+        takes?: readonly string[];
+        steps: readonly {
+          say: string;
+          target: string;
+        }[];
+      };
     }
   /**
    * The Session this one was forked to, and the one it was forked from. `id` is the other Session's.
@@ -1634,8 +1653,12 @@ export type SessionsDraft = {
   retro?: (id: string) => Promise<boolean>;
   /** Ends a Session: the slot is parked and the row ends. Absent in the mock except where a scenario scripts the end. */
   close?: (id: string) => void;
-  /** The person sends a triaged comment on the Job's pull request (`comment` is its id in `Session.lanes`) to the Job's agent, and it reads as sent. Mock-only: no Fleet reads a pull request's comments yet. Absent draws no Send to Job. */
-  sendComment?: (id: string, comment: string) => void;
+  /**
+   * The person's Evaluate on a comment of the Job's pull request: the Job is sent `evaluateMessage`, which asks it to weigh
+   * the comment and bring a proposal, and nothing is posted to the forge. Resolves to whether the message arrived. Absent
+   * draws no Evaluate.
+   */
+  evaluateComment?: (id: string, comment: CommentToEvaluate) => Promise<boolean>;
   /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
   stop?: (id: string) => void;
   /** The person drops a follow-up the Session kept (`later` is its id in `Session.later`), and Fleet takes it off the list; `misread` is thumbs down, Not deferred, which says Fleet should not have kept it. */
@@ -1697,10 +1720,12 @@ export type SessionsDraft = {
   /** Has Fleet name a Session from its first message and the names he gave others. Resolves when it answers; a refusal is said as `rename`'s is. Absent where nothing serves it. */
   nameForMe?: (id: string) => Promise<void>;
   /**
-   * Opens, or opens again, a page a Session showed, in a window of Bridge's own. **A note captured in
-   * it goes to the Session** as a message that wakes it. Absent where nothing serves it.
+   * Presses a page a Session showed open: the Session opens in the Cockpit and the page's walk comes to the front
+   * of its panes, as a tab made for it when it has none. **There is no window of the walk's own.** Absent where nothing serves it.
    */
   openWindow?: (id: string, url: string) => void;
+  /** The mock's Approve on a walk's bar, which ends the walk as Fleet does on Bridge's: the item it held goes. **Absent on a real Bridge**, where the walk's own bar answers Fleet. */
+  approveWalk?: (id: string, url: string) => void;
   /** Opens a file a Session wrote. Absent in the mock, whose files are not on this machine. */
   openFile?: (id: string, path: string) => void;
   /** Reads a file the Session's ledger names, for the panel an Artifacts row opens. */

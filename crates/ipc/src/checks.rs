@@ -59,8 +59,8 @@ pub struct DeclaredCheck {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub when: Option<Vec<String>>,
     /// Where the Manifest says this Check runs: `gate` is never in a Drone's
-    /// own run, `handoff` runs last and only before handoff. **Absent means
-    /// everywhere**, for `when`'s reason. Since 13.48, #849.
+    /// own run, `handoff` runs last and only before handoff, `pre_pr` runs only when a pull
+    /// request opens. **Absent means everywhere**, for `when`'s reason. Since 13.48, #849.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runs_at: Option<String>,
 }

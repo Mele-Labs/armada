@@ -1,0 +1,98 @@
+{
+ "data": {
+  "repository": {
+   "pullRequest": {
+    "comments": {
+     "nodes": [
+      {
+       "id": "IC_1",
+       "url": "https://github.com/mele-labs/armada/pull/2190#issuecomment-1",
+       "author": {"__typename": "User", "login": "grace"},
+       "createdAt": "2026-10-15T10:00:00Z",
+       "lastEditedAt": "2026-10-15T10:30:00Z",
+       "body": "Can this\nwait?"
+      },
+      {
+       "id": "IC_2",
+       "url": "https://github.com/mele-labs/armada/pull/2190#issuecomment-2",
+       "author": {"__typename": "Bot", "login": "deploy-app"},
+       "createdAt": "2026-10-15T10:01:00Z",
+       "lastEditedAt": null,
+       "body": "Deployed."
+      }
+     ]
+    },
+    "reviews": {
+     "nodes": [
+      {
+       "id": "PRR_1",
+       "url": "https://github.com/mele-labs/armada/pull/2190#pullrequestreview-1",
+       "author": {"__typename": "User", "login": "ada"},
+       "submittedAt": "2026-10-15T10:04:00Z",
+       "createdAt": "2026-10-15T10:03:00Z",
+       "lastEditedAt": null,
+       "body": "One thing."
+      },
+      {
+       "id": "PRR_2",
+       "url": "https://github.com/mele-labs/armada/pull/2190#pullrequestreview-2",
+       "author": {"__typename": "User", "login": "ada"},
+       "submittedAt": "2026-10-15T10:08:00Z",
+       "createdAt": "2026-10-15T10:08:00Z",
+       "lastEditedAt": null,
+       "body": ""
+      }
+     ]
+    },
+    "reviewThreads": {
+     "nodes": [
+      {
+       "isResolved": true,
+       "isOutdated": false,
+       "path": "crates/a.rs",
+       "line": 12,
+       "comments": {
+        "nodes": [
+         {
+          "id": "PRRC_1",
+          "url": "https://github.com/mele-labs/armada/pull/2190#discussion_r1",
+          "author": {"__typename": "User", "login": "ada"},
+          "createdAt": "2026-10-15T10:04:00Z",
+          "lastEditedAt": null,
+          "body": "Why here?"
+         },
+         {
+          "id": "PRRC_2",
+          "url": "https://github.com/mele-labs/armada/pull/2190#discussion_r2",
+          "author": null,
+          "createdAt": "2026-10-15T10:06:00Z",
+          "lastEditedAt": null,
+          "body": "Gone."
+         }
+        ]
+       }
+      },
+      {
+       "isResolved": false,
+       "isOutdated": true,
+       "path": "docs/c.md",
+       "line": 4,
+       "comments": {
+        "nodes": [
+         {
+          "id": "PRRC_3",
+          "url": "https://github.com/mele-labs/armada/pull/2190#discussion_r3",
+          "author": {"__typename": "Bot", "login": "lint-app"},
+          "createdAt": "2026-10-15T10:07:00Z",
+          "lastEditedAt": null,
+          "body": "Old."
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  }
+ }
+}

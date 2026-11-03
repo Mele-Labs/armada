@@ -51,6 +51,8 @@ export type StudioCaptureProps = {
   aimed: boolean;
   /** The binding that turns capture off, from the action registry. */
   binding: readonly string[];
+  /** What the note's text is kept under while it is typed, as `Textarea`'s `keep`. Absent: it is not kept. */
+  keep?: string;
 };
 
 const place = (box: CaptureBox): CSSProperties =>
@@ -116,6 +118,7 @@ export function StudioCapture(props: StudioCaptureProps) {
     aim,
     aimed,
     binding,
+    keep,
   } = props;
   const savable = aimed && !saving && note.trim() !== "";
 
@@ -132,6 +135,7 @@ export function StudioCapture(props: StudioCaptureProps) {
 
   const root = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
   const [spot, setSpot] = useState<Spot | null>(null);
   const box = held?.box;
 
@@ -141,7 +145,10 @@ export function StudioCapture(props: StudioCaptureProps) {
     const layer = root.current;
     const card = cardRef.current;
     if (layer === null || card === null || box === undefined) return;
+    const bar = barRef.current;
     const settle = (): void => {
+      // The strip sits at the layer's foot, so the room the card has ends where the strip begins.
+      const clear = bar === null ? 0 : Math.max(0, layer.clientHeight - bar.offsetTop);
       const gap = Number.parseFloat(getComputedStyle(card).marginTop) || 0;
       const next = cardSpot(
         box,
@@ -151,7 +158,7 @@ export function StudioCapture(props: StudioCaptureProps) {
         },
         {
           width: layer.clientWidth,
-          height: layer.clientHeight,
+          height: layer.clientHeight - clear,
         },
         gap,
       );
@@ -170,6 +177,7 @@ export function StudioCapture(props: StudioCaptureProps) {
     const watch = new ResizeObserver(settle);
     watch.observe(layer);
     watch.observe(card);
+    if (bar !== null) watch.observe(bar);
     return () => watch.disconnect();
   }, [
     held !== undefined,
@@ -191,6 +199,18 @@ export function StudioCapture(props: StudioCaptureProps) {
 
   return (
     <div ref={root} className="armada-capture" data-armada-capture="" onKeyDown={keyed}>
+      {/* First, so a card pulled in on a short page paints over the strip and never under it. */}
+      <div ref={barRef} className="armada-capture__bar" role="status">
+        <span>Capturing</span>
+        <span>{aim}</span>
+        <KbdChord
+          keys={[
+            ...binding,
+          ]}
+          aria-label={`${binding.join(" ")} turns capturing off`}
+        />
+      </div>
+
       {hovered === undefined || held !== undefined ? null : (
         <div className="armada-capture__outline" style={place(hovered.box)}>
           <span className="armada-capture__named">{hovered.named}</span>
@@ -218,7 +238,16 @@ export function StudioCapture(props: StudioCaptureProps) {
             data-side={spot?.side}
           >
             <p className="armada-capture__chain">{held.chain}</p>
-            <Textarea label="Note" value={note} onChange={(event) => onNote(event.target.value)} />
+            <Textarea
+              label="Note"
+              value={note}
+              onChange={(event) => onNote(event.target.value)}
+              {...(keep === undefined
+                ? {}
+                : {
+                    keep,
+                  })}
+            />
             {refused === undefined ? null : <p className="armada-capture__refused">{refused}</p>}
             <div className="armada-capture__acts">
               <Button variant="ghost" size="sm" onClick={onCancel}>
@@ -237,17 +266,6 @@ export function StudioCapture(props: StudioCaptureProps) {
           </div>
         </>
       )}
-
-      <div className="armada-capture__bar" role="status">
-        <span>Capturing</span>
-        <span>{aim}</span>
-        <KbdChord
-          keys={[
-            ...binding,
-          ]}
-          aria-label={`${binding.join(" ")} turns capturing off`}
-        />
-      </div>
     </div>
   );
 }

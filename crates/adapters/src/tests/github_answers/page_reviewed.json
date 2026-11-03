@@ -53,14 +53,27 @@
      ]
     },
     "comments": {
-     "totalCount": 1,
+     "totalCount": 2,
      "nodes": [
       {
+       "id": "IC_1",
        "author": {
+        "__typename": "User",
         "login": "ada"
        },
        "createdAt": "2026-10-15T10:00:00Z",
+       "lastEditedAt": "2026-10-15T10:30:00Z",
        "body": "First."
+      },
+      {
+       "id": "IC_2",
+       "author": {
+        "__typename": "Bot",
+        "login": "preview-app"
+       },
+       "createdAt": "2026-10-15T10:45:00Z",
+       "lastEditedAt": null,
+       "body": "Preview is up."
       }
      ]
     },
@@ -68,34 +81,46 @@
      "totalCount": 4,
      "nodes": [
       {
+       "id": "PRR_1",
        "author": {
+        "__typename": "User",
         "login": "grace"
        },
        "submittedAt": "2026-10-15T09:30:00Z",
+       "lastEditedAt": null,
        "state": "APPROVED",
        "body": ""
       },
       {
+       "id": "PRR_2",
        "author": {
+        "__typename": "User",
         "login": "linus"
        },
        "submittedAt": "2026-10-15T11:00:00Z",
+       "lastEditedAt": null,
        "state": "CHANGES_REQUESTED",
        "body": "Not\tlike this."
       },
       {
+       "id": "PRR_3",
        "author": {
+        "__typename": "User",
         "login": "ken"
        },
        "submittedAt": "2026-10-15T11:30:00Z",
+       "lastEditedAt": null,
        "state": "COMMENTED",
        "body": ""
       },
       {
+       "id": "PRR_4",
        "author": {
+        "__typename": "User",
         "login": "ken"
        },
        "submittedAt": null,
+       "lastEditedAt": null,
        "state": "PENDING",
        "body": "draft"
       }

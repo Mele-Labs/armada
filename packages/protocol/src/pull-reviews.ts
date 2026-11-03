@@ -61,8 +61,12 @@ export type DiffSide = "left" | "right";
 export type PullReviewThreadComment = {
   id: string;
   author: string;
+  /** Whether an app wrote it. Absent for a person. */
+  bot?: boolean;
   /** RFC 3339. */
   at: string;
+  /** When it was last edited, RFC 3339. Absent when it never was. */
+  edited_at?: string;
   /** Markdown. */
   body: string;
 };

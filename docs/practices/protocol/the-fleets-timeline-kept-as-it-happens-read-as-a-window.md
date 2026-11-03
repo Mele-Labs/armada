@@ -69,7 +69,7 @@ Additive: a new kind, one optional field left out when absent, two nullable colu
 **It adds entries to the event stream**, one per call rather than one per burst, so a busy Session writes more than it did; that makes the unbounded sink's risk a little worse and not better, and the drop-oldest bound with its resync message stays owed.
 
 **The agent's own list is `session.waiting` and `session.resolved`**: an item put on the `waiting_for` list is a wait, dated by its `since`, and one gone from it while the Session lives is resolved, dated by the row that dropped it.
-What Fleet raised (a question or permission card, a question in a walk window, a reply to read) stays `session.asked`, and a person's answer stays `session.answered`.
+What Fleet raised (a question or permission card, a question on a walk, a reply to read) stays `session.asked`, and a person's answer stays `session.answered`.
 A Session ending clears its list, which resolves nothing.
 `session.subagent` is a subagent attached to the row (`Subagent started`), standing again after it settled (`Subagent resumed`, dated by its new `since`) or spent (`Subagent finished`), with `Type: description` as the detail; a Session already holding one when Fleet first saw it enters nothing for it.
 `session.spawned` is entered under the Session whose agent started another, or forked itself (`start_another_session`, `fork_this_session`), with the new Session's title as the detail.

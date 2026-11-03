@@ -197,6 +197,15 @@ impl Sessions for FakeDaemon {
         Ok(ipc::JobTerminals { terminals: vec![row("t1", "Terminal 1", false), row("t2", "dev server", true)] })
     }
 
+    /// Every pre-PR Check passes.
+    async fn check_before_pr(
+        &self,
+        _caller: Option<crate::Caller>,
+        _asked: ipc::CheckBeforePr,
+    ) -> Result<ipc::PrePrChecked, Refusal> {
+        Ok(ipc::PrePrChecked { passed: true, ..ipc::PrePrChecked::default() })
+    }
+
     /// The terminal named, else `t1`, as `read_terminal`'s fake reads it.
     async fn show_terminal(
         &self,

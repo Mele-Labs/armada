@@ -16,15 +16,18 @@
          {
           "id": "PRRC_1",
           "author": {
+           "__typename": "User",
            "login": "grace"
           },
           "createdAt": "2026-10-15T10:05:00Z",
+          "lastEditedAt": "2026-10-15T10:20:00Z",
           "body": "Why\nhere?"
          },
          {
           "id": "PRRC_2",
           "author": null,
           "createdAt": "2026-10-15T10:06:00Z",
+          "lastEditedAt": null,
           "body": "Gone."
          }
         ]
@@ -42,9 +45,11 @@
          {
           "id": "PRRC_3",
           "author": {
-           "login": "linus"
+           "__typename": "Bot",
+           "login": "lint-app"
           },
           "createdAt": "2026-10-15T10:07:00Z",
+          "lastEditedAt": null,
           "body": "Old."
          }
         ]

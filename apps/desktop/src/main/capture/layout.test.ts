@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { barRows, panelFor, panelQuery, walkLayout } from "./layout";
+import { barRows, PANE_BAR_ROWS, panelFor, panelQuery, walkLayout } from "./layout";
 
 describe("which panel a walk window opens", () => {
   it("a Session's window holds that Session", () => {
@@ -283,5 +283,72 @@ describe("the strip the bar draws", () => {
         loading: true,
       }),
     ).toBe(2);
+  });
+});
+
+// A Job's walk is laid inside the frame its pane reports in Bridge's own window, not at the window's corner.
+describe("a walk laid inside a pane of Bridge's window", () => {
+  const pane = {
+    x: 300,
+    y: 120,
+    width: 900,
+    height: 600,
+    strip: 64,
+    covered: false,
+    panel: 0,
+  };
+
+  it("offsets the page and the bar by the frame's corner, and keeps their sizes", () => {
+    const at = walkLayout(pane, 380);
+    expect(at.page).toEqual({
+      x: 300,
+      y: 184,
+      width: 900,
+      height: 536,
+    });
+    expect(at.bar).toEqual({
+      x: 300,
+      y: 120,
+      width: 900,
+      height: 64,
+    });
+  });
+
+  it("covers the frame and no more when the bar covers the page, and reaches as far down as a menu hangs", () => {
+    expect(
+      walkLayout(
+        {
+          ...pane,
+          covered: true,
+        },
+        380,
+      ).bar,
+    ).toEqual({
+      x: 300,
+      y: 120,
+      width: 900,
+      height: 600,
+    });
+    expect(
+      walkLayout(
+        {
+          ...pane,
+          hang: 150.2,
+        },
+        380,
+      ).bar.height,
+    ).toBe(151);
+  });
+
+  it("is the window's own corner where the frame names none", () => {
+    const { x: _x, y: _y, ...window } = pane;
+    expect(walkLayout(window, 380).page).toMatchObject({
+      x: 0,
+      y: 64,
+    });
+  });
+
+  it("draws two rows on a pane's bar whatever the walk holds", () => {
+    expect(PANE_BAR_ROWS).toBe(2);
   });
 });

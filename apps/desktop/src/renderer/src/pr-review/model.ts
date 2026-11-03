@@ -404,6 +404,8 @@ export type PrWork = {
   asks: readonly Asked[];
   view: View;
   runs: Readonly<Record<string, AgentRun>>;
+  /** Fleet has answered for what is kept: until then an empty `runs` says nothing about what was run. */
+  runsRead: boolean;
   /** Changes whose hunks are open. */
   opened: readonly string[];
   drafts: readonly Draft[];

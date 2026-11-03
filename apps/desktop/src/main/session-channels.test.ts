@@ -891,6 +891,87 @@ describe("a Job held on its start card", () => {
   });
 });
 
+// Approve and the picks name only their own field. A list of fields here refused them as Bridge not reading the request (3 Nov 2026).
+describe("a change to a waiting Job", () => {
+  function waiting() {
+    const handlers = new Map<string, Handler>();
+    const ipc = {
+      handle: (channel: string, handler: Handler) => handlers.set(channel, handler),
+    };
+    const changeWaiting = vi.fn(async () => ({
+      ok: true,
+    }));
+    handleSessions({
+      ipc,
+      connection: () => ({
+        sessions: {
+          changeWaiting,
+        },
+      }),
+      windowIdOf: () => undefined,
+      pages: {},
+    } as unknown as Parameters<typeof handleSessions>[0]);
+    const change = (body: unknown) => handlers.get(CHANNELS.changeWaiting)?.({}, body);
+    return {
+      change,
+      changeWaiting,
+    };
+  }
+
+  it.each([
+    {
+      held: false,
+    },
+    {
+      held: true,
+    },
+    {
+      workflow: "feature",
+    },
+    {
+      model: "opus",
+    },
+    {
+      effort: "",
+    },
+    {
+      condition: {
+        kind: "pr_lands",
+      },
+    },
+    {
+      base: "branch",
+    },
+  ])("passes %j on to Fleet", async (field) => {
+    const { change, changeWaiting } = waiting();
+    const body = {
+      waiting_session: "w",
+      ...field,
+    };
+    expect(await change(body)).toEqual({
+      ok: true,
+    });
+    expect(changeWaiting).toHaveBeenCalledWith(body);
+  });
+
+  it("sends nothing for a Job that is no id, and says so", async () => {
+    const { change, changeWaiting } = waiting();
+    expect(
+      await change({
+        waiting_session: "",
+        held: false,
+      }),
+    ).toEqual({
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "not_understood",
+      },
+    });
+    expect(changeWaiting).not.toHaveBeenCalled();
+  });
+});
+
 describe("the thumbs on a follow-up", () => {
   it("passes the misread of a thumbs down on to Fleet", async () => {
     const { drop, settleLater } = wired();

@@ -7,8 +7,6 @@
   min-height: 0;
   height: 100%;
   background: var(--bg-sunken);
-  /* The page's ask is placed against the pane, so it never crosses the pane's edge. */
-  position: relative;
 }
 
 .job-browser__head {
@@ -247,36 +245,33 @@
 }
 
 /* The page's ask: under the head, inside the pane. Its width is the text's, bounded by the pane less its margins, and its text wraps. */
-.job-browser__ask {
-  position: absolute;
-  top: calc(var(--h-control-sm) + var(--space-3));
-  left: var(--space-2);
-  z-index: var(--z-menu);
-  box-sizing: border-box;
+/* Above the page and never over it: the page's native view moves down and stays live while the ask waits. */
+.job-browser__ask-strip {
   display: flex;
-  flex-direction: column;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
-  width: max-content;
-  max-width: min(calc(var(--space-12) * 7), calc(100% - var(--space-4)));
-  padding: var(--space-3);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-lg);
+  min-width: 0;
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-2);
+  border-bottom: var(--border-width) solid var(--border-subtle);
   background: var(--bg-overlay);
-  box-shadow: var(--shadow-overlay);
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
   overflow-wrap: anywhere;
 }
 .job-browser__ask-words {
   display: flex;
+  flex: 1 1 0;
   flex-direction: column;
-  gap: var(--space-1);
+  min-width: 0;
 }
 .job-browser__ask-risk {
   color: var(--fg-muted);
 }
 .job-browser__ask-acts {
   display: flex;
-  justify-content: flex-end;
+  flex: none;
+  margin-left: auto;
   gap: var(--space-1);
 }
