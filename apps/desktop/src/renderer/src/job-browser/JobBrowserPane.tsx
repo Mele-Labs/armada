@@ -23,10 +23,7 @@ import { ACTION, Button, Input, Kbd, Popover, Textarea, Tooltip } from "@armada/
 import type { ThreadCard } from "@armada/components";
 
 import { useSessions, useSessionsDraft } from "../sessions-draft";
-import {
-  effectiveChoice,
-  labelOfPermission,
-} from "../../../shared/site-permissions";
+import { effectiveChoice, labelOfPermission } from "../../../shared/site-permissions";
 import {
   answerRequest,
   browserToPane,
@@ -45,7 +42,12 @@ import {
   type BrowserPin,
   type JobBrowser,
 } from "./store";
-import { LocalNetworkConfirm, PermissionRows, Segments, type LocalNetworkAsk } from "./SitePermissionRows";
+import {
+  LocalNetworkConfirm,
+  PermissionRows,
+  Segments,
+  type LocalNetworkAsk,
+} from "./SitePermissionRows";
 import { takesAnnotateChord } from "./chord";
 import "./job-browser.css";
 
