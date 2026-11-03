@@ -171,6 +171,23 @@ fn a_test_edited_before_the_walk_is_approved_is_a_skip_of_the_walk_step_when_a_w
 }
 
 #[test]
+fn a_job_whose_pull_request_merged_skipped_nothing_however_much_it_does_after() {
+    let steps = feature();
+    // Follow-up work after the merge: a window shown that waits, beside a test written in the first piece.
+    let later = Facts { test_edited: true, walk_shown: true, pushed: true, ..approved_naming_a_walk() };
+    assert_eq!(rail::skipped(&steps, &later), [(3, Skip::Walk)], "not merged: the walk skip stands");
+    let landed = Facts { landed: true, ..later };
+    assert!(rail::skipped(&steps, &landed).is_empty(), "merged: the work is past every step it could have skipped");
+    assert_eq!(at(&steps, landed), None, "and past the last step");
+}
+
+#[test]
+fn the_rail_reads_a_merged_pull_request_off_the_ledger_when_the_build_forgot_it() {
+    let extra = rail::Extra { landed: true, ..rail::Extra::default() };
+    assert!(rail::landed_by(extra, None), "a merge the ledger holds, and no build left to say so");
+}
+
+#[test]
 fn where_a_workflow_walks_an_edit_before_the_plan_is_approved_is_no_skip_but_a_test_or_a_push_is() {
     let steps = feature();
     let drafting = Facts { plan_recorded: true, ..Facts::default() };

@@ -450,15 +450,29 @@ async function showPages($: Dollar, urls: string[]): Promise<void> {
   }
 }
 
+/** Sessions told once that their pre-PR Checks could not run: the second `gh pr create` opens the pull request. */
+const prePrUnrunTold = new Set<string>()
+
+const PRE_PR_UNRUN =
+  'The pre-PR checks could not run: Fleet did not answer. Run gh pr create again to open the pull request without them; CI is then the only gate.'
+
 /**
  * What Fleet says stands in the way of opening a pull request: the failing pre-PR Checks and the tail of
- * each log. **Quiet**: a Fleet that is out, slow, older or refuses says nothing, and the pull request opens.
+ * each log. **A Fleet that is out, slow, older or refuses is said once per session**, so a pull request
+ * opened without its pre-flight is never mistaken for one that passed; the second attempt opens it.
  */
 async function prePrRefusal($: Dollar): Promise<string | undefined> {
+  const id = await $.session.id().catch(() => '')
+  // Told already: the second attempt opens the pull request without waiting on Fleet again.
+  if (prePrUnrunTold.has(id)) return undefined
+  const unrun = (): string => {
+    prePrUnrunTold.add(id)
+    return PRE_PR_UNRUN
+  }
   try {
     const port = await portOf($)
-    if (port === undefined) return undefined
-    const session_id = await $.session.id()
+    if (port === undefined) return unrun()
+    const session_id = id
     const asked = await Promise.race([
       $.http.fetch(`http://127.0.0.1:${port}/sessions/pre_pr`, {
         method: 'POST',
@@ -467,11 +481,11 @@ async function prePrRefusal($: Dollar): Promise<string | undefined> {
       }),
       $.clock.sleep(PRE_PR_WAIT_MS).then(() => undefined),
     ])
-    if (asked === undefined || !asked.ok) return undefined
+    if (asked === undefined || !asked.ok) return unrun()
     const read = JSON.parse(asked.text) as { passed?: unknown; says?: unknown }
     return read.passed === false && typeof read.says === 'string' && read.says !== '' ? read.says : undefined
   } catch {
-    return undefined
+    return unrun()
   }
 }
 
