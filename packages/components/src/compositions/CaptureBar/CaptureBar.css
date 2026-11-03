@@ -543,8 +543,8 @@
 
 .armada-capture-bar__approve {
   display: flex;
-  width: calc(var(--space-8) * 7);
-  min-width: calc(var(--space-8) * 5);
+  width: calc(var(--space-8) * 6);
+  min-width: calc(var(--space-8) * 4);
 }
 
 .armada-capture-bar__approve > .armada-button,
