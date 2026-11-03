@@ -42,8 +42,9 @@
       "id": "draft",
       "label": "Draft",
       "about": "Writes the design as a document and records the plan behind it. No code is written.",
-      "instructions": "Write the design as a document: load the writing-a-document skill and write one HTML page to .armada/documents/<subject>.html, never a markdown file. Conclusion first, what was decided and by whom, a sketch inline where a flow or a structure needs one, and what is still open in its own section. Then record the plan behind it with record_plan. No code is written.",
+      "instructions": "Write the design as a document: load the writing-a-document skill and write one HTML page to .armada/documents/<subject>.html, never a markdown file. Conclusion first, what was decided and by whom, a sketch inline where a flow or a structure needs one, and what is still open in its own section. Then record the plan behind it with record_plan: it stands without being asked, and the page is what the person approves. No code is written.",
       "records_plan": true,
+      "plan_unasked": true,
       "evidence": {
         "submitted": { "type": "document" }
       },

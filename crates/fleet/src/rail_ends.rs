@@ -69,7 +69,7 @@ impl End {
             }
             End::Merged => "it is merged".into(),
             End::PlanApproved => "you approve the plan".into(),
-            End::WalkApproved => "you approve the walk".into(),
+            End::WalkApproved => "you approve every walk".into(),
             End::Replied => "you reply".into(),
             End::AnyWalkApproved => "you approve a walk".into(),
             End::SketchApproved => "you approve a sketch".into(),
@@ -94,7 +94,7 @@ impl End {
             End::Lifecycle(_) => format!("{}, which Fleet watches for", self.for_person()).into(),
             End::Merged => "its pull request merges".into(),
             End::PlanApproved => "the person approves the plan".into(),
-            End::WalkApproved => "the person approves the walk".into(),
+            End::WalkApproved => "the person approves every walk you showed".into(),
             End::Replied => "the person replies".into(),
             End::AnyWalkApproved => "the person approves a walk you showed with show_window".into(),
             End::SketchApproved => "the person approves a sketch you showed with show_sketch".into(),
@@ -191,8 +191,11 @@ pub(crate) fn ends_of(steps: &[RailStep], at: usize) -> Vec<End> {
     if step.delivers {
         return vec![End::Merged];
     }
-    if step.records_plan {
-        return vec![End::PlanApproved];
+    if step.records_plan && !step.plan_unasked {
+        return std::iter::once(End::PlanApproved).chain(step.ends_on.iter().map(End::listed)).collect();
+    }
+    if step.records_plan && !step.follows_plan {
+        return vec![End::PlanRecorded];
     }
     if step.walks {
         return vec![End::WalkApproved];

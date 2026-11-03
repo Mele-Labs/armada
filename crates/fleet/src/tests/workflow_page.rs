@@ -131,7 +131,7 @@ async fn a_definition_is_read_step_by_step_with_its_words_and_what_ends_each_ste
     let ids: Vec<&str> = read.steps.iter().map(|step| step.id.as_str()).collect();
     assert_eq!(ids, ["propose", "plan", "walk", "deliver"]);
     let ends: Vec<Option<&str>> = read.steps.iter().map(|step| step.ends_when.as_deref()).collect();
-    assert_eq!(ends, [Some("you reply"), Some("you approve the plan"), Some("you approve the walk"), Some("it is merged")]);
+    assert_eq!(ends, [Some("you reply"), Some("you approve the plan"), Some("you approve every walk"), Some("it is merged")]);
     assert_eq!(read.steps[0].label, "Propose");
     assert_eq!(read.steps[0].instructions.as_deref(), Some("Say what you took the request to mean."));
     assert_eq!(read.steps[1].instructions, None, "a step with no words has none");
