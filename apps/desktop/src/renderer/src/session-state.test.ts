@@ -787,15 +787,29 @@ describe("a Job that stopped says so", () => {
     });
 
   test("amber once Fleet has run out of things to try", () => {
-    expect(stateOf(stopped({ gaveUp: true })).state).toBe("stopped_asks");
-    expect(stateOf(stopped({ gaveUp: true })).said).toBe(
-      "Stopped: ended its turn with nothing running",
-    );
+    expect(
+      stateOf(
+        stopped({
+          gaveUp: true,
+        }),
+      ).state,
+    ).toBe("stopped_asks");
+    expect(
+      stateOf(
+        stopped({
+          gaveUp: true,
+        }),
+      ).said,
+    ).toBe("Stopped: ended its turn with nothing running");
   });
 
   test("calm while Fleet is bringing it back, and says how", () => {
     const repairing = stateOf(
-      stopped({ reason: "process_gone", restart: "failed", repair: "running" }),
+      stopped({
+        reason: "process_gone",
+        restart: "failed",
+        repair: "running",
+      }),
     );
     expect(repairing.state).toBe("stopped");
     expect(repairing.said).toContain("Repair Job running");
@@ -803,7 +817,12 @@ describe("a Job that stopped says so", () => {
 
   test("an unhealthy Fleet starts no repair Job, and says so", () => {
     const held = stateOf(
-      stopped({ reason: "process_gone", restart: "failed", repair: "held", gaveUp: true }),
+      stopped({
+        reason: "process_gone",
+        restart: "failed",
+        repair: "held",
+        gaveUp: true,
+      }),
     );
     expect(held.state).toBe("stopped_asks");
     expect(held.said).toContain("No repair Job: Fleet is unhealthy");
@@ -813,7 +832,22 @@ describe("a Job that stopped says so", () => {
 describe("a Job it started holds its parent", () => {
   test("by the Job's title", () => {
     expect(
-      waitsOf(session({ standing: "idle", heldOpenBy: [{ kind: "job", name: "Fix the door" }] })),
-    ).toEqual([{ kind: "watch", said: "Waiting on Fix the door" }]);
+      waitsOf(
+        session({
+          standing: "idle",
+          heldOpenBy: [
+            {
+              kind: "job",
+              name: "Fix the door",
+            },
+          ],
+        }),
+      ),
+    ).toEqual([
+      {
+        kind: "watch",
+        said: "Waiting on Fix the door",
+      },
+    ]);
   });
 });

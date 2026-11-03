@@ -303,10 +303,17 @@ const everything: Session = {
       step: "Build",
       why: "The process had been let go while it was idle",
     }),
-    act("js-3-f3", today(15, 5), "over", "held", "Held back a word you muted: Pull request merged", {
-      step: "Build",
-      why: "You muted this notice",
-    }),
+    act(
+      "js-3-f3",
+      today(15, 5),
+      "over",
+      "held",
+      "Held back a word you muted: Pull request merged",
+      {
+        step: "Build",
+        why: "You muted this notice",
+      },
+    ),
     act("js-3-f4", today(15, 24), "over", "process", "Let the process go after 55 minutes idle", {
       step: "Build",
       why: "Nothing had been asked of it for 55 minutes",

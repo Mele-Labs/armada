@@ -1501,7 +1501,11 @@ function fleetActsOf(rows: readonly WireRow[], record: SessionRecord): FleetAct[
           },
         ]
       : [];
-  return [...over, ...repairing, ...coming];
+  return [
+    ...over,
+    ...repairing,
+    ...coming,
+  ];
 }
 
 /** The tool call the running turn is in, where the thread's last row is one: what the agent row names while a turn runs. */
@@ -1950,11 +1954,31 @@ export function sessionOfRecord(
             reason: record.stopped.reason,
             at: record.stopped.at,
             restart: record.stopped.restart,
-            ...(record.stopped.said === undefined ? {} : { said: record.stopped.said }),
-            ...(record.stopped.tasks === undefined ? {} : { tasks: record.stopped.tasks }),
-            ...(record.stopped.repair === undefined ? {} : { repair: record.stopped.repair }),
-            ...(record.stopped.gave_up === true ? { gaveUp: true as const } : {}),
-            ...(record.stopped.down === undefined ? {} : { down: record.stopped.down }),
+            ...(record.stopped.said === undefined
+              ? {}
+              : {
+                  said: record.stopped.said,
+                }),
+            ...(record.stopped.tasks === undefined
+              ? {}
+              : {
+                  tasks: record.stopped.tasks,
+                }),
+            ...(record.stopped.repair === undefined
+              ? {}
+              : {
+                  repair: record.stopped.repair,
+                }),
+            ...(record.stopped.gave_up === true
+              ? {
+                  gaveUp: true as const,
+                }
+              : {}),
+            ...(record.stopped.down === undefined
+              ? {}
+              : {
+                  down: record.stopped.down,
+                }),
           },
         }),
     ...(ended || record.turn_since === undefined

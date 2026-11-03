@@ -4955,7 +4955,11 @@ describe("what Fleet saw of a Job and did for it", () => {
       title: "Fleet",
     },
     text,
-    ...(notice === undefined ? {} : { notice }),
+    ...(notice === undefined
+      ? {}
+      : {
+          notice,
+        }),
   });
 
   it("a stop says why and what Fleet is doing about it", () => {
@@ -4981,33 +4985,68 @@ describe("what Fleet saw of a Job and did for it", () => {
       repair: "running",
       said: "tool not found",
     });
-    expect(one.fleetActs?.map((act) => [act.state, act.said])).toEqual([
-      ["under_way", "Repair Job running"],
+    expect(
+      one.fleetActs?.map((act) => [
+        act.state,
+        act.said,
+      ]),
+    ).toEqual([
+      [
+        "under_way",
+        "Repair Job running",
+      ],
     ]);
   });
 
   it("each of Fleet's words is an act that is over, and nothing the agent said is", () => {
-    const one = sessionOfRecord(record("a"), [
-      fleetSaid("r1", "Fleet: your turn ended\nCarry on.", "stop_nudge"),
-      fleetSaid("r2", "Step moved.", "rail_step"),
-      {
-        kind: "message",
-        id: "r3",
-        at: "2026-11-03T10:00:00.000Z",
-        from: {
-          kind: "agent",
-        },
-        text: "Done.",
-      } as SessionRow,
-    ], beside());
-    expect(one.fleetActs?.map((act) => [act.id, act.state, act.kind, act.said])).toEqual([
-      ["r1", "over", "nudge", "your turn ended"],
-      ["r2", "over", "step", "Step moved."],
+    const one = sessionOfRecord(
+      record("a"),
+      [
+        fleetSaid("r1", "Fleet: your turn ended\nCarry on.", "stop_nudge"),
+        fleetSaid("r2", "Step moved.", "rail_step"),
+        {
+          kind: "message",
+          id: "r3",
+          at: "2026-11-03T10:00:00.000Z",
+          from: {
+            kind: "agent",
+          },
+          text: "Done.",
+        } as SessionRow,
+      ],
+      beside(),
+    );
+    expect(
+      one.fleetActs?.map((act) => [
+        act.id,
+        act.state,
+        act.kind,
+        act.said,
+      ]),
+    ).toEqual([
+      [
+        "r1",
+        "over",
+        "nudge",
+        "your turn ended",
+      ],
+      [
+        "r2",
+        "over",
+        "step",
+        "Step moved.",
+      ],
     ]);
   });
 
   it("the nudge coming stands in Open, with when", () => {
-    const one = sessionOfRecord(record("a", { stop_told_by: "2026-11-03T10:01:00.000Z" }), [], beside());
+    const one = sessionOfRecord(
+      record("a", {
+        stop_told_by: "2026-11-03T10:01:00.000Z",
+      }),
+      [],
+      beside(),
+    );
     expect(one.fleetActs).toEqual([
       expect.objectContaining({
         state: "coming",
@@ -5035,6 +5074,9 @@ describe("what Fleet saw of a Job and did for it", () => {
     );
     expect(one.turnSince).toBe("2026-11-03T10:00:00.000Z");
     expect(one.lastHeardAt).toBe("2026-11-03T10:02:00.000Z");
-    expect(one.openCall).toEqual({ text: "Bash cargo check", since: "2026-11-03T10:01:00.000Z" });
+    expect(one.openCall).toEqual({
+      text: "Bash cargo check",
+      since: "2026-11-03T10:01:00.000Z",
+    });
   });
 });

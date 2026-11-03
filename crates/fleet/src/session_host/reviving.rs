@@ -87,7 +87,7 @@ where
             if self.hosts().of(&id).state().process.is_some() {
                 continue;
             }
-            // Started again already and still dead: it sits in Needs you, and says nothing twice.
+            // Started again already and still dead: the row and a repair Job have it, and it says nothing twice.
             if row.ended_at.is_some() && row.started_again >= 1 {
                 continue;
             }
