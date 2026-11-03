@@ -259,7 +259,7 @@ const when = (event: FleetEvent): number => Date.parse(event.at);
 function sessionStanding(state: SessionState): Standing {
   switch (state) {
     case "waiting":
-    case "stopped":
+    case "stopped_asks":
     case "done":
     case "unstarted":
       return "ask";

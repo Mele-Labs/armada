@@ -53,6 +53,26 @@
   line-height: var(--leading-2xs);
   overflow-wrap: anywhere;
 }
+/* A Job that stopped or went silent says it under its row in the quiet ink: the running hue belongs to a turn that is at work. */
+.sv-beat[data-lamp="needs"] .sv-beat__line {
+  color: var(--fg-muted);
+}
+/* How long a call has run, in the last column. */
+.sv-beat__figure {
+  color: var(--fg-subtle);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+}
+.sv-beat[data-fleet] .sv-beat__label:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--border-width);
+  border-radius: var(--radius-sm);
+}
+.sv-made[data-kind="fleet"] .sv-made__title:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--border-width);
+  border-radius: var(--radius-sm);
+}
 /* What a row produced, under it and indented to its label. */
 .sv-beat__made {
   display: flex;

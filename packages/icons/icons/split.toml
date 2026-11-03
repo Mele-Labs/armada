@@ -17,7 +17,7 @@
   group = "Session"
   size = "12 and 16px"
   status = "Proposed"
-  notes = "Proposed 3 Nov 2026 for the walk `jobRowDoing`, tooltip `Subagent working`. The glyph the subagent already wears on the Job's ledger, so the row and the ledger name it alike."
+  notes = "Proposed 3 Nov 2026 for the walk `jobStops`, tooltip `Subagent working`. The glyph the subagent already wears on the Job's ledger, so the row and the ledger name it alike."
 
 [[icons.split.usage]]
   means = "The Commander split one task of a plan into two"

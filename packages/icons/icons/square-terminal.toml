@@ -18,7 +18,7 @@
     group = "Session"
     size = "12 and 16px"
     status = "Proposed"
-    notes = "Proposed 3 Nov 2026 for the walk `jobRowDoing`, tooltip `Running:` and the command's description or the Check's name. The glyph the command already wears on the Job's ledger."
+    notes = "Proposed 3 Nov 2026 for the walk `jobStops`, tooltip `Running:` and the command's description or the Check's name. The glyph the command already wears on the Job's ledger."
 
   [[icons.square-terminal.usage]]
     means = "A shell command the Session's agent ran in the background, on its ledger row"

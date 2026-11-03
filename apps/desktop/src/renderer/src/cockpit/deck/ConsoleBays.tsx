@@ -346,7 +346,7 @@ function useMods(seated: Bays): readonly InstrumentMod[] {
     const building = (job: string | undefined) => {
       const one = job === undefined ? undefined : live.get(job);
       return (
-        one !== undefined && (one.turn.state === "working" || ["waiting", "stopped"].includes(stateOf(one).state))
+        one !== undefined && (one.turn.state === "working" || ["waiting", "stopped_asks"].includes(stateOf(one).state))
       );
     };
     const held = seated.flatMap((seat): InstrumentMod[] => {
@@ -535,7 +535,7 @@ function ModFacet({
       type="button"
       className="console-scope__press"
       aria-label={mod.label}
-      data-calling={job !== undefined && ["waiting", "stopped"].includes(stateOf(job).state) ? "" : undefined}
+      data-calling={job !== undefined && ["waiting", "stopped_asks"].includes(stateOf(job).state) ? "" : undefined}
       {...(slot === undefined
         ? {}
         : {

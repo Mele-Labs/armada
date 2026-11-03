@@ -17,6 +17,7 @@ import {
   MoveRight,
   OctagonAlert,
   Power,
+  Square,
   Radar,
   Reply,
   RotateCw,
@@ -50,7 +51,7 @@ import { stampOf, timeFormat } from "../../time-format";
  * pull request's Checks red, and ended is nothing listening, whether it was ended
  * or its terminal stopped asking, limited is held until the plan's limit resets, and after is dispatched to wait on another Session and not started
  * (`link`, the Queued reason's upstream that has not finished), draft is a Job holding a first message nobody has sent (`message-square-dashed`), and
- * paused is a Job the person parked: nothing asks anything of him until he resumes it (`circle-pause`), and held is a Job whose turn ended with nothing asked of the person and a live watch, or its own pull request in the queue or on its Checks, all that keeps it open (`radar`, the watch's own glyph), and unstarted is a Job whose agent process never came up, which nothing but a message from the person will move (`x`, system failure, the reason in its tooltip). `[conventions.session_state_borrowing]` and
+ * paused is a Job the person parked: nothing asks anything of him until he resumes it (`circle-pause`), and held is a Job whose turn ended with nothing asked of the person and a live watch, or its own pull request in the queue or on its Checks, all that keeps it open (`radar`, the watch's own glyph), and unstarted is a Job whose agent process never came up, which nothing but a message from the person will move (`x`, system failure, the reason in its tooltip), and stopped is a Job whose agent is not running and was not parked, the reason in its tooltip (`square`, and `octagon-alert` once Fleet has given up on it). `[conventions.session_state_borrowing]` and
  * `[conventions.session_fork_marks]` in `packages/icons/` lend them.
  */
 export type SessionState =
@@ -72,18 +73,21 @@ export type SessionState =
   | "draft"
   | "held"
   | "paused"
-  | "unstarted";
+  | "unstarted"
+  | "stopped"
+  | "stopped_asks";
 
 /**
  * `stuck` is a turn running that has been quiet, `replied` a turn that ended on the agent's message
  * with no answer yet, and `done` an agent that said nothing is left. They are what Fleet reads a
  * Session to be doing (`SessionStanding`), so the list and the Cockpit draw one answer.
- * `running` is a turn over with a background command or a Check still going, `subagent` a turn over with a subagent at work, and `stopped` a Job Fleet told of a stop
- * nothing excused and that stopped again. `[conventions.session_standing_marks]` in `packages/icons/` lends the glyphs.
+ * `running` is a turn over with a background command or a Check still going, `subagent` a turn over with a subagent at work, `stopped` a Job not running and not parked
+ * that Fleet is still bringing back, and `stopped_asks` one it could not. `[conventions.session_standing_marks]` in `packages/icons/` lends the glyphs.
  */
 const MARK: Record<SessionState, LucideIcon> = {
   stuck: Clock,
-  stopped: OctagonAlert,
+  stopped: Square,
+  stopped_asks: OctagonAlert,
   running: SquareTerminal,
   subagent: Split,
   replied: Reply,
@@ -115,13 +119,14 @@ export function bucketOf(state: SessionState): JobBucket {
     state === "waiting" ||
     state === "done" ||
     state === "unstarted" ||
+    state === "stopped_asks" ||
     state === "stuck" ||
-    state === "stopped" ||
     state === "failing"
   )
     return "needs";
   if (state === "working" || state === "running" || state === "subagent") return "working";
-  if (state === "held" || state === "limited" || state === "after") return "waiting";
+  if (state === "held" || state === "limited" || state === "after" || state === "stopped")
+    return "waiting";
   if (state === "draft" || state === "blank") return "draft";
   return "idle";
 }

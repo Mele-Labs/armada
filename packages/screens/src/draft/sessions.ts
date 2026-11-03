@@ -1025,6 +1025,55 @@ export const toolsMissingSaid = (tools: ToolsMissing): string =>
     ...tools.missing.map((one) => MISSING_SAID[one]),
   ].join(" ");
 
+// ---- What Fleet saw a Job do, and what it did for it ---------------------------------------------------------
+// Draft, mock-only: nothing in Fleet or the protocol carries it yet. A Job that stopped says why and what Fleet is doing about it, and
+// every act Fleet took on the Job's behalf stands as one more worker beside the agent.
+
+/** Why a Job stopped: it ended its turn with nothing running and nothing asked, with tasks open or not, its process ended, Fleet was down, or he stopped it. */
+export type StoppedReason = "turn_ended" | "tasks_open" | "process_gone" | "fleet_down" | "you";
+
+/** A Job that is not running and was not parked. `at` is when Fleet saw it; `restart` is where Fleet stands on bringing it back. */
+export type Stopped = {
+  reason: StoppedReason;
+  at: string;
+  /** With `process_gone`: the last thing the process said. */
+  said?: string;
+  /** With `tasks_open`: the tasks still open on its list. */
+  tasks?: readonly string[];
+  restart: "none" | "queued" | "running" | "failed";
+  /** Fleet has nudged or restarted it and that changed nothing: only he moves it now. No item: the mark and the call reach him, as stuck does. */
+  gaveUp?: true;
+  /** With `fleet_down`: the stretch Fleet was not running. */
+  down?: {
+    from: string;
+    to: string;
+  };
+};
+
+/** What Fleet does on a Job's behalf, in the kinds Fleet acts in. */
+export type FleetActKind =
+  | "told"
+  | "held"
+  | "process"
+  | "step"
+  | "slot"
+  | "judge"
+  | "restart"
+  | "nudge";
+
+/** One act of Fleet's on a Job. `under_way` stands in Now, `coming` in Open, `over` in Done. `why` is the reason; `until` is when a coming act happens. */
+export type FleetAct = {
+  id: string;
+  at: string;
+  state: "under_way" | "coming" | "over";
+  kind: FleetActKind;
+  said: string;
+  why?: string;
+  until?: string;
+  /** The workflow step the Job was on when Fleet did it. Absent where it was on none. */
+  step?: string;
+};
+
 export type Session = {
   id: string;
   /** What other sessions call it, `s-` and the first eight characters of the id. Drawn where the id would be. */
@@ -1177,6 +1226,19 @@ export type Session = {
   watches?: readonly WatchSummary[];
   /** Everything that is not him that keeps it open, in the order it reads. `SessionRecord.held_open_by`. */
   heldOpenBy?: readonly HeldOpenBy[];
+  /** Why it is not running, where it stopped without being parked. Absent for a Job that runs, rests or was paused. */
+  stopped?: Stopped;
+  /** When the running turn began, as ISO. */
+  turnSince?: string;
+  /** The last time Fleet heard anything from the running turn, as ISO. A turn silent for long is `stuck`. */
+  lastHeardAt?: string;
+  /** The tool call the turn is in, and since when: what the agent row names while a turn runs. */
+  openCall?: {
+    text: string;
+    since: string;
+  };
+  /** Everything Fleet does or will do for this Job, newest last. */
+  fleetActs?: readonly FleetAct[];
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
   done?: {
     since: string;
