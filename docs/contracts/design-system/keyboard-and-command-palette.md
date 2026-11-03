@@ -115,7 +115,7 @@ l r f          go to a part of Reviews: the list, the reader, the tools pane   (
 L              open the lists   (review only)
 /              search the pull requests   (review only)
 N              Natural Search   (review only)
-Q              go to the explanations    (review only)
+Q              open the tools menu       (review only)
 A              ask about the pull request   (review only)
 D              show the description   (review only)
 W              show where changes run   (review only)
