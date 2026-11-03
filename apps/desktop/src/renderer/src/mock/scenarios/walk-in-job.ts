@@ -1,6 +1,6 @@
 // A Job's walk as a tab of the Job, and no window. Three Jobs on the Cockpit: one with two walks, Billing with three takes and five steps and Settings with none and three, one with a single
 // walk, and one running with none. A walk's tab is waiting in its Job's panes before he opens it, the Job's row pulses while it owes him a walk, and each tab pulses until it has been in front
-// of him. Draft data, nothing here reaches Fleet. The walks `walk-in-job` and `walk-in-job-notes` play it.
+// of him. Draft data, nothing here reaches Fleet. The walks `walk-in-job` and `walk-in-job` play it.
 
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
