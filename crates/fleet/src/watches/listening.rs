@@ -16,7 +16,7 @@ use store::{KeptWatchTaken, KeptWatchWhole};
 use tokio::sync::broadcast::error::RecvError;
 
 use crate::daemon::Fleet;
-use crate::session_running::plain;
+use crate::session_running::{plain, terminal_number};
 
 /// The most of a line still being written that is held, from its end.
 const MOST_PENDING: usize = 16 * 1024;
@@ -77,7 +77,11 @@ where
             Ok(wanted) => wanted,
             Err(why) => return self.watch_read(&id, KeptWatchTaken::Broken { why, output: None }).await,
         };
-        let Some(mut heard) = self.session_runs().shell_heard(&kept.watch.session_id) else {
+        // A watch kept before the terminal was, listens to the Job's lowest-numbered open one.
+        let session = &kept.watch.session_id;
+        let named = kept.watch.terminal.as_deref().and_then(terminal_number);
+        let number = named.or_else(|| self.session_runs().shells_open(session).first().map(|(number, _)| *number));
+        let Some(mut heard) = number.and_then(|number| self.session_runs().shell_heard(session, number)) else {
             let says = String::from("The Job's terminal is not open. type_in_terminal opens it.");
             return self.watch_read_ending(&id, read(ReadingState::Failed, says), true, None).await;
         };

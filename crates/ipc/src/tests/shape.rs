@@ -6,7 +6,8 @@ use crate::{decode_body, shape, SetWaitingFor, TypeInTerminal};
 fn a_body_reads_every_field_and_marks_the_ones_it_may_leave_out() {
     assert_eq!(
         shape::of::<TypeInTerminal>(),
-        "{text: string, enter?: boolean, clear?: boolean, wait_seconds?: number, session_id?: string}"
+        "{text: string, enter?: boolean, clear?: boolean, wait_seconds?: number, session_id?: string, terminal?: string, \
+         new?: boolean}"
     );
 }
 

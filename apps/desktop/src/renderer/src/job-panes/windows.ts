@@ -1,4 +1,4 @@
-// Moving a tab out into a window of its own. Each kind that can leave has a window main already draws: the Job browser's and the Job's shell's.
+// Moving a tab out into a window of its own. Each kind that can leave has a window main already draws: the Job browser's and a terminal's.
 
 import { browserToWindow } from "../job-browser/store";
 import { shellsOf } from "../job-shell";
@@ -25,7 +25,9 @@ export function moveToWindow(jobId: string, tab: Tab): void {
     case "terminal": {
       // One place at a time: the pane puts its screen away, so the window's is the one that sizes the shell.
       const shells = shellsOf(window.armada);
-      if (shells?.toWindow(jobId)) shells.show("page", jobId, false);
+      const key = shells?.keyOf(jobId, tab.terminal);
+      if (shells !== null && key !== undefined && shells.toWindow(key))
+        shells.show("page", key, false);
       return;
     }
     default:

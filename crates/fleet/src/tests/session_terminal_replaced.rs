@@ -36,11 +36,11 @@ async fn typing_into_a_shell_that_replaced_an_ended_one_is_refused_until_it_is_r
     let refused = said(Arc::clone(&rig.fleet).type_in_terminal(None, typing(&rig, "echo two-$((1 + 1))", true, Some(5))).await);
     let second = Arc::clone(&rig.fleet).open_job_shell(rig.session.as_str(), None, None).await.unwrap();
     assert_ne!(second, first);
-    assert!(refused.contains(&first) && refused.contains(&second), "{refused}");
+    assert!(refused.contains("t1 ended") && refused.contains("t2 is a new one"), "{refused}");
     assert!(refused.starts_with("nothing was typed"), "{refused}");
 
     let read = rig.fleet.read_terminal(None, reading(&rig)).await.expect("read");
-    assert_eq!(read.run_id, second);
+    assert_eq!((read.terminal.as_str(), read.run_id.as_str()), ("t2", second.as_str()));
     let typed = Arc::clone(&rig.fleet).type_in_terminal(None, typing(&rig, "echo two-$((1 + 1))", true, Some(5))).await;
     let held = rig.observes(&second).await.history;
     ends(&rig, &second).await;
@@ -65,5 +65,5 @@ async fn a_fleet_restart_neither_reuses_a_shell_id_nor_forgets_the_agent_had_a_s
     restarted.stop_session_run(ipc::StopSessionRun { run_id: after.clone() }).await.expect("in flight");
     assert_ne!(after, before, "a run id is never taken twice");
     let refused = said(refused);
-    assert!(refused.contains(&before) && refused.contains(&after), "{refused}");
+    assert!(refused.contains("t1 ended") && refused.contains("t2 is a new one"), "{refused}");
 }

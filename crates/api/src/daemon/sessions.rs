@@ -97,9 +97,10 @@ pub trait Sessions: Send + Sync + 'static {
         run_id: String,
     ) -> impl Future<Output = Result<crate::ObservedSessionRun, Refusal>> + Send;
 
-    /// `open_terminal` — the Job's shell, opened where it has none: one a Job, shared by the
-    /// person and its agent. [`Refusal::Unacceptable`] as `start_session_run`'s. **Takes the `Arc`**
-    /// because the shell's end is seen long after this call has answered.
+    /// `open_terminal` — one of the Job's terminals, opened where it is not open: shells shared by
+    /// the person and its agent. [`Refusal::Unacceptable`] as `start_session_run`'s, and for a
+    /// `terminal` the Job never had and for `new` with `terminal`. **Takes the `Arc`** because the
+    /// shell's end is seen long after this call has answered.
     fn open_terminal(
         self: std::sync::Arc<Self>,
         open: ipc::OpenTerminal,
@@ -113,25 +114,40 @@ pub trait Sessions: Send + Sync + 'static {
         start: ipc::StartTerminalRun,
     ) -> impl Future<Output = Result<ipc::SessionRunUnderway, Refusal>> + Send;
 
-    /// `type_in_terminal` — the agent types into its Job's shell, opening it where it has none, and
-    /// is answered what it printed once it went quiet. `caller` places a hosted Job as
-    /// `show_window`'s does. [`Refusal::Unacceptable`] for a call that places no Job, and as
-    /// `open_terminal`'s.
+    /// `type_in_terminal` — the agent types into one of its Job's terminals, opening one where it
+    /// asks for `new` or has none, and is answered what it printed once it went quiet. `caller`
+    /// places a hosted Job as `show_window`'s does. [`Refusal::Unacceptable`] for a call that
+    /// places no Job, for a `terminal` that is not open, and as `open_terminal`'s.
     fn type_in_terminal(
         self: std::sync::Arc<Self>,
         caller: Option<crate::Caller>,
         typed: ipc::TypeInTerminal,
     ) -> impl Future<Output = Result<ipc::TerminalTyped, Refusal>> + Send;
 
-    /// `read_terminal` — the last `lines` of the Job's shell as its screen drew them, once `until`
-    /// was printed or its wait ran out. `caller` places the Job as `type_in_terminal`'s does.
-    /// [`Refusal::Unacceptable`] for a call that places no Job, a Job with no shell open, or an
-    /// `until` that is no regular expression.
+    /// `read_terminal` — the last `lines` of one of the Job's terminals as its screen drew them,
+    /// once `until` was printed or its wait ran out. `caller` places the Job as `type_in_terminal`'s
+    /// does. [`Refusal::Unacceptable`] for a call that places no Job, a Job with no terminal open or
+    /// a `terminal` that is not open, or an `until` that is no regular expression.
     fn read_terminal(
         &self,
         caller: Option<crate::Caller>,
         asked: ipc::ReadTerminal,
     ) -> impl Future<Output = Result<ipc::TerminalScreen, Refusal>> + Send;
+
+    /// `list_terminals` — the Job's open terminals, the first opened first. `caller` places the Job
+    /// as `type_in_terminal`'s does. [`Refusal::Unacceptable`] for a call that places no Job.
+    fn list_terminals(
+        &self,
+        caller: Option<crate::Caller>,
+        asked: ipc::ListTerminals,
+    ) -> impl Future<Output = Result<ipc::JobTerminals, Refusal>> + Send;
+
+    /// `rename_terminal` — the person names a terminal; a blank name restores `Terminal N`.
+    /// [`Refusal::Unacceptable`] for a terminal the Job has not open.
+    fn rename_terminal(
+        &self,
+        rename: ipc::RenameTerminal,
+    ) -> impl Future<Output = Result<ipc::ListedTerminal, Refusal>> + Send;
 
     /// `browser_open` and the six other Job browser acts — `act` held for Bridge and answered with
     /// what Bridge did. `caller` places the Job as `type_in_terminal`'s does. A screenshot's `path`

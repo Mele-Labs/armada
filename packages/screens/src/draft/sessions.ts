@@ -1247,7 +1247,7 @@ export type ClaudeFolder = {
  * is meant: another Session, a pull request, a branch or an issue.
  */
 export type SessionTag = {
-  kind: "session" | "pull_request" | "branch" | "issue" | "report";
+  kind: "session" | "pull_request" | "branch" | "issue" | "report" | "terminal";
   id: string;
   title: string;
   /** The forge's address of an issue or a pull request. */

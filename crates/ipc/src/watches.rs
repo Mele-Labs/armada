@@ -274,6 +274,9 @@ pub struct WatchSummary {
     /// `in_terminal` is read as a regular expression.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub regex: bool,
+    /// Which of the Job's terminals a terminal watch waits on. Absent is the one the agent last used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal: Option<String>,
     /// Where the environment its command is given came from, while Fleet holds it. Absent for a
     /// terminal watch, one that has ended, and one not run since Fleet started.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -319,6 +322,8 @@ pub enum WatchStarts {
         text: String,
         /// `text` is a regular expression, not words to find.
         regex: bool,
+        /// Which terminal. Absent is the one the agent last used.
+        terminal: Option<String>,
         /// A span, as a command's.
         gives_up_after: Option<String>,
     },
@@ -363,6 +368,8 @@ struct StartAsWritten {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     regex: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    terminal: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     follows: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     set_aside: Vec<WatchSetAside>,
@@ -375,6 +382,9 @@ impl TryFrom<StartAsWritten> for StartWatch {
         if written.regex && written.in_terminal.is_none() {
             return Err("`regex` reads `in_terminal` as a pattern: give `in_terminal`");
         }
+        if written.terminal.is_some() && written.in_terminal.is_none() {
+            return Err("`terminal` names which terminal `in_terminal` waits on: give `in_terminal`");
+        }
         if let Some(text) = written.in_terminal {
             if written.recipe.is_some() || written.command.is_some() || written.every.is_some() || !written.values.is_empty() {
                 return Err("`in_terminal` waits on the Job's terminal: leave out `recipe`, `values`, `command` and `every`");
@@ -382,7 +392,12 @@ impl TryFrom<StartAsWritten> for StartWatch {
             return Ok(StartWatch {
                 session_id: written.session_id,
                 name: written.name,
-                starts: WatchStarts::Terminal { text, regex: written.regex, gives_up_after: written.gives_up_after },
+                starts: WatchStarts::Terminal {
+                    text,
+                    regex: written.regex,
+                    terminal: written.terminal,
+                    gives_up_after: written.gives_up_after,
+                },
                 follows: written.follows,
                 set_aside: written.set_aside,
             });
@@ -413,14 +428,14 @@ impl TryFrom<StartAsWritten> for StartWatch {
 
 impl From<StartWatch> for StartAsWritten {
     fn from(start: StartWatch) -> StartAsWritten {
-        let (mut in_terminal, mut regex) = (None, false);
+        let (mut in_terminal, mut regex, mut terminal) = (None, false, None);
         let (recipe, values, command, every, gives_up_after) = match start.starts {
             WatchStarts::Recipe { recipe, values } => (Some(recipe), values, None, None, None),
             WatchStarts::Command { command, every, gives_up_after } => {
                 (None, BTreeMap::new(), Some(command), Some(every), gives_up_after)
             }
-            WatchStarts::Terminal { text, regex: pattern, gives_up_after } => {
-                (in_terminal, regex) = (Some(text), pattern);
+            WatchStarts::Terminal { text, regex: pattern, terminal: named, gives_up_after } => {
+                (in_terminal, regex, terminal) = (Some(text), pattern, named);
                 (None, BTreeMap::new(), None, None, gives_up_after)
             }
         };
@@ -434,6 +449,7 @@ impl From<StartWatch> for StartAsWritten {
             gives_up_after,
             in_terminal,
             regex,
+            terminal,
             follows: start.follows,
             set_aside: start.set_aside,
         }

@@ -11,15 +11,18 @@ use crate::tests::session_terminal::{ends, shortly, typing};
 /// A terminal's reply to a colour query, as it lands on the input line.
 const LEFT_ON_THE_LINE: &str = "11;rgb:1313/1111/1a1a";
 
-/// The Job's shell, once it has run a command: only then is what is typed read by its line editor.
+/// The agent's own shell, once it has run a command: only then is what is typed read by its line
+/// editor. The agent's, since typing with none named never reaches the person's.
 async fn ready(rig: &Rig) -> String {
-    let shell = Arc::clone(&rig.fleet).open_job_shell(rig.session.as_str(), None, None).await.unwrap();
-    rig.types(&shell, "echo $((40 + 2))\r").await.expect("in flight");
-    if !shortly(|| async { rig.observes(&shell).await.history.contains("42") }).await {
-        ends(rig, &shell).await;
+    let ran = Arc::clone(&rig.fleet)
+        .type_in_terminal(None, typing(rig, "echo $((40 + 2))", true, Some(5)))
+        .await
+        .unwrap();
+    if !shortly(|| async { rig.observes(&ran.run_id).await.history.contains("42") }).await {
+        ends(rig, &ran.run_id).await;
         panic!("the shell never ran a command");
     }
-    shell
+    ran.run_id
 }
 
 #[tokio::test]

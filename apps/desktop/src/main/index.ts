@@ -691,14 +691,12 @@ void app.whenReady().then(() => {
       change,
     }),
   );
-  // Which Jobs have a terminal window, and a shell moved back out of one, reach the walk panel's Job too, whose Terminal follows the setting.
+  // Which terminals have a window, and a shell moved back out of one, reach the walk panel's Job too, whose Terminal follows the setting.
   const everyDocument = (channel: string, ...values: unknown[]): void => {
     everyWindow(channel, ...values);
     for (const panel of captureWindows.panels()) panel.send(channel, ...values);
   };
-  terminalWindows.onChanged((sessionIds) =>
-    everyDocument(CHANNELS.terminalWindowsChanged, sessionIds),
-  );
+  terminalWindows.onChanged((windows) => everyDocument(CHANNELS.terminalWindowsChanged, windows));
   // Each Job's browser, which its agent drives through Fleet's held calls and the owner may take over.
   const siteFile = join(app.getPath("userData"), "site-permissions.json");
   const siteSettings = new SiteSettingsStore({

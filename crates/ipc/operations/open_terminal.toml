@@ -2,13 +2,15 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Open a Job's shell, the one terminal the person and the Job's agent both type into, or be handed the one already open"
+description = "Open one of a Job's terminals, the shells the person and the Job's agent both type into, or be handed the one already open"
 notes = """
-`POST /sessions/terminal/open`, body `OpenTerminal`: `session_id`, and optionally `cols` and `rows` (80 by 24 where absent, used only where the shell opens now). Answered 200 with `SessionRunUnderway`: `run_id`.
+`POST /sessions/terminal/open`, body `OpenTerminal`: `session_id`, and optionally `terminal`, `new` (absent is `false`), `cols` and `rows` (80 by 24 where absent, used only where the shell opens now). Answered 200 with `SessionRunUnderway`: `run_id`, and `terminal` for a Job's shell.
 
-**One shell a Job.** It runs as `$SHELL -l` (`/bin/zsh` where `SHELL` is unset or empty), interactive, on a pseudo-terminal with `TERM=xterm-256color`, in the directory `start_session_run` runs in: the worktree of the slot the Job holds, or the Job's directory. A second open, the person's or the agent's through `type_in_terminal`, is answered with the shell already open. One that has exited is replaced by a new one under a new `run_id`.
+**Several terminals a Job.** Each is named `t1`, `t2` and so on, and is a plain `String` on the wire as `run_id` is. `new` mints the next ID and starts a shell under it. `terminal` names one: its running shell, or a new shell under the same ID where that one has ended. A `terminal` the Job never had is refused with 422, and so is `new` with `terminal`. Neither takes the lowest-numbered open terminal, else reopens the lowest-numbered one the Job has had, else opens `t1`. A number is never given twice in a Job: the next is the highest it has had plus one, and it is kept after the shell ends, which is how a tab comes back under its ID after a Fleet restart.
 
-**It is a run.** What it prints is `observe_session_run`'s; typing, resizing and stopping it are `write_session_run`, `resize_session_run` and `stop_session_run` on its `run_id`. Its output is held in memory as a run's is, and nothing is written down. Its end tells the Job nothing. `terminal.opened` follows on `/events` when it starts, and `terminal.exited` when it ends. A stop, from `stop_session_run` or from the Job ending, is SIGHUP, as a closed terminal sends, and SIGKILL after 3 seconds.
+Each shell runs as `$SHELL -l` (`/bin/zsh` where `SHELL` is unset or empty), interactive, on a pseudo-terminal with `TERM=xterm-256color`, in the directory `start_session_run` runs in: the worktree of the slot the Job holds, or the Job's directory. A second open of the same terminal is answered with the shell already open. One that has exited is replaced by a new one under a new `run_id` and the same terminal ID.
+
+**It is a run.** What it prints is `observe_session_run`'s; typing, resizing and stopping it are `write_session_run`, `resize_session_run` and `stop_session_run` on its `run_id`. Its output is held in memory as a run's is, and nothing is written down. Its end tells the Job nothing. `terminal.opened` follows on `/events` when it starts, and `terminal.exited` when it ends, each naming the terminal. A stop, from `stop_session_run` or from the Job ending, is SIGHUP, as a closed terminal sends, and SIGKILL after 3 seconds.
 
 A Job that has ended, or that Fleet has no row for, is refused with 422 and nothing opens; so is a `cols` or `rows` of 0.
 

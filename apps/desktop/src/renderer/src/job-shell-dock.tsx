@@ -17,7 +17,7 @@ import { viewingNow } from "./cockpit/viewed";
 export type JobDock = {
   /** The runs' dock, which brings its run to the front as it starts or is shown again. */
   dock: TerminalDockRun;
-  /** Terminal: the shell's pane in front, with a new shell where none is running. Absent where the view serves no terminal. Flight control's tile does the same (`useJobTerminal`). */
+  /** Terminal: the Job's first terminal's pane in front, with a new shell where none is running. Absent where the view serves no terminal. Flight control's tile does the same (`useJobTerminal`). */
   terminal: (() => void) | undefined;
   /** What is docked, or nothing. */
   pane: ReactNode;
@@ -101,20 +101,21 @@ export function useShellArrivals(
   told.current = docked;
   useEffect(() => {
     if (shells === null) return;
-    const offOpened = shells.onOpened((opened) => {
+    const offOpened = shells.onOpened((opened, key) => {
       // A shell the agent opens while the Job is not on screen waits behind its Terminal key, which pulses while it prints.
       if (opened !== sessionId || !viewingNow(sessionId)) return;
-      if (place === "page" && shells.hasWindow(sessionId) && toWindow(shells, place, sessionId))
-        return;
-      shells.show(place, sessionId, true);
+      // A shell that already has a window is drawn there; another one opens in a tab.
+      if (place === "page" && shells.hasWindow(key) && toWindow(shells, place, key)) return;
+      shells.show(place, key, true);
       told.current?.();
     });
     if (place !== "page") return offOpened;
     const offBack = shells.onMovedBack((move) => {
       if (move.sessionId !== sessionId) return;
       // This window may never have followed the shell, which the window opened: main says which it is and how it stands.
-      shells.movedIn(sessionId, move.shell);
-      shells.show(place, sessionId, true);
+      const key = shells.keyOf(sessionId, move.terminal);
+      shells.movedIn(key, move.shell);
+      shells.show(place, key, true);
       told.current?.();
     });
     return () => {
@@ -174,15 +175,20 @@ function shellPane(
 }
 
 /**
- * The Job's docked shell as the Terminal tab draws it, in a pane of its own. Null while it is put away. A shell the agent opens is
+ * The Job's docked shell `terminal` (the first, without one) as the Terminal tab draws it, in a pane of its own. Null while it is put away. A shell the agent opens is
  * heard by `TerminalSync`, which is drawn whether or not a Terminal tab is.
  */
-export function useDeckShell(sessionId: string, served: boolean): ShellPaneProps | null {
+export function useDeckShell(
+  sessionId: string,
+  served: boolean,
+  terminal?: string,
+): ShellPaneProps | null {
   const shells = served ? shellsOf(window.armada) : null;
-  const { shell, shown } = useJobShell(shells, "page", sessionId);
+  const key = shells?.keyOf(sessionId, terminal) ?? sessionId;
+  const { shell, shown } = useJobShell(shells, "page", key);
   return shells === null || !shown || shell === undefined
     ? null
-    : shellPane(shells, "page", sessionId, shell);
+    : shellPane(shells, "page", key, shell);
 }
 
 /** The Job's shell as Flight control's Terminal tile reads and presses it, where the Job has no panes: whether it shows docked or in its window. */
@@ -213,7 +219,7 @@ function useShellRunning(shell: JobShell | undefined): boolean {
 }
 
 /**
- * The Job's shell from outside its view, for a Job with no Terminal tab. A press opens it, with a new shell where none is running; while it shows, a press puts it away and it keeps running.
+ * The Job's first terminal from outside its view, for a Job with no Terminal tab. A press opens it, with a new shell where none is running; while it shows, a press puts it away and it keeps running.
  * A window of its own is brought to the front instead: its own close puts it away. Absent where the window serves no shell.
  */
 export function useJobTerminal(sessionId: string, served: boolean): JobTerminal | undefined {

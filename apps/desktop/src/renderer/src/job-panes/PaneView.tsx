@@ -11,13 +11,18 @@ import {
 import { LoaderCircle, Minimize2, Plus, X } from "lucide-react";
 import {
   Button,
+  Dialog,
   DropdownMenu,
   SessionMark,
   Tooltip,
   boundKeyFor,
+  tagIntoDraft,
   type DropdownMenuEntry,
 } from "@armada/components";
 
+import { copyAnnounced } from "../copied";
+import { shellsOf } from "../job-shell";
+import { askComposerFocus } from "../session-focus";
 import { hostOf, peekJobBrowser } from "../job-browser/store";
 import { useModList } from "../mod-list";
 import { stateOf } from "../session-state";
@@ -28,7 +33,7 @@ import { customLabel, peekCustom, seedBuilt, tabTitle, useCustom, useCustomTick 
 import { tabGlyph } from "./tab-glyph";
 import { splitFocused, focusIn } from "./keys";
 import { KINDS } from "./kinds";
-import { droppable, look, peek, rearrange } from "./store";
+import { droppable, jobOpens, look, peek, rearrange } from "./store";
 import { moveToWindow, whyNotWindow } from "./windows";
 import { toggleZoom } from "./zoom";
 import {
@@ -43,20 +48,28 @@ import {
   moveTabToEdge,
   moveTabToPane,
   panesOf,
+  renameTab,
   type Pane,
   type Side,
   type Tab,
   type TabKind,
 } from "./tree";
 
-/** The words a tab reads: its own label where it has one, else its kind. */
-/** A Custom tab reads the name of the mod it built, once it has one. */
-export const labelOf = (tab: Tab): string =>
-  (tab.kind === "custom" ? customLabel(tab.id) : undefined) ?? tab.label ?? KINDS[tab.kind].label;
+/** The number in a shell's ID, which a terminal tab reads: `t2` is Terminal 2. A tab with no ID draws the Job's first. */
+const terminalNumber = (terminal: string | undefined): number =>
+  Number(terminal?.replace(/^t/, "")) || 1;
 
-/** What a new tab of a kind is called: a browser by its page's host, a terminal by its shell. The kinds there is one of keep their names. The mock's shell is zsh. */
+/** The ID a terminal tab sends and copies. */
+const terminalIdOf = (tab: Tab): string => tab.terminal ?? `t${terminalNumber(tab.terminal)}`;
+
+/** The words a tab reads: its own label where it has one, else its kind. A Custom tab reads the name of the mod it built, once it has one. A Terminal tab reads its number until it is renamed. */
+export const labelOf = (tab: Tab): string =>
+  (tab.kind === "custom" ? customLabel(tab.id) : undefined) ??
+  tab.label ??
+  (tab.kind === "terminal" ? `Terminal ${terminalNumber(tab.terminal)}` : KINDS[tab.kind].label);
+
+/** What a new tab of a kind is called: a browser by its page's host. The kinds there is one of keep their names, and a terminal reads its number. */
 export function labelFor(jobId: string, kind: TabKind): string | undefined {
-  if (kind === "terminal") return "zsh";
   const url = kind === "browser" ? peekJobBrowser(jobId)?.url : undefined;
   return url === undefined || url === "" ? undefined : hostOf(url);
 }
@@ -73,6 +86,29 @@ const ZONES: readonly (Side | "middle")[] = [
 function tabEntries(kind: TabKind, zoomed: boolean, editable: boolean): DropdownMenuEntry[] {
   const why = whyNotWindow(kind);
   return [
+    ...(kind === "terminal"
+      ? ([
+          {
+            kind: "item",
+            id: "send",
+            label: "Send to agent",
+          },
+          {
+            kind: "item",
+            id: "copy",
+            label: "Copy terminal ID",
+          },
+          {
+            kind: "item",
+            id: "rename",
+            label: "Rename",
+          },
+          {
+            kind: "separator",
+            id: "terminal-rule",
+          },
+        ] as const satisfies readonly DropdownMenuEntry[])
+      : []),
     {
       kind: "item",
       id: "window",
@@ -181,10 +217,34 @@ function TabButton({
     x: number;
     y: number;
   } | null>(null);
-  /** Closed by its own ×, or a middle click: the tab does not come to the front first. */
-  const close = () => {
+  /** A program is running in the terminal this tab draws, and closing would end it. */
+  const [ending, setEnding] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const shut = () => {
+    // A terminal tab closing ends its shell, whichever way it was closed.
+    if (tab.kind === "terminal") {
+      const shells = shellsOf(window.armada);
+      shells?.closeShell(shells.keyOf(jobId, tab.terminal));
+    }
     rearrange(jobId, (arrangement) => closeTab(arrangement, tab.id));
     focusIn(peek(jobId).focus);
+  };
+  /** Closed by its own ×, a middle click or its menu: the tab does not come to the front first. A terminal with a program running asks first. */
+  const close = () => {
+    const shells = tab.kind === "terminal" ? shellsOf(window.armada) : null;
+    if (shells === null) return shut();
+    void shells
+      .busy(shells.keyOf(jobId, tab.terminal))
+      .then((busy) => (busy ? setEnding(true) : shut()));
+  };
+  const rename = (value: string) => {
+    setRenaming(false);
+    look(jobId, (arrangement) => renameTab(arrangement, tab.id, value));
+    // Fleet keeps the name too, so the agent's list of the Job's terminals shows it. The tab reads as it was named whatever Fleet says.
+    if (tab.kind === "terminal" && value.trim() !== label) {
+      const shells = shellsOf(window.armada);
+      shells?.rename(shells.keyOf(jobId, tab.terminal), value.trim());
+    }
   };
   // A press that starts on the × is not the start of a drag of the tab.
   const grabbed = useRef(false);
@@ -201,9 +261,22 @@ function TabButton({
           key: `session:${custom.job}`,
         });
     else if (id === "right" || id === "down") splitFocused(jobId, id);
-    else if (id === "close") {
-      rearrange(jobId, (arrangement) => closeTab(arrangement, tab.id));
-      focusIn(peek(jobId).focus);
+    else if (id === "close") close();
+    else if (id === "copy") copyAnnounced(terminalIdOf(tab));
+    // A beat after the menu has shut, which gives focus back to the tab: the box and the field take it after.
+    else if (id === "rename") window.setTimeout(() => setRenaming(true), 60);
+    else if (id === "send") {
+      tagIntoDraft(jobId, {
+        kind: "terminal",
+        id: terminalIdOf(tab),
+        title: label,
+      });
+      const thread = panesOf(peek(jobId).root)
+        .flatMap((one) => one.tabs)
+        .find((one) => one.kind === "thread");
+      if (thread === undefined) jobOpens(jobId, "thread");
+      else look(jobId, (arrangement) => activate(arrangement, thread.id));
+      window.setTimeout(() => askComposerFocus(jobId), 60);
     }
   };
   return (
@@ -211,7 +284,7 @@ function TabButton({
       className="job-pane__tab"
       data-active={active || undefined}
       data-dragging={dragging || undefined}
-      draggable
+      draggable={!renaming}
       onPointerDown={(event) => {
         grabbed.current = (event.target as Element).closest(".job-pane__close") !== null;
       }}
@@ -243,43 +316,47 @@ function TabButton({
         summon={summon}
         onSummoned={() => setSummon(false)}
       >
-        <button
-          type="button"
-          role="tab"
-          className="job-pane__label"
-          aria-selected={active}
-          tabIndex={active ? 0 : -1}
-          onClick={() => look(jobId, (arrangement) => activate(arrangement, tab.id))}
-          onKeyDown={(event) => {
-            // Shift+F10 and the Menu key open the tab's menu, anchored to the tab.
-            if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
-            event.preventDefault();
-            const box = event.currentTarget.getBoundingClientRect();
-            setPoint({
-              x: box.left,
-              y: box.bottom,
-            });
-          }}
-        >
-          {asking ? (
-            <span className="job-pane__asks">
-              <SessionMark state="waiting" said="Waiting on you" />
-            </span>
-          ) : working ? (
-            <Tooltip label={modJob?.title ?? "Mod Job"} asChild>
-              <span
-                className="job-pane__working"
-                role="img"
-                aria-label={modJob?.title ?? "Mod Job"}
-              >
-                <LoaderCircle size={16} strokeWidth={2} aria-hidden />
+        {renaming ? (
+          <RenameField label={label} onDone={rename} onCancel={() => setRenaming(false)} />
+        ) : (
+          <button
+            type="button"
+            role="tab"
+            className="job-pane__label"
+            aria-selected={active}
+            tabIndex={active ? 0 : -1}
+            onClick={() => look(jobId, (arrangement) => activate(arrangement, tab.id))}
+            onKeyDown={(event) => {
+              // Shift+F10 and the Menu key open the tab's menu, anchored to the tab.
+              if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
+              event.preventDefault();
+              const box = event.currentTarget.getBoundingClientRect();
+              setPoint({
+                x: box.left,
+                y: box.bottom,
+              });
+            }}
+          >
+            {asking ? (
+              <span className="job-pane__asks">
+                <SessionMark state="waiting" said="Waiting on you" />
               </span>
-            </Tooltip>
-          ) : (
-            <Glyph size={16} strokeWidth={2} aria-hidden />
-          )}
-          <span>{label}</span>
-        </button>
+            ) : working ? (
+              <Tooltip label={modJob?.title ?? "Mod Job"} asChild>
+                <span
+                  className="job-pane__working"
+                  role="img"
+                  aria-label={modJob?.title ?? "Mod Job"}
+                >
+                  <LoaderCircle size={16} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            ) : (
+              <Glyph size={16} strokeWidth={2} aria-hidden />
+            )}
+            <span>{label}</span>
+          </button>
+        )}
       </ModJobCard>
       <span className="job-pane__close">
         <Tooltip label="Close">
@@ -309,7 +386,61 @@ function TabButton({
         entries={tabEntries(tab.kind, zoomed, tab.kind === "custom" && custom.stage === "built")}
         onSelect={choose}
       />
+      <Dialog
+        open={ending}
+        title={`End ${label}`}
+        confirmLabel="End terminal"
+        onConfirm={() => {
+          setEnding(false);
+          shut();
+        }}
+        onCancel={() => setEnding(false)}
+      >
+        {`A program is running in ${label}.`}
+      </Dialog>
     </div>
+  );
+}
+
+/** A tab's name as a field in the tab: Enter keeps what was typed, Escape leaves the name as it was. */
+function RenameField({
+  label,
+  onDone,
+  onCancel,
+}: {
+  label: string;
+  onDone: (value: string) => void;
+  onCancel: () => void;
+}) {
+  // Enter and Escape unmount the field, which can blur it on the way out: the first answer stands.
+  const settled = useRef(false);
+  const settle = (answer: () => void) => {
+    if (settled.current) return;
+    settled.current = true;
+    answer();
+  };
+  return (
+    <input
+      className="job-pane__rename"
+      aria-label={`Rename ${label}`}
+      defaultValue={label}
+      spellCheck={false}
+      ref={(field) => {
+        field?.focus();
+        field?.select();
+      }}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === "Enter") {
+          event.preventDefault();
+          settle(() => onDone(event.currentTarget.value));
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          settle(onCancel);
+        }
+      }}
+      onBlur={(event) => settle(() => onDone(event.currentTarget.value))}
+    />
   );
 }
 
@@ -354,6 +485,17 @@ function addEntries(
       icon: Glyph,
     },
   ];
+}
+
+/** `+` Terminal: a new shell, in a tab of this pane in front. */
+function newTerminal(jobId: string, paneId: string): void {
+  const open = (terminal: string | undefined) =>
+    rearrange(jobId, (arrangement) =>
+      addTab(arrangement, paneId, "terminal", undefined, undefined, undefined, undefined, terminal),
+    );
+  const shells = shellsOf(window.armada);
+  if (shells === null) return open(undefined);
+  void shells.openNew(jobId, open);
 }
 
 export function PaneView({
@@ -513,6 +655,8 @@ export function PaneView({
           onSelect={(id) => {
             const mod = id.startsWith("mod:") ? id.slice("mod:".length) : undefined;
             const kind = (mod === undefined ? id : "custom") as TabKind;
+            // A terminal is always a new shell, whose ID Fleet gives; its tab opens when Fleet has answered.
+            if (kind === "terminal") return newTerminal(jobId, pane.id);
             rearrange(jobId, (arrangement) =>
               kind === "thread" && hasKind(arrangement, "thread")
                 ? arrangement
@@ -526,8 +670,7 @@ export function PaneView({
             // The tab is the pane's front tab now; a built mod's is drawn as built.
             const front = panesOf(peek(jobId).root).find((one) => one.id === pane.id)?.active;
             if (mod !== undefined && front !== undefined) seedBuilt(front, mod);
-            // A Terminal takes the keyboard as its screen opens, which the tab would take back.
-            if (kind !== "terminal") focusIn(pane.id);
+            focusIn(pane.id);
           }}
         />
         {!zoomed ? null : (

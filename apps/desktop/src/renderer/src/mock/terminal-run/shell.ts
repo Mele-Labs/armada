@@ -41,6 +41,8 @@ export type FakeShell = {
   write: (data: string) => void;
   /** Ends it as a stop: no more output, and `end` hears null. */
   stop: () => void;
+  /** Whether a program holds the foreground, as against the prompt. */
+  running: () => boolean;
 };
 
 const clock = () =>
@@ -140,5 +142,6 @@ export function startShell(
       for (const one of data.replace(/\x1b\[[0-9;]*[A-Za-z~]/g, "")) key(one);
     },
     stop: () => finish(null),
+    running: () => serving && !ended,
   };
 }

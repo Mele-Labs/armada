@@ -62,7 +62,8 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("get_job_lifecycles", &["session_id"]),
     ("get_job_copy", &["session_id"]),
     ("list_watch_recipes", &["session_id"]),
-    ("read_terminal", &["lines", "session_id", "until", "regex", "wait_seconds"]),
+    ("read_terminal", &["terminal", "lines", "session_id", "until", "regex", "wait_seconds"]),
+    ("list_terminals", &["session_id"]),
     ("get_workflow", &["workflow_id", "source"]),
     ("get_workflow_steps", &["workflow_id", "source"]),
     ("list_workflow_changes", &["workflow_id", "source"]),
@@ -193,9 +194,10 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "send_requests",
     "get_requests",
     "save_request_to_collection",
-    // The Job's shell stands in its own worktree or directory, read inside no Manifest.
+    // The Job's terminals stand in its own worktree or directory, read inside no Manifest.
     "type_in_terminal",
     "read_terminal",
+    "list_terminals",
     // The Job browser is the Job's own, read inside no Manifest.
     "browser_open",
     "browser_click",

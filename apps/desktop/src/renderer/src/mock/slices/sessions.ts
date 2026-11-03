@@ -307,6 +307,14 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
       ok: false,
       outcome: unanswered("/sessions/terminal/open"),
     }),
+    listTerminals: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/terminal/list"),
+    }),
+    renameTerminal: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/terminal/rename"),
+    }),
     startTerminalRun: async () => ({
       ok: false,
       outcome: unanswered("/sessions/terminal/run"),

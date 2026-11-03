@@ -317,6 +317,16 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/sessions/terminal/read",
     },
+    Route {
+        operation: "list_terminals",
+        method: "GET",
+        path: "/sessions/terminal/list",
+    },
+    Route {
+        operation: "rename_terminal",
+        method: "POST",
+        path: "/sessions/terminal/rename",
+    },
     // The Job browser: each act held until Bridge answers it, and Bridge's answer.
     Route {
         operation: "browser_open",

@@ -1,5 +1,5 @@
-//! A Job's shell, through a real Fleet, a real shell and a real pseudo-terminal: one per Job, the
-//! person's and the agent's alike.
+//! A Job's shell, through a real Fleet, a real shell and a real pseudo-terminal: the person's and
+//! the agent's alike. `session_terminal_several` is a Job with more than one.
 
 use std::sync::Arc;
 
@@ -34,7 +34,7 @@ async fn a_second_open_hands_back_the_same_shell_and_it_stands_in_the_jobs_direc
 #[tokio::test]
 async fn the_person_opens_the_same_shell_and_an_ended_or_unknown_job_is_refused() {
     let rig = rig().await;
-    let open = |session_id: &str, cols| OpenTerminal { session_id: SessionId::carried(session_id), cols, rows: None };
+    let open = |session_id: &str, cols| OpenTerminal { session_id: SessionId::carried(session_id), terminal: None, new: false, cols, rows: None };
     let first = Arc::clone(&rig.fleet).open_terminal(open(rig.session.as_str(), Some(100))).await.expect("opened");
     let again = Arc::clone(&rig.fleet).open_terminal(open(rig.session.as_str(), None)).await.expect("opened");
     assert_eq!(first.run_id, again.run_id);
@@ -61,7 +61,15 @@ async fn the_person_opens_the_same_shell_and_an_ended_or_unknown_job_is_refused(
 }
 
 pub(super) fn typing(rig: &Rig, text: &str, enter: bool, wait_seconds: Option<u64>) -> TypeInTerminal {
-    TypeInTerminal { text: text.into(), enter, clear: true, wait_seconds, session_id: Some(rig.session.clone()) }
+    TypeInTerminal {
+        text: text.into(),
+        enter,
+        clear: true,
+        wait_seconds,
+        session_id: Some(rig.session.clone()),
+        terminal: None,
+        new: false,
+    }
 }
 
 #[tokio::test]
@@ -131,7 +139,7 @@ async fn the_agent_reads_what_the_person_typed_and_a_job_with_no_shell_is_refuse
 }
 
 /// The next `terminal.*` event, by its kind.
-async fn next_terminal(watching: &mut api::Subscription) -> ipc::Event {
+pub(super) async fn next_terminal(watching: &mut api::Subscription) -> ipc::Event {
     loop {
         match tokio::time::timeout(std::time::Duration::from_secs(20), watching.next()).await.expect("an event") {
             Some(api::Next::Send(delivered)) if delivered.event.kind().starts_with("terminal.") => {
@@ -154,7 +162,7 @@ async fn bridge_is_told_when_the_agents_first_command_opens_the_shell_and_when_i
     Arc::clone(&rig.fleet).open_job_shell(rig.session.as_str(), None, None).await.unwrap();
     ends(&rig, &typed.run_id).await;
 
-    let told = ipc::JobTerminal { session_id: rig.session.clone(), run_id: typed.run_id.clone() };
+    let told = ipc::JobTerminal { session_id: rig.session.clone(), terminal: typed.terminal.clone(), run_id: typed.run_id.clone() };
     assert_eq!(next_terminal(&mut watching).await, ipc::Event::TerminalOpened(told.clone()));
     assert_eq!(
         next_terminal(&mut watching).await,

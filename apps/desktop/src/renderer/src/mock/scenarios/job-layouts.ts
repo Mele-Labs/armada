@@ -572,7 +572,6 @@ export const sJobLayouts: Scenario = {
         undefined,
         {
           browser: "localhost:5173",
-          terminal: "zsh",
         },
       ),
       Review: build({

@@ -9,11 +9,20 @@ let asked:
     }
   | undefined;
 
+const heard = new Set<(id: string) => void>();
+
+/** Hears each ask, for a message box already on screen, which a mount-time read would not reach. */
+export function onComposerFocusAsked(listener: (id: string) => void): () => void {
+  heard.add(listener);
+  return () => void heard.delete(listener);
+}
+
 export function askComposerFocus(id: string): void {
   asked = {
     id,
     at: Date.now(),
   };
+  heard.forEach((one) => one(id));
 }
 
 export function composerFocusAsked(id: string): boolean {

@@ -201,6 +201,9 @@ import type {
   SendSessionMessage,
   SessionRunMessage,
   SessionRunUnderway,
+  JobTerminals,
+  ListedTerminal,
+  OpenTerminal,
   SessionLoadout,
   AttachmentHistory,
   KeptStyles,
@@ -230,6 +233,7 @@ import type {
   RingedNotes,
   SessionActed,
   TerminalMovedBack,
+  TerminalWindowId,
 } from "../shared/api/sessions";
 import type { RequestRepositoryRead } from "../shared/api/dispatch";
 import type { AutopilotDecisionsActed } from "../shared/api/autopilot-decisions";
@@ -1276,8 +1280,18 @@ const api: BridgeApi = {
     sessionId: string,
     cols?: number,
     rows?: number,
+    which?: Pick<OpenTerminal, "terminal" | "new">,
   ): Promise<SessionActed<SessionRunUnderway>> =>
-    ipcRenderer.invoke(CHANNELS.openTerminal, sessionId, cols, rows),
+    ipcRenderer.invoke(CHANNELS.openTerminal, sessionId, cols, rows, which),
+  // A Job's open terminals, and the person's name for one so the agent's list shows it.
+  listTerminals: (sessionId: string): Promise<SessionActed<JobTerminals>> =>
+    ipcRenderer.invoke(CHANNELS.listTerminals, sessionId),
+  renameTerminal: (
+    sessionId: string,
+    terminal: string,
+    name: string,
+  ): Promise<SessionActed<ListedTerminal>> =>
+    ipcRenderer.invoke(CHANNELS.renameTerminal, sessionId, terminal, name),
   // A command run in a directory with no Job behind it: a run as any other, written, resized, stopped and observed on its id.
   startTerminalRun: (
     command: string,
@@ -1323,16 +1337,19 @@ const api: BridgeApi = {
       ipcRenderer.removeListener(CHANNELS.sessionTerminal, handler);
     };
   },
-  // A Job's shell in a window of its own: opened by the Job's id, and moved back into Bridge by it.
-  openTerminalWindow: (sessionId: string): Promise<void> =>
-    ipcRenderer.invoke(CHANNELS.openTerminalWindow, sessionId),
-  getTerminalWindows: (): Promise<readonly string[]> =>
+  // A Job's shell in a window of its own: opened by the Job's id and its terminal's, and moved back into Bridge by them.
+  openTerminalWindow: (sessionId: string, terminal?: string): Promise<void> =>
+    ipcRenderer.invoke(CHANNELS.openTerminalWindow, sessionId, terminal),
+  getTerminalWindows: (): Promise<readonly TerminalWindowId[]> =>
     ipcRenderer.invoke(CHANNELS.getTerminalWindows),
-  onTerminalWindows: (onChanged: (sessionIds: readonly string[]) => void): (() => void) => {
-    const handler = (_event: unknown, sessionIds: unknown): void =>
+  onTerminalWindows: (onChanged: (windows: readonly TerminalWindowId[]) => void): (() => void) => {
+    const handler = (_event: unknown, windows: unknown): void =>
       onChanged(
-        Array.isArray(sessionIds)
-          ? sessionIds.filter((one): one is string => typeof one === "string")
+        Array.isArray(windows)
+          ? windows.filter(
+              (one): one is TerminalWindowId =>
+                typeof one === "object" && one !== null && typeof one.sessionId === "string",
+            )
           : [],
       );
     ipcRenderer.on(CHANNELS.terminalWindowsChanged, handler);
@@ -1342,8 +1359,11 @@ const api: BridgeApi = {
   },
   readTerminalSoFar: (runId: string): Promise<string | null> =>
     ipcRenderer.invoke(CHANNELS.readTerminalSoFar, runId),
-  moveTerminalBack: (sessionId: string, to: TerminalMovedBack["to"]): Promise<void> =>
-    ipcRenderer.invoke(CHANNELS.moveTerminalBack, sessionId, to),
+  moveTerminalBack: (
+    sessionId: string,
+    to: TerminalMovedBack["to"],
+    terminal?: string,
+  ): Promise<void> => ipcRenderer.invoke(CHANNELS.moveTerminalBack, sessionId, to, terminal),
   onTerminalMovedBack: (on: (move: TerminalMovedBack) => void): (() => void) => {
     const handler = (_: unknown, move: TerminalMovedBack): void => on(move);
     ipcRenderer.on(CHANNELS.terminalMovedBack, handler);

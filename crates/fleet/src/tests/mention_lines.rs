@@ -84,3 +84,12 @@ fn a_reported_bug_is_named_by_its_title() {
         Some(r#"The person named: reported bug "Preview restart drops the lease"."#)
     );
 }
+
+#[test]
+fn a_terminal_is_named_by_its_id_and_name_and_the_line_says_to_pass_the_id() {
+    let line = mention_line(&[tag(TagKind::Terminal, "t2", "Terminal 2", None)]);
+    assert_eq!(
+        line.as_deref(),
+        Some(r#"The person named: terminal t2 "Terminal 2" (pass t2 as `terminal` to type_in_terminal or read_terminal)."#)
+    );
+}

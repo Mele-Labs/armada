@@ -191,6 +191,7 @@ WebSocket event stream, read this first.
 | [Autopilot's boxes: `on_autopilot` and `decisions`](protocol/autopilot-boxes.md) |
 | [Autopilot's answers: `get_autopilot_decisions`, `review_autopilot_decision`, `override_autopilot_decision`](protocol/autopilot-decisions.md) |
 | [Sleep leaves the wire](protocol/sleep-leaves-the-wire.md) |
+| [A Job's several terminals: `terminal` and `new`, `list_terminals`, `rename_terminal`](protocol/a-jobs-several-terminals.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`

@@ -347,6 +347,9 @@ pub struct StartSessionRun {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionRunUnderway {
     pub run_id: String,
+    /// Which terminal, where the run is a Job's shell: `t1`, `t2`. Absent for any other run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal: Option<String>,
 }
 
 /// `stop_session_run`: end a run's process group. `POST /sessions/run/stop`. Answered 200 with the same body.

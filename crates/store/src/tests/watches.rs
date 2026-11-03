@@ -25,6 +25,7 @@ fn watch(id: &str, session: &str) -> KeptWatch {
         unsaid: None,
         in_terminal: None,
         regex: false,
+        terminal: None,
     }
 }
 
@@ -125,6 +126,7 @@ fn a_terminal_watch_keeps_what_it_waits_for() {
     kept.command = Vec::new();
     kept.in_terminal = Some(String::from("Listening on \\d+"));
     kept.regex = true;
+    kept.terminal = Some(String::from("t2"));
     store.keep_watch(&kept).expect("kept");
     drop(store);
     let whole = open(&dir).watch_whole("w-terminal").expect("reads").expect("there");
