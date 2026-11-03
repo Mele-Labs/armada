@@ -24,7 +24,7 @@ import {
 } from "@armada/components";
 
 import { placeOf, pointedAt, rangeOf, rowAt, rowOf, type Pointed } from "./document-find";
-import { PAGE_ROOT, sceneWithKept, sectionOf, type PageSketch } from "./document-page";
+import { PAGE_ROOT, sceneWithKept, sectionOf, type PageSketch } from "@armada/screens/src/document-page";
 import { openLink } from "../commands";
 
 /** A note already sent, as the thread holds it. */
