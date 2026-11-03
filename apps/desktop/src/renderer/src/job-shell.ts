@@ -246,6 +246,18 @@ export class JobShells {
     }
   }
 
+  /** The Job's open terminals as Fleet lists them, the agent's included. Empty where Fleet serves no list or refuses it. */
+  async openTerminals(sessionId: string): Promise<{ terminal: string; name: string }[]> {
+    if (this.api.listTerminals === undefined) return [];
+    const listed = await this.api.listTerminals(sessionId);
+    return listed.ok
+      ? listed.value.terminals.map(({ terminal, name }) => ({
+          terminal,
+          name,
+        }))
+      : [];
+  }
+
   /**
    * Whether a program is running in the shell, as against its prompt, as Fleet's list of the Job's terminals says. False for one that
    * is not open, and where Fleet serves no list. **A list that fails says running**: the person is asked, rather than a program lost.

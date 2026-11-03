@@ -451,17 +451,32 @@ function addEntries(
     name: string;
     glyph?: string | undefined;
   }[],
+  open: readonly {
+    terminal: string;
+    name: string;
+  }[],
 ): DropdownMenuEntry[] {
   const kinds = TAB_KINDS.filter(
     (kind) => kind !== "custom" && kind !== "draft" && (kind !== "thread" || !thread),
-  ).map(
-    (kind): DropdownMenuEntry => ({
+  ).flatMap((kind): DropdownMenuEntry[] => [
+    {
       kind: "item",
       id: kind,
       label: KINDS[kind].label,
       icon: KINDS[kind].Glyph,
-    }),
-  );
+    },
+    // Right under the new shell: the Job's shells that have no tab, the agent's among them.
+    ...(kind !== "terminal"
+      ? []
+      : open.map(
+          (one): DropdownMenuEntry => ({
+            kind: "item",
+            id: `terminal:${one.terminal}`,
+            label: `Open ${one.name}`,
+            icon: KINDS.terminal.Glyph,
+          }),
+        )),
+  ]);
   // Under the rule, the tabs a Mod Job built by name, then Custom, which builds another.
   const { Glyph } = KINDS.custom;
   return [
@@ -498,6 +513,17 @@ function newTerminal(jobId: string, paneId: string): void {
   void shells.openNew(jobId, open);
 }
 
+/** `+` Open <name>: a shell the Job already has, in a tab of this pane in front. */
+function openTerminalTab(jobId: string, paneId: string, terminal: string, name: string): void {
+  const shells = shellsOf(window.armada);
+  // The Job's first shell is the one a tab with no ID draws.
+  const own = shells?.keyOf(jobId, terminal) === jobId ? undefined : terminal;
+  rearrange(jobId, (arrangement) =>
+    addTab(arrangement, paneId, "terminal", name, undefined, undefined, undefined, own),
+  );
+  shells?.show("page", shells.keyOf(jobId, terminal), true);
+}
+
 export function PaneView({
   jobId,
   pane,
@@ -520,6 +546,25 @@ export function PaneView({
   children: ReactNode;
 }) {
   const [over, setOver] = useState<Side | "middle" | undefined>(undefined);
+  // The Job's shells with no tab, as Fleet lists them each time the + opens.
+  const [untabbed, setUntabbed] = useState<
+    {
+      terminal: string;
+      name: string;
+    }[]
+  >([]);
+  const listUntabbed = () => {
+    const shells = shellsOf(window.armada);
+    if (shells === null) return;
+    void shells.openTerminals(jobId).then((open) => {
+      const tabbed = panesOf(peek(jobId).root).flatMap((one) =>
+        one.tabs.flatMap((tab) =>
+          tab.kind !== "terminal" ? [] : [shells.keyOf(jobId, tab.terminal)],
+        ),
+      );
+      setUntabbed(open.filter((one) => !tabbed.includes(shells.keyOf(jobId, one.terminal))));
+    });
+  };
   // A Custom tab turning over changes the words and glyph of its tab.
   useCustomTick();
   const built = useModList()
@@ -651,11 +696,17 @@ export function PaneView({
           triggerLabel="Add tab"
           icon={Plus}
           portal
-          entries={addEntries(thread, built)}
+          entries={addEntries(thread, built, untabbed)}
+          onOpenChange={(open) => open && listUntabbed()}
           onSelect={(id) => {
+            if (id.startsWith("terminal:")) {
+              const terminal = id.slice("terminal:".length);
+              const named = untabbed.find((one) => one.terminal === terminal);
+              return openTerminalTab(jobId, pane.id, terminal, named?.name ?? terminal);
+            }
             const mod = id.startsWith("mod:") ? id.slice("mod:".length) : undefined;
             const kind = (mod === undefined ? id : "custom") as TabKind;
-            // A terminal is always a new shell, whose ID Fleet gives; its tab opens when Fleet has answered.
+            // A terminal here is a new shell, whose ID Fleet gives; its tab opens when Fleet has answered.
             if (kind === "terminal") return newTerminal(jobId, pane.id);
             rearrange(jobId, (arrangement) =>
               kind === "thread" && hasKind(arrangement, "thread")
