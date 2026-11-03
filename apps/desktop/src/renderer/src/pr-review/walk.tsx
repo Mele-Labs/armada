@@ -254,7 +254,7 @@ export function WalkView({
               iconOnly
               aria-label="Run again"
               disabled={going || finding}
-              onClick={() => store.spend(tool.name, () => store.findPlace(pr.key))}
+              onClick={() => store.spendUnasked(() => store.findPlace(pr.key), false)}
             >
               <RotateCw size={16} strokeWidth={2} aria-hidden />
             </Button>

@@ -3,7 +3,7 @@
 // is a tab of its own, opened from + or by its number, and **runs when it is opened and has not run**, asking first as every act that
 // spends does. Comments lists the threads, and a press on one brings Files forward at its line.
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { LoaderCircle, SquarePlus } from "lucide-react";
 import {
   Button,
@@ -12,6 +12,8 @@ import {
   PrChecks,
   PrCommits,
   PullRequestFilesView,
+  readKept,
+  writeKept,
   type DropdownMenuEntry,
 } from "@armada/components";
 
@@ -110,7 +112,9 @@ export function runIfNotRun(
   store: ReviewStore,
   pr: ReviewPr,
   tool: ToolDef,
-  pressed?: { again: boolean },
+  pressed?: {
+    again: boolean;
+  },
 ): void {
   const work = store.get().work[pr.key] ?? NO_WORK;
   const spend = (run: () => void) => {
@@ -146,8 +150,33 @@ type Jump = {
   thread: string;
 };
 
+/** Where Files was scrolled to: the file at the top of the pane and how far into it. Kept per pull request, on this machine. */
+type Scrolled = {
+  path: string;
+  offset: number;
+};
+
+const scrolledKey = (key: string) => `pr-review:${key}:files-scroll`;
+
+/** The file at the top of `box` and the distance from that file's top to the box's, or nothing where no file is drawn. */
+function scrolledOf(box: HTMLElement): Scrolled | undefined {
+  const top = box.getBoundingClientRect().top;
+  for (const section of box.querySelectorAll<HTMLElement>("section.armada-pr-patch")) {
+    const edge = section.getBoundingClientRect();
+    if (edge.bottom > top)
+      return {
+        path: section.getAttribute("aria-label") ?? "",
+        offset: Math.round(top - edge.top),
+      };
+  }
+  return undefined;
+}
+
 function FilesBody({ pr, jump }: { pr: ReviewPr; jump: Jump | undefined }) {
   const store = useReviewStore()!;
+  const box = useRef<HTMLDivElement>(null);
+  // Put back once, when the diffs are drawn and the files have their height; a thread he was sent to wins over it.
+  const restored = useRef(jump !== undefined);
   const work = useReviews().work[pr.key] ?? NO_WORK;
   useEffect(
     () => store.readPatches(pr.key),
@@ -217,8 +246,29 @@ function FilesBody({ pr, jump }: { pr: ReviewPr; jump: Jump | undefined }) {
       line,
     ],
   );
+  const read = patches.state === "read";
+  useLayoutEffect(() => {
+    if (restored.current || !read || box.current === null) return;
+    restored.current = true;
+    const was = readKept<Scrolled>(scrolledKey(pr.key));
+    const section = [
+      ...box.current.querySelectorAll<HTMLElement>("section.armada-pr-patch"),
+    ].find((one) => one.getAttribute("aria-label") === was?.path);
+    if (was === undefined || section === undefined) return;
+    box.current.scrollTop +=
+      section.getBoundingClientRect().top - box.current.getBoundingClientRect().top + was.offset;
+  }, [
+    read,
+    pr.key,
+  ]);
+  const keepPlace = () => {
+    // Before it is put back, the pane's own top is not a place he left it at.
+    if (!restored.current || box.current === null) return;
+    const at = scrolledOf(box.current);
+    if (at !== undefined) writeKept(scrolledKey(pr.key), at);
+  };
   return (
-    <div className="job-pane__scroll pr-pane__files">
+    <div ref={box} className="job-pane__scroll pr-pane__files" onScroll={keepPlace}>
       <PullRequestFilesView rows={pr.page.files} patches={patches} target={target} />
     </div>
   );
@@ -238,7 +288,10 @@ function ToolBody({
   const store = useReviewStore()!;
   const tool = toolsOf(useReviews(), pr.manifestId).find((one) => one.id === id);
   if (tool === undefined) return null;
-  const run = (again: boolean) => runIfNotRun(store, pr, tool, { again });
+  const run = (again: boolean) =>
+    runIfNotRun(store, pr, tool, {
+      again,
+    });
   return (
     <div className="job-pane__scroll">
       {tool.kind === "explanation" ? (

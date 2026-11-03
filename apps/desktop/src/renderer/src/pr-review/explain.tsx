@@ -136,7 +136,7 @@ function Asks({ pr }: { pr: ReviewPr }) {
                 iconOnly
                 aria-label="Run again"
                 disabled={running}
-                onClick={() => store.spend("Ask", () => store.askAgain(pr.key, one.id))}
+                onClick={() => store.spendUnasked(() => store.askAgain(pr.key, one.id), false)}
               >
                 <RotateCw size={16} strokeWidth={2} aria-hidden />
               </Button>
@@ -239,7 +239,7 @@ export function Chosen({
               iconOnly
               aria-label="Run again"
               disabled={running}
-              onClick={() => store.spend(def.name, () => store.explainAgain(pr.key, def))}
+              onClick={() => store.spendUnasked(() => store.explainAgain(pr.key, def), false)}
             >
               <RotateCw size={16} strokeWidth={2} aria-hidden />
             </Button>

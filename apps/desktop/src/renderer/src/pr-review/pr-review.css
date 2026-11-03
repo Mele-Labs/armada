@@ -130,6 +130,28 @@
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
+/* The line when the pull request has moved since he looked: one row, the commits and the two acts at fixed places. */
+.pr-moved {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-1) var(--space-4);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.pr-moved .armada-pr-mark {
+  color: var(--status-awaiting-review);
+}
+.pr-moved__said {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* The panes under the head: each pane is its own frame, so the area reaches the reader's edges with a gutter all round. */
 .pr-reader__panes {
   display: flex;

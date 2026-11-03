@@ -322,7 +322,10 @@ export function createAgentActs(source: ReviewSource, hold: StoreHold): AgentAct
       run?.();
     },
     spendUnasked: (run, again) => {
-      if (again) set({ askFirst: false });
+      if (again)
+        set({
+          askFirst: false,
+        });
       run();
     },
     cancelSpend: () => {
@@ -444,6 +447,9 @@ export function createAgentActs(source: ReviewSource, hold: StoreHold): AgentAct
           ...answer.value.runs,
         ].reverse())
           apply(run);
+        change(key, {
+          runsRead: true,
+        });
         // What he had open comes back open: the explanation that was read shows again.
         if (work(key).kind === undefined && work(key).explains["how-it-works"]?.state === "done")
           change(key, {

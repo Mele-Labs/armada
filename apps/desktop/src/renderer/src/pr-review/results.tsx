@@ -119,7 +119,7 @@ export function ToolResults({
               iconOnly
               aria-label="Run again"
               disabled={running}
-              onClick={() => store.spend(tool.name, () => store.rerun(pr.key, tool))}
+              onClick={() => store.spendUnasked(() => store.rerun(pr.key, tool), false)}
             >
               <RotateCw size={16} strokeWidth={2} aria-hidden />
             </Button>

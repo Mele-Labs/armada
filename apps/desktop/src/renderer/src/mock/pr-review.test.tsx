@@ -422,14 +422,6 @@ test("a run that fails shows Fleet's reason where the result would be, and Run a
       name: "Run again",
     })
     .click();
-  await page
-    .getByRole("dialog", {
-      name: "Risks",
-    })
-    .getByRole("button", {
-      name: "Run",
-    })
-    .click();
   await expect
     .element(
       results.getByRole("img", {

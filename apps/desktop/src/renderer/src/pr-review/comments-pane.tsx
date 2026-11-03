@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import { Check, ChevronDown, ChevronRight, MessageSquare } from "lucide-react";
-import { Button, PrMark, Tooltip } from "@armada/components";
+import { Button, PrMark, Tooltip, readKept, useKept } from "@armada/components";
 
 import { LineComposer, ThreadCard } from "./lines";
 import type { ReviewPr, Thread } from "./model";
@@ -19,7 +19,9 @@ export const whereOf = (thread: Thread): string =>
 export function ThreadHere({ pr, thread }: { pr: ReviewPr; thread: Thread }) {
   const store = useReviewStore()!;
   const work = useReviews().work[pr.key] ?? NO_WORK;
-  const [replying, setReplying] = useState(false);
+  const keep = `pr-review:${pr.key}:reply:${thread.id}`;
+  // A reply he began and left is still in its box when he comes back.
+  const [replying, setReplying] = useState(() => (readKept<string>(keep) ?? "") !== "");
   return (
     <ThreadCard
       thread={thread}
@@ -31,7 +33,7 @@ export function ThreadHere({ pr, thread }: { pr: ReviewPr; thread: Thread }) {
       onRemove={(id) => store.removeDraft(pr.key, id)}
       composer={
         <LineComposer
-          keep={`pr-review:${pr.key}:reply:${thread.id}`}
+          keep={keep}
           label="Reply"
           onAdd={(body) => {
             store.addDraft(pr.key, {
@@ -52,12 +54,15 @@ function ThreadRow({
   pr,
   thread,
   onGo,
+  open,
+  onToggle,
 }: {
   pr: ReviewPr;
   thread: Thread;
   onGo: (thread: Thread) => void;
+  open: boolean;
+  onToggle: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const first = thread.comments[0];
   const where = whereOf(thread);
   return (
@@ -70,7 +75,7 @@ function ThreadRow({
             iconOnly
             aria-label={open ? `Fold the thread on ${where}` : `Open the thread on ${where}`}
             aria-expanded={open}
-            onClick={() => setOpen(!open)}
+            onClick={onToggle}
           >
             {open ? (
               <ChevronDown size={16} strokeWidth={2} aria-hidden />
@@ -110,18 +115,39 @@ function ThreadRow({
   );
 }
 
+const NONE_OPEN: string[] = [];
+
 /** The pane. `onGo` brings Files forward at a thread's line. */
 export function CommentsPane({ pr, onGo }: { pr: ReviewPr; onGo: (thread: Thread) => void }) {
   const work = useReviews().work[pr.key] ?? NO_WORK;
   const [folded, setFolded] = useState(true);
+  // Which threads are open here, kept per pull request on this machine, so they are open again when he comes back.
+  const [opened, setOpened] = useKept<string[]>(`pr-review:${pr.key}:threads-open`, NONE_OPEN);
+  const row = (one: Thread) => (
+    <ThreadRow
+      key={one.id}
+      pr={pr}
+      thread={one}
+      onGo={onGo}
+      open={opened.includes(one.id)}
+      onToggle={() =>
+        setOpened((was) =>
+          was.includes(one.id)
+            ? was.filter((id) => id !== one.id)
+            : [
+                ...was,
+                one.id,
+              ],
+        )
+      }
+    />
+  );
   const open = work.threads.filter((one) => !one.resolved);
   const resolved = work.threads.filter((one) => one.resolved);
   return (
     <section className="pr-threads" aria-label="Comments">
       <ul className="pr-threads__list" aria-label="Open threads">
-        {open.map((one) => (
-          <ThreadRow key={one.id} pr={pr} thread={one} onGo={onGo} />
-        ))}
+        {open.map(row)}
       </ul>
       {resolved.length === 0 ? null : (
         <>
@@ -143,9 +169,7 @@ export function CommentsPane({ pr, onGo }: { pr: ReviewPr; onGo: (thread: Thread
           </div>
           {folded ? null : (
             <ul className="pr-threads__list" aria-label="Resolved threads">
-              {resolved.map((one) => (
-                <ThreadRow key={one.id} pr={pr} thread={one} onGo={onGo} />
-              ))}
+              {resolved.map(row)}
             </ul>
           )}
         </>

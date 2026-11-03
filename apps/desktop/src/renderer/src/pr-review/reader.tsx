@@ -20,6 +20,7 @@ import type { useSendFindings } from "./acts";
 import { AskComposer, AskedOf, Explained } from "./explain";
 import { REVIEW_KEYS, capOf } from "./key-table";
 import { ChecksMark, ReviewMark } from "./marks";
+import { Moved } from "./moved";
 import type { ReviewPr } from "./model";
 import { PrPanes } from "./panes";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
@@ -148,6 +149,7 @@ function Reader({
           {work.page.said}
         </p>
       ) : null}
+      <Moved pr={pr} />
       <div className="pr-reader__panes">
         <PrPanes pr={pr} onOpenLink={onOpenLink} controls={layout} />
       </div>
