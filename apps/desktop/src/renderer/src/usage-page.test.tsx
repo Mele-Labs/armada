@@ -59,7 +59,7 @@ test("before Fleet has answered, every panel is drawn and none holds a figure", 
   ).toEqual([
     "Jobs",
     "Breakdown",
-    "Burn per day",
+    "Burn per hour",
     "Usage rules",
     "Day and hour",
   ]);
