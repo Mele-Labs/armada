@@ -1,6 +1,7 @@
 // What a Job has produced, as one list in the order it was produced, for the Done zone of the story (`StoryColumn.tsx`). Read from what the Job
 // already holds: the approved plan, the documents he approved or was never asked about, and sketches, the files and pages, the commits in the thread, the walks it ended, the issues
-// and pull requests attached, the mods it made and the follow-ups he kept. Nothing is fetched and nothing is guessed from what an agent said.
+// attached that have closed and the pull requests that have merged, the mods it made and the follow-ups he kept. Nothing is fetched and nothing is guessed from what an agent said.
+// A draft or open pull request and an open issue are not done: they stand in Now until they land (`unlandedOf`).
 //
 // **The order is the Job's own sequence.** A thread row carries a time and an attachment does not, so the list runs plan, documents, sketches,
 // pages, files, commits, walks, mods, issues, pull requests, follow-ups kept, then the Jobs it started outside its plan that have finished; within a kind,
@@ -208,8 +209,10 @@ export function madeOf(
       bucket: "artifact",
     });
 
+  // An issue is done once it closes and a pull request once it merges; until then they stand in Now (`unlandedOf`).
   const groupOfIssue = (number: string) => plan?.groups.find((one) => one.issue === number)?.id;
   for (const issue of attachmentsOf(session, "issue")) {
+    if (issue.state !== "closed") continue;
     const group = groupOfIssue(issue.number);
     out.push({
       shape: "issue",
@@ -224,6 +227,7 @@ export function madeOf(
     });
   }
   for (const pr of attachmentsOf(session, "pull_request")) {
+    if (pr.state !== "merged") continue;
     const group = plan?.groups.find(
       (one) =>
         issueOfGroup(session, one.issue)?.prs.some((other) => other.number === pr.number) === true,
@@ -256,6 +260,44 @@ export function madeOf(
       open: () => opts.jobs?.open(child.id),
     });
   return out;
+}
+
+/** The issues not yet closed and the pull requests not yet merged, which stand in Now. One whose issue a plan group in `held` works is drawn under that group instead. */
+export function unlandedOf(
+  session: Session,
+  held: readonly {
+    issue?: string;
+  }[],
+): Made[] {
+  const holds = (number: string | undefined) =>
+    number !== undefined && held.some((group) => group.issue === number);
+  const heldPr = (number: number) =>
+    held.some(
+      (group) =>
+        issueOfGroup(session, group.issue)?.prs.some((other) => other.number === number) === true,
+    );
+  return [
+    ...attachmentsOf(session, "issue")
+      .filter((issue) => issue.state !== "closed" && !holds(issue.number))
+      .map(
+        (issue): Made => ({
+          shape: "issue",
+          key: `issue:${issue.number}`,
+          bucket: "issue",
+          issue,
+        }),
+      ),
+    ...attachmentsOf(session, "pull_request")
+      .filter((pr) => pr.state !== "merged" && !heldPr(pr.number))
+      .map(
+        (pr): Made => ({
+          shape: "pr",
+          key: `pr:${pr.number}`,
+          bucket: "pull_request",
+          pr,
+        }),
+      ),
+  ];
 }
 
 /** What each kind of output is made by, as the name of a workflow step reads. Until Fleet records the step that made an output, the step is the one named for it. */
