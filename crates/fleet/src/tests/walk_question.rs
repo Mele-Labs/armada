@@ -159,6 +159,68 @@ async fn takes_reach_the_row_bridge_opens_and_the_ledger_a_reopen_reads_and_a_ta
     assert_eq!(windows, 1, "a refused call writes no row");
 }
 
+const BRIEF: &str = "The header moved under the title. Look at it at 320 px.";
+
+async fn shown_with_brief(rig: &Rig, id: &SessionId, brief: Option<&str>) -> Result<ipc::SessionRecord, api::Refusal> {
+    let shown = ShowWindow {
+        url: ONE.into(),
+        title: None,
+        session_id: Some(id.clone()),
+        variations: Vec::new(),
+        brief: brief.map(str::to_string),
+        ..Default::default()
+    };
+    rig.fleet.show_window(None, shown).await
+}
+
+fn window_brief(rows: Vec<SessionRow>) -> Option<Option<String>> {
+    rows.into_iter().rev().find_map(|row| match row {
+        SessionRow::Window { brief, .. } => Some(brief),
+        _ => None,
+    })
+}
+
+#[tokio::test]
+async fn a_brief_reaches_the_row_and_the_ledger_stays_when_the_walk_ends_and_a_blank_one_is_none() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let record = shown_with_brief(&rig, &id, Some(&format!("  {BRIEF}  "))).await.expect("shown");
+
+    let kept = record
+        .attachments
+        .iter()
+        .find(|one| one.detail.get("form").map(String::as_str) == Some("window"))
+        .expect("the window is on the ledger");
+    assert_eq!(kept.detail.get("brief").map(String::as_str), Some(BRIEF), "Bridge reads it where it reads the title");
+    assert_eq!(window_brief(rig.rows(&id).await), Some(Some(BRIEF.to_string())), "and on the row, trimmed");
+
+    closed(&rig, &id, ONE).await;
+    assert_eq!(window_brief(rig.rows(&id).await), Some(Some(BRIEF.to_string())), "an ended walk keeps it");
+
+    let record = shown_with_brief(&rig, &id, Some("   ")).await.expect("shown again");
+    let kept = record
+        .attachments
+        .iter()
+        .find(|one| one.detail.get("form").map(String::as_str) == Some("window"))
+        .expect("the window is on the ledger");
+    assert_eq!(kept.detail.get("brief"), None, "a blank brief is none, and none replaces the last");
+    assert_eq!(window_brief(rig.rows(&id).await), Some(None));
+}
+
+#[tokio::test]
+async fn a_brief_over_four_hundred_characters_is_refused_and_writes_nothing() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+
+    assert!(shown_with_brief(&rig, &id, Some(&"x".repeat(401))).await.is_err(), "401 characters");
+    let windows = rig.rows(&id).await.into_iter().filter(|row| matches!(row, SessionRow::Window { .. })).count();
+    assert_eq!(windows, 0, "a refused call writes no row");
+    let kept = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.attachments;
+    assert!(!kept.iter().any(|one| one.detail.get("form").map(String::as_str) == Some("window")), "nor an artifact");
+
+    shown_with_brief(&rig, &id, Some(&"é".repeat(400))).await.expect("400 characters, counted as characters and not bytes");
+}
+
 #[tokio::test]
 async fn approving_any_take_ends_the_walk_and_a_sentence_that_only_begins_with_the_word_does_not() {
     let rig = rig_placing(None);

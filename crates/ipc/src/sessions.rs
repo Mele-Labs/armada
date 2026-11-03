@@ -439,6 +439,10 @@ pub struct ShowWindow {
     /// memory until Bridge opens the window and written nowhere. Each is on the shown origin or one of `origins`.
     #[serde(default, skip_serializing_if = "SignIn::is_empty")]
     pub sign_in: SignIn,
+    /// The Job's line or two on what changed and what to look at, drawn on the walk's tab. At most
+    /// 400 characters, trimmed; longer is refused. Absent, or blank: none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub brief: Option<String>,
 }
 
 /// The addresses a session signs in with. **Its `Debug` says how many and nothing else**, so a

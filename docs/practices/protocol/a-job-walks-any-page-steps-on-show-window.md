@@ -14,7 +14,10 @@ The protocol ID moves with the files below, and there is no number to take.
 | `Attachment.detail.steps` on the `window` artifact | Fleet writes, Bridge reads | The same steps as a JSON string, because `detail` holds strings only; `openSessionWindow` reads them back from the ledger. Anything that is not a list of steps in Fleet's shape reads as none in Bridge |
 | The door's receipt for `show_window` | Fleet writes | `steps`, the captions in order, left out where there are none |
 | `window_failed` (`POST /sessions/window/failed`) | Bridge writes | Unchanged in shape. A `why` that begins `step` is a step Bridge could not play, and Fleet tells the Job to fix its steps rather than that its page failed to load |
-| `WalkTarget`, `WalkStep`, `ShowWindow.steps`, `SessionRow` `window` `steps` | Bridge reads | `packages/protocol/src/sessions.ts` and `hosted-sessions.ts`, written by hand like the rest |
+| `ShowWindow.brief` (`show_window`, `POST /sessions/window`) | Job writes, Fleet checks | `Option<String>`, left out when there is none: the Job's line or two on what changed and what to look at. Trimmed; blank is none. At most 400 characters (`MOST_BRIEF` in `sessioning/shown.rs`); longer is 422 `fleet.session_unnamed`, nothing written |
+| `SessionRow::Window.brief` (`session.row`) | Fleet writes, Bridge reads | The brief the window carries, kept when the walk ends as the takes are. A row written before it has none and reads as before |
+| `Attachment.detail.brief` on the `window` artifact | Fleet writes, Bridge reads | The same text, beside `title` and `variations`; this is where Bridge reads it from the ledger. Absent where the walk has none |
+| `WalkTarget`, `WalkStep`, `ShowWindow.steps`, `SessionRow` `window` `steps`, `ShowWindow.brief`, `SessionRow` `window` `brief` | Bridge reads | `packages/protocol/src/sessions.ts` and `hosted-sessions.ts`, written by hand like the rest |
 
 **Additive.** Every new field is optional and left out when empty.
 A Fleet before this one ignores `steps`, and a Bridge before it ignores the field on the row.
@@ -23,3 +26,5 @@ There is no number to take: `armada need --status` showed nothing standing on th
 **The event stream is untouched** beyond the `session.row` a window row already publishes, so the back-pressure risk below is neither better nor worse.
 The lifeboat is untouched.
 The steps ride the record on the window artifact, which is published whole on every change, so they are bounded the way a sketch's scene is.
+
+**`brief` was added 3 Nov 2026**, when a Job's walk became a tab beside its thread rather than a window. It is additive and optional, as `steps` is. The receipt the door gives the Job does not echo it. The event stream is untouched beyond the `session.row` a window row already publishes, which grows by at most 400 characters.

@@ -685,6 +685,8 @@ export type SessionRow =
       steps?: WalkStep[];
       /** The other origins the window may pass through, such as a sign-in provider. */
       origins?: string[];
+      /** The Job's line or two on what changed and what to look at. Kept when the walk ends; absent on a row written before it. */
+      brief?: string;
       ended_at?: string;
     }
   /**
