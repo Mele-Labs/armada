@@ -325,6 +325,23 @@ async fn record_plan_says_so_when_the_plan_is_not_put_to_the_owner_yet() {
     );
 }
 
+/// A plan re-recorded after he approved a walk the step lists stands with no card, so the agent must
+/// be told to go on: else it waits on an approval he is never shown.
+#[tokio::test]
+async fn record_plan_says_so_when_the_plan_stands_with_no_card() {
+    let daemon = FakeDaemon::new(Broadcaster::new());
+    let plan = ipc::SessionPlan { version: 6, approved: true, approved_at: Some(at()), ..pending_plan() };
+    *daemon.session_row.lock().expect("session row") =
+        Some(SessionRecord { plan: Some(plan), waiting_for: Vec::new(), ..long_lived() });
+    let app = router(Served::by(daemon, run_id(), Broadcaster::new()));
+    let said = through_the_door(&app, "record_plan", PLAN).await;
+    assert!(
+        said.contains(r#""stands":"This plan stands approved as recorded: its step does not ask the owner, or he already approved what it lists, so Fleet puts no plan to him. Carry on with its tasks, and do not wait for or ask about its approval.""#),
+        "{said}"
+    );
+    assert!(!said.contains(r#""held""#), "a plan that stands is not held: {said}");
+}
+
 #[tokio::test]
 async fn record_plan_names_each_window_that_holds_it_and_what_settles_it() {
     let daemon = FakeDaemon::new(Broadcaster::new());
