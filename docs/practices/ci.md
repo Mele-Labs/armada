@@ -215,7 +215,9 @@ Like `foundations`, it is a job of its own and runs on every change: a root Chec
 
 **A Job runs it before its pull request opens.**
 `apps/desktop/armada.yml` declares `format_check` with `runs_at: pre_pr`, so Fleet runs it when the agent goes to open the pull request, and refuses `gh pr create` with the log tail until it passes.
-It is declared there because a Bridge change reaches that manifest; a change under `apps/store` or `apps/pocket` alone does not, and CI is the first to read it.
+`apps/pocket/armada.yml` and `apps/store/armada.yml` declare it too, because a change under either alone does not reach Bridge's manifest.
+It refuses while the slot holds an uncommitted change, since the check reads the files on disk and the pull request carries only what is committed.
+Where Fleet cannot be reached, the first `gh pr create` is turned away once saying so, and the second opens the pull request without the check.
 
 **To fix a red `format`, run `pnpm format` and commit what it changes.**
 A Drone is refused a bare `pnpm`, so it runs `armada run format`.

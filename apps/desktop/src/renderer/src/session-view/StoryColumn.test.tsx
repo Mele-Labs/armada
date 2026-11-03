@@ -400,6 +400,48 @@ test("a group handed to a Job still running stands in Now though the parent tick
   expect(cardsIn(zoneOf(host, "Done"))).toEqual([]);
 });
 
+const pullRequest = (number: number, title: string, state: "draft" | "open" | "merged") => ({
+  kind: "pull_request",
+  number,
+  title,
+  branch: `armada/change-${number}`,
+  address: `https://git.example/pull/${number}`,
+  checks: {
+    state: "passed",
+  },
+  state,
+  auto: false,
+});
+const ticket = (number: string, title: string, state: "open" | "closed") => ({
+  kind: "issue",
+  number,
+  title,
+  address: `https://tracker.example/browse/${number}`,
+  state,
+});
+
+test("a draft pull request and an open ticket stand in Now, and Done holds only the merged and the closed", () => {
+  const holding = {
+    ...session("idle"),
+    attachments: [
+      ticket("ABC-12", "Default rate is missing from the stack", "open"),
+      ticket("ABC-9", "Rate picker shows a stale par rate", "closed"),
+      pullRequest(41, "Let leverage options submit a below-par rate", "draft"),
+      pullRequest(40, "Read the par rate from the stack", "merged"),
+    ],
+  } as unknown as Session;
+  const host = mount(holding);
+  const done = zoneOf(host, "Done")?.textContent ?? "";
+  expect(done).not.toContain("Let leverage options submit a below-par rate");
+  expect(done).not.toContain("Default rate is missing from the stack");
+  expect(done).toContain("Read the par rate from the stack");
+  expect(done).toContain("Rate picker shows a stale par rate");
+  const now = zoneOf(host, "Now")?.textContent ?? "";
+  expect(now).toContain("Let leverage options submit a below-par rate");
+  expect(now).toContain("Default rate is missing from the stack");
+  expect(now).not.toContain("Read the par rate from the stack");
+});
+
 test("the Waiting on you line for a plain draft opens its card as a tab on the Job, and pressing it again opens no second", () => {
   forgetPanes();
   const release = drawLayersAsTabs(ID, () => false);
