@@ -3,20 +3,22 @@
 // what a press is. The letters that go to a part (`l`, `f`) are the deck's own for the same places, so the same key goes
 // to the same place. The list motions (`move_focus`, `open`, `close`) are the registry's `list` rows, shared with the deck.
 //
-// Focus is the cursor, as the deck has it: three parts (the list, the reader, the foot tools), a key to each, arrows
-// inside each, Esc backing out a level. A key stands down in a text field and while a dialog is up.
+// Focus is the cursor, as the deck has it: two parts (the list, and the reader with its panes), a key to each and one to the
+// tools pane, arrows inside each, Esc backing out a level. A key stands down in a text field and while a dialog is up.
 
 import { useEffect } from "react";
 import { isPressed, pressedSlot } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
+import { focusIn } from "../job-panes/keys";
+import { prPanes } from "../job-panes/store";
+import { toolsPaneOf } from "./panes";
 import { useReviewStore, useReviews, type ReviewStore } from "./store";
 
 const ZONES = [
   ".pr-list",
   ".pr-reader",
-  ".deck-controls",
 ] as const;
 const zoneOf = (target: Element): (typeof ZONES)[number] | undefined =>
   ZONES.find((one) => target.closest(one) !== null);
@@ -49,19 +51,24 @@ function focusList(): void {
 function focusReader(): void {
   document.querySelector<HTMLElement>(".pr-reader")?.focus();
 }
-/** The explanation tiles in Flight control: the one shown, else the first. */
-function focusExplanations(): void {
-  const tiles = all(".deck-controls .pr-tool[data-explains]");
-  (tiles.find((one) => one.getAttribute("aria-pressed") === "true") ?? tiles[0])?.focus();
+/** The pane that holds the open pull request's tools, else an empty one, where a tool opens. */
+const toolsPane = (open: string | undefined): string | undefined =>
+  open === undefined ? undefined : toolsPaneOf(prPanes.peek(open))?.id;
+/** The tools pane's + menu, which lists the explanations first and then the tools. */
+function openToolsMenu(open: string | undefined): void {
+  const pane = toolsPane(open);
+  if (pane === undefined) return;
+  document
+    .querySelector<HTMLElement>(`.pr-reader [data-pane="${pane}"] button[aria-label="Add tab"]`)
+    ?.click();
 }
-function focusTools(): void {
-  const tiles = all(".deck-controls .pr-tool");
-  (tiles.find((one) => one.getAttribute("aria-pressed") === "true") ?? tiles[0])?.focus();
+function focusTools(open: string | undefined): void {
+  const pane = toolsPane(open);
+  if (pane !== undefined) focusIn(pane);
 }
 const FOCUS = {
   ".pr-list": focusList,
   ".pr-reader": focusReader,
-  ".deck-controls": focusTools,
 } as const;
 
 /**
@@ -134,15 +141,7 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
       take();
       return document.querySelector<HTMLElement>(".pr-reader")?.focus();
     }
-    if (
-      pr !== undefined &&
-      (snap.work[pr.key]?.view ?? "explanation") !== "explanation" &&
-      here !== ".pr-list"
-    ) {
-      take();
-      return store.setView(pr.key, "explanation");
-    }
-    if (here === ".pr-reader" || here === ".deck-controls") {
+    if (here === ".pr-reader") {
       take();
       return focusList();
     }
@@ -160,7 +159,7 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
   const part = pressedSlot("review_panel", event);
   if (part === 0) return (take(), focusList());
   if (part === 1) return (take(), focusReader());
-  if (part === 2) return (take(), focusTools());
+  if (part === 2) return (take(), focusTools(snap.open));
   if (isPressed("review_lists", event)) {
     take();
     return document.querySelector<HTMLElement>(".pr-list__pick button")?.click();
@@ -185,7 +184,7 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
   if (pr !== undefined) {
     if (isPressed("review_quick", event)) {
       take();
-      return focusExplanations();
+      return openToolsMenu(snap.open);
     }
     if (isPressed("review_ask", event)) {
       take();
@@ -268,17 +267,5 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
       }
     }
     return;
-  }
-
-  if (here === ".deck-controls") {
-    if (vertical || sideways) {
-      take();
-      const tiles = all(".deck-controls .pr-tool");
-      return step(tiles, target, sideways ? (event.key === "ArrowRight" ? 1 : -1) : by);
-    }
-    if (event.key === "Enter" && target.closest("button") !== null) {
-      take();
-      return target.closest<HTMLElement>("button")!.click();
-    }
   }
 }

@@ -130,13 +130,134 @@
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
-.pr-reader__body {
+/* The line when the pull request has moved since he looked: one row, the commits and the two acts at fixed places. */
+.pr-moved {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-1) var(--space-4);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.pr-moved .armada-pr-mark {
+  color: var(--status-awaiting-review);
+}
+.pr-moved__said {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The panes under the head: each pane is its own frame, so the area reaches the reader's edges with a gutter all round. */
+.pr-reader__panes {
+  display: flex;
   flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
   min-height: 0;
-  padding: var(--space-2) var(--space-4) var(--space-4);
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  padding: var(--deck-gutter);
   border-top: var(--border-width) solid var(--border-subtle);
+}
+.pr-reader__layout {
+  display: contents;
+}
+.pr-pane__files .armada-pr-files {
+  min-height: 0;
+}
+
+/* ---- The Comments pane: every thread by where it is, the resolved folded under their count ---------------- */
+
+.pr-threads {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.pr-threads__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pr-threads__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+/* The chevron and the mark are fixed columns, so every row's place and words start at one edge. */
+.pr-threads__row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-1);
+  min-width: 0;
+}
+.pr-threads__mark {
+  display: inline-flex;
+  align-items: center;
+}
+.pr-threads__go {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pr-threads__go:hover {
+  background: color-mix(in srgb, var(--fg-default) 10%, transparent);
+}
+.pr-threads__go:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+.pr-threads__where {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pr-threads__said {
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.pr-threads__said > .pr-card__who {
+  flex: none;
+}
+.pr-threads__body {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pr-threads__item[data-resolved] .pr-threads__where {
+  color: var(--fg-muted);
+}
+.pr-threads__card {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.pr-threads__fold {
+  display: flex;
 }
 
 /* ---- What hangs under a line ---------------------------------------------------------------------------- */
@@ -1069,6 +1190,16 @@
 .pr-results__stale .armada-pr-mark {
   color: var(--status-awaiting-review);
 }
+.pr-results__not-run {
+  align-items: center;
+  gap: var(--space-3);
+}
+.pr-results__spends {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
 .pr-results__stale {
   display: flex;
   align-items: center;
@@ -1219,3 +1350,62 @@
 }
 
 /* Pending: the row as it will be, in bars. The wrapper takes the line the text takes, so the row is the height it lands at. */
+
+/* ---- A pull request's pane with no tab: every tool, one row each, in fixed columns -------------------- */
+
+.pr-tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.pr-tool-list__rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* The glyph, the eclipse, the key and the mark keep their columns on a row that has no key or no mark. */
+.pr-tool-list__row {
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, 1fr) var(--space-4) var(--space-6) var(--space-4);
+  align-items: center;
+  column-gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.pr-tool-list__row:hover {
+  background: color-mix(in srgb, var(--fg-default) 10%, transparent);
+}
+.pr-tool-list__row:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+.pr-tool-list__glyph {
+  color: var(--tool-hue);
+}
+.pr-tool-list__glyph,
+.pr-tool-list__hides,
+.pr-tool-list__mark {
+  display: inline-flex;
+  align-items: center;
+}
+.pr-tool-list__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pr-tool-list__key {
+  display: inline-flex;
+  justify-content: flex-end;
+}

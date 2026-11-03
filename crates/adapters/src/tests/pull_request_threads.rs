@@ -13,10 +13,10 @@ fn lines(records: &[&str]) -> Vec<String> {
 fn a_thread_is_its_first_comment_and_the_replies_after_it() {
     let threads = threads_folded(&lines(&[
         "thread\tPRRT_1\tfalse\tfalse\tsrc/a.rs\t42\tRIGHT",
-        "tc\tPRRC_1\tada\t2026-10-15T09:00:00Z\twhy?\\nreally",
-        "tc\tPRRC_2\tgrace\t2026-10-15T09:05:00Z\tbecause",
+        "tc\tPRRC_1\tada\tUser\t2026-10-15T09:00:00Z\t\twhy?\\nreally",
+        "tc\tPRRC_2\tgrace\tUser\t2026-10-15T09:05:00Z\t\tbecause",
         "thread\tPRRT_2\ttrue\tfalse\tsrc/b.rs\t7\tLEFT",
-        "tc\tPRRC_3\tada\t2026-10-15T10:00:00Z\tgone",
+        "tc\tPRRC_3\tada\tUser\t2026-10-15T10:00:00Z\t\tgone",
     ]));
     assert_eq!(threads.len(), 2);
     let first = &threads[0];
@@ -32,9 +32,9 @@ fn a_thread_is_its_first_comment_and_the_replies_after_it() {
 fn an_outdated_thread_and_a_file_thread_have_no_line() {
     let threads = threads_folded(&lines(&[
         "thread\tPRRT_1\tfalse\ttrue\tsrc/a.rs\t42\tRIGHT",
-        "tc\tPRRC_1\tada\t2026-10-15T09:00:00Z\tmoved",
+        "tc\tPRRC_1\tada\tUser\t2026-10-15T09:00:00Z\t\tmoved",
         "thread\tPRRT_2\tfalse\tfalse\tsrc/b.rs\t\t",
-        "tc\tPRRC_2\tada\t2026-10-15T09:00:00Z\twhole file",
+        "tc\tPRRC_2\tada\tUser\t2026-10-15T09:00:00Z\t\twhole file",
     ]));
     assert_eq!(threads[0].line, None, "the line has changed under it");
     assert_eq!(threads[1].line, None, "the forge named none");
@@ -45,19 +45,35 @@ fn an_outdated_thread_and_a_file_thread_have_no_line() {
 fn a_comment_by_an_account_that_is_gone_is_by_ghost() {
     let threads = threads_folded(&lines(&[
         "thread\tPRRT_1\tfalse\tfalse\tsrc/a.rs\t1\tRIGHT",
-        "tc\tPRRC_1\t\t2026-10-15T09:00:00Z\tstill here",
+        "tc\tPRRC_1\t\t\t2026-10-15T09:00:00Z\t\tstill here",
     ]));
     assert_eq!(threads[0].comments[0].author, "ghost");
+}
+
+#[test]
+fn a_comment_says_when_it_was_edited_and_whether_an_app_wrote_it() {
+    let threads = threads_folded(&lines(&[
+        "thread\tPRRT_1\tfalse\tfalse\tsrc/a.rs\t1\tRIGHT",
+        "tc\tPRRC_1\tada\tUser\t2026-10-15T09:00:00Z\t2026-10-15T09:20:00Z\tsaid again",
+        "tc\tPRRC_2\tlint-app\tBot\t2026-10-15T09:30:00Z\t\tfound one",
+        "tc\tPRRC_3\tdeploy[bot]\t\t2026-10-15T09:40:00Z\t\tdeployed",
+    ]));
+    let said = &threads[0].comments;
+    assert_eq!(said[0].id, "PRRC_1");
+    assert_eq!(said[0].edited_at.as_deref(), Some("2026-10-15T09:20:00Z"));
+    assert!(!said[0].bot, "a person");
+    assert_eq!((said[1].bot, said[1].edited_at.as_deref()), (true, None), "never edited");
+    assert!(said[2].bot, "the REST spelling of an app's login is one too");
 }
 
 #[test]
 fn a_thread_with_nothing_said_and_a_notice_are_left_out() {
     let threads = threads_folded(&lines(&[
         "a notice the tool printed",
-        "tc\tPRRC_0\tada\t2026-10-15T08:00:00Z\tbefore any thread",
+        "tc\tPRRC_0\tada\tUser\t2026-10-15T08:00:00Z\t\tbefore any thread",
         "thread\tPRRT_1\tfalse\tfalse\tsrc/a.rs\t1\tRIGHT",
         "thread\tPRRT_2\tfalse\tfalse\tsrc/b.rs\t1\tRIGHT",
-        "tc\tPRRC_2\tada\t2026-10-15T09:00:00Z\tonly one",
+        "tc\tPRRC_2\tada\tUser\t2026-10-15T09:00:00Z\t\tonly one",
     ]));
     assert_eq!(threads.len(), 1);
     assert_eq!(threads[0].id, "PRRT_2");

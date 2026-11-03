@@ -59,6 +59,7 @@ The Field is not in this region: it stands in the Cockpit's lower left as `field
 
 `dashboard.tabs` went with the old Cockpit (#2301), and `job.tabs` with the Job's tabs, so a layout that names either is ignored like any region this build does not have.
 A layout is machine-wide, with no repository in it.
+The layouts a person saves from the Layout control over a Job's panes, or a pull request's in Reviews, are not layout mods: they are kept on this Mac for that kind of owner alone ([Pull review](pull-review.md), *The panes*).
 
 A hidden entry leaves the strip or the bar and nothing else. It stays in the palette and in links, so an act that jumps to it still lands.
 

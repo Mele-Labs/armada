@@ -762,7 +762,7 @@ export const ACTIONS: readonly Action[] = [
     id: "review_quick",
     kind: "Action",
     tier: "Contextual",
-    verb: "Go to the explanations",
+    verb: "Open the tools menu",
     icon: null,
     iconAbsent: "undecided",
     shortcut: "Q",

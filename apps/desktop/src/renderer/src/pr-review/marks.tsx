@@ -13,6 +13,7 @@ import {
   CircleHelp,
   CircleX,
   ClipboardList,
+  Eclipse,
   FlaskConical,
   Footprints,
   FolderGit2,
@@ -146,6 +147,19 @@ export function ChecksMark({ checks }: { checks: ReviewPr["checks"] }) {
       <PrMark Glyph={one.Glyph} said={one.said} tone={one.tone} />
     </span>
   );
+}
+
+/** Kit's tool standing in for the repository's of the same id that says something else: the eclipse, naming what it hides. Nothing where it hides nothing. */
+export function HidesMark({
+  tool,
+}: {
+  tool: {
+    name: string;
+    hides?: ToolSource;
+  };
+}) {
+  if (tool.hides !== "repository") return null;
+  return <PrMark Glyph={Eclipse} said={`Hides the repository's ${tool.name}`} />;
 }
 
 /** A run that failed: Fleet's reason, where the result would be. It is never a result. */

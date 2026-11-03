@@ -70,6 +70,7 @@ const EMPTY: PrWork = {
   asks: [],
   view: "explanation",
   runs: {},
+  runsRead: false,
   opened: [],
   drafts: [],
   threads: [],
