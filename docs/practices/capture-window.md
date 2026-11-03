@@ -320,7 +320,7 @@ this window, and that is another security review. `#1294`.
 | Bridge's cookies and cache | None | Its own job partition |
 | The filesystem | None | Downloads refused, `file:` never loaded |
 | The screen | None | Fullscreen and pointer lock denied, and every permission but one |
-| An app on this machine | Local network access, for the shown origin and the `origins` a Job names | `local-network-access` is the one permission granted, to those origins only |
+| An app on this machine | Any, from any origin, since Electron makes no local network check | Nothing today: `local-network-access` is the one permission granted, but Electron never asks for it |
 | A dialog that looks like Armada's | None | `disableDialogs` |
 
 > **Rule.** The table is the walk window's. A Job browser page runs under the same
@@ -349,6 +349,8 @@ this window, and that is another security review. `#1294`.
 > Why: a single sign-on provider's page may verify the person through an app
 > running on this machine, which it reaches over the local network. Refused, the
 > sign-in fails, and the walk window has no site settings to allow it.
+> **This exception holds nothing back today.** Electron switches off Chromium's check and never asks for the permission, so a walk's page reaches this machine from any origin.
+> A Job browser's page is checked by Armada itself (`docs/concepts/session/job-browser.md`, *Site settings*), and a walk's page is not.
 
 ## What a person sees
 

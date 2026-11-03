@@ -65,6 +65,11 @@ The site file in main is `{ defaults: {...}, "<repoKey>": { sites } }`.
 Moving a row away from Allow does not confirm.
 Why: a page the agent opens gets what the person allowed.
 
+**Armada makes the Local network check itself** (`reachTest`), since Electron switches off Chromium's (`LocalNetworkAccessChecks`, which `--enable-features` cannot turn back on) and so never asks a session for `local-network-access`.
+Each request a page makes from a more public address to a more private one takes the row's answer: public, then this network, then this Mac.
+A host name is looked up and its answer kept for a minute, so a site's own name for 127.0.0.1 counts as this Mac.
+Not checked: an address opened in the page itself, typed or set by the page, so the person can always go to one; WebRTC; a service worker's own requests, which carry no page; and a name whose answer changes inside its minute.
+
 | Row | What the page gets |
 |---|---|
 | Downloads | The row answers a download. Allow goes through Electron's save dialog |
