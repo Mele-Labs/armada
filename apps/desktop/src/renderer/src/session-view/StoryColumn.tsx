@@ -467,7 +467,7 @@ export function StoryColumn({
   const agentRow =
     stopped !== undefined ? (
       <WorkBeat
-        needs
+        needs={idleState.state === "stopped_asks"}
         mark={<Lead Glyph={sessionGlyphOf("stopped")} said="Stopped" />}
         name={stoppedSaid(stopped)}
         line={stopped.said}
@@ -536,7 +536,6 @@ export function StoryColumn({
           ) : null,
         )}
         {agentRow}
-        {stopped?.restart === "failed" ? <FleetBeat said="Restart failed" /> : null}
         {actsNow.map((one) => (
           <FleetBeat key={one.id} said={one.said} why={one.why} since={one.at} />
         ))}

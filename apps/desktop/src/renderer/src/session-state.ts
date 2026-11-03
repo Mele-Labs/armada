@@ -67,15 +67,11 @@ export const restartSaid = (stopped: Stopped): string | undefined =>
         ? "Restart failed"
         : undefined;
 
-/** Why a Job stopped, as the first line of Now and the mark's tooltip say it. The tasks it left open are named in Now, not counted there. */
+/** Why a Job stopped, as the first line of Now and the mark's tooltip say it. The tasks it left open are named in Now. */
 export function stoppedSaid(stopped: Stopped): string {
   switch (stopped.reason) {
-    case "tasks_open": {
-      const open = stopped.tasks?.length ?? 0;
-      return open === 0
-        ? "Stopped: ended its turn"
-        : `Stopped: ended its turn with ${open} ${open === 1 ? "task" : "tasks"} open`;
-    }
+    case "tasks_open":
+      return "Stopped: ended its turn with tasks open";
     case "process_gone":
       return "Stopped: process ended";
     case "fleet_down": {
@@ -123,7 +119,8 @@ export function stateOf(session: Session): {
   if (session.stopped !== undefined) {
     const restart = restartSaid(session.stopped);
     return {
-      state: "stopped",
+      // Amber only once Fleet has given up on bringing it back: while a nudge or a restart is coming, nothing is asked of him.
+      state: owesOf(session).some((one) => (one.source as string) === "stopped") ? "stopped_asks" : "stopped",
       said:
         restart === undefined
           ? stoppedSaid(session.stopped)

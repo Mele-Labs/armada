@@ -790,7 +790,7 @@ export function shipOf(input: Inputs): Ship {
       kind:
         waits !== undefined
           ? callKindOf(waits.source)
-          : session !== undefined && stateOf(session).state === "stopped"
+          : session !== undefined && stateOf(session).state.startsWith("stopped")
             ? "Job"
             : subject.mark.said,
       title: subject.title,

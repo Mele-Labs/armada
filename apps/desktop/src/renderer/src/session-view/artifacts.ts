@@ -142,6 +142,7 @@ const TONE: Record<SessionState, SessionLedgerTone> = {
   paused: "pending",
   unstarted: "failed",
   stopped: "stopped",
+  stopped_asks: "stopped",
 };
 
 /** A web address as its row titles it: the host and the path, with no scheme, query or trailing slash. Nothing is fetched. */

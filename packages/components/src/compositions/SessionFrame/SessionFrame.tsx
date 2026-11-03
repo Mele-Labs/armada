@@ -16,7 +16,7 @@ import {
   MessageSquareDashed,
   MoveRight,
   Power,
-  PowerOff,
+  Square,
   Radar,
   Reply,
   RotateCw,
@@ -68,7 +68,8 @@ export type SessionState =
   | "held"
   | "paused"
   | "unstarted"
-  | "stopped";
+  | "stopped"
+  | "stopped_asks";
 
 /**
  * `stuck` is a turn running that has been quiet, `replied` a turn that ended on the agent's message
@@ -93,7 +94,8 @@ const MARK: Record<SessionState, LucideIcon> = {
   held: Radar,
   paused: CirclePause,
   unstarted: X,
-  stopped: PowerOff,
+  stopped: Square,
+  stopped_asks: Square,
 };
 
 /**
@@ -108,13 +110,14 @@ export function bucketOf(state: SessionState): JobBucket {
     state === "waiting" ||
     state === "done" ||
     state === "unstarted" ||
-    state === "stopped" ||
+    state === "stopped_asks" ||
     state === "stuck" ||
     state === "failing"
   )
     return "needs";
   if (state === "working") return "working";
-  if (state === "held" || state === "limited" || state === "after") return "waiting";
+  if (state === "held" || state === "limited" || state === "after" || state === "stopped")
+    return "waiting";
   if (state === "draft" || state === "blank") return "draft";
   return "idle";
 }

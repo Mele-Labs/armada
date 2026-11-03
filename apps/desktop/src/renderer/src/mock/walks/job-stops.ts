@@ -16,14 +16,14 @@ const done = region("Done", {
 const jobStops = walk("jobStops", [
   {
     hover: inside(deckRow("Fix the merge queue retry"), role("img", /^Stopped: /)),
-    say: "The mark on a stopped Job. Its tooltip gives the reason",
+    say: "The mark on a stopped Job. Its card gives the reason",
   },
   {
     press: deckRow("Fix the merge queue retry"),
     say: "It ended its turn with two tasks open",
   },
   {
-    look: inside(now, text("Stopped: ended its turn with 2 tasks open")),
+    look: inside(now, text("Stopped: ended its turn with tasks open")),
     say: "Now leads with the stop and names the tasks it left",
   },
   {
@@ -49,7 +49,7 @@ const jobStops = walk("jobStops", [
   },
   {
     press: deckRow("Phone review of everything"),
-    say: "Fleet was down when its turn ended",
+    say: "Fleet was down when its turn ended. Not amber, since Fleet is bringing it back",
   },
   {
     look: inside(now, text("Stopped: Fleet was down, 16:10 to 16:57")),
@@ -57,21 +57,17 @@ const jobStops = walk("jobStops", [
   },
   {
     press: deckRow("Tell the phone what holds a Job"),
-    say: "Its process ended and the restart failed",
+    say: "Its process ended and the restart failed, so it is amber",
   },
   {
     press: button("Needs you", {
       exact: true,
     }),
-    say: "Needs you holds one answer",
+    say: "Needs you holds one answer. Carry on sends the Job a word",
   },
   {
-    look: text("Carry on"),
-    say: "Carry on sends the Job a word",
-  },
-  {
-    look: inside(now, text("Restart failed")),
-    say: "Now gives what the process said, then how the restart went",
+    look: inside(now, text("Stopped: process ended")),
+    say: "Now gives what the process said",
   },
   {
     press: deckRow("Rewrite the importer"),

@@ -136,9 +136,6 @@ const retry: Session = {
     act("js-1-f4", ago(17), "over", "restart", "Restarted the agent: process ended", {
       why: "The agent's process ended mid-turn",
     }),
-    act("js-1-f5", ago(9), "over", "step", "Moved to Tests", {
-      why: "The step's work was done",
-    }),
     act("js-1-f6", NUDGE_AT, "coming", "nudge", `Nudge at ${clock(NUDGE_AT)}`, {
       until: NUDGE_AT,
       why: "It ended its turn with tasks open",
