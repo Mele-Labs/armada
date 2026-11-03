@@ -129,3 +129,47 @@ fn a_workflow_that_delivers_nothing_runs_it_on_its_last_sweeping_step() {
         ["build", "storybook", "e2e"]
     );
 }
+
+/// A repository whose formatter check belongs to the moment a pull request opens.
+const PRE_PR: &str = r#"
+version: 1
+id: shop
+checks:
+  build:
+    run: cargo build
+  format_check:
+    run: pnpm format:check
+    runs_at: pre_pr
+"#;
+
+#[test]
+fn pre_pr_is_read_and_is_never_asked_mid_step() {
+    let read = Manifest::parse(&named("armada.yml"), PRE_PR).expect("the fixture manifest");
+    let declared = read.check("format_check").unwrap().runs_at();
+    assert_eq!(declared, RunsAt::PrePr);
+    assert_eq!(declared.as_wire(), "pre_pr");
+    assert_eq!(RunsAt::from_wire("pre_pr"), Some(RunsAt::PrePr));
+    assert!(!declared.mid_step());
+}
+
+/// **`every_manifest_check` never lifts one**, on any step: a pre-PR Check runs
+/// where a pull request opens and nowhere else.
+#[test]
+fn no_step_gating_on_every_check_lifts_a_pre_pr_check() {
+    let manifest = Manifest::parse(&named("armada.yml"), PRE_PR).expect("the fixture manifest");
+    let def = WorkflowDef::parse(
+        &named("workflows/feature.json"),
+        FEATURE,
+        &crate::Roster::of(["haiku"]),
+    )
+    .expect("the workflow parses");
+    let workflow = ResolvedWorkflow::resolve(&def, &manifest).expect("every name declared");
+    let lifted: Vec<&str> = workflow
+        .steps()
+        .iter()
+        .flat_map(ResolvedStep::checks)
+        .filter_map(ResolvedCheck::name)
+        .collect();
+    assert!(lifted.contains(&"build"), "{lifted:?}");
+    assert!(!lifted.contains(&"format_check"), "{lifted:?}");
+}
