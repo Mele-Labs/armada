@@ -2,7 +2,7 @@
 //! or on anything it lists, and a plan recorded after one of those stands with no card. A step that says
 //! `plan_unasked` never asks. A walk step ends only when every walk the Job showed is approved, and a
 //! rough walk he approved is that walk.** The owner's decision of 2 Nov 2026, in
-//! `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`.
+//! the decision record `2026-10-27-a-feature-job-walks-before-it-tests.md`.
 //!
 //! The first half is the rules, pure. The second drives a Fleet with a workflow shaped as `feature` is.
 
