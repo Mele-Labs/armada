@@ -9,6 +9,7 @@ import type {
   DeleteLifecyclePiece,
   KeepJobPiece,
   SaveLifecyclePiece,
+  TeachTicketWord,
 } from "@armada/protocol";
 
 import { CHANNELS } from "../shared/bridge";
@@ -86,6 +87,18 @@ export function saveOf(body: unknown): SaveLifecyclePiece | null {
   };
 }
 
+/** A tracker's status to teach as a Ticket state, or `null` for anything else. Which states the Ticket has is Fleet's to say. */
+export function teachOf(body: unknown): TeachTicketWord | null {
+  if (typeof body !== "object" || body === null) return null;
+  const { manifest_id, word, state } = body as Record<string, unknown>;
+  if (!named(manifest_id) || !named(word) || !named(state)) return null;
+  return {
+    manifest_id,
+    word,
+    state,
+  };
+}
+
 /** One piece to delete, or `null` for anything else. */
 export function deleteOf(body: unknown): DeleteLifecyclePiece | null {
   if (typeof body !== "object" || body === null) return null;
@@ -135,6 +148,10 @@ export function handleLifecycles({ ipc, connection }: Hosts): void {
   ipc.handle(CHANNELS.saveLifecyclePiece, (_event, body: unknown) => {
     const save = saveOf(body);
     return save === null ? unsent : (host()?.save(save) ?? unsent);
+  });
+  ipc.handle(CHANNELS.teachTicketWord, (_event, body: unknown) => {
+    const teach = teachOf(body);
+    return teach === null ? unsent : (host()?.teach(teach) ?? unsent);
   });
   ipc.handle(CHANNELS.deleteLifecyclePiece, (_event, body: unknown) => {
     const remove = deleteOf(body);

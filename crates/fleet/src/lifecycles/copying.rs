@@ -1,6 +1,8 @@
 //! The lifecycles, rules and autonomy defaults a Job started with, read back from the copy it
 //! froze. **A Job keeps the copy it started with**, so a rule or a lifecycle saved afterwards
 //! reaches only the Jobs started after it.
+//! The one exception is a word the owner teaches a ticket's state from its row: it reaches the
+//! live Jobs' copies in that scope at once.
 //!
 //! A Job that froze none, which is every Job started before this existed, has no rules and reads
 //! the lifecycles that apply now ([`Fleet::lifecycles_of_job`]).

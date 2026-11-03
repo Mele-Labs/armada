@@ -54,7 +54,9 @@ const PROGRAM: &str = "armada";
 /// its person a red line and shows the model nothing at all, so every answer
 /// below — including "Armada is not running" — is an MCP session that opened.
 pub fn speak() -> ExitCode {
-    match reached() {
+    let hosted = std::env::var(adapters::leasing::Holder::SESSION_ENV).is_ok();
+    let patience = if hosted { RESTART_PATIENCE } else { std::time::Duration::ZERO };
+    match reached_patiently(patience, RESTART_POLL, reached) {
         Ok(reached) => {
             if let Some(said) = &reached.adopted {
                 eprintln!("armada mcp: {said}");
@@ -518,6 +520,25 @@ pub(crate) fn said_at_handshake(adopted: Option<&str>, env: impl Fn(&str) -> Opt
 /// How long a call waits for a Fleet that is restarting, and how often it asks.
 const RESTART_PATIENCE: std::time::Duration = std::time::Duration::from_secs(90);
 const RESTART_POLL: std::time::Duration = std::time::Duration::from_secs(1);
+
+/// `reach`, retried every `poll` until `patience` has passed.
+///
+/// **Only the relay of a Job Fleet hosts waits.** Such an agent can start while Fleet restarts, and
+/// a door that went mute on the first miss serves no tools for the life of the process. `armada
+/// job` calls `reached` directly and keeps its one try.
+pub(crate) fn reached_patiently<T>(
+    patience: std::time::Duration,
+    poll: std::time::Duration,
+    mut reach: impl FnMut() -> Result<T, String>,
+) -> Result<T, String> {
+    let began = std::time::Instant::now();
+    loop {
+        match reach() {
+            Err(_) if began.elapsed() < patience => std::thread::sleep(poll),
+            reached => return reached,
+        }
+    }
+}
 
 /// One message to Fleet. **A port nothing listens on is waited out**, because a
 /// session's agent now outlives a Fleet restart and its permission asks must

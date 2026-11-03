@@ -23,6 +23,7 @@ use store::{AttachmentState, Holder, HolderKind, KeptAttachment, Store, WriteErr
 
 use crate::backlog::ClaimLost;
 use crate::daemon::Fleet;
+use crate::lifecycles::reading::tracker_word;
 
 /// The ledger's kind for an issue a Session works on. `target` is its [`IssueReference`].
 pub(crate) const ISSUE: &str = "issue";
@@ -38,6 +39,10 @@ pub(crate) const PULL_REQUESTS: &str = "pull_requests";
 /// The detail key naming who the Job claimed the issue as in a backlog Fleet writes to. A row
 /// without it was named, not claimed, and the backlog naming someone else for it is no lost claim.
 pub(crate) const CLAIMED_AS: &str = "claimed_as";
+
+/// The detail key carrying the issue's status in the tracker's own words (`Ready for QA`), as a
+/// Ticket lifecycle reads it, so Bridge can offer to say which Ticket state it means.
+pub(crate) const STATUS: &str = "status";
 
 /// The detail key saying the Job claimed the issue (`claim_issue`), as against one it filed or was told of.
 /// Bridge draws a claimed issue as work in hand and any other as set aside.
@@ -311,9 +316,11 @@ where
                 continue;
             };
             self.lifecycle_ticket_seen(manifest_id, issue.as_str(), &read).await;
+            let status = tracker_word(&read);
             let fresh = [
                 ("title", read.title.as_written()),
                 ("state", if read.closed { "closed" } else { "open" }),
+                (STATUS, status.as_str()),
                 ("address", read.url.as_written()),
             ];
             self.issue_follows(manifest_id.as_str(), &issue, &fresh).await;

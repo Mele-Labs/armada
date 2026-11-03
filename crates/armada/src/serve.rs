@@ -435,6 +435,12 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             );
             fleet::keep_ending_orphans(fleet::orphans::EVERY, |said| eprintln!("{said}"));
             reconciliation.finished();
+            // After every loop that moves a Job runs and commands are let through, so a Job whose
+            // process died with a turn open is started into a Fleet that can answer it.
+            tokio::spawn({
+                let fleet = Arc::clone(&fleet);
+                async move { fleet.open_turns_started().await }
+            });
             Ok(())
         }
     };

@@ -35,6 +35,7 @@ mod session_plan;
 mod session_focus;
 mod session_rail;
 mod session_limit;
+mod session_open_turn;
 mod session_loadout;
 mod session_turn_usage;
 mod usage_summary;
@@ -177,6 +178,7 @@ pub use logbook::{
     logbook_words, LogEntry, LogEvidence, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState, LogTopic,
 };
 pub use session_waits::KeptWait;
+pub use session_open_turn::KeptOpenTurn;
 pub use session_build::{KeptBuild, KeptTask, LandedPull, RoadAsk, RoadTimes, WorkTimes};
 pub use session_turn_usage::KeptTurnUsage;
 pub use usage_summary::{turn_units, DayUsage, Named, PriorUsage, UsageSplit, UsageSummaryRead, TOP_SESSIONS};

@@ -44,6 +44,7 @@ Doctor stays readable when Fleet dies through `armada doctor --json`, a short-li
 - **On any restart.** Reconciles against what is live, for every repository it serves.
   The servers a crashed Fleet left running are ended first, so the ports they held are free.
   A hosted Job's agent survived in its keeper and is reattached ([Job](session.md), *What a restart does to a job*).
+  A Job with a turn open and no keeper starts again, once, after reconciliation.
   A slot still held by a Job that ended is parked.
   A Scout does not outlive the Fleet reading it.
 - **While it reconciles.** The listener serves first and reconciliation runs in a task of its own.
