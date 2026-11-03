@@ -161,3 +161,51 @@ fn an_empty_change_gates_nothing() {
     let workspaces = [workspace("a", &[])];
     assert!(gating(&root(), &workspaces, &[]).is_empty());
 }
+
+fn with_checks(dir: &str, checks: &str) -> Manifest {
+    let text = format!("version: 1\nid: {dir}\nchecks:\n{checks}");
+    Manifest::parse_workspace(&Path::new(dir).join("armada.yml"), dir, &text, &root())
+        .unwrap_or_else(|why| panic!("{dir}: {why}"))
+}
+
+fn named(found: &[(&Manifest, &str)]) -> Vec<String> {
+    found
+        .iter()
+        .map(|(manifest, name)| format!("{}:{name}", manifest.dir()))
+        .collect()
+}
+
+/// **Only the workspace a change reaches is asked**, and only for the Checks written for that
+/// moment: a `pre_pr` Check of another workspace, or a plain one, is not run for it.
+#[test]
+fn the_pre_pr_checks_are_those_of_the_manifests_a_change_reaches() {
+    let desktop = with_checks(
+        "apps/desktop",
+        "  format_check:\n    run: pnpm format:check\n    runs_at: pre_pr\n  build:\n    run: pnpm build\n",
+    );
+    let other = with_checks(
+        "apps/other",
+        "  format_check:\n    run: pnpm format:check\n    runs_at: pre_pr\n",
+    );
+    let workspaces = [desktop, other];
+    let root = root();
+    let found = crate::gating::pre_pr_checks(&root, &workspaces, &changed(&["apps/desktop/src/a.ts"]));
+    assert_eq!(named(&found), ["apps/desktop:format_check"]);
+    let none = crate::gating::pre_pr_checks(&root, &workspaces, &changed(&["README.md"]));
+    assert!(none.is_empty(), "{:?}", named(&none));
+}
+
+/// A pre-PR Check's own `when` narrows it as any Check's does, against what its manifest owns.
+#[test]
+fn a_pre_pr_check_keeps_its_own_when() {
+    let desktop = with_checks(
+        "apps/desktop",
+        "  format_check:\n    run: pnpm format:check\n    runs_at: pre_pr\n    when: [\"**/*.ts\"]\n",
+    );
+    let workspaces = [desktop];
+    let root = root();
+    let found = crate::gating::pre_pr_checks(&root, &workspaces, &changed(&["apps/desktop/notes.md"]));
+    assert!(found.is_empty(), "{:?}", named(&found));
+    let found = crate::gating::pre_pr_checks(&root, &workspaces, &changed(&["apps/desktop/src/a.ts"]));
+    assert_eq!(named(&found), ["apps/desktop:format_check"]);
+}

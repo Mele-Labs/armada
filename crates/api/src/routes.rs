@@ -315,6 +315,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::sessions::show_window::<D>),
         )
         .route(
+            "/sessions/pre_pr",
+            post(crate::sessions::check_before_pr::<D>),
+        )
+        .route(
             "/sessions/withdraw_window",
             post(crate::sessions::withdraw_window::<D>),
         )

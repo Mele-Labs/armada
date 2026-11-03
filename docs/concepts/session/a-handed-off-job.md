@@ -58,6 +58,9 @@ A card with no brief still hands on, with the handoff alone.
 The parent is told the old Job was handed on and to which Job, in place of hearing that it ended, and follows the new Job's merges and its end from then on (*Linked Jobs*).
 The link waits for the end because a hand undone before then closes the new Job, which the parent would hear as an end.
 A Fleet that stopped after the old Job ended writes the link at its next start.
+
+**A wait on the old Job moves to the new one**, once the old Job has ended and the new one has its first word.
+The new Job is told of each wait as the old one was, and an end by a hand starts nothing (*A Job that waits on another*).
 Seen 30 Oct 2026: a parent told only that its child ended started a duplicate, and watched the successor's pull request itself (armada-3903).
 
 **A failure leaves one live Job, the old one as it was.** If the new Job does not start, the old Job is untouched.

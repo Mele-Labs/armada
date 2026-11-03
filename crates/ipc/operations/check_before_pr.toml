@@ -1,0 +1,14 @@
+[operations.check_before_pr]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The mod's hook asks, before an agent's gh pr create runs, whether the Checks the repository keeps for that moment pass on the Job's changes"
+notes = """
+`POST /sessions/pre_pr`, body `CheckBeforePr`: an optional `session_id`. Answered with `PrePrChecked`: `passed`, `says` (each failing Check and the tail of its log, empty where all passed) and `checks` (each Check run: its key, whether it passed and its log tail).
+
+**The Checks are those declared `runs_at: pre_pr`** in the manifests the Job's changes reach, found as `armada covers` finds them: the paths changed since the Job left its base, the manifests that gate them, and each Check whose `when` covers what its manifest owns. They run whole, in their manifest's directory in the Job's slot, one after another. A Job that changed nothing a pre-PR Check covers runs none and answers `passed`.
+
+**The Job is the one the connection places when Fleet hosts it**, else `session_id`. A call that places no Job, or a Job Fleet does not host, is refused with 422 and the hook lets the pull request open.
+
+`agent_access` is `No`: the plugin's hook is the caller, in front of `gh pr create`. `docs/contracts/configuration.md`, *Where a Check runs*.
+"""

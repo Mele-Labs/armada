@@ -141,13 +141,35 @@ where
         };
         let told = match to {
             Who::Session(id) => {
+                // **A file is told once per peer**: a later commit that adds another file to the
+                // overlap names that one, never the files the Jobs were told of and have settled.
+                // A paused peer, and main, are told by their words, since neither is a settling.
+                let live_peer = match &about {
+                    About::Peer(Peer::Session { id: peer, paused: false, .. }) => Some(peer.clone()),
+                    _ => None,
+                };
+                let paths = match &live_peer {
+                    Some(peer) => {
+                        let before = self.store().lock().await.clash_paths_told(id, peer).unwrap_or_default();
+                        paths.into_iter().filter(|path| !before.contains(path)).collect()
+                    }
+                    None => paths,
+                };
+                if live_peer.is_some() && paths.is_empty() {
+                    self.writes().told(opposed, to);
+                    return;
+                }
                 let said = session_says(&about, &paths);
                 if matches!(self.store().lock().await.clash_told_before(id, &said), Ok(true)) {
                     true
                 } else {
                     let sent = matches!(self.told_by_fleet(id, &said, ipc::Notice::WriteClash).await, Ok(true));
                     if sent {
-                        let _ = self.store().lock().await.keep_clash_told(id, &said, &self.now());
+                        let mut store = self.store().lock().await;
+                        let _ = store.keep_clash_told(id, &said, &self.now());
+                        if let Some(peer) = &live_peer {
+                            let _ = store.keep_clash_paths_told(id, peer, &paths, &self.now());
+                        }
                     }
                     sent
                 }

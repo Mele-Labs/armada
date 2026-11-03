@@ -48,7 +48,8 @@ fn a_repository() -> (TempDir, Hosted) {
     git(home.path(), &["-c", "init.defaultBranch=main", "init", "--quiet"]);
     std::fs::write(home.path().join("f.txt"), twenty_lines()).unwrap();
     std::fs::write(home.path().join("g.txt"), "g\n").unwrap();
-    git(home.path(), &["add", "f.txt", "g.txt"]);
+    std::fs::write(home.path().join("h.txt"), "h\n").unwrap();
+    git(home.path(), &["add", "f.txt", "g.txt", "h.txt"]);
     git(home.path(), &["commit", "--quiet", "-m", "start"]);
     let mut fittings = fittings(&home, FakeWorkProduct::changed(&["src/log.rs"]));
     fittings.concurrency = Concurrency::of(2);
@@ -183,7 +184,7 @@ async fn a_file_both_wrote_that_merges_clean_says_nothing() {
 }
 
 #[tokio::test]
-async fn the_same_lines_are_named_to_both_sides_once_and_again_only_when_the_files_change() {
+async fn a_file_is_named_to_both_sides_once_and_a_later_file_is_named_alone() {
     let rig = a_rig();
     rig.a_session_in_slot("sess-a", 1).await;
     rig.a_session_in_slot("sess-b", 2).await;
@@ -213,7 +214,14 @@ async fn the_same_lines_are_named_to_both_sides_once_and_again_only_when_the_fil
     rig.checks("sess-a", "sess-b").await;
     let again = rig.the_mod_asks("sess-a").await;
     let [said] = again.as_slice() else { panic!("told again: {again:?}") };
-    assert!(said.contains("`f.txt`") && said.contains("`g.txt`"), "{said}");
+    assert!(said.contains("`g.txt`") && !said.contains("`f.txt`"), "only the new file: {said}");
+
+    rig.writes("sess-a", 1, "h.txt", 1, "a's h").await;
+    rig.writes("sess-b", 2, "h.txt", 1, "b's h").await;
+    rig.checks("sess-a", "sess-b").await;
+    let last = rig.the_mod_asks("sess-a").await;
+    let [said] = last.as_slice() else { panic!("told again: {last:?}") };
+    assert!(said.contains("`h.txt`") && !said.contains("`f.txt`") && !said.contains("`g.txt`"), "{said}");
 }
 
 /// **The clash a hosted Session is told is a write clash on its thread**, so a person can name it.

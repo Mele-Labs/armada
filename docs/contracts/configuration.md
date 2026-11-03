@@ -382,11 +382,12 @@ a coding step reran every Check in full, and every time a Drone asked for its
 Checks it got every one — in this repository `storybook` and the components
 story tests on every ask.
 
-| Value | A Drone's own run | Each step's gate | Before handoff |
-| --- | --- | --- | --- |
-| `everywhere`, and absent | runs | runs | — |
-| `gate` | not asked | runs | — |
-| `handoff` | not asked | not run | runs |
+| Value | A Drone's own run | Each step's gate | Before handoff | When a pull request opens |
+| --- | --- | --- | --- | --- |
+| `everywhere`, and absent | runs | runs | — | — |
+| `gate` | not asked | runs | — | — |
+| `handoff` | not asked | not run | runs | — |
+| `pre_pr` | not asked | not run | not run | runs |
 
 ```yaml
 checks:
@@ -414,11 +415,29 @@ Rules that follow:
 - **A step naming a Check by `manifest_check` gates on it there**, and a
   handoff-only one still starts last on that gate. `runs_at` still keeps it out
   of a Drone's run.
-- **A Drone's run leaves out `gate` and `handoff` Checks entirely**, rather than
-  reporting them skipped: it never stops early on one and never orders by one.
-  Its brief names both, and where each runs instead.
+- **A Drone's run leaves out `gate`, `handoff` and `pre_pr` Checks entirely**,
+  rather than reporting them skipped: it never stops early on one and never
+  orders by one.
+  Its brief names them, and where each runs instead.
 - **`after_merge` drops it**, for `when`'s reason: after a merge there is no
   step and no handoff, only the whole tree.
+- **A `pre_pr` Check runs when an agent goes to open a pull request, and
+  nowhere else.**
+  The plugin's hook asks Fleet before `gh pr create` runs, and Fleet runs the
+  `pre_pr` Checks of the manifests the Job's changes reach.
+  It finds them as `armada covers` does: the paths changed since the Job left
+  its base, the manifests that gate them, and each Check whose `when` covers
+  what its manifest owns.
+  A workspace's `pre_pr` Check therefore runs only when the change touches that
+  workspace.
+- **`every_manifest_check` never lifts a `pre_pr` Check**, on any step, and a
+  step gates on it only by naming it.
+- **A failing `pre_pr` Check refuses the command with its log tail**, and the
+  agent fixes the change and runs the command again.
+  Every `pre_pr` Check that applies runs, so one answer holds every failure.
+- **It is quiet where Fleet cannot tell.**
+  A Fleet that is out of reach or slow, a Job with no slot, a diff that will
+  not read and a Drone each let the pull request open, and CI is the gate.
 - **It is frozen with the workflow**, beside the Check's command.
 
 ## Which runner drives a Check
