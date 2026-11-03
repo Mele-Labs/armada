@@ -9,6 +9,7 @@ import type {
   PlanApproval,
   Scene,
   SessionThreadRow,
+  SketchSettled,
 } from "@armada/components";
 import type {
   SessionThread as WireThread,
@@ -29,6 +30,7 @@ import {
   sessionOfRecord,
   sketchCallOf,
 } from "@armada/screens/src/sessions-wire";
+import { withDocuments } from "@armada/screens/src/thread-cards";
 
 const NOTHING_BESIDE = {
   picture: () => undefined,
@@ -143,6 +145,28 @@ function withSketchState(rows: SessionThreadRow[], ledger: Ledger): SessionThrea
         ? sceneOfSketch(held.against.drawing)
         : undefined;
     const earlier = before?.kind === "sketch" ? before.drawing : kept;
+    const latest = last.get(row.sketch) === row.id;
+    // What he was asked, and how he answered, belong to the sketch as it stands: the latest card holds them.
+    const answer =
+      !latest || held?.kind !== "sketch"
+        ? {}
+        : {
+            ...(held.asked === true
+              ? {
+                  asked: true as const,
+                }
+              : {}),
+            ...(held.withdrawn === true
+              ? {
+                  withdrawn: true as const,
+                }
+              : {}),
+            ...(held.settled === undefined
+              ? {}
+              : {
+                  settled: held.settled,
+                }),
+          };
     return {
       ...row,
       ...(earlier === undefined
@@ -150,11 +174,12 @@ function withSketchState(rows: SessionThreadRow[], ledger: Ledger): SessionThrea
         : {
             againstScene: earlier,
           }),
-      ...(last.get(row.sketch) === row.id
+      ...(latest
         ? {}
         : {
             replaced: true as const,
           }),
+      ...answer,
     };
   });
 }
@@ -257,7 +282,7 @@ export function rowsOf(session: Session): SessionThreadRow[] {
             }),
       };
     });
-  return withSketchState(drawn, ledger);
+  return withDocuments(withSketchState(drawn, ledger), ledger);
 }
 
 export type Asked = {
@@ -347,6 +372,7 @@ const CHOICE_ONLY: readonly WaitingSource[] = [
   "slot_choice",
   "task_done",
   "rule_act",
+  "browser_ask",
 ];
 /** The sources answered beside the thread. The rest are answered from their own cards, or on the Mac. */
 const ASKS: readonly WaitingSource[] = [
@@ -436,23 +462,66 @@ export function runsOf(session: Session, wire: WireThread): readonly RunItem[] {
   });
 }
 
+/**
+ * What Fleet puts on a Job's list that is pressed and not answered. Press Start on a Job this one started opens that Job, which opens
+ * as its start card; Fleet refuses to answer or dismiss it. A call a Fleet rule raised is dismissed, and opens the Job it names.
+ */
+export type PressItem = {
+  item: WaitingItem;
+  /** The Job a press opens. */
+  opens?: string;
+  dismissible: boolean;
+};
+
+export function pressesOf(session: Session): readonly PressItem[] {
+  if (session.dead !== undefined) return [];
+  return (session.waitingFor ?? []).flatMap((one): PressItem[] => {
+    if (one.source !== "held_child" && one.source !== "fleet_call") return [];
+    return [
+      {
+        item: one,
+        ...(one.act?.kind === "message"
+          ? {
+              opens: one.act.target,
+            }
+          : {}),
+        dismissible: one.source === "fleet_call",
+      },
+    ];
+  });
+}
+
+/** The walks and the questions in a walk the Job waits on: pages the phone cannot show, each said to open on the Mac. */
+export const onMacOf = (session: Session): readonly WaitingItem[] =>
+  session.dead === undefined
+    ? (session.waitingFor ?? []).filter(
+        (one) => one.source === "walk" || one.source === "window_ask",
+      )
+    : [];
+
 export type OpenDraft = {
   id: string;
   title: string;
   text: string;
   before?: string;
+  /** A proposed workflow, which Fleet also lets him drop: its item's second option. */
+  proposed?: true;
 };
 
-/** The drafts the agent proposed that wait on the owner, each settled on the Mac as the item `draft:<row id>`. */
+/**
+ * The drafts the agent proposed that wait on the owner, each settled on the Mac as the item `draft:<row id>`. **A workflow change is
+ * one**: Fleet lists its proposal only while its change is ready, so a card is drawn only where the item is held, never off the row.
+ */
 export function draftsOf(session: Session): readonly OpenDraft[] {
   if (session.dead !== undefined) return [];
-  const waiting = new Set((session.waitingFor ?? []).map((one) => one.id));
+  const waiting = new Map(
+    (session.waitingFor ?? []).map((one) => [
+      one.id,
+      one,
+    ]),
+  );
   return session.rows.flatMap((row) =>
-    row.kind === "draft" &&
-    row.settled === undefined &&
-    row.workflow === undefined &&
-    row.change === undefined &&
-    waiting.has(`draft:${row.id}`)
+    row.kind === "draft" && row.settled === undefined && waiting.has(`draft:${row.id}`)
       ? [
           {
             id: row.id,
@@ -463,6 +532,11 @@ export function draftsOf(session: Session): readonly OpenDraft[] {
               : {
                   before: row.before,
                 }),
+            ...((waiting.get(`draft:${row.id}`)?.options?.length ?? 0) > 1
+              ? {
+                  proposed: true as const,
+                }
+              : {}),
           },
         ]
       : [],
@@ -536,6 +610,43 @@ export function sketchOf(
       ? {}
       : {
           against: sceneOfSketch(held.against.drawing),
+        }),
+  };
+}
+
+/** A page the Job wrote as its document, by the ledger id the thread's card names. `waits` is its newest revision put to him and not answered. */
+export function documentOf(
+  session: Session,
+  page: string,
+):
+  | {
+      title: string;
+      revisions: readonly string[];
+      revision: number;
+      waits: boolean;
+      settled?: SketchSettled;
+      keptStyles?: Readonly<Record<string, string>>;
+    }
+  | undefined {
+  const held = session.attachments.find(
+    (one) => one.kind === "artifact" && one.form === "document" && one.id === page,
+  );
+  if (held?.kind !== "artifact" || held.revisions === undefined || held.revisions.length === 0)
+    return undefined;
+  return {
+    title: held.title,
+    revisions: held.revisions,
+    revision: held.revision === undefined ? held.revisions.length : Number(held.revision),
+    waits: held.asked === true && held.settled === undefined,
+    ...(held.settled === undefined
+      ? {}
+      : {
+          settled: held.settled,
+        }),
+    ...(held.keptStyles === undefined
+      ? {}
+      : {
+          keptStyles: held.keptStyles,
         }),
   };
 }

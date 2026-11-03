@@ -1,0 +1,151 @@
+/* Everything one Job waits on the person for, on one sheet: a list of the items on a sunken ground and the selected
+   one beside it. The weight is the pool's: a raised band over a sunken glass, the band in mono capitals. The answers are
+   in the sheet's head, so the controls hold their places as the items change. Tokens only. */
+
+.armada-job-review {
+  --armada-job-review-list: calc(var(--space-12) * 5);
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.armada-job-review__list {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  width: var(--armada-job-review-list);
+  overflow: auto;
+  background: var(--bg-sunken);
+  border-right: var(--border-width) solid var(--border-default);
+}
+
+/* One item. The whole row is the control, and the selected one carries the accent bar. */
+.armada-job-review__item {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: var(--h-row-unit);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-left: var(--edge-active) solid transparent;
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-job-review__item:hover {
+  background: var(--surface-row-hover);
+}
+
+.armada-job-review__item[data-on] {
+  background: var(--surface-row-selected);
+  border-left-color: var(--accent);
+}
+
+.armada-job-review__item:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-width) * -1);
+}
+
+/* Answered, and sent back, stay in the list and step back. */
+.armada-job-review__item[data-state="answered"],
+.armada-job-review__item[data-state="sent_back"] {
+  color: var(--fg-subtle);
+}
+
+.armada-job-review__kind,
+.armada-job-review__mark {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  color: var(--fg-muted);
+}
+
+.armada-job-review__item[data-state] .armada-job-review__kind {
+  color: inherit;
+}
+
+.armada-job-review__mark {
+  color: var(--status-completed-success);
+}
+
+.armada-job-review__item[data-state="sent_back"] .armada-job-review__mark {
+  color: var(--fg-muted);
+}
+
+.armada-job-review__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The selected item. */
+.armada-job-review__detail {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.armada-job-review__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: var(--pad-card);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-job-review__loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* The note that sends an item back replaces what the body's foot would hold. */
+.armada-job-review__foot {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+}
+
+.armada-job-review__foot-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* A body that takes the room the pane has: a sketch, a document, a draft. */
+.armada-job-review__fill {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(var(--h-row-unit) * 8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The right-press menu is drawn on the body, and the sheet's scrim lies over a menu's own layer. */
+.armada-job-review__menu {
+  z-index: calc(var(--z-modal) + 1);
+}

@@ -379,6 +379,7 @@ impl Hosts {
         Arc::clone(held.entry(session.to_string()).or_insert_with(|| {
             Arc::new(Runtime {
                 lease: tokio::sync::Mutex::new(()),
+                delivery: tokio::sync::Mutex::new(()),
                 writing_retro: AtomicBool::new(false),
                 state: Mutex::new(State::new()),
             })
@@ -425,6 +426,8 @@ pub(crate) struct Move {
 pub(crate) struct Runtime {
     /// Held while a lease is taken, so two writes in one turn lease one slot.
     pub(crate) lease: tokio::sync::Mutex<()>,
+    /// Held while a turn is delivered, so turns sent one after another reach the process in order.
+    pub(crate) delivery: tokio::sync::Mutex<()>,
     /// Whether this session's retro is being written, so a second press waits.
     pub(crate) writing_retro: AtomicBool,
     state: Mutex<State>,

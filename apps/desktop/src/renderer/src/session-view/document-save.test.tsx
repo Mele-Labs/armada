@@ -7,7 +7,7 @@ import { expect, test, vi } from "vitest";
 import { SketchScene } from "@armada/components";
 
 import "../styles/index.css";
-import { readPage } from "./document-page";
+import { readPage } from "@armada/screens/src/document-page";
 import { savedPage, valuesOf, variablesIn } from "./document-save";
 
 (

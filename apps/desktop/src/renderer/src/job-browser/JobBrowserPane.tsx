@@ -324,7 +324,7 @@ function LivePage({
   const [picture, setPicture] = useState<string>();
   const [picked, setPicked] = useState<Picked>();
   const [ring, setRing] = useState<Box | null>(null);
-  // The app annotation layer, the site-settings popover, the page's ask, a dialog, a tab's menu and the drop zones of a tab being dragged all lie over the
+  // The app annotation layer, the site-settings popover, the page's ask, a dialog, a tab's menu, the Job's review sheet and the drop zones of a tab being dragged all lie over the
   // page's native view, which would hide them, so while one is up the page is hidden and its picture shown, as under Capture.
   const [layerOn, setLayerOn] = useState(false);
   const held = capturing || layerOn;
