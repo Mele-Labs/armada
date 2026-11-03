@@ -20,7 +20,7 @@ import type {
 } from "@armada/protocol";
 
 import type { JobBrowserState } from "../shared/api/job-browser";
-import type { Answer, Choice, SitePermission } from "../shared/site-permissions";
+import type { Answer, Choice, SiteDefaults, SitePermission } from "../shared/site-permissions";
 import { pngSize, ringOn, type Ring } from "../shared/ring";
 import type { CaptureHeld, CaptureRect } from "../shared/capture-window";
 import { webOrigin } from "./capture/address";
@@ -81,10 +81,8 @@ export type BrowserPage = JobPage & {
   /** What this page's repository has decided for each site, without the request waiting. */
   settings(): {
     sites: JobBrowserState["site"]["sites"];
-    defaults: JobBrowserState["site"]["defaults"];
   };
   choose(host: string, permission: SitePermission, choice: Choice): void;
-  setDefault(permission: SitePermission, choice: Choice): void;
 };
 
 /** The page as drawn, and where a box in its CSS pixels is on that picture. */
@@ -102,6 +100,9 @@ export type BrowserWindowHeld = {
 
 export type JobBrowserMake = {
   page(sessionId: string, told: PageTold): BrowserPage;
+  /** The defaults for every Job's browser, one set for the whole Mac, and setting one. */
+  defaults(): SiteDefaults;
+  setDefault(permission: SitePermission, choice: Choice): void;
   /** `closing`: before the window goes, so its page can be moved out of it. */
   window(
     sessionId: string,
@@ -114,6 +115,8 @@ export type JobBrowserMake = {
 
 export type JobBrowserTell = {
   changed(state: JobBrowserState): void;
+  /** A default was set: every window hears the whole set. */
+  defaultsChanged(defaults: SiteDefaults): void;
   /** Bridge's window is asked to open a Browser tab for the Job, since its agent opened a page where it has none. */
   show(sessionId: string): void;
   /** ⌥⌘C reached the page: the document drawing its pane is told. */
@@ -213,6 +216,7 @@ export class JobBrowsers {
           }),
       site: {
         ...one.page.settings(),
+        defaults: this.make.defaults(),
         pending:
           one.asking === null
             ? null
@@ -402,9 +406,16 @@ export class JobBrowsers {
     this.told(sessionId, tabId);
   }
 
-  setDefault(sessionId: string, tabId: string, permission: SitePermission, choice: Choice): void {
-    this.one(sessionId, tabId)?.page.setDefault(permission, choice);
-    this.told(sessionId, tabId);
+  defaults(): SiteDefaults {
+    return this.make.defaults();
+  }
+
+  /** One default for every Job's browser: each page's state carries it, and the windows hear the set. */
+  setDefault(permission: SitePermission, choice: Choice): void {
+    this.make.setDefault(permission, choice);
+    for (const [sessionId, tabs] of this.held)
+      for (const tabId of tabs.keys()) this.told(sessionId, tabId);
+    this.tell.defaultsChanged(this.make.defaults());
   }
 
   go(sessionId: string, tabId: string, to: "back" | "forward" | "reload"): void {
@@ -828,9 +839,10 @@ export function makeBrowserPage(
         return null;
       }
     },
-    settings: () => store.settingsOf(key),
+    settings: () => ({
+      sites: store.settingsOf(key).sites,
+    }),
     choose: (host, permission, choice) => store.choose(key, host, permission, choice),
-    setDefault: (permission, choice) => store.setDefault(key, permission, choice),
   };
 }
 

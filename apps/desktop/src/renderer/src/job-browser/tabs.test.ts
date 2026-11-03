@@ -44,6 +44,8 @@ const api = {
   },
   onShow: () => () => undefined,
   tabs: vi.fn(async () => undefined),
+  defaults: async () => NO_SETTINGS.defaults,
+  onDefaultsChanged: () => () => undefined,
   show: vi.fn(async () => undefined),
   toWindow: vi.fn(async () => undefined),
 };

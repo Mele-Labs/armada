@@ -6,7 +6,13 @@ import type { Outcome } from "@armada/protocol";
 import type { PageBounds } from "@armada/screens/src/draft/sessions";
 import type { CaptureHeld } from "@armada/studios/api";
 
-import type { Answer, Choice, SitePermission, SiteSettings } from "../site-permissions";
+import type {
+  Answer,
+  Choice,
+  SiteDefaults,
+  SitePermission,
+  SiteSettings,
+} from "../site-permissions";
 
 /** One Browser tab's page as main holds it. `windowed`: in a window of its own, beside the Job's thread. `tabId` is empty for the page an agent opened before the Job had a tab. */
 export type JobBrowserState = {
@@ -70,13 +76,11 @@ export type JobBrowserApi = {
       permission: SitePermission,
       choice: Choice,
     ) => Promise<void>;
-    /** A default, for a site with no choice of its own. */
-    setDefault: (
-      sessionId: string,
-      tabId: string,
-      permission: SitePermission,
-      choice: Choice,
-    ) => Promise<void>;
+    /** The defaults for every Job's browser, one set for the whole Mac: for a site with no choice of its own. Named by no Job and no tab. */
+    defaults: () => Promise<SiteDefaults>;
+    setDefault: (permission: SitePermission, choice: Choice) => Promise<void>;
+    /** Told whole after a default is set, from any window. */
+    onDefaultsChanged: (listener: (defaults: SiteDefaults) => void) => () => void;
     /** The person's answer to the waiting request. */
     answer: (sessionId: string, tabId: string, answer: Answer) => Promise<void>;
   };
@@ -100,6 +104,8 @@ export const JOB_BROWSER_CHANNELS = {
   jobBrowserHold: "bridge:job-browser-hold",
   jobBrowserNote: "bridge:job-browser-note",
   jobBrowserChoose: "bridge:job-browser-choose",
-  jobBrowserDefault: "bridge:job-browser-default",
+  jobBrowserDefaults: "bridge:job-browser-defaults",
+  jobBrowserSetDefault: "bridge:job-browser-set-default",
+  jobBrowserDefaultsChanged: "bridge:job-browser-defaults-changed",
   jobBrowserAnswer: "bridge:job-browser-answer",
 } as const;

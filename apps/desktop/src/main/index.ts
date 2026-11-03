@@ -718,11 +718,14 @@ void app.whenReady().then(() => {
           told,
           siteSettings,
         ),
+      defaults: () => siteSettings.defaults(),
+      setDefault: (permission, choice) => siteSettings.setDefault(permission, choice),
       window: (sessionId, tabId, told) =>
         makeBrowserWindow(sessionId, tabId, bridgeWindow()?.getBounds() ?? null, told),
     },
     {
       changed: (state) => everyWindow(CHANNELS.jobBrowserChanged, state),
+      defaultsChanged: (defaults) => everyWindow(CHANNELS.jobBrowserDefaultsChanged, defaults),
       show: (sessionId) => bridgeWindow()?.webContents.send(CHANNELS.jobBrowserShown, sessionId),
       capture: (sessionId, tabId, host) =>
         (host as BrowserWindow).webContents.send(CHANNELS.jobBrowserCapture, sessionId, tabId),

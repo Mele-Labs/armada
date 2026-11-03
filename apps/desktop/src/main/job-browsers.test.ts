@@ -10,7 +10,7 @@ vi.mock("electron", () => ({
 import type { AnswerBrowserRequest, BrowserRequest, SendSessionNote } from "@armada/protocol";
 import type { JobBrowserState } from "../shared/api/job-browser";
 import { ringOn, type Ring } from "../shared/ring";
-import { NO_SETTINGS } from "../shared/site-permissions";
+import { NO_SETTINGS, type SiteDefaults } from "../shared/site-permissions";
 import {
   JobBrowsers,
   jobsPage,
@@ -82,10 +82,8 @@ function fakePage(): BrowserPage & {
     ask: async () => null,
     settings: () => ({
       sites: {},
-      defaults: NO_SETTINGS.defaults,
     }),
     choose: () => {},
-    setDefault: () => {},
   };
   return page;
 }
@@ -100,6 +98,8 @@ function browsers() {
     closed: boolean;
   }[] = [];
   const make: JobBrowserMake = {
+    defaults: () => NO_SETTINGS.defaults,
+    setDefault: () => {},
     page: (_sessionId, told) => {
       const page = fakePage();
       pages.push(page);
@@ -129,8 +129,18 @@ function browsers() {
   const shown: string[] = [];
   const states: JobBrowserState[] = [];
   const answered: AnswerBrowserRequest[] = [];
+  const everyDefaults: SiteDefaults[] = [];
+  let defaults = NO_SETTINGS.defaults;
+  make.defaults = () => defaults;
+  make.setDefault = (permission, choice) => {
+    defaults = {
+      ...defaults,
+      [permission]: choice,
+    };
+  };
   const held = new JobBrowsers(make, {
     changed: (state) => void states.push(state),
+    defaultsChanged: (now) => void everyDefaults.push(now),
     show: (sessionId) => void shown.push(sessionId),
     capture: () => {},
     answer: async (body) => void answered.push(body),
@@ -146,6 +156,7 @@ function browsers() {
     shown,
     states,
     answered,
+    everyDefaults,
   };
 }
 
@@ -176,27 +187,50 @@ describe("a page asking for a permission", () => {
     expect(await first).toBe("dismiss");
   });
 
-  it("passes a choice and a default to the page", () => {
+  it("passes a choice to the page", () => {
     const { held, pages } = browsers();
     held.tabs("01JOB", [
       "t1",
     ]);
     const chosen: unknown[] = [];
     pages[0]!.choose = (...args) => void chosen.push(args);
-    pages[0]!.setDefault = (...args) => void chosen.push(args);
     held.choose("01JOB", "t1", "login.example.com", "camera", "block");
-    held.setDefault("01JOB", "t1", "location", "allow");
     expect(chosen).toEqual([
       [
         "login.example.com",
         "camera",
         "block",
       ],
-      [
-        "location",
-        "allow",
-      ],
     ]);
+  });
+});
+
+describe("the defaults for every Job's browser", () => {
+  it("are read with no Job and no tab", () => {
+    const { held } = browsers();
+    expect(held.defaults()).toEqual(NO_SETTINGS.defaults);
+  });
+
+  it("are set with no Job and no tab, and the change reaches every page's state and the window's notice", () => {
+    const { held, states, everyDefaults } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+      "t2",
+    ]);
+    held.tabs("02JOB", [
+      "t1",
+    ]);
+    states.length = 0;
+    held.setDefault("location", "allow");
+    expect(held.defaults().location).toBe("allow");
+    expect(everyDefaults).toHaveLength(1);
+    expect(everyDefaults[0]!.location).toBe("allow");
+    expect(states.map((one) => `${one.sessionId}/${one.tabId}`).sort()).toEqual([
+      "01JOB/t1",
+      "01JOB/t2",
+      "02JOB/t1",
+    ]);
+    expect(states.every((one) => one.site.defaults.location === "allow")).toBe(true);
   });
 });
 
@@ -788,6 +822,8 @@ describe("a note taken on a Job's browser", () => {
     const held = new JobBrowsers(
       {
         page: () => page,
+        defaults: () => NO_SETTINGS.defaults,
+        setDefault: () => {},
         window: () => ({
           host: {},
           focus: () => {},
@@ -796,6 +832,7 @@ describe("a note taken on a Job's browser", () => {
       },
       {
         changed: () => {},
+        defaultsChanged: () => {},
         show: () => {},
         capture: () => {},
         answer: async () => {},

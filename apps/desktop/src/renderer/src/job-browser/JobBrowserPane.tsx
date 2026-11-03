@@ -39,8 +39,8 @@ import {
   openBrowserTab,
   pinNote,
   reload,
+  setBrowserDefault,
   setChoice,
-  setDefault,
   urlOf,
   type BrowserPin,
   type JobBrowser,
@@ -524,7 +524,7 @@ function SiteSettingsPanel({
         }
         onChoose={(permission, choice) => {
           if (view === "site") setChoice(sessionId, tabId, host, permission, choice);
-          else setDefault(sessionId, tabId, permission, choice);
+          else setBrowserDefault(permission, choice);
         }}
         onAskLocalNetwork={() =>
           onAsk(
@@ -639,7 +639,7 @@ function SiteLock({
         onConfirm={(asked) => {
           if (asked.scope === "site")
             setChoice(sessionId, tabId, asked.host, "local_network", "allow");
-          else setDefault(sessionId, tabId, "local_network", "allow");
+          else setBrowserDefault("local_network", "allow");
           done();
         }}
       />

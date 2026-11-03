@@ -77,7 +77,7 @@ export const CHOICES: readonly {
 export const labelOfPermission = (permission: SitePermission): string =>
   SITE_PERMISSIONS.find((one) => one.permission === permission)?.label ?? permission;
 
-/** The choices made for each host, the defaults beneath them, and the one request waiting on the person. Main keeps them for each repository. */
+/** The choices made for each host, the defaults beneath them, and the one request waiting on the person. Main keeps the choices for each repository and the defaults once. */
 export type SiteSettings = {
   sites: Readonly<Record<string, Partial<Record<SitePermission, Choice>>>>;
   defaults: Readonly<Record<SitePermission, Choice>>;
@@ -86,6 +86,9 @@ export type SiteSettings = {
     host: string;
   } | null;
 };
+
+/** What every site is given for a permission it has no choice of its own for: one set for the whole Mac. */
+export type SiteDefaults = SiteSettings["defaults"];
 
 export const NO_SETTINGS: SiteSettings = {
   sites: {},

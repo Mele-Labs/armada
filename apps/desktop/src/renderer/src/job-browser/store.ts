@@ -72,8 +72,8 @@ const listeners = new Set<() => void>();
 const reported = new Map<string, readonly string[]>();
 
 /**
- * **The mock's**: the defaults every Job's browser reads, one set for all of them. A Job's own `site.defaults` is not read; `shared` puts these
- * in its place. In the app main keeps the defaults, so none of this is used there.
+ * The defaults every Job's browser reads, one set for all of them. A Job's own `site.defaults` is not read; `shared` puts these in its place.
+ * Where wired, main keeps them and tells every window as one changes; the mock keeps them here.
  */
 let sharedDefaults: SiteSettings["defaults"] = NO_SETTINGS.defaults;
 const sharedViews = new WeakMap<
@@ -84,9 +84,8 @@ const sharedViews = new WeakMap<
   }
 >();
 
-/** The browser as the mock draws it: its own sites over the one set of defaults. The same object comes back while neither has changed. */
+/** The browser as it is drawn: its own sites over the one set of defaults. The same object comes back while neither has changed. */
 function shared(one: JobBrowser): JobBrowser {
-  if (wired !== undefined) return one;
   const was = sharedViews.get(one);
   if (was?.defaults === sharedDefaults) return was.view;
   const view: JobBrowser = {
@@ -152,15 +151,23 @@ export function wireJobBrowsers(api: Wired): () => void {
     told();
   };
   void api.list().then((all) => all.forEach(fold));
+  const adopt = (defaults: SiteSettings["defaults"]) => {
+    sharedDefaults = defaults;
+    told();
+  };
+  void api.defaults().then(adopt);
   const offChanged = api.onChanged(fold);
+  const offDefaults = api.onDefaultsChanged(adopt);
   // An agent's open where the Job has no Browser tab. A Job he has open gets one; the page of any other waits for the tab he opens.
   const offShow = api.onShow((sessionId) => {
     if (viewingNow(sessionId)) openBrowserTab(sessionId);
   });
   return () => {
     offChanged();
+    offDefaults();
     offShow();
     wired = undefined;
+    sharedDefaults = NO_SETTINGS.defaults;
   };
 }
 
@@ -190,20 +197,23 @@ export function useJobBrowser(sessionId: string | undefined, tabId = ""): JobBro
   );
 }
 
-/** **The mock's**: the defaults every Job's browser reads, for System › Browser. Where main holds them the app has none here yet, so these are the shipped ones. */
+/** The defaults every Job's browser reads, for System › Browser and the lock's All sites. */
 export function useBrowserDefaults(): SiteSettings["defaults"] {
   return useSyncExternalStore(
     (hear) => {
       listeners.add(hear);
       return () => listeners.delete(hear);
     },
-    () => (wired === undefined ? sharedDefaults : NO_SETTINGS.defaults),
+    () => sharedDefaults,
   );
 }
 
-/** **The mock's**: one default for every Job's browser. Main's route takes a tab and a repository, so where it is wired this does nothing until one without them exists. */
+/** One default for every Job's browser. Where wired it goes to main, which keeps it and tells every window, this one included. */
 export function setBrowserDefault(permission: SitePermission, choice: Choice): void {
-  if (wired !== undefined) return;
+  if (wired !== undefined) {
+    void wired.setDefault(permission, choice);
+    return;
+  }
   sharedDefaults = {
     ...sharedDefaults,
     [permission]: choice,
@@ -349,18 +359,6 @@ export function setChoice(
       },
     },
   }));
-}
-export function setDefault(
-  sessionId: string,
-  tabId: string,
-  permission: SitePermission,
-  choice: Choice,
-): void {
-  if (wired !== undefined) {
-    void wired.setDefault(sessionId, tabId, permission, choice);
-    return;
-  }
-  setBrowserDefault(permission, choice);
 }
 /** **The mock's** page asking. A decided site is answered at once; only an undecided one raises the bubble. */
 export function requestPermission(

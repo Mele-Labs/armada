@@ -116,17 +116,14 @@ export function handleJobBrowsers({
         browsers.choose(sessionId, tabId, host, perm, pick);
     },
   );
-  ipc.handle(
-    CHANNELS.jobBrowserDefault,
-    (_event, sessionId: unknown, tabId: unknown, which: unknown, chosen: unknown) => {
-      const [perm, pick] = [
-        permission(which),
-        choice(chosen),
-      ];
-      if (text(sessionId) && text(tabId) && perm !== undefined && pick !== undefined)
-        browsers.setDefault(sessionId, tabId, perm, pick);
-    },
-  );
+  ipc.handle(CHANNELS.jobBrowserDefaults, () => browsers.defaults());
+  ipc.handle(CHANNELS.jobBrowserSetDefault, (_event, which: unknown, chosen: unknown) => {
+    const [perm, pick] = [
+      permission(which),
+      choice(chosen),
+    ];
+    if (perm !== undefined && pick !== undefined) browsers.setDefault(perm, pick);
+  });
   ipc.handle(
     CHANNELS.jobBrowserAnswer,
     (_event, sessionId: unknown, tabId: unknown, answer: unknown) => {
