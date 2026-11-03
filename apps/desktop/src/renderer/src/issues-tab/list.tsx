@@ -4,7 +4,7 @@
 // it chose for the rows, and what it matched, and Save keeps it under a name. A saved query's text is his to edit by hand,
 // which runs it again as written. The choice is remembered for each repository, and for All.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LoaderCircle, Pencil, Puzzle, X } from "lucide-react";
 import {
   Button,
@@ -30,6 +30,14 @@ import type { RepositorySummary } from "@armada/protocol";
 import { jobIdOf } from "@armada/shell";
 
 import { useSessions } from "../sessions-draft";
+import {
+  readTicketWord,
+  teachTicketWord,
+  ticketStateOf,
+  ticketWordEntries,
+  ticketWordOf,
+  type TicketReading,
+} from "../ticket-word-menu";
 import {
   askedOf,
   bandsIn,
@@ -233,12 +241,39 @@ export function IssuesList({
       shortcut: capOf(ISSUES_KEYS.describe),
     },
   ];
-  // A right press on the list, or the menu key on a row, opens the View menu (`row-view.ts`) where it was pressed.
+  // A right press on the list, or the menu key on a row, opens the View menu (`row-view.ts`) where it was pressed. On a ticket's row the
+  // Ticket states come first, once the lifecycle is read, so the one the ticket's status reads as is ticked as the menu opens.
   const [menu, setMenu] = useState<{
     x: number;
     y: number;
     row: HTMLElement | null;
+    ticket?: TicketAt;
   }>();
+  // An answer to an older press is not drawn.
+  const pressed = useRef(0);
+  const openMenu = (x: number, y: number, row: HTMLElement | null) => {
+    const mine = (pressed.current += 1);
+    const ticket = ticketAt(row);
+    if (ticket === undefined)
+      return setMenu({
+        x,
+        y,
+        row,
+      });
+    void readTicketWord(ticket.manifestId, ticket.word).then((reading) =>
+      mine !== pressed.current
+        ? undefined
+        : setMenu({
+            x,
+            y,
+            row,
+            ticket: {
+              ...ticket,
+              reading,
+            },
+          }),
+    );
+  };
   const [view, toggleField] = useIssueView();
   const triggerLabel =
     here === DESCRIBE
@@ -254,11 +289,7 @@ export function IssuesList({
         const target = event.target as Element;
         if (target.closest("input, textarea, [role='menu']") !== null) return;
         event.preventDefault();
-        setMenu({
-          x: event.clientX,
-          y: event.clientY,
-          row: target.closest<HTMLElement>(".issues-row"),
-        });
+        openMenu(event.clientX, event.clientY, target.closest<HTMLElement>(".issues-row"));
       }}
       onKeyDown={(event) => {
         if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
@@ -266,11 +297,7 @@ export function IssuesList({
         if (row === null) return;
         event.preventDefault();
         const box = row.getBoundingClientRect();
-        setMenu({
-          x: box.left + box.width / 2,
-          y: box.bottom,
-          row,
-        });
+        openMenu(box.left + box.width / 2, box.bottom, row);
       }}
     >
       {only !== undefined && only.tracker.state === "refused" ? (
@@ -370,13 +397,31 @@ export function IssuesList({
             y: menu.y,
           }}
           open
-          entries={issueViewEntries(view)}
+          entries={[
+            ...(menu.ticket?.reading === undefined
+              ? []
+              : [
+                  ...ticketWordEntries(
+                    menu.ticket.reference,
+                    menu.ticket.word,
+                    menu.ticket.reading,
+                  ),
+                  {
+                    kind: "separator",
+                    id: "ticket-word-rule",
+                  } as const,
+                ]),
+            ...issueViewEntries(view),
+          ]}
           onOpenChange={(open) => {
             if (open) return;
             setMenu(undefined);
             menu.row?.focus();
           }}
           onSelect={(chosen) => {
+            const state = ticketStateOf(chosen);
+            if (state !== undefined && menu.ticket !== undefined)
+              return void teachTicketWord(menu.ticket.manifestId, menu.ticket.word, state);
             const field = issueFieldOf(chosen);
             if (field === undefined) return;
             toggleField(field);
@@ -389,6 +434,25 @@ export function IssuesList({
     </section>
   );
 }
+
+/** The ticket a row stands for, as the row names it, and the Ticket states read for its status. */
+type TicketAt = {
+  manifestId: string;
+  reference: string;
+  word: string;
+  reading?: TicketReading;
+};
+
+const ticketAt = (row: HTMLElement | null): TicketAt | undefined => {
+  const { manifest, reference, word } = row?.dataset ?? {};
+  return manifest === undefined || reference === undefined || word === undefined
+    ? undefined
+    : {
+        manifestId: manifest,
+        reference,
+        word,
+      };
+};
 
 /** Whether a report answers the words in the bar: its title or the Job it came from. */
 const reportMatches = (report: ReportedBug, words: string): boolean => {
@@ -929,6 +993,12 @@ function Row({
         className="issues-row"
         selected={open}
         data-tone={tone}
+        data-manifest={band.manifestId}
+        data-reference={ticket.reference}
+        data-word={ticketWordOf(
+          ticket.fields.find((one) => one.name === "Status")?.values[0],
+          ticket.state,
+        )}
         needs={view.state && tone === "ask" && !open}
         aria-label={`${ticket.reference} ${ticket.title}`}
         onClick={() => store.open(band.manifestId, ticket.reference)}

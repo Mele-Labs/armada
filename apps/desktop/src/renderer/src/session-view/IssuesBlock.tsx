@@ -16,6 +16,7 @@ import {
 import { usePullRequestMenu } from "../pull-request-menu";
 import { checksSaid } from "../session-cards";
 import { openInPanel } from "../shared-panel/store";
+import { ticketWordOf, useTicketWordMenu } from "../ticket-word-menu";
 import "./issues-block.css";
 
 export type Issue = Extract<
@@ -134,20 +135,29 @@ function IssueMark({ issue }: { issue: Issue }) {
   );
 }
 
-/** An issue as one row: its state glyph, number and title, which opens the issue in the side panel. */
+/** An issue as one row: its state glyph, number and title, which opens the issue in the side panel. Its menu teaches which Ticket state the tracker's status is. */
 export function IssueRow({ issue, manifestId }: { issue: Issue; manifestId: string | undefined }) {
+  const { on, menu } = useTicketWordMenu(
+    manifestId,
+    issueLabel(issue.number),
+    ticketWordOf(issue.status, issue.state),
+  );
   return (
-    <button
-      type="button"
-      className="sv-row"
-      data-kind="issue"
-      aria-label={`Issue ${issueLabel(issue.number)} ${issue.title}`}
-      onClick={() => openIssuePanel(issue, manifestId)}
-    >
-      <IssueMark issue={issue} />
-      <code className="sv-row__num">{issueLabel(issue.number)}</code>
-      <span className="sv-row__title">{issue.title}</span>
-    </button>
+    <>
+      <button
+        type="button"
+        className="sv-row"
+        data-kind="issue"
+        aria-label={`Issue ${issueLabel(issue.number)} ${issue.title}`}
+        onClick={() => openIssuePanel(issue, manifestId)}
+        {...on}
+      >
+        <IssueMark issue={issue} />
+        <code className="sv-row__num">{issueLabel(issue.number)}</code>
+        <span className="sv-row__title">{issue.title}</span>
+      </button>
+      {menu}
+    </>
   );
 }
 
