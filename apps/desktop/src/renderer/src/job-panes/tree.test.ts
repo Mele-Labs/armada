@@ -346,7 +346,7 @@ describe("arriving", () => {
     const arrangement = build([
       "thread",
     ]);
-    const next = arrive(arrangement, "terminal", "zsh");
+    const next = arrive(arrangement, "terminal", "dev");
     expect(kindsOf(next)).toEqual([
       [
         "thread",
@@ -368,12 +368,12 @@ describe("arriving", () => {
         "thread",
       ]),
       "terminal",
-      "zsh",
+      "dev",
     );
-    const twice = addTab(once, holderOf(once, "terminal")!.id, "terminal", "zsh");
+    const twice = addTab(once, holderOf(once, "terminal")!.id, "terminal", "dev");
     expect(holderOf(twice, "terminal")!.tabs.map((tab) => tab.label)).toEqual([
-      "zsh",
-      "zsh 2",
+      "dev",
+      "dev 2",
     ]);
   });
 });

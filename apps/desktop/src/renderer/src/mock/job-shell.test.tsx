@@ -192,6 +192,36 @@ test("the agent opening the Job's shell draws a Terminal tab, and the shell endi
   await expect.element(pane().getByText("Shell ended")).toBeVisible();
 });
 
+test("the agent's terminal arrives as a tab behind, the focus stays on the pane it was in, and the person's own tab is not doubled", async () => {
+  await open();
+  await addTerminal();
+  await expect.element(pane().getByText(PROMPT)).toBeVisible();
+  await page
+    .getByRole("tab", {
+      name: "Thread",
+      exact: true,
+    })
+    .click();
+  await expect.element(threadPane()).toHaveAttribute("data-focused", "true");
+  timePasses();
+  await expect
+    .element(
+      page.getByRole("tab", {
+        name: "Terminal 2",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  await expect.element(threadPane()).toHaveAttribute("data-focused", "true");
+  expect(
+    page
+      .getByRole("tab", {
+        name: /^Terminal/,
+      })
+      .elements(),
+  ).toHaveLength(2);
+});
+
 test("closing the Terminal tab ends its shell, and a new tab is a new shell with a fresh screen", async () => {
   await open();
   await addTerminal();
@@ -221,6 +251,162 @@ test("closing the Terminal tab ends its shell, and a new tab is a new shell with
   expect(pane().element().textContent).not.toContain(PRINTED);
   expect(shellCalls()!.opened).toHaveLength(2);
   expect(shellCalls()!.started).toHaveLength(2);
+});
+
+/** + on a pane that holds a Terminal tab, then Terminal: a second shell. */
+async function addAnotherTerminal(paneName: string) {
+  await page
+    .getByRole("region", {
+      name: paneName,
+      exact: true,
+    })
+    .getByRole("button", {
+      name: "Add tab",
+    })
+    .click();
+  await page
+    .getByRole("menuitem", {
+      name: "Terminal",
+    })
+    .click();
+}
+
+test("closing an idle tab ends only its shell, and the other terminal is left as it was", async () => {
+  await open();
+  await addTerminal();
+  await expect.element(pane().getByText(PROMPT)).toBeVisible();
+  await addAnotherTerminal("Pane: Terminal 1");
+  await expect.poll(() => shellCalls()!.started.length).toBe(2);
+  await page
+    .getByRole("button", {
+      name: "Close Terminal 2",
+    })
+    .click();
+  await expect
+    .poll(() => shellCalls()!.stopped)
+    .toEqual([
+      "shell-2",
+    ]);
+  await expect
+    .element(
+      page.getByRole("tab", {
+        name: "Terminal 1",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  expect(
+    page
+      .getByRole("dialog", {
+        name: "End Terminal 2",
+      })
+      .query(),
+  ).toBeNull();
+});
+
+test("closing a tab with a program running in it asks first, and ends the shell on yes", async () => {
+  await open();
+  await addTerminal();
+  await expect.element(pane().getByText(PROMPT)).toBeVisible();
+  timePasses();
+  await expect
+    .element(
+      page.getByRole("tab", {
+        name: "Terminal 2",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  await page
+    .getByRole("tab", {
+      name: "Terminal 2",
+      exact: true,
+    })
+    .click();
+  await expect.element(pane().getByText(SERVED)).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "Close Terminal 2",
+    })
+    .click();
+  await expect.element(page.getByText("A program is running in Terminal 2.")).toBeVisible();
+  expect(shellCalls()!.stopped).toEqual([]);
+  await page
+    .getByRole("button", {
+      name: "End terminal",
+    })
+    .click();
+  await expect
+    .poll(() => shellCalls()!.stopped)
+    .toEqual([
+      "shell-2",
+    ]);
+});
+
+test("closing a tab whose running check failed asks too, rather than lose a program", async () => {
+  await open();
+  await addTerminal();
+  await expect.element(pane().getByText(PROMPT)).toBeVisible();
+  const armada = window.armada as unknown as {
+    listTerminals: () => Promise<unknown>;
+  };
+  const was = armada.listTerminals;
+  armada.listTerminals = async () => ({
+    ok: false,
+    outcome: {
+      ok: false,
+      kind: "unreachable",
+    },
+  });
+  try {
+    await page
+      .getByRole("button", {
+        name: "Close Terminal 1",
+      })
+      .click();
+    await expect.element(page.getByText("A program is running in Terminal 1.")).toBeVisible();
+    expect(shellCalls()!.stopped).toEqual([]);
+  } finally {
+    armada.listTerminals = was;
+  }
+});
+
+test("renaming a terminal tells Fleet its name, and the tab keeps the name it was given", async () => {
+  await open();
+  await addTerminal();
+  await expect.element(pane().getByText(PROMPT)).toBeVisible();
+  await page
+    .getByRole("tab", {
+      name: /^Terminal/,
+    })
+    .click({
+      button: "right",
+    });
+  await page
+    .getByRole("menuitem", {
+      name: "Rename",
+    })
+    .click();
+  const field = page.getByRole("textbox", {
+    name: "Rename Terminal 1",
+  });
+  await field.fill("dev");
+  await userEvent.keyboard("{Enter}");
+  await expect
+    .element(
+      page.getByRole("tab", {
+        name: "dev",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  expect(shellCalls()!.renamed).toEqual([
+    {
+      sessionId: SHELL_JOB,
+      terminal: "t1",
+      name: "dev",
+    },
+  ]);
 });
 
 test("Move to window takes the shell to a window of its own, its tab says where it is, and Move to the pane or the window's Dock brings it back", async () => {

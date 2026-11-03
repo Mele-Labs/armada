@@ -128,7 +128,7 @@ export const SESSION_TILES: readonly {
     label: "Requests",
     text: "Requests",
   },
-  // The Job's shell, docked or in its window (`job-shell-dock.tsx`). A Job in panes has it as a tab, and this tile is drawn only where it has none. Moved here from the Job's header on the owner's ask of 23 Oct 2026.
+  // The Job's first terminal, docked or in its window (`job-shell-dock.tsx`). A Job in panes has it as a tab, and this tile is drawn only where it has none. Moved here from the Job's header on the owner's ask of 23 Oct 2026.
   {
     id: "terminal",
     label: "Terminal",

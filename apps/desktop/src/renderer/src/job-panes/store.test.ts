@@ -166,7 +166,7 @@ describe("a tab the Job opens", () => {
     expect(entryOf("a").edited).toBe(false);
 
     s.takeLayout("c", "Default");
-    s.jobOpens("c", "terminal", "zsh");
+    s.jobOpens("c", "terminal");
     expect(kinds(s.peek("c"), (x) => s.panesOf(x.root)).at(-1)).toEqual([
       "terminal",
     ]);
@@ -406,6 +406,67 @@ describe("a saved request", () => {
         collection: "store-api",
         request: "list-orders",
       },
+    ]);
+  });
+});
+
+describe("a terminal the Job opens itself", () => {
+  /** Every Terminal tab of the Job, by the terminal each holds, and the tab in front of the pane that holds them. */
+  async function terminals() {
+    const s = await start();
+    const tabs = (id: string) =>
+      s.panesOf(s.peek(id).root).flatMap((pane) =>
+        pane.tabs
+          .filter((tab) => tab.kind === "terminal")
+          .map((tab) => ({
+            terminal: tab.terminal,
+            front: pane.active === tab.id,
+          })),
+      );
+    return {
+      s,
+      tabs,
+    };
+  }
+
+  test("gets a tab behind the one in front, the focus stays where it was, and it is never added twice", async () => {
+    const { s, tabs } = await terminals();
+    const before = s.peek("a");
+    s.jobOpensTerminal("a", "t2", false);
+    expect(tabs("a")).toEqual([
+      {
+        terminal: "t2",
+        front: true,
+      },
+    ]);
+    expect(s.peek("a").focus).toBe(before.focus);
+    s.jobOpensTerminal("a", "t2", false);
+    s.jobOpensTerminal("a", "t3", false);
+    s.jobOpensTerminal("a", "t3", false);
+    expect(tabs("a")).toEqual([
+      {
+        terminal: "t2",
+        front: true,
+      },
+      {
+        terminal: "t3",
+        front: false,
+      },
+    ]);
+    expect(s.peek("a").focus).toBe(before.focus);
+  });
+
+  test("adds nothing for a terminal the person opened with +, which has its tab already, or the Job's first that a tab with no ID draws", async () => {
+    const { s, tabs } = await terminals();
+    s.rearrange("a", (now) =>
+      s.addTab(now, now.focus, "terminal", undefined, undefined, undefined, undefined, "t2"),
+    );
+    s.rearrange("a", (now) => s.addTab(now, now.focus, "terminal"));
+    s.jobOpensTerminal("a", "t2", false);
+    s.jobOpensTerminal("a", "t1", true);
+    expect(tabs("a").map((one) => one.terminal)).toEqual([
+      "t2",
+      undefined,
     ]);
   });
 });

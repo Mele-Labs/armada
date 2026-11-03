@@ -71,7 +71,7 @@ export function BrowserTabsSync({ jobId }: { jobId: string }) {
   return null;
 }
 
-/** The tab's own shell, or the Job's first where the tab names none. The Cockpit's Terminal tile shows the first, which is why it asks for it shown while a Terminal tab is open. */
+/** The tab's own shell, or the Job's first where the tab names none. Closing the tab ends the shell. */
 export function TerminalBody({ jobId, tab }: { jobId: string; tab: Tab }) {
   const draft = useSessionsDraft();
   const served = draft?.terminalRuns !== undefined;
@@ -494,7 +494,7 @@ export function DraftBody({ jobId, tab }: { jobId: string; tab: Tab }) {
 }
 
 /**
- * A shell shown with no tab for it opens one, behind the tab in front: the agent's, or the Cockpit's Terminal tile's.
+ * A shell shown with no tab for it opens one, behind the tab in front and without the focus: the agent's.
  * Hears the shells the agent opens. Draws nothing.
  */
 export function TerminalSync({ jobId }: { jobId: string }) {

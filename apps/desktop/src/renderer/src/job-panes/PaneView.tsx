@@ -62,8 +62,7 @@ const terminalNumber = (terminal: string | undefined): number =>
 /** The ID a terminal tab sends and copies. */
 const terminalIdOf = (tab: Tab): string => tab.terminal ?? `t${terminalNumber(tab.terminal)}`;
 
-/** The words a tab reads: its own label where it has one, else its kind. */
-/** A Custom tab reads the name of the mod it built, once it has one. A Terminal tab reads its number until it is renamed. */
+/** The words a tab reads: its own label where it has one, else its kind. A Custom tab reads the name of the mod it built, once it has one. A Terminal tab reads its number until it is renamed. */
 export const labelOf = (tab: Tab): string =>
   (tab.kind === "custom" ? customLabel(tab.id) : undefined) ??
   tab.label ??

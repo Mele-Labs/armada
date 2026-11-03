@@ -17,7 +17,7 @@ import { viewingNow } from "./cockpit/viewed";
 export type JobDock = {
   /** The runs' dock, which brings its run to the front as it starts or is shown again. */
   dock: TerminalDockRun;
-  /** Terminal: the shell's pane in front, with a new shell where none is running. Absent where the view serves no terminal. Flight control's tile does the same (`useJobTerminal`). */
+  /** Terminal: the Job's first terminal's pane in front, with a new shell where none is running. Absent where the view serves no terminal. Flight control's tile does the same (`useJobTerminal`). */
   terminal: (() => void) | undefined;
   /** What is docked, or nothing. */
   pane: ReactNode;
@@ -219,7 +219,7 @@ function useShellRunning(shell: JobShell | undefined): boolean {
 }
 
 /**
- * The Job's shell from outside its view, for a Job with no Terminal tab. A press opens it, with a new shell where none is running; while it shows, a press puts it away and it keeps running.
+ * The Job's first terminal from outside its view, for a Job with no Terminal tab. A press opens it, with a new shell where none is running; while it shows, a press puts it away and it keeps running.
  * A window of its own is brought to the front instead: its own close puts it away. Absent where the window serves no shell.
  */
 export function useJobTerminal(sessionId: string, served: boolean): JobTerminal | undefined {

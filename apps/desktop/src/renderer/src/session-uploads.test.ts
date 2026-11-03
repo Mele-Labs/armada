@@ -21,6 +21,20 @@ describe("a tag as the wire has it", () => {
     });
   });
 
+  it("sends a terminal by its ID and its name, so Fleet can tell the agent which to pass as `terminal`", () => {
+    const terminal = wireTagOf({
+      kind: "terminal",
+      id: "t2",
+      title: "dev",
+    });
+    expect(terminal).toEqual({
+      kind: "terminal",
+      id: "t2",
+      title: "dev",
+    });
+    expect("url" in terminal).toBe(false);
+  });
+
   it("sends a pull request the same way, and leaves the address out of a tag that has none", () => {
     expect(
       wireTagOf({

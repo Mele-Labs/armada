@@ -1,4 +1,4 @@
-// The Job's shell in a window of its own: Move to window on the Terminal tab's menu moves the shell there with all it printed,
+// A terminal in a window of its own, one window for each terminal: Move to window on the Terminal tab's menu moves the shell there with all it printed,
 // the tab says where it is, Move to the pane or Dock on the window's head brings the shell back, and the window's own close
 // puts the shell back in its tab with it still running.
 // The mock draws the window over the page, as it draws the walk window. A walk finds what is on screen and cannot find what
@@ -9,7 +9,7 @@ import { button, deckRow, inside, region, role, tab, text, walk } from "../walk"
 import type { Step } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const here = region(/^Pane: (Thread|zsh)/);
+const here = region(/^Pane: (Thread|Terminal)/);
 const pane = inside(
   here,
   role("group", "Terminal", {
@@ -17,7 +17,7 @@ const pane = inside(
   }),
 );
 const typed = role("textbox", "Terminal input");
-const popOut = role("dialog", "Terminal: Deploy the store", {
+const popOut = role("dialog", "Terminal 1: Deploy the store", {
   exact: true,
 });
 const inWindow = inside(
@@ -57,7 +57,7 @@ const steps: Step[] = [
     say: "The worktree's files",
   },
   {
-    context: inside(here, tab(/^zsh/)),
+    context: inside(here, tab(/^Terminal/)),
     say: "The tab's menu",
   },
   {
@@ -90,7 +90,7 @@ const steps: Step[] = [
     say: "Back in the tab with everything it printed",
   },
   {
-    context: inside(here, tab(/^zsh/)),
+    context: inside(here, tab(/^Terminal/)),
     say: "The tab's menu",
   },
   {
