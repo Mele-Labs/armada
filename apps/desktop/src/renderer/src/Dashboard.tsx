@@ -33,7 +33,6 @@ import { lineOf } from "./session-activity";
 import { useDispatching } from "./dispatch-panel/dispatching";
 import { openInPanel } from "./shared-panel/store";
 import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
-import { useOpenWalks } from "./cockpit/open-walks";
 import { failedAt, isOnIt, ownerOfCall, workOwner, type Owner } from "./cockpit/owner";
 import { checkoutCall } from "./cockpit/checkout";
 import { MERGE_BY_HAND } from "./cockpit/horizon";
@@ -564,24 +563,12 @@ export function useItems(
 ): Item[] {
   const sessions = useSessions();
   const dismissed = useDismissed();
-  const walking = useOpenWalks();
   const viewed = useViewedVersion();
   const calls = tab === "command-central";
   const items = useMemo(() => {
     const items: Item[] = [];
     if (tab === "command-central") {
-      // A walk whose window is open is being looked at, so it is not a call yet.
-      const unseen = (one: WaitingCall) =>
-        !(
-          one.item.source === "walk" &&
-          one.item.act !== undefined &&
-          walking.has(one.item.act.target)
-        );
-      items.push(
-        ...callsFromWaiting(sessions, viewedAt)
-          .filter(unseen)
-          .map((one) => waitingItem(one, hosts)),
-      );
+      items.push(...callsFromWaiting(sessions, viewedAt).map((one) => waitingItem(one, hosts)));
     } else {
       items.push(
         ...sessions
@@ -618,7 +605,6 @@ export function useItems(
     state,
     picked,
     sessions,
-    walking,
     answered,
     dismissed,
     viewed,

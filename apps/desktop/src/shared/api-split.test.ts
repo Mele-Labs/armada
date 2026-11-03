@@ -264,6 +264,7 @@ import { SHARING_CHANNELS, type SharingApi } from "./api/sharing";
 import { LOGBOOK_CHANNELS, type LogbookApi } from "./api/logbook";
 import { TEACHING_CHANNELS, type TeachingApi } from "./api/teaching";
 import { JOB_BROWSER_CHANNELS, type JobBrowserApi } from "./api/job-browser";
+import { JOB_WALK_CHANNELS, type JobWalkApi } from "./api/job-walk";
 import { VOICE_CHANNELS, type VoiceApi } from "./api/voice";
 import { PROJECTS_CHANNELS, type ProjectsApi } from "./api/projects";
 import { BUG_REPORTS_CHANNELS, type BugReportsApi } from "./api/bug-reports";
@@ -668,9 +669,6 @@ type OldBridgeApi = {
   ) => Promise<SessionActed<SessionMcpActed>>;
   mendSessionTools: (sessionId: string) => Promise<SessionActed<void>>;
   openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
-  openSessionWindow: (sessionId: string, url: string) => Promise<Outcome>;
-  getSessionWindows: () => Promise<readonly string[]>;
-  onSessionWindows: (onChanged: (addresses: readonly string[]) => void) => () => void;
   readSessionArtifact: (sessionId: string, path: string) => Promise<ArtifactRead>;
   showSessionPage: (sessionId: string, address: string, bounds: PageBounds) => Promise<Followed>;
   moveSessionPage: (bounds: PageBounds) => Promise<void>;
@@ -763,6 +761,7 @@ type OldBridgeApi = {
   LogbookApi &
   TeachingApi &
   JobBrowserApi &
+  JobWalkApi &
   VoiceApi &
   ProjectsApi &
   BugReportsApi &
@@ -1108,9 +1107,6 @@ const OLD_CHANNELS = {
   actOnSessionMcp: "bridge:act-on-session-mcp",
   mendSessionTools: "bridge:mend-session-tools",
   openSessionFile: "bridge:open-session-file",
-  openSessionWindow: "bridge:open-session-window",
-  getSessionWindows: "bridge:get-session-windows",
-  sessionWindowsChanged: "bridge:session-windows-changed",
   readSessionArtifact: "bridge:read-session-artifact",
   showSessionPage: "bridge:show-session-page",
   moveSessionPage: "bridge:move-session-page",
@@ -1155,6 +1151,7 @@ const OLD_CHANNELS = {
   ...LOGBOOK_CHANNELS,
   ...TEACHING_CHANNELS,
   ...JOB_BROWSER_CHANNELS,
+  ...JOB_WALK_CHANNELS,
   ...VOICE_CHANNELS,
   ...PROJECTS_CHANNELS,
   ...BUG_REPORTS_CHANNELS,

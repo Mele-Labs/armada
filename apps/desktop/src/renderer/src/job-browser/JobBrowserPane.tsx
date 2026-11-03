@@ -22,6 +22,7 @@ import {
 import { ACTION, Button, Input, Kbd, Popover, Textarea, Tooltip } from "@armada/components";
 import type { ThreadCard } from "@armada/components";
 
+import { holdLayerUp } from "../hold-layers";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { effectiveChoice, labelOfPermission } from "../../../shared/site-permissions";
 import {
@@ -338,11 +339,7 @@ function LivePage({
     let moving = 0;
     let last: Box | undefined;
     const follow = () => {
-      setLayerOn(
-        document.querySelector(
-          "[data-armada-annotate], .job-browser__site-panel, .job-browser__ask, .armada-dialog-scrim, .armada-dropdown-menu__panel, .job-pane__drops",
-        ) !== null,
-      );
+      setLayerOn(holdLayerUp());
       const box = frame.current?.getBoundingClientRect();
       if (box !== undefined) {
         const now = {
@@ -546,7 +543,7 @@ function SiteSettingsPanel({
 }
 
 /** The page's ask, over the page under the head, the same one Needs you carries: answering either takes both away. Esc leaves the site undecided. */
-function AskBubble({
+function AskStrip({
   sessionId,
   tabId,
   browser,
@@ -571,7 +568,7 @@ function AskBubble({
   if (!open) return null;
   const label = labelOfPermission(asked.permission);
   return (
-    <div className="job-browser__ask" role="alertdialog" aria-label="Site request">
+    <div className="job-browser__ask-strip" role="alertdialog" aria-label="Site request">
       <span className="job-browser__ask-words">
         <span>{`${asked.host} wants to use ${label}`}</span>
         {asked.permission === "local_network" ? (
@@ -791,7 +788,7 @@ export function JobBrowserPane({
           ) : null}
         </span>
       </header>
-      <AskBubble sessionId={sessionId} tabId={tabId} browser={browser} />
+      <AskStrip sessionId={sessionId} tabId={tabId} browser={browser} />
       {away ? null : browser.page !== undefined ? (
         <FixturePage
           sessionId={sessionId}

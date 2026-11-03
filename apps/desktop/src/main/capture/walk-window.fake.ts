@@ -18,13 +18,11 @@ export class FakeWalkWindow {
   revealed: boolean[] = [];
   private walks: Queued[] = [];
   private current: Queued | null = null;
-  private readonly board: WalkWindowBoard;
   private readonly seat = {
     onScreen: () => true,
   } as unknown as WalkSeat;
 
-  constructor(_sizes: unknown, board: WalkWindowBoard) {
-    this.board = board;
+  constructor(_sizes: unknown, _board: WalkWindowBoard) {
     made.windows.push(this);
   }
 
@@ -97,7 +95,6 @@ export class FakeWalkWindow {
       one.walk?.dispose();
       one.left();
     }
-    this.board.closed();
   }
 
   refresh(): void {}
@@ -117,6 +114,5 @@ export class FakeWalkWindow {
   private bring(walk: Queued): void {
     this.current = walk;
     if (walk.walk === null) walk.walk = walk.make(this.seat);
-    this.board.shown(walk);
   }
 }

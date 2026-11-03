@@ -10,7 +10,7 @@ import type {
   WorkGroup,
 } from "@armada/screens/src/draft/sessions";
 import type { WaitingItem } from "@armada/protocol";
-import { mockPage, openWalkWindow } from "@armada/screens/src/fixtures/walk-window";
+import { mockPage } from "@armada/screens/src/fixtures/walk-window";
 
 import { walkCall, withWalkCall } from "./plan-call";
 import { arrow, box, scene } from "./scenes";
@@ -321,13 +321,6 @@ export const AUDIT_FILES = shown(
   3,
 );
 
-/** The takes the walk in `AUDIT_FILES` shows, one page each. */
-export const AUDIT_TAKES = [
-  "Table",
-  "Cards",
-  "List",
-] as const;
-
 /** The Job at a step of its workflow: its plan, its field, and what it has made. `rows` are the walks it has shown. */
 export const auditLedger = (
   one: Session,
@@ -401,49 +394,32 @@ export const auditLedger = (
 });
 
 /**
- * Opens a shown walk the way Bridge opens one, as a window over the app with its takes, and ends it on his Approve: the thread row ends, the item Fleet held for the page goes,
- * and `then` moves the workflow on. A press on the walk in Now, or Enter on it, is `draft.openWindow`, which this answers.
+ * Ends a shown walk on his Approve, as Fleet does: the thread row ends, the item Fleet held for the page goes, and `then` moves the workflow on. A press on the walk in Now, or
+ * Enter on it, is `draft.openWindow`, which opens the Job on its walk.
  */
 export function walkActs(
   store: SessionsStore,
   id: string,
   walk: SessionRow,
-  takes: readonly string[],
   then?: (one: Session) => Session,
 ): SessionsStore {
   if (walk.kind !== "window") return store;
-  const { url, title } = walk;
+  const { url } = walk;
   return {
     ...store,
-    openWindow: (to, at) => {
-      if (to !== id || at !== url) return store.openWindow?.(to, at);
-      openWalkWindow(title, url, {
-        title,
-        job: "Rotate the audit log",
-        into: "Session",
-        onNote: () => undefined,
-        variations: takes.map((name) => ({
-          name,
-          url: `${url}&take=${name.toLowerCase()}`,
-        })),
-        readiness: "ready",
-        onApprove: async () => {
-          store.edit(id, (one) => {
-            const next = then === undefined ? one : then(one);
-            return {
-              ...next,
-              rows: next.rows.map((row) =>
-                row.kind === "window" && row.url === url
-                  ? approved(row, "2026-10-26T14:06:00.000Z")
-                  : row,
-              ),
-              waitingFor: withWalkCall(next.waitingFor, url),
-            };
-          });
-          return {
-            ok: true,
-          };
-        },
+    approveWalk: (to, at) => {
+      if (to !== id || at !== url) return store.approveWalk?.(to, at);
+      store.edit(id, (one) => {
+        const next = then === undefined ? one : then(one);
+        return {
+          ...next,
+          rows: next.rows.map((row) =>
+            row.kind === "window" && row.url === url
+              ? approved(row, "2026-10-26T14:06:00.000Z")
+              : row,
+          ),
+          waitingFor: withWalkCall(next.waitingFor, url),
+        };
       });
     },
   };

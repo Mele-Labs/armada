@@ -874,10 +874,10 @@ async fn an_ended_session_closes_its_terminal_question() {
     assert!(rig.bridge_answers(&call, "L").await.is_err());
 }
 
-/// **A terminal's question while its walk is open is refused before any card goes up**, with the
-/// reason the mod hands the model; once the person closes the window, a question is put again.
+/// **A terminal's question while its walk is open is put to the person like any other**: the walk
+/// is a tab beside the thread and holds nothing back.
 #[tokio::test]
-async fn a_terminal_question_while_a_walk_is_open_is_refused_until_the_window_closes() {
+async fn a_terminal_question_while_a_walk_is_open_is_put_to_the_person() {
     let rig = rig();
     rig.started().await;
     let url = "http://localhost:5173/";
@@ -887,27 +887,25 @@ async fn a_terminal_question_while_a_walk_is_open_is_refused_until_the_window_cl
         .expect("shown");
 
     let ask = format!(r#"{{"kind":"asks","session_id":"{ID}","input":{QUESTION}}}"#);
-    let ipc::TerminalAsked::Refused { message } = rig.mod_says(ask.clone()).await.unwrap() else {
-        panic!("a question during a walk is refused");
-    };
-    assert!(message.contains("Do not add it to waiting_for"), "{message}");
-    // The thread a terminal session reads shows live asks only, so the kept row is read off the store.
-    assert!(rig.opened().await.is_empty(), "no card was put up");
+    assert!(
+        matches!(rig.mod_says(ask).await.unwrap(), ipc::TerminalAsked::Asked { .. }),
+        "a question during a walk is put to him"
+    );
     let rows = rig.fleet.rows_of(ID).await.expect("rows");
     assert!(
-        !rows.iter().any(|row| matches!(row, SessionRow::Ask { state: ipc::SessionAskState::Waiting, .. })),
-        "no card was put up"
+        rows.iter().any(|row| matches!(row, SessionRow::Ask { state: ipc::SessionAskState::Waiting, ask, .. } if !ask.questions.is_empty())),
+        "a card is up: {rows:?}"
     );
     assert!(
-        rows.iter().any(|row| matches!(row, SessionRow::Ask { state: ipc::SessionAskState::Kept, ask, .. } if !ask.questions.is_empty())),
-        "the question is kept whole for him: {rows:?}"
+        !rows.iter().any(|row| matches!(row, SessionRow::Ask { state: ipc::SessionAskState::Kept, .. })),
+        "nothing is kept aside for the walk"
     );
+    assert_eq!(rig.fleet.walk_open(ID).await.as_deref(), Some(url), "and the walk stays open");
 
     rig.fleet
         .window_closed(ipc::WindowClosed { session_id: SessionId::carried(ID), url: url.into() })
         .await
         .expect("told");
-    assert!(matches!(rig.mod_says(ask).await.unwrap(), ipc::TerminalAsked::Asked { .. }));
 
     // Approve in the window is a message the mod is holding for, and it ends the walk too.
     rig.fleet

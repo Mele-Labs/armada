@@ -28,6 +28,8 @@ import { accountNowOf } from "../../session-activity";
 import { stateOf } from "../../session-state";
 import { useModList } from "../../mod-list";
 import { useSessions } from "../../sessions-draft";
+import { owedWalks } from "../../job-walk/walks";
+import { useWalksVersion } from "../../job-walk/store";
 import { useViewedVersion } from "../viewed";
 import type { CockpitProps } from "./props";
 import { callKindOf, sessionIdOf, waitingOf } from "../waiting";
@@ -463,12 +465,21 @@ export function shipOf(input: Inputs): Ship {
     }
     const ownMark = sessionMark(session);
     const asking = tabAsks.find((one) => one.jobs.includes(session.id));
+    // A Custom tab's Mod Job that asks, or a walk he has not approved, calls on the Job's row as the Job's own question does.
+    const waits =
+      ownMark.tone === "ask"
+        ? undefined
+        : asking !== undefined
+          ? `${asking.label} waits on you`
+          : owedWalks(session).length > 0
+            ? "Walk waits on you"
+            : undefined;
     const mark: Mark =
-      asking === undefined || ownMark.tone === "ask"
+      waits === undefined
         ? ownMark
         : {
             Glyph: sessionGlyphOf("waiting"),
-            said: `${asking.label} waits on you`,
+            said: waits,
             tone: "ask",
             bucket: "needs",
           };
@@ -867,6 +878,7 @@ export function useShip(props: ShipProps, hold = true): Ship {
   // A Session read is one that no longer needs him: build again when any Session's time does.
   const viewed = useViewedVersion();
   const panes = usePanesVersion();
+  const walks = useWalksVersion();
   const mods = useModList();
   return useMemo(
     () =>
@@ -889,6 +901,7 @@ export function useShip(props: ShipProps, hold = true): Ship {
       viewed,
       mods,
       panes,
+      walks,
     ],
   );
 }
