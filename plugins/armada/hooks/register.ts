@@ -83,6 +83,8 @@ const HARNESS = 'claude_code'
 const MEASURE_EVERY_MS = 10_000
 const RUNTIME_FILE = 'Library/Application Support/Armada/fleet.json'
 const WAIT_MS = 1500
+// How long Fleet is given to run a repository's pre-PR Checks: past it the pull request opens, unchecked.
+const PRE_PR_WAIT_MS = 5 * 60_000
 // What a subagent's start waits for the Logbook: past it, the subagent starts with its prompt as it was.
 const LOGBOOK_WAIT_MS = 800
 // The tick that starts an ask when none is open, so also how soon one is retried after it failed.
@@ -445,6 +447,31 @@ async function showPages($: Dollar, urls: string[]): Promise<void> {
     }
   } catch {
     // Fleet out of reach: the line is still not run.
+  }
+}
+
+/**
+ * What Fleet says stands in the way of opening a pull request: the failing pre-PR Checks and the tail of
+ * each log. **Quiet**: a Fleet that is out, slow, older or refuses says nothing, and the pull request opens.
+ */
+async function prePrRefusal($: Dollar): Promise<string | undefined> {
+  try {
+    const port = await portOf($)
+    if (port === undefined) return undefined
+    const session_id = await $.session.id()
+    const asked = await Promise.race([
+      $.http.fetch(`http://127.0.0.1:${port}/sessions/pre_pr`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ session_id }),
+      }),
+      $.clock.sleep(PRE_PR_WAIT_MS).then(() => undefined),
+    ])
+    if (asked === undefined || !asked.ok) return undefined
+    const read = JSON.parse(asked.text) as { passed?: unknown; says?: unknown }
+    return read.passed === false && typeof read.says === 'string' && read.says !== '' ? read.says : undefined
+  } catch {
+    return undefined
   }
 }
 
@@ -1265,6 +1292,10 @@ export const register: Register = on => {
     if (pages.length > 0 && !(await $.env.get('ARMADA_DRONE'))) {
       await showPages($, pages)
       return { deny: SHOWN_INSTEAD }
+    }
+    if (ghAct(e.command)?.act === 'create' && !(await $.env.get('ARMADA_DRONE'))) {
+      const refused = await prePrRefusal($)
+      if (refused !== undefined) return { deny: refused }
     }
     const ran = await next(e)
     if (ran.deny === undefined) void used($, 'ran', e as Record<string, unknown>).catch(() => undefined)

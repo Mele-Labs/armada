@@ -13,7 +13,7 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; tasksOnDisk?: Record<string, string>; env?: Record<string, string>; pullRequest?: string; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown; logbook?: 'down' | 'slow' | 'refused' | string } = {},
+  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; tasksOnDisk?: Record<string, string>; env?: Record<string, string>; pullRequest?: string; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown; logbook?: 'down' | 'slow' | 'refused' | string; prePr?: 'passed' | 'failed' | 'down' | 'slow' | 'refused' } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
@@ -23,6 +23,7 @@ function world(
   const usages: unknown[] = []
   const asked: unknown[] = []
   const logbookAsks: Posted[] = []
+  const prePrAsks: Posted[] = []
   const questions: any[] = []
   const ran: { command: string; args?: string }[] = []
   // What reached the engine, submits and commands alike, in the order they did.
@@ -81,6 +82,16 @@ function world(
       if (options.logbook === 'refused') return { value: { status: 404, ok: false, headers: {}, text: '{}' } }
       return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ text: options.logbook ?? '' }) } }
     }
+    // The Checks a pull request waits on: passed, failed with a log tail, or a Fleet that is down, slow or without the route.
+    if (e.url.endsWith('/sessions/pre_pr')) {
+      prePrAsks.push({ url: e.url, body: JSON.parse(e.init?.body ?? '{}') })
+      if (options.prePr === 'down') throw new Error('connection refused')
+      if (options.prePr === 'slow') return new Promise(() => undefined)
+      if (options.prePr === 'refused') return { value: { status: 404, ok: false, headers: {}, text: '{}' } }
+      const failed = options.prePr === 'failed'
+      const says = failed ? 'format_check failed:\nsrc/a.ts needs formatting' : ''
+      return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ passed: !failed, says, checks: [] }) } }
+    }
     // The session as Fleet holds it, or a Fleet that does not know it.
     if (e.url.includes('/sessions/one?')) {
       if (options.thread === undefined) return { value: { status: 404, ok: false, headers: {}, text: '{}' } }
@@ -138,7 +149,7 @@ function world(
   on('classic.SessionStart', () => ({}))
   on('classic.Stop', () => (options.stopBlock === undefined ? {} : { block: options.stopBlock }))
   on('tool.call', { tool: 'mcp__armada-fleet__waiting_for' }, () => ({ result: {}, text: '{}' }))
-  return { posts, attempts, clock, submitted, asked, ran, questions, order, usages, processes, logbookAsks }
+  return { posts, attempts, clock, submitted, asked, ran, questions, order, usages, processes, logbookAsks, prePrAsks }
 }
 
 const facts = (posts: Posted[]) => posts.map(one => one.body.fact)
@@ -2204,4 +2215,69 @@ test('a Drone whose settings hooks are not run tells Fleet nothing', async ($, o
   await clock.settle()
 
   expect(posts).toEqual([])
+})
+
+// A pull request opens only once the Checks the repository keeps for that moment have passed.
+async function opening($: any, on: On, options: Parameters<typeof world>[1]) {
+  const seen = world(on, options)
+  let ranIt = 0
+  on('tool.call', { tool: 'Bash' }, () => {
+    ranIt += 1
+    return { result: { stdout: '', stderr: '', interrupted: false }, text: '' }
+  })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  const out = await $.tool.call({ tool: 'Bash', command: 'gh pr create --base main --title t --body b' })
+  await seen.clock.settle()
+  return { ...seen, out, ran: () => ranIt }
+}
+
+test('gh pr create is refused with the failing Check\'s log tail, and not run', async ($, on) => {
+  const { out, ran, prePrAsks } = await opening($, on, { prePr: 'failed' })
+
+  expect(ran()).toBe(0)
+  expect(JSON.stringify(out)).toContain('src/a.ts needs formatting')
+  expect(prePrAsks.map(one => one.body)).toEqual([{ session_id: 'S1' }])
+})
+
+test('gh pr create runs once the pre-PR Checks have passed', async ($, on) => {
+  const { out, ran } = await opening($, on, { prePr: 'passed' })
+
+  expect(ran()).toBe(1)
+  expect(out.deny).toBeUndefined()
+})
+
+for (const prePr of ['down', 'slow', 'refused'] as const) {
+  test(`gh pr create runs when Fleet is ${prePr}`, async ($, on) => {
+    const seen = world(on, { prePr })
+    let ranIt = 0
+    on('tool.call', { tool: 'Bash' }, () => {
+      ranIt += 1
+      return { result: { stdout: '', stderr: '', interrupted: false }, text: '' }
+    })
+    await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+    const call = $.tool.call({ tool: 'Bash', command: 'gh pr create --title t' })
+    await seen.clock.advance(10 * 60_000)
+    const out = await call
+
+    expect(ranIt).toBe(1)
+    expect(out.deny).toBeUndefined()
+  })
+}
+
+test('a Drone is not asked for pre-PR Checks', async ($, on) => {
+  const { ran, prePrAsks } = await opening($, on, { prePr: 'failed', env: { ARMADA_DRONE: '1' } })
+
+  expect(ran()).toBe(1)
+  expect(prePrAsks).toEqual([])
+})
+
+test('a command that is not a pull request being opened is not asked about', async ($, on) => {
+  const seen = world(on, { prePr: 'failed' })
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false }, text: '' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.tool.call({ tool: 'Bash', command: 'gh pr view 12' })
+  await $.tool.call({ tool: 'Bash', command: 'gh pr merge 12 --merge' })
+  await seen.clock.settle()
+
+  expect(seen.prePrAsks).toEqual([])
 })
