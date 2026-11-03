@@ -30,11 +30,19 @@ const ticketLifecycle = (words: Record<string, string[]>): AppliedLifecycle => (
     scope: {
       kind: "everywhere",
     },
-    states: ["todo", "in_progress", "in_review", "closed"].map((id) => ({
+    states: [
+      "todo",
+      "in_progress",
+      "in_review",
+      "closed",
+    ].map((id) => ({
       id,
-      label: { todo: "To do", in_progress: "In progress", in_review: "In review", closed: "Closed" }[
-        id
-      ]!,
+      label: {
+        todo: "To do",
+        in_progress: "In progress",
+        in_review: "In review",
+        closed: "Closed",
+      }[id]!,
       read: {
         source: "tracker" as const,
         words: words[id] ?? [],
@@ -98,11 +106,7 @@ const issue = (over: Partial<Issue> = {}): Issue => ({
 });
 
 const draw = (one: Issue) =>
-  act(async () =>
-    root!.render(
-      <IssueRow issue={one} manifestId={MANIFEST} />,
-    ),
-  );
+  act(async () => root!.render(<IssueRow issue={one} manifestId={MANIFEST} />));
 
 beforeEach(async () => {
   taught = {};
@@ -141,7 +145,9 @@ const rightPress = () =>
         }),
       ),
   );
-const items = () => [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+const items = () => [
+  ...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+];
 const item = (name: string) => items().find((one) => one.textContent === name);
 const mark = () => host!.querySelector<HTMLElement>('[role="img"]')!;
 
@@ -243,7 +249,11 @@ test("a row whose status reads as In review wears the eye glyph and says so, and
   expect(mark().getAttribute("aria-label")).toBe("Ticket state: In review");
   expect(mark().querySelector("svg.lucide-eye")).not.toBeNull();
 
-  await draw(issue({ status: "Waiting on vendor" }));
+  await draw(
+    issue({
+      status: "Waiting on vendor",
+    }),
+  );
   expect(mark().getAttribute("aria-label")).toBe("Open");
   expect(mark().querySelector("svg.lucide-eye")).toBeNull();
   expect(mark().querySelector("svg.lucide-ticket")).not.toBeNull();
