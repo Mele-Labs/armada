@@ -1092,6 +1092,16 @@ The job is told as his message, as a draft's answer is, and the rail reads an ap
 **Skew.** As above.
 **The event stream.** No new event: an answer publishes `session.changed`, as a draft's does. The open risk below is neither better nor worse.
 
+## A process that ended in a turn: `process_ended`
+
+Since 3 Nov 2026. `crates/fleet/src/session_host/reviving.rs`.
+
+| Where | Who | What |
+|---|---|---|
+| `WaitingSource` (`WaitingItem.source`) | Fleet writes, Bridge and Pocket read | Gains `process_ended`: id `process_ended:<ended at>`, derived on every read. Text `Process ended. Starting again.`, act `message` on the Job, no options; or `Process ended. Not started again.`, act `answer`, one option `Start again` (choice 0). |
+
+[Job](../concepts/session/a-job-fleet-hosts.md), *What a restart does to a job*, has when each form is listed.
+
 ## Fleet offers a refresh of the preview: `preview_offer`, and `moved` on a left-out branch
 
 Since 28 Oct 2026. `crates/fleet/src/session_host/preview_offers.rs`.

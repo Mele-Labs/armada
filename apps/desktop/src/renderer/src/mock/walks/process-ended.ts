@@ -46,7 +46,7 @@ const processEnded = walk("process-ended", [
   },
   {
     look: inside(needs, text("Process ended. Starting again.")),
-    say: "Fleet starts it, and the item has nothing left to press",
+    say: "It goes once the new process speaks",
   },
 ]);
 
