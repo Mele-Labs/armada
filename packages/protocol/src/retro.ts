@@ -103,6 +103,34 @@ export type RecordAsked = {
   waited_ms?: number;
 };
 
+/** Milliseconds in each bucket of a Job's time. Every millisecond of a Job lands in one. */
+export type RecordSplit = {
+  model: number;
+  tools: number;
+  checks: number;
+  subagents: number;
+  slot: number;
+  you: number;
+  pull_request: number;
+  stopped: number;
+  idle: number;
+};
+
+/**
+ * The Job's whole time, read against the usual Job of its workflow. It covers the Job, not only
+ * the stretch since the last retro.
+ */
+export type RecordTime = {
+  cite: string;
+  workflow: string;
+  /** How many kept Jobs of the workflow the usual is the median of. */
+  jobs: number;
+  spent: RecordSplit;
+  usual: RecordSplit;
+  /** The buckets far over their usual: twice it and at least ten minutes beyond it. */
+  over: string[];
+};
+
 /**
  * Everything on a Session's record a retro is read from. An empty list is left out.
  * Its gate denials are `refusals` and its resumes and reattaches are `restarts`.
@@ -119,6 +147,8 @@ export type RetroRecord = {
   failed_tools?: RecordRefusal[];
   /** Each subagent's own trouble. */
   subagents?: RecordSaid[];
+  /** Where the Job's time went against the usual for its workflow. Present only where some bucket ran far over the usual. */
+  time?: RecordTime;
 };
 
 /** The Session a retro or an item was written for. */

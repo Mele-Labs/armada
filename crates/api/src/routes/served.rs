@@ -237,6 +237,21 @@ const ROUTES: &[Route] = &[
         path: "/usage/summary",
     },
     Route {
+        operation: "get_usage_time",
+        method: "GET",
+        path: "/usage/time",
+    },
+    Route {
+        operation: "get_usage_hours",
+        method: "GET",
+        path: "/usage/hours",
+    },
+    Route {
+        operation: "get_job_time",
+        method: "GET",
+        path: "/sessions/time",
+    },
+    Route {
         operation: "get_usage_rules",
         method: "GET",
         path: "/usage/rules",

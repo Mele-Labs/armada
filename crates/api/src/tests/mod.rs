@@ -26,6 +26,7 @@ mod helm_tells;
 mod hosted_sessions;
 mod bug_reports;
 mod lifecycle_routes;
+mod time_routes;
 mod door_receipts;
 mod accounts;
 mod judge;

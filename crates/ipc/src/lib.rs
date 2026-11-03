@@ -261,6 +261,8 @@ mod turn_usage;
 mod usage_rules;
 /// What a window of turns cost, summed.
 mod usage_summary;
+/// Where Jobs' time went: one Job's, a window's, and the hours and builds the Usage page draws.
+mod time_summary;
 /// What a hosted Session is doing now, as Fleet saw it.
 mod session_activity;
 /// What a Session has built: its phase, pieces and road, read off what Fleet observed.
@@ -673,6 +675,9 @@ pub use turn_usage::{BashUse, SessionTurnUsage, TurnUsage};
 pub use usage_rules::{UsageRule, UsageRuleLimit, UsageRuleTrip, UsageRules};
 pub use usage_summary::{
     DayUnits, NamedUnits, PriorUsage, RestUsage, SessionUsageSummary, TokenUnits, UsageBreakdown, UsageSummary,
+};
+pub use time_summary::{
+    BuildFigures, HourFigures, JobSplit, JobTime, SlowJob, UsageHours, UsageTime, UsualTime,
 };
 pub use loadout::{
     LoadoutItem, LoadoutItemAsked, LoadoutItemBody, LoadoutItemFormat, LoadoutItems, LoadoutKind, LoadoutSource,

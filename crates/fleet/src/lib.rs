@@ -59,6 +59,7 @@ pub mod job_time;
 mod job_timing;
 pub mod usage_rules;
 mod usage_summarising;
+mod time_summarising;
 mod turn_usage_keeping;
 mod loadout_reading;
 /// A Session's place in its workflow, read from what Fleet observed, and the nudge for a step skipped.

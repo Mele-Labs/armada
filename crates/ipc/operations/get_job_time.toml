@@ -1,0 +1,12 @@
+[operations.get_job_time]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Where this Job's time went, split into model, tools, checks, subagents, slot, you, pull request, stopped and idle, set beside the usual Job of its workflow"
+notes = """
+`GET /sessions/time?session_id=`. `JobTime` `{ session_id, time? }`. `time` is the Job's split as it was kept when the Job ended: `workflow` (empty where it ran none), `began_at`, `ended_at`, `spent` and `usual?`. **Every figure in a split is milliseconds** (`RecordSplit`, as a retro's `time` row has it), and the nine buckets sum to `ended_at` less `began_at`. `usual` is `{ workflow, jobs, split }`: the median of each bucket over the `jobs` kept Jobs of the workflow, this one among them; absent where the Job has no workflow name.
+
+**`time` is absent where none is kept**: the Job is still running, or ended before splits were kept. That answers 200 and is not a failure. 422 `fleet.session_unnamed` where Fleet knows no such Job.
+
+`agent_access` is `Yes`: an agent that wonders why it is slow reads its own split. The Usage page reads the same figures for a window from `get_usage_time`.
+"""

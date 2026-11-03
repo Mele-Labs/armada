@@ -5,7 +5,7 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use store::{BuildFigures, HoursRead, TimeRead, DEFAULT_HOURS, DEFAULT_SLOWEST};
+use store::{BuildFigures, HoursRead, KeptJobTime, TimeRead, Usual, DEFAULT_HOURS, DEFAULT_SLOWEST};
 
 use crate::daemon::Fleet;
 
@@ -43,5 +43,22 @@ where
         let now = self.now().as_str().to_string();
         let read = self.store().lock().await.usage_time(since.as_deref(), until.as_deref(), &now, slowest.unwrap_or(DEFAULT_SLOWEST));
         read.map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.ledger_unnamed("a time for each bound of the window"))
+    }
+
+    /// A Job's kept split and, where its workflow has a name, the usual of every workflow, read in one
+    /// short hold. `None` where no split is kept for it. A Job Fleet does not know is refused.
+    pub async fn job_split_read(&self, id: &str) -> Result<Option<(KeptJobTime, Vec<(String, Usual)>)>, Refusal> {
+        let store = self.store().lock().await;
+        if store.session(id).map_err(|why| self.ledger_fault(why))?.is_none() {
+            return Err(self.ledger_unnamed("a job Fleet knows"));
+        }
+        let Some(kept) = store.job_time(id).map_err(|why| self.ledger_fault(why))? else {
+            return Ok(None);
+        };
+        let usual = match kept.workflow.is_empty() {
+            true => Vec::new(),
+            false => store.usual_splits().map_err(|why| self.ledger_fault(why))?,
+        };
+        Ok(Some((kept, usual)))
     }
 }
