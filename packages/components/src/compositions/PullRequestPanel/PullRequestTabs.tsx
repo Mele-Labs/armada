@@ -393,12 +393,14 @@ function Evaluate({
 function CommentHead({
   mark,
   who,
+  bot,
   at,
   triage,
   act,
 }: {
   mark?: ReactNode;
   who: string | undefined;
+  bot?: boolean | undefined;
   at: string | undefined;
   triage?: EntryTriage | undefined;
   act?: ReactNode;
@@ -406,7 +408,11 @@ function CommentHead({
   return (
     <header className="armada-pr-card__head">
       {mark}
-      {who === undefined ? null : <b className="armada-pr-card__who">{who}</b>}
+      {who === undefined ? null : (
+        <b className="armada-pr-card__who" data-bot={bot || undefined}>
+          {who}
+        </b>
+      )}
       {at === undefined ? null : <Stamp first="age" at={at} className="armada-pr-card__ago" />}
       <span className="armada-pr-card__trail">
         {triage === undefined ? null : <Triaged triage={triage} />}
@@ -427,6 +433,7 @@ function Body({ text }: { text: string }) {
 function Entry({
   title,
   who,
+  bot,
   at,
   mark,
   body,
@@ -436,6 +443,7 @@ function Entry({
 }: {
   title?: string;
   who: string | undefined;
+  bot?: boolean | undefined;
   at: string | undefined;
   mark?: ReactNode;
   body: string;
@@ -460,7 +468,7 @@ function Entry({
         aria-label={title ?? who}
         data-focus={focus || undefined}
       >
-        <CommentHead mark={mark} who={who} at={at} triage={triage} act={act} />
+        <CommentHead mark={mark} who={who} bot={bot} at={at} triage={triage} act={act} />
         <Body text={body} />
       </article>
     </li>
@@ -484,17 +492,20 @@ function ThreadEntry({
   return (
     <li className="armada-pr-entry">
       <article
-        className="armada-pr-card"
+        className="armada-pr-card armada-pr-card--thread"
         aria-label={`Thread on ${where}`}
         data-resolved={thread.resolved || undefined}
       >
-        <header className="armada-pr-card__head">
-          {thread.resolved ? <Mark Glyph={Check} said="Resolved" tone="success" /> : null}
+        <header className="armada-pr-card__head armada-pr-thread__head">
           <code className="armada-pr-thread__where">{where}</code>
+          <span className="armada-pr-thread__state">
+            {thread.resolved ? <Mark Glyph={Check} said="Resolved" tone="success" /> : null}
+          </span>
         </header>
         {excerpt === undefined ? null : (
           <div className="armada-pr-thread__code">
             <UnifiedDiff
+              bare
               files={[
                 excerpt,
               ]}
@@ -507,6 +518,7 @@ function ThreadEntry({
               <article aria-label={one.author}>
                 <CommentHead
                   who={one.author}
+                  bot={one.bot}
                   at={one.at}
                   act={
                     evaluate === undefined ? undefined : (
@@ -602,7 +614,7 @@ export function Conversation({
   if (!first && said.length === 0) return null;
   return (
     <StampSurface>
-      <ul className="armada-pr-list" aria-label="Conversation">
+      <ul className="armada-pr-list armada-pr-list--conversation" aria-label="Conversation">
         {first ? (
           <Entry
             title="Description"
@@ -629,6 +641,7 @@ export function Conversation({
             <Entry
               key={`${entry.kind}:${entry.id}`}
               who={entry.author}
+              bot={entry.bot}
               at={entry.at}
               mark={
                 verdict === undefined ? undefined : (

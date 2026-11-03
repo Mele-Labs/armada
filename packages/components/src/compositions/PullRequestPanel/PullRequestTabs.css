@@ -54,6 +54,10 @@
   list-style: none;
 }
 
+.armada-pr-list--conversation {
+  gap: var(--space-4);
+}
+
 .armada-pr-card {
   min-width: 0;
   border: var(--border-width) solid var(--border-subtle);
@@ -121,8 +125,11 @@
 }
 
 .armada-pr-card__who {
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-heading);
   color: var(--fg-default);
+}
+.armada-pr-card__who[data-bot] {
+  color: var(--fg-muted);
 }
 
 .armada-pr-card__body {
@@ -131,18 +138,35 @@
   overflow-wrap: anywhere;
 }
 
-/* A thread on the diff: where it is, heavy and in the code's face, over the lines it is about and every comment on it. */
+/* A thread on the diff is one card: its place, the lines it is about, then every comment, inside one
+   border. The left edge says whether it is still open, and the card is the only box. */
+.armada-pr-card--thread {
+  border-inline-start: var(--space-1) solid var(--accent);
+}
+.armada-pr-card--thread[data-resolved] {
+  border-inline-start-color: var(--fg-subtle);
+}
+/* Where it is, heavy and in the code's face, with the resolved glyph in a column of its own at the end. */
+.armada-pr-thread__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--space-6);
+  gap: var(--space-2);
+}
 .armada-pr-thread__where {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--font-mono);
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-heading);
   color: var(--fg-default);
 }
-.armada-pr-card[data-resolved] .armada-pr-thread__where {
+.armada-pr-card--thread[data-resolved] .armada-pr-thread__where {
   color: var(--fg-muted);
+}
+.armada-pr-thread__state {
+  display: inline-flex;
+  justify-content: flex-end;
 }
 .armada-pr-thread__code {
   min-width: 0;
@@ -154,7 +178,17 @@
   padding: 0;
   list-style: none;
 }
+/* Comments are not boxes: the first sits flush, and a reply steps in under the thread's rail. */
+.armada-pr-thread__comment .armada-pr-card__head {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.armada-pr-thread__comment .armada-pr-card__body {
+  padding-top: var(--space-1);
+}
 .armada-pr-thread__comment + .armada-pr-thread__comment {
+  margin-inline-start: var(--space-3);
+  border-inline-start: var(--border-width) solid var(--border-default);
   border-top: var(--border-width) solid var(--border-subtle);
 }
 
