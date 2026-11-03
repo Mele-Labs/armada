@@ -338,6 +338,9 @@ where
         // Its first process reads the links, so it is told the handoff and the brief.
         let _ = self.told_by_fleet(&new, CARRY_ON, ipc::Notice::ContextHandoff).await;
         let _ = self.published_hosted(&new).await;
+        // After its first word, so what waits on it is not what starts it. A Fleet that stops first
+        // leaves them for its next start.
+        self.waits_followed(old, &new).await;
         Ok(new)
     }
 
