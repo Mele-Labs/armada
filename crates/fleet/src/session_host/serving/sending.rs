@@ -254,7 +254,17 @@ where
             }
         };
         if let Some(held) = held {
-            self.deliver_turn(&id, held).await?;
+            // **Not inside the request.** A Job with no process leases its slot and starts one here, which
+            // has no bound but Bridge's own and read as `bridge.not_sent`. A start that fails keeps its
+            // turn in `start_failed`, and the thread shows the message already.
+            let (fleet, id) = (Arc::clone(&self), id.clone());
+            tokio::spawn(async move {
+                let runtime = fleet.hosts().of(&id);
+                let _in_order = runtime.delivery.lock().await;
+                if let Err(why) = fleet.deliver_turn(&id, held).await {
+                    fleet.session_warned(&id, "a job's message was not delivered", format!("{why:?}"));
+                }
+            });
         }
         self.published_hosted(&id).await
     }
