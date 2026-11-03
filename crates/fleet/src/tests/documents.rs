@@ -140,12 +140,40 @@ async fn a_documents_writes_are_revisions_of_one_row_and_a_bad_sketch_is_told_on
     writes(&rig, 0, &path, "toolu_4", "Write", " +12").await;
     eventually(|| async { revisions_of(&record_of(&rig, &id).await, &path).is_some_and(|kept| kept.len() == 3) }).await;
     assert_eq!(sketch_notices(&rig.rows(&id).await), 1);
+}
 
-    // The phone's file route is not opened to a page or to its revisions.
-    let revision = revisions_of(&record_of(&rig, &id).await, &path).unwrap().remove(0);
-    for asked in [&path, &revision] {
-        let read = rig.fleet.shown_file_read(id.as_str(), asked).await;
-        assert!(matches!(read, Err(api::Refusal::NotFound(_))), "{asked}");
+/// What the phone reads of a page: the revisions the Job kept, under the same limit as a shown file, and
+/// no other file, whichever Job asks.
+#[tokio::test]
+async fn a_job_reads_back_the_revisions_it_kept_and_no_other_page() {
+    let rig = rig_placing(None);
+    let (first, at) = a_job(&rig).await;
+    let (file, path) = page_at_root(&rig, "lease.html");
+    let written = page("Lease", &[]);
+    std::fs::write(&file, &written).unwrap();
+    writes(&rig, at, &path, "toolu_1", "Write", " +10").await;
+    eventually(|| async { revisions_of(&record_of(&rig, &first).await, &path).is_some_and(|kept| kept.len() == 1) }).await;
+    let kept = revisions_of(&record_of(&rig, &first).await, &path).unwrap().remove(0);
+
+    match rig.fleet.shown_file_read(first.as_str(), &kept).await.unwrap() {
+        api::ShownFile::Text(read) => assert_eq!((read.path, read.text), (kept.clone(), written)),
+        other => panic!("text, got {other:?}"),
+    }
+
+    let large = page(&"x".repeat(1024 * 1024), &[]);
+    std::fs::write(&file, &large).unwrap();
+    writes(&rig, at, &path, "toolu_2", "Write", " +10").await;
+    eventually(|| async { revisions_of(&record_of(&rig, &first).await, &path).is_some_and(|kept| kept.len() == 2) }).await;
+    let newest = revisions_of(&record_of(&rig, &first).await, &path).unwrap().remove(1);
+    let read = rig.fleet.shown_file_read(first.as_str(), &newest).await.unwrap();
+    assert_eq!(read, api::ShownFile::TooLarge { bytes: large.len() as u64 });
+
+    let (never, never_path) = page_at_root(&rig, "never.html");
+    std::fs::write(&never, page("Never", &[])).unwrap();
+    let (other, _) = a_job(&rig).await;
+    for (job, asked) in [(&first, &path), (&first, &never_path), (&other, &kept)] {
+        let read = rig.fleet.shown_file_read(job.as_str(), asked).await;
+        assert!(matches!(&read, Err(api::Refusal::NotFound(why)) if why.code == "fleet.shown_file_not_shown"), "{asked}: {read:?}");
     }
 }
 
