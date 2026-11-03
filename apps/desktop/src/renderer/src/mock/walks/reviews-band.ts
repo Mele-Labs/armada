@@ -12,10 +12,6 @@ const reviewsBand = walk("pr-review", [
     look: region("Pull requests"),
     say: "The list's band is above the list, clear of its picker",
   },
-  {
-    look: region("Flight controls"),
-    say: "The tools keep their band too",
-  },
 ]);
 
 export { reviewsBand as "reviews-band" };

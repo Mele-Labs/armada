@@ -36,6 +36,8 @@ export type StoreHold = {
 export type AgentActs = {
   spend: (what: string, run: () => void, cancelled?: () => void) => void;
   confirmSpend: (again: boolean) => void;
+  /** Runs at once, with no box: the Run in a tab already says it spends. `again` turns the question off for every act after. */
+  spendUnasked: (run: () => void, again: boolean) => void;
   cancelSpend: () => void;
   explain: (key: string, def: ToolDef) => void;
   explainAgain: (key: string, def: ToolDef) => void;
@@ -319,6 +321,13 @@ export function createAgentActs(source: ReviewSource, hold: StoreHold): AgentAct
       });
       run?.();
     },
+    spendUnasked: (run, again) => {
+      if (again)
+        set({
+          askFirst: false,
+        });
+      run();
+    },
     cancelSpend: () => {
       const no = declined;
       waiting = undefined;
@@ -438,6 +447,9 @@ export function createAgentActs(source: ReviewSource, hold: StoreHold): AgentAct
           ...answer.value.runs,
         ].reverse())
           apply(run);
+        change(key, {
+          runsRead: true,
+        });
         // What he had open comes back open: the explanation that was read shows again.
         if (work(key).kind === undefined && work(key).explains["how-it-works"]?.state === "done")
           change(key, {

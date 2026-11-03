@@ -162,6 +162,122 @@ describe("layouts", () => {
   });
 });
 
+describe("a pull request's panes", () => {
+  const pane = (kind: string) => ({
+    root: {
+      type: "pane",
+      id: "p1",
+      tabs: [
+        {
+          id: "t1",
+          kind,
+        },
+      ],
+      active: "t1",
+    },
+    focus: "p1",
+    next: 2,
+  });
+
+  test("a pull request opens on Default: Overview, Files, Checks, Commits and Review as one pane, an empty tools pane, and Comments", async () => {
+    const s = await start();
+    expect(kinds(s.prPanes.peek("pr1"), (x) => s.panesOf(x.root))).toEqual([
+      [
+        "pr-overview",
+        "pr-files",
+        "pr-checks",
+        "pr-commits",
+        "pr-review",
+      ],
+      [],
+      [
+        "pr-comments",
+      ],
+    ]);
+  });
+
+  test("its layouts are kept under pr-panes, apart from the Jobs' under job-panes", async () => {
+    const s = await start();
+    s.prPanes.rearrange("pr1", (x) => s.addTab(x, x.focus, "pr-tool"));
+    s.prPanes.saveLayoutAs("pr1", "Wide");
+    s.jobPanes.rearrange("a", (x) => s.addTab(x, x.focus, "files"));
+    s.jobPanes.saveLayoutAs("a", "Tall");
+    expect(JSON.parse(kept.getItem("armada:kept:pr-panes:shared")!).saved).toHaveProperty("Wide");
+    expect(JSON.parse(kept.getItem("armada:kept:pr-panes:shared")!).saved).not.toHaveProperty(
+      "Tall",
+    );
+    expect(JSON.parse(kept.getItem("armada:kept:job-panes:shared")!).saved).toHaveProperty("Tall");
+    expect(JSON.parse(kept.getItem("armada:kept:job-panes:shared")!).saved).not.toHaveProperty(
+      "Wide",
+    );
+    expect(kept.getItem("armada:kept:pr-panes:pr:pr1")).not.toBeNull();
+    expect(kept.getItem("armada:kept:job-panes:job:pr1")).toBeNull();
+    // A name taken in one family is free in the other, and each lists only its own.
+    expect(s.prPanes.nameTaken("Wide")).toBe(true);
+    expect(s.jobPanes.nameTaken("Wide")).toBe(false);
+    expect(s.jobPanes.nameTaken("Tall")).toBe(true);
+    expect(s.prPanes.nameTaken("Tall")).toBe(false);
+  });
+
+  test("saving, updating and resetting a layout, and setting what new ones open on, in one family leave the other as it was", async () => {
+    const s = await start();
+    const jobDefault = kinds(s.jobPanes.peek("job"), (x) => s.panesOf(x.root));
+    s.jobPanes.peek("fresh");
+
+    s.prPanes.rearrange("pr1", (x) => s.addTab(x, x.focus, "pr-tool"));
+    s.prPanes.updateLayout("pr1");
+    s.prPanes.rearrange("pr1", (x) => s.addTab(x, x.focus, "pr-tool"));
+    s.prPanes.saveLayoutAs("pr1", "Wide");
+    s.prPanes.setLayoutForAll("Wide");
+    s.prPanes.rearrange("pr1", (x) => s.closePane(x, x.focus));
+    s.prPanes.resetLayout("pr1");
+
+    expect(kinds(s.jobPanes.peek("job"), (x) => s.panesOf(x.root))).toEqual(jobDefault);
+    expect(kinds(s.jobPanes.peek("fresh"), (x) => s.panesOf(x.root))).toEqual(jobDefault);
+    expect(s.jobPanes.nameTaken("Wide")).toBe(false);
+    expect(JSON.parse(kept.getItem("armada:kept:job-panes:shared") ?? "{}").saved).toBeUndefined();
+    // A pull request first seen now opens on the layout its own family was set to.
+    expect(kinds(s.prPanes.peek("pr2"), (x) => s.panesOf(x.root))[0]).toContain("pr-tool");
+
+    // And the Jobs' layouts, set after, leave the pull requests' as they were.
+    s.jobPanes.rearrange("job", (x) => s.addTab(x, x.focus, "files"));
+    s.jobPanes.updateLayout("job");
+    s.jobPanes.saveLayoutAs("job", "Mine");
+    s.jobPanes.setLayoutForAll("Mine");
+    expect(kinds(s.prPanes.peek("pr3"), (x) => s.panesOf(x.root))[0]).toContain("pr-tool");
+    expect(s.prPanes.nameTaken("Mine")).toBe(false);
+    expect(JSON.parse(kept.getItem("armada:kept:pr-panes:shared")!).forAll).toBe("Wide");
+  });
+
+  test("a kept tab of a kind outside the family is dropped: a Job's tab in a pull request's panes, and the other way", async () => {
+    kept.setItem(
+      "armada:kept:pr-panes:pr:a",
+      JSON.stringify({
+        arrangement: pane("thread"),
+        layout: "Default",
+      }),
+    );
+    kept.setItem(
+      "armada:kept:job-panes:job:a",
+      JSON.stringify({
+        arrangement: pane("pr-files"),
+        layout: "Default",
+      }),
+    );
+    const s = await start();
+    expect(kinds(s.prPanes.peek("a"), (x) => s.panesOf(x.root))[0]).toEqual([
+      "pr-overview",
+      "pr-files",
+      "pr-checks",
+      "pr-commits",
+      "pr-review",
+    ]);
+    expect(kinds(s.jobPanes.peek("a"), (x) => s.panesOf(x.root))[0]).toEqual([
+      "thread",
+    ]);
+  });
+});
+
 describe("a tab the Job opens", () => {
   test("one that joins a pane leaves the layout as it was, and one that makes a split is arrangement", async () => {
     const s = await start();
@@ -610,5 +726,80 @@ describe("a terminal the Job opens itself", () => {
       "t2",
       undefined,
     ]);
+  });
+});
+
+describe("a terminal the Job's agent shows", () => {
+  /** The Job's Terminal tabs by terminal and whether each is in front of its pane. */
+  async function terminals() {
+    const s = await start();
+    const tabs = (id: string) =>
+      s.panesOf(s.peek(id).root).flatMap((pane) =>
+        pane.tabs
+          .filter((tab) => tab.kind === "terminal")
+          .map((tab) => ({
+            terminal: tab.terminal,
+            front: pane.active === tab.id,
+          })),
+      );
+    return {
+      s,
+      tabs,
+    };
+  }
+
+  test("comes to the front where its tab is behind, opens none beside it, and leaves the focus where it was", async () => {
+    const { s, tabs } = await terminals();
+    s.rearrange("a", (now) =>
+      s.addTab(now, now.focus, "terminal", undefined, undefined, undefined, undefined, "t2"),
+    );
+    s.rearrange("a", (now) => s.addTab(now, now.focus, "files"));
+    expect(tabs("a")).toEqual([
+      {
+        terminal: "t2",
+        front: false,
+      },
+    ]);
+    const before = s.peek("a");
+    s.jobShowsTerminal("a", "t2", false);
+    expect(tabs("a")).toEqual([
+      {
+        terminal: "t2",
+        front: true,
+      },
+    ]);
+    expect(s.peek("a").focus).toBe(before.focus);
+  });
+
+  test("opens a tab in front where the Job has none for it, and leaves the focus where it was", async () => {
+    const { s, tabs } = await terminals();
+    s.rearrange("a", (now) =>
+      s.addTab(now, now.focus, "terminal", undefined, undefined, undefined, undefined, "t1"),
+    );
+    const before = s.peek("a");
+    s.jobShowsTerminal("a", "t2", false);
+    expect(tabs("a")).toEqual([
+      {
+        terminal: "t1",
+        front: false,
+      },
+      {
+        terminal: "t2",
+        front: true,
+      },
+    ]);
+    expect(s.peek("a").focus).toBe(before.focus);
+  });
+
+  test("is the Job's own arrangement it changes, with none of its panes drawn, and no other Job's", async () => {
+    const { s, tabs } = await terminals();
+    s.jobShowsTerminal("away", "t2", false);
+    expect(tabs("away")).toEqual([
+      {
+        terminal: "t2",
+        front: true,
+      },
+    ]);
+    expect(tabs("a")).toEqual([]);
   });
 });

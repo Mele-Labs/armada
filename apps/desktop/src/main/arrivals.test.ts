@@ -151,6 +151,46 @@ function fakeHost(questionsOver: BridgeState["questions"] = []): {
   };
 }
 
+describe("a terminal's change, off `terminal.*`", () => {
+  const told = (kind: string) =>
+    JSON.stringify({
+      message: "event",
+      cursor: 4,
+      event: {
+        kind,
+        session_id: "a",
+        terminal: "t2",
+        run_id: "r2",
+      },
+    });
+
+  it.each([
+    [
+      "terminal.opened",
+      "opened",
+    ],
+    [
+      "terminal.shown",
+      "shown",
+    ],
+    [
+      "terminal.exited",
+      "exited",
+    ],
+  ])("hands %s to the sessions host as %s", (kind, change) => {
+    const { host } = fakeHost();
+    const terminal = vi.fn();
+    host.sessions.terminal = terminal;
+    applyArrival(host, told(kind), FLEET);
+    expect(terminal).toHaveBeenCalledOnce();
+    expect(terminal).toHaveBeenCalledWith(change, {
+      session_id: "a",
+      terminal: "t2",
+      run_id: "r2",
+    });
+  });
+});
+
 describe("the mods on this machine, off `mods.changed`", () => {
   const row = (name: string, over: Partial<ModSummary> = {}): ModSummary => ({
     name,

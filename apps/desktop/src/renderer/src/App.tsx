@@ -191,6 +191,7 @@ import { useBuildFailed } from "./build-failed";
 import { stateOf } from "./state-feed";
 import { onCopiedAnnounced } from "./copied";
 import { shellsOf } from "./job-shell";
+import { useShownTerminals } from "./job-panes/bodies";
 import { usePower } from "./cockpit/boot";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
 import {
@@ -385,6 +386,7 @@ export function App() {
 
   // Every Job's shell is kept from the window's start, so one the agent opens before its Job is open draws whole later.
   useEffect(() => void shellsOf(window.armada), []);
+  useShownTerminals();
 
   // The Manifest file and an edit of it. **Held here rather than by the
   // screen**, which unmounts whenever the rail moves: an unsaved correction the

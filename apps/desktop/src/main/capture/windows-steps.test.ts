@@ -1,5 +1,5 @@
-// A Session that shows a window with `steps`, as `CaptureWindows.openForSession` takes them: the walk's page
-// is made with the steps, a page shown again with the same steps is left as it is, and one shown with
+// A Job that shows a window with `steps`, as `CaptureWindows.openForSession` takes them: the walk's page, made when
+// its pane places it, is made with the steps, a page shown again with the same steps is left as it is, and one shown with
 // other steps (or a sign-in to run) is made afresh in its place.
 // `docs/practices/capture-window.md`, *Steps Bridge plays*.
 
@@ -29,6 +29,9 @@ vi.mock("./window", () => ({
     raise = () => void (made.raised += 1);
     close = () => void (made.closed += 1);
     dispose = () => void (made.closed += 1);
+    show = () => {};
+    hide = () => {};
+    resized = () => {};
     setReadiness = () => {};
     question = () => {};
   },
@@ -36,8 +39,10 @@ vi.mock("./window", () => ({
 vi.mock("./walk-window", async () => ({
   WalkWindow: (await import("./walk-window.fake")).FakeWalkWindow,
 }));
+vi.mock("./views", async () => (await import("./pane.fake")).fakeViews);
 
 import { NOTHING_YET } from "../../shared/bridge";
+import { placeAt } from "./pane.fake";
 import { CaptureWindows } from "./windows";
 
 const PAGE = "http://localhost:5173/depot";
@@ -81,7 +86,11 @@ beforeEach(() => {
 });
 
 it("makes the window with the steps, after the sign-in it may also carry", () => {
-  windows().openForSession("a", "Depot", PAGE, [], [], [], DEPOT);
+  const shown = windows();
+  shown.openForSession("a", "Depot", PAGE, [], [], [], DEPOT);
+  // Nothing is loaded until the pane has a place for it.
+  expect(made.windows).toHaveLength(0);
+  placeAt(shown, "a", PAGE);
   const [, , , , , takes, signIn, steps] = made.windows[0] ?? [];
   expect(takes).toEqual([]);
   expect(signIn).toEqual([]);
@@ -91,6 +100,7 @@ it("makes the window with the steps, after the sign-in it may also carry", () =>
 it("a page shown again with the same steps is left as it is", () => {
   const shown = windows();
   shown.openForSession("a", "Depot", PAGE, [], [], [], DEPOT);
+  placeAt(shown, "a", PAGE);
   shown.openForSession("a", "Depot", PAGE, [], [], [], DEPOT);
   expect([
     made.windows.length,
@@ -106,6 +116,7 @@ it("a page shown again with the same steps is left as it is", () => {
 it("a page shown again with other steps is made afresh with them", () => {
   const shown = windows();
   shown.openForSession("a", "Depot", PAGE, [], [], [], DEPOT);
+  placeAt(shown, "a", PAGE);
   const other: WalkStep[] = [
     {
       say: "Only this",
@@ -132,6 +143,7 @@ it("a page shown again with the same steps and a sign-in to run is made afresh, 
   const shown = windows();
   const link = "http://localhost:5173/dev/login";
   shown.openForSession("a", "Depot", PAGE, [], [], [], DEPOT);
+  placeAt(shown, "a", PAGE);
   shown.openForSession(
     "a",
     "Depot",
@@ -161,6 +173,8 @@ it("a page shown again with the same steps and a sign-in to run is made afresh, 
 });
 
 it("a page shown without steps is made with none, and a mock that plays its own walk keeps doing so", () => {
-  windows().openForSession("a", "Mock", PAGE);
+  const shown = windows();
+  shown.openForSession("a", "Mock", PAGE);
+  placeAt(shown, "a", PAGE);
   expect(made.windows[0]?.[7]).toEqual([]);
 });

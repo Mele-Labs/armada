@@ -627,6 +627,10 @@ pub enum SessionRow {
         /// when the walk ends**, as `variations` are.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         origins: Vec<String>,
+        /// The Job's line or two on what changed and what to look at. **Kept when the walk ends**,
+        /// as `variations` are. A row written before it has none.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        brief: Option<String>,
         /// When the walk ended: the person approved the page or closed its window. Absent while
         /// it is open. **The row is replaced by id** when it is set.
         #[serde(default, skip_serializing_if = "Option::is_none")]

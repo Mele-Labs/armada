@@ -5,7 +5,7 @@
 
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 
-import { AUDIT_TAKES, BUSY, auditLedger, shown, waitingOn, walkActs, walkPage } from "../audit-job";
+import { BUSY, auditLedger, shown, waitingOn, walkActs, walkPage } from "../audit-job";
 import type { Scenario } from "../moment";
 import { asRealIssuesJob } from "./job-real-issues-tab";
 import { s261OneSessionView as base } from "./one-session-view";
@@ -171,7 +171,7 @@ export const s332JobWalkOnTheSpine: Scenario = {
       store.edit("one-view-4", asRealIssuesJob);
       let shownYet = false;
       return {
-        ...walkActs(store, BUSY, WALK, AUDIT_TAKES, at(3)),
+        ...walkActs(store, BUSY, WALK, at(3)),
         // Time passes: Build is done and the Job shows the walk.
         later: () => {
           if (shownYet) return;

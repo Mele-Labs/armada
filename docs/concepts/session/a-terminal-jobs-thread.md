@@ -75,7 +75,7 @@ between the press and the end ends the row with the terminal's reason, and parks
 by the table above.
 
 **A terminal's question is an ask in its thread too.** The `armada` mod hooks `AskUserQuestion` and posts the question once with `ask_from_terminal`, which Fleet keeps in its store as the same `ask` row a hosted job writes, so Bridge draws the same card, and answers with the call's id.
-The terminal's own prompt opens once Fleet has answered that post, or after a second and a half without an answer, and not at all where Fleet refused the question because a walk is open (*Showing a window*).
+The terminal's own prompt opens once Fleet has answered that post, or after a second and a half without an answer.
 The mod then polls the same route with `wait`, each poll held about 25 seconds, so no one request has to outlast the question: a poll that fails or times out is asked again, and a Fleet that restarts finds the question where it was.
 A person answering in Bridge has the answer kept until the mod's next poll collects it, and the mod returns it as the tool's result, which drops the terminal's prompt.
 A person answering in the terminal first makes the mod send `settled`, which closes the card.

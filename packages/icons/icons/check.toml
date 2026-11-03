@@ -82,3 +82,10 @@
   size = "16px for the act, 12px for the mark"
   status = "Proposed"
   notes = "Proposed 31 Oct 2026 for the walk `real-thread-pick-a-line`, the owner's ask to select one of the agent's options in place. Tooltip `Pick this` on the act, `Picked` on the muted mark. Check means yes, and a pick is a yes to one of several."
+
+[[icons.check.usage]]
+  means = "A thread on the diff that is resolved, at the head of the thread"
+  group = "Pull request"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 3 Nov 2026 for the walk `pr-conversation-evaluate`, the pull request panel's Conversation, and the review tool's thread card, which drew it already. Bare check in `--status-completed-success`, tooltip `Resolved`. The same yes an approving review takes on the same page."

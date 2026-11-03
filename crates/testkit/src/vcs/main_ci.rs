@@ -6,7 +6,7 @@ use std::sync::Mutex;
 
 use adapter_traits::{
     CiRun, CiRuns, FromOutside, MergeQueue, MergedPull, OpenPulls,
-    OpenPull, RecentlyMergedPulls, FollowedPull, FollowedPulls,
+    OpenPull, PullComment, RecentlyMergedPulls, FollowedPull, FollowedPulls,
 };
 
 #[derive(Debug, Default)]
@@ -33,6 +33,8 @@ struct Script {
     asked_pulls: usize,
     gates: Vec<String>,
     login: Option<String>,
+    comments: BTreeMap<u64, Vec<PullComment>>,
+    asked_comments: Vec<u64>,
 }
 
 /// Unscripted is the forge's silence: no head, no runs, no log, no pull request, no listing.
@@ -129,6 +131,16 @@ impl MainCiScript {
         self.with(|it| it.login = login.map(str::to_string));
     }
 
+    /// Every comment on pull request `number`. An unscripted number is the forge's silence.
+    pub fn comments_on(&self, number: u64, comments: Vec<PullComment>) {
+        self.with(|it| it.comments.insert(number, comments));
+    }
+
+    /// Every number a pull request's comments were asked for by, in order.
+    pub fn comments_asked(&self) -> Vec<u64> {
+        self.with(|it| it.asked_comments.clone())
+    }
+
     pub fn times_asked_for_the_recently_merged(&self) -> usize {
         self.with(|it| it.asked_recent)
     }
@@ -210,6 +222,13 @@ impl MainCiScript {
 
     pub(super) fn followed(&self) -> Option<FollowedPulls> {
         self.with(|it| it.followed.clone())
+    }
+
+    pub(super) fn comments(&self, number: u64) -> Option<Vec<PullComment>> {
+        self.with(|it| {
+            it.asked_comments.push(number);
+            it.comments.get(&number).cloned()
+        })
     }
 
     pub(super) fn open_pulls(&self) -> Option<OpenPulls> {

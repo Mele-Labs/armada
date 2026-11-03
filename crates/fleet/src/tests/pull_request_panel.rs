@@ -32,13 +32,19 @@ pub(super) fn a_page() -> PullRequestPageFacts {
         approvals: 1,
         conversation: vec![
             Said::Comment {
+                id: "IC_1".into(),
                 author: "ada".into(),
+                bot: false,
                 at: "2026-10-13T15:30:00Z".into(),
+                edited_at: Some("2026-10-13T15:45:00Z".into()),
                 body: "why?".into(),
             },
             Said::Review {
-                author: "grace".into(),
+                id: "PRR_1".into(),
+                author: "lint-app".into(),
+                bot: true,
                 at: "2026-10-13T16:00:00Z".into(),
+                edited_at: None,
                 verdict: ReviewSaid::ChangesRequested,
                 body: String::new(),
             },
@@ -72,12 +78,24 @@ pub(super) fn a_page() -> PullRequestPageFacts {
                 line: Some(4),
                 side: FactSide::Left,
                 resolved: false,
-                comments: vec![ThreadSaid {
-                    id: "PRRC_1".into(),
-                    author: "ada".into(),
-                    at: "2026-10-15T09:00:00Z".into(),
-                    body: "why?".into(),
-                }],
+                comments: vec![
+                    ThreadSaid {
+                        id: "PRRC_1".into(),
+                        author: "ada".into(),
+                        bot: false,
+                        at: "2026-10-15T09:00:00Z".into(),
+                        edited_at: Some("2026-10-15T09:10:00Z".into()),
+                        body: "why?".into(),
+                    },
+                    ThreadSaid {
+                        id: "PRRC_3".into(),
+                        author: "lint-app".into(),
+                        bot: true,
+                        at: "2026-10-15T09:20:00Z".into(),
+                        edited_at: None,
+                        body: "unused import".into(),
+                    },
+                ],
             },
             ReviewThreadFacts {
                 id: "PRRT_2".into(),
@@ -88,7 +106,9 @@ pub(super) fn a_page() -> PullRequestPageFacts {
                 comments: vec![ThreadSaid {
                     id: "PRRC_2".into(),
                     author: "ghost".into(),
+                    bot: false,
                     at: "2026-10-15T09:30:00Z".into(),
+                    edited_at: None,
                     body: "done".into(),
                 }],
             },
@@ -124,6 +144,28 @@ async fn the_page_is_the_forges_in_the_wires_words() {
         PullRequestEntry::Review { verdict: PullRequestVerdict::ChangesRequested, body, .. }
             if body.is_empty()
     ));
+}
+
+#[tokio::test]
+async fn each_thing_said_carries_its_id_its_edit_and_whether_an_app_said_it() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    fleet.vcs().now_pull_request_page(Some(a_page()));
+    let page = fleet.get_pull_request_detail(id, 12).await.expect("read");
+    assert!(matches!(
+        &page.conversation[0],
+        PullRequestEntry::Comment { id, bot: false, edited_at: Some(at), .. }
+            if id == "IC_1" && at == "2026-10-13T15:45:00Z"
+    ));
+    assert!(matches!(
+        &page.conversation[1],
+        PullRequestEntry::Review { id, bot: true, edited_at: None, .. } if id == "PRR_1"
+    ));
+    let (edited, by_an_app) = (&page.threads[0].comments[0], &page.threads[0].comments[1]);
+    assert_eq!((edited.id.as_str(), edited.bot), ("PRRC_1", false));
+    assert_eq!(edited.edited_at.as_deref(), Some("2026-10-15T09:10:00Z"));
+    assert_eq!((by_an_app.id.as_str(), by_an_app.bot, by_an_app.edited_at.as_deref()), ("PRRC_3", true, None));
 }
 
 #[tokio::test]

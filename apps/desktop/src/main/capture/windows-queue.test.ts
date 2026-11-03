@@ -1,6 +1,6 @@
-// The one walk window as `CaptureWindows` drives it with the real `WalkWindow` over a stand-in Electron: the queue's order, a walk
-// that arrives, Approve, the window closing, a question for a walk not on screen, and Bridge's window moving to no Job. Each walk's page is a
-// stand-in too, which keeps the calls made on it. `docs/practices/capture-window.md`, *One window for every walk*.
+// The one walk window as `CaptureWindows` drives it with the real `WalkWindow` over a stand-in Electron. **It holds pull requests' walks
+// only**: a Job's walk is a tab of the Job, in no window. The queue's order, a walk that arrives, Approve, the window closing, and Bridge's
+// window moving to no Job. Each walk's page is a stand-in, which keeps the calls made on it. `docs/practices/capture-window.md`, *One window for every walk*.
 
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
@@ -126,9 +126,9 @@ vi.mock("./window", () => ({
   },
 }));
 
-import type { SessionRecord, WaitingItem, WalkStep } from "@armada/protocol";
+import type { SessionRecord, WalkStep } from "@armada/protocol";
 import { NOTHING_YET } from "../../shared/bridge";
-import { sessionWalkKey } from "./queue";
+import { placeAt } from "./pane.fake";
 import { CaptureWindows } from "./windows";
 
 type Entry = {
@@ -174,20 +174,9 @@ const BAR = {
 
 const at = (time: string) => `2026-10-19T${time}:00Z`;
 const url = (name: string) => `https://${name}.example.com/app`;
-const key = (session: string, name = session) => sessionWalkKey(session, url(name));
+const REVIEW = (number: number) => `review:armada#${number}`;
 
-const walk = (name: string, since: string): WaitingItem => ({
-  id: `walk:${name}`,
-  text: `Walk ${name}`,
-  since,
-  source: "walk",
-  act: {
-    kind: "walk",
-    target: url(name),
-  },
-});
-
-const record = (id: string, ...waiting: WaitingItem[]): SessionRecord => ({
+const record = (id: string): SessionRecord => ({
   id,
   harness: "h",
   origin: "bridge",
@@ -197,36 +186,7 @@ const record = (id: string, ...waiting: WaitingItem[]): SessionRecord => ({
   last_seen_at: at("08:00"),
   usage: {},
   attachments: [],
-  waiting_for: waiting,
-});
-
-/** The Job's record with the window it showed at `name`'s address, which Fleet marks working once notes were sent on it. */
-const showing = (
-  job: SessionRecord,
-  name: string,
-  working: boolean,
-  title = `Walk ${name}`,
-): SessionRecord => ({
-  ...job,
-  attachments: [
-    {
-      kind: "artifact",
-      target: url(name),
-      state: "standing",
-      detail: {
-        form: "window",
-        title,
-        ...(working
-          ? {
-              working: "true",
-              changed: "true",
-            }
-          : {}),
-      },
-      since: at("09:00"),
-      changed_at: at("09:00"),
-    },
-  ],
+  waiting_for: [],
 });
 
 const state = (...sessions: SessionRecord[]) => ({
@@ -238,7 +198,6 @@ const state = (...sessions: SessionRecord[]) => ({
 });
 
 const board = {
-  windowsChanged: vi.fn(),
   sessionClosed: vi.fn(),
   sessionApproved: vi.fn(),
   answerAsk: vi.fn(),
@@ -255,7 +214,7 @@ const recording = new Proxy(board, {
   },
 });
 
-/** Bridge holding these Jobs. The walk window is not up until a walk is opened. */
+/** Bridge holding these Jobs. The walk window is not up until a pull request's walk is opened. */
 function holding(...sessions: SessionRecord[]): CaptureWindows {
   const shown = new CaptureWindows(
     recording as unknown as ConstructorParameters<typeof CaptureWindows>[0],
@@ -264,322 +223,144 @@ function holding(...sessions: SessionRecord[]): CaptureWindows {
   return shown;
 }
 
-/** Three Jobs, a walk each, shown in the order a, b, c. */
-const three = () => [
-  record("a", walk("a", at("09:01"))),
-  record("b", walk("b", at("09:02"))),
-  record("c", walk("c", at("09:03"))),
+const STEPS: WalkStep[] = [
+  {
+    say: "Open the list",
+    press: {
+      role: "button",
+      name: "Drafts",
+    },
+  },
 ];
+
+/** A pull request's walk, shown at `time`. */
+const review = (shown: CaptureWindows, number: number, time: string) => {
+  vi.setSystemTime(new Date(at(time)));
+  return shown.openForReview({
+    walkId: `w${number}`,
+    manifestId: "armada",
+    number,
+    title: `#${number} Take a draft out`,
+    address: `https://pr-${number}.preview.invalid/app`,
+    steps: STEPS,
+  });
+};
 
 beforeEach(() => {
   made.pages = [];
   electron.windows = [];
   reached = [];
   for (const one of Object.values(board)) one.mockClear();
-});
-afterEach(() => vi.useRealTimers());
-
-it("queues the walks of several Jobs and a pull request's walk oldest first, and a Job's two walks as two entries", async () => {
   vi.useFakeTimers({
     toFake: [
       "Date",
     ],
   });
-  vi.setSystemTime(new Date(at("09:04")));
-  const shown = holding(
-    record("a", walk("a1", at("09:05")), walk("a2", at("09:02"))),
-    record("b", walk("b", at("09:01"))),
-    record("c", walk("c", at("09:03"))),
-  );
-  shown.openForSession("b", "Walk b", url("b"));
-  const steps: WalkStep[] = [
-    {
-      say: "Open the list",
-      press: {
-        role: "button",
-        name: "Drafts",
-      },
-    },
-  ];
-  await shown.openForReview({
-    walkId: "w1",
-    manifestId: "armada",
-    number: 12,
-    title: "#12 Take a draft out",
-    address: "https://pr-12.preview.invalid/app",
-    steps,
-  });
+});
+afterEach(() => vi.useRealTimers());
+
+it("queues pull requests' walks oldest first, each an entry of the one window", async () => {
+  const shown = holding();
+  await review(shown, 12, "09:03");
+  await review(shown, 7, "09:01");
+  await review(shown, 9, "09:02");
   expect(ids()).toEqual([
-    key("b"),
-    key("a", "a2"),
-    key("c"),
-    "review:armada#12",
-    key("a", "a1"),
+    REVIEW(7),
+    REVIEW(9),
+    REVIEW(12),
   ]);
+  expect(windows_()).toHaveLength(1);
 });
 
-it("opens the window behind on the first walk, and takes no focus", () => {
-  holding(...three()).openForSession("a", "Walk a", url("a"));
+it("opens the window behind on the first walk, and takes no focus", async () => {
+  await review(holding(), 12, "09:00");
   expect(windows_()).toHaveLength(1);
   expect(lastWindow().calls).toEqual([
     "showInactive",
   ]);
-  expect(onScreen()).toBe(key("a"));
+  expect(onScreen()).toBe(REVIEW(12));
 });
 
-it("joins a walk that arrives into the open window without changing the walk on screen, raising or focusing it", () => {
-  vi.useFakeTimers({
-    toFake: [
-      "Date",
-    ],
-  });
-  vi.setSystemTime(new Date(at("09:04")));
-  const shown = holding(...three());
-  shown.openForSession("a", "Walk a", url("a"));
-  // One older than the walk on screen arrives from Fleet's publish, another from a Job showing a page.
-  shown.changed(state(...three(), record("d", walk("d", at("09:00")))));
-  shown.openForSession("e", "Walk e", url("e"));
+it("joins a walk that arrives into the open window without changing the walk on screen, raising or focusing it", async () => {
+  const shown = holding();
+  await review(shown, 12, "09:00");
+  await review(shown, 7, "09:05");
   expect(ids()).toEqual([
-    key("d"),
-    key("a"),
-    key("b"),
-    key("c"),
-    key("e"),
+    REVIEW(12),
+    REVIEW(7),
   ]);
-  expect(onScreen()).toBe(key("a"));
+  expect(onScreen()).toBe(REVIEW(12));
   expect(pages()).toHaveLength(1);
   expect(pages()[0]!.events).not.toContain("hide");
+  expect(windows_()).toHaveLength(1);
   expect(lastWindow().calls).toEqual([
     "showInactive",
   ]);
 });
 
-it("makes a walk's page when it first comes on screen, and keeps it on jumping away and back", () => {
-  const shown = holding(...three());
-  shown.openForSession("a", "Walk a", url("a"));
+it("makes a walk's page when it first comes on screen, and keeps it on jumping away and back", async () => {
+  const shown = holding();
+  await review(shown, 12, "09:00");
+  await review(shown, 7, "09:05");
   expect(pages()).toHaveLength(1);
   shown.walkTo(BAR, 1);
   expect(pages()).toHaveLength(2);
-  expect(onScreen()).toBe(key("b"));
+  expect(onScreen()).toBe(REVIEW(7));
   shown.walkTo(BAR, 0);
   expect(pages()).toHaveLength(2);
-  expect(onScreen()).toBe(key("a"));
   expect(pages()[0]!.events).not.toContain("dispose");
   expect(pages()[1]!.events).not.toContain("dispose");
 });
 
-it("moves to the next walk on Approve, drops the page that left and tells Fleet its window closed", () => {
-  const shown = holding(...three());
-  shown.openForSession("a", "Walk a", url("a"));
+it("moves to the next walk on Approve, drops the page that left, and closes the window with the last one", async () => {
+  const shown = holding();
+  await review(shown, 12, "09:00");
+  await review(shown, 7, "09:05");
   pages()[0]!.approve();
   expect(pages()[0]!.events).toContain("dispose");
-  expect(board.sessionClosed).toHaveBeenCalledTimes(1);
-  expect(board.sessionClosed).toHaveBeenCalledWith("a", url("a"));
+  expect(board.reviewClosed).toHaveBeenCalledTimes(1);
   expect(ids()).toEqual([
-    key("b"),
-    key("c"),
+    REVIEW(7),
   ]);
-  expect(onScreen()).toBe(key("b"));
-  // The next one's page is made as it comes on screen, and the one after it is not.
-  expect(pages()).toHaveLength(2);
-  // Fleet has not settled the item yet: the walk is not queued again by the publish before it does.
-  shown.changed(state(...three()));
-  expect(ids()).toEqual([
-    key("b"),
-    key("c"),
-  ]);
-});
-
-it("closes the window when the last walk is approved", () => {
-  const shown = holding(record("a", walk("a", at("09:01"))), record("b", walk("b", at("09:02"))));
-  shown.openForSession("a", "Walk a", url("a"));
-  pages()[0]!.approve();
   expect(lastWindow().destroyed).toBe(false);
   pages()[1]!.approve();
   expect(lastWindow().destroyed).toBe(true);
-  expect(board.sessionClosed.mock.calls).toEqual([
-    [
-      "a",
-      url("a"),
-    ],
-    [
-      "b",
-      url("b"),
-    ],
-  ]);
-});
-
-// The owner, 21 Oct 2026: "When I send notes, it shouldn't immediately jump me to the next walk." Sending notes marks the
-// window working, and Fleet's walk item goes until the Job shows the page again.
-it("keeps a walk on screen, reading working, while its item is gone and its window works on the notes sent", () => {
-  const shown = holding(
-    showing(record("a", walk("a", at("09:01"))), "a", false),
-    record("b", walk("b", at("09:02"))),
-  );
-  shown.openForSession("a", "Walk a", url("a"));
-  shown.changed(state(showing(record("a"), "a", true), record("b", walk("b", at("09:02")))));
-  expect(ids()).toEqual([
-    key("a"),
-    key("b"),
-  ]);
-  expect(onScreen()).toBe(key("a"));
-  expect(pages()).toHaveLength(1);
-  expect(pages()[0]!.events).not.toContain("dispose");
-  expect(pages()[0]!.readiness.at(-1)).toBe("working");
-  expect(bar().entries.map((one) => one.readiness)).toEqual([
-    "working",
-    undefined,
-  ]);
+  expect(board.reviewClosed).toHaveBeenCalledTimes(2);
+  // A pull request's walk is no Job's: Fleet is told of no Job's window.
   expect(board.sessionClosed).not.toHaveBeenCalled();
 });
 
-it("lets a walk go whose item went while its window reads ready, and the walk after it comes on screen", () => {
-  const shown = holding(
-    showing(record("a", walk("a", at("09:01"))), "a", false),
-    record("b", walk("b", at("09:02"))),
-  );
-  shown.openForSession("a", "Walk a", url("a"));
-  shown.changed(state(showing(record("a"), "a", false), record("b", walk("b", at("09:02")))));
-  expect(ids()).toEqual([
-    key("b"),
-  ]);
-  expect(onScreen()).toBe(key("b"));
-  expect(pages()[0]!.events).toContain("dispose");
-});
-
-it("lets a kept walk go once its window reads ready with its item still gone: the Job's turn ended without showing it again", () => {
-  const shown = holding(
-    showing(record("a", walk("a", at("09:01"))), "a", false),
-    record("b", walk("b", at("09:02"))),
-  );
-  shown.openForSession("a", "Walk a", url("a"));
-  shown.changed(state(showing(record("a"), "a", true), record("b", walk("b", at("09:02")))));
-  shown.changed(state(showing(record("a"), "a", false), record("b", walk("b", at("09:02")))));
-  expect(ids()).toEqual([
-    key("b"),
-  ]);
-  expect(onScreen()).toBe(key("b"));
-});
-
-it("makes a kept walk's page afresh in its place, reading ready, when the Job shows it again", () => {
-  const shown = holding(
-    showing(record("a", walk("a", at("09:01"))), "a", false),
-    record("b", walk("b", at("09:02"))),
-  );
-  shown.openForSession("a", "Walk a", url("a"));
-  shown.changed(state(showing(record("a"), "a", true), record("b", walk("b", at("09:02")))));
-  shown.changed(
-    state(
-      showing(record("a", walk("a", at("09:10"))), "a", false, "Walk a, again"),
-      record("b", walk("b", at("09:02"))),
-    ),
-  );
-  expect(ids()).toEqual([
-    key("a"),
-    key("b"),
-  ]);
-  expect(onScreen()).toBe(key("a"));
-  expect(pages()[0]!.events).toContain("dispose");
-  expect(pages()).toHaveLength(2);
-  expect(pages()[1]!.readiness.at(-1)).toBe("ready");
-  expect(bar().entries[0]).toMatchObject({
-    title: "Walk a, again",
-    readiness: "ready",
-  });
-  // Shown again, it is no longer kept: its item going while ready lets it go.
-  shown.changed(state(showing(record("a"), "a", false), record("b", walk("b", at("09:02")))));
-  expect(ids()).toEqual([
-    key("b"),
-  ]);
-});
-
-it("settles nothing when the window closes, and the next walk opens one window with the whole queue", () => {
-  const shown = holding(...three());
-  shown.openForSession("a", "Walk a", url("a"));
-  shown.walkTo(BAR, 1);
+it("settles nothing when the window closes, and the next walk opens one window with the walks still held", async () => {
+  const shown = holding();
+  await review(shown, 12, "09:00");
+  await review(shown, 7, "09:05");
   lastWindow().close();
   expect(lastWindow().destroyed).toBe(true);
-  // Every walk in it left, told to Fleet as closed; none was approved or answered.
-  expect(board.sessionClosed.mock.calls.map(([session]) => session).sort()).toEqual([
-    "a",
-    "b",
-    "c",
-  ]);
+  expect(board.reviewClosed).toHaveBeenCalledTimes(2);
   expect(board.sessionApproved).not.toHaveBeenCalled();
   expect(board.answerAsk).not.toHaveBeenCalled();
-  // Their items still stand in what Fleet publishes; that alone opens no window.
-  shown.changed(state(...three()));
-  expect(windows_()).toHaveLength(1);
-  shown.openForSession("b", "Walk b", url("b"));
+  await review(shown, 9, "09:10");
   expect(windows_()).toHaveLength(2);
-  expect(lastWindow().calls).toEqual([
-    "showInactive",
-  ]);
   expect(ids()).toEqual([
-    key("a"),
-    key("b"),
-    key("c"),
-  ]);
-  expect(onScreen()).toBe(key("b"));
-});
-
-it("marks the entry of a walk not on screen that a Job asked about, and leaves the walk on screen alone", () => {
-  const asked: WaitingItem = {
-    id: "window_ask:q1",
-    text: "Is this the right heading?",
-    since: at("09:05"),
-    source: "window_ask",
-    options: [],
-    place: {
-      url: url("b"),
-      selector: "main > h1",
-    },
-  };
-  const shown = holding(
-    record("a", walk("a", at("09:01"))),
-    record("b", walk("b", at("09:02")), asked),
-  );
-  shown.openForSession("a", "Walk a", url("a"));
-  expect(shown.askedFor("b", "Walk b", url("b"), "main > h1", "window_ask:q1")).toEqual({
-    ok: true,
-  });
-  expect(bar().entries.map((one) => one.asking)).toEqual([
-    undefined,
-    "Is this the right heading?",
-  ]);
-  expect(onScreen()).toBe(key("a"));
-  expect(pages()).toHaveLength(1);
-  expect(lastWindow().calls).toEqual([
-    "showInactive",
-  ]);
-  // Going to the walk shows the question, and the mark goes with it.
-  shown.walkTo(BAR, 1);
-  expect(pages()[1]!.questions.at(-1)).toMatchObject({
-    id: "window_ask:q1",
-    question: "Is this the right heading?",
-  });
-  expect(bar().entries.map((one) => one.asking)).toEqual([
-    undefined,
-    undefined,
+    REVIEW(9),
   ]);
 });
 
 // The owner, 19 Oct 2026: "When I leave an annotation, it shouldnt take me anywhere." Asked when the Cockpit should move to the
 // walk's Job, he answered Never. A walk coming on screen or the window taking focus tells Bridge's window nothing but the dimming.
-it("moves Bridge's window to no Job as a Job's walk comes on screen, the window takes focus, or Approve moves on", () => {
-  const shown = holding(...three());
-  shown.openForSession("a", "Walk a", url("a"));
-  shown.walkTo(BAR, 1);
+it("moves Bridge's window to no Job as a walk comes on screen, the window takes focus, or Approve moves on", async () => {
+  const shown = holding();
+  await review(shown, 12, "09:00");
+  await review(shown, 7, "09:05");
   lastWindow().emit("focus");
+  shown.walkTo(BAR, 1);
   lastWindow().emit("blur");
   pages()[1]!.approve();
-  expect(onScreen()).toBe(key("c"));
   // The approved walk's own ending is told; nothing moves Bridge's window.
   expect(new Set(reached)).toEqual(
     new Set([
-      "windowsChanged",
       "focused",
-      "sessionClosed",
+      "reviewClosed",
     ]),
   );
   expect(board.focused.mock.calls).toEqual([
@@ -594,38 +375,21 @@ it("moves Bridge's window to no Job as a Job's walk comes on screen, the window 
   ]);
 });
 
-it("moves Bridge's window to no Job while a pull request's walk is on screen", async () => {
-  vi.useFakeTimers({
-    toFake: [
-      "Date",
-    ],
-  });
-  vi.setSystemTime(new Date(at("09:00")));
-  const shown = holding(record("a", walk("a", at("09:01"))));
-  const steps: WalkStep[] = [
-    {
-      say: "Open the list",
-      press: {
-        role: "button",
-        name: "Drafts",
-      },
-    },
-  ];
-  await shown.openForReview({
-    walkId: "w1",
-    manifestId: "armada",
-    number: 12,
-    title: "#12 Take a draft out",
-    address: "https://pr-12.preview.invalid/app",
-    steps,
-  });
-  lastWindow().emit("focus");
-  shown.walkTo(BAR, 1);
-  expect(onScreen()).toBe(key("a"));
-  expect(new Set(reached)).toEqual(
-    new Set([
-      "windowsChanged",
-      "focused",
-    ]),
-  );
+it("holds no Job's walk: one shown opens no window of its own, and takes no entry beside a pull request's", async () => {
+  const shown = holding(record("a"));
+  shown.openForSession("a", "Walk a", url("a"));
+  expect(windows_()).toHaveLength(0);
+  await review(shown, 12, "09:00");
+  const queue = pages()[0]!.seat.queue;
+  shown.openForSession("b", "Walk b", url("b"));
+  placeAt(shown, "a", url("a"));
+  // The Job's page is made in its pane, a second page and no second window; the window's queue is still the pull request's alone.
+  expect(pages()).toHaveLength(2);
+  expect(windows_()).toHaveLength(1);
+  expect(lastWindow().calls).toEqual([
+    "showInactive",
+  ]);
+  expect(queue().entries.map((one) => one.id)).toEqual([
+    REVIEW(12),
+  ]);
 });

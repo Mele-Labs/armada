@@ -1,10 +1,11 @@
 // A Job that showed a page, is changing it, and has recorded its plan. Fleet puts nothing to him while the page changes. When it is ready the page
-// waits in Needs you, closed window or open, and the plan waits behind it. His Approve of the page releases the plan. Over the `sessions` scenario with
-// one more Session open beside its own. The walk `plan-waits-for-walk` plays it.
+// waits in Needs you, its tab open or closed, and the plan waits behind it. His Approve of the page releases the plan. Over the `sessions` scenario with
+// one more Session open beside its own. `plan-held-spine.test.tsx` reads it.
 
 import type { Session, WorkGroup } from "@armada/screens/src/draft/sessions";
-import { markWalkWindow, mockPage, openWalkWindow } from "@armada/screens/src/fixtures/walk-window";
+import { mockPage } from "@armada/screens/src/fixtures/walk-window";
 
+import { showAgain, workingOn } from "../../job-walk/store";
 import type { Scenario } from "../moment";
 import { planCall, walkCall, withoutPlanCall, withWalkCall } from "../plan-call";
 import { s200Sessions } from "./sessions";
@@ -77,6 +78,10 @@ const held: Session = {
       form: "window",
       id: mockPage(),
       title: PAGE,
+      window: {
+        takes: [],
+        steps: [],
+      },
     },
   ],
   work: {
@@ -103,60 +108,50 @@ export const s291PlanWaitsForWalk: Scenario = {
       const url = mockPage();
       // Changing: nothing is put to him. Ready: the page waits. Approved: the page is off the list and the plan is asked.
       let phase: "changing" | "ready" | "approved" = "changing";
+      workingOn(HELD, [
+        url,
+      ]);
       return {
         ...store,
-        openWindow: (id, at) => {
-          if (id !== HELD) return store.openWindow?.(id, at);
-          openWalkWindow(TITLE, at, {
-            title: PAGE,
-            job: TITLE,
-            into: "Session",
-            onNote: () => undefined,
-            readiness: phase === "changing" ? "working" : "ready",
-            onApprove: async () => {
-              if (phase !== "approved") {
-                phase = "approved";
-                const now = new Date().toISOString();
-                store.edit(HELD, (one) => ({
-                  ...one,
-                  rows: [
-                    ...one.rows,
-                    {
-                      id: "h-5",
-                      at: "14:14:00",
-                      kind: "message",
-                      from: {
-                        kind: "you",
-                      },
-                      text: `Approved: ${at}`,
-                      instant: now,
-                    },
-                    {
-                      id: "h-6",
-                      at: "14:14:20",
-                      kind: "message",
-                      from: {
-                        kind: "agent",
-                      },
-                      text: "Approve the plan, or tell me what to change.",
-                    },
-                  ],
-                  waitingFor: [
-                    ...withoutPlanCall(withWalkCall(one.waitingFor, url)),
-                    planCall(undefined, now),
-                  ],
-                }));
-              }
-              return {
-                ok: true,
-              };
-            },
-          });
+        approveWalk: (id, at) => {
+          if (id !== HELD) return store.approveWalk?.(id, at);
+          if (phase === "approved") return;
+          phase = "approved";
+          const now = new Date().toISOString();
+          store.edit(HELD, (one) => ({
+            ...one,
+            rows: [
+              ...one.rows,
+              {
+                id: "h-5",
+                at: "14:14:00",
+                kind: "message",
+                from: {
+                  kind: "you",
+                },
+                text: `Approved: ${at}`,
+                instant: now,
+              },
+              {
+                id: "h-6",
+                at: "14:14:20",
+                kind: "message",
+                from: {
+                  kind: "agent",
+                },
+                text: "Approve the plan, or tell me what to change.",
+              },
+            ],
+            waitingFor: [
+              ...withoutPlanCall(withWalkCall(one.waitingFor, url)),
+              planCall(undefined, now),
+            ],
+          }));
         },
         later: () => {
           if (phase !== "changing") return;
           phase = "ready";
-          markWalkWindow("ready");
+          showAgain(HELD);
           store.edit(HELD, (one) => ({
             ...one,
             turn: {

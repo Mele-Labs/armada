@@ -135,6 +135,8 @@ mod session_waits;
 mod logbook;
 /// What Fleet told the owner of a pull request, so it is told once.
 mod pull_notice;
+/// Which comments on a pull request a Job was told of, and at what edit.
+mod pull_comment;
 mod repositories;
 /// The shape of one retro item.
 mod retro;

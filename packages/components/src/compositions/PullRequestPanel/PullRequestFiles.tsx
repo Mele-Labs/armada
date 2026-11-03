@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { PullRequestFile } from "@armada/protocol";
 
@@ -94,13 +94,45 @@ export function PatchStack({
 export function PullRequestFilesView({
   rows,
   patches,
+  target,
 }: {
   rows: readonly PullRequestFile[];
   patches: PullRequestPatches;
+  /**
+   * A place to go to: a file, and a line of it by its index in the file's drawn lines. A new object goes there again, so the
+   * same place asked twice scrolls twice. The line is scrolled to once the patches are read.
+   */
+  target?:
+    | {
+        path: string;
+        line?: number | undefined;
+      }
+    | undefined;
 }) {
   const sections = useRef(new Map<string, HTMLElement>());
   const [current, setCurrent] = useState<string | undefined>(undefined);
-  const target = (path: string) => (element: HTMLElement | null) =>
+  const read = patches.state === "read";
+  useEffect(() => {
+    if (target === undefined) return;
+    setCurrent(target.path);
+    const section = sections.current.get(target.path);
+    const line =
+      target.line === undefined || !read
+        ? null
+        : section?.querySelector<HTMLElement>(`[data-diff-line="${target.line}"]`);
+    if (line !== null && line !== undefined)
+      line.scrollIntoView({
+        block: "center",
+      });
+    else
+      section?.scrollIntoView({
+        block: "start",
+      });
+  }, [
+    target,
+    read,
+  ]);
+  const sectionOf = (path: string) => (element: HTMLElement | null) =>
     void (element === null ? sections.current.delete(path) : sections.current.set(path, element));
   const onFile = (path: string) => {
     setCurrent(path);
@@ -113,7 +145,7 @@ export function PullRequestFilesView({
       <div className="armada-pr-files__tree">
         <FileRows rows={rows} current={current} onFile={onFile} />
       </div>
-      <PatchStack rows={rows} patches={patches} target={target} />
+      <PatchStack rows={rows} patches={patches} target={sectionOf} />
     </div>
   );
 }
