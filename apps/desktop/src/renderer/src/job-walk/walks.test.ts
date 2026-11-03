@@ -55,6 +55,25 @@ const waiting = (
 beforeEach(forgetWalks);
 
 describe("walksOf", () => {
+  test.each([
+    ["http://localhost:5471/?walk=walk-in-job&real=takes", "walk-in-job"],
+    ["https://staging.example.com/account/billing/", "billing"],
+    ["https://staging.example.com/", "staging.example.com"],
+  ])("names a page the Job did not name, %s", (address, name) => {
+    expect(
+      walksOf(
+        job({
+          attachments: [
+            {
+              ...real(address),
+              title: address,
+            },
+          ],
+        }),
+      )[0]?.title,
+    ).toBe(name);
+  });
+
   test("reads a real walk from its window row: the page's address, name, takes, steps and brief", () => {
     expect(
       walksOf(

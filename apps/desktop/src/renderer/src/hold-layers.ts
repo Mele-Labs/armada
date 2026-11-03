@@ -2,7 +2,8 @@
 // hidden, its picture drawn in its place. One list, so a pane that draws a native view cannot miss one another pane knows.
 
 const HOLD_LAYERS = [
-  "[data-armada-annotate]",
+  // The layer drawn, and not its host: `[data-armada-annotate]` stays in the document for as long as a dev build runs, on or off.
+  ".armada-annotate",
   ".job-browser__site-panel",
   ".job-browser__ask",
   ".armada-dialog-scrim",

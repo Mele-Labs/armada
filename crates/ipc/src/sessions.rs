@@ -410,12 +410,12 @@ where
     Option::<i32>::deserialize(input)
 }
 
-/// `show_window`: a session shows the person a web page in a window of Bridge's own.
+/// `show_window`: a session shows the person a web page, as a tab of its Job.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ShowWindow {
     /// `http` or `https`; anything else is refused.
     pub url: String,
-    /// What the ledger and the thread call it. Absent is the address.
+    /// What the ledger, the thread and its tab call it. Absent is the address, and its tab shortens it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     /// Which session shows it. **Read only where the connection places no hosted session**: a

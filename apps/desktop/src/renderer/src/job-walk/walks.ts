@@ -22,6 +22,18 @@ export type JobWalk = {
   mock: boolean;
 };
 
+/** A page the Job gave no name, whose title Fleet says is its address: a mock's walk, else the end of its path, else its host. */
+const nameOfPage = (address: string): string => {
+  try {
+    const url = new URL(address);
+    return (
+      url.searchParams.get("walk") ?? url.pathname.split("/").findLast(Boolean) ?? url.host
+    );
+  } catch {
+    return address;
+  }
+};
+
 /** Every walk the Job showed. */
 export const walksOf = (session: Session): JobWalk[] =>
   attachmentsOf(session, "artifact").flatMap((one): JobWalk[] => {
@@ -31,7 +43,7 @@ export const walksOf = (session: Session): JobWalk[] =>
     return [
       {
         id: one.id,
-        title: one.title,
+        title: one.title === one.id ? nameOfPage(one.id) : one.title,
         ...(read.brief === undefined
           ? {}
           : {
