@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, GitMerge, Minus } from "lucide-react";
+import { ArrowDown, ArrowUp, GitMerge } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { KeyboardEvent } from "react";
 
@@ -40,28 +40,16 @@ const localDay = (instant: string): string => {
 
 type Move = ReturnType<typeof changeOf>;
 
-/** A figure's change as the page's delta chip. Where nothing moved, Tokens draws a quiet dash and Time leaves the slot empty. */
-function Change({ move, figure, quiet }: { move: Move; figure: Figure; quiet: boolean }) {
-  if (move === undefined || (move.still && !quiet)) return <span className="armada-builds__chip" />;
-  const tip = move.still
-    ? `${FIGURE_NAME[figure]} unchanged on the build before`
-    : `${FIGURE_NAME[figure]} ${move.up ? "up" : "down"} ${Math.round(move.percent)} percent on the build before`;
+/** A figure's change as the page's delta chip. Where nothing moved the slot stays empty. */
+function Change({ move, figure }: { move: Move; figure: Figure }) {
+  if (move === undefined || move.still) return <span className="armada-builds__chip" />;
+  const tip = `${FIGURE_NAME[figure]} ${move.up ? "up" : "down"} ${Math.round(move.percent)} percent on the build before`;
   return (
     <span className="armada-builds__chip">
       <Tooltip label={tip}>
-        <span
-          className="armada-usage__delta"
-          data-way={move.still ? undefined : move.up ? "worse" : "better"}
-          aria-label={tip}
-        >
-          {move.still ? (
-            <Minus size={12} aria-hidden />
-          ) : move.up ? (
-            <ArrowUp size={12} aria-hidden />
-          ) : (
-            <ArrowDown size={12} aria-hidden />
-          )}
-          {move.still ? "" : `${Math.round(move.percent)}%`}
+        <span className="armada-usage__delta" data-way={move.up ? "worse" : "better"} aria-label={tip}>
+          {move.up ? <ArrowUp size={12} aria-hidden /> : <ArrowDown size={12} aria-hidden />}
+          {`${Math.round(move.percent)}%`}
         </span>
       </Tooltip>
     </span>
@@ -127,7 +115,7 @@ function BuildRow({
       {figures.map((one, at) => (
         <span key={one} className="armada-builds__cell">
           <Fig tip={few ? `${FIGURE_MEANS[one]}. ${fewTip}` : FIGURE_MEANS[one]}>{shown(build, one)}</Fig>
-          <Change move={moves[at]} figure={one} quiet={figures.length === 1} />
+          <Change move={moves[at]} figure={one} />
         </span>
       ))}
     </li>
