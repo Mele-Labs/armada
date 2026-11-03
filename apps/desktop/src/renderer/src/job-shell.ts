@@ -92,6 +92,9 @@ export class JobShells {
   >();
   private readonly listeners = new Set<() => void>();
   private readonly opened = new Set<(sessionId: string, key: string) => void>();
+  private readonly shownBy = new Set<
+    (sessionId: string, terminal: string, first: boolean, key: string) => void
+  >();
   private screens = 0;
   /** The terminals that have a window of their own, as main last said. */
   private windowed: readonly TerminalWindowId[] = [];
@@ -115,11 +118,14 @@ export class JobShells {
 
   constructor(private readonly api: ShellApi) {
     api.onSessionRunMessage((runId, message) => this.message(runId, message));
-    api.onSessionTerminal(({ session_id, run_id, change, terminal }) =>
-      change === "opened"
-        ? this.adopt(this.route(session_id, terminal), run_id, true)
-        : this.end(run_id),
-    );
+    api.onSessionTerminal(({ session_id, run_id, change, terminal }) => {
+      if (change === "exited") return this.end(run_id);
+      const key = this.route(session_id, terminal);
+      // A shown shell is followed as an opened one is, so its output draws, but opens no tab behind: its own listeners bring it to the front.
+      this.adopt(key, run_id, change === "opened");
+      if (change === "shown")
+        this.shownBy.forEach((one) => one(session_id, terminal, key === session_id, key));
+    });
     let heard = false;
     api.onTerminalWindows?.((windows) => {
       heard = true;
@@ -141,6 +147,14 @@ export class JobShells {
   onOpened(listener: (sessionId: string, key: string) => void): () => void {
     this.opened.add(listener);
     return () => void this.opened.delete(listener);
+  }
+
+  /** Hears each shell the Job's agent showed, by its Job, its ID, whether it is the Job's first, and its key. */
+  onShown(
+    listener: (sessionId: string, terminal: string, first: boolean, key: string) => void,
+  ): () => void {
+    this.shownBy.add(listener);
+    return () => void this.shownBy.delete(listener);
   }
 
   /** The key of the Job's shell `terminal`; without one, of the Job's first. */

@@ -127,7 +127,12 @@ import type {
   LoadoutItemBody,
 } from "@armada/screens/src/draft/sessions";
 import { withThreadRow } from "@armada/screens/src/retro-row";
-import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
+import type {
+  PullRequestPress,
+  PullRequestWrite,
+  SessionActed,
+  TerminalChange,
+} from "../shared/api/sessions";
 import {
   openSessionFile,
   originsOfWindow,
@@ -262,7 +267,7 @@ export class SessionsHost {
   private listed: (sessions: readonly SessionRecord[], readAt: number | null) => void = () => {};
   private readAt: number | null = null;
   /** Where a Job's shell opening or ending goes: main's, set once. */
-  private terminalChanged: (change: "opened" | "exited", terminal: JobTerminal) => void = () => {};
+  private terminalChanged: (change: TerminalChange, terminal: JobTerminal) => void = () => {};
   private browserAsked: (request: BrowserRequest) => void = () => {};
   /** The socket each running block is read on, by run id. */
   private readonly runs = new Map<string, WebSocket>();
@@ -444,7 +449,7 @@ export class SessionsHost {
   }
 
   /** Say where a Job's shell opening or ending goes: main's, as `onRun` is. */
-  onTerminal(told: (change: "opened" | "exited", terminal: JobTerminal) => void): void {
+  onTerminal(told: (change: TerminalChange, terminal: JobTerminal) => void): void {
     this.terminalChanged = told;
   }
 
@@ -471,12 +476,13 @@ export class SessionsHost {
   }
 
   /**
-   * `terminal.opened` and `terminal.exited`. Main reads a shell's output as a run's, so an opening
-   * the person did not ask for, the agent's, is observed here before the window is told of it.
+   * `terminal.opened`, `terminal.shown` and `terminal.exited`. Main reads a shell's output as a run's, so an opening
+   * the person did not ask for, the agent's, is observed here before the window is told of it. A shown shell main
+   * already follows is left as it is; one it does not, opened before main started, is followed from here.
    */
-  terminal(change: "opened" | "exited", terminal: JobTerminal): void {
+  terminal(change: TerminalChange, terminal: JobTerminal): void {
     const port = this.port();
-    if (change === "opened" && port !== null)
+    if (change !== "exited" && port !== null)
       this.observeRun(port, terminal.run_id, shellKey(terminal.session_id, terminal.terminal));
     this.terminalChanged(change, terminal);
   }

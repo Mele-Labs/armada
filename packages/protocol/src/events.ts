@@ -140,6 +140,10 @@ export type Event =
   | ({
       kind: "terminal.opened";
     } & JobTerminal)
+  /** One of a Job's open terminals its agent showed the person, by `show_terminal`: its tab comes to the front in the Job's panes. */
+  | ({
+      kind: "terminal.shown";
+    } & JobTerminal)
   /** One of a Job's terminals ended: it exited, was stopped, or its Job ended. */
   | ({
       kind: "terminal.exited";
