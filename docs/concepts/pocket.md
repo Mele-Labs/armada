@@ -129,13 +129,13 @@ The phone sends Fleet's own body shapes.
 | `POST /api/sessions/message` | a message to the Job |
 
 **What a Job waits on is answered beside its thread**, each item only as Fleet takes it.
-`delivery`, `slot_choice`, `task_done` and `rule_act` take a choice alone, `watch_not_ours` a choice or words, `words_address` an address or words holding `{match}`, and the agent's own items a choice or words.
+`delivery`, `slot_choice`, `task_done`, `rule_act` and `browser_ask` take a choice alone, `watch_not_ours` a choice or words, `words_address` an address or words holding `{match}`, and the agent's own items a choice or words.
 A `slot_choice`'s slots to free stay on the Mac.
-A `sketch` and a `document` are answered from their cards in the thread, Approve or Send back with a note, and a `draft` the same from its card, a proposed workflow change included.
+A `sketch` and a `document` are answered from their cards in the thread, Approve or Send back with a note, and a `draft` the same from its card.
+A proposed workflow change is a draft whose card also offers Dismiss, the second option Fleet lists for it.
 A document also opens at its own page, read by the same reader Bridge uses, with Approve and Send back under it.
-A `held_child` is a card that opens the Job it names, which opens as its start card, and a `fleet_call` is a card that dismisses it.
+A `held_child` is an ask that opens the Job it names, which opens as its start card, and a `fleet_call` is an ask that dismisses it.
 A `walk` and a `window_ask` are a line at the thread's end saying to open it on the Mac, with no answer box, since each points at a page the phone cannot show.
-A `browser_ask` has nothing on the phone to press.
 
 **A 409 is read by its code.** Fleet's `fleet.sketch_redrawn` and `fleet.document_revised` say the page changed since he read it.
 The phone reads the Job again, shows the new drawing or revision and says the Job changed it, and an answer refused with any other code shows Fleet's own message.
