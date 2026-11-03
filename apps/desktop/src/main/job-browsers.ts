@@ -13,13 +13,17 @@ import { isAbsolute, join } from "node:path";
 
 import type {
   AnswerBrowserRequest,
+  BrowserAskAnswered,
   BrowserRequest,
+  EndBrowserAsk,
   Outcome,
+  RaiseBrowserAsk,
   SendSessionNote,
   StudioCapture,
 } from "@armada/protocol";
 
 import type { JobBrowserState } from "../shared/api/job-browser";
+import { browserAskOptions, browserAskText } from "../shared/browser-ask";
 import type { Answer, Choice, SiteDefaults, SitePermission } from "../shared/site-permissions";
 import { pngSize, ringOn, type Ring } from "../shared/ring";
 import type { CaptureHeld, CaptureRect } from "../shared/capture-window";
@@ -122,6 +126,9 @@ export type JobBrowserTell = {
   /** ⌥⌘C reached the page: the document drawing its pane is told. */
   capture(sessionId: string, tabId: string, host: Host): void;
   answer(body: AnswerBrowserRequest): Promise<unknown>;
+  /** A page's ask is raised with Fleet, which lists it in the Job's Needs you, and ended when it is settled in the tab or the tab goes. */
+  raiseAsk(body: RaiseBrowserAsk): Promise<unknown>;
+  endAsk(body: EndBrowserAsk): Promise<unknown>;
   note(body: SendSessionNote): Promise<Outcome>;
 };
 
@@ -148,6 +155,8 @@ type Held = {
     host: string;
     settle(answer: Answer): void;
   } | null;
+  /** Fleet's calls about this tab's ask, one after another, so an end never overtakes its raise. */
+  noted: Promise<void>;
 };
 
 /** The tab id of the page an agent opened for a Job that had no Browser tab. The first tab the renderer reports takes it over. */
@@ -259,6 +268,7 @@ export class JobBrowsers {
             settle,
           };
           this.told(sessionId, one.tabId);
+          this.raise(sessionId, one);
         });
       },
       chord: (chord) => {
@@ -275,6 +285,7 @@ export class JobBrowsers {
       frozen: null,
       holding: null,
       asking: null,
+      noted: Promise.resolve(),
     };
     this.held.set(sessionId, (this.held.get(sessionId) ?? new Map()).set(tabId, one));
     return one;
@@ -285,7 +296,7 @@ export class JobBrowsers {
     const one = this.one(sessionId, tabId);
     if (one === undefined) return;
     this.held.get(sessionId)!.delete(tabId);
-    this.settle(one, "dismiss");
+    this.settle(sessionId, one, "dismiss");
     const window = one.window;
     one.window = null;
     window?.close();
@@ -311,6 +322,8 @@ export class JobBrowsers {
       opened.tabId = first;
       mine.set(first, opened);
       this.told(sessionId, first);
+      // An ask it had before there was a tab to key it by.
+      this.raise(sessionId, opened);
     }
     for (const tabId of tabIds) {
       if (this.one(sessionId, tabId) !== undefined) continue;
@@ -381,18 +394,58 @@ export class JobBrowsers {
     this.one(sessionId, tabId)?.page.leave(host);
   }
 
-  private settle(one: Held, answer: Answer): void {
+  /** Fleet is told, in order and without a throw: the tab's own bubble works without it. */
+  private toFleet(one: Held, call: () => Promise<unknown>): void {
+    one.noted = one.noted.then(call).then(
+      () => undefined,
+      () => undefined,
+    );
+  }
+
+  /** The tab's ask is raised, keyed by the tab. A page with no tab yet is raised when it has one (`tabs`). */
+  private raise(sessionId: string, one: Held): void {
+    const asking = one.asking;
+    if (asking === null || one.tabId === UNATTACHED) return;
+    const body: RaiseBrowserAsk = {
+      session_id: sessionId,
+      ask_id: one.tabId,
+      text: browserAskText(asking.permission, asking.host),
+      options: browserAskOptions(asking.permission),
+    };
+    this.toFleet(one, () => this.tell.raiseAsk(body));
+  }
+
+  /** The ask is settled. `fleetKnows`: it was Fleet that said so, so there is nothing to end. */
+  private settle(sessionId: string, one: Held, answer: Answer, fleetKnows = false): void {
     const asking = one.asking;
     one.asking = null;
-    asking?.settle(answer);
+    if (asking === null) return;
+    if (!fleetKnows && one.tabId !== UNATTACHED) {
+      const body: EndBrowserAsk = {
+        session_id: sessionId,
+        ask_id: one.tabId,
+      };
+      this.toFleet(one, () => this.tell.endAsk(body));
+    }
+    asking.settle(answer);
   }
 
   /** The owner's answer to the waiting request. */
-  answer(sessionId: string, tabId: string, answer: Answer): void {
+  answer(sessionId: string, tabId: string, answer: Answer, fleetKnows = false): void {
     const one = this.one(sessionId, tabId);
     if (one === undefined || one.asking === null) return;
-    this.settle(one, answer);
+    this.settle(sessionId, one, answer, fleetKnows);
     this.told(sessionId, tabId);
+  }
+
+  /** The owner answered the page's ask in Needs you: 0 is Allow, 1 is Block, and null or anything else dismisses. Late for a tab with no ask, it does nothing. */
+  askAnswered({ session_id, ask_id, choice }: BrowserAskAnswered): void {
+    this.answer(
+      session_id,
+      ask_id,
+      choice === 0 ? "allow" : choice === 1 ? "block" : "dismiss",
+      true,
+    );
   }
 
   choose(

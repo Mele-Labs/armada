@@ -730,6 +730,8 @@ void app.whenReady().then(() => {
       capture: (sessionId, tabId, host) =>
         (host as BrowserWindow).webContents.send(CHANNELS.jobBrowserCapture, sessionId, tabId),
       answer: async (body) => connection?.sessions.answerBrowser(body),
+      raiseAsk: async (body) => connection?.sessions.raiseBrowserAsk(body),
+      endAsk: async (body) => connection?.sessions.endBrowserAsk(body),
       note: async (body) => {
         const sent = await connection?.sessions.sendNote(body);
         return sent === undefined
@@ -743,6 +745,7 @@ void app.whenReady().then(() => {
     },
   );
   connection.sessions.onBrowser((request) => void jobBrowsers.request(request));
+  connection.sessions.onBrowserAskAnswered((answered) => jobBrowsers.askAnswered(answered));
   handleJobBrowsers({
     ipc: ipcMain,
     browsers: jobBrowsers,

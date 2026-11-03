@@ -7,7 +7,13 @@ vi.mock("electron", () => ({
   WebContentsView: class {},
 }));
 
-import type { AnswerBrowserRequest, BrowserRequest, SendSessionNote } from "@armada/protocol";
+import type {
+  AnswerBrowserRequest,
+  BrowserRequest,
+  EndBrowserAsk,
+  RaiseBrowserAsk,
+  SendSessionNote,
+} from "@armada/protocol";
 import type { JobBrowserState } from "../shared/api/job-browser";
 import { ringOn, type Ring } from "../shared/ring";
 import { NO_SETTINGS, type SiteDefaults } from "../shared/site-permissions";
@@ -130,6 +136,12 @@ function browsers() {
   const states: JobBrowserState[] = [];
   const answered: AnswerBrowserRequest[] = [];
   const everyDefaults: SiteDefaults[] = [];
+  const raised: RaiseBrowserAsk[] = [];
+  const ended: EndBrowserAsk[] = [];
+  const fleet = {
+    raise: async (body: RaiseBrowserAsk): Promise<unknown> => void raised.push(body),
+    end: async (body: EndBrowserAsk): Promise<unknown> => void ended.push(body),
+  };
   let defaults = NO_SETTINGS.defaults;
   make.defaults = () => defaults;
   make.setDefault = (permission, choice) => {
@@ -144,11 +156,16 @@ function browsers() {
     show: (sessionId) => void shown.push(sessionId),
     capture: () => {},
     answer: async (body) => void answered.push(body),
+    raiseAsk: (body) => fleet.raise(body),
+    endAsk: (body) => fleet.end(body),
     note: async () => ({
       ok: true,
     }),
   });
   return {
+    fleet,
+    raised,
+    ended,
     held,
     pages,
     tellers,
@@ -201,6 +218,262 @@ describe("a page asking for a permission", () => {
         "camera",
         "block",
       ],
+    ]);
+  });
+});
+
+describe("a page's ask in the Job's Needs you", () => {
+  /** Fleet is told after a turn: its calls are queued, so an end cannot overtake its raise. */
+  const tick = () => new Promise((resolve) => setTimeout(resolve));
+  const SAYS = "It can reach apps on this Mac and devices on your network.";
+
+  it("is raised with Fleet as the question the tab asks, keyed by the tab", async () => {
+    const { held, tellers, raised } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    void tellers[0]!.ask("local_network", "login.example.com");
+    await tick();
+    expect(raised).toEqual([
+      {
+        session_id: "01JOB",
+        ask_id: "t1",
+        text: "Allow Local network for login.example.com?",
+        options: [
+          {
+            label: "Allow",
+            description: SAYS,
+          },
+          {
+            label: "Block",
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("says what Local network reaches under Allow only for Local network", async () => {
+    const { held, tellers, raised } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    void tellers[0]!.ask("downloads", "files.example.com");
+    await tick();
+    expect(raised[0]).toMatchObject({
+      text: "Allow Downloads for files.example.com?",
+      options: [
+        {
+          label: "Allow",
+        },
+        {
+          label: "Block",
+        },
+      ],
+    });
+    expect(raised[0]!.options[0]).not.toHaveProperty("description");
+  });
+
+  it("is settled by Fleet's answer as the tab's own is: 0 allows, 1 blocks, null dismisses", async () => {
+    for (const [choice, said] of [
+      [
+        0,
+        "allow",
+      ],
+      [
+        1,
+        "block",
+      ],
+      [
+        null,
+        "dismiss",
+      ],
+    ] as const) {
+      const { held, tellers, states, ended } = browsers();
+      held.tabs("01JOB", [
+        "t1",
+      ]);
+      const asked = tellers[0]!.ask("camera", "login.example.com");
+      held.askAnswered({
+        session_id: "01JOB",
+        ask_id: "t1",
+        choice,
+      });
+      expect(await asked).toBe(said);
+      expect(states.at(-1)?.site.pending).toBeNull();
+      // Fleet took the item off itself, so there is nothing to end.
+      await tick();
+      expect(ended).toEqual([]);
+    }
+  });
+
+  it("ignores an answer for a tab with no ask, and for a tab it does not have", async () => {
+    const { held, tellers, states, ended } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    const before = states.length;
+    held.askAnswered({
+      session_id: "01JOB",
+      ask_id: "t1",
+      choice: 0,
+    });
+    held.askAnswered({
+      session_id: "01JOB",
+      ask_id: "gone",
+      choice: 0,
+    });
+    held.askAnswered({
+      session_id: "02JOB",
+      ask_id: "t1",
+      choice: 1,
+    });
+    expect(states).toHaveLength(before);
+    // A later ask on the same tab is not settled by the late answer.
+    const asked = tellers[0]!.ask("camera", "login.example.com");
+    held.answer("01JOB", "t1", "block");
+    expect(await asked).toBe("block");
+    await tick();
+    expect(ended).toHaveLength(1);
+  });
+
+  it("is ended with Fleet when it is answered in the tab, or dismissed there", async () => {
+    const { held, tellers, ended } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    const first = tellers[0]!.ask("camera", "login.example.com");
+    held.answer("01JOB", "t1", "allow");
+    await first;
+    const second = tellers[0]!.ask("camera", "login.example.com");
+    held.answer("01JOB", "t1", "dismiss");
+    await second;
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(ended).toEqual([
+      {
+        session_id: "01JOB",
+        ask_id: "t1",
+      },
+      {
+        session_id: "01JOB",
+        ask_id: "t1",
+      },
+    ]);
+  });
+
+  it("is ended when its tab is closed, and when its Job is gone", async () => {
+    const { held, tellers, ended } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+      "t2",
+    ]);
+    held.tabs("02JOB", [
+      "t1",
+    ]);
+    const closed = tellers[0]!.ask("camera", "login.example.com");
+    const gone = tellers[2]!.ask("camera", "login.example.com");
+    held.tabs("01JOB", [
+      "t2",
+    ]);
+    expect(await closed).toBe("dismiss");
+    held.keep(
+      new Set([
+        "01JOB",
+      ]),
+    );
+    expect(await gone).toBe("dismiss");
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(ended).toEqual([
+      {
+        session_id: "01JOB",
+        ask_id: "t1",
+      },
+      {
+        session_id: "02JOB",
+        ask_id: "t1",
+      },
+    ]);
+  });
+
+  it("is ended after it was raised, however slowly Fleet answered the raising", async () => {
+    const { held, tellers, fleet, raised, ended } = browsers();
+    let done: () => void = () => {};
+    fleet.raise = (body) =>
+      new Promise((resolve) => {
+        done = () => resolve(void raised.push(body));
+      });
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    void tellers[0]!.ask("camera", "login.example.com");
+    held.answer("01JOB", "t1", "allow");
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(ended).toEqual([]);
+    done();
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(raised).toHaveLength(1);
+    expect(ended).toHaveLength(1);
+  });
+
+  it("leaves the tab's own bubble working where Fleet refuses it, and throws nothing", async () => {
+    const { held, tellers, fleet, states } = browsers();
+    const tried: string[] = [];
+    fleet.raise = async () => {
+      tried.push("raise");
+      throw new Error("Fleet is not there");
+    };
+    fleet.end = () => {
+      tried.push("end");
+      throw new Error("Fleet is not there");
+    };
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    const asked = tellers[0]!.ask("camera", "login.example.com");
+    expect(states.at(-1)?.site.pending).toMatchObject({
+      permission: "camera",
+    });
+    held.answer("01JOB", "t1", "allow");
+    expect(await asked).toBe("allow");
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(tried).toEqual([
+      "raise",
+      "end",
+    ]);
+  });
+
+  it("raises nothing for a second ask that is refused while one waits", async () => {
+    const { held, tellers, raised } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    void tellers[0]!.ask("camera", "login.example.com");
+    void tellers[0]!.ask("microphone", "login.example.com");
+    await tick();
+    expect(raised).toHaveLength(1);
+  });
+
+  it("is raised once the first tab takes a page an agent opened, since it had no tab to be keyed by", async () => {
+    const { held, tellers, raised } = browsers();
+    await held.request({
+      session_id: "01JOB",
+      request_id: "r1",
+      act: {
+        kind: "open",
+        url: "http://localhost:5173",
+      },
+    });
+    void tellers[0]!.ask("location", "localhost:5173");
+    await tick();
+    expect(raised).toEqual([]);
+    held.tabs("01JOB", [
+      "t7",
+    ]);
+    await tick();
+    expect(raised).toMatchObject([
+      {
+        ask_id: "t7",
+        text: "Allow Location for localhost:5173?",
+      },
     ]);
   });
 });
@@ -836,6 +1109,8 @@ describe("a note taken on a Job's browser", () => {
         show: () => {},
         capture: () => {},
         answer: async () => {},
+        raiseAsk: async () => {},
+        endAsk: async () => {},
         note: async (body) => (
           notes.push(body),
           {

@@ -60,7 +60,7 @@ export interface ArrivalHost {
   /** Every session and the threads a window opened — `sessions.ts`. */
   readonly sessions: Pick<
     SessionsHost,
-    "again" | "changed" | "row" | "terminal" | "watchesChanged" | "browser"
+    "again" | "changed" | "row" | "terminal" | "watchesChanged" | "browser" | "browserAskAnswered"
   >;
   /** What Fleet holds disk for, read once for nobody so the first surface to open has a list, and again on a slot lease or release — `holding.ts`. */
   readonly held: Pick<HeldReader, "warm" | "again">;
@@ -503,6 +503,18 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
       session_id: event.session_id,
       request_id: event.request_id,
       act: event.act,
+    });
+    return;
+  }
+  if (event.kind === "browser.ask_answered") {
+    // Nothing is folded: the page's ask is the Job browser's, and Fleet has taken the item off its list already.
+    host.publish({
+      connection,
+    });
+    host.sessions.browserAskAnswered({
+      session_id: event.session_id,
+      ask_id: event.ask_id,
+      choice: event.choice,
     });
     return;
   }

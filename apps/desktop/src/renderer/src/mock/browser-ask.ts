@@ -10,37 +10,23 @@ import {
   watchBrowserAsks,
   type BrowserAsk,
 } from "../job-browser/store";
-import { labelOfPermission } from "../../../shared/site-permissions";
+import { browserAskOptions, browserAskText } from "../../../shared/browser-ask";
 import type { SessionsStore } from "./sessions/script";
 
 /** The id of a page's ask: the tab that asked follows. */
 const PREFIX = "browser_ask:";
 
-const RISK = "It can reach apps on this Mac and devices on your network.";
-
 /** The Needs you item for a page's ask: Allow and Block, with what Local network reaches under Allow. */
 export const browserAskItem = (ask: BrowserAsk, since: string): WaitingItem => ({
   id: `${PREFIX}${ask.tabId}`,
-  text: `Allow ${labelOfPermission(ask.permission)} for ${ask.host}?`,
+  text: browserAskText(ask.permission, ask.host),
   since,
   source: "browser_ask",
   act: {
     kind: "answer",
     target: `${PREFIX}${ask.tabId}`,
   },
-  options: [
-    {
-      label: "Allow",
-      ...(ask.permission === "local_network"
-        ? {
-            description: RISK,
-          }
-        : {}),
-    },
-    {
-      label: "Block",
-    },
-  ],
+  options: browserAskOptions(ask.permission),
 });
 
 /**
