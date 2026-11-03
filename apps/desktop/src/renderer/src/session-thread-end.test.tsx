@@ -29,6 +29,8 @@ const rows: SessionThreadRow[] = Array.from(
   }),
 );
 
+const px = (length: number): string => `${length}px`;
+
 async function opened() {
   const host = document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);
@@ -50,7 +52,8 @@ async function opened() {
     return found!;
   });
   // The frame's height, which a test has none of.
-  thread.style.cssText = "height:400px;overflow-y:auto";
+  thread.style.height = px(400);
+  thread.style.overflowY = "auto";
   return {
     thread,
     gap: () => Math.round(thread.scrollHeight - thread.scrollTop - thread.clientHeight),
@@ -69,7 +72,7 @@ const frames = () =>
 test("stays at its end when its text grows as it opens", async () => {
   const { gap, lastRow } = await opened();
   await vi.waitFor(() => expect(gap()).toBe(0));
-  lastRow.style.paddingBottom = "240px";
+  lastRow.style.paddingBottom = px(240);
   await frames();
   expect(gap()).toBe(0);
 });
@@ -77,11 +80,11 @@ test("stays at its end when its text grows as it opens", async () => {
 test("stays at its end when the screen shortens it", async () => {
   const { thread, gap } = await opened();
   await vi.waitFor(() => expect(gap()).toBe(0));
-  thread.style.height = "250px";
+  thread.style.height = px(250);
   await frames();
   expect(gap()).toBe(0);
   // Still following afterwards, which a shortened box reading as him leaving would stop.
-  thread.style.height = "200px";
+  thread.style.height = px(200);
   await frames();
   expect(gap()).toBe(0);
 });
@@ -94,7 +97,7 @@ test("leaves what he opened where he reads it, once he has pressed", async () =>
       bubbles: true,
     }),
   );
-  lastRow.style.paddingBottom = "240px";
+  lastRow.style.paddingBottom = px(240);
   await frames();
   expect(gap()).toBeGreaterThan(200);
 });
@@ -105,7 +108,7 @@ test("does not bring him back once he has scrolled up", async () => {
   thread.scrollTop = 0;
   await frames();
   thread.dispatchEvent(new Event("scroll"));
-  thread.style.height = "250px";
+  thread.style.height = px(250);
   await frames();
   expect(thread.scrollTop).toBe(0);
 });

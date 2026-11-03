@@ -423,17 +423,14 @@ describe("the visible screen", () => {
   });
   it("takes the visual viewport's height and pan, and marks a keyboard", () => {
     const one = root();
-    fit(
-      {
-        height: 500,
-        offsetTop: 40,
-        scale: 1,
-      },
-      844,
-      one.element,
-    );
-    expect(one.props.get("--pk-visible-height")).toBe("500px");
-    expect(one.props.get("--pk-visible-top")).toBe("40px");
+    const view = {
+      height: 500,
+      offsetTop: 40,
+      scale: 1,
+    };
+    fit(view, 844, one.element);
+    expect(one.props.get("--pk-visible-height")).toBe(`${view.height}px`);
+    expect(one.props.get("--pk-visible-top")).toBe(`${view.offsetTop}px`);
     expect(one.keyboard()).toBe(true);
   });
   it("marks no keyboard for a toolbar's height", () => {

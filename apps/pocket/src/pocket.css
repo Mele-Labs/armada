@@ -1,10 +1,11 @@
 /* Pocket (#1997), and v2: every Mac on one list, a Job's thread. Tokens only. */
 /* The keyboard covers the home indicator, so nothing above it keeps clear of one. */
 :root {
-  --pk-inset-bottom: env(safe-area-inset-bottom);
+  --pk-inset-share: 1;
+  --pk-inset-bottom: calc(env(safe-area-inset-bottom) * var(--pk-inset-share));
 }
 :root[data-keyboard] {
-  --pk-inset-bottom: 0px;
+  --pk-inset-share: 0;
 }
 .pk-app {
   height: 100%;
