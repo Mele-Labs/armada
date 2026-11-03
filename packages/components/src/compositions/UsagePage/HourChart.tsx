@@ -44,7 +44,7 @@ const EDGE = 12;
 const AXIS = 34;
 /** What a flag's width is reckoned at, for keeping flags clear of each other: a character, its padding and the change. */
 const CHAR = 7;
-const PAD = 40;
+const PAD = 86;
 const SMALL = 20;
 const LANES = 3;
 /** The room a plot keeps above its top line and, but for the last, below its foot. */

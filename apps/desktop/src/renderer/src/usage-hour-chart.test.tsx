@@ -149,6 +149,46 @@ test("flags that would sit on each other take different lanes, and none in a lan
   }
 });
 
+test("two flags that each show a change, six hours apart, do not sit on each other", async () => {
+  const base = crowd()[0]!;
+  const { host } = mount({
+    builds: [
+      {
+        ...base,
+        id: "bbbbbb2",
+        commit: "bbbbbb2",
+        started: hoursIn(26),
+        checks: 700,
+      },
+      {
+        ...base,
+        id: "aaaaaa1",
+        commit: "aaaaaa1",
+        started: hoursIn(20),
+        checks: 500,
+      },
+      {
+        ...base,
+        id: "0000000",
+        commit: "0000000",
+        started: hoursIn(5),
+        checks: 700,
+      },
+    ],
+  });
+  await expect.poll(() => host.querySelectorAll(".armada-hours__flag[data-wide]").length).toBe(2);
+  await document.fonts.ready;
+  const [first, second] = [
+    ...host.querySelectorAll<HTMLElement>(".armada-hours__flagpos"),
+  ]
+    .filter((one) => one.querySelector(".armada-hours__flag[data-wide]") !== null)
+    .map((one) => ({
+      lane: one.style.top,
+      box: one.querySelector(".armada-hours__flag")!.getBoundingClientRect(),
+    }));
+  if (first!.lane === second!.lane) expect(second!.box.left).toBeGreaterThanOrEqual(first!.box.right - 0.5);
+});
+
 test("the readout stands inside the chart at the first hour, the last, and the middle", async () => {
   const { host, again } = mount({
     hour: 0,
