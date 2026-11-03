@@ -4,6 +4,9 @@ use super::*;
 use super::super::start_card::FirstTurn;
 use crate::session_links::LinkedBy;
 
+/// How long a person's send waits for its turn to be delivered before it answers and leaves the rest
+/// to finish. Under the twenty seconds Bridge waits.
+const DELIVERY_GRACE: std::time::Duration = std::time::Duration::from_secs(3);
 /// How long a start that failed waits before it is tried the second time.
 const START_AGAIN_AFTER: std::time::Duration = std::time::Duration::from_secs(1);
 
@@ -254,18 +257,20 @@ where
             }
         };
         match held {
-            // **Not inside his request.** A Job with no process leases its slot and starts one here, which
-            // has no bound but Bridge's own and read as `bridge.not_sent`. A start that fails keeps its
-            // turn in `start_failed`, and the thread shows the message already.
+            // **Not for as long as the start takes.** A Job with no process leases its slot and starts one
+            // here, which has no bound but Bridge's own and read as `bridge.not_sent`. A start that runs
+            // past `DELIVERY_GRACE` goes on behind the answer: one that fails keeps its turn in
+            // `start_failed`, and the thread shows the message already.
             Some(held) if matches!(written, Written::Message(SessionVoice::You)) => {
                 let (fleet, id) = (Arc::clone(&self), id.clone());
-                tokio::spawn(async move {
+                let mut delivery = tokio::spawn(async move {
                     let runtime = fleet.hosts().of(&id);
                     let _in_order = runtime.delivery.lock().await;
                     if let Err(why) = fleet.deliver_turn(&id, held).await {
                         fleet.session_warned(&id, "a job's message was not delivered", format!("{why:?}"));
                     }
                 });
+                let _ = tokio::time::timeout(DELIVERY_GRACE, &mut delivery).await;
             }
             Some(held) => self.deliver_turn(&id, held).await?,
             None => {}

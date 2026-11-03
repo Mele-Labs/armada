@@ -187,14 +187,9 @@ impl Rig {
         // A Session that was not forked is read at its first message, and its turn waits on the reading.
         let runtime = self.fleet.hosts().of(id.as_str());
         let fresh = !runtime.state().proposal.asked;
-        let started = self.stand_in.starts().len();
-        let running = runtime.state().process.is_some();
         self.sent_first(id).await;
         if fresh {
             crate::tests::session_host::eventually(|| async { !runtime.state().proposal.holds_back() }).await;
-        }
-        if !running {
-            crate::tests::session_host::eventually(|| async { self.stand_in.starts().len() > started }).await;
         }
     }
 
@@ -238,7 +233,6 @@ async fn a_fork_of_an_ended_terminal_session_starts_from_its_conversation() {
         })
         .await
         .expect("taken");
-    crate::tests::session_host::eventually(|| async { !rig.stand_in.starts().is_empty() }).await;
     let starts = rig.stand_in.starts();
     assert_eq!(starts.len(), 1);
     assert_eq!(starts[0].session, forked.id.as_str());

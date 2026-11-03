@@ -70,10 +70,7 @@ fn words(text: &str) -> AskHelm {
 
 impl Rig {
     pub(super) async fn ask(&self, text: &str) -> SessionRecord {
-        let asked = self.asking(words(text), None).await.expect("taken");
-        // Delivered after the send answers, so a process is there once it has been.
-        super::session_host::eventually(|| async { self.stand_in.process_of(asked.id.as_str()).is_some() }).await;
-        asked
+        self.asking(words(text), None).await.expect("taken")
     }
 
     async fn asking(&self, asked: AskHelm, within: Option<ManifestId>) -> Result<SessionRecord, Refusal> {
@@ -246,7 +243,6 @@ async fn the_line_saying_where_the_person_is_goes_ahead_of_their_words_and_is_no
         .await
         .expect("taken");
 
-    super::session_host::eventually(|| async { !rig.stand_in.starts().is_empty() }).await;
     let line = rig.stand_in.process(0).sent.lock().unwrap()[0].clone();
     let at = line.find("The person is on Overview, picked on armada").expect("the line");
     assert!(at < line.find("why did it stall?").expect("the words"), "ahead of them: {line}");
@@ -259,7 +255,6 @@ async fn the_line_saying_where_the_person_is_goes_ahead_of_their_words_and_is_no
 
     // No context, no line.
     rig.ask("and now?").await;
-    super::session_host::eventually(|| async { rig.stand_in.process(0).sent.lock().unwrap().len() > 1 }).await;
     let plain = rig.stand_in.process(0).sent.lock().unwrap()[1].clone();
     assert!(!plain.contains("The person is on"), "{plain}");
 }

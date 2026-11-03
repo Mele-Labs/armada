@@ -657,7 +657,7 @@ async fn a_message_is_taken_while_the_process_it_needs_is_still_starting() {
     let fleet = Arc::clone(&rig.fleet);
     let sent = SendSessionMessage { session_id: id.clone(), text: "again".into(), attachments: Vec::new(), mentions: Vec::new() };
     let sending = tokio::spawn(async move { fleet.send_session_message(sent).await });
-    tokio::time::timeout(Duration::from_secs(5), sending)
+    tokio::time::timeout(Duration::from_secs(10), sending)
         .await
         .expect("the send answers while the process is still starting")
         .unwrap()
@@ -773,7 +773,6 @@ async fn tuning_ends_an_idle_process_and_the_next_message_resumes_on_the_new_set
     assert!(rig.stand_in.process(0).ended.load(Ordering::SeqCst));
 
     rig.send(&id, "second").await;
-    eventually(|| async { rig.stand_in.starts().len() > 1 }).await;
     let next = &rig.stand_in.starts()[1];
     assert!(next.resuming);
     assert_eq!(
@@ -839,7 +838,6 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
         })
         .await
         .unwrap();
-    eventually(|| async { stand_in.starts().len() > 1 }).await;
     assert!(stand_in.starts()[1].resuming);
 
     let closed = Arc::clone(&quick)
