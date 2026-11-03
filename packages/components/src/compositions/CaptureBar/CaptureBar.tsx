@@ -4,6 +4,7 @@ import {
   ChevronRight,
   Circle,
   CircleDot,
+  CircleHelp,
   Crosshair,
   LoaderCircle,
   MessageCircleQuestion,
@@ -12,12 +13,13 @@ import {
   Search,
   UserCheck,
 } from "lucide-react";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 
 import { Button } from "../../primitives/Button/Button";
 import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Kbd, KbdChord } from "../../primitives/Kbd/Kbd";
+import { Popover } from "../../primitives/Popover/Popover";
 import { SplitButton } from "../../primitives/SplitButton/SplitButton";
 import { Switch } from "../../primitives/Switch/Switch";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -1156,6 +1158,17 @@ export function CaptureBar(props: CaptureBarProps) {
   );
 }
 
+/** The Job's brief, as text. It takes the focus on opening, so a keyboard reader is in it. */
+function WalkBrief({ said }: { said: string }) {
+  const own = useRef<HTMLParagraphElement>(null);
+  useEffect(() => own.current?.focus(), []);
+  return (
+    <p ref={own} tabIndex={-1} className="armada-capture-bar__brief">
+      {said}
+    </p>
+  );
+}
+
 export type WalkBarHeld = CaptureBarHeld & {
   /** Sends the held notes to the Job as one turn, and stays on the walk. */
   onSend: () => void;
@@ -1187,6 +1200,8 @@ export type WalkBarProps = {
   capturing?: boolean;
   /** The key that turns capture on and off, from the action registry, as the tooltip shows it. */
   binding?: readonly string[];
+  /** What the Job changed and what to look at, in its words. **Absent: the Job said nothing**, and the button's place stays empty so Reload and Capture do not move. */
+  brief?: string;
   onApprove: () => void;
   /** Notes held on the Job, not sent: Approve becomes Send notes. */
   held?: WalkBarHeld;
@@ -1213,11 +1228,14 @@ export function WalkBar({
   onCapture,
   capturing = false,
   binding = [],
+  brief,
   onApprove,
   held,
   readiness,
 }: WalkBarProps) {
   const lead = useId();
+  const ask = useRef<HTMLButtonElement>(null);
+  const [asked, setAsked] = useState(false);
   const taking = takes?.names[takes.at];
   const steps = of > 0;
   const unapprovable = readiness === "working";
@@ -1345,6 +1363,35 @@ export function WalkBar({
           </>
         )}
         <span className="armada-capture-bar__icons armada-capture-bar__icons--end">
+          {brief === undefined ? (
+            <span className="armada-capture-bar__icon-slot" aria-hidden />
+          ) : (
+            <Popover
+              label="What to look at"
+              onOpenChange={(open) => {
+                setAsked(open);
+                // The panel took the focus in with it, so closing hands it back. A press elsewhere has already moved it.
+                if (!open && document.activeElement === document.body) ask.current?.focus();
+              }}
+              trigger={
+                <Tooltip label="What to look at">
+                  <Button
+                    ref={ask}
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    aria-label="What to look at"
+                    aria-haspopup="dialog"
+                    aria-expanded={asked}
+                  >
+                    <CircleHelp size={16} strokeWidth={2} aria-hidden />
+                  </Button>
+                </Tooltip>
+              }
+            >
+              <WalkBrief said={brief} />
+            </Popover>
+          )}
           <Tooltip label="Reload" shortcut={QUEUE_KEYS.reload.join("")}>
             <Button variant="ghost" size="sm" iconOnly aria-label="Reload" onClick={onReload}>
               <RefreshCw size={16} strokeWidth={2} aria-hidden />

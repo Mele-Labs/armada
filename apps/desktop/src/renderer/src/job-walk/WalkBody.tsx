@@ -44,6 +44,11 @@ export function WalkBody({ session, tab }: { session: Session; tab: Tab }) {
     <WalkView
       name={walk.title}
       takes={walk.takes}
+      {...(walk.brief === undefined
+        ? {}
+        : {
+            brief: walk.brief,
+          })}
       take={state.take}
       onTake={(at) => pickTake(jobId, walk.id, at)}
       steps={walk.steps}

@@ -61,6 +61,7 @@ const account: Session = {
       id: "walk:settings",
       title: "Settings",
       walk: {
+        brief: "Moved the name field up. Check it still lines up with the checkbox.",
         steps: [
           {
             say: "The name field",
@@ -83,6 +84,8 @@ const account: Session = {
       id: "walk:billing",
       title: "Billing",
       walk: {
+        brief:
+          "Tightened the spacing on the plan card and the invoice list. Pick the take with the clearest invoice list.",
         takes: [
           "Compact",
           "Roomy",
@@ -142,6 +145,7 @@ const clock: Session = {
       id: "walk:clock",
       title: "Clock report",
       walk: {
+        brief: "The report now reads the pinned clock. Check the time at the top.",
         steps: [
           {
             say: "The pinned time",

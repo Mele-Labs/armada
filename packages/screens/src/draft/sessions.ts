@@ -211,6 +211,8 @@ export type SessionAttachment =
       keptStyles?: Readonly<Record<string, string>>;
       /** A walk (form `window`) as its Job's tab draws it: the page's takes by name, and the steps, each pointing at a place on the page by name. **A mock's field**: nothing in Fleet carries it yet. */
       walk?: {
+        /** What the Job changed and what to look at, in its words. Absent on a walk shown without one. */
+        brief?: string;
         takes?: readonly string[];
         steps: readonly {
           say: string;

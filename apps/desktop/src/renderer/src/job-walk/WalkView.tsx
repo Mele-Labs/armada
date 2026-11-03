@@ -37,6 +37,8 @@ export type WalkViewProps = {
   noteKey: string;
   /** What a note goes to, as the capture bar says it: `Onto <the Job>`. */
   aim: string;
+  /** What the Job changed and what to look at. Absent: it said nothing. */
+  brief?: string;
   /** Notes held on the Job, which turn Approve into Send notes. */
   held?: WalkBarHeld;
   readiness?: CaptureBarReadiness;
@@ -68,6 +70,7 @@ export function WalkView({
   onApprove,
   noteKey,
   aim,
+  brief,
   held,
   readiness,
   page,
@@ -181,6 +184,11 @@ export function WalkView({
         binding={binding}
         onCapture={toggle}
         onApprove={onApprove}
+        {...(brief === undefined
+          ? {}
+          : {
+              brief,
+            })}
         {...(held === undefined
           ? {}
           : {

@@ -10,6 +10,8 @@ export type JobWalk = {
   id: string;
   /** The page's name, which its tab reads. */
   title: string;
+  /** What the Job changed and what to look at, in its words. Absent: it said nothing. */
+  brief?: string;
   takes: readonly string[];
   steps: readonly {
     say: string;
@@ -26,6 +28,11 @@ export const walksOf = (session: Session): JobWalk[] =>
           {
             id: one.id,
             title: one.title,
+            ...(one.walk.brief === undefined
+              ? {}
+              : {
+                  brief: one.walk.brief,
+                }),
             takes: one.walk.takes ?? [],
             steps: one.walk.steps,
           },

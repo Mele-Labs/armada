@@ -1,6 +1,6 @@
 // A Job's walk is a tab of the Job, and no window opens. The Job's row pulses while it owes you a walk, and each tab pulses until it has been in front of you. The bar is two rows on every walk: the first has
-// the takes under Pick one, then Reload, Capture and Approve, and the second has Back, the step's count, Next and the line. Billing has three takes by name and Approve names the one on screen; Settings has
-// none. A note is held on the Job, not sent, and waits at the end of the Job's thread, and while any is held Approve becomes Send notes, with approving behind its caret. Sent, the walk stays, still changing,
+// the takes under Pick one, then What to look at, Reload, Capture and Approve, and the second has Back, the step's count, Next and the line. What to look at opens what the Job asked you to look at on that walk.
+// Billing has three takes by name and Approve names the one on screen; Settings has none. A note is held on the Job, not sent, and waits at the end of the Job's thread, and while any is held Approve becomes Send notes, with approving behind its caret. Sent, the walk stays, still changing,
 // until the Job shows the page again. Leaving for another Job and coming back finds the page, take, step and notes as you left them, a tab closed with its × comes back, and approving closes the tab. ← and →
 // walk the takes, Tab reaches every control and ⌘↵ presses Approve or Send notes. Over the `walk-in-job` scenario.
 
@@ -38,6 +38,14 @@ const walkInJob = walk("walk-in-job", [
       exact: true,
     }),
     say: "Billing is in front and has stopped pulsing. Settings still pulses",
+  },
+  {
+    press: inside(billing, button("What to look at")),
+    say: "What to look at holds what the Job asked you to look at on this walk",
+  },
+  {
+    press: inside(billing, button("What to look at")),
+    say: "Press it again to close it",
   },
   {
     look: inside(billing, text("Pick one")),
