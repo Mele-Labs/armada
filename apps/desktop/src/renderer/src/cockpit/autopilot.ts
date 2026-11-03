@@ -225,7 +225,8 @@ export function settingsFrom(
     settings.session_cap = sessions;
   }
   // The slider's far end is no limit: the plan stops everything at 100 by itself.
-  if (fields.weekly !== "" && fields.weekly !== "100") settings.weekly_cap_percent = whole(fields.weekly);
+  if (fields.weekly !== "" && fields.weekly !== "100")
+    settings.weekly_cap_percent = whole(fields.weekly);
   if (boxes !== undefined) {
     settings.on_autopilot = {
       backlog: boxes.work.has("backlog"),

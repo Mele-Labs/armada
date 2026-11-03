@@ -146,7 +146,12 @@ const DECISIONS: readonly {
 
 /** The readings the slider can stop at: from the week as it stands up to 100, which is no limit. */
 const weeklySteps = (now: number) =>
-  Array.from({ length: Math.max(1, 100 - now + 1) }, (_, at) => String(Math.min(now, 100) + at));
+  Array.from(
+    {
+      length: Math.max(1, 100 - now + 1),
+    },
+    (_, at) => String(Math.min(now, 100) + at),
+  );
 
 const BEGUN: Arm = {
   open: false,
@@ -717,20 +722,22 @@ export function ArmSetup({
                 ))}
               </Group>
               <Group name="On autopilot">
-                {WORK.filter((one) => one.id !== "reports" || held.repositories.has(ARMADA)).map((one) => (
-                  <Checkbox
-                    key={one.id}
-                    checked={held.work.has(one.id)}
-                    disabled={running}
-                    onChange={() =>
-                      move({
-                        work: flipped(held.work, one.id),
-                      })
-                    }
-                  >
-                    {one.label}
-                  </Checkbox>
-                ))}
+                {WORK.filter((one) => one.id !== "reports" || held.repositories.has(ARMADA)).map(
+                  (one) => (
+                    <Checkbox
+                      key={one.id}
+                      checked={held.work.has(one.id)}
+                      disabled={running}
+                      onChange={() =>
+                        move({
+                          work: flipped(held.work, one.id),
+                        })
+                      }
+                    >
+                      {one.label}
+                    </Checkbox>
+                  ),
+                )}
               </Group>
               {lines.length === 0 ? null : (
                 <ul className="ap-hud__why" aria-label="Why">

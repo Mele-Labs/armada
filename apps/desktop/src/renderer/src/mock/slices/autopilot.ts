@@ -20,7 +20,8 @@ const REPORT_PICK: Autopilot["picks"][number] = {
   issue_url: `report:${REPORT_ID}`,
   workflow_id: "bug",
   state: "set_aside",
-  reason: "The report gives one error line and no steps to reproduce it, so the cause is not clear.",
+  reason:
+    "The report gives one error line and no steps to reproduce it, so the cause is not clear.",
   at: "2026-10-12T03:02:00.000Z",
 };
 
@@ -228,7 +229,12 @@ export const autopilot: Slice<AutopilotApi, Record<string, never>> = {
             reports,
           },
           state: "running",
-          picks: scenario.name === "autopilot-reports" && reports ? [REPORT_PICK] : [],
+          picks:
+            scenario.name === "autopilot-reports" && reports
+              ? [
+                  REPORT_PICK,
+                ]
+              : [],
           spent_micros: 0,
           sessions_started: 0,
           at_work: 0,
