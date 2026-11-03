@@ -90,3 +90,27 @@ pub(crate) async fn answer_browser_request<D: Sessions>(State(served): State<Ser
         Err(refusal) => refused(refusal),
     }
 }
+
+/// 200 with the ask it kept. Fleet holds it in memory and lists it in the Job's Needs you.
+pub(crate) async fn raise_browser_ask<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let raised: ipc::RaiseBrowserAsk = match ipc::decode_body("a page's ask", &body) {
+        Ok(raised) => raised,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().raise_browser_ask(raised).await {
+        Ok(noted) => answer(StatusCode::OK, &noted, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// 200 with the ask it named, whether or not Fleet still held it.
+pub(crate) async fn end_browser_ask<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let ended: ipc::EndBrowserAsk = match ipc::decode_body("the end of a page's ask", &body) {
+        Ok(ended) => ended,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().end_browser_ask(ended).await {
+        Ok(noted) => answer(StatusCode::OK, &noted, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}

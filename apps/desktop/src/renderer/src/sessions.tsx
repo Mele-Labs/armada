@@ -1372,10 +1372,15 @@ export function entriesOf(
                     },
                   ],
             ),
-            onOther: (text: string) =>
-              answerWaiting(one.id, {
-                text,
-              }),
+            // A page's ask takes Allow or Block: the page has no use for words.
+            ...(one.source === "browser_ask"
+              ? {}
+              : {
+                  onOther: (text: string) =>
+                    answerWaiting(one.id, {
+                      text,
+                    }),
+                }),
             ...(held === undefined
               ? {}
               : {
@@ -1426,8 +1431,8 @@ export function entriesOf(
             onRemove: (reason: string) => removeWaiting(one.id, reason),
             removeKeep: `remove:${session.id}:${one.id}`,
           }),
-      // A call a taught rule made is the person's to take off. The agent is told nothing, so a reason typed is not sent.
-      ...(one.source !== "fleet_call"
+      // A call a taught rule made, or a page's ask, is the person's to take off. The agent is told nothing, so a reason typed is not sent.
+      ...(one.source !== "fleet_call" && one.source !== "browser_ask"
         ? {}
         : {
             onRemove: () => void dismissWaiting(session.id, one.id),

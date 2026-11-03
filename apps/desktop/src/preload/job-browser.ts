@@ -4,6 +4,7 @@
 import { ipcRenderer } from "electron";
 
 import type { JobBrowserApi, JobBrowserState } from "../shared/api/job-browser";
+import type { SiteDefaults } from "../shared/site-permissions";
 import { CHANNELS } from "../shared/bridge";
 
 function hear<T>(channel: string, listener: (value: T) => void): () => void {
@@ -28,7 +29,6 @@ export const jobBrowserPreload: Required<JobBrowserApi> = {
     place: (sessionId, tabId, bounds) =>
       ipcRenderer.invoke(CHANNELS.jobBrowserPlace, sessionId, tabId, bounds),
     unplace: (sessionId, tabId) => ipcRenderer.invoke(CHANNELS.jobBrowserUnplace, sessionId, tabId),
-    drive: (sessionId, tabId) => ipcRenderer.invoke(CHANNELS.jobBrowserDrive, sessionId, tabId),
     go: (sessionId, tabId, to) => ipcRenderer.invoke(CHANNELS.jobBrowserGo, sessionId, tabId, to),
     navigate: (sessionId, tabId, url) =>
       ipcRenderer.invoke(CHANNELS.jobBrowserNavigate, sessionId, tabId, url),
@@ -44,8 +44,11 @@ export const jobBrowserPreload: Required<JobBrowserApi> = {
       ipcRenderer.invoke(CHANNELS.jobBrowserNote, sessionId, tabId, said),
     choose: (sessionId, tabId, host, permission, choice) =>
       ipcRenderer.invoke(CHANNELS.jobBrowserChoose, sessionId, tabId, host, permission, choice),
-    setDefault: (sessionId, tabId, permission, choice) =>
-      ipcRenderer.invoke(CHANNELS.jobBrowserDefault, sessionId, tabId, permission, choice),
+    defaults: () => ipcRenderer.invoke(CHANNELS.jobBrowserDefaults),
+    setDefault: (permission, choice) =>
+      ipcRenderer.invoke(CHANNELS.jobBrowserSetDefault, permission, choice),
+    onDefaultsChanged: (listener) =>
+      hear<SiteDefaults>(CHANNELS.jobBrowserDefaultsChanged, listener),
     answer: (sessionId, tabId, answer) =>
       ipcRenderer.invoke(CHANNELS.jobBrowserAnswer, sessionId, tabId, answer),
   },

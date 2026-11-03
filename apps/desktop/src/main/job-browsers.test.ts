@@ -7,10 +7,16 @@ vi.mock("electron", () => ({
   WebContentsView: class {},
 }));
 
-import type { AnswerBrowserRequest, BrowserRequest, SendSessionNote } from "@armada/protocol";
+import type {
+  AnswerBrowserRequest,
+  BrowserRequest,
+  EndBrowserAsk,
+  RaiseBrowserAsk,
+  SendSessionNote,
+} from "@armada/protocol";
 import type { JobBrowserState } from "../shared/api/job-browser";
 import { ringOn, type Ring } from "../shared/ring";
-import { NO_SETTINGS } from "../shared/site-permissions";
+import { NO_SETTINGS, type SiteDefaults } from "../shared/site-permissions";
 import {
   JobBrowsers,
   jobsPage,
@@ -28,6 +34,8 @@ function fakePage(): BrowserPage & {
   moves: (Host | "away")[];
   bounds: unknown[];
   destroyed: boolean;
+  loads: string[];
+  went: string[];
 } {
   const page = {
     name: `page ${(pageNumber += 1)}`,
@@ -35,11 +43,16 @@ function fakePage(): BrowserPage & {
     moves: [] as (Host | "away")[],
     bounds: [] as unknown[],
     destroyed: false,
+    loads: [] as string[],
+    went: [] as string[],
     url: () => "http://localhost:5173/cart",
     title: () => "Cart",
-    load: async () => ({
-      loaded: true as const,
-    }),
+    load: async (url: string) => {
+      page.loads.push(url);
+      return {
+        loaded: true as const,
+      };
+    },
     find: async () => null,
     focus: async () => null,
     send: () => {},
@@ -64,7 +77,7 @@ function fakePage(): BrowserPage & {
       page.at = null;
     },
     hide: () => {},
-    go: () => {},
+    go: (to: string) => void page.went.push(to),
     back: () => false,
     forward: () => false,
     viewport: () => ({
@@ -75,10 +88,8 @@ function fakePage(): BrowserPage & {
     ask: async () => null,
     settings: () => ({
       sites: {},
-      defaults: NO_SETTINGS.defaults,
     }),
     choose: () => {},
-    setDefault: () => {},
   };
   return page;
 }
@@ -93,6 +104,8 @@ function browsers() {
     closed: boolean;
   }[] = [];
   const make: JobBrowserMake = {
+    defaults: () => NO_SETTINGS.defaults,
+    setDefault: () => {},
     page: (_sessionId, told) => {
       const page = fakePage();
       pages.push(page);
@@ -122,16 +135,37 @@ function browsers() {
   const shown: string[] = [];
   const states: JobBrowserState[] = [];
   const answered: AnswerBrowserRequest[] = [];
+  const everyDefaults: SiteDefaults[] = [];
+  const raised: RaiseBrowserAsk[] = [];
+  const ended: EndBrowserAsk[] = [];
+  const fleet = {
+    raise: async (body: RaiseBrowserAsk): Promise<unknown> => void raised.push(body),
+    end: async (body: EndBrowserAsk): Promise<unknown> => void ended.push(body),
+  };
+  let defaults = NO_SETTINGS.defaults;
+  make.defaults = () => defaults;
+  make.setDefault = (permission, choice) => {
+    defaults = {
+      ...defaults,
+      [permission]: choice,
+    };
+  };
   const held = new JobBrowsers(make, {
     changed: (state) => void states.push(state),
+    defaultsChanged: (now) => void everyDefaults.push(now),
     show: (sessionId) => void shown.push(sessionId),
     capture: () => {},
     answer: async (body) => void answered.push(body),
+    raiseAsk: (body) => fleet.raise(body),
+    endAsk: (body) => fleet.end(body),
     note: async () => ({
       ok: true,
     }),
   });
   return {
+    fleet,
+    raised,
+    ended,
     held,
     pages,
     tellers,
@@ -139,6 +173,7 @@ function browsers() {
     shown,
     states,
     answered,
+    everyDefaults,
   };
 }
 
@@ -158,39 +193,355 @@ describe("a page asking for a permission", () => {
     expect(states.at(-1)?.site.pending).toBeNull();
   });
 
-  it("is dismissed when the owner hands the page back, and by a second ask while one waits", async () => {
+  it("is dismissed by a second ask while one waits, and by the owner dismissing it", async () => {
     const { held, tellers } = browsers();
     held.tabs("01JOB", [
       "t1",
     ]);
-    held.drive("01JOB", "t1");
     const first = tellers[0]!.ask("camera", "login.example.com");
     expect(await tellers[0]!.ask("microphone", "login.example.com")).toBe("dismiss");
-    held.drive("01JOB", "t1");
+    held.answer("01JOB", "t1", "dismiss");
     expect(await first).toBe("dismiss");
   });
 
-  it("passes a choice and a default to the page", () => {
+  it("passes a choice to the page", () => {
     const { held, pages } = browsers();
     held.tabs("01JOB", [
       "t1",
     ]);
     const chosen: unknown[] = [];
     pages[0]!.choose = (...args) => void chosen.push(args);
-    pages[0]!.setDefault = (...args) => void chosen.push(args);
     held.choose("01JOB", "t1", "login.example.com", "camera", "block");
-    held.setDefault("01JOB", "t1", "location", "allow");
     expect(chosen).toEqual([
       [
         "login.example.com",
         "camera",
         "block",
       ],
+    ]);
+  });
+});
+
+describe("a page's ask in the Job's Needs you", () => {
+  /** Fleet is told after a turn: its calls are queued, so an end cannot overtake its raise. */
+  const tick = () => new Promise((resolve) => setTimeout(resolve));
+  const SAYS = "It can reach apps on this Mac and devices on your network.";
+
+  it("is raised with Fleet as the question the tab asks, keyed by the tab", async () => {
+    const { held, tellers, raised } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    void tellers[0]!.ask("local_network", "login.example.com");
+    await tick();
+    expect(raised).toEqual([
+      {
+        session_id: "01JOB",
+        ask_id: "t1",
+        text: "Allow Local network for login.example.com?",
+        options: [
+          {
+            label: "Allow",
+            description: SAYS,
+          },
+          {
+            label: "Block",
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("says what Local network reaches under Allow only for Local network", async () => {
+    const { held, tellers, raised } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    void tellers[0]!.ask("downloads", "files.example.com");
+    await tick();
+    expect(raised[0]).toMatchObject({
+      text: "Allow Downloads for files.example.com?",
+      options: [
+        {
+          label: "Allow",
+        },
+        {
+          label: "Block",
+        },
+      ],
+    });
+    expect(raised[0]!.options[0]).not.toHaveProperty("description");
+  });
+
+  it("is settled by Fleet's answer as the tab's own is: 0 allows, 1 blocks, null dismisses", async () => {
+    for (const [choice, said] of [
       [
-        "location",
+        0,
         "allow",
       ],
+      [
+        1,
+        "block",
+      ],
+      [
+        null,
+        "dismiss",
+      ],
+    ] as const) {
+      const { held, tellers, states, ended } = browsers();
+      held.tabs("01JOB", [
+        "t1",
+      ]);
+      const asked = tellers[0]!.ask("camera", "login.example.com");
+      held.askAnswered({
+        session_id: "01JOB",
+        ask_id: "t1",
+        choice,
+      });
+      expect(await asked).toBe(said);
+      expect(states.at(-1)?.site.pending).toBeNull();
+      // Fleet took the item off itself, so there is nothing to end.
+      await tick();
+      expect(ended).toEqual([]);
+    }
+  });
+
+  it("ignores an answer for a tab with no ask, and for a tab it does not have", async () => {
+    const { held, tellers, states, ended } = browsers();
+    held.tabs("01JOB", [
+      "t1",
     ]);
+    const before = states.length;
+    held.askAnswered({
+      session_id: "01JOB",
+      ask_id: "t1",
+      choice: 0,
+    });
+    held.askAnswered({
+      session_id: "01JOB",
+      ask_id: "gone",
+      choice: 0,
+    });
+    held.askAnswered({
+      session_id: "02JOB",
+      ask_id: "t1",
+      choice: 1,
+    });
+    expect(states).toHaveLength(before);
+    // A later ask on the same tab is not settled by the late answer.
+    const asked = tellers[0]!.ask("camera", "login.example.com");
+    held.answer("01JOB", "t1", "block");
+    expect(await asked).toBe("block");
+    await tick();
+    expect(ended).toHaveLength(1);
+  });
+
+  it("is ended with Fleet when it is answered in the tab, or dismissed there", async () => {
+    const { held, tellers, ended } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    const first = tellers[0]!.ask("camera", "login.example.com");
+    held.answer("01JOB", "t1", "allow");
+    await first;
+    const second = tellers[0]!.ask("camera", "login.example.com");
+    held.answer("01JOB", "t1", "dismiss");
+    await second;
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(ended).toEqual([
+      {
+        session_id: "01JOB",
+        ask_id: "t1",
+      },
+      {
+        session_id: "01JOB",
+        ask_id: "t1",
+      },
+    ]);
+  });
+
+  it("is ended when its tab is closed, and when its Job is gone", async () => {
+    const { held, tellers, ended } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+      "t2",
+    ]);
+    held.tabs("02JOB", [
+      "t1",
+    ]);
+    const closed = tellers[0]!.ask("camera", "login.example.com");
+    const gone = tellers[2]!.ask("camera", "login.example.com");
+    held.tabs("01JOB", [
+      "t2",
+    ]);
+    expect(await closed).toBe("dismiss");
+    held.keep(
+      new Set([
+        "01JOB",
+      ]),
+    );
+    expect(await gone).toBe("dismiss");
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(ended).toEqual([
+      {
+        session_id: "01JOB",
+        ask_id: "t1",
+      },
+      {
+        session_id: "02JOB",
+        ask_id: "t1",
+      },
+    ]);
+  });
+
+  it("is ended after it was raised, however slowly Fleet answered the raising", async () => {
+    const { held, tellers, fleet, raised, ended } = browsers();
+    let done: () => void = () => {};
+    fleet.raise = (body) =>
+      new Promise((resolve) => {
+        done = () => resolve(void raised.push(body));
+      });
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    void tellers[0]!.ask("camera", "login.example.com");
+    held.answer("01JOB", "t1", "allow");
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(ended).toEqual([]);
+    done();
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(raised).toHaveLength(1);
+    expect(ended).toHaveLength(1);
+  });
+
+  it("leaves the tab's own bubble working where Fleet refuses it, and throws nothing", async () => {
+    const { held, tellers, fleet, states } = browsers();
+    const tried: string[] = [];
+    fleet.raise = async () => {
+      tried.push("raise");
+      throw new Error("Fleet is not there");
+    };
+    fleet.end = () => {
+      tried.push("end");
+      throw new Error("Fleet is not there");
+    };
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    const asked = tellers[0]!.ask("camera", "login.example.com");
+    expect(states.at(-1)?.site.pending).toMatchObject({
+      permission: "camera",
+    });
+    held.answer("01JOB", "t1", "allow");
+    expect(await asked).toBe("allow");
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(tried).toEqual([
+      "raise",
+      "end",
+    ]);
+  });
+
+  it("raises nothing for a second ask that is refused while one waits", async () => {
+    const { held, tellers, raised } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    void tellers[0]!.ask("camera", "login.example.com");
+    void tellers[0]!.ask("microphone", "login.example.com");
+    await tick();
+    expect(raised).toHaveLength(1);
+  });
+
+  it("is raised once the first tab takes a page an agent opened, since it had no tab to be keyed by", async () => {
+    const { held, tellers, raised } = browsers();
+    await held.request({
+      session_id: "01JOB",
+      request_id: "r1",
+      act: {
+        kind: "open",
+        url: "http://localhost:5173",
+      },
+    });
+    void tellers[0]!.ask("location", "localhost:5173");
+    await tick();
+    expect(raised).toEqual([]);
+    held.tabs("01JOB", [
+      "t7",
+    ]);
+    await tick();
+    expect(raised).toMatchObject([
+      {
+        ask_id: "t7",
+        text: "Allow Location for localhost:5173?",
+      },
+    ]);
+  });
+});
+
+describe("the defaults for every Job's browser", () => {
+  it("are read with no Job and no tab", () => {
+    const { held } = browsers();
+    expect(held.defaults()).toEqual(NO_SETTINGS.defaults);
+  });
+
+  it("are set with no Job and no tab, and the change reaches every page's state and the window's notice", () => {
+    const { held, states, everyDefaults } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+      "t2",
+    ]);
+    held.tabs("02JOB", [
+      "t1",
+    ]);
+    states.length = 0;
+    held.setDefault("location", "allow");
+    expect(held.defaults().location).toBe("allow");
+    expect(everyDefaults).toHaveLength(1);
+    expect(everyDefaults[0]!.location).toBe("allow");
+    expect(states.map((one) => `${one.sessionId}/${one.tabId}`).sort()).toEqual([
+      "01JOB/t1",
+      "01JOB/t2",
+      "02JOB/t1",
+    ]);
+    expect(states.every((one) => one.site.defaults.location === "allow")).toBe(true);
+  });
+});
+
+describe("what the owner does in a page", () => {
+  it("loads an address he typed, on the web only, with nothing handed over first", () => {
+    const { held, pages } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    held.navigate("01JOB", "t1", "https://example.com/pay");
+    held.navigate("01JOB", "t1", "file:///etc/hosts");
+    held.navigate("01JOB", "t1", "javascript:alert(1)");
+    expect(pages[0]!.loads).toEqual([
+      "https://example.com/pay",
+    ]);
+  });
+
+  it("goes back, forward and reload on the chords, with nothing handed over first", () => {
+    const { held, tellers, pages } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    tellers[0]!.chord("back");
+    tellers[0]!.chord("forward");
+    tellers[0]!.chord("reload");
+    expect(pages[0]!.went).toEqual([
+      "back",
+      "forward",
+      "reload",
+    ]);
+  });
+
+  it("has no driver in its state", () => {
+    const { held } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    expect(held.list()[0]).not.toHaveProperty("driver");
   });
 });
 
@@ -285,17 +636,6 @@ describe("a Browser tab's page moving between its pane and a window", () => {
       }),
     ]);
     expect(states.at(-1)?.windowed).toBe(false);
-  });
-
-  it("hands the page to the owner and back, and says so", () => {
-    const { held, states } = browsers();
-    held.tabs("01JOB", [
-      "t1",
-    ]);
-    held.drive("01JOB", "t1");
-    expect(states.at(-1)?.driver).toBe("owner");
-    held.drive("01JOB", "t1");
-    expect(states.at(-1)?.driver).toBe("agent");
   });
 });
 
@@ -614,6 +954,113 @@ describe("the Job's page", () => {
   });
 });
 
+describe("the mark of an agent's act", () => {
+  const act = (id: string, over: BrowserRequest["act"]): BrowserRequest => ({
+    session_id: "01JOB",
+    request_id: id,
+    act: over,
+  });
+  /** A page whose snapshot waits to be released, so an act can be seen while it runs. */
+  function slow(page: ReturnType<typeof fakePage>) {
+    const release: (() => void)[] = [];
+    page.snapshot = () =>
+      new Promise<string>((resolve) => {
+        release.push(() => resolve("page"));
+      });
+    return release;
+  }
+  const mark = (held: JobBrowsers) => held.list()[0]?.acting;
+
+  it("is on the Job's page while the act runs, and gone when it answers", async () => {
+    const { held, pages, states } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    const release = slow(pages[0]!);
+    expect(mark(held)).toBeUndefined();
+    const snapshot = held.request(
+      act("r2", {
+        kind: "snapshot",
+      }),
+    );
+    expect(mark(held)).toBe("Reading the page");
+    expect(states.at(-1)?.acting).toBe("Reading the page");
+    release[0]!();
+    await snapshot;
+    expect(mark(held)).toBeUndefined();
+    expect(states.at(-1)).not.toHaveProperty("acting");
+  });
+
+  it("is gone when the act throws", async () => {
+    const { held, pages } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    let crash: () => void = () => {};
+    pages[0]!.snapshot = () =>
+      new Promise<string>((_resolve, reject) => {
+        crash = () => reject(new Error("crashed"));
+      });
+    const running = held.request(
+      act("r1", {
+        kind: "snapshot",
+      }),
+    );
+    expect(mark(held)).toBe("Reading the page");
+    crash();
+    await running;
+    expect(mark(held)).toBeUndefined();
+  });
+
+  it("shows the latest of two overlapping acts, and each clears only its own", async () => {
+    const { held, pages } = browsers();
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    const release = slow(pages[0]!);
+    const first = held.request(
+      act("r1", {
+        kind: "snapshot",
+      }),
+    );
+    const second = held.request(
+      act("r2", {
+        kind: "evaluate",
+        expression: "1",
+      }),
+    );
+    expect(mark(held)).toBe("Running a script");
+    // The later act answers first: the earlier one's mark is what is left.
+    await second;
+    expect(mark(held)).toBe("Reading the page");
+    release[0]!();
+    await first;
+    expect(mark(held)).toBeUndefined();
+  });
+
+  it("is on the page an agent opened for a Job with no tab, and stays on it when the first tab takes it", async () => {
+    const { held, pages, states } = browsers();
+    const opening = held.request(
+      act("r1", {
+        kind: "open",
+        url: "http://localhost:5173",
+      }),
+    );
+    // The page exists now, and its load has not answered.
+    expect(pages).toHaveLength(1);
+    expect(mark(held)).toBe("Opening localhost:5173");
+    held.tabs("01JOB", [
+      "t1",
+    ]);
+    expect(states.at(-1)).toMatchObject({
+      tabId: "t1",
+      acting: "Opening localhost:5173",
+    });
+    await opening;
+    expect(mark(held)).toBeUndefined();
+  });
+});
+
 describe("a note taken on a Job's browser", () => {
   it("sends the whole frozen page with the part he picked ringed in its pixels, tagged 1", async () => {
     const page = fakePage();
@@ -648,6 +1095,8 @@ describe("a note taken on a Job's browser", () => {
     const held = new JobBrowsers(
       {
         page: () => page,
+        defaults: () => NO_SETTINGS.defaults,
+        setDefault: () => {},
         window: () => ({
           host: {},
           focus: () => {},
@@ -656,9 +1105,12 @@ describe("a note taken on a Job's browser", () => {
       },
       {
         changed: () => {},
+        defaultsChanged: () => {},
         show: () => {},
         capture: () => {},
         answer: async () => {},
+        raiseAsk: async () => {},
+        endAsk: async () => {},
         note: async (body) => (
           notes.push(body),
           {

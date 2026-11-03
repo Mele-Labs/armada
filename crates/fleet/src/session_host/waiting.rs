@@ -608,6 +608,8 @@ where
             }
             // A Job its agent started waits on the person's Start; answering or dismissing it is refused.
             items.extend(held_children.iter().map(super::agent_starting::held_child_item));
+            // A page in the Job's browser asks him something: Bridge told Fleet, and the agent is told nothing.
+            items.extend(self.browser_ask_items(&session.id));
             // Every slot is held and it is in the line for one: Wait or Add, until he says.
             items.extend(
                 self.hosts()
@@ -1087,6 +1089,11 @@ where
                 SESSION_WAITING_EMPTY,
                 "a document is approved, or sent back, from its own card",
             )),
+            // The tab settles it as it was answered here; Fleet raised it for Bridge, so the agent is told nothing.
+            WaitingSource::BrowserAsk => match said.choice {
+                Some(choice) => self.browser_ask_settled(&id, &item.id, Some(choice)).await,
+                None => Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "a page's ask is answered with one of its options, not with words")),
+            },
             WaitingSource::SlotChoice => self.slot_chosen(&id, said.choice).await,
             // Fleet's, so the agent is told nothing: Do it carries the act out, Skip records it skipped.
             WaitingSource::RuleAct => self.rule_act_chosen(&id, &item.id, said.choice).await,
@@ -1218,6 +1225,10 @@ where
             .hosts()
             .settling(&id, &item.id)
             .ok_or_else(|| self.settled_already())?;
+        // Dismissed, the tab is told and the agent is not.
+        if item.source == WaitingSource::BrowserAsk {
+            return self.browser_ask_settled(&id, &item.id, None).await;
+        }
         // The agent is told first, so a send that fails leaves the item standing to try again. "Not yet"
         // is the plan put away to keep talking.
         let told = match item.source {

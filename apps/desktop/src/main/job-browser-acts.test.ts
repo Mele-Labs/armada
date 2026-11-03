@@ -44,13 +44,17 @@ function fakePage(): JobPage & {
   };
 }
 
-function host(page: JobPage | null, driving: "agent" | "owner" = "agent") {
+function host(page: JobPage | null) {
   const answered: AnswerBrowserRequest[] = [];
   const opened: string[] = [];
+  const marks: string[] = [];
   const fresh = fakePage();
   const acts: ActsHost = {
     page: () => page,
-    ownerDriving: () => driving === "owner",
+    acting: (_sessionId, sentence) => {
+      marks.push(`start ${sentence}`);
+      return () => void marks.push(`end ${sentence}`);
+    },
     openClosed: (_sessionId, url) => {
       opened.push(url);
       return fresh;
@@ -62,6 +66,7 @@ function host(page: JobPage | null, driving: "agent" | "owner" = "agent") {
     answered,
     opened,
     fresh,
+    marks,
   };
 }
 
@@ -107,6 +112,67 @@ describe("an act on a held request", () => {
     ]);
   });
 
+  it("says which act is running while it runs, and ends it once the act answers", async () => {
+    const page = fakePage();
+    const { acts, answered, marks } = host(page);
+    const seen: string[][] = [];
+    page.snapshot = async () => {
+      seen.push([
+        ...marks,
+      ]);
+      return "page";
+    };
+    await actOn(
+      acts,
+      asked({
+        kind: "snapshot",
+      }),
+    );
+    expect(seen).toEqual([
+      [
+        "start Reading the page",
+      ],
+    ]);
+    expect(marks).toEqual([
+      "start Reading the page",
+      "end Reading the page",
+    ]);
+    expect(answered).toHaveLength(1);
+  });
+
+  it("ends the act's mark when the act throws, and when the page is closed", async () => {
+    const page = fakePage();
+    page.snapshot = async () => {
+      throw new Error("the page crashed");
+    };
+    const threw = host(page);
+    await actOn(
+      threw.acts,
+      asked({
+        kind: "snapshot",
+      }),
+    );
+    expect(threw.marks).toEqual([
+      "start Reading the page",
+      "end Reading the page",
+    ]);
+    const closed = host(null);
+    await actOn(
+      closed.acts,
+      asked({
+        kind: "click",
+        target: {
+          role: "button",
+          name: "Save",
+        },
+      }),
+    );
+    expect(closed.marks).toEqual([
+      "start Clicking Save",
+      "end Clicking Save",
+    ]);
+  });
+
   it("answers not_found where the finder found nothing, and sends the page nothing", async () => {
     const page = fakePage();
     const { acts, answered } = host(page);
@@ -127,38 +193,6 @@ describe("an act on a held request", () => {
         error: {
           kind: "not_found",
         },
-      },
-    ]);
-  });
-
-  it("answers owner_driving while the owner drives, and acts on nothing", async () => {
-    const page = fakePage();
-    const { acts, answered } = host(page, "owner");
-    await actOn(
-      acts,
-      asked({
-        kind: "click",
-        target: {
-          role: "button",
-          name: "Save",
-        },
-      }),
-    );
-    await actOn(
-      acts,
-      asked({
-        kind: "open",
-        url: "http://localhost:5173/cart",
-      }),
-    );
-    expect(page.sent).toEqual([]);
-    expect(page.loads).toEqual([]);
-    expect(answered.map((one) => one.error)).toEqual([
-      {
-        kind: "owner_driving",
-      },
-      {
-        kind: "owner_driving",
       },
     ]);
   });

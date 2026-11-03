@@ -1,4 +1,4 @@
-// What a Job browser's page is given when it asks: the saved choice, the default beneath it, and never while the agent drives.
+// What a Job browser's page is given when it asks: the saved choice, the default beneath it, and the person's answer where it is Ask.
 
 import { describe, expect, it } from "vitest";
 
@@ -9,13 +9,20 @@ import {
   type SitePermission,
   type SiteSettings,
 } from "../../shared/site-permissions";
-import { check, decide, downloadOf, hostOf, permissionsOf, type Rules } from "./site-permissions";
+import {
+  check,
+  decide,
+  downloadOf,
+  hostOf,
+  permissionsOf,
+  popupOf,
+  type Rules,
+} from "./site-permissions";
 
 const HOST = "login.example.com";
 
 function rules(
   over: {
-    driving?: boolean;
     site?: Partial<Record<SitePermission, Choice>>;
     defaults?: Partial<SiteSettings["defaults"]>;
     answer?: Answer;
@@ -38,7 +45,6 @@ function rules(
         ...over.defaults,
       },
     }),
-    driving: () => over.driving ?? true,
     ask: async (permission) => {
       asked.push(permission);
       return over.answer ?? "dismiss";
@@ -96,52 +102,126 @@ describe("which permissions a request names", () => {
       "notifications",
     ]);
     expect(permissionsOf("midi", {})).toBeNull();
-    expect(permissionsOf("fullscreen", {})).toBeNull();
+  });
+
+  it("reads Electron's fullscreen and pointer lock as the one Fullscreen row", () => {
+    expect(permissionsOf("fullscreen", {})).toEqual([
+      "fullscreen",
+    ]);
+    expect(permissionsOf("pointerLock", {})).toEqual([
+      "fullscreen",
+    ]);
   });
 });
 
-describe("a request while the agent drives", () => {
-  it("is refused whatever was saved, and never asks", async () => {
-    const one = rules({
-      driving: false,
-      site: {
-        local_network: "allow",
+describe("fullscreen and pointer lock", () => {
+  it("are given by default, and never asked", async () => {
+    const one = rules();
+    expect(
+      await decide(
+        [
+          "fullscreen",
+        ],
+        HOST,
+        one.made,
+      ),
+    ).toBe(true);
+    expect(
+      check(
+        [
+          "fullscreen",
+        ],
+        HOST,
+        one.made,
+      ),
+    ).toBe(true);
+    expect(one.asked).toEqual([]);
+  });
+
+  it("are refused where the site's choice is Block, and asked where it is Ask", async () => {
+    expect(
+      await decide(
+        [
+          "fullscreen",
+        ],
+        HOST,
+        rules({
+          site: {
+            fullscreen: "block",
+          },
+        }).made,
+      ),
+    ).toBe(false);
+    const ask = rules({
+      defaults: {
+        fullscreen: "ask",
       },
+      answer: "allow",
     });
     expect(
       await decide(
         [
-          "local_network",
+          "fullscreen",
         ],
         HOST,
-        one.made,
+        ask.made,
       ),
-    ).toBe(false);
+    ).toBe(true);
+    expect(ask.asked).toEqual([
+      "fullscreen",
+    ]);
     expect(
       check(
         [
-          "local_network",
+          "fullscreen",
         ],
         HOST,
-        one.made,
+        ask.made,
       ),
     ).toBe(false);
+  });
+});
+
+describe("a page opening a popup", () => {
+  it("is allowed by default, blocked or asked as the host's own choice or the default says", () => {
+    expect(popupOf(HOST, rules().made)).toBe("allow");
     expect(
-      downloadOf(
+      popupOf(
         HOST,
         rules({
-          driving: false,
           site: {
-            downloads: "allow",
+            popups: "block",
           },
         }).made,
       ),
     ).toBe("block");
-    expect(one.asked).toEqual([]);
+    expect(
+      popupOf(
+        HOST,
+        rules({
+          defaults: {
+            popups: "ask",
+          },
+        }).made,
+      ),
+    ).toBe("ask");
+    expect(
+      popupOf(
+        HOST,
+        rules({
+          defaults: {
+            popups: "block",
+          },
+          site: {
+            popups: "allow",
+          },
+        }).made,
+      ),
+    ).toBe("allow");
   });
 });
 
-describe("a request while the owner drives", () => {
+describe("a request from a page", () => {
   it("is given where the site's choice is Allow, and refused where it is Block", async () => {
     expect(
       await decide(
@@ -263,30 +343,6 @@ describe("a request while the owner drives", () => {
     expect(one.kept).toEqual([]);
   });
 
-  it("refuses an answer that arrives after the page was handed back, and keeps nothing", async () => {
-    let driving = true;
-    const kept: unknown[] = [];
-    const one: Rules = {
-      settings: () => NO_SETTINGS,
-      driving: () => driving,
-      ask: async () => {
-        driving = false;
-        return "allow";
-      },
-      remember: (...args) => void kept.push(args),
-    };
-    expect(
-      await decide(
-        [
-          "local_network",
-        ],
-        HOST,
-        one,
-      ),
-    ).toBe(false);
-    expect(kept).toEqual([]);
-  });
-
   it("gives camera and microphone together only when both are", async () => {
     expect(
       await decide(
@@ -347,8 +403,8 @@ describe("a request while the owner drives", () => {
     expect(one.asked).toEqual([]);
   });
 
-  it("reads a download from its own choice, blocked until chosen", () => {
-    expect(downloadOf(HOST, rules().made)).toBe("block");
+  it("reads a download from its own choice, asked until chosen", () => {
+    expect(downloadOf(HOST, rules().made)).toBe("ask");
     expect(
       downloadOf(
         HOST,
