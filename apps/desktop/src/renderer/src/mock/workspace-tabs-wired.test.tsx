@@ -52,7 +52,13 @@ test("api's copy in the list says edits there change api only, and Armada's row 
   const app = await onApi();
   const saved = vi.spyOn(app.api, "saveLifecyclePiece");
   await expect.element(page.getByText("Edits here change api only")).toBeVisible();
-  expect(page.getByText("Edits here change every Workspace", { exact: false }).elements()).toHaveLength(0);
+  expect(
+    page
+      .getByText("Edits here change every Workspace", {
+        exact: false,
+      })
+      .elements(),
+  ).toHaveLength(0);
   // An edit made there is kept under api, not under a Workspace or the default.
   await LANES()
     .getByRole("button", {

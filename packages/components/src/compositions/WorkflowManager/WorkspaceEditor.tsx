@@ -1019,9 +1019,7 @@ export function WorkspaceEditor({
       }
     >
       <div className="armada-wm-scope">
-        <p className="armada-wm-scope__says">
-          {SAYS(scope, repository?.name)}
-        </p>
+        <p className="armada-wm-scope__says">{SAYS(scope, repository?.name)}</p>
         {editing.readOnly === true ? null : (
           <Button
             type="button"

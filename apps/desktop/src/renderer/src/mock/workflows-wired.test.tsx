@@ -803,7 +803,9 @@ test("on All repositories a copy says its edits change its own repository only, 
     .click();
   await expect.element(page.getByText("Edits here change ledger only")).toBeVisible();
   expect(
-    page.getByText("Edits here change every Workspace and repository that keeps the default").elements(),
+    page
+      .getByText("Edits here change every Workspace and repository that keeps the default")
+      .elements(),
   ).toHaveLength(0);
 });
 
