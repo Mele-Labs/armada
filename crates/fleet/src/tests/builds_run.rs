@@ -100,3 +100,14 @@ async fn a_build_nothing_recorded_is_read_from_git_and_one_git_cannot_say_stays_
     assert!(kept[0].looked);
     assert_eq!((kept[1].source.clone(), kept[1].main_commit.clone(), kept[1].looked), (None, None, false), "a branch's own commit is neither");
 }
+
+#[tokio::test]
+async fn the_page_reads_answer_from_a_store_with_nothing_in_it_and_refuse_what_is_not_a_time() {
+    let rig = a_rig();
+    let hours = rig.fleet.usage_hours_read(None, None).await.expect("hours");
+    assert!(hours.hours.is_empty());
+    assert!(rig.fleet.usage_builds_read(None).await.expect("builds").is_empty());
+    let time = rig.fleet.usage_time_read(None, None, None).await.expect("time");
+    assert_eq!((time.jobs, time.slowest.len()), (0, 0));
+    assert!(rig.fleet.usage_hours_read(Some("tomorrow".into()), None).await.is_err());
+}

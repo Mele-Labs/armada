@@ -38,9 +38,6 @@ fn millis(stamp: &str) -> Option<i64> {
     Timestamp::from_rfc3339(stamp).epoch_millis()
 }
 
-/// The calls that return when the owner answers: their span is his time, not a tool's.
-const OWNER_WAITS: &[&str] = &["AskUserQuestion"];
-
 /// A kept turn as the fold reads it. `None` where its stamp does not read.
 pub(crate) fn turn_of(kept: &KeptTurnTimed) -> Option<Turn> {
     Some(Turn {
@@ -49,7 +46,7 @@ pub(crate) fn turn_of(kept: &KeptTurnTimed) -> Option<Turn> {
         tools_began: kept.tools_began.as_deref().and_then(millis),
         tools_ended: kept.tools_ended.as_deref().and_then(millis),
         called_tools: !kept.tools.is_empty(),
-        asked_owner: kept.tools.iter().any(|name| OWNER_WAITS.contains(&name.as_str())),
+        asked_owner: kept.tools.iter().any(|name| store::OWNER_ASKING_TOOLS.contains(&name.as_str())),
     })
 }
 

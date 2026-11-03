@@ -40,6 +40,7 @@ mod fleet_builds;
 mod job_times;
 mod process_stops;
 mod session_slot_waits;
+mod time_summary;
 mod session_turn_usage;
 mod usage_summary;
 mod usage_rule_trips;
@@ -185,6 +186,7 @@ pub use session_build::{KeptBuild, KeptTask, LandedPull, RoadAsk, RoadTimes, Wor
 pub use fleet_builds::{KeptFleetBuild, KeptBuildSplit, KeptPullRequestWait, NewBuild};
 pub use job_times::{KeptCheckSpan, KeptJobTime, KeptTurnTimed};
 pub use session_slot_waits::KeptSlotWait;
+pub use time_summary::{BuildFigures, HourFigures, HoursRead, Medians, SlowJob, SplitMs, TimeRead, Usual, DEFAULT_HOURS, DEFAULT_SLOWEST, OWNER_ASKING_TOOLS};
 pub use session_turn_usage::{KeptOpenCall, KeptReading, KeptToolResult, KeptTurnTimes, KeptTurnUsage};
 pub use usage_summary::{turn_units, DayUsage, Named, PriorUsage, UsageSplit, UsageSummaryRead, TOP_SESSIONS};
 pub use usage_rule_trips::KeptTrip;

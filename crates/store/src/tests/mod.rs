@@ -75,6 +75,7 @@ mod studio_sketches;
 mod studio_unfrozen;
 mod studio_zones;
 mod test_map;
+mod time_summary;
 mod timeline;
 mod timings;
 mod watches;

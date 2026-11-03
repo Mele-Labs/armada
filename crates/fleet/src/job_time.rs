@@ -51,7 +51,7 @@ pub enum Bucket {
 
 /// Which reading of the fold a row was made by. Raised when the fold changes what it gives for a Job
 /// it already split, so the next pass splits those again.
-pub const FOLD: i64 = 1;
+pub const FOLD: i64 = 2;
 
 /// A stretch, in milliseconds since the epoch.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

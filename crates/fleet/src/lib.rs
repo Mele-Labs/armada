@@ -80,6 +80,8 @@ mod build_notices;
 mod building;
 /// Every build Fleet has run, kept for the Usage page.
 mod builds_run;
+/// The hours, builds and Jobs the Usage page reads time from.
+mod time_reading;
 /// How long a Check may run.
 mod budget;
 /// The served checkout caught up whenever main moves.
