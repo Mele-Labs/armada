@@ -621,7 +621,8 @@ describe("a draft Job, and the acts on a Job", {
         tags: [],
       }),
     );
-    document.execCommand = () => true;
+    const edited = vi.fn(() => true);
+    document.execCommand = edited;
     await open(`/jobs/${encodeURIComponent(STUDIO)}/a2`);
     await vi.waitFor(() => expect(button("Send")?.hasAttribute("disabled")).toBe(false));
     await act(async () => {
@@ -633,6 +634,7 @@ describe("a draft Job, and the acts on a Job", {
         }),
       );
     });
+    expect(edited).toHaveBeenCalledWith("insertLineBreak");
     const messages = () => posted[STUDIO]!.filter((one) => one.path === "/api/sessions/message");
     expect(messages()).toEqual([]);
     await press(button("Send"));
