@@ -7,6 +7,7 @@ import {
   Button,
   Checkbox,
   Input,
+  Slider,
   Textarea,
   Tooltip,
   useTimeFormat,
@@ -17,6 +18,7 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeState } from "../../../../shared/bridge";
 import { ARMADA } from "../../issues-tab/reports";
+import { usePlanUsage } from "../../plan-usage";
 import { settingsFrom, whyOf } from "../autopilot";
 import {
   putAnswersAway,
@@ -141,6 +143,10 @@ const DECISIONS: readonly {
     ],
   },
 ];
+
+/** The readings the slider can stop at: from the week as it stands up to 100, which is no limit. */
+const weeklySteps = (now: number) =>
+  Array.from({ length: Math.max(1, 100 - now + 1) }, (_, at) => String(Math.min(now, 100) + at));
 
 const BEGUN: Arm = {
   open: false,
@@ -600,6 +606,7 @@ export function ArmSetup({
     held.open,
     alive,
   ]);
+  const weeklyNow = usePlanUsage()?.find((one) => one.kind === "seven_day")?.percentUsed;
   // The arm is kept outside this component, and the next Cockpit drawn must not open on it.
   useEffect(() => () => closeSetup(), []);
   if (!held.open || facet.current === null) return null;
@@ -768,9 +775,30 @@ export function ArmSetup({
                     unit: "$",
                   })}
                   {field("sessions", "Jobs in total")}
-                  {field("weekly", "Weekly usage up to", {
-                    unit: "%",
-                  })}
+                  {weeklyNow === undefined ? null : (
+                    <label className="ap-hud__weekly">
+                      <span className="armada-input-field__label">Stop at weekly usage</span>
+                      <span className="ap-hud__weekly-track">
+                        <Tooltip label="Your weekly usage now">
+                          <span className="ap-hud__weekly-now">{weeklyNow}%</span>
+                        </Tooltip>
+                        <Slider
+                          steps={weeklySteps(weeklyNow)}
+                          value={held.fields.weekly === "" ? "100" : held.fields.weekly}
+                          disabled={running}
+                          show={(step) => (step === "100" ? "No limit" : `${step}%`)}
+                          onChange={(weekly) =>
+                            move({
+                              fields: {
+                                ...held.fields,
+                                weekly,
+                              },
+                            })
+                          }
+                        />
+                      </span>
+                    </label>
+                  )}
                 </div>
               </Group>
             </div>

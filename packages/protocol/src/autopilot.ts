@@ -67,7 +67,7 @@ export type Autopilot = {
   until?: string;
   spend_cap_micros?: number;
   session_cap?: number;
-  /** The weekly usage, in percent, that pauses it. */
+  /** The reading of the weekly usage, in percent, that pauses it. */
   weekly_cap_percent?: number;
   state: AutopilotState;
   started_at: string;

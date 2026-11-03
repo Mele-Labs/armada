@@ -224,15 +224,8 @@ export function settingsFrom(
       };
     settings.session_cap = sessions;
   }
-  if (fields.weekly.trim() !== "") {
-    const weekly = whole(fields.weekly.trim().replace(/%$/, ""));
-    if (!(weekly >= 1 && weekly <= 100))
-      return {
-        ok: false,
-        why: "Weekly usage is a percent from 1 to 100, or blank for no cap.",
-      };
-    settings.weekly_cap_percent = weekly;
-  }
+  // The slider's far end is no limit: the plan stops everything at 100 by itself.
+  if (fields.weekly !== "" && fields.weekly !== "100") settings.weekly_cap_percent = whole(fields.weekly);
   if (boxes !== undefined) {
     settings.on_autopilot = {
       backlog: boxes.work.has("backlog"),

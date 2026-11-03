@@ -389,6 +389,27 @@
     display: grid;
     gap: var(--space-2);
   }
+  & .ap-hud__weekly {
+    display: grid;
+    gap: var(--space-1);
+  }
+  & .ap-hud__weekly-track {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    & .armada-slider {
+      flex: 1;
+      min-width: 0;
+    }
+    & .armada-slider__value {
+      white-space: nowrap;
+    }
+  }
+  & .ap-hud__weekly-now {
+    color: var(--fg-muted);
+  }
   & .ap-hud__limits .armada-input-field {
     display: grid;
     grid-template-columns: minmax(0, 1fr) calc(var(--space-12) + var(--space-8));

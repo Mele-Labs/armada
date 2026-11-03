@@ -29,8 +29,8 @@ const autopilotReports = walk("autopilot-reports", [
     say: "Check it to let Autopilot pick up the bugs agents reported",
   },
   {
-    look: inside(setup, role("textbox", "Weekly usage up to")),
-    say: "A new limit: Autopilot starts no more Jobs once your weekly usage reaches this percent",
+    look: inside(setup, role("slider", "Stop at weekly usage")),
+    say: "The track starts at your weekly usage now. Drag it to where Autopilot should stop starting Jobs",
   },
   {
     press: inside(setup, button("Start Autopilot")),

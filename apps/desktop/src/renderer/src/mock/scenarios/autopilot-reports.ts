@@ -38,6 +38,22 @@ function build(): Scenario {
     draft: {
       sessions: (board) => s200Sessions.draft!.sessions!(board, []),
     },
+    behaves: (handle) => ({
+      ...(base.behaves?.(handle) ?? {}),
+      getPlanUsage: async () => ({
+        ok: true,
+        value: {
+          windows: [
+            {
+              kind: "seven_day",
+              percent_used: 62,
+            },
+          ],
+          read_at: new Date().toISOString(),
+        },
+      }),
+      onPlanUsageChanged: () => () => {},
+    }),
   };
 }
 
