@@ -432,38 +432,38 @@ test("a Job Fleet nudged opens in the Cockpit, and Not a drift takes the row and
 
   await expect
     .element(
-      stepCard("Approve plan").getByRole("group", {
+      stepCard("Propose").getByRole("group", {
         name: /^Pause and resume/,
       }),
     )
     .toBeVisible();
-  await stepCard("Approve plan")
+  await stepCard("Propose")
     .getByRole("button", {
       name: "Suggest a change",
     })
     .click();
   await expect
     .element(
-      stepCard("Approve plan").getByRole("group", {
+      stepCard("Propose").getByRole("group", {
         name: "Suggested change",
       }),
     )
     .toBeVisible();
-  await stepCard("Approve plan")
+  await stepCard("Propose")
     .getByRole("button", {
       name: "Not a drift",
     })
     .click();
   await expect
     .element(
-      stepCard("Approve plan").getByRole("group", {
+      stepCard("Propose").getByRole("group", {
         name: /^Pause and resume/,
       }),
     )
     .not.toBeInTheDocument();
   await expect
     .element(
-      stepCard("Approve plan").getByRole("group", {
+      stepCard("Propose").getByRole("group", {
         name: "Suggested change",
       }),
     )

@@ -31,25 +31,13 @@ const propose: Written = {
   id: "propose",
   label: "Propose",
   instructions:
-    "Show what you took the request to mean and a first idea as a sketch with show_sketch, or a rough walk with show_window where the idea is about how something looks, with at most two lines of text beside it. No paragraphs, no lists of options in prose. Read only what that needs. Then stop and wait for the person's reply.",
-};
-const discuss: Written = {
-  id: "discuss",
-  label: "Discuss",
-  instructions:
-    "Ask what is unclear, one question at a time. Show ideas as sketches. Where the idea is about how something looks, a rough walk may come now. Edit nothing on the branch but a mock.",
-};
-const approve: Written = {
-  id: "approve_plan",
-  label: "Approve plan",
-  instructions:
-    "Record the plan: what the person gets, in his words, the groups in order, and a walk for each piece he would see. Wait for approval.",
+    "Ask what is unclear, one question at a time. Then put one proposal to the person: a plan, with a sketch inside it if a picture helps, or a sketch, a draft, a document or a rough walk alone. Prefer one. Wait for the person to approve it. After an approved card that was not a plan, record the tasks at once: the person is not asked again.",
 };
 const walk: Written = {
   id: "walk",
   label: "Walk",
   instructions:
-    "Build the mock in the real Bridge on fixtures and show it as a walk. Write no tests until it is approved. Notes come back as another take.",
+    "Build the mock in the real Bridge on fixtures and show it as a walk, or several where the change has several places. Write no tests until the person approves every walk you showed. Notes come back as another take.",
 };
 const refine: Written = {
   id: "refine",
@@ -65,8 +53,6 @@ const deliver: Written = {
 
 const FEATURE = [
   propose,
-  discuss,
-  approve,
   walk,
   refine,
   deliver,
@@ -185,20 +171,16 @@ export const MANAGED_ENDS: Readonly<
   "feature/propose": {
     ends: "you approve what it shows",
     endsAny: [
+      "you approve the plan",
       "you approve a walk",
       "you approve a sketch",
       "you approve a draft",
+      "you approve a document",
       "you pick one of the ideas shown",
     ],
   },
-  discuss: {
-    ends: "a plan is recorded",
-  },
-  approve_plan: {
-    ends: "you approve the plan",
-  },
   walk: {
-    ends: "you approve the walk",
+    ends: "you approve every walk you were shown",
     passedOver: "nothing would be seen",
   },
   refine: {
@@ -276,7 +258,7 @@ export const MANAGED_NUDGES: readonly MockNudge[] = [
   {
     source: "repository",
     workflow: "feature",
-    step: "approve_plan",
+    step: "propose",
     job_id: "pause-plan",
     job_title: "Pause and resume",
     fact: "edited before the plan was approved",
@@ -287,7 +269,7 @@ export const MANAGED_NUDGES: readonly MockNudge[] = [
 /** The sentence an agent adds to a step's words when asked for a suggestion there, by step id. */
 export const SUGGESTED_SENTENCE: Readonly<Record<string, string>> = {
   walk: "Test files wait for the approval too, including fixtures for the mock.",
-  approve_plan: "Edit nothing before approval, including the mock.",
+  propose: "Edit nothing before approval, including the mock.",
 };
 
 /** What Armada lacks for "Propose should end when a walk, a sketch or a document is approved, or last of all a question is answered". */

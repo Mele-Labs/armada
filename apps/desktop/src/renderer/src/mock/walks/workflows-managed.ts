@@ -78,15 +78,15 @@ export const workflowsManaged = walk("workflows", [
     say: "Walk's words, with the new line",
   },
   {
-    press: inside(step("Approve plan"), button("Suggest a change")),
-    say: "Suggest a change, asked for at Approve plan",
+    press: inside(step("Propose"), button("Suggest a change")),
+    say: "Suggest a change, asked for at Propose",
   },
   {
-    look: inside(step("Approve plan"), role("group", "Suggested change")),
-    say: "A suggested change for Approve plan",
+    look: inside(step("Propose"), role("group", "Suggested change")),
+    say: "A suggested change for Propose",
   },
   {
-    press: inside(step("Approve plan"), button("Not a drift")),
+    press: inside(step("Propose"), button("Not a drift")),
     say: "Not a drift takes the row, and the suggestion with it",
   },
   {
