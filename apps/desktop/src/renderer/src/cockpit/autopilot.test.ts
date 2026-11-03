@@ -27,6 +27,7 @@ function autopilot(over: Partial<Autopilot> = {}): Autopilot {
     on_autopilot: {
       backlog: true,
       running: false,
+      reports: false,
     },
     decisions: [],
     spent_micros: 12_400_000,

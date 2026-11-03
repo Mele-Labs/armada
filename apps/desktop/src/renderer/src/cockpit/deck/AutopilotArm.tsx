@@ -16,6 +16,7 @@ import type { Autopilot } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeState } from "../../../../shared/bridge";
+import { ARMADA } from "../../issues-tab/reports";
 import { settingsFrom, whyOf } from "../autopilot";
 import {
   putAnswersAway,
@@ -57,6 +58,10 @@ const WORK = [
   {
     id: "running",
     label: "Jobs already running",
+  },
+  {
+    id: "reports",
+    label: "Reported bugs",
   },
 ];
 type Decision = {
@@ -210,6 +215,11 @@ const workOf = (running: readonly Autopilot[]) =>
       ...(one.on_autopilot.running
         ? [
             "running",
+          ]
+        : []),
+      ...(one.on_autopilot.reports
+        ? [
+            "reports",
           ]
         : []),
     ]),
@@ -698,7 +708,7 @@ export function ArmSetup({
                 ))}
               </Group>
               <Group name="On autopilot">
-                {WORK.map((one) => (
+                {WORK.filter((one) => one.id !== "reports" || held.repositories.has(ARMADA)).map((one) => (
                   <Checkbox
                     key={one.id}
                     checked={held.work.has(one.id)}

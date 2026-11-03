@@ -226,6 +226,7 @@ export function settingsFrom(
     settings.on_autopilot = {
       backlog: boxes.work.has("backlog"),
       running: boxes.work.has("running"),
+      reports: boxes.work.has("reports"),
     };
     settings.decisions = DECISIONS.filter((kind) => boxes.decisions.has(kind));
   }

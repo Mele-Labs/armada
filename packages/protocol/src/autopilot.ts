@@ -19,6 +19,8 @@ export type AutopilotPickState = "started" | "set_aside" | "withdrawn" | "dismis
 export type AutopilotWork = {
   backlog: boolean;
   running: boolean;
+  /** Bugs agents reported in Armada itself. Only the armada repository's Autopilot reads them. */
+  reports: boolean;
 };
 
 /**

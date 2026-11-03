@@ -8,7 +8,21 @@ import type { Autopilot, AutopilotProposal, Outcome } from "@armada/protocol";
 
 import type { AutopilotApi } from "../../../../shared/api/autopilot";
 import type { Slice } from "../fake-context";
+import { ARMADA } from "../../issues-tab/reports";
 import { BACK_MANIFEST } from "./autopilot-decisions";
+
+const REPORT_ID = "01JBUGREPORT00000000WD6ZEA";
+/** A bug an agent reported, set aside by the picker: its reference is R- and the id's last six, its url is report: and the id. */
+const REPORT_PICK: Autopilot["picks"][number] = {
+  pick_id: "01JAUTOPILOTPICK0000000009",
+  issue_reference: `R-${REPORT_ID.slice(-6)}`,
+  issue_title: "A watch stays live after its pull request merges",
+  issue_url: `report:${REPORT_ID}`,
+  workflow_id: "bug",
+  state: "set_aside",
+  reason: "The report gives one error line and no steps to reproduce it, so the cause is not clear.",
+  at: "2026-10-12T03:02:00.000Z",
+};
 
 function running(manifestId: string): Autopilot {
   return {
@@ -22,6 +36,7 @@ function running(manifestId: string): Autopilot {
     on_autopilot: {
       backlog: true,
       running: false,
+      reports: false,
     },
     decisions: [],
     spent_micros: 4_120_000,
@@ -88,6 +103,7 @@ function capped(manifestId: string): Autopilot {
     on_autopilot: {
       backlog: true,
       running: false,
+      reports: false,
     },
     decisions: [],
     spent_micros: 6_300_000,
@@ -202,10 +218,17 @@ export const autopilot: Slice<AutopilotApi, Record<string, never>> = {
         const was = kept.get(manifestId)?.state;
         if (was === "running") return refused("fleet.autopilot_running", "Autopilot is running");
         if (was === "paused") return refused("fleet.autopilot_not_running", "Autopilot is paused");
+        // The same settings go to every checked repository, and only armada's Autopilot reads reports.
+        const reports = manifestId === ARMADA && settings.on_autopilot?.reports === true;
         return moved(manifestId, {
           ...settings,
+          on_autopilot: {
+            backlog: settings.on_autopilot?.backlog ?? true,
+            running: settings.on_autopilot?.running ?? false,
+            reports,
+          },
           state: "running",
-          picks: [],
+          picks: scenario.name === "autopilot-reports" && reports ? [REPORT_PICK] : [],
           spent_micros: 0,
           sessions_started: 0,
           at_work: 0,
