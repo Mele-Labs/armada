@@ -69,9 +69,15 @@ function attachmentLine(one: SessionAttachment):
         one.checks.state === "failed"
           ? `checks failed (${one.checks.failing})`
           : `checks ${one.checks.state}`;
+      const landing =
+        one.queued === true
+          ? ", in merge queue"
+          : one.auto && one.state !== "merged"
+            ? ", auto-merge on"
+            : "";
       return [
         "Pull request",
-        `#${one.number} ${one.title}, ${one.state}, ${checks}, branch ${one.branch}, ${one.address}`,
+        `#${one.number} ${one.title}, ${one.state}${landing}, ${checks}, branch ${one.branch}, ${one.address}`,
       ];
     }
     case "forked_from":
