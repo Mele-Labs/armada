@@ -14,6 +14,7 @@ import {
   ACTION,
   CaptureBar,
   StudioCapture as CaptureOverlay,
+  WalkBar,
   WalkGuide,
   WindowQuestion,
   type CaptureBarApproval,
@@ -85,6 +86,9 @@ const QUEUE_PRESS: Record<CaptureQueueKey, KeyboardEventInit> = {
     metaKey: true,
   },
 };
+
+/** This document is the bar of a Job's walk drawn as a tab of Bridge's window (`?seat=pane`), which draws the walk's own bar and no window's. */
+const IN_PANE = new URLSearchParams(window.location.search).get("seat") === "pane";
 
 /** How often the pointer is asked about, in frames. One ask per frame is one round trip per frame. */
 type Pointer = {
@@ -436,7 +440,7 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
     function measure(): void {
       let reach = 0;
       for (const layer of held.querySelectorAll<HTMLElement>(
-        ".armada-dropdown-menu__panel, .armada-tooltip__bubble:not([hidden])",
+        ".armada-dropdown-menu__panel, .armada-split-button__menu, .armada-popover__panel, .armada-tooltip__bubble:not([hidden])",
       )) {
         const style = getComputedStyle(layer);
         const gap = Math.max(parseFloat(style.marginTop) || 0, parseFloat(style.marginBottom) || 0);
@@ -537,6 +541,49 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
   return (
     <>
       <div ref={bar}>
+        {IN_PANE ? (
+          <WalkBar
+            name={state.served.name}
+            {...(state.variations === undefined
+              ? {}
+              : {
+                  takes: {
+                    names: state.variations.names,
+                    at: state.variations.at,
+                    onPick: (at: number) => void api.pick(at),
+                  },
+                })}
+            at={state.walk?.at ?? 0}
+            of={state.walk?.of ?? 0}
+            said={state.walk?.said ?? ""}
+            onBack={() => void api.walkBack()}
+            onNext={() => void api.walkNext()}
+            onReload={() => void api.reload()}
+            onCapture={() => void api.arm(!armed)}
+            capturing={armed}
+            binding={BINDING}
+            {...(state.brief === undefined
+              ? {}
+              : {
+                  brief: state.brief,
+                })}
+            onApprove={() => void approve()}
+            {...(state.held === undefined || api.sendNotes === undefined
+              ? {}
+              : {
+                  held: {
+                    notes: state.held,
+                    onSend: () => void api.sendNotes?.(),
+                    onSendAndApprove: () => void sendAndApprove(api.sendNotes!),
+                  },
+                })}
+            {...(state.readiness === undefined
+              ? {}
+              : {
+                  readiness: state.readiness,
+                })}
+          />
+        ) : (
         <CaptureBar
           // In place under their triggers, where this document is let down over the page as they open: a menu laid out in a
           // layer of its own is placed once, against the strip's height, and stays cut short after the view has grown.
@@ -677,6 +724,7 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
                 queue: queueOf(state.queue, api),
               })}
         />
+        )}
       </div>
       {ask === undefined || !asking ? null : (
         <WindowQuestion

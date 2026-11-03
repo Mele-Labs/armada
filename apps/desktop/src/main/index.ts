@@ -83,6 +83,7 @@ import { SessionPages } from "./session-page";
 import { handleStudios } from "./studio-channels";
 import { HeldNotes } from "./capture/held-notes";
 import { handleHeldNotes, tellHeld } from "./held-notes-channels";
+import { handleJobWalks, tellJobWalkHeld } from "./job-walk-channels";
 import { remember as rememberWindow, restore as restoreWindow } from "./window-state";
 import { makeTerminalWindow, TerminalWindows } from "./terminal-windows";
 import { JobBrowsers, makeBrowserPage, makeBrowserWindow } from "./job-browsers";
@@ -183,9 +184,10 @@ const tellWindows = (channel: string, ...values: unknown[]): void => {
     if (!window.isDestroyed()) window.webContents.send(channel, ...values);
 };
 /** A Job's walk notes, held until the owner sends them as one turn. `userData`, as the window's place is kept. */
-const heldNotes = new HeldNotes(join(app.getPath("userData"), "held-notes.json"), (sessionId) =>
-  tellHeld(heldNotes, captureWindows, sessionId),
-);
+const heldNotes = new HeldNotes(join(app.getPath("userData"), "held-notes.json"), (sessionId) => {
+  tellHeld(heldNotes, captureWindows, sessionId);
+  tellJobWalkHeld(heldNotes, sessionId);
+});
 const captureWindows = new CaptureWindows({
   capture: async (studioId, said, capture, frame) =>
     (await connection?.studios.captureNote(studioId, said, capture, frame)) ?? UNSENT,
@@ -246,13 +248,6 @@ const captureWindows = new CaptureWindows({
       why,
     });
   },
-  // The Cockpit holds back a walk's call while its window is open, so it hears when one opens or closes.
-  windowsChanged: () => {
-    const open = captureWindows.sessionAddresses();
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (!window.isDestroyed()) window.webContents.send(CHANNELS.sessionWindowsChanged, open);
-    }
-  },
   stage: stagePng,
   focused: (serverId, on) => {
     if (on) walkFocused.add(serverId);
@@ -262,7 +257,7 @@ const captureWindows = new CaptureWindows({
         window.webContents.send(CHANNELS.walkFocused, walkFocused.size > 0);
     }
   },
-});
+}, () => bridgeWindow());
 
 /** Bridge's own windows, apart from a Job's terminal window: a summons, the dock tile and a terminal window's place read these. */
 const bridgeWindows = new Set<BrowserWindow>();
@@ -647,9 +642,9 @@ void app.whenReady().then(() => {
     threadsDir: join(app.getPath("userData"), "session-threads"),
     pictureFile: join(app.getPath("userData"), "remembered-picture.json"),
   });
-  // A Session showed a page: it joins the one walk window, which opens behind by itself where none is up.
+  // A Session showed a page: its walk is held, a tab of the Job in Bridge's window, and nothing is raised.
   connection.sessions.onWindow(
-    (sessionId, title, url, takes, origins, signIn, steps, pressed) =>
+    (sessionId, title, url, takes, origins, signIn, steps, brief) =>
       void captureWindows.openForSession(
         sessionId,
         title,
@@ -658,7 +653,7 @@ void app.whenReady().then(() => {
         origins,
         signIn,
         steps,
-        pressed,
+        brief,
       ),
   );
   // A Session asked about a place on its walk: the walk on screen goes there, and one that is not is marked.
@@ -1035,7 +1030,6 @@ void app.whenReady().then(() => {
     ipc: ipcMain,
     connection: () => connection,
   });
-  ipcMain.handle(CHANNELS.getSessionWindows, () => captureWindows.sessionAddresses());
   // The Cockpit's calls, counted by the window that holds them. Anything but a count is ignored.
   ipcMain.on(CHANNELS.dockCount, (_event, calls: unknown) => {
     if (typeof calls !== "number" || !Number.isInteger(calls) || calls < 0) return;
@@ -1195,6 +1189,21 @@ void app.whenReady().then(() => {
     summon,
   });
   handleHeldNotes({
+    ipc: ipcMain,
+    store: heldNotes,
+    captureWindows,
+    send: async (body) => {
+      const sent = await connection?.sessions.sendNotes(body);
+      return sent === undefined
+        ? UNSENT
+        : sent.ok
+          ? {
+              ok: true,
+            }
+          : sent.outcome;
+    },
+  });
+  handleJobWalks({
     ipc: ipcMain,
     store: heldNotes,
     captureWindows,

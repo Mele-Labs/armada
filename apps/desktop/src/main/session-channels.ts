@@ -891,11 +891,6 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
           address: "",
         },
   );
-  ipc.handle(CHANNELS.openSessionWindow, (_event, sessionId: string, url: string) =>
-    text(sessionId) && text(url)
-      ? (connection()?.sessions.openWindow(sessionId, url) ?? unsent.outcome)
-      : unread.outcome,
-  );
   ipc.handle(CHANNELS.readSessionFile, (_event, sessionId: string, file: string) =>
     text(sessionId) && text(file)
       ? (connection()?.sessions.file(sessionId, file) ?? {

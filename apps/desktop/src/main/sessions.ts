@@ -130,11 +130,8 @@ import { withThreadRow } from "@armada/screens/src/retro-row";
 import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
 import {
   openSessionFile,
-  originsOfWindow,
   readSessionArtifact,
   readSteps,
-  stepsOfWindow,
-  takesOfWindow,
   titleOfWindow,
 } from "./session-file";
 import { ask, MODEL_CALL_MS, sessionFileOf } from "./request";
@@ -233,7 +230,7 @@ export class SessionsHost {
   private readonly heardWatches = new Set<string>();
   /** The ids of the threads held, least recently opened first. */
   private opening: string[] = [];
-  /** Puts a page a Session showed in the walk window. Set once by main, which owns windows. `pressed`: the owner asked for it. */
+  /** Holds a page a Session showed as its walk, a tab of the Job. Set once by main, which owns windows. `brief`: what the Job said to look at. */
   private shown: (
     sessionId: string,
     title: string,
@@ -242,7 +239,7 @@ export class SessionsHost {
     origins: readonly string[],
     signIn: readonly string[],
     steps: readonly WalkStep[],
-    pressed: boolean,
+    brief: string | undefined,
   ) => void = () => {};
   /** Shows a question asked in a Session's walk, by its waiting item. Set once by main, as `shown` is. */
   private askedIn: (
@@ -332,11 +329,10 @@ export class SessionsHost {
   }
 
   /**
-   * Puts in the walk window each live Session's newest shown page that never opened here, because Bridge was
-   * not connected when it was shown. **One that has ended, that this process already opened, or that was
-   * shown more than `REOPEN_WITHIN_MS` ago is left**. Fleet holds the Session's sign-in for one that
-   * opens, and it is taken now. **There is one walk window**: the first opens it, and every walk standing
-   * on a Job's waiting items joins it there, these among them.
+   * Holds each live Session's newest shown page that never opened here, because Bridge was not connected when it
+   * was shown. **One that has ended, that this process already opened, or that was shown more than `REOPEN_WITHIN_MS`
+   * ago is left**. Fleet holds the Session's sign-in for one that opens, and it is taken now. Its page is made when
+   * its tab is in a pane.
    */
   private async reopen(port: number): Promise<void> {
     const showing = (this.sessions ?? []).filter(
@@ -379,7 +375,7 @@ export class SessionsHost {
       }
     >,
   ): void {
-    const { title, url, variations, steps, origins } = row;
+    const { title, url, variations, steps, origins, brief } = row;
     this.inOrder(async () => {
       const signIn = await this.signInFor(sessionId, url);
       this.shown(
@@ -390,7 +386,7 @@ export class SessionsHost {
         origins ?? [],
         signIn,
         readSteps(steps),
-        false,
+        brief,
       );
     });
   }
@@ -814,7 +810,7 @@ export class SessionsHost {
     else this.printed.delete(runId);
   }
 
-  /** Say what opens a window: main's, since a window is not a thing this host holds. */
+  /** Say what holds a Job's walk: main's, since a window is not a thing this host holds. */
   onWindow(
     shown: (
       sessionId: string,
@@ -824,7 +820,7 @@ export class SessionsHost {
       origins: readonly string[],
       signIn: readonly string[],
       steps: readonly WalkStep[],
-      pressed: boolean,
+      brief: string | undefined,
     ) => void,
   ): void {
     this.shown = shown;
@@ -841,33 +837,6 @@ export class SessionsHost {
     ) => void,
   ): void {
     this.askedIn = asked;
-  }
-
-  /**
-   * A press on a window the Session showed, or on its row. **Only an address the Session's ledger shows
-   * as a window**, so the renderer names a session and an address and main loads nothing else.
-   */
-  openWindow(sessionId: string, url: string): Outcome {
-    const record = this.sessions?.find((one) => one.id === sessionId);
-    const title = titleOfWindow(record, url);
-    if (title === null)
-      return {
-        ok: false,
-        why: "no_manifest",
-      };
-    this.shown(
-      sessionId,
-      title,
-      url,
-      takesOfWindow(record, url),
-      originsOfWindow(record, url),
-      [],
-      stepsOfWindow(record, url),
-      true,
-    );
-    return {
-      ok: true,
-    };
   }
 
   /**

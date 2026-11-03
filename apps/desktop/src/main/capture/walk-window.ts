@@ -46,15 +46,7 @@ export type Queued = {
 
 /** What the window needs from whoever holds it. */
 export type WalkWindowBoard = {
-  /** The owner approved a walk, as it leaves. */
-  approved: (walk: Queued) => void;
-  /** A walk came on screen: it is given what it should be showing, a question among it. */
-  shown: (walk: Queued) => void;
   focused: (on: boolean) => void;
-  /** A walk joined or left. */
-  changed: () => void;
-  /** The window closed, whoever closed it. Every walk in it has been told it left. */
-  closed: () => void;
 };
 
 export class WalkWindow {
@@ -94,7 +86,6 @@ export class WalkWindow {
       settled: (walk) => {
         const settled = this.walks.find((one) => one.walk === walk);
         if (settled === undefined) return;
-        this.board.approved(settled);
         this.remove(settled.key);
       },
     };
@@ -116,7 +107,6 @@ export class WalkWindow {
         this.panel,
       ])
         if (!view.webContents.isDestroyed()) view.webContents.close();
-      this.board.closed();
     });
     this.bar.webContents.on("did-finish-load", () => this.current?.walk?.redraw());
     // The bar and the panel take the capture binding for the walk on screen, and the queue's keys the bar would take.
@@ -193,7 +183,6 @@ export class WalkWindow {
     ];
     if (show || this.current === null) this.bring(walk);
     else this.current.walk?.redraw();
-    this.board.changed();
   }
 
   /** A walk shown again with another page, other takes or a sign-in to run: it keeps its place, and its page is made afresh. */
@@ -224,7 +213,6 @@ export class WalkWindow {
     this.walks = this.walks.filter((one) => one !== leaving);
     leaving.walk?.dispose();
     leaving.left();
-    this.board.changed();
     if (this.walks.length === 0) {
       this.current = null;
       this.close();
@@ -295,6 +283,5 @@ export class WalkWindow {
     walk.walk.show();
     if (!this.panel.webContents.isDestroyed())
       this.panel.webContents.send(CHANNELS.walkPanelSubjectChanged, walk.sessionId ?? null);
-    this.board.shown(walk);
   }
 }
