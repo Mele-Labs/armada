@@ -44,7 +44,7 @@ A revision is kept once the tool has answered, so a failed write keeps nothing.
 **Rule.** Fleet puts one artifact of form `document` on the Job. Its title is the page's `<title>`, or its first `<h1>` where there is none, and it names the paths of the revisions.
 
 **Rule.** Bridge reads each artifact of form `document` as a page: `revisions` is a JSON list of absolute paths, oldest first, and a list that is not one reads as none.
-Main reads a file for the reader only where it is a path in a `document` row's `revisions`.
+Main reads a file for the reader only where it is a path in a `document` row's `revisions`, and Fleet reads one for the phone by the same rule (`get_shown_file`).
 A Job with more than one page opens the one pressed, and a sent note's heading opens the page whose title it names.
 
 **Rule.** Fleet reads each `<armada-sketch>` scene with the validator `show_sketch` uses, and tells the Job in a Fleet notice of one that will not draw. The write is not refused.

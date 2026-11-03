@@ -88,7 +88,8 @@ export type { ModelChoices as ModelsBody } from "@armada/protocol";
 /**
  * The Job acts, each forwarded to Fleet unchanged and answered with the `SessionRecord`:
  * `/api/sessions/begin` (`BeginSession`), `/api/sessions/stop`, `/pause`, `/resume` and `/close` (`{ session_id }`),
- * `/api/sessions/tune` (`TuneSession`), `/api/sessions/waiting/dismiss` (`DismissWaiting`).
+ * `/api/sessions/tune` (`TuneSession`), `/api/sessions/waiting/dismiss` (`DismissWaiting`),
+ * `/api/sessions/sketch/answer` (`AnswerSketch`), `/api/sessions/document/answer` (`AnswerDocument`).
  * `/api/sessions/run/start` (`StartSessionRun`) answers 202 with `SessionRunUnderway`.
  */
 export type JobOnly = {

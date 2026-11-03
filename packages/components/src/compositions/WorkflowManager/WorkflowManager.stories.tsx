@@ -30,7 +30,7 @@ const FEATURE = [
   step(
     "walk",
     "Walk",
-    "you approve the walk",
+    "you approve every walk",
     "Build the mock on fixtures and show it as a walk. Write no tests until it is approved.",
     {
       passedOver: "nothing would be seen",

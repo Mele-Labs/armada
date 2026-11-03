@@ -11,6 +11,8 @@ use api::{Refusal, Sessions, ShownFile};
 use ipc::{AttachmentReport, SessionFact, SessionId, SessionRecord, SessionReport, ShowFile, ShownText, WireError};
 use store::Holder;
 
+use super::document_answers::is_document;
+use super::documents::revisions_named;
 use crate::daemon::Fleet;
 
 const FILE_UNNAMED: &str = "fleet.file_unnamed";
@@ -154,7 +156,8 @@ where
         Ok(resolved_text)
     }
 
-    /// `get_shown_file`: the file at `path`, only where this session showed it.
+    /// `get_shown_file`: the file at `path`, only where this session showed it or kept it as a revision
+    /// of its document. The page in the worktree is never read: another Job's slot may hold it by then.
     pub(crate) async fn shown_file_read(&self, id: &str, path: &str) -> Result<ShownFile, Refusal> {
         let not_found = |code: &'static str, why: String| Refusal::NotFound(WireError::raised(code, why, self.run_id()));
         let showed = {
@@ -166,9 +169,10 @@ where
             let held = store.attachments_of(&Holder::session(id)).map_err(|why| self.ledger_fault(why))?;
             held.iter().any(|one| {
                 one.kind == "artifact"
-                    && one.target == path
-                    && one.detail.get("form").map(String::as_str) == Some("file")
-                    && one.detail.contains_key("shown")
+                    && ((one.target == path
+                        && one.detail.get("form").map(String::as_str) == Some("file")
+                        && one.detail.contains_key("shown"))
+                        || (is_document(&one.detail) && revisions_named(&one.detail).iter().any(|kept| kept == path)))
             })
         };
         if !showed {

@@ -474,6 +474,9 @@ where
         let id = sent.session_id.as_str().to_string();
         let approved = super::super::walking::approved_address(&sent.text).map(str::to_string);
         let noted = super::super::readiness::note_address(&sent.text).map(str::to_string);
+        if let Some(address) = &approved {
+            self.plan_settled_by_walk(&id, address).await?;
+        }
         // A pinned note keeps its own; a plain message may carry window-scope notes by name.
         let window_notes = match instead {
             None => super::super::annotating::window_notes_named(&sent),

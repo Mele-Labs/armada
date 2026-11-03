@@ -147,6 +147,7 @@ mod session_quick;
 mod delivery_gate;
 mod start_card;
 mod session_rail;
+mod one_proposal;
 mod step_ends;
 mod step_skip;
 mod job_copy;
