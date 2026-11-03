@@ -130,9 +130,15 @@ The phone sends Fleet's own body shapes.
 
 **What a Job waits on is answered beside its thread**, each item only as Fleet takes it.
 `delivery`, `slot_choice`, `task_done` and `rule_act` take a choice alone, `watch_not_ours` a choice or words, `words_address` an address or words holding `{match}`, and the agent's own items a choice or words.
-A `slot_choice`'s slots to free stay on the Mac. The other sources are answered from their own cards or on the Mac.
+A `slot_choice`'s slots to free stay on the Mac.
+A `sketch` and a `document` are answered from their cards in the thread, Approve or Send back with a note, and a `draft` the same from its card, a proposed workflow change included.
+A document also opens at its own page, read by the same reader Bridge uses, with Approve and Send back under it.
+A `held_child` is a card that opens the Job it names, which opens as its start card, and a `fleet_call` is a card that dismisses it.
+A `walk` and a `window_ask` are a line at the thread's end saying to open it on the Mac, with no answer box, since each points at a page the phone cannot show.
+A `browser_ask` has nothing on the phone to press.
 
 **A 409 is read by its code.** Fleet's `fleet.sketch_redrawn` and `fleet.document_revised` say the page changed since he read it.
+The phone reads the Job again, shows the new drawing or revision and says the Job changed it, and an answer refused with any other code shows Fleet's own message.
 The Gateway's own 409 for a signature sent before carries no such code.
 
 **`POST /api/sessions/answer`** is the older, checked answer, kept for the app's Needs you rows:

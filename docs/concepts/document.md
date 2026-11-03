@@ -120,7 +120,7 @@ A mock it cannot style is named in the `document_sketch` notice.
 ## Sealing
 
 **Rule.** A page is read with `DOMParser`, which runs no script and loads nothing, and rebuilt element by element from an allow list.
-Why: the page is drawn inside Bridge's own page. The code is `document-page.ts`.
+Why: the page is drawn inside Bridge's own page. The code is `packages/screens/src/document-page.ts`, which Bridge and the phone both read a page with.
 
 | Kept | Dropped |
 |---|---|
