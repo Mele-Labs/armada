@@ -437,6 +437,7 @@ fn everything_but_the_kinds_waits_whatever_is_checked() {
         ipc::WaitingSource::Delivery,
         ipc::WaitingSource::Sketch,
         ipc::WaitingSource::RuleAct,
+        ipc::WaitingSource::ProcessEnded,
     ] {
         let one = ipc::WaitingItem {
             id: "a".into(),

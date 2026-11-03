@@ -133,6 +133,8 @@ pub(crate) struct WaitingReads {
     held_children: Vec<super::agent_starting::HeldChild>,
     /// The acts its rules planned that wait on the owner.
     rule_acts: Vec<store::KeptRuleAct>,
+    /// The turn it has open, which says whether its process ended in it.
+    open_turn: Option<store::KeptOpenTurn>,
 }
 
 /// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
@@ -175,6 +177,7 @@ pub(crate) fn waiting_reads(
         ready_changes: store.ready_workflow_change_ids()?,
         held_children: super::agent_starting::held_children(store, &session.id)?,
         rule_acts: store.rule_acts_asking(&session.id)?,
+        open_turn: store.open_turn(&session.id)?,
     })
 }
 
@@ -458,7 +461,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, tell, plan, misreads, confirmed, word_asks, calls, preview_offers, start_held, paused, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, tell, plan, misreads, confirmed, word_asks, calls, preview_offers, start_held, paused, asked_tasks, not_ours, ready_changes, held_children, rule_acts, open_turn } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -637,6 +640,13 @@ where
             items.extend(super::preview_offers::offer_items(&preview_offers, &dismissed));
             // A watch that ended not ours, until he ignores it or asks for a fix.
             items.extend(not_ours.iter().filter_map(crate::watches::not_ours_item).filter(|one| !dismissed.contains(&one.id)));
+            // Its process ended in a turn: Fleet is starting it again, or nothing is and he can start it.
+            let starting = {
+                let runtime = self.hosts().of(&session.id);
+                let state = runtime.state();
+                state.process.is_some() || state.reviving
+            };
+            items.extend(super::reviving::process_ended_items(open_turn.as_ref(), &session.id, starting, &dismissed));
             // An act a lifecycle rule planned that is his to say first, while the Job is live.
             if !ended {
                 items.extend(super::rule_asks::rule_act_items(&rule_acts).into_iter().filter(|one| !dismissed.contains(&one.id)));
@@ -1120,6 +1130,18 @@ where
                 }
                 self.drop_answered(&id, &item.id, None).await
             }
+            // Fleet's, and the person's words are a message, which starts the process. Dismissing tells it nothing.
+            WaitingSource::ProcessEnded => match said.choice {
+                // The process speaking is what takes the item off, so a start that fails leaves it standing.
+                Some(0) if self.hosts().of(&id).state().start_failed.is_some() => self.started_again(&id).await,
+                Some(0) => self.started_by_hand(&id).await,
+                Some(_) => Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "that item has no such choice")),
+                None => {
+                    let body = reply(&item.text, words, line);
+                    Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
+                    self.drop_answered(&id, &item.id, None).await
+                }
+            },
             WaitingSource::Delivery => self.delivery_chosen(&id, said.choice).await,
             WaitingSource::WordsAddress => self.words_address_chosen(&id, &item, picked.as_deref(), words).await,
             // Settled only once the message is sent, so a failed send leaves the draft standing.

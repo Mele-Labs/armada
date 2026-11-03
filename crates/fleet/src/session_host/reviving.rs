@@ -4,6 +4,9 @@
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use api::Refusal;
+use ipc::{Instant, SessionRecord, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource};
+use store::KeptOpenTurn;
 
 use crate::daemon::Fleet;
 
@@ -14,9 +17,45 @@ const BOOT_START_GAP: std::time::Duration = if cfg!(test) {
     std::time::Duration::from_secs(5)
 };
 
+/// The one option of the item a Job with nothing coming offers.
+const START_AGAIN: &str = "Start again";
+
 /// What a Job is told when Fleet starts its process again.
 const STARTED_AGAIN: &str =
     "Your process ended during a turn and Fleet started it again. Check what your last calls did, then carry on.";
+
+/// The item for a Job whose process ended with its turn open, while the turn still stands ended. Fleet
+/// starting it again offers nothing to press; with nothing coming, `Start again` does. Never kept.
+pub(crate) fn process_ended_items(turn: Option<&KeptOpenTurn>, job: &str, starting: bool, dismissed: &[String]) -> Option<WaitingItem> {
+    let ended_at = turn?.ended_at.as_deref()?;
+    let id = format!("process_ended:{ended_at}");
+    if dismissed.contains(&id) {
+        return None;
+    }
+    let (text, act, options) = if starting {
+        ("Process ended. Starting again.", WaitingAct { kind: WaitingActKind::Message, target: job.to_string() }, Vec::new())
+    } else {
+        (
+            "Process ended. Not started again.",
+            WaitingAct { kind: WaitingActKind::Answer, target: String::new() },
+            vec![WaitingOption { label: START_AGAIN.to_string(), description: None }],
+        )
+    };
+    Some(WaitingItem {
+        id,
+        text: text.to_string(),
+        since: Instant::carried(ended_at),
+        source: WaitingSource::ProcessEnded,
+        act: Some(act),
+        options,
+        steps: Vec::new(),
+        place: None,
+        confirmed: false,
+        holders: Vec::new(),
+        creating_since: None,
+        create_refused: None,
+    })
+}
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -54,7 +93,24 @@ where
         }
         let _ = self.store().lock().await.turn_started_again(id);
         self.kept_restart(id, "started_again", None).await;
-        self.told_of_a_death(id, STARTED_AGAIN).await.unwrap_or(false)
+        self.told_while_reviving(id).await
+    }
+
+    /// The person pressed Start again on a Job with nothing coming. **It does not count as a start
+    /// Fleet made**, so a further death stops and stays listed.
+    pub(crate) async fn started_by_hand(self: &Arc<Self>, id: &str) -> Result<SessionRecord, Refusal> {
+        self.told_while_reviving(id).await;
+        self.published_hosted(id).await
+    }
+
+    /// Tell the Job it was started again, which starts its process. The item says Fleet is starting it
+    /// for as long as that takes, and is read again once the start has failed or not.
+    async fn told_while_reviving(self: &Arc<Self>, id: &str) -> bool {
+        self.hosts().of(id).state().reviving = true;
+        let started = self.told_of_a_death(id, STARTED_AGAIN).await.unwrap_or(false);
+        self.hosts().of(id).state().reviving = false;
+        let _ = self.published_hosted(id).await;
+        started
     }
 
     /// Whether nothing may start this Job by itself, in which case its open turn is closed. A limit's

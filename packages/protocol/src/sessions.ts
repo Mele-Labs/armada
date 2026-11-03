@@ -370,6 +370,10 @@ export type WaitingAct = {
  * `preview_offer` (text `<branch> moved since the preview left it out: <why>`, act `run` whose `target` is `scripts/preview --restart`)
  * is Fleet offering a refresh on the Job holding a branch the preview left out, once that branch moves past the tip it was left out at.
  * Dismissing it is Skip, and tells the agent nothing.
+ * `process_ended` (id `process_ended:<ended_at>`) is the Job's process ending with a turn open. While Fleet is starting it again the text is
+ * `Process ended. Starting again.`, the act is `message` whose `target` is the Job's own id, and there are no options. When nothing is coming the text is
+ * `Process ended. Not started again.`, the act is `answer` with an empty `target`, and the one option `Start again` (choice 0) starts the process and tells the
+ * agent. Words alone go to the agent as a message, which starts it. Dismissing it settles it and tells the agent nothing. It is listed while the Job is live.
  * `rule_act` (id `rule_act:<row>`, text the act in his words, such as `Move ARM-41 to In progress`, act `answer` whose `target` is the id) is
  * an act a lifecycle rule of the Job planned that he is asked about first, or one that failed past the rule's retries where the rule says to
  * ask, when the text says what failed. Exactly two options: `Do it` (choice 0, `Try again` on a failed act) carries the act out and `Skip`
@@ -403,6 +407,7 @@ export type WaitingSource =
   | "browser_ask"
   | "task_done"
   | "watch_not_ours"
+  | "process_ended"
   | "held_child"
   | "preview_offer"
   | "rule_act"

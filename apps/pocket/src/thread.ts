@@ -352,6 +352,7 @@ const CHOICE_ONLY: readonly WaitingSource[] = [
 const ASKS: readonly WaitingSource[] = [
   "agent",
   "watch_not_ours",
+  "process_ended",
   "words_address",
   ...CHOICE_ONLY,
 ];
