@@ -52,7 +52,9 @@ GROUPS = [NODE, COMPONENTS, *SURFACES]
 COMPONENT_NAMES = {"components_test", "storybook"}
 
 # Keys CI deliberately does not run, and why.
-EXCLUDED = {}
+EXCLUDED = {
+    "apps/desktop:format_check": "the `format` job runs it on every change, so a Job's handoff Check would repeat it",
+}
 
 # Check names a pull request's own run keeps with `--quick`: the ones that
 # compile. The merge queue runs every Check, so the pull request run is an early
