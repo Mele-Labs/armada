@@ -524,12 +524,31 @@
   white-space: nowrap;
 }
 
+/* The contract's segmented control for a choice not yet pressed: one track, hairlines between its segments, the chosen one solid. */
 .armada-capture-bar__take-row {
   display: flex;
-  align-items: center;
-  gap: var(--space-1);
+  align-items: stretch;
   min-width: 0;
+  height: var(--h-control-sm);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
   overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.armada-capture-bar__take-row > .armada-capture-bar__take {
+  border-radius: 0;
+  padding-block: 0;
+  padding-inline: var(--space-2);
+}
+
+.armada-capture-bar__take-row > .armada-capture-bar__take + .armada-capture-bar__take {
+  border-inline-start: var(--border-width) solid var(--border-default);
+}
+
+.armada-capture-bar__take-row > .armada-capture-bar__take:focus-visible {
+  outline-offset: calc(var(--focus-ring-width) * -1);
 }
 
 .armada-capture-bar__walk > .armada-capture-bar__take-row,
