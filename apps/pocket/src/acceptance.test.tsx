@@ -420,7 +420,7 @@ describe("the phone draws as Bridge does", {
   it("lists Home as the Cockpit's rows, Needs you in the ask tone above Running, each with its age", async () => {
     await open("/");
     await vi.waitFor(() =>
-      expect(host.querySelectorAll('[aria-label="Running"] .deck-row')).toHaveLength(5),
+      expect(host.querySelectorAll('[aria-label="Running"] .deck-row')).toHaveLength(7),
     );
     const asking = Array.from(
       host.querySelectorAll<HTMLElement>('[aria-label="Needs you"] .deck-row'),
@@ -589,7 +589,7 @@ describe("a draft Job, and the acts on a Job", {
     );
     await vi.waitFor(() => expect(window.location.pathname).toBe("/"));
     await vi.waitFor(() => expect(rows("Needs you").length).toBeGreaterThan(0));
-    expect(host.querySelector('[aria-label="Drafts"]')).toBeNull();
+    await vi.waitFor(() => expect(host.querySelector('[aria-label="Drafts"]')).toBeNull());
   });
 
   it("forgets a draft's brief once it is sent, so nothing of it stays kept", async () => {
@@ -1337,6 +1337,175 @@ describe("a draft Job, and the acts on a Job", {
         );
       });
     });
+  });
+});
+
+describe("a Job that waits on another", {
+  timeout: 30_000,
+}, () => {
+  const WAITS = `/jobs/${encodeURIComponent(STUDIO)}/w1`;
+  const APPROVED = `/jobs/${encodeURIComponent(LAPTOP)}/w2`;
+  const facts = () =>
+    Object.fromEntries(
+      Array.from(host.querySelectorAll(".pk-facts__row")).map((row) => [
+        row.querySelector("dt")?.textContent,
+        row.querySelector("dd")?.textContent,
+      ]),
+    );
+  const select = (label: string) =>
+    host.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`);
+  const pick = async (label: string, value: string) => {
+    await act(async () => {
+      const element = select(label)!;
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(
+        element,
+        value,
+      );
+      element.dispatchEvent(
+        new Event("change", {
+          bubbles: true,
+        }),
+      );
+    });
+  };
+  const changes = (origin: string) =>
+    posted[origin]!.filter((one) => one.path === "/api/sessions/change_waiting").map(
+      (one) => one.body,
+    );
+
+  it("draws its brief, the Job it waits on, and when it starts and from where, and no thread or box", async () => {
+    await open(WAITS);
+    await vi.waitFor(() => expect(button("Start now")).toBeTruthy());
+    expect(facts()).toMatchObject({
+      "Waits on": "Plan the phone screens",
+      Needs: "The fields the phone reads for a slot",
+      "Starts from": "main, after the merge",
+    });
+    expect(facts()["Brief"]).toContain("Draw the slot pool on the phone");
+    expect(select("Starts when")!.value).toBe("lands");
+    expect(button("Approve")!.getAttribute("aria-pressed")).toBe("false");
+    expect(host.querySelector('[aria-label^="Starts when #3232 lands"]')).toBeTruthy();
+    expect(host.querySelector(".armada-session-composer")).toBeNull();
+  });
+
+  it("opens the Job it waits on", async () => {
+    await open(WAITS);
+    await vi.waitFor(() => expect(button("Plan the phone screens")).toBeTruthy());
+    await press(button("Plan the phone screens"));
+    expect(window.location.pathname).toBe(`/jobs/${encodeURIComponent(STUDIO)}/p1`);
+  });
+
+  it("approves it, and a second press takes the approval back", async () => {
+    await open(WAITS);
+    await vi.waitFor(() => expect(button("Approve")).toBeTruthy());
+    await press(button("Approve"));
+    await vi.waitFor(() => expect(button("Approved")).toBeTruthy());
+    expect(button("Approved")!.getAttribute("aria-pressed")).toBe("true");
+    await press(button("Approved"));
+    await vi.waitFor(() => expect(button("Approve")).toBeTruthy());
+    expect(changes(STUDIO)).toEqual([
+      {
+        waiting_session: "w1",
+        held: false,
+      },
+      {
+        waiting_session: "w1",
+        held: true,
+      },
+    ]);
+  });
+
+  it("starts now: one not approved opens as a draft, one approved opens its thread", async () => {
+    await open(WAITS);
+    await vi.waitFor(() => expect(button("Start now")).toBeTruthy());
+    await press(button("Start now"));
+    await vi.waitFor(() =>
+      expect(window.location.pathname).toBe(`/drafts/${encodeURIComponent(STUDIO)}/w1`),
+    );
+    expect(posted[STUDIO]!.find((one) => one.path === "/api/sessions/start_waiting")?.body).toEqual(
+      {
+        session_id: "w1",
+      },
+    );
+    await act(async () => root?.unmount());
+    await open(APPROVED);
+    await vi.waitFor(() => expect(button("Start now")).toBeTruthy());
+    await press(button("Start now"));
+    await vi.waitFor(() => expect(host.querySelector(".armada-session-composer")).toBeTruthy());
+    expect(window.location.pathname).toBe(APPROVED);
+  });
+
+  it("changes when it starts, and a plan part only where the Job waited on has a plan", async () => {
+    await open(WAITS);
+    await vi.waitFor(() => expect(select("Starts when")).toBeTruthy());
+    const plan = select("Starts when")!.querySelector<HTMLOptionElement>('option[value="plan"]')!;
+    await vi.waitFor(() => expect(plan.disabled).toBe(true));
+    await pick("Starts when", "ends");
+    await vi.waitFor(() => expect(select("Starts when")!.value).toBe("ends"));
+    expect(changes(STUDIO)).toEqual([
+      {
+        waiting_session: "w1",
+        condition: {
+          kind: "ends",
+        },
+      },
+    ]);
+    await act(async () => root?.unmount());
+    await open(APPROVED);
+    await vi.waitFor(() =>
+      expect(Array.from(select("Plan part")?.options ?? []).map((one) => one.textContent)).toEqual([
+        "Group: Rename in the crate",
+        "Task: Rename Pool to Slots",
+        "Task: Rename the tests",
+      ]),
+    );
+    await pick("Plan part", "t2");
+    await vi.waitFor(() => expect(select("Plan part")!.value).toBe("t2"));
+    expect(changes(LAPTOP)).toEqual([
+      {
+        waiting_session: "w2",
+        condition: {
+          kind: "task_done",
+          task: "t2",
+        },
+      },
+    ]);
+  });
+
+  it("answers what Fleet asks of it on the same screen", async () => {
+    await open(APPROVED);
+    const asked = () =>
+      host.querySelector('[role="group"][aria-label="How should this work be delivered?"]');
+    await vi.waitFor(() => expect(asked()).toBeTruthy());
+    await press(
+      Array.from(asked()!.querySelectorAll("button")).find((one) =>
+        one.textContent?.startsWith("Auto land"),
+      ),
+    );
+    await vi.waitFor(() => expect(asked()).toBeNull());
+    expect(
+      posted[LAPTOP]!.find((one) => one.path === "/api/sessions/waiting/answer")?.body,
+    ).toEqual({
+      session_id: "w2",
+      item_id: "delivery",
+      choice: 0,
+    });
+    expect(button("Start now")).toBeTruthy();
+  });
+
+  it("offers End job alone in its menu", async () => {
+    await open(WAITS);
+    await vi.waitFor(() => expect(button("More")).toBeTruthy());
+    await press(button("More"));
+    await vi.waitFor(() =>
+      expect(
+        Array.from(document.body.querySelectorAll('[role="menuitem"]')).map((one) =>
+          one.textContent?.trim(),
+        ),
+      ).toEqual([
+        "End job",
+      ]),
+    );
   });
 });
 

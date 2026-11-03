@@ -15,6 +15,7 @@ import {
   Play,
   PowerOff,
   Square,
+  SquareTerminal,
 } from "lucide-react";
 import {
   AskCards,
@@ -26,6 +27,7 @@ import {
   Prose,
   ProseCommand,
   ProseRunner,
+  Select,
   SessionComposer,
   SessionFrame,
   SessionThread,
@@ -35,8 +37,15 @@ import {
   type SessionState,
 } from "@armada/components";
 import { tokensSaid } from "@armada/components/src/compositions/SessionFrame/ContextFigure";
-import type { HelmCallAnswer, QuestionAnswer, WaitingItem } from "@armada/protocol";
-import type { Session } from "@armada/screens/src/draft/sessions";
+import type { HelmCallAnswer, QuestionAnswer, StartCondition, WaitingItem } from "@armada/protocol";
+import type { Session, SessionWait, StartWhen } from "@armada/screens/src/draft/sessions";
+import {
+  START_WHEN,
+  conditionOfWhen,
+  planPartsOf,
+  startsFrom,
+  startsWhenSaid,
+} from "@armada/screens/src/session-waits";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 import { documentAnswerOf, sketchAnswerOf } from "@armada/screens/src/thread-cards";
 
@@ -464,8 +473,18 @@ function useModels(machine: Machine): ModelsBody | undefined {
   return models;
 }
 
-/** The header's ⋯ menu: Stop while a turn runs, Pause or Resume, Fork, the model and effort, and End. An ended Job keeps Fork alone. */
+/** The header's ⋯ menu: Stop while a turn runs, Pause or Resume, Fork, the model and effort, and End. An ended Job keeps Fork alone, and a waiting one, which runs nothing, End alone. */
 function menuOf(session: Session, models: ModelsBody | undefined): DropdownMenuEntry[] {
+  if (session.waits !== undefined)
+    return [
+      {
+        kind: "item",
+        id: "end",
+        label: "End job",
+        icon: PowerOff,
+        danger: true,
+      },
+    ];
   if (session.dead !== undefined)
     return [
       {
@@ -557,6 +576,102 @@ function menuOf(session: Session, models: ModelsBody | undefined): DropdownMenuE
       danger: true,
     },
   ];
+}
+
+/** What a waiting Job holds, as Bridge's waiting pane reads it: its brief, the Job it waits on, and when it starts and from where. */
+function WaitingFacts({
+  machine,
+  wait,
+  open,
+  change,
+}: {
+  machine: Machine;
+  wait: SessionWait;
+  open: (id: string) => void;
+  change: (condition: StartCondition) => void;
+}) {
+  const [waitedOn] = useJob(machine, wait.on.id);
+  const parts = planPartsOf(
+    waitedOn.thread === undefined ? undefined : sessionOfThread(waitedOn.thread),
+  );
+  const set = (when: StartWhen, part: string | undefined) =>
+    change(
+      conditionOfWhen(
+        when,
+        part === undefined
+          ? undefined
+          : {
+              id: part,
+            },
+        parts,
+      ),
+    );
+  return (
+    <dl className="pk-facts">
+      <div className="pk-facts__row">
+        <dt>Brief</dt>
+        <dd className="pk-facts__brief">{wait.brief}</dd>
+      </div>
+      <div className="pk-facts__row">
+        <dt>Waits on</dt>
+        <dd>
+          <button type="button" className="pk-facts__link" onClick={() => open(wait.on.id)}>
+            <SquareTerminal size={14} aria-hidden="true" />
+            <span>{wait.on.title}</span>
+          </button>
+        </dd>
+      </div>
+      <div className="pk-facts__row">
+        <dt>Starts when</dt>
+        <dd className="pk-facts__when">
+          <Select
+            aria-label="Starts when"
+            value={wait.when}
+            onChange={(event) => {
+              const when = event.target.value as StartWhen;
+              set(when, when === "plan" ? parts[0]?.id : undefined);
+            }}
+          >
+            {START_WHEN.map((one) => (
+              <option
+                key={one.id}
+                value={one.id}
+                disabled={one.id === "plan" && parts.length === 0}
+              >
+                {one.label}
+              </option>
+            ))}
+          </Select>
+          {wait.when !== "plan" ? null : (
+            <Select
+              aria-label="Plan part"
+              value={wait.part?.id ?? parts[0]?.id ?? ""}
+              onChange={(event) => set("plan", event.target.value)}
+            >
+              {parts.length === 0 && wait.part !== undefined ? (
+                <option value={wait.part.id}>{wait.part.title}</option>
+              ) : null}
+              {parts.map((one) => (
+                <option key={one.id} value={one.id}>
+                  {`${one.kind === "group" ? "Group" : "Task"}: ${one.title}`}
+                </option>
+              ))}
+            </Select>
+          )}
+        </dd>
+      </div>
+      {wait.needs === "" ? null : (
+        <div className="pk-facts__row">
+          <dt>Needs</dt>
+          <dd>{wait.needs}</dd>
+        </div>
+      )}
+      <div className="pk-facts__row">
+        <dt>Starts from</dt>
+        <dd data-mono>{startsFrom(wait)}</dd>
+      </div>
+    </dl>
+  );
 }
 
 function Thread({ machine, id, several }: { machine: Machine; id: string; several: boolean }) {
@@ -848,12 +963,28 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
     doneSince !== undefined && session.turn.state !== "working",
   );
   const context = session.context;
+  const wait = session.waits;
+  // Approved starts the Job when its condition is met; otherwise it opens as a draft then.
+  const approved = wait?.held === false;
+  const changeWhen = (condition: StartCondition) =>
+    void run(() =>
+      acts.changeWaiting({
+        waiting_session: id,
+        condition,
+      }),
+    );
   return (
     <section className="pk-screen" aria-label={session.title ?? "Job"}>
       <div className="deck-pane pk-pane" data-frame data-bare>
         <SessionFrame
-          state={state}
-          said={several ? `${said} · ${machine.name}` : said}
+          state={wait === undefined ? state : "after"}
+          said={
+            several
+              ? `${wait === undefined ? said : startsWhenSaid(wait)} · ${machine.name}`
+              : wait === undefined
+                ? said
+                : startsWhenSaid(wait)
+          }
           id={id}
           {...(session.title === undefined
             ? {}
@@ -882,65 +1013,106 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
           }}
           back={<Back label="Home" onClick={home} />}
         >
-          <div className="armada-session-frame__centre">
-            <WithKeptStyles machine={machine}>
-              <SessionThread
-                sessionId={`${machine.origin} ${id}`}
-                rows={rowsOf(session)}
-                {...(approval === undefined
-                  ? {}
-                  : {
-                      approval,
-                    })}
-                working={session.turn.state === "working"}
-                onAnswer={onAnswer}
-                onOpenSession={openJob}
-                onOpenFile={(path) => go(filePath(machine.origin, id, path))}
-                onOpenSketch={(sketch) => go(sketchPath(machine.origin, id, sketch))}
-                onAnswerSketch={(sketch, answer) =>
-                  void run(() => acts.answerSketch(sketchAnswerOf(session, sketch, answer)), reread)
-                }
-                onOpenDocument={(page) => go(documentPath(machine.origin, id, page))}
-                onAnswerDocument={(page, answer) =>
-                  void run(
-                    () => acts.answerDocument(documentAnswerOf(session, page, answer)),
-                    reread,
-                  )
-                }
-                trailing={trailing}
-              />
-            </WithKeptStyles>
-            {session.dead !== undefined ? null : (
-              <div className="pk-dock">
-                <SessionComposer
-                  bare
-                  enterBreaks
-                  working={session.turn.state === "working"}
-                  model={null}
-                  effort={null}
-                  models={NONE}
-                  efforts={NONE}
-                  onTune={NOBODY}
-                  commands={NONE}
-                  taggable={NONE}
-                  tags={NONE}
-                  onTags={NOBODY}
-                  drawn={NONE}
-                  onDraw={NOBODY}
-                  onRemoveDrawn={NOBODY}
-                  draftKey={keep("message")}
-                  onSend={(sent) =>
-                    run(() =>
-                      acts.message({
-                        session_id: id,
-                        text: sent.text.trim(),
+          {wait !== undefined ? (
+            <div className="armada-session-frame__centre">
+              <div className="pk-waiting">
+                <WaitingFacts machine={machine} wait={wait} open={openJob} change={changeWhen} />
+                {trailing}
+              </div>
+              <footer className="pk-bar pk-bar--pair pk-bar--tall">
+                <Button
+                  variant="secondary"
+                  aria-pressed={approved}
+                  onClick={() =>
+                    void run(() =>
+                      acts.changeWaiting({
+                        waiting_session: id,
+                        held: approved,
                       }),
                     )
                   }
+                >
+                  {approved ? <Check size={14} aria-hidden="true" /> : null}
+                  {approved ? "Approved" : "Approve"}
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() =>
+                    void run(() =>
+                      acts.startWaiting({
+                        session_id: id,
+                      }),
+                    )
+                  }
+                >
+                  Start now
+                </Button>
+              </footer>
+            </div>
+          ) : (
+            <div className="armada-session-frame__centre">
+              <WithKeptStyles machine={machine}>
+                <SessionThread
+                  sessionId={`${machine.origin} ${id}`}
+                  rows={rowsOf(session)}
+                  {...(approval === undefined
+                    ? {}
+                    : {
+                        approval,
+                      })}
+                  working={session.turn.state === "working"}
+                  onAnswer={onAnswer}
+                  onOpenSession={openJob}
+                  onOpenFile={(path) => go(filePath(machine.origin, id, path))}
+                  onOpenSketch={(sketch) => go(sketchPath(machine.origin, id, sketch))}
+                  onAnswerSketch={(sketch, answer) =>
+                    void run(
+                      () => acts.answerSketch(sketchAnswerOf(session, sketch, answer)),
+                      reread,
+                    )
+                  }
+                  onOpenDocument={(page) => go(documentPath(machine.origin, id, page))}
+                  onAnswerDocument={(page, answer) =>
+                    void run(
+                      () => acts.answerDocument(documentAnswerOf(session, page, answer)),
+                      reread,
+                    )
+                  }
+                  trailing={trailing}
                 />
-              </div>
-            )}
-          </div>
+              </WithKeptStyles>
+              {session.dead !== undefined ? null : (
+                <div className="pk-dock">
+                  <SessionComposer
+                    bare
+                    enterBreaks
+                    working={session.turn.state === "working"}
+                    model={null}
+                    effort={null}
+                    models={NONE}
+                    efforts={NONE}
+                    onTune={NOBODY}
+                    commands={NONE}
+                    taggable={NONE}
+                    tags={NONE}
+                    onTags={NOBODY}
+                    drawn={NONE}
+                    onDraw={NOBODY}
+                    onRemoveDrawn={NOBODY}
+                    draftKey={keep("message")}
+                    onSend={(sent) =>
+                      run(() =>
+                        acts.message({
+                          session_id: id,
+                          text: sent.text.trim(),
+                        }),
+                      )
+                    }
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </SessionFrame>
       </div>
     </section>
