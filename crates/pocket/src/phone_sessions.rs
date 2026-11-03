@@ -8,8 +8,9 @@
 //! and the answer route read it there.
 
 use ipc::{
-    AskedChoice, AskedQuestion, HelmCallAnswer, HelmCallInFlight, SessionOrigin, SessionRecord,
-    SessionStanding, SessionState, SessionTurn, WaitingItem, WaitingSource,
+    AskedChoice, AskedQuestion, HeldOpenBy, HelmCallAnswer, HelmCallInFlight, PullRequestWait, SessionOrigin,
+    SessionRecord, SessionStanding, SessionState, SessionTurn, SessionWait, StartCondition, WaitingItem,
+    WaitingSource,
 };
 use serde::Serialize;
 
@@ -43,6 +44,33 @@ pub struct PhoneAsk {
     /// `allow_once` and `refuse`. The offer to remember a rule writes the
     /// owner's settings and is not made from a phone.
     pub offers: Vec<&'static str>,
+}
+
+/// One thing that keeps a Job open besides the owner: a fact the phone words itself.
+#[derive(Debug, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PhoneHold {
+    Watch { name: String },
+    /// `on` is `queue`, `auto_merge` or `checks`; `auto_merge` is set only for `checks`.
+    PullRequest {
+        number: u64,
+        on: &'static str,
+        #[serde(skip_serializing_if = "std::ops::Not::not")]
+        auto_merge: bool,
+    },
+}
+
+/// What starts a Job that waits on another, with what the phone needs to word it. The brief it
+/// starts on and the model it starts under stay on the Mac.
+#[derive(Debug, Serialize)]
+pub struct PhoneStart {
+    pub on: PhoneLink,
+    /// `ends`, `plan`, `pushed` or `lands`.
+    pub when: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub part_title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pull_number: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -81,6 +109,23 @@ pub struct PhoneSession {
     pub done_since: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub done_summary: Option<String>,
+    /// What Fleet derived of the Job's turn: `working`, `stuck`, `replied`, `done` or `idle`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub standing: Option<SessionStanding>,
+    /// Parked by the owner: nothing is asked of him until he resumes it.
+    pub paused: bool,
+    /// The plan's limit holds it until this instant.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limited_until: Option<String>,
+    /// What keeps it open besides the owner, in the order Fleet lists it.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub held_open_by: Vec<PhoneHold>,
+    /// It starts when another Job's condition is met, and runs nothing until then.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub starts_when: Option<PhoneStart>,
+    /// Why its agent would not start: the cause only, never the log lines.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_failed: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -145,15 +190,53 @@ fn ask(held: &HelmCallInFlight) -> PhoneAsk {
     }
 }
 
+fn hold(one: &HeldOpenBy) -> PhoneHold {
+    match one {
+        HeldOpenBy::Watch { name } => PhoneHold::Watch { name: name.clone() },
+        HeldOpenBy::PullRequest { number, on } => PhoneHold::PullRequest {
+            number: *number,
+            on: match on {
+                PullRequestWait::Queue => "queue",
+                PullRequestWait::AutoMerge => "auto_merge",
+                PullRequestWait::Checks { .. } => "checks",
+            },
+            auto_merge: matches!(on, PullRequestWait::Checks { auto_merge: true }),
+        },
+    }
+}
+
+fn start(wait: &SessionWait) -> PhoneStart {
+    PhoneStart {
+        on: PhoneLink { id: wait.on.id.as_str().to_string(), title: wait.on.title.clone() },
+        when: match wait.condition {
+            StartCondition::Ends => "ends",
+            StartCondition::GroupDone { .. } | StartCondition::TaskDone { .. } => "plan",
+            StartCondition::PrPushed => "pushed",
+            StartCondition::PrLands => "lands",
+        },
+        part_title: wait.part_title.clone(),
+        pull_number: wait.pull.as_ref().map(|pull| pull.number),
+    }
+}
+
 /// What a live Job owes the person besides an ask, as Bridge counts it (`stateOf` in
-/// `session-state.ts`): a slot choice or the delivery question holds the agent whatever its
-/// turn says; while a turn runs or is stuck nothing else is owed yet; otherwise every item
-/// but the `done` Fleet derives from the turn.
+/// `session-state.ts`): a slot choice (unless Fleet is creating it), the delivery question, a plan,
+/// a sketch, a document or the done ask on its tasks holds the agent whatever its turn says; while
+/// a turn runs or is stuck nothing else is owed yet; otherwise every item but the `done` Fleet
+/// derives from the turn.
 fn owed(record: &SessionRecord) -> Vec<&WaitingItem> {
     if record.state != SessionState::Live {
         return Vec::new();
     }
-    let holds = |one: &&WaitingItem| matches!(one.source, WaitingSource::SlotChoice | WaitingSource::Delivery);
+    let holds = |one: &&WaitingItem| match one.source {
+        WaitingSource::SlotChoice => one.creating_since.is_none(),
+        WaitingSource::Delivery
+        | WaitingSource::Plan
+        | WaitingSource::TaskDone
+        | WaitingSource::Sketch
+        | WaitingSource::Document => true,
+        _ => false,
+    };
     let items = || record.waiting_for.iter().filter(|one| one.source != WaitingSource::Done);
     let at_work = matches!(record.standing, Some(SessionStanding::Working | SessionStanding::Stuck))
         || matches!(record.hosted.as_ref().map(|h| &h.turn), Some(SessionTurn::Working { .. }));
@@ -174,18 +257,23 @@ impl PhoneSession {
             SessionOrigin::Terminal => record.terminal.as_ref().and_then(|t| t.asked.as_ref()),
         }
         .filter(|_| record.state == SessionState::Live);
+        // Paused, failed to start, waiting on another Job, held on its start card or held by the
+        // plan's limit: nothing is asked of him, whatever it owes, as `stateOf` orders it.
+        let paused = record.hosted.as_ref().is_some_and(|facts| facts.paused.is_some());
+        let start_failed = record.hosted.as_ref().and_then(|facts| facts.start_failed.as_ref());
+        let parked = held || paused || start_failed.is_some() || record.waits.is_some() || record.held_until.is_some();
         let owed = owed(record);
         let since = waiting_on
             .map(|asked| asked.asked_at.as_str())
             .or_else(|| owed.iter().map(|one| &one.since).min().map(|at| at.as_str()))
-            .filter(|_| !held);
+            .filter(|_| !parked);
         PhoneSession {
             id: record.id.as_str().to_string(),
             title: record.title.clone(),
             repository: repository.map(str::to_string),
             kind: if hosted { "hosted" } else { "terminal" },
             waiting: since.is_some(),
-            working: !held && matches!(record.standing, Some(SessionStanding::Working | SessionStanding::Stuck)),
+            working: !parked && matches!(record.standing, Some(SessionStanding::Working | SessionStanding::Stuck)),
             started_at: record.started_at.as_str().to_string(),
             ended_at: record.ended_at.as_ref().map(|at| at.as_str().to_string()),
             waiting_since: since.map(str::to_string),
@@ -201,6 +289,12 @@ impl PhoneSession {
             context_window: record.usage.context_window,
             done_since: record.done_since.as_ref().filter(|_| record.state == SessionState::Live).map(|at| at.as_str().to_string()),
             done_summary: record.done_summary.clone().filter(|_| record.state == SessionState::Live && record.done_since.is_some()),
+            standing: record.standing,
+            paused,
+            limited_until: record.held_until.as_ref().map(|at| at.as_str().to_string()),
+            held_open_by: record.held_open_by.iter().map(hold).collect(),
+            starts_when: record.waits.as_ref().map(start),
+            start_failed: start_failed.map(|failed| failed.cause.clone()),
         }
     }
 }

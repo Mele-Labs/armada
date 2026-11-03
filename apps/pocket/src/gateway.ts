@@ -55,7 +55,28 @@ export type PhoneSession = {
   /** The Job said, through all_done, that nothing is left. Present while the claim stands. */
   done_since?: string;
   done_summary?: string;
+  /** What Fleet read of the turn. */
+  standing?: "working" | "stuck" | "replied" | "done" | "idle";
+  /** Parked by the owner: nothing is asked of him until he resumes it. */
+  paused?: boolean;
+  /** The plan's limit holds it until this instant. */
+  limited_until?: string;
+  /** What keeps it open besides the owner, in Fleet's order. */
+  held_open_by?: PhoneHold[];
+  /** It starts when another Job's condition is met. */
+  starts_when?: {
+    on: { id: string; title: string };
+    when: "ends" | "plan" | "pushed" | "lands";
+    part_title?: string;
+    pull_number?: number;
+  };
+  /** Why its agent would not start. */
+  start_failed?: string;
 };
+
+export type PhoneHold =
+  | { kind: "watch"; name: string }
+  | { kind: "pull_request"; number: number; on: "queue" | "auto_merge" | "checks"; auto_merge?: boolean };
 
 /** GET /api/sessions: the live Sessions only. The phone takes Needs you from the ones waiting. */
 export type SessionsBody = {
