@@ -39,7 +39,7 @@ function Editable({ quoted }: { quoted?: AutopilotReading["quoted"] }) {
   );
 }
 
-/** The four settings, each editable. */
+/** The five settings, each editable. */
 export const Plain: Story = {
   render: () => <Editable />,
   play: async ({ canvas, userEvent }) => {
@@ -61,6 +61,6 @@ export const Quoted: Story = {
   ),
   play: async ({ canvas }) => {
     await expect(canvas.getByText("“two at a time”")).toBeInTheDocument();
-    await expect(canvas.getByText("not said")).toBeInTheDocument();
+    await expect(canvas.getAllByText("not said")).toHaveLength(2);
   },
 };
