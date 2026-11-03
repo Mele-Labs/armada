@@ -47,19 +47,25 @@ pub fn room(at_once: u32, standing: &[Standing]) -> u32 {
     at_once.saturating_sub(u32::try_from(holding).unwrap_or(u32::MAX))
 }
 
-/// The three caps, each optional.
+/// The four caps, each optional.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Caps {
     pub until: Option<Timestamp>,
     pub spend_cap_micros: Option<u64>,
     pub session_cap: Option<u32>,
+    /// The weekly usage, in percent, at which it pauses.
+    pub weekly_cap_percent: Option<u32>,
 }
 
-/// What its Sessions have spent and how many it started, which the caps are held to.
+/// What its Sessions have spent and how many it started, which the caps are held to, and the
+/// account's weekly usage as last read.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Spent {
     pub micros: u64,
     pub started: u32,
+    /// The `seven_day` window's percent used. **A reading or nothing**: none read, or one from a
+    /// window that has since reset, is `None`, and `None` never reaches the cap.
+    pub weekly_percent: Option<u32>,
 }
 
 /// Which cap stopped it.
@@ -68,6 +74,7 @@ pub enum Cap {
     Until,
     Spend,
     Sessions,
+    Weekly,
 }
 
 impl Cap {
@@ -76,11 +83,12 @@ impl Cap {
             Cap::Until => "until",
             Cap::Spend => "spend",
             Cap::Sessions => "sessions",
+            Cap::Weekly => "weekly",
         }
     }
 
     pub fn from_stored(word: &str) -> Option<Cap> {
-        [Cap::Until, Cap::Spend, Cap::Sessions]
+        [Cap::Until, Cap::Spend, Cap::Sessions, Cap::Weekly]
             .into_iter()
             .find(|cap| cap.as_stored() == word)
             .or((word == "jobs").then_some(Cap::Sessions))
@@ -93,12 +101,13 @@ impl fmt::Display for Cap {
             Cap::Until => "the time to stop has passed",
             Cap::Spend => "the spend cap is reached",
             Cap::Sessions => "the Job cap is reached",
+            Cap::Weekly => "the weekly usage cap is reached",
         })
     }
 }
 
 impl Caps {
-    /// The cap reached, where one is: the time first, then the money, then the count, so a
+    /// The cap reached, where one is: the time first, then the money, then the count, then the week, so a
     /// morning that arrives with the money spent says the morning.
     pub fn first_reached(&self, now: &Timestamp, spent: &Spent) -> Option<Cap> {
         let past = |until: &Timestamp| match (now.epoch_millis(), until.epoch_millis()) {
@@ -114,6 +123,11 @@ impl Caps {
         }
         if self.session_cap.is_some_and(|cap| spent.started >= cap) {
             return Some(Cap::Sessions);
+        }
+        if let (Some(cap), Some(used)) = (self.weekly_cap_percent, spent.weekly_percent) {
+            if used >= cap {
+                return Some(Cap::Weekly);
+            }
         }
         None
     }
@@ -144,6 +158,7 @@ impl fmt::Display for Unsettable {
             Unsettable::AlreadyOver(Cap::Until) => "the time to stop has already passed",
             Unsettable::AlreadyOver(Cap::Spend) => "a spend cap of nothing would start nothing",
             Unsettable::AlreadyOver(Cap::Sessions) => "a Job cap of none would start nothing",
+            Unsettable::AlreadyOver(Cap::Weekly) => "weekly usage has already reached that",
         })
     }
 }
@@ -154,6 +169,7 @@ impl Settings {
         at_once: u32,
         caps: Caps,
         now: &Timestamp,
+        weekly_percent: Option<u32>,
     ) -> Result<Settings, Unsettable> {
         let instruction = instruction.trim();
         if instruction.is_empty() {
@@ -162,7 +178,7 @@ impl Settings {
         if at_once == 0 {
             return Err(Unsettable::NoRoom);
         }
-        if let Some(cap) = caps.first_reached(now, &Spent::default()) {
+        if let Some(cap) = caps.first_reached(now, &Spent { weekly_percent, ..Spent::default() }) {
             return Err(Unsettable::AlreadyOver(cap));
         }
         Ok(Settings {

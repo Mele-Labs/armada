@@ -66,7 +66,8 @@ pub(super) async fn started(rig: &Rig, decisions: &[AutopilotDecision]) {
         until: None,
         spend_cap_micros: None,
         session_cap: None,
-        on_autopilot: AutopilotWork { backlog: false, running: true },
+        weekly_cap_percent: None,
+        on_autopilot: AutopilotWork { backlog: false, running: true, reports: false },
         decisions: decisions.iter().copied().collect::<BTreeSet<_>>(),
     };
     rig.fleet.start_autopilot(rig.manifest.clone(), settings).await.expect("started");
