@@ -7,6 +7,7 @@ import {
   Button,
   Checkbox,
   Input,
+  Slider,
   Textarea,
   Tooltip,
   useTimeFormat,
@@ -16,6 +17,8 @@ import type { Autopilot } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeState } from "../../../../shared/bridge";
+import { ARMADA } from "../../issues-tab/reports";
+import { usePlanUsage } from "../../plan-usage";
 import { settingsFrom, whyOf } from "../autopilot";
 import {
   putAnswersAway,
@@ -57,6 +60,10 @@ const WORK = [
   {
     id: "running",
     label: "Jobs already running",
+  },
+  {
+    id: "reports",
+    label: "Reported bugs",
   },
 ];
 type Decision = {
@@ -137,6 +144,15 @@ const DECISIONS: readonly {
   },
 ];
 
+/** The readings the slider can stop at: from the week as it stands up to 100, which is no limit. */
+const weeklySteps = (now: number) =>
+  Array.from(
+    {
+      length: Math.max(1, 100 - now + 1),
+    },
+    (_, at) => String(Math.min(now, 100) + at),
+  );
+
 const BEGUN: Arm = {
   open: false,
   lifted: false,
@@ -161,6 +177,7 @@ const BEGUN: Arm = {
     until: "",
     spend: "",
     sessions: "",
+    weekly: "",
   },
 };
 let arm = BEGUN;
@@ -210,6 +227,11 @@ const workOf = (running: readonly Autopilot[]) =>
       ...(one.on_autopilot.running
         ? [
             "running",
+          ]
+        : []),
+      ...(one.on_autopilot.reports
+        ? [
+            "reports",
           ]
         : []),
     ]),
@@ -494,12 +516,13 @@ function Parts({ w, h }: { w: number; h: number }) {
 }
 
 /** All the stage's height it needs, for every decision to stand whole: the brackets clear of the title bar above and the beam's collar clear of the console below. */
+/** Over the side columns too: the setup needs the room more than they do while it is open. */
 const placeOf = (stage: Box): Box => {
-  const inset = stage.width < 800 ? 0 : Math.min(56, stage.width * 0.05);
+  const width = Math.min(window.innerWidth - 24, 1200);
   return {
-    left: Math.round(stage.left + inset),
+    left: Math.round((window.innerWidth - width) / 2),
     top: Math.round(stage.top + 6),
-    width: Math.round(stage.width - inset * 2),
+    width: Math.round(width),
     height: Math.round(Math.min(stage.height - 14, 560)),
   };
 };
@@ -589,6 +612,7 @@ export function ArmSetup({
     held.open,
     alive,
   ]);
+  const weeklyNow = usePlanUsage()?.find((one) => one.kind === "seven_day")?.percentUsed;
   // The arm is kept outside this component, and the next Cockpit drawn must not open on it.
   useEffect(() => () => closeSetup(), []);
   if (!held.open || facet.current === null) return null;
@@ -698,20 +722,22 @@ export function ArmSetup({
                 ))}
               </Group>
               <Group name="On autopilot">
-                {WORK.map((one) => (
-                  <Checkbox
-                    key={one.id}
-                    checked={held.work.has(one.id)}
-                    disabled={running}
-                    onChange={() =>
-                      move({
-                        work: flipped(held.work, one.id),
-                      })
-                    }
-                  >
-                    {one.label}
-                  </Checkbox>
-                ))}
+                {WORK.filter((one) => one.id !== "reports" || held.repositories.has(ARMADA)).map(
+                  (one) => (
+                    <Checkbox
+                      key={one.id}
+                      checked={held.work.has(one.id)}
+                      disabled={running}
+                      onChange={() =>
+                        move({
+                          work: flipped(held.work, one.id),
+                        })
+                      }
+                    >
+                      {one.label}
+                    </Checkbox>
+                  ),
+                )}
               </Group>
               {lines.length === 0 ? null : (
                 <ul className="ap-hud__why" aria-label="Why">
@@ -757,21 +783,32 @@ export function ArmSetup({
                     unit: "$",
                   })}
                   {field("sessions", "Jobs in total")}
+                  {weeklyNow === undefined ? null : (
+                    <label className="ap-hud__weekly">
+                      <span className="armada-input-field__label">Stop at weekly usage</span>
+                      <span className="ap-hud__weekly-track">
+                        <Tooltip label="Your weekly usage now">
+                          <span className="ap-hud__weekly-now">{weeklyNow}%</span>
+                        </Tooltip>
+                        <Slider
+                          steps={weeklySteps(weeklyNow)}
+                          value={held.fields.weekly === "" ? "100" : held.fields.weekly}
+                          disabled={running}
+                          show={(step) => (step === "100" ? "No limit" : `${step}%`)}
+                          onChange={(weekly) =>
+                            move({
+                              fields: {
+                                ...held.fields,
+                                weekly,
+                              },
+                            })
+                          }
+                        />
+                      </span>
+                    </label>
+                  )}
                 </div>
               </Group>
-              {alive.length === 0 ? null : (
-                <div className="ap-hud__sidings">
-                  <AutopilotPicks
-                    on={alive}
-                    state={state}
-                    onRefused={(why) =>
-                      move({
-                        refused: why,
-                      })
-                    }
-                  />
-                </div>
-              )}
             </div>
             <section className="ap-hud__column ap-hud__decisions" aria-label="Decisions">
               {DECISIONS.map((group) => (
@@ -787,6 +824,19 @@ export function ArmSetup({
                 </Group>
               ))}
             </section>
+            {alive.length === 0 ? null : (
+              <div className="ap-hud__sidings">
+                <AutopilotPicks
+                  on={alive}
+                  state={state}
+                  onRefused={(why) =>
+                    move({
+                      refused: why,
+                    })
+                  }
+                />
+              </div>
+            )}
           </div>
         );
       }}

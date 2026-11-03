@@ -13,8 +13,10 @@ use adapter_traits::{Ask, OpenIssue};
 use config::settings::PROMPT_AUTOPILOT_PICKER;
 use config::ResolvedWorkflow;
 use core_model::WorkflowId;
+use store::KeptBugReport;
 
 use super::sentence::line;
+use super::starting::REPORT_URL;
 use super::Asking;
 use crate::judging::{said, CallFailed};
 use crate::prompts::Prompts;
@@ -76,6 +78,32 @@ pub fn candidates(open: &[OpenIssue], taken: &BTreeSet<String>) -> Vec<Candidate
                 .iter()
                 .map(|one| one.as_written().to_string())
                 .collect(),
+        })
+        .collect()
+}
+
+/// The repository whose Autopilot is offered the bugs agents reported, by Manifest id. Those reports
+/// are about Armada itself, so no other repository's Autopilot reads them.
+pub(crate) const REPORTS_FOR: &str = "armada";
+
+/// The label a reported bug is offered under, so the picker tells it from an issue.
+const REPORTED_BUG: &str = "reported bug";
+
+/// The open reports as candidates: **not a fixed one**, and not one whose address (`report:<id>`)
+/// is in `taken`. Kept or not, and in the order given. The caller leaves out those a live Job holds.
+pub fn report_candidates(reports: &[KeptBugReport], taken: &BTreeSet<String>) -> Vec<Candidate> {
+    reports
+        .iter()
+        .filter(|report| report.fixed.is_none())
+        .map(|report| (format!("{REPORT_URL}{}", report.id), report))
+        .filter(|(url, _)| !taken.contains(url))
+        .map(|(url, report)| Candidate {
+            // The id is a ULID, whose last characters are the random ones, so six tell reports apart.
+            reference: format!("R-{}", &report.id[report.id.len().saturating_sub(6)..]),
+            title: report.title.clone(),
+            url,
+            excerpt: report.what.clone(),
+            labels: vec![REPORTED_BUG.to_string()],
         })
         .collect()
 }

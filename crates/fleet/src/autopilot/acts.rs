@@ -198,6 +198,8 @@ where
                 until: read.until.as_ref().map(ipc::Instant::from),
                 spend_cap_micros: read.spend_cap_micros,
                 session_cap: read.session_cap,
+                // A sentence does not set it.
+                weekly_cap_percent: None,
                 on_autopilot: Default::default(),
                 decisions: Default::default(),
             },
@@ -230,7 +232,7 @@ where
             return Err(self.not_now(NotNow { from }));
         }
         let now = self.now();
-        let confirmed = self.confirmed(&settings, &now)?;
+        let confirmed = self.confirmed(&settings, &now, self.weekly_reading().await)?;
         let kept = KeptAutopilot {
             manifest_id: manifest_id.as_str().to_string(),
             run_id: self.mint().ulid().as_str().to_string(),
@@ -243,12 +245,14 @@ where
                 .map(|at| at.as_str().to_string()),
             spend_cap_micros: confirmed.caps().spend_cap_micros,
             session_cap: confirmed.caps().session_cap,
+            weekly_cap_percent: confirmed.caps().weekly_cap_percent,
             state: State::Running.as_stored().to_string(),
             started_at: now.as_str().to_string(),
             ended_at: None,
             capped_by: None,
             on_backlog: settings.on_autopilot.backlog,
             on_running: settings.on_autopilot.running,
+            on_reports: settings.on_autopilot.reports,
             decisions: settings
                 .decisions
                 .iter()
@@ -447,5 +451,6 @@ fn lifted_by(cap: super::bounds::Cap) -> &'static str {
     match cap {
         super::bounds::Cap::Until => "Move it later, then resume",
         super::bounds::Cap::Spend | super::bounds::Cap::Sessions => "Raise it, then resume",
+        super::bounds::Cap::Weekly => "Raise it or wait for the week to reset, then resume",
     }
 }
