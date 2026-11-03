@@ -1667,6 +1667,32 @@ export function sessionsStore(
           tags: [],
         });
       const chosen = given.choice === undefined ? given.text : item.options?.[given.choice]?.label;
+      // Start again hands the Job its turn back: the item reads as Fleet starting it, then goes once the process speaks.
+      if (item.source === "process_ended" && given.choice !== undefined) {
+        edit(id, (one) => ({
+          ...one,
+          waitingFor: (one.waitingFor ?? []).map((it) => {
+            if (it.id !== itemId) return it;
+            const { options, ...rest } = it;
+            void options;
+            return {
+              ...rest,
+              text: "Process ended. Starting again.",
+              act: {
+                kind: "message" as const,
+                target: id,
+              },
+            };
+          }),
+        }));
+        after(2500, () =>
+          edit(id, (one) => ({
+            ...one,
+            waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== itemId),
+          })),
+        );
+        return;
+      }
       // A watch that ended not ours is Fleet's own ask: Ignore tells the agent nothing, Fix it is a message naming what broke.
       if (item.source === "watch_not_ours") {
         edit(id, (one) => ({
