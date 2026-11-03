@@ -442,14 +442,14 @@ async fn a_ready_change_reads_each_side_through_the_rail_so_a_new_step_says_what
     };
     assert_eq!(
         ends(&ready.before_steps),
-        said(&[("propose", "you reply"), ("plan", "you approve the plan"), ("walk", "you approve the walk"), ("deliver", "it is merged")])
+        said(&[("propose", "you reply"), ("plan", "you approve the plan"), ("walk", "you approve every walk"), ("deliver", "it is merged")])
     );
     assert_eq!(
         ends(&ready.after_steps),
         said(&[
             ("propose", "you reply"),
             ("plan", "you approve the plan"),
-            ("walk", "you approve the walk"),
+            ("walk", "you approve every walk"),
             ("refine", "it is pushed"),
             ("deliver", "it is merged"),
         ])

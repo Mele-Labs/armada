@@ -49,8 +49,8 @@ export const workflowsManaged = walk("workflows", [
     say: "The repository's feature",
   },
   {
-    look: inside(step("Walk"), text("you approve the walk")),
-    say: "Walk ends when you approve the walk",
+    look: inside(step("Walk"), text("you approve every walk")),
+    say: "Walk ends when you approve every walk",
   },
   {
     look: inside(step("Walk"), role("group", /^Cockpit timeline rail/)),
@@ -78,15 +78,15 @@ export const workflowsManaged = walk("workflows", [
     say: "Walk's words, with the new line",
   },
   {
-    press: inside(step("Approve plan"), button("Suggest a change")),
-    say: "Suggest a change, asked for at Approve plan",
+    press: inside(step("Propose"), button("Suggest a change")),
+    say: "Suggest a change, asked for at Propose",
   },
   {
-    look: inside(step("Approve plan"), role("group", "Suggested change")),
-    say: "A suggested change for Approve plan",
+    look: inside(step("Propose"), role("group", "Suggested change")),
+    say: "A suggested change for Propose",
   },
   {
-    press: inside(step("Approve plan"), button("Not a drift")),
+    press: inside(step("Propose"), button("Not a drift")),
     say: "Not a drift takes the row, and the suggestion with it",
   },
   {

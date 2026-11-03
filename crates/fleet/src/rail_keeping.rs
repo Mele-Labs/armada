@@ -14,7 +14,7 @@ use crate::session_host::asking::{answers_said, ask_answered};
 use crate::session_host::document_answers::approved_on_newest;
 use crate::session_host::handoff_answers::{answered_later, ANSWERED_LATER};
 use crate::session_host::sketching::sketch_approved;
-use crate::session_host::walking::walk_approval;
+use crate::session_host::walking::{replaced, walk_approval};
 
 /// How many nudges a step's list holds.
 const RECENT_NUDGES: u32 = 20;
@@ -58,11 +58,14 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
             .collect();
         let plan = store.session_plan(&session.id)?;
         let plan_approved_at = plan.as_ref().and_then(|plan| plan.approved_at.as_deref()).map(Instant::carried);
-        let pushed_since_walk = match walk_approved_at(&rows, plan_approved_at.as_ref()) {
+        let dismissed = store.dismissed_waiting(&session.id)?;
+        let walk_approved = walk_approved_at(&rows, plan_approved_at.as_ref(), &dismissed);
+        let pushed_since_walk = match walk_approved {
             Some(approved) => store.session_work(&session.id, approved.as_str())?.first_push.is_some(),
             None => false,
         };
         Extra {
+            walk_approved: walk_approved.is_some(),
             pushed_since_walk,
             committed: store.session_work(&session.id, &session.started_at)?.first_commit.is_some(),
             checked: store.session_has_run_a_check(&session.id)?,
@@ -121,7 +124,7 @@ pub(crate) fn thread_facts(rows: &[SessionRow], plan_approved_at: Option<&Instan
     Extra {
         replied,
         walk_shown: !windows.is_empty(),
-        walk_approved: walk_approved_at(rows, plan_approved_at).is_some(),
+        walk_approved: walk_approved_at(rows, plan_approved_at, &[]).is_some(),
         any_walk_approved: !approvals.is_empty(),
         sketch_approved: sketch_approved(rows).is_some(),
         draft_approved,
@@ -140,11 +143,20 @@ fn approvals_of(rows: &[SessionRow]) -> Vec<&Instant> {
         .collect()
 }
 
-/// His first Approve of a window at or after the plan's approval, at `plan_approved_at`: the one that
-/// passes a `walks` step. `None` before the plan is approved.
-fn walk_approved_at<'a>(rows: &'a [SessionRow], plan_approved_at: Option<&Instant>) -> Option<&'a Instant> {
+/// His last Approve of the windows at or after the plan's approval, at `plan_approved_at`, once every
+/// window shown since stands approved: the one that passes a `walks` step. `None` before the plan is
+/// approved, and while one waits. **A window a newer one of its page replaced, or one taken back
+/// (`dismissed`), waits on nothing.**
+fn walk_approved_at<'a>(rows: &'a [SessionRow], plan_approved_at: Option<&Instant>, dismissed: &[String]) -> Option<&'a Instant> {
     let plan = plan_approved_at?;
-    approvals_of(rows).into_iter().filter(|at| *at >= plan).min()
+    let waiting = rows.iter().any(|row| {
+        matches!(row, SessionRow::Window { url, at, .. }
+            if at >= plan && !replaced(rows, url) && !dismissed.contains(&format!("walk:{url}")) && walk_approval(rows, url).is_none())
+    });
+    if waiting {
+        return None;
+    }
+    approvals_of(rows).into_iter().filter(|at| *at >= plan).max()
 }
 
 /// Whether the person picked an option the Job's question gave a preview, on its card or later from

@@ -6,7 +6,7 @@ Since 16 Oct 2026. A Job that follows a workflow has a **current step**, and it 
 `SessionRecord.workflow_step` is its index in the workflow's steps; it is derived each time the row is drawn (`rail.rs`, `Fleet::rail_drawn`), so nothing stores it beside the facts it comes from.
 It is absent for a custom Job, once the delivering step's pull request has merged with no step after it, and while `features.workflows` is off or `workflows.off` names its workflow for its repository.
 
-**Three anchors are exact.** A `records_plan` step is current until a plan is approved.
+**Three anchors are exact.** A `records_plan` step is current until a plan is approved, which a plan recorded after one of its listed ends, or on a `plan_unasked` step, is at once ([Workflow](../workflow.md#walks-and-replies)).
 A `follows_plan` step is current from approval, and stays until a later step is entered.
 A `delivers` step is current from the first push until its pull request merges.
 
@@ -16,7 +16,7 @@ Each end is read off the thread: he replies, approves a walk, approves a sketch,
 The reply is a message of his after the agent's first turn: Fleet's own notices and other Jobs' words are not one.
 A walk he approves before the plan's approval ends such a step and never passes the later `walks` step.
 The recording step, when something precedes it, is entered when a plan is recorded and is current until he approves it.
-A `walks` step is current from the plan's approval until he approves a window the Job showed (`show_window`).
+A `walks` step is current from the plan's approval until he has approved every window the Job showed since (`show_window`), leaving out one a newer window of its page replaced and one taken back (2 Nov 2026).
 A walk is expected as [Workflow](../workflow.md#walks-and-replies) says.
 It is passed over only when the plan was approved with no walk expected and the step's own work is done: for a `walks` step that also follows the plan, such as the bug workflow's Fix, once the plan's tasks are finished, and for one that does not, at the plan's approval.
 It never waits for the push, which ends the step after it: a bug Job with nothing to show finished its tasks, waited to be moved on to Tests, and Fleet waited for a push (30 Oct 2026).
