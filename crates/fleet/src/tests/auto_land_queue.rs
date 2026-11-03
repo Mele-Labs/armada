@@ -18,7 +18,7 @@ const NUMBER: u64 = 12;
 const BLOCKER: u64 = 11;
 
 fn entry(number: u64, position: u32, head: Option<&str>) -> QueueEntry {
-    QueueEntry { number, position, state: QueueState::Queued, head: head.and_then(Oid::parse) }
+    QueueEntry { number, position, state: QueueState::Queued, head: head.and_then(Oid::parse), enqueued_at: None }
 }
 
 fn sha(digit: char) -> String {
