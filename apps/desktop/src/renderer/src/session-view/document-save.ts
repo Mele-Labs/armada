@@ -5,7 +5,7 @@
 
 import { tokenDeclarations } from "@armada/components/src/compositions/SketchScene/export-svg";
 
-import { PAGE_ROOT, type Page } from "./document-page";
+import { PAGE_ROOT, type Page } from "@armada/screens/src/document-page";
 
 const POLICY = "default-src 'none'; style-src 'unsafe-inline'";
 

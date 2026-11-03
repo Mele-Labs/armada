@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 
 import { Dispatch } from "./Dispatch";
+import { DocumentView } from "./Document";
 import { Draft } from "./Draft";
 import { start, useFleet } from "./fleet";
 import { Home } from "./Home";
@@ -39,6 +40,8 @@ function Screen({ route }: { route: Route }) {
       return <FileView origin={route.origin} id={route.id} path={route.path} />;
     case "sketch":
       return <SketchView origin={route.origin} id={route.id} sketch={route.sketch} />;
+    case "document":
+      return <DocumentView origin={route.origin} id={route.id} page={route.page} />;
   }
 }
 

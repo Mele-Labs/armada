@@ -545,3 +545,46 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
+
+/* A Job's document: the sealed page drawn at the screen's width, its tables scrolling inside their own boxes. */
+.pk-doc__page {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pk-doc__page .armada-doc__sketch {
+  margin: var(--space-6) 0;
+}
+/* No aspect ratio: with a minimum height, it would widen the sketch past the screen. */
+.pk-doc__page .armada-doc__sketch .armada-sketch {
+  margin: 0;
+  block-size: calc(var(--space-12) * 6);
+}
+.pk-doc__page .pk-doc__scroll {
+  margin: 0 0 var(--space-4);
+  overflow-x: auto;
+}
+.pk-doc__page.armada-doc__page .pk-doc__scroll > table {
+  inline-size: max-content;
+  min-inline-size: 100%;
+  margin: 0;
+}
+.pk-doc__answers {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
+/* A walk the Job waits on, said to open on the Mac: one line at the thread's end, the page's name and where it is. */
+.pk-onmac {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+.pk-onmac__says {
+  color: var(--fg-default);
+  overflow-wrap: anywhere;
+}
