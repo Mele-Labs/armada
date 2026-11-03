@@ -27,7 +27,7 @@ const nameOfPage = (address: string): string => {
   try {
     const url = new URL(address);
     return (
-      url.searchParams.get("walk") ?? url.pathname.split("/").findLast(Boolean) ?? url.host
+      url.searchParams.get("walk") ?? url.pathname.split("/").filter(Boolean).at(-1) ?? url.host
     );
   } catch {
     return address;
