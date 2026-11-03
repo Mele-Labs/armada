@@ -23,7 +23,7 @@ use std::collections::BTreeSet;
 use core_model::Timestamp;
 use fleet::autopilot::{
     candidates, picked, read_pick, read_settings, room, settings_from, Candidate, Cap, Caps,
-    NotPicked, NotResumed, Pick, Settings, Spent, Standing, State,
+    NotPicked, NotResumed, Pick, Settings, Spent, Standing, State, Unsettable,
 };
 
 use bench::autopilot::{
@@ -77,11 +77,11 @@ fn a_reading_that_names_no_instruction_is_refused_rather_than_guessed() {
 fn settings_nothing_could_run_under_are_refused_at_start() {
     let caps = Caps::default();
     assert!(
-        Settings::confirmed("   ", 2, caps.clone(), &now()).is_err(),
+        Settings::confirmed("   ", 2, caps.clone(), &now(), None).is_err(),
         "no instruction"
     );
     assert!(
-        Settings::confirmed("fix the flakes", 0, caps.clone(), &now()).is_err(),
+        Settings::confirmed("fix the flakes", 0, caps.clone(), &now(), None).is_err(),
         "no room"
     );
     let past = Caps {
@@ -89,10 +89,10 @@ fn settings_nothing_could_run_under_are_refused_at_start() {
         ..Caps::default()
     };
     assert!(
-        Settings::confirmed("fix the flakes", 2, past, &now()).is_err(),
+        Settings::confirmed("fix the flakes", 2, past, &now(), None).is_err(),
         "already over"
     );
-    assert!(Settings::confirmed("fix the flakes", 2, caps, &now()).is_ok());
+    assert!(Settings::confirmed("fix the flakes", 2, caps, &now(), None).is_ok());
 }
 
 // ---------------------------------------------------------------------------
@@ -216,10 +216,12 @@ fn the_first_cap_reached_stops_new_picks_and_says_which() {
         until: Some(Timestamp::from_rfc3339("2026-10-12T11:00:00.000Z")),
         spend_cap_micros: Some(30_000_000),
         session_cap: Some(5),
+        weekly_cap_percent: None,
     };
     let under = Spent {
         micros: 29_999_999,
         started: 4,
+        weekly_percent: None,
     };
     assert_eq!(
         caps.first_reached(&now(), &under),
@@ -239,6 +241,7 @@ fn the_first_cap_reached_stops_new_picks_and_says_which() {
     let five = Spent {
         micros: 0,
         started: 5,
+        weekly_percent: None,
     };
     assert_eq!(caps.first_reached(&now(), &five), Some(Cap::Sessions));
     assert_eq!(
@@ -259,6 +262,7 @@ fn a_reached_cap_pauses_and_resume_waits_until_a_person_raises_it() {
     let spent = Spent {
         micros: 0,
         started: 3,
+        weekly_percent: None,
     };
     assert_eq!(three.first_reached(&now(), &spent), Some(Cap::Sessions));
     let paused = State::Running.paused().expect("the cap pauses it");
@@ -276,6 +280,54 @@ fn a_reached_cap_pauses_and_resume_waits_until_a_person_raises_it() {
         paused.resumed_under(&four, &now(), &spent),
         Ok(State::Running)
     );
+}
+
+/// The weekly cap is held to a reading, never to a count of ours: **no reading never reaches it**,
+/// and a reading at or past the cap does. It comes after the time, the money and the count.
+#[test]
+fn the_weekly_cap_is_reached_by_a_reading_at_or_past_it_and_never_by_none() {
+    let week = |percent| Spent { weekly_percent: percent, ..Spent::default() };
+    let eighty = Caps { weekly_cap_percent: Some(80), ..Caps::default() };
+    assert_eq!(eighty.first_reached(&now(), &week(Some(79))), None, "below it");
+    assert_eq!(eighty.first_reached(&now(), &week(Some(80))), Some(Cap::Weekly), "at it");
+    assert_eq!(eighty.first_reached(&now(), &week(Some(100))), Some(Cap::Weekly), "past it");
+    assert_eq!(eighty.first_reached(&now(), &week(None)), None, "no reading is not a reading");
+    assert_eq!(Caps::default().first_reached(&now(), &week(Some(100))), None, "no cap, none reached");
+    assert_eq!(Cap::Weekly.as_stored(), "weekly");
+    assert_eq!(Cap::from_stored("weekly"), Some(Cap::Weekly));
+
+    let all = Caps {
+        session_cap: Some(1),
+        weekly_cap_percent: Some(10),
+        ..Caps::default()
+    };
+    let both = Spent { started: 1, weekly_percent: Some(50), ..Spent::default() };
+    assert_eq!(all.first_reached(&now(), &both), Some(Cap::Sessions), "the count says first");
+}
+
+#[test]
+fn a_weekly_cap_already_past_is_refused_at_start_and_resume_waits_until_it_is_raised() {
+    let eighty = Caps { weekly_cap_percent: Some(80), ..Caps::default() };
+    assert_eq!(
+        Settings::confirmed("fix the flakes", 2, eighty.clone(), &now(), Some(85)).unwrap_err(),
+        Unsettable::AlreadyOver(Cap::Weekly)
+    );
+    assert_eq!(
+        Unsettable::AlreadyOver(Cap::Weekly).to_string(),
+        "weekly usage is already past that"
+    );
+    assert!(Settings::confirmed("fix the flakes", 2, eighty.clone(), &now(), Some(79)).is_ok());
+    assert!(Settings::confirmed("fix the flakes", 2, eighty.clone(), &now(), None).is_ok(), "no reading");
+
+    let paused = State::Running.paused().expect("the cap pauses it");
+    let spent = Spent { weekly_percent: Some(85), ..Spent::default() };
+    assert_eq!(
+        paused.resumed_under(&eighty, &now(), &spent),
+        Err(NotResumed::Capped(Cap::Weekly))
+    );
+    let ninety = Caps { weekly_cap_percent: Some(90), ..Caps::default() };
+    assert_eq!(paused.resumed_under(&ninety, &now(), &spent), Ok(State::Running));
+    assert_eq!(Cap::Weekly.to_string(), "the weekly usage cap is reached");
 }
 
 // ---------------------------------------------------------------------------

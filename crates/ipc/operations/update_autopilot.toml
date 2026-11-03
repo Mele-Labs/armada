@@ -10,5 +10,5 @@ notes = """
 
 **It never changes the boxes.** `on_autopilot` and `decisions` in the body are ignored: only `start_autopilot` keeps them, since the Cockpit's Edit caps sends none.
 
-A 409 `fleet.autopilot_stopped` where it is stopped: start it again instead. A 422 `fleet.autopilot_unsettable` for a blank instruction, `at_once` of 0, or `until` already past, and `fleet.no_autopilot` where there is none.
+A 409 `fleet.autopilot_stopped` where it is stopped: start it again instead. A 422 `fleet.autopilot_unsettable` for a blank instruction, `at_once` of 0, `until` already past, or a `weekly_cap_percent` the account's weekly usage is already at or past (no reading, or one from a window that has reset, never is), and `fleet.no_autopilot` where there is none.
 """

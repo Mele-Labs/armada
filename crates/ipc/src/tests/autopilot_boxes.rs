@@ -9,8 +9,27 @@ const BEFORE: &[u8] = br#"{"instruction":"fix what is open","at_once":2}"#;
 #[test]
 fn a_body_from_before_the_boxes_reads_as_backlog_on_running_off_and_no_decisions() {
     let read: AutopilotSettings = decode_body("settings", BEFORE).expect("reads");
-    assert_eq!(read.on_autopilot, AutopilotWork { backlog: true, running: false });
+    assert_eq!(read.on_autopilot, AutopilotWork { backlog: true, running: false, reports: false });
     assert!(read.decisions.is_empty());
+    assert_eq!(read.weekly_cap_percent, None);
+}
+
+/// The reports box and the weekly cap came after the boxes: a body that has neither reads as off
+/// and no cap, and one that has them keeps them, the cap under its own word.
+#[test]
+fn a_body_from_before_the_reports_box_reads_as_off_and_the_weekly_cap_round_trips() {
+    let old = br#"{"instruction":"x","at_once":1,"on_autopilot":{"backlog":true,"running":false}}"#;
+    let read: AutopilotSettings = decode_body("settings", old).expect("reads");
+    assert!(!read.on_autopilot.reports);
+    assert_eq!(read.weekly_cap_percent, None);
+    assert!(!encode(&read).expect("writes").contains("weekly_cap_percent"), "an absent cap is left out");
+
+    let body = br#"{"instruction":"x","at_once":1,"weekly_cap_percent":80,"on_autopilot":{"backlog":false,"running":false,"reports":true}}"#;
+    let read: AutopilotSettings = decode_body("settings", body).expect("reads");
+    assert!(read.on_autopilot.reports);
+    assert_eq!(read.weekly_cap_percent, Some(80));
+    assert!(encode(&read).expect("writes").contains(r#""weekly_cap_percent":80"#));
+    assert_eq!(encode(&crate::AutopilotCap::Weekly).expect("writes"), r#""weekly""#);
 }
 
 #[test]
@@ -22,7 +41,7 @@ fn every_kind_of_decision_round_trips_under_its_own_word() {
     );
     let read: AutopilotSettings = decode_body("settings", body.as_bytes()).expect("reads");
     assert_eq!(read.decisions.len(), words.len());
-    assert_eq!(read.on_autopilot, AutopilotWork { backlog: false, running: true });
+    assert_eq!(read.on_autopilot, AutopilotWork { backlog: false, running: true, reports: false });
     let sent = encode(&read).expect("writes");
     for word in words {
         assert!(sent.contains(&format!("\"{word}\"")), "{word}");
