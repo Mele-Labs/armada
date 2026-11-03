@@ -7,12 +7,14 @@ import type {
   AnswerWaiting,
   ApprovePlan,
   BeginSession,
+  ChangeWaiting,
   DismissWaiting,
   KeptStyles,
   SendPlanChanges,
   SendSessionMessage,
   SessionThread as WireThread,
   StartSessionRun,
+  StartWaitingNow,
   TuneSession,
 } from "@armada/protocol";
 
@@ -92,6 +94,8 @@ export type Acts = {
   close: (body: JobOnly) => Promise<void>;
   tune: (body: TuneSession) => Promise<void>;
   run: (body: StartSessionRun) => Promise<void>;
+  changeWaiting: (body: ChangeWaiting) => Promise<void>;
+  startWaiting: (body: StartWaitingNow) => Promise<void>;
   /** Answers the new Job. */
   fork: (body: JobOnly) => Promise<PhoneSession>;
 };
@@ -120,6 +124,8 @@ export function actsOn(machine: Machine, reread: () => void): Acts {
     close: send("/api/sessions/close"),
     tune: send("/api/sessions/tune"),
     run: send("/api/sessions/run/start"),
+    changeWaiting: send("/api/sessions/change_waiting"),
+    startWaiting: send("/api/sessions/start_waiting"),
     fork: async (body) => {
       const { session } = (await (
         await call(machine, "/api/sessions/fork", {

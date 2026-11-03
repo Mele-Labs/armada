@@ -4,6 +4,7 @@
 
 import type {
   AnswerWaiting,
+  ChangeWaiting,
   DismissWaiting,
   SessionRecord,
   SessionRow,
@@ -136,7 +137,9 @@ function settle(mac: FixtureMac, thread: SessionThread): void {
     if (at >= 0) mac.live.splice(at, 1);
   } else if (at >= 0) {
     const was = mac.live[at]!;
-    const waiting = (record.waiting_for ?? []).length > 0 || record.hosted?.asked !== undefined;
+    const waits = record.waits !== undefined;
+    const waiting =
+      !waits && ((record.waiting_for ?? []).length > 0 || record.hosted?.asked !== undefined);
     const next: PhoneSession = {
       ...was,
       held: record.hosted?.start !== undefined,
@@ -145,6 +148,7 @@ function settle(mac: FixtureMac, thread: SessionThread): void {
     };
     if (waiting) next.waiting_since = was.waiting_since ?? now();
     else delete next.waiting_since;
+    if (!waits) delete next.starts_when;
     mac.live[at] = next;
   }
   mac.needs = mac.live.filter((one) => one.waiting);
@@ -164,7 +168,7 @@ const push = (thread: SessionThread, row: SessionRow) => thread.rows.push(row);
 
 /** What each Job act does to the fixture, as Fleet would. Answers undefined for 204 with no body. */
 function act(mac: FixtureMac, path: string, sent: Record<string, unknown>): Answered | undefined {
-  const id = String(sent["session_id"] ?? "");
+  const id = String(sent["session_id"] ?? sent["waiting_session"] ?? "");
   const thread = mac.threads[id];
   if (!path.startsWith("/api/sessions/") || path === "/api/sessions/answer") return undefined;
   if (thread === undefined) return said(404, "No Job has that id on this Mac.");
@@ -196,6 +200,50 @@ function act(mac: FixtureMac, path: string, sent: Record<string, unknown>): Answ
         },
         text: message,
       });
+      return answered();
+    }
+    case "/api/sessions/change_waiting": {
+      if (record.waits === undefined) return said(409, `job ${id} does not wait.`);
+      const change = sent as ChangeWaiting;
+      if (change.held !== undefined) record.waits.held = change.held;
+      if (change.condition !== undefined) {
+        record.waits.condition = change.condition;
+        delete record.waits.part_title;
+        if (change.condition.kind === "group_done" || change.condition.kind === "task_done") {
+          const part =
+            change.condition.kind === "group_done" ? change.condition.group : change.condition.task;
+          const groups = mac.threads[record.waits.on.id]?.session.plan?.groups ?? [];
+          record.waits.part_title =
+            groups.find((one) => one.id === part)?.title ??
+            groups.flatMap((one) => one.tasks).find((one) => one.id === part)?.text ??
+            part;
+        }
+      }
+      return answered();
+    }
+    case "/api/sessions/start_waiting": {
+      if (record.waits === undefined) return said(409, `job ${id} does not wait.`);
+      const { held, brief } = record.waits;
+      delete record.waits;
+      if (held)
+        job.start = {
+          asks_delivery: true,
+          message: brief,
+        };
+      else {
+        job.turn = {
+          state: "working",
+        };
+        push(thread, {
+          kind: "message",
+          id: rowId(id),
+          at: now(),
+          from: {
+            kind: "you",
+          },
+          text: brief,
+        });
+      }
       return answered();
     }
     case "/api/sessions/message":
