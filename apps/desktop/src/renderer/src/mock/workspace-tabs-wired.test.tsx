@@ -1,4 +1,4 @@
-// The Workflows page on a repository in two Workspaces, through `App`: a group of tabs for the default, one for each Workspace that holds the repository and one for the repositories; the warning
+// The Workflows page on a repository in two Workspaces, through `App`: the row picked in the list sets the level, so the repository's own copy edits that repository and Armada's edits the default; the warning
 // where Platform and Mobile both change a rule; and the buttons that keep either one's rule as the repository's own. The reads and saves are `slices/lifecycles.ts`; the model is `lifecycle-editing`.
 
 import { expect, test, vi } from "vitest";
@@ -10,11 +10,21 @@ import { workspaceTabs } from "./scenarios/workspace-tabs";
 unmountAfterEach();
 
 const API = "01M1CNPKTV0018H2M1CXDNBK0C";
-const RUNS_IN = () =>
+const ARMADA = () =>
   page.getByRole("group", {
-    name: "Runs in",
+    name: "Shipped with Armada",
     exact: true,
   });
+const API_COPY = () =>
+  page
+    .getByRole("group", {
+      name: "api repository",
+      exact: true,
+    })
+    .getByRole("button", {
+      name: "feature",
+      exact: true,
+    });
 const LANES = () =>
   page.getByRole("region", {
     name: "Workflow",
@@ -27,46 +37,56 @@ const WARNING = () =>
     exact: true,
   });
 
-/** The page on api, whose tab is open with Mark ready picked. */
+/** The page on api, with api's own copy of feature picked in the list. */
 async function onApi(): Promise<ReturnType<typeof mount>> {
   await page.viewport(2000, 1200);
   const app = mount(workspaceTabs);
   await onScreen();
   await toSystemPage("Workflows");
   await expect.element(LANES()).toBeVisible();
-  await RUNS_IN()
-    .getByRole("tab", {
-      name: "api",
-      exact: true,
-    })
-    .click();
+  await API_COPY().click();
   return app;
 }
 
-test("the Runs in row has the default, then a tab for Platform and one for Mobile, then api, web and ios", async () => {
-  await onApi();
+test("api's copy in the list says edits there change api only, and Armada's row says the default", async () => {
+  const app = await onApi();
+  const saved = vi.spyOn(app.api, "saveLifecyclePiece");
+  await expect.element(page.getByText("Edits here change api only")).toBeVisible();
+  expect(page.getByText("Edits here change every Workspace", { exact: false }).elements()).toHaveLength(0);
+  // An edit made there is kept under api, not under a Workspace or the default.
+  await LANES()
+    .getByRole("button", {
+      name: "Mark ready",
+      exact: true,
+    })
+    .click();
+  await PANEL.getByRole("button", {
+    name: "Use Platform's",
+    exact: true,
+  }).click();
+  await expect.poll(() => saved.mock.calls.length).toBe(1);
+  expect(saved.mock.calls[0]![0]).toMatchObject({
+    piece: {
+      rule: {
+        scope: {
+          kind: "within",
+          id: API,
+        },
+      },
+    },
+  });
+  await ARMADA()
+    .getByRole("button", {
+      name: "feature",
+      exact: true,
+    })
+    .click();
   await expect
     .element(
-      RUNS_IN().getByRole("tab", {
-        name: "Mobile",
-        exact: true,
-      }),
+      page.getByText("Edits here change every Workspace and repository that keeps the default"),
     )
     .toBeVisible();
-  expect(
-    RUNS_IN()
-      .getByRole("tab")
-      .elements()
-      // A Workspace that changes something carries a mark that names it ("Workspace Platform, changed"), which is not part of the tab's name.
-      .map((one) => one.textContent?.replace(/Workspace .*$/, "").trim()),
-  ).toEqual([
-    "Default",
-    "Platform",
-    "Mobile",
-    "api",
-    "web",
-    "ios",
-  ]);
+  expect(page.getByText("Edits here change api only").elements()).toHaveLength(0);
 });
 
 test("api warns on Mark ready, where Platform and Mobile both change it, and says it runs the Default's", async () => {
@@ -97,32 +117,6 @@ test("api warns on Mark ready, where Platform and Mobile both change it, and say
       }),
     )
     .toBeVisible();
-});
-
-test("web, which only Platform holds, and the Workspace tabs themselves do not warn", async () => {
-  await onApi();
-  await expect.element(WARNING()).toBeVisible();
-  for (const name of [
-    "web",
-    "Platform",
-    "Mobile",
-  ]) {
-    await RUNS_IN()
-      .getByRole("tab", {
-        name,
-        exact: true,
-      })
-      .click();
-    await expect
-      .element(
-        RUNS_IN().getByRole("tab", {
-          name,
-          exact: true,
-        }),
-      )
-      .toHaveAttribute("aria-selected", "true");
-    expect(WARNING().elements()).toHaveLength(0);
-  }
 });
 
 test("Use Mobile's keeps Mobile's rule as api's own, and the warning and the line are gone", async () => {

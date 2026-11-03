@@ -1,15 +1,13 @@
 import { Clock, ListPlus, Plus, Split, Trash2 } from "lucide-react";
-import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { LifecycleRule } from "@armada/protocol";
 
 import { Button } from "../../primitives/Button/Button";
 import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
-import { Tabs } from "../../primitives/Tabs/Tabs";
-import type { TabsItem } from "../../primitives/Tabs/Tabs";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { changedAt, editorLanes, stepsOf } from "../LaneCanvas/build";
+import { editorLanes, stepsOf } from "../LaneCanvas/build";
 import {
   ruleBetween,
   uniqueId,
@@ -63,8 +61,6 @@ import {
   stepDiffers,
   stepsAt,
   whenSaid,
-  workspaceLevel,
-  workspacesOf,
 } from "../LaneCanvas/model";
 import type {
   Autonomy,
@@ -96,16 +92,15 @@ import type { ManagedStep, ManagedWorkflow, WorkflowActAnswer, WorkflowRef } fro
 
 /**
  * The Workspace a workflow is edited in: its steps on top of a lane for each lifecycle it uses, and rules as edges. **The host keeps it**: from the pieces Fleet serves, or from a scenario's mock.
- * **Runs in** is a row of tabs over the canvas, one for each level a value can be set at, as a site builder edits a breakpoint: **Default**, the workflow as it runs anywhere no Workspace or
- * repository changed it; All of the Workspace, the default with the Workspace's changes; and each repository, the Workspace's with its own. A tab draws the lanes as the workflow runs there, marks the nodes
- * that differ from it down, and what is edited on it is an override for that level alone, so a tab says in a line what an edit there changes. A tab that differs from the level above carries the changed
- * glyph. The panel shows the picked tab's one value, and says where it differs from the level above. **Under the tabs is the box that tells an agent what to change** (`above`), always on show.
+ * **The row picked in the workflow list sets the level an edit lands on**, as a site builder edits a breakpoint: a repository's own copy edits that repository, and Armada's, Yours and a read-only row edit the **default**, the workflow as it runs anywhere no Workspace or
+ * repository changed it. The canvas draws the lanes as the workflow runs at that level, marks the nodes that differ from the level above, and what is edited is an override for that level alone, so a slim row above it says in a line what an edit there changes. A node
+ * that differs from the level above carries the changed glyph. The panel shows the one value, and says where it differs from the level above. **Under the title is the box that tells an agent what to change** (`above`), always on show.
  *
  * **What is picked opens in the app's side panel**, over the canvas and as wide as the pull request's, drawn into the slot the host gives (`LanePanel`), since the panel is the host's and this is a component:
  * its settings as live fields, saved as they are changed, or a box to tell an agent. **Each row has its label once**, and the field in it is named by that label. A rule's When and a step's Ends when are two
- * dropdowns, the thing and then its moment or state. **There is no mode to enter**: every field of every rule, state and step is live on every tab and every workflow, a rule a change
- * waiting on Approve would add excepted, and every one where the host keeps nothing a change could be saved to (`readOnly`). Hand editing is on the canvas too: a toolbar over what is picked, whose Edit goes to the fields, and a connector from one node to another. Adding and connecting work on every tab,
- * and what a tab adds is that level's own: it runs there and under it, and the tab can delete it. What a level above holds is skipped with a step's Passed over when. **The first change on Armada's workflow makes the person's own copy, quietly**: the change lands on it, and nothing here says copy.
+ * dropdowns, the thing and then its moment or state. **There is no mode to enter**: every field of every rule, state and step is live on every level and every workflow, a rule a change
+ * waiting on Approve would add excepted, and every one where the host keeps nothing a change could be saved to (`readOnly`). Hand editing is on the canvas too: a toolbar over what is picked, whose Edit goes to the fields, and a connector from one node to another. Adding and connecting work at every level,
+ * and what a level adds is its own: it runs there and under it, and the level can delete it. What a level above holds is skipped with a step's Passed over when. **The first change on Armada's workflow makes the person's own copy, quietly**: the change lands on it, and nothing here says copy.
  */
 export type WorkspaceEditing = {
   value: Workspace;
@@ -272,8 +267,12 @@ export function WorkspaceEditor({
   const workspace = editing.value;
   const [picked, setPicked] = useState<LanePick | undefined>();
   const [mode, setMode] = useState<Mode>("fields");
-  // The tab: the default's, the Workspace's, or one repository's. The page opens on the default.
-  const [scope, setScope] = useState(DEFAULT);
+  // The level an edit lands on is the row picked in the list: a repository's own copy is that repository's, and Armada's and Yours are the default's.
+  const scope =
+    workflow.source === "repository" &&
+    workspace.repositories.some((one) => one.id === workflow.manifestId)
+      ? workflow.manifestId!
+      : DEFAULT;
   const repository = workspace.repositories.find((one) => one.id === scope);
   /** The level a tab below the default sets: absent on the default, which has no level above it. */
   const level: Level | undefined =
@@ -297,12 +296,6 @@ export function WorkspaceEditor({
                 : `Use ${levelName(workspace, above)}'s`;
             },
           };
-  useEffect(
-    () => setScope(DEFAULT),
-    [
-      workflow.id,
-    ],
-  );
   // The steps are held while a copy's are read, so the canvas is not taken away and drawn again as the person's own copy opens.
   const read = useRef(workflow.steps);
   if (workflow.steps.length > 0) read.current = workflow.steps;
@@ -445,6 +438,9 @@ export function WorkspaceEditor({
 
   // The panel closed by its own close, or by something else opened in it, lets go of the pick.
   const was = useRef(false);
+  // A repository's own copy is the definition its steps are read from, so a step of it is edited in the copy and not as a layer over it.
+  const stepAt = workflow.source === "repository" ? DEFAULT : scope;
+  const stepLevel = stepAt === DEFAULT ? undefined : level;
   useEffect(() => {
     if (was.current && !panel.open) {
       setPicked(undefined);
@@ -779,7 +775,7 @@ export function WorkspaceEditor({
       const placed = stepsOf(workspace, workflow.id, steps);
       // A step added at this level is this level's own, so its fields are written to it and not as a change to the level above.
       const added = (place?.added ?? []).find((one) => one.id === step.id);
-      const mine = added !== undefined && added.scope === scope;
+      const mine = added !== undefined && added.scope === stepAt;
       /** A step as it reads at a level: its name, words, what ends it and what passes it over. */
       const readAt = (at: string) => {
         const laid = stepsOf(workspace, workflow.id, steps, at).find(
@@ -802,8 +798,8 @@ export function WorkspaceEditor({
           endsOn: laid.endsOn,
         };
       };
-      const here = readAt(scope);
-      const upper = level === undefined ? undefined : readAt(levelsOf(scope, workspace)[1]!);
+      const here = readAt(stepAt);
+      const upper = stepLevel === undefined ? undefined : readAt(levelsOf(stepAt, workspace)[1]!);
       const above = (): StepFields => ({
         ...(upper === undefined
           ? {}
@@ -828,7 +824,7 @@ export function WorkspaceEditor({
             }),
       });
       const layer = (patch: StepFields) =>
-        change(withStepLayer(workspace, workflow.id, step.id, scope, patch, above()));
+        change(withStepLayer(workspace, workflow.id, step.id, stepAt, patch, above()));
       const waits = (which: "ends" | "passedOver") => (labelledBy: string) => (
         <WaitsPair
           labelledBy={labelledBy}
@@ -836,7 +832,7 @@ export function WorkspaceEditor({
           value={here[which]}
           onChange={(next) => {
             const on = endsOnOf(next, subjects);
-            if (level === undefined || mine)
+            if (stepLevel === undefined || mine)
               change(withStepWhen(workspace, workflow.id, placed, step.id, which, next, on));
             else
               layer(
@@ -856,7 +852,7 @@ export function WorkspaceEditor({
           }}
         />
       );
-      const own = level !== undefined && !mine && stepDiffers(place, step.id).includes(scope);
+      const own = stepLevel !== undefined && !mine && stepDiffers(place, step.id).includes(stepAt);
       // Where lifecycles and rules are pieces, what the workflow's definition holds is saved by the page: the name and order of its steps on the default. What a level below the default would change of a step, and
       // what ends it or passes it over, have nothing to be kept in, so they are not offered.
       if (pieces) {
@@ -868,7 +864,7 @@ export function WorkspaceEditor({
           },
           index,
           {
-            ...(level === undefined
+            ...(stepLevel === undefined
               ? {
                   name: (labelledBy: string) => (
                     <Field
@@ -888,7 +884,7 @@ export function WorkspaceEditor({
               : {
                   fixed: true as const,
                 }),
-            keep: `${workflow.id}/${step.id}/${scope}`,
+            keep: `${workflow.id}/${step.id}/${stepAt}`,
           },
         );
       }
@@ -912,7 +908,7 @@ export function WorkspaceEditor({
                         label,
                       }),
                     )
-                  : level === undefined
+                  : stepLevel === undefined
                     ? writeSteps({
                         kind: "label",
                         id: step.id,
@@ -930,7 +926,7 @@ export function WorkspaceEditor({
             : {
                 passedOver: waits("passedOver"),
               }),
-          ...(level === undefined
+          ...(stepLevel === undefined
             ? {}
             : {
                 save: async (words: string) => (
@@ -945,14 +941,14 @@ export function WorkspaceEditor({
                       }),
                   true
                 ),
-                keep: `${workflow.id}/${step.id}/${scope}`,
+                keep: `${workflow.id}/${step.id}/${stepAt}`,
               }),
           after:
-            own && level !== undefined ? (
+            own && stepLevel !== undefined ? (
               <Changed
-                name={level.name}
-                back={level.back()}
-                onUseAbove={() => change(withoutStepLayer(workspace, workflow.id, step.id, scope))}
+                name={stepLevel.name}
+                back={stepLevel.back()}
+                onUseAbove={() => change(withoutStepLayer(workspace, workflow.id, step.id, stepAt))}
               />
             ) : null,
         },
@@ -966,7 +962,7 @@ export function WorkspaceEditor({
         workspace={workspace}
         lifecycle={lifecycle}
         state={state}
-        level={level}
+        level={stepLevel}
         onLabel={(label) => change(withStateLabelAt(workspace, lane, item, scope, label))}
         onReads={(read) => change(withReads(workspace, lane, item, read))}
         onUseAbove={() => change(withoutStateOverride(workspace, lane, item, scope))}
@@ -983,46 +979,6 @@ export function WorkspaceEditor({
     pick(undefined);
     return true;
   };
-
-  // A tab that differs from the level above carries the changed glyph, and names what it is changed for.
-  const tab = (
-    id: string,
-    label: string,
-    name: string | undefined,
-    workspaceName?: string,
-  ): TabsItem => {
-    const changed = name !== undefined && changedAt(workspace, workflow.id, defined, id);
-    const hint =
-      workspaceName === undefined
-        ? changed
-          ? `Changed for ${name}`
-          : undefined
-        : changed
-          ? `Workspace ${workspaceName}, changed`
-          : `Workspace ${workspaceName}`;
-    return {
-      id,
-      label,
-      ...(changed
-        ? {
-            icon: Split,
-          }
-        : {}),
-      ...(hint === undefined
-        ? {}
-        : {
-            hint,
-          }),
-    };
-  };
-  /** The default's tab; the Workspaces' that hold the repository the page is on; then the repositories of them. A repository in no Workspace has the first and the last alone. */
-  const groups: TabsItem[][] = [
-    [
-      tab(DEFAULT, "Default", undefined),
-    ],
-    workspacesOf(workspace).map((one) => tab(workspaceLevel(one.id), one.name, one.name, one.name)),
-    workspace.repositories.map((one) => tab(one.id, one.name, one.name)),
-  ].filter((one) => one.length > 0);
 
   const content =
     picked === undefined ? null : mode === "tell" ? (
@@ -1062,26 +1018,9 @@ export function WorkspaceEditor({
         } as CSSProperties
       }
     >
-      <div className="armada-wm-scope" role="group" aria-label="Runs in">
-        <span className="armada-wm-scope__label" aria-hidden="true">
-          Runs in
-        </span>
-        <div className="armada-wm-scope__tabs">
-          {groups.map((items, at) => (
-            <Fragment key={items[0]!.id}>
-              {at === 0 ? null : (
-                <span
-                  className="armada-wm-scope__rule"
-                  role="separator"
-                  aria-orientation="vertical"
-                />
-              )}
-              <Tabs icons items={items} value={scope} onChange={setScope} />
-            </Fragment>
-          ))}
-        </div>
+      <div className="armada-wm-scope">
         <p className="armada-wm-scope__says">
-          {SAYS(scope, levelName(workspace, scope), repository?.name)}
+          {SAYS(scope, repository?.name)}
         </p>
         {editing.readOnly === true ? null : (
           <Button
@@ -1211,13 +1150,11 @@ function LifecycleFacts({
   );
 }
 
-/** What an edit on a tab changes, said under the tabs. */
-const SAYS = (scope: string, workspace: string, repository: string | undefined): string =>
+/** What an edit on the picked copy changes, said above the canvas. */
+const SAYS = (scope: string, repository: string | undefined): string =>
   scope === DEFAULT
     ? "Edits here change every Workspace and repository that keeps the default"
-    : isWorkspaceLevel(scope)
-      ? `Edits here change ${workspace}'s repositories that keep ${workspace}'s`
-      : `Edits here change ${repository ?? scope} only`;
+    : `Edits here change ${repository ?? scope} only`;
 
 /** The box that tells an agent what to change about what is picked, answered with the diff the page draws. */
 function TellBox({
