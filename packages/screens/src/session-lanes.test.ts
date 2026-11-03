@@ -237,6 +237,57 @@ it("draws no lanes for a Job that holds no instance", () => {
   ).toBeUndefined();
 });
 
+it("draws the steps of a workflow for a Job that holds no instance yet, and no lane under them", () => {
+  const lanes = lanesOfJob({
+    held: {
+      session_id: "job",
+      lifecycles: [],
+      instances: [],
+      moves: [],
+    },
+    working: true,
+    workflow: {
+      name: "feature",
+      steps: STEPS,
+      at: 0,
+      began: true,
+    },
+  })!;
+  expect(lanes).toBeDefined();
+  expect(lanes.at).toBe(0);
+  const drawn = jobLanes(lanes.job, lanes);
+  expect(drawn.lanes.map((lane) => lane.title)).toEqual([
+    "feature",
+  ]);
+  expect(
+    drawn.lanes[0]!.nodes.filter(
+      (node) => node.role === "step" && node.kind !== "start" && node.kind !== "end",
+    ).map((node) => node.label),
+  ).toEqual([
+    "Plan",
+    "Land",
+  ]);
+});
+
+it("draws no lanes for a workflow with no steps and no instance", () => {
+  expect(
+    lanesOfJob({
+      held: {
+        session_id: "job",
+        lifecycles: [],
+        instances: [],
+        moves: [],
+      },
+      working: false,
+      workflow: {
+        name: "feature",
+        steps: [],
+        began: false,
+      },
+    }),
+  ).toBeUndefined();
+});
+
 it("places each state after the ones that lead to it, and never beside another in its lane", () => {
   const cols = columnsOf(ticket);
   expect([
