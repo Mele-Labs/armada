@@ -91,7 +91,8 @@ where
             extra = self.rail_extra(&id).await;
             facts = Facts::of(&record, extra);
         }
-        let skips = rail::skipped(&steps, &facts);
+        // A Job past its last step has none to skip.
+        let skips = if record.workflow_step.is_some() { rail::skipped(&steps, &facts) } else { Vec::new() };
         let stalled = rail::stalled(&steps, &record, extra);
         // A delivering step gated by a lifecycle is not left when its end comes, so the agent is woken here.
         let lifted = match record.workflow_step.map(|at| at as usize).and_then(|at| steps.get(at).map(|step| (at, step))) {

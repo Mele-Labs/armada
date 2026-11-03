@@ -2247,8 +2247,9 @@ test('gh pr create runs once the pre-PR Checks have passed', async ($, on) => {
   expect(out.deny).toBeUndefined()
 })
 
+// **Said once**: a pre-flight that never ran must not look like one that passed.
 for (const prePr of ['down', 'slow', 'refused'] as const) {
-  test(`gh pr create runs when Fleet is ${prePr}`, async ($, on) => {
+  test(`gh pr create is turned away, saying the pre-PR checks could not run, when Fleet is ${prePr}`, async ($, on) => {
     const seen = world(on, { prePr })
     let ranIt = 0
     on('tool.call', { tool: 'Bash' }, () => {
@@ -2258,7 +2259,27 @@ for (const prePr of ['down', 'slow', 'refused'] as const) {
     await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
     const call = $.tool.call({ tool: 'Bash', command: 'gh pr create --title t' })
     await seen.clock.advance(10 * 60_000)
-    const out = await call
+    const refused = await call
+
+    expect(ranIt).toBe(0)
+    expect(JSON.stringify(refused)).toContain('pre-PR checks could not run')
+    expect(JSON.stringify(refused)).toContain('gh pr create again')
+  })
+}
+
+// A hung request holds up the next in this harness, so the second attempt is shown where Fleet answers at once.
+for (const prePr of ['down', 'refused'] as const) {
+  test(`the second gh pr create in a session opens the pull request when Fleet was ${prePr}`, async ($, on) => {
+    const seen = world(on, { prePr })
+    let ranIt = 0
+    on('tool.call', { tool: 'Bash' }, () => {
+      ranIt += 1
+      return { result: { stdout: '', stderr: '', interrupted: false }, text: '' }
+    })
+    await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+    await $.tool.call({ tool: 'Bash', command: 'gh pr create --title t' })
+    const out = await $.tool.call({ tool: 'Bash', command: 'gh pr create --title t' })
+    await seen.clock.settle()
 
     expect(ranIt).toBe(1)
     expect(out.deny).toBeUndefined()

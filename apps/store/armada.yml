@@ -16,6 +16,13 @@ setup:
     - bootstrap
 
 checks:
+  # What CI's `format` job runs over the whole tree, asked before a pull request
+  # opens. `apps/desktop/armada.yml` says why it is a `pre_pr` Check and why the
+  # name is not `format`.
+  format_check:
+    run: pnpm -C ../.. format:check
+    runs_at: pre_pr
+
   typecheck:
     # `--noEmit`, no `narrow`: `tsc` reads whatever its tsconfig includes.
     run: pnpm typecheck

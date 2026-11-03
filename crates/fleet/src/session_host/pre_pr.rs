@@ -6,6 +6,9 @@
 //!
 //! **Quiet where it cannot tell**: a Job with no slot, or changes that will not read, answers
 //! `passed`. The pull request is then opened as it was before this existed, and CI is the gate.
+//!
+//! **Not where the slot has uncommitted changes**: the Checks read files on disk, so they would
+//! pass on work the pull request will not carry. The agent is told to commit, and no Check runs.
 
 use std::path::Path;
 use std::time::Duration;
@@ -46,6 +49,62 @@ pub(crate) async fn ran(checks: Vec<ToRun>) -> PrePrChecked {
         });
     }
     PrePrChecked { passed: ran.iter().all(|one| one.passed), says: says(&ran), checks: ran }
+}
+
+/// How many dirty paths the agent is told by name.
+const DIRTY_LISTED: usize = 10;
+
+/// **The Checks read the slot's files, and the pull request carries its commits**: an agent that
+/// formatted and did not commit would pass here and open a pull request with the unformatted code.
+/// So a slot with any uncommitted change that git does not ignore (untracked files too, since a new
+/// file left out of the commit is left out of the pull request) answers `passed: false` and runs
+/// nothing. `None` where the slot is clean or git will not say, so the Checks run as before.
+pub(crate) fn commit_first(slot: &Path) -> Option<PrePrChecked> {
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(slot)
+        .args(["--no-optional-locks", "status", "--porcelain", "-z", "--untracked-files=all"])
+        .output()
+        .ok()
+        .filter(|out| out.status.success())?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    let mut dirty: Vec<String> = Vec::new();
+    let mut entries = text.split('\0');
+    while let Some(entry) = entries.next() {
+        if entry.len() > 3 {
+            dirty.push(entry[3..].to_string());
+        }
+        // A rename or copy names its old path in the entry after.
+        if entry.starts_with('R') || entry.starts_with('C') {
+            entries.next();
+        }
+    }
+    if dirty.is_empty() {
+        return None;
+    }
+    let mut says = String::from(
+        "Not opened: this repository checks a change before its pull request opens, and the Checks read the files \
+         on disk while the pull request carries only what is committed. Commit these changes, then run gh pr create again:\n",
+    );
+    for path in dirty.iter().take(DIRTY_LISTED) {
+        says.push_str(&format!("  {path}\n"));
+    }
+    if dirty.len() > DIRTY_LISTED {
+        says.push_str(&format!("  and {} more\n", dirty.len() - DIRTY_LISTED));
+    }
+    Some(PrePrChecked { passed: false, says, checks: Vec::new() })
+}
+
+/// `ran`, once the slot's changes are committed. No Check to run asks nothing of the slot.
+pub(crate) async fn ran_in(slot: std::path::PathBuf, checks: Vec<ToRun>) -> PrePrChecked {
+    if checks.is_empty() {
+        return ran(checks).await;
+    }
+    let held = tokio::task::spawn_blocking(move || commit_first(&slot)).await.ok().flatten();
+    match held {
+        Some(answer) => answer,
+        None => ran(checks).await,
+    }
 }
 
 fn passed(exit: &Exit, expect: i64) -> bool {
@@ -133,6 +192,6 @@ where
                 })
             })
             .collect();
-        Ok(ran(to_run).await)
+        Ok(ran_in(std::path::PathBuf::from(&slot), to_run).await)
     }
 }
