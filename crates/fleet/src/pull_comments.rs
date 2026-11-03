@@ -1,6 +1,6 @@
 //! Every comment on a pull request, filed in the scratch folder of the Job that holds it, and one
 //! line to that Job when a human reviewer said something new. The agent reads the file only if it
-//! decides to. `.claude/decisions/2026-11-03-pull-request-comments-reach-the-job.md`.
+//! decides to. The decision record `2026-11-03-pull-request-comments-reach-the-job.md`.
 //!
 //! **A comment is told once, and again only once it is edited**: the store keeps each comment's
 //! edit time as told (`pull_comments_told`). A bot's comment and the owner's own are filed and
