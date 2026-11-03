@@ -460,3 +460,8 @@
     line-height: var(--leading-xs);
   }
 }
+
+/* The setup covers the side columns, so all but it and the console it came up from dims while it is open. */
+body:has(.console-hud[data-hud="autopilot"]) :is(.armada-title-bar, .armada-shell__status, .deck-left, .deck-right, .deck-stage) {
+  opacity: 0.3;
+}
