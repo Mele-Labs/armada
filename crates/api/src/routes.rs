@@ -299,6 +299,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/terminal/read", get(crate::terminals::read_terminal::<D>))
         .route("/sessions/terminal/list", get(crate::terminals::list_terminals::<D>))
         .route("/sessions/terminal/rename", post(crate::terminals::rename_terminal::<D>))
+        .route("/sessions/terminal/show", post(crate::terminals::show_terminal::<D>))
         .route("/sessions/browser/open", post(crate::browsing::browser_open::<D>))
         .route("/sessions/browser/click", post(crate::browsing::browser_click::<D>))
         .route("/sessions/browser/type", post(crate::browsing::browser_type::<D>))
@@ -307,9 +308,15 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/browser/wait_for", post(crate::browsing::browser_wait_for::<D>))
         .route("/sessions/browser/evaluate", post(crate::browsing::browser_evaluate::<D>))
         .route("/sessions/browser/answer", post(crate::browsing::answer_browser_request::<D>))
+        .route("/sessions/browser/ask", post(crate::browsing::raise_browser_ask::<D>))
+        .route("/sessions/browser/ask/end", post(crate::browsing::end_browser_ask::<D>))
         .route(
             "/sessions/window",
             post(crate::sessions::show_window::<D>),
+        )
+        .route(
+            "/sessions/pre_pr",
+            post(crate::sessions::check_before_pr::<D>),
         )
         .route(
             "/sessions/withdraw_window",

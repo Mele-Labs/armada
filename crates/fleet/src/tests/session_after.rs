@@ -724,3 +724,274 @@ async fn an_unapproved_wait_is_held_for_him_as_it_was() {
     assert!(unsent.trim_end().ends_with(BRIEF), "{unsent}");
     assert_eq!(rig.processes(), processes, "and nothing runs until he sends it");
 }
+
+// ---- A wait follows the work across a handover ----
+// 3 Nov 2026: a Job waited on `pr_lands` of a Job handed on for context. The successor's pull request
+// merged, the wait stayed on the Job that ended, and the Job never started.
+
+impl Rig {
+    /// A Job that can be handed on, as [`Self::a_waited_on_agent`] with two turns of its own.
+    async fn a_waited_on_agent_to_hand_on(&self) -> SessionId {
+        crate::after_following::keep_the_waiting(Arc::clone(&self.fleet));
+        self.an_agent_that_has_spoken().await.0
+    }
+
+    /// The owner's yes on `old`'s card, and the Job that took its place, its agent up.
+    async fn handed_on(&self, old: &SessionId) -> SessionId {
+        super::session_handoff::asked_and_answered(self, old, ipc::HANDOFF_YES).await;
+        let new = SessionId::carried(&kind(&self.record(old).await, "replaced_by").expect("a successor").target);
+        for _ in 0..500 {
+            if self.stand_in.process_of(new.as_str()).is_some() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        self.stand_in.init(self.processes() - 1);
+        new
+    }
+
+    /// The waiting Job's record, once it waits on `on`.
+    async fn waits_on(&self, waiting: &SessionId, on: &SessionId) -> SessionRecord {
+        self.eventually(waiting, "the wait following", |one| one.waits.as_ref().is_some_and(|wait| wait.on.id == *on)).await
+    }
+
+    /// What the last process of `id` was sent that contains `text`, once it was.
+    async fn hears(&self, id: &SessionId, text: &str) -> String {
+        for _ in 0..500 {
+            let sent = self.stand_in.process_of(id.as_str()).map(|one| one.sent.lock().unwrap().clone()).unwrap_or_default();
+            if let Some(line) = sent.into_iter().find(|line| line.contains(text)) {
+                return line;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        panic!("{text} was not sent within five seconds");
+    }
+
+    /// The wait of `waiting`, kept on `on` as a Fleet from before waits followed left it.
+    async fn left_on(&self, waiting: &SessionId, on: &SessionId) {
+        let mut store = self.fleet.store().lock().await;
+        let mut wait = store.wait_of(waiting.as_str()).unwrap().expect("it waits");
+        wait.on_session = on.as_str().to_string();
+        wait.told = true;
+        store.keep_wait(&wait).unwrap();
+    }
+
+    fn held_message(record: &SessionRecord) -> String {
+        record.hosted.as_ref().and_then(|hosted| hosted.start.as_ref()).and_then(|start| start.message.clone()).expect("held: its first message waits for him")
+    }
+}
+
+fn changed_row(row: &SessionRow) -> Option<(String, String)> {
+    match row {
+        SessionRow::Waiter { event: WaiterEvent::Changed, from: Some(from), to: Some(to), .. } => Some((from.clone(), to.clone())),
+        _ => None,
+    }
+}
+
+#[tokio::test]
+async fn a_landing_wait_starts_on_the_merge_of_the_job_it_was_handed_on_to() {
+    let rig = super::agent_starts::rig(None);
+    let agent = rig.a_waited_on_agent_to_hand_on().await;
+    let waiting = rig.waits(&agent, StartCondition::PrLands, StartBase::Main).await;
+
+    let new = rig.handed_on(&agent).await;
+    rig.waits_on(&waiting.id, &new).await;
+    let told = rig.hears(&new, "now waits on this Job").await;
+    assert!(told.contains("a pull request of this Job lands"), "{told}");
+
+    rig.report(&new, opened("3214", "armada/a")).await;
+    rig.report(&new, landed("3214")).await;
+
+    rig.eventually(&waiting.id, "the start", |one| one.waits.is_none()).await;
+    let (from, text) = rig.first_message(&waiting.id).await;
+    assert!(text.contains("pull request #3214 landed"), "{text}");
+    assert!(matches!(from, SessionVoice::Session { id, .. } if id == new.as_str()), "in the successor's voice");
+}
+
+#[tokio::test]
+async fn a_pull_request_open_at_the_handover_stays_the_waits_own() {
+    let rig = super::agent_starts::rig(None);
+    let agent = rig.a_waited_on_agent_to_hand_on().await;
+    let waiting = rig.waits(&agent, StartCondition::PrLands, StartBase::Branch).await;
+    rig.report(&agent, opened("2412", "armada/cockpit-map")).await;
+    rig.eventually(&waiting.id, "the pull request named", |one| one.waits.as_ref().is_some_and(|wait| wait.pull.is_some())).await;
+
+    let new = rig.handed_on(&agent).await;
+    let followed = rig.waits_on(&waiting.id, &new).await;
+    let pull = followed.waits.unwrap().pull.expect("kept");
+    assert_eq!((pull.number, pull.branch.as_str()), (2412, "armada/cockpit-map"));
+
+    // A second pull request of the successor is not the one the wait named.
+    rig.report(&new, opened("2500", "armada/other")).await;
+    rig.report(&new, landed("2500")).await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert!(rig.record(&waiting.id).await.waits.is_some(), "still on #2412");
+
+    rig.report(&new, landed("2412")).await;
+
+    rig.eventually(&waiting.id, "the start", |one| one.waits.is_none()).await;
+    let (_, text) = rig.first_message(&waiting.id).await;
+    assert!(text.contains("pull request #2412 landed"), "{text}");
+    assert!(text.contains("You start from the branch armada/cockpit-map (pull request #2412)"), "{text}");
+}
+
+#[tokio::test]
+async fn ends_holds_at_the_handover_and_starts_when_the_successor_ends() {
+    let rig = super::agent_starts::rig(None);
+    let agent = rig.a_waited_on_agent_to_hand_on().await;
+    let waiting = rig.waits(&agent, StartCondition::Ends, StartBase::Main).await;
+
+    let new = rig.handed_on(&agent).await;
+
+    let followed = rig.waits_on(&waiting.id, &new).await;
+    assert_eq!(followed.waits.unwrap().condition, StartCondition::Ends);
+
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: new.clone() }).await.expect("closed");
+
+    rig.eventually(&waiting.id, "the start", |one| one.waits.is_none()).await;
+    let (_, text) = rig.first_message(&waiting.id).await;
+    assert!(text.contains("The agent ended"), "{text}");
+}
+
+#[tokio::test]
+async fn a_wait_follows_a_chain_of_handovers() {
+    let rig = super::agent_starts::rig(None);
+    let agent = rig.a_waited_on_agent_to_hand_on().await;
+    let waiting = rig.waits(&agent, StartCondition::PrLands, StartBase::Main).await;
+
+    let second = rig.handed_on(&agent).await;
+    rig.waits_on(&waiting.id, &second).await;
+    let third = rig.handed_on(&second).await;
+    rig.waits_on(&waiting.id, &third).await;
+    rig.hears(&third, "now waits on this Job").await;
+
+    rig.report(&third, opened("3214", "armada/a")).await;
+    rig.report(&third, landed("3214")).await;
+
+    rig.eventually(&waiting.id, "the start", |one| one.waits.is_none()).await;
+}
+
+#[tokio::test]
+async fn a_plan_part_wait_becomes_the_successors_end_in_both_threads() {
+    let rig = super::agent_starts::rig(None);
+    let agent = rig.a_waited_on_agent_to_hand_on().await;
+    rig.fleet.record_plan(None, two_groups(&agent), false).await.expect("recorded");
+    let waiting = rig.waits(&agent, StartCondition::GroupDone { group: "g1".into() }, StartBase::Main).await;
+
+    let new = rig.handed_on(&agent).await;
+
+    let followed = rig.waits_on(&waiting.id, &new).await;
+    assert_eq!(followed.waits.unwrap().condition, StartCondition::Ends, "a successor holds no plan, and a plan of its own numbers from g1 again");
+    let expected = (String::from("A plan part is done, Name the migrations"), String::from("It ends"));
+    for thread in [&waiting.id, &new] {
+        let row = rig.thread_has(thread, "the change", |row| changed_row(row).is_some()).await;
+        assert_eq!(changed_row(&row).unwrap(), expected);
+    }
+    let told = rig.hears(&new, "now waits on this Job").await;
+    assert!(told.contains("this Job ends") && told.contains("Name the migrations"), "{told}");
+
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: new.clone() }).await.expect("closed");
+    rig.eventually(&waiting.id, "the start", |one| one.waits.is_none()).await;
+}
+
+#[tokio::test]
+async fn a_wait_left_on_a_handed_on_job_follows_when_fleet_starts() {
+    let rig = super::agent_starts::rig(None);
+    let (agent, _) = rig.an_agent_that_has_spoken().await;
+    let waiting = rig.waits(&agent, StartCondition::PrLands, StartBase::Main).await;
+    let second = rig.handed_on(&agent).await;
+    let third = rig.handed_on(&second).await;
+    rig.report(&third, opened("3214", "armada/a")).await;
+    rig.report(&third, landed("3214")).await;
+    rig.left_on(&waiting.id, &agent).await;
+
+    crate::after_following::keep_the_waiting(Arc::clone(&rig.fleet));
+
+    rig.eventually(&waiting.id, "the start", |one| one.waits.is_none()).await;
+    let (_, text) = rig.first_message(&waiting.id).await;
+    assert!(text.contains("pull request #3214 landed"), "{text}");
+}
+
+// ---- A wait on a Job that ended ----
+
+#[tokio::test]
+async fn the_person_changes_a_wait_on_an_ended_job_and_it_starts() {
+    let rig = super::agent_starts::rig(None);
+    // Nothing reads the wait yet, so it is still waiting when he picks.
+    let agent = rig.an_agent().await;
+    let waiting = rig.waits(&agent, StartCondition::PrLands, StartBase::Main).await;
+    rig.fleet.closed_and_parked(CloseSession { session_id: agent.clone() }).await.expect("closed");
+
+    let changed = Arc::clone(&rig.fleet)
+        .change_waiting(None, ChangeWaiting { waiting_session: waiting.id.clone(), condition: Some(StartCondition::Ends), base: None, held: None, workflow: None, model: None, effort: None })
+        .await
+        .expect("changed");
+    assert_eq!(changed.condition, StartCondition::Ends);
+
+    let row = rig.thread_has(&agent, "the change, kept though nobody is told", |row| changed_row(row).is_some()).await;
+    assert_eq!(changed_row(&row).unwrap(), (String::from("Its pull request lands"), String::from("It ends")));
+
+    crate::after_following::keep_the_waiting(Arc::clone(&rig.fleet));
+    rig.eventually(&waiting.id, "the start", |one| one.waits.is_none()).await;
+}
+
+#[tokio::test]
+async fn a_change_still_refuses_a_job_fleet_does_not_know() {
+    let rig = super::agent_starts::rig(None);
+    let agent = rig.an_agent().await;
+    let waiting = rig.waits(&agent, StartCondition::PrLands, StartBase::Main).await;
+    rig.left_on(&waiting.id, &SessionId::carried("no-such-job")).await;
+
+    let refused = Arc::clone(&rig.fleet)
+        .change_waiting(None, ChangeWaiting { waiting_session: waiting.id.clone(), condition: Some(StartCondition::Ends), base: None, held: None, workflow: None, model: None, effort: None })
+        .await;
+
+    assert!(format!("{refused:?}").contains("fleet.wait_session_unknown"), "{refused:?}");
+}
+
+#[tokio::test]
+async fn a_wait_that_can_never_be_met_goes_to_a_held_card_even_approved() {
+    let rig = super::agent_starts::rig(None);
+    let agent = rig.a_waited_on_agent().await;
+    let waiting = rig.waits(&agent, StartCondition::PrLands, StartBase::Main).await;
+    let change = ChangeWaiting { workflow: None, model: None, effort: None, ..approving(&waiting.id) };
+    Arc::clone(&rig.fleet).change_waiting(None, change).await.expect("approved");
+    let processes = rig.processes();
+
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
+
+    let met = rig.eventually(&waiting.id, "the wait over", |one| one.waits.is_none()).await;
+    let unsent = Rig::held_message(&met);
+    assert!(unsent.contains("The agent ended with no pull request"), "{unsent}");
+    assert!(unsent.trim_end().ends_with(BRIEF), "{unsent}");
+    assert_eq!(rig.processes(), processes, "and nothing runs until he sends it");
+}
+
+#[tokio::test]
+async fn a_pull_request_still_open_when_its_job_ended_goes_to_a_held_card_naming_it() {
+    let rig = super::agent_starts::rig(None);
+    let agent = rig.a_waited_on_agent().await;
+    let waiting = rig.waits(&agent, StartCondition::PrLands, StartBase::Main).await;
+    rig.report(&agent, opened("2412", "armada/a")).await;
+    rig.eventually(&waiting.id, "the pull request named", |one| one.waits.as_ref().is_some_and(|wait| wait.pull.is_some())).await;
+
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
+
+    let met = rig.eventually(&waiting.id, "the wait over", |one| one.waits.is_none()).await;
+    let unsent = Rig::held_message(&met);
+    assert!(unsent.contains("The agent ended with pull request #2412 not landed"), "{unsent}");
+}
+
+#[tokio::test]
+async fn a_plan_part_not_done_when_its_job_ended_goes_to_a_held_card_naming_it() {
+    let rig = super::agent_starts::rig(None);
+    let agent = rig.a_waited_on_agent().await;
+    rig.fleet.record_plan(None, two_groups(&agent), false).await.expect("recorded");
+    let waiting = rig.waits(&agent, StartCondition::GroupDone { group: "g1".into() }, StartBase::Main).await;
+
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
+
+    let met = rig.eventually(&waiting.id, "the wait over", |one| one.waits.is_none()).await;
+    let unsent = Rig::held_message(&met);
+    assert!(unsent.contains("The agent ended with Name the migrations not done"), "{unsent}");
+}

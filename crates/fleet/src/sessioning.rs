@@ -81,7 +81,7 @@ mod wire;
 pub(crate) use ledger::{placed, Placed};
 pub(crate) use shown::steps_shown;
 pub(crate) use wire::{mod_copy_version, mod_is_older};
-use shown::{origins_named, shows_a_page, sign_in_named, takes_shown, ONE_AT_A_TIME};
+use shown::{brief_shown, origins_named, shows_a_page, sign_in_named, takes_shown, ONE_AT_A_TIME};
 use wire::{
     attachment_state, held_wire, mod_version_in, origin_text, session_state, session_wire,
     wire_instant,
@@ -605,6 +605,7 @@ where
         let variations = takes_shown(&url, show.variations).map_err(|what| self.ledger_unnamed(what))?;
         let steps = steps_shown(show.steps).map_err(|what| self.ledger_unnamed(&what))?;
         let origins = origins_named(show.origins).map_err(|what| self.ledger_unnamed(what))?;
+        let brief = brief_shown(show.brief).map_err(|what| self.ledger_unnamed(what))?;
         let sign_in = sign_in_named(&url, &origins, show.sign_in.0).map_err(|what| self.ledger_unnamed(what))?;
         let hosted = caller.and_then(|caller| self.session_holding(&caller));
         let id = hosted
@@ -642,6 +643,7 @@ where
                         .chain((!variations.is_empty()).then(|| ("variations".to_string(), ipc::WindowTake::as_detail(&variations))))
                         .chain((!steps.is_empty()).then(|| ("steps".to_string(), ipc::WalkStep::as_detail(&steps))))
                         .chain((!origins.is_empty()).then(|| ("origins".to_string(), ipc::origins_as_detail(&origins))))
+                        .chain(brief.clone().map(|text| ("brief".to_string(), text)))
                         .collect(),
                     },
                 },
@@ -667,6 +669,7 @@ where
                 variations,
                 steps,
                 origins,
+                brief,
                 ended_at: None,
             },
         )
@@ -1034,6 +1037,22 @@ where
         self.job_terminals_listed(caller, asked).await
     }
 
+    async fn check_before_pr(
+        &self,
+        caller: Option<api::Caller>,
+        asked: ipc::CheckBeforePr,
+    ) -> Result<ipc::PrePrChecked, Refusal> {
+        self.pre_pr_checked(caller, asked).await
+    }
+
+    async fn show_terminal(
+        &self,
+        caller: Option<api::Caller>,
+        asked: ipc::ShowTerminal,
+    ) -> Result<ipc::ListedTerminal, Refusal> {
+        self.job_terminal_shown(caller, asked).await
+    }
+
     async fn rename_terminal(&self, rename: ipc::RenameTerminal) -> Result<ipc::ListedTerminal, Refusal> {
         self.job_terminal_renamed(rename).await
     }
@@ -1052,6 +1071,14 @@ where
         answer: ipc::AnswerBrowserRequest,
     ) -> Result<ipc::BrowserRequestAnswered, Refusal> {
         self.browser_request_answered(answer).await
+    }
+
+    async fn raise_browser_ask(&self, ask: ipc::RaiseBrowserAsk) -> Result<ipc::BrowserAskNoted, Refusal> {
+        self.browser_ask_raised(ask).await
+    }
+
+    async fn end_browser_ask(&self, ask: ipc::EndBrowserAsk) -> Result<ipc::BrowserAskNoted, Refusal> {
+        self.browser_ask_ended(ask).await
     }
 
     async fn rename_session(&self, rename: ipc::RenameSession) -> Result<SessionRecord, Refusal> {

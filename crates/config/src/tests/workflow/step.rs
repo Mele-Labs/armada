@@ -428,6 +428,29 @@ fn a_step_may_ask_how_the_work_is_delivered_and_absent_is_false() {
 }
 
 #[test]
+fn a_step_may_leave_its_plan_unasked_and_absent_is_false() {
+    let def = bug_with(
+        "  - id: review\n    label: Review\n    delivers: false\n    advance_gate: auto\n    \
+         plan_unasked: true\n",
+    )
+    .expect("plan_unasked is a key of a step");
+    assert!(def.steps()[3].plan_unasked());
+    assert!(!def.steps()[0].plan_unasked(), "absent is false");
+}
+
+#[test]
+fn a_plan_unasked_that_is_not_a_boolean_is_refused_rather_than_read_as_false() {
+    let refused = refusals(bug_with(
+        "  - id: review\n    label: Review\n    delivers: false\n    advance_gate: auto\n    \
+         plan_unasked: sometimes\n",
+    ));
+    assert!(
+        refused.iter().any(|r| r.key == "steps[3].plan_unasked" && matches!(r.fault, Fault::WrongType { .. })),
+        "{refused:?}"
+    );
+}
+
+#[test]
 fn an_asks_delivery_that_is_not_a_boolean_is_refused_rather_than_read_as_false() {
     let refused = refusals(bug_with(
         "  - id: review\n    label: Review\n    delivers: false\n    advance_gate: auto\n    \

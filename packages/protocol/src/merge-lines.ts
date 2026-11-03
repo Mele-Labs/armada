@@ -258,6 +258,8 @@ export type HubQueue = {
   state: string;
   /** 1 is next to merge. Absent for `waiting_for_ci`. */
   position?: number;
+  /** When the forge says it joined the queue, RFC 3339. Absent from an older Fleet, for `waiting_for_ci`, and where the forge named none. */
+  enqueued_at?: string;
 };
 
 /** One branch, in line or just off it. */

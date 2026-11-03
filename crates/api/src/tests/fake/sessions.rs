@@ -197,6 +197,26 @@ impl Sessions for FakeDaemon {
         Ok(ipc::JobTerminals { terminals: vec![row("t1", "Terminal 1", false), row("t2", "dev server", true)] })
     }
 
+    /// Every pre-PR Check passes.
+    async fn check_before_pr(
+        &self,
+        _caller: Option<crate::Caller>,
+        _asked: ipc::CheckBeforePr,
+    ) -> Result<ipc::PrePrChecked, Refusal> {
+        Ok(ipc::PrePrChecked { passed: true, ..ipc::PrePrChecked::default() })
+    }
+
+    /// The terminal named, else `t1`, as `read_terminal`'s fake reads it.
+    async fn show_terminal(
+        &self,
+        _caller: Option<crate::Caller>,
+        asked: ipc::ShowTerminal,
+    ) -> Result<ipc::ListedTerminal, Refusal> {
+        let terminal = asked.terminal.unwrap_or_else(|| String::from("t1"));
+        let name = format!("Terminal {}", terminal.trim_start_matches('t'));
+        Ok(ipc::ListedTerminal { run_id: format!("shell-{terminal}"), terminal, name, running: false })
+    }
+
     /// Echoes the terminal back under the name given, `Terminal N` where it is blank.
     async fn rename_terminal(&self, rename: ipc::RenameTerminal) -> Result<ipc::ListedTerminal, Refusal> {
         let name = match rename.name.trim() {
@@ -224,6 +244,14 @@ impl Sessions for FakeDaemon {
         answer: ipc::AnswerBrowserRequest,
     ) -> Result<ipc::BrowserRequestAnswered, Refusal> {
         Ok(ipc::BrowserRequestAnswered { request_id: answer.request_id, session_id: ipc::SessionId::carried("s1") })
+    }
+
+    async fn raise_browser_ask(&self, ask: ipc::RaiseBrowserAsk) -> Result<ipc::BrowserAskNoted, Refusal> {
+        Ok(ipc::BrowserAskNoted { session_id: ask.session_id, ask_id: ask.ask_id })
+    }
+
+    async fn end_browser_ask(&self, ask: ipc::EndBrowserAsk) -> Result<ipc::BrowserAskNoted, Refusal> {
+        Ok(ipc::BrowserAskNoted { session_id: ask.session_id, ask_id: ask.ask_id })
     }
 
     async fn report_session_check(

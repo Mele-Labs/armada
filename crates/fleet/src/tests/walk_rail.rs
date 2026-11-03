@@ -212,14 +212,14 @@ fn what_ends_each_step_is_read_off_its_anchor() {
             Some("you reply"),
             Some("a plan is recorded"),
             Some("you approve the plan"),
-            Some("you approve the walk"),
+            Some("you approve every walk"),
             Some("it is pushed"),
             Some("it is merged")
         ])
     );
     assert_eq!(
         ends(&bug()),
-        said(&[Some("you approve the plan"), Some("you approve the walk"), Some("it is pushed"), Some("it is merged")])
+        said(&[Some("you approve the plan"), Some("you approve every walk"), Some("it is pushed"), Some("it is merged")])
     );
     let loose = [fitted("Build", Fit::Edited), step("Free text")];
     assert_eq!(ends(&loose), said(&[None, None]));
@@ -249,6 +249,7 @@ fn window(n: u32, url: &str) -> SessionRow {
         variations: Vec::new(),
         steps: Vec::new(),
         origins: Vec::new(),
+        brief: None,
         ended_at: None,
     }
 }

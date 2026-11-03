@@ -40,6 +40,7 @@ import {
   SYSTEM_GROUPS,
   type SystemEntryDef,
 } from "./system-entries";
+import { BrowserDefaults } from "./job-browser/BrowserDefaults";
 import { useKitModels } from "./kit-models";
 import { openLink } from "./commands";
 import { openLinkPanel } from "./link-drop";
@@ -397,6 +398,15 @@ export function SystemSurface({
           onOn={models.setOn}
           onChoose={models.choose}
         />
+      );
+    }
+    if (def.id === "bridge:browser") {
+      return (
+        <div className="armada-system__pane" data-col="detail">
+          <div className="armada-system__section">
+            <BrowserDefaults />
+          </div>
+        </div>
       );
     }
     if (def.id === "kit:workflows") {

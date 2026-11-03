@@ -17,6 +17,7 @@ mod standing;
 mod tap;
 mod telling;
 
+pub(crate) use checking::{base_of, changed_since_base};
 pub(crate) use index::{Opposed, Side, Who, Writes};
 pub(crate) use tap::repository_relative;
 pub(crate) use telling::listed;

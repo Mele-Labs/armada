@@ -1,5 +1,5 @@
 // Workspaces, lifecycles and rules (29 Oct 2026): System › Workflows draws the Workspace my-store as lanes, a workflow over the lifecycles it moves, with rules as the edges
-// between them, on a Default tab first, then all of my-store and each repository. What is picked opens in the side panel, and the lanes are edited by hand or by telling an agent. A Job's Workflow opens in the same panel and draws the same lanes
+// between them, the default first, and a repository's own copy at that repository's level. What is picked opens in the side panel, and the lanes are edited by hand or by telling an agent. A Job's Workflow opens in the same panel and draws the same lanes
 // as its tickets, pull request and deploy move, until the deploy is healthy and the tickets are closed. Ending a Job that still holds a deploy lists what is in flight first.
 // A third Job goes through app feedback and changes its own copy of the workflow, starts two Jobs that each get a lane, and offers `dispatch`; on a window wider than 1800px
 // the Workflow opens in the spine instead of the side panel, which the scenario switches on for a step because a walk cannot resize its window.
@@ -34,14 +34,6 @@ const statuses = () =>
     exact: true,
   });
 const PANEL = role("dialog");
-const RUNS_IN = group("Runs in");
-const tab = (name: string) =>
-  inside(
-    RUNS_IN,
-    role("tab", name, {
-      exact: true,
-    }),
-  );
 const PROPOSED = region("Proposed change");
 const ASK = role("textbox", "Tell an agent what to change");
 
@@ -65,7 +57,7 @@ const PR_PANEL = role("dialog", /#812/);
 // What goes back to the Workflow: a button where the panel opened over the Workflow's own, and Close where it opened over the docked one.
 const back = (panel: Target) =>
   either(inside(panel, button(/^Back/)), inside(panel, button("Close")));
-const SEND_MAYA = button("Send to Job: Maya on src/cart/totals.ts:42", {
+const EVALUATE_MAYA = button("Evaluate: Maya on src/cart/totals.ts:42", {
   exact: true,
 });
 // On a window wider than 1800px the same lanes are a layer in the spine, under the views.
@@ -88,24 +80,12 @@ export const workspacesLanes = walk("workspaces-lanes", [
     say: "my-store: the feature workflow on top, and a lane each for Ticket, PR and Deploy",
   },
   {
-    look: RUNS_IN,
-    say: "Runs in opens on Default: the workflow as it runs anywhere no Workspace or repository changed it. Then all of my-store, and a tab for each repository",
+    look: text("Edits here change every Workspace and repository that keeps the default"),
+    say: "Armada's feature is picked, so the page edits the default: the workflow as it runs anywhere no Workspace or repository changed it",
   },
   {
     look: inside(LANES, role("img", "Differs in my-store, store-api")),
     say: "A mark on In review: my-store and store-api read it differently",
-  },
-  {
-    press: tab("my-store"),
-    say: "my-store carries the changed mark, since it differs from Default. Its line says what an edit there changes",
-  },
-  {
-    press: tab("store-api"),
-    say: "store-api's tab draws the lanes as the workflow runs in store-api",
-  },
-  {
-    look: inside(LANES, role("img", "Differs in store-api")),
-    say: "In review carries the mark here too: it is store-api's own",
   },
   {
     press: inside(
@@ -118,32 +98,11 @@ export const workspacesLanes = walk("workspaces-lanes", [
   },
   {
     look: inside(PANEL, statuses()),
-    say: "Jira statuses, a field saved as it is changed: Peer Review in store-api",
-  },
-  {
-    look: inside(PANEL, text("Changed for store-api")),
-    say: "Marked as changed for store-api, with a way back to my-store's",
+    say: "Jira statuses, a field saved as it is changed",
   },
   {
     press: inside(PANEL, button("Close")),
     say: "Close the panel",
-  },
-  {
-    press: tab("my-store"),
-    say: "Back to my-store",
-  },
-  {
-    press: inside(
-      LANES,
-      button("Ticket: In review", {
-        exact: true,
-      }),
-    ),
-    say: "In review again, for all of my-store",
-  },
-  {
-    look: inside(PANEL, statuses()),
-    say: "Code Review and In Review count as In review for my-store",
   },
   {
     press: inside(
@@ -179,44 +138,6 @@ export const workspacesLanes = walk("workspaces-lanes", [
       }),
     ),
     say: "Yours, where a change is kept",
-  },
-  {
-    press: tab("store-api"),
-    say: "store-api's tab on Yours",
-  },
-  {
-    press: inside(
-      LANES,
-      button("Ticket: In review", {
-        exact: true,
-      }),
-    ),
-    say: "In review, marked",
-  },
-  {
-    look: inside(PANEL, text("Changed for store-api")),
-    say: "Changed for store-api, with a way back",
-  },
-  {
-    press: inside(
-      PANEL,
-      button("Use my-store's", {
-        exact: true,
-      }),
-    ),
-    say: "Use my-store's drops store-api's own value",
-  },
-  {
-    look: inside(PANEL, statuses()),
-    say: "store-api reads Code Review and In Review again, and the mark is gone",
-  },
-  {
-    press: inside(PANEL, button("Close")),
-    say: "Close the panel",
-  },
-  {
-    press: tab("my-store"),
-    say: "Back to my-store",
   },
   {
     type: "close the ticket once merged and the deploy is healthy",
@@ -341,12 +262,12 @@ export const workspacesLanes = walk("workspaces-lanes", [
     say: "A comment opens the pull request at that comment",
   },
   {
-    look: inside(PR_PANEL, SEND_MAYA),
-    say: "The triage is on the comment itself: a mark for what it needs, where in the code, and its act",
+    look: inside(PR_PANEL, EVALUATE_MAYA),
+    say: "The triage is on the comment itself: a mark for what it needs, where in the code, and Evaluate",
   },
   {
-    press: inside(PR_PANEL, SEND_MAYA),
-    say: "Send to Job hands the comment to the agent",
+    press: inside(PR_PANEL, EVALUATE_MAYA),
+    say: "Evaluate asks the agent to weigh the comment and bring you a proposal",
   },
   {
     look: inside(PR_PANEL, role("img", "Sent to the Job")),

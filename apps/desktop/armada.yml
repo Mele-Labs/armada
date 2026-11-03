@@ -39,6 +39,19 @@ checks:
     # was: a `run` gets no shell. No `narrow`, as the other typechecks.
     run: pnpm typecheck
 
+  # **What CI's `format` job runs, asked before a pull request opens.** A Job
+  # that changed Bridge code once opened one with files the formatter would lay
+  # out differently, and only CI said so. `runs_at: pre_pr` runs it when the
+  # agent goes to open the pull request, and refuses that with the log tail until
+  # it passes; never in a Drone's own run or at a gate. It is here because
+  # every Bridge change reaches this manifest; the root's Checks never see
+  # `apps/` or `packages/`. The formatter reads the whole tree from the root.
+  # `format_check`, not `format`: the root already names a Command `format`,
+  # the one that writes, and a name is one or the other.
+  format_check:
+    run: pnpm -C ../.. format:check
+    runs_at: pre_pr
+
   bridge_build:
     # Catches what `typecheck` cannot: an import that resolves in the editor
     # and not in the bundle.

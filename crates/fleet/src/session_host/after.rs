@@ -13,6 +13,15 @@
 //! **The Session waited on is told**, in its thread and as a message that wakes it if it is idle: what
 //! the new one needs of it, and that it may change the condition and where the new one starts from
 //! (`change_waiting`). Each change is a row in both threads.
+//!
+//! **A hand on for context moves every wait to the new Session** ([`Fleet::waits_followed`]), and the
+//! new Session is told as the old one was. It holds what the old one held but no plan, and a plan of
+//! its own numbers from `g1` again, so a wait on a plan part becomes a wait on its end, which its agent
+//! may point at a part of its own.
+//!
+//! **A wait that can no longer be met goes to the person**: the Session it waits on ended with no
+//! successor, and what it waits for will not come. It leaves its wait held on its start card with the
+//! reason, even where he approved it to start alone, since what he approved has not happened.
 
 use std::sync::Arc;
 
@@ -225,6 +234,16 @@ where
 
     /// The Session `after` names, checked: hosted, live, not the waiting one, and holding the plan part it names.
     pub(super) async fn after_checked(&self, waiting: &str, after: &StartAfter) -> Result<(), Refusal> {
+        let session = self.after_known(waiting, after).await?;
+        if session.state == store::SessionState::Ended {
+            return Err(self.closed(after.session.as_str()));
+        }
+        Ok(())
+    }
+
+    /// [`Self::after_checked`], for a wait that stands: **the Session it waits on may have ended**, and a
+    /// person changing it is how it gets out of a wait that cannot now be met.
+    async fn after_known(&self, waiting: &str, after: &StartAfter) -> Result<store::KeptSession, Refusal> {
         let on = after.session.as_str();
         if on == waiting {
             return Err(self.hosted_refusal(WAIT_ON_ITSELF, "a Job cannot wait on itself"));
@@ -244,10 +263,7 @@ where
                 ));
             }
         }
-        if session.state == store::SessionState::Ended {
-            return Err(self.closed(on));
-        }
-        Ok(())
+        Ok(session)
     }
 
     /// Keep the wait of a Session just made, tell the Session it waits on, and publish both.
@@ -285,9 +301,83 @@ where
         self.published_hosted(waiting).await
     }
 
+    /// A hand on: every open wait on `old` now waits on `new`, which is told of each. Linked once `old`
+    /// has ended, as its parent's link is: a hand undone before then closes `new`.
+    pub(crate) async fn waits_followed(self: &Arc<Self>, old: &str, new: &str) {
+        let parts = self.plan_parts(old).await;
+        let mut followed: Vec<(KeptWait, KeptWait)> = Vec::new();
+        {
+            let mut store = self.store().lock().await;
+            for was in store.waits_on(old).unwrap_or_default() {
+                // A Session closed while it waited never starts.
+                if !store.session(&was.session_id).ok().flatten().is_some_and(|one| one.state == store::SessionState::Live) {
+                    continue;
+                }
+                let mut now = was.clone();
+                now.on_session = new.to_string();
+                now.told = false;
+                if !now.part.is_empty() {
+                    now.condition = String::from("ends");
+                    now.part = String::new();
+                }
+                if store.keep_wait(&now).is_ok() {
+                    followed.push((was, now));
+                }
+            }
+        }
+        for (was, now) in followed {
+            let mut also = String::new();
+            if !was.part.is_empty() {
+                also = format!(" It waited on {} in the plan of the Job this one took over from.", part_title(&parts, &was.part));
+                let said = change_said(&was, &now, &parts);
+                let (waiting_title, new_title) = (self.waiting_title(&now).await, self.session_title(new).await);
+                self.row_put(new, self.changed_row(new, &now.session_id, &waiting_title, WaiterSide::Waited, &said, None)).await;
+                self.row_put(&now.session_id, self.changed_row(&now.session_id, new, &new_title, WaiterSide::Waiting, &said, None)).await;
+            }
+            self.waiter_told(&now.session_id, &also).await;
+            // The waiting Session's record carries the wait, so the watcher reads it against the new Session.
+            let _ = self.published_hosted(&now.session_id).await;
+        }
+        let _ = self.published_hosted(new).await;
+    }
+
+    /// At Fleet's start: a wait still on a Session that was handed on follows to the last of the chain.
+    /// A Fleet that stopped partway through a hand left it there, as did one from before waits followed.
+    pub(crate) async fn waits_left_followed(self: &Arc<Self>) {
+        let moves: Vec<(String, String)> = {
+            let store = self.store().lock().await;
+            let open = store.open_waits().unwrap_or_default();
+            let on: std::collections::BTreeSet<String> = open.into_iter().map(|one| one.on_session).collect();
+            on.into_iter().filter_map(|on| handed_to(&store, &on).map(|last| (on, last))).collect()
+        };
+        for (old, new) in moves {
+            self.waits_followed(&old, &new).await;
+        }
+    }
+
+    /// A `changed` row for `thread`, naming `session`. `by` is `None` for a change Fleet made.
+    fn changed_row(&self, thread: &str, session: &str, title: &str, side: WaiterSide, said: &(String, String), by: Option<WaitBy>) -> SessionRow {
+        SessionRow::Waiter {
+            id: self.row_id(thread),
+            at: self.instant(),
+            session: SessionLink { id: ipc::SessionId::carried(session), title: title.to_string() },
+            event: WaiterEvent::Changed,
+            side,
+            says: None,
+            from: Some(said.0.clone()),
+            to: Some(said.1.clone()),
+            by,
+        }
+    }
+
     /// The Session waited on is told what the new one needs, in its thread and as a message. **Once**: the
     /// first call to claim it tells, and a Fleet that restarts finds it told.
     pub(crate) async fn waiter_told_of_wait(self: &Arc<Self>, waiting: &str) {
+        self.waiter_told(waiting, "").await;
+    }
+
+    /// [`Self::waiter_told_of_wait`], with `also` said after when and where from.
+    async fn waiter_told(self: &Arc<Self>, waiting: &str, also: &str) {
         let kept = self.store().lock().await.wait_of(waiting).ok().flatten();
         let Some(wait) = kept.filter(|one| one.started_at.is_none() && !one.told) else { return };
         if !matches!(self.store().lock().await.claim_wait_told(waiting), Ok(true)) {
@@ -302,6 +392,7 @@ where
             when_said(wait, "this Job", &parts),
             if base_of(wait) == StartBase::Branch { "the branch of your pull request" } else { "main" },
         );
+        text.push_str(also);
         if !wait.needs.is_empty() {
             text.push_str(&format!(" It needs: {}.", wait.needs));
         }
@@ -317,8 +408,16 @@ where
             to: None,
             by: None,
         };
-        let _ = self.told_news_by_fleet_as(&wait.on_session, &text, row).await;
+        self.told_or_kept(&wait.on_session, &text, row).await;
         let _ = self.published_hosted(&wait.on_session).await;
+    }
+
+    /// News with `row` in its place, or the row alone where there is nobody to tell: **a Job that ended
+    /// takes no word**, and its thread still says what became of what waited on it.
+    async fn told_or_kept(self: &Arc<Self>, session: &str, text: &str, row: SessionRow) {
+        if !matches!(self.told_news_by_fleet_as(session, text, row.clone()).await, Ok(true)) {
+            self.row_put(session, row).await;
+        }
     }
 
     /// The wait as the wire carries it, with the titles it names read now.
@@ -507,7 +606,7 @@ where
             now.held = held;
         }
         if let Some(condition) = &change.condition {
-            self.after_checked(&waiting, &StartAfter { session: ipc::SessionId::carried(&was.on_session), condition: condition.clone(), base: base_of(&was), needs: String::new() }).await?;
+            self.after_known(&waiting, &StartAfter { session: ipc::SessionId::carried(&was.on_session), condition: condition.clone(), base: base_of(&was), needs: String::new() }).await?;
             let (kind, part) = condition_kept(condition);
             now.condition = kind.to_string();
             now.part = part;
@@ -538,25 +637,15 @@ where
         let parts = self.plan_parts(&now.on_session).await;
         let (from, to) = change_said(&was, &now, &parts);
         let (waiting_title, on_title) = (self.waiting_title(&now).await, self.session_title(&now.on_session).await);
-        let row = |session: &str, title: &str, side: WaiterSide, on: &str| SessionRow::Waiter {
-            id: self.row_id(on),
-            at: self.instant(),
-            session: SessionLink { id: ipc::SessionId::carried(session), title: title.to_string() },
-            event: WaiterEvent::Changed,
-            side,
-            says: None,
-            from: Some(from.clone()),
-            to: Some(to.clone()),
-            by: Some(by),
-        };
-        let for_waited_on = row(&waiting, &waiting_title, WaiterSide::Waited, &now.on_session);
+        let said = (from.clone(), to.clone());
+        let for_waited_on = self.changed_row(&now.on_session, &waiting, &waiting_title, WaiterSide::Waited, &said, Some(by));
         if by == WaitBy::You {
             let text = format!("The person changed when job \"{waiting_title}\" ({waiting}) starts: {from} -> {to}.");
-            let _ = self.told_news_by_fleet_as(&now.on_session, &text, for_waited_on).await;
+            self.told_or_kept(&now.on_session, &text, for_waited_on).await;
         } else {
             self.row_put(&now.on_session, for_waited_on).await;
         }
-        self.row_put(&waiting, row(&now.on_session, &on_title, WaiterSide::Waiting, &waiting)).await;
+        self.row_put(&waiting, self.changed_row(&waiting, &now.on_session, &on_title, WaiterSide::Waiting, &said, Some(by))).await;
         let _ = self.published_hosted(&now.on_session).await;
         // The waiting Session's record carries the wait, so the watcher reads the new condition against what it sees.
         let _ = self.published_hosted(&waiting).await;
@@ -576,6 +665,23 @@ where
         self.wait_met(wait, String::from("You started it")).await;
         self.published_hosted(session).await
     }
+}
+
+/// The Session that last took the place of `on`, down the whole chain of hands. `None` for one never
+/// handed on.
+fn handed_to(store: &store::Store, on: &str) -> Option<String> {
+    let mut last = None;
+    let mut at = on.to_string();
+    while let Some(next) = store
+        .attachments_of(&Holder::session(&at))
+        .ok()?
+        .into_iter()
+        .find(|one| one.kind == super::replacing::REPLACED_BY && one.state == AttachmentState::Spent)
+    {
+        at = next.target.clone();
+        last = Some(next.target);
+    }
+    last
 }
 
 /// The first non-blank line of some words, cut to a title's length.

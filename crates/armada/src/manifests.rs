@@ -132,31 +132,9 @@ impl Manifests {
     /// names, each asked about what that manifest owns, so a root Check never
     /// sees a workspace's path and an empty diff names nothing.
     pub fn covering(&self, changed: &[String]) -> Vec<String> {
-        if self.workspaces.is_empty() {
-            return self.checks_of(&self.root, changed);
-        }
-        config::gating(&self.root, &self.workspaces, changed)
+        config::reaching(&self.root, &self.workspaces, changed)
             .into_iter()
-            .flat_map(|gate| {
-                let manifest = std::iter::once(&self.root)
-                    .chain(&self.workspaces)
-                    .find(|one| one.dir() == gate.dir)?;
-                Some(self.checks_of(manifest, &self.owned(manifest, changed)))
-            })
-            .flatten()
-            .collect()
-    }
-
-    fn checks_of(&self, manifest: &Manifest, paths: &[String]) -> Vec<String> {
-        manifest
-            .checks_as_written()
-            .iter()
-            .filter(|name| {
-                manifest
-                    .check(name)
-                    .is_some_and(|check| check.gates() && check.covers(paths))
-            })
-            .map(|name| key(manifest.dir(), name))
+            .map(|(manifest, name)| key(manifest.dir(), name))
             .collect()
     }
 

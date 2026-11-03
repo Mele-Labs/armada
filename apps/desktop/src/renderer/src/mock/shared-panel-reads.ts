@@ -75,6 +75,7 @@ function pageOf(number: number, author: string, opened: number, body: string): P
     conversation: [
       {
         kind: "comment",
+        id: "IC_1",
         author: "nick",
         at: minutesAgo(opened - 12),
         body: "Read the migration against 0043 before it goes in.",
@@ -1009,6 +1010,7 @@ export function sharedPanelReads(lines: MergeLines): PanelReads {
       await new Promise((resolve) => setTimeout(resolve, 2500));
       const entry: PullRequestEntry = {
         kind: "comment",
+        id: "IC_1892_refreshed",
         author: "marta",
         at: new Date().toISOString(),
         body: "Refreshed from the forge.",
@@ -1033,16 +1035,19 @@ export function sharedPanelReads(lines: MergeLines): PanelReads {
           ok: false,
           said: "The forge could not find this pull request.",
         };
+      const id = `mock:${item.number}:${was.page.conversation.length + 1}`;
       const entry: PullRequestEntry =
         write.kind === "comment"
           ? {
               kind: "comment",
+              id,
               author: "nick",
               at: new Date().toISOString(),
               body: write.body ?? "",
             }
           : {
               kind: "review",
+              id,
               author: "nick",
               at: new Date().toISOString(),
               verdict: write.kind === "approve" ? "approved" : "changes_requested",

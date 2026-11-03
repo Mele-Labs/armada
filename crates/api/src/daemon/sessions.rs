@@ -142,6 +142,25 @@ pub trait Sessions: Send + Sync + 'static {
         asked: ipc::ListTerminals,
     ) -> impl Future<Output = Result<ipc::JobTerminals, Refusal>> + Send;
 
+    /// `check_before_pr` — runs the Checks the repository declares `runs_at: pre_pr` that the
+    /// Job's changes reach, and answers what they came to. `caller` places a hosted Job as
+    /// `show_window`'s does. [`Refusal::Unacceptable`] for a call that places no Job.
+    fn check_before_pr(
+        &self,
+        caller: Option<crate::Caller>,
+        asked: ipc::CheckBeforePr,
+    ) -> impl Future<Output = Result<ipc::PrePrChecked, Refusal>> + Send;
+
+    /// `show_terminal` — publishes `terminal.shown` so Bridge brings the terminal's tab to the
+    /// front, and answers the terminal. An unnamed one is `read_terminal`'s default. `caller`
+    /// places the Job as `type_in_terminal`'s does. [`Refusal::Unacceptable`] for a call that
+    /// places no Job, a Job with no terminal open, or a `terminal` that is not open.
+    fn show_terminal(
+        &self,
+        caller: Option<crate::Caller>,
+        asked: ipc::ShowTerminal,
+    ) -> impl Future<Output = Result<ipc::ListedTerminal, Refusal>> + Send;
+
     /// `rename_terminal` — the person names a terminal; a blank name restores `Terminal N`.
     /// [`Refusal::Unacceptable`] for a terminal the Job has not open.
     fn rename_terminal(
@@ -169,6 +188,20 @@ pub trait Sessions: Send + Sync + 'static {
         &self,
         answer: ipc::AnswerBrowserRequest,
     ) -> impl Future<Output = Result<ipc::BrowserRequestAnswered, Refusal>> + Send;
+
+    /// `raise_browser_ask` — Bridge says a page asks the owner something. Fleet holds it in memory and
+    /// lists it in the Job's Needs you; the agent is told nothing. The same `ask_id` replaces it.
+    fn raise_browser_ask(
+        &self,
+        ask: ipc::RaiseBrowserAsk,
+    ) -> impl Future<Output = Result<ipc::BrowserAskNoted, Refusal>> + Send;
+
+    /// `end_browser_ask` — the ask was settled in the tab, or the tab closed. Answers where none is
+    /// held, since either side may end first.
+    fn end_browser_ask(
+        &self,
+        ask: ipc::EndBrowserAsk,
+    ) -> impl Future<Output = Result<ipc::BrowserAskNoted, Refusal>> + Send;
 
     /// `show_window` — a session shows the person a page. `caller` is the connection the call
     /// arrived on, where it came through the agent's door: it places a hosted session. Answers with

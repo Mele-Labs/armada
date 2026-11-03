@@ -318,11 +318,7 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
     );
   });
   ipc.handle(CHANNELS.changeWaiting, (_event, change: ChangeWaiting) => {
-    if (
-      !text(change?.waiting_session) ||
-      (change.condition === undefined && change.base === undefined)
-    )
-      return unread;
+    if (!text(change?.waiting_session)) return unread;
     return connection()?.sessions.changeWaiting(change) ?? unsent;
   });
   ipc.handle(CHANNELS.startWaitingNow, (_event, sessionId: string) => {
@@ -890,11 +886,6 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
           why: "not_addressable",
           address: "",
         },
-  );
-  ipc.handle(CHANNELS.openSessionWindow, (_event, sessionId: string, url: string) =>
-    text(sessionId) && text(url)
-      ? (connection()?.sessions.openWindow(sessionId, url) ?? unsent.outcome)
-      : unread.outcome,
   );
   ipc.handle(CHANNELS.readSessionFile, (_event, sessionId: string, file: string) =>
     text(sessionId) && text(file)

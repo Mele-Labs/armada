@@ -290,7 +290,6 @@
     flex-direction: column;
     gap: var(--space-3);
     min-width: 0;
-    min-height: 100%;
     padding: var(--space-3) var(--space-4) var(--space-6) calc(var(--space-4) + var(--space-2));
   }
   & .ap-hud__column:first-child {
@@ -388,7 +387,31 @@
   }
   & .ap-hud__limits {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-2);
+  }
+  & .ap-hud__weekly {
+    display: grid;
+    gap: var(--space-1);
+  }
+  & .ap-hud__weekly-track {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    & .armada-slider {
+      flex: 1;
+      min-width: 0;
+    }
+    /* As wide as its longest words, so the track stays put under the thumb. */
+    & .armada-slider__value {
+      width: 8ch;
+      white-space: nowrap;
+    }
+  }
+  & .ap-hud__weekly-now {
+    color: var(--fg-muted);
   }
   & .ap-hud__limits .armada-input-field {
     display: grid;
@@ -396,10 +419,13 @@
     align-items: center;
     gap: var(--space-2);
   }
+  /* What Autopilot is choosing from and what it set aside: a row across the HUD, too wide for a column. */
   & .ap-hud__sidings {
-    flex: 1 1 0;
-    min-height: 0;
-    overflow-y: auto;
+    grid-column: 1 / -1;
+    padding-block: var(--space-3);
+    border-block-start: var(--border-width) solid
+      color-mix(in srgb, var(--cb-cyan) 35%, transparent);
+    background: var(--bg-base);
   }
   & .ap-hud__why {
     display: grid;
@@ -434,4 +460,10 @@
     font-size: var(--text-xs);
     line-height: var(--leading-xs);
   }
+}
+
+/* The setup covers the side columns, so all but it and the console it came up from dims while it is open. */
+body:has(.console-hud[data-hud="autopilot"])
+  :is(.armada-title-bar, .armada-shell__status, .deck-left, .deck-right, .deck-stage) {
+  opacity: 0.3;
 }

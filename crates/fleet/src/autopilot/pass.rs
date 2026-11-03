@@ -17,12 +17,14 @@ use store::{KeptAutopilot, KeptPick};
 use tokio::task::JoinHandle;
 
 use super::bounds::{PickState, State};
-use super::picking::{candidates, picked, Pick, SetAside, SurePick};
+use super::picking::{candidates, picked, report_candidates, Candidate, Pick, SetAside, SurePick, REPORTS_FOR};
+use super::starting::REPORT_URL;
 use super::starting::Issue;
 use super::wire::Gathered;
 use super::Asking;
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
+use crate::session_host::bug_reports::REPORT;
 
 /// The most calls one Autopilot makes in one pass. **A bound on money, not on picks**: a backlog
 /// it is unsure of throughout sets this many aside a pass and carries on at the next.
@@ -109,8 +111,10 @@ where
             self.autopilot_told(&manifest_id).await;
             return Ok(0);
         }
-        // The backlog is not on Autopilot: nothing is picked, and what it already holds carries on.
-        if !gathered.kept.on_backlog {
+        // Reports are only read on the repository they are about, and only when their box is on.
+        let reports = gathered.kept.on_reports && manifest_id.as_str() == REPORTS_FOR;
+        // Neither box is on Autopilot: nothing is picked, and what it already holds carries on.
+        if !gathered.kept.on_backlog && !reports {
             self.told_if_moved(&gathered);
             return Ok(0);
         }
@@ -122,10 +126,12 @@ where
         let served = self
             .served_named(Some(&manifest_id))
             .map_err(|why| format!("{why:?}"))?;
-        let open = self
-            .open_issues(&manifest_id)
-            .await
-            .map_err(|why| format!("{why:?}"))?;
+        // **The tracker is asked only where the backlog box is on.**
+        let open = if gathered.kept.on_backlog {
+            self.open_issues(&manifest_id).await.map_err(|why| format!("{why:?}"))?
+        } else {
+            Vec::new()
+        };
         let mut taken: BTreeSet<String> = {
             let store = self.store().lock().await;
             let mut taken: BTreeSet<String> = BTreeSet::new();
@@ -147,6 +153,9 @@ where
         };
         taken.extend(gathered.picks.iter().map(|one| one.issue_url.clone()));
         let mut offered = candidates(&open, &taken);
+        if reports {
+            offered.extend(self.reports_offered(&manifest_id, &taken).await?);
+        }
         let urls: Vec<String> = offered.iter().map(|one| one.url.clone()).collect();
         if offered.is_empty()
             || self
@@ -217,6 +226,31 @@ where
         }
         self.autopilot_told(&manifest_id).await;
         Ok(made)
+    }
+
+    /// The open reports nothing holds: not one a live Job holds, nor one of `taken`. **A Job that has
+    /// ended holds none**, so a report it did not get fixed is offered again.
+    async fn reports_offered(&self, manifest_id: &ipc::ManifestId, taken: &BTreeSet<String>) -> Result<Vec<Candidate>, String> {
+        let store = self.store().lock().await;
+        let mut taken = taken.clone();
+        let reports = store.bug_reports().map_err(|why| format!("{why:?}"))?;
+        for report in reports.iter().filter(|report| report.fixed.is_none()) {
+            let rows = store
+                .attachments_at(REPORT, &report.id, Some(manifest_id.as_str()))
+                .map_err(|why| format!("{why:?}"))?;
+            let held = rows.iter().any(|row| {
+                row.holder.kind == store::HolderKind::Session
+                    && store
+                        .session(&row.holder.id)
+                        .ok()
+                        .flatten()
+                        .is_some_and(|session| session.state == store::SessionState::Live)
+            });
+            if held {
+                taken.insert(format!("{REPORT_URL}{}", report.id));
+            }
+        }
+        Ok(report_candidates(&reports, &taken))
     }
 
     /// The proposer's client, budget, model and environment.

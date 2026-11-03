@@ -38,7 +38,7 @@ fn asking(ask: &str) -> AskingToRun {
 }
 
 /// The Job asks, and the owner presses `label` on the card.
-async fn asked_and_answered(rig: &Rig, id: &SessionId, label: &str) -> Option<RunOrNot> {
+pub(super) async fn asked_and_answered(rig: &Rig, id: &SessionId, label: &str) -> Option<RunOrNot> {
     asked_by(rig, id, label, ASK).await
 }
 
@@ -632,18 +632,21 @@ const KEPT_ASK: &str = r#"{"tool_name":"AskUserQuestion","tool_use_id":"toolu_k"
               {"label":"Stay here","description":""},
               {"label":"Stay, don't ask again this Job","description":""}]}]}}"#;
 
-/// The Job asks while the owner walks a page: the question is refused and kept for Needs you.
+/// A question kept for a walk, as a Fleet that refused questions during one wrote it. Fleet no
+/// longer writes the state, but a thread that holds one still reads, and answers, as it did.
 async fn kept_for_a_walk(rig: &Rig, id: &SessionId) {
-    let shown = ipc::ShowWindow {
-        url: "http://localhost:5173/one".into(),
-        title: None,
-        session_id: Some(id.clone()),
-        variations: Vec::new(),
-        ..Default::default()
+    let (fleet, session) = (Arc::clone(&rig.fleet), id.as_str().to_string());
+    let held = tokio::spawn(async move { fleet.session_permission(&session, asking(KEPT_ASK)).await });
+    let card = card_of(rig, id, "Carry on in a new Job?").await;
+    held.abort();
+    let row = ipc::SessionRow::Ask {
+        id: format!("ask-{}-{}", card.call, id.as_str()),
+        at: rig.fleet.instant(),
+        ask: card,
+        state: ipc::SessionAskState::Kept,
+        via: None,
     };
-    rig.fleet.show_window(None, shown).await.expect("shown");
-    let decided = rig.fleet.session_permission(id.as_str(), asking(KEPT_ASK)).await.expect("decided");
-    assert!(matches!(decided, RunOrNot::Deny { .. }), "kept, not held: {decided:?}");
+    rig.fleet.row_put(id.as_str(), row).await;
 }
 
 #[tokio::test]

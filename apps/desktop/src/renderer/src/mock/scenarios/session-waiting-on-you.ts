@@ -1,11 +1,12 @@
-// A Session that waits on the person for four things, one of each act: a page to approve in a window,
-// a pull request to approve, a command to run, and an open question Fleet knows of, with a question asked in the walk window beside them. Over the `sessions`
+// A Session that waits on the person for four things, one of each act: a page to walk in a tab of the Job,
+// a pull request to approve, a command to run, and an open question Fleet knows of, with a question asked in the walk beside them. Over the `sessions`
 // scenario. The walk `session-waiting-on-you` plays it.
 
 import { mockPage } from "@armada/screens/src/fixtures/walk-window";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
+import { walkCall } from "../plan-call";
 import { s200Sessions } from "./sessions";
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -48,6 +49,16 @@ const waiting: Session = {
       slot: 3,
     },
     {
+      kind: "artifact",
+      form: "window",
+      id: mockPage(),
+      title: "Look at the findings page",
+      window: {
+        takes: [],
+        steps: [],
+      },
+    },
+    {
       kind: "pull_request",
       number: 1843,
       title: "Pin the store clock",
@@ -86,16 +97,7 @@ const waiting: Session = {
     ],
   },
   waitingFor: [
-    {
-      id: "a1",
-      text: "Look at the findings page",
-      since: minutesAgo(3),
-      source: "agent",
-      act: {
-        kind: "walk",
-        target: mockPage(),
-      },
-    },
+    walkCall(mockPage(), "Look at the findings page", minutesAgo(3)),
     {
       id: "a2",
       text: "Approve #1843",

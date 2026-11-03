@@ -259,11 +259,6 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     openSessionFile: async () => ({
       ok: true,
     }),
-    openSessionWindow: async () => ({
-      ok: true,
-    }),
-    getSessionWindows: async () => [],
-    onSessionWindows: () => () => {},
     readSessionArtifact: async () => ({
       ok: false,
       why: "unreadable",

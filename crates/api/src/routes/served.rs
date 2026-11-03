@@ -327,6 +327,11 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/sessions/terminal/rename",
     },
+    Route {
+        operation: "show_terminal",
+        method: "POST",
+        path: "/sessions/terminal/show",
+    },
     // The Job browser: each act held until Bridge answers it, and Bridge's answer.
     Route {
         operation: "browser_open",
@@ -369,9 +374,24 @@ const ROUTES: &[Route] = &[
         path: "/sessions/browser/answer",
     },
     Route {
+        operation: "raise_browser_ask",
+        method: "POST",
+        path: "/sessions/browser/ask",
+    },
+    Route {
+        operation: "end_browser_ask",
+        method: "POST",
+        path: "/sessions/browser/ask/end",
+    },
+    Route {
         operation: "show_window",
         method: "POST",
         path: "/sessions/window",
+    },
+    Route {
+        operation: "check_before_pr",
+        method: "POST",
+        path: "/sessions/pre_pr",
     },
     Route {
         operation: "withdraw_window",

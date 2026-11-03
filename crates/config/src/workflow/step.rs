@@ -52,6 +52,7 @@ const STEP_KEYS: &[&str] = &[
     "poke_limit",
     "follows_plan",
     "records_plan",
+    "plan_unasked",
     "asks_delivery",
     "walks",
     "awaits_reply",
@@ -137,6 +138,7 @@ pub struct Step {
     poke_limit: Option<u32>,
     follows_plan: bool,
     records_plan: bool,
+    plan_unasked: bool,
     asks_delivery: bool,
     walks: bool,
     ends_on: Vec<StepEnd>,
@@ -326,6 +328,12 @@ impl Step {
         self.asks_delivery
     }
 
+    /// Whether a plan this step records stands without a card asking him to approve it, for a step
+    /// where the plan is only the Job's progress. **False where the file leaves the key out.**
+    pub fn plan_unasked(&self) -> bool {
+        self.plan_unasked
+    }
+
     /// Whether this is the step where the person is shown the work and approves it before tests
     /// are written. **False where the file leaves the key out.** `workflowdef-fields.toml`, `walks`.
     pub fn walks(&self) -> bool {
@@ -447,6 +455,11 @@ pub(super) fn read(
     let asks_delivery = match table.optional("asks_delivery") {
         None => Some(false),
         Some(value) => yaml::flag(&asks_key, value, out),
+    };
+    let unasked_key = table.at("plan_unasked");
+    let plan_unasked = match table.optional("plan_unasked") {
+        None => Some(false),
+        Some(value) => yaml::flag(&unasked_key, value, out),
     };
     let walks_key = table.at("walks");
     let walks = match table.optional("walks") {
@@ -641,6 +654,7 @@ pub(super) fn read(
         poke_limit,
         follows_plan: follows_plan?,
         records_plan: records_plan?,
+        plan_unasked: plan_unasked?,
         asks_delivery: asks_delivery?,
         walks: walks?,
         ends_on: ends_on?,

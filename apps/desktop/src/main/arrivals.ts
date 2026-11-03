@@ -39,6 +39,13 @@ import type { ReviewsHost } from "./reviews";
 import type { TimelineHost } from "./timeline";
 import type { ActFailures } from "./act-failed";
 import type { StudioReads } from "./studios";
+import type { TerminalChange } from "../shared/api/sessions";
+
+const TERMINAL_CHANGES = {
+  "terminal.opened": "opened",
+  "terminal.shown": "shown",
+  "terminal.exited": "exited",
+} as const satisfies Record<string, TerminalChange>;
 
 /** What the arrival switch reaches on `FleetConnection`, and nothing more. */
 export interface ArrivalHost {
@@ -60,7 +67,7 @@ export interface ArrivalHost {
   /** Every session and the threads a window opened — `sessions.ts`. */
   readonly sessions: Pick<
     SessionsHost,
-    "again" | "changed" | "row" | "terminal" | "watchesChanged" | "browser"
+    "again" | "changed" | "row" | "terminal" | "watchesChanged" | "browser" | "browserAskAnswered"
   >;
   /** What Fleet holds disk for, read once for nobody so the first surface to open has a list, and again on a slot lease or release — `holding.ts`. */
   readonly held: Pick<HeldReader, "warm" | "again">;
@@ -481,13 +488,17 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.sessions.row(change);
     return;
   }
-  if (event.kind === "terminal.opened" || event.kind === "terminal.exited") {
+  if (
+    event.kind === "terminal.opened" ||
+    event.kind === "terminal.shown" ||
+    event.kind === "terminal.exited"
+  ) {
     // Nothing is folded: a shell is not part of the Session's record. The window is told, and what
     // the shell prints arrives as a run's does.
     host.publish({
       connection,
     });
-    host.sessions.terminal(event.kind === "terminal.opened" ? "opened" : "exited", {
+    host.sessions.terminal(TERMINAL_CHANGES[event.kind], {
       session_id: event.session_id,
       terminal: event.terminal,
       run_id: event.run_id,
@@ -503,6 +514,18 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
       session_id: event.session_id,
       request_id: event.request_id,
       act: event.act,
+    });
+    return;
+  }
+  if (event.kind === "browser.ask_answered") {
+    // Nothing is folded: the page's ask is the Job browser's, and Fleet has taken the item off its list already.
+    host.publish({
+      connection,
+    });
+    host.sessions.browserAskAnswered({
+      session_id: event.session_id,
+      ask_id: event.ask_id,
+      choice: event.choice,
     });
     return;
   }

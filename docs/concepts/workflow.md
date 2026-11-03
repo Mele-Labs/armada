@@ -48,21 +48,23 @@ The last column is what the Workflows page draws under each step (`rail_ends.rs`
 
 | Step | The agent | Ends when |
 |---|---|---|
-| `propose` | Shows what it took the request to mean as a sketch, or a rough walk for a look, then stops | you reply |
-| `discuss` | Settles the scope with sketches; builds a rough walk when the idea is about the look | a plan is recorded |
-| `approve_plan` | Records the plan, with a walk named for each piece he would see | you approve the plan |
-| `walk` | Builds the mock in the real Bridge on fixtures and shows it as a walk; writes no test | you approve the walk |
+| `propose` | Asks what is unclear, then puts its proposal to him: a plan, with a sketch inside where it helps, or a sketch, draft, document or rough walk alone | you approve the plan, or any one of those |
+| `walk` | Builds the mock in the real Bridge on fixtures and shows it as a walk, or several; writes no test | you approve every walk |
 | `refine` | Wires it for real and writes the tests | it is pushed |
 | `deliver` | Delivers the way he chose | it is merged |
 
-`walk` is passed over when nothing would be seen.
+`walk` is passed over when nothing would be seen, or when a rough walk he approved on `propose` was it.
+
+**One approval moves the Job on** (2 Nov 2026).
+After he approves anything `propose` lists, the plan the agent then records stands with no card.
+The agent prefers one proposal; a second stays open beside the first, and he answers each.
 
 **`bug`**
 
 | Step | The agent | Ends when |
 |---|---|---|
 | `find_the_cause` | Reproduces the bug, names the cause, records the fix as tasks | you approve the plan |
-| `fix` | Makes the fix and shows it as a short walk straight to the place; writes no test | you approve the walk |
+| `fix` | Makes the fix and shows it as a short walk straight to the place; writes no test | you approve every walk |
 | `tests` | Writes the test that fails without the fix and passes with it | it is pushed |
 | `deliver` | Delivers the way he chose | it is merged |
 
@@ -91,6 +93,12 @@ Three step keys place a Job around the owner.
 **`ends_on`** lists what ends the step, any one of them: what the owner does (`replied`, `walk_approved`, `sketch_approved`, `draft_approved`, `idea_picked` and `document_approved`) or a lifecycle reaching a state.
 The agent stops until one holds.
 `feature` sets it on `propose`, without `replied`: Propose ends on an approval, never on prose.
+**On a step that records the plan**, as `propose` does, the plan's approval ends the step too.
+A plan recorded after a listed end holds stands with no card, and the step stays current until that plan is recorded, since the steps after it work from the tasks.
+A plan already put to him stays his to answer, and a plan held behind a walk stands with his Approve of that walk.
+
+**`plan_unasked: true`**, on a step that records the plan, means the plan stands as soon as it is recorded and never makes a card.
+`code_review`, `revert` and `design_plan` set it: their plan is the Job's progress, and what he approves is the review, the summary or the page.
 `idea_picked` counts only an option the agent's own question gave a preview; Fleet's questions never count.
 `document_approved` counts only his approval of a page's newest revision, read off the page Fleet kept.
 
@@ -104,7 +112,9 @@ On a step that `delivers` the state gates the merge instead (Land waits on `pr: 
 **`awaits_reply: true`** is `ends_on: ["replied"]`.
 
 **`walks: true`** is the step where he is shown the work and approves it before any test is written.
-It is current from the plan's approval until he approves a window the Job showed, and it needs a recording step before it.
+It is current from the plan's approval until he has approved every window the Job showed since, and it needs a recording step before it.
+A window replaced by a newer one of its page, or taken back with `withdraw_window`, waits on nothing, and a walk shown later puts the Job back on the step until he approves that one too (2 Nov 2026).
+A plan that stood on a rough walk he approved counts as approved from when the first such walk went out, so that walk passes the step and any shown with it wait.
 The step after it is entered the moment it is passed, so a Job is never sent back to show a walk he approved.
 
 **A walk is expected** when the plan said `seen: true`, when it named a `walk`, or when the Job showed a window.

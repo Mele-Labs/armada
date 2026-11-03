@@ -15,12 +15,14 @@ fn kept(manifest: &str) -> KeptAutopilot {
         until: None,
         spend_cap_micros: None,
         session_cap: None,
+        weekly_cap_percent: None,
         state: "running".to_string(),
         started_at: at("2026-11-02T09:00:00.000Z").as_str().to_string(),
         ended_at: None,
         capped_by: None,
         on_backlog: false,
         on_running: true,
+        on_reports: true,
         decisions: vec!["plan".to_string(), "land".to_string()],
     }
 }
@@ -63,4 +65,24 @@ fn a_record_kept_before_the_boxes_reads_as_backlog_on_running_off_and_none() {
     let read = store.autopilot("old").expect("reads").expect("held");
     assert!(read.on_backlog && !read.on_running);
     assert!(read.decisions.is_empty());
+    assert!(!read.on_reports, "a record from before the reports box reads as off");
+    assert_eq!(read.weekly_cap_percent, None, "and with no weekly cap");
+}
+
+#[test]
+fn the_reports_box_and_the_weekly_cap_are_kept_and_an_update_writes_the_cap_only() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.start_autopilot(&KeptAutopilot { weekly_cap_percent: Some(70), ..kept("one") }).expect("started");
+    let read = store.autopilot("one").expect("reads").expect("held");
+    assert!(read.on_reports);
+    assert_eq!(read.weekly_cap_percent, Some(70));
+    let changed = KeptAutopilot { weekly_cap_percent: Some(90), on_reports: false, ..kept("one") };
+    assert!(store.update_autopilot(&changed).expect("changed"));
+    let read = store.autopilot("one").expect("reads").expect("held");
+    assert_eq!(read.weekly_cap_percent, Some(90));
+    assert!(read.on_reports, "an update leaves the boxes");
+    let cleared = KeptAutopilot { weekly_cap_percent: None, ..kept("one") };
+    assert!(store.update_autopilot(&cleared).expect("changed"));
+    assert_eq!(store.autopilot("one").expect("reads").expect("held").weekly_cap_percent, None);
 }

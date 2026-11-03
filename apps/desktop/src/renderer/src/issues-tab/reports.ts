@@ -8,7 +8,7 @@ import { jobIdOf, repositoryLabel } from "@armada/shell";
 import type { ReportedBug } from "./model";
 
 /** The Manifest id of the repository Armada is built in. */
-const ARMADA = "armada";
+export const ARMADA = "armada";
 
 /** The armada repository among those served, whether or not it is picked. */
 export const armadaIn = (

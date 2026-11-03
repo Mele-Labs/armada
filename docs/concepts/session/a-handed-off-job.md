@@ -27,8 +27,8 @@ The setting *Large context* can stand in for the card, or silence the tell (belo
 | `Stay, don't ask again this Job` | `handoff_quiet`, `spent` | Never tells it again |
 | `Remind me at a higher limit` | Fleet puts its own question, `Ask again at`, on the same card while the Job's call waits: `450k`, `500k`, `600k`, keys 1 to 3. The figure he presses is `handoff_remind_at`, `standing`, its target the tokens, and the Job reads it beside his first answer | Tells it nothing until its context passes the figure, then once, and the row is `spent`. From there the rule is as it always is |
 
-**A card asked while he walks a page is kept, and his answer to it hands on all the same.**
-The card is refused to the Job and kept in Needs you (`session_host/asking.rs`), so no call waits on it.
+**A card kept in Needs you hands on all the same.**
+A card asked while he walks a page is put to him as at any other time, so only a thread written before holds one kept: refused to the Job and kept in Needs you, with no call waiting on it.
 Bridge sends his answer as his message, a line a question opening `Answering your earlier question`.
 Fleet reads it against the kept question before the message reaches the thread: `Carry on in a new Job` runs the hand with the kept card's brief, and the message is not sent to the Job it ends; `Stay, don't ask again this Job` keeps `handoff_quiet`.
 `Remind me at a higher limit` answered this way keeps nothing, since no call is left to put `Ask again at` on.
@@ -58,6 +58,9 @@ A card with no brief still hands on, with the handoff alone.
 The parent is told the old Job was handed on and to which Job, in place of hearing that it ended, and follows the new Job's merges and its end from then on (*Linked Jobs*).
 The link waits for the end because a hand undone before then closes the new Job, which the parent would hear as an end.
 A Fleet that stopped after the old Job ended writes the link at its next start.
+
+**A wait on the old Job moves to the new one**, once the old Job has ended and the new one has its first word.
+The new Job is told of each wait as the old one was, and an end by a hand starts nothing (*A Job that waits on another*).
 Seen 30 Oct 2026: a parent told only that its child ended started a duplicate, and watched the successor's pull request itself (armada-3903).
 
 **A failure leaves one live Job, the old one as it was.** If the new Job does not start, the old Job is untouched.

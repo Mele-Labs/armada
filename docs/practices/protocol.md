@@ -166,7 +166,7 @@ WebSocket event stream, read this first.
 | [Usage a turn at a time](protocol/usage-a-turn-at-a-time.md) |
 | [The usage summary](protocol/the-usage-summary.md) |
 | [The usage rules](protocol/the-usage-rules.md) |
-| [A question refused for a walk is kept whole](protocol/a-question-refused-for-a-walk-is-kept-whole.md) |
+| [A question kept whole: the `kept` ask state](protocol/a-question-refused-for-a-walk-is-kept-whole.md) |
 | [Sessions are called Jobs: four tools listed under new names](protocol/sessions-are-called-jobs-four-tools-listed-under-new-names.md) |
 | [Every file of a pull request, read as its patch](protocol/every-file-of-a-pull-request-read-as-its-patch.md) |
 | [A walk's notes, sent as one turn: `send_session_notes`](protocol/a-walks-notes-sent-as-one-turn.md) |
@@ -186,9 +186,10 @@ WebSocket event stream, read this first.
 | [The Workflows page: `get_workflow_steps`, `delete_workflow_copy`, `reset_workflow_copy`, `mark_not_a_drift`](protocol/the-workflows-page.md) |
 | [Triggers leave the wire](protocol/triggers-leave-the-wire.md) |
 | [The pull request a plan's group lands in: `lands_in`](protocol/the-pull-request-a-plan-groups-lands-in.md) |
-| [The Job browser: seven acts held for Bridge, `answer_browser_request`, and the `browser_reminder` row](protocol/the-job-browser.md) |
+| [The Job browser: seven acts held for Bridge, `answer_browser_request`, a page's ask in Needs you, and the `browser_reminder` row](protocol/the-job-browser.md) |
 | [Several Jobs started in one call: `jobs` on `start_another_session`](protocol/several-jobs-started-in-one-call.md) |
 | [Autopilot's boxes: `on_autopilot` and `decisions`](protocol/autopilot-boxes.md) |
+| [Autopilot's reports box and weekly cap: `on_autopilot.reports`, `weekly_cap_percent`, `weekly`](protocol/autopilot-reports-and-weekly-cap.md) |
 | [Autopilot's answers: `get_autopilot_decisions`, `review_autopilot_decision`, `override_autopilot_decision`](protocol/autopilot-decisions.md) |
 | [Sleep leaves the wire](protocol/sleep-leaves-the-wire.md) |
 | [A Job's several terminals: `terminal` and `new`, `list_terminals`, `rename_terminal`](protocol/a-jobs-several-terminals.md) |
@@ -379,7 +380,7 @@ Since 19 Oct 2026. `docs/concepts/workflow.md`, *Where a definition comes from*,
 **Additive only**: one field on two existing types; no operation, route, event kind or error.
 The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/setup.ts` and `review-runs.ts`, written by hand, field for field.
-Bridge marks a workflow row and a review tool's tile that carry it with the eclipse glyph, its tooltip naming what it hides.
+Bridge marks a workflow row that carries it with the eclipse glyph, its tooltip naming what it hides, and draws it on a review tool's row in the tools menu and in the empty tools pane's list, and on its tab's head, naming what it hides; the menu row's hover also says what it replaces.
 
 | Where | Side | Carries |
 | --- | --- | --- |

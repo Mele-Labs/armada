@@ -33,6 +33,7 @@ impl Gathered {
             until: self.kept.until.as_deref().map(Timestamp::from_rfc3339),
             spend_cap_micros: self.kept.spend_cap_micros,
             session_cap: self.kept.session_cap,
+            weekly_cap_percent: self.kept.weekly_cap_percent,
         }
     }
 
@@ -52,6 +53,7 @@ impl Gathered {
             until: kept.until.clone().map(ipc::Instant::carried),
             spend_cap_micros: kept.spend_cap_micros,
             session_cap: kept.session_cap,
+            weekly_cap_percent: kept.weekly_cap_percent,
             state: match self.state() {
                 State::Running => ipc::AutopilotState::Running,
                 State::Paused => ipc::AutopilotState::Paused,
@@ -67,6 +69,7 @@ impl Gathered {
                     Cap::Until => ipc::AutopilotCap::Until,
                     Cap::Spend => ipc::AutopilotCap::Spend,
                     Cap::Sessions => ipc::AutopilotCap::Sessions,
+                    Cap::Weekly => ipc::AutopilotCap::Weekly,
                 }),
             spent_micros: self.spent.micros,
             sessions_started: self.spent.started,
@@ -74,6 +77,7 @@ impl Gathered {
             on_autopilot: ipc::AutopilotWork {
                 backlog: kept.on_backlog,
                 running: kept.on_running,
+                reports: kept.on_reports,
             },
             // A word this build does not know is left off, as a pick's state is.
             decisions: kept
@@ -164,7 +168,10 @@ where
             .autopilot_picks(&kept.run_id)
             .map_err(Adrift::Writing)?;
         let mut standing = BTreeMap::new();
-        let mut spent = Spent::default();
+        let mut spent = Spent {
+            weekly_percent: self.weekly_reading().await,
+            ..Spent::default()
+        };
         for one in &picks {
             let Some(started) = one.started_session.as_deref() else {
                 continue;
@@ -188,6 +195,25 @@ where
             standing,
             spent,
         })
+    }
+
+    /// The account's weekly usage in percent, where a window of it is read and has not reset.
+    /// **No reading is `None`, never zero**: an account with no window, or a reading from before the
+    /// window reset, must not pause or refuse anything. The held reading is not trimmed of reset
+    /// windows as the restored one is, so the reset is checked here.
+    pub(crate) async fn weekly_reading(&self) -> Option<u32> {
+        let held = self.hosts().plan_usage();
+        let usage = if held.windows.is_empty() { self.plan_usage_restored().await } else { held };
+        let now = self.now().epoch_millis();
+        usage
+            .windows
+            .iter()
+            .find(|window| window.kind == crate::model_downshifting::WEEKLY)
+            .filter(|window| {
+                let reset = window.resets_at.as_ref().and_then(|at| at.to_domain().epoch_millis());
+                !matches!((reset, now), (Some(reset), Some(now)) if reset <= now)
+            })
+            .map(|window| window.percent_used)
     }
 
     /// What the Session `id` has cost and how it stands, as room and Stop read it. `None` where the

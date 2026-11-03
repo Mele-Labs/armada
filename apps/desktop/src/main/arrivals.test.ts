@@ -122,6 +122,7 @@ function fakeHost(questionsOver: BridgeState["questions"] = []): {
       terminal: () => {},
       watchesChanged: () => {},
       browser: () => {},
+      browserAskAnswered: () => {},
     },
     held: {
       warm: async () => {},
@@ -149,6 +150,46 @@ function fakeHost(questionsOver: BridgeState["questions"] = []): {
     autopilots,
   };
 }
+
+describe("a terminal's change, off `terminal.*`", () => {
+  const told = (kind: string) =>
+    JSON.stringify({
+      message: "event",
+      cursor: 4,
+      event: {
+        kind,
+        session_id: "a",
+        terminal: "t2",
+        run_id: "r2",
+      },
+    });
+
+  it.each([
+    [
+      "terminal.opened",
+      "opened",
+    ],
+    [
+      "terminal.shown",
+      "shown",
+    ],
+    [
+      "terminal.exited",
+      "exited",
+    ],
+  ])("hands %s to the sessions host as %s", (kind, change) => {
+    const { host } = fakeHost();
+    const terminal = vi.fn();
+    host.sessions.terminal = terminal;
+    applyArrival(host, told(kind), FLEET);
+    expect(terminal).toHaveBeenCalledOnce();
+    expect(terminal).toHaveBeenCalledWith(change, {
+      session_id: "a",
+      terminal: "t2",
+      run_id: "r2",
+    });
+  });
+});
 
 describe("the mods on this machine, off `mods.changed`", () => {
   const row = (name: string, over: Partial<ModSummary> = {}): ModSummary => ({
@@ -310,6 +351,53 @@ describe("an agent's act on its Job browser", () => {
       FLEET,
     );
     expect(browser).toHaveBeenCalledWith(request);
+  });
+});
+
+describe("the owner's answer to a page's ask in Needs you", () => {
+  it("is handed to the Job browser with the tab it names and the choice, null for a dismissal", () => {
+    const { host } = fakeHost();
+    const browserAskAnswered = vi.fn();
+    for (const choice of [
+      0,
+      null,
+    ])
+      applyArrival(
+        {
+          ...host,
+          sessions: {
+            ...host.sessions,
+            browserAskAnswered,
+          },
+        },
+        JSON.stringify({
+          message: "event",
+          cursor: 6,
+          event: {
+            kind: "browser.ask_answered",
+            session_id: "s1",
+            ask_id: "t1",
+            choice,
+          },
+        }),
+        FLEET,
+      );
+    expect(browserAskAnswered.mock.calls).toEqual([
+      [
+        {
+          session_id: "s1",
+          ask_id: "t1",
+          choice: 0,
+        },
+      ],
+      [
+        {
+          session_id: "s1",
+          ask_id: "t1",
+          choice: null,
+        },
+      ],
+    ]);
   });
 });
 

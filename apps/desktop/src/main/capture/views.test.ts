@@ -66,6 +66,7 @@ vi.mock("electron", () => {
         setUserAgent: (agent: string) => void (part["agent"] = agent),
         webRequest: {
           onBeforeSendHeaders: (handler: BeforeSend) => void (part["beforeSend"] = handler),
+          onBeforeRequest: () => {},
         },
         setPermissionRequestHandler: (handler: unknown) => void (part["permission"] = handler),
         setPermissionCheckHandler: (handler: unknown) => void (part["check"] = handler),
@@ -89,6 +90,7 @@ vi.mock("electron", () => {
 import tokens from "@armada/tokens/tokens.json";
 
 import type { Pinned } from "./address";
+import { decidesPermissions } from "./permissions";
 import { pageView as view } from "./views";
 
 const pin = (manifestId: string | null, through: string[] = []): Pinned => ({
@@ -157,6 +159,17 @@ it("withholds every permission, and gives the page no preload", () => {
     nodeIntegration: false,
   });
   expect(world.views[0]?.webPreferences).not.toHaveProperty("preload");
+});
+
+it("keeps the walk window's dialogs off, and a Job browser's page may turn them on", () => {
+  pageView("01ARMADA");
+  view(pin("01ARMADA"), {
+    disableDialogs: false,
+  });
+  expect(world.views.map((one) => one.webPreferences["disableDialogs"])).toEqual([
+    true,
+    false,
+  ]);
 });
 
 it("paints the page Bridge's ground until it draws, never white", () => {
@@ -262,4 +275,37 @@ it("takes the grant back when the contents are destroyed", () => {
   contents.fire("destroyed");
   expect(asked(part, contents, LOCAL, "https://login.example.com/sso")).toBe(false);
   expect((part["check"] as Check)(contents, LOCAL, "https://login.example.com")).toBe(false);
+});
+
+it("answers a Job browser's page from its own choice and not the window's origin test, for the request and the check", async () => {
+  for (const given of [
+    true,
+    false,
+  ]) {
+    const { part, contents } = walkPage();
+    decidesPermissions(contents as never, {
+      request: async () => given,
+      check: () => given,
+      download: () => {},
+    });
+    const decided: boolean[] = [];
+    // An origin the walk's own test refuses, so only the page's own choice can give it.
+    (part["permission"] as Ask)(contents, LOCAL, (granted) => decided.push(granted), {
+      requestingUrl: "https://elsewhere.example.com/",
+    });
+    await Promise.resolve();
+    expect(decided).toEqual([
+      given,
+    ]);
+    expect(
+      (
+        part["check"] as (
+          contents: unknown,
+          permission: string,
+          origin: string,
+          details: object,
+        ) => boolean
+      )(contents, LOCAL, "https://elsewhere.example.com", {}),
+    ).toBe(given);
+  }
 });

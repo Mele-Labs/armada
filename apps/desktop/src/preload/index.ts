@@ -9,6 +9,7 @@ import { requestsPreload } from "./requests";
 import { logbookPreload } from "./logbook";
 import { teachingPreload } from "./teaching";
 import { jobBrowserPreload } from "./job-browser";
+import { jobWalkPreload } from "./job-walk";
 import { voicePreload } from "./voice";
 import type {
   AskLessonRead,
@@ -666,6 +667,7 @@ const api: BridgeApi = {
   ...logbookPreload,
   ...teachingPreload,
   ...jobBrowserPreload,
+  ...jobWalkPreload,
   ...voicePreload(ipcRenderer),
   getPlanUsage: (): Promise<PlanUsageRead> => ipcRenderer.invoke(CHANNELS.getPlanUsage),
   onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void): (() => void) => {
@@ -1197,22 +1199,6 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.mendSessionTools, sessionId),
   openSessionFile: (sessionId: string, path: string): Promise<Followed> =>
     ipcRenderer.invoke(CHANNELS.openSessionFile, sessionId, path),
-  openSessionWindow: (sessionId: string, url: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.openSessionWindow, sessionId, url),
-  getSessionWindows: (): Promise<readonly string[]> =>
-    ipcRenderer.invoke(CHANNELS.getSessionWindows),
-  onSessionWindows: (onChanged: (addresses: readonly string[]) => void): (() => void) => {
-    const handler = (_event: unknown, addresses: unknown): void =>
-      onChanged(
-        Array.isArray(addresses)
-          ? addresses.filter((one): one is string => typeof one === "string")
-          : [],
-      );
-    ipcRenderer.on(CHANNELS.sessionWindowsChanged, handler);
-    return () => {
-      ipcRenderer.removeListener(CHANNELS.sessionWindowsChanged, handler);
-    };
-  },
   readSessionArtifact: (sessionId: string, path: string): Promise<ArtifactRead> =>
     ipcRenderer.invoke(CHANNELS.readSessionArtifact, sessionId, path),
   showSessionPage: (sessionId: string, address: string, bounds: PageBounds): Promise<Followed> =>

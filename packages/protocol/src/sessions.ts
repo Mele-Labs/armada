@@ -377,6 +377,10 @@ export type WaitingAct = {
  * A draft act is never one: it is proposed at once and the `draft` item it raises is the ask.
  * `sketch` (id `sketch:<title>`, the sketch attachment's id, text the title, act `message` whose `target` is the Job's own id) is a sketch the
  * agent showed with `show_sketch` that he has not approved or sent back on its card. Its press opens the sketch. Dismissing it settles it.
+ * `browser_ask` (id `browser_ask:<ask_id>`, `ask_id` being Bridge's tab id, text and options as Bridge sent them, act `answer` whose `target` is the id) is a page in
+ * the Job's browser asking him for a permission, which Bridge raised with `raise_browser_ask`. Fleet holds it in memory only. Answering with a `choice`
+ * publishes `browser.ask_answered` with that index and removes it, and dismissing publishes it with `choice: null`. The agent is told nothing and is not
+ * woken. Words alone are refused. It goes when `end_browser_ask` names it, when Fleet restarts, and when no client holds `/events` open.
  * `document` (id `document:<path>`, the page's path, text its title, act `message` whose `target` is the Job's own id) is the newest revision of a
  * page the Job wrote under `.armada/documents/` that he has not approved or sent back: a document artifact with `detail.asked` and no
  * `detail.settled`. Its press opens the document. `answer_document` answers it.
@@ -396,6 +400,7 @@ export type WaitingSource =
   | "delivery"
   | "words_address"
   | "fleet_call"
+  | "browser_ask"
   | "task_done"
   | "watch_not_ours"
   | "held_child"
@@ -800,6 +805,8 @@ export type ShowWindow = {
   origins?: string[];
   /** Addresses on the shown origin or one of `origins`, loaded in order before the page. A secret: Fleet keeps it in memory and writes it nowhere. */
   sign_in?: string[];
+  /** The Job's line or two on what changed and what to look at, drawn on the walk's tab. At most 400 characters; longer is refused. */
+  brief?: string;
 };
 
 /** `POST /sessions/window/sign_in`: Bridge, opening a window, asks for the sign-in addresses held for it. */
@@ -1150,7 +1157,7 @@ export type RenameTerminal = {
   name: string;
 };
 
-/** `terminal.opened` and `terminal.exited` on `/events`: one of a Job's shells opened or ended, so a pane can follow it. What it prints is `observe_session_run`'s, on `run_id`. */
+/** `terminal.opened`, `terminal.shown` and `terminal.exited` on `/events`: one of a Job's shells opened, was shown or ended, so a pane can follow it. What it prints is `observe_session_run`'s, on `run_id`. */
 export type JobTerminal = {
   session_id: string;
   /** `t1`, `t2`. */
@@ -1274,9 +1281,6 @@ export type BrowserAnswer =
 /** Why Bridge could not do an act. Fleet words each for the agent; `failed`'s `why` reaches it after "The Job browser could not do that:". */
 export type BrowserError =
   | {
-      kind: "owner_driving";
-    }
-  | {
       kind: "not_found";
     }
   | {
@@ -1298,6 +1302,40 @@ export type AnswerBrowserRequest = {
 export type BrowserRequestAnswered = {
   request_id: string;
   session_id: string;
+};
+
+/**
+ * `raise_browser_ask`: Bridge says a page in a Job's browser asks the owner for a permission. Fleet holds it, in memory only, and lists it
+ * in the Job's Needs you as a `browser_ask` item with id `browser_ask:<ask_id>`. `ask_id` is Bridge's tab id, and a tab has one ask at a time:
+ * the same `ask_id` again replaces it. The agent is told nothing. `POST /sessions/browser/ask`.
+ */
+export type RaiseBrowserAsk = {
+  session_id: string;
+  ask_id: string;
+  text: string;
+  options: WaitingOption[];
+};
+
+/** `end_browser_ask`: the ask was settled in the tab, or the tab closed. Answered 200 where Fleet holds none, since either side may end first. `POST /sessions/browser/ask/end`. */
+export type EndBrowserAsk = {
+  session_id: string;
+  ask_id: string;
+};
+
+/** What `raise_browser_ask` and `end_browser_ask` answer: the ask they named. */
+export type BrowserAskNoted = {
+  session_id: string;
+  ask_id: string;
+};
+
+/**
+ * `browser.ask_answered` on `/events`: the owner answered, or dismissed, a `browser_ask` item in Needs you. `choice` is the option's index, or
+ * null for a dismissal. Bridge settles the page's ask the way it was answered in the tab. Not replayed.
+ */
+export type BrowserAskAnswered = {
+  session_id: string;
+  ask_id: string;
+  choice: number | null;
 };
 
 /** One holder of what `who_owns` was asked about, with its row. */

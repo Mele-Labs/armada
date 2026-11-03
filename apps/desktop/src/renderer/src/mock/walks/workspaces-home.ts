@@ -1,6 +1,6 @@
 // A Workspace is listed in the repository picker and edited in System > Workspaces, with the autonomy defaults of each level (armada-cwj). Opens on store-api, which is in my-store and in platform. A mock, no Fleet behind it.
 
-import { button, inside, role, systemPage, walk } from "../walk";
+import { button, inside, role, systemPage, text, walk } from "../walk";
 
 const AUTONOMY = role("list", "Autonomy", {
   exact: true,
@@ -85,15 +85,8 @@ export const workspacesHome = walk(
       say: "Workflows, on store-api",
     },
     {
-      look: inside(
-        role("group", "Runs in", {
-          exact: true,
-        }),
-        role("tab", "my-store", {
-          exact: true,
-        }),
-      ),
-      say: "One tab for my-store",
+      look: text("Edits here change every Workspace and repository that keeps the default"),
+      say: "The picked row sets the level, with no tab row",
     },
   ],
   {

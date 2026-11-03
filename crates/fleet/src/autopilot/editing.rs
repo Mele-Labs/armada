@@ -30,6 +30,7 @@ where
         &self,
         settings: &AutopilotSettings,
         now: &Timestamp,
+        weekly_percent: Option<u32>,
     ) -> Result<Settings, Refusal> {
         let unsettable = |said: String| Refusal::Unacceptable(self.refused_as(UNSETTABLE, said));
         let until = match settings.until.as_ref() {
@@ -43,8 +44,9 @@ where
             until,
             spend_cap_micros: settings.spend_cap_micros,
             session_cap: settings.session_cap,
+            weekly_cap_percent: settings.weekly_cap_percent,
         };
-        Settings::confirmed(&settings.instruction, settings.at_once, caps, now)
+        Settings::confirmed(&settings.instruction, settings.at_once, caps, now, weekly_percent)
             .map_err(|why| unsettable(why.to_string()))
     }
 
@@ -61,7 +63,7 @@ where
                 "Autopilot is stopped. Start it again with these settings instead",
             )));
         }
-        let confirmed = self.confirmed(settings, &self.now())?;
+        let confirmed = self.confirmed(settings, &self.now(), self.weekly_reading().await)?;
         let changed = KeptAutopilot {
             instruction: confirmed.instruction().to_string(),
             at_once: confirmed.at_once(),
@@ -72,6 +74,7 @@ where
                 .map(|at| at.as_str().to_string()),
             spend_cap_micros: confirmed.caps().spend_cap_micros,
             session_cap: confirmed.caps().session_cap,
+            weekly_cap_percent: confirmed.caps().weekly_cap_percent,
             ..kept
         };
         self.store()

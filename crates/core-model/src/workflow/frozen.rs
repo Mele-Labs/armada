@@ -507,6 +507,9 @@ pub struct ResolvedStep {
     /// thing that can widen it, and it only ever widens: a plan step's own
     /// product already makes this true, and nothing un-sets it. `#1006`.
     records_plan: bool,
+    /// Whether a plan the step records stands without a card asking him to approve it. **False** on
+    /// every step that does not say so, and on every row frozen before a step could.
+    plan_unasked: bool,
     /// Whether entering the step asks the owner how the work is delivered. **False** on every step
     /// that does not say so, and on every row frozen before a step could.
     asks_delivery: bool,
@@ -572,6 +575,7 @@ impl ResolvedStep {
             // has in hand. `also_recording_the_plan` is where a caller adds
             // the other way a step can record one.
             records_plan: evidence_type == Some(EvidenceType::Plan),
+            plan_unasked: false,
             asks_delivery: false,
             walks: false,
             ends_on: Vec::new(),
@@ -628,6 +632,17 @@ impl ResolvedStep {
     /// converge here rather than being told apart by a caller.
     pub fn records_plan(&self) -> bool {
         self.records_plan
+    }
+
+    /// Whether a plan the step records stands without a card, for the reason
+    /// [`describing`](Self::describing) is a builder.
+    pub fn leaving_the_plan_unasked(mut self, unasked: bool) -> ResolvedStep {
+        self.plan_unasked = unasked;
+        self
+    }
+
+    pub fn plan_unasked(&self) -> bool {
+        self.plan_unasked
     }
 
     /// Whether entering the step asks the owner how the work is delivered, for the

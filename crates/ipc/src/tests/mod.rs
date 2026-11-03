@@ -50,6 +50,8 @@ mod preferences;
 mod settings;
 /// The one DTO on this seam a peer *writes*, and what it refuses.
 mod protocol_id;
+/// A thing said on a pull request: its id, and an edit and a bot only where there is one.
+mod pull_request_entries;
 /// A given-back worktree, and the absent halves Bridge reads as absent.
 /// A person's run: the two kinds it streams under, and the record it leaves.
 mod rehearsal;

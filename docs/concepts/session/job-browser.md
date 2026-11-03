@@ -2,17 +2,17 @@
 
 **Part of:** [Job](../session.md).
 
-**A Job has one web page that its agent drives and the person watches, and may take over.**
+**A Job has one web page that its agent and the person both use, at any time.**
 It is a Browser tab in a pane of the Job, beside the thread or any other tab, so the page and the Job are read and answered together.
 `+` on a pane's tab row offers Browser, and each Browser tab has a page of its own, named by its address.
 It is the page the Job's browser tools act on, so it is how a Job opens its own work and looks at it without a second browser the person cannot see.
-It is not the walk window: [Showing a window](showing-a-window.md) shows the person a page to walk and approve, and this is the page the agent works in.
+It is not the walk window: [Showing a window](showing-a-window.md) shows the person a page to walk and approve, and this is the page the agent works in and the person uses too.
 
 **Each tab's page is one view for the tab's life in Bridge**, kept while another tab is in front of it and when it moves to a window, so it holds its history, its sign-in and what was typed.
 It exists for a Job Fleet holds, once the tab opens or the agent opens a page, and goes when the tab is closed, the Job ends or Bridge quits.
-**The page the agent drives is the Job's page**: the first Browser tab in pane order that is showing, else the one shown last, else the first.
+**The page the agent acts on is the Job's page**: the first Browser tab in pane order that is showing, else the one shown last, else the first.
 An agent's open on the Job on screen, with no Browser tab, makes one, in the pane that holds a Browser, else in a new pane on the right; for a Job not on screen no tab opens until the Job is.
-It runs in its repository's own session as the walk window's page does, with no preload and every permission refused (`docs/practices/capture-window.md`, *What the page can reach back into*).
+It runs in its repository's own session as the walk window's page does, with no preload and no channel to main, and it answers permissions, downloads, popups and fullscreen from the person's choices (*Site settings*; `docs/practices/capture-window.md`, *What the page can reach back into*).
 Its code is `apps/desktop/src/main/job-browsers.ts`, `apps/desktop/src/main/job-browser-acts.ts` and `apps/desktop/src/renderer/src/job-browser/`.
 
 ## In the tab
@@ -21,10 +21,10 @@ Its code is `apps/desktop/src/main/job-browsers.ts`, `apps/desktop/src/main/job-
 
 | Control | Does |
 |---|---|
-| Driver glyph | Says who drives, and a press changes it (*Who drives*) |
+| Agent mark | Says whether an act of the agent's is running (*The agent mark*). It is not a button |
 | Back, Forward, Reload | Move along the page's history and load it again. `⌘[`, `⌘]` and `⌘R` do the same with the pane focused |
-| Address | The page's address, which the person edits only while he drives |
-| Site settings | The lock before the address: what the page may use, for this site and for every site |
+| Address | The page's address, which the person edits and Enter loads, for an `http` or `https` address |
+| Site settings | The lock before the address: what the page may use, for this site and for every site (*Site settings*) |
 | Capture | Pick a part of the page and send the Job a note on it (*Capture*). `⌥⌘C` |
 
 The page sizes to its pane, and a tab behind another hides its page with everything it held.
@@ -37,13 +37,65 @@ The page is the same one, so nothing it held is lost, and the tab stays in its p
 **Move to the pane**, on the tab or in the window's toolbar, closes the window and shows the page in the tab again.
 Closing the window puts the page back in its tab.
 
-## Who drives
+## Both use the page
 
-**The driver glyph is the toggle**: an agent mark reading *Agent driving. Take over*, a person mark reading *You're driving. Hand back to the agent*.
-While the person drives, the address takes an `http` or `https` address and Enter loads it, and every act of the agent's is refused with `owner_driving`, which the agent reads as "The owner is driving the Job browser.
-Ask him to hand it back, or wait." (`docs/practices/protocol/the-job-browser.md`, *The answer*).
-Handing it back lets the agent's next act through.
-**The glyph decides what the agent may do, not what the person may press**: the person's own presses reach the page while the agent drives too.
+**Nobody holds the page.**
+The person and the agent use it at any time, and neither is refused or locked out of the address, Back, Forward, Reload or Site settings.
+When both act at once, the input that lands last wins.
+The agent's acts are never refused on the person's account.
+
+## The agent mark
+
+**The agent mark is first in the toolbar, in a fixed slot**, so the controls after it do not move when it changes.
+It is the `bot` glyph, dim at rest with the tooltip *No agent act running*.
+**While an act runs it is lit in the accent and pulses, and the tooltip names the act**, as *Clicking Apply*.
+The words come from `describeAct` in `apps/desktop/src/shared/browser-act.ts` and arrive as `JobBrowserState.acting`.
+The latest act shows, and each act clears only its own.
+
+## Site settings
+
+**Site settings is the lock before the address, and what the person allows stays allowed.**
+It has nine rows, each Ask, Allow or Block: Local network, Camera, Microphone, Notifications, Clipboard, Location, Downloads, Popups and Fullscreen.
+Two views hold them: *This site*, kept per repository, and *All sites*, the defaults.
+**The defaults are one set for the whole Mac**, edited from the lock's *All sites* and from System, Bridge, Browser (`bridge:browser`), which are the same values.
+A site's own choice comes first, and the shipped defaults are Allow for Popups and Fullscreen and Ask for every other row.
+The site file in main is `{ defaults: {...}, "<repoKey>": { sites } }`.
+
+**Local network Allow confirms first**, in either view, and names the risk: this site, or every site, can reach apps on this Mac and devices on the person's network, including pages the agent opens.
+Moving a row away from Allow does not confirm.
+Why: a page the agent opens gets what the person allowed.
+
+**Armada makes the Local network check itself** (`reachTest`), since Electron switches off Chromium's (`LocalNetworkAccessChecks`, which `--enable-features` cannot turn back on) and so never asks a session for `local-network-access`.
+Each request a page makes from a more public address to a more private one takes the row's answer: public, then this network, then this Mac.
+A host name is looked up and its answer kept for a minute, so a site's own name for 127.0.0.1 counts as this Mac.
+Not checked: an address opened in the page itself, typed or set by the page, so the person can always go to one; WebRTC; a service worker's own requests, which carry no page; and a name whose answer changes inside its minute.
+
+| Row | What the page gets |
+|---|---|
+| Downloads | The row answers a download. Allow goes through Electron's save dialog |
+| Popups | Allow opens the popup as below. Block denies. Ask denies now and raises the ask, and an Allow in answer opens the address, without an opener |
+| Fullscreen | Fullscreen and pointer lock follow the row. Fullscreen fills the page's window and returns to the pane's rect after |
+
+**A popup opens as a real window in the repository's session**, with no preload and sandboxed, on `http` and `https` only, sized 520 by 720.
+It keeps `window.opener`, so a sign-in that posts its answer back works.
+A popup closes with its page's tab, and the agent's acts do not reach into it.
+
+**`alert` and `confirm` show on a Job browser page.**
+Electron gives no per-site switch for them, so they have no row, and it does not support `prompt`.
+An act on a page held by a dialog runs out on Fleet's hold.
+
+## A page's ask
+
+**A page that asks for something the row says Ask for is one ask, shown in two places.**
+A strip above the page reads *Allow {Label} for {host}?* with Allow and Block, and an item in the Job's Needs you carries the same words, so the row calls and the person answers from the thread.
+The strip moves the page down and never covers it, so the page and every other tab stay usable while the ask waits.
+**Answering in either takes both away and is remembered for that host.**
+Esc in Bridge, or the item's dismiss, refuses it now and keeps nothing.
+Closing the tab ends the ask, and the page and its history go with the tab, while cookies stay in the repository's session.
+**The agent is told nothing and is not woken.**
+An ask raised during an agent's act waits on the person, and the agent's call may time out meanwhile.
+A tab has one ask at a time, and a second is refused as a dismissed one.
+The wire is in [The Job browser](../../practices/protocol/the-job-browser.md), *A page's ask*.
 
 ## Capture
 
@@ -93,9 +145,8 @@ The row keeps the address without its query, fragment or sign-in (`docs/practice
 
 ## What it does not do
 
-- **It lives until its tab closes or Bridge quits.** The page, its history and its sign-in are not written down, and the tab opens empty the next time Bridge opens.
-- **It does not stop the person's presses while the agent drives.** The toggle decides whether the agent's acts are refused.
+- **It lives until its tab closes or Bridge quits.** The page and its history are not written down, and the tab opens empty the next time Bridge opens.
 - **It draws no ring over the real page.** A note is a picture and a named part sent to the Job; only the mock's fixture page draws pins.
-- **It grants the page nothing.** Downloads and every permission are refused, a popup opens in the page itself, and only `http` and `https` load.
+- **It grants the page only what the person allowed.** No preload, the page is sandboxed, and only `http` and `https` load.
 - **It is not replayed.** An act asked while Bridge was not connected is refused, and one asked as Bridge quits is not answered, so the agent's wait runs out.
 - **It is not the walk.** It writes no `window` artifact, holds no `walk:` item and waits on no Approve.

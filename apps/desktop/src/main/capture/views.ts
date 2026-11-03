@@ -6,11 +6,12 @@
 // with Bridge's preload and Bridge's CSP; the page is the only one that is not, and it has no preload.
 
 import tokens from "@armada/tokens/tokens.json";
-import { app, session, WebContentsView, type Session } from "electron";
+import { app, session, WebContentsView, type Session, type WebContents } from "electron";
 import { join } from "node:path";
 
 import { chromeAgent, granted, onAnyOrigin, partitionFor, type Pinned } from "./address";
 import { panelQuery, type PanelSubject } from "./layout";
+import { reachTest, spacesThrough } from "./local-network";
 import { deciderOf, may, reachesLocalNetwork } from "./permissions";
 
 /**
@@ -25,8 +26,9 @@ const held = new Set<string>();
  *
  * **Every permission is denied without asking, bar one, and a download is refused.** The walk window exists to look at
  * a page, not to host one. The exception is local network access, for a sign-in provider's page reaching the sign-in
- * app on this machine, and only on an origin the window may reach (`permissions.ts`). A Job's browser page registers a
- * decider instead, which answers from the owner's saved choices and may ask him (`site-permissions.ts`).
+ * app on this machine, and only on an origin the window may reach (`permissions.ts`), though Electron never asks for it
+ * and so a walk's page is not held back. A Job's browser page registers a decider instead, which answers from the
+ * owner's saved choices and may ask him (`site-permissions.ts`), and its requests are checked here (`local-network.ts`).
  *
  * **The user agent is Electron's with its own two tokens taken out**, for every page and popup in the
  * partition: a sign-in provider that refuses a browser it reads as Electron then reads Chrome.
@@ -47,6 +49,24 @@ function sessionFor(manifestId: string | null): Session {
         "User-Agent": agent,
       },
     }),
+  );
+  // A request a page cannot be answered about is cancelled: a frame gone mid-request throws when read.
+  const mayReach = reachTest(
+    (contents) => deciderOf((contents as WebContents | undefined) ?? null),
+    spacesThrough((name) => part.resolveHost(name)),
+  );
+  part.webRequest.onBeforeRequest(
+    (request, done) =>
+      void mayReach(request).then(
+        (allowed) =>
+          done({
+            cancel: !allowed,
+          }),
+        () =>
+          done({
+            cancel: true,
+          }),
+      ),
   );
   // `permission` is compared as a string: Electron sends "local-network-access", which its typed union omits.
   part.setPermissionRequestHandler((contents, permission: string, decide, details) => {
@@ -87,8 +107,18 @@ function sessionFor(manifestId: string | null): Session {
  */
 const GROUND = tokens.tokens.find((one) => one.name === "--bg-base")?.value;
 
-/** The page: another repository's running app, with no preload and a session of its own. */
-export function pageView(pin: Pinned): WebContentsView {
+/**
+ * The page: another repository's running app, with no preload and a session of its own. **`disableDialogs`** is true unless a Job browser's
+ * page says otherwise: its `alert` and `confirm` are the owner's to see, where the walk window's would pass for Armada's.
+ */
+export function pageView(
+  pin: Pinned,
+  {
+    disableDialogs = true,
+  }: {
+    disableDialogs?: boolean;
+  } = {},
+): WebContentsView {
   const view = new WebContentsView({
     webPreferences: {
       session: sessionFor(pin.manifestId),
@@ -101,7 +131,7 @@ export function pageView(pin: Pinned): WebContentsView {
       webviewTag: false,
       spellcheck: false,
       // A dialog the page draws would be a dialog that looks like Armada's.
-      disableDialogs: true,
+      disableDialogs,
       // Neither loosened. A page's own CSP is what governs it, and Bridge
       // rewrites no header to make an awkward app render.
       webSecurity: true,
@@ -131,11 +161,23 @@ function bridgeView(): WebContentsView {
   return view;
 }
 
-/** The bar. **Fully transparent**: it paints its own strip and nothing else, so the page shows through it. */
-export function barView(): WebContentsView {
+/**
+ * The bar. **Fully transparent**: it paints its own strip and nothing else, so the page shows through it. `pane`: a Job's walk drawn
+ * as a tab of Bridge's window, whose document draws the walk's own bar (`?seat=pane`) and nothing of a window's.
+ */
+export function barView(pane = false): WebContentsView {
   const view = bridgeView();
   view.setBackgroundColor("#00000000");
-  void view.webContents.loadFile(join(__dirname, "../renderer/capture.html"));
+  void view.webContents.loadFile(
+    join(__dirname, "../renderer/capture.html"),
+    pane
+      ? {
+          query: {
+            seat: "pane",
+          },
+        }
+      : {},
+  );
   return view;
 }
 

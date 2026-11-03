@@ -18,10 +18,11 @@ The code is `crates/fleet/src/autopilot.rs` and the modules under it, the decisi
 | Until | A time, held in UTC. Optional |
 | Spend | A dollar total across its Jobs' reported costs, in millionths. Optional |
 | Jobs started | How many Jobs it may start. Optional. The store calls it `job_cap` and the wire `session_cap` |
-| On autopilot | `backlog` and `running`, two booleans: whether it works the backlog, and whether it works Jobs already running. Kept as checked at start. A start without them, and a record from before them, read as `backlog` true and `running` false |
+| Weekly usage | A percent of the account's weekly window. Optional. The wire and the store call it `weekly_cap_percent`. **A reading, never a budget**: see the rules below |
+| On autopilot | `backlog`, `running` and `reports`, three booleans: whether it works the backlog, whether it works Jobs already running, and whether it works the bugs agents reported. Kept as checked at start. A start without them, and a record from before them, read as `backlog` true, `running` false and `reports` false |
 | Decisions | The kinds of decision a helper may answer: `recommended` (a question with a recommended answer), `open` (a question with none), `plan`, `draft`, `walk`, `land` (a green pull request), `unsure` (an issue Autopilot was unsure of), `red` (a fix for a red main), `reads` and `writes`. There is no destructive kind: it always waits for a person, and a body naming it is refused. A kind not checked waits for a person. Kept as checked at start, and a change of settings leaves them |
 | State | `running`, `paused` or `stopped`, with when it started and ended |
-| Capped by | `until`, `spend` or `sessions`, where a cap rather than a person paused it. A Resume clears it |
+| Capped by | `until`, `spend`, `sessions` or `weekly`, where a cap rather than a person paused it. A Resume clears it |
 | Picks | Each issue it picked, the workflow, the Job it started, the picker's reason, and `started`, `set_aside`, `withdrawn` or `dismissed` |
 | Fault | Why the last pass picked nothing: the tracker would not answer, or the picker's answer was refused. In memory, and gone once a pass goes through. The only place a pass's failure is told |
 
@@ -33,7 +34,8 @@ The code is `crates/fleet/src/autopilot.rs` and the modules under it, the decisi
    One model call, made the way the [Proposer](job-proposer.md)'s is, reads it as the five settings, each with the words of the sentence it was read from.
    A quote the sentence does not hold is dropped rather than shown as the person's.
    **It starts nothing.**
-2. The person confirms or changes them, and the start takes what they confirmed. A blank instruction, no room, or a cap already reached is refused.
+2. The person confirms or changes them, and the start takes what they confirmed.
+   A blank instruction, no room, or a cap already reached is refused, the weekly one when the week's reading is already at or past it.
 
 ## How a pick happens
 
@@ -41,12 +43,14 @@ On Fleet's noticing interval, in a task of its own so a landing never waits behi
 
 1. **The caps first.** The first one reached pauses it, and says which.
 2. **The room.** Its Jobs that hold a place are counted against *at once*: the ones it started that are live, at work, and not waiting on a person.
-3. **What it may pick.** The open issues Fleet holds for the [tracker](tracker.md), less any a pull request already closes, any a live Autopilot Job of any run came from, and any this run already picked.
+3. **What it may pick.** With the backlog box on, the open issues Fleet holds for the [tracker](tracker.md), less any a pull request already closes, any a live Autopilot Job of any run came from, and any this run already picked.
+   With the reports box on, **on the armada repository's Autopilot only**, every open bug report, kept or not, less any fixed and any a live Job holds, offered under the address `report:<id>`, the reference `R-` and the id's last six characters, and the label `reported bug`.
+   The two boxes are independent: reports without the backlog never ask the tracker.
 4. **One call per pick**, a Policy rather than an agent, so it holds no place. It names an issue it was offered, a workflow the repository holds, whether it is sure, and why.
 
 | The picker | What happens |
 |---|---|
-| Is sure | A Job is started with `start_session`, as Dispatch and `start_another_session` start one: titled with the issue, on the workflow the picker chose, and sent a first message from Autopilot that holds the issue's link, its body read the way a dispatch from the link reads it (else its title and excerpt) and the picker's reason. No one is asked. A Job that cannot be sent it is closed and the pass says why |
+| Is sure | A Job is started with `start_session`, as Dispatch and `start_another_session` start one: titled with the issue, on the workflow the picker chose, and sent a first message from Autopilot that holds the issue's link, its body read the way a dispatch from the link reads it (else its title and excerpt) and the picker's reason. A report has no link: the message is its title, what happened, then its steps numbered, errors and logs where it has them, and the Job holds the report, so the merge of a pull request the Job holds marks it fixed. No one is asked. A Job that cannot be sent it is closed and the pass says why |
 | Is unsure | Set aside with its reason, and the next issue is asked about in the same pass |
 | Finds none that fits | Nothing is picked, and it is not asked again until the list it was offered changes |
 | Names an issue or workflow it was not offered | Refused. Nothing starts and nothing is set aside |
@@ -79,7 +83,7 @@ A call that fails rests as the picker's does.
 | `open` | A question with options and none recommended | Chooses the option the call names |
 | `plan` | A plan waiting for approval | Approves it |
 | `draft` | A draft waiting on the person | Approves it as written |
-| `walk` | A walk window not yet approved | Approves it |
+| `walk` | A walk not yet approved | Approves it |
 | `land` | A Job's pull request, once every deciding check has passed and nothing conflicts or already merges it | Asks the forge to merge when its checks pass, as Auto land does. A Job with Auto land on is left to it, and a commit pushed since is decided again |
 | `unsure` | An issue the picker set aside | Starts it, as dispatching it from the pile does |
 | `red` | A red main | Starts one Job, once for each red commit, with no call. The Job holds the red's claim before it is briefed, so a Fleet that holds it refuses this one |
@@ -123,6 +127,12 @@ A correction is read the next time, beside the answer it replaces.
 
 > **Rule.** Each cap stops the next pick and never a running Job.
 > Why: a Job's cost arrives as it works. Autopilot can overshoot a cap by as many Jobs as it runs at once.
+
+> **Rule.** The weekly cap is held to a reading of the account's `seven_day` window, never to a count of ours.
+> Why: the week belongs to the account, and Fleet only hears it from a Job's own report.
+> No reading never reaches it: an account with no such window, or one whose `resets_at` has passed, is not a reading.
+> A reading at or past the percent reaches it, pauses Autopilot with `capped_by: weekly`, and refuses a start or a change that would leave it so, so raising it above the reading is what lets Resume through.
+> `propose_autopilot` answers none, since a sentence does not set it.
 
 > **Rule.** A reached cap pauses Autopilot, and Resume waits for it to be raised.
 > Why: the owner's *fix the gaps*, 12 Oct 2026, `.claude/decisions/2026-10-11-autopilot-carries-time-money-and-job-caps.md`.

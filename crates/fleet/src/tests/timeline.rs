@@ -214,7 +214,7 @@ fn a_pull_request_is_entered_as_it_moves() {
     assert_eq!(kinds_of(&running), ["pr.checks"]);
     assert_eq!(running[0].says(), "Checks running");
 
-    let queued = HubQueue { state: HubQueueState::InQueue, position: Some(1) };
+    let queued = HubQueue { state: HubQueueState::InQueue, position: Some(1), enqueued_at: None };
     let both = lines(None, vec![pull(7, Some(HubPullCi::Passed), Some(queued))], Vec::new());
     let moved = between.read(&both, &at(6), &named);
     assert_eq!(kinds_of(&moved), ["pr.checks", "pr.queued"]);
@@ -238,7 +238,7 @@ fn a_pull_request_is_entered_as_it_moves() {
 fn a_pull_request_first_seen_enters_its_checks_and_queue_with_it() {
     let mut between = Between::default();
     between.read(&lines(None, Vec::new(), Vec::new()), "2026-10-12T10:00:00.000Z", &named);
-    let waiting = HubQueue { state: HubQueueState::WaitingForCi, position: None };
+    let waiting = HubQueue { state: HubQueueState::WaitingForCi, position: None, enqueued_at: None };
     let opened = between.read(
         &lines(None, vec![pull(7, Some(HubPullCi::Running), Some(waiting))], Vec::new()),
         "2026-10-12T10:00:02.000Z",

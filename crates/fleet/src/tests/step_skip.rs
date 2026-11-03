@@ -103,6 +103,7 @@ fn what_is_taken_back_is_what_the_agent_opened_on_the_step_and_has_not_closed() 
         variations: Vec::new(),
         steps: Vec::new(),
         origins: Vec::new(),
+        brief: None,
         ended_at: ended.then(|| at_second(n + 1)),
     };
     let draft = |n: u32| SessionRow::Draft {

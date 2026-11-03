@@ -35,7 +35,10 @@ import type {
   CheckoutToPullRequest,
   JobTerminal,
   AnswerBrowserRequest,
+  BrowserAskAnswered,
   BrowserRequest,
+  EndBrowserAsk,
+  RaiseBrowserAsk,
   OpenTerminal,
   JobTerminals,
   ListedTerminal,
@@ -127,16 +130,13 @@ import type {
   LoadoutItemBody,
 } from "@armada/screens/src/draft/sessions";
 import { withThreadRow } from "@armada/screens/src/retro-row";
-import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
-import {
-  openSessionFile,
-  originsOfWindow,
-  readSessionArtifact,
-  readSteps,
-  stepsOfWindow,
-  takesOfWindow,
-  titleOfWindow,
-} from "./session-file";
+import type {
+  PullRequestPress,
+  PullRequestWrite,
+  SessionActed,
+  TerminalChange,
+} from "../shared/api/sessions";
+import { openSessionFile, readSessionArtifact, readSteps, titleOfWindow } from "./session-file";
 import { ask, MODEL_CALL_MS, sessionFileOf } from "./request";
 import { HOST } from "./runtime-file";
 
@@ -233,7 +233,7 @@ export class SessionsHost {
   private readonly heardWatches = new Set<string>();
   /** The ids of the threads held, least recently opened first. */
   private opening: string[] = [];
-  /** Puts a page a Session showed in the walk window. Set once by main, which owns windows. `pressed`: the owner asked for it. */
+  /** Holds a page a Session showed as its walk, a tab of the Job. Set once by main, which owns windows. `brief`: what the Job said to look at. */
   private shown: (
     sessionId: string,
     title: string,
@@ -242,7 +242,7 @@ export class SessionsHost {
     origins: readonly string[],
     signIn: readonly string[],
     steps: readonly WalkStep[],
-    pressed: boolean,
+    brief: string | undefined,
   ) => void = () => {};
   /** Shows a question asked in a Session's walk, by its waiting item. Set once by main, as `shown` is. */
   private askedIn: (
@@ -262,8 +262,9 @@ export class SessionsHost {
   private listed: (sessions: readonly SessionRecord[], readAt: number | null) => void = () => {};
   private readAt: number | null = null;
   /** Where a Job's shell opening or ending goes: main's, set once. */
-  private terminalChanged: (change: "opened" | "exited", terminal: JobTerminal) => void = () => {};
+  private terminalChanged: (change: TerminalChange, terminal: JobTerminal) => void = () => {};
   private browserAsked: (request: BrowserRequest) => void = () => {};
+  private browserAskHeard: (answered: BrowserAskAnswered) => void = () => {};
   /** The socket each running block is read on, by run id. */
   private readonly runs = new Map<string, WebSocket>();
   /** What each run printed, by run id: a running one's, and each Job's last shell's after it ends. */
@@ -332,11 +333,10 @@ export class SessionsHost {
   }
 
   /**
-   * Puts in the walk window each live Session's newest shown page that never opened here, because Bridge was
-   * not connected when it was shown. **One that has ended, that this process already opened, or that was
-   * shown more than `REOPEN_WITHIN_MS` ago is left**. Fleet holds the Session's sign-in for one that
-   * opens, and it is taken now. **There is one walk window**: the first opens it, and every walk standing
-   * on a Job's waiting items joins it there, these among them.
+   * Holds each live Session's newest shown page that never opened here, because Bridge was not connected when it
+   * was shown. **One that has ended, that this process already opened, or that was shown more than `REOPEN_WITHIN_MS`
+   * ago is left**. Fleet holds the Session's sign-in for one that opens, and it is taken now. Its page is made when
+   * its tab is in a pane.
    */
   private async reopen(port: number): Promise<void> {
     const showing = (this.sessions ?? []).filter(
@@ -379,7 +379,7 @@ export class SessionsHost {
       }
     >,
   ): void {
-    const { title, url, variations, steps, origins } = row;
+    const { title, url, variations, steps, origins, brief } = row;
     this.inOrder(async () => {
       const signIn = await this.signInFor(sessionId, url);
       this.shown(
@@ -390,7 +390,7 @@ export class SessionsHost {
         origins ?? [],
         signIn,
         readSteps(steps),
-        false,
+        brief,
       );
     });
   }
@@ -444,7 +444,7 @@ export class SessionsHost {
   }
 
   /** Say where a Job's shell opening or ending goes: main's, as `onRun` is. */
-  onTerminal(told: (change: "opened" | "exited", terminal: JobTerminal) => void): void {
+  onTerminal(told: (change: TerminalChange, terminal: JobTerminal) => void): void {
     this.terminalChanged = told;
   }
 
@@ -456,6 +456,40 @@ export class SessionsHost {
   /** `browser.request`: an agent's act, which Fleet holds until `answerBrowser` names it. */
   browser(request: BrowserRequest): void {
     this.browserAsked(request);
+  }
+
+  /** Say who settles a page's ask when the person answers it in Needs you: main's, as `onBrowser` is. */
+  onBrowserAskAnswered(heard: (answered: BrowserAskAnswered) => void): void {
+    this.browserAskHeard = heard;
+  }
+
+  /** `browser.ask_answered`: the person answered or dismissed a page's ask in Needs you. */
+  browserAskAnswered(answered: BrowserAskAnswered): void {
+    this.browserAskHeard(answered);
+  }
+
+  /** `raise_browser_ask`: a page in the Job's browser asks the person, and Fleet lists it in Needs you. Bridge's tab has its own bubble, so a refusal is not fatal. */
+  async raiseBrowserAsk(body: RaiseBrowserAsk): Promise<Outcome> {
+    return this.noteBrowserAsk("/sessions/browser/ask", body);
+  }
+
+  /** `end_browser_ask`: the ask was settled in the tab or the tab went. Fleet answers 200 where it holds none. */
+  async endBrowserAsk(body: EndBrowserAsk): Promise<Outcome> {
+    return this.noteBrowserAsk("/sessions/browser/ask/end", body);
+  }
+
+  private async noteBrowserAsk(
+    path: string,
+    body: RaiseBrowserAsk | EndBrowserAsk,
+  ): Promise<Outcome> {
+    const port = this.port();
+    if (port === null) return NOT_CONNECTED;
+    const answer = await ask(port, "POST", path, body);
+    return answer.ok === true
+      ? {
+          ok: true,
+        }
+      : answer.outcome;
   }
 
   /** `answer_browser_request`. A refusal is Fleet's to word for the agent, and its call stays held; nothing is retried here. */
@@ -471,12 +505,13 @@ export class SessionsHost {
   }
 
   /**
-   * `terminal.opened` and `terminal.exited`. Main reads a shell's output as a run's, so an opening
-   * the person did not ask for, the agent's, is observed here before the window is told of it.
+   * `terminal.opened`, `terminal.shown` and `terminal.exited`. Main reads a shell's output as a run's, so an opening
+   * the person did not ask for, the agent's, is observed here before the window is told of it. A shown shell main
+   * already follows is left as it is; one it does not, opened before main started, is followed from here.
    */
-  terminal(change: "opened" | "exited", terminal: JobTerminal): void {
+  terminal(change: TerminalChange, terminal: JobTerminal): void {
     const port = this.port();
-    if (change === "opened" && port !== null)
+    if (change !== "exited" && port !== null)
       this.observeRun(port, terminal.run_id, shellKey(terminal.session_id, terminal.terminal));
     this.terminalChanged(change, terminal);
   }
@@ -814,7 +849,7 @@ export class SessionsHost {
     else this.printed.delete(runId);
   }
 
-  /** Say what opens a window: main's, since a window is not a thing this host holds. */
+  /** Say what holds a Job's walk: main's, since a window is not a thing this host holds. */
   onWindow(
     shown: (
       sessionId: string,
@@ -824,7 +859,7 @@ export class SessionsHost {
       origins: readonly string[],
       signIn: readonly string[],
       steps: readonly WalkStep[],
-      pressed: boolean,
+      brief: string | undefined,
     ) => void,
   ): void {
     this.shown = shown;
@@ -841,33 +876,6 @@ export class SessionsHost {
     ) => void,
   ): void {
     this.askedIn = asked;
-  }
-
-  /**
-   * A press on a window the Session showed, or on its row. **Only an address the Session's ledger shows
-   * as a window**, so the renderer names a session and an address and main loads nothing else.
-   */
-  openWindow(sessionId: string, url: string): Outcome {
-    const record = this.sessions?.find((one) => one.id === sessionId);
-    const title = titleOfWindow(record, url);
-    if (title === null)
-      return {
-        ok: false,
-        why: "no_manifest",
-      };
-    this.shown(
-      sessionId,
-      title,
-      url,
-      takesOfWindow(record, url),
-      originsOfWindow(record, url),
-      [],
-      stepsOfWindow(record, url),
-      true,
-    );
-    return {
-      ok: true,
-    };
   }
 
   /**

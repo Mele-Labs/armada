@@ -156,6 +156,7 @@ export type SessionNotice =
   | "pr_auto_merge"
   | "pr_queued"
   | "pr_handed"
+  | "pr_comments"
   | "slot_free"
   | "slot_kept"
   | "build_moved"
@@ -2331,6 +2332,8 @@ function TranscriptSkeleton() {
 
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
+/** How long after a thread opens its rows are still settling. */
+const OPENING_MS = 5000;
 /** How many items a thread draws at first, and how many more each press of Show earlier adds. A Session that ran for days is thousands of rows, and drawing them all makes typing beside it lag. */
 const DRAWN = 150;
 
@@ -3377,6 +3380,7 @@ export function SessionThread({
   );
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
+  const scrollerHeight = useRef(0);
   // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
   // A person who scrolled up to read is not moved by a row that arrives.
   useLayoutEffect(() => {
@@ -3434,6 +3438,33 @@ export function SessionThread({
     return () => watch.disconnect();
   }, [
     hasTrailing,
+    sessionId,
+  ]);
+  // A thread the keyboard shortens keeps its end in view. While it opens, so does one that grows with no row of its own, as text
+  // does when a web font arrives. His first press ends that: what grows then is what he opened, and it stays where he reads it.
+  useLayoutEffect(() => {
+    const one = scroller.current;
+    const list = rowList.current;
+    if (one === null || list === null || typeof ResizeObserver === "undefined") return;
+    const follow = (): void => {
+      if (pinned.current) one.scrollTop = one.scrollHeight;
+    };
+    const shortened = new ResizeObserver(follow);
+    shortened.observe(one);
+    const opening = new ResizeObserver(follow);
+    opening.observe(list);
+    const opened = (): void => opening.disconnect();
+    const timer = setTimeout(opened, OPENING_MS);
+    one.addEventListener("pointerdown", opened);
+    one.addEventListener("keydown", opened);
+    return () => {
+      clearTimeout(timer);
+      shortened.disconnect();
+      opening.disconnect();
+      one.removeEventListener("pointerdown", opened);
+      one.removeEventListener("keydown", opened);
+    };
+  }, [
     sessionId,
   ]);
   const disputes = useMemo(
@@ -3604,6 +3635,11 @@ export function SessionThread({
           }}
           onScroll={(event) => {
             const one = event.currentTarget;
+            // A box the keyboard shortened moves the scroll too, and he has not left the end.
+            if (one.clientHeight !== scrollerHeight.current) {
+              scrollerHeight.current = one.clientHeight;
+              return;
+            }
             pinned.current = one.scrollHeight - one.scrollTop - one.clientHeight <= NEAR_END;
           }}
         >

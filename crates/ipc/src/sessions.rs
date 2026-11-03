@@ -410,12 +410,12 @@ where
     Option::<i32>::deserialize(input)
 }
 
-/// `show_window`: a session shows the person a web page in a window of Bridge's own.
+/// `show_window`: a session shows the person a web page, as a tab of its Job.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ShowWindow {
     /// `http` or `https`; anything else is refused.
     pub url: String,
-    /// What the ledger and the thread call it. Absent is the address.
+    /// What the ledger, the thread and its tab call it. Absent is the address, and its tab shortens it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     /// Which session shows it. **Read only where the connection places no hosted session**: a
@@ -439,6 +439,10 @@ pub struct ShowWindow {
     /// memory until Bridge opens the window and written nowhere. Each is on the shown origin or one of `origins`.
     #[serde(default, skip_serializing_if = "SignIn::is_empty")]
     pub sign_in: SignIn,
+    /// The Job's line or two on what changed and what to look at, drawn on the walk's tab. At most
+    /// 400 characters, trimmed; longer is refused. Absent, or blank: none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub brief: Option<String>,
 }
 
 /// The addresses a session signs in with. **Its `Debug` says how many and nothing else**, so a
@@ -742,6 +746,14 @@ pub enum WaitingSource {
     /// to carry out and `Skip` records it skipped; **neither sends the agent a word**. Dismissing it
     /// is Skip. Listed only while the Job is live.
     RuleAct,
+    /// Fleet: a page in the Job's browser asks the owner for something, and Bridge told Fleet with
+    /// `raise_browser_ask`. Held in memory, never kept: id `browser_ask:<ask_id>`, `ask_id` being
+    /// Bridge's tab id, text and options as Bridge sent them, an `answer` act whose `target` is the
+    /// id. Answering with a `choice` publishes `browser.ask_answered` with that index and removes
+    /// it, and dismissing publishes it with no choice: **the agent is told nothing and is not
+    /// woken**. A free-text answer is refused. Gone when `end_browser_ask` names it, when Fleet
+    /// restarts, and when no client holds `/events` open.
+    BrowserAsk,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,

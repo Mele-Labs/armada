@@ -47,7 +47,7 @@ fn every_notice_carries_the_word_it_is_spelt_as_on_the_wire() {
     use Notice::*;
     for notice in [
         BehindBase, PrChecksFailed, PrConflicts, PrDropped, PrUnmergeable, PrMerged, PrAutoMerge, PrQueued, PrHanded,
-        SlotFree, SlotKept, BuildMoved, WriteClash, SlotStranded, MainRed, RailNudge, RailStep, UsageTrip,
+        PrComments, SlotFree, SlotKept, BuildMoved, WriteClash, SlotStranded, MainRed, RailNudge, RailStep, UsageTrip,
         LimitWake, SignInWake, PlanApproved, AutoLandRefused, RetroNote, ReplyClaim, ContextHandoff, WalkFailed,
         WorkflowChanged, DeliveryAsked, DeliveryChosen, WatchSaw, Taught, DocumentSketch, TaskMarked,
         LifecycleRule, LifecyclesClear,

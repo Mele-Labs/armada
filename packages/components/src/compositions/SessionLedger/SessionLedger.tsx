@@ -127,7 +127,7 @@ export type SessionLedgerCard = {
   };
   /**
    * `mono` is a machine value, a branch or a path. `tone` is drawn in the hue the row's mark takes.
-   * A value of `{ at }` is an RFC 3339 instant, drawn as a stamp in the owner's time format. `open` draws the value as a link
+   * A value of `{ at }` is an RFC 3339 instant, drawn as a stamp in the owner's time format, or as an age first with `age`. `open` draws the value as a link
    * to what it names, such as the Job that holds a pull request.
    */
   facts: readonly {
@@ -136,6 +136,7 @@ export type SessionLedgerCard = {
       | string
       | {
           at: string;
+          age?: true;
         };
     tone?: SessionLedgerTone;
     mono?: boolean;
@@ -183,7 +184,7 @@ export type LedgerEntry = {
   finished?: boolean;
   /** A `waiting` row: what its press does, which is its glyph and what the glyph's tooltip names. */
   act?: WaitingActKind;
-  /** A `waiting` row for a question with choices: drawn as the question deck, the row's name its question, `onOther` taking the words of Other. */
+  /** A `waiting` row for a question with choices: drawn as the question deck, the row's name its question, `onOther` taking the words of Other, and no Other without it. */
   options?: readonly {
     label: string;
     description?: string;
@@ -1002,6 +1003,7 @@ export function LedgerRows({
                 ]}
                 canSkip={false}
                 flat
+                noOther={row.onOther === undefined}
                 {...(row.held === undefined
                   ? {}
                   : {
@@ -1416,7 +1418,12 @@ export function LedgerPreview({
         .filter((fact) => card.state !== undefined || fact.label !== "State")
         .map((fact) => ({
           label: fact.label,
-          value: typeof fact.value === "string" ? fact.value : <Stamp at={fact.value.at} />,
+          value:
+            typeof fact.value === "string" ? (
+              fact.value
+            ) : (
+              <Stamp at={fact.value.at} first={fact.value.age === true ? "age" : "clock"} />
+            ),
           ...(fact.mono === true
             ? {
                 mono: true,

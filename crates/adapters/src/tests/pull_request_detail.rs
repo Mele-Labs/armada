@@ -90,11 +90,11 @@ fn an_approval_is_counted_once_per_reviewer() {
 fn comments_and_reviews_are_one_conversation_in_time_order() {
     let page = folded(&lines(&[
         &head("MERGEABLE", ""),
-        "comment\tgrace\t2026-10-13T16:00:00Z\tsecond\\nline",
-        "review\tada\t2026-10-13T15:30:00Z\tCHANGES_REQUESTED\tfix this",
+        "comment\tIC_1\tgrace\t2026-10-13T16:00:00Z\tsecond\\nline",
+        "review\tPRR_1\tada\t2026-10-13T15:30:00Z\tCHANGES_REQUESTED\tfix this",
         // A verdict with nothing written is still said, with an empty body.
-        "review\tada\t2026-10-13T17:00:00Z\tAPPROVED\t",
-        "review\tada\t2026-10-13T18:00:00Z\tDISMISSED\tnote",
+        "review\tPRR_2\tada\t2026-10-13T17:00:00Z\tAPPROVED\t",
+        "review\tPRR_3\tada\t2026-10-13T18:00:00Z\tDISMISSED\tnote",
     ]))
     .expect("a page");
     let at: Vec<_> = page.conversation.iter().map(Said::at).collect();
@@ -119,6 +119,28 @@ fn comments_and_reviews_are_one_conversation_in_time_order() {
         &page.conversation[3],
         Said::Review { verdict: ReviewSaid::Commented, .. }
     ));
+}
+
+#[test]
+fn a_comment_and_a_review_keep_their_ids_and_an_apps_login_says_bot() {
+    let page = folded(&lines(&[
+        &head("MERGEABLE", ""),
+        "comment\tIC_1\tada\t2026-10-13T15:00:00Z\tlooks off",
+        "comment\tIC_2\tdeploy[bot]\t2026-10-13T15:10:00Z\tdeployed",
+        "review\tPRR_1\tgrace\t2026-10-13T15:20:00Z\tAPPROVED\t",
+    ]))
+    .expect("a page");
+    let read: Vec<_> = page
+        .conversation
+        .iter()
+        .map(|said| match said {
+            Said::Comment { id, bot, edited_at, .. } | Said::Review { id, bot, edited_at, .. } => {
+                (id.as_str(), *bot, edited_at.clone())
+            }
+        })
+        .collect();
+    // `pr view` prints no edit time, so none is made up.
+    assert_eq!(read, [("IC_1", false, None), ("IC_2", true, None), ("PRR_1", false, None)]);
 }
 
 #[test]
@@ -160,7 +182,7 @@ fn a_capped_list_keeps_its_first_or_latest_and_counts_what_it_left() {
         records.push(format!("commit\t{n:040}\tc{n}\t\t"));
     }
     for n in 0..MOST_SAID + 3 {
-        records.push(format!("comment\tada\t2026-10-13T15:{:02}:{:02}Z\tn{n}", n / 60, n % 60));
+        records.push(format!("comment\tIC_{n}\tada\t2026-10-13T15:{:02}:{:02}Z\tn{n}", n / 60, n % 60));
     }
     let page = folded(&records).expect("a page");
     assert_eq!(page.files.len(), MOST_FILES);

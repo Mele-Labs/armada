@@ -2,7 +2,7 @@
 // by the repository they came from, between Armada's and Yours. A copy is drawn over the lanes of its own repository, and Armada's
 // over the first repository's. A mock, no Fleet behind it.
 
-import { button, inside, region, role, toSystemPage, walk } from "../walk";
+import { button, inside, region, role, text, toSystemPage, walk } from "../walk";
 
 const group = (name: string) =>
   role("group", name, {
@@ -11,7 +11,6 @@ const group = (name: string) =>
 const LANES = region("Workflow", {
   exact: true,
 });
-const RUNS_IN = group("Runs in");
 const SECOND = group("ledger repository");
 
 export const workflowsOnAll = walk("workflows-on-all", [
@@ -30,13 +29,8 @@ export const workflowsOnAll = walk("workflows-on-all", [
     say: "The second repository's bug",
   },
   {
-    look: inside(
-      RUNS_IN,
-      role("tab", "ledger", {
-        exact: true,
-      }),
-    ),
-    say: "Its lanes are ledger's",
+    look: text("Edits here change ledger only"),
+    say: "Its lanes are ledger's, and edits here change ledger only",
   },
   {
     press: inside(

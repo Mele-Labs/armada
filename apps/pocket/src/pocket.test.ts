@@ -1,10 +1,12 @@
 import { readdirSync, readFileSync } from "node:fs";
+import type { WaitingItem } from "@armada/protocol";
 import { describe, expect, it } from "vitest";
 
 import { homeOf, type Mac } from "./fleet";
 import { answer } from "./fixture/gateway";
 import { fixtureMacs } from "./fixture/wire";
-import { rowsOf, runsOf, sessionOfThread } from "./thread";
+import { asksOf, choicesOf, rowsOf, runsOf, sessionOfThread, takesWords } from "./thread";
+import { fit, followScreen } from "./viewport";
 import type { PhoneSession } from "./gateway";
 import { codeFromInput, linkOf } from "./pairing";
 import { routeOf } from "./router";
@@ -316,6 +318,281 @@ describe("homeOf", () => {
       "a1",
       "a2",
     ]);
+  });
+});
+
+describe("the headers and the thread's width", () => {
+  const css = readFileSync(new URL("./pocket.css", import.meta.url), "utf8");
+  const depth = readFileSync(
+    new URL("../../../packages/components/src/depth.css", import.meta.url),
+    "utf8",
+  );
+  const rule = (selector: string) => {
+    const at = css.indexOf(`${selector} {`);
+    expect(at).toBeGreaterThan(-1);
+    return css.slice(at, css.indexOf("}", at));
+  };
+  it("clears the status bar past the look's band rule, whose :is() weighs four classes", () => {
+    expect(depth).toContain(".pr-desc > .pr-what__head");
+    const band = rule(':root[data-look="new"] .pk-app .deck-band');
+    expect(band).toMatch(/padding-top:\s*env\(safe-area-inset-top\)/);
+    expect(band).toMatch(
+      /min-height:\s*calc\(var\(--h-title-bar\) \+ env\(safe-area-inset-top\)\)/,
+    );
+  });
+  it("stops every column of the thread's end at the screen, so a long line cannot pan it", () => {
+    for (const one of [
+      ".pk-trailing",
+      ".pk-ask",
+      ".pk-card",
+    ])
+      expect(rule(one)).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  });
+});
+
+describe("the visible screen", () => {
+  const root = () => {
+    const props = new Map<string, string>();
+    let keyboard = false;
+    return {
+      props,
+      keyboard: () => keyboard,
+      element: {
+        style: {
+          setProperty: (name: string, value: string) => void props.set(name, value),
+        },
+        toggleAttribute: (_name: string, on: boolean) => {
+          keyboard = on;
+        },
+      } as unknown as HTMLElement,
+    };
+  };
+  it("marks a keyboard when iOS shortens the layout's height with it", () => {
+    const one = root();
+    const view = {
+      width: 402,
+      height: 874,
+      offsetTop: 0,
+      scale: 1,
+    };
+    const follow = followScreen(view, one.element, () => undefined);
+    follow();
+    expect(one.keyboard()).toBe(false);
+    view.height = 500;
+    follow();
+    expect(one.keyboard()).toBe(true);
+    view.height = 874;
+    follow();
+    expect(one.keyboard()).toBe(false);
+  });
+  it("measures the screen again when it turns", () => {
+    const one = root();
+    const view = {
+      width: 402,
+      height: 874,
+      offsetTop: 0,
+      scale: 1,
+    };
+    const follow = followScreen(view, one.element, () => undefined);
+    follow();
+    view.width = 874;
+    view.height = 402;
+    follow();
+    expect(one.keyboard()).toBe(false);
+  });
+  it("undoes a pan, and not a pinch zoom's", () => {
+    const one = root();
+    const view = {
+      width: 402,
+      height: 500,
+      offsetTop: 0,
+      scale: 1,
+    };
+    let unpanned = 0;
+    const follow = followScreen(view, one.element, () => {
+      unpanned += 1;
+    });
+    follow();
+    expect(unpanned).toBe(0);
+    view.offsetTop = 300;
+    follow();
+    expect(unpanned).toBe(1);
+    view.scale = 2;
+    follow();
+    expect(unpanned).toBe(1);
+  });
+  it("takes the visual viewport's height and pan, and marks a keyboard", () => {
+    const one = root();
+    const view = {
+      height: 500,
+      offsetTop: 40,
+      scale: 1,
+    };
+    fit(view, 844, one.element);
+    expect(one.props.get("--pk-visible-height")).toBe(`${view.height}px`);
+    expect(one.props.get("--pk-visible-top")).toBe(`${view.offsetTop}px`);
+    expect(one.keyboard()).toBe(true);
+  });
+  it("marks no keyboard for a toolbar's height", () => {
+    const one = root();
+    fit(
+      {
+        height: 790,
+        offsetTop: 0,
+        scale: 1,
+      },
+      844,
+      one.element,
+    );
+    expect(one.keyboard()).toBe(false);
+  });
+  it("leaves the app as it was through a pinch zoom", () => {
+    const one = root();
+    fit(
+      {
+        height: 300,
+        offsetTop: 90,
+        scale: 2,
+      },
+      844,
+      one.element,
+    );
+    expect(one.props.size).toBe(0);
+  });
+});
+
+describe("what the owner is asked beside the thread", () => {
+  const item = (source: WaitingItem["source"], more: Partial<WaitingItem> = {}): WaitingItem => ({
+    id: source,
+    text: source,
+    since: "2026-11-03T00:00:00Z",
+    source,
+    ...more,
+  });
+  const session = (waitingFor: WaitingItem[]) =>
+    ({
+      waitingFor,
+    }) as unknown as Parameters<typeof asksOf>[0];
+  it("takes the agent's and Fleet's items with choices, and leaves another Job's to theirs", () => {
+    const asked: WaitingItem["source"][] = [
+      "agent",
+      "delivery",
+      "slot_choice",
+      "task_done",
+      "rule_act",
+      "watch_not_ours",
+      "words_address",
+    ];
+    const left: WaitingItem["source"][] = [
+      "sketch",
+      "document",
+      "draft",
+      "walk",
+      "first_message",
+      "fleet_call",
+    ];
+    expect(
+      asksOf(
+        session(
+          [
+            ...asked,
+            ...left,
+          ].map((one) => item(one)),
+        ),
+      ).map((one) => one.source),
+    ).toEqual(asked);
+  });
+  it("keeps a command for its Run card", () => {
+    expect(
+      asksOf(
+        session([
+          item("agent", {
+            act: {
+              kind: "run",
+              target: "scripts/preview --restart",
+            },
+          }),
+        ]),
+      ),
+    ).toEqual([]);
+  });
+  it("offers words only where Fleet takes them", () => {
+    expect(
+      (
+        [
+          "delivery",
+          "slot_choice",
+          "task_done",
+          "rule_act",
+        ] as const
+      ).map((one) => takesWords(item(one))),
+    ).toEqual([
+      false,
+      false,
+      false,
+      false,
+    ]);
+    expect(
+      (
+        [
+          "agent",
+          "watch_not_ours",
+          "words_address",
+        ] as const
+      ).map((one) => takesWords(item(one))),
+    ).toEqual([
+      true,
+      true,
+      true,
+    ]);
+  });
+  it("keeps each option's index on the wire, without an address's Other", () => {
+    expect(
+      choicesOf(
+        item("words_address", {
+          options: [
+            {
+              label: "a",
+            },
+            {
+              label: "b",
+            },
+            {
+              label: "Other",
+            },
+          ],
+        }),
+      ).map((one) => [
+        one.label,
+        one.choice,
+      ]),
+    ).toEqual([
+      [
+        "a",
+        0,
+      ],
+      [
+        "b",
+        1,
+      ],
+    ]);
+  });
+  it("asks nothing while the slot it asked for is being made", () => {
+    expect(
+      choicesOf(
+        item("slot_choice", {
+          creating_since: "2026-11-03T00:00:00Z",
+          options: [
+            {
+              label: "Wait for a slot",
+            },
+            {
+              label: "Add a slot",
+            },
+          ],
+        }),
+      ),
+    ).toEqual([]);
   });
 });
 

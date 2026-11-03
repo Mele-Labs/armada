@@ -11,7 +11,7 @@ use core_model::Timestamp;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use super::{joined, login_of, Login, Nodes};
+use super::{author_of, joined, login_of, Login, Nodes};
 use crate::github_api::{ApiFailure, GitHubApi, GitHubRepository};
 use crate::pull_request_detail::{
     check_standing, file_change, mergeability, review_said, review_standing, with_profiles, with_teams, Head,
@@ -26,8 +26,8 @@ pub(crate) const QUERY: &str = "query($owner:String!,$name:String!,$number:Int!)
     latestReviews(first:100){nodes{author{login} state}} \
     reviewRequests(first:100){nodes{requestedReviewer{__typename ... on User{login} ... on Bot{login} \
     ... on Mannequin{login} ... on Team{slug name}}}} \
-    comments(last:100){totalCount nodes{author{login} createdAt body}} \
-    reviews(last:100){totalCount nodes{author{login} submittedAt state body}} \
+    comments(last:100){totalCount nodes{id author{__typename login} createdAt lastEditedAt body}} \
+    reviews(last:100){totalCount nodes{id author{__typename login} submittedAt lastEditedAt state body}} \
     rollup:commits(last:1){nodes{commit{statusCheckRollup{contexts(first:100){totalCount \
     pageInfo{hasNextPage endCursor} nodes{__typename \
     ... on CheckRun{name status conclusion startedAt completedAt detailsUrl} \
@@ -159,16 +159,20 @@ struct Requested {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Comment {
+    id: Option<String>,
     author: Option<Login>,
     created_at: Option<String>,
+    last_edited_at: Option<String>,
     body: Option<String>,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Reviewed {
+    id: Option<String>,
     author: Option<Login>,
     submitted_at: Option<String>,
+    last_edited_at: Option<String>,
     state: Option<String>,
     body: Option<String>,
 }
@@ -413,18 +417,28 @@ pub(crate) fn parts_of(pull: Pull) -> PageParts {
         }
     }
     let (comments, unread_comments) = counted(pull.comments);
-    parts.said.extend(comments.into_iter().map(|it| Said::Comment {
-        author: login_of(it.author),
-        at: it.created_at.unwrap_or_default(),
-        body: it.body.unwrap_or_default(),
+    parts.said.extend(comments.into_iter().map(|it| {
+        let (author, bot) = author_of(it.author);
+        Said::Comment {
+            id: it.id.unwrap_or_default(),
+            author,
+            bot,
+            at: it.created_at.unwrap_or_default(),
+            edited_at: it.last_edited_at,
+            body: it.body.unwrap_or_default(),
+        }
     }));
     let (reviews, unread_reviews) = counted(pull.reviews);
     parts.said.extend(reviews.into_iter().filter_map(|it| {
         let (state, body) = (it.state.unwrap_or_default(), it.body.unwrap_or_default());
         let says = !body.is_empty() || state == "APPROVED" || state == "CHANGES_REQUESTED";
+        let (author, bot) = author_of(it.author);
         (state != "PENDING" && says).then(|| Said::Review {
-            author: login_of(it.author),
+            id: it.id.unwrap_or_default(),
+            author,
+            bot,
             at: it.submitted_at.unwrap_or_default(),
+            edited_at: it.last_edited_at,
             verdict: review_said(&state),
             body,
         })

@@ -121,7 +121,7 @@ test("the list is Fleet's, grouped as Armada, the repository and Yours, and Arma
 test("a copy's steps say what ends each and when one is passed over, from Fleet", async () => {
   await workflows();
   await pickRepositoryFeature();
-  await expect.element(stepCard("Walk")).toHaveTextContent("you approve the walk");
+  await expect.element(stepCard("Walk")).toHaveTextContent("you approve every walk");
   await expect.element(stepCard("Walk")).toHaveTextContent("nothing would be seen");
   await expect.element(stepCard("Deliver")).toHaveTextContent("it is merged");
 });
@@ -432,38 +432,38 @@ test("a Job Fleet nudged opens in the Cockpit, and Not a drift takes the row and
 
   await expect
     .element(
-      stepCard("Approve plan").getByRole("group", {
+      stepCard("Propose").getByRole("group", {
         name: /^Pause and resume/,
       }),
     )
     .toBeVisible();
-  await stepCard("Approve plan")
+  await stepCard("Propose")
     .getByRole("button", {
       name: "Suggest a change",
     })
     .click();
   await expect
     .element(
-      stepCard("Approve plan").getByRole("group", {
+      stepCard("Propose").getByRole("group", {
         name: "Suggested change",
       }),
     )
     .toBeVisible();
-  await stepCard("Approve plan")
+  await stepCard("Propose")
     .getByRole("button", {
       name: "Not a drift",
     })
     .click();
   await expect
     .element(
-      stepCard("Approve plan").getByRole("group", {
+      stepCard("Propose").getByRole("group", {
         name: /^Pause and resume/,
       }),
     )
     .not.toBeInTheDocument();
   await expect
     .element(
-      stepCard("Approve plan").getByRole("group", {
+      stepCard("Propose").getByRole("group", {
         name: "Suggested change",
       }),
     )
@@ -778,15 +778,10 @@ test("on All repositories each repository's copies sit in a group of its own, an
   ).toHaveLength(1);
 });
 
-test("on All repositories a copy is drawn over its own repository's lanes, and Armada's over the first's", async () => {
+test("on All repositories a copy says its edits change its own repository only, and Armada's says the default", async () => {
   mount(workflowingOnAll());
   await onScreen();
   await toSystemPage("Workflows");
-  const runsIn = (name: string) =>
-    group("Runs in").getByRole("tab", {
-      name,
-      exact: true,
-    });
   await expect
     .element(
       page.getByRole("region", {
@@ -795,15 +790,23 @@ test("on All repositories a copy is drawn over its own repository's lanes, and A
       }),
     )
     .toBeVisible();
-  await expect.element(runsIn("armada")).toBeVisible();
+  await expect
+    .element(
+      page.getByText("Edits here change every Workspace and repository that keeps the default"),
+    )
+    .toBeVisible();
   await group("ledger repository")
     .getByRole("button", {
       name: "bug",
       exact: true,
     })
     .click();
-  await expect.element(runsIn("ledger")).toBeVisible();
-  expect(runsIn("armada").elements()).toHaveLength(0);
+  await expect.element(page.getByText("Edits here change ledger only")).toBeVisible();
+  expect(
+    page
+      .getByText("Edits here change every Workspace and repository that keeps the default")
+      .elements(),
+  ).toHaveLength(0);
 });
 
 test("on All repositories a copy's words, edited on its lanes, save under its own repository", async () => {

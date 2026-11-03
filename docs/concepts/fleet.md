@@ -333,6 +333,8 @@ Turning it off runs `gh pr merge --disable-auto` on the Job's open pull requests
 It runs `git merge-tree` of the pull request's head against each pull request ahead of it in the base's merge queue; against the base itself it keeps the forge's own conflict flag.
 On a clash Fleet does not turn auto-merge on: it holds the pull request and tells the Job, once per head commit and blocker, which pull request it waits on and the files that conflict, in the existing Auto land refused notice.
 A held pull request is re-tested on every pull reading and asked for auto-merge once the test is clean, because the blocker merged or left the queue or the Job pushed a resolution; it is never marked as asked, so the once-a-commit rule does not strand it.
+**A pull request that passed and is neither on auto-merge nor queued after Fleet asked is asked once more, then the Job is told**, each once a commit: the forge drops the request when it queues the pull request, and a merge queue that drops it between two readings leaves nothing to merge it.
+A commit seen only on auto-merge is not counted as asked.
 A hold at attach, or when the flag is turned on, is told on the next pull reading, not at once.
 A pull request already queued is re-tested against the entries ahead of it when the queue changes, and one that now clashes is taken out of the queue and off auto-merge and held the same way.
 That ends a loop: a pull request queued behind one it conflicts with is marked unmergeable by the forge, leaves the queue and is queued again.
@@ -400,6 +402,7 @@ The merged pull requests are the listing already read for the hub.
 | Unmergeable | The merge queue marks its entry unmergeable |
 | Merged | It merged in the last six hours |
 | Auto-merge on | Someone asked the forge to merge it once its checks pass; told once a pull request. A place in the queue is nothing to say by itself |
+| A reviewer commented | A human reviewer wrote or edited a comment; a bot's and the owner's own are filed without a notice |
 
 **A held pull request is read by its number when the list leaves it out (decided for #2459, 16 Oct 2026).** Each list stops at 100 (the pull reading's the 100 updated last, the hub's the 100 created last), and a repository can have more open.
 So after each list Fleet reads, by number and one call each, every pull request that has a standing claim in the repository and is not in it: a standing `pr` row of a Job.
@@ -417,6 +420,15 @@ The queue tests a commit of its own, and a pull request's run can skip what the 
 The drop names the queue run's failed checks and the end of a log, read from the newest queue run for that pull request.
 The next push to it runs those Checks on the pull request itself, so a fix is answered before it waits in the queue again (`docs/practices/ci.md`, *What runs when*).
 **A recipient that cannot be told now is asked again at the next reading** and nothing is kept for it: a terminal Job whose mod is not asking.
+
+**Every comment is filed where the Job reads it (decided 3 Nov 2026).** For each held pull request, the same reading asks the forge for every comment once, with its edit time and whether a bot wrote it.
+Fleet writes them oldest first to `comments-<number>.md` in the owner Job's scratch folder, rewritten whole when anything changed.
+Each comment is a heading line of its id, author, `bot`, `path:line`, `resolved` and when it was written and edited, the fields it has, then its link, then its body quoted.
+The store keeps each comment told with its edit time, so a comment is told again only once it is edited.
+A Job with nothing kept for the pull request is taking it on, and hears `#N already has 6 comments, in <file>` once.
+A bot's comment and the owner's own are kept at once without a notice; the owner's is the pull request's author's, or any login that is the person's.
+The listing carries no `updatedAt`, so a held pull request costs one call each reading whether or not it moved.
+`.claude/decisions/2026-11-03-pull-request-comments-reach-the-job.md`.
 
 **An owner is the Job whose `pr` row holds the pull request's number, else the Job holding its branch.** `docs/concepts/session.md`, *What Fleet tells a Job*, says what it receives.
 

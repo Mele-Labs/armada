@@ -21,8 +21,12 @@ use crate::pull_requesting::{AUTO_MERGE_REFUSED, PR};
 use crate::repositories::Served;
 use super::queue_guard::{Blocker, Guard};
 
-/// The key a pull request's commit is kept under once Auto land has asked, or seen it merging.
+/// The key a pull request's commit is kept under once Auto land has asked, or seen it queued.
 const AUTO_LAND: &str = "auto_land";
+
+/// The keys of the second ask, and of the tell after it, for a commit that is still not merging.
+const AUTO_LAND_AGAIN: &str = "auto_land_again";
+const AUTO_LAND_STUCK: &str = "auto_land_stuck";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -165,7 +169,7 @@ where
     /// The pull reading's half of Auto land, for a pull request however it attached: the one a Session
     /// opened itself is reported by its mod, and nothing asked for it then. One whose checks passed,
     /// that conflicts with nothing and that nothing merges is asked for auto-merge **once a commit**
-    /// for each owner with Auto land on. A commit seen queued or on auto-merge counts as asked, so a
+    /// for each owner with Auto land on. A commit seen queued counts as asked, so a
     /// merge someone stopped is not started again, nor a commit the queue dropped.
     ///
     /// **A pull request that clashes with one ahead in the merge queue is not asked, and is not kept
@@ -186,8 +190,12 @@ where
             if queued && self.queued_retested(served, pull, head, id, &recipient).await {
                 continue;
             }
-            let asked = self.store().lock().await.pull_notice_kept(root, pull.number, head, AUTO_LAND, &recipient);
-            if asked.unwrap_or(true) || (ready && !self.auto_land_on(id).await) {
+            let asked = self.store().lock().await.pull_notice_kept(root, pull.number, head, AUTO_LAND, &recipient).unwrap_or(true);
+            if asked && ready && self.auto_land_on(id).await {
+                self.auto_land_stalled(root, pull, head, id, manifest, &recipient).await;
+                continue;
+            }
+            if asked || (ready && !self.auto_land_on(id).await) {
                 continue;
             }
             if ready {
@@ -205,8 +213,45 @@ where
                     }
                 }
             }
+            // Only auto-merge seen is not asked: the forge drops that request when it queues the pull
+            // request, and a pull request that then sits unqueued has to be asked again.
+            if !ready && !queued {
+                continue;
+            }
             let now = self.now();
             let _ = self.store().lock().await.keep_pull_notice(root, pull.number, head, AUTO_LAND, &recipient, &now);
+        }
+    }
+
+    async fn auto_land_kept(&self, root: &str, number: u64, head: &str, key: &str, recipient: &str) -> bool {
+        self.store().lock().await.pull_notice_kept(root, number, head, key, recipient).unwrap_or(true)
+    }
+
+    /// A pull request asked for auto-merge at this commit that has passed and is neither on it nor
+    /// queued: the forge took the request and nothing merges it, as when the merge queue dropped it
+    /// between two readings. **Asked once more, then the Job is told**, each once a commit.
+    async fn auto_land_stalled(self: &Arc<Self>, root: &str, pull: &FollowedPull, head: &str, session: &str, manifest: &str, recipient: &str) {
+        let number = pull.number;
+        if !self.auto_land_kept(root, number, head, AUTO_LAND_AGAIN, recipient).await {
+            match self.auto_land_tried(session, manifest, number, Some(head)).await {
+                Ok(Some(blocker)) => return self.hold_told(root, session, recipient, (number, head), &blocker, false).await,
+                Ok(None) => {}
+                Err(why) => {
+                    let text = format!("Auto land is on, and the forge would not turn on auto-merge for #{number}: {why}");
+                    let _ = self.told_by_fleet(session, &text, ipc::Notice::AutoLandRefused).await;
+                }
+            }
+            let now = self.now();
+            let _ = self.store().lock().await.keep_pull_notice(root, number, head, AUTO_LAND_AGAIN, recipient, &now);
+        } else if !self.auto_land_kept(root, number, head, AUTO_LAND_STUCK, recipient).await {
+            let text = format!(
+                "Auto land is on, and #{number} passed its checks but is neither on auto-merge nor in the merge queue, so nothing will merge it.\n{}",
+                pull.url.as_written()
+            );
+            if self.told_by_fleet(session, &text, ipc::Notice::AutoLandRefused).await.unwrap_or(false) {
+                let now = self.now();
+                let _ = self.store().lock().await.keep_pull_notice(root, number, head, AUTO_LAND_STUCK, recipient, &now);
+            }
         }
     }
 

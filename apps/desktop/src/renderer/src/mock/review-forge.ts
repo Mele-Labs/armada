@@ -526,6 +526,7 @@ export function createMockForge(seed: ReviewSeed): MockForge {
           ...one.conversation,
           {
             kind: "review",
+            id: `mock:r${(ids += 1)}`,
             author: seed.me,
             at,
             verdict,

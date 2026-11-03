@@ -96,6 +96,10 @@ export type Review = "approved" | "changes" | "required";
  */
 export type PullFacts = {
   opened?: string;
+  /** When anything last happened on it. */
+  updated?: string;
+  /** When it joined the forge's merge queue. */
+  queuedAt?: string;
   review?: Review;
   draft?: true;
   conflicts?: true;
@@ -118,6 +122,16 @@ export function factsOf(row: HubPullRequest | undefined): PullFacts {
       ? {}
       : {
           opened: row.opened_at,
+        }),
+    ...(row.updated_at === undefined
+      ? {}
+      : {
+          updated: row.updated_at,
+        }),
+    ...(row.queue?.enqueued_at === undefined
+      ? {}
+      : {
+          queuedAt: row.queue.enqueued_at,
         }),
     ...(review === undefined
       ? {}
@@ -143,6 +157,16 @@ const keep = (one: PullFacts): PullFacts => ({
     ? {}
     : {
         opened: one.opened,
+      }),
+  ...(one.updated === undefined
+    ? {}
+    : {
+        updated: one.updated,
+      }),
+  ...(one.queuedAt === undefined
+    ? {}
+    : {
+        queuedAt: one.queuedAt,
       }),
   ...(one.review === undefined
     ? {}

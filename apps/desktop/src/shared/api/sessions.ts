@@ -108,10 +108,12 @@ export type RingedNotes = {
 };
 
 /** What a person can do to a pull request a Session holds, without leaving Bridge. */
-/** A Job's shell opening or ending, as `terminal.opened` and `terminal.exited` carry it: `terminal` is which, by the ID Fleet minted. */
+/** A Job's shell opening, shown by its agent, or ending, as `terminal.opened`, `terminal.shown` and `terminal.exited` carry it: `terminal` is which, by the ID Fleet minted. */
 export type JobTerminalChange = JobTerminal & {
-  change: "opened" | "exited";
+  change: TerminalChange;
 };
+
+export type TerminalChange = "opened" | "shown" | "exited";
 
 /** One Job's terminal window: the terminal it holds, absent for the Job's first. */
 export type TerminalWindowId = {
@@ -334,12 +336,6 @@ export type SessionsApi = {
   mendSessionTools: (sessionId: string) => Promise<SessionActed<void>>;
   /** Opens a file a Session wrote, in whatever the machine opens it with. Main opens only a path the Session's own ledger names. */
   openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
-  /** Opens, or raises, the window on a page a Session showed. Main opens only an address the Session's own ledger shows as a window. */
-  openSessionWindow: (sessionId: string, url: string) => Promise<Outcome>;
-  /** The addresses of the Session windows open now, which main alone knows. */
-  getSessionWindows: () => Promise<readonly string[]>;
-  /** The addresses open, whole, whenever a Session window opens or closes. */
-  onSessionWindows: (onChanged: (addresses: readonly string[]) => void) => () => void;
   /** A file the Session's ledger names, read for the panel: its bytes and kind, or why it was not read. */
   readSessionArtifact: (sessionId: string, path: string) => Promise<ArtifactRead>;
   /** Shows a page or doc the Session's ledger names in a web view main owns, over `bounds` of this window. */
@@ -567,10 +563,6 @@ export const SESSIONS_CHANNELS = {
   actOnSessionMcp: "bridge:act-on-session-mcp",
   mendSessionTools: "bridge:mend-session-tools",
   openSessionFile: "bridge:open-session-file",
-  openSessionWindow: "bridge:open-session-window",
-  getSessionWindows: "bridge:get-session-windows",
-  /** Main to every window, not a request. */
-  sessionWindowsChanged: "bridge:session-windows-changed",
   readSessionArtifact: "bridge:read-session-artifact",
   showSessionPage: "bridge:show-session-page",
   moveSessionPage: "bridge:move-session-page",
