@@ -14,7 +14,7 @@
 
 import { Fragment, isValidElement, useEffect, useRef, useState, type ReactNode } from "react";
 import { ListTree, PencilRuler, SkipForward } from "lucide-react";
-import { Button, TaskMark, Tooltip, type LedgerEntry } from "@armada/components";
+import { Button, TaskMark, Tooltip, sessionGlyphOf, type LedgerEntry } from "@armada/components";
 import { useLayout } from "@armada/shell";
 import {
   owesOf,
@@ -36,7 +36,7 @@ import { AskUpdate } from "../cockpit/deck/AskUpdate";
 import { remindLater } from "../cockpit/deck/acts";
 import { accountGroupOf, accountNowOf } from "../session-activity";
 import { useModsMade } from "../mods-made";
-import { stateOf as jobStateOf } from "../session-state";
+import { stateOf as jobStateOf, stoppedSaid } from "../session-state";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { draftPanelOf } from "../shared-panel/rule";
 import { openDraftCard } from "../job-panes/focus";
@@ -65,9 +65,13 @@ import { freshestOf } from "./TaskAge";
 import {
   AskBeat,
   DoneGroup,
+  FleetBeat,
   LedgerToggle,
+  Lead,
   MadeList,
+  Quiet,
   RouteBeat,
+  Since,
   StepBeat,
   WaitBeat,
   WalkBeat,
@@ -198,6 +202,13 @@ export function StoryColumn({
     ].includes(idleState.state)
       ? idleState.said
       : undefined;
+  // A turn that has run on with no word from it is stuck, not at work: it draws no working mark and does not light the panel.
+  const stuck = idleState.state === "stuck";
+  const stopped = session.stopped;
+  const call = session.openCall;
+  const byFleet = session.fleetActs ?? [];
+  const actsNow = byFleet.filter((one) => one.state === "under_way");
+  const actsComing = byFleet.filter((one) => one.state === "coming");
   const groups = planned ? viewOf(plan, ed.marks) : [];
   const steps = stepsOf(groups, approved, workingGroup, inHandOf(sessions, session));
   // A Job started outside the plan is work in hand in Now until it finishes, then something made in Done.
@@ -299,7 +310,22 @@ export function StoryColumn({
             state: TODO_OF[one.state],
           }),
         );
-  const list = todos.length === 0 ? null : <AgentTasks todos={todos} working={working_} />;
+  // The tasks a Job stopped on stand named under its stopped line, open.
+  const left = stopped?.tasks ?? [];
+  const list =
+    left.length > 0 ? (
+      <AgentTasks
+        todos={left.map(
+          (text): SessionTodo => ({
+            text,
+            state: "todo",
+          }),
+        )}
+        working={false}
+      />
+    ) : todos.length === 0 ? null : (
+      <AgentTasks todos={todos} working={working_} />
+    );
   // With a workflow and a plan group being worked, the list follows the plan's tasks; otherwise it stands under the Agent row.
   const afterPlan = stepped && working.length > 0;
 
@@ -313,7 +339,7 @@ export function StoryColumn({
       ? "failed"
       : drafting
         ? "draft"
-        : working_ || working.length > 0
+        : (working_ && !stuck) || working.length > 0
           ? "live"
           : undefined;
   const doneState: PanelState | undefined = landed ? "done" : undefined;
@@ -435,6 +461,43 @@ export function StoryColumn({
       <WorkflowHead work={work} acts={acts} id={id} manifestId={manifestId} />
     ) : null;
 
+  // The agent's row says what Fleet saw: stopped and why, stuck on the call it has not come back from, the call it is in and how long, or what it detected. A Job doing
+  // nothing draws no row, and never the bare word.
+  const lineNow = working.length === 0 ? now : undefined;
+  const agentRow =
+    stopped !== undefined ? (
+      <WorkBeat
+        needs
+        mark={<Lead Glyph={sessionGlyphOf("stopped")} said="Stopped" />}
+        name={stoppedSaid(stopped)}
+        line={stopped.said}
+      />
+    ) : stuck ? (
+      <WorkBeat
+        needs
+        mark={<Lead Glyph={sessionGlyphOf("stuck")} said="Stuck" />}
+        name={call?.text ?? "Stuck"}
+        system={call !== undefined}
+        line={session.lastHeardAt === undefined ? undefined : <Quiet since={session.lastHeardAt} />}
+      />
+    ) : working_ && call !== undefined ? (
+      <WorkBeat
+        working
+        system
+        mark={<TaskMark state="working" />}
+        name={call.text}
+        figure={<Since at={call.since} said="On this call for" />}
+        line={lineNow}
+      />
+    ) : (detected ?? waitingOn) === undefined && lineNow === undefined && !working_ ? null : (
+      <WorkBeat
+        mark={<TaskMark state={working_ ? "working" : "open"} />}
+        name={detected ?? waitingOn ?? "Agent"}
+        working={detected !== undefined}
+        line={lineNow}
+      />
+    );
+
   const nowBody = (
     <div className="sv-nav" onKeyDown={arrowsIn}>
       <ul className="sv-beats" aria-label="Now">
@@ -472,12 +535,11 @@ export function StoryColumn({
             />
           ) : null,
         )}
-        <WorkBeat
-          mark={<TaskMark state={working_ ? "working" : "open"} />}
-          name={detected ?? waitingOn ?? "Agent"}
-          working={detected !== undefined}
-          line={working.length === 0 ? now : undefined}
-        />
+        {agentRow}
+        {stopped?.restart === "failed" ? <FleetBeat said="Restart failed" /> : null}
+        {actsNow.map((one) => (
+          <FleetBeat key={one.id} said={one.said} why={one.why} since={one.at} />
+        ))}
         {workflowNow === undefined || stepped ? null : <StepBeat name={workflowNow} state="now" />}
         {(waiting ?? []).map((said) => (
           <WaitBeat key={said} text={said} />
@@ -613,7 +675,16 @@ export function StoryColumn({
   );
 
   // In a pane of its own, Open is only what is open: the steps and route still to come stand under Now.
-  const hasNext = upcoming.length > 0 || (!alone && aheadList !== null);
+  // What Fleet is to do for the Job stands in Open as another worker's beats do.
+  const comingList =
+    actsComing.length === 0 ? null : (
+      <ol className="sv-beats" aria-label="Fleet">
+        {actsComing.map((one) => (
+          <FleetBeat key={one.id} said={one.said} why={one.why} />
+        ))}
+      </ol>
+    );
+  const hasNext = upcoming.length > 0 || (!alone && aheadList !== null) || comingList !== null;
   const next = (
     <SvPanel
       label="Open"
@@ -638,6 +709,7 @@ export function StoryColumn({
             />
           )}
           {alone ? null : aheadList}
+          {comingList}
         </div>
       )}
     </SvPanel>
@@ -675,6 +747,7 @@ export function StoryColumn({
   const madeTime = (one: Made): string | undefined => {
     if (one.shape === "pr") return session.trail?.opened?.[one.pr.number];
     if (one.shape === "job") return one.child.lastTurnAt;
+    if (one.shape === "fleet") return one.act.at;
     if (one.shape === "row" && one.key.startsWith("walk:")) {
       const shown = session.rows.find(
         (row) => row.kind === "window" && `walk:${row.id}` === one.key,
@@ -931,13 +1004,16 @@ export function StoryColumn({
                   </div>
                 )}
                 {/* Open work stands here only while the pinned Open group is hidden, so it is drawn once. */}
-                {openShown || alone || openMade.length === 0 ? null : (
+                {openShown || alone || (openMade.length === 0 && comingList === null) ? null : (
                   <div className="sv-nav" onKeyDown={arrowsIn}>
-                    <ol className="sv-beats" aria-label="Open">
-                      <li className="sv-beat sv-beat--made">
-                        <MadeList session={session} list={openMade} newest="last" />
-                      </li>
-                    </ol>
+                    {openMade.length === 0 ? null : (
+                      <ol className="sv-beats" aria-label="Open">
+                        <li className="sv-beat sv-beat--made">
+                          <MadeList session={session} list={openMade} newest="last" />
+                        </li>
+                      </ol>
+                    )}
+                    {comingList}
                   </div>
                 )}
                 {last ? landing : null}
@@ -992,11 +1068,12 @@ export function StoryColumn({
     >
       <div className="sv-nav" onKeyDown={arrowsIn}>
         <MadeList session={session} list={openMade} newest="last" />
+        {comingList}
       </div>
     </SvPanel>
   );
   const pinned =
-    !stepped || openMade.length === 0 ? null : alone ? (
+    !stepped || (openMade.length === 0 && comingList === null) ? null : alone ? (
       openPanel
     ) : !openShown ? null : (
       <OpenGroupMenu>{openPanel}</OpenGroupMenu>

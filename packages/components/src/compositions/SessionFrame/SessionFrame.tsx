@@ -16,6 +16,7 @@ import {
   MessageSquareDashed,
   MoveRight,
   Power,
+  PowerOff,
   Radar,
   Reply,
   RotateCw,
@@ -47,7 +48,7 @@ import { stampOf, timeFormat } from "../../time-format";
  * pull request's Checks red, and ended is nothing listening, whether it was ended
  * or its terminal stopped asking, limited is held until the plan's limit resets, and after is dispatched to wait on another Session and not started
  * (`link`, the Queued reason's upstream that has not finished), draft is a Job holding a first message nobody has sent (`message-square-dashed`), and
- * paused is a Job the person parked: nothing asks anything of him until he resumes it (`circle-pause`), and held is a Job whose turn ended with nothing asked of the person and a live watch, or its own pull request in the queue or on its Checks, all that keeps it open (`radar`, the watch's own glyph), and unstarted is a Job whose agent process never came up, which nothing but a message from the person will move (`x`, system failure, the reason in its tooltip). `[conventions.session_state_borrowing]` and
+ * paused is a Job the person parked: nothing asks anything of him until he resumes it (`circle-pause`), and held is a Job whose turn ended with nothing asked of the person and a live watch, or its own pull request in the queue or on its Checks, all that keeps it open (`radar`, the watch's own glyph), and unstarted is a Job whose agent process never came up, which nothing but a message from the person will move (`x`, system failure, the reason in its tooltip), and stopped is a Job whose agent is not running and was not parked, the reason in its tooltip (`power-off`, draft, 3 Nov 2026). `[conventions.session_state_borrowing]` and
  * `[conventions.session_fork_marks]` in `packages/icons/` lend them.
  */
 export type SessionState =
@@ -66,7 +67,8 @@ export type SessionState =
   | "draft"
   | "held"
   | "paused"
-  | "unstarted";
+  | "unstarted"
+  | "stopped";
 
 /**
  * `stuck` is a turn running that has been quiet, `replied` a turn that ended on the agent's message
@@ -91,6 +93,7 @@ const MARK: Record<SessionState, LucideIcon> = {
   held: Radar,
   paused: CirclePause,
   unstarted: X,
+  stopped: PowerOff,
 };
 
 /**
@@ -105,6 +108,7 @@ export function bucketOf(state: SessionState): JobBucket {
     state === "waiting" ||
     state === "done" ||
     state === "unstarted" ||
+    state === "stopped" ||
     state === "stuck" ||
     state === "failing"
   )

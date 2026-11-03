@@ -786,7 +786,13 @@ export function shipOf(input: Inputs): Ship {
     const item: Item = {
       key: `${subject.kind}:${subject.id}:needs:${at ?? ""}`,
       icon: subject.mark.Glyph,
-      kind: waits === undefined ? subject.mark.said : callKindOf(waits.source),
+      // A stopped Job's mark already says why in full, so the call is named Job and the fact carries the reason.
+      kind:
+        waits !== undefined
+          ? callKindOf(waits.source)
+          : session !== undefined && stateOf(session).state === "stopped"
+            ? "Job"
+            : subject.mark.said,
       title: subject.title,
       fact: subject.mark.said,
       at,

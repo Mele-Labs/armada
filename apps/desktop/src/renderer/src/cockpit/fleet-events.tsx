@@ -261,6 +261,7 @@ function sessionStanding(state: SessionState): Standing {
     case "waiting":
     case "done":
     case "unstarted":
+    case "stopped":
       return "ask";
     case "stuck":
       return "stuck";
