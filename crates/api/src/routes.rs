@@ -265,6 +265,9 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/system", get(crate::sessions::get_session_system::<D>))
         .route("/sessions/stop_process", post(crate::sessions::stop_process::<D>))
         .route("/usage/summary", get(crate::sessions::get_usage_summary::<D>))
+        .route("/usage/time", get(crate::sessions::get_usage_time::<D>))
+        .route("/usage/hours", get(crate::sessions::get_usage_hours::<D>))
+        .route("/sessions/time", get(crate::sessions::get_job_time::<D>))
         .route("/usage/rules", get(crate::sessions::get_usage_rules::<D>))
         .route("/sessions/loadout/item", get(crate::sessions::read_loadout_item::<D>))
         .route(

@@ -28,6 +28,42 @@ pub struct KeptTurnUsage {
     pub bash_use: Option<String>,
 }
 
+/// When one turn's model began and its tools ran, as the transcript stamped them. **Kept apart from
+/// [`KeptTurnUsage`]** so a turn heard from a notice, which has none, changes none of it. Each is
+/// merged into the row: the earliest start and the latest end win, so a message heard in several
+/// reads, or with calls that finish apart, is one stretch.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct KeptTurnTimes {
+    pub message_id: String,
+    pub model_began: Option<String>,
+    pub tools_began: Option<String>,
+    pub tools_ended: Option<String>,
+}
+
+/// A tool result whose call was read before.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptToolResult {
+    pub tool_use_id: String,
+    pub at: String,
+}
+
+/// A call whose result the read did not reach.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptOpenCall {
+    pub tool_use_id: String,
+    pub message_id: String,
+}
+
+/// What a read of a transcript learnt beside the turns.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct KeptReading {
+    pub times: Vec<KeptTurnTimes>,
+    pub late: Vec<KeptToolResult>,
+    pub open: Vec<KeptOpenCall>,
+    /// The last user line the read reached.
+    pub input_at: Option<String>,
+}
+
 /// `held` with `heard` taken in. **The figures go with the larger output**, a tie to the later
 /// hearing. **The calls**: one that begins the other is the longer of the two (a repeat, or the
 /// same message heard further on), and any other is joined on the end (another line of the same
@@ -73,6 +109,21 @@ fn reading(why: rusqlite::Error) -> WriteError {
     WriteError::Database(fault("reading a job's turn usage")(why))
 }
 
+/// Merge `times` into the row of its message: the earliest start and the latest end. SQLite's
+/// two-argument `min` and `max` answer NULL when either is, hence the `COALESCE`s.
+fn keep_times(conn: &Connection, session_id: &str, times: &KeptTurnTimes) -> Result<(), WriteError> {
+    conn.execute(
+        "UPDATE session_turn_usage SET
+             model_began = COALESCE(min(model_began, ?3), model_began, ?3),
+             tools_began = COALESCE(min(tools_began, ?4), tools_began, ?4),
+             tools_ended = COALESCE(max(tools_ended, ?5), tools_ended, ?5)
+         WHERE session_id = ?1 AND message_id = ?2",
+        params![session_id, times.message_id, times.model_began, times.tools_began, times.tools_ended],
+    )
+    .map(|_| ())
+    .map_err(keeping)
+}
+
 fn keep_one(conn: &Connection, session_id: &str, turn: &KeptTurnUsage) -> Result<bool, WriteError> {
     let held = conn
         .query_row(
@@ -90,10 +141,16 @@ fn keep_one(conn: &Connection, session_id: &str, turn: &KeptTurnUsage) -> Result
         return Ok(false);
     }
     let tools = serde_json::to_string(&kept.tools).unwrap_or_else(|_| "[]".into());
+    // An upsert and not a replace: a replace would drop the times the row already holds.
     conn.execute(
-        "INSERT OR REPLACE INTO session_turn_usage (session_id, message_id, at, model, input_tokens, \
+        "INSERT INTO session_turn_usage (session_id, message_id, at, model, input_tokens, \
          cache_creation_tokens, cache_read_tokens, output_tokens, tools, subagent, bash_use)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+         ON CONFLICT (session_id, message_id) DO UPDATE SET
+             at = excluded.at, model = excluded.model, input_tokens = excluded.input_tokens,
+             cache_creation_tokens = excluded.cache_creation_tokens,
+             cache_read_tokens = excluded.cache_read_tokens, output_tokens = excluded.output_tokens,
+             tools = excluded.tools, subagent = excluded.subagent, bash_use = excluded.bash_use",
         params![
             session_id,
             kept.message_id,
@@ -118,13 +175,14 @@ impl Store {
         keep_one(&self.conn, session_id, turn)
     }
 
-    /// Keep the turns a read of the transcript at `path` found, and note it was read to `read_to`,
-    /// in one transaction: a crash between them re-reads the turns, never skips them. How many
-    /// turns changed the store.
+    /// Keep the turns a read of the transcript at `path` found, what it learnt of when they ran, and
+    /// note it was read to `read_to`, in one transaction: a crash between them re-reads the turns,
+    /// never skips them. How many turns changed the store.
     pub fn keep_turns_read(
         &mut self,
         session_id: &str,
         turns: &[KeptTurnUsage],
+        learnt: &KeptReading,
         path: &str,
         read_to: u64,
     ) -> Result<usize, WriteError> {
@@ -133,10 +191,48 @@ impl Store {
         for turn in turns {
             changed += usize::from(keep_one(&kept, session_id, turn)?);
         }
+        // Results first: a message heard again in this read must not lose the call they answer.
+        for result in &learnt.late {
+            let call: Option<String> = kept
+                .query_row(
+                    "SELECT message_id FROM session_open_tools WHERE session_id = ?1 AND tool_use_id = ?2",
+                    params![session_id, result.tool_use_id],
+                    |row| row.get(0),
+                )
+                .optional()
+                .map_err(reading)?;
+            let Some(message_id) = call else { continue };
+            keep_times(
+                &kept,
+                session_id,
+                &KeptTurnTimes { message_id, tools_ended: Some(result.at.clone()), ..Default::default() },
+            )?;
+            kept.execute(
+                "DELETE FROM session_open_tools WHERE session_id = ?1 AND tool_use_id = ?2",
+                params![session_id, result.tool_use_id],
+            )
+            .map_err(keeping)?;
+        }
+        for times in &learnt.times {
+            keep_times(&kept, session_id, times)?;
+            // A read from the top finds again a call an earlier read left open.
+            kept.execute(
+                "DELETE FROM session_open_tools WHERE session_id = ?1 AND message_id = ?2",
+                params![session_id, times.message_id],
+            )
+            .map_err(keeping)?;
+        }
+        for call in &learnt.open {
+            kept.execute(
+                "INSERT OR REPLACE INTO session_open_tools (session_id, tool_use_id, message_id) VALUES (?1, ?2, ?3)",
+                params![session_id, call.tool_use_id, call.message_id],
+            )
+            .map_err(keeping)?;
+        }
         kept.execute(
-            "INSERT INTO transcript_offsets (path, read_to) VALUES (?1, ?2)
-             ON CONFLICT (path) DO UPDATE SET read_to = excluded.read_to",
-            params![path, read_to as i64],
+            "INSERT INTO transcript_offsets (path, read_to, input_at) VALUES (?1, ?2, ?3)
+             ON CONFLICT (path) DO UPDATE SET read_to = excluded.read_to, input_at = excluded.input_at",
+            params![path, read_to as i64, learnt.input_at],
         )
         .map_err(keeping)?;
         kept.commit().map_err(keeping)?;
@@ -150,6 +246,15 @@ impl Store {
                 row.get::<_, i64>(0).map(|at| at as u64)
             })
             .optional()
+            .map_err(reading)
+    }
+
+    /// The last user line the read of the transcript at `path` reached.
+    pub fn transcript_input_at(&self, path: &str) -> Result<Option<String>, WriteError> {
+        self.conn
+            .query_row("SELECT input_at FROM transcript_offsets WHERE path = ?1", params![path], |row| row.get(0))
+            .optional()
+            .map(Option::flatten)
             .map_err(reading)
     }
 

@@ -443,6 +443,20 @@ class Preview(unittest.TestCase):
         self.assertEqual(sorted(lines[1:]), [f"feat/bad\t{tip('feat/bad')}\tdoes not build: bad.rs",
                                              f"feat/mig\t{tip('feat/mig')}\tbreaking migration m.rebuild is not on main"])
 
+    def test_the_main_commit_and_the_branches_merged_are_written_down_for_the_preview_commit(self):
+        self.branch("feat/bad", {"bad.rs": "x\n"})
+        self.branch("feat/good", {"good.txt": "g\n"})
+        self.hold("feat/bad", "feat/good")
+        script, _ = self.failing_restart("bad.rs")
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        with open(os.path.join(self.home, "Library", "Application Support", "Armada", "preview-held")) as f:
+            lines = f.read().splitlines()
+        self.assertEqual(lines[0], run(self.wt, "rev-parse", "HEAD").strip())
+        self.assertEqual(lines[1], run(self.repo, "rev-parse", "main").strip())
+        tip = run(self.repo, "rev-parse", "refs/heads/feat/good").strip()
+        self.assertEqual(lines[2:], [f"feat/good\t{tip}"], "the branch left out for not building is not held")
+
     def test_error_paths_are_the_errors_not_the_warnings(self):
         wt = os.path.join(self.dir, "wt")
         output = (

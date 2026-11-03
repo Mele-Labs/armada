@@ -1280,6 +1280,28 @@ where
         Ok(crate::usage_summarising::wire(read, tz_offset_minutes))
     }
 
+    async fn get_job_time(&self, session_id: ipc::SessionId) -> Result<ipc::JobTime, Refusal> {
+        let id = session_id.as_str().trim();
+        let kept = self.job_split_read(id).await?;
+        Ok(crate::time_summarising::job(id.to_string(), kept))
+    }
+
+    async fn get_usage_time(
+        &self,
+        since: Option<String>,
+        until: Option<String>,
+        slowest: Option<usize>,
+    ) -> Result<ipc::UsageTime, Refusal> {
+        let read = self.usage_time_read(since, until, slowest).await?;
+        Ok(crate::time_summarising::time(read))
+    }
+
+    async fn get_usage_hours(&self, since: Option<String>, hours: Option<u32>) -> Result<ipc::UsageHours, Refusal> {
+        let read = self.usage_hours_read(since, hours).await?;
+        let builds = self.usage_builds_read(Some(read.since.clone())).await?;
+        Ok(crate::time_summarising::hours(read, builds))
+    }
+
     async fn get_usage_rules(&self, since: Option<String>, until: Option<String>) -> Result<ipc::UsageRules, Refusal> {
         let now = self.now().as_str().to_string();
         let dials = crate::usage_rules::dials_of(&self.machine_settings().now());

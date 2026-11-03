@@ -46,6 +46,8 @@ const SOURCE: &str = "restart-source";
 const COMMIT: &str = "restart-commit";
 /// The branches `scripts/preview` left out of the preview, each with why.
 const LEFT_OUT: &str = "preview-left-out";
+/// The main commit a preview stands on and the branches merged into it, as `scripts/preview` records them.
+const HELD: &str = "preview-held";
 /// What the wrapper is doing, or why it stopped.
 const STATUS: &str = "restart-build.status";
 /// The preview tree's tail, as `scripts/restart` records it.
@@ -150,6 +152,32 @@ pub(crate) fn left_out_in(support: &Path, commit: &str) -> BTreeMap<String, Left
                 .then(|| (branch.to_string(), LeftOut { tip: tip.to_string(), why: why.to_string() }))
         })
         .collect()
+}
+
+/// What a preview holds: the main commit under it and the branches merged into it.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct Held {
+    pub(crate) main_commit: String,
+    pub(crate) branches: Vec<String>,
+}
+
+/// What `scripts/preview` recorded the build at `commit` holds: its first line, then the main commit,
+/// then `branch<TAB>tip` lines. **`None`** where the file is missing or was written for another build.
+pub(crate) fn held_in(support: &Path, commit: &str) -> Option<Held> {
+    let recorded = std::fs::read_to_string(support.join(HELD)).ok()?;
+    let mut lines = recorded.lines();
+    if lines.next().map(str::trim) != Some(commit) {
+        return None;
+    }
+    let main_commit = lines.next()?.trim().to_string();
+    let branches = lines.filter_map(|line| Some(line.split('\t').next()?.trim().to_string())).filter(|branch| !branch.is_empty()).collect();
+    (!main_commit.is_empty()).then_some(Held { main_commit, branches })
+}
+
+/// When the restart wrote `restart-commit`, in milliseconds since the epoch: when the build began.
+pub(crate) fn commit_written_in(support: &Path) -> Option<i64> {
+    let written = std::fs::metadata(support.join(COMMIT)).ok()?.modified().ok()?;
+    i64::try_from(written.duration_since(SystemTime::UNIX_EPOCH).ok()?.as_millis()).ok()
 }
 
 fn build_named(word: &str) -> Option<BuildSource> {

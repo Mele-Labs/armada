@@ -17,6 +17,7 @@ pub(crate) fn cites(record: &RetroRecord) -> BTreeSet<String> {
     all.extend(record.failed_tools.iter().map(|row| row.cite.clone()));
     all.extend(record.corrections.iter().map(|row| row.cite.clone()));
     all.extend(record.subagents.iter().map(|row| row.cite.clone()));
+    all.extend(record.time.iter().map(|row| row.cite.clone()));
     all
 }
 

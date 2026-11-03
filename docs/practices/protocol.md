@@ -166,6 +166,7 @@ WebSocket event stream, read this first.
 | [Usage a turn at a time](protocol/usage-a-turn-at-a-time.md) |
 | [The usage summary](protocol/the-usage-summary.md) |
 | [The usage rules](protocol/the-usage-rules.md) |
+| [Where a Job's time went](protocol/where-a-jobs-time-went.md) |
 | [A question kept whole: the `kept` ask state](protocol/a-question-refused-for-a-walk-is-kept-whole.md) |
 | [Sessions are called Jobs: four tools listed under new names](protocol/sessions-are-called-jobs-four-tools-listed-under-new-names.md) |
 | [Every file of a pull request, read as its patch](protocol/every-file-of-a-pull-request-read-as-its-patch.md) |

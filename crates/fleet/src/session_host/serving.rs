@@ -418,6 +418,7 @@ where
             state.reattached_busy = false;
             state.woken_by.clear();
         }
+        self.slot_wait_ended(&id, Some("move")).await;
         // Pause stops the turn through here, so it closes the row too.
         self.turn_closed(&id).await;
         self.calls_let_go(&id).await;

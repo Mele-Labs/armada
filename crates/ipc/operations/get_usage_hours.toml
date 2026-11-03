@@ -1,0 +1,14 @@
+[operations.get_usage_hours]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The last 48 hours, an hour at a time: burn by model and four medians of how long things took, with the builds of Bridge that ran in them"
+notes = """
+`GET /usage/hours?since=&hours=`. `UsageHours` `{ since, until, hours[], builds[] }`: `hours` hours (48 where left out) from `since`, which is the start of an hour, or ending with the hour now is in. 422 `fleet.session_unnamed` where `since` is not a time.
+
+**`hours` are sparse: an hour in which nothing ran is left out**, and a client places each by its `hour`, counted from `since`, or by `at`. An hour is `{ hour, at, burn?, model?, tools?, checks?, pull_request? }`. `burn` is cost units by model, most first, in millions as `get_usage_summary` has them; **the four medians are seconds**: the wait on the model per turn, the time a turn's tools ran, a Check run, and a pull request's wait with nothing else running. A question to the owner is no tool's time. **A median the hour did not produce is absent, never `0`.**
+
+`builds` are those that ran at any time since `since`, the one running at `since` among them, oldest first. A build is `{ commit, started, until?, source?, main_commit?, branches, turns, burn?, model?, tools?, checks?, pull_request?, jobs, split }`. `commit` and `main_commit` are seven characters; `source` is `main` or `preview`, and with `main_commit` is absent where git had not said. `until` is when the next build began and is absent for the one running. `turns` are every turn kept while it ran, subagents' included. **`burn` is cost units per turn, not millions of them**: the build's units times a million over `turns`, absent for a build that took none. The four medians are seconds over the build's whole run and absent where it produced none. `split` is the time of every Job in the stretch the build ran, milliseconds, cut at its start. The tokens of one build are `get_usage_summary` over `[started, until)`.
+
+**Why one operation and not two**: the page draws the builds on the hours and they must begin at the same hour, which one `since` guarantees. **Names and counts only.**
+"""

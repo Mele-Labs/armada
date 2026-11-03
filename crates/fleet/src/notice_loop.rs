@@ -30,6 +30,12 @@ where
     let adrift = Arc::new(adrift);
     crate::autopilot::keep_autopiloting(Arc::clone(&fleet), tick, Arc::clone(&adrift));
     crate::autopilot::keep_deciding(Arc::clone(&fleet), tick, Arc::clone(&adrift));
+    // The line for a slot and the moves into one live in memory, so a wait a restart cut off ended with it.
+    let waits = Arc::clone(&fleet);
+    tokio::spawn(async move {
+        let at = waits.now().as_str().to_string();
+        let _ = waits.store().lock().await.end_all_slot_waits(&at);
+    });
     // Away for longer than a few missed beats is an outage, which a stop says it was lost to.
     let started = Arc::clone(&fleet);
     tokio::spawn(async move {
@@ -41,6 +47,15 @@ where
     tokio::spawn(async move {
         tokio::time::sleep(crate::turn_ingest::BACKFILL_AFTER).await;
         backfill.turns_backfilled(false).await;
+    });
+    // Where each ended Job's time went, kept as they end and, the first time, for those that ended before.
+    let timing = Arc::clone(&fleet);
+    tokio::spawn(async move {
+        tokio::time::sleep(crate::job_timing::AFTER).await;
+        loop {
+            timing.jobs_timed().await;
+            tokio::time::sleep(crate::job_timing::EVERY).await;
+        }
     });
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(tick);

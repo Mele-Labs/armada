@@ -6,6 +6,7 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
 
+use ipc::door::{answer, read as read_door, Answered, Asked};
 use ipc::{ManifestId, ManifestSummary};
 
 use crate::cli::{read, Body, Fault, JobAct, Verb};
@@ -159,6 +160,28 @@ fn the_list_comes_from_the_door_and_names_status_and_dispatch() {
     assert!(seen.lock().expect("seen")[0].contains(r#""method":"tools/list""#));
     assert_eq!(first_sentence("Start a new job. Body: x. POST /y"), "Start a new job");
     assert!(help(&all[1]).contains("armada job dispatch [name=value ...] [<json> | -]"));
+}
+
+/// The door's real list, as `armada job <act> --help` prints it: the line saying what each time act
+/// answers, then what it takes.
+#[test]
+fn the_time_acts_print_what_they_answer_and_what_they_take() {
+    let Asked::Tools { id } = read_door(ipc::job_cli::list_message().as_bytes(), &[]) else { panic!("not a tools/list") };
+    let list = answer(Answered::Tools { id, shapes: api::offered(), always_loads: None }).expect("a list encodes");
+    let (reached, _) = door(move |_| list.clone());
+    let all = offered(&reached).expect("the list");
+    let act = |name: &str| all.iter().find(|act| act.name == name).unwrap_or_else(|| panic!("no act {name}"));
+
+    let job = help(act("get_job_time"));
+    assert!(job.starts_with("get_job_time\n    Where this Job's time went, split into model, tools, checks"), "{job}");
+    assert!(job.contains("session_id="), "{job}");
+    let window = help(act("get_usage_time"));
+    assert!(window.contains("Where the time of the Jobs that ended in a window went"), "{window}");
+    for field in ["since=", "until=", "slowest="] {
+        assert!(window.contains(field), "{field} in {window}");
+    }
+    assert!(listing(&all).contains("get_usage_time"));
+    assert!(all.iter().all(|act| act.name != "get_usage_hours"), "the page's hours are not an act");
 }
 
 #[test]

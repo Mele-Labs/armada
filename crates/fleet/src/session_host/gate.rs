@@ -321,6 +321,7 @@ where
             }
             Taken::Moving(moving) => {
                 self.line_left(id).await;
+                self.slot_wait_began(id, "move").await;
                 GateAnswer::deny(format!(
                     "This job writes only inside a worktree leased for it, and it had none \
                      until this write. Slot {} is leased on branch {} at {}, and Fleet is \
@@ -377,6 +378,7 @@ where
         let queue = self.hosts().slot_queue();
         let (ahead, fresh) = queue.join(manifest, id, &self.instant());
         if fresh {
+            self.slot_wait_began(id, "line").await;
             let _ = self.published_hosted(id).await;
         }
         // A slot may have been given back between the lease and the join.
