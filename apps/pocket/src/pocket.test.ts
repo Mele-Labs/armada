@@ -1,11 +1,26 @@
 import { readdirSync, readFileSync } from "node:fs";
 import type { WaitingItem } from "@armada/protocol";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { homeOf, type Mac } from "./fleet";
 import { answer } from "./fixture/gateway";
 import { fixtureMacs } from "./fixture/wire";
-import { asksOf, choicesOf, rowsOf, runsOf, sessionOfThread, takesWords } from "./thread";
+import {
+  asksOf,
+  choicesOf,
+  documentOf,
+  draftsOf,
+  onMacOf,
+  OPEN_ON_MAC,
+  pressesOf,
+  rowsOf,
+  runsOf,
+  sessionOfThread,
+  takesWords,
+} from "./thread";
+import { sketchAnswerOf, documentAnswerOf } from "@armada/screens/src/thread-cards";
+import { Refused } from "./client";
+import { attemptPage } from "./jobState";
 import { fit, followScreen } from "./viewport";
 import type { PhoneSession } from "./gateway";
 import { codeFromInput, linkOf } from "./pairing";
@@ -706,5 +721,413 @@ describe("a sketch's mock on the phone", () => {
     expect(found.status).toBe(200);
     expect(JSON.parse(found.body).sheets[0].path).toBe("apps/pocket/src/styles.css");
     expect(read("fedcba9876543210fedcba9876543210").status).toBe(404);
+  });
+});
+
+describe("what a Job waits on, on the phone", () => {
+  const macs = () =>
+    fixtureMacs(Date.now(), {
+      studio: "https://studio",
+      laptop: "https://laptop",
+    });
+  const wire = () => structuredClone(macs()["https://studio"]!.threads["f1"]!);
+  const session = (thread = wire()) => sessionOfThread(thread);
+  type Held = NonNullable<ReturnType<typeof wire>["session"]["attachments"]>[number];
+  const attachment = (thread: ReturnType<typeof wire>, target: string): Held =>
+    thread.session.attachments!.find((one) => one.target === target)!;
+  /** How Fleet writes an answer to a page into its record: `settled` with the time. */
+  const settle = (thread: ReturnType<typeof wire>, target: string) => {
+    const detail = attachment(thread, target).detail!;
+    detail["settled"] = "approved";
+    detail["settled_at"] = new Date().toISOString();
+  };
+  const documents = (thread = wire()) =>
+    rowsOf(session(thread)).flatMap((row) => (row.kind === "document" ? [row] : []));
+  const sketches = (thread = wire()) =>
+    rowsOf(session(thread)).flatMap((row) => (row.kind === "sketch" ? [row] : []));
+  const waiting = (source: WaitingItem["source"]) =>
+    session().waitingFor!.find((one) => one.source === source)!;
+
+  describe("a document in the thread", () => {
+    it("is a card for each page at its newest revision, waiting on him", () => {
+      expect(documents()).toMatchObject([
+        {
+          title: "Slot pool",
+          revision: 1,
+          asked: true,
+        },
+        {
+          title: "Phone reach",
+          revision: 2,
+          asked: true,
+        },
+      ]);
+    });
+
+    it("sits before the first row later than the time its revision was kept", () => {
+      const ids = rowsOf(session()).map((row) =>
+        row.kind === "document" ? row.title : row.id,
+      );
+      expect(ids.indexOf("f1-3")).toBeLessThan(ids.indexOf("Slot pool"));
+      expect(ids.indexOf("Slot pool")).toBeLessThan(ids.indexOf("f1-4"));
+      expect(ids.indexOf("f1-4")).toBeLessThan(ids.indexOf("Phone reach"));
+      expect(ids.indexOf("Phone reach")).toBeLessThan(ids.indexOf("f1-5"));
+    });
+
+    it("carries how he answered it", () => {
+      const thread = wire();
+      settle(thread, "/Users/owner/armada/.armada/documents/slot-pool.html");
+      const cards = documents(thread);
+      expect(cards).toHaveLength(2);
+      expect(cards[0]).toMatchObject({
+        title: "Slot pool",
+        settled: {
+          how: "approved",
+        },
+      });
+      expect(cards[1]!.settled).toBeUndefined();
+    });
+
+    it("answers with the revision the ledger holds, and an empty one for a page it never gave", () => {
+      const held = session();
+      const page = "/Users/owner/armada/.armada/documents/phone-reach.html";
+      expect(
+        documentAnswerOf(held, page, {
+          choice: 0,
+        }),
+      ).toEqual({
+        session_id: "f1",
+        document: `document:${page}`,
+        revision: "2",
+        how: "approved",
+      });
+      expect(
+        documentAnswerOf(held, page, {
+          text: "Cut the table.",
+        }),
+      ).toMatchObject({
+        revision: "2",
+        how: "sent_back",
+        words: "Cut the table.",
+      });
+      expect(
+        documentAnswerOf(held, "/nowhere.html", {
+          choice: 0,
+        }).revision,
+      ).toBe("");
+    });
+
+    it("reads the newest revision to draw, and waits only while it is asked and not settled", () => {
+      const page = "/Users/owner/armada/.armada/documents/phone-reach.html";
+      expect(documentOf(session(), page)).toMatchObject({
+        title: "Phone reach",
+        revision: 2,
+        waits: true,
+      });
+      expect(documentOf(session(), page)!.revisions.at(-1)).toContain("phone-reach-r2");
+      const thread = wire();
+      settle(thread, page);
+      expect(documentOf(session(thread), page)).toMatchObject({
+        waits: false,
+        settled: {
+          how: "approved",
+        },
+      });
+      expect(documentOf(session(), "/nowhere.html")).toBeUndefined();
+    });
+  });
+
+  describe("a sketch's card", () => {
+    it("holds that he was asked on the latest drawing only", () => {
+      const thread = wire();
+      thread.rows.push({
+        kind: "tool",
+        id: "f1-redraw",
+        at: new Date().toISOString(),
+        text: `show_sketch ${JSON.stringify({
+          title: "Slot layout",
+          scene: {
+            nodes: [
+              {
+                id: "n0",
+                kind: "box",
+                x: 0,
+                y: 0,
+                body: "Redrawn",
+              },
+            ],
+            edges: [],
+          },
+        })}`,
+      });
+      const layout = sketches(thread).filter((row) => row.title === "Slot layout");
+      expect(layout).toHaveLength(2);
+      expect(layout[0]!.replaced).toBe(true);
+      expect(layout[0]!.asked).toBeUndefined();
+      expect(layout[1]!.replaced).toBeUndefined();
+      expect(layout[1]!.asked).toBe(true);
+    });
+
+    it("carries how he answered it", () => {
+      const thread = wire();
+      settle(thread, "sketch:Phone home");
+      expect(sketches(thread).find((row) => row.title === "Phone home")).toMatchObject({
+        asked: true,
+        settled: {
+          how: "approved",
+        },
+      });
+    });
+
+    it("answers with the drawing the ledger holds, and an empty one for a sketch it never gave", () => {
+      expect(
+        sketchAnswerOf(session(), "sketch:Phone home", {
+          choice: 0,
+        }),
+      ).toEqual({
+        session_id: "f1",
+        sketch: "sketch:Phone home",
+        drawn: "phone-home-1",
+        how: "approved",
+      });
+      expect(
+        sketchAnswerOf(session(), "sketch:Phone home", {
+          text: "Wider.",
+        }),
+      ).toMatchObject({
+        drawn: "phone-home-1",
+        how: "sent_back",
+        words: "Wider.",
+      });
+      expect(
+        sketchAnswerOf(session(), "No such sketch", {
+          choice: 0,
+        }).drawn,
+      ).toBe("");
+    });
+  });
+
+  describe("an answer to a page", () => {
+    const machine = {
+      origin: "https://studio",
+      name: "studio",
+    } as unknown as Parameters<typeof attemptPage>[1];
+    const refused = (status: number, body: string) => async () => {
+      throw new Refused(status, body);
+    };
+    const fleet = (status: number, code: string, message = "Fleet's own words") =>
+      refused(
+        status,
+        JSON.stringify({
+          code,
+          message,
+        }),
+      );
+
+    it("is null once Fleet takes it", async () => {
+      const reread = vi.fn();
+      expect(await attemptPage(async () => undefined, machine, reread)).toBeNull();
+      expect(reread).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [
+        "fleet.sketch_redrawn",
+        "The Job drew this again. The new drawing is shown.",
+      ],
+      [
+        "fleet.document_revised",
+        "The Job revised this page. The new revision is shown.",
+      ],
+    ])("reads the Job again and says it changed on a 409 %s", async (code, says) => {
+      const reread = vi.fn();
+      expect(await attemptPage(fleet(409, code), machine, reread)).toBe(says);
+      expect(reread).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      [
+        422,
+        "fleet.sketch_answer_empty",
+      ],
+      [
+        409,
+        "fleet.sketch_not_open",
+      ],
+      [
+        422,
+        "fleet.document_not_open",
+      ],
+    ])("shows Fleet's message, and reads nothing again, on a %s %s", async (status, code) => {
+      const reread = vi.fn();
+      expect(await attemptPage(fleet(status, code), machine, reread)).toBe("Fleet's own words");
+      expect(reread).not.toHaveBeenCalled();
+    });
+
+    it("keeps the Gateway's own 409, which has no code, a plain refusal", async () => {
+      const reread = vi.fn();
+      expect(
+        await attemptPage(
+          refused(409, "This Job is not on its start card."),
+          machine,
+          reread,
+        ),
+      ).toBe("This Job is not on its start card.");
+      expect(reread).not.toHaveBeenCalled();
+    });
+
+    it("says the Mac did not answer when nothing was refused", async () => {
+      expect(
+        await attemptPage(
+          async () => {
+            throw new TypeError("Failed to fetch");
+          },
+          machine,
+          vi.fn(),
+        ),
+      ).toContain("studio");
+    });
+  });
+
+  describe("draftsOf", () => {
+    it("draws a workflow change where the item is held, and marks it proposed since it has two options", () => {
+      expect(draftsOf(session())).toMatchObject([
+        {
+          id: "f1-10",
+          title: "Check before every walk",
+          proposed: true,
+        },
+      ]);
+    });
+
+    it("draws none off the row alone, once the item is gone", () => {
+      const held = session();
+      expect(
+        draftsOf({
+          ...held,
+          waitingFor: held.waitingFor!.filter((one) => one.id !== "draft:f1-10"),
+        }),
+      ).toEqual([]);
+      expect(held.rows.some((row) => row.kind === "draft" && row.id === "f1-10")).toBe(true);
+    });
+
+    it("does not mark one proposed whose item has a single option", () => {
+      const held = session();
+      const [open] = draftsOf({
+        ...held,
+        waitingFor: held.waitingFor!.map((one) =>
+          one.id === "draft:f1-10"
+            ? {
+                ...one,
+                options: [
+                  {
+                    label: "Approve",
+                  },
+                ],
+              }
+            : one,
+        ),
+      });
+      expect(open).toBeDefined();
+      expect(open!.proposed).toBeUndefined();
+    });
+
+    it("leaves an ordinary draft unmarked, so it has no Dismiss", () => {
+      const b3 = sessionOfThread(macs()["https://laptop"]!.threads["b3"]!);
+      const open = draftsOf(b3);
+      expect(open).toHaveLength(1);
+      expect(open[0]!.proposed).toBeUndefined();
+    });
+
+    it("draws none for a dead Job", () => {
+      expect(
+        draftsOf({
+          ...session(),
+          dead: {},
+        } as unknown as Parameters<typeof draftsOf>[0]),
+      ).toEqual([]);
+    });
+  });
+
+  describe("pressesOf", () => {
+    it("opens the Job a held child's act names, and offers no dismiss", () => {
+      const press = pressesOf(session()).find((one) => one.item.source === "held_child")!;
+      expect(press.opens).toBe("d1");
+      expect(press.dismissible).toBe(false);
+    });
+
+    it("dismisses a Fleet call", () => {
+      const press = pressesOf(session()).find((one) => one.item.source === "fleet_call")!;
+      expect(press.dismissible).toBe(true);
+    });
+
+    it("takes nothing else, and nothing from a dead Job", () => {
+      expect(pressesOf(session()).map((one) => one.item.source)).toEqual([
+        "held_child",
+        "fleet_call",
+      ]);
+      expect(
+        pressesOf({
+          ...session(),
+          dead: {},
+        } as unknown as Parameters<typeof pressesOf>[0]),
+      ).toEqual([]);
+    });
+  });
+
+  describe("onMacOf", () => {
+    it("takes each open walk and each question in one, and says to open them on the Mac", () => {
+      expect(onMacOf(session()).map((one) => one.source)).toEqual([
+        "walk",
+        "window_ask",
+      ]);
+      expect(OPEN_ON_MAC).toBe("Open on your Mac");
+    });
+
+    it("takes none from a dead Job", () => {
+      expect(
+        onMacOf({
+          ...session(),
+          dead: {},
+        } as unknown as Parameters<typeof onMacOf>[0]),
+      ).toEqual([]);
+    });
+
+    it("keeps the question in a walk out of what is answered beside the thread", () => {
+      expect(asksOf(session()).map((one) => one.source)).not.toContain("window_ask");
+    });
+  });
+
+  describe("a browser's question", () => {
+    it("is answered beside the thread by its choices alone", () => {
+      const ask = waiting("browser_ask");
+      expect(asksOf(session()).map((one) => one.source)).toContain("browser_ask");
+      expect(takesWords(ask)).toBe(false);
+      expect(choicesOf(ask).map((one) => [one.label, one.choice])).toEqual([
+        [
+          "Allow",
+          0,
+        ],
+        [
+          "Block",
+          1,
+        ],
+      ]);
+    });
+  });
+
+  describe("routeOf", () => {
+    it("reads a document's page under a Job", () => {
+      expect(
+        routeOf(
+          `/jobs/${encodeURIComponent("https://studio.tail0.ts.net")}/f1/document?page=${encodeURIComponent("/a/b.html")}`,
+        ),
+      ).toEqual({
+        screen: "document",
+        origin: "https://studio.tail0.ts.net",
+        id: "f1",
+        page: "/a/b.html",
+      });
+    });
   });
 });
