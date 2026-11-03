@@ -589,7 +589,7 @@ describe("a draft Job, and the acts on a Job", {
     );
     await vi.waitFor(() => expect(window.location.pathname).toBe("/"));
     await vi.waitFor(() => expect(rows("Needs you").length).toBeGreaterThan(0));
-    expect(host.querySelector('[aria-label="Drafts"]')).toBeNull();
+    await vi.waitFor(() => expect(host.querySelector('[aria-label="Drafts"]')).toBeNull());
   });
 
   it("forgets a draft's brief once it is sent, so nothing of it stays kept", async () => {
