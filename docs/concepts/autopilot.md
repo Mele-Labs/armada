@@ -34,7 +34,8 @@ The code is `crates/fleet/src/autopilot.rs` and the modules under it, the decisi
    One model call, made the way the [Proposer](job-proposer.md)'s is, reads it as the five settings, each with the words of the sentence it was read from.
    A quote the sentence does not hold is dropped rather than shown as the person's.
    **It starts nothing.**
-2. The person confirms or changes them, and the start takes what they confirmed. A blank instruction, no room, or a cap already reached is refused, the weekly one when the week's reading is already at or past it.
+2. The person confirms or changes them, and the start takes what they confirmed.
+   A blank instruction, no room, or a cap already reached is refused, the weekly one when the week's reading is already at or past it.
 
 ## How a pick happens
 
