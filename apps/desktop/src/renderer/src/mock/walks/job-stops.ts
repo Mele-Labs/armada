@@ -66,16 +66,24 @@ const jobStops = walk("jobStops", [
     say: "Now gives the stretch Fleet was down",
   },
   {
-    press: deckRow("Tell the phone what holds a Job"),
-    say: "Its process ended and the restart failed. Amber, with no item: a message from you starts it",
+    press: deckRow(/^Tell the phone what holds a Job/),
+    say: "Its process ended and the restart failed, so Fleet started a repair Job. Nothing is asked of you",
   },
   {
     look: inside(now, text("Stopped: process ended")),
-    say: "Now gives what the process said",
+    say: "Now gives what the process said, and Fleet's acts stand beside it",
+  },
+  {
+    look: deckRow("Repair: Tell the phone what holds a Job"),
+    say: "The repair Job is a Job of its own, at work",
+  },
+  {
+    hover: inside(deckRow("Store migration spike"), role("img", /^Stopped: /)),
+    say: "Fleet is unhealthy, so it started no repair Job. Amber: this is the one that reaches you",
   },
   {
     press: deckRow("Theme token audit"),
-    say: "Fleet told it once and it stopped again. Its thread holds the nudge",
+    say: "Fleet told it once and it stopped again with its agent alive. Amber too: a repair Job has nothing to fix here",
   },
   {
     press: deckRow("Rewrite the importer"),

@@ -1,4 +1,4 @@
-// What Bridge says about a Job that is working, waiting or stopped, and what Fleet is doing for it. Eleven Jobs: a turn over with a command or a subagent still going, four stopped (nudged and stopped again, tasks open, its
+// What Bridge says about a Job that is working, waiting or stopped, and what Fleet is doing for it. Thirteen Jobs: a turn over with a command or a subagent still going, five stopped (nudged and stopped again, tasks open, a repair Job on one, no repair while Fleet is unhealthy, its
 // process ended, Fleet was down), one at work on a call, one stuck on a call it has not come back from, one held open by its pull request, one paused, and
 // one idle whose process Fleet let go. Fleet's own acts stand in Now while they run, in Open while they are to come, and in Done once they are over.
 // Draft fields only: nothing in Fleet carries them yet. The walk `jobStops` plays it.
@@ -142,7 +142,7 @@ const retry: Session = {
   ],
 };
 
-// 2. Its process ended and Fleet could not bring it back. Only he moves it now: the mark and the call say so, with no item.
+// 2. Its process ended and the restart failed, so Fleet started a repair Job. Nothing is asked of him.
 const phone: Session = {
   ...BASE,
   id: "js-phone",
@@ -172,13 +172,64 @@ const phone: Session = {
     at: ago(20),
     said: "MCP tool mcp__armada-fleet__ask_the_person (passed via --permission-prompt-tool) not found.",
     restart: "failed",
-    gaveUp: true,
+    repair: "running",
   },
   fleetActs: [
     act("js-2-f1", ago(26), "over", "told", "Told it: slot-4 is 12 commits behind main", {
       why: "Fleet tells a Job when its slot falls behind main",
     }),
+    act("js-2-f2", ago(19), "over", "restart", "Restarted its process", {
+      why: "Its process ended",
+    }),
+    act("js-2-f3", ago(18), "under_way", "process", "Started a repair Job", {
+      why: "The restart failed",
+    }),
   ],
+};
+
+// The repair Job Fleet started for it, at work.
+const repairing: Session = {
+  ...BASE,
+  id: "js-repair",
+  title: "Repair: Tell the phone what holds a Job",
+  turn: {
+    state: "working",
+  },
+  standing: "working",
+  lastTurnAt: ago(1),
+  rows: [
+    said("js-r-a", "14:23:00", "The agent came up without its tools. Reading the restart's log."),
+  ],
+  attachments: [
+    {
+      kind: "started_by",
+      id: "js-phone",
+    },
+  ],
+};
+
+// Its process ended, the restart failed, and Fleet is unhealthy, so it started no repair Job. This one reaches him.
+const unhealthy: Session = {
+  ...BASE,
+  id: "js-unhealthy",
+  title: "Store migration spike",
+  turn: {
+    state: "idle",
+  },
+  standing: "stopped",
+  lastTurnAt: ago(14),
+  rows: [
+    asked("js-u-u", "14:00:00", "Try the store migration on a copy."),
+    said("js-u-a", "14:18:00", "The copy is made. Running the migration."),
+  ],
+  attachments: [],
+  stopped: {
+    reason: "process_gone",
+    at: ago(14),
+    restart: "failed",
+    repair: "held",
+    gaveUp: true,
+  },
 };
 
 // 3. Fleet was down when its turn ended. Its restart waits behind one other.
@@ -520,7 +571,7 @@ const audit: Session = {
 
 const base = holding(
   "jobStops",
-  "Eleven Jobs: five stopped for their reasons, two given up on, one at work on a call, one running a command, one on a subagent, one stuck on a call, one held by its pull request, one paused, one idle; with what Fleet did for each",
+  "Thirteen Jobs: five stopped for their reasons, one with a repair Job at work, two that reach him, one at work on a call, one running a command, one on a subagent, one stuck on a call, one held by its pull request, one paused, one idle; with what Fleet did for each",
 );
 
 export const jobStops: Scenario = {
@@ -534,7 +585,9 @@ export const jobStops: Scenario = {
       sessionsStore(
         [
           audit,
+          unhealthy,
           phone,
+          repairing,
           retry,
           everything,
           command,

@@ -1041,7 +1041,9 @@ export type Stopped = {
   /** With `tasks_open`: the tasks still open on its list. */
   tasks?: readonly string[];
   restart: "none" | "queued" | "running" | "failed";
-  /** Fleet has nudged or restarted it and that changed nothing: only he moves it now. No item: the mark and the call reach him, as stuck does. */
+  /** Where a repair Job stands, once a restart failed. `held`: Fleet is unhealthy, so it started none. */
+  repair?: "running" | "failed" | "held";
+  /** Fleet has run out of things to try: only he moves it now. No item: the mark and the call reach him, as stuck does. */
   gaveUp?: true;
   /** With `fleet_down`: the stretch Fleet was not running. */
   down?: {

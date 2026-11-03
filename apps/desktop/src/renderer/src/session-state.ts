@@ -67,6 +67,16 @@ export const restartSaid = (stopped: Stopped): string | undefined =>
         ? "Restart failed"
         : undefined;
 
+/** Where a repair Job stands on a Job whose restart failed. */
+export const repairSaid = (stopped: Stopped): string | undefined =>
+  stopped.repair === "running"
+    ? "Repair Job running"
+    : stopped.repair === "failed"
+      ? "Repair Job failed"
+      : stopped.repair === "held"
+        ? "No repair Job: Fleet is unhealthy"
+        : undefined;
+
 /** Why a Job stopped, as the first line of Now and the mark's tooltip say it. The tasks it left open are named in Now. */
 export function stoppedSaid(stopped: Stopped): string {
   switch (stopped.reason) {
@@ -119,7 +129,7 @@ export function stateOf(session: Session): {
     };
   // Not running, and not parked: it ended its turn with nothing running, its process ended, Fleet was down, or he stopped it. It raises no item: this mark and its call reach him, as stuck does.
   if (session.stopped !== undefined) {
-    const restart = restartSaid(session.stopped);
+    const restart = repairSaid(session.stopped) ?? restartSaid(session.stopped);
     return {
       // Amber only once Fleet has given up on bringing it back: while a nudge or a restart is coming, nothing is asked of him.
       state: session.stopped.gaveUp === true ? "stopped_asks" : "stopped",
