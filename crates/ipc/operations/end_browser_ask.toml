@@ -1,0 +1,8 @@
+[operations.end_browser_ask]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Bridge says a page's ask was settled in its tab, or the tab closed: session_id and ask_id, so Fleet takes it off the Job's Needs you"
+notes = """
+`POST /sessions/browser/ask/end`, body `EndBrowserAsk`: `session_id` and `ask_id`. Answered 200 with `BrowserAskNoted`, also where Fleet holds no such ask, since either side may end first. No event is published and the agent is told nothing. `agent_access` is `Bridge only`.
+"""

@@ -9,7 +9,10 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{AnswerBrowserRequest, BrowserAct, BrowserAnswer, BrowserError, BrowserRequest, BrowserRequestAnswered, SessionId, WalkTarget, WireError};
+use ipc::{
+    AnswerBrowserRequest, BrowserAct, BrowserAnswer, BrowserAskAnswered, BrowserAskNoted, BrowserError, BrowserRequest, BrowserRequestAnswered, EndBrowserAsk,
+    RaiseBrowserAsk, SessionId, WalkTarget, WireError,
+};
 use tokio::sync::oneshot;
 
 use crate::daemon::Fleet;
@@ -38,10 +41,24 @@ const NO_SUCH_REQUEST: &str = "fleet.no_such_browser_request";
 const WITHDRAWN: &str = "fleet.browser_request_withdrawn";
 const ANSWERED: &str = "fleet.browser_request_answered";
 const ANSWER_REFUSED: &str = "fleet.browser_answer_refused";
+const ASK_REFUSED: &str = "fleet.browser_ask_refused";
+
+/// The front of a page ask's item id, the rest being Bridge's tab id.
+pub(crate) const ASK_ITEM: &str = "browser_ask:";
 
 pub(crate) const UNANSWERED_SAID: &str = "Bridge did not answer. Is the Job browser open?";
 
 type Done = Result<BrowserAnswer, BrowserError>;
+
+/// A page's ask for the owner, as Bridge raised it.
+#[derive(Clone)]
+struct PageAsk {
+    session: String,
+    id: String,
+    text: String,
+    options: Vec<ipc::WaitingOption>,
+    since: String,
+}
 
 struct Held {
     session: String,
@@ -59,6 +76,8 @@ enum Ended {
 pub(crate) struct Browsers {
     held: Mutex<BTreeMap<String, Held>>,
     ended: Mutex<VecDeque<(String, Ended)>>,
+    /// Pages' asks in raise order. Memory only: a restart loses them, and Bridge still has its own.
+    asks: Mutex<Vec<PageAsk>>,
     mint: UlidMint,
     stopping: AtomicBool,
     within_ms: AtomicU64,
@@ -69,6 +88,7 @@ impl Default for Browsers {
         Browsers {
             held: Mutex::default(),
             ended: Mutex::default(),
+            asks: Mutex::default(),
             mint: UlidMint::new(),
             stopping: AtomicBool::new(false),
             within_ms: AtomicU64::new(ACT_WITHIN.as_millis() as u64),
@@ -104,6 +124,33 @@ impl Browsers {
         let (answer, answered) = oneshot::channel();
         held.insert(id.to_string(), Held { session: session.to_string(), act, answer });
         Some(answered)
+    }
+
+    /// Hold `ask`, replacing the one of its tab: the place and the first `since` are kept.
+    fn ask_held(&self, mut ask: PageAsk) {
+        let Ok(mut asks) = self.asks.lock() else { return };
+        match asks.iter_mut().find(|one| one.session == ask.session && one.id == ask.id) {
+            Some(held) => {
+                ask.since = std::mem::take(&mut held.since);
+                *held = ask;
+            }
+            None => asks.push(ask),
+        }
+    }
+
+    fn ask_taken(&self, session: &str, id: &str) -> Option<PageAsk> {
+        let mut asks = self.asks.lock().ok()?;
+        let at = asks.iter().position(|one| one.session == session && one.id == id)?;
+        Some(asks.remove(at))
+    }
+
+    /// The Job's asks, or none where nobody listens, which also forgets every Job's.
+    fn asks_of(&self, session: &str, listening: bool) -> Vec<PageAsk> {
+        let Ok(mut asks) = self.asks.lock() else { return Vec::new() };
+        if !listening {
+            asks.clear();
+        }
+        asks.iter().filter(|one| one.session == session).cloned().collect()
     }
 
     /// Take `id` off the table because its wait ran out.
@@ -278,6 +325,96 @@ where
             Err(NotTaken::Gone(Ended::Answered)) => Err(Refusal::IllegalMove(raised(ANSWERED, format!("{id} was answered already")))),
             Err(NotTaken::Unfit(why)) => Err(Refusal::Unacceptable(raised(ANSWER_REFUSED, why))),
         }
+    }
+}
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// `raise_browser_ask`: a page's ask held in the Job's Needs you. The agent is told nothing.
+    pub(crate) async fn browser_ask_raised(&self, ask: RaiseBrowserAsk) -> Result<BrowserAskNoted, Refusal> {
+        let (id, text) = (ask.ask_id.trim().to_string(), ask.text.trim().to_string());
+        if id.is_empty() || text.is_empty() {
+            let why = String::from("a page's ask carries the tab's id and the words it asks");
+            return Err(Refusal::Unacceptable(WireError::raised(ASK_REFUSED, why, self.run_id())));
+        }
+        let session = ask.session_id.as_str().to_string();
+        if self.store().lock().await.session(&session).ok().flatten().is_none() {
+            let why = format!("Fleet knows no job {session}");
+            return Err(Refusal::NotFound(WireError::raised(ASK_REFUSED, why, self.run_id())));
+        }
+        let since = self.clock().now().as_str().to_string();
+        self.job_browser().ask_held(PageAsk { session: session.clone(), id: id.clone(), text, options: ask.options, since });
+        self.browser_asks_published(&session).await?;
+        Ok(BrowserAskNoted { session_id: ask.session_id, ask_id: id })
+    }
+
+    /// `end_browser_ask`: the tab settled it or closed. Nothing is published to the tab.
+    pub(crate) async fn browser_ask_ended(&self, ask: EndBrowserAsk) -> Result<BrowserAskNoted, Refusal> {
+        let (session, id) = (ask.session_id.as_str().to_string(), ask.ask_id.trim().to_string());
+        if self.job_browser().ask_taken(&session, &id).is_some() {
+            self.browser_asks_published(&session).await?;
+        }
+        Ok(BrowserAskNoted { session_id: ask.session_id, ask_id: id })
+    }
+
+    /// The owner answered `choice`, or `None` dismissed, the ask under `item`. The tab is told, the
+    /// item goes, and the agent is told nothing.
+    pub(crate) async fn browser_ask_settled(&self, session: &str, item: &str, choice: Option<u32>) -> Result<ipc::SessionRecord, Refusal> {
+        let id = item.strip_prefix(ASK_ITEM).unwrap_or(item);
+        if self.job_browser().ask_taken(session, id).is_none() {
+            return Err(self.settled_already());
+        }
+        self.publish(ipc::Event::BrowserAskAnswered(BrowserAskAnswered {
+            session_id: SessionId::carried(session),
+            ask_id: id.to_string(),
+            choice,
+        }));
+        self.browser_asks_published(session).await
+    }
+
+    /// The Job's row as it reads now, published, so Needs you shows the ask or no longer does.
+    async fn browser_asks_published(&self, session: &str) -> Result<ipc::SessionRecord, Refusal> {
+        let record = {
+            let store = self.store().lock().await;
+            let kept = store.session(session).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.settled_already())?;
+            self.ledger_row(&store, &kept)?
+        };
+        self.publish(ipc::Event::SessionChanged(record.clone()));
+        Ok(record)
+    }
+
+    /// The Job's page asks as Needs you items, while a client holds `/events` open. **With none, the
+    /// tabs that raised them are gone, so they are dropped for good** and a Bridge that opens next
+    /// starts with none.
+    pub(crate) fn browser_ask_items(&self, session: &str) -> Vec<ipc::WaitingItem> {
+        self.job_browser().asks_of(session, self.events().watching() > 0).into_iter().map(page_ask_item).collect()
+    }
+}
+
+/// A page's ask as the Job's Needs you lists it.
+fn page_ask_item(ask: PageAsk) -> ipc::WaitingItem {
+    let id = format!("{ASK_ITEM}{}", ask.id);
+    ipc::WaitingItem {
+        act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Answer, target: id.clone() }),
+        id,
+        text: ask.text,
+        since: ipc::Instant::carried(&ask.since),
+        source: ipc::WaitingSource::BrowserAsk,
+        options: ask.options,
+        steps: Vec::new(),
+        place: None,
+        confirmed: false,
+        holders: Vec::new(),
+        creating_since: None,
+        create_refused: None,
     }
 }
 
