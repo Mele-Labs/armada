@@ -338,21 +338,13 @@ A terminal Job's door and `armada job` try once, since each has somebody to tell
 Fleet keeps each open turn in the store (`session_open_turn`).
 The row is written on the first line of a turn, and deleted when the turn ends, when the person presses Stop, pauses or closes the Job, and when a reattached turn goes quiet.
 So a turn still open with no process is a death nobody asked for, whether Fleet heard the process go or came back to find no keeper.
-Fleet marks the turn ended, lists it in Needs you, and sends the Job a word that starts a process, which resumes the conversation.
+Fleet marks the turn ended and sends the Job a word that starts a process, which resumes the conversation.
 At boot it starts such Jobs one at a time, five seconds apart.
 A Job that is paused, ended, held on its start card or waiting on the plan's limit is not started, and its turn is closed.
 
 **The start is once for the turn.**
 The count stays on the row until a turn finishes, so a process that dies again before that starts nothing, and a Fleet restart does not reset it.
-The Job stays in Needs you.
-
-**The item is source `process_ended`, read off the row and never kept**, with id `process_ended:<ended at>`.
-While Fleet is starting the process its text is `Process ended. Starting again.` and it has nothing to choose.
-When nothing is coming, after a second death, a failed start or a Fleet restart, its text is `Process ended. Not started again.` with one option, `Start again`.
-That press sends the same word and leaves the count as it is, so nothing loops, and an autopilot never answers it.
-Words alone go to the agent as a message.
-The item goes when the new process says its first line, and dismissing it tells the agent nothing.
-Pocket lists only the form with a choice.
+The Job then reads as stopped.
 
 **`END` takes the keeper's socket and spool away at once**, from Fleet's side,
 so the next message starts a new keeper instead of reattaching to an agent that

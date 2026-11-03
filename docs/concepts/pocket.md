@@ -132,7 +132,7 @@ The phone sends Fleet's own body shapes.
 | `POST /api/sessions/message` | a message to the Job |
 
 **What a Job waits on is answered beside its thread**, each item only as Fleet takes it.
-`delivery`, `slot_choice`, `task_done` and `rule_act` take a choice alone, `watch_not_ours` and `process_ended` a choice or words, `words_address` an address or words holding `{match}`, and the agent's own items a choice or words.
+`delivery`, `slot_choice`, `task_done` and `rule_act` take a choice alone, `watch_not_ours` a choice or words, `words_address` an address or words holding `{match}`, and the agent's own items a choice or words.
 A `slot_choice`'s slots to free stay on the Mac. The other sources are answered from their own cards or on the Mac.
 
 **A 409 is read by its code.** Fleet's `fleet.sketch_redrawn` and `fleet.document_revised` say the page changed since he read it.

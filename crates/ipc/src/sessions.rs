@@ -727,16 +727,6 @@ pub enum WaitingSource {
     /// sentence and its link, then settles it. Words alone go to the agent as a message and settle
     /// it. Dismissing settles it. Listed only while the Job is live.
     WatchNotOurs,
-    /// Fleet: the Job's process ended with a turn open. Derived on every read from the store's open
-    /// turn while it is `ended_at`: id `process_ended:<ended_at>`, never kept. While Fleet is starting
-    /// it again, text `Process ended. Starting again.` and a `message` act whose `target` is the Job's
-    /// own id, with no options. When nothing is coming (a second death, a start that failed, a Fleet
-    /// restart with the Job still dead), text `Process ended. Not started again.`, an `answer` act with
-    /// an empty `target` and one option, `Start again` (choice 0), label only: it starts the process
-    /// and tells the agent it was started again. Words alone go to the agent as a message, which starts
-    /// it. Dismissing settles it and tells the agent nothing. Never answered by an autopilot. Listed
-    /// only while the Job is live.
-    ProcessEnded,
     /// Fleet: a Job this one's agent started (`started_to`) is still held on its start card. Derived
     /// from the child: id `start:<child id>`, text `Press Start on "<child title>"`, a `message` act
     /// whose `target` is the child's id. `begin_session` on the child settles it, and so does the

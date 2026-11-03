@@ -476,9 +476,6 @@ pub(crate) struct State {
     /// The process would not start, tried twice, with the turns that waited on it. Start again,
     /// or a message from him, sends them.
     pub(crate) start_failed: Option<StartFailed>,
-    /// Fleet is starting the process again after it ended in a turn, so the item Needs you lists says
-    /// so and offers nothing to press. In memory.
-    pub(crate) reviving: bool,
     /// The subagents the last restart cut off, told to the agent with its next turn.
     pub cut_off: Vec<String>,
     /// The keeper said busy on reattach and nothing has been heard since, so
@@ -587,7 +584,6 @@ impl State {
             unstarted: Vec::new(),
             retried: false,
             start_failed: None,
-            reviving: false,
             cut_off: Vec::new(),
             reattached_busy: false,
             turn_began: None,

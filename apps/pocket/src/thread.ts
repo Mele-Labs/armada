@@ -352,7 +352,6 @@ const CHOICE_ONLY: readonly WaitingSource[] = [
 const ASKS: readonly WaitingSource[] = [
   "agent",
   "watch_not_ours",
-  "process_ended",
   "words_address",
   ...CHOICE_ONLY,
 ];
@@ -364,11 +363,7 @@ const ASKS: readonly WaitingSource[] = [
 export const asksOf = (session: Session): readonly WaitingItem[] =>
   session.dead === undefined
     ? (session.waitingFor ?? []).filter(
-        // A process Fleet is starting again asks nothing: only the one nothing is starting has a choice.
-        (one) =>
-          ASKS.includes(one.source) &&
-          one.act?.kind !== "run" &&
-          (one.source !== "process_ended" || (one.options ?? []).length > 0),
+        (one) => ASKS.includes(one.source) && one.act?.kind !== "run",
       )
     : [];
 
