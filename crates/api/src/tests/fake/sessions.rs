@@ -197,6 +197,17 @@ impl Sessions for FakeDaemon {
         Ok(ipc::JobTerminals { terminals: vec![row("t1", "Terminal 1", false), row("t2", "dev server", true)] })
     }
 
+    /// The terminal named, else `t1`, as `read_terminal`'s fake reads it.
+    async fn show_terminal(
+        &self,
+        _caller: Option<crate::Caller>,
+        asked: ipc::ShowTerminal,
+    ) -> Result<ipc::ListedTerminal, Refusal> {
+        let terminal = asked.terminal.unwrap_or_else(|| String::from("t1"));
+        let name = format!("Terminal {}", terminal.trim_start_matches('t'));
+        Ok(ipc::ListedTerminal { run_id: format!("shell-{terminal}"), terminal, name, running: false })
+    }
+
     /// Echoes the terminal back under the name given, `Terminal N` where it is blank.
     async fn rename_terminal(&self, rename: ipc::RenameTerminal) -> Result<ipc::ListedTerminal, Refusal> {
         let name = match rename.name.trim() {

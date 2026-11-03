@@ -142,6 +142,16 @@ pub trait Sessions: Send + Sync + 'static {
         asked: ipc::ListTerminals,
     ) -> impl Future<Output = Result<ipc::JobTerminals, Refusal>> + Send;
 
+    /// `show_terminal` — publishes `terminal.shown` so Bridge brings the terminal's tab to the
+    /// front, and answers the terminal. An unnamed one is `read_terminal`'s default. `caller`
+    /// places the Job as `type_in_terminal`'s does. [`Refusal::Unacceptable`] for a call that
+    /// places no Job, a Job with no terminal open, or a `terminal` that is not open.
+    fn show_terminal(
+        &self,
+        caller: Option<crate::Caller>,
+        asked: ipc::ShowTerminal,
+    ) -> impl Future<Output = Result<ipc::ListedTerminal, Refusal>> + Send;
+
     /// `rename_terminal` — the person names a terminal; a blank name restores `Terminal N`.
     /// [`Refusal::Unacceptable`] for a terminal the Job has not open.
     fn rename_terminal(

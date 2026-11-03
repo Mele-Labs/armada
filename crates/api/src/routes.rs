@@ -299,6 +299,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/terminal/read", get(crate::terminals::read_terminal::<D>))
         .route("/sessions/terminal/list", get(crate::terminals::list_terminals::<D>))
         .route("/sessions/terminal/rename", post(crate::terminals::rename_terminal::<D>))
+        .route("/sessions/terminal/show", post(crate::terminals::show_terminal::<D>))
         .route("/sessions/browser/open", post(crate::browsing::browser_open::<D>))
         .route("/sessions/browser/click", post(crate::browsing::browser_click::<D>))
         .route("/sessions/browser/type", post(crate::browsing::browser_type::<D>))

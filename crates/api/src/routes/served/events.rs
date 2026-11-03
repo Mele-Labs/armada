@@ -141,6 +141,11 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    Route {
+        operation: "terminal.shown",
+        method: "GET",
+        path: "/events",
+    },
     // An agent's act on its Job browser, for Bridge to do and answer.
     Route {
         operation: "browser.request",

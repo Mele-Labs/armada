@@ -165,6 +165,9 @@ pub enum Event {
     TerminalOpened(JobTerminal),
     #[serde(rename = "terminal.exited")]
     TerminalExited(JobTerminal),
+    // An agent's `show_terminal`: Bridge brings this tab to the front without moving the person.
+    #[serde(rename = "terminal.shown")]
+    TerminalShown(JobTerminal),
     // An agent's act on its Job browser, held by Fleet until Bridge answers it by `request_id`.
     #[serde(rename = "browser.request")]
     BrowserRequest(BrowserRequest),
