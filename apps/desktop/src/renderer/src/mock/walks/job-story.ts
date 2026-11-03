@@ -6,7 +6,7 @@
 // same story in a findings doc and `job-story-report` in a report. `job-document` reads that report. `job-story-page` is the pull request
 // Job's own page, from Done and from where its thread names it. `job-story-design-plan` is a doc landing that opened a pull request.
 
-import { button, deckRow, dialog, inside, region, role, text, walk } from "../walk";
+import { button, deckRow, dialog, inside, region, role, tab, text, walk } from "../walk";
 
 // The Job's story is one zone for each step of its workflow (Feature: Plan, Build, Verify, Pull request; Spike: Plan, Measure, Write up; Investigate: Plan, Investigate, Report;
 // Design plan: Explore, Write the design, Present). A finished step is folded until pressed, and holds what was made while the Job was at it.
@@ -191,6 +191,12 @@ const report = walk("job-story", [
   {
     later: zone("Investigate"),
     say: "The report is written",
+  },
+  {
+    press: tab("Done", {
+      exact: true,
+    }),
+    say: "Done is a tab of the pane beside Open now, so it comes forward first",
   },
   {
     press: inside(zone("Investigate"), button(/Investigate/)),

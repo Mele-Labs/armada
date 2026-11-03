@@ -4,6 +4,8 @@
 
 import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
+import { lanesOfJob } from "@armada/screens/src/session-lanes";
+
 import type { Scenario } from "../moment";
 import { s335SpineTopBrief as base } from "./spine-top-brief";
 
@@ -31,6 +33,35 @@ const reopened = (one: SessionAttachment): SessionAttachment => {
   return one;
 };
 
+/** The lanes of a Job on a workflow that holds no ticket or pull request yet, by the function a real Job's are drawn with. */
+const laneless = (one: Session) =>
+  lanesOfJob({
+    held: {
+      session_id: one.id,
+      lifecycles: [],
+      instances: [],
+      moves: [],
+    },
+    working: true,
+    ...(one.work?.workflow === undefined
+      ? {}
+      : {
+          workflow: {
+            name: one.work.workflow.name,
+            steps: one.work.workflow.steps.map((label) => ({
+              id: label.toLowerCase().replaceAll(" ", "-"),
+              label,
+            })),
+            began: true,
+            ...(one.work.workflow.at === undefined
+              ? {}
+              : {
+                  at: one.work.workflow.at,
+                }),
+          },
+        }),
+  });
+
 export const s336OpenWorkStaysVisible: Scenario = {
   ...base,
   name: "open-work-stays-visible",
@@ -44,6 +75,7 @@ export const s336OpenWorkStaysVisible: Scenario = {
         (one): Session => ({
           ...one,
           attachments: one.attachments.map(reopened),
+          lanes: laneless(one),
           later: [
             ...(one.later ?? []),
             {

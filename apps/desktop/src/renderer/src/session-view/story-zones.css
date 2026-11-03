@@ -286,13 +286,27 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-/* A pane's one zone has no line: nothing to run down, so no markers on it and no room kept for it. */
+/* A pane's one zone has no line, so no marks on it. The selectors outrank the line's own below. A step's tasks sit in from its name, so the name reads as their heading. */
 .sv-spine[data-single] {
-  --lead: 0;
+  --lead: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-4);
 }
-.sv-spine[data-single] .sv-panel[data-area]::before,
-.sv-spine[data-single] .sv-panel__band::after {
+.sv-spine[data-single] .sv-panel.sv-panel[data-area][data-area]::before,
+.sv-spine[data-single] .sv-panel.sv-panel[data-area][data-area] > .sv-panel__band::after {
   display: none;
+}
+/* A finished or skipped step keeps its mark, in the row beside its name with no line under it. */
+.sv-spine[data-single] .sv-panel.sv-panel[data-area][data-area] .sv-panel__mark {
+  position: static;
+  flex: none;
+  translate: none;
+  background: none;
+}
+.sv-spine[data-single]
+  .sv-panel.sv-panel[data-area][data-area]
+  > .sv-panel__band:has(.sv-panel__label)
+  + .sv-panel__body {
+  padding-inline-start: calc(var(--lead) + var(--space-4));
 }
 .sv-spine .sv-story__head {
   padding-inline-start: var(--lead);

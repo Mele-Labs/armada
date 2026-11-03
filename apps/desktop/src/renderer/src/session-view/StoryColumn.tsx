@@ -97,10 +97,10 @@ const ZONE_AREAS: Record<StoryZone, readonly string[]> = {
   now: [
     "now",
     "step-now",
+    "step-next",
   ],
   next: [
     "next",
-    "step-next",
   ],
   deferred: [
     "deferred",
@@ -571,6 +571,27 @@ export function StoryColumn({
     </div>
   );
 
+  const aheadList =
+    workflowNext.length === 0 && ahead.length === 0 ? null : (
+      <ol className="sv-beats" aria-label="Ahead">
+        {workflowNext.map((name) => (
+          <StepBeat
+            key={name}
+            name={name}
+            state="next"
+            {...(WALK_STEP.test(name) && walks.length === 0
+              ? {
+                  under: <WalkToCome />,
+                }
+              : {})}
+          />
+        ))}
+        {ahead.map((step) => (
+          <RouteBeat key={step.key} step={step} />
+        ))}
+      </ol>
+    );
+
   const now_ = (
     <SvPanel
       label="Now"
@@ -583,10 +604,16 @@ export function StoryColumn({
       bare={alone}
     >
       {nowBody}
+      {!alone || aheadList === null ? null : (
+        <div className="sv-nav" onKeyDown={arrowsIn}>
+          {aheadList}
+        </div>
+      )}
     </SvPanel>
   );
 
-  const hasNext = upcoming.length > 0 || workflowNext.length > 0 || ahead.length > 0;
+  // In a pane of its own, Open is only what is open: the steps and route still to come stand under Now.
+  const hasNext = upcoming.length > 0 || (!alone && aheadList !== null);
   const next = (
     <SvPanel
       label="Open"
@@ -610,25 +637,7 @@ export function StoryColumn({
               onOpenSession={onOpenSession}
             />
           )}
-          {workflowNext.length === 0 && ahead.length === 0 ? null : (
-            <ol className="sv-beats" aria-label="Ahead">
-              {workflowNext.map((name) => (
-                <StepBeat
-                  key={name}
-                  name={name}
-                  state="next"
-                  {...(WALK_STEP.test(name) && walks.length === 0
-                    ? {
-                        under: <WalkToCome />,
-                      }
-                    : {})}
-                />
-              ))}
-              {ahead.map((step) => (
-                <RouteBeat key={step.key} step={step} />
-              ))}
-            </ol>
-          )}
+          {alone ? null : aheadList}
         </div>
       )}
     </SvPanel>
@@ -707,6 +716,7 @@ export function StoryColumn({
       {kept.length === 0 ? undefined : (
         <div className="sv-nav" onKeyDown={arrowsIn}>
           <LaterBlock
+            flat={alone}
             later={kept}
             issues={[]}
             manifestId={manifestId}
@@ -876,6 +886,7 @@ export function StoryColumn({
                 current: false,
               }}
               keycap={bandKeyFor("done")}
+              still={alone && list.length === 0}
             >
               {list.length === 0 ? undefined : underDone(list)}
             </SvPanel>
@@ -920,7 +931,7 @@ export function StoryColumn({
                   </div>
                 )}
                 {/* Open work stands here only while the pinned Open group is hidden, so it is drawn once. */}
-                {openShown || openMade.length === 0 ? null : (
+                {openShown || alone || openMade.length === 0 ? null : (
                   <div className="sv-nav" onKeyDown={arrowsIn}>
                     <ol className="sv-beats" aria-label="Open">
                       <li className="sv-beat sv-beat--made">
@@ -954,6 +965,7 @@ export function StoryColumn({
             menu={skipping?.menu}
             fold={nextFold}
             keycap={bandKeyFor("next")}
+            still={alone}
           >
             {!last && !(WALK_STEP.test(name) && walks.length === 0) ? undefined : (
               <>
@@ -964,27 +976,30 @@ export function StoryColumn({
           </SvPanel>
         );
       });
-  // Open work in one place after the last step, so a folded step never hides it (`OpenGroup.tsx`). Hidden, the current step lists it instead.
+  // Open work in one place after the last step, so a folded step never hides it (`OpenGroup.tsx`). Hidden, the current step lists it instead. A pane of its own is always shown.
+  const openPanel = (
+    <SvPanel
+      label="Open"
+      area="step-next"
+      place="side"
+      fold={{
+        open: openOpen,
+        toggle: () => setOpenOpen((was) => !was),
+        current: false,
+      }}
+      keycap={bandKeyFor("next")}
+      bare={alone}
+    >
+      <div className="sv-nav" onKeyDown={arrowsIn}>
+        <MadeList session={session} list={openMade} newest="last" />
+      </div>
+    </SvPanel>
+  );
   const pinned =
-    !stepped || !openShown || openMade.length === 0 ? null : (
-      <OpenGroupMenu>
-        <SvPanel
-          label="Open"
-          area="step-next"
-          place="side"
-          fold={{
-            open: openOpen,
-            toggle: () => setOpenOpen((was) => !was),
-            current: false,
-          }}
-          keycap={bandKeyFor("next")}
-          bare={alone}
-        >
-          <div className="sv-nav" onKeyDown={arrowsIn}>
-            <MadeList session={session} list={openMade} newest="last" />
-          </div>
-        </SvPanel>
-      </OpenGroupMenu>
+    !stepped || openMade.length === 0 ? null : alone ? (
+      openPanel
+    ) : !openShown ? null : (
+      <OpenGroupMenu>{openPanel}</OpenGroupMenu>
     );
   if (only !== undefined) {
     const areas = ZONE_AREAS[only];

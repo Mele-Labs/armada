@@ -5,7 +5,7 @@
 // Over `job-story`, at the report. The page and its second revision are `mock/document-pages.ts`.
 
 import { LEASE_DOC_TITLE } from "../document-pages";
-import { button, deckRow, inside, region, role, row, text, walk } from "../walk";
+import { button, deckRow, inside, region, role, row, tab, text, walk } from "../walk";
 
 // The Job follows Investigate: Plan, Investigate, Report. Finished steps are folded until pressed; the report stands under Investigate.
 const now = region("Plan", {
@@ -48,6 +48,12 @@ const reading = walk("job-story", [
   {
     later: landing,
     say: "The page is written",
+  },
+  {
+    press: tab("Done", {
+      exact: true,
+    }),
+    say: "Done is a tab of the pane beside Open now, so it comes forward first",
   },
   {
     press: inside(landing, button(/Investigate/)),

@@ -105,7 +105,7 @@ After the title it holds, in order:
 | Checks | The shield, pulsing in `--accent` while any of the Job's Checks runs |
 | Subagents | The `drone` glyph, pulsing while any runs. Its tooltip says `Subagents running`; no number is drawn |
 | Bays | Opens the Job's bays and write clashes |
-| Workflow | The `waypoints` glyph, on a Job whose Workspace gives it lifecycles. Opens the Job's workflow drawn as lanes |
+| Workflow | The `waypoints` glyph, on a Job on a workflow. Opens the Job's workflow drawn as lanes |
 | The context figure | How full the context window is. Its popover holds Compact, which runs the Job's `/compact`: a hosted Job is sent it as a message, as picking it from `/` does, and a terminal Job is typed it through `draft.command`. Compact is off, with its reason, unless the agent or the terminal listed `compact` |
 | `⋯` and close | The Job's other acts, then closing the Job |
 
@@ -221,7 +221,7 @@ Subagents pulses while any runs, and its tooltip says `Subagents running`, so no
 **A Job in panes draws each view as a tab, and opens no layer.**
 Its key, its icon and a call in the thread bring that kind's tab forward, or open one where the Job has none: in the pane that holds that kind, else in a new pane on the right.
 Artifacts is the Ledger tab, Bays, Workflow and the Judge of the whole Job are tabs of their own, and a second press brings the tab forward and does not close it, since a tab closes by its ×, and Esc closes none.
-`⌥1`, `⌥2` and `⌥3` bring the Done, Now and Open tabs forward in the same way, and `⌥W` the Workflow tab.
+`⌥1`, `⌥2`, `⌥3` and `⌥4` bring the Done, Now, Open and Deferred tabs forward in the same way, and `⌥W` the Workflow tab.
 The Field and the Job's document still float over the whole Job.
 
 | View | Opens | Through |
@@ -230,7 +230,7 @@ The Field and the Job's document still float over the whole Job.
 | Subagents | Opens every subagent the Job started | A layer. Off, with its reason, where it started none |
 | Checks | Opens the Checks the Job ran | A layer. Off where it ran none |
 | Bays | Opens the Job's write clashes, then every bay the Job holds, drawn as the Bays panel draws it with how far it is behind its base | A layer. **Lit in the stranded hue only when a bay is stranded or 20 or more commits behind its base**, and off where the Job holds no bay. A write clash puts a lamp in the key's corner, clear of the glyph, and leaves the key unlit, named for the other Jobs; the Job's header carries no clash notice. A clash's file, pressed in the panel, opens as the two sides' patches in a sheet beside the stage, read by Fleet from git at the press. |
-| Workflow | Opens the Job's workflow as lanes: the steps on top, and a lane for each ticket, pull request and deploy they move, with the rules between them. `⌥⇧L` | The side panel on a window narrower than 1800px, and the spine on a wider one, where it is a view like Artifacts and Checks. Drawn only where the Job's Workspace gives it lifecycles |
+| Workflow | Opens the Job's workflow as lanes: the steps on top, and a lane for each ticket, pull request and deploy they move, with the rules between them. `⌥⇧L` | The side panel on a window narrower than 1800px, and the spine on a wider one, where it is a view like Artifacts and Checks. Drawn for a Job on a workflow, with its steps on top before it holds a ticket, pull request or deploy |
 
 ## Shaping the flight controls
 

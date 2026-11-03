@@ -9,6 +9,12 @@
   background: color-mix(in srgb, var(--hue) 6%, var(--bg-raised));
   box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--hue);
 }
+.sv-later[data-flat] {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
 .sv-later__row {
   display: flex;
   align-items: center;
@@ -51,6 +57,10 @@
   list-style: none;
   border-top: var(--border-width) solid color-mix(in srgb, var(--hue) 30%, var(--border-subtle));
 }
+.sv-later[data-flat] .sv-later__list {
+  padding: 0;
+  border-top: 0;
+}
 .sv-later__item {
   display: flex;
   align-items: center;
@@ -64,6 +74,14 @@
 .sv-later__item > .sv-row {
   flex: 1;
   min-width: 0;
+}
+/* Each one a card, framed as a pull request's row is, in Deferred's hue. */
+.sv-later[data-flat] .sv-later__item {
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 7%, var(--bg-raised));
+  box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--hue);
 }
 .sv-later__text {
   flex: 1;

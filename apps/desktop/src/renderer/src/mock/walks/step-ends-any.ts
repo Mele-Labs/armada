@@ -1,8 +1,7 @@
-// A step that ends on any of several things: the feature workflow's Propose lists its four under Ends when, and a sketch
-// put to him in a Job's thread is approved or sent back on its card, after which the Job moves on to Discuss. Over the
-// `step-ends-any` scenario.
+// One proposal per Job: feature's Propose lists what ends it, a plan carries its own sketch, an approved sketch moves the Job on with
+// no plan to approve, an approved rough walk was the walk, and a Job that showed three walks waits for all three. Over the `step-ends-any` scenario.
 
-import { button, deckRow, inside, region, role, text, toSystemPage, walk } from "../walk";
+import { button, deckRow, inside, region, role, toSystemPage, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const ARMADA = role("group", "Shipped with Armada", {
@@ -12,7 +11,8 @@ const propose = role("group", "Propose", {
   exact: true,
 });
 const ends = inside(propose, role("list", "Ends when"));
-const card = role("article", "Sketch: Pause on the row", {
+const planCard = role("article", "Plan to approve");
+const sketchCard = role("article", "Sketch to approve: Pause on the row", {
   exact: true,
 });
 
@@ -25,40 +25,28 @@ const stepEndsAny = walk("step-ends-any", [
         exact: true,
       }),
     ),
-    say: "The feature workflow",
+    say: "feature is Propose, Walk, Refine, Deliver",
   },
   {
     look: ends,
-    say: "Propose ends when any one of four happens",
-  },
-  {
-    look: inside(ends, text("you approve a walk")),
-    say: "You approve a walk",
-  },
-  {
-    look: inside(ends, text("you approve a sketch")),
-    say: "You approve a sketch",
-  },
-  {
-    look: inside(ends, text("you approve a draft")),
-    say: "You approve a draft",
-  },
-  {
-    look: inside(ends, text("you pick one of the ideas shown")),
-    say: "You pick one of the ideas shown",
+    say: "Propose ends on one approval: a plan, a walk, a sketch, a draft, a document or a picked idea",
   },
   toSessions,
   {
-    press: deckRow("Pause a Job from its row"),
-    say: "A Job on Propose with a sketch in its thread",
+    press: deckRow("Stop a Job from its row"),
+    say: "A Job that needs a plan and a picture",
   },
   {
-    look: inside(card, role("group", "Answers")),
-    say: "Approve and Send back under the sketch",
+    look: planCard,
+    say: "One card: the sketch is inside the plan",
+  },
+  {
+    press: deckRow("Pause a Job from its row"),
+    say: "A Job that only needed a sketch",
   },
   {
     press: inside(
-      card,
+      sketchCard,
       button("Approve", {
         exact: true,
       }),
@@ -66,23 +54,36 @@ const stepEndsAny = walk("step-ends-any", [
     say: "Approve",
   },
   {
-    look: inside(card, role("img", "Approved")),
-    say: "The sketch is approved",
+    look: role("article", "Plan", {
+      exact: false,
+    }),
+    say: "The tasks were written and stand. No plan card came",
   },
   {
-    look: inside(
-      region("Propose", {
-        exact: true,
-      }),
-      role("img", "Done"),
-    ),
-    say: "Propose is done",
-  },
-  {
-    look: region("Discuss", {
+    look: region("Walk", {
       exact: true,
     }),
-    say: "The Job is on Discuss",
+    say: "The Job is on Walk: a mock on fixtures, no wiring and no tests",
+  },
+  {
+    press: deckRow("Resume a Job from its row"),
+    say: "A Job whose proposal was a rough walk",
+  },
+  {
+    look: region("Refine", {
+      exact: true,
+    }),
+    say: "That rough walk was the walk. The Job is on Refine",
+  },
+  {
+    press: deckRow("Mute a Job"),
+    say: "A Job that showed three walks. You have approved one",
+  },
+  {
+    look: region("Walk", {
+      exact: true,
+    }),
+    say: "It stays on Walk until you have approved all three",
   },
 ]);
 

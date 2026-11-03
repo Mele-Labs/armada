@@ -65,7 +65,7 @@ export type Beside = {
   events?: readonly TimelineEvent[];
   /** The Job's watches, which `watches.changed` carries and the record does not. Absent is none read. */
   watches?: readonly WatchSummary[];
-  /** What the Job holds: its tickets, pull requests, deploys and the Jobs it started, from `get_job_lifecycles` and `job_lifecycles.changed`. Absent is none read, which draws no lanes. */
+  /** What the Job holds: its tickets, pull requests, deploys and the Jobs it started, from `get_job_lifecycles` and `job_lifecycles.changed`. Absent is none read, which draws only the steps of a workflow the Job is on. */
   lifecycles?: JobLifecycles;
   /** What the Jobs this one started hold, by the key of the instance it holds for each: where a ticket handed to one is read. Only those whose lifecycles are read are here. */
   started?: ReadonlyMap<string, StartedRead>;
@@ -1437,10 +1437,16 @@ export function sessionOfRecord(
   });
   const flow = work?.workflow;
   const lanes =
-    ended || beside.lifecycles === undefined
+    ended || (beside.lifecycles === undefined && flow === undefined)
       ? undefined
       : lanesOfJob({
-          held: beside.lifecycles,
+          // Bridge keeps no read of a Job holding nothing: a Job on a workflow still has its steps to draw.
+          held: beside.lifecycles ?? {
+            session_id: record.id,
+            lifecycles: [],
+            instances: [],
+            moves: [],
+          },
           ...(beside.started === undefined
             ? {}
             : {

@@ -20,6 +20,7 @@ export function LaterBlock({
   onRemind,
   onConfirm,
   onDrop,
+  flat,
 }: {
   later: NonNullable<Session["later"]>;
   issues: readonly Issue[];
@@ -27,8 +28,11 @@ export function LaterBlock({
   onRemind: (sentence: string) => void;
   onConfirm: (one: One) => void;
   onDrop: (one: One) => void;
+  /** In a pane of their own: the list alone, with no frame and nothing to fold. */
+  flat?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [opened, setOpen] = useState(false);
+  const open = flat === true || opened;
   const [menu, setMenu] = useState<
     | {
         id: string;
@@ -40,16 +44,23 @@ export function LaterBlock({
   >(undefined);
   const menuOf = menu === undefined ? undefined : later.find((one) => one.id === menu.id);
   return (
-    <section className="sv-later" data-open={open || undefined} aria-label="Deferred">
-      <button
-        type="button"
-        className="sv-later__row"
-        aria-expanded={open}
-        onClick={() => setOpen((was) => !was)}
-      >
-        <span className="sv-later__label">Deferred</span>
-        <ChevronDown className="sv-later__chevron" size={12} strokeWidth={2} aria-hidden />
-      </button>
+    <section
+      className="sv-later"
+      data-open={open || undefined}
+      data-flat={flat || undefined}
+      aria-label="Deferred"
+    >
+      {flat === true ? null : (
+        <button
+          type="button"
+          className="sv-later__row"
+          aria-expanded={open}
+          onClick={() => setOpen((was) => !was)}
+        >
+          <span className="sv-later__label">Deferred</span>
+          <ChevronDown className="sv-later__chevron" size={12} strokeWidth={2} aria-hidden />
+        </button>
+      )}
       {open ? (
         <ul className="sv-later__list">
           {later.map((one) => (

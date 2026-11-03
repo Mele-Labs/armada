@@ -20,6 +20,8 @@ use crate::daemon::Fleet;
 use crate::plan_issues::name_the_tickets;
 use crate::plan_marks;
 use crate::plan_record::recorded;
+use crate::rail;
+use crate::rail_keeping::rail_read;
 use crate::session_host::asking::answers_a_question;
 use crate::session_issues::ISSUE;
 use crate::session_host::document_answers::is_document;
@@ -154,11 +156,32 @@ fn answered(rows: &[SessionRow], url: &str, recorded: &str) -> bool {
     })
 }
 
+/// When a plan that stands on an approved card counts as approved. **Where the step lists a walk, from
+/// when the first walk he approved went out**, so that walk and any shown with it are the ones `walks`
+/// reads and he is not asked for another. Else `now`.
+fn stands_since(rows: &[SessionRow], lists_walk: bool, now: &str) -> String {
+    let first = rows.iter().filter_map(|row| match row {
+        SessionRow::Window { url, at, .. } if lists_walk && walking::walk_approval(rows, url).is_some() => Some(at.as_str()),
+        _ => None,
+    });
+    first.min().unwrap_or(now).to_string()
+}
+
 /// The call a pending plan makes, if it makes one yet. **It is put to him when it can be answered**,
 /// once nothing in [`plan_holds`] holds it back. It begins then, so it calls even after he viewed the
 /// Job.
 pub(crate) fn plan_called(session: &str, version: u32, holds: &Holds) -> Option<WaitingItem> {
     holds.held_by.is_empty().then(|| plan_item(session, version, holds.since.as_str()))
+}
+
+/// The Job's thread, as `rail_read` reads it.
+fn decoded_rows(store: &store::Store, id: &str) -> Vec<SessionRow> {
+    store
+        .session_rows(id)
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|body| ipc::decode::<SessionRow>("a job row", body.as_bytes()).ok())
+        .collect()
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -224,6 +247,9 @@ where
         let kept = recorded(before.as_ref(), &checked.groups, sketch, checked.walk, seen, checked.summary, &now);
         let version = kept.version;
         self.store().lock().await.keep_session_plan(&id, &kept).map_err(|why| self.ledger_fault(why))?;
+        if let Some(since) = self.plan_stands_since(&id).await {
+            self.store().lock().await.approve_session_plan(&id, version, &since).map_err(|why| self.ledger_fault(why))?;
+        }
         // The issues the groups work, held as the person's tags are: a second recording is a no-op.
         if let Some(manifest) = session.manifest_id.as_deref() {
             let named = checked
@@ -238,6 +264,55 @@ where
             self.row_put(&id, SessionRow::Plan { id: self.row_id(&id), at: self.instant(), version }).await;
         }
         self.published_hosted(&id).await
+    }
+
+    /// The rail's steps for `id`, where it follows a workflow that is on.
+    async fn plan_steps(&self, id: &str) -> Option<Vec<rail::RailStep>> {
+        let (_, hosting) = self.session_and_hosting(id).await.ok()?;
+        let workflow = hosting.workflow.as_deref().filter(|workflow| self.workflow_on(&hosting.manifest_id, workflow))?;
+        self.job_rail_steps(id, &hosting.manifest_id, workflow).await
+    }
+
+    /// When a plan recorded now counts as approved, where it stands with no card. `None` where he is asked.
+    async fn plan_stands_since(&self, id: &str) -> Option<String> {
+        let steps = self.plan_steps(id).await?;
+        let store = self.store().lock().await;
+        let session = store.session(id).ok().flatten()?;
+        let extra = rail_read(&store, &session, true).ok()?.extra;
+        rail::plan_stands(&steps, extra)
+            .then(|| stands_since(&decoded_rows(&store, id), rail::walk_settles_plan(&steps), self.now().as_str()))
+    }
+
+    /// His Approve of the window at `address`, about to be sent: a plan held behind that window alone
+    /// stands with it, where the step lists a walk, rather than coming up as a second card. **Before the
+    /// send**, so what he is owed never shows the plan for a moment.
+    pub(crate) async fn plan_settled_by_walk(self: &Arc<Self>, id: &str, address: &str) -> Result<(), Refusal> {
+        if !self.plan_steps(id).await.is_some_and(|steps| rail::walk_settles_plan(&steps)) {
+            return Ok(());
+        }
+        let (plan, since) = {
+            let store = self.store().lock().await;
+            let session = store.session(id).map_err(|why| self.ledger_fault(why))?;
+            let plan = store.session_plan(id).map_err(|why| self.ledger_fault(why))?;
+            let (Some(session), Some(plan)) = (session, plan.filter(|plan| plan.approved_at.is_none() && plan.set_aside_at.is_none())) else {
+                return Ok(());
+            };
+            let rows = decoded_rows(&store, id);
+            let dismissed = store.dismissed_waiting(id).map_err(|why| self.ledger_fault(why))?;
+            let attachments = self.ledger_row(&store, &session)?.attachments;
+            let holds = plan_holds(&plan.recorded_at, plan.walk.as_deref(), &attachments, &rows, &dismissed);
+            let window = walking::window_of(&rows, address).unwrap_or(address);
+            if holds.held_by.is_empty() || holds.held_by.iter().any(|one| one.url != window) {
+                return Ok(());
+            }
+            let shown = walking::walk_shown_at(&rows, window).map_or("", Instant::as_str);
+            let since = stands_since(&rows, true, shown);
+            let since = if since.as_str() < shown { since } else { shown.to_string() };
+            (plan, since)
+        };
+        self.told_by_fleet(id, &plan_marks::approved_message(&plan), ipc::Notice::PlanApproved).await?;
+        self.store().lock().await.approve_session_plan(id, plan.version, &since).map_err(|why| self.ledger_fault(why))?;
+        Ok(())
     }
 
     /// Put the plan version the call `item` names away. A call for a version that is not the one held

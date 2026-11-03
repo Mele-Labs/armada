@@ -17,6 +17,10 @@ What he met: `feature` ran Plan, Implement, Land. The walk was named only in Lan
 
 **Decided for him, as plumbing.** Fleet learns two facts it can observe, a walk shown and a walk approved, so the rail can place the Walk step and the nudge can see a test edited before approval. A feature nobody would see passes over Walk, said in its plan.
 
+**Folded again on 2 Nov.** His words: *"When an agent is proposing something to me I often find that I am approving a sketch, and then a plan and sometimes then a draft. I want agents to be able to pick one of them."* And on the walks: *"the early walk and then a later walk was really confusing."* Sketched in the Job as *One proposal per Job*. He chose Propose, Walk, Refine, Deliver: Discuss and Approve plan folded into Propose, which ends on the plan or on anything it lists, and a plan recorded after one of those stands with no card. The walk stays a mock with no wiring and no tests, so a teardown is still cheap, and a rough walk he approved is that walk. `code_review`, `revert` and `design_plan` keep their plans as progress without asking (`plan_unasked`).
+
+The first take had a second proposal replace the first, so two cards never waited on him. He dropped it the same day for one Review sheet that gathers everything a Job needs approved: *"there's going to be situations where there are multiple things that can be proposed."* The sheet is a Job of its own. He also asked that a step ending on his walk approval wait on every walk shown, not the first: *"if a agent shows me three walks, it can say that I need to approve three of them."* No count is declared; Fleet counts what was shown.
+
 ## How he manages workflows in Bridge
 
 His words: *"I have no good way right now to manage/iterate/update/add/modify workflows per repo or that are bundled in armada."*
