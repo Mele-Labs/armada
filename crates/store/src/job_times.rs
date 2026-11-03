@@ -30,13 +30,16 @@ pub struct KeptJobTime {
     pub model_starts_guessed: bool,
     pub timeline_cut: bool,
     pub kept_at: String,
+    /// The reading of the fold that made the row (`job_time::FOLD`).
+    pub fold: i64,
 }
 
 /// A turn as the split reads it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeptTurnTimed {
     pub at: String,
-    pub called_tools: bool,
+    /// The names of the tools it called, in order.
+    pub tools: Vec<String>,
     pub model_began: Option<String>,
     pub tools_began: Option<String>,
     pub tools_ended: Option<String>,
@@ -56,14 +59,14 @@ fn failed(doing: &'static str) -> impl Fn(rusqlite::Error) -> WriteError {
 
 const COLUMNS: &str = "session_id, repository, workflow, began_at, ended_at, model_ms, tools_ms, checks_ms, \
      subagents_ms, slot_ms, you_ms, pull_request_ms, stopped_ms, idle_ms, tool_times_missing, \
-     model_starts_guessed, timeline_cut, kept_at";
+     model_starts_guessed, timeline_cut, kept_at, fold";
 
 impl Store {
     /// Keep a Job's split, replacing the one it had.
     pub fn keep_job_time(&mut self, time: &KeptJobTime) -> Result<(), WriteError> {
         self.conn
             .execute(
-                &format!("INSERT OR REPLACE INTO job_times ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)"),
+                &format!("INSERT OR REPLACE INTO job_times ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)"),
                 params![
                     time.session_id,
                     time.repository,
@@ -83,6 +86,7 @@ impl Store {
                     time.model_starts_guessed,
                     time.timeline_cut,
                     time.kept_at,
+                    time.fold,
                 ],
             )
             .map(|_| ())
@@ -112,35 +116,36 @@ impl Store {
                     model_starts_guessed: row.get(15)?,
                     timeline_cut: row.get(16)?,
                     kept_at: row.get(17)?,
+                    fold: row.get(18)?,
                 })
             })
             .optional()
             .map_err(failed("reading where a job's time went"))
     }
 
-    /// The most recently ended Job with no split, or whose split was made for an earlier end:
-    /// one that was reopened and ended again.
-    pub fn job_awaiting_time(&self) -> Result<Option<String>, WriteError> {
+    /// The most recently ended Job with no split, or whose split was made for an earlier end (one
+    /// that was reopened and ended again) or by a reading of the fold before `fold`.
+    pub fn job_awaiting_time(&self, fold: i64) -> Result<Option<String>, WriteError> {
         self.conn
             .query_row(
                 "SELECT s.id FROM sessions s LEFT JOIN job_times j ON j.session_id = s.id
-                 WHERE s.state = 'ended' AND (j.session_id IS NULL OR j.ended_at <> COALESCE(s.ended_at, s.last_seen_at))
+                 WHERE s.state = 'ended'
+                   AND (j.session_id IS NULL OR j.ended_at <> COALESCE(s.ended_at, s.last_seen_at) OR j.fold < ?1)
                  ORDER BY COALESCE(s.ended_at, s.last_seen_at) DESC LIMIT 1",
-                [],
+                [fold],
                 |row| row.get(0),
             )
             .optional()
             .map_err(failed("finding a job whose time is not split"))
     }
 
-    /// A session's turns for the split, oldest first, the main thread's only. `called_tools` is
-    /// whether the turn named any.
+    /// A session's turns for the split, oldest first, the main thread's only.
     pub fn turns_timed(&self, session_id: &str) -> Result<Vec<KeptTurnTimed>, WriteError> {
         let doing = "reading when a job's turns ran";
         let mut statement = self
             .conn
             .prepare(
-                "SELECT at, tools <> '[]', model_began, tools_began, tools_ended FROM session_turn_usage
+                "SELECT at, tools, model_began, tools_began, tools_ended FROM session_turn_usage
                  WHERE session_id = ?1 AND subagent = 0 ORDER BY at, message_id",
             )
             .map_err(failed(doing))?;
@@ -148,7 +153,7 @@ impl Store {
             .query_map([session_id], |row| {
                 Ok(KeptTurnTimed {
                     at: row.get(0)?,
-                    called_tools: row.get(1)?,
+                    tools: serde_json::from_str(&row.get::<_, String>(1)?).unwrap_or_default(),
                     model_began: row.get(2)?,
                     tools_began: row.get(3)?,
                     tools_ended: row.get(4)?,

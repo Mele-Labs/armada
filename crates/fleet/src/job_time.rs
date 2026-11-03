@@ -34,6 +34,10 @@ pub enum Bucket {
     Idle,
 }
 
+/// Which reading of the fold a row was made by. Raised when the fold changes what it gives for a Job
+/// it already split, so the next pass splits those again.
+pub const FOLD: i64 = 1;
+
 /// A stretch, in milliseconds since the epoch.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Span {
@@ -52,6 +56,9 @@ pub struct Turn {
     pub tools_began: Option<i64>,
     pub tools_ended: Option<i64>,
     pub called_tools: bool,
+    /// One of its calls was a question to the owner, which returns when he answers: the span from the
+    /// first call to the last result is his time.
+    pub asked_owner: bool,
 }
 
 /// Everything the fold reads of one Job.
@@ -200,7 +207,9 @@ pub fn fold(times: &Times) -> Folded {
     let (mut before, mut anchor) = (began, began);
     for (at, turn) in turns.iter().enumerate() {
         if let (Some(from), Some(to)) = (turn.tools_began, turn.tools_ended) {
-            claim(Span { from, to }, Rank::Of(Bucket::Tools), true);
+            // A question to the owner returns when he answers, so its span is his wait, not a tool's.
+            let bucket = if turn.asked_owner { Bucket::You } else { Bucket::Tools };
+            claim(Span { from, to }, Rank::Of(bucket), true);
         }
         folded.tool_times_missing |= turn.called_tools && turn.tools_ended.is_none() && at != last;
         match turn.model_began {

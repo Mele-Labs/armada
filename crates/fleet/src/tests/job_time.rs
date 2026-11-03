@@ -2,6 +2,8 @@
 //! bucket in the order that claims it, and the buckets sum to the whole.
 
 use crate::job_time::{fold, spans_between, stints, Span, Times, Turn};
+use crate::job_timing::turn_of;
+use store::KeptTurnTimed;
 
 fn span(from: i64, to: i64) -> Span {
     Span { from, to }
@@ -96,4 +98,39 @@ fn an_open_closes_at_the_next_close_after_it_or_at_the_end() {
 fn a_stint_runs_from_standing_to_the_first_version_that_does_not() {
     let versions = [(10, true), (15, true), (20, false), (30, true)];
     assert_eq!(stints(&versions, 100), [span(10, 20), span(30, 100)]);
+}
+
+#[test]
+fn a_question_to_the_owner_is_his_time_and_not_a_tool_s() {
+    let mut times = job(1000);
+    times.turns = vec![Turn { tools_began: Some(100), tools_ended: Some(900), called_tools: true, asked_owner: true, ..turn(0, 100) }];
+    let split = fold(&times).split;
+    assert_eq!((split.tools, split.you, split.model), (0, 800, 100));
+}
+
+#[test]
+fn work_still_wins_over_the_wait_on_a_question_so_a_check_running_through_it_is_a_check() {
+    let mut times = job(1000);
+    times.turns = vec![Turn { tools_began: Some(100), tools_ended: Some(900), called_tools: true, asked_owner: true, ..turn(0, 100) }];
+    times.checks = vec![span(300, 400)];
+    let split = fold(&times).split;
+    assert_eq!((split.checks, split.you), (100, 700));
+}
+
+fn kept(tools: &[&str]) -> KeptTurnTimed {
+    KeptTurnTimed {
+        at: "2026-11-02T09:00:10.000Z".into(),
+        tools: tools.iter().map(|name| name.to_string()).collect(),
+        model_began: Some("2026-11-02T09:00:00.000Z".into()),
+        tools_began: Some("2026-11-02T09:00:10.000Z".into()),
+        tools_ended: Some("2026-11-02T09:30:10.000Z".into()),
+    }
+}
+
+#[test]
+fn a_turn_that_called_the_question_tool_is_read_as_waiting_on_the_owner_and_no_other_is() {
+    assert!(turn_of(&kept(&["Read", "AskUserQuestion"])).unwrap().asked_owner);
+    let shell = turn_of(&kept(&["Bash"])).unwrap();
+    assert!(!shell.asked_owner && shell.called_tools);
+    assert!(!turn_of(&kept(&[])).unwrap().called_tools);
 }

@@ -19,7 +19,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::turn_lines;
 use core_model::Timestamp;
 use ipc::SessionRow;
-use store::{AttachmentState, Holder, KeptJobTime};
+use store::{AttachmentState, Holder, KeptJobTime, KeptTurnTimed};
 
 use crate::daemon::Fleet;
 use crate::job_time::{self, Span, Times, Turn};
@@ -36,6 +36,21 @@ pub(crate) const OUTAGE_SECONDS: i64 = 90;
 
 fn millis(stamp: &str) -> Option<i64> {
     Timestamp::from_rfc3339(stamp).epoch_millis()
+}
+
+/// The calls that return when the owner answers: their span is his time, not a tool's.
+const OWNER_WAITS: &[&str] = &["AskUserQuestion"];
+
+/// A kept turn as the fold reads it. `None` where its stamp does not read.
+pub(crate) fn turn_of(kept: &KeptTurnTimed) -> Option<Turn> {
+    Some(Turn {
+        at: millis(&kept.at)?,
+        model_began: kept.model_began.as_deref().and_then(millis),
+        tools_began: kept.tools_began.as_deref().and_then(millis),
+        tools_ended: kept.tools_ended.as_deref().and_then(millis),
+        called_tools: !kept.tools.is_empty(),
+        asked_owner: kept.tools.iter().any(|name| OWNER_WAITS.contains(&name.as_str())),
+    })
 }
 
 fn spans(pairs: impl IntoIterator<Item = (Option<i64>, Option<i64>)>) -> Vec<Span> {
@@ -57,7 +72,7 @@ where
     pub(crate) async fn jobs_timed(&self) -> usize {
         let mut done = 0;
         loop {
-            let Ok(Some(id)) = self.store().lock().await.job_awaiting_time() else {
+            let Ok(Some(id)) = self.store().lock().await.job_awaiting_time(job_time::FOLD) else {
                 return done;
             };
             if !self.job_time_kept(&id).await {
@@ -170,18 +185,7 @@ where
         let folded = job_time::fold(&Times {
             began,
             ended,
-            turns: turns
-                .iter()
-                .filter_map(|turn| {
-                    Some(Turn {
-                        at: millis(&turn.at)?,
-                        model_began: turn.model_began.as_deref().and_then(millis),
-                        tools_began: turn.tools_began.as_deref().and_then(millis),
-                        tools_ended: turn.tools_ended.as_deref().and_then(millis),
-                        called_tools: turn.called_tools,
-                    })
-                })
-                .collect(),
+            turns: turns.iter().filter_map(turn_of).collect(),
             // A run that never ended has no end to count.
             checks: spans(checks.iter().map(|run| {
                 let from = millis(&run.started_at);
@@ -231,6 +235,7 @@ where
             model_starts_guessed: folded.model_starts_guessed,
             timeline_cut,
             kept_at,
+            fold: job_time::FOLD,
         }
     }
 }

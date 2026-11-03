@@ -8,6 +8,7 @@ mod devices;
 mod helm_sessions;
 mod helm_tuning;
 mod job_shells;
+mod job_times;
 mod delivery_picks;
 mod home_kinds;
 mod home_repositories;
