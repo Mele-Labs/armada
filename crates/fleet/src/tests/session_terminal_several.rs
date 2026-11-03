@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use api::{Refusal, Sessions};
-use ipc::{ListTerminals, ListedTerminal, OpenTerminal, ReadTerminal, RenameTerminal, SessionRunUnderway, TypeInTerminal};
+use ipc::{ListTerminals, ListedTerminal, OpenTerminal, ReadTerminal, RenameTerminal, SessionRunUnderway, ShowTerminal, TypeInTerminal};
 use testkit::FakeWorkProduct;
 
 use crate::tests::daemon::a_fleet;
@@ -33,6 +33,10 @@ fn reading(rig: &Rig, terminal: Option<&str>) -> ReadTerminal {
 async fn listed(rig: &Rig) -> Vec<ListedTerminal> {
     let asked = ListTerminals { session_id: Some(rig.session.clone()) };
     rig.fleet.list_terminals(None, asked).await.expect("listed").terminals
+}
+
+fn showing(rig: &Rig, terminal: Option<&str>) -> ShowTerminal {
+    ShowTerminal { session_id: Some(rig.session.clone()), terminal: terminal.map(str::to_string) }
 }
 
 /// The refusal's words, where a call was refused as unacceptable.
@@ -321,4 +325,81 @@ async fn each_terminals_opening_and_ending_is_told_by_its_id() {
     assert_eq!(next_terminal(&mut watching).await, ipc::Event::TerminalOpened(told("t2", &two)));
     assert_eq!(next_terminal(&mut watching).await, ipc::Event::TerminalExited(told("t2", &two)));
     assert_eq!(next_terminal(&mut watching).await, ipc::Event::TerminalExited(told("t1", &one)));
+}
+
+#[tokio::test]
+async fn showing_a_named_open_terminal_answers_it_and_publishes_terminal_shown_once() {
+    let rig = rig().await;
+    let a = types(&rig, None, true, "echo a").await.expect("typed");
+    let b = types(&rig, None, true, "echo b").await.expect("typed");
+    let mut watching = rig.fleet.events().subscribe();
+
+    let shown = rig.fleet.show_terminal(None, showing(&rig, Some("t1"))).await.expect("shown");
+    ends(&rig, &a.run_id).await;
+    ends(&rig, &b.run_id).await;
+
+    let told = ipc::JobTerminal { session_id: rig.session.clone(), terminal: "t1".into(), run_id: a.run_id.clone() };
+    assert_eq!(next_terminal(&mut watching).await, ipc::Event::TerminalShown(told.clone()));
+    assert!(
+        matches!(next_terminal(&mut watching).await, ipc::Event::TerminalExited(_)),
+        "shown once, then the next terminal event is a shell ending"
+    );
+    assert_eq!((shown.terminal.as_str(), shown.run_id.as_str()), ("t1", a.run_id.as_str()));
+    assert_eq!(shown.name, "Terminal 1");
+}
+
+#[tokio::test]
+async fn an_unnamed_show_takes_the_last_used_terminal_else_the_lowest_open_one() {
+    let rig = rig().await;
+    let a = types(&rig, None, true, "echo a").await.expect("typed");
+    let b = types(&rig, None, true, "echo b").await.expect("typed");
+    let last = rig.fleet.show_terminal(None, showing(&rig, None)).await.expect("shown");
+    ends(&rig, &b.run_id).await;
+    let lowest = rig.fleet.show_terminal(None, showing(&rig, None)).await.expect("shown");
+    ends(&rig, &a.run_id).await;
+
+    assert_eq!((last.terminal.as_str(), last.run_id.as_str()), ("t2", b.run_id.as_str()), "the one typed into last");
+    assert_eq!((lowest.terminal.as_str(), lowest.run_id.as_str()), ("t1", a.run_id.as_str()), "t2 ended");
+}
+
+#[tokio::test]
+async fn showing_a_terminal_that_is_not_open_is_refused_and_publishes_nothing() {
+    let rig = rig().await;
+    let one = opened(&rig, None, false).await.expect("opened");
+    let mut watching = rig.fleet.events().subscribe();
+    let never = rig.fleet.show_terminal(None, showing(&rig, Some("t5"))).await;
+    ends(&rig, &one.run_id).await;
+    let ended = rig.fleet.show_terminal(None, showing(&rig, Some("t1"))).await;
+
+    assert_eq!(said(never), "terminal t5 is not open. list_terminals names the open ones");
+    assert_eq!(said(ended), "terminal t1 is not open. list_terminals names the open ones");
+    assert!(
+        matches!(next_terminal(&mut watching).await, ipc::Event::TerminalExited(_)),
+        "no terminal.shown for a refused show"
+    );
+}
+
+#[tokio::test]
+async fn showing_with_no_terminal_open_is_refused() {
+    let rig = rig().await;
+
+    let refused = said(rig.fleet.show_terminal(None, showing(&rig, None)).await);
+
+    assert_eq!(refused, "this job has no terminal open. type_in_terminal opens one");
+}
+
+#[tokio::test]
+async fn showing_a_terminal_is_not_a_use_so_the_agents_last_used_does_not_move() {
+    let rig = rig().await;
+    let a = types(&rig, None, true, "echo a").await.expect("typed");
+    let b = types(&rig, None, true, "echo b").await.expect("typed");
+
+    rig.fleet.show_terminal(None, showing(&rig, Some("t1"))).await.expect("shown");
+    let read = rig.fleet.read_terminal(None, reading(&rig, None)).await.expect("read");
+    let typed = types(&rig, None, false, "echo c").await.expect("typed");
+    ends(&rig, &a.run_id).await;
+    ends(&rig, &b.run_id).await;
+
+    assert_eq!(read.terminal, "t2", "an unnamed read still means the last used");
+    assert_eq!(typed.terminal, "t2", "and so does unnamed typing");
 }
