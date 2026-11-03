@@ -47,18 +47,20 @@ function BucketName({ bucket }: { bucket: Bucket }) {
 
 /** A Job's split as one thin bar: the buckets in their own order, the whole column wide so the shapes read against each other. */
 function SplitBar({ split }: { split: TimeSplit }) {
+  const total = sumOf(split);
   return (
     <span className="armada-time__track" aria-hidden>
       <span className="armada-time__stack">
         {BUCKETS.filter((one) => split[one] > 0).map((one) => (
-          <span
-            key={one}
-            className="armada-time__part"
-            data-time={one}
-            style={{
-              flexGrow: split[one],
-            }}
-          />
+          <Tooltip asChild key={one} label={`${BUCKET_LABEL[one]} ${span(split[one])}, ${Math.round((split[one] / total) * 100)}%`}>
+            <span
+              className="armada-time__part"
+              data-time={one}
+              style={{
+                flexGrow: split[one],
+              }}
+            />
+          </Tooltip>
         ))}
       </span>
     </span>

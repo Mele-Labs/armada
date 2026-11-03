@@ -1085,50 +1085,51 @@ export function UsagePage({ summary, titles, planPercent, rules, time, builds, h
           </section>
         </div>
 
+        <section className="armada-usage__panel armada-usage__burn" aria-label="Burn per hour">
+          <Band
+            keys={[
+              "←→",
+            ]}
+          >
+            Burn per hour
+          </Band>
+          {pending || hours === "pending" ? (
+            <>
+              <div className="armada-usage__scope" aria-hidden>
+                <Bar width="8rem" />
+              </div>
+              <PendingHours
+                plots={[
+                  {
+                    height: BURN_HEIGHT,
+                  },
+                ]}
+              />
+              <PendingLegend />
+            </>
+          ) : drawn === undefined || burn === undefined || burned === undefined ? null : (
+            <>
+              <Scope title="All jobs" unit="M units per hour" />
+              <HourChart
+                hours={drawn}
+                plots={[
+                  burn,
+                ]}
+                label="Burn per hour, last 48 hours, in million cost units, by model"
+                builds={listed ?? []}
+                pick={build}
+                onPick={setBuild}
+                hour={shown}
+                onHover={setHoverHour}
+                onSelect={select}
+              />
+              <HourRows hours={drawn} plots={[burn]} label="Burn by hour" />
+              <ModelLegend usage={burned} />
+            </>
+          )}
+        </section>
+
         <div className="armada-usage__centre">
-          <section className="armada-usage__panel" aria-label="Burn per hour">
-            <Band
-              keys={[
-                "←→",
-              ]}
-            >
-              Burn per hour
-            </Band>
-            {pending || hours === "pending" ? (
-              <>
-                <div className="armada-usage__scope" aria-hidden>
-                  <Bar width="8rem" />
-                </div>
-                <PendingHours
-                  plots={[
-                    {
-                      height: BURN_HEIGHT,
-                    },
-                  ]}
-                />
-                <PendingLegend />
-              </>
-            ) : drawn === undefined || burn === undefined || burned === undefined ? null : (
-              <>
-                <Scope title="All jobs" unit="M units per hour" />
-                <HourChart
-                  hours={drawn}
-                  plots={[
-                    burn,
-                  ]}
-                  label="Burn per hour, last 48 hours, in million cost units, by model"
-                  builds={listed ?? []}
-                  pick={build}
-                  onPick={setBuild}
-                  hour={shown}
-                  onHover={setHoverHour}
-                  onSelect={select}
-                />
-                <HourRows hours={drawn} plots={[burn]} label="Burn by hour" />
-                <ModelLegend usage={burned} />
-              </>
-            )}
-          </section>
 
           {pending && rules === undefined ? <PendingRules /> : null}
           {rules === undefined || views === undefined ? null : (

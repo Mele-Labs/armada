@@ -27,7 +27,14 @@
   gap: var(--gap-panel);
   align-items: stretch;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "tiles" "left" "centre";
+  grid-template-areas: "tiles" "burn" "left" "centre";
+}
+.armada-usage__burn {
+  grid-area: burn;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 24rem;
 }
 .armada-usage__tilearea {
   grid-area: tiles;
@@ -60,15 +67,15 @@
 @container (min-width: 760px) {
   .armada-usage__page {
     grid-template-columns: minmax(26rem, 28rem) minmax(0, 1fr);
-    grid-template-areas: "tiles tiles" "left centre";
-    grid-template-rows: auto 1fr;
+    grid-template-areas: "tiles tiles" "burn burn" "left centre";
+    grid-template-rows: auto auto 1fr;
   }
 }
 @container (min-width: 1150px) {
   .armada-usage__page {
     grid-template-columns: minmax(28rem, 30rem) minmax(0, 1fr) 14rem;
-    grid-template-areas: "left centre tiles";
-    grid-template-rows: 1fr;
+    grid-template-areas: "left burn burn" "left centre tiles";
+    grid-template-rows: auto 1fr;
   }
 }
 
