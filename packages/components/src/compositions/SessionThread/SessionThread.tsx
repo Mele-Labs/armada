@@ -165,6 +165,7 @@ export type SessionNotice =
   | "main_red"
   | "rail_nudge"
   | "rail_step"
+  | "stop_nudge"
   | "usage_trip"
   | "limit_wake"
   | "sign_in_wake"

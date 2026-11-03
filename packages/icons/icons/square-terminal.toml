@@ -14,6 +14,13 @@
     notes = "Proposed 13 Oct 2026 beside the Job's `box` in the same row. --accent with the title as a link while the Session is open, --fg-muted when it is closed."
 
   [[icons.square-terminal.usage]]
+    means = "A Job whose turn ended with a background command or a Check still running, the mark on its row"
+    group = "Session"
+    size = "12 and 16px"
+    status = "Proposed"
+    notes = "Proposed 3 Nov 2026 for the walk `jobRowDoing`, tooltip `Running:` and the command's description or the Check's name. The glyph the command already wears on the Job's ledger."
+
+  [[icons.square-terminal.usage]]
     means = "A shell command the Session's agent ran in the background, on its ledger row"
     group = "Session"
     size = "12px"

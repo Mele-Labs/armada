@@ -15,12 +15,15 @@ import {
   Link,
   MessageSquareDashed,
   MoveRight,
+  OctagonAlert,
   Power,
   Radar,
   Reply,
   RotateCw,
   ShieldX,
+  Split,
   SquarePen,
+  SquareTerminal,
   Unplug,
   WandSparkles,
   X,
@@ -53,7 +56,10 @@ import { stampOf, timeFormat } from "../../time-format";
 export type SessionState =
   | "blank"
   | "working"
+  | "running"
+  | "subagent"
   | "stuck"
+  | "stopped"
   | "waiting"
   | "replied"
   | "done"
@@ -72,10 +78,14 @@ export type SessionState =
  * `stuck` is a turn running that has been quiet, `replied` a turn that ended on the agent's message
  * with no answer yet, and `done` an agent that said nothing is left. They are what Fleet reads a
  * Session to be doing (`SessionStanding`), so the list and the Cockpit draw one answer.
- * `[conventions.session_standing_marks]` in `packages/icons/` lends the glyphs.
+ * `running` is a turn over with a background command or a Check still going, `subagent` a turn over with a subagent at work, and `stopped` a Job Fleet told of a stop
+ * nothing excused and that stopped again. `[conventions.session_standing_marks]` in `packages/icons/` lends the glyphs.
  */
 const MARK: Record<SessionState, LucideIcon> = {
   stuck: Clock,
+  stopped: OctagonAlert,
+  running: SquareTerminal,
+  subagent: Split,
   replied: Reply,
   done: Power,
   blank: CircleDashed,
@@ -106,10 +116,11 @@ export function bucketOf(state: SessionState): JobBucket {
     state === "done" ||
     state === "unstarted" ||
     state === "stuck" ||
+    state === "stopped" ||
     state === "failing"
   )
     return "needs";
-  if (state === "working") return "working";
+  if (state === "working" || state === "running" || state === "subagent") return "working";
   if (state === "held" || state === "limited" || state === "after") return "waiting";
   if (state === "draft" || state === "blank") return "draft";
   return "idle";
@@ -129,7 +140,7 @@ export function SessionMark({ state, said }: { state: SessionState; said: string
         role="img"
         aria-label={said}
         data-bucket={bucketOf(state)}
-        data-pulsing={state === "working" || undefined}
+        data-pulsing={bucketOf(state) === "working" || undefined}
       >
         {state === "working" ? (
           <WorkingMark size={16} />

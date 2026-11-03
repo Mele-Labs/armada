@@ -547,7 +547,7 @@ export function shipOf(input: Inputs): Ship {
           ? "needs"
           : stuck || paused || session.waits !== undefined
             ? "held"
-            : stateOf(session).state === "working"
+            : bucketOf(stateOf(session).state) === "working"
               ? "working"
               : "done",
       needs,
@@ -762,6 +762,7 @@ export function shipOf(input: Inputs): Ship {
           session !== undefined &&
           session.paused !== true &&
           (stateOf(session).state === "waiting" ||
+            stateOf(session).state === "stopped" ||
             stateOf(session).state === "unstarted" ||
             session.start !== undefined)
         );

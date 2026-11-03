@@ -126,7 +126,10 @@ const commandOf = (row: SessionRow): ArtifactRow | undefined => {
 /** A Session's state as the ledger's marks say it. */
 const TONE: Record<SessionState, SessionLedgerTone> = {
   working: "running",
+  running: "running",
+  subagent: "running",
   stuck: "failed",
+  stopped: "escalated",
   failing: "failed",
   waiting: "escalated",
   replied: "done",

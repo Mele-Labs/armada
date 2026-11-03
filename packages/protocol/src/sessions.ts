@@ -411,11 +411,11 @@ export type WaitingSource =
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
- * `working` a turn runs, `stuck` a turn runs and has been quiet, `replied` the turn ended on a
- * message of the agent's that only reports and the person has not answered, `done` the agent said nothing is left, `idle`
+ * `working` a turn runs, or between turns a subagent, a background command or a Check does, `stuck` a turn runs and has been quiet, `replied` the turn ended on a
+ * message of the agent's that only reports and the person has not answered, `stopped` it stopped again after Fleet told it of a stop nothing excused, `done` the agent said nothing is left, `idle`
  * nothing is owed. One answer for every surface that draws a Session. Since 23.86.
  */
-export type SessionStanding = "working" | "stuck" | "replied" | "done" | "idle";
+export type SessionStanding = "working" | "stuck" | "replied" | "stopped" | "done" | "idle";
 
 /** One thing, not the person, that keeps a Session open: a fact, never a sentence. `crates/ipc/src/sessions.rs`. */
 export type HeldOpenBy =

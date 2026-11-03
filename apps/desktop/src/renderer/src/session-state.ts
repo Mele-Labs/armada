@@ -144,12 +144,36 @@ export function stateOf(session: Session): {
   }
   // Fleet's word covers what a turn of its own does not: a subagent at work, a terminal's turn.
   if (standing === "working") {
-    const subagent = attachmentsOf(session, "subagent").some((one) => one.state === "running");
+    if (attachmentsOf(session, "subagent").some((one) => one.state === "running"))
+      return {
+        state: "subagent",
+        said: "Subagent working",
+      };
+    const command = attachmentsOf(session, "background").find((one) => one.state === "running");
+    const check = session.rows.find((row) => row.kind === "check" && row.state === "running");
+    const running = command?.task ?? (check?.kind === "check" ? check.name : undefined);
+    if (running !== undefined)
+      // A reply that asks beside a command it left running is his to answer first.
+      return owesOf(session).length > 0
+        ? {
+            state: "waiting",
+            said: "Waiting on you",
+          }
+        : {
+            state: "running",
+            said: `Running: ${running}`,
+          };
     return {
       state: "working",
-      said: subagent ? "Subagent working" : "Working",
+      said: "Working",
     };
   }
+  // Told of a stop and stopped again. Nothing is asked, so it raises no item: this mark and its call are how it reaches him, as stuck does.
+  if (standing === "stopped")
+    return {
+      state: "stopped",
+      said: "Stopped",
+    };
   if (isBlank(session))
     return {
       state: "blank",
