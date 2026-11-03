@@ -1,5 +1,5 @@
 // The message Evaluate sends a Job about one comment on its pull request. The Job answers in its
-// own waiting list and never on the forge: `.claude/decisions/2026-11-03-pull-request-comments-reach-the-job.md`.
+// own waiting list and never on the forge. The decision record `2026-11-03-pull-request-comments-reach-the-job.md`.
 
 import type { EvaluatedComment } from "@armada/components/src/compositions/PullRequestPanel/evaluated-comment";
 
@@ -34,6 +34,6 @@ export function evaluateMessage(comment: CommentToEvaluate): string {
     quoted(comment.body),
     "",
     "Decide whether the comment is right, and put what you propose in waiting_for as one item for me.",
-    "Never reply on the pull request, and never post anything to GitHub.",
+    "Never reply on the pull request, and never post a comment, review or reaction anywhere.",
   ].join("\n");
 }
