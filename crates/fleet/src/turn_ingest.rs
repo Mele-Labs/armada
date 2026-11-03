@@ -23,7 +23,7 @@ use core_model::{Component, Envelope, FieldValue, Level};
 use store::{SessionSearch, SessionState};
 
 use crate::daemon::Fleet;
-use crate::turn_usage_keeping::kept_form;
+use crate::turn_usage_keeping::{kept_form, reading_kept};
 
 /// How far back the start-up pass looks, by when a file was last written.
 pub(crate) const BACKFILL_DAYS: u64 = 7;
@@ -126,10 +126,11 @@ where
         let key = file.path.to_string_lossy().to_string();
         let (mut changed, mut first) = (0, true);
         loop {
-            let from = if from_start && first {
-                0
+            let (from, input_at) = if from_start && first {
+                (0, None)
             } else {
-                self.store().lock().await.transcript_offset(&key).ok().flatten().unwrap_or(0)
+                let store = self.store().lock().await;
+                (store.transcript_offset(&key).ok().flatten().unwrap_or(0), store.transcript_input_at(&key).ok().flatten())
             };
             first = false;
             if !from_start && from == file.size {
@@ -138,12 +139,13 @@ where
             let path = file.path.clone();
             let subagent = file.subagent;
             let Ok(Ok(read)) =
-                tokio::task::spawn_blocking(move || turn_lines::read_turns(&path, from, subagent, CHUNK)).await
+                tokio::task::spawn_blocking(move || turn_lines::read_turns(&path, from, subagent, CHUNK, input_at)).await
             else {
                 return changed;
             };
             let turns: Vec<_> = read.turns.iter().map(kept_form).collect();
-            match self.store().lock().await.keep_turns_read(&file.session_id, &turns, &key, read.next) {
+            let learnt = reading_kept(&read);
+            match self.store().lock().await.keep_turns_read(&file.session_id, &turns, &learnt, &key, read.next) {
                 Ok(more) => changed += more,
                 Err(_) => return changed,
             }

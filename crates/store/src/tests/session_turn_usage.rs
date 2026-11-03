@@ -88,8 +88,8 @@ fn a_transcript_offset_is_kept_with_its_turns_and_survives_a_reopen() {
     let dir = TempDir::new();
     let mut store = open(&dir);
     assert_eq!(store.transcript_offset("/a.jsonl").unwrap(), None);
-    assert_eq!(store.keep_turns_read("s1", &[turn("m1", 1, &[])], "/a.jsonl", 120).unwrap(), 1);
-    assert_eq!(store.keep_turns_read("s1", &[turn("m1", 1, &[])], "/a.jsonl", 300).unwrap(), 0);
+    assert_eq!(store.keep_turns_read("s1", &[turn("m1", 1, &[])], &Default::default(), "/a.jsonl", 120).unwrap(), 1);
+    assert_eq!(store.keep_turns_read("s1", &[turn("m1", 1, &[])], &Default::default(), "/a.jsonl", 300).unwrap(), 0);
     drop(store);
     assert_eq!(open(&dir).transcript_offset("/a.jsonl").unwrap(), Some(300));
 }
