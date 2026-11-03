@@ -24,7 +24,7 @@ use crate::model_downshift::{Downshift, Phase, Terms, Weekly};
 const DOWNSHIFT_WRONG_PHASE: &str = "fleet.downshift_wrong_phase";
 
 /// The weekly window's kind in [`PlanUsage`].
-const WEEKLY: &str = "seven_day";
+pub(crate) const WEEKLY: &str = "seven_day";
 
 const SESSION_KEY: &str = "models.session";
 

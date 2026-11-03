@@ -323,12 +323,15 @@ this window, and that is another security review. `#1294`.
 | An app on this machine | Local network access, for the shown origin and the `origins` a Job names | `local-network-access` is the one permission granted, to those origins only |
 | A dialog that looks like Armada's | None | `disableDialogs` |
 
-> **Rule.** A Job's agent driving the Job browser adds nothing to this table. The
-> page still has no preload, no IPC and no channel to main, every permission is
-> refused (the Job browser names no origin to grant local network access to),
-> and downloads stay refused.
+> **Rule.** The table is the walk window's. A Job browser page runs under the same
+> no preload and no channel to main, but answers permissions, downloads, popups and fullscreen from the
+> person's choices in Site settings, and shows page dialogs (`pageView`'s
+> `disableDialogs` option).
+> The agent's acts add no reach of their own.
 > Why: the agent reaches into the page and nothing reaches back out. Each act is
-> main's call, answered once, and the page cannot ask for one.
+> main's call, answered once, and the page cannot ask for one. What the page may
+> use is what the person allowed.
+> `docs/concepts/session/job-browser.md`, *Site settings*, owns the rows.
 
 > **Rule.** A page runs in a job partition of its own, persistent, one
 > per repository. A Job's walk is keyed by the Job's `manifest_id`.

@@ -93,6 +93,7 @@ test("the sidebar lists Kit, Fleet, Mods and Bridge entries in order, and an ent
     "Editor",
     "Terminal",
     "Links",
+    "Browser",
     "Phone",
     "Guides",
   ]);

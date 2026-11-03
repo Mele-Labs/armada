@@ -24,6 +24,7 @@ const BLOCKED = new Set([
   "slot_choice",
   "delivery",
   "task_done",
+  "browser_ask",
 ]);
 
 export type Told = {

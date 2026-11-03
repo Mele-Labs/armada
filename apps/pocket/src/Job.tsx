@@ -10,6 +10,7 @@ import {
   CornerDownRight,
   GitFork,
   Link as Linked,
+  LoaderCircle,
   Play,
   PowerOff,
   Square,
@@ -48,11 +49,13 @@ import {
   approvalOf,
   askedOf,
   asksOf,
+  choicesOf,
   draftsOf,
   linksOf,
   rowsOf,
   runsOf,
   sessionOfThread,
+  takesWords,
   type JobLink,
   type OpenDraft,
 } from "./thread";
@@ -114,7 +117,7 @@ function useReply(machine: Machine): [
   ];
 }
 
-/** Something the agent itself asked: its choices, or the owner's own words. */
+/** Something the owner is asked: its choices, and their own words where Fleet takes words. */
 function WaitingAsk({
   item,
   keep,
@@ -125,47 +128,68 @@ function WaitingAsk({
   answer: (given: { choice?: number; text?: string }) => Promise<boolean>;
 }) {
   const [words, setWords] = useState("");
+  const choices = choicesOf(item);
   return (
     <div className="pk-ask" role="group" aria-label={item.text}>
-      <p className="pk-question">{item.text}</p>
-      {(item.options ?? []).length === 0 ? null : (
+      <p className="pk-question">
+        {item.text}
+        {item.creating_since === undefined ? null : (
+          <>
+            {" "}
+            <Tooltip label="Making a slot">
+              <span role="img" aria-label="Making a slot">
+                <LoaderCircle className="pk-spin" size={14} aria-hidden="true" />
+              </span>
+            </Tooltip>
+          </>
+        )}
+      </p>
+      <Trouble says={item.create_refused ?? ""} />
+      {choices.length === 0 ? null : (
         <div className="pk-choices" role="group" aria-label="Options">
-          {(item.options ?? []).map((option, choice) => (
+          {choices.map(({ label, description, choice }) => (
             <Button
-              key={option.label}
+              key={label}
               variant="secondary"
-              className="pk-choice"
-              title={option.description}
               onClick={() =>
                 void answer({
                   choice,
                 })
               }
             >
-              {option.label}
+              <span className="pk-choice__words">
+                {label}
+                {description === undefined ? null : (
+                  <span className="pk-choice__says">{description}</span>
+                )}
+              </span>
             </Button>
           ))}
         </div>
       )}
-      <Textarea
-        keep={keep}
-        rows={2}
-        aria-label="Answer"
-        placeholder="Answer"
-        value={words}
-        onChange={(event) => setWords(event.target.value)}
-      />
-      <Button
-        variant="primary"
-        disabled={words.trim() === ""}
-        onClick={() =>
-          void answer({
-            text: words.trim(),
-          }).then((went) => went && setWords(""))
-        }
-      >
-        Answer
-      </Button>
+      {takesWords(item) ? (
+        <>
+          <Textarea
+            keep={keep}
+            rows={2}
+            aria-label="Answer"
+            placeholder="Answer"
+            value={words}
+            onChange={(event) => setWords(event.target.value)}
+          />
+          <Button
+            variant="primary"
+            disabled={words.trim() === ""}
+            onClick={() =>
+              void answer({
+                text: words.trim(),
+              }).then((went) => went && setWords(""))
+            }
+          >
+            Answer
+          </Button>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -788,6 +812,7 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
               <div className="pk-dock">
                 <SessionComposer
                   bare
+                  enterBreaks
                   working={session.turn.state === "working"}
                   model={null}
                   effort={null}

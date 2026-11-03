@@ -19,7 +19,8 @@ fn settings(backlog: bool, running: bool, decisions: &[AutopilotDecision]) -> Au
         until: None,
         spend_cap_micros: None,
         session_cap: None,
-        on_autopilot: AutopilotWork { backlog, running },
+        weekly_cap_percent: None,
+        on_autopilot: AutopilotWork { backlog, running, reports: false },
         decisions: decisions.iter().copied().collect::<BTreeSet<_>>(),
     }
 }
@@ -30,7 +31,7 @@ async fn boxes_checked_at_start_are_what_the_running_autopilot_reports() {
     let checked = [AutopilotDecision::Recommended, AutopilotDecision::Land, AutopilotDecision::Reads];
     let started = rig.fleet.start_autopilot(rig.manifest.clone(), settings(false, true, &checked)).await.expect("started");
 
-    let wanted = AutopilotWork { backlog: false, running: true };
+    let wanted = AutopilotWork { backlog: false, running: true, reports: false };
     let wanted_decisions: BTreeSet<_> = checked.into_iter().collect();
     assert_eq!((started.on_autopilot, &started.decisions), (wanted, &wanted_decisions), "the start's own answer");
     let got = rig.fleet.get_autopilot(rig.manifest.clone()).await.expect("read");
@@ -43,7 +44,7 @@ async fn boxes_checked_at_start_are_what_the_running_autopilot_reports() {
 async fn a_start_with_no_boxes_reports_backlog_on_running_off_and_no_decisions() {
     let rig = rig_fitted(|_| {});
     let started = rig.fleet.start_autopilot(rig.manifest.clone(), settings(true, false, &[])).await.expect("started");
-    assert_eq!(started.on_autopilot, AutopilotWork { backlog: true, running: false });
+    assert_eq!(started.on_autopilot, AutopilotWork { backlog: true, running: false, reports: false });
     assert!(started.decisions.is_empty());
 }
 
@@ -57,11 +58,11 @@ async fn starting_again_replaces_the_boxes_and_a_change_of_settings_leaves_them(
     changed.at_once = 3;
     let updated = rig.fleet.update_autopilot(rig.manifest.clone(), changed).await.expect("changed");
     assert_eq!(updated.at_once, 3);
-    assert_eq!(updated.on_autopilot, AutopilotWork { backlog: false, running: true }, "an edit keeps the boxes");
+    assert_eq!(updated.on_autopilot, AutopilotWork { backlog: false, running: true, reports: false }, "an edit keeps the boxes");
     assert_eq!(updated.decisions, first.into_iter().collect::<BTreeSet<_>>());
 
     rig.fleet.stop_autopilot(rig.manifest.clone()).await.expect("stopped");
     let again = rig.fleet.start_autopilot(rig.manifest.clone(), settings(true, true, &[AutopilotDecision::Walk])).await.expect("started again");
-    assert_eq!(again.on_autopilot, AutopilotWork { backlog: true, running: true }, "a start replaces them");
+    assert_eq!(again.on_autopilot, AutopilotWork { backlog: true, running: true, reports: false }, "a start replaces them");
     assert_eq!(again.decisions, [AutopilotDecision::Walk].into_iter().collect::<BTreeSet<_>>());
 }

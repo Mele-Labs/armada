@@ -34,6 +34,7 @@ export function cappedOf(autopilot: Autopilot): string | undefined {
     sessions: "Job cap reached",
     spend: "spend cap reached",
     until: "time to stop passed",
+    weekly: "weekly usage cap reached",
   };
   return reached[autopilot.capped_by];
 }
@@ -106,6 +107,7 @@ export function fieldsOf(settings: AutopilotSettings): AutopilotFields {
     spend:
       settings.spend_cap_micros === undefined ? "" : dollars(settings.spend_cap_micros).slice(1),
     sessions: settings.session_cap === undefined ? "" : String(settings.session_cap),
+    weekly: settings.weekly_cap_percent === undefined ? "" : String(settings.weekly_cap_percent),
   };
 }
 
@@ -222,10 +224,14 @@ export function settingsFrom(
       };
     settings.session_cap = sessions;
   }
+  // The slider's far end is no limit: the plan stops everything at 100 by itself.
+  if (fields.weekly !== "" && fields.weekly !== "100")
+    settings.weekly_cap_percent = whole(fields.weekly);
   if (boxes !== undefined) {
     settings.on_autopilot = {
       backlog: boxes.work.has("backlog"),
       running: boxes.work.has("running"),
+      reports: boxes.work.has("reports"),
     };
     settings.decisions = DECISIONS.filter((kind) => boxes.decisions.has(kind));
   }

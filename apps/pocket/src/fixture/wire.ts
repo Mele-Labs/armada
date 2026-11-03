@@ -346,6 +346,38 @@ export function fixtureMacs(
     context_window: WINDOW,
   });
 
+  // Fleet's own questions: how the work lands, every slot held, and four more on one Job.
+  const landing = phone({
+    id: "l1",
+    title: "Fix the lost lease",
+    repository: "armada",
+    kind: "hosted",
+    waiting: true,
+    working: false,
+    started_at: ago(now, 15),
+    waiting_since: ago(now, 2),
+  });
+  const queued = phone({
+    id: "s1",
+    title: "Move the walk engine",
+    repository: "armada",
+    kind: "hosted",
+    waiting: true,
+    working: false,
+    started_at: ago(now, 7),
+    waiting_since: ago(now, 1),
+  });
+  const closing = phone({
+    id: "o1",
+    title: "Close out the tracker mod",
+    repository: "armada",
+    kind: "hosted",
+    waiting: true,
+    working: false,
+    started_at: ago(now, 200),
+    waiting_since: ago(now, 20),
+  });
+
   const finished = phone({
     id: "e1",
     title: "Trim the Drone pool tests",
@@ -485,6 +517,158 @@ export function fixtureMacs(
       message("r1-1", ago(now, 26), "you", "Put the slot pool fix in front of me."),
       tool("r1-2", ago(now, 8), "Bash scripts/preview"),
       message("r1-3", ago(now, 3), "agent", "The preview is built. Fleet has to restart onto it."),
+    ],
+  };
+
+  const l1: SessionThread = {
+    session: record(now, "l1", landing.title!, 15, {
+      waiting_for: [
+        {
+          id: "delivery",
+          text: "How should this work be delivered?",
+          since: ago(now, 2),
+          source: "delivery",
+          act: {
+            kind: "answer",
+            target: "delivery",
+          },
+          options: [
+            {
+              label: "Auto land",
+              description: "Open a pull request, watch ci, merge it.",
+            },
+            {
+              label: "Open PR only",
+              description: "Stop at the open pull request.",
+            },
+            {
+              label: "Keep local",
+              description: "Stop at the commit on the job's branch. Nothing is pushed.",
+            },
+          ],
+        },
+      ],
+    }),
+    rows: [
+      message("l1-1", ago(now, 15), "you", "A slot loses its lease when Fleet restarts."),
+      message(
+        "l1-2",
+        ago(now, 2),
+        "agent",
+        "Found it: the lease row is read before the store opens.",
+      ),
+    ],
+  };
+
+  const s1: SessionThread = {
+    session: record(now, "s1", queued.title!, 7, {
+      waiting_for: [
+        {
+          id: "slot-choice",
+          text: "Every slot is in use",
+          since: ago(now, 1),
+          source: "slot_choice",
+          act: {
+            kind: "answer",
+            target: "slot-choice",
+          },
+          options: [
+            {
+              label: "Wait for a slot",
+            },
+            {
+              label: "Add a slot",
+            },
+          ],
+        },
+      ],
+    }),
+    rows: [
+      message("s1-1", ago(now, 7), "you", "Move the walk engine into its own package."),
+    ],
+  };
+
+  const o1: SessionThread = {
+    session: record(now, "o1", closing.title!, 200, {
+      waiting_for: [
+        {
+          id: "task_done:tracker",
+          text: "Mark the tracker tasks done?",
+          since: ago(now, 20),
+          source: "task_done",
+          act: {
+            kind: "answer",
+            target: "task_done:tracker",
+          },
+          options: [
+            {
+              label: "Mark done",
+            },
+            {
+              label: "Keep open",
+            },
+          ],
+        },
+        {
+          id: "rule_act:41",
+          text: "Move ARM-41 to In progress",
+          since: ago(now, 18),
+          source: "rule_act",
+          act: {
+            kind: "answer",
+            target: "rule_act:41",
+          },
+          options: [
+            {
+              label: "Do it",
+            },
+            {
+              label: "Skip",
+            },
+          ],
+        },
+        {
+          id: "watch_not_ours:w1",
+          text: "QA deploy: smoke failed",
+          since: ago(now, 12),
+          source: "watch_not_ours",
+          act: {
+            kind: "answer",
+            target: "w1",
+          },
+          options: [
+            {
+              label: "Ignore",
+            },
+            {
+              label: "Fix it",
+            },
+          ],
+        },
+        {
+          id: "words:tickets:armada",
+          text: "Where does tickets open in armada?",
+          since: ago(now, 5),
+          source: "words_address",
+          act: {
+            kind: "answer",
+            target: "words:tickets:armada",
+          },
+          options: [
+            {
+              label: "https://tracker.example/{match}",
+              description: "Used by store",
+            },
+            {
+              label: "Other",
+            },
+          ],
+        },
+      ],
+    }),
+    rows: [
+      message("o1-1", ago(now, 200), "you", "Finish the tracker mod and close its tasks."),
+      message("o1-2", ago(now, 21), "agent", "The mod is merged."),
     ],
   };
 
@@ -772,11 +956,17 @@ export function fixtureMacs(
         draft,
         restart,
         asked,
+        landing,
+        queued,
+        closing,
       ],
       live: [
         draft,
         asked,
         restart,
+        landing,
+        queued,
+        closing,
         parent,
         child,
         showed,
@@ -790,6 +980,9 @@ export function fixtureMacs(
         p1,
         c1,
         r1,
+        l1,
+        s1,
+        o1,
         e1,
       },
       usage: usageAt(now, 2, 42, 61),

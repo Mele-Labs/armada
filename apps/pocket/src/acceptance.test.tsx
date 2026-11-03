@@ -257,7 +257,7 @@ describe("Pocket v2 with two Macs", {
 }, () => {
   it("lists Needs you from both Macs, oldest first, each row labelled with its Mac", async () => {
     await open("/");
-    await vi.waitFor(() => expect(rows("Needs you")).toHaveLength(4));
+    await vi.waitFor(() => expect(rows("Needs you")).toHaveLength(7));
     const needs = rows("Needs you");
     const waiting: [
       string,
@@ -266,6 +266,10 @@ describe("Pocket v2 with two Macs", {
       [
         "Rename the slot pool",
         "laptop",
+      ],
+      [
+        "Close out the tracker mod",
+        "studio",
       ],
       [
         "Trim the Drone pool",
@@ -277,6 +281,14 @@ describe("Pocket v2 with two Macs", {
       ],
       [
         "Move Fleet to the preview",
+        "studio",
+      ],
+      [
+        "Fix the lost lease",
+        "studio",
+      ],
+      [
+        "Move the walk engine",
         "studio",
       ],
     ];
@@ -297,9 +309,9 @@ describe("Pocket v2 with two Macs", {
     await vi.waitFor(() => expect(text()).toContain("Not paired"));
     expect(window.location.pathname).toBe("/");
     const needs = rows("Needs you");
-    expect(needs).toHaveLength(2);
-    expect(needs[0]).toContain("Trim the Drone pool");
-    expect(needs[1]).toContain("Move Fleet to the preview");
+    expect(needs).toHaveLength(5);
+    expect(needs[0]).toContain("Close out the tracker mod");
+    expect(needs[1]).toContain("Trim the Drone pool");
     expect(needs.join()).not.toContain("laptop");
     const unpaired = rows("Macs");
     expect(unpaired.join()).toContain("laptop");
@@ -410,9 +422,12 @@ describe("the phone draws as Bridge does", {
     );
     expect(asking.map((row) => row.getAttribute("aria-label"))).toEqual([
       "Rename the slot pool",
+      "Close out the tracker mod",
       "Trim the Drone pool",
       "Open the push payload PR",
       "Move Fleet to the preview",
+      "Fix the lost lease",
+      "Move the walk engine",
     ]);
     expect(
       asking.every((row) => row.dataset["tone"] === "ask" && row.dataset["needs"] !== undefined),
@@ -569,6 +584,178 @@ describe("a draft Job, and the acts on a Job", {
     await vi.waitFor(() => expect(window.location.pathname).toBe("/"));
     await vi.waitFor(() => expect(rows("Needs you").length).toBeGreaterThan(0));
     expect(host.querySelector('[aria-label="Drafts"]')).toBeNull();
+  });
+
+  it("forgets a draft's brief once it is sent, so nothing of it stays kept", async () => {
+    const kept = `armada:kept:pocket:${STUDIO}:d1:brief`;
+    await open(DRAFT);
+    await vi.waitFor(() => expect(field("Brief")).toBeTruthy());
+    await typeInto(field("Brief"), "Split crates/pool in two.");
+    expect(localStorage.getItem(kept)).not.toBeNull();
+    await press(button("Send"));
+    await vi.waitFor(() =>
+      expect(window.location.pathname).toBe(`/jobs/${encodeURIComponent(STUDIO)}/d1`),
+    );
+    expect(localStorage.getItem(kept)).toBeNull();
+  });
+
+  it("opens the next Dispatch empty once one is sent, and its key does not say send", async () => {
+    await open("/dispatch");
+    await vi.waitFor(() => expect(host.querySelector('[role="radio"]')).toBeTruthy());
+    expect(field("Job")!.getAttribute("enterkeyhint")).toBeNull();
+    await typeInto(field("Job"), "Old message");
+    await press(button("Dispatch"));
+    await vi.waitFor(() => expect(window.location.pathname).toBe("/"));
+    expect(localStorage.getItem("armada:kept:pocket:dispatch")).toBeNull();
+    await act(async () => root?.unmount());
+    await open("/dispatch");
+    await vi.waitFor(() => expect(field("Job")).toBeTruthy());
+    expect(field("Job")!.value).toBe("");
+  });
+
+  it("breaks the line on Enter in a Job's box, and only Send sends", async () => {
+    localStorage.setItem(
+      `armada:kept:session:pocket:${STUDIO}:a2:message`,
+      JSON.stringify({
+        text: "first",
+        tags: [],
+      }),
+    );
+    const edited = vi.fn(() => true);
+    document.execCommand = edited;
+    await open(`/jobs/${encodeURIComponent(STUDIO)}/a2`);
+    await vi.waitFor(() => expect(button("Send")?.hasAttribute("disabled")).toBe(false));
+    await act(async () => {
+      host.querySelector('.pk-dock [role="textbox"]')!.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    expect(edited).toHaveBeenCalledWith("insertLineBreak");
+    const messages = () => posted[STUDIO]!.filter((one) => one.path === "/api/sessions/message");
+    expect(messages()).toEqual([]);
+    await press(button("Send"));
+    await vi.waitFor(() => expect(messages()).toHaveLength(1));
+    expect(messages()[0]!.body).toMatchObject({
+      session_id: "a2",
+      text: "first",
+    });
+  });
+
+  describe("what Fleet itself asks", () => {
+    const ask = (name: string) => host.querySelector(`[role="group"][aria-label="${name}"]`);
+    const option = (name: string, label: string) =>
+      Array.from(ask(name)?.querySelectorAll('[aria-label="Options"] button') ?? []).find((one) =>
+        one.textContent?.startsWith(label),
+      );
+    const answers = () =>
+      posted[STUDIO]!.filter((one) => one.path === "/api/sessions/waiting/answer").map(
+        (one) => one.body,
+      );
+
+    it.each([
+      [
+        "l1",
+        "How should this work be delivered?",
+        "delivery",
+        "Keep local",
+        2,
+      ],
+      [
+        "s1",
+        "Every slot is in use",
+        "slot-choice",
+        "Add a slot",
+        1,
+      ],
+      [
+        "o1",
+        "Mark the tracker tasks done?",
+        "task_done:tracker",
+        "Keep open",
+        1,
+      ],
+      [
+        "o1",
+        "Move ARM-41 to In progress",
+        "rule_act:41",
+        "Skip",
+        1,
+      ],
+      [
+        "o1",
+        "QA deploy: smoke failed",
+        "watch_not_ours:w1",
+        "Fix it",
+        1,
+      ],
+      [
+        "o1",
+        "Where does tickets open in armada?",
+        "words:tickets:armada",
+        "https://tracker.example/{match}",
+        0,
+      ],
+    ])("answers %s's %s with its choice", async (job, name, item, label, choice) => {
+      await open(`/jobs/${encodeURIComponent(STUDIO)}/${job}`);
+      await vi.waitFor(() => expect(ask(name)).toBeTruthy());
+      await press(option(name, label));
+      await vi.waitFor(() =>
+        expect(answers()).toEqual([
+          {
+            session_id: job,
+            item_id: item,
+            choice,
+          },
+        ]),
+      );
+      await vi.waitFor(() => expect(ask(name)).toBeNull());
+    });
+
+    it("draws each landing's description, since a phone shows no title", async () => {
+      await open(`/jobs/${encodeURIComponent(STUDIO)}/l1`);
+      const name = "How should this work be delivered?";
+      await vi.waitFor(() => expect(ask(name)).toBeTruthy());
+      expect(option(name, "Auto land")!.textContent).toContain(
+        "Open a pull request, watch ci, merge it.",
+      );
+      expect(option(name, "Auto land")!.getAttribute("title")).toBeNull();
+    });
+
+    it("offers a words box only where Fleet takes words", async () => {
+      await open(`/jobs/${encodeURIComponent(STUDIO)}/o1`);
+      await vi.waitFor(() => expect(ask("Mark the tracker tasks done?")).toBeTruthy());
+      const box = (name: string) => ask(name)!.querySelector("textarea");
+      expect(box("Mark the tracker tasks done?")).toBeNull();
+      expect(box("Move ARM-41 to In progress")).toBeNull();
+      expect(box("QA deploy: smoke failed")).not.toBeNull();
+      expect(box("Where does tickets open in armada?")).not.toBeNull();
+    });
+
+    it("takes an address in words, with no Other to press", async () => {
+      const name = "Where does tickets open in armada?";
+      await open(`/jobs/${encodeURIComponent(STUDIO)}/o1`);
+      await vi.waitFor(() => expect(ask(name)).toBeTruthy());
+      expect(option(name, "Other")).toBeUndefined();
+      await typeInto(ask(name)!.querySelector("textarea"), "https://other.example/{match}");
+      await press(
+        Array.from(ask(name)!.querySelectorAll("button")).find(
+          (one) => one.textContent === "Answer",
+        ),
+      );
+      await vi.waitFor(() =>
+        expect(answers()).toEqual([
+          {
+            session_id: "o1",
+            item_id: "words:tickets:armada",
+            text: "https://other.example/{match}",
+          },
+        ]),
+      );
+    });
   });
 
   it("runs a command the Job asked for on its Mac, and then shows it ran with its exit code", async () => {
@@ -785,6 +972,9 @@ describe("the lists stay fresh", {
       "d1",
       "a1",
       "r1",
+      "l1",
+      "s1",
+      "o1",
     ]);
     expect(fleet.macOf(LAPTOP)!.needs.map((one) => one.id)).toEqual([
       "b1",
@@ -858,5 +1048,38 @@ describe("the lists stay fresh", {
     window.dispatchEvent(new Event("online"));
     await until(() => connects() === 3);
     await until(() => listReads().length === 3);
+  });
+
+  describe("coming back to the app", () => {
+    const seen = (state: "hidden" | "visible") => {
+      Object.defineProperty(document, "visibilityState", {
+        value: state,
+        configurable: true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+    };
+    const away = async (path: string, ms: number) => {
+      await begin();
+      window.history.replaceState(null, "", path);
+      const left = Date.now();
+      seen("hidden");
+      const clock = vi.spyOn(Date, "now").mockReturnValue(left + ms);
+      seen("visible");
+      clock.mockRestore();
+      return window.location.pathname;
+    };
+    const JOB = `/jobs/${encodeURIComponent(STUDIO)}/a2`;
+
+    it("opens on the list after five minutes on a Job", async () => {
+      expect(await away(JOB, 5 * 60_000)).toBe("/");
+    });
+
+    it("stays on the Job after a quick switch", async () => {
+      expect(await away(JOB, 5 * 60_000 - 1)).toBe(JOB);
+    });
+
+    it("stays on Dispatch however long, since he may be typing there", async () => {
+      expect(await away("/dispatch", 60 * 60_000)).toBe("/dispatch");
+    });
   });
 });

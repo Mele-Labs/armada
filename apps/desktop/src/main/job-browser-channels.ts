@@ -55,9 +55,6 @@ export function handleJobBrowsers({
     const host = hostOf(event);
     if (text(sessionId) && text(tabId) && host !== null) browsers.unplace(host, sessionId, tabId);
   });
-  ipc.handle(CHANNELS.jobBrowserDrive, (_event, sessionId: unknown, tabId: unknown) => {
-    if (text(sessionId) && text(tabId)) browsers.drive(sessionId, tabId);
-  });
   ipc.handle(CHANNELS.jobBrowserGo, (_event, sessionId: unknown, tabId: unknown, to: unknown) => {
     const going = GOES.find((one) => one === to);
     if (text(sessionId) && text(tabId) && going !== undefined) browsers.go(sessionId, tabId, going);
@@ -119,17 +116,14 @@ export function handleJobBrowsers({
         browsers.choose(sessionId, tabId, host, perm, pick);
     },
   );
-  ipc.handle(
-    CHANNELS.jobBrowserDefault,
-    (_event, sessionId: unknown, tabId: unknown, which: unknown, chosen: unknown) => {
-      const [perm, pick] = [
-        permission(which),
-        choice(chosen),
-      ];
-      if (text(sessionId) && text(tabId) && perm !== undefined && pick !== undefined)
-        browsers.setDefault(sessionId, tabId, perm, pick);
-    },
-  );
+  ipc.handle(CHANNELS.jobBrowserDefaults, () => browsers.defaults());
+  ipc.handle(CHANNELS.jobBrowserSetDefault, (_event, which: unknown, chosen: unknown) => {
+    const [perm, pick] = [
+      permission(which),
+      choice(chosen),
+    ];
+    if (perm !== undefined && pick !== undefined) browsers.setDefault(perm, pick);
+  });
   ipc.handle(
     CHANNELS.jobBrowserAnswer,
     (_event, sessionId: unknown, tabId: unknown, answer: unknown) => {

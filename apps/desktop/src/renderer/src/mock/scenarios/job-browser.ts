@@ -1,4 +1,4 @@
-// A Job driving its Job browser: the agent opened the shop's checkout in it, typed a discount code and applied it, and its
+// A Job working in its Job browser: the agent opened the shop's checkout in it, typed a discount code and applied it, and its
 // thread shows each act. Once time passes the agent reaches for Playwright's own browser instead, and the thread says it has
 // one of its own, in the `browser_reminder` row Fleet writes. The browser is the store's (`../../job-browser/store.ts`), which the mock plays itself. Mock data only.
 // The walk `jobs-list-filter-chip` plays it; the Browser tab itself is walked over `job-layouts`.
@@ -6,12 +6,13 @@
 import type { RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
-import { seedJobBrowser } from "../../job-browser/store";
+import { actInMock, seedJobBrowser } from "../../job-browser/store";
 import { resetCheckout, shopPage } from "../job-browser-page";
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
 import { FakeSessionsFleet, held, hosted } from "../sessions-fleet";
 import { onTimePassing } from "../time-passes";
+import { sJobLayouts } from "./job-layouts";
 
 const ARMADA: RepositorySummary = {
   ...repository(),
@@ -90,7 +91,7 @@ function fleet(): FakeSessionsFleet {
   return new FakeSessionsFleet(records, thread);
 }
 
-/** The Job's browser as the agent left it: the agent driving, on the checkout. */
+/** The Job's browser as the agent left it, on the checkout. */
 function seed(): void {
   resetCheckout();
   seedJobBrowser(JOB, {
@@ -146,5 +147,43 @@ function build(name: string, says: string): Scenario {
 
 export const jobBrowser: Scenario = build(
   "job-browser",
-  "A Job that has driven its Job browser, and reminded of it when it reaches for Playwright",
+  "A Job that has worked in its Job browser, and reminded of it when it reaches for Playwright",
 );
+
+/** The first Job of `job-layouts`, whose Browser tab the acts below are on. */
+const FIRST = "story-1";
+
+/**
+ * `job-layouts` where a walk's `later` is the agent starting an act in the Job browser, and the next `later` its end: the mark
+ * is lit by a step, never by a timer. The walk `job-browser` plays it.
+ */
+export const jobBrowserActs: Scenario = {
+  ...sJobLayouts,
+  name: "job-browser-acts",
+  says: "A Job's Job browser, whose agent mark is lit by one later step and put out by the next",
+  draft: {
+    ...sJobLayouts.draft,
+    sessions: (board, more) => {
+      const store = sJobLayouts.draft!.sessions!(board, more);
+      let acting = false;
+      return {
+        ...store,
+        later: () => {
+          acting = !acting;
+          actInMock(
+            FIRST,
+            acting
+              ? {
+                  kind: "click",
+                  target: {
+                    role: "button",
+                    name: "Apply",
+                  },
+                }
+              : undefined,
+          );
+        },
+      };
+    },
+  },
+};

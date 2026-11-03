@@ -65,6 +65,25 @@ export function openPopup(
 ): Popup | null {
   const made = options.webContents;
   if (made === undefined) return null;
+  return open(
+    hold,
+    made,
+    () =>
+      new WebContentsView({
+        webContents: made,
+      }),
+  );
+}
+
+/**
+ * The same popup around a view the caller built, for a Job browser's popup that is opened after the owner allowed it and not by the page's own
+ * `window.open`, so Electron made no contents for it.
+ */
+export function openPopupOn(hold: PopupHold, view: WebContentsView): Popup | null {
+  return open(hold, view.webContents, () => view);
+}
+
+function open(hold: PopupHold, made: WebContents, viewOf: () => WebContentsView): Popup | null {
   let window: BaseWindow | null = null;
   try {
     window = new BaseWindow({
@@ -74,7 +93,7 @@ export function openPopup(
       title: "",
       show: false,
     });
-    return build(hold, made, window);
+    return build(hold, viewOf(), window);
   } catch {
     if (window !== null && !window.isDestroyed()) window.close();
     if (!made.isDestroyed()) made.close();
@@ -86,10 +105,7 @@ export function openPopup(
  * Build it. **Every navigation off the origins the page may reach is refused**, as
  * the page's own are, and a window it tries to open in turn is refused outright: one popup is one hop.
  */
-function build(hold: PopupHold, made: WebContents, window: BaseWindow): Popup {
-  const view = new WebContentsView({
-    webContents: made,
-  });
+function build(hold: PopupHold, view: WebContentsView, window: BaseWindow): Popup {
   window.contentView.addChildView(view);
   const fit = (): void => {
     const { width, height } = window.getContentBounds();
