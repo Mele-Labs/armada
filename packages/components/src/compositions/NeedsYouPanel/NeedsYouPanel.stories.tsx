@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { BellRing } from "lucide-react";
+import { BellRing, FileText, ListTodo, PencilRuler } from "lucide-react";
 import { useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
@@ -47,6 +47,24 @@ const QUESTION = {
   text: "Which clock?",
   children: <p>Fake or frozen?</p>,
 };
+const reviewed = fn();
+const REVIEW = [
+  {
+    key: "plan",
+    Glyph: ListTodo,
+    said: "Plan",
+  },
+  {
+    key: "sketch",
+    Glyph: PencilRuler,
+    said: "Sketch",
+  },
+  {
+    key: "document",
+    Glyph: FileText,
+    said: "Document",
+  },
+];
 const CARDS = [
   {
     id: "j1",
@@ -65,10 +83,13 @@ function Frame({
   startOpen = false,
   onOpen,
   threadH,
+  review,
 }: {
   question?: typeof QUESTION;
   cards?: typeof CARDS;
   rows: LedgerEntry[];
+  /** What waits on the review sheet, which the list's Review row opens. */
+  review?: typeof REVIEW;
   startOpen?: boolean;
   onOpen?: (
     next: boolean,
@@ -126,6 +147,12 @@ function Frame({
             ? {}
             : {
                 cards,
+              })}
+          {...(review === undefined
+            ? {}
+            : {
+                review,
+                onReview: reviewed,
               })}
         />
         <textarea aria-label="Message" />
@@ -941,5 +968,47 @@ export const APreviewIsACardOnHover: Story = {
         }),
       ).toBeNull(),
     );
+  },
+};
+
+/** What he reads is one row of the list under To review, its glyphs and names joined, and the band's glyphs include them. The question stays a row, not opened on its own. */
+export const AReviewRowOpensTheSheet: Story = {
+  render: () => <Frame question={QUESTION} rows={ROWS} review={REVIEW} startOpen />,
+  play: async ({ canvas }) => {
+    reviewed.mockClear();
+    const group = canvas.getByRole("region", {
+      name: "To review",
+    });
+    await expect(group).toBeVisible();
+    const row = within(group).getByRole("button", {
+      name: "Review",
+    });
+    await expect(row).toHaveTextContent("Plan, Sketch, Document");
+    await expect(
+      canvas.getByRole("button", {
+        name: "Open Which clock?",
+      }),
+    ).toBeVisible();
+    await userEvent.click(row);
+    await expect(reviewed).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** A Job with only review items has no list to fold, so there is no Review row and a press on the band opens the sheet. */
+export const OnlyReviewItemsOpenTheSheetFromTheBand: Story = {
+  render: () => <Frame rows={[]} review={REVIEW} />,
+  play: async ({ canvas }) => {
+    reviewed.mockClear();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Review",
+      }),
+    ).toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Needs you",
+      }),
+    );
+    await expect(reviewed).toHaveBeenCalledTimes(1);
   },
 };
