@@ -29,7 +29,7 @@ impl Store {
     pub fn session_stop(&self, session: &str) -> Result<KeptStop, WriteError> {
         self.conn
             .query_row(
-                "SELECT told_stop, told_at, unheard, passed_over FROM session_stops WHERE session_id = ?1",
+                "SELECT told_stop, told_at, unheard, passed_over FROM stop_nudges WHERE session_id = ?1",
                 [session],
                 |row| {
                     let told: (Option<String>, Option<String>) = (row.get(0)?, row.get(1)?);
@@ -46,7 +46,7 @@ impl Store {
     pub fn keep_stop_told(&mut self, session: &str, stop: &str, at: &str, unheard: bool) -> Result<(), WriteError> {
         self.conn
             .execute(
-                "INSERT INTO session_stops (session_id, told_stop, told_at, unheard) VALUES (?1, ?2, ?3, ?4)
+                "INSERT INTO stop_nudges (session_id, told_stop, told_at, unheard) VALUES (?1, ?2, ?3, ?4)
                  ON CONFLICT (session_id) DO UPDATE SET told_stop = ?2, told_at = ?3, unheard = ?4",
                 (session, stop, at, unheard),
             )
@@ -59,7 +59,7 @@ impl Store {
     pub fn clear_stop_told(&mut self, session: &str) -> Result<(), WriteError> {
         self.conn
             .execute(
-                "UPDATE session_stops SET told_stop = NULL, told_at = NULL, unheard = 0 WHERE session_id = ?1 AND told_stop IS NOT NULL",
+                "UPDATE stop_nudges SET told_stop = NULL, told_at = NULL, unheard = 0 WHERE session_id = ?1 AND told_stop IS NOT NULL",
                 [session],
             )
             .map(|_| ())
@@ -71,7 +71,7 @@ impl Store {
     pub fn pass_over_stop(&mut self, session: &str, stop: &str) -> Result<(), WriteError> {
         self.conn
             .execute(
-                "INSERT INTO session_stops (session_id, passed_over) VALUES (?1, ?2)
+                "INSERT INTO stop_nudges (session_id, passed_over) VALUES (?1, ?2)
                  ON CONFLICT (session_id) DO UPDATE SET passed_over = ?2",
                 (session, stop),
             )

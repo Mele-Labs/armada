@@ -30,6 +30,12 @@ where
     let adrift = Arc::new(adrift);
     crate::autopilot::keep_autopiloting(Arc::clone(&fleet), tick, Arc::clone(&adrift));
     crate::autopilot::keep_deciding(Arc::clone(&fleet), tick, Arc::clone(&adrift));
+    // Away for longer than a few missed beats is an outage, which a stop says it was lost to.
+    let started = Arc::clone(&fleet);
+    tokio::spawn(async move {
+        let at = started.now().as_str().to_string();
+        let _ = started.store().lock().await.fleet_started(&at, crate::session_host::stopping::OUTAGE_SECONDS);
+    });
     // The week's transcripts, read once and in the background, a while after Fleet is up.
     let backfill = Arc::clone(&fleet);
     tokio::spawn(async move {
@@ -45,8 +51,14 @@ where
         let mut disputes_read = tokio::time::Instant::now();
         let mut pages_read = tokio::time::Instant::now();
         let mut stops_swept: Option<tokio::time::Instant> = None;
+        let mut alive = tokio::time::Instant::now();
         loop {
             ticker.tick().await;
+            if alive.elapsed() >= crate::session_host::stopping::BEAT {
+                alive = tokio::time::Instant::now();
+                let at = fleet.now().as_str().to_string();
+                let _ = fleet.store().lock().await.keep_fleet_alive(&at);
+            }
             // A subagent its parent sent more work, read as running again from its own transcript.
             if followed.elapsed() >= crate::subagents_resumed::EVERY {
                 followed = tokio::time::Instant::now();

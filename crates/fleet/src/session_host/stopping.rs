@@ -23,6 +23,10 @@ pub(crate) const STOP_AFTER: Duration = Duration::from_secs(60);
 /// How often every live Job is read again, for an excuse that lapsed with nothing published.
 pub(crate) const SWEEP: Duration = Duration::from_secs(5 * 60);
 
+/// How often Fleet writes that it is up, and how long past that it was away rather than busy.
+pub(crate) const BEAT: Duration = Duration::from_secs(15);
+pub(crate) const OUTAGE_SECONDS: i64 = 90;
+
 /// The word to a Job stopped with no step of its own to finish.
 pub(crate) const NUDGE: &str = "Fleet: your turn ended with nothing running and nothing asked. Carry on now. If you wait on the person, \
      name it with waiting_for. If nothing is left, call finish_up and then all_done. A second stop like this one calls the \
