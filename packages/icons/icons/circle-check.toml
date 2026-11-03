@@ -3,7 +3,7 @@
   group = "Step and Verdict"
   size = "12px"
   status = "Specified"
-  reserved = "Judge verdicts, and a ticket that is closed or done on the card of the Job started for it, below. Never a Check result, never a generic success mark, never a completed step — that is bare check in --step-advanced."
+  reserved = "Judge verdicts, and a ticket that is closed or done on the card of the Job started for it or on its row, below. Never a Check result, never a generic success mark, never a completed step — that is bare check in --step-advanced."
   notes = "Added 2026-08-21. In --verdict-met. circle-* is the Judge's own glyph family, beside shield-* for Checks and file-* for evidence artifacts — a verdict on a criterion is neither a gate nor an artifact, so the silhouette carries hedge-by-source before the label is read. Rendered as \"no objection\" rather than \"accepted\": the Judge declines to refuse, it never grants."
 
   [[icons.circle-check.usage]]
@@ -14,7 +14,7 @@
     notes = "Proposed 21 Oct 2026 for the walk `sharing-in-bridge`, after the owner asked Import to show each piece as it will look, with colour. `docs/design/who-sees-each-piece-of-configuration.md`, *Share is a package*."
 
 [[icons.circle-check.usage]]
-  means = "A ticket that is closed or done, on the card of the Job started for it"
+  means = "A ticket that is closed or done, on the card of the Job started for it and on the ticket's row in a Job and in the Issues tab"
   group = "Workspace lanes"
   size = "14px"
   status = "Proposed"

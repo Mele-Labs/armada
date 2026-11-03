@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::lifecycles::{LifecycleDefinition, LifecycleRule, PieceScope};
-use crate::ManifestId;
+use crate::{ManifestId, SessionId};
 
 fn everywhere() -> PieceScope {
     PieceScope::Everywhere
@@ -92,6 +92,28 @@ pub struct LifecyclePieceSaved {
     pub file: String,
     /// It took the place of a file that declared the same kind, id and scope.
     pub replaced: bool,
+}
+
+/// `teach_ticket_word`'s body. `POST /lifecycles/ticket/teach`: a tracker's own status read as one
+/// state of the Ticket, put on that state in the Ticket lifecycle Kit keeps for the repository's
+/// Workspace and in the copy every live Job there froze, and taken off any other state.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TeachTicketWord {
+    /// The repository the ticket was read in.
+    pub manifest_id: ManifestId,
+    /// The tracker's status as it said it, such as `Ready for QA`. Matched exactly, so its case is kept.
+    pub word: String,
+    /// The Ticket state it reads as: `todo`, `in_progress`, `in_review` or `closed`.
+    pub state: String,
+}
+
+/// What `teach_ticket_word` wrote.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TicketWordTaught {
+    /// The Ticket lifecycle as written to Kit.
+    pub saved: LifecyclePieceSaved,
+    /// The live Jobs whose own copy took the word.
+    pub jobs: Vec<SessionId>,
 }
 
 /// `delete_lifecycle_piece`'s body. `POST /lifecycles/pieces/delete`.

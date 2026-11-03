@@ -17,6 +17,7 @@ import type {
 import type { LifecyclesActed, LifecyclesApi } from "../../../../shared/api/lifecycles";
 import type { PiecesSeed } from "../pieces-seed";
 import type { Slice } from "../fake-context";
+import { ticketWords } from "../ticket-words";
 import { servedLifecycles } from "../workspaces-lanes-wire";
 import { workspacesWire } from "../workspaces-wire";
 
@@ -457,6 +458,90 @@ export const lifecycles: Slice<LifecyclesApi, Record<string, never>> = {
         return done(found >= 0, workspace.id, {
           kind: "everywhere",
         });
+      },
+      // As Fleet does: the word goes on the state in the Ticket lifecycle Kit keeps for the repository's Workspace, which takes the place of the one
+      // that ran there, and off every other state; then the Jobs serving the repository take it in their own copy.
+      teachTicketWord: async ({ manifest_id, word, state }) => {
+        const running = answered(
+          kept.lifecycles.map((one) => ({
+            piece: one.lifecycle,
+            kept: one.kept,
+          })),
+          manifest_id,
+          kept.workspaces,
+        )
+          .filter((one) => one.piece.id === "ticket" && one.kept.overridden_by === undefined)
+          .sort((a, b) => (TIERS[b.kept.rank.reach] ?? 0) - (TIERS[a.kept.rank.reach] ?? 0))[0];
+        if (running === undefined)
+          return refusal("fleet.piece_unfit", `No Ticket lifecycle applies to ${manifest_id}`);
+        if (!running.piece.states.some((one) => one.id === state))
+          return refusal(
+            "fleet.piece_unfit",
+            `ticket names ${state}, which is not one of its states`,
+          );
+        const workspace = kept.workspaces.find((one) => one.repositories.includes(manifest_id));
+        const scope: PieceScope =
+          workspace === undefined
+            ? running.piece.scope
+            : {
+                kind: "within",
+                id: workspace.id,
+              };
+        const lifecycle: LifecycleDefinition = {
+          ...running.piece,
+          scope,
+          states: running.piece.states.map((one) => {
+            if (one.read.source !== "tracker") return one;
+            const words = one.read.words.filter((each) => each !== word);
+            return {
+              ...one,
+              read: {
+                source: "tracker",
+                words:
+                  one.id === state
+                    ? [
+                        ...words,
+                        word,
+                      ]
+                    : words,
+              },
+            };
+          }),
+        };
+        const file = `${KIT}/${FOLDER.lifecycle}/ticket.toml`;
+        const found = kept.lifecycles.findIndex(
+          (one) =>
+            one.kept.rank.source === "kit" &&
+            one.lifecycle.id === "ticket" &&
+            sameScope(one.lifecycle.scope, scope),
+        );
+        kept.lifecycles.splice(found >= 0 ? found : kept.lifecycles.length, found >= 0 ? 1 : 0, {
+          lifecycle,
+          kept: {
+            rank: {
+              reach: scope.kind === "everywhere" ? "everywhere" : "workspace",
+              source: "kit",
+            },
+            path: file,
+          },
+        });
+        return {
+          ok: true,
+          value: {
+            saved: {
+              kind: "lifecycle",
+              id: "ticket",
+              scope,
+              file,
+              replaced: found >= 0,
+            },
+            jobs: ticketWords.tell({
+              manifestId: manifest_id,
+              word,
+              state,
+            }),
+          },
+        };
       },
       deleteLifecyclePiece: async ({
         kind,

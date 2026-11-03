@@ -418,6 +418,8 @@ where
             state.reattached_busy = false;
             state.woken_by.clear();
         }
+        // Pause stops the turn through here, so it closes the row too.
+        self.turn_closed(&id).await;
         self.calls_let_go(&id).await;
         self.published_hosted(&id).await
     }

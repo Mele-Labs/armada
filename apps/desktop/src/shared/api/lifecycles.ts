@@ -21,6 +21,8 @@ import type {
   RepositoryLifecycles,
   RepositoryWorkspaces,
   SaveLifecyclePiece,
+  TeachTicketWord,
+  TicketWordTaught,
   WorkflowChange,
 } from "@armada/protocol";
 
@@ -50,6 +52,8 @@ export type LifecyclesApi = {
   listAutonomyDefaults: (manifestId: string) => Promise<LifecyclesActed<RepositoryAutonomy>>;
   /** `POST /lifecycles/pieces/save`: write one piece to Kit's folder, checked by Fleet's own parser first. */
   saveLifecyclePiece: (body: SaveLifecyclePiece) => Promise<LifecyclesActed<LifecyclePieceSaved>>;
+  /** `POST /lifecycles/ticket/teach`: a tracker's status read as one Ticket state, in the Workspace's Ticket lifecycle and every live Job's copy there. */
+  teachTicketWord: (body: TeachTicketWord) => Promise<LifecyclesActed<TicketWordTaught>>;
   /** `POST /lifecycles/pieces/delete`: delete the Kit file that declares one piece. */
   deleteLifecyclePiece: (
     body: DeleteLifecyclePiece,
@@ -82,6 +86,7 @@ export const LIFECYCLES_CHANNELS = {
   listAutonomyDefaults: "bridge:list-autonomy-defaults",
   listKeepDrafts: "bridge:list-keep-drafts",
   saveLifecyclePiece: "bridge:save-lifecycle-piece",
+  teachTicketWord: "bridge:teach-ticket-word",
   deleteLifecyclePiece: "bridge:delete-lifecycle-piece",
   getJobLifecycles: "bridge:get-job-lifecycles",
   getJobCopy: "bridge:get-job-copy",

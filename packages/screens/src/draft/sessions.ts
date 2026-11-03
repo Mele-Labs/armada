@@ -111,6 +111,8 @@ export type SessionAttachment =
       title: string;
       address: string;
       state: "open" | "closed";
+      /** The tracker's status as it said it, such as `Ready for QA`: `detail.status` on the wire. Absent where the tracker names none. */
+      status?: string;
       pull_requests?: number[] /** The Job claimed it with `claim_issue`: work in hand, not one it filed or was told of. */;
       claimed?: true;
     }

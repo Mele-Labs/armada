@@ -7,7 +7,7 @@
   notes = "One glyph, two places, by design. Badge at 12px, navigation at 16px."
 
 [[icons.eye.usage]]
-  means = "A ticket that is in review, on the card of the Job started for it"
+  means = "A ticket that is in review, on the card of the Job started for it and on the ticket's row in a Job and in the Issues tab"
   group = "Workspace lanes"
   size = "14px"
   status = "Proposed"

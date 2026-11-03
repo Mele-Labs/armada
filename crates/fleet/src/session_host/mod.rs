@@ -46,6 +46,7 @@ pub(crate) mod handoff_answers;
 pub(crate) mod replacing;
 pub(crate) mod linking;
 mod hearing;
+mod reviving;
 mod tools_missing;
 mod init_kept;
 mod mod_moved;

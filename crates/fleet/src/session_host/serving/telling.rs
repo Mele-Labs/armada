@@ -236,6 +236,12 @@ where
         self.fleet_word(session, text, true, None).await
     }
 
+    /// Fleet's word to a Job whose process it started again after the process ended in a turn.
+    /// News that asks nothing. `Ok(false)` for a paused or ended Job.
+    pub(crate) async fn told_of_a_death(self: &Arc<Self>, session: &str, text: &str) -> Result<bool, Refusal> {
+        self.fleet_word(session, text, true, None).await
+    }
+
     /// [`Self::told_by_fleet`] for a run that ended. **A hosted thread keeps a `ran` row** in place
     /// of Fleet's message, and the agent is sent the same words; a terminal Session's thread is
     /// not Fleet's to write, so it holds the words as it holds any other.
