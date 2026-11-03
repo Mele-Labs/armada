@@ -42,7 +42,13 @@ export function homeWhenBack(): void {
     hidden = undefined;
     if (away < AWAY_MS) return;
     const { screen } = routeOf(window.location.pathname + window.location.search);
-    if (screen === "job" || screen === "draft" || screen === "file" || screen === "sketch" || screen === "document")
+    if (
+      screen === "job" ||
+      screen === "draft" ||
+      screen === "file" ||
+      screen === "sketch" ||
+      screen === "document"
+    )
       go("/", true);
   });
 }

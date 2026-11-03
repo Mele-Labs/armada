@@ -742,9 +742,21 @@ describe("what a Job waits on, on the phone", () => {
     detail["settled_at"] = new Date().toISOString();
   };
   const documents = (thread = wire()) =>
-    rowsOf(session(thread)).flatMap((row) => (row.kind === "document" ? [row] : []));
+    rowsOf(session(thread)).flatMap((row) =>
+      row.kind === "document"
+        ? [
+            row,
+          ]
+        : [],
+    );
   const sketches = (thread = wire()) =>
-    rowsOf(session(thread)).flatMap((row) => (row.kind === "sketch" ? [row] : []));
+    rowsOf(session(thread)).flatMap((row) =>
+      row.kind === "sketch"
+        ? [
+            row,
+          ]
+        : [],
+    );
   const waiting = (source: WaitingItem["source"]) =>
     session().waitingFor!.find((one) => one.source === source)!;
 
@@ -765,9 +777,7 @@ describe("what a Job waits on, on the phone", () => {
     });
 
     it("sits before the first row later than the time its revision was kept", () => {
-      const ids = rowsOf(session()).map((row) =>
-        row.kind === "document" ? row.title : row.id,
-      );
+      const ids = rowsOf(session()).map((row) => (row.kind === "document" ? row.title : row.id));
       expect(ids.indexOf("f1-3")).toBeLessThan(ids.indexOf("Slot pool"));
       expect(ids.indexOf("Slot pool")).toBeLessThan(ids.indexOf("f1-4"));
       expect(ids.indexOf("f1-4")).toBeLessThan(ids.indexOf("Phone reach"));
@@ -967,11 +977,7 @@ describe("what a Job waits on, on the phone", () => {
     it("keeps the Gateway's own 409, which has no code, a plain refusal", async () => {
       const reread = vi.fn();
       expect(
-        await attemptPage(
-          refused(409, "This Job is not on its start card."),
-          machine,
-          reread,
-        ),
+        await attemptPage(refused(409, "This Job is not on its start card."), machine, reread),
       ).toBe("This Job is not on its start card.");
       expect(reread).not.toHaveBeenCalled();
     });
@@ -1103,7 +1109,12 @@ describe("what a Job waits on, on the phone", () => {
       const ask = waiting("browser_ask");
       expect(asksOf(session()).map((one) => one.source)).toContain("browser_ask");
       expect(takesWords(ask)).toBe(false);
-      expect(choicesOf(ask).map((one) => [one.label, one.choice])).toEqual([
+      expect(
+        choicesOf(ask).map((one) => [
+          one.label,
+          one.choice,
+        ]),
+      ).toEqual([
         [
           "Allow",
           0,

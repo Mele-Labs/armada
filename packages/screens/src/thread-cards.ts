@@ -12,7 +12,6 @@ type DocumentCard = Extract<
   }
 >;
 
-
 /**
  * What a press on a sketch's card sends: Approve is `choice: 0`, Send back its note. **`drawn` is the drawing the ledger holds
  * now**, which Fleet checks against the sketch as it stands; one the ledger never gave is sent empty, which Fleet refuses.

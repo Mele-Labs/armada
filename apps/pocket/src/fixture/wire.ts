@@ -961,7 +961,6 @@ export function fixtureMacs(
     ],
   };
 
-
   // A Job that waits on every kind of thing the phone answers or opens: two documents, two sketches, a workflow change, Press Start,
   // a Fleet call, a walk and a question in it.
   const review = phone({
@@ -989,7 +988,9 @@ export function fixtureMacs(
 <h2>What stays</h2>
 <p>A held slot is never taken, and a Job waiting for one keeps its place in the line.</p>
 </body></html>`;
-  const WIDE_HTML = (rows: number) => `<!doctype html><html><head><title>Phone reach</title><link rel="stylesheet" href="armada-kit.css"></head><body>
+  const WIDE_HTML = (
+    rows: number,
+  ) => `<!doctype html><html><head><title>Phone reach</title><link rel="stylesheet" href="armada-kit.css"></head><body>
 <h1>Phone reach</h1>
 <p>The phone reaches each Mac on its own origin, signed with a key made for that Mac.</p>
 <h2>Routes by Mac</h2>
@@ -1168,16 +1169,16 @@ ${Array.from(
         asking("start:d1", `Press Start on "${draft.title!}"`, "held_child", "d1"),
         asking("call:1", "main went red after this Job's last push", "fleet_call", "f1"),
         asking("walk:http://127.0.0.1:5173/walk", "Pool band", "walk", "f1"),
-        asking(
-          "window_ask:1",
-          "Does the band read as one line or two?",
-          "window_ask",
-          "f1",
-        ),
+        asking("window_ask:1", "Does the band read as one line or two?", "window_ask", "f1"),
       ],
     }),
     rows: [
-      message("f1-1", ago(now, 60), "you", "Draw what each Job waits on, and ask me where it needs me."),
+      message(
+        "f1-1",
+        ago(now, 60),
+        "you",
+        "Draw what each Job waits on, and ask me where it needs me.",
+      ),
       started("f1-2", ago(now, 55), {
         id: "d1",
         title: draft.title!,

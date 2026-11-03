@@ -341,10 +341,10 @@ function act(mac: FixtureMac, path: string, sent: Record<string, unknown>): Answ
           : row.change !== undefined && given.choice !== undefined && given.choice !== 0
             ? "withdrawn"
             : given.fixed !== undefined
-            ? "fixed"
-            : given.text !== undefined
-              ? "sent_back"
-              : "approved";
+              ? "fixed"
+              : given.text !== undefined
+                ? "sent_back"
+                : "approved";
         const words = given.text ?? given.reason;
         return {
           ...row,

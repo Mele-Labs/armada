@@ -494,7 +494,9 @@ export function pressesOf(session: Session): readonly PressItem[] {
 /** The walks and the questions in a walk the Job waits on: pages the phone cannot show, each said to open on the Mac. */
 export const onMacOf = (session: Session): readonly WaitingItem[] =>
   session.dead === undefined
-    ? (session.waitingFor ?? []).filter((one) => one.source === "walk" || one.source === "window_ask")
+    ? (session.waitingFor ?? []).filter(
+        (one) => one.source === "walk" || one.source === "window_ask",
+      )
     : [];
 
 export type OpenDraft = {
@@ -512,14 +514,14 @@ export type OpenDraft = {
  */
 export function draftsOf(session: Session): readonly OpenDraft[] {
   if (session.dead !== undefined) return [];
-  const waiting = new Map((session.waitingFor ?? []).map((one) => [
-    one.id,
-    one,
-  ]));
+  const waiting = new Map(
+    (session.waitingFor ?? []).map((one) => [
+      one.id,
+      one,
+    ]),
+  );
   return session.rows.flatMap((row) =>
-    row.kind === "draft" &&
-    row.settled === undefined &&
-    waiting.has(`draft:${row.id}`)
+    row.kind === "draft" && row.settled === undefined && waiting.has(`draft:${row.id}`)
       ? [
           {
             id: row.id,

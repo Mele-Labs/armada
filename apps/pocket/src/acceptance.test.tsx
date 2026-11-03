@@ -1143,15 +1143,24 @@ describe("a draft Job, and the acts on a Job", {
         await vi.waitFor(() =>
           expect(text()).toContain("The Job drew this again. The new drawing is shown."),
         );
-        await vi.waitFor(() => expect(card("Sketch: Slot layout")?.textContent).toContain("Idle given back"));
+        await vi.waitFor(() =>
+          expect(card("Sketch: Slot layout")?.textContent).toContain("Idle given back"),
+        );
         await press(inCard("Sketch: Slot layout", "Approve"));
         await vi.waitFor(() => expect(to("/api/sessions/sketch/answer")).toHaveLength(2));
-        expect(to("/api/sessions/sketch/answer").map((one) => (one as { drawn: string }).drawn)).toEqual(
-          [
-            "slot-layout-1",
-            "slot-layout-2",
-          ],
-        );
+        expect(
+          to("/api/sessions/sketch/answer").map(
+            (one) =>
+              (
+                one as {
+                  drawn: string;
+                }
+              ).drawn,
+          ),
+        ).toEqual([
+          "slot-layout-1",
+          "slot-layout-2",
+        ]);
       });
 
       it("shows Fleet's own message on a 422, and does not say it changed", async () => {
@@ -1287,9 +1296,13 @@ describe("a draft Job, and the acts on a Job", {
         const [walk, question] = onMac();
         const last = Array.from(host.querySelectorAll(".pk-ask, .pk-card, .pk-onmac")).at(-1);
         expect(last).toBe(question);
-        expect(walk!.compareDocumentPosition(question!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(
+          walk!.compareDocumentPosition(question!) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
         expect(question!.querySelector("textarea, button")).toBeNull();
-        expect(group("Does the band read as one line or two?")?.querySelector("textarea")).toBeNull();
+        expect(
+          group("Does the band read as one line or two?")?.querySelector("textarea"),
+        ).toBeNull();
         expect(posted[STUDIO]).toEqual([]);
       });
     });
