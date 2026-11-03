@@ -40,7 +40,7 @@ use crate::lifecycles::JobLifecycles;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
 use crate::terminals::JobTerminal;
-use crate::job_browser::BrowserRequest;
+use crate::job_browser::{BrowserAskAnswered, BrowserRequest};
 
 /// A position in the stream. Monotonic, assigned by Fleet, never reused.
 ///
@@ -168,6 +168,9 @@ pub enum Event {
     // An agent's act on its Job browser, held by Fleet until Bridge answers it by `request_id`.
     #[serde(rename = "browser.request")]
     BrowserRequest(BrowserRequest),
+    // The owner answered or dismissed a page's ask in Needs you, for Bridge to settle in the tab.
+    #[serde(rename = "browser.ask_answered")]
+    BrowserAskAnswered(BrowserAskAnswered),
     // A repository's Autopilot (#2092), after any change to it, whole.
     #[serde(rename = "autopilot.changed")]
     AutopilotChanged(Autopilot),

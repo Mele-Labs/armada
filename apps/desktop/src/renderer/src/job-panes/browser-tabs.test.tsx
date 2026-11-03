@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { browserTabIds, wireJobBrowsers } from "../job-browser/store";
+import { NO_SETTINGS } from "../../../shared/site-permissions";
 import { BrowserTabsSync } from "./bodies";
 import { jobOpens, rearrange, peek } from "./store";
 import { closeTab } from "./tree";
@@ -12,6 +13,8 @@ import { closeTab } from "./tree";
 const tabs = vi.fn(async () => undefined);
 const api = {
   list: async () => [],
+  defaults: async () => NO_SETTINGS.defaults,
+  onDefaultsChanged: () => () => undefined,
   onChanged: () => () => undefined,
   onShow: () => () => undefined,
   tabs,
