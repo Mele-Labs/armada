@@ -1,4 +1,4 @@
-// A plan waiting for approval is reviewed from the thread's card, and the Job's Needs you band lists it with the rest. A press on the card opens the plan beside
+// A plan waiting for approval is reviewed from the thread's card, which stays the one place it is listed: Needs you does not repeat it. A press on the card opens the plan beside
 // the thread as the same diff the card draws, with Edit for the rows he can mark, and Approve. Over the `plan-revision-diff` scenario.
 
 import { button, deckRow, dialog, inside, role, text, walk } from "../walk";
@@ -13,7 +13,7 @@ const needsYouPlan = walk("plan-revision-diff", [
   },
   {
     look: card,
-    say: "The plan is in the thread, whole, and the Needs you band lists it with the rest",
+    say: "The plan is in the thread, whole, and Needs you does not list it",
   },
   {
     press: card,

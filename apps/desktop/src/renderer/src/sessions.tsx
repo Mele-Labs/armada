@@ -2573,7 +2573,9 @@ export function SessionView({
       ),
     ),
   };
-  const reviewWaiting = waitingOf(reviewParts);
+  const reviewAll = waitingOf(reviewParts);
+  // One thing to read has no use for a sheet, and stays where it lives. A sheet already open keeps its last item, so it is told them all.
+  const reviewWaiting = reviewAll.length > 1 ? reviewAll : [];
   const sheetOpen = reviewSheetFor === session.id;
   // The card keeps the rest: whatever the sheet did not build, and never a plan, sketch or document, which the thread's card or the sheet reads.
   const needs = cardRowsOf(session, waitingRows, reviewWaiting);
@@ -3463,7 +3465,7 @@ export function SessionView({
           />
           <JobReviewSheet
             parts={reviewParts}
-            waiting={reviewWaiting}
+            waiting={reviewAll}
             open={sheetOpen}
             onClose={() => setReviewSheetFor(undefined)}
           />
