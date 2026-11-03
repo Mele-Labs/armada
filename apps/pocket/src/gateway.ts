@@ -65,7 +65,10 @@ export type PhoneSession = {
   held_open_by?: PhoneHold[];
   /** It starts when another Job's condition is met. */
   starts_when?: {
-    on: { id: string; title: string };
+    on: {
+      id: string;
+      title: string;
+    };
     when: "ends" | "plan" | "pushed" | "lands";
     part_title?: string;
     pull_number?: number;
@@ -75,8 +78,16 @@ export type PhoneSession = {
 };
 
 export type PhoneHold =
-  | { kind: "watch"; name: string }
-  | { kind: "pull_request"; number: number; on: "queue" | "auto_merge" | "checks"; auto_merge?: boolean };
+  | {
+      kind: "watch";
+      name: string;
+    }
+  | {
+      kind: "pull_request";
+      number: number;
+      on: "queue" | "auto_merge" | "checks";
+      auto_merge?: boolean;
+    };
 
 /** GET /api/sessions: the live Sessions only. The phone takes Needs you from the ones waiting. */
 export type SessionsBody = {
