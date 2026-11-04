@@ -13,6 +13,14 @@ import type {
 
 import type { PhoneSession } from "../gateway";
 
+export type FixtureMedia =
+  | {
+      file: string;
+    }
+  | {
+      refused: string;
+    };
+
 export type FixtureMac = {
   name: string;
   needs: PhoneSession[];
@@ -22,6 +30,8 @@ export type FixtureMac = {
   kept: Record<string, KeptStyles>;
   /** What `/api/sessions/shown` serves, by session and path. */
   shown: Record<string, Record<string, string>>;
+  /** The pictures and videos a Job showed, by session and path: a file under `fixture/media/`, or the sentence refusing it. */
+  media?: Record<string, Record<string, FixtureMedia>>;
   /**
    * A sketch the Job draws again after the phone read it, by `<session> <sketch>`: the first answer to it is refused as Fleet refuses
    * one (409, `fleet.sketch_redrawn`), and the thread then holds the new drawing, from its new `show_sketch` call.
@@ -237,6 +247,90 @@ const started = (
 });
 
 /** A Job in each state Home draws, as the list has it and as its thread has it, so a row and its Job's header can be held side by side. */
+/** A Job that showed two pictures and two videos. Its own function, so `everyState`'s counts stay what the tests read. */
+export function mediaJob(now: number): {
+  listed: PhoneSession;
+  thread: SessionThread;
+  files: Record<string, FixtureMedia>;
+} {
+  const id = "m1";
+  const title = "Draw shown pictures in the thread";
+  const root = "/Users/user/armada/.playwright-mcp";
+  const shown: [
+    name: string,
+    media: FixtureMedia,
+  ][] = [
+    [
+      "cockpit-wide.jpg",
+      {
+        file: "landscape.jpg",
+      },
+    ],
+    [
+      "job-on-the-phone.jpg",
+      {
+        file: "portrait.jpg",
+      },
+    ],
+    [
+      "cockpit-recording.mp4",
+      {
+        file: "recording.mp4",
+      },
+    ],
+    [
+      "full-run.mov",
+      {
+        refused: "This video is too big to send to the phone.",
+      },
+    ],
+  ];
+  return {
+    listed: phone({
+      id,
+      title,
+      repository: "armada",
+      kind: "hosted",
+      waiting: false,
+      working: false,
+      started_at: ago(now, 30),
+    }),
+    thread: {
+      session: record(now, id, title, 30, {
+        attachments: shown.map(([name], at) => ({
+          kind: "artifact",
+          target: `${root}/${name}`,
+          state: "standing",
+          detail: {
+            form: "file",
+            title: name,
+          },
+          since: ago(now, 20 - at),
+          changed_at: ago(now, 20 - at),
+        })),
+      }),
+      rows: [
+        message("m1-1", ago(now, 25), "you", "Show me what the Cockpit looks like now."),
+        message("m1-2", ago(now, 21), "agent", "The Cockpit on a wide window, and a Job on the phone."),
+        tool("m1-3", ago(now, 20), `show_file ${root}/cockpit-wide.jpg`),
+        tool("m1-4", ago(now, 19), `show_file ${root}/job-on-the-phone.jpg`),
+        message("m1-5", ago(now, 18), "agent", "A short recording of it running, and the whole run."),
+        tool("m1-6", ago(now, 17), `show_file ${root}/cockpit-recording.mp4`),
+        tool("m1-7", ago(now, 16), `show_file ${root}/full-run.mov`),
+      ],
+    } as SessionThread,
+    files: Object.fromEntries(
+      shown.map(
+        ([name, media]) =>
+          [
+            `${root}/${name}`,
+            media,
+          ] as const,
+      ),
+    ),
+  };
+}
+
 export function everyState(now: number): {
   live: PhoneSession[];
   threads: Record<string, SessionThread>;

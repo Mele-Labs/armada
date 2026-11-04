@@ -2,10 +2,17 @@
 // sketch drawn from the Job's own record, which already carries its scene.
 
 import { useEffect, useState } from "react";
-import { Prose, SketchScene } from "@armada/components";
+import {
+  mediaKindOf,
+  Prose,
+  ShownVideo,
+  SketchScene,
+  ZoomablePicture,
+  type ShownMedia,
+} from "@armada/components";
 
 import { macOf, start, useFleet } from "./fleet";
-import { readShown, useJob, type Shown } from "./jobState";
+import { readShown, readShownMedia, useJob, type Shown } from "./jobState";
 import { go, jobPath } from "./router";
 import { sessionOfThread, sketchOf } from "./thread";
 import { WithKeptStyles } from "./keptStyles";
@@ -17,11 +24,13 @@ export function FileView({ origin, id, path }: { origin: string; id: string; pat
   useFleet();
   useEffect(() => void start(), []);
   const machine = macOf(origin)?.machine;
-  const [shown, setShown] = useState<Shown | undefined>(undefined);
+  const [shown, setShown] = useState<Shown | ShownMedia | undefined>(undefined);
   useEffect(() => {
     if (machine === undefined) return;
     let gone = false;
-    void readShown(machine, id, path).then((read) => !gone && setShown(read));
+    void (mediaKindOf(path) === "video" ? readShownMedia : readShown)(machine, id, path).then(
+      (read) => !gone && setShown(read),
+    );
     return () => {
       gone = true;
       if (shown?.kind === "image") URL.revokeObjectURL(shown.url);
@@ -34,11 +43,18 @@ export function FileView({ origin, id, path }: { origin: string; id: string; pat
   return (
     <section className="pk-screen" aria-label={nameOf(path)}>
       <Band title={nameOf(path)} onBack={() => go(jobPath(origin, id))} back="Back to the Job" />
-      <div className="pk-body pk-shown">
+      <div
+        className={
+          shown?.kind === "image" || shown?.kind === "video"
+            ? "pk-body pk-shown pk-shown--media"
+            : "pk-body pk-shown"
+        }
+      >
         {shown?.kind === "refused" ? <Trouble says={shown.says} /> : null}
         {shown?.kind === "image" ? (
-          <img className="pk-shown__image" src={shown.url} alt={nameOf(path)} />
+          <ZoomablePicture className="pk-shown__zoom" src={shown.url} alt={nameOf(path)} />
         ) : null}
+        {shown?.kind === "video" ? <ShownVideo media={shown} name={nameOf(path)} /> : null}
         {shown?.kind === "text" ? (
           /\.(md|markdown)$/i.test(path) ? (
             <Prose text={shown.text} />

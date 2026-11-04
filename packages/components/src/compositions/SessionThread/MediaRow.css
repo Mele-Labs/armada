@@ -1,0 +1,71 @@
+/* A picture or a video a Job showed, under its "Opened" line. The frame's height is fixed so the thread never moves as
+   it arrives; only the width follows what loads, up to the thread's. */
+.armada-session-media {
+  --session-media-height: calc(var(--space-12) * 5);
+  position: relative;
+  height: var(--session-media-height);
+  margin-block-start: var(--space-2);
+  max-width: 100%;
+}
+
+/* A screenshot's shape, so a wide thread is not filled wall to wall by a stand-in. */
+.armada-session-media__wait,
+.armada-session-media__line {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.armada-session-media__fit {
+  max-width: 100%;
+}
+
+/* Still loading: it has to be in the page to load, and the skeleton is what shows. */
+.armada-session-media__fit--loading {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.armada-session-media__picture {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.armada-session-media__video {
+  height: 100%;
+  max-width: 100%;
+  width: fit-content;
+}
+
+.armada-session-media__video video {
+  display: block;
+  height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: left;
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+}
+
+.armada-session-media__line {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: center;
+}

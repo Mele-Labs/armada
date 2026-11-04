@@ -19,7 +19,15 @@ export type Answered = {
   status: number;
   type?: string;
   body: string;
+  /** A file under `fixture/media/` the server sends in place of `body`. */
+  file?: string;
+  /** Held this long first, so a phone's skeleton can be seen. */
+  delay?: number;
 };
+
+const MEDIA_DELAY = 800;
+const MEDIA_ADDRESS = "/fixture-media/";
+const typeOfMedia = (file: string) => (file.endsWith(".mp4") ? "video/mp4" : "image/jpeg");
 
 /** What the fixture was sent, oldest first, for a test to read. */
 export type Posted = {
@@ -55,6 +63,16 @@ export function answer(
       },
       202,
     );
+  // Unsigned, as the Gateway's own video address is: a video element cannot sign.
+  if (path.startsWith(MEDIA_ADDRESS)) {
+    const file = path.slice(MEDIA_ADDRESS.length);
+    return {
+      status: 200,
+      type: typeOfMedia(file),
+      body: "",
+      file,
+    };
+  }
   if (!path.startsWith("/api/")) return said(404, "Not found.");
   if (!signed) return said(400, "This request is not signed.");
   const id = url.searchParams.get("session_id") ?? "";
@@ -88,7 +106,32 @@ export function answer(
           ? said(404, "Fleet holds no kept styles under that hash.")
           : json(styles);
       }
+      case "/api/sessions/shown/address": {
+        const media = mac.media?.[id]?.[url.searchParams.get("path") ?? ""];
+        if (media === undefined) return said(404, "That Job did not show that file.");
+        if ("refused" in media)
+          return {
+            ...said(403, media.refused),
+            delay: MEDIA_DELAY,
+          };
+        return {
+          ...json({
+            address: `${MEDIA_ADDRESS}${media.file}`,
+            media_type: typeOfMedia(media.file),
+          }),
+          delay: MEDIA_DELAY,
+        };
+      }
       case "/api/sessions/shown": {
+        const media = mac.media?.[id]?.[url.searchParams.get("path") ?? ""];
+        if (media !== undefined && "file" in media)
+          return {
+            status: 200,
+            type: typeOfMedia(media.file),
+            body: "",
+            file: media.file,
+            delay: MEDIA_DELAY,
+          };
         const text = mac.shown[id]?.[url.searchParams.get("path") ?? ""];
         return text === undefined
           ? said(404, "That Job did not show that file.")

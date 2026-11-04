@@ -194,6 +194,7 @@ import {
   wordsOfQuote,
 } from "./teach";
 import type { TeachHere } from "./teach";
+import { readShownMedia } from "./session-media";
 import { useShownFiles } from "./session-shown-file";
 import { startOf } from "./shared-panel/requests-model";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
@@ -3050,6 +3051,7 @@ export function SessionView({
                               sessionId: session.id,
                             })
                           }
+                          onReadMedia={(path) => readShownMedia(draft, session.id, path)}
                           {...(draft.answerWaiting === undefined
                             ? {}
                             : {

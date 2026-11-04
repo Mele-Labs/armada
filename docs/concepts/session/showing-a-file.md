@@ -4,6 +4,7 @@
 
 **A session puts a file in front of the person with `show_file`** (`path`), a tool on the agent's door, in place of pasting its text into a message.
 Bridge opens it in the side panel to read or edit when he is looking at that job, and otherwise it waits on the job's thread row.
+A picture or a video opens no panel: it draws in its thread row, on the Mac and the phone, and a press on a picture opens it full screen, where it zooms.
 Fleet places a hosted session by its connection, as for `show_window`; a terminal session names its own id.
 
 **`path` is absolute, or relative to the folder the job runs in**, the `cwd` its ledger row holds.
@@ -22,4 +23,5 @@ A file written through a symlink or a relative path is a second row, because the
 
 A person reading the file notes lines of it back to the job: [Noting what you read](noting-what-you-read.md).
 
-Nothing is written to the thread and no window opens. The call is a tool row whose text is `<tool> <path as given>`, which Bridge draws as the file's card.
+Nothing is written to the thread and no window opens.
+The call is a tool row whose text is `<tool> <path as given>`, which Bridge draws as the file's card, with the picture or the video under it where it is one.

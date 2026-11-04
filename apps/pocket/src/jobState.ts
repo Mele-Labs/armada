@@ -20,6 +20,8 @@ import type {
   TuneSession,
 } from "@armada/protocol";
 
+import { mediaKindOf, type ShownMedia } from "@armada/components";
+
 import { call, getJson, refusal, Refused } from "./client";
 import { loadLists, onChange } from "./fleet";
 import type { ForkedBody, JobOnly, PhoneSession } from "./gateway";
@@ -265,4 +267,44 @@ export async function readShown(machine: Machine, id: string, path: string): Pro
       says: refusal(why, machine),
     };
   }
+}
+
+/** A picture or a video the Job showed, for its row in the thread. A video plays from an address, since a video element cannot sign. */
+export async function readShownMedia(machine: Machine, id: string, path: string): Promise<ShownMedia> {
+  if (mediaKindOf(path) === "video") {
+    const address = async () => {
+      const said = await getJson<{
+        address: string;
+        media_type: string;
+      }>(
+        machine,
+        `/api/sessions/shown/address?session_id=${encodeURIComponent(id)}&path=${encodeURIComponent(path)}`,
+      );
+      return machine.origin + said.address;
+    };
+    try {
+      return {
+        kind: "video",
+        url: await address(),
+        again: address,
+      };
+    } catch (why) {
+      return {
+        kind: "refused",
+        says: refusal(why, machine),
+      };
+    }
+  }
+  const read = await readShown(machine, id, path);
+  return read.kind === "image"
+    ? {
+        kind: "picture",
+        url: read.url,
+      }
+    : read.kind === "refused"
+      ? read
+      : {
+          kind: "refused",
+          says: "This picture cannot be drawn here.",
+        };
 }
