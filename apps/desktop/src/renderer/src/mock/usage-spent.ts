@@ -1,4 +1,4 @@
-// The Usage page under the new weights, and what its tokens were spent on. Mock only: Fleet serves neither yet.
+// The Usage page under the new weights, and what its tokens were spent on, as Fleet answers them on the wire.
 //
 // **Reweighed from the week's summary**, which was summed with every model weighed alike and every cache write at 1.25. A
 // model now weighs Haiku 1, Sonnet 3, Opus and Fable 5, and an hour's cache write 2. The summary holds units by model and the
@@ -11,7 +11,7 @@
 // 24 hour splits, and each Job's own, are sketches around it.
 
 import type { SpentSplit, SpentWindow, UsageSpent } from "@armada/components";
-import type { NamedUnits, UsageBreakdown, UsageSummary } from "@armada/protocol";
+import type { NamedUnits, UsageBreakdown, UsageSpentUnits, UsageSummary } from "@armada/protocol";
 
 import { JOBS, usageSummaryNow } from "./usage-summary";
 
@@ -411,5 +411,29 @@ export function usageSpentNow(tzOffsetMinutes = 0): UsageSpent {
   }));
   return {
     windows,
+  };
+}
+
+const SINCE_DAYS: Readonly<Record<string, number>> = {
+  day: 1,
+  week: 7,
+  fortnight: 14,
+};
+
+/** The same windows as `get_usage_spent` answers them: no titles, each window its span up to now. */
+export function wireSpentNow(now = Date.now()): UsageSpentUnits {
+  const until = new Date(now).toISOString();
+  return {
+    until,
+    windows: usageSpentNow().windows.map((one) => ({
+      id: one.id,
+      since: new Date(now - (SINCE_DAYS[one.id] ?? 7) * 86_400_000).toISOString(),
+      until,
+      total: one.total,
+      jobs: one.jobs.map((job) => ({
+        session_id: job.id,
+        split: job.split,
+      })),
+    })),
   };
 }

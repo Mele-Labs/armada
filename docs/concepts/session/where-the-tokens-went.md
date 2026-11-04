@@ -43,7 +43,8 @@ The estimate and the calls still waiting on a result are kept with the file's of
 **A turn is charged for what it carried.** Its cache read is shared among the parts as they stood at the request before it, and its input and cache writes among what was added since.
 A turn more than 5 minutes after the one before it, whose cache write is larger than its cache read, found the cache cold, and its writes are `cold_cache`.
 A compaction empties the estimate, and the next request starts it again from `start_up`.
-A turn's shares are kept on its row in `spent_on`. A turn with none, heard only from the mod or kept before this, has its input shared as the rest of its Job's turns in the window are, or else as the window's.
+A turn's shares are kept on its row in `spent_on`.
+A turn with none, heard only from the mod or kept before this, has its input shared as the rest of its Job's turns in the window are, or else as the window's.
 
 **A compaction's own request is background.** The transcript does not hold it, so Fleet keeps it in `session_background_usage`: the `preTokens` its boundary names, read from the cache on the thread's model, and the summary written after it, as output.
 It counts in the summary as a turn that called nothing, and in both splits as `background`. Titles are written outside the transcript and are not counted.

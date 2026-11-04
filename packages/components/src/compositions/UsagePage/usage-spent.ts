@@ -1,5 +1,6 @@
-// What the tokens were spent on, as the Usage page's Spent on view draws it. These types are the page's own: no wire serves
-// them yet. Units throughout, weighed by model and cache lifetime as the rest of the page is.
+// What the tokens were spent on, as the Usage page's Spent on view draws it. These types are the page's own, and Fleet's
+// `get_usage_spent` carries the same splits under each Job's id. Units throughout, weighed by model and cache lifetime as the
+// rest of the page is.
 
 export const SPENT_ON = [
   "start_up",
@@ -29,7 +30,7 @@ export const SPENT_ON_LABEL: Readonly<Record<SpentOn, string>> = {
 /** What each part means: the tooltip on its name. */
 export const SPENT_ON_MEANS: Readonly<Record<SpentOn, string>> = {
   start_up: "The text a thread opens with, and the same text again after each compaction",
-  reads: "Read results, and grep, sed and cat through Bash, carried on every later turn",
+  reads: "Read results, searches, and grep, sed and cat through Bash, carried on every later turn",
   own_words: "The agent's own text, tool calls and thinking, carried on every later turn",
   output: "Tokens the model wrote",
   cold_cache: "The whole context written again after the cache went cold",
