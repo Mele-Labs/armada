@@ -22,8 +22,8 @@ const MORE_SKILLS: SetupItem[] = [
   {
     name: "pptx",
     says: "Read, write and edit slide decks.",
-    source: `${HOME}/plugins/cache/anthropic-skills/1.0.0/skills/pptx`,
-    plugin: "anthropic-skills",
+    source: `${HOME}/plugins/cache/office-skills/1.0.0/skills/pptx`,
+    plugin: "office-skills",
   },
   {
     name: "release-notes",
@@ -107,7 +107,7 @@ function build(): Scenario {
             {},
             {
               [LEDGER]: [
-                "anthropic-skills:pptx",
+                "office-skills:pptx",
               ],
             },
           ),

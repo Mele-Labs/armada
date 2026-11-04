@@ -47,7 +47,7 @@ const tokenUsageSettings = walk("token-usage-settings", [
   },
   {
     press: role("switch", "Connectors in ledger"),
-    say: "Off for ledger: its Jobs start without your claude.ai connectors",
+    say: "Off for ledger: its Jobs start without your account's connectors",
   },
 ]);
 

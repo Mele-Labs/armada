@@ -8,7 +8,7 @@ const meta: Meta<typeof RepositorySwitches> = {
   component: RepositorySwitches,
   args: {
     title: "Connectors",
-    help: "Off, Jobs in that repository start without the connectors on your claude.ai account.",
+    help: "Off, Jobs in that repository start without the connectors on your account.",
     rows: [
       {
         id: "armada",

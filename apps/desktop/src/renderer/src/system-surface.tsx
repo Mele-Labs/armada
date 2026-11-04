@@ -494,7 +494,7 @@ export function SystemSurface({
           <div className="armada-system__section">
             <RepositorySwitches
               title="Connectors"
-              help="Off, Jobs in that repository start without the connectors on your claude.ai account, such as Notion, Drive and Slack. Servers in the repository's own .mcp.json are kept, and sessions started outside Armada are unaffected. A switch you have not set follows the repository's armada.yml."
+              help="Off, Jobs in that repository start without the connectors on your account, such as Notion, Drive and Slack. Servers in the repository's own .mcp.json are kept, and sessions started outside Armada are unaffected. A switch you have not set follows the repository's armada.yml."
               rows={repositories.map((one) => ({
                 id: one.id,
                 name: one.name,
