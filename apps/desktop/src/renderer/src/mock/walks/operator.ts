@@ -1,4 +1,5 @@
 // The Operator panel, in Helm's place over the whole work, before any Fleet work is built (armada-ehhu.2). Over `operator-full`.
+// It stands on the panes a Job's area uses: tabs and splits he adds, closes, moves and resizes, kept as a Job's layout is.
 //
 // No wire carries any of this yet. Each shape is typed in `operator/model.ts`, and is a proposal for the protocol:
 // - `OperatorLogRow`: id, at, what started it (`OperatorSource`: you, a Job, a bug report and who filed it, Fleet, or Waiting to
@@ -13,7 +14,7 @@
 // - `OperatorTie`: what a merge or keep in touch ruling left on a live Job's row: the other Job, the shared paths, and the plan
 //   group that waits on the other's push.
 // - The switch, a position (on, suggest, off) per role, and the daily ceiling on calls.
-// - The conversation in the Job composer: messages from the person and the Operator. The mock answers from a script (`OperatorTalk`).
+// - The conversation in Talk: messages from the person and the Operator. The mock answers from a script (`OperatorTalk`).
 
 import { button, deckRow, inside, region, role, text, walk } from "../walk";
 import type { Target } from "../walk";
@@ -21,10 +22,24 @@ import type { Target } from "../walk";
 const panel = role("complementary", "Operator", {
   exact: true,
 });
-const log = inside(panel, region("Log"));
-const line = inside(panel, region("Waiting to start"));
-const permissions = inside(panel, region("Permissions"));
-const box = inside(panel, region("Talk to the Operator"));
+const tabOf = (name: string): Target =>
+  inside(
+    panel,
+    role("tab", name, {
+      exact: true,
+    }),
+  );
+const body = (name: string): Target =>
+  inside(
+    panel,
+    role("tabpanel", name, {
+      exact: true,
+    }),
+  );
+const log = body("Log");
+const line = body("Waiting to start");
+const permissions = body("Permissions");
+const talk = body("Talk");
 const jobs = region("Jobs", {
   exact: true,
 });
@@ -37,11 +52,11 @@ const lineRow = (name: string): Target =>
       exact: true,
     }),
   );
-const card = (title: string): Target =>
-  button(`Job ${title}`, {
+const chip = (title: string): Target =>
+  button(`Open ${title}`, {
     exact: true,
   });
-const message = inside(box, role("textbox", "Message to the Operator"));
+const message = inside(talk, role("textbox", "Message to the Operator"));
 
 const BUG = "Bug report from Home Draws Desktop States: Job says Idle, but its agent crashed";
 const POOL = "Map shows Jobs, but not the slots they hold";
@@ -52,10 +67,15 @@ export const operatorFull = walk("operator-full", [
     press: button("Operator", {
       exact: true,
     }),
-    say: "The title row's button, Helm's renamed Operator, opens the panel over the whole work. Each pane wears the Cockpit HUD's frame",
+    say: "The title row's button, Helm's renamed Operator, opens the panel over the whole work, on the panes a Job's area uses",
   },
   {
-    press: inside(panel, button(/^Close/)),
+    look: inside(panel, role("tablist", "Tabs")),
+    say: "Light to begin with: one pane, Talk and the Log as its tabs, nothing else open",
+  },
+  {
+    // The dock's own Close, not a tab's "Close Talk".
+    press: inside(panel, button(/^Close( ?⌘ ?J)?$/)),
     say: "Close shuts it",
   },
   {
@@ -64,27 +84,78 @@ export const operatorFull = walk("operator-full", [
     say: "⌘J opens it from anywhere",
   },
   {
+    context: tabOf("Log"),
+    say: "Each tab has a Job tab's menu",
+  },
+  {
+    press: role("menuitem", "Split down"),
+    say: "Split down opens an empty pane under it",
+  },
+  {
+    press: inside(
+      region("Empty pane"),
+      button("Add tab", {
+        exact: true,
+      }),
+    ),
+    say: "Its + offers the Operator's tabs not open yet, from the place a Job adds one",
+  },
+  {
+    press: role("menuitem", "Waiting to start"),
+    say: "Waiting to start, in the new pane",
+  },
+  {
+    press: inside(
+      region("Pane: Waiting to start"),
+      button("Add tab", {
+        exact: true,
+      }),
+    ),
+    say: "The same + adds Permissions",
+  },
+  {
+    press: role("menuitem", "Permissions"),
+    say: "Permissions joins it as a tab",
+  },
+  {
+    drag: tabOf("Permissions"),
+    onto: inside(region("Pane: Log"), role("tablist", "Tabs")),
+    say: "Dragged onto the first pane's strip, Permissions moves in as a tab beside Talk and the Log. Panes resize from the line between them",
+  },
+  {
+    look: inside(panel, button(/^Layout: Default/)),
+    say: "The layout is kept, as a Job's is. The Layout menu saves it under a name or resets it",
+  },
+  {
+    press: tabOf("Log"),
+    say: "The Log",
+  },
+  {
     look: logRow(BUG),
-    say: "The Log: every ruling, newest first. Each row starts with what started it. This bug report names the Job that filed it, as its card",
+    say: "Every ruling, newest first, one line each: what started it, the item, the ruling, the Job it names, how long ago, and Overrule",
   },
   {
-    look: inside(logRow(BUG), card("Stop Silent Job Deaths")),
-    say: "Existing Job: a live Job's plan group covers it, so the words went there and no Job started. That Job is named as its card",
+    look: inside(logRow(BUG), chip("Home Draws Desktop States")),
+    say: "What started it: a bug report, and the Job that filed it as its chip",
   },
   {
-    look: logRow("You dispatched: Record shows the build, but not each step's time"),
-    say: "Merged: two Jobs on the same work. The new one had pushed nothing, so it ended and its brief, plan and branch went to the other. Both are named",
+    look: inside(logRow(BUG), chip("Stop Silent Job Deaths")),
+    say: "Existing Job: a live Job's plan group covers it, so the words went there and no Job started. That Job, as its chip",
+  },
+  {
+    hover: inside(logRow(BUG), text("Existing Job")),
+    say: "Why, on the ruling",
   },
   {
     look: inside(
       logRow("You dispatched: Record shows the build, but not each step's time"),
-      card("Time each build step"),
+      chip("Time each build step"),
     ),
-    say: "The Job merged in, ended",
+    say: "Merged: two Jobs on the same work. The new one had pushed nothing, so it ended and its brief, plan and branch went to the other. Both are named",
   },
   {
     look: logRow("Store Reports Its Size: Plan recorded: size group"),
-    say: "A recorded plan is ruled group by group. Kept in touch, naming the other Job and the shared path",
+    say: "A recorded plan is ruled group by group. Kept in touch, naming the other Job",
   },
   {
     look: logRow("Fleet: Job says Stopped, but 3 tasks are open"),
@@ -103,20 +174,12 @@ export const operatorFull = walk("operator-full", [
     say: "When it goes wrong. Passed on: no ruling in time, so it went on as today",
   },
   {
-    look: logRow("Waiting to start: Doctor lists new checks, but runs none"),
-    say: "Released: the Job it waited on ended",
-  },
-  {
-    look: logRow("Home Draws Desktop States: Job says Idle, but its agent crashed"),
-    say: "Returned: the Job ended without touching it, and it was ruled again",
-  },
-  {
     look: logRow("Fleet restarted: Setting says pool, but means slots. Rename it?"),
     say: "Resumed: kept across a restart and ruled after it",
   },
   {
     press: inside(log, button("Overrule: Job says Idle, but its agent crashed")),
-    say: "Overrule, on a row, lists the other outcomes: New Job, Merge, Keep in touch, Raise to me",
+    say: "Overrule lists the other outcomes: New Job, Merge, Keep in touch, Raise to me",
   },
   {
     press: role("menuitem", "New Job"),
@@ -131,8 +194,8 @@ export const operatorFull = walk("operator-full", [
     say: "And the Log keeps it as your correction, which the next call reads",
   },
   {
-    press: inside(logRow(BUG), card("Stop Silent Job Deaths")),
-    say: "A Job's card opens it, and the panel steps aside",
+    press: inside(logRow(BUG), chip("Stop Silent Job Deaths")),
+    say: "A Job's chip opens it, and the panel steps aside",
   },
   {
     look: inside(needs, text(/circle-x reads apart from it/)),
@@ -141,15 +204,15 @@ export const operatorFull = walk("operator-full", [
   {
     key: "Meta+j",
     on: jobs,
-    say: "⌘J brings the panel back",
+    say: "⌘J brings the panel back as he left it",
   },
   {
     look: lineRow(TESTS),
-    say: "Waiting to start: what has not started, in the Operator's order",
+    say: "Waiting to start: what has not started, in the Operator's order, one line each",
   },
   {
-    look: inside(lineRow(TESTS), card("Stop Silent Job Deaths")),
-    say: "Each row says what it waits on, and the Job it waits on as its card",
+    look: inside(lineRow(TESTS), chip("Stop Silent Job Deaths")),
+    say: "Each row says what it waits on, and the Job it waits on as its chip",
   },
   {
     look: inside(line, text("Starts when the 5 hour window is under 80%")),
@@ -173,36 +236,36 @@ export const operatorFull = walk("operator-full", [
     say: "Started, and logged",
   },
   {
+    press: tabOf("Permissions"),
+    say: "Permissions",
+  },
+  {
     look: inside(permissions, button("Operator: On")),
-    say: "Permissions: the Operator switch on top. Off sends everything to you as today",
+    say: "The Operator switch on top. Off sends everything to you as today",
   },
   {
     press: inside(permissions, button("Answer: On")),
     say: "Each role a name, what it does, and its position in one column",
   },
   {
-    look: role("menuitem", "Suggest"),
-    say: "On, Suggest or Off",
-  },
-  {
     press: role("menuitem", "Suggest"),
-    say: "Suggest shows what it would do on a raised row, for one press",
+    say: "On, Suggest or Off. Suggest shows what it would do on a raised row, for one press",
   },
   {
     look: inside(permissions, text("Off in billing")),
     say: "A repository that differs says so under its role",
   },
   {
-    look: inside(permissions, text("Raise and the destructive lock are always on")),
-    say: "Raise has no control, and the destructive lock never moves",
-  },
-  {
     look: inside(permissions, role("spinbutton", "Daily ceiling")),
-    say: "The daily ceiling on calls",
+    say: "The daily ceiling, 100 calls",
   },
   {
     look: inside(permissions, role("list", "Standing orders")),
     say: "Standing orders, each in a form Fleet enforces, each removed in one press",
+  },
+  {
+    press: tabOf("Talk"),
+    say: "Talk",
   },
   {
     look: message,
@@ -211,10 +274,10 @@ export const operatorFull = walk("operator-full", [
   {
     type: "Why did you hold the tests Job?\n",
     into: message,
-    say: "A short conversation",
+    say: "The Operator's replies stand over it, as a Job's thread does",
   },
   {
-    look: inside(box, text(/crates\/testkit\/src\/run\.rs/)),
+    look: inside(talk, text(/crates\/testkit\/src\/run\.rs/)),
     say: "Answered from the Log row: which plan, which paths, what it waits on",
   },
   {
@@ -223,12 +286,16 @@ export const operatorFull = walk("operator-full", [
     say: "A follow-up knows what it is about",
   },
   {
+    press: tabOf("Log"),
+    say: "Back to the Log",
+  },
+  {
     look: logRow(`You: ${TESTS}`),
-    say: "It does what Start now does, and logs it as your correction",
+    say: "It did what Start now does, and logged it as your correction",
   },
   {
     key: "Meta+j",
-    on: message,
+    on: tabOf("Log"),
     say: "⌘J shuts the panel",
   },
   {

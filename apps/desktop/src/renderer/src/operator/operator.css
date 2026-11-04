@@ -1,76 +1,31 @@
-/* The Operator panel, in Helm's dock over the whole work. Each pane wears the Cockpit HUD's frame (`ConsoleHud`'s `Frame`, styled in
-   `console-bridge.css`): thin glass, a hairline, proud corners and its name in the head strip. The Log takes the width on the left;
-   Waiting to start and Permissions stand on the right; the Job composer runs under all three. Bold in weight, never in size. */
+/* The Operator panel, in Helm's dock over the whole work: the Layout control's bar over the panes a Job's area uses, which draw
+   their own frames, strips and bodies (`job-panes.css`). What is here is each tab's body: rows of one line where they fit, every
+   control repeated down a list in a column of its own. Bold in weight, never in size. */
 
 .armada-operator {
-  --operator-head: 40px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--w-dock);
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto;
-  gap: var(--space-6);
+  --deck-gutter: var(--gap-panel);
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--space-1);
   height: 100%;
   min-height: 0;
-  padding: var(--space-2);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
 
-.armada-operator > [data-part="log"] {
-  grid-column: 1;
-  grid-row: 1 / 3;
-}
-
-.armada-operator > [data-part="box"] {
-  grid-column: 1 / -1;
-}
-
-/* The pane: the frame is drawn behind, the name in the head strip, and the body scrolls under it. The corners stand out past the edge. */
-.armada-operator__pane {
-  position: relative;
+.armada-operator__bar {
   display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  color: var(--cb-cyan);
-}
-
-.armada-operator__name {
-  display: flex;
-  align-items: center;
   flex: none;
-  height: var(--operator-head);
-  margin: 0;
-  padding-inline: var(--space-4);
-  position: relative;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-heading);
-  color: var(--fg-default);
-}
-
-.armada-operator__acts {
-  position: absolute;
-  top: 0;
-  right: var(--space-3);
-  display: flex;
   align-items: center;
-  height: var(--operator-head);
-  color: var(--fg-default);
+  justify-content: end;
+  gap: var(--space-3);
 }
 
-.armada-operator__body {
-  position: relative;
-  flex: 1;
+.armada-operator__scroll {
+  flex: 1 1 0;
   min-height: 0;
-  overflow-y: auto;
-  color: var(--fg-default);
-}
-
-.armada-operator > [data-part="box"] .armada-operator__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3) var(--space-3);
-  overflow: visible;
+  padding: 0;
 }
 
 .armada-operator__line,
@@ -84,7 +39,8 @@
 }
 
 .armada-operator__title {
-  font-weight: var(--weight-heading);
+  min-width: 0;
+  font-weight: var(--weight-medium);
   color: var(--fg-default);
 }
 
@@ -95,23 +51,26 @@
   min-width: 0;
 }
 
-/* Each list a grid whose rows are subgrids, so every control stands in one column down the list, kept where a row has none. */
-.armada-operator__line {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content;
-}
-
+/* Each list a grid whose rows are subgrids, so every column, a control's above all, lines up down the list. */
 .armada-operator__line-row,
 .armada-operator__log-row,
 .armada-operator__permission {
   display: grid;
   grid-column: 1 / -1;
   grid-template-columns: subgrid;
-  align-items: start;
+  align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
+  min-height: var(--h-row-unit);
+  padding: var(--space-1) var(--space-3);
   border-bottom: var(--border-width) solid var(--border-subtle);
-  border-left: var(--edge-active) solid transparent;
+}
+
+/* What it is, what it waits on, the Job it waits on, Start now. */
+.armada-operator__line {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr) minmax(0, max-content) minmax(0, calc(var(--space-12) * 3))
+    max-content;
 }
 
 .armada-operator__line-row {
@@ -125,9 +84,8 @@
 }
 
 .armada-operator__line-row:focus-visible {
-  outline: none;
-  background: var(--bg-hover);
-  border-left-color: var(--accent);
+  outline: var(--border-width) solid var(--accent);
+  outline-offset: calc(var(--border-width) * -1);
 }
 
 .armada-operator__wait,
@@ -140,29 +98,29 @@
   color: var(--fg-muted);
 }
 
-/* What started it, the item and why, the ruling, the Jobs it names, age, Start now, Overrule. */
+/* What started it, the item, the ruling, the Jobs it names, age, Start now, Overrule. */
 .armada-operator__log {
   display: grid;
   grid-template-columns:
-    calc(var(--space-12) * 4) minmax(0, 1fr) max-content calc(var(--space-12) * 4)
-    max-content max-content max-content;
+    minmax(0, calc(var(--space-12) * 3)) minmax(0, 1fr) max-content
+    minmax(0, calc(var(--space-12) * 3)) max-content max-content max-content;
 }
 
 .armada-operator__source,
 .armada-operator__named {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: var(--space-1);
   min-width: 0;
+  overflow: hidden;
 }
 
 .armada-operator__from {
-  font-weight: var(--weight-medium);
+  flex: none;
   color: var(--fg-muted);
+  white-space: nowrap;
 }
 
-.armada-operator__item,
-.armada-operator__why,
 .armada-operator__does {
   color: var(--fg-muted);
 }
@@ -173,10 +131,7 @@
   font-size: var(--text-2xs);
   line-height: var(--leading-xs);
   font-variant-numeric: tabular-nums;
-}
-
-.armada-operator__did {
-  font-weight: var(--weight-medium);
+  white-space: nowrap;
 }
 
 .armada-operator__age {
@@ -219,12 +174,8 @@
   grid-template-columns: minmax(0, 1fr) max-content;
 }
 
-.armada-operator__permission {
-  align-items: center;
-}
-
 .armada-operator__permission[data-master] {
-  background: color-mix(in srgb, var(--bg-hover) 40%, transparent);
+  background: var(--bg-sunken);
 }
 
 .armada-operator__does {
@@ -245,7 +196,7 @@
 
 .armada-operator__lock {
   margin: 0;
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-3);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   color: var(--fg-subtle);
@@ -253,8 +204,8 @@
 
 .armada-operator__subhead {
   margin: 0;
-  padding: var(--space-3) var(--space-4) var(--space-1);
-  border-top: calc(var(--border-width) * 3) solid var(--border-strong);
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  border-top: var(--border-width) solid var(--border-default);
   font-size: var(--text-xs);
   font-weight: var(--weight-heading);
   color: var(--fg-default);
@@ -266,12 +217,33 @@
   color: var(--fg-muted);
 }
 
+/* Talk: the conversation takes what the box leaves, and scrolls; the box stands at the foot, as a Job's thread over its composer. */
+.armada-operator__talk-pane {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+.armada-operator__conversation {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.armada-operator__clear {
+  align-self: end;
+}
+
 .armada-operator__talk {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  max-height: calc(var(--space-12) * 3);
-  overflow-y: auto;
 }
 
 .armada-operator__said {

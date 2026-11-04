@@ -10,6 +10,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
+import { operatorPanes } from "../../job-panes/store";
 import { outcomesBut } from "../../operator/model";
 import type { OperatorSeed } from "../../operator/model";
 
@@ -272,7 +273,7 @@ const seed: OperatorSeed = {
     answer: "on",
     file: "on",
   },
-  ceiling: 300,
+  ceiling: 100,
   log: [
     {
       id: "log-bug",
@@ -604,8 +605,10 @@ function scenario(name: string, says: string): Scenario {
     },
     draft: {
       operator: seed,
-      sessions: () =>
-        sessionsStore(
+      sessions: () => {
+        // Each mount opens on the Operator's default layout, Talk and the Log, with nothing kept from a walk before.
+        if (typeof window !== "undefined") operatorPanes.forget();
+        return sessionsStore(
           [
             deaths,
             filters,
@@ -622,12 +625,13 @@ function scenario(name: string, says: string): Scenario {
           [],
           new Map(),
           [],
-        ),
+        );
+      },
     },
   };
 }
 
 export const operatorFull = scenario(
   "operator-full",
-  "The Operator panel over the whole work in the HUD's frames: the Log, Waiting to start, Permissions and the Job composer, over ten live Jobs and one merged in",
+  "The Operator panel over the whole work, on a Job's panes: Talk and the Log as tabs, with Waiting to start and Permissions a press away, over ten live Jobs and one merged in",
 );

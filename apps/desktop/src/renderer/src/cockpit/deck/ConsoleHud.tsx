@@ -48,8 +48,8 @@ const MINUTES = 60;
 /** On the pixel grid, where a one pixel line is sharp. */
 const on = (at: number) => Math.round(at) + 0.5;
 
-/** The frame every HUD wears: thin glass, a hairline and proud corners. `head` is the strip the name stands in. The Operator's panes wear it too. */
-export function Frame({
+/** The frame every HUD wears: thin glass, a hairline and proud corners. `head` is the strip the name stands in. */
+function Frame({
   w,
   h,
   head,

@@ -10,6 +10,7 @@ import { forgetKept, readKept, writeKept } from "@armada/components";
 
 import {
   JOB_TAB_KINDS,
+  OPERATOR_TAB_KINDS,
   PR_TAB_KINDS,
   activate,
   addTab,
@@ -78,6 +79,16 @@ const prArrangement = (): Arrangement =>
       ],
     },
   });
+
+/** The Operator's: Talk and Log as tabs of one pane, Talk in front. Waiting to start and Permissions are added from the + as a Job adds a tab. */
+const operatorArrangement = (): Arrangement =>
+  build(
+    [
+      "op-talk",
+      "op-log",
+    ],
+    "op-talk",
+  );
 
 type Entry = {
   arrangement: Arrangement;
@@ -261,7 +272,7 @@ export type JobPanes = {
 
 type FamilySpec = {
   /** Which family, as the Layout control names it. */
-  name: "job" | "pr";
+  name: "job" | "pr" | "operator";
   /** The key its layouts are kept under, and the prefix of each owner's own. */
   shared: string;
   owner: string;
@@ -812,6 +823,16 @@ export const prPanes: PaneFamily = createPaneFamily({
   forAllLabel: "New pull requests open on",
 });
 
+/** The Operator's panes in Helm's dock, one owner, kept apart from the Jobs' and the pull requests'. */
+export const operatorPanes: PaneFamily = createPaneFamily({
+  name: "operator",
+  shared: "operator-panes:shared",
+  owner: "operator-panes:",
+  kinds: OPERATOR_TAB_KINDS,
+  arrangement: operatorArrangement,
+  forAllLabel: "The Operator opens on",
+});
+
 /** The family the panes drawn here belong to: a Job's, unless a pull request's area says otherwise. */
 export const PaneFamilyContext = createContext<PaneFamily>(jobPanes);
 export const usePaneFamily = (): PaneFamily => useContext(PaneFamilyContext);
@@ -821,6 +842,7 @@ export function forgetPanes(): void {
   forgetKept(DEFERRED_GIVEN);
   jobPanes.forget();
   prPanes.forget();
+  operatorPanes.forget();
 }
 
 export const {
