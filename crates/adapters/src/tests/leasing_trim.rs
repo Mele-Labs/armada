@@ -1,6 +1,6 @@
 //! A release trims stale build output and leaves a slot warm: what the
 //! pool keeps is what a recent build wrote, and a `target/` past its ceiling
-//! goes whole.
+//! loses its incremental caches, and goes whole only if that is not enough.
 
 use std::path::Path;
 use std::time::{Duration, SystemTime};
@@ -94,6 +94,44 @@ fn a_release_removes_a_target_that_is_still_over_the_ceiling() {
     pool.release(&slot).expect("a clean slot is released");
 
     assert!(!slot.join("target").exists());
+}
+
+#[test]
+fn a_target_over_the_ceiling_loses_its_incremental_caches_and_keeps_its_builds() {
+    use crate::leasing::{trim_target, Trimmed};
+
+    let repo = a_repository();
+    let target = repo.root().join("target");
+    let build = target.join("debug/deps/libtokio-1.rlib");
+    built(&build, 500_000, 1);
+    built(&target.join("debug/incremental/fleet-1/s-1/dep-graph.bin"), 2_000_000, 1);
+    built(
+        &target.join("aarch64-apple-darwin/debug/incremental/fleet-2/s-1/dep-graph.bin"),
+        2_000_000,
+        1,
+    );
+
+    let done = trim_target(&target, trim(), SystemTime::now());
+
+    assert_eq!(done, Trimmed::Swept, "a cold rebuild is the last resort");
+    assert!(build.exists());
+    assert!(!target.join("debug/incremental").exists());
+    assert!(!target.join("aarch64-apple-darwin/debug/incremental").exists());
+}
+
+#[test]
+fn a_target_still_over_the_ceiling_without_its_incremental_caches_goes_whole() {
+    use crate::leasing::{trim_target, Trimmed};
+
+    let repo = a_repository();
+    let target = repo.root().join("target");
+    built(&target.join("debug/deps/libtokio-1.rlib"), 2_000_000, 1);
+    built(&target.join("debug/incremental/fleet-1/s-1/dep-graph.bin"), 500_000, 1);
+
+    let done = trim_target(&target, trim(), SystemTime::now());
+
+    assert_eq!(done, Trimmed::Removed);
+    assert!(!target.exists());
 }
 
 #[test]
