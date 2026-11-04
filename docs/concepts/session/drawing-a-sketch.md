@@ -50,7 +50,7 @@ Fleet raises it in his Needs you as `sketch:<title>` until he answers it ([Waiti
 The sketch keeps how it ended in `detail.settled`, `detail.settled_at` and `detail.words`, and drawing the title again asks again.
 Only the drawing he read is answered: one drawn again since is refused.
 Only the newest sketch waits on him: drawing one takes back any other of the job's still waiting, as his Withdraw does, so a sketch drawn again under a new title leaves the old one withdrawn.
-Fleet also lists only the newest open sketch in his Needs you, so one left open by an earlier Fleet does not wait with nothing to press.
+Fleet lists only the newest sketch drawn in his Needs you, and Bridge pins only that one, while he has not answered it: one an earlier Fleet left open behind it never waits again, even once he answers the newer one.
 A plan's sketch is not asked, because it is approved with the plan.
 
 **Each drawing of a title is kept as a revision**, as a [document](../document.md)'s pages are, so a redraw loses nothing.

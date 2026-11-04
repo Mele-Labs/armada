@@ -123,6 +123,19 @@ fn two_different_commands_both_stay() {
     assert_eq!(ids(&folded(items, hand, FOLDS_AT)), ["restart", "replied:1:0"]);
 }
 
+#[test]
+fn two_items_that_both_open_the_same_job_are_two_asks() {
+    let opening = |id: &str, text: &str, since: &str| WaitingItem {
+        act: Some(WaitingAct { kind: WaitingActKind::Message, target: "job-1".to_string() }),
+        ..item(id, text, since, WaitingSource::Document, false)
+    };
+    let items = vec![
+        opening("document:docs/design.html", "Design for the store", EARLY),
+        opening("document:docs/findings.html", "Findings on the reader", LATE),
+    ];
+    assert_eq!(ids(&folded(items, |_| None, FOLDS_AT)), ["document:docs/design.html", "document:docs/findings.html"]);
+}
+
 /// Puts a text that names the plan on one axis and every other on the other, so the cosine between
 /// two plan texts is 1 and to anything else 0.
 struct Fake;
