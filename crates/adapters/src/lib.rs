@@ -180,7 +180,7 @@ pub use ci_workflows::ActionsWorkflows;
 pub use concurrently::concurrently;
 pub use conversing::{
     door_tools, path_written, wrote_the_checkout, ConversationRefused, Conversing,
-    CHANGES_THE_CHECKOUT,
+    CHANGES_THE_CHECKOUT, COMPACT_COMMAND,
 };
 pub use error::{CommitWorkError, CreateWorktreeError, ReadWorkProductError};
 pub use existing_setup::{has_own_skill, ExistingSetup, Home};

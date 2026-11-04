@@ -236,7 +236,7 @@ where
         self.fleet_word(session, text, true, None).await
     }
 
-    /// `/compact` to a Job waiting on the owner, as Claude Code's own command. News that asks nothing,
+    /// `/compact` to a Job waiting on the owner, as the harness's own command. News that asks nothing,
     /// kept from no mute or rule since the switch is the owner's. `Ok(false)` for a paused or ended Job.
     pub(crate) async fn told_to_compact(self: &Arc<Self>, session: &str) -> Result<bool, Refusal> {
         self.fleet_word(session, super::super::compacting::COMPACT, true, None).await

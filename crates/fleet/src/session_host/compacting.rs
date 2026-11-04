@@ -11,8 +11,8 @@ use ipc::SessionTurn;
 
 use crate::daemon::Fleet;
 
-/// What the Job is sent. Claude Code reads it as its own command, not as words for the agent.
-pub(crate) const COMPACT: &str = "/compact";
+/// What the Job is sent. The harness reads it as its own command, not as words for the agent.
+pub(crate) const COMPACT: &str = adapters::COMPACT_COMMAND;
 /// Most of the cache's hour: a sweep at most 30 seconds apart and a resume still land inside it.
 pub(crate) const COMPACT_AFTER: Duration = Duration::from_secs(50 * 60);
 /// The context under which a cold start costs too little to be worth a compaction.
