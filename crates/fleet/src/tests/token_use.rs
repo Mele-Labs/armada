@@ -71,3 +71,20 @@ fn the_turn_summary_ask_honours_each_switch_alone() {
     let both = summary_asked(ask(), true, true);
     assert!(both.is_kept_briefly() && both.is_unthinking());
 }
+
+#[test]
+fn the_manifest_summary_carries_what_armada_yml_says_of_connectors_for_bridge_to_draw() {
+    let said = |connectors: &str| {
+        let manifest = config::Manifest::parse(
+            std::path::Path::new("/work/widgets/armada.yml"),
+            &format!("version: 1\nid: 01FIXTUREMANIFEST\n{connectors}checks:\n  test:\n    run: make test\n"),
+        )
+        .expect("parses");
+        crate::wire::manifest_summary(&manifest, "/records")
+    };
+    assert!(said("connectors: false\n").connectors_off);
+    assert!(!said("connectors: true\n").connectors_off);
+    let silent = said("");
+    assert!(!silent.connectors_off);
+    assert!(!ipc::encode(&silent).expect("encodes").contains("connectors_off"), "absent rather than false");
+}
