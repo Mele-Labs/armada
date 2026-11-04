@@ -12,6 +12,7 @@ fn turn(id: &str, hour: u32, minute: u32, subagent: bool) -> KeptTurnUsage {
         model: "model-a".into(),
         input_tokens: 1,
         cache_creation_tokens: 1,
+        cache_creation_1h_tokens: 0,
         cache_read_tokens: 1,
         output_tokens: 1,
         tools: Vec::new(),

@@ -46,6 +46,7 @@ mod session_slot_waits;
 mod time_summary;
 mod session_turn_usage;
 mod usage_summary;
+mod usage_spent;
 mod usage_rule_trips;
 /// A job's word that a Fleet notice was wrong, and the notices its replies are read against.
 mod fleet_disputes;
@@ -198,7 +199,8 @@ pub use fleet_builds::{KeptFleetBuild, KeptBuildSplit, KeptPullRequestWait, NewB
 pub use job_times::{KeptCheckSpan, KeptJobTime, KeptTurnTimed};
 pub use session_slot_waits::KeptSlotWait;
 pub use time_summary::{BuildFigures, HourFigures, HoursRead, Medians, SlowJob, SplitMs, TimeRead, Usual, DEFAULT_HOURS, DEFAULT_SLOWEST, OWNER_ASKING_TOOLS};
-pub use session_turn_usage::{KeptOpenCall, KeptReading, KeptToolResult, KeptTurnTimes, KeptTurnUsage};
+pub use session_turn_usage::{KeptBackground, KeptOpenCall, KeptReading, KeptToolResult, KeptTurnSpent, KeptTurnTimes, KeptTurnUsage};
+pub use usage_spent::{SpentSplit, SpentWindowRead, UsageSpentRead, SPENT_BY, SPENT_ON, SPENT_WINDOWS};
 pub use usage_summary::{turn_units, DayUsage, Named, PriorUsage, UsageSplit, UsageSummaryRead, TOP_SESSIONS, UNIT_SCALE};
 pub use usage_rule_trips::KeptTrip;
 pub use fleet_disputes::{KeptDispute, KeptNotice};

@@ -39,6 +39,8 @@ import { UsageRules } from "./UsageRules";
 import { Band, Bar, Fig, Scope } from "./usage-parts";
 import type { UsageTime } from "./usage-time";
 import { TimeView } from "./TimeView";
+import { SpentView } from "./SpentView";
+import type { UsageSpent } from "./usage-spent";
 import { BuildsPanel } from "./UsageBuilds";
 import { HourChart, HourRows, PendingHours } from "./HourChart";
 import type { HourPlot } from "./HourChart";
@@ -57,7 +59,7 @@ import type { UsageHours } from "./usage-hours";
  * hour on the burn chart, which the map's cell follows, and `[ ]` step the 3 hour block on the map (the first of these lands
  * on the busiest cell). `1` to `9` pick the
  * usage rule at that place, and `Esc` clears it before the Job pick. Where Time is offered, `v` switches the page between
- * tokens and time, and the Time view keeps its own keys. Where builds are offered, `c` moves focus to the Builds list, whose
+ * tokens and time, and the Time view keeps its own keys. Where Spent on is offered too, `v` steps through the three. Where builds are offered, `c` moves focus to the Builds list, whose
  * keys are its own while it holds focus (`↑↓ j k` move, `↵ o` pick), and `Esc` clears the build pick after the Job pick. A picked
  * build narrows the Jobs, the day and hour map and the tiles on this view, and the Jobs and the split on Time; on both views
  * its span is shaded on the hour chart, and its marker picks it.
@@ -78,14 +80,24 @@ export type UsagePageProps = {
   builds?: UsageBuilds | "pending" | undefined;
   /** The last 48 hours, an hour a point. Absent draws no hour chart; `pending` draws its shape. */
   hours?: UsageHours | "pending" | undefined;
+  /** What the tokens were spent on, by window. Absent offers no Spent on view. */
+  spent?: UsageSpent | undefined;
   /** Told the id of the build picked, and again with nothing when it is cleared: a build's tokens are read when it is picked. */
   onBuild?: ((id: string | undefined) => void) | undefined;
 };
 
-const VIEWS = [
+type View = "tokens" | "spent" | "time";
+const VIEWS: {
+  id: View;
+  label: string;
+}[] = [
   {
     id: "tokens",
     label: "Tokens",
+  },
+  {
+    id: "spent",
+    label: "Spent on",
   },
   {
     id: "time",
@@ -701,9 +713,16 @@ export function UsagePage({
   time,
   builds,
   hours,
+  spent,
   onBuild,
 }: UsagePageProps) {
-  const [view, setView] = useState<"tokens" | "time">("tokens");
+  const [view, setView] = useState<View>("tokens");
+  const offered = VIEWS.filter(
+    (one) =>
+      one.id === "tokens" ||
+      (one.id === "time" && time !== undefined) ||
+      (one.id === "spent" && spent !== undefined),
+  );
   const [cursor, setCursor] = useState(-1);
   const [rulePick, setRulePick] = useState(-1);
   const [pick, setPick] = useState(-1);
@@ -793,7 +812,7 @@ export function UsagePage({
     count: rows.length,
     rulePick,
     ruleCount,
-    timed: time !== undefined,
+    offered: offered.map((one) => one.id),
     build,
     listed: builds !== undefined,
     hour,
@@ -807,7 +826,7 @@ export function UsagePage({
     count: rows.length,
     rulePick,
     ruleCount,
-    timed: time !== undefined,
+    offered: offered.map((one) => one.id),
     build,
     listed: builds !== undefined,
     hour,
@@ -830,8 +849,9 @@ export function UsagePage({
           ].includes(target.tagName))
       )
         return;
-      if (event.key === "v" && latest.current.timed) {
-        setView((now) => (now === "tokens" ? "time" : "tokens"));
+      const among = latest.current.offered;
+      if (event.key === "v" && among.length > 1) {
+        setView((now) => among[(among.indexOf(now) + 1) % among.length]!);
         return event.preventDefault();
       }
       if (event.key === "c" && latest.current.listed) {
@@ -839,7 +859,7 @@ export function UsagePage({
         return event.preventDefault();
       }
       if (inBuilds(target) && LIST_KEYS.includes(event.key)) return;
-      if (viewed.current === "time") return;
+      if (viewed.current !== "tokens") return;
       const last = latest.current.count - 1;
       const onControl =
         target instanceof HTMLElement && target.closest("button, [role=tab]") !== null;
@@ -957,9 +977,9 @@ export function UsagePage({
     pending ||
     (pickedBuild !== undefined && picked === undefined && pickedBuild.usage === undefined);
   const switcher =
-    time === undefined ? null : (
+    offered.length < 2 ? null : (
       <div className="armada-usage__views">
-        <Tabs items={VIEWS} value={view} onChange={(id) => setView(id as typeof view)} />
+        <Tabs items={offered} value={view} onChange={(id) => setView(id as View)} />
         <Kbd>v</Kbd>
       </div>
     );
@@ -974,6 +994,13 @@ export function UsagePage({
           build={pickedBuild}
           onBuild={setBuild}
         />
+      </div>
+    );
+  if (view === "spent" && spent !== undefined)
+    return (
+      <div className="armada-usage armada-page">
+        {switcher}
+        <SpentView spent={spent} />
       </div>
     );
 

@@ -415,6 +415,7 @@
 @import "./meaning.css";
 @import "./compositions/UsagePage/UsagePage.css";
 @import "./compositions/UsagePage/TimeView.css";
+@import "./compositions/UsagePage/SpentView.css";
 @import "./compositions/UsagePage/HourChart.css";
 @import "./compositions/UsagePage/UsageBuilds.css";
 @import "./compositions/SessionThread/DisputedRow.css";
