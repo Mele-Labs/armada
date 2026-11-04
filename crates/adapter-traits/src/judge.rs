@@ -42,6 +42,7 @@ pub struct Ask {
     environment: Environment,
     reading: Option<Reading>,
     briefly: bool,
+    unthinking: bool,
 }
 
 /// A repository's checkout a Judge may read, and for how many turns.
@@ -103,6 +104,7 @@ impl Ask {
             environment,
             reading: None,
             briefly: false,
+            unthinking: false,
         })
     }
 
@@ -119,6 +121,21 @@ impl Ask {
     /// Whether this call's prompt is kept only briefly. See [`Ask::kept_briefly`].
     pub fn is_kept_briefly(&self) -> bool {
         self.briefly
+    }
+
+    /// The same ask, for a call whose answer is a few short lines: a client does not think before
+    /// it replies. **Off unless a caller says so**, since a call that weighs something wants the
+    /// thinking, and one that only restates gains nothing from it.
+    pub fn unthinking(self) -> Ask {
+        Ask {
+            unthinking: true,
+            ..self
+        }
+    }
+
+    /// Whether this call is asked not to think. See [`Ask::unthinking`].
+    pub fn is_unthinking(&self) -> bool {
+        self.unthinking
     }
 
     /// The same ask, able to read `reading`'s checkout.

@@ -338,3 +338,46 @@ fn an_ask_kept_briefly_changes_the_environment_by_one_variable() {
         vec!["PATH", "ARMADA_DRONE", "CLAUDE_CODE_PROMPT_CACHE_TTL"]
     );
 }
+
+/// An unthinking ask sets both variables that turn thinking off on both renders, and every other
+/// ask carries neither: thinking stays on for every call that did not say so.
+#[test]
+fn an_unthinking_ask_turns_thinking_off_and_no_other_ask_does() {
+    let agent = HeadlessAgent::on_path();
+    let held = |call: &adapter_traits::JudgeCall, wanted: &str| {
+        call.environment()
+            .vars()
+            .iter()
+            .find(|(name, _)| name == wanted)
+            .map(|(_, value)| value.clone())
+    };
+    for call in [
+        agent.render(&ask().unthinking()),
+        agent.render_watched(&ask().unthinking()),
+        agent.render(&reading().unthinking()),
+    ] {
+        assert_eq!(held(&call, "MAX_THINKING_TOKENS").as_deref(), Some("0"));
+        assert_eq!(held(&call, "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING").as_deref(), Some("1"));
+    }
+    for call in [agent.render(&ask()), agent.render_watched(&ask()), agent.render(&reading())] {
+        assert_eq!(held(&call, "MAX_THINKING_TOKENS"), None);
+        assert_eq!(held(&call, "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING"), None);
+    }
+}
+
+/// An ask both kept briefly and unthinking adds exactly the cache variable and the two thinking
+/// ones to the caller's environment.
+#[test]
+fn an_ask_kept_briefly_and_unthinking_changes_the_environment_by_three_variables() {
+    let call = HeadlessAgent::on_path().render(&ask().kept_briefly().unthinking());
+    assert_eq!(
+        call.environment().names(),
+        vec![
+            "PATH",
+            "ARMADA_DRONE",
+            "CLAUDE_CODE_PROMPT_CACHE_TTL",
+            "MAX_THINKING_TOKENS",
+            "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING"
+        ]
+    );
+}

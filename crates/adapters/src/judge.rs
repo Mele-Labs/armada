@@ -166,10 +166,25 @@ impl HeadlessAgent {
 /// bucket to the five-minute one, which is billed at 1.25 times the input price and not 2.
 const PROMPT_CACHE_TTL: (&str, &str) = ("CLAUDE_CODE_PROMPT_CACHE_TTL", "5m");
 
-/// The call as rendered, with the cache lifetime an ask for a brief one gets.
+/// The two variables that turn the CLI's thinking off, set together: either alone leaves some of
+/// it on. Measured on 60 real turn summaries: quality unchanged, every reply still parsed, and
+/// mean output fell from 210 to 148 tokens. One call in 30 still thought with both set.
+const NO_THINKING: [(&str, &str); 2] = [
+    ("MAX_THINKING_TOKENS", "0"),
+    ("CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING", "1"),
+];
+
+/// The call as rendered, with the cache lifetime an ask for a brief one gets and the thinking an
+/// ask for none loses.
 fn shaped(ask: &Ask, call: JudgeCall) -> JudgeCall {
-    match ask.is_kept_briefly() {
+    let call = match ask.is_kept_briefly() {
         true => call.with_variable(PROMPT_CACHE_TTL.0, PROMPT_CACHE_TTL.1),
+        false => call,
+    };
+    match ask.is_unthinking() {
+        true => NO_THINKING
+            .iter()
+            .fold(call, |call, (name, value)| call.with_variable(name, value)),
         false => call,
     }
 }
