@@ -119,6 +119,8 @@ where
             fleet.in_touch_told().await;
             // The Operator's call kept started, or stopped, as its switch now reads.
             fleet.operator_kept_in_step().await;
+            // A Job gone quiet with work left, handed to the Operator once.
+            fleet.stalls_handed().await;
             // Who wrote the same file as whom, once the wait after a write is over.
             fleet.clashes_checked().await;
             // What main's moves made stale in the test map, read again where that costs nothing.

@@ -81,6 +81,21 @@ where
         let (one, other, shared) = (one.to_string(), other.to_string(), shared.to_vec());
         self.doing(move |fleet| async move { fleet.operator_kept_in_touch(&one, &other, &shared).await });
     }
+
+    fn nudge(&self, session: &str, step: &str) {
+        let (session, step) = (session.to_string(), step.to_string());
+        self.doing(move |fleet| async move { fleet.operator_nudged(&session, &step).await });
+    }
+
+    fn start_rest(&self, session: &str, seen: &str) {
+        let (session, seen) = (session.to_string(), seen.to_string());
+        self.doing(move |fleet| async move { fleet.operator_started_rest(&session, &seen).await });
+    }
+
+    fn raise(&self, session: &str, read: &str) {
+        let (session, read) = (session.to_string(), read.to_string());
+        self.doing(move |fleet| async move { fleet.operator_raised(&session, &read).await });
+    }
 }
 
 /// How much of the work a Job has done, which of two to end is read by: a push first, then files.

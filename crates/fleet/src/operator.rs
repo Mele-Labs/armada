@@ -23,6 +23,7 @@ mod desk;
 mod handing;
 mod ruling;
 mod seat;
+mod stalling;
 mod stalls;
 
 use std::collections::BTreeMap;
@@ -41,6 +42,7 @@ pub use acting::FleetActing;
 pub use desk::FleetDesk;
 pub(crate) use seat::{Moved, Seat};
 pub use ruling::{Outcome, PassedOn, Ruled, Ruling, Way};
+pub(crate) use stalling::{seen_of, Stalls};
 pub use stalls::{Quiet, Stall};
 
 /// How long a Job's first write waits for the ruling on its start.
