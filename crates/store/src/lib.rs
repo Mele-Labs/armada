@@ -98,6 +98,8 @@ mod session_waiting;
 /// A repository's Autopilot and what it picked. #2092.
 mod autopilot;
 mod autopilot_decisions;
+/// The Operator's Log of rulings. `armada-ehhu`.
+mod operator_rulings;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
 mod kit;
 /// The 113 migrations the numbered list held, frozen.
@@ -234,6 +236,7 @@ pub use test_map::{StaleTest, TestsReaching};
 pub use model_downshift::KeptDownshift;
 pub use autopilot::{KeptAutopilot, KeptPick};
 pub use autopilot_decisions::KeptDecision;
+pub use operator_rulings::KeptRuling;
 pub use limits::SavedLimits;
 pub use main_ci::{MainCi, MainFailedJob, MainMerge, MainState};
 pub use main_fix::{MainFix, TakenBy, TakenHow};
