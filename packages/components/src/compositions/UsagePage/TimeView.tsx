@@ -6,7 +6,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { BuildsPanel } from "./UsageBuilds";
 import { HourChart, HourRows, PendingHours } from "./HourChart";
 import type { HourPlot } from "./HourChart";
-import { FIGURE_NAME, LIST_KEYS, TIME_FIGURES, inBuilds, lapse } from "./usage-builds";
+import { FIGURE_NAME, LIST_KEYS, TIME_FIGURES, commitOf, inBuilds, lapse } from "./usage-builds";
 import type { Build, UsageBuilds } from "./usage-builds";
 import { SHOWN, latestHour } from "./usage-hours";
 import type { UsageHours } from "./usage-hours";
@@ -488,7 +488,7 @@ export function TimeView({ time, builds, hours, build, onBuild }: TimeViewProps)
             </>
           ) : (
             <>
-              <Scope title={build === undefined ? "All Jobs" : `Build ${build.id}`} />
+              <Scope title={build === undefined ? "All Jobs" : `Build ${commitOf(build)}`} />
               <SplitRows split={build === undefined ? ready.total : build.split} />
             </>
           )}

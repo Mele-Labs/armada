@@ -1,5 +1,5 @@
-// Where a Job's time went, as the Usage page's Time view and a Job's own split draw it. Mock only: no wire carries it yet,
-// so these types are the page's own and the data is handed in. Seconds throughout; every second of a Job lands in one bucket.
+// Where a Job's time went, as the Usage page's Time view and a Job's own split draw it. These types are the
+// page's own: the window turns Fleet's reading into them (`usage-time-wire.ts`). Seconds throughout; every second of a Job lands in one bucket.
 
 export const BUCKETS = [
   "model",

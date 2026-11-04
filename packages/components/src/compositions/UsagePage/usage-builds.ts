@@ -1,5 +1,5 @@
-// The builds of Bridge the Usage page reads its figures against, as the Builds panel and both views' narrowing draw them. Mock
-// only: no wire carries it yet, so these types are the page's own and the data is handed in.
+// The builds of Bridge the Usage page reads its figures against, as the Builds panel and both views' narrowing draw them. These
+// types are the page's own: the window turns Fleet's builds into them (`usage-time-wire.ts`).
 
 import type { UsageBreakdown } from "@armada/protocol";
 
@@ -9,7 +9,10 @@ import { percentDelta } from "./usage-view";
 
 /** One build, with what the page narrows to when it is picked. */
 export type Build = {
-  /** The build's own short commit: a main build's is its main commit's first seven characters. */
+  /**
+   * Tells the build from every other: its own short commit, then where it began, since a commit run again later is a second
+   * build. Read the commit off it with `commitOf`.
+   */
   id: string;
   /** The main commit the build stands on. */
   commit: string;
@@ -19,23 +22,26 @@ export type Build = {
   branches: readonly string[];
   /** Turns taken while the build ran. */
   turns: number;
-  /** Cost units per turn. */
-  burn: number;
-  /** Seconds: the median wait on the model per turn, a tool call in the main thread, a Check run, and a pull request's wait. */
-  model: number;
-  tools: number;
-  checks: number;
-  pull_request: number;
+  /** Cost units per turn. Absent where the build took no turn. */
+  burn?: number;
+  /** Seconds: the median wait on the model per turn, a tool call in the main thread, a Check run, and a pull request's wait. Each absent where the build produced none. */
+  model?: number;
+  tools?: number;
+  checks?: number;
+  pull_request?: number;
   /** The Jobs that ran on it, by id. */
   jobs: readonly string[];
-  /** What the Tokens view shows when the build is picked. */
-  usage: UsageBreakdown;
+  /** What the Tokens view shows when the build is picked. Absent until it has been read. */
+  usage?: UsageBreakdown;
   /** What the Time view shows: the split of the build's Jobs together. */
   split: TimeSplit;
 };
 
 /** Newest first. */
 export type UsageBuilds = readonly Build[];
+
+/** A build's commit as the page draws it: the first seven characters of its id. */
+export const commitOf = (build: Build): string => build.id.slice(0, 7);
 
 /** A build under this many turns has too few to read against the one before. */
 export const TOO_FEW = 30;
@@ -103,20 +109,27 @@ export const buildTip = (build: Build): string =>
 /** Burn per turn in thousands of units. */
 export const thousands = (units: number): string => `${Math.round(units / 1000)}k`;
 
-export const valueOf = (build: Build, figure: Figure): number =>
+/** Absent where the build produced none of the figure. */
+export const valueOf = (build: Build, figure: Figure): number | undefined =>
   figure === "burn" ? build.burn : build[figure];
 
-export const shown = (build: Build, figure: Figure): string =>
-  figure === "burn" ? thousands(build.burn) : lapse(build[figure]);
+export const shown = (build: Build, figure: Figure): string => {
+  const value = valueOf(build, figure);
+  if (value === undefined) return "–";
+  return figure === "burn" ? thousands(value) : lapse(value);
+};
 
-/** The change in a figure against the build before it. Absent where either has too few turns to compare. */
+/** The change in a figure against the build before it. Absent where either has too few turns to compare, or lacks the figure. */
 export function changeOf(
   build: Build,
   before: Build | undefined,
   figure: Figure,
 ): { up: boolean; percent: number; still: boolean } | undefined {
   if (before === undefined || build.turns < TOO_FEW || before.turns < TOO_FEW) return undefined;
-  const moved = percentDelta(valueOf(build, figure), valueOf(before, figure));
+  const now = valueOf(build, figure);
+  const was = valueOf(before, figure);
+  if (now === undefined || was === undefined) return undefined;
+  const moved = percentDelta(now, was);
   if (moved === undefined) return { up: false, percent: 0, still: true };
   return { ...moved, still: moved.percent < STILL };
 }

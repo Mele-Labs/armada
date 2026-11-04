@@ -1,7 +1,13 @@
 // What the Builds panel works out from a build: the change a figure made against the build before, and the clock a build began
 // on. Both are absent or quiet where there is nothing real to read, so each boundary is held from both sides.
 
-import { changeOf, startedAt } from "@armada/components/src/compositions/UsagePage/usage-builds";
+import {
+  changeOf,
+  commitOf,
+  shown,
+  startedAt,
+  valueOf,
+} from "@armada/components/src/compositions/UsagePage/usage-builds";
 import type { Build } from "@armada/components/src/compositions/UsagePage/usage-builds";
 import { expect, test } from "vitest";
 
@@ -57,4 +63,38 @@ test("a build began reads as month, day and the clock, in the reader's own zone"
   // Built from local fields, so the expected clock is the same on any machine's zone.
   expect(startedAt(new Date(2026, 10, 3, 14, 36).toISOString())).toBe("Nov 3 14:36");
   expect(startedAt(new Date(2026, 0, 9, 9, 5).toISOString())).toBe("Jan 9 09:05");
+});
+
+/** A build that produced none of a figure: a figure Fleet had no sample for is absent, never 0. */
+const without = (turns: number, figure: "checks" | "burn"): Build => {
+  const { [figure]: _gone, ...rest } = build(turns);
+  return rest;
+};
+
+test("a build with no figure draws a dash, not a number that is not one", () => {
+  expect(valueOf(without(100, "checks"), "checks")).toBeUndefined();
+  expect(shown(without(100, "checks"), "checks")).toBe("–");
+  expect(shown(without(100, "burn"), "burn")).toBe("–");
+  expect(shown(build(100, 41), "checks")).toBe("41s");
+});
+
+test("a change needs the figure on both builds, so a missing one is never a NaN percent", () => {
+  expect(changeOf(without(100, "checks"), build(100, 100), "checks")).toBeUndefined();
+  expect(changeOf(build(100, 100), without(100, "checks"), "checks")).toBeUndefined();
+  expect(changeOf(without(100, "burn"), build(100), "burn")).toBeUndefined();
+});
+
+test("a build's commit is the first seven characters of its id, however much more tells it from another", () => {
+  expect(
+    commitOf({
+      ...base,
+      id: "4be7c19@2026-11-03T09:00:00Z",
+    }),
+  ).toBe("4be7c19");
+  expect(
+    commitOf({
+      ...base,
+      id: "d03a6e1",
+    }),
+  ).toBe("d03a6e1");
 });

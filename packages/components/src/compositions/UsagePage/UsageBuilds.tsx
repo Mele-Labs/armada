@@ -12,6 +12,7 @@ import {
   TOO_FEW,
   buildTip,
   changeOf,
+  commitOf,
   shown,
   startedAt,
 } from "./usage-builds";
@@ -84,7 +85,7 @@ function BuildRow({
       role="option"
       id={`build-${build.id}`}
       aria-selected={picked}
-      aria-label={`${build.id}, ${day}${preview ? ", preview" : ", main"}, ${said.join(", ")}${few ? `, ${fewTip}` : ""}`}
+      aria-label={`${commitOf(build)}, ${day}${preview ? ", preview" : ", main"}, ${said.join(", ")}${few ? `, ${fewTip}` : ""}`}
       data-cursor={cursor || undefined}
       data-few={few || undefined}
       className="armada-builds__row"
@@ -100,10 +101,10 @@ function BuildRow({
         ) : null}
       </span>
       {preview ? (
-        <span className="armada-builds__commit">{build.id}</span>
+        <span className="armada-builds__commit">{commitOf(build)}</span>
       ) : (
         <Tooltip label={buildTip(build)}>
-          <span className="armada-builds__commit">{build.id}</span>
+          <span className="armada-builds__commit">{commitOf(build)}</span>
         </Tooltip>
       )}
       <span className="armada-builds__started">{day}</span>

@@ -42,7 +42,7 @@ import { TimeView } from "./TimeView";
 import { BuildsPanel } from "./UsageBuilds";
 import { HourChart, HourRows, PendingHours } from "./HourChart";
 import type { HourPlot } from "./HourChart";
-import { LIST_KEYS, inBuilds } from "./usage-builds";
+import { LIST_KEYS, commitOf, inBuilds } from "./usage-builds";
 import type { UsageBuilds } from "./usage-builds";
 import { SHOWN, blockOfHour, latestHour, weekdayOfHour } from "./usage-hours";
 import type { UsageHours } from "./usage-hours";
@@ -735,13 +735,15 @@ export function UsagePage({ summary, titles, planPercent, rules, time, builds, h
         session: picked.session,
         scoped: true,
       };
-    if (pickedBuild !== undefined)
+    if (pickedBuild?.usage !== undefined)
       return {
-        title: `Build ${pickedBuild.id}`,
+        title: `Build ${commitOf(pickedBuild)}`,
         usage: pickedBuild.usage,
         days: chartDays(summary, pickedBuild.usage.by_day),
         scoped: true,
       };
+    // Its tokens are still being read: the panels they feed draw their shapes meanwhile.
+    if (pickedBuild !== undefined) return undefined;
     return {
       title: "All jobs",
       usage: summary.total,
@@ -927,6 +929,7 @@ export function UsagePage({ summary, titles, planPercent, rules, time, builds, h
   const total = summary?.total.units ?? 0;
   const rest = summary?.rest;
   const pending = summary === undefined;
+  const scoping = pending || (pickedBuild !== undefined && picked === undefined && pickedBuild.usage === undefined);
   const switcher =
     time === undefined ? null : (
       <div className="armada-usage__views">
@@ -1028,7 +1031,7 @@ export function UsagePage({ summary, titles, planPercent, rules, time, builds, h
             >
               Breakdown
             </Band>
-            {pending ? (
+            {scoping ? (
               <>
                 <div className="armada-usage__scope" aria-hidden>
                   <Bar width="8rem" />
@@ -1153,7 +1156,7 @@ export function UsagePage({ summary, titles, planPercent, rules, time, builds, h
             >
               Day and hour
             </Band>
-            {pending ? (
+            {scoping ? (
               <>
                 <div className="armada-usage__scope" aria-hidden>
                   <Bar width="8rem" />
@@ -1178,7 +1181,7 @@ export function UsagePage({ summary, titles, planPercent, rules, time, builds, h
         </div>
 
         <div className="armada-usage__tilearea">
-          {pending ? (
+          {scoping ? (
             <PendingTiles meter={planPercent !== undefined} />
           ) : source === undefined ? null : (
             <Tiles summary={summary} source={source} planPercent={planPercent} />

@@ -1,5 +1,5 @@
-// The last 48 hours, one point an hour, as the Usage page's two line charts draw them. Mock only: no wire carries it yet,
-// so these types are the page's own and the data is handed in.
+// The last 48 hours, one point an hour, as the Usage page's two line charts draw them. These types are the
+// page's own: the window turns Fleet's hours into them (`usage-time-wire.ts`).
 
 import type { NamedUnits } from "@armada/protocol";
 

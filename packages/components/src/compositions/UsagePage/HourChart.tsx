@@ -19,7 +19,7 @@ import type { MouseHandlerDataParam } from "recharts/types/synchronisation/types
 
 import { Skeleton } from "../../primitives/Skeleton/Skeleton";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { FIGURE_NAME, buildTip, changeOf, shown, startedAt } from "./usage-builds";
+import { FIGURE_NAME, buildTip, changeOf, commitOf, shown, startedAt } from "./usage-builds";
 import type { Build, Figure } from "./usage-builds";
 import { SHOWN, hourName, markersOf } from "./usage-hours";
 import type { Marker, UsageHours } from "./usage-hours";
@@ -191,13 +191,13 @@ function flagsOf(
       };
     };
     let wide = move !== undefined || picked;
-    let put = place(wide ? marker.build.id.length * CHAR + PAD : SMALL);
+    let put = place(wide ? commitOf(marker.build).length * CHAR + PAD : SMALL);
     if (put.lane < 0 && wide && !picked) {
       wide = false;
       put = place(SMALL);
     }
     const lane = put.lane < 0 ? LANES - 1 : put.lane;
-    const width = wide ? marker.build.id.length * CHAR + PAD : SMALL;
+    const width = wide ? commitOf(marker.build).length * CHAR + PAD : SMALL;
     where[lane]!.push(put.from, put.from + width);
     return {
       marker,
@@ -471,7 +471,7 @@ export function HourChart({
                             label={
                               <span className="armada-hours__card">
                                 <span className="armada-hours__cardhead">
-                                  <span>{build.id}</span>
+                                  <span>{commitOf(build)}</span>
                                   <span>{startedAt(build.started)}</span>
                                 </span>
                                 <span>{buildTip(build)}</span>
@@ -501,7 +501,7 @@ export function HourChart({
                               data-preview={preview || undefined}
                               data-picked={build.id === pick || undefined}
                               data-wide={one.wide || undefined}
-                              aria-label={`${build.id}, ${startedAt(build.started)}${preview ? ", preview" : ", main"}${said.join("")}`}
+                              aria-label={`${commitOf(build)}, ${startedAt(build.started)}${preview ? ", preview" : ", main"}${said.join("")}`}
                               aria-pressed={build.id === pick}
                               onClick={(event) => {
                                 event.currentTarget.blur();
@@ -509,7 +509,7 @@ export function HourChart({
                               }}
                             >
                               {one.wide ? (
-                                <span className="armada-hours__commit">{build.id}</span>
+                                <span className="armada-hours__commit">{commitOf(build)}</span>
                               ) : null}
                               {one.move === undefined ? null : <Delta move={one.move} />}
                             </button>
@@ -706,7 +706,7 @@ export function HourChart({
                     {running === undefined ? null : (
                       <span className="armada-hours__tipline" data-total>
                         <span />
-                        <span>{running.build.id}</span>
+                        <span>{commitOf(running.build)}</span>
                         <span className="armada-usage__fig">
                           {running.build.branches.length > 0 ? "preview" : "main"}
                         </span>
