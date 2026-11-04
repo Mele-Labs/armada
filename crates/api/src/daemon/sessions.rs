@@ -651,6 +651,10 @@ pub trait Sessions: Send + Sync + 'static {
         tz_offset_minutes: i32,
     ) -> impl Future<Output = Result<ipc::UsageSummary, Refusal>> + Send;
 
+    /// `get_usage_spent` — what the burn of the 24 hours, 7 days and 14 days up to `until` (now where
+    /// left out) was spent on, and who spent it. [`Refusal::Unacceptable`] for an end that is not a time.
+    fn get_usage_spent(&self, until: Option<String>) -> impl Future<Output = Result<ipc::UsageSpent, Refusal>> + Send;
+
     /// `get_job_time` — where one Job's time went, with the usual of its workflow. The answer carries no
     /// time where none is kept for it. [`Refusal::Unacceptable`] for a session Fleet does not know.
     fn get_job_time(&self, session_id: ipc::SessionId) -> impl Future<Output = Result<ipc::JobTime, Refusal>> + Send;

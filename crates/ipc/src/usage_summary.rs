@@ -1,8 +1,9 @@
 //! What a window of turns cost, summed for the Usage page. `docs/practices/protocol.md`, *The usage
 //! summary*.
 //!
-//! **Burn is in cost units**: input tokens weigh 1, cache-creation 1.25, cache-read 0.1 and output 5,
-//! and the sum is divided by a million. The weights live in `store::usage_summary`. Every split below
+//! **Burn is in cost units**: input tokens weigh 1, a cache write held 5 minutes 1.25 and one held an
+//! hour 2, cache-read 0.1 and output 5, times the model's weight (Haiku 1, Sonnet 3, Opus and Fable
+//! 5), and the sum is divided by a million. The weights live in `store::usage_summary`. Every split below
 //! is a partition of `units` except `by_bash_use`, which counts only the turns whose first call was a
 //! shell command. **Names and counts only.**
 
@@ -15,11 +16,13 @@ pub struct NamedUnits {
     pub units: f64,
 }
 
-/// The four token kinds, in units.
+/// The token kinds, in units. `cache_creation` is the writes held 5 minutes, and
+/// `cache_creation_1h` those held an hour.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct TokenUnits {
     pub input: f64,
     pub cache_creation: f64,
+    pub cache_creation_1h: f64,
     pub cache_read: f64,
     pub output: f64,
 }

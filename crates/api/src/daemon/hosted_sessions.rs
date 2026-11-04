@@ -214,10 +214,10 @@ pub trait HostedSessions: Send + Sync + 'static {
         asked: ipc::PauseSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
-    /// `set_session_auto_land`: turns Auto land on or off and answers the Session. The flag changes
-    /// before the forge is asked, so a pull request the forge refuses is a refusal with the flag set.
+    /// `set_session_auto_land`: turns Auto land on or off and answers the Session. The forge is asked
+    /// after the answer, so a pull request it refuses is a notice to the Job, not a refusal here.
     fn set_session_auto_land(
-        &self,
+        self: std::sync::Arc<Self>,
         asked: ipc::SetSessionAutoLand,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 

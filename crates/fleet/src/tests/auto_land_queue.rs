@@ -5,8 +5,8 @@
 use std::path::Path;
 
 use adapter_traits::{CiState, FollowedCheck, FollowedPull, FromOutside, Oid, PullQueue, PullRequestStanding, QueueEntry, QueueState};
-use api::{HostedSessions, Sessions};
-use ipc::{AttachmentReport, SessionFact, SessionId, SessionReport, SetSessionAutoLand};
+use api::Sessions;
+use ipc::{AttachmentReport, SessionFact, SessionReport};
 use testkit::Delivered;
 
 use super::pull_requesting::{facts, forge_ran, passed};
@@ -130,9 +130,6 @@ fn manifest_with_a_base() -> config::Manifest {
     config::Manifest::parse(Path::new("armada.yml"), "version: 1\nid: 01FIXTUREMANIFEST\nbase: main\n").expect("parses")
 }
 
-fn flag(id: &SessionId, on: bool) -> SetSessionAutoLand {
-    SetSessionAutoLand { id: id.clone(), on }
-}
 
 fn pull(number: u64, head: &str, queue: PullQueue) -> FollowedPull {
     FollowedPull {
@@ -154,7 +151,7 @@ async fn landing_pull_request_12() -> (Rig, Remote) {
     let rig = rig_fitted(|fittings| fittings.starting().manifest = manifest_with_a_base());
     let remote = Remote::at(&rig.root);
     let id = rig.start().await;
-    rig.fleet.set_session_auto_land(flag(&id, true)).await.expect("on");
+    super::auto_land::auto_land(&rig, &id, true).await;
     let attachment = AttachmentReport {
         kind: "pr".into(),
         target: NUMBER.to_string(),

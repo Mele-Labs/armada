@@ -32,6 +32,7 @@ fn turn(minute: i64) -> KeptTurnUsage {
         model: "model-sonnet-x".into(),
         input_tokens: 10,
         cache_creation_tokens: 1_000,
+        cache_creation_1h_tokens: 0,
         cache_read_tokens: 90_000,
         output_tokens: 500,
         tools: vec!["Edit".into()],
@@ -52,6 +53,7 @@ fn burning(minute: i64, output: u64, subagent: bool) -> KeptTurnUsage {
     KeptTurnUsage {
         input_tokens: 0,
         cache_creation_tokens: 0,
+        cache_creation_1h_tokens: 0,
         cache_read_tokens: 0,
         output_tokens: output,
         subagent,
@@ -106,14 +108,15 @@ fn subagent_on(minute: i64, output: u64, model: &str) -> KeptTurnUsage {
 
 #[test]
 fn opus_subagents_over_the_floor_and_the_share_are_told_the_model_part_only() {
-    // 2.9 units on the main thread and 7.1 in opus subagents: over the 5-unit floor and 71% of 10.
+    // 2.9 units of output on a sonnet main thread, 8.7 weighed, and 7.1 in opus subagents, 35.5 weighed: over the
+    // 25-unit floor and 80% of 44.2.
     let mut turns: Vec<_> = (0..5).map(|minute| burning(minute, 116_000, false)).collect();
     turns.extend((5..10).map(|minute| subagent_on(minute, 284_000, "model-opus-x")));
     let found = only(&turns);
     assert_eq!(found.rule, Rule::Subagents);
     assert_eq!(
         found.text,
-        "Subagents burned 7.1 units in your last hour, 71% of it, on opus. Pass model sonnet on reading and searching agents."
+        "Subagents burned 35.5 units in your last hour, 80% of it, on opus. Pass model sonnet on reading and searching agents."
     );
 }
 
@@ -228,9 +231,10 @@ fn a_job_over_a_limit_is_told_once_and_again_only_after_falling_under_and_the_co
     assert_eq!(following.due("job-2", &trips(&[with_context(turn(0), 312_000)]), &stamp(0)).len(), 1);
 }
 
-/// Turns at the given minutes after the trip, each burning `output` tokens, so a unit is 200,000.
+/// Turns at the given minutes after the trip, each burning `output` tokens on a model that weighs 1, so a unit is
+/// 200,000.
 fn after(minutes: &[i64], output: u64) -> Vec<KeptTurnUsage> {
-    minutes.iter().map(|minute| burning(*minute, output, false)).collect()
+    minutes.iter().map(|minute| KeptTurnUsage { model: "model-x".into(), ..burning(*minute, output, false) }).collect()
 }
 
 #[test]

@@ -232,7 +232,12 @@ import type { AgentSignInRead } from "./api/agent-sign-in";
 import type { FleetTimelineRead } from "./api/timeline";
 import type { BayHistoryRead } from "./api/bay-history";
 import type { ProcessStopRead, ProcessTarget, SessionSystemRead } from "./api/session-system";
-import type { UsageRulesRead, UsageSummaryRead, UsageWindow } from "./api/usage-summary";
+import type {
+  UsageRulesRead,
+  UsageSpentRead,
+  UsageSummaryRead,
+  UsageWindow,
+} from "./api/usage-summary";
 import type { JobTimeRead, UsageHoursRead, UsageTimeRead } from "./api/usage-time";
 import type { ArmadaReportRun, DebugReportRead } from "./api/debug-report";
 import type { ClashFileAnswer, SessionFileChangeAnswer, WriteClashesRead } from "./api/clashes";
@@ -575,6 +580,7 @@ type OldBridgeApi = {
   stopProcess: (sessionId: string, target: ProcessTarget) => Promise<ProcessStopRead>;
   getUsageSummary: (tzOffsetMinutes: number, window?: UsageWindow) => Promise<UsageSummaryRead>;
   getUsageRules: () => Promise<UsageRulesRead>;
+  getUsageSpent: () => Promise<UsageSpentRead>;
   getUsageTime: () => Promise<UsageTimeRead>;
   getUsageHours: () => Promise<UsageHoursRead>;
   getJobTime: (sessionId: string) => Promise<JobTimeRead>;
@@ -1042,6 +1048,7 @@ const OLD_CHANNELS = {
   stopProcess: "bridge:stop-process",
   getUsageSummary: "bridge:get-usage-summary",
   getUsageRules: "bridge:get-usage-rules",
+  getUsageSpent: "bridge:get-usage-spent",
   getUsageTime: "bridge:get-usage-time",
   getUsageHours: "bridge:get-usage-hours",
   getJobTime: "bridge:get-job-time",

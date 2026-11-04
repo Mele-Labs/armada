@@ -52,6 +52,7 @@ fn turn(id: &str, at: &str) -> KeptTurnUsage {
         model: "model-a".into(),
         input_tokens: 1_000_000,
         cache_creation_tokens: 0,
+        cache_creation_1h_tokens: 0,
         cache_read_tokens: 0,
         output_tokens: 0,
         tools: Vec::new(),

@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use adapter_traits::{CiState, FollowedCheck, FollowedPull, FromOutside, PullQueue, PullRequestStanding};
-use api::{Autopilots, HostedSessions};
+use api::Autopilots;
 use ipc::{AutopilotDecision, AutopilotSettings, AutopilotWork};
 use store::{AttachmentState, Holder, KeptAttachment, KeptPick, MainCi, MainFailedJob, MainState};
 use testkit::{FakeJudge, FakeTracker, FakeTrackers};
@@ -115,7 +115,7 @@ async fn a_conflicting_one_a_merging_one_and_an_unchecked_land_are_left() {
 async fn a_job_with_auto_land_on_is_left_to_auto_land() {
     let (rig, _, id) = holding(pull(CiState::Passed)).await;
     started(&rig, &[AutopilotDecision::Land]).await;
-    rig.fleet.set_session_auto_land(ipc::SetSessionAutoLand { id, on: true }).await.expect("on");
+    super::auto_land::auto_land(&rig, &id, true).await;
     let asked = rig.fleet.vcs().times_asked_for_auto_merge();
 
     assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 0);

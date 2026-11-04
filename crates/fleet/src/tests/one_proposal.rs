@@ -236,6 +236,22 @@ async fn several_rough_walks_all_wait_once_one_of_them_is_approved() {
 }
 
 #[tokio::test]
+async fn a_plan_version_recorded_after_he_approved_an_earlier_one_is_put_to_him_though_he_approved_the_walk() {
+    let (rig, id) = rig_with(LISTS).await;
+    show(&rig, &id, PAGE).await;
+    rig.send(&id, &format!("Approved: {PAGE}")).await;
+    let first = rig.fleet.record_plan(None, plan(&id), true).await.expect("recorded");
+    assert!(first.plan.as_ref().is_some_and(|plan| plan.approved), "the first version stands on the walk he approved");
+
+    let mut later = plan(&id);
+    later.groups[0].tasks[0].title = "Stop at the end, twice".into();
+    let recorded = rig.fleet.record_plan(None, later, true).await.expect("recorded again");
+    assert_eq!(recorded.plan.as_ref().map(|plan| plan.version), Some(2));
+    assert!(recorded.plan.as_ref().is_some_and(|plan| !plan.approved), "version 2 is not approved: {:?}", recorded.plan);
+    assert!(recorded.waiting_for.iter().any(|one| one.id == "plan:2" && one.source == ipc::WaitingSource::Plan), "{:?}", recorded.waiting_for);
+}
+
+#[tokio::test]
 async fn a_plan_held_behind_a_walk_stands_with_his_approve_of_it() {
     let (rig, id) = rig_with(LISTS).await;
     show(&rig, &id, PAGE).await;

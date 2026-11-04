@@ -109,6 +109,7 @@ import { drawnAsScene, SketchBody } from "./session-view/SketchBody";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress, type PictureMarked } from "./session-artifact";
 import { linkEntry, useStartedBy } from "./session-started";
 import {
+  newestAskedSketch,
   readingOfSketch,
   useSketchRevisions,
   withRevisionScenes,
@@ -2383,13 +2384,15 @@ export function SessionView({
     draft.work?.setAside === undefined ? undefined : () => draft.work?.setAside?.(session.id);
   // A Job that opens pull requests draws the one each group lands in, even a plan of one; Keep local with none opened draws none.
   const opensPrs = opensPullRequests(session);
-  // A sketch put to him and not yet answered is pinned after the plan, where the plan waits. The ledger is newest first, so the first is the latest drawn.
+  // The newest sketch put to him is pinned after the plan, where the plan waits, until he answers it. Only the newest drawn: an older one left open behind it was replaced, and never waits again (Fleet's `sketch_items`).
+  const newest = newestAskedSketch(attachmentsOf(session, "sketch"));
   const put = withRevisionScenes(
-    draft.answerSketch === undefined
+    draft.answerSketch === undefined ||
+      newest === undefined ||
+      newest.withdrawn === true ||
+      newest.settled !== undefined
       ? undefined
-      : attachmentsOf(session, "sketch").find(
-          (one) => one.asked === true && one.withdrawn !== true && one.settled === undefined,
-        ),
+      : newest,
     sketchRevisions,
   );
   const sketching =
