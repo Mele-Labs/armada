@@ -578,6 +578,23 @@ The top-level `connectors:` key in the root `armada.yml`: `false` starts every h
 Read when Fleet starts, so a save that changes it is reported as waiting for a restart.
 """
 
+[settings.manifest-when-base-moves]
+name = "Commands run when the base moves"
+scope = "Manifest only"
+default = "none"
+lifetime = "Daemon start"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Manifest"
+read_by = "fleet"
+notes = """
+The top-level `when_base_moves:` key in the root `armada.yml`: a list of Commands from `commands:` that Fleet runs, in order, in the repository's own checkout each time that checkout stands at a new commit of the base branch. Each name resolves as a `setup.requires` entry does, so an undeclared, destructive or server name is refused, and an empty list is refused. A workspace's file that names it is refused.
+
+One run at a time per repository, at background priority behind every Check: a move during a run queues one more run, at the newest commit, and moves seen meanwhile are folded into it. A checkout held on another commit runs nothing until it reaches the base's tip. A failed Command is logged on Fleet's console and ends that run; it blocks no Job.
+
+Read when Fleet starts, so a save that changes it is reported as waiting for a restart.
+"""
+
 [settings.manifest-worktree-slots]
 name = "Worktree slots"
 scope = "Manifest only"
