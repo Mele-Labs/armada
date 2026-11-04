@@ -76,6 +76,8 @@ export type MockDraft = {
   projectsTab?: ProjectsSeed;
   /** How a Job's thread reads, its quick replies and what Talk hears: the Aa panel and System › Thread start from it. Mock only: Fleet keeps none of it yet, and without it neither is drawn. */
   threadLook?: import("../thread-look-here").ThreadLookSeed;
+  /** What the tokens were spent on, by window, for the Usage page's Spent on view. Mock only: no route serves it yet. */
+  usageSpent?: import("@armada/components").UsageSpent;
   /** The pull requests, issues, tasks and commands the palette lists, and what it starts with pinned and opened. Mock only: Fleet serves the palette none of them yet. */
   palette?: import("../palette-fixtures").PaletteFixtures;
   /** What each opening of Copy debug report reads, in turn, the last repeating. Without it neither Doctor nor the palette offers one. */

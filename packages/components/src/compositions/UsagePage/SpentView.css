@@ -1,0 +1,27 @@
+/* The Usage page's Spent on view: the Time view's layout, and the tokens view's share rows in one hue. */
+
+/* A Job: its title, its share as a bar against the largest, the share, and what it spent most on, in fixed columns */
+.armada-time__jobheads.armada-spent__job,
+.armada-time__job.armada-spent__job {
+  grid-template-columns: minmax(0, 1fr) 6rem 6ch 19ch;
+}
+.armada-time__jobheads.armada-spent__job span:last-child {
+  text-align: left;
+}
+.armada-spent__job .armada-usage__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.armada-spent__job .armada-usage__model {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The longest part's name sets the name column, so every bar starts at one edge */
+.armada-spent__parts li {
+  grid-template-columns: 20ch minmax(0, 1fr) 6ch;
+}
+.armada-spent .armada-usage__panel > .armada-spent__parts {
+  padding-bottom: var(--space-3);
+}

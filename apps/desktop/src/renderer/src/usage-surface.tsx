@@ -8,6 +8,7 @@ import type { UsageRules, UsageSummary } from "@armada/protocol";
 
 import type { BridgeState } from "../../shared/bridge";
 import { usePlanUsage } from "./plan-usage";
+import { useSpent } from "./usage-spent-source";
 import { useTimeReads } from "./usage-time-reads";
 
 const EVERY_MS = 60_000;
@@ -54,6 +55,7 @@ export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" 
       state.sessions,
     ],
   );
+  const spent = useSpent();
   const planPercent = usePlanUsage()?.find((one) => one.kind === "seven_day")?.percentUsed;
   return (
     <UsagePage
@@ -64,6 +66,7 @@ export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" 
       time={time}
       builds={builds}
       hours={hours}
+      spent={spent}
       onBuild={pick}
     />
   );
