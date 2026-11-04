@@ -157,7 +157,7 @@ export const operatorFull = walk("operator-full", [
   },
   {
     drag: lineRow("Raised items make no sound"),
-    onto: lineRow(TESTS),
+    onto: lineRow("Map key lists colours the Map no longer uses"),
     say: "Drag a row to override the order. ⌥↑ and ⌥↓ do it from the keyboard",
   },
   {
