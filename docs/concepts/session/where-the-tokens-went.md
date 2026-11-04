@@ -67,7 +67,8 @@ The thread shows `/compact` as a message from Fleet. The turn it starts leaves t
 `crates/fleet/src/session_host/compacting.rs`.
 
 **What is kept.** Each compaction is a row in `waiting_compactions`: the Job, when Fleet sent it (`at`), and `context_before`, the context of the last main-thread turn before it.
-Once the Job's first main-thread turn after it is read, from a transcript or a turn measured, the row takes that turn's `next_at`, `next_input`, `next_cache_write` and `next_cache_read`. Until then they are empty.
+Once the Job's first main-thread turn after it is read, from a transcript or a turn measured, the row takes that turn's `next_at`, `next_input`, `next_cache_write` and `next_cache_read`.
+Until then they are empty.
 A paused or ended Job is sent nothing and writes no row.
 
 **Cost against saved.** The compaction's own request reads `context_before` from the cache, at 0.1, and writes the summary as output, at 5.
