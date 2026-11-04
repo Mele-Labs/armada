@@ -10,6 +10,7 @@
 use std::io::Write as _;
 use std::time::{Duration, SystemTime};
 
+use adapters::turn_lines;
 use api::Sessions;
 use ipc::{SessionFact, SessionId, SessionReport};
 use store::KeptTurnUsage;
@@ -185,4 +186,28 @@ async fn what_the_turns_were_spent_on_is_read_with_them_and_served_adding_up_to_
     }
     assert!((summary.total.by_token.cache_creation_1h - 5.0 * 2.0 * 1_100.0 / 1e6).abs() < 1e-9);
     assert!(fleet.get_usage_spent(Some("lately".into())).await.is_err());
+}
+
+#[tokio::test]
+async fn an_offset_that_carries_nothing_is_read_from_the_top_and_one_that_carries_resumes() {
+    let home = TempDir::new();
+    let projects = home.path().join(adapters::SESSIONS);
+    let lines = [assistant("m1", 1, 20, SAID), assistant("m2", 2, 20, SAID)];
+    let (old, new) = (projects.join("-work-a/old.jsonl"), projects.join("-work-a/new.jsonl"));
+    write(&old, &lines);
+    write(&new, &lines);
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let carried = turn_lines::Carry::default().kept();
+    {
+        let mut store = fleet.store().lock().await;
+        // `old`'s offset was kept before turns had their shares: at its end, with nothing carried.
+        let (end_old, end_new) = (std::fs::metadata(&old).unwrap().len(), std::fs::metadata(&new).unwrap().len());
+        store.keep_turns_read("old", &[], &Default::default(), old.to_str().unwrap(), end_old).unwrap();
+        let resumed = store::KeptReading { carried, ..Default::default() };
+        store.keep_turns_read("new", &[], &resumed, new.to_str().unwrap(), end_new).unwrap();
+    }
+    assert_eq!(fleet.turns_backfilled(false).await, 2, "only the file with nothing carried is read again");
+    assert_eq!(rows(&*fleet.store().lock().await, "old").len(), 2);
+    assert!(rows(&*fleet.store().lock().await, "new").is_empty());
+    assert!(fleet.store().lock().await.transcript_carried(old.to_str().unwrap()).unwrap().is_some(), "so it is read again once");
 }

@@ -27,6 +27,7 @@ The summary, the hours, the builds, Spent on and the usage rules weigh this way.
 
 **Spent on splits every turn's burn into nine parts, and Spent by into three.** Fleet reads each transcript in order and keeps an estimate of what the thread's context holds, a part at a time: four bytes of text are a token, and an image is 1,600.
 The estimate and the calls still waiting on a result are kept with the file's offset in `transcript_offsets.carried`, so a read picks up where the last one stopped.
+An offset kept before there was anything to carry has `carried` empty, and that file is read again from the top once, so its older turns gain their shares.
 
 | Part | Holds |
 |---|---|

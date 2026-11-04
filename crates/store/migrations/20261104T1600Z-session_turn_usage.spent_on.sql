@@ -33,7 +33,3 @@ CREATE VIEW usage_turns AS
     UNION ALL
     SELECT session_id, at, model, 0, 0, 0, cache_read_tokens, output_tokens, '[]', 0, NULL, NULL, 1
       FROM session_background_usage;
-
--- Every transcript is read again from the top, so the last week's turns gain their hour's writes and
--- their shares. The rows are merged, never doubled.
-DELETE FROM transcript_offsets;

@@ -131,11 +131,14 @@ where
                 (0, None, None)
             } else {
                 let store = self.store().lock().await;
-                (
-                    store.transcript_offset(&key).ok().flatten().unwrap_or(0),
-                    store.transcript_input_at(&key).ok().flatten(),
-                    store.transcript_carried(&key).ok().flatten(),
-                )
+                let carried = store.transcript_carried(&key).ok().flatten();
+                // An offset kept before `carried` existed carries nothing: read from the top, so
+                // old turns gain their shares. A read always keeps a carry, so this is once.
+                if carried.is_none() {
+                    (0, None, None)
+                } else {
+                    (store.transcript_offset(&key).ok().flatten().unwrap_or(0), store.transcript_input_at(&key).ok().flatten(), carried)
+                }
             };
             first = false;
             if !from_start && from == file.size {
