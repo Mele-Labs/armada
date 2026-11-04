@@ -464,6 +464,8 @@ export type SessionFrameProps = {
   back?: ReactNode;
   /** The ledger, as a panel of its own beside the conversation: a sibling card the height of the first, scrolling on its own. */
   aside?: ReactNode;
+  /** One line under the head, part of it: what the Operator did with the Job, such as holding it, with its act. Absent draws nothing. */
+  notice?: ReactNode;
   /** Icon buttons for the Session's views, in the head's row before `actions`, with a rule after them. */
   headViews?: ReactNode;
   /**
@@ -633,6 +635,7 @@ export function SessionFrame({
   menu,
   back,
   aside,
+  notice,
   headViews,
   headTake,
   toolsUnder = false,
@@ -762,6 +765,7 @@ export function SessionFrame({
           {rowed ? null : menuButton}
           {rowed ? null : back}
         </header>
+        {notice}
         <ToolbeltContext.Provider value={toolsUnder ? tools : null}>
           <div className="armada-session-frame__body">{children}</div>
         </ToolbeltContext.Provider>
