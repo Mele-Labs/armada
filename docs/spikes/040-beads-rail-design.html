@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The workflow rail on beads</title>
+<link rel="stylesheet" href="armada-kit.css">
+<style>
+  td.n, th.n { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+  .rec { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>The workflow rail on beads</h1>
+<p>A Job's workflow becomes a molecule of beads: one bead per step, which the agent claims and closes, and one gate between steps, which only Fleet closes, from what it saw. The rail stops guessing the step from pushes, first edits and task order. Those guesses raised 116 of the 225 notices agents disputed. Spike 40 shows bd 1.3.2 runs the feature workflow this way, with two gaps Fleet has to fill: any agent can close a gate, and the pull request gate never fires on red <code>ci</code>. Four choices below are yours before anything is built.</p>
+
+<h2>Why the rail is rebuilt</h2>
+<p>Today Fleet works out which step a Job is on from proxies (<code>crates/fleet/src/rail.rs</code>). When a proxy is wrong, the agent gets a notice telling it to do something it already did or should not do. Agents disputed 225 notices in <code>fleet_disputes</code>. These come from the rail or the walk rules:</p>
+<table>
+<caption>Disputed notices by the rule that raised them, from the store on 4 Nov 2026</caption>
+<thead><tr><th>Rule</th><th class="n">Disputes</th><th>Under beads</th></tr></thead>
+<tbody>
+<tr><td>Plan tasks out of order</td><td class="n">35</td><td>Gone. Groups that run side by side are waves of a swarm, and a task's bead is the agent's to claim</td></tr>
+<tr><td>The reply asks for a walk with no window open</td><td class="n">29</td><td>Stays. It reads the reply, not the step (armada-n2ie)</td></tr>
+<tr><td>Step entered, instructions sent again</td><td class="n">27</td><td>Sent once, when Fleet resolves the gate in front of the step</td></tr>
+<tr><td>Edited before the plan step</td><td class="n">18</td><td>Gone. An edit no longer places the Job</td></tr>
+<tr><td>Turn ended on a step, told to push or show</td><td class="n">16</td><td>Gone. The step's bead says whether the agent finished it</td></tr>
+<tr><td>Pushed with plan tasks open</td><td class="n">11</td><td>Gone. The push no longer places the Job</td></tr>
+<tr><td>Test written before the walk was approved</td><td class="n">7</td><td>A refusal, if you choose one below, otherwise gone</td></tr>
+<tr><td>Pushed before the plan was approved</td><td class="n">2</td><td>A refusal, if you choose one below, otherwise gone</td></tr>
+</tbody>
+</table>
+<p>The other 80 are slot, pull request, merge and subagent notices, which this does not touch. Five deferred issues from the 4 Nov grooming name the faulty proxies: armada-z2co, armada-ddfe, armada-hq0b, armada-mj3k and armada-n2ie.</p>
+
+<h2>What spike 40 found</h2>
+<p>The feature workflow, poured for two test Jobs on a throwaway database and driven through every step and gate (<code>docs/spikes/040-can-a-workflow-run-as-a-beads-molecule.md</code>).</p>
+<table>
+<thead><tr><th>Works</th><th>Does not, so Fleet fills it</th></tr></thead>
+<tbody>
+<tr><td>A step stays blocked until its gate closes, and bd refuses to close it early</td><td>Any agent can close a gate, and <code>bd mol current</code> tells it to claim one. Only the events journal records who did</td></tr>
+<tr><td><code>bd ready --gated</code> names the step to resume once a gate closes</td><td>An agent can claim a step whose gate is still shut</td></tr>
+<tr><td>The <code>gh:pr</code> gate resolves on merged</td><td>It never fires on red <code>ci</code>, a conflict or a queue drop, and a closed pull request only prints ESCALATE</td></tr>
+<tr><td>A plan's groups swarm as waves: two side by side, then one after both</td><td>A human gate's timeout is never checked</td></tr>
+<tr><td>The molecule closes itself after its last step</td><td>A read takes 2.5 to 5 seconds, so Fleet cannot ask bd on every notice</td></tr>
+</tbody>
+</table>
+
+<h2>Who closes what</h2>
+<armada-sketch title="A feature Job as a molecule"><script type="application/json">
+{"nodes":[
+  {"id":"agent","kind":"lane","x":0,"y":0,"w":1650,"h":150,"title":"The agent claims and closes"},
+  {"id":"fleet","kind":"lane","x":0,"y":190,"w":1650,"h":150,"title":"Fleet resolves, from what it saw"},
+  {"id":"propose","kind":"box","x":30,"y":40,"title":"Propose","body":"Records the plan","icon":"scroll-text","step":1},
+  {"id":"g1","kind":"box","x":200,"y":230,"title":"Plan approved","body":"Your Approve","icon":"shield-check","shape":"diamond","step":2,"color":"amber"},
+  {"id":"walk","kind":"box","x":370,"y":40,"title":"Walk","body":"Shows the mock","icon":"eye","step":3},
+  {"id":"g2","kind":"box","x":540,"y":230,"title":"Walks approved","body":"Your Approve on each window","icon":"shield-check","shape":"diamond","step":4,"color":"amber"},
+  {"id":"refine","kind":"box","x":710,"y":40,"title":"Refine","body":"Plan tasks as beads, groups as swarm waves","icon":"hammer","step":5},
+  {"id":"g3","kind":"box","x":880,"y":230,"title":"Checks and judge passed","body":"Fleet's own runs","icon":"scale","shape":"diamond","step":6,"color":"amber"},
+  {"id":"deliver","kind":"box","x":1050,"y":40,"title":"Deliver","body":"Pushes, opens the pull request","icon":"git-branch","step":7},
+  {"id":"g4","kind":"box","x":1220,"y":230,"title":"Merged","body":"Fleet's pull reading. Red, conflict or queue drop wakes the Job","icon":"git-merge","shape":"diamond","step":8,"color":"amber"},
+  {"id":"done","kind":"box","x":1420,"y":40,"title":"Molecule closes","icon":"package","shape":"pill","step":9,"color":"green"}
+],"edges":[
+  {"id":"e1","from":"propose","to":"g1","step":2},
+  {"id":"e2","from":"g1","to":"walk","step":3},
+  {"id":"e3","from":"walk","to":"g2","step":4},
+  {"id":"e4","from":"g2","to":"refine","step":5},
+  {"id":"e5","from":"refine","to":"g3","step":6},
+  {"id":"e6","from":"g3","to":"deliver","step":7},
+  {"id":"e7","from":"deliver","to":"g4","step":8},
+  {"id":"e8","from":"g4","to":"done","step":9}
+]}
+</script></armada-sketch>
+<table>
+<thead><tr><th>Bead</th><th>Who closes it</th><th>On what</th></tr></thead>
+<tbody>
+<tr><td>A step (Propose, Walk, Refine, Deliver)</td><td>The agent, through Armada's step tool, which claims the step, keeps its lease alive and closes it</td><td>Its own word that the step's work is done. This shows where the agent says it is. It moves nothing on by itself</td></tr>
+<tr><td>A plan task</td><td>The agent</td><td>Its own word. Fleet still marks a task it saw done, as the plan mirror does today</td></tr>
+<tr><td>A gate</td><td>Fleet only, with <code>bd gate resolve</code></td><td>Your Approve on the plan, sketch, draft or window; the checks and the Judge; the merge, read from Fleet's own pull reading</td></tr>
+<tr><td>A gate somebody else closed</td><td>Fleet reopens it</td><td>The events journal names the closer. Fleet turns the journal on and reads it after each sync</td></tr>
+<tr><td>The plan's epic and groups</td><td>Fleet</td><td>Every child closed. bd does not close an epic itself</td></tr>
+</tbody>
+</table>
+<p>This changes one rule in <code>docs/concepts/session/the-rail.md</code>: "the agent's word is never an input". The step the agent claims becomes what Bridge shows it doing, as your brief asked. The gates stay Fleet's, so the agent's word still never moves a Job past anything you or the checks must pass.</p>
+
+<h2>What Bridge shows</h2>
+<ul>
+<li><strong>The steps</strong>, as now, each with one state: done, being worked (the agent holds it), waiting on you (a human gate, naming what to approve), waiting on <code>ci</code> or the queue, or not reached.</li>
+<li><strong>What the agent is doing</strong>: the step it holds and the plan task it holds, beside the activity line Bridge already shows from its tool calls.</li>
+<li><strong>A mismatch</strong>, such as an agent holding Refine while the plan gate is shut, shown on the step as one glyph with a tooltip. It is the one rail notice the agent gets, once.</li>
+<li><strong>The same on another Mac</strong>, when the molecule is poured into a synced backlog.</li>
+</ul>
+<p>On the wire, the single step index (<code>workflow_step</code>) becomes a list of steps with their state and holder. Fleet keeps that list in its own record, updated from what it writes and from the journal, and never runs <code>bd</code> to draw a row.</p>
+
+<h2>Refuse or nudge</h2>
+<p>Today nothing blocks a Job; a skipped step draws one nudge (<code>docs/scope.md</code>, the fourth pain, "partly solved"). The grooming Job passed on advice from Anthropic's article on agent loops: procedure goes in instructions, hard limits go in tools that refuse plainly. bd already refuses to close a step whose gate is shut. It does not refuse a claim, and it does not stop a push.</p>
+<p class="rec">Recommendation: Armada's step tool refuses to start a step whose gate is shut, and Fleet's hook refuses a push before the plan is approved. Nothing else is refused, and the proxy nudges go.</p>
+<p>The cost: a Job that should push early, such as a one-line fix you told it to ship, has to ask you to approve a plan first. Today it would push and draw a nudge.</p>
+
+<h2>A repository whose tracker is not beads</h2>
+<p class="rec">Recommendation: Fleet keeps its own beads database for it, under Fleet's data folder, unsynced, so every repository runs the same rail.</p>
+<p>The cost: every Mac that runs Armada needs <code>bd</code> installed, which Armada would check at start. The alternative keeps today's proxy rail for those repositories. Then two rails are kept, and the disputed notices stay for every Jira or forge repository.</p>
+
+<h2>Workflow files in Kit and repositories</h2>
+<p>bd reads a formula only as <code>&lt;name&gt;.formula.json</code> under <code>.beads/formulas/</code>; it would not pour <code>.armada/workflows/feature.json</code>. A workflow also carries what bd has no field for: instructions, judge criteria, Checks and evidence.</p>
+<p class="rec">Recommendation: workflow files stay where they are, in Armada's shape, and Fleet cooks each one into a formula when it pours a Job.</p>
+<p>Kit's <code>~/.armada/workflows/</code>, a repository's <code>.armada/workflows/</code>, the Workflows page and its editor are unchanged. The cooked formula lives in Fleet's data folder, never in a repository. The cost is a translation Fleet owns and has to test. The alternative, formulas as the files themselves, puts Armada's fields in bd's <code>metadata</code>, and the editor and the definition schema are rewritten.</p>
+
+<h2>Synced or kept local</h2>
+<p>A poured molecule is ordinary beads, synced to every Mac and to anyone else on the backlog. That serves the goals you added on 4 Nov: swarming, tracking issues and follow-ups, and working across machines. It also puts each Job's steps and gates in the backlog: Fleet's Issues list would show them today. A wisp stays on this Mac, out of the backlog, and squashes to one digest bead when the Job ends.</p>
+<p class="rec">Recommendation: pour, and filter molecule, step and gate beads out of the Issues list.</p>
+<p>The cost: about 10 beads per Job synced to every machine, and each sync carries them. At the 12 Jobs a day of 4 Nov, that is about 120 beads a day.</p>
+
+<h2>How it fits background delivery</h2>
+<p>The background-delivery Job (cf4801f0) recommends that Fleet's own reading of the pull request wakes a parked Job, and that a beads gate only records the wait. This design follows it: the Merged gate is resolved from that same reading, and red <code>ci</code>, a conflict or a queue drop wakes the Job through its hand-off, not through the gate. Neither design builds the other's part.</p>
+
+<h2>What becomes moot</h2>
+<table>
+<thead><tr><th>Issue or Job</th><th>Under beads</th></tr></thead>
+<tbody>
+<tr><td>armada-z2co, wrong step: skips Walk, returns to it, re-asks approved walks</td><td>Moot. The step is held and gated, not inferred</td></tr>
+<tr><td>armada-ddfe, a step's own output read as a skipped step</td><td>Moot once this lands. Job 5f8c77bc is fixing it in the old rail now, and should finish, since Jobs run on it until then</td></tr>
+<tr><td>armada-hq0b, task notices fire on groups side by side</td><td>Moot. Swarm waves. Job 7ec7baf6 can stop</td></tr>
+<tr><td>armada-mj3k, the mod misses a push</td><td>Its rail symptom is moot, since a push places nothing. Fleet still has to hear pushes for background delivery, so the issue stays</td></tr>
+<tr><td>armada-n2ie, the walk-ask check</td><td>Not rail. Stays</td></tr>
+<tr><td>Job bc610565, walk step transitions</td><td>Moot. The Walk gate replaces them</td></tr>
+</tbody>
+</table>
+
+<h2>How it is proven</h2>
+<p>Before building, the 225 disputed notices become the eval set: each Job's recorded facts are replayed through the new rail, three times each, and the count of notices that still fire is the measure. A dispute that still fires is either a real notice, or a bug in the new rail.</p>
+
+<h2>The order of work</h2>
+<ol>
+<li>The eval set from <code>fleet_disputes</code>, run against today's rail for a baseline.</li>
+<li>Cooking a workflow into a formula, and pouring one per Job behind a setting that is off.</li>
+<li>Fleet resolves gates from what it sees, reopens one anybody else closed, and reads the journal.</li>
+<li>The step tool for agents, and the refusals you choose.</li>
+<li>The step list on the wire and in Bridge, with a walk for you.</li>
+<li>The eval run against the new rail, then the setting on for Armada's own repository, then the old rail deleted.</li>
+</ol>
+<p>Live Jobs keep today's rail until step 6.</p>
+
+<h2>What was not measured</h2>
+<ul>
+<li>Sync cost with molecules in the backlog. Spike 38 measured 12 to 33 seconds a sync at 962 issues; 120 more a day was not tried.</li>
+<li>Pouring through the owner's real database, its remote or a second Mac.</li>
+<li>Whether agents follow a step tool reliably. The evals measure Fleet's notices, not agent behaviour.</li>
+<li>Whether <code>bd swarm</code> fits a plan re-approved with groups moved between waves.</li>
+<li>The cost of cooking each workflow Armada ships. Only <code>feature</code> was written as a formula.</li>
+</ul>
+</body>
+</html>
