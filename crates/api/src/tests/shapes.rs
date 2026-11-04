@@ -240,6 +240,7 @@ pub fn manifests() -> Vec<ManifestSummary> {
         auto_merge: "never".to_string(),
         review_gate: "human_always".to_string(),
         kit: None,
+        connectors_off: false,
     }]
 }
 

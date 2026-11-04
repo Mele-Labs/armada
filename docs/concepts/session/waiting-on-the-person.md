@@ -160,6 +160,7 @@ Job 7f7f4ae4 did this twice on 24 Oct 2026: asked why commands were recorded, it
 Job 77d7b355 did it three times on 2 Nov 2026 past a rule that read only the word "Status:": it wrote one line saying it had found the causes and was writing them up, ran a tool and asked, and asked again after his answer with nothing written, so its questions named Jobs and figures that were nowhere in the thread.
 
 **A job gives back what it is finished with using `finish_up`** (`session_id` only; the hosted job holding the connection wins).
+`all_done` does the same first, so a job that is finished calls only `all_done`; `finish_up` is for giving things back early.
 It releases each slot the pool holds for the job as `armada worktree release` does, which refuses a tree with uncommitted files or commits that neither its branch's remote nor the base has; stops the servers running in each slot it released; and deletes the local branches those slots were on, the one the job was leased and the head branch of each pull request it holds or held, where the base (the local branch or `origin`'s) already holds every commit.
 Answered with `released` (slot numbers), `deleted_branches` and `kept`, a sentence for each thing that stayed and why.
 It commits nothing for the agent.

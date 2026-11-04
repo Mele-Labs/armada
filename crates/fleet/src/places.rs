@@ -83,6 +83,9 @@ pub enum Asking {
     /// Measuring stale test map edges in an Autopilot bay. Nobody waits on it, and it makes
     /// no seed's first Check faster: **last of all**, beside a warm-up.
     Recording,
+    /// What a repository's `when_base_moves:` runs in its checkout. Nobody waits on it:
+    /// **last of all**, beside a warm-up.
+    BaseMoved,
 }
 
 impl Asking {
@@ -91,7 +94,7 @@ impl Asking {
             Asking::DronesRun => 0,
             Asking::Gate | Asking::FixDraft => 1,
             Asking::Proof => 2,
-            Asking::SeedWarmup | Asking::Recording => 3,
+            Asking::SeedWarmup | Asking::Recording | Asking::BaseMoved => 3,
         }
     }
 }

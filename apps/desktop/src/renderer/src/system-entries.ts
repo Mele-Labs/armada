@@ -164,6 +164,14 @@ export const SYSTEM_ENTRIES: readonly SystemEntryDef[] = [
     ],
   },
   {
+    id: "fleet:token-use",
+    label: "Token use",
+    group: "fleet",
+    sections: [
+      "token-use",
+    ],
+  },
+  {
     id: "fleet:machine",
     label: "Machine",
     group: "fleet",
@@ -194,6 +202,11 @@ export const SYSTEM_ENTRIES: readonly SystemEntryDef[] = [
     sections: [
       "features",
     ],
+  },
+  {
+    id: "fleet:repository",
+    label: "Repository",
+    group: "fleet",
   },
   {
     id: "bridge:all",
