@@ -1339,8 +1339,8 @@ pub struct SessionRecord {
     pub later: Vec<SessionLater>,
     /// Everything that is not the person that keeps the Job open, in the order it reads: each live watch
     /// in the order it started, then each of its own pull requests in the queue, set to merge or on its
-    /// Checks. Set only once its turn has ended, nothing is in `waiting_for`, and nothing of its own runs
-    /// in the background. Empty otherwise. Not a Needs you item. `docs/design/fleet-watches-ci-and-deploys-for-a-job.md`.
+    /// Checks. Set only once its turn has ended and nothing is in `waiting_for`. Empty otherwise. Not a Needs
+    /// you item. `docs/design/fleet-watches-ci-and-deploys-for-a-job.md`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub held_open_by: Vec<HeldOpenBy>,
     /// Why it stopped, with `standing` `stopped`. Absent otherwise.

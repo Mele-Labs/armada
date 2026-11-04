@@ -274,3 +274,34 @@ test("a tab's pane that goes while the sheet's draws the walk leaves the sheet's
   expect(live.unplace).not.toHaveBeenCalled();
   expect(live.place).toHaveBeenCalledTimes(2);
 });
+
+test("on a real Bridge a pane zoomed over the walk holds it, so the page is not left painted over that pane", async () => {
+  const api = {
+    place: vi.fn(async () => undefined),
+    unplace: vi.fn(async () => undefined),
+    freeze: vi.fn(async () => ({
+      page: PNG,
+      bar: PNG,
+    })),
+    thaw: vi.fn(async () => undefined),
+  };
+  armada({
+    jobWalk: api,
+  });
+  const root = await draw();
+  await expect.poll(() => api.place.mock.calls.length).toBeGreaterThan(0);
+  expect(api.freeze).not.toHaveBeenCalled();
+
+  // What `JobPanes` does to the pane zoomed: fixed, over the Job's area, and the walk's pane stays where it was.
+  const thread = document.createElement("div");
+  thread.style.cssText = "position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:20";
+  document.body.append(thread);
+  await expect.poll(() => api.freeze.mock.calls.length).toBe(1);
+  expect(api.freeze).toHaveBeenCalledWith("job", WALK);
+
+  thread.remove();
+  await expect.poll(() => api.thaw.mock.calls.length).toBe(1);
+  expect(api.thaw).toHaveBeenCalledWith("job", WALK);
+
+  await act(async () => root.unmount());
+});

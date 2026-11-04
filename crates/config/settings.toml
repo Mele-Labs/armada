@@ -111,7 +111,7 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "adapters"
 notes = """
-**Enforced**, as `adapters::leasing::CEILING_GIB`. When a `target/` is still larger than this after its stale files are dropped, the whole directory is removed. That costs a cold rebuild, which is why it is the second step and not the first, and Fleet says so on its console each time.
+**Enforced**, as `adapters::leasing::CEILING_GIB`. When a `target/` is still larger than this after its stale files are dropped, its incremental caches go, which are most of its bytes and cost the next change a full compile of its own crates and no third-party one. Still larger, the whole directory is removed. That costs a cold rebuild, which is why it is the last step and not the first, and Fleet says so on its console each time.
 
 **A `target/` with a cargo build running in it is never touched.** Cargo holds a lock on each profile directory for the length of a build; the trim takes every one first and keeps them until it is done, so a build that starts meanwhile waits on the trim rather than losing files under it.
 

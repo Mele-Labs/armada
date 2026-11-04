@@ -221,6 +221,9 @@ where
         drop(reading);
         let manifest_id = ipc::ManifestId::carried(served.manifest().id().as_str());
         self.pull_ledger_kept_current(&manifest_id, &root).await;
+        // **The merge line agrees with the rows just written**: its own visit comes round one
+        // repository at a time, a minute or more behind them.
+        self.notice_queue(served).await;
     }
 
     /// One repository's pull request reading, held while it reads and writes the queue last seen

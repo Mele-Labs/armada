@@ -141,6 +141,15 @@ const queued = job(
           queued: true,
         },
       ),
+      {
+        kind: "background",
+        id: "rs-queued-vite",
+        form: "command",
+        task: "Serve the mock",
+        command: "pnpm exec vite --config vite.mock.config.ts --port 5199",
+        started: ago(40),
+        state: "running",
+      },
     ],
     heldOpenBy: [
       {
