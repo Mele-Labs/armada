@@ -28,6 +28,7 @@ export const JOB_TAB_KINDS = [
   "custom",
   "draft",
   "walk",
+  "document",
 ] as const;
 /** A pull request's tabs on the Reviews page. A tool's tab names its tool by id in `page`, an explanation's too. */
 export const PR_TAB_KINDS = [

@@ -452,7 +452,7 @@ function RenameField({
   );
 }
 
-/** The kinds the + offers. A Job has one thread, so it is offered only when none is open. A Draft tab is one draft's, opened from where the draft is listed. */
+/** The kinds the + offers. A Job has one thread, so it is offered only when none is open. A Draft tab is one draft's and a Document tab one page's, opened from where each is listed. */
 function addEntries(
   family: PaneFamily,
   thread: boolean,
@@ -468,7 +468,11 @@ function addEntries(
   const kinds = family.kinds
     .filter(
       (kind) =>
-        kind !== "custom" && kind !== "draft" && kind !== "walk" && (kind !== "thread" || !thread),
+        kind !== "custom" &&
+        kind !== "draft" &&
+        kind !== "walk" &&
+        kind !== "document" &&
+        (kind !== "thread" || !thread),
     )
     .flatMap((kind): DropdownMenuEntry[] => [
       {

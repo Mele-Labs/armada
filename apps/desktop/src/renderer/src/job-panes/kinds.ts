@@ -145,6 +145,10 @@ export const KINDS: Readonly<
     label: "Walk",
     Glyph: Eye,
   },
+  document: {
+    label: "Document",
+    Glyph: FileText,
+  },
   "pr-overview": {
     label: "Overview",
     Glyph: FileText,
