@@ -1053,7 +1053,12 @@ export function lapsedOf(rows: readonly WireRow[]): Session["lapsed"] {
       later.add(asked.question);
     }
   }
-  return id === undefined ? undefined : { id, questions: lapsed };
+  return id === undefined
+    ? undefined
+    : {
+        id,
+        questions: lapsed,
+      };
 }
 
 const SETTLED: Record<string, string> = {
