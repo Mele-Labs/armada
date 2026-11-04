@@ -12,7 +12,7 @@ import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
 import { operatorPanes } from "../../job-panes/store";
 import { outcomesBut } from "../../operator/model";
-import type { LogTake, OperatorSeed } from "../../operator/model";
+import type { OperatorSeed } from "../../operator/model";
 
 const OWNER = repository().manifest!.id;
 const ROOT = repository().root;
@@ -595,18 +595,6 @@ const seed: OperatorSeed = {
   ],
 };
 
-const TAKES: readonly LogTake[] = [
-  "flow",
-  "byjob",
-  "table",
-];
-
-function takeAsked(): LogTake {
-  const asked =
-    typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("take");
-  return TAKES.find((one) => one === asked) ?? "flow";
-}
-
 function scenario(name: string, says: string): Scenario {
   const base = holding(name, says);
   return {
@@ -616,13 +604,7 @@ function scenario(name: string, says: string): Scenario {
       repository: null,
     },
     draft: {
-      // `?take=flow|byjob|table` picks the Log's take; the walk plays the flow.
-      get operator() {
-        return {
-          ...seed,
-          take: takeAsked(),
-        };
-      },
+      operator: seed,
       sessions: () => {
         // Each mount opens on the Operator's default layout, with nothing kept from a walk before.
         if (typeof window !== "undefined") operatorPanes.forget();

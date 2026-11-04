@@ -110,7 +110,7 @@ export const operatorFull = walk("operator-full", [
   },
   {
     look: logRow(BUG),
-    say: "The Log as a flow, newest at the top: where each item came from, the ruling, and a line to the lane it went to. ?take=byjob groups it by Job, ?take=table draws the table",
+    say: "The Log as a flow, newest at the top: where each item came from, the ruling, and a line to the lane it went to",
   },
   {
     look: inside(logRow(BUG), chip("Home Draws Desktop States")),

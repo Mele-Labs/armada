@@ -174,12 +174,7 @@ export type OperatorTalk = {
   starts?: string;
 };
 
-/** How the Log is drawn, the three takes the owner compares: work flowing to where it went, grouped by Job, or a table. */
-export type LogTake = "flow" | "byjob" | "table";
-
 export type OperatorSeed = {
-  /** The Log's take. Absent is the flow. */
-  take?: LogTake;
   /** The Operator switch: off sends everything to the person as today. */
   on: boolean;
   positions: Readonly<Record<OperatorRole, OperatorPosition>>;
