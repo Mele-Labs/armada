@@ -80,6 +80,7 @@ pub(crate) mod processes;
 mod system;
 pub(crate) mod proposing;
 pub mod queueing;
+mod line_keeping;
 pub(crate) mod slot_asking;
 mod slot_holders;
 pub(crate) mod releasing;

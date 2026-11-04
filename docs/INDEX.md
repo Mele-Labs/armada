@@ -293,6 +293,9 @@ approximations.
 - [`spikes/038-how-far-behind-is-another-machine-on-beads.md`](spikes/038-how-far-behind-is-another-machine-on-beads.md)
   — two beads databases over a GitHub remote: a write is not pushed by itself, a sync takes 12 to 33 seconds,
   and two machines claiming one issue are both told yes until a sync settles it, the later write winning.
+- [`spikes/039-would-a-fresh-session-per-step-save-tokens.md`](spikes/039-would-a-fresh-session-per-step-save-tokens.md)
+  — a fresh session at each workflow step, simulated over 14 days of Jobs: 2.0% to 4.4% of all spend at a 400k window,
+  −1.1% to 1.2% on top of 250k, since both reset a thread to about 70k; more than half the boundaries end a step the owner wrote in.
 - [`spikes/item-clarity.md`](spikes/item-clarity.md)
   — whether the owner can act on an item an agent puts on his Needs you list, by rules and by an
   `item_clear` head: 569 labelled items, rules alone against the head and both, dev folds and a held half,
@@ -333,6 +336,10 @@ approximations.
   — whether the local model can pick a new Session's workflow, model and effort before Claude is asked:
   0 of 38 picked without a disagreement, model and effort agreeing on 23 of 38, so no call is skipped
   and the reader is not in force.
+- [`spikes/operator-replay.md`](spikes/operator-replay.md)
+  — whether the Operator's one fresh call can rule last week's arrivals: 120 replayed on Haiku and Sonnet,
+  no ruling Fleet's rules let through acted against the owner, it raised most questions and started nearly every Job,
+  about 5 s and 15,000 tokens a call, and the starting switch positions.
 - [`spikes/test-map-seed.md`](spikes/test-map-seed.md)
   — what a fresh test map costs to seed and how far it narrows a change: a 1 h 54 min job on the CI
   runner, 4261 laps, a median commit reaching 448 of them, and what was not timed.

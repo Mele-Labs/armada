@@ -262,11 +262,14 @@ export function Layer({
   fleet: given,
   openSession = askToOpenSessionInCockpit,
   tell = askToTell,
+  startLabel = "Start job",
 }: {
   sink: Sink;
   fleet?: LayerFleet;
   openSession?: (id: string) => void;
   tell?: (sentence: string) => void;
+  /** The start act's word: Dispatch where the Operator rules every start, since the press may delegate or hold. */
+  startLabel?: string;
 }) {
   const fleet: LayerFleet | undefined =
     given ?? (window.armada === undefined ? undefined : withState(window.armada));
@@ -1274,7 +1277,7 @@ export function Layer({
                         ),
                     }))}
                   >
-                    Start job
+                    {startLabel}
                   </SplitButton>
                 )}
               </>
@@ -1353,7 +1356,7 @@ export function Layer({
                       onSelect: () => void sessionSelection(chosenSendable, one),
                     }))}
                   >
-                    Start job
+                    {startLabel}
                   </SplitButton>
                 )}
                 {chosen.length > 0 && (
@@ -1547,7 +1550,7 @@ export function Layer({
                                     ),
                                 }))}
                               >
-                                Start job
+                                {startLabel}
                               </SplitButton>
                             ) : (
                               <span aria-hidden />
@@ -1616,7 +1619,7 @@ export function Layer({
                 onSelect: () => void sendHereToSession(one),
               }))}
             >
-              Start job
+              {startLabel}
             </SplitButton>
           </>
         )}

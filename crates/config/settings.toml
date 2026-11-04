@@ -578,6 +578,23 @@ The top-level `connectors:` key in the root `armada.yml`: `false` starts every h
 Read when Fleet starts, so a save that changes it is reported as waiting for a restart.
 """
 
+[settings.manifest-when-base-moves]
+name = "Commands run when the base moves"
+scope = "Manifest only"
+default = "none"
+lifetime = "Daemon start"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Manifest"
+read_by = "fleet"
+notes = """
+The top-level `when_base_moves:` key in the root `armada.yml`: a list of Commands from `commands:` that Fleet runs, in order, in the repository's own checkout each time that checkout stands at a new commit of the base branch. Each name resolves as a `setup.requires` entry does, so an undeclared, destructive or server name is refused, and an empty list is refused. A workspace's file that names it is refused.
+
+One run at a time per repository, at background priority behind every Check: a move during a run queues one more run, at the newest commit, and moves seen meanwhile are folded into it. A checkout held on another commit runs nothing until it reaches the base's tip. A failed Command is logged on Fleet's console and ends that run; it blocks no Job.
+
+Read when Fleet starts, so a save that changes it is reported as waiting for a restart.
+"""
+
 [settings.manifest-worktree-slots]
 name = "Worktree slots"
 scope = "Manifest only"
@@ -955,6 +972,76 @@ The model is a stronger writer, and the prompt does the rest: it names no cause 
 Overridden by ARMADA_RETRO_MODEL, resolved at the composition root, and nothing below Fleet reads it. The adapter states the default and a test holds it to the roster and above the Judge's. The call goes through the Judge's client and budget, so it counts against nothing: an unwatched call emits no cost readout, which is why judge-cost-cap-per-check is open, and it is not part of a Job's spend. It is one call per Job that had a Drone, made after the Job ended, so no Job waits on it.
 
 **The value lives in settings.json under `models.retro`** (live; `ARMADA_RETRO_MODEL` still wins), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
+"""
+
+[settings.operator-model]
+name = "Operator model"
+scope = "Machine"
+default = "sonnet"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "Member of the Kit set"
+owner = "Fleet"
+read_by = "adapters, fleet"
+notes = """
+DECIDED 4 Nov 2026 (owner), with the design page *Helm becomes the Operator*: sonnet, its own row so no other setting moves it, and it never follows the proposer's cheap tier. The replay of 4 Nov ran 120 of a week's arrivals through the call on both tiers: Fleet's rules would have refused 4 of this tier's rulings against 14 of the cheap tier's, at about 17 times the cheap tier's price a call. `docs/spikes/operator-replay.md`.
+
+One call with no tools, kept started and waiting so an arrival pays only for the model. The adapter states the default and a test holds it to the roster and above the Judge's.
+
+**The value lives in settings.json under `models.operator`** (live), `docs/concepts/machine.md`, *settings.json*.
+"""
+
+[settings.operator-daily-call-ceiling]
+name = "Operator calls a day"
+scope = "Machine"
+default = "100"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+Chosen 4 Nov 2026, not measured, and the owner has not set it: 100. The design page *Helm becomes the Operator* puts a daily ceiling on the Operator's calls, under Permissions, and names no number. The replay of 4 Nov counted 38 calls a working day and 57 on the busiest, before turn ends, permission cards and stalls are counted; 100 is the page's own estimate once they are, about $3.60 a day on the Operator model at the replay's price.
+
+Past it the Operator makes no calls until the next day, which begins at midnight on the machine's own clock (the owner, 4 Nov 2026), and every arrival passes on as it did before the Operator, with a Passed on row in its Log saying the ceiling was reached. Zero makes no calls at all. Counted from the Log, so a restart does not reset it.
+
+**The value lives in settings.json under `limits.operatorDailyCalls`** (live).
+"""
+
+[settings.operator]
+name = "Operator"
+scope = "Machine"
+default = "off"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+DECIDED 4 Nov 2026 (owner): the whole Operator can be turned off, and it ships Off, "off until I turn it on". It is the design page's Evaluate row, the one switch for the whole thing.
+
+**Off is main before the Operator.** No call process is kept started, and one already waiting is stopped; no start, plan or other arrival is handed to it, so no ruling is kept in its Log and no call counts against the day; no first write waits on a ruling; and no Job is acted on or told of another, whatever `operator-dispatch` says.
+
+Live: read at every arrival and every act, and the call kept started follows it on the notice loop's next tick.
+"""
+
+[settings.operator-dispatch]
+name = "Operator dispatches"
+scope = "Machine"
+default = "off"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+Off as it ships, by the design page *Helm becomes the Operator*, which the owner approved on 4 Nov 2026. The replay of 4 Nov set the starting positions, and Dispatch starts Off: starts are logged with what the Operator would have done until he turns it on.
+
+**Off changes nothing a Job sees.** Every arrival is still ruled, and each ruling is kept in the Operator's Log with the other Job and the shared paths, but no Job is started, ended, handed work or told of another, and a first write does not wait for its ruling.
+
+**On, Fleet acts on each ruling**: a Job held on its start card starts where nothing live touches it, a start a live Job's plan covers ends with its words sent to that Job, the Job of two doing the same thing that has done less ends into the other unless it has pushed, which raises it to him instead, and two Jobs on shared ground are each told of the other and told again when either changes its plan or pushes. A Job's first write waits at most 20 seconds for its start's ruling.
+
+Live: read again at every act, so a call already out when it is turned off acts on nothing.
 """
 
 [settings.plan-downshift-line]

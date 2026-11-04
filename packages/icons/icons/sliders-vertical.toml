@@ -1,0 +1,7 @@
+[icons.sliders-vertical]
+  means = "Three upright sliders, each knob at its own height: settings a person sets one by one"
+  group = "Operator"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The Operator's Permissions tab: the switch, each role's position and the daily ceiling. Never the Settings surface, which is `settings`, never the System tab, which is `sliders-horizontal`, and never a lock, which Armada keeps for the destructive lock."
+  notes = "Proposed 4 Nov 2026 for the walk `operatorFull`, for the owner to rule on. `lock` is reserved against permissions and `sliders-horizontal` to the System tab. Tab label: Permissions."

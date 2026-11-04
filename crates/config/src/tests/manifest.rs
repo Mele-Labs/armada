@@ -18,6 +18,7 @@ mod servers;
 mod standing;
 mod test_map;
 mod tracker;
+mod when_base_moves;
 mod workspaces;
 mod worktrees;
 
@@ -140,7 +141,8 @@ fn a_section_m1_does_not_read_hard_fails_and_names_what_it_does_read() {
             "ci_gate",
             "tracker",
             "test_map",
-            "connectors"
+            "connectors",
+            "when_base_moves"
         ]
     );
 }

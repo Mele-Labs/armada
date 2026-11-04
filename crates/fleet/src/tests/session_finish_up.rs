@@ -105,3 +105,31 @@ async fn a_released_slot_with_a_branch_leaves_a_release_row_in_the_thread() {
         .iter()
         .any(|row| matches!(row, ipc::SessionRow::Release { slot: 1, .. })));
 }
+
+/// One `all_done` does what `finish_up` does, then ends: the slot and the merged branch are given back
+/// and the done is stamped, with no `finish_up` before it.
+#[tokio::test]
+async fn all_done_gives_back_a_merged_slot_and_its_branch_and_ends_in_one_call() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.vcs().hold_slot(&rig.root, 2, id.as_str());
+    let at = rig.fleet.now().as_str().to_string();
+    let manifest = rig.fleet.repositories().first().unwrap().manifest().id().as_str().to_string();
+    let row = KeptAttachment {
+        holder: Holder::session(id.as_str()),
+        kind: "pr".into(),
+        manifest_id: manifest,
+        target: "2343".into(),
+        state: AttachmentState::Spent,
+        detail: [(String::from("branch"), String::from("bridge/session-id-links"))].into(),
+        since: at.clone(),
+        changed_at: at,
+    };
+    rig.fleet.store().lock().await.attach(&row, false).unwrap();
+
+    let record = rig.fleet.all_done(None, ipc::AllDone { session_id: Some(id.clone()), summary: None }).await.unwrap();
+
+    assert!(record.done_since.is_some(), "done is stamped");
+    assert_eq!(rig.fleet.vcs().slot_holders(&rig.root)[1], None, "the slot is given back");
+    assert!(rig.fleet.vcs().deleted_branches().contains(&String::from("bridge/session-id-links")));
+}

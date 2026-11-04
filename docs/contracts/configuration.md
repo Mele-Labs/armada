@@ -828,6 +828,24 @@ It is not `Live`: it is read from the Manifest Fleet started with, and a save th
 connectors: false
 ```
 
+## What runs when the base moves
+
+Added 4 November 2026, with `when_base_moves`.
+
+| field | type | required | default | meaning |
+|---|---|---|---|---|
+| `when_base_moves` | list of Command names | no | none | Commands Fleet runs, in order, in the repository's own checkout each time it stands at a new commit of the base |
+
+`concepts/manifest.md`, *When the base moves*, states the rule.
+Each name resolves against `commands:` as a `setup.requires` entry does: an undeclared, destructive or server name is refused, and so is an empty list.
+The root's to say: a workspace's file that names `when_base_moves` is refused.
+It is not `Live`: it is read from the Manifest Fleet started with, and a save that changes it is reported as frozen.
+
+```yaml
+when_base_moves:
+  - code_graph
+```
+
 ## Open questions
 
 - **[foundations-as-a-job-gate]** What gates a Job against `verify-foundations`,

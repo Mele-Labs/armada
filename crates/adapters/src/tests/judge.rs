@@ -225,6 +225,20 @@ fn a_retro_is_written_on_a_roster_model_stronger_than_the_judges() {
     );
 }
 
+/// The Operator rules on the middle tier, a member of the roster and stronger than the Judge's
+/// cheap one, as `operator-model` ships after the replay of 4 Nov 2026.
+#[test]
+fn the_operator_rules_on_a_roster_model_stronger_than_the_judges() {
+    assert_eq!(HeadlessAgent::operator_model(), "sonnet");
+    let roster = HeadlessAgent::models();
+    let at = |model| roster.iter().position(|named| *named == model);
+    assert!(at(HeadlessAgent::operator_model()).is_some(), "a member of the roster");
+    assert!(
+        at(HeadlessAgent::operator_model()) < at(HeadlessAgent::judge_model()),
+        "the roster runs strongest first"
+    );
+}
+
 /// The default steps down to a roster model that is not the strongest, as
 /// `plan-downshift-model` decided on 13 Oct 2026.
 #[test]

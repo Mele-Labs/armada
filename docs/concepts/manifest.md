@@ -807,6 +807,31 @@ connectors: false
   A save that changes it is reported as frozen, waiting for a restart.
   The person's switch is read when each Job starts, so a change reaches the Jobs started after it.
 
+## When the base moves
+
+**`when_base_moves:` names Commands Fleet runs in the repository's own checkout each time that checkout stands at a new commit of the base.**
+It is how something kept in the checkout, such as a code graph, follows main without anybody rebuilding it.
+`../contracts/configuration.md`, *What runs when the base moves*.
+
+```yaml
+commands:
+  code_graph:
+    run: pnpm gitnexus:index
+when_base_moves:
+  - code_graph
+```
+
+- **Seen on the reading of main**, once a minute, after the checkout is caught up, so a merge by anyone counts and not only one Fleet made.
+- **Only where the checkout is at main's tip.** A checkout held on uncommitted work or another branch runs nothing, and the reading after it reaches the tip runs.
+- **One run at a time per repository.** A move during a run queues one more run, and every later move before it starts is folded into that one, since it reads the checkout as it stands.
+- **In the background.** It waits for a place behind every Check and runs at utility priority, and no Job waits on it.
+- **A failure is said on Fleet's console** and ends that run; the next move runs the list again from the start.
+- **Resolved as `setup.requires` is.** A name the Commands do not declare, a destructive one, a server and an empty list are refused at load.
+- **The root's to say.** A workspace's file that names it is refused, because the checkout is the root's.
+- **Read when Fleet starts**, as `commands` is.
+  A save that changes it is reported as frozen, waiting for a restart.
+- **A Fleet starting runs it once**, at the first tip it reads, so a move made while it was down is not missed.
+
 ## Still open
 
 The engineer-facing walk from "add a new repo" to a working Manifest is designed as the Set Up a Project (Manifest) journey — tracked there, not as an open item here.

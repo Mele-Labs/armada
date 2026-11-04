@@ -104,6 +104,9 @@ pub struct Fleet<H, V, W> {
     timeline: crate::timeline::Timeline,
     /// Wakes the worker that does what a Job's rules planned. In memory: a Fleet that starts finds the acts in the store. See [`crate::lifecycles::acting`].
     rule_acts: crate::lifecycles::acting::Owed,
+    /// The Operator once seated, the rulings starts wait on, and the moves owed word. In memory:
+    /// its Log is in the store. See [`crate::operator`].
+    operator: crate::operator::Seat,
     machine: Arc<dyn Machine>,
     /// The headroom in force: shipped, or what a person saved. A `std` lock
     /// for `drones`' reason — never held across an `.await`. See
@@ -130,6 +133,9 @@ pub struct Fleet<H, V, W> {
     /// Main's moves not yet fed to the test map. Never written down, for `sweeping`'s reason —
     /// `crate::test_map_feed`.
     feed: Arc<crate::test_map_feed::Feed>,
+    /// Each repository's `when_base_moves:` runs, one at a time. Never written down, for
+    /// `sweeping`'s reason — `crate::base_moves`.
+    base_moves: crate::base_moves::BaseMoves,
     /// What each repository holds and what each slot's holder changed, kept a while. Never written
     /// down, for `sweeping`'s reason; an `Arc` because a read is spawned — `crate::territory`.
     territory: Arc<crate::territory::Territory>,
