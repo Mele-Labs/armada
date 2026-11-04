@@ -81,6 +81,17 @@ fn both_renders_carry_no_tools_at_all() {
     assert_eq!(arg_after(watched.args(), "--tools").as_deref(), Some(""));
 }
 
+/// An ask given nothing to read leaves no transcript behind, watched or not: session accounts
+/// alone left about 1,800 a day in the CLI's folder for the temporary directory, and Fleet's turn
+/// reader walked past every one each pass.
+#[test]
+fn a_one_shot_call_keeps_no_transcript() {
+    let agent = HeadlessAgent::on_path();
+    for call in [agent.render(&ask()), agent.render_watched(&ask())] {
+        assert!(call.args().iter().any(|arg| arg == "--no-session-persistence"), "{:?}", call.args());
+    }
+}
+
 /// It is not a session. A Drone's stdin carries one JSON object per line for
 /// the life of the Job; this one carries a question and then closes.
 #[test]

@@ -295,13 +295,20 @@ pub fn transcripts_since(home: &str, since: SystemTime) -> Vec<TranscriptFile> {
 
 /// Every transcript of session `id` under `home`: its own and its subagents'.
 pub fn transcripts_of(home: &str, id: &str) -> Vec<TranscriptFile> {
-    collect(home, Some(id), None)
+    collect(home, Some(&[id]), None)
+}
+
+/// Every transcript of each session in `ids`, found in **one walk of the folders**. A walk per
+/// session listed every folder once per live session every few seconds, measured at a tenth of a
+/// core on a machine with one 13,000-file folder.
+pub fn transcripts_of_each(home: &str, ids: &[&str]) -> Vec<TranscriptFile> {
+    collect(home, Some(ids), None)
 }
 
 /// **A session found under several project folders is counted once**, by its largest file: a
 /// session moved into a slot is linked or copied into the slot's folder, and the copy that has the
 /// most is the one that kept being written.
-fn collect(home: &str, only: Option<&str>, since: Option<SystemTime>) -> Vec<TranscriptFile> {
+fn collect(home: &str, only: Option<&[&str]>, since: Option<SystemTime>) -> Vec<TranscriptFile> {
     let mut best: HashMap<(String, Option<String>), TranscriptFile> = HashMap::new();
     let Ok(projects) = std::fs::read_dir(Path::new(home).join(SESSIONS)) else {
         return Vec::new();
@@ -318,10 +325,10 @@ fn collect(home: &str, only: Option<&str>, since: Option<SystemTime>) -> Vec<Tra
                 continue;
             };
             if let Some(id) = name.strip_suffix(".jsonl") {
-                if only.is_none_or(|only| only == id) {
+                if only.is_none_or(|only| only.contains(&id)) {
                     offer(&mut best, &path, id, None, since);
                 }
-            } else if only.is_none_or(|only| only == name) {
+            } else if only.is_none_or(|only| only.contains(&name)) {
                 let Ok(agents) = std::fs::read_dir(path.join("subagents")) else {
                     continue;
                 };
