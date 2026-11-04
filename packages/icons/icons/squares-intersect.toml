@@ -4,4 +4,4 @@
   size = "12px"
   status = "Proposed"
   reserved = "A Job the Operator kept in touch with another on shared ground, before its title on its row; the tooltip names the other Job, the shared paths and any plan group waiting on its push. Never a clash between branches, and never a linked Job, which is `link`."
-  notes = "Proposed 4 Nov 2026 for the walks `operatorWide` and `operatorFull`, for the owner to rule on. Both rows draw it, each naming the other. Pairs with `squares-unite`, merged. --fg-subtle; tooltip: Kept in touch with, the other Job, Shared paths."
+  notes = "Proposed 4 Nov 2026 for the walk `operatorFull`, for the owner to rule on. Both rows draw it, each naming the other. Pairs with `squares-unite`, merged. --fg-subtle; tooltip: Kept in touch with, the other Job, Shared paths."

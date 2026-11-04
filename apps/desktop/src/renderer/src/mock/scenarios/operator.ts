@@ -1,8 +1,8 @@
-// Helm's dock as the Operator panel, for the walks `operatorWide` and `operatorFull`: the same window in the panel's two takes.
-// Ten Jobs: one whose question the Operator raised with its read and pick, one whose question it is still reading, two it kept in
-// touch with a Job they wait on, one it nudged after Fleet marked it Stopped, one another Job was merged into, two kept in touch
-// from a recorded plan, and two at work. The Log, the Line, Permissions, the standing orders and the rows' ties are the scenario's
-// `operator` draft, which no wire carries yet (`operator/model.ts`).
+// Helm's dock as the Operator panel over the whole work, for the walk `operatorFull`. Ten live Jobs: one whose question the Operator
+// raised with its read and pick, one whose question it is still reading, two kept in touch with a Job they wait on, one it nudged after
+// Fleet marked it Stopped, one another Job was merged into, two kept in touch from a recorded plan, and two at work. One ended Job, the
+// one merged in. The Log, Waiting to start, Permissions, the standing orders and the rows' ties are the scenario's `operator` draft,
+// which no wire carries yet (`operator/model.ts`).
 
 import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -10,7 +10,8 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
-import type { OperatorSeed, OperatorTake } from "../../operator/model";
+import { outcomesBut } from "../../operator/model";
+import type { OperatorSeed } from "../../operator/model";
 
 const OWNER = repository().manifest!.id;
 const ROOT = repository().root;
@@ -208,6 +209,21 @@ const buildTimes: Session = {
   ],
 };
 
+// The Job merged in: dispatched, ruled the same work, and ended before it pushed. Its card in the Log opens it.
+const stepTimes: Session = {
+  ...BASE,
+  id: "op-step-times",
+  title: "Time each build step",
+  dead: "ended",
+  turn: {
+    state: "idle",
+  },
+  lastTurnAt: ago(90),
+  rows: [
+    asked("op-11-u", "09:49:00", "Time each step of a build in the Record."),
+  ],
+};
+
 // Kept in touch from a recorded plan: the Doctor calls what the store's size group builds, so its checks group waits on that push.
 const doctorStore: Session = {
   ...BASE,
@@ -235,8 +251,20 @@ const storeSize: Session = {
   ],
 };
 
-const seed = (take: OperatorTake): OperatorSeed => ({
-  take,
+const job = (session: Session) => ({
+  session: session.id,
+  title: session.title!,
+});
+const dispatched = {
+  kind: "you",
+  did: "dispatched",
+} as const;
+const from = (session: Session) => ({
+  kind: "job" as const,
+  job: job(session),
+});
+
+const seed: OperatorSeed = {
   on: true,
   positions: {
     dispatch: "on",
@@ -249,158 +277,194 @@ const seed = (take: OperatorTake): OperatorSeed => ({
     {
       id: "log-bug",
       at: ago(12),
-      from: "Bug report",
-      item: "A Job whose agent process died stays listed as idle",
+      from: {
+        kind: "report",
+        by: job(home),
+      },
+      item: "Job says Idle, but its agent crashed",
       did: "existing",
-      why: "Stop Silent Job Deaths: its detect group covers process death. The words went to it",
-      ways: [
-        "A new Job",
-        "File it as an issue",
-        "Raise it to me",
+      why: "Stop Silent Job Deaths plans this in its detect group. The words went there",
+      names: [
+        {
+          ...job(deaths),
+          as: "existing",
+        },
       ],
+      ways: outcomesBut("existing", deaths.title!),
     },
     {
       id: "log-late",
       at: ago(20),
-      from: "Rework the Map legend",
-      item: "Keep the legend collapsed by default?",
+      from: from(legend),
+      item: "Legend opens collapsed. Keep it that way?",
       did: "passed_on",
-      why: "No ruling in 60 seconds. It pulses in Needs you as today",
+      why: "No ruling in 60 seconds. It went to Needs you",
     },
     {
       id: "log-plan",
       at: ago(30),
-      from: "Store Reports Its Size",
-      item: "Plan recorded: the size group",
+      from: from(storeSize),
+      item: "Plan recorded: size group",
       did: "in_touch",
-      why: "Doctor Checks the Store calls what it builds, in crates/store/src/size.rs. Its checks group waits on this push",
-      ways: [
-        "Merge them",
-        "Raise it to me",
+      why: "Doctor Checks the Store calls crates/store/src/size.rs. This group builds it, so the checks group waits on this push",
+      names: [
+        {
+          ...job(doctorStore),
+          as: "in_touch",
+        },
       ],
+      ways: outcomesBut("in_touch", doctorStore.title!),
     },
     {
       id: "log-nudge",
       at: ago(40),
-      from: "Cockpit Console",
-      item: "Fleet marked it Stopped with 3 tasks open",
+      from: {
+        kind: "fleet",
+        did: "Fleet",
+      },
+      item: "Job says Stopped, but 3 tasks are open",
       did: "delegated",
       why: "Told it to carry on. Its plan is approved and nothing waits on you",
+      names: [
+        {
+          ...job(console_),
+          as: "nudged",
+        },
+      ],
       ways: [
-        "Raise it to me",
+        "Raise to me",
       ],
     },
     {
       id: "log-answer",
       at: ago(60),
-      from: "Home Draws Desktop States",
-      item: "Keep the old test name?",
+      from: from(home),
+      item: "Test renamed in the plan. Keep the old name?",
       did: "answered",
-      why: "Keep it, the recommended one. Its group is not seen",
+      why: "Kept the old name, the recommended answer. Its group is not marked seen",
       ways: [
         "Rename it",
-        "Raise it to me",
+        "Raise to me",
       ],
     },
     {
       id: "log-merge",
       at: ago(90),
-      from: "Show build times in the Record",
-      item: "Time each build step",
+      from: dispatched,
+      item: "Record shows the build, but not each step's time",
       did: "merged",
-      why: "Same work in apps/desktop/src/renderer/src/record. Time each build step had pushed nothing, so it ended and its brief, plan and branch came here",
-      ways: [
-        "Keep them in touch",
-        "Raise it to me",
+      why: "Show build times in the Record does the same work in apps/desktop/src/renderer/src/record. The new Job had pushed nothing, so its brief, plan and branch went there",
+      names: [
+        {
+          ...job(stepTimes),
+          as: "merged",
+        },
+        {
+          ...job(buildTimes),
+          as: "existing",
+        },
       ],
+      ways: outcomesBut("merged", buildTimes.title!),
     },
     {
       id: "log-meter",
       at: ago(120),
-      from: "You dispatched",
-      item: "Tighten the review list poll",
+      from: dispatched,
+      item: "Review list looks live, but polls once a minute",
       did: "passed_on",
-      why: "Weekly meter is out. Started as today",
+      why: "No weekly meter reading. Started it as a new Job",
     },
     {
       id: "log-raise",
       at: ago(180),
-      from: "Stop Silent Job Deaths",
-      item: "Which icon marks a dead process?",
+      from: from(deaths),
+      item: "Dead process has no icon. Which one?",
       did: "raised",
-      why: "Its group is seen",
+      why: "Its group is marked seen",
     },
     {
       id: "log-filed",
       at: ago(240),
-      from: "Bug report",
-      item: "The Logbook search drops the first letter typed",
+      from: {
+        kind: "report",
+        by: "you",
+      },
+      item: "Logbook search shows results, but drops the first letter",
       did: "filed",
       why: "No open issue matches it. Filed in armada",
       ways: [
-        "Raise it to me",
+        "Raise to me",
       ],
     },
     {
       id: "log-pool",
       at: ago(300),
-      from: "You dispatched",
-      item: "Show the slot pool on the Map",
+      from: dispatched,
+      item: "Map shows Jobs, but not the slots they hold",
       did: "in_touch",
-      why: "Rework the Map legend shares apps/desktop/src/renderer/src/map/slot.tsx. Its map group waits on that push",
+      why: "Rework the Map legend changes apps/desktop/src/renderer/src/map/slot.tsx first. This Job's map group waits on that push",
       line: "line-pool",
-      ways: [
-        "A new Job",
-        "Send it to Rework the Map legend",
-        "Merge it into Rework the Map legend",
+      names: [
+        {
+          ...job(legend),
+          as: "in_touch",
+        },
       ],
+      ways: outcomesBut("in_touch", legend.title!),
     },
     {
       id: "log-released",
       at: ago(360),
-      from: "Line",
-      item: "Wire the Doctor's new checks",
+      from: {
+        kind: "waiting",
+      },
+      item: "Doctor lists new checks, but runs none",
       did: "released",
-      why: "Store Migration Spike ended. Started now",
+      why: "Store Migration Spike ended. Started it",
     },
     {
       id: "log-tests",
       at: ago(480),
-      from: "You dispatched",
-      item: "Tests Build Only What They Test",
+      from: dispatched,
+      item: "Tests take minutes, but build the whole workspace",
       did: "in_touch",
-      why: "Stop Silent Job Deaths shares crates/testkit/src/run.rs. Its tests group waits on that push",
+      why: "Stop Silent Job Deaths changes crates/testkit/src/run.rs first. This Job's tests group waits on that push",
       line: "line-tests",
-      ways: [
-        "A new Job",
-        "Send it to Stop Silent Job Deaths",
-        "Merge it into Stop Silent Job Deaths",
+      names: [
+        {
+          ...job(deaths),
+          as: "in_touch",
+        },
       ],
+      ways: outcomesBut("in_touch", deaths.title!),
     },
     {
       id: "log-returned",
       at: ago(540),
-      from: "Home Draws Desktop States",
-      item: "A Job whose agent process died stays listed as idle",
+      from: from(home),
+      item: "Job says Idle, but its agent crashed",
       did: "returned",
       why: "The Job ended its turn without touching it. Ruled again above",
     },
     {
       id: "log-resumed",
       at: ago(720),
-      from: "Fleet restarted",
-      item: "Rename the slot pool setting?",
+      from: {
+        kind: "fleet",
+        did: "Fleet restarted",
+      },
+      item: "Setting says pool, but means slots. Rename it?",
       did: "resumed",
-      why: "Kept across the restart and ruled: answered, its group is not seen",
+      why: "Kept across the restart, then answered. Its group is not marked seen",
     },
   ],
   line: [
     {
       id: "line-tests",
-      title: "Tests Build Only What They Test",
+      title: "Tests take minutes, but build the whole workspace",
       waits: {
         kind: "job",
-        job: "Stop Silent Job Deaths",
+        job: job(deaths),
         event: "pushes",
         group: "tests",
       },
@@ -409,10 +473,10 @@ const seed = (take: OperatorTake): OperatorSeed => ({
     },
     {
       id: "line-pool",
-      title: "Show the slot pool on the Map",
+      title: "Map shows Jobs, but not the slots they hold",
       waits: {
         kind: "job",
-        job: "Rework the Map legend",
+        job: job(legend),
         event: "pushes",
         group: "map",
       },
@@ -421,7 +485,7 @@ const seed = (take: OperatorTake): OperatorSeed => ({
     },
     {
       id: "line-key",
-      title: "Redraw the Map key",
+      title: "Map key lists colours the Map no longer uses",
       waits: {
         kind: "meter",
         meter: "five_hour",
@@ -430,7 +494,7 @@ const seed = (take: OperatorTake): OperatorSeed => ({
     },
     {
       id: "line-sounds",
-      title: "Idea: sounds for raised items",
+      title: "Raised items make no sound",
       waits: {
         kind: "you",
       },
@@ -524,13 +588,13 @@ const seed = (take: OperatorTake): OperatorSeed => ({
     },
     {
       asked: "start it anyway",
-      said: "Started Tests Build Only What They Test. Logged as your correction.",
+      said: "Started it. Logged as your correction.",
       starts: "line-tests",
     },
   ],
-});
+};
 
-function scenario(name: string, says: string, take: OperatorTake): Scenario {
+function scenario(name: string, says: string): Scenario {
   const base = holding(name, says);
   return {
     ...base,
@@ -539,7 +603,7 @@ function scenario(name: string, says: string, take: OperatorTake): Scenario {
       repository: null,
     },
     draft: {
-      operator: seed(take),
+      operator: seed,
       sessions: () =>
         sessionsStore(
           [
@@ -551,6 +615,7 @@ function scenario(name: string, says: string, take: OperatorTake): Scenario {
             console_,
             home,
             buildTimes,
+            stepTimes,
             doctorStore,
             storeSize,
           ],
@@ -562,14 +627,7 @@ function scenario(name: string, says: string, take: OperatorTake): Scenario {
   };
 }
 
-export const operatorWide = scenario(
-  "operator-wide",
-  "Helm's dock as the Operator panel, as wide as the window lets it be: the Log, the Line, Permissions and the box, over ten Jobs",
-  "wide",
-);
-
 export const operatorFull = scenario(
   "operator-full",
-  "Helm's dock as the Operator panel over the whole work: the Line, the Log and Permissions side by side, over ten Jobs",
-  "full",
+  "The Operator panel over the whole work in the HUD's frames: the Log, Waiting to start, Permissions and the Job composer, over ten live Jobs and one merged in",
 );

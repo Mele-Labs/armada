@@ -73,7 +73,6 @@ const operatorNote = (): Annotation[] => [
 ];
 
 const NOTES: Record<string, () => Annotation[]> = {
-  "operator-wide": operatorNote,
   "operator-full": operatorNote,
   // The layer is mounted and off, as Bridge under `pnpm dev` runs it: ⇧⌘D is Debug Bridge.
   "debug-bridge-draft": () => [],
@@ -394,13 +393,11 @@ const LAYER_OFF = new Set([
   "debug-bridge-draft",
   "report-from-right-click",
   "job-start-card-everywhere",
-  "operator-wide",
   "operator-full",
 ]);
 
 /** Scenarios where the Operator rules every start, so the layer's start act is Dispatch: the press may delegate or hold. */
 const DISPATCHES = new Set([
-  "operator-wide",
   "operator-full",
 ]);
 

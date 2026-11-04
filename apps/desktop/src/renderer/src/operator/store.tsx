@@ -4,7 +4,7 @@
 import { createContext, useContext, useMemo, useReducer } from "react";
 import type { ReactNode } from "react";
 
-import { waitSaid } from "./model";
+import { DID_SAID, waitSaid } from "./model";
 import type {
   OperatorLineRow,
   OperatorLogRow,
@@ -58,6 +58,8 @@ type Act =
   | {
       kind: "say";
       text: string;
+      /** The names of the files and sketches sent with it. */
+      attached: readonly string[];
     }
   | {
       kind: "clear";
@@ -83,6 +85,11 @@ function logged(state: OperatorState, row: Omit<OperatorLogRow, "id" | "at">): O
   };
 }
 
+const YOU = {
+  kind: "you",
+  did: "corrected",
+} as const;
+
 function started(state: OperatorState, line: OperatorLineRow, by: "press" | "talk"): OperatorState {
   const without: OperatorState = {
     ...state,
@@ -95,13 +102,13 @@ function started(state: OperatorState, line: OperatorLineRow, by: "press" | "tal
     }),
   };
   return logged(without, {
-    from: "You",
+    from: YOU,
     item: line.title,
     did: "started",
     why:
       by === "talk"
         ? "You said start it anyway. Kept as your correction"
-        : `Start now, over the wait for ${waitSaid(line.waits)}`,
+        : `Start now. It waited for ${waitSaid(line.waits)}`,
   });
 }
 
@@ -128,28 +135,39 @@ function reduce(state: OperatorState, act: Act): OperatorState {
           line,
         },
         {
-          from: "You",
+          from: YOU,
           item: moving.title,
           did: "moved",
           why:
             after === undefined
-              ? "To the end of the Line. Kept as your correction"
+              ? "To the end of Waiting to start. Kept as your correction"
               : `Ahead of ${after.title}. Kept as your correction`,
         },
       );
     }
-    case "change":
-      return {
-        ...state,
-        log: state.log.map((row) =>
-          row.id === act.log
-            ? {
-                ...row,
-                changed: act.way,
-              }
-            : row,
-        ),
-      };
+    case "change": {
+      const ruled = state.log.find((row) => row.id === act.log);
+      if (ruled === undefined) return state;
+      return logged(
+        {
+          ...state,
+          log: state.log.map((row) =>
+            row.id === act.log
+              ? {
+                  ...row,
+                  changed: act.way,
+                }
+              : row,
+          ),
+        },
+        {
+          from: YOU,
+          item: ruled.item,
+          did: "overruled",
+          why: `${DID_SAID[ruled.did]} became ${act.way}. Kept as your correction`,
+        },
+      );
+    }
     case "position":
       return {
         ...state,
@@ -181,7 +199,7 @@ function reduce(state: OperatorState, act: Act): OperatorState {
       };
     case "say": {
       const words = act.text.trim();
-      if (words === "") return state;
+      if (words === "" && act.attached.length === 0) return state;
       const heard = words.toLowerCase();
       const script = state.talk.find((one) => heard.includes(one.asked.toLowerCase()));
       const said: OperatorState = {
@@ -191,12 +209,15 @@ function reduce(state: OperatorState, act: Act): OperatorState {
           {
             id: fresh("asked"),
             from: "you",
-            text: words,
+            text:
+              act.attached.length === 0
+                ? words
+                : `${words}${words === "" ? "" : " "}Attached: ${act.attached.join(", ")}`,
           },
           {
             id: fresh("said"),
             from: "operator",
-            text: script?.said ?? "Nothing in the Log or the Line answers that.",
+            text: script?.said ?? "Nothing in the Log or Waiting to start answers that.",
           },
         ],
       };

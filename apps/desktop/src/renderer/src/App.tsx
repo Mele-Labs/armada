@@ -895,7 +895,6 @@ export function App() {
                               dockAs: {
                                 title: "Operator",
                                 icon: Bot,
-                                span: operator.state.take,
                               },
                             })}
                         helm={

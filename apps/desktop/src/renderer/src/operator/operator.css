@@ -1,40 +1,76 @@
-/* The Operator panel, in Helm's dock. Two takes: `wide`, the dock as wide as the window lets it be, with the parts one under
-   another; and `full`, the dock over the whole work, with the Line, the Log and Permissions side by side and the box under all three. */
+/* The Operator panel, in Helm's dock over the whole work. Each pane wears the Cockpit HUD's frame (`ConsoleHud`'s `Frame`, styled in
+   `console-bridge.css`): thin glass, a hairline, proud corners and its name in the head strip. The Log takes the width on the left;
+   Waiting to start and Permissions stand on the right; the Job composer runs under all three. Bold in weight, never in size. */
 
 .armada-operator {
-  display: flex;
-  flex-direction: column;
-  gap: var(--gap-panel);
-  min-height: 100%;
+  --operator-head: 40px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--w-dock);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: var(--space-6);
+  height: 100%;
+  min-height: 0;
+  padding: var(--space-2);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
 
-.armada-operator[data-take="full"] {
-  display: grid;
-  grid-template-columns: var(--w-dock-min) minmax(0, 1fr) var(--w-dock);
-  grid-template-rows: minmax(0, 1fr) auto;
-  height: 100%;
-  min-height: 0;
+.armada-operator > [data-part="log"] {
+  grid-column: 1;
+  grid-row: 1 / 3;
 }
 
-/* Side by side, each part scrolls on its own and the box stays put under them. */
-.armada-operator[data-take="full"] > .armada-operator__pane {
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.armada-operator[data-take="full"] > .armada-operator__box {
+.armada-operator > [data-part="box"] {
   grid-column: 1 / -1;
 }
 
-/* One under another, the Log comes first: it is what a person opens the panel to read. */
-.armada-operator[data-take="wide"] > [data-part="log"] {
-  order: -1;
+/* The pane: the frame is drawn behind, the name in the head strip, and the body scrolls under it. The corners stand out past the edge. */
+.armada-operator__pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  color: var(--cb-cyan);
 }
 
-.armada-operator__pane {
-  min-width: 0;
+.armada-operator__name {
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: var(--operator-head);
+  margin: 0;
+  padding-inline: var(--space-4);
+  position: relative;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+}
+
+.armada-operator__acts {
+  position: absolute;
+  top: 0;
+  right: var(--space-3);
+  display: flex;
+  align-items: center;
+  height: var(--operator-head);
+  color: var(--fg-default);
+}
+
+.armada-operator__body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  color: var(--fg-default);
+}
+
+.armada-operator > [data-part="box"] .armada-operator__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  overflow: visible;
 }
 
 .armada-operator__line,
@@ -48,17 +84,18 @@
 }
 
 .armada-operator__title {
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-heading);
   color: var(--fg-default);
 }
 
 .armada-operator__line-text {
   display: flex;
   flex-direction: column;
+  gap: calc(var(--space-1) / 2);
   min-width: 0;
 }
 
-/* Each row a grid whose trailing column is the act's, kept where a row has none, so Start now lines up down the list. */
+/* Each list a grid whose rows are subgrids, so every control stands in one column down the list, kept where a row has none. */
 .armada-operator__line {
   display: grid;
   grid-template-columns: minmax(0, 1fr) max-content;
@@ -72,21 +109,25 @@
   grid-template-columns: subgrid;
   align-items: start;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
   border-bottom: var(--border-width) solid var(--border-subtle);
+  border-left: var(--edge-active) solid transparent;
 }
 
 .armada-operator__line-row {
   cursor: grab;
 }
 
+.armada-operator__line-row:hover,
+.armada-operator__log-row:hover,
 .armada-operator__line-row[data-dragging] {
   background: var(--bg-hover);
 }
 
 .armada-operator__line-row:focus-visible {
-  outline: var(--border-width) solid var(--accent);
-  outline-offset: calc(var(--border-width) * -1);
+  outline: none;
+  background: var(--bg-hover);
+  border-left-color: var(--accent);
 }
 
 .armada-operator__wait,
@@ -99,12 +140,25 @@
   color: var(--fg-muted);
 }
 
-/* from, item, what it did, why, age, Start now, Change. */
+/* What started it, the item and why, the ruling, the Jobs it names, age, Start now, Overrule. */
 .armada-operator__log {
   display: grid;
   grid-template-columns:
-    minmax(0, 1fr) minmax(0, 1.4fr) max-content minmax(0, 1.6fr) max-content
-    max-content max-content;
+    calc(var(--space-12) * 4) minmax(0, 1fr) max-content calc(var(--space-12) * 4)
+    max-content max-content max-content;
+}
+
+.armada-operator__source,
+.armada-operator__named {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-operator__from {
+  font-weight: var(--weight-medium);
+  color: var(--fg-muted);
 }
 
 .armada-operator__item,
@@ -118,10 +172,15 @@
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.armada-operator__did {
+  font-weight: var(--weight-medium);
 }
 
 .armada-operator__age {
-  color: var(--fg-subtle);
+  color: var(--fg-muted);
 }
 
 .armada-operator__did[data-did="answered"] {
@@ -149,7 +208,8 @@
 
 .armada-operator__did[data-did="released"],
 .armada-operator__did[data-did="resumed"],
-.armada-operator__did[data-did="moved"] {
+.armada-operator__did[data-did="moved"],
+.armada-operator__did[data-did="overruled"] {
   color: var(--fg-muted);
 }
 
@@ -164,7 +224,7 @@
 }
 
 .armada-operator__permission[data-master] {
-  background: var(--bg-sunken);
+  background: color-mix(in srgb, var(--bg-hover) 40%, transparent);
 }
 
 .armada-operator__does {
@@ -185,10 +245,19 @@
 
 .armada-operator__lock {
   margin: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-4);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   color: var(--fg-subtle);
+}
+
+.armada-operator__subhead {
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-1);
+  border-top: calc(var(--border-width) * 3) solid var(--border-strong);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
 }
 
 .armada-operator__order {
@@ -197,23 +266,12 @@
   color: var(--fg-muted);
 }
 
-/* The box: a short conversation, pinned at the foot while the parts above it scroll. */
-.armada-operator__box {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-}
-
 .armada-operator__talk {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  max-height: calc(var(--space-12) * 3);
+  overflow-y: auto;
 }
 
 .armada-operator__said {
@@ -224,13 +282,6 @@
 
 .armada-operator__said[data-from="you"] {
   color: var(--fg-muted);
-}
-
-.armada-operator__compose {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content max-content;
-  align-items: end;
-  gap: var(--space-2);
 }
 
 .armada-operator__glyph {

@@ -39,4 +39,4 @@
     group = "Operator"
     size = "12 and 16px"
     status = "Proposed"
-    notes = "Proposed 4 Nov 2026 for the walks `operatorWide` and `operatorFull`, for the owner to rule on. The approved design draws its read with this glyph. The Operator takes Helm's place, and the reservation above keeps Helm on `message-square`; the Operator is no live agent, so a ruling on this usage settles which of the two it takes. --fg-muted; tooltip: The Operator is reading this, or Operator."
+    notes = "Proposed 4 Nov 2026 for the walk `operatorFull`, for the owner to rule on. The approved design draws its read with this glyph. The Operator takes Helm's place, and the reservation above keeps Helm on `message-square`; the Operator is no live agent, so a ruling on this usage settles which of the two it takes. --fg-muted; tooltip: The Operator is reading this, or Operator."

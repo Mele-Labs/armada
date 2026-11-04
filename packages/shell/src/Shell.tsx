@@ -133,14 +133,10 @@ export type ShellProps = {
    * app's to know, not the shell's.
    */
   helmAction?: ReactNode;
-  /**
-   * The dock under another name, glyph and width: the Operator's walk, in one of its two takes. `wide` is the dock as wide as the
-   * window lets it be, `full` is the dock over the whole work. Absent is Helm's dock as it is.
-   */
+  /** The dock under another name and glyph, over the whole work: the Operator's walk. Absent is Helm's dock as it is. */
   dockAs?: {
     title: string;
     icon: LucideIcon;
-    span: "wide" | "full";
   };
   children: ReactNode;
 };
@@ -250,13 +246,7 @@ export function Shell({
           : {
               title: dockAs.title,
               icon: dockAs.icon,
-              // The widest the dock's range allows: the dock clamps any width to it.
-              width: Number.MAX_SAFE_INTEGER,
-              ...(dockAs.span === "full"
-                ? {
-                    span: "full" as const,
-                  }
-                : {}),
+              span: "full" as const,
             }),
         action: helmAction,
         children: <>{helm}</>,
@@ -338,10 +328,16 @@ const SETTINGS_SURFACE = SURFACES.find((one) => one.id === SURFACE.settings);
 const MANIFEST_SAID = `Open the ${MANIFEST_SURFACE?.label ?? "Manifest"}`;
 
 const OPEN_HELM = "armada:open-helm";
+const CLOSE_HELM = "armada:close-helm";
 
 /** Opens Helm's dock from anywhere in the window. A window event, since the dock's open state is the shell's own. */
 export function askToOpenHelm(): void {
   window.dispatchEvent(new Event(OPEN_HELM));
+}
+
+/** Shuts the dock from inside it, as a Job opened from the Operator's panel does so the Job is not under it. */
+export function askToCloseHelm(): void {
+  window.dispatchEvent(new Event(CLOSE_HELM));
 }
 
 /**
@@ -376,8 +372,13 @@ function useDock(folded: boolean): {
   opens.current = onOpen;
   useEffect(() => {
     const heard = (): void => opens.current(true);
+    const shut = (): void => opens.current(false);
     window.addEventListener(OPEN_HELM, heard);
-    return () => window.removeEventListener(OPEN_HELM, heard);
+    window.addEventListener(CLOSE_HELM, shut);
+    return () => {
+      window.removeEventListener(OPEN_HELM, heard);
+      window.removeEventListener(CLOSE_HELM, shut);
+    };
   }, []);
 
   useEffect(() => {

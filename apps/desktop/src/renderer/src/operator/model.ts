@@ -1,5 +1,6 @@
 // What the Operator panel draws, typed here because no wire carries it yet. Each shape is a proposal for the protocol, listed in the
-// header of the walks `operatorWide` and `operatorFull` (`mock/walks/operator.ts`). The mock scenario seeds it; the panel's own presses move it locally.
+// header of the walk `operatorFull` (`mock/walks/operator.ts`). The mock scenario seeds it; the panel's own presses move it locally.
+// `line` is the list the panel calls Waiting to start.
 
 /** What the Operator did with an item, the Log's third column. */
 export type OperatorDid =
@@ -16,18 +17,25 @@ export type OperatorDid =
   | "released"
   | "returned"
   | "resumed"
-  | "moved";
+  | "moved"
+  | "overruled";
 
 /** The four roles a person turns. Evaluate is the Operator switch itself; Raise has no control. */
 export type OperatorRole = "dispatch" | "delegate" | "answer" | "file";
 
 export type OperatorPosition = "on" | "suggest" | "off";
 
+/** A Job a row names, drawn as the Job card that opens it. `title` is what it was called, for a Job the window no longer holds. */
+export type OperatorJob = {
+  session: string;
+  title: string;
+};
+
 /** What a held item waits for. Fleet refuses a hold that names neither a Job nor a meter; `you` is a row the person moved there. */
 export type OperatorWait =
   | {
       kind: "job";
-      job: string;
+      job: OperatorJob;
       event: "pushes" | "ends";
       /** The plan group the push is of. */
       group?: string;
@@ -42,22 +50,51 @@ export type OperatorWait =
       kind: "you";
     };
 
+/** What started an item: your dispatch or correction, a Job, a bug report and who filed it, Fleet, or a row waiting to start. */
+export type OperatorSource =
+  | {
+      kind: "you";
+      did: "dispatched" | "corrected";
+    }
+  | {
+      kind: "job";
+      job: OperatorJob;
+    }
+  | {
+      kind: "report";
+      by: OperatorJob | "you";
+    }
+  | {
+      kind: "fleet";
+      /** What Fleet did, such as "Fleet restarted". */
+      did: string;
+    }
+  | {
+      kind: "waiting";
+    };
+
+/** How a ruling names another Job: the one the words went to, the one merged in, or the one kept in touch with. */
+export type OperatorNamed = OperatorJob & {
+  as: "existing" | "merged" | "in_touch" | "nudged";
+};
+
 /** One act, newest first. */
 export type OperatorLogRow = {
   id: string;
   /** ISO time it was ruled. */
   at: string;
-  /** Where the item came from: a Job's title, or what arrived, such as "You dispatched" or "Bug report". */
-  from: string;
+  from: OperatorSource;
   /** The item itself: a question, a request, a report. */
   item: string;
   did: OperatorDid;
   why: string;
-  /** The Line row a hold put on the Line, which Start now on this row starts. */
+  /** Every Job the ruling names. */
+  names?: readonly OperatorNamed[];
+  /** The row a hold put in Waiting to start, which Start now on this row starts. */
   line?: string;
-  /** The other ways Fleet offered for this item, which Change picks from. Absent draws no Change. */
+  /** The other outcomes Overrule offers. Absent draws no Overrule. */
   ways?: readonly string[];
-  /** The way the person changed it to, a correction the next call reads. */
+  /** The outcome the person overruled it to, a correction the next call reads. */
   changed?: string;
 };
 
@@ -137,11 +174,7 @@ export type OperatorTalk = {
   starts?: string;
 };
 
-/** How the panel is drawn, the two takes the owner picks between. */
-export type OperatorTake = "wide" | "full";
-
 export type OperatorSeed = {
-  take: OperatorTake;
   /** The Operator switch: off sends everything to the person as today. */
   on: boolean;
   positions: Readonly<Record<OperatorRole, OperatorPosition>>;
@@ -203,6 +236,7 @@ export const DID_SAID: Readonly<Record<OperatorDid, string>> = {
   returned: "Returned",
   resumed: "Resumed",
   moved: "Moved",
+  overruled: "Overruled",
 };
 
 const METER_SAID = {
@@ -210,20 +244,63 @@ const METER_SAID = {
   weekly: "Weekly window",
 } as const;
 
-/** What a Line row waits for, as its line under the title says it. */
+/** What a row waiting to start waits for, in a held Job's head and its row's tooltip. */
 export function waitSaid(wait: OperatorWait): string {
   switch (wait.kind) {
     case "job":
       return wait.event === "ends"
-        ? `${wait.job} ends`
+        ? `${wait.job.title} ends`
         : wait.group === undefined
-          ? `${wait.job} pushes`
-          : `${wait.job} pushes its ${wait.group} group`;
+          ? `${wait.job.title} pushes`
+          : `${wait.job.title} pushes its ${wait.group} group`;
     case "meter":
       return `${METER_SAID[wait.meter]} under ${wait.under}%`;
     case "you":
       return "You moved it here";
   }
+}
+
+/** What a row in Waiting to start says it waits on, the Job it waits on drawn beside it as its card. */
+export function waitLine(wait: OperatorWait): string {
+  switch (wait.kind) {
+    case "job":
+      return wait.event === "ends"
+        ? "Starts when this Job ends"
+        : wait.group === undefined
+          ? "Starts when this Job pushes"
+          : `Starts when this Job pushes its ${wait.group} group`;
+    case "meter":
+      return `Starts when the ${METER_SAID[wait.meter].toLowerCase()} is under ${wait.under}%`;
+    case "you":
+      return "Waits on you. You moved it here";
+  }
+}
+
+/** What started an item, in words: the Log row's name, and its first column where no Job card stands for it. */
+export function sourceSaid(from: OperatorSource): string {
+  switch (from.kind) {
+    case "you":
+      return from.did === "dispatched" ? "You dispatched" : "You";
+    case "job":
+      return from.job.title;
+    case "report":
+      return from.by === "you" ? "Bug report from you" : `Bug report from ${from.by.title}`;
+    case "fleet":
+      return from.did;
+    case "waiting":
+      return "Waiting to start";
+  }
+}
+
+/** The Overrule menu's outcomes for a ruling on who does the work, less the one it made. `other` is the Job the ruling named. */
+export function outcomesBut(did: OperatorDid, other: string): readonly string[] {
+  return [
+    did === "started" ? undefined : "New Job",
+    did === "existing" ? undefined : `Existing Job: send it to ${other}`,
+    did === "merged" ? undefined : `Merge with ${other}`,
+    did === "in_touch" ? undefined : `Keep in touch with ${other}`,
+    "Raise to me",
+  ].filter((one): one is string => one !== undefined);
 }
 
 /** What a Job row's tie glyph says, naming the other Job and the shared paths. */
