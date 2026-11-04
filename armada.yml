@@ -523,6 +523,11 @@ setup:
 
 auto_merge: checks-pass
 
+# None of the person's claude.ai connectors in this repository's Jobs: none was
+# called in 14 days, and their instructions and tool lists cost up to 4% of
+# spend. docs/concepts/manifest.md, *Connectors*.
+connectors: false
+
 # Armada's own work is kept in beads, on this repository's refs/dolt/data. docs/practices/joining.md
 tracker:
   provider: beads
