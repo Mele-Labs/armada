@@ -563,6 +563,21 @@ The top-level `ci_gate:` key: the name of the check on a pull request that decid
 Read when Fleet starts, so a save that changes it is reported as waiting for a restart.
 """
 
+[settings.manifest-connectors]
+name = "Manifest connectors"
+scope = "Manifest only"
+default = "true"
+lifetime = "Daemon start"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Manifest"
+read_by = "fleet"
+notes = """
+The top-level `connectors:` key in the root `armada.yml`: `false` starts every hosted Job in the repository with `ENABLE_CLAUDEAI_MCP_SERVERS=false`, so its claude process fetches none of the connectors on the person's claude.ai account. Absent or `true` changes nothing. Servers the repository names itself, in its own `.mcp.json`, are untouched, and sessions started outside Armada are unaffected. A workspace's file that names it is refused.
+
+Read when Fleet starts, so a save that changes it is reported as waiting for a restart.
+"""
+
 [settings.manifest-worktree-slots]
 name = "Worktree slots"
 scope = "Manifest only"

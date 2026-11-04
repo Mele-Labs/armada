@@ -41,6 +41,8 @@ pub struct Ask {
     question: String,
     environment: Environment,
     reading: Option<Reading>,
+    briefly: bool,
+    unthinking: bool,
 }
 
 /// A repository's checkout a Judge may read, and for how many turns.
@@ -101,7 +103,39 @@ impl Ask {
             question: String::from(question),
             environment,
             reading: None,
+            briefly: false,
+            unthinking: false,
         })
+    }
+
+    /// The same ask, for a call whose prompt nothing reads back: a client keeps its prefix for
+    /// the shortest time it offers rather than the longest. **Off unless a caller says so**, since
+    /// a call that is repeated inside the short window is the one that wants the long one.
+    pub fn kept_briefly(self) -> Ask {
+        Ask {
+            briefly: true,
+            ..self
+        }
+    }
+
+    /// Whether this call's prompt is kept only briefly. See [`Ask::kept_briefly`].
+    pub fn is_kept_briefly(&self) -> bool {
+        self.briefly
+    }
+
+    /// The same ask, for a call whose answer is a few short lines: a client does not think before
+    /// it replies. **Off unless a caller says so**, since a call that weighs something wants the
+    /// thinking, and one that only restates gains nothing from it.
+    pub fn unthinking(self) -> Ask {
+        Ask {
+            unthinking: true,
+            ..self
+        }
+    }
+
+    /// Whether this call is asked not to think. See [`Ask::unthinking`].
+    pub fn is_unthinking(&self) -> bool {
+        self.unthinking
     }
 
     /// The same ask, able to read `reading`'s checkout.
@@ -160,6 +194,16 @@ impl JudgeCall {
             question: String::from(ask.question()),
             directory: ask.reads().map(|reading| String::from(reading.directory())),
         }
+    }
+
+    /// One more variable in the call's environment. A name the environment already holds, or one
+    /// it refuses, leaves it as it was: the adapter passes constants, so neither is a case to
+    /// fail a call over.
+    pub fn with_variable(mut self, name: &str, value: &str) -> JudgeCall {
+        if let Ok(environment) = self.environment.clone().and(name, value) {
+            self.environment = environment;
+        }
+        self
     }
 
     /// Marked as running unattended, for the `armada` mod to read.

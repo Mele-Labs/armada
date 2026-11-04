@@ -161,9 +161,40 @@ impl HeadlessAgent {
     }
 }
 
+/// The variable that sets how long the CLI asks for its prompt prefix to be kept, and its shortest
+/// value. Measured on one real call: `5m` moved every written token of the prefix from the hour
+/// bucket to the five-minute one, which is billed at 1.25 times the input price and not 2.
+const PROMPT_CACHE_TTL: (&str, &str) = ("CLAUDE_CODE_PROMPT_CACHE_TTL", "5m");
+
+/// The two variables that turn the CLI's thinking off, set together: either alone leaves some of
+/// it on. Measured on 60 real turn summaries: quality unchanged, every reply still parsed, and
+/// mean output fell from 210 to 148 tokens. One call in 30 still thought with both set.
+const NO_THINKING: [(&str, &str); 2] = [
+    ("MAX_THINKING_TOKENS", "0"),
+    ("CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING", "1"),
+];
+
+/// The call as rendered, with the cache lifetime an ask for a brief one gets and the thinking an
+/// ask for none loses.
+fn shaped(ask: &Ask, call: JudgeCall) -> JudgeCall {
+    let call = match ask.is_kept_briefly() {
+        true => call.with_variable(PROMPT_CACHE_TTL.0, PROMPT_CACHE_TTL.1),
+        false => call,
+    };
+    match ask.is_unthinking() {
+        true => NO_THINKING
+            .iter()
+            .fold(call, |call, (name, value)| call.with_variable(name, value)),
+        false => call,
+    }
+}
+
 impl ModelClient for HeadlessAgent {
     fn render(&self, ask: &Ask) -> JudgeCall {
-        JudgeCall::rendered(ask, self.program(), asking(ask, Watched::No)).unattended()
+        shaped(
+            ask,
+            JudgeCall::rendered(ask, self.program(), asking(ask, Watched::No)).unattended(),
+        )
     }
 
     /// The same call, printing what it is doing while it does it.
@@ -174,7 +205,10 @@ impl ModelClient for HeadlessAgent {
     /// shared builder below is what makes that true by construction rather than
     /// by two lists agreeing.
     fn render_watched(&self, ask: &Ask) -> JudgeCall {
-        JudgeCall::rendered(ask, self.program(), asking(ask, Watched::Yes)).unattended()
+        shaped(
+            ask,
+            JudgeCall::rendered(ask, self.program(), asking(ask, Watched::Yes)).unattended(),
+        )
     }
 
     /// Read one line of what [`render_watched`](ModelClient::render_watched)

@@ -318,7 +318,12 @@ where
         let named = self.machine_settings().now().get(keys::MODELS_ACCOUNT);
         let model = Model::named_at(&named, None).map_err(|_| String::from("no model is configured for `models.account`"))?;
         let ask = Ask::put(model, question, proposing.environment.clone())
-            .map_err(|_| String::from("there was nothing to ask"))?;
+            .map_err(|_| String::from("there was nothing to ask"))?
+            // One request per call and nothing reads its prefix back, so the hour-long write the
+            // client defaults to is paid for and never used; the reply is a few short lines, so
+            // thinking before it adds output and no quality.
+            .kept_briefly()
+            .unthinking();
         watched(proposing.client.as_ref(), &ask, proposing.budget, &|_| {}, std::future::pending::<()>())
             .await
             .map_err(|why| why.to_string())

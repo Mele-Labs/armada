@@ -10,4 +10,3 @@ notes = """
 
 `agent_access` is `Yes`: an agent names a recipe at `start_watch` and has to know which there are.
 """
-always_loaded = true
