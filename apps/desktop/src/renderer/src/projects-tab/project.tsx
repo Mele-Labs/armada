@@ -31,7 +31,6 @@ import {
   PullRequestChip,
   Readout,
   RepositoryChip,
-  SessionMark,
   Textarea,
   Tooltip,
   forgetKept,
@@ -39,12 +38,12 @@ import {
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { useReorder } from "../cockpit/deck/reorder";
-import { JobMark } from "../issues-tab/marks";
+import { JobChip } from "../job-chip";
 import { PullRequestMenuOn } from "../pull-request-menu";
 import { useSessions } from "../sessions-draft";
 import type { Band } from "./list";
 import { PROJECTS_KEYS, capOf } from "./key-table";
-import type { Holder, Linked, LinkedPull, ProjectRow, RowState, TaskRow } from "./model";
+import type { Linked, LinkedPull, ProjectRow, RowState, TaskRow } from "./model";
 import { lastUsedRepo, rowState, useProjects, useProjectsStore } from "./store";
 import { NO_PROJECT, shown } from "./views";
 import { useTagField } from "./tagging";
@@ -421,7 +420,15 @@ function Card({
         <span className="projects-row__holder">
           {row.job === undefined ? null : (
             <span className="projects-row__linked">
-              <JobChip job={row.job} sessions={sessions} onOpen={onOpenSession} />
+              <JobChip
+                job={row.job}
+                sessions={sessions}
+                onOpen={onOpenSession}
+                shortcut={PROJECTS_KEYS.openJob}
+                tabIndex={-1}
+                className="projects-row__job"
+                data-job
+              />
               {row.kind === "task" ? (
                 <Unlink said={`Unlink ${row.job.title}`} onUnlink={() => store.unlinkJob(row.id)} />
               ) : null}
@@ -588,39 +595,6 @@ function RepositoryMenu({
         onSelect={(manifestId) => store.moveTaskToRepository(task.id, manifestId)}
       />
     </span>
-  );
-}
-
-/** The Job holding a row, as a chip: its live state's glyph and its title; a press opens it. One that has ended reads by the title it was sent with. */
-function JobChip({
-  job,
-  sessions,
-  onOpen,
-}: {
-  job: Holder;
-  sessions: readonly Session[];
-  onOpen: (id: string) => void;
-}) {
-  const session = sessions.find((one) => one.id === job.id);
-  const title = session?.title ?? job.title;
-  return (
-    <Tooltip label="Open the Job" shortcut={PROJECTS_KEYS.openJob} asChild>
-      <button
-        type="button"
-        tabIndex={-1}
-        className="projects-row__job"
-        data-job
-        aria-label={`Open ${title}`}
-        onClick={() => onOpen(job.id)}
-      >
-        {session === undefined ? (
-          <SessionMark state="ended" said={`${job.title}: Ended`} />
-        ) : (
-          <JobMark session={session} />
-        )}
-        <span className="projects-row__job-title">{title}</span>
-      </button>
-    </Tooltip>
   );
 }
 
