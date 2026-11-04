@@ -919,6 +919,9 @@ Bridge's half is `packages/protocol/src/watches.ts`, written by hand; nothing in
 **The command's line is written by Armada too.** `ipc::watch_line` writes the line `armada watch-line` prints for the recipes Armada ships, and `ipc::read_watch_line` reads it back whole; it is still not the wire to Bridge.
 **Always loaded.** An operation file may say `always_loaded = true`; the door then lists that tool with the harness's `_meta` key, which the harness adapter names (`AgentHarness::always_loads_tool`).
 The key is on the agent's tools list only, and Bridge reads nothing of it.
+A tool earns it only when most Jobs call it and its definition is under about 1k tokens (2.7 characters to the token); every definition sits in each request of every thread.
+`waiting_for` is the one.
+The seven watch tools were called by a fifth of Jobs at most and run from 0.8k to 5.3k characters, so they load behind a search, and the rules name the `select:` line that loads them.
 
 ### Tidying a Job's watches: a run of readings, ended watches on asking, and `delete_watch`
 
@@ -928,7 +931,7 @@ Since 26 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation fi
 | --- | --- | --- |
 | `WatchReading` | Fleet writes | Gains `count?` and `last_at?` on both kinds. In `readings`, back-to-back readings that read the same are one: `at` the first, `last_at` the last, `count` how many, absent for one. A read is the same in `state`, `finished`, `says`, `link` and `parts`; a broken one in `why`, with the last one's `output` |
 | `WatchSummary.last` | Fleet writes | The newest reading as taken, never a run, so its `at` is its own |
-| `delete_watch` (`POST /watches/delete`, `Yes`, always loaded) | Bridge's delete control, or an agent | `DeleteWatch` `{ session_id?, watch }`; answers the Job's `WatchList` after, live and ended, and publishes `watches.changed`. The store forgets the watch, its readings, set-asides, verdicts and notices. 409 `fleet.watch_live` for a live one, "Stop it first."; 404 `fleet.no_such_watch` |
+| `delete_watch` (`POST /watches/delete`, `Yes`) | Bridge's delete control, or an agent | `DeleteWatch` `{ session_id?, watch }`; answers the Job's `WatchList` after, live and ended, and publishes `watches.changed`. The store forgets the watch, its readings, set-asides, verdicts and notices. 409 `fleet.watch_live` for a live one, "Stop it first."; 404 `fleet.no_such_watch` |
 | `list_watches` (`GET /watches?session_id=&ended=`) | Bridge or an agent reads | Live watches only, unless `ended=true`. Any value but `true` or `false` is a 400 `api.undecodable_request`. Bridge asks for ended ones, as `watches.changed` carries them whole |
 
 **The store keeps every reading.** Only the answer collapses them, in `ipc::collapsed`.

@@ -16,4 +16,3 @@ notes = """
 
 `agent_access` is `Yes`: the weighing needs the diff, and the agent holds it.
 """
-always_loaded = true
