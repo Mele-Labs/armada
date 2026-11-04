@@ -41,7 +41,7 @@
   notes = "Specified 29 Oct 2026 on the walk `reported-bugs`, which the owner walked and approved. Tooltip `Unread`. It asks nothing of the owner, so it is neither a pulse nor the awaiting review hue, and it goes once the report is opened. Borrowed and not minted: `reply` is a reply the agent made, and `mail` is reserved to a stranded slot."
 
 [[icons.circle-dot.usage]]
-  means = "A ticket that is in progress, on the card of the Job started for it"
+  means = "A ticket that is in progress, on the card of the Job started for it and on the ticket's row in a Job and in the Issues tab"
   group = "Workspace lanes"
   size = "14px"
   status = "Proposed"

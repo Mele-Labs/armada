@@ -327,6 +327,7 @@ where
     pub(crate) async fn sweep_quiet(&self) {
         let quiet = self.hosts().quiet();
         let mut ended = Vec::new();
+        let mut closed = Vec::new();
         for (id, runtime) in self.hosts().all() {
             let mut state = runtime.state();
             if state.reattached_busy
@@ -336,6 +337,7 @@ where
                 state.reattached_busy = false;
                 state.turn = SessionTurn::Idle;
                 ended.push(id.clone());
+                closed.push(id.clone());
                 continue;
             }
             let idle = matches!(state.turn, SessionTurn::Idle);
@@ -347,6 +349,10 @@ where
                 Self::let_go(&mut state);
                 ended.push(id);
             }
+        }
+        // After the state locks are dropped: a reattached turn that went quiet is over, not dead.
+        for id in closed {
+            self.turn_closed(&id).await;
         }
         for id in ended {
             let _ = self.published_hosted(&id).await;

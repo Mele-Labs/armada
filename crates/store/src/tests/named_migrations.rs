@@ -344,3 +344,26 @@ fn the_compiled_list_is_the_directory_after_the_legacy_entries() {
     let on_disk: Vec<&str> = files.iter().map(|f| f.name.as_str()).collect();
     assert_eq!(compiled, on_disk);
 }
+
+/// Fleet's outage tables come from `fleet_outages.tables` alone. A store made fresh gets both
+/// migrations, and the owner's store, which got the tables from `process_stops.tables` when a
+/// preview ran it, meets `fleet_outages.tables` for the first time: it has to find them there.
+#[test]
+fn the_outage_tables_come_up_on_a_fresh_store_and_on_one_that_already_holds_them() {
+    let dir = TempDir::new();
+    let path = dir.db();
+    drop(Store::open(&path).expect("a fresh store opens"));
+
+    let conn = Connection::open(&path).expect("the file");
+    let forgotten = conn
+        .execute("DELETE FROM armada_migrations WHERE name = 'fleet_outages.tables'", [])
+        .expect("deletes");
+    assert_eq!(forgotten, 1, "the migration was recorded");
+    drop(conn);
+
+    let store = Store::open(&path).expect("a store holding the tables opens and runs the migration again");
+    for table in ["session_stops", "fleet_alive", "fleet_outages"] {
+        assert!(has_table(&store, table), "{table}");
+    }
+    assert!(applied(&store).iter().any(|(name, _)| name == "fleet_outages.tables"));
+}

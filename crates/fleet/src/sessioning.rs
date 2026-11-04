@@ -61,6 +61,16 @@ pub(crate) struct LedgerReads {
     later: Vec<store::KeptLater>,
     /// The names of its live watches, the oldest first.
     watching: Vec<String>,
+    /// What of its lifecycles keeps it open.
+    holding: Vec<crate::lifecycles::ending::Flying>,
+    /// The stop it was told about and the stop passed over.
+    stop: store::KeptStop,
+    /// The turn it has open, which says if its process died in it and Fleet's one restart is spent.
+    open_turn: Option<store::KeptOpenTurn>,
+    /// Its repair Job ended or said it is done, so it is not coming back that way.
+    repair_over: bool,
+    /// The stretches Fleet was away while its open turn was: the last, oldest first.
+    away: Vec<(String, String)>,
     /// What the start card is drawn from, for a Job that waits on it.
     start: Option<crate::session_host::start_card::StartReads>,
 }
@@ -1268,6 +1278,28 @@ where
             return Err(self.ledger_unnamed("a time for each bound of the window"));
         };
         Ok(crate::usage_summarising::wire(read, tz_offset_minutes))
+    }
+
+    async fn get_job_time(&self, session_id: ipc::SessionId) -> Result<ipc::JobTime, Refusal> {
+        let id = session_id.as_str().trim();
+        let kept = self.job_split_read(id).await?;
+        Ok(crate::time_summarising::job(id.to_string(), kept))
+    }
+
+    async fn get_usage_time(
+        &self,
+        since: Option<String>,
+        until: Option<String>,
+        slowest: Option<usize>,
+    ) -> Result<ipc::UsageTime, Refusal> {
+        let read = self.usage_time_read(since, until, slowest).await?;
+        Ok(crate::time_summarising::time(read))
+    }
+
+    async fn get_usage_hours(&self, since: Option<String>, hours: Option<u32>) -> Result<ipc::UsageHours, Refusal> {
+        let read = self.usage_hours_read(since, hours).await?;
+        let builds = self.usage_builds_read(Some(read.since.clone())).await?;
+        Ok(crate::time_summarising::hours(read, builds))
     }
 
     async fn get_usage_rules(&self, since: Option<String>, until: Option<String>) -> Result<ipc::UsageRules, Refusal> {

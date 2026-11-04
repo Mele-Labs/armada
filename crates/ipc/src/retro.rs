@@ -296,6 +296,55 @@ pub struct RetroRecord {
     /// What each subagent's own transcript shows went wrong.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub subagents: Vec<RecordSaid>,
+    /// Where the Job's time went against the usual for its workflow. **Present only where some
+    /// bucket ran far over the usual**; absent on every other record, and on one kept before it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub time: Option<RecordTime>,
+}
+
+/// Milliseconds in each bucket of a Job's time. Every millisecond of a Job lands in one.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecordSplit {
+    pub model: u64,
+    pub tools: u64,
+    pub checks: u64,
+    pub subagents: u64,
+    pub slot: u64,
+    pub you: u64,
+    pub pull_request: u64,
+    pub stopped: u64,
+    pub idle: u64,
+}
+
+impl RecordSplit {
+    /// Each bucket by name, in the order a split is drawn.
+    pub fn each(&self) -> [(&'static str, u64); 9] {
+        [
+            ("model", self.model),
+            ("tools", self.tools),
+            ("checks", self.checks),
+            ("subagents", self.subagents),
+            ("slot", self.slot),
+            ("you", self.you),
+            ("pull_request", self.pull_request),
+            ("stopped", self.stopped),
+            ("idle", self.idle),
+        ]
+    }
+}
+
+/// The Job's whole time, read against the usual Job of its workflow. It covers the Job, not only
+/// the stretch since the last retro.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecordTime {
+    pub cite: String,
+    pub workflow: String,
+    /// How many kept Jobs of the workflow the usual is the median of.
+    pub jobs: u32,
+    pub spent: RecordSplit,
+    pub usual: RecordSplit,
+    /// The buckets far over their usual: twice it and at least ten minutes beyond it.
+    pub over: Vec<String>,
 }
 
 /// A tool call that was refused or errored, with what it tried.

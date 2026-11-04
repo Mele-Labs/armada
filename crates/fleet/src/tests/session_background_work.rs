@@ -143,9 +143,9 @@ async fn a_subagents_backgrounded_command_is_the_sessions_row() {
     assert_eq!(said(&background(&rig, &id).await[0], "command").as_deref(), Some("pnpm mock"));
 }
 
-/// The row does not make the session working: its turn is what runs.
+/// The turn ended, and the row reads the Job as working between turns: something of its own still runs.
 #[tokio::test]
-async fn a_standing_row_leaves_the_turn_idle_when_it_ends() {
+async fn a_standing_row_leaves_the_turn_idle_when_it_ends_and_reads_working() {
     let rig = rig_placing(None);
     let id = running(&rig).await;
     rig.stand_in.says(0, vec![called("Bash", "toolu_1", "make"), started("t1", "toolu_1", "build", true)]);
@@ -154,7 +154,7 @@ async fn a_standing_row_leaves_the_turn_idle_when_it_ends() {
     eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
     let record = rig.fleet.list_sessions(None, None, None).await.unwrap().sessions.into_iter().find(|one| one.id == id).unwrap();
     assert_eq!(background(&rig, &id).await[0].state, AttachmentState::Standing);
-    assert_ne!(record.standing, Some(ipc::SessionStanding::Working));
+    assert_eq!(record.standing, Some(ipc::SessionStanding::Working));
 }
 
 /// The process that ran them is gone with them.

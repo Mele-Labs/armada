@@ -265,6 +265,9 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/system", get(crate::sessions::get_session_system::<D>))
         .route("/sessions/stop_process", post(crate::sessions::stop_process::<D>))
         .route("/usage/summary", get(crate::sessions::get_usage_summary::<D>))
+        .route("/usage/time", get(crate::sessions::get_usage_time::<D>))
+        .route("/usage/hours", get(crate::sessions::get_usage_hours::<D>))
+        .route("/sessions/time", get(crate::sessions::get_job_time::<D>))
         .route("/usage/rules", get(crate::sessions::get_usage_rules::<D>))
         .route("/sessions/loadout/item", get(crate::sessions::read_loadout_item::<D>))
         .route(
@@ -761,6 +764,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/lifecycles/keep_drafts", get(crate::lifecycles::list_keep_drafts::<D>))
         .route("/lifecycles/pieces/save", post(crate::lifecycles::save_lifecycle_piece::<D>))
         .route("/lifecycles/pieces/delete", post(crate::lifecycles::delete_lifecycle_piece::<D>))
+        .route("/lifecycles/ticket/teach", post(crate::lifecycles::teach_ticket_word::<D>))
         .route("/sessions/lifecycles", get(crate::lifecycles::get_job_lifecycles::<D>))
         .route("/app_runs", get(crate::app_runs::list_app_runs::<D>))
         .route("/app_runs/draft", get(crate::app_runs::get_app_run_draft::<D>))

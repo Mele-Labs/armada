@@ -8,8 +8,8 @@
 //! or a watch (a subagent, say) names no remembered call and so has no row, and an end for an id
 //! that never started here settles nothing.
 //!
-//! **A standing row does not make the session working.** The agent's turn is what is running, and
-//! a command it left behind is not the person's to wait on: the agent is woken when it ends.
+//! **A standing row reads the session as working between turns**, so a Job at a long command does not
+//! read as resting, and excuses a stop. The agent is woken when it ends.
 
 use std::collections::VecDeque;
 

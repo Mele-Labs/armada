@@ -25,7 +25,6 @@ use crate::session_host::delivering::{card_choice, chosen_words, delivery_asked,
 struct Seen {
     step: Option<u32>,
     skipped: Vec<(usize, Skip)>,
-    stalled: Option<usize>,
     /// A delivering step's lifecycle end has come and the agent has not been told.
     lifted: bool,
 }
@@ -86,14 +85,11 @@ where
         let stopped_on_walk = record.standing == Some(ipc::SessionStanding::Replied)
             && record.waiting_for.is_empty()
             && record.workflow_step.and_then(|at| steps.get(at as usize)).is_some_and(|step| step.walks);
-        let mut extra = Extra::default();
         if (facts.test_edited || facts.pushed || stopped_on_walk) && steps.iter().any(|step| step.walks) {
-            extra = self.rail_extra(&id).await;
-            facts = Facts::of(&record, extra);
+            facts = Facts::of(&record, self.rail_extra(&id).await);
         }
         // A Job past its last step has none to skip.
         let skips = if record.workflow_step.is_some() { rail::skipped(&steps, &facts) } else { Vec::new() };
-        let stalled = rail::stalled(&steps, &record, extra);
         // A delivering step gated by a lifecycle is not left when its end comes, so the agent is woken here.
         let lifted = match record.workflow_step.map(|at| at as usize).and_then(|at| steps.get(at).map(|step| (at, step))) {
             Some((at, step)) if step.delivers && step.has_lifecycle_end() => {
@@ -105,7 +101,6 @@ where
         let now = Seen {
             step: record.workflow_step,
             skipped: skips.clone(),
-            stalled: stalled.as_ref().map(|(at, _)| *at),
             lifted: lifted.is_some(),
         };
         if seen.get(&id) == Some(&now) {
@@ -137,15 +132,23 @@ where
                 }
             }
         }
-        // A Job stopped on a step only its own act ends is told so once for each step.
-        if let Some((at, end)) = stalled.filter(|(at, _)| !kept.stalled.contains(&(*at as u32))) {
-            let Some(step) = steps.get(at) else { return };
-            let name = self.workflow_name(manifest.as_str(), workflow);
-            let sent = self.told_by_fleet(&id, &rail::stall_nudge(&name, step, end), ipc::Notice::RailNudge).await;
-            if matches!(sent, Ok(true)) {
-                self.rail_stalled(&id, at as u32).await;
-            }
+    }
+
+    /// What a Job told of its stop reads: the step only its own act ends, where it stopped on one.
+    pub(crate) async fn stop_said(self: &Arc<Self>, record: &SessionRecord) -> String {
+        self.stalled_said(record).await.unwrap_or_else(|| crate::session_host::stopping::NUDGE.to_string())
+    }
+
+    async fn stalled_said(self: &Arc<Self>, record: &SessionRecord) -> Option<String> {
+        let id = record.id.as_str();
+        let (manifest, workflow) = (record.manifest_id.as_ref()?, record.workflow.as_deref()?);
+        if !self.workflow_on(manifest.as_str(), workflow) {
+            return None;
         }
+        let steps = self.job_rail_steps(id, manifest.as_str(), workflow).await?;
+        let extra = if steps.iter().any(|step| step.walks) { self.rail_extra(id).await } else { Extra::default() };
+        let (at, end) = rail::stalled(&steps, record, extra)?;
+        Some(rail::stall_nudge(&self.workflow_name(manifest.as_str(), workflow), steps.get(at)?, end))
     }
 
     /// Enter the move on the timeline and keep where the rail stands. Answers the rail as kept, and whether the Job has run: **one that has not is
@@ -308,16 +311,6 @@ where
     }
 
     /// Remember that the agent was told it had stopped on step `at`.
-    async fn rail_stalled(&self, id: &str, at: u32) {
-        let mut store = self.store().lock().await;
-        if let Ok(mut kept) = store.session_rail(id) {
-            if !kept.stalled.contains(&at) {
-                kept.stalled.push(at);
-                let _ = store.keep_session_rail(id, &kept);
-            }
-        }
-    }
-
     pub(crate) fn workflow_name(&self, manifest: &str, workflow: &str) -> String {
         self.repositories()
             .serving(manifest)

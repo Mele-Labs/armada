@@ -547,7 +547,7 @@ export function shipOf(input: Inputs): Ship {
           ? "needs"
           : stuck || paused || session.waits !== undefined
             ? "held"
-            : stateOf(session).state === "working"
+            : bucketOf(stateOf(session).state) === "working"
               ? "working"
               : "done",
       needs,
@@ -762,6 +762,7 @@ export function shipOf(input: Inputs): Ship {
           session !== undefined &&
           session.paused !== true &&
           (stateOf(session).state === "waiting" ||
+            stateOf(session).state === "stopped_asks" ||
             stateOf(session).state === "unstarted" ||
             session.start !== undefined)
         );
@@ -786,7 +787,13 @@ export function shipOf(input: Inputs): Ship {
     const item: Item = {
       key: `${subject.kind}:${subject.id}:needs:${at ?? ""}`,
       icon: subject.mark.Glyph,
-      kind: waits === undefined ? subject.mark.said : callKindOf(waits.source),
+      // A stopped Job's mark already says why in full, so the call is named Job and the fact carries the reason.
+      kind:
+        waits !== undefined
+          ? callKindOf(waits.source)
+          : session !== undefined && stateOf(session).state.startsWith("stopped")
+            ? "Job"
+            : subject.mark.said,
       title: subject.title,
       fact: subject.mark.said,
       at,

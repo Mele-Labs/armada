@@ -30,11 +30,32 @@ where
     let adrift = Arc::new(adrift);
     crate::autopilot::keep_autopiloting(Arc::clone(&fleet), tick, Arc::clone(&adrift));
     crate::autopilot::keep_deciding(Arc::clone(&fleet), tick, Arc::clone(&adrift));
+    // The line for a slot and the moves into one live in memory, so a wait a restart cut off ended with it.
+    let waits = Arc::clone(&fleet);
+    tokio::spawn(async move {
+        let at = waits.now().as_str().to_string();
+        let _ = waits.store().lock().await.end_all_slot_waits(&at);
+    });
+    // Away for longer than a few missed beats is an outage, which a stop says it was lost to.
+    let started = Arc::clone(&fleet);
+    tokio::spawn(async move {
+        let at = started.now().as_str().to_string();
+        let _ = started.store().lock().await.fleet_started(&at, crate::session_host::stopping::OUTAGE_SECONDS);
+    });
     // The week's transcripts, read once and in the background, a while after Fleet is up.
     let backfill = Arc::clone(&fleet);
     tokio::spawn(async move {
         tokio::time::sleep(crate::turn_ingest::BACKFILL_AFTER).await;
         backfill.turns_backfilled(false).await;
+    });
+    // Where each ended Job's time went, kept as they end and, the first time, for those that ended before.
+    let timing = Arc::clone(&fleet);
+    tokio::spawn(async move {
+        tokio::time::sleep(crate::job_timing::AFTER).await;
+        loop {
+            timing.jobs_timed().await;
+            tokio::time::sleep(crate::job_timing::EVERY).await;
+        }
     });
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(tick);
@@ -44,8 +65,15 @@ where
         let mut measured = tokio::time::Instant::now();
         let mut disputes_read = tokio::time::Instant::now();
         let mut pages_read = tokio::time::Instant::now();
+        let mut stops_swept: Option<tokio::time::Instant> = None;
+        let mut alive = tokio::time::Instant::now();
         loop {
             ticker.tick().await;
+            if alive.elapsed() >= crate::session_host::stopping::BEAT {
+                alive = tokio::time::Instant::now();
+                let at = fleet.now().as_str().to_string();
+                let _ = fleet.store().lock().await.keep_fleet_alive(&at);
+            }
             // A subagent its parent sent more work, read as running again from its own transcript.
             if followed.elapsed() >= crate::subagents_resumed::EVERY {
                 followed = tokio::time::Instant::now();
@@ -77,6 +105,12 @@ where
             fleet.sign_in_wakes_owed().await;
             // A turn that went quiet is stuck by time passing, which no event says: published when it does.
             fleet.standing_checked().await;
+            // A stop nothing excuses, told once a minute after it: every live Job read at start and now and then.
+            if stops_swept.is_none_or(|at| at.elapsed() >= crate::session_host::stopping::SWEEP) {
+                stops_swept = Some(tokio::time::Instant::now());
+                fleet.stops_swept().await;
+            }
+            fleet.stops_told().await;
             // Who wrote the same file as whom, once the wait after a write is over.
             fleet.clashes_checked().await;
             // What main's moves made stale in the test map, read again where that costs nothing.

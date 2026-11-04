@@ -1,6 +1,7 @@
 //! `save_lifecycle_piece` and `delete_lifecycle_piece`: one Workspace, lifecycle, rule or autonomy
 //! default, written in Kit's folder for it or taken out of it. The repository's own copy is
-//! `commit_to_repository`'s, which goes by a Job and a pull request.
+//! `commit_to_repository`'s, which goes by a Job and a pull request. `teach_ticket_word` writes the
+//! Ticket through the same save ([`teaching`]).
 //!
 //! **Fleet writes the file syntax; Bridge sends the DTO it read.** [`text`] turns the DTO into the
 //! text of a piece file, and **the piece's own parser reads that text before anything is written**,
@@ -16,6 +17,7 @@
 //! Nothing outside Kit's folder is touched.
 
 pub(crate) mod identity;
+pub(crate) mod teaching;
 mod text;
 
 use std::path::{Path, PathBuf};

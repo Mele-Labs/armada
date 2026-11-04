@@ -73,6 +73,10 @@ where
                     state.controls.clear();
                     (working, complaint, lost)
                 };
+                // The move it was waiting on is not made: `moving` went with the process.
+                self.slot_wait_ended(id, Some("move")).await;
+                // Fleet letting a process go changes the generation, so one heard here ended on its own.
+                self.stop_kept(id).await;
                 if working {
                     self.kept_restart(
                         id,
@@ -87,6 +91,10 @@ where
                         .await;
                 }
                 self.calls_let_go(id).await;
+                // Lines it never took are sent again by the branch below; a turn that took them is not lost.
+                if working && lost.is_empty() {
+                    self.died_with_a_turn_open(id).await;
+                }
                 if !lost.is_empty() {
                     self.send_again(id, &runtime, lost).await;
                 }
@@ -303,6 +311,7 @@ where
                 }
                 self.limit_cleared(id).await;
                 let began = self.now().as_str().to_string();
+                let began_at = began.clone();
                 let noticed = {
                     let mut state = runtime.state();
                     let noticed = state.fleet_told > 0;
@@ -336,6 +345,8 @@ where
                         state.turn = SessionTurn::Working { woken_by: by };
                     }
                 }
+                // Kept where the first line of every turn is heard, a replayed one after a reattach too.
+                self.turn_opened(id, &began_at).await;
                 let _ = self.published_hosted(id).await;
             }
             DroneEvent::Said {
@@ -472,6 +483,8 @@ where
         // for a slot and resumed in it is one turn to the person, so that move's end is not entered.
         if moving.is_none() {
             self.turn_end_kept(id, &now, said.as_deref()).await;
+            // A turn held for a slot stays open: the same turn carries on in it.
+            self.turn_closed(id).await;
         }
         // A done or a walk the reply claims without its call. Read here and sent once the turn is
         // settled below, since a restart after the turn lets the process go with what was written to it.
@@ -545,6 +558,7 @@ where
                 missed
             };
             if missed {
+                fleet.turn_closed(&id).await;
                 let _ = fleet.published_hosted(&id).await;
             }
         });
@@ -563,6 +577,7 @@ where
             unstarted
         };
         let Ok((_, hosting)) = self.session_and_hosting(id).await else {
+            self.slot_wait_ended(id, Some("move")).await;
             return;
         };
         let arrived = format!(
@@ -584,6 +599,7 @@ where
             }
             (started, _) => {
                 runtime.state().turn = SessionTurn::Idle;
+                self.turn_closed(id).await;
                 self.fleet_note(
                     id,
                     format!(
@@ -594,6 +610,8 @@ where
                 .await;
             }
         }
+        // The wait ends where the Job is told, not where its process starts.
+        self.slot_wait_ended(id, Some("move")).await;
         let _ = self.published_hosted(id).await;
     }
 

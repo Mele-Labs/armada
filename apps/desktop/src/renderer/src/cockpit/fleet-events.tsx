@@ -259,12 +259,15 @@ const when = (event: FleetEvent): number => Date.parse(event.at);
 function sessionStanding(state: SessionState): Standing {
   switch (state) {
     case "waiting":
+    case "stopped_asks":
     case "done":
     case "unstarted":
       return "ask";
     case "stuck":
       return "stuck";
     case "working":
+    case "running":
+    case "subagent":
       return "run";
     case "ended":
       return "done";

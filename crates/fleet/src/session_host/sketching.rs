@@ -124,7 +124,7 @@ where
         // A sketch he dismissed waits again once the job draws it again, as a walk shown again does.
         let target = attachment.target.clone();
         // Only the newest sketch is answered, so one still waiting under another title is taken back, as its Withdraw would.
-        let waiting = sketch_items(&held, &id).map(|one| one.id).filter(|one| *one != target).collect::<Vec<_>>();
+        let waiting = open_sketches(&held).map(|one| one.target.clone()).filter(|one| *one != target).collect::<Vec<_>>();
         for earlier in waiting {
             self.store().lock().await.dismiss_waiting(&id, &earlier).map_err(|why| self.ledger_fault(why))?;
             self.sketch_withdrawn_mark(&id, &earlier).await;
@@ -339,14 +339,22 @@ pub(crate) fn sketch_attachment(sketch: Sketch) -> AttachmentReport {
     }
 }
 
-/// Every sketch put to the person and not answered, as the item that waits on him: id the sketch's
-/// target, text its title, opening the Session. A plan's sketch is approved with the plan, so it is
-/// never one of these.
-pub(crate) fn sketch_items<'a>(attachments: &'a [ipc::Attachment], session: &'a str) -> impl Iterator<Item = WaitingItem> + 'a {
+/// Every sketch put to the person and neither answered nor taken back.
+fn open_sketches(attachments: &[ipc::Attachment]) -> impl Iterator<Item = &ipc::Attachment> {
     attachments
         .iter()
         .filter(|one| one.kind == "artifact" && one.detail.get("form").map(String::as_str) == Some("sketch"))
         .filter(|one| one.detail.get(SKETCH_ASKED).map(String::as_str) == Some("true") && !one.detail.contains_key(SKETCH_SETTLED) && !one.detail.contains_key(SKETCH_WITHDRAWN))
+}
+
+/// The newest sketch put to the person and not answered, as the item that waits on him: id the sketch's
+/// target, text its title, opening the Session. A plan's sketch is approved with the plan, so it is
+/// never one of these. **Only the newest**, as Bridge answers only the newest: an older one still open,
+/// drawn before a redraw took it back, would wait with nothing to press.
+pub(crate) fn sketch_items<'a>(attachments: &'a [ipc::Attachment], session: &'a str) -> impl Iterator<Item = WaitingItem> + 'a {
+    open_sketches(attachments)
+        .max_by_key(|one| one.changed_at.clone())
+        .into_iter()
         .map(move |one| WaitingItem {
             id: one.target.clone(),
             text: one.detail.get("title").cloned().unwrap_or_else(|| one.target.trim_start_matches(TARGET_PREFIX).to_string()),

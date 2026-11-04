@@ -257,7 +257,7 @@ describe("Pocket v2 with two Macs", {
 }, () => {
   it("lists Needs you from both Macs, oldest first, each row labelled with its Mac", async () => {
     await open("/");
-    await vi.waitFor(() => expect(rows("Needs you")).toHaveLength(7));
+    await vi.waitFor(() => expect(rows("Needs you")).toHaveLength(8));
     const needs = rows("Needs you");
     const waiting: [
       string,
@@ -273,6 +273,10 @@ describe("Pocket v2 with two Macs", {
       ],
       [
         "Trim the Drone pool",
+        "studio",
+      ],
+      [
+        "Review what a Job waits on",
         "studio",
       ],
       [
@@ -309,9 +313,10 @@ describe("Pocket v2 with two Macs", {
     await vi.waitFor(() => expect(text()).toContain("Not paired"));
     expect(window.location.pathname).toBe("/");
     const needs = rows("Needs you");
-    expect(needs).toHaveLength(5);
+    expect(needs).toHaveLength(6);
     expect(needs[0]).toContain("Close out the tracker mod");
     expect(needs[1]).toContain("Trim the Drone pool");
+    expect(needs[2]).toContain("Review what a Job waits on");
     expect(needs.join()).not.toContain("laptop");
     const unpaired = rows("Macs");
     expect(unpaired.join()).toContain("laptop");
@@ -415,7 +420,7 @@ describe("the phone draws as Bridge does", {
   it("lists Home as the Cockpit's rows, Needs you in the ask tone above Running, each with its age", async () => {
     await open("/");
     await vi.waitFor(() =>
-      expect(host.querySelectorAll('[aria-label="Running"] .deck-row')).toHaveLength(5),
+      expect(host.querySelectorAll('[aria-label="Running"] .deck-row')).toHaveLength(7),
     );
     const asking = Array.from(
       host.querySelectorAll<HTMLElement>('[aria-label="Needs you"] .deck-row'),
@@ -424,6 +429,7 @@ describe("the phone draws as Bridge does", {
       "Rename the slot pool",
       "Close out the tracker mod",
       "Trim the Drone pool",
+      "Review what a Job waits on",
       "Open the push payload PR",
       "Move Fleet to the preview",
       "Fix the lost lease",
@@ -583,7 +589,7 @@ describe("a draft Job, and the acts on a Job", {
     );
     await vi.waitFor(() => expect(window.location.pathname).toBe("/"));
     await vi.waitFor(() => expect(rows("Needs you").length).toBeGreaterThan(0));
-    expect(host.querySelector('[aria-label="Drafts"]')).toBeNull();
+    await vi.waitFor(() => expect(host.querySelector('[aria-label="Drafts"]')).toBeNull());
   });
 
   it("forgets a draft's brief once it is sent, so nothing of it stays kept", async () => {
@@ -923,6 +929,584 @@ describe("a draft Job, and the acts on a Job", {
       ),
     );
   });
+
+  describe("what a Job waits on", () => {
+    const F1 = `/jobs/${encodeURIComponent(STUDIO)}/f1`;
+    const SLOT_POOL = "/Users/user/armada/.armada/documents/slot-pool.html";
+    const PHONE_REACH = "/Users/user/armada/.armada/documents/phone-reach.html";
+    const POOL_CARD = "Document: Slot pool, Revision 1";
+    const REACH_CARD = "Document: Phone reach, Revision 2";
+    const f1 = () => macs[STUDIO]!.threads["f1"]!;
+    const held = (target: string) =>
+      f1().session.attachments!.find((one) => one.target === target)!;
+    const card = (name: string) =>
+      host.querySelector<HTMLElement>(`[role="article"][aria-label="${name}"]`);
+    const inCard = (name: string, label: string) =>
+      Array.from(card(name)?.querySelectorAll("button") ?? []).find(
+        (one) => one.textContent?.trim() === label,
+      );
+    const group = (name: string) =>
+      Array.from(host.querySelectorAll('[role="group"]')).find(
+        (one) => one.getAttribute("aria-label") === name,
+      );
+    const inGroup = (name: string, label: string) =>
+      Array.from(group(name)?.querySelectorAll("button") ?? []).find(
+        (one) => one.textContent?.trim() === label,
+      );
+    const to = (path: string) =>
+      posted[STUDIO]!.filter((one) => one.path === path).map((one) => one.body);
+    const opened = async () => {
+      await open(F1);
+      await vi.waitFor(() => expect(card(POOL_CARD)).toBeTruthy());
+    };
+    const note = async (text: string) => {
+      await typeInto(field("Note"), text);
+    };
+
+    describe("a document", () => {
+      it("is a card in the thread for each page, at its newest revision", async () => {
+        await opened();
+        expect(card(REACH_CARD)).toBeTruthy();
+        expect(card("Document: Phone reach, Revision 1")).toBeNull();
+      });
+
+      it("approves from its card with the revision the ledger holds", async () => {
+        await opened();
+        await press(inCard(POOL_CARD, "Approve"));
+        await vi.waitFor(() =>
+          expect(to("/api/sessions/document/answer")).toEqual([
+            {
+              session_id: "f1",
+              document: `document:${SLOT_POOL}`,
+              revision: "1",
+              how: "approved",
+            },
+          ]),
+        );
+      });
+
+      it("sends back from its card with a note, on the newest revision", async () => {
+        await opened();
+        await press(inCard(REACH_CARD, "Send back"));
+        await note("Cut the table to four columns.");
+        await press(inCard(REACH_CARD, "Send back"));
+        await vi.waitFor(() =>
+          expect(to("/api/sessions/document/answer")).toEqual([
+            {
+              session_id: "f1",
+              document: `document:${PHONE_REACH}`,
+              revision: "2",
+              how: "sent_back",
+              words: "Cut the table to four columns.",
+            },
+          ]),
+        );
+      });
+
+      it("opens its page from the card", async () => {
+        await opened();
+        await press(host.querySelector(`[aria-label="Open Phone reach, Revision 2"]`));
+        await vi.waitFor(() =>
+          expect(window.location.pathname + window.location.search).toBe(
+            `${F1}/document?page=${encodeURIComponent(PHONE_REACH)}`,
+          ),
+        );
+      });
+
+      describe("its page", () => {
+        const page = () => `${F1}/document?page=${encodeURIComponent(PHONE_REACH)}`;
+        const read = async () => {
+          await open(page());
+          await vi.waitFor(() => expect(host.querySelector(".pk-doc__scroll")).toBeTruthy());
+        };
+
+        it("reads the newest kept revision, and not an older one", async () => {
+          await read();
+          const asked = sent
+            .filter((one) => one.target.startsWith("/api/sessions/shown"))
+            .map((one) => decodeURIComponent(one.target));
+          expect(asked.some((one) => one.includes("phone-reach-r2.html"))).toBe(true);
+          expect(asked.some((one) => one.includes("phone-reach-r1.html"))).toBe(false);
+          expect(host.querySelectorAll(".pk-doc__scroll tbody tr")).toHaveLength(6);
+          expect(text()).toContain("The phone reaches each Mac on its own origin");
+        });
+
+        it("scrolls a wide table inside its own box", async () => {
+          await read();
+          const box = host.querySelector<HTMLElement>(".pk-doc__scroll")!;
+          expect(box.getAttribute("aria-label")).toBe("What each Mac answers");
+          expect(box.tabIndex).toBe(0);
+          expect(box.querySelector("table")).not.toBeNull();
+        });
+
+        it("draws its sketch live, not as a preview", async () => {
+          await read();
+          await vi.waitFor(() =>
+            expect(host.querySelector(".pk-doc__page figure.armada-sketch")).toBeTruthy(),
+          );
+          const figure = host.querySelector(".pk-doc__page figure.armada-sketch")!;
+          expect(figure.hasAttribute("inert")).toBe(false);
+          expect(figure.getAttribute("data-preview")).toBeNull();
+        });
+
+        it("approves with the revision it read", async () => {
+          await read();
+          await press(
+            Array.from(host.querySelectorAll(".pk-doc__answers button")).find(
+              (one) => one.textContent === "Approve",
+            ),
+          );
+          await vi.waitFor(() =>
+            expect(to("/api/sessions/document/answer")).toEqual([
+              {
+                session_id: "f1",
+                document: `document:${PHONE_REACH}`,
+                revision: "2",
+                how: "approved",
+              },
+            ]),
+          );
+        });
+
+        it("says the Job revised the page where Fleet refuses by `fleet.document_revised`", async () => {
+          await read();
+          held(PHONE_REACH).detail!["revision"] = "3";
+          await press(
+            Array.from(host.querySelectorAll(".pk-doc__answers button")).find(
+              (one) => one.textContent === "Approve",
+            ),
+          );
+          await vi.waitFor(() =>
+            expect(text()).toContain("The Job revised this page. The new revision is shown."),
+          );
+        });
+      });
+
+      it("reads the Job again and says it was revised, on `fleet.document_revised`", async () => {
+        await opened();
+        held(SLOT_POOL).detail!["revision"] = "3";
+        await press(inCard(POOL_CARD, "Approve"));
+        await vi.waitFor(() =>
+          expect(text()).toContain("The Job revised this page. The new revision is shown."),
+        );
+        await vi.waitFor(() => expect(card("Document: Slot pool, Revision 3")).toBeTruthy());
+      });
+
+      it("shows Fleet's own message on a 422, and does not say it changed", async () => {
+        await opened();
+        const detail = held(SLOT_POOL).detail!;
+        detail["settled"] = "approved";
+        detail["settled_at"] = new Date().toISOString();
+        await press(inCard(POOL_CARD, "Approve"));
+        await vi.waitFor(() => expect(text()).toContain("that page is not waiting on an answer"));
+        expect(text()).not.toContain("The Job revised this page.");
+      });
+    });
+
+    describe("a sketch", () => {
+      it("approves from its card with the drawing the ledger holds", async () => {
+        await opened();
+        await press(inCard("Sketch: Phone home", "Approve"));
+        await vi.waitFor(() =>
+          expect(to("/api/sessions/sketch/answer")).toEqual([
+            {
+              session_id: "f1",
+              sketch: "sketch:Phone home",
+              drawn: "phone-home-1",
+              how: "approved",
+            },
+          ]),
+        );
+      });
+
+      it("sends back from its card with a note", async () => {
+        await opened();
+        await press(inCard("Sketch: Phone home", "Send back"));
+        await note("Put the card first.");
+        await press(inCard("Sketch: Phone home", "Send back"));
+        await vi.waitFor(() =>
+          expect(to("/api/sessions/sketch/answer")).toEqual([
+            {
+              session_id: "f1",
+              sketch: "sketch:Phone home",
+              drawn: "phone-home-1",
+              how: "sent_back",
+              words: "Put the card first.",
+            },
+          ]),
+        );
+      });
+
+      it("reads the Job again and says it drew it again, then answers the new drawing", async () => {
+        await opened();
+        await press(inCard("Sketch: Slot layout", "Approve"));
+        await vi.waitFor(() =>
+          expect(text()).toContain("The Job drew this again. The new drawing is shown."),
+        );
+        await vi.waitFor(() =>
+          expect(card("Sketch: Slot layout")?.textContent).toContain("Idle given back"),
+        );
+        await press(inCard("Sketch: Slot layout", "Approve"));
+        await vi.waitFor(() => expect(to("/api/sessions/sketch/answer")).toHaveLength(2));
+        expect(
+          to("/api/sessions/sketch/answer").map(
+            (one) =>
+              (
+                one as {
+                  drawn: string;
+                }
+              ).drawn,
+          ),
+        ).toEqual([
+          "slot-layout-1",
+          "slot-layout-2",
+        ]);
+      });
+
+      it("shows Fleet's own message on a 422, and does not say it changed", async () => {
+        await opened();
+        const detail = held("sketch:Phone home").detail!;
+        detail["settled"] = "approved";
+        detail["settled_at"] = new Date().toISOString();
+        await press(inCard("Sketch: Phone home", "Approve"));
+        await vi.waitFor(() => expect(text()).toContain("that page is not waiting on an answer"));
+        expect(text()).not.toContain("The Job drew this again.");
+      });
+    });
+
+    describe("a proposed workflow change", () => {
+      const NAME = "Check before every walk";
+      const item = "draft:f1-10";
+      const answers = () => to("/api/sessions/waiting/answer");
+
+      it("is dropped with Dismiss, which answers its item with the second choice", async () => {
+        await opened();
+        await press(inGroup(NAME, "Dismiss"));
+        await vi.waitFor(() =>
+          expect(answers()).toEqual([
+            {
+              session_id: "f1",
+              item_id: item,
+              choice: 1,
+            },
+          ]),
+        );
+        await vi.waitFor(() => expect(group(NAME)).toBeUndefined());
+      });
+
+      it("is approved with the first choice", async () => {
+        await opened();
+        await press(inGroup(NAME, "Approve"));
+        await vi.waitFor(() =>
+          expect(answers()).toEqual([
+            {
+              session_id: "f1",
+              item_id: item,
+              choice: 0,
+            },
+          ]),
+        );
+      });
+
+      it("is sent back with the owner's note", async () => {
+        await opened();
+        await press(inGroup(NAME, "Send back"));
+        await typeInto(field("Note"), "Run it after Check, not before.");
+        await press(inGroup(NAME, "Send back"));
+        await vi.waitFor(() =>
+          expect(answers()).toEqual([
+            {
+              session_id: "f1",
+              item_id: item,
+              text: "Run it after Check, not before.",
+            },
+          ]),
+        );
+      });
+
+      it("is not drawn off its row alone, where Fleet no longer lists the item", async () => {
+        f1().session.waiting_for = f1().session.waiting_for!.filter((one) => one.id !== item);
+        await open(F1);
+        await vi.waitFor(() => expect(text()).toContain("One change to the build workflow"));
+        expect(group(NAME)).toBeUndefined();
+      });
+
+      it("is the only draft with a Dismiss: an ordinary draft has none", async () => {
+        await open(`/jobs/${encodeURIComponent(LAPTOP)}/b3`);
+        await vi.waitFor(() => expect(text()).toContain("Push payload carries the Job id"));
+        expect(button("Approve")).toBeTruthy();
+        expect(button("Send back")).toBeTruthy();
+        expect(button("Dismiss")).toBeUndefined();
+      });
+    });
+
+    describe("Press Start, and a Fleet call", () => {
+      const START = 'Press Start on "Split the pool crate"';
+      const CALL = "main went red after this Job's last push";
+
+      it("opens the Job it names, and offers no Dismiss", async () => {
+        await opened();
+        expect(inGroup(START, "Dismiss")).toBeUndefined();
+        await press(inGroup(START, "Open"));
+        await vi.waitFor(() =>
+          expect(window.location.pathname).toBe(`/drafts/${encodeURIComponent(STUDIO)}/d1`),
+        );
+        expect(posted[STUDIO]).toEqual([]);
+      });
+
+      it("dismisses a Fleet call through Fleet's dismiss", async () => {
+        await opened();
+        await press(inGroup(CALL, "Dismiss"));
+        await vi.waitFor(() =>
+          expect(to("/api/sessions/waiting/dismiss")).toEqual([
+            {
+              session_id: "f1",
+              item_id: "call:1",
+            },
+          ]),
+        );
+        await vi.waitFor(() => expect(group(CALL)).toBeUndefined());
+      });
+    });
+
+    describe("a walk, and a question in one", () => {
+      const onMac = () => Array.from(host.querySelectorAll<HTMLElement>(".pk-onmac"));
+
+      it("is a line each, saying to open it on the Mac", async () => {
+        await opened();
+        expect(
+          onMac().map((one) => [
+            one.querySelector(".pk-onmac__says")?.textContent,
+            one.querySelector(".pk-onmac__where")?.textContent,
+          ]),
+        ).toEqual([
+          [
+            "Pool band",
+            "Open on your Mac",
+          ],
+          [
+            "Does the band read as one line or two?",
+            "Open on your Mac",
+          ],
+        ]);
+      });
+
+      it("ends the thread, and takes no answer", async () => {
+        await opened();
+        const [walk, question] = onMac();
+        const last = Array.from(host.querySelectorAll(".pk-ask, .pk-card, .pk-onmac")).at(-1);
+        expect(last).toBe(question);
+        expect(
+          walk!.compareDocumentPosition(question!) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(question!.querySelector("textarea, button")).toBeNull();
+        expect(
+          group("Does the band read as one line or two?")?.querySelector("textarea"),
+        ).toBeNull();
+        expect(posted[STUDIO]).toEqual([]);
+      });
+    });
+
+    describe("a browser's question", () => {
+      const NAME = "localhost wants to use your camera";
+      it.each([
+        [
+          "Allow",
+          0,
+        ],
+        [
+          "Block",
+          1,
+        ],
+      ])("is answered with %s, the choice at %s, and no words", async (label, choice) => {
+        await opened();
+        expect(group(NAME)?.querySelector("textarea")).toBeNull();
+        await press(
+          Array.from(group(NAME)?.querySelectorAll('[aria-label="Options"] button') ?? []).find(
+            (one) => one.textContent?.startsWith(label),
+          ),
+        );
+        await vi.waitFor(() =>
+          expect(to("/api/sessions/waiting/answer")).toEqual([
+            {
+              session_id: "f1",
+              item_id: "browser_ask:tab-1",
+              choice,
+            },
+          ]),
+        );
+      });
+    });
+  });
+});
+
+describe("a Job that waits on another", {
+  timeout: 30_000,
+}, () => {
+  const WAITS = `/jobs/${encodeURIComponent(STUDIO)}/w1`;
+  const APPROVED = `/jobs/${encodeURIComponent(LAPTOP)}/w2`;
+  const facts = () =>
+    Object.fromEntries(
+      Array.from(host.querySelectorAll(".pk-facts__row")).map((row) => [
+        row.querySelector("dt")?.textContent,
+        row.querySelector("dd")?.textContent,
+      ]),
+    );
+  const select = (label: string) =>
+    host.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`);
+  const pick = async (label: string, value: string) => {
+    await act(async () => {
+      const element = select(label)!;
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(
+        element,
+        value,
+      );
+      element.dispatchEvent(
+        new Event("change", {
+          bubbles: true,
+        }),
+      );
+    });
+  };
+  const changes = (origin: string) =>
+    posted[origin]!.filter((one) => one.path === "/api/sessions/change_waiting").map(
+      (one) => one.body,
+    );
+
+  it("draws its brief, the Job it waits on, and when it starts and from where, and no thread or box", async () => {
+    await open(WAITS);
+    await vi.waitFor(() => expect(button("Start now")).toBeTruthy());
+    expect(facts()).toMatchObject({
+      "Waits on": "Plan the phone screens",
+      Needs: "The fields the phone reads for a slot",
+      "Starts from": "main, after the merge",
+    });
+    expect(facts()["Brief"]).toContain("Draw the slot pool on the phone");
+    expect(select("Starts when")!.value).toBe("lands");
+    expect(button("Approve")!.getAttribute("aria-pressed")).toBe("false");
+    expect(host.querySelector('[aria-label^="Starts when #3232 lands"]')).toBeTruthy();
+    expect(host.querySelector(".armada-session-composer")).toBeNull();
+  });
+
+  it("opens the Job it waits on", async () => {
+    await open(WAITS);
+    await vi.waitFor(() => expect(button("Plan the phone screens")).toBeTruthy());
+    await press(button("Plan the phone screens"));
+    expect(window.location.pathname).toBe(`/jobs/${encodeURIComponent(STUDIO)}/p1`);
+  });
+
+  it("approves it, and a second press takes the approval back", async () => {
+    await open(WAITS);
+    await vi.waitFor(() => expect(button("Approve")).toBeTruthy());
+    await press(button("Approve"));
+    await vi.waitFor(() => expect(button("Approved")).toBeTruthy());
+    expect(button("Approved")!.getAttribute("aria-pressed")).toBe("true");
+    await press(button("Approved"));
+    await vi.waitFor(() => expect(button("Approve")).toBeTruthy());
+    expect(changes(STUDIO)).toEqual([
+      {
+        waiting_session: "w1",
+        held: false,
+      },
+      {
+        waiting_session: "w1",
+        held: true,
+      },
+    ]);
+  });
+
+  it("starts now: one not approved opens as a draft, one approved opens its thread", async () => {
+    await open(WAITS);
+    await vi.waitFor(() => expect(button("Start now")).toBeTruthy());
+    await press(button("Start now"));
+    await vi.waitFor(() =>
+      expect(window.location.pathname).toBe(`/drafts/${encodeURIComponent(STUDIO)}/w1`),
+    );
+    expect(posted[STUDIO]!.find((one) => one.path === "/api/sessions/start_waiting")?.body).toEqual(
+      {
+        session_id: "w1",
+      },
+    );
+    await act(async () => root?.unmount());
+    await open(APPROVED);
+    await vi.waitFor(() => expect(button("Start now")).toBeTruthy());
+    await press(button("Start now"));
+    await vi.waitFor(() => expect(host.querySelector(".armada-session-composer")).toBeTruthy());
+    expect(window.location.pathname).toBe(APPROVED);
+  });
+
+  it("changes when it starts, and a plan part only where the Job waited on has a plan", async () => {
+    await open(WAITS);
+    await vi.waitFor(() => expect(select("Starts when")).toBeTruthy());
+    const plan = select("Starts when")!.querySelector<HTMLOptionElement>('option[value="plan"]')!;
+    await vi.waitFor(() => expect(plan.disabled).toBe(true));
+    await pick("Starts when", "ends");
+    await vi.waitFor(() => expect(select("Starts when")!.value).toBe("ends"));
+    expect(changes(STUDIO)).toEqual([
+      {
+        waiting_session: "w1",
+        condition: {
+          kind: "ends",
+        },
+      },
+    ]);
+    await act(async () => root?.unmount());
+    await open(APPROVED);
+    await vi.waitFor(() =>
+      expect(Array.from(select("Plan part")?.options ?? []).map((one) => one.textContent)).toEqual([
+        "Group: Rename in the crate",
+        "Task: Rename Pool to Slots",
+        "Task: Rename the tests",
+      ]),
+    );
+    await pick("Plan part", "t2");
+    await vi.waitFor(() => expect(select("Plan part")!.value).toBe("t2"));
+    expect(changes(LAPTOP)).toEqual([
+      {
+        waiting_session: "w2",
+        condition: {
+          kind: "task_done",
+          task: "t2",
+        },
+      },
+    ]);
+  });
+
+  it("answers what Fleet asks of it on the same screen", async () => {
+    await open(APPROVED);
+    const asked = () =>
+      host.querySelector('[role="group"][aria-label="How should this work be delivered?"]');
+    await vi.waitFor(() => expect(asked()).toBeTruthy());
+    await press(
+      Array.from(asked()!.querySelectorAll("button")).find((one) =>
+        one.textContent?.startsWith("Auto land"),
+      ),
+    );
+    await vi.waitFor(() => expect(asked()).toBeNull());
+    expect(
+      posted[LAPTOP]!.find((one) => one.path === "/api/sessions/waiting/answer")?.body,
+    ).toEqual({
+      session_id: "w2",
+      item_id: "delivery",
+      choice: 0,
+    });
+    expect(button("Start now")).toBeTruthy();
+  });
+
+  it("offers End job alone in its menu", async () => {
+    await open(WAITS);
+    await vi.waitFor(() => expect(button("More")).toBeTruthy());
+    await press(button("More"));
+    await vi.waitFor(() =>
+      expect(
+        Array.from(document.body.querySelectorAll('[role="menuitem"]')).map((one) =>
+          one.textContent?.trim(),
+        ),
+      ).toEqual([
+        "End job",
+      ]),
+    );
+  });
 });
 
 describe("the lists stay fresh", {
@@ -969,6 +1553,7 @@ describe("the lists stay fresh", {
     ]);
     // The Mac's own list holds a draft too, which is waiting on its first message; Home sets it apart.
     expect(fleet.macOf(STUDIO)!.needs.map((one) => one.id)).toEqual([
+      "f1",
       "d1",
       "a1",
       "r1",
@@ -1062,8 +1647,10 @@ describe("the lists stay fresh", {
       await begin();
       window.history.replaceState(null, "", path);
       const left = Date.now();
+      // Held across both, since the app reads the clock itself: a tick after `left` would make the time away too short.
+      const clock = vi.spyOn(Date, "now").mockReturnValue(left);
       seen("hidden");
-      const clock = vi.spyOn(Date, "now").mockReturnValue(left + ms);
+      clock.mockReturnValue(left + ms);
       seen("visible");
       clock.mockRestore();
       return window.location.pathname;

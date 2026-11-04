@@ -155,9 +155,11 @@ where
             state.allowed_folders.clear();
             state.allowed_kinds.clear();
         }
+        self.turn_closed(&id).await;
         self.calls_let_go(&id).await;
         // Out of the line if it was in it: an ended session is granted nothing.
         self.hosts().slot_queue().leave(&id);
+        self.slot_wait_ended(&id, None).await;
         let now = self.now().as_str().to_string();
         let parent;
         {

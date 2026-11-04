@@ -387,6 +387,11 @@ Fleet reads it only while that commit is the build it runs, tells each branch's 
 why it is not in the preview, and offers Refresh preview once a branch moves past its tip,
 never pressing it itself (`docs/concepts/fleet.md`, *Telling jobs the build they now run*).
 
+**What the preview holds is written down too.** `Armada/preview-held` gets the preview commit on its
+first line, the main commit it stands on on its second, and a `branch<TAB>tip` line for every branch
+merged into it (a branch that merged nothing new, or was left out, is not in it). Fleet keeps it with
+the build when it sees the commit, for the Usage page's builds (`docs/concepts/fleet.md`).
+
 **A plain `scripts/restart` while the preview runs keeps the preview.** It
 sees `.armada/preview` in `Armada/restart-source` and runs
 `scripts/preview --restart` instead, passing `--dry-run` and `--adopt` through,

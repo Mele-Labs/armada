@@ -5,18 +5,22 @@ import { useEffect, useState } from "react";
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
+  AnswerDocument,
+  AnswerSketch,
   ApprovePlan,
   BeginSession,
+  ChangeWaiting,
   DismissWaiting,
   KeptStyles,
   SendPlanChanges,
   SendSessionMessage,
   SessionThread as WireThread,
   StartSessionRun,
+  StartWaitingNow,
   TuneSession,
 } from "@armada/protocol";
 
-import { call, getJson, refusal } from "./client";
+import { call, getJson, refusal, Refused } from "./client";
 import { loadLists, onChange } from "./fleet";
 import type { ForkedBody, JobOnly, PhoneSession } from "./gateway";
 import type { Machine } from "./machines";
@@ -81,6 +85,8 @@ export function useJob(
 export type Acts = {
   answerAsk: (body: AnswerSessionAsk) => Promise<void>;
   answerWaiting: (body: AnswerWaiting) => Promise<void>;
+  answerSketch: (body: AnswerSketch) => Promise<void>;
+  answerDocument: (body: AnswerDocument) => Promise<void>;
   approvePlan: (body: ApprovePlan) => Promise<void>;
   planChanges: (body: SendPlanChanges) => Promise<void>;
   message: (body: SendSessionMessage) => Promise<void>;
@@ -92,6 +98,8 @@ export type Acts = {
   close: (body: JobOnly) => Promise<void>;
   tune: (body: TuneSession) => Promise<void>;
   run: (body: StartSessionRun) => Promise<void>;
+  changeWaiting: (body: ChangeWaiting) => Promise<void>;
+  startWaiting: (body: StartWaitingNow) => Promise<void>;
   /** Answers the new Job. */
   fork: (body: JobOnly) => Promise<PhoneSession>;
 };
@@ -109,6 +117,8 @@ export function actsOn(machine: Machine, reread: () => void): Acts {
   return {
     answerAsk: send("/api/sessions/ask/answer"),
     answerWaiting: send("/api/sessions/waiting/answer"),
+    answerSketch: send("/api/sessions/sketch/answer"),
+    answerDocument: send("/api/sessions/document/answer"),
     approvePlan: send("/api/sessions/plan/approve"),
     planChanges: send("/api/sessions/plan/changes"),
     message: send("/api/sessions/message"),
@@ -120,6 +130,8 @@ export function actsOn(machine: Machine, reread: () => void): Acts {
     close: send("/api/sessions/close"),
     tune: send("/api/sessions/tune"),
     run: send("/api/sessions/run/start"),
+    changeWaiting: send("/api/sessions/change_waiting"),
+    startWaiting: send("/api/sessions/start_waiting"),
     fork: async (body) => {
       const { session } = (await (
         await call(machine, "/api/sessions/fork", {
@@ -140,6 +152,62 @@ export async function attempt(act: () => Promise<void>, machine?: Machine): Prom
     return null;
   } catch (why) {
     return refusal(why, machine);
+  }
+}
+
+/** Fleet's refusals to say a page changed after he read it: the drawing was redrawn, or the document revised. Read by code, never by status. */
+const CHANGED = {
+  "fleet.sketch_redrawn": "The Job drew this again. The new drawing is shown.",
+  "fleet.document_revised": "The Job revised this page. The new revision is shown.",
+} as const;
+
+/** A refusal's body is Fleet's `{ code, message }`; any other body has neither. */
+function bodyOf(why: unknown): {
+  code?: string;
+  message?: string;
+} {
+  if (!(why instanceof Refused)) return {};
+  try {
+    const body = JSON.parse(why.message) as {
+      code?: unknown;
+      message?: unknown;
+    };
+    return {
+      ...(typeof body.code === "string"
+        ? {
+            code: body.code,
+          }
+        : {}),
+      ...(typeof body.message === "string"
+        ? {
+            message: body.message,
+          }
+        : {}),
+    };
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * `attempt` for an answer to a sketch or a document. One Fleet refuses as changed since he read it is read again, so the new
+ * one is drawn, and its sentence says so; any other refusal gives Fleet's own message.
+ */
+export async function attemptPage(
+  act: () => Promise<void>,
+  machine: Machine,
+  reread: () => void,
+): Promise<string | null> {
+  try {
+    await act();
+    return null;
+  } catch (why) {
+    const { code, message } = bodyOf(why);
+    if (code !== undefined && code in CHANGED) {
+      reread();
+      return CHANGED[code as keyof typeof CHANGED];
+    }
+    return message ?? refusal(why, machine);
   }
 }
 

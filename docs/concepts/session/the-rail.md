@@ -35,11 +35,16 @@ Only landing passes it.
 The step after one is entered when it ends, whatever fact would have entered it, and the rail ends when the last step does; orchestrate's Oversee is one, and Summarise is entered the moment the last Job has landed or ended.
 
 **A live instance holds its Job open** (30 Oct 2026, "Workspaces, lifecycles and rules"), as an open pull request does.
-A ticket, pull request, deploy or Job the Job holds that stands in a state its lifecycle knows and does not end on refuses the agent's `all_done` and `finish_up` with `Deploy is Rolling out`, one line for each.
+A ticket, pull request, deploy or running Job the Job holds that stands in a state its lifecycle knows and does not end on refuses the agent's `all_done` and `finish_up` with `Deploy is Rolling out`, one line for each.
 **An unread instance, and one in a status no state lists, holds nothing**: a tracker that declares no words (Jira, a tracker mod) leaves the built-in Ticket lifecycle listing none but `closed`, so a Job holding a ticket under it would be refused with nothing the agent could do to clear it.
+A person can teach the status from the ticket's row, and the Job's ticket then stands in the state they chose ([the tracker](../tracker.md)).
 **A tracker that declares them does not**: a beads ticket reading `open` or `in_progress` stands in To do or In progress, and holds its Job open until it closes.
+**A Job it started that has not begun holds nothing** (3 Nov 2026, `.claude/decisions/2026-11-03-a-job-that-has-not-begun-holds-nothing.md`), on its start card or waiting on another, whatever its instance reads, so a Job can finish and give back its slot while what it started waits.
+Ending the Job neither ends the one that has not begun nor stops it starting when its condition is met, a wait on the Job's own end included.
+Once it runs it holds the Job again, if that Job is still live; `hosting.ran` says which, and is kept when its process first spawns.
 End lists them all the same.
-Fleet keeps that the agent was told to wait, and when the last instance holding it is over sends it one `lifecycles_clear` notice; an agent never refused is not told.
+Fleet keeps that the agent was told to wait, and when the last instance holding it is over sends it one `lifecycles_clear` notice, which names any Job that has not begun and says it may finish; an agent never refused is not told.
+Fleet asks again at its start, since an agent refused for a Job that had not begun, before 3 Nov, has no move coming to tell it.
 **A ticket the Job hands to the Job it started for the ticket's plan group ends the same way, at once**, and the Job it went to holds it ([linked Jobs](linked-jobs.md)): the rail neither waits on it nor counts it reached.
 **Ending a Job ends its instances.** Each one no end state has taken, the unplaced too, is kept as ended, standing where it was, no reader moves it again, and the watches the Job's rules started are stopped with the Job's others.
 Before it ends, End lists what is in flight as `Deploy: Rolling out` and `ARM-42: In review`; End job goes on, and Keep going leaves the Job as it is.
@@ -92,12 +97,13 @@ Two counting at one step inside seven days draw a suggested change to that step'
 Fleet sends the agent one short message from Fleet naming the step and what it asks (the step's own `about`, cut at 200 characters, else a default), and ends it with *Nothing is blocked*.
 A nudge that cannot be delivered because nobody is there is asked again later and not counted.
 
-**A Job stopped on a step only it can end is told once** (28 Oct 2026, the owner's decision).
+**A Job stopped on a step only it can end is told so** (28 Oct 2026, the owner's decision).
 Fleet reads it off the row, never off the Job's words: the turn ended on a reply that asks nothing (`standing` is `replied`), nothing waits on the owner, and what ends the current step is the Job's own act.
 Those are a plan recorded, an edit, a Check run, a commit, a pull request opened, a push and a walk shown, and, on a `walks` step that follows the plan with no walk expected, the plan's tasks finished.
 A step the owner ends, by a reply or an approval, and a delivering step, which ends on the merge, never stall.
-The one message names the step and what ends it, and says to do it or ask the owner what is still open, and to carry on where the Job waits on work it started or he said to wait.
-It is told once for each step in a Job's life (`session_rail.stalled`), and is not kept against the workflow, since it is no drift.
+The message names the step and what ends it, and says to do it or ask the owner what is still open, and to name what it waits on with `waiting_for`.
+It is that stop's one word, the `stop_nudge` ([What a Job is doing](what-a-job-is-doing.md)), so one stop never draws two messages and the stop after it reads `stopped`.
+It is not kept against the workflow, since it is no drift.
 
 **With `features.workflows` off, or a Job's workflow in `workflows.off`** (Settings, live; the owner's decision of 16 Oct 2026) there is no step, no nudge and no step judge, even for a Job that already has a workflow, and the first turn does not tell the agent the steps.
 The Job keeps the workflow it has.

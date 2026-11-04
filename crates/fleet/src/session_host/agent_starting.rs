@@ -276,7 +276,7 @@ where
 
     /// `started_by` on `new` and `started_to` on `caller`, which Bridge nests `new` under. **Written
     /// alone** where the caller's thread already names the new Session, as a dispute's row does.
-    pub(super) async fn started_linked(&self, caller: &str, new: &str, manifest: &str, group: Option<&str>) -> Result<(), Refusal> {
+    pub(crate) async fn started_linked(&self, caller: &str, new: &str, manifest: &str, group: Option<&str>) -> Result<(), Refusal> {
         let now = self.now().as_str().to_string();
         // The group a linked Session was handed rides on both link rows, so each ledger serves it.
         let linked: BTreeMap<String, String> =

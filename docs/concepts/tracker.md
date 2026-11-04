@@ -270,6 +270,14 @@ Armada's own ticket lifecycle lists `closed` for Closed and a word for no other 
 Beads declares `open` for To do, `in_progress` for In progress and `closed` for Closed, so a repository on beads reads and moves its tickets from the first Job.
 `blocked` and `deferred` are no step of the ticket's way and stay unmapped, and beads has no status for In review.
 Every other tracker, Jira and a tracker mod included, declares none, so no word is guessed for one whose statuses are the project's own.
+
+**A person teaches the rest from the ticket's own row.**
+Right-clicking a ticket's row in a Job or in the Issues tab, or the ContextMenu key or Shift+F10 on it, opens `ABC-12 is Ready for QA. In Armada that is` over To do, In progress, In review and Closed, the state the status reads as now ticked.
+Picking one calls `POST /lifecycles/ticket/teach` (`TeachTicketWord { manifest_id, word, state }`), and Fleet puts the word, the status as the tracker said it, on that state of the Ticket lifecycle Kit keeps, taking it off any other state.
+The scope is the running Ticket's own where that is a repository's or a Workspace's; else the Workspace holding the repository, the lowest id when several do; else the repository's own scope.
+A repository's committed file is never written.
+**A Job keeps the copy it started with, and this is the one exception**: every live Job in that scope gets the same move in its own frozen copy, marked `word taught by you`, and its ticket is read again at once.
+The status the row offers is the issue attachment's `status`: Jira's status name, beads' status, and `Open` or `Closed` for the forge's issues and for a mod with no Status field.
 A ticket lifecycle a Workspace or a repository writes replaces Armada's outright, its words and not the tracker's.
 This was changed on 30 Oct 2026: the ticket had listed no tracker's words, on the ground that two rarely share theirs.
 

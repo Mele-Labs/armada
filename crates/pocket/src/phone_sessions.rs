@@ -51,6 +51,7 @@ pub struct PhoneAsk {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum PhoneHold {
     Watch { name: String },
+    Job { name: String },
     /// `on` is `queue`, `auto_merge` or `checks`; `auto_merge` is set only for `checks`.
     PullRequest {
         number: u64,
@@ -193,6 +194,7 @@ fn ask(held: &HelmCallInFlight) -> PhoneAsk {
 fn hold(one: &HeldOpenBy) -> PhoneHold {
     match one {
         HeldOpenBy::Watch { name } => PhoneHold::Watch { name: name.clone() },
+        HeldOpenBy::Job { name } => PhoneHold::Job { name: name.clone() },
         HeldOpenBy::PullRequest { number, on } => PhoneHold::PullRequest {
             number: *number,
             on: match on {

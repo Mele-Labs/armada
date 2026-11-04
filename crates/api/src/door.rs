@@ -64,6 +64,8 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("list_watch_recipes", &["session_id"]),
     ("read_terminal", &["terminal", "lines", "session_id", "until", "regex", "wait_seconds"]),
     ("list_terminals", &["session_id"]),
+    ("get_job_time", &["session_id"]),
+    ("get_usage_time", &["since", "until", "slowest"]),
     ("get_workflow", &["workflow_id", "source"]),
     ("get_workflow_steps", &["workflow_id", "source"]),
     ("list_workflow_changes", &["workflow_id", "source"]),

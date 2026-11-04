@@ -333,6 +333,10 @@ where
         self.lifecycle_piece_saved(save)
     }
 
+    async fn teach_ticket_word(&self, teach: ipc::TeachTicketWord) -> Result<ipc::TicketWordTaught, Refusal> {
+        self.ticket_word_taught(teach).await
+    }
+
     async fn delete_lifecycle_piece(&self, delete: ipc::DeleteLifecyclePiece) -> Result<ipc::LifecyclePieceDeleted, Refusal> {
         self.lifecycle_piece_deleted(delete)
     }

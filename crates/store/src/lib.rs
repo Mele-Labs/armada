@@ -23,6 +23,7 @@
 mod build_notice;
 mod devices;
 mod error;
+mod fleet_outages;
 /// The session each Helm conversation resumes, one row per conversation.
 mod helm_sessions;
 /// The model and effort a person chose for a Helm conversation.
@@ -30,12 +31,19 @@ mod helm_tuning;
 /// What a session Fleet hosts keeps beside its ledger row, and its thread.
 mod hosted_sessions;
 mod session_checks;
+mod stop_nudges;
 mod session_build;
 mod session_plan;
 mod session_focus;
 mod session_rail;
 mod session_limit;
+mod session_open_turn;
 mod session_loadout;
+mod fleet_builds;
+mod job_times;
+mod process_stops;
+mod session_slot_waits;
+mod time_summary;
 mod session_turn_usage;
 mod usage_summary;
 mod usage_rule_trips;
@@ -176,10 +184,16 @@ pub use run_memory::{KeptPlace, KeptRun};
 pub use logbook::{
     logbook_words, LogEntry, LogEvidence, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState, LogTopic,
 };
+pub use stop_nudges::KeptStop;
 pub use session_waits::KeptWait;
+pub use session_open_turn::KeptOpenTurn;
 pub use session_build::{KeptBuild, KeptTask, LandedPull, RoadAsk, RoadTimes, WorkTimes};
-pub use session_turn_usage::KeptTurnUsage;
-pub use usage_summary::{turn_units, DayUsage, Named, PriorUsage, UsageSplit, UsageSummaryRead, TOP_SESSIONS};
+pub use fleet_builds::{KeptFleetBuild, KeptBuildSplit, KeptPullRequestWait, NewBuild};
+pub use job_times::{KeptCheckSpan, KeptJobTime, KeptTurnTimed};
+pub use session_slot_waits::KeptSlotWait;
+pub use time_summary::{BuildFigures, HourFigures, HoursRead, Medians, SlowJob, SplitMs, TimeRead, Usual, DEFAULT_HOURS, DEFAULT_SLOWEST, OWNER_ASKING_TOOLS};
+pub use session_turn_usage::{KeptOpenCall, KeptReading, KeptToolResult, KeptTurnTimes, KeptTurnUsage};
+pub use usage_summary::{turn_units, DayUsage, Named, PriorUsage, UsageSplit, UsageSummaryRead, TOP_SESSIONS, UNIT_SCALE};
 pub use usage_rule_trips::KeptTrip;
 pub use fleet_disputes::{KeptDispute, KeptNotice};
 pub use bug_reports::{KeptBugFix, KeptBugReport};

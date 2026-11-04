@@ -8,6 +8,7 @@ import type {
   SessionRecord,
   SessionRow,
   SessionThread,
+  WaitingSource,
 } from "@armada/protocol";
 
 import type { PhoneSession } from "../gateway";
@@ -21,6 +22,17 @@ export type FixtureMac = {
   kept: Record<string, KeptStyles>;
   /** What `/api/sessions/shown` serves, by session and path. */
   shown: Record<string, Record<string, string>>;
+  /**
+   * A sketch the Job draws again after the phone read it, by `<session> <sketch>`: the first answer to it is refused as Fleet refuses
+   * one (409, `fleet.sketch_redrawn`), and the thread then holds the new drawing, from its new `show_sketch` call.
+   */
+  redraws?: Record<
+    string,
+    {
+      call: string;
+      detail: Record<string, string>;
+    }
+  >;
   repositories: string[];
   usage: PlanUsage;
   models: ModelChoices;
@@ -165,7 +177,7 @@ function record(
     harness: "claude",
     origin: "bridge",
     manifest_id: "armada",
-    cwd: "/Users/owner/armada",
+    cwd: "/Users/user/armada",
     title,
     state: "live",
     started_at: ago(now, started),
@@ -391,6 +403,113 @@ export function fixtureMacs(
     context_tokens: 71_000,
     context_window: WINDOW,
   });
+
+  // Two Jobs waiting on another: one on a pull request and not approved, one approved, on a part of a plan, with Fleet's question open.
+  const after = phone({
+    id: "w1",
+    title: "Draw the slot pool on the phone",
+    repository: "armada",
+    kind: "hosted",
+    waiting: false,
+    working: false,
+    started_at: ago(now, 22),
+    starts_when: {
+      on: {
+        id: "p1",
+        title: parent.title!,
+      },
+      when: "lands",
+      pull_number: 3232,
+    },
+  });
+  const afterPlan = phone({
+    id: "w2",
+    title: "Move the slot docs",
+    repository: "store",
+    kind: "hosted",
+    waiting: false,
+    working: false,
+    started_at: ago(now, 35),
+    starts_when: {
+      on: {
+        id: "b1",
+        title: plan.title!,
+      },
+      when: "plan",
+      part_title: "Rename in the crate",
+    },
+  });
+
+  const w1: SessionThread = {
+    session: record(now, "w1", after.title!, 22, {
+      waits: {
+        on: {
+          id: "p1",
+          title: parent.title!,
+        },
+        condition: {
+          kind: "pr_lands",
+        },
+        base: "main",
+        needs: "The fields the phone reads for a slot",
+        brief:
+          "Draw the slot pool on the phone: one row a slot, with what holds it and for how long.\n\nUse the fields the Job this waits on adds to the list. Keep the rows the Cockpit's.",
+        pull: {
+          number: 3232,
+          branch: "armada/session-p1",
+        },
+        by: "you",
+        held: true,
+      },
+    }),
+    rows: [],
+  };
+  const w2: SessionThread = {
+    session: record(now, "w2", afterPlan.title!, 35, {
+      waits: {
+        on: {
+          id: "b1",
+          title: plan.title!,
+        },
+        condition: {
+          kind: "group_done",
+          group: "g1",
+        },
+        base: "main",
+        brief: "Move every page that says pool to the new name, once the crate has it.",
+        part_title: "Rename in the crate",
+        by: "agent",
+        held: false,
+      },
+      waiting_for: [
+        {
+          id: "delivery",
+          text: "How should this work be delivered?",
+          since: ago(now, 3),
+          source: "delivery",
+          act: {
+            kind: "answer",
+            target: "delivery",
+          },
+          options: [
+            {
+              label: "Auto land",
+              description: "Open a pull request, watch ci, merge it.",
+            },
+            {
+              label: "Open PR only",
+              description: "Stop at the open pull request.",
+            },
+            {
+              label: "Keep local",
+              description: "Stop at the commit on the job's branch. Nothing is pushed.",
+            },
+          ],
+        },
+      ],
+    }),
+    rows: [],
+  };
 
   const d1: SessionThread = {
     session: record(now, "d1", draft.title!, 4, {
@@ -771,7 +890,7 @@ export function fixtureMacs(
       attachments: [
         {
           kind: "artifact",
-          target: "/Users/owner/armada/docs/concepts/pocket.md",
+          target: "/Users/user/armada/docs/concepts/pocket.md",
           state: "standing",
           detail: {
             form: "file",
@@ -837,7 +956,7 @@ export function fixtureMacs(
   const b1: SessionThread = {
     session: record(now, "b1", plan.title!, 90, {
       manifest_id: "store",
-      cwd: "/Users/owner/store",
+      cwd: "/Users/user/store",
       waiting_for: [
         {
           id: "plan",
@@ -913,7 +1032,7 @@ export function fixtureMacs(
   const b3: SessionThread = {
     session: record(now, "b3", describe.title!, 30, {
       manifest_id: "store",
-      cwd: "/Users/owner/store",
+      cwd: "/Users/user/store",
       usage: {
         context_tokens: 121_500,
         context_window: WINDOW,
@@ -949,10 +1068,270 @@ export function fixtureMacs(
     ],
   };
 
+  // A Job that waits on every kind of thing the phone answers or opens: two documents, two sketches, a workflow change, Press Start,
+  // a Fleet call, a walk and a question in it.
+  const review = phone({
+    id: "f1",
+    title: "Review what a Job waits on",
+    repository: "armada",
+    kind: "hosted",
+    waiting: true,
+    working: false,
+    started_at: ago(now, 60),
+    waiting_since: ago(now, 9),
+    context_tokens: 88_000,
+    context_window: WINDOW,
+  });
+  const PLAIN_PAGE = "/Users/user/armada/.armada/documents/slot-pool.html";
+  const WIDE_PAGE = "/Users/user/armada/.armada/documents/phone-reach.html";
+  const PLAIN_R1 = "/Users/user/.armada/kept/f1/slot-pool-r1.html";
+  const WIDE_R1 = "/Users/user/.armada/kept/f1/phone-reach-r1.html";
+  const WIDE_R2 = "/Users/user/.armada/kept/f1/phone-reach-r2.html";
+  const PLAIN_HTML = `<!doctype html><html><head><title>Slot pool</title><link rel="stylesheet" href="armada-kit.css"></head><body>
+<h1>Slot pool</h1>
+<p>Four slots are enough for this machine, and the pool gives the idle ones back first.</p>
+<h2>What changes</h2>
+<ul><li>The pool is made with four slots, not eight.</li><li>A slot with no lease for an hour is given back.</li><li>The oldest slot is never chosen over an idle one.</li></ul>
+<h2>What stays</h2>
+<p>A held slot is never taken, and a Job waiting for one keeps its place in the line.</p>
+</body></html>`;
+  const WIDE_HTML = (
+    rows: number,
+  ) => `<!doctype html><html><head><title>Phone reach</title><link rel="stylesheet" href="armada-kit.css"></head><body>
+<h1>Phone reach</h1>
+<p>The phone reaches each Mac on its own origin, signed with a key made for that Mac.</p>
+<h2>Routes by Mac</h2>
+<table><caption>What each Mac answers</caption><thead><tr><th>Route</th><th>Method</th><th>Fleet route</th><th>Signed</th><th>Body</th><th>Answers</th><th>Refused with</th><th>Read by</th></tr></thead><tbody>
+${Array.from(
+  {
+    length: rows,
+  },
+  (_, at) =>
+    `<tr><td>/api/sessions/route-${String(at + 1)}</td><td>POST</td><td>route_${String(at + 1)}</td><td>yes</td><td>one JSON object</td><td>the Job record</td><td>409 or 422</td><td>the phone's app</td></tr>`,
+).join("\n")}
+</tbody></table>
+<h2>How it is drawn</h2>
+<armada-sketch title="Phone home"><script type="application/json">${JSON.stringify(SKETCH_CALL_SCENE)}</script></armada-sketch>
+<p>Each Mac keeps its own style sets, so a frame is drawn with the ones its Mac kept.</p>
+</body></html>`;
+  const REDRAWN_SCENE = (boxes: string[]) => ({
+    nodes: boxes.map((body, at) => ({
+      id: `n${String(at)}`,
+      kind: "box",
+      x: at * 240,
+      y: 0,
+      body,
+    })),
+    edges: boxes.slice(1).map((_, at) => ({
+      id: `e${String(at)}`,
+      from: `n${String(at)}`,
+      to: `n${String(at + 1)}`,
+    })),
+  });
+  const LAYOUT_V1 = REDRAWN_SCENE([
+    "Pool",
+    "Eight slots",
+  ]);
+  const LAYOUT_V2 = REDRAWN_SCENE([
+    "Pool",
+    "Four slots",
+    "Idle given back",
+  ]);
+  const asking = (id: string, text: string, source: WaitingSource, target: string) => ({
+    id,
+    text,
+    since: ago(now, 9),
+    source,
+    act: {
+      kind: "message" as const,
+      target,
+    },
+  });
+  const f1: SessionThread = {
+    session: record(now, "f1", review.title!, 60, {
+      usage: {
+        context_tokens: 88_000,
+        context_window: WINDOW,
+      },
+      attachments: [
+        {
+          kind: "artifact",
+          target: PLAIN_PAGE,
+          state: "standing",
+          detail: {
+            form: "document",
+            title: "Slot pool",
+            revisions: JSON.stringify([
+              PLAIN_R1,
+            ]),
+            revision: "1",
+            asked: "true",
+            kept_at: ago(now, 30),
+          },
+          since: ago(now, 30),
+          changed_at: ago(now, 30),
+        },
+        {
+          kind: "artifact",
+          target: WIDE_PAGE,
+          state: "standing",
+          detail: {
+            form: "document",
+            title: "Phone reach",
+            revisions: JSON.stringify([
+              WIDE_R1,
+              WIDE_R2,
+            ]),
+            revision: "2",
+            asked: "true",
+            kept_at: ago(now, 24),
+            kept_styles: JSON.stringify({
+              [`Phone home#card`]: KEPT_HASH,
+            }),
+          },
+          since: ago(now, 40),
+          changed_at: ago(now, 24),
+        },
+        {
+          kind: "artifact",
+          target: "sketch:Phone home",
+          state: "standing",
+          detail: {
+            form: "sketch",
+            title: "Phone home",
+            scene: JSON.stringify(SKETCH_SCENE),
+            asked: "true",
+            drawn: "phone-home-1",
+          },
+          since: ago(now, 20),
+          changed_at: ago(now, 20),
+        },
+        {
+          kind: "artifact",
+          target: "sketch:Slot layout",
+          state: "standing",
+          detail: {
+            form: "sketch",
+            title: "Slot layout",
+            scene: JSON.stringify(LAYOUT_V1),
+            asked: "true",
+            drawn: "slot-layout-1",
+          },
+          since: ago(now, 16),
+          changed_at: ago(now, 16),
+        },
+        {
+          kind: "artifact",
+          target: "http://127.0.0.1:5173/walk",
+          state: "standing",
+          detail: {
+            form: "window",
+            title: "Pool band",
+          },
+          since: ago(now, 6),
+          changed_at: ago(now, 6),
+        },
+      ],
+      waiting_for: [
+        asking("document:" + PLAIN_PAGE, "Slot pool", "document", "f1"),
+        asking("document:" + WIDE_PAGE, "Phone reach", "document", "f1"),
+        asking("sketch:Phone home", "Phone home", "sketch", "f1"),
+        asking("sketch:Slot layout", "Slot layout", "sketch", "f1"),
+        {
+          id: "draft:f1-10",
+          text: "Check before every walk",
+          since: ago(now, 8),
+          source: "draft",
+          act: {
+            kind: "answer",
+            target: "draft:f1-10",
+          },
+          options: [
+            {
+              label: "Approve",
+            },
+            {
+              label: "Dismiss",
+            },
+          ],
+        },
+        {
+          id: "browser_ask:tab-1",
+          text: "localhost wants to use your camera",
+          since: ago(now, 7),
+          source: "browser_ask",
+          act: {
+            kind: "answer",
+            target: "browser_ask:tab-1",
+          },
+          options: [
+            {
+              label: "Allow",
+            },
+            {
+              label: "Block",
+            },
+          ],
+        },
+        asking("start:d1", `Press Start on "${draft.title!}"`, "held_child", "d1"),
+        asking("call:1", "main went red after this Job's last push", "fleet_call", "f1"),
+        asking("walk:http://127.0.0.1:5173/walk", "Pool band", "walk", "f1"),
+        asking("window_ask:1", "Does the band read as one line or two?", "window_ask", "f1"),
+      ],
+    }),
+    rows: [
+      message(
+        "f1-1",
+        ago(now, 60),
+        "you",
+        "Draw what each Job waits on, and ask me where it needs me.",
+      ),
+      started("f1-2", ago(now, 55), {
+        id: "d1",
+        title: draft.title!,
+      }),
+      message("f1-3", ago(now, 31), "agent", "The slot pool, written out."),
+      message("f1-4", ago(now, 25), "agent", "How the phone reaches each Mac, revised once."),
+      tool(
+        "f1-5",
+        ago(now, 20),
+        `show_sketch ${JSON.stringify({
+          title: "Phone home",
+          scene: SKETCH_CALL_SCENE,
+        })}`,
+      ),
+      tool(
+        "f1-6",
+        ago(now, 16),
+        `show_sketch ${JSON.stringify({
+          title: "Slot layout",
+          scene: LAYOUT_V1,
+        })}`,
+      ),
+      {
+        kind: "window",
+        id: "f1-7",
+        at: ago(now, 6),
+        title: "Pool band",
+        url: "http://127.0.0.1:5173/walk",
+      },
+      message("f1-9", ago(now, 8), "agent", "One change to the build workflow, for you to save."),
+      {
+        kind: "draft",
+        id: "f1-10",
+        at: ago(now, 8),
+        title: "Check before every walk",
+        text: "Adds a Checks step before Walk in the build workflow, so a walk is only shown on a green build.",
+        change: 7,
+      },
+    ],
+  };
+
   return {
     [origins.studio]: {
       name: "studio",
       needs: [
+        review,
         draft,
         restart,
         asked,
@@ -961,6 +1340,7 @@ export function fixtureMacs(
         closing,
       ],
       live: [
+        review,
         draft,
         asked,
         restart,
@@ -970,13 +1350,16 @@ export function fixtureMacs(
         parent,
         child,
         showed,
+        after,
         finished,
         idle,
       ],
       threads: {
+        w1,
         a1,
         a2,
         d1,
+        f1,
         p1,
         c1,
         r1,
@@ -992,8 +1375,25 @@ export function fixtureMacs(
       },
       shown: {
         a2: {
-          "/Users/owner/armada/docs/concepts/pocket.md":
+          "/Users/user/armada/docs/concepts/pocket.md":
             "# Pocket\n\nThe phone app. It shows a Job's whole thread and any file or sketch the Job showed.\n",
+        },
+        f1: {
+          [PLAIN_R1]: PLAIN_HTML,
+          [WIDE_R1]: WIDE_HTML(3),
+          [WIDE_R2]: WIDE_HTML(6),
+        },
+      },
+      redraws: {
+        "f1 sketch:Slot layout": {
+          call: `show_sketch ${JSON.stringify({
+            title: "Slot layout",
+            scene: LAYOUT_V2,
+          })}`,
+          detail: {
+            scene: JSON.stringify(LAYOUT_V2),
+            drawn: "slot-layout-2",
+          },
         },
       },
       repositories: [
@@ -1010,8 +1410,10 @@ export function fixtureMacs(
         plan,
         describe,
         reading,
+        afterPlan,
       ],
       threads: {
+        w2,
         b1,
         b2,
         b3,

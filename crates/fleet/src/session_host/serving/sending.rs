@@ -4,6 +4,9 @@ use super::*;
 use super::super::start_card::FirstTurn;
 use crate::session_links::LinkedBy;
 
+/// How long a person's send waits for its turn to be delivered before it answers and leaves the rest
+/// to finish. Under the twenty seconds Bridge waits.
+const DELIVERY_GRACE: std::time::Duration = std::time::Duration::from_secs(3);
 /// How long a start that failed waits before it is tried the second time.
 const START_AGAIN_AFTER: std::time::Duration = std::time::Duration::from_secs(1);
 
@@ -31,16 +34,25 @@ where
         news: bool,
         kept: Option<Written>,
     ) -> Result<bool, Refusal> {
+        // A word that wakes a Job clears what it was told of its stop, so the stop after it gets a nudge
+        // of its own. **Not the nudge itself, and not a word mid-turn**, or a Job and Fleet could loop.
+        let wakes = !news
+            && !matches!(kept, Some(Written::Noticed(ipc::Notice::StopNudge)))
+            && !matches!(self.hosts().of(session).state().turn, SessionTurn::Working { .. });
         if let Some(terminal) = self.terminal_session(session).await? {
             if terminal.state == store::SessionState::Ended {
                 return Ok(false);
             }
             let said = format!("{FLEET_NAME}: {text}");
-            return Ok(self.hosts().terminals().hold(
+            let told = self.hosts().terminals().hold(
                 session,
                 said,
                 super::super::terminal::LISTENING_FOR,
-            ));
+            );
+            if told && wakes {
+                let _ = self.store().lock().await.clear_stop_told(session);
+            }
+            return Ok(told);
         }
         let (held, hosting) = self.session_and_hosting(session).await?;
         if held.state == store::SessionState::Ended || hosting.paused_at.is_some() {
@@ -73,6 +85,9 @@ where
         Arc::clone(self)
             .send_hosted_written(sent, Written::Row(row), None, None, false)
             .await?;
+        if wakes {
+            let _ = self.store().lock().await.clear_stop_told(session);
+        }
         // News asks nothing, so there is nothing in the agent's replies to read against it. With
         // dispute reviews off nothing is kept, so switching them on reads none sent before.
         if !news && self.dispute_reviews_on() {
@@ -253,8 +268,24 @@ where
                 false => Some(held),
             }
         };
-        if let Some(held) = held {
-            self.deliver_turn(&id, held).await?;
+        match held {
+            // **Not for as long as the start takes.** A Job with no process leases its slot and starts one
+            // here, which has no bound but Bridge's own and read as `bridge.not_sent`. A start that runs
+            // past `DELIVERY_GRACE` goes on behind the answer: one that fails keeps its turn in
+            // `start_failed`, and the thread shows the message already.
+            Some(held) if matches!(written, Written::Message(SessionVoice::You)) => {
+                let (fleet, id) = (Arc::clone(&self), id.clone());
+                let mut delivery = tokio::spawn(async move {
+                    let runtime = fleet.hosts().of(&id);
+                    let _in_order = runtime.delivery.lock().await;
+                    if let Err(why) = fleet.deliver_turn(&id, held).await {
+                        fleet.session_warned(&id, "a job's message was not delivered", format!("{why:?}"));
+                    }
+                });
+                let _ = tokio::time::timeout(DELIVERY_GRACE, &mut delivery).await;
+            }
+            Some(held) => self.deliver_turn(&id, held).await?,
+            None => {}
         }
         self.published_hosted(&id).await
     }

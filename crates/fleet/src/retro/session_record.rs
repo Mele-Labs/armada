@@ -16,6 +16,7 @@ use ipc::{
 use serde::Deserialize;
 
 use super::record::{apart, cite, cut};
+use super::session_time::{timed, TimingSources};
 
 /// The most of one message, error or call a record carries.
 const SAID: usize = 500;
@@ -39,6 +40,8 @@ pub(crate) struct SessionSources<'a> {
     pub restarts: &'a [store::KeptRestart],
     /// What the agent said got in its way, when it was asked, and when.
     pub note: Option<(&'a str, &'a str)>,
+    /// The Job's whole time and the usual of its workflow, where it has a workflow with a usual.
+    pub timing: Option<&'a TimingSources>,
 }
 
 /// Whether `at` falls after `since` and not after `until`. **A time that will
@@ -89,6 +92,7 @@ pub(crate) fn assembled(from: &SessionSources<'_>) -> RetroRecord {
             })
             .into_iter()
             .collect(),
+        time: from.timing.and_then(timed),
         ..RetroRecord::default()
     }
 }
@@ -390,6 +394,7 @@ mod tests {
             subagents: &[],
             restarts: &[],
             note: Some(("2026-10-08T10:30:00.000Z", "find hit the privacy prompts")),
+            timing: None,
         });
         assert_eq!(record.failed_tools.len(), 1);
         assert_eq!(record.failed_tools[0].cite, "tool:1");
@@ -410,6 +415,7 @@ mod tests {
             subagents: &[],
             restarts: &[],
             note: None,
+            timing: None,
         });
         assert_eq!(record.failed_tools.len() + record.refusals.len(), 2);
         let record = assembled(&SessionSources {
@@ -420,7 +426,47 @@ mod tests {
             subagents: &[],
             restarts: &[],
             note: None,
+            timing: None,
         });
         assert!(record.failed_tools.is_empty() && record.refusals.is_empty());
+    }
+
+    fn timing(spent_you: u64, usual_you: u64) -> TimingSources {
+        let minute = 60_000;
+        TimingSources {
+            workflow: "build".into(),
+            jobs: 9,
+            spent: ipc::RecordSplit { you: spent_you * minute, model: 5 * minute, ..Default::default() },
+            usual: ipc::RecordSplit { you: usual_you * minute, model: 5 * minute, ..Default::default() },
+        }
+    }
+
+    fn with_timing(timing: &TimingSources) -> RetroRecord {
+        assembled(&SessionSources {
+            since: None,
+            until: "2026-10-08T11:00:00.000Z",
+            thread: &[],
+            transcript: &[],
+            subagents: &[],
+            restarts: &[],
+            note: None,
+            timing: Some(timing),
+        })
+    }
+
+    #[test]
+    fn a_job_far_over_its_usual_has_a_timing_row_a_retro_item_may_cite() {
+        let record = with_timing(&timing(90, 20));
+        let row = record.time.as_ref().expect("you is far over");
+        assert_eq!(row.cite, "time:1");
+        assert_eq!(row.over, ["you"]);
+        assert!(super::super::record::cites(&record).contains("time:1"));
+    }
+
+    #[test]
+    fn a_job_near_its_usual_has_no_timing_row_and_so_nothing_to_cite() {
+        let record = with_timing(&timing(25, 20));
+        assert_eq!(record.time, None);
+        assert!(!super::super::record::cites(&record).contains("time:1"));
     }
 }

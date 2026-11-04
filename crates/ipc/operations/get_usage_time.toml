@@ -1,0 +1,12 @@
+[operations.get_usage_time]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Where the time of the Jobs that ended in a window went, summed by bucket, with the slowest Jobs and the usual Job of each workflow"
+notes = """
+`GET /usage/time?since=&until=&slowest=`. `UsageTime` for the Jobs that ended in `[since, until)`: both bounds RFC3339, `until` defaulting to now and `since` to seven days before it. Answers `since` and `until` as resolved, `jobs` (how many ended), `total` (every Job's split summed), `slowest` and `usual`. **Every figure in a split is milliseconds**, in the nine buckets of `RecordSplit`: `model`, `tools`, `checks`, `subagents`, `slot`, `you`, `pull_request`, `stopped` and `idle`.
+
+`slowest` is at most `slowest` Jobs (twenty where left out), longest first, each `{ session_id, title?, workflow, began_at, ended_at, split }`. `usual` is `{ workflow, jobs, split }` for each named workflow, alphabetically: the median of each bucket over every kept Job of it, whatever the window. A Job with no workflow is in none. A window no Job ended in answers `jobs` 0 and empty lists. 422 `fleet.session_unnamed` for a bound that is not a time. **Names and counts only.**
+
+`agent_access` is `Yes`: an agent asked where the week's time went reads it here. The Usage page's Time view reads the same answer.
+"""

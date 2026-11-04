@@ -12,5 +12,13 @@ const HOLD_LAYERS = [
   ".job-pane__drops",
 ].join(", ");
 
-/** Whether a layer that must lie over a native view is up now. */
-export const holdLayerUp = (): boolean => document.querySelector(HOLD_LAYERS) !== null;
+/**
+ * Whether a layer that must lie over a native view is up now. `frame` is the view's own place: a layer that holds it is the ground it is drawn on, not over it, as the
+ * review sheet is for a walk playing inside it. Anything drawn over that layer still holds the view.
+ */
+export const holdLayerUp = (frame?: Element | null): boolean => {
+  if (frame === undefined || frame === null) return document.querySelector(HOLD_LAYERS) !== null;
+  for (const layer of document.querySelectorAll(HOLD_LAYERS))
+    if (!layer.contains(frame)) return true;
+  return false;
+};

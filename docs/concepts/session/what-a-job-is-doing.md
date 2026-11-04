@@ -7,10 +7,11 @@
 
 | `standing` | Read from | Item in `waiting_for` |
 |---|---|---|
-| `working` | a turn is running and something was heard from it within the bound, or, between turns, a `subagent` row of it stands: a parent that ended its turn to wait on its subagents read as idle while they ran (14 Oct 2026). A `background` row does not count: the agent is woken when its command ends, and the person has nothing to wait on | none |
+| `working` | a turn is running and something was heard from it within the bound, or, between turns, a `subagent` row of it stands: a parent that ended its turn to wait on its subagents read as idle while they ran (14 Oct 2026). So does a `background` row or a running Check of its own, where it would otherwise rest: he asked to see what each Job is doing, and an ask in its reply is still an item | none |
 | `stuck` | a turn is running, nothing has been heard from it for **ten minutes**, and it is not held on a question or a permission | none |
 | `done` | `done_since` stands (the agent said nothing is left) | `done:<done_since>`, text `Done` |
 | `replied` | the last turn ended on a message to the person that only reports, and he has not written since | none: the unread mark |
+| `stopped` | it stopped again after Fleet told it of a stop, or the word reached nobody. `SessionRecord.stopped` says why and what Fleet is doing about it | none: the mark and the call reach him |
 | `idle` | none of the above, which includes a reply that asks (it is an item) | none |
 
 A reply whose close asks him something is an item whatever the standing: `replied:<turn ended at>`, source `replied`, text the sentence that asks.
@@ -46,6 +47,31 @@ It is not raised where the reply asks (that is the `replied` item), where the ag
 One tell is one id, so a dismissed one stays dismissed.
 With the model not loaded nothing is raised, since no rule stands in for it.
 `tell_refusal::IN_FORCE` is false: `docs/spikes/tell-refusal-reader.md` shows the head caught none of the five refusals of these tells out of fold.
+
+**Every stop answers for itself** (the owner, 3 Nov 2026: "Armada is about me not babysitting jobs").
+A stop is named by when its turn ended (`last_turn_at`), so a turn that ended on tools alone counts, and whether it stands is read where the row is built (`session_host/stopping.rs`).
+A stop is excused by facts, never by the agent saying so: a turn, subagent, background command or Check running, a live watch, its own open pull request, a lifecycle holding it other than a ticket, a Job it started that is still running, any item in `waiting_for`, a `done`, a pause, its start card, a limit, a wait on another Job, a Helm Job, or a terminal that is not listening.
+A minute after a stop nothing excuses (`STOP_AFTER`, unmeasured), Fleet sends one word, `stop_nudge`: to carry on, to name what it waits on with `waiting_for`, or to finish.
+A Job stopped on a step only it can end hears that step's own words instead ([The rail](the-rail.md)).
+**One nudge per stop.** The stop after it reads `stopped`, so a Job can never loop with Fleet.
+A word the person writes, or another Fleet word that wakes it, gives the next stop a nudge of its own; a word that arrives mid-turn does not.
+A nudge that reached nobody (muted, withheld or refused) reads `stopped` at once, and one that started no turn does a minute on.
+His own Stop press passes over the stop it leaves, as the migration did for every live Job's stop when this landed.
+Some stops are fine and get nudged too, which is what reading a week of them after landing is for.
+Kept in `stop_nudges` (one row a Job).
+
+**A stopped Job asks him to press nothing** (the owner, 3 Nov 2026: "If the app detects a stopped job, it should restart it. If it fails to restart it should dispatch a repair job unless fleet is down and the app is in a unhealthy state").
+It raises no item.
+A process that dies in a turn is started again once ([What a restart does to a job](a-job-fleet-hosts.md)).
+One that dies again, with `session_open_turn` showing the restart spent, ends no turn, so no turn's end says it: the ledger reads it `stopped`, `process_gone`, or `fleet_down` where its open turn overlapped a stretch in `fleet_outages`.
+Fleet then starts a repair Job in the same repository, nested under it, with no start card, one at a time and never for a repair Job (`repairs_started`).
+If a probe of `get_health` fails, a new Job would fail the same way, so it starts none and the row says so.
+The row reads amber with `gave_up` only once Fleet has run out: its repair Job ended or said it is done with the Job still dead, Fleet is unhealthy, or the dead Job is itself a repair Job.
+A live agent that stopped again reads amber too: its process is fine, so a repair Job would have nothing to fix.
+A turn beginning clears the repair, so a later death gets its own.
+
+**Fleet's own acts stand in Now, Open and Done**, read from what is kept: each word and note of Fleet's in the thread is over, the nudge coming and the repair running are read off the row.
+Background model reads write no row, so they are none of these.
 
 **Stuck is its own bound**, `STUCK_AFTER` in `session_host/standing.rs`, ten minutes of nothing heard from a running turn.
 It is not `settings.session-quiet-timeout`, which is how long an idle process is kept and says nothing about a turn that went quiet.

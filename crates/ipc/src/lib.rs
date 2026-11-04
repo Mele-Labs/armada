@@ -261,6 +261,8 @@ mod turn_usage;
 mod usage_rules;
 /// What a window of turns cost, summed.
 mod usage_summary;
+/// Where Jobs' time went: one Job's, a window's, and the hours and builds the Usage page draws.
+mod time_summary;
 /// What a hosted Session is doing now, as Fleet saw it.
 mod session_activity;
 /// What a Session has built: its phase, pieces and road, read off what Fleet observed.
@@ -295,7 +297,7 @@ pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
 pub use piece_saving::{
     AutonomyToSave, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind,
-    LifecyclePieceSaved, SaveLifecyclePiece, WorkspaceToSave,
+    LifecyclePieceSaved, SaveLifecyclePiece, TeachTicketWord, TicketWordTaught, WorkspaceToSave,
 };
 pub use lifecycles::{
     ActKindDefault, AllWorkspaces, AppliedLifecycle, AutonomyLayer, RepositoryAutonomy, AppliedRule, HeldInstance, InstanceLink, InstanceMove, InstanceStanding, JobLifecycles,
@@ -571,7 +573,7 @@ pub use review_walks::{
     WalkSource, WalkTried, SEARCH_RUN_SCOPE,
 };
 pub use retro::{
-    Lesson, Lessons, RecordAct, RecordAsked, RecordRefusal, RecordSaid, Retro, RetroAnswered,
+    Lesson, Lessons, RecordAct, RecordAsked, RecordRefusal, RecordSaid, RecordSplit, RecordTime, Retro, RetroAnswered,
     RetroChange, RetroChangeAnswered, RetroItem, RetroRecord, RetroSession, RetroState,
     RetroWritten,
 };
@@ -641,7 +643,7 @@ pub use sessions::{
     PullRequestClaimed, NameSession, RenameSession, TakeMainRed, SessionFact, SessionId, SessionList,
     SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionStarted, StepVisit, SessionReport,
     ConfirmLater, DeferLater, LaterDeferred, LaterHow, LaterSettled, SessionLater, SettleLater,
-    SessionStanding, SessionState, ToolMissing, ToolsMissing, SessionRunMessage, SessionRunUnderway, StartSessionRun,
+    SessionStanding, SessionState, SessionStopped, FleetAway, StopReason, StopRepair, StopRestart, ToolMissing, ToolsMissing, SessionRunMessage, SessionRunUnderway, StartSessionRun,
     StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone,
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
     WindowTake, AskInWindow, ProposeDraft, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
@@ -673,6 +675,9 @@ pub use turn_usage::{BashUse, SessionTurnUsage, TurnUsage};
 pub use usage_rules::{UsageRule, UsageRuleLimit, UsageRuleTrip, UsageRules};
 pub use usage_summary::{
     DayUnits, NamedUnits, PriorUsage, RestUsage, SessionUsageSummary, TokenUnits, UsageBreakdown, UsageSummary,
+};
+pub use time_summary::{
+    BuildFigures, HourFigures, JobSplit, JobTime, SlowJob, UsageHours, UsageTime, UsualTime,
 };
 pub use loadout::{
     LoadoutItem, LoadoutItemAsked, LoadoutItemBody, LoadoutItemFormat, LoadoutItems, LoadoutKind, LoadoutSource,

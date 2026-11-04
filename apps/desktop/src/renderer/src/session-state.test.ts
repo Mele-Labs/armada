@@ -139,7 +139,7 @@ describe("working is what Fleet derived, not only a turn of its own", () => {
         }),
       ),
     ).toEqual({
-      state: "working",
+      state: "subagent",
       said: "Subagent working",
     });
   });
@@ -771,5 +771,83 @@ describe("a Job Fleet holds open waits on something that is not him", () => {
       state: "idle",
       said: "Idle",
     });
+  });
+});
+
+describe("a Job that stopped says so", () => {
+  const stopped = (extra: Record<string, unknown>) =>
+    session({
+      standing: "stopped",
+      stopped: {
+        reason: "turn_ended",
+        at: TURN_ENDED,
+        restart: "none",
+        ...extra,
+      },
+    });
+
+  test("amber once Fleet has run out of things to try", () => {
+    expect(
+      stateOf(
+        stopped({
+          gaveUp: true,
+        }),
+      ).state,
+    ).toBe("stopped_asks");
+    expect(
+      stateOf(
+        stopped({
+          gaveUp: true,
+        }),
+      ).said,
+    ).toBe("Stopped: ended its turn with nothing running");
+  });
+
+  test("calm while Fleet is bringing it back, and says how", () => {
+    const repairing = stateOf(
+      stopped({
+        reason: "process_gone",
+        restart: "failed",
+        repair: "running",
+      }),
+    );
+    expect(repairing.state).toBe("stopped");
+    expect(repairing.said).toContain("Repair Job running");
+  });
+
+  test("an unhealthy Fleet starts no repair Job, and says so", () => {
+    const held = stateOf(
+      stopped({
+        reason: "process_gone",
+        restart: "failed",
+        repair: "held",
+        gaveUp: true,
+      }),
+    );
+    expect(held.state).toBe("stopped_asks");
+    expect(held.said).toContain("No repair Job: Fleet is unhealthy");
+  });
+});
+
+describe("a Job it started holds its parent", () => {
+  test("by the Job's title", () => {
+    expect(
+      waitsOf(
+        session({
+          standing: "idle",
+          heldOpenBy: [
+            {
+              kind: "job",
+              name: "Fix the door",
+            },
+          ],
+        }),
+      ),
+    ).toEqual([
+      {
+        kind: "watch",
+        said: "Waiting on Fix the door",
+      },
+    ]);
   });
 });

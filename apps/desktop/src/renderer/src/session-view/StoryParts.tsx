@@ -8,11 +8,12 @@ import {
   Footprints,
   Megaphone,
   Milestone,
+  Server,
   Tags,
   type LucideIcon,
 } from "lucide-react";
-import { Button, Readout, Stamp, Tooltip } from "@armada/components";
-import type { Session } from "@armada/screens/src/draft/sessions";
+import { Button, Readout, Stamp, Tooltip, useNow } from "@armada/components";
+import type { FleetAct, Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessions } from "../sessions-draft";
 import { Mark } from "./DeliveryRoute";
@@ -64,7 +65,7 @@ export function arrowsIn(event: KeyboardEvent<HTMLElement>): void {
 }
 
 /** A glyph that names itself on hover, in the row's lead column. */
-function Lead({
+export function Lead({
   Glyph,
   said,
   pulse = false,
@@ -176,28 +177,120 @@ export function WaitBeat({ text }: { text: string }) {
   );
 }
 
+/** Whole minutes since an instant, to the unit above an hour: `<1m`, `12m`, `1h 04m`. */
+export function spanSince(since: string, now: number): string {
+  const minutes = Math.max(0, Math.floor((now - Date.parse(since)) / 60_000));
+  if (minutes < 1) return "<1m";
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
+}
+
+/** How long a call or an act has run, as a figure in the row's last column. The tooltip names what it measures. */
+export function Since({ at, said }: { at: string; said: string }) {
+  const now = useNow(15_000);
+  return (
+    <Tooltip asChild label={said}>
+      <span className="sv-beat__figure" role="img" aria-label={`${said}: ${spanSince(at, now)}`}>
+        {spanSince(at, now)}
+      </span>
+    </Tooltip>
+  );
+}
+
+/** What a running turn that went silent says under its open call: how long since Fleet heard from it. */
+export function Quiet({ since }: { since: string }) {
+  const now = useNow(15_000);
+  return <>No word for {spanSince(since, now)}</>;
+}
+
 /** The agent or a Check at work: its mark and its name, and what it is doing under it where it says. */
 export function WorkBeat({
   mark,
   name,
   line,
+  figure,
   system = false,
   working = false,
+  needs = false,
 }: {
   mark: ReactNode;
   name: string;
   line?:
-    | string
+    | ReactNode
     | undefined /** The name is one the system reports, a Check's: drawn as a reading. */;
+  figure?: ReactNode /** The row's last column: how long it has run. */;
   system?: boolean /** The name is what Fleet sees the Job doing, and reads as the head of Now. */;
-  working?: boolean;
+  working?: boolean /** The Job needs a look: it stopped, or went silent. The mark takes the lamp's hue. */;
+  needs?: boolean;
 }) {
   return (
-    <li className="sv-beat" data-state={working ? "working" : undefined}>
+    <li
+      className="sv-beat"
+      data-state={working ? "working" : undefined}
+      {...(needs
+        ? {
+            "data-lamp": "needs",
+          }
+        : {})}
+    >
       {mark}
       <span className="sv-beat__label">{system ? <Readout>{name}</Readout> : name}</span>
+      {figure ?? <span />}
       {line === undefined ? null : <span className="sv-beat__line">{line}</span>}
     </li>
+  );
+}
+
+/**
+ * Fleet at work on the Job, one more worker beside the agent: its mark, what it is doing, and where the act has a reason, that reason as the tooltip.
+ * Under way it says how long; coming, the time is in the words.
+ */
+export function FleetBeat({
+  said,
+  why,
+  since,
+}: {
+  said: string;
+  why?: string | undefined;
+  since?: string | undefined;
+}) {
+  return (
+    <li className="sv-beat" data-fleet="">
+      <Lead Glyph={Server} said="Fleet" />
+      {why === undefined ? (
+        <span className="sv-beat__label">{said}</span>
+      ) : (
+        <Tooltip asChild label={why}>
+          <span className="sv-beat__label" tabIndex={0} data-nav="">
+            {said}
+          </span>
+        </Tooltip>
+      )}
+      {since === undefined ? <span /> : <Since at={since} said="Under way for" />}
+    </li>
+  );
+}
+
+/** What Fleet did, as a row of Done's By kind and By step: its mark, the words, and when. The reason is the tooltip, and the row takes focus to show it. */
+export function FleetMade({ act }: { act: FleetAct }) {
+  return (
+    <div className="sv-made" data-kind="fleet">
+      <Tooltip asChild label="Fleet">
+        <span className="sv-made__mark" role="img" aria-label="Fleet">
+          <Server size={12} strokeWidth={2} aria-hidden />
+        </span>
+      </Tooltip>
+      {act.why === undefined ? (
+        <span className="sv-made__title">{act.said}</span>
+      ) : (
+        <Tooltip asChild label={act.why}>
+          <span className="sv-made__title" tabIndex={0} data-nav="">
+            {act.said}
+          </span>
+        </Tooltip>
+      )}
+      <Stamp at={act.at} first="age" still className="sv-made__age" />
+    </div>
   );
 }
 
@@ -483,6 +576,8 @@ export function MadeList({
               <ModsMade id={session.id} />
             ) : one.shape === "job" ? (
               <ChildJob child={one.child} manifestId={session.manifestId} onOpen={one.open} />
+            ) : one.shape === "fleet" ? (
+              <FleetMade act={one.act} />
             ) : one.report === true ? (
               <Report session={session} row={one.row} />
             ) : (
