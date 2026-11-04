@@ -3,6 +3,7 @@
 
 import type { HeldSlotsProps } from "@armada/components";
 import type { WaitingItem } from "@armada/protocol";
+import { creatingSlot } from "@armada/screens/src/session-state";
 
 /** The Add choice of a `slot_choice` call, which the rows' Create stands in for. */
 export const ADD_CHOICE = 1;
@@ -21,8 +22,7 @@ export const choicesDrawn = (item: WaitingItem, canFree: boolean): number[] =>
         ],
   );
 
-/** Create was pressed and Fleet is at it: nothing here needs the person now, though the call stays so its wait can be seen. */
-export const creatingSlot = (item: WaitingItem): boolean => item.creating_since !== undefined;
+export { creatingSlot };
 
 /** The rows a call draws under its choices: none for another item, a call with no holders, or where nothing serves Free. */
 export function heldSlotsOf(
