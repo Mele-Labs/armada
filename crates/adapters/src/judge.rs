@@ -134,7 +134,7 @@ impl HeadlessAgent {
     }
 
     /// The model a Session's account of itself is written on: **the Judge's**, the cheapest on the
-    /// roster, since it is a few short lines written again every few seconds a Session is at work.
+    /// roster, since it is a few short lines written again every half minute a Session is at work.
     pub fn account_model() -> &'static str {
         HeadlessAgent::judge_model()
     }

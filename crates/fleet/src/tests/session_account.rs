@@ -136,6 +136,14 @@ fn a_line_that_names_code_is_dropped_and_a_plain_one_with_a_product_name_is_kept
 
 // ---- How often it is written, and how long it is kept ----
 
+/// A Fleet asks for a working Session's account at most every half minute, as the owner chose on
+/// 4 Nov 2026: every 5 seconds made the account most of Fleet's model calls.
+#[tokio::test]
+async fn a_fleet_writes_an_account_at_most_every_half_minute() {
+    let (rig, _judge, _home) = rig_writing(PLANNED);
+    assert_eq!(rig.fleet.hosts().account_every(), Duration::from_secs(30));
+}
+
 #[tokio::test]
 async fn a_burst_of_tool_calls_makes_one_rewrite() {
     let (rig, judge, _home) = rig_writing(PLANNED);
