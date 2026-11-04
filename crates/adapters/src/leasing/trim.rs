@@ -1,6 +1,7 @@
 //! What a release does about a slot's `target/`: Cargo never deletes a stale
 //! artifact, so a slot kept warm for months grew to 50 GB. A release drops what
-//! no build has written in a while and, if that is not enough, the directory.
+//! no build has written in a while, then the incremental caches and, if that is
+//! not enough, the directory.
 //! A release does it for its own slot, and Fleet's sweep does it for every
 //! checkout of a repository; both go through [`trim_target`].
 //! The settings are `slot-build-trim-after-days`, `slot-build-ceiling-gib` and
@@ -38,7 +39,8 @@ pub enum Trimmed {
     Absent,
     /// A cargo build holds its lock, so nothing was touched.
     Building,
-    /// Stale files were dropped and what is left is under the ceiling.
+    /// Stale files, and incremental caches where it took them, were dropped and
+    /// what is left is under the ceiling.
     Swept,
     /// What was left was over the ceiling, so the directory went whole.
     Removed,
@@ -62,10 +64,39 @@ pub fn trim_target(target: &Path, trim: Trim, now: SystemTime) -> Trimmed {
         .unwrap_or(SystemTime::UNIX_EPOCH);
     let kept = sweep(target, cutoff, true);
     if kept > trim.ceiling_bytes {
-        let _ = fs::remove_dir_all(target);
-        return Trimmed::Removed;
+        remove_incremental(target);
+        if size_of(target) > trim.ceiling_bytes {
+            let _ = fs::remove_dir_all(target);
+            return Trimmed::Removed;
+        }
     }
     Trimmed::Swept
+}
+
+/// Every `incremental` directory under `target`, removed. **The cheap thing to
+/// lose**: it is most of a slot's bytes, and without it the next change compiles
+/// its own crates in full and no third-party crate again.
+fn remove_incremental(target: &Path) {
+    let mut dirs = vec![target.to_path_buf()];
+    for _ in 0..3 {
+        let mut next = Vec::new();
+        for dir in &dirs {
+            let Ok(entries) = fs::read_dir(dir) else {
+                continue;
+            };
+            for entry in entries.flatten() {
+                if !entry.file_type().is_ok_and(|kind| kind.is_dir()) {
+                    continue;
+                }
+                if entry.file_name() == "incremental" {
+                    let _ = fs::remove_dir_all(entry.path());
+                } else {
+                    next.push(entry.path());
+                }
+            }
+        }
+        dirs = next;
+    }
 }
 
 /// Every `.cargo-lock` under `target` (the profile directories, with or
