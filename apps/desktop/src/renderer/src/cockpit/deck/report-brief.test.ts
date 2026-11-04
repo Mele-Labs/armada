@@ -169,6 +169,45 @@ test("a fact Bridge does not hold is no line", () => {
   expect(reportLists(bare, from())).toEqual([]);
 });
 
+test("a pull request's line says it is in the merge queue or set to merge", () => {
+  const pullRequest = {
+    kind: "pull_request",
+    number: 3237,
+    title: "Answer on the phone",
+    branch: "armada/phone",
+    address: "https://git.example/pull/3237",
+    checks: {
+      state: "passed",
+    },
+    state: "open",
+    auto: false,
+  };
+  const lineWith = (change: object) =>
+    reportFacts(
+      {
+        ...bare,
+        attachments: [
+          {
+            ...pullRequest,
+            ...change,
+          },
+        ],
+      } as Session,
+      from(),
+    ).find((one) => one.startsWith("Pull request:"));
+  expect(lineWith({})).toContain("open, checks passed");
+  expect(
+    lineWith({
+      queued: true,
+    }),
+  ).toContain("open, in merge queue, checks passed");
+  expect(
+    lineWith({
+      auto: true,
+    }),
+  ).toContain("open, auto-merge on, checks passed");
+});
+
 test("an ended Job reads as ended", () => {
   expect(
     reportFacts(

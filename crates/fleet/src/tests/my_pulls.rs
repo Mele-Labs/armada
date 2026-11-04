@@ -2,7 +2,7 @@
 //! known, and the person's own read by their login where the listing stops short of them. The
 //! forge and the profiles are scripted; what is told with it is `pull_notices`' tests.
 
-use adapter_traits::{FromOutside, OpenPull};
+use adapter_traits::{FromOutside, OpenPull, QueueEntry, QueueState};
 
 use super::pull_notices::{a_rig, Rig};
 use super::repository_profiles::{repo, two_profiles};
@@ -60,6 +60,32 @@ async fn a_forge_silent_on_the_persons_own_keeps_what_the_listing_gave() {
     forge.pulls_are(Some(vec![opened(30, "teammate")]));
 
     assert_eq!(on_the_wire(&rig).await, [(30, false)]);
+}
+
+/// The report: a pull request the queue dropped stayed on the strip for a minute after its Job's row
+/// had moved. **The pull reading reads the queue too**, not only the repository's visit.
+#[tokio::test]
+async fn a_pull_request_the_queue_dropped_leaves_the_merge_line_with_the_pull_reading() {
+    let rig = a_rig();
+    let forge = &rig.fleet.vcs().main_ci;
+    forge.pulls_are(Some(vec![opened(3237, "octocat")]));
+    forge.followed_are(Some(Vec::new()));
+    let queued = QueueEntry { number: 3237, position: 1, state: QueueState::Queued, head: None, enqueued_at: None };
+    forge.queue_is(Some(vec![queued]));
+    let served = rig.fleet.repositories().served().remove(0);
+    rig.fleet.notice_pulls(&served).await;
+    rig.fleet.notice_queue(&served).await;
+    assert!(queue_on_the_line(&rig).await, "queued");
+
+    forge.queue_is(Some(Vec::new()));
+    rig.reads().await;
+    assert!(!queue_on_the_line(&rig).await, "dropped, and the visit has not come round");
+}
+
+async fn queue_on_the_line(rig: &Rig) -> bool {
+    let hubs = rig.fleet.merge_hubs().await;
+    let [(_, hub)] = hubs.as_slice() else { panic!("one repository's hub: {hubs:?}") };
+    hub.pull_requests.iter().any(|pull| pull.queue.is_some())
 }
 
 #[test]
