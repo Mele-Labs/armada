@@ -25,7 +25,9 @@ afterEach(() => {
 });
 
 /** Hours 0 to 9 and 20 to 29 hold a figure, and so does hour 40 alone. */
-const values = HOURS.map((_, at) => (at < 10 || (at >= 20 && at < 30) || at === 40 ? 10 : undefined));
+const values = HOURS.map((_, at) =>
+  at < 10 || (at >= 20 && at < 30) || at === 40 ? 10 : undefined,
+);
 
 const plot: HourPlot = {
   key: "checks",
@@ -53,10 +55,16 @@ type Drawn = {
 function draw(host: HTMLElement, root: Root, drawn: Drawn) {
   flushSync(() =>
     root.render(
-      <div style={{ width: "900px" }}>
+      <div
+        style={{
+          width: "900px",
+        }}
+      >
         <HourChart
           hours={HOURS}
-          plots={[plot]}
+          plots={[
+            plot,
+          ]}
           label="Median per hour"
           builds={drawn.builds ?? BUILDS}
           pick={drawn.pick}
@@ -186,7 +194,8 @@ test("two flags that each show a change, six hours apart, do not sit on each oth
       lane: one.style.top,
       box: one.querySelector(".armada-hours__flag")!.getBoundingClientRect(),
     }));
-  if (first!.lane === second!.lane) expect(second!.box.left).toBeGreaterThanOrEqual(first!.box.right - 0.5);
+  if (first!.lane === second!.lane)
+    expect(second!.box.left).toBeGreaterThanOrEqual(first!.box.right - 0.5);
 });
 
 test("the readout stands inside the chart at the first hour, the last, and the middle", async () => {

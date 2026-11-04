@@ -55,7 +55,8 @@ export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" 
     ],
   );
   const planPercent = usePlanUsage()?.find((one) => one.kind === "seven_day")?.percentUsed;
-  return <UsagePage
+  return (
+    <UsagePage
       summary={summary}
       titles={titles}
       planPercent={planPercent}
@@ -64,5 +65,6 @@ export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" 
       builds={builds}
       hours={hours}
       onBuild={pick}
-    />;
+    />
+  );
 }

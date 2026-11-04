@@ -56,12 +56,24 @@ const JOBS_BY_TIME: TimeJob[] = [
   job("01JUSAGEDEBUG00000000000", FIX, minutes(45, 18, 61, 6, 5, 22, 43, 95, 13)),
   job("01JUSAGESYNCING000000000", FEATURE, minutes(18, 6, 12, 4, 2, 8, 14, 1080, 6)),
   job("01JUSAGEHELM000000000000", FEATURE, minutes(39, 12, 29, 10, 3, 28, 24, 0, 9)),
-  job("01JUSAGETOOLTIP00000000", CLEANUP, minutes(17, 11, 33, 1, 2, 4, 29, 0, 3), "Rename the tooltip helper"),
-  job("01JUSAGEBRANCHLABEL00000", FIX, minutes(21, 8, 22, 3, 2, 10, 19, 0, 6), "Fix the stale branch label"),
+  job(
+    "01JUSAGETOOLTIP00000000",
+    CLEANUP,
+    minutes(17, 11, 33, 1, 2, 4, 29, 0, 3),
+    "Rename the tooltip helper",
+  ),
+  job(
+    "01JUSAGEBRANCHLABEL00000",
+    FIX,
+    minutes(21, 8, 22, 3, 2, 10, 19, 0, 6),
+    "Fix the stale branch label",
+  ),
 ];
 const sumOf = (split: TimeSplit): number => Object.values(split).reduce((sum, one) => sum + one, 0);
 /** Slowest first, by every bucket. */
-const SLOWEST = [...JOBS_BY_TIME].sort((a, b) => sumOf(b.split) - sumOf(a.split));
+const SLOWEST = [
+  ...JOBS_BY_TIME,
+].sort((a, b) => sumOf(b.split) - sumOf(a.split));
 
 /** Every second of the window: the Jobs above and the many like them. */
 const total = (): TimeSplit => minutes(2900, 1050, 3400, 900, 480, 2300, 2700, 1900, 800);

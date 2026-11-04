@@ -254,11 +254,7 @@ import type {
   ProcessTarget,
   SessionSystemRead,
 } from "../shared/api/session-system";
-import type {
-  UsageRulesRead,
-  UsageSummaryRead,
-  UsageWindow,
-} from "../shared/api/usage-summary";
+import type { UsageRulesRead, UsageSummaryRead, UsageWindow } from "../shared/api/usage-summary";
 import type { JobTimeRead, UsageHoursRead, UsageTimeRead } from "../shared/api/usage-time";
 import type { ArmadaReportRun, DebugReportRead } from "../shared/api/debug-report";
 import type {

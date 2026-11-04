@@ -81,9 +81,10 @@ test("a build began reads as month, day and the clock in its row", () => {
 
 test("a figure that moved shows its change, and every other figure keeps an empty slot for one", () => {
   const host = panel();
-  const chips = (id: string) => [
-    ...row(host, id).querySelectorAll<HTMLElement>(".armada-builds__cell"),
-  ].map((cell) => cell.querySelector(".armada-builds__chip")!);
+  const chips = (id: string) =>
+    [
+      ...row(host, id).querySelectorAll<HTMLElement>(".armada-builds__cell"),
+    ].map((cell) => cell.querySelector(".armada-builds__chip")!);
   // 7ac3d52 against e5604ab: Checks per run 512 to 731, the only figure of the four that moved.
   const moved = chips("7ac3d52");
   expect(moved).toHaveLength(4);
@@ -139,9 +140,13 @@ test("↑↓ and j k move down the builds, ↵ and o pick the one under the curs
 test("c moves focus to the Builds list, whose keys then move its cursor and not the Jobs'", async () => {
   const host = render(<UsagePage time={TIME} builds={BUILDS} />);
   await keys("v");
-  await expect.poll(() => host.querySelector('[role="listbox"][aria-label="Slowest Jobs"]')).not.toBeNull();
+  await expect
+    .poll(() => host.querySelector('[role="listbox"][aria-label="Slowest Jobs"]'))
+    .not.toBeNull();
   const jobs = () =>
-    host.querySelector('[role="listbox"][aria-label="Slowest Jobs"]')!.getAttribute("aria-activedescendant");
+    host
+      .querySelector('[role="listbox"][aria-label="Slowest Jobs"]')!
+      .getAttribute("aria-activedescendant");
   await keys("c");
   await expect.poll(() => document.activeElement).toBe(list(host));
   await expect.poll(() => active(host)).toBe("build-c3d4e5f");

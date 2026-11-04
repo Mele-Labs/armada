@@ -43,7 +43,11 @@ function Change({ move, figure }: { move: Move; figure: Figure }) {
   return (
     <span className="armada-builds__chip">
       <Tooltip label={tip}>
-        <span className="armada-usage__delta" data-way={move.up ? "worse" : "better"} aria-label={tip}>
+        <span
+          className="armada-usage__delta"
+          data-way={move.up ? "worse" : "better"}
+          aria-label={tip}
+        >
           {move.up ? <ArrowUp size={12} aria-hidden /> : <ArrowDown size={12} aria-hidden />}
           {`${Math.round(move.percent)}%`}
         </span>
@@ -110,7 +114,9 @@ function BuildRow({
       <span className="armada-builds__started">{day}</span>
       {figures.map((one, at) => (
         <span key={one} className="armada-builds__cell">
-          <Fig tip={few ? `${FIGURE_MEANS[one]}. ${fewTip}` : FIGURE_MEANS[one]}>{shown(build, one)}</Fig>
+          <Fig tip={few ? `${FIGURE_MEANS[one]}. ${fewTip}` : FIGURE_MEANS[one]}>
+            {shown(build, one)}
+          </Fig>
           <Change move={moves[at]} figure={one} />
         </span>
       ))}
@@ -176,9 +182,11 @@ export function BuildsPanel({ builds, view, pick, onPick }: Props) {
 
   const pressed = (event: KeyboardEvent<HTMLUListElement>) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
-    if (event.key === "ArrowDown" || event.key === "j") setCursor((at) => Math.min(count - 1, at + 1));
+    if (event.key === "ArrowDown" || event.key === "j")
+      setCursor((at) => Math.min(count - 1, at + 1));
     else if (event.key === "ArrowUp" || event.key === "k") setCursor((at) => Math.max(0, at - 1));
-    else if ((event.key === "Enter" || event.key === "o") && active !== undefined) onPick(active.id);
+    else if ((event.key === "Enter" || event.key === "o") && active !== undefined)
+      onPick(active.id);
     else return;
     event.preventDefault();
   };
@@ -220,7 +228,16 @@ export function BuildsPanel({ builds, view, pick, onPick }: Props) {
             aria-activedescendant={active === undefined ? undefined : `build-${active.id}`}
             tabIndex={0}
             onKeyDown={pressed}
-            onFocus={() => setCursor((at) => (at >= 0 ? at : Math.max(0, ready.findIndex((one) => one.id === pick))))}
+            onFocus={() =>
+              setCursor((at) =>
+                at >= 0
+                  ? at
+                  : Math.max(
+                      0,
+                      ready.findIndex((one) => one.id === pick),
+                    ),
+              )
+            }
             onBlur={() => setCursor(-1)}
           >
             {ready.map((one, at) => (

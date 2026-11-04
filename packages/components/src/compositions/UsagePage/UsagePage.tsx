@@ -284,20 +284,14 @@ function Tiles({
         figure={`${Math.round(subagent)}%`}
         tip="Share of the burn that ran in subagents"
         delta={
-          !scoped
-            ? points(subagent, summary.prior.subagent_share * 100, hadBefore)
-            : undefined
+          !scoped ? points(subagent, summary.prior.subagent_share * 100, hadBefore) : undefined
         }
       />
       <Tile
         name="Above 200k context"
         figure={`${Math.round(above)}%`}
         tip="Share of the burn from requests above 200k tokens of context"
-        delta={
-          !scoped
-            ? points(above, summary.prior.above_200k_share * 100, hadBefore)
-            : undefined
-        }
+        delta={!scoped ? points(above, summary.prior.above_200k_share * 100, hadBefore) : undefined}
       />
     </ul>
   );
@@ -377,7 +371,9 @@ function burnPlot(hours: UsageHours): HourPlot {
       key: name,
       name,
       model: name,
-      values: folded.map((one) => (one === undefined ? undefined : (one.find((row) => row.name === name)?.units ?? 0))),
+      values: folded.map((one) =>
+        one === undefined ? undefined : (one.find((row) => row.name === name)?.units ?? 0),
+      ),
     })),
   };
 }
@@ -862,7 +858,8 @@ export function UsagePage({
       const stepHour = (by: number) => {
         const { hours: among, hour: now } = latest.current;
         if (among === undefined) return step(by, 0);
-        const next = now === undefined ? latestHour(among) : Math.min(SHOWN - 1, Math.max(0, now + by));
+        const next =
+          now === undefined ? latestHour(among) : Math.min(SHOWN - 1, Math.max(0, now + by));
         setHour(next);
         setCell({
           d: weekdayOfHour(among, next),
@@ -882,8 +879,7 @@ export function UsagePage({
       ) {
         setCell(undefined);
         setHour(undefined);
-      }
-      else if (event.key === "Escape" && latest.current.rulePick >= 0) setRulePick(-1);
+      } else if (event.key === "Escape" && latest.current.rulePick >= 0) setRulePick(-1);
       else if (/^[1-9]$/.test(event.key) && Number(event.key) <= latest.current.ruleCount)
         setRulePick(Number(event.key) - 1);
       else if (event.key === "Escape" && latest.current.pick >= 0) setPick(-1);
@@ -933,21 +929,33 @@ export function UsagePage({
       b: blockOfHour(drawn, at),
     });
   };
-  const burn = useMemo(() => (drawn === undefined ? undefined : burnPlot(drawn)), [drawn]);
+  const burn = useMemo(
+    () => (drawn === undefined ? undefined : burnPlot(drawn)),
+    [
+      drawn,
+    ],
+  );
   const burned = useMemo(
     () =>
       drawn === undefined
         ? undefined
         : {
             by_model: foldModels(drawn.flatMap((one) => one.burn ?? [])),
-            units: drawn.reduce((sum, one) => sum + (one.burn ?? []).reduce((all, row) => all + row.units, 0), 0),
+            units: drawn.reduce(
+              (sum, one) => sum + (one.burn ?? []).reduce((all, row) => all + row.units, 0),
+              0,
+            ),
           },
-    [drawn],
+    [
+      drawn,
+    ],
   );
   const total = summary?.total.units ?? 0;
   const rest = summary?.rest;
   const pending = summary === undefined;
-  const scoping = pending || (pickedBuild !== undefined && picked === undefined && pickedBuild.usage === undefined);
+  const scoping =
+    pending ||
+    (pickedBuild !== undefined && picked === undefined && pickedBuild.usage === undefined);
   const switcher =
     time === undefined ? null : (
       <div className="armada-usage__views">
@@ -959,7 +967,13 @@ export function UsagePage({
     return (
       <div className="armada-usage armada-page">
         {switcher}
-        <TimeView time={time} builds={builds} hours={hours} build={pickedBuild} onBuild={setBuild} />
+        <TimeView
+          time={time}
+          builds={builds}
+          hours={hours}
+          build={pickedBuild}
+          onBuild={setBuild}
+        />
       </div>
     );
 
@@ -1144,14 +1158,19 @@ export function UsagePage({
                 onHover={setHoverHour}
                 onSelect={select}
               />
-              <HourRows hours={drawn} plots={[burn]} label="Burn by hour" />
+              <HourRows
+                hours={drawn}
+                plots={[
+                  burn,
+                ]}
+                label="Burn by hour"
+              />
               <ModelLegend usage={burned} />
             </>
           )}
         </section>
 
         <div className="armada-usage__centre">
-
           {pending && rules === undefined ? <PendingRules /> : null}
           {rules === undefined || views === undefined ? null : (
             <UsageRules

@@ -178,10 +178,13 @@ test("a bucket far over its Workflow's usual is marked with the usual beside it,
   await keys("j", "{Enter}");
   await expect.poll(() => dialog()).not.toBeNull();
   const rows = splitRows(dialog()!, "Job split");
-  const row = (name: string) => rows.find((one) => one.getAttribute("aria-label")?.startsWith(name))!;
+  const row = (name: string) =>
+    rows.find((one) => one.getAttribute("aria-label")?.startsWith(name))!;
   // Checks 148m against a usual of 12m, and Pull request 121m against 12m.
   expect(row("Checks").hasAttribute("data-over")).toBe(true);
-  expect(row("Checks").getAttribute("aria-label")).toBe("Checks, 2 hours 28 minutes, usual 12 minutes");
+  expect(row("Checks").getAttribute("aria-label")).toBe(
+    "Checks, 2 hours 28 minutes, usual 12 minutes",
+  );
   expect(row("Pull request").hasAttribute("data-over")).toBe(true);
   // Model 79m against 40m is just under twice; Slot 13m against 4m is over twice but 9 minutes past.
   for (const name of [
@@ -197,7 +200,9 @@ test("a bucket far over its Workflow's usual is marked with the usual beside it,
     ...row("Checks").querySelectorAll(".armada-usage__fig"),
   ].at(-1);
   expect(usual?.textContent).toBe("12m");
-  expect(described(usual?.closest("[aria-describedby]"))).toBe("Usual for Build a feature: the median Job, 12 minutes");
+  expect(described(usual?.closest("[aria-describedby]"))).toBe(
+    "Usual for Build a feature: the median Job, 12 minutes",
+  );
   expect(
     [
       ...dialog()!.querySelectorAll(".armada-time__heads span"),

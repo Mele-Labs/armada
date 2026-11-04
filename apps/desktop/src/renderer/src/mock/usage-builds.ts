@@ -95,7 +95,22 @@ const SEEDS: Seed[] = [
 
 /** Hours before now each build began, oldest first: eight to twelve a day, with the newest not yet an hour old. */
 const AGO = [
-  46.2, 43.1, 40.4, 37.5, 34.2, 31.6, 28.7, 25.9, 23.3, 20.6, 17.8, 14.4, 11.2, 8.0, 4.6, 0.9,
+  46.2,
+  43.1,
+  40.4,
+  37.5,
+  34.2,
+  31.6,
+  28.7,
+  25.9,
+  23.3,
+  20.6,
+  17.8,
+  14.4,
+  11.2,
+  8.0,
+  4.6,
+  0.9,
 ];
 
 /** When each build began, oldest first, to the minute. */

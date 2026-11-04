@@ -12,7 +12,30 @@ const SHOWN = 48;
 
 /** The share of a full hour's burn by hour of the local day: nothing from midnight to six. */
 const PROFILE = [
-  0, 0, 0, 0, 0, 0, 0.15, 0.4, 0.7, 1, 0.9, 0.8, 0.5, 0.85, 1, 0.95, 0.8, 0.6, 0.35, 0.5, 0.7, 0.6, 0.35, 0.15,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0.15,
+  0.4,
+  0.7,
+  1,
+  0.9,
+  0.8,
+  0.5,
+  0.85,
+  1,
+  0.95,
+  0.8,
+  0.6,
+  0.35,
+  0.5,
+  0.7,
+  0.6,
+  0.35,
+  0.15,
 ];
 const FULL_HOUR = 21;
 

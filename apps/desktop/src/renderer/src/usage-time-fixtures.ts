@@ -20,7 +20,12 @@ export const minutes = (spent: Partial<Record<keyof TimeSplit, number>>): TimeSp
   pull_request: 0,
   stopped: 0,
   idle: 0,
-  ...Object.fromEntries(Object.entries(spent).map(([bucket, m]) => [bucket, m * MINUTE])),
+  ...Object.fromEntries(
+    Object.entries(spent).map(([bucket, m]) => [
+      bucket,
+      m * MINUTE,
+    ]),
+  ),
 });
 
 const FEATURE = "Build a feature";
@@ -103,7 +108,8 @@ export const TIME: UsageTime = {
 export const FIRST = new Date(2026, 10, 2, 0, 0);
 
 /** Where an hour offset from the first hour falls, as an instant. */
-export const hoursIn = (offset: number): string => new Date(FIRST.getTime() + offset * HOUR_MS).toISOString();
+export const hoursIn = (offset: number): string =>
+  new Date(FIRST.getTime() + offset * HOUR_MS).toISOString();
 
 /** Burn through hours 8 to 20 and 32 to 44, nothing overnight; a Check run's time steps up from hour 33; hour 10 has no pull request. */
 export const HOURS: UsageHours = Array.from(
@@ -138,7 +144,10 @@ export const HOURS: UsageHours = Array.from(
 
 const mockBuild: Build = usageBuildsNow(Date.parse("2026-11-03T15:00:00Z"))[0]!;
 const build = (
-  over: Pick<Build, "id" | "commit" | "started" | "branches" | "turns" | "checks" | "jobs" | "split">,
+  over: Pick<
+    Build,
+    "id" | "commit" | "started" | "branches" | "turns" | "checks" | "jobs" | "split"
+  >,
 ): Build => ({
   ...mockBuild,
   burn: 80000,

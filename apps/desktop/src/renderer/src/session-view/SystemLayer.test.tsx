@@ -84,7 +84,9 @@ async function mount(id: string, title?: string) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  await act(async () => root.render(<SystemSections sessionId={id} title={title} worktrees={null} />));
+  await act(async () =>
+    root.render(<SystemSections sessionId={id} title={title} worktrees={null} />),
+  );
   roots.push({
     root,
     host,

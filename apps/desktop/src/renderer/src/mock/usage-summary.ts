@@ -628,7 +628,13 @@ export function buildUsage(opts: {
     (_, at) => dayOf(opts.now - (6 - at) * DAY_MS, opts.tzOffsetMinutes),
   );
   const weights = [
-    0, 0, 0, 0, 0, 0, 0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
   ];
   for (let at = opts.from; at < opts.to; at += 3_600_000) {
     const day = dayOf(at, opts.tzOffsetMinutes);

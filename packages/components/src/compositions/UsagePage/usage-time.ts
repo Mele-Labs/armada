@@ -93,8 +93,16 @@ export function spanSaid(seconds: number): string {
   const rest = minutes % 60;
   const part = (n: number, unit: string) => `${n} ${unit}${n === 1 ? "" : "s"}`;
   return [
-    ...(hours > 0 ? [part(hours, "hour")] : []),
-    ...(rest > 0 ? [part(rest, "minute")] : []),
+    ...(hours > 0
+      ? [
+          part(hours, "hour"),
+        ]
+      : []),
+    ...(rest > 0
+      ? [
+          part(rest, "minute"),
+        ]
+      : []),
   ].join(" ");
 }
 
@@ -114,4 +122,5 @@ const MONTHS = [
 ] as const;
 
 /** A date as `Nov 2`. */
-export const dayName = (day: string): string => `${MONTHS[Number(day.slice(5, 7)) - 1]} ${Number(day.slice(8))}`;
+export const dayName = (day: string): string =>
+  `${MONTHS[Number(day.slice(5, 7)) - 1]} ${Number(day.slice(8))}`;

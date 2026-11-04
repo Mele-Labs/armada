@@ -53,7 +53,11 @@ function SplitBar({ split }: { split: TimeSplit }) {
     <span className="armada-time__track" aria-hidden>
       <span className="armada-time__stack">
         {BUCKETS.filter((one) => split[one] > 0).map((one) => (
-          <Tooltip asChild key={one} label={`${BUCKET_LABEL[one]} ${span(split[one])}, ${Math.round((split[one] / total) * 100)}%`}>
+          <Tooltip
+            asChild
+            key={one}
+            label={`${BUCKET_LABEL[one]} ${span(split[one])}, ${Math.round((split[one] / total) * 100)}%`}
+          >
             <span
               className="armada-time__part"
               data-time={one}
@@ -240,7 +244,15 @@ function PendingRows() {
 }
 
 const PLOT_HEIGHT = 96;
-const UNIT: Readonly<Record<(typeof TIME_FIGURES)[number], { unit: string; per: number }>> = {
+const UNIT: Readonly<
+  Record<
+    (typeof TIME_FIGURES)[number],
+    {
+      unit: string;
+      per: number;
+    }
+  >
+> = {
   model: {
     unit: "s",
     per: 1,
@@ -308,7 +320,10 @@ export function TimeView({ time, builds, hours, build, onBuild }: TimeViewProps)
   const [hour, setHour] = useState<number | undefined>(undefined);
   const [hover, setHover] = useState<number | undefined>(undefined);
   const ready = time === "pending" ? undefined : time;
-  const jobs = (build === undefined ? ready?.jobs : ready?.jobs.filter((one) => build.jobs.includes(one.id))) ?? [];
+  const jobs =
+    (build === undefined
+      ? ready?.jobs
+      : ready?.jobs.filter((one) => build.jobs.includes(one.id))) ?? [];
   const drawn = hours === undefined || hours === "pending" ? undefined : hours;
   const listed = builds === undefined || builds === "pending" ? undefined : builds;
   const picked = jobs[pick];
@@ -438,7 +453,12 @@ export function TimeView({ time, builds, hours, build, onBuild }: TimeViewProps)
           )}
         </section>
         {builds === undefined ? null : (
-          <BuildsPanel builds={builds} view="time" pick={build?.id} onPick={(id) => onBuild?.(id)} />
+          <BuildsPanel
+            builds={builds}
+            view="time"
+            pick={build?.id}
+            onPick={(id) => onBuild?.(id)}
+          />
         )}
       </div>
 
@@ -502,7 +522,11 @@ export function TimeView({ time, builds, hours, build, onBuild }: TimeViewProps)
         onClose={() => setPick(-1)}
       >
         {picked === undefined || ready === undefined ? null : (
-          <SplitRows split={picked.split} usual={ready.usual[picked.workflow]} workflow={picked.workflow} />
+          <SplitRows
+            split={picked.split}
+            usual={ready.usual[picked.workflow]}
+            workflow={picked.workflow}
+          />
         )}
       </Sheet>
     </div>

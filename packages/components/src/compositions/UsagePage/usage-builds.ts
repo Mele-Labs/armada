@@ -80,7 +80,8 @@ export const FIGURE_MEANS: Readonly<Record<Figure, string>> = {
   model: "The median wait on the model's answer, per turn",
   tools: "The median time a tool ran in the main thread, per call",
   checks: "The median time a Check queued or ran, per run",
-  pull_request: "The median wait in CI and the merge queue with nothing else running, per pull request",
+  pull_request:
+    "The median wait in CI and the merge queue with nothing else running, per pull request",
 };
 
 /** A figure as a reader takes it: `5.2s`, `41s`, `8.6m`, and whole minutes from a quarter hour. */
@@ -89,7 +90,9 @@ export function lapse(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`;
   if (seconds < 900) return `${(seconds / 60).toFixed(1)}m`;
   const minutes = Math.round(seconds / 60);
-  return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
+  return minutes < 60
+    ? `${minutes}m`
+    : `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
 }
 
 const part = (n: number): string => String(n).padStart(2, "0");
@@ -124,14 +127,28 @@ export function changeOf(
   build: Build,
   before: Build | undefined,
   figure: Figure,
-): { up: boolean; percent: number; still: boolean } | undefined {
+):
+  | {
+      up: boolean;
+      percent: number;
+      still: boolean;
+    }
+  | undefined {
   if (before === undefined || build.turns < TOO_FEW || before.turns < TOO_FEW) return undefined;
   const now = valueOf(build, figure);
   const was = valueOf(before, figure);
   if (now === undefined || was === undefined) return undefined;
   const moved = percentDelta(now, was);
-  if (moved === undefined) return { up: false, percent: 0, still: true };
-  return { ...moved, still: moved.percent < STILL };
+  if (moved === undefined)
+    return {
+      up: false,
+      percent: 0,
+      still: true,
+    };
+  return {
+    ...moved,
+    still: moved.percent < STILL,
+  };
 }
 
 /** The keys the list takes itself while it holds focus; the page's own listeners leave them. */
