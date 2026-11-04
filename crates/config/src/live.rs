@@ -206,6 +206,8 @@ pub enum Frozen {
     CiGate,
     /// Read for the same reason as `Tracker`.
     TestMapShared,
+    /// Read for the same reason as `Tracker`: a hosted Job's process is started with it.
+    Connectors,
 }
 
 impl Frozen {
@@ -221,6 +223,7 @@ impl Frozen {
             Frozen::Tracker => "tracker",
             Frozen::CiGate => "ci_gate",
             Frozen::TestMapShared => "test_map.shared",
+            Frozen::Connectors => "connectors",
         }
     }
 }
@@ -308,6 +311,7 @@ struct AtStart {
     tracker: Option<crate::manifest::TrackerBlock>,
     ci_gate: String,
     test_map_shared: bool,
+    connectors: bool,
 }
 
 impl AtStart {
@@ -334,6 +338,7 @@ impl AtStart {
             tracker: manifest.tracker().cloned(),
             ci_gate: manifest.ci_gate().to_string(),
             test_map_shared: manifest.test_map_shared(),
+            connectors: manifest.connectors(),
         }
     }
 
@@ -373,6 +378,9 @@ impl AtStart {
         }
         if self.test_map_shared != other.test_map_shared {
             changed.push(Frozen::TestMapShared);
+        }
+        if self.connectors != other.connectors {
+            changed.push(Frozen::Connectors);
         }
         changed
     }

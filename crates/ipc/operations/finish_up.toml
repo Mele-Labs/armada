@@ -18,3 +18,4 @@ It says nothing about whether the job is done: `all_done` is still the agent's w
 
 `agent_access` is `Yes`: the agent is the one that knows it is finished with the slots.
 """
+always_loaded = true
