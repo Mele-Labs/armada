@@ -79,7 +79,9 @@ export function soleDocument(session: Session): string | undefined {
 
 /** Opens a page he is owed: a tab of the Job when it is the only thing owed and the Job is drawn in panes, else over the Job. */
 export function openOwedDocument(session: Session, page: string): void {
-  const doc = attachmentsOf(session, "artifact").find((it) => it.form === "document" && it.id === page);
+  const doc = attachmentsOf(session, "artifact").find(
+    (it) => it.form === "document" && it.id === page,
+  );
   if (soleDocument(session) === page && inPanes(session.id))
     focusDocument(session.id, page, doc?.title ?? KINDS.document.label);
   else showLayer(session.id, "document", page);

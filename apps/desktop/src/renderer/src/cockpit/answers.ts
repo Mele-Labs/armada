@@ -611,7 +611,8 @@ export function useAnswering(
             hosts.onOpenSession(waiting.sessionId);
             // A page that is all the Job waits on is read in a tab of the Job, so the press lands on it.
             const page = home === undefined ? undefined : soleDocument(home);
-            if (home !== undefined && page !== undefined) focusDocument(home.id, page, documentOf(home, page)?.title ?? "Document");
+            if (home !== undefined && page !== undefined)
+              focusDocument(home.id, page, documentOf(home, page)?.title ?? "Document");
           }),
         ];
       return [];

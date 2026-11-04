@@ -501,8 +501,11 @@ export function DocumentTabBody({ session, tab }: { session: Session; tab: Tab }
   const draft = useSessionsDraft();
   const page = tab.page;
   if (page === undefined) return null;
-  const one = attachmentsOf(session, "artifact").find((it) => it.form === "document" && it.id === page);
-  const open = one?.asked === true && one.settled === undefined && draft?.answerDocument !== undefined;
+  const one = attachmentsOf(session, "artifact").find(
+    (it) => it.form === "document" && it.id === page,
+  );
+  const open =
+    one?.asked === true && one.settled === undefined && draft?.answerDocument !== undefined;
   return (
     <div className="job-pane__document">
       {one?.asked !== true ? null : (
@@ -510,9 +513,15 @@ export function DocumentTabBody({ session, tab }: { session: Session; tab: Tab }
           <ApprovalAnswers
             id={page}
             keep={`document:${session.id}:${page}`}
-            {...(one.settled === undefined ? {} : { settled: one.settled })}
+            {...(one.settled === undefined
+              ? {}
+              : {
+                  settled: one.settled,
+                })}
             open={open}
-            onAnswer={(id, answer) => void draft?.answerDocument?.(documentAnswerOf(session, id, answer))}
+            onAnswer={(id, answer) =>
+              void draft?.answerDocument?.(documentAnswerOf(session, id, answer))
+            }
           />
         </div>
       )}

@@ -170,17 +170,19 @@ export function callsFromWaiting(
       .filter((session) => session.dead === undefined && session.paused !== true)
       .flatMap((session) => {
         const touched = touchedAt(session, viewedAt);
-        return waitingOf(session)
-          .filter((item) => session.turn.state !== "working" || BLOCKING.has(item.source))
-          // A page waits on his OK until he answers it, so being in its Job does not take it off his list.
-          .filter(
-            (item) =>
-              item.source === "document" || touched === 0 || Date.parse(item.since) > touched,
-          )
-          .map((item) => ({
-            session,
-            item,
-          }));
+        return (
+          waitingOf(session)
+            .filter((item) => session.turn.state !== "working" || BLOCKING.has(item.source))
+            // A page waits on his OK until he answers it, so being in its Job does not take it off his list.
+            .filter(
+              (item) =>
+                item.source === "document" || touched === 0 || Date.parse(item.since) > touched,
+            )
+            .map((item) => ({
+              session,
+              item,
+            }))
+        );
       })
       .sort(
         (a, b) =>
