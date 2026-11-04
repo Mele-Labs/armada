@@ -57,6 +57,7 @@ The last column is what the Workflows page draws under each step (`rail_ends.rs`
 
 **One approval moves the Job on** (2 Nov 2026).
 After he approves anything `propose` lists, the plan the agent then records stands with no card.
+A version recorded after one he approved is put to him again, so a task added on `refine` or `deliver` waits on his approval (4 Nov 2026).
 The agent prefers one proposal; a second stays open beside the first, and he answers each.
 
 **`bug`**
