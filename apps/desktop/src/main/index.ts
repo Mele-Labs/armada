@@ -72,6 +72,7 @@ import { handleBayHistory } from "./bay-history-channels";
 import { handleSessionSystem } from "./session-system-channels";
 import { handleLogbook } from "./logbook-channels";
 import { handleUsageSummary } from "./usage-summary-channels";
+import { handleUsageTime } from "./usage-time-channels";
 import { handleDebugReport } from "./debug-report-channels";
 import { handleFlightControls } from "./flight-controls-channels";
 import { handlePullRequestNotes } from "./pull-request-notes-channels";
@@ -1158,6 +1159,10 @@ void app.whenReady().then(() => {
     connection: () => connection,
   });
   handleUsageSummary({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleUsageTime({
     ipc: ipcMain,
     connection: () => connection,
   });

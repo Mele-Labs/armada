@@ -1,8 +1,6 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent } from "react";
 import type {
-  NamedUnits,
   SessionUsageSummary,
   UsageBreakdown,
   UsageRules as UsageRulesAnswer,
@@ -33,22 +31,36 @@ import {
   rowsOf,
   ruleViews,
   stepOf,
-  tickStep,
   tokenRows,
   toolLabel,
 } from "./usage-view";
 import type { ChartDay, Row, ShareRow } from "./usage-view";
 import { UsageRules } from "./UsageRules";
+import { Band, Bar, Fig, Scope } from "./usage-parts";
+import type { UsageTime } from "./usage-time";
+import { TimeView } from "./TimeView";
+import { BuildsPanel } from "./UsageBuilds";
+import { HourChart, HourRows, PendingHours } from "./HourChart";
+import type { HourPlot } from "./HourChart";
+import { LIST_KEYS, commitOf, inBuilds } from "./usage-builds";
+import type { UsageBuilds } from "./usage-builds";
+import { SHOWN, blockOfHour, latestHour, weekdayOfHour } from "./usage-hours";
+import type { UsageHours } from "./usage-hours";
 
 /**
  * Where the tokens went, laid out as the cockpit is: the Jobs that burned it on the left with one breakdown under them,
- * the burn per day and the day by hour map for the week or the Job picked in the centre, the headline figures on the
+ * the burn per hour over the last 48 hours and the day by hour map in the centre, the headline figures on the
  * right. It draws Fleet's usage summary, and what the summary lacks it leaves empty.
  *
- * Keys: `↓ j` and `↑ k` move down the Jobs, `↵ o` picks the one under the cursor, `Esc` clears the hour cell and then
+ * Keys: `↓ j` and `↑ k` move down the Jobs, `↵ o` picks the one under the cursor, `Esc` clears the hour and then
  * the pick, `m` `t` `b` `y` `d` set the breakdown to model, tool, Bash use, token type or day, `← → h l` step the
- * weekday and `[ ]` step the 3 hour block on the map (the first of these lands on the busiest cell). `1` to `9` pick the
- * usage rule at that place, and `Esc` clears it before the Job pick.
+ * hour on the burn chart, which the map's cell follows, and `[ ]` step the 3 hour block on the map (the first of these lands
+ * on the busiest cell). `1` to `9` pick the
+ * usage rule at that place, and `Esc` clears it before the Job pick. Where Time is offered, `v` switches the page between
+ * tokens and time, and the Time view keeps its own keys. Where builds are offered, `c` moves focus to the Builds list, whose
+ * keys are its own while it holds focus (`↑↓ j k` move, `↵ o` pick), and `Esc` clears the build pick after the Job pick. A picked
+ * build narrows the Jobs, the day and hour map and the tiles on this view, and the Jobs and the split on Time; on both views
+ * its span is shaded on the hour chart, and its marker picks it.
  */
 
 export type UsagePageProps = {
@@ -60,7 +72,26 @@ export type UsagePageProps = {
   planPercent?: number | undefined;
   /** Fleet's usage rules with their trips. Absent draws no rules panel. */
   rules?: UsageRulesAnswer | undefined;
+  /** Where the time went. Absent offers no Time view; `pending` offers it with its panels drawing the shape of what is coming. */
+  time?: UsageTime | "pending" | undefined;
+  /** The builds the figures are read against. Absent offers no Builds panel; `pending` draws its shape. */
+  builds?: UsageBuilds | "pending" | undefined;
+  /** The last 48 hours, an hour a point. Absent draws no hour chart; `pending` draws its shape. */
+  hours?: UsageHours | "pending" | undefined;
+  /** Told the id of the build picked, and again with nothing when it is cleared: a build's tokens are read when it is picked. */
+  onBuild?: ((id: string | undefined) => void) | undefined;
 };
+
+const VIEWS = [
+  {
+    id: "tokens",
+    label: "Tokens",
+  },
+  {
+    id: "time",
+    label: "Time",
+  },
+];
 
 type Cut = "model" | "tool" | "bash" | "token" | "day";
 const CUTS = [
@@ -102,41 +133,9 @@ type Source = {
   usage: UsageBreakdown;
   days: ChartDay[];
   session?: SessionUsageSummary;
+  /** A Job or a build is picked: the figures are its share of the week. */
+  scoped: boolean;
 };
-
-function Band({ children, keys }: { children: string; keys?: string[] }) {
-  return (
-    <div className="armada-usage__band">
-      <span>{children}</span>
-      {keys === undefined ? null : (
-        <span className="armada-usage__keys">
-          {keys.map((one) => (
-            <Kbd key={one}>{one}</Kbd>
-          ))}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function Fig({ tip, over, children }: { tip: string; over?: boolean; children: string }) {
-  return (
-    <Tooltip label={tip}>
-      <span className="armada-usage__fig" data-over={over || undefined}>
-        {children}
-      </span>
-    </Tooltip>
-  );
-}
-
-function Scope({ title, unit }: { title: string; unit?: string }) {
-  return (
-    <div className="armada-usage__scope">
-      <span className="armada-usage__title">{title}</span>
-      {unit === undefined ? null : <span className="armada-usage__unit">{unit}</span>}
-    </div>
-  );
-}
 
 type Delta = {
   up: boolean;
@@ -238,13 +237,13 @@ function Tiles({
   source: Source;
   planPercent: number | undefined;
 }) {
-  const { usage, session } = source;
+  const { usage, scoped } = source;
   const today = source.days[6]!.units;
   const change = percentDelta(today, source.days[5]!.units);
   const planShare =
     planPercent === undefined
       ? undefined
-      : session === undefined
+      : !scoped
         ? planPercent
         : Math.round(shareOf(usage.units, summary.total.units) * planPercent) / 100;
   const hadBefore = summary.prior.units > 0;
@@ -257,9 +256,11 @@ function Tiles({
           name="Weekly plan used"
           figure={`${Math.round(planShare * 10) / 10}%`}
           tip={
-            session === undefined
+            !scoped
               ? "Share of the 7 day plan window used"
-              : "Share of the 7 day plan window this job used"
+              : source.session === undefined
+                ? "Share of the 7 day plan window this build used"
+                : "Share of the 7 day plan window this job used"
           }
           meter={planShare}
         />
@@ -283,20 +284,14 @@ function Tiles({
         figure={`${Math.round(subagent)}%`}
         tip="Share of the burn that ran in subagents"
         delta={
-          session === undefined
-            ? points(subagent, summary.prior.subagent_share * 100, hadBefore)
-            : undefined
+          !scoped ? points(subagent, summary.prior.subagent_share * 100, hadBefore) : undefined
         }
       />
       <Tile
         name="Above 200k context"
         figure={`${Math.round(above)}%`}
         tip="Share of the burn from requests above 200k tokens of context"
-        delta={
-          session === undefined
-            ? points(above, summary.prior.above_200k_share * 100, hadBefore)
-            : undefined
-        }
+        delta={!scoped ? points(above, summary.prior.above_200k_share * 100, hadBefore) : undefined}
       />
     </ul>
   );
@@ -358,234 +353,32 @@ function DayRows({ days }: { days: ChartDay[] }) {
   );
 }
 
-const W = 520;
-const H = 226;
-const LEFT = 32;
-const RIGHT = 48;
-const TOP = 16;
-const BASE = 196;
-const SLOT = (W - LEFT - RIGHT) / 7;
-const BAR = SLOT - 18;
-const barX = (at: number) => LEFT + at * SLOT + (SLOT - BAR) / 2;
+const BURN_HEIGHT = 180;
 
-type Part = {
-  name: string;
-  low: number;
-  high: number;
-  units: number;
-};
-
-/** Stacked by model, bottom to top, always in the same order so a model keeps its place. */
-function stack(byModel: readonly NamedUnits[]): Part[] {
-  let low = 0;
-  return foldModels(byModel).map((one) => {
-    const part = {
-      name: one.name,
-      low,
-      high: low + one.units,
-      units: one.units,
-    };
-    low += one.units;
-    return part;
-  });
+/** One line a model, in the order the models keep everywhere, so a model keeps its place. */
+function burnPlot(hours: UsageHours): HourPlot {
+  const folded = hours.map((one) => (one.burn === undefined ? undefined : foldModels(one.burn)));
+  const names = foldModels(hours.flatMap((one) => one.burn ?? [])).map((one) => one.name);
+  return {
+    key: "burn",
+    figure: "burn",
+    height: BURN_HEIGHT,
+    steps: true,
+    direct: true,
+    sum: "All",
+    say: (value) => `${M(value)}M`,
+    series: names.map((name) => ({
+      key: name,
+      name,
+      model: name,
+      values: folded.map((one) =>
+        one === undefined ? undefined : (one.find((row) => row.name === name)?.units ?? 0),
+      ),
+    })),
+  };
 }
 
-type ChartProps = {
-  days: ChartDay[];
-  /** The picked Job's own days, drawn at full strength over the dimmed whole. */
-  mine: ChartDay[] | undefined;
-  mineName: string;
-  day: number | undefined;
-  onDay: (day: number | undefined) => void;
-  onPick: (day: number) => void;
-};
-
-function DayChart({ days, mine, mineName, day, onDay, onPick }: ChartProps) {
-  const peakUnits = Math.max(...days.map((one) => one.units));
-  const step = tickStep(peakUnits);
-  const top = Math.max(step, Math.ceil(peakUnits / step) * step);
-  const y = (units: number) => BASE - ((BASE - TOP) * units) / top;
-  const ticks = Array.from(
-    {
-      length: Math.round(top / step) + 1,
-    },
-    (_, i) => i * step,
-  );
-  /** A column from `low` to `high` units; its top corners round only when it is the top of a stack. */
-  const column = (x: number, low: number, high: number, round: boolean) => {
-    const r = round ? Math.min(4, (y(low) - y(high)) / 2) : 0;
-    return `M${x},${y(low)} V${y(high) + r} Q${x},${y(high)} ${x + r},${y(high)} H${x + BAR - r} Q${x + BAR},${y(high)} ${x + BAR},${y(high) + r} V${y(low)} Z`;
-  };
-  /** Under a pixel, a model is named in the tooltip only. */
-  const drawn = (parts: Part[]) => parts.filter((one) => y(one.low) - y(one.high) >= 1);
-  const paths = (parts: Part[], at: number) => {
-    const shown = drawn(parts);
-    return shown.map((part, i) => (
-      <path
-        key={part.name}
-        className="armada-usage__seg-model"
-        data-model={part.name}
-        d={column(barX(at), part.low, part.high, i === shown.length - 1)}
-      />
-    ));
-  };
-  const place = (event: MouseEvent<HTMLDivElement>) => {
-    const box = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - box.left) / box.width) * W;
-    const at = Math.floor((x - LEFT) / SLOT);
-    onDay(at >= 0 && at < days.length ? at : undefined);
-  };
-  const peak = peakUnits > 0 ? days.findIndex((one) => one.units === peakUnits) : -1;
-  const last = stack(days[6]!.byModel);
-  const shown = day === undefined ? undefined : days[day];
-  const mineShown = day === undefined ? undefined : mine?.[day];
-  return (
-    <div className="armada-usage__plot" onMouseMove={place} onMouseLeave={() => onDay(undefined)}>
-      <svg
-        className="armada-usage__chart"
-        viewBox={`0 0 ${W} ${H}`}
-        role="img"
-        aria-label="Burn per day, last seven days, in million cost units, by model"
-      >
-        {ticks.map((tick) => (
-          <g key={tick}>
-            <line
-              className="armada-usage__grid"
-              x1={LEFT}
-              x2={W - RIGHT}
-              y1={y(tick)}
-              y2={y(tick)}
-            />
-            <text className="armada-usage__tick" x={LEFT - 6} y={y(tick) + 4} textAnchor="end">
-              {tick}
-            </text>
-          </g>
-        ))}
-        {day === undefined ? null : (
-          <rect
-            className="armada-usage__daywash"
-            x={LEFT + day * SLOT}
-            y={TOP - 8}
-            width={SLOT}
-            height={BASE - TOP + 8}
-          />
-        )}
-        {days.map((one, at) => (
-          <g key={one.day} data-quiet={mine !== undefined || undefined}>
-            {paths(stack(one.byModel), at)}
-          </g>
-        ))}
-        {mine === undefined
-          ? null
-          : mine.map((one, at) => <g key={`mine-${one.day}`}>{paths(stack(one.byModel), at)}</g>)}
-        {drawn(last).map((part) => (
-          <text
-            key={part.name}
-            className="armada-usage__direct"
-            x={barX(6) + BAR + 6}
-            y={(y(part.low) + y(part.high)) / 2 + 4}
-          >
-            {part.name}
-          </text>
-        ))}
-        {peak < 0 ? null : (
-          <text
-            className="armada-usage__peak"
-            x={barX(peak) + BAR / 2}
-            y={y(peakUnits) - 6}
-            textAnchor="middle"
-          >
-            {M(peakUnits)}
-          </text>
-        )}
-        {days.map((one, at) => (
-          <g key={one.day}>
-            <text
-              className="armada-usage__tick"
-              data-on={day === at || undefined}
-              x={barX(at) + BAR / 2}
-              y={BASE + 16}
-              textAnchor="middle"
-            >
-              {WEEKDAYS[one.weekday]}
-            </text>
-            <text
-              className="armada-usage__tick"
-              data-on={day === at || undefined}
-              x={barX(at) + BAR / 2}
-              y={BASE + 30}
-              textAnchor="middle"
-            >
-              {Number(one.day.slice(8))}
-            </text>
-          </g>
-        ))}
-        <line className="armada-usage__base" x1={LEFT} x2={W - RIGHT} y1={BASE} y2={BASE} />
-        {day === undefined ? null : (
-          <line
-            className="armada-usage__cross"
-            x1={barX(day) + BAR / 2}
-            x2={barX(day) + BAR / 2}
-            y1={TOP - 8}
-            y2={BASE}
-          />
-        )}
-      </svg>
-      <div className="armada-usage__hits" aria-hidden>
-        {days.map((one, at) => (
-          <button
-            key={one.day}
-            type="button"
-            tabIndex={-1}
-            className="armada-usage__hit"
-            style={{
-              left: `${((LEFT + at * SLOT) / W) * 100}%`,
-              width: `${(SLOT / W) * 100}%`,
-            }}
-            onClick={() => onPick(at)}
-          />
-        ))}
-      </div>
-      {shown === undefined || day === undefined ? null : (
-        <div
-          className="armada-usage__pop"
-          role="status"
-          data-flip={day >= 4 || undefined}
-          style={{
-            left: `${((barX(day) + BAR / 2) / W) * 100}%`,
-          }}
-        >
-          <span className="armada-usage__popday">{dayLabel(shown.day)}</span>
-          {[
-            ...stack(shown.byModel),
-          ]
-            .reverse()
-            .map((part) => (
-              <span key={part.name} className="armada-usage__popline">
-                <span className="armada-usage__swatch" data-model={part.name} aria-hidden />
-                <span>{part.name}</span>
-                <span className="armada-usage__fig">{`${M(part.units)}M`}</span>
-              </span>
-            ))}
-          <span className="armada-usage__popline" data-total>
-            <span />
-            <span>All</span>
-            <span className="armada-usage__fig">{`${M(shown.units)}M`}</span>
-          </span>
-          {mineShown === undefined ? null : (
-            <span className="armada-usage__popline">
-              <span />
-              <span className="armada-usage__title">{mineName}</span>
-              <span className="armada-usage__fig">{`${M(mineShown.units)}M`}</span>
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ModelLegend({ usage }: { usage: UsageBreakdown }) {
+function ModelLegend({ usage }: { usage: Pick<UsageBreakdown, "by_model" | "units"> }) {
   const rows = shareRows(foldModels(usage.by_model), usage.units);
   return (
     <ul className="armada-usage__legend" aria-label="Models">
@@ -605,13 +398,11 @@ function HeatMap({
   cell,
   weekday,
   onCell,
-  onWeekday,
 }: {
   heat: number[][];
   cell: Cell | undefined;
   weekday: number | undefined;
   onCell: (cell: Cell) => void;
-  onWeekday: (weekday: number | undefined) => void;
 }) {
   const [hover, setHover] = useState<Cell | undefined>(undefined);
   const shown = hover ?? cell;
@@ -652,14 +443,8 @@ function HeatMap({
                     data-step={stepOf(units)}
                     aria-selected={on}
                     aria-label={`${label(here)}, ${M(units)} million units`}
-                    onMouseEnter={() => {
-                      setHover(here);
-                      onWeekday(d);
-                    }}
-                    onMouseLeave={() => {
-                      setHover(undefined);
-                      onWeekday(undefined);
-                    }}
+                    onMouseEnter={() => setHover(here)}
+                    onMouseLeave={() => setHover(undefined)}
                     onClick={() => onCell(here)}
                   />
                 </Tooltip>
@@ -699,14 +484,6 @@ function HeatMap({
  * What the page draws until Fleet's summary has answered: the loaded layout's own shapes in skeleton bars, no text,
  * so the figures land on them without a frame left blank or anything moving. A summary with nothing in it is not this.
  */
-function Bar({ width, end }: { width: string; end?: boolean }) {
-  return (
-    <span className="armada-usage__skel" data-end={end || undefined}>
-      <Skeleton width={width} />
-    </span>
-  );
-}
-
 const JOB_BARS = [
   "100%",
   "62%",
@@ -752,43 +529,6 @@ function PendingShares() {
         </li>
       ))}
     </ul>
-  );
-}
-
-const DAY_FILL = [
-  0.45,
-  0.7,
-  0.8,
-  0.65,
-  0.4,
-  0.95,
-  0.75,
-];
-
-/** Seven bars on a base line, laid over the same box the chart's own drawing fills. */
-function PendingChart() {
-  return (
-    <div className="armada-usage__plot" aria-hidden>
-      <div
-        className="armada-usage__skel-chart"
-        style={{
-          aspectRatio: `${W} / ${H}`,
-        }}
-      >
-        {DAY_FILL.map((fill, at) => (
-          <Skeleton
-            key={at}
-            className="armada-usage__skel-column"
-            style={{
-              left: `${(barX(at) / W) * 100}%`,
-              width: `${(BAR / W) * 100}%`,
-              height: `${(((BASE - TOP) * fill) / H) * 100}%`,
-              bottom: `${((H - BASE) / H) * 100}%`,
-            }}
-          />
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -953,21 +693,45 @@ function SessionRow({
   );
 }
 
-export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProps) {
+export function UsagePage({
+  summary,
+  titles,
+  planPercent,
+  rules,
+  time,
+  builds,
+  hours,
+  onBuild,
+}: UsagePageProps) {
+  const [view, setView] = useState<"tokens" | "time">("tokens");
   const [cursor, setCursor] = useState(-1);
   const [rulePick, setRulePick] = useState(-1);
   const [pick, setPick] = useState(-1);
   const [cut, setCut] = useState<Cut>("model");
   const [cell, setCell] = useState<Cell | undefined>(undefined);
-  const [hoverDay, setHoverDay] = useState<number | undefined>(undefined);
+  const [hour, setHour] = useState<number | undefined>(undefined);
+  const [hoverHour, setHoverHour] = useState<number | undefined>(undefined);
+  const [build, setBuild] = useState<string | undefined>(undefined);
 
-  const rows = useMemo(
-    () => (summary === undefined ? [] : rowsOf(summary, titles)),
-    [
-      summary,
-      titles,
-    ],
-  );
+  useEffect(() => {
+    onBuild?.(build);
+  }, [
+    build,
+    onBuild,
+  ]);
+
+  const listed = builds === undefined || builds === "pending" ? undefined : builds;
+  const drawn = hours === undefined || hours === "pending" ? undefined : hours;
+  const pickedBuild = listed?.find((one) => one.id === build);
+  const rows = useMemo(() => {
+    if (summary === undefined) return [];
+    const all = rowsOf(summary, titles);
+    return pickedBuild === undefined ? all : all.filter((one) => pickedBuild.jobs.includes(one.id));
+  }, [
+    summary,
+    titles,
+    pickedBuild,
+  ]);
   const picked = rows[pick];
   const whole = useMemo(
     () => (summary === undefined ? undefined : chartDays(summary, summary.total.by_day)),
@@ -977,22 +741,34 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
   );
   const source: Source | undefined = useMemo(() => {
     if (summary === undefined || whole === undefined) return undefined;
-    if (picked === undefined)
+    if (picked !== undefined)
       return {
-        title: "All jobs",
-        usage: summary.total,
-        days: whole,
+        title: picked.title,
+        usage: picked.session.usage,
+        days: chartDays(summary, picked.session.usage.by_day),
+        session: picked.session,
+        scoped: true,
       };
+    if (pickedBuild?.usage !== undefined)
+      return {
+        title: `Build ${commitOf(pickedBuild)}`,
+        usage: pickedBuild.usage,
+        days: chartDays(summary, pickedBuild.usage.by_day),
+        scoped: true,
+      };
+    // Its tokens are still being read: the panels they feed draw their shapes meanwhile.
+    if (pickedBuild !== undefined) return undefined;
     return {
-      title: picked.title,
-      usage: picked.session.usage,
-      days: chartDays(summary, picked.session.usage.by_day),
-      session: picked.session,
+      title: "All jobs",
+      usage: summary.total,
+      days: whole,
+      scoped: false,
     };
   }, [
     summary,
     whole,
     picked,
+    pickedBuild,
   ]);
   const heat = useMemo(
     () => heatOf(source?.usage.hour_grid ?? []),
@@ -1007,6 +783,8 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
     ],
   );
   const ruleCount = views?.length ?? 0;
+  const viewed = useRef(view);
+  viewed.current = view;
   const latest = useRef({
     cursor,
     pick,
@@ -1015,6 +793,11 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
     count: rows.length,
     rulePick,
     ruleCount,
+    timed: time !== undefined,
+    build,
+    listed: builds !== undefined,
+    hour,
+    hours: drawn,
   });
   latest.current = {
     cursor,
@@ -1024,6 +807,11 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
     count: rows.length,
     rulePick,
     ruleCount,
+    timed: time !== undefined,
+    build,
+    listed: builds !== undefined,
+    hour,
+    hours: drawn,
   };
 
   useEffect(() => {
@@ -1042,11 +830,22 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
           ].includes(target.tagName))
       )
         return;
+      if (event.key === "v" && latest.current.timed) {
+        setView((now) => (now === "tokens" ? "time" : "tokens"));
+        return event.preventDefault();
+      }
+      if (event.key === "c" && latest.current.listed) {
+        document.querySelector<HTMLElement>("[data-builds]")?.focus();
+        return event.preventDefault();
+      }
+      if (inBuilds(target) && LIST_KEYS.includes(event.key)) return;
+      if (viewed.current === "time") return;
       const last = latest.current.count - 1;
       const onControl =
         target instanceof HTMLElement && target.closest("button, [role=tab]") !== null;
       const onTab = target instanceof HTMLElement && target.closest("[role=tab]") !== null;
-      const step = (dd: number, db: number) =>
+      const step = (dd: number, db: number) => {
+        setHour(undefined);
         setCell((now) => {
           if (now === undefined) return peakCell(latest.current.heat);
           return {
@@ -1054,19 +853,39 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
             b: Math.min(7, Math.max(0, now.b + db)),
           };
         });
+      };
+      /** An hour on the chart, and the map's cell that holds it. */
+      const stepHour = (by: number) => {
+        const { hours: among, hour: now } = latest.current;
+        if (among === undefined) return step(by, 0);
+        const next =
+          now === undefined ? latestHour(among) : Math.min(SHOWN - 1, Math.max(0, now + by));
+        setHour(next);
+        setCell({
+          d: weekdayOfHour(among, next),
+          b: blockOfHour(among, next),
+        });
+      };
       if (event.key === "ArrowDown" || event.key === "j") setCursor((at) => Math.min(last, at + 1));
       else if (event.key === "ArrowUp" || event.key === "k") setCursor((at) => Math.max(0, at - 1));
       else if ((event.key === "Enter" || event.key === "o") && !onControl) {
         if (latest.current.cursor < 0) return;
         setPick(latest.current.cursor);
         setCell(undefined);
-      } else if (event.key === "Escape" && latest.current.cell !== undefined) setCell(undefined);
-      else if (event.key === "Escape" && latest.current.rulePick >= 0) setRulePick(-1);
+        setHour(undefined);
+      } else if (
+        event.key === "Escape" &&
+        (latest.current.cell !== undefined || latest.current.hour !== undefined)
+      ) {
+        setCell(undefined);
+        setHour(undefined);
+      } else if (event.key === "Escape" && latest.current.rulePick >= 0) setRulePick(-1);
       else if (/^[1-9]$/.test(event.key) && Number(event.key) <= latest.current.ruleCount)
         setRulePick(Number(event.key) - 1);
       else if (event.key === "Escape" && latest.current.pick >= 0) setPick(-1);
-      else if ((event.key === "ArrowRight" || event.key === "l") && !onTab) step(1, 0);
-      else if ((event.key === "ArrowLeft" || event.key === "h") && !onTab) step(-1, 0);
+      else if (event.key === "Escape" && latest.current.build !== undefined) setBuild(undefined);
+      else if ((event.key === "ArrowRight" || event.key === "l") && !onTab) stepHour(1);
+      else if ((event.key === "ArrowLeft" || event.key === "h") && !onTab) stepHour(-1);
       else if (event.key === "]") step(0, 1);
       else if (event.key === "[") step(0, -1);
       else if (CUT_KEY[event.key] !== undefined) setCut(CUT_KEY[event.key]!);
@@ -1076,6 +895,15 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
     window.addEventListener("keydown", pressed);
     return () => window.removeEventListener("keydown", pressed);
   }, []);
+
+  useEffect(() => {
+    setCursor(-1);
+    setPick(-1);
+    setCell(undefined);
+    setHour(undefined);
+  }, [
+    build,
+  ]);
 
   useEffect(() => {
     const row = rows[cursor];
@@ -1090,32 +918,68 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
 
   const top = Math.max(0, ...rows.map((one) => one.units));
   const active = rows[cursor];
-  const days = whole;
-  const fromCell =
-    cell === undefined || days === undefined ? -1 : days.findIndex((one) => one.weekday === cell.d);
-  const day = hoverDay ?? (fromCell < 0 ? undefined : fromCell);
-  const weekday = day === undefined || days === undefined ? undefined : days[day]?.weekday;
-  const hoverWeekday = (d: number | undefined) =>
-    setHoverDay(
-      d === undefined || days === undefined
-        ? undefined
-        : days.findIndex((one) => one.weekday === d),
-    );
-  const pickDay = (at: number) => {
-    if (days === undefined) return;
-    const column = days[at]!.weekday;
-    const values = heat.map((row) => row[column]!);
+  const shown = hoverHour ?? hour;
+  const weekday =
+    shown !== undefined && drawn !== undefined ? weekdayOfHour(drawn, shown) : cell?.d;
+  const select = (at: number) => {
+    if (drawn === undefined) return;
+    setHour(at);
     setCell({
-      d: column,
-      b: values.indexOf(Math.max(...values)),
+      d: weekdayOfHour(drawn, at),
+      b: blockOfHour(drawn, at),
     });
   };
+  const burn = useMemo(
+    () => (drawn === undefined ? undefined : burnPlot(drawn)),
+    [
+      drawn,
+    ],
+  );
+  const burned = useMemo(
+    () =>
+      drawn === undefined
+        ? undefined
+        : {
+            by_model: foldModels(drawn.flatMap((one) => one.burn ?? [])),
+            units: drawn.reduce(
+              (sum, one) => sum + (one.burn ?? []).reduce((all, row) => all + row.units, 0),
+              0,
+            ),
+          },
+    [
+      drawn,
+    ],
+  );
   const total = summary?.total.units ?? 0;
   const rest = summary?.rest;
   const pending = summary === undefined;
+  const scoping =
+    pending ||
+    (pickedBuild !== undefined && picked === undefined && pickedBuild.usage === undefined);
+  const switcher =
+    time === undefined ? null : (
+      <div className="armada-usage__views">
+        <Tabs items={VIEWS} value={view} onChange={(id) => setView(id as typeof view)} />
+        <Kbd>v</Kbd>
+      </div>
+    );
+  if (view === "time" && time !== undefined)
+    return (
+      <div className="armada-usage armada-page">
+        {switcher}
+        <TimeView
+          time={time}
+          builds={builds}
+          hours={hours}
+          build={pickedBuild}
+          onBuild={setBuild}
+        />
+      </div>
+    );
 
   return (
     <div className="armada-usage armada-page" aria-busy={pending || undefined}>
+      {switcher}
       <div className="armada-usage__page">
         <div className="armada-usage__left">
           <section className="armada-usage__panel" aria-label="Job list">
@@ -1159,6 +1023,7 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
                       setCursor(at);
                       setPick(at);
                       setCell(undefined);
+                      setHour(undefined);
                     }}
                   />
                 ))}
@@ -1182,6 +1047,10 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
             )}
           </section>
 
+          {builds === undefined ? null : (
+            <BuildsPanel builds={builds} view="tokens" pick={build} onPick={setBuild} />
+          )}
+
           <section className="armada-usage__panel" aria-label="Breakdown">
             <Band
               keys={[
@@ -1194,7 +1063,7 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
             >
               Breakdown
             </Band>
-            {pending ? (
+            {scoping ? (
               <>
                 <div className="armada-usage__scope" aria-hidden>
                   <Bar width="8rem" />
@@ -1251,39 +1120,57 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
           </section>
         </div>
 
-        <div className="armada-usage__centre">
-          <section className="armada-usage__panel" aria-label="Burn per day">
-            <Band
-              keys={[
-                "←→",
-              ]}
-            >
-              Burn per day
-            </Band>
-            {pending ? (
-              <>
-                <div className="armada-usage__scope" aria-hidden>
-                  <Bar width="8rem" />
-                </div>
-                <PendingChart />
-                <PendingLegend />
-              </>
-            ) : source === undefined || days === undefined ? null : (
-              <>
-                <Scope title={source.title} unit="M units" />
-                <DayChart
-                  days={days}
-                  mine={source.session === undefined ? undefined : source.days}
-                  mineName={source.title}
-                  day={day}
-                  onDay={setHoverDay}
-                  onPick={pickDay}
-                />
-                <ModelLegend usage={source.usage} />
-              </>
-            )}
-          </section>
+        <section className="armada-usage__panel armada-usage__burn" aria-label="Burn per hour">
+          <Band
+            keys={[
+              "←→",
+            ]}
+          >
+            Burn per hour
+          </Band>
+          {pending || hours === "pending" ? (
+            <>
+              <div className="armada-usage__scope" aria-hidden>
+                <Bar width="8rem" />
+              </div>
+              <PendingHours
+                plots={[
+                  {
+                    height: BURN_HEIGHT,
+                  },
+                ]}
+              />
+              <PendingLegend />
+            </>
+          ) : drawn === undefined || burn === undefined || burned === undefined ? null : (
+            <>
+              <Scope title="All jobs" unit="M units per hour" />
+              <HourChart
+                hours={drawn}
+                plots={[
+                  burn,
+                ]}
+                label="Burn per hour, last 48 hours, in million cost units, by model"
+                builds={listed ?? []}
+                pick={build}
+                onPick={setBuild}
+                hour={shown}
+                onHover={setHoverHour}
+                onSelect={select}
+              />
+              <HourRows
+                hours={drawn}
+                plots={[
+                  burn,
+                ]}
+                label="Burn by hour"
+              />
+              <ModelLegend usage={burned} />
+            </>
+          )}
+        </section>
 
+        <div className="armada-usage__centre">
           {pending && rules === undefined ? <PendingRules /> : null}
           {rules === undefined || views === undefined ? null : (
             <UsageRules
@@ -1306,7 +1193,7 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
             >
               Day and hour
             </Band>
-            {pending ? (
+            {scoping ? (
               <>
                 <div className="armada-usage__scope" aria-hidden>
                   <Bar width="8rem" />
@@ -1320,8 +1207,10 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
                   heat={heat}
                   cell={cell}
                   weekday={weekday}
-                  onCell={setCell}
-                  onWeekday={hoverWeekday}
+                  onCell={(next) => {
+                    setCell(next);
+                    setHour(undefined);
+                  }}
                 />
               </>
             )}
@@ -1329,7 +1218,7 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
         </div>
 
         <div className="armada-usage__tilearea">
-          {pending ? (
+          {scoping ? (
             <PendingTiles meter={planPercent !== undefined} />
           ) : source === undefined ? null : (
             <Tiles summary={summary} source={source} planPercent={planPercent} />

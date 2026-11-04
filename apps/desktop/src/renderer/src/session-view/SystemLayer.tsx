@@ -3,10 +3,11 @@
 
 import type { ReactNode } from "react";
 import { CircleDot, Power, Square } from "lucide-react";
-import { Button, DropdownMenu, Skeleton, Tooltip, useKept } from "@armada/components";
+import { Button, DropdownMenu, JobSplit, Skeleton, Tooltip, useKept } from "@armada/components";
 import { SlidersHorizontal } from "lucide-react";
 
 import { openInPanel } from "../shared-panel/store";
+import { useJobSplit } from "../use-job-split";
 import {
   HISTORY,
   sizeOf,
@@ -328,18 +329,35 @@ function Loading() {
 /** `worktrees` is what the Slot layer already draws for each bay the Job holds, or nothing. */
 export function SystemSections({
   sessionId,
+  title,
   worktrees,
 }: {
   sessionId: string;
+  /** The Job's title, which the Time section is headed with; its id where it has none. */
+  title?: string | undefined;
   worktrees: ReactNode;
 }) {
   const { processes, cpu, memory, disk, logs, readAt, history } = useSystem(sessionId);
   const [shown, setShown] = useKept<Column[]>(COLUMNS_KEY, [
     "port",
   ]);
-  if (readAt === undefined) return <Loading />;
+  const split = useJobSplit(sessionId, title);
+  const timed =
+    split === undefined ? null : (
+      <Section label="Time">
+        <JobSplit job={split.job} usual={split.usual} flush />
+      </Section>
+    );
+  if (readAt === undefined)
+    return (
+      <>
+        {timed}
+        <Loading />
+      </>
+    );
   return (
     <>
+      {timed}
       <Section
         label="Processes"
         aside={<ColumnMenu shown={shown} onChange={setShown} />}
