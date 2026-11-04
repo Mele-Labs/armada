@@ -72,7 +72,7 @@ fn the_calls_of_a_day_are_counted_once_each_and_a_row_with_no_call_is_not_one() 
 }
 
 #[test]
-fn a_jobs_rows_read_back_oldest_first_and_an_arrival_in_the_log_reads_as_ruled() {
+fn a_jobs_rows_read_back_oldest_first_and_an_arrival_in_the_log_reads_as_ruled_and_since_when() {
     let dir = TempDir::new();
     let mut store = open(&dir);
     let nudged = KeptRuling { arrived: "stopped".to_string(), outcome: "nudge".to_string(), ..ruled("stopped:01a:t1", Some("c1"), "2026-11-04T10:00:00.000Z") };
@@ -85,6 +85,8 @@ fn a_jobs_rows_read_back_oldest_first_and_an_arrival_in_the_log_reads_as_ruled()
     assert_eq!(store.operator_rulings_of("01a").expect("read"), vec![nudged, again]);
     assert!(store.operator_ruled("stopped:01a:t1").expect("read"));
     assert!(!store.operator_ruled("stopped:01a:t3").expect("read"));
+    assert!(store.operator_ruled_since("stopped:01a:t1", "2026-11-04T10:00:00.000Z").expect("read"), "at the instant counts");
+    assert!(!store.operator_ruled_since("stopped:01a:t1", "2026-11-04T10:00:01.000Z").expect("read"));
 }
 
 #[test]

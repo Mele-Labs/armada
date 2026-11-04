@@ -107,9 +107,10 @@ where
         self.doing(move |fleet| async move { fleet.operator_held(&held, &first, &shared).await });
     }
 
-    /// **Answer is the Operator's own**, and acts with Dispatch off: it settles what his press would.
+    /// **Answer is the Operator's own role**, and acts with Dispatch off: it settles what his press
+    /// would. Off, the ruling is only in its Log.
     fn answer(&self, session: &str, item: &str, choice: &Choice, because: &str) {
-        let Some(fleet) = self.fleet.upgrade().filter(|fleet| fleet.operator_on()) else { return };
+        let Some(fleet) = self.fleet.upgrade().filter(|fleet| fleet.operator_answering()) else { return };
         let (session, item, choice, because) = (session.to_string(), item.to_string(), choice.clone(), because.to_string());
         tokio::spawn(async move { fleet.operator_answered(&session, &item, &choice, &because).await });
     }
@@ -141,6 +142,12 @@ where
     pub(crate) fn operator_dispatches(&self) -> bool {
         let settings = self.machine_settings().now();
         settings.get(keys::OPERATOR) && settings.get(keys::OPERATOR_DISPATCH)
+    }
+
+    /// The Operator's Answer switch, as settings.json reads now, under its own.
+    pub(crate) fn operator_answering(&self) -> bool {
+        let settings = self.machine_settings().now();
+        settings.get(keys::OPERATOR) && settings.get(keys::OPERATOR_ANSWER)
     }
 
     /// A Job held on its start card starts as his press would, on the landing the card picked.

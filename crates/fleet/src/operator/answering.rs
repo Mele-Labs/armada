@@ -95,7 +95,7 @@ where
             if held(&seat.questions.left).contains(&id) || held(&seat.questions.out).contains(&id) {
                 continue;
             }
-            if self.store().lock().await.operator_ruled(&id).unwrap_or(true) {
+            if !self.unruled(&session, &id).await {
                 continue;
             }
             match self.question_of(&session, &item).await.and_then(|question| question.arrival()) {
@@ -105,6 +105,18 @@ where
                 }
             }
         }
+    }
+
+    /// Whether arrival `id` of `session` is to be handed: the Log holds no row for it, or **an
+    /// Autopilot run that covers the Job started after its last**, so what was waiting on him when
+    /// it turned on is offered once more under its setup.
+    async fn unruled(&self, session: &str, id: &str) -> bool {
+        let store = self.store().lock().await;
+        if !store.operator_ruled(id).unwrap_or(true) {
+            return true;
+        }
+        let Some(manifest) = store.hosting(session).ok().flatten().map(|hosting| hosting.manifest_id) else { return false };
+        away(&store, &manifest, session).is_some_and(|run| !store.operator_ruled_since(id, &run.started_at).unwrap_or(true))
     }
 
     /// `item` as the Operator reads it: what Fleet's rules make of it, the plan group its Job works
@@ -143,13 +155,12 @@ where
                 },
             ),
         };
-        let autopilot = store.autopilot(&manifest).ok().flatten();
-        let present = match autopilot.filter(|kept| State::from_stored(&kept.state) == Some(State::Running)) {
-            Some(kept) if kept.on_running || store.autopilot_picks(&kept.run_id).unwrap_or_default().iter().any(|pick| pick.started_session.as_deref() == Some(session)) => {
+        let present = match away(&store, &manifest, session) {
+            Some(kept) => {
                 let lets = kept.decisions.iter().filter_map(|word| crate::autopilot::wire::decision_from_word(word)).collect();
                 Present::Away { lets, instruction: kept.instruction }
             }
-            _ => Present::Here,
+            None => Present::Here,
         };
         Some(Question {
             session_id: session.to_string(),
@@ -237,6 +248,14 @@ where
     pub(crate) async fn person_answer_kept(&self, row: Logged) {
         let _ = self.store().lock().await.add_operator_ruling(&row.kept());
     }
+}
+
+/// The Autopilot run that has the person away from `session`: running in its repository, and
+/// over what is running or a Job it started.
+fn away(store: &store::Store, manifest: &str, session: &str) -> Option<store::KeptAutopilot> {
+    let kept = store.autopilot(manifest).ok().flatten().filter(|kept| State::from_stored(&kept.state) == Some(State::Running))?;
+    let started_it = || store.autopilot_picks(&kept.run_id).unwrap_or_default().iter().any(|pick| pick.started_session.as_deref() == Some(session));
+    (kept.on_running || started_it()).then_some(kept)
 }
 
 /// The plan group the Job works on: the one with a task in progress, else the first with a task

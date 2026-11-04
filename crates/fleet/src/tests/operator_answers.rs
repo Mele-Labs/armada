@@ -230,3 +230,51 @@ async fn while_autopilot_runs_he_is_away_its_setup_widens_answer_and_its_pass_le
     let here = crate::operator::Question { present: Present::Here, ..question };
     assert_eq!(here.arrival().expect("on").ways, vec![Way::Raise]);
 }
+
+#[tokio::test]
+async fn with_answer_off_a_question_is_ruled_into_the_log_and_left_on_his_list_as_dispatch_off_leaves_a_start() {
+    let rig = rig_placing(None);
+    switched(&rig, "features.operator", true).await;
+    assert!(rig.fleet.operator_answering(), "Answer ships On under the Operator");
+    switched(&rig, "features.operatorAnswer", false).await;
+    let call = Answers::with(&["item: 1\nway: 1\nanswer: 1\nbecause: a frozen clock is the one the agent recommends"]);
+    assert!(rig.fleet.operator_seated_with(call.clone()));
+    let id = rig.start().await;
+    planned(&rig, &id, false).await;
+    keep(&rig, &id, &[item("a", ASKED, &["Frozen (Recommended)", "Fake"])]).await;
+
+    read_and_handed(&rig, &id).await;
+    eventually(|| async { !log_of(&rig).await.is_empty() }).await;
+
+    let log = log_of(&rig).await;
+    assert_eq!((log[0].outcome.as_str(), log[0].answer.as_deref()), ("answer", Some("Frozen (Recommended)")), "the Log keeps what it would have answered");
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    assert!(waiting(&rig, &id).await.contains(&"a".to_string()), "nothing is settled");
+    assert!(!said(&rig, &id).await.iter().any(|one| one.contains("The Operator answered")), "and the thread says nothing");
+}
+
+#[tokio::test]
+async fn autopilot_turned_on_offers_what_is_already_waiting_on_him_once_under_its_setup() {
+    let rig = rig_placing(None);
+    switched(&rig, "features.operator", true).await;
+    let call = Answers::with(&["item: 1\nway: 1\nanswer: 1\nbecause: he left it to the recommended option"]);
+    assert!(rig.fleet.operator_seated_with(call.clone()));
+    let id = rig.start().await;
+    planned(&rig, &id, true).await;
+    keep(&rig, &id, &[item("a", ASKED, &["Frozen (Recommended)", "Fake"])]).await;
+    read_and_handed(&rig, &id).await;
+    eventually(|| async { !log_of(&rig).await.is_empty() }).await;
+    assert!(call.asked().is_empty(), "raised while he is here, with no call");
+
+    started(&rig, &[AutopilotDecision::Recommended]).await;
+    read_and_handed(&rig, &id).await;
+
+    eventually(|| async { !waiting(&rig, &id).await.contains(&"a".to_string()) }).await;
+    assert!(told(&rig, &id).await.last().unwrap().starts_with(&format!("Re: {ASKED}\nFrozen (Recommended)")));
+    for _ in 0..3 {
+        read_and_handed(&rig, &id).await;
+    }
+    assert_eq!(call.asked().len(), 1, "offered once in the run");
+    let outcomes: Vec<String> = log_of(&rig).await.into_iter().map(|row| row.outcome).collect();
+    assert_eq!(outcomes, ["answer", "raise"], "newest first");
+}

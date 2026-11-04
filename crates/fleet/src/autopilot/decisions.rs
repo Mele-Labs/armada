@@ -156,9 +156,9 @@ where
                 continue;
             }
             for item in &job.items {
-                // While the Operator is on, it answers questions and cards as they appear, and
+                // While the Operator answers, it takes questions and cards as they appear, and
                 // this Autopilot's setup widens what it may answer.
-                if self.operator_on() && crate::operator::answers(item) {
+                if self.operator_answering() && crate::operator::answers(item) {
                     continue;
                 }
                 let id = format!("{}:{}", job.id, item.id);

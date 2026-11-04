@@ -147,6 +147,17 @@ impl Store {
             .map_err(failed("reading the Operator's Log"))
     }
 
+    /// Whether the Log holds a row for `arrival` kept at or after `since`, an RFC3339 instant.
+    pub fn operator_ruled_since(&self, arrival: &str, since: &str) -> Result<bool, WriteError> {
+        self.conn
+            .query_row(
+                "SELECT EXISTS (SELECT 1 FROM operator_rulings WHERE arrival = ?1 AND at >= ?2)",
+                [arrival, since],
+                |row| row.get::<_, bool>(0),
+            )
+            .map_err(failed("reading the Operator's Log"))
+    }
+
     /// How many calls the Log names at or after `since`, an RFC3339 instant.
     pub fn operator_calls_since(&self, since: &str) -> Result<u32, WriteError> {
         self.conn
