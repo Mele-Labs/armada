@@ -25,8 +25,11 @@ use crate::daemon::Fleet;
 use crate::judging::watched;
 use crate::session_account::{read, read_so_far, JobSoFar, TurnSoFar, CALLS_AT_MOST, SAID_MOST};
 
-/// The most often the model is asked to write an account, a Session at a time.
-pub(crate) const WRITE_EVERY: Duration = Duration::from_secs(5);
+/// The most often the model is asked to write an account, a Session at a time. **Not 5 seconds**:
+/// the account was most of Fleet's model calls, each one tokens and a 300 MB CLI process, and the
+/// owner chose a line up to half a minute behind over that cost (4 Nov 2026). Spike 39 found no
+/// cheaper model that writes it well enough.
+pub(crate) const WRITE_EVERY: Duration = Duration::from_secs(30);
 /// The longest a first change waits for the rest of its burst, where the model has not been asked lately.
 const SETTLE: Duration = Duration::from_secs(1);
 

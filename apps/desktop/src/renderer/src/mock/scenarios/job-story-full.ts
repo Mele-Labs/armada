@@ -1,6 +1,6 @@
 // The Job's story with every zone full, to see whether Done, Now and Open balance: the real Job of `job-real-issues-tab` (ten marks in progress, in two groups), its three
 // finished groups each carrying an issue and a pull request, a dozen more things it made (documents, sketches, issues, pull requests), and Open with four groups. Its two open
-// issues and its open pull request stand in Now until they land. Mock only; the `jobStoryFull` walk and `?scenario=job-story-full&take=` open it.
+// issues and its open pull request stand in Open until they land. Mock only; the `jobStoryFull` walk and `?scenario=job-story-full&take=` open it.
 
 import type {
   Session,
