@@ -798,6 +798,12 @@ test('a Drone is told no session id at a start', async ($, on) => {
   expect(out.additionalContext ?? []).toEqual([])
 })
 
+test('a session Fleet hosts is told only its id at a start, since its rules carry the rest', async ($, on) => {
+  world(on, { env: { ARMADA_SESSION: 'S1' } })
+  const out = await $.classic.SessionStart({ source: 'startup' })
+  expect(out.additionalContext).toEqual(['Your Armada job id is S1. Pass it as session_id where an act or a tool takes one.'])
+})
+
 test('an open of web pages is shown through Fleet and denied, not run', async ($, on) => {
   const { posts, clock } = world(on)
   let ranIt = false
