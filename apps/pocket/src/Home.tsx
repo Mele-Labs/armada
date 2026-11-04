@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { Laptop, Plus } from "lucide-react";
-import { Button, SessionMark } from "@armada/components";
+import { bucketOf, Button, SessionMark } from "@armada/components";
 
 import { getJson } from "./client";
 import { actsOn } from "./jobState";
@@ -106,14 +106,10 @@ function MacRow({ mac }: { mac: Mac }) {
 
 export function Home() {
   const fleet = useFleet();
-  const { several, drafts, needs, done, running, troubled } = homeOf(fleet);
+  const { several, drafts, needs, done, waiting, running, troubled } = homeOf(fleet);
   const usage = usePlanUsage(fleet.macs, fleet.at);
-  const row = (
-    item: Item,
-    state: "waiting" | "working" | "idle" | "draft" | "done",
-    said: string,
-    at: string,
-  ) => {
+  const row = (item: Item, at: string) => {
+    const { state, said } = item;
     const { session } = item;
     const key = `${item.mac.machine.origin} ${session.id}`;
     const open = () =>
@@ -128,7 +124,9 @@ export function Home() {
         says={
           state === "done"
             ? (session.done_summary ?? session.repository ?? "")
-            : (session.repository ?? "")
+            : bucketOf(state) === "waiting"
+              ? said
+              : (session.repository ?? "")
         }
         {...(mac === undefined
           ? {}
@@ -188,35 +186,27 @@ export function Home() {
         )}
         {drafts.length === 0 ? null : (
           <Section label="Drafts">
-            {drafts.map((item) => row(item, "draft", "Draft", item.session.started_at))}
+            {drafts.map((item) => row(item, item.session.started_at))}
           </Section>
         )}
         {needs.length === 0 ? null : (
           <Section label="Needs you">
-            {needs.map((item) =>
-              row(
-                item,
-                "waiting",
-                "Needs you",
-                item.session.waiting_since ?? item.session.started_at,
-              ),
-            )}
+            {needs.map((item) => row(item, item.session.waiting_since ?? item.session.started_at))}
           </Section>
         )}
         {done.length === 0 ? null : (
           <Section label="Done">
-            {done.map((item) =>
-              row(item, "done", "Done", item.session.done_since ?? item.session.started_at),
-            )}
+            {done.map((item) => row(item, item.session.done_since ?? item.session.started_at))}
+          </Section>
+        )}
+        {waiting.length === 0 ? null : (
+          <Section label="Waiting">
+            {waiting.map((item) => row(item, item.session.started_at))}
           </Section>
         )}
         {running.length === 0 ? null : (
           <Section label="Running">
-            {running.map((item) =>
-              item.session.working
-                ? row(item, "working", "Working", item.session.started_at)
-                : row(item, "idle", "Idle", item.session.started_at),
-            )}
+            {running.map((item) => row(item, item.session.started_at))}
           </Section>
         )}
       </div>

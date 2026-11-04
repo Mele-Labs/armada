@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { Link as Linked, PowerOff, X } from "lucide-react";
 import {
   Button,
+  bucketOf,
   Readout,
   SessionMark,
   Stamp,
@@ -106,7 +107,7 @@ export function Row({
   onOpen: () => void;
   onEnd?: () => void;
 }) {
-  const needs = state === "waiting";
+  const needs = state !== "done" && bucketOf(state) === "needs";
   return (
     <li className="deck-list__item">
       <button
@@ -130,7 +131,7 @@ export function Row({
         <span className="deck-row__marks">
           <SessionMark state={state} said={said} />
         </span>
-        <span className="deck-row__says">
+        <span className="deck-row__says" data-holds={bucketOf(state) === "waiting" || undefined}>
           {says}
           {mac === undefined ? null : <span className="pk-row__mac">{mac}</span>}
         </span>

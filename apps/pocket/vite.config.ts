@@ -9,7 +9,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 import { answer, type Posted } from "./src/fixture/gateway";
-import { fixtureMacs, type FixtureMac } from "./src/fixture/wire";
+import { everyState, fixtureMacs, type FixtureMac } from "./src/fixture/wire";
 
 const read = (request: IncomingMessage): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -90,6 +90,9 @@ function fixtureGateway(): Plugin {
     studio: "studio",
     laptop: "laptop",
   });
+  const states = everyState(now);
+  macs["studio"]!.live.push(...states.live);
+  Object.assign(macs["studio"]!.threads, states.threads);
   return {
     name: "pocket-fixture-gateway",
     configureServer(server) {

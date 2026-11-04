@@ -4,10 +4,13 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 
+import { bucketOf, type JobBucket, type SessionState } from "@armada/components";
+
 import { Refused, call, getJson, refusal, whenUnpaired } from "./client";
 import type { LiveChange, PhoneSession, SessionsBody } from "./gateway";
 import { keepMachine, machines, type Machine } from "./machines";
 import { homeWhenBack } from "./router";
+import { rowStateOf } from "./rowState";
 import { events } from "./sse";
 
 export type Mac = {
@@ -268,16 +271,22 @@ export function useFleet(): Fleet {
 export type Item = {
   mac: Mac;
   session: PhoneSession;
+  /** Its mark and the words for it, as `rowStateOf` reads them. */
+  state: SessionState;
+  said: string;
 };
 
 export type Home = {
   /** More than one Mac is paired, so each row names its Mac. */
   several: boolean;
-  /** Held on their start cards, newest first. */
+  /** Held on their start cards, and Jobs never spoken in, newest first. */
   drafts: Item[];
+  /** Asked something, stuck, stopped for good, failed to start or on failed Checks, oldest wait first. */
   needs: Item[];
   /** Jobs that said they are done, newest claim first. */
   done: Item[];
+  /** Waiting on something that is not him: a pull request, a watch, the plan's limit, another Job. */
+  waiting: Item[];
   running: Item[];
   /** Macs that need the owner: not paired any more, or not answering. */
   troubled: Mac[];
@@ -286,34 +295,34 @@ export type Home = {
 const time = (at: string | undefined) => (at === undefined ? 0 : Date.parse(at));
 
 export function homeOf({ macs }: Pick<Fleet, "macs">): Home {
-  const paired = macs.filter((mac) => mac.paired);
-  const all = (pick: (mac: Mac) => PhoneSession[]) =>
-    paired.flatMap((mac) =>
-      pick(mac).map((session) => ({
+  const all = macs
+    .filter((mac) => mac.paired)
+    .flatMap((mac) =>
+      mac.live.map((session) => ({
         mac,
         session,
+        ...rowStateOf(session),
       })),
     );
+  const newest = (a: Item, b: Item) => time(b.session.started_at) - time(a.session.started_at);
+  const inBucket = (bucket: JobBucket) =>
+    all.filter((item) => item.state !== "done" && bucketOf(item.state) === bucket);
   return {
     several: macs.length > 1,
-    drafts: all((mac) => mac.live.filter((session) => session.held)).sort(
-      (a, b) => time(b.session.started_at) - time(a.session.started_at),
-    ),
-    needs: all((mac) => mac.needs.filter((session) => !session.held)).sort(
+    drafts: inBucket("draft").sort(newest),
+    needs: inBucket("needs").sort(
       (a, b) =>
         time(a.session.waiting_since ?? a.session.started_at) -
         time(b.session.waiting_since ?? b.session.started_at),
     ),
-    done: all((mac) =>
-      mac.live.filter(
-        (session) => session.done_since !== undefined && !session.waiting && !session.held,
-      ),
-    ).sort((a, b) => time(b.session.done_since) - time(a.session.done_since)),
-    running: all((mac) =>
-      mac.live.filter(
-        (session) => !session.waiting && !session.held && session.done_since === undefined,
-      ),
-    ).sort((a, b) => time(b.session.started_at) - time(a.session.started_at)),
+    done: all
+      .filter((item) => item.state === "done")
+      .sort((a, b) => time(b.session.done_since) - time(a.session.done_since)),
+    waiting: inBucket("waiting").sort(newest),
+    running: [
+      ...inBucket("working"),
+      ...inBucket("idle"),
+    ].sort(newest),
     troubled: macs.filter((mac) => !mac.paired || mac.error !== undefined),
   };
 }

@@ -236,6 +236,303 @@ const started = (
   fork: false,
 });
 
+/** A Job in each state Home draws, as the list has it and as its thread has it, so a row and its Job's header can be held side by side. */
+export function everyState(now: number): {
+  live: PhoneSession[];
+  threads: Record<string, SessionThread>;
+} {
+  const job = (
+    id: string,
+    title: string,
+    started: number,
+    listed: Partial<PhoneSession>,
+    extra: Partial<SessionRecord>,
+  ) => ({
+    listed: phone({
+      id,
+      title,
+      repository: "armada",
+      kind: "hosted",
+      waiting: false,
+      working: false,
+      started_at: ago(now, started),
+      ...listed,
+    }),
+    thread: {
+      session: record(now, id, title, started, extra),
+      rows: [],
+    } as SessionThread,
+  });
+  const hosted = (more: object) =>
+    ({
+      turn: {
+        state: "idle",
+      },
+      mode: "auto",
+      running: true,
+      ...more,
+    }) as SessionRecord["hosted"];
+  const stopped = (
+    reason: "turn_ended" | "process_gone",
+    restart: "none" | "running" | "failed",
+    more: {
+      repair?: "failed";
+      gave_up?: boolean;
+    } = {},
+  ) => ({
+    listed: {
+      standing: "stopped" as const,
+      stopped: {
+        reason,
+        restart,
+        ...more,
+      },
+    },
+    extra: {
+      standing: "stopped" as const,
+      stopped: {
+        reason,
+        restart,
+        at: ago(now, 5),
+        ...more,
+      },
+    },
+  });
+  const blank = job(
+    "x-blank",
+    "",
+    1,
+    {
+      blank: true,
+    },
+    {},
+  );
+  delete blank.listed.title;
+  delete blank.thread.session.title;
+  const gaveUp = stopped("process_gone", "failed", {
+    repair: "failed",
+    gave_up: true,
+  });
+  const restarting = stopped("process_gone", "running");
+  const quit = stopped("turn_ended", "none");
+  const jobs = [
+    job(
+      "x-stuck",
+      "Trace the slow restart",
+      41,
+      {
+        working: true,
+        standing: "stuck",
+      },
+      {
+        standing: "stuck",
+        hosted: hosted({
+          turn: {
+            state: "working",
+          },
+        }),
+      },
+    ),
+    job(
+      "x-failing",
+      "Move the pricing page",
+      55,
+      {
+        failing_pull: 3241,
+      },
+      {
+        attachments: [
+          {
+            kind: "pr",
+            target: "3241",
+            state: "standing",
+            detail: {
+              title: "Move the pricing page",
+              checks: "failed",
+              failing: "ci",
+            },
+            since: ago(now, 30),
+            changed_at: ago(now, 3),
+          },
+        ],
+      },
+    ),
+    job(
+      "x-unstarted",
+      "Port the config reader",
+      63,
+      {
+        start_failed: "claude was not found on PATH",
+      },
+      {
+        hosted: hosted({
+          start_failed: {
+            cause: "claude was not found on PATH",
+          },
+        }),
+      },
+    ),
+    job("x-gave-up", "Split the ledger reads", 77, gaveUp.listed, gaveUp.extra),
+    job(
+      "x-queue",
+      "Land the slot fixes",
+      11,
+      {
+        held_open_by: [
+          {
+            kind: "pull_request",
+            number: 3209,
+            on: "queue",
+          },
+        ],
+      },
+      {
+        held_open_by: [
+          {
+            kind: "pull_request",
+            number: 3209,
+            on: {
+              kind: "queue",
+            },
+          },
+        ],
+      },
+    ),
+    job(
+      "x-checks",
+      "Fix the push retry",
+      16,
+      {
+        held_open_by: [
+          {
+            kind: "pull_request",
+            number: 3218,
+            on: "checks",
+            auto_merge: true,
+          },
+        ],
+      },
+      {
+        held_open_by: [
+          {
+            kind: "pull_request",
+            number: 3218,
+            on: {
+              kind: "checks",
+              auto_merge: true,
+            },
+          },
+        ],
+      },
+    ),
+    job(
+      "x-watch",
+      "Deploy the store to staging",
+      24,
+      {
+        held_open_by: [
+          {
+            kind: "watch",
+            name: "QA deploy",
+          },
+          {
+            kind: "pull_request",
+            number: 3222,
+            on: "auto_merge",
+          },
+        ],
+      },
+      {
+        held_open_by: [
+          {
+            kind: "watch",
+            name: "QA deploy",
+          },
+          {
+            kind: "pull_request",
+            number: 3222,
+            on: {
+              kind: "auto_merge",
+            },
+          },
+        ],
+      },
+    ),
+    job(
+      "x-job",
+      "Check the docs pass",
+      28,
+      {
+        held_open_by: [
+          {
+            kind: "job",
+            name: "Rename the slot pool",
+          },
+        ],
+      },
+      {
+        held_open_by: [
+          {
+            kind: "job",
+            name: "Rename the slot pool",
+          },
+        ],
+      },
+    ),
+    job(
+      "x-limited",
+      "Rewrite the import map",
+      33,
+      {
+        limited_until: new Date(now + 2 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        held_until: new Date(now + 2 * 60 * 60 * 1000).toISOString(),
+      },
+    ),
+    job("x-restarting", "Tidy the doc index", 39, restarting.listed, restarting.extra),
+    job("x-quit", "Sort the settings groups", 44, quit.listed, quit.extra),
+    job(
+      "x-paused",
+      "Sort the palette rows",
+      95,
+      {
+        paused: true,
+      },
+      {
+        hosted: hosted({
+          paused: {
+            at: ago(now, 20),
+          },
+        }),
+      },
+    ),
+    job(
+      "x-reading",
+      "Add the billing export",
+      1,
+      {
+        reading: true,
+      },
+      {
+        proposal: {
+          reading: true,
+        },
+      },
+    ),
+    blank,
+  ];
+  return {
+    live: jobs.map((one) => one.listed),
+    threads: Object.fromEntries(
+      jobs.map((one) => [
+        one.listed.id,
+        one.thread,
+      ]),
+    ),
+  };
+}
+
 export function fixtureMacs(
   now: number,
   origins: {
