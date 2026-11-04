@@ -23,7 +23,7 @@
 //
 // A screen's own controls sit at the top of its content; `App.tsx` is where that moved.
 
-import { FileCog } from "lucide-react";
+import { FileCog, type LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   isPressed,
@@ -133,6 +133,15 @@ export type ShellProps = {
    * app's to know, not the shell's.
    */
   helmAction?: ReactNode;
+  /**
+   * The dock under another name, glyph and width: the Operator's walk, in one of its two takes. `wide` is the dock as wide as the
+   * window lets it be, `full` is the dock over the whole work. Absent is Helm's dock as it is.
+   */
+  dockAs?: {
+    title: string;
+    icon: LucideIcon;
+    span: "wide" | "full";
+  };
   children: ReactNode;
 };
 
@@ -163,6 +172,7 @@ export function Shell({
   helmCalling = false,
   helm,
   helmAction,
+  dockAs,
   children,
 }: ShellProps) {
   // The chrome draws keys, Helm's among them, so it redraws when Settings → Keyboard moves one.
@@ -232,8 +242,22 @@ export function Shell({
               calling: true,
             }
           : {}),
-        width: dockWidth,
-        onResize: resizeDock,
+        ...(dockAs === undefined
+          ? {
+              width: dockWidth,
+              onResize: resizeDock,
+            }
+          : {
+              title: dockAs.title,
+              icon: dockAs.icon,
+              // The widest the dock's range allows: the dock clamps any width to it.
+              width: Number.MAX_SAFE_INTEGER,
+              ...(dockAs.span === "full"
+                ? {
+                    span: "full" as const,
+                  }
+                : {}),
+            }),
         action: helmAction,
         children: <>{helm}</>,
       }}

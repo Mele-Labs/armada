@@ -101,6 +101,7 @@ export function QuestionDeck({
   beneath,
   detail,
   noOther,
+  pick,
 }: {
   questions: readonly AskedQuestion[];
   /** A promise holds Answer disabled until it settles, so a second press cannot send it again. */
@@ -116,12 +117,20 @@ export function QuestionDeck({
   detail?: ReactNode;
   /** The choices are all there is: no Other, where words would have nowhere to go. */
   noOther?: boolean;
+  /** The option someone else picked for the first question, selected as the deck opens so Enter takes it and Answer has the focus: the Operator's pick on a raised question. */
+  pick?: string;
 }) {
   const [held, setHeld, clearHeld] = useKept<Held>(
     keep === undefined ? undefined : `question:${keep}`,
     {
       front: 0,
-      picked: questions.map(() => []),
+      picked: questions.map((_, index) =>
+        index === 0 && pick !== undefined
+          ? [
+              pick,
+            ]
+          : [],
+      ),
       using: questions.map(() => false),
       words: questions.map(() => ""),
     },
@@ -295,6 +304,16 @@ export function QuestionDeck({
   // A number picks the tile it is drawn on, as in the Cockpit.
   const key = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!open || event.target instanceof HTMLInputElement) return;
+    // With a pick made for him, Enter takes what is selected; on an option it still presses that option.
+    if (event.key === "Enter" && pick !== undefined) {
+      if (event.target instanceof HTMLElement && event.target.getAttribute("role") === "radio")
+        return;
+      if (last && complete && !sending) {
+        event.preventDefault();
+        answer();
+      }
+      return;
+    }
     const n = Number(event.key);
     if (!Number.isInteger(n) || n < 1) return;
     if (n <= one.options.length) choose(one.options[n - 1]!.label);
@@ -490,6 +509,7 @@ export function QuestionDeck({
                   variant="primary"
                   disabled={!complete || sending}
                   onClick={answer}
+                  autoFocus={pick !== undefined}
                 >
                   Answer
                   <ThreadKbd act="yes" on={target} />

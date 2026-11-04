@@ -1,0 +1,250 @@
+/* The Operator panel, in Helm's dock. Two takes: `wide`, the dock as wide as the window lets it be, with the parts one under
+   another; and `full`, the dock over the whole work, with the Line, the Log and Permissions side by side and the box under all three. */
+
+.armada-operator {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-panel);
+  min-height: 100%;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-operator[data-take="full"] {
+  display: grid;
+  grid-template-columns: var(--w-dock-min) minmax(0, 1fr) var(--w-dock);
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Side by side, each part scrolls on its own and the box stays put under them. */
+.armada-operator[data-take="full"] > .armada-operator__pane {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.armada-operator[data-take="full"] > .armada-operator__box {
+  grid-column: 1 / -1;
+}
+
+/* One under another, the Log comes first: it is what a person opens the panel to read. */
+.armada-operator[data-take="wide"] > [data-part="log"] {
+  order: -1;
+}
+
+.armada-operator__pane {
+  min-width: 0;
+}
+
+.armada-operator__line,
+.armada-operator__log,
+.armada-operator__permissions,
+.armada-operator__orders,
+.armada-operator__talk {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-operator__title {
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+}
+
+.armada-operator__line-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Each row a grid whose trailing column is the act's, kept where a row has none, so Start now lines up down the list. */
+.armada-operator__line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+}
+
+.armada-operator__line-row,
+.armada-operator__log-row,
+.armada-operator__permission {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: start;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-operator__line-row {
+  cursor: grab;
+}
+
+.armada-operator__line-row[data-dragging] {
+  background: var(--bg-hover);
+}
+
+.armada-operator__line-row:focus-visible {
+  outline: var(--border-width) solid var(--accent);
+  outline-offset: calc(var(--border-width) * -1);
+}
+
+.armada-operator__wait,
+.armada-operator__lock,
+.armada-operator__held,
+.armada-operator__read {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--fg-muted);
+}
+
+/* from, item, what it did, why, age, Start now, Change. */
+.armada-operator__log {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr) minmax(0, 1.4fr) max-content minmax(0, 1.6fr) max-content
+    max-content max-content;
+}
+
+.armada-operator__item,
+.armada-operator__why,
+.armada-operator__does {
+  color: var(--fg-muted);
+}
+
+.armada-operator__did,
+.armada-operator__age {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-operator__age {
+  color: var(--fg-subtle);
+}
+
+.armada-operator__did[data-did="answered"] {
+  color: var(--status-completed-success);
+}
+
+.armada-operator__did[data-did="raised"],
+.armada-operator__did[data-did="returned"] {
+  color: var(--status-awaiting-review);
+}
+
+.armada-operator__did[data-did="delegated"],
+.armada-operator__did[data-did="held"],
+.armada-operator__did[data-did="started"],
+.armada-operator__did[data-did="filed"] {
+  color: var(--status-running);
+}
+
+.armada-operator__did[data-did="passed_on"] {
+  color: var(--status-completed-failed);
+}
+
+.armada-operator__did[data-did="released"],
+.armada-operator__did[data-did="resumed"],
+.armada-operator__did[data-did="moved"] {
+  color: var(--fg-muted);
+}
+
+.armada-operator__permissions,
+.armada-operator__orders {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+}
+
+.armada-operator__permission {
+  align-items: center;
+}
+
+.armada-operator__permission[data-master] {
+  background: var(--bg-sunken);
+}
+
+.armada-operator__does {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-operator__differs {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--status-awaiting-review);
+}
+
+.armada-operator__ceiling {
+  display: block;
+  width: calc(var(--h-control) * 4);
+}
+
+.armada-operator__lock {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+}
+
+.armada-operator__order {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--fg-muted);
+}
+
+/* The box: a short conversation, pinned at the foot while the parts above it scroll. */
+.armada-operator__box {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+
+.armada-operator__talk {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-operator__said {
+  display: flex;
+  align-items: start;
+  gap: var(--space-1);
+}
+
+.armada-operator__said[data-from="you"] {
+  color: var(--fg-muted);
+}
+
+.armada-operator__compose {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content max-content;
+  align-items: end;
+  gap: var(--space-2);
+}
+
+.armada-operator__glyph {
+  display: inline-flex;
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-operator__read {
+  margin: var(--space-1) 0 var(--space-2);
+}
+
+/* The held line, part of the Job's head: the glyph, what it waits for, and Start now in a column of its own. */
+.armada-operator__held {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+}

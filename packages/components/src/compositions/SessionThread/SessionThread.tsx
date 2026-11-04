@@ -3084,9 +3084,15 @@ export function AskCards({
   lapsed,
   flat,
   keep,
+  detail,
+  pick,
 }: Pick<SessionThreadProps, "asked" | "askRef" | "onAnswer" | "lapsed"> & {
   /** Inside a panel that frames it: the question deck without its own card, band or fold. */ flat?: true /** What the ask is about: its answers are kept under it until it is answered. */;
   keep?: string;
+  /** Under a question's words and above its answers: what the Operator read of it, or that it is reading it. */
+  detail?: ReactNode;
+  /** The option the Operator picked, selected as the deck opens. */
+  pick?: string;
 }) {
   // A permission is one of the Job's waiting cards (`thread-keys.tsx`): `⌥↵` Allow once, `⌥X` its refuse. A question's deck registers itself.
   const permission =
@@ -3207,6 +3213,16 @@ export function AskCards({
                   })}
               questions={asked.questions}
               onAnswer={onAnswer}
+              {...(detail === undefined
+                ? {}
+                : {
+                    detail,
+                  })}
+              {...(pick === undefined
+                ? {}
+                : {
+                    pick,
+                  })}
               canSkip={
                 asked.offers === undefined || asked.offers.some((offer) => offer.id === "refuse")
               }

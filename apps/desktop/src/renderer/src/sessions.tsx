@@ -3,6 +3,7 @@
 // What is drawn is `@armada/components`'; this reads the draft
 // (`packages/screens/src/draft/sessions.ts`) into it.
 
+import { HeldNotice, useOperatorRead } from "./operator/marks";
 import {
   JobActsSlot,
   actEntries,
@@ -2017,6 +2018,8 @@ export function SessionView({
   }, [
     session.id,
   ]);
+  // What the Operator made of its question, where this window has an Operator.
+  const operatorRead = useOperatorRead(session.id);
   if (draft === undefined) return null;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   // Folded below the breakpoint, a press on a row closes the ledger's sheet first, so what it opens is not drawn over it.
@@ -2283,9 +2286,26 @@ export function SessionView({
                     asked,
                     keep: `${session.id}:${session.asked?.call ?? asked.command}`,
                   })}
-              onAnswer={(answer, answers, folder, kind) =>
-                draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder, kind)
-              }
+              onAnswer={(answer, answers, folder, kind) => {
+                operatorRead?.answered();
+                return draft.answer(
+                  session.id,
+                  answer as SessionAnswer | undefined,
+                  answers,
+                  folder,
+                  kind,
+                );
+              }}
+              {...(operatorRead === undefined
+                ? {}
+                : {
+                    detail: operatorRead.detail,
+                    ...(operatorRead.pick === undefined
+                      ? {}
+                      : {
+                          pick: operatorRead.pick,
+                        }),
+                  })}
               {...(lapsed === undefined
                 ? {}
                 : {
@@ -2731,6 +2751,7 @@ export function SessionView({
               state={state}
               said={said}
               id={session.id}
+              notice={<HeldNotice session={session.id} />}
               {...(session.address === undefined
                 ? {}
                 : {
