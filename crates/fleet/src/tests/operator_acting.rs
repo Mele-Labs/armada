@@ -22,7 +22,7 @@ async fn switched(rig: &Rig, key: &str, on: bool) {
 }
 
 /// The Operator turned on, which ships off, and its Dispatch role as `on` says.
-async fn dispatch(rig: &Rig, on: bool) {
+pub(super) async fn dispatch(rig: &Rig, on: bool) {
     switched(rig, "features.operator", true).await;
     switched(rig, "features.operatorDispatch", on).await;
 }
@@ -40,7 +40,7 @@ async fn ended(rig: &Rig, id: &SessionId) -> bool {
 }
 
 /// A Job asked `words`, its first message.
-async fn asked(rig: &Rig, words: &str) -> SessionId {
+pub(super) async fn asked(rig: &Rig, words: &str) -> SessionId {
     let id = rig.start().await;
     rig.send(&id, words).await;
     id
@@ -82,7 +82,7 @@ async fn pushed(rig: &Rig, id: &SessionId) {
     .await;
 }
 
-fn shared() -> Vec<String> {
+pub(super) fn shared() -> Vec<String> {
     vec!["apps/panes/terminal.tsx".to_string()]
 }
 

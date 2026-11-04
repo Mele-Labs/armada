@@ -82,6 +82,10 @@ pub(crate) fn base_of(wait: &KeptWait) -> StartBase {
     }
 }
 
+/// The store's word for a wait the Operator set: a hold until another Job pushes. On the wire it is
+/// not the person's, so it reads as the agent's.
+pub(crate) const BY_OPERATOR: &str = "operator";
+
 fn by_kept(by: WaitBy) -> &'static str {
     match by {
         WaitBy::You => "you",
@@ -90,7 +94,7 @@ fn by_kept(by: WaitBy) -> &'static str {
 }
 
 fn by_of(wait: &KeptWait) -> WaitBy {
-    if wait.by == "agent" {
+    if wait.by == "agent" || wait.by == BY_OPERATOR {
         WaitBy::Agent
     } else {
         WaitBy::You
@@ -277,6 +281,25 @@ where
         by: WaitBy,
         tell: bool,
     ) -> Result<SessionRecord, Refusal> {
+        self.wait_kept(waiting, after, brief, held, by_kept(by), tell).await
+    }
+
+    /// [`Self::wait_begun`] for the Operator's hold of a Job on its start card, which stays held for
+    /// the person once the wait ends. Kept as the Operator's, so a hold whose condition can no longer
+    /// be met is known to be its to lift.
+    pub(crate) async fn held_by_operator(&self, waiting: &str, after: StartAfter, brief: String) -> Result<SessionRecord, Refusal> {
+        self.wait_kept(waiting, after, brief, true, BY_OPERATOR, true).await
+    }
+
+    async fn wait_kept(
+        &self,
+        waiting: &str,
+        after: StartAfter,
+        brief: String,
+        held: bool,
+        by: &str,
+        tell: bool,
+    ) -> Result<SessionRecord, Refusal> {
         self.after_checked(waiting, &after).await?;
         let (kind, part) = condition_kept(&after.condition);
         let on = after.session.as_str().to_string();
@@ -291,7 +314,7 @@ where
             held,
             // The Session waited on is told by [`crate::after_following`], which sees the wait once it is published.
             told: !tell,
-            by: by_kept(by).to_string(),
+            by: by.to_string(),
             pull_number: None,
             pull_branch: None,
             created_at: self.now().as_str().to_string(),

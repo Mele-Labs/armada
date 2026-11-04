@@ -114,7 +114,7 @@ pub(crate) enum Begun {
 
 #[derive(Default)]
 pub(super) struct Lines {
-    by_manifest: HashMap<String, VecDeque<String>>,
+    pub(super) by_manifest: HashMap<String, VecDeque<String>>,
     pub(super) entries: HashMap<String, Entry>,
     /// Sessions whose `armada worktree lease` is asking, see [`super::slot_asking`].
     pub(super) wants: HashMap<String, super::slot_asking::Want>,

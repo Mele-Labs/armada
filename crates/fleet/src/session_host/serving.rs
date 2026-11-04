@@ -270,6 +270,17 @@ where
         self.slot_freed_for(free).await
     }
 
+    async fn move_in_line(self: Arc<Self>, moved: ipc::MoveInLine) -> Result<SessionRecord, Refusal> {
+        let place = match moved.place {
+            ipc::LinePlace::Ahead { session_id } => crate::operator::Place::Ahead(session_id.as_str().to_string()),
+            ipc::LinePlace::Behind { session_id } => crate::operator::Place::Behind(session_id.as_str().to_string()),
+            ipc::LinePlace::Last => crate::operator::Place::Last,
+        };
+        let id = moved.session_id.as_str();
+        self.line_corrected(id, place).await?;
+        self.published_hosted(id).await
+    }
+
     async fn dismiss_waiting(
         self: Arc<Self>,
         dismiss: ipc::DismissWaiting,

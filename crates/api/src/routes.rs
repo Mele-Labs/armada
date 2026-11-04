@@ -393,6 +393,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::free_slot::<D>),
         )
         .route(
+            "/sessions/line/move",
+            post(crate::hosted_sessions::move_in_line::<D>),
+        )
+        .route(
             "/sessions/waiting/dismiss",
             post(crate::hosted_sessions::dismiss_waiting::<D>),
         )
