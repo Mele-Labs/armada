@@ -8,7 +8,7 @@ notes = """
 
 **On, Fleet asks the forge to merge each open pull request the Job holds once its checks pass, and each that attaches later**: the pull reading's attach and `claim_pull_request`, whose answer carries `auto_merge_refused` where the forge would not. **Off, it takes auto-merge back with `gh pr merge --disable-auto` from the open ones that have it.** A merged or closed pull request is left alone. A draft cannot be asked, and says so.
 
-**The flag changes first.** A pull request the forge refuses is a 409 `fleet.auto_merge_refused` carrying the forge's words (several are joined), after the flag is kept and `session.changed` published, so the answer is the refusal and the record is the new state. Asking again re-asks the pull requests that still lack it.
+**The answer comes before the forge is asked.** The flag is kept, `session.changed` published and the record answered; each open pull request is then asked in a task of its own, which stops where the flag has changed since. A pull request the forge refuses reaches the Job as one `auto_land_refused` notice carrying the forge's words (several are joined), never as a refusal of this command. Asking again re-asks the pull requests that still lack it.
 
 Refused with nothing changed: 422 `fleet.session_command_refused` for a terminal Job and an ended one; 404 for a Job Fleet does not host.
 """
