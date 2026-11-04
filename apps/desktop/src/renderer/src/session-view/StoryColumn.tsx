@@ -39,8 +39,7 @@ import { useModsMade } from "../mods-made";
 import { stateOf as jobStateOf, stoppedSaid } from "../session-state";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { draftPanelOf } from "../shared-panel/rule";
-import { openDraftCard } from "../job-panes/focus";
-import { showLayer } from "./layers";
+import { openDraftCard, openOwedDocument } from "../job-panes/focus";
 import { AgentTasks } from "./AgentTasks";
 import { detectedOf } from "./detected";
 import { artifactsOf } from "./artifacts";
@@ -516,7 +515,7 @@ export function StoryColumn({
             card !== undefined
               ? () => openDraftCard(session, card)
               : page !== undefined
-                ? () => showLayer(session.id, "document", page)
+                ? () => openOwedDocument(session, page)
                 : undefined;
           return (
             <AskBeat
