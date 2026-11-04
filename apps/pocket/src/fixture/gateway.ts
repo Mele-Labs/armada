@@ -109,11 +109,6 @@ export function answer(
       case "/api/sessions/shown/address": {
         const media = mac.media?.[id]?.[url.searchParams.get("path") ?? ""];
         if (media === undefined) return said(404, "That Job did not show that file.");
-        if ("refused" in media)
-          return {
-            ...said(403, media.refused),
-            delay: MEDIA_DELAY,
-          };
         return {
           ...json({
             address: `${MEDIA_ADDRESS}${media.file}`,
@@ -124,7 +119,7 @@ export function answer(
       }
       case "/api/sessions/shown": {
         const media = mac.media?.[id]?.[url.searchParams.get("path") ?? ""];
-        if (media !== undefined && "file" in media)
+        if (media !== undefined)
           return {
             status: 200,
             type: typeOfMedia(media.file),

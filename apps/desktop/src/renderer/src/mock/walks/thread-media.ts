@@ -1,7 +1,7 @@
 // Pictures and videos a Job showed, drawn in its thread: a press opens a picture full screen, where it zooms by keys, and Close
 // comes back to the thread. Over `thread-media`.
 
-import { button, deckRow, dialog, role, text, walk } from "../walk";
+import { button, deckRow, dialog, role, walk } from "../walk";
 
 const WIDE = "cockpit-wide.jpg";
 const viewer = dialog(WIDE);
@@ -49,8 +49,8 @@ const threadMedia = walk("thread-media", [
     say: "A video has its first frame and its own controls",
   },
   {
-    look: text("This video is too big to send."),
-    say: "A video that was refused says why, in the same height",
+    look: button("Open video"),
+    say: "A video that cannot play here says so at the same height, and opens in your Mac's own player",
   },
 ]);
 

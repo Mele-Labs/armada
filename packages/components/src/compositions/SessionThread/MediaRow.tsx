@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from "react";
+import { ExternalLink } from "lucide-react";
 
+import { Button } from "../../primitives/Button/Button";
 import { Enlargeable } from "../../primitives/Enlargeable/Enlargeable";
 import { Skeleton } from "../../primitives/Skeleton/Skeleton";
 
-/** What the host read for a picture or a video a Job showed. `again` asks for a fresh address, where the first one can lapse. */
+/**
+ * What the host read for a picture or a video a Job showed. `again` asks for a fresh address, where the first one can lapse.
+ * `open` opens the video outside the thread, for one that cannot play in it.
+ */
 export type ShownMedia =
   | {
       kind: "picture";
@@ -13,10 +18,12 @@ export type ShownMedia =
       kind: "video";
       url: string;
       again?: () => Promise<string>;
+      open?: () => void;
     }
   | {
       kind: "refused";
       says: string;
+      open?: () => void;
     };
 
 const PICTURE = /\.(png|jpe?g|gif|webp|heic|svg)$/i;
@@ -37,8 +44,19 @@ function scrollerOf(element: Element): Element | null {
 
 const urlOf = (media: ShownMedia | undefined) => (media?.kind === "picture" ? media.url : undefined);
 
-function MediaLine({ says }: { says: string }) {
-  return <p className="armada-session-media__line">{says}</p>;
+/** Why it did not draw, and where the host can open it some other way, the way out of a frame that holds nothing. */
+function MediaLine({ says, open }: { says: string; open?: (() => void) | undefined }) {
+  return (
+    <div className="armada-session-media__line">
+      <p>{says}</p>
+      {open === undefined ? null : (
+        <Button size="sm" variant="secondary" onClick={open}>
+          <ExternalLink size={12} strokeWidth={2} aria-hidden />
+          Open video
+        </Button>
+      )}
+    </div>
+  );
 }
 
 /** A picture in its frame, sized from what it loads as: the frame's height never moves, only the width follows the picture. */
@@ -109,7 +127,7 @@ export function ShownVideo({
   const asked = useRef(false);
   const resume = useRef<number | undefined>(undefined);
   const player = useRef<HTMLVideoElement>(null);
-  if (failed) return <MediaLine says="This video cannot play here." />;
+  if (failed) return <MediaLine says="This video cannot play here." open={media.open} />;
   return (
     <div className="armada-session-media__video" role="group" aria-label={name}>
       <video
@@ -215,7 +233,7 @@ export function MediaFrame({
   return (
     <div ref={frame} className="armada-session-media">
       {media === undefined ? <Skeleton className="armada-session-media__wait" /> : null}
-      {media?.kind === "refused" ? <MediaLine says={media.says} /> : null}
+      {media?.kind === "refused" ? <MediaLine says={media.says} open={media.open} /> : null}
       {media?.kind === "picture" ? <FramedPicture url={media.url} name={name} /> : null}
       {media?.kind === "video" ? <ShownVideo media={media} name={name} /> : null}
     </div>

@@ -107,16 +107,13 @@ export const threadMedia: Scenario = {
         },
         videoAddress: async (_id: string, path: string): Promise<VideoAddress> => {
           await held();
-          return path === VIDEO
-            ? {
-                ok: true,
-                address: recording,
-              }
-            : {
-                ok: false,
-                says: "This video is too big to send.",
-              };
+          return {
+            ok: true,
+            // The other one is an address that holds no video, so its row draws what one that cannot play draws.
+            address: path === VIDEO ? recording : "/full-run.mov",
+          };
         },
+        openFile: () => undefined,
       };
     },
   },

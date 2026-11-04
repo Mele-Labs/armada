@@ -7,16 +7,24 @@ import type { SessionsDraft } from "@armada/screens/src/draft/sessions";
 const CANNOT_PLAY = "This video cannot play here.";
 
 export async function readShownMedia(
-  draft: Pick<SessionsDraft, "readArtifact" | "videoAddress">,
+  draft: Pick<SessionsDraft, "readArtifact" | "videoAddress" | "openFile">,
   id: string,
   path: string,
 ): Promise<ShownMedia> {
   if (mediaKindOf(path) === "video") {
+    // In whatever plays video on this Mac, which may take what the thread's player does not.
+    const open =
+      draft.openFile === undefined
+        ? {}
+        : {
+            open: () => draft.openFile?.(id, path),
+          };
     const asked = await draft.videoAddress?.(id, path);
     if (asked === undefined)
       return {
         kind: "refused",
         says: CANNOT_PLAY,
+        ...open,
       };
     return asked.ok
       ? {
@@ -27,10 +35,12 @@ export async function readShownMedia(
             if (next?.ok !== true) throw new Error(next?.says ?? CANNOT_PLAY);
             return next.address;
           },
+          ...open,
         }
       : {
           kind: "refused",
           says: asked.says,
+          ...open,
         };
   }
   const read = await draft.readArtifact?.(id, path);

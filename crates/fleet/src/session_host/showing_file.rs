@@ -200,11 +200,8 @@ where
         let gone = |_| not_found(SHOWN_GONE, format!("{path} is no longer there"));
         let size = tokio::fs::metadata(path).await.map_err(gone)?.len();
         if let Some(media_type) = media_type_in(&VIDEOS, path) {
-            // Never read: the Gateway streams it from the disk, so only its size is wanted here.
-            return Ok(match size > MOST_VIDEO_BYTES {
-                true => ShownFile::TooLarge { bytes: size },
-                false => ShownFile::Video { media_type: media_type.to_string(), bytes: size },
-            });
+            // Never read, so no size is too large here: the Gateway streams it from the disk.
+            return Ok(ShownFile::Video { media_type: media_type.to_string(), bytes: size });
         }
         let picture = media_type_in(&PICTURES, path);
         if size > picture.map_or(MOST_SENT, |_| MOST_BYTES) {

@@ -57,6 +57,8 @@
 .armada-session-media__line {
   box-sizing: border-box;
   display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   align-items: center;
   justify-content: center;
   margin: 0;

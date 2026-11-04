@@ -13,13 +13,9 @@ import type {
 
 import type { PhoneSession } from "../gateway";
 
-export type FixtureMedia =
-  | {
-      file: string;
-    }
-  | {
-      refused: string;
-    };
+export type FixtureMedia = {
+  file: string;
+};
 
 export type FixtureMac = {
   name: string;
@@ -281,7 +277,8 @@ export function mediaJob(now: number): {
     [
       "full-run.mov",
       {
-        refused: "This video is too big to send to the phone.",
+        // No such file under `fixture/media`: its address holds no video, so the row draws what one that cannot play draws.
+        file: "full-run.mov",
       },
     ],
   ];

@@ -21,7 +21,7 @@ pub(crate) struct WhichShown {
 }
 
 /// 200 with `ShownText`, a picture's bytes under its type, or `ShownVideo` for a video; 404 for a path
-/// the session did not show; 413 for a file over what the phone is sent of its kind.
+/// the session did not show; 413 for text or a picture over what the phone is sent of its kind.
 pub(crate) async fn get_shown_file<D: Sessions>(
     State(served): State<Served<D>>,
     Query(which): Query<WhichShown>,
@@ -42,10 +42,7 @@ pub(crate) async fn get_shown_file<D: Sessions>(
             StatusCode::PAYLOAD_TOO_LARGE,
             &WireError::raised(
                 SHOWN_TOO_LARGE,
-                format!(
-                    "This file is {bytes} bytes. The phone opens text of up to 1 MiB, pictures of up to 8 MiB \
-                     and videos of up to 256 MiB."
-                ),
+                format!("This file is {bytes} bytes. The phone opens text of up to 1 MiB and pictures of up to 8 MiB."),
                 served.run_id().clone(),
             ),
         ),

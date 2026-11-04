@@ -272,6 +272,7 @@ export async function readShown(machine: Machine, id: string, path: string): Pro
 /** A picture or a video the Job showed, for its row in the thread. A video plays from an address, since a video element cannot sign. */
 export async function readShownMedia(machine: Machine, id: string, path: string): Promise<ShownMedia> {
   if (mediaKindOf(path) === "video") {
+    let latest: string | undefined;
     const address = async () => {
       const said = await getJson<{
         address: string;
@@ -280,13 +281,16 @@ export async function readShownMedia(machine: Machine, id: string, path: string)
         machine,
         `/api/sessions/shown/address?session_id=${encodeURIComponent(id)}&path=${encodeURIComponent(path)}`,
       );
-      return machine.origin + said.address;
+      latest = machine.origin + said.address;
+      return latest;
     };
     try {
       return {
         kind: "video",
         url: await address(),
         again: address,
+        // The browser, which may play what the thread's player does not, at the address asked for last: an older one may have lapsed.
+        open: () => void window.open(latest, "_blank", "noopener"),
       };
     } catch (why) {
       return {
