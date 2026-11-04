@@ -53,6 +53,9 @@ pub struct Start {
     /// Directories beyond the working one the session may read: where its
     /// attachments are kept.
     pub readable: Vec<String>,
+    /// Whether the process may reach the connectors on the person's account: the served
+    /// repository's `connectors`, on where there is no Manifest.
+    pub connectors: bool,
 }
 
 /// What a process says, in the order it said it.
@@ -305,6 +308,10 @@ impl Processes for ProcessHost {
         let hosted = match &start.note {
             Some(note) => hosted.noting(note),
             None => hosted,
+        };
+        let hosted = match start.connectors {
+            true => hosted,
+            false => hosted.without_connectors(),
         };
         // The copy's plugin, when it holds one: a job gets the mod whether or not the person ever
         // installed it into their CLI.

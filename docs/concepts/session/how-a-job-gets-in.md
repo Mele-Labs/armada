@@ -69,7 +69,7 @@ While it is unset, the fallbacks below run; once it is set they stay quiet, so a
 | The output style | `prompt.compose` | nothing | Not told: no event that runs carries it |
 | A reply that owes the person something, held at the stop | `classic.Stop` | nothing | Not checked: only a hook that holds a stop can, and the other way is to put text in front of the model |
 
-**The Job's id and acts are told by Fleet.** The mod's `armadaSession` note reaches the model through `prompt.context` and `classic.SessionStart`, which are skipped.
+**The Job's id and acts are told by Fleet.** The mod's `armadaSession` note reaches the model once, through `classic.SessionStart`, which is skipped, and no subagent carries it.
 A hosted Job's start arguments carry its id after the rules (`docs/contracts/agent-prompt/5f-the-job-rules.md`), and `armada job` reads `ARMADA_SESSION` itself.
 A Job in a terminal is told at the door's handshake, by `armada mcp`, how to read its id (the `CLAUDE_CODE_SESSION_ID` in its Bash environment) and that `armada job` reaches its acts.
 Where the hooks run it is told both ways.

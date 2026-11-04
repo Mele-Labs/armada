@@ -502,6 +502,20 @@ fn a_changed_tracker_gate_or_test_map_is_reported_and_not_adopted() {
     );
 }
 
+/// A hosted Job's process is started with the connectors switch Fleet read when it started, so a
+/// save that moves it waits for a restart too.
+#[test]
+fn a_changed_connectors_switch_is_reported_and_not_adopted() {
+    let repository = Repository::holding(PATIENT);
+    let (manifest, reloads) = reloadable(&repository.manifest());
+
+    repository.save(&format!("{PATIENT}connectors: false\n"));
+    let adopted = reloads.reread().expect("it reads");
+
+    assert!(manifest.connectors());
+    assert_eq!(adopted.at_restart(), [Frozen::Connectors]);
+}
+
 /// An edit sent as a pull request is not in the file yet, so the text it holds
 /// is read in place of the file until it is cleared, and the file after that.
 #[test]
