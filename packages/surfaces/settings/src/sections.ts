@@ -132,6 +132,23 @@ const SCHEMA_SECTIONS: readonly SettingsSection[] = [
     ],
   },
   {
+    id: "token-use",
+    label: "Token use",
+    palette: "Token use",
+    schema: true,
+    settings: [
+      [
+        "Token use",
+        "tokens",
+        "cost",
+        "compaction",
+        "turn summaries",
+        "cache",
+        "thinking",
+      ],
+    ],
+  },
+  {
     id: "harness",
     label: "Harness",
     palette: "Harness",
@@ -593,6 +610,7 @@ const SHIPPED_GROUPS: readonly {
       "machine",
       "account",
       "store",
+      "token-use",
     ],
   },
   {

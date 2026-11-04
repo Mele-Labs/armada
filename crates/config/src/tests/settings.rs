@@ -150,6 +150,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::WATCHES_PER_JOB,
         s::OPERATOR_DAILY_CALLS,
         s::WATCH_GIVE_UP_MINUTES,
+        s::COMPACTION_WINDOW,
     ] {
         assert!(
             matches!(kinds(key.name()), Kind::Integer { .. }),
@@ -196,6 +197,8 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::SUBAGENT_WATCH,
         s::CACHE_WATCH,
         s::OPUS_READING_WATCH,
+        s::SUMMARY_SHORT_CACHE,
+        s::SUMMARY_THINKING,
     ] {
         assert_eq!(kinds(key.name()), Kind::Boolean, "{}", key.name());
     }
@@ -246,6 +249,8 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::THREAD_LOOK,
         s::REACH_FOLDERS,
         s::WORKFLOWS_OFF,
+        s::SKILLS_OFF,
+        s::CONNECTORS_OFF,
     ] {
         assert_eq!(kinds(key.name()), Kind::Json, "{}", key.name());
     }
@@ -256,7 +261,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 22 + 13 + 17 + 28 + 2 + 7 + s::prompt_keys().count();
+    let handles = 23 + 13 + 19 + 28 + 2 + 9 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

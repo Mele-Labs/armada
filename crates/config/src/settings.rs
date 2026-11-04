@@ -21,6 +21,7 @@ mod prompts;
 mod prompts_judge;
 mod resolve;
 mod timeouts;
+mod tokens;
 mod watching;
 
 use std::time::Duration;
@@ -36,6 +37,7 @@ pub use prompts::*;
 pub use prompts_judge::*;
 pub use resolve::{Env, Resolved, Supplied};
 pub use timeouts::*;
+pub use tokens::*;
 pub use watching::*;
 
 /// Where a setting is drawn on Bridge's Settings page.
@@ -63,6 +65,8 @@ pub enum Section {
     Account,
     /// The central store the machines signed in to one account share.
     Store,
+    /// What a Job costs in tokens: when it is compacted, how turn summaries are asked for, and what it starts without.
+    TokenUse,
     /// How much room Bridge draws around rows, panels and controls.
     Spacing,
     /// How a Job's thread reads and what its quick bar offers: the Aa panel and System › Thread.
@@ -108,7 +112,8 @@ impl Section {
             | Section::Retention
             | Section::Machine
             | Section::Account
-            | Section::Store => Group::Fleet,
+            | Section::Store
+            | Section::TokenUse => Group::Fleet,
             Section::Features | Section::Workflows => Group::Features,
             Section::Editor | Section::Terminal | Section::Links => Group::Tools,
             Section::Spacing | Section::Thread | Section::Bridge => Group::Appearance,
@@ -134,6 +139,7 @@ impl Section {
             Section::Machine => "Machine",
             Section::Account => "Account",
             Section::Store => "Store",
+            Section::TokenUse => "Token use",
             Section::Spacing => "Spacing",
             Section::Thread => "Thread",
             Section::Bridge => "Bridge",
@@ -239,6 +245,7 @@ pub fn entries() -> impl Iterator<Item = &'static Entry> {
                 machine::MACHINE,
                 machine::ACCOUNT,
                 machine::STORE,
+                tokens::TOKENS,
                 machine::FEATURES,
                 machine::EDITOR,
                 machine::TERMINAL,

@@ -73,6 +73,7 @@ test("the sidebar lists Kit, Fleet, Mods and Bridge entries in order, and an ent
     "Timeouts",
     "Retention",
     "Plan",
+    "Token use",
     "Machine",
     "Account",
     "Store",

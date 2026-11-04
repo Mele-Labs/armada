@@ -33,8 +33,24 @@ pnpm gitnexus:index
 **What it does:** reads every source file and writes the graph to `.gitnexus/`
 at the repository root, which is ignored. It takes about 300 MB.
 
-**When you run it:** once after cloning, and again when a tool says the index is
-stale. A worktree is its own repository to GitNexus and needs its own index.
+**One index per repository, in its main checkout.**
+Fleet rebuilds it there each time main lands in that checkout, wherever `armada.yml` names the `code_graph` Command under `when_base_moves:`.
+`../concepts/manifest.md`, *When the base moves*.
+Run it yourself only in a clone no Fleet serves.
+
+## Asking it from a worktree
+
+**A slot asks the main checkout's index by path, and never builds its own.**
+Every slot under `.armada/slots/` is a linked worktree of the main checkout, which is the directory holding the shared `.git`:
+
+```sh
+dirname "$(git rev-parse --path-format=absolute --git-common-dir)"
+```
+
+- **Pass that path as `repo`** on every tool call, as `gitnexus-guide`'s *Bind the repository first* says.
+- **Pass your slot as `worktree` to `detect_changes`**, so the diff it reads is yours and not the main checkout's.
+- **The index is main's, not your branch's.** A symbol your branch added is not in it, so read an empty answer about one with a text search.
+- **An index of its own in a slot is a stale copy.** It answers for the commit the slot had when it was built, so delete it with `node .gitnexus/run.cjs clean` in that slot rather than rebuilding it.
 
 **What it needs:** Node and pnpm, and a network the first time — `pnpm dlx`
 fetches the pinned version. Nothing else, and no global install.
@@ -61,8 +77,9 @@ index could not resolve: a call through a plain object, dynamic dispatch, or the
 seam between Rust and TypeScript, which crosses as JSON. Confirm with a text
 search before treating the symbol as unused.
 
-**A stale index answers for the code as it was.** After a rebase or a pull,
-rebuild before trusting an empty answer.
+**A stale index answers for the code as it was.**
+Main's index trails main by one rebuild, and it is not rebuilt while the main checkout is held on other work.
+`node .gitnexus/run.cjs status` in the main checkout names the commit it was built at.
 
 ## Upgrading it
 
