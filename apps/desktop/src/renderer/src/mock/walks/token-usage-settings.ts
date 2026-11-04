@@ -51,6 +51,11 @@ const tokenUsageSettings = walk("token-usage-settings", [
   },
   {
     press: role("switch", "Connectors in ledger"),
+    say: "ledger follows its armada.yml, which leaves connectors on. Next turns them off",
+  },
+  // A press is seen only after Next performs it, so the walk ends on the switch it turned off.
+  {
+    look: role("switch", "Connectors in ledger"),
     say: "Off for ledger: its Jobs start without your account's connectors",
   },
 ]);
