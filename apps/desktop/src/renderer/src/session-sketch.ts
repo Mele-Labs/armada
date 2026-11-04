@@ -20,10 +20,21 @@ type Sketch = Extract<
 >;
 
 /** When a sketch was last drawn, from its `drawn` row id (`<job>-<instant>-<n>`): answering it or taking it back moves its ledger place, not this. */
-function drawnAt(sketch: Sketch): [string, number] {
+function drawnAt(sketch: Sketch): [
+  string,
+  number,
+] {
   const parts = sketch.drawn?.split("-") ?? [];
   const n = Number(parts.at(-1));
-  return parts.length >= 3 && Number.isInteger(n) ? [parts.at(-2) ?? "", n] : ["", 0];
+  return parts.length >= 3 && Number.isInteger(n)
+    ? [
+        parts.at(-2) ?? "",
+        n,
+      ]
+    : [
+        "",
+        0,
+      ];
 }
 
 /** The sketch put to him that was drawn last, answered or not. Fleet's `sketch_items` reads the same one. */

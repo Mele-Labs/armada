@@ -3,11 +3,7 @@
 // A fourth workflow, `doc_review` from the Kit, is in the Workflow menu. The walk `needs-you-missing-items` plays it.
 
 import { repository } from "@armada/screens/src/fixtures/repository";
-import type {
-  Session,
-  SessionWorkActs,
-  WorkflowChoice,
-} from "@armada/screens/src/draft/sessions";
+import type { Session, SessionWorkActs, WorkflowChoice } from "@armada/screens/src/draft/sessions";
 
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
