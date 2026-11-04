@@ -36,6 +36,7 @@ import type {
   FleetAct,
   FleetActKind,
   Session,
+  SessionQuestion,
   SessionActivity,
   SessionAsk,
   SessionAttachment,
@@ -1022,32 +1023,42 @@ export const lapsedAnswerText = (
   answers.map((one) => `${LAPSE_ANSWER} "${one.question}": ${one.chosen.join(", ")}`).join("\n");
 
 /**
- * The last ask with questions in it that nobody answered in time, that was skipped, or that was kept
- * because he was walking a page, while nothing the person said and no newer question came after it.
- * Reading back from the end, the first of those stops the search. **A kept one outlasts what he says
- * during the walk**, his notes and his Approve: only a message that answers it (`lapsedAnswerText`) clears it.
+ * The questions of every ask that nobody answered in time, that was skipped, or that was kept (because
+ * he was walking a page, or nobody answered inside the hold), oldest first, under the newest one's id.
+ * **A kept one outlasts what he says**, his notes, his Approve and his other messages: only a message
+ * that answers it (`lapsedAnswerText`) clears it. A skipped one is cleared by anything he says after it,
+ * and a question asked again later is left to the later ask.
  */
 export function lapsedOf(rows: readonly WireRow[]): Session["lapsed"] {
   let said = false;
+  const later = new Set<string>();
+  let id: string | undefined;
+  const lapsed: SessionQuestion[] = [];
   for (let at = rows.length - 1; at >= 0; at -= 1) {
     const row = rows[at]!;
     if (row.kind === "message" && row.from.kind === "you") {
-      if (row.text.startsWith(LAPSE_ANSWER)) return undefined;
+      if (row.text.startsWith(LAPSE_ANSWER)) break;
       said = true;
       continue;
     }
     if (row.kind !== "ask" || row.ask.questions === undefined || row.ask.questions.length === 0)
       continue;
-    const lapsed =
+    const kept =
       row.state === "kept" || (!said && (row.state === "unanswered" || row.state === "refused"));
-    return lapsed
-      ? {
-          id: row.id,
-          questions: row.ask.questions,
-        }
-      : undefined;
+    for (const asked of row.ask.questions) {
+      if (kept && !later.has(asked.question)) {
+        lapsed.unshift(asked);
+        id ??= row.id;
+      }
+      later.add(asked.question);
+    }
   }
-  return undefined;
+  return id === undefined
+    ? undefined
+    : {
+        id,
+        questions: lapsed,
+      };
 }
 
 const SETTLED: Record<string, string> = {
