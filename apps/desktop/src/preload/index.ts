@@ -254,7 +254,12 @@ import type {
   ProcessTarget,
   SessionSystemRead,
 } from "../shared/api/session-system";
-import type { UsageRulesRead, UsageSummaryRead } from "../shared/api/usage-summary";
+import type {
+  UsageRulesRead,
+  UsageSummaryRead,
+  UsageWindow,
+} from "../shared/api/usage-summary";
+import type { JobTimeRead, UsageHoursRead, UsageTimeRead } from "../shared/api/usage-time";
 import type { ArmadaReportRun, DebugReportRead } from "../shared/api/debug-report";
 import type {
   PullRequestNoteAnswer,
@@ -813,9 +818,13 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.getSessionSystem, sessionId),
   stopProcess: (sessionId: string, target: ProcessTarget): Promise<ProcessStopRead> =>
     ipcRenderer.invoke(CHANNELS.stopProcess, sessionId, target),
-  getUsageSummary: (tzOffsetMinutes: number): Promise<UsageSummaryRead> =>
-    ipcRenderer.invoke(CHANNELS.getUsageSummary, tzOffsetMinutes),
+  getUsageSummary: (tzOffsetMinutes: number, window?: UsageWindow): Promise<UsageSummaryRead> =>
+    ipcRenderer.invoke(CHANNELS.getUsageSummary, tzOffsetMinutes, window),
   getUsageRules: (): Promise<UsageRulesRead> => ipcRenderer.invoke(CHANNELS.getUsageRules),
+  getUsageTime: (): Promise<UsageTimeRead> => ipcRenderer.invoke(CHANNELS.getUsageTime),
+  getUsageHours: (): Promise<UsageHoursRead> => ipcRenderer.invoke(CHANNELS.getUsageHours),
+  getJobTime: (sessionId: string): Promise<JobTimeRead> =>
+    ipcRenderer.invoke(CHANNELS.getJobTime, sessionId),
   getDebugReport: (root: string | null): Promise<DebugReportRead> =>
     ipcRenderer.invoke(CHANNELS.getDebugReport, root),
   runArmadaReport: (root: string | null): Promise<ArmadaReportRun> =>

@@ -1,8 +1,8 @@
 // What the last seven days cost, as Fleet answers `GET /usage/summary`: one request, the offset of the caller's local time
-// the only thing asked. Nothing is kept here; Fleet sums, and the renderer decides when to ask again.
+// and, for a build's tokens, the stretch it ran. Nothing is kept here; Fleet sums, and the renderer decides when to ask again.
 
 import type { Outcome, UsageRules, UsageSummary } from "@armada/protocol";
-import type { UsageRulesRead, UsageSummaryRead } from "../shared/api/usage-summary";
+import type { UsageRulesRead, UsageSummaryRead, UsageWindow } from "../shared/api/usage-summary";
 import { ask } from "./request";
 
 const NOT_CONNECTED: Outcome = {
@@ -10,9 +10,12 @@ const NOT_CONNECTED: Outcome = {
   why: "not_connected",
 };
 
-/** The path for a caller `tzOffsetMinutes` ahead of UTC. */
-export function usageSummaryPath(tzOffsetMinutes: number): string {
-  return `/usage/summary?tz_offset_minutes=${tzOffsetMinutes}`;
+/** The path for a caller `tzOffsetMinutes` ahead of UTC; with a `window`, the turns in `[since, until)` and not the last seven days. */
+export function usageSummaryPath(tzOffsetMinutes: number, window?: UsageWindow): string {
+  const zone = `/usage/summary?tz_offset_minutes=${tzOffsetMinutes}`;
+  return window === undefined
+    ? zone
+    : `${zone}&since=${encodeURIComponent(window.since)}&until=${encodeURIComponent(window.until)}`;
 }
 
 export class UsageSummaryHost {
@@ -22,14 +25,14 @@ export class UsageSummaryHost {
     this.port = port;
   }
 
-  async get(tzOffsetMinutes: number): Promise<UsageSummaryRead> {
+  async get(tzOffsetMinutes: number, window?: UsageWindow): Promise<UsageSummaryRead> {
     const port = this.port();
     if (port === null)
       return {
         ok: false,
         outcome: NOT_CONNECTED,
       };
-    const answer = await ask(port, "GET", usageSummaryPath(tzOffsetMinutes));
+    const answer = await ask(port, "GET", usageSummaryPath(tzOffsetMinutes, window));
     return answer.ok === true
       ? {
           ok: true,
