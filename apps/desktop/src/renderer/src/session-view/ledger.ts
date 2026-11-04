@@ -1,7 +1,7 @@
 // What a Job has produced, as one list in the order it was produced, for the Done zone of the story (`StoryColumn.tsx`). Read from what the Job
 // already holds: the approved plan, the documents he approved or was never asked about, and sketches, the files and pages, the commits in the thread, the walks it ended, the issues
 // attached that have closed and the pull requests that have merged, the mods it made and the follow-ups he kept. Nothing is fetched and nothing is guessed from what an agent said.
-// A draft or open pull request and an open issue are not done: they stand in Now until they land (`unlandedOf`).
+// A draft or open pull request and an open issue are not done: they stand in Open until they land (`unlandedOf`).
 //
 // **The order is the Job's own sequence.** A thread row carries a time and an attachment does not, so the list runs plan, documents, sketches,
 // pages, files, commits, walks, mods, issues, pull requests, follow-ups kept, then the Jobs it started outside its plan that have finished; within a kind,
@@ -218,7 +218,7 @@ export function madeOf(
       bucket: "artifact",
     });
 
-  // An issue is done once it closes and a pull request once it merges; until then they stand in Now (`unlandedOf`).
+  // An issue is done once it closes and a pull request once it merges; until then they stand in Open (`unlandedOf`).
   const groupOfIssue = (number: string) => plan?.groups.find((one) => one.issue === number)?.id;
   for (const issue of attachmentsOf(session, "issue")) {
     if (issue.state !== "closed") continue;
@@ -281,7 +281,7 @@ export function madeOf(
   return out;
 }
 
-/** The issues not yet closed and the pull requests not yet merged, which stand in Now. One whose issue a plan group in `held` works is drawn under that group instead. */
+/** The issues not yet closed and the pull requests not yet merged, which stand in Open. One whose issue a plan group in `held` works is drawn under that group instead. */
 export function unlandedOf(
   session: Session,
   held: readonly {
