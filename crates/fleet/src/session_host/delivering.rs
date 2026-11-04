@@ -153,7 +153,7 @@ where
 
     /// Auto land answered turns the Session's flag on, by the path `set_session_auto_land` takes.
     /// The other two answers leave the flag as it is. **A refusal never undoes the answer**: the
-    /// forge's words go to the agent, as a pull request attaching under Auto land does.
+    /// forge is asked after the reply, and its words go to the agent as a notice of their own.
     pub(crate) async fn auto_land_follows(self: &Arc<Self>, id: &str, choice: Option<DeliveryChoice>) {
         if choice != Some(DeliveryChoice::AutoLand) {
             return;
@@ -175,8 +175,9 @@ where
             self.delivery_pick_kept(id, choice).await;
         }
         if named == Some(DeliveryChoice::AutoLand) {
-            // Named before any pull request exists, so only a terminal or ended Job refuses, and it is said in the log.
-            if let Err(refusal) = self.session_auto_land_set(SetSessionAutoLand { id: SessionId::carried(id), on: true }).await {
+            // Named before any pull request exists, so the flag alone is set: only a terminal or ended
+            // Job refuses, and it is said in the log.
+            if let Err(refusal) = self.auto_land_flag_set(&SetSessionAutoLand { id: SessionId::carried(id), on: true }).await {
                 self.session_warned(id, "auto land was named and not turned on", &refusal.error().message);
             }
         }

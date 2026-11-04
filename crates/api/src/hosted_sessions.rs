@@ -399,7 +399,7 @@ pub(crate) async fn set_session_auto_land<D: HostedSessions>(
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().set_session_auto_land(asked).await {
+    match served.shared().set_session_auto_land(asked).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }
