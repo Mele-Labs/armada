@@ -176,7 +176,7 @@ pub enum Outcome {
     Corrected,
     /// A Job held until another pushed starts as it would have: that other ended without pushing.
     HoldLifted,
-    /// A Job ruled to wait for another's push was already working, so nothing was held.
+    /// A Job ruled to wait for another's push was already working, or waiting on something else, so nothing was held.
     NotHeld,
 }
 
