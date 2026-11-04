@@ -38,6 +38,7 @@ mod session_ledger;
 mod session_loadout;
 mod session_turn_usage;
 mod usage_rule_trips;
+mod waiting_compactions;
 mod fleet_disputes;
 mod bug_reports;
 mod usage_summary;

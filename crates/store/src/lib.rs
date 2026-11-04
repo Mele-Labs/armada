@@ -47,6 +47,7 @@ mod time_summary;
 mod session_turn_usage;
 mod usage_summary;
 mod usage_rule_trips;
+mod waiting_compactions;
 /// A job's word that a Fleet notice was wrong, and the notices its replies are read against.
 mod fleet_disputes;
 mod bug_reports;
@@ -195,6 +196,7 @@ pub use time_summary::{BuildFigures, HourFigures, HoursRead, Medians, SlowJob, S
 pub use session_turn_usage::{KeptOpenCall, KeptReading, KeptToolResult, KeptTurnTimes, KeptTurnUsage};
 pub use usage_summary::{turn_units, DayUsage, Named, PriorUsage, UsageSplit, UsageSummaryRead, TOP_SESSIONS, UNIT_SCALE};
 pub use usage_rule_trips::KeptTrip;
+pub use waiting_compactions::{KeptCompaction, NextRequest};
 pub use fleet_disputes::{KeptDispute, KeptNotice};
 pub use bug_reports::{KeptBugFix, KeptBugReport};
 pub use session_focus::KeptFocus;

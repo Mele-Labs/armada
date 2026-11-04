@@ -1608,6 +1608,21 @@ Whether the call that writes a turn's summary is let think first. Off, summaries
 **The value lives in settings.json under `tokens.summaryThinking`** (live), read at each turn summary.
 """
 
+[settings.token-compact-while-waiting]
+name = "Compact a Job waiting on you"
+scope = "Machine"
+default = "off"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+A trial, shipped off. On, Fleet sends `/compact` to a hosted Job that has waited on the owner for most of its prompt cache's hour, when its context is 100,000 tokens or more, once per wait. A Job that waits past its cache starts again from its whole context; compacted first, it starts from a summary.
+
+**The value lives in settings.json under `tokens.compactWhileWaiting`** (live), read at each sweep of quiet Jobs.
+"""
+
 [settings.token-skills-off]
 name = "Skills switched off for Jobs"
 scope = "Machine"
