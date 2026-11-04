@@ -1266,14 +1266,8 @@ export const register: Register = on => {
   })
 
   // `show_window` places a terminal session by the id it names, which the model cannot learn otherwise.
-  on('prompt.context', async ($, e, next) => {
-    const out = await next(e)
-    if (await $.env.get('ARMADA_DRONE')) return out
-    const id = await $.session.id()
-    return { ...out, blocks: [...out.blocks, { name: 'armadaSession', text: idNote(id) }] }
-  })
-
-  // Again at every start (startup, resume, clear, compact), so the id is never out of view.
+  // Told here and not as a `prompt.context` block, which the main thread would read twice and every subagent
+  // would carry for tools it cannot call. Again at every start (startup, resume, clear, compact), so the id is never out of view.
   on('classic.SessionStart', async ($, e, next) => {
     classicHeard = true
     const out = await next(e)

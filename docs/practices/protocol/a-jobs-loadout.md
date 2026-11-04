@@ -41,7 +41,7 @@ A Bridge that missed one reads the record again on the resync that follows a `Mi
 | `output_style` | The same, in `output-styles/`. A built-in style is `not_read` |
 | `memory_file` | The file at the path the mod reported: `~/.claude/…`, relative to the job's directory, or absolute under one of those two |
 | `rules` | Armada's compiled job rules, `text`, no `path` |
-| `injection` | The `armadaSession` note the mod adds, with the id as `<job id>`, `text`, no `path`. Kept by hand beside `idNote` in `plugins/armada/hooks/register.ts`, and a test fails when they differ |
+| `injection` | The `armadaSession` note the mod adds at each session start, to the main thread only, with the id as `<job id>`, `text`, no `path`. Kept by hand beside `idNote` in `plugins/armada/hooks/register.ts`, and a test fails when they differ |
 | `mcp_server`, `tool`, and a `built_in`, `managed` or `mcp` source | `not_read` with why |
 
 A plugin's folder is its `installPath` in the harness's record of installed plugins.
