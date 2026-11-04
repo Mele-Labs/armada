@@ -22,6 +22,8 @@ const GROUP: Record<string, string> = {
   Machine: "Fleet",
   Account: "Fleet",
   Store: "Fleet",
+  "Token use": "Fleet",
+  Repository: "Fleet",
   Harness: "Agents",
   Model: "Agents",
   Effort: "Agents",
@@ -571,6 +573,67 @@ export const MOCK_SETTINGS: SettingsList = {
     ),
   ],
 };
+
+/**
+ * Settings Fleet does not serve yet, drawn for the walk `token-usage-settings` before the schema has them: what a
+ * Job costs in tokens, and the connectors switch for one repository, saved off. Not in `MOCK_SETTINGS`, so no other
+ * walk draws them.
+ */
+export const TOKEN_USE_SETTINGS: readonly Setting[] = [
+  row(
+    "Token use",
+    "tokens.hiddenSkills",
+    "Skills hidden from Jobs",
+    "Fleet leaves these skills out of the list every Job starts with, so they cost nothing per request. Skills the repository brings and skills named armada: are never hidden.",
+    LIST,
+    [],
+    {
+      saved: [
+        "gitnexus-cli",
+        "pptx",
+        "docx",
+        "xlsx",
+        "pdf",
+      ],
+    },
+  ),
+  row(
+    "Token use",
+    "tokens.compactionWindow",
+    "Compaction window",
+    "A Job's conversation is compacted once it reaches this many tokens. Smaller saves tokens on every later request, and larger keeps more of the thread word for word.",
+    count(100_000, 1_000_000, "tokens"),
+    250_000,
+  ),
+  row(
+    "Token use",
+    "tokens.summaryShortCache",
+    "Short cache for turn summaries",
+    "Turn summaries written in the background keep their prompt cache for five minutes. Off, they keep it for an hour.",
+    BOOLEAN,
+    true,
+  ),
+  row(
+    "Token use",
+    "tokens.summaryThinking",
+    "Thinking for turn summaries",
+    "Turn summaries written in the background use thinking. Measured without it on 60 summaries, quality held and output fell from 210 to 148 tokens.",
+    BOOLEAN,
+    false,
+  ),
+  row(
+    "Repository",
+    "repository.connectors",
+    "Connectors",
+    "Jobs in this repository start with the connectors on your claude.ai account, such as Notion, Drive and Slack. Off, they start without them. Servers in the repository's own .mcp.json are kept, and sessions started outside Armada are unaffected.",
+    BOOLEAN,
+    true,
+    {
+      saved: false,
+      applies: "at_restart",
+    },
+  ),
+];
 
 /**
  * A save, as Fleet answers it: each change set or removed, the value in force recomputed, and a key
