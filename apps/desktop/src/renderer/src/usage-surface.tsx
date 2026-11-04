@@ -25,7 +25,7 @@ export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" 
   const [summary, setSummary] = useState<UsageSummary | undefined>(undefined);
   const [rules, setRules] = useState<UsageRules | undefined>(undefined);
   const connected = state.connection.state === "connected";
-  const { time, builds, hours, read: readTime } = useTimeReads();
+  const { time, builds, hours, read: readTime, pick } = useTimeReads();
   useEffect(() => {
     if (!connected) return;
     let live = true;
@@ -63,5 +63,6 @@ export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" 
       time={time}
       builds={builds}
       hours={hours}
+      onBuild={pick}
     />;
 }

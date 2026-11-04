@@ -78,6 +78,8 @@ export type UsagePageProps = {
   builds?: UsageBuilds | "pending" | undefined;
   /** The last 48 hours, an hour a point. Absent draws no hour chart; `pending` draws its shape. */
   hours?: UsageHours | "pending" | undefined;
+  /** Told the id of the build picked, and again with nothing when it is cleared: a build's tokens are read when it is picked. */
+  onBuild?: ((id: string | undefined) => void) | undefined;
 };
 
 const VIEWS = [
@@ -695,7 +697,16 @@ function SessionRow({
   );
 }
 
-export function UsagePage({ summary, titles, planPercent, rules, time, builds, hours }: UsagePageProps) {
+export function UsagePage({
+  summary,
+  titles,
+  planPercent,
+  rules,
+  time,
+  builds,
+  hours,
+  onBuild,
+}: UsagePageProps) {
   const [view, setView] = useState<"tokens" | "time">("tokens");
   const [cursor, setCursor] = useState(-1);
   const [rulePick, setRulePick] = useState(-1);
@@ -705,6 +716,13 @@ export function UsagePage({ summary, titles, planPercent, rules, time, builds, h
   const [hour, setHour] = useState<number | undefined>(undefined);
   const [hoverHour, setHoverHour] = useState<number | undefined>(undefined);
   const [build, setBuild] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    onBuild?.(build);
+  }, [
+    build,
+    onBuild,
+  ]);
 
   const listed = builds === undefined || builds === "pending" ? undefined : builds;
   const drawn = hours === undefined || hours === "pending" ? undefined : hours;
