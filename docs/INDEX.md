@@ -160,6 +160,9 @@ approximations.
 - [`design/flight-control-layout.md`](design/flight-control-layout.md) — why
   Flight control is hard to find things in, the takes that sorted its
   controls by kind, and the one the owner approved on 26 Oct 2026.
+- [`design/no-small-call-moves-to-the-on-device-model-yet.md`](design/no-small-call-moves-to-the-on-device-model-yet.md)
+  — why none of Fleet's small model calls moves to Apple's on-device model yet,
+  and the two that are tried first.
 - [`design/who-sees-each-piece-of-configuration.md`](design/who-sees-each-piece-of-configuration.md)
   — who sees a person's tiles, `armada.yml`, workflows and review tools for a
   repository: yours, the repository's, or a package shared by hand.
@@ -290,10 +293,6 @@ approximations.
 - [`spikes/038-how-far-behind-is-another-machine-on-beads.md`](spikes/038-how-far-behind-is-another-machine-on-beads.md)
   — two beads databases over a GitHub remote: a write is not pushed by itself, a sync takes 12 to 33 seconds,
   and two machines claiming one issue are both told yes until a sync settles it, the later write winning.
-- [`spikes/039-can-the-on-device-model-take-fleets-small-calls.md`](spikes/039-can-the-on-device-model-take-fleets-small-calls.md)
-  — Apple's on-device model as a Fleet caller: 22 MB and 0.1 s of CPU per call against a 300 MB process, a 4,096-token window,
-  no guardrail trips in about 300 calls, and 79 of 80 running summaries repeating the prompt's own example; move no call yet,
-  and trial the quick-reply chips and the dispute read first.
 - [`spikes/item-clarity.md`](spikes/item-clarity.md)
   — whether the owner can act on an item an agent puts on his Needs you list, by rules and by an
   `item_clear` head: 569 labelled items, rules alone against the head and both, dev folds and a held half,
