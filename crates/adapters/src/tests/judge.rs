@@ -303,3 +303,38 @@ fn a_relative_checkout_is_refused() {
         })
     );
 }
+
+/// An ask for a brief cache sets the shortest prefix lifetime on both renders, and every other
+/// ask carries no such variable: the default stays with every call that did not say so.
+#[test]
+fn an_ask_kept_briefly_asks_for_the_short_cache_and_no_other_ask_does() {
+    let agent = HeadlessAgent::on_path();
+    let held = |call: &adapter_traits::JudgeCall| {
+        call.environment()
+            .vars()
+            .iter()
+            .find(|(name, _)| name == "CLAUDE_CODE_PROMPT_CACHE_TTL")
+            .map(|(_, value)| value.clone())
+    };
+    for call in [
+        agent.render(&ask().kept_briefly()),
+        agent.render_watched(&ask().kept_briefly()),
+        agent.render(&reading().kept_briefly()),
+    ] {
+        assert_eq!(held(&call).as_deref(), Some("5m"));
+    }
+    for call in [agent.render(&ask()), agent.render_watched(&ask()), agent.render(&reading())] {
+        assert_eq!(held(&call), None);
+    }
+}
+
+/// What the brief ask adds is the one variable. The caller's own environment and the unattended
+/// mark stay as they were.
+#[test]
+fn an_ask_kept_briefly_changes_the_environment_by_one_variable() {
+    let call = HeadlessAgent::on_path().render(&ask().kept_briefly());
+    assert_eq!(
+        call.environment().names(),
+        vec!["PATH", "ARMADA_DRONE", "CLAUDE_CODE_PROMPT_CACHE_TTL"]
+    );
+}

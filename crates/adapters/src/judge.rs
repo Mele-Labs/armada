@@ -161,9 +161,25 @@ impl HeadlessAgent {
     }
 }
 
+/// The variable that sets how long the CLI asks for its prompt prefix to be kept, and its shortest
+/// value. Measured on one real call: `5m` moved every written token of the prefix from the hour
+/// bucket to the five-minute one, which is billed at 1.25 times the input price and not 2.
+const PROMPT_CACHE_TTL: (&str, &str) = ("CLAUDE_CODE_PROMPT_CACHE_TTL", "5m");
+
+/// The call as rendered, with the cache lifetime an ask for a brief one gets.
+fn shaped(ask: &Ask, call: JudgeCall) -> JudgeCall {
+    match ask.is_kept_briefly() {
+        true => call.with_variable(PROMPT_CACHE_TTL.0, PROMPT_CACHE_TTL.1),
+        false => call,
+    }
+}
+
 impl ModelClient for HeadlessAgent {
     fn render(&self, ask: &Ask) -> JudgeCall {
-        JudgeCall::rendered(ask, self.program(), asking(ask, Watched::No)).unattended()
+        shaped(
+            ask,
+            JudgeCall::rendered(ask, self.program(), asking(ask, Watched::No)).unattended(),
+        )
     }
 
     /// The same call, printing what it is doing while it does it.
@@ -174,7 +190,10 @@ impl ModelClient for HeadlessAgent {
     /// shared builder below is what makes that true by construction rather than
     /// by two lists agreeing.
     fn render_watched(&self, ask: &Ask) -> JudgeCall {
-        JudgeCall::rendered(ask, self.program(), asking(ask, Watched::Yes)).unattended()
+        shaped(
+            ask,
+            JudgeCall::rendered(ask, self.program(), asking(ask, Watched::Yes)).unattended(),
+        )
     }
 
     /// Read one line of what [`render_watched`](ModelClient::render_watched)
