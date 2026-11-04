@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Background delivery: a Job ends at its push</title>
+<link rel="stylesheet" href="armada-kit.css">
+<style>
+  td.n, th.n { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+  .rec { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Background delivery: a Job ends at its push</h1>
+<p>Most of this exists already, and the build is smaller than the brief suggests. Fleet already runs <code>gh pr merge --auto</code> itself, reads every open pull request every 60 seconds, and can park a Job's slot and bring it back on the same branch with the same conversation, which is what pause and Resume do. What is missing is the trigger: a Job with Auto land on should be parked at its push, and woken by Fleet on red or conflict instead of by your Resume. Fleet should also merge main in itself when that is clean. One finding changes point 1: Jobs already run named tests rather than suites, and those still take 10 to 15 minutes, so the fix for that half is in how a Check spends its time.</p>
+
+<h2>What 4 Nov measured</h2>
+<table>
+<caption>Check runs from the store, 28 Oct to 4 Nov, and CI runs from the forge on 4 Nov</caption>
+<thead><tr><th>Fact</th><th class="n">Value</th><th>Source</th></tr></thead>
+<tbody>
+<tr><td><code>test</code> runs that named their tests</td><td class="n">383 of 388</td><td><code>session_check_runs.target</code></td></tr>
+<tr><td>Named <code>test</code> runs recorded failed</td><td class="n">226 of 383</td><td>Same</td></tr>
+<tr><td>Runs recorded failed at 895 seconds or more, which are timeouts</td><td class="n">20</td><td>Same</td></tr>
+<tr><td>Failed runs in the 20:00 hour on 4 Nov, mean length</td><td class="n">18, 610 s</td><td>Same</td></tr>
+<tr><td>Jobs that ran a Check on 4 Nov</td><td class="n">12</td><td>Same</td></tr>
+<tr><td>Log tail of the two latest timeouts</td><td>An unused-import warning, still compiling <code>crates/fleet</code></td><td>Same</td></tr>
+<tr><td>Pull request <code>ci</code> run</td><td class="n">4 to 28 min</td><td><code>gh run list</code></td></tr>
+<tr><td>Merge queue run</td><td class="n">3 to 23 min</td><td>Same</td></tr>
+<tr><td>Merge queue failures in a row, 18:50 to 19:38</td><td class="n">8</td><td>Same</td></tr>
+</tbody>
+</table>
+<p>The structural cause of the slow runs is compile contention. Each slot keeps its own warm <code>target/</code>, so a build is not cold for want of a folder. A named test in <code>crates/fleet</code> still links that crate's whole test binary, and every run on the Mac shares one compiler job pool sized four under the core count (<code>crates/checks-runner/src/build_slots.rs</code>). With eight running, each build gets a fraction of the Mac. The 900 seconds covers that build as well as the tests (<code>crates/checks-runner/src/run.rs:290</code>).</p>
+
+<h2>The flow</h2>
+<armada-sketch title="From push to merged"><script type="application/json">
+{"nodes":[
+  {"id":"push","kind":"box","x":0,"y":0,"title":"Job pushes","body":"Fast Checks passed, pull request open, Auto land on","icon":"git-branch","step":1},
+  {"id":"park","kind":"box","x":330,"y":0,"title":"Fleet parks the Job","body":"Slot given back, agent ended, Job reads Landing","icon":"hard-drive","step":2,"color":"green"},
+  {"id":"watch","kind":"box","x":660,"y":0,"title":"Fleet watches ci and the queue","body":"Every 60 seconds, as today","icon":"eye","step":3},
+  {"id":"merged","kind":"box","x":990,"y":0,"title":"Merged","body":"Recorded, Job ends","icon":"git-merge","step":4,"color":"green"},
+  {"id":"behind","kind":"box","x":660,"y":170,"title":"Main moved","body":"Fleet merges main in without a slot, and pushes","icon":"git-merge","step":5},
+  {"id":"red","kind":"box","x":330,"y":340,"title":"Red ci or a real conflict","icon":"activity","step":6,"color":"red"},
+  {"id":"wake","kind":"box","x":0,"y":340,"title":"Fleet wakes the same Job","body":"Slot back on its branch, conversation resumed, failure log in the message","icon":"bot","step":7},
+  {"id":"preview","kind":"box","x":330,"y":170,"title":"Your preview","body":"Includes every Landing branch","icon":"eye","step":2}
+],"edges":[
+  {"id":"e1","from":"push","to":"park","step":2},
+  {"id":"e2","from":"park","to":"watch","step":3},
+  {"id":"e3","from":"watch","to":"merged","label":"green","step":4},
+  {"id":"e4","from":"watch","to":"behind","label":"behind","step":5},
+  {"id":"e5","from":"behind","to":"watch","step":5},
+  {"id":"e6","from":"watch","to":"red","step":6,"color":"red"},
+  {"id":"e7","from":"red","to":"wake","step":7},
+  {"id":"e8","from":"wake","to":"push","label":"fix, push","step":7},
+  {"id":"e9","from":"park","to":"preview","step":2}
+]}
+</script></armada-sketch>
+
+<h2>1. Before the push</h2>
+<p>Jobs already run named tests. In a week, 383 of 388 <code>test</code> runs named them. Telling Jobs to skip the suite changes little. Three changes do:</p>
+<ul>
+<li><strong>The compile gets its own budget.</strong> <code>one_test</code> gains a prerequisite that only builds (<code>cargo nextest run --no-run</code>). The runner already gives each prerequisite its own budget, so a squeezed build no longer eats the test's 900 seconds.</li>
+<li><strong>Rust type-check runs before the pull request opens.</strong> The <code>runs_at: pre_pr</code> mechanism already runs <code>format_check</code> for the TypeScript workspaces at that moment (<code>crates/fleet/src/session_host/pre_pr.rs</code>). The root <code>typecheck</code> joins it for the crates a change reaches.</li>
+<li><strong>The skills that say what to run before landing name only the tests the Job wrote, shown red then green.</strong> <code>verify-before-done</code>, <code>implement-change</code> and <code>land-branch</code> are reread for any line that sends a Job to a whole suite.</li>
+</ul>
+
+<h2>2. Hand-off at the push</h2>
+<p>When a Job's turn ends with its pull request open, Auto land on, a clean tree, everything pushed and nothing in Needs you, Fleet parks it. The slot goes back to the pool on the branch's tip, and the agent process ends. The Job reads <strong>Landing</strong> in the Work list until it merges. The same rule already gives a slot back once its pull request merges (<code>docs/concepts/fleet.md</code>, the Merged row), so this moves the moment earlier rather than adding an act. The agent needs to do nothing new: <code>all_done</code> stays refused while the pull request is open, as today.</p>
+<p>A Job with Auto land off keeps its slot, because you may still ask it for changes before you merge.</p>
+
+<h2>3. What Fleet does while it lands</h2>
+<table>
+<thead><tr><th>Event</th><th>Today</th><th>Proposed</th></tr></thead>
+<tbody>
+<tr><td>ci green</td><td>Fleet asks the forge for auto-merge (<code>crates/fleet/src/session_host/auto_landing.rs:187</code>)</td><td>Unchanged</td></tr>
+<tr><td>Main moved, merge is clean</td><td>Fleet tells the Job to merge main in (<code>crates/fleet/src/behind_bay.rs:82</code>, <code>queue_guard.rs:134</code>)</td><td>Fleet merges it itself with <code>git merge-tree --write-tree</code> in its own checkout. No slot, no compile. It pushes the merge commit and CI tests it</td></tr>
+<tr><td>Main moved, merge conflicts</td><td>Tells the Job</td><td>Wakes the Job (section 4)</td></tr>
+<tr><td>Merged</td><td>Attachment set to merged (<code>crates/fleet/src/pull_requesting.rs:294</code>)</td><td>Unchanged, and the Landing Job ends</td></tr>
+</tbody>
+</table>
+
+<h2>4. Red or conflict: the same Job, not a ci-fixer</h2>
+<p class="rec">Recommendation: wake the same Job.</p>
+<table>
+<thead><tr><th></th><th>Wake the same Job</th><th>A fresh <code>armada:ci-fixer</code> Job</th></tr></thead>
+<tbody>
+<tr><td>Knows why the change was made</td><td>Yes, its conversation resumes with <code>--resume</code></td><td>Only what the brief carries</td></tr>
+<tr><td>Rows in your Work list</td><td>One, the same Job</td><td>Two per failure, and you match them up</td></tr>
+<tr><td>Code that exists</td><td>Re-lease on the branch (<code>lease_existing_slot</code>), resume and the failure notice all exist. The missing part is letting a Fleet notice wake a parked Job, which today gets nothing (<code>crates/fleet/src/session_host/serving/sending.rs:44</code>)</td><td>Nothing dispatches a ci-fixer today</td></tr>
+<tr><td>Cost to wake</td><td>Its context is reloaded, so the prompt cache is cold after an hour</td><td>A fresh context that has to read the code again</td></tr>
+</tbody>
+</table>
+<p>One addition: a merge queue failure on a branch whose own pull request run was green is queued once more before the Job is woken. Fleet already reruns a hung job once without telling anyone (<code>pull_notices.rs:354</code>). On 4 Nov, 8 queue runs failed in a row, mostly <code>desktop_unit</code>. Fixing those tests is the separate Job, and this only stops a red the branch did not cause from waking an agent.</p>
+
+<h2>Beads gates or Fleet's own reading</h2>
+<p class="rec">Recommendation: Fleet's own reading of the pull request wakes the Job. A beads gate can mirror the wait into the backlog, and the mechanism does not depend on it.</p>
+<p>Beads 1.3.2 has gates that block a step until a condition holds. Fleet would run <code>bd gate check</code> on its own timer, and <code>bd ready --gated</code> lists what just opened. Read from <code>bd gate check --help</code>:</p>
+<table>
+<thead><tr><th>Event the hand-off must catch</th><th><code>gh:pr</code> gate</th><th><code>gh:run</code> gate</th><th>Fleet's pull reading, today</th></tr></thead>
+<tbody>
+<tr><td>Merged</td><td>Resolves</td><td>No</td><td>Yes</td></tr>
+<tr><td>Red <code>ci</code></td><td>No. A red pull request is still open, so the gate stays open</td><td>Escalates, for the one run it names. Each push starts a new run and needs a new gate (<code>bd gate discover</code>)</td><td>Yes, with the failing checks and the log tail</td></tr>
+<tr><td>Conflict with main</td><td>No</td><td>No</td><td>Yes</td></tr>
+<tr><td>Left the merge queue</td><td>No</td><td>Only if the queue's run is the one named</td><td>Yes</td></tr>
+<tr><td>Closed without merging</td><td>Escalates</td><td>No</td><td>Yes</td></tr>
+<tr><td>Calls to GitHub per minute</td><td>One <code>gh pr view</code> per gate</td><td>One <code>gh run view</code> per gate</td><td>One list for every open pull request</td></tr>
+</tbody>
+</table>
+<p>Gates would not replace the reading, because they miss conflicts and queue drops and see red only run by run, so Fleet would keep its loop and add a second one. They also tie the wake to the tracker a repository chose. A repository whose tracker is not beads, and a Job with no issue, would have no gate, while the hand-off has to work for every Auto land Job. What a gate adds is a record in the backlog: the Deliver bead reads blocked until the pull request merges. If you widen your use of beads, that record costs one write when Fleet parks the Job, through the plan mirror (<code>crates/fleet/src/plan_mirror.rs</code>), and one when it merges. That can come later without changing the hand-off.</p>
+
+<h2>5. Your preview</h2>
+<p><code>scripts/preview</code> merges only branches that sit in a slot, so a parked Job would drop out of it. The preview reads the Landing branches from Fleet as well, and leaves out any Fleet reports merged. It still restarts only when you press Refresh preview. That was your decision (<code>crates/fleet/src/building.rs:15</code>), and this does not change it.</p>
+
+<h2>6. A timeout reads as timed out</h2>
+<p>The runner already knows the difference: <code>Exit::TimedOut</code> (<code>crates/checks-runner/src/run.rs:328</code>). It is lost at <code>crates/armada/src/session_checks.rs:147</code>, which passes only "exit code 0 or not". The fix carries a <code>timed_out</code> state through the store, the wire (<code>crates/ipc/src/session_checks.rs:13</code>) and Bridge, with its own glyph and a tooltip naming the limit. The run's time is measured from when the Check took its slot rather than from when it started waiting, which is why runs show up to 1,134 seconds against a 900-second limit. The log ends with the line that says it was stopped at the limit.</p>
+
+<h2>Running off the Mac</h2>
+<p class="rec">Recommendation: none of these now. CI is already the machine off your Mac, and point 1 hands it the suite.</p>
+<table>
+<thead><tr><th>Option</th><th>What it moves</th><th>What it costs</th><th>What Fleet loses sight of</th></tr></thead>
+<tbody>
+<tr><td>Claude Code cloud sessions</td><td>The whole Job</td><td>Usage on your plan, a setup script for the toolchain, and a cold Rust build in each session with no warm <code>target/</code></td><td>Everything but the branch and the pull request. Every hook posts to <code>127.0.0.1</code> and reads <code>fleet.json</code>, which exist only here, so the slot gate, reports, Needs you, windows and Check records all go dark</td></tr>
+<tr><td>Agent tool <code>isolation: remote</code></td><td>One subagent</td><td>The same cold build per subagent</td><td>Its tool calls. The parent gets only its summary</td></tr>
+<tr><td>sccache across slots</td><td>Nothing; shares compiled dependencies</td><td>Incremental builds must be off, which slows every edit and compile. Another project measured a 12% hit rate across worktrees. One server per disk</td><td>Nothing</td></tr>
+<tr><td>A VM that runs Checks only</td><td>Compile work</td><td>The VM, copying each worktree's state to it, a warm target per branch, and Linux rather than macOS</td><td>Nothing, if <code>armada check</code> drives it and records the run</td></tr>
+</tbody>
+</table>
+<p>A Checks-only VM is the one worth revisiting, if named runs still time out once the compile has its own budget.</p>
+
+<h2>What was not measured</h2>
+<ul>
+<li>How much of a run's time was waiting for a Check slot and how much was compiling. The store does not split them, and fixing that is part of section 6.</li>
+<li>How many slots Jobs with an open pull request held at the peak. The brief's "every Job holds its slot" was not counted.</li>
+<li>How many of the 226 failed named runs were deliberate reds, compile errors or real failures.</li>
+<li>Whether <code>--no-run</code> as a prerequisite reuses the build for the test run in every case. Both use the same profile and target, so it should.</li>
+<li>Whether a resumed conversation keeps enough context after a day in Landing. Long Jobs already resume after the 10-minute quiet timeout, which suggests it does.</li>
+</ul>
+</body>
+</html>
