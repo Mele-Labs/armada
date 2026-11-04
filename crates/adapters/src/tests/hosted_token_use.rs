@@ -74,3 +74,15 @@ fn connectors_are_kept_out_when_off_and_fetched_when_on() {
     assert_eq!(env_of(&launching().without_connectors(), name).as_deref(), Some("false"));
     assert_eq!(env_of(&launching(), name), None);
 }
+
+#[test]
+fn a_repositorys_own_skill_is_found_by_its_folder_and_file() {
+    let root = std::env::temp_dir().join(format!("armada-own-skill-{}", std::process::id()));
+    let folder = root.join(".claude/skills/release-notes");
+    std::fs::create_dir_all(&folder).expect("a folder");
+    assert!(!crate::has_own_skill(&root, "release-notes"), "a folder with no SKILL.md is no skill");
+    std::fs::write(folder.join("SKILL.md"), "---\nname: release-notes\n---\n").expect("a skill");
+    assert!(crate::has_own_skill(&root, "release-notes"));
+    assert!(!crate::has_own_skill(&root, "pptx"));
+    std::fs::remove_dir_all(&root).expect("cleaned up");
+}

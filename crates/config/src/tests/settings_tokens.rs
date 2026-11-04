@@ -75,7 +75,7 @@ fn the_summary_switches_take_a_boolean_and_nothing_else() {
 
 #[test]
 fn the_two_per_repository_maps_are_taken_whole_and_an_empty_one_is_taken() {
-    let skills = SettingValue::from_json_text(r#"{"01REPO":["pptx","anthropic-skills:docx"]}"#).expect("JSON");
+    let skills = SettingValue::from_json_text(r#"{"01REPO":["pptx","acme-skills:docx"]}"#).expect("JSON");
     let connectors = SettingValue::from_json_text(r#"{"01REPO":true,"01OTHER":false}"#).expect("JSON");
     let taken = resolved(&[("tokens.skillsOff", skills.clone()), ("tokens.connectorsOff", connectors.clone())]).expect("taken");
     assert_eq!(taken.get(s::SKILLS_OFF), Some(skills));

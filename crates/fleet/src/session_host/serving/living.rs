@@ -241,7 +241,11 @@ where
                         token_use::skills_off(
                             now.get(keys::SKILLS_OFF),
                             &hosting.manifest_id,
-                            served.as_ref().map(|served| Path::new(served.root())),
+                            |name| {
+                                served
+                                    .as_ref()
+                                    .is_some_and(|served| adapters::has_own_skill(Path::new(served.root()), name))
+                            },
                         ),
                     )
                 };

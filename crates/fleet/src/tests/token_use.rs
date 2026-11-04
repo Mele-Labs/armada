@@ -6,7 +6,6 @@ use std::collections::BTreeMap;
 use adapter_traits::{Ask, Environment, Model};
 use store::settings_file::SettingValue;
 
-use super::tmp::TempDir;
 use crate::session_host::account::summary_asked;
 use crate::session_host::token_use::{connectors_on, skills_off};
 
@@ -38,22 +37,18 @@ fn a_connectors_value_that_is_not_the_shape_follows_armada_yml() {
 
 #[test]
 fn skills_off_for_a_repository_leave_out_its_own_skills_and_the_rest_are_kept() {
-    let root = TempDir::new();
-    std::fs::create_dir_all(root.path().join(".claude/skills/release-notes")).expect("a skill folder");
     let off = map(vec![
-        ("repo", names(&["pptx", "release-notes", "anthropic-skills:docx", "armada:root-cause"])),
+        ("repo", names(&["pptx", "release-notes", "acme-skills:docx", "armada:root-cause"])),
         ("another", names(&["other"])),
     ]);
-    // `armada:` ones are the adapter's to refuse; a repository's own, which only Fleet can find, are left out here.
-    assert_eq!(
-        skills_off(off.clone(), "repo", Some(root.path())),
-        ["pptx", "anthropic-skills:docx", "armada:root-cause"]
-    );
-    assert_eq!(skills_off(off.clone(), "another", Some(root.path())), ["other"]);
-    assert!(skills_off(off.clone(), "none", Some(root.path())).is_empty());
-    assert!(skills_off(None, "repo", Some(root.path())).is_empty());
-    assert!(skills_off(map(vec![("repo", SettingValue::Bool(true))]), "repo", None).is_empty());
-    assert_eq!(skills_off(off, "repo", None).len(), 4, "no checkout, nothing to find");
+    let own = |name: &str| name == "release-notes";
+    // `armada:` ones are the adapter's to refuse; a repository's own, which only the checkout says, are left out here.
+    assert_eq!(skills_off(off.clone(), "repo", own), ["pptx", "acme-skills:docx", "armada:root-cause"]);
+    assert_eq!(skills_off(off.clone(), "another", own), ["other"]);
+    assert!(skills_off(off.clone(), "none", own).is_empty());
+    assert!(skills_off(None, "repo", own).is_empty());
+    assert!(skills_off(map(vec![("repo", SettingValue::Bool(true))]), "repo", own).is_empty());
+    assert_eq!(skills_off(off, "repo", |_| false).len(), 4, "no skill of its own, nothing left out");
 }
 
 fn ask() -> Ask {
