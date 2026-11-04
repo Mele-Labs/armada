@@ -44,6 +44,8 @@ pub type Done<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 /// Fleet, as far as the Operator reaches it.
 pub trait Desk: Send + Sync {
     fn now(&self) -> Timestamp;
+    /// The instant this machine's day began, at its local midnight: the ceiling counts from it.
+    fn day_began(&self) -> Done<'_, Timestamp>;
     /// The most calls a day, as the setting reads now.
     fn daily_calls(&self) -> u32;
     /// The Jobs live now, which a call may name.
@@ -231,7 +233,7 @@ impl Operator {
             }
             let now = self.desk.now();
             let ceiling = self.desk.daily_calls();
-            if self.desk.calls_since(day_of(&now)).await >= ceiling {
+            if self.desk.calls_since(self.desk.day_began().await).await >= ceiling {
                 let still = std::mem::take(&mut held(&self.queue).out);
                 for one in still {
                     self.settle(one, Ruled::PassedOn(PassedOn::Ceiling(ceiling)), None).await;
@@ -293,12 +295,6 @@ impl Operator {
             (Way::ExistingJob | Way::Merge | Way::KeepInTouch, None) | (Way::Raise, _) => {}
         }
     }
-}
-
-/// The start of `now`'s UTC day: the ceiling counts from it.
-fn day_of(now: &Timestamp) -> Timestamp {
-    let date: String = now.as_str().chars().take(10).collect();
-    Timestamp::from_rfc3339(format!("{date}T00:00:00.000Z"))
 }
 
 fn take(from: &mut Vec<Held>, token: u64) -> Option<Held> {

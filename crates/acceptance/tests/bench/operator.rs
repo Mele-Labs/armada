@@ -160,6 +160,10 @@ impl Desk for FakeFleet {
         Timestamp::from_rfc3339(NOW)
     }
 
+    fn day_began(&self) -> Done<'_, Timestamp> {
+        Box::pin(async move { Timestamp::from_rfc3339(format!("{}T00:00:00.000Z", &NOW[..10])) })
+    }
+
     fn live(&self) -> Done<'_, Vec<LiveJob>> {
         Box::pin(async move { self.live.clone() })
     }

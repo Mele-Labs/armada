@@ -121,6 +121,10 @@ impl Desk for Held {
         Timestamp::from_rfc3339(NOW)
     }
 
+    fn day_began(&self) -> Done<'_, Timestamp> {
+        Box::pin(async move { Timestamp::from_rfc3339(format!("{}T00:00:00.000Z", &NOW[..10])) })
+    }
+
     fn daily_calls(&self) -> u32 {
         self.ceiling
     }
@@ -266,4 +270,20 @@ async fn fleet_keeps_the_log_in_its_store_signed_by_the_operator_and_counts_the_
     assert_eq!(kept[0].outcome, "merge");
     assert_eq!(desk.calls_since(at).await, 1);
     assert!(said.lock().expect("not poisoned").is_empty(), "nothing went wrong");
+}
+
+#[tokio::test]
+async fn the_days_ceiling_counts_from_the_machines_midnight_and_not_utcs() {
+    let millis = |at: &str| Timestamp::from_rfc3339(at).epoch_millis().expect("an instant");
+    let began = |at: &str, offset: i64| crate::clock::rfc3339_utc(crate::clock::day_began(millis(at), offset));
+
+    assert_eq!(began("2026-11-04T03:00:00.000Z", -5 * 3_600), "2026-11-03T05:00:00.000Z", "10 pm in New York is still the 3rd");
+    assert_eq!(began("2026-11-04T06:00:00.000Z", -5 * 3_600), "2026-11-04T05:00:00.000Z");
+    assert_eq!(began("2026-11-04T03:00:00.000Z", 9 * 3_600), "2026-11-03T15:00:00.000Z", "noon in Tokyo began at its midnight");
+    assert_eq!(began("2026-11-04T03:00:00.000Z", 0), "2026-11-04T00:00:00.000Z");
+
+    // The machine's own zone, whatever it is: a midnight within the last day.
+    let now = millis(NOW);
+    let local = crate::clock::local_day_began(now).await;
+    assert!(local <= now && now - local < 86_400_000, "{}", crate::clock::rfc3339_utc(local));
 }

@@ -37,6 +37,13 @@ where
         self.fleet.now()
     }
 
+    fn day_began(&self) -> Done<'_, Timestamp> {
+        Box::pin(async move {
+            let now = self.fleet.now().epoch_millis().unwrap_or(0);
+            Timestamp::from_rfc3339(crate::clock::rfc3339_utc(crate::clock::local_day_began(now).await))
+        })
+    }
+
     fn daily_calls(&self) -> u32 {
         let calls = self.fleet.machine_settings().now().get(keys::OPERATOR_DAILY_CALLS);
         u32::try_from(calls.max(0)).unwrap_or(u32::MAX)
