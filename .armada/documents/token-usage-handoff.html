@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Token usage work: handoff</title>
+<link rel="stylesheet" href="armada-kit.css">
+</head>
+<body>
+<h1>Token usage work: handoff</h1>
+<p>The design is approved and the build had just started when the owner stopped it on 4 Nov to move machines. Nothing has landed, no pull request is open, and the compaction window is still 400k. Two branches hold unproven work: start-up pieces 1 and 2 are committed, and background summaries is a work-in-progress commit. Pick up at "What to do next".</p>
+
+<h2>Where everything is</h2>
+<table>
+  <thead><tr><th>Branch</th><th>Holds</th><th>State</th></tr></thead>
+  <tbody>
+    <tr><td><code>armada/session-5bbc95ca</code></td><td>Lighter start-up, commits <code>d846f2a03d</code> and <code>c46bb2bfc5</code></td><td>Two of four pieces done, tests not confirmed. Becomes PR 1.</td></tr>
+    <tr><td><code>armada/session-5bbc95ca-summaries</code></td><td>Cheaper background summaries, one WIP commit</td><td>Cache change written and measured on one call. Thinking change not written. Becomes PR 5. Rewrite the WIP commit's message before landing.</td></tr>
+    <tr><td><code>armada/session-5bbc95ca-handoff</code></td><td>This page, the approved design and the measurement scripts, under <code>.armada/</code></td><td>For reading only. <strong>Never merge it.</strong> <code>.armada/*</code> is gitignored on main, so these are force-added.</td></tr>
+  </tbody>
+</table>
+<p>To read the design: <code>git show origin/armada/session-5bbc95ca-handoff:.armada/documents/token-usage.html</code>. Copy it into your own <code>.armada/documents/</code> to open it in Bridge. It is revision 8, which the owner approved. Its findings are not repeated here.</p>
+<p>The measurement scripts are in <code>.armada/usage/</code> on the handoff branch: <code>measure2.py</code> and <code>measure3.py</code> read <code>~/.claude/projects</code>, and <code>report2.py</code> and <code>report3.py</code> print the figures. Their <code>.pkl</code> output was not pushed. The figures cover the first Mac's transcripts for 21 Oct to 4 Nov, so running them on another machine gives different numbers.</p>
+
+<h2>What the owner decided</h2>
+<table>
+  <thead><tr><th>Question</th><th>Decision</th></tr></thead>
+  <tbody>
+    <tr><td>Compaction window</td><td>250k for a week, then look at how Jobs went. Replaces his 400k of 13 Oct. It is set by <code>CLAUDE_CODE_AUTO_COMPACT_WINDOW</code>, now in <code>~/.claude/settings.json</code> on the first Mac. Not switched on. The plan was to make it a setting after the start-up cuts, so the week reads cleanly.</td></tr>
+    <tr><td>Compacting a Job that waits on him</td><td>Trial first. Whether to build it into Fleet comes back to him after the trial.</td></tr>
+    <tr><td>Connectors</td><td>A setting per repository, off for armada. A repository not set keeps its connectors. Claude Code sessions started outside Armada are unaffected.</td></tr>
+    <tr><td>Memory index</td><td>Stays whole. The task is dropped. Do not propose trimming it again.</td></tr>
+    <tr><td>Model for agents</td><td>Pass <code>model: "sonnet"</code> on every Agent call. Ask him before using a larger one.</td></tr>
+  </tbody>
+</table>
+<p>He corrected one thing sharply: <strong>no rule of his may depend on an agent choosing to read it, and his walks are never the safeguard.</strong> This is saved as a memory on the first Mac only (<code>rules-reach-agents-by-mechanism</code>), so it needs saving on the new machine. Apply it when trimming anything agents load.</p>
+
+<h2>Where each task stands</h2>
+<table>
+  <thead><tr><th>Group</th><th>Task</th><th>State</th></tr></thead>
+  <tbody>
+    <tr><td>Lighter start-up</td><td>Send the session text once, and leave Job-only text out of subagents</td><td>Committed. One gap, below.</td></tr>
+    <tr><td></td><td>Load the watch tools on demand and the most-called Fleet tools up front</td><td>Watch half committed. Up-front half not done, below.</td></tr>
+    <tr><td></td><td>Turn connectors off for Jobs (per repository)</td><td>Not started</td></tr>
+    <tr><td></td><td>Shorten the skill list to what Jobs use</td><td>Not started</td></tr>
+    <tr><td>Compact sooner</td><td>Set the compaction window to 250k, as a setting</td><td>Not started</td></tr>
+    <tr><td></td><td>Try compacting a waiting Job just before its cache expires</td><td>Not started</td></tr>
+    <tr><td></td><td>Build that into Fleet if the trial holds, if he approves</td><td>Waits on the trial</td></tr>
+    <tr><td>Fewer round trips</td><td>Tell agents to batch reads and send Fleet acts with other work</td><td>Not started</td></tr>
+    <tr><td></td><td>Add one act that settles and finishes a Job in a single call</td><td>Not started</td></tr>
+    <tr><td></td><td>Send more of the main thread's reading to explorers</td><td>Not started</td></tr>
+    <tr><td>Know where to look</td><td>Make the code graph answer from every slot</td><td>Not started</td></tr>
+    <tr><td></td><td>Keep the graph hook quiet unless it matches exactly</td><td>Not started</td></tr>
+    <tr><td></td><td>Have briefs name file and line, and ask the graph before searching</td><td>Not started</td></tr>
+    <tr><td>Background summaries</td><td>Stop background summaries writing an hour-long cache</td><td>In the WIP commit</td></tr>
+    <tr><td></td><td>Turn thinking off for background summaries</td><td>Being tried, nothing written</td></tr>
+    <tr><td>Where it went</td><td>Weigh usage by model and by real cache-write cost</td><td>Not started</td></tr>
+    <tr><td></td><td>Keep the transcript measurement as something Fleet can run</td><td>Not started</td></tr>
+    <tr><td></td><td>Draw a where-it-went view on the Usage page, as a walk first</td><td>Not started. Nothing he would see lands before he walks it.</td></tr>
+  </tbody>
+</table>
+
+<h2>Unfinished details</h2>
+<h3>Lighter start-up branch</h3>
+<ul>
+  <li><strong>Tests are not confirmed.</strong> The agent ran <code>a_tool_marked_always_loaded_carries_the_harness_key_and_no_other_does</code> and <code>armada check test --changed</code>, then was stopped before reporting, so I don't know the results. Run them again. Its commit message says the mod's own tests could not be run from its slot, because it found no runner for <code>claude-code/testing</code>.</li>
+  <li><strong>The session text commit has a gap to close.</strong> Only the SessionStart copy stays. On an account that skips the mod's hooks, neither copy arrives, as before, and the id and rules come through <code>--append-system-prompt</code>. The <code>show_window</code> and walk detail in that note still doesn't reach those accounts. Moving it into <code>crates/adapters/src/session_rules.md</code> would close that; it was not done.</li>
+  <li><strong>Which tools load up front.</strong> <code>waiting_for</code> passes the test: most threads call it and it is under about 1k tokens. <code>all_done</code>, <code>finish_up</code>, <code>dispute_fleet</code> and <code>settle_later</code> are about 700 characters each and probably pass, but no one counted whether most threads call them, so they stay deferred. Count that from the transcripts. <code>show_window</code> was not settled either.</li>
+  <li><strong>Connectors.</strong> Set <code>ENABLE_CLAUDEAI_MCP_SERVERS=false</code> on the process in <code>crates/adapters/src/hosted_session.rs</code>, near line 370, for a repository set to off. Reading the binary confirmed that value skips the connector fetch; no real run has proved it, so prove it once. Follow how per-repository settings work in <code>crates/fleet/src/repository_profiles.rs</code> and the <code>manifest-*</code> entries in <code>crates/config/settings.toml</code>. <code>armada.yml</code> is Kit's copy, so save armada's value with <code>save_kit_manifest</code> and never commit it. A settings row in Bridge would need a walk first.</li>
+  <li><strong>Skill list.</strong> The binary holds <code>skillOverrides</code>, <code>skillListingMaxDescChars</code> and <code>skillListingBudgetFraction</code>, none tried yet. Hosted processes take a <code>--settings</code> JSON (<code>Settings</code> in <code>hosted_session.rs</code>). Never hide a skill from this repository's <code>.claude/skills/</code> or the armada mod. Keep <code>gitnexus-*</code> for now. If those settings can't do this safely, drop the piece and say why.</li>
+</ul>
+<h3>Background summaries branch</h3>
+<ul>
+  <li>The cache change adds <code>kept_briefly</code> to the ask in <code>crates/fleet/src/session_host/account.rs</code>, and <code>crates/adapters/src/judge.rs</code> then sets <code>CLAUDE_CODE_PROMPT_CACHE_TTL=5m</code>. The code's comment records one real call moving every written token to the five-minute bucket. Its tests were being run when the agent stopped, and their results are unknown.</li>
+  <li>For thinking, the agent was trying <code>MAX_THINKING_TOKENS</code> with <code>CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING=1</code> on real calls. Its last note says some of those runs used the wrong model because a <code>sed</code> failed, so treat them as not done. Check summary quality before and after. If the text gets worse without thinking, keep only the cache change and say so.</li>
+  <li>Say whether other Fleet calls sharing the launch code in <code>judge.rs</code> get the change. A Job's own process must not change.</li>
+</ul>
+
+<h2>What to do next</h2>
+<ol>
+  <li>On the new machine, fetch the three branches and save the rule above as a memory there.</li>
+  <li>Re-run the tests on both branches. Rust only through <code>armada check test a b c</code>, as its own Bash call.</li>
+  <li>Finish connectors and the skill list, then land PR 1 and read a real first request to prove start-up fell. It started at 56k on a main thread and 45k on a subagent.</li>
+  <li>Finish thinking and land PR 5.</li>
+  <li>Set the window to 250k and tell the owner when his week starts, then run the waiting-Job trial.</li>
+  <li>Work through fewer round trips, know where to look, then the Usage page.</li>
+</ol>
+<p>How this repo works: at most two agents at once, each pushes and stops, and the parent lands. Land with main merged in, push, <code>gh pr create</code>, then <code>gh pr merge N --merge --auto</code>. Never run rustfmt. Non-visual work that is green lands without asking.</p>
+
+<h2>What is left on the first Mac</h2>
+<ul>
+  <li>Slots 10 and 12 are still leased to this Job, with nothing uncommitted that matters once this page says the branches are pushed.</li>
+  <li>The memory <code>rules-reach-agents-by-mechanism</code> and its index line.</li>
+  <li>The compaction window is untouched at 400k.</li>
+  <li>The scripts' <code>.pkl</code> data, in slot 10's <code>.armada/usage/</code>.</li>
+</ul>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Where the tokens go</title>
+<link rel="stylesheet" href="armada-kit.css">
+<style>
+  td.n, th.n { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  td.barcell { inline-size: 34%; }
+  .bar { display: block; block-size: var(--space-2); background: var(--accent); }
+  .read { background: var(--status-awaiting-review); }
+  .w22 { inline-size: 88%; } .w21 { inline-size: 84%; } .w19 { inline-size: 76%; } .w10 { inline-size: 40%; }
+  .w9 { inline-size: 36%; } .w8 { inline-size: 32%; } .w6 { inline-size: 24%; } .w3 { inline-size: 12%; } .w2 { inline-size: 8%; }
+  .saw { fill: none; stroke: var(--fg-subtle); stroke-width: 2; }
+  .saw2 { fill: none; stroke: var(--accent); stroke-width: 2; }
+  .floor { fill: none; stroke: var(--status-awaiting-review); stroke-width: 1.5; stroke-dasharray: 5 4; }
+  .axis { fill: none; stroke: var(--border-default); stroke-width: 1; }
+</style>
+</head>
+<body>
+<h1>Where the tokens go</h1>
+<p>Reads cost about a fifth of the spend, so you are right that they matter, but what we're missing is the multiplier behind them. Spend is requests times context: 137,766 requests in 14 days, each re-sending 181k tokens on average, and 65% of all spend is re-reading what is already in context. Nothing leaves a context before 400k, every thread starts at 45k to 56k before it does any work, and agents take reading one step at a time. Four changes should save about 30%. Sharing knowledge between agents is the smallest of them, at 2% to 5%. I'm confident in the shares and less so in the savings, which come from a simulation.</p>
+
+<h2>What was decided</h2>
+<p>You chose a 250k compaction window for a week, replacing the 400k you set on 13 Oct. It is not switched on yet. You also chose a small trial of Fleet compacting a Job that is waiting on you, with the decision to build it coming after the trial. And you chose to make connectors a setting per repository, off for this one. Fleet would set <code>ENABLE_CLAUDEAI_MCP_SERVERS=false</code> when it starts a Job in a repository set that way, which Claude Code reads as not fetching your claude.ai connectors at all. Your account and connector settings stay as they are, and so do Claude Code sessions you start outside Armada. Servers a repository names itself, such as the browser and the code graph, are not affected. A repository you have not set keeps its connectors. You chose to leave the memory index alone. This page is otherwise the proposal. Two of your earlier decisions still stand: the 55-minute idle stop, and that Fleet never starts a fresh Job by itself.</p>
+<p>Your earlier fixes held. Nothing runs above 400k any more. Fleet act replies are down to about 1% of spend. The whole-file guard keeps single reads small, and the largest in 14 days was about 27k tokens. About 75% of subagent spend is on Sonnet.</p>
+
+<h2>Where the spend goes</h2>
+<table>
+  <caption>Share of 14 days of spend, 21 Oct to 4 Nov, by what the tokens were</caption>
+  <thead><tr><th>What</th><th class="n">Share</th><th></th></tr></thead>
+  <tbody>
+    <tr><td>Start-up text, and its return after each compaction</td><td class="n">22%</td><td class="barcell"><span class="bar w22"></span></td></tr>
+    <tr><td>Reading results carried: Read, plus grep, sed and cat through Bash</td><td class="n">21%</td><td class="barcell"><span class="bar read w21"></span></td></tr>
+    <tr><td>The agent's own text, tool calls and thinking carried, plus what the estimate missed</td><td class="n">19%</td><td class="barcell"><span class="bar w19"></span></td></tr>
+    <tr><td>Output, a third of it thinking</td><td class="n">10%</td><td class="barcell"><span class="bar w10"></span></td></tr>
+    <tr><td>Whole context rewritten after the cache went cold</td><td class="n">9%</td><td class="barcell"><span class="bar w9"></span></td></tr>
+    <tr><td>Text announced again mid-thread: connector instructions, tool lists, reminders</td><td class="n">8%</td><td class="barcell"><span class="bar w8"></span></td></tr>
+    <tr><td>Other tool results: builds, git, browser, Fleet</td><td class="n">6%</td><td class="barcell"><span class="bar w6"></span></td></tr>
+    <tr><td>Messages and skill bodies</td><td class="n">3%</td><td class="barcell"><span class="bar w3"></span></td></tr>
+    <tr><td>Background Haiku summaries, 23,831 calls</td><td class="n">2%</td><td class="barcell"><span class="bar w2"></span></td></tr>
+  </tbody>
+</table>
+<p>Main threads take 73%, subagents 25% and background calls 2%. Subagents are large too, with a mean context of 164k against 191k on main threads, and 53% of all spend happens above 200k.</p>
+
+<h2>Your two questions about reading</h2>
+<h3>Would sharing knowledge between agents help?</h3>
+<p>A little. It repays less than it looks, because a repeated read is cheap next to everything carried with it.</p>
+<table>
+  <caption>What repeated reading costs, as the most that removing it could save</caption>
+  <thead><tr><th>Repeat</th><th class="n">Of tokens read</th><th class="n">Of spend</th></tr></thead>
+  <tbody>
+    <tr><td>Subagent reads a file another thread of that session already read</td><td class="n">35% of subagent reads</td><td class="n">2%</td></tr>
+    <tr><td>Same file read again in the same thread, any range</td><td class="n">24%</td><td class="n">3%</td></tr>
+    <tr><td>Exact same range read again in the same thread</td><td class="n">3%</td><td class="n">0.3%</td></tr>
+  </tbody>
+</table>
+<p>A shared store of files would not catch much. Agents read 10,643 distinct files, and the ten most read make up 6% of reading. The cheap form of sharing is a brief that names <code>file:line</code>, since the parent has usually found the place already.</p>
+
+<h3>Could agents know which files to look at from context clues?</h3>
+<p>We already have the tool for this and nobody uses it. In 14 days agents ran about 52,000 reading commands and asked the code graph 224 times. Only 4 of those asked where something is (<code>query</code> 3, <code>context</code> 1). Most were impact checks. Two things stand in the way:</p>
+<ul>
+  <li>The Logbook records that only the main checkout and slot-3 are registered, so a call from another slot's path comes back "not found".</li>
+  <li>The graph hook fired 12,696 times and added about 1M tokens, and it matches loosely. In this Job, a grep for "short account" got back <code>short_of</code> in <code>headroom.rs</code>, which has nothing to do with it. That teaches agents to ignore it.</li>
+</ul>
+<p>The size of the prize is the part before work starts. The first edit comes at request 33 on main threads and request 30 on subagents. Threads that edit spend 21% of all spend before that first edit, and 8% of reading tokens are on files the thread also changes. I can't say how much of that a working graph would remove until we try it.</p>
+
+<h3>How agents read</h3>
+<p>70% of reading goes through Bash (41M tokens against 17M through Read, by the character estimate), so the whole-file guard never sees it. A guard would not help much there, because those reads are small, about 1k tokens each by the same estimate. The trouble is how many there are, one per round trip.</p>
+
+<h2>What we're missing</h2>
+<h3>1. Nothing leaves a context</h3>
+<p>A grep result from step 20 is sent again on every later step. 64% of what tool results cost to carry comes from results at least 30 steps old. Claude Code does contain a way to clear old results, but it sits behind a remote switch that is off for us: 0 requests across 582 main threads used it. That leaves compaction as the only thing we control, and it happens late, at a median of 366k, falling to 74k.</p>
+<figure>
+  <svg viewBox="0 0 640 220" role="img" aria-label="Context size over a long thread. With a 400k window it climbs to 366k before dropping to 74k. With a 250k window it drops sooner and stays lower. A dashed line marks the 56k start-up floor.">
+    <polyline class="axis" points="40,10 40,190 630,190"/>
+    <polyline class="saw" points="40,155 380,44 380,145 630,63"/>
+    <polyline class="saw2" points="40,155 225,95 225,145 370,95 370,145 515,95 515,145 630,107"/>
+    <line class="floor" x1="40" y1="172" x2="630" y2="172"/>
+    <text x="4" y="48">366k</text>
+    <text x="4" y="99">250k</text>
+    <text x="4" y="176">56k</text>
+    <text x="390" y="44">400k window</text>
+    <text x="232" y="86">250k window</text>
+    <text x="440" y="186">start-up text</text>
+    <text x="300" y="208" text-anchor="middle">steps in one thread</text>
+  </svg>
+  <figcaption>Drawn from the medians to show the shape; not a real thread. The area under each line is what you pay for.</figcaption>
+</figure>
+
+<table>
+  <caption>Compaction window, simulated over the same 14 days. Without any change the simulation lands within 1.5% of actual spend.</caption>
+  <thead><tr><th>Window</th><th class="n">No re-reading after</th><th class="n">20k re-read after</th></tr></thead>
+  <tbody>
+    <tr><td>300k</td><td class="n">11%</td><td class="n">10%</td></tr>
+    <tr><td>250k</td><td class="n">17%</td><td class="n">15%</td></tr>
+    <tr><td>200k</td><td class="n">22%</td><td class="n">18%</td></tr>
+    <tr><td>Stay at 400k, compact when a thread goes cold</td><td class="n">11%</td><td class="n">9%</td></tr>
+    <tr><td>250k and compact when cold</td><td class="n">not run</td><td class="n">17%</td></tr>
+  </tbody>
+</table>
+<p>The re-read column is reasonable: over the 20 steps after a compaction a thread grows 32k at the median, against 27k ordinarily, so real re-reading looks like 5k to 10k. What the table can't show is whether work gets worse after a compaction.</p>
+<p>Going cold matters on its own. 656 times a main thread sat for over an hour and then rewrote 192k tokens on average, at the highest rate. That moment is the cheapest time to compact, since the whole context is being paid for anyway. Better still, Fleet could compact a Job waiting on you just before its cache expires, while reading it is still cheap.</p>
+<p>Changing the cache lifetime doesn't help, and I tested it. Five minutes on main threads would cost 38% more on those threads. An hour on subagents would add about 3% to save at most 1.6%.</p>
+
+<h3>2. The start-up text costs more than all the reads</h3>
+<p>Each 10k tokens cut from start-up saves about 4.6% of spend, because it is carried on every request of every thread. A main thread starts at 56k and a subagent at 45k. The token figures below scale characters to that 56k.</p>
+<table>
+  <caption>What a main thread carries before its first step</caption>
+  <thead><tr><th>Part</th><th class="n">Tokens</th><th>What is in it</th></tr></thead>
+  <tbody>
+    <tr><td>Tool definitions</td><td class="n">16k</td><td>22 tools. The seven watch tools were called between 8 and 106 times each, yet they load up front. Tools called thousands of times, such as <code>show_window</code>, <code>all_done</code> and <code>dispute_fleet</code>, each need a round trip to load.</td></tr>
+    <tr><td>Skill list</td><td class="n">11k</td><td>31 skills used in 14 days. No <code>gitnexus-*</code>, productivity, plugin-management or office-file skill was among them.</td></tr>
+    <tr><td>Instructions</td><td class="n">9k</td><td>The memory index alone is about 6k: 144 lines. It stays, by your decision.</td></tr>
+    <tr><td>Armada's rules and Logbook</td><td class="n">6k</td><td>Rules 3k, Logbook 3k. Most of the rules are repeated in the session text below.</td></tr>
+    <tr><td>Session text, sent twice</td><td class="n">5k</td><td>The same text arrives once as a hook and once as context. Subagents get it too, though they cannot call most of what it describes.</td></tr>
+    <tr><td>Agent list</td><td class="n">3k</td><td></td></tr>
+    <tr><td>Deferred tool names</td><td class="n">2k</td><td>Grows as connectors arrive. A subagent starts with 5k of this.</td></tr>
+    <tr><td>The brief, Claude Code's own prompt, and the rest</td><td class="n">4k</td><td></td></tr>
+  </tbody>
+</table>
+<p>Connectors add to this after start-up. Figma, Notion, Todoist, Drive and the rest were called 0 times in 14 days, yet they cost up to 4% of spend in instructions and tool lists, sent again on each reconnect. This Job has received them twice so far.</p>
+
+<h3>3. Every step re-sends everything, and agents can't see that</h3>
+<p>At 181k of context, one small grep costs the same as about 18k tokens of fresh input, on top of its own output. 65% of main-thread requests and 89% of subagent requests carry a single tool call.</p>
+<table>
+  <caption>Round trips that could have been part of another step. These figures overlap with the tables above and are not additional to them.</caption>
+  <thead><tr><th>Round trip</th><th class="n">Requests</th><th class="n">Of spend</th></tr></thead>
+  <tbody>
+    <tr><td>Read-only step straight after another read-only step</td><td class="n">32,719</td><td class="n">16%</td></tr>
+    <tr><td>Turn that only calls Fleet acts</td><td class="n">6,884</td><td class="n">5%</td></tr>
+    <tr><td>Turn that only loads a tool's definition</td><td class="n">2,792</td><td class="n">2%</td></tr>
+    <tr><td>Turn that only updates the task list</td><td class="n">1,877</td><td class="n">2%</td></tr>
+  </tbody>
+</table>
+<p>Some of this comes from our own rules. <code>all_done</code> was called 1,582 times across 582 threads, because it refuses until the rest is settled. <code>dispute_fleet</code> was called 1,886 times, which also says something about how often Fleet's notices are wrong. Many reads depend on the one before, so not all of these can merge. Merging a third to a half is my guess, not a measurement.</p>
+<p>Main threads also do their own reading on Opus. <code>armada:explorer</code> took 246 of about 1,700 dispatches and cost 0.3% of spend, so reading is very cheap there, and only its report joins the main thread's context.</p>
+
+<h3>4. Nothing shows any of this</h3>
+<p>The Usage page weighs turns by token type only: Haiku counts the same as Opus, and an hour-long cache write counts as 1.25 when it costs 2. It also can't say what the tokens were, so none of the above would show up there, and a change that made things worse would go unnoticed.</p>
+
+<h2>What I propose</h2>
+<table>
+  <caption>Savings overlap, so they do not add up. Together they come to about 30%.</caption>
+  <thead><tr><th>Change</th><th class="n">Likely saving</th><th>Needs you</th></tr></thead>
+  <tbody>
+    <tr><td>Compact sooner, and compact a waiting Job before its cache expires</td><td class="n">15% to 17%</td><td>Decided: 250k for a week, and a trial of compacting a waiting Job. Building that into Fleet waits on the trial</td></tr>
+    <tr><td>Cut start-up by about 15k: connectors off per repository, session text once, watch tools loaded on demand, shorter skill list</td><td class="n">7%</td><td>Decided: connectors are a setting per repository, off for this one, and the memory index stays as it is</td></tr>
+    <tr><td>Fewer round trips: read in batches, send Fleet acts alongside other work, one act to finish a Job</td><td class="n">5% to 10%</td><td>No</td></tr>
+    <tr><td>Know where to look: graph works from every slot, its hook stays quiet unless it matches exactly, briefs name <code>file:line</code></td><td class="n">2% to 5%</td><td>No</td></tr>
+    <tr><td>Background summaries: no thinking, no hour-long cache</td><td class="n">1%</td><td>No</td></tr>
+    <tr><td>A "where it went" view on the Usage page, with correct weights</td><td class="n">None directly</td><td>A walk</td></tr>
+  </tbody>
+</table>
+<p>I would start with start-up text, since it has the least risk and is the easiest to confirm, then compaction, so the first week of new numbers reads cleanly. Subagents still on Opus are another 2%, at most, and I left that alone because your rule sends design work to the Job's own model.</p>
+
+<h2>The memory index split</h2>
+<p>You chose to leave the memory index alone, so it stays whole and on every request. I proposed moving your Bridge rules behind a list agents had to choose to read, and then moving 45 lines about finished work, and both are withdrawn. A rule that an agent can skip without anyone noticing isn't worth the 0.8% to 2% of spend they would have saved.</p>
+
+<h2>What was not measured</h2>
+<ul>
+  <li><strong>Dollars or your plan's real weighting.</strong> Shares use weights I assumed: Opus and Fable 5, Sonnet 3, Haiku 1, with cache read 0.1, write 1.25 or 2, and output 5. They are not read from a price list or from the plan meter.</li>
+  <li><strong>Tokens per tool result.</strong> Transcripts hold characters. I calibrated on 296 Bash and 19 Read results, about 2.4 characters per token, and scaled tool results to match. Without that scaling, reading is 14% of spend, not 21%. The 19% row is what remains, so it absorbs any error.</li>
+  <li><strong>Whether thinking stays in context.</strong> It looks like it does, but that rests on 14 samples.</li>
+  <li><strong>Quality after compaction.</strong> Nothing here says whether a compacted Job does worse work or needs more of your time. That is the real risk in the first row.</li>
+  <li><strong>Agents changing how they work.</strong> The simulation replays the same steps, and the round-trip and graph savings are estimates.</li>
+  <li><strong>Whether reads were useful.</strong> Low reuse doesn't mean waste. Reading a file you don't change can be how you learn what to change.</li>
+  <li><strong>Which file a Bash read touched</strong> is the first path in its command, so overlap figures are approximate.</li>
+  <li><strong>Other Macs and anything before 21 Oct.</strong> This Mac's transcripts only. The scripts are in <code>.armada/usage/</code> in this Job's slot.</li>
+</ul>
+
+<h2>What is still open</h2>
+<p>None of the questions on this page are open now. Whether to build compaction of a waiting Job into Fleet comes back to you after the trial.</p>
+</body>
+</html>
