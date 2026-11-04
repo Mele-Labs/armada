@@ -1,6 +1,10 @@
-//! The beads claim: **an issue filed on one machine shows on the other machine's Issues within a
-//! minute, with nobody pulling by hand; and when two machines claim one issue, both name the same
+//! The beads claim: **an issue filed on one machine shows on the other machine's Issues within ten
+//! minutes, with nobody pulling by hand; and when two machines claim one issue, both name the same
 //! winner after a sync, and the loser's claim is refused naming who holds it.**
+//!
+//! Ten minutes, not the one first claimed: the owner traded it on 4 Nov 2026 for a timed sync
+//! every five minutes rather than every thirty seconds, since each sync forks about a hundred `git`
+//! processes. Two timed syncs, the writer's and the reader's, bound it.
 //!
 //! Two machines on one remote, every copy held in memory. Nothing reaches `bd`, a disk or the
 //! network: the remote is `testkit::FakeBeadsRemote`, each machine's copy a `FakeBeads` whose sync
@@ -10,18 +14,18 @@
 //! | Proved | Not proved |
 //! |---|---|
 //! | A write on A is pushed at A's next look, before A's timer is due | That `bd`'s files move on a write and not on a read. `adapters::tests::beads` |
-//! | B lists it after its own timed sync, inside a minute, and nothing on B pulled by hand | That Fleet runs the looks while it serves the repository. `fleet::tests::backlog` |
-//! | A claim through Fleet on B, inside the minute before B heard of A's, is refused naming A, and both then name A | That the list Bridge shows is read again after a sync moved the copy. `fleet::tests::backlog` |
+//! | B lists it after its own timed sync, inside ten minutes, and nothing on B pulled by hand | That Fleet runs the looks while it serves the repository. `fleet::tests::backlog` |
+//! | A claim through Fleet on B, before B's timer heard of A's, is refused naming A, and both then name A | That the list Bridge shows is read again after a sync moved the copy. `fleet::tests::backlog` |
 //! | Two claims made in the copies before either synced both answer yes, and after a sync each both name the later | That two claims through Fleet whose syncs overlap are told apart: both can answer yes until the next sync, as the spike found |
 
 use std::time::Duration;
 
 use adapter_traits::{Backlog, Tracker};
-use fleet::backlog::{claim_settled, ClaimLost, Keeping, LOOK_EVERY};
+use fleet::backlog::{claim_settled, ClaimLost, Keeping, LOOK_EVERY, SYNC_EVERY};
 use testkit::{FakeBeads, FakeBeadsRemote};
 
 const ROOT: &str = "/repositories/armada";
-const MINUTE: Duration = Duration::from_secs(60);
+const TEN_MINUTES: Duration = Duration::from_secs(10 * 60);
 
 /// One machine: its copy of the backlog and what its Fleet keeps of it.
 struct Machine {
@@ -55,11 +59,11 @@ impl Machine {
     }
 }
 
-/// Both machines' Fleets turning from `from`, every look, until `done` or a minute is up: when it
-/// was done, counted from `from`.
+/// Both machines' Fleets turning from `from`, every look, until `done` or ten minutes are up: when
+/// it was done, counted from `from`.
 fn turn_until(a: &mut Machine, b: &mut Machine, from: Duration, done: impl Fn(&Machine, &Machine) -> bool) -> Option<Duration> {
     let mut now = from;
-    while now < from + MINUTE {
+    while now < from + TEN_MINUTES {
         now += LOOK_EVERY;
         a.look(now);
         b.look(now);
@@ -71,7 +75,7 @@ fn turn_until(a: &mut Machine, b: &mut Machine, from: Duration, done: impl Fn(&M
 }
 
 #[test]
-fn an_issue_filed_on_one_machine_shows_on_the_other_machines_issues_within_a_minute() {
+fn an_issue_filed_on_one_machine_shows_on_the_other_machines_issues_within_ten_minutes() {
     let remote = FakeBeadsRemote::new();
     let (mut a, mut b) = (Machine::on(&remote), Machine::on(&remote));
     a.look(Duration::ZERO);
@@ -87,7 +91,7 @@ fn an_issue_filed_on_one_machine_shows_on_the_other_machines_issues_within_a_min
 
     let syncs_before = b.copy.syncs();
     let shown = turn_until(&mut a, &mut b, filed_at, |_, b| b.lists(&reference));
-    assert!(shown.is_some_and(|after| after <= MINUTE), "B's Issues lists it inside a minute: {shown:?}");
+    assert!(shown.is_some_and(|after| after <= TEN_MINUTES), "B's Issues lists it inside ten minutes: {shown:?}");
     assert_eq!(b.copy.syncs() - syncs_before, 1, "one timed sync on B brought it, and nothing else pulled");
 }
 
@@ -108,21 +112,21 @@ fn two_machines_claim_one_issue_and_both_name_the_same_winner_after_a_sync() {
         other => panic!("B's claim is refused naming A: {other:?}"),
     }
     let agreed = turn_until(&mut a, &mut b, now, |a, b| a.holder(&reference) == b.holder(&reference));
-    assert!(agreed.is_some(), "both copies agree after a sync");
+    let agreed = agreed.expect("both copies agree after a sync");
     assert_eq!(a.holder(&reference), ["mac-a/job-a"]);
     assert_eq!(b.holder(&reference), ["mac-a/job-a"]);
 
     // Two agents claim another in their own copies with `bd` before either synced: both are told
     // yes, as the spike found. After a sync each, both copies name the later.
     let other = a.copy.create("Two agents at once");
-    let later = Duration::from_secs(100);
+    let later = now + agreed + LOOK_EVERY;
     a.look(later);
-    b.look(later + Duration::from_secs(40));
-    assert!(b.lists(&other));
+    b.look(later + SYNC_EVERY);
+    assert!(b.lists(&other), "B's timed sync brought A's write");
     assert!(a.copy.claim(ROOT, &other, "mac-a/agent").is_ok());
     assert!(b.copy.claim(ROOT, &other, "mac-b/agent").is_ok());
-    let settled = later + Duration::from_secs(41);
+    let settled = later + SYNC_EVERY + Duration::from_secs(1);
     let agreed = turn_until(&mut a, &mut b, settled, |a, b| a.holder(&other) == b.holder(&other));
-    assert!(agreed.is_some(), "both copies agree inside a minute: {:?} and {:?}", a.holder(&other), b.holder(&other));
+    assert!(agreed.is_some(), "both copies agree inside ten minutes: {:?} and {:?}", a.holder(&other), b.holder(&other));
     assert_eq!(a.holder(&other), ["mac-b/agent"], "the later claim won on both");
 }
