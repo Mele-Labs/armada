@@ -329,7 +329,9 @@ A tracked file only: an ignored or untracked `armada.yml`, a repository with no 
 An edit left uncommitted in the checkout was what blocked the catch-up on 14 Oct 2026.
 
 **A Job's Auto land flag turns auto-merge on and off for its pull requests.** `set_session_auto_land` keeps the flag per Job in Fleet's store.
-While it is on, Fleet turns auto-merge on for each pull request the Job opens or claims, and for the open ones when the flag is turned on; a forge refusal is a 409 `fleet.auto_merge_refused` after the flag has changed.
+While it is on, Fleet turns auto-merge on for each pull request the Job opens or claims, and for the open ones when the flag is turned on.
+**Fleet answers once the flag is kept, and asks the forge after**, because a Job holding five pull requests made some twenty-five forge calls and Bridge stopped waiting at twenty seconds (4 Nov 2026).
+A forge refusal reaches the Job as the Auto land refused notice, and the flag stays as the person set it.
 Turning it off runs `gh pr merge --disable-auto` on the Job's open pull requests, and a merged or closed one is left alone (`crates/ipc/operations/set_session_auto_land.toml`).
 **Fleet merge-tests a pull request against the ones ahead of it before it turns auto-merge on** (`crates/fleet/src/session_host/queue_guard.rs`).
 It runs `git merge-tree` of the pull request's head against each pull request ahead of it in the base's merge queue; against the base itself it keeps the forge's own conflict flag.

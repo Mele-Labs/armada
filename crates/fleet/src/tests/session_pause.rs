@@ -64,6 +64,45 @@ async fn a_pause_ends_the_turn_parks_the_work_and_gives_the_slot_back() {
     assert!(rig.fleet.vcs().slot_standing(&pool, 1, id.as_str()) != adapter_traits::SlotStanding::Held);
 }
 
+/// A session with a turn running that has not written, so it holds no slot.
+async fn running_without_a_slot(rig: &Rig) -> SessionId {
+    let id = rig.start().await;
+    rig.send(&id, "think about it").await;
+    rig.stand_in.init(0);
+    id
+}
+
+#[tokio::test]
+async fn a_pause_of_a_job_with_no_slot_ends_its_turn_and_keeps_the_marker() {
+    let rig = rig_placing(None);
+    let id = running_without_a_slot(&rig).await;
+
+    let paused = rig.fleet.pause_session(pause(&id)).await.expect("paused");
+
+    assert!(paused.hosted.as_ref().expect("hosted").paused.is_some(), "a marker");
+    assert_eq!(paused.state, SessionState::Live);
+    assert_eq!(rig.turn(&id).await, SessionTurn::Idle);
+    assert!(rig.stand_in.process(0).ended.load(Ordering::SeqCst), "the process went");
+    assert!(!holds(&paused, "slot"), "no slot was taken");
+}
+
+#[tokio::test]
+async fn a_resume_of_a_job_paused_with_no_slot_sends_the_turns_kept_meanwhile() {
+    let rig = rig_placing(None);
+    let id = running_without_a_slot(&rig).await;
+    rig.fleet.pause_session(pause(&id)).await.expect("paused");
+    let starts = rig.stand_in.starts().len();
+    rig.send(&id, "while paused").await;
+    assert_eq!(kept_turns(&rig, &id).await, 1);
+
+    let resumed = Arc::clone(&rig.fleet).resume_session(resume(&id)).await.expect("resumed");
+
+    assert!(resumed.hosted.as_ref().unwrap().paused.is_none());
+    eventually(|| async { rig.stand_in.starts().len() == starts + 1 }).await;
+    eventually(|| async { sent_to(&rig, starts).contains("while paused") }).await;
+    assert_eq!(kept_turns(&rig, &id).await, 0, "taken");
+}
+
 #[tokio::test]
 async fn a_resume_takes_a_slot_again_and_clears_the_marker() {
     let rig = rig_placing(None);
@@ -267,10 +306,7 @@ async fn a_pause_of_a_session_waiting_to_resume_calls_the_wait_off() {
 #[tokio::test]
 async fn pause_and_resume_refuse_what_they_cannot_do() {
     let rig = rig_placing(None);
-    // A session with no slot yet holds nothing to park.
     let bare = rig.start().await;
-    let refused = rig.fleet.pause_session(pause(&bare)).await.expect_err("no slot");
-    assert_eq!(code(refused), "fleet.session_not_pausable");
     let refused = Arc::clone(&rig.fleet).resume_session(resume(&bare)).await.expect_err("not paused");
     assert_eq!(code(refused), "fleet.session_not_paused");
 

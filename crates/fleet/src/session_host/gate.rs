@@ -469,7 +469,8 @@ where
                 return Taken::Refused(format!("A slot could not be leased for this write: {why}"))
             }
         };
-        let was_paused = parked_on.is_some();
+        // A pause with no slot kept no branch, so the lease above was a fresh one but the Job was paused all the same.
+        let was_paused = hosting.paused_at.is_some();
         hosting.paused_at = None;
         hosting.paused_resuming = false;
         hosting.lease_slot = Some(slot);
