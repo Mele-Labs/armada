@@ -504,10 +504,9 @@ export function DocumentTabBody({ session, tab }: { session: Session; tab: Tab }
   const one = attachmentsOf(session, "artifact").find((it) => it.form === "document" && it.id === page);
   const open = one?.asked === true && one.settled === undefined && draft?.answerDocument !== undefined;
   return (
-    <div className="job-pane__scroll">
-      <DocumentBody session={session} page={page} />
+    <div className="job-pane__document">
       {one?.asked !== true ? null : (
-        <div className="armada-session-sketch__answers">
+        <div className="armada-session-sketch__answers job-pane__document-answers">
           <ApprovalAnswers
             id={page}
             keep={`document:${session.id}:${page}`}
@@ -517,6 +516,9 @@ export function DocumentTabBody({ session, tab }: { session: Session; tab: Tab }
           />
         </div>
       )}
+      <div className="armada-job-review__fill">
+        <DocumentBody session={session} page={page} />
+      </div>
     </div>
   );
 }

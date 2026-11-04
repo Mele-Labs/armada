@@ -40,7 +40,16 @@ export function DocumentRow({
         aria-label={`Document: ${row.title}, ${revision}`}
         data-settled={settled?.how}
       >
-        <div className="armada-session-sketch__band">
+        {/* The band is the card's face: pressing it anywhere opens the page, and Open at its end does the same for the keys. */}
+        <div
+          className="armada-session-sketch__band"
+          {...(onOpen === undefined
+            ? {}
+            : {
+                "data-press": "",
+                onClick: () => onOpen(row.page),
+              })}
+        >
           <FileText size={12} strokeWidth={2} aria-hidden />
           <span className="armada-session-sketch__title">{row.title}</span>
           <Tooltip label={revision}>
@@ -55,7 +64,10 @@ export function DocumentRow({
                 size="sm"
                 iconOnly
                 aria-label={`Open ${row.title}, ${revision}`}
-                onClick={() => onOpen(row.page)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpen(row.page);
+                }}
               >
                 <Maximize2 size={12} strokeWidth={2} aria-hidden />
               </Button>

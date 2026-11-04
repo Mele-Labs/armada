@@ -280,6 +280,14 @@
   border-bottom: 0;
 }
 
+.armada-session-document .armada-session-sketch__band[data-press] {
+  cursor: pointer;
+}
+
+.armada-session-document .armada-session-sketch__band[data-press]:hover {
+  background: var(--bg-hover);
+}
+
 .armada-session-document__open {
   flex: none;
 }
