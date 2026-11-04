@@ -11,6 +11,8 @@ pub enum Arrived {
     Question,
     /// Fleet marked a Job Stopped.
     Stopped,
+    /// A Job ended a turn after Fleet told it its pull request failed, and pushed nothing since.
+    Red,
     /// A Job recorded a plan.
     Plan,
 }
@@ -21,8 +23,14 @@ impl Arrived {
             Arrived::Start => "start",
             Arrived::Question => "question",
             Arrived::Stopped => "stopped",
+            Arrived::Red => "red",
             Arrived::Plan => "plan",
         }
+    }
+
+    /// A Job gone quiet with work left, which is nudged, started anew or raised.
+    pub fn is_stall(self) -> bool {
+        matches!(self, Arrived::Stopped | Arrived::Red)
     }
 
     /// How the call is told what arrived.
@@ -31,6 +39,7 @@ impl Arrived {
             Arrived::Start => "A Job started",
             Arrived::Question => "An agent asked a question",
             Arrived::Stopped => "A Job stopped with work left",
+            Arrived::Red => "A Job left its pull request red",
             Arrived::Plan => "A Job recorded a plan",
         }
     }

@@ -23,6 +23,7 @@ mod desk;
 mod handing;
 mod ruling;
 mod seat;
+mod stalls;
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -40,6 +41,7 @@ pub use acting::FleetActing;
 pub use desk::FleetDesk;
 pub(crate) use seat::{Moved, Seat};
 pub use ruling::{Outcome, PassedOn, Ruled, Ruling, Way};
+pub use stalls::{Quiet, Stall};
 
 /// How long a Job's first write waits for the ruling on its start.
 pub const FIRST_WRITE_WAIT: Duration = Duration::from_secs(20);
@@ -78,6 +80,12 @@ pub trait Acting: Send + Sync {
     fn merge(&self, ending: &str, into: &str, shared: &[String]);
     /// Both carry on, each told the other's plan group and the paths they share.
     fn keep_in_touch(&self, one: &str, other: &str, shared: &[String]);
+    /// A Job gone quiet is told `step`, its next step, and carries on.
+    fn nudge(&self, _session: &str, _step: &str) {}
+    /// What is left of a Job gone quiet starts as a Job of its own, briefed with `seen`.
+    fn start_rest(&self, _session: &str, _seen: &str) {}
+    /// A Job gone quiet goes to the person, with the call's `read`.
+    fn raise(&self, _session: &str, _read: &str) {}
 }
 
 /// One row of the Log.
@@ -247,7 +255,7 @@ impl Operator {
                     false => "it is the only way Fleet's rules leave it",
                 };
                 let ruled = match arrival.ways.first() {
-                    Some(way) => Ruled::Ruled(Ruling { way: *way, other: None, shared: Vec::new(), because: because.into() }),
+                    Some(way) => Ruled::Ruled(Ruling { way: *way, other: None, shared: Vec::new(), because: because.into(), step: None }),
                     None => Ruled::PassedOn(PassedOn::Refused("Fleet's rules leave it no way".into())),
                 };
                 self.settle(one, ruled, None).await;
@@ -310,13 +318,22 @@ impl Operator {
     /// first write waits on this ruling, and a plan is recorded before its building.
     fn act(&self, arrival: &Arrival, ruling: &Ruling) {
         let session = arrival.session_id.as_str();
+        if arrival.arrived.is_stall() {
+            match (ruling.way, ruling.step.as_deref()) {
+                (Way::Nudge, Some(step)) => self.acting.nudge(session, step),
+                (Way::NewJob, _) => self.acting.start_rest(session, &arrival.words),
+                (Way::Raise, _) => self.acting.raise(session, &ruling.because),
+                _ => {}
+            }
+            return;
+        }
         match (ruling.way, ruling.other.as_deref()) {
             (Way::NewJob, _) => self.acting.go_ahead(session),
             (Way::ExistingJob, Some(other)) => self.acting.hand_over(session, arrival.group.as_deref(), other, &ruling.shared),
             (Way::Merge, Some(other)) => self.acting.merge(session, other, &ruling.shared),
             (Way::KeepInTouch, Some(other)) => self.acting.keep_in_touch(session, other, &ruling.shared),
             // A way between two that names no other was refused as it was read.
-            (Way::ExistingJob | Way::Merge | Way::KeepInTouch, None) | (Way::Raise, _) => {}
+            (Way::ExistingJob | Way::Merge | Way::KeepInTouch, None) | (Way::Raise | Way::Nudge, _) => {}
         }
     }
 }
