@@ -49,7 +49,7 @@ use crate::roster::Roster;
 use crate::yaml::{self, Table};
 
 /// The keys M1 reads at the top level of a WorkflowDef.
-const TOP_LEVEL: &[&str] = &["version", "workflow_id", "name", "for_requests", "lands", "steps"];
+const TOP_LEVEL: &[&str] = &["version", "workflow_id", "name", "for_requests", "lands", "carries_no_code", "steps"];
 
 /// `lands`'s words, all carried.
 const LANDS_CARRIED: &[(&str, Lands)] = &[
@@ -74,6 +74,7 @@ pub struct WorkflowDef {
     name: String,
     for_requests: Option<String>,
     lands: Option<Lands>,
+    carries_no_code: bool,
     steps: Vec<Step>,
 }
 
@@ -162,6 +163,13 @@ impl WorkflowDef {
         Lands::of(self.lands, self.steps.iter().any(Step::delivers))
     }
 
+    /// Whether a Job on this workflow writes no code, so it is asked for no branch, slot, test, push,
+    /// pull request or merge, and its commands run without a leased slot. **Absent is `false`**, so
+    /// every definition written before the key existed goes on loading as it did.
+    pub fn carries_no_code(&self) -> bool {
+        self.carries_no_code
+    }
+
     /// The steps, in file order. **Order is the semantics** — there is no
     /// `order` field, because an array already has one and two statements of
     /// the same thing can disagree.
@@ -208,6 +216,12 @@ fn read(path: &Path, root: &Value, roster: &Roster, out: &mut Vec<Refusal>) -> O
     let lands = top.optional("lands").and_then(|value| {
         yaml::word("lands", value, LANDS_CARRIED, LANDS_LEGAL, LANDS_LEGAL, out)
     });
+
+    let no_code_key = top.at("carries_no_code");
+    let carries_no_code = match top.optional("carries_no_code") {
+        None => Some(false),
+        Some(value) => yaml::flag(&no_code_key, value, out),
+    };
 
     let items = top
         .required("steps", out)
@@ -362,6 +376,7 @@ fn read(path: &Path, root: &Value, roster: &Roster, out: &mut Vec<Refusal>) -> O
         name: name?,
         for_requests,
         lands,
+        carries_no_code: carries_no_code?,
         steps,
     })
 }
