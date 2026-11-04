@@ -558,9 +558,17 @@ export type SlotHolder = {
 
 /** Where a Job goes in Waiting to start, against another Job waiting there. */
 export type LinePlace =
-  | { kind: "ahead"; session_id: string }
-  | { kind: "behind"; session_id: string }
-  | { kind: "last" };
+  | {
+      kind: "ahead";
+      session_id: string;
+    }
+  | {
+      kind: "behind";
+      session_id: string;
+    }
+  | {
+      kind: "last";
+    };
 
 /**
  * `move_in_line` (`POST /sessions/line/move`): the person drags a Job waiting to start to another place, over the
