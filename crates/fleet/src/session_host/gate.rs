@@ -323,6 +323,10 @@ where
     /// freed between two of them is not taken by the newer. When the pool is full the
     /// session is queued, and `queueing` leases it a slot when one frees.
     async fn leased(&self, id: &str, served: &Served) -> GateAnswer {
+        // The Operator's ruling on the start first: one that sends the work elsewhere takes no slot.
+        if let Some(why) = self.first_write_ruled(id).await {
+            return GateAnswer::deny(why);
+        }
         let queue = self.hosts().slot_queue();
         let manifest = served.manifest().id().as_str();
         // A slot added for a command that is asking is its own until it leases it.
@@ -400,8 +404,10 @@ where
     /// do about it if this is its first time there. How many are ahead of it.
     pub(super) async fn line_joined(&self, manifest: &str, id: &str) -> usize {
         let queue = self.hosts().slot_queue();
-        let (ahead, fresh) = queue.join(manifest, id, &self.instant());
-        if fresh {
+        let since = self.instant();
+        let (ahead, placed) = queue.join(manifest, id, &since);
+        if let Some(place) = placed {
+            self.line_kept(manifest, id, place, &since).await;
             self.slot_wait_began(id, "line").await;
             let _ = self.published_hosted(id).await;
         }

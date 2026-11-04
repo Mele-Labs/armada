@@ -41,6 +41,10 @@ where
     pub(crate) fn rule_acts(&self) -> &crate::lifecycles::acting::Owed {
         &self.rule_acts
     }
+    /// The Operator as this Fleet holds it.
+    pub(crate) fn operator_seat(&self) -> &crate::operator::Seat {
+        &self.operator
+    }
     pub(crate) fn store(&self) -> &crate::store_lock::StoreLock {
         &self.store
     }
@@ -438,6 +442,9 @@ where
     }
     pub(crate) fn feed(&self) -> &Arc<crate::test_map_feed::Feed> {
         &self.feed
+    }
+    pub(crate) fn base_moves(&self) -> &crate::base_moves::BaseMoves {
+        &self.base_moves
     }
     /// A room in the machine's line of places, asking as `asking`: what a heavy run outside a
     /// Check holds around itself.

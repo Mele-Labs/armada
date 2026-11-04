@@ -11,13 +11,13 @@ use crate::daemon::Fleet;
 const NOT_SETTLEABLE: &str = "fleet.later_not_settleable";
 const NOT_DEFERRABLE: &str = "fleet.later_not_deferrable";
 const NOT_OPEN: &str = "fleet.later_not_open";
-const LATER_OPEN: &str = "fleet.later_open";
+pub(super) const LATER_OPEN: &str = "fleet.later_open";
 
 /// What `all_done` is told while follow-ups are open: each one, and the three ways to settle it.
 fn open_text(open: &[store::KeptLater]) -> String {
     let listed: Vec<String> = open.iter().map(|one| format!("- {}: {}", one.id, one.sentence)).collect();
     format!(
-        "all_done refused. Still open under Later:\n\n{}\n\nSettle each with settle_later: done, filed with an issue number, or dropped with a reason.",
+        "Still open under Later:\n\n{}\n\nSettle each with settle_later: done, filed with an issue number, or dropped with a reason.",
         listed.join("\n")
     )
 }
@@ -72,14 +72,11 @@ where
         }
     }
 
-    /// `all_done` is refused while any follow-up is open, naming each. **Only the agent's call asks**:
+    /// What `all_done` is told while any follow-up is open, naming each. **Only the agent's call asks**:
     /// the person's End job is `close_session` and never reads this.
-    pub(crate) fn later_holds_done(&self, store: &store::Store, id: &str) -> Result<(), Refusal> {
+    pub(crate) fn later_open_text(&self, store: &store::Store, id: &str) -> Result<Option<String>, Refusal> {
         let open = store.later_of(id).map_err(|why| self.ledger_fault(why))?;
-        match open.is_empty() {
-            true => Ok(()),
-            false => Err(Refusal::IllegalMove(WireError::raised(LATER_OPEN, open_text(&open), self.run_id()))),
-        }
+        Ok((!open.is_empty()).then(|| open_text(&open)))
     }
 
     /// `defer_later`: the job keeps one follow-up for itself. The same sentence, trimmed, is the item it

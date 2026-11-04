@@ -209,8 +209,18 @@ fn every_launch_tells_the_job_its_id_once_after_the_rules() {
 /// The rules name the tools Fleet's door offers, so a rename there fails here.
 #[test]
 fn the_rules_name_the_tools_that_surface_a_need() {
-    for named in ["waiting_for", "finish_up", "all_done", "TaskCreate", "TaskUpdate", "AskUserQuestion", "record_plan"] {
+    for named in ["waiting_for", "all_done", "TaskCreate", "TaskUpdate", "AskUserQuestion", "record_plan"] {
         assert!(rules().contains(named), "{named}");
+    }
+    assert!(!rules().contains("finish_up"), "one act finishes a Job, so no step calls finish_up first");
+}
+
+/// Each request re-sends the whole context, so the rules ask for fewer, wider turns.
+#[test]
+fn the_rules_ask_for_parallel_calls_and_no_turn_for_a_fleet_act_alone() {
+    let progress = rules().split("\n\n").find(|block| block.starts_with("Progress.")).expect("a progress paragraph");
+    for named in ["independent reads and searches as parallel calls in one turn", "in a turn with other work, never alone"] {
+        assert!(progress.contains(named), "{named} in the progress paragraph");
     }
 }
 
@@ -328,7 +338,7 @@ fn the_rules_carry_what_the_start_note_told_a_hosted_session() {
         assert!(showing.contains(named), "{named} in the showing paragraph");
     }
     let finishing = rules().split("\n\n").find(|block| block.starts_with("Finishing.")).expect("a finishing paragraph");
-    for named in ["every comment", "never reply on the forge", "`finish_up` gives back your slots"] {
+    for named in ["every comment", "never reply on the forge", "call `all_done` with a `summary`"] {
         assert!(finishing.contains(named), "{named} in the finishing paragraph");
     }
 }

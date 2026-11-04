@@ -44,6 +44,7 @@ mod harness;
 mod shared_home;
 mod history;
 mod hosted_session;
+mod hosted_token_use;
 mod issue_lookup;
 mod issue_search;
 mod jira;

@@ -320,13 +320,15 @@ where
         let proposing = self.proposing().map_err(|why| format!("{why:?}"))?;
         let named = self.machine_settings().now().get(keys::MODELS_ACCOUNT);
         let model = Model::named_at(&named, None).map_err(|_| String::from("no model is configured for `models.account`"))?;
-        let ask = Ask::put(model, question, proposing.environment.clone())
-            .map_err(|_| String::from("there was nothing to ask"))?
-            // One request per call and nothing reads its prefix back, so the hour-long write the
-            // client defaults to is paid for and never used; the reply is a few short lines, so
-            // thinking before it adds output and no quality.
-            .kept_briefly()
-            .unthinking();
+        let (briefly, unthinking) = {
+            let now = self.machine_settings().now();
+            (now.get(keys::SUMMARY_SHORT_CACHE), !now.get(keys::SUMMARY_THINKING))
+        };
+        let ask = Ask::put(model, question, proposing.environment.clone()).map_err(|_| String::from("there was nothing to ask"))?;
+        // One request per call and nothing reads its prefix back, so the hour-long write the
+        // client defaults to is paid for and never used; the reply is a few short lines, so
+        // thinking before it adds output and no quality. Each is a setting, read at the call.
+        let ask = summary_asked(ask, briefly, unthinking);
         watched(proposing.client.as_ref(), &ask, proposing.budget, &|_| {}, std::future::pending::<()>())
             .await
             .map_err(|why| why.to_string())
@@ -337,6 +339,12 @@ where
         let kept = self.store().lock().await.session_plan(id).ok().flatten()?;
         Some(crate::plan_record::wire(&kept))
     }
+}
+
+/// `ask` as the turn-summary settings say: kept briefly, and not thinking.
+pub(crate) fn summary_asked(ask: Ask, briefly: bool, unthinking: bool) -> Ask {
+    let ask = if briefly { ask.kept_briefly() } else { ask };
+    if unthinking { ask.unthinking() } else { ask }
 }
 
 /// Which plan group an account names.

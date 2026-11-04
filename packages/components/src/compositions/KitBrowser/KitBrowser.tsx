@@ -9,6 +9,7 @@ import { Input } from "../../primitives/Input/Input";
 import { Select } from "../../primitives/Select/Select";
 import { Skeleton } from "../../primitives/Skeleton/Skeleton";
 import { Switch } from "../../primitives/Switch/Switch";
+import { RepositorySwitches } from "../RepositorySwitches/RepositorySwitches";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { KitServerAddForm, KIT_HERE_LABEL } from "../KitServers/KitServers";
 import { BuiltInMark, ModKindMark } from "../ModRow/ModRow";
@@ -87,6 +88,18 @@ export type KitBrowserProps = {
     onKitReach?: (name: string, reaches: boolean) => void;
     onHereReach?: (name: string, reach: "extended" | "restricted" | null) => void;
   };
+  /**
+   * Skills: which repositories' Jobs get the picked skill, as a switch per repository in its detail. `off` is each
+   * repository's skills switched off, by its id. Absent draws no list.
+   */
+  jobs?: {
+    repositories: readonly {
+      id: string;
+      name: string;
+    }[];
+    off: Readonly<Record<string, readonly string[]>>;
+    onSwitch: (repository: string, skill: string, on: boolean) => void;
+  };
 };
 
 /** The list's rows as bars while the setup read is out: widths varied so the column does not read as a table. */
@@ -117,8 +130,10 @@ export function KitBrowser({
   onShowInFinder,
   openRefused,
   servers,
+  jobs: allJobs,
 }: KitBrowserProps) {
   const pieces = kind === "skills" || kind === "plugins" ? allPieces : undefined;
+  const jobs = kind === "skills" ? allJobs : undefined;
   const shared = useSharedHome();
   const [filter, setFilter] = useKept(`${keep}:${kind}:filter`, "");
   const [adding, setAdding] = useState(false);
@@ -324,6 +339,7 @@ export function KitBrowser({
             onOpenFile={onOpenFile}
             onShowInFinder={onShowInFinder}
             openRefused={openRefused}
+            jobs={jobs}
           />
         )}
       </section>
@@ -409,6 +425,7 @@ function Detail({
   onOpenFile,
   onShowInFinder,
   openRefused,
+  jobs,
 }: {
   row: KitRow;
   shared: SharedHome | undefined;
@@ -421,6 +438,7 @@ function Detail({
   onOpenFile: KitBrowserProps["onOpenFile"];
   onShowInFinder: KitBrowserProps["onShowInFinder"];
   openRefused: KitBrowserProps["openRefused"];
+  jobs: KitBrowserProps["jobs"];
 }) {
   const kit = row.server?.tier === "kit" ? row.server.row : undefined;
   const [confirming, setConfirming] = useState(false);
@@ -510,6 +528,22 @@ function Detail({
           {notes}
         </>
       ) : null}
+      {jobs === undefined ? null : row.jobs === undefined ? (
+        <p className="armada-kit-browser__comes">
+          Every Job gets a repository's own skills and Armada's.
+        </p>
+      ) : (
+        <RepositorySwitches
+          title="Jobs get it in"
+          rows={jobs.repositories.map((one) => ({
+            id: one.id,
+            name: one.name,
+            on: !(jobs.off[one.id] ?? []).includes(row.jobs!),
+          }))}
+          switchLabel={(name) => `Jobs in ${name} get ${row.name}`}
+          onSwitch={(repository, on) => jobs.onSwitch(repository, row.jobs!, on)}
+        />
+      )}
     </>
   );
   if (inline) {
