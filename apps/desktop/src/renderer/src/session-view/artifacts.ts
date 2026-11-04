@@ -126,6 +126,8 @@ const commandOf = (row: SessionRow): ArtifactRow | undefined => {
 /** A Session's state as the ledger's marks say it. */
 const TONE: Record<SessionState, SessionLedgerTone> = {
   working: "running",
+  running: "running",
+  subagent: "running",
   stuck: "failed",
   failing: "failed",
   waiting: "escalated",
@@ -141,6 +143,8 @@ const TONE: Record<SessionState, SessionLedgerTone> = {
   held: "pending",
   paused: "pending",
   unstarted: "failed",
+  stopped: "stopped",
+  stopped_asks: "stopped",
 };
 
 /** A web address as its row titles it: the host and the path, with no scheme, query or trailing slash. Nothing is fetched. */

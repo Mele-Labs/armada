@@ -1,7 +1,7 @@
 // A Job as the palette lists it: where it works, how it stands, and the pull request it holds. Apart from `PaletteMount`
 // so a test can hold the mapping without a window.
 
-import { sessionGlyphOf } from "@armada/components";
+import { bucketOf, sessionGlyphOf } from "@armada/components";
 import type { PaletteSession } from "@armada/shell";
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
@@ -71,7 +71,7 @@ export function jobRow(
     state: {
       icon: sessionGlyphOf(state),
       said,
-      ...(state === "working"
+      ...(bucketOf(state) === "working"
         ? {
             pulsing: true as const,
           }

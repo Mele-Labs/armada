@@ -2,7 +2,8 @@
 //! read back, under the lock the caller holds. `docs/practices/protocol.md`, *Usage a turn at a time*.
 
 use ipc::{BashUse, SessionTurnUsage, TurnUsage};
-use store::{KeptTurnUsage, Store, WriteError};
+use adapters::turn_lines::TurnRead;
+use store::{KeptOpenCall, KeptReading, KeptToolResult, KeptTurnTimes, KeptTurnUsage, Store, WriteError};
 
 /// A turn as the store keeps it.
 pub(crate) fn kept_form(turn: &TurnUsage) -> KeptTurnUsage {
@@ -17,6 +18,29 @@ pub(crate) fn kept_form(turn: &TurnUsage) -> KeptTurnUsage {
         tools: turn.tools.clone(),
         subagent: turn.subagent,
         bash_use: turn.bash_use.map(|one| one.label().to_string()),
+    }
+}
+
+/// What a read learnt of when its turns ran, as the store keeps it.
+pub(crate) fn reading_kept(read: &TurnRead) -> KeptReading {
+    KeptReading {
+        times: read
+            .times
+            .iter()
+            .map(|one| KeptTurnTimes {
+                message_id: one.message_id.clone(),
+                model_began: one.model_began.clone(),
+                tools_began: one.tools_began.clone(),
+                tools_ended: one.tools_ended.clone(),
+            })
+            .collect(),
+        late: read.late.iter().map(|one| KeptToolResult { tool_use_id: one.tool_use_id.clone(), at: one.at.clone() }).collect(),
+        open: read
+            .open
+            .iter()
+            .map(|one| KeptOpenCall { tool_use_id: one.tool_use_id.clone(), message_id: one.message_id.clone() })
+            .collect(),
+        input_at: read.input_at.clone(),
     }
 }
 

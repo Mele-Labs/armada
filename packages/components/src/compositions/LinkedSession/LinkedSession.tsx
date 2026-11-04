@@ -1,7 +1,7 @@
 import { Link } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { sessionGlyphOf, type SessionState } from "../SessionFrame/SessionFrame";
+import { bucketOf, sessionGlyphOf, type SessionState } from "../SessionFrame/SessionFrame";
 import {
   PullRequestChecksMark,
   PullRequestStateMark,
@@ -65,7 +65,7 @@ export function LinkedSession({ title, group, state, said, pr, onOpen }: LinkedS
             className="armada-session-mark armada-linked__state"
             role="img"
             aria-label={said}
-            data-pulsing={state === "working" || undefined}
+            data-pulsing={bucketOf(state) === "working" || undefined}
           >
             <Glyph size={12} strokeWidth={2} aria-hidden />
           </span>

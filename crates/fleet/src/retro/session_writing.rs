@@ -276,6 +276,7 @@ where
         } else {
             files.drawn.clone()
         };
+        let timing = self.timing_of(&session.id).await?;
         let record = assembled(&SessionSources {
             since,
             until,
@@ -284,6 +285,7 @@ where
             subagents: &files.subagents,
             restarts: &restarts,
             note,
+            timing: timing.as_ref(),
         });
         Ok(Gathered { record, thread })
     }

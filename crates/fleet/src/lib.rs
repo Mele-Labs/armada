@@ -55,8 +55,11 @@ mod loadout_keeping;
 /// Where a Session's turn usage meets the store.
 mod turn_ingest;
 mod usage_following;
+pub mod job_time;
+mod job_timing;
 pub mod usage_rules;
 mod usage_summarising;
+mod time_summarising;
 mod turn_usage_keeping;
 mod loadout_reading;
 /// A Session's place in its workflow, read from what Fleet observed, and the nudge for a step skipped.
@@ -76,6 +79,10 @@ pub mod rail_following;
 mod build_notices;
 /// The build Fleet runs on and the detached restart onto another. `scripts/restart-build`.
 mod building;
+/// Every build Fleet has run, kept for the Usage page.
+mod builds_run;
+/// The hours, builds and Jobs the Usage page reads time from.
+mod time_reading;
 /// How long a Check may run.
 mod budget;
 /// The served checkout caught up whenever main moves.

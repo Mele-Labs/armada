@@ -815,6 +815,7 @@ export function SystemLayer({
     <Shell label="System">
       <SystemSections
         sessionId={session.id}
+        title={session.title}
         worktrees={
           held.length === 0 ? null : held.map((bay) => <HeldBayRow key={bay.slot.slot} bay={bay} />)
         }

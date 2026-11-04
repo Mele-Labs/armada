@@ -827,6 +827,43 @@ pub(crate) async fn get_usage_summary<D: Sessions>(
     }
 }
 
+/// `?session_id=` on `get_job_time`.
+pub(crate) async fn get_job_time<D: Sessions>(State(served): State<Served<D>>, Query(which): Query<WhichSession>) -> Response {
+    match served.daemon().get_job_time(ipc::SessionId::carried(which.session_id)).await {
+        Ok(time) => answer(StatusCode::OK, &time, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?since=&until=&slowest=` on `get_usage_time`.
+#[derive(Deserialize)]
+pub(crate) struct TimeWindow {
+    since: Option<String>,
+    until: Option<String>,
+    slowest: Option<usize>,
+}
+
+pub(crate) async fn get_usage_time<D: Sessions>(State(served): State<Served<D>>, Query(window): Query<TimeWindow>) -> Response {
+    match served.daemon().get_usage_time(window.since, window.until, window.slowest).await {
+        Ok(time) => answer(StatusCode::OK, &time, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?since=&hours=` on `get_usage_hours`.
+#[derive(Deserialize)]
+pub(crate) struct HoursWindow {
+    since: Option<String>,
+    hours: Option<u32>,
+}
+
+pub(crate) async fn get_usage_hours<D: Sessions>(State(served): State<Served<D>>, Query(window): Query<HoursWindow>) -> Response {
+    match served.daemon().get_usage_hours(window.since, window.hours).await {
+        Ok(hours) => answer(StatusCode::OK, &hours, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?since=&until=` on `get_usage_rules`.
 #[derive(Deserialize)]
 pub(crate) struct RulesWindow {

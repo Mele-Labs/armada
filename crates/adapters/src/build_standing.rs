@@ -72,6 +72,44 @@ pub fn branch_in_build(root: &str, build: &str, branch: &str) -> Option<BranchIn
     })
 }
 
+/// What git can say of a build after the fact, when nothing recorded it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BuildMade {
+    pub preview: bool,
+    /// The main commit it stands on: its own, for a main build.
+    pub main_commit: String,
+    /// The branches `scripts/preview` merged into it, newest merge first.
+    pub branches: Vec<String>,
+}
+
+/// How `scripts/preview` words a merge: the branch, then the build it is merged into.
+fn merged_into_preview(subject: &str) -> Option<&str> {
+    subject.strip_prefix("Merge branch '")?.strip_suffix("' into preview")
+}
+
+/// Whether the build at `commit` is a preview, the main commit under it and the branches in it, read
+/// from the first-parent merges `scripts/preview` made. **`None` says nothing**: a commit this
+/// repository does not hold, or one that is neither a preview nor on `origin/main`. Hence a preview
+/// that merged nothing reads as a main build.
+pub fn build_made_of(root: &str, commit: &str) -> Option<BuildMade> {
+    let named = format!("{commit}^{{commit}}");
+    commits(root, &["rev-parse", "--verify", "--quiet", &named])?.pop()?;
+    let walk = commits(root, &["log", "--first-parent", "--format=%H\t%s", "-n", "400", commit])?;
+    let mut branches = Vec::new();
+    for line in &walk {
+        let (hash, subject) = line.split_once('\t')?;
+        match merged_into_preview(subject) {
+            Some(branch) => branches.push(branch.to_string()),
+            None if branches.is_empty() => {
+                let on_main = read_in(root, "git", &["merge-base", "--is-ancestor", hash, "origin/main"]).ok()?.status.success();
+                return on_main.then(|| BuildMade { preview: false, main_commit: hash.to_string(), branches });
+            }
+            None => return Some(BuildMade { preview: true, main_commit: hash.to_string(), branches }),
+        }
+    }
+    None
+}
+
 /// The commit `refs/heads/<branch>` names in `root`, or `None` where there is no such branch.
 pub fn branch_tip(root: &str, branch: &str) -> Option<String> {
     commits(root, &["rev-parse", "--verify", "--quiet", &format!("refs/heads/{branch}^{{commit}}")])?.pop()

@@ -38,6 +38,17 @@ pub(crate) const SESSION_QUESTION: &str =
          tool missing on this Mac, how this repository does things, a gotcha. The Logbook \
          takes those. Keep an item only where the fix is a change to Armada, to the tools the \
          agent was given, or to the repository's code or `armada.yml`.\n\
+         - `time` is in the record only where the job ran far over the usual for its workflow. \
+         It holds the job's whole time in milliseconds in each bucket, the usual in the same \
+         buckets, and `over`, the buckets far over. The buckets: `model` waiting on the model, \
+         `tools` a tool running, `checks` a check queued or running, `subagents` waiting on a \
+         subagent, `slot` waiting for a slot, `you` waiting on the person, `pull_request` CI and \
+         the merge queue with nothing else running, `stopped` the agent not running and nothing \
+         asked, `idle` nothing running and nothing asked. Write one item for the bucket that \
+         cost the most time over its usual, the spent minus the usual. Say why from the other \
+         rows of the record, and where the fix lands. Cite `time:1` and the rows that show why. \
+         Where no row shows why, say the cause is unclear and cite `time:1`. Write no item \
+         about time where `time` is absent.\n\
          - One item per cause. A few true items are better than many.\n\
          - Name only what the record shows, and cite at least one row for each item. Leave \
          out what went well. If nothing got in the way, answer with no items.\n\n\
@@ -72,4 +83,42 @@ pub(super) fn question(
             ("record", &data),
         ],
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use ipc::{RecordSplit, RecordTime};
+
+    use super::*;
+
+    fn ask(record: &RetroRecord) -> String {
+        question(&Prompts::shipped(), record, Some("tidy the gate")).expect("a record encodes")
+    }
+
+    #[test]
+    fn a_job_far_over_its_usual_is_asked_for_the_bucket_that_cost_the_most_with_the_row_to_cite() {
+        let record = RetroRecord {
+            time: Some(RecordTime {
+                cite: "time:1".into(),
+                workflow: "build".into(),
+                jobs: 9,
+                spent: RecordSplit { you: 5_400_000, ..RecordSplit::default() },
+                usual: RecordSplit { you: 1_200_000, ..RecordSplit::default() },
+                over: vec!["you".into()],
+            }),
+            ..RetroRecord::default()
+        };
+        let asked = ask(&record);
+        assert!(asked.contains("the bucket that cost the most time over its usual"), "the instruction is in the question");
+        assert!(asked.contains("Write no item about time where `time` is absent"));
+        let data = asked.split("-----BEGIN RECORD-----").nth(1).expect("the record is fenced");
+        assert!(data.contains("\"cite\":\"time:1\"") && data.contains("\"over\":[\"you\"]"), "the row is in the record: {data}");
+    }
+
+    #[test]
+    fn a_record_without_the_row_carries_no_time_at_all() {
+        let asked = ask(&RetroRecord::default());
+        let data = asked.split("-----BEGIN RECORD-----").nth(1).expect("the record is fenced");
+        assert!(!data.contains("\"time\""), "{data}");
+    }
 }

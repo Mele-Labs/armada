@@ -651,6 +651,28 @@ pub trait Sessions: Send + Sync + 'static {
         tz_offset_minutes: i32,
     ) -> impl Future<Output = Result<ipc::UsageSummary, Refusal>> + Send;
 
+    /// `get_job_time` — where one Job's time went, with the usual of its workflow. The answer carries no
+    /// time where none is kept for it. [`Refusal::Unacceptable`] for a session Fleet does not know.
+    fn get_job_time(&self, session_id: ipc::SessionId) -> impl Future<Output = Result<ipc::JobTime, Refusal>> + Send;
+
+    /// `get_usage_time` — where the time of the Jobs that ended in `[since, until)` went, the `slowest`
+    /// of them (twenty where left out) and the usual of each workflow. `until` is now and `since` a week
+    /// before it where left out. [`Refusal::Unacceptable`] for a bound that is not a time.
+    fn get_usage_time(
+        &self,
+        since: Option<String>,
+        until: Option<String>,
+        slowest: Option<usize>,
+    ) -> impl Future<Output = Result<ipc::UsageTime, Refusal>> + Send;
+
+    /// `get_usage_hours` — `hours` hours (48 where left out) from `since`, with the builds that ran in
+    /// them. [`Refusal::Unacceptable`] where `since` is not a time.
+    fn get_usage_hours(
+        &self,
+        since: Option<String>,
+        hours: Option<u32>,
+    ) -> impl Future<Output = Result<ipc::UsageHours, Refusal>> + Send;
+
     /// `get_usage_rules` — the token rules with their limits and the trips in `[since, until)`.
     /// `until` is now and `since` a week before it where left out. [`Refusal::Unacceptable`] for a
     /// bound that is not a time.

@@ -170,8 +170,8 @@ test("Now leads with the line the calls make, and not with a task the agent mark
   expect(beats(host)).not.toContain("Name the failure");
 });
 
-test("with no turn running nothing is detected, and Now leads with the agent", () => {
-  expect(beats(mount(session("idle")))[0]).toBe("Agent");
+test("with no turn running nothing is detected, and Now draws no agent row", () => {
+  expect(beats(mount(session("idle")))).not.toContain("Agent");
 });
 
 test("with no calls to read, an agent held on a question for him is named for what it waits on", () => {

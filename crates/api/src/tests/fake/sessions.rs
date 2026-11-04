@@ -64,6 +64,10 @@ impl Sessions for FakeDaemon {
             waits: None,
             later: Vec::new(),
             held_open_by: Vec::new(),
+            stopped: None,
+            stop_told_by: None,
+            turn_since: None,
+            last_heard_at: None,
             started: None,
             workflow_visits: Vec::new(),
             skipped_steps: Vec::new(),
@@ -800,6 +804,26 @@ impl Sessions for FakeDaemon {
         _tz_offset_minutes: i32,
     ) -> Result<ipc::UsageSummary, Refusal> {
         Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.session_unnamed", "a fake sums nothing", crate::tests::shapes::run_id())))
+    }
+
+    async fn get_job_time(&self, session_id: ipc::SessionId) -> Result<ipc::JobTime, Refusal> {
+        Ok(ipc::JobTime { session_id: session_id.as_str().to_string(), time: None })
+    }
+
+    async fn get_usage_time(
+        &self,
+        since: Option<String>,
+        until: Option<String>,
+        slowest: Option<usize>,
+    ) -> Result<ipc::UsageTime, Refusal> {
+        // The window the route read comes back in the answer, so a route test can see what reached the daemon.
+        let said = format!("{}|{}|{}", since.unwrap_or_default(), until.unwrap_or_default(), slowest.map_or(String::new(), |n| n.to_string()));
+        Ok(ipc::UsageTime { since: said, until: String::new(), jobs: 0, total: Default::default(), slowest: Vec::new(), usual: Vec::new() })
+    }
+
+    async fn get_usage_hours(&self, since: Option<String>, hours: Option<u32>) -> Result<ipc::UsageHours, Refusal> {
+        let said = format!("{}|{}", since.unwrap_or_default(), hours.map_or(String::new(), |n| n.to_string()));
+        Ok(ipc::UsageHours { since: said, until: String::new(), hours: Vec::new(), builds: Vec::new() })
     }
 
     async fn get_usage_rules(&self, _since: Option<String>, _until: Option<String>) -> Result<ipc::UsageRules, Refusal> {

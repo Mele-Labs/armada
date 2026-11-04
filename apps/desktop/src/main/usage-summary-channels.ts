@@ -2,6 +2,7 @@
 
 import type { IpcMain } from "electron";
 
+import type { UsageWindow } from "../shared/api/usage-summary";
 import { CHANNELS } from "../shared/bridge";
 import type { FleetConnection } from "./connection";
 
@@ -25,10 +26,32 @@ export function offsetOf(minutes: unknown): number | null {
     : null;
 }
 
+/** Two instants with the first before the second, as Fleet will read them. `undefined` where none was asked, `null` for anything else. */
+export function windowOf(window: unknown): UsageWindow | undefined | null {
+  if (window === undefined) return undefined;
+  if (typeof window !== "object" || window === null) return null;
+  const { since, until } = window as {
+    since?: unknown;
+    until?: unknown;
+  };
+  if (typeof since !== "string" || typeof until !== "string") return null;
+  const from = Date.parse(since);
+  const to = Date.parse(until);
+  return Number.isFinite(from) && Number.isFinite(to) && from < to
+    ? {
+        since,
+        until,
+      }
+    : null;
+}
+
 export function handleUsageSummary({ ipc, connection }: Hosts): void {
-  ipc.handle(CHANNELS.getUsageSummary, (_event, minutes: unknown) => {
+  ipc.handle(CHANNELS.getUsageSummary, (_event, minutes: unknown, window?: unknown) => {
     const offset = offsetOf(minutes);
-    return offset === null ? unsent : (connection()?.usageSummary.get(offset) ?? unsent);
+    const asked = windowOf(window);
+    return offset === null || asked === null
+      ? unsent
+      : (connection()?.usageSummary.get(offset, asked) ?? unsent);
   });
   ipc.handle(CHANNELS.getUsageRules, () => connection()?.usageSummary.rules() ?? unsent);
 }

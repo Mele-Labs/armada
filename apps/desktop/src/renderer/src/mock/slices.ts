@@ -30,6 +30,7 @@ import { actFailed } from "./slices/act-failed";
 import { bayHistory } from "./slices/bay-history";
 import { sessionSystem } from "./slices/session-system";
 import { usageSummary } from "./slices/usage-summary";
+import { usageTime } from "./slices/usage-time";
 import { debugReport } from "./slices/debug-report";
 import { issues } from "./slices/issues";
 import { autopilot } from "./slices/autopilot";
@@ -81,6 +82,7 @@ const BY_NAME = {
   bayHistory,
   sessionSystem,
   usageSummary,
+  usageTime,
   debugReport,
   issues,
   autopilot,

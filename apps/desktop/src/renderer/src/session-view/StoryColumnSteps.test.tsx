@@ -784,7 +784,7 @@ test("with no plan, the whole list draws under the current step", () => {
   expect(zone(host, "Propose").contains(agentList(host))).toBe(true);
 });
 
-test("with no workflow, the list draws under the Agent row, ahead of the plan's groups", () => {
+test("with no workflow, the list draws under the rows of Now, ahead of the plan's groups", () => {
   const host = mount({
     workflow: false,
     groups: PLAN,
@@ -800,7 +800,6 @@ test("with no workflow, the list draws under the Agent row, ahead of the plan's 
   ]);
   const now = zone(host, "Now");
   const beats = now.querySelector('ul[aria-label="Now"]')!;
-  expect(beats.querySelector(".sv-beat__label")?.textContent).toBe("Agent");
   expect(beats.nextElementSibling).toBe(agentList(host));
   expect(now.textContent!.indexOf("Read the retention setting")).toBeLessThan(
     now.textContent!.indexOf("Live work"),

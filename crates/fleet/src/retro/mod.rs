@@ -18,8 +18,10 @@ mod session_agreeing;
 mod session_files;
 mod session_question;
 mod session_record;
+mod session_time;
 mod session_writing;
 mod starting;
+mod timing_read;
 pub(crate) mod streamed;
 mod writing;
 

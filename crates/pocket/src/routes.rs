@@ -91,6 +91,8 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/sessions/tune", post(forward::forward))
         .route("/api/sessions/run/start", post(forward::forward))
         .route("/api/sessions/waiting/dismiss", post(forward::forward))
+        .route("/api/sessions/change_waiting", post(forward::forward))
+        .route("/api/sessions/start_waiting", post(forward::forward))
         .route("/api/plan_usage", get(forward::forward))
         // Bridge's model list reads Fleet's `/models` too, so the path maps as it is.
         .route("/api/models", get(forward::forward))

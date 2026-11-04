@@ -16,7 +16,8 @@
 # file the compiler errors name (git merges branches cut before a deletion
 # without a word). The rest are merged again and `scripts/restart` run again.
 # A failure that names no branch still merged is reported as it is. Before each
-# restart, `Armada/preview-left-out` records the commit and why each was skipped.
+# restart, `Armada/preview-left-out` records the commit and why each was skipped, and
+# `Armada/preview-held` the main commit the preview stands on and the branches merged into it.
 #
 # Knobs for tests: `ARMADA_LAND_ARMADA` names the `armada` to ask about
 # slots, and `ARMADA_PREVIEW_RESTART` the
@@ -364,6 +365,21 @@ def write_left_out(wt, rows):
     os.replace(path + ".tmp", path)
 
 
+def write_held(root, wt, base, rows):
+    """`Armada/preview-held`: the preview commit, then the main commit it stands on, then a
+    `branch<TAB>tip` line for each branch merged into it. Fleet keeps these with the build, so a
+    figure can be read against what the build held, and reads them only while that commit is the build."""
+    support = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "Armada")
+    os.makedirs(support, exist_ok=True)
+    lines = [out(wt, "rev-parse", "HEAD"), out(root, "rev-parse", base)]
+    lines += [f"{branch}\t{out(wt, 'rev-parse', f'refs/heads/{branch}')}"
+              for branch, what, _ in rows if what == "merged"]
+    path = os.path.join(support, "preview-held")
+    with open(path + ".tmp", "w") as f:
+        f.write("\n".join(lines) + "\n")
+    os.replace(path + ".tmp", path)
+
+
 def cannot_take(root, base, rows, output, wt):
     """{branch: why} for the merged branches this restart's output says it cannot take: the
     ones the migration guard names, else the ones the compiler errors name."""
@@ -441,6 +457,7 @@ def main():
         dropped = {}
         while True:
             write_left_out(wt, rows)
+            write_held(root, wt, base, rows)
             code, output = restart(root, wt, args.dry_run, args.adopt)
             more = cannot_take(root, base, rows, output, wt) if code != 0 else {}
             if not more:

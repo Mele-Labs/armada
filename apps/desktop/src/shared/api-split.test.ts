@@ -232,7 +232,8 @@ import type { AgentSignInRead } from "./api/agent-sign-in";
 import type { FleetTimelineRead } from "./api/timeline";
 import type { BayHistoryRead } from "./api/bay-history";
 import type { ProcessStopRead, ProcessTarget, SessionSystemRead } from "./api/session-system";
-import type { UsageRulesRead, UsageSummaryRead } from "./api/usage-summary";
+import type { UsageRulesRead, UsageSummaryRead, UsageWindow } from "./api/usage-summary";
+import type { JobTimeRead, UsageHoursRead, UsageTimeRead } from "./api/usage-time";
 import type { ArmadaReportRun, DebugReportRead } from "./api/debug-report";
 import type { ClashFileAnswer, SessionFileChangeAnswer, WriteClashesRead } from "./api/clashes";
 import type { RepositoryAreasRead, SlotTouchesRead } from "./api/territory";
@@ -572,8 +573,11 @@ type OldBridgeApi = {
   getSlotHistory: (manifestId: string, slot: number) => Promise<BayHistoryRead>;
   getSessionSystem: (sessionId: string) => Promise<SessionSystemRead>;
   stopProcess: (sessionId: string, target: ProcessTarget) => Promise<ProcessStopRead>;
-  getUsageSummary: (tzOffsetMinutes: number) => Promise<UsageSummaryRead>;
+  getUsageSummary: (tzOffsetMinutes: number, window?: UsageWindow) => Promise<UsageSummaryRead>;
   getUsageRules: () => Promise<UsageRulesRead>;
+  getUsageTime: () => Promise<UsageTimeRead>;
+  getUsageHours: () => Promise<UsageHoursRead>;
+  getJobTime: (sessionId: string) => Promise<JobTimeRead>;
   getDebugReport: (root: string | null) => Promise<DebugReportRead>;
   runArmadaReport: (root: string | null) => Promise<ArmadaReportRun>;
   onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void) => () => void;
@@ -1038,6 +1042,9 @@ const OLD_CHANNELS = {
   stopProcess: "bridge:stop-process",
   getUsageSummary: "bridge:get-usage-summary",
   getUsageRules: "bridge:get-usage-rules",
+  getUsageTime: "bridge:get-usage-time",
+  getUsageHours: "bridge:get-usage-hours",
+  getJobTime: "bridge:get-job-time",
   getDebugReport: "bridge:get-debug-report",
   runArmadaReport: "bridge:run-armada-report",
   planUsageChanged: "bridge:plan-usage-changed",

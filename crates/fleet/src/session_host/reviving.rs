@@ -31,7 +31,9 @@ where
     /// A turn began: keep it open until it ends or its process is found dead. A store that will
     /// not keep it fails nothing, as with [`Self::kept_restart`].
     pub(crate) async fn turn_opened(&self, id: &str, at: &str) {
-        let _ = self.store().lock().await.turn_opened(id, at);
+        let mut store = self.store().lock().await;
+        let _ = store.turn_opened(id, at);
+        let _ = store.clear_repair(id);
     }
 
     /// The turn stopped counting as open without a death: it finished, or was stopped, paused or closed.
@@ -85,7 +87,7 @@ where
             if self.hosts().of(&id).state().process.is_some() {
                 continue;
             }
-            // Started again already and still dead: it sits in Needs you, and says nothing twice.
+            // Started again already and still dead: the row and a repair Job have it, and it says nothing twice.
             if row.ended_at.is_some() && row.started_again >= 1 {
                 continue;
             }

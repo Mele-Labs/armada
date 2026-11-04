@@ -91,7 +91,7 @@ fn reading(why: rusqlite::Error) -> WriteError {
     WriteError::Database(fault("summing a session's turn usage")(why))
 }
 
-fn units() -> String {
+pub(crate) fn units() -> String {
     format!(
         "(({WEIGHT_INPUT:?} * input_tokens + {WEIGHT_CACHE_CREATION:?} * cache_creation_tokens + \
           {WEIGHT_CACHE_READ:?} * cache_read_tokens + {WEIGHT_OUTPUT:?} * output_tokens) / {UNIT_SCALE:?})"
