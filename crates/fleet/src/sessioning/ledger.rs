@@ -304,6 +304,9 @@ where
         let reply_owed_since = reads.waiting.reply_owed_since();
         let waited = self.waiting_from(reads.waiting, session, &record.attachments);
         record.waiting_for = waited.items;
+        // A question or a card it waits on: the Operator is handed it on the next tick.
+        let asked = if session.state == store::SessionState::Live { record.waiting_for.as_slice() } else { &[] };
+        self.operator_seat().asked_noted(&session.id, asked);
         record.closed = waited.closed;
         let parked = waited.start_held || waited.paused;
         let spoke = waited.spoke;

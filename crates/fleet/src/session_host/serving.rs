@@ -263,7 +263,12 @@ where
         self: Arc<Self>,
         said: ipc::AnswerWaiting,
     ) -> Result<SessionRecord, Refusal> {
-        self.settle_waiting(said).await
+        let answer = self.person_answer_of(&said).await;
+        let settled = Arc::clone(&self).settle_waiting(said).await?;
+        if let Some(row) = answer {
+            self.person_answer_kept(row).await;
+        }
+        Ok(settled)
     }
 
     async fn free_slot(self: Arc<Self>, free: ipc::FreeSlot) -> Result<SessionRecord, Refusal> {

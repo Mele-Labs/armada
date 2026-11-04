@@ -23,6 +23,7 @@ fn ruled(arrival: &str, call: Option<&str>, at: &str) -> KeptRuling {
         place: None,
         first_session: None,
         refused: Vec::new(),
+        answer: None,
     }
 }
 
@@ -105,4 +106,29 @@ fn the_latest_notice_a_job_was_told_of_a_pull_request_names_its_commit_and_when(
         Some(("2222222".to_string(), "2026-11-04T10:00:00.000Z".to_string()))
     );
     assert_eq!(store.pull_notice_latest(8, "checks_failed", "session:01a").expect("read"), None);
+}
+
+#[test]
+fn the_persons_answers_to_one_question_read_back_newest_first_and_the_operators_are_not_among_them() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let asked = "Keep the scrollback per tab?";
+    let answered = |arrival: &str, by: &str, answer: &str, at: &str| KeptRuling {
+        arrived: "question".to_string(),
+        subject: asked.to_string(),
+        outcome: if by == "human" { "answered" } else { "answer" }.to_string(),
+        by: by.to_string(),
+        answer: Some(answer.to_string()),
+        ..ruled(arrival, None, at)
+    };
+    store.add_operator_ruling(&answered("first", "human", "Per tab", "2026-11-04T10:00:00.000Z")).expect("kept");
+    store.add_operator_ruling(&answered("second", "operator", "Shared", "2026-11-04T10:30:00.000Z")).expect("kept");
+    store.add_operator_ruling(&answered("third", "human", "Shared", "2026-11-04T11:00:00.000Z")).expect("kept");
+    let elsewhere = KeptRuling { manifest_id: "01ELSEWHERE".to_string(), ..answered("fourth", "human", "Per tab", "2026-11-04T12:00:00.000Z") };
+    store.add_operator_ruling(&elsewhere).expect("kept");
+
+    let read = store.operator_answers_to("01REPOSITORY", asked).expect("read");
+    let said: Vec<(&str, Option<&str>)> = read.iter().map(|row| (row.session_id.as_str(), row.answer.as_deref())).collect();
+    assert_eq!(said, vec![("01third", Some("Shared")), ("01first", Some("Per tab"))]);
+    assert!(store.operator_answers_to("01REPOSITORY", "Something else?").expect("read").is_empty());
 }

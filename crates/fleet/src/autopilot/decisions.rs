@@ -156,6 +156,11 @@ where
                 continue;
             }
             for item in &job.items {
+                // While the Operator is on, it answers questions and cards as they appear, and
+                // this Autopilot's setup widens what it may answer.
+                if self.operator_on() && crate::operator::answers(item) {
+                    continue;
+                }
                 let id = format!("{}:{}", job.id, item.id);
                 if self.decision_kept(&id).await {
                     continue;
@@ -185,7 +190,7 @@ where
         answered
     }
 
-    fn card_of(&self, session: &str, item: &WaitingItem) -> Option<HelmCallInFlight> {
+    pub(crate) fn card_of(&self, session: &str, item: &WaitingItem) -> Option<HelmCallInFlight> {
         if item.source != WaitingSource::Permission {
             return None;
         }

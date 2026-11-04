@@ -12,7 +12,7 @@ use store::KeptPlan;
 
 use super::candidates::shared_paths;
 use super::desk::first_words;
-use super::{Acting, Place};
+use super::{Acting, Choice, Place};
 use crate::daemon::Fleet;
 
 /// The most of a Job's words one message carries.
@@ -105,6 +105,13 @@ where
     fn hold(&self, held: &str, first: &str, shared: &[String]) {
         let (held, first, shared) = (held.to_string(), first.to_string(), shared.to_vec());
         self.doing(move |fleet| async move { fleet.operator_held(&held, &first, &shared).await });
+    }
+
+    /// **Answer is the Operator's own**, and acts with Dispatch off: it settles what his press would.
+    fn answer(&self, session: &str, item: &str, choice: &Choice, because: &str) {
+        let Some(fleet) = self.fleet.upgrade().filter(|fleet| fleet.operator_on()) else { return };
+        let (session, item, choice, because) = (session.to_string(), item.to_string(), choice.clone(), because.to_string());
+        tokio::spawn(async move { fleet.operator_answered(&session, &item, &choice, &because).await });
     }
 }
 
