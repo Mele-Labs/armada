@@ -12,7 +12,7 @@ use core_model::{Actor, Timestamp};
 use testkit::FakeJudge;
 
 use super::session_host::rig_placing;
-use crate::operator::{Answering, Arrival, Arrived, Calling, Desk, Done, FleetDesk, KeptStarted, LiveJob, Logged, Operator, Outcome, PassedOn, Ruled, Source, Way, FIRST_WRITE_WAIT};
+use crate::operator::{Acting, Answering, Arrival, Arrived, Calling, Desk, Done, FleetDesk, KeptStarted, LiveJob, Logged, Operator, Outcome, PassedOn, Ruled, Source, Way, FIRST_WRITE_WAIT};
 use crate::{CallFailed, JudgeBudget};
 
 const NOW: &str = "2026-11-04T10:00:00.000Z";
@@ -95,6 +95,7 @@ struct Held {
     ceiling: u32,
     live: Vec<LiveJob>,
     log: Mutex<Vec<Logged>>,
+    acts: Mutex<Vec<String>>,
 }
 
 impl Held {
@@ -103,7 +104,11 @@ impl Held {
             .into_iter()
             .map(|id| LiveJob { session_id: id.into(), title: id.into(), manifest_id: "01REPO".into(), words: String::new(), paths: Vec::new() })
             .collect();
-        Arc::new(Held { ceiling, live, log: Mutex::new(Vec::new()) })
+        Arc::new(Held { ceiling, live, log: Mutex::new(Vec::new()), acts: Mutex::new(Vec::new()) })
+    }
+
+    fn acts(&self) -> Vec<String> {
+        self.acts.lock().expect("not poisoned").clone()
     }
 
     fn log(&self) -> Vec<Logged> {
@@ -136,6 +141,24 @@ impl Desk for Held {
     }
 }
 
+impl Acting for Held {
+    fn go_ahead(&self, session: &str) {
+        self.acts.lock().expect("not poisoned").push(format!("go_ahead {session}"));
+    }
+
+    fn hand_over(&self, session: &str, into: &str, _shared: &[String]) {
+        self.acts.lock().expect("not poisoned").push(format!("hand_over {session} {into}"));
+    }
+
+    fn merge(&self, ending: &str, into: &str, _shared: &[String]) {
+        self.acts.lock().expect("not poisoned").push(format!("merge {ending} {into}"));
+    }
+
+    fn keep_in_touch(&self, one: &str, other: &str, _shared: &[String]) {
+        self.acts.lock().expect("not poisoned").push(format!("keep_in_touch {one} {other}"));
+    }
+}
+
 fn start(id: &str, ways: &[Way]) -> Arrival {
     Arrival {
         id: format!("start:{id}"),
@@ -154,7 +177,7 @@ fn start(id: &str, ways: &[Way]) -> Arrival {
 async fn past_the_days_ceiling_no_call_is_made_and_each_item_passes_on_saying_so() {
     let call = Answers::of(&["item: 1\nway: 1\njob: none\nshared: none\nbecause: nothing overlaps"]);
     let desk = Held::with(1);
-    let operator = Operator::new(call.clone(), desk.clone());
+    let operator = Operator::new(call.clone(), desk.clone(), desk.clone());
 
     let first = operator.ruled(start("a", Way::STARTING), FIRST_WRITE_WAIT).await;
     let second = operator.ruled(start("b", Way::STARTING), FIRST_WRITE_WAIT).await;
@@ -165,9 +188,10 @@ async fn past_the_days_ceiling_no_call_is_made_and_each_item_passes_on_saying_so
     let log = desk.log();
     assert_eq!((log[1].outcome, log[1].call.as_deref()), (Outcome::PassedOn, None));
     assert!(log[1].because.contains("ceiling"), "{}", log[1].because);
+    assert_eq!(desk.acts(), ["go_ahead 01THIS"], "a new Job goes ahead, and one passed on is not acted on");
 
     let none = Held::with(0);
-    let operator = Operator::new(Answers::of(&[]), none.clone());
+    let operator = Operator::new(Answers::of(&[]), none.clone(), none.clone());
     assert_eq!(operator.ruled(start("c", Way::STARTING), FIRST_WRITE_WAIT).await, Ruled::PassedOn(PassedOn::Ceiling(0)));
 }
 
@@ -181,7 +205,7 @@ async fn a_ruling_naming_what_fleet_did_not_offer_is_refused_and_the_item_passes
         "way: 1\nbecause: no item named",
     ]);
     let desk = Held::with(100);
-    let operator = Operator::new(call, desk.clone());
+    let operator = Operator::new(call, desk.clone(), desk.clone());
 
     for id in ["a", "b", "c", "d"] {
         let ruled = operator.ruled(start(id, Way::STARTING), FIRST_WRITE_WAIT).await;
@@ -190,13 +214,14 @@ async fn a_ruling_naming_what_fleet_did_not_offer_is_refused_and_the_item_passes
     let ruled = operator.ruled(start("e", Way::STARTING), FIRST_WRITE_WAIT).await;
     assert!(matches!(ruled, Ruled::PassedOn(PassedOn::Unreadable(_))), "{ruled:?}");
     assert!(desk.log().iter().all(|row| row.outcome == Outcome::PassedOn && row.other.is_none()));
+    assert!(desk.acts().is_empty(), "a refused ruling is not acted on: {:?}", desk.acts());
 }
 
 #[tokio::test]
 async fn an_item_fleets_rules_leave_one_way_is_ruled_without_a_call() {
     let call = Answers::of(&[]);
     let desk = Held::with(100);
-    let operator = Operator::new(call.clone(), desk.clone());
+    let operator = Operator::new(call.clone(), desk.clone(), desk.clone());
 
     let ruled = operator.ruled(start("a", &[Way::Raise]), FIRST_WRITE_WAIT).await;
 

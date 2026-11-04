@@ -186,6 +186,12 @@ impl Desk for FakeFleet {
 }
 
 impl Acting for FakeFleet {
+    fn go_ahead(&self, _session: &str) {}
+
+    fn hand_over(&self, session: &str, into: &str, _shared: &[String]) {
+        self.ended.lock().expect("not poisoned").push((session.into(), into.into()));
+    }
+
     fn merge(&self, ending: &str, into: &str, _shared: &[String]) {
         self.ended.lock().expect("not poisoned").push((ending.into(), into.into()));
     }
@@ -195,8 +201,7 @@ impl Acting for FakeFleet {
     }
 }
 
-/// An Operator over `call` and `fleet`. **`fleet` is not its [`Acting`] yet**: the Operator acts
-/// on no ruling until *Who does the work*, which hands it one.
+/// An Operator over `call`, with `fleet` as its Desk and the [`Acting`] its rulings reach.
 pub fn operator(call: &Arc<FakeCall>, fleet: &Arc<FakeFleet>) -> Arc<Operator> {
-    Operator::new(call.clone(), fleet.clone())
+    Operator::new(call.clone(), fleet.clone(), fleet.clone())
 }

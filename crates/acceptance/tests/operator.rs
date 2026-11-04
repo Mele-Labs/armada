@@ -9,9 +9,9 @@
 //!
 //! | Proved | Not proved, and the group that carries it |
 //! |---|---|
-//! | Starts that arrive while a call is out are ruled together in the next call, one call at a time | That Fleet hands its own arrivals over: dispatch, Jobs starting Jobs, plans, stalls. *Who does the work*, *Stalls* |
-//! | Each ruling is in the Log, signed by the Operator: what arrived, from where, the outcome, the other Job and the shared paths, why, which call and when | That a merge ends the Job that has done less and a keep in touch tells both Jobs. *Who does the work*: the two `the_end` assertions below are red until it lands |
-//! | A failed call and a late one pass the start on untouched, the late one at the 20 seconds a first write waits, each with a Passed on row naming why | That Fleet finds the candidates from plan paths, files written and claims. *Who does the work* |
+//! | Starts that arrive while a call is out are ruled together in the next call, one call at a time | Stalls, which are the group after. *Stalls* |
+//! | Each ruling is in the Log, signed by the Operator: what arrived, from where, the outcome, the other Job and the shared paths, why, which call and when | What a merge and a keep in touch say to each Job, and that a Job that has pushed is raised rather than merged. `fleet`'s `tests::operator_acting` |
+//! | A failed call and a late one pass the start on untouched, the late one at the 20 seconds a first write waits, each with a Passed on row naming why | That Fleet finds the candidates from plan paths, files written and claims, and hands over dispatch, Jobs starting Jobs and plans. `fleet`'s `tests::operator_arrivals` |
 //! | A ruling that comes back after its item passed on is not acted on and not logged twice | That the call is the Operator model's, kept started and holding no tools. `fleet`'s `tests::operator` |
 
 // Shared with the other milestones' tests, and none of them uses all of it.
@@ -110,7 +110,7 @@ async fn the_three_jobs_of_the_3_nov_report_end_as_one_job_or_as_jobs_kept_in_to
     assert_ne!(terminal.call, row(&log, TABS).call);
     assert!(row(&log, TABS).other.is_none() && row(&log, TABS).shared.is_empty(), "a new Job names no other");
 
-    // The end. Red until *Who does the work* acts on a ruling.
+    // The end: the merge ends the Job that has done less, and the keep in touch tells both.
     assert_eq!(
         fleet.carrying_on(),
         BTreeSet::from([TABS.to_string(), TERMINAL.to_string()]),

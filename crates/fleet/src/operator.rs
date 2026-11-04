@@ -55,9 +55,14 @@ pub trait Desk: Send + Sync {
     fn keep(&self, row: Logged) -> Done<'_, ()>;
 }
 
-/// What Fleet does to Jobs on a ruling. **Not called yet**: the group *Who does the work* acts on
-/// rulings, and until it lands every ruling is logged and nothing more.
+/// What Fleet does to Jobs on a ruling, called once it is logged and never for one that came late.
+/// **Each act is Fleet's to refuse**: the Dispatch switch, checked again at the act, and a Job
+/// that has pushed are not the call's to weigh.
 pub trait Acting: Send + Sync {
+    /// Nothing live touches `session`: a Job held on its start card starts, as his press would.
+    fn go_ahead(&self, session: &str);
+    /// A live Job's plan covers `session`'s work: its words go to `into`, and it ends.
+    fn hand_over(&self, session: &str, into: &str, shared: &[String]);
     /// `ending` stops, and its brief, plan and branch go to `into` as one message.
     fn merge(&self, ending: &str, into: &str, shared: &[String]);
     /// Both carry on, each told the other's plan group and the paths they share.
@@ -151,12 +156,13 @@ struct Queue {
 pub struct Operator {
     call: Arc<dyn Calling>,
     desk: Arc<dyn Desk>,
+    acting: Arc<dyn Acting>,
     queue: Mutex<Queue>,
 }
 
 impl Operator {
-    pub fn new(call: Arc<dyn Calling>, desk: Arc<dyn Desk>) -> Arc<Operator> {
-        Arc::new(Operator { call, desk, queue: Mutex::new(Queue::default()) })
+    pub fn new(call: Arc<dyn Calling>, desk: Arc<dyn Desk>, acting: Arc<dyn Acting>) -> Arc<Operator> {
+        Arc::new(Operator { call, desk, acting, queue: Mutex::new(Queue::default()) })
     }
 
     /// Rule on `arrival`, waiting at most `within`. **Never fails**: an item with no ruling in
@@ -268,7 +274,24 @@ impl Operator {
 
     async fn settle(&self, one: Held, ruled: Ruled, call: Option<String>) {
         self.desk.keep(Logged::of(&one.arrival, &ruled, call, self.desk.now())).await;
+        if let Ruled::Ruled(ruling) = &ruled {
+            self.act(&one.arrival, ruling);
+        }
         let _ = one.tell.send(ruled);
+    }
+
+    /// The arrival's Job is the one that has done less: a start has written nothing, since its
+    /// first write waits on this ruling, and a plan is recorded before its building.
+    fn act(&self, arrival: &Arrival, ruling: &Ruling) {
+        let session = arrival.session_id.as_str();
+        match (ruling.way, ruling.other.as_deref()) {
+            (Way::NewJob, _) => self.acting.go_ahead(session),
+            (Way::ExistingJob, Some(other)) => self.acting.hand_over(session, other, &ruling.shared),
+            (Way::Merge, Some(other)) => self.acting.merge(session, other, &ruling.shared),
+            (Way::KeepInTouch, Some(other)) => self.acting.keep_in_touch(session, other, &ruling.shared),
+            // A way between two that names no other was refused as it was read.
+            (Way::ExistingJob | Way::Merge | Way::KeepInTouch, None) | (Way::Raise, _) => {}
+        }
     }
 }
 
