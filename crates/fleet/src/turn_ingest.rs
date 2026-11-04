@@ -104,7 +104,8 @@ where
         let home = self.host().home.clone();
         let ids: Vec<String> = live.into_iter().map(|one| one.id).collect();
         let Ok(files) = tokio::task::spawn_blocking(move || {
-            ids.iter().flat_map(|id| turn_lines::transcripts_of(&home, id)).collect::<Vec<_>>()
+            let ids: Vec<&str> = ids.iter().map(String::as_str).collect();
+            turn_lines::transcripts_of_each(&home, &ids)
         })
         .await
         else {
