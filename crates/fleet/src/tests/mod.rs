@@ -185,6 +185,7 @@ mod system_processes;
 mod session_start_failed;
 mod session_process_death;
 mod session_queue;
+mod session_line_kept;
 mod session_slot_asking;
 mod session_slot_choice;
 mod session_question;

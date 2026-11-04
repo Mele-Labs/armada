@@ -102,6 +102,8 @@ mod autopilot_decisions;
 mod operator_rulings;
 /// The pairs of Jobs the Operator keeps in touch. `armada-ehhu`.
 mod operator_in_touch;
+/// The line for a slot, kept across a restart. `armada-ehhu`.
+mod slot_line;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
 mod kit;
 /// The 113 migrations the numbered list held, frozen.
@@ -239,6 +241,7 @@ pub use model_downshift::KeptDownshift;
 pub use autopilot::{KeptAutopilot, KeptPick};
 pub use autopilot_decisions::KeptDecision;
 pub use operator_rulings::KeptRuling;
+pub use slot_line::KeptInLine;
 pub use limits::SavedLimits;
 pub use main_ci::{MainCi, MainFailedJob, MainMerge, MainState};
 pub use main_fix::{MainFix, TakenBy, TakenHow};
