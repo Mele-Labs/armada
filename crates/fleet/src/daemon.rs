@@ -130,6 +130,9 @@ pub struct Fleet<H, V, W> {
     /// Main's moves not yet fed to the test map. Never written down, for `sweeping`'s reason —
     /// `crate::test_map_feed`.
     feed: Arc<crate::test_map_feed::Feed>,
+    /// Each repository's `when_base_moves:` runs, one at a time. Never written down, for
+    /// `sweeping`'s reason — `crate::base_moves`.
+    base_moves: crate::base_moves::BaseMoves,
     /// What each repository holds and what each slot's holder changed, kept a while. Never written
     /// down, for `sweeping`'s reason; an `Arc` because a read is spawned — `crate::territory`.
     territory: Arc<crate::territory::Territory>,

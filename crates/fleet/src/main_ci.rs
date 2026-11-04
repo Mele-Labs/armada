@@ -98,6 +98,7 @@ where
         // pass of `clashes_checked`.
         self.main_tip_seen(served.manifest().id().as_str(), &head).await;
         self.checkout_caught_up(served, &base, &head).await;
+        self.base_move_seen(served, &head).await;
         self.pending_edit_settled(served).await;
         let (candidates, runs_answered) = self.notice_merged_runs(served, &head).await;
         self.forge_visited(&root, answered && runs_answered).await;
@@ -293,6 +294,7 @@ where
     /// Read main and act on what changed, outside any turn.
     pub(crate) async fn read_main(self: &Arc<Self>) -> Result<(), Adrift> {
         let changed = self.notice_main().await?;
+        self.base_moves_started();
         self.main_acted_on(&changed).await;
         self.red_given_to_sessions(&changed).await;
         self.pulls_told_when_due().await;
