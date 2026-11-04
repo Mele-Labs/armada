@@ -45,6 +45,7 @@ Once it runs it holds the Job again, if that Job is still live; `hosting.ran` sa
 End lists them all the same.
 Fleet keeps that the agent was told to wait, and when the last instance holding it is over sends it one `lifecycles_clear` notice, which names any Job that has not begun and says it may finish; an agent never refused is not told.
 Fleet asks again at its start, since an agent refused for a Job that had not begun, before 3 Nov, has no move coming to tell it.
+**The pull reading reads a pull request a live Job holds until it reaches an end**, however its ledger row was settled: the mod's `gh pr view` or a press in Fleet may settle the row first, and neither moves the instance.
 **A ticket the Job hands to the Job it started for the ticket's plan group ends the same way, at once**, and the Job it went to holds it ([linked Jobs](linked-jobs.md)): the rail neither waits on it nor counts it reached.
 **Ending a Job ends its instances.** Each one no end state has taken, the unplaced too, is kept as ended, standing where it was, no reader moves it again, and the watches the Job's rules started are stopped with the Job's others.
 Before it ends, End lists what is in flight as `Deploy: Rolling out` and `ARM-42: In review`; End job goes on, and Keep going leaves the Job as it is.
