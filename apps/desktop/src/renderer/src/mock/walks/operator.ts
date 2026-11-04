@@ -3,13 +3,15 @@
 // `operator-full`.
 //
 // No wire carries any of this yet. Each shape is typed in `operator/model.ts`, and is a proposal for the protocol:
-// - `OperatorLogRow`: id, at, from, item, did (answered, raised, delegated, held, started, filed, passed_on, released, returned,
-//   resumed, moved), why, the Line row a hold made, the other ways Fleet offered for Change, and the way the person changed it to.
+// - `OperatorLogRow`: id, at, from, item, did (answered, raised, delegated, existing, merged, in_touch, held, started, filed,
+//   passed_on, released, returned, resumed, moved), why, the Line row a hold made, the other ways Fleet offered for Change, and the way the person changed it to.
 // - `OperatorLineRow`: id, title, what it waits for (`OperatorWait`: a Job and pushes or ends with its plan group, a meter under a
 //   percentage, or the person), why, and the Job it was dispatched as.
 // - `StandingOrder`: one of three enforced forms, a role off in a repository, a hold on paths until a Job pushes or ends, or a kind
 //   always raised.
 // - `OperatorRead`: a Job's question being read, or raised with its read and its pick.
+// - `OperatorTie`: what a merge or keep in touch ruling left on a live Job's row: the other Job, the shared paths, and the plan
+//   group that waits on the other's push.
 // - The switch, a position (on, suggest, off) per role, and the daily ceiling on calls.
 // - The box's conversation: messages from the person and the Operator. The mock answers from a script (`OperatorTalk`).
 
@@ -66,7 +68,15 @@ function steps(full: boolean): Step[] {
     },
     {
       look: logRow("Bug report: A Job whose agent process died stays listed as idle"),
-      say: "Delegated: a live Job's plan covers the report",
+      say: "Existing Job: a live Job's plan group covers the report, so the words went to it and no Job started",
+    },
+    {
+      look: logRow("Show build times in the Record: Time each build step"),
+      say: "Merged: two Jobs on the same work. The one that had pushed nothing ended, and its brief, plan and branch went to the other",
+    },
+    {
+      look: logRow("Store Reports Its Size: Plan recorded: the size group"),
+      say: "A recorded plan is ruled group by group. Kept in touch, naming the other Job and the shared path",
     },
     {
       look: logRow("Cockpit Console: Fleet marked it Stopped with 3 tasks open"),
@@ -77,7 +87,7 @@ function steps(full: boolean): Step[] {
         logRow("You dispatched: Show the slot pool on the Map"),
         button("Start now: Show the slot pool on the Map"),
       ),
-      say: "Held, naming why, with Start now",
+      say: "Kept in touch, where the other Job builds first: its group waits on that push, with Start now",
     },
     {
       look: logRow("Bug report: The Logbook search drops the first letter typed"),
@@ -195,6 +205,27 @@ function steps(full: boolean): Step[] {
     },
     {
       hover: inside(
+        deckRow("Show build times in the Record"),
+        role("img", /^Took in Time each build step/),
+      ),
+      say: "The merged Job's row is the one that stayed. Its glyph names the Job it took in and the shared paths",
+    },
+    {
+      hover: inside(
+        deckRow("Doctor Checks the Store"),
+        role("img", /^Kept in touch with Store Reports Its Size/),
+      ),
+      say: "Two Jobs kept in touch: this row names the other, the shared path, and the group that waits on its push",
+    },
+    {
+      hover: inside(
+        deckRow("Store Reports Its Size"),
+        role("img", /^Kept in touch with Doctor Checks the Store/),
+      ),
+      say: "And the other row names this one",
+    },
+    {
+      hover: inside(
         deckRow("Tidy the Logbook filters"),
         role("img", "The Operator is reading its question"),
       ),
@@ -256,7 +287,7 @@ function steps(full: boolean): Step[] {
         role("group", "Held by the Operator"),
         text(/Rework the Map legend pushes its map group/),
       ),
-      say: "Its header says so in one line, naming the other Job",
+      say: "Its header says so in one line, naming the other Job and the shared path",
     },
     {
       look: inside(role("group", "Held by the Operator"), button("Start now")),

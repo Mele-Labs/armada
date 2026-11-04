@@ -134,6 +134,9 @@
 }
 
 .armada-operator__did[data-did="delegated"],
+.armada-operator__did[data-did="existing"],
+.armada-operator__did[data-did="merged"],
+.armada-operator__did[data-did="in_touch"],
 .armada-operator__did[data-did="held"],
 .armada-operator__did[data-did="started"],
 .armada-operator__did[data-did="filed"] {

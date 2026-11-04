@@ -1,0 +1,7 @@
+[icons.squares-unite]
+  means = "Two overlapping squares drawn as one outline: two things made one"
+  group = "Operator"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A Job another Job was merged into by the Operator, before its title on its row; the tooltip names the Job it took in and the shared paths. Never a merge of branches or pull requests, which are `merge` and `git-merge`, and never the Logbook's Merge duplicates, which is `combine`."
+  notes = "Proposed 4 Nov 2026 for the walks `operatorWide` and `operatorFull`, for the owner to rule on. Pairs with `squares-intersect`, kept in touch: one outline for two Jobs made one, two outlines sharing ground for two that carry on. Refused: `combine`, reserved to the Logbook; `merge` and `git-merge`, which say branches. --fg-subtle; tooltip: Took in, the other Job, Shared paths."

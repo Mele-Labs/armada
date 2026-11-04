@@ -6,6 +6,9 @@ export type OperatorDid =
   | "answered"
   | "raised"
   | "delegated"
+  | "existing"
+  | "merged"
+  | "in_touch"
   | "held"
   | "started"
   | "filed"
@@ -67,6 +70,21 @@ export type OperatorLineRow = {
   why?: string;
   /** The Job it was dispatched as, whose header says it is held. */
   session?: string;
+};
+
+/**
+ * What a ruling on who does the work left on a live Job's row, naming the other Job. Fleet refuses one that names no shared paths
+ * or plan group. A Job another was merged into names the Job it took in; two Jobs kept in touch each name the other.
+ */
+export type OperatorTie = {
+  session: string;
+  kind: "merged" | "in_touch";
+  /** The other Job's title: the one taken in, or the one kept in touch with. */
+  other: string;
+  /** The paths the two share. */
+  paths: string;
+  /** The plan group of this Job that waits on the other's push, where one must build first. */
+  waits?: string;
 };
 
 /** A standing order, only ever in one of the forms Fleet enforces. */
@@ -133,6 +151,7 @@ export type OperatorSeed = {
   line: readonly OperatorLineRow[];
   orders: readonly StandingOrder[];
   reads: readonly OperatorRead[];
+  ties: readonly OperatorTie[];
   talk: readonly OperatorTalk[];
 };
 
@@ -173,6 +192,9 @@ export const DID_SAID: Readonly<Record<OperatorDid, string>> = {
   answered: "Answered",
   raised: "Raised",
   delegated: "Delegated",
+  existing: "Existing Job",
+  merged: "Merged",
+  in_touch: "Kept in touch",
   held: "Held",
   started: "Started",
   filed: "Filed",
@@ -202,6 +224,14 @@ export function waitSaid(wait: OperatorWait): string {
     case "you":
       return "You moved it here";
   }
+}
+
+/** What a Job row's tie glyph says, naming the other Job and the shared paths. */
+export function tieSaid(tie: OperatorTie): string {
+  const named = tie.kind === "merged" ? `Took in ${tie.other}` : `Kept in touch with ${tie.other}`;
+  const waits =
+    tie.waits === undefined ? "" : `. Its ${tie.waits} group waits on ${tie.other}'s push`;
+  return `${named}. Shared paths ${tie.paths}${waits}`;
 }
 
 /** A standing order in its enforced form. */

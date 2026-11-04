@@ -1,11 +1,11 @@
-// Where the Operator shows outside its panel: on a question in Needs you while it reads it or once it raised it, and in a held Job's
-// header. Each draws nothing in a window with no Operator store.
+// Where the Operator shows outside its panel: on a question in Needs you while it reads it or once it raised it, in a held Job's
+// header, and on a Job row a merge or keep in touch ruling named. Each draws nothing in a window with no Operator store.
 
 import type { ReactNode } from "react";
-import { Bot, Clock } from "lucide-react";
+import { Bot, Clock, SquaresIntersect, SquaresUnite } from "lucide-react";
 import { Button, Tooltip } from "@armada/components";
 
-import { waitSaid } from "./model";
+import { tieSaid, waitSaid } from "./model";
 import { useOperator } from "./store";
 import "./operator.css";
 
@@ -86,5 +86,20 @@ export function HeldNotice({ session }: { session: string }) {
         Start now
       </Button>
     </div>
+  );
+}
+
+/** Before a Job row's title, where a ruling on who does the work names another Job: the Job it took in, or the one it is kept in touch with. */
+export function TieMark({ session, className }: { session: string; className: string }) {
+  const tie = useOperator()?.state.ties.find((one) => one.session === session);
+  if (tie === undefined) return null;
+  const said = tieSaid(tie);
+  const Glyph = tie.kind === "merged" ? SquaresUnite : SquaresIntersect;
+  return (
+    <Tooltip label={said}>
+      <span className={className} role="img" aria-label={said}>
+        <Glyph size={12} aria-hidden="true" />
+      </span>
+    </Tooltip>
   );
 }

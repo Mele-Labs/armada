@@ -167,6 +167,7 @@ import { TimelineHud, toggleTimeline, useTimelineLamp } from "./ConsoleTimeline"
 import { Standby } from "./Standby";
 import { waitSaid } from "../../operator/model";
 import { useOperator } from "../../operator/store";
+import { TieMark } from "../../operator/marks";
 import { powering, usePowerOn } from "../boot";
 
 /** The slots the pool serves, narrowed to the picked repository as the ship's are. */
@@ -662,6 +663,9 @@ function List({
                     </span>
                   </Tooltip>
                 )}
+                {one.kind === "session" ? (
+                  <TieMark session={one.id} className="deck-row__link" />
+                ) : null}
                 {one.title}
               </span>
             }

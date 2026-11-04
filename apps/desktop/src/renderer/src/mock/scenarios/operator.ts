@@ -1,7 +1,8 @@
 // Helm's dock as the Operator panel, for the walks `operatorWide` and `operatorFull`: the same window in the panel's two takes.
-// Seven Jobs: one whose question the Operator raised with its read and pick, one whose question it is still reading, two it
-// held from a dispatch, one it nudged after Fleet marked it Stopped, and two at work. The Log, the Line, Permissions and the
-// standing orders are the scenario's `operator` draft, which no wire carries yet (`operator/model.ts`).
+// Ten Jobs: one whose question the Operator raised with its read and pick, one whose question it is still reading, two it kept in
+// touch with a Job they wait on, one it nudged after Fleet marked it Stopped, one another Job was merged into, two kept in touch
+// from a recorded plan, and two at work. The Log, the Line, Permissions, the standing orders and the rows' ties are the scenario's
+// `operator` draft, which no wire carries yet (`operator/model.ts`).
 
 import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -192,6 +193,48 @@ const home: Session = {
   ],
 };
 
+// Merged: Time each build step had pushed nothing, so it ended and its brief, plan and branch came here. Its row is gone.
+const buildTimes: Session = {
+  ...BASE,
+  id: "op-build-times",
+  title: "Show build times in the Record",
+  turn: {
+    state: "working",
+  },
+  lastTurnAt: ago(30),
+  rows: [
+    asked("op-8-u", "09:05:00", "The Record shows a build but not how long each step took."),
+    said("op-8-a", "09:51:00", "Took in Time each build step's plan. Recording the plan again."),
+  ],
+};
+
+// Kept in touch from a recorded plan: the Doctor calls what the store's size group builds, so its checks group waits on that push.
+const doctorStore: Session = {
+  ...BASE,
+  id: "op-doctor-store",
+  title: "Doctor Checks the Store",
+  turn: {
+    state: "working",
+  },
+  lastTurnAt: ago(50),
+  rows: [
+    asked("op-9-u", "09:15:00", "The Doctor warns when the store passes its size limit."),
+  ],
+};
+
+const storeSize: Session = {
+  ...BASE,
+  id: "op-store-size",
+  title: "Store Reports Its Size",
+  turn: {
+    state: "working",
+  },
+  lastTurnAt: ago(15),
+  rows: [
+    asked("op-10-u", "09:25:00", "The store reports its size on disk."),
+  ],
+};
+
 const seed = (take: OperatorTake): OperatorSeed => ({
   take,
   on: true,
@@ -208,9 +251,10 @@ const seed = (take: OperatorTake): OperatorSeed => ({
       at: ago(12),
       from: "Bug report",
       item: "A Job whose agent process died stays listed as idle",
-      did: "delegated",
-      why: "Stop Silent Job Deaths: its plan covers process death",
+      did: "existing",
+      why: "Stop Silent Job Deaths: its detect group covers process death. The words went to it",
       ways: [
+        "A new Job",
         "File it as an issue",
         "Raise it to me",
       ],
@@ -222,6 +266,18 @@ const seed = (take: OperatorTake): OperatorSeed => ({
       item: "Keep the legend collapsed by default?",
       did: "passed_on",
       why: "No ruling in 60 seconds. It pulses in Needs you as today",
+    },
+    {
+      id: "log-plan",
+      at: ago(30),
+      from: "Store Reports Its Size",
+      item: "Plan recorded: the size group",
+      did: "in_touch",
+      why: "Doctor Checks the Store calls what it builds, in crates/store/src/size.rs. Its checks group waits on this push",
+      ways: [
+        "Merge them",
+        "Raise it to me",
+      ],
     },
     {
       id: "log-nudge",
@@ -243,6 +299,18 @@ const seed = (take: OperatorTake): OperatorSeed => ({
       why: "Keep it, the recommended one. Its group is not seen",
       ways: [
         "Rename it",
+        "Raise it to me",
+      ],
+    },
+    {
+      id: "log-merge",
+      at: ago(90),
+      from: "Show build times in the Record",
+      item: "Time each build step",
+      did: "merged",
+      why: "Same work in apps/desktop/src/renderer/src/record. Time each build step had pushed nothing, so it ended and its brief, plan and branch came here",
+      ways: [
+        "Keep them in touch",
         "Raise it to me",
       ],
     },
@@ -278,12 +346,13 @@ const seed = (take: OperatorTake): OperatorSeed => ({
       at: ago(300),
       from: "You dispatched",
       item: "Show the slot pool on the Map",
-      did: "held",
-      why: "Both plans change how the Map draws a slot",
+      did: "in_touch",
+      why: "Rework the Map legend shares apps/desktop/src/renderer/src/map/slot.tsx. Its map group waits on that push",
       line: "line-pool",
       ways: [
-        "Start it",
-        "Delegate it to Rework the Map legend",
+        "A new Job",
+        "Send it to Rework the Map legend",
+        "Merge it into Rework the Map legend",
       ],
     },
     {
@@ -299,12 +368,13 @@ const seed = (take: OperatorTake): OperatorSeed => ({
       at: ago(480),
       from: "You dispatched",
       item: "Tests Build Only What They Test",
-      did: "held",
-      why: "Both plans change how tests start",
+      did: "in_touch",
+      why: "Stop Silent Job Deaths shares crates/testkit/src/run.rs. Its tests group waits on that push",
       line: "line-tests",
       ways: [
-        "Start it",
-        "Delegate it to Stop Silent Job Deaths",
+        "A new Job",
+        "Send it to Stop Silent Job Deaths",
+        "Merge it into Stop Silent Job Deaths",
       ],
     },
     {
@@ -334,7 +404,7 @@ const seed = (take: OperatorTake): OperatorSeed => ({
         event: "pushes",
         group: "tests",
       },
-      why: "Both plans change how tests start",
+      why: "Kept in touch on crates/testkit/src/run.rs",
       session: "op-tests",
     },
     {
@@ -346,7 +416,7 @@ const seed = (take: OperatorTake): OperatorSeed => ({
         event: "pushes",
         group: "map",
       },
-      why: "Both plans change how the Map draws a slot",
+      why: "Kept in touch on apps/desktop/src/renderer/src/map/slot.tsx",
       session: "op-pool",
     },
     {
@@ -400,10 +470,57 @@ const seed = (take: OperatorTake): OperatorSeed => ({
       pick: "circle-x",
     },
   ],
+  ties: [
+    {
+      session: "op-build-times",
+      kind: "merged",
+      other: "Time each build step",
+      paths: "apps/desktop/src/renderer/src/record",
+    },
+    {
+      session: "op-doctor-store",
+      kind: "in_touch",
+      other: "Store Reports Its Size",
+      paths: "crates/store/src/size.rs",
+      waits: "checks",
+    },
+    {
+      session: "op-store-size",
+      kind: "in_touch",
+      other: "Doctor Checks the Store",
+      paths: "crates/store/src/size.rs",
+    },
+    {
+      session: "op-pool",
+      kind: "in_touch",
+      other: "Rework the Map legend",
+      paths: "apps/desktop/src/renderer/src/map/slot.tsx",
+      waits: "map",
+    },
+    {
+      session: "op-legend",
+      kind: "in_touch",
+      other: "Show the slot pool on the Map",
+      paths: "apps/desktop/src/renderer/src/map/slot.tsx",
+    },
+    {
+      session: "op-tests",
+      kind: "in_touch",
+      other: "Stop Silent Job Deaths",
+      paths: "crates/testkit/src/run.rs",
+      waits: "tests",
+    },
+    {
+      session: "op-deaths",
+      kind: "in_touch",
+      other: "Tests Build Only What They Test",
+      paths: "crates/testkit/src/run.rs",
+    },
+  ],
   talk: [
     {
       asked: "why did you hold the tests",
-      said: "Its plan and Stop Silent Job Deaths' plan both change how tests start, in crates/testkit/src/run.rs. It starts when that Job pushes its tests group.",
+      said: "It is kept in touch with Stop Silent Job Deaths. Both plans change crates/testkit/src/run.rs, and that Job builds it first. Its tests group starts when that Job pushes.",
     },
     {
       asked: "start it anyway",
@@ -433,6 +550,9 @@ function scenario(name: string, says: string, take: OperatorTake): Scenario {
             legend,
             console_,
             home,
+            buildTimes,
+            doctorStore,
+            storeSize,
           ],
           [],
           new Map(),
@@ -444,12 +564,12 @@ function scenario(name: string, says: string, take: OperatorTake): Scenario {
 
 export const operatorWide = scenario(
   "operator-wide",
-  "Helm's dock as the Operator panel, as wide as the window lets it be: the Log, the Line, Permissions and the box, over seven Jobs",
+  "Helm's dock as the Operator panel, as wide as the window lets it be: the Log, the Line, Permissions and the box, over ten Jobs",
   "wide",
 );
 
 export const operatorFull = scenario(
   "operator-full",
-  "Helm's dock as the Operator panel over the whole work: the Line, the Log and Permissions side by side, over seven Jobs",
+  "Helm's dock as the Operator panel over the whole work: the Line, the Log and Permissions side by side, over ten Jobs",
   "full",
 );
