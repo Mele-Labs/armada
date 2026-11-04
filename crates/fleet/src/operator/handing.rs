@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Model, Vcs, WorkProduct};
 use config::settings as keys;
+use core_model::{Component, Envelope, FieldValue, Level};
 use ipc::Notice;
 use store::KeptPlan;
 
@@ -34,7 +35,7 @@ where
         let proposing = match self.proposing() {
             Ok(proposing) => proposing,
             Err(why) => {
-                eprintln!("the Operator was not seated: {why:?}");
+                self.operator_warned("the Operator was not seated", format!("{why:?}"));
                 return;
             }
         };
@@ -60,7 +61,7 @@ where
         match (self.operator_on(), call.is_waiting().await) {
             (true, false) => {
                 if let Err(why) = call.ready().await {
-                    eprintln!("the Operator's call did not start ahead of its next arrival: {why}");
+                    self.operator_warned("the Operator's call did not start ahead of its next arrival", why);
                 }
             }
             (false, true) => call.stopped().await,
@@ -68,9 +69,21 @@ where
         }
     }
 
+    /// What went wrong for the Operator, in Fleet's log.
+    fn operator_warned(&self, msg: &str, why: impl std::fmt::Display) {
+        let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), msg)
+            .with_field("why", FieldValue::Str(why.to_string()));
+        crate::transcript::note_aloud(&envelope);
+    }
+
     /// Seat an Operator making its calls through `call`. `false` where one is already seated.
     pub(crate) fn operator_seated_with(self: &Arc<Self>, call: Arc<dyn Calling>) -> bool {
-        let desk = FleetDesk::on(self, |why| eprintln!("the Operator's Log: {why}"));
+        let fleet = Arc::downgrade(self);
+        let desk = FleetDesk::on(self, move |why| {
+            if let Some(fleet) = fleet.upgrade() {
+                fleet.operator_warned("the Operator's Log was not kept or read", why);
+            }
+        });
         self.operator_seat().seat(Operator::new(call, Arc::new(desk), Arc::new(FleetActing::on(self))))
     }
 

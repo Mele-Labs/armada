@@ -24,7 +24,7 @@ where
     pub(crate) async fn line_kept(&self, manifest: &str, id: &str, place: i64, since: &Instant) {
         let one = KeptInLine { session_id: id.to_string(), manifest_id: manifest.to_string(), place, since: since.as_str().to_string() };
         if let Err(why) = self.store().lock().await.keep_in_slot_line(&one) {
-            eprintln!("job {id}: its place in the line for a slot was not kept: {why}");
+            self.session_warned(id, "its place in the line for a slot was not kept", why);
         }
     }
 
@@ -40,7 +40,7 @@ where
         let kept = match self.store().lock().await.slot_lines() {
             Ok(kept) => kept,
             Err(why) => {
-                eprintln!("the lines for a slot were not read back: {why}");
+                self.session_warned("", "the lines for a slot were not read back", why);
                 return;
             }
         };
