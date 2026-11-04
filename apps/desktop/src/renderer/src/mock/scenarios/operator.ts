@@ -12,7 +12,7 @@ import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
 import { operatorPanes } from "../../job-panes/store";
 import { outcomesBut } from "../../operator/model";
-import type { OperatorSeed } from "../../operator/model";
+import type { LogTake, OperatorSeed } from "../../operator/model";
 
 const OWNER = repository().manifest!.id;
 const ROOT = repository().root;
@@ -299,7 +299,7 @@ const seed: OperatorSeed = {
       from: from(legend),
       item: "Legend opens collapsed. Keep it that way?",
       did: "passed_on",
-      why: "No ruling in 60 seconds. It went to Needs you",
+      why: "No ruling in time, so it reached you as it does today",
     },
     {
       id: "log-plan",
@@ -372,8 +372,8 @@ const seed: OperatorSeed = {
       at: ago(120),
       from: dispatched,
       item: "Review list looks live, but polls once a minute",
-      did: "passed_on",
-      why: "No weekly meter reading. Started it as a new Job",
+      did: "started",
+      why: "No weekly meter reading, so it started as today",
     },
     {
       id: "log-raise",
@@ -595,6 +595,18 @@ const seed: OperatorSeed = {
   ],
 };
 
+const TAKES: readonly LogTake[] = [
+  "flow",
+  "byjob",
+  "table",
+];
+
+function takeAsked(): LogTake {
+  const asked =
+    typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("take");
+  return TAKES.find((one) => one === asked) ?? "flow";
+}
+
 function scenario(name: string, says: string): Scenario {
   const base = holding(name, says);
   return {
@@ -604,9 +616,15 @@ function scenario(name: string, says: string): Scenario {
       repository: null,
     },
     draft: {
-      operator: seed,
+      // `?take=flow|byjob|table` picks the Log's take; the walk plays the flow.
+      get operator() {
+        return {
+          ...seed,
+          take: takeAsked(),
+        };
+      },
       sessions: () => {
-        // Each mount opens on the Operator's default layout, Talk and the Log, with nothing kept from a walk before.
+        // Each mount opens on the Operator's default layout, with nothing kept from a walk before.
         if (typeof window !== "undefined") operatorPanes.forget();
         return sessionsStore(
           [

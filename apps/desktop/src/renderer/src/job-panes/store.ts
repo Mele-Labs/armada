@@ -80,15 +80,26 @@ const prArrangement = (): Arrangement =>
     },
   });
 
-/** The Operator's: Talk and Log as tabs of one pane, Talk in front. Waiting to start and Permissions are added from the + as a Job adds a tab. */
+/** The Operator's, the owner's own arrangement: Talk over Permissions on the left, and the Log with Waiting to start as tabs on the right. */
 const operatorArrangement = (): Arrangement =>
-  build(
-    [
-      "op-talk",
+  build({
+    dir: "row",
+    ratio: 0.4,
+    a: {
+      dir: "column",
+      ratio: 0.6,
+      a: [
+        "op-talk",
+      ],
+      b: [
+        "op-permissions",
+      ],
+    },
+    b: [
       "op-log",
+      "op-waiting",
     ],
-    "op-talk",
-  );
+  });
 
 type Entry = {
   arrangement: Arrangement;

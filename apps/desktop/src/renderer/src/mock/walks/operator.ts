@@ -70,8 +70,16 @@ export const operatorFull = walk("operator-full", [
     say: "The title row's button, Helm's renamed Operator, opens the panel over the whole work, on the panes a Job's area uses",
   },
   {
-    look: inside(panel, role("tablist", "Tabs")),
-    say: "Light to begin with: one pane, Talk and the Log as its tabs, nothing else open",
+    look: inside(panel, region("Pane: Talk")),
+    say: "It opens on your layout: Talk at the top left",
+  },
+  {
+    look: inside(panel, region("Pane: Permissions")),
+    say: "Permissions under it",
+  },
+  {
+    look: inside(panel, region("Pane: Log")),
+    say: "And on the right the Log, with Waiting to start as a tab beside it",
   },
   {
     // The dock's own Close, not a tab's "Close Talk".
@@ -84,63 +92,33 @@ export const operatorFull = walk("operator-full", [
     say: "⌘J opens it from anywhere",
   },
   {
-    context: tabOf("Log"),
-    say: "Each tab has a Job tab's menu",
+    context: tabOf("Waiting to start"),
+    say: "Each tab still splits and moves as a Job's does",
   },
   {
-    press: role("menuitem", "Split down"),
-    say: "Split down opens an empty pane under it",
+    look: role("menuitem", "Split right"),
+    say: "Split right or down from its menu, or drag the tab onto another pane. The line between panes resizes them",
   },
   {
-    press: inside(
-      region("Empty pane"),
-      button("Add tab", {
-        exact: true,
-      }),
-    ),
-    say: "Its + offers the Operator's tabs not open yet, from the place a Job adds one",
-  },
-  {
-    press: role("menuitem", "Waiting to start"),
-    say: "Waiting to start, in the new pane",
-  },
-  {
-    press: inside(
-      region("Pane: Waiting to start"),
-      button("Add tab", {
-        exact: true,
-      }),
-    ),
-    say: "The same + adds Permissions",
-  },
-  {
-    press: role("menuitem", "Permissions"),
-    say: "Permissions joins it as a tab",
-  },
-  {
-    drag: tabOf("Permissions"),
-    onto: inside(region("Pane: Log"), role("tablist", "Tabs")),
-    say: "Dragged onto the first pane's strip, Permissions moves in as a tab beside Talk and the Log. Panes resize from the line between them",
+    key: "Escape",
+    on: role("menuitem", "Split right"),
+    say: "Esc",
   },
   {
     look: inside(panel, button(/^Layout: Default/)),
-    say: "The layout is kept, as a Job's is. The Layout menu saves it under a name or resets it",
-  },
-  {
-    press: tabOf("Log"),
-    say: "The Log",
+    say: "What you arrange is kept, as a Job's layout is. The Layout menu saves it under a name or resets it",
   },
   {
     look: logRow(BUG),
-    say: "Every ruling, newest first, one line each: what started it, the item, the ruling, the Job it names, how long ago, and Overrule",
+    say: "The Log as a flow, newest at the top: where each item came from, the ruling, and a line to the lane it went to. ?take=byjob groups it by Job, ?take=table draws the table",
   },
   {
     look: inside(logRow(BUG), chip("Home Draws Desktop States")),
-    say: "What started it: a bug report, and the Job that filed it as its chip",
+    say: "Where it came from: a bug report, and the Job that filed it, by name",
   },
   {
     look: inside(logRow(BUG), chip("Stop Silent Job Deaths")),
-    say: "Existing Job: a live Job's plan group covers it, so the words went there and no Job started. That Job, as its chip",
+    say: "Existing Job: a live Job's plan group covers it, so the words went there and no Job started. That Job, by name",
   },
   {
     hover: inside(logRow(BUG), text("Existing Job")),
@@ -170,8 +148,11 @@ export const operatorFull = walk("operator-full", [
     say: "Filed, after a duplicate check. You filed this report",
   },
   {
-    look: logRow("Rework the Map legend: Legend opens collapsed. Keep it that way?"),
-    say: "When it goes wrong. Passed on: no ruling in time, so it went on as today",
+    hover: inside(
+      logRow("Rework the Map legend: Legend opens collapsed. Keep it that way?"),
+      text("Sent to you"),
+    ),
+    say: "Sent to you: no ruling in time, so it reached you as it does today",
   },
   {
     look: logRow("Fleet restarted: Setting says pool, but means slots. Rename it?"),
@@ -187,7 +168,7 @@ export const operatorFull = walk("operator-full", [
   },
   {
     look: inside(logRow(BUG), text("Overruled by you: New Job")),
-    say: "The row says so",
+    say: "The row says so, and moves to the New Job lane",
   },
   {
     look: logRow("You: Job says Idle, but its agent crashed"),
@@ -204,15 +185,19 @@ export const operatorFull = walk("operator-full", [
   {
     key: "Meta+j",
     on: jobs,
-    say: "⌘J brings the panel back as he left it",
+    say: "⌘J brings the panel back as you left it",
+  },
+  {
+    press: tabOf("Waiting to start"),
+    say: "Waiting to start",
   },
   {
     look: lineRow(TESTS),
-    say: "Waiting to start: what has not started, in the Operator's order, one line each",
+    say: "What has not started, in the Operator's order, one line each",
   },
   {
     look: inside(lineRow(TESTS), chip("Stop Silent Job Deaths")),
-    say: "Each row says what it waits on, and the Job it waits on as its chip",
+    say: "Each row says what it waits on, and names the Job it waits on",
   },
   {
     look: inside(line, text("Starts when the 5 hour window is under 80%")),
@@ -224,24 +209,24 @@ export const operatorFull = walk("operator-full", [
     say: "Drag a row to override the order. ⌥↑ and ⌥↓ do it from the keyboard",
   },
   {
-    look: logRow("You: Raised items make no sound"),
-    say: "The move goes in the Log as a correction",
-  },
-  {
     press: inside(line, button("Start now: Map key lists colours the Map no longer uses")),
     say: "Start now on any row overrides the wait in one press",
   },
   {
-    look: logRow("You: Map key lists colours the Map no longer uses"),
-    say: "Started, and logged",
+    press: tabOf("Log"),
+    say: "Back to the Log",
   },
   {
-    press: tabOf("Permissions"),
-    say: "Permissions",
+    look: logRow("You: Raised items make no sound"),
+    say: "The move is there as a correction",
+  },
+  {
+    look: logRow("You: Map key lists colours the Map no longer uses"),
+    say: "And the start",
   },
   {
     look: inside(permissions, button("Operator: On")),
-    say: "The Operator switch on top. Off sends everything to you as today",
+    say: "Permissions: the Operator switch on top. Off sends everything to you as today",
   },
   {
     press: inside(permissions, button("Answer: On")),
@@ -264,12 +249,8 @@ export const operatorFull = walk("operator-full", [
     say: "Standing orders, each in a form Fleet enforces, each removed in one press",
   },
   {
-    press: tabOf("Talk"),
-    say: "Talk",
-  },
-  {
     look: message,
-    say: "The Job composer, the same one a Job has: @ for Jobs and files, # for issues and pull requests, / for commands, files and sketches, model and effort",
+    say: "Talk: the Job composer, the same one a Job has. @ for Jobs and files, # for issues and pull requests, / for commands, files and sketches, model and effort",
   },
   {
     type: "Why did you hold the tests Job?\n",
@@ -284,10 +265,6 @@ export const operatorFull = walk("operator-full", [
     type: "Start it anyway\n",
     into: message,
     say: "A follow-up knows what it is about",
-  },
-  {
-    press: tabOf("Log"),
-    say: "Back to the Log",
   },
   {
     look: logRow(`You: ${TESTS}`),

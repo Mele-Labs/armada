@@ -41,6 +41,8 @@ import {
   waitSaid,
 } from "./model";
 import type {
+  LogTake,
+  OperatorDid,
   OperatorJob,
   OperatorLineRow,
   OperatorLogRow,
@@ -146,6 +148,7 @@ function NamedJob({ job }: { job: OperatorJob }) {
         title: job.title,
       }}
       onOpen={openJob}
+      bare
     />
   );
 }
@@ -249,21 +252,206 @@ function LineText({ row }: { row: OperatorLineRow }) {
   );
 }
 
+/** Where an item went, the Flow take's lanes from left to right. */
+const LANES = [
+  {
+    id: "new",
+    said: "New Job",
+  },
+  {
+    id: "existing",
+    said: "Existing Job",
+  },
+  {
+    id: "merged",
+    said: "Merged",
+  },
+  {
+    id: "in_touch",
+    said: "Kept in touch",
+  },
+  {
+    id: "waiting",
+    said: "Waiting to start",
+  },
+  {
+    id: "you",
+    said: "Sent to you",
+  },
+  {
+    id: "filed",
+    said: "Filed",
+  },
+] as const;
+type Lane = (typeof LANES)[number]["id"];
+
+const LANE_OF_DID: Readonly<Record<OperatorDid, Lane>> = {
+  started: "new",
+  released: "new",
+  existing: "existing",
+  delegated: "existing",
+  answered: "existing",
+  returned: "existing",
+  resumed: "existing",
+  merged: "merged",
+  in_touch: "in_touch",
+  held: "waiting",
+  moved: "waiting",
+  raised: "you",
+  passed_on: "you",
+  filed: "filed",
+  overruled: "you",
+};
+
+/** The lane an outcome Overrule offers puts an item in. */
+function laneOfWay(way: string): Lane {
+  if (way.startsWith("New Job")) return "new";
+  if (way.startsWith("Merge")) return "merged";
+  if (way.startsWith("Keep in touch")) return "in_touch";
+  if (way.startsWith("Raise")) return "you";
+  return "existing";
+}
+
+/** Where the item went: where you overruled it to, else where the ruling sent it. */
+const laneOf = (row: OperatorLogRow): Lane =>
+  row.changed === undefined ? LANE_OF_DID[row.did] : laneOfWay(row.changed);
+
+/** The Job an item went to, for the By Job take, else the group it falls in. */
+function groupOf(row: OperatorLogRow): {
+  key: string;
+  job?: OperatorJob;
+  said: string;
+} {
+  const to =
+    row.names?.find((one) => one.as === "existing") ??
+    row.names?.find((one) => one.as !== "merged");
+  if (to !== undefined)
+    return {
+      key: to.session,
+      job: to,
+      said: to.title,
+    };
+  const lane = laneOf(row);
+  if (lane === "you")
+    return {
+      key: "you",
+      said: "Sent to you",
+    };
+  if (lane === "filed")
+    return {
+      key: "filed",
+      said: "Filed",
+    };
+  if (lane === "new")
+    return {
+      key: "new",
+      said: "New Jobs",
+    };
+  if (row.from.kind === "job")
+    return {
+      key: row.from.job.session,
+      job: row.from.job,
+      said: row.from.job.title,
+    };
+  return {
+    key: "waiting",
+    said: "Waiting to start",
+  };
+}
+
+/** The Log in its take: the flow of work to where it went, the items grouped by the Job they reached, or the table. */
 function Log({ store }: { store: OperatorStore }) {
   const now = Date.now();
+  const take = store.state.take ?? "flow";
+  const rows = store.state.log;
+  if (take === "byjob") {
+    const groups = new Map<
+      string,
+      ReturnType<typeof groupOf> & {
+        rows: OperatorLogRow[];
+      }
+    >();
+    for (const row of rows) {
+      const group = groupOf(row);
+      const held = groups.get(group.key);
+      if (held === undefined)
+        groups.set(group.key, {
+          ...group,
+          rows: [
+            row,
+          ],
+        });
+      else held.rows.push(row);
+    }
+    return (
+      <div className="armada-operator__groups">
+        {[
+          ...groups.values(),
+        ].map((group) => (
+          <section key={group.key} className="armada-operator__group" aria-label={group.said}>
+            <h3 className="armada-operator__group-head">
+              {group.job === undefined ? group.said : <NamedJob job={group.job} />}
+            </h3>
+            <ol className="armada-operator__log" data-take="table">
+              {/* In the order they reached it, the oldest first. */}
+              {[
+                ...group.rows,
+              ]
+                .reverse()
+                .map((row) => (
+                  <LogRow key={row.id} row={row} now={now} store={store} take="table" />
+                ))}
+            </ol>
+          </section>
+        ))}
+      </div>
+    );
+  }
   return (
-    <ol className="armada-operator__log">
-      {store.state.log.map((row) => (
-        <LogRow key={row.id} row={row} now={now} store={store} />
+    <ol className="armada-operator__log" data-take={take}>
+      {take !== "flow" ? null : (
+        <li className="armada-operator__flow-head" role="none">
+          <span className="armada-operator__flow-from">Came from</span>
+          <span />
+          <span>Ruling</span>
+          {LANES.map((lane) => (
+            <span key={lane.id} className="armada-operator__lane-name">
+              {lane.said}
+            </span>
+          ))}
+          <span />
+          <span />
+          <span />
+        </li>
+      )}
+      {rows.map((row) => (
+        <LogRow key={row.id} row={row} now={now} store={store} take={take} />
       ))}
     </ol>
   );
 }
 
-/** One line: what started it, the item, the ruling with why on hover, the Jobs it names, age, Start now and Overrule. */
-function LogRow({ row, now, store }: { row: OperatorLogRow; now: number; store: OperatorStore }) {
+/**
+ * One item: what started it, the item, the ruling with why on hover, then where it went, age, Start now and Overrule. In the
+ * table where it went is the Jobs it names; in the flow each lane is a column, the Jobs stand in the lane it went to, and a line
+ * runs to them from the ruling.
+ */
+function LogRow({
+  row,
+  now,
+  store,
+  take,
+}: {
+  row: OperatorLogRow;
+  now: number;
+  store: OperatorStore;
+  take: LogTake;
+}) {
   const line =
     row.line === undefined ? undefined : store.state.line.find((one) => one.id === row.line);
+  const named = (row.names ?? []).map((job) => <NamedJob key={job.session} job={job} />);
+  const lane = laneOf(row);
+  const reached = LANES.findIndex((one) => one.id === lane);
   return (
     <li className="armada-operator__log-row" aria-label={`${sourceSaid(row.from)}: ${row.item}`}>
       <span className="armada-operator__source">
@@ -275,11 +463,24 @@ function LogRow({ row, now, store }: { row: OperatorLogRow; now: number; store: 
           {row.changed === undefined ? DID_SAID[row.did] : `Overruled by you: ${row.changed}`}
         </span>
       </Tooltip>
-      <span className="armada-operator__named">
-        {(row.names ?? []).map((job) => (
-          <NamedJob key={job.session} job={job} />
-        ))}
-      </span>
+      {take === "flow" ? (
+        LANES.map((one, at) => (
+          <span
+            key={one.id}
+            className="armada-operator__lane"
+            data-through={at < reached || undefined}
+            data-reached={at === reached || undefined}
+          >
+            {at !== reached ? null : named.length > 0 ? (
+              named
+            ) : (
+              <span className="armada-operator__lane-mark">{one.said}</span>
+            )}
+          </span>
+        ))
+      ) : (
+        <span className="armada-operator__named">{named}</span>
+      )}
       <span className="armada-operator__age">{ageOf(row.at, now)}</span>
       <span className="armada-operator__act">
         {line === undefined ? null : (
@@ -344,7 +545,9 @@ function Permissions({ store }: { store: OperatorStore }) {
         <li className="armada-operator__permission" data-master="">
           <span className="armada-operator__line-text">
             <span className="armada-operator__title">Operator</span>
-            <span className="armada-operator__does">Off sends everything to you as today</span>
+            <span className="armada-operator__does">
+              Off by default. Off sends everything to you as today
+            </span>
           </span>
           <DropdownMenu
             triggerLabel={state.on ? "On" : "Off"}

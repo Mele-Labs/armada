@@ -15,6 +15,7 @@ export function JobChip({
   sessions,
   onOpen,
   shortcut,
+  bare = false,
   className,
   ...rest
 }: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "onClick" | "type"> & {
@@ -25,6 +26,8 @@ export function JobChip({
   sessions?: readonly Session[];
   onOpen: (id: string) => void;
   shortcut?: string;
+  /** The title alone, with no state glyph, where the glyph would need reading. */
+  bare?: boolean;
 }) {
   const held = useSessions();
   const session = (sessions ?? held).find((one) => one.id === job.id);
@@ -46,7 +49,7 @@ export function JobChip({
         aria-label={`Open ${title}`}
         onClick={() => onOpen(job.id)}
       >
-        {session === undefined ? (
+        {bare ? null : session === undefined ? (
           <SessionMark state="ended" said={`${title}: Ended`} />
         ) : (
           <JobMark session={session} />

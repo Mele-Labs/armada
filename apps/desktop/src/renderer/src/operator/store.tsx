@@ -164,6 +164,7 @@ function reduce(state: OperatorState, act: Act): OperatorState {
           from: YOU,
           item: ruled.item,
           did: "overruled",
+          changed: act.way,
           why: `${DID_SAID[ruled.did]} became ${act.way}. Kept as your correction`,
         },
       );
