@@ -160,6 +160,13 @@ pub(super) fn first_turn_of(body: &str) -> Option<FirstTurn> {
 }
 
 /// The held Job's first turn and the usual landing for its workflow.
+impl StartReads {
+    /// The first turn the card holds, as it reads.
+    pub(crate) fn first_said(&self) -> Option<String> {
+        self.first.as_ref().map(|first| first.reads().to_string())
+    }
+}
+
 pub(crate) fn start_read(store: &Store, hosting: &KeptHosting) -> Result<StartReads, store::WriteError> {
     let first = store.held_first_turn(&hosting.session_id)?.as_deref().and_then(first_turn_of);
     let usual = match hosting.workflow.as_deref() {

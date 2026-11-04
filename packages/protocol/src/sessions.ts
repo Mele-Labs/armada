@@ -556,6 +556,23 @@ export type SlotHolder = {
   keeps?: "running" | "uncommitted";
 };
 
+/** Where a Job goes in Waiting to start, against another Job waiting there. */
+export type LinePlace =
+  | { kind: "ahead"; session_id: string }
+  | { kind: "behind"; session_id: string }
+  | { kind: "last" };
+
+/**
+ * `move_in_line` (`POST /sessions/line/move`): the person drags a Job waiting to start to another place, over the
+ * Operator's order, and the Operator's Log keeps it as a correction. 422 while the Operator is off
+ * (`fleet.line_unordered`), where the Job is not waiting (`fleet.line_not_waiting`), or where the place names a Job not
+ * waiting in its line (`fleet.line_place_unknown`). Answers the Job's `SessionRecord`.
+ */
+export type MoveInLine = {
+  session_id: string;
+  place: LinePlace;
+};
+
 /**
  * `free_slot` (`POST /sessions/slot_choice/free`): the person gives back the slot a waiting Job's call lists, to that
  * Job. `session_id` is the waiting Job and `item_id` its `slot_choice` item (`slot-choice`). Only a press: Fleet never

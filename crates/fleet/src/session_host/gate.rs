@@ -381,9 +381,11 @@ where
     pub(super) async fn line_joined(&self, manifest: &str, id: &str) -> usize {
         let queue = self.hosts().slot_queue();
         let since = self.instant();
-        let (ahead, placed) = queue.join(manifest, id, &since);
+        let (mut ahead, placed) = queue.join(manifest, id, &since);
         if let Some(place) = placed {
             self.line_kept(manifest, id, place, &since).await;
+            self.ruled_place_taken(manifest, id).await;
+            ahead = queue.ahead_of(manifest, id);
             self.slot_wait_began(id, "line").await;
             let _ = self.published_hosted(id).await;
         }

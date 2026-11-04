@@ -19,6 +19,9 @@ fn ruled(arrival: &str, call: Option<&str>, at: &str) -> KeptRuling {
         call: call.map(str::to_string),
         by: "operator".to_string(),
         at: at.to_string(),
+        place: None,
+        first_session: None,
+        refused: Vec::new(),
     }
 }
 
@@ -35,9 +38,17 @@ fn a_ruling_reads_back_whole_with_its_shared_paths_and_signer() {
         ..ruled("b", None, "2026-11-04T10:01:00.000Z")
     };
     store.add_operator_ruling(&passed).expect("kept");
+    let placed = KeptRuling {
+        outcome: "keep_in_touch".to_string(),
+        place: Some("ahead:01WAITING".to_string()),
+        first_session: Some("01OTHER".to_string()),
+        refused: vec!["ahead of 01GONE, which was not waiting".to_string(), "a second".to_string()],
+        ..ruled("c", Some("c2"), "2026-11-04T10:02:00.000Z")
+    };
+    store.add_operator_ruling(&placed).expect("kept");
 
     let log = store.operator_rulings(10).expect("read");
-    assert_eq!(log, vec![passed, ruled("a", Some("c1"), "2026-11-04T10:00:00.000Z")], "newest first, every column");
+    assert_eq!(log, vec![placed, passed, ruled("a", Some("c1"), "2026-11-04T10:00:00.000Z")], "newest first, every column");
     assert_eq!(store.operator_rulings(1).expect("read").len(), 1);
 }
 

@@ -77,6 +77,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn move_in_line(self: Arc<Self>, _moved: ipc::MoveInLine) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn dismiss_waiting(
         self: Arc<Self>,
         _dismiss: ipc::DismissWaiting,
