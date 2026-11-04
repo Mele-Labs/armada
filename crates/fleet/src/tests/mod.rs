@@ -39,6 +39,7 @@ mod builds_run;
 mod retro_timing;
 mod checkouts_apart;
 mod committing;
+mod compacting_waiting;
 mod daemon;
 mod declaring;
 mod detach;

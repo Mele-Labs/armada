@@ -52,18 +52,18 @@ fn reading(why: rusqlite::Error) -> WriteError {
 }
 
 impl Store {
-    /// The context of the Job's newest main-thread turn: its input, cache-creation and cache-read
-    /// tokens. `None` where it has none.
-    pub fn last_main_context(&self, session_id: &str) -> Result<Option<u64>, WriteError> {
+    /// The Job's newest main-thread turn: when, and its context, the input, cache-creation and
+    /// cache-read tokens. `None` where it has none.
+    pub fn last_main_context(&self, session_id: &str) -> Result<Option<(String, u64)>, WriteError> {
         self.conn
             .query_row(
-                "SELECT input_tokens + cache_creation_tokens + cache_read_tokens FROM session_turn_usage
+                "SELECT at, input_tokens + cache_creation_tokens + cache_read_tokens FROM session_turn_usage
                  WHERE session_id = ?1 AND subagent = 0 ORDER BY at DESC, message_id DESC LIMIT 1",
                 params![session_id],
-                |row| row.get::<_, i64>(0),
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
             )
             .optional()
-            .map(|found| found.map(|tokens| tokens.max(0) as u64))
+            .map(|found| found.map(|(at, tokens)| (at, tokens.max(0) as u64)))
             .map_err(reading)
     }
 

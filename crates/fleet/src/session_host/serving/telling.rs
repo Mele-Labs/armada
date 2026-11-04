@@ -236,6 +236,12 @@ where
         self.fleet_word(session, text, true, None).await
     }
 
+    /// `/compact` to a Job waiting on the owner, as Claude Code's own command. News that asks nothing,
+    /// kept from no mute or rule since the switch is the owner's. `Ok(false)` for a paused or ended Job.
+    pub(crate) async fn told_to_compact(self: &Arc<Self>, session: &str) -> Result<bool, Refusal> {
+        self.fleet_word(session, super::super::compacting::COMPACT, true, None).await
+    }
+
     /// Fleet's word to a Job whose process it started again after the process ended in a turn.
     /// News that asks nothing. `Ok(false)` for a paused or ended Job.
     pub(crate) async fn told_of_a_death(self: &Arc<Self>, session: &str, text: &str) -> Result<bool, Refusal> {

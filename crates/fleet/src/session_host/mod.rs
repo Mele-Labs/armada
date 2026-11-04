@@ -17,6 +17,7 @@ mod note_resolving;
 pub(crate) mod asking;
 mod backgrounding;
 mod call_rows;
+pub(crate) mod compacting;
 mod cut_off;
 pub(crate) mod disputing;
 pub(crate) mod bug_reports;

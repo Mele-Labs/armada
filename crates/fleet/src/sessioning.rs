@@ -309,7 +309,9 @@ where
             SessionFact::TurnMeasured { turn } => {
                 // Usage is read by its own operation and draws nothing on the record, so it
                 // publishes no `session.changed`.
-                crate::turn_usage_keeping::kept(&mut store, &id, &turn).map_err(fault)?;
+                if crate::turn_usage_keeping::kept(&mut store, &id, &turn).map_err(fault)? {
+                    store.waiting_compactions_measured(&id).map_err(fault)?;
+                }
             }
             SessionFact::Equipped { loadout } => {
                 changed |= crate::loadout_keeping::equipped(&mut store, &id, &loadout).map_err(fault)?;

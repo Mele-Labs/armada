@@ -27,7 +27,11 @@ fn a_compaction_keeps_the_context_before_and_is_filled_by_the_next_main_turn() {
     assert_eq!(store.last_main_context("s1").unwrap(), None);
     store.keep_turn_usage("s1", &turn("a", 0, false, (10, 2_000, 180_000))).unwrap();
     store.keep_turn_usage("s1", &turn("b", 1, true, (5, 900_000, 0))).unwrap();
-    assert_eq!(store.last_main_context("s1").unwrap(), Some(182_010), "a subagent's turn is not the Job's context");
+    assert_eq!(
+        store.last_main_context("s1").unwrap(),
+        Some(("2026-11-04T09:00:00.000Z".into(), 182_010)),
+        "a subagent's turn is not the Job's context"
+    );
 
     store.keep_waiting_compaction("s1", "2026-11-04T09:50:00Z", 182_010).unwrap();
     store.waiting_compactions_measured("s1").unwrap();

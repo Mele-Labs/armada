@@ -146,9 +146,18 @@ where
             };
             let turns: Vec<_> = read.turns.iter().map(kept_form).collect();
             let learnt = reading_kept(&read);
-            match self.store().lock().await.keep_turns_read(&file.session_id, &turns, &learnt, &key, read.next) {
-                Ok(more) => changed += more,
-                Err(_) => return changed,
+            {
+                let mut store = self.store().lock().await;
+                match store.keep_turns_read(&file.session_id, &turns, &learnt, &key, read.next) {
+                    Ok(more) => {
+                        changed += more;
+                        // The request after a compaction of the Job's, once it is read.
+                        if more > 0 {
+                            let _ = store.waiting_compactions_measured(&file.session_id);
+                        }
+                    }
+                    Err(_) => return changed,
+                }
             }
             if read.next == from || read.next >= file.size {
                 return changed;
