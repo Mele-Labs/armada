@@ -324,7 +324,13 @@ where
                     true => unanswered(held.as_secs()),
                     false => question_unanswered(held.as_secs()),
                 };
-                (told, SessionAskState::Unanswered)
+                // A question nobody answered is kept whole in his Needs you, so what he types
+                // about something else does not clear it.
+                let state = match asking.questions().is_empty() {
+                    true => SessionAskState::Unanswered,
+                    false => SessionAskState::Kept,
+                };
+                (told, state)
             }
         };
         let via = {
