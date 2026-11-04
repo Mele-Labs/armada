@@ -309,6 +309,7 @@ where
         let spoke = waited.spoke;
         let died_saying = waited.died_saying;
         let plan_held = waited.plan_held;
+        let resting = waited.resting;
         record.standing = (session.state == store::SessionState::Live).then_some(waited.standing);
         record.build = reads.build.record(record.standing == Some(ipc::SessionStanding::Stuck), workers_of(&record.attachments));
         record.plan = reads
@@ -339,15 +340,18 @@ where
         self.rail_drawn(session, &reads.rail, reply_owed_since.as_deref(), &mut record);
         // Held open only when what it waits on is all that is left, read once the rail has drawn its wait: a
         // turn running or an item owed says more than a watch or a pull request does. A command the agent
-        // backgrounded does not: nothing on the row speaks for it, and a dev server outlives the work.
-        let between = session.state == store::SessionState::Live
-            && matches!(record.standing, Some(ipc::SessionStanding::Idle | ipc::SessionStanding::Replied))
-            && record.waiting_for.is_empty();
-        if between {
+        // backgrounded does not: a dev server outlives the work, so what holds the Job reads over it.
+        let live = session.state == store::SessionState::Live;
+        let at_rest = |standing: Option<ipc::SessionStanding>| matches!(standing, Some(ipc::SessionStanding::Idle | ipc::SessionStanding::Replied));
+        if live && at_rest(Some(resting)) && record.waiting_for.is_empty() {
             let pulls = record.attachments.iter().filter_map(pull_request_wait);
             let started = reads.holding.iter().filter(|one| one.lifecycle == JOB_LIFECYCLE).map(|one| ipc::HeldOpenBy::Job { name: one.label.clone() });
             record.held_open_by = reads.watching.into_iter().map(|name| ipc::HeldOpenBy::Watch { name }).chain(started).chain(pulls).collect();
+            if !record.held_open_by.is_empty() {
+                record.standing = Some(resting);
+            }
         }
+        let between = live && at_rest(record.standing) && record.waiting_for.is_empty();
         let excused = !between
             || parked
             || !record.held_open_by.is_empty()

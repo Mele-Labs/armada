@@ -143,6 +143,8 @@ pub(crate) struct Waited {
     /// The items the person closed, newest first, and whether each would wait again.
     pub closed: Vec<ipc::ClosedWaiting>,
     pub standing: ipc::SessionStanding,
+    /// How it stands with its background commands left out: a watch or a pull request holding it reads over them.
+    pub resting: ipc::SessionStanding,
     /// When the person last wrote to it. A Fleet word typed into a terminal reads back as his, and is left out.
     pub spoke: Option<String>,
     /// The last thing a process of it said as it ended, from Fleet's note in the thread.
@@ -601,12 +603,12 @@ where
         };
         // A terminal's own prompt holds the turn on the person, as an open card does.
         let seen = super::standing::Seen { held: seen.held || prompt.is_some(), ..seen };
-        let standing = if ended || paused {
-            ipc::SessionStanding::Idle
+        let (standing, resting) = if ended || paused {
+            (ipc::SessionStanding::Idle, ipc::SessionStanding::Idle)
         } else {
-            let beside = checks_running
-                || attachments.iter().any(|one| one.kind == super::backgrounding::KIND && one.state == ipc::AttachmentState::Standing);
-            super::standing::beside_the_turn(super::standing::standing(&seen, self.hosts().stuck_after()), beside)
+            let resting = super::standing::beside_the_turn(super::standing::standing(&seen, self.hosts().stuck_after()), checks_running);
+            let background = attachments.iter().any(|one| one.kind == super::backgrounding::KIND && one.state == ipc::AttachmentState::Standing);
+            (super::standing::beside_the_turn(resting, background), resting)
         };
         if !ended {
             // A Job on its start card waits for the person to send its first message, until Start.
@@ -766,7 +768,7 @@ where
         }
         // **A paused Job raises nothing**: its items come back after Resume, if they are still owed.
         let items = if paused { Vec::new() } else { items };
-        Waited { items, closed: Vec::new(), standing, spoke: his_word, died_saying, start_held, paused, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default() }
+        Waited { items, closed: Vec::new(), standing, resting, spoke: his_word, died_saying, start_held, paused, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default() }
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.
