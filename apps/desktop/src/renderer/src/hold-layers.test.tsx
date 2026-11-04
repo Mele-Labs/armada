@@ -64,3 +64,63 @@ test("a layer over the view's frame holds it, whether or not another layer is it
   // A frame in no layer is under every layer that is up.
   expect(holdLayerUp(apart)).toBe(true);
 });
+
+// A surface that takes the screen is no layer on the list: it is found by what lies on the frame.
+const sizedFrame = (within?: HTMLElement): HTMLElement => {
+  const frame = document.createElement("div");
+  frame.style.cssText = "position:fixed;left:100px;top:100px;width:400px;height:300px";
+  if (within === undefined) mount((own) => own.append(frame));
+  else within.append(frame);
+  return frame;
+};
+const zoomed = (make?: (over: HTMLElement) => void): HTMLElement => {
+  let surface!: HTMLElement;
+  mount((over) => {
+    over.style.cssText = "position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:20";
+    make?.(over);
+    surface = over;
+  });
+  return surface;
+};
+
+test("a frame with nothing over it is not held", () => {
+  expect(holdLayerUp(sizedFrame())).toBe(false);
+});
+
+test("a pane zoomed over the frame holds it, and restored lets it go", () => {
+  const frame = sizedFrame();
+  const pane = zoomed();
+  expect(holdLayerUp(frame)).toBe(true);
+  pane.remove();
+  expect(holdLayerUp(frame)).toBe(false);
+});
+
+test("the frame's own pane zoomed is not over it", () => {
+  let frame!: HTMLElement;
+  zoomed((pane) => {
+    frame = sizedFrame(pane);
+  });
+  expect(holdLayerUp(frame)).toBe(false);
+});
+
+test("something over only part of the frame holds it where it reaches a point asked", () => {
+  const frame = sizedFrame();
+  mount((over) => {
+    over.style.cssText = "position:fixed;left:400px;top:100px;width:200px;height:300px;z-index:20";
+  });
+  expect(holdLayerUp(frame)).toBe(true);
+});
+
+test("what takes no presses is not found on the frame, which is why the annotation layer is on the list", () => {
+  const frame = sizedFrame();
+  zoomed((over) => {
+    over.style.pointerEvents = "none";
+  });
+  expect(holdLayerUp(frame)).toBe(false);
+});
+
+test("a frame with no size has nothing to cover", () => {
+  const frame = document.createElement("div");
+  mount((own) => own.append(frame));
+  expect(holdLayerUp(frame)).toBe(false);
+});

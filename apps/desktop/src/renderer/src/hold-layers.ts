@@ -20,9 +20,10 @@ const POINTS = [
   0.9,
 ];
 
-/** Whether something other than the frame and what is in it lies on the frame. A point outside the window finds nothing, and says nothing. */
+/** Whether something other than the frame and what is in it lies on the frame. A point outside the window finds nothing, and says nothing; a frame with no size has nothing to cover. */
 const covered = (frame: Element): boolean => {
   const box = frame.getBoundingClientRect();
+  if (box.width === 0 || box.height === 0) return false;
   return POINTS.some((across) =>
     POINTS.some((down) => {
       const there = document.elementFromPoint(
