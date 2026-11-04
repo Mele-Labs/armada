@@ -27,8 +27,9 @@ pub const COOLDOWN_MINUTES: i64 = 30;
 /// A unit is a million weighted tokens, `store::turn_units`.
 const MIN_HOUR_UNITS: f64 = 1.0;
 /// The subagents' own burn in the last hour has to pass this many cost units before they are told
-/// anything: a high share of a small hour is not worth the Job's attention.
-const MIN_SUBAGENT_UNITS: f64 = 5.0;
+/// anything: a high share of a small hour is not worth the Job's attention. 25 since units weigh the
+/// model, so an opus burn trips it as 5 did before.
+const MIN_SUBAGENT_UNITS: f64 = 25.0;
 /// The turns the cache hit rate is read over.
 const CACHE_TURNS: usize = 10;
 const HOUR_MILLIS: i64 = 3_600_000;

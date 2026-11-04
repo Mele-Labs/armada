@@ -2,12 +2,13 @@
 //!
 //! **A ruling is refused rather than repaired.** A way the item was not offered, another Job it was
 //! not shown as near, or a way between two Jobs that names no shared paths passes the item on untouched,
-//! the way an id Fleet did not offer is refused elsewhere.
+//! the way an id Fleet did not offer is refused elsewhere. **A place or a first that names a Job not
+//! offered is refused alone**: the way stands, the start goes last, and nothing is held.
 
 use std::fmt;
 use std::time::Duration;
 
-use super::arriving::Arrival;
+use super::arriving::{Arrival, InLine};
 use super::candidates::Near;
 
 /// One way an item can go.
@@ -55,6 +56,59 @@ impl Way {
     }
 }
 
+/// Where a start goes in Waiting to start, among the Jobs Fleet offered.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Place {
+    Ahead(String),
+    Behind(String),
+    Last,
+}
+
+impl Place {
+    /// As the store keeps it.
+    pub fn word(&self) -> String {
+        match self {
+            Place::Ahead(id) => format!("ahead:{id}"),
+            Place::Behind(id) => format!("behind:{id}"),
+            Place::Last => "last".to_string(),
+        }
+    }
+
+    /// The Job it is placed against, where it names one.
+    pub fn against(&self) -> Option<&str> {
+        match self {
+            Place::Ahead(id) | Place::Behind(id) => Some(id),
+            Place::Last => None,
+        }
+    }
+
+    /// As the call writes it: `ahead of <id>`, `behind <id>` or `last`.
+    fn read(said: &str) -> Option<Place> {
+        let said = said.trim();
+        if said.eq_ignore_ascii_case("last") {
+            return Some(Place::Last);
+        }
+        let (how, id) = said.split_once(char::is_whitespace)?;
+        let id = id.trim();
+        match how.to_ascii_lowercase().as_str() {
+            "ahead" => Some(Place::Ahead(id.strip_prefix("of ").unwrap_or(id).trim().to_string())),
+            "behind" => Some(Place::Behind(id.to_string())),
+            _ => None,
+        }
+        .filter(|place| place.against().is_some_and(|id| !id.is_empty()))
+    }
+}
+
+impl fmt::Display for Place {
+    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Place::Ahead(id) => write!(out, "ahead of {id}"),
+            Place::Behind(id) => write!(out, "behind {id}"),
+            Place::Last => write!(out, "last"),
+        }
+    }
+}
+
 /// What the call ruled for one item.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Ruling {
@@ -64,6 +118,19 @@ pub struct Ruling {
     /// The paths or plan group the two share, for a way between two.
     pub shared: Vec<String>,
     pub because: String,
+    /// Where a start goes in Waiting to start, where Jobs wait there.
+    pub place: Option<Place>,
+    /// Of two kept in touch, the one that builds first: the other is held until it pushes.
+    pub first: Option<String>,
+    /// Each part Fleet refused while the rest stood, in a line.
+    pub refused: Vec<String>,
+}
+
+impl Ruling {
+    /// A ruling of `way` alone, naming no other Job.
+    pub fn alone(way: Way, because: impl Into<String>) -> Ruling {
+        Ruling { way, other: None, shared: Vec::new(), because: because.into(), place: None, first: None, refused: Vec::new() }
+    }
 }
 
 /// Why an item went on untouched. **Never a ruling**: the item goes on as it does today.
@@ -105,6 +172,12 @@ pub enum Ruled {
 pub enum Outcome {
     Ruled(Way),
     PassedOn,
+    /// The person moved a Job in Waiting to start, over the Operator's place.
+    Corrected,
+    /// A Job held until another pushed starts as it would have: that other ended without pushing.
+    HoldLifted,
+    /// A Job ruled to wait for another's push was already working, or waiting on something else, so nothing was held.
+    NotHeld,
 }
 
 impl Outcome {
@@ -112,14 +185,17 @@ impl Outcome {
         match self {
             Outcome::Ruled(way) => way.word(),
             Outcome::PassedOn => "passed_on",
+            Outcome::Corrected => "corrected",
+            Outcome::HoldLifted => "hold_lifted",
+            Outcome::NotHeld => "not_held",
         }
     }
 }
 
 /// Read one answer to a call that held `items`, one ruling an item in their order, each held to
-/// the Jobs `near` it. An item the answer has no block for, or a block that names what it was not
-/// offered, passes on.
-pub(super) fn read_rulings(answer: &str, items: &[Arrival], near: &[Vec<Near>]) -> Vec<Ruled> {
+/// the Jobs `near` it and the Jobs waiting to start in its `line`. An item the answer has no block
+/// for, or a block that names what it was not offered, passes on.
+pub(super) fn read_rulings(answer: &str, items: &[Arrival], near: &[Vec<Near>], line: &[Vec<InLine>]) -> Vec<Ruled> {
     let blocks = blocks(answer);
     items
         .iter()
@@ -127,14 +203,17 @@ pub(super) fn read_rulings(answer: &str, items: &[Arrival], near: &[Vec<Near>]) 
         .map(|(at, item)| {
             let block = blocks.iter().find(|block| said(block, "item").and_then(|n| n.parse::<usize>().ok()) == Some(at + 1));
             match block {
-                Some(block) => read_one(block, item, &near[at]).unwrap_or_else(Ruled::PassedOn),
+                Some(block) => read_one(block, item, &near[at])
+                    .map(|ruling| placed(ruling, block, &line[at]))
+                    .map(Ruled::Ruled)
+                    .unwrap_or_else(Ruled::PassedOn),
                 None => Ruled::PassedOn(PassedOn::Unreadable(format!("it gave no ruling for item {}", at + 1))),
             }
         })
         .collect()
 }
 
-fn read_one(block: &[(String, String)], item: &Arrival, near: &[Near]) -> Result<Ruled, PassedOn> {
+fn read_one(block: &[(String, String)], item: &Arrival, near: &[Near]) -> Result<Ruling, PassedOn> {
     let because = said(block, "because").filter(|why| !why.is_empty()).ok_or_else(|| PassedOn::Unreadable("it gave no reason".into()))?;
     let named = said(block, "way").ok_or_else(|| PassedOn::Unreadable("it named no way".into()))?;
     let way = named
@@ -144,7 +223,7 @@ fn read_one(block: &[(String, String)], item: &Arrival, near: &[Near]) -> Result
         .and_then(|at| item.ways.get(at).copied())
         .ok_or_else(|| PassedOn::Refused(format!("way {named} was not one it was offered")))?;
     if !way.names_another() {
-        return Ok(Ruled::Ruled(Ruling { way, other: None, shared: Vec::new(), because }));
+        return Ok(Ruling::alone(way, because));
     }
     let other = said(block, "job").filter(|id| !none(id)).ok_or_else(|| PassedOn::Refused(format!("{} named no other Job", way.word_shown())))?;
     if !near.iter().any(|one| one.job.session_id == other) {
@@ -157,7 +236,39 @@ fn read_one(block: &[(String, String)], item: &Arrival, near: &[Near]) -> Result
     if shared.is_empty() {
         return Err(PassedOn::Refused(format!("{} named nothing the two Jobs share", way.word_shown())));
     }
-    Ok(Ruled::Ruled(Ruling { way, other: Some(other), shared, because }))
+    let mut ruling = Ruling { other: Some(other.clone()), shared, ..Ruling::alone(way, because) };
+    if way == Way::KeepInTouch {
+        if let Some(first) = said(block, "first").filter(|id| !none(id)) {
+            match first == item.session_id || first == other {
+                true => ruling.first = Some(first),
+                false => ruling.refused.push(format!("{first} builds first, which is neither of the two, so nothing is held")),
+            }
+        }
+    }
+    Ok(ruling)
+}
+
+/// The ruling with its place in Waiting to start, where Jobs wait there: last where the call named
+/// none, and last, refused, where it named a Job Fleet did not offer.
+fn placed(mut ruling: Ruling, block: &[(String, String)], line: &[InLine]) -> Ruling {
+    if line.is_empty() {
+        return ruling;
+    }
+    let Some(said) = said(block, "place").filter(|place| !none(place)) else {
+        return ruling;
+    };
+    ruling.place = Some(match Place::read(&said) {
+        Some(place) if place.against().is_none_or(|id| line.iter().any(|one| one.session_id == id)) => place,
+        Some(place) => {
+            ruling.refused.push(format!("{place}, a Job not waiting to start there, so it goes last"));
+            Place::Last
+        }
+        None => {
+            ruling.refused.push(format!("the place \"{said}\" could not be read, so it goes last"));
+            Place::Last
+        }
+    });
+    ruling
 }
 
 /// The answer cut into blocks, each starting at an `item:` line, as key and value pairs.

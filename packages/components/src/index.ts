@@ -513,6 +513,14 @@ export * from "./compositions/UsagePage/UsagePage";
 export type { Bucket, TimeJob, TimeSplit, UsageTime } from "./compositions/UsagePage/usage-time";
 export type { UsageHour, UsageHours } from "./compositions/UsagePage/usage-hours";
 export { JobSplit } from "./compositions/UsagePage/TimeView";
+export type {
+  SpentBy,
+  SpentJob,
+  SpentOn,
+  SpentSplit,
+  SpentWindow,
+  UsageSpent,
+} from "./compositions/UsagePage/usage-spent";
 export type { Build, UsageBuilds } from "./compositions/UsagePage/usage-builds";
 
 export * from "./compositions/FilePanel/FilePanel";

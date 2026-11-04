@@ -70,7 +70,7 @@ where
     }
 
     /// What went wrong for the Operator, in Fleet's log.
-    fn operator_warned(&self, msg: &str, why: impl std::fmt::Display) {
+    pub(super) fn operator_warned(&self, msg: &str, why: impl std::fmt::Display) {
         let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), msg)
             .with_field("why", FieldValue::Str(why.to_string()));
         crate::transcript::note_aloud(&envelope);

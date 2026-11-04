@@ -15,9 +15,15 @@
 //! **When each turn waited and ran** is read from the lines around a message: the user line before
 //! it (the prompt or a tool's result) is when the model began, and a tool's result line is when that
 //! call finished. A result whose call was read before it is returned alone, for the store to join.
-//! Stamps only: a result's content is never read.
+//! Stamps only: a result's content is never kept.
+//!
+//! **What each turn was spent on** is read in the same pass: every block is measured as it is
+//! decoded and added to an estimate of the thread's context (`spent`), which a read hands to the
+//! next as its [`Carry`]. A compaction's own request, which the transcript does not hold, is
+//! returned as a [`BackgroundTurn`].
 
 mod bash_use;
+mod spent;
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -29,6 +35,9 @@ use ipc::{BashUse, Instant, TurnUsage};
 use serde::Deserialize;
 
 pub use bash_use::classify_bash;
+pub use spent::{BackgroundTurn, Carry, Part, Shares, IMAGE_TOKENS};
+
+use spent::{said, tokens, Measured};
 
 use crate::reading_in::SESSIONS;
 
@@ -36,8 +45,21 @@ use crate::reading_in::SESSIONS;
 struct Line {
     #[serde(rename = "type")]
     kind: Option<String>,
+    subtype: Option<String>,
+    uuid: Option<String>,
     timestamp: Option<String>,
     message: Option<Message>,
+    attachment: Option<Measured>,
+    #[serde(rename = "isCompactSummary", default)]
+    compact_summary: bool,
+    #[serde(rename = "compactMetadata")]
+    compacted: Option<Compacted>,
+}
+
+#[derive(Deserialize)]
+struct Compacted {
+    #[serde(rename = "preTokens", default)]
+    pre_tokens: u64,
 }
 
 #[derive(Deserialize)]
@@ -59,13 +81,19 @@ struct Usage {
     cache_read_input_tokens: Option<u64>,
     #[serde(default)]
     output_tokens: Option<u64>,
+    cache_creation: Option<CacheCreation>,
+}
+
+#[derive(Default, Deserialize)]
+struct CacheCreation {
+    #[serde(default)]
+    ephemeral_1h_input_tokens: u64,
 }
 
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum Content {
     Blocks(Vec<Block>),
-    #[allow(dead_code)]
     Text(String),
 }
 
@@ -83,15 +111,29 @@ struct Block {
     id: Option<String>,
     tool_use_id: Option<String>,
     name: Option<String>,
-    input: Option<Input>,
+    input: Option<Measured>,
+    text: Option<Measured>,
+    thinking: Option<Measured>,
+    content: Option<Measured>,
 }
 
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum Input {
-    Shell { command: String },
-    Other(serde::de::IgnoredAny),
+impl Block {
+    /// The block's own text, estimated in tokens.
+    fn tokens(&self) -> u64 {
+        if self.kind == "image" {
+            return IMAGE_TOKENS;
+        }
+        let bytes = [&self.input, &self.text, &self.thinking, &self.content].iter().filter_map(|one| one.as_ref()).map(|one| one.bytes).sum();
+        tokens(bytes)
+    }
 }
+
+/// Attachments that record something for the CLI and are not sent to the model.
+const RECORD_ONLY: &[&str] = &["prompt_snapshot", "queued_command", "hook_success", "deferred_tools_record", "output_style"];
+/// Attachments that put a file in the context.
+const FILES: &[&str] = &["file", "edited_text_file", "compact_file_reference"];
+/// Calls whose results are reads.
+const READING: &[&str] = &["Read", "Grep", "Glob"];
 
 /// One message so far: the lines of an id, joined.
 struct Joined {
@@ -101,6 +143,17 @@ struct Joined {
     times: TurnTimes,
     /// The ids of its calls, in the order written.
     calls: Vec<String>,
+    spent: TurnSpent,
+}
+
+/// What a turn was spent on, beside its figures: the hour's cache writes, of the line with the most
+/// output as the figures are, and how its input is shared. `shares` is absent for a message whose
+/// request was read before, which keeps the shares it was given then.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct TurnSpent {
+    pub message_id: String,
+    pub cache_creation_1h_tokens: u64,
+    pub shares: Option<Shares>,
 }
 
 /// When a turn's model began and its tools ran, as RFC3339 stamps the CLI wrote.
@@ -143,18 +196,26 @@ pub struct TurnRead {
     pub input_at: Option<String>,
     /// The offset of the first byte not read: the end of the last whole line.
     pub next: u64,
+    /// One for each turn, in the same order.
+    pub spent: Vec<TurnSpent>,
+    /// Compactions' own requests.
+    pub background: Vec<BackgroundTurn>,
+    /// What the next read starts from.
+    pub carry: Carry,
 }
 
 /// Read the whole lines of `file` from `offset` on, up to about `budget` bytes, into turns.
 /// `subagent` marks every turn as a subagent's. A line still being written is left for the next
 /// read; an `offset` past the end of the file starts again from the top. `input_at` is the last
-/// user line the read before this one reached, for a message whose prompt is not in this read.
+/// user line the read before this one reached, for a message whose prompt is not in this read, and
+/// `carry` what it handed on.
 pub fn read_turns(
     file: &Path,
     offset: u64,
     subagent: bool,
     budget: u64,
     input_at: Option<String>,
+    carry: Carry,
 ) -> std::io::Result<TurnRead> {
     let mut open = File::open(file)?;
     let from = if offset > open.metadata()?.len() { 0 } else { offset };
@@ -164,6 +225,8 @@ pub fn read_turns(
     let mut joined: Vec<Joined> = Vec::new();
     let mut at: HashMap<String, usize> = HashMap::new();
     let mut input_at = if from == 0 { None } else { input_at };
+    let mut carry = if from == 0 { Carry::default() } else { carry };
+    let mut background = Vec::new();
     let mut results: Vec<ToolResult> = Vec::new();
     while next - from < budget {
         raw.clear();
@@ -174,20 +237,59 @@ pub fn read_turns(
         next += read as u64;
         let assistant = raw.windows(11).any(|window| window == b"\"assistant\"")
             && raw.windows(7).any(|window| window == b"\"usage\"");
-        if !assistant && !raw.windows(6).any(|window| window == b"\"user\"") {
+        if !assistant
+            && !raw.windows(6).any(|window| window == b"\"user\"")
+            && !raw.windows(12).any(|window| window == b"\"attachment\"")
+            && !raw.windows(16).any(|window| window == b"compact_boundary")
+        {
             continue;
         }
         let Ok(line) = ipc::decode::<Line>("transcript line", &raw) else {
             continue;
         };
+        match (line.kind.as_deref(), line.subtype.as_deref()) {
+            (Some("attachment"), _) => {
+                if let Some(attachment) = line.attachment {
+                    let kind = attachment.kind.as_deref().unwrap_or_default();
+                    if !RECORD_ONLY.contains(&kind) {
+                        let part = if FILES.contains(&kind) { Part::Reads } else { Part::Announced };
+                        carry.wrote(part, tokens(attachment.bytes));
+                    }
+                }
+                continue;
+            }
+            (Some("system"), Some("compact_boundary")) => {
+                if let (Some(id), Some(at)) = (line.uuid, line.timestamp) {
+                    carry.compacted(id, at, line.compacted.map(|one| one.pre_tokens).unwrap_or(0));
+                }
+                continue;
+            }
+            _ => {}
+        }
         let (Some(stamp), Some(message)) = (line.timestamp, line.message) else {
             continue;
         };
         // By the line's own type: a result that quotes a message reads as an assistant line to the filter.
         if line.kind.as_deref() == Some("user") {
-            if let Content::Blocks(blocks) = message.content {
-                for id in blocks.into_iter().filter(|block| block.kind == "tool_result").filter_map(|block| block.tool_use_id) {
-                    results.push(ToolResult { tool_use_id: id, at: stamp.clone() });
+            match message.content {
+                Content::Text(text) if line.compact_summary => background.extend(carry.summarised(tokens(text.len() as u64))),
+                Content::Text(text) => carry.wrote(said(&text), tokens(text.len() as u64)),
+                Content::Blocks(blocks) => {
+                    for block in blocks {
+                        let size = block.tokens();
+                        if block.kind == "tool_result" {
+                            if let Some(id) = block.tool_use_id {
+                                let part = carry.answered(&id);
+                                carry.wrote(part, size);
+                                results.push(ToolResult { tool_use_id: id, at: stamp.clone() });
+                            }
+                        } else if line.compact_summary {
+                            background.extend(carry.summarised(size));
+                        } else {
+                            let reminder = block.text.as_ref().is_some_and(|one| one.reminder);
+                            carry.wrote(if reminder { Part::Announced } else { Part::Messages }, size);
+                        }
+                    }
                 }
             }
             input_at = Some(stamp);
@@ -197,8 +299,15 @@ pub fn read_turns(
             continue;
         };
         let usage = message.usage.unwrap_or_default();
+        let (cache_write, cache_read) =
+            (usage.cache_creation_input_tokens.unwrap_or(0), usage.cache_read_input_tokens.unwrap_or(0));
+        let shares = (!at.contains_key(&id) && carry.is_request(&id)).then(|| {
+            let context = usage.input_tokens.unwrap_or(0) + cache_write + cache_read;
+            carry.request(&id, &stamp, &model, cache_write, cache_read, context)
+        });
         let slot = *at.entry(id.clone()).or_insert_with(|| {
             joined.push(Joined {
+                spent: TurnSpent { message_id: id.clone(), cache_creation_1h_tokens: 0, shares: shares.flatten() },
                 times: TurnTimes { message_id: id.clone(), model_began: input_at.clone(), ..Default::default() },
                 turn: TurnUsage {
                     message_id: id,
@@ -223,21 +332,30 @@ pub fn read_turns(
             one.turn.at = Instant::carried(stamp.clone());
             one.turn.model = model;
             one.turn.input_tokens = usage.input_tokens.unwrap_or(0);
-            one.turn.cache_creation_tokens = usage.cache_creation_input_tokens.unwrap_or(0);
-            one.turn.cache_read_tokens = usage.cache_read_input_tokens.unwrap_or(0);
+            one.turn.cache_creation_tokens = cache_write;
+            one.turn.cache_read_tokens = cache_read;
             one.turn.output_tokens = output;
+            one.spent.cache_creation_1h_tokens =
+                usage.cache_creation.map(|one| one.ephemeral_1h_input_tokens).unwrap_or(0).min(cache_write);
         }
         if let Content::Blocks(blocks) = message.content {
-            for block in blocks.into_iter().filter(|block| block.kind == "tool_use") {
+            for block in blocks {
+                carry.wrote(Part::OwnWords, block.tokens());
+                if block.kind != "tool_use" {
+                    continue;
+                }
                 let name = block.name.unwrap_or_default();
+                let label = (name == "Bash").then(|| match block.input.as_ref().and_then(|input| input.command.as_deref()) {
+                    Some(command) => classify_bash(command),
+                    None => BashUse::Other,
+                });
                 if !one.first_call_seen {
                     one.first_call_seen = true;
-                    if name == "Bash" {
-                        one.turn.bash_use = Some(match block.input {
-                            Some(Input::Shell { command }) => classify_bash(&command),
-                            _ => BashUse::Other,
-                        });
-                    }
+                    one.turn.bash_use = label;
+                }
+                if let Some(call) = &block.id {
+                    let reads = READING.contains(&name.as_str()) || label == Some(BashUse::ReadSearch);
+                    carry.called(call.clone(), if reads { Part::Reads } else { Part::OtherResults });
                 }
                 one.turn.tools.push(name);
                 if one.times.tools_began.is_none() {
@@ -274,7 +392,18 @@ pub fn read_turns(
         }
     }
     let times = joined.iter().map(|one| one.times.clone()).collect();
-    Ok(TurnRead { turns: joined.into_iter().map(|one| one.turn).collect(), times, late, open, input_at, next })
+    let spent = joined.iter().map(|one| one.spent.clone()).collect();
+    Ok(TurnRead {
+        turns: joined.into_iter().map(|one| one.turn).collect(),
+        times,
+        late,
+        open,
+        input_at,
+        next,
+        spent,
+        background,
+        carry,
+    })
 }
 
 /// A transcript on disk, and whose it is.

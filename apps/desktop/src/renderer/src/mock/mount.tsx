@@ -27,6 +27,7 @@ import { forgetFirsts } from "../run-book";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
 import { AreasFrom } from "../cockpit/deck/areas-source";
+import { SpentFrom } from "../usage-spent-source";
 import { forgetAnswers } from "../cockpit/deck/AutopilotAnswers";
 import { forgetArm } from "../cockpit/deck/AutopilotArm";
 import { forgetTimeline } from "../cockpit/deck/ConsoleTimeline";
@@ -319,31 +320,35 @@ export function mountApp(
                                                           <ReviewsFrom store={reviews}>
                                                             <IssuesFrom store={issues}>
                                                               <ProjectsFrom store={projects}>
-                                                                {panelReads === undefined ? (
-                                                                  <SharedPanelOver
-                                                                    api={withState(api)}
-                                                                    testsReaching={
-                                                                      chosen.draft?.testsReaching
-                                                                    }
-                                                                  >
-                                                                    <App />
-                                                                    <WalkJobPanel />
-                                                                    <TerminalWindows api={api} />
-                                                                    <JobBrowserWindows />
-                                                                    <TweaksApplied />
-                                                                  </SharedPanelOver>
-                                                                ) : (
-                                                                  <SharedPanelFrom
-                                                                    reads={panelReads}
-                                                                  >
-                                                                    <App />
-                                                                    <WalkJobPanel />
-                                                                    <TerminalWindows api={api} />
-                                                                    <JobBrowserWindows />
-                                                                    <TweaksApplied />
-                                                                    <SharedPanelHost />
-                                                                  </SharedPanelFrom>
-                                                                )}
+                                                                <SpentFrom
+                                                                  spent={chosen.draft?.usageSpent}
+                                                                >
+                                                                  {panelReads === undefined ? (
+                                                                    <SharedPanelOver
+                                                                      api={withState(api)}
+                                                                      testsReaching={
+                                                                        chosen.draft?.testsReaching
+                                                                      }
+                                                                    >
+                                                                      <App />
+                                                                      <WalkJobPanel />
+                                                                      <TerminalWindows api={api} />
+                                                                      <JobBrowserWindows />
+                                                                      <TweaksApplied />
+                                                                    </SharedPanelOver>
+                                                                  ) : (
+                                                                    <SharedPanelFrom
+                                                                      reads={panelReads}
+                                                                    >
+                                                                      <App />
+                                                                      <WalkJobPanel />
+                                                                      <TerminalWindows api={api} />
+                                                                      <JobBrowserWindows />
+                                                                      <TweaksApplied />
+                                                                      <SharedPanelHost />
+                                                                    </SharedPanelFrom>
+                                                                  )}
+                                                                </SpentFrom>
                                                               </ProjectsFrom>
                                                             </IssuesFrom>
                                                           </ReviewsFrom>

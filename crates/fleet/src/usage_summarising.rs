@@ -28,6 +28,7 @@ fn breakdown(one: UsageSplit) -> UsageBreakdown {
         by_token: TokenUnits {
             input: one.input_units,
             cache_creation: one.cache_creation_units,
+            cache_creation_1h: one.cache_creation_1h_units,
             cache_read: one.cache_read_units,
             output: one.output_units,
         },
@@ -68,5 +69,33 @@ pub(crate) fn wire(read: UsageSummaryRead, tz_offset_minutes: i32) -> UsageSumma
             last_day: plain(prior.last_day),
             day_before: plain(prior.day_before),
         },
+    }
+}
+
+fn split(one: &store::SpentSplit) -> ipc::SpentSplit {
+    let [start_up, reads, own_words, output, cold_cache, announced, other_results, messages, background] = one.on;
+    let [main, subagents, by_background] = one.by;
+    ipc::SpentSplit {
+        on: ipc::SpentOn { start_up, reads, own_words, output, cold_cache, announced, other_results, messages, background },
+        by: ipc::SpentBy { main, subagents, background: by_background },
+    }
+}
+
+/// What the burn was spent on, as the wire carries it. `docs/practices/protocol.md`, *What the burn
+/// was spent on*.
+pub(crate) fn spent_wire(read: store::UsageSpentRead) -> ipc::UsageSpent {
+    ipc::UsageSpent {
+        until: read.until,
+        windows: read
+            .windows
+            .into_iter()
+            .map(|one| ipc::SpentWindow {
+                id: one.id,
+                since: one.since,
+                until: one.until,
+                total: split(&one.total),
+                jobs: one.jobs.iter().map(|(id, job)| ipc::SpentJob { session_id: id.clone(), split: split(job) }).collect(),
+            })
+            .collect(),
     }
 }
