@@ -76,4 +76,12 @@ testkit = { path = "../testkit" }
 axum = "0.7"
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "test-util"] }
+# **Features only; no code here uses these.** They are what `api`, `armada` and
+# `pocket` turn on, so a run selecting one of them beside `fleet` builds the same
+# dependencies as `-p fleet`, and not a second copy of them and of `fleet`.
+# `docs/practices/rust.md`, *One build of fleet*.
+futures-util = "0.3"
+p256 = { version = "0.13", features = ["ecdh"] }
+crypto-common = { version = "0.1", features = ["getrandom", "rand_core"] }
+bitflags = { version = "2", features = ["std"] }
