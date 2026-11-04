@@ -28,6 +28,8 @@ pub(crate) struct Seat {
     kept: OnceLock<Arc<KeptStarted>>,
     starts: Arc<Mutex<HashMap<String, StartRuling>>>,
     moved: Mutex<BTreeMap<String, Moved>>,
+    /// The Jobs a read found gone quiet, and those a call is out on.
+    pub(super) stalls: super::Stalls,
     places: Mutex<HashMap<String, Place>>,
 }
 
@@ -37,7 +39,7 @@ impl Seat {
         self.operator.set(operator).is_ok()
     }
 
-    fn operator(&self) -> Option<Arc<Operator>> {
+    pub(super) fn operator(&self) -> Option<Arc<Operator>> {
         self.operator.get().cloned()
     }
 

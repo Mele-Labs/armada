@@ -1,4 +1,5 @@
-//! The Operator's Log, kept a row an arrival and read back newest first, with its calls counted.
+//! The Operator's Log, kept a row an arrival and read back newest first, with its calls counted,
+//! one Job's rows, and the latest notice a Job was told of a pull request.
 
 use crate::tests::{open, TempDir};
 use crate::KeptRuling;
@@ -67,4 +68,41 @@ fn the_calls_of_a_day_are_counted_once_each_and_a_row_with_no_call_is_not_one() 
     }
     assert_eq!(store.operator_calls_since("2026-11-04T00:00:00.000Z").expect("counted"), 2);
     assert_eq!(store.operator_calls_since("2026-11-03T00:00:00.000Z").expect("counted"), 3);
+}
+
+#[test]
+fn a_jobs_rows_read_back_oldest_first_and_an_arrival_in_the_log_reads_as_ruled() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let nudged = KeptRuling { arrived: "stopped".to_string(), outcome: "nudge".to_string(), ..ruled("stopped:01a:t1", Some("c1"), "2026-11-04T10:00:00.000Z") };
+    let again = KeptRuling { session_id: "01a".to_string(), ..ruled("stopped:01a:t2", Some("c2"), "2026-11-04T11:00:00.000Z") };
+    let nudged = KeptRuling { session_id: "01a".to_string(), ..nudged };
+    for one in [&nudged, &ruled("other", None, "2026-11-04T10:30:00.000Z"), &again] {
+        store.add_operator_ruling(one).expect("kept");
+    }
+
+    assert_eq!(store.operator_rulings_of("01a").expect("read"), vec![nudged, again]);
+    assert!(store.operator_ruled("stopped:01a:t1").expect("read"));
+    assert!(!store.operator_ruled("stopped:01a:t3").expect("read"));
+}
+
+#[test]
+fn the_latest_notice_a_job_was_told_of_a_pull_request_names_its_commit_and_when() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let at = |when: &str| core_model::Timestamp::from_rfc3339(when);
+    for (head, recipient, when) in [
+        ("1111111", "session:01a", "2026-11-04T09:00:00.000Z"),
+        ("2222222", "session:01a", "2026-11-04T10:00:00.000Z"),
+        ("3333333", "session:01b", "2026-11-04T11:00:00.000Z"),
+    ] {
+        store.keep_pull_notice("/repo", 7, head, "checks_failed", recipient, &at(when)).expect("kept");
+    }
+    store.keep_pull_notice("/repo", 7, "4444444", "conflicts", "session:01a", &at("2026-11-04T12:00:00.000Z")).expect("kept");
+
+    assert_eq!(
+        store.pull_notice_latest(7, "checks_failed", "session:01a").expect("read"),
+        Some(("2222222".to_string(), "2026-11-04T10:00:00.000Z".to_string()))
+    );
+    assert_eq!(store.pull_notice_latest(8, "checks_failed", "session:01a").expect("read"), None);
 }

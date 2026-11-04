@@ -109,6 +109,24 @@ impl Store {
         rows.collect::<Result<_, _>>().map_err(failed(doing))
     }
 
+    /// Every row of the Log about `session`, oldest first.
+    pub fn operator_rulings_of(&self, session: &str) -> Result<Vec<KeptRuling>, WriteError> {
+        let doing = "reading a Job's rows of the Operator's Log";
+        let mut statement = self
+            .conn
+            .prepare(&format!("SELECT {COLUMNS} FROM operator_rulings WHERE session_id = ?1 ORDER BY position"))
+            .map_err(failed(doing))?;
+        let rows = statement.query_map([session], ruling_of).map_err(failed(doing))?;
+        rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
+    /// Whether the Log holds a row for `arrival`, ruled or passed on.
+    pub fn operator_ruled(&self, arrival: &str) -> Result<bool, WriteError> {
+        self.conn
+            .query_row("SELECT EXISTS (SELECT 1 FROM operator_rulings WHERE arrival = ?1)", [arrival], |row| row.get::<_, bool>(0))
+            .map_err(failed("reading the Operator's Log"))
+    }
+
     /// How many calls the Log names at or after `since`, an RFC3339 instant.
     pub fn operator_calls_since(&self, since: &str) -> Result<u32, WriteError> {
         self.conn

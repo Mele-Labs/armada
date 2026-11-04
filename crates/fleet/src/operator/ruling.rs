@@ -24,6 +24,8 @@ pub enum Way {
     KeepInTouch,
     /// It goes to the person, with the call's read.
     Raise,
+    /// A Job gone quiet is told its next step, and carries on.
+    Nudge,
 }
 
 impl Way {
@@ -37,6 +39,7 @@ impl Way {
             Way::Merge => "merge",
             Way::KeepInTouch => "keep_in_touch",
             Way::Raise => "raise",
+            Way::Nudge => "nudge",
         }
     }
 
@@ -47,6 +50,7 @@ impl Way {
             Way::Merge => "merge",
             Way::KeepInTouch => "keep in touch",
             Way::Raise => "raise",
+            Way::Nudge => "nudge",
         }
     }
 
@@ -118,6 +122,8 @@ pub struct Ruling {
     /// The paths or plan group the two share, for a way between two.
     pub shared: Vec<String>,
     pub because: String,
+    /// The next step a nudge names, in the call's words.
+    pub step: Option<String>,
     /// Where a start goes in Waiting to start, where Jobs wait there.
     pub place: Option<Place>,
     /// Of two kept in touch, the one that builds first: the other is held until it pushes.
@@ -129,7 +135,7 @@ pub struct Ruling {
 impl Ruling {
     /// A ruling of `way` alone, naming no other Job.
     pub fn alone(way: Way, because: impl Into<String>) -> Ruling {
-        Ruling { way, other: None, shared: Vec::new(), because: because.into(), place: None, first: None, refused: Vec::new() }
+        Ruling { way, other: None, shared: Vec::new(), because: because.into(), place: None, first: None, refused: Vec::new(), step: None }
     }
 }
 
@@ -222,6 +228,10 @@ fn read_one(block: &[(String, String)], item: &Arrival, near: &[Near]) -> Result
         .and_then(|number| number.checked_sub(1))
         .and_then(|at| item.ways.get(at).copied())
         .ok_or_else(|| PassedOn::Refused(format!("way {named} was not one it was offered")))?;
+    if way == Way::Nudge {
+        let step = said(block, "step").filter(|step| !none(step)).ok_or_else(|| PassedOn::Refused("nudge named no next step".into()))?;
+        return Ok(Ruling { step: Some(step), ..Ruling::alone(way, because) });
+    }
     if !way.names_another() {
         return Ok(Ruling::alone(way, because));
     }
