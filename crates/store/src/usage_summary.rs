@@ -119,13 +119,29 @@ pub(crate) fn units() -> String {
     )
 }
 
-/// One kept turn's burn in cost units under the weights the usage rules were set with: every write
-/// at 5 minutes, and every model alike.
+/// A model's weight, as [`model_weight`] reads it in SQL.
+pub fn model_weight_of(model: &str) -> f64 {
+    let model = model.to_lowercase();
+    if model.contains("haiku") {
+        1.0
+    } else if model.contains("sonnet") {
+        3.0
+    } else if model.contains("opus") || model.contains("fable") {
+        5.0
+    } else {
+        1.0
+    }
+}
+
+/// One kept turn's burn in cost units, weighed as the SQL sums are.
 pub fn turn_units(turn: &crate::session_turn_usage::KeptTurnUsage) -> f64 {
-    (WEIGHT_INPUT * turn.input_tokens as f64
-        + WEIGHT_CACHE_CREATION * turn.cache_creation_tokens as f64
-        + WEIGHT_CACHE_READ * turn.cache_read_tokens as f64
-        + WEIGHT_OUTPUT * turn.output_tokens as f64)
+    let hour = turn.cache_creation_1h_tokens.min(turn.cache_creation_tokens);
+    model_weight_of(&turn.model)
+        * (WEIGHT_INPUT * turn.input_tokens as f64
+            + WEIGHT_CACHE_CREATION * (turn.cache_creation_tokens - hour) as f64
+            + WEIGHT_CACHE_CREATION_1H * hour as f64
+            + WEIGHT_CACHE_READ * turn.cache_read_tokens as f64
+            + WEIGHT_OUTPUT * turn.output_tokens as f64)
         / UNIT_SCALE
 }
 

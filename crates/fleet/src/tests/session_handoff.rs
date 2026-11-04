@@ -449,6 +449,7 @@ async fn turn_heard(rig: &Rig, id: &SessionId, minute: u32, context: u64) {
         model: "model-a".into(),
         input_tokens: 0,
         cache_creation_tokens: 0,
+        cache_creation_1h_tokens: 0,
         cache_read_tokens: context,
         output_tokens: 1_000,
         tools: vec!["Edit".into()],

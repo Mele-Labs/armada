@@ -14,6 +14,7 @@ fn turn(id: &str, at: &str, model: &str, tokens: [u64; 4], subagent: bool) -> Ke
         model: model.into(),
         input_tokens: tokens[0],
         cache_creation_tokens: tokens[1],
+        cache_creation_1h_tokens: 0,
         cache_read_tokens: tokens[2],
         output_tokens: tokens[3],
         tools: vec!["Read".into()],

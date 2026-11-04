@@ -21,7 +21,7 @@ A transcript of a job Fleet does not know gets rows too.
 **Burn weighs the model and how long a cache write is held.** A turn's tokens are weighed input 1, a cache write held 5 minutes 1.25, a cache write held an hour 2, cache read 0.1 and output 5, over a million, and the sum is multiplied by the model's weight: Haiku 1, Sonnet 3, Opus and Fable 5, and 1 for a model of any other name.
 `cache_creation_1h_tokens` keeps the hour's writes, which are inside `cache_creation_tokens`, from the transcript's `cache_creation.ephemeral_1h_input_tokens`.
 A turn heard only from the mod, or kept before Fleet read its file again, counts every write at 5 minutes.
-The summary, the hours, the builds and Spent on weigh this way. The usage rules keep the weights they were set under.
+The summary, the hours, the builds, Spent on and the usage rules weigh this way.
 
 ## What the burn was spent on
 
@@ -62,7 +62,7 @@ A subagent's turn counts toward the hour's burn and its share and toward nothing
 | Rule | Crossed when | The Job is told |
 |---|---|---|
 | Context | The last turn's context (input, cache-creation and cache-read) is over 300k tokens | `Context is 312k tokens. To carry on in a new job, ask the owner with the options "Carry on in a new Job", "Stay here", "Stay, don't ask again this Job" and "Remind me at a higher limit", and write your brief (where the work is, what is open, what you hold) in the description of "Carry on in a new Job". Start nothing yourself.` |
-| Subagents | Subagents burned over 5 cost units in the last 60 minutes, over 50% of that hour's burn, and at least one subagent turn ran on an opus model. Subagents all on sonnet or haiku are never told | `Subagents burned 7.1 units in your last hour, 71% of it, on opus. Pass model sonnet on reading and searching agents.` |
+| Subagents | Subagents burned over 25 cost units in the last 60 minutes, over 50% of that hour's burn, and at least one subagent turn ran on an opus model. Subagents all on sonnet or haiku are never told | `Subagents burned 35.5 units in your last hour, 71% of it, on opus. Pass model sonnet on reading and searching agents.` |
 | Cache hit rate | Cache-read over input, cache-creation and cache-read is under 70% across the last 10 turns | `Cache hit rate is 54% over your last 10 turns. Something in the prompt or tools changed each turn; check hooks and MCP servers.` |
 | Opus on reading | The last 20 turns all ran on an opus model, each began with a read or a search (`Read`, or a shell command labelled `read_search`), and none edited | `Your last 20 turns on opus only read and searched. Subagents for reading can run on sonnet.` |
 

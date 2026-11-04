@@ -19,6 +19,9 @@ pub struct KeptTurnUsage {
     pub model: String,
     pub input_tokens: u64,
     pub cache_creation_tokens: u64,
+    /// The part of the writes held an hour. **Read back, never written from here**: only a read of
+    /// the transcript knows it ([`KeptTurnSpent`]), so a turn heard keeps what the row holds.
+    pub cache_creation_1h_tokens: u64,
     pub cache_read_tokens: u64,
     pub output_tokens: u64,
     pub tools: Vec<String>,
@@ -115,11 +118,12 @@ pub(crate) fn merged(held: &KeptTurnUsage, heard: &KeptTurnUsage) -> KeptTurnUsa
     };
     turn.bash_use = if held.tools.is_empty() { heard.bash_use.clone() } else { held.bash_use.clone() };
     turn.subagent = held.subagent || heard.subagent;
+    turn.cache_creation_1h_tokens = held.cache_creation_1h_tokens;
     turn
 }
 
 pub(crate) const COLUMNS: &str = "message_id, at, model, input_tokens, cache_creation_tokens, cache_read_tokens, \
-     output_tokens, tools, subagent, bash_use";
+     output_tokens, tools, subagent, bash_use, cache_creation_1h_tokens";
 
 pub(crate) fn kept_turn(row: &Row<'_>) -> rusqlite::Result<KeptTurnUsage> {
     let tools: String = row.get(7)?;
@@ -129,6 +133,7 @@ pub(crate) fn kept_turn(row: &Row<'_>) -> rusqlite::Result<KeptTurnUsage> {
         model: row.get(2)?,
         input_tokens: row.get::<_, i64>(3)? as u64,
         cache_creation_tokens: row.get::<_, i64>(4)? as u64,
+        cache_creation_1h_tokens: row.get::<_, i64>(10)? as u64,
         cache_read_tokens: row.get::<_, i64>(5)? as u64,
         output_tokens: row.get::<_, i64>(6)? as u64,
         tools: serde_json::from_str(&tools).unwrap_or_default(),

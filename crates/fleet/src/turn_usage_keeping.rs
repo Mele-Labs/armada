@@ -13,6 +13,7 @@ pub(crate) fn kept_form(turn: &TurnUsage) -> KeptTurnUsage {
         model: turn.model.clone(),
         input_tokens: turn.input_tokens,
         cache_creation_tokens: turn.cache_creation_tokens,
+        cache_creation_1h_tokens: 0,
         cache_read_tokens: turn.cache_read_tokens,
         output_tokens: turn.output_tokens,
         tools: turn.tools.clone(),

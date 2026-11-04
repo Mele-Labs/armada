@@ -123,6 +123,7 @@ async fn the_usage_summary_is_served_and_refuses_a_bound_that_is_no_time() {
         model: "model-a".into(),
         input_tokens: 0,
         cache_creation_tokens: 0,
+        cache_creation_1h_tokens: 0,
         cache_read_tokens: 0,
         output_tokens: 200_000,
         tools: vec!["Bash".into()],
