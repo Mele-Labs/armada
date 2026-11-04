@@ -15,6 +15,7 @@ pub const MODELS_SECOND_OPINION: Words = Words("models.secondOpinion");
 pub const MODELS_DISPUTE: Words = Words("models.dispute");
 pub const MODELS_TEST_MAP: Words = Words("models.testMap");
 pub const MODELS_ACCOUNT: Words = Words("models.account");
+pub const MODELS_OPERATOR: Words = Words("models.operator");
 
 pub const PLAN_DOWNSHIFT_AT: Integer = Integer("plan.downshiftAt");
 pub const PLAN_DOWNSHIFT_TO: Words = Words("plan.downshiftTo");
@@ -172,6 +173,20 @@ pub(super) const MODEL: &[Entry] = &[
         applies: Applies::Live,
         row: Some("retro-model"),
         env: Some("ARMADA_RETRO_MODEL"),
+        tip: None,
+    },
+    // The middle tier, its own row so no other setting moves it: the replay of 4 Nov found the
+    // cheap tier's rulings refused by Fleet's rules more than three times as often.
+    Entry {
+        key: MODELS_OPERATOR.0,
+        section: Section::Model,
+        title: "Operator model",
+        description: "The model the Operator rules on what arrives: who does the work, and what reaches you.",
+        kind: Kind::Choice(Options::Models),
+        shipped: Shipped::Supplied,
+        applies: Applies::Live,
+        row: Some("operator-model"),
+        env: None,
         tip: None,
     },
     // No variable: raising the first look is no reason to move the second.

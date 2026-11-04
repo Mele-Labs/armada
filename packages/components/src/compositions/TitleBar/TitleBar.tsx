@@ -379,6 +379,9 @@ export type TitleBarProps = {
     calling?: boolean;
     /** ⌘J, beside the label. */
     binding?: string;
+    /** What the dock is called, and its glyph. Absent is Helm and `message-square`. */
+    title?: string;
+    icon?: LucideIcon;
     onOpen: () => void;
   };
   /**
@@ -531,6 +534,7 @@ export function TitleBar({
   const searchKey = keyFor("command_palette");
   const parts = useRoomForPlaces(places !== undefined);
   const teach = useTeachMenu("Title bar", onTeach);
+  const HelmGlyph = helm?.icon ?? MessageSquare;
   return (
     <div
       ref={parts.bar}
@@ -631,10 +635,14 @@ export function TitleBar({
             className="armada-title-bar__helm"
             data-calling={helm.calling === true ? "" : undefined}
             onClick={helm.onOpen}
-            title={helm.binding === undefined ? "Open Helm" : `Open Helm — ${helm.binding}`}
-            aria-label="Helm"
+            title={
+              helm.binding === undefined
+                ? `Open ${helm.title ?? "Helm"}`
+                : `Open ${helm.title ?? "Helm"} — ${helm.binding}`
+            }
+            aria-label={helm.title ?? "Helm"}
           >
-            <MessageSquare size={16} strokeWidth={2} aria-hidden />
+            <HelmGlyph size={16} strokeWidth={2} aria-hidden />
             {helm.questions > 0 ? (
               <span className="armada-title-bar__helm-count">{helm.questions}</span>
             ) : null}
@@ -746,8 +754,8 @@ export function TitleBar({
               )}
               {helm === undefined ? null : (
                 <button type="button" className="armada-title-bar__menu-item" onClick={helm.onOpen}>
-                  <MessageSquare size={16} strokeWidth={2} aria-hidden />
-                  <span>Helm</span>
+                  <HelmGlyph size={16} strokeWidth={2} aria-hidden />
+                  <span>{helm.title ?? "Helm"}</span>
                   {helm.questions > 0 ? (
                     <span className="armada-title-bar__helm-count">{helm.questions}</span>
                   ) : null}

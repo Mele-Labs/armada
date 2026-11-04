@@ -39,6 +39,7 @@ fn manifest(id: &str) -> ManifestSummary {
         auto_merge: String::from("never"),
         review_gate: String::from("human_always"),
         kit: None,
+        connectors_off: false,
     }
 }
 

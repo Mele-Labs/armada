@@ -630,3 +630,36 @@ test("a finished step in a pane of its own keeps its mark in the row beside its 
   )!;
   expect(getComputedStyle(online).position).toBe("absolute");
 });
+
+test("on a workflow, Open lists an open ticket and a draft pull request until they land", () => {
+  const { one, own } = onFlow();
+  const withOpen = {
+    ...one,
+    attachments: [
+      ...one.attachments,
+      {
+        kind: "issue",
+        number: "2936",
+        title: "Document the audit log rotation",
+        address: "https://git.example/armada/issues/2936",
+        state: "open",
+      },
+      {
+        kind: "pull_request",
+        number: 2940,
+        title: "Keep the rotation window in the config",
+        branch: "armada/audit-rotation-window",
+        address: "https://git.example/armada/pull/2940",
+        checks: {
+          state: "running",
+        },
+        state: "draft",
+        auto: false,
+        closes: [],
+      },
+    ],
+  } as unknown as Session;
+  const open = mount(withOpen, own, "next");
+  expect(open.textContent).toContain("Document the audit log rotation");
+  expect(open.textContent).toContain("Keep the rotation window in the config");
+});
