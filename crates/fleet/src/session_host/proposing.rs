@@ -221,6 +221,7 @@ where
             let record = self.start_session(start).await?;
             self.issues_named(record.id.as_str(), &request, &[]).await;
             self.links_seen(record.id.as_str(), &request, LinkedBy::You).await;
+            self.dispatch_handed(record.id.as_str(), after.is_some(), &request).await;
             return self.after_begun(record, after, request).await;
         }
         start.request = Some(request.clone());
@@ -232,7 +233,16 @@ where
         // The request is the person's first message, sent or not: a Session that waits holds it as its brief.
         self.issues_named(record.id.as_str(), &request, &[]).await;
         self.links_seen(record.id.as_str(), &request, LinkedBy::You).await;
+        self.dispatch_handed(record.id.as_str(), after.is_some(), &request).await;
         self.after_begun(record, after, request).await
+    }
+
+    /// A dispatch, handed to the Operator once its issues are named. **Not one that waits on
+    /// another**: a wait the person named is his, and the Operator neither lifts nor replaces it.
+    async fn dispatch_handed(&self, id: &str, waits: bool, request: &str) {
+        if !waits {
+            self.start_handed(id, crate::operator::Source::Dispatch, request).await;
+        }
     }
 
     /// A Session made to wait: the wait is kept and both Sessions are published, and the record answered is

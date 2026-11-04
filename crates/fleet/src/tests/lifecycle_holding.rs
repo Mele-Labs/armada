@@ -238,3 +238,23 @@ async fn ending_a_job_that_holds_nothing_raises_nothing() {
 
     assert!(lifecycle_events(&mut watching).await.is_empty());
 }
+
+/// A refusal is one answer: an open follow-up and an instance in flight are both named, not one per call.
+#[tokio::test]
+async fn one_refusal_names_the_open_followup_and_what_is_in_flight_together() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    holding_a_deploy_and_a_pull_request(&rig, &id).await;
+    let sentence = "I will tidy the docs after the merge.".to_string();
+    rig.fleet.later_kept(id.as_str(), &[sentence.clone()], "2026-10-21T10:00:00.000Z").await;
+
+    let refused = rig.fleet.all_done(None, done(&id)).await.unwrap_err();
+    let said = refused.error().message.clone();
+    assert_eq!(refused.status(), 409);
+    for named in [&sentence, "Still open under Later", "settle_later", "Still in flight", "- Deploy is Rolling out\n", "- PR #812 is Approved\n"] {
+        assert!(said.contains(named), "{named} in {said}");
+    }
+    assert!(said.starts_with("all_done refused. "), "{said}");
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("a session").session;
+    assert_eq!(record.done_since, None, "nothing is stamped");
+}

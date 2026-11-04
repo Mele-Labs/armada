@@ -8,6 +8,7 @@ import { forgetAllKept, watchClippedText } from "@armada/components";
 
 import { forgetDismissals } from "../cockpit/dismissed";
 import { forgetViewed } from "../cockpit/viewed";
+import { forgetPanes } from "../job-panes/store";
 import { annotatesWith } from "./annotating";
 import { inlineWalk } from "./inline-walk";
 import { mountApp } from "./mount";
@@ -48,6 +49,8 @@ if (script !== undefined) {
   forgetViewed();
   forgetDismissals();
   forgetAllKept();
+  // The pane families read what was kept as they load, before the line above cleared it: a replay must not open on the last one's panes.
+  forgetPanes();
   forgetHowItWasRead();
   meetEveryGuide();
 }

@@ -628,7 +628,7 @@ pub(crate) fn stall_nudge(workflow: &str, step: &RailStep, end: rail_ends::End) 
         return format!(
             "Fleet: this Job follows the {workflow} workflow, and your turn ended on its \"{}\" step with no pull \
              request opened and nothing asked or shown. Deliver now, the way the person chose: with Auto land or \
-             Open PR only, open the pull request; with Keep local, call finish_up and then all_done. If you wait \
+             Open PR only, open the pull request; with Keep local, call all_done. If you wait \
              on the person, name it with waiting_for. A second stop like this one calls the person and marks \
              this Job Stopped.",
             step.label

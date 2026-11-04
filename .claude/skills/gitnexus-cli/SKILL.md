@@ -28,7 +28,7 @@ Run from the project root. This parses all source files, builds the knowledge gr
 | `--drop-embeddings` | Drop existing embeddings on rebuild. By default, an `analyze` without `--embeddings` preserves them. |
 | `--pdg` | Build the program-dependence layers used by `explain` and `pdg_query` (taint, CDG, and REACHING_DEF). |
 
-**When to run:** First time in a project, after major code changes, or when `gitnexus://repo/{name}/context` reports the index is stale. Nothing in this repository notices a stale index for you: no hook watches commits or merges, so check `status` after a rebase or a pull.
+**When to run:** First time in a project, after major code changes, or when `gitnexus://repo/{name}/context` reports the index is stale. In a checkout Fleet serves, do not run it: Fleet rebuilds the main checkout's index each time main lands there (`when_base_moves: [code_graph]` in `armada.yml`), and a slot asks that index by path. An index of its own in a slot is a stale copy; delete it with `node .gitnexus/run.cjs clean`. In a clone no Fleet serves, nothing notices a stale index for you, so check `status` after a rebase or a pull.
 
 ## Index storage and retention
 

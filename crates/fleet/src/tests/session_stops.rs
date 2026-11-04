@@ -119,7 +119,7 @@ async fn a_job_that_stops_is_told_once_and_stopping_again_reads_stopped_with_no_
     rig.fleet.stops_told().await;
     assert_eq!(nudges(&rig.rows(&id).await), 1, "and not again for the same stop");
     let said = rig.stand_in.process(0).sent.lock().unwrap().iter().find(|line| line.contains("your turn ended")).cloned().unwrap();
-    for part in ["Carry on now", "waiting_for", "finish_up", "A second stop"] {
+    for part in ["Carry on now", "waiting_for", "all_done", "A second stop"] {
         assert!(said.contains(part), "{part}: {said}");
     }
 

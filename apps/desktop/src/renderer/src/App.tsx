@@ -13,6 +13,9 @@
 // `commands.ts` for what the host is asked to do, `failing.ts` for which
 // failure is on screen, and `palette.ts` for what the palette can reach.
 
+import { Bot } from "lucide-react";
+import { OperatorPanel } from "./operator/OperatorPanel";
+import { useOperator } from "./operator/store";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArmadaMark } from "@armada/brand";
 import { heldOfPicked, heldOfWorkspace, whyNotOpenedLink } from "@armada/screens";
@@ -530,6 +533,8 @@ export function App() {
   const newSession = () => (dispatching.choose("session"), dispatching.openNew()); // A New session entry opens the same panel.
   const sessions = useSessions();
   const helmBox = useHelmBox(state.helm);
+  // Where the window has an Operator, its panel takes Helm's dock and the title row's button.
+  const operator = useOperator();
   const refsHost: RefsHostProps = {
     state,
     repositories,
@@ -884,50 +889,62 @@ export function App() {
                           />
                         }
                         asking={asks.length}
+                        {...(operator === null
+                          ? {}
+                          : {
+                              dockAs: {
+                                title: "Operator",
+                                icon: Bot,
+                              },
+                            })}
                         helm={
-                          <>
-                            <HelmDock
-                              asks={asks}
-                              routing={routing}
-                              {...(helmBox.box === undefined
-                                ? {}
-                                : {
-                                    box: helmBox.box,
-                                  })}
-                              refs={helmRefs}
-                              {...(helmHosted.hosted === undefined
-                                ? {}
-                                : {
-                                    hosted: helmHosted.hosted,
-                                  })}
-                              helm={state.helm}
-                              repositories={repositories}
-                              live={live}
-                              onAsk={helmBox.asked}
-                              outgoing={helmBox.outgoing}
-                              context={helmContext}
-                              studio={
-                                shownStudio === null
-                                  ? undefined
+                          operator !== null ? (
+                            <OperatorPanel />
+                          ) : (
+                            <>
+                              <HelmDock
+                                asks={asks}
+                                routing={routing}
+                                {...(helmBox.box === undefined
+                                  ? {}
                                   : {
-                                      name: studioName(shownStudio),
-                                      ...(studioNode === null
-                                        ? {}
-                                        : {
-                                            node: nodeNamed(shownStudio, studioNode, {
-                                              servers: state.servers.servers,
+                                      box: helmBox.box,
+                                    })}
+                                refs={helmRefs}
+                                {...(helmHosted.hosted === undefined
+                                  ? {}
+                                  : {
+                                      hosted: helmHosted.hosted,
+                                    })}
+                                helm={state.helm}
+                                repositories={repositories}
+                                live={live}
+                                onAsk={helmBox.asked}
+                                outgoing={helmBox.outgoing}
+                                context={helmContext}
+                                studio={
+                                  shownStudio === null
+                                    ? undefined
+                                    : {
+                                        name: studioName(shownStudio),
+                                        ...(studioNode === null
+                                          ? {}
+                                          : {
+                                              node: nodeNamed(shownStudio, studioNode, {
+                                                servers: state.servers.servers,
+                                              }),
                                             }),
-                                          }),
-                                    }
-                              }
-                              onSwitch={(manifestId) => pointHelm(manifestId)}
-                              onReadRecord={helmDebugInfo}
-                              onCopied={setCopied}
-                              onSaid={setTelling}
-                            />
-                            {helmBox.pad}
-                            {helmHosted.sheets}
-                          </>
+                                      }
+                                }
+                                onSwitch={(manifestId) => pointHelm(manifestId)}
+                                onReadRecord={helmDebugInfo}
+                                onCopied={setCopied}
+                                onSaid={setTelling}
+                              />
+                              {helmBox.pad}
+                              {helmHosted.sheets}
+                            </>
+                          )
                         }
                         // The dock's head carries this, beside Close — the owner's note of
                         // 18 Sep 2026. It ends the conversation the whole dock is showing, so
@@ -935,14 +952,16 @@ export function App() {
                         // where three controls wrapped onto a second line at the dock's width.
                         // Held while a turn runs: Stop is the Session's own control for that.
                         helmAction={
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => void startHelmFresh()}
-                            disabled={helmHosted.hosted?.working === true}
-                          >
-                            Start fresh
-                          </Button>
+                          operator !== null ? null : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => void startHelmFresh()}
+                              disabled={helmHosted.hosted?.working === true}
+                            >
+                              Start fresh
+                            </Button>
+                          )
                         }
                         fleet={{
                           ...fleetPanelClocked(
@@ -1172,6 +1191,17 @@ export function App() {
                                   ? null
                                   : repositoryLabel(pickedRepository, repositories)
                               }
+                              repositories={repositories.flatMap((one) =>
+                                one.manifest === undefined
+                                  ? []
+                                  : [
+                                      {
+                                        id: one.manifest.id,
+                                        name: one.manifest.repository,
+                                        connectorsOff: one.manifest.connectors_off === true,
+                                      },
+                                    ],
+                              )}
                               settings={state.settings}
                               modelChoices={state.holds.models}
                               live={live}

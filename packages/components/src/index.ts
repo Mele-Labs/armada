@@ -588,3 +588,4 @@ export * from "./compositions/Logbook/Logbook";
 export * from "./compositions/AdversarialReview/AdversarialReview";
 export * from "./compositions/AdversarialReview/AnchoredFindings";
 export * from "./compositions/ListCard/ListCard";
+export * from "./compositions/RepositorySwitches/RepositorySwitches";

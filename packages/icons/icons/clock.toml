@@ -46,3 +46,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`, a Job's Lanes view. The agent rests and Fleet's watch wakes the Job on the change, so nobody is acting, which is the clock's claim. It is a fact and no call: the lamp does not pulse and nothing joins Needs you. It is a beat and not a step's activity mark, so it sits outside `step_activity_borrowing`; a step waiting on a person keeps `eye`. Tooltip `Waiting`."
+
+  [[icons.clock.usage]]
+    means = "The Operator's Waiting to start tab: what has not started, each row naming what it waits on"
+    group = "Operator"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 4 Nov 2026 for the walk `operatorFull`, for the owner to rule on. The same clock a held Job's row and head wear, so the tab and the rows it lists read alike. Tab label: Waiting to start."

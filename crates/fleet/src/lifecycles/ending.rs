@@ -82,13 +82,10 @@ pub fn flying(held: &HeldInstances, lifecycles: &[Lifecycle], label: &dyn Fn(&In
         .collect()
 }
 
-/// What the agent is told when its `call` is refused.
-fn refused_text(call: &str, holding: &[Flying]) -> String {
+/// What the agent is told while `holding` keeps its Job open.
+fn in_flight_text(holding: &[Flying]) -> String {
     let listed: Vec<String> = holding.iter().map(|one| format!("- {}", one.held())).collect();
-    format!(
-        "{call} refused. Still in flight:\n\n{}\n\nEnd your turn. Fleet tells you when the last one reaches an end state.",
-        listed.join("\n")
-    )
+    format!("Still in flight:\n\n{}\n\nEnd your turn. Fleet tells you when the last one reaches an end state.", listed.join("\n"))
 }
 
 /// A Job `key` names, started by the Job asking, that has not run: on its start card or waiting on
@@ -149,12 +146,21 @@ where
     /// standing in a state that is not an end, and **kept as told to wait**, which is what lets the
     /// last instance's end tell it so. Only the agent's call asks: the person's End job is `close_session`.
     pub(crate) fn lifecycles_hold(&self, store: &mut Store, session: &str, call: &str) -> Result<(), Refusal> {
+        match self.lifecycles_hold_text(store, session) {
+            None => Ok(()),
+            Some(text) => Err(Refusal::IllegalMove(WireError::raised(IN_FLIGHT, format!("{call} refused. {text}"), self.run_id()))),
+        }
+    }
+
+    /// What `lifecycles_hold` refuses with, for a call that names every reason at once. Kept as told
+    /// to wait when there is one.
+    pub(crate) fn lifecycles_hold_text(&self, store: &mut Store, session: &str) -> Option<String> {
         let holding = self.lifecycles_holding(store, session);
         if holding.is_empty() {
-            return Ok(());
+            return None;
         }
         let _ = store.hold_lifecycle_job(session, self.now().as_str());
-        Err(Refusal::IllegalMove(WireError::raised(IN_FLIGHT, refused_text(call, &holding), self.run_id())))
+        Some(in_flight_text(&holding))
     }
 
     /// Nothing holds `session` open now, and its agent had been refused for what did: it is told so

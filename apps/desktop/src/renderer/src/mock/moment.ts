@@ -78,6 +78,8 @@ export type MockDraft = {
   threadLook?: import("../thread-look-here").ThreadLookSeed;
   /** What the tokens were spent on, by window, for the Usage page's Spent on view. Mock only: no route serves it yet. */
   usageSpent?: import("@armada/components").UsageSpent;
+  /** The Operator's panel, its reads on questions and its holds: Helm's dock becomes the panel. Mock only: no wire carries any of it yet. */
+  operator?: import("../operator/model").OperatorSeed;
   /** The pull requests, issues, tasks and commands the palette lists, and what it starts with pinned and opened. Mock only: Fleet serves the palette none of them yet. */
   palette?: import("../palette-fixtures").PaletteFixtures;
   /** What each opening of Copy debug report reads, in turn, the last repeating. Without it neither Doctor nor the palette offers one. */
