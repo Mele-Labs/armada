@@ -819,6 +819,8 @@ Added 4 November 2026, with `connectors`.
 `concepts/manifest.md`, *Connectors*, states the rule.
 `false` puts `ENABLE_CLAUDEAI_MCP_SERVERS=false` in the agent's environment; absent or `true` adds nothing.
 Servers the repository names itself, in its own `.mcp.json`, are untouched.
+The machine setting `tokens.connectorsOff` overrides it per repository: a map of Manifest id to `true` for off and `false` for on, read when each Job starts.
+A repository with no entry follows `connectors`.
 The root's to say: a workspace's file that names `connectors` is refused.
 It is not `Live`: it is read from the Manifest Fleet started with, and a save that changes it is reported as frozen.
 

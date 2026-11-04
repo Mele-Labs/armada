@@ -50,6 +50,11 @@ const HOME: &str = ".claude";
 const CONNECTED: &str = ".claude.json";
 pub(crate) const SKILLS: &str = ".claude/skills";
 const SKILL_FILE: &str = "SKILL.md";
+
+/// Whether the repository at `root` has a skill of its own called `name`, which every Job in it gets.
+pub fn has_own_skill(root: &std::path::Path, name: &str) -> bool {
+    root.join(SKILLS).join(name).join(SKILL_FILE).is_file()
+}
 pub(crate) const SUB_AGENTS: &str = ".claude/agents";
 pub(crate) const COMMANDS: &str = ".claude/commands";
 pub(crate) const AGENT_FILE: &str = ".claude/CLAUDE.md";
