@@ -352,6 +352,8 @@ where
     /// Every pull request a Session still holds in this repository, read once and
     /// followed, **so a terminal Session nobody has opened is as current as one
     /// whose sheet is open**. Rows the forge will not answer for stay as they were.
+    /// **So is every pull request a live Job holds that has not reached an end**,
+    /// whatever its row says, or a row settled first would hold the Job open for good.
     pub(crate) async fn pull_ledger_kept_current(&self, manifest_id: &ManifestId, root: &str) {
         let mut numbers: Vec<u64> = {
             let store = self.store().lock().await;
@@ -363,6 +365,7 @@ where
                 .filter_map(|row| row.target.parse().ok())
                 .collect()
         };
+        numbers.extend(self.lifecycle_pulls_in_flight(manifest_id.as_str()).await);
         numbers.sort_unstable();
         numbers.dedup();
         for number in numbers {

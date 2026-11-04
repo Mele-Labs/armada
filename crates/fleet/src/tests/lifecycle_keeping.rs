@@ -155,6 +155,47 @@ async fn a_pull_request_is_read_where_the_ledger_reads_it_and_moves_only_when_wh
     );
 }
 
+/// A pull request the reading saw Ready, its row then settled by something other than the reading,
+/// as the mod's `gh pr view` does, and the forge saying `over`, read once more.
+async fn settled_before_the_reading(row: AttachmentState, word: &str, over: PullRequestStanding) -> (Rig, SessionId) {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    holds(&rig, &id, "pr", "12", AttachmentState::Standing, &[("state", "open")]).await;
+    rig.fleet.lifecycles_moved(record(&rig, &id).await).await;
+    forge_ran(&rig.fleet, passed());
+    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
+    rig.fleet.vcs().now_pull_request_page(Some(page(ReviewStanding::Required, vec![])));
+    rig.fleet.pull_ledger_kept_current(&manifest(&rig), &rig.root).await;
+    let holding = rig.fleet.lifecycles_holding(&*rig.fleet.store().lock().await, id.as_str());
+    assert_eq!(holding.iter().map(|one| one.held()).collect::<Vec<_>>(), ["PR #12 is Ready"]);
+
+    holds(&rig, &id, "pr", "12", row, &[("state", word)]).await;
+    rig.fleet.vcs().now_pull_request(Some(facts(over)));
+    rig.fleet.pull_ledger_kept_current(&manifest(&rig), &rig.root).await;
+    (rig, id)
+}
+
+#[tokio::test]
+async fn a_pull_request_whose_row_was_settled_merged_first_is_read_to_its_end_and_lets_the_job_finish() {
+    let (rig, id) = settled_before_the_reading(AttachmentState::Spent, "merged", PullRequestStanding::Merged).await;
+
+    assert_eq!(moves(&rig, &id, "pr").await, [move_of("12", "unread", "in:ready"), move_of("12", "in:ready", "in:merged")]);
+    assert!(rig.fleet.lifecycles_hold(&mut *rig.fleet.store().lock().await, id.as_str(), "finish_up").is_ok());
+
+    // At an end it is read no more: nothing the forge says of it now moves it.
+    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Closed)));
+    rig.fleet.pull_ledger_kept_current(&manifest(&rig), &rig.root).await;
+    assert_eq!(moves(&rig, &id, "pr").await.len(), 2);
+}
+
+#[tokio::test]
+async fn a_pull_request_whose_row_was_given_back_closed_first_is_read_to_its_end_too() {
+    let (rig, id) = settled_before_the_reading(AttachmentState::GivenBack, "closed", PullRequestStanding::Closed).await;
+
+    assert_eq!(moves(&rig, &id, "pr").await, [move_of("12", "unread", "in:ready"), move_of("12", "in:ready", "in:closed")]);
+    assert!(rig.fleet.lifecycles_hold(&mut *rig.fleet.store().lock().await, id.as_str(), "all_done").is_ok());
+}
+
 fn status(word: &str) -> ReadIssue {
     let mut read = ReadIssue::bare("ARM-41".into(), FromOutside::verbatim("t"), FromOutside::verbatim("u"), false);
     read.fields.push(IssueField { name: "Status".into(), values: vec![FromOutside::verbatim(word)] });

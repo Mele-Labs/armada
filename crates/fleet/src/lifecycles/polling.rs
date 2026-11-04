@@ -37,6 +37,21 @@ where
             .collect()
     }
 
+    /// The pull requests live Jobs in `manifest_id` hold that no end state has taken, for the pull
+    /// reading to go on asking about. **A ledger row settled says nothing of them**: the mod's own
+    /// `gh pr view` or a press here settles it, and neither moves the instance.
+    pub(crate) async fn lifecycle_pulls_in_flight(&self, manifest_id: &str) -> Vec<u64> {
+        let store = self.store().lock().await;
+        let Ok(holders) = store.live_lifecycle_holders(PULL_REQUEST) else { return Vec::new() };
+        holders
+            .iter()
+            .filter(|job| store.session(job).ok().flatten().and_then(|one| one.manifest_id).as_deref() == Some(manifest_id))
+            .flat_map(|job| self.lifecycles_flying(&store, job))
+            .filter(|one| one.lifecycle == PULL_REQUEST)
+            .filter_map(|one| one.key.parse().ok())
+            .collect()
+    }
+
     /// A pull request as the pull ledger just read it. **The forge is asked once more, for its
     /// reviewers and reviews, and only for an open pull request some Job holds**: draft, merged and
     /// closed are in what was read, and a forge that stays silent leaves the instance as it was.
