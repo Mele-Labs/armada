@@ -1,5 +1,10 @@
 //! A hosted session's process: its facts, its reattachment after a restart, and the quiet sweep.
 
+use std::path::Path;
+
+use config::settings as keys;
+
+use super::super::token_use;
 use super::*;
 
 impl<H, V, W> Fleet<H, V, W>
@@ -224,6 +229,22 @@ where
                 };
                 let hosting = &resumed;
                 self.mod_filled_for_launch().await;
+                let (compaction_window, connectors, skills_off) = {
+                    let now = self.machine_settings().now();
+                    (
+                        now.get(keys::COMPACTION_WINDOW),
+                        token_use::connectors_on(
+                            now.get(keys::CONNECTORS_OFF),
+                            &hosting.manifest_id,
+                            served.as_ref().is_none_or(|served| served.manifest().connectors()),
+                        ),
+                        token_use::skills_off(
+                            now.get(keys::SKILLS_OFF),
+                            &hosting.manifest_id,
+                            served.as_ref().map(|served| Path::new(served.root())),
+                        ),
+                    )
+                };
                 let start = Start {
                     directory: directory.clone(),
                     session: id.to_string(),
@@ -258,7 +279,9 @@ where
                     effort: hosting.effort.clone(),
                     mode: mode_of(&hosting.mode),
                     readable: vec![self.uploads_of(id).to_string_lossy().into_owned()],
-                    connectors: served.as_ref().is_none_or(|served| served.manifest().connectors()),
+                    connectors,
+                    compaction_window,
+                    skills_off,
                 };
                 let process = self.hosts().processes().start(&start, sink)?;
                 if hosting.ran {

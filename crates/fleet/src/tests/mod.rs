@@ -121,6 +121,7 @@ mod fresh_install;
 mod session_gate;
 mod session_gate_leases;
 mod session_account;
+mod token_use;
 mod session_servers;
 mod session_activity;
 mod session_tools_missing;

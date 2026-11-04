@@ -800,8 +800,12 @@ connectors: false
 - **The servers the repository names itself stay**, such as those in its own `.mcp.json`.
 - **Only Armada's Jobs.** A session the person starts outside Armada keeps their connectors.
 - **The root's to say.** A workspace's file that names `connectors` is refused, because every Job of the repository starts under the root.
+- **The person's switch for a repository wins.**
+  System, Fleet, Repository draws a connectors switch per repository, saved as `tokens.connectorsOff`, and a Job in a repository with a switch set starts as it says, whatever `connectors` says.
+  A repository with no switch set follows `connectors`.
 - **Read when Fleet starts**, as `ci_gate` is.
   A save that changes it is reported as frozen, waiting for a restart.
+  The person's switch is read when each Job starts, so a change reaches the Jobs started after it.
 
 ## Still open
 
