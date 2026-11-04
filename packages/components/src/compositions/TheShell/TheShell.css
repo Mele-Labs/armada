@@ -216,3 +216,13 @@
   overscroll-behavior: contain;
   padding: var(--space-4);
 }
+
+/* The Operator's second take (`span="full"`): the dock over the whole work, edge to edge, rather than at its width on the trailing edge. */
+.armada-shell__dock-layer[data-span="full"] {
+  left: 0;
+}
+
+.armada-shell__dock-layer[data-span="full"] > .armada-shell__dock {
+  flex: 1;
+  width: auto;
+}

@@ -174,6 +174,8 @@ mod bay_history;
 /// The lines of code a pinned note's spot was drawn from, found by the words on screen.
 pub mod note_locating;
 pub mod notice_loop;
+/// The Operator: who does each piece of work that arrives. `armada-ehhu`.
+pub mod operator;
 pub mod noticing;
 /// Drone groups whose Fleet is gone, found by the mark Fleet put on them.
 pub mod orphans;

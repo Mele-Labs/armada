@@ -374,6 +374,7 @@ where
             scouts,
             timeline,
             rule_acts: Default::default(),
+            operator: Default::default(),
             machine: fittings.machine,
             headroom: std::sync::Mutex::new(in_force.headroom),
             concurrency: std::sync::Mutex::new(in_force.concurrency),
