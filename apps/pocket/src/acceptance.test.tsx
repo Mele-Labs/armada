@@ -10,7 +10,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { answer, type Posted } from "./fixture/gateway";
-import { fixtureMacs, type FixtureMac } from "./fixture/wire";
+import { everyState, fixtureMacs, type FixtureMac } from "./fixture/wire";
 import { signedMessage } from "./signing";
 
 const STUDIO = "https://studio.tail0.ts.net";
@@ -417,10 +417,36 @@ describe("Pocket v2 with two Macs", {
 describe("the phone draws as Bridge does", {
   timeout: 30_000,
 }, () => {
+  it("says what holds a Waiting row on its second line, pulses only Needs you, and gives a Job's header the row's words", async () => {
+    const states = everyState(NOW);
+    macs[STUDIO]!.live.push(...states.live);
+    Object.assign(macs[STUDIO]!.threads, states.threads);
+    await open("/");
+    const row = (section: string, title: string) =>
+      host.querySelector<HTMLElement>(`[aria-label="${section}"] .deck-row[aria-label="${title}"]`);
+    await vi.waitFor(() => expect(row("Waiting", "Land the slot fixes")).not.toBeNull());
+    expect(
+      row("Waiting", "Land the slot fixes")!.querySelector(".deck-row__says")!.textContent,
+    ).toBe("#3209 in the merge queuestudio");
+    expect(host.querySelectorAll('[aria-label="Waiting"] .deck-row[data-needs]')).toHaveLength(0);
+    expect(host.querySelectorAll('[aria-label="Running"] .deck-row[data-needs]')).toHaveLength(0);
+    expect(row("Needs you", "Trace the slow restart")!.dataset["needs"]).toBeDefined();
+    expect(
+      row("Running", "Sort the palette rows")!.querySelector(".deck-row__says")!.textContent,
+    ).toBe("armadastudio");
+
+    row("Waiting", "Land the slot fixes")!.click();
+    await vi.waitFor(() =>
+      expect(
+        host.querySelector('.pk-pane [aria-label^="#3209 in the merge queue"]'),
+      ).not.toBeNull(),
+    );
+  });
+
   it("lists Home as the Cockpit's rows, Needs you in the ask tone above Running, each with its age", async () => {
     await open("/");
     await vi.waitFor(() =>
-      expect(host.querySelectorAll('[aria-label="Running"] .deck-row')).toHaveLength(7),
+      expect(host.querySelectorAll('[aria-label="Running"] .deck-row')).toHaveLength(5),
     );
     const asking = Array.from(
       host.querySelectorAll<HTMLElement>('[aria-label="Needs you"] .deck-row'),
@@ -446,6 +472,7 @@ describe("the phone draws as Bridge does", {
       "Drafts",
       "Needs you",
       "Done",
+      "Waiting",
       "Running",
     ]);
   });

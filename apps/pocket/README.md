@@ -13,7 +13,7 @@ sketch `Slot layout` is refused as redrawn, and the thread then shows the new dr
 `src/fixture/`.
 
 `pnpm -C apps/pocket dev` serves it with no Gateway behind it, and the app
-goes to `/pair`. Routes: `/` every Mac's Jobs (Drafts, Needs you, Running, under
+goes to `/pair`. Routes: `/` every Mac's Jobs (Drafts, Needs you, Done, Waiting, Running, under
 the plan's 5-hour and weekly limits), `/pair` (`?code=…` from a pairing link,
 `?origin=…` to pair a Mac again), `/dispatch`, a Job at
 `/jobs/<Mac origin, encoded>/<id>`, and what it showed under it at

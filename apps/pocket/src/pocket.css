@@ -170,6 +170,15 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
   font-size: var(--text-2xs);
   line-height: var(--leading-xs);
 }
+/* What holds a Job: there is no hover on a phone, so the whole line is read, over as many lines as it takes. */
+.deck-row__says[data-holds] {
+  display: block;
+  white-space: normal;
+}
+.deck-row__says[data-holds] .pk-row__mac {
+  margin-left: var(--space-2);
+  white-space: nowrap;
+}
 .deck-row__said {
   grid-column: 3;
   grid-row: 2;

@@ -90,9 +90,11 @@ The opt-in is the file `pocket` in Armada's machine directory, `~/Library/Applic
 
 | Screen | Holds | Route |
 |---|---|---|
-| Needs you | The live Jobs waiting on the owner, oldest wait first | `GET /api/sessions`, the ones waiting |
+| Drafts | The Jobs held on their start cards, and Jobs never spoken in (`blank`), newest first | `GET /api/sessions` |
+| Needs you | The live Jobs asking the owner something, oldest wait first, with those `stuck`, on a pull request's failed Checks (`failing_pull`), failed to start (`start_failed`), or `stopped` with Fleet out of things to try. Only these rows pulse | `GET /api/sessions` |
 | Done | The live Jobs that said, through `all_done`, that nothing is left, with the summary they gave and an End button on each row | `GET /api/sessions`, the ones with `done_since` |
-| Running | The live Jobs not waiting on the owner and not done, one with a turn running marked working and the rest idle, each with what holds it: `paused`, `limited_until`, `held_open_by`, `starts_when`, `start_failed` | `GET /api/sessions` |
+| Waiting | The live Jobs waiting on something that is not the owner: `held_open_by`, `limited_until`, `starts_when`, or `stopped` while Fleet is still bringing it back. A phone has no hover, so a row's second line says what holds it | `GET /api/sessions` |
+| Running | The live Jobs at work (`working`, or `reading` the request), `paused` or idle, each with its own mark. A reply reads as idle here, since the phone keeps no record of what the owner read, and a subagent or a command at work reads as working, since what runs stays on the Mac | `GET /api/sessions` |
 | A Job | Its whole thread, as Bridge reads it | `GET /api/sessions/one?session_id=` |
 | A file | A file the Job showed: its text, or a picture | `GET /api/sessions/shown?session_id=&path=` |
 | A document | A revision the Job kept of its page, as text | `GET /api/sessions/shown?session_id=&path=`, `path` one its record's `revisions` names |

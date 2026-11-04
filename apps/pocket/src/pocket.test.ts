@@ -4,7 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { homeOf, type Mac } from "./fleet";
 import { answer } from "./fixture/gateway";
-import { fixtureMacs } from "./fixture/wire";
+import { everyState, fixtureMacs } from "./fixture/wire";
+import { rowStateOf } from "./rowState";
 import {
   asksOf,
   choicesOf,
@@ -18,6 +19,7 @@ import {
   sessionOfThread,
   takesWords,
 } from "./thread";
+import { jobStateOf } from "@armada/screens/src/session-state";
 import { sketchAnswerOf, documentAnswerOf } from "@armada/screens/src/thread-cards";
 import { Refused } from "./client";
 import { attemptPage } from "./jobState";
@@ -208,6 +210,44 @@ describe("routeOf", () => {
 });
 
 describe("homeOf", () => {
+  it("sorts each state into the section the desktop's bucket says", () => {
+    const { live } = everyState(Date.parse("2026-10-08T12:00:00Z"));
+    const home = homeOf({
+      macs: [
+        mac("https://a", {
+          live,
+        }),
+      ],
+    });
+    const ids = (
+      items: {
+        session: PhoneSession;
+      }[],
+    ) => items.map((one) => one.session.id).sort();
+    expect(ids(home.drafts)).toEqual([
+      "x-blank",
+    ]);
+    expect(ids(home.needs)).toEqual([
+      "x-failing",
+      "x-gave-up",
+      "x-stuck",
+      "x-unstarted",
+    ]);
+    expect(ids(home.waiting)).toEqual([
+      "x-checks",
+      "x-job",
+      "x-limited",
+      "x-queue",
+      "x-quit",
+      "x-restarting",
+      "x-watch",
+    ]);
+    expect(ids(home.running)).toEqual([
+      "x-paused",
+      "x-reading",
+    ]);
+  });
+
   const session = (id: string, extra: Partial<PhoneSession>): PhoneSession => ({
     id,
     kind: "hosted",
@@ -233,7 +273,7 @@ describe("homeOf", () => {
     const home = homeOf({
       macs: [
         mac("https://a", {
-          needs: [
+          live: [
             session("a1", {
               waiting: true,
               waiting_since: "2026-10-08T11:00:00Z",
@@ -242,7 +282,7 @@ describe("homeOf", () => {
         }),
         mac("https://b", {
           paired: false,
-          needs: [
+          live: [
             session("b1", {
               waiting: true,
             }),
@@ -333,6 +373,52 @@ describe("homeOf", () => {
       "a1",
       "a2",
     ]);
+  });
+});
+
+describe("rowStateOf", () => {
+  const session = (id: string, extra: Partial<PhoneSession>): PhoneSession => ({
+    id,
+    kind: "hosted",
+    waiting: false,
+    working: false,
+    started_at: "2026-10-08T10:00:00Z",
+    held: false,
+    ...extra,
+  });
+
+  it("gives a row the state and the words its Job's header gives, in every state", () => {
+    const { live, threads } = everyState(Date.parse("2026-10-08T12:00:00Z"));
+    expect(live.length).toBeGreaterThan(0);
+    for (const listed of live)
+      expect(rowStateOf(listed), listed.id).toEqual(
+        jobStateOf(sessionOfThread(threads[listed.id]!), () => true),
+      );
+  });
+
+  it("reads a reply as idle, since the phone keeps no record of what he read", () => {
+    expect(
+      rowStateOf(
+        session("r1", {
+          standing: "replied",
+        }),
+      ).state,
+    ).toBe("idle");
+  });
+
+  it("reads a Job Fleet has run out of ways to bring back as asking, and one it is still bringing back as waiting", () => {
+    const stopped = (gave_up: boolean) =>
+      rowStateOf(
+        session("s1", {
+          stopped: {
+            reason: "process_gone",
+            restart: "failed",
+            gave_up,
+          },
+        }),
+      ).state;
+    expect(stopped(true)).toBe("stopped_asks");
+    expect(stopped(false)).toBe("stopped");
   });
 });
 

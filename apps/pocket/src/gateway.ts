@@ -56,7 +56,7 @@ export type PhoneSession = {
   done_since?: string;
   done_summary?: string;
   /** What Fleet read of the turn. */
-  standing?: "working" | "stuck" | "replied" | "done" | "idle";
+  standing?: "working" | "stuck" | "stopped" | "replied" | "done" | "idle";
   /** Parked by the owner: nothing is asked of him until he resumes it. */
   paused?: boolean;
   /** The plan's limit holds it until this instant. */
@@ -75,11 +75,32 @@ export type PhoneSession = {
   };
   /** Why its agent would not start. */
   start_failed?: string;
+  /** Not running and not parked: why, and what Fleet is doing about it. */
+  stopped?: {
+    reason: "turn_ended" | "tasks_open" | "process_gone" | "fleet_down";
+    restart: "none" | "queued" | "running" | "failed";
+    repair?: "running" | "failed" | "held";
+    gave_up?: boolean;
+    down?: {
+      from: string;
+      to: string;
+    };
+  };
+  /** Its first open pull request whose Checks failed. */
+  failing_pull?: number;
+  /** Never spoken in: no title, no turn and nothing attached. */
+  blank?: boolean;
+  /** The proposer is reading the request, and it starts on the answer. */
+  reading?: boolean;
 };
 
 export type PhoneHold =
   | {
       kind: "watch";
+      name: string;
+    }
+  | {
+      kind: "job";
       name: string;
     }
   | {

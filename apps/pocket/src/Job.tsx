@@ -34,7 +34,6 @@ import {
   Textarea,
   Tooltip,
   type DropdownMenuEntry,
-  type SessionState,
 } from "@armada/components";
 import { tokensSaid } from "@armada/components/src/compositions/SessionFrame/ContextFigure";
 import type { HelmCallAnswer, QuestionAnswer, StartCondition, WaitingItem } from "@armada/protocol";
@@ -46,6 +45,7 @@ import {
   startsFrom,
   startsWhenSaid,
 } from "@armada/screens/src/session-waits";
+import { jobStateOf } from "@armada/screens/src/session-state";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 import { documentAnswerOf, sketchAnswerOf } from "@armada/screens/src/thread-cards";
 
@@ -77,41 +77,6 @@ import { Back, Band, Figure, Trouble } from "./ui";
 
 const NONE: readonly never[] = [];
 const NOBODY = () => undefined;
-
-/** What a Job is doing, as the one mark in its header. */
-const standing = (
-  waiting: boolean,
-  working: boolean,
-  ended: boolean,
-  done: boolean,
-): {
-  state: SessionState;
-  said: string;
-} =>
-  ended
-    ? {
-        state: "ended",
-        said: "Ended",
-      }
-    : done
-      ? {
-          state: "done",
-          said: "Done",
-        }
-      : waiting
-        ? {
-            state: "waiting",
-            said: "Needs you",
-          }
-        : working
-          ? {
-              state: "working",
-              said: "Working",
-            }
-          : {
-              state: "idle",
-              said: "Idle",
-            };
 
 /** Runs a reply and keeps its refusal to show. */
 function useReply(machine: Machine): [
@@ -949,19 +914,8 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
       <Trouble says={says} />
     </div>
   );
-  const { state, said } = standing(
-    asked !== undefined ||
-      lapsed !== undefined ||
-      planPending ||
-      asksOf(session).length > 0 ||
-      runs.length > 0 ||
-      drafts.length > 0 ||
-      presses.length > 0 ||
-      onMac.length > 0,
-    session.turn.state === "working",
-    session.dead !== undefined,
-    doneSince !== undefined && session.turn.state !== "working",
-  );
+  // He is in the Job, so a reply is read.
+  const { state, said } = jobStateOf(session, () => true);
   const context = session.context;
   const wait = session.waits;
   // Approved starts the Job when its condition is met; otherwise it opens as a draft then.
