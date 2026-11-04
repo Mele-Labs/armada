@@ -225,6 +225,26 @@ pub(crate) fn landed_by(extra: Extra, build: Option<&ipc::SessionBuild>) -> bool
     extra.landed || build.is_some_and(|build| build.phase == BuildPhase::Landed || build.landed_at.is_some())
 }
 
+/// Whether the Job edited code. The build record reads any file written as an edit, but **a page a step
+/// writes under `.armada/documents/` is that step's own output**: where those are every file touched
+/// and nothing was committed, pushed or opened, no code was edited.
+fn edited_code(record: &SessionRecord, extra: Extra) -> bool {
+    let phase = record
+        .build
+        .as_ref()
+        .is_some_and(|build| matches!(build.phase, BuildPhase::Implement | BuildPhase::Road | BuildPhase::Landed));
+    let only_pages = {
+        let mut written = record.touches.iter().filter(|touch| touch.act != TouchAct::Remove).peekable();
+        written.peek().is_some() && written.all(|touch| crate::test_paths::is_step_output(&touch.path))
+    };
+    let shipped = extra.committed
+        || landed_by(extra, record.build.as_ref())
+        || record.build.as_ref().is_some_and(|build| {
+            build.stops.iter().any(|stop| stop.at.is_some() && matches!(stop.id, BuildStopId::Pushed | BuildStopId::Pr))
+        });
+    phase && (!only_pages || shipped)
+}
+
 impl Facts {
     pub(crate) fn of(record: &SessionRecord, extra: Extra) -> Facts {
         let reached = |id: BuildStopId| {
@@ -234,16 +254,15 @@ impl Facts {
             replied: extra.replied,
             plan_recorded: record.plan.is_some(),
             plan_approved: record.plan.as_ref().is_some_and(|plan| plan.approved),
+            // A group handed to its own Job is worked there, so its tasks are not open here.
             tasks_open: record.plan.as_ref().is_some_and(|plan| {
                 plan.groups
                     .iter()
+                    .filter(|group| !group.own_job)
                     .flat_map(|group| &group.tasks)
                     .any(|task| matches!(task.state, PlanTaskState::Open | PlanTaskState::Working))
             }),
-            edited: record
-                .build
-                .as_ref()
-                .is_some_and(|build| matches!(build.phase, BuildPhase::Implement | BuildPhase::Road | BuildPhase::Landed)),
+            edited: edited_code(record, extra),
             committed: extra.committed,
             checked: extra.checked || reached(BuildStopId::Checks),
             pushed: reached(BuildStopId::Pushed),
@@ -607,8 +626,11 @@ pub(crate) fn stalled(steps: &[RailStep], record: &SessionRecord, extra: Extra) 
     }
     let at = record.workflow_step? as usize;
     let step = steps.get(at)?;
+    // **A Job with no code has nothing to push, test or deliver**: a UAT run or a document is finished
+    // by its reply, so these ends are not its to be told of.
+    let no_code = !Facts::of(record, extra).edited && !extra.committed;
     if step.delivers {
-        return (!Facts::of(record, Extra::default()).pr_opened).then_some((at, rail_ends::End::Undelivered));
+        return (!no_code && !Facts::of(record, Extra::default()).pr_opened).then_some((at, rail_ends::End::Undelivered));
     }
     if step.walks && step.follows_plan && !Facts::of(record, extra).walk_expected() {
         return Some((at, rail_ends::End::TasksDone));
@@ -619,7 +641,8 @@ pub(crate) fn stalled(steps: &[RailStep], record: &SessionRecord, extra: Extra) 
         return Some((at, rail_ends::End::PlanRecorded));
     }
     let end = rail_ends::end_of(steps, at).filter(|end| end.by_the_job())?;
-    Some((at, end))
+    let of_code = matches!(end, rail_ends::End::Pushed | rail_ends::End::Committed | rail_ends::End::Checked | rail_ends::End::PrOpened);
+    (!(no_code && of_code)).then_some((at, end))
 }
 
 /// The one message to a Job stopped on a step only it can end.

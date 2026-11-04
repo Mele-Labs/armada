@@ -155,6 +155,7 @@ mod step_ends;
 mod step_skip;
 mod job_copy;
 mod walk_rail;
+mod rail_facts;
 mod workflow_page;
 mod workflow_changes;
 mod workflow_proposal_waits;
