@@ -83,9 +83,37 @@ pub enum Notice {
     LifecycleRule,
     /// The last instance the Job held open reached an end state.
     LifecyclesClear,
+    /// The Operator handed the Job work, merged another into it, or keeps it in touch with another.
+    Operator,
 }
 
 impl Notice {
+    /// Whether the notice is about code going out: a branch, a slot, a pull request, a merge or
+    /// the choice of how they are delivered. **A Job on a workflow that carries no code is sent none.**
+    pub fn about_code_delivery(self) -> bool {
+        matches!(
+            self,
+            Notice::BehindBase
+                | Notice::PrChecksFailed
+                | Notice::PrConflicts
+                | Notice::PrDropped
+                | Notice::PrUnmergeable
+                | Notice::PrMerged
+                | Notice::PrAutoMerge
+                | Notice::PrQueued
+                | Notice::PrHanded
+                | Notice::PrComments
+                | Notice::SlotFree
+                | Notice::SlotKept
+                | Notice::WriteClash
+                | Notice::SlotStranded
+                | Notice::MainRed
+                | Notice::AutoLandRefused
+                | Notice::DeliveryAsked
+                | Notice::DeliveryChosen
+        )
+    }
+
     pub fn word(self) -> &'static str {
         match self {
             Notice::BehindBase => "behind_base",
@@ -126,6 +154,7 @@ impl Notice {
             Notice::TaskMarked => "task_marked",
             Notice::LifecycleRule => "lifecycle_rule",
             Notice::LifecyclesClear => "lifecycles_clear",
+            Notice::Operator => "operator",
         }
     }
 }

@@ -257,6 +257,7 @@ pub(crate) fn manifest_summary(manifest: &config::Manifest, records_root: &str) 
         auto_merge: manifest.auto_merge().as_written().to_string(),
         review_gate: manifest.review_gate().as_written().to_string(),
         kit: manifest.from_kit().map(manifest_from_kit),
+        connectors_off: !manifest.connectors(),
     }
 }
 

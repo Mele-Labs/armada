@@ -346,6 +346,11 @@ pub struct ManifestSummary {
     /// where Kit holds none.**
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kit: Option<ManifestFromKit>,
+    /// The `armada.yml` says `connectors: false`: Jobs here start without the person's connectors
+    /// unless the person's own switch for the repository says otherwise. Absent where it says
+    /// nothing or `true`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub connectors_off: bool,
 }
 
 /// A person's own `armada.yml` for a repository, kept in Kit as `manifests/<owner--name>.yml`.

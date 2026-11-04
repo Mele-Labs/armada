@@ -1,0 +1,338 @@
+/* The Operator panel, in Helm's dock over the whole work: the Layout control's bar over the panes a Job's area uses, which draw
+   their own frames, strips and bodies (`job-panes.css`). What is here is each tab's body: rows of one line where they fit, every
+   control repeated down a list in a column of its own. Bold in weight, never in size. */
+
+.armada-operator {
+  --deck-gutter: var(--gap-panel);
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--space-1);
+  height: 100%;
+  min-height: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-operator__bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: end;
+  gap: var(--space-3);
+}
+
+.armada-operator__scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 0;
+}
+
+.armada-operator__line,
+.armada-operator__log,
+.armada-operator__permissions,
+.armada-operator__orders,
+.armada-operator__talk {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-operator__title {
+  min-width: 0;
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+}
+
+.armada-operator__line-text {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-1) / 2);
+  min-width: 0;
+}
+
+/* Each list a grid whose rows are subgrids, so every column, a control's above all, lines up down the list. */
+.armada-operator__line-row,
+.armada-operator__log-row,
+.armada-operator__permission {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--h-row-unit);
+  padding: var(--space-1) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+/* What it is, what it waits on, the Job it waits on, Start now. */
+.armada-operator__line {
+  display: grid;
+  grid-template-columns: minmax(calc(var(--space-12) * 3), 1fr) max-content max-content max-content;
+}
+
+.armada-operator__line-row {
+  cursor: grab;
+}
+
+.armada-operator__line-row:hover,
+.armada-operator__log-row:hover,
+.armada-operator__line-row[data-dragging] {
+  background: var(--bg-hover);
+}
+
+.armada-operator__line-row:focus-visible {
+  outline: var(--border-width) solid var(--accent);
+  outline-offset: calc(var(--border-width) * -1);
+}
+
+.armada-operator__wait,
+.armada-operator__lock,
+.armada-operator__held,
+.armada-operator__read {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--fg-muted);
+}
+
+/* The Log as a flow: where it came from, the item and the ruling, then a column a lane for where it went, then age and the acts. */
+.armada-operator__log {
+  display: grid;
+  grid-template-columns:
+    max-content minmax(calc(var(--space-12) * 3), 1fr) max-content repeat(7, max-content)
+    max-content max-content max-content;
+}
+
+.armada-operator__flow-head {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-default);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  color: var(--fg-muted);
+}
+
+.armada-operator__lane-name {
+  text-align: center;
+}
+
+/* A lane cell: the line runs through the lanes before the one it reached, and stops at the Jobs standing in that one. */
+.armada-operator__lane {
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-width: calc(var(--space-12) * 1.5);
+  margin-inline: calc(var(--space-3) / -2);
+  padding-inline: calc(var(--space-3) / 2);
+  border-left: var(--border-width) dashed var(--border-subtle);
+}
+
+.armada-operator__lane[data-through],
+.armada-operator__lane[data-reached] {
+  background:
+    linear-gradient(var(--border-strong), var(--border-strong)) no-repeat left center / 100%
+    var(--border-width);
+}
+
+.armada-operator__lane[data-reached] {
+  background-size: 50% var(--border-width);
+}
+
+.armada-operator__lane[data-reached] > * {
+  position: relative;
+  background: var(--bg-raised);
+}
+
+.armada-operator__lane-mark {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-2xs);
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.armada-operator__source,
+.armada-operator__named {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* What started it: a bug report's words on a small line over the chip of the Job that filed it. */
+.armada-operator__source {
+  flex-direction: column;
+  align-items: start;
+}
+
+.armada-operator__from {
+  font-size: var(--text-2xs);
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+/* A Job chip here never shrinks below its name. */
+.armada-operator .job-chip {
+  flex: none;
+  max-width: none;
+}
+
+.armada-operator__does {
+  color: var(--fg-muted);
+}
+
+.armada-operator__did,
+.armada-operator__age {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.armada-operator__age {
+  color: var(--fg-muted);
+}
+
+.armada-operator__did[data-did="answered"] {
+  color: var(--status-completed-success);
+}
+
+.armada-operator__did[data-did="raised"],
+.armada-operator__did[data-did="returned"] {
+  color: var(--status-awaiting-review);
+}
+
+.armada-operator__did[data-did="delegated"],
+.armada-operator__did[data-did="existing"],
+.armada-operator__did[data-did="merged"],
+.armada-operator__did[data-did="in_touch"],
+.armada-operator__did[data-did="held"],
+.armada-operator__did[data-did="started"],
+.armada-operator__did[data-did="filed"] {
+  color: var(--status-running);
+}
+
+.armada-operator__did[data-did="passed_on"] {
+  color: var(--status-completed-failed);
+}
+
+.armada-operator__did[data-did="released"],
+.armada-operator__did[data-did="resumed"],
+.armada-operator__did[data-did="moved"],
+.armada-operator__did[data-did="overruled"] {
+  color: var(--fg-muted);
+}
+
+.armada-operator__permissions,
+.armada-operator__orders {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+}
+
+.armada-operator__permission[data-master] {
+  background: var(--bg-sunken);
+}
+
+.armada-operator__does {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-operator__differs {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--status-awaiting-review);
+}
+
+.armada-operator__ceiling {
+  display: block;
+  width: calc(var(--h-control) * 4);
+}
+
+.armada-operator__lock {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+}
+
+.armada-operator__subhead {
+  margin: 0;
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  border-top: var(--border-width) solid var(--border-default);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+}
+
+.armada-operator__order {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--fg-muted);
+}
+
+/* Talk: the conversation takes what the box leaves, and scrolls; the box stands at the foot, as a Job's thread over its composer. */
+.armada-operator__talk-pane {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+.armada-operator__conversation {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.armada-operator__clear {
+  align-self: end;
+}
+
+.armada-operator__talk {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-operator__said {
+  display: flex;
+  align-items: start;
+  gap: var(--space-1);
+}
+
+.armada-operator__said[data-from="you"] {
+  color: var(--fg-muted);
+}
+
+.armada-operator__glyph {
+  display: inline-flex;
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-operator__read {
+  margin: var(--space-1) 0 var(--space-2);
+}
+
+/* The held line, part of the Job's head: the glyph, what it waits for, and Start now in a column of its own. */
+.armada-operator__held {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+}

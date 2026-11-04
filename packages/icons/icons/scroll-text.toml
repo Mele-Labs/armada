@@ -22,3 +22,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 19 Oct 2026 for the Pull request panel's Reviewers card. A sheet written on is a comment, and no verdict is claimed. Draws muted, tooltip `Commented`. The Conversation tab draws the same glyph for a commenting review."
+
+  [[icons.scroll-text.usage]]
+    means = "The Operator's Log tab: every ruling it made, read from the top down"
+    group = "Operator"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 4 Nov 2026 for the walk `operatorFull`, for the owner to rule on. A Log is read from the newest down, as the sheet is. Tooltip and tab label: Log."

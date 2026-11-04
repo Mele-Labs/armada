@@ -2,6 +2,10 @@
 
 import {
   Activity,
+  Bot,
+  Clock,
+  ScrollText,
+  SlidersVertical,
   Circle,
   CircleCheck,
   ClipboardList,
@@ -176,5 +180,21 @@ export const KINDS: Readonly<
   "pr-comments": {
     label: "Comments",
     Glyph: MessageSquare,
+  },
+  "op-talk": {
+    label: "Talk",
+    Glyph: Bot,
+  },
+  "op-log": {
+    label: "Log",
+    Glyph: ScrollText,
+  },
+  "op-waiting": {
+    label: "Waiting to start",
+    Glyph: Clock,
+  },
+  "op-permissions": {
+    label: "Permissions",
+    Glyph: SlidersVertical,
   },
 };

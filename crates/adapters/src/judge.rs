@@ -65,6 +65,11 @@ const PROPOSER_MODEL: &str = "haiku";
 /// `crates/config/settings.toml`'s `retro-model` row.
 const RETRO_MODEL: &str = "sonnet";
 
+/// The model the Operator rules on. **Named rather than derived**, and held to the roster by a
+/// test: the replay of 4 Nov 2026 found the cheap tier's rulings refused by Fleet's rules 14 times
+/// in 120 against this one's 4. It is `crates/config/settings.toml`'s `operator-model` row.
+const OPERATOR_MODEL: &str = "sonnet";
+
 /// The model a judged gaming flag is read a second time on. **Named rather than
 /// derived**, and held to the roster by a test: stronger than the first look's,
 /// and paid only where a flag was raised.
@@ -134,7 +139,7 @@ impl HeadlessAgent {
     }
 
     /// The model a Session's account of itself is written on: **the Judge's**, the cheapest on the
-    /// roster, since it is a few short lines written again every few seconds a Session is at work.
+    /// roster, since it is a few short lines written again every half minute a Session is at work.
     pub fn account_model() -> &'static str {
         HeadlessAgent::judge_model()
     }
@@ -148,6 +153,11 @@ impl HeadlessAgent {
     /// The model a Job's retro is written on.
     pub fn retro_model() -> &'static str {
         RETRO_MODEL
+    }
+
+    /// The model the Operator rules on what arrives.
+    pub fn operator_model() -> &'static str {
+        OPERATOR_MODEL
     }
 
     /// The model a judged gaming flag is read a second time on.

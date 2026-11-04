@@ -15,6 +15,7 @@ pub const PORT_RANGE_BASE: Integer = Integer("limits.portRangeBase");
 pub const PORT_BLOCK_GRANULE: Integer = Integer("limits.portBlockGranule");
 pub const WATCHES_AT_ONCE: Integer = Integer("limits.watchesAtOnce");
 pub const WATCHES_PER_JOB: Integer = Integer("limits.watchesPerJob");
+pub const OPERATOR_DAILY_CALLS: Integer = Integer("limits.operatorDailyCalls");
 
 pub(super) const LIMITS: &[Entry] = &[
     // **Two, and the ceiling is not what bounds it.** Spike 012 ran five Drones
@@ -177,6 +178,21 @@ pub(super) const LIMITS: &[Entry] = &[
         shipped: Shipped::Integer(5),
         applies: Applies::Live,
         row: Some("watches-per-job"),
+        env: None,
+        tip: None,
+    },
+    // **A hundred, chosen and not measured.** The replay of 4 Nov counted 38 calls a working day
+    // and 57 on the busiest, before turn ends, permission cards and stalls are counted; a hundred
+    // is the page's own estimate once they are. Past it everything passes as it did before.
+    Entry {
+        key: OPERATOR_DAILY_CALLS.0,
+        section: Section::Limits,
+        title: "Operator calls a day",
+        description: "How many calls the Operator makes in a day. Past it, it makes none until the next day and everything passes on as if it were off.",
+        kind: Kind::Integer { min: 0, max: 10_000, unit: "calls" },
+        shipped: Shipped::Integer(100),
+        applies: Applies::Live,
+        row: Some("operator-daily-call-ceiling"),
         env: None,
         tip: None,
     },

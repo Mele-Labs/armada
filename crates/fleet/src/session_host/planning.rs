@@ -247,6 +247,7 @@ where
         let kept = recorded(before.as_ref(), &checked.groups, sketch, checked.walk, seen, checked.summary, &now);
         let version = kept.version;
         self.store().lock().await.keep_session_plan(&id, &kept).map_err(|why| self.ledger_fault(why))?;
+        self.plan_handed(&id, before.as_ref(), &kept).await;
         if let Some(since) = self.plan_stands_since(&id).await {
             self.store().lock().await.approve_session_plan(&id, version, &since).map_err(|why| self.ledger_fault(why))?;
         }
