@@ -60,7 +60,7 @@ async fn a_job_between_turns_is_held_open_by_every_live_watch_in_the_order_they_
 }
 
 #[tokio::test]
-async fn a_turn_running_something_owed_or_a_command_left_running_each_say_more_than_the_watch() {
+async fn a_turn_running_says_more_than_the_watch() {
     let rig = rig(None);
     let job = rig.an_agent().await;
     rig.fleet.start_watch(None, watch(&job, "QA deploy")).await.expect("started");
@@ -68,13 +68,42 @@ async fn a_turn_running_something_owed_or_a_command_left_running_each_say_more_t
 
     rig.stand_in.finishes(0, "Waiting on the deploy.");
     eventually(|| async { !rig.record(&job).await.held_open_by.is_empty() }).await;
+}
 
+async fn a_command_left_running(rig: &Rig, job: &SessionId) {
     let background = SessionFact::Attached {
-        attachment: AttachmentReport { kind: "background".into(), target: "task-1".into(), detail: BTreeMap::new() },
+        attachment: AttachmentReport { kind: "background".into(), target: "vite".into(), detail: BTreeMap::new() },
     };
     let report = SessionReport { harness: adapters::HOSTED_HARNESS.into(), session_id: job.clone(), fact: background };
     rig.fleet.report_session(report).await.expect("attached");
-    assert_eq!(held_open_by(&rig, &job).await, [], "a command of its own is running");
+}
+
+/// The report: a walk's dev server, left running, hid a Job's pull request in the merge queue from its row.
+#[tokio::test]
+async fn a_command_left_running_does_not_hide_a_watch_or_a_pull_request_in_the_merge_queue() {
+    let rig = rig(None);
+    let job = an_agent_between_turns(&rig).await;
+    rig.fleet.start_watch(None, watch(&job, "QA deploy")).await.expect("started");
+    attach_pull_request(&rig, &job, "3237", &[("state", "open"), ("queued", "true"), ("checks", "passed")]).await;
+    a_command_left_running(&rig, &job).await;
+
+    let record = rig.record(&job).await;
+    assert_eq!(
+        record.held_open_by,
+        [named("QA deploy"), HeldOpenBy::PullRequest { number: 3237, on: PullRequestWait::Queue }]
+    );
+    assert_ne!(record.standing, Some(ipc::SessionStanding::Working), "the row reads what holds it");
+}
+
+#[tokio::test]
+async fn a_command_left_running_with_nothing_holding_the_job_reads_working() {
+    let rig = rig(None);
+    let job = an_agent_between_turns(&rig).await;
+    a_command_left_running(&rig, &job).await;
+
+    let record = rig.record(&job).await;
+    assert_eq!(record.held_open_by, []);
+    assert_eq!(record.standing, Some(ipc::SessionStanding::Working));
 }
 
 #[tokio::test]
