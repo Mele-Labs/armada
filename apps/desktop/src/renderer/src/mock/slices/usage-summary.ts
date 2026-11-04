@@ -17,5 +17,9 @@ export const usageSummary: Slice<UsageSummaryApi, Record<string, never>> = {
       ok: false,
       outcome: unanswered("/usage/rules"),
     }),
+    getUsageSpent: async () => ({
+      ok: false,
+      outcome: unanswered("/usage/spent"),
+    }),
   }),
 };

@@ -1,7 +1,7 @@
 // What a window of turns cost, for the Usage page: read once, as a window and the offset of the caller's local time ask
 // it. A slice imports protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { Outcome, UsageRules, UsageSummary } from "@armada/protocol";
+import type { Outcome, UsageRules, UsageSpentUnits, UsageSummary } from "@armada/protocol";
 
 /** A stretch of time as two instants, RFC3339. */
 export type UsageWindow = {
@@ -31,6 +31,17 @@ export type UsageRulesRead =
       outcome: Outcome;
     };
 
+/** What reading the Spent on split came to: Fleet's windows, or the refusal to word. */
+export type UsageSpentRead =
+  | {
+      ok: true;
+      value: UsageSpentUnits;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
+
 export type UsageSummaryApi = {
   /**
    * `GET /usage/summary`: the last seven days, cut into days, weekdays and three-hour blocks `tzOffsetMinutes` ahead of UTC;
@@ -39,9 +50,12 @@ export type UsageSummaryApi = {
   getUsageSummary: (tzOffsetMinutes: number, window?: UsageWindow) => Promise<UsageSummaryRead>;
   /** `GET /usage/rules`: the four rules and the Jobs each told in the last seven days. */
   getUsageRules: () => Promise<UsageRulesRead>;
+  /** `GET /usage/spent`: what the last 24 hours, 7 days and 14 days were spent on, and who spent them, whole and by Job. */
+  getUsageSpent: () => Promise<UsageSpentRead>;
 };
 
 export const USAGE_SUMMARY_CHANNELS = {
   getUsageSummary: "bridge:get-usage-summary",
   getUsageRules: "bridge:get-usage-rules",
+  getUsageSpent: "bridge:get-usage-spent",
 } as const;
