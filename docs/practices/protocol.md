@@ -920,7 +920,8 @@ Bridge's half is `packages/protocol/src/watches.ts`, written by hand; nothing in
 **Always loaded.** An operation file may say `always_loaded = true`; the door then lists that tool with the harness's `_meta` key, which the harness adapter names (`AgentHarness::always_loads_tool`).
 The key is on the agent's tools list only, and Bridge reads nothing of it.
 A tool earns it only when most Jobs call it and its definition is under about 1k tokens (2.7 characters to the token); every definition sits in each request of every thread.
-`waiting_for` is the one.
+`waiting_for`, `all_done` and `finish_up` are the three: of 459 Job threads on one Mac, 21 Oct to 4 Nov, 63%, 88% and 87% called them.
+`record_plan` and `show_window` were called by 78% and 57%, but their descriptions alone run near 3k characters, so they stay behind a search.
 The seven watch tools were called by a fifth of Jobs at most and run from 0.8k to 5.3k characters, so they load behind a search, and the rules name the `select:` line that loads them.
 
 ### Tidying a Job's watches: a run of readings, ended watches on asking, and `delete_watch`
