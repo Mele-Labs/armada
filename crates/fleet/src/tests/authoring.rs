@@ -133,6 +133,30 @@ async fn reading_the_folders_again_replaces_what_was_held() {
     assert_eq!(left[0].source, "repository");
 }
 
+/// Bridge reads its workflow pickers again on the repository list, so a re-read says so.
+#[tokio::test]
+async fn reading_the_folders_again_tells_bridge_to_read_its_repositories_again() {
+    let home = TempDir::new();
+    let planted = Arc::new(Planted::nothing());
+    let fleet = Arc::new(a_fleet_reading(&home, &planted));
+    planted.will_read(Catalogued { workflows: one(workflow_named("only-this")), left_out: Vec::new(), files: Vec::new() });
+    let mut watching = fleet.events().subscribe();
+
+    fleet.workflows_changed(&home.path().to_string_lossy());
+
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            match watching.next().await {
+                Some(api::Next::Send(delivered)) if matches!(delivered.event, ipc::Event::RepositoriesChanged(_)) => return,
+                Some(_) => {}
+                None => panic!("the stream ended before repositories.changed"),
+            }
+        }
+    })
+    .await
+    .expect("repositories.changed is published");
+}
+
 fn one_step(id: &str, label: &str) -> String {
     format!(
         "version: 1\nworkflow_id: {id}\nname: {id}\nsteps:\n  - id: only\n    label: \"{label}\"\n    \

@@ -673,6 +673,19 @@ system routes on is the whole reason there are two fields rather than one.
 No sample carries one yet.
 """
 
+[fields.carries_no_code]
+type = "bool"
+concern = "Structure"
+purpose = "Whether a Job on this workflow writes no code. Optional, and absent is `false`."
+notes = """
+**A Job on a workflow declaring it is never asked for a branch, a worktree slot, tests, a push, a pull request or a merge**, and its commands, scripts and writes outside the checkout run without a leased slot. Fleet sends it none of the code-delivery notices.
+
+**Beside `delivers`, not instead of it.** `delivers: false` on every step says no pull request opens; this says the Job holds no checkout at all. Design Plan declares the first and still writes its document in a slot, so the two are not one word.
+
+Not frozen onto the Job, for `lands`'s reason: `ResolvedWorkflow` holds it beside the frozen copy, and Fleet reads it off the definition it serves.
+"""
+why = "A UAT Job runs scenarios against an environment and writes results to a sheet, so a worktree slot and a pull request are things it can only wait on."
+
 [fields."steps[]"]
 type = "array[step]"
 concern = "Structure"

@@ -172,6 +172,11 @@ where
     /// notice as it has always been sent.
     async fn noticed(self: &Arc<Self>, session: &str, text: &str, news: bool, notice: ipc::Notice) -> Result<Told, Refusal> {
         let sent = |told: bool| if told { Told::Sent } else { Told::Unheard };
+        // A Job on a workflow that carries no code has no branch, slot or pull request, so a word
+        // about one is not its to hear, and it is settled rather than asked again later.
+        if notice.about_code_delivery() && self.job_carries_no_code(session).await {
+            return Ok(Told::Withheld);
+        }
         match self.verdict_on(session, text, notice).await {
             Verdict::Muted => Ok(Told::Unheard),
             Verdict::Does(ipc::Does::Quiet) => Ok(Told::Withheld),

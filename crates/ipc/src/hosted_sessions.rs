@@ -280,7 +280,7 @@ pub struct PauseSession {
 
 /// `set_session_auto_land`: turn Auto land on or off for a Session. On, Fleet enables auto-merge on
 /// each open pull request the Session holds and on each that attaches later; off, it disables it
-/// on the open ones. The flag changes even where the forge refuses a pull request.
+/// on the open ones, after answering. A pull request the forge refuses is a notice to the Job.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SetSessionAutoLand {
     pub id: SessionId,

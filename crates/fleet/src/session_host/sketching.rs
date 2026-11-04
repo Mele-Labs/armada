@@ -339,21 +339,45 @@ pub(crate) fn sketch_attachment(sketch: Sketch) -> AttachmentReport {
     }
 }
 
-/// Every sketch put to the person and neither answered nor taken back.
-fn open_sketches(attachments: &[ipc::Attachment]) -> impl Iterator<Item = &ipc::Attachment> {
+/// When a sketch was last drawn, as its `drawn` row id carries it (`<job>-<instant>-<n>`), so answering
+/// it or taking it back, which change the row, do not make it the newest. One with no `drawn` reads its
+/// `changed_at`, written the way a row id writes an instant.
+fn drawn_at(sketch: &ipc::Attachment) -> (String, u64) {
+    let drawn = sketch.detail.get(SKETCH_DRAWN).and_then(|id| {
+        let mut parts = id.rsplitn(3, '-');
+        let n = parts.next()?.parse().ok()?;
+        Some((parts.next()?.to_string(), n))
+    });
+    drawn.unwrap_or_else(|| (sketch.changed_at.as_str().replace([':', '-', '.'], ""), 0))
+}
+
+/// Every sketch put to the person, answered or not.
+fn asked_sketches(attachments: &[ipc::Attachment]) -> impl Iterator<Item = &ipc::Attachment> {
     attachments
         .iter()
         .filter(|one| one.kind == "artifact" && one.detail.get("form").map(String::as_str) == Some("sketch"))
-        .filter(|one| one.detail.get(SKETCH_ASKED).map(String::as_str) == Some("true") && !one.detail.contains_key(SKETCH_SETTLED) && !one.detail.contains_key(SKETCH_WITHDRAWN))
+        .filter(|one| one.detail.get(SKETCH_ASKED).map(String::as_str) == Some("true"))
 }
 
-/// The newest sketch put to the person and not answered, as the item that waits on him: id the sketch's
-/// target, text its title, opening the Session. A plan's sketch is approved with the plan, so it is
-/// never one of these. **Only the newest**, as Bridge answers only the newest: an older one still open,
-/// drawn before a redraw took it back, would wait with nothing to press.
+/// Whether a sketch put to him is neither answered nor taken back.
+fn is_open(sketch: &ipc::Attachment) -> bool {
+    !sketch.detail.contains_key(SKETCH_SETTLED) && !sketch.detail.contains_key(SKETCH_WITHDRAWN)
+}
+
+/// Every sketch put to the person and neither answered nor taken back.
+fn open_sketches(attachments: &[ipc::Attachment]) -> impl Iterator<Item = &ipc::Attachment> {
+    asked_sketches(attachments).filter(|one| is_open(one))
+}
+
+/// The newest sketch put to the person, as the item that waits on him while he has not answered it: id
+/// the sketch's target, text its title, opening the Session. A plan's sketch is approved with the plan,
+/// so it is never one of these. **Only the newest drawn**, as Bridge answers only that one: an older one
+/// still open, which an earlier Fleet left when a newer one replaced it, never waits again once the
+/// newer is answered or taken back.
 pub(crate) fn sketch_items<'a>(attachments: &'a [ipc::Attachment], session: &'a str) -> impl Iterator<Item = WaitingItem> + 'a {
-    open_sketches(attachments)
-        .max_by_key(|one| one.changed_at.clone())
+    asked_sketches(attachments)
+        .max_by_key(|one| drawn_at(one))
+        .filter(|newest| is_open(newest))
         .into_iter()
         .map(move |one| WaitingItem {
             id: one.target.clone(),
