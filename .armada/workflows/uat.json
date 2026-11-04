@@ -1,0 +1,84 @@
+# UAT, the flow for user acceptance testing: Set up, Pre-flight, Run, Review, Write back.
+# `bug.json` beside this file carries what every workflow holds to.
+#
+# **`carries_no_code: true` is the whole difference from `design_plan.json`.** A Job on this flow
+# writes no code, so Fleet asks it for no branch, slot, test, push, pull request or merge, and its
+# commands run without a leased slot. Every step still declares `delivers: false`, which is why no
+# pull request opens; the top-level key is what stops the notices and the lease.
+#
+# **Nothing here names a company, project, environment or tool.** The environment, the scenarios
+# and the sheet they come from are whatever the request names.
+#
+# **Two steps wait on the person.** `preflight` ends when he has settled every scenario, and
+# `writeback` when he approves the one write. `review` is his reading of the results and of the
+# changes the Job made to the environment, in one place.
+{
+  "version": 1,
+  "workflow_id": "uat",
+  "name": "uat",
+  "for_requests": "Running acceptance scenarios against a test environment and writing the results back to the sheet they came from, where no code is written, changed or delivered.",
+  "carries_no_code": true,
+  "steps": [
+    {
+      "id": "setup",
+      "label": "Set up",
+      "about": "Picks the test environment: the sites, the test accounts, where the logs are read and which scripts and commands may run. Each is checked as reachable.",
+      "instructions": "Pick the test environment with the person. Name the sites, the test accounts, the log source and the scripts and commands this Job may run. Check each one is reachable and say which is not. Write the result as one short page in .armada/documents/. Write no code and make no change to any environment yet.",
+      "evidence": {
+        "submitted": { "type": "document" }
+      },
+      "delivers": false,
+      "advance_gate": "auto"
+    },
+    {
+      "id": "preflight",
+      "label": "Pre-flight",
+      "about": "Marks each scenario runnable, blocked with its reason, or needing you. You settle every one of them here.",
+      "instructions": "Read every scenario and mark it runnable, blocked with the reason, or needs the owner. Put each one that needs the person to him in one list, and settle them all here before anything runs. Update the page in .armada/documents/ with the marks.",
+      "evidence": {
+        "submitted": { "type": "document" }
+      },
+      "delivers": false,
+      "advance_gate": "human_always"
+    },
+    {
+      "id": "run",
+      "label": "Run",
+      "about": "Runs the scenarios one at a time and keeps evidence for each step. A question waits for you while the work carries on.",
+      "instructions": "Run the runnable scenarios one at a time. Keep evidence for every step: what was done, what was seen, and where it was read from. Where a question needs the person, put it to him and carry on with the next scenario rather than stopping. Record every change made to the environment, and how it was restored, as it happens.",
+      "evidence": {
+        "submitted": { "type": "document" }
+      },
+      "delivers": false,
+      "advance_gate": "auto"
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "about": "You read the results and every change made to the environment, together.",
+      "instructions": "Show the person the results, scenario by scenario with its evidence, and the changes made to the environment in the same place. Answer each note by changing the page and writing the same file again.",
+      "phase": "delivery",
+      "evidence": {
+        "submitted": { "type": "document" }
+      },
+      "delivers": false,
+      "advance_gate": "human_always",
+      "verdict_routing": {
+        "request_changes": "run"
+      },
+      "iteration_cap": 5
+    },
+    {
+      "id": "writeback",
+      "label": "Write back",
+      "about": "One approval from you sends the results to the scenario sheet, and the Job ends.",
+      "instructions": "Put the write to the person once: the results as they will be written to the scenario sheet. On his approval write them, say what was written, and end the job. Open no pull request and make no branch.",
+      "phase": "delivery",
+      "evidence": {
+        "submitted": { "type": "document" }
+      },
+      "delivers": false,
+      "advance_gate": "human_always"
+    }
+  ]
+}
