@@ -409,6 +409,11 @@ commands:
   warm_tests:
     run: cargo nextest run --workspace --no-run --locked
 
+  # The code graph every Job queries, built into this checkout's `.gitnexus/`.
+  # docs/practices/code-graph.md.
+  code_graph:
+    run: pnpm gitnexus:index
+
   # Bridge's renderer on a mock Fleet, in a browser, held open so a person can
   # look around while Jobs land. `evidence:` runs the same command for its own
   # frames; this is the one a person starts, and `start_server` is what starts
