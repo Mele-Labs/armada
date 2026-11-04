@@ -8,9 +8,9 @@
 //! and the answer route read it there.
 
 use ipc::{
-    AskedChoice, AskedQuestion, HeldOpenBy, HelmCallAnswer, HelmCallInFlight, PullRequestWait, SessionOrigin,
-    SessionRecord, SessionStanding, SessionState, SessionTurn, SessionWait, StartCondition, WaitingItem,
-    WaitingSource,
+    AskedChoice, AskedQuestion, AttachmentState, FleetAway, HeldOpenBy, HelmCallAnswer, HelmCallInFlight, PullRequestWait,
+    SessionOrigin, SessionRecord, SessionStanding, SessionState, SessionStopped, SessionTurn, SessionWait, StartCondition,
+    StopReason, StopRepair, StopRestart, WaitingItem, WaitingSource,
 };
 use serde::Serialize;
 
@@ -74,6 +74,20 @@ pub struct PhoneStart {
     pub pull_number: Option<u64>,
 }
 
+/// Why a Job stopped and what Fleet is doing about it. What its process last said and the tasks it
+/// left open stay on the Mac.
+#[derive(Debug, Serialize)]
+pub struct PhoneStopped {
+    pub reason: StopReason,
+    pub restart: StopRestart,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repair: Option<StopRepair>,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub gave_up: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub down: Option<FleetAway>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct PhoneSession {
     pub id: String,
@@ -127,6 +141,18 @@ pub struct PhoneSession {
     /// Why its agent would not start: the cause only, never the log lines.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub start_failed: Option<String>,
+    /// Not running and not parked.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stopped: Option<PhoneStopped>,
+    /// Its first open pull request whose Checks failed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failing_pull: Option<u64>,
+    /// Never spoken in: no title, no turn and nothing attached.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub blank: bool,
+    /// The proposer is reading the request, and the Job starts on its answer.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub reading: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -207,6 +233,28 @@ fn hold(one: &HeldOpenBy) -> PhoneHold {
     }
 }
 
+fn stopped(one: &SessionStopped) -> PhoneStopped {
+    PhoneStopped {
+        reason: one.reason,
+        restart: one.restart,
+        repair: one.repair,
+        gave_up: one.gave_up,
+        down: one.down.clone(),
+    }
+}
+
+/// The first pull request it holds that has not merged and whose Checks failed, as Bridge reads
+/// `failing` in `stateOf`.
+fn failing_pull(record: &SessionRecord) -> Option<u64> {
+    record
+        .attachments
+        .iter()
+        .filter(|one| one.kind == "pr" && !matches!(one.state, AttachmentState::GivenBack | AttachmentState::Spent))
+        .filter(|one| one.detail.get("state").map(String::as_str) != Some("merged"))
+        .filter(|one| one.detail.get("checks").map(String::as_str) == Some("failed"))
+        .find_map(|one| one.target.parse().ok())
+}
+
 fn start(wait: &SessionWait) -> PhoneStart {
     PhoneStart {
         on: PhoneLink { id: wait.on.id.as_str().to_string(), title: wait.on.title.clone() },
@@ -259,11 +307,16 @@ impl PhoneSession {
             SessionOrigin::Terminal => record.terminal.as_ref().and_then(|t| t.asked.as_ref()),
         }
         .filter(|_| record.state == SessionState::Live);
-        // Paused, failed to start, waiting on another Job, held on its start card or held by the
-        // plan's limit: nothing is asked of him, whatever it owes, as `stateOf` orders it.
+        // Paused, failed to start, stopped, waiting on another Job, held on its start card or held by
+        // the plan's limit: nothing is asked of him, whatever it owes, as `stateOf` orders it.
         let paused = record.hosted.as_ref().is_some_and(|facts| facts.paused.is_some());
         let start_failed = record.hosted.as_ref().and_then(|facts| facts.start_failed.as_ref());
-        let parked = held || paused || start_failed.is_some() || record.waits.is_some() || record.held_until.is_some();
+        let parked = held
+            || paused
+            || start_failed.is_some()
+            || record.stopped.is_some()
+            || record.waits.is_some()
+            || record.held_until.is_some();
         let owed = owed(record);
         let since = waiting_on
             .map(|asked| asked.asked_at.as_str())
@@ -297,6 +350,10 @@ impl PhoneSession {
             held_open_by: record.held_open_by.iter().map(hold).collect(),
             starts_when: record.waits.as_ref().map(start),
             start_failed: start_failed.map(|failed| failed.cause.clone()),
+            stopped: record.stopped.as_ref().map(stopped),
+            failing_pull: failing_pull(record),
+            blank: record.attachments.is_empty() && record.title.is_none() && record.last_turn_at.is_none(),
+            reading: record.proposal.as_ref().is_some_and(|proposal| proposal.reading),
         }
     }
 }

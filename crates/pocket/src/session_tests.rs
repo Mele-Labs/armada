@@ -658,9 +658,70 @@ fn a_job_parked_for_any_reason_asks_nothing_of_him_and_is_not_working() {
 }
 
 #[test]
+fn a_stopped_job_asks_nothing_of_him_and_says_why_without_what_its_process_said() {
+    let stop = r#","standing":"stopped","stopped":{"reason":"process_gone","at":"2026-10-08T03:00:00.000Z","said":"PROCESS-SAID-3","tasks":["TASK-OPEN-3"],"restart":"failed","repair":"failed","gave_up":true}"#;
+    let row = hosted_row("idle", "", &format!("{stop}{}", owing(&[owed("plan:1", "plan", "02:00")])));
+    assert!(row.contains(r#""waiting":false"#) && row.contains(r#""working":false"#), "{row}");
+    assert!(
+        row.contains(r#""stopped":{"reason":"process_gone","restart":"failed","repair":"failed","gave_up":true}"#),
+        "{row}"
+    );
+    assert!(!row.contains("PROCESS-SAID-3") && !row.contains("TASK-OPEN-3"), "{row}");
+    assert!(!hosted_row("idle", "", "").contains(r#""stopped""#));
+}
+
+#[test]
+fn a_row_names_its_first_open_pull_request_on_failed_checks() {
+    let pr = |target: &str, state: &str, detail: &str| {
+        format!(
+            r#"{{"kind":"pr","target":"{target}","state":"{state}","detail":{{{detail}}},"since":"2026-10-08T02:00:00.000Z","changed_at":"2026-10-08T02:00:00.000Z"}}"#
+        )
+    };
+    let row = |attached: &[String]| {
+        let record = record("j1", "bridge", "live", "").replace(r#""attachments":[]"#, &format!(r#""attachments":[{}]"#, attached.join(",")));
+        let record = ipc::decode::<ipc::SessionRecord>("a job", record.as_bytes()).unwrap();
+        ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), FIVE_PAST)).unwrap()
+    };
+    let failed = r#""checks":"failed""#;
+    // Merged, spent and given back no longer count; passing Checks never did.
+    let failing = row(&[
+        pr("40", "standing", r#""checks":"passed""#),
+        pr("41", "spent", failed),
+        pr("42", "given_back", failed),
+        pr("43", "standing", &format!(r#""state":"merged",{failed}"#)),
+        pr("44", "standing", failed),
+        pr("45", "standing", failed),
+    ]);
+    assert!(failing.contains(r#""failing_pull":44"#), "{failing}");
+    let passing = row(&[pr("40", "standing", r#""checks":"passed""#)]);
+    assert!(!passing.contains("failing_pull"), "{passing}");
+}
+
+#[test]
+fn a_row_says_a_job_is_blank_only_with_no_title_no_turn_and_nothing_attached() {
+    let plain = hosted_row("idle", "", "");
+    assert!(!plain.contains(r#""blank""#), "{plain}");
+    let record = record("j1", "bridge", "live", r#","hosted":{"turn":{"state":"idle"},"mode":"auto","running":true}"#);
+    let mut record = ipc::decode::<ipc::SessionRecord>("a job", record.as_bytes()).unwrap();
+    record.title = None;
+    record.last_turn_at = None;
+    record.attachments.clear();
+    let blank = ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), FIVE_PAST)).unwrap();
+    assert!(blank.contains(r#""blank":true"#), "{blank}");
+}
+
+#[test]
+fn a_row_says_the_proposer_is_reading_the_request() {
+    let reading = hosted_row("idle", "", r#","proposal":{"reading":true}"#);
+    assert!(reading.contains(r#""reading":true"#), "{reading}");
+    let read = hosted_row("idle", "", r#","proposal":{"reading":false}"#);
+    assert!(!read.contains(r#""reading""#), "{read}");
+}
+
+#[test]
 fn what_holds_a_job_is_carried_as_facts_and_left_out_when_absent() {
     let plain = hosted_row("idle", "", "");
-    for field in ["standing", "limited_until", "held_open_by", "starts_when", "start_failed"] {
+    for field in ["standing", "limited_until", "held_open_by", "starts_when", "start_failed", "stopped", "failing_pull", "reading"] {
         assert!(!plain.contains(&format!("\"{field}\"")), "{field} in {plain}");
     }
     assert!(plain.contains(r#""paused":false"#), "{plain}");
