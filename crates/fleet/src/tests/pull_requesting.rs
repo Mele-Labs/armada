@@ -19,6 +19,7 @@ use testkit::{FakeHarness, FakeVcs, FakeWorkProduct, Merging};
 
 use crate::daemon::Fleet;
 use crate::tests::daemon::{fittings, one, workflow_named};
+use crate::tests::session_issues::with_origin;
 use crate::tests::tmp::TempDir;
 
 pub(super) type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
@@ -354,6 +355,132 @@ async fn a_row_in_another_repository_or_another_number_is_left_alone() {
     fleet.get_pull_request(id, 13).await.expect("read");
 
     assert!(the_row(&fleet, "s1", "pr").await.detail.is_empty());
+}
+
+// ---------------------------------------------------- one a session opened
+
+/// The address of pull request 12 in the repository `with_origin` makes the served one.
+const OWN_ADDRESS: &str = "https://forge.invalid/o/r/pull/12";
+
+/// What the mod tells of a pull request the agent opened, standing in `cwd`: the address `gh pr create` printed.
+async fn opened(fleet: &Fixture, id: &str, cwd: &str, address: &str) {
+    let report = |fact| SessionReport {
+        harness: "a_harness".into(),
+        session_id: SessionId::carried(id),
+        fact,
+    };
+    fleet
+        .report_session(report(SessionFact::Started {
+            cwd: cwd.into(),
+            title: None,
+            origin: ipc::SessionOrigin::Terminal,
+            mod_version: None,
+        }))
+        .await
+        .expect("started");
+    fleet
+        .report_session(report(SessionFact::Attached {
+            attachment: AttachmentReport {
+                kind: "pr".into(),
+                target: "12".into(),
+                detail: [
+                    ("url".to_string(), address.to_string()),
+                    ("address".to_string(), address.to_string()),
+                    ("created".to_string(), "true".to_string()),
+                ]
+                .into(),
+            },
+        }))
+        .await
+        .expect("attached");
+}
+
+#[tokio::test]
+async fn a_pull_request_a_session_opened_takes_what_the_forge_says_from_its_report() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (_, root) = manifest(&fleet);
+    with_origin(&root);
+    fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Draft)));
+    forge_ran(&fleet, passed());
+
+    opened(&fleet, "s1", &root, OWN_ADDRESS).await;
+
+    let row = the_row(&fleet, "s1", "pr").await;
+    assert_eq!(row.state, AttachmentState::Standing);
+    let said = |key: &str| row.detail.get(key).map(String::as_str);
+    assert_eq!(said("title"), Some("Take a draft out"));
+    assert_eq!(said("state"), Some("draft"));
+    assert_eq!(said("branch"), Some("fleet/pr-acts"));
+}
+
+#[tokio::test]
+async fn a_pull_request_that_is_over_when_it_is_first_read_is_settled_by_that_read() {
+    for (standing, settled) in [
+        (PullRequestStanding::Merged, AttachmentState::Spent),
+        (PullRequestStanding::Closed, AttachmentState::GivenBack),
+    ] {
+        let home = TempDir::new();
+        let fleet = a_fleet(&home);
+        let (_, root) = manifest(&fleet);
+        with_origin(&root);
+        fleet.vcs().now_pull_request(Some(facts(standing)));
+        forge_ran(&fleet, passed());
+
+        opened(&fleet, "s1", &root, OWN_ADDRESS).await;
+
+        assert_eq!(the_row(&fleet, "s1", "pr").await.state, settled);
+    }
+}
+
+/// `pull_requests/12` here is another pull request than the one the address names.
+#[tokio::test]
+async fn a_pull_request_opened_in_another_repository_is_not_read_as_this_ones_number() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (_, root) = manifest(&fleet);
+    with_origin(&root);
+    fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
+    forge_ran(&fleet, passed());
+    let elsewhere = "https://forge.invalid/other/r/pull/12";
+
+    opened(&fleet, "s1", &root, elsewhere).await;
+
+    let row = the_row(&fleet, "s1", "pr").await;
+    assert!(!row.detail.contains_key("title"), "{:?}", row.detail);
+    assert_eq!(row.detail.get("address").map(String::as_str), Some(elsewhere));
+}
+
+#[tokio::test]
+async fn a_session_in_a_repository_nobody_serves_keeps_the_address_and_is_told_nothing() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (_, root) = manifest(&fleet);
+    with_origin(&root);
+    fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
+    forge_ran(&fleet, passed());
+    let elsewhere = TempDir::new();
+
+    opened(&fleet, "s1", &elsewhere.path().display().to_string(), OWN_ADDRESS).await;
+
+    let row = the_row(&fleet, "s1", "pr").await;
+    assert!(!row.detail.contains_key("title"), "{:?}", row.detail);
+    assert_eq!(row.detail.get("address").map(String::as_str), Some(OWN_ADDRESS));
+}
+
+#[tokio::test]
+async fn a_forge_that_will_not_answer_leaves_the_row_as_the_mod_told_it() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (_, root) = manifest(&fleet);
+    with_origin(&root);
+    fleet.vcs().now_pull_request(None);
+
+    opened(&fleet, "s1", &root, OWN_ADDRESS).await;
+
+    let row = the_row(&fleet, "s1", "pr").await;
+    assert_eq!(row.state, AttachmentState::Standing);
+    assert_eq!(row.detail.get("address").map(String::as_str), Some(OWN_ADDRESS));
 }
 
 // --------------------------------------------------------------- ready

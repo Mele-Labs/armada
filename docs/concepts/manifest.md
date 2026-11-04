@@ -786,6 +786,23 @@ test_map:
 - **Read when Fleet starts**, as `ci_gate` is.
   A save that changes it is reported as frozen, waiting for a restart.
 
+## Connectors
+
+**`connectors: false` keeps the connectors on the person's claude.ai account out of every hosted Job in this repository.**
+Fleet starts each Job's agent with `ENABLE_CLAUDEAI_MCP_SERVERS=false`, so it fetches none of them.
+Absent, or `true`, changes nothing.
+`../contracts/configuration.md`, *Whether a hosted Job reaches the person's connectors*.
+
+```yaml
+connectors: false
+```
+
+- **The servers the repository names itself stay**, such as those in its own `.mcp.json`.
+- **Only Armada's Jobs.** A session the person starts outside Armada keeps their connectors.
+- **The root's to say.** A workspace's file that names `connectors` is refused, because every Job of the repository starts under the root.
+- **Read when Fleet starts**, as `ci_gate` is.
+  A save that changes it is reported as frozen, waiting for a restart.
+
 ## Still open
 
 The engineer-facing walk from "add a new repo" to a working Manifest is designed as the Set Up a Project (Manifest) journey — tracked there, not as an open item here.

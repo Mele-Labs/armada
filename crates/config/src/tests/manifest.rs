@@ -7,6 +7,7 @@
 
 mod auto_release;
 mod ci_gate;
+mod connectors;
 mod merge_by;
 mod pr_mode;
 mod pull_request_owners;
@@ -138,7 +139,8 @@ fn a_section_m1_does_not_read_hard_fails_and_names_what_it_does_read() {
             "depends_on",
             "ci_gate",
             "tracker",
-            "test_map"
+            "test_map",
+            "connectors"
         ]
     );
 }

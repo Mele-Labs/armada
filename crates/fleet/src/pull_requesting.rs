@@ -388,6 +388,24 @@ where
         Ok(state)
     }
 
+    /// A pull request the mod read off what `gh pr create` printed, read now rather than at the next
+    /// pull reading, so its row has its title. **Only where its address is in the Session's own
+    /// repository**: its number names another pull request here. A repository Fleet does not serve,
+    /// and a forge that will not answer, leave the row as the mod told it.
+    pub(crate) async fn opened_pull_read(&self, manifest: &str, address: &str) {
+        let Some(number) = self.own_repository(manifest).and_then(|repository| adapters::pull_linked_in(address, &repository)) else {
+            return;
+        };
+        let manifest_id = ManifestId::carried(manifest);
+        let Ok(served) = self.served_named(Some(&manifest_id)) else {
+            return;
+        };
+        if let Ok(state) = self.pull_request_read_off(&manifest_id, served.root(), number).await {
+            self.ledger_follows(&state).await;
+            self.lifecycle_pull_seen(&manifest_id, served.root(), &state).await;
+        }
+    }
+
     pub(crate) fn not_merged_refusal(&self, number: u64, why: NotMerged) -> Refusal {
         let said = why.said();
         let raised = |code: &'static str| {
