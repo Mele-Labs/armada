@@ -49,18 +49,6 @@
   min-width: 0;
 }
 
-/* Skills' switch for Jobs: a column as wide as a switch on every row, empty where Jobs always get the skill. */
-.armada-kit-browser__item:has(> .armada-kit-browser__jobs) {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) calc(var(--space-12) + var(--space-3));
-}
-.armada-kit-browser__jobs {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding-right: var(--space-3);
-}
-
 /* Rows are the Cockpit list's: flat on the panel, a hairline between, 28px, the picked one a wash. */
 .armada-kit-browser__item + .armada-kit-browser__item {
   border-top: var(--border-width) solid color-mix(in srgb, var(--fg-default) 10%, transparent);

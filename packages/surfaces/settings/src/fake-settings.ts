@@ -23,7 +23,6 @@ const GROUP: Record<string, string> = {
   Account: "Fleet",
   Store: "Fleet",
   "Token use": "Fleet",
-  Repository: "Fleet",
   Harness: "Agents",
   Model: "Agents",
   Effort: "Agents",
@@ -576,25 +575,39 @@ export const MOCK_SETTINGS: SettingsList = {
 
 /**
  * Settings Fleet does not serve yet, drawn for the walk `token-usage-settings` before the schema has them: what a
- * Job costs in tokens, and the connectors switch for one repository, saved off. Not in `MOCK_SETTINGS`, so no other
- * walk draws them.
+ * Job costs in tokens, and two values set per repository by Manifest id. `connectorsOff` ships the repositories whose
+ * own armada.yml turns connectors off; `skillsOff` is saved. Not in `MOCK_SETTINGS`, so no other walk draws them.
  */
-export const TOKEN_USE_SETTINGS: readonly Setting[] = [
+export const tokenUseSettings = (
+  connectorsOff: readonly string[],
+  skillsOff: Readonly<Record<string, readonly string[]>>,
+): Setting[] => [
   row(
     "Token use",
     "tokens.skillsOff",
     "Skills switched off for Jobs",
-    "Kit, Skills draws this as a switch on each skill.",
+    "Kit, Skills draws this in each skill's detail, as a switch per repository.",
     {
       kind: "json",
     },
-    [],
+    {},
     {
-      saved: [
-        "gitnexus-cli",
-        "anthropic-skills:pptx",
-      ],
+      saved: {
+        ...skillsOff,
+      },
     },
+  ),
+  row(
+    "Token use",
+    "tokens.connectorsOff",
+    "Connectors switched off",
+    "System, Repository draws this as a switch per repository.",
+    {
+      kind: "json",
+    },
+    [
+      ...connectorsOff,
+    ],
   ),
   row(
     "Token use",
@@ -619,18 +632,6 @@ export const TOKEN_USE_SETTINGS: readonly Setting[] = [
     "Off, turn summaries kept their quality on 60 measured summaries and their output fell from 210 to 148 tokens. Turn it on if turn summaries start missing what a turn did.",
     BOOLEAN,
     false,
-  ),
-  row(
-    "Repository",
-    "repository.connectors",
-    "Connectors",
-    "Jobs in this repository start with the connectors on your claude.ai account, such as Notion, Drive and Slack. Off, they start without them. Servers in the repository's own .mcp.json are kept, and sessions started outside Armada are unaffected.",
-    BOOLEAN,
-    true,
-    {
-      saved: false,
-      applies: "at_restart",
-    },
   ),
 ];
 

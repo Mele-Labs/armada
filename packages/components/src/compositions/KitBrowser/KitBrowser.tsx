@@ -8,7 +8,8 @@ import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Input } from "../../primitives/Input/Input";
 import { Select } from "../../primitives/Select/Select";
 import { Skeleton } from "../../primitives/Skeleton/Skeleton";
-import { Switch, SwitchControl } from "../../primitives/Switch/Switch";
+import { Switch } from "../../primitives/Switch/Switch";
+import { RepositorySwitches } from "../RepositorySwitches/RepositorySwitches";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { KitServerAddForm, KIT_HERE_LABEL } from "../KitServers/KitServers";
 import { BuiltInMark, ModKindMark } from "../ModRow/ModRow";
@@ -87,10 +88,14 @@ export type KitBrowserProps = {
     onKitReach?: (name: string, reaches: boolean) => void;
     onHereReach?: (name: string, reach: "extended" | "restricted" | null) => void;
   };
-  /** Skills: a switch on each row for whether Jobs get it. `off` is the names switched off. Absent draws no switch column. */
+  /**
+   * Skills: which repositories' Jobs get the picked skill, as a switch per repository in its detail. `off` is each
+   * repository's skills switched off, by its id. Absent draws no list.
+   */
   jobs?: {
-    off: readonly string[];
-    onSwitch: (name: string, on: boolean) => void;
+    repositories: readonly { id: string; name: string }[];
+    off: Readonly<Record<string, readonly string[]>>;
+    onSwitch: (repository: string, skill: string, on: boolean) => void;
   };
 };
 
@@ -186,14 +191,6 @@ export function KitBrowser({
           )}
         </span>
       </button>
-      {/* Beside the row and not in it, as a control inside a button is not one. A row every Job gets keeps the column empty. */}
-      {jobs === undefined ? null : (
-        <span className="armada-kit-browser__jobs">
-          {one.jobs === undefined ? null : (
-            <JobsSwitch name={one.jobs} on={!jobs.off.includes(one.jobs)} onSwitch={jobs.onSwitch} />
-          )}
-        </span>
-      )}
     </li>
   );
 
@@ -339,6 +336,7 @@ export function KitBrowser({
             onOpenFile={onOpenFile}
             onShowInFinder={onShowInFinder}
             openRefused={openRefused}
+            jobs={jobs}
           />
         )}
       </section>
@@ -352,28 +350,6 @@ export function KitBrowser({
         />
       )}
     </div>
-  );
-}
-
-/** Whether Jobs get one skill. Named for the skill so a screen reader hears whose switch it is. */
-function JobsSwitch({
-  name,
-  on,
-  onSwitch,
-}: {
-  name: string;
-  on: boolean;
-  onSwitch: (name: string, on: boolean) => void;
-}) {
-  return (
-    <Tooltip label={on ? "Jobs get this skill" : "Jobs start without this skill"}>
-      <SwitchControl
-        size="sm"
-        label={`Jobs get ${name}`}
-        checked={on}
-        onChange={(event) => onSwitch(name, event.target.checked)}
-      />
-    </Tooltip>
   );
 }
 
@@ -446,6 +422,7 @@ function Detail({
   onOpenFile,
   onShowInFinder,
   openRefused,
+  jobs,
 }: {
   row: KitRow;
   shared: SharedHome | undefined;
@@ -458,6 +435,7 @@ function Detail({
   onOpenFile: KitBrowserProps["onOpenFile"];
   onShowInFinder: KitBrowserProps["onShowInFinder"];
   openRefused: KitBrowserProps["openRefused"];
+  jobs: KitBrowserProps["jobs"];
 }) {
   const kit = row.server?.tier === "kit" ? row.server.row : undefined;
   const [confirming, setConfirming] = useState(false);
@@ -547,6 +525,20 @@ function Detail({
           {notes}
         </>
       ) : null}
+      {jobs === undefined ? null : row.jobs === undefined ? (
+        <p className="armada-kit-browser__comes">Every Job gets a repository's own skills and Armada's.</p>
+      ) : (
+        <RepositorySwitches
+          title="Jobs get it in"
+          rows={jobs.repositories.map((one) => ({
+            id: one.id,
+            name: one.name,
+            on: !(jobs.off[one.id] ?? []).includes(row.jobs!),
+          }))}
+          switchLabel={(name) => `Jobs in ${name} get ${row.name}`}
+          onSwitch={(repository, on) => jobs.onSwitch(repository, row.jobs!, on)}
+        />
+      )}
     </>
   );
   if (inline) {

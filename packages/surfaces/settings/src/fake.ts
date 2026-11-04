@@ -4,7 +4,7 @@ import type { Outcome } from "@armada/protocol";
 
 import type { SettingsApi } from "./api";
 
-export { MOCK_SETTINGS, savedInto, TOKEN_USE_SETTINGS } from "./fake-settings";
+export { MOCK_SETTINGS, savedInto, tokenUseSettings } from "./fake-settings";
 
 const OK: Outcome = {
   ok: true,

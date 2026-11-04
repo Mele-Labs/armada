@@ -1,17 +1,18 @@
-// Settings Fleet does not serve yet, drawn as Fleet would serve them: Kit › Skills with a switch on each skill for
-// whether Jobs get it (two already off, and a repository's own skill and Armada's with none), Fleet › Token use with
-// three Machine settings, and Fleet › Repository with the connectors switch saved off. The walk `tokenUsageSettings`
-// plays it.
+// Settings Fleet does not serve yet, drawn as Fleet would serve them, over three repositories: a skill's detail in
+// Kit › Skills listing the repositories whose Jobs get it (none for a repository's own skill or Armada's), Fleet ›
+// Token use with three Machine settings, and Fleet › Repository with a connectors switch per repository. The walk
+// `tokenUsageSettings` plays it.
 
-import type { KitInventory, SetupItem } from "@armada/protocol";
-import { MOCK_SETTINGS, TOKEN_USE_SETTINGS } from "@armada/settings/fake";
+import type { KitInventory, RepositorySummary, SetupItem } from "@armada/protocol";
+import { MANIFEST_ID, repository } from "@armada/screens/src/fixtures/repository";
+import { MOCK_SETTINGS, tokenUseSettings } from "@armada/settings/fake";
 
 import { KIT_SERVERS, manifesting, PLUGIN_KIT_INVENTORY } from "../manifest-fake";
 import type { Scenario } from "../moment";
 
 const HOME = "/Users/user/.agent";
 
-/** Skills beside the plugin inventory's: two the settings switch off, and one the repository brings. */
+/** Skills beside the plugin inventory's: one of the person's, one a plugin brings, and one the repository brings. */
 const MORE_SKILLS: SetupItem[] = [
   {
     name: "gitnexus-cli",
@@ -49,6 +50,24 @@ const INVENTORY: KitInventory = {
   ),
 };
 
+/** Two more repositories beside armada, so each switch set per repository has more than one row. */
+const ANOTHER = (id: string, name: string): RepositorySummary => {
+  const one = repository();
+  return {
+    root: `/Users/user/${name}`,
+    records_root: `/Users/user/Library/Application Support/Armada/records/${name}`,
+    manifest: {
+      ...one.manifest!,
+      id,
+      repository: name,
+      path: `${name}/armada.yml`,
+      records_root: `/Users/user/Library/Application Support/Armada/records/${name}`,
+    },
+  };
+};
+const STOREFRONT = "01M1CNPKTV0018H2M1CXSTORE1";
+const LEDGER = "01M1CNPKTV0018H2M1CXLEDGR1";
+
 function build(): Scenario {
   const base = manifesting({
     kitInventory: INVENTORY,
@@ -57,14 +76,32 @@ function build(): Scenario {
   return {
     ...base,
     name: "token-usage-settings",
-    says: "Kit › Skills with a switch for Jobs on each skill, Fleet › Token use and Fleet › Repository, served before Fleet has them",
+    says: "Kit › Skills with a list per skill of the repositories whose Jobs get it, Fleet › Token use, and Fleet › Repository with connectors per repository, armada's off from its armada.yml",
     state: {
       ...base.state,
+      holds: {
+        ...base.state.holds,
+        repositories: [
+          ...(base.state.holds.repositories ?? []),
+          ANOTHER(STOREFRONT, "storefront"),
+          ANOTHER(LEDGER, "ledger"),
+        ],
+      },
       settings: {
         ...MOCK_SETTINGS,
         settings: [
           ...MOCK_SETTINGS.settings,
-          ...TOKEN_USE_SETTINGS,
+          // armada's armada.yml says `connectors: false`, so it ships off; ledger has pptx switched off.
+          ...tokenUseSettings(
+            [
+              MANIFEST_ID,
+            ],
+            {
+              [LEDGER]: [
+                "anthropic-skills:pptx",
+              ],
+            },
+          ),
         ],
       },
     },

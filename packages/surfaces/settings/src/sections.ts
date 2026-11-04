@@ -149,22 +149,6 @@ const SCHEMA_SECTIONS: readonly SettingsSection[] = [
     ],
   },
   {
-    id: "repository",
-    label: "Repository",
-    palette: "Repository settings",
-    schema: true,
-    settings: [
-      [
-        "Repository",
-        "connectors",
-        "claude.ai",
-        "notion",
-        "drive",
-        "slack",
-      ],
-    ],
-  },
-  {
     id: "harness",
     label: "Harness",
     palette: "Harness",
@@ -627,7 +611,6 @@ const SHIPPED_GROUPS: readonly {
       "account",
       "store",
       "token-use",
-      "repository",
     ],
   },
   {

@@ -1,6 +1,6 @@
-// What a Job costs in tokens: a switch on each skill in Kit › Skills for whether Jobs get it, three Machine settings
-// under Fleet › Token use, and the connectors switch under Fleet › Repository. A design review before Fleet serves
-// any of them. Over `token-usage-settings`.
+// What a Job costs in tokens, set per repository where it differs by one: a skill's detail in Kit › Skills lists the
+// repositories whose Jobs get it, Fleet › Token use holds three Machine settings, and Fleet › Repository has a
+// connectors switch per repository. A design review before Fleet serves any of them. Over `token-usage-settings`.
 
 import { button, inside, place, region, role, systemPage, walk } from "../walk";
 
@@ -11,19 +11,19 @@ const tokenUsageSettings = walk("token-usage-settings", [
   },
   {
     press: systemPage("Skills"),
-    say: "Skills, with a switch on each for whether Jobs get it",
+    say: "Skills",
   },
   {
-    look: role("switch", "Jobs get gitnexus-cli"),
-    say: "gitnexus-cli is off",
+    press: inside(region("Skills"), button(/^gitnexus-cli/)),
+    say: "gitnexus-cli, with the repositories whose Jobs get it",
   },
   {
-    press: role("switch", "Jobs get humanizer"),
-    say: "humanizer off: Jobs start without it, so it costs nothing per request",
+    press: role("switch", "Jobs in storefront get gitnexus-cli"),
+    say: "Off for storefront: its Jobs start without gitnexus-cli, and the other repositories keep it",
   },
   {
-    look: inside(region("Skills"), button(/^release-notes/)),
-    say: "A repository's own skills and Armada's have no switch. Every Job gets them",
+    press: inside(region("Skills"), button(/^release-notes/)),
+    say: "A repository's own skill has no switches. Every Job gets it",
   },
   {
     press: systemPage("Token use"),
@@ -43,11 +43,11 @@ const tokenUsageSettings = walk("token-usage-settings", [
   },
   {
     press: systemPage("Repository"),
-    say: "Repository, under Fleet",
+    say: "Connectors, one switch per repository. armada is off from its armada.yml",
   },
   {
-    look: role("switch", /^Connectors/),
-    say: "Connectors, off for this repository",
+    press: role("switch", "Connectors in ledger"),
+    say: "Off for ledger: its Jobs start without your claude.ai connectors",
   },
 ]);
 

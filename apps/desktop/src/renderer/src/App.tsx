@@ -1172,6 +1172,16 @@ export function App() {
                                   ? null
                                   : repositoryLabel(pickedRepository, repositories)
                               }
+                              repositories={repositories.flatMap((one) =>
+                                one.manifest === undefined
+                                  ? []
+                                  : [
+                                      {
+                                        id: one.manifest.id,
+                                        name: one.manifest.repository,
+                                      },
+                                    ],
+                              )}
                               settings={state.settings}
                               modelChoices={state.holds.models}
                               live={live}

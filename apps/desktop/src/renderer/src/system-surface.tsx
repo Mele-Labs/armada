@@ -9,6 +9,7 @@ import {
   KitBrowser,
   KitModels,
   namesOf,
+  RepositorySwitches,
   SystemPage,
   SystemSidebar,
   useKept,
@@ -54,6 +55,11 @@ import { useSystemEntry } from "./system-entry";
 export type SystemSurfaceProps = KitSlice & {
   /** The repository the rail has picked, as a person reads it, or `null` for All. Names Kit's Here control. */
   repository: string | null;
+  /** Every repository Fleet serves, by Manifest id, for the switches set per repository. */
+  repositories: readonly {
+    id: string;
+    name: string;
+  }[];
   settings: SettingsList | null;
   /** What Fleet answered to `list_models`, or `null` before it has. */
   modelChoices: ModelChoices | null;
@@ -71,8 +77,13 @@ export type SystemSurfaceProps = KitSlice & {
   warned: Readonly<Record<string, string>>;
 };
 
-/** The skills Jobs start without, as settings.json lists them. Bridge draws it as Kit › Skills' switches, never as a row. */
+/** The skills Jobs start without, by repository: `{ "<manifest id>": ["pptx"] }`. Drawn in a skill's detail, never as a row. */
 const SKILLS_OFF_KEY = "tokens.skillsOff";
+/** The repositories whose Jobs start without the person's connectors, by Manifest id. Drawn as System › Repository. */
+const CONNECTORS_OFF_KEY = "tokens.connectorsOff";
+
+/** A Json setting's value as a list of text, or none. */
+const listOf = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : []);
 
 /** A pull request opens in the side panel where one is hosted, and in the browser where not. */
 const openPull = (address: string) => void (openAddressInPanel(address) || openLink(address));
@@ -124,6 +135,7 @@ function useWithMods(setup: KitSetupRead | undefined): KitSetupRead | undefined 
 
 export function SystemSurface({
   repository,
+  repositories,
   settings,
   modelChoices,
   live,
@@ -166,18 +178,49 @@ export function SystemSurface({
     resolves: server.resolves,
   }));
   const names = (kind: KitKindId) => namesOf(kind, kit.setup, servers);
-  // Skills' switches for Jobs, drawn once Fleet serves the list of skills switched off, and saved back as that list.
+  // Both are set per repository and saved back whole, once Fleet serves them; the rail's pick changes neither.
   const skillsOff = settings?.settings.find((one) => one.key === SKILLS_OFF_KEY);
-  const off = Array.isArray(skillsOff?.value) ? skillsOff.value.map(String) : [];
+  const offBy: Record<string, readonly string[]> =
+    typeof skillsOff?.value === "object" && skillsOff.value !== null && !Array.isArray(skillsOff.value)
+      ? Object.fromEntries(
+          Object.entries(skillsOff.value).map(([id, names]) => [
+            id,
+            listOf(names),
+          ]),
+        )
+      : {};
   const jobs =
     skillsOff === undefined
       ? undefined
       : {
-          off,
-          onSwitch: (name: string, on: boolean) => {
-            const next = on ? off.filter((one) => one !== name) : [...off, name];
+          repositories,
+          off: offBy,
+          onSwitch: (id: string, skill: string, on: boolean) => {
+            const was = offBy[id] ?? [];
+            const next = on ? was.filter((one) => one !== skill) : [...was, skill];
+            const { [id]: _gone, ...rest } = offBy;
+            const all =
+              next.length === 0
+                ? rest
+                : {
+                    ...rest,
+                    [id]: next,
+                  };
             void window.armada.saveSettings({
-              [SKILLS_OFF_KEY]: next.length === 0 ? null : next,
+              [SKILLS_OFF_KEY]: Object.keys(all).length === 0 ? null : all,
+            });
+          },
+        };
+  const connectorsOff = settings?.settings.find((one) => one.key === CONNECTORS_OFF_KEY);
+  const connectors =
+    connectorsOff === undefined
+      ? undefined
+      : {
+          off: listOf(connectorsOff.value),
+          onSwitch: (id: string, on: boolean) => {
+            const was = listOf(connectorsOff.value);
+            void window.armada.saveSettings({
+              [CONNECTORS_OFF_KEY]: on ? was.filter((one) => one !== id) : [...was, id],
             });
           },
         };
@@ -211,9 +254,11 @@ export function SystemSurface({
         ? taughtOf(taught, "tracker").length > 0
         : id === "bridge:fleet"
           ? taughtOf(taught, "fleet").length > 0
-          : id === "kit:workspaces"
-            ? workspaces !== undefined
-            : true;
+          : id === "fleet:repository"
+            ? connectors !== undefined
+            : id === "kit:workspaces"
+              ? workspaces !== undefined
+              : true;
   const visible = SYSTEM_ENTRIES.filter((one) => found.get(one.id) !== null && made(one.id));
   // A search that hides the entry last picked draws the first it found, without forgetting the pick.
   const shown: SystemEntryDef | undefined = visible.find((one) => one.id === entry) ?? visible[0];
@@ -421,6 +466,26 @@ export function SystemSurface({
           onOn={models.setOn}
           onChoose={models.choose}
         />
+      );
+    }
+    if (def.id === "fleet:repository" && connectors !== undefined) {
+      return (
+        <div className="armada-system__pane" data-col="detail">
+          <div className="armada-system__section">
+            <RepositorySwitches
+              title="Connectors"
+              help="Off, Jobs in that repository start without the connectors on your claude.ai account, such as Notion, Drive and Slack. Servers in the repository's own .mcp.json are kept, and sessions started outside Armada are unaffected. A switch you have not set follows the repository's armada.yml."
+              rows={repositories.map((one) => ({
+                id: one.id,
+                name: one.name,
+                on: !connectors.off.includes(one.id),
+              }))}
+              switchLabel={(name) => `Connectors in ${name}`}
+              disabled={!live}
+              onSwitch={connectors.onSwitch}
+            />
+          </div>
+        </div>
       );
     }
     if (def.id === "bridge:browser") {

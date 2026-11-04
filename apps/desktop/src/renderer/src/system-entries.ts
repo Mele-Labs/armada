@@ -207,9 +207,6 @@ export const SYSTEM_ENTRIES: readonly SystemEntryDef[] = [
     id: "fleet:repository",
     label: "Repository",
     group: "fleet",
-    sections: [
-      "repository",
-    ],
   },
   {
     id: "bridge:all",
