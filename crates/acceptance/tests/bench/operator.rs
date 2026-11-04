@@ -10,7 +10,10 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use core_model::Timestamp;
-use fleet::operator::{Acting, Answering, Arrival, Arrived, Calling, Desk, Done, LiveJob, Logged, Operator, Quiet, Source, Stall, Way};
+use fleet::operator::{
+    Acting, Answering, Arrival, Arrived, Calling, Choice, Desk, Done, Earlier, Group, Kind, LiveJob, Logged, Operator, Present, Question, Quiet,
+    Source, Stall, Way,
+};
 use fleet::CallFailed;
 
 pub const REPOSITORY: &str = "01ARMADAREPOSITORY";
@@ -68,6 +71,29 @@ pub fn started(session: &str, source: Source) -> Arrival {
         issues: job.issues,
         group: None,
         ways: Way::STARTING.to_vec(),
+        answers: Vec::new(),
+        rule: None,
+    }
+}
+
+/// The question the 3 Nov report's Jobs each asked, as an agent's options put it.
+pub const ASKED: &str = "Should a terminal an agent opens keep its scrollback per tab, or share one?";
+pub const PER_TAB: &str = "Keep it per tab (recommended)";
+
+/// [`ASKED`], from one of [`live`]'s Jobs working on `group`, while the person is `present`.
+pub fn asked(session: &str, group: Group, present: Present, earlier: Option<Earlier>) -> Question {
+    let job = live().into_iter().find(|one| one.session_id == session).expect("one of the three");
+    Question {
+        session_id: job.session_id,
+        manifest_id: job.manifest_id,
+        title: job.title,
+        item_id: "ask:1".into(),
+        text: ASKED.into(),
+        options: vec![PER_TAB.into(), "Share one scrollback".into()],
+        kind: Kind::Recommended(0),
+        group,
+        earlier,
+        present,
     }
 }
 
@@ -139,6 +165,8 @@ pub struct FakeFleet {
     nudged: Mutex<Vec<(String, String)>>,
     raised: Mutex<Vec<(String, String)>>,
     started_anew: Mutex<Vec<String>>,
+    answered: Mutex<Vec<(String, String, u32, String)>>,
+    answered_first: Mutex<bool>,
 }
 
 impl FakeFleet {
@@ -152,6 +180,8 @@ impl FakeFleet {
             nudged: Mutex::new(Vec::new()),
             raised: Mutex::new(Vec::new()),
             started_anew: Mutex::new(Vec::new()),
+            answered: Mutex::new(Vec::new()),
+            answered_first: Mutex::new(false),
         })
     }
 
@@ -168,6 +198,16 @@ impl FakeFleet {
     /// Each Job whose rest was started as a new Job.
     pub fn started_anew(&self) -> Vec<String> {
         self.started_anew.lock().expect("not poisoned").clone()
+    }
+
+    /// Each item answered as the person's press would: the Job, the item, the option and its label.
+    pub fn answered(&self) -> Vec<(String, String, u32, String)> {
+        self.answered.lock().expect("not poisoned").clone()
+    }
+
+    /// The person answers every item himself, ahead of any ruling.
+    pub fn answer_first(&self) {
+        *self.answered_first.lock().expect("not poisoned") = true;
     }
 
     /// The Log, oldest first.
@@ -228,6 +268,11 @@ impl Desk for FakeFleet {
     fn keep(&self, row: Logged) -> Done<'_, ()> {
         Box::pin(async move { self.log.lock().expect("not poisoned").push(row) })
     }
+
+    fn settled(&self, _arrival: &Arrival) -> Done<'_, Option<String>> {
+        let first = *self.answered_first.lock().expect("not poisoned");
+        Box::pin(async move { first.then(|| "the person answered it before the ruling came".to_string()) })
+    }
 }
 
 impl Acting for FakeFleet {
@@ -255,6 +300,10 @@ impl Acting for FakeFleet {
 
     fn raise(&self, session: &str, read: &str) {
         self.raised.lock().expect("not poisoned").push((session.into(), read.into()));
+    }
+
+    fn answer(&self, session: &str, item: &str, choice: &Choice, _because: &str) {
+        self.answered.lock().expect("not poisoned").push((session.into(), item.into(), choice.at, choice.label.clone()));
     }
 }
 
