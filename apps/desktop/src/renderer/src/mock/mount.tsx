@@ -320,7 +320,9 @@ export function mountApp(
                                                           <ReviewsFrom store={reviews}>
                                                             <IssuesFrom store={issues}>
                                                               <ProjectsFrom store={projects}>
-                                                                <SpentFrom spent={chosen.draft?.usageSpent}>
+                                                                <SpentFrom
+                                                                  spent={chosen.draft?.usageSpent}
+                                                                >
                                                                   {panelReads === undefined ? (
                                                                     <SharedPanelOver
                                                                       api={withState(api)}
