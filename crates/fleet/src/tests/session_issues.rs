@@ -20,7 +20,7 @@ use crate::tests::session_host::{rig_fitted, Rig};
 use crate::tests::tmp::TempDir;
 
 /// The served repository made a checkout whose origin is `o/r` on a forge no test reaches.
-fn with_origin(root: &str) {
+pub(super) fn with_origin(root: &str) {
     for args in [&["init", "-q"][..], &["remote", "add", "origin", "https://forge.invalid/o/r.git"]] {
         let ran = std::process::Command::new("git").args(args).current_dir(root).output().expect("git");
         assert!(ran.status.success(), "{args:?}");
