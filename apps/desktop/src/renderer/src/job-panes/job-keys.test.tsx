@@ -42,6 +42,11 @@ const named: Record<string, unknown> = {
     ok: false,
     said: "",
   }),
+  // The System tab asks Fleet for the Job's split as it opens.
+  getJobTime: async () => ({
+    ok: false,
+    said: "",
+  }),
   // The + asks Fleet for the Job's terminals as it opens.
   listTerminals: async () => ({
     ok: false,
