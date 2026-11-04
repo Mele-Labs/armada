@@ -488,6 +488,7 @@ fn a_repository_with_no_workflows_of_its_own_runs_on_what_armada_carries() {
             "prototype",
             "refactor",
             "revert",
+            "uat",
         ];
         assert_eq!(
             sources(&setup),
