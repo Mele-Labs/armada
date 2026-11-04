@@ -248,6 +248,10 @@ fn fenced(args: &mut Vec<String>) {
         // rather than merely denying each use of one. `#1047`.
         "--tools".into(),
         String::new(),
+        // No transcript on disk. Session accounts alone made about 1,800 a day,
+        // and every one was another file the turn reader walks past each pass.
+        // The cost is read off the call's own output, not a transcript.
+        "--no-session-persistence".into(),
     ]);
 }
 
