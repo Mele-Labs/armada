@@ -957,6 +957,40 @@ Overridden by ARMADA_RETRO_MODEL, resolved at the composition root, and nothing 
 **The value lives in settings.json under `models.retro`** (live; `ARMADA_RETRO_MODEL` still wins), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
+[settings.operator-model]
+name = "Operator model"
+scope = "Machine"
+default = "sonnet"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "Member of the Kit set"
+owner = "Fleet"
+read_by = "adapters, fleet"
+notes = """
+DECIDED 4 Nov 2026 (owner), with the design page *Helm becomes the Operator*: sonnet, its own row so no other setting moves it, and it never follows the proposer's cheap tier. The replay of 4 Nov ran 120 of a week's arrivals through the call on both tiers: Fleet's rules would have refused 4 of this tier's rulings against 14 of the cheap tier's, at about 17 times the cheap tier's price a call. `docs/spikes/operator-replay.md`.
+
+One call with no tools, kept started and waiting so an arrival pays only for the model. The adapter states the default and a test holds it to the roster and above the Judge's.
+
+**The value lives in settings.json under `models.operator`** (live), `docs/concepts/machine.md`, *settings.json*.
+"""
+
+[settings.operator-daily-call-ceiling]
+name = "Operator calls a day"
+scope = "Machine"
+default = "100"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+Chosen 4 Nov 2026, not measured, and the owner has not set it: 100. The design page *Helm becomes the Operator* puts a daily ceiling on the Operator's calls, under Permissions, and names no number. The replay of 4 Nov counted 38 calls a working day and 57 on the busiest, before turn ends, permission cards and stalls are counted; 100 is the page's own estimate once they are, about $3.60 a day on the Operator model at the replay's price.
+
+Past it the Operator makes no calls until the next day, which is the next UTC day, and every arrival passes on as it did before the Operator, with a Passed on row in its Log saying the ceiling was reached. Zero makes no calls at all. Counted from the Log, so a restart does not reset it.
+
+**The value lives in settings.json under `limits.operatorDailyCalls`** (live).
+"""
+
 [settings.plan-downshift-line]
 name = "Plan downshift line"
 scope = "Machine"
