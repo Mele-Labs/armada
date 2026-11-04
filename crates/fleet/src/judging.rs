@@ -12,7 +12,7 @@
 
 mod running;
 
-pub(crate) use running::{said, watched};
+pub(crate) use running::{answered, said, waiting, watched};
 
 use std::fmt;
 use std::time::Duration;
