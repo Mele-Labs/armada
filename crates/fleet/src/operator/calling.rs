@@ -57,6 +57,18 @@ impl KeptStarted {
         Ok(())
     }
 
+    /// Stop the process kept waiting, where one is: the Operator was turned off.
+    pub async fn stopped(&self) {
+        if let Some((_, mut child)) = self.waiting.lock().await.take() {
+            let _ = child.start_kill();
+        }
+    }
+
+    /// Whether a process is kept waiting now.
+    pub async fn is_waiting(&self) -> bool {
+        self.waiting.lock().await.is_some()
+    }
+
     fn start(&self, model: &Model) -> Result<Child, CallFailed> {
         let ask = Ask::put(model.clone(), NOT_YET, self.environment.clone()).map_err(|_| CallFailed::NothingToAsk)?;
         waiting(&self.client.render(&ask))

@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use tokio::sync::watch;
 
-use super::{held, Arrival, Operator, Ruled, Way};
+use super::{held, Arrival, KeptStarted, Operator, Ruled, Way};
 
 /// What a Job kept in touch with another did, which that other is told of.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -23,6 +23,8 @@ pub(crate) type StartRuling = watch::Receiver<Option<Ruled>>;
 #[derive(Default)]
 pub(crate) struct Seat {
     operator: OnceLock<Arc<Operator>>,
+    /// The call the seated Operator makes, where it is the kept one: started and stopped with the switch.
+    kept: OnceLock<Arc<KeptStarted>>,
     starts: Arc<Mutex<HashMap<String, StartRuling>>>,
     moved: Mutex<BTreeMap<String, Moved>>,
 }
@@ -35,6 +37,14 @@ impl Seat {
 
     fn operator(&self) -> Option<Arc<Operator>> {
         self.operator.get().cloned()
+    }
+
+    pub(crate) fn keep(&self, call: Arc<KeptStarted>) {
+        let _ = self.kept.set(call);
+    }
+
+    pub(crate) fn kept(&self) -> Option<Arc<KeptStarted>> {
+        self.kept.get().cloned()
     }
 
     /// Rule on `arrival` in the background. Nothing waits on it: what it rules is logged and acted on.

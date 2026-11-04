@@ -16,11 +16,15 @@ use super::session_rail::record;
 use crate::operator::{Acting, Answering, Calling, FleetActing, Source};
 use crate::CallFailed;
 
-async fn dispatch(rig: &Rig, on: bool) {
-    let save = ipc::SaveSettings {
-        changes: std::collections::BTreeMap::from([("features.operatorDispatch".to_string(), Some(ipc::SettingValue::Bool(on)))]),
-    };
+async fn switched(rig: &Rig, key: &str, on: bool) {
+    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(ipc::SettingValue::Bool(on)))]) };
     api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
+}
+
+/// The Operator turned on, which ships off, and its Dispatch role as `on` says.
+async fn dispatch(rig: &Rig, on: bool) {
+    switched(rig, "features.operator", true).await;
+    switched(rig, "features.operatorDispatch", on).await;
 }
 
 async fn told(rig: &Rig, id: &SessionId) -> Vec<String> {
@@ -85,6 +89,7 @@ fn shared() -> Vec<String> {
 #[tokio::test]
 async fn with_dispatch_off_a_ruling_tells_and_ends_no_job() {
     let rig = rig_placing(None);
+    dispatch(&rig, false).await;
     let (one, other) = (asked(&rig, "Keep the scrollback").await, asked(&rig, "Open terminals in tabs").await);
     let acting = FleetActing::on(&rig.fleet);
 
@@ -231,4 +236,70 @@ async fn a_start_a_call_merges_stops_at_its_first_write_and_takes_no_slot() {
     assert!(hosting.lease_slot.is_none(), "no slot was leased for it");
     let log = rig.fleet.store().lock().await.operator_rulings(10).expect("read");
     assert_eq!((log.len(), log[0].outcome.as_str()), (1, "merge"));
+}
+
+/// A call that counts what it is asked and answers nothing.
+#[derive(Default)]
+struct Counting(std::sync::atomic::AtomicUsize);
+
+impl Calling for Counting {
+    fn ask(&self, _question: String) -> Answering<'_> {
+        self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Box::pin(async move { Err(CallFailed::SaidNothing) })
+    }
+}
+
+#[tokio::test]
+async fn as_it_ships_the_operator_is_off_and_a_dispatch_and_a_plan_go_on_with_no_ruling_and_no_call() {
+    let rig = rig_placing(None);
+    assert!(!rig.fleet.operator_on(), "the Operator ships off");
+    switched(&rig, "features.operatorDispatch", true).await;
+    let counted = Arc::new(Counting::default());
+    assert!(rig.fleet.operator_seated_with(counted.clone()));
+    let other = asked(&rig, "Keep the terminal scrollback when the pane redraws").await;
+    rig.fleet.record_plan(None, plan(&other, &[("Scrollback", "apps/panes/terminal.tsx")]), false).await.expect("recorded");
+
+    let dispatched = rig.start_requesting("The terminal scrollback is lost on redraw", |_| {}).await.id;
+    let planner = asked(&rig, "Tabs for the panes").await;
+    rig.fleet.record_plan(None, plan(&planner, &[("Terminal tab", "apps/panes/terminal.tsx")]), false).await.expect("recorded");
+    tokio::time::sleep(Duration::from_millis(300)).await;
+
+    assert_eq!(counted.0.load(std::sync::atomic::Ordering::SeqCst), 0, "no call");
+    assert!(rig.fleet.store().lock().await.operator_rulings(10).expect("read").is_empty(), "no ruling");
+    assert!(rig.fleet.operator_seat().start_ruling(dispatched.as_str()).is_none(), "nothing for a first write to wait on");
+
+    // The same plan with the Operator on is ruled, so the silence above is the switch's.
+    switched(&rig, "features.operator", true).await;
+    rig.fleet.record_plan(None, plan(&planner, &[("Terminal tab, again", "apps/panes/terminal.tsx")]), false).await.expect("recorded");
+    let fleet = Arc::clone(&rig.fleet);
+    eventually(|| {
+        let fleet = Arc::clone(&fleet);
+        async move { !fleet.store().lock().await.operator_rulings(10).expect("read").is_empty() }
+    })
+    .await;
+    assert_eq!(counted.0.load(std::sync::atomic::Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn the_call_is_kept_started_only_while_the_operator_is_on() {
+    let rig = rig_placing(None);
+    let judge = Arc::new(testkit::FakeJudge::saying("item: 1\nway: 1\njob: none\nshared: none\nbecause: nothing"));
+    let call = Arc::new(crate::operator::KeptStarted::new(
+        judge.clone(),
+        || adapter_traits::Model::named("the-operator-model").ok(),
+        adapter_traits::Environment::nothing(),
+        crate::JudgeBudget::of(Duration::from_secs(10)),
+    ));
+
+    rig.fleet.operator_kept(Arc::clone(&call)).await;
+    assert!(judge.models().is_empty() && !call.is_waiting().await, "off: no process is started");
+
+    switched(&rig, "features.operator", true).await;
+    rig.fleet.operator_kept_in_step().await;
+    assert_eq!(judge.models().len(), 1);
+    assert!(call.is_waiting().await, "on: one waits");
+
+    switched(&rig, "features.operator", false).await;
+    rig.fleet.operator_kept_in_step().await;
+    assert!(!call.is_waiting().await, "turned off live: the one waiting is stopped");
 }

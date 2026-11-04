@@ -100,9 +100,15 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The Operator's Dispatch switch, as settings.json reads now.
+    /// The Operator's own switch, as settings.json reads now. Off is Fleet as it was before it.
+    pub(crate) fn operator_on(&self) -> bool {
+        self.machine_settings().now().get(keys::OPERATOR)
+    }
+
+    /// The Operator's Dispatch switch, as settings.json reads now, under its own.
     pub(crate) fn operator_dispatches(&self) -> bool {
-        self.machine_settings().now().get(keys::OPERATOR_DISPATCH)
+        let settings = self.machine_settings().now();
+        settings.get(keys::OPERATOR) && settings.get(keys::OPERATOR_DISPATCH)
     }
 
     /// A Job held on its start card starts as his press would, on the landing the card picked.

@@ -41,12 +41,30 @@ where
         let fleet = Arc::downgrade(self);
         let model = move || Model::named(&fleet.upgrade()?.machine_settings().now().get(keys::MODELS_OPERATOR)).ok();
         let call = Arc::new(KeptStarted::new(proposing.client, model, proposing.environment, proposing.budget));
+        let fleet = Arc::clone(self);
+        tokio::spawn(async move { fleet.operator_kept(call).await });
+    }
+
+    /// Seat an Operator making its calls through `call`, kept started while the switch is on.
+    pub(crate) async fn operator_kept(self: &Arc<Self>, call: Arc<KeptStarted>) {
         if self.operator_seated_with(call.clone()) {
-            tokio::spawn(async move {
+            self.operator_seat().keep(call);
+            self.operator_kept_in_step().await;
+        }
+    }
+
+    /// The call kept started while the Operator is on, and stopped while it is off. Once a tick, so
+    /// a switch turned live is followed within one.
+    pub async fn operator_kept_in_step(&self) {
+        let Some(call) = self.operator_seat().kept() else { return };
+        match (self.operator_on(), call.is_waiting().await) {
+            (true, false) => {
                 if let Err(why) = call.ready().await {
-                    eprintln!("the Operator's call did not start ahead of its first arrival: {why}");
+                    eprintln!("the Operator's call did not start ahead of its next arrival: {why}");
                 }
-            });
+            }
+            (false, true) => call.stopped().await,
+            _ => {}
         }
     }
 
@@ -58,6 +76,9 @@ where
 
     /// A Job's start, handed to the Operator with `words`, what it was asked.
     pub(crate) async fn start_handed(&self, id: &str, source: Source, words: &str) {
+        if !self.operator_on() {
+            return;
+        }
         let arrival = {
             let store = self.store().lock().await;
             let (Ok(Some(session)), Ok(Some(hosting))) = (store.session(id), store.hosting(id)) else { return };
@@ -83,6 +104,9 @@ where
     /// Each group of `kept`, just recorded, that `before` did not hold with the same paths. A group
     /// that goes to a Job of its own is that Job's start to rule, so it is not handed here.
     pub(crate) async fn plan_handed(&self, id: &str, before: Option<&KeptPlan>, kept: &KeptPlan) {
+        if !self.operator_on() {
+            return;
+        }
         self.operator_seat().moved(id, Moved::Plan);
         let Ok(Some(hosting)) = self.store().lock().await.hosting(id) else { return };
         for group in kept.groups.iter().filter(|group| !group.own_job && !group.paths.is_empty()) {

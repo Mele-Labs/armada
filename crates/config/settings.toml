@@ -991,6 +991,23 @@ Past it the Operator makes no calls until the next day, which begins at midnight
 **The value lives in settings.json under `limits.operatorDailyCalls`** (live).
 """
 
+[settings.operator]
+name = "Operator"
+scope = "Machine"
+default = "off"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+DECIDED 4 Nov 2026 (owner): the whole Operator can be turned off, and it ships Off, "off until I turn it on". It is the design page's Evaluate row, the one switch for the whole thing.
+
+**Off is main before the Operator.** No call process is kept started, and one already waiting is stopped; no start, plan or other arrival is handed to it, so no ruling is kept in its Log and no call counts against the day; no first write waits on a ruling; and no Job is acted on or told of another, whatever `operator-dispatch` says.
+
+Live: read at every arrival and every act, and the call kept started follows it on the notice loop's next tick.
+"""
+
 [settings.operator-dispatch]
 name = "Operator dispatches"
 scope = "Machine"

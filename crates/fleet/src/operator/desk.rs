@@ -108,7 +108,8 @@ where
 
     fn keep(&self, row: Logged) -> Done<'_, ()> {
         Box::pin(async move {
-            let Some(fleet) = self.fleet.upgrade() else { return };
+            // A call out when the Operator was turned off is recorded nowhere, as if it had not been made.
+            let Some(fleet) = self.fleet.upgrade().filter(|fleet| fleet.operator_on()) else { return };
             let kept = fleet.store().lock().await.add_operator_ruling(&row.kept());
             if let Err(why) = kept {
                 (self.adrift)(Adrift::Writing(why));

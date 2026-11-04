@@ -70,7 +70,9 @@ where
             }
             SessionFact::Pushed { branch } => {
                 self.road_noted(session, TimelineKind::SessionPushed, "Pushed", branch, now);
-                self.operator_seat().moved(&session.id, crate::operator::Moved::Pushed);
+                if self.operator_on() {
+                    self.operator_seat().moved(&session.id, crate::operator::Moved::Pushed);
+                }
                 Observed::Committed
             }
             _ => return Ok(false),

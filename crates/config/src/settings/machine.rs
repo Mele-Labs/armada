@@ -13,6 +13,8 @@ pub const DRAFT_PULL_REQUESTS: Flag = Flag("features.draftPullRequests");
 pub const OPEN_GUIDES_FIRST_TIME: Flag = Flag("features.openGuidesFirstTime");
 pub const WORKFLOWS: Flag = Flag("features.workflows");
 pub const DISPUTE_REVIEWS: Flag = Flag("features.disputeReviews");
+/// The Operator as a whole: off, nothing is handed to it, no call runs and nothing waits on it.
+pub const OPERATOR: Flag = Flag("features.operator");
 /// The Operator's Dispatch role: whether Fleet does what it rules on work arriving, or only logs it.
 pub const OPERATOR_DISPATCH: Flag = Flag("features.operatorDispatch");
 /// Read by Bridge alone: whether a job needing the owner posts a macOS notification.
@@ -150,6 +152,19 @@ pub(super) const FEATURES: &[Entry] = &[
         shipped: Shipped::Boolean(false),
         applies: Applies::Live,
         row: Some("dispute-reviews"),
+        env: None,
+        tip: None,
+    },
+    // Off as it ships, until the owner turns it on (the owner, 4 Nov 2026).
+    Entry {
+        key: OPERATOR.0,
+        section: Section::Features,
+        title: "Operator",
+        description: "The Operator rules on the work that arrives and keeps a Log of it. Off, nothing is handed to it, it makes no calls, and every start and plan goes on as it did before the Operator.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(false),
+        applies: Applies::Live,
+        row: Some("operator"),
         env: None,
         tip: None,
     },

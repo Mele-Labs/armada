@@ -247,6 +247,8 @@ async fn an_item_fleets_rules_leave_one_way_is_ruled_without_a_call() {
 #[tokio::test]
 async fn fleet_keeps_the_log_in_its_store_signed_by_the_operator_and_counts_the_days_calls() {
     let rig = rig_placing(None);
+    let on = ipc::SaveSettings { changes: std::collections::BTreeMap::from([("features.operator".to_string(), Some(ipc::SettingValue::Bool(true)))]) };
+    api::Settings::save_settings(rig.fleet.as_ref(), on).await.expect("the Operator turned on, which ships off");
     let id = rig.start().await;
     let said = Arc::new(Mutex::new(Vec::new()));
     let saying = Arc::clone(&said);
