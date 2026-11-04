@@ -13,7 +13,7 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; tasksOnDisk?: Record<string, string>; env?: Record<string, string>; pullRequest?: string; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown; logbook?: 'down' | 'slow' | 'refused' | string; prePr?: 'passed' | 'failed' | 'down' | 'slow' | 'refused' } = {},
+  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; tasksOnDisk?: Record<string, string>; env?: Record<string, string>; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown; logbook?: 'down' | 'slow' | 'refused' | string; prePr?: 'passed' | 'failed' | 'down' | 'slow' | 'refused' } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
@@ -108,7 +108,6 @@ function world(
     if (e.argv[0] === 'git') {
       return { value: { exitCode: 0, stdout: 'fleet/session-ledger\n', stderr: '' } }
     }
-    if (options.pullRequest !== undefined) return { value: { exitCode: 0, stdout: options.pullRequest, stderr: '' } }
     return { value: { exitCode: 1, stdout: '', stderr: 'no pull requests found' } }
   })
   on('session.id', () => ({ value: 'S1' }))
@@ -200,8 +199,8 @@ test('a Drone, Judge call or scout is not told to Fleet', async ($, on) => {
   expect(posts).toEqual([])
 })
 
-test('a pull request a session opens is attached from the address gh printed', async ($, on) => {
-  const { posts, clock } = world(on)
+test('a pull request a session opens is attached from the address gh printed, and gh is asked nothing', async ($, on) => {
+  const { posts, processes, clock } = world(on)
   on('tool.call', { tool: 'Bash' }, () => ({
     result: { stdout: URL, stderr: '', interrupted: false },
     text: URL,
@@ -212,8 +211,9 @@ test('a pull request a session opens is attached from the address gh printed', a
 
   expect(facts(posts)).toContainEqual({
     kind: 'attached',
-    attachment: { kind: 'pr', target: '1853', detail: { url: URL, created: 'true' } },
+    attachment: { kind: 'pr', target: '1853', detail: { url: URL, address: URL, created: 'true' } },
   })
+  expect(processes.filter(one => one.argv[0] === 'gh')).toEqual([])
 })
 
 test('an issue a session files is attached from the address gh printed', async ($, on) => {
@@ -230,47 +230,6 @@ test('an issue a session files is attached from the address gh printed', async (
 
   const told = facts(posts).filter(one => one.kind === 'attached' && one.attachment.kind === 'issue')
   expect(told).toEqual([{ kind: 'attached', attachment: { kind: 'issue', target: '2214', detail: { address: ISSUE } } }])
-})
-
-test('a pull request a session opens is read by its address, so it carries its title from any slot', async ($, on) => {
-  const { posts, processes, clock } = world(on, {
-    cwd: () => '/repos/armada/.armada/slots/slot-2',
-    pullRequest: JSON.stringify({ number: 1853, url: URL, state: 'OPEN', title: 'Pin the store clock', headRefName: 'fix/store-clock' }),
-  })
-  on('tool.call', { tool: 'Bash' }, () => ({
-    result: { stdout: URL, stderr: '', interrupted: false },
-    text: URL,
-  }))
-  await $.session.start({ cwd: '/repos/armada/.armada/slots/slot-2', surface: null, isInteractive: false })
-  await $.tool.call({ tool: 'Bash', command: 'cd /repos/armada/.armada/slots/slot-4 && gh pr create --base main' })
-  await clock.settle()
-
-  expect(processes.some(one => one.argv.join(' ').includes(`gh pr view ${URL}`))).toBe(true)
-  expect(facts(posts)).toContainEqual({
-    kind: 'attached',
-    attachment: {
-      kind: 'pr',
-      target: '1853',
-      detail: { url: URL, address: URL, state: 'open', title: 'Pin the store clock', branch: 'fix/store-clock', created: 'true' },
-    },
-  })
-})
-
-test('a pull request read off the branch carries its title, branch and address', async ($, on) => {
-  const { posts, clock } = world(on, {
-    pullRequest: JSON.stringify({ number: 1853, url: URL, state: 'OPEN', title: 'Pin the store clock', headRefName: 'fix/store-clock', isDraft: true }),
-  })
-  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
-  await clock.settle()
-
-  expect(facts(posts)).toContainEqual({
-    kind: 'attached',
-    attachment: {
-      kind: 'pr',
-      target: '1853',
-      detail: { url: URL, address: URL, state: 'draft', title: 'Pin the store clock', branch: 'fix/store-clock' },
-    },
-  })
 })
 
 test('a subagent is attached by its agent id and names the call that started it', async ($, on) => {

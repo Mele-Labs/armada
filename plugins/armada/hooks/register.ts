@@ -369,42 +369,7 @@ async function branchOf($: Dollar, cwd: string): Promise<string | undefined> {
 }
 
 /**
- * The pull request on the branch checked out in `cwd`, or the one `ref` names. `created` marks one this
- * session opened, which Fleet credits wherever the session stood.
- */
-async function pullRequestOn($: Dollar, id: string, one: Known, cwd: string, ref?: string, created = false): Promise<void> {
-  const ran = await $.process.run(['gh', 'pr', 'view', ...(ref === undefined ? [] : [ref]), '--json', 'number,url,state,title,headRefName,isDraft'], {
-    cwd,
-    timeoutMs: 10_000,
-  })
-  if (ran.exitCode !== 0) return
-  const view = JSON.parse(ran.stdout) as {
-    number?: number
-    url?: string
-    state?: string
-    title?: string
-    headRefName?: string
-    isDraft?: boolean
-  }
-  if (typeof view.number !== 'number') return
-  const number = String(view.number)
-  // The ledger names a pull request by its title, so a row told without one draws as a bare number.
-  const detail: Record<string, string> = {
-    url: view.url ?? '',
-    address: view.url ?? '',
-    state: view.isDraft === true && view.state === 'OPEN' ? 'draft' : (view.state ?? '').toLowerCase(),
-    ...(view.title === undefined ? {} : { title: view.title }),
-    ...(view.headRefName === undefined ? {} : { branch: view.headRefName }),
-    ...(created ? { created: 'true' } : {}),
-  }
-  one.prs.set(number, detail)
-  say($, id, { kind: 'attached', attachment: { kind: 'pr', target: number, detail } })
-  if (view.state === 'MERGED') settle($, id, 'pr', number, 'spent')
-  if (view.state === 'CLOSED') settle($, id, 'pr', number, 'given_back')
-}
-
-/**
- * Where the branch is now, and the pull request on it. **Read from where the session is now**, not
+ * Where the branch is now; Fleet's pull reading attaches the pull request on it. **Read from where the session is now**, not
  * from the directory last reported: a session that left a slot, or a slot another session leased
  * since, would otherwise be credited with the branch checked out there. Fleet checks it too.
  */
@@ -421,7 +386,6 @@ async function look($: Dollar, id: string): Promise<void> {
     one.branch = branch
     if (branch === undefined) return
     say($, id, { kind: 'attached', attachment: { kind: 'branch', target: branch } })
-    await pullRequestOn($, id, one, cwd).catch(() => undefined)
   } catch {
     // A directory with no repository, or no `git`: nothing to report.
   }
@@ -776,12 +740,12 @@ async function afterBash($: Dollar, command: string, text: string): Promise<void
   const [id, one] = await current($)
   const act = ghAct(command)
   if (act?.act === 'create') {
-    // What `gh pr create` printed is this session's own, whichever slot the command ran in.
+    // What `gh pr create` printed is this session's own, whichever slot the command ran in. Fleet reads
+    // the rest from the forge.
     for (const pr of pullRequestsIn(text)) {
-      const detail = { url: pr.url, created: 'true' }
+      const detail = { url: pr.url, address: pr.url, created: 'true' }
       one.prs.set(pr.number, detail)
       say($, id, { kind: 'attached', attachment: { kind: 'pr', target: pr.number, detail } })
-      await pullRequestOn($, id, one, await $.session.cwd(), pr.url, true).catch(() => undefined)
     }
   }
   // What `gh issue create` printed is an issue the session filed. Fleet keeps it only where it is in
