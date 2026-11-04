@@ -271,6 +271,20 @@ notes = """
 No sample under workflow-samples/: the definition was written straight to `.armada/workflows/orchestrate.json`, which is what Armada carries, with no designed form before it. `epic`, deleted in 06ef7552e6, was the shape this replaces.
 """
 
+[workflows.uat]
+name = "UAT"
+workflow_id = "uat"
+version = 1
+status = "Designed"
+steps = 5
+gate_profile = "Pre-flight, Review and Write back stop for a person; Set up and Run advance on the agent's evidence. Nothing is delivered."
+what_it_exercises = "A Job that carries no code: `carries_no_code` stops its code-delivery notices and its slot lease, and every step declares `delivers: false`."
+notes = """
+**The owner's**: Set up, Pre-flight, Run, Review, Write back. Set up picks the environment and checks each part is reachable; Pre-flight marks each scenario runnable, blocked with a reason, or needing him, and he settles them all there; Run keeps evidence per step and lets a question wait while the work carries on; Review is his reading of the results and of every change made to the environment; Write back is one approval that sends the results to the scenario sheet and ends the Job.
+
+No sample under workflow-samples/: the definition was written straight to `.armada/workflows/uat.json`, which is what Armada carries. The definition names no company, project, environment or tool, so it fits whatever the request names.
+"""
+
 [workflows.prototype]
 name = "Prototype"
 workflow_id = "prototype"

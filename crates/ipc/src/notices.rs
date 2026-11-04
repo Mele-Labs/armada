@@ -86,6 +86,32 @@ pub enum Notice {
 }
 
 impl Notice {
+    /// Whether the notice is about code going out: a branch, a slot, a pull request, a merge or
+    /// the choice of how they are delivered. **A Job on a workflow that carries no code is sent none.**
+    pub fn about_code_delivery(self) -> bool {
+        matches!(
+            self,
+            Notice::BehindBase
+                | Notice::PrChecksFailed
+                | Notice::PrConflicts
+                | Notice::PrDropped
+                | Notice::PrUnmergeable
+                | Notice::PrMerged
+                | Notice::PrAutoMerge
+                | Notice::PrQueued
+                | Notice::PrHanded
+                | Notice::PrComments
+                | Notice::SlotFree
+                | Notice::SlotKept
+                | Notice::WriteClash
+                | Notice::SlotStranded
+                | Notice::MainRed
+                | Notice::AutoLandRefused
+                | Notice::DeliveryAsked
+                | Notice::DeliveryChosen
+        )
+    }
+
     pub fn word(self) -> &'static str {
         match self {
             Notice::BehindBase => "behind_base",
