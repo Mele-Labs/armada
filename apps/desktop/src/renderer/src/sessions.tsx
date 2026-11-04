@@ -184,7 +184,7 @@ import { SessionRefs } from "./helm-refs";
 import { openSavedRequest } from "./job-panes/store";
 import { openInPanel } from "./shared-panel/store";
 import { draftPanelOf } from "./shared-panel/rule";
-import { openDraftCard } from "./job-panes/focus";
+import { openDraftCard, openOwedDocument } from "./job-panes/focus";
 import {
   TeachHereContext,
   batchNotices,
@@ -3072,7 +3072,7 @@ export function SessionView({
                                 onWithdrawSketch: (sketch: string) =>
                                   void dismissWaiting(session.id, sketch),
                               })}
-                          onOpenDocument={(page) => showLayer(session.id, "document", page)}
+                          onOpenDocument={(page) => openOwedDocument(session, page)}
                           {...(draft.answerDocument === undefined
                             ? {}
                             : {
