@@ -1,0 +1,227 @@
+/* The Usage page's Time view: the same panels under the same mono band as the tokens view. Flat fills, hairlines, no glow. */
+
+/* The bucket colours, the way the model colours are: from tokens, never a new hue. Checked with the data-viz validator on
+   --bg-sunken, in stack order. Four buckets carry a hue (the accent, the pink of --tool-change, --you, --helm stepped down
+   toward the ground) and five are neutral steps of the ink, so a bucket that grows is the one with a colour. Adjacent
+   pairs hold 15.2 or more apart in OKLab with normal vision and 11.4 or more under protan and deutan. The lightness band
+   and the chroma floor fail by token, since --accent itself sits at 0.674; Idle sits under 3:1 on the ground, and every
+   mark here is named beside it. */
+[data-time="model"] {
+  --bucket: var(--accent);
+}
+[data-time="tools"] {
+  --bucket: color-mix(in srgb, var(--fg-default) 42%, var(--bg-sunken));
+}
+[data-time="checks"] {
+  --bucket: var(--tool-change);
+}
+[data-time="subagents"] {
+  --bucket: color-mix(in srgb, var(--fg-default) 95%, var(--bg-sunken));
+}
+[data-time="slot"] {
+  --bucket: color-mix(in srgb, var(--fg-default) 65%, var(--bg-sunken));
+}
+[data-time="you"] {
+  --bucket: var(--you);
+}
+[data-time="pull_request"] {
+  --bucket: color-mix(in srgb, var(--helm) 70%, var(--bg-sunken));
+}
+[data-time="stopped"] {
+  --bucket: color-mix(in srgb, var(--fg-default) 33%, var(--bg-sunken));
+}
+[data-time="idle"] {
+  --bucket: var(--bg-hover);
+}
+[data-time="idle"] > .armada-time__swatch,
+.armada-time__swatch[data-time="idle"] {
+  box-shadow: inset 0 0 0 var(--border-width) var(--border-default);
+}
+.armada-time__swatch {
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--bucket);
+}
+.armada-time__seg {
+  fill: var(--bucket);
+  stroke: var(--bg-sunken);
+  stroke-width: 2px;
+}
+.armada-time__bucket {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+/* The view switch over the page */
+.armada-usage__views {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--font-sans);
+}
+.armada-time .armada-usage__plot {
+}
+.armada-usage > .armada-time {
+  flex: 1 0 auto;
+}
+
+/* One column first, then two */
+.armada-time {
+  display: grid;
+  gap: var(--gap-panel);
+  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr);
+}
+@container (min-width: 760px) {
+  .armada-time {
+    grid-template-columns: minmax(26rem, 30rem) minmax(0, 1fr);
+  }
+}
+/* The Builds panel under the Jobs wants room for four figures and their changes */
+@container (min-width: 1150px) {
+  .armada-time {
+    grid-template-columns: minmax(36rem, 38rem) minmax(0, 1fr);
+  }
+}
+.armada-time__left,
+.armada-time__centre {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-panel);
+  min-width: 0;
+}
+.armada-time__left > .armada-usage__panel,
+.armada-time__centre > .armada-usage__panel {
+  flex: 1 1 auto;
+}
+
+/* Slowest Jobs: the title, its split as one thin bar, its total, in fixed columns */
+.armada-time__jobheads,
+.armada-time__job {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 10rem 7ch;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+.armada-time__jobheads {
+  border-bottom: var(--border-width) solid var(--head-rule);
+  color: var(--fg-subtle);
+}
+.armada-time__jobheads span:last-child {
+  text-align: right;
+}
+.armada-time__jobs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  overflow-y: auto;
+}
+.armada-time__jobs:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--edge-focus);
+}
+.armada-time__job {
+  min-height: var(--h-row);
+  border-bottom: var(--border-width) solid var(--head-rule);
+  cursor: default;
+}
+.armada-time__job:last-child {
+  border-bottom: 0;
+}
+.armada-time__job:hover,
+.armada-time__job[data-cursor] {
+  background: var(--bg-step);
+}
+.armada-time__job[aria-selected="true"] {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: inset var(--bar, 2px) 0 0 var(--accent);
+}
+.armada-time__track {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-raised);
+  overflow: hidden;
+}
+.armada-time__stack {
+  display: flex;
+  gap: 2px;
+  height: 100%;
+}
+.armada-time__part {
+  flex: 1 1 0;
+  min-width: 2px;
+  background: var(--bucket);
+}
+
+/* A split: a bucket a row, most time first, the usual only where the Job is far over it */
+.armada-time__jobsplit {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+}
+.armada-time__heads,
+.armada-time__row {
+  display: grid;
+  grid-template-columns: 16ch minmax(0, 1fr) 8ch 6ch;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-4);
+}
+.armada-time__heads {
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: var(--border-width) solid var(--head-rule);
+  color: var(--fg-subtle);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+.armada-time__heads span:nth-child(n + 3) {
+  text-align: right;
+}
+.armada-time__rows {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2) 0 var(--space-3);
+}
+.armada-time__row {
+  min-height: var(--h-row);
+}
+/* On --bg-raised rather than --bg-hover, which is Idle's own step */
+.armada-time__row .armada-usage__track {
+  position: relative;
+  background: var(--bg-raised);
+}
+.armada-time__fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--bucket);
+}
+/* Where the usual Job's time would end, cut into the bar */
+.armada-time__usual {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--bg-sunken);
+}
+.armada-time__row .armada-usage__fig[data-over] {
+  font-weight: var(--weight-medium);
+}
+/* In a Job's own tab there is no panel to pad against */
+.armada-time__jobsplit[data-flush] .armada-usage__scope,
+.armada-time__jobsplit[data-flush] .armada-time__heads,
+.armada-time__jobsplit[data-flush] .armada-time__row {
+  padding-inline: 0;
+}

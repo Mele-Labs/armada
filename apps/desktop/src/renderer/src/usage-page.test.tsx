@@ -2,11 +2,13 @@
 // cuts carry. It draws what it is handed, so the page is mounted bare, with the mock's summary.
 
 import { UsagePage } from "@armada/components";
+import type { UsageBuilds } from "@armada/components";
 import type { UsageSummary } from "@armada/protocol";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, test } from "vitest";
 
+import { usageBuildsNow } from "./mock/usage-builds";
 import { JOB_TITLES, usageSummaryNow } from "./mock/usage-summary";
 
 const roots: {
@@ -24,6 +26,7 @@ function mount(props: {
   summary?: UsageSummary;
   titles?: ReadonlyMap<string, string>;
   planPercent?: number;
+  builds?: UsageBuilds;
 }): HTMLElement {
   const host = document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);
@@ -59,7 +62,7 @@ test("before Fleet has answered, every panel is drawn and none holds a figure", 
   ).toEqual([
     "Jobs",
     "Breakdown",
-    "Burn per day",
+    "Burn per hour",
     "Usage rules",
     "Day and hour",
   ]);
@@ -227,4 +230,34 @@ test("the first day key lands on the busiest cell, the next steps on, and Esc cl
   expect(host.querySelector('[role="option"][aria-selected="true"]')).not.toBeNull();
   await press("Escape");
   await expect.poll(() => host.querySelector('[role="option"][aria-selected="true"]')).toBeNull();
+});
+
+test("a picked build whose tokens are still being read draws the shapes of the panels they feed, then the build's own", () => {
+  const [newest, ...rest] = usageBuildsNow();
+  const { usage, ...unread } = newest!;
+  const pick = (builds: UsageBuilds) => {
+    const host = mount({
+      summary: summary(),
+      titles: JOB_TITLES,
+      builds,
+    });
+    expect(host.querySelector('[role="grid"]')).not.toBeNull();
+    flushSync(() => host.querySelector<HTMLElement>(`#build-${unread.id}`)!.click());
+    return host;
+  };
+  const waiting = pick([
+    unread,
+    ...rest,
+  ]);
+  expect(waiting.querySelector('[role="grid"]')).toBeNull();
+  expect(waiting.querySelector(".armada-usage__map[aria-hidden]")).not.toBeNull();
+  const read = pick([
+    {
+      ...unread,
+      usage,
+    },
+    ...rest,
+  ]);
+  expect(read.querySelector('[role="grid"]')).not.toBeNull();
+  expect(read.querySelector(".armada-usage__map[aria-hidden]")).toBeNull();
 });

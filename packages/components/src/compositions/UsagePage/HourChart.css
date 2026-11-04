@@ -1,0 +1,308 @@
+/* The hour charts, drawn by Recharts and styled from here: lines, never areas, with only horizontal grid lines so that the
+   one vertical that is strong is a build. A build is a line through every plot with a flag on a rail above the plot that
+   moved most; solid for main and dashed for a preview, so no colour is spent on the difference. A line takes its colour from
+   the model or the time bucket it names. The overlays take the plot's left and right from the variables the chart sets, the
+   same numbers it gives Recharts. */
+.armada-hours {
+  --flag: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.armada-hours__stack {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+.armada-hours__plot {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+}
+.armada-hours__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--plot-right) var(--space-1) var(--plot-left);
+}
+.armada-hours__canvas {
+  position: relative;
+  flex: 1 1 auto;
+}
+.armada-hours__canvas > .recharts-responsive-container {
+  position: absolute;
+  inset: 0;
+}
+
+/* The drawing's own ink */
+.armada-hours .recharts-cartesian-axis-tick-value,
+.armada-hours__tick {
+  fill: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.armada-hours__tick[data-on] {
+  fill: var(--fg-default);
+}
+.armada-hours__direct {
+  fill: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.armada-hours__grid {
+  stroke: var(--border-subtle);
+}
+.armada-hours__base line {
+  stroke: var(--border-strong);
+}
+.armada-hours__cross rect {
+  fill: var(--bg-hover);
+  fill-opacity: 1;
+  stroke: none;
+}
+.armada-hours__span rect {
+  fill: var(--bg-step);
+  fill-opacity: 1;
+  stroke: none;
+}
+.armada-hours .recharts-line-curve {
+  fill: none;
+  stroke-width: 2px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.armada-hours .recharts-line-curve[data-model] {
+  stroke: var(--model);
+}
+.armada-hours .recharts-line-curve[data-time] {
+  stroke: var(--bucket);
+}
+.armada-hours__dot[data-model],
+.armada-hours__point[data-model] {
+  fill: var(--model);
+}
+.armada-hours__dot[data-time],
+.armada-hours__point[data-time] {
+  fill: var(--bucket);
+}
+.armada-hours__point {
+  stroke: var(--bg-sunken);
+  stroke-width: 2px;
+}
+
+/* A build: its line runs the height of the plots, its flag sits on the rail above the plot it moved */
+.armada-hours__lines {
+  position: absolute;
+  top: 0;
+  bottom: var(--foot);
+  left: var(--plot-left);
+  right: var(--plot-right);
+  pointer-events: none;
+}
+.armada-hours__marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--space-4);
+  margin-left: calc(var(--space-4) / -2);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.armada-hours__marker::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  border-left: var(--border-width) solid var(--fg-subtle);
+}
+.armada-hours__marker[data-preview]::before {
+  border-left-style: dashed;
+}
+.armada-hours__marker:hover::before {
+  border-left-color: var(--fg-default);
+}
+.armada-hours__marker[data-picked]::before {
+  border-left-color: var(--accent);
+}
+.armada-hours__pole {
+  position: absolute;
+  bottom: 0;
+  border-left: var(--border-width) solid var(--fg-subtle);
+}
+.armada-hours__pole[data-preview] {
+  border-left-style: dashed;
+}
+.armada-hours__pole[data-picked] {
+  border-left-color: var(--accent);
+}
+.armada-hours__rail {
+  position: relative;
+  z-index: 1;
+  height: calc(var(--flag) * var(--lanes));
+}
+.armada-hours__flagpos {
+  position: absolute;
+  display: flex;
+}
+.armada-hours__flagpos[data-flip] {
+  transform: translateX(-100%);
+}
+.armada-hours__flag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  min-width: var(--space-6);
+  height: calc(var(--flag) - var(--space-1));
+  margin: 0;
+  padding: 0;
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.armada-hours__flagpos[data-flip] .armada-hours__flag {
+  justify-content: flex-end;
+}
+/* A build that moved nothing is a small pennant on the line, in a hit area the size of a flag */
+.armada-hours__flag:not([data-wide])::before {
+  content: "";
+  box-sizing: border-box;
+  width: var(--space-3);
+  height: var(--space-2);
+  background: var(--fg-subtle);
+}
+.armada-hours__flag[data-preview]:not([data-wide])::before {
+  border: var(--border-width) dashed var(--fg-subtle);
+  background: transparent;
+}
+.armada-hours__flag:not([data-wide]):hover::before {
+  background: var(--fg-default);
+}
+.armada-hours__flag[data-preview]:not([data-wide]):hover::before {
+  background: transparent;
+  border-color: var(--fg-default);
+}
+/* One that moved a figure, or is picked, is a flag with its commit */
+.armada-hours__flag[data-wide] {
+  padding: 0 var(--space-2);
+  border-color: var(--fg-muted);
+  border-left-width: var(--bar, 2px);
+  background: var(--bg-raised);
+}
+.armada-hours__flagpos[data-flip] .armada-hours__flag[data-wide] {
+  border-left-width: var(--border-width);
+  border-right-width: var(--bar, 2px);
+}
+.armada-hours__flag[data-wide][data-preview] {
+  border-top-style: dashed;
+  border-right-style: dashed;
+  border-bottom-style: dashed;
+}
+.armada-hours__flag[data-wide]:hover {
+  border-color: var(--fg-default);
+  background: var(--bg-step);
+}
+.armada-hours__flag[data-picked] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 24%, var(--bg-raised));
+}
+.armada-hours__flag:focus-visible {
+  outline: var(--focus-ring-width) solid var(--edge-focus);
+}
+.armada-hours__commit {
+  font-weight: var(--weight-medium);
+}
+.armada-hours__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.armada-hours__cardhead {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.armada-hours__cardrow {
+  display: grid;
+  grid-template-columns: 1fr auto 7ch;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The hour under the pointer or the keys: every line's value at it, and the build running then */
+.armada-hours__tip {
+  position: absolute;
+  top: var(--space-2);
+  z-index: var(--z-tooltip);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 15rem;
+  max-width: 16rem;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  pointer-events: none;
+  transform: translateX(var(--space-4));
+}
+.armada-hours__tip[data-flip] {
+  transform: translateX(calc(-100% - var(--space-4)));
+}
+.armada-hours__tipday {
+  color: var(--fg-muted);
+}
+.armada-hours__tipline {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--fg-muted);
+}
+.armada-hours__tipline[data-total] {
+  border-top: var(--border-width) solid var(--border-subtle);
+  padding-top: var(--space-1);
+}
+
+/* The chart's twin: read by roles, not drawn */
+.armada-hours__twin {
+  position: absolute;
+  width: var(--border-width);
+  height: var(--border-width);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  list-style: none;
+}
+
+/* Pending: each plot's line as short bars on a base line */
+.armada-hours__skel-base {
+  position: absolute;
+  left: var(--plot-left);
+  right: var(--plot-right);
+  bottom: var(--foot);
+  height: var(--border-width);
+  background: var(--border-default);
+}
+.armada-usage .armada-hours__skel-dash {
+  position: absolute;
+  height: var(--space-1);
+  border-radius: var(--radius-sm);
+}

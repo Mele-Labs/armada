@@ -131,6 +131,8 @@ matters out of the tree. On that row it steps up to `--border-default`.
 - **Only glyphs in the registry.** `hourglass` is banned. Never
   `import * as Icons from "lucide-react"` — a rule refuses that too.
 - **Status colour is never chosen.** It maps onto the Job state machine.
+- **Charts are drawn with Recharts, through tokens, and not by hand.** No
+  hand-built SVG plot; colour and type come from the same CSS tokens.
 - **Dark is primary.**
 
 ## When the contract does not say
