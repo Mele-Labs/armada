@@ -58,8 +58,8 @@ fn gates_only_on_what_the_repository_declares(text: &str) -> Vec<ResolvedWorkflo
     let resolved = carried_against(&manifest);
     assert_eq!(
         resolved.len(),
-        8,
-        "all eight, against {}",
+        9,
+        "all nine, against {}",
         manifest.id().as_str()
     );
     for workflow in &resolved {
