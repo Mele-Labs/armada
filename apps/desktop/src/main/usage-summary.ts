@@ -1,8 +1,13 @@
 // What the last seven days cost, as Fleet answers `GET /usage/summary`: one request, the offset of the caller's local time
 // and, for a build's tokens, the stretch it ran. Nothing is kept here; Fleet sums, and the renderer decides when to ask again.
 
-import type { Outcome, UsageRules, UsageSummary } from "@armada/protocol";
-import type { UsageRulesRead, UsageSummaryRead, UsageWindow } from "../shared/api/usage-summary";
+import type { Outcome, UsageRules, UsageSpentUnits, UsageSummary } from "@armada/protocol";
+import type {
+  UsageRulesRead,
+  UsageSpentRead,
+  UsageSummaryRead,
+  UsageWindow,
+} from "../shared/api/usage-summary";
 import { ask } from "./request";
 
 const NOT_CONNECTED: Outcome = {
@@ -57,6 +62,26 @@ export class UsageSummaryHost {
       ? {
           ok: true,
           value: answer.body as UsageRules,
+        }
+      : {
+          ok: false,
+          outcome: answer.outcome,
+        };
+  }
+
+  /** `GET /usage/spent`, with Fleet's own windows up to now. */
+  async spent(): Promise<UsageSpentRead> {
+    const port = this.port();
+    if (port === null)
+      return {
+        ok: false,
+        outcome: NOT_CONNECTED,
+      };
+    const answer = await ask(port, "GET", "/usage/spent");
+    return answer.ok === true
+      ? {
+          ok: true,
+          value: answer.body as UsageSpentUnits,
         }
       : {
           ok: false,

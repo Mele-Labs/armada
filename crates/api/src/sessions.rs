@@ -827,6 +827,19 @@ pub(crate) async fn get_usage_summary<D: Sessions>(
     }
 }
 
+/// `?until=` on `get_usage_spent`.
+#[derive(Deserialize)]
+pub(crate) struct SpentEnd {
+    until: Option<String>,
+}
+
+pub(crate) async fn get_usage_spent<D: Sessions>(State(served): State<Served<D>>, Query(end): Query<SpentEnd>) -> Response {
+    match served.daemon().get_usage_spent(end.until).await {
+        Ok(spent) => answer(StatusCode::OK, &spent, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?session_id=` on `get_job_time`.
 pub(crate) async fn get_job_time<D: Sessions>(State(served): State<Served<D>>, Query(which): Query<WhichSession>) -> Response {
     match served.daemon().get_job_time(ipc::SessionId::carried(which.session_id)).await {

@@ -113,15 +113,18 @@ export const bashLabel = (name: string): string => BASH_LABELS[name] ?? name;
 const TOKEN_LABELS: Record<string, string> = {
   cache_read: "cache read",
   cache_creation: "cache creation",
+  cache_creation_1h: "cache write, 1 hour",
   output: "output",
   input: "input",
 };
 
-/** The four token kinds as rows, the biggest first. */
+/** The token kinds as rows, the biggest first. Where the hour's cache writes are their own, the rest are the 5 minute ones. */
 export function tokenRows(usage: UsageBreakdown): NamedUnits[] {
+  const split = "cache_creation_1h" in usage.by_token;
   return Object.entries(usage.by_token)
     .map(([name, units]) => ({
-      name: TOKEN_LABELS[name] ?? name,
+      name:
+        split && name === "cache_creation" ? "cache write, 5 min" : (TOKEN_LABELS[name] ?? name),
       units,
     }))
     .sort((a, b) => b.units - a.units);

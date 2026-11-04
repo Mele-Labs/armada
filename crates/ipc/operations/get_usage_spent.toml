@@ -1,0 +1,8 @@
+[operations.get_usage_spent]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "What the burn of the last 24 hours, 7 days and 14 days was spent on, and who spent it, whole and by Job"
+notes = """
+`GET /usage/spent?until=`. `UsageSpent` for the windows `day`, `week` and `fortnight` up to `until`, shortest first: `until` is RFC3339 and defaults to now. Each window carries its `since` and `until`, its `total` and its thirty largest Jobs in `jobs`, largest first, each `{ session_id, split }`. A split is `on`, the units by what they went on (`start_up`, `reads`, `own_words`, `output`, `cold_cache`, `announced`, `other_results`, `messages`, `background`), and `by`, the units by who spent them (`main`, `subagents`, `background`); each adds up to the whole. **Units are weighed as `get_usage_summary` weighs them**, and `by.subagents` is its `subagent_units` over the same span. Titles are not carried: a client joins `session_id` to the ones it holds. **Names and counts only.** Refused with the reason where `until` is not a time.
+"""

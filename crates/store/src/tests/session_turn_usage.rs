@@ -16,6 +16,7 @@ fn turn(message_id: &str, minute: u32, tools: &[&str]) -> KeptTurnUsage {
         model: "model-a".into(),
         input_tokens: 6,
         cache_creation_tokens: 1000,
+        cache_creation_1h_tokens: 0,
         cache_read_tokens: 10_000,
         output_tokens: 90,
         tools: tools.iter().map(|one| one.to_string()).collect(),
