@@ -635,9 +635,13 @@ const KEPT_ASK: &str = r#"{"tool_name":"AskUserQuestion","tool_use_id":"toolu_k"
 /// A question kept for a walk, as a Fleet that refused questions during one wrote it. Fleet no
 /// longer writes the state, but a thread that holds one still reads, and answers, as it did.
 async fn kept_for_a_walk(rig: &Rig, id: &SessionId) {
+    kept_ask(rig, id, KEPT_ASK, "Carry on in a new Job?").await;
+}
+
+async fn kept_ask(rig: &Rig, id: &SessionId, call: &'static str, question: &str) {
     let (fleet, session) = (Arc::clone(&rig.fleet), id.as_str().to_string());
-    let held = tokio::spawn(async move { fleet.session_permission(&session, asking(KEPT_ASK)).await });
-    let card = card_of(rig, id, "Carry on in a new Job?").await;
+    let held = tokio::spawn(async move { fleet.session_permission(&session, asking(call)).await });
+    let card = card_of(rig, id, question).await;
     held.abort();
     let row = ipc::SessionRow::Ask {
         id: format!("ask-{}-{}", card.call, id.as_str()),
@@ -647,6 +651,23 @@ async fn kept_for_a_walk(rig: &Rig, id: &SessionId) {
         via: None,
     };
     rig.fleet.row_put(id.as_str(), row).await;
+}
+
+const OTHER_ASK: &str = r#"{"tool_name":"AskUserQuestion","tool_use_id":"toolu_o","input":{"questions":[
+  {"question":"Which night?","header":"Night","multiSelect":false,
+   "options":[{"label":"Friday","description":""},{"label":"Thursday","description":""}]}]}}"#;
+
+#[tokio::test]
+async fn every_kept_question_stays_open_after_a_later_one_is_kept_and_the_owner_types() {
+    let rig = rig(None);
+    let (id, _) = rig.an_agent_that_has_spoken().await;
+    kept_for_a_walk(&rig, &id).await;
+    kept_ask(&rig, &id, OTHER_ASK, "Which night?").await;
+    rig.send(&id, "There is no question waiting for me").await;
+
+    let open = crate::session_host::handoff_answers::lapsed_question(&rig.rows(&id).await).expect("both stay open");
+    let asked: Vec<&str> = open.iter().map(|one| one.question.as_str()).collect();
+    assert_eq!(asked, ["Carry on in a new Job?", "Which night?"]);
 }
 
 #[tokio::test]

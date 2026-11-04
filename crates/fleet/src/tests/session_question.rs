@@ -185,7 +185,7 @@ async fn a_skipped_question_tells_the_agent_so() {
 }
 
 #[tokio::test]
-async fn a_question_nobody_answers_in_the_hold_keeps_its_options_on_the_unanswered_row() {
+async fn a_question_nobody_answers_in_the_hold_keeps_its_options_on_the_kept_row() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     let fleet = Arc::clone(&rig.fleet);
@@ -214,7 +214,7 @@ async fn a_question_nobody_answers_in_the_hold_keeps_its_options_on_the_unanswer
     let [(ask, state)] = lapsed.as_slice() else {
         panic!("one ask row, settled in place: {lapsed:?}");
     };
-    assert_eq!(*state, SessionAskState::Unanswered);
+    assert_eq!(*state, SessionAskState::Kept);
     // What the card needs to be read afterwards, not just the fact it lapsed.
     assert_eq!(ask.questions.len(), 2);
     assert_eq!(ask.questions[0].question, "Which toppings?");

@@ -287,6 +287,22 @@
   overflow: auto;
   padding: var(--space-3);
 }
+/* A Document tab: the answers in a bar over the page, which takes the rest of the pane. */
+.job-pane__document {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.job-pane__document-answers {
+  flex: none;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+.job-pane__document > .armada-job-review__fill {
+  min-height: 0;
+  overflow: hidden;
+}
 .job-pane__said {
   margin: 0;
   color: var(--fg-muted);

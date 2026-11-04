@@ -1,8 +1,8 @@
 // The key of a kind of tab: its tab comes to the front and its pane takes focus, or a tab of the kind opens where the Job has none.
 
-import type { Session } from "@armada/screens/src/draft/sessions";
+import { attachmentsOf, owesOf, type Session } from "@armada/screens/src/draft/sessions";
 
-import { inPanes, type LayerId } from "../session-view/layers";
+import { inPanes, showLayer, type LayerId } from "../session-view/layers";
 import { openInPanel, type PanelItem } from "../shared-panel/store";
 import { KINDS } from "./kinds";
 import { labelFor } from "./PaneView";
@@ -55,6 +55,36 @@ export function focusDraft(jobId: string, row: string, title: string): void {
     undefined,
     true,
   );
+}
+
+/** A document's page as a tab named for it: its tab comes to the front where it has one, else it joins the thread's pane, or opens by the arrival rule with no thread. */
+export function focusDocument(jobId: string, page: string, title: string): void {
+  const arrangement = peek(jobId);
+  const open = panesOf(arrangement.root)
+    .flatMap((pane) => pane.tabs)
+    .find((tab) => tab.kind === "document" && tab.page === page);
+  if (open !== undefined) return look(jobId, (one) => activate(one, open.id));
+  const holder = holderOf(arrangement, "document") ?? holderOf(arrangement, "thread");
+  if (holder !== undefined)
+    return look(jobId, (one) => addTab(one, holder.id, "document", title, page));
+  rearrange(jobId, (one) => arrive(one, "document", title, page), undefined, true);
+}
+
+/** The page a Job waits on him for when it is the only thing it waits on, else none: a page alone is read in the Job's own tab, with others it stays over the Job. */
+export function soleDocument(session: Session): string | undefined {
+  const owed = owesOf(session);
+  const only = owed.length === 1 ? owed[0] : undefined;
+  return only?.source === "document" ? only.id.replace(/^document:/, "") : undefined;
+}
+
+/** Opens a page he is owed: a tab of the Job when it is the only thing owed and the Job is drawn in panes, else over the Job. */
+export function openOwedDocument(session: Session, page: string): void {
+  const doc = attachmentsOf(session, "artifact").find(
+    (it) => it.form === "document" && it.id === page,
+  );
+  if (soleDocument(session) === page && inPanes(session.id))
+    focusDocument(session.id, page, doc?.title ?? KINDS.document.label);
+  else showLayer(session.id, "document", page);
 }
 
 /** Where a draft's card opens: its own tab on a Job drawn in panes, the side panel on any other and for a rule's draft. False where nothing opened. */
