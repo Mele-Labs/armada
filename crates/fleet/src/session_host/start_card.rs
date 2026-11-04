@@ -212,7 +212,7 @@ where
     }
 
     /// The landing the card shows as picked now, `start.picked`: what a press that named none takes.
-    async fn card_picked(&self, id: &str) -> Option<DeliveryChoice> {
+    pub(crate) async fn card_picked(&self, id: &str) -> Option<DeliveryChoice> {
         let (hosting, reads) = {
             let store = self.store().lock().await;
             let hosting = store.hosting(id).ok().flatten()?;

@@ -182,6 +182,9 @@ pub enum Actor {
     /// so a Commander act is never recorded as Helm's or a person's
     /// (`docs/concepts/helm.md`).
     Commander,
+    /// Signs what the Operator ruled on an arrival, kept in its Log. **Its own signer**, so a
+    /// ruling is never read as Fleet's rule or a person's press.
+    Operator,
 }
 
 impl Actor {
@@ -196,6 +199,7 @@ impl Actor {
         Actor::Judge,
         Actor::Check,
         Actor::Commander,
+        Actor::Operator,
     ];
 
     /// The wire value. `job_events.actor` and `scope_revisions[].approved_by`
@@ -209,10 +213,11 @@ impl Actor {
             Actor::Judge => "judge",
             Actor::Check => "check",
             Actor::Commander => "commander",
+            Actor::Operator => "operator",
         }
     }
 
-    /// Read a stored value back. `None` where it is not one of the seven,
+    /// Read a stored value back. `None` where it is not one of the eight,
     /// which is a row written by something that did not share this enum.
     pub fn from_wire(value: &str) -> Option<Actor> {
         Actor::ALL.iter().copied().find(|a| a.as_wire() == value)

@@ -182,6 +182,8 @@ where
         let new = made.id.as_str().to_string();
         if after.is_none() {
             self.held_with(&new, &brief).await?;
+            // Ruled in place of his press: a New Job starts it, while Dispatch is on.
+            self.start_handed(&new, crate::operator::Source::Job(me.clone()), &brief).await;
         }
         let held = self.held_for_person(&me, made, words, false, group.as_deref()).await?;
         // A Session that waits holds its first message until the condition is met, and then for the person.

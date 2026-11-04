@@ -41,6 +41,10 @@ where
     pub(crate) fn rule_acts(&self) -> &crate::lifecycles::acting::Owed {
         &self.rule_acts
     }
+    /// The Operator as this Fleet holds it.
+    pub(crate) fn operator_seat(&self) -> &crate::operator::Seat {
+        &self.operator
+    }
     pub(crate) fn store(&self) -> &crate::store_lock::StoreLock {
         &self.store
     }

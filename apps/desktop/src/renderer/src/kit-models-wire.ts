@@ -30,6 +30,7 @@ const FALLS_TO: Readonly<Record<string, "first" | "last">> = {
   "models.default": "first",
   "models.review": "first",
   "models.retro": "first",
+  "models.operator": "first",
   "models.secondOpinion": "first",
   "plan.downshiftTo": "first",
   "models.judge": "last",

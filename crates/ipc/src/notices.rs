@@ -83,6 +83,8 @@ pub enum Notice {
     LifecycleRule,
     /// The last instance the Job held open reached an end state.
     LifecyclesClear,
+    /// The Operator handed the Job work, merged another into it, or keeps it in touch with another.
+    Operator,
 }
 
 impl Notice {
@@ -126,6 +128,7 @@ impl Notice {
             Notice::TaskMarked => "task_marked",
             Notice::LifecycleRule => "lifecycle_rule",
             Notice::LifecyclesClear => "lifecycles_clear",
+            Notice::Operator => "operator",
         }
     }
 }

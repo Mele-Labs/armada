@@ -106,6 +106,53 @@ pub(crate) fn rfc3339_utc(millis_since_epoch: i64) -> String {
     format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}.{millis:03}Z")
 }
 
+/// The instant, in milliseconds since the epoch, that this machine's day holding `millis_since_epoch`
+/// began: its local midnight, as its time zone reads. Read again at the midnight found, so a day a
+/// clock change falls in still begins at the midnight the machine showed.
+pub(crate) async fn local_day_began(millis_since_epoch: i64) -> i64 {
+    let first = day_began(millis_since_epoch, local_offset_secs(millis_since_epoch).await);
+    day_began(millis_since_epoch, local_offset_secs(first).await)
+}
+
+/// The day holding `millis_since_epoch` began at, on a clock `offset_secs` ahead of UTC.
+pub(crate) fn day_began(millis_since_epoch: i64, offset_secs: i64) -> i64 {
+    const DAY: i64 = 86_400_000;
+    let offset = offset_secs * 1_000;
+    let local = millis_since_epoch + offset;
+    local - local.rem_euclid(DAY) - offset
+}
+
+/// How far the machine's time zone is ahead of UTC at that instant, in seconds, as `date` reads it:
+/// asked rather than read through `libc`, which this crate may not call outside its listed sites.
+/// Zero where it will not read, which is UTC's day.
+async fn local_offset_secs(millis_since_epoch: i64) -> i64 {
+    let seconds = millis_since_epoch.div_euclid(1_000).to_string();
+    // macOS's `date` takes the instant as `-r`; GNU's, on a Linux build machine, as `-d @`.
+    for args in [vec!["-r".to_string(), seconds.clone()], vec!["-d".to_string(), format!("@{seconds}")]] {
+        let said = tokio::process::Command::new("date").args(&args).arg("+%z").stdin(std::process::Stdio::null()).output().await;
+        if let Some(offset) = said.ok().filter(|said| said.status.success()).and_then(|said| zone_offset(&String::from_utf8_lossy(&said.stdout))) {
+            return offset;
+        }
+    }
+    0
+}
+
+/// `+hhmm` or `-hhmm`, in seconds.
+fn zone_offset(said: &str) -> Option<i64> {
+    let said = said.trim();
+    let (sign, digits) = match said.split_at_checked(1)? {
+        ("+", digits) => (1, digits),
+        ("-", digits) => (-1, digits),
+        _ => return None,
+    };
+    if digits.len() != 4 || !digits.bytes().all(|one| one.is_ascii_digit()) {
+        return None;
+    }
+    let hours: i64 = digits[..2].parse().ok()?;
+    let minutes: i64 = digits[2..].parse().ok()?;
+    Some(sign * (hours * 3_600 + minutes * 60))
+}
+
 /// Days since the epoch, and the milliseconds inside that day.
 ///
 /// Floor division, not truncation: a negative reading is a machine whose clock
