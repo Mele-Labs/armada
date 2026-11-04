@@ -61,6 +61,8 @@ pub struct Pairing {
     pub(crate) clock: Clock,
     address: Address,
     memory: Arc<Mutex<Memory>>,
+    /// The addresses minted for videos a phone streams.
+    pub(crate) shown: crate::shown_address::Tickets,
 }
 
 impl Pairing {
@@ -75,6 +77,7 @@ impl Pairing {
             clock,
             address,
             memory: Arc::default(),
+            shown: Default::default(),
         }
     }
 

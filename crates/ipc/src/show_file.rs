@@ -24,3 +24,15 @@ pub struct ShownText {
     pub path: String,
     pub text: String,
 }
+
+/// `get_shown_file` for a video: the file is not sent. The Gateway streams it from the Mac's disk, so what
+/// it needs is where it is, what it is, and how long.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ShownVideo {
+    /// The absolute path the session's `show_file` kept, as its attachment's `target` holds it.
+    pub path: String,
+    /// `video/mp4`, `video/quicktime` or `video/webm`.
+    pub media_type: String,
+    /// The file's size in bytes when it was read.
+    pub bytes: u64,
+}

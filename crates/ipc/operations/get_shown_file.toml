@@ -2,13 +2,13 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "No"
-description = "A file a job showed with show_file, or a revision it kept of a document, read for the phone: its text, or a picture's bytes"
+description = "A file a job showed with show_file, or a revision it kept of a document, read for the phone: its text, a picture's bytes, or a video's type and size"
 notes = """
 `GET /sessions/shown?session_id=&path=`, `path` the absolute path the job's `show_file` kept, as its attachment's `target` holds it, or one its document's `revisions` names. Pocket v2: the phone cannot read the Mac's disk, as Bridge's panel does (`apps/desktop/src/main/file-panel.ts`), so Fleet reads it.
 
 **Only a file the job showed, or a revision it kept**: an attachment of kind `artifact`, either `form` `file` carrying `shown`, or `form` `document` whose `revisions` lists the path. Any other path, a job Fleet does not know, or a file gone since it was shown is a 404, `fleet.shown_file_not_shown` or `fleet.shown_file_gone`. A file the job wrote and never showed is refused like any other path, and so are a document's page in the worktree and a revision another job kept.
 
-**Answered by what the file is.** A picture (`png`, `jpg`, `jpeg`, `gif`, `webp`, `heic`) is its bytes under its media type. Anything else that is UTF-8 is `ShownText` `{ path, text }`. Over 1 MiB is a 413, `fleet.shown_file_too_large`, naming the size; bytes that are neither are a 422, `fleet.shown_file_not_text`.
+**Answered by what the file is, and capped by its kind.** A picture (`png`, `jpg`, `jpeg`, `gif`, `webp`, `heic`) is its bytes under its media type, up to 8 MiB, the most `show_file` accepts: a retina screenshot often passes 1 MiB. A video (`mp4`, `mov`, `webm`) is never read: it is 200 `ShownVideo` `{ path, media_type, bytes }`, `media_type` `video/mp4`, `video/quicktime` or `video/webm` and `bytes` its size, up to 256 MiB. The Phone Gateway streams it from the Mac's disk (`GET /api/sessions/shown/address`, then `GET /shown/<ticket>`). Anything else that is UTF-8 is `ShownText` `{ path, text }`, up to 1 MiB. A file over its kind's cap is a 413, `fleet.shown_file_too_large`, naming the size and the three caps; bytes that are neither text, a picture nor a video are a 422, `fleet.shown_file_not_text`.
 
 Sketches are not read here: the job's record carries each scene on its attachment. The phone calls it through the Phone Gateway, which forwards it with `x-armada-caller: phone`.
 """

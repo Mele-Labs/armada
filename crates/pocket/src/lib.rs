@@ -24,6 +24,7 @@ mod reads;
 mod routes;
 mod session_routes;
 mod setup;
+mod shown_address;
 mod signing;
 mod stat;
 mod vapid;

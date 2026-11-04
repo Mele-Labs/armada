@@ -614,7 +614,7 @@ pub use session_retro_row::{
     PartialRetroItem, RetroStage,
 };
 pub use phone::{PhoneGateway, SetPhoneGateway};
-pub use show_file::{ShowFile, ShownText};
+pub use show_file::{ShowFile, ShownText, ShownVideo};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
 pub use document_answer::{
     AnswerDocument, DocumentHow, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION, DOCUMENT_SETTLED,
