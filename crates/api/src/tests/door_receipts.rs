@@ -383,6 +383,17 @@ async fn record_plan_hands_the_daemon_whether_the_agent_said_the_person_would_se
 }
 
 #[tokio::test]
+async fn record_plan_hands_the_daemon_each_groups_seen_mark_in_the_plans_order() {
+    let daemon = FakeDaemon::new(Broadcaster::new());
+    let kept = daemon.groups_seen.clone();
+    let app = router(Served::by(daemon, run_id(), Broadcaster::new()));
+    let two = r#"{"groups":[{"title":"Rotate","agent":"rust-engineer","paths":["crates/store"],"tasks":[{"title":"Rotate at midnight"}]},{"title":"Show it","seen":true,"agent":"bridge-engineer","paths":["apps/desktop"],"tasks":[{"title":"Draw the rotation"}]}]}"#;
+    through_the_door(&app, "record_plan", two).await;
+    through_the_door(&app, "record_plan", PLAN).await;
+    assert_eq!(*kept.lock().expect("groups seen"), vec![vec![false, true], vec![false]], "left out, a group's is false");
+}
+
+#[tokio::test]
 async fn show_file_answers_the_path_it_opened() {
     let (app, _) = a_fleet();
     let said = through_the_door(&app, "show_file", FILE).await;

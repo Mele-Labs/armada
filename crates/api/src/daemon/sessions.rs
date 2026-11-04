@@ -269,6 +269,19 @@ pub trait Sessions: Send + Sync + 'static {
         seen: bool,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// [`Sessions::record_plan`] with each group's `seen`, in the plan's order, read beside the plan as `seen`
+    /// is: whether the Operator may answer a question from a Job working on that group. A daemon that keeps no
+    /// mark per group records the plan as `record_plan` does.
+    fn record_plan_seen(
+        &self,
+        caller: Option<crate::Caller>,
+        plan: ipc::RecordPlan,
+        seen: bool,
+        _groups_seen: Vec<bool>,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send {
+        self.record_plan(caller, plan, seen)
+    }
+
     /// `approve_plan` — the person approves the plan at the version he read, and the agent is told once.
     /// [`Refusal::IllegalMove`] for a version that is no longer the current one, or a session with no plan.
     fn approve_plan(
