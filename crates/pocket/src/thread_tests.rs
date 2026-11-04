@@ -169,6 +169,8 @@ async fn the_routes_the_job_screens_use_are_signed_and_reach_fleet_without_api()
         "/sessions/waiting/dismiss",
         "/sessions/sketch/answer",
         "/sessions/document/answer",
+        "/sessions/change_waiting",
+        "/sessions/start_waiting",
     ];
     for path in posts {
         let (status, said) = send(&phone, Method::POST, &format!("/api{path}"), body).await;

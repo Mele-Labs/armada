@@ -14,7 +14,7 @@ const VERSIONS: &str = "session_ledger.versions";
 /// Reads the versions' table, so a build without that table has none of it either.
 const ORIGINS: &str = "session_ledger.version_origins";
 
-fn session(id: &str) -> KeptSession {
+pub(super) fn session(id: &str) -> KeptSession {
     KeptSession {
         id: id.into(),
         harness: "a_harness".into(),

@@ -24,6 +24,7 @@ A plan, sketch, draft, document and walk are the review items: they are one **Re
 A question, command, pull request, message and Fleet's own cards stay on the card, answered where they stand, as above.
 A Job with both keeps the question on the card and lists only the review items on the sheet; a Job with no review items has no Review row and never opens the sheet.
 A Job with only review items has nothing to fold, so a press anywhere on the band opens the sheet.
+**The sheet takes two or more.** One review item stays where it lives: one walk or draft is a row on the card, and one plan, sketch or document is its card in the thread.
 The sheet lists the items oldest first, the list on the left and the selected item on the right, and each item has its own answer, with Approve naming the item, such as `Approve Plan v2`.
 `⌘↵` approves, `⌥R` sends back with a note, `↑` and `↓` move, and Esc closes the sheet and returns focus to what opened it.
 After an answer the next open item comes up, and the last answer closes the sheet.

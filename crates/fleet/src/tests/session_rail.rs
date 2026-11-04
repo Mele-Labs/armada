@@ -337,7 +337,14 @@ fn discussed() -> config::ResolvedWorkflow {
 
 const STALLED: &str = "Fleet does not move it for you";
 
-/// **A Job that stops on a step only its own act ends is told so, once.** Read from the row: the turn
+/// The stop nudge, with its minute up: it carries the step's own words.
+async fn stop_ripe(rig: &Rig, id: &SessionId) {
+    let stop = rig.fleet.store().lock().await.session(id.as_str()).unwrap().unwrap().last_turn_at.unwrap();
+    rig.fleet.hosts().stops_owed().noted(id.as_str(), Some((&stop, 0)));
+    rig.fleet.stops_told().await;
+}
+
+/// **A Job that stops on a step only its own act ends is told so by the stop nudge.** Read from the row: the turn
 /// ended on a reply that asks nothing and nothing waits on the person. The Logbook Job, 27 Oct 2026.
 #[tokio::test]
 async fn a_job_that_reports_and_stops_on_a_step_only_it_can_end_is_told_once() {
@@ -346,6 +353,8 @@ async fn a_job_that_reports_and_stops_on_a_step_only_it_can_end_is_told_once() {
     eventually(|| async { told(&rig, "Settle the scope.") == 1 }).await;
 
     rig.stand_in.finishes(0, "Settled so far: one line per entry.\nOnce Fleet moves to the plan step, I will record it.");
+    eventually(|| async { record(&rig, &id).await.standing == Some(ipc::SessionStanding::Replied) }).await;
+    stop_ripe(&rig, &id).await;
     eventually(|| async { told(&rig, STALLED) == 1 }).await;
     let said = rig.stand_in.process(0).sent.lock().unwrap().iter().find(|line| line.contains(STALLED)).cloned().unwrap();
     for part in ["Discuss", "you record a plan with record_plan", "ask the person what is still open"] {
@@ -353,9 +362,9 @@ async fn a_job_that_reports_and_stops_on_a_step_only_it_can_end_is_told_once() {
     }
 
     rig.stand_in.finishes(0, "Still settled.");
-    eventually(|| async { record(&rig, &id).await.standing == Some(ipc::SessionStanding::Replied) }).await;
-    rig.fleet.timeline().settled().await;
-    assert_eq!(told(&rig, STALLED), 1, "once for each step");
+    eventually(|| async { record(&rig, &id).await.standing == Some(ipc::SessionStanding::Stopped) }).await;
+    rig.fleet.stops_told().await;
+    assert_eq!(told(&rig, STALLED), 1, "one stop, one word");
 }
 
 /// A turn that ends on a question waits on the person, so the Job has not stopped on its own step.
@@ -390,6 +399,8 @@ async fn a_job_that_pushed_and_stops_with_no_pull_request_is_told_to_deliver_onc
     eventually(|| async { record(&rig, &id).await.workflow_step == Some(2) }).await;
 
     rig.stand_in.finishes(0, "Pushed the branch.\nNext is the Hand off step: opening the PR.");
+    eventually(|| async { record(&rig, &id).await.standing == Some(ipc::SessionStanding::Replied) }).await;
+    stop_ripe(&rig, &id).await;
     eventually(|| async { told(&rig, UNDELIVERED) == 1 }).await;
     let said = rig.stand_in.process(0).sent.lock().unwrap().iter().find(|line| line.contains(UNDELIVERED)).cloned().unwrap();
     for part in ["Hand off", "Deliver now", "open the pull request", "Keep local, call finish_up and then all_done"] {
@@ -397,9 +408,10 @@ async fn a_job_that_pushed_and_stops_with_no_pull_request_is_told_to_deliver_onc
     }
 
     rig.stand_in.finishes(0, "Still pushed.");
-    eventually(|| async { record(&rig, &id).await.standing == Some(ipc::SessionStanding::Replied) }).await;
+    eventually(|| async { record(&rig, &id).await.standing == Some(ipc::SessionStanding::Stopped) }).await;
     rig.fleet.timeline().settled().await;
-    assert_eq!(told(&rig, UNDELIVERED), 1, "once for each step");
+    rig.fleet.stops_told().await;
+    assert_eq!(told(&rig, UNDELIVERED), 1, "one stop, one word");
 
     // With its pull request open, the Job waits on the merge Fleet tells it of.
     let mut opened = record(&rig, &id).await;

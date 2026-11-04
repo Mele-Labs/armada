@@ -43,6 +43,8 @@ pub enum Notice {
     RailNudge,
     /// The instructions of the workflow step the Session entered.
     RailStep,
+    /// A turn ended with nothing running and nothing asked, and the Session is told to carry on or name what it waits on.
+    StopNudge,
     /// A usage rule tripped: context size, idle time or the plan's limit.
     UsageTrip,
     /// The plan's limit ended and the Session is woken.
@@ -104,6 +106,7 @@ impl Notice {
             Notice::MainRed => "main_red",
             Notice::RailNudge => "rail_nudge",
             Notice::RailStep => "rail_step",
+            Notice::StopNudge => "stop_nudge",
             Notice::UsageTrip => "usage_trip",
             Notice::LimitWake => "limit_wake",
             Notice::SignInWake => "sign_in_wake",

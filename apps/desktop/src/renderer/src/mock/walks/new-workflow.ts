@@ -1,12 +1,11 @@
 // Making a workflow: New workflow on the Workflows page opens the Dispatch sheet for a Job, which proposes it as a card in its thread
 // and an item in Needs you; Approve lists it under its scope. Over `new-workflow`, a mock with the Job scripted.
-// Keys: N opens the sheet from the Workflows page, Enter starts, Esc closes, Approve answers in the Needs you sheet.
+// Keys: N opens the sheet from the Workflows page, Enter starts, Esc closes, 1 and 2 answer in Needs you.
 
-import { button, dialog, inside, role, toSystemPage, walk } from "../walk";
-import { openNeeds } from "../sessions/walk-kit";
+import { button, dialog, inside, region, role, toSystemPage, walk } from "../walk";
 
 const sheet = dialog("Dispatch");
-const needs = dialog(/^(?!Dispatch)/);
+const needs = region("Needs you");
 
 const newWorkflow = walk("new-workflow", [
   ...toSystemPage("Workflows", "Workflows, from System"),
@@ -33,12 +32,21 @@ const newWorkflow = walk("new-workflow", [
     say: "Start begins a Job, which opens in the Cockpit",
   },
   {
-    ...openNeeds,
-    say: "The proposed workflow is in the Needs you sheet, and as a card in the thread",
+    press: inside(needs, button(/^Needs you/)),
+    say: "The proposed workflow is in Needs you, and as a card in the thread",
   },
   {
-    press: inside(needs, button(/^Approve/)),
-    say: "Approve, on the draft in the sheet",
+    press: inside(needs, role("radio", /Approve/)),
+    say: "Approve",
+  },
+  {
+    press: inside(
+      needs,
+      button("Answer", {
+        exact: true,
+      }),
+    ),
+    say: "Answer sends it",
   },
   ...toSystemPage("Workflows", "Workflows, from System"),
   {

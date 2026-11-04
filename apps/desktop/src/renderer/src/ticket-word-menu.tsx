@@ -78,12 +78,15 @@ function told(manifestId: string): void {
   for (const one of hearing.get(manifestId) ?? []) one();
 }
 
-/** Reads the repository's Ticket lifecycle again. An answer to an older read is dropped; a refusal reads as no states. */
+/**
+ * Reads the repository's Ticket lifecycle again. An answer to an older read is dropped; a refusal, or a window with no api to
+ * ask, reads as no states, so drawing a row never throws.
+ */
 function readAgain(manifestId: string): void {
   const mine = (asked.get(manifestId) ?? 0) + 1;
   asked.set(manifestId, mine);
-  void window.armada
-    .listLifecycles(manifestId)
+  void Promise.resolve()
+    .then(() => window.armada.listLifecycles(manifestId))
     .then(
       (read) => (read.ok ? (runningTicket(read.value.lifecycles)?.lifecycle.states ?? []) : []),
       () => [],

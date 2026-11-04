@@ -5,3 +5,10 @@
   status = "Specified"
   reserved = "stalled only. Generic warnings use triangle-alert."
   notes = "Changed from hourglass. The stop-sign polygon is the loudest shape available and the only octagon in the system."
+
+[[icons.octagon-alert.usage]]
+  means = "A stopped Job Fleet has given up on, the mark on its row: a nudge or a restart changed nothing"
+  group = "Session"
+  size = "12 and 16px"
+  status = "Proposed"
+  notes = "Proposed 3 Nov 2026 for the walk `jobStops`, tooltip `Stopped`. It is stalled by another name, which is what the octagon is reserved for: the Job sits with nothing running and nothing asked, and only a person moves it now."
