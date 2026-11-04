@@ -46,7 +46,15 @@ type Story = StoryObj<typeof RepositorySwitches>;
 export const OneOffOneOn: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("switch", { name: "Connectors in armada" })).not.toBeChecked();
-    await expect(canvas.getByRole("switch", { name: "Connectors in storefront" })).toBeChecked();
+    await expect(
+      canvas.getByRole("switch", {
+        name: "Connectors in armada",
+      }),
+    ).not.toBeChecked();
+    await expect(
+      canvas.getByRole("switch", {
+        name: "Connectors in storefront",
+      }),
+    ).toBeChecked();
   },
 };

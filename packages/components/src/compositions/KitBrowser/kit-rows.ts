@@ -345,8 +345,7 @@ function rowOf(
     (item.plugin !== undefined && providerOf(item.plugin) === "armada")
       ? {}
       : {
-          jobs:
-            item.plugin === undefined ? item.name : `${providerOf(item.plugin)}:${item.name}`,
+          jobs: item.plugin === undefined ? item.name : `${providerOf(item.plugin)}:${item.name}`,
         }),
   };
 }

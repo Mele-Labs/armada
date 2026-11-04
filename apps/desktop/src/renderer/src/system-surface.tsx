@@ -183,7 +183,9 @@ export function SystemSurface({
   // Both are set per repository and saved back whole, once Fleet serves them; the rail's pick changes neither.
   const skillsOff = settings?.settings.find((one) => one.key === SKILLS_OFF_KEY);
   const offBy: Record<string, readonly string[]> =
-    typeof skillsOff?.value === "object" && skillsOff.value !== null && !Array.isArray(skillsOff.value)
+    typeof skillsOff?.value === "object" &&
+    skillsOff.value !== null &&
+    !Array.isArray(skillsOff.value)
       ? Object.fromEntries(
           Object.entries(skillsOff.value).map(([id, names]) => [
             id,
@@ -199,7 +201,12 @@ export function SystemSurface({
           off: offBy,
           onSwitch: (id: string, skill: string, on: boolean) => {
             const was = offBy[id] ?? [];
-            const next = on ? was.filter((one) => one !== skill) : [...was, skill];
+            const next = on
+              ? was.filter((one) => one !== skill)
+              : [
+                  ...was,
+                  skill,
+                ];
             const { [id]: _gone, ...rest } = offBy;
             const all =
               next.length === 0
@@ -216,7 +223,9 @@ export function SystemSurface({
   const connectorsOff = settings?.settings.find((one) => one.key === CONNECTORS_OFF_KEY);
   // A value that is not a map of true and false reads as nothing set, so each repository follows its armada.yml.
   const setOff: Record<string, boolean> =
-    typeof connectorsOff?.value === "object" && connectorsOff.value !== null && !Array.isArray(connectorsOff.value)
+    typeof connectorsOff?.value === "object" &&
+    connectorsOff.value !== null &&
+    !Array.isArray(connectorsOff.value)
       ? Object.fromEntries(
           Object.entries(connectorsOff.value).flatMap(([id, off]) =>
             typeof off === "boolean"
@@ -238,7 +247,13 @@ export function SystemSurface({
           onSwitch: (id: string, armadaYml: boolean, on: boolean) => {
             // Back to what armada.yml says is no choice made, so the entry goes and the repository follows it again.
             const { [id]: _gone, ...rest } = setOff;
-            const all = on === !armadaYml ? rest : { ...rest, [id]: !on };
+            const all =
+              on === !armadaYml
+                ? rest
+                : {
+                    ...rest,
+                    [id]: !on,
+                  };
             void window.armada.saveSettings({
               [CONNECTORS_OFF_KEY]: Object.keys(all).length === 0 ? null : all,
             });
@@ -503,7 +518,11 @@ export function SystemSurface({
               switchLabel={(name) => `Connectors in ${name}`}
               disabled={!live}
               onSwitch={(id, on) =>
-                connectors.onSwitch(id, repositories.find((one) => one.id === id)?.connectorsOff ?? false, on)
+                connectors.onSwitch(
+                  id,
+                  repositories.find((one) => one.id === id)?.connectorsOff ?? false,
+                  on,
+                )
               }
             />
           </div>

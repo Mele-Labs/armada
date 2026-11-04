@@ -93,7 +93,10 @@ export type KitBrowserProps = {
    * repository's skills switched off, by its id. Absent draws no list.
    */
   jobs?: {
-    repositories: readonly { id: string; name: string }[];
+    repositories: readonly {
+      id: string;
+      name: string;
+    }[];
     off: Readonly<Record<string, readonly string[]>>;
     onSwitch: (repository: string, skill: string, on: boolean) => void;
   };
@@ -526,7 +529,9 @@ function Detail({
         </>
       ) : null}
       {jobs === undefined ? null : row.jobs === undefined ? (
-        <p className="armada-kit-browser__comes">Every Job gets a repository's own skills and Armada's.</p>
+        <p className="armada-kit-browser__comes">
+          Every Job gets a repository's own skills and Armada's.
+        </p>
       ) : (
         <RepositorySwitches
           title="Jobs get it in"
