@@ -791,7 +791,8 @@ export function StoryColumn({
       )
       .map((group) => group.id),
   );
-  const openMade = made.filter(
+  // `madeOf` drops an open pull request and an unclosed issue, so they come from `unlanded`, which holds them.
+  const openMade = [...made, ...unlanded].filter(
     (one) => stillOpen(one) && !(one.group !== undefined && drawnByGroup.has(one.group)),
   );
   // The follow-ups kept for later stand in their own zone, so Open lists only what is open.
