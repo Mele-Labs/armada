@@ -1,0 +1,1002 @@
+$ bd formula list
+📜 Formulas (1 found)
+
+📋 Workflow:
+  feature                   Propose, Walk, Refine, Deliver. Fleet closes every gate f... (4 vars)
+[exit 0]
+$ bd mol pour feature --var job=j1 --var title=Spike --var repo=Mele-Labs/armada --dry-run
+
+Dry run: would pour 13 issues from proto feature
+
+Storage: permanent (.beads/)
+
+  - Spike (from feature)
+  - Propose: Spike (from feature.propose)
+  - Plan approved (from feature.plan-approved)
+  - Gate: human (from feature.gate-plan-approved)
+  - Walk: show the change in the real Bridge (from feature.walk)
+  - Every walk approved (from feature.walk-approved)
+  - Gate: human (from feature.gate-walk-approved)
+  - Refine: wire it and test it (from feature.refine)
+  - Judge passed (from feature.judged)
+  - Gate: human (from feature.gate-judged)
+  - Deliver: push and open the pull request (from feature.deliver)
+  - Pull request merged (from feature.merged)
+  - Gate: gh:pr (from feature.gate-merged)
+[exit 0]
+$ bd mol pour feature --var job=j1 --var title=Spike --var repo=Mele-Labs/armada --dry-run
+
+Dry run: would pour 10 issues from proto feature
+
+Storage: permanent (.beads/)
+
+  - Spike (from feature)
+  - Propose: Spike (from feature.propose)
+  - Walk: show the change in the real Bridge (from feature.walk)
+  - Gate: human (from feature.gate-walk)
+  - Refine: wire it and test it (from feature.refine)
+  - Gate: human (from feature.gate-refine)
+  - Deliver: push and open the pull request (from feature.deliver)
+  - Gate: human (from feature.gate-deliver)
+  - Landed on main (from feature.landed)
+  - Gate: gh:pr (from feature.gate-landed)
+[exit 0]
+$ bd mol pour feature --var job=j2 --var title=Unseen --var seen=false --dry-run
+
+Dry run: would pour 8 issues from proto feature
+
+Storage: permanent (.beads/)
+
+  - Unseen (from feature)
+  - Propose: Unseen (from feature.propose)
+  - Refine: wire it and test it (from feature.refine)
+  - Gate: human (from feature.gate-refine)
+  - Deliver: push and open the pull request (from feature.deliver)
+  - Gate: human (from feature.gate-deliver)
+  - Landed on main (from feature.landed)
+  - Gate: gh:pr (from feature.gate-landed)
+[exit 0]
+$ bd mol pour feature --var job=j1 --var title=Spike --var repo=Mele-Labs/armada --json
+{
+  "attached": 0,
+  "created": 10,
+  "id_mapping": {
+    "feature": "spk-mol-b0j",
+    "feature.deliver": "spk-mol-31y",
+    "feature.gate-deliver": "spk-mol-cfw",
+    "feature.gate-landed": "spk-mol-nuv",
+    "feature.gate-refine": "spk-mol-fdz",
+    "feature.gate-walk": "spk-mol-4hl",
+    "feature.landed": "spk-mol-ht3",
+    "feature.propose": "spk-mol-ebv",
+    "feature.refine": "spk-mol-y8x",
+    "feature.walk": "spk-mol-7oy"
+  },
+  "new_epic_id": "spk-mol-b0j",
+  "phase": "liquid",
+  "schema_version": 1
+}
+[exit 0]
+$ bd mol pour feature --var job=j2 --var title=Unseen --var seen=false
+✓ Poured mol: created 8 issues
+  Root issue: spk-mol-za6
+  Phase: liquid (persistent in the issue database)
+[exit 0]
+$ bd mol current spk-mol-b0j
+You're working on molecule spk-mol-b0j
+  Spike
+
+  [ready] spk-mol-fdz: Gate: human
+  [ready] spk-mol-cfw: Gate: human
+  [ready] spk-mol-4hl: Gate: human
+  [ready] spk-mol-nuv: Gate: gh:pr
+  [ready] spk-mol-ebv: Propose: Spike
+  [pending] spk-mol-ht3: Landed on main
+  [pending] spk-mol-y8x: Refine: wire it and test it
+  [pending] spk-mol-7oy: Walk: show the change in the real Bridge
+  [pending] spk-mol-31y: Deliver: push and open the pull request
+
+Progress: 0/9 steps complete
+
+Next ready: spk-mol-fdz - Gate: human
+  Start with: bd update spk-mol-fdz --claim
+
+💡 Run `bd show spk-mol-fdz` to see detailed instructions.
+[exit 0]
+$ bd ready --mol spk-mol-b0j
+
+🧪 Ready steps in molecule: Spike
+   ID: spk-mol-b0j
+   Total: 10 steps, 6 ready
+
+⚡ Parallel Groups:
+   group-1: 6 ready
+
+📋 Ready steps:
+
+1. [P2] [molecule] spk-mol-b0j: Spike [group-1]
+   Can run with: [spk-mol-4hl spk-mol-cfw spk-mol-ebv spk-mol-fdz spk-mol-nuv]
+2. [P2] [gate] spk-mol-fdz: Gate: human [group-1]
+   Can run with: [spk-mol-4hl spk-mol-b0j spk-mol-cfw spk-mol-ebv spk-mol-nuv]
+3. [P2] [gate] spk-mol-cfw: Gate: human [group-1]
+   Can run with: [spk-mol-4hl spk-mol-b0j spk-mol-ebv spk-mol-fdz spk-mol-nuv]
+4. [P2] [gate] spk-mol-4hl: Gate: human [group-1]
+   Can run with: [spk-mol-b0j spk-mol-cfw spk-mol-ebv spk-mol-fdz spk-mol-nuv]
+5. [P2] [gate] spk-mol-nuv: Gate: gh:pr [group-1]
+   Can run with: [spk-mol-4hl spk-mol-b0j spk-mol-cfw spk-mol-ebv spk-mol-fdz]
+6. [P2] [task] spk-mol-ebv: Propose: Spike [group-1]
+   Can run with: [spk-mol-4hl spk-mol-b0j spk-mol-cfw spk-mol-fdz spk-mol-nuv]
+[exit 0]
+$ bd mol current spk-mol-za6
+You're working on molecule spk-mol-za6
+  Unseen
+
+  [ready] spk-mol-csw: Gate: human
+  [ready] spk-mol-3jq: Propose: Unseen
+  [ready] spk-mol-2e6: Gate: human
+  [ready] spk-mol-25x: Gate: gh:pr
+  [pending] spk-mol-0x0: Refine: wire it and test it
+  [pending] spk-mol-940: Landed on main
+  [pending] spk-mol-clt: Deliver: push and open the pull request
+
+Progress: 0/7 steps complete
+
+Next ready: spk-mol-csw - Gate: human
+  Start with: bd update spk-mol-csw --claim
+
+💡 Run `bd show spk-mol-csw` to see detailed instructions.
+[exit 0]
+$ bd show spk-mol-fdz --json
+[
+  {
+    "id": "spk-mol-fdz",
+    "title": "Gate: human",
+    "description": "Async gate for step refine",
+    "status": "open",
+    "priority": 2,
+    "issue_type": "gate",
+    "created_at": "2026-11-04T21:32:53Z",
+    "updated_at": "2026-11-04T21:32:53Z",
+    "await_type": "human",
+    "dependencies": [
+      {
+        "id": "spk-mol-b0j",
+        "title": "Spike",
+        "description": "Propose, Walk, Refine, Deliver. Fleet closes every gate from what it observes; the agent closes its own work beads.",
+        "status": "open",
+        "priority": 2,
+        "issue_type": "molecule",
+        "created_at": "2026-11-04T21:32:53Z",
+        "updated_at": "2026-11-04T21:32:53Z",
+        "dependency_type": "parent-child"
+      }
+    ],
+    "parent": "spk-mol-b0j",
+    "dependent_count": 1,
+    "dependency_count": 1,
+    "comment_count": 0,
+    "revision": "1111422607315080517"
+  }
+]
+[exit 0]
+$ bd show spk-mol-0x0
+○ spk-mol-0x0 · Refine: wire it and test it   [P2 · OPEN]
+Type: task
+Created: 2026-11-04 · Updated: 2026-11-04
+
+DESCRIPTION
+  (none)
+
+LABELS: armada:follows_plan, armada:step
+
+METADATA
+  armada_step: refine
+
+PARENT
+  ↑ ○ spk-mol-za6: Unseen P2
+
+DEPENDS ON
+  → ○ spk-mol-csw: Gate: human P2
+
+BLOCKS
+  ← ○ spk-mol-clt: Deliver: push and open the pull request P2
+
+
+💡 Tip: Install the beads plugin for automatic workflow context, or run 'bd setup claude' for CLI-only mode
+[exit 0]
+$ bd show spk-mol-4hl --json
+[
+  {
+    "id": "spk-mol-4hl",
+    "title": "Gate: human",
+    "description": "Async gate for step walk",
+    "status": "open",
+    "priority": 2,
+    "issue_type": "gate",
+    "created_at": "2026-11-04T21:32:53Z",
+    "updated_at": "2026-11-04T21:32:53Z",
+    "await_type": "human",
+    "timeout": 259200000000000,
+    "dependencies": [
+      {
+        "id": "spk-mol-b0j",
+        "title": "Spike",
+        "description": "Propose, Walk, Refine, Deliver. Fleet closes every gate from what it observes; the agent closes its own work beads.",
+        "status": "open",
+        "priority": 2,
+        "issue_type": "molecule",
+        "created_at": "2026-11-04T21:32:53Z",
+        "updated_at": "2026-11-04T21:32:53Z",
+        "dependency_type": "parent-child"
+      }
+    ],
+    "parent": "spk-mol-b0j",
+    "dependent_count": 1,
+    "dependency_count": 1,
+    "comment_count": 0,
+    "revision": "-2781091848702603147"
+  }
+]
+[exit 0]
+$ bd ready
+○ spk-mol-ebv P2 Propose: Spike
+○ spk-mol-3jq P2 Propose: Unseen
+
+--------------------------------------------------------------------------------
+Ready: 2 issues with no active blockers
+
+Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
+Priority: P0–P4 (label only; not a status icon)
+[exit 0]
+$ bd ready --gated
+
+ No molecules ready for gate-resume dispatch
+[exit 0]
+$ bd update spk-mol-ebv --claim
+✓ Updated issue: spk-mol-ebv — Propose: Spike
+[exit 0]
+$ bd close spk-mol-ebv --reason plan recorded
+✓ Closed spk-mol-ebv — Propose: Spike: plan recorded
+[exit 0]
+$ bd ready --mol spk-mol-b0j
+
+🧪 Ready steps in molecule: Spike
+   ID: spk-mol-b0j
+   Total: 10 steps, 5 ready
+
+⚡ Parallel Groups:
+   group-1: 5 ready
+
+📋 Ready steps:
+
+1. [P2] [molecule] spk-mol-b0j: Spike [group-1]
+   Can run with: [spk-mol-4hl spk-mol-cfw spk-mol-fdz spk-mol-nuv]
+2. [P2] [gate] spk-mol-fdz: Gate: human [group-1]
+   Can run with: [spk-mol-4hl spk-mol-b0j spk-mol-cfw spk-mol-nuv]
+3. [P2] [gate] spk-mol-cfw: Gate: human [group-1]
+   Can run with: [spk-mol-4hl spk-mol-b0j spk-mol-fdz spk-mol-nuv]
+4. [P2] [gate] spk-mol-4hl: Gate: human [group-1]
+   Can run with: [spk-mol-b0j spk-mol-cfw spk-mol-fdz spk-mol-nuv]
+5. [P2] [gate] spk-mol-nuv: Gate: gh:pr [group-1]
+   Can run with: [spk-mol-4hl spk-mol-b0j spk-mol-cfw spk-mol-fdz]
+[exit 0]
+$ bd mol current spk-mol-b0j
+You're working on molecule spk-mol-b0j
+  Spike
+
+  [ready] spk-mol-fdz: Gate: human
+  [ready] spk-mol-cfw: Gate: human
+  [ready] spk-mol-4hl: Gate: human
+  [ready] spk-mol-nuv: Gate: gh:pr
+  [done] spk-mol-ebv: Propose: Spike
+  [pending] spk-mol-ht3: Landed on main
+  [pending] spk-mol-y8x: Refine: wire it and test it
+  [pending] spk-mol-7oy: Walk: show the change in the real Bridge
+  [pending] spk-mol-31y: Deliver: push and open the pull request
+
+Progress: 1/9 steps complete
+
+Next ready: spk-mol-fdz - Gate: human
+  Start with: bd update spk-mol-fdz --claim
+
+💡 Run `bd show spk-mol-fdz` to see detailed instructions.
+[exit 0]
+$ bd mol progress spk-mol-b0j
+Molecule: spk-mol-b0j (Spike)
+Progress: 1 / 9 (11.1%)
+[exit 0]
+$ bd gate resolve spk-mol-4hl --reason plan approved by the person
+✓ Gate resolved: spk-mol-4hl
+  Reason: plan approved by the person
+[exit 0]
+$ bd ready --gated
+
+ Molecules ready for gate-resume dispatch (1):
+
+1. spk-mol-b0j: Spike
+   Gate closed: spk-mol-4hl (human)
+   Ready step: spk-mol-7oy - Walk: show the change in the real Bridge
+
+To dispatch a molecule:
+  bd sling <agent> --mol <molecule-id>
+[exit 0]
+$ bd ready --mol spk-mol-b0j --json
+{
+  "molecule_id": "spk-mol-b0j",
+  "molecule_title": "Spike",
+  "parallel_groups": {
+    "group-1": [
+      "spk-mol-7oy",
+      "spk-mol-fdz",
+      "spk-mol-nuv",
+      "spk-mol-ebv",
+      "spk-mol-b0j",
+      "spk-mol-cfw",
+      "spk-mol-4hl"
+    ]
+  },
+  "ready_steps": 5,
+  "schema_version": 1,
+  "steps": [
+    {
+      "issue": {
+        "created_at": "2026-11-04T21:32:53Z",
+        "description": "Propose, Walk, Refine, Deliver. Fleet closes every gate from what it observes; the agent closes its own work beads.",
+        "id": "spk-mol-b0j",
+        "issue_type": "molecule",
+        "priority": 2,
+        "status": "open",
+        "title": "Spike",
+        "updated_at": "2026-11-04T21:32:53Z"
+      },
+      "parallel_group": "group-1",
+      "parallel_info": {
+        "blocked_by": [],
+        "blocks": [],
+        "can_parallel": [
+          "spk-mol-4hl",
+          "spk-mol-7oy",
+          "spk-mol-cfw",
+          "spk-mol-ebv",
+          "spk-mol-fdz",
+          "spk-mol-nuv"
+        ],
+        "is_ready": true,
+        "parallel_group": "group-1",
+        "status": "open",
+        "step_id": "spk-mol-b0j"
+      }
+    },
+    {
+      "issue": {
+        "await_type": "human",
+        "created_at": "2026-11-04T21:32:53Z",
+        "description": "Async gate for step refine",
+        "id": "spk-mol-fdz",
+        "issue_type": "gate",
+        "priority": 2,
+        "status": "open",
+        "title": "Gate: human",
+        "updated_at": "2026-11-04T21:32:53Z"
+      },
+      "parallel_group": "group-1",
+      "parallel_info": {
+        "blocked_by": [],
+        "blocks": [
+          "spk-mol-y8x"
+        ],
+        "can_parallel": [
+          "spk-mol-4hl",
+          "spk-mol-7oy",
+          "spk-mol-b0j",
+          "spk-mol-cfw",
+          "spk-mol-ebv",
+          "spk-mol-nuv"
+        ],
+        "is_ready": true,
+        "parallel_group": "group-1",
+        "status": "open",
+        "step_id": "spk-mol-fdz"
+      }
+    },
+    {
+      "issue": {
+        "await_type": "human",
+        "created_at": "2026-11-04T21:32:53Z",
+        "description": "Async gate for step deliver",
+        "id": "spk-mol-cfw",
+        "issue_type": "gate",
+        "priority": 2,
+        "status": "open",
+        "title": "Gate: human",
+        "updated_at": "2026-11-04T21:32:53Z"
+      },
+      "parallel_group": "group-1",
+      "parallel_info": {
+        "blocked_by": [],
+        "blocks": [
+          "spk-mol-31y"
+        ],
+        "can_parallel": [
+          "spk-mol-4hl",
+          "spk-mol-7oy",
+          "spk-mol-b0j",
+          "spk-mol-ebv",
+          "spk-mol-fdz",
+          "spk-mol-nuv"
+        ],
+        "is_ready": true,
+        "parallel_group": "group-1",
+        "status": "open",
+        "step_id": "spk-mol-cfw"
+      }
+    },
+    {
+      "issue": {
+        "created_at": "2026-11-04T21:32:53Z",
+        "id": "spk-mol-7oy",
+        "issue_type": "task",
+        "labels": [
+          "armada:step",
+          "armada:walks"
+        ],
+        "metadata": {
+          "armada_step": "walk"
+        },
+        "priority": 2,
+        "status": "open",
+        "title": "Walk: show the change in the real Bridge",
+        "updated_at": "2026-11-04T21:32:53Z"
+      },
+      "parallel_group": "group-1",
+      "parallel_info": {
+        "blocked_by": [],
+        "blocks": [
+          "spk-mol-y8x"
+        ],
+        "can_parallel": [
+          "spk-mol-4hl",
+          "spk-mol-b0j",
+          "spk-mol-cfw",
+          "spk-mol-ebv",
+          "spk-mol-fdz",
+          "spk-mol-nuv"
+        ],
+        "is_ready": true,
+        "parallel_group": "group-1",
+        "status": "open",
+        "step_id": "spk-mol-7oy"
+      }
+    },
+    {
+      "issue": {
+        "await_type": "gh:pr",
+        "created_at": "2026-11-04T21:32:53Z",
+        "description": "Async gate for step landed",
+        "id": "spk-mol-nuv",
+        "issue_type": "gate",
+        "metadata": {
+          "repo": "Mele-Labs/armada"
+        },
+        "priority": 2,
+        "status": "open",
+        "timeout": 86400000000000,
+        "title": "Gate: gh:pr",
+        "updated_at": "2026-11-04T21:32:53Z"
+      },
+      "parallel_group": "group-1",
+      "parallel_info": {
+        "blocked_by": [],
+        "blocks": [
+          "spk-mol-ht3"
+        ],
+        "can_parallel": [
+          "spk-mol-4hl",
+          "spk-mol-7oy",
+          "spk-mol-b0j",
+          "spk-mol-cfw",
+          "spk-mol-ebv",
+          "spk-mol-fdz"
+        ],
+        "is_ready": true,
+        "parallel_group": "group-1",
+        "status": "open",
+        "step_id": "spk-mol-nuv"
+      }
+    }
+  ],
+  "total_steps": 10
+}
+[exit 0]
+$ bd update spk-mol-nuv --await-id 3279
+✓ Updated issue: spk-mol-nuv — Gate: gh:pr
+[exit 0]
+$ bd gate create -t gh:pr --await-id 3277 --blocks spk-4bi --title merged pr
+✓ Created gate spk-0ad (type: gh:pr)
+  Blocks: spk-4bi (holder 3277)
+
+Resolve with: bd gate resolve spk-0ad
+[exit 0]
+$ bd gate create -t gh:pr --await-id 2990 --blocks spk-587 --title closed pr
+✓ Created gate spk-doz (type: gh:pr)
+  Blocks: spk-587 (holder 2990)
+
+Resolve with: bd gate resolve spk-doz
+[exit 0]
+$ bd gate check --type=gh:pr
+⚠ spk-doz: ESCALATE - PR 'Count the at-once read in the plan usage test' was closed without merging
+✓ spk-0ad: resolved - PR 'Add a UAT workflow whose jobs carry no code' was merged
+○ spk-mol-25x: pending - no PR number specified
+○ spk-mol-nuv: pending - PR 'Compact a Job waiting on the owner before its prompt cache goes cold' is still open
+
+Checked 4 gates: 1 resolved, 1 escalated, 0 errors
+[exit 0]
+$ bd gate list --all
+
+⏳ Open Gates (7):
+
+○ spk-doz - gh:pr 2990
+
+○ spk-mol-25x - gh:pr (timeout: 24h0m0s)
+
+○ spk-mol-2e6 - human
+
+○ spk-mol-csw - human
+
+○ spk-mol-cfw - human
+
+○ spk-mol-fdz - human
+
+○ spk-mol-nuv - gh:pr 3279 (timeout: 24h0m0s)
+
+
+● Closed Gates (2):
+
+● spk-0ad - gh:pr 3277
+
+● spk-mol-4hl - human (timeout: 72h0m0s)
+
+To resolve a gate: bd close <gate-id>
+[exit 0]
+$ bd show spk-doz --json
+[
+  {
+    "id": "spk-doz",
+    "title": "closed pr",
+    "description": "Ad-hoc gate blocking spk-587",
+    "status": "open",
+    "priority": 2,
+    "issue_type": "gate",
+    "owner": "owner@example.com",
+    "created_at": "2026-11-04T21:35:12Z",
+    "created_by": "fleet",
+    "updated_at": "2026-11-04T21:35:13Z",
+    "metadata": {
+      "repo": "Mele-Labs/armada"
+    },
+    "await_type": "gh:pr",
+    "await_id": "2990",
+    "dependent_count": 1,
+    "dependency_count": 0,
+    "comment_count": 0,
+    "revision": "7658521215979612001"
+  }
+]
+[exit 0]
+$ bd close spk-mol-fdz --reason agent closing a gate it should not
+✓ Closed spk-mol-fdz — Gate: human: agent closing a gate it should not
+[exit 0]
+$ bd show spk-mol-fdz
+✓ spk-mol-fdz · Gate: human   [P2 · CLOSED]
+Type: gate
+Created: 2026-11-04 · Updated: 2026-11-04
+Close reason: agent closing a gate it should not
+
+DESCRIPTION
+
+  Async gate for step refine                                                  
+
+
+
+PARENT
+  ↑ ○ spk-mol-b0j: Spike P2
+
+BLOCKS
+  ← ○ spk-mol-y8x: Refine: wire it and test it P2
+[exit 0]
+$ bd history spk-mol-fdz
+
+📜 History for spk-mol-fdz (14 entries)
+
+cu5c2grn 2026-11-04 16:35:29
+  Author: beads
+  ✓ spk-mol-fdz: Gate: human [P2 - closed]
+
+bl1249tn 2026-11-04 16:35:17
+  Author: root
+  ○ spk-mol-fdz: Gate: human [P2 - open]
+
+t6341p06 2026-11-04 16:35:14
+  Author: beads
+  ○ spk-mol-fdz: Gate: human [P2 - open]
+
+1dltnsu7 2026-11-04 16:35:13
+  Author: beads
+  ○ spk-mol-fdz: Gate: human [P2 - open]
+
+bt370hus 2026-11-04 16:35:12
+  Author: root
+  ○ spk-mol-fdz: Gate: human [P2 - open]
+
+fepagv8a 2026-11-04 16:35:10
+  Author: root
+  ○ spk-mol-fdz: Gate: human [P2 - open]
+
+difubq4g 2026-11-04 16:35:05
+  Author: beads
+  ○ spk-mol-fdz: Gate: human [P2 - open]
+
+jt6elhis 2026-11-04 16:35:03
+  Author: beads
+  ○ spk-mol-fdz: Gate: human [P2 - open]
+
+6hpu8g12 2026-11-04 16:35:02
+  Author: beads
+  ○ spk-mol-fdz: Gate: human [P2 - open]
+
+vdm4b16a 2026-11-04 16:34:16
+  Author: root
+  ○ spk-mol-fdz: Gate: human [P2 - open]
+
+0683vmmh 2026-11-04 16:33:49
+  Author: beads
+  ○ spk-mol-fdz: Gate: human [P2 - open]
+
+rkip4aio 2026-11-04 16:33:48
+  Author: beads
+  ○ spk-mol-fdz: Gate: human [P2 - open]
+
+hf22c3g4 2026-11-04 16:32:57
+  Author: beads
+  ○ spk-mol-fdz: Gate: human [P2 - open]
+
+qmd6ucnq 2026-11-04 16:32:55
+  Author: beads
+  ○ spk-mol-fdz: Gate: human [P2 - open]
+[exit 0]
+$ bd reopen spk-mol-fdz --reason only Fleet closes a gate
+↻ Reopened spk-mol-fdz: only Fleet closes a gate
+[exit 0]
+$ sh -c bd events export | grep spk-mol-fdz | cut -c1-500
+{"seq":1,"ts":"2026-11-04T21:36:25Z","op":"close","issue_id":"spk-mol-fdz","actor":"agent-j1","issue":{"id":"spk-mol-fdz","title":"Gate: human","description":"Async gate for step refine","status":"closed","priority":2,"issue_type":"gate","created_at":"2026-11-04T21:32:53Z","updated_at":"2026-11-04T21:36:25Z","closed_at":"2026-11-04T21:36:25Z","close_reason":"agent again","await_type":"human"}}
+[exit 0]
+$ bd gate create -t human --timeout 1s --blocks spk-5wm --title human 1s
+✓ Created gate spk-9kd (type: human)
+  Blocks: spk-5wm (timeout holder)
+  Timeout: 1s
+
+Resolve with: bd gate resolve spk-9kd
+[exit 0]
+$ bd gate create -t timer --timeout 1s --blocks spk-5wm --title timer 1s
+✓ Created gate spk-qkh (type: timer)
+  Blocks: spk-5wm (timeout holder)
+  Timeout: 1s
+
+Resolve with: bd gate resolve spk-qkh
+[exit 0]
+$ bd gate create -t bead --await-id spk-mol-3jq --blocks spk-5wm --title bead gate
+✓ Created gate spk-03y (type: bead)
+  Blocks: spk-5wm (timeout holder)
+
+Resolve with: bd gate resolve spk-03y
+[exit 0]
+$ bd gate check
+○ spk-03y: pending - bead spk-mol-3jq is open
+✓ spk-qkh: resolved - timer expired 8s ago
+⚠ spk-doz: ESCALATE - PR 'Count the at-once read in the plan usage test' was closed without merging
+○ spk-mol-25x: pending - no PR number specified
+○ spk-mol-nuv: pending - PR 'Compact a Job waiting on the owner before its prompt cache goes cold' is still open
+
+Checked 5 gates: 1 resolved, 1 escalated, 0 errors
+[exit 0]
+$ bd gate check --type=bead
+✓ spk-03y: resolved - bead spk-mol-3jq closed
+
+Checked 1 gates: 1 resolved, 0 escalated, 0 errors
+[exit 0]
+$ bd gate check --type=human
+
+Checked 0 gates: 0 resolved, 0 escalated, 0 errors
+[exit 0]
+$ bd update spk-mol-7oy --claim
+✓ Updated issue: spk-mol-7oy — Walk: show the change in the real Bridge
+[exit 0]
+$ bd heartbeat spk-mol-7oy
+✓ Heartbeat spk-mol-7oy — Walk: show the change in the real Bridge (lease refreshed)
+[exit 0]
+$ bd heartbeat spk-mol-7oy
+Error: heartbeat spk-mol-7oy: issue already claimed by agent-j1
+[exit 1]
+$ bd reclaim --dry-run --older-than 0s
+Error: unknown flag: --dry-run
+[exit 1]
+$ bd swarm validate spk-xjk
+
+🐝 Swarm Analysis: Plan: Spike
+   Epic ID: spk-xjk
+   Total issues: 3 (0 closed)
+
+📊 Ready Fronts (waves of parallel work):
+   Wave 1: 2 issues
+      • spk-xjk.1: Group A: store
+      • spk-xjk.2: Group B: Bridge
+   Wave 2: 1 issues
+      • spk-xjk.3: Group C: wire both
+
+📈 Summary:
+   Estimated worker-sessions: 3
+   Max parallelism: 2
+   Total waves: 2
+
+✓ Swarmable: YES
+[exit 0]
+$ bd swarm create spk-xjk
+
+✓ Created swarm molecule: spk-q09
+   Epic: spk-xjk (Plan: Spike)
+   Total issues: 3
+   Max parallelism: 2
+   Waves: 2
+[exit 0]
+$ bd swarm status spk-xjk
+
+🐝 Ready Front Analysis: Plan: Spike
+
+Completed:     (none)
+Active:        (none)
+Ready:         ○ spk-xjk.1, ○ spk-xjk.2
+Blocked:       ◌ spk-xjk.3 (needs spk-xjk.1, spk-xjk.2)
+
+Progress: 0/3 complete (0%)
+[exit 0]
+$ bd show spk-xjk --json
+[
+  {
+    "id": "spk-xjk",
+    "title": "Plan: Spike",
+    "status": "open",
+    "priority": 2,
+    "issue_type": "epic",
+    "owner": "owner@example.com",
+    "created_at": "2026-11-04T21:39:02Z",
+    "created_by": "fleet",
+    "updated_at": "2026-11-04T21:39:02Z",
+    "dependent_count": 4,
+    "dependency_count": 0,
+    "comment_count": 0,
+    "revision": "-1452622346823199699"
+  }
+]
+[exit 0]
+$ bd mol stale
+ℹ Stale molecules (complete but unclosed):
+
+  spk-xjk  Plan: Spike  (3/3)
+       → Close with: bd close spk-xjk
+
+Total: 1 stale
+[exit 0]
+$ bd mol current
+No molecules in progress for agent-j1.
+
+To start work on a molecule:
+  bd mol wisp create <proto-id>  # Instantiate as ephemeral wisp
+  bd update <step-id> --claim  # Claim a step
+[exit 0]
+$ bd gate check --type=gh:pr
+⚠ spk-doz: ESCALATE - PR 'Count the at-once read in the plan usage test' was closed without merging
+○ spk-mol-25x: pending - no PR number specified
+✓ spk-mol-nuv: resolved - PR 'Add a UAT workflow whose jobs carry no code' was merged
+
+Checked 3 gates: 1 resolved, 1 escalated, 0 errors
+[exit 0]
+$ bd ready --gated
+
+ Molecules ready for gate-resume dispatch (1):
+
+1. spk-mol-b0j: Spike
+   Gate closed: spk-mol-nuv (gh:pr)
+   Ready step: spk-mol-ht3 - Landed on main
+
+To dispatch a molecule:
+  bd sling <agent> --mol <molecule-id>
+[exit 0]
+$ bd mol current spk-mol-b0j
+You're working on molecule spk-mol-b0j
+  Spike
+
+  [done] spk-mol-fdz: Gate: human
+  [done] spk-mol-cfw: Gate: human
+  [done] spk-mol-4hl: Gate: human
+  [done] spk-mol-nuv: Gate: gh:pr
+  [done] spk-mol-ebv: Propose: Spike
+  [ready] spk-mol-ht3: Landed on main
+  [done] spk-mol-y8x: Refine: wire it and test it
+  [done] spk-mol-7oy: Walk: show the change in the real Bridge
+  [done] spk-mol-31y: Deliver: push and open the pull request
+
+Progress: 8/9 steps complete
+
+Next ready: spk-mol-ht3 - Landed on main
+  Start with: bd update spk-mol-ht3 --claim
+
+💡 Run `bd show spk-mol-ht3` to see detailed instructions.
+[exit 0]
+$ bd mol squash --help
+Squash a molecule's ephemeral children into a single digest issue.
+
+This command collects all ephemeral child issues of a molecule (Ephemeral=true),
+generates a summary digest, and promotes the wisps to persistent by
+clearing their Wisp flag (or optionally deletes them).
+
+The squash operation:
+  1. Loads the molecule and all its children
+  2. Filters to only wisps (ephemeral issues with Ephemeral=true)
+  3. Generates a digest (summary of work done)
+  4. Creates a permanent digest issue (Ephemeral=false)
+  5. Clears Wisp flag on children (promotes to persistent)
+     OR keeps them with --keep-children (default: delete)
+
+AGENT INTEGRATION:
+Use --summary to provide an AI-generated summary. This keeps bd as a pure
+tool - the calling agent (orchestrator worker, Claude Code, etc.) is responsible
+for generating intelligent summaries. Without --summary, a basic concatenation
+of child issue content is used.
+
+This is part of the wisp workflow: spawn creates wisps,
+execution happens, squash compresses the trace into an outcome (digest).
+
+Example:
+  bd mol squash bd-abc123                    # Squash and promote children
+  bd mol squash bd-abc123 --dry-run          # Preview what would be squashed
+  bd mol squash bd-abc123 --keep-children    # Keep wisps after digest
+  bd mol squash bd-abc123 --summary "Agent-generated summary of work done"
+
+Usage:
+  bd mol squash <molecule-id> [flags]
+
+Flags:
+      --dry-run          Preview what would be squashed
+  -h, --help             help for squash
+      --keep-children    Don't delete ephemeral children after squash
+      --summary string   Agent-provided summary (bypasses auto-generation)
+
+Global Flags:
+      --actor string              Actor name for audit trail (default: $BEADS_ACTOR, git user.name, $USER)
+      --cpu-profile               Generate CPU profile for performance analysis
+      --database string           Run against a different server database for this invocation, without changing the project's configured database (proxied-server mode only)
+      --db string                 Database path (default: auto-discover .beads/*.db). In proxied-server mode, a value that isn't an existing path is treated as a database name override (see --database)
+  -C, --directory string          Change to this directory before running the command (like git -C)
+      --dolt-auto-commit string   Dolt auto-commit policy (off|on|batch). 'on': commit after each write. 'batch': defer commits to bd dolt commit; uncommitted changes persist in the working set until then (a live batch-mode bd process also flushes on SIGTERM/SIGHUP, except in proxied-server mode, where bd dolt commit is the only flush point). In proxied-server mode the deferral covers the writes the CLI makes on that route, including config and version metadata; explicit commit points (bd batch, bd mol bond/pour/squash, bd mol wisp create, and the wisp half of bd mol burn) still commit, and a bd serve process on the same database is unaffected. Default: on. Override via config key dolt.auto-commit
+      --global                    Use the global shared-server database (beads_global)
+      --ignore-schema-skew        Proceed despite forward schema drift (some queries may fail)
+      --json                      Output in JSON format
+      --mem-profile string        Write heap profile to FILE on exit (also respects BEADS_MEM_PROFILE)
+      --no-color                  Disable color output (also: NO_COLOR=1 or CLICOLOR=0)
+  -q, --quiet                     Suppress non-essential output (errors only)
+      --readonly                  Read-only mode: block write operations (for worker sandboxes)
+      --sandbox                   Sandbox mode: disables Dolt auto-push
+  -v, --verbose                   Enable verbose/debug output
+[exit 0]
+$ bd show spk-mol-b0j --json
+[
+  {
+    "id": "spk-mol-b0j",
+    "title": "Spike",
+    "description": "Propose, Walk, Refine, Deliver. Fleet closes every gate from what it observes; the agent closes its own work beads.",
+    "status": "closed",
+    "priority": 2,
+    "issue_type": "molecule",
+    "created_at": "2026-11-04T21:32:53Z",
+    "updated_at": "2026-11-04T21:40:37Z",
+    "closed_at": "2026-11-04T21:40:37Z",
+    "close_reason": "all steps complete",
+    "dependent_count": 9,
+    "dependency_count": 0,
+    "comment_count": 0,
+    "revision": "6120418845728639020"
+  }
+]
+[exit 0]
+$ bd mol wisp create feature --var job=j3 --var title=Wispy --var seen=false
+✓ Created wisp: 8 issues
+  Root issue: spk-wisp-3gs
+  Phase: vapor (ephemeral, not synced via git)
+
+Next steps:
+  bd close spk-wisp-3gs.<step>       # Complete steps
+  bd mol squash spk-wisp-3gs         # Condense to digest (promotes to persistent)
+  bd mol burn spk-wisp-3gs           # Discard without creating digest
+[exit 0]
+$ sh -c bd list | grep -c Wisp; bd list --all --json | jq "[.[]|select(.title|test(\"Wispy\"))]|length"
+0
+0
+[exit 0]
+$ bd mol wisp list
+Wisps (8):
+
+ID           STATUS     PRI  TYPE       TITLE                                          UPDATED
+----------------------------------------------------------------------------------------------------
+spk-wisp-14m open       P2   gate       Gate: human                                    just now
+spk-wisp-3gs open       P2   molecule   Wispy                                          just now
+spk-wisp-3xc open       P2   task       Refine: wire it and test it                    just now
+spk-wisp-7vt open       P2   task       Propose: Wispy                                 just now
+spk-wisp-aix open       P2   task       Deliver: push and open the pull request        just now
+spk-wisp-bgv open       P2   task       Landed on main                                 just now
+spk-wisp-ek9 open       P2   gate       Gate: gh:pr                                    just now
+spk-wisp-ro5 open       P2   gate       Gate: human                                    just now
+[exit 0]
+$ bd mol squash spk-wisp-3gs --summary Wispy: plan approved, refined, merged in #3277
+✓ Squashed molecule: 7 children → 1 digest
+  Digest ID: spk-msg
+  Deleted: 7 wisps
+  Root auto-closed: spk-wisp-3gs
+[exit 0]
+$ sh -c bd list --all --json | jq -c "[.[]|select(.title|test(\"Wispy\"))|{id,title,status,issue_type}]"
+[{"id":"spk-msg","title":"Digest: Wispy","status":"closed","issue_type":"task"}]
+[exit 0]
+$ bd list --status open
+○ spk-4bi P2 holder 3277
+○ spk-587 P2 holder 2990
+○ spk-5wm P2 timeout holder
+○ spk-mol-za6 P2 Unseen
+├── ○ spk-mol-0x0 P2 Refine: wire it and test it
+├── ○ spk-mol-940 P2 Landed on main
+└── ○ spk-mol-clt P2 Deliver: push and open the pull request
+○ spk-q09 P2 Swarm: Plan: Spike
+○ spk-xjk P2 [epic] Plan: Spike
+
+--------------------------------------------------------------------------------
+Total: 9 issues (9 open, 0 in progress)
+
+Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
+Priority: P0–P4 (label only; not a status icon)
+[exit 0]
+$ bd merge-slot create
+✓ Created merge slot: spk-merge-slot
+[exit 0]
+$ bd merge-slot acquire
+✓ Acquired merge slot: spk-merge-slot
+  Holder: agent-j1
+[exit 0]
+$ bd merge-slot acquire
+Error: slot held by: agent-j1
+Hint: Use --wait to add yourself to the waiters queue.
+[exit 1]
+$ bd merge-slot check
+○ Merge slot held: spk-merge-slot
+  Holder: agent-j1
+[exit 0]
+$ bd merge-slot release
+✓ Released merge slot: spk-merge-slot
+[exit 0]
+$ bd merge-slot release
+✓ Released merge slot: spk-merge-slot
+[exit 0]
+$ sh -c bd --readonly query "status=open OR status=in_progress OR status=blocked" -n 50 --json | jq -r ".[] | \"\(.id) \(.issue_type) \(.title)\""
+spk-merge-slot task Merge Slot
+spk-q09 molecule Swarm: Plan: Spike
+spk-xjk epic Plan: Spike
+spk-9kd gate human 1s
+spk-5wm task timeout holder
+spk-doz gate closed pr
+spk-587 task holder 2990
+spk-4bi task holder 3277
+spk-mol-0x0 task Refine: wire it and test it
+spk-mol-25x gate Gate: gh:pr
+spk-mol-2e6 gate Gate: human
+spk-mol-940 task Landed on main
+spk-mol-clt task Deliver: push and open the pull request
+spk-mol-csw gate Gate: human
+spk-mol-za6 molecule Unseen
+[exit 0]

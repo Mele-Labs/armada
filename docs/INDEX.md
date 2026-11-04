@@ -296,6 +296,9 @@ approximations.
 - [`spikes/039-would-a-fresh-session-per-step-save-tokens.md`](spikes/039-would-a-fresh-session-per-step-save-tokens.md)
   — a fresh session at each workflow step, simulated over 14 days of Jobs: 2.0% to 4.4% of all spend at a 400k window,
   −1.1% to 1.2% on top of 250k, since both reset a thread to about 70k; more than half the boundaries end a step the owner wrote in.
+- [`spikes/040-can-a-workflow-run-as-a-beads-molecule.md`](spikes/040-can-a-workflow-run-as-a-beads-molecule.md)
+  — `feature` poured as a beads molecule and every gate held its step, but any agent can close a gate and `bd mol current` offers one,
+  and `gh:pr` never fires on red `ci`, a conflict or a queue drop, so Fleet must resolve every gate itself.
 - [`spikes/item-clarity.md`](spikes/item-clarity.md)
   — whether the owner can act on an item an agent puts on his Needs you list, by rules and by an
   `item_clear` head: 569 labelled items, rules alone against the head and both, dev folds and a held half,

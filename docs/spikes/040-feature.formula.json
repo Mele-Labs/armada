@@ -1,0 +1,108 @@
+{
+  "formula": "feature",
+  "description": "Propose, Walk, Refine, Deliver. Fleet closes every gate from what it observes; the agent closes its own work beads.",
+  "version": 1,
+  "type": "workflow",
+  "pour": true,
+  "vars": {
+    "job": {
+      "description": "The Armada Job id",
+      "required": true
+    },
+    "title": {
+      "description": "What the Job is for",
+      "required": true
+    },
+    "seen": {
+      "description": "Whether the person would see the change",
+      "default": "true"
+    },
+    "repo": {
+      "description": "OWNER/REPO the pull request lands on",
+      "default": ""
+    }
+  },
+  "steps": [
+    {
+      "id": "propose",
+      "title": "Propose: {{title}}",
+      "description": "Ask what is unclear, then put a plan (or sketch, draft, walk) to the person and stop.",
+      "labels": [
+        "armada:step",
+        "armada:records_plan"
+      ],
+      "metadata": {
+        "armada_step": "propose",
+        "asks_delivery": true
+      }
+    },
+    {
+      "id": "walk",
+      "title": "Walk: show the change in the real Bridge",
+      "needs": [
+        "propose"
+      ],
+      "condition": "{{seen}} == true",
+      "labels": [
+        "armada:step",
+        "armada:walks"
+      ],
+      "metadata": {
+        "armada_step": "walk"
+      },
+      "gate": {
+        "type": "human",
+        "timeout": "72h"
+      }
+    },
+    {
+      "id": "refine",
+      "title": "Refine: wire it and test it",
+      "needs": [
+        "walk"
+      ],
+      "labels": [
+        "armada:step",
+        "armada:follows_plan"
+      ],
+      "metadata": {
+        "armada_step": "refine"
+      },
+      "gate": {
+        "type": "human"
+      }
+    },
+    {
+      "id": "deliver",
+      "title": "Deliver: push and open the pull request",
+      "needs": [
+        "refine"
+      ],
+      "labels": [
+        "armada:step",
+        "armada:delivers"
+      ],
+      "metadata": {
+        "armada_step": "deliver"
+      },
+      "gate": {
+        "type": "human"
+      }
+    },
+    {
+      "id": "landed",
+      "title": "Landed on main",
+      "needs": [
+        "deliver"
+      ],
+      "labels": [
+        "armada:step"
+      ],
+      "gate": {
+        "type": "gh:pr",
+        "repo": "{{repo}}",
+        "timeout": "24h"
+      }
+    }
+  ]
+}
