@@ -3,8 +3,9 @@
 // **Reweighed from the week's summary**, which was summed with every model weighed alike and every cache write at 1.25. A
 // model now weighs Haiku 1, Sonnet 3, Opus and Fable 5, and an hour's cache write 2. The summary holds units by model and the
 // cache writes' units, but not which writes were the hour's, so the mock takes seven in ten of them to be, and scales each
-// breakdown by its own model mix. Subagents ran lighter models than the main threads, so their share is taken down by an
-// eighth; long contexts ran on the heavier ones, so the share above 200k is taken up by a twelfth. Both are sketches.
+// breakdown by its own model mix. Long contexts ran on the heavier models, so the share above 200k is taken up by a twelfth,
+// a sketch. **Every subagent share is the one Spent by draws**, weighed spend under one definition: the week's tile and each
+// Job's column read the 7 day split below, and the week before reads 23%, so the 14 days come to the measured 25%.
 //
 // **What it was spent on is measured** over 14 days of this Mac's transcripts, the whole and who spent it. The 7 day and
 // 24 hour splits, and each Job's own, are sketches around it.
@@ -24,7 +25,8 @@ const MODEL_WEIGHT: Readonly<Record<string, number>> = {
 const HOUR_WRITES = 0.7;
 /** An hour's write at 2 where it was summed at 1.25. */
 const HOUR_LIFT = 2 / 1.25;
-const SUBAGENT_LIFT = 7 / 8;
+/** The week before's subagent share, under the same definition. */
+const PRIOR_SUBAGENTS = 0.23;
 const ABOVE_LIFT = 13 / 12;
 
 const weightOf = (model: string): number =>
@@ -37,7 +39,7 @@ function mixOf(byModel: readonly NamedUnits[]): number {
 }
 
 /** One breakdown under the new weights. */
-function reweighed(usage: UsageBreakdown): UsageBreakdown {
+function reweighed(usage: UsageBreakdown, subagents: number): UsageBreakdown {
   const mix = mixOf(usage.by_model);
   const writes = usage.by_token.cache_creation;
   const lift = usage.units > 0 ? 1 + ((HOUR_LIFT - 1) * HOUR_WRITES * writes) / usage.units : 1;
@@ -57,7 +59,7 @@ function reweighed(usage: UsageBreakdown): UsageBreakdown {
   const units = usage.units * by;
   return {
     units,
-    subagent_units: (usage.subagent_units / usage.units) * SUBAGENT_LIFT * units,
+    subagent_units: subagents * units,
     above_200k_units: (usage.above_200k_units / usage.units) * ABOVE_LIFT * units,
     above_300k_units: (usage.above_300k_units / usage.units) * ABOVE_LIFT * units,
     // The hour's writes beside the five minute ones, under a key the wire does not carry yet.
@@ -102,7 +104,7 @@ function reweighed(usage: UsageBreakdown): UsageBreakdown {
 /** The week's summary as Fleet would answer it under the new weights. */
 export function reweighedSummaryNow(tzOffsetMinutes: number, now = Date.now()): UsageSummary {
   const old = usageSummaryNow(tzOffsetMinutes, now);
-  const total = reweighed(old.total);
+  const total = reweighed(old.total, subagentsOf(WEEK));
   const by = total.units / old.total.units;
   return {
     ...old,
@@ -110,14 +112,14 @@ export function reweighedSummaryNow(tzOffsetMinutes: number, now = Date.now()): 
     sessions: old.sessions
       .map((one) => ({
         ...one,
-        subagent_share: one.subagent_share * SUBAGENT_LIFT,
-        usage: reweighed(one.usage),
+        subagent_share: subagentsOf(JOB_SHARES[one.session_id]!),
+        usage: reweighed(one.usage, subagentsOf(JOB_SHARES[one.session_id]!)),
       }))
       .sort((a, b) => b.usage.units - a.usage.units),
     prior: {
       ...old.prior,
       units: old.prior.units * by,
-      subagent_share: old.prior.subagent_share * SUBAGENT_LIFT,
+      subagent_share: PRIOR_SUBAGENTS,
       above_200k_share: old.prior.above_200k_share * ABOVE_LIFT,
       last_day: {
         ...old.prior.last_day,
@@ -136,6 +138,10 @@ type Shares = {
   on: readonly number[];
   by: readonly number[];
 };
+
+/** The subagents' share of a split, 0 to 1. */
+const subagentsOf = (shares: Shares): number =>
+  shares.by[1]! / shares.by.reduce((a, b) => a + b, 0);
 
 function splitOf(units: number, shares: Shares): SpentSplit {
   const part = (list: readonly number[], at: number) =>
@@ -231,8 +237,8 @@ const JOB_SHARES: Readonly<Record<string, Shares>> = {
       2,
     ],
     by: [
-      22,
-      76,
+      58,
+      40,
       2,
     ],
   },
@@ -249,8 +255,8 @@ const JOB_SHARES: Readonly<Record<string, Shares>> = {
       2,
     ],
     by: [
-      25,
-      73,
+      63,
+      35,
       2,
     ],
   },
@@ -267,8 +273,8 @@ const JOB_SHARES: Readonly<Record<string, Shares>> = {
       1,
     ],
     by: [
-      40,
-      59,
+      79,
+      20,
       1,
     ],
   },
@@ -285,8 +291,8 @@ const JOB_SHARES: Readonly<Record<string, Shares>> = {
       2,
     ],
     by: [
-      30,
       68,
+      30,
       2,
     ],
   },
@@ -303,8 +309,8 @@ const JOB_SHARES: Readonly<Record<string, Shares>> = {
       1,
     ],
     by: [
-      33,
-      65,
+      73,
+      25,
       2,
     ],
   },
@@ -321,8 +327,8 @@ const JOB_SHARES: Readonly<Record<string, Shares>> = {
       1,
     ],
     by: [
-      38,
-      60,
+      83,
+      15,
       2,
     ],
   },
