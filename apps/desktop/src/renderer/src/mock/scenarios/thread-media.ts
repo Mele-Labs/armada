@@ -107,11 +107,16 @@ export const threadMedia: Scenario = {
         },
         videoAddress: async (_id: string, path: string): Promise<VideoAddress> => {
           await held();
-          return {
-            ok: true,
-            // The other one is an address that holds no video, so its row draws what one that cannot play draws.
-            address: path === VIDEO ? recording : "/full-run.mov",
-          };
+          return path === VIDEO
+            ? {
+                ok: true,
+                address: recording,
+              }
+            : {
+                // What the row draws once a video will not play. An address that really fails is an error the walk's engine counts.
+                ok: false,
+                says: "This video cannot play here.",
+              };
         },
         openFile: () => undefined,
       };
