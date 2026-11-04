@@ -2,8 +2,9 @@
 //! and the design page *Helm becomes the Operator*, revision 41.
 //!
 //! **Fleet detects, a Policy decides, the record remembers.** Fleet hands over an [`Arrival`] with
-//! the ways its rules leave open; one fresh [`Calling`] with no tools names one of them; the
-//! ruling, or why there was none, goes in the Log through the [`Desk`], signed by the Operator.
+//! the ways its rules leave open, and finds the live Jobs that share something with it
+//! (`candidates`); one fresh [`Calling`] with no tools names one of them; the ruling, or why there
+//! was none, goes in the Log through the [`Desk`], signed by the Operator, and [`Acting`] does it.
 //!
 //! **One call out at a time on this machine.** What arrives while a call is out is ruled together
 //! in the next call, so three Jobs dispatched at once are seen side by side.
@@ -16,6 +17,7 @@
 mod arriving;
 mod asking;
 mod calling;
+mod candidates;
 mod desk;
 mod ruling;
 
@@ -29,6 +31,7 @@ use core_model::{Actor, Timestamp};
 use tokio::sync::oneshot;
 
 pub use arriving::{Arrival, Arrived, LiveJob, Source};
+use candidates::Near;
 pub use calling::{Answering, Calling, KeptStarted};
 pub use desk::FleetDesk;
 pub use ruling::{Outcome, PassedOn, Ruled, Ruling, Way};
@@ -209,21 +212,36 @@ impl Operator {
     async fn pass(self: Arc<Self>) {
         loop {
             // Into `out` at once, so an item whose wait runs out from here on is found there.
-            let (asked, settled) = {
+            let taken: Vec<(u64, Arrival)> = {
                 let mut queue = held(&self.queue);
                 if queue.pending.is_empty() {
                     queue.running = false;
                     return;
                 }
-                let (asked, settled): (Vec<Held>, Vec<Held>) =
-                    std::mem::take(&mut queue.pending).into_iter().partition(|one| one.arrival.ways.len() > 1);
-                let items: Vec<(u64, Arrival)> = asked.iter().map(|one| (one.token, one.arrival.clone())).collect();
-                queue.out = asked;
-                (items, settled)
+                let all = std::mem::take(&mut queue.pending);
+                let items = all.iter().map(|one| (one.token, one.arrival.clone())).collect();
+                queue.out = all;
+                items
             };
-            for one in settled {
-                let ruled = match one.arrival.ways.first() {
-                    Some(way) => Ruled::Ruled(Ruling { way: *way, other: None, shared: Vec::new(), because: "it is the only way Fleet's rules leave it".into() }),
+            let live = self.desk.live().await;
+            let mut asked = Vec::new();
+            for (token, mut arrival) in taken {
+                let near = candidates::near(&arrival, &live);
+                let alone = near.is_empty() && arrival.ways.iter().any(|way| way.names_another());
+                if alone {
+                    arrival.ways.retain(|way| !way.names_another());
+                }
+                if arrival.ways.len() > 1 {
+                    asked.push((token, arrival, near));
+                    continue;
+                }
+                let Some(one) = take(&mut held(&self.queue).out, token) else { continue };
+                let because = match alone {
+                    true => "no live Job shares a path, an issue or its words with it",
+                    false => "it is the only way Fleet's rules leave it",
+                };
+                let ruled = match arrival.ways.first() {
+                    Some(way) => Ruled::Ruled(Ruling { way: *way, other: None, shared: Vec::new(), because: because.into() }),
                     None => Ruled::PassedOn(PassedOn::Refused("Fleet's rules leave it no way".into())),
                 };
                 self.settle(one, ruled, None).await;
@@ -245,7 +263,7 @@ impl Operator {
     }
 
     /// One call over the items in `out`, and every ruling it brings settled.
-    async fn call_out(&self, asked: Vec<(u64, Arrival)>, now: Timestamp) {
+    async fn call_out(&self, asked: Vec<(u64, Arrival, Vec<Near>)>, now: Timestamp) {
         let call = {
             let mut queue = held(&self.queue);
             if queue.out.is_empty() {
@@ -256,11 +274,10 @@ impl Operator {
             queue.call = Some(call.clone());
             call
         };
-        let at: BTreeMap<u64, usize> = asked.iter().enumerate().map(|(at, (token, _))| (*token, at)).collect();
-        let items: Vec<Arrival> = asked.into_iter().map(|(_, arrival)| arrival).collect();
-        let live = self.desk.live().await;
-        let rulings = match self.call.ask(asking::question(&items, &live)).await {
-            Ok(answer) => ruling::read_rulings(&answer, &items, &live),
+        let at: BTreeMap<u64, usize> = asked.iter().enumerate().map(|(at, (token, _, _))| (*token, at)).collect();
+        let (items, near): (Vec<Arrival>, Vec<Vec<Near>>) = asked.into_iter().map(|(_, arrival, near)| (arrival, near)).unzip();
+        let rulings = match self.call.ask(asking::question(&items, &near)).await {
+            Ok(answer) => ruling::read_rulings(&answer, &items, &near),
             Err(failed) => vec![Ruled::PassedOn(PassedOn::Failed(failed.in_a_line("Operator"))); items.len()],
         };
         let still = {
@@ -269,7 +286,8 @@ impl Operator {
             std::mem::take(&mut queue.out)
         };
         for one in still {
-            let ruled = rulings[at[&one.token]].clone();
+            // An item settled without a call left `out` before it.
+            let Some(ruled) = at.get(&one.token).map(|at| rulings[*at].clone()) else { continue };
             self.settle(one, ruled, Some(call.clone())).await;
         }
     }

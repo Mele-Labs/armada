@@ -102,6 +102,10 @@ pub struct Arrival {
     pub words: String,
     /// The paths its plan names or it has written so far.
     pub paths: Vec<String>,
+    /// The issues it names or holds.
+    pub issues: Vec<String>,
+    /// The plan group it is, for a plan recorded: ruled group by group.
+    pub group: Option<String>,
     pub ways: Vec<Way>,
 }
 
@@ -121,6 +125,12 @@ impl Arrival {
         }
         if !self.paths.is_empty() {
             out.push_str(&format!("     Its paths: {}\n", self.paths.join(", ")));
+        }
+        if !self.issues.is_empty() {
+            out.push_str(&format!("     Its issues: {}\n", self.issues.join(", ")));
+        }
+        if let Some(group) = &self.group {
+            out.push_str(&format!("     It is group {group} of that Job's plan\n"));
         }
         out.push_str("     The ways it is offered:");
         for (number, way) in self.ways.iter().enumerate() {
@@ -144,6 +154,8 @@ pub struct LiveJob {
     pub words: String,
     /// Its plan's paths and the files it has written.
     pub paths: Vec<String>,
+    /// The issues it holds or its plan's groups work.
+    pub issues: Vec<String>,
 }
 
 impl LiveJob {
@@ -154,6 +166,9 @@ impl LiveJob {
         }
         if !self.paths.is_empty() {
             out.push_str(&format!("    Its paths: {}\n", self.paths.join(", ")));
+        }
+        if !self.issues.is_empty() {
+            out.push_str(&format!("    Its issues: {}\n", self.issues.join(", ")));
         }
         out
     }

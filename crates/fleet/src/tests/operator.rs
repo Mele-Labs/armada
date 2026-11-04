@@ -100,9 +100,17 @@ struct Held {
 
 impl Held {
     fn with(ceiling: u32) -> Arc<Held> {
-        let live = ["01OTHER", "01THIS"]
+        // The other Job shares the terminal pane with every start below, so each is put to a call.
+        let live = [("01OTHER", "panes/"), ("01THIS", "panes/terminal.tsx")]
             .into_iter()
-            .map(|id| LiveJob { session_id: id.into(), title: id.into(), manifest_id: "01REPO".into(), words: String::new(), paths: Vec::new() })
+            .map(|(id, path)| LiveJob {
+                session_id: id.into(),
+                title: id.into(),
+                manifest_id: "01REPO".into(),
+                words: String::new(),
+                paths: vec![path.into()],
+                issues: Vec::new(),
+            })
             .collect();
         Arc::new(Held { ceiling, live, log: Mutex::new(Vec::new()), acts: Mutex::new(Vec::new()) })
     }
@@ -173,6 +181,8 @@ fn start(id: &str, ways: &[Way]) -> Arrival {
         subject: format!("Job {id}"),
         words: "Fix the terminal pane".into(),
         paths: vec!["panes/terminal.tsx".into()],
+        issues: Vec::new(),
+        group: None,
         ways: ways.to_vec(),
     }
 }

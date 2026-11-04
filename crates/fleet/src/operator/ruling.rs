@@ -1,13 +1,14 @@
 //! What the call may name for an item, and how its answer is read.
 //!
-//! **A ruling is refused rather than repaired.** A way the item was not offered, another Job that
-//! is not live, or a way between two Jobs that names no shared paths passes the item on untouched,
+//! **A ruling is refused rather than repaired.** A way the item was not offered, another Job it was
+//! not shown as near, or a way between two Jobs that names no shared paths passes the item on untouched,
 //! the way an id Fleet did not offer is refused elsewhere.
 
 use std::fmt;
 use std::time::Duration;
 
-use super::arriving::{Arrival, LiveJob};
+use super::arriving::Arrival;
+use super::candidates::Near;
 
 /// One way an item can go.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -115,9 +116,10 @@ impl Outcome {
     }
 }
 
-/// Read one answer to a call that held `items`, one ruling an item in their order. An item the
-/// answer has no block for, or a block that names what it was not offered, passes on.
-pub(super) fn read_rulings(answer: &str, items: &[Arrival], live: &[LiveJob]) -> Vec<Ruled> {
+/// Read one answer to a call that held `items`, one ruling an item in their order, each held to
+/// the Jobs `near` it. An item the answer has no block for, or a block that names what it was not
+/// offered, passes on.
+pub(super) fn read_rulings(answer: &str, items: &[Arrival], near: &[Vec<Near>]) -> Vec<Ruled> {
     let blocks = blocks(answer);
     items
         .iter()
@@ -125,14 +127,14 @@ pub(super) fn read_rulings(answer: &str, items: &[Arrival], live: &[LiveJob]) ->
         .map(|(at, item)| {
             let block = blocks.iter().find(|block| said(block, "item").and_then(|n| n.parse::<usize>().ok()) == Some(at + 1));
             match block {
-                Some(block) => read_one(block, item, live).unwrap_or_else(Ruled::PassedOn),
+                Some(block) => read_one(block, item, &near[at]).unwrap_or_else(Ruled::PassedOn),
                 None => Ruled::PassedOn(PassedOn::Unreadable(format!("it gave no ruling for item {}", at + 1))),
             }
         })
         .collect()
 }
 
-fn read_one(block: &[(String, String)], item: &Arrival, live: &[LiveJob]) -> Result<Ruled, PassedOn> {
+fn read_one(block: &[(String, String)], item: &Arrival, near: &[Near]) -> Result<Ruled, PassedOn> {
     let because = said(block, "because").filter(|why| !why.is_empty()).ok_or_else(|| PassedOn::Unreadable("it gave no reason".into()))?;
     let named = said(block, "way").ok_or_else(|| PassedOn::Unreadable("it named no way".into()))?;
     let way = named
@@ -145,8 +147,8 @@ fn read_one(block: &[(String, String)], item: &Arrival, live: &[LiveJob]) -> Res
         return Ok(Ruled::Ruled(Ruling { way, other: None, shared: Vec::new(), because }));
     }
     let other = said(block, "job").filter(|id| !none(id)).ok_or_else(|| PassedOn::Refused(format!("{} named no other Job", way.word_shown())))?;
-    if other == item.session_id || !live.iter().any(|job| job.session_id == other) {
-        return Err(PassedOn::Refused(format!("{other} is not another live Job")));
+    if !near.iter().any(|one| one.job.session_id == other) {
+        return Err(PassedOn::Refused(format!("{other} is not a live Job it was shown as sharing something with it")));
     }
     let shared: Vec<String> = said(block, "shared")
         .filter(|paths| !none(paths))

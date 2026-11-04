@@ -1,12 +1,16 @@
 //! The Operator's [`Desk`] on a running Fleet: its clock, its settings and its store.
 
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use config::settings as keys;
 use core_model::Timestamp;
+use ipc::{SessionRow, SessionVoice};
+use store::{AttachmentState, Holder};
 
 use super::{Desk, Done, LiveJob, Logged};
+use crate::session_issues::ISSUE;
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 
@@ -49,8 +53,9 @@ where
         u32::try_from(calls.max(0)).unwrap_or(u32::MAX)
     }
 
-    /// Every hosted Job not ended, Helm's aside. **Titles only for now**: the plan paths, files
-    /// written and dispatch words a call reads come with *Who does the work*.
+    /// Every hosted Job not ended, Helm's aside, with what Fleet holds of its work: its plan's
+    /// paths and the files it has written, the issues it holds or its plan works, and its words,
+    /// which are its plan where it has one and its first message where it has not.
     fn live(&self) -> Done<'_, Vec<LiveJob>> {
         Box::pin(async move {
             let store = self.fleet.store().lock().await;
@@ -67,12 +72,14 @@ where
                 if session.state == store::SessionState::Ended {
                     continue;
                 }
+                let (paths, issues, words) = held_of(&store, &session.id);
                 live.push(LiveJob {
                     title: session.title.unwrap_or_else(|| session.id.clone()),
                     session_id: session.id,
                     manifest_id: hosting.manifest_id,
-                    words: String::new(),
-                    paths: Vec::new(),
+                    words,
+                    paths,
+                    issues,
                 });
             }
             live
@@ -98,4 +105,43 @@ where
             }
         })
     }
+}
+
+/// One Job's paths, issues and words, as [`FleetDesk::live`] reads them. What will not read is left out.
+pub(crate) fn held_of(store: &store::Store, id: &str) -> (Vec<String>, Vec<String>, String) {
+    let mut paths = BTreeSet::new();
+    let mut issues = BTreeSet::new();
+    let plan = store.session_plan(id).ok().flatten();
+    let words = match &plan {
+        Some(plan) => {
+            let mut words = vec![plan.summary.clone()];
+            for group in &plan.groups {
+                paths.extend(group.paths.iter().cloned());
+                issues.extend(group.issue.iter().cloned());
+                words.push(group.title.clone());
+            }
+            words.join(". ")
+        }
+        None => first_words(store, id),
+    };
+    paths.extend(store.session_touches(id).unwrap_or_default().into_iter().map(|touch| touch.path));
+    let held = store.attachments_of(&Holder::session(id)).unwrap_or_default();
+    issues.extend(held.into_iter().filter(|one| one.kind == ISSUE && one.state != AttachmentState::GivenBack).map(|one| one.target));
+    (paths.into_iter().collect(), issues.into_iter().collect(), words)
+}
+
+/// The first message in a Job's thread that is not its agent's: the dispatch, or the brief the
+/// Job that started it wrote.
+fn first_words(store: &store::Store, id: &str) -> String {
+    store
+        .session_rows(id)
+        .unwrap_or_default()
+        .iter()
+        .filter(|body| body.contains("\"message\""))
+        .filter_map(|body| ipc::decode::<SessionRow>("a job row", body.as_bytes()).ok())
+        .find_map(|row| match row {
+            SessionRow::Message { from, text, notice: None, .. } if from != SessionVoice::Agent => Some(text),
+            _ => None,
+        })
+        .unwrap_or_default()
 }
