@@ -18,7 +18,7 @@ There is no number to take: the protocol ID moves with `crates/ipc/src/session_a
 
 **`for` is the id of the person's message the account answers**, and `group` the id of the approved plan group it is on, `SessionPlanGroup.id`.
 `done`, `now` and `next` are the model's words and carry no file name, path, code identifier or tool name; a line that does is dropped before it is kept.
-The account is rewritten at most every few seconds and reads the turn so far, and it stays after the turn ends.
+The account is rewritten at most every 30 seconds and reads the turn so far, and it stays after the turn ends.
 `live` is the newest of a page the Job showed with `show_window` and the address of a server it started with `start_server`.
 
 **`state` is a plain enum Bridge matches on**, as `WaitingMode` is, because no registry declares the set.
