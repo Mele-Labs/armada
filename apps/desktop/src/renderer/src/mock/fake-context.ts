@@ -65,6 +65,7 @@ export type SliceName =
   | "bayHistory"
   | "sessionSystem"
   | "usageSummary"
+  | "usageTime"
   | "debugReport"
   | "issues"
   | "autopilot"
