@@ -127,7 +127,7 @@ import { SubagentThread, useSubagentRead } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { useWriteClashes } from "./clashes";
 import { openDocumentAt } from "./session-view/document-state";
-import { showLayer } from "./session-view/layers";
+import { inPanes, showLayer } from "./session-view/layers";
 import { childrenOf } from "./session-view/linked";
 import { cardIssueOf } from "./session-view/ChildJob";
 import { issueOfGroup } from "./session-view/IssuesBlock";
@@ -184,7 +184,7 @@ import { SessionRefs } from "./helm-refs";
 import { openSavedRequest } from "./job-panes/store";
 import { openInPanel } from "./shared-panel/store";
 import { draftPanelOf } from "./shared-panel/rule";
-import { openDraftCard } from "./job-panes/focus";
+import { openDraftCard, openOwedDocument, soleDocument } from "./job-panes/focus";
 import {
   TeachHereContext,
   batchNotices,
@@ -2575,7 +2575,9 @@ export function SessionView({
   };
   const reviewAll = waitingOf(reviewParts);
   // One thing to read has no use for a sheet, and stays where it lives. A sheet already open keeps its last item, so it is told them all.
-  const reviewWaiting = reviewAll.length > 1 ? reviewAll : [];
+  // A page that is all he owes the Job is the exception: the band is drawn for it and opens its tab, so it is not missed above the composer.
+  const lonePage = inPanes(session.id) ? soleDocument(session) : undefined;
+  const reviewWaiting = reviewAll.length > 1 || lonePage !== undefined ? reviewAll : [];
   const sheetOpen = reviewSheetFor === session.id;
   // The card keeps the rest: whatever the sheet did not build, and never a plan, sketch or document, which the thread's card or the sheet reads.
   const needs = cardRowsOf(session, waitingRows, reviewWaiting);
@@ -3072,7 +3074,7 @@ export function SessionView({
                                 onWithdrawSketch: (sketch: string) =>
                                   void dismissWaiting(session.id, sketch),
                               })}
-                          onOpenDocument={(page) => showLayer(session.id, "document", page)}
+                          onOpenDocument={(page) => openOwedDocument(session, page)}
                           {...(draft.answerDocument === undefined
                             ? {}
                             : {
@@ -3182,7 +3184,11 @@ export function SessionView({
                             Glyph: one.mark.Glyph,
                             said: one.said,
                           }))}
-                          onReview={() => setReviewSheetFor(session.id)}
+                          onReview={() =>
+                            lonePage === undefined
+                              ? setReviewSheetFor(session.id)
+                              : openOwedDocument(session, lonePage)
+                          }
                         />
                         {failedShown ? (
                           <HandoffBand

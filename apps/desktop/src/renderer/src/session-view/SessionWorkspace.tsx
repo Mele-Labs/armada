@@ -25,6 +25,7 @@ import {
   BrowserBody,
   BrowserTabsSync,
   ChangesBody,
+  DocumentTabBody,
   DraftBody,
   FilesBody,
   IssuesBody,
@@ -353,6 +354,8 @@ export function SessionWorkspace({
           return <DraftBody jobId={id} tab={tab} />;
         case "walk":
           return <WalkBody session={session} tab={tab} />;
+        case "document":
+          return <DocumentTabBody session={session} tab={tab} />;
         case "subagents":
           return (
             <Layer

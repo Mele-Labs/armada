@@ -3375,6 +3375,28 @@ describe("a question that lapsed", () => {
     });
   });
 
+  it("keeps an earlier kept question when a later one lapses too, oldest first", () => {
+    const other = [
+      {
+        ...questions[0]!,
+        question: "Which place?",
+      },
+    ];
+    expect(
+      lapsedOf([
+        ask("1", "kept"),
+        ask("2", "kept", other),
+        said("3"),
+      ]),
+    ).toEqual({
+      id: "2",
+      questions: [
+        ...questions,
+        ...other,
+      ],
+    });
+  });
+
   it("is a skipped question too, so a press by mistake can be undone", () => {
     expect(
       lapsedOf([
