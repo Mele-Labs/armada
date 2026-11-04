@@ -333,6 +333,10 @@ approximations.
   — whether the local model can pick a new Session's workflow, model and effort before Claude is asked:
   0 of 38 picked without a disagreement, model and effort agreeing on 23 of 38, so no call is skipped
   and the reader is not in force.
+- [`spikes/operator-replay.md`](spikes/operator-replay.md)
+  — whether the Operator's one fresh call can rule last week's arrivals: 120 replayed on Haiku and Sonnet,
+  no ruling Fleet's rules let through acted against the owner, it raised most questions and started nearly every Job,
+  about 5 s and 15,000 tokens a call, and the starting switch positions.
 - [`spikes/test-map-seed.md`](spikes/test-map-seed.md)
   — what a fresh test map costs to seed and how far it narrows a change: a 1 h 54 min job on the CI
   runner, 4261 laps, a median commit reaching 448 of them, and what was not timed.
