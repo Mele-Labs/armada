@@ -59,6 +59,8 @@ export type SystemSurfaceProps = KitSlice & {
   repositories: readonly {
     id: string;
     name: string;
+    /** Its `armada.yml` says `connectors: false`, which a repository's switch not set follows. */
+    connectorsOff: boolean;
   }[];
   settings: SettingsList | null;
   /** What Fleet answered to `list_models`, or `null` before it has. */
@@ -79,7 +81,7 @@ export type SystemSurfaceProps = KitSlice & {
 
 /** The skills Jobs start without, by repository: `{ "<manifest id>": ["pptx"] }`. Drawn in a skill's detail, never as a row. */
 const SKILLS_OFF_KEY = "tokens.skillsOff";
-/** The repositories whose Jobs start without the person's connectors, by Manifest id. Drawn as System › Repository. */
+/** Whether each repository's Jobs start without the person's connectors, by Manifest id, `true` for off. One not in it follows its armada.yml. Drawn as System › Repository. */
 const CONNECTORS_OFF_KEY = "tokens.connectorsOff";
 
 /** A Json setting's value as a list of text, or none. */
@@ -212,15 +214,33 @@ export function SystemSurface({
           },
         };
   const connectorsOff = settings?.settings.find((one) => one.key === CONNECTORS_OFF_KEY);
+  // A value that is not a map of true and false reads as nothing set, so each repository follows its armada.yml.
+  const setOff: Record<string, boolean> =
+    typeof connectorsOff?.value === "object" && connectorsOff.value !== null && !Array.isArray(connectorsOff.value)
+      ? Object.fromEntries(
+          Object.entries(connectorsOff.value).flatMap(([id, off]) =>
+            typeof off === "boolean"
+              ? [
+                  [
+                    id,
+                    off,
+                  ],
+                ]
+              : [],
+          ),
+        )
+      : {};
   const connectors =
     connectorsOff === undefined
       ? undefined
       : {
-          off: listOf(connectorsOff.value),
-          onSwitch: (id: string, on: boolean) => {
-            const was = listOf(connectorsOff.value);
+          off: (id: string, armadaYml: boolean) => setOff[id] ?? armadaYml,
+          onSwitch: (id: string, armadaYml: boolean, on: boolean) => {
+            // Back to what armada.yml says is no choice made, so the entry goes and the repository follows it again.
+            const { [id]: _gone, ...rest } = setOff;
+            const all = on === !armadaYml ? rest : { ...rest, [id]: !on };
             void window.armada.saveSettings({
-              [CONNECTORS_OFF_KEY]: on ? was.filter((one) => one !== id) : [...was, id],
+              [CONNECTORS_OFF_KEY]: Object.keys(all).length === 0 ? null : all,
             });
           },
         };
@@ -478,11 +498,13 @@ export function SystemSurface({
               rows={repositories.map((one) => ({
                 id: one.id,
                 name: one.name,
-                on: !connectors.off.includes(one.id),
+                on: !connectors.off(one.id, one.connectorsOff),
               }))}
               switchLabel={(name) => `Connectors in ${name}`}
               disabled={!live}
-              onSwitch={connectors.onSwitch}
+              onSwitch={(id, on) =>
+                connectors.onSwitch(id, repositories.find((one) => one.id === id)?.connectorsOff ?? false, on)
+              }
             />
           </div>
         </div>

@@ -1620,7 +1620,7 @@ read_by = "fleet"
 notes = """
 The person's skills, and the skills their plugins bring, that a repository's hosted Jobs start without, so their descriptions are not in the model's list on every request. Drawn in a skill's detail in Kit, as a switch per repository.
 
-**The value lives in settings.json under `tokens.skillsOff`** (live), shaped `{ "<manifest id>": ["<skill name>"] }`, a plugin's skill named `<plugin>:<skill>`. Fleet writes each name into the Job's `skillOverrides` when the Job starts.
+**The value lives in settings.json under `tokens.skillsOff`** (live), shaped `{ "<manifest id>": ["<skill name>"] }`, a plugin's skill named `<plugin>:<skill>`. Fleet writes each name into the Job's `skillOverrides` as `user-invocable-only` when the Job starts: the model's list no longer holds it, and the person's own `/name` still works.
 
 **A repository's own skills and Armada's are never switched off**, whatever the setting names: every Job gets them, and Kit draws no switch for them.
 """
@@ -1638,4 +1638,6 @@ notes = """
 Whether a repository's hosted Jobs start without the connectors on the person's claude.ai account. Drawn as System, Fleet, Repository, a switch per repository.
 
 **The value lives in settings.json under `tokens.connectorsOff`** (live), shaped `{ "<manifest id>": true }`, where `true` is connectors off and `false` is on. **A repository with no entry follows its armada.yml's `connectors`**, so a person can turn connectors on in a repository whose armada.yml says off, and off in one that says nothing.
+
+Bridge draws a repository with no entry from `connectors_off` on its `ManifestSummary`, so the switch shows what Fleet will do.
 """

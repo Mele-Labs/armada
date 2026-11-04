@@ -574,12 +574,12 @@ export const MOCK_SETTINGS: SettingsList = {
 };
 
 /**
- * Settings Fleet does not serve yet, drawn for the walk `token-usage-settings` before the schema has them: what a
- * Job costs in tokens, and two values set per repository by Manifest id. `connectorsOff` ships the repositories whose
- * own armada.yml turns connectors off; `skillsOff` is saved. Not in `MOCK_SETTINGS`, so no other walk draws them.
+ * What a Job costs in tokens, as Fleet serves it, drawn for the walk `token-usage-settings`: three Machine settings and
+ * two values set per repository by Manifest id. `connectorsOff` is each repository's own switch, `true` for off, and a
+ * repository with none follows its armada.yml; `skillsOff` is saved. Not in `MOCK_SETTINGS`, so no other walk draws them.
  */
 export const tokenUseSettings = (
-  connectorsOff: readonly string[],
+  connectorsOff: Readonly<Record<string, boolean>>,
   skillsOff: Readonly<Record<string, readonly string[]>>,
 ): Setting[] => [
   row(
@@ -605,9 +605,14 @@ export const tokenUseSettings = (
     {
       kind: "json",
     },
-    [
-      ...connectorsOff,
-    ],
+    {},
+    Object.keys(connectorsOff).length === 0
+      ? undefined
+      : {
+          saved: {
+            ...connectorsOff,
+          },
+        },
   ),
   row(
     "Token use",

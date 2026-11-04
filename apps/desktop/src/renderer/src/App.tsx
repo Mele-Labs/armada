@@ -1179,6 +1179,7 @@ export function App() {
                                       {
                                         id: one.manifest.id,
                                         name: one.manifest.repository,
+                                        connectorsOff: one.manifest.connectors_off === true,
                                       },
                                     ],
                               )}

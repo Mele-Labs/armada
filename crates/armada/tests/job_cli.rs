@@ -112,6 +112,7 @@ fn manifests() -> String {
         auto_merge: String::from("never"),
         review_gate: String::from("human_always"),
         kit: None,
+        connectors_off: false,
     }])
     .expect("a list encodes")
 }

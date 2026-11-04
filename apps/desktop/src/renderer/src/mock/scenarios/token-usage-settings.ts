@@ -82,7 +82,18 @@ function build(): Scenario {
       holds: {
         ...base.state.holds,
         repositories: [
-          ...(base.state.holds.repositories ?? []),
+          // armada's armada.yml says `connectors: false`, so its switch starts off.
+          ...(base.state.holds.repositories ?? []).map((one) =>
+            one.manifest?.id === MANIFEST_ID
+              ? {
+                  ...one,
+                  manifest: {
+                    ...one.manifest,
+                    connectors_off: true,
+                  },
+                }
+              : one,
+          ),
           ANOTHER(STOREFRONT, "storefront"),
           ANOTHER(LEDGER, "ledger"),
         ],
@@ -91,11 +102,9 @@ function build(): Scenario {
         ...MOCK_SETTINGS,
         settings: [
           ...MOCK_SETTINGS.settings,
-          // armada's armada.yml says `connectors: false`, so it ships off; ledger has pptx switched off.
+          // ledger has pptx switched off, and no repository has a connectors switch of its own set.
           ...tokenUseSettings(
-            [
-              MANIFEST_ID,
-            ],
+            {},
             {
               [LEDGER]: [
                 "anthropic-skills:pptx",
