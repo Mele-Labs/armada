@@ -433,7 +433,7 @@ where
         self.session_paused(asked).await
     }
 
-    async fn set_session_auto_land(&self, asked: ipc::SetSessionAutoLand) -> Result<SessionRecord, Refusal> {
+    async fn set_session_auto_land(self: Arc<Self>, asked: ipc::SetSessionAutoLand) -> Result<SessionRecord, Refusal> {
         self.session_auto_land_set(asked).await
     }
 

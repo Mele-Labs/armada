@@ -1181,16 +1181,13 @@ export class WiredStore {
     return done.ok ? undefined : refusalWords(done.outcome);
   }
 
-  /** The forge's refusal comes after Fleet kept the flag, so it is told and still counts as changed. */
+  /** Fleet answers once the flag is kept and asks the forge after, so a refusal here left the flag as it was. The forge's own refusals reach the Job's thread as a notice. */
   private async landing(id: string, on: boolean): Promise<boolean> {
     this.say(undefined);
     const done = await this.api.setSessionAutoLand(id, on);
     if (done.ok) return true;
     this.tell(done.outcome);
-    const { outcome } = done;
-    return (
-      !outcome.ok && outcome.why === "refused" && outcome.error.code === "fleet.auto_merge_refused"
-    );
+    return false;
   }
 
   private readonly lookup = (id: string): Session | undefined =>

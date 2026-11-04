@@ -19,6 +19,40 @@ type Sketch = Extract<
   }
 >;
 
+/** When a sketch was last drawn, from its `drawn` row id (`<job>-<instant>-<n>`): answering it or taking it back moves its ledger place, not this. */
+function drawnAt(sketch: Sketch): [
+  string,
+  number,
+] {
+  const parts = sketch.drawn?.split("-") ?? [];
+  const n = Number(parts.at(-1));
+  return parts.length >= 3 && Number.isInteger(n)
+    ? [
+        parts.at(-2) ?? "",
+        n,
+      ]
+    : [
+        "",
+        0,
+      ];
+}
+
+/** The sketch put to him that was drawn last, answered or not. Fleet's `sketch_items` reads the same one. */
+export function newestAskedSketch(sketches: readonly Sketch[]): Sketch | undefined {
+  let newest: Sketch | undefined;
+  for (const one of sketches) {
+    if (one.asked !== true) continue;
+    if (newest === undefined) {
+      newest = one;
+      continue;
+    }
+    const [at, n] = drawnAt(one);
+    const [best, bestN] = drawnAt(newest);
+    if (at > best || (at === best && n > bestN)) newest = one;
+  }
+  return newest;
+}
+
 export function sceneOfSketch(drawing: SessionSketch | Scene): Scene {
   if ("nodes" in drawing) return drawing;
   return {
