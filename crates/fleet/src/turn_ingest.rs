@@ -127,11 +127,15 @@ where
         let key = file.path.to_string_lossy().to_string();
         let (mut changed, mut first) = (0, true);
         loop {
-            let (from, input_at) = if from_start && first {
-                (0, None)
+            let (from, input_at, carried) = if from_start && first {
+                (0, None, None)
             } else {
                 let store = self.store().lock().await;
-                (store.transcript_offset(&key).ok().flatten().unwrap_or(0), store.transcript_input_at(&key).ok().flatten())
+                (
+                    store.transcript_offset(&key).ok().flatten().unwrap_or(0),
+                    store.transcript_input_at(&key).ok().flatten(),
+                    store.transcript_carried(&key).ok().flatten(),
+                )
             };
             first = false;
             if !from_start && from == file.size {
@@ -139,8 +143,10 @@ where
             }
             let path = file.path.clone();
             let subagent = file.subagent;
-            let Ok(Ok(read)) =
-                tokio::task::spawn_blocking(move || turn_lines::read_turns(&path, from, subagent, CHUNK, input_at)).await
+            let Ok(Ok(read)) = tokio::task::spawn_blocking(move || {
+                turn_lines::read_turns(&path, from, subagent, CHUNK, input_at, turn_lines::Carry::resumed(carried.as_deref()))
+            })
+            .await
             else {
                 return changed;
             };

@@ -54,14 +54,50 @@ pub struct KeptOpenCall {
     pub message_id: String,
 }
 
-/// What a read of a transcript learnt beside the turns.
+/// How one turn's input is shared among the parts it was spent on, read from its transcript.
+/// **Kept apart from [`KeptTurnUsage`]**, as the times are, so a turn heard from a notice changes
+/// none of it. `docs/concepts/session/where-the-tokens-went.md`, *What the burn was spent on*.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct KeptTurnSpent {
+    pub message_id: String,
+    /// The part of the cache writes held an hour.
+    pub cache_creation_1h_tokens: u64,
+    /// Each part's share of the cache read, and of the input and writes; absent where this read
+    /// did not see the turn's request, which keeps the shares it was given.
+    pub shares: Option<(Vec<(String, f64)>, Vec<(String, f64)>)>,
+}
+
+/// A compaction's own request, which no transcript line holds.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct KeptBackground {
+    pub id: String,
+    pub at: String,
+    pub model: String,
+    pub cache_read_tokens: u64,
+    pub output_tokens: u64,
+}
+
+/// What a read of a transcript learnt beside the turns.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct KeptReading {
     pub times: Vec<KeptTurnTimes>,
     pub late: Vec<KeptToolResult>,
     pub open: Vec<KeptOpenCall>,
     /// The last user line the read reached.
     pub input_at: Option<String>,
+    /// One for each turn the read gave.
+    pub spent: Vec<KeptTurnSpent>,
+    pub background: Vec<KeptBackground>,
+    /// What the read hands to the next one, as the reader wrote it.
+    pub carried: Option<String>,
+}
+
+/// `{"read": {part: share}, "write": {part: share}}`.
+fn spent_json(read: &[(String, f64)], write: &[(String, f64)]) -> String {
+    let side = |shares: &[(String, f64)]| {
+        serde_json::Value::Object(shares.iter().map(|(part, share)| (part.clone(), serde_json::Value::from(*share))).collect())
+    };
+    serde_json::json!({ "read": side(read), "write": side(write) }).to_string()
 }
 
 /// `held` with `heard` taken in. **The figures go with the larger output**, a tie to the later
@@ -222,6 +258,26 @@ impl Store {
             )
             .map_err(keeping)?;
         }
+        for one in &learnt.spent {
+            let shares = one.shares.as_ref().map(|(read, write)| spent_json(read, write));
+            kept.execute(
+                "UPDATE session_turn_usage SET cache_creation_1h_tokens = min(?3, cache_creation_tokens),
+                     spent_on = COALESCE(?4, spent_on)
+                 WHERE session_id = ?1 AND message_id = ?2",
+                params![session_id, one.message_id, one.cache_creation_1h_tokens as i64, shares],
+            )
+            .map_err(keeping)?;
+        }
+        for one in &learnt.background {
+            kept.execute(
+                "INSERT INTO session_background_usage (session_id, id, at, model, cache_read_tokens, output_tokens)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                 ON CONFLICT (session_id, id) DO UPDATE SET at = excluded.at, model = excluded.model,
+                     cache_read_tokens = excluded.cache_read_tokens, output_tokens = excluded.output_tokens",
+                params![session_id, one.id, one.at, one.model, one.cache_read_tokens as i64, one.output_tokens as i64],
+            )
+            .map_err(keeping)?;
+        }
         for call in &learnt.open {
             kept.execute(
                 "INSERT OR REPLACE INTO session_open_tools (session_id, tool_use_id, message_id) VALUES (?1, ?2, ?3)",
@@ -230,9 +286,10 @@ impl Store {
             .map_err(keeping)?;
         }
         kept.execute(
-            "INSERT INTO transcript_offsets (path, read_to, input_at) VALUES (?1, ?2, ?3)
-             ON CONFLICT (path) DO UPDATE SET read_to = excluded.read_to, input_at = excluded.input_at",
-            params![path, read_to as i64, learnt.input_at],
+            "INSERT INTO transcript_offsets (path, read_to, input_at, carried) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT (path) DO UPDATE SET read_to = excluded.read_to, input_at = excluded.input_at,
+                 carried = excluded.carried",
+            params![path, read_to as i64, learnt.input_at, learnt.carried],
         )
         .map_err(keeping)?;
         kept.commit().map_err(keeping)?;
@@ -253,6 +310,15 @@ impl Store {
     pub fn transcript_input_at(&self, path: &str) -> Result<Option<String>, WriteError> {
         self.conn
             .query_row("SELECT input_at FROM transcript_offsets WHERE path = ?1", params![path], |row| row.get(0))
+            .optional()
+            .map(Option::flatten)
+            .map_err(reading)
+    }
+
+    /// What the last read of the transcript at `path` handed on.
+    pub fn transcript_carried(&self, path: &str) -> Result<Option<String>, WriteError> {
+        self.conn
+            .query_row("SELECT carried FROM transcript_offsets WHERE path = ?1", params![path], |row| row.get(0))
             .optional()
             .map(Option::flatten)
             .map_err(reading)

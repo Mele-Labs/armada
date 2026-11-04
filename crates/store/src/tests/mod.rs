@@ -41,6 +41,7 @@ mod usage_rule_trips;
 mod fleet_disputes;
 mod bug_reports;
 mod usage_summary;
+mod usage_spent;
 mod session_plan;
 mod session_focus;
 mod session_rail;

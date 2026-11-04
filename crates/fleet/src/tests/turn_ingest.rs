@@ -139,3 +139,49 @@ async fn the_usage_summary_is_served_and_refuses_a_bound_that_is_no_time() {
     assert_eq!(summary.total.by_bash_use[0].name, "git");
     assert!(fleet.get_usage_summary(Some("lately".into()), None, 0).await.is_err());
 }
+
+/// What a transcript's turns were spent on is read with them, a compaction's own request among
+/// them, and served whole: each split of each window adds up to the summary's units for its span,
+/// and what the read carried is kept with its offset.
+#[tokio::test]
+async fn what_the_turns_were_spent_on_is_read_with_them_and_served_adding_up_to_the_summary() {
+    let home = TempDir::new();
+    let main = home.path().join(adapters::SESSIONS).join("-work-a/s1.jsonl");
+    let usage = |id: &str, second: u32, write: u64, read: u64, blocks: &str| {
+        format!(
+            r#"{{"type":"assistant","timestamp":"2026-10-17T09:00:{second:02}.000Z","message":{{"id":"{id}","model":"opus-5","usage":{{"input_tokens":0,"cache_creation_input_tokens":{write},"cache_read_input_tokens":{read},"output_tokens":10,"cache_creation":{{"ephemeral_1h_input_tokens":{write}}}}},"content":[{blocks}]}}}}"#
+        )
+    };
+    write(
+        &main,
+        &[
+            r#"{"type":"user","timestamp":"2026-10-17T09:00:00.000Z","message":{"content":"go"}}"#.to_string(),
+            usage("m1", 1, 1_000, 0, r#"{"type":"tool_use","id":"t1","name":"Read","input":{"file_path":"/x"}}"#),
+            format!(
+                r#"{{"type":"user","timestamp":"2026-10-17T09:00:02.000Z","message":{{"content":[{{"type":"tool_result","tool_use_id":"t1","content":"{}"}}]}}}}"#,
+                "z".repeat(400)
+            ),
+            usage("m2", 3, 100, 1_000, SAID),
+            r#"{"type":"system","subtype":"compact_boundary","uuid":"c1","timestamp":"2026-10-17T09:00:04.000Z","compactMetadata":{"preTokens":2000}}"#.to_string(),
+            r#"{"type":"user","timestamp":"2026-10-17T09:00:05.000Z","isCompactSummary":true,"message":{"content":"so far"}}"#.to_string(),
+        ],
+    );
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    assert_eq!(fleet.turns_backfilled(false).await, 2);
+    assert!(fleet.store().lock().await.transcript_carried(main.to_str().unwrap()).unwrap().is_some());
+
+    let spent = fleet.get_usage_spent(Some("2026-10-18T00:00:00Z".into())).await.unwrap();
+    let week = &spent.windows[1];
+    assert_eq!((week.id.as_str(), week.jobs.len()), ("week", 1));
+    let on = &week.total.on;
+    // m2's writes are the read's result: 2 units of each 1,000 held an hour, Opus at 5.
+    assert!(on.reads > 0.0 && on.start_up > 0.0 && on.background > 0.0, "{on:?}");
+    let parts = on.start_up + on.reads + on.own_words + on.output + on.cold_cache + on.announced + on.other_results + on.messages + on.background;
+    let by = &week.total.by;
+    let summary = fleet.get_usage_summary(Some(week.since.clone()), Some(week.until.clone()), 0).await.unwrap();
+    for whole in [parts, by.main + by.subagents + by.background] {
+        assert!((whole - summary.total.units).abs() < 1e-9, "{whole} is not {}", summary.total.units);
+    }
+    assert!((summary.total.by_token.cache_creation_1h - 5.0 * 2.0 * 1_100.0 / 1e6).abs() < 1e-9);
+    assert!(fleet.get_usage_spent(Some("lately".into())).await.is_err());
+}

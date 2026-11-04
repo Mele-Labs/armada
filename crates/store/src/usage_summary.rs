@@ -1,10 +1,13 @@
 //! What the kept turns added up to over a window, summed in SQL so a page gets figures and not rows.
 //! `docs/concepts/session.md`, *Where the tokens went*.
 //!
-//! **Burn is in cost units**: a turn's four token counts weighted by [`WEIGHT_INPUT`],
-//! [`WEIGHT_CACHE_CREATION`], [`WEIGHT_CACHE_READ`] and [`WEIGHT_OUTPUT`] and divided by
-//! [`UNIT_SCALE`], so a unit is a million input tokens. Days, weekdays and three-hour blocks are the
-//! caller's local time: the offset is added to each stamp before it is cut.
+//! **Burn is in cost units**: a turn's token counts weighted by [`WEIGHT_INPUT`],
+//! [`WEIGHT_CACHE_CREATION`] (a write held 5 minutes), [`WEIGHT_CACHE_CREATION_1H`],
+//! [`WEIGHT_CACHE_READ`] and [`WEIGHT_OUTPUT`], times the model's weight ([`model_weight`]), and
+//! divided by [`UNIT_SCALE`], so a unit is a million input tokens at weight 1. Days, weekdays and
+//! three-hour blocks are the caller's local time: the offset is added to each stamp before it is cut.
+//!
+//! The sums read `usage_turns`, the turns and the compactions' own requests together.
 //!
 //! Every split here is a partition of the same total: a turn is in exactly one model, one first
 //! tool (`none` where it called nothing) and one day. `by_bash_use` is the exception, and counts
@@ -17,6 +20,7 @@ use crate::open::Store;
 
 pub const WEIGHT_INPUT: f64 = 1.0;
 pub const WEIGHT_CACHE_CREATION: f64 = 1.25;
+pub const WEIGHT_CACHE_CREATION_1H: f64 = 2.0;
 pub const WEIGHT_CACHE_READ: f64 = 0.1;
 pub const WEIGHT_OUTPUT: f64 = 5.0;
 /// Weighted tokens per unit.
@@ -51,7 +55,9 @@ pub struct UsageSplit {
     /// The most input, cache-creation and cache-read tokens any one turn held.
     pub peak_context: u64,
     pub input_units: f64,
+    /// The writes held 5 minutes, and below them those held an hour.
     pub cache_creation_units: f64,
+    pub cache_creation_1h_units: f64,
     pub cache_read_units: f64,
     pub output_units: f64,
     pub by_model: Named,
@@ -91,14 +97,30 @@ fn reading(why: rusqlite::Error) -> WriteError {
     WriteError::Database(fault("summing a session's turn usage")(why))
 }
 
-pub(crate) fn units() -> String {
+/// A model's weight, by the family its name carries: Haiku 1, Sonnet 3, Opus and Fable 5, any other 1.
+pub(crate) fn model_weight() -> &'static str {
+    "(CASE WHEN lower(model) LIKE '%haiku%' THEN 1.0 WHEN lower(model) LIKE '%sonnet%' THEN 3.0
+           WHEN lower(model) LIKE '%opus%' OR lower(model) LIKE '%fable%' THEN 5.0 ELSE 1.0 END)"
+}
+
+/// A turn's input and cache writes, weighed but not yet by the model or the scale.
+pub(crate) fn written() -> String {
     format!(
-        "(({WEIGHT_INPUT:?} * input_tokens + {WEIGHT_CACHE_CREATION:?} * cache_creation_tokens + \
-          {WEIGHT_CACHE_READ:?} * cache_read_tokens + {WEIGHT_OUTPUT:?} * output_tokens) / {UNIT_SCALE:?})"
+        "({WEIGHT_INPUT:?} * input_tokens + {WEIGHT_CACHE_CREATION:?} * (cache_creation_tokens - cache_creation_1h_tokens) + \
+          {WEIGHT_CACHE_CREATION_1H:?} * cache_creation_1h_tokens)"
     )
 }
 
-/// One kept turn's burn in cost units, weighted as the SQL sums are.
+pub(crate) fn units() -> String {
+    format!(
+        "({} * ({} + {WEIGHT_CACHE_READ:?} * cache_read_tokens + {WEIGHT_OUTPUT:?} * output_tokens) / {UNIT_SCALE:?})",
+        model_weight(),
+        written()
+    )
+}
+
+/// One kept turn's burn in cost units under the weights the usage rules were set with: every write
+/// at 5 minutes, and every model alike.
 pub fn turn_units(turn: &crate::session_turn_usage::KeptTurnUsage) -> f64 {
     (WEIGHT_INPUT * turn.input_tokens as f64
         + WEIGHT_CACHE_CREATION * turn.cache_creation_tokens as f64
@@ -124,7 +146,7 @@ impl Scope {
     }
 }
 
-const FROM: &str = "FROM session_turn_usage WHERE at >= ?1 AND at < ?2 AND (?4 = 0
+const FROM: &str = "FROM usage_turns WHERE at >= ?1 AND at < ?2 AND (?4 = 0
     OR (?4 = 1 AND session_id IN (SELECT value FROM json_each(?5)))
     OR (?4 = 2 AND session_id NOT IN (SELECT value FROM json_each(?5))))";
 
@@ -139,15 +161,17 @@ fn named(conn: &Connection, scope: &Scope, key: &str, also: &str) -> Result<Name
 
 fn split(conn: &Connection, scope: &Scope) -> Result<UsageSplit, WriteError> {
     let u = units();
-    let tokens = |weight: f64, column: &str| format!("COALESCE(SUM({weight:?} * {column}), 0) / {UNIT_SCALE:?}");
+    let model = model_weight();
+    let tokens = |weight: f64, column: &str| format!("COALESCE(SUM({model} * {weight:?} * {column}), 0) / {UNIT_SCALE:?}");
     let sql = format!(
         "SELECT COALESCE(SUM({u}), 0),
                 COALESCE(SUM(CASE WHEN subagent THEN {u} END), 0),
                 COALESCE(SUM(CASE WHEN {CONTEXT} > {WIDE_CONTEXT} THEN {u} END), 0),
                 COALESCE(SUM(CASE WHEN {CONTEXT} > {LONG_CONTEXT} THEN {u} END), 0),
-                COALESCE(MAX({CONTEXT}), 0), {}, {}, {}, {} {FROM}",
+                COALESCE(MAX({CONTEXT}), 0), {}, {}, {}, {}, {} {FROM}",
         tokens(WEIGHT_INPUT, "input_tokens"),
-        tokens(WEIGHT_CACHE_CREATION, "cache_creation_tokens"),
+        tokens(WEIGHT_CACHE_CREATION, "(cache_creation_tokens - cache_creation_1h_tokens)"),
+        tokens(WEIGHT_CACHE_CREATION_1H, "cache_creation_1h_tokens"),
         tokens(WEIGHT_CACHE_READ, "cache_read_tokens"),
         tokens(WEIGHT_OUTPUT, "output_tokens"),
     );
@@ -161,8 +185,9 @@ fn split(conn: &Connection, scope: &Scope) -> Result<UsageSplit, WriteError> {
                 peak_context: row.get::<_, i64>(4)? as u64,
                 input_units: row.get(5)?,
                 cache_creation_units: row.get(6)?,
-                cache_read_units: row.get(7)?,
-                output_units: row.get(8)?,
+                cache_creation_1h_units: row.get(7)?,
+                cache_read_units: row.get(8)?,
+                output_units: row.get(9)?,
                 ..UsageSplit::default()
             })
         })
@@ -285,7 +310,7 @@ fn prior_of(conn: &Connection, since: &str, until: &str, offset: &str) -> Result
     };
     let (last, earlier) = (day_of(1)?, day_of(2)?);
     let sql = format!(
-        "SELECT date(at, ?3) AS d, SUM({}) FROM session_turn_usage
+        "SELECT date(at, ?3) AS d, SUM({}) FROM usage_turns
          WHERE at >= strftime({STAMP}, ?2, '-4 days') AND at < ?2 GROUP BY d",
         units()
     );

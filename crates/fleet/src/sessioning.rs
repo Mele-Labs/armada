@@ -1288,6 +1288,16 @@ where
         Ok(crate::usage_summarising::wire(read, tz_offset_minutes))
     }
 
+    async fn get_usage_spent(&self, until: Option<String>) -> Result<ipc::UsageSpent, Refusal> {
+        let now = self.now().as_str().to_string();
+        let store = self.store().lock().await;
+        let read = store.usage_spent(until.as_deref(), &now).map_err(|why| self.ledger_fault(why))?;
+        let Some(read) = read else {
+            return Err(self.ledger_unnamed("a time for the end of the window"));
+        };
+        Ok(crate::usage_summarising::spent_wire(read))
+    }
+
     async fn get_job_time(&self, session_id: ipc::SessionId) -> Result<ipc::JobTime, Refusal> {
         let id = session_id.as_str().trim();
         let kept = self.job_split_read(id).await?;

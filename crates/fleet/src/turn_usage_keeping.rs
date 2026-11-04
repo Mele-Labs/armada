@@ -2,8 +2,8 @@
 //! read back, under the lock the caller holds. `docs/practices/protocol.md`, *Usage a turn at a time*.
 
 use ipc::{BashUse, SessionTurnUsage, TurnUsage};
-use adapters::turn_lines::TurnRead;
-use store::{KeptOpenCall, KeptReading, KeptToolResult, KeptTurnTimes, KeptTurnUsage, Store, WriteError};
+use adapters::turn_lines::{Part, TurnRead};
+use store::{KeptBackground, KeptOpenCall, KeptReading, KeptToolResult, KeptTurnSpent, KeptTurnTimes, KeptTurnUsage, Store, WriteError};
 
 /// A turn as the store keeps it.
 pub(crate) fn kept_form(turn: &TurnUsage) -> KeptTurnUsage {
@@ -41,7 +41,32 @@ pub(crate) fn reading_kept(read: &TurnRead) -> KeptReading {
             .map(|one| KeptOpenCall { tool_use_id: one.tool_use_id.clone(), message_id: one.message_id.clone() })
             .collect(),
         input_at: read.input_at.clone(),
+        spent: read
+            .spent
+            .iter()
+            .map(|one| KeptTurnSpent {
+                message_id: one.message_id.clone(),
+                cache_creation_1h_tokens: one.cache_creation_1h_tokens,
+                shares: one.shares.as_ref().map(|shares| (named(&shares.read), named(&shares.write))),
+            })
+            .collect(),
+        background: read
+            .background
+            .iter()
+            .map(|one| KeptBackground {
+                id: one.id.clone(),
+                at: one.at.clone(),
+                model: one.model.clone(),
+                cache_read_tokens: one.cache_read_tokens,
+                output_tokens: one.output_tokens,
+            })
+            .collect(),
+        carried: read.carry.kept(),
     }
+}
+
+fn named(shares: &[(Part, f64)]) -> Vec<(String, f64)> {
+    shares.iter().map(|(part, share)| (part.label().to_string(), *share)).collect()
 }
 
 /// One turn, kept. Whether the store changed.
