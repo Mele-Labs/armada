@@ -344,15 +344,7 @@ function Log({ store }: { store: OperatorStore }) {
  * One item: what started it, the item, the ruling with why on hover, then where it went, age, Start now and Overrule. Each lane
  * is a column, the Jobs stand in the lane it went to, and a line runs to them from the ruling.
  */
-function LogRow({
-  row,
-  now,
-  store,
-}: {
-  row: OperatorLogRow;
-  now: number;
-  store: OperatorStore;
-}) {
+function LogRow({ row, now, store }: { row: OperatorLogRow; now: number; store: OperatorStore }) {
   const line =
     row.line === undefined ? undefined : store.state.line.find((one) => one.id === row.line);
   const named = (row.names ?? []).map((job) => <NamedJob key={job.session} job={job} />);
