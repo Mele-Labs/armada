@@ -401,6 +401,16 @@ change touched and the tests the test map says reach it, in their crates, where 
 binary for one test. CI sets `ARMADA_SOLE_TENANT=1` and keeps every core.
 `../concepts/manifest.md`, *How wide a Check runs*.
 
+### One build of fleet
+
+**Which crates a run selects decides which features its dependencies are built with**, and a dependency built with other features is a second copy of it and of everything above it, `fleet` included.
+From 19 Oct to 3 Nov 2026 the Test Check spent 44 hours compiling, and half of that was in runs that compiled third-party crates again.
+A slot that moved between `-p fleet` and `-p api -p fleet` built each selection's copy the first time it met it.
+
+So `fleet`'s `[dev-dependencies]` declare the features `api`, `armada` and `pocket` turn on, for crates its code never names.
+Cargo's own answer, `resolver.feature-unification`, is ignored without a nightly flag (cargo 1.98.1).
+A crate selected without `fleet` still builds its own lighter copy: `-p store` compiles 23 third-party crates where `-p fleet` compiles 246.
+
 **A test that hangs is ended at three minutes**, by `.config/nextest.toml`,
 which every `nextest` run in the workspace reads — `test`, `acceptance` and one
 test by name alike. It prints `SLOW` at each minute and then fails as `TIMEOUT`,
