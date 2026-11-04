@@ -8,7 +8,7 @@ import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Input } from "../../primitives/Input/Input";
 import { Select } from "../../primitives/Select/Select";
 import { Skeleton } from "../../primitives/Skeleton/Skeleton";
-import { Switch } from "../../primitives/Switch/Switch";
+import { Switch, SwitchControl } from "../../primitives/Switch/Switch";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { KitServerAddForm, KIT_HERE_LABEL } from "../KitServers/KitServers";
 import { BuiltInMark, ModKindMark } from "../ModRow/ModRow";
@@ -87,6 +87,11 @@ export type KitBrowserProps = {
     onKitReach?: (name: string, reaches: boolean) => void;
     onHereReach?: (name: string, reach: "extended" | "restricted" | null) => void;
   };
+  /** Skills: a switch on each row for whether Jobs get it. `off` is the names switched off. Absent draws no switch column. */
+  jobs?: {
+    off: readonly string[];
+    onSwitch: (name: string, on: boolean) => void;
+  };
 };
 
 /** The list's rows as bars while the setup read is out: widths varied so the column does not read as a table. */
@@ -117,8 +122,10 @@ export function KitBrowser({
   onShowInFinder,
   openRefused,
   servers,
+  jobs: allJobs,
 }: KitBrowserProps) {
   const pieces = kind === "skills" || kind === "plugins" ? allPieces : undefined;
+  const jobs = kind === "skills" ? allJobs : undefined;
   const shared = useSharedHome();
   const [filter, setFilter] = useKept(`${keep}:${kind}:filter`, "");
   const [adding, setAdding] = useState(false);
@@ -179,6 +186,14 @@ export function KitBrowser({
           )}
         </span>
       </button>
+      {/* Beside the row and not in it, as a control inside a button is not one. A row every Job gets keeps the column empty. */}
+      {jobs === undefined ? null : (
+        <span className="armada-kit-browser__jobs">
+          {one.jobs === undefined ? null : (
+            <JobsSwitch name={one.jobs} on={!jobs.off.includes(one.jobs)} onSwitch={jobs.onSwitch} />
+          )}
+        </span>
+      )}
     </li>
   );
 
@@ -337,6 +352,28 @@ export function KitBrowser({
         />
       )}
     </div>
+  );
+}
+
+/** Whether Jobs get one skill. Named for the skill so a screen reader hears whose switch it is. */
+function JobsSwitch({
+  name,
+  on,
+  onSwitch,
+}: {
+  name: string;
+  on: boolean;
+  onSwitch: (name: string, on: boolean) => void;
+}) {
+  return (
+    <Tooltip label={on ? "Jobs get this skill" : "Jobs start without this skill"}>
+      <SwitchControl
+        size="sm"
+        label={`Jobs get ${name}`}
+        checked={on}
+        onChange={(event) => onSwitch(name, event.target.checked)}
+      />
+    </Tooltip>
   );
 }
 

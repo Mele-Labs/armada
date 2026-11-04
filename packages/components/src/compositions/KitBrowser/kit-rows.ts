@@ -145,6 +145,11 @@ export type KitRow = {
     name: string;
     uninstall?: string;
   };
+  /**
+   * A skill a Job can start without, by the name the list of skills switched off holds. Absent for a repository's own
+   * skills and Armada's, which every Job gets.
+   */
+  jobs?: string;
   /** The plugin a skill comes with, which is what removes it. */
   from?: string;
   brings?: KitRef[];
@@ -334,6 +339,15 @@ function rowOf(
           always: true,
         }
       : {}),
+    ...(kind !== "skills" ||
+    mark === "This repository" ||
+    mark === "Armada" ||
+    (item.plugin !== undefined && providerOf(item.plugin) === "armada")
+      ? {}
+      : {
+          jobs:
+            item.plugin === undefined ? item.name : `${providerOf(item.plugin)}:${item.name}`,
+        }),
   };
 }
 

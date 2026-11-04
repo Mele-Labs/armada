@@ -141,7 +141,6 @@ const SCHEMA_SECTIONS: readonly SettingsSection[] = [
         "Token use",
         "tokens",
         "cost",
-        "skills hidden",
         "compaction",
         "turn summaries",
         "cache",

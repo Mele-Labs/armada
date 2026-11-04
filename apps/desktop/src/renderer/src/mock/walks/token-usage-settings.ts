@@ -1,7 +1,8 @@
-// What a Job costs in tokens, as four Machine settings under Fleet › Token use, and the connectors switch under
-// Fleet › Repository. A design review before Fleet serves any of them. Over `token-usage-settings`.
+// What a Job costs in tokens: a switch on each skill in Kit › Skills for whether Jobs get it, three Machine settings
+// under Fleet › Token use, and the connectors switch under Fleet › Repository. A design review before Fleet serves
+// any of them. Over `token-usage-settings`.
 
-import { place, role, systemPage, walk } from "../walk";
+import { button, inside, place, region, role, systemPage, walk } from "../walk";
 
 const tokenUsageSettings = walk("token-usage-settings", [
   {
@@ -9,12 +10,24 @@ const tokenUsageSettings = walk("token-usage-settings", [
     say: "System",
   },
   {
-    press: systemPage("Token use"),
-    say: "Token use, under Fleet",
+    press: systemPage("Skills"),
+    say: "Skills, with a switch on each for whether Jobs get it",
   },
   {
-    look: role("textbox", "Skills hidden from Jobs"),
-    say: "Skills hidden from Jobs, one name per line",
+    look: role("switch", "Jobs get gitnexus-cli"),
+    say: "gitnexus-cli is off",
+  },
+  {
+    press: role("switch", "Jobs get humanizer"),
+    say: "humanizer off: Jobs start without it, so it costs nothing per request",
+  },
+  {
+    look: inside(region("Skills"), button(/^release-notes/)),
+    say: "A repository's own skills and Armada's have no switch. Every Job gets them",
+  },
+  {
+    press: systemPage("Token use"),
+    say: "Token use, under Fleet",
   },
   {
     look: role("textbox", "Compaction window"),

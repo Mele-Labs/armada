@@ -582,18 +582,17 @@ export const MOCK_SETTINGS: SettingsList = {
 export const TOKEN_USE_SETTINGS: readonly Setting[] = [
   row(
     "Token use",
-    "tokens.hiddenSkills",
-    "Skills hidden from Jobs",
-    "Fleet leaves these skills out of the list every Job starts with, so they cost nothing per request. Skills the repository brings and skills named armada: are never hidden.",
-    LIST,
+    "tokens.skillsOff",
+    "Skills switched off for Jobs",
+    "Kit, Skills draws this as a switch on each skill.",
+    {
+      kind: "json",
+    },
     [],
     {
       saved: [
         "gitnexus-cli",
-        "pptx",
-        "docx",
-        "xlsx",
-        "pdf",
+        "anthropic-skills:pptx",
       ],
     },
   ),
@@ -609,7 +608,7 @@ export const TOKEN_USE_SETTINGS: readonly Setting[] = [
     "Token use",
     "tokens.summaryShortCache",
     "Short cache for turn summaries",
-    "Turn summaries written in the background keep their prompt cache for five minutes. Off, they keep it for an hour.",
+    "A five-minute cache costs less to write than an hour-long one, and a turn summary's prompt is rarely read again after five minutes. Off, turn summaries keep their cache for an hour.",
     BOOLEAN,
     true,
   ),
@@ -617,7 +616,7 @@ export const TOKEN_USE_SETTINGS: readonly Setting[] = [
     "Token use",
     "tokens.summaryThinking",
     "Thinking for turn summaries",
-    "Turn summaries written in the background use thinking. Measured without it on 60 summaries, quality held and output fell from 210 to 148 tokens.",
+    "Off, turn summaries kept their quality on 60 measured summaries and their output fell from 210 to 148 tokens. Turn it on if turn summaries start missing what a turn did.",
     BOOLEAN,
     false,
   ),

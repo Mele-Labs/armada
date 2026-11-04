@@ -71,6 +71,9 @@ export type SystemSurfaceProps = KitSlice & {
   warned: Readonly<Record<string, string>>;
 };
 
+/** The skills Jobs start without, as settings.json lists them. Bridge draws it as Kit › Skills' switches, never as a row. */
+const SKILLS_OFF_KEY = "tokens.skillsOff";
+
 /** A pull request opens in the side panel where one is hosted, and in the browser where not. */
 const openPull = (address: string) => void (openAddressInPanel(address) || openLink(address));
 
@@ -163,6 +166,21 @@ export function SystemSurface({
     resolves: server.resolves,
   }));
   const names = (kind: KitKindId) => namesOf(kind, kit.setup, servers);
+  // Skills' switches for Jobs, drawn once Fleet serves the list of skills switched off, and saved back as that list.
+  const skillsOff = settings?.settings.find((one) => one.key === SKILLS_OFF_KEY);
+  const off = Array.isArray(skillsOff?.value) ? skillsOff.value.map(String) : [];
+  const jobs =
+    skillsOff === undefined
+      ? undefined
+      : {
+          off,
+          onSwitch: (name: string, on: boolean) => {
+            const next = on ? off.filter((one) => one !== name) : [...off, name];
+            void window.armada.saveSettings({
+              [SKILLS_OFF_KEY]: next.length === 0 ? null : next,
+            });
+          },
+        };
   const pieces: KitPiecesProps = {
     onAdd: () => openLinkPanel(""),
     onRemove: kit.pieces.onRemove,
@@ -350,6 +368,11 @@ export function SystemSurface({
             ? {}
             : {
                 openRefused,
+              })}
+          {...(jobs === undefined
+            ? {}
+            : {
+                jobs,
               })}
           {...(kind !== "servers"
             ? {}
