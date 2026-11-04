@@ -47,10 +47,18 @@ where
         self: &Arc<Self>,
         asked: SetSessionAutoLand,
     ) -> Result<SessionRecord, Refusal> {
+        self.auto_land_answered(asked).await.map(|(record, _asking)| record)
+    }
+
+    /// [`Self::session_auto_land_set`], with the task asking the forge, for a caller that waits on it.
+    pub(crate) async fn auto_land_answered(
+        self: &Arc<Self>,
+        asked: SetSessionAutoLand,
+    ) -> Result<(SessionRecord, tokio::task::JoinHandle<()>), Refusal> {
         let (record, manifest) = self.auto_land_flag_set(&asked).await?;
         let (fleet, id) = (Arc::clone(self), asked.id.as_str().to_string());
-        tokio::spawn(async move { fleet.auto_land_asked_of_forge(&id, &manifest, asked.on).await });
-        Ok(record)
+        let asking = tokio::spawn(async move { fleet.auto_land_asked_of_forge(&id, &manifest, asked.on).await });
+        Ok((record, asking))
     }
 
     /// The flag alone, kept and published, with the Manifest its pull requests are in. What a
@@ -78,7 +86,7 @@ where
 
     /// Each open pull request asked to follow the flag, after the reply. **Stops where the flag has
     /// changed since**, so an off pressed straight after an on is not undone by the on's asks.
-    async fn auto_land_asked_of_forge(self: &Arc<Self>, id: &str, manifest: &str, on: bool) {
+    pub(crate) async fn auto_land_asked_of_forge(self: &Arc<Self>, id: &str, manifest: &str, on: bool) {
         let manifest_id = ManifestId::carried(manifest);
         let mut refused = Vec::new();
         for number in self.open_pulls_of(id, manifest).await {
