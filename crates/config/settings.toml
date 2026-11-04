@@ -578,6 +578,23 @@ The top-level `connectors:` key in the root `armada.yml`: `false` starts every h
 Read when Fleet starts, so a save that changes it is reported as waiting for a restart.
 """
 
+[settings.manifest-when-base-moves]
+name = "Commands run when the base moves"
+scope = "Manifest only"
+default = "none"
+lifetime = "Daemon start"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Manifest"
+read_by = "fleet"
+notes = """
+The top-level `when_base_moves:` key in the root `armada.yml`: a list of Commands from `commands:` that Fleet runs, in order, in the repository's own checkout each time that checkout stands at a new commit of the base branch. Each name resolves as a `setup.requires` entry does, so an undeclared, destructive or server name is refused, and an empty list is refused. A workspace's file that names it is refused.
+
+One run at a time per repository, at background priority behind every Check: a move during a run queues one more run, at the newest commit, and moves seen meanwhile are folded into it. A checkout held on another commit runs nothing until it reaches the base's tip. A failed Command is logged on Fleet's console and ends that run; it blocks no Job.
+
+Read when Fleet starts, so a save that changes it is reported as waiting for a restart.
+"""
+
 [settings.manifest-worktree-slots]
 name = "Worktree slots"
 scope = "Manifest only"
@@ -1631,4 +1648,83 @@ notes = """
 The address of the central store the machines signed in to one account share (`docs/contracts/central-store.md`). Blank leaves sign-in unavailable: a sign-in enrols this machine with the store, so starting one is refused with a plain reason until a store is deployed.
 
 **The value lives in settings.json under `store.url`** (live), read when a sign-in starts.
+"""
+
+[settings.token-compaction-window]
+name = "Compaction window"
+scope = "Machine"
+default = "250,000 tokens"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+How many tokens a hosted Job's conversation reaches before the CLI compacts it. Smaller saves tokens on every later request; larger keeps more of the thread word for word. From 100,000 to 1,000,000, which is the range the CLI reads.
+
+**The value lives in settings.json under `tokens.compactionWindow`** (live). Fleet hands it to each hosted Job it starts as `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, so a change reaches the Jobs started after it and not a running one.
+"""
+
+[settings.token-summary-short-cache]
+name = "Short cache for turn summaries"
+scope = "Machine"
+default = "on"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+Whether the call that writes a turn's summary asks for the five-minute prompt cache. A five-minute cache costs less to write than an hour-long one, and a turn summary's prompt is rarely read again after five minutes. Off, the call keeps the longer cache.
+
+**The value lives in settings.json under `tokens.summaryShortCache`** (live), read at each turn summary.
+"""
+
+[settings.token-summary-thinking]
+name = "Thinking for turn summaries"
+scope = "Machine"
+default = "off"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+Whether the call that writes a turn's summary is let think first. Off, summaries kept their quality on 60 measured summaries and their output fell from 210 to 148 tokens. On, the call is asked as the model's own default asks.
+
+**The value lives in settings.json under `tokens.summaryThinking`** (live), read at each turn summary.
+"""
+
+[settings.token-skills-off]
+name = "Skills switched off for Jobs"
+scope = "Machine"
+default = "none"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+The person's skills, and the skills their plugins bring, that a repository's hosted Jobs start without, so their descriptions are not in the model's list on every request. Drawn in a skill's detail in Kit, as a switch per repository.
+
+**The value lives in settings.json under `tokens.skillsOff`** (live), shaped `{ "<manifest id>": ["<skill name>"] }`, a plugin's skill named `<plugin>:<skill>`. Fleet writes each name into the Job's `skillOverrides` as `user-invocable-only` when the Job starts: the model's list no longer holds it, and the person's own `/name` still works.
+
+**A repository's own skills and Armada's are never switched off**, whatever the setting names: every Job gets them, and Kit draws no switch for them.
+"""
+
+[settings.token-connectors-off]
+name = "Connectors switched off"
+scope = "Machine"
+default = "none"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "Overrides the repository's armada.yml"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+Whether a repository's hosted Jobs start without the connectors on the person's claude.ai account. Drawn as System, Fleet, Repository, a switch per repository.
+
+**The value lives in settings.json under `tokens.connectorsOff`** (live), shaped `{ "<manifest id>": true }`, where `true` is connectors off and `false` is on. **A repository with no entry follows its armada.yml's `connectors`**, so a person can turn connectors on in a repository whose armada.yml says off, and off in one that says nothing.
+
+Bridge draws a repository with no entry from `connectors_off` on its `ManifestSummary`, so the switch shows what Fleet will do.
 """

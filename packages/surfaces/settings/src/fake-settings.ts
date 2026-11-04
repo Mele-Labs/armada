@@ -22,6 +22,7 @@ const GROUP: Record<string, string> = {
   Machine: "Fleet",
   Account: "Fleet",
   Store: "Fleet",
+  "Token use": "Fleet",
   Harness: "Agents",
   Model: "Agents",
   Effort: "Agents",
@@ -571,6 +572,73 @@ export const MOCK_SETTINGS: SettingsList = {
     ),
   ],
 };
+
+/**
+ * What a Job costs in tokens, as Fleet serves it, drawn for the walk `token-usage-settings`: three Machine settings and
+ * two values set per repository by Manifest id. `connectorsOff` is each repository's own switch, `true` for off, and a
+ * repository with none follows its armada.yml; `skillsOff` is saved. Not in `MOCK_SETTINGS`, so no other walk draws them.
+ */
+export const tokenUseSettings = (
+  connectorsOff: Readonly<Record<string, boolean>>,
+  skillsOff: Readonly<Record<string, readonly string[]>>,
+): Setting[] => [
+  row(
+    "Token use",
+    "tokens.skillsOff",
+    "Skills switched off for Jobs",
+    "Kit, Skills draws this in each skill's detail, as a switch per repository.",
+    {
+      kind: "json",
+    },
+    {},
+    {
+      saved: {
+        ...skillsOff,
+      },
+    },
+  ),
+  row(
+    "Token use",
+    "tokens.connectorsOff",
+    "Connectors switched off",
+    "System, Repository draws this as a switch per repository.",
+    {
+      kind: "json",
+    },
+    {},
+    Object.keys(connectorsOff).length === 0
+      ? undefined
+      : {
+          saved: {
+            ...connectorsOff,
+          },
+        },
+  ),
+  row(
+    "Token use",
+    "tokens.compactionWindow",
+    "Compaction window",
+    "A Job's conversation is compacted once it reaches this many tokens. Smaller saves tokens on every later request, and larger keeps more of the thread word for word.",
+    count(100_000, 1_000_000, "tokens"),
+    250_000,
+  ),
+  row(
+    "Token use",
+    "tokens.summaryShortCache",
+    "Short cache for turn summaries",
+    "A five-minute cache costs less to write than an hour-long one, and a turn summary's prompt is rarely read again after five minutes. Off, turn summaries keep their cache for an hour.",
+    BOOLEAN,
+    true,
+  ),
+  row(
+    "Token use",
+    "tokens.summaryThinking",
+    "Thinking for turn summaries",
+    "Off, turn summaries kept their quality on 60 measured summaries and their output fell from 210 to 148 tokens. Turn it on if turn summaries start missing what a turn did.",
+    BOOLEAN,
+    false,
+  ),
+];
 
 /**
  * A save, as Fleet answers it: each change set or removed, the value in force recomputed, and a key

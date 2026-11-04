@@ -56,6 +56,11 @@ pub struct Start {
     /// Whether the process may reach the connectors on the person's account: the served
     /// repository's `connectors`, on where there is no Manifest.
     pub connectors: bool,
+    /// Tokens at which the process compacts its conversation: `tokens.compactionWindow` as it
+    /// stood when the process started.
+    pub compaction_window: i64,
+    /// The skills the process is started without, never a repository's own nor Armada's.
+    pub skills_off: Vec<String>,
 }
 
 /// What a process says, in the order it said it.
@@ -313,6 +318,7 @@ impl Processes for ProcessHost {
             true => hosted,
             false => hosted.without_connectors(),
         };
+        let hosted = hosted.compacting_at(start.compaction_window).without_skills(&start.skills_off);
         // The copy's plugin, when it holds one: a job gets the mod whether or not the person ever
         // installed it into their CLI.
         let plugin = crate::runtime::mod_dir(&self.home);

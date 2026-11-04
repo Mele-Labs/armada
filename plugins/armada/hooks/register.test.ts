@@ -705,7 +705,7 @@ test('the model is told its Armada job id once, at the start', async ($, on) => 
   expect(note).toContain('already waits on him by itself, so never put it in waiting_for')
   expect(note).not.toContain('a page to look at')
   expect(note).toContain('call all_done')
-  expect(note).toContain('call finish_up')
+  expect(note).not.toContain('call finish_up')
   expect(note).toContain('A pull request in the merge queue or with auto-merge on is not done')
   expect(note).toContain('never put a wait on it in waiting_for')
   expect(note).toContain('passes steps, a list of short lines')

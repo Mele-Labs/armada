@@ -83,6 +83,8 @@ mod building;
 mod builds_run;
 /// The hours, builds and Jobs the Usage page reads time from.
 mod time_reading;
+/// What a repository runs in its checkout when the base moves there.
+mod base_moves;
 /// How long a Check may run.
 mod budget;
 /// The served checkout caught up whenever main moves.

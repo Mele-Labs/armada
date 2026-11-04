@@ -217,6 +217,11 @@ export type ManifestSummary = {
   review_gate?: string;
   /** What a person's own `armada.yml` for this repository, kept in Kit, did to it. Absent where Kit holds none. */
   kit?: ManifestFromKit;
+  /**
+   * The `armada.yml` says `connectors: false`, so Jobs here start without the person's connectors unless their own
+   * switch for the repository says otherwise. Absent where it says nothing or `true`. `crates/ipc/src/setup.rs`.
+   */
+  connectors_off?: boolean;
 };
 
 /** A person's own `armada.yml` for a repository, kept in Kit as `manifests/<owner--name>.yml`. `crates/ipc/src/setup.rs`. */
