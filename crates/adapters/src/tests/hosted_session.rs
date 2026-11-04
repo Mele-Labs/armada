@@ -781,3 +781,24 @@ fn the_watching_rule_names_the_watch_tools_and_selects_only_real_ones() {
         assert!(ipc::door::REACHABLE.iter().any(|row| row.operation == operation), "{tool}");
     }
 }
+
+/// A repository that says `connectors: false` starts its hosted Jobs without the person's claude.ai
+/// connectors, and one that says nothing starts them as before. The CLI's spelling is pinned here.
+#[test]
+fn a_launch_without_connectors_tells_the_cli_not_to_fetch_them() {
+    let agent = HeadlessAgent::at("/usr/local/bin/agent");
+    let off = agent
+        .render_hosted_session(&launching(false, SessionMode::Auto).without_connectors())
+        .expect("renders");
+    let vars = off.environment().vars();
+    assert!(
+        vars.iter().any(|(n, v)| n == "ENABLE_CLAUDEAI_MCP_SERVERS" && v == "false"),
+        "{vars:?}"
+    );
+    let on = agent.render_hosted_session(&launching(false, SessionMode::Auto)).expect("renders");
+    assert!(
+        !on.environment().vars().iter().any(|(n, _)| n == "ENABLE_CLAUDEAI_MCP_SERVERS"),
+        "{:?}",
+        on.environment().vars()
+    );
+}
