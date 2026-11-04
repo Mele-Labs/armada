@@ -10,4 +10,3 @@ notes = """
 
 `agent_access` is `Yes`, and Bridge's Stop is the same route.
 """
-always_loaded = true

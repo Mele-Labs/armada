@@ -258,6 +258,7 @@ where
                     effort: hosting.effort.clone(),
                     mode: mode_of(&hosting.mode),
                     readable: vec![self.uploads_of(id).to_string_lossy().into_owned()],
+                    connectors: served.as_ref().is_none_or(|served| served.manifest().connectors()),
                 };
                 let process = self.hosts().processes().start(&start, sink)?;
                 if hosting.ran {

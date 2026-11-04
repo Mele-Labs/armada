@@ -3,7 +3,30 @@
 
 use ipc::BashUse::{self, *};
 
-use crate::turn_lines::{classify_bash, read_turns};
+use crate::turn_lines::{classify_bash, read_turns, transcripts_of, transcripts_of_each};
+
+/// Every live session's transcripts in one walk are the ones a walk per session finds: each
+/// session's own and its subagents', from whichever project folder holds them, and no other's.
+#[test]
+fn one_walk_finds_each_live_sessions_transcripts_and_no_others() {
+    let home = std::env::temp_dir().join(format!("armada-turn-walk-{}", std::process::id()));
+    let projects = home.join(".claude/projects");
+    for (folder, file) in [("a", "s1.jsonl"), ("b", "s2.jsonl"), ("b", "s2/subagents/agent-x.jsonl"), ("c", "s3.jsonl")] {
+        let path = projects.join(folder).join(file);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, "{}\n").unwrap();
+    }
+    let home = home.to_str().unwrap();
+
+    let walked = transcripts_of_each(home, &["s1", "s2"]);
+    let mut names: Vec<(String, bool)> = walked.iter().map(|file| (file.session_id.clone(), file.subagent)).collect();
+    names.sort();
+    assert_eq!(names, [("s1".into(), false), ("s2".into(), false), ("s2".into(), true)]);
+    let mut one_by_one = [transcripts_of(home, "s1"), transcripts_of(home, "s2")].concat();
+    one_by_one.sort_by(|a, b| a.path.cmp(&b.path));
+    assert_eq!(walked, one_by_one);
+    let _ = std::fs::remove_dir_all(std::path::Path::new(home));
+}
 
 #[test]
 fn a_command_is_labelled_by_the_first_real_command_in_it() {
