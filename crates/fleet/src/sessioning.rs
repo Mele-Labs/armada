@@ -134,6 +134,8 @@ where
         let mut reminder: Option<(String, Option<String>)> = None;
         // A hosted agent's subagent started or settled, drawn on its call's row once the store is let go.
         let mut subagent_row: Option<SubagentRow> = None;
+        // A pull request the session opened, by its Manifest and address, read once the store is let go.
+        let mut opened_pull: Option<(String, String)> = None;
         let mut session = kept.unwrap_or_else(|| KeptSession {
             id: id.clone(),
             harness: report.harness.clone(),
@@ -227,6 +229,9 @@ where
                 if !terminal && attachment.kind == "subagent" {
                     let call = attachment.detail.get("call").unwrap_or(&attachment.target).clone();
                     subagent_row = Some(SubagentRow::Started(attachment.target.clone(), call, attachment.detail.clone()));
+                }
+                if opened {
+                    opened_pull = attachment.detail.get("address").map(|address| (manifest_of(&session), address.clone()));
                 }
                 // The mod reports a pull request again as it acts on it; a dismissal made since is not undone by it.
                 let mut detail = attachment.detail;
@@ -528,6 +533,9 @@ where
             if let Some(claim) = self.unbacked_claim(&session.id, &ended, Some(&said)).await {
                 self.terminal_claim_reminded(&session.id, claim).await;
             }
+        }
+        if let Some((manifest, address)) = opened_pull {
+            self.opened_pull_read(&manifest, &address).await;
         }
         Ok(record)
     }
