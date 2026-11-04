@@ -29,11 +29,11 @@ where
 {
     /// The Operator ruled `id` a place: kept for when it joins the line, or taken now where it waits.
     pub(super) async fn operator_placed(&self, id: &str, place: Place) {
-        match self.hosts().slot_queue().line_holding(id) {
-            Some(manifest) => {
-                self.line_reordered(&manifest, id, &place).await;
-            }
-            None => self.operator_seat().place(id, place),
+        // Kept before the line is read, so a Job joining in between still takes it as it joins.
+        self.operator_seat().place(id, place);
+        let Some(manifest) = self.hosts().slot_queue().line_holding(id) else { return };
+        if let Some(place) = self.operator_seat().take_place(id) {
+            self.line_reordered(&manifest, id, &place).await;
         }
     }
 
