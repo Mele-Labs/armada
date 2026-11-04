@@ -411,6 +411,8 @@ export class FakeSessionsFleet {
   onSend: ((send: SendSessionMessage) => void) | undefined;
   /** Hears each answer to an ask once it has settled, to script the agent's next call. */
   onAnswer: ((answer: AnswerSessionAsk) => void) | undefined;
+  /** Hears each Auto land press once the flag is kept, to script what the forge says after: Fleet asks it in the background. */
+  onAutoLand: ((sessionId: string, on: boolean) => void) | undefined;
   /** Hears a start queued while the proposer reads, to script when the reading ends. */
   onQueued: ((sessionId: string) => void) | undefined;
   /** The presses queued while the proposer read, by Session, for what they named. */
@@ -715,6 +717,19 @@ export class FakeSessionsFleet {
               return queued;
             }
             return this.beginNow(begin);
+          },
+          // Fleet answers the record at once with the flag set, and asks the forge after.
+          setSessionAutoLand: async (sessionId, on) => {
+            const done = this.change(sessionId, ({ auto_land: _, ...one }) =>
+              on
+                ? {
+                    ...one,
+                    auto_land: true,
+                  }
+                : one,
+            );
+            if (done.ok) this.onAutoLand?.(sessionId, on);
+            return done;
           },
           setSessionWorkflow: async (sessionId, workflow) =>
             this.change(sessionId, ({ workflow: _was, ...one }) =>
