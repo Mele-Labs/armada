@@ -197,7 +197,7 @@ impl Desk for FakeFleet {
 impl Acting for FakeFleet {
     fn go_ahead(&self, _session: &str) {}
 
-    fn hand_over(&self, session: &str, into: &str, _shared: &[String]) {
+    fn hand_over(&self, session: &str, _group: Option<&str>, into: &str, _shared: &[String]) {
         self.ended.lock().expect("not poisoned").push((session.into(), into.into()));
     }
 

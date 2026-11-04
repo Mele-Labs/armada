@@ -13,6 +13,8 @@ pub const DRAFT_PULL_REQUESTS: Flag = Flag("features.draftPullRequests");
 pub const OPEN_GUIDES_FIRST_TIME: Flag = Flag("features.openGuidesFirstTime");
 pub const WORKFLOWS: Flag = Flag("features.workflows");
 pub const DISPUTE_REVIEWS: Flag = Flag("features.disputeReviews");
+/// The Operator's Dispatch role: whether Fleet does what it rules on work arriving, or only logs it.
+pub const OPERATOR_DISPATCH: Flag = Flag("features.operatorDispatch");
 /// Read by Bridge alone: whether a job needing the owner posts a macOS notification.
 pub const NOTIFICATIONS: Flag = Flag("features.notifications");
 /// Read by Bridge alone: whether moves and presses make their quiet sound.
@@ -148,6 +150,19 @@ pub(super) const FEATURES: &[Entry] = &[
         shipped: Shipped::Boolean(false),
         applies: Applies::Live,
         row: Some("dispute-reviews"),
+        env: None,
+        tip: None,
+    },
+    // Off as it ships, by the replay of 4 Nov: its rulings are logged with what they would have done.
+    Entry {
+        key: OPERATOR_DISPATCH.0,
+        section: Section::Features,
+        title: "Operator dispatches",
+        description: "Fleet does what the Operator rules on work arriving: a Job it hands to another, merges or keeps in touch. Off, each ruling is only in its Log.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(false),
+        applies: Applies::Live,
+        row: Some("operator-dispatch"),
         env: None,
         tip: None,
     },

@@ -56,7 +56,7 @@ impl Desk for Desked {
 
 impl Acting for Desked {
     fn go_ahead(&self, _session: &str) {}
-    fn hand_over(&self, _session: &str, _into: &str, _shared: &[String]) {}
+    fn hand_over(&self, _session: &str, _group: Option<&str>, _into: &str, _shared: &[String]) {}
     fn merge(&self, _ending: &str, _into: &str, _shared: &[String]) {}
     fn keep_in_touch(&self, _one: &str, _other: &str, _shared: &[String]) {}
 }

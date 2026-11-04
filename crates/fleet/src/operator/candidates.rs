@@ -65,7 +65,7 @@ pub(super) fn near(item: &Arrival, live: &[LiveJob]) -> Vec<Near> {
 }
 
 /// Each of `ours` that meets one of `theirs`, the more exact of the two named.
-fn shared_paths(ours: &[String], theirs: &[String]) -> Vec<String> {
+pub(super) fn shared_paths(ours: &[String], theirs: &[String]) -> Vec<String> {
     let mut shared = BTreeSet::new();
     for one in ours {
         for other in theirs {

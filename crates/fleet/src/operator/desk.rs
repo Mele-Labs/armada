@@ -1,7 +1,7 @@
 //! The Operator's [`Desk`] on a running Fleet: its clock, its settings and its store.
 
 use std::collections::BTreeSet;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use config::settings as keys;
@@ -15,15 +15,16 @@ use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 
 /// Fleet as the Operator reaches it. A store failure is said through `adrift`, and a count of
-/// calls that cannot be read stands for the ceiling reached.
+/// calls that cannot be read stands for the ceiling reached. **Held weakly**, since Fleet holds the
+/// Operator that holds this: a Fleet that is gone has no Jobs and makes no calls.
 pub struct FleetDesk<H, V, W> {
-    fleet: Arc<Fleet<H, V, W>>,
+    fleet: Weak<Fleet<H, V, W>>,
     adrift: Box<dyn Fn(Adrift) + Send + Sync>,
 }
 
 impl<H, V, W> FleetDesk<H, V, W> {
-    pub fn on(fleet: Arc<Fleet<H, V, W>>, adrift: impl Fn(Adrift) + Send + Sync + 'static) -> FleetDesk<H, V, W> {
-        FleetDesk { fleet, adrift: Box::new(adrift) }
+    pub fn on(fleet: &Arc<Fleet<H, V, W>>, adrift: impl Fn(Adrift) + Send + Sync + 'static) -> FleetDesk<H, V, W> {
+        FleetDesk { fleet: Arc::downgrade(fleet), adrift: Box::new(adrift) }
     }
 }
 
@@ -38,18 +39,22 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     fn now(&self) -> Timestamp {
-        self.fleet.now()
+        match self.fleet.upgrade() {
+            Some(fleet) => fleet.now(),
+            None => Timestamp::from_rfc3339(crate::clock::rfc3339_utc(0)),
+        }
     }
 
     fn day_began(&self) -> Done<'_, Timestamp> {
         Box::pin(async move {
-            let now = self.fleet.now().epoch_millis().unwrap_or(0);
+            let now = self.now().epoch_millis().unwrap_or(0);
             Timestamp::from_rfc3339(crate::clock::rfc3339_utc(crate::clock::local_day_began(now).await))
         })
     }
 
     fn daily_calls(&self) -> u32 {
-        let calls = self.fleet.machine_settings().now().get(keys::OPERATOR_DAILY_CALLS);
+        let Some(fleet) = self.fleet.upgrade() else { return 0 };
+        let calls = fleet.machine_settings().now().get(keys::OPERATOR_DAILY_CALLS);
         u32::try_from(calls.max(0)).unwrap_or(u32::MAX)
     }
 
@@ -58,7 +63,8 @@ where
     /// which are its plan where it has one and its first message where it has not.
     fn live(&self) -> Done<'_, Vec<LiveJob>> {
         Box::pin(async move {
-            let store = self.fleet.store().lock().await;
+            let Some(fleet) = self.fleet.upgrade() else { return Vec::new() };
+            let store = fleet.store().lock().await;
             let hostings = match store.hostings() {
                 Ok(hostings) => hostings,
                 Err(why) => {
@@ -88,7 +94,9 @@ where
 
     fn calls_since(&self, since: Timestamp) -> Done<'_, u32> {
         Box::pin(async move {
-            match self.fleet.store().lock().await.operator_calls_since(since.as_str()) {
+            let Some(fleet) = self.fleet.upgrade() else { return u32::MAX };
+            let counted = fleet.store().lock().await.operator_calls_since(since.as_str());
+            match counted {
                 Ok(calls) => calls,
                 Err(why) => {
                     (self.adrift)(Adrift::Writing(why));
@@ -100,7 +108,9 @@ where
 
     fn keep(&self, row: Logged) -> Done<'_, ()> {
         Box::pin(async move {
-            if let Err(why) = self.fleet.store().lock().await.add_operator_ruling(&row.kept()) {
+            let Some(fleet) = self.fleet.upgrade() else { return };
+            let kept = fleet.store().lock().await.add_operator_ruling(&row.kept());
+            if let Err(why) = kept {
                 (self.adrift)(Adrift::Writing(why));
             }
         })
@@ -108,7 +118,7 @@ where
 }
 
 /// One Job's paths, issues and words, as [`FleetDesk::live`] reads them. What will not read is left out.
-pub(crate) fn held_of(store: &store::Store, id: &str) -> (Vec<String>, Vec<String>, String) {
+pub(super) fn held_of(store: &store::Store, id: &str) -> (Vec<String>, Vec<String>, String) {
     let mut paths = BTreeSet::new();
     let mut issues = BTreeSet::new();
     let plan = store.session_plan(id).ok().flatten();
@@ -132,7 +142,7 @@ pub(crate) fn held_of(store: &store::Store, id: &str) -> (Vec<String>, Vec<Strin
 
 /// The first message in a Job's thread that is not its agent's: the dispatch, or the brief the
 /// Job that started it wrote.
-fn first_words(store: &store::Store, id: &str) -> String {
+pub(super) fn first_words(store: &store::Store, id: &str) -> String {
     store
         .session_rows(id)
         .unwrap_or_default()

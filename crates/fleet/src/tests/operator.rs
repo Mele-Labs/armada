@@ -158,7 +158,7 @@ impl Acting for Held {
         self.acts.lock().expect("not poisoned").push(format!("go_ahead {session}"));
     }
 
-    fn hand_over(&self, session: &str, into: &str, _shared: &[String]) {
+    fn hand_over(&self, session: &str, _group: Option<&str>, into: &str, _shared: &[String]) {
         self.acts.lock().expect("not poisoned").push(format!("hand_over {session} {into}"));
     }
 
@@ -250,7 +250,7 @@ async fn fleet_keeps_the_log_in_its_store_signed_by_the_operator_and_counts_the_
     let id = rig.start().await;
     let said = Arc::new(Mutex::new(Vec::new()));
     let saying = Arc::clone(&said);
-    let desk = FleetDesk::on(Arc::clone(&rig.fleet), move |why| saying.lock().expect("not poisoned").push(why.to_string()));
+    let desk = FleetDesk::on(&rig.fleet, move |why| saying.lock().expect("not poisoned").push(why.to_string()));
 
     let live = desk.live().await;
     assert!(live.iter().any(|one| one.session_id == id.as_str()), "a hosted Job not ended is live: {live:?}");

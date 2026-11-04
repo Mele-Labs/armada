@@ -14,12 +14,15 @@
 //! ([`FIRST_WRITE_WAIT`], [`NEEDS_YOU_WAIT`]); so does every item once the day's calls reach the
 //! ceiling. A ruling that comes back after its item passed on is dropped.
 
+mod acting;
 mod arriving;
 mod asking;
 mod calling;
 mod candidates;
 mod desk;
+mod handing;
 mod ruling;
+mod seat;
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -33,7 +36,9 @@ use tokio::sync::oneshot;
 pub use arriving::{Arrival, Arrived, LiveJob, Source};
 use candidates::Near;
 pub use calling::{Answering, Calling, KeptStarted};
+pub use acting::FleetActing;
 pub use desk::FleetDesk;
+pub(crate) use seat::{Moved, Seat};
 pub use ruling::{Outcome, PassedOn, Ruled, Ruling, Way};
 
 /// How long a Job's first write waits for the ruling on its start.
@@ -66,8 +71,9 @@ pub trait Desk: Send + Sync {
 pub trait Acting: Send + Sync {
     /// Nothing live touches `session`: a Job held on its start card starts, as his press would.
     fn go_ahead(&self, session: &str);
-    /// A live Job's plan covers `session`'s work: its words go to `into`, and it ends.
-    fn hand_over(&self, session: &str, into: &str, shared: &[String]);
+    /// A live Job's plan covers `session`'s work, or `group` of its plan: the words go to `into`,
+    /// and a whole Job ends.
+    fn hand_over(&self, session: &str, group: Option<&str>, into: &str, shared: &[String]);
     /// `ending` stops, and its brief, plan and branch go to `into` as one message.
     fn merge(&self, ending: &str, into: &str, shared: &[String]);
     /// Both carry on, each told the other's plan group and the paths they share.
@@ -306,7 +312,7 @@ impl Operator {
         let session = arrival.session_id.as_str();
         match (ruling.way, ruling.other.as_deref()) {
             (Way::NewJob, _) => self.acting.go_ahead(session),
-            (Way::ExistingJob, Some(other)) => self.acting.hand_over(session, other, &ruling.shared),
+            (Way::ExistingJob, Some(other)) => self.acting.hand_over(session, arrival.group.as_deref(), other, &ruling.shared),
             (Way::Merge, Some(other)) => self.acting.merge(session, other, &ruling.shared),
             (Way::KeepInTouch, Some(other)) => self.acting.keep_in_touch(session, other, &ruling.shared),
             // A way between two that names no other was refused as it was read.

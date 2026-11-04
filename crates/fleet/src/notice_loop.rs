@@ -30,6 +30,8 @@ where
     let adrift = Arc::new(adrift);
     crate::autopilot::keep_autopiloting(Arc::clone(&fleet), tick, Arc::clone(&adrift));
     crate::autopilot::keep_deciding(Arc::clone(&fleet), tick, Arc::clone(&adrift));
+    // The Operator rules on what arrives from here on, with one call already started.
+    fleet.operator_seated();
     // The line for a slot and the moves into one live in memory, so a wait a restart cut off ended with it.
     let waits = Arc::clone(&fleet);
     tokio::spawn(async move {
@@ -111,6 +113,8 @@ where
                 fleet.stops_swept().await;
             }
             fleet.stops_told().await;
+            // A Job kept in touch with another that changed its plan or pushed on their ground.
+            fleet.in_touch_told().await;
             // Who wrote the same file as whom, once the wait after a write is over.
             fleet.clashes_checked().await;
             // What main's moves made stale in the test map, read again where that costs nothing.

@@ -991,6 +991,25 @@ Past it the Operator makes no calls until the next day, which begins at midnight
 **The value lives in settings.json under `limits.operatorDailyCalls`** (live).
 """
 
+[settings.operator-dispatch]
+name = "Operator dispatches"
+scope = "Machine"
+default = "off"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+Off as it ships, by the design page *Helm becomes the Operator*, which the owner approved on 4 Nov 2026. The replay of 4 Nov set the starting positions, and Dispatch starts Off: starts are logged with what the Operator would have done until he turns it on.
+
+**Off changes nothing a Job sees.** Every arrival is still ruled, and each ruling is kept in the Operator's Log with the other Job and the shared paths, but no Job is started, ended, handed work or told of another, and a first write does not wait for its ruling.
+
+**On, Fleet acts on each ruling**: a Job held on its start card starts where nothing live touches it, a start a live Job's plan covers ends with its words sent to that Job, the Job of two doing the same thing that has done less ends into the other unless it has pushed, which raises it to him instead, and two Jobs on shared ground are each told of the other and told again when either changes its plan or pushes. A Job's first write waits at most 20 seconds for its start's ruling.
+
+Live: read again at every act, so a call already out when it is turned off acts on nothing.
+"""
+
 [settings.plan-downshift-line]
 name = "Plan downshift line"
 scope = "Machine"

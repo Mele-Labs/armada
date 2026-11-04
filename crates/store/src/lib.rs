@@ -100,6 +100,8 @@ mod autopilot;
 mod autopilot_decisions;
 /// The Operator's Log of rulings. `armada-ehhu`.
 mod operator_rulings;
+/// The pairs of Jobs the Operator keeps in touch. `armada-ehhu`.
+mod operator_in_touch;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
 mod kit;
 /// The 113 migrations the numbered list held, frozen.
