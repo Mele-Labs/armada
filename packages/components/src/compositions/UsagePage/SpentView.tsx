@@ -64,7 +64,7 @@ function PartRows({ label, parts }: { label: string; parts: Part[] }) {
               className="armada-usage__fill"
               style={{
                 width: `${top > 0 ? (one.units / top) * 100 : 0}%`,
-                minWidth: "2px",
+                minWidth: "var(--space-1)",
               }}
             />
           </span>
