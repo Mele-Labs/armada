@@ -60,6 +60,8 @@ pub enum Source {
     Terminal,
     /// The Job's own agent.
     Agent,
+    /// The person's own hand, such as a drag in Waiting to start: a row that corrects a ruling.
+    Person,
 }
 
 impl Source {
@@ -71,6 +73,7 @@ impl Source {
             Source::Fleet => "fleet",
             Source::Terminal => "terminal",
             Source::Agent => "agent",
+            Source::Person => "person",
         }
     }
 
@@ -90,6 +93,7 @@ impl Source {
             Source::Fleet => "one of Fleet's own".to_string(),
             Source::Terminal => "from a terminal".to_string(),
             Source::Agent => "from its own agent".to_string(),
+            Source::Person => "by the person's own hand".to_string(),
         }
     }
 }
@@ -181,6 +185,27 @@ impl LiveJob {
         }
         out
     }
+}
+
+/// A Job waiting to start: in its repository's line for a slot, in the line's order.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct InLine {
+    pub session_id: String,
+    pub title: String,
+    pub manifest_id: String,
+}
+
+/// The Jobs waiting to start that a start may be placed among, as the call reads them.
+pub(super) fn line_shown(line: &[InLine]) -> String {
+    let mut out = String::from("     Waiting to start in its repository, first served first:");
+    for (at, one) in line.iter().enumerate() {
+        out.push_str(&format!(" {}. Job {} \"{}\"", at + 1, one.session_id, one.title));
+        if at + 1 < line.len() {
+            out.push(';');
+        }
+    }
+    out.push('\n');
+    out
 }
 
 fn one_line(words: &str) -> String {

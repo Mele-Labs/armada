@@ -12,7 +12,7 @@ use store::KeptPlan;
 
 use super::candidates::shared_paths;
 use super::desk::first_words;
-use super::Acting;
+use super::{Acting, Place};
 use crate::daemon::Fleet;
 
 /// The most of a Job's words one message carries.
@@ -95,6 +95,16 @@ where
     fn raise(&self, session: &str, read: &str) {
         let (session, read) = (session.to_string(), read.to_string());
         self.doing(move |fleet| async move { fleet.operator_raised(&session, &read).await });
+    }
+
+    fn place(&self, session: &str, place: &Place) {
+        let (session, place) = (session.to_string(), place.clone());
+        self.doing(move |fleet| async move { fleet.operator_placed(&session, place).await });
+    }
+
+    fn hold(&self, held: &str, first: &str, shared: &[String]) {
+        let (held, first, shared) = (held.to_string(), first.to_string(), shared.to_vec());
+        self.doing(move |fleet| async move { fleet.operator_held(&held, &first, &shared).await });
     }
 }
 

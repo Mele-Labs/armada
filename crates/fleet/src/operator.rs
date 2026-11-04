@@ -9,6 +9,11 @@
 //! **One call out at a time on this machine.** What arrives while a call is out is ruled together
 //! in the next call, so three Jobs dispatched at once are seen side by side.
 //!
+//! **It sets the order of Waiting to start.** A start where Jobs already wait for a slot in its
+//! repository is ruled a place among them, which Fleet applies as it joins the line; a person's drag
+//! moves it again and is kept as a correction. Of two Jobs kept in touch, the one that must build
+//! first is named, and the other is held with a `StartAfter` until it pushes (`holding`).
+//!
 //! **Fail open.** A call that fails, answers what cannot be read, or rules what Fleet did not offer
 //! passes the item on untouched, and so does one with no ruling by the time it could wait
 //! ([`FIRST_WRITE_WAIT`], [`NEEDS_YOU_WAIT`]); so does every item once the day's calls reach the
@@ -21,6 +26,8 @@ mod calling;
 mod candidates;
 mod desk;
 mod handing;
+mod holding;
+mod placing;
 mod ruling;
 mod seat;
 mod stalling;
@@ -35,13 +42,13 @@ use std::time::Duration;
 use core_model::{Actor, Timestamp};
 use tokio::sync::oneshot;
 
-pub use arriving::{Arrival, Arrived, LiveJob, Source};
+pub use arriving::{Arrival, Arrived, InLine, LiveJob, Source};
 use candidates::Near;
 pub use calling::{Answering, Calling, KeptStarted};
 pub use acting::FleetActing;
 pub use desk::FleetDesk;
 pub(crate) use seat::{Moved, Seat};
-pub use ruling::{Outcome, PassedOn, Ruled, Ruling, Way};
+pub use ruling::{Outcome, PassedOn, Place, Ruled, Ruling, Way};
 pub(crate) use stalling::{seen_of, Stalls};
 pub use stalls::{Quiet, Stall};
 
@@ -67,6 +74,10 @@ pub trait Desk: Send + Sync {
     fn calls_since(&self, since: Timestamp) -> Done<'_, u32>;
     /// Keep one row of the Log.
     fn keep(&self, row: Logged) -> Done<'_, ()>;
+    /// The Jobs waiting to start, each repository's in its order. None where Fleet keeps no line.
+    fn waiting(&self) -> Done<'_, Vec<InLine>> {
+        Box::pin(async { Vec::new() })
+    }
 }
 
 /// What Fleet does to Jobs on a ruling, called once it is logged and never for one that came late.
@@ -88,6 +99,10 @@ pub trait Acting: Send + Sync {
     fn start_rest(&self, _session: &str, _seen: &str) {}
     /// A Job gone quiet goes to the person, with the call's `read`.
     fn raise(&self, _session: &str, _read: &str) {}
+    /// `session` goes at `place` in Waiting to start, now if it waits there and else as it joins.
+    fn place(&self, _session: &str, _place: &Place) {}
+    /// Of two kept in touch, `held` waits until `first` pushes, where it has not begun.
+    fn hold(&self, _held: &str, _first: &str, _shared: &[String]) {}
 }
 
 /// One row of the Log.
@@ -107,6 +122,12 @@ pub struct Logged {
     pub call: Option<String>,
     pub by: Actor,
     pub at: Timestamp,
+    /// Where a start goes in Waiting to start.
+    pub place: Option<Place>,
+    /// Of two kept in touch, the one that builds first.
+    pub first: Option<String>,
+    /// Each part of the ruling Fleet refused while the rest stood.
+    pub refused: Vec<String>,
 }
 
 impl Logged {
@@ -114,6 +135,10 @@ impl Logged {
         let (outcome, other, shared, because) = match ruled {
             Ruled::Ruled(ruling) => (Outcome::Ruled(ruling.way), ruling.other.clone(), ruling.shared.clone(), ruling.because.clone()),
             Ruled::PassedOn(why) => (Outcome::PassedOn, None, Vec::new(), why.to_string()),
+        };
+        let (place, first, refused) = match ruled {
+            Ruled::Ruled(ruling) => (ruling.place.clone(), ruling.first.clone(), ruling.refused.clone()),
+            Ruled::PassedOn(_) => (None, None, Vec::new()),
         };
         Logged {
             arrival: arrival.id.clone(),
@@ -129,6 +154,9 @@ impl Logged {
             call,
             by: Actor::Operator,
             at,
+            place,
+            first,
+            refused,
         }
     }
 
@@ -149,6 +177,9 @@ impl Logged {
             call: self.call.clone(),
             by: self.by.as_wire().to_string(),
             at: self.at.as_str().to_string(),
+            place: self.place.as_ref().map(Place::word),
+            first_session: self.first.clone(),
+            refused: self.refused.clone(),
         }
     }
 }
@@ -240,6 +271,7 @@ impl Operator {
                 items
             };
             let live = self.desk.live().await;
+            let waiting = self.desk.waiting().await;
             let mut asked = Vec::new();
             for (token, mut arrival) in taken {
                 let near = candidates::near(&arrival, &live);
@@ -247,8 +279,10 @@ impl Operator {
                 if alone {
                     arrival.ways.retain(|way| !way.names_another());
                 }
-                if arrival.ways.len() > 1 {
-                    asked.push((token, arrival, near));
+                let line = line_of(&arrival, &waiting);
+                // A start where others wait is put to a call for its place, whatever its ways.
+                if arrival.ways.len() > 1 || !line.is_empty() {
+                    asked.push((token, arrival, Asked { near, line }));
                     continue;
                 }
                 let Some(one) = take(&mut held(&self.queue).out, token) else { continue };
@@ -257,7 +291,7 @@ impl Operator {
                     false => "it is the only way Fleet's rules leave it",
                 };
                 let ruled = match arrival.ways.first() {
-                    Some(way) => Ruled::Ruled(Ruling { way: *way, other: None, shared: Vec::new(), because: because.into(), step: None }),
+                    Some(way) => Ruled::Ruled(Ruling::alone(*way, because)),
                     None => Ruled::PassedOn(PassedOn::Refused("Fleet's rules leave it no way".into())),
                 };
                 self.settle(one, ruled, None).await;
@@ -279,7 +313,7 @@ impl Operator {
     }
 
     /// One call over the items in `out`, and every ruling it brings settled.
-    async fn call_out(&self, asked: Vec<(u64, Arrival, Vec<Near>)>, now: Timestamp) {
+    async fn call_out(&self, asked: Vec<(u64, Arrival, Asked)>, now: Timestamp) {
         let call = {
             let mut queue = held(&self.queue);
             if queue.out.is_empty() {
@@ -291,9 +325,15 @@ impl Operator {
             call
         };
         let at: BTreeMap<u64, usize> = asked.iter().enumerate().map(|(at, (token, _, _))| (*token, at)).collect();
-        let (items, near): (Vec<Arrival>, Vec<Vec<Near>>) = asked.into_iter().map(|(_, arrival, near)| (arrival, near)).unzip();
-        let rulings = match self.call.ask(asking::question(&items, &near)).await {
-            Ok(answer) => ruling::read_rulings(&answer, &items, &near),
+        let mut items = Vec::new();
+        let (mut near, mut line): (Vec<Vec<Near>>, Vec<Vec<InLine>>) = (Vec::new(), Vec::new());
+        for (_, arrival, one) in asked {
+            items.push(arrival);
+            near.push(one.near);
+            line.push(one.line);
+        }
+        let rulings = match self.call.ask(asking::question(&items, &near, &line)).await {
+            Ok(answer) => ruling::read_rulings(&answer, &items, &near, &line),
             Err(failed) => vec![Ruled::PassedOn(PassedOn::Failed(failed.in_a_line("Operator"))); items.len()],
         };
         let still = {
@@ -337,7 +377,29 @@ impl Operator {
             // A way between two that names no other was refused as it was read.
             (Way::ExistingJob | Way::Merge | Way::KeepInTouch, None) | (Way::Raise | Way::Nudge, _) => {}
         }
+        if let (Some(first), Some(other)) = (ruling.first.as_deref(), ruling.other.as_deref()) {
+            let held = if first == session { other } else { session };
+            self.acting.hold(held, first, &ruling.shared);
+        }
+        if let Some(place) = &ruling.place {
+            self.acting.place(session, place);
+        }
     }
+}
+
+/// What a call is shown beside one item: the live Jobs near it, and the Jobs waiting to start it may
+/// be placed among.
+struct Asked {
+    near: Vec<Near>,
+    line: Vec<InLine>,
+}
+
+/// The Jobs waiting to start in a start's repository, other than its own. Only a start is placed.
+fn line_of(arrival: &Arrival, waiting: &[InLine]) -> Vec<InLine> {
+    if arrival.arrived != Arrived::Start {
+        return Vec::new();
+    }
+    waiting.iter().filter(|one| one.manifest_id == arrival.manifest_id && one.session_id != arrival.session_id).cloned().collect()
 }
 
 fn take(from: &mut Vec<Held>, token: u64) -> Option<Held> {

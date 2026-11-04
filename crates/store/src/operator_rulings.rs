@@ -26,13 +26,20 @@ pub struct KeptRuling {
     /// The signer's wire word.
     pub by: String,
     pub at: String,
+    /// Where a start goes in Waiting to start: `ahead:<id>`, `behind:<id>` or `last`.
+    pub place: Option<String>,
+    /// The Job of two kept in touch that builds first.
+    pub first_session: Option<String>,
+    /// Each part of the ruling Fleet refused while the rest stood.
+    pub refused: Vec<String>,
 }
 
 const COLUMNS: &str = "arrival, arrived, source, source_session, session_id, manifest_id, subject, outcome, \
-                       other_session, shared, because, call, by, at";
+                       other_session, shared, because, call, by, at, place, first_session, refused";
 
 fn ruling_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptRuling> {
     let shared: String = row.get(9)?;
+    let refused: String = row.get(16)?;
     Ok(KeptRuling {
         arrival: row.get(0)?,
         arrived: row.get(1)?,
@@ -48,6 +55,9 @@ fn ruling_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptRuling> {
         call: row.get(11)?,
         by: row.get(12)?,
         at: row.get(13)?,
+        place: row.get(14)?,
+        first_session: row.get(15)?,
+        refused: refused.lines().filter(|one| !one.is_empty()).map(str::to_string).collect(),
     })
 }
 
@@ -62,7 +72,7 @@ impl Store {
             .execute(
                 &format!(
                     "INSERT INTO operator_rulings ({COLUMNS})
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)"
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)"
                 ),
                 params![
                     one.arrival,
@@ -78,7 +88,10 @@ impl Store {
                     one.because,
                     one.call,
                     one.by,
-                    one.at
+                    one.at,
+                    one.place,
+                    one.first_session,
+                    one.refused.join("\n")
                 ],
             )
             .map(|_| ())

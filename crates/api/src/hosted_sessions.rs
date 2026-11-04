@@ -168,6 +168,22 @@ pub(crate) async fn free_slot<D: HostedSessions>(
     }
 }
 
+/// The person moves a Job waiting to start to another place. 200 with its row; 422 while the
+/// Operator is off, where it is not waiting, or where the place is not in its line.
+pub(crate) async fn move_in_line<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let moved: ipc::MoveInLine = match ipc::decode_body("a move in Waiting to start", &body) {
+        Ok(moved) => moved,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().move_in_line(moved).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The person drops one thing a session waits on for good. 200 with the row; 409 where nothing holds it.
 pub(crate) async fn dismiss_waiting<D: HostedSessions>(
     State(served): State<Served<D>>,

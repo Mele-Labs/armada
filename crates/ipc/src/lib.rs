@@ -604,7 +604,7 @@ pub use servers::{
     NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage,
     ServerOpened, ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
-pub use slot_choice::{FreeSlot, SlotHolder, SlotHolderJob, SlotKeeps};
+pub use slot_choice::{FreeSlot, LinePlace, MoveInLine, SlotHolder, SlotHolderJob, SlotKeeps};
 pub use slot_asking::{
     AskForSlot, AskForSlotAct, SlotAsked, SlotAskStanding,
 };
