@@ -310,6 +310,28 @@ describe("a call is raised only if he has not been in the Session since it began
     ).toEqual([]);
   });
 
+  test("a page waiting on his OK stays a call after he has been in the Job and written to it", () => {
+    const page = session("w", {
+      rows: [
+        youSaid("2026-10-09T09:30:00.000Z"),
+      ],
+      waitingFor: [
+        item("document:/work/page.html", SINCE, "document"),
+        item("note", SINCE),
+      ],
+    });
+    expect(
+      ids(
+        [
+          page,
+        ],
+        () => at("2026-10-09T09:45:00.000Z"),
+      ),
+    ).toEqual([
+      "document:/work/page.html",
+    ]);
+  });
+
   test("an item newer than both is a call", () => {
     const later = session("w", {
       rows: [

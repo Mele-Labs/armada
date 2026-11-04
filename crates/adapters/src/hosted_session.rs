@@ -51,6 +51,10 @@ const MCP_STARTUP_WAIT: (&str, &str) = ("CLAUDE_CODE_MCP_STARTUP_WAIT_MS", "0");
 /// turn rather than failing at 30 seconds. Spike 34.
 const MCP_CONNECT_TIMEOUT: (&str, &str) = ("MCP_TIMEOUT", "120000");
 
+/// Keeps the CLI from fetching the person's claude.ai connectors; servers named in the repository's
+/// own `.mcp.json` still load. Measured on a real run: 18 servers and 263 tools unset, none with it.
+const NO_CONNECTORS: (&str, &str) = ("ENABLE_CLAUDEAI_MCP_SERVERS", "false");
+
 /// Armada's rules for how a hosted session surfaces what it needs and how far it has got. Compiled
 /// in and appended to every process whatever output style the person has; no setting reaches it.
 /// `docs/contracts/agent-prompt.md`, *The session rules*.
@@ -91,6 +95,8 @@ pub struct HostedLaunch {
     plugin: Option<String>,
     /// The models this process and its subagents may run on. Empty is no limit.
     models: Vec<String>,
+    /// Whether the process may fetch the connectors on the person's claude.ai account.
+    connectors: bool,
 }
 
 impl HostedLaunch {
@@ -154,6 +160,7 @@ impl HostedLaunch {
             readable,
             plugin: None,
             models: Vec::new(),
+            connectors: true,
         })
     }
 }
@@ -207,6 +214,13 @@ impl HostedLaunch {
     /// Measured on 2.1.310.
     pub fn limited_to(mut self, models: &[String]) -> HostedLaunch {
         self.models = models.to_vec();
+        self
+    }
+
+    /// Keep the connectors on the person's claude.ai account out of this process, as the
+    /// repository's `connectors: false` asks. Servers the repository names itself still load.
+    pub fn without_connectors(mut self) -> HostedLaunch {
+        self.connectors = false;
         self
     }
 
@@ -374,6 +388,10 @@ impl HeadlessAgent {
                     .and(crate::conversing::TASK_TOOLS, "1")
                     .and_then(|env| env.and(MCP_STARTUP_WAIT.0, MCP_STARTUP_WAIT.1))
                     .and_then(|env| env.and(MCP_CONNECT_TIMEOUT.0, MCP_CONNECT_TIMEOUT.1))
+                    .and_then(|env| match hosted.connectors {
+                        true => Ok(env),
+                        false => env.and(NO_CONNECTORS.0, NO_CONNECTORS.1),
+                    })
                     .map_err(HostedRefused::Unassembled)?,
                 crate::browser_shell::found().as_deref(),
             )

@@ -13,10 +13,13 @@ import {
   type LedgerEntry,
   type PlanRevision,
   ShellPanelPane,
+  ApprovalAnswers,
 } from "@armada/components";
 import { attachmentsOf, linkedOf, type Session } from "@armada/screens/src/draft/sessions";
 
 import { searchFiles } from "../commands";
+import { documentAnswerOf } from "../session-thread-rows";
+import { DocumentBody } from "../session-view/DocumentLayer";
 import { JobBrowserPane } from "../job-browser/JobBrowserPane";
 import { browserTabIds, reportTabs, useJobBrowser } from "../job-browser/store";
 import { shellsOf, useJobShell, useShownShells } from "../job-shell";
@@ -489,6 +492,42 @@ export function DraftBody({ jobId, tab }: { jobId: string; tab: Tab }) {
   return tab.row === undefined ? null : (
     <div className="job-pane__scroll">
       <DraftCard sessionId={jobId} rowId={tab.row} />
+    </div>
+  );
+}
+
+/** A page the Job wrote, read in its own tab with the answers under it while it waits on him: Approve and Send back, as on its card in the thread. */
+export function DocumentTabBody({ session, tab }: { session: Session; tab: Tab }) {
+  const draft = useSessionsDraft();
+  const page = tab.page;
+  if (page === undefined) return null;
+  const one = attachmentsOf(session, "artifact").find(
+    (it) => it.form === "document" && it.id === page,
+  );
+  const open =
+    one?.asked === true && one.settled === undefined && draft?.answerDocument !== undefined;
+  return (
+    <div className="job-pane__document">
+      {one?.asked !== true ? null : (
+        <div className="armada-session-sketch__answers job-pane__document-answers">
+          <ApprovalAnswers
+            id={page}
+            keep={`document:${session.id}:${page}`}
+            {...(one.settled === undefined
+              ? {}
+              : {
+                  settled: one.settled,
+                })}
+            open={open}
+            onAnswer={(id, answer) =>
+              void draft?.answerDocument?.(documentAnswerOf(session, id, answer))
+            }
+          />
+        </div>
+      )}
+      <div className="armada-job-review__fill">
+        <DocumentBody session={session} page={page} />
+      </div>
     </div>
   );
 }

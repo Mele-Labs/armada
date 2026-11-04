@@ -312,9 +312,24 @@ const HOSTED_ONLY: &str = "Fleet's notices.";
 fn the_output_style_carries_the_rules_verbatim() {
     let style = include_str!("../../../../plugins/armada/output-styles/armada.md");
     let blocks: Vec<&str> = rules().split("\n\n").skip(1).filter(|block| !block.starts_with(HOSTED_ONLY)).collect();
-    assert_eq!(blocks.len(), 9, "tools, needs, drafts, progress, planning, subagents, watching, finishing, bugs");
+    assert_eq!(blocks.len(), 10, "tools, needs, drafts, progress, planning, subagents, showing, watching, finishing, bugs");
     for block in blocks {
         assert!(style.contains(block), "the style has drifted from: {block}");
+    }
+}
+
+/// A hosted session's start note names only its id, and an account whose Claude Code skips the
+/// mod's hooks gets no note at all, so how to show the person a page, a sketch or a file, and
+/// what a reviewer's comment and `finish_up` bring, ride on the rules.
+#[test]
+fn the_rules_carry_what_the_start_note_told_a_hosted_session() {
+    let showing = rules().split("\n\n").find(|block| block.starts_with("Showing.")).expect("a showing paragraph");
+    for named in ["`show_window`", "`brief`", "`variations`", "`steps`", "`origins`", "`sign_in`", "never run `open`", "`withdraw_window`", "`withdraw_sketch`", "`ask_in_window`", "`show_sketch`", "never ASCII art", "`show_file`", "fenced block tagged `bash`"] {
+        assert!(showing.contains(named), "{named} in the showing paragraph");
+    }
+    let finishing = rules().split("\n\n").find(|block| block.starts_with("Finishing.")).expect("a finishing paragraph");
+    for named in ["every comment", "never reply on the forge", "`finish_up` gives back your slots"] {
+        assert!(finishing.contains(named), "{named} in the finishing paragraph");
     }
 }
 
@@ -765,4 +780,25 @@ fn the_watching_rule_names_the_watch_tools_and_selects_only_real_ones() {
         let operation = tool.trim_start_matches(&format!("mcp__{}__", ipc::door::SERVER));
         assert!(ipc::door::REACHABLE.iter().any(|row| row.operation == operation), "{tool}");
     }
+}
+
+/// A repository that says `connectors: false` starts its hosted Jobs without the person's claude.ai
+/// connectors, and one that says nothing starts them as before. The CLI's spelling is pinned here.
+#[test]
+fn a_launch_without_connectors_tells_the_cli_not_to_fetch_them() {
+    let agent = HeadlessAgent::at("/usr/local/bin/agent");
+    let off = agent
+        .render_hosted_session(&launching(false, SessionMode::Auto).without_connectors())
+        .expect("renders");
+    let vars = off.environment().vars();
+    assert!(
+        vars.iter().any(|(n, v)| n == "ENABLE_CLAUDEAI_MCP_SERVERS" && v == "false"),
+        "{vars:?}"
+    );
+    let on = agent.render_hosted_session(&launching(false, SessionMode::Auto)).expect("renders");
+    assert!(
+        !on.environment().vars().iter().any(|(n, _)| n == "ENABLE_CLAUDEAI_MCP_SERVERS"),
+        "{:?}",
+        on.environment().vars()
+    );
 }

@@ -11,7 +11,8 @@
 //! `manifest_rule:<key>` gate names, `auto_merge` and `review_gate`;
 //! `merge_by`, [`merge_by`]; `pr_mode`, [`pr_mode`]; and
 //! `freeze`, [`freeze`]; `standing_rules`, [`standing`]; `ci_gate`, [`ci_gate`];
-//! `tracker`, [`tracker`]; `test_map`, [`test_map`]. Every other section
+//! `tracker`, [`tracker`]; `test_map`, [`test_map`]; `connectors`,
+//! [`connectors`]. Every other section
 //! the concept page describes is refused: permissions, secrets, skills, budget.
 //!
 //! **A key nothing reads is worse than a key that is not there.** A `budget:
@@ -30,6 +31,7 @@
 
 mod auto_release;
 mod ci_gate;
+mod connectors;
 mod declared;
 mod harness;
 mod implicit;
@@ -115,6 +117,8 @@ const TOP_LEVEL: &[&str] = &[
     "tracker",
     // Whether the test map is shared: [`test_map`].
     "test_map",
+    // Whether hosted Jobs reach the person's account connectors: [`connectors`].
+    "connectors",
 ];
 /// The keys M1 reads inside `checks.<name>`. **`expect_exit_code` is spelled
 /// here as a workflow step spells it**, for the reason `drone:` below gives
@@ -227,6 +231,8 @@ pub struct Manifest {
     tracker: Option<TrackerBlock>,
     /// See [`test_map`]. Not live, for `ci_gate`'s reason.
     test_map_shared: bool,
+    /// See [`connectors`]. Not live, for `ci_gate`'s reason.
+    connectors: bool,
     /// What Kit's copy of this file did to it, where one was read. See [`kit`].
     kit: Option<FromKit>,
     /// The two `lifetime = "Live"` keys, behind a cell every clone shares.
@@ -658,6 +664,7 @@ fn read(path: &Path, root: &Value, placed: &Placed, out: &mut Vec<Refusal>) -> O
     let ci_gate = ci_gate::read(&mut top, out);
     let tracker = tracker::read(&mut top, out);
     let test_map_shared = test_map::read(&mut top, placed.is_a_workspace(), out);
+    let connectors = connectors::read(&mut top, placed.is_a_workspace(), out);
     // After `checks` for `setup.requires`' reason, one registry along: every
     // entry resolves against it, and a file's order is never something an
     // author has to think about.
@@ -704,6 +711,7 @@ fn read(path: &Path, root: &Value, placed: &Placed, out: &mut Vec<Refusal>) -> O
         ci_gate,
         tracker,
         test_map_shared,
+        connectors,
         kit: None,
         live: Cell::holding(InForce {
             dials: drone.dials,

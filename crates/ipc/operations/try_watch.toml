@@ -12,4 +12,3 @@ Answers 200 with `WatchTried`: `reading` (a `WatchReading`, `read` or `broken`),
 
 `agent_access` is `Yes`: the agent writes the command, and this is how it learns what the command sees before Fleet runs it on a clock.
 """
-always_loaded = true
