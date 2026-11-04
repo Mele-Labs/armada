@@ -1,6 +1,6 @@
 // The Usage page's Time view as it was approved by walking it: the switch from Tokens, the shape it draws while pending, the
 // Jobs and their split bars, the keys, the split sheet and what is marked far over, and what picking a build narrows. Mounted
-// bare over the props the page takes; no wire carries any of it yet. Real keys, in a real browser, since the page listens on
+// bare over the props the page takes, as the window hands them over (`usage-time-wire.ts`). Real keys, in a real browser, since the page listens on
 // the window and a dispatched event would skip the focus a press moves.
 
 import { UsagePage } from "@armada/components";

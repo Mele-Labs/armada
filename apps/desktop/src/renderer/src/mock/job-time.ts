@@ -1,5 +1,5 @@
-// Where the time went, for the Usage page's Time view and a Job's System tab. Mock only: no wire carries it yet, so these are
-// sketches. The Jobs are the Usage week's own, so a Job's row here is the one its System tab reads.
+// Where the time went, for the Usage page's Time view and a Job's System tab. Mock only: these are
+// sketches, put on the wire by `usage-time-wire.ts`. The Jobs are the Usage week's own, so a Job's row here is the one its System tab reads.
 
 import type { TimeJob, TimeSplit, UsageTime } from "@armada/components";
 

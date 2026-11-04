@@ -1,5 +1,5 @@
-// The last 48 hours, an hour a point, for the Usage page's two line charts. Mock only: no wire carries it yet, so this is a
-// sketch shaped to tell one story. Burn swings through the working day and stops overnight, so those hours are gaps. The
+// The last 48 hours, an hour a point, for the Usage page's two line charts. Mock only: a
+// sketch, put on the wire by `usage-time-wire.ts`, shaped to tell one story. Burn swings through the working day and stops overnight, so those hours are gaps. The
 // model's wait, a tool call and a pull request's wait hold; Checks per run steps up by about 40% at the preview `7ac3d52`
 // and stays up. Hours with no pull request are gaps in that line.
 

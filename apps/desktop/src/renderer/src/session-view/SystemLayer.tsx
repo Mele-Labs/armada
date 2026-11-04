@@ -6,8 +6,8 @@ import { CircleDot, Power, Square } from "lucide-react";
 import { Button, DropdownMenu, JobSplit, Skeleton, Tooltip, useKept } from "@armada/components";
 import { SlidersHorizontal } from "lucide-react";
 
-import { useJobTime } from "../job-time";
 import { openInPanel } from "../shared-panel/store";
+import { useJobSplit } from "../use-job-split";
 import {
   HISTORY,
   sizeOf,
@@ -329,35 +329,23 @@ function Loading() {
 /** `worktrees` is what the Slot layer already draws for each bay the Job holds, or nothing. */
 export function SystemSections({
   sessionId,
+  title,
   worktrees,
 }: {
   sessionId: string;
+  /** The Job's title, which the Time section is headed with; its id where it has none. */
+  title?: string | undefined;
   worktrees: ReactNode;
 }) {
   const { processes, cpu, memory, disk, logs, readAt, history } = useSystem(sessionId);
   const [shown, setShown] = useKept<Column[]>(COLUMNS_KEY, [
     "port",
   ]);
-  const time = useJobTime();
-  const spent = time === undefined || time === "pending" ? undefined : time.jobs.find((one) => one.id === sessionId);
+  const split = useJobSplit(sessionId, title);
   const timed =
-    time === undefined || (time !== "pending" && spent === undefined) ? null : (
+    split === undefined ? null : (
       <Section label="Time">
-        {spent === undefined || time === "pending" ? (
-          <ul className="sv-layer__rows" aria-busy>
-            {[
-              "90%",
-              "76%",
-              "62%",
-            ].map((width) => (
-              <li key={width} className="sv-skeleton">
-                <Skeleton width={width} />
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <JobSplit job={spent} usual={time.usual[spent.workflow]} flush />
-        )}
+        <JobSplit job={split.job} usual={split.usual} flush />
       </Section>
     );
   if (readAt === undefined)

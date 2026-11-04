@@ -1,16 +1,14 @@
-// The Usage page over Fleet: the summary read when Fleet is connected and again each minute, the titles Bridge already holds
-// for Jobs, and the plan's weekly window from the plan's own reading. The page draws what it is handed and leaves empty
-// what it is not.
+// The Usage page over Fleet: the summary, and where the time went, read when Fleet is connected and again each minute, the
+// titles Bridge already holds for Jobs, and the plan's weekly window from the plan's own reading. The page draws what it is
+// handed and leaves empty what it is not.
 
 import { useEffect, useMemo, useState } from "react";
 import { UsagePage } from "@armada/components";
 import type { UsageRules, UsageSummary } from "@armada/protocol";
 
 import type { BridgeState } from "../../shared/bridge";
-import { useBuilds } from "./job-builds";
-import { useHours } from "./job-hours";
-import { useJobTime } from "./job-time";
 import { usePlanUsage } from "./plan-usage";
+import { useTimeReads } from "./usage-time-reads";
 
 const EVERY_MS = 60_000;
 
@@ -27,6 +25,7 @@ export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" 
   const [summary, setSummary] = useState<UsageSummary | undefined>(undefined);
   const [rules, setRules] = useState<UsageRules | undefined>(undefined);
   const connected = state.connection.state === "connected";
+  const { time, builds, hours, read: readTime } = useTimeReads();
   useEffect(() => {
     if (!connected) return;
     let live = true;
@@ -37,6 +36,7 @@ export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" 
       void window.armada.getUsageRules().then((answer) => {
         if (live && answer.ok) setRules(answer.value);
       });
+      readTime();
     };
     read();
     const again = setInterval(read, EVERY_MS);
@@ -46,6 +46,7 @@ export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" 
     };
   }, [
     connected,
+    readTime,
   ]);
   const titles = useMemo(
     () => titlesOf(state.sessions),
@@ -53,9 +54,6 @@ export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" 
       state.sessions,
     ],
   );
-  const time = useJobTime();
-  const builds = useBuilds();
-  const hours = useHours();
   const planPercent = usePlanUsage()?.find((one) => one.kind === "seven_day")?.percentUsed;
   return <UsagePage
       summary={summary}

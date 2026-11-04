@@ -1,5 +1,5 @@
 // The builds of Bridge the Usage page reads its figures against: sixteen over the last 48 hours, newest first. Mock only:
-// no wire carries them yet, so these are sketches shaped to tell one story. Burn per turn, the model's wait, a tool's time and
+// sketches, put on the wire by `usage-time-wire.ts`, shaped to tell one story. Burn per turn, the model's wait, a tool's time and
 // a pull request's wait hold steady; at the tenth build, a preview, a Check run takes about 40% longer and stays there. The
 // newest build has taken too few turns to compare. Commits are invented.
 

@@ -1,4 +1,4 @@
-// The Usage page's Time view before Fleet has answered: the reading is held pending, so every panel draws its skeleton.
+// The Usage page's Time view before Fleet has answered: the three time reads are held unanswered, so every panel draws its skeleton.
 
 import type { Scenario } from "../moment";
 import { usageWeek } from "./usage-week";
@@ -8,12 +8,12 @@ function build(): Scenario {
     ...usageWeek,
     name: "usage/time-loading",
     says: "The Usage page's Time view while the reading is still being made: skeletons in every panel",
-    draft: {
-      ...usageWeek.draft,
-      time: "pending",
-      builds: "pending",
-      hours: "pending",
-    },
+    behaves: (...args) => ({
+      ...usageWeek.behaves?.(...args),
+      getUsageTime: () => new Promise(() => {}),
+      getUsageHours: () => new Promise(() => {}),
+      getJobTime: () => new Promise(() => {}),
+    }),
   };
 }
 

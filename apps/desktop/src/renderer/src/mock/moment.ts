@@ -18,9 +18,6 @@ import type {
   SyncItem,
   SyncKindWord,
   Syncs,
-  UsageBuilds,
-  UsageHours,
-  UsageTime,
 } from "@armada/components";
 import type { AreaSource } from "../cockpit/deck/areas";
 import type { ReviewSeed } from "./review-seed";
@@ -51,12 +48,6 @@ export type MockDraft = {
   workspace?: import("../workspace-draft").WorkspaceSeed;
   /** The Workspaces, lifecycles and rules the mock Fleet keeps, which the lifecycle reads answer and a save changes. The page draws them as Fleet's, and a scenario with `workspace` as well is drawn from that. */
   pieces?: import("./pieces-seed").PiecesSeed;
-  /** Where the time went, for the Usage page's Time view and a Job's System tab; `pending` holds the reading unanswered. No wire serves it yet. Mock only. */
-  time?: UsageTime | "pending";
-  /** The builds the Usage page reads its figures against, newest first; `pending` holds them unanswered. No wire serves them yet. Mock only. */
-  builds?: UsageBuilds | "pending";
-  /** The last 48 hours the Usage page draws as lines, an hour a point; `pending` holds them unanswered. No wire serves them yet. Mock only. */
-  hours?: UsageHours | "pending";
   /** What Fleet did, for the Cockpit's timeline: no wire serves it yet. */
   events?: readonly TimelineEvent[];
   /** Entries added to the timeline as each walk `later` step lets time pass, one batch a step, each built then so it is dated then, or time passing over those held (`events-later.ts`). Mock only. */
