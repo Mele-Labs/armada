@@ -30,6 +30,7 @@ fn supplied() -> Supplied {
         .words(s::MODELS_DISPUTE, "small")
         .words(s::MODELS_TEST_MAP, "small")
         .words(s::MODELS_ACCOUNT, "small")
+        .words(s::MODELS_OPERATOR, "middle")
         .words(s::PLAN_DOWNSHIFT_TO, "middle")
         .harnesses(&["the-cli"])
 }
@@ -147,7 +148,9 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::DISPUTE_READ_MINUTES,
         s::WATCHES_AT_ONCE,
         s::WATCHES_PER_JOB,
+        s::OPERATOR_DAILY_CALLS,
         s::WATCH_GIVE_UP_MINUTES,
+        s::COMPACTION_WINDOW,
     ] {
         assert!(
             matches!(kinds(key.name()), Kind::Integer { .. }),
@@ -182,6 +185,8 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::OPEN_GUIDES_FIRST_TIME,
         s::WORKFLOWS,
         s::DISPUTE_REVIEWS,
+        s::OPERATOR,
+        s::OPERATOR_DISPATCH,
         s::NOTIFICATIONS,
         s::UI_SOUNDS,
         s::REDUCE_MOTION,
@@ -192,6 +197,8 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::SUBAGENT_WATCH,
         s::CACHE_WATCH,
         s::OPUS_READING_WATCH,
+        s::SUMMARY_SHORT_CACHE,
+        s::SUMMARY_THINKING,
     ] {
         assert_eq!(kinds(key.name()), Kind::Boolean, "{}", key.name());
     }
@@ -208,6 +215,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::MODELS_DISPUTE,
         s::MODELS_TEST_MAP,
         s::MODELS_ACCOUNT,
+        s::MODELS_OPERATOR,
         s::PLAN_DOWNSHIFT_TO,
         s::PLAN_CONTEXT_HANDOFF,
         s::EFFORT_DEFAULT,
@@ -241,6 +249,8 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::THREAD_LOOK,
         s::REACH_FOLDERS,
         s::WORKFLOWS_OFF,
+        s::SKILLS_OFF,
+        s::CONNECTORS_OFF,
     ] {
         assert_eq!(kinds(key.name()), Kind::Json, "{}", key.name());
     }
@@ -251,7 +261,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 21 + 13 + 15 + 27 + 2 + 7 + s::prompt_keys().count();
+    let handles = 23 + 13 + 19 + 28 + 2 + 9 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

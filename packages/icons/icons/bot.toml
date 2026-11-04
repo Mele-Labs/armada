@@ -33,3 +33,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 28 Oct 2026 for the walk `job-browser`, for the owner to rule on. The agent is the one pressing and typing on the page, and this is the drawing of the agent a Session's retro already takes. A press takes the page over. --fg-muted; tooltip and aria-label: Agent driving. Take over."
+
+  [[icons.bot.usage]]
+    means = "The Operator: its panel's title-row button and head, its Talk tab, a question it is reading, its read on a raised question, and its replies in Talk"
+    group = "Operator"
+    size = "12 and 16px"
+    status = "Proposed"
+    notes = "Proposed 4 Nov 2026 for the walk `operatorFull`, for the owner to rule on. The approved design draws its read with this glyph. The Operator takes Helm's place, and the reservation above keeps Helm on `message-square`; the Operator is no live agent, so a ruling on this usage settles which of the two it takes. --fg-muted; tooltip: The Operator is reading this, or Operator."

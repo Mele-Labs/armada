@@ -141,6 +141,10 @@ where
             }
             Err(_) => return GateAnswer::pass(),
         };
+        // A Job on a workflow that carries no code runs the commands and scripts its environment
+        // allows without a slot: they are not changes to the repository. A write into the checkout,
+        // such as its own document, still takes the lease below.
+        let no_code = self.carries_no_code(&served, hosting.workflow.as_deref());
         let root = served.root().trim_end_matches('/').to_string();
         // The pool is read here, so the ledger's slot is the pool's before it decides.
         let hosting = self.follow_the_pool(&id, &served, hosting).await;
@@ -201,6 +205,7 @@ where
                 // A relative path is read against the session's own directory.
                 (Place::Main, Some(_)) => GateAnswer::pass(),
             },
+            Touch::Shell(_) if no_code => GateAnswer::pass(),
             Touch::Shell(command) => {
                 if own.is_none() {
                     return self.leased(&id, &served).await;
@@ -295,10 +300,33 @@ where
         Some(served)
     }
 
+    /// Whether the workflow a Job follows declares `carries_no_code`. A Job on no workflow, or one
+    /// the repository no longer holds, carries code as it always did.
+    pub(crate) fn carries_no_code(&self, served: &Served, workflow: Option<&str>) -> bool {
+        let Some(workflow) = workflow else { return false };
+        served
+            .workflows()
+            .get(&core_model::WorkflowId::carried(core_model::Ulid::carried(workflow)))
+            .is_some_and(|held| held.carries_no_code())
+    }
+
+    /// [`Self::carries_no_code`] for the workflow `session` follows. A session Fleet does not host,
+    /// or whose repository is not served, carries code.
+    pub(crate) async fn job_carries_no_code(&self, session: &str) -> bool {
+        let hosting = self.store().lock().await.hosting(session).ok().flatten();
+        let Some(hosting) = hosting else { return false };
+        let Some(served) = self.repositories().serving(&hosting.manifest_id) else { return false };
+        self.carries_no_code(&served, hosting.workflow.as_deref())
+    }
+
     /// A first write into the checkout. **Behind everyone already waiting**, so a slot
     /// freed between two of them is not taken by the newer. When the pool is full the
     /// session is queued, and `queueing` leases it a slot when one frees.
     async fn leased(&self, id: &str, served: &Served) -> GateAnswer {
+        // The Operator's ruling on the start first: one that sends the work elsewhere takes no slot.
+        if let Some(why) = self.first_write_ruled(id).await {
+            return GateAnswer::deny(why);
+        }
         let queue = self.hosts().slot_queue();
         let manifest = served.manifest().id().as_str();
         // A slot added for a command that is asking is its own until it leases it.
@@ -376,8 +404,10 @@ where
     /// do about it if this is its first time there. How many are ahead of it.
     pub(super) async fn line_joined(&self, manifest: &str, id: &str) -> usize {
         let queue = self.hosts().slot_queue();
-        let (ahead, fresh) = queue.join(manifest, id, &self.instant());
-        if fresh {
+        let since = self.instant();
+        let (ahead, placed) = queue.join(manifest, id, &since);
+        if let Some(place) = placed {
+            self.line_kept(manifest, id, place, &since).await;
             self.slot_wait_began(id, "line").await;
             let _ = self.published_hosted(id).await;
         }

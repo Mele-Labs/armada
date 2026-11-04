@@ -1,0 +1,36 @@
+/* A Job as a small chip in a row: its state glyph and its title on one line, a control's small height. */
+.job-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  height: var(--h-control-sm);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--fg-default) 8%, transparent);
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-2xs);
+  cursor: pointer;
+}
+.job-chip:hover {
+  background: color-mix(in srgb, var(--fg-default) 14%, transparent);
+}
+.job-chip:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.job-chip .armada-session-mark > svg {
+  width: var(--space-3);
+  height: var(--space-3);
+}
+.job-chip__title {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: var(--weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

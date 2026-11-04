@@ -1,0 +1,32 @@
+window from 2026-10-21: 16030 main requests, 18088 subagent requests
+weighted spend: main 1664, subagent 1698, all 3362
+hosted armada Jobs with requests in the window: 162, spend 1662 (49.4% of all)
+boundary source: {'markers': 94, 'visits': 68}; Jobs with at least one boundary: 80, boundaries 256, spend 943
+boundaries by source: {'visits': 234, 'markers': 22}
+visits vs step messages on Jobs holding both: 234 vs 48 boundaries over 67 Jobs
+requests a Job: median 106.5; requests a step: median 15.0, mean 27
+context carried across a boundary: median 107290, mean 124185
+handoffs: 5; what a new Job starts from (context and brief) 2909 chars, 808 tokens; briefs the old Job wrote: [994, 1560, 1812, 1276, 0, 528] chars
+
+scenario | window | re-read | Jobs with steps | saving of their spend | of all spend
+calibration: simulated 956 vs actual 943 (+1.4%)
+fresh per step | 400k (today) | 5k | 956 -> 808 | 15.4% | 4.4%
+fresh per step | 400k (today) | 10k | 956 -> 835 | 12.6% | 3.6%
+fresh per step | 400k (today) | 20k | 956 -> 889 | 7.0% | 2.0%
+  brief 3k | 400k (today) | 10k | 956 -> 858 | 10.2% | 2.9%
+  only past 150k | 400k (today) | 10k | 956 -> 827 | 13.5% | 3.8%
+250k window alone on these Jobs | saves 12.1% of their spend, 3.4% of all
+fresh per step | 250k | 5k | 840 -> 798 | 5.0% | 1.2%
+fresh per step | 250k | 10k | 840 -> 824 | 1.9% | 0.5%
+fresh per step | 250k | 20k | 840 -> 877 | -4.4% | -1.1%
+  brief 3k | 250k | 10k | 840 -> 847 | -0.9% | -0.2%
+  only past 150k | 250k | 10k | 840 -> 791 | 5.8% | 1.5%
+both against 400k alone | 10k re-read | 13.8% of their spend, 3.9% of all
+boundaries carrying 150k or more: 63; steps under 3 requests: 28 of 336
+
+first 30 requests
+handed-off Jobs: n 5, starts at 51374, grows 46927 (mean 46317), costs 1.96, read and run calls 25 (medians)
+other hosted Jobs: n 136, starts at 46911, grows 64422 (mean 65455), costs 2.20, read and run calls 46 (medians)
+after a step boundary, same session: n 197, starts at 100478, grows 38533 (mean 38966), costs 2.32, read and run calls 38 (medians)
+
+boundaries whose ending step held a message from the person: 138 of 256; messages 291

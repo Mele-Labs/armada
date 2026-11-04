@@ -56,6 +56,9 @@ pub struct ResolvedWorkflow {
     /// What the workflow lands in, resolved. Beside the frozen copy for
     /// `for_requests`'s reason: Bridge reads it off the definition Fleet holds.
     lands: Lands,
+    /// [`crate::WorkflowDef::carries_no_code`], held beside the frozen copy for `for_requests`'s
+    /// reason: Fleet reads it off the definition it serves, never off a Job's record.
+    carries_no_code: bool,
     frozen: FrozenWorkflow,
 }
 
@@ -138,6 +141,7 @@ impl ResolvedWorkflow {
             manifest: manifest.path().to_path_buf(),
             for_requests: def.for_requests().map(str::to_string),
             lands: def.lands(),
+            carries_no_code: def.carries_no_code(),
             frozen: FrozenWorkflow::frozen(
                 def.id().clone(),
                 def.name().to_string(),
@@ -191,6 +195,11 @@ impl ResolvedWorkflow {
     /// [`crate::WorkflowDef::for_requests`].
     pub fn for_requests(&self) -> Option<&str> {
         self.for_requests.as_deref()
+    }
+
+    /// Whether a Job on this workflow writes no code. See [`crate::WorkflowDef::carries_no_code`].
+    pub fn carries_no_code(&self) -> bool {
+        self.carries_no_code
     }
 
     /// What the workflow lands in. See [`crate::WorkflowDef::lands`].

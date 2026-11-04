@@ -74,7 +74,7 @@ fn every_shipped_workflow_definition_parses() {
         }
         seen += 1;
     }
-    assert!(seen >= 8, "eight workflows ship, and {seen} were read");
+    assert!(seen >= 9, "nine workflows ship, and {seen} were read");
 }
 
 /// **Which shipped workflows send their work out, read off the files.**
@@ -120,8 +120,8 @@ fn four_shipped_workflows_send_their_work_out_and_four_do_not() {
     );
     assert_eq!(
         silent,
-        vec!["code_review", "design_plan", "orchestrate", "prototype"],
-        "and the four that produce something read rather than merged deliver nothing",
+        vec!["code_review", "design_plan", "orchestrate", "prototype", "uat"],
+        "and the five that produce something read, or written to a sheet, rather than merged deliver nothing",
     );
 }
 
@@ -130,7 +130,12 @@ fn four_shipped_workflows_send_their_work_out_and_four_do_not() {
 #[test]
 fn each_shipped_step_reads_in_its_phase() {
     use core_model::StepPhase::{Delivery, Work};
-    let declared = [("design_plan", "present"), ("orchestrate", "summarise")];
+    let declared = [
+        ("design_plan", "present"),
+        ("orchestrate", "summarise"),
+        ("uat", "review"),
+        ("uat", "writeback"),
+    ];
     for (path, text) in shipped() {
         let def = config::WorkflowDef::parse(&path, &text, &roster())
             .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
@@ -178,6 +183,7 @@ fn each_shipped_workflow_lands_in_what_it_is_for() {
             ("prototype", Spike),
             ("refactor", PullRequest),
             ("revert", PullRequest),
+            ("uat", Document),
         ]
     );
 }
@@ -453,4 +459,33 @@ fn no_step_before_the_walk_is_told_to_write_a_test_and_the_one_after_is() {
             }
         }
     }
+}
+
+/// **Only `uat` carries no code**: a Job on it is never asked for a branch, slot or pull request, so
+/// a workflow that read as carrying none by mistake would stop a code Job's slot lease and notices.
+/// It also names no step that delivers, which is what keeps it from opening a pull request.
+#[test]
+fn only_uat_carries_no_code_and_none_of_its_steps_deliver() {
+    let mut carrying_none: Vec<String> = Vec::new();
+    for (path, text) in shipped() {
+        let def = config::WorkflowDef::parse(&path, &text, &roster())
+            .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
+        if def.carries_no_code() {
+            assert!(def.steps().iter().all(|step| !step.delivers()), "{} delivers", path.display());
+            carrying_none.push(def.id().as_str().to_string());
+        }
+    }
+    assert_eq!(carrying_none, vec!["uat"]);
+}
+
+/// **`uat` runs the five steps the owner chose**, and waits on him at pre-flight, review and write back.
+#[test]
+fn uat_runs_the_steps_the_owner_chose() {
+    let (path, text) = shipped()
+        .into_iter()
+        .find(|(path, _)| path.file_name().is_some_and(|name| name == "uat.json"))
+        .expect("uat.json ships");
+    let def = config::WorkflowDef::parse(&path, &text, &roster()).expect("uat parses");
+    let ids: Vec<&str> = def.steps().iter().map(|step| step.id().as_str()).collect();
+    assert_eq!(ids, vec!["setup", "preflight", "run", "review", "writeback"]);
 }

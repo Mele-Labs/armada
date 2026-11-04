@@ -210,12 +210,28 @@ pub(crate) async fn said(
     budget: JudgeBudget,
 ) -> Result<String, CallFailed> {
     let call = client.render(ask);
-    let mut child = started(&call)?;
+    let child = started(&call)?;
+    answered(child, call.question(), budget).await
+}
+
+/// A rendered call started with its question not yet written, so it is ready when one comes: the
+/// Operator's, kept started and waiting so an arrival pays only for the model.
+pub(crate) fn waiting(call: &adapter_traits::JudgeCall) -> Result<tokio::process::Child, CallFailed> {
+    started(call)
+}
+
+/// Put `question` to a started call and answer with what it printed. **The one reading of a
+/// failed call** for [`said`] and for a call kept waiting.
+pub(crate) async fn answered(
+    mut child: tokio::process::Child,
+    question: &str,
+    budget: JudgeBudget,
+) -> Result<String, CallFailed> {
     if let Some(mut stdin) = child.stdin.take() {
         // A failed write is a failed call: a model that was never given the
         // question cannot have answered it.
         stdin
-            .write_all(call.question().as_bytes())
+            .write_all(question.as_bytes())
             .await
             .map_err(|error| CallFailed::NotAsked { kind: error.kind() })?;
         drop(stdin);

@@ -85,6 +85,20 @@ The order is the owner's, 29 Oct 2026.
 | `oversee` | Follows the Jobs it started, steps in when one is stuck or fails, and may start more | every Job it started has merged or been ended |
 | `summarise` | Writes a Document of what each Job landed, with its pull request, then follow-up work, each item filed or dispatched as you pick | you approve the report |
 
+### `uat`
+
+A Job that runs acceptance scenarios against a test environment and writes the results back to the sheet they came from. It writes no code.
+The workflow declares `carries_no_code: true`: the Job is never asked for a branch, a worktree slot, tests, a push, a pull request or a merge, and Fleet sends it none of the notices about them.
+Its commands and scripts run without a leased slot; only a write into the checkout, such as its own document, takes one.
+
+| Step | The agent | Ends when |
+|---|---|---|
+| `setup` | Picks the environment: sites, test accounts, log source, allowed scripts and commands, and checks each is reachable | the page is written |
+| `preflight` | Marks each scenario runnable, blocked with its reason, or needs you | you settle every one |
+| `run` | Runs scenario by scenario with evidence per step; a question waits while the work carries on, and every change to the environment is recorded as it happens | the runnable scenarios are done |
+| `review` | Shows the results and the changes made to the environment together | you approve, or send it back to `run` |
+| `writeback` | Writes the results to the scenario sheet and ends the Job | you approve the one write |
+
 ### Walks and replies
 
 Three step keys place a Job around the owner.

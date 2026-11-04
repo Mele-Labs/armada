@@ -208,6 +208,8 @@ pub enum Frozen {
     TestMapShared,
     /// Read for the same reason as `Tracker`: a hosted Job's process is started with it.
     Connectors,
+    /// Read for `Setup`'s reason: what it names was resolved against the Commands at start.
+    WhenBaseMoves,
 }
 
 impl Frozen {
@@ -224,6 +226,7 @@ impl Frozen {
             Frozen::CiGate => "ci_gate",
             Frozen::TestMapShared => "test_map.shared",
             Frozen::Connectors => "connectors",
+            Frozen::WhenBaseMoves => "when_base_moves",
         }
     }
 }
@@ -312,6 +315,7 @@ struct AtStart {
     ci_gate: String,
     test_map_shared: bool,
     connectors: bool,
+    when_base_moves: Vec<String>,
 }
 
 impl AtStart {
@@ -339,6 +343,11 @@ impl AtStart {
             ci_gate: manifest.ci_gate().to_string(),
             test_map_shared: manifest.test_map_shared(),
             connectors: manifest.connectors(),
+            when_base_moves: manifest
+                .when_base_moves()
+                .iter()
+                .map(|step| step.name().to_string())
+                .collect(),
         }
     }
 
@@ -381,6 +390,9 @@ impl AtStart {
         }
         if self.connectors != other.connectors {
             changed.push(Frozen::Connectors);
+        }
+        if self.when_base_moves != other.when_base_moves {
+            changed.push(Frozen::WhenBaseMoves);
         }
         changed
     }
