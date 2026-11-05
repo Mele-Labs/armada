@@ -292,6 +292,34 @@ fn a_session_held_slot_is_released_with_its_files_committed_for_the_holder_shown
     ));
 }
 
+/// A slot held by a hosted Job nobody can view any more is released by the Job's id, with its
+/// files committed, and refused for any other id.
+#[test]
+fn an_orphaned_hosted_holder_is_released_by_its_own_id() {
+    let repo = a_repository();
+    let pool = slots(&repo, 1);
+    let (slot, path) = leased(&repo, &pool, "1-a-job", "01JOB");
+    std::fs::write(path.join("half.txt"), "half a thought\n").expect("a file");
+
+    let refused = GitVcs::new()
+        .release_session_slot(&pool, slot, "01OTHER")
+        .expect_err("another Job was shown");
+    assert!(matches!(
+        refused,
+        adapter_traits::SlotParkRefused::HolderChanged(_)
+    ));
+    assert!(path.join("half.txt").exists());
+
+    let parked = GitVcs::new()
+        .release_session_slot(&pool, slot, "01JOB")
+        .expect("the holder shown still holds it");
+    assert_eq!(parked.files, vec!["half.txt"]);
+    assert!(matches!(
+        Pool::at(repo.root(), 1, "main", Vec::new()).state(1),
+        SlotState::Free
+    ));
+}
+
 /// A slot a terminal session stood in is parked for it **only once the process
 /// that leased it has ended**: while it runs the park is refused and nothing is
 /// committed, and after it the files go to the slot's branch.

@@ -187,7 +187,13 @@ pub(crate) fn release_session(
             holder: holder @ Holder::Process { .. },
             ..
         } if holder.said() == expected => parked_as(slots, slot, &holder),
-        SlotState::Held { holder, .. } => Err(SlotParkRefused::HolderChanged(holder.said())),
+        // A hosted Job Fleet has no row for, one nobody can view: the ledger path never took it,
+        // and what it left running in the slot is all there is to end.
+        SlotState::Held {
+            holder: Holder::Hosted(id),
+            ..
+        } if id == expected => park_hosted(slots, slot, &id),
+        SlotState::Held { holder, .. } =>Err(SlotParkRefused::HolderChanged(holder.said())),
         SlotState::Free | SlotState::Abandoned { .. } => {
             Err(SlotParkRefused::HolderChanged(String::from("nobody")))
         }
