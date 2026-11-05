@@ -57,7 +57,8 @@ where
     /// Park the slot a hosted session holds and give its ledger rows back.
     /// **The holder is checked first, then the turn, then the park**: a slot
     /// re-leased since is refused as `fleet.slot_holder_changed`, and a session
-    /// mid-turn as `fleet.slot_session_working`, with nothing ended and the rows
+    /// mid-turn, or with a subagent or background task still working past it, as
+    /// `fleet.slot_session_working`, with nothing ended and the rows
     /// standing. An idle session's process is let go the way a tune lets it go,
     /// and its next message resumes it.
     /// **`refuse_uncommitted` is the person's Free of a slot a waiting Job's call lists**: a
@@ -96,7 +97,8 @@ where
             .ok()
             .flatten()
             .and_then(|kept| kept.title);
-        let working = matches!(self.hosts().of(&id).state().turn, SessionTurn::Working { .. });
+        // Subagents and background tasks past the turn live in its process, which a release ends.
+        let working = matches!(self.hosts().of(&id).state().turn, SessionTurn::Working { .. }) || self.work_beyond_the_turn(&id).await;
         if refuse_uncommitted && !working {
             let dirty = {
                 let (vcs, pool) = (Arc::clone(self.vcs()), pool.clone());
@@ -121,7 +123,7 @@ where
             let runtime = self.hosts().of(&id);
             let mut state = runtime.state();
             // The one reading of whether a turn runs: what `hosted.turn` publishes.
-            if matches!(state.turn, SessionTurn::Working { .. }) {
+            if working || matches!(state.turn, SessionTurn::Working { .. }) {
                 let name = title.as_deref().unwrap_or("The job");
                 return Err(Refusal::IllegalMove(WireError::raised(
                     SLOT_SESSION_WORKING,
