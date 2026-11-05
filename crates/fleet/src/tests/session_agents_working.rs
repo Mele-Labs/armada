@@ -248,6 +248,34 @@ async fn a_process_that_dies_while_the_move_waits_is_moved_all_the_same() {
     assert!(lines_to(&rig, 1).contains("You are now in"));
 }
 
+/// Fleet restarts while the move waits on agents. The keeper carries the process across, still in
+/// the checkout while its hosting names the slot, so the move is owed all the same and a relative
+/// write is held rather than landing in main (`armada-f7s3`).
+#[tokio::test]
+async fn a_restart_while_the_move_waits_on_agents_still_owes_the_move_and_holds_relative_writes() {
+    let (rig, _) = quiet_at_once();
+    let id = turn_running(&rig).await;
+    stood_down_for_a_slot(&rig, &id).await;
+
+    let rig = rig.restarted_keeping_processes().await;
+    assert!(rig.fleet.hosts().of(id.as_str()).state().process.is_some(), "the keeper's process is taken back");
+    let relative = r#"{"file_path":"src/lib.rs"}"#;
+    assert!(denied(&rig.gate_in(&rig.root, &id, "Edit", relative).await), "the write would land in main");
+    assert!(move_waits(&rig, &id).await, "the wait for the move stands");
+
+    agent_finished(&rig, &id);
+    rig.fleet.held_moves_made().await;
+    assert_eq!(rig.stand_in.starts()[1].directory, adapter_traits::slot_path(&rig.root, 1));
+    assert!(lines_to(&rig, 1).contains("You are now in"));
+    assert!(!move_waits(&rig, &id).await, "the move ended its wait");
+}
+
+/// Whether a wait for the move into the slot stands.
+async fn move_waits(rig: &Rig, id: &SessionId) -> bool {
+    let waits = rig.fleet.store().lock().await.slot_waits_of(id.as_str()).expect("read");
+    waits.iter().any(|wait| wait.phase == "move" && wait.ended_at.is_none())
+}
+
 /// A slot granted from the line to an idle Job: the move that was made at once now waits as well.
 #[tokio::test]
 async fn a_slot_granted_to_an_idle_job_with_a_subagent_working_waits_for_it() {

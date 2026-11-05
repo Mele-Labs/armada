@@ -360,7 +360,9 @@ While a move waits, the Job's writes stay refused, and those of its agents, whic
 The turn that stood down ends as any other, so the Job reads as working from its rows, and a turn begun meanwhile is shown as usual.
 The move is made at the end of the first turn with nothing working, or at the next sweep if the agents end with no turn after them.
 A process that dies while a move waits is moved all the same, and told what it lost.
-The wait is in Fleet's memory: a Fleet restart forgets it, and the process reattaches where it was.
+A Fleet restart keeps the move.
+The keeper carries the process across still in the checkout, while the Job's hosting names the slot, so a relative write would land in main.
+The wait's own row in `session_slot_waits` says the move was not made, so a process reattached with that row standing is owed the move again, and waits as before.
 
 **A hung agent stops holding its process after an hour.**
 A subagent counts from its transcript's last line, or from when it started if it has written none.
