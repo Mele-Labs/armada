@@ -115,7 +115,6 @@ const meta: Meta<typeof WorkflowManager> = {
     agent: {
       phase: "idle",
     },
-    suggestions: {},
     onPick: fn(),
     onMakeCopy: fn(done),
     onPropose: fn(done),
@@ -130,8 +129,6 @@ const meta: Meta<typeof WorkflowManager> = {
       jobId: "job-2",
     })),
     onOpenJob: fn(),
-    onApproveSuggestion: fn(done),
-    onDismissSuggestion: fn(done),
   } satisfies WorkflowManagerProps,
 };
 export default meta;
@@ -147,22 +144,6 @@ export const ArmadasOwn: Story = {
     picked: {
       id: "feature",
       source: "armada",
-    },
-  },
-};
-
-/** A change drawn up for a step, waiting on Approve. */
-export const SuggestionWaiting: Story = {
-  args: {
-    suggestions: {
-      feature: {
-        walk: {
-          words: `${FEATURE[1]!.words} Test files wait for the approval too.`,
-          from: [
-            "1",
-          ],
-        },
-      },
     },
   },
 };

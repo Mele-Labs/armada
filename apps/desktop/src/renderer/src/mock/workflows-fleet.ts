@@ -28,7 +28,6 @@ import {
   MANAGED_DEFINITIONS,
   MANAGED_ENDS,
   SAY_WHY_SKIPPED,
-  SUGGESTED_SENTENCE,
   WIRE_AND_TESTS,
 } from "./workflows-managed";
 
@@ -329,11 +328,6 @@ export function workflowsServed(
       const walkWords = stepsOfDefinition(text)?.find((one) => one.id === "walk")?.instructions;
       if (/\bwalk\b.*\bsay why\b.*\bskips?\b/i.test(asked) && walkWords !== undefined)
         after = withWords(text, "walk", insertSentence(walkWords, SAY_WHY_SKIPPED));
-    } else if (change.step_id !== undefined) {
-      const sentence = SUGGESTED_SENTENCE[change.step_id];
-      const words = stepsOfDefinition(text)?.find((one) => one.id === change.step_id)?.instructions;
-      if (sentence !== undefined && words !== undefined)
-        after = withWords(text, change.step_id, insertSentence(words, sentence));
     }
     if (after === undefined) {
       return {

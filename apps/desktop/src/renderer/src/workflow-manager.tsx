@@ -60,12 +60,10 @@ import {
   agentOf,
   armadaOf,
   askedChange,
-  changeAt,
   listedOf,
   runOrderOf,
   runningIn,
   stepOf,
-  suggestionsOf,
 } from "./workflow-manager-wire";
 import type { Listed } from "./workflow-manager-wire";
 
@@ -426,8 +424,6 @@ function Held({
 
   const readOfPicked = picked === null ? undefined : reads[keyOf(picked)];
   const known = readOfPicked?.steps ?? [];
-  const { suggestions } = suggestionsOf(changes);
-  const stepChange = (stepId: string) => changeAt(changes, stepId);
 
   /** The action on a change Fleet holds: its answer is the refusal, or nothing, and the changes are read again. */
   const onChange = async (
@@ -556,13 +552,6 @@ function Held({
               ...(seeded === undefined && fleet !== undefined ? kept(fleet) : {}),
             },
           })}
-      suggestions={
-        picked === null
-          ? {}
-          : {
-              [picked.id]: suggestions,
-            }
-      }
       actsFor={(one) => {
         // The copy's own repository: on All there is no pick to share under.
         const at = served.find((each) => each.manifestId === one.manifestId)?.root ?? root;
@@ -791,12 +780,6 @@ function Held({
         );
       }}
       onNew={dispatching === undefined ? undefined : dispatching.openWorkflow}
-      onApproveSuggestion={(one, stepId) =>
-        onChange(one, stepChange(stepId), approveWorkflowChange)
-      }
-      onDismissSuggestion={(one, stepId) =>
-        onChange(one, stepChange(stepId), dismissWorkflowChange)
-      }
     />
   );
 }

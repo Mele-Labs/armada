@@ -6,7 +6,7 @@ import type { ManagedStep } from "@armada/components";
 import type { WorkflowChange } from "@armada/protocol";
 import { describe, expect, test } from "vitest";
 
-import { agentOf, listedOf, stepOf, suggestionsOf } from "./workflow-manager-wire";
+import { agentOf, listedOf, stepOf } from "./workflow-manager-wire";
 
 const FILE = {
   version: 1,
@@ -572,7 +572,7 @@ test("a draft with no steps from Fleet is read from its text, and each side is r
   });
 });
 
-test("a change drawn from drift is a card on its step, or the step an agent is drawing one for, and is not the box", () => {
+test("a change held for one step is not the box", () => {
   const after = JSON.stringify({
     ...FILE,
     steps: [
@@ -606,50 +606,6 @@ test("a change drawn from drift is a card on its step, or the step an agent is d
     ),
   ).toEqual({
     phase: "idle",
-  });
-  expect(
-    suggestionsOf([
-      change({
-        ...drift,
-        state: "ready",
-        after,
-      }),
-    ]),
-  ).toEqual({
-    suggestions: {
-      propose: {
-        words: "Say it twice.",
-        from: [
-          "7",
-          "8",
-        ],
-      },
-    },
-  });
-  expect(
-    suggestionsOf([
-      change({
-        ...drift,
-      }),
-    ]),
-  ).toEqual({
-    suggestions: {},
-  });
-  expect(
-    suggestionsOf([
-      change({
-        ...drift,
-        state: "failed",
-        reason: "Unchanged",
-      }),
-    ]).suggestions.propose,
-  ).toEqual({
-    words: "",
-    from: [
-      "7",
-      "8",
-    ],
-    failed: "Unchanged",
   });
 });
 

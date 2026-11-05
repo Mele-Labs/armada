@@ -46,8 +46,6 @@ import type {
   AgentState,
   ManagedStep,
   ManagedWorkflow,
-  Suggestion,
-  Suggestions,
   WorkflowActAnswer,
   WorkflowRef,
   SwitchedIn,
@@ -109,11 +107,7 @@ export type WorkflowManagerProps = {
   >;
   /** The Job a press started, as the shared Job card, once the host holds it. Absent or null, a line says it started. */
   jobFor?: (jobId: string) => ReactNode;
-  /** The suggested changes waiting, and the step one is being drawn up for (`workflow/step`). */
-  suggestions: Suggestions;
   onOpenJob: (one: WorkflowRef, jobId: string) => void;
-  onApproveSuggestion: (one: WorkflowRef, stepId: string) => Promise<WorkflowActAnswer>;
-  onDismissSuggestion: (one: WorkflowRef, stepId: string) => Promise<WorkflowActAnswer>;
   /** New workflow: opens the sheet for a Job that makes one. Absent draws no button. */
   onNew?: () => void;
   /** The Workspace the workflows are edited in: the picked one draws as lanes with rules between them, in place of its column of steps. Absent draws the column. */
@@ -511,7 +505,6 @@ function Detail({
   drafts,
   setDrafts,
   agent,
-  suggestions,
   actsFor,
   jobFor,
   ...acts
@@ -650,9 +643,6 @@ function Detail({
       onSave={
         rows?.save ?? ((words) => run(() => inCopy((to) => acts.onSaveWords(to, step.id, words))))
       }
-      suggestion={editable ? suggestions[workflow.id]?.[step.id] : undefined}
-      onApproveSuggestion={() => acts.onApproveSuggestion(ref, step.id)}
-      onDismissSuggestion={() => acts.onDismissSuggestion(ref, step.id)}
       versus={
         comparing && comparable
           ? {
@@ -885,9 +875,6 @@ type StepProps = {
   onDraft: (words: string | undefined) => void;
   /** Whether the save went through, so the words typed are let go only then. */
   onSave: (words: string) => Promise<boolean>;
-  suggestion: Suggestion | undefined;
-  onApproveSuggestion: () => Promise<WorkflowActAnswer>;
-  onDismissSuggestion: () => Promise<WorkflowActAnswer>;
   /** Set while comparing: Armada's step of the same id, or none where this copy added it. */
   versus:
     | {
@@ -907,22 +894,11 @@ function Step({
   draft,
   onDraft,
   onSave,
-  suggestion,
-  onApproveSuggestion,
-  onDismissSuggestion,
   versus,
 }: StepProps) {
   const card = useRef<HTMLDivElement>(null);
   const id = useId();
   const Glyph = step.glyph === undefined ? undefined : STEP_GLYPHS[step.glyph];
-  // Fleet's sentence for a suggestion's Approve or Dismiss it would not take, said on the card.
-  const [refused, setRefused] = useState<string | undefined>(undefined);
-  const settle = async (act: () => Promise<WorkflowActAnswer>) => {
-    setRefused(undefined);
-    const out = await act();
-    setRefused(out);
-    if (out === undefined) card.current?.focus();
-  };
   const changed = draft !== undefined && draft !== step.words;
   const armada = versus?.armada;
   const added = versus !== undefined && armada === undefined;
@@ -1081,77 +1057,6 @@ function Step({
         </dd>
         {rows?.after}
       </dl>
-
-      {suggestion === undefined ? null : (
-        <section
-          role="group"
-          aria-label="Suggested change"
-          className="armada-wm-diff armada-wm-suggest"
-          data-nav-item=""
-          tabIndex={-1}
-          onKeyDown={(event) => {
-            if (
-              event.key === "Enter" &&
-              (event.metaKey || event.ctrlKey) &&
-              suggestion.failed === undefined
-            ) {
-              event.preventDefault();
-              event.stopPropagation();
-              void settle(async () => {
-                const out = await onApproveSuggestion();
-                if (out === undefined) onDraft(undefined);
-                return out;
-              });
-            } else if (event.key === "Escape") {
-              event.preventDefault();
-              event.stopPropagation();
-              void settle(onDismissSuggestion);
-            }
-          }}
-        >
-          <div className="armada-wm-diff__band">Suggested change</div>
-          {suggestion.failed === undefined ? (
-            <div className="armada-wm-suggest__words">
-              <Compared
-                against={step.words}
-                words={suggestion.words}
-                left="Before"
-                right="After"
-                label="Before and after"
-              />
-            </div>
-          ) : (
-            <p className="armada-wm__said" data-refused>
-              {suggestion.failed}
-            </p>
-          )}
-          {refused === undefined ? null : (
-            <p className="armada-wm__said" role="alert" data-refused>
-              {refused}
-            </p>
-          )}
-          <div className="armada-wm-diff__acts">
-            <Button variant="secondary" size="sm" onClick={() => void settle(onDismissSuggestion)}>
-              Dismiss
-            </Button>
-            {suggestion.failed !== undefined ? null : (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() =>
-                  void settle(async () => {
-                    const out = await onApproveSuggestion();
-                    if (out === undefined) onDraft(undefined);
-                    return out;
-                  })
-                }
-              >
-                Approve
-              </Button>
-            )}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

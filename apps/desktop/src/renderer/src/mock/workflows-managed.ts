@@ -222,12 +222,6 @@ export const MANAGED_ENDS: Readonly<
   },
 };
 
-/** The sentence an agent adds to a step's words when asked for a suggestion there, by step id. */
-export const SUGGESTED_SENTENCE: Readonly<Record<string, string>> = {
-  walk: "Test files wait for the approval too, including fixtures for the mock.",
-  propose: "Edit nothing before approval, including the mock.",
-};
-
 /** What Armada lacks for "Propose should end when a walk, a sketch or a document is approved, or last of all a question is answered". */
 export const CANNOT_YET: readonly string[] = [
   "A step ends on one thing, not on any of several",

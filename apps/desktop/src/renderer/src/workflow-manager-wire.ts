@@ -2,7 +2,7 @@
 // changes an agent drafted as the box under the steps and the cards on a step. Nothing here asks Fleet.
 
 import { glyphOf, keyOf, stepsOfDefinition } from "@armada/components";
-import type { AgentState, ManagedStep, Suggestion, WorkflowSource } from "@armada/components";
+import type { AgentState, ManagedStep, WorkflowSource } from "@armada/components";
 import type {
   ChangeStep,
   LeftOutWorkflow,
@@ -133,41 +133,6 @@ export function agentOf(
   }
   return {
     phase: "idle",
-  };
-}
-
-/** The change waiting on a step, if one is open. */
-export const changeAt = (
-  changes: readonly WorkflowChange[],
-  stepId: string,
-): WorkflowChange | undefined => changes.find((one) => one.step_id === stepId);
-
-/** The cards on the steps. */
-export function suggestionsOf(changes: readonly WorkflowChange[]): {
-  suggestions: Readonly<Record<string, Suggestion>>;
-} {
-  const suggestions: Record<string, Suggestion> = {};
-  for (const one of changes) {
-    const stepId = one.step_id;
-    if (stepId === undefined || stepId in suggestions) continue;
-    const from = one.origin.kind === "drift" ? one.origin.nudges.map(String) : [];
-    if (one.state === "failed")
-      suggestions[stepId] = {
-        words: "",
-        from,
-        failed: one.reason ?? "",
-      };
-    else if (one.state === "ready" && one.after !== undefined) {
-      const words =
-        stepsOfDefinition(one.after)?.find((each) => each.id === stepId)?.instructions ?? "";
-      suggestions[stepId] = {
-        words,
-        from,
-      };
-    }
-  }
-  return {
-    suggestions,
   };
 }
 

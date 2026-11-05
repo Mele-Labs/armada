@@ -159,18 +159,8 @@ export type AgentState =
       missing: readonly string[];
     };
 
-/** New words for a step, and the nudged Jobs they were drawn from. A draft that did not fit has no words and says why. */
-export type Suggestion = {
-  words: string;
-  from: readonly string[];
-  failed?: string;
-};
-
 /** What an act answers with: nothing where it went through, or Fleet's sentence for why it did not. */
 export type WorkflowActAnswer = string | undefined;
-
-/** The suggested changes waiting on the owner, by workflow id and then step id. */
-export type Suggestions = Readonly<Record<string, Readonly<Record<string, Suggestion>>>>;
 
 /**
  * Which workflows Jobs may take. `forJobs` is the setting that turns the workflow system on or off. `machine` is the ids off on this

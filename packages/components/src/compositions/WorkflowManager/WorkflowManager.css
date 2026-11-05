@@ -593,18 +593,6 @@
   border-top: var(--border-width) solid var(--border-subtle);
 }
 
-/* A suggested change sits inside its step, above the Jobs it was drawn from. */
-.armada-wm-suggest {
-  margin: 0 var(--space-4) var(--space-4);
-}
-.armada-wm-suggest:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
-}
-.armada-wm-suggest__words {
-  padding: var(--space-3) var(--space-4);
-}
-
 /* ---- New workflow ----------------------------------------------------------------------------- */
 
 /* The page's one primary: Send's, at its own width. */
