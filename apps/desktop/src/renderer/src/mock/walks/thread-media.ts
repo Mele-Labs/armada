@@ -5,7 +5,7 @@ import { button, deckRow, dialog, inside, region, role, walk } from "../walk";
 
 const WIDE = "cockpit-wide.jpg";
 const viewer = dialog(WIDE);
-const artifacts = region("Artifacts", {
+const artifacts = region("Pane: Ledger", {
   exact: true,
 });
 
@@ -63,10 +63,9 @@ const threadMedia = walk("thread-media", [
     say: "A video that cannot play here says so at the same height, and opens in your Mac's own player",
   },
   {
-    press: button("Artifacts", {
-      exact: true,
-    }),
-    say: "The same files are in Artifacts under Files",
+    key: "Alt+Shift+1",
+    on: role("region", "Pane: Thread"),
+    say: "Artifacts, here the Ledger, lists the same files under Files",
   },
   {
     press: inside(artifacts, button("cockpit-recording.mp4")),
