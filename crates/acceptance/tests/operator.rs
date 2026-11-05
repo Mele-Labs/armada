@@ -24,6 +24,7 @@
 //! | A red main a Job is already fixing arrives as nothing, and one no Job holds goes to the live Job near it | That Autopilot's red kind hands its red to the Operator, and that a start for it claims the red. `fleet`'s `tests::operator_sources` |
 //! | A review request is raised with a read, and no review starts | That Fleet reads the requests at most every ten minutes, beside its read of main. `fleet`'s `tests::operator_sources` |
 //! | A role goes by where it stands as its ruling comes back: Off is only in the Log, Suggest waits on one press, On is done | What a suggestion's row says and what its press does, and that any role can differ per repository. `fleet`'s `tests::operator_answers`, `tests::operator_stalls` and `tests::operator_sources` |
+//! | "Why did you hold X" comes back citing the Log row, and "don't answer anything in <repo> today" stands only once confirmed, and then no answer is settled there | That the box's routes keep the conversation and the orders over a restart, that the role reads Off on a real Fleet until the day ends, that a hold refuses a write, and what happens to words that fit no form. `fleet`'s `tests::operator_talk` |
 //! | A Later item handed over is linked where an issue is open for it, filed with no call where none is, and raised where nothing can be filed | That a Later item settled as handed is filed in beads and settled as filed. `fleet`'s `tests::operator_sources` |
 
 // Shared with the other milestones' tests, and none of them uses all of it.
@@ -274,6 +275,58 @@ async fn a_role_goes_by_where_it_stands_off_only_in_the_log_suggest_on_one_press
         assert_eq!(!fleet.answered().is_empty(), settled, "{stands:?}");
         assert_eq!(fleet.suggested() == vec![(TERMINAL.to_string(), Way::Answer)], suggested, "{stands:?}");
     }
+}
+
+#[tokio::test(start_paused = true)]
+async fn why_did_you_hold_x_cites_its_log_row_and_dont_answer_in_a_repository_today_stands_once_confirmed_and_is_enforced() {
+    use fleet::operator::{LogRead, TalkLine};
+    use ipc::operator_positions::OperatorRole;
+    use ipc::operator_talk::OperatorOrderForm;
+    let answered = "item: 1\nway: 1\nanswer: 1\nbecause: the recommended option keeps what each tab shows, and nothing he sees changes";
+    let why = "cites: 1\njob: none\nstart: none\norder: none\nsaid: It waits for PR Review Tabs to push the tab host it builds on.";
+    let order = format!("cites: none\njob: none\nstart: none\norder: role_off answer in {REPOSITORY} today\nsaid: Confirm it and nothing is answered there today.");
+    let call = FakeCall::replying(vec![
+        Reply::Says(why.into(), Duration::from_secs(1)),
+        Reply::Says(order, Duration::from_secs(1)),
+        Reply::Says(answered.into(), Duration::from_secs(1)),
+        Reply::Says(answered.into(), Duration::from_secs(1)),
+    ]);
+    let fleet = FakeFleet::with(live(), 100);
+    let operator = operator(&call, &fleet);
+    let held = LogRead {
+        arrival: "start:01JOBTERMINALINTAB".into(),
+        session_id: IN_TAB.into(),
+        subject: "Open terminals in a tab".into(),
+        outcome: "keep_in_touch".into(),
+        because: "it builds on the tab host, so it waits for that push".into(),
+        at: "2026-11-03T15:00:00.000Z".into(),
+    };
+    fleet.logged_earlier(held.clone());
+
+    let asking = "why did you hold Open terminals in a tab?";
+    let talked = operator.talk(asking, &[]).await.expect("answered");
+    assert_eq!(talked.cites, vec![held.clone()], "the answer rests on the row Fleet showed it");
+    assert!(talked.said.contains("tab host") && talked.order.is_none());
+    assert!(call.asked()[0].contains(&held.because) && call.asked()[0].contains(asking));
+
+    let so_far = [TalkLine { from_person: true, text: asking.into() }, TalkLine { from_person: false, text: talked.said.clone() }];
+    let words = "don't answer anything in armada today";
+    let talked = operator.talk(words, &so_far).await.expect("answered");
+    assert!(call.asked()[1].contains(&format!("You: {}", so_far[1].text)), "the next call is handed the conversation:\n{}", call.asked()[1]);
+    let (form, said) = talked.order.expect("the form he will see");
+    assert_eq!(form, OperatorOrderForm::RoleOff { role: OperatorRole::Answer, manifest_id: REPOSITORY.into(), today: true });
+    assert_eq!(said, "Answer off in armada today");
+
+    // Named and not confirmed, it stands for nothing.
+    let question = || asked(TERMINAL, Group::Unseen(NOT_SEEN.into()), Present::Here, None).arrival().expect("the Operator is on");
+    operator.ruled(question(), NEEDS_YOU_WAIT).await;
+    assert_eq!(fleet.answered().len(), 1, "no order stands yet: {:?}", fleet.answered());
+
+    assert_eq!(operator.order_checked(&form).await.expect("a form Fleet knows"), said);
+    fleet.order_stands(form);
+    operator.ruled(question(), NEEDS_YOU_WAIT).await;
+    assert_eq!(fleet.answered().len(), 1, "the order holds: ruled into the Log and settled nowhere");
+    assert_eq!(fleet.log().len(), 2);
 }
 
 #[tokio::test(start_paused = true)]

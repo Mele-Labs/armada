@@ -286,6 +286,26 @@ where
         self.published_hosted(id).await
     }
 
+    async fn talk_to_operator(self: Arc<Self>, talk: ipc::operator_talk::TalkToOperator) -> Result<ipc::operator_talk::OperatorSaid, Refusal> {
+        self.operator_talked(&talk.words).await
+    }
+
+    async fn operator_talk(self: Arc<Self>) -> Result<ipc::operator_talk::OperatorTalk, Refusal> {
+        self.operator_talk_wire().await
+    }
+
+    async fn confirm_operator_order(self: Arc<Self>, confirm: ipc::operator_talk::ConfirmOperatorOrder) -> Result<ipc::operator_talk::OperatorOrders, Refusal> {
+        self.operator_order_confirmed(confirm.form).await
+    }
+
+    async fn operator_orders(self: Arc<Self>) -> Result<ipc::operator_talk::OperatorOrders, Refusal> {
+        Ok(self.operator_orders_wire().await)
+    }
+
+    async fn remove_operator_order(self: Arc<Self>, remove: ipc::operator_talk::RemoveOperatorOrder) -> Result<ipc::operator_talk::OperatorOrders, Refusal> {
+        self.operator_order_removed(remove.id).await
+    }
+
     async fn dismiss_waiting(
         self: Arc<Self>,
         dismiss: ipc::DismissWaiting,

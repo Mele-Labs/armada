@@ -397,6 +397,18 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::move_in_line::<D>),
         )
         .route(
+            "/operator/talk",
+            post(crate::hosted_sessions::talk_to_operator::<D>).get(crate::hosted_sessions::operator_talk::<D>),
+        )
+        .route(
+            "/operator/orders",
+            post(crate::hosted_sessions::confirm_operator_order::<D>).get(crate::hosted_sessions::operator_orders::<D>),
+        )
+        .route(
+            "/operator/orders/remove",
+            post(crate::hosted_sessions::remove_operator_order::<D>),
+        )
+        .route(
             "/sessions/waiting/dismiss",
             post(crate::hosted_sessions::dismiss_waiting::<D>),
         )

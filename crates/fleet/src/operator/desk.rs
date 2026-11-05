@@ -125,6 +125,19 @@ where
         })
     }
 
+    fn orders(&self) -> Done<'_, super::Orders> {
+        Box::pin(async move { self.fleet.upgrade().map(|fleet| fleet.operator_seat().orders()).unwrap_or_default() })
+    }
+
+    fn board(&self) -> Done<'_, super::Board> {
+        Box::pin(async move {
+            match self.fleet.upgrade() {
+                Some(fleet) => fleet.operator_board().await,
+                None => super::Board::default(),
+            }
+        })
+    }
+
     fn keep(&self, row: Logged) -> Done<'_, ()> {
         Box::pin(async move {
             // A call out when the Operator was turned off is recorded nowhere, as if it had not been made.

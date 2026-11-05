@@ -595,6 +595,84 @@ export type MoveInLine = {
   place: LinePlace;
 };
 
+/** One of the forms a standing order takes, which Fleet enforces. `what` is a kind as the Log names it. */
+export type OperatorOrderForm =
+  | {
+      kind: "role_off";
+      role: "dispatch" | "delegate" | "answer" | "file";
+      manifest_id: string;
+      today?: boolean;
+    }
+  | {
+      kind: "hold_paths";
+      manifest_id: string;
+      paths: string[];
+      job: string;
+      until: "pushes" | "ends";
+    }
+  | {
+      kind: "always_raise";
+      what: string;
+    };
+
+/** `operator_orders` (`GET /operator/orders`), and the answer to confirming or removing one: the orders in force now. */
+export type OperatorOrders = {
+  orders: {
+    id: number;
+    form: OperatorOrderForm;
+    said: string;
+    until?: string;
+    at: string;
+  }[];
+};
+
+/** `confirm_operator_order` (`POST /operator/orders`): only his press. 422 `fleet.operator_off`, `fleet.operator_order_not_a_form`. */
+export type ConfirmOperatorOrder = {
+  form: OperatorOrderForm;
+};
+
+/** `remove_operator_order` (`POST /operator/orders/remove`): one press. 422 `fleet.operator_order_unknown`. */
+export type RemoveOperatorOrder = {
+  id: number;
+};
+
+/**
+ * `talk_to_operator` (`POST /operator/talk`): one message in the box. A fresh call with no tools answers it. 422
+ * `fleet.operator_off`, `fleet.operator_ceiling`, `fleet.operator_said_nothing`. Answers `OperatorSaid`.
+ */
+export type TalkToOperator = {
+  words: string;
+};
+
+/** What the Operator said back. `order` stands only once he confirms it, and `forms` lists them where his words fit none. */
+export type OperatorSaid = {
+  said: string;
+  cites?: {
+    arrival: string;
+    session_id: string;
+    subject: string;
+    outcome: string;
+    because: string;
+    at: string;
+  }[];
+  job?: string;
+  started?: string;
+  order?: {
+    form: OperatorOrderForm;
+    said: string;
+  };
+  forms?: string[];
+};
+
+/** `operator_talk` (`GET /operator/talk`): the last twenty messages, oldest first. */
+export type OperatorTalk = {
+  lines: {
+    from_person: boolean;
+    text: string;
+    at: string;
+  }[];
+};
+
 /**
  * `free_slot` (`POST /sessions/slot_choice/free`): the person gives back the slot a waiting Job's call lists, to that
  * Job. `session_id` is the waiting Job and `item_id` its `slot_choice` item (`slot-choice`). Only a press: Fleet never

@@ -48,23 +48,41 @@ impl Arrived {
         }
     }
 
+    /// Every kind there is.
+    pub(super) const EVERY: [Arrived; 11] = [
+        Arrived::Start,
+        Arrived::Question,
+        Arrived::Card,
+        Arrived::Stopped,
+        Arrived::Red,
+        Arrived::Plan,
+        Arrived::Report,
+        Arrived::Issue,
+        Arrived::RedMain,
+        Arrived::Review,
+        Arrived::Later,
+    ];
+
     /// What a word from the store names.
     pub(super) fn from_word(word: &str) -> Option<Arrived> {
-        [
-            Arrived::Start,
-            Arrived::Question,
-            Arrived::Card,
-            Arrived::Stopped,
-            Arrived::Red,
-            Arrived::Plan,
-            Arrived::Report,
-            Arrived::Issue,
-            Arrived::RedMain,
-            Arrived::Review,
-            Arrived::Later,
-        ]
-        .into_iter()
-        .find(|arrived| arrived.word() == word)
+        Arrived::EVERY.into_iter().find(|arrived| arrived.word() == word)
+    }
+
+    /// What a standing order calls this kind of thing.
+    pub(super) fn named(self) -> &'static str {
+        match self {
+            Arrived::Start => "Job starts",
+            Arrived::Question => "questions",
+            Arrived::Card => "permission cards",
+            Arrived::Stopped => "stopped Jobs",
+            Arrived::Red => "red pull requests",
+            Arrived::Plan => "plans",
+            Arrived::Report => "bug reports",
+            Arrived::Issue => "new issues",
+            Arrived::RedMain => "red mains",
+            Arrived::Review => "review requests",
+            Arrived::Later => "Later items",
+        }
     }
 
     /// A Job gone quiet with work left, which is nudged, started anew or raised.
