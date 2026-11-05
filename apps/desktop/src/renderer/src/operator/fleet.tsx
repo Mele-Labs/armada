@@ -51,6 +51,13 @@ const SOURCE_TAG: Partial<Readonly<Record<WaitingItem["source"], string>>> = {
 
 const OPEN_JOB = "Open Job";
 
+const ROLE_KEY: Readonly<Record<OperatorRole, string>> = {
+  dispatch: "features.operatorDispatch",
+  delegate: "features.operatorDelegate",
+  answer: "features.operatorAnswer",
+  file: "features.operatorFile",
+};
+
 const turnOf = (item: OperatorBoardItem): OperatorTurn => ({
   id: item.id,
   text: item.title,
@@ -151,13 +158,13 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
     said: [],
     settled: [],
   });
-  const switched = useSetting("operator");
-  const dispatch = useSetting("operator-dispatch");
-  const delegate = useSetting("operator-delegate");
-  const answer = useSetting("operator-answer");
-  const file = useSetting("operator-file");
-  const ceiling = useSetting("operator-daily-call-ceiling");
-  const model = useSetting("operator-model");
+  const switched = useSetting("features.operator");
+  const dispatch = useSetting("features.operatorDispatch");
+  const delegate = useSetting("features.operatorDelegate");
+  const answer = useSetting("features.operatorAnswer");
+  const file = useSetting("features.operatorFile");
+  const ceiling = useSetting("limits.operatorDailyCalls");
+  const model = useSetting("models.operator");
 
   useEffect(() => {
     const source = stateOf(window.armada);
@@ -226,7 +233,7 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
       ...kept.said,
     ].sort((a, b) => (a.at ?? "").localeCompare(b.at ?? ""));
     return {
-      on: board?.on ?? switched === "on",
+      on: board?.on ?? switched === true,
       positions: {
         dispatch: positionOf(dispatch),
         delegate: positionOf(delegate),
@@ -383,16 +390,16 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
           return;
         }
         case "on":
-          void saveSetting("operator", one.on ? "on" : "off");
+          void saveSetting("features.operator", one.on);
           return;
         case "position":
-          void saveSetting(`operator-${one.role satisfies OperatorRole}`, one.position);
+          void saveSetting(ROLE_KEY[one.role], one.position);
           return;
         case "ceiling":
-          void saveSetting("operator-daily-call-ceiling", String(one.calls));
+          void saveSetting("limits.operatorDailyCalls", one.calls);
           return;
         case "model":
-          void saveSetting("operator-model", one.model);
+          void saveSetting("models.operator", one.model);
           return;
         default:
           // The mock's own acts (Waiting to start, the Log, standing orders) have no Fleet route from this page yet.
