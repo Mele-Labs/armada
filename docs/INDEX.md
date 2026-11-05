@@ -343,6 +343,9 @@ approximations.
 - [`spikes/test-map-seed.md`](spikes/test-map-seed.md)
   — what a fresh test map costs to seed and how far it narrows a change: a 1 h 54 min job on the CI
   runner, 4261 laps, a median commit reaching 448 of them, and what was not timed.
+- [`spikes/ci-test-compile.md`](spikes/ci-test-compile.md)
+  — where a CI test shard's compile goes: 278 s, 212 of it `fleet`'s test harness, so neither sccache
+  nor a nextest archive shortens a landing; `test_compile` never restored `main`'s cache.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 
