@@ -40,6 +40,7 @@ fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
             gives: Some("The page itself.".to_string()),
             lands_in: Some("PR 2".to_string()),
             own_job: false,
+            seen: false,
             agent: "rust-engineer".to_string(),
             title: "Store".to_string(),
             paths: vec!["crates/store".to_string(), "docs".to_string()],

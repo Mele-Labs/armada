@@ -7,6 +7,9 @@ The row stays live in the list and carries `hosted.paused` (`at`, `resuming`).
 It is not a state: `state` is `live` and `hosted.turn` is `idle`.
 The ledger's `slot` row is given back and its `branch` row stays, since the Job still owns the branch.
 It is the Job pause (`job.md`, *Pausing a Job*) for a Job, and it reuses the same park.
+**A Job that holds no slot is paused too.**
+It has nothing to park, so only the slot steps are skipped: its Checks and turn are stopped, a wait in the line is called off, its watches wait, and the marker is kept.
+A resume then leases a fresh slot and carries on as for any pause.
 
 **A resume takes a slot at the branch tip.** `resume_session` (`POST /sessions/resume`) leases the branch into a free slot and clears the marker.
 It is the person's press alone: `agent_access` is `No`, so Helm cannot call it.
@@ -29,7 +32,7 @@ A watch's give-up time still runs while it waits.
 
 | Refused | Code |
 |---|---|
-| Ended, a Helm, or holding no slot | 409 `fleet.session_not_pausable` |
+| Ended or a Helm | 409 `fleet.session_not_pausable` |
 | Paused already | 409 `fleet.session_already_paused` |
 | Not paused (resume) | 409 `fleet.session_not_paused` |
 | The pool or git will not park the work or seat the branch | 409 `fleet.session_pause_refused` |

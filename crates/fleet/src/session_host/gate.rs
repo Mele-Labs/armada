@@ -405,9 +405,11 @@ where
     pub(super) async fn line_joined(&self, manifest: &str, id: &str) -> usize {
         let queue = self.hosts().slot_queue();
         let since = self.instant();
-        let (ahead, placed) = queue.join(manifest, id, &since);
+        let (mut ahead, placed) = queue.join(manifest, id, &since);
         if let Some(place) = placed {
             self.line_kept(manifest, id, place, &since).await;
+            self.ruled_place_taken(manifest, id).await;
+            ahead = queue.ahead_of(manifest, id);
             self.slot_wait_began(id, "line").await;
             let _ = self.published_hosted(id).await;
         }
@@ -469,7 +471,8 @@ where
                 return Taken::Refused(format!("A slot could not be leased for this write: {why}"))
             }
         };
-        let was_paused = parked_on.is_some();
+        // A pause with no slot kept no branch, so the lease above was a fresh one but the Job was paused all the same.
+        let was_paused = hosting.paused_at.is_some();
         hosting.paused_at = None;
         hosting.paused_resuming = false;
         hosting.lease_slot = Some(slot);

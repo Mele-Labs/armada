@@ -199,6 +199,7 @@ where
         caller: Option<api::Caller>,
         record: RecordPlan,
         seen: bool,
+        groups_seen: &[bool],
     ) -> Result<SessionRecord, Refusal> {
         let mut checked = record.checked().map_err(|why| self.hosted_refusal(PLAN_REFUSED, &why))?;
         let id = caller
@@ -244,11 +245,18 @@ where
             .collect();
         name_the_tickets(&mut checked.groups, &tickets);
         let now = self.now().as_str().to_string();
-        let kept = recorded(before.as_ref(), &checked.groups, sketch, checked.walk, seen, checked.summary, &now);
+        let mut kept = recorded(before.as_ref(), &checked.groups, sketch, checked.walk, seen, checked.summary, &now);
+        // A group the person would see makes a plan he would see.
+        for (group, seen) in kept.groups.iter_mut().zip(groups_seen) {
+            group.seen = *seen;
+        }
+        kept.seen |= kept.groups.iter().any(|group| group.seen);
         let version = kept.version;
         self.store().lock().await.keep_session_plan(&id, &kept).map_err(|why| self.ledger_fault(why))?;
         self.plan_handed(&id, before.as_ref(), &kept).await;
-        if let Some(since) = self.plan_stands_since(&id).await {
+        // A version after one he approved comes once the plan step is passed: it is his to approve again.
+        let late = before.as_ref().is_some_and(|one| one.approved_at.is_some());
+        if let Some(since) = self.plan_stands_since(&id, late).await {
             self.store().lock().await.approve_session_plan(&id, version, &since).map_err(|why| self.ledger_fault(why))?;
         }
         // The issues the groups work, held as the person's tags are: a second recording is a no-op.
@@ -275,8 +283,13 @@ where
     }
 
     /// When a plan recorded now counts as approved, where it stands with no card. `None` where he is asked.
-    async fn plan_stands_since(&self, id: &str) -> Option<String> {
+    /// **A `late` one**, recorded after he approved a version, stands only where its step never asks: what
+    /// the step listed was approved for the plan before it (owner, 4 Nov 2026).
+    async fn plan_stands_since(&self, id: &str, late: bool) -> Option<String> {
         let steps = self.plan_steps(id).await?;
+        if late && !steps.iter().find(|step| step.records_plan).is_some_and(|step| step.plan_unasked) {
+            return None;
+        }
         let store = self.store().lock().await;
         let session = store.session(id).ok().flatten()?;
         let extra = rail_read(&store, &session, true).ok()?.extra;

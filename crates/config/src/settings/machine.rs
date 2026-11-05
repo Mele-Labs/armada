@@ -17,6 +17,8 @@ pub const DISPUTE_REVIEWS: Flag = Flag("features.disputeReviews");
 pub const OPERATOR: Flag = Flag("features.operator");
 /// The Operator's Dispatch role: whether Fleet does what it rules on work arriving, or only logs it.
 pub const OPERATOR_DISPATCH: Flag = Flag("features.operatorDispatch");
+/// The Operator's Answer role: whether Fleet settles the questions and cards it answers, or only logs it.
+pub const OPERATOR_ANSWER: Flag = Flag("features.operatorAnswer");
 /// Read by Bridge alone: whether a job needing the owner posts a macOS notification.
 pub const NOTIFICATIONS: Flag = Flag("features.notifications");
 /// Read by Bridge alone: whether moves and presses make their quiet sound.
@@ -160,7 +162,7 @@ pub(super) const FEATURES: &[Entry] = &[
         key: OPERATOR.0,
         section: Section::Features,
         title: "Operator",
-        description: "The Operator rules on the work that arrives and keeps a Log of it. Off, nothing is handed to it, it makes no calls, and every start and plan goes on as it did before the Operator.",
+        description: "The Operator rules on the work that arrives and keeps a Log of it. Off, nothing is handed to it, it makes no calls, and every start, plan and quiet Job goes on as it did before the Operator.",
         kind: Kind::Boolean,
         shipped: Shipped::Boolean(false),
         applies: Applies::Live,
@@ -173,11 +175,24 @@ pub(super) const FEATURES: &[Entry] = &[
         key: OPERATOR_DISPATCH.0,
         section: Section::Features,
         title: "Operator dispatches",
-        description: "Fleet does what the Operator rules on work arriving: a Job it hands to another, merges or keeps in touch. Off, each ruling is only in its Log.",
+        description: "Fleet does what the Operator rules: a Job it hands to another, merges or keeps in touch, and a quiet Job it nudges, starts the rest of or raises. Off, each ruling is only in its Log.",
         kind: Kind::Boolean,
         shipped: Shipped::Boolean(false),
         applies: Applies::Live,
         row: Some("operator-dispatch"),
+        env: None,
+        tip: None,
+    },
+    // On as it ships, by the replay of 4 Nov: it settles only what Fleet's rules let it answer.
+    Entry {
+        key: OPERATOR_ANSWER.0,
+        section: Section::Features,
+        title: "Operator answers",
+        description: "Fleet settles the questions and permission cards the Operator answers, as your press would, and says so in the job. A question on work you would see waits for you. Off, each answer is only in its Log.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(true),
+        applies: Applies::Live,
+        row: Some("operator-answer"),
         env: None,
         tip: None,
     },

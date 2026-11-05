@@ -263,11 +263,27 @@ where
         self: Arc<Self>,
         said: ipc::AnswerWaiting,
     ) -> Result<SessionRecord, Refusal> {
-        self.settle_waiting(said).await
+        let answer = self.person_answer_of(&said).await;
+        let settled = Arc::clone(&self).settle_waiting(said).await?;
+        if let Some(row) = answer {
+            self.person_answer_kept(row).await;
+        }
+        Ok(settled)
     }
 
     async fn free_slot(self: Arc<Self>, free: ipc::FreeSlot) -> Result<SessionRecord, Refusal> {
         self.slot_freed_for(free).await
+    }
+
+    async fn move_in_line(self: Arc<Self>, moved: ipc::MoveInLine) -> Result<SessionRecord, Refusal> {
+        let place = match moved.place {
+            ipc::LinePlace::Ahead { session_id } => crate::operator::Place::Ahead(session_id.as_str().to_string()),
+            ipc::LinePlace::Behind { session_id } => crate::operator::Place::Behind(session_id.as_str().to_string()),
+            ipc::LinePlace::Last => crate::operator::Place::Last,
+        };
+        let id = moved.session_id.as_str();
+        self.line_corrected(id, place).await?;
+        self.published_hosted(id).await
     }
 
     async fn dismiss_waiting(
@@ -433,7 +449,7 @@ where
         self.session_paused(asked).await
     }
 
-    async fn set_session_auto_land(&self, asked: ipc::SetSessionAutoLand) -> Result<SessionRecord, Refusal> {
+    async fn set_session_auto_land(self: Arc<Self>, asked: ipc::SetSessionAutoLand) -> Result<SessionRecord, Refusal> {
         self.session_auto_land_set(asked).await
     }
 

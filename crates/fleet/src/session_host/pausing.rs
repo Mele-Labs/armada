@@ -77,25 +77,24 @@ where
             self.line_left(&id).await;
             return self.published_hosted(&id).await;
         }
-        let Some(slot) = hosting.lease_slot else {
-            return Err(self.conflict(SESSION_NOT_PAUSABLE, format!("job {id} holds no slot, so there is nothing to park")));
-        };
         let served = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)))?;
         let pool = pool_of(&served);
         // Asked before the turn is ended: a slot another holds, or one gone, changes nothing.
-        let standing = {
-            let (vcs, pool, id) = (Arc::clone(self.vcs()), pool.clone(), id.clone());
-            tokio::task::spawn_blocking(move || vcs.slot_standing(&pool, slot, &id))
-                .await
-                .expect("git panicked reading a slot")
-        };
-        match standing {
-            SlotStanding::Held => {}
-            SlotStanding::HeldBy(now) => {
-                return Err(self.conflict(SESSION_PAUSE_REFUSED, format!("slot {slot} is held by {now}")))
-            }
-            SlotStanding::Free | SlotStanding::Gone => {
-                return Err(self.conflict(SESSION_PAUSE_REFUSED, format!("slot {slot} is not leased to the job")))
+        if let Some(slot) = hosting.lease_slot {
+            let standing = {
+                let (vcs, pool, id) = (Arc::clone(self.vcs()), pool.clone(), id.clone());
+                tokio::task::spawn_blocking(move || vcs.slot_standing(&pool, slot, &id))
+                    .await
+                    .expect("git panicked reading a slot")
+            };
+            match standing {
+                SlotStanding::Held => {}
+                SlotStanding::HeldBy(now) => {
+                    return Err(self.conflict(SESSION_PAUSE_REFUSED, format!("slot {slot} is held by {now}")))
+                }
+                SlotStanding::Free | SlotStanding::Gone => {
+                    return Err(self.conflict(SESSION_PAUSE_REFUSED, format!("slot {slot} is not leased to the job")))
+                }
             }
         }
         let runtime = self.hosts().of(&id);
@@ -103,6 +102,16 @@ where
         // Before the turn is ended and the slot parked: a Check left running would run on under the next holder.
         self.session_checks_stopped(&id).await;
         self.stop_session(StopSession { session_id: asked.session_id.clone() }).await?;
+        // A Job with no slot has nothing to park, but its work still halts, and a wait in the line is called off.
+        let Some(slot) = hosting.lease_slot else {
+            hosting.paused_at = Some(self.now().as_str().to_string());
+            hosting.paused_resuming = false;
+            self.store().lock().await.keep_hosting(&hosting).map_err(|why| self.ledger_fault(why))?;
+            self.line_left(&id).await;
+            self.watches_paused(&id).await;
+            self.writes().left(&crate::clashing::Who::Session(id.clone()));
+            return self.published_hosted(&id).await;
+        };
         self.stopped_servers_in(&adapter_traits::slot_path(served.root(), slot)).await;
         let parked = {
             let (vcs, pool, id) = (Arc::clone(self.vcs()), pool.clone(), id.clone());

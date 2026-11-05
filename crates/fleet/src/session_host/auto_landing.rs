@@ -39,12 +39,31 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// `set_session_auto_land`. **Refused, nothing changed**, for a terminal Job (whose pull requests
-    /// are not Fleet's to land) and an ended one. Otherwise the flag is kept and published, and
-    /// then each open pull request is asked; the forge's refusals come back after, as one.
+    /// are not Fleet's to land) and an ended one. Otherwise the flag is kept and published and the
+    /// reply goes; **each open pull request is asked after it**, in a task of its own, because a
+    /// Job holding five asks the forge some twenty-five times and Bridge stops waiting at twenty
+    /// seconds. The forge's refusals reach the Job as one `auto_land_refused` notice.
     pub(crate) async fn session_auto_land_set(
-        &self,
+        self: &Arc<Self>,
         asked: SetSessionAutoLand,
     ) -> Result<SessionRecord, Refusal> {
+        self.auto_land_answered(asked).await.map(|(record, _asking)| record)
+    }
+
+    /// [`Self::session_auto_land_set`], with the task asking the forge, for a caller that waits on it.
+    pub(crate) async fn auto_land_answered(
+        self: &Arc<Self>,
+        asked: SetSessionAutoLand,
+    ) -> Result<(SessionRecord, tokio::task::JoinHandle<()>), Refusal> {
+        let (record, manifest) = self.auto_land_flag_set(&asked).await?;
+        let (fleet, id) = (Arc::clone(self), asked.id.as_str().to_string());
+        let asking = tokio::spawn(async move { fleet.auto_land_asked_of_forge(&id, &manifest, asked.on).await });
+        Ok((record, asking))
+    }
+
+    /// The flag alone, kept and published, with the Manifest its pull requests are in. What a
+    /// delivery named in the first message takes, before any pull request exists.
+    pub(crate) async fn auto_land_flag_set(&self, asked: &SetSessionAutoLand) -> Result<(SessionRecord, String), Refusal> {
         let id = asked.id.as_str().to_string();
         if self.terminal_session(&id).await?.is_some() {
             return Err(self.hosted_refusal(
@@ -61,28 +80,33 @@ where
         }
         hosting.auto_land = asked.on;
         self.store().lock().await.keep_hosting(&hosting).map_err(|why| self.ledger_fault(why))?;
+        let record = self.published_hosted(&id).await?;
+        Ok((record, hosting.manifest_id))
+    }
 
-        let manifest = ManifestId::carried(&hosting.manifest_id);
-        let numbers = self.open_pulls_of(&id, &hosting.manifest_id).await;
+    /// Each open pull request asked to follow the flag, after the reply. **Stops where the flag has
+    /// changed since**, so an off pressed straight after an on is not undone by the on's asks.
+    pub(crate) async fn auto_land_asked_of_forge(self: &Arc<Self>, id: &str, manifest: &str, on: bool) {
+        let manifest_id = ManifestId::carried(manifest);
         let mut refused = Vec::new();
-        for number in numbers {
-            let done = match asked.on {
-                true => self.auto_merge_asked_for(&manifest, number, None).await.map(|_| ()),
-                false => self.auto_merge_withdrawn(&manifest, number).await,
+        for number in self.open_pulls_of(id, manifest).await {
+            if self.auto_land_on(id).await != on {
+                return;
+            }
+            let done = match on {
+                true => self.auto_merge_asked_for(&manifest_id, number, None).await.map(|_| ()),
+                false => self.auto_merge_withdrawn(&manifest_id, number).await,
             };
             if let Err(refusal) = done {
-                refused.push(refusal);
+                refused.push(format!("#{number}: {}", refusal.error().message));
             }
         }
-        let record = self.published_hosted(&id).await?;
-        match refused.len() {
-            0 => Ok(record),
-            1 => Err(refused.remove(0)),
-            _ => Err(Refusal::IllegalMove(self.pr_refusal(
-                AUTO_MERGE_REFUSED,
-                refused.iter().map(|one| one.error().message.as_str()).collect::<Vec<_>>().join("; "),
-            ))),
+        if refused.is_empty() {
+            return;
         }
+        let (state, verb) = if on { ("on", "turn on") } else { ("off", "turn off") };
+        let text = format!("Auto land is {state}, and the forge would not {verb} auto-merge for {}", refused.join("; "));
+        let _ = self.told_by_fleet(id, &text, ipc::Notice::AutoLandRefused).await;
     }
 
     /// The numbers of the pull requests a Session holds standing, in one repository.
@@ -103,7 +127,7 @@ where
     /// `head` is the commit where the caller has read it, else the forge is asked.
     pub(crate) async fn auto_merge_asked_for(&self, manifest: &ManifestId, number: u64, head: Option<&str>) -> Result<Option<Blocker>, Refusal> {
         let served = self.served_named(Some(manifest))?;
-        let before = self.pull_request_read(manifest, served.root(), number)?;
+        let before = self.pull_request_read_off(manifest, served.root(), number).await?;
         if matches!(before.state, PullRequestStanding::Merged | PullRequestStanding::Closed) {
             self.ledger_follows(&before).await;
             return Ok(None);
@@ -130,16 +154,16 @@ where
     async fn auto_merge_withdrawn(&self, manifest: &ManifestId, number: u64) -> Result<(), Refusal> {
         let served = self.served_named(Some(manifest))?;
         let root = served.root();
-        let before = self.pull_request_read(manifest, root, number)?;
+        let before = self.pull_request_read_off(manifest, root, number).await?;
         if before.state != PullRequestStanding::Open || !(before.auto_merge || before.queued) {
             self.ledger_follows(&before).await;
             return Ok(());
         }
-        self.vcs()
-            .disable_auto_merge(root, &number.to_string())
+        self.forge_asked(root, move |vcs: &V, root: &str| vcs.disable_auto_merge(root, &number.to_string()))
+            .await
             .map_err(|said| Refusal::IllegalMove(self.pr_refusal(AUTO_MERGE_REFUSED, said)))?;
         let after = ipc::PullRequestState { auto_merge: false, ..before };
-        let state = self.pull_request_read(manifest, root, number).unwrap_or(after);
+        let state = self.pull_request_read_off(manifest, root, number).await.unwrap_or(after);
         self.ledger_follows(&state).await;
         Ok(())
     }

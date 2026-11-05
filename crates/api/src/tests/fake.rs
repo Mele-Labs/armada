@@ -66,6 +66,8 @@ pub struct FakeDaemon {
     pub session_row: Mutex<Option<ipc::SessionRecord>>,
     /// The `seen` each `record_plan` was handed, for a test to read after the router has the daemon.
     pub plans_seen: std::sync::Arc<Mutex<Vec<bool>>>,
+    /// Each group's `seen` each `record_plan` was handed, in the plan's order.
+    pub groups_seen: std::sync::Arc<Mutex<Vec<Vec<bool>>>>,
     /// What `list_servers` answers with, narrowed by Manifest. Set by a test.
     pub servers: Mutex<Vec<ipc::ServerState>>,
     /// When set, every call answers with a fault. The stream closing on a
@@ -127,6 +129,7 @@ impl FakeDaemon {
         FakeDaemon {
             session_row: Mutex::new(None),
             plans_seen: Default::default(),
+            groups_seen: Default::default(),
             servers: Mutex::new(Vec::new()),
             mute: Mutex::new(false),
             land: Mutex::new(None),

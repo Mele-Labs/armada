@@ -1,13 +1,14 @@
-// The Usage page over Fleet: the summary, and where the time went, read when Fleet is connected and again each minute, the
-// titles Bridge already holds for Jobs, and the plan's weekly window from the plan's own reading. The page draws what it is
-// handed and leaves empty what it is not.
+// The Usage page over Fleet: the summary, what it was spent on, and where the time went, read when Fleet is connected and
+// again each minute, the titles Bridge already holds for Jobs, and the plan's weekly window from the plan's own reading. The
+// page draws what it is handed and leaves empty what it is not.
 
 import { useEffect, useMemo, useState } from "react";
 import { UsagePage } from "@armada/components";
-import type { UsageRules, UsageSummary } from "@armada/protocol";
+import type { UsageRules, UsageSpentUnits, UsageSummary } from "@armada/protocol";
 
 import type { BridgeState } from "../../shared/bridge";
 import { usePlanUsage } from "./plan-usage";
+import { spentOf, useSpent } from "./usage-spent-source";
 import { useTimeReads } from "./usage-time-reads";
 
 const EVERY_MS = 60_000;
@@ -24,6 +25,7 @@ export function titlesOf(sessions: BridgeState["sessions"]): ReadonlyMap<string,
 export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" | "sessions"> }) {
   const [summary, setSummary] = useState<UsageSummary | undefined>(undefined);
   const [rules, setRules] = useState<UsageRules | undefined>(undefined);
+  const [spentWire, setSpentWire] = useState<UsageSpentUnits | undefined>(undefined);
   const connected = state.connection.state === "connected";
   const { time, builds, hours, read: readTime, pick } = useTimeReads();
   useEffect(() => {
@@ -35,6 +37,9 @@ export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" 
       });
       void window.armada.getUsageRules().then((answer) => {
         if (live && answer.ok) setRules(answer.value);
+      });
+      void window.armada.getUsageSpent().then((answer) => {
+        if (live && answer.ok) setSpentWire(answer.value);
       });
       readTime();
     };
@@ -54,6 +59,15 @@ export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" 
       state.sessions,
     ],
   );
+  const standIn = useSpent();
+  const spent = useMemo(
+    () => standIn ?? (spentWire === undefined ? undefined : spentOf(spentWire, titles)),
+    [
+      standIn,
+      spentWire,
+      titles,
+    ],
+  );
   const planPercent = usePlanUsage()?.find((one) => one.kind === "seven_day")?.percentUsed;
   return (
     <UsagePage
@@ -64,6 +78,7 @@ export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" 
       time={time}
       builds={builds}
       hours={hours}
+      spent={spent}
       onBuild={pick}
     />
   );

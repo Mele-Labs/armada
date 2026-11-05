@@ -1,6 +1,7 @@
 // What a window of turns cost, summed for the Usage page, mirrored by hand from
 // `crates/ipc/src/usage_summary.rs`. Burn is in cost
-// units: input 1, cache-creation 1.25, cache-read 0.1, output 5, divided by a million. Names and
+// units: input 1, a cache write held 5 minutes 1.25 and one held an hour 2, cache-read 0.1, output 5,
+// times the model's weight (Haiku 1, Sonnet 3, Opus and Fable 5), divided by a million. Names and
 // counts only.
 
 /** Units under a name: a model, a tool or a `bash_use` label. */
@@ -9,10 +10,11 @@ export type NamedUnits = {
   units: number;
 };
 
-/** The four token kinds, in units. */
+/** The token kinds, in units: `cache_creation` is the writes held 5 minutes, `cache_creation_1h` those held an hour. */
 export type TokenUnits = {
   input: number;
   cache_creation: number;
+  cache_creation_1h: number;
   cache_read: number;
   output: number;
 };

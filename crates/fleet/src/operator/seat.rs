@@ -1,6 +1,7 @@
 //! The Operator as a running Fleet holds it: the one seated at start, the ruling each start's
-//! first write may wait on, and the Jobs kept in touch that moved since the last tick. In memory:
-//! a start ruled before a restart is in the Log, and its Job's first write no longer waits.
+//! first write may wait on, the place each start takes as it joins Waiting to start, and the Jobs
+//! kept in touch that moved since the last tick. In memory: a start ruled before a restart is in
+//! the Log, its Job's first write no longer waits, and it joins the line last.
 
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -8,7 +9,7 @@ use std::time::Duration;
 
 use tokio::sync::watch;
 
-use super::{held, Arrival, KeptStarted, Operator, Ruled, Way};
+use super::{held, Arrival, KeptStarted, Operator, Place, Ruled, Way};
 
 /// What a Job kept in touch with another did, which that other is told of.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -27,6 +28,11 @@ pub(crate) struct Seat {
     kept: OnceLock<Arc<KeptStarted>>,
     starts: Arc<Mutex<HashMap<String, StartRuling>>>,
     moved: Mutex<BTreeMap<String, Moved>>,
+    /// The Jobs a read found gone quiet, and those a call is out on.
+    pub(super) stalls: super::Stalls,
+    places: Mutex<HashMap<String, Place>>,
+    /// The questions and cards a read found waiting, and those a call is out on.
+    pub(super) questions: super::answering::Questions,
 }
 
 impl Seat {
@@ -35,7 +41,7 @@ impl Seat {
         self.operator.set(operator).is_ok()
     }
 
-    fn operator(&self) -> Option<Arc<Operator>> {
+    pub(super) fn operator(&self) -> Option<Arc<Operator>> {
         self.operator.get().cloned()
     }
 
@@ -85,6 +91,16 @@ impl Seat {
         let mut moved = held(&self.moved);
         let was = moved.get(session).copied();
         moved.insert(session.to_string(), if was == Some(Moved::Pushed) { Moved::Pushed } else { how });
+    }
+
+    /// Keep the place `session` takes when it joins Waiting to start.
+    pub(crate) fn place(&self, session: &str, place: Place) {
+        held(&self.places).insert(session.to_string(), place);
+    }
+
+    /// The place `session` was ruled, taken.
+    pub(crate) fn take_place(&self, session: &str) -> Option<Place> {
+        held(&self.places).remove(session)
     }
 
     /// Every move owed word, taken.

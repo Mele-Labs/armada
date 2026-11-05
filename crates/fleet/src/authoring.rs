@@ -97,6 +97,8 @@ where
             &served.workspaces(),
         );
         served.catalogued(self.lifecycle_ends_checked(served.manifest().id().as_str(), read));
+        // Bridge reads its workflow pickers again on the list, so a workflow saved to the Kit or a repository is offered at once.
+        self.events().publish(ipc::Event::RepositoriesChanged(self.repository_list()));
     }
 
     fn not_saved(&self, why: WorkflowNotSaved) -> Refusal {

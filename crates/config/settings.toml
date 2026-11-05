@@ -1044,6 +1044,25 @@ Off as it ships, by the design page *Helm becomes the Operator*, which the owner
 Live: read again at every act, so a call already out when it is turned off acts on nothing.
 """
 
+[settings.operator-answer]
+name = "Operator answers"
+scope = "Machine"
+default = "on"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+Chosen 4 Nov 2026: On as it ships, by the design page *Helm becomes the Operator*, which the owner approved on 4 Nov 2026, whose *What you control* gives each role its own position. The replay of 4 Nov set the starting positions, and Answer starts On. It does nothing while `operator` is Off.
+
+**Fleet's rules decide first and only narrow.** A question from a Job on a plan group the person would see, or from a Job with no plan, is raised with no call; a card that runs a command is his while he is here; a card is only ever answered Allow once. A second Job asking what he already answered for a first is offered his answer, naming the first. While Autopilot runs for a Job he is away: its checked kinds widen what may be answered, and what was already waiting on him when it started is offered once more.
+
+**On, Fleet settles each answer** as his press would, and the Job's thread says what was answered and why. **Off, nothing is settled:** each question and card is still ruled, and the ruling is kept in the Operator's Log with the answer it would have given, as Dispatch Off keeps a start; Autopilot answers them as it did before the Operator.
+
+Live: read again at every act, so a call already out when it is turned off settles nothing.
+"""
+
 [settings.plan-downshift-line]
 name = "Plan downshift line"
 scope = "Machine"
@@ -1114,7 +1133,7 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
-Chosen 18 Oct 2026, not measured: subagents running more than half of a Job's burn in the last 60 minutes, once their own burn in that hour passes 5 cost units (a cost unit is a million weighted tokens) and at least one subagent turn ran on an opus model. A small burn, or subagents already on sonnet or haiku, is told nothing whatever the share. The Job is told once, with the burn, to pass the cheaper model on reading agents. How many subagents ran at once is not stored, so there is no count condition. **Enforced**, `fleet::usage_rules`.
+Chosen 18 Oct 2026, not measured: subagents running more than half of a Job's burn in the last 60 minutes, once their own burn in that hour passes 25 cost units (a cost unit is a million tokens weighed by kind and by model, opus 5, so 25 is the 5 an opus burn passed before 4 Nov 2026) and at least one subagent turn ran on an opus model. A small burn, or subagents already on sonnet or haiku, is told nothing whatever the share. The Job is told once, with the burn, to pass the cheaper model on reading agents. How many subagents ran at once is not stored, so there is no count condition. **Enforced**, `fleet::usage_rules`.
 
 **The values live in settings.json under `limits.*Watch*`** (live), `docs/concepts/machine.md`, *settings.json*. Each rule has an on-off and a limit.
 """

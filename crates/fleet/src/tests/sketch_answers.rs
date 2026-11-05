@@ -302,3 +302,34 @@ fn a_job_holding_two_sketches_left_open_lists_only_the_newest() {
     let listed: Vec<String> = crate::session_host::sketching::sketch_items(&held, "job").map(|one| one.id).collect();
     assert_eq!(listed, ["sketch:Newer"]);
 }
+
+/// A sketch put to him, drawn as `drawn` says, and answered or taken back as `settled` says.
+fn asked(title: &str, drawn: &str, changed_at: &str, settled: Option<&str>) -> Attachment {
+    let closing = settled.map(|key| format!(r#","{key}":"x""#)).unwrap_or_default();
+    ipc::decode(
+        "an attachment",
+        format!(
+            r#"{{"kind":"artifact","target":"sketch:{title}","state":"standing","detail":{{"form":"sketch","title":"{title}","asked":"true","drawn":"{drawn}"{closing}}},"since":"{changed_at}","changed_at":"{changed_at}"}}"#
+        )
+        .as_bytes(),
+    )
+    .unwrap()
+}
+
+fn listed(held: &[Attachment]) -> Vec<String> {
+    crate::session_host::sketching::sketch_items(held, "job").map(|one| one.id).collect()
+}
+
+#[test]
+fn an_older_sketch_left_open_waits_on_nothing_once_the_newest_drawn_is_approved() {
+    let older = asked("Older", "abcd1234-20261104T120000000Z-1", "2026-11-04T12:00:00Z", None);
+    let newest = asked("Newest", "abcd1234-20261104T151426339Z-2", "2026-11-04T16:00:00Z", Some("settled"));
+    assert!(listed(&[older, newest]).is_empty());
+}
+
+#[test]
+fn the_newest_drawn_waits_even_when_an_older_open_one_was_changed_later() {
+    let older = asked("Older", "abcd1234-20261104T120000000Z-1", "2026-11-04T17:00:00Z", None);
+    let newest = asked("Newest", "abcd1234-20261104T151426339Z-2", "2026-11-04T15:14:26Z", None);
+    assert_eq!(listed(&[older, newest]), ["sketch:Newest"]);
+}

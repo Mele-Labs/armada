@@ -522,8 +522,31 @@ class Preview(unittest.TestCase):
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("said:", done.stderr)
 
+    def preview_refused_for_a_new_key(self, install):
+        self.branch("feat/a", {"a.txt": "a\n"})
+        refuse = os.path.join(self.stub, "refuse")
+        with open(refuse, "w") as f:
+            f.write("armada.yml was refused; `connectors` is not a key Armada reads.\n")
+        env = {**os.environ,
+               "ARMADA_LAND_ARMADA": os.path.join(self.stub, "armada"),
+               "ARMADA_PREVIEW_INSTALL": install.format(refuse=refuse),
+               "STUB_DIR": self.stub}
+        return subprocess.run([sys.executable, PREVIEW], cwd=self.repo,
+                              capture_output=True, text=True, env=env)
 
-RESTART = os.path.join(HERE, "scripts", "restart")
+    def test_an_armada_too_old_for_the_manifest_is_installed_again_and_the_preview_goes_on(self):
+        done = self.preview_refused_for_a_new_key("rm {refuse}")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("preview head:", done.stdout)
+
+    def test_an_armada_still_refusing_after_one_install_says_why(self):
+        done = self.preview_refused_for_a_new_key("true")
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("is not a key Armada reads", done.stderr)
+        self.assertEqual(done.stdout.count("installing it from the checkout"), 1)
+
+
+RESTART =os.path.join(HERE, "scripts", "restart")
 
 
 def roster_server(jobs, drones=None, drones_error=None, delay=0):

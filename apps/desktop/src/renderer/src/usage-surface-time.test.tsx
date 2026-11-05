@@ -63,6 +63,7 @@ const fleet = () => ({
     }),
   ),
   getUsageRules: vi.fn(async () => unanswered),
+  getUsageSpent: vi.fn(async () => unanswered),
   getUsageTime: vi.fn(async () => ({
     ok: true,
     value: wireTime(jobTimeNow(), now),
@@ -216,7 +217,11 @@ test("the mock scenario answers through the same path, and its builds each get t
     window as unknown as {
       armada: unknown;
     }
-  ).armada = scenario.behaves!({} as never);
+  ).armada = {
+    // What the mock's slices answer where the scenario says nothing.
+    getUsageSpent: async () => unanswered,
+    ...scenario.behaves!({} as never),
+  };
   const host = await mount();
 
   expect(
