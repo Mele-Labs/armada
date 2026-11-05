@@ -283,6 +283,7 @@ The job settles one with `settle_later`, and the person has two presses on its r
 | `settle_later` `done` | The job | Nothing |
 | `settle_later` `filed` | The job | The issue, a forge number or a tracker key |
 | `settle_later` `dropped` | The job | A reason in a sentence |
+| `settle_later` `handed` | The job, while the Operator is on | Nothing: the Operator links it to an open issue that covers it, or files it in the repository's beads |
 | Drop | The person | Nothing: the same call as `dropped`, placed by no connection |
 | Remind | The person | Nothing: messages the job to do it, file it or drop it |
 
