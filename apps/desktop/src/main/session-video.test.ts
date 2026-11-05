@@ -103,9 +103,9 @@ describe("what it answers", () => {
     ["open ended", "bytes=90-", 90, 99],
     ["suffix", "bytes=-5", 95, 99],
     ["past the end, cut to it", "bytes=90-500", 90, 99],
-    ["a suffix longer than the file", "bytes=-500", 0, 99],
+    ["suffix longer than the file", "bytes=-500", 0, 99],
     ["the last byte", "bytes=99-99", 99, 99],
-  ])("a %s range is 206 with exactly its bytes", async (_name, range, start, end) => {
+  ])("range %s is 206 with exactly its bytes", async (_name, range, start, end) => {
     const got = await answer("/work/run.mp4", range);
     expect(got.status).toBe(206);
     expect(got.body).toEqual({
@@ -125,7 +125,7 @@ describe("what it answers", () => {
     ["starting at the size", "bytes=100-"],
     ["starting past it", "bytes=500-600"],
     ["an empty suffix", "bytes=-0"],
-  ])("a range %s is 416, naming the size", async (_name, range) => {
+  ])("range %s is 416, naming the size", async (_name, range) => {
     sliced.mockClear();
     const got = await answer("/work/run.mp4", range);
     expect(got.status).toBe(416);
