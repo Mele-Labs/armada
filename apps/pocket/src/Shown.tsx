@@ -28,12 +28,22 @@ export function FileView({ origin, id, path }: { origin: string; id: string; pat
   useEffect(() => {
     if (machine === undefined) return;
     let gone = false;
+    // Held here and not read from `shown`, which this cleanup would see as it was when the effect ran.
+    let made: string | undefined;
     void (mediaKindOf(path) === "video" ? readShownMedia : readShown)(machine, id, path).then(
-      (read) => !gone && setShown(read),
+      (read) => {
+        const blob = read.kind === "image" ? read.url : undefined;
+        if (gone) {
+          if (blob !== undefined) URL.revokeObjectURL(blob);
+          return;
+        }
+        made = blob;
+        setShown(read);
+      },
     );
     return () => {
       gone = true;
-      if (shown?.kind === "image") URL.revokeObjectURL(shown.url);
+      if (made !== undefined) URL.revokeObjectURL(made);
     };
   }, [
     machine?.origin,
