@@ -927,7 +927,6 @@ function build(name: string, says: string, begin = 0, started = false): Scenario
         {
           definitions: STORE_DEFINITIONS,
           ends: STORE_ENDS,
-          nudges: [],
         },
       ),
       readManifestFile: manifesting().behaves?.(fleet).readManifestFile!,

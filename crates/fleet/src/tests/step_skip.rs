@@ -17,7 +17,7 @@ use super::workflow_off::{off, saved};
 use super::session_rail::{
     approved, approved_plan, at, delivers, follows, on_the_rail, plan_step, record, ruled_on, step, told, workflow,
 };
-use crate::rail::{self, Facts, RailStep, Skip, Skipped};
+use crate::rail::{self, Facts, RailStep, Skipped};
 use crate::session_host::step_skipping::open_since;
 
 // ---- The rules ----
@@ -65,15 +65,6 @@ fn nothing_skipped_reads_as_it_always_did() {
     assert!(!Skipped::default().has(0));
     assert!(Skipped::of(&[3]).has(3) && !Skipped::of(&[3]).has(2));
     assert!(!Skipped::of(&[64]).has(64), "past the bits, nothing is kept");
-}
-
-#[test]
-fn fleets_own_nudge_is_never_sent_for_a_step_the_person_skipped() {
-    let steps = [plan_step(), follows("Implement"), delivers("Hand off")];
-    assert_eq!(rail::skipped(&steps, &Facts { edited: true, ..Facts::default() }), [(0, Skip::Plan)], "the agent's own skip");
-    assert!(rail::skipped(&steps, &Facts { edited: true, ..skipping(&[0]) }).is_empty(), "the person's");
-    let pushed = Facts { pushed: true, tasks_open: true, skipped: Skipped::of(&[1]), ..approved() };
-    assert!(rail::skipped(&steps, &pushed).is_empty());
 }
 
 #[test]
@@ -192,8 +183,6 @@ async fn a_step_skipped_ahead_is_passed_over_when_the_job_reaches_it() {
 
     approved_plan(&rig, &id).await;
     assert_eq!(record(&rig, &id).await.workflow_step, Some(2), "approval goes past Implement to Hand off");
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    assert_eq!(told(&rig, "pushed while tasks were still open"), 0, "no nudge for a step the person skipped");
 }
 
 #[tokio::test]

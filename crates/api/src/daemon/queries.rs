@@ -241,7 +241,7 @@ pub trait Queries: Send + Sync + 'static {
     ) -> impl Future<Output = Result<ipc::WorkflowDefinition, Refusal>> + Send;
 
     /// `get_workflow_steps` — one definition step by step, for the Workflows page: each step's
-    /// words, what ends it, and the nudges that still count. `source` reads as on
+    /// words and what ends it. `source` reads as on
     /// [`Queries::get_workflow`].
     fn get_workflow_steps(
         &self,

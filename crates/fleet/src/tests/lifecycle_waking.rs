@@ -1,7 +1,6 @@
-//! The claim, written before the code: **a Job on a step that ends on `pr: approved` is told once to
-//! stop, raises no wait while it does, and is woken by one line when the pull request is approved,
-//! with the next step's words in the same message; the person writing on the step or skipping it
-//! moves the Job on without that line.** Through a Fleet, with the readers' own door
+//! The claim, written before the code: **a Job on a step that ends on `pr: approved` raises no wait
+//! while it does, and is woken by one line when the pull request is approved; the person writing on
+//! the step or skipping it moves the Job on without that line.** Through a Fleet, with the readers' own door
 //! (`lifecycle_seen`) and no forge, tracker or process reached. The owner approved the design on
 //! 29 Oct 2026.
 
@@ -57,6 +56,8 @@ async fn waiting() -> (Rig, SessionId) {
     rig.fleet.lifecycles_moved(record(&rig, &id).await).await;
     approved_plan(&rig, &id).await;
     eventually(|| async { record(&rig, &id).await.workflow_step == Some(1) }).await;
+    // What he writes counts from when the rail entered the step, so wait for that entry to be kept.
+    eventually(|| async { rig.fleet.store().lock().await.session_rail(id.as_str()).is_ok_and(|kept| kept.visits.iter().any(|(step, _)| *step == 1)) }).await;
     (rig, id)
 }
 
@@ -71,12 +72,8 @@ fn sent(rig: &Rig, containing: &str) -> String {
 }
 
 #[tokio::test]
-async fn a_job_waiting_on_an_approval_is_told_to_stop_and_woken_by_it_with_the_next_steps_words() {
+async fn a_job_waiting_on_an_approval_is_woken_by_it() {
     let (rig, id) = waiting().await;
-    eventually(|| async { told(&rig, "Answer the review.") == 1 }).await;
-    let said = sent(&rig, "Answer the review.");
-    assert!(said.contains("This step ends when every pr is approved, which Fleet watches for."), "{said}");
-    assert!(said.contains("End your turn now: Fleet wakes you with a message when it comes"), "{said}");
 
     seen(&rig, &id, ForgeFact::InReview).await;
     rig.stand_in.finishes(0, "Waiting for the review.");
@@ -86,7 +83,7 @@ async fn a_job_waiting_on_an_approval_is_told_to_stop_and_woken_by_it_with_the_n
     assert_eq!(waiting.workflow_step, Some(1), "a reading short of the state moves nothing");
     assert_eq!(waiting.workflow_waiting_on, ["Waiting on PR #812: Approved"], "the row says what the step waits on");
     assert!(waiting.waiting_for.is_empty(), "the world's to end: no wait for the person");
-    assert_eq!((told(&rig, "Fleet does not move it for you"), told(&rig, "Write the summary.")), (0, 0), "no nudge, no next step yet");
+    assert_eq!(told(&rig, "That ends"), 0, "no wake yet");
 
     seen(&rig, &id, ForgeFact::Approved).await;
     eventually(|| async { record(&rig, &id).await.workflow_step == Some(2) }).await;
@@ -94,9 +91,7 @@ async fn a_job_waiting_on_an_approval_is_told_to_stop_and_woken_by_it_with_the_n
     assert!(record(&rig, &id).await.workflow_waiting_on.is_empty(), "and says nothing once it is approved");
     let woken = sent(&rig, "That ends");
     assert!(woken.contains(WAKE), "{woken}");
-    assert!(woken.contains("Write the summary."), "the next step's words ride in the same message: {woken}");
-    assert!(woken.find(WAKE) < woken.find("Write the summary."), "what happened first: {woken}");
-    assert_eq!(told(&rig, "Write the summary."), 1, "once");
+    assert_eq!(told(&rig, "Write the summary."), 0, "the next step's words are not sent");
 
     rig.fleet.timeline().settled().await;
     assert!(rig.fleet.lifecycle_seen(id.as_str(), "pr", "812", Observed::Forge(ForgeFact::Approved)).await.is_none(), "a repeat moves nothing");
@@ -106,10 +101,8 @@ async fn a_job_waiting_on_an_approval_is_told_to_stop_and_woken_by_it_with_the_n
 #[tokio::test]
 async fn the_person_writing_on_the_step_moves_the_job_on_and_no_line_says_it_was_approved() {
     let (rig, id) = waiting().await;
-    eventually(|| async { told(&rig, "Answer the review.") == 1 }).await;
     rig.send(&id, "Go on without the review.").await;
     eventually(|| async { record(&rig, &id).await.workflow_step == Some(2) }).await;
-    eventually(|| async { told(&rig, "Write the summary.") == 1 }).await;
     rig.fleet.timeline().settled().await;
     assert_eq!(told(&rig, "That ends"), 0, "nothing got there");
 }
@@ -117,10 +110,8 @@ async fn the_person_writing_on_the_step_moves_the_job_on_and_no_line_says_it_was
 #[tokio::test]
 async fn skipping_the_step_moves_the_job_on_and_no_line_says_it_was_approved() {
     let (rig, id) = waiting().await;
-    eventually(|| async { told(&rig, "Answer the review.") == 1 }).await;
     Arc::clone(&rig.fleet).skip_session_step(SkipSessionStep { session_id: id.clone(), step: 1, skipped: true }).await.expect("skipped");
     eventually(|| async { record(&rig, &id).await.workflow_step == Some(2) }).await;
-    eventually(|| async { told(&rig, "Write the summary.") == 1 }).await;
     rig.fleet.timeline().settled().await;
     assert_eq!(told(&rig, "That ends"), 0);
 }
@@ -132,7 +123,6 @@ async fn a_job_that_holds_no_pull_request_is_not_on_the_step_until_it_does() {
     approved_plan(&rig, &id).await;
     rig.fleet.timeline().settled().await;
     assert_eq!(record(&rig, &id).await.workflow_step, Some(0), "plan approved, nothing to wait on: the rail holds where it was");
-    assert_eq!(told(&rig, "Answer the review."), 0);
 }
 
 /// A Job holding pull request 812, past its plan, and pushed: on Land.
@@ -152,9 +142,8 @@ async fn on_land() -> (Rig, SessionId) {
 const LIFTED: &str = "That lifts the wait on the \"Land\" step";
 
 #[tokio::test]
-async fn land_is_told_to_hold_the_merge_and_woken_once_to_land_when_the_pull_request_is_approved() {
+async fn land_is_woken_once_to_land_when_the_pull_request_is_approved() {
     let (rig, id) = on_land().await;
-    eventually(|| async { told(&rig, "Do not merge until every pr is approved.") == 1 }).await;
 
     seen(&rig, &id, ForgeFact::ReviewersOn).await;
     rig.fleet.timeline().settled().await;
@@ -177,7 +166,6 @@ async fn land_is_told_to_hold_the_merge_and_woken_once_to_land_when_the_pull_req
 #[tokio::test]
 async fn the_person_writing_on_land_lifts_the_wait_himself_and_no_line_follows() {
     let (rig, id) = on_land().await;
-    eventually(|| async { told(&rig, "Do not merge until every pr is approved.") == 1 }).await;
     rig.send(&id, "Merge it when you are ready.").await;
     seen(&rig, &id, ForgeFact::Approved).await;
     rig.fleet.timeline().settled().await;

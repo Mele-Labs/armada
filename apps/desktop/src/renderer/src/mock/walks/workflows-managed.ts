@@ -1,8 +1,7 @@
 // Workflows, managed (27 Oct 2026): System › Kit › Workflows as a list grouped by where each comes from, and
 // the picked one as its steps, with the words the agent is told editable where they stand. Armada's rows
 // are read-only, a repository's copy compares with Armada's, and a change of shape is typed to an agent whose
-// diff waits on Approve. Jobs Fleet nudged at a step are listed under it, each with Open Job and Not a drift, and
-// a suggested change for the step's words waits on Approve. The diff draws only the steps a change touches, each
+// diff waits on Approve. The diff draws only the steps a change touches, each
 // field before and after, an added or removed step only the side it has; a request Armada can't carry out says
 // what is missing and offers a job to build it, drawn as its Job card once started.
 // A mock, no Fleet behind it.
@@ -51,43 +50,6 @@ export const workflowsManaged = walk("workflows", [
   {
     look: inside(step("Walk"), text("you approve every walk")),
     say: "Walk ends when you approve every walk",
-  },
-  {
-    look: inside(step("Walk"), role("group", /^Cockpit timeline rail/)),
-    say: "Drifted here: a Job Fleet nudged at Walk, with Open Job and Not a drift",
-  },
-  {
-    look: inside(step("Walk"), role("group", "Suggested change")),
-    say: "A suggested change drawn from the two Jobs, new words marked",
-  },
-  {
-    hover: inside(step("Walk"), role("img", "In the suggested change")),
-    say: "Marks the Jobs the change came from",
-  },
-  {
-    press: inside(
-      inside(step("Walk"), role("group", "Suggested change")),
-      button("Approve", {
-        exact: true,
-      }),
-    ),
-    say: "Approve applies the words",
-  },
-  {
-    look: inside(step("Walk"), role("textbox", "Words")),
-    say: "Walk's words, with the new line",
-  },
-  {
-    press: inside(step("Propose"), button("Suggest a change")),
-    say: "Suggest a change, asked for at Propose",
-  },
-  {
-    look: inside(step("Propose"), role("group", "Suggested change")),
-    say: "A suggested change for Propose",
-  },
-  {
-    press: inside(step("Propose"), button("Not a drift")),
-    say: "Not a drift takes the row, and the suggestion with it",
   },
   {
     press: inside(step("Propose"), role("textbox", "Words")),

@@ -126,18 +126,6 @@ export const keyOf = (
   return `${one.source}${repository}:${one.id}${file === undefined ? "" : `:${file}`}`;
 };
 
-/** A Job Fleet nudged at a step. `jobId` is the Job that Open Job opens. */
-export type DriftedJob = {
-  id: string;
-  jobId: string;
-  job: string;
-  what: string;
-  when: string;
-};
-
-/** The recent nudges, by workflow id and then step id. */
-export type Drift = Readonly<Record<string, Readonly<Record<string, readonly DriftedJob[]>>>>;
-
 /**
  * An agent asked to change a workflow's shape: nothing, working, a draft that did not fit, a change waiting
  * on Approve, or a request Armada can't carry out yet. `asked` is what he typed, where a reload has lost it;

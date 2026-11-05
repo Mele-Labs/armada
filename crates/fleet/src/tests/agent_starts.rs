@@ -872,7 +872,7 @@ async fn a_session_an_agent_started_on_a_workflow_gets_no_turn_and_no_process_un
 }
 
 #[tokio::test]
-async fn the_persons_send_of_the_draft_is_one_first_turn_with_the_workflow_the_step_and_the_message() {
+async fn the_persons_send_of_the_draft_is_one_first_turn_with_the_message_and_no_step_words() {
     let rig = rig_on_the_rail();
     let agent = rig.an_agent().await;
     eventually_read(&rig, &agent).await;
@@ -882,14 +882,13 @@ async fn the_persons_send_of_the_draft_is_one_first_turn_with_the_workflow_the_s
 
     rig.begin(&held.session_id, None).await;
     eventually(|| async { rig.stand_in.starts().len() == 2 && !rig.sent_to(1).is_empty() }).await;
-    // The step went with the turn, so the rail has nothing to add once the process has run.
+    // The rail has nothing to add once the process has run.
     rig.rail_has_acted().await;
 
     let sent = rig.sent_to(1);
     let [first] = &sent[..] else { panic!("one turn, not {}: {sent:?}", sent.len()) };
-    let at = |part: &str| first.find(part).unwrap_or_else(|| panic!("{part} is not in the first turn: {first}"));
-    assert!(at("follows the Rail workflow") < at(STEP_WORDS) && at(STEP_WORDS) < at(FIRST), "in that order: {first}");
-    assert_eq!(first.matches(STEP_WORDS).count(), 1);
+    assert!(first.contains(FIRST), "{first}");
+    assert_eq!(first.matches(STEP_WORDS).count(), 0, "the step's words are not sent: {first}");
 }
 
 /// A Job an agent started on the `gate` workflow, whose first step asks how the work is delivered, begun
@@ -910,13 +909,13 @@ async fn sent_on_a_step_that_asks_delivery(message: &str, delivery: ipc::Deliver
 }
 
 #[tokio::test]
-async fn a_first_message_that_names_a_delivery_goes_with_the_steps_instructions_in_one_turn() {
+async fn a_first_message_that_names_a_delivery_goes_in_one_turn() {
     let message = "Read crates/reader and say why it drops lines, then keep it local.";
     let (rig, id, sent) = sent_on_a_step_that_asks_delivery(message, ipc::DeliveryChoice::KeepLocal).await;
 
     let [first] = &sent[..] else { panic!("one turn, not {}: {sent:?}", sent.len()) };
-    assert!(first.contains(message) && first.contains("follows the Gate workflow"), "{first}");
-    assert_eq!(first.matches(STEP_WORDS).count(), 1, "the instructions go with the first turn: {first}");
+    assert!(first.contains(message), "{first}");
+    assert_eq!(first.matches(STEP_WORDS).count(), 0, "the step's words are not sent: {first}");
     assert!(!first.contains("choosing how this work is delivered"), "nothing is asked: {first}");
     assert!(
         rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Delivery { choice: Some(_), named: true, .. })),
@@ -925,13 +924,13 @@ async fn a_first_message_that_names_a_delivery_goes_with_the_steps_instructions_
 }
 
 #[tokio::test]
-async fn a_first_message_that_names_no_delivery_goes_with_the_landing_chosen_on_the_card_and_the_instructions() {
+async fn a_first_message_that_names_no_delivery_goes_with_the_landing_chosen_on_the_card() {
     let (rig, id, sent) = sent_on_a_step_that_asks_delivery(FIRST, ipc::DeliveryChoice::OpenPr).await;
 
     let [first] = &sent[..] else { panic!("one turn, not {}: {sent:?}", sent.len()) };
     assert!(first.contains(FIRST) && first.contains("the owner chose"), "{first}");
     assert!(!first.contains("choosing how this work is delivered"), "nothing is asked: {first}");
-    assert_eq!(first.matches(STEP_WORDS).count(), 1, "the instructions go with the first turn: {first}");
+    assert_eq!(first.matches(STEP_WORDS).count(), 0, "the step's words are not sent: {first}");
     assert!(
         rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Delivery { choice: Some(ipc::DeliveryChoice::OpenPr), named: false, .. })),
         "the card's answer is kept"

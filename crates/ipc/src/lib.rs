@@ -337,11 +337,11 @@ pub use job_copy::{
 };
 pub use workflow_changes::{
     AskWorkflowChange, ArmadaProposed, ChangeOrigin, ChangeState, ChangeStep, ProposeNewWorkflow, ProposeToArmada,
-    SendBackWorkflowChange, SuggestWorkflowChange, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges,
+    SendBackWorkflowChange, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges,
     WorkflowSupportBuilding,
 };
 pub use workflow_page::{
-    MarkNotADrift, NotADriftMarked, StepNudge, StepReading, WorkflowCopy, WorkflowCopyDeleted, WorkflowSteps,
+    StepReading, WorkflowCopy, WorkflowCopyDeleted, WorkflowSteps,
 };
 pub use drift::{
     Declaration, Drift, ManifestDrift, PackageScripts, Unfollowed,

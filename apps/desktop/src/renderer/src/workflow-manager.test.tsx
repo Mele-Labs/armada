@@ -4,7 +4,6 @@
 import { WorkflowManager, forgetAllKept } from "@armada/components";
 import type {
   AgentState,
-  Drift,
   ManagedStep,
   ManagedWorkflow,
   Suggestions,
@@ -96,20 +95,6 @@ const WORKFLOWS: readonly ManagedWorkflow[] = [
   },
 ];
 
-const DRIFT: Drift = {
-  feature: {
-    walk: [
-      {
-        id: "7",
-        jobId: "job-7",
-        job: "Cockpit timeline rail",
-        what: "a test before the walk was approved",
-        when: "2h ago",
-      },
-    ],
-  },
-};
-
 type Acts = {
   [K in keyof WorkflowManagerProps as WorkflowManagerProps[K] extends (...args: never[]) => unknown
     ? K
@@ -137,8 +122,6 @@ function draw(
     onSendBack: vi.fn(done),
     onBuildSupport: vi.fn(async () => undefined),
     onOpenJob: vi.fn(),
-    onNotDrift: vi.fn(done),
-    onSuggest: vi.fn(done),
     onApproveSuggestion: vi.fn(done),
     onDismissSuggestion: vi.fn(done),
     onPick: vi.fn(),
@@ -149,13 +132,11 @@ function draw(
       <WorkflowManager
         repository="armada"
         workflows={WORKFLOWS}
-        drift={DRIFT}
         picked={picked}
         agent={{
           phase: "idle",
         }}
         suggestions={{}}
-        suggesting={null}
         {...acts}
         {...over}
         onPick={(one) => {
@@ -547,44 +528,6 @@ test("Delete hands the copy to its caller", async () => {
   });
 });
 
-test("a Job Fleet nudged opens from its row, or by O, and Not a drift takes it by the button or by N", async () => {
-  const acts = draw();
-  await page
-    .getByRole("button", {
-      name: "Open Job",
-    })
-    .click();
-  expect(acts.onOpenJob).toHaveBeenCalledWith(
-    {
-      id: "feature",
-      source: "repository",
-    },
-    "job-7",
-  );
-
-  const row = page.getByRole("group", {
-    name: "Cockpit timeline rail, a test before the walk was approved",
-  });
-  row.element().focus();
-  await userEvent.keyboard("o");
-  expect(acts.onOpenJob).toHaveBeenCalledTimes(2);
-  await userEvent.keyboard("n");
-  expect(acts.onNotDrift).toHaveBeenCalledWith(
-    {
-      id: "feature",
-      source: "repository",
-    },
-    "walk",
-    "7",
-  );
-  await page
-    .getByRole("button", {
-      name: "Not a drift",
-    })
-    .click();
-  expect(acts.onNotDrift).toHaveBeenCalledTimes(2);
-});
-
 const SUGGESTED: Suggestions = {
   feature: {
     walk: {
@@ -670,33 +613,6 @@ test("an Approve Fleet refused on a suggestion is said on the card", async () =>
   await expect
     .element(card.getByRole("alert"))
     .toHaveTextContent("The file changed since the draft was made");
-});
-
-test("a step with drift and no suggestion offers Suggest a change, and shows the agent working while one is drawn", async () => {
-  const acts = draw();
-  await page
-    .getByRole("button", {
-      name: "Suggest a change",
-    })
-    .click();
-  expect(acts.onSuggest).toHaveBeenCalledWith(
-    {
-      id: "feature",
-      source: "repository",
-    },
-    "walk",
-  );
-
-  draw({
-    suggesting: "feature/walk",
-  });
-  await expect
-    .element(
-      page.getByRole("img", {
-        name: "The agent is working",
-      }),
-    )
-    .toBeVisible();
 });
 
 test("a draft that did not fit is said with Fleet's reason, and can be dismissed", async () => {

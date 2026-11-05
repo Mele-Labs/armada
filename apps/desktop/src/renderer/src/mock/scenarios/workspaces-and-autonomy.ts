@@ -54,7 +54,6 @@ export const workspacesAndAutonomy: Scenario = {
       {
         definitions: STORE_DEFINITIONS,
         ends: STORE_ENDS,
-        nudges: [],
         served: REPOSITORIES.map((one) => one.manifest!.id),
       },
     ),

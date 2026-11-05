@@ -1,10 +1,9 @@
-// The Workflows page's reading of what Fleet answers: steps as the page draws them, the nudges as drifted Jobs, and the
+// The Workflows page's reading of what Fleet answers: steps as the page draws them and the
 // changes an agent drafted as the box under the steps and the cards on a step. Nothing here asks Fleet.
 
-import { ageOf, glyphOf, keyOf, stepsOfDefinition } from "@armada/components";
+import { glyphOf, keyOf, stepsOfDefinition } from "@armada/components";
 import type {
   AgentState,
-  DriftedJob,
   ManagedStep,
   Suggestion,
   WorkflowSource,
@@ -12,7 +11,6 @@ import type {
 import type {
   ChangeStep,
   LeftOutWorkflow,
-  StepNudge,
   StepReading,
   WorkflowChange,
   WorkflowSummary,
@@ -60,28 +58,6 @@ export function stepOf(reading: StepReading | ChangeStep): ManagedStep {
         }),
     words: reading.instructions ?? "",
   };
-}
-
-/** The Jobs Fleet nudged at each step, by step id. */
-export function driftOf(
-  steps: readonly StepReading[],
-  now: number,
-): Readonly<Record<string, readonly DriftedJob[]>> {
-  const jobOf = (one: StepNudge): DriftedJob => ({
-    id: String(one.id),
-    jobId: one.job_id,
-    job: one.job_title ?? one.job_id,
-    what: one.fact,
-    when: ageOf(Date.parse(one.at), now),
-  });
-  return Object.fromEntries(
-    steps
-      .filter((one) => (one.nudges ?? []).length > 0)
-      .map((one) => [
-        one.id,
-        (one.nudges ?? []).map(jobOf),
-      ]),
-  );
 }
 
 /** A definition's text as steps. A step the workflow already has keeps what Fleet read of it; one it lacks has no end to say. */
@@ -171,22 +147,18 @@ export const changeAt = (
   stepId: string,
 ): WorkflowChange | undefined => changes.find((one) => one.step_id === stepId);
 
-/** The cards on the steps, and the step an agent is drawing one up for (`workflow/step`). */
+/** The cards on the steps. */
 export function suggestionsOf(
   changes: readonly WorkflowChange[],
-  workflow: string,
 ): {
   suggestions: Readonly<Record<string, Suggestion>>;
-  suggesting: string | null;
 } {
   const suggestions: Record<string, Suggestion> = {};
-  let suggesting: string | null = null;
   for (const one of changes) {
     const stepId = one.step_id;
     if (stepId === undefined || stepId in suggestions) continue;
     const from = one.origin.kind === "drift" ? one.origin.nudges.map(String) : [];
-    if (one.state === "drafting") suggesting ??= `${workflow}/${stepId}`;
-    else if (one.state === "failed")
+    if (one.state === "failed")
       suggestions[stepId] = {
         words: "",
         from,
@@ -203,7 +175,6 @@ export function suggestionsOf(
   }
   return {
     suggestions,
-    suggesting,
   };
 }
 

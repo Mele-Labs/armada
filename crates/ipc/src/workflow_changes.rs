@@ -1,5 +1,5 @@
 //! A change to a workflow that an agent drafts for the owner to approve: asked for in his words, or
-//! suggested when one step of a workflow keeps drifting. Protocol `docs/practices/protocol/the-workflows-page.md`.
+//! proposed by a Job. Protocol `docs/practices/protocol/the-workflows-page.md`.
 //!
 //! **Nothing here saves a definition.** A change holds the text as it was and as drafted; approving it
 //! is what writes, through the path `save_workflow` checks.
@@ -14,8 +14,8 @@ use crate::{Instant, SessionId, StepId, WorkflowId, WorkflowSaved, WorkflowScope
 pub enum ChangeOrigin {
     /// The owner typed it. `text` is his words.
     Asked { text: String },
-    /// Armada drafted it, or he pressed Suggest a change, from the nudges kept for one step. `nudges` are
-    /// their `StepNudge::id`s.
+    /// Armada drafted it, once, from the Jobs it nudged off one step. None is drafted now; a change
+    /// kept before that still reads so.
     Drift { nudges: Vec<i64> },
     /// A Job proposed new text for a workflow that exists, whole, and it is ready at once. Approving it saves
     /// `after` to `source`, replacing the file there.
@@ -108,16 +108,6 @@ pub struct AskWorkflowChange {
     pub source: String,
     /// What he wants changed, in his words.
     pub text: String,
-}
-
-/// `suggest_workflow_change`'s body.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SuggestWorkflowChange {
-    pub workflow_id: WorkflowId,
-    /// `repository` or `kit`.
-    pub source: String,
-    /// The step whose words are to be redrafted.
-    pub step_id: StepId,
 }
 
 /// `list_workflow_changes`' answer: the open changes to one workflow in one place, oldest first.

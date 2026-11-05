@@ -1,12 +1,11 @@
-//! A change to a workflow that an agent drafts for the owner to approve, and the three ways one begins:
-//! his words, a suggestion from the Jobs that drifted at one step, and his press on Suggest a change.
+//! A change to a workflow that an agent drafts for the owner to approve, and the ways one begins:
+//! his words, or a Job proposing one.
 //! `docs/concepts/workflow.md`; the decision of 27 Oct 2026, "A feature Job walks before it tests".
 //!
 //! **Drafting is one short model run and not a Job**: the proposer's client, budget and model, the
 //! definition's text and the request in, the whole new definition out. **Fleet holds the answer to what
 //! saving holds it to** (`check_workflow_file`, the parse and resolve `save_workflow` uses), to the
-//! same `workflow_id`, and, for a suggestion, to a change in that one step's `instructions` and nothing
-//! else. An answer that does not fit is asked for once more with the reason, and then the change fails.
+//! same `workflow_id`, and, for a change to one step, to that step's `instructions` and nothing else. An answer that does not fit is asked for once more with the reason, and then the change fails.
 //! **An answer that the fields can't say what was asked is kept as `cannot`**, with what is missing, and
 //! Build support starts a Job on Armada's own repository to build it.
 //!
@@ -15,7 +14,6 @@
 
 use std::path::Path;
 use std::sync::Arc;
-use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Ask, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
@@ -25,7 +23,7 @@ use config::ResolvedWorkflow;
 use ipc::{
     ArmadaProposed, AskWorkflowChange, ChangeOrigin, ChangeState, ChangeStep, Instant, ManifestId, ProposeNewWorkflow,
     ProposeToArmada, ProposeWorkflowChange, SaveWorkflow, SendBackWorkflowChange, SendSessionMessage, SessionId, StartSession, StepId,
-    SuggestWorkflowChange, WireError, WireValue, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges,
+    WireError, WireValue, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges,
     WorkflowId, WorkflowScope, WorkflowSupportBuilding,
 };
 use store::{KeptWorkflowChange, NewWorkflowChange};
@@ -42,12 +40,6 @@ const EMPTY: &str = "fleet.workflow_change_empty";
 const UNCHANGED: &str = "fleet.workflow_change_unchanged";
 /// No model could be asked. A 422.
 const NO_AGENT: &str = "fleet.workflow_change_no_agent";
-/// The definition has no such step. A 422.
-const NO_SUCH_STEP: &str = "fleet.workflow_step_not_here";
-/// The step already has a change waiting. A 422.
-const OPEN: &str = "fleet.workflow_change_open";
-/// No nudge counts at that step. A 422.
-const NOTHING_DRIFTED: &str = "fleet.workflow_nothing_drifted";
 /// Fleet kept no change by that id. A 404.
 const NO_SUCH_CHANGE: &str = "fleet.no_such_workflow_change";
 /// The change is not ready to approve. A 409.
@@ -64,13 +56,6 @@ pub(crate) const SETTLED: &str = "fleet.workflow_change_settled";
 const ARMADA_NOT_SERVED: &str = "fleet.workflow_armada_not_served";
 /// The store would not answer. A 500.
 const NOT_KEPT: &str = "fleet.workflow_change_not_kept";
-
-/// Nudges that still count, inside the week, that make a step's drift worth a suggestion.
-const DRIFTS: usize = 2;
-/// How far back a nudge counts toward one.
-const WEEK: Duration = Duration::from_secs(7 * 24 * 3600);
-/// What each part of a nudge's account of a Job may run to, in characters.
-const MOST_FACT: usize = 300;
 
 /// The question as it ships: `prompts.workflowChange`'s default. **The words that say how to read what
 /// follows come first**; the definition, the request and any earlier draft come after them as material.
@@ -177,7 +162,6 @@ where
             source: &asked.source,
             step_id: None,
             asked: Some(asked.text.trim()),
-            nudges: &[],
             before_text: &before,
         };
         self.change_begun(&new).await
@@ -277,57 +261,6 @@ where
             self.proposal_waits(job, id, workflow, &after, Some(before).filter(|before| !before.is_empty())).await;
         }
         Ok(self.change_read(served, &kept))
-    }
-
-    /// Ask for new words for one step, now.
-    pub(crate) async fn workflow_change_suggested(
-        self: &Arc<Self>,
-        asked: SuggestWorkflowChange,
-        manifest_id: Option<ManifestId>,
-    ) -> Result<WorkflowChange, Refusal> {
-        let served = self.served_named(manifest_id.as_ref())?;
-        let (workflow, source, step) = (asked.workflow_id.as_str(), asked.source.as_str(), asked.step_id.as_str());
-        let before = self.copy_text(&served, workflow, source)?;
-        let has_step = served
-            .files()
-            .iter()
-            .find(|file| file.id().as_str() == workflow && file.source().as_wire() == source)
-            .is_some_and(|file| file.def().steps().iter().any(|one| one.id().as_str() == step));
-        if !has_step {
-            return Err(Refusal::Unacceptable(
-                WireError::raised(NO_SUCH_STEP, format!("`{workflow}` from {source} has no step `{step}`"), self.run_id())
-                    .with_field("step_id", WireValue::Str(step.to_string())),
-            ));
-        }
-        if let Some(open) = self.open_change_at(served.manifest().id().as_str(), workflow, source, step).await {
-            return Err(Refusal::Unacceptable(
-                WireError::raised(
-                    OPEN,
-                    format!("step `{step}` of `{workflow}` already has a change waiting on the owner"),
-                    self.run_id(),
-                )
-                .with_field("change", WireValue::Str(open.to_string())),
-            ));
-        }
-        let nudges: Vec<i64> = self.counting_nudges(workflow, source, step).await.into_iter().map(|one| one.id).collect();
-        if nudges.is_empty() {
-            return Err(Refusal::Unacceptable(WireError::raised(
-                NOTHING_DRIFTED,
-                format!("no Job counts as having drifted at step `{step}` of `{workflow}`"),
-                self.run_id(),
-            )));
-        }
-        self.agent_to_ask()?;
-        let new = NewWorkflowChange {
-            manifest_id: served.manifest().id().as_str(),
-            workflow_id: workflow,
-            source,
-            step_id: Some(step),
-            asked: None,
-            nudges: &nudges,
-            before_text: &before,
-        };
-        self.change_begun(&new).await
     }
 
     /// The open changes to one workflow in one place. **A draft that has been out longer than two
@@ -464,7 +397,7 @@ where
             on_your_words: None,
         };
         let started = HostedSessions::start_session(self.as_ref(), start).await?.id.as_str().to_string();
-        let request = self.request_of(&kept).await;
+        let request = self.request_of(&kept);
         let sent = Arc::clone(self)
             .send_session_message(SendSessionMessage {
                 session_id: SessionId::carried(started.clone()),
@@ -560,58 +493,7 @@ where
         Ok(ArmadaProposed { workflow_id: proposed.workflow_id, session_id: SessionId::carried(started), send_failed })
     }
 
-    /// A nudge was just kept against a step. **When that makes two inside the week that still count, and
-    /// the step has no change waiting, draft a suggestion.** Armada's own definitions get none: they
-    /// are read-only, and a change to one is a Propose to Armada.
-    pub(crate) async fn drift_suggested(self: &Arc<Self>, manifest: &str, workflow: &str, source: &str, step: &str) {
-        if source != "repository" && source != "kit" {
-            return;
-        }
-        if self.counting_nudges(workflow, source, step).await.len() < DRIFTS {
-            return;
-        }
-        if self.open_change_at(manifest, workflow, source, step).await.is_some() {
-            return;
-        }
-        let Ok(served) = self.served_named(Some(&ManifestId::carried(manifest))) else { return };
-        let Ok(before) = self.copy_text(&served, workflow, source) else { return };
-        if self.agent_to_ask().is_err() {
-            return;
-        }
-        let nudges: Vec<i64> = self.counting_nudges(workflow, source, step).await.into_iter().map(|one| one.id).collect();
-        let new = NewWorkflowChange {
-            manifest_id: manifest,
-            workflow_id: workflow,
-            source,
-            step_id: Some(step),
-            asked: None,
-            nudges: &nudges,
-            before_text: &before,
-        };
-        if let Err(why) = self.change_begun(&new).await {
-            self.change_warned("a change to a step was not begun", workflow, why.error().message.clone());
-        }
-    }
-
     // ---- what a begun change is drafted from ---------------------------------------------------------------
-
-    /// The nudges at a step in a place that still count: not marked, and inside the week.
-    async fn counting_nudges(&self, workflow: &str, source: &str, step: &str) -> Vec<store::KeptWorkflowNudge> {
-        let now = self.now();
-        self.step_nudges(workflow, source, step)
-            .await
-            .into_iter()
-            .filter(|one| one.counts())
-            .filter(|one| crate::clock::elapsed(&core_model::Timestamp::from_rfc3339(one.at.clone()), &now) < WEEK)
-            .collect()
-    }
-
-    /// The open change at a step, if one is waiting.
-    async fn open_change_at(&self, manifest: &str, workflow: &str, source: &str, step: &str) -> Option<i64> {
-        let store = self.store().lock().await;
-        let open = store.open_workflow_changes(workflow, source, manifest).ok()?;
-        open.into_iter().find(|one| one.step_id.as_deref() == Some(step)).map(|one| one.id)
-    }
 
     /// Keep a change as drafting, and start drafting it.
     async fn change_begun(self: &Arc<Self>, new: &NewWorkflowChange<'_>) -> Result<WorkflowChange, Refusal> {
@@ -703,7 +585,7 @@ where
             .map_err(|_| String::from("The repository is no longer served, so the draft could not be checked"))?;
         let proposing = self.proposing().map_err(|why| format!("No model could be asked: {why:?}"))?;
         let prompts = self.prompts();
-        let request = self.request_of(kept).await;
+        let request = self.request_of(kept);
         // Sent back: the draft he sent back, where there was one, and what he said was wrong.
         let mut attempt = match (&kept.notes, &kept.after_text) {
             (Some(notes), Some(draft)) => fill_pieces(SENT_BACK, &[("draft", draft), ("notes", notes)]),
@@ -775,39 +657,8 @@ where
     }
 
     /// What is wanted of the definition, as the model is told it.
-    async fn request_of(&self, kept: &KeptWorkflowChange) -> String {
-        if let Some(text) = &kept.asked {
-            return text.clone();
-        }
-        let Some(step) = kept.step_id.as_deref() else { return String::new() };
-        let roster = config::Roster::of(self.models_on());
-        let words = config::WorkflowDef::parse(Path::new("workflow.json"), &kept.before_text, &roster)
-            .ok()
-            .and_then(|def| def.steps().iter().find(|one| one.id().as_str() == step).map(|one| (one.label().to_string(), one.instructions().map(str::to_string))));
-        let (label, words) = words.unwrap_or_else(|| (step.to_string(), None));
-        let mut drifted = String::new();
-        let kept_nudges = self.step_nudges(&kept.workflow_id, &kept.source, step).await;
-        for nudge in kept_nudges.iter().filter(|one| kept.nudges.contains(&one.id)) {
-            let title = self
-                .store()
-                .lock()
-                .await
-                .session(&nudge.session_id)
-                .ok()
-                .flatten()
-                .and_then(|session| session.title)
-                .unwrap_or_else(|| String::from("A Job"));
-            let fact: String = nudge.fact.chars().take(MOST_FACT).collect();
-            drifted.push_str(&format!("- {title}: {fact}\n"));
-        }
-        format!(
-            "Step `{step}` ({label}) is told this now:\n\n{}\n\nFleet nudged these Jobs off it:\n\n{}\n\
-             Rewrite the `instructions` of step `{step}` so an agent reading them would not miss what these Jobs \
-             missed. Change the `instructions` of that step and nothing else: every other field of every step, and \
-             of the definition, stays exactly as it is.",
-            words.as_deref().unwrap_or("(nothing)"),
-            drifted
-        )
+    fn request_of(&self, kept: &KeptWorkflowChange) -> String {
+        kept.asked.clone().unwrap_or_default()
     }
 }
 

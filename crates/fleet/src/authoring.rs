@@ -178,10 +178,6 @@ where
         self.reset_workflow_copy_file(copy, &self.served_named(manifest_id.as_ref())?)
     }
 
-    async fn mark_not_a_drift(&self, marked: ipc::MarkNotADrift) -> Result<ipc::NotADriftMarked, Refusal> {
-        self.nudge_marked(marked).await
-    }
-
     async fn ask_workflow_change(
         self: Arc<Self>,
         asked: ipc::AskWorkflowChange,
@@ -204,14 +200,6 @@ where
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::WorkflowChange, Refusal> {
         self.workflow_change_proposed(proposed, manifest_id).await
-    }
-
-    async fn suggest_workflow_change(
-        self: Arc<Self>,
-        asked: ipc::SuggestWorkflowChange,
-        manifest_id: Option<ipc::ManifestId>,
-    ) -> Result<ipc::WorkflowChange, Refusal> {
-        self.workflow_change_suggested(asked, manifest_id).await
     }
 
     async fn list_workflow_changes(

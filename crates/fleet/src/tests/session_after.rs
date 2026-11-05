@@ -631,13 +631,13 @@ async fn a_session_waiting_on_a_workflow_gets_no_step_prompt_before_its_conditio
     assert_eq!(rig.processes(), processes, "no process starts for a Session that waits");
     assert!(rig.rows(&waiting.id).await.is_empty(), "and nothing is sent to it");
 
-    // Once met it starts on one turn that holds the step, and the rail adds none.
+    // Once met it starts on one turn, and the rail adds none.
     Arc::clone(&rig.fleet).close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
     rig.processes_reach(processes + 1).await;
     rig.rail_has_acted().await;
     let sent = rig.sent_to(processes);
     assert_eq!(sent.len(), 1, "{sent:?}");
-    assert!(sent[0].contains("Record the plan before editing.") && sent[0].contains(BRIEF), "{}", sent[0]);
+    assert!(sent[0].contains(BRIEF), "{}", sent[0]);
 }
 
 // ---- The person approves a waiting Job and picks what it starts on ----

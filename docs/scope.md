@@ -43,7 +43,7 @@ He was juggling five or more agent jobs and hit these, in these words:
 | *Which agents need me right now* | The Cockpit's Work list: every Job, live, with the ones waiting on a person called out |
 | *Oh, that agent didn't make a worktree* | Fleet leases the slot a Job writes in. An agent never decides where it works |
 | *This agent is stuck because it doesn't know how to run checks properly* | `armada check` runs the repository's own Checks from its Manifest, so an agent calls one command and does not work out the runner |
-| *This one got ahead of itself and did all of the work in one PR instead of three* | A Job's plan states its scope, and a workflow's steps nudge it when one is skipped. **Partly solved** — nothing blocks a Job, and no judge runs on its own |
+| *This one got ahead of itself and did all of the work in one PR instead of three* | A Job's plan states its scope, and a workflow's steps show where it is. **Partly solved** — nothing blocks a Job, and no judge runs on its own |
 
 **Armada is the orchestrator above agents.** It babysits them, and surfaces a
 review only when it is confident the work is ready to be looked at.

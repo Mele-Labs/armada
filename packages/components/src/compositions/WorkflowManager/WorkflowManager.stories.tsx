@@ -108,7 +108,6 @@ const meta: Meta<typeof WorkflowManager> = {
   args: {
     repository: "armada",
     workflows: WORKFLOWS,
-    drift: {},
     picked: {
       id: "feature",
       source: "repository",
@@ -117,7 +116,6 @@ const meta: Meta<typeof WorkflowManager> = {
       phase: "idle",
     },
     suggestions: {},
-    suggesting: null,
     onPick: fn(),
     onMakeCopy: fn(done),
     onPropose: fn(done),
@@ -132,8 +130,6 @@ const meta: Meta<typeof WorkflowManager> = {
       jobId: "job-2",
     })),
     onOpenJob: fn(),
-    onNotDrift: fn(done),
-    onSuggest: fn(done),
     onApproveSuggestion: fn(done),
     onDismissSuggestion: fn(done),
   } satisfies WorkflowManagerProps,
@@ -155,22 +151,9 @@ export const ArmadasOwn: Story = {
   },
 };
 
-/** A Job Fleet nudged at a step, and a change drawn up from it waiting on Approve. */
-export const DriftAndSuggestion: Story = {
+/** A change drawn up for a step, waiting on Approve. */
+export const SuggestionWaiting: Story = {
   args: {
-    drift: {
-      feature: {
-        walk: [
-          {
-            id: "1",
-            jobId: "job-1",
-            job: "Cockpit timeline rail",
-            what: "a test before the walk was approved",
-            when: "2h ago",
-          },
-        ],
-      },
-    },
     suggestions: {
       feature: {
         walk: {

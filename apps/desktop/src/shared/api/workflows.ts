@@ -6,9 +6,7 @@ import type { ProposeToArmada, SendBackWorkflowChange, WorkflowChangeRef } from 
 import type {
   ActingOnWorkflowCopy,
   AskingForWorkflowChange,
-  NotADriftAnswer,
   SavingWorkflow,
-  SuggestingWorkflowChange,
   WorkflowChangeAnswer,
   WorkflowChangeApproveAnswer,
   WorkflowChangesRead,
@@ -35,9 +33,9 @@ export type WorkflowsApi = {
   ) => Promise<WorkflowDefinitionRead>;
   saveWorkflow: (saving: SavingWorkflow) => Promise<WorkflowSaveAnswer>;
   /**
-   * The Workflows page beside a definition's text: its steps with their words, what ends each and
-   * the nudges that still count; a copy deleted, or reset to Armada's (a save, so it answers as one);
-   * and one nudge marked not a drift. Making my copy of Armada's is `readWorkflowDefinition` with
+   * The Workflows page beside a definition's text: its steps with their words, what ends each;
+   * a copy deleted, or reset to Armada's (a save, so it answers as one);
+   * Making my copy of Armada's is `readWorkflowDefinition` with
    * `armada`, then `saveWorkflow` into Kit without `overwrite`.
    */
   readWorkflowSteps: (
@@ -47,14 +45,12 @@ export type WorkflowsApi = {
   ) => Promise<WorkflowStepsRead>;
   deleteWorkflowCopy: (acting: ActingOnWorkflowCopy) => Promise<WorkflowCopyDeleteAnswer>;
   resetWorkflowCopy: (acting: ActingOnWorkflowCopy) => Promise<WorkflowSaveAnswer>;
-  markNotADrift: (nudge: number) => Promise<NotADriftAnswer>;
   /**
-   * An agent drafts a change for him to approve; nothing saves until `approveWorkflowChange`. Asking and
-   * suggesting answer the change `drafting`; `readWorkflowChanges` is how the page sees it become `ready`
+   * An agent drafts a change for him to approve; nothing saves until `approveWorkflowChange`. Asking
+   * answers the change `drafting`; `readWorkflowChanges` is how the page sees it become `ready`
    * or `failed`, polled while one is drafting. Send back drafts again with his notes.
    */
   askWorkflowChange: (asking: AskingForWorkflowChange) => Promise<WorkflowChangeAnswer>;
-  suggestWorkflowChange: (suggesting: SuggestingWorkflowChange) => Promise<WorkflowChangeAnswer>;
   readWorkflowChanges: (
     workflowId: string,
     source: string,
@@ -82,9 +78,7 @@ export const WORKFLOWS_CHANNELS = {
   readWorkflowSteps: "bridge:read-workflow-steps",
   deleteWorkflowCopy: "bridge:delete-workflow-copy",
   resetWorkflowCopy: "bridge:reset-workflow-copy",
-  markNotADrift: "bridge:mark-not-a-drift",
   askWorkflowChange: "bridge:ask-workflow-change",
-  suggestWorkflowChange: "bridge:suggest-workflow-change",
   readWorkflowChanges: "bridge:read-workflow-changes",
   approveWorkflowChange: "bridge:approve-workflow-change",
   dismissWorkflowChange: "bridge:dismiss-workflow-change",

@@ -1,5 +1,4 @@
-//! A step ends on a lifecycle state, the agent is stopped while it waits, and Fleet wakes it on the
-//! transition. **Nothing is spawned and nothing is read from a forge**: the instances and the moves
+//! A step ends on a lifecycle state, and Fleet wakes the agent on the transition. **Nothing is spawned and nothing is read from a forge**: the instances and the moves
 //! the readers keep are values, and `fleet::lifecycles::ends` hands them to the rules the rail draws.
 
 use core_model::{FleetFact, ForgeFact, HeldInstances, Lifecycle, Observed};
@@ -57,9 +56,6 @@ fn a_step_ends_on_a_pull_request_being_approved_the_agent_is_stopped_while_it_wa
 
     let waiting = ends::place(&workflow, &copy, &held, &moves, Progress::default());
     assert_eq!(waiting.step, Some(REVIEW), "the Job holds a pull request, so it is on the step that waits for it");
-    let told = waiting.told.expect("the agent is told on entering");
-    assert!(told.contains("This step ends when every pr is approved, which Fleet watches for."), "{told}");
-    assert!(told.contains("End your turn now: Fleet wakes you with a message when it comes, so do not poll for it."), "{told}");
     assert!(!waiting.waits_on_the_person, "a state is the world's to reach: no wait for him");
     assert_eq!(ends::woken(&workflow, &copy, &held, &moves, REVIEW), None, "nothing to wake it with");
 
@@ -69,7 +65,6 @@ fn a_step_ends_on_a_pull_request_being_approved_the_agent_is_stopped_while_it_wa
     seen(&mut held, &mut moves, &copy, PULL_REQUESTS, "812", Observed::Forge(ForgeFact::Approved), "t2");
     let moved_on = ends::place(&workflow, &copy, &held, &moves, Progress::default());
     assert_eq!(moved_on.step, Some(2), "the transition moves the Job on");
-    assert!(moved_on.told.is_some_and(|words| words.contains("Write the summary.")), "and the agent is told the next step");
     assert_eq!(
         ends::woken(&workflow, &copy, &held, &moves, REVIEW).as_deref(),
         Some("Fleet: PR #812 is Approved. That ends the \"Review\" step of this Job's Feature workflow."),
@@ -115,10 +110,6 @@ fn land_waits_on_pr_approved_before_it_merges_and_stays_the_step_until_it_lands(
 
     let waiting = ends::place(&workflow, &copy, &held, &moves, pushed);
     assert_eq!(waiting.step, Some(LAND), "Land is entered when the work is pushed, as it always was");
-    let told = waiting.told.expect("the agent is told on entering");
-    assert!(told.contains("Open the pull request and merge it."), "{told}");
-    assert!(told.contains("Do not merge until every pr is approved."), "{told}");
-    assert!(told.contains("then end your turn: Fleet watches for it and wakes you with a message, and then you land it."), "{told}");
     assert!(!waiting.waits_on_the_person, "a state is the world's to reach");
     assert_eq!(ends::woken(&workflow, &copy, &held, &moves, LAND), None, "nothing to wake it with");
 

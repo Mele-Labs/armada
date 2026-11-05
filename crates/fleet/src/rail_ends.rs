@@ -1,5 +1,5 @@
 //! What ends a step, as a short fact, read off the step's anchor. **Pure**, and beside `rail`, whose
-//! rules it restates for a person and for the agent; nothing here is a second way to place a step.
+//! rules it restates for a person; nothing here is a second way to place a step.
 
 use std::borrow::Cow;
 
@@ -8,8 +8,7 @@ use ipc::WaitingSource;
 
 use crate::rail::{Fit, RailStep};
 
-/// The fact that ends a step. One reading, said two ways: to the person on the workflow's page and to
-/// the agent standing on the step.
+/// The fact that ends a step, said to the person on the workflow's page.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum End {
     Merged,
@@ -29,12 +28,6 @@ pub(crate) enum End {
     Checked,
     Committed,
     PrOpened,
-    /// A delivering step the Job has not delivered on yet: no pull request is open. Only `rail::stalled`
-    /// reads it, as `end_of` names a delivering step's end as its merge.
-    Undelivered,
-    /// A walk that follows the plan, where nothing would be seen: its tasks finished. Only `rail` reads
-    /// it, as `end_of` names a walk's end as its approval.
-    TasksDone,
     /// Instances of a lifecycle the Job holds reach a state. The world's to bring about, and Fleet
     /// reads it: neither the Job's act nor the person's.
     Lifecycle(LifecycleEnd),
@@ -83,35 +76,6 @@ impl End {
             End::Checked => "a Check is run".into(),
             End::Committed => "a commit is made".into(),
             End::PrOpened => "a pull request is opened".into(),
-            End::Undelivered => "it is delivered".into(),
-            End::TasksDone => "the plan's tasks are done".into(),
-        }
-    }
-
-    /// As the agent on the step is told it, naming the tool where one does it.
-    pub(crate) fn for_agent(&self) -> Cow<'static, str> {
-        match self {
-            End::Lifecycle(_) => format!("{}, which Fleet watches for", self.for_person()).into(),
-            End::Merged => "its pull request merges".into(),
-            End::PlanApproved => "the person approves the plan".into(),
-            End::WalkApproved => "the person approves every walk you showed".into(),
-            End::Replied => "the person replies".into(),
-            End::AnyWalkApproved => "the person approves a walk you showed with show_window".into(),
-            End::SketchApproved => "the person approves a sketch you showed with show_sketch".into(),
-            End::DraftApproved => "the person approves a draft you proposed with propose_draft".into(),
-            End::IdeaPicked => "the person picks an option you gave a preview in AskUserQuestion".into(),
-            End::DocumentApproved => "the person approves a document you wrote under .armada/documents/".into(),
-            End::PlanRecorded => "you record a plan with record_plan".into(),
-            End::Pushed => "you push the branch".into(),
-            End::WalkShown => "you show a walk with show_window".into(),
-            End::Edited => "you edit a file".into(),
-            End::Checked => "you run a Check with armada check".into(),
-            End::Committed => "you commit".into(),
-            End::PrOpened => "you open a pull request".into(),
-            End::Undelivered => "you deliver the way the person chose".into(),
-            End::TasksDone => {
-                "you have marked each of the plan's tasks completed with TaskUpdate; Fleet then moves the Job on".into()
-            }
         }
     }
 
@@ -136,9 +100,7 @@ impl End {
             | End::Edited
             | End::Checked
             | End::Committed
-            | End::PrOpened
-            | End::Undelivered
-            | End::TasksDone => Waiter::TheJob,
+            | End::PrOpened => Waiter::TheJob,
         }
     }
 
@@ -164,16 +126,6 @@ impl End {
             StepEnd::Lifecycle(end) => End::Lifecycle(end.clone()),
         }
     }
-}
-
-/// What a **delivering** step that lists a lifecycle end tells the agent. The end does not end the step,
-/// which the merge does: it gates the merge. `None` for any other step.
-pub(crate) fn gate_said(step: &RailStep) -> Option<String> {
-    let gate = gate_for_person(step)?;
-    Some(format!(
-        "Do not merge until {gate}. Open the pull request if you have not, then end your turn: Fleet watches for it and \
-         wakes you with a message, and then you land it."
-    ))
 }
 
 /// What a delivering step's lifecycle ends gate the merge on, to the person: `every pr is approved`, and

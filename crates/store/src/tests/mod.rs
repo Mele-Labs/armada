@@ -52,7 +52,6 @@ mod session_init;
 mod session_so_far;
 mod later_marks;
 mod claim_misreads;
-mod workflow_nudges;
 mod workflow_changes;
 mod notice_mutes;
 mod word_asks;

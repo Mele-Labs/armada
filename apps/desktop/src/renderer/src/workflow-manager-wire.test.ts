@@ -6,7 +6,7 @@ import type { ManagedStep } from "@armada/components";
 import type { WorkflowChange } from "@armada/protocol";
 import { describe, expect, test } from "vitest";
 
-import { agentOf, driftOf, listedOf, stepOf, suggestionsOf } from "./workflow-manager-wire";
+import { agentOf, listedOf, stepOf, suggestionsOf } from "./workflow-manager-wire";
 
 const FILE = {
   version: 1,
@@ -156,57 +156,6 @@ test("a step that ends on any of several things keeps them beside the one it end
       ends_when: "x",
     }),
   ).not.toHaveProperty("endsAny");
-});
-
-test("nudges become drifted Jobs under their step, with how long ago", () => {
-  const now = Date.parse("2026-10-27T12:00:00Z");
-  const drift = driftOf(
-    [
-      {
-        id: "walk",
-        label: "Walk",
-        nudges: [
-          {
-            id: 4,
-            job_id: "job-a",
-            job_title: "Timeline",
-            fact: "a test too early",
-            at: "2026-10-27T10:00:00Z",
-          },
-          {
-            id: 5,
-            job_id: "job-b",
-            fact: "an edit too early",
-            at: "2026-10-24T12:00:00Z",
-          },
-        ],
-      },
-      {
-        id: "deliver",
-        label: "Deliver",
-      },
-    ],
-    now,
-  );
-  expect(Object.keys(drift)).toEqual([
-    "walk",
-  ]);
-  expect(drift.walk).toEqual([
-    {
-      id: "4",
-      jobId: "job-a",
-      job: "Timeline",
-      what: "a test too early",
-      when: "2h ago",
-    },
-    {
-      id: "5",
-      jobId: "job-b",
-      job: "job-b",
-      what: "an edit too early",
-      when: "3d ago",
-    },
-  ]);
 });
 
 test("the list has each workflow Fleet runs, the ones a more specific place replaced under it, and each file left out", () => {
@@ -667,7 +616,6 @@ test("a change drawn from drift is a card on its step, or the step an agent is d
           after,
         }),
       ],
-      "feature",
     ),
   ).toEqual({
     suggestions: {
@@ -679,7 +627,6 @@ test("a change drawn from drift is a card on its step, or the step an agent is d
         ],
       },
     },
-    suggesting: null,
   });
   expect(
     suggestionsOf(
@@ -688,11 +635,9 @@ test("a change drawn from drift is a card on its step, or the step an agent is d
           ...drift,
         }),
       ],
-      "feature",
     ),
   ).toEqual({
     suggestions: {},
-    suggesting: "feature/propose",
   });
   expect(
     suggestionsOf(
@@ -703,7 +648,6 @@ test("a change drawn from drift is a card on its step, or the step an agent is d
           reason: "Unchanged",
         }),
       ],
-      "feature",
     ).suggestions.propose,
   ).toEqual({
     words: "",

@@ -1,5 +1,5 @@
 //! What the Workflows page asks of Fleet beside a definition's text: each step read out, a copy
-//! deleted or reset to Armada's, and a nudge marked not a drift. `docs/concepts/workflow.md`.
+//! deleted or reset to Armada's. `docs/concepts/workflow.md`.
 //!
 //! **A step is read from the parsed file**, resolved the way a Job would freeze it, so the words and
 //! what ends the step come from the rules the rail places a Job by (`rail`, `rail_ends`) and are not
@@ -12,8 +12,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use config::{ResolvedWorkflow, WorkflowFile};
 use ipc::{
-    Instant, MarkNotADrift, NotADriftMarked, SessionId, StepId, StepNudge, StepReading, WireError, WireValue,
-    WorkflowCopy, WorkflowCopyDeleted, WorkflowSaved, WorkflowScope, WorkflowSteps,
+    StepId, StepReading, WireError, WireValue, WorkflowCopy, WorkflowCopyDeleted, WorkflowSaved, WorkflowScope, WorkflowSteps,
 };
 
 use crate::authoring::{WORKFLOW_UNFIT as UNFIT, WORKFLOW_UNWRITABLE as UNWRITABLE};
@@ -28,8 +27,6 @@ const NO_SUCH_DEFINITION: &str = "fleet.no_such_workflow_definition";
 pub(crate) const IS_ARMADAS: &str = "fleet.workflow_is_armadas";
 /// Armada carries no definition of the id to reset a copy to. A 422.
 const NOT_CARRIED: &str = "fleet.workflow_not_carried";
-/// Fleet kept no nudge by that id. A 422.
-const NO_SUCH_NUDGE: &str = "fleet.no_such_nudge";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -56,7 +53,7 @@ where
         )
     }
 
-    /// One definition step by step, with the nudges that still count against each.
+    /// One definition step by step.
     pub(crate) async fn workflow_steps_read(
         &self,
         served: &Served,
@@ -78,7 +75,7 @@ where
         let place = file.source().as_wire();
         let mut read = Vec::with_capacity(steps.len());
         for at in 0..steps.len() {
-            read.push(self.step_reading(&steps, at, workflow_id, place).await);
+            read.push(step_reading(&steps, at));
         }
         Ok(WorkflowSteps {
             workflow_id: ipc::WorkflowId::from(file.id()),
@@ -99,37 +96,6 @@ where
             let said = why.to_string();
             Refusal::Unacceptable(WireError::raised(UNFIT, said.clone(), self.run_id()).with_field("reason", WireValue::Str(said)))
         })
-    }
-
-    async fn step_reading(&self, steps: &[RailStep], at: usize, workflow_id: &str, place: &str) -> StepReading {
-        let step = &steps[at];
-        let mut nudges = Vec::new();
-        for kept in self.step_nudges(workflow_id, place, &step.id).await.into_iter().filter(|one| one.counts()) {
-            let job_title = self
-                .store()
-                .lock()
-                .await
-                .session(&kept.session_id)
-                .ok()
-                .flatten()
-                .and_then(|session| session.title);
-            nudges.push(StepNudge {
-                id: kept.id,
-                job_id: SessionId::carried(kept.session_id),
-                job_title,
-                fact: kept.fact,
-                at: Instant::carried(kept.at),
-            });
-        }
-        StepReading {
-            id: StepId::carried(step.id.clone()),
-            label: step.label.clone(),
-            instructions: step.instructions.clone(),
-            ends_when: ends_when(steps, at),
-            ends_any: ends_any(steps, at),
-            passed_over_when: passed_over_when(step).map(str::to_string),
-            nudges,
-        }
     }
 
     /// Which folder a copy is in, or why it is not one.
@@ -230,15 +196,16 @@ where
         }
         self.save_workflow_file(save, served)
     }
+}
 
-    /// Mark a nudge not a drift.
-    pub(crate) async fn nudge_marked(&self, marked: MarkNotADrift) -> Result<NotADriftMarked, Refusal> {
-        if self.nudge_not_a_drift(marked.nudge).await {
-            return Ok(NotADriftMarked { nudge: marked.nudge });
-        }
-        Err(Refusal::Unacceptable(
-            WireError::raised(NO_SUCH_NUDGE, format!("no nudge {} is kept", marked.nudge), self.run_id())
-                .with_field("nudge", WireValue::Str(marked.nudge.to_string())),
-        ))
+fn step_reading(steps: &[RailStep], at: usize) -> StepReading {
+    let step = &steps[at];
+    StepReading {
+        id: StepId::carried(step.id.clone()),
+        label: step.label.clone(),
+        instructions: step.instructions.clone(),
+        ends_when: ends_when(steps, at),
+        ends_any: ends_any(steps, at),
+        passed_over_when: passed_over_when(step).map(str::to_string),
     }
 }

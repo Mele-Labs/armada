@@ -11,8 +11,8 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    ArmadaProposed, AskWorkflowChange, ManifestId, MarkNotADrift, NotADriftMarked, ProposeNewWorkflow, ProposeToArmada, ProposeWorkflowChange, SaveWorkflow,
-    SendBackWorkflowChange, SuggestWorkflowChange, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted,
+    ArmadaProposed, AskWorkflowChange, ManifestId, ProposeNewWorkflow, ProposeToArmada, ProposeWorkflowChange, SaveWorkflow,
+    SendBackWorkflowChange, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted,
     WorkflowId, WorkflowSaved, WorkflowSupportBuilding,
 };
 
@@ -52,13 +52,6 @@ pub trait Authoring: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<WorkflowSaved, Refusal>> + Send;
 
-    /// `mark_not_a_drift` — mark one kept nudge so it stops counting.
-    /// [`Refusal::Unacceptable`] where Fleet kept none by that id.
-    fn mark_not_a_drift(
-        &self,
-        marked: MarkNotADrift,
-    ) -> impl Future<Output = Result<NotADriftMarked, Refusal>> + Send;
-
     /// `ask_workflow_change` — begin a change an agent drafts from the owner's words, and answer it
     /// `drafting` at once. **Takes the `Arc`** because the draft is a task of its own.
     /// [`Refusal::Unacceptable`] for Armada's own definition, one this place does not hold, blank words,
@@ -66,15 +59,6 @@ pub trait Authoring: Send + Sync + 'static {
     fn ask_workflow_change(
         self: Arc<Self>,
         asked: AskWorkflowChange,
-        manifest_id: Option<ManifestId>,
-    ) -> impl Future<Output = Result<WorkflowChange, Refusal>> + Send;
-
-    /// `suggest_workflow_change` — the same, for new words for one step, from the nudges that count.
-    /// [`Refusal::Unacceptable`] as `ask_workflow_change`'s, for a step the definition lacks, for a step
-    /// that already has an open change, and where no nudge counts there.
-    fn suggest_workflow_change(
-        self: Arc<Self>,
-        asked: SuggestWorkflowChange,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<WorkflowChange, Refusal>> + Send;
 

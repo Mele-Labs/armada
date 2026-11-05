@@ -1,5 +1,4 @@
-// The Workflows page's routes on the mock Fleet: the list, a definition's text, a save, a definition step by step with the
-// nudges at it, a copy deleted or reset, and the changes an agent drafts. They answer from the definitions in
+// The Workflows page's routes on the mock Fleet: the list, a definition's text, a save, a definition step by step, a copy deleted or reset, and the changes an agent drafts. They answer from the definitions in
 // `workflows-managed.ts`, which this file holds as files by place and changes as they are asked.
 //
 // **The same shapes Fleet sends**, so the surface that reads them is the one the app draws: a definition is the file's
@@ -14,7 +13,6 @@ import type {
   Outcome,
   RepositorySummary,
   SessionRecord,
-  StepNudge,
   StepReading,
   WorkflowChange,
   WorkflowSummary,
@@ -29,12 +27,10 @@ import {
   CANNOT_YET,
   MANAGED_DEFINITIONS,
   MANAGED_ENDS,
-  MANAGED_NUDGES,
   SAY_WHY_SKIPPED,
   SUGGESTED_SENTENCE,
   WIRE_AND_TESTS,
 } from "./workflows-managed";
-import type { MockNudge } from "./workflows-managed";
 
 type Served = Pick<
   BridgeApi,
@@ -44,9 +40,7 @@ type Served = Pick<
   | "readWorkflowSteps"
   | "deleteWorkflowCopy"
   | "resetWorkflowCopy"
-  | "markNotADrift"
   | "askWorkflowChange"
-  | "suggestWorkflowChange"
   | "readWorkflowChanges"
   | "approveWorkflowChange"
   | "dismissWorkflowChange"
@@ -168,15 +162,6 @@ type Kept = {
   manifest: string;
 };
 
-/** A nudge as the mock keeps it. */
-type KeptNudge = {
-  id: number;
-  source: Place;
-  workflow: string;
-  step: string;
-  nudge: StepNudge;
-};
-
 /** The job a change Armada can't make yet starts, to build what it lacks. */
 const SUPPORT_JOB = "mock-armada-support";
 const SUPPORT_JOB_TITLE = "A step that ends on any of several approvals";
@@ -221,14 +206,12 @@ export function workflowsServed(
     /** Another Fleet's definitions, what ends their steps and the Jobs nudged at them, in place of `workflows-managed.ts`'s. */
     definitions?: typeof MANAGED_DEFINITIONS;
     ends?: typeof MANAGED_ENDS;
-    nudges?: readonly MockNudge[];
     /** The Manifests Fleet lists workflows under, in place of the three of `workflows-managed.ts`. */
     served?: readonly string[];
     /** The Manifest that holds the repository copies, in place of the first of `workflows-managed.ts`'s. */
     holds?: string;
   } = {},
 ): Served {
-  const started = Date.now();
   const ends = options.ends ?? MANAGED_ENDS;
   let files: Held[] = (options.definitions ?? MANAGED_DEFINITIONS).map(
     ({ source, definition }) => ({
@@ -249,19 +232,6 @@ export function workflowsServed(
       ...files,
       ledgerBug,
     ];
-  let nudges: KeptNudge[] = (options.nudges ?? MANAGED_NUDGES).map((one, at) => ({
-    id: at + 1,
-    source: one.source,
-    workflow: one.workflow,
-    step: one.step,
-    nudge: {
-      id: at + 1,
-      job_id: one.job_id,
-      job_title: one.job_title,
-      fact: one.fact,
-      at: new Date(started - one.ago).toISOString(),
-    },
-  }));
   let changes: Kept[] = [];
   let nextChange = 1;
 
@@ -394,16 +364,6 @@ export function workflowsServed(
   const stepsOf = (one: Held): StepReading[] =>
     (stepsOfDefinition(one.text) ?? []).map((step) => {
       const end = ends[`${one.id}/${step.id}`] ?? ends[step.id];
-      // The nudges are the first repository's Jobs.
-      const here = nudges
-        .filter(
-          (each) =>
-            each.source === one.source &&
-            each.workflow === one.id &&
-            each.step === step.id &&
-            (one.source !== "repository" || one.manifest === FIRST),
-        )
-        .map((each) => each.nudge);
       return {
         id: step.id,
         label: step.label,
@@ -428,11 +388,6 @@ export function workflowsServed(
           ? {}
           : {
               passed_over_when: end.passedOver,
-            }),
-        ...(here.length === 0
-          ? {}
-          : {
-              nudges: here,
             }),
       };
     });
@@ -469,32 +424,6 @@ export function workflowsServed(
     ];
     return change;
   };
-
-  // The suggestion already drawn up at Walk in the repository's `feature`, from the two Jobs Fleet nudged there.
-  const walked = held("feature", "repository", FIRST);
-  const from = nudges
-    .filter((one) => one.source === "repository" && one.step === "walk")
-    .map((one) => one.id);
-  if (walked !== undefined && from.length > 0) {
-    const change = begin(
-      "feature",
-      "repository",
-      FIRST,
-      {
-        kind: "drift",
-        nudges: from,
-      },
-      "walk",
-    );
-    changes = changes.map((one) =>
-      one.change.id === change.id
-        ? {
-            ...one,
-            readyAt: 0,
-          }
-        : one,
-    );
-  }
 
   const outcomeOfChange = (id: number) => changes.find((one) => one.change.id === id);
   const noChange = refusal("fleet.no_such_workflow_change", "No change by that id is held");
@@ -730,20 +659,6 @@ export function workflowsServed(
         },
       };
     },
-    markNotADrift: async (nudge) => {
-      if (!nudges.some((one) => one.id === nudge))
-        return {
-          ok: false,
-          outcome: refusal("fleet.no_such_nudge", "No nudge by that id is kept"),
-        };
-      nudges = nudges.filter((one) => one.id !== nudge);
-      return {
-        ok: true,
-        marked: {
-          nudge,
-        },
-      };
-    },
     askWorkflowChange: async ({ manifestId, body }) => {
       const source = place(body.source);
       if (source === "armada")
@@ -767,62 +682,6 @@ export function workflowsServed(
           kind: "asked",
           text: body.text.trim(),
         }),
-      };
-    },
-    suggestWorkflowChange: async ({ manifestId, body }) => {
-      const source = place(body.source);
-      if (source === "armada")
-        return {
-          ok: false,
-          outcome: refusal("fleet.workflow_is_armadas", "Armada's workflows are read-only here"),
-        };
-      const one = source === undefined ? undefined : held(body.workflow_id, source, manifestId);
-      if (source === undefined || one === undefined)
-        return {
-          ok: false,
-          outcome: missing(body.workflow_id, body.source),
-        };
-      if (!(stepsOfDefinition(one.text) ?? []).some((step) => step.id === body.step_id)) {
-        return {
-          ok: false,
-          outcome: refusal(
-            "fleet.workflow_step_not_here",
-            `\`${body.step_id}\` is not a step of \`${body.workflow_id}\``,
-          ),
-        };
-      }
-      const counted = nudges.filter(
-        (each) =>
-          each.source === source &&
-          each.workflow === body.workflow_id &&
-          each.step === body.step_id &&
-          (source !== "repository" || one.manifest === FIRST),
-      );
-      if (counted.length === 0)
-        return {
-          ok: false,
-          outcome: refusal("fleet.workflow_nothing_drifted", "No Job drifted at that step"),
-        };
-      const standing = open(body.workflow_id, body.source, under(manifestId)).find(
-        ({ change }) => change.step_id === body.step_id,
-      );
-      if (standing !== undefined)
-        return {
-          ok: false,
-          outcome: refusal("fleet.workflow_change_open", "That step has a change waiting"),
-        };
-      return {
-        ok: true,
-        change: begin(
-          body.workflow_id,
-          source,
-          under(manifestId),
-          {
-            kind: "drift",
-            nudges: counted.map((each) => each.id),
-          },
-          body.step_id,
-        ),
       };
     },
     readWorkflowChanges: async (workflowId, source, manifestId) => ({
