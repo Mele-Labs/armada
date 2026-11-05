@@ -134,7 +134,7 @@ Otherwise an ask, a slot choice (unless Fleet is creating it), the delivery ques
 
 **`/api/sessions/shown`** is Fleet's `get_shown_file`, which reads only a path the Job's record holds as an artifact of form `file` it showed, or one a `document` artifact's `revisions` names.
 **The phone asks for a revision by its kept path**, as the record names it, oldest first, so a page has no route of its own.
-A picture (`png`, `jpg`, `jpeg`, `gif`, `webp`, `heic`) comes as its bytes under its type, up to 8 MiB, since a retina screenshot often passes 1 MiB and whatever `show_file` accepts should open.
+A picture (`png`, `jpg`, `jpeg`, `gif`, `webp`, `heic`, `svg`) comes as its bytes under its type, up to 8 MiB, since a retina screenshot often passes 1 MiB and whatever `show_file` accepts should open.
 A video (`mp4`, `mov`, `webm`) is never read: it comes as `{ path, media_type, bytes }`, whatever its size, and plays through the address above.
 Anything else must be UTF-8 and comes as `{ path, text }`, up to 1 MiB.
 

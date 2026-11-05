@@ -30,7 +30,7 @@ The call is a tool row whose text is `<tool> <path as given>`, which Bridge draw
 ## A picture or a video
 
 **It draws in the Job's thread, under the file's card and sized to the thread, on the Mac and on the phone.**
-A picture is a file ending `png`, `jpg`, `jpeg`, `gif`, `webp` or `heic`, and a video one ending `mp4`, `mov` or `webm`, in any case.
+A picture is a file ending `png`, `jpg`, `jpeg`, `gif`, `webp`, `heic` or `svg`, and a video one ending `mp4`, `mov` or `webm`, in any case.
 Neither opens the side panel by itself; the card's "Opened" line opens a picture in the panel, with [notes](noting-what-you-read.md), and a video in the Mac's own player.
 
 **A press on a picture opens it full screen.**

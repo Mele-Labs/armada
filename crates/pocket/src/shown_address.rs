@@ -220,3 +220,42 @@ pub async fn serve(State(gateway): State<Gateway>, Path(name): Path<String>, hea
     }
     answer
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{wanted, Wanted};
+
+    #[test]
+    fn a_closed_open_ended_or_suffix_range_is_the_bytes_inside_the_file() {
+        assert_eq!(wanted(Some("bytes=0-9"), 100), Wanted::Part(0, 9));
+        assert_eq!(wanted(Some("bytes=90-"), 100), Wanted::Part(90, 99));
+        assert_eq!(wanted(Some("bytes=-10"), 100), Wanted::Part(90, 99));
+        assert_eq!(wanted(Some("bytes=99-99"), 100), Wanted::Part(99, 99));
+        assert_eq!(wanted(Some(" bytes= 1 - 2 "), 100), Wanted::Part(1, 2), "spaces around the numbers are not the request's");
+    }
+
+    #[test]
+    fn a_range_that_runs_past_the_end_is_cut_at_the_end() {
+        assert_eq!(wanted(Some("bytes=50-500"), 100), Wanted::Part(50, 99));
+        assert_eq!(wanted(Some("bytes=-500"), 100), Wanted::Part(0, 99), "a suffix longer than the file is the file");
+    }
+
+    #[test]
+    fn a_range_that_starts_past_the_end_or_asks_for_nothing_is_unsatisfiable() {
+        assert_eq!(wanted(Some("bytes=100-"), 100), Wanted::Unsatisfiable);
+        assert_eq!(wanted(Some("bytes=100-120"), 100), Wanted::Unsatisfiable);
+        assert_eq!(wanted(Some("bytes=-0"), 100), Wanted::Unsatisfiable);
+        for range in ["bytes=0-", "bytes=0-0", "bytes=-5"] {
+            assert_eq!(wanted(Some(range), 0), Wanted::Unsatisfiable, "{range} of an empty file");
+        }
+    }
+
+    #[test]
+    fn a_range_the_server_does_not_honour_is_the_whole_file() {
+        assert_eq!(wanted(None, 100), Wanted::Whole);
+        for range in ["", "bytes=", "bytes=-", "bytes=0-4,10-14", "items=0-4", "bytes=abc", "bytes=a-b", "bytes=1-b", "bytes=9-3"] {
+            assert_eq!(wanted(Some(range), 100), Wanted::Whole, "`{range}`");
+        }
+        assert_eq!(wanted(None, 0), Wanted::Whole);
+    }
+}

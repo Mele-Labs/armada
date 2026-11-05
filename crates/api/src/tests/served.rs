@@ -409,6 +409,35 @@ async fn a_shown_file_is_read_as_text_over_the_router() {
     assert_eq!(String::from_utf8(body).unwrap(), r#"{"path":"/a/b.md","text":"shown"}"#);
 }
 
+/// A video is not read: the route answers 200 JSON with where it is, what it is and how long, whatever
+/// the size, and the Gateway streams it.
+#[tokio::test]
+async fn a_shown_video_is_answered_as_shown_video_json_over_the_router() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let (status, body) = call(&app, "GET", "/sessions/shown?session_id=s1&path=%2Fa%2Fb.mp4", "").await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let video: ipc::ShownVideo = ipc::decode("a shown video", &body).expect("a ShownVideo");
+    assert_eq!(video, ipc::ShownVideo { path: "/a/b.mp4".into(), media_type: "video/mp4".into(), bytes: 300_000_000 });
+}
+
+/// A file over its cap is 413 in words that name text and pictures, which are the kinds that have a
+/// cap here: a video is never too large to answer.
+#[tokio::test]
+async fn the_413_for_a_shown_file_names_only_text_and_pictures() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let (status, body) = call(&app, "GET", "/sessions/shown?session_id=s1&path=%2Fa%2Fb.big", "").await;
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
+    let refused: WireError = ipc::decode("a refusal", &body).expect("a wire error");
+    assert_eq!(refused.code, "fleet.shown_file_too_large");
+    assert_eq!(
+        refused.message,
+        "This file is 9437184 bytes. The phone opens text of up to 1 MiB and pictures of up to 8 MiB."
+    );
+    assert!(!refused.message.to_lowercase().contains("video"), "{}", refused.message);
+}
+
 #[tokio::test]
 async fn the_phone_switch_is_read_and_set_over_the_router() {
     let events = Broadcaster::new();

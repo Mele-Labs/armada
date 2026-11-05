@@ -69,6 +69,8 @@ mod push_tests;
 #[cfg(test)]
 mod session_tests;
 #[cfg(test)]
+mod shown_tests;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod thread_tests;
