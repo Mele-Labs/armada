@@ -61,6 +61,10 @@ pub trait Backlog {
     /// someone else holds it**, and not settled where it does not: see the trait.
     fn claim(&self, in_repo: &str, reference: &str, actor: &str) -> Result<(), NotTracked>;
 
+    /// Hand `reference` back from `actor`: unassigned and open again, with `note` as why. **Only while
+    /// `actor` still holds it**, so a claim that was lost and re-taken is never undone from here.
+    fn release(&self, in_repo: &str, reference: &str, actor: &str, note: &str) -> Result<(), NotTracked>;
+
     /// File `title` as a child of `parent`, and its reference. **Not idempotent**: a second call
     /// files a second issue, so a caller keeps what it was answered before it asks again.
     fn create_child(&self, in_repo: &str, parent: &str, title: &str) -> Result<String, NotTracked>;
