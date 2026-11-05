@@ -193,7 +193,8 @@ export function ZoomablePicture({
     if (box === null) return;
     const wheel = (event: WheelEvent) => {
       event.preventDefault();
-      const delta = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? event.deltaY * LINE_HEIGHT : event.deltaY;
+      const delta =
+        event.deltaMode === WheelEvent.DOM_DELTA_LINE ? event.deltaY * LINE_HEIGHT : event.deltaY;
       const speed = event.ctrlKey ? PINCH_SPEED : WHEEL_SPEED;
       zoomAbout(event.clientX, event.clientY, view.current.scale * Math.exp(-delta * speed));
     };
@@ -379,7 +380,12 @@ export function ZoomablePicture({
       <div className="armada-zoomable__bar">
         <div className="armada-zoomable__group armada-zoomable__group--zoom">
           <Tooltip label="Zoom out" shortcut="-">
-            <Button variant="ghost" iconOnly aria-label="Zoom out" onClick={() => zoomBy(1 / KEY_STEP)}>
+            <Button
+              variant="ghost"
+              iconOnly
+              aria-label="Zoom out"
+              onClick={() => zoomBy(1 / KEY_STEP)}
+            >
               <Minus size={14} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>

@@ -30,8 +30,19 @@ const record = {
   ],
 } as unknown as SessionRecord;
 
-const sliced = vi.fn((_path: string, slice: { start: number; end: number }) => slice);
-const reads: VideoReads<{ start: number; end: number }> = {
+const sliced = vi.fn(
+  (
+    _path: string,
+    slice: {
+      start: number;
+      end: number;
+    },
+  ) => slice,
+);
+const reads: VideoReads<{
+  start: number;
+  end: number;
+}> = {
   size: async (path) => {
     if (path === "/work/gone.mp4") throw new Error("ENOENT");
     return path === "/work/empty.mp4" ? 0 : 100;
@@ -91,20 +102,59 @@ describe("what it answers", () => {
   });
 
   it.each([
-    ["/work/run.mp4", "video/mp4"],
-    ["/work/run.MOV", "video/quicktime"],
-    ["/work/run.webm", "video/webm"],
+    [
+      "/work/run.mp4",
+      "video/mp4",
+    ],
+    [
+      "/work/run.MOV",
+      "video/quicktime",
+    ],
+    [
+      "/work/run.webm",
+      "video/webm",
+    ],
   ])("%s is %s", async (path, type) => {
     expect((await answer(path)).headers["Content-Type"]).toBe(type);
   });
 
   it.each([
-    ["closed", "bytes=10-19", 10, 19],
-    ["open ended", "bytes=90-", 90, 99],
-    ["suffix", "bytes=-5", 95, 99],
-    ["past the end, cut to it", "bytes=90-500", 90, 99],
-    ["suffix longer than the file", "bytes=-500", 0, 99],
-    ["the last byte", "bytes=99-99", 99, 99],
+    [
+      "closed",
+      "bytes=10-19",
+      10,
+      19,
+    ],
+    [
+      "open ended",
+      "bytes=90-",
+      90,
+      99,
+    ],
+    [
+      "suffix",
+      "bytes=-5",
+      95,
+      99,
+    ],
+    [
+      "past the end, cut to it",
+      "bytes=90-500",
+      90,
+      99,
+    ],
+    [
+      "suffix longer than the file",
+      "bytes=-500",
+      0,
+      99,
+    ],
+    [
+      "the last byte",
+      "bytes=99-99",
+      99,
+      99,
+    ],
   ])("range %s is 206 with exactly its bytes", async (_name, range, start, end) => {
     const got = await answer("/work/run.mp4", range);
     expect(got.status).toBe(206);
@@ -122,9 +172,18 @@ describe("what it answers", () => {
   });
 
   it.each([
-    ["starting at the size", "bytes=100-"],
-    ["starting past it", "bytes=500-600"],
-    ["an empty suffix", "bytes=-0"],
+    [
+      "starting at the size",
+      "bytes=100-",
+    ],
+    [
+      "starting past it",
+      "bytes=500-600",
+    ],
+    [
+      "an empty suffix",
+      "bytes=-0",
+    ],
   ])("range %s is 416, naming the size", async (_name, range) => {
     sliced.mockClear();
     const got = await answer("/work/run.mp4", range);
@@ -136,10 +195,22 @@ describe("what it answers", () => {
   });
 
   it.each([
-    ["a unit it does not count", "items=0-5"],
-    ["nothing to read", "bytes=-"],
-    ["an end before its start", "bytes=9-5"],
-    ["several at once", "bytes=0-1,3-4"],
+    [
+      "a unit it does not count",
+      "items=0-5",
+    ],
+    [
+      "nothing to read",
+      "bytes=-",
+    ],
+    [
+      "an end before its start",
+      "bytes=9-5",
+    ],
+    [
+      "several at once",
+      "bytes=0-1,3-4",
+    ],
   ])("a header with %s is the whole file", async (_name, range) => {
     expect((await answer("/work/run.mp4", range)).status).toBe(200);
   });
@@ -190,9 +261,11 @@ describe("over a request, from the disk", () => {
       ],
     } as unknown as SessionRecord;
   });
-  afterAll(() => rm(dir, {
-    recursive: true,
-  }));
+  afterAll(() =>
+    rm(dir, {
+      recursive: true,
+    }),
+  );
 
   const ask = (at: string, range?: string, method = "GET") =>
     answerVideoRequest(
@@ -213,8 +286,15 @@ describe("over a request, from the disk", () => {
     const response = await ask(videoAddressOf("S1", path), "bytes=250-");
     expect(response.status).toBe(206);
     expect(response.headers.get("Content-Range")).toBe("bytes 250-255/256");
-    expect([...new Uint8Array(await response.arrayBuffer())]).toEqual([
-      250, 251, 252, 253, 254, 255,
+    expect([
+      ...new Uint8Array(await response.arrayBuffer()),
+    ]).toEqual([
+      250,
+      251,
+      252,
+      253,
+      254,
+      255,
     ]);
   });
 
@@ -227,7 +307,11 @@ describe("over a request, from the disk", () => {
   it("the fragment a player adds changes nothing", async () => {
     const response = await ask(`${videoAddressOf("S1", path)}#t=0.001`, "bytes=0-0");
     expect(response.status).toBe(206);
-    expect([...new Uint8Array(await response.arrayBuffer())]).toEqual([0]);
+    expect([
+      ...new Uint8Array(await response.arrayBuffer()),
+    ]).toEqual([
+      0,
+    ]);
   });
 
   it("another Session's name for the file is a 404 with no body", async () => {

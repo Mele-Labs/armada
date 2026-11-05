@@ -270,7 +270,11 @@ export async function readShown(machine: Machine, id: string, path: string): Pro
 }
 
 /** A picture or a video the Job showed, for its row in the thread. A video plays from an address, since a video element cannot sign. */
-export async function readShownMedia(machine: Machine, id: string, path: string): Promise<ShownMedia> {
+export async function readShownMedia(
+  machine: Machine,
+  id: string,
+  path: string,
+): Promise<ShownMedia> {
   if (mediaKindOf(path) === "video") {
     let latest: string | undefined;
     const address = async () => {

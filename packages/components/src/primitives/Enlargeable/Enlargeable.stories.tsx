@@ -123,7 +123,8 @@ const WIDE =
 const scaleOf = (picture: HTMLElement) =>
   Number(/scale\(([\d.]+)\)/.exec(picture.style.transform)?.[1]);
 const panOf = (picture: HTMLElement) => {
-  const [, x = "", y = ""] = /translate\((-?[\d.]+)px, (-?[\d.]+)px\)/.exec(picture.style.transform) ?? [];
+  const [, x = "", y = ""] =
+    /translate\((-?[\d.]+)px, (-?[\d.]+)px\)/.exec(picture.style.transform) ?? [];
   return {
     x: Number(x),
     y: Number(y),
@@ -344,7 +345,9 @@ const LARGE = (
     alt="large one"
     tabIndex={0}
     onClick={(event) => event.stopPropagation()}
-    style={{ width: "calc(var(--space-12) * 4)" }}
+    style={{
+      width: "calc(var(--space-12) * 4)",
+    }}
   />
 );
 
@@ -410,7 +413,13 @@ const closeSheet = fn();
  */
 export const EscapeLeavesTheSheetOpen: Story = {
   render: (args) => (
-    <Sheet kind="enlargeable-story" open title="Reading" onClose={closeSheet} closeLabel="Close sheet">
+    <Sheet
+      kind="enlargeable-story"
+      open
+      title="Reading"
+      onClose={closeSheet}
+      closeLabel="Close sheet"
+    >
       <Enlargeable {...args} />
     </Sheet>
   ),
@@ -454,7 +463,13 @@ export const RegionGoesFirstOnEscape: Story = {
         send: () => true,
       }}
     >
-      <Sheet kind="enlargeable-story" open title="Reading" onClose={closeUnder} closeLabel="Close sheet">
+      <Sheet
+        kind="enlargeable-story"
+        open
+        title="Reading"
+        onClose={closeUnder}
+        closeLabel="Close sheet"
+      >
         <Enlargeable
           src={WIDE}
           name="wide.png"
@@ -507,16 +522,30 @@ export const RegionGoesFirstOnEscape: Story = {
     fireEvent.pointerMove(picture, to);
     fireEvent.pointerUp(picture, to);
     fireEvent.click(picture, to);
-    await expect(screen.getByRole("dialog", { name: "wide.png" })).toBe(viewer);
+    await expect(
+      screen.getByRole("dialog", {
+        name: "wide.png",
+      }),
+    ).toBe(viewer);
     const region = () => viewer.querySelector(".armada-notable-image__region[data-drawing]");
     await waitFor(() => expect(region()).not.toBeNull());
 
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(region()).toBeNull());
-    await expect(screen.getByRole("dialog", { name: "wide.png" })).toBe(viewer);
+    await expect(
+      screen.getByRole("dialog", {
+        name: "wide.png",
+      }),
+    ).toBe(viewer);
 
     await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "wide.png" })).toBeNull());
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", {
+          name: "wide.png",
+        }),
+      ).toBeNull(),
+    );
     await expect(closeUnder).not.toHaveBeenCalled();
 
     await userEvent.keyboard("{Escape}");

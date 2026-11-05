@@ -14,7 +14,8 @@ const PICTURE =
     '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400"><rect width="640" height="400" fill="teal"/></svg>',
   );
 /** A real video, two seconds of one colour: the player's own events are what these stories read. */
-const VIDEO = "data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAAO9EU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHWTbuMU6uEElTDZ1OsggEyTbuMU6uEHFO7a1OsggNe7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsCrXsYMPQkBNgIxMYXZmNjMuMS4xMDJXQYxMYXZmNjMuMS4xMDJEiYhAn0AAAAAAABZUrmvXrgEAAAAAAABO14EBc8WIyg0TegRUMt6cgQAitZyDdW5kiIEAhoVWX1ZQOIOBASPjg4QL68IA4JCwgRC6gRCagQJVsIRVuYEBVe6BAOwBAAAAAAAAAgAAElTDZ/pzc59jwIBnyJlFo4dFTkNPREVSRIeMTGF2ZjYzLjEuMTAyc3PVY8CLY8WIyg0TegRUMt5nyKBFo4dFTkNPREVSRIeTTGF2YzYzLjEuMTAyIGxpYnZweGfIoUWjiERVUkFUSU9ORIeTMDA6MDA6MDIuMDAwMDAwMDAwAB9DtnVBp+eBAKO7gQAAgLACAJ0BKhAAEAAARwiFhYiFhIgCAgJ1qgP4Agz9+wD++2iX/z0zXmD/Jz/9uR/tyP9uR/+2wgCjlYEAyACxAQABEBAAGAAYWC/0AAgAAKO7gQGQgLACAJ0BKhAAEAAARwiFhYiFhIgCAgJ1qgP4Agz9+wD++2iX/z0zXmD/Jz/9uR/tyP9uR/+2wgCjlYECWACxAQABEBAAGAAYWC/0AAgAAKO7gQMggLACAJ0BKhAAEAAARwiFhYiFhIgCAgJ1qgP4Agz9+wD++2iX/z0zXmD/Jz/9uR/tyP9uR/+2wgCjlYED6ACxAQABEBAAGAAYWC/0AAgAAKO7gQSwgLACAJ0BKhAAEAAARwiFhYiFhIgCAgJ1qgP4Agz9+wD++2iX/z0zXmD/Jz/9uR/tyP9uR/+2wgCjlYEFeACxAQABEBAAGAAYWC/0AAgAAKO7gQZAgLACAJ0BKhAAEAAARwiFhYiFhIgCAgJ1qgP4Agz9+wD++2iX/z0zXmD/Jz/9uR/tyP9uR/+2wgCjlYEHCACxAQABEBAAGAAYWC/0AAgAABxTu2vau4+zgQC3iveBAfGCAbHwgQO7kLOCAZC3iveBAfGCAbHwgVe7kLOCAyC3iveBAfGCAbHwgau7kLOCBLC3iveBAfGCAbHwgf+7kbOCBkC3i/eBAfGCAbHwggFT";
+const VIDEO =
+  "data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAAO9EU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHWTbuMU6uEElTDZ1OsggEyTbuMU6uEHFO7a1OsggNe7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsCrXsYMPQkBNgIxMYXZmNjMuMS4xMDJXQYxMYXZmNjMuMS4xMDJEiYhAn0AAAAAAABZUrmvXrgEAAAAAAABO14EBc8WIyg0TegRUMt6cgQAitZyDdW5kiIEAhoVWX1ZQOIOBASPjg4QL68IA4JCwgRC6gRCagQJVsIRVuYEBVe6BAOwBAAAAAAAAAgAAElTDZ/pzc59jwIBnyJlFo4dFTkNPREVSRIeMTGF2ZjYzLjEuMTAyc3PVY8CLY8WIyg0TegRUMt5nyKBFo4dFTkNPREVSRIeTTGF2YzYzLjEuMTAyIGxpYnZweGfIoUWjiERVUkFUSU9ORIeTMDA6MDA6MDIuMDAwMDAwMDAwAB9DtnVBp+eBAKO7gQAAgLACAJ0BKhAAEAAARwiFhYiFhIgCAgJ1qgP4Agz9+wD++2iX/z0zXmD/Jz/9uR/tyP9uR/+2wgCjlYEAyACxAQABEBAAGAAYWC/0AAgAAKO7gQGQgLACAJ0BKhAAEAAARwiFhYiFhIgCAgJ1qgP4Agz9+wD++2iX/z0zXmD/Jz/9uR/tyP9uR/+2wgCjlYECWACxAQABEBAAGAAYWC/0AAgAAKO7gQMggLACAJ0BKhAAEAAARwiFhYiFhIgCAgJ1qgP4Agz9+wD++2iX/z0zXmD/Jz/9uR/tyP9uR/+2wgCjlYED6ACxAQABEBAAGAAYWC/0AAgAAKO7gQSwgLACAJ0BKhAAEAAARwiFhYiFhIgCAgJ1qgP4Agz9+wD++2iX/z0zXmD/Jz/9uR/tyP9uR/+2wgCjlYEFeACxAQABEBAAGAAYWC/0AAgAAKO7gQZAgLACAJ0BKhAAEAAARwiFhYiFhIgCAgJ1qgP4Agz9+wD++2iX/z0zXmD/Jz/9uR/tyP9uR/+2wgCjlYEHCACxAQABEBAAGAAYWC/0AAgAABxTu2vau4+zgQC3iveBAfGCAbHwgQO7kLOCAZC3iveBAfGCAbHwgVe7kLOCAyC3iveBAfGCAbHwgau7kLOCBLC3iveBAfGCAbHwgf+7kbOCBkC3i/eBAfGCAbHwggFT";
 
 const PATH = "/work/shown/run.png";
 const NAME = "run.png";
@@ -90,7 +91,12 @@ const meta: Meta<typeof MediaFrame> = {
   decorators: [
     (Story) => (
       <WatchedByHand>
-        <div data-testid="host" style={{ width: "calc(var(--space-12) * 10)" }}>
+        <div
+          data-testid="host"
+          style={{
+            width: "calc(var(--space-12) * 10)",
+          }}
+        >
           <Story />
         </div>
       </WatchedByHand>
@@ -253,9 +259,7 @@ export const ErrorAsksAgainAndKeepsItsPlace: VideoStory = {
     await waitFor(() => expect(reloaded).toHaveBeenCalled());
     await waitFor(() => expect(video.currentTime).toBeCloseTo(1.25, 1));
     await expect(video.error).toBeNull();
-    await expect(
-      within(canvasElement).queryByText("This video cannot play here."),
-    ).toBeNull();
+    await expect(within(canvasElement).queryByText("This video cannot play here.")).toBeNull();
   },
 };
 
@@ -359,7 +363,12 @@ const openInThread = fn();
 /** Only a picture or a video draws a frame: any other file, and a host that reads no media, keep the plain line. */
 export const OtherRowsStayThePlainLine: StoryObj<typeof SessionThread> = {
   render: () => (
-    <div style={{ display: "flex", height: "calc(var(--space-12) * 8)" }}>
+    <div
+      style={{
+        display: "flex",
+        height: "calc(var(--space-12) * 8)",
+      }}
+    >
       <SessionThread
         rows={[
           fileRow("a", "/work/plan.md", "plan.md"),
@@ -382,7 +391,9 @@ export const OtherRowsStayThePlainLine: StoryObj<typeof SessionThread> = {
     await expect(openInThread).toHaveBeenCalledWith("/work/plan.md");
     comeNear();
     await waitFor(() => expect(readInThread).toHaveBeenCalledTimes(1));
-    await expect(readInThread.mock.calls[0]).toEqual([PATH]);
+    await expect(readInThread.mock.calls[0]).toEqual([
+      PATH,
+    ]);
     await canvas.findByRole("button", {
       name: NAME,
     });
@@ -391,7 +402,12 @@ export const OtherRowsStayThePlainLine: StoryObj<typeof SessionThread> = {
 
 export const NoReadStaysThePlainLine: StoryObj<typeof SessionThread> = {
   render: () => (
-    <div style={{ display: "flex", height: "calc(var(--space-12) * 8)" }}>
+    <div
+      style={{
+        display: "flex",
+        height: "calc(var(--space-12) * 8)",
+      }}
+    >
       <SessionThread
         rows={[
           fileRow("b", PATH, NAME),

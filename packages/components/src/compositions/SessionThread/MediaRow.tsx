@@ -42,7 +42,8 @@ function scrollerOf(element: Element): Element | null {
   return null;
 }
 
-const urlOf = (media: ShownMedia | undefined) => (media?.kind === "picture" ? media.url : undefined);
+const urlOf = (media: ShownMedia | undefined) =>
+  media?.kind === "picture" ? media.url : undefined;
 
 /** Why it did not draw, and where the host can open it some other way, the way out of a frame that holds nothing. */
 function MediaLine({ says, open }: { says: string; open?: (() => void) | undefined }) {

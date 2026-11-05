@@ -308,10 +308,20 @@ export function mediaJob(now: number): {
       }),
       rows: [
         message("m1-1", ago(now, 25), "you", "Show me what the Cockpit looks like now."),
-        message("m1-2", ago(now, 21), "agent", "The Cockpit on a wide window, and a Job on the phone."),
+        message(
+          "m1-2",
+          ago(now, 21),
+          "agent",
+          "The Cockpit on a wide window, and a Job on the phone.",
+        ),
         tool("m1-3", ago(now, 20), `show_file ${root}/cockpit-wide.jpg`),
         tool("m1-4", ago(now, 19), `show_file ${root}/job-on-the-phone.jpg`),
-        message("m1-5", ago(now, 18), "agent", "A short recording of it running, and the whole run."),
+        message(
+          "m1-5",
+          ago(now, 18),
+          "agent",
+          "A short recording of it running, and the whole run.",
+        ),
         tool("m1-6", ago(now, 17), `show_file ${root}/cockpit-recording.mp4`),
         tool("m1-7", ago(now, 16), `show_file ${root}/full-run.mov`),
       ],
