@@ -30,7 +30,7 @@ export type StudioSummary = {
  * Studio it holds with it.
  */
 export type Studio = StudioSummary & {
-  /** `person` or `helm`. Absent when untitled, or named before this was kept. Since 14.7. */
+  /** `person` or `job`. Absent when untitled, or named before this was kept. Since 14.7. */
   named_by?: string;
   /** Oldest first. */
   nodes: StudioNode[];
@@ -251,7 +251,7 @@ export type StudioNode = StudioNodeContent & {
   /** From the corner of the frame it is `within`, or the board's origin. Since 23.0. */
   position: StudioPosition;
   created_at: string;
-  /** `person` or `helm`. Absent only on a node added before it was kept. Since 14.7. */
+  /** `person` or `job`. Absent only on a node added before it was kept. Since 14.7. */
   added_by?: string;
 };
 
@@ -265,7 +265,7 @@ export type StudioEdge = {
   /** `proposed` or `accepted`. */
   standing: string;
   created_at: string;
-  /** `person` or `helm`. Absent only on an edge kept before it was. Since 14.7. */
+  /** `person` or `job`. Absent only on an edge kept before it was. Since 14.7. */
   added_by?: string;
 };
 
@@ -276,21 +276,21 @@ export type StudioDeleted = {
 };
 
 /**
- * `studio.helm_acted`'s body: one act Helm took on a Studio, published after
+ * `studio.job_acted`'s body: one act a job on your words took on a Studio, published after
  * the write's `studio.changed`. A person's act publishes `studio.changed`
  * alone, so the two are told apart by kind. Since 14.7, #1288.
  */
-export type StudioHelmActed = HelmStudioAct & {
+export type StudioJobActed = StudioJobAct & {
   studio_id: string;
   manifest_id: string;
   at: string;
 };
 
 /**
- * Which act of Helm's, with the id of what it added or the name given. The first three are the
- * unasked ones; the last two are what Helm takes on a person's ask. Since 14.11, #1291.
+ * Which act, with the id of what it added or the name given. The first three are the
+ * unasked ones; the last two are what it takes on a person's ask. Since 14.11, #1291.
  */
-export type HelmStudioAct =
+export type StudioJobAct =
   | {
       act: "added_node";
       node_id: string;

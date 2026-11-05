@@ -8,7 +8,7 @@ The protocol ID moves with the files below, and there is no number to take.
 
 | Where | Side | Change |
 | --- | --- | --- |
-| `StartSession.held` | Bridge sends, Fleet takes | `bool`, left out when false. Holds the Job on its start card: no agent runs and a message is kept until `begin_session`. Not read with `root` or `after`, or for Helm's start. Read with `fork` since 25 Oct |
+| `StartSession.held` | Bridge sends, Fleet takes | `bool`, left out when false. Holds the Job on its start card: no agent runs and a message is kept until `begin_session`. Not read with `root` or `after`. Read with `fork` since 25 Oct |
 | `HostedFacts.start` (`StartHeld`) | Fleet writes, Bridge reads | Present while the Job waits for `begin_session`, absent once it has begun and for a Job never held. Left out when absent |
 | `StartHeld` | | `asks_delivery`, and `picked?` (`DeliveryPicked`) |
 | `DeliveryPicked` | | `choice` (`DeliveryChoice`) and `from` (`DeliveryPickedFrom`) |

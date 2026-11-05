@@ -1,22 +1,17 @@
-//! Helm reading a thought for where it belongs, and recording where it went.
-//! `docs/concepts/helm.md`, *Routing a thought*.
+//! The Operator's first shortlist of Jobs for words a person typed, and the words sent on.
 //!
-//! **Three operations, the first two Bridge's.** `read_thought` takes the words a person typed into
-//! Helm's box and answers whether they are a question for Helm or a thought for other running
-//! work, and which. `record_thought_sent` is said after Bridge delivered the words to that work: Fleet
-//! keeps a `sent` row in the Helm Session's thread (`SessionRow::Sent`) and publishes
-//! `helm.thought_routed`. Neither sends anything to a Session or Helm's own process:
-//! delivery is the acts that already exist. `tell_session` is Helm's own delivery to a live
-//! Session, for the words that reach Helm as a request, and it keeps the same row and the same
-//! event itself.
+//! **Two operations.** `read_thought` takes the words a person typed and answers which running Job
+//! they are for, if any. `tell_session` is a Job on your words passing words to a live Job: Fleet
+//! sends them as Bridge's own send does and publishes `operator.words_sent`. The thread of the Job
+//! that sent them keeps a `sent` row only in the old threads the Helm Job kept
+//! (`SessionRow::Sent`), which stay readable.
 
 use serde::{Deserialize, Serialize};
 
-use crate::hosted_sessions::{SessionTag, SessionUpload};
 use crate::ids::{Instant, ManifestId};
 use crate::sessions::SessionId;
 
-/// `read_thought` (`POST /helm/read_thought`).
+/// `read_thought` (`POST /operator/read_thought`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReadThought {
     pub text: String,
@@ -46,11 +41,11 @@ pub struct ThoughtTarget {
 }
 
 /// What `read_thought` answers: **a question is the answer whenever Fleet could not say
-/// otherwise**, so the words go to Helm and are never lost.
+/// otherwise**, so the words are never taken for a thought about a Job that is not there.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ThoughtReading {
-    /// For Helm itself.
+    /// Not about a running Job.
     Question,
     /// For other work. Without a `target`, nothing running is about it.
     Thought {
@@ -59,38 +54,21 @@ pub enum ThoughtReading {
     },
 }
 
-/// `record_thought_sent` (`POST /helm/thought_sent?manifest_id=`): the words were delivered. The
-/// manifest names the Helm Session whose thread keeps the row, as `ask_helm`'s does.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ThoughtSent {
-    pub text: String,
-    pub target: ThoughtTarget,
-    /// What was sent to the Session with the words. Fleet keeps it with the Helm Session's own
-    /// uploads, as a message's, so the row can draw it after a restart.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub attachments: Vec<SessionUpload>,
-    /// The Sessions, pull requests, issues and branches the words named.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub mentions: Vec<SessionTag>,
-}
-
-/// `tell_session` (`POST /helm/tell_session?manifest_id=`), a `Helm only` act: words a person asked
-/// Helm to pass to a live Session. Fleet sends them as Bridge's own send does, so a terminal
-/// Session that is not listening is refused in the same words, and on success keeps the same
-/// `sent` row and `helm.thought_routed` as `record_thought_sent`. Answers the [`ThoughtTarget`]
-/// the words went to.
+/// `tell_session` (`POST /operator/tell_session?manifest_id=`), an `On your words` act: words a person asked
+/// a Job to pass to a live Job. Fleet sends them as Bridge's own send does, so a terminal
+/// Job that is not listening is refused in the same words, and on success publishes
+/// `operator.words_sent`. Answers the [`ThoughtTarget`] the words went to.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TellSession {
     pub session_id: SessionId,
     pub text: String,
 }
 
-/// `helm.thought_routed`: Helm's reading sent a person's words to running work. **Helm's act as
-/// its own event type**, beside `studio.helm_acted`. It names where and never the words,
-/// which are the thread's.
+/// `operator.words_sent`: a person's words were sent to a running Job. It names where and never the
+/// words, which are the Job's thread's.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HelmThoughtRouted {
-    /// The Helm Session whose thread holds the words, by its repository.
+pub struct WordsSent {
+    /// The repository the call was made in.
     pub manifest_id: ManifestId,
     pub to: ThoughtKind,
     /// The Session's id.

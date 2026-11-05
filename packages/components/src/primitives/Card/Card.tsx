@@ -4,7 +4,7 @@ import type { ComponentProps, HTMLAttributes } from "react";
  * Card — the card treatment under Depth where it sits on the canvas, and flat
  * `--bg-raised` where it does not. Neither is chosen here: the recipe in
  * `src/glass.css` reads the card's ancestry, so a card inside a sheet, a
- * dialog, another card or Helm's dock is flat without its author knowing the
+ * dialog, another card or the Operator's dock is flat without its author knowing the
  * rule. `Card.css` says which is which and why.
  *
  * The card owns its padding, so the parts below add none. That is what keeps

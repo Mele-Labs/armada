@@ -30,7 +30,7 @@ pub(crate) enum Seen {
 }
 
 /// What `record` says of a Job gone quiet. `at_rest` is the ledger's read that it is live, between
-/// turns with nothing asked, and neither parked nor Helm. A dead process is not one: Fleet starts a
+/// turns with nothing asked, and not parked. A dead process is not one: Fleet starts a
 /// repair Job for it.
 pub(crate) fn seen_of(record: &ipc::SessionRecord, at_rest: bool) -> Option<Seen> {
     if record.standing == Some(ipc::SessionStanding::Stopped) {
@@ -182,6 +182,7 @@ where
                 after: None,
                 held: false,
                 project_rows: Vec::new(),
+                on_your_words: None,
             })
             .await;
         let made = match made {

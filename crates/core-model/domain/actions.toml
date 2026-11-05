@@ -67,16 +67,16 @@ destructive = false
 confirms = false
 notes = "The palette is the discovery surface for every other row here, and it is the one row that cannot be discovered inside it. `search` was not taken: the registry gives it to the search control, and the palette is a superset of the UI rather than a search over a list."
 
-[actions.helm]
+[actions.operator]
 kind = "Action"
 tier = "Global"
-verb = "Helm"
-icon = "message-square"
+verb = "Operator"
+icon = "bot"
 shortcut = "⌘J"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "Toggles Helm's dock, which sits beside the content on every Bridge surface rather than in the rail. Decided with the owner on 2026-09-13 (#948): Helm left the rail, so it no longer takes the digit after the last surface, and the rail's digits are the rail's alone. It read ⌘5 until 2026-09-03 and ⌘6 until this. The glyph is the registry's own assignment for Helm."
+notes = "Toggles the Operator's panel, a dock over the content on every Bridge surface rather than in the rail. Decided with the owner on 2026-09-13 (#948): the dock left the rail, so it takes no digit after the last surface, and the rail's digits are the rail's alone. It read ⌘5 until 2026-09-03 and ⌘6 until this. The Operator takes its place (`armada-ehhu`), and Bridge draws nothing on this key until the panel lands in `armada-ehhu.10`."
 
 [actions.capture_note]
 kind = "Action"
@@ -88,7 +88,7 @@ shortcut = "⌥⌘C"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "Studio capture (#1290): point at something wrong anywhere in Bridge and it lands on the open Studio as a Note. Global, because what is wrong is on whatever surface a person is looking at rather than on the Studio. The modifier pair is the development annotation layer's own — ⌥⌘A, which stays permanently and is not in this registry because it ships in no packaged build — so the two capture tools sit a key apart and neither is a bare ⌘. C for capture; ⌥⌘C is bound by no Electron default menu and by nothing else here. No glyph: nothing registered means pointing at a thing, and the nearest silhouettes are all spoken for — `flag` is an alert's, `stamp` is attest's, `message-square` is Helm's."
+notes = "Studio capture (#1290): point at something wrong anywhere in Bridge and it lands on the open Studio as a Note. Global, because what is wrong is on whatever surface a person is looking at rather than on the Studio. The modifier pair is the development annotation layer's own — ⌥⌘A, which stays permanently and is not in this registry because it ships in no packaged build — so the two capture tools sit a key apart and neither is a bare ⌘. C for capture; ⌥⌘C is bound by no Electron default menu and by nothing else here. No glyph: nothing registered means pointing at a thing, and the nearest silhouettes are all spoken for — `flag` is an alert's, `stamp` is attest's, `message-square` is a thread's."
 
 [actions.history]
 kind = "Action"
@@ -111,7 +111,7 @@ shortcut = "⌘Enter"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "The owner's note of 18 Sep 2026: hold Cmd over a message box and the Send button shows the key that sends it. Global, because it is modifier-based and the two boxes that answer it — the drone message box at the foot of a step's activity, and Helm's composer — sit on detail and on every surface respectively; `anywhere` is where a composer can hold focus, not a claim that the key fires with nothing focused. Plain Enter stays a new line in both, which is what makes the modifier necessary: a note to a drone is prose. The palette draws this row and cannot press it, the same as Report and the Studio's three — `apps/desktop/src/renderer/src/palette.ts` says so. No glyph: `send` is the registry's paper plane and means Dispatch, `message-square` is Helm's own, `corner-up-right` is Redirect's, and reusing any of them would give one silhouette two meanings. Three fields already bound ⌘Enter with nothing in here to read — `StudioAddNode`, `StudioCapture` and the annotation layer's own note field — which is the drift this row closes; none of the three was rewired by the change that added it."
+notes = "The owner's note of 18 Sep 2026: hold Cmd over a message box and the Send button shows the key that sends it. Global, because it is modifier-based and the two boxes that answer it — the drone message box at the foot of a step's activity, and a Job's composer — sit on detail and on every surface respectively; `anywhere` is where a composer can hold focus, not a claim that the key fires with nothing focused. Plain Enter stays a new line in both, which is what makes the modifier necessary: a note to a drone is prose. The palette draws this row and cannot press it, the same as Report and the Studio's three — `apps/desktop/src/renderer/src/palette.ts` says so. No glyph: `send` is the registry's paper plane and means Dispatch, `message-square` is a thread's, `corner-up-right` is Redirect's, and reusing any of them would give one silhouette two meanings. Three fields already bound ⌘Enter with nothing in here to read — `StudioAddNode`, `StudioCapture` and the annotation layer's own note field — which is the drift this row closes; none of the three was rewired by the change that added it."
 
 [actions.queue_session]
 kind = "Action"
@@ -147,7 +147,7 @@ shortcut = "⌥M"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "Puts the caret in the open Job's message box from anywhere in its view, a field or a layer included. A modifier means this tier, so it works while another field has focus; with no Job open it does nothing. ⌥M is the Job view's own family (⌥W, ⌥1–⌥3, ⌥F, ⌥N, ⌥L) and free in the map: ⌘J is Helm's box, ⌘M is the platform's Minimize, and a bare letter would be suppressed in the field the person is leaving. Read by the key's place on the keyboard, since Option changes the character M types. No glyph: `message-square` is Helm's. Added 27 Oct 2026 on the owner's *\"a key to jump to the Job's composer\"*."
+notes = "Puts the caret in the open Job's message box from anywhere in its view, a field or a layer included. A modifier means this tier, so it works while another field has focus; with no Job open it does nothing. ⌥M is the Job view's own family (⌥W, ⌥1–⌥3, ⌥F, ⌥N, ⌥L) and free in the map: ⌘J is the Operator's panel, ⌘M is the platform's Minimize, and a bare letter would be suppressed in the field the person is leaving. Read by the key's place on the keyboard, since Option changes the character M types. No glyph: `message-square` is a thread's. Added 27 Oct 2026 on the owner's *\"a key to jump to the Job's composer\"*."
 
 [actions.pane_split_right]
 kind = "Action"
@@ -544,7 +544,7 @@ shortcut = "l b c q f a d"
 scope = "deck"
 destructive = false
 confirms = false
-notes = "Moves focus to a panel of the flight deck: `l` the list of Jobs and Sessions, `b` the bays, `c` the first row of the list that needs him, else the first place that holds a call (a merge queue chip, then Helm or Sleep in the title row), `q` the merge queue, `f` the flight controls, `a` Autopilot, `d` the Dispatch tile. Seven letters in one row because they are one act with a target, as `bridge_surfaces` is one row for a rail. The deck's own scope, `deck`, is where it listens: `l` and `b` are also `call_later` and `call_best`, which hold their keys only while a call pane is in front, and the deck stands down for it; `c` is `copy_debug_info` on a list, and the deck is not one. A panel's key is its slot in this row, so Settings → Keyboard moves the key and the deck follows. The map is not here: it is `dashboard_view`'s `m`, which the deck reads as the map."
+notes = "Moves focus to a panel of the flight deck: `l` the list of Jobs and Sessions, `b` the bays, `c` the first row of the list that needs him, else the first place that holds a call (a merge queue chip), `q` the merge queue, `f` the flight controls, `a` Autopilot, `d` the Dispatch tile. Seven letters in one row because they are one act with a target, as `bridge_surfaces` is one row for a rail. The deck's own scope, `deck`, is where it listens: `l` and `b` are also `call_later` and `call_best`, which hold their keys only while a call pane is in front, and the deck stands down for it; `c` is `copy_debug_info` on a list, and the deck is not one. A panel's key is its slot in this row, so Settings → Keyboard moves the key and the deck follows. The map is not here: it is `dashboard_view`'s `m`, which the deck reads as the map."
 
 [actions.deck_tile]
 kind = "Action"

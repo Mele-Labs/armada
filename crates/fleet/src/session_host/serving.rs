@@ -10,7 +10,7 @@ use std::time::Duration;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal, Sessions, StoredFile};
 use ipc::{
-    AnswerHelmCall, AnswerSessionAsk, CloseSession, GateAnswer, HostedFacts, ManifestId,
+    AnswerSessionAsk, CloseSession, GateAnswer, HostedFacts, ManifestId,
     MoveSession, RunSessionCommand, SendSessionMessage, SessionGate, SessionId, SessionMode, SessionRecord, SessionRow,
     SessionSubagent, SessionThread, SessionTurn, SessionVoice, StartSession, StopSession, TuneSession,
     WireError,
@@ -22,7 +22,7 @@ use super::process::{Heard, Start};
 use super::rows::{mention_line, new_id, UserLine};
 use super::uploads::ATTACHMENT_REFUSED;
 use crate::daemon::Fleet;
-use crate::helm::NotAnswerable;
+use crate::asks::NotAnswerable;
 use crate::repositories::Served;
 
 mod batching;
@@ -87,8 +87,6 @@ enum Written {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Marked {
     Plain,
-    /// A repository's Helm (`helm_session.rs`).
-    Helm,
     /// A Mod Job, started by `start_mod_session`.
     Mod,
     /// A Mod Job where Armada's own repository is not served: it runs in the mods folder, with no
@@ -219,19 +217,11 @@ where
             return Err(self.ask_not_waiting());
         }
         let said_answer = said.answer;
-        let answer = AnswerHelmCall {
-            call: said.call,
-            answer: said.answer,
-            note: said.note,
-            answers: said.answers,
-            folder: said.folder,
-            kind: said.kind,
-        };
         self.hosts().of(&id).state().answered_via = api::via();
         let waiting = self
             .hosts()
             .asks()
-            .answer(&answer)
+            .answer(&said)
             .map_err(|why| match why {
                 NotAnswerable::Incomplete => Refusal::Unacceptable(WireError::raised(
                     SESSION_ANSWER_INCOMPLETE,
@@ -251,7 +241,7 @@ where
                 _ => self.ask_not_waiting(),
             })?;
         if terminal {
-            self.terminal_ask_answered(&id, &waiting, &crate::helm::Said::of(&answer))
+            self.terminal_ask_answered(&id, &waiting, &crate::asks::Said::of(&said))
                 .await?;
         }
         let record = self.published_hosted(&id).await?;

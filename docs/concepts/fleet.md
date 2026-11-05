@@ -14,7 +14,7 @@ Formalizes Fleet — the Rust daemon that hosts the Jobs working in a repository
 The execution engine underlying everything else in Armada. Fleet hosts Jobs, leases the slots they write in, runs Checks, reads pull requests and main, and writes the ledger (see [Job](session.md)).
 
 Fleet has **no engineer-facing surface** beyond Doctor's module status.
-It is pure infrastructure; you never "go to Fleet" the way you go to the Cockpit or Helm.
+It is pure infrastructure; you never "go to Fleet" the way you go to the Cockpit.
 Its behaviour is specified across nearly every other concept document — what this document owns is the daemon lifecycle, and a map of where the rest lives.
 
 ## Daemon lifecycle
@@ -279,7 +279,7 @@ A `gh` command is `session.called` and not `session.ran`, so it is in no burst.
 The Cockpit draws what these entries hold as outposts ([Cockpit](cockpit.md), *Outposts*).
 
 **One hosted Job's message to another is one `session.messaged` entry**, written when Fleet puts it on the receiver's thread: the sender is the subject and `to` the receiver, so either Job's Field finds it (22 Oct 2026).
-A person's message, Helm's, and a terminal Job's are not entered; `docs/practices/protocol.md`, *The Fleet's timeline*, has why.
+A person's message and a terminal Job's are not entered; `docs/practices/protocol.md`, *The Fleet's timeline*, has why.
 
 ### What Fleet knows after the merge, and what it does not
 
@@ -515,7 +515,7 @@ Rows the store says are going that no task of this process holds are ended faile
 
 **Definitions are read from the folders every time** (`list_review_tools`), so what a person saved is what the next press asks.
 `save_review_tool` writes one file into Kit's folder or the repository's `.armada/review-tools/`, refusing a blank name or prompt, a name with no words, and an id the scope already defines unless asked to overwrite.
-It is `Helm only` for agents: what is written decides what every review asks an agent.
+It is `On your words` for agents: what is written decides what every review asks an agent.
 
 **Each listed row names the Job that holds the pull request**, from *Who owns a pull request*, so Bridge can send a note there.
 

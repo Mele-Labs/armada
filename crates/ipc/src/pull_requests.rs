@@ -4,7 +4,7 @@
 //!
 //! **A pull request is named by its repository and its number**, the pair the
 //! session ledger's `pr` row already holds, and nothing here is a Job's. The
-//! three writes are a person's ask in Helm's terms (`pushes to shared`), and each
+//! three writes are a person's ask (`pushes to shared`), and each
 //! answers with the pull request as the forge shows it afterwards.
 
 use serde::{Deserialize, Serialize};

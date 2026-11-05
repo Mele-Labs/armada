@@ -286,8 +286,6 @@ import type {
   IssuesRead,
   PullRequestNumberRead,
 } from "../shared/api/issues";
-import type { HelmCarry } from "../shared/api/helm";
-import type { HelmContext, HelmDebugRead, ThoughtRead, ThoughtTarget } from "@armada/protocol";
 import type {
   StudioCapture,
   StudioNodeByHand,
@@ -351,7 +349,7 @@ import type {
   ProposalAnswer,
   RepositoryScanRead,
 } from "@armada/screens/src/setup-reads";
-import type { HelmCallAnswer, SavePreference, SaveSettings } from "@armada/protocol";
+import type { SavePreference, SaveSettings } from "@armada/protocol";
 
 // The whole surface the renderer is allowed to see.
 //
@@ -403,10 +401,6 @@ const api: BridgeApi = {
   rescueSlot: (manifestId: string, rescue: RescueSlot): Promise<RescueOutcome> =>
     ipcRenderer.invoke(CHANNELS.rescueSlot, manifestId, rescue),
 
-  // One held helm call. The note is a person's own words, read only on a
-  // refusal; `undefined` crosses as `undefined`.
-  answerHelmCall: (call: string, answer: HelmCallAnswer, note?: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.answerHelmCall, call, answer, note),
   // A person's Bridge preferences. **Fleet-wide, and no Job id crosses this
   // channel** — the only act on this surface that names none.
   savePreference: (save: SavePreference): Promise<Outcome> =>
@@ -1586,22 +1580,6 @@ const api: BridgeApi = {
       ipcRenderer.removeListener(CHANNELS.history, handler);
     };
   },
-
-  askHelm: (text: string, context?: HelmContext, carry?: HelmCarry): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.askHelm, text, context, carry),
-  helmDebugInfo: (): Promise<HelmDebugRead> => ipcRenderer.invoke(CHANNELS.helmDebugInfo),
-  readThought: (text: string): Promise<ThoughtRead> =>
-    ipcRenderer.invoke(CHANNELS.readThought, text),
-  recordThoughtSent: (
-    manifestId: string,
-    text: string,
-    target: ThoughtTarget,
-    carry?: HelmCarry,
-  ): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.recordThoughtSent, manifestId, text, target, carry),
-  startHelmFresh: (): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.startHelmFresh),
-  pointHelm: (manifestId: string): Promise<void> =>
-    ipcRenderer.invoke(CHANNELS.pointHelm, manifestId),
 
   tap: (pattern: Pattern): void => ipcRenderer.send(CHANNELS.tap, pattern),
   dockCount: (calls: number): void => ipcRenderer.send(CHANNELS.dockCount, calls),

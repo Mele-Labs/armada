@@ -4,7 +4,7 @@
 // The header rules in `protocol.ts` hold here. `kind` on an attachment is open
 // text, so it is a `string`; the sets below that Fleet closes are written out.
 
-import type { HelmCallInFlight } from "./helm-calls";
+import type { CallInFlight } from "./calls";
 import type { DeliveryChoice, HostedFacts, SessionMode } from "./hosted-sessions";
 import type { ContextBreakdown } from "./context-breakdown";
 import type { LoadoutItems, LoadoutSummary, LoadoutUse } from "./loadout";
@@ -105,8 +105,8 @@ export type SessionRecord = {
   end_reason?: string;
   usage: SessionUsage;
   attachments: Attachment[];
-  /** This is its repository's Helm Session, which Bridge draws marked. Absent for every other. */
-  helm?: true;
+  /** Started on your words: it may act as the person under the machine's action authority. Absent for every other. */
+  on_your_words?: true;
   /** A Mod Job: started from Mod, for modding Armada itself. */
   mod?: true;
   /** The Job whose panes hold the Custom tab this Mod Job builds, and the tab's id there, as the start carried them. Absent on every other session. */
@@ -1155,7 +1155,7 @@ export type TerminalFacts = {
   /** Whether its mod asked within the last ten seconds. Absent is not listening. Since 23.69. */
   listening?: boolean;
   /** The question its terminal is showing, while Bridge may still answer it. */
-  asked?: HelmCallInFlight;
+  asked?: CallInFlight;
 };
 
 /** `list_sessions`, the most recently seen first. */

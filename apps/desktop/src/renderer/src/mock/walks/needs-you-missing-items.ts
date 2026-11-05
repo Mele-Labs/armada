@@ -21,7 +21,7 @@ const needsYouMissingItems = walk("needs-you-missing-items", [
     say: "Now lists the page it fetched",
   },
   {
-    look: text("Helm becomes the Operator"),
+    look: text("The Operator takes over"),
     say: "Now lists the page its Draft step wrote",
   },
   {

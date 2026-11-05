@@ -9,7 +9,7 @@
 
        <section className="armada-panel armada-glass">
 
-   Today: Helm's dock (`TheShell`, its Helm frame laid over the glass), Overview's
+   Today: the Operator's dock (`TheShell`, its frame laid over the glass), Overview's
    summary tiles and empty state, and Drift and Verify on the Manifest
    surface.
    Drift and Verify are named by their own class below only because #1260 did
@@ -18,7 +18,7 @@
    **`Card` is the one that is not written in its markup, and cannot be.**
    Whether a card is on the canvas is a fact about where it was rendered, not
    about the card — the same `Card` is Dispatch's panel on the canvas and one
-   of Helm's questions inside the dock. So `.armada-card` is named below with
+   of the Operator's questions inside the dock. So `.armada-card` is named below with
    the ancestry that takes the glass off it: inside a Sheet, inside a Dialog,
    or inside anything already glass, which is a card in a card and a card in
    the dock at once. A ground no selector here names — a well — says so on the

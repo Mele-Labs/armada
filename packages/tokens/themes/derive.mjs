@@ -6,7 +6,7 @@
 //
 // A scheme carries 16 palette colours, a background and a foreground. Bridge's semantic tokens are
 // a ground scale (8), a foreground scale (4), an accent (3), depth, a status hue per Job state,
-// diff, tool and Helm colours. Everything below is derived from the 18, and every text pair is
+// diff, tool and Operator colours. Everything below is derived from the 18, and every text pair is
 // measured; a colour that fails is moved along its own lightness until it passes, and a pair that
 // cannot pass is flagged and the theme is not shipped.
 
@@ -170,7 +170,7 @@ export function derive(id, title, scheme) {
   hue("killed", mix(fgDefault, bg, 0.42));
   hue("handed-in", mix(status.running, status.success, 0.5));
 
-  const helm = reach(mix(accent, p[5], 0.5), grounds, toward, true).color;
+  const operator = reach(mix(accent, p[5], 0.5), grounds, toward, true).color;
   const tool = (c) => reach(c, [ground.sunken, ground.hover], toward).color;
 
   // You: a band the person's own messages sit under, with --fg-inverse as its text, so it is moved
@@ -230,8 +230,8 @@ export function derive(id, title, scheme) {
       const key = { "awaiting-review": "review", "completed-success": "success", "completed-failed": "failed" }[k] ?? k;
       return v(`status-${k}`, status[key]);
     }),
-    "  /* Helm, you, tools, diff */",
-    v("helm", helm), v("you", you),
+    "  /* Operator, you, tools, diff */",
+    v("operator", operator), v("you", you),
     v("tool-look", tool(p[6])), v("tool-change", tool(p[5])), v("tool-run", tool(p[3])),
     v("diff-add-bg", add.bg), v("diff-add-fg", add.fg), v("diff-del-bg", del.bg), v("diff-del-fg", del.fg), v("diff-context", fgMuted),
   ];

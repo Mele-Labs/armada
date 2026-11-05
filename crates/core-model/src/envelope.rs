@@ -157,20 +157,19 @@ impl Component {
 ///
 /// Verification source is orthogonal to this and is null for a human.
 ///
-/// **`Helm` is a fourth kind, not a `Fleet` speaking.** Fleet's own moves —
+/// **`Job` is a fourth kind, not a `Fleet` speaking.** Fleet's own moves —
 /// dispatch, escalation, admission — stay `Fleet`; a redirect, a drafted Job or
-/// anything else Helm does on a person's behalf is `Helm`, so the three-way
-/// separation `docs/concepts/helm.md` requires (Drone evidence, a person's act,
-/// Helm's act) survives a Job's record. **A person's act that reached Fleet by
-/// any door but Bridge is signed `Helm` too**, because an agent made the
-/// request and Fleet cannot see the person behind it — [`Via`](crate::Via)
+/// anything else a Job on your words does on a person's behalf is `Job`, so the three-way
+/// separation (Drone evidence, a person's act, a Job's act) survives a Job's record.
+/// **A person's act that reached Fleet by any door but Bridge is signed `Job` too**, because an
+/// agent made the request and Fleet cannot see the person behind it — [`Via`](crate::Via)
 /// says which door, and `docs/concepts/retro.md` why.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Actor {
     Human,
     Fleet,
     Drone,
-    Helm,
+    Job,
     /// Signs the rows a Judge's own answer wrote: a refusal's stop and
     /// escalation. Store V90, spike 022 slice 1a.
     Judge,
@@ -178,9 +177,8 @@ pub enum Actor {
     /// Fleet still signs a move decided on more than one answer.
     Check,
     /// Signs what a Job's Commander did on its own say-so: a cap it raised, a
-    /// task it restarted. **A fourth signer beside the owner, Fleet and Helm**,
-    /// so a Commander act is never recorded as Helm's or a person's
-    /// (`docs/concepts/helm.md`).
+    /// task it restarted. **A fourth signer beside the owner, Fleet and a Job**,
+    /// so a Commander act is never recorded as a Job's or a person's.
     Commander,
     /// Signs what the Operator ruled on an arrival, kept in its Log. **Its own signer**, so a
     /// ruling is never read as Fleet's rule or a person's press.
@@ -195,7 +193,7 @@ impl Actor {
         Actor::Human,
         Actor::Fleet,
         Actor::Drone,
-        Actor::Helm,
+        Actor::Job,
         Actor::Judge,
         Actor::Check,
         Actor::Commander,
@@ -209,7 +207,7 @@ impl Actor {
             Actor::Human => "human",
             Actor::Fleet => "fleet",
             Actor::Drone => "drone",
-            Actor::Helm => "helm",
+            Actor::Job => "job",
             Actor::Judge => "judge",
             Actor::Check => "check",
             Actor::Commander => "commander",

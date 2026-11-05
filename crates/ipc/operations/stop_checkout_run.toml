@@ -1,7 +1,7 @@
 [operations.stop_checkout_run]
 kind = "command"
 transport = "HTTP"
-agent_access = "Helm only"
+agent_access = "On your words"
 description = "End a checkout run's process group; its log keeps what printed"
 notes = """
 **`?repository=<root>` names the checkout where `?manifest_id=` cannot**: a repository whose root has no `armada.yml` has no id, and a workspace there still verifies. Naming both is refused with `fleet.repository_named_twice`, rather than one quietly winning.

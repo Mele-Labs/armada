@@ -38,7 +38,7 @@ mod browsing;
 /// handler runs. **The seam's one rule about callers**, and `#1460`.
 mod callers;
 mod commands;
-/// One repository's Helm: its Session found, spoken into and started over.
+/// Words typed for a running Job, and the calls a Job puts to a person.
 mod conversing;
 mod daemon;
 /// The agent's door: the HTTP surface, spoken as MCP. **Who may open it is
@@ -143,7 +143,7 @@ mod tests;
 pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
 pub use daemon::{
     offerable, Accounts, Admitting, AppRuns, Authoring, Commands, Conversations, Daemon,
-    Autopilots, HelmReach, HostedSessions, Issues, JudgeReadings, Lifecycles, Logbook, Teaching, Mods, Clashing,
+    Autopilots, WordsReach, HostedSessions, Issues, JudgeReadings, Lifecycles, Logbook, Teaching, Mods, Clashing,
     Projects, PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, Sessions, Settings, SharedHome, Steerer,
     ShownFile, StoredFile, Studios, Watches,
 };

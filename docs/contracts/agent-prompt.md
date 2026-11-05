@@ -39,8 +39,7 @@ rest of a Drone's brief and turns as `prompts.drone…`, `prompts.crossing…`,
 `prompts.peers…`, `prompts.fix…`, `prompts.plan…` and `prompts.heal…`;
 the turns injected while it works as `prompts.poke…`, `prompts.interrupt`, `prompts.permit…`, and the
 gate's `prompts.outcome…` and `prompts.base…`; a piloted job's preface as
-`prompts.pilot…`; `prompts.helm`,
-`prompts.helmReadOnly` and `prompts.helmVoice` (5a); `prompts.helmRoute` for the thought reader; `prompts.scoutAsk`
+`prompts.pilot…`; `prompts.thoughtRoute` for the thought reader; `prompts.scoutAsk`
 (5b), `prompts.scoutReadIn` (5c), `prompts.scoutRescue` (5d);
 `prompts.proposer`; `prompts.testMapReading` (5g); `prompts.workflowChange` (5h); Autopilot's reader and picker as `prompts.autopilot…`;
 `prompts.retro…`; and the Judge's briefs as
@@ -61,7 +60,6 @@ The `prompts_drone` module (deleted since) and
 | [4. Frozen versus live](agent-prompt/4-frozen-versus-live.md) |
 | [4a. Injected turns](agent-prompt/4a-injected-turns.md) |
 | [5. The Drone baseline](agent-prompt/5-the-drone-baseline.md) |
-| [5a. The Helm note](agent-prompt/5a-the-helm-note.md) |
 | [5b. The scout brief](agent-prompt/5b-the-scout-brief.md) |
 | [5c. The read-in brief](agent-prompt/5c-the-read-in-brief.md) |
 | [5d. The rescue brief](agent-prompt/5d-the-rescue-brief.md) |
@@ -72,3 +70,5 @@ The `prompts_drone` module (deleted since) and
 | [7. What is never injected](agent-prompt/7-what-is-never-injected.md) |
 | [8. Where prompts live](agent-prompt/8-where-prompts-live.md) |
 | [9. Known gaps](agent-prompt/9-known-gaps.md) |
+
+Section 5a, the Helm note, retired with Helm: a Job on your words is told nothing extra, and the Operator's call is section 2's.

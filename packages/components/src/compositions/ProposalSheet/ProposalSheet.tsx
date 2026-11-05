@@ -19,8 +19,7 @@ import { Destructive, RunsFirst } from "./values";
  * the same height. **A set opens a popover from its value**: a Check's prerequisites and a
  * Command's destructive flag. Edits land in Fleet's draft at once; Write puts the file down, once.
  *
- * **No Open in Helm.** Nothing serves a Helm session scoped to a proposal, and a control that
- * reaches nothing is worse than none. Row actions are labelled ghosts: the icon registry has
+ * Row actions are labelled ghosts: the icon registry has
  * no glyph for move or remove. **Data in, callbacks out** — no protocol type.
  */
 

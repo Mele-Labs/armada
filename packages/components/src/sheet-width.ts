@@ -2,8 +2,8 @@
 // owner's call of 2 Oct 2026: a log panel dragged wide leaves Plan's task
 // panel as it was. `design-system.md`, *Every sheet resizes*.
 //
-// `localStorage`, one key holding a bag keyed by kind: `panel-open.ts`'s bag
-// and `dock-width.ts`'s width, this window's layout rather than a Fleet
+// `localStorage`, one key holding a bag keyed by kind: `panel-open.ts`'s bag,
+// this window's layout rather than a Fleet
 // preference. Here rather than beside a screen because `Sheet` reads it, so
 // no caller holds a width and none can remember one twice. Stored as dragged;
 // `Sheet` clamps it to the area it covers today.

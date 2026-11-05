@@ -183,7 +183,7 @@ import {
 import type { Drawing } from "@armada/screens/src/draft/sketch";
 import type { DeliveryChoice, HeldWorktrees, Notice, RepositorySummary } from "@armada/protocol";
 import { askToTell } from "./tell";
-import { SessionRefs } from "./helm-refs";
+import { SessionRefs } from "./prose-refs";
 import { openSavedRequest } from "./job-panes/store";
 import { openInPanel } from "./shared-panel/store";
 import { draftPanelOf } from "./shared-panel/rule";
@@ -2662,10 +2662,7 @@ export function SessionView({
   // Where the repository keeps its Armada configuration: the first Job on it says so in words, every Job after in a glyph.
   // A Mod Job is about Armada, not the repository's configuration, so it carries neither.
   const root =
-    session.dead !== undefined ||
-    session.helm === true ||
-    session.mod === true ||
-    session.terminal === true
+    session.dead !== undefined || session.mod === true || session.terminal === true
       ? undefined
       : rootOfSession(session, repositories);
   const profile = root === undefined ? undefined : boundProfile(account, root);

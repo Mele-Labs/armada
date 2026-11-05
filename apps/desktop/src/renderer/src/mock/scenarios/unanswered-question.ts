@@ -2,7 +2,7 @@
 // the answer that followed fold into one row; once at a question asked after a lone status line, so the answer draws before the
 // question waits on the owner. The walk `unanswered-question` plays it.
 
-import type { HelmCallInFlight, RepositorySummary, SessionRow } from "@armada/protocol";
+import type { CallInFlight, RepositorySummary, SessionRow } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
@@ -27,7 +27,7 @@ const FLEET = {
 const UNANSWERED_TURN =
   "Since his last message you have written him nothing but a status line, and he reads only what you write, never your reasoning. Write your answer to his message.";
 
-const ASKED: HelmCallInFlight = {
+const ASKED: CallInFlight = {
   call: "unanswered-q1",
   manifest_id: "armada",
   asked_at: "2026-10-24T04:02:10.000Z",

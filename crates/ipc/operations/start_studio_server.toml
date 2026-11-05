@@ -1,7 +1,7 @@
 [operations.start_studio_server]
 kind = "command"
 transport = "HTTP"
-agent_access = "Helm only"
+agent_access = "On your words"
 description = "Start a Manifest Command with `serve` in the checkout from a Studio, and answer with the Studio, the Run node it made and the instance"
 notes = """
 **The title of `#1345` was the defect**: a Studio could run a Check or a Command and not start the web app, which is the first thing a feedback job does. `start_studio_run` refuses a name carrying `serve` and names this one.
@@ -16,5 +16,5 @@ notes = """
 
 **What the node keeps is written the instant the server ends**, not when its directory is swept: a server's result is Fleet's memory and a restart takes it, so that is the last moment there is anything to keep. What is kept is the Run node's own shape — name, the `serve` line as it ran, exit code, how long it was up and the log's last lines — and a server that exits on its own reads as a failure whatever its code. **A server started from a Studio writes no Evidence**, as every run outside a Job does not.
 
-`agent_access` is `Helm only` for `start_studio_run`'s reason, and it is deliberately not one of `fleet::helm::reach::UNASKED`.
+`agent_access` is `On your words` for `start_studio_run`'s reason, and it is deliberately not one of `fleet::on_your_words::UNASKED`.
 """

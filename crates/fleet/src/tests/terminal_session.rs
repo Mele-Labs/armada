@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use api::{HostedSessions, Next, Sessions};
 use ipc::{
-    AnswerSessionAsk, HelmCallAnswer, QuestionAnswer, SendSessionMessage, SessionFact, SessionId, SessionOrigin, SessionReport, SessionRow,
+    AnswerSessionAsk, CallAnswer, QuestionAnswer, SendSessionMessage, SessionFact, SessionId, SessionOrigin, SessionReport, SessionRow,
     SessionVoice, TakeHeld,
 };
 use testkit::{FakeVcs, FakeHarness, FakeWorkProduct};
@@ -693,7 +693,7 @@ impl Rig {
             .answer_session_ask(AnswerSessionAsk {
                 session_id: SessionId::carried(ID),
                 call: call.into(),
-                answer: HelmCallAnswer::AllowOnce,
+                answer: CallAnswer::AllowOnce,
                 note: None,
                 answers: vec![QuestionAnswer {
                     question: "Which size?".into(),
@@ -707,7 +707,7 @@ impl Rig {
     }
 
     /// The question as the session names it, read from the store and not memory.
-    async fn waiting_ask_again(&self, call: &str) -> ipc::HelmCallInFlight {
+    async fn waiting_ask_again(&self, call: &str) -> ipc::CallInFlight {
         let rows = self.opened().await;
         let [SessionRow::Ask { ask, state: ipc::SessionAskState::Waiting, .. }] = &rows[..] else {
             panic!("the card stands after a restart: {rows:?}");
@@ -716,7 +716,7 @@ impl Rig {
         ask.clone()
     }
 
-    async fn waiting_ask(&self) -> ipc::HelmCallInFlight {
+    async fn waiting_ask(&self) -> ipc::CallInFlight {
         let found = std::sync::Mutex::new(None);
         eventually(|| async {
             let asked = Arc::clone(&self.fleet)

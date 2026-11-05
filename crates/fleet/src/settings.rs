@@ -148,11 +148,17 @@ fn keep_last_good(path: &Path, saved: &Saved) -> std::io::Result<()> {
     settings_file::write(&last_good_of(path), saved.document())
 }
 
-/// The file read and checked whole, Bridge's own rules included.
+/// The file read and checked whole, Bridge's own rules included. **A key renamed since it was
+/// written is carried over and the file written back under the new name**, so it is read once and
+/// the next save does not keep both. Where it cannot be written back the carried value still
+/// stands for this run.
 fn read_checked(path: &Path, base: &Resolved) -> Result<Saved, Refused> {
-    let document = settings_file::read(path)
+    let mut document = settings_file::read(path)
         .map_err(|why| Refused::file(why.to_string()))?
         .unwrap_or_default();
+    if config::settings::carried_over(&mut document) {
+        let _ = settings_file::write(path, &document);
+    }
     checked_whole(&document, base)
 }
 

@@ -206,7 +206,7 @@ const LIST_WIDTH_DEFAULT_FALLBACK = 286;
 /**
  * The list's drag range — `--w-guide-list-min` and `--w-guide-list-max`, which
  * carry the measurements for both bounds. **No window-relative ceiling here**,
- * unlike Helm's dock: the guide beside the list has a bounded measure of its
+ * unlike the Operator's dock: the guide beside the list has a bounded measure of its
  * own, so the widest the index may be is a fact about the two columns rather
  * than about the window.
  */

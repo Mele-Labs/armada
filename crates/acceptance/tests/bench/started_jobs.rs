@@ -85,7 +85,7 @@ pub fn job(id: &str, title: &str, attachments: Vec<Attachment>) -> SessionRecord
         held_until: None,
         context_breakdown: None,
         loadout_summary: None,
-        helm: false,
+        on_your_words: false,
         r#mod: false,
         from_job: None,
         from_tab: None,

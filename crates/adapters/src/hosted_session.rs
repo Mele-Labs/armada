@@ -12,8 +12,9 @@
 //! carries two things, the switch that lets another session's message start a
 //! turn here and the hook that holds a write until the session has leased a
 //! slot. Every process carries `--append-system-prompt` once, holding [`SESSION_RULES`], then
-//! Helm's note that says what Helm is (`noting`) where there is one, then a fork's note that says
-//! whose work the copied conversation describes.
+//! a note that says what the Job inherits (`noting`: its predecessor's hand-over and the repository's
+//! logbook) where there is one, then a fork's note that says whose work the copied conversation
+//! describes.
 
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -94,7 +95,8 @@ pub struct HostedLaunch {
     fork_note: Option<String>,
     /// The transcript line a fork's copy ends at, included. Since 23.79.
     fork_at: Option<String>,
-    /// What every process of the session is told it is, appended to its system prompt: Helm's note.
+    /// What every process of the session is told beside the rules, appended to its system prompt:
+    /// what the Job inherits.
     note: Option<String>,
     name: String,
     model: Option<Model>,
@@ -207,8 +209,8 @@ impl HostedLaunch {
         Ok(self)
     }
 
-    /// Tell every process of this session what it is, in its system prompt. **Appended beside a
-    /// fork's note and not instead of it**, so a blank one is no note at all.
+    /// Tell every process of this session what it inherits, in its system prompt. **Appended
+    /// beside a fork's note and not instead of it**, so a blank one is no note at all.
     pub fn noting(mut self, note: &str) -> HostedLaunch {
         let note = note.trim();
         self.note = (!note.is_empty()).then(|| note.to_string());
@@ -368,7 +370,7 @@ impl HeadlessAgent {
             "--name".into(),
             hosted.name.clone(),
         ];
-        // One argument, since the CLI reads the last of several. The rules lead, then the Job's id; a note adds to them.
+        // One argument, since the CLI reads the last of several. The rules lead, then the Job's id; a note and a fork's note add to them.
         let named = job_named(&hosted.session);
         let told: Vec<&str> = [Some(SESSION_RULES.trim()), Some(named.as_str()), hosted.note.as_deref(), hosted.fork_note.as_deref()]
             .into_iter()

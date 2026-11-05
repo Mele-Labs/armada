@@ -1,5 +1,5 @@
 [icons.settings]
-  means = "The Settings surface — this machine's own settings, Fleet's four limits and Helm's action authority"
+  means = "The Settings surface — this machine's own settings, Fleet's four limits and the Operator's action authority"
   group = "Navigation"
   size = "16px"
   status = "Specified"

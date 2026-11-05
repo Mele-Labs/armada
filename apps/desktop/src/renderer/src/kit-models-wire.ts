@@ -17,7 +17,6 @@ const CHOICE_KEY: Readonly<Record<KitModelSlot, string>> = {
   retro: "models.retro",
   secondOpinion: "models.secondOpinion",
   downshift: "plan.downshiftTo",
-  helmEffort: "effort.helm",
 };
 
 /**
@@ -91,7 +90,6 @@ export function readKitModels(
     retro: model("retro"),
     secondOpinion: model("secondOpinion"),
     downshift: model("downshift"),
-    helmEffort: effort("helmEffort"),
   };
   return {
     read: "read",

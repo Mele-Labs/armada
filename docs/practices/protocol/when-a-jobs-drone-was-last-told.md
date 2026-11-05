@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`JobSummary.last_told_at`, optional and additive: when a person or Helm last sent the Job's Drone
+`JobSummary.last_told_at`, optional and additive: when a person or an agent last sent the Job's Drone
 words (`redirect_drone`, or the answer to a command it was refused) or restarted a step (`restart_step`).
 Bridge reads it to decide that a failing pull request or red main the Job owns has somebody on it again, so
 the Cockpit raises no call for it.

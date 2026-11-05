@@ -162,7 +162,7 @@ fn a_proposed_edge_is_accepted_or_rejected_and_nothing_else_is() {
         StudioNodeContent::Finding(StudioFinding::asked("what reads the count")),
         StudioPosition { x: 0, y: 200 },
         at(1),
-        StudioAuthor::Helm,
+        StudioAuthor::Job,
     );
     store
         .add_studio_node(&studio, &finding, Some((&note, edge_id("01MADE"))), &at(1))

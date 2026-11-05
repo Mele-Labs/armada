@@ -3,7 +3,7 @@
   group = "Record kind"
   size = "12px"
   status = "Specified"
-  reserved = "A Record row about a Drone arriving at a step or leaving it. Never a Drone's state, never a model or the proposer, and never Helm, which is `message-square`."
+  reserved = "A Record row about a Drone arriving at a step or leaving it. Never a Drone's state, never a model or the proposer."
   notes = "Minted 2026-09-29 for [record-kind-marks]. A Drone is an agent process, and this is the literal drawing lucide has of one. The antenna and the side stubs break the outline, which is what separates it at 12px from `file` and `archive`, the rectangles already in the grey set. The contract's *Where the answer is no icon* keeps the Who column in words, and this does not reach it: the Who cell still says Drone, and this mark names the row's family under All alone. Refused: `cpu`, a queued reason's; `terminal`, Pilot's alone; `user-check`, the human figure."
 
   [[icons.bot.usage]]

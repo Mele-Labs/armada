@@ -1,9 +1,8 @@
-//! What a message to a hosted session, or to Helm, carried: kept outside every worktree, and read
+//! What a message to a hosted session carried: kept outside every worktree, and read
 //! back by the id the thread's row names.
 //!
-//! **One keeper for both**, with the directory as a parameter: a Session keeps under
-//! `sessions/<id>`, Helm under `helm/<conversation>`, and the ids are minted from the key given so
-//! two files of one conversation never share one.
+//! **The directory is a parameter**: a Session keeps under `sessions/<id>`, and the ids are minted
+//! from the key given so two files of one conversation never share one.
 
 use std::path::{Path, PathBuf};
 
@@ -78,8 +77,7 @@ where
 
     /// Store what a message carried, outside every worktree.
     ///
-    /// `directory` is where the files go and `key` mints their ids: a session's id for a session,
-    /// the conversation's key for Helm.
+    /// `directory` is where the files go and `key` mints their ids: a session's id.
     pub(crate) fn keep_uploads(
         &self,
         directory: &Path,

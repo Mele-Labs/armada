@@ -1,4 +1,4 @@
-// The Operator panel, in Helm's place over the whole work, before any Fleet work is built (armada-ehhu.2). Over `operator-full`.
+// The Operator panel, over the whole work, before any Fleet work is built (armada-ehhu.2). Over `operator-full`.
 // It stands on the panes a Job's area uses: tabs and splits he adds, closes, moves and resizes, kept as a Job's layout is.
 //
 // No wire carries any of this yet. Each shape is typed in `operator/model.ts`, and is a proposal for the protocol:
@@ -67,7 +67,7 @@ export const operatorFull = walk("operator-full", [
     press: button("Operator", {
       exact: true,
     }),
-    say: "The title row's button, Helm's renamed Operator, opens the panel over the whole work, on the panes a Job's area uses",
+    say: "The title row's Operator button opens the panel over the whole work, on the panes a Job's area uses",
   },
   {
     look: inside(panel, region("Pane: Talk")),

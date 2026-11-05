@@ -279,7 +279,7 @@ fn an_answer_is_read_by_field_name_and_by_the_ways_it_was_offered() {
 #[test]
 fn a_permission_is_a_read_or_a_write_and_only_where_fleet_can_read_all_of_it() {
     use crate::autopilot::sorting::sorted;
-    let card = |tool: &str, detail: &str| ipc::HelmCallInFlight {
+    let card = |tool: &str, detail: &str| ipc::CallInFlight {
         call: "c1".into(),
         manifest_id: ipc::ManifestId::carried("m"),
         asked_at: ipc::Instant::carried(OLD),
@@ -289,14 +289,14 @@ fn a_permission_is_a_read_or_a_write_and_only_where_fleet_can_read_all_of_it() {
         length: None,
         whole: None,
         rule: String::new(),
-        offers: vec![ipc::HelmCallAnswer::AllowOnce],
+        offers: vec![ipc::CallAnswer::AllowOnce],
         holding_for_seconds: 60,
         questions: Vec::new(),
         reaches: None,
         reaches_to: None,
         kind: None,
     };
-    let item = |card: &ipc::HelmCallInFlight| ipc::WaitingItem {
+    let item = |card: &ipc::CallInFlight| ipc::WaitingItem {
         id: "perm:c1".into(),
         text: format!("{} {}", card.tool, card.detail),
         since: ipc::Instant::carried(OLD),
@@ -311,15 +311,15 @@ fn a_permission_is_a_read_or_a_write_and_only_where_fleet_can_read_all_of_it() {
         create_refused: None,
         operator_read: None,
     };
-    let kind = |card: ipc::HelmCallInFlight| sorted(&item(&card), Some(&card));
+    let kind = |card: ipc::CallInFlight| sorted(&item(&card), Some(&card));
     assert_eq!(kind(card("Read", "src/lib.rs")), Some(AutopilotDecision::Reads));
     assert_eq!(kind(card("Edit", "src/lib.rs")), Some(AutopilotDecision::Writes));
     assert_eq!(kind(card("Bash", "cargo build")), Some(AutopilotDecision::Writes), "a run command is a write");
     assert_eq!(kind(card("Bash", "")), None, "a command Fleet cannot read waits");
-    assert_eq!(kind(ipc::HelmCallInFlight { truncated: true, ..card("Bash", "cargo build -p") }), None);
+    assert_eq!(kind(ipc::CallInFlight { truncated: true, ..card("Bash", "cargo build -p") }), None);
     assert_eq!(kind(card("Bash", "rm -rf target")), None, "destructive waits");
     assert_eq!(kind(card("mcp__elsewhere__post", "x")), None, "a tool nobody named waits");
-    assert_eq!(kind(ipc::HelmCallInFlight { reaches: Some("/etc".into()), ..card("Read", "/etc/hosts") }), None);
+    assert_eq!(kind(ipc::CallInFlight { reaches: Some("/etc".into()), ..card("Read", "/etc/hosts") }), None);
 }
 
 #[test]

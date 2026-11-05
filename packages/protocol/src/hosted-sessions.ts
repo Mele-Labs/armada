@@ -6,7 +6,7 @@
 // `SessionRecord` with `origin: "bridge"` and `hosted` set; its thread is not on
 // the row. Read `get_session` once and follow `session.row`.
 
-import type { CallKind, HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-calls";
+import type { CallKind, CallAnswer, CallInFlight, QuestionAnswer } from "./calls";
 import type { ModAim } from "./mods";
 import type { LandsIn, Whose } from "./retro";
 import type { SlotReleased } from "./holding";
@@ -80,6 +80,11 @@ export type StartSession = {
    * only named, so the brief can carry it. Refused 404 for a project or row that is not there. Left out when empty. Not read with `fork` or `root`.
    */
   project_rows?: ProjectRowRef[];
+  /**
+   * Start the Job on your words: it may act as the person, under the machine's action authority, through the agent
+   * door. Bridge is the only setter: a start that arrives through the agent door reads this as absent. Left out when false.
+   */
+  on_your_words?: boolean;
 };
 
 export type TagKind = "session" | "pull_request" | "branch" | "issue" | "report" | "terminal";
@@ -112,11 +117,11 @@ export type SendSessionMessage = {
   aim?: ModAim;
 };
 
-/** `POST /sessions/ask/answer`. `call` is the ask's own `HelmCallInFlight.call`. */
+/** `POST /sessions/ask/answer`. `call` is the ask's own `CallInFlight.call`. */
 export type AnswerSessionAsk = {
   session_id: string;
   call: string;
-  answer: HelmCallAnswer;
+  answer: CallAnswer;
   note?: string;
   /** One entry per question, for an ask that carries some. Since protocol 23.71. */
   answers?: QuestionAnswer[];
@@ -348,7 +353,7 @@ export type SessionTurn =
 export type HostedFacts = {
   turn: SessionTurn;
   /** What the agent is held on, while it is. */
-  asked?: HelmCallInFlight;
+  asked?: CallInFlight;
   model?: string;
   /**
    * The model the CLI resolved for the running process, as its `init` line names it: `vendor-opus-5-5` where
@@ -514,8 +519,8 @@ export type SessionRow =
       queued?: true;
     }
   /**
-   * Words Helm's dock sent to a Session or a Job instead of asking Helm, from `tell_session` and
-   * `record_thought_sent`. Only a Helm Session's thread has them.
+   * Words that went to another Job. Written only in the old threads the Helm Job kept, and nowhere
+   * new: Fleet sends words on now and keeps no row for them, but a thread that holds one still reads.
    */
   | {
       kind: "sent";
@@ -772,7 +777,7 @@ export type SessionRow =
       kind: "ask";
       id: string;
       at: string;
-      ask: HelmCallInFlight;
+      ask: CallInFlight;
       state: SessionAskState;
       via?: string;
     }

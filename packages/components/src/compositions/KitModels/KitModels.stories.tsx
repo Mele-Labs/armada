@@ -52,7 +52,6 @@ const CHOICES: KitModelChoices = {
   retro: "sonnet",
   secondOpinion: "opus",
   downshift: "sonnet",
-  helmEffort: "high",
 };
 
 const meta: Meta<typeof KitModels> = {

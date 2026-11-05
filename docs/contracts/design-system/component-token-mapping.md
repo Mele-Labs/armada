@@ -441,7 +441,7 @@ second answer to the same question.
 ## Prose — model-written markdown
 
 Free text a model wrote — a Judge's consequence, a flag's citation, a
-Drone's turn, a Helm reply — is drawn by `Prose` as GitHub-flavoured
+Drone's turn — is drawn by `Prose` as GitHub-flavoured
 markdown, through `react-markdown`, `remark-gfm` and `remark-breaks`.
 **The owner chose full markdown on 1 Oct 2026**, over a hand-written
 subset that refused links, tables and blockquotes. A single newline is a
@@ -515,17 +515,20 @@ action   Dispatch, Primary — the view's one solid accent
 Dispatch button since its one bar took the act (10 Oct 2026), so this is the
 view's one solid accent, beside the empty space.
 
-## Helm dock
+## Operator dock
+
+The dock holds the Operator's panel, whose look is `armada-ehhu.10`'s.
+These are the tokens the dock's frame carries.
 
 ```
-frame    a 1px --helm-edge top edge fading to --border-glass, over the card
-         treatment, with --helm-faint washed in from the top trailing corner
-chip     --helm-muted fill, --helm icon, beside "Helm"
+frame    a 1px --operator-edge top edge fading to --border-glass, over the card
+         treatment, with --operator-faint washed in from the top trailing corner
+chip     --operator-muted fill, --operator icon, beside "Operator"
 folded   the sheet the dock folds to below the breakpoint takes the same frame
-         and chip, over the sheet's --bg-overlay: --helm reads 4.65:1 on its
+         and chip, over the sheet's --bg-overlay: --operator reads 4.65:1 on its
          chip there, against the 3:1 a non-text mark takes
 composer --bg-sunken, --border-glass
-Send     --helm-muted fill, --helm text, --helm-edge border
+Send     --operator-muted fill, --operator text, --operator-edge border
 ```
 
 ## Instruments
@@ -734,6 +737,6 @@ running, so the edge is the degraded one and the headline is not red. See
   Window and layout model above — frameless `hiddenInset` chrome insetting
   the traffic lights over the title row, the window's tabs in the title row and
   a System strip under it (#2301 replaced the left column), full-width routes with no
-  inspector but for Helm's dock, no page head and no status bar, and the
+  inspector but for the dock, no page head and no status bar, and the
   floors and breakpoint under Responsive behaviour. Delivered as one
   responsive prototype rather than per-width comps.

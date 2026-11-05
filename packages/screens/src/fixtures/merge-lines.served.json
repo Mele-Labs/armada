@@ -4,7 +4,7 @@
       "root": "/repo",
       "line": [
         {
-          "branch": "fleet/helm-kills-processes",
+          "branch": "fleet/loop-kills-processes",
           "place": 1,
           "state": "waiting"
         },

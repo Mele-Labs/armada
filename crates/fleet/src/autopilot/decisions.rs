@@ -15,7 +15,7 @@ use std::time::Duration;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::HostedSessions;
 use ipc::{
-    AnswerWaiting, ApprovePlan, AutopilotDecision, HelmCallAnswer, HelmCallInFlight, SessionRow, WaitingItem,
+    AnswerWaiting, ApprovePlan, AutopilotDecision, CallAnswer, CallInFlight, SessionRow, WaitingItem,
     WaitingSource,
 };
 use store::{KeptAutopilot, KeptDecision, SessionState};
@@ -190,7 +190,7 @@ where
         answered
     }
 
-    pub(crate) fn card_of(&self, session: &str, item: &WaitingItem) -> Option<HelmCallInFlight> {
+    pub(crate) fn card_of(&self, session: &str, item: &WaitingItem) -> Option<CallInFlight> {
         if item.source != WaitingSource::Permission {
             return None;
         }
@@ -204,7 +204,7 @@ where
         session: &str,
         item: &WaitingItem,
         kind: AutopilotDecision,
-        card: Option<&HelmCallInFlight>,
+        card: Option<&CallInFlight>,
     ) -> Option<Deciding> {
         let (ways, detail): (Vec<String>, Option<String>) = match item.source {
             WaitingSource::AskCard | WaitingSource::Agent => {
@@ -212,7 +212,7 @@ where
             }
             WaitingSource::Permission => {
                 let card = card?;
-                card.offers.contains(&HelmCallAnswer::AllowOnce).then_some(())?;
+                card.offers.contains(&CallAnswer::AllowOnce).then_some(())?;
                 (vec!["Allow once".to_string()], card.whole.clone())
             }
             WaitingSource::Plan => {
@@ -323,7 +323,7 @@ where
         session: &str,
         item: &WaitingItem,
         way: usize,
-        card: Option<&HelmCallInFlight>,
+        card: Option<&CallInFlight>,
     ) -> Result<(), api::Refusal> {
         let said = |choice: Option<u32>| AnswerWaiting {
             session_id: ipc::SessionId::carried(session),
@@ -345,7 +345,7 @@ where
             WaitingSource::Walk => Arc::clone(self).settle_waiting(said(None)).await.map(|_| ()),
             WaitingSource::Draft => Arc::clone(self).settle_waiting(said(Some(0))).await.map(|_| ()),
             WaitingSource::Permission => {
-                let at = card.and_then(|card| card.offers.iter().position(|one| *one == HelmCallAnswer::AllowOnce));
+                let at = card.and_then(|card| card.offers.iter().position(|one| *one == CallAnswer::AllowOnce));
                 let at = at.ok_or_else(|| self.settled_already())?;
                 Arc::clone(self).settle_waiting(said(Some(at as u32))).await.map(|_| ())
             }

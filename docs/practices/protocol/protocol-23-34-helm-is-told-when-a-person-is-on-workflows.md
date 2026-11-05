@@ -2,6 +2,8 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
+**A record of what was.** Helm is gone and the Operator took its place; [The Operator takes Helm's place](the-operator-takes-helms-place.md) has the seam as it is now.
+
 The Workflows page hands its draft to Helm, and Helm has to know which screen the person is on to read it as a workflow under edit.
 
 **Additive.** `HelmScreen` gains `workflows`, sent in `AskHelm.context.screen` while the Workflows page is the screen.

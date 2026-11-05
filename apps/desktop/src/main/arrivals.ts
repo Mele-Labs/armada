@@ -21,7 +21,6 @@ import type { FleetBuilds } from "./fleet-build";
 import type { HeldReader } from "./holding";
 import type { IssuesHost } from "./issues";
 import type { Modding } from "./mods";
-import type { Questions } from "./questions";
 import type { RehearsalConnection } from "./rehearsal";
 import { ask, limitsOf, mergeLinesOf, preferencesOf } from "./request";
 import type { RepositoryReads } from "./repositories";
@@ -55,11 +54,6 @@ export interface ArrivalHost {
   readonly rehearsal: RehearsalConnection;
   /** Every open window's own Overview read again — `connection.ts`'s `windowFacades`. */
   overviewAgain(port: number): Promise<void>;
-  /** Helm calls waiting on a person — `questions.ts`. */
-  readonly questions: Pick<Questions, "helmAsking" | "helmAnswered" | "readHelmCalls">;
-  readonly helm: {
-    reconnected(port: number): void;
-  };
   /** The Studios surface's two reads — `studios.ts`. */
   readonly studios: Pick<StudioReads, "again" | "changed" | "deleted">;
   /** The mods on this machine — `mods.ts`. */
@@ -218,11 +212,6 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
         mergeLines,
       }),
     );
-    // And every Helm call waiting on a person: events carry only what is asked next.
-    void host.questions.readHelmCalls(fleet.port);
-    // And Helm's own socket, on a repository already targeted — a second
-    // socket to the same peer, `takeAgain`'s reason repeated one seam over.
-    host.helm.reconnected(fleet.port);
     // And the Studios surface's two reads, where held: a Studio written while the stream was down
     // or lagging published a `studio.changed` this window never folded.
     void host.studios.again();
@@ -251,16 +240,6 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
   const event = message.event;
   const connection: Connection = connectedTo(fleet, message.cursor);
 
-  // A Helm call waits inside one tool call for the length of one reply, so the card goes up on the
-  // ask and comes down on the answer, whoever answered — a person, or fleet's bound running out. #1389.
-  if (event.kind === "helm.asking_to_run") {
-    host.questions.helmAsking(event.waiting);
-    return;
-  }
-  if (event.kind === "helm.call_answered") {
-    host.questions.helmAnswered(event.call);
-    return;
-  }
   if (event.kind === "manifest.reread") {
     // The whole reading replaces what is held rather than merging into it.
     // A read that took after one that was refused leaves nothing of the

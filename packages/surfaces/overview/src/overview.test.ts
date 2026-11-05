@@ -73,7 +73,7 @@ describe("the Doctor tile", () => {
         because: "Doctor is not built",
       },
     ],
-    helm_action_authority: "acting",
+    action_authority: "acting",
   });
 
   it("says the worst of Doctor's words and names every module that did not pass", () => {

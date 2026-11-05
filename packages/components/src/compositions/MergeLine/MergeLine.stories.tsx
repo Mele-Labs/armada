@@ -33,7 +33,7 @@ const TURN = "docs/wire-lock-signed";
 const LINE: MergeLineEntry[] = [
   {
     place: 1,
-    branch: "fleet/helm-kills-processes",
+    branch: "fleet/loop-kills-processes",
     state: "waiting",
   },
   {
@@ -158,7 +158,7 @@ export const InLine: Story = {
       "worktree-agent-a0087811ec86c6d80, Preparing to land",
       "fleet/gate-policy-every-run, Preparing to land",
     ]);
-    await expect(within(batch).queryByText("fleet/helm-kills-processes")).toBeNull();
+    await expect(within(batch).queryByText("fleet/loop-kills-processes")).toBeNull();
     await expect(within(batch).queryByText("fleet/read-in-cluster-membership")).toBeNull();
   },
 };

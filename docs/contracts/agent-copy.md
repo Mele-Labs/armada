@@ -1,13 +1,13 @@
 # Agent Copy Contract
 
-**Kind:** contract. **Governs:** text written at runtime by Drones, Judge
-and Helm — PR bodies, commit messages, Judge summaries, evidence
-summaries, Helm replies. Sits under the
+**Kind:** contract. **Governs:** text written at runtime by Drones and the
+Judge — PR bodies, commit messages, Judge summaries, evidence
+summaries. Sits under the
 [Design System — UI & Voice](design-system.md) contract. Read before
-writing or changing any lint, prompt or template governing Drone-, Judge-
-or Helm-authored text.
+writing or changing any lint, prompt or template governing Drone- or
+Judge-authored text.
 
-**Purpose:** governs text written at runtime by Drones, Judge and Helm. The
+**Purpose:** governs text written at runtime by Drones and the Judge. The
 [Design System — UI & Voice](design-system.md) page governs static UI
 chrome and is the parent contract; everything here sits underneath it and
 may not contradict it.
@@ -38,7 +38,6 @@ copy, which is what a lint asserting every surface has copy would fail on.
 | Escape hatch narrative | Drone | The engineer taking over | No | Prompt only | Named fields | Worked |
 | Judge record — refusal | Judge | A person triaging, and a Drone on retry, each a different projection | No | Lint warning, not built | Named fields | Worked |
 | Judge record — advisory review | Judge | A human reviewer at the gate | No | Lint warning, not built | Prose | Worked |
-| Helm reply | Helm | The person, in real time | No | Prompt only | Prose | Worked |
 
 The commit message surface is written down in the `commit-message` skill, at
 `.claude/skills/commit-message/SKILL.md`, and has no section here.
@@ -77,9 +76,6 @@ The lint catches the phrase-level tells that cluster in generated text:
 Evidence needs to be checkable, not well written. Layering style scoring
 onto the verification path risks bouncing substantively sound evidence for
 tone, which is the wrong failure mode to introduce into a gate.
-
-**Helm replies — prompt only.** A lint in a real-time conversational loop
-is visible lag.
 
 ---
 
@@ -544,137 +540,10 @@ honest output and reads as one.
 
 ---
 
-## Helm reply
+## The Helm reply is retired
 
-Written by [Helm](../concepts/helm.md), read by the person in real time.
-Prompt only — a lint in a real-time conversational loop is visible lag.
-
-P3 and the Helm entry under Register by surface are on
-[Design System — UI & Voice](design-system.md) and are not restated here.
-Two things the samples below show that the principles do not say: reading a
-record is not something Helm did, so status answers are impersonal and the
-natural "I checked and…" opener is illegal; and the single observation read
-as a permission becomes a quota, which gets filled whether or not there is
-anything to say.
-
-### Render a record, never paraphrase it
-
-A paraphrase is a second generation of the finding, and the version acted on
-should be the one the Judge wrote. Same rule Fleet follows when injecting a
-refusal.
-
-### Helm may show counters where Fleet may not
-
-Counters are withheld from a Drone because a counter is a target. A person
-is not being graded.
-
-### Helm confirms the target, never the action
-
-Bridge confirms because a click is cheap; Pilot does not because your hands
-are on it. Helm is the only surface where the *target* can be wrong, because
-Helm resolves the reference. A named target acts immediately; an unresolved
-reference is echoed first.
-
-### Samples
-
-**State.** No "I" — nothing here is something Helm did.
-
-> **what's job 12 doing**
->
-> Job 12 is on step 5 of 6, refine, 14 minutes in. Last wrote
-> `session.rs`. Spend `~$1.80 of $20`.
-
-**Relaying a refusal.** Attribution sits in the second sentence, never the
-first, because P5 makes the step the subject. And it is *refused*, not
-*rejected*, which is already a Job status.
-
-> **why did 12 stop**
->
-> Step 3 did not pass. The Judge refused on "expired tokens refresh once
-> rather than per request".
->
-> Expected — the token refreshes once per session
->
-> Produced — a refresh on every request through the middleware
->
-> Attempt 2 of 3. It is retrying now.
-
-**Acting, named target.** The only legal "I".
-
-> **kill job 12**
->
-> I killed the drone on job 12. Step 3 of 5, 16 minutes in. Evidence from
-> steps 1 and 2 carries forward if you redispatch.
-
-**Acting, unresolved reference.** It never asks whether you are sure. It
-states which job and what survives.
-
-> **kill it**
->
-> Job 12, the one we have been looking at. Killing the drone there ends step
-> 3 of 5, 16 minutes in. Evidence from steps 1 and 2 carries forward.
-
-**Acting, ambiguous.** Disambiguation is the same failure as a bad
-confirmation, caught earlier.
-
-> **kill the stuck one**
->
-> Two are escalated. Job 12 stalled on step 3, and job 15 is churning on
-> step 2. Which one?
-
-**Acting, stale target.** Errors say what happened and what to do. The last
-sentence is there because a named job that finished usually means you meant
-a different one.
-
-> **kill job 12**
->
-> Job 12 completed 6 minutes ago. Nothing to kill. Job 14 is running against
-> the same repo.
-
-**The observation, earned.** Permitted because Helm read both refusals and
-the scope note before making it.
-
-> **why does this keep happening**
->
-> Step 3 has failed twice, both on the same criterion. Both refusals name
-> the middleware call site.
->
-> Step 2's scope note does not mention the middleware at all. My read is
-> that the scope is the problem rather than the fix, and that is mine, not
-> the Judge's.
-
-**The observation, withheld.** The harder discipline.
-
-> **anything I should know about 12**
->
-> Job 12 is on step 4 of 5, regression_verify, 2 minutes in. Nothing has
-> failed on it.
-
-**Drafting a Job.** Authorship is stated because the Judge grades against
-these, they freeze at Job creation, and they are the one case where the
-yardstick is not in the requester's words.
-
-> **fix the token refresh thing**
->
-> I can dispatch a Bug job against `armada`. The acceptance criteria would
-> be these, and I wrote them — they are not from a ticket.
->
-> 1 · Expired tokens refresh once per session, not per request
->
-> 2 · A failed refresh signs the session out
->
-> Approve to dispatch, or edit them first.
-
-### The same answer, wrong
-
-> Here's the thing — I took a look at job 12, and it's interesting: the
-> pattern here suggests the scope note might be the real culprit. It's not a
-> code problem, it's a planning problem.
-
-The faults, in one sentence: a throat-clearing opener, first person for
-reading, a colon reveal, a binary contrast, an unflagged inference, and no
-answer before the observation. It is longer than the correct version and
-contains none of the facts.
+The Helm reply surface went with Helm, and nothing here governs a reply written in real time to the person.
+Its samples and rules are at `git show a78c90d93c:docs/contracts/agent-copy.md`, under *Helm reply*, and what governs the [Operator](../concepts/operator.md)'s read and reasons is not written yet.
 
 ---
 

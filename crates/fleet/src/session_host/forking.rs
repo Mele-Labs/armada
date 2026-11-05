@@ -248,6 +248,7 @@ where
             after: None,
             held: false,
             project_rows: Vec::new(),
+            on_your_words: None,
         };
         let whole = ForkFrom { session_id: moved.session_id, at: None };
         let moved = Moved {
@@ -332,8 +333,8 @@ where
                     lease_slot: None,
                     lease_branch: None,
                     fork_of: Some(old_id.clone()),
-                    // A fork of Helm is an ordinary Session: Helm's note is not in the copied conversation.
-                    helm: false,
+                    // A fork is an ordinary Job, whatever it was forked from.
+                    on_your_words: false,
                     setup: false,
                     workflow: None,
                     proposed: String::new(),

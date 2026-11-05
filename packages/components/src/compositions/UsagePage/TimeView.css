@@ -1,7 +1,7 @@
 /* The Usage page's Time view: the same panels under the same mono band as the tokens view. Flat fills, hairlines, no glow. */
 
 /* The bucket colours, the way the model colours are: from tokens, never a new hue. Checked with the data-viz validator on
-   --bg-sunken, in stack order. Four buckets carry a hue (the accent, the pink of --tool-change, --you, --helm stepped down
+   --bg-sunken, in stack order. Four buckets carry a hue (the accent, the pink of --tool-change, --you, --operator stepped down
    toward the ground) and five are neutral steps of the ink, so a bucket that grows is the one with a colour. Adjacent
    pairs hold 15.2 or more apart in OKLab with normal vision and 11.4 or more under protan and deutan. The lightness band
    and the chroma floor fail by token, since --accent itself sits at 0.674; Idle sits under 3:1 on the ground, and every
@@ -25,7 +25,7 @@
   --bucket: var(--you);
 }
 [data-time="pull_request"] {
-  --bucket: color-mix(in srgb, var(--helm) 70%, var(--bg-sunken));
+  --bucket: color-mix(in srgb, var(--operator) 70%, var(--bg-sunken));
 }
 [data-time="stopped"] {
   --bucket: color-mix(in srgb, var(--fg-default) 33%, var(--bg-sunken));

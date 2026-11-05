@@ -39,11 +39,11 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/sessions/notes",
     },
-    // Helm passing words to a live Session; only Helm's door session is offered it.
+    // A Job on your words passing words to a live Job; only its door session is offered it.
     Route {
         operation: "tell_session",
         method: "POST",
-        path: "/helm/tell_session",
+        path: "/operator/tell_session",
     },
     Route {
         operation: "answer_session_ask",

@@ -44,7 +44,7 @@ pub fn personal_settings(root: &str) -> PathBuf {
 /// **A failure leaves the file alone and is not a reason to refuse the call.**
 /// The person already said yes; a settings file that will not parse is
 /// somebody's half-finished edit, and Fleet says so rather than turning their
-/// answer into a refusal. `fleet::helm` records that as
+/// answer into a refusal. Fleet records that as
 /// `allowed_but_not_remembered`.
 pub fn remember_the_rule(at: &Path, rule: &str) -> Result<Remembered, io::Error> {
     let existing = match fs::read(at) {

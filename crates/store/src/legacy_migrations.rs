@@ -70,7 +70,7 @@ pub(crate) const LEGACY: &[Migration] = &[
     Migration::additive("review_view.v61", crate::retired::V61),
     Migration::additive("preferences.v62", crate::preferences::V62),
     Migration::additive("review_dismissals.v63", crate::retired::V63),
-    Migration::additive("helm_sessions.v64", crate::helm_sessions::V64),
+    Migration::additive("helm_sessions.v64", crate::retired::V64),
     Migration::additive("review_model.v65", crate::retired::V65),
     Migration::additive("review_followups.v66", crate::retired::V66),
     Migration::additive("limits.v67", crate::limits::V67),

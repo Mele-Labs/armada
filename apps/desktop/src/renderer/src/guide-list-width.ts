@@ -1,6 +1,6 @@
 // The guide catalogue list's resting width, remembered across a restart — the
-// mechanism `left-width.ts` and `dock-width.ts` already use for the shell's own
-// two resizable regions, one `localStorage` key per region. One key here too:
+// mechanism `left-width.ts` already uses for the shell's own
+// resizable region, one `localStorage` key per region. One key here too:
 // there is one list, never a roster of them to key by name.
 //
 // **`localStorage`, not a Fleet preference**, for `panel-open.ts`' reason:

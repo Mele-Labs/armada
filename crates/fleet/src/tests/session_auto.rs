@@ -4,7 +4,7 @@
 
 use ipc::AskingToRun;
 
-use crate::helm::{because_in_a_session, because_in_a_session_owning, Because, Own};
+use crate::auto_gate::{because_in_a_session, because_in_a_session_owning, Because, Own};
 
 const SLOT: &str = "/repo/.armada/slots/slot-3";
 
@@ -123,7 +123,7 @@ fn a_write_is_read_where_it_lands_so_scratch_and_the_slot_pass() {
     for tool in ["Write", "Edit", "NotebookEdit"] {
         assert_eq!(edit(tool, &file), None, "{tool} of {file}");
     }
-    assert_eq!(edit("Edit", "/tmp/helm-tells/crates/api/src/lib.rs"), None);
+    assert_eq!(edit("Edit", "/tmp/operator-tells/crates/api/src/lib.rs"), None);
     assert_eq!(edit("Edit", &format!("{SLOT}/crates/../Cargo.toml")), None);
     assert_eq!(edit("Edit", "/tmp/../etc/hosts"), Some(Because::Destructive));
     assert_eq!(
@@ -256,7 +256,7 @@ fn quoted_text_is_an_argument_not_a_redirect_or_a_pipe() {
 
 #[test]
 fn a_page_opened_in_the_browser_is_found_in_every_segment() {
-    use crate::helm::pages_opened;
+    use crate::auto_gate::pages_opened;
     assert_eq!(
         pages_opened(
             r#"open "http://localhost:5191/?walk=a"; open "http://localhost:5191/?walk=b""#

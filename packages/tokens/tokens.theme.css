@@ -60,10 +60,10 @@
   --color-border-glass: var(--border-glass);
   --color-border-highlight: var(--border-highlight);
   --color-accent-faint: var(--accent-faint);
-  --color-helm: var(--helm);
-  --color-helm-muted: var(--helm-muted);
-  --color-helm-edge: var(--helm-edge);
-  --color-helm-faint: var(--helm-faint);
+  --color-operator: var(--operator);
+  --color-operator-muted: var(--operator-muted);
+  --color-operator-edge: var(--operator-edge);
+  --color-operator-faint: var(--operator-faint);
   --color-you: var(--you);
   --color-you-edge: var(--you-edge);
   --color-diff-add-bg: var(--diff-add-bg);

@@ -14,9 +14,9 @@ use alloc::string::String;
 pub enum Via {
     /// Bridge's own request, which names itself with a header.
     Bridge,
-    /// A Helm session Fleet placed at the agent door.
-    Helm,
-    /// The agent door, for a session Fleet did not place as Helm: `armada mcp`
+    /// A Job on your words, which Fleet placed at the agent door.
+    Job,
+    /// The agent door, for a session Fleet did not place as a Job on your words: `armada mcp`
     /// in somebody's own agent session.
     Door,
     /// An HTTP request that named no caller: a script, `curl`, or an agent's
@@ -32,7 +32,7 @@ pub enum Via {
 impl Via {
     pub const ALL: &'static [Via] = &[
         Via::Bridge,
-        Via::Helm,
+        Via::Job,
         Via::Door,
         Via::Http,
         Via::Phone,
@@ -42,7 +42,7 @@ impl Via {
     pub fn as_wire(&self) -> &'static str {
         match self {
             Via::Bridge => "bridge",
-            Via::Helm => "helm",
+            Via::Job => "job",
             Via::Door => "door",
             Via::Http => "http",
             Via::Phone => "phone",

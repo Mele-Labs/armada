@@ -262,7 +262,7 @@ export const SCENARIOS: readonly Scenario[] = [
   failingCheck(),
   manyRepositories(),
   // Each surface's own Fleet, listed by its slice: `slices.ts`.
-  ...scenariosOf("setup", "manifest", "studios", "workflows", "helm"),
+  ...scenariosOf("setup", "manifest", "studios", "workflows"),
   // Every row in `scenarios/`, by export name. **A walk's row is added there,
   // never here** — `docs/practices/list-files.md`.
   ...LISTED,

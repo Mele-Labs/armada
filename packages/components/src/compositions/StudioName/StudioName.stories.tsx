@@ -45,7 +45,7 @@ export const Heading: Story = {
   },
 };
 
-/** Nobody has named it. Helm names an untitled Studio unasked, and until it does this is the word. */
+/** Nobody has named it. The Operator names an untitled Studio unasked, and until it does this is the word. */
 export const Untitled: Story = {
   args: {
     heading: true,

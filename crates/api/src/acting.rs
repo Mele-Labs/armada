@@ -19,7 +19,7 @@ use axum::middleware::Next;
 use axum::response::Response;
 use ipc::Via;
 
-use crate::door::{DoorCalled, HelmCalled};
+use crate::door::{DoorCalled, WordsCalled};
 use crate::mcp::Caller;
 
 /// The header Bridge sends on every request, with [`BRIDGE`] as its value.
@@ -55,7 +55,7 @@ pub async fn asked_by<F: std::future::Future>(caller: Option<Caller>, work: F) -
 }
 
 /// Set on every call the door makes, so the move it leads to can be placed.
-/// [`HelmCalled`]'s reason for an extension.
+/// [`WordsCalled`]'s reason for an extension.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct DoorCaller(pub(crate) Caller);
 
@@ -82,8 +82,8 @@ pub(crate) async fn named_the_door(request: Request, next: Next) -> Response {
 }
 
 fn door_of(request: &Request) -> Via {
-    let spelled = if request.extensions().get::<HelmCalled>().is_some() {
-        "helm"
+    let spelled = if request.extensions().get::<WordsCalled>().is_some() {
+        "job"
     } else if request.extensions().get::<DoorCalled>().is_some() {
         "door"
     } else if request

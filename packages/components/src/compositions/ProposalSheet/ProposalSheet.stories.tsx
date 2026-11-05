@@ -145,11 +145,6 @@ export const Proposed: Story = {
     );
     await expect(args.onMove).toHaveBeenCalledWith("checks", "lint");
     await expect(sheet.getByText(/No file here declares one/)).toBeVisible();
-    await expect(
-      sheet.queryByRole("button", {
-        name: /Helm/,
-      }),
-    ).toBeNull();
   },
 };
 

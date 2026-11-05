@@ -1,4 +1,4 @@
-// Bridge's frame: the title row with the Cockpit window's tabs, the panel the journeys mount in, and Helm's dock. The drawn
+// Bridge's frame: the title row with the Cockpit window's tabs, the panel the journeys mount in, and the Operator's dock. The drawn
 // shell, wired to what Fleet actually serves.
 //
 // **There is no rail.** The places are the title row's tabs and the System sidebar (`surfaces.ts`), the repository picker is the
@@ -23,7 +23,7 @@
 //
 // A screen's own controls sit at the top of its content; `App.tsx` is where that moved.
 
-import { FileCog, type LucideIcon } from "lucide-react";
+import { FileCog } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   isPressed,
@@ -37,7 +37,6 @@ import {
 
 import type { Connection } from "@armada/protocol";
 import type { RepositorySummary } from "@armada/protocol";
-import { useDockWidth } from "./dock-width";
 // The dock folds to a sheet, and job detail's inspector folds to a sheet, at `--layout-breakpoint`. One reader, in `floor.ts`, so the
 // two cannot answer a resize a pixel apart.
 import { useNarrow } from "./floor";
@@ -115,29 +114,8 @@ export type ShellProps = {
     | undefined;
   /** Goes to a surface, by its id in `surfaces.ts`: the menu's Settings. */
   onSurface?: (surfaceId: string) => void;
-  /**
-   * How many Helm asks are waiting inside `helm` — #1519. The folded strip's
-   * count is every question waiting on a person, and an ask drawn down in the
-   * conversation is still one of them; without this the strip would say nothing
-   * was waiting while a reply sat held open.
-   */
-  asking?: number;
-  /** A call that lives in Helm is waiting: the title row's Helm button pulses. See `TheShellDock`. */
-  helmCalling?: boolean;
-  /** Helm's own conversation, under the questions — #944. Bridge builds it; the dock only mounts it. */
-  helm?: ReactNode;
-  /**
-   * Helm's own act in the dock's head, beside Close — *Start fresh*, moved
-   * there by the owner on 18 Sep 2026. Bridge builds it, for the same reason
-   * `helm` is a node: what the act costs and when Fleet refuses it are the
-   * app's to know, not the shell's.
-   */
-  helmAction?: ReactNode;
-  /** The dock under another name and glyph, over the whole work: the Operator's walk. Absent is Helm's dock as it is. */
-  dockAs?: {
-    title: string;
-    icon: LucideIcon;
-  };
+  /** The Operator's panel, mounted in the dock. Bridge builds it. **Absent draws no dock and no title row button, and `⌘J` does nothing.** */
+  operator?: ReactNode;
   children: ReactNode;
 };
 
@@ -164,20 +142,15 @@ export function Shell({
   repository,
   repositoryTrail,
   onSurface,
-  asking = 0,
-  helmCalling = false,
-  helm,
-  helmAction,
-  dockAs,
+  operator,
   children,
 }: ShellProps) {
-  // The chrome draws keys, Helm's among them, so it redraws when Settings → Keyboard moves one.
+  // The chrome draws keys, the Operator's among them, so it redraws when Settings → Keyboard moves one.
   useKeyBindings();
   const narrow = useNarrow();
   const account = useAccount();
   const openAccount = () => onSurface?.(SURFACE.account);
-  const dock = useDock(narrow);
-  const [dockWidth, resizeDock] = useDockWidth();
+  const dock = useDock(narrow, operator !== undefined);
   const live = connection.state === "connected";
   // The narrow menu's rows: the picker's list.
   const [recent, remember] = useRecentRepositories();
@@ -227,30 +200,18 @@ export function Shell({
         : {
             repository,
           })}
-      dock={{
-        ...dock,
-        // The breakpoint alone: the dock folds to its sheet where the title row has no room for its button.
-        folded: narrow,
-        binding: keyFor("helm"),
-        questions: asking,
-        ...(helmCalling
-          ? {
-              calling: true,
-            }
-          : {}),
-        ...(dockAs === undefined
-          ? {
-              width: dockWidth,
-              onResize: resizeDock,
-            }
-          : {
-              title: dockAs.title,
-              icon: dockAs.icon,
+      {...(operator === undefined
+        ? {}
+        : {
+            dock: {
+              ...dock,
+              // The breakpoint alone: the dock folds to its sheet where the title row has no room for its button.
+              folded: narrow,
+              binding: keyFor("operator"),
               span: "full" as const,
-            }),
-        action: helmAction,
-        children: <>{helm}</>,
-      }}
+              children: <>{operator}</>,
+            },
+          })}
       repositoryMenu={{
         entries: pickerEntries,
         onSelect: pick,
@@ -327,33 +288,30 @@ const ManifestGlyph = MANIFEST_SURFACE?.icon ?? FileCog;
 const SETTINGS_SURFACE = SURFACES.find((one) => one.id === SURFACE.settings);
 const MANIFEST_SAID = `Open the ${MANIFEST_SURFACE?.label ?? "Manifest"}`;
 
-const OPEN_HELM = "armada:open-helm";
-const CLOSE_HELM = "armada:close-helm";
-
-/** Opens Helm's dock from anywhere in the window. A window event, since the dock's open state is the shell's own. */
-export function askToOpenHelm(): void {
-  window.dispatchEvent(new Event(OPEN_HELM));
-}
+const CLOSE_OPERATOR = "armada:close-operator";
 
 /** Shuts the dock from inside it, as a Job opened from the Operator's panel does so the Job is not under it. */
-export function askToCloseHelm(): void {
-  window.dispatchEvent(new Event(CLOSE_HELM));
+export function askToCloseOperator(): void {
+  window.dispatchEvent(new Event(CLOSE_OPERATOR));
 }
 
 /**
- * Helm's dock: a panel over the content, or a sheet when folded. `⌘J` toggles
- * whichever the width draws, from every surface and from inside a field.
+ * The Operator's dock: a panel over the content, or a sheet when folded. `⌘J` toggles
+ * whichever the width draws, from every surface and from inside a field. **With no Operator
+ * there is no dock, and `⌘J` is heard by nothing.**
  *
  * **Shut on open, at every width** — the owner, 22 Sep 2026 (#1583). It stood
  * open because it cost the layout nothing to leave it there once a person had
  * arranged around it; over the content it covers what is being read, so Bridge
- * opens with the screen and Helm is a press away.
+ * opens with the screen and the Operator is a press away.
  */
-function useDock(folded: boolean): {
+function useDock(
+  folded: boolean,
+  present: boolean,
+): {
   open: boolean;
   onOpen: (open: boolean) => void;
 } {
-  // A Helm Session opened from the Sessions list opens the dock by this event.
   const [beside, setBeside] = useState(false);
   const [sheet, setSheet] = useState(false);
 
@@ -371,25 +329,23 @@ function useDock(folded: boolean): {
   const opens = useRef(onOpen);
   opens.current = onOpen;
   useEffect(() => {
-    const heard = (): void => opens.current(true);
     const shut = (): void => opens.current(false);
-    window.addEventListener(OPEN_HELM, heard);
-    window.addEventListener(CLOSE_HELM, shut);
-    return () => {
-      window.removeEventListener(OPEN_HELM, heard);
-      window.removeEventListener(CLOSE_HELM, shut);
-    };
+    window.addEventListener(CLOSE_OPERATOR, shut);
+    return () => window.removeEventListener(CLOSE_OPERATOR, shut);
   }, []);
 
   useEffect(() => {
+    if (!present) return;
     function pressed(event: KeyboardEvent): void {
-      if (event.repeat || !isPressed("helm", event)) return;
+      if (event.repeat || !isPressed("operator", event)) return;
       event.preventDefault();
       toggle.current();
     }
     window.addEventListener("keydown", pressed);
     return () => window.removeEventListener("keydown", pressed);
-  }, []);
+  }, [
+    present,
+  ]);
 
   return {
     open,

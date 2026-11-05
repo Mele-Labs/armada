@@ -216,7 +216,7 @@ export function readInOf1657(): Studio {
         kind: "blocks",
         standing: "proposed",
         created_at: AT,
-        added_by: "helm",
+        added_by: "job",
       },
     ],
   };

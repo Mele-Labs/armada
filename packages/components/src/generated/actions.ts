@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { ChartNoAxesGantt, ChevronLeft, File, Link, Lock, Maximize2, MessageSquare, Plus, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
+import { Bot, ChartNoAxesGantt, ChevronLeft, File, Link, Lock, Maximize2, Plus, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -96,11 +96,11 @@ export const ACTIONS: readonly Action[] = [
     unbuilt: null,
   },
   {
-    id: "helm",
+    id: "operator",
     kind: "Action",
     tier: "Global",
-    verb: "Helm",
-    icon: MessageSquare,
+    verb: "Operator",
+    icon: Bot,
     iconAbsent: null,
     shortcut: "⌘J",
     scope: "anywhere",

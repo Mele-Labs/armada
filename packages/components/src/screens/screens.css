@@ -237,7 +237,7 @@
   flex: 1;
   min-height: 0;
   /* **The one inset the mount keeps: its top, and every screen shares it.**
-     The left column and Helm's dock each hold their first panel `--pad-page`
+     The left column and the Operator's dock each hold their first panel `--pad-page`
      under the title bar (their own margin, `TheShell.css`), so a surface
      between them starts on the same line. Only Overview padded its own top,
      so every other surface — the Board, Settings, Cleanup, and the Manifest
@@ -324,7 +324,7 @@
 
    **No right padding.** The panel carries its own `--space-4` trailing
    margin (`TheShell.css`), so padding this surface's right edge as well
-   doubled the gap to 32px. It was Helm's dock that supplied that gap until
+   doubled the gap to 32px. It was the Operator's dock that supplied that gap until
    #1583 took the dock out of the flow; the number and the reason for it are
    unchanged. **No top
    padding either**: `.armada-screen__mounted` keeps the gap under the title

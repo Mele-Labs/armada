@@ -15,7 +15,7 @@ use testkit::FakeWorkProduct;
 use tower::ServiceExt;
 
 use crate::daemon::Fleet;
-use crate::tests::helm_session::with_helm_running;
+use crate::tests::on_your_words_job::with_a_job_on_your_words_running;
 use crate::repositories::{Located, SetUp};
 use crate::tests::daemon::fittings;
 use crate::tests::http::call;
@@ -25,7 +25,7 @@ use crate::tests::tmp::TempDir;
 const FIRST: &str = "01FIXTUREMANIFEST";
 const SECOND: &str = "01SECONDMANIFEST";
 
-/// A Helm Session's pid and the port its relay calls from: `propose_job` is
+/// A Job on your words' pid and the port its relay calls from: `propose_job` is
 /// offered to that session alone.
 const SESSION: u32 = 4242;
 const RELAY: u16 = 52000;
@@ -65,7 +65,7 @@ async fn two_repositories(home: &TempDir) -> Router {
     peers.holding(SESSION + 1, RELAY, fittings.host.port);
     peers.started(SESSION, SESSION + 1);
     fittings.peers = peers;
-    let fleet = with_helm_running(Fleet::assembled(fittings), SESSION).await;
+    let fleet = with_a_job_on_your_words_running(Fleet::assembled(fittings), SESSION).await;
     let root = home.path().join("second");
     let second_text = format!("version: 1\nid: {SECOND}\n");
     committed(&root, &second_text);

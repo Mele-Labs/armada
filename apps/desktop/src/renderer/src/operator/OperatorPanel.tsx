@@ -1,4 +1,4 @@
-// The Operator panel, in Helm's dock over the whole work, on the panes a Job's area uses (`job-panes/`): tabs and splits he adds,
+// The Operator panel, in the dock over the whole work, on the panes a Job's area uses (`job-panes/`): tabs and splits he adds,
 // closes, moves and resizes, kept as a Job's layout is. Its tabs are Talk, the Log, Waiting to start and Permissions; it opens on
 // Talk and the Log in one pane. Drawn only where the window has an Operator store (`store.tsx`), which today is the mock's alone.
 
@@ -16,7 +16,7 @@ import {
   type DropdownMenuEntry,
 } from "@armada/components";
 import type { DrawnSketch } from "@armada/screens/src/draft/sessions";
-import { askToCloseHelm } from "@armada/shell";
+import { askToCloseOperator } from "@armada/shell";
 
 import { select } from "../cockpit/deck/store";
 import { searchFiles } from "../commands";
@@ -135,7 +135,7 @@ const openJob = (id: string) => {
     kind: "session",
     key: `session:${id}`,
   });
-  askToCloseHelm();
+  askToCloseOperator();
 };
 
 /** A Job a row names, as the Job chip that opens it. */

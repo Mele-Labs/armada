@@ -198,7 +198,7 @@ const overlap = (a: DOMRect, b: DOMRect) =>
 
 test("a proposed relation is a dot on its line that covers no card, and opens to be answered", async () => {
   const fleet = await openEditable();
-  const named = /^Helm proposes: Note Done when, on a failed task/;
+  const named = /^A job proposed: Note Done when, on a failed task/;
   const dot = page.getByRole("button", {
     name: named,
   });

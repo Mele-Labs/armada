@@ -1,6 +1,6 @@
 # Studio
 
-**What it is:** A typed graph of what one stretch of work produced — notes, findings, links, deferrals and what each became — kept per repository and driven through Helm.
+**What it is:** A typed graph of what one stretch of work produced — notes, findings, links, deferrals and what each became — kept per repository and driven through a Job on your words.
 
 ---
 
@@ -34,7 +34,7 @@ flowchart LR
 > Why: an agent can read a record and cannot read a drawing, and a Studio is read by agents as much as by a person.
 
 > **Rule.** A Studio belongs to one repository.
-> Why: it is driven through [Helm](helm.md), and Helm answers for one repository.
+> Why: it is driven through a Job on your words, and a Job answers for one repository.
 
 > **Rule.** The Studios list names each Studio and when it was last touched, and names no Workspace.
 
@@ -67,7 +67,7 @@ flowchart LR
 
 > **Rule.** The whiteboard is drawn with React Flow.
 
-**It is part of the product, not a transcript of one.** The conversation with Helm drives a Studio; the nodes and edges are what persists and what an agent reads. See [Scope](../scope.md).
+**It is part of the product, not a transcript of one.** A Job on your words drives a Studio; the nodes and edges are what persists and what an agent reads. See [Scope](../scope.md).
 
 ## Nodes
 
@@ -208,7 +208,7 @@ The rules below are what the gate holds that file and its three readers to.
 
 **The edge kinds and who draws each are `crates/core-model/domain/studio-kinds.toml`.**
 
-> **Rule.** Only a person accepts a relation. Helm and a scout may propose one, drawn dashed until accepted.
+> **Rule.** Only a person accepts a relation. A Job on your words and a scout may propose one, drawn dashed until accepted.
 > Why: an agent reorganising a person's work is what separates a drawing surface from a record of decisions.
 
 > **Rule.** A proposed relation is answered where it is drawn: a dot on its line, in `awaiting_review`'s amber, which opens on hover or focus to say who proposed it and the relation, and to take Accept or Reject — or, read-only, to say Continue answers it.
@@ -371,27 +371,27 @@ The four are its last four states in `crates/core-model/domain/studio-kinds.toml
 > **Rule.** Two of the four outcomes are the rungs that make a node, and the other two are their own act.
 > Why: one way to make an Issue draft and one way to make a Deferral. A second route to either would be a second place the `Produced` edge is drawn.
 
-## Helm on a Studio
+## A Job on your words, on a Studio
 
-| Helm may, unasked | Helm may, only on a person's ask |
+| It may, unasked | It may, only on a person's ask |
 |---|---|
 | Add a node marked Proposed, with its cost | Start a scout |
 | Propose an edge | Start a Run |
 | Name an untitled Studio | Write up, and dispatch |
 
-> **Rule.** A person names a Studio where its name is drawn, on the list row and on the open Studio, and Helm keeps naming an untitled one unasked.
-> Why: naming is not an act that needs a conversation. Helm's half of it exists because an untitled Studio is worth naming whether or not anyone gets round to it.
+> **Rule.** A person names a Studio where its name is drawn, on the list row and on the open Studio, and a Job on your words keeps naming an untitled one unasked.
+> Why: naming is not an act that needs a conversation. Its half of it exists because an untitled Studio is worth naming whether or not anyone gets round to it.
 
 > **Rule.** One ask may cover writing up and dispatching when it names both. "Write it up" alone never dispatches.
-> Why: Helm approves a dispatch on a person's ask and never as a silent follow-on to drafting. See [Helm](helm.md), Action authority.
+> Why: such a Job approves a dispatch on a person's ask and never as a silent follow-on to drafting.
 
 > **Rule.** Accepting an edge, deferring, grouping, editing an Issue draft, ending a Contradiction and deleting a node are a person's acts, whatever is asked.
 
-> **Rule.** Every act Helm takes on a Studio is published as `studio.helm_acted`, apart from a person's, and the Studio keeps who added each node and edge and who named it.
-> Why: Helm's acts are their own event type, and a stream a client missed is not a log. See [Helm](helm.md), Audit trail.
+> **Rule.** Every act a Job on your words takes on a Studio is published as `studio.job_acted`, apart from a person's, and the Studio keeps who added each node and edge and who named it.
+> Why: its acts are their own event type, and a stream a client missed is not a log.
 
-> **Rule.** Helm reads the runs it can start in the checkout.
-> Why: a run answers at once and ends on an event a Helm job never receives, so a run Helm could start and not read back would be an act it could not report on.
+> **Rule.** A Job on your words reads the runs it can start in the checkout.
+> Why: a run answers at once and ends on an event such a Job never receives, so a run it could start and not read back would be an act it could not report on.
 
 ## The vocabulary is a file code reads
 

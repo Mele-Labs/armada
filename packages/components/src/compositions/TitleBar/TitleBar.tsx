@@ -5,7 +5,7 @@ import {
   FolderGit2,
   FolderPlus,
   Layers,
-  MessageSquare,
+  Bot,
   Plus,
   Search,
   Settings,
@@ -51,7 +51,7 @@ import { useTeachMenu } from "../TeachPanel/TeachMenu";
  * control in it opts out with its own no-drag rule. #1087.
  *
  * **Three regions, not one flex row with a trailing spacer.** Left carries the
- * repository picker, centered carries the one bar, right carries Helm's reopen
+ * repository picker, centered carries the one bar, right carries the Operator's reopen
  * control and the logo — `TitleBar.css`'s grid keeps the one bar on the bar's
  * true midpoint however wide the two sides measure. The one bar also dispatches.
  *
@@ -371,15 +371,11 @@ export type TitleBarProps = {
   onDispatch?: () => void;
   /** Disabled while nothing is connected to dispatch into. */
   dispatchDisabled?: boolean;
-  /** Helm's reopen control. Absent while the dock is already open beside the content. */
-  helm?: {
-    /** Waiting on a person, across every repository. Zero draws no count. */
-    questions: number;
-    /** A call that lives in Helm is waiting: the button is tinted and pulses as a calling row does. */
-    calling?: boolean;
+  /** The Operator's reopen control. Absent while the dock is already open beside the content. */
+  operator?: {
     /** ⌘J, beside the label. */
     binding?: string;
-    /** What the dock is called, and its glyph. Absent is Helm and `message-square`. */
+    /** What the dock is called, and its glyph. Absent is Operator and `bot`. */
     title?: string;
     icon?: LucideIcon;
     onOpen: () => void;
@@ -520,7 +516,7 @@ export function TitleBar({
   onSearch,
   onDispatch,
   dispatchDisabled = false,
-  helm,
+  operator,
   menu,
   planUsage,
   fleet,
@@ -534,7 +530,7 @@ export function TitleBar({
   const searchKey = keyFor("command_palette");
   const parts = useRoomForPlaces(places !== undefined);
   const teach = useTeachMenu("Title bar", onTeach);
-  const HelmGlyph = helm?.icon ?? MessageSquare;
+  const OperatorGlyph = operator?.icon ?? Bot;
   return (
     <div
       ref={parts.bar}
@@ -629,29 +625,25 @@ export function TitleBar({
         <div className="armada-title-bar__job" data-job-slot="" />
         {planUsage === undefined ? null : <PlanUsageFigures usage={planUsage} />}
 
-        {helm === undefined ? null : (
+        {operator === undefined ? null : (
           <button
             type="button"
-            className="armada-title-bar__helm"
-            data-calling={helm.calling === true ? "" : undefined}
-            onClick={helm.onOpen}
+            className="armada-title-bar__operator"
+            onClick={operator.onOpen}
             title={
-              helm.binding === undefined
-                ? `Open ${helm.title ?? "Helm"}`
-                : `Open ${helm.title ?? "Helm"} — ${helm.binding}`
+              operator.binding === undefined
+                ? `Open ${operator.title ?? "Operator"}`
+                : `Open ${operator.title ?? "Operator"} — ${operator.binding}`
             }
-            aria-label={helm.title ?? "Helm"}
+            aria-label={operator.title ?? "Operator"}
           >
-            <HelmGlyph size={16} strokeWidth={2} aria-hidden />
-            {helm.questions > 0 ? (
-              <span className="armada-title-bar__helm-count">{helm.questions}</span>
-            ) : null}
+            <OperatorGlyph size={16} strokeWidth={2} aria-hidden />
             {/* Mounted only while Cmd is held, so the button shrinks to fit
-                "Helm" alone at rest rather than always reserving the badge's
+                the glyph alone at rest rather than always reserving the badge's
                 width — the logo beside it shifts a few px when this mounts. */}
-            {helm.binding !== undefined && revealing ? (
-              <span className="armada-title-bar__helmkbd">
-                <KbdCmd shortcut={helm.binding} />
+            {operator.binding !== undefined && revealing ? (
+              <span className="armada-title-bar__operator-kbd">
+                <KbdCmd shortcut={operator.binding} />
               </span>
             ) : null}
           </button>
@@ -683,7 +675,7 @@ export function TitleBar({
             role="img"
             aria-label={fleetSaid(fleet.label)}
             // `title`, not the `Tooltip` primitive: it is what this row already
-            // gives its Helm button, and a tooltip's own surface at `--z-tooltip`
+            // gives its Operator button, and a tooltip's own surface at `--z-tooltip`
             // has nothing to anchor to on a 6px dot. The no-drag rule in
             // `TitleBar.css` is what lets either open at all — the whole row is
             // a drag region and a drag region swallows the pointer.
@@ -752,14 +744,15 @@ export function TitleBar({
                   <Kbd aria-hidden>{keyFor("new_job")}</Kbd>
                 </button>
               )}
-              {helm === undefined ? null : (
-                <button type="button" className="armada-title-bar__menu-item" onClick={helm.onOpen}>
-                  <HelmGlyph size={16} strokeWidth={2} aria-hidden />
-                  <span>{helm.title ?? "Helm"}</span>
-                  {helm.questions > 0 ? (
-                    <span className="armada-title-bar__helm-count">{helm.questions}</span>
-                  ) : null}
-                  {helm.binding === undefined ? null : <KbdCmd shortcut={helm.binding} />}
+              {operator === undefined ? null : (
+                <button
+                  type="button"
+                  className="armada-title-bar__menu-item"
+                  onClick={operator.onOpen}
+                >
+                  <OperatorGlyph size={16} strokeWidth={2} aria-hidden />
+                  <span>{operator.title ?? "Operator"}</span>
+                  {operator.binding === undefined ? null : <KbdCmd shortcut={operator.binding} />}
                 </button>
               )}
             </>

@@ -65,7 +65,7 @@ pub trait HostedSessions: Send + Sync + 'static {
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
     /// `send_session_message`. **Answers at once**, with the turn taken: the
-    /// reply is the thread's, as Helm's is.
+    /// reply is the thread's.
     fn send_session_message(
         self: Arc<Self>,
         sent: SendSessionMessage,

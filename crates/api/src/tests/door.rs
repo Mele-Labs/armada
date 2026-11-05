@@ -281,11 +281,11 @@ async fn a_get_or_a_delete_is_refused() {
     }
 }
 
-/// The port a planted Helm session calls from, and one nobody placed.
-const HELM: u16 = 52000;
+/// The port a planted Job on your words calls from, and one nobody placed.
+const WORDS: u16 = 52000;
 const ANYONE: u16 = 52001;
 
-/// An acting Helm, as a test states it. **Not `fleet::helm::may`**, which this
+/// An acting Job on your words, as a test states it. **Not `fleet::on_your_words::may`**, which this
 /// crate cannot name and which is tested beside itself; here the door is under
 /// test, and any predicate proves it enforces what it was handed.
 fn acting(row: &Reachable) -> bool {
@@ -296,9 +296,9 @@ fn read_only(row: &Reachable) -> bool {
     row.kind == "query"
 }
 
-fn helm_holding(may: fn(&Reachable) -> bool) -> Arc<FakeDaemon> {
+fn words_holding(may: fn(&Reachable) -> bool) -> Arc<FakeDaemon> {
     let daemon = holding_one();
-    *daemon.helm_on.lock().expect("not poisoned") = Some((HELM, may));
+    *daemon.words_on.lock().expect("not poisoned") = Some((WORDS, may));
     Arc::new(daemon)
 }
 
@@ -337,14 +337,14 @@ fn calling(tool: &str, arguments: &str) -> String {
 
 const LISTING: &str = r#"{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"#;
 
-/// **Only a Helm session is narrowed.** Every other caller is listed exactly
+/// **Only a Job on your words is narrowed.** Every other caller is listed exactly
 /// what the door listed before.
 #[tokio::test]
-async fn a_helm_session_is_listed_what_it_may_call_and_anyone_else_what_they_were() {
-    let app = shared(&helm_holding(acting));
-    let helm = from(&app, HELM, LISTING).await;
-    assert!(helm.contains("\"name\":\"get_studio\""), "{helm}");
-    assert!(!helm.contains("\"name\":\"all_done\""), "{helm}");
+async fn a_job_on_your_words_is_listed_what_it_may_call_and_anyone_else_what_they_were() {
+    let app = shared(&words_holding(acting));
+    let on_words = from(&app, WORDS, LISTING).await;
+    assert!(on_words.contains("\"name\":\"get_studio\""), "{on_words}");
+    assert!(!on_words.contains("\"name\":\"all_done\""), "{on_words}");
 
     let anyone = from(&app, ANYONE, LISTING).await;
     assert!(anyone.contains("\"name\":\"all_done\""), "{anyone}");
@@ -354,11 +354,11 @@ async fn a_helm_session_is_listed_what_it_may_call_and_anyone_else_what_they_wer
 
 #[tokio::test]
 async fn read_only_refuses_every_command_and_still_reads() {
-    let app = shared(&helm_holding(read_only));
+    let app = shared(&words_holding(read_only));
     for row in offerable().filter(|row| row.kind == "command") {
         let body = from(
             &app,
-            HELM,
+            WORDS,
             &calling(
                 row.operation,
                 r#"{"studio_id":"01STUDIO","pid":"1","task_id":"T1","drone_id":"01DRONE","lesson_id":"01LESSON-0","repository":"01REPO","number":"1","body":{}}"#,
@@ -367,9 +367,9 @@ async fn read_only_refuses_every_command_and_still_reads() {
         .await;
         // An operation nothing serves (`xtask`'s `NOT_BUILT`) 404s before the
         // reach is ever consulted — for any caller, acting or not — so its
-        // refusal names no route rather than naming Helm's authority.
+        // refusal names no route rather than naming the action authority.
         let expected = match SERVED.iter().any(|route| route.operation == row.operation) {
-            true => format!("`{}` is not Helm's to call", row.operation),
+            true => format!("`{}` is not this Job's to call", row.operation),
             false => format!(
                 "`{}` is named in this Fleet's operation inventory and is served at no route",
                 row.operation
@@ -377,7 +377,7 @@ async fn read_only_refuses_every_command_and_still_reads() {
         };
         assert!(body.contains(&expected), "{}: {body}", row.operation);
     }
-    let read = from(&app, HELM, &calling("get_studio", r#"{"studio_id":"01STUDIO"}"#)).await;
+    let read = from(&app, WORDS, &calling("get_studio", r#"{"studio_id":"01STUDIO"}"#)).await;
     assert!(
         read.contains("01STUDIO") && read.contains("\"isError\":false"),
         "{read}"

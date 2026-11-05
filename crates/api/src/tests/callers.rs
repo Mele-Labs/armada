@@ -88,7 +88,7 @@ fn upgrading(path: &str, from_a_page: bool) -> Request<Body> {
 
 /// **The read half is the wider one.** A WebSocket upgrade is not subject to
 /// the same-origin policy, so a page that opened `/events` read every Job's
-/// state, every turn and every Helm conversation. The socket never opens now.
+/// state, every turn and every a Job on your words conversation. The socket never opens now.
 #[tokio::test]
 async fn a_page_cannot_open_the_event_stream() {
     let refused = answered(&wired(), upgrading("/events", true)).await;

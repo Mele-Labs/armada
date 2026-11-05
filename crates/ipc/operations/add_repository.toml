@@ -1,7 +1,7 @@
 [operations.add_repository]
 kind = "command"
 transport = "HTTP"
-agent_access = "Helm only"
+agent_access = "On your words"
 description = "Serve one more repository, from a folder a person chose"
 notes = """
 Locate, by folder — `docs/journeys/set-up-a-project-manifest.md`, *Getting in*. The body is `path`, absolute. Answers 201 with the repository as `list_repositories` lists it.

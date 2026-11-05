@@ -268,10 +268,7 @@ where
                     },
                     // Read at each start, so an edit to the note reaches the next process.
                     note: {
-                        let first = match (hosting.helm, &served) {
-                            (true, Some(served)) => Some(self.helm_note_of(served)),
-                            _ => self.successor_note_of(id).await,
-                        };
+                        let first = self.successor_note_of(id).await;
                         let logbook = self.logbook_note_of(served.as_ref().map(|one| one.root())).await;
                         let told: Vec<String> = first.into_iter().chain(logbook).collect();
                         Some(told.join("\n\n"))
@@ -302,7 +299,7 @@ where
         let generation = {
             let mut state = runtime.state();
             state.process = Some(process);
-            state.helm = hosting.helm;
+            state.on_your_words = hosting.on_your_words;
             state.directory = directory;
             state.last_active = std::time::Instant::now();
             state.generation

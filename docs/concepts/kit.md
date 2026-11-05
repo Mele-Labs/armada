@@ -46,7 +46,7 @@ Putting everything in `~/.armada` would mean copying a setup that already exists
 **Workflows are the first thing read from `~/.armada`.** Fleet makes the folder, with `workflows/` inside it, when it starts.
 A definition in `~/.armada/workflows/` replaces the one Armada carries and a repository's own `.armada/workflows/` one with the same `workflow_id`, in every repository on this machine, and says so where it hides a repository's that differs.
 [Workflow](workflow.md) holds the rule. #425.
-**A definition added to the folder while Fleet runs is read without a restart**, whether a person wrote it there or [Helm](helm.md) saved it for them with `save_workflow`; Kit's scope is what Helm writes when you ask for a workflow every repository on this machine should have.
+**A definition added to the folder while Fleet runs is read without a restart**, whether a person wrote it there or a Job on your words saved it for them with `save_workflow`; Kit's scope is what such a Job writes when you ask for a workflow every repository on this machine should have.
 Bridge's Workflows page lists a Kit file under Yours, beside the carried and repository ones, and writes one the same way, with scope Kit.
 
 **Review tools are the second.** `~/.armada/review-tools/` holds one `.md` file for each review tool or explanation a person defines for every repository on this machine: front matter naming `kind` (`tool` or `explanation`) and `name`, then the prompt.
@@ -295,7 +295,7 @@ A copy already in a synced folder or a bucket stays where it was.
 
 **Bridge names a repository's remembered runs, with its Manifest, Armada configuration.** It is how Armada remembers the repository runs.
 
-**A Job is not told the remembered runs.** Every process of a hosted Job or Helm Session in the repository carries the Logbook note after the job rules and after Helm's or a successor's note, read from Fleet's store at each start: the habits, then the repository's standing entries, then this Mac's ([Logbook](logbook.md), *Recall*).
+**A Job is not told the remembered runs.** Every process of a hosted Job in the repository carries the Logbook note after the job rules and after a fork's note, read from Fleet's store at each start: the habits, then the repository's standing entries, then this Mac's ([Logbook](logbook.md), *Recall*).
 **A command under the repository's heading is to run, never a Check, and nothing in the note gates a pull request.**
 The note is told from this Mac's store, and is written nowhere.
 `get_manifest` does not serve remembered runs.
@@ -321,7 +321,7 @@ All three read Fleet's run memory routes (#2605); the mock draws the same surfac
 
 ## Navigation — two functional groups
 
-The original four groups split across the two concepts: AI Behavior and the tooling half of Safety are Kit; Resources & Budget, Interface & Notifications and Helm action authority are [Machine](machine.md).
+The original four groups split across the two concepts: AI Behavior and the tooling half of Safety are Kit; Resources & Budget, Interface & Notifications and whether a Job on your words may act are [Machine](machine.md).
 
 | Group | Contents |
 | --- | --- |
@@ -331,7 +331,7 @@ The original four groups split across the two concepts: AI Behavior and the tool
 - Agent files are the global "how I work" file — Kit-only, no Manifest-level counterpart, see [Manifest](manifest.md).
 - Output styles are how the harness is told to answer, and sit beside Agent files in AI Behavior. They are read only: Kit shows them and writes none.
 - Sub agents are global; a Manifest can layer project-specific ones on top.
-- Helm action authority is not here. It is [Machine](machine.md), and was mis-tagged with a Manifest tier before the split.
+- Whether a Job on your words may act is not here. It is [Machine](machine.md), and was mis-tagged with a Manifest tier before the split.
 
 ## Destructive-op list defaults
 
@@ -346,7 +346,7 @@ The original four groups split across the two concepts: AI Behavior and the tool
 
 **A scout gets no MCP server.** [Scout](scout.md) starts with none, and the sources it reads are fetched by Fleet rather than opened by the agent, so nothing here widens a scout.
 
-**Helm's set is still the person's own, resolved by the CLI** — `#1373`, and Kit replaces none of it yet. Helm launches without `--strict-mcp-config`.
+**A Job on your words has the set the person's own configuration resolves, through the CLI**, `#1373`, and Kit replaces none of it yet. It launches as any hosted Job does.
 
 ### Kit's allowlist
 

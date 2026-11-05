@@ -9,7 +9,7 @@ const titleBarMenu = walk("title-bar-menu", [
     look: button("Menu", {
       exact: true,
     }),
-    say: "The row at rest: search, plan meters, Helm, and one menu",
+    say: "The row at rest: search, plan meters, and one menu",
   },
   {
     press: button("Menu", {

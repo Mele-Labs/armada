@@ -7,10 +7,10 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{FleetHealth, HelmActionAuthority, Probe, Unprobed};
+use ipc::{FleetHealth, ActionAuthority, Probe, Unprobed};
 
 use crate::daemon::Fleet;
-use crate::helm::Authority;
+use crate::on_your_words::Authority;
 
 /// Doctor's three words. `docs/concepts/doctor.md`, *Result vocabulary*.
 const PASS: &str = "pass";
@@ -53,12 +53,12 @@ fn elsewhere() -> Vec<Unprobed> {
     .collect()
 }
 
-/// `crate::helm::Authority`, as the wire spells it. `#1127` — the resolved
+/// `crate::on_your_words::Authority`, as the wire spells it. `#1127` — the resolved
 /// value Fleet started with had no field to travel on; this is that field.
-fn helm_action_authority(authority: Authority) -> HelmActionAuthority {
+fn action_authority(authority: Authority) -> ActionAuthority {
     match authority {
-        Authority::Acting => HelmActionAuthority::Acting,
-        Authority::ReadOnly => HelmActionAuthority::ReadOnly,
+        Authority::Acting => ActionAuthority::Acting,
+        Authority::ReadOnly => ActionAuthority::ReadOnly,
     }
 }
 
@@ -91,7 +91,7 @@ where
         Ok(FleetHealth {
             probes,
             not_probed: elsewhere(),
-            helm_action_authority: helm_action_authority(self.helm_authority()),
+            action_authority: action_authority(self.action_authority()),
             workflows_left_out: self
                 .repositories()
                 .served()

@@ -1,5 +1,5 @@
 //! A Studio over the router and through the door: its graph round-trips, a
-//! person's acts reach no agent, and a Helm session is held to what it may
+//! person's acts reach no agent, and a Job on your words is held to what it may
 //! propose. `#1285`.
 
 use std::net::SocketAddr;
@@ -27,7 +27,7 @@ const A_PERSONS: &[&str] = &[
     "decide_studio_edge",
 ];
 
-const HELM: u16 = 52000;
+const WORDS: u16 = 52000;
 const ANYONE: u16 = 52001;
 
 fn acting(_: &Reachable) -> bool {
@@ -42,9 +42,9 @@ fn shared(daemon: &Arc<FakeDaemon>) -> Router {
     ))
 }
 
-fn helm_holding() -> Arc<FakeDaemon> {
+fn words_holding() -> Arc<FakeDaemon> {
     let daemon = FakeDaemon::new(Broadcaster::new());
-    *daemon.helm_on.lock().expect("not poisoned") = Some((HELM, acting));
+    *daemon.words_on.lock().expect("not poisoned") = Some((WORDS, acting));
     Arc::new(daemon)
 }
 
@@ -98,7 +98,7 @@ fn studio(body: &str) -> Studio {
 /// is what was sent.
 #[tokio::test]
 async fn a_studio_built_over_the_wire_reads_back_as_it_was_built() {
-    let app = shared(&helm_holding());
+    let app = shared(&words_holding());
     let (status, created) = call(&app, "POST", "/studios/create", r#"{"name":"Counts"}"#).await;
     assert_eq!(status, StatusCode::CREATED, "{created}");
     let id = studio(&created).id;
@@ -136,21 +136,21 @@ async fn a_studio_built_over_the_wire_reads_back_as_it_was_built() {
     );
 }
 
-/// **A person's acts are offered to no agent**, Helm included, and a call to
+/// **A person's acts are offered to no agent**, a Job on your words included, and a call to
 /// one is refused before any route is reached.
 #[tokio::test]
 async fn no_agent_is_offered_a_persons_studio_act_and_a_call_to_one_is_refused() {
-    let daemon = helm_holding();
+    let daemon = words_holding();
     let app = shared(&daemon);
-    let helm = from(&app, HELM, DOOR_PATH, LISTING).await;
+    let on_words = from(&app, WORDS, DOOR_PATH, LISTING).await;
     let anyone = from(&app, ANYONE, DOOR_PATH, LISTING).await;
     for act in A_PERSONS {
         let named = format!("\"name\":\"{act}\"");
-        assert!(!helm.contains(&named), "{act} offered to Helm");
+        assert!(!on_words.contains(&named), "{act} offered to a Job on your words");
         assert!(!anyone.contains(&named), "{act} offered to an agent");
     }
     assert!(anyone.contains("\"name\":\"get_studio\""), "{anyone}");
-    assert!(helm.contains("\"name\":\"propose_studio_edge\""), "{helm}");
+    assert!(on_words.contains("\"name\":\"propose_studio_edge\""), "{on_words}");
     assert!(
         !anyone.contains("\"name\":\"propose_studio_edge\""),
         "{anyone}"
@@ -162,18 +162,18 @@ async fn no_agent_is_offered_a_persons_studio_act_and_a_call_to_one_is_refused()
             r#"{{"studio_id":"{THE_STUDIO}","body":{{"edge_id":"01EDGE0","accepted":true}}}}"#
         ),
     );
-    for port in [HELM, ANYONE] {
+    for port in [WORDS, ANYONE] {
         let body = from(&app, port, DOOR_PATH, &accept).await;
         assert!(body.contains("\"isError\":true"), "{body}");
         assert!(body.contains("is not a tool this Fleet offers"), "{body}");
     }
 }
 
-/// **Helm adds what starts proposed, and the transport says it was Helm.** A
-/// Note is what a person pointed at, so Helm's is refused.
+/// **a Job on your words adds what starts proposed, and the transport says it was a Job on your words.** A
+/// Note is what a person pointed at, so a Job's is refused.
 #[tokio::test]
-async fn a_node_helm_adds_is_recorded_as_helms_and_held_to_a_proposed_kind() {
-    let daemon = helm_holding();
+async fn a_node_a_job_adds_is_recorded_as_its_own_and_held_to_a_proposed_kind() {
+    let daemon = words_holding();
     let app = shared(&daemon);
     let adding = |content: &str| {
         calling(
@@ -185,7 +185,7 @@ async fn a_node_helm_adds_is_recorded_as_helms_and_held_to_a_proposed_kind() {
     };
     let finding = from(
         &app,
-        HELM,
+        WORDS,
         DOOR_PATH,
         &adding(r#""kind":"finding","asked":"what reads the count""#),
     )
@@ -193,15 +193,15 @@ async fn a_node_helm_adds_is_recorded_as_helms_and_held_to_a_proposed_kind() {
     assert!(finding.contains("\"isError\":false"), "{finding}");
     let note = from(
         &app,
-        HELM,
+        WORDS,
         DOOR_PATH,
-        &adding(r#""kind":"note","said":"Helm saw this""#),
+        &adding(r#""kind":"note","said":"a Job on your words saw this""#),
     )
     .await;
     assert!(note.contains("\"isError\":true"), "{note}");
     assert_eq!(
         *daemon.added_by.lock().expect("not poisoned"),
-        vec![Redirector::Helm, Redirector::Helm]
+        vec![Redirector::Job, Redirector::Job]
     );
 
     let (status, _) = call(
@@ -222,7 +222,7 @@ async fn a_node_helm_adds_is_recorded_as_helms_and_held_to_a_proposed_kind() {
 /// and by list.
 #[tokio::test]
 async fn a_door_session_reads_no_studio_of_another_repository() {
-    let daemon = helm_holding();
+    let daemon = words_holding();
     daemon.studios.lock().expect("not poisoned").push(Studio {
         id: ipc::StudioId::carried("01THEIRS"),
         manifest_id: ipc::ManifestId::carried("01OTHER"),
@@ -249,16 +249,16 @@ async fn a_door_session_reads_no_studio_of_another_repository() {
     assert!(listed.contains("the one it stands in"), "{listed}");
 }
 
-/// **Helm's other unasked acts say who took them too** (#1288): proposing an
-/// edge and naming a Studio through the door are Helm's, and the same calls from
-/// Bridge are a person's, so Fleet can publish the one as Helm's act.
+/// **A Job's other unasked acts say who took them too** (#1288): proposing an
+/// edge and naming a Studio through the door are a Job's, and the same calls from
+/// Bridge are a person's, so Fleet can publish the one as a Job's act.
 #[tokio::test]
-async fn an_edge_helm_proposes_and_a_name_it_gives_are_recorded_as_helms() {
-    let daemon = helm_holding();
+async fn an_edge_a_job_proposes_and_a_name_it_gives_are_recorded_as_its_own() {
+    let daemon = words_holding();
     let app = shared(&daemon);
     let proposed = from(
         &app,
-        HELM,
+        WORDS,
         DOOR_PATH,
         &calling(
             "propose_studio_edge",
@@ -271,7 +271,7 @@ async fn an_edge_helm_proposes_and_a_name_it_gives_are_recorded_as_helms() {
     assert!(proposed.contains("\"isError\":false"), "{proposed}");
     let named = from(
         &app,
-        HELM,
+        WORDS,
         DOOR_PATH,
         &calling(
             "rename_studio",
@@ -290,33 +290,33 @@ async fn an_edge_helm_proposes_and_a_name_it_gives_are_recorded_as_helms() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(
         *daemon.added_by.lock().expect("not poisoned"),
-        vec![Redirector::Helm, Redirector::Helm, Redirector::Person]
+        vec![Redirector::Job, Redirector::Job, Redirector::Person]
     );
 }
 
-/// **Helm reads the checkout runs it can start, in its own repository** (#1288).
+/// **a Job on your words reads the checkout runs it can start, in its own repository** (#1288).
 /// A checkout route answers about the first repository served when none is
 /// named, so the door names the session's; a plain agent is offered none of
 /// them.
 #[tokio::test]
-async fn helm_reads_checkout_runs_in_the_repository_it_stands_in() {
-    let daemon = helm_holding();
+async fn a_job_reads_checkout_runs_in_the_repository_it_stands_in() {
+    let daemon = words_holding();
     let app = shared(&daemon);
     let anyone = from(&app, ANYONE, DOOR_PATH, LISTING).await;
-    let helm = from(&app, HELM, DOOR_PATH, LISTING).await;
+    let on_words = from(&app, WORDS, DOOR_PATH, LISTING).await;
     for read in [
         "list_checkout_runs",
         "get_checkout_run_sheet",
         "get_checkout_run_output",
     ] {
         let named = format!("\"name\":\"{read}\"");
-        assert!(helm.contains(&named), "{read} is not offered to Helm");
+        assert!(on_words.contains(&named), "{read} is not offered to a Job on your words");
         assert!(!anyone.contains(&named), "{read} is offered to an agent");
     }
 
     let listed = from(
         &app,
-        HELM,
+        WORDS,
         &door_within("01MF"),
         &calling("list_checkout_runs", "{}"),
     )
@@ -332,21 +332,21 @@ async fn helm_reads_checkout_runs_in_the_repository_it_stands_in() {
 }
 
 /// `#1292`: **a scout starts on a person's ask and on nothing else.** Asking
-/// and stopping are Bridge's; Helm is offered only the start of a Finding
+/// and stopping are Bridge's; a Job on your words is offered only the start of a Finding
 /// already proposed, which it calls once somebody asks it to, and a plain
 /// agent is offered neither.
 #[tokio::test]
-async fn a_scout_is_asked_from_bridge_and_started_by_helm_alone_and_stopped_by_neither() {
-    let daemon = helm_holding();
+async fn a_scout_is_asked_from_bridge_and_started_by_a_job_alone_and_stopped_by_neither() {
+    let daemon = words_holding();
     let app = shared(&daemon);
-    let helm = from(&app, HELM, DOOR_PATH, LISTING).await;
+    let on_words = from(&app, WORDS, DOOR_PATH, LISTING).await;
     let anyone = from(&app, ANYONE, DOOR_PATH, LISTING).await;
     for persons in ["ask_scout", "stop_scout"] {
         let named = format!("\"name\":\"{persons}\"");
-        assert!(!helm.contains(&named), "{persons} offered to Helm");
+        assert!(!on_words.contains(&named), "{persons} offered to a Job on your words");
         assert!(!anyone.contains(&named), "{persons} offered to an agent");
     }
-    assert!(helm.contains("\"name\":\"start_scout\""), "{helm}");
+    assert!(on_words.contains("\"name\":\"start_scout\""), "{on_words}");
     assert!(!anyone.contains("\"name\":\"start_scout\""), "{anyone}");
 
     let (status, body) = call(
@@ -380,7 +380,7 @@ async fn a_scout_is_asked_from_bridge_and_started_by_helm_alone_and_stopped_by_n
 /// about where a person pointed is dropped between the wire and the daemon.
 #[tokio::test]
 async fn a_captured_note_reaches_the_daemon_with_everything_it_was_sent() {
-    let app = shared(&helm_holding());
+    let app = shared(&words_holding());
     let at = format!("/studios/{THE_STUDIO}/capture_note");
     let body = r#"{"said":"The chip keeps its count","capture":{"component":"FilterChip",
         "owners":["Board"],"selector":"button.armada-chip","element":{"tag":"button",
@@ -417,7 +417,7 @@ async fn a_captured_note_reaches_the_daemon_with_everything_it_was_sent() {
 /// Where the file lives and what refuses to read it are `fleet`'s.
 #[tokio::test]
 async fn a_notes_frame_reads_back_as_a_png_and_a_note_without_one_says_so() {
-    let app = shared(&helm_holding());
+    let app = shared(&words_holding());
     let pointed = r#""capture":{"selector":"button.armada-chip","element":{"tag":"button",
         "text":"Queued 3"},"location":"/","bounds":{"x":312,"y":148,"width":96,"height":28},
         "window":{"width":1440,"height":900},"markup":"<button>Queued 3</button>"}"#;
@@ -499,7 +499,7 @@ async fn a_notes_frame_reads_back_as_a_png_and_a_note_without_one_says_so() {
 /// hold is refused with every node still on it.
 #[tokio::test]
 async fn one_call_removes_every_node_picked_and_a_name_it_does_not_hold_removes_none() {
-    let app = shared(&helm_holding());
+    let app = shared(&words_holding());
     let (_, created) = call(
         &app,
         "POST",

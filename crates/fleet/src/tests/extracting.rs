@@ -160,7 +160,6 @@ const TWO_ASKS: &str = "The cap is in.\n\nApprove #12 when you are happy with it
 
 fn between<'a>(extracted: Option<&'a dyn Fn(&str) -> Option<Extracted>>) -> Seen<'a> {
     Seen {
-        helm: false,
         running: None,
         subagents: false,
         held: false,

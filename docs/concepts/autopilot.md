@@ -9,6 +9,12 @@
 Why it exists, and what it is not, is [`../capabilities/autopilot.md`](../capabilities/autopilot.md).
 The code is `crates/fleet/src/autopilot.rs` and the modules under it, the decision pass in `crates/fleet/src/autopilot/decisions.rs`; the store's half is `crates/store/src/autopilot.rs`.
 
+**Autopilot is the away state of the [Operator](operator.md).**
+The switch means the person is away.
+While it runs, the Operator's Answer role may settle the kinds checked at start, and what was already waiting on the person when it started is offered once more.
+There is one loop, so nothing is answered twice.
+The Operator's own answers, and the rules Fleet applies first, are `operator.md`.
+
 ## What it holds
 
 | Field | Notes |
@@ -63,7 +69,8 @@ A pass makes at most four calls per Autopilot, and asks again before keeping eac
 
 ## How a decision happens
 
-While an Autopilot is running and has a kind checked, a loop of its own beside the pick's, so a landing never waits behind a call, goes over the repository on Fleet's noticing interval.
+While an Autopilot is running and has a kind checked, the Operator's Answer role settles these kinds, with Fleet's rules deciding first.
+Where Answer stands Off or Suggest, a loop of Autopilot's own, beside the pick's, answers as it did before the Operator, so a landing never waits behind a call; it goes over the repository on Fleet's noticing interval.
 A paused or stopped Autopilot answers nothing.
 
 1. **The Jobs in scope.** Every live Job of the repository where *on autopilot* holds `running`, and otherwise only the ones it started.
@@ -99,6 +106,7 @@ A question asked in the walk, a start card, and every other item.
 ## What it keeps
 
 Every answer is kept once, with the Job, what was asked, what was chosen, why, and when. An answer is not a call.
+An answer is a row of the Operator's Log, and the list of what was answered is the Log filtered to answers.
 The person keeps one with Agree, or corrects it with Change, which sends the Job `Re: <asked>` and then their words.
 A correction is read the next time, beside the answer it replaces.
 
@@ -163,10 +171,11 @@ Where a repository's Autopilot stopped by itself, the setup says so beside Start
 Fleet refuses a start over a paused Autopilot, so Start and the switch stop a paused one first and then start it, as one press.
 The dispatch panel offers Autopilot as a third kind: the repository is read from the words or asked, the panel's act reads the sentence into settings it draws for the person to edit, and Start starts it.
 Under the setup, Next up lists what it is choosing from and Set aside what it was unsure of.
-While one runs, the first key or press after ten minutes with no input asks whether to keep it on. Either answer opens what Autopilot answered meanwhile.
-That list is a HUD over the map, opened from the lamp on the switch's plate, which is lit while an answer waits.
+While one runs, the first key or press after ten minutes with no input asks whether to keep it on.
+Either answer opens what Autopilot answered meanwhile, which is the Log filtered to answers.
+The panel that draws the Log is `armada-ehhu.10`.
 A row is the Job, what was asked, what Autopilot chose, why, and when.
-Agree keeps it, Change sends the Job his own words, and an answer Fleet cannot correct, such as a landed pull request, offers Agree alone.
+Agree keeps it, Change sends the Job the person's own words, and an answer Fleet cannot correct, such as a landed pull request, offers Agree alone.
 Each leaves the list.
 `autopilot.changed` reaches every window through main, which keeps no copy.
-The code is `apps/desktop/src/renderer/src/cockpit/deck/AutopilotArm.tsx` and `AutopilotAnswers.tsx`.
+The code is `apps/desktop/src/renderer/src/cockpit/deck/AutopilotArm.tsx`, and `AutopilotAnswers.tsx` draws the list until the panel does.

@@ -33,6 +33,7 @@ pub(super) fn brief_after(rig: &Rig, on: &SessionId, condition: StartCondition, 
         after: Some(StartAfter { session: on.clone(), condition, base, needs: "to name its pull request".into() }),
         held: false,
         project_rows: Vec::new(),
+        on_your_words: None,
     }
 }
 

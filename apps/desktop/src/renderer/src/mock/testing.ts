@@ -85,30 +85,6 @@ export async function onScreen(): Promise<void> {
 }
 
 /**
- * Put Helm's dock up, and wait for it. **Bridge opens with it shut** since
- * #1583: the dock draws over the content rather than beside it, so leaving it
- * standing would cover whatever the window was opened to read. `⌘J` is the
- * way in that works at every width and from inside a field.
- *
- * **The window has to be up before the press, not after it.** `⌘J` is bound in
- * an effect, and `mount` returns before React has run one — a keystroke aimed
- * at a window that is not listening yet reaches `window`, matches nothing, and
- * is gone, with no locator to have waited on and nothing to retry it. Measured
- * 23 Sep 2026 on #1592, once in 25 full runs under load.
- */
-export async function openHelm(): Promise<void> {
-  await onScreen();
-  await userEvent.keyboard("{Meta>}j{/Meta}");
-  await expect
-    .element(
-      page.getByRole("complementary", {
-        name: "Helm",
-      }),
-    )
-    .toBeVisible();
-}
-
-/**
  * Two windows on one main, side by side, each labelled as a region so a test
  * can scope to it. Both talk to one fake, so a clone either sends lands in both.
  */

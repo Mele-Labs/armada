@@ -58,7 +58,7 @@
 
 /* Floating: the scrim starts under the title row, and the panel is held off
    the scrim's edges by --space-4 with the card's radius and edge — the frame
-   Helm's dock draws (TheShell.css, `.armada-shell__dock`). */
+   the Operator's dock draws (TheShell.css, `.armada-shell__dock`). */
 .armada-sheet-scrim[data-floating] {
   top: var(--h-title-bar);
 }
@@ -348,7 +348,7 @@
   border-top: var(--armada-hairline) solid var(--border-subtle);
 }
 
-/* Every sheet's inner edge: Helm's handle (`src/dock-handle.css`), in a
+/* Every sheet's inner edge: the dock's handle (`src/dock-handle.css`), in a
    `--space-4` gap — the one a floating sheet's own margin would have spent.
    It takes the sheet's auto margin, so the sheet sits flush to it; a floating
    one's is held off the top and bottom as the sheet is. A dragged width is

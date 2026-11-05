@@ -626,7 +626,7 @@ fn assemble(
     // written beside this path.
     let mcp_config = machine.join(MCP_FILE);
 
-    // The Judge and Helm's host both run the program the Drone runs, so a
+    // The Judge and the Jobs' host both run the program the Drone runs, so a
     // machine that named one through the override names all three — a second
     // variable would let any pair disagree about which binary is installed.
     let judge_binary = agent.program().to_string();
@@ -659,11 +659,9 @@ fn assemble(
             mod_switches,
             built_in_mods: fleet::mods::BuiltIns::compiled(),
             kit_home,
-            // `judge_binary`'s reason: the same override reaches Helm's host.
+            // `judge_binary`'s reason: the same override reaches the Jobs' host.
             // `#943`.
             agent_binary: judge_binary.clone(),
-            helm_reply_budget: at_start.get(keys::HELM_REPLY_SECONDS),
-            helm_effort: fleet::tuning::effort_of(&at_start.get(keys::EFFORT_HELM)),
             // The port the listener actually bound, which is the same one
             // written into `mcp.json` above — one value, so a Drone's
             // connection to the address it was given is the connection Fleet
@@ -681,11 +679,11 @@ fn assemble(
         ),
         port_range,
         run_log_retention: days(shipped.get(keys::RUN_LOG_DAYS)),
-        helm_authority: match shipped.get(keys::HELM_CAN_ACT) {
-            true => fleet::helm::Authority::Acting,
-            false => fleet::helm::Authority::ReadOnly,
+        action_authority: match shipped.get(keys::WORDS_CAN_ACT) {
+            true => fleet::on_your_words::Authority::Acting,
+            false => fleet::on_your_words::Authority::ReadOnly,
         },
-        helm_ask_hold: fleet::helm::HelmAskHold::of(at_start.get(keys::HELM_ASK_HOLD_SECONDS)),
+        ask_hold: fleet::asks::AskHold::of(at_start.get(keys::ASK_HOLD_SECONDS)),
         // The kernel, because the question is which process holds a socket.
         // `fleet::peer` holds the measurement that chose it over `lsof`.
         peers: Arc::new(fleet::peer::Kernel),

@@ -69,8 +69,8 @@ impl StudioName {
 
 /// A Studio, without its graph.
 ///
-/// **Belongs to one repository, by Manifest id** — the key Helm's conversation
-/// is kept under. Nothing expires one: it is kept until a person deletes it.
+/// **Belongs to one repository, by Manifest id** — the key a Job on your words
+/// names. Nothing expires one: it is kept until a person deletes it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Studio {
     pub id: StudioId,
@@ -222,7 +222,7 @@ spelled! {
 }
 
 spelled! {
-    /// A relation Helm, a scout or a person may propose: every edge kind but
+    /// A relation a Job on your words, a scout or a person may propose: every edge kind but
     /// `Produced`, which no call can propose because this has no such variant.
     StudioRelation {
         SameAs => "same_as",
@@ -232,12 +232,11 @@ spelled! {
 }
 
 spelled! {
-    /// Who put something on a Studio. **Helm's act is kept apart from a
-    /// person's on the record itself**, not only on the stream —
-    /// `docs/concepts/helm.md`, *Audit trail*.
+    /// Who put something on a Studio. **A Job's act is kept apart from a
+    /// person's on the record itself**, not only on the stream.
     StudioAuthor {
         Person => "person",
-        Helm => "helm",
+        Job => "job",
     }
 }
 
@@ -261,7 +260,7 @@ spelled! {
         Page => "page",
         /// An agent session started in this repository or one of its worktrees.
         Session => "session",
-        /// This repository's own Helm thread.
+        /// The thread of the newest Job on your words in this repository.
         Thread => "thread",
     }
 }
@@ -364,7 +363,7 @@ impl StudioNodeKind {
         }
     }
 
-    /// A kind that starts `Proposed`: the only nodes Helm adds unasked.
+    /// A kind that starts `Proposed`: the only nodes a Job on your words adds unasked.
     pub fn starts_proposed(&self) -> bool {
         self.states().first() == Some(&StudioNodeState::Proposed)
     }

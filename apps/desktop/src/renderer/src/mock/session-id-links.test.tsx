@@ -65,7 +65,7 @@ async function forge() {
 
 test("a merged pull request in another repository's Session links, and opens in the side panel", async () => {
   const { link } = await forge();
-  // Looked up in the Session's own repository, which is not Helm's: #2207 is only armada's.
+  // Looked up in the Session's own repository, which is not the first's: #2207 is only armada's.
   await expect
     .element(
       thread().getByRole("link", {

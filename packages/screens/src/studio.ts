@@ -39,7 +39,7 @@ export type StudioLive = {
 
 /**
  * What an untitled Studio is called wherever it is named. A name is optional on the wire and
- * Helm names an untitled Studio (`docs/concepts/studio.md`, Helm on a Studio), so until it does,
+ * a Job names an untitled Studio (`docs/concepts/studio.md`), so until one does,
  * the list and the footer need a word that says nobody has.
  */
 export const UNTITLED_STUDIO = "Untitled Studio";
@@ -184,7 +184,7 @@ const SOURCE_READ: Readonly<Record<string, string>> = {
   milestone: "Read a milestone",
   page: "Read a page",
   session: "Read a job",
-  thread: "Read this repository's Helm thread",
+  thread: "Read this repository's thread",
 };
 
 /** The first line of a body, for a node whose title is prose. */
@@ -647,6 +647,6 @@ export function nodeNamed(studio: Studio, nodeId: string, live: StudioLive = {})
  * Studio does not know.
  */
 export const PROPOSED_BY: Readonly<Record<string, string>> = {
-  helm: "Helm proposes",
+  job: "A job proposed",
   person: "You proposed",
 };

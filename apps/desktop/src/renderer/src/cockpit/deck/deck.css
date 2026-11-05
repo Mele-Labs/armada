@@ -820,11 +820,11 @@
   width: var(--h-control);
 }
 /* The thread: lines of a fold at a 24px pitch, and a Check's line a step under the prose with its mono a step under that. */
-/* Messages, his and the agent's, take a further step of room either side (HelmThread.css); a run of folds stays at its pitch. */
-.deck .armada-helm-thread__rows {
+/* Messages, his and the agent's, take a further step of room either side (`ThreadRows.css`); a run of folds stays at its pitch. */
+.deck .armada-thread-rows {
   gap: var(--thread-gap, var(--space-3));
 }
-.deck .armada-helm-thread__rows > .armada-session-fold + .armada-session-fold {
+.deck .armada-thread-rows > .armada-session-fold + .armada-session-fold {
   margin-block-start: calc((var(--thread-gap, var(--space-3)) - var(--space-1) / 2) * -1);
 }
 .deck .armada-session-fold__head--press {

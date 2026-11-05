@@ -58,7 +58,7 @@ pub mod clash;
 mod cloning;
 mod commit;
 mod concurrently;
-/// A Helm conversation's process: one message, resumed by id.
+/// What a hosted Job's process shares with the door.
 mod conversing;
 mod delivery;
 mod error;
@@ -179,8 +179,7 @@ pub use build_standing::{
 pub use ci_workflows::ActionsWorkflows;
 pub use concurrently::concurrently;
 pub use conversing::{
-    door_tools, path_written, wrote_the_checkout, ConversationRefused, Conversing,
-    CHANGES_THE_CHECKOUT, COMPACT_COMMAND,
+    door_tools, path_written, wrote_the_checkout, CHANGES_THE_CHECKOUT, COMPACT_COMMAND,
 };
 pub use error::{CommitWorkError, CreateWorktreeError, ReadWorkProductError};
 pub use existing_setup::{has_own_skill, ExistingSetup, Home};

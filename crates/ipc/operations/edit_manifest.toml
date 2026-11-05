@@ -1,7 +1,7 @@
 [operations.edit_manifest]
 kind = "command"
 transport = "HTTP"
-agent_access = "Helm only"
+agent_access = "On your words"
 description = "Apply a form's edits to armada.yml, changing only the lines they name, and write the result"
 notes = """
 **A form changes only the lines it touches.** The owner's decision on #721: every untouched line of `armada.yml` stays byte for byte, and removing a Check, a Command or a port takes the comment block directly above it — Journey 9, *Editing*. This repository's own file is two thirds comment, so a form that sent a re-serialised file through `save_manifest_file` would delete most of a tracked file on its first save. So edits cross as edits — a closed set of variants, keys and values, never text and never a dotted path a form could aim anywhere — and Fleet splices each into the file at the bytes its key occupies. `config::amend` is the writer; `ManifestEdited.text` is the file as written, which is the next edit's `read`.
@@ -10,7 +10,7 @@ notes = """
 
 **A file that moved under the edit is refused exactly as a save is.** `EditManifest.read` is required and whole, for `save_manifest_file`'s reasons. Fleet reads the disk before placing anything, so edits are never applied to text the form did not show, and writes through the same beside-and-rename `save`, which compares again at the write.
 
-`agent_access` is `Helm only`, `save_manifest_file`'s reason: this writes the tracked file that decides what every Job is gated on. A change to what Checks mean is still a person's, and Helm applies one only on that person's ask.
+`agent_access` is `On your words`, `save_manifest_file`'s reason: this writes the tracked file that decides what every Job is gated on. A change to what Checks mean is still a person's, and a Job on your words applies one only on that person's ask.
 
 **Since 23.68 `set_pr_mode` edits `pr_mode`**, the repository's Draft default: `{ "edit": "set_pr_mode", "pr_mode": "draft" | "ready" | null }`, `null` removing the key so the repository defers to this machine's. `ManifestDeclared.pr_mode?` carries it back, absent where the file defers. The next approval's `pr_mode_default` reads it once the running Fleet has read the file again.
 """

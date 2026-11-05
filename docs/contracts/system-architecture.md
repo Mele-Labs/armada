@@ -75,7 +75,7 @@ in Armada Decisions.
 | Bridge | TypeScript / Electron | While the app is open | The user |
 | Fleet | Rust | Survives Bridge close. Ends on reboot or force-kill | The user, by hand, until the Ship milestone puts it under launchd |
 | Drone | Claude Code CLI, headless | One Job | Fleet, after human approval |
-| Helm | Agent session | One conversation, per Manifest | The user, by selecting a Manifest in Bridge |
+| Operator | One model call with no tools, decided in Fleet | One per machine, one fresh call per arrival | Fleet, when it hands an arrival over |
 | SQLite | File, WAL mode | Persistent | Fleet, via the `store` crate |
 | `armada doctor --json` | Rust, same binary as Fleet | ~253 ms warm. One scan, then it exits | Bridge, on demand |
 
@@ -206,10 +206,10 @@ it.
 | `job_facts` | Append-only Facts text, one row per entry. Never updated in place | `fleet` |
 | `drone_runs` | One row per spawn. PID, worktree path, frozen config snapshot, exit state, spawn ordinal — which counts spawns against one Job, not step failures; the per-step retry counter lives on `job_steps`. **Whether this is its own table or columns on `jobs` is open** — a retry spawns a second run against one Job, which is what argues for the table. See the deferred gaps in section 10 | `fleet` |
 | `evidence` | Per-step bundles from the Evidence MCP tool. Append-only, never rewritten — a resubmission is a new row | `fleet` |
-| `job_events` | The 3-way actor-separated audit trail. `actor` is one of human / helm / drone; verification source is orthogonal and null for human | `fleet` |
+| `job_events` | The 3-way actor-separated audit trail. `actor` is one of human / operator / drone; verification source is orthogonal and null for human | `fleet` |
 | `approvals` | Dispatch and destructive-command decisions, approved or denied, with the command text. Denials are what pattern learning counts, so they persist rather than being transient UI state | `fleet` |
 | `alerts` | Condition, Alert Level, read state, acted state | `fleet` |
-| `helm_sessions` | One per Manifest. Transcript, cursor, token spend against the Machine budget | `fleet` |
+| `helm_sessions` | Where the old Helm threads were kept, one per Manifest, read so that each shows as an ended Job. Nothing is deleted | `fleet` |
 | `sessions` | One per agent session a person runs, terminal or Bridge: repository, directory, title, state, last turn, last reported figures | `fleet` |
 | `hosted_sessions` | What only a session Bridge hosts has: its model, effort and mode, whether its process has run, whether it is held before Start, and the slot and branch it leased | `fleet` |
 | `session_rows` | A hosted session's thread, one row each in order, kept whole | `fleet` |
@@ -425,23 +425,24 @@ diff cannot check its own change. All six are open, and a tool answer over
 image has no window, so one over the cap is answered as its route rather
 than as fewer bytes.
 
-**Helm polls instead of receiving events.** `get_events_since(cursor)`
+**A Job polls instead of receiving events.** `get_events_since(cursor)`
 returns a count plus one line per event kind rather than the events
-themselves. Fleet waking the session was rejected: it would make Helm a
+themselves. Fleet waking the session was rejected: it would make the Job a
 second notification channel alongside Alerts. See the decision in Armada
 Decisions.
+**The Operator is the one thing Fleet does hand an arrival to**, since it holds no session to wake. See [Operator](../concepts/operator.md).
 
-On a command, a plain agent's access is `agent_access = "Yes"`; a Helm session
-also reaches `Drafts only` and `Helm only` rows, which is every command the door
-offers once a person asks for it in conversation (`undo_run`, once the one exception, is gone) —
-`fleet::helm::may` is the rule, and the Intervention Ladder no longer bounds it.
-**A `Bridge only` command reaches no agent, Helm included**: accepting a Studio
+On a command, a plain agent's access is `agent_access = "Yes"`; a Job on your words
+also reaches `Drafts only` and `On your words` rows, which is every command the door
+offers once a person asks for it in words (`undo_run`, once the one exception, is gone) —
+`fleet::on_your_words::may` is the rule, and the Intervention Ladder no longer bounds it.
+**A `Bridge only` command reaches no agent, a Job on your words included**: accepting a Studio
 edge, removing a node and deleting a Studio are a person's acts. The full set of
 operations — each with its kind, its transport and what an agent may reach
 directly — is in `crates/ipc/operations/`.
 
 **`save_workflow` is the one command whose write may land outside the repository.** It writes a workflow definition under the repository's own `.armada/workflows/` or under Kit's `~/.armada/workflows/`, as the caller names, after checking it with the loader's rules; a definition that does not fit writes nothing.
-`agent_access` is `Helm only`, and the row in `crates/ipc/operations/` carries the rest.
+`agent_access` is `On your words`, and the row in `crates/ipc/operations/` carries the rest.
 
 **An operation the inventory names and nothing serves fails the gate**, with
 an allowance that carries a written reason per operation. One command is in it
@@ -649,15 +650,15 @@ Surfaces need UX. Shapes and policies need a home on a parent, not a page.
 | Surface | Renders other things, owns no data | Layout, states, copy |
 | Shape / Policy | An attribute of, or a rule applied to, an entity. Code branches on it | A section on the parent entity's page |
 
-## Agent is closed at three
+## Agent is a closed set
 
 **The test is a toolset.** Not every model invocation Armada makes is an
-Agent. Drone, Helm and Scout carry a toolset; every other invocation below does not.
+Agent. Drone and Scout carry a toolset; every other invocation below does not, the Operator's call included.
 
 | Invocation | Toolset | Worktree | Lifetime | Verdict |
 | --- | --- | --- | --- | --- |
 | Drone | Kit + Manifest resolved, plus Evidence MCP | Yes | One Job | **Agent** |
-| Helm | Its own set, via the Fleet MCP. Manifest-scoped | No | A session | **Agent** |
+| Operator | None | No | One call per arrival | Model call, in `fleet`. See [Operator](../concepts/operator.md) |
 | Scout | Read-only: the checkout on disk and the sources Kit allows. See [Scout](../concepts/scout.md) | No | One ask | **Agent** |
 | Judge | None | No | One call | Model call, in `verification` |
 | Job proposer | None | No | One call | Model call, in `fleet`. Reads a request and proposes a Job — its workflow, its title and the split. Renamed from Job-shape classifier: shape became derived and scope became the workflow's first step, so neither half of that name survived. See [Job proposer](../concepts/job-proposer.md) |
@@ -695,7 +696,7 @@ placement.
 | Machine | Entity | How this installation behaves. One tier, no Manifest counterpart, no merge |
 | Workflow | Entity | As WorkflowDef. Authored, versioned, interpreted uniformly by Fleet |
 | Drone | **Agent + Entity** | Splits. The agent, and the Drone Run record carried on a Job |
-| Helm | **Agent + Surface** | Splits. The agent, and the surface inside Bridge scoped to the selected Manifest |
+| Operator | **Policy + Surface** | Splits. The Policy in Fleet, one per machine, and the panel inside Bridge, `armada-ehhu.10` |
 | Fleet | Process | The only one. No engineer-facing surface beyond its Doctor module |
 | Bridge | Surface | Surface group, six surfaces inside it |
 | Doctor | Surface | Owns no probe logic and no state |
@@ -753,7 +754,7 @@ Crate ownership lives in the Armada Crates database, one row per crate.
 | Job, Workflow | — |
 | Judge | — |
 | Drone | — |
-| Bridge, Helm, Doctor, Job Board | — |
+| Bridge, Doctor, Job Board | — |
 | — | Armada API — client-side connection state, not a probe |
 | — | Git, Docker, Claude, Keychain |
 | — | SQLite |
@@ -772,7 +773,7 @@ in tests with zero network, and that crate seam holds regardless of the
 process answer. **Named for the crate.** "Armada Server" and "Daemon" are
 retired names, still in use elsewhere in the docs.
 
-**Four surfaces have no crate.** Bridge, Helm, Doctor and Job Board live in
+**Three surfaces have no crate.** Bridge, Doctor and Job Board live in
 `apps/desktop`. The crate structure is the Rust half of the system only.
 
 ---
@@ -799,7 +800,7 @@ so they are not lost.
 ## Open questions
 - **[manifest-scanner-agent-or-model-call]** Is the Manifest Setup wizard's scan step a model call or a third Agent?
   The taxonomy test (section 9) is whether an invocation carries a
-  toolset — Drone and Helm do, Judge, the Job proposer and Voice generation
+  toolset: the Drone does; Judge, the Job proposer and Voice generation
   don't, and the scanner is the only one of the nine invocations left
   unclassified. If the wizard gathers repo facts mechanically and passes
   them as context, it's a model call living in `config` alongside

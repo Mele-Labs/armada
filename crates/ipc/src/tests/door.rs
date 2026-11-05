@@ -421,7 +421,7 @@ fn the_permission_tools_own_arguments_are_its_whole_body() {
     let shapes = vec![Shape {
         operation: crate::door::ASKS_A_PERSON,
         method: "POST",
-        path: "/helm/permission",
+        path: "/calls/permission",
         query: &[],
     }];
     let asked = read(
@@ -439,7 +439,7 @@ fn the_permission_tools_own_arguments_are_its_whole_body() {
     let Asked::Call { call, .. } = asked else {
         panic!("expected a call, got {asked:?}");
     };
-    assert_eq!(call.path, "/helm/permission");
+    assert_eq!(call.path, "/calls/permission");
     let body: Value = serde_json::from_str(&call.body.expect("a body")).expect("the body is JSON");
     assert_eq!(body["tool_name"], "Bash");
     assert_eq!(body["input"]["command"], "gh issue list");
@@ -454,7 +454,7 @@ fn the_permission_tool_publishes_the_harnesss_schema_and_not_a_body() {
     let shapes = vec![Shape {
         operation: crate::door::ASKS_A_PERSON,
         method: "POST",
-        path: "/helm/permission",
+        path: "/calls/permission",
         query: &[],
     }];
     let listed: Value = serde_json::from_str(

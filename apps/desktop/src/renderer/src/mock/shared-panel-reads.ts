@@ -224,8 +224,8 @@ const HUB: Record<
     },
   },
   2256: {
-    title: "Clear Helm's cache on a repository switch",
-    branch: "helm/clear-on-switch",
+    title: "Clear the Operator's cache on a repository switch",
+    branch: "operator/clear-on-switch",
     author: "claude",
     opened: 25,
     body: "Closes #2212.",
@@ -236,19 +236,19 @@ const HUB: Record<
     },
   },
   2260: {
-    title: "Name Helm's repository in its header",
-    branch: "helm/header-repository",
+    title: "Name the Operator's repository in its header",
+    branch: "operator/header-repository",
     author: "claude",
     opened: 8,
-    body: "Shows which repository Helm reads.",
+    body: "Shows which repository the Operator reads.",
     queued: false,
     checks: {
       state: "passed",
     },
   },
   2281: {
-    title: "Keep Helm's draft across a resize",
-    branch: "helm/keep-draft-on-resize",
+    title: "Keep the Operator's draft across a resize",
+    branch: "operator/keep-draft-on-resize",
     author: "claude",
     opened: 6,
     body: "Closes #2271.",
@@ -258,8 +258,8 @@ const HUB: Record<
     },
   },
   2282: {
-    title: "Clear the old answer when Helm asks again",
-    branch: "helm/clear-old-answer",
+    title: "Clear the old answer when the Operator asks again",
+    branch: "operator/clear-old-answer",
     author: "claude",
     opened: 90,
     body: "Closes #2272.",
@@ -346,7 +346,7 @@ export const ISSUES: Record<string, IssueRead> = {
   },
   2212: {
     number: "2212",
-    title: "Helm answers about the wrong repository after a switch",
+    title: "A job answers about the wrong repository after a switch",
     repository: "mele-labs/armada",
     address: "https://forge.invalid/issues/2212",
     state: "open",
@@ -358,12 +358,12 @@ export const ISSUES: Record<string, IssueRead> = {
     assignees: [
       "nick",
     ],
-    body: "After pointing Helm at another repository, its next answer still reads the first one's issues.",
+    body: "After pointing the Operator at another repository, its next answer still reads the first one's issues.",
     comments: [],
     linked: [
       {
         number: 2256,
-        title: "Clear Helm's cache on a repository switch",
+        title: "Clear the Operator's cache on a repository switch",
         address: `${BARE}2256`,
         state: "open",
       },
@@ -371,7 +371,7 @@ export const ISSUES: Record<string, IssueRead> = {
   },
   2259: {
     number: "2259",
-    title: "Helm composer keeps the old repository chip",
+    title: "The Operator composer keeps the old repository chip",
     repository: "mele-labs/armada",
     address: "https://forge.invalid/issues/2259",
     state: "closed",
@@ -393,7 +393,7 @@ export const ISSUES: Record<string, IssueRead> = {
   },
   2271: {
     number: "2271",
-    title: "Helm drops its draft when the window resizes",
+    title: "The Operator drops its draft when the window resizes",
     repository: "mele-labs/armada",
     address: "https://forge.invalid/issues/2271",
     state: "open",
@@ -404,12 +404,12 @@ export const ISSUES: Record<string, IssueRead> = {
       "bridge",
     ],
     assignees: [],
-    body: "A half-written question in Helm is gone after the window is resized.",
+    body: "A half-written question in the Operator is gone after the window is resized.",
     comments: [],
     linked: [
       {
         number: 2281,
-        title: "Keep Helm's draft across a resize",
+        title: "Keep the Operator's draft across a resize",
         address: `${BARE}2281`,
         state: "open",
       },
@@ -417,7 +417,7 @@ export const ISSUES: Record<string, IssueRead> = {
   },
   2272: {
     number: "2272",
-    title: "Helm shows the previous answer while a new one loads",
+    title: "The Operator shows the previous answer while a new one loads",
     repository: "mele-labs/armada",
     address: "https://forge.invalid/issues/2272",
     state: "closed",
@@ -432,7 +432,7 @@ export const ISSUES: Record<string, IssueRead> = {
     linked: [
       {
         number: 2282,
-        title: "Clear the old answer when Helm asks again",
+        title: "Clear the old answer when the Operator asks again",
         address: `${BARE}2282`,
         state: "merged",
       },
@@ -440,7 +440,7 @@ export const ISSUES: Record<string, IssueRead> = {
   },
   2273: {
     number: "2273",
-    title: "Helm cannot be reached by the keyboard from the Cockpit",
+    title: "The Operator cannot be reached by the keyboard from the Cockpit",
     repository: "mele-labs/armada",
     address: "https://forge.invalid/issues/2273",
     state: "open",
@@ -450,7 +450,7 @@ export const ISSUES: Record<string, IssueRead> = {
       "bridge",
     ],
     assignees: [],
-    body: "Opening Helm takes the pointer.",
+    body: "Opening the Operator takes the pointer.",
     comments: [],
     linked: [],
   },
@@ -991,7 +991,7 @@ export function sharedPanelReads(lines: MergeLines): PanelReads {
       {
         kind: "issue",
         number: "2212",
-        title: "Helm answers about the wrong repository after a switch",
+        title: "A job answers about the wrong repository after a switch",
         url: "https://forge.invalid/issues/2212",
       },
       {

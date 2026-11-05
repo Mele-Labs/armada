@@ -1,5 +1,5 @@
 // What was a Session is a Job to the person reading: the Cockpit's left panel, the open Job's frame and head,
-// the Dispatch sheet's kinds, a call on its Job's row and a row's hover card. Ids, Helm and code are as they were.
+// the Dispatch sheet's kinds, a call on its Job's row and a row's hover card. Ids and code are as they were.
 // Over `cockpit-ship-flightdeck`, for the owner to approve before the tests follow.
 
 import { inside, region, role, tab, walk } from "../walk";

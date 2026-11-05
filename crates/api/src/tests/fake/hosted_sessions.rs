@@ -22,7 +22,8 @@ fn nothing_hosted() -> Refusal {
 }
 
 impl HostedSessions for FakeDaemon {
-    async fn start_session(&self, _start: StartSession) -> Result<SessionRecord, Refusal> {
+    async fn start_session(&self, start: StartSession) -> Result<SessionRecord, Refusal> {
+        self.started.lock().expect("not poisoned").push(start);
         Err(nothing_hosted())
     }
 

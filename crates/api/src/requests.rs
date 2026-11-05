@@ -2,7 +2,7 @@
 //! and saved.
 //!
 //! **Who sent it is the door it came through.** Bridge and the phone name themselves and are the
-//! owner; the agent's door, Helm's, and a request naming nobody are an agent, so a script that
+//! owner; the agent's door and a request naming nobody are an agent, so a script that
 //! leaves the header out is answered as an agent is and never as the owner.
 
 use axum::body::Bytes;

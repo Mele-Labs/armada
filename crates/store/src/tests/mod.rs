@@ -5,8 +5,6 @@
 
 mod corrupt;
 mod devices;
-mod helm_sessions;
-mod helm_tuning;
 mod job_shells;
 mod job_times;
 mod delivery_picks;
@@ -22,6 +20,7 @@ mod run_memory;
 mod logbook;
 mod migrate;
 mod named_migrations;
+mod on_your_words;
 mod slot_strandings;
 mod plan_reading;
 mod ports;

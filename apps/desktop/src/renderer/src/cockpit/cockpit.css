@@ -341,7 +341,7 @@ span.armada-view__dot {
 
 /* A stop's card: opened by hover or focus, kept by a press. Its look is `StopCard`'s; where it stands is ours. */
 
-/* ---- The Helm rail: the card's acts beside it, as keycap switches ------------------------ */
+/* ---- The call rail: the card's acts beside it, as keycap switches ------------------------ */
 /* The frame carries the state (its hue, its edge); nothing glows and nothing is a gradient. A plate is a
    solid panel the keycaps stand on, a keycap a heavy key whose bottom edge goes down when it is pressed. */
 

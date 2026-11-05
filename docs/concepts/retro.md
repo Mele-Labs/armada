@@ -319,14 +319,14 @@ transcript, and a press answered with the last retro, which adds no row.
 | `get_session_retro` | `GET /sessions/:session_id/retro?n=` | A Job's retro, the one numbered `n` (the `r<n>` of an item's id) or the newest: the record as it stands, the retro's state and items. The wire's `job_id` holds the Job's id and `session` is present |
 | `write_session_retro` | `POST /sessions/:session_id/retro` | The same, once the retro is written |
 | `disagree_lesson` | `POST /lessons/:lesson_id/disagree` | The `Lesson`, `discarded` |
-| `start_lesson_session` | `POST /lessons/:lesson_id/session` | `{ lesson, session_id, brief }`: the item `agreed` with `session_proposed` set, the Job started, and the `brief` Fleet sent as its first message. No body. Helm only |
+| `start_lesson_session` | `POST /lessons/:lesson_id/session` | `{ lesson, session_id, brief }`: the item `agreed` with `session_proposed` set, the Job started, and the `brief` Fleet sent as its first message. No body. On your words |
 | `review_lessons` | `POST /lessons/review` | `LessonReview`: the open items grouped, ordered and set aside, from one model call. Body `{ manifest_id? }` |
 | `ask_lesson` | `POST /lessons/:lesson_id/ask` | `{ answer }`, from one model call over the item and the record rows it cites. Body `{ question, history }` |
 
 The wire shapes are `crates/ipc/src/retro.rs`, and
 `docs/practices/protocol.md` *Protocol 23.12* has the change, *Protocol 23.15*
 `lands_in`, *Protocol 23.26* the parts and `state`, and *Protocol 23.74* the
-review. Both acts are Helm only: a person presses them in Bridge, and Helm may
+review. Both acts are On your words: a person presses them in Bridge, and a Job on your words may
 when a person asks. So are the two calls under *Reviewing*.
 
 ## Reviewing

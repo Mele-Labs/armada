@@ -24,10 +24,10 @@ fn edge(id: &str) -> StudioEdgeId {
     StudioEdgeId::carried(Ulid::carried(id))
 }
 
-/// **Helm's acts read back as Helm's after a reopen**: a node it added, the
+/// **A Job's acts read back as a Job's after a reopen**: a node it added, the
 /// `produced` edge that node brought, an edge it proposed, and the name it gave.
 #[test]
-fn helms_node_edge_and_name_read_back_as_helms() {
+fn a_jobs_node_edge_and_name_read_back_as_a_jobs() {
     let dir = TempDir::new();
     let mut store = open(&dir);
     let studio = StudioId::carried(Ulid::carried("01STUDIO"));
@@ -59,7 +59,7 @@ fn helms_node_edge_and_name_read_back_as_helms() {
         StudioNodeContent::Finding(core_model::StudioFinding::asked("what reads it")),
         StudioPosition { x: 0, y: 200 },
         at(),
-        StudioAuthor::Helm,
+        StudioAuthor::Job,
     );
     store
         .add_studio_node(
@@ -68,14 +68,14 @@ fn helms_node_edge_and_name_read_back_as_helms() {
             Some((&node("01NOTE"), edge("01MADE"))),
             &at(),
         )
-        .expect("Helm's Finding");
+        .expect("a Job's Finding");
     let proposed = StudioEdge::proposed(
         edge("01SAME"),
         node("01FINDING"),
         node("01NOTE"),
         StudioRelation::Answers,
         at(),
-        StudioAuthor::Helm,
+        StudioAuthor::Job,
     )
     .expect("two nodes");
     store
@@ -83,12 +83,12 @@ fn helms_node_edge_and_name_read_back_as_helms() {
         .expect("proposed");
     let name = StudioName::named("Stale counts").expect("a name");
     store
-        .rename_studio(&studio, &name, StudioAuthor::Helm, &at())
+        .rename_studio(&studio, &name, StudioAuthor::Job, &at())
         .expect("named");
     drop(store);
 
     let graph = open(&dir).studio(&studio).expect("reads");
-    assert_eq!(graph.studio.named_by, Some(StudioAuthor::Helm));
+    assert_eq!(graph.studio.named_by, Some(StudioAuthor::Job));
     let nodes: Vec<_> = graph
         .nodes
         .iter()
@@ -97,7 +97,7 @@ fn helms_node_edge_and_name_read_back_as_helms() {
     assert_eq!(
         nodes,
         [
-            ("01FINDING", Some(StudioAuthor::Helm)),
+            ("01FINDING", Some(StudioAuthor::Job)),
             ("01NOTE", Some(StudioAuthor::Person))
         ]
     );
@@ -109,14 +109,14 @@ fn helms_node_edge_and_name_read_back_as_helms() {
     assert_eq!(
         edges,
         [
-            ("01MADE", Some(StudioAuthor::Helm)),
-            ("01SAME", Some(StudioAuthor::Helm))
+            ("01MADE", Some(StudioAuthor::Job)),
+            ("01SAME", Some(StudioAuthor::Job))
         ],
         "the edge a node brings is its adder's"
     );
 }
 
-/// **A row from before V78 reads back unrecorded**, never as a person's: Helm
+/// **A row from before V78 reads back unrecorded**, never as a person's: a Job
 /// could add one under V77 too.
 #[test]
 fn a_studio_from_before_the_authors_were_kept_reads_back_unrecorded() {

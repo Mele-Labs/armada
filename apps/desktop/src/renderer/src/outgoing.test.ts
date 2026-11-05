@@ -169,8 +169,8 @@ it("hands back the same Sessions when nothing of its own changed", async () => {
 
 it("holds words over a thread that has no Session, and takes the mark off the row Fleet records for words sent on", async () => {
   const held = outgoing();
-  const words = held.hold("helm:armada", sent("Tidy the cap"), new Set());
-  expect(held.overlay("helm:armada", [])[0]).toMatchObject({
+  const words = held.hold("thread:armada", sent("Tidy the cap"), new Set());
+  expect(held.overlay("thread:armada", [])[0]).toMatchObject({
     text: "Tidy the cap",
     delivery: "sending",
   });
@@ -183,7 +183,7 @@ it("holds words over a thread that has no Session, and takes the mark off the ro
     title: "Cart totals",
     repository: "armada",
   };
-  const rows = held.overlay("helm:armada", [
+  const rows = held.overlay("thread:armada", [
     {
       id: "r7",
       at: "14:00:00",
@@ -202,18 +202,18 @@ it("holds words over a thread that has no Session, and takes the mark off the ro
 
 it("takes words out of the thread when they went nowhere, and sends them again the way they first went", async () => {
   const held = outgoing();
-  const dropped = held.hold("helm:armada", sent("Not this"), new Set());
+  const dropped = held.hold("thread:armada", sent("Not this"), new Set());
   dropped.drop();
-  expect(held.overlay("helm:armada", [])).toHaveLength(0);
+  expect(held.overlay("thread:armada", [])).toHaveLength(0);
 
-  const words = held.hold("helm:armada", sent("Tidy the cap"), new Set());
+  const words = held.hold("thread:armada", sent("Tidy the cap"), new Set());
   let taken = false;
   expect(await words.deliver(() => taken)).toBe(false);
-  expect(held.overlay("helm:armada", [])[0]).toMatchObject({
+  expect(held.overlay("thread:armada", [])[0]).toMatchObject({
     delivery: "failed",
   });
   taken = true;
-  held.retry("helm:armada", "sending:2", new Set());
+  held.retry("thread:armada", "sending:2", new Set());
   await settled();
-  expect("delivery" in held.overlay("helm:armada", [])[0]!).toBe(false);
+  expect("delivery" in held.overlay("thread:armada", [])[0]!).toBe(false);
 });

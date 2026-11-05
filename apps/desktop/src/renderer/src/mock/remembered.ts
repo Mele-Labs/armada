@@ -13,7 +13,6 @@ const REMEMBERED = [
   "armada.bridge.cockpit-view",
   "armada.bridge.dashboard-tab",
   "armada.bridge.dispatch-kind",
-  "armada.bridge.dock-width",
   "armada.bridge.guide-list-width",
   "armada.bridge.left-collapsed",
   "armada.bridge.left-width",

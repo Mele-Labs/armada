@@ -28,7 +28,7 @@ export function mergeLines(): MergeLines {
         line: [
           {
             place: 1,
-            branch: "fleet/helm-kills-processes",
+            branch: "fleet/loop-kills-processes",
             state: "waiting",
           },
           {

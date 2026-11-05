@@ -59,6 +59,7 @@ pub(super) fn start(rig: &Rig, title: &str, rows: Vec<ProjectRowRef>) -> StartSe
         after: None,
         held: false,
         project_rows: rows,
+        on_your_words: None,
     }
 }
 

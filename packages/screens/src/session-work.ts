@@ -333,11 +333,10 @@ export function tasksOf(pieces: readonly BuildPiece[]): AgentTask[] {
 }
 
 /**
- * What a Session works to. A Helm Session has none. The proposer's picks and the workflow picker are a hosted Session's, since a
+ * What a Session works to. The proposer's picks and the workflow picker are a hosted Session's, since a
  * terminal's workflow is not Fleet's to set.
  */
 export function workOf(record: SessionRecord, beside: WorkBeside): SessionWork | undefined {
-  if (record.helm === true) return undefined;
   const hosted = record.hosted !== undefined;
   const off = beside.workflowsOff === true;
   const picked = (record.proposal?.picked ?? []).filter(

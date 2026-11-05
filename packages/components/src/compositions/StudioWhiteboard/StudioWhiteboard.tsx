@@ -125,8 +125,8 @@ export type StudioWhiteboardEdge = {
       kind: "produced";
     }
   /**
-   * Proposed by Helm or a scout, and not yet accepted by a person. `proposer`
-   * is who drew it, already said (`Helm proposes`); absent is the bare fact.
+   * Proposed by a job or a scout, and not yet accepted by a person. `proposer`
+   * is who drew it, already said (`A job proposed`); absent is the bare fact.
    */
   | {
       kind: StudioEdgeRelation;

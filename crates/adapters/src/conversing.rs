@@ -1,49 +1,18 @@
-//! A Helm conversation, as the headless CLI is started for one message. `#939`,
-//! `#1373`.
-//!
-//! **One process per message, and it exits once it has answered.** The message
-//! goes in on stdin and the input is closed behind it; the next resumes the
-//! session by id, which spike 016 measured.
-//!
-//! **A person's session, not a Drone's.** It opens in the repository's checkout
-//! and comes up holding what that person's own Claude configuration resolves
-//! there, with Armada's door beside it. Spike 018 measured what each withheld
-//! flag was worth. A Drone's `--strict-mcp-config` is untouched: it comes off a
-//! one-inhabitant enum in [`crate::harness`], so no Drone renders without it.
+//! What a hosted Job's process shares with the door: the tool that puts a call to a person, the
+//! tools the door serves, and how a write is recognised in the stream. `#939`, `#1373`.
 
-use std::error::Error;
-use std::fmt;
-
-use adapter_traits::{
-    DroneSpawnConfig, Environment, Launch, McpConfig, Model, Prompt, SpawnConfigRefused, ToolUse,
-    Worktree,
-};
-
-use crate::harness::HeadlessAgent;
-
-/// The permission mode a conversation runs under: **the person's own settings
-/// decide, and what they do not cover is put to them.**
-///
-/// `default` is what a terminal session runs — the owner's ask of 17 Sep 2026
-/// in his words, *"it should still respect my permission settings"*. His
-/// `allow` rules pass silently, his `deny` rules refuse, the rest reaches
-/// [`asks_a_person`]. It replaces `acceptEdits`, which `#1373` shipped only
-/// because nobody could be asked, so Helm now asks before it edits.
-///
-/// **`auto` was asked for and is not reachable.** Spike 19: the CLI accepts it,
-/// reports `default` on `init`, makes no classifier call and behaves the same.
-const THEIRS_TO_DECIDE: &str = "default";
+use adapter_traits::ToolUse;
 
 /// The door's own tool the CLI puts every uncovered call to. **Not shown to the
-/// model**, which spike 15 measured, so it adds nothing Helm can reach for.
+/// model**, which spike 15 measured, so it adds nothing a Job can reach for.
 pub(crate) fn asks_a_person() -> String {
     format!("mcp__{}__{}", ipc::door::SERVER, ipc::door::ASKS_A_PERSON)
 }
 
 /// The built-in tools that change the checkout a conversation runs in.
 ///
-/// **A list to recognise a write by, not to refuse one.** Helm edits the
-/// checkout when asked, so `fleet::helm` reads this to publish an event rather
+/// **A list to recognise a write by, not to refuse one.** A Job edits the
+/// checkout when asked, so Fleet reads this to publish an event rather
 /// than to stop the call.
 pub const CHANGES_THE_CHECKOUT: &[&str] = &["Edit", "MultiEdit", "Write", "NotebookEdit"];
 
@@ -87,16 +56,6 @@ pub fn path_written(detail: &str) -> &str {
     path
 }
 
-/// Whether the CLI could have named this session. **It is argv**, so every
-/// character must be a letter, a digit, `-` or `_`, and the first not `-`.
-pub(crate) fn portable_session(session: &str) -> bool {
-    !session.is_empty()
-        && !session.starts_with('-')
-        && session
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
-}
-
 /// Every tool the agent's door serves, as the CLI allows a whole server.
 pub fn door_tools() -> String {
     format!("mcp__{}", ipc::door::SERVER)
@@ -110,163 +69,3 @@ pub const TASK_TOOLS: &str = "CLAUDE_CODE_ENABLE_TODO_TOOLS";
 /// Sent as a message, Claude Code reads this as its own command to shrink the context, not as words
 /// for the agent.
 pub const COMPACT_COMMAND: &str = "/compact";
-
-/// Everything one message's process is started with.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Conversing {
-    directory: String,
-    model: Model,
-    door: McpConfig,
-    environment: Environment,
-    resuming: Option<String>,
-    /// Directories the session may read without being asked, beyond the repository.
-    readable: Vec<String>,
-}
-
-impl Conversing {
-    /// A new session in `directory`, a repository's root. **The root is what
-    /// scopes the door**: `armada mcp` walks up from its own working directory
-    /// to the Manifest it answers inside. It scopes the rest too — a
-    /// repository's own settings, skills and servers all hang off it.
-    pub fn in_repository(
-        directory: &str,
-        model: Model,
-        door: McpConfig,
-        environment: Environment,
-    ) -> Result<Conversing, ConversationRefused> {
-        if !directory.starts_with('/') {
-            return Err(ConversationRefused::DirectoryNotAbsolute {
-                given: directory.to_string(),
-            });
-        }
-        Ok(Conversing {
-            directory: directory.to_string(),
-            model,
-            door,
-            environment,
-            resuming: None,
-            readable: Vec::new(),
-        })
-    }
-
-    /// The same, able to read `directory` without a permission ask: where a message's uploads
-    /// are kept. **Absolute only**, as the repository is, because it is argv.
-    pub fn reading(mut self, directory: &str) -> Result<Conversing, ConversationRefused> {
-        if !directory.starts_with('/') {
-            return Err(ConversationRefused::DirectoryNotAbsolute {
-                given: directory.to_string(),
-            });
-        }
-        self.readable.push(directory.to_string());
-        Ok(self)
-    }
-
-    /// The same, resuming a session the CLI named on an earlier message.
-    ///
-    /// **An id is refused unless every character is a letter, a digit, `-` or
-    /// `_`.** It is argv, and one that began with `-` would be read as a flag.
-    pub fn resuming(mut self, session: &str) -> Result<Conversing, ConversationRefused> {
-        if !portable_session(session) {
-            return Err(ConversationRefused::SessionNotPortable {
-                given: session.to_string(),
-            });
-        }
-        self.resuming = Some(session.to_string());
-        Ok(self)
-    }
-
-    pub fn resumes(&self) -> Option<&str> {
-        self.resuming.as_deref()
-    }
-}
-
-impl HeadlessAgent {
-    /// One message's process. The message is not on it — see this module.
-    ///
-    /// **What is absent is half the point**: no `--strict-mcp-config`, no
-    /// `--tools`, no `--allowedTools`, no `--disallowedTools`. Each withholds
-    /// something a person has in a terminal, and spike 018 measured what. The
-    /// other half is `--permission-prompt-tool`, which is how the person
-    /// themselves answers for the rest — spike 019.
-    pub fn render_conversation(
-        &self,
-        conversing: &Conversing,
-    ) -> Result<Launch, ConversationRefused> {
-        let mut args: Vec<String> = vec![
-            "-p".into(),
-            "--input-format".into(),
-            "stream-json".into(),
-            "--output-format".into(),
-            "stream-json".into(),
-            "--verbose".into(),
-            "--model".into(),
-            conversing.model.as_str().into(),
-            "--permission-mode".into(),
-            THEIRS_TO_DECIDE.into(),
-            "--permission-prompt-tool".into(),
-            asks_a_person(),
-            // Added to what the person's configuration resolves, rather than in
-            // place of it. The file still names one server and nothing can add
-            // a second — `crate::mcp`'s guarantee, strict flag or no.
-            "--mcp-config".into(),
-            conversing.door.path().into(),
-        ];
-        crate::harness::thinking(&mut args, conversing.model.effort());
-        for directory in &conversing.readable {
-            args.push("--add-dir".into());
-            args.push(directory.clone());
-        }
-        if let Some(session) = &conversing.resuming {
-            args.push("--resume".into());
-            args.push(session.clone());
-        }
-        // **`Launch` has one constructor, and it reads a spawn config.** Only
-        // the directory and the environment are taken from it, so a
-        // conversation borrows that shape rather than `adapter-traits` growing
-        // a second config for one caller. The prompt is never rendered.
-        let borrowed = DroneSpawnConfig::spawn_in(
-            &Worktree::at(conversing.directory.clone(), ""),
-            conversing.model.clone(),
-            Prompt::assembled("carried on stdin").map_err(ConversationRefused::Unassembled)?,
-            conversing.door.clone(),
-            crate::browser_shell::environment(
-                conversing
-                    .environment
-                    .clone()
-                    .and(TASK_TOOLS, "1")
-                    .map_err(ConversationRefused::Unassembled)?,
-                crate::browser_shell::found().as_deref(),
-            )
-            .map_err(ConversationRefused::Unassembled)?,
-        );
-        Ok(Launch::rendered(&borrowed, self.program(), args))
-    }
-}
-
-/// Why a conversation's process could not be rendered. Nothing has started.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ConversationRefused {
-    DirectoryNotAbsolute { given: String },
-    SessionNotPortable { given: String },
-    Unassembled(SpawnConfigRefused),
-}
-
-impl fmt::Display for ConversationRefused {
-    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ConversationRefused::DirectoryNotAbsolute { given } => write!(
-                out,
-                "the repository root `{given}` is relative, so the conversation would open \
-                 wherever Fleet happened to be"
-            ),
-            ConversationRefused::SessionNotPortable { given } => write!(
-                out,
-                "the stored job id `{given}` is not one the agent CLI names, so it cannot \
-                 be resumed"
-            ),
-            ConversationRefused::Unassembled(cause) => out.write_str(&cause.said()),
-        }
-    }
-}
-
-impl Error for ConversationRefused {}

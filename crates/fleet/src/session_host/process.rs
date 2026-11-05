@@ -1,11 +1,11 @@
 //! The process a hosted session runs in, behind one interface. Since 23.49.
 //!
-//! **Built to change, as `helm::Hosting` is**: a test plants a host that
+//! **Built to change**: a test plants a host that
 //! answers with events, and a host elsewhere is a second implementation. What
 //! it is asked to carry is a [`Start`] and what it gives back is a [`Process`]
 //! and a stream of [`Heard`].
 //!
-//! **One live process per open session**, unlike Helm's one per message: the
+//! **One live process per open session**, unlike a one-shot process per message: the
 //! process stays up so another session's message can start a turn in it, and
 //! Fleet ends it after a quiet spell and resumes it on the next message.
 //!
@@ -40,8 +40,8 @@ pub struct Start {
     pub fork_note: Option<String>,
     /// The transcript line the copy ends at, included. Read only with `forking`. Since 23.79.
     pub fork_cut: Option<String>,
-    /// What every process of the session is told it is, appended to its system prompt. Helm's
-    /// note for a repository's Helm Session, and none for any other.
+    /// What every process of the session inherits, appended to its system prompt: its
+    /// predecessor's hand-over and the logbook.
     pub note: Option<String>,
     /// What another session addresses this one by.
     pub name: String,
@@ -143,7 +143,7 @@ pub struct ProcessHost {
 /// is not on a Job's path where Fleet is an app's.
 const DOOR_ARGS: &[&str] = &["mcp"];
 
-/// The door's configuration file, beside Helm's.
+/// The door's configuration file.
 const DOOR_FILE: &str = "session-mcp.json";
 
 /// How long a keeper has to bind its socket.

@@ -19,8 +19,6 @@ export type RepositoryWiring = {
   rehearsal: RehearsalConnection;
   /** Every open window's own Overview read again — `connection.ts`'s `windowFacades`. */
   overviewAgain: (port: number) => Promise<void>;
-  /** A window's own pick moved, including to All (`null`) — `main/helm.ts`'s own reconciling. */
-  onPicked: (root: string | null) => void;
   port: () => number | null;
 };
 
@@ -78,7 +76,6 @@ export class RepositoryReads {
       this.wiring.publishToWindow(windowId, {
         repository: root,
       });
-      this.wiring.onPicked(root);
     }
     const held = this.wiring.holds();
     const kept =
@@ -126,7 +123,6 @@ export class RepositoryReads {
     this.wiring.publishToWindow(windowId, {
       repository: picked.picked,
     });
-    this.wiring.onPicked(picked.picked);
     const port = this.wiring.port();
     if (port !== null) await this.readHoldings(port, windowId);
   }

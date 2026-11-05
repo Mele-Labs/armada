@@ -17,7 +17,7 @@ import type {
   WaitingOption,
   WaitingSource,
 } from "@armada/protocol";
-import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
+import { offeredOf, reachOfferedOf } from "@armada/screens/src/copy";
 import {
   planAsked,
   type Session,
@@ -307,7 +307,7 @@ export function askedOf(session: Session): Asked | undefined {
     ...(asked.offers === undefined
       ? {}
       : {
-          offers: (asked.reaches === undefined ? helmOfferedOf : reachOfferedOf)(asked.offers).map(
+          offers: (asked.reaches === undefined ? offeredOf : reachOfferedOf)(asked.offers).map(
             (one) => ({
               id: one.offer,
               label: one.label,

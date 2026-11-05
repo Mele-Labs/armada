@@ -171,11 +171,12 @@ Two identical-looking rows with two different futures, which is why the source c
 A default should be quiet, but a quiet default still has to be findable: a person who later hits an allowlist they never saw needs somewhere to have seen it, and that line is the somewhere.
 The Manifest surface is where it is changed.
 
-### The proposal conversation happens in Helm
+### The proposal conversation is the Operator's box
 
-**The button reads `Open in Helm`.** Helm is the conversational surface, and a second one on this screen would be a second Helm.
-The job is scoped to this proposal and returns row edits, which land with their provenance changed to reflect that a person decided them.
-What the Helm side looks like belongs to [Consult Helm](consult-helm.md).
+**The sheet has no button for it.** The Operator is the conversational surface, and a second one on this screen would be a second one.
+Nothing serves a conversation scoped to a proposal yet.
+Where one is built, a Job started on your words is scoped to this proposal and returns row edits, which land with their provenance changed to reflect that a person decided them.
+What the box looks like belongs to `armada-ehhu.9`, and what Fleet does with typed words is [Talk to the Operator](talk-to-the-operator.md).
 
 ## Editing in place
 
@@ -349,4 +350,4 @@ This journey also shares `drone-secrets-handling` with [Guild Setup & Configurat
 
 ## Related
 
-[Run and edit a Manifest](run-and-edit-a-manifest.md) for drift detection once a Manifest already exists · [Consult Helm](consult-helm.md) for the proposal conversation · [First-run onboarding](first-run-onboarding.md), which never requires this journey.
+[Run and edit a Manifest](run-and-edit-a-manifest.md) for drift detection once a Manifest already exists · [Talk to the Operator](talk-to-the-operator.md) for the proposal conversation · [First-run onboarding](first-run-onboarding.md), which never requires this journey.

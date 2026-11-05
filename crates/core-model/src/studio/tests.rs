@@ -97,7 +97,7 @@ fn a_node_starts_in_its_kinds_first_state_and_moving_it_changes_nothing_else() {
         StudioNodeContent::Finding(StudioFinding::asked("what reads the count")),
         StudioPosition { x: 10, y: -4 },
         at(),
-        StudioAuthor::Helm,
+        StudioAuthor::Job,
     );
     assert_eq!(finding.state(), Some(StudioNodeState::Proposed));
     let moved = finding.moved(StudioPosition { x: 300, y: 12 });
@@ -107,7 +107,7 @@ fn a_node_starts_in_its_kinds_first_state_and_moving_it_changes_nothing_else() {
     assert_eq!(moved.id(), finding.id());
     assert_eq!(
         moved.added_by(),
-        Some(StudioAuthor::Helm),
+        Some(StudioAuthor::Job),
         "who added it moves with it"
     );
 }

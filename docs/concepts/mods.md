@@ -511,7 +511,7 @@ It stands at the agent door a Job with no Manifest stands at, which offers `list
 | `scaffold_mod` | command | yes | Makes the folder, a starter file for its `kind` that changes nothing (a tracker's validates and fails its try), `git init` and one commit, recording the calling Job as `made_by` where it passes `session_id` |
 | `validate_mod` | query | yes | Every problem found, and the checked text when there are none: `css` for a theme or a tweak, `layout` for a layout, `words` for a Words mod, `fleet` for a Fleet mod, `commands` for a Commands mod, each the file as typed data, `tab` for a tab mod and `instrument` for an instrument mod, each its `glyph` and `code` |
 | `try_tracker_mod` | command | yes | Runs a tracker mod against a repository and keeps how it went |
-| `set_mod_enabled` | command | Helm only | This machine's switch for one mod |
+| `set_mod_enabled` | command | On your words | This machine's switch for one mod |
 | `promote_mod` | command | no | Puts the mod into a repository by a Job of its own, which opens the pull request and sees it merged |
 | `start_mod_session` | command | no | Starts a Mod Job on what the person pointed at, or on his words, and `aim` where he knows the kind, and `from_job` and `from_tab` where a Custom tab starts it. *A Mod Job* above |
 
@@ -532,7 +532,7 @@ Fleet rescans every two seconds and publishes it when the list differs from the 
 A mod nobody switched is on. A switch only says whether the owner allows the mod, and `valid` says whether Bridge may act on it: a mod can be on and invalid.
 
 > **Rule.** A mod becomes the theme only when the owner picks it, and a layout mod applies only while its switch is on.
-> Why: choosing is the act that changes his screen, and a job can write a mod but not save a preference, which is Helm's on his ask and Bridge's.
+> Why: choosing is the act that changes his screen, and a job can write a mod but not save a preference, which is Bridge's, and a Job on your words' on his ask.
 
 ## Promotion
 

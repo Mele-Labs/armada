@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::Actor;
-use ipc::{AnswerWaiting, AutopilotDecision, HelmCallAnswer, SessionId, WaitingItem, WaitingSource};
+use ipc::{AnswerWaiting, AutopilotDecision, CallAnswer, SessionId, WaitingItem, WaitingSource};
 
 use super::questions::{asked_id, asked_item, Choice, Earlier, Group, Kind, Present, Question, ALLOW_ONCE};
 use super::seat::Seat;
@@ -281,9 +281,9 @@ fn working_on(plan: &store::KeptPlan) -> Group {
 }
 
 /// A card's offer as its option reads. Only [`ALLOW_ONCE`] is ever an answer the Operator gives.
-fn offered(offer: HelmCallAnswer) -> String {
+fn offered(offer: CallAnswer) -> String {
     match offer {
-        HelmCallAnswer::AllowOnce => ALLOW_ONCE.to_string(),
+        CallAnswer::AllowOnce => ALLOW_ONCE.to_string(),
         other => format!("{other:?}"),
     }
 }

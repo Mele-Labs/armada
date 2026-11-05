@@ -8,5 +8,4 @@
 | The Judge | The Drone's transcript or self-report — constitutional rule 2 | `verification` assembles the prompt; the Drone never touches it |
 | A Judge in a panel | The other judges' verdicts — rule 5. Independence is what makes unanimity mean anything | Dispatch |
 | A Drone | Another Job's context, evidence or transcript | One worktree per **Job**, which every Drone of that Job and no other shares; Fleet assembles per step, from that Job's record |
-| Helm | Anything outside the selected Manifest | Fleet MCP scoping |
 | A Drone | The operator's own MCP servers. v1 spawned without `--strict-mcp-config` and got 103 tools | `DroneSpawnConfig`, non-optional |
