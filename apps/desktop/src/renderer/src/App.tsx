@@ -14,8 +14,7 @@
 // failure is on screen, and `palette.ts` for what the palette can reach.
 
 import { OperatorPanel } from "./operator/OperatorPanel";
-import { useOperator } from "./operator/store";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArmadaMark } from "@armada/brand";
 import { heldOfPicked, heldOfWorkspace, whyNotOpenedLink } from "@armada/screens";
 import { UsageSurface } from "./usage-surface";
@@ -24,6 +23,7 @@ import {
   GuidanceProvider,
   GuideCatalogue,
   ProseLinks,
+  isPressed,
   useNowWhile,
 } from "@armada/components";
 
@@ -192,6 +192,7 @@ import {
   useAtFloor,
   useLayout,
   useNarrow,
+  useOperatorAsks,
   useSurfaceKeys,
 } from "@armada/shell";
 
@@ -252,6 +253,7 @@ export function App() {
   const [doctoring, setDoctoring] = useState(false);
   const [workflowing, setWorkflowing] = useState(false); // The Workflow creator (`workflow-creator.tsx`).
   const [usaging, setUsaging] = useState(false);
+  const [operating, setOperating] = useState(false); // The Operator's own page (`operator/`).
   const [logbooking, setLogbooking] = useState(false); // Usage, where the tokens went; the Logbook (`logbook.tsx`).
   const [reviewing, setReviewing] = useState(false);
   const [issuing, setIssuing] = useState(false);
@@ -519,7 +521,6 @@ export function App() {
   }); // One draft for the Cockpit's bar and the panel grown from the title bar.
   const newSession = () => (dispatching.choose("session"), dispatching.openNew()); // A New session entry opens the same panel.
   // Where the window has an Operator, its panel takes the dock and the title row's button.
-  const operator = useOperator();
   // Where the panel's Layout control stands: the dock's head, beside Close.
   const refsHost: RefsHostProps = {
     state,
@@ -642,6 +643,7 @@ export function App() {
     setProjecting(surfaceId === SURFACE.projects);
     setUsaging(surfaceId === SURFACE.usage);
     setLogbooking(surfaceId === SURFACE.logbook);
+    setOperating(surfaceId === SURFACE.operator);
     setOpenStudio(null);
     setStudioNode(null);
     if (surfaceId !== SURFACE.manifest) setPicked(null);
@@ -721,6 +723,7 @@ export function App() {
       projecting,
       usaging,
       logbooking,
+      operating,
     }) === SURFACE.overview; // Its call is already in front.
   const showingNow = showingOf({
     clearing,
@@ -740,6 +743,7 @@ export function App() {
     projecting,
     usaging,
     logbooking,
+    operating,
   });
   // Back and forward are keys and nothing on screen — `history.ts`.
   const { back, replaceNext } = useHistory(
@@ -752,6 +756,25 @@ export function App() {
       goTo(place.surface);
       setOpenStudio(place.studio);
       setStudioNode(place.studioNode);
+    },
+  );
+  // ⌘J goes to the Operator's page, and from it back to where it was. The Cockpit's Operator row asks for it; a Job opened from
+  // its board leaves it for the Cockpit, where the Job opens.
+  const operatorKey = useRef(() => {});
+  operatorKey.current = () => (operating ? back() : goTo(SURFACE.operator));
+  useEffect(() => {
+    function pressed(event: KeyboardEvent): void {
+      if (event.repeat || !isPressed("operator", event)) return;
+      event.preventDefault();
+      operatorKey.current();
+    }
+    window.addEventListener("keydown", pressed);
+    return () => window.removeEventListener("keydown", pressed);
+  }, []);
+  useOperatorAsks(
+    () => goTo(SURFACE.operator),
+    () => {
+      if (operating) goTo(SURFACE.overview);
     },
   );
   // Refresh is a key and a palette row, and nothing on screen.
@@ -823,11 +846,6 @@ export function App() {
                             onReplaceNext={replaceNext}
                           />
                         }
-                        {...(operator === null
-                          ? {}
-                          : {
-                              operator: <OperatorPanel picked={pickedRepository} />,
-                            })}
                         fleet={{
                           ...fleetPanelClocked(
                             state.connection,
@@ -879,6 +897,12 @@ export function App() {
                                 key={`requests:${requesting.sessionId ?? ""}:${requesting.from ?? ""}`}
                                 item={requesting}
                               />
+                            </Boundary>
+                          ) : operating ? (
+                            <Boundary region="Operator" {...guarded}>
+                              <section className="armada-operator-page" aria-label="Operator">
+                                <OperatorPanel picked={pickedRepository} />
+                              </section>
                             </Boundary>
                           ) : logbooking ? (
                             <LogbookSurface repository={state.repository} {...guarded} />

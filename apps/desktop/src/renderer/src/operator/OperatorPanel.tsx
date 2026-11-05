@@ -1133,16 +1133,17 @@ const QUEUED = "Queued. The Operator gets to it in turn";
 function CardMarker({ store, id, ends }: { store: OperatorStore; id: string; ends: boolean }) {
   const found = store.state.raises?.find((one) => one.id === id);
   if (found === undefined) return null;
-  const { settled, ...open } = found;
-  const raise = ends ? found : open;
-  const outcome = raise.settled === undefined ? undefined : outcomeOf(raise.settled);
+  // Where it came up says so; only the mark where the talk ended says what came of it.
+  const settled = ends ? found.settled : undefined;
+  const raise = found;
+  const outcome = settled === undefined ? undefined : outcomeOf(settled);
   return (
     <span
       className="armada-operator__marker"
       data-settled={outcome === undefined ? undefined : outcome.letGo ? "let-go" : "done"}
     >
       <span className="armada-operator__marker-head">
-        {raise.settled === undefined ? (
+        {outcome === undefined ? (
           <MessagesSquare size={12} strokeWidth={2} aria-hidden />
         ) : (
           <Check size={12} strokeWidth={2} aria-hidden />
@@ -1156,6 +1157,36 @@ function CardMarker({ store, id, ends }: { store: OperatorStore; id: string; end
         <span className="armada-operator__marker-result">{outcome.what}</span>
       )}
     </span>
+  );
+}
+
+/** What the Operator says before anything is said: what it is on, what it takes next, and the first thing that needs you. Read off the
+    board each time, so it is never stale; nothing on the board, nothing is said. */
+function openingOf(store: OperatorStore): string | null {
+  const open = (store.state.turns ?? []).filter((one) => one.done === undefined);
+  const first = (store.state.raises ?? []).find((one) => one.settled === undefined);
+  const said = [
+    open[0] === undefined ? null : `I'm on ${open[0].text}.`,
+    open[1] === undefined ? null : `Next is ${open[1].text}.`,
+    first === undefined ? null : `First for you: ${first.item}, under Needs you.`,
+  ].filter((one) => one !== null);
+  return said.length === 0 ? null : said.join(" ");
+}
+
+function Opening({ store }: { store: OperatorStore }) {
+  const said = openingOf(store);
+  if (said === null) return null;
+  return (
+    <ol className="armada-operator__talk" role="log" aria-label="Conversation">
+      <li className="armada-helm-thread__row" data-actor="helm" data-from="agent">
+        <div className="armada-helm-thread__head">
+          <span className="armada-helm-thread__who">Operator</span>
+        </div>
+        <div className="armada-helm-thread__message">
+          <p className="armada-session-said">{said}</p>
+        </div>
+      </li>
+    </ol>
   );
 }
 
@@ -1181,7 +1212,9 @@ function Talk({ store }: { store: OperatorStore }) {
     <div className="armada-operator__talk-pane">
       {item === undefined ? null : <ItemCard store={store} raise={item} />}
       <div className="armada-operator__conversation">
-        {messages.length === 0 ? null : (
+        {messages.length === 0 ? (
+          <Opening store={store} />
+        ) : (
           <>
             <span className="armada-operator__clear">
               <Button

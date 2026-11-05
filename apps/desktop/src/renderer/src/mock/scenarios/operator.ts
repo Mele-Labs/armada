@@ -1,4 +1,4 @@
-// The Operator's dock as the Operator panel over the whole work, for the walk `operatorFull`. Ten live Jobs: one whose question the Operator
+// The Operator's dock as the Operator panel over the whole work, which the Operator scenarios after it build on. Ten live Jobs: one whose question the Operator
 // raised with its read and pick, one whose question it is still reading, two kept in touch with a Job they wait on, one it nudged after
 // Fleet marked it Stopped, one another Job was merged into, two kept in touch from a recorded plan, and two at work. One ended Job, the
 // one merged in. The Log, Waiting to start, Permissions, the standing orders and the rows' ties are the scenario's `operator` draft,

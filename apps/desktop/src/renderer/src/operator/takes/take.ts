@@ -22,7 +22,8 @@ const asked =
 
 /** The take named by the scenario, else by the address, if one of this folder's files is it. */
 export function takeNamed(name: string | undefined): OperatorTake | undefined {
-  const wanted = name ?? asked;
+  // The board is the Queue he chose; a scenario naming another, or none that exists, draws that or the list.
+  const wanted = name ?? asked ?? "board";
   return Object.values(FILES)
     .map((one) => one.take)
     .find((one) => one !== undefined && one.name === wanted);

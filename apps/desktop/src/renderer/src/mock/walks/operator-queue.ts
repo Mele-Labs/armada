@@ -4,17 +4,10 @@
 import { button, inside, region, role, text, walk } from "../walk";
 import type { Target } from "../walk";
 
-// A dock in a wide window, a sheet in a narrow one.
-const panel: Target = {
-  ...role("complementary", "Operator", {
-    exact: true,
-  }),
-  or: [
-    role("dialog", "Operator", {
-      exact: true,
-    }),
-  ],
-};
+// The Operator's own page.
+const panel: Target = role("region", "Operator", {
+  exact: true,
+});
 const body = (name: string): Target =>
   inside(
     panel,
@@ -40,7 +33,7 @@ export const operatorQueue = walk("operator-queue", [
     on: button("Menu", {
       exact: true,
     }),
-    say: "⌘J opens the Operator: your Discussion with it, and its Queue",
+    say: "⌘J goes to the Operator: your Discussion with it, and its Queue",
   },
   {
     drag: watch,

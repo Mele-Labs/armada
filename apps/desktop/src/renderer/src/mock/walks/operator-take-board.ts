@@ -4,17 +4,10 @@
 import { button, inside, region, role, text, walk } from "../walk";
 import type { Target } from "../walk";
 
-// A dock in a wide window, a sheet in a narrow one.
-const panel: Target = {
-  ...role("complementary", "Operator", {
-    exact: true,
-  }),
-  or: [
-    role("dialog", "Operator", {
-      exact: true,
-    }),
-  ],
-};
+// The Operator's own page.
+const panel: Target = role("region", "Operator", {
+  exact: true,
+});
 const body = (name: string): Target =>
   inside(
     panel,
@@ -28,7 +21,6 @@ const upNext = inside(body("Queue"), region("Up next"));
 const needsYou = inside(body("Queue"), region("Needs you"));
 const done = inside(body("Queue"), region("Done"));
 const watch = inside(upNext, role("listitem", /^A watch stayed live/));
-const legend = inside(upNext, role("listitem", /^Rework the Map legend/));
 const doctor = inside(upNext, role("listitem", /^Doctor lists new checks/));
 const consoleCard = inside(needsYou, role("listitem", /^Cockpit Console asks/));
 const consoleNext = inside(upNext, role("listitem", /^Cockpit Console asks/));
@@ -42,12 +34,12 @@ export const operatorTakeBoard = walk("operator-take-board", [
     on: button("Menu", {
       exact: true,
     }),
-    say: "⌘J opens the Operator. The board shows its work as it flows: Now, Up next, Needs you and Done",
+    say: "⌘J goes to the Operator, a page of its own. The board shows its work as it flows: Now, Up next, Needs you and Done",
   },
   {
     drag: watch,
-    onto: legend,
-    say: "It works down Up next from the top. This one matters more to you, so drag it up. ⌥↑ does the same",
+    onto: inside(now, role("listitem", /^Time each build step/)),
+    say: "It works down Up next from the top. This one matters more to you: drop it on the card in Now and it is taken next. ⌥↑ moves a card up one place",
   },
   {
     later: watch,
@@ -84,8 +76,8 @@ export const operatorTakeBoard = walk("operator-take-board", [
   },
   {
     drag: consoleNext,
-    onto: legend,
-    say: "You would rather settle it before the Map legend. Drag it up",
+    onto: inside(now, role("listitem", /^Doctor lists new checks/)),
+    say: "You would rather settle it next. Drop it on the card in Now",
   },
   {
     later: consoleNext,

@@ -207,7 +207,7 @@ export type OperatorTurn = {
   repository?: string;
   /** Under its title while nothing else is true of it. */
   about?: string;
-  /** Where it is a Job waiting to start: the repository's line it stands in, and what holds it other than a free slot. */
+  /** Where it is a Job waiting to start: the repository's line it stands in, and what holds it other than a free slot, read after "Starts when". */
   start?: {
     repository: string;
     waits?: string;
@@ -315,11 +315,10 @@ export function turnLine(turns: readonly OperatorTurn[], at: number): string | u
   if (row.done !== undefined) return row.done;
   if (row.put !== undefined) return row.put;
   if (row.start === undefined) return row.about;
-  const waits = `Waits for ${row.start.waits ?? "a free slot"}`;
+  const waits = `Starts when ${row.start.waits ?? "a slot is free"}`;
   return row.about === undefined ? waits : `${row.about}. ${waits}`;
 }
 
-/** The tag before a row's title in the Operator's Queue: what kind of thing it is. */
 /** An outcome as its kind and what, from "Kind: what". An outcome that let the item go is drawn quieter. */
 export function outcomeOf(text: string): { label: string; what?: string; letGo: boolean } {
   const at = text.indexOf(": ");
@@ -335,11 +334,12 @@ export function outcomeOf(text: string): { label: string; what?: string; letGo: 
   };
 }
 
+/** The tag before a row's title in the Operator's Queue: what kind of thing it is. */
 export function turnTag(row: OperatorTurn): string {
   if (row.message !== undefined) return "Your message";
   if (row.discuss === true) return "To discuss";
   if (row.result !== undefined) return "To do";
-  if (row.start !== undefined) return "Job start";
+  if (row.start !== undefined) return "New Job";
   return "Question";
 }
 

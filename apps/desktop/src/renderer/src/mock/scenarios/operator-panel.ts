@@ -1,6 +1,5 @@
-// The Operator panel's parts the walk `operatorFull` did not show, over its Jobs: what was raised with no Job to stand on, what a role at
-// Suggest would do, a repository's own positions, a standing order confirmed from the box, and reports as a kind in Issues.
-// `?take=jobs-row` draws a raise's pulse on a row of the Jobs list as well as the title row's button. For the walk `operatorPanel`.
+// The Operator's parts beyond `operatorFull`, over its Jobs: what was raised with no Job to stand on, what a role at Suggest would do,
+// a repository's own positions, a standing order confirmed from the box, and reports as a kind in Issues. The Queue scenarios build on it.
 
 import type { RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";

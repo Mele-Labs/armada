@@ -30,6 +30,8 @@ function build(): Scenario {
       ...operatorPanel.draft,
       operator: {
         ...full,
+        // The list, as it was walked before the board.
+        take: "list",
         moves: alsoOnTimePassing,
         talk: [
           {
@@ -60,7 +62,7 @@ function build(): Scenario {
             text: "Doctor lists new checks",
             start: {
               repository: "armada",
-              waits: "Store Reports Its Size to finish",
+              waits: "Store Reports Its Size finishes",
             },
             finish: "Started",
           },

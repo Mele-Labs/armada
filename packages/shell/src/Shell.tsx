@@ -291,7 +291,29 @@ const MANIFEST_SAID = `Open the ${MANIFEST_SURFACE?.label ?? "Manifest"}`;
 const OPEN_OPERATOR = "armada:open-operator";
 const CLOSE_OPERATOR = "armada:close-operator";
 
-/** Opens the dock from anywhere in the window, as the Cockpit's Operator row does. */
+/** What asks for the Operator, heard by the app, which draws it as a page: `open` to go to it, `close` to leave it for a Job. */
+export function useOperatorAsks(open: () => void, close: () => void): void {
+  const latest = useRef({
+    open,
+    close,
+  });
+  latest.current = {
+    open,
+    close,
+  };
+  useEffect(() => {
+    const opened = (): void => latest.current.open();
+    const closed = (): void => latest.current.close();
+    window.addEventListener(OPEN_OPERATOR, opened);
+    window.addEventListener(CLOSE_OPERATOR, closed);
+    return () => {
+      window.removeEventListener(OPEN_OPERATOR, opened);
+      window.removeEventListener(CLOSE_OPERATOR, closed);
+    };
+  }, []);
+}
+
+/** Opens the Operator from anywhere in the window, as the Cockpit's Operator row does. */
 export function askToOpenOperator(): void {
   window.dispatchEvent(new Event(OPEN_OPERATOR));
 }

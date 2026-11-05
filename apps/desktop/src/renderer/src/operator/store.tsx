@@ -503,7 +503,7 @@ function reduce(state: OperatorState, act: Act): OperatorState {
       // The row being read stays first: a row dropped above it comes next.
       const went = movedIn(openTurns(state), act.turn, act.before, 1);
       if (went === null) return state;
-      const way = went.to < went.from ? "up" : "down";
+      const way: "up" | "down" = went.to < went.from ? "up" : "down";
       const row = went.list[went.to]!;
       return logged(
         {
