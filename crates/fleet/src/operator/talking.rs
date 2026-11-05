@@ -18,6 +18,8 @@ use ipc::operator_talk::{OperatorCite, OperatorHoldUntil, OperatorOrderForm, Ope
 use ipc::SessionId;
 use store::KeptTalk;
 
+use super::arriving::started_by_shown;
+use super::desk::started_by_chain;
 use super::orders::{checked, said_of, OPERATOR_OFF};
 use super::{Arrived, InLine, LiveJob, Logged, Operator, Outcome};
 use crate::daemon::Fleet;
@@ -72,6 +74,20 @@ pub struct HeldJob {
     pub needs: String,
 }
 
+/// A Job that ended since the local day began.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EndedJob {
+    pub session_id: String,
+    pub title: String,
+    /// What its agent said it achieved with `all_done`, where it said.
+    pub summary: Option<String>,
+    /// Who started it, as `(id, title)`, nearest first. Empty for a Job the person started.
+    pub started_by: Vec<(String, String)>,
+}
+
+/// The newest of the day's ended Jobs the box is shown.
+const ENDED_SHOWN: u32 = 30;
+
 /// A repository this Fleet serves.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Repository {
@@ -87,6 +103,8 @@ pub struct Board {
     pub needs_you: Vec<NeedsYou>,
     pub stopped: Vec<StoppedJob>,
     pub held: Vec<HeldJob>,
+    /// Jobs ended since the local day began, newest first.
+    pub ended: Vec<EndedJob>,
     pub repositories: Vec<Repository>,
 }
 
@@ -181,6 +199,17 @@ fn question(so_far: &[TalkLine], words: &str, board: &Board, live: &[LiveJob], l
     out.push_str("\nLive Jobs:\n");
     for one in live {
         out.push_str(&format!("  Job {} \"{}\" in repository {}\n", one.session_id, one.title, one.manifest_id));
+    }
+    out.push_str("\nEnded today:\n");
+    for one in &board.ended {
+        out.push_str(&format!("  Job {} \"{}\"", one.session_id, one.title));
+        if let Some(said) = one.summary.as_deref().filter(|said| !said.trim().is_empty()) {
+            out.push_str(&format!(": {}", said.split_whitespace().collect::<Vec<_>>().join(" ")));
+        }
+        if !one.started_by.is_empty() {
+            out.push_str(&format!(" (started by {})", started_by_shown(&one.started_by)));
+        }
+        out.push('\n');
     }
     out.push_str("\nThe conversation so far:\n");
     for one in so_far {
@@ -291,6 +320,7 @@ where
 {
     /// What the box may answer from, read now.
     pub(crate) async fn operator_board(&self) -> Board {
+        let day_began = crate::clock::rfc3339_utc(crate::clock::local_day_began(self.now().epoch_millis().unwrap_or(0)).await);
         let store = self.store().lock().await;
         let log = store
             .operator_rulings(LOG_SHOWN)
@@ -315,6 +345,17 @@ where
                 stopped.push(StoppedJob { session_id: session.id.clone(), title, tasks: mark.tasks });
             }
         }
+        let ended = store
+            .sessions_ended_since(&day_began, ENDED_SHOWN)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|session| EndedJob {
+                summary: store.done_summary(&session.id).ok().flatten(),
+                started_by: started_by_chain(&store, &session.id),
+                title: session.title.unwrap_or_else(|| session.id.clone()),
+                session_id: session.id,
+            })
+            .collect();
         drop(store);
         let repositories = self
             .repositories()
@@ -325,7 +366,7 @@ where
                 Repository { id: one.manifest().id().as_str().to_string(), name }
             })
             .collect();
-        Board { log, needs_you, stopped, held, repositories }
+        Board { log, needs_you, stopped, held, ended, repositories }
     }
 
     /// `operator_talk`: the conversation so far.

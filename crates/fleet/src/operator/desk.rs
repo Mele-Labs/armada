@@ -14,6 +14,9 @@ use crate::session_issues::ISSUE;
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 
+/// The attachment on a started Job that names the Job that started it.
+const STARTED_BY: &str = "started_by";
+
 /// Fleet as the Operator reaches it. A store failure is said through `adrift`, and a count of
 /// calls that cannot be read stands for the ceiling reached. **Held weakly**, since Fleet holds the
 /// Operator that holds this: a Fleet that is gone has no Jobs and makes no calls.
@@ -79,6 +82,7 @@ where
                     continue;
                 }
                 let (paths, issues, words) = held_of(&store, &session.id);
+                let started_by = started_by_chain(&store, &session.id);
                 live.push(LiveJob {
                     title: session.title.unwrap_or_else(|| session.id.clone()),
                     session_id: session.id,
@@ -86,6 +90,7 @@ where
                     words,
                     paths,
                     issues,
+                    started_by,
                 });
             }
             live
@@ -151,6 +156,25 @@ where
 }
 
 /// One Job's paths, issues and words, as [`FleetDesk::live`] reads them. What will not read is left out.
+/// Who started `id`, nearest first and up to the root: `(id, title)` of its starter, then of the
+/// starter's. Read from each Job's own `started_by` attachment, which is the row already read for
+/// its issues, so no new read. An ended starter still counts; a repeat ends the walk.
+pub(super) fn started_by_chain(store: &store::Store, id: &str) -> Vec<(String, String)> {
+    let mut chain: Vec<(String, String)> = Vec::new();
+    let mut at = id.to_string();
+    loop {
+        let held = store.attachments_of(&Holder::session(&at)).unwrap_or_default();
+        let Some(starter) = held.into_iter().find(|one| one.kind == STARTED_BY).map(|one| one.target) else { break };
+        if starter == id || chain.iter().any(|(seen, _)| *seen == starter) {
+            break;
+        }
+        let title = store.session(&starter).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| starter.clone());
+        chain.push((starter.clone(), title));
+        at = starter;
+    }
+    chain
+}
+
 pub(super) fn held_of(store: &store::Store, id: &str) -> (Vec<String>, Vec<String>, String) {
     let mut paths = BTreeSet::new();
     let mut issues = BTreeSet::new();
