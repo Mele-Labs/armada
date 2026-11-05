@@ -252,7 +252,8 @@ async fn a_red_main_autopilot_finds_is_handed_to_the_operator_once_and_a_new_job
     assert_eq!(log.len(), 1, "{log:#?}");
     assert_eq!((log[0].arrival.as_str(), log[0].arrived.as_str(), log[0].outcome.as_str()), (format!("red_main:{}:{commit}", rig.manifest.as_str()).as_str(), "red_main", "new_job"));
     let main = rig.fleet.store().lock().await.main_ci(&rig.root).unwrap().unwrap();
-    assert!(rig.fleet.taking(&main).await.is_some(), "the red is claimed for the Job it started");
+    // Claimed after the Job starts, so a moment after its title shows.
+    eventually(|| async { rig.fleet.taking(&main).await.is_some() }).await;
 
     rig.fleet.decision_pass().await.expect("passed");
     rig.fleet.decision_pass().await.expect("passed");

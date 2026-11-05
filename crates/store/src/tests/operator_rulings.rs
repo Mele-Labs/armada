@@ -97,6 +97,20 @@ fn a_jobs_rows_read_back_oldest_first_and_an_arrival_in_the_log_reads_as_ruled_a
 }
 
 #[test]
+fn a_row_kept_before_handed_existed_reads_as_handed_when_it_was_kept() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let at = "2026-11-04T10:00:00.000Z";
+    let old = KeptRuling { session_id: "01a".to_string(), ..ruled("asked:01a:old", Some("c1"), at) };
+    store.add_operator_ruling(&old).expect("kept");
+    store.conn.execute("UPDATE operator_rulings SET handed = NULL", []).expect("as it was kept");
+
+    assert_eq!(store.operator_rulings_of("01a").expect("read")[0].handed, at);
+    assert!(store.operator_ruled_since("asked:01a:old", at).expect("read"));
+    assert!(!store.operator_ruled_since("asked:01a:old", "2026-11-04T10:00:01.000Z").expect("read"));
+}
+
+#[test]
 fn the_latest_notice_a_job_was_told_of_a_pull_request_names_its_commit_and_when() {
     let dir = TempDir::new();
     let mut store = open(&dir);

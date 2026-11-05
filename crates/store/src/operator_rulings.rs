@@ -61,7 +61,8 @@ fn ruling_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptRuling> {
         because: row.get(10)?,
         call: row.get(11)?,
         by: row.get(12)?,
-        handed: row.get(13)?,
+        // Null on a row kept before the column, which is handed when it was kept.
+        handed: row.get::<_, Option<String>>(13)?.map_or_else(|| row.get(14), Ok)?,
         at: row.get(14)?,
         place: row.get(15)?,
         first_session: row.get(16)?,
@@ -160,7 +161,7 @@ impl Store {
     pub fn operator_ruled_since(&self, arrival: &str, since: &str) -> Result<bool, WriteError> {
         self.conn
             .query_row(
-                "SELECT EXISTS (SELECT 1 FROM operator_rulings WHERE arrival = ?1 AND handed >= ?2)",
+                "SELECT EXISTS (SELECT 1 FROM operator_rulings WHERE arrival = ?1 AND COALESCE(handed, at) >= ?2)",
                 [arrival, since],
                 |row| row.get::<_, bool>(0),
             )
