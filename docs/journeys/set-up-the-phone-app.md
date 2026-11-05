@@ -64,7 +64,7 @@ Pushes from every Mac arrive in the one app: the phone hands each Mac the push k
 |---|---|
 | Needs you | See every Job waiting on you, across your Macs, oldest first |
 | A Job | Read its whole thread, answer its question or ask, approve its plan or send changes, send it a message |
-| A file or sketch the Job showed | Open it: text or a picture up to 1 MiB, or the sketch as drawn |
+| A file or sketch the Job showed | Open it: text up to 1 MiB, a picture up to 8 MiB, a video of any size, played in the thread, or the sketch as drawn |
 | A walk | Nothing: its row says to open it on the Mac |
 
 ## Switching it off

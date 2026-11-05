@@ -20,7 +20,9 @@ use crate::daemon::Refusal;
 pub enum ShownFile {
     Text(ipc::ShownText),
     Picture { media_type: String, bytes: Vec<u8> },
-    /// Over what the phone is sent: answered 413 with its size.
+    /// A video is never read here: its type and its size in bytes, for the Gateway to stream from the disk.
+    Video { media_type: String, bytes: u64 },
+    /// Over what the phone is sent of its kind: answered 413 with its size.
     TooLarge { bytes: u64 },
 }
 

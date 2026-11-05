@@ -1014,6 +1014,17 @@ export type ShowFile = {
 };
 
 /**
+ * `GET /sessions/shown?session_id=&path=` for a video, answered 200 with this and never the bytes: the Phone
+ * Gateway streams the file from the Mac's disk. `path` is the absolute path `show_file` kept, `media_type`
+ * is `video/mp4`, `video/quicktime` or `video/webm`, and `bytes` is the file's size.
+ */
+export type ShownVideo = {
+  path: string;
+  media_type: string;
+  bytes: number;
+};
+
+/**
  * `POST /sessions/window/closed`: the person closed the window a session showed, by its `url` as
  * `show_window` named it. It ends the session's walk and settles nothing on Waiting on you.
  */

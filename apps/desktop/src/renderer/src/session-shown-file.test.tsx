@@ -108,3 +108,47 @@ test("the same path shown again is a new show", async () => {
     path: "/work/old.md",
   });
 });
+
+test.each([
+  "/work/shot.png",
+  "/work/shot.JPG",
+  "/work/run.mp4",
+  "/work/run.mov",
+  "/work/run.webm",
+])("a shown %s draws in its row in the thread and opens nothing", async (path) => {
+  await show({
+    id: "s1",
+    attachments: [
+      OLD,
+    ],
+  });
+  await show({
+    id: "s1",
+    attachments: [
+      OLD,
+      shown(path, "2026-10-19T14:05:00.000Z"),
+    ],
+  });
+  expect(open).toBeUndefined();
+});
+
+test("a file after a shown video still opens the panel", async () => {
+  await show({
+    id: "s1",
+    attachments: [
+      OLD,
+    ],
+  });
+  await show({
+    id: "s1",
+    attachments: [
+      OLD,
+      shown("/work/run.mp4", "2026-10-19T14:05:00.000Z"),
+      NEW,
+    ],
+  });
+  expect(open).toMatchObject({
+    kind: "file",
+    path: "/work/new.md",
+  });
+});

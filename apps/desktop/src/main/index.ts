@@ -1,4 +1,14 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, net, Notification, shell } from "electron";
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  Menu,
+  nativeImage,
+  net,
+  Notification,
+  protocol,
+  shell,
+} from "electron";
 import { execFile, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -41,6 +51,8 @@ import { openServerLink } from "./servers";
 import { handleRehearsal } from "./rehearsal-channels";
 import { handleRepositories } from "./repository-channels";
 import { handleSessions } from "./session-channels";
+import { answerVideoRequest } from "./session-video";
+import { VIDEO_SCHEME } from "../shared/video-address";
 import { handleAutopilotDecisions } from "./autopilot-decisions-channels";
 import { handleSketchShare } from "./sketch-share";
 import { handleAttachments } from "./attachments";
@@ -165,6 +177,19 @@ async function stageAttachment(
 }
 
 let connection: FleetConnection | null = null;
+
+// Before ready or it does nothing. `stream` lets a media element read the scheme in pieces; `standard` and `secure` make its
+// address parse as a URL and count as no mixed content.
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: VIDEO_SCHEME,
+    privileges: {
+      standard: true,
+      secure: true,
+      stream: true,
+    },
+  },
+]);
 
 /** Nothing reached Fleet, because there is no connection to reach it on. */
 const UNSENT: Outcome = {
@@ -617,6 +642,9 @@ const sessionAttention = new SessionAttention({
 
 void app.whenReady().then(() => {
   wearTheMark();
+  protocol.handle(VIDEO_SCHEME, (request) =>
+    answerVideoRequest(request, (sessionId) => connection?.sessions.recordOf(sessionId)),
+  );
   // **Here and not before ready**: a handler set earlier loses to Electron's own, which quits
   // through `will-quit` as a person's quit does (measured 29 Oct, Electron 40).
   process.on("SIGTERM", () => {

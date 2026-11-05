@@ -1426,6 +1426,17 @@ export type ArtifactRead =
       limit?: number;
     };
 
+/** An address a video element can play, or Fleet's words for why not. */
+export type VideoAddress =
+  | {
+      ok: true;
+      address: string;
+    }
+  | {
+      ok: false;
+      says: string;
+    };
+
 /** One Loadout row, as `read_loadout_item` is asked for it. A use's `skill`, `tool` or `subagent` is the same kind. */
 export type LoadoutItemAsk = {
   kind: LoadoutKind;
@@ -1795,6 +1806,8 @@ export type SessionsDraft = {
   openFile?: (id: string, path: string) => void;
   /** Reads a file the Session's ledger names, for the panel an Artifacts row opens. */
   readArtifact?: (id: string, path: string) => Promise<ArtifactRead>;
+  /** Where a video a Session showed plays from, since one is too large to read into memory. Absent where nothing serves it. */
+  videoAddress?: (id: string, path: string) => Promise<VideoAddress>;
   /**
    * The web view a page or doc is shown in, over the panel's body. **Absent in the mock**, which
    * has no second view and draws a frame of its own page in its place.

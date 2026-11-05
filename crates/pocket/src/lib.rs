@@ -24,6 +24,7 @@ mod reads;
 mod routes;
 mod session_routes;
 mod setup;
+mod shown_address;
 mod signing;
 mod stat;
 mod vapid;
@@ -67,6 +68,8 @@ mod pairing_tests;
 mod push_tests;
 #[cfg(test)]
 mod session_tests;
+#[cfg(test)]
+mod shown_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
