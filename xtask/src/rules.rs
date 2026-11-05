@@ -246,6 +246,14 @@ const STANDS_IN_FOR_THE_FORGE: &[&str] = &[
 /// is a download, checked against its SHA-256, not a forge the product talks to.
 const DOWNLOADS_FROM_THE_FORGE: &[&str] = &["apps/desktop/src/main/whisper-install.ts"];
 
+/// The files that recognise a pull request's link in a thread, which may say `github`, and no other vendor.
+///
+/// The link is words a person or an agent wrote, so its address names the forge. Nothing here talks to it.
+const READS_THE_FORGES_LINKS: &[&str] = &[
+    "packages/screens/src/prose-refs.ts",
+    "packages/screens/src/prose-refs.test.ts",
+];
+
 /// `lower` with every identifier imported from `lucide-react` blanked out.
 ///
 /// **Why the rule yields to these, and only these.** A glyph's component name
@@ -300,7 +308,7 @@ pub fn no_vendor_literal_outside_adapters(root: &Path) -> Report {
                 continue;
             };
             let lower = without_lucide_names(&text.to_lowercase(), &text);
-            let signs_in = SIGN_IN_FILES.contains(&path.as_str()) || STANDS_IN_FOR_THE_FORGE.contains(&path.as_str()) || DOWNLOADS_FROM_THE_FORGE.contains(&path.as_str());
+            let signs_in = SIGN_IN_FILES.contains(&path.as_str()) || STANDS_IN_FOR_THE_FORGE.contains(&path.as_str()) || DOWNLOADS_FROM_THE_FORGE.contains(&path.as_str()) || READS_THE_FORGES_LINKS.contains(&path.as_str());
             for vendor in VENDOR_LITERALS {
                 if signs_in && *vendor == "github" {
                     continue;

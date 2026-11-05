@@ -1,10 +1,10 @@
-//! The local language model reading a thought before Claude is asked, and routing it at once when one
+//! The local language model reading a thought before the agent is asked, and routing it at once when one
 //! live Session is a clear match. `docs/spikes/thought-routing-by-model.md` has the two figures
 //! below measured.
 //!
 //! **It only ever says yes.** A thought no Session clearly matches, a question, a model not loaded
-//! yet and any failure all come back `None`, and the call goes to Claude as it always did. So the
-//! model can make a read faster; it cannot send words anywhere Claude would not have.
+//! yet and any failure all come back `None`, and the call goes to the agent as it always did. So the
+//! model can make a read faster; it cannot send words anywhere the agent would not have.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -16,11 +16,11 @@ use super::Candidate;
 use crate::language_model::LanguageModel;
 
 /// Whether this reader is in force, and so whether Fleet fetches and loads the model for it. In
-/// force because no direct route disagreed with Claude on the 19 reads it was measured on.
+/// force because no direct route disagreed with the agent on the 19 reads it was measured on.
 pub(crate) const IN_FORCE: bool = true;
 
 /// The cosine similarity at and above which the best Session is a clear match: the lowest score of a
-/// route that agreed with Claude, with the best one that did not at 0.74.
+/// route that agreed with the agent, with the best one that did not at 0.74.
 pub(crate) const ROUTES_AT: f32 = 0.78;
 
 /// How far the best Session must lead the second to be the one. A single Session has no second, so

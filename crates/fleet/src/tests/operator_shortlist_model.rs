@@ -1,4 +1,4 @@
-//! The local model reading a thought before Claude is asked, through a fake on the same seam, so no
+//! The local model reading a thought before the agent is asked, through a fake on the same seam, so no
 //! weights are fetched. `docs/spikes/thought-routing-by-model.md` has the real model measured on
 //! the reads it was set against; here the fake puts a text on an axis by the topic it names, so a
 //! similarity is 1 for the same topic and 0 for another, and what is held is Fleet's half: when a
@@ -80,7 +80,7 @@ fn a_thought_about_one_sessions_topic_goes_to_it_at_once() {
 }
 
 #[test]
-fn a_thought_about_nothing_offered_is_left_to_claude() {
+fn a_thought_about_nothing_offered_is_left_to_the_agent() {
     assert_eq!(matched(&Topics::new(), &Vectors::default(), "rename the settings tab", &three()), None);
 }
 
@@ -101,12 +101,12 @@ fn a_thought_between_two_topics_is_no_clear_match() {
 /// The model tells what a message is about, not whether it asks, so a question about a Session's
 /// topic is a question and not something that Session is to be told.
 #[test]
-fn a_message_that_ends_in_a_question_mark_is_left_to_claude() {
+fn a_message_that_ends_in_a_question_mark_is_left_to_the_agent() {
     assert_eq!(matched(&Topics::new(), &Vectors::default(), "are the retries done?", &three()), None);
 }
 
 #[test]
-fn a_long_message_is_left_to_claude() {
+fn a_long_message_is_left_to_the_agent() {
     let long = format!("retries {}", "and more ".repeat(60));
     assert_eq!(matched(&Topics::new(), &Vectors::default(), &long, &three()), None);
 }
@@ -147,7 +147,7 @@ fn a_read_embeds_only_the_sessions_it_has_not_seen() {
 }
 
 #[test]
-fn a_model_that_fails_leaves_the_read_to_claude() {
+fn a_model_that_fails_leaves_the_read_to_the_agent() {
     struct Broken;
     impl TextModel for Broken {
         fn model(&self) -> &str {
