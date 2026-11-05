@@ -875,10 +875,14 @@ jobs:
   # One release builds at a time and is never cancelled. GitHub holds one run
   # waiting behind it and a newer merge replaces that one, so two quick merges
   # make one release holding both.
+  #
+  # `always()`: without a status function GitHub adds `success()`, which reads
+  # every job `ci` needs, and a push always skips some. No push released from
+  # 31 Oct, when `test_compile` came, to 5 Nov 2026.
   release:
     name: release
     needs: ci
-    if: needs.ci.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: always() && needs.ci.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     concurrency:
       group: release
       cancel-in-progress: false
