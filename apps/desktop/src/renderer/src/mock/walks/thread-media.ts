@@ -1,7 +1,7 @@
 // Pictures and videos a Job showed, drawn in its thread: a press opens a picture full screen, where it zooms by keys, and Close
 // comes back to the thread. Over `thread-media`.
 
-import { button, deckRow, dialog, inside, region, role, text, walk } from "../walk";
+import { button, deckRow, dialog, inside, region, role, walk } from "../walk";
 
 const WIDE = "cockpit-wide.jpg";
 const viewer = dialog(WIDE);
@@ -69,15 +69,19 @@ const threadMedia = walk("thread-media", [
   },
   {
     press: inside(artifacts, button("cockpit-recording.mp4")),
-    say: "A video's row opens in your Mac's own player, as the thread's line does. No side panel opens",
+    say: "A video's row opens in the side panel, in Bridge",
   },
   {
-    look: text("Opened in your Mac's player"),
-    say: "The mock has no player, so it says where the video went",
+    look: dialog("cockpit-recording.mp4"),
+    say: "It plays there with its own controls, not as a path and not on your Mac",
+  },
+  {
+    press: button("Close"),
+    say: "Close, or Esc",
   },
   {
     press: inside(artifacts, button("cockpit-wide.jpg")),
-    say: "Any other file still opens in the side panel",
+    say: "A picture's row opens the picture in the same panel",
   },
 ]);
 
