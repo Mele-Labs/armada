@@ -206,6 +206,9 @@ where
         may_start: bool,
     ) -> Result<bool, String> {
         let runtime = self.hosts().of(id);
+        // **One start at a time.** The awaits below let a second sender past the check, and its
+        // keeper took the first one's socket: the first agent was killed and read as the Job dying.
+        let _starting = runtime.starting.lock().await;
         if runtime.state().process.is_some() {
             return Ok(true);
         }
