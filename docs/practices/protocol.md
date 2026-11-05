@@ -740,9 +740,9 @@ The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and the
 | `Attachment` of kind `report`, target the report's id, `detail.title` | Fleet writes, Bridge reads | Held by the Job the tag was sent to. Taken only where `bug_reports` has the id, so a tag for a dropped report holds nothing. **Given back** when the Job ends, whether by `all_done`, by Bridge ending it or by discarding it, so a row that is not `given_back` is the Job a report is being worked in |
 | `BugReport.fixed` | Fleet writes, Bridge reads | `{ at, pull_request, title, url }`, absent while the report stands open: when the pull request merged, its number, title and address. Set once, by the first merge of a pull request one of the report's Jobs held; it is not taken back |
 
-**A merged pull request fixes the reports of the Jobs that held it, in any repository.** `merges_told` marks them beside `issues_merged`, which waits on a backlog and this does not.
+**A merged pull request fixes the reports of the Jobs that held it, in any repository.** `merges_told` marks them, with no backlog needed.
 It reads the Jobs that **held** the pull request, standing or given back, and every `report` row each held, so a Job that ended after opening the pull request still fixes its report when the pull request merges later.
-It runs for the pull requests `Mine` owns, as `issues_merged` does: one a Job holds but another account opened fixes nothing.
+It runs for the pull requests `Mine` owns, one a Job holds but another account opened fixes nothing.
 `bug_reports.changed` is published when a report was marked, and only then.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.

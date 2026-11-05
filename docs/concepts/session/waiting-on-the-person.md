@@ -15,7 +15,7 @@ The reply to a timed-out question says so, and tells the agent not to ask it aga
 Both his answer to a kept question and to a timed-out one start with "Answering your earlier question", which `handoff_answered_later` reads for a handoff card in either case.
 Until the model loads the list is accepted as it was; the walk rules read no model, since it caught no walk they miss.
 **It refuses an item the owner could not act on** (*An item he cannot act on*).
-**Two items that are one ask by two doors are folded to one row on every read**, once the model is loaded (*Items that are one ask*).
+**Two items are never folded to one row**: whether two wordings are one ask is a guess, so each stands (*Items that are one ask*).
 An ended job holds nothing.
 **Bridge shows the list on the composer**, as a **Needs you** band folded to one glyph an item, named on hover; a press rides it up as the header of a panel and dims the thread.
 The panel opens as a list, a row each and no act on the row; a press on a row opens that one to do its act, and Back or Esc returns to the list.
@@ -213,16 +213,9 @@ The asks head learns from them only when it is trained again: `tools/lm-train` r
 
 ## Items that are one ask
 
-**Fleet folds items that are one ask by two doors into the best of them** (`crates/fleet/src/session_host/dedup.rs`).
-The doors are an agent item beside the reply's own sentence, and an agent item restating a walk or the plan that Fleet lists in its own words.
-`waiting.rs` already drops an agent item that names the same act and target as Fleet's, and the rules know walks; the rest is worded many ways, so the model reads each pair of texts by cosine.
-
-Items are sorted by precedence and each is dropped where it is within `FOLDS_AT` of one already kept.
-Fleet's own item stands over the agent's, and the agent's over the reply's.
-Within one of those, an item with an act stands over one without, then the earlier.
-A chain of near items folds into its best member, not into each other, and the kept item is kept as it was.
-An item the model has not embedded yet stays this read, and the Session is published again once it is.
-The fold runs on every read, after the derived items are added, and only once the model is loaded.
+**Fleet does not fold items into one row.** An agent item beside the reply's own sentence, or restating a walk or the plan Fleet lists, stands beside it: reading two wordings as one ask was a guess, and the person sees both.
+`waiting.rs` still drops an agent item that names the same act and target as Fleet's, which is a fact.
+The model's vectors (`crates/fleet/src/session_host/dedup.rs`) serve only what he marked Not a question and Not deferred, above.
 
 ## An item he cannot act on
 
@@ -283,7 +276,6 @@ Each constant is `true` in its module, and a spike holds what it measured.
 | Reader | Constant | In force means | Measured in |
 |---|---|---|---|
 | Sentence readers | `extracting::IN_FORCE` | Each ask of a reply is an item, and follow-ups are kept for Later | `docs/spikes/reply-sentence-readers.md` |
-| Fold | `dedup::IN_FORCE` | Items that are one ask are one row, once the model is loaded | `docs/spikes/needs-you-dedup.md` |
 | Clarity | `clarity::IN_FORCE` | `waiting_for` refuses an item he could not act on, and a reply's unclear ask is left out | `docs/spikes/item-clarity.md` |
 
 The filter on a reply's asks needs both the sentence readers and the clarity rules in force.

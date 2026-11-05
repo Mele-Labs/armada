@@ -8,11 +8,9 @@
 //!
 //! **Told once**: the key is (build commit, session) in the store, so a later Fleet does not
 //! repeat it. A session that cannot be told now is asked again next reading, with nothing kept.
-//! Who is told: a live session waiting on the person to restart onto this build — the act Bridge
-//! draws as Refresh preview or Update to main — as the answer to that wait, with every branch it
-//! holds. Fleet's own offer of a refresh is not such a wait: a new build drops it unanswered.
-//! And a session whose branch the build newly holds, holds newer commits of, or dropped, with
-//! those branches only: a rebuild that leaves its branches where they were says nothing.
+//! Who is told: a session whose branch the build newly holds, holds newer commits of, or dropped,
+//! with those branches only: a rebuild that leaves its branches where they were says nothing.
+//! A wait for a restart is never settled by this: a fact is told, and the item stays the person's.
 //! A branch the preview left out is told with the reason `scripts/preview` recorded for it, and
 //! that is news the first time even to a session never told the branch was in.
 
@@ -22,37 +20,14 @@ use std::time::SystemTime;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::BranchInBuild;
-use ipc::{AnswerWaiting, BuildSource, SessionId, WaitingActKind, WaitingSource};
-use store::{AttachmentState, HolderKind, SessionSearch, SessionState, Store};
+use ipc::BuildSource;
+use store::{AttachmentState, HolderKind, SessionState, Store};
 
-use crate::building::{build_word, commit_in, left_out_in, restarting_in, source_in, LeftOut};
+use crate::building::{commit_in, left_out_in, restarting_in, source_in, LeftOut};
 use crate::clock::elapsed;
 use crate::daemon::Fleet;
 use crate::pull_notices::short;
 use crate::repositories::Served;
-
-/// The build a restart command asks for, and whether it adopts a working Drone. `None` where the
-/// command is anything else, `--dry-run` among them. **The same reading as Bridge's
-/// `build-change.ts`**: a restart handed over as a command is the build switch, pressed.
-pub(crate) fn restart_asked(command: &str) -> Option<(BuildSource, bool)> {
-    let mut words = command.split_whitespace();
-    let script = words.next().unwrap_or_default();
-    let flags: Vec<&str> = words.collect();
-    let named = |name: &str| {
-        script
-            .strip_suffix(name)
-            .is_some_and(|before| before.is_empty() || before.ends_with('/'))
-    };
-    let (build, flag) = if named("scripts/preview") {
-        (BuildSource::Preview, "--restart")
-    } else if named("scripts/restart") {
-        (BuildSource::Main, "--main")
-    } else {
-        return None;
-    };
-    let known = flags.iter().all(|one| *one == flag || *one == "--adopt");
-    (flags.contains(&flag) && known).then(|| (build, flags.contains(&"--adopt")))
-}
 
 /// What a session is told, in bare facts. `why` is what the preview recorded of each branch it left out.
 fn said(
@@ -97,17 +72,6 @@ fn kept_as(standing: &BranchInBuild) -> String {
     }
 }
 
-fn answer(session: &str, item: String, text: &str) -> AnswerWaiting {
-    AnswerWaiting {
-        session_id: SessionId::carried(session),
-        item_id: item,
-        choice: None,
-        text: Some(text.to_string()),
-        mode: None,
-        fixed: None,
-    }
-}
-
 /// The branches each live Session of `served` stands on, as the slot pool allows, by Session.
 pub(crate) fn branches_held(store: &Store, served: &Served) -> BTreeMap<String, BTreeSet<String>> {
     let manifest = served.manifest().id().as_str();
@@ -123,13 +87,6 @@ pub(crate) fn branches_held(store: &Store, served: &Served) -> BTreeMap<String, 
         }
     }
     held
-}
-
-/// A session's reasons to be told: the branches it holds, and the waits that ask for a restart.
-#[derive(Default)]
-struct Reasons {
-    branches: BTreeSet<String>,
-    restarts: Vec<(String, BuildSource)>,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -193,23 +150,18 @@ where
         why: &BTreeMap<String, LeftOut>,
     ) -> bool {
         let mut everyone = true;
-        for (session, reasons) in self.build_reasons(served).await {
+        let held = branches_held(&*self.store().lock().await, served);
+        for (session, branches) in held {
             let kept = self.store().lock().await.build_notice_kept(commit, &session).unwrap_or(true);
             if kept {
                 continue;
             }
-            let standing = self.branches_in_build(served, commit, &reasons.branches).await;
+            let standing = self.branches_in_build(served, commit, &branches).await;
             let moved = self.branches_moved(&session, &standing, why).await;
-            let mut settling = reasons.restarts.into_iter().filter(|(_, asked)| *asked == build).map(|(item, _)| item);
-            // A wait for this build is answered with the notice itself, so the session wakes once.
-            let told = match settling.next() {
-                Some(item) => {
-                    let text = said(build, commit, &standing, why);
-                    Arc::clone(self).settle_waiting(answer(&session, item, &text)).await.is_ok()
-                }
-                None if moved.is_empty() => continue,
-                None => matches!(self.told_news_by_fleet(&session, &said(build, commit, &moved, why), ipc::Notice::BuildMoved).await, Ok(true)),
-            };
+            if moved.is_empty() {
+                continue;
+            }
+            let told = matches!(self.told_news_by_fleet(&session, &said(build, commit, &moved, why), ipc::Notice::BuildMoved).await, Ok(true));
             if !told {
                 everyone = false;
                 continue;
@@ -221,10 +173,6 @@ where
                 for (branch, one) in &standing {
                     let _ = store.keep_build_branch_told(&session, branch, &kept_as(one), &at);
                 }
-            }
-            let words = format!("Restarted: {} at {}", build_word(build), short(commit));
-            for item in settling {
-                let _ = Arc::clone(self).settle_waiting(answer(&session, item, &words)).await;
             }
         }
         everyone
@@ -271,40 +219,5 @@ where
         })
         .await
         .unwrap_or_default()
-    }
-
-    /// The live sessions of a repository with a reason to be told, by session.
-    async fn build_reasons(&self, served: &Served) -> BTreeMap<String, Reasons> {
-        let manifest = served.manifest().id().as_str().to_string();
-        let mut reasons: BTreeMap<String, Reasons> = BTreeMap::new();
-        let mut reads = Vec::new();
-        {
-            let store = self.store().lock().await;
-            for (session, branches) in branches_held(&store, served) {
-                reasons.entry(session).or_default().branches = branches;
-            }
-            let search = SessionSearch {
-                manifest_id: Some(&manifest),
-                state: Some(SessionState::Live),
-                text: None,
-            };
-            for session in store.find_sessions(&search).unwrap_or_default() {
-                if let Ok(taken) = self.ledger_reads(&store, &session) {
-                    reads.push((session, taken));
-                }
-            }
-        }
-        for (session, taken) in reads {
-            // Fleet's own offer is no wait to answer: answering it would wake the agent, and a new build drops it.
-            for item in self.ledger_waiting(&session, taken).into_iter().filter(|one| one.source != WaitingSource::PreviewOffer) {
-                let Some(act) = item.act.filter(|act| act.kind == WaitingActKind::Run) else {
-                    continue;
-                };
-                if let Some((asked, _)) = restart_asked(&act.target) {
-                    reasons.entry(session.id.clone()).or_default().restarts.push((item.id, asked));
-                }
-            }
-        }
-        reasons
     }
 }

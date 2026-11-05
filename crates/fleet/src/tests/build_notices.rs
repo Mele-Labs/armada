@@ -1,5 +1,5 @@
 //! What Fleet tells sessions once a new build is on file: who is told, what is said, that it is
-//! said once, and that a restart wait is settled only by the build it asked for. The git readings
+//! said once, and that a restart wait is never settled by it. The git readings
 //! behind the branch lines are `adapters`' to assert, in `tests::build_standing`.
 
 use std::fs;
@@ -18,7 +18,6 @@ use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use super::main_fix::a_fleet_holding_bug;
 use super::session_host::{Shared, StandIn};
-use crate::build_notices::restart_asked;
 use crate::daemon::Fleet;
 use crate::tests::tmp::TempDir;
 
@@ -215,7 +214,7 @@ impl Rig {
 }
 
 #[tokio::test]
-async fn a_new_commit_tells_a_session_that_asked_for_it_once_with_its_branches() {
+async fn a_new_commit_tells_a_session_once_with_the_branches_that_moved() {
     let rig = a_rig();
     let session = rig.a_hosted_session().await;
     rig.waits_to_run(&session, "scripts/preview --restart").await;
@@ -232,11 +231,11 @@ async fn a_new_commit_tells_a_session_that_asked_for_it_once_with_its_branches()
     let notice = format!(
         "Fleet and Bridge now run the preview at {short}.\n\
          armada/long is in it up to {short}; 1 commit since is not.\n\
-         armada/other is not in it.\n\
          armada/work is in it."
     );
     assert!(said.contains(&notice), "{said}");
     assert!(rig.told(&session).await);
+    assert_eq!(rig.waiting_on(&session).await, ["restart"], "told as a fact: the wait stays his");
 
     rig.fleet.builds_told().await;
     rig.restarts().await;
@@ -245,7 +244,7 @@ async fn a_new_commit_tells_a_session_that_asked_for_it_once_with_its_branches()
 }
 
 #[tokio::test]
-async fn a_session_with_neither_a_branch_nor_a_restart_wait_is_not_told() {
+async fn a_session_with_no_branch_is_not_told_whatever_it_waits_on() {
     let rig = a_rig();
     let bare = rig.a_hosted_session().await;
     let testing = rig.a_hosted_session().await;
@@ -363,23 +362,22 @@ async fn a_reason_recorded_for_another_build_is_not_told() {
 }
 
 #[tokio::test]
-async fn a_restart_wait_is_settled_by_the_build_it_asked_for_and_a_mismatch_is_not() {
+async fn a_restart_wait_is_never_settled_by_a_build_and_is_no_reason_to_be_told() {
     let rig = a_rig();
-    let preview = rig.a_hosted_session().await;
-    let main = rig.a_hosted_session().await;
-    rig.waits_to_run(&preview, "scripts/preview --adopt --restart").await;
-    rig.waits_to_run(&main, "scripts/restart --main").await;
+    let waiting = rig.a_hosted_session().await;
+    let holding = rig.a_hosted_session().await;
+    rig.waits_to_run(&waiting, "scripts/preview --adopt --restart").await;
+    rig.waits_to_run(&holding, "scripts/restart --main").await;
+    rig.holds_branch(&holding, "armada/work").await;
     rig.on_file(true);
 
     rig.fleet.builds_told().await;
 
-    let settled = rig.thread_of(&preview).await;
-    assert_eq!(settled.len(), 1, "the wait is answered with the notice, and no more: {settled:?}");
-    assert!(settled[0].contains("Fleet and Bridge now run the preview"), "{settled:?}");
-    assert!(rig.waiting_on(&preview).await.is_empty(), "the wait is settled");
-
-    assert!(rig.thread_of(&main).await.is_empty(), "it asked for the other build");
-    assert_eq!(rig.waiting_on(&main).await, ["restart"], "it asked for main, and this is the preview");
+    assert!(rig.thread_of(&waiting).await.is_empty(), "no branch, so nothing to say");
+    assert_eq!(rig.waiting_on(&waiting).await, ["restart"], "the wait stays his");
+    let said = rig.thread_of(&holding).await;
+    assert_eq!(said.len(), 1, "{said:?}");
+    assert_eq!(rig.waiting_on(&holding).await, ["restart"], "told as a fact, the wait is not settled");
 }
 
 #[tokio::test]
@@ -387,6 +385,7 @@ async fn nobody_is_told_while_a_restart_is_under_way_or_before_there_is_a_build(
     let rig = a_rig();
     let session = rig.a_hosted_session().await;
     rig.waits_to_run(&session, "scripts/restart --main").await;
+    rig.holds_branch(&session, "armada/work").await;
     rig.fleet.builds_told().await;
     assert!(rig.thread_of(&session).await.is_empty(), "no commit on file");
 
@@ -406,6 +405,7 @@ async fn a_terminal_session_that_is_not_listening_is_asked_again_with_nothing_ke
     let rig = a_rig();
     rig.a_terminal_session("term-1").await;
     rig.waits_to_run("term-1", "scripts/preview --restart").await;
+    rig.holds_branch("term-1", "armada/work").await;
     rig.on_file(true);
 
     rig.fleet.builds_told().await;
@@ -417,26 +417,4 @@ async fn a_terminal_session_that_is_not_listening_is_asked_again_with_nothing_ke
     let [said] = held.as_slice() else { panic!("one message held: {held:?}") };
     assert!(said.contains("Fleet and Bridge now run the preview at"), "{said}");
     assert!(rig.told("term-1").await);
-}
-
-#[test]
-fn a_restart_command_is_read_as_bridge_reads_it() {
-    use ipc::BuildSource::{Main, Preview};
-    for (command, asked) in [
-        ("scripts/preview --restart", Some((Preview, false))),
-        ("scripts/preview --adopt --restart", Some((Preview, true))),
-        ("  ./scripts/restart --main --adopt ", Some((Main, true))),
-        ("/Users/user/armada/scripts/preview --restart", Some((Preview, false))),
-        ("scripts/preview", None),
-        ("scripts/preview --restart --dry-run", None),
-        ("scripts/preview --main", None),
-        ("scripts/restart", None),
-        ("scripts/restart --restart", None),
-        ("scripts/restart --main && echo done", None),
-        ("scripts/previewer --restart", None),
-        ("echo scripts/preview --restart", None),
-        ("", None),
-    ] {
-        assert_eq!(restart_asked(command), asked, "{command}");
-    }
 }

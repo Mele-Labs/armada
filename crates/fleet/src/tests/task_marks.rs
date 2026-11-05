@@ -186,27 +186,3 @@ async fn a_list_that_says_completed_again_takes_down_fleets_in_progress_mark() {
     let back = task_of(&record, "Add the tables");
     assert_eq!((back.state, back.marked), (Done, None));
 }
-
-#[tokio::test]
-async fn a_merged_pull_request_completes_the_open_tasks_of_the_group_it_was_opened_under() {
-    let rig = rig_placing(None);
-    let id = working(&rig).await;
-    // Opened while "Add the tables" was in progress, so it is that group's.
-    let harness = read(&rig, &id).await.harness;
-    let pull = ipc::AttachmentReport { kind: "pr".into(), target: "12".into(), detail: Default::default() };
-    rig.fleet
-        .report_session(SessionReport { harness, session_id: id.clone(), fact: SessionFact::Attached { attachment: pull } })
-        .await
-        .expect("a report is kept");
-
-    let said = crate::plan_keeping::merge_heard(&mut *rig.fleet.store().lock().await, id.as_str(), 12, "2026-08-26T10:00:00.000Z")
-        .expect("kept");
-    assert_eq!(said, "\nFleet marked these tasks of your plan completed, as #12 merged: \"Add the tables\", \"Add the migration\".");
-    let record = read(&rig, &id).await;
-    assert_eq!(task_of(&record, "Add the migration").marked.as_deref(), Some("#12 merged"));
-    assert_eq!(task_of(&record, "Record it").state, Open, "another group's task is not the pull request's");
-
-    let again = crate::plan_keeping::merge_heard(&mut *rig.fleet.store().lock().await, id.as_str(), 12, "2026-08-26T10:01:00.000Z")
-        .expect("kept");
-    assert_eq!(again, "", "a merge read again moves nothing");
-}

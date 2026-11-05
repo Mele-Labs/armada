@@ -121,8 +121,7 @@ where
             let (root, now) = (served.root().to_string(), self.tracking().keepings.now());
             let manifest = served.manifest().id().as_str().to_string();
 
-            let mut failed = self.plans_mirrored(&served, &backlog, &mut kept, now).await;
-            failed.extend(self.merged_issues_closed(&served, &backlog, &mut kept, now).await);
+            let failed = self.plans_mirrored(&served, &backlog, &mut kept, now).await;
             // A write waiting out its turn to be tried again has not recovered.
             let writing = match (failed.is_empty(), kept.failed_at.is_empty()) {
                 (false, _) => Some(failed.join("; ")),

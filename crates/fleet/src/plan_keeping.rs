@@ -6,7 +6,7 @@ use ipc::{FileTouch, Instant, PlanLandsInState, ReportedTask, TouchAct, TouchBy}
 use store::{AttachmentState, Holder, KeptAttachment, KeptTouch, Store, WriteError};
 
 use crate::file_touching::WINDOW;
-use crate::plan_record::{commit_named, edit_seen, listed, merge_marked, untold, PlanPull};
+use crate::plan_record::{commit_named, edit_seen, listed, untold, PlanPull};
 use crate::session_host::linking::GROUP;
 
 /// The agent's task list, heard. Whether a task of the plan moved, so the row is worth publishing.
@@ -57,31 +57,6 @@ pub(crate) fn commit_heard(store: &mut Store, id: &str, commit: &str, subject: &
         store.keep_session_plan_progress(id, &plan)?;
     }
     Ok(moved)
-}
-
-/// Pull request `number` of the Session merged: the tasks of the group whose task was in progress when
-/// it was first kept are completed on it, and told now. What the merge's message adds for them, empty
-/// where it moved none.
-pub(crate) fn merge_heard(store: &mut Store, id: &str, number: u64, now: &str) -> Result<String, WriteError> {
-    let target = number.to_string();
-    let from = store
-        .attachment_versions(&Holder::session(id))?
-        .into_iter()
-        .find(|one| one.kind == "pr" && one.target == target)
-        .and_then(|one| one.from_task);
-    let (Some(task), Some(mut plan)) = (from, store.session_plan(id)?) else { return Ok(String::new()) };
-    let moved = merge_marked(&mut plan, &task, number, now);
-    if moved.is_empty() {
-        return Ok(String::new());
-    }
-    for group in &mut plan.groups {
-        for task in group.tasks.iter_mut().filter(|task| moved.contains(&task.text)) {
-            task.told = true;
-        }
-    }
-    store.keep_session_plan_progress(id, &plan)?;
-    let named: Vec<String> = moved.iter().map(|text| format!("\"{text}\"")).collect();
-    Ok(format!("\nFleet marked these tasks of your plan completed, as #{number} merged: {}.", named.join(", ")))
 }
 
 /// The pull requests a plan may land in, oldest first: the Session's own `pr` rows, each with the task in

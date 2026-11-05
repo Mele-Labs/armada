@@ -756,23 +756,13 @@ where
                 )
             });
             items.extend(super::standing::derived(&super::standing::Seen { called, ..seen }));
-            // A sentence read from the reply near one he marked Not a question is left off, by the
-            // vectors the fold below reads, once the model is loaded.
+            // A sentence read from the reply near one he marked Not a question is left off, once the
+            // model is loaded.
             if !misreads.is_empty() && items.iter().any(|one| one.source == WaitingSource::Replied) {
                 if let Some(model) = self.language_model().model() {
                     let texts: Vec<&str> = items.iter().map(|one| one.text.as_str()).chain(misreads.iter().map(String::as_str)).collect();
                     let known = self.item_vectors().known(model, &session.id, &texts);
                     items = super::dedup::left_off_as_misread(items, &misreads, |text| known.get(text).cloned(), super::dedup::FOLDS_AT);
-                }
-            }
-            // Items that are one ask by more than one door are one row, once the model is loaded.
-            // An item it has not embedded yet is kept this read; `standing_tick` publishes the Session
-            // again once it is.
-            if super::dedup::IN_FORCE && items.len() > 1 {
-                if let Some(model) = self.language_model().model() {
-                    let texts: Vec<&str> = items.iter().map(|one| one.text.as_str()).collect();
-                    let known = self.item_vectors().known(model, &session.id, &texts);
-                    items = super::dedup::folded(items, |text| known.get(text).cloned(), super::dedup::FOLDS_AT);
                 }
             }
         }
