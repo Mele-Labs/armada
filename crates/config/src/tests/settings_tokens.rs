@@ -35,12 +35,14 @@ fn the_token_use_settings_ship_as_the_walk_drew_them_in_the_fleet_group() {
     assert_eq!(nothing.get(s::COMPACTION_WINDOW), 250_000);
     assert!(nothing.get(s::SUMMARY_SHORT_CACHE), "a short cache ships on");
     assert!(!nothing.get(s::SUMMARY_THINKING), "thinking ships off");
+    assert!(!nothing.get(s::COMPACT_WHILE_WAITING), "the trial ships off");
     assert_eq!(nothing.get(s::SKILLS_OFF), None, "no skill is off");
     assert_eq!(nothing.get(s::CONNECTORS_OFF), None, "no repository is told, so each follows its armada.yml");
     for key in [
         "tokens.compactionWindow",
         "tokens.summaryShortCache",
         "tokens.summaryThinking",
+        "tokens.compactWhileWaiting",
         "tokens.skillsOff",
         "tokens.connectorsOff",
     ] {
@@ -65,7 +67,7 @@ fn the_compaction_window_is_held_to_the_range_the_cli_reads() {
 
 #[test]
 fn the_summary_switches_take_a_boolean_and_nothing_else() {
-    for key in ["tokens.summaryShortCache", "tokens.summaryThinking"] {
+    for key in ["tokens.summaryShortCache", "tokens.summaryThinking", "tokens.compactWhileWaiting"] {
         assert!(resolved(&[(key, SettingValue::Bool(false))]).is_ok(), "{key}");
         assert!(resolved(&[(key, SettingValue::Text("yes".into()))]).is_err(), "{key}");
     }

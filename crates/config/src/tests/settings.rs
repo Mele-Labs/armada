@@ -201,6 +201,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::OPUS_READING_WATCH,
         s::SUMMARY_SHORT_CACHE,
         s::SUMMARY_THINKING,
+        s::COMPACT_WHILE_WAITING,
     ] {
         assert_eq!(kinds(key.name()), Kind::Boolean, "{}", key.name());
     }
@@ -263,7 +264,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 23 + 13 + 21 + 28 + 2 + 9 + s::prompt_keys().count();
+    let handles = 23 + 13 + 22 + 28 + 2 + 9 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

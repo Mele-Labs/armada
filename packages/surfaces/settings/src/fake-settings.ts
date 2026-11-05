@@ -638,6 +638,14 @@ export const tokenUseSettings = (
     BOOLEAN,
     false,
   ),
+  row(
+    "Token use",
+    "tokens.compactWhileWaiting",
+    "Compact a Job waiting on you",
+    "Fleet compacts a Job that is waiting on you shortly before its prompt cache runs out. A Job that waits past its cache starts again from its whole context, and compacting first means it starts from a summary.",
+    BOOLEAN,
+    false,
+  ),
 ];
 
 /**

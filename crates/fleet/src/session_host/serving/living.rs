@@ -350,9 +350,10 @@ where
         })
     }
 
-    /// End every process that has been quiet for longer than the setting.
-    /// **Called on a timer, and by a test**, which would not wait for one.
-    pub(crate) async fn sweep_quiet(&self) {
+    /// End every process that has been quiet for longer than the setting, then compact the Jobs
+    /// waiting on the owner whose cache is nearly out. **Called on a timer, and by a test**, which
+    /// would not wait for one.
+    pub(crate) async fn sweep_quiet(self: &Arc<Self>) {
         let quiet = self.hosts().quiet();
         let mut ended = Vec::new();
         let mut closed = Vec::new();
@@ -385,5 +386,6 @@ where
         for id in ended {
             let _ = self.published_hosted(&id).await;
         }
+        self.compacted_while_waiting().await;
     }
 }
