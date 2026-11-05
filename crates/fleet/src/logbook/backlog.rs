@@ -337,7 +337,7 @@ mod tests {
 
     /// A store with one retro per `(session, item)`, each of one item, and the lock around it.
     fn kept(dir: &TempDir, items: &[(&str, RetroLine)]) -> StoreLock {
-        let mut store = Store::open(&dir.path().join("armada.db")).expect("opens");
+        let mut store = Store::open_migrated_copy(&dir.path().join("armada.db")).expect("opens");
         let at = Timestamp::from_rfc3339("2026-10-20T10:00:00.000Z".to_string());
         for (session, item) in items {
             store

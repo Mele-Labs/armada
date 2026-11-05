@@ -629,3 +629,25 @@ fn forgetting_a_blank_session_forgets_its_versions_and_only_its_own() {
     assert_eq!(kept("ledger_attachment_version_origins"), 1, "where its versions came from goes with them");
     assert_eq!(kept("session_focus"), 1);
 }
+
+#[test]
+fn the_sessions_that_ended_since_an_instant_come_latest_first_and_capped() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let mut ended = |id: &str, at: &str| {
+        let mut kept = session(id);
+        kept.state = SessionState::Ended;
+        kept.ended_at = Some(at.into());
+        store.keep_session(&kept).expect("kept");
+    };
+    ended("yesterday", "2026-10-12T23:59:59.000Z");
+    ended("morning", "2026-10-13T08:00:00.000Z");
+    ended("noon", "2026-10-13T12:00:00.000Z");
+    store.keep_session(&session("still-live")).expect("kept");
+
+    let ids = |limit| -> Vec<String> {
+        store.sessions_ended_since("2026-10-13T00:00:00.000Z", limit).expect("reads").into_iter().map(|one| one.id).collect()
+    };
+    assert_eq!(ids(30), ["noon", "morning"], "none from before the instant, none still live, the latest end first");
+    assert_eq!(ids(1), ["noon"], "capped at the newest");
+}

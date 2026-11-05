@@ -42,7 +42,9 @@ use crate::migrations::{
 /// A `Store::in_memory()` would be convenient and would quietly exempt every
 /// test that used it from WAL, from the file layout, and from the reopen that
 /// is the only way to prove a Job survived. Tests here open a real file in a
-/// temporary directory for exactly that reason.
+/// temporary directory for exactly that reason. A fresh one is a copy of a
+/// file migrated once, [`open_migrated_copy`](Store::open_migrated_copy),
+/// opened through `open` like any other.
 pub struct Store {
     pub(crate) conn: Connection,
     pub(crate) path: String,
