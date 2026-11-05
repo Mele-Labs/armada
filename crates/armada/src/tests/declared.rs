@@ -338,6 +338,54 @@ async fn one_test_runs_through_the_checks_one_test() {
     assert!(refused.contains("no `one_test`"), "{refused}");
 }
 
+/// **A name that ends in `tests` is refused before anything runs**, with one
+/// sentence saying what it matched and what to pass, where a module below it runs.
+#[tokio::test]
+async fn a_name_that_is_every_test_of_a_crate_is_refused_before_it_runs() {
+    let dir = TempDir::new();
+    dir.write(
+        "armada.yml",
+        "version: 1\n\
+         id: a-test-project\n\
+         checks:\n  \
+           test:\n    run: /usr/bin/false\n    \
+             narrow:\n      run: /usr/bin/false\n      each: \"-p {}\"\n      under: crates\n    \
+             one_test:\n      run: /bin/echo only {}\n",
+    );
+    dir.write("crates/fleet/src/lib.rs", "#[cfg(test)]\nmod tests;\n");
+    dir.write("crates/fleet/src/tests.rs", "mod servers;\n");
+    dir.write("crates/fleet/src/tests/servers.rs", "#[test]\nfn stops() {}\n");
+
+    let refused = execute(
+        dir.path(),
+        Registry::Checks,
+        "test",
+        Asked::Tests(&["pull_waits::tests"]),
+        BUDGET,
+        None,
+        Priority::Normal,
+    )
+    .await
+    .expect_err("`tests` is the crate's whole suite")
+    .to_string();
+    assert!(refused.contains("`pull_waits::tests` matches every test"), "{refused}");
+    assert!(refused.contains("`test` ran nothing"), "{refused}");
+    assert!(refused.contains("`tests::a_module`"), "{refused}");
+
+    let ran = execute(
+        dir.path(),
+        Registry::Checks,
+        "test",
+        Asked::Tests(&["tests::servers"]),
+        BUDGET,
+        None,
+        Priority::Normal,
+    )
+    .await
+    .expect("a module below `tests` is narrow enough");
+    assert_eq!(ran.status(), 0);
+}
+
 /// **Absent `when` means always**, and a declared one is read against the
 /// paths — the same answer a Job's gate gives, in the order the file writes.
 #[test]

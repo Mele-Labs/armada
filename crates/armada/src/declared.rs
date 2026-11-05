@@ -168,6 +168,12 @@ pub async fn execute_told(
                             test: test.to_string(),
                             path: manifest.path().to_path_buf(),
                         },
+                        checks_runner::OneTestRefused::WholeSuite { test } => {
+                            NotDeclared::WholeSuite {
+                                name: name.to_string(),
+                                test,
+                            }
+                        }
                         checks_runner::OneTestRefused::NoMember {
                             test,
                             under,
@@ -550,6 +556,9 @@ pub enum NotDeclared {
         under: String,
         excepted: Vec<String>,
     },
+    /// A test was named by the module every test file sits under, which is
+    /// the crate's whole suite: refused before anything is built.
+    WholeSuite { name: String, test: String },
     /// Nothing declares it, and this is what is declared.
     NoSuchName {
         name: String,
@@ -625,6 +634,11 @@ impl fmt::Display for NotDeclared {
                     ),
                 }
             }
+            NotDeclared::WholeSuite { name, test } => write!(
+                out,
+                "`{test}` matches every test under a `tests` module, which is the crate's whole suite, \
+                 so `{name}` ran nothing — pass a test or a module path below it, such as `tests::a_module` or `a_test`"
+            ),
             NotDeclared::NoSuchName {
                 name,
                 asked,

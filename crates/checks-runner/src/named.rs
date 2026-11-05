@@ -10,7 +10,7 @@ use std::path::Path;
 
 use core_model::Narrowing;
 
-use crate::holding::holders;
+use crate::holding::{holders, whole_suite};
 use crate::narrow::{one_argument, quoted, regex_escaped};
 use crate::touched::touched;
 
@@ -26,6 +26,10 @@ pub enum OneTestRefused {
         under: String,
         excepted: Vec<String>,
     },
+    /// The name ends in `tests`, the module every test file of a crate is
+    /// under, so it matches the crate's whole suite. Seen: 13 runs of 500 to
+    /// 3,491 tests, the longest 15 minutes, from an agent naming `tests`.
+    WholeSuite { test: String },
 }
 
 /// [`one_test`], compiling only the members under `under` that hold the test,
@@ -69,6 +73,11 @@ pub fn tests_in(
     };
     let mut members = BTreeSet::new();
     for test in tests {
+        if whole_suite(test) {
+            return Err(OneTestRefused::WholeSuite {
+                test: test.to_string(),
+            });
+        }
         let (excepted, held): (Vec<String>, Vec<String>) = holders(dir, under, test)
             .into_iter()
             .partition(|member| narrowing.except().contains(member));
