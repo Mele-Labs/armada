@@ -49,8 +49,28 @@ pub struct OperatorBoardSettled {
     pub at: String,
 }
 
+/// One thing a suggestion offers to do.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorBoardOption {
+    pub label: String,
+}
+
+/// What the Operator would do with something that is no Job's, such as a note, waiting on one press.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorBoardSuggestion {
+    /// `suggestion:<n>`, the same id the row has on a Job's Needs you list. `answer_operator_suggestion` names it.
+    pub id: String,
+    /// What the row says, as it was kept.
+    pub text: String,
+    /// `Do it` (choice 0) and `Skip` (choice 1).
+    pub options: Vec<OperatorBoardOption>,
+    /// When it was raised, RFC 3339.
+    pub at: String,
+}
+
 /// `get_operator_board`: whether the Operator is on, the arrival a call is out on, those waiting
-/// for it in the order they will be taken, and its last twenty rulings, newest first.
+/// for it in the order they will be taken, the suggestions no Job holds, oldest first, and its last
+/// twenty rulings, newest first.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorBoard {
     pub on: bool,
@@ -58,6 +78,8 @@ pub struct OperatorBoard {
     pub now: Option<OperatorBoardItem>,
     #[serde(default)]
     pub next: Vec<OperatorBoardItem>,
+    #[serde(default)]
+    pub suggestions: Vec<OperatorBoardSuggestion>,
     #[serde(default)]
     pub done: Vec<OperatorBoardSettled>,
 }
@@ -68,6 +90,13 @@ pub struct MoveOnOperatorBoard {
     pub id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub before: Option<String>,
+}
+
+/// `answer_operator_suggestion`: one press on a suggestion no Job holds. `choice` is 0 for Do it or 1 for Skip.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AnswerOperatorSuggestion {
+    pub id: String,
+    pub choice: u32,
 }
 
 /// `operator.board_changed`: the board is not what it was, so read it again. Nothing else rides.

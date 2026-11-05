@@ -99,7 +99,7 @@ impl Store {
             .map_err(failed(doing))
     }
 
-    /// The suggestions standing on `session`, oldest first.
+    /// The suggestions standing on `session`, oldest first. The empty id is the ones no Job holds.
     pub fn operator_suggestions_of(&self, session: &str) -> Result<Vec<KeptSuggestion>, WriteError> {
         let doing = "reading a Job's Operator suggestions";
         let mut statement = self
@@ -118,6 +118,14 @@ impl Store {
             .prepare(&format!("SELECT {COLUMNS} FROM operator_suggestions WHERE n = ?1 AND settled_at IS NULL"))
             .map_err(failed(doing))?;
         let mut rows = statement.query_map([n], suggestion_of).map_err(failed(doing))?;
+        rows.next().transpose().map_err(failed(doing))
+    }
+
+    /// Whether suggestion `n` was ever kept: its Job (empty where it has none) and whether it is settled.
+    pub fn operator_suggestion_seen(&self, n: i64) -> Result<Option<(String, bool)>, WriteError> {
+        let doing = "reading an Operator suggestion";
+        let mut statement = self.conn.prepare("SELECT session_id, settled_at IS NOT NULL FROM operator_suggestions WHERE n = ?1").map_err(failed(doing))?;
+        let mut rows = statement.query_map([n], |row| Ok((row.get::<_, String>(0)?, row.get::<_, bool>(1)?))).map_err(failed(doing))?;
         rows.next().transpose().map_err(failed(doing))
     }
 

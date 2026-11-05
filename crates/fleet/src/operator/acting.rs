@@ -133,7 +133,9 @@ where
             return;
         }
         let (arrival, ruling) = (arrival.clone(), ruling.clone());
-        self.doing(move |fleet| async move { fleet.operator_sourced(&arrival, &ruling).await });
+        self.doing(move |fleet| async move {
+            let _ = fleet.operator_sourced(&arrival, &ruling).await;
+        });
     }
 }
 

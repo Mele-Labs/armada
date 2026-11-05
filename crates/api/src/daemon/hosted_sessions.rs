@@ -146,6 +146,13 @@ pub trait HostedSessions: Send + Sync + 'static {
         moved: ipc::operator_board::MoveOnOperatorBoard,
     ) -> impl Future<Output = Result<ipc::operator_board::OperatorBoard, Refusal>> + Send;
 
+    /// `answer_operator_suggestion`: one press on a suggestion no Job holds. [`Refusal::NotFound`] where
+    /// none has that id, [`Refusal::IllegalMove`] where it is settled already. Answers the board.
+    fn answer_operator_suggestion(
+        self: Arc<Self>,
+        answer: ipc::operator_board::AnswerOperatorSuggestion,
+    ) -> impl Future<Output = Result<ipc::operator_board::OperatorBoard, Refusal>> + Send;
+
     /// `confirm_operator_order`: the person presses to have an order stand. [`Refusal::Unacceptable`]
     /// while the Operator is off, or where the form names what Fleet does not know.
     fn confirm_operator_order(

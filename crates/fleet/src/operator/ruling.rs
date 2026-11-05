@@ -212,6 +212,8 @@ pub enum Outcome {
     NotHeld,
     /// The person answered a question himself, which a second Job asking the same is offered.
     Answered,
+    /// The person pressed Skip on what the Operator would have done.
+    Skipped,
 }
 
 impl Outcome {
@@ -223,6 +225,7 @@ impl Outcome {
             Outcome::HoldLifted => "hold_lifted",
             Outcome::NotHeld => "not_held",
             Outcome::Answered => "answered",
+            Outcome::Skipped => "skipped",
         }
     }
 }
