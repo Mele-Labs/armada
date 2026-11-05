@@ -246,9 +246,11 @@ where
         }
     }
 
-    /// What the Operator ruled for work from outside a Job's own run. A raise is its Log row.
-    pub(super) async fn operator_sourced(self: &Arc<Self>, arrival: &Arrival, ruling: &Ruling) {
+    /// What the Operator ruled for work from outside a Job's own run. A raise is its Log row. **What it
+    /// made of a note** comes back, so a press on a suggestion can say it in the Log.
+    pub(super) async fn operator_sourced(self: &Arc<Self>, arrival: &Arrival, ruling: &Ruling) -> Sourced {
         let (manifest, last) = (arrival.manifest_id.as_str(), arrival.id.rsplit(':').next().unwrap_or_default());
+        let mut made = Sourced::default();
         match (arrival.arrived, ruling.way, ruling.other.as_deref(), ruling.issue.as_deref()) {
             (Arrived::Report, Way::Link, _, Some(issue)) => {
                 let _ = self.store().lock().await.link_bug_report(last, issue);
@@ -265,29 +267,32 @@ where
             (Arrived::Note, Way::Link, _, _) => {
                 self.note_settled_by_operator(manifest, last).await;
             }
-            (Arrived::Note, Way::File, _, _) => self.operator_filed_note(manifest, last, arrival).await,
-            (Arrived::Note, Way::NewJob, _, _) => self.operator_started_note(manifest, last, arrival).await,
+            (Arrived::Note, Way::File, _, _) => made.issue = self.operator_filed_note(manifest, last, arrival).await,
+            (Arrived::Note, Way::NewJob, _, _) => made.job = self.operator_started_note(manifest, last, arrival).await,
             (Arrived::Note, Way::ExistingJob, Some(into), _) => self.operator_told_note(manifest, last, arrival, into).await,
             _ => {}
         }
+        made
     }
 
     /// A note no open issue covers, filed in the repository's beads with his words, and marked done.
-    async fn operator_filed_note(&self, manifest: &str, note: &str, arrival: &Arrival) {
-        let Ok(served) = self.served_named(Some(&ManifestId::carried(manifest))) else { return };
-        let Some(backlog) = self.backlog_of(&served) else { return };
+    /// The issue it was filed as.
+    async fn operator_filed_note(&self, manifest: &str, note: &str, arrival: &Arrival) -> Option<String> {
+        let served = self.served_named(Some(&ManifestId::carried(manifest))).ok()?;
+        let backlog = self.backlog_of(&served)?;
         let (root, title) = (served.root().to_string(), arrival.subject.clone());
         let body = format!("{}\n\nFiled by the Operator from a note he left on Bridge.", arrival.words);
         let filed = tokio::task::spawn_blocking(move || backlog.file(&root, &title, &body)).await;
-        let Ok(Ok(reference)) = filed else { return };
-        held(&self.operator_seat().sources.filed).insert(reference);
+        let Ok(Ok(reference)) = filed else { return None };
+        held(&self.operator_seat().sources.filed).insert(reference.clone());
         self.note_settled_by_operator(manifest, note).await;
         self.tracking().forget(manifest);
+        Some(reference)
     }
 
     /// A note the Operator ruled a Job of its own: started on it, briefed with his words, and the
-    /// note marked sent to it.
-    async fn operator_started_note(self: &Arc<Self>, manifest: &str, note: &str, arrival: &Arrival) {
+    /// note marked sent to it. The Job's id.
+    async fn operator_started_note(self: &Arc<Self>, manifest: &str, note: &str, arrival: &Arrival) -> Option<String> {
         let started = self
             .start_session(StartSession {
                 manifest_id: ManifestId::carried(manifest),
@@ -304,16 +309,17 @@ where
                 on_your_words: None,
             })
             .await;
-        let Ok(record) = started else { return };
+        let record = started.ok()?;
         let job = record.id.as_str().to_string();
         let voice = SessionVoice::Session { id: OPERATOR.to_lowercase(), title: OPERATOR.to_string() };
         let brief = format!("The person left this note on Bridge. Do what it asks.\n\n{}", arrival.words);
         if self.first_message_from(&job, voice, &brief).await.is_err() {
             let _ = self.closed_and_parked(ipc::CloseSession { session_id: record.id }).await;
-            return;
+            return None;
         }
         let title = self.title_of(&job).await;
         self.note_given_by_operator(manifest, note, &job, &title).await;
+        Some(job)
     }
 
     /// A note the Operator ruled to live Job `into`, whose work is near it: told it, and the note
@@ -383,6 +389,15 @@ where
         let _ = self.store().lock().await.later_handed_filed(session, later, &reference, now.as_str());
         self.tracking().forget(manifest);
     }
+}
+
+/// What a ruling on work from outside a Job made, as the Log row names it.
+#[derive(Debug, Default)]
+pub(super) struct Sourced {
+    /// The issue a note was filed as.
+    pub issue: Option<String>,
+    /// The Job a note was started as.
+    pub job: Option<String>,
 }
 
 /// The note files in `places`, as each one's id and path: the first of any id found twice.

@@ -318,11 +318,17 @@ async fn a_nudge_names_the_step_a_new_job_takes_the_rest_and_a_raise_reaches_his
 
 /// A Job stopped twice, with Delegate at Suggest and a nudge ruled, and its suggestion on his list.
 async fn nudge_suggested(rig: &Rig) -> (SessionId, ipc::WaitingItem) {
+    nudge_suggested_then(rig, &[]).await
+}
+
+/// The same, with `later` the call's answers after the ruling: to what he says about it.
+async fn nudge_suggested_then(rig: &Rig, later: &[&str]) -> (SessionId, ipc::WaitingItem) {
     let id = stopped_twice(rig).await;
     switched(rig, "features.operator", true).await;
     let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([("features.operatorDelegate".to_string(), Some(ipc::SettingValue::Text("suggest".into())))]) };
     api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
-    let call = Answers::with(&["item: 1\nway: 1\nstep: Keep the scrollback on redraw, in terminal.tsx\nbecause: its next task waits on nobody"]);
+    let ruling = "item: 1\nway: 1\nstep: Keep the scrollback on redraw, in terminal.tsx\nbecause: its next task waits on nobody";
+    let call = Answers::with(&[&[ruling][..], later].concat());
     assert!(rig.fleet.operator_seated_with(call.clone()));
     read_and_handed(rig, &id).await;
     eventually(|| async { !suggestions(rig, &id).await.is_empty() }).await;
@@ -366,4 +372,22 @@ async fn skipping_what_delegate_would_do_tells_the_job_nothing_and_dismissing_it
     assert!(suggestions(&rig, &id).await.is_empty(), "the row is gone");
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     assert!(told(&rig, &id).await.is_empty(), "the Job heard nothing");
+}
+
+#[tokio::test]
+async fn words_on_a_suggestions_row_are_talk_to_the_operator_about_it_and_the_row_stays() {
+    let rig = rig_placing(None);
+    let (id, item) = nudge_suggested_then(&rig, &["cites: none\njob: none\nstart: none\norder: none\nfirst: none\nsaid: It would tell the Job to keep the scrollback."]).await;
+    let arrival = rig.fleet.store().lock().await.operator_suggestions_of(id.as_str()).expect("read").remove(0).arrival;
+
+    let words = ipc::AnswerWaiting { session_id: id.clone(), item_id: item.id.clone(), choice: None, text: Some("why this one?".into()), mode: None, fixed: None };
+    Arc::clone(&rig.fleet).settle_waiting(words).await.expect("words are not refused");
+
+    let talk = rig.fleet.operator_talk_wire().await.expect("read");
+    assert_eq!(
+        talk.lines.iter().map(|one| (one.from_person, one.text.as_str(), one.about.as_deref())).collect::<Vec<_>>(),
+        [(true, "why this one?", Some(arrival.as_str())), (false, "It would tell the Job to keep the scrollback.", Some(arrival.as_str()))]
+    );
+    assert_eq!(suggestions(&rig, &id).await.len(), 1, "the row stays open");
+    assert!(told(&rig, &id).await.is_empty(), "nothing is done by words");
 }

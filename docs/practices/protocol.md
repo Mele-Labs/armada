@@ -1466,6 +1466,7 @@ A role of the Operator's at Suggest keeps what On would have done, and it reache
 
 - **A row of its own**, `WaitingSource::OperatorSuggestion`: id `suggestion:<n>`, an `answer` act, `Do it` (choice 0) and `Skip` (choice 1), answered with `answer_waiting`.
   Dismissing it is Skip.
+  Words sent on it with no choice are never refused: they go to the Operator as `talk_to_operator` with `about` set to the suggestion's arrival id, the row stays, and the reply lands in the Operator's conversation.
   It is drawn as any answer item until the panel's look lands, armada-ehhu.10.
 - **On the question it would settle**, `WaitingItem.operator_read`, `{read, pick}`: Bridge selects `pick`, and his press on that option is the press he would make anyway, so there is nothing to route.
   `OperatorRead` in `apps/desktop/src/renderer/src/operator/model.ts` is the walked proposal for this.
@@ -1485,12 +1486,18 @@ The box at the foot of the Operator panel, and the orders it turns words into. N
 
 Bridge draws none of it yet: the box and the list ride with the panel, armada-ehhu.10.
 
-## The Operator's board: `get_operator_board`, `move_on_operator_board` and `operator.board_changed`
+## The Operator's board: `get_operator_board`, `move_on_operator_board`, `answer_operator_suggestion` and `operator.board_changed`
 
-The board the Operator page is drawn from: `now`, `next`, `done` and `on`, read whole.
+The board the Operator page is drawn from: `now`, `next`, `suggestions`, `done` and `on`, read whole.
 
 - **`next` is the Operator's own queue**, the arrivals that came while a call was out.
   What a call has been handed leads it and cannot be moved; `move_on_operator_board` reorders the rest, and a 404 names an id that is not waiting.
+- **`suggestions` is what the Operator would do with something no Job holds**, such as a note: `{ id, text, options: [{ label }], at }`, oldest first, `[]` when there are none.
+  `id` is the `suggestion:<n>` of the Needs you rows, `options` are `Do it` then `Skip`, `at` is RFC 3339.
+- **`answer_operator_suggestion` is the press**: `POST /operator/suggestions/answer`, `{ id, choice }` with 0 Do it and 1 Skip, no words.
+  It answers the board.
+  An unknown id, or a Job's own suggestion, is a 404 `fleet.operator_suggestion_unknown`; one settled already is the 409 `settled_already`; any other choice is refused.
+  A settled suggestion leaves `suggestions` and is in `done` as `Filed: <issue>`, `Started: <Job title>`, `Handed over: to <Job title>`, `Linked` or `Skipped`.
 - **`operator.board_changed` carries nothing.** Bridge reads the board again.
 - **`kind` is closed at five**: a plan is a `start`, and an issue, a review request, a red main and a Later item are each a `report`. Bridge renders `outcome` and never branches on it.
 - **`TalkToOperator.about` names a board item or a Needs you item**, and the line keeps it. **`OperatorSaid.moved`** is the item the call put first because the person asked.

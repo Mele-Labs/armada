@@ -123,12 +123,19 @@ impl Store {
         rows.collect::<Result<_, _>>().map_err(failed(doing))
     }
 
-    /// The latest rows the Operator itself signed, newest first: its rulings, and no person's correction.
+    /// The latest rows that settled something, newest first: the Operator's own rulings, except those it
+    /// only suggested (the person's press on the suggestion is the row), and the person's press on a
+    /// suggestion. A person's correction or answer of his own is not one.
     pub fn operator_rulings_signed(&self, limit: u32) -> Result<Vec<KeptRuling>, WriteError> {
         let doing = "reading the Operator's rulings";
         let mut statement = self
             .conn
-            .prepare(&format!("SELECT {COLUMNS} FROM operator_rulings WHERE by = 'operator' ORDER BY position DESC LIMIT ?1"))
+            .prepare(&format!(
+                "SELECT {COLUMNS} FROM operator_rulings
+                 WHERE (by = 'operator' AND arrival NOT IN (SELECT arrival FROM operator_suggestions))
+                    OR (by = 'human' AND outcome NOT IN ('corrected', 'answered'))
+                 ORDER BY position DESC LIMIT ?1"
+            ))
             .map_err(failed(doing))?;
         let rows = statement.query_map([limit], ruling_of).map_err(failed(doing))?;
         rows.collect::<Result<_, _>>().map_err(failed(doing))

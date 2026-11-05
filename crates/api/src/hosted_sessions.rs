@@ -237,6 +237,22 @@ pub(crate) async fn move_on_operator_board<D: HostedSessions>(
     }
 }
 
+/// One press settles a suggestion no Job holds. 200 with the board; 404 where none has the id, 409 where it
+/// is settled already.
+pub(crate) async fn answer_operator_suggestion<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let press: ipc::operator_board::AnswerOperatorSuggestion = match ipc::decode_body("an answer to an Operator suggestion", &body) {
+        Ok(press) => press,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().answer_operator_suggestion(press).await {
+        Ok(board) => answer(StatusCode::OK, &board, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The person presses to have an order stand. 200 with the orders; 422 while the Operator is off, or
 /// where the form names what Fleet does not know.
 pub(crate) async fn confirm_operator_order<D: HostedSessions>(
