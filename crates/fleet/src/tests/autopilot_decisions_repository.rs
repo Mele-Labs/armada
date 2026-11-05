@@ -184,7 +184,7 @@ const EVERY: [AutopilotDecision; 4] =
 
 // ---- A red main ----
 
-async fn red_main(rig: &Rig, commit: &str) {
+pub(super) async fn red_main(rig: &Rig, commit: &str) {
     let at = rig.fleet.now();
     let main = MainCi {
         repository: rig.root.clone(),
@@ -203,7 +203,7 @@ async fn red_main(rig: &Rig, commit: &str) {
     rig.fleet.store().lock().await.record_main_ci(&main).expect("kept");
 }
 
-async fn jobs_titled(rig: &Rig, title: &str) -> usize {
+pub(super) async fn jobs_titled(rig: &Rig, title: &str) -> usize {
     let store = rig.fleet.store().lock().await;
     let found = store.find_sessions(&store::SessionSearch { manifest_id: None, state: None, text: None }).unwrap();
     found.iter().filter(|one| one.title.as_deref() == Some(title)).count()

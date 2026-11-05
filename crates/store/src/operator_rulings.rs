@@ -25,6 +25,9 @@ pub struct KeptRuling {
     pub call: Option<String>,
     /// The signer's wire word.
     pub by: String,
+    /// When the item was handed to the Operator.
+    pub handed: String,
+    /// When the ruling was kept.
     pub at: String,
     /// Where a start goes in Waiting to start: `ahead:<id>`, `behind:<id>` or `last`.
     pub place: Option<String>,
@@ -39,11 +42,11 @@ pub struct KeptRuling {
 }
 
 const COLUMNS: &str = "arrival, arrived, source, source_session, session_id, manifest_id, subject, outcome, \
-                       other_session, shared, because, call, by, at, place, first_session, refused, answer, issue";
+                       other_session, shared, because, call, by, handed, at, place, first_session, refused, answer, issue";
 
 fn ruling_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptRuling> {
     let shared: String = row.get(9)?;
-    let refused: String = row.get(16)?;
+    let refused: String = row.get(17)?;
     Ok(KeptRuling {
         arrival: row.get(0)?,
         arrived: row.get(1)?,
@@ -58,12 +61,14 @@ fn ruling_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptRuling> {
         because: row.get(10)?,
         call: row.get(11)?,
         by: row.get(12)?,
-        at: row.get(13)?,
-        place: row.get(14)?,
-        first_session: row.get(15)?,
+        // Null on a row kept before the column, which is handed when it was kept.
+        handed: row.get::<_, Option<String>>(13)?.map_or_else(|| row.get(14), Ok)?,
+        at: row.get(14)?,
+        place: row.get(15)?,
+        first_session: row.get(16)?,
         refused: refused.lines().filter(|one| !one.is_empty()).map(str::to_string).collect(),
-        answer: row.get(17)?,
-        issue: row.get(18)?,
+        answer: row.get(18)?,
+        issue: row.get(19)?,
     })
 }
 
@@ -78,7 +83,7 @@ impl Store {
             .execute(
                 &format!(
                     "INSERT INTO operator_rulings ({COLUMNS})
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)"
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)"
                 ),
                 params![
                     one.arrival,
@@ -94,6 +99,7 @@ impl Store {
                     one.because,
                     one.call,
                     one.by,
+                    one.handed,
                     one.at,
                     one.place,
                     one.first_session,
@@ -151,11 +157,11 @@ impl Store {
             .map_err(failed("reading the Operator's Log"))
     }
 
-    /// Whether the Log holds a row for `arrival` kept at or after `since`, an RFC3339 instant.
+    /// Whether the Log holds a row for `arrival` handed at or after `since`, an RFC3339 instant.
     pub fn operator_ruled_since(&self, arrival: &str, since: &str) -> Result<bool, WriteError> {
         self.conn
             .query_row(
-                "SELECT EXISTS (SELECT 1 FROM operator_rulings WHERE arrival = ?1 AND at >= ?2)",
+                "SELECT EXISTS (SELECT 1 FROM operator_rulings WHERE arrival = ?1 AND COALESCE(handed, at) >= ?2)",
                 [arrival, since],
                 |row| row.get::<_, bool>(0),
             )

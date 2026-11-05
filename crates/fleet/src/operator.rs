@@ -140,6 +140,8 @@ pub struct Logged {
     /// The call that ruled it, the same for items ruled together; `None` where none was made.
     pub call: Option<String>,
     pub by: Actor,
+    /// When the item was handed to the Operator: before `at` where a call was out.
+    pub handed: Timestamp,
     pub at: Timestamp,
     /// Where a start goes in Waiting to start.
     pub place: Option<Place>,
@@ -154,7 +156,7 @@ pub struct Logged {
 }
 
 impl Logged {
-    fn of(arrival: &Arrival, ruled: &Ruled, call: Option<String>, at: Timestamp) -> Logged {
+    fn of(arrival: &Arrival, ruled: &Ruled, call: Option<String>, handed: Timestamp, at: Timestamp) -> Logged {
         let (outcome, other, shared, because) = match ruled {
             Ruled::Ruled(ruling) => (Outcome::Ruled(ruling.way), ruling.other.clone(), ruling.shared.clone(), ruling.because.clone()),
             Ruled::PassedOn(why) => (Outcome::PassedOn, None, Vec::new(), why.to_string()),
@@ -182,6 +184,7 @@ impl Logged {
             because,
             call,
             by: Actor::Operator,
+            handed,
             at,
             place,
             first,
@@ -207,6 +210,7 @@ impl Logged {
             because: self.because.clone(),
             call: self.call.clone(),
             by: self.by.as_wire().to_string(),
+            handed: self.handed.as_str().to_string(),
             at: self.at.as_str().to_string(),
             place: self.place.as_ref().map(Place::word),
             first_session: self.first.clone(),
@@ -220,6 +224,7 @@ impl Logged {
 /// One item waiting on a ruling, and where its ruling goes.
 struct Held {
     token: u64,
+    handed: Timestamp,
     arrival: Arrival,
     tell: oneshot::Sender<Ruled>,
 }
@@ -254,11 +259,12 @@ impl Operator {
     /// time is passed on, and the Log says why.
     pub async fn ruled(self: &Arc<Self>, arrival: Arrival, within: Duration) -> Ruled {
         let (tell, mut told) = oneshot::channel();
+        let handed = self.desk.now();
         let (token, start) = {
             let mut queue = held(&self.queue);
             let token = queue.next;
             queue.next += 1;
-            queue.pending.push(Held { token, arrival, tell });
+            queue.pending.push(Held { token, handed, arrival, tell });
             let start = !queue.running;
             queue.running = true;
             (token, start)
@@ -280,7 +286,7 @@ impl Operator {
         match late {
             Some((held, call)) => {
                 let ruled = Ruled::PassedOn(PassedOn::Late(within));
-                self.desk.keep(Logged::of(&held.arrival, &ruled, call, self.desk.now())).await;
+                self.desk.keep(Logged::of(&held.arrival, &ruled, call, held.handed.clone(), self.desk.now())).await;
                 ruled
             }
             // Ruled as the wait ran out: the ruling is already on its way.
@@ -393,7 +399,7 @@ impl Operator {
                 ruled = Ruled::PassedOn(PassedOn::Settled(why));
             }
         }
-        self.desk.keep(Logged::of(&one.arrival, &ruled, call, self.desk.now())).await;
+        self.desk.keep(Logged::of(&one.arrival, &ruled, call, one.handed.clone(), self.desk.now())).await;
         if let Ruled::Ruled(ruling) = &ruled {
             self.act(&one.arrival, ruling);
         }

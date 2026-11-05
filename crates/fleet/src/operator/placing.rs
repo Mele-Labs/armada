@@ -90,6 +90,7 @@ impl Logged {
             because: String::new(),
             call: None,
             by,
+            handed: at.clone(),
             at,
             place: None,
             first: None,

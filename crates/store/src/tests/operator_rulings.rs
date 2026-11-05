@@ -19,6 +19,7 @@ fn ruled(arrival: &str, call: Option<&str>, at: &str) -> KeptRuling {
         because: "the same group is in the other's plan".to_string(),
         call: call.map(str::to_string),
         by: "operator".to_string(),
+        handed: at.to_string(),
         at: at.to_string(),
         place: None,
         first_session: None,
@@ -88,6 +89,25 @@ fn a_jobs_rows_read_back_oldest_first_and_an_arrival_in_the_log_reads_as_ruled_a
     assert!(!store.operator_ruled("stopped:01a:t3").expect("read"));
     assert!(store.operator_ruled_since("stopped:01a:t1", "2026-11-04T10:00:00.000Z").expect("read"), "at the instant counts");
     assert!(!store.operator_ruled_since("stopped:01a:t1", "2026-11-04T10:00:01.000Z").expect("read"));
+
+    // A call out across the instant keeps its row after it, and the item was still handed before.
+    let late = KeptRuling { handed: "2026-11-04T09:59:00.000Z".to_string(), ..ruled("asked:01a:late", Some("c3"), "2026-11-04T10:00:30.000Z") };
+    store.add_operator_ruling(&late).expect("kept");
+    assert!(!store.operator_ruled_since("asked:01a:late", "2026-11-04T10:00:00.000Z").expect("read"), "kept after, handed before");
+}
+
+#[test]
+fn a_row_kept_before_handed_existed_reads_as_handed_when_it_was_kept() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let at = "2026-11-04T10:00:00.000Z";
+    let old = KeptRuling { session_id: "01a".to_string(), ..ruled("asked:01a:old", Some("c1"), at) };
+    store.add_operator_ruling(&old).expect("kept");
+    store.conn.execute("UPDATE operator_rulings SET handed = NULL", []).expect("as it was kept");
+
+    assert_eq!(store.operator_rulings_of("01a").expect("read")[0].handed, at);
+    assert!(store.operator_ruled_since("asked:01a:old", at).expect("read"));
+    assert!(!store.operator_ruled_since("asked:01a:old", "2026-11-04T10:00:01.000Z").expect("read"));
 }
 
 #[test]
