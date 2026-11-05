@@ -1,4 +1,4 @@
-// What Helm's thread links, resolved against the shapes a real Fleet publishes: a Session's id and address as `sessions-wire` derives them,
+// What a thread links, resolved against the shapes a real Fleet publishes: a Session's id and address as `sessions-wire` derives them,
 // issues and pull requests as `#` holds them, and a repository's merge line as `list_merge_lines` answers it.
 
 import { describe, expect, it } from "vitest";

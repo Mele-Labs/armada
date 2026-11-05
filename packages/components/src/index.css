@@ -207,7 +207,6 @@
 @import "./compositions/OverviewSummaryStrip/OverviewSummaryStrip.css";
 
 /* Questions waiting on a person, in the Operator's dock. */
-@import "./compositions/DockQuestions/DockQuestions.css";
 
 /* The rows of a thread, and where words went. */
 @import "./compositions/SessionThread/ThreadRows.css";

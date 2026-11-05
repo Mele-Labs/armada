@@ -47,7 +47,6 @@ export * from "./primitives/SelectMark/SelectMark";
 // Compositions — what M1 composes its screens from.
 export * from "./compositions/BoardEmptyState/BoardEmptyState";
 export * from "./compositions/ChangedFiles/ChangedFiles";
-export * from "./compositions/DockQuestions/DockQuestions";
 export * from "./compositions/FleetPanel/FleetPanel";
 export type {
   FleetBuild,

@@ -1,4 +1,4 @@
-// What Helm's words name that Bridge can open: a pull request or an issue by its number, a Session by its id, its address
+// What a thread's words name that Bridge can open: a pull request or an issue by its number, a Session by its id, its address
 // or its exact title. **Read off what the window holds**, never off the words' own claim: a number or a name that matches nothing here is left as text.
 // The spans are `Prose`'s to turn into links (`ProseRefs`); this is the finding.
 

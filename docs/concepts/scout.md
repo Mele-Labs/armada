@@ -38,7 +38,7 @@ Nothing it does changes the repository or anything outside Armada.
 | GitHub milestones | Every issue on it, as a Link each | Fleet, and no scout at all |
 | Web pages | Headings and text | Fleet, over HTTP |
 | Claude Code sessions | Jobs started in this repository or its worktrees | Fleet, off the transcript file |
-| Old Helm threads | This repository's past Helm conversations, which read as ended Jobs | Fleet, off the thread file |
+| A Job on your words | The newest Job started on your words in this repository | Fleet, off its thread |
 
 > **Rule.** Fleet fetches a source and hands the scout its text. A scout reaches nothing itself.
 > Why: its launch denies every tool that could fetch one and leaves it no MCP server, and that confinement is what makes it safe to run on a person's checkout — spike 017. Reading a source in widens none of it.
@@ -60,7 +60,7 @@ An address a scout is handed:
 | `.../milestone/<n>` | A milestone |
 | Any other `http`/`https` address | A page |
 | `armada:session/<id>` | A job of this repository or one of its worktrees |
-| `armada:thread` | This repository's old Helm thread |
+| `armada:thread` | The newest Job started on your words in this repository |
 
 > **Rule.** A job is found under the project directory this checkout's own path keys, and nowhere else.
 > Why: another repository's job is then not addressable, rather than addressable and refused. The boundary is where the lookup happens.
@@ -72,7 +72,7 @@ An address a scout is handed:
 
 > **Rule.** The connections a scout reads through are managed in [Kit](kit.md), in the same place as an agent's other MCP servers and plugins.
 
-Reading an old Helm thread needs no operation, and gets none: Fleet reads the thread's rows itself rather than opening a door for it.
+Reading that thread needs no operation, and gets none: Fleet reads the thread's rows itself rather than opening a door for it.
 
 ## What bounds it
 

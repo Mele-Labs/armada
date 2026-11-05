@@ -22,9 +22,7 @@ export * from "./AskRepository";
 export * from "./copy";
 export * from "./editing";
 // Every call held for a person, from every repository, as cards.
-export * from "./dock-questions";
 export * from "./refusal-words";
-export * from "./outstanding";
 export * from "./duration";
 export * from "./facts";
 export * from "./held";

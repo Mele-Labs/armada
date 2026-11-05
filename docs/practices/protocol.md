@@ -311,7 +311,7 @@ Bridge's half is `packages/protocol/src/session-plan.ts`, written by hand, field
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** `SessionChanged` carries the record, so it carries the field; no new event.
 
-## A cut command is asked whole: `HelmCallInFlight.whole`
+## A cut command is asked whole: `CallInFlight.whole`
 
 Since 19 Oct 2026. `docs/concepts/session/a-job-fleet-hosts.md`.
 **Additive only**: one field on an existing type; no operation, route, event kind or error.
@@ -320,7 +320,7 @@ Bridge's half is `packages/protocol/src/calls.ts`, written by hand, field for fi
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `HelmCallInFlight` (`helm.asking_to_run`, `list_helm_calls`, `SessionRow::Ask`, `hosted.asked`) | Fleet writes, Bridge reads | Gains `whole`: the argument as the session sent it, set only where `detail` was cut, absent otherwise. `detail`, `truncated` and `length` are unchanged |
+| `CallInFlight` (`SessionRow::Ask`, `hosted.asked`) | Fleet writes, Bridge reads | Gains `whole`: the argument as the session sent it, set only where `detail` was cut, absent otherwise. `detail`, `truncated` and `length` are unchanged |
 
 **Bridge's card draws `whole` where it is present**, so a person allowing a command reads all of it; the Needs you row still reads its first line.
 This serves an ask's argument where *A call's arguments are no longer served* left none: an ask only, never a row of the activity log.
@@ -804,7 +804,7 @@ A `{{name}}` that is not filled is sent as written, and `note` names it.
 **Everything answered and written carries a secret as `{{name}}`**: the answer, the row, the told words and any error.
 A value shorter than six characters is not hidden, as a kept cookie's was not, so a short value is not matched inside ordinary words.
 
-**Who sent it is the door it came through.** A request carrying Bridge's or the phone's caller header is the owner's; the agent's door, Helm's and a request naming nobody are an agent's.
+**Who sent it is the door it came through.** A request carrying Bridge's or the phone's caller header is the owner's; the agent's door and a request naming nobody are an agent's.
 An agent's answer drops `set-cookie` and is cut at 32 KiB, and the agent is not told what it already holds.
 **An agent's whole body is saved**, since 30 Oct 2026: read off the wire to 16 MiB, secrets hidden over all of it, and written to `requests/<row id>.json` or `.txt` under the Job's scratch folder, which goes when the Job ends.
 `saved` names the file, the bytes written and whether the body ran past 16 MiB; a write that fails leaves it out and says why in `note`.

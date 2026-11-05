@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState, type ComponentProps } from "react";
 import { expect, within } from "storybook/test";
 import { Tabs } from "../../primitives/Tabs/Tabs";
-import { DockQuestions } from "../DockQuestions/DockQuestions";
 import { TheShell } from "./TheShell";
 
 /**
@@ -328,71 +327,6 @@ export const DockTakesNoWidthFromTheContent: Story = {
     );
     await expect(panel()).toBe(shut);
   },
-};
-
-/** Questions from two repositories in the dock's questions zone, above where the Operator will sit. */
-export const DockWithQuestions: Story = {
-  args: {
-    ...shell,
-    dock: {
-      open: true,
-      binding: "⌘J",
-      onOpen: () => {},
-      children: (
-        <DockQuestions
-          questions={[
-            {
-              id: "b:call",
-              repository: "shop-01",
-              label: "A job needs your permission",
-              asked: <span className="mono">pnpm test --filter checkout</span>,
-              detail: "Your settings would have to allow Bash(pnpm test:*).",
-              waiting: "22m",
-              answers: [
-                {
-                  id: "allow_once",
-                  label: "Allow once",
-                },
-                {
-                  id: "allow_and_remember",
-                  label: "Allow and remember",
-                },
-                {
-                  id: "refuse",
-                  label: "Refuse",
-                },
-              ],
-              note: "Open Armada on this machine to answer.",
-            },
-            {
-              id: "a:call",
-              repository: "armada",
-              label: "A job needs your permission",
-              asked: <span className="mono">cargo nextest run -p store</span>,
-              detail: "Your settings would have to allow Bash(cargo nextest run:*).",
-              waiting: "1m",
-              answers: [
-                {
-                  id: "allow_once",
-                  label: "Allow once",
-                },
-                {
-                  id: "allow_and_remember",
-                  label: "Allow and remember",
-                },
-                {
-                  id: "refuse",
-                  label: "Refuse",
-                },
-              ],
-              note: "Open Armada on this machine to answer.",
-            },
-          ]}
-        />
-      ),
-    },
-  },
-  render: DockOverTheContent.render,
 };
 
 /**
