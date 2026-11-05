@@ -26,13 +26,22 @@ pub struct KeptRuling {
     /// The signer's wire word.
     pub by: String,
     pub at: String,
+    /// Where a start goes in Waiting to start: `ahead:<id>`, `behind:<id>` or `last`.
+    pub place: Option<String>,
+    /// The Job of two kept in touch that builds first.
+    pub first_session: Option<String>,
+    /// Each part of the ruling Fleet refused while the rest stood.
+    pub refused: Vec<String>,
+    /// The answer given to a question or a card, in its option's words.
+    pub answer: Option<String>,
 }
 
 const COLUMNS: &str = "arrival, arrived, source, source_session, session_id, manifest_id, subject, outcome, \
-                       other_session, shared, because, call, by, at";
+                       other_session, shared, because, call, by, at, place, first_session, refused, answer";
 
 fn ruling_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptRuling> {
     let shared: String = row.get(9)?;
+    let refused: String = row.get(16)?;
     Ok(KeptRuling {
         arrival: row.get(0)?,
         arrived: row.get(1)?,
@@ -48,6 +57,10 @@ fn ruling_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptRuling> {
         call: row.get(11)?,
         by: row.get(12)?,
         at: row.get(13)?,
+        place: row.get(14)?,
+        first_session: row.get(15)?,
+        refused: refused.lines().filter(|one| !one.is_empty()).map(str::to_string).collect(),
+        answer: row.get(17)?,
     })
 }
 
@@ -62,7 +75,7 @@ impl Store {
             .execute(
                 &format!(
                     "INSERT INTO operator_rulings ({COLUMNS})
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)"
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)"
                 ),
                 params![
                     one.arrival,
@@ -78,7 +91,11 @@ impl Store {
                     one.because,
                     one.call,
                     one.by,
-                    one.at
+                    one.at,
+                    one.place,
+                    one.first_session,
+                    one.refused.join("\n"),
+                    one.answer
                 ],
             )
             .map(|_| ())
@@ -94,6 +111,51 @@ impl Store {
             .map_err(failed(doing))?;
         let rows = statement.query_map([limit], ruling_of).map_err(failed(doing))?;
         rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
+    /// Every row of the Log about `session`, oldest first.
+    pub fn operator_rulings_of(&self, session: &str) -> Result<Vec<KeptRuling>, WriteError> {
+        let doing = "reading a Job's rows of the Operator's Log";
+        let mut statement = self
+            .conn
+            .prepare(&format!("SELECT {COLUMNS} FROM operator_rulings WHERE session_id = ?1 ORDER BY position"))
+            .map_err(failed(doing))?;
+        let rows = statement.query_map([session], ruling_of).map_err(failed(doing))?;
+        rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
+    /// The person's own answers in `manifest` to a question asked in exactly `subject`'s words,
+    /// newest first: what a second Job asking the same is offered.
+    pub fn operator_answers_to(&self, manifest: &str, subject: &str) -> Result<Vec<KeptRuling>, WriteError> {
+        let doing = "reading the person's earlier answers";
+        let mut statement = self
+            .conn
+            .prepare(&format!(
+                "SELECT {COLUMNS} FROM operator_rulings
+                 WHERE manifest_id = ?1 AND subject = ?2 AND answer IS NOT NULL AND by = 'human'
+                 ORDER BY position DESC"
+            ))
+            .map_err(failed(doing))?;
+        let rows = statement.query_map([manifest, subject], ruling_of).map_err(failed(doing))?;
+        rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
+    /// Whether the Log holds a row for `arrival`, ruled or passed on.
+    pub fn operator_ruled(&self, arrival: &str) -> Result<bool, WriteError> {
+        self.conn
+            .query_row("SELECT EXISTS (SELECT 1 FROM operator_rulings WHERE arrival = ?1)", [arrival], |row| row.get::<_, bool>(0))
+            .map_err(failed("reading the Operator's Log"))
+    }
+
+    /// Whether the Log holds a row for `arrival` kept at or after `since`, an RFC3339 instant.
+    pub fn operator_ruled_since(&self, arrival: &str, since: &str) -> Result<bool, WriteError> {
+        self.conn
+            .query_row(
+                "SELECT EXISTS (SELECT 1 FROM operator_rulings WHERE arrival = ?1 AND at >= ?2)",
+                [arrival, since],
+                |row| row.get::<_, bool>(0),
+            )
+            .map_err(failed("reading the Operator's Log"))
     }
 
     /// How many calls the Log names at or after `since`, an RFC3339 instant.

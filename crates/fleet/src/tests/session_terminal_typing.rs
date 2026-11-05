@@ -30,6 +30,7 @@ async fn text_left_on_the_line_is_cleared_before_the_agents_command_runs() {
     let rig = rig().await;
     let shell = ready(&rig).await;
     rig.types(&shell, LEFT_ON_THE_LINE).await.expect("in flight");
+    rig.printed(&shell, LEFT_ON_THE_LINE).await;
 
     let typed = Arc::clone(&rig.fleet)
         .type_in_terminal(None, typing(&rig, "echo cleared", true, Some(5)))
@@ -44,6 +45,8 @@ async fn clear_false_types_after_what_is_on_the_line() {
     let rig = rig().await;
     let shell = ready(&rig).await;
     rig.types(&shell, LEFT_ON_THE_LINE).await.expect("in flight");
+    // Typed only once the line editor shows it: sooner, the command can reach the line first.
+    rig.printed(&shell, LEFT_ON_THE_LINE).await;
 
     let kept = ipc::TypeInTerminal { clear: false, ..typing(&rig, "echo cleared", true, Some(5)) };
     let typed = Arc::clone(&rig.fleet).type_in_terminal(None, kept).await.expect("typed");

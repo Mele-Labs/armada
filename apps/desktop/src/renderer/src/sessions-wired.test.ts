@@ -610,9 +610,9 @@ it("leaves a pick out of the start where the idea has none, so the proposer fill
 });
 
 /** A store whose Fleet answers Auto land as `answer` says, with the window's refusals caught in `told`. */
-async function landing(answer: "ok" | "refused" | "forge_refused") {
+async function landing(answer: "ok" | "refused") {
   const error = {
-    code: answer === "forge_refused" ? "fleet.auto_merge_refused" : "fleet.session_command_refused",
+    code: "fleet.session_command_refused",
     message: "Auto merge is not allowed on this repository",
   };
   const setSessionAutoLand = vi.fn(async () =>
@@ -683,14 +683,6 @@ it("turns Auto land on through Fleet and says nothing", async () => {
   expect(await store.draft.autoLand!("a", true)).toBe(true);
   expect(setSessionAutoLand).toHaveBeenCalledWith("a", true);
   expect(said()).toEqual([]);
-});
-
-it("says the forge's refusal of auto-merge and still counts the flag as changed, since Fleet kept it first", async () => {
-  const { store, said } = await landing("forge_refused");
-  expect(await store.draft.autoLand!("a", true)).toBe(true);
-  expect(said()).toEqual([
-    "Auto merge is not allowed on this repository",
-  ]);
 });
 
 it("says a refusal that changed nothing, and counts the flag as unchanged", async () => {

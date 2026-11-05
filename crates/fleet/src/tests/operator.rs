@@ -12,7 +12,10 @@ use core_model::{Actor, Timestamp};
 use testkit::FakeJudge;
 
 use super::session_host::rig_placing;
-use crate::operator::{Acting, Answering, Arrival, Arrived, Calling, Desk, Done, FleetDesk, KeptStarted, LiveJob, Logged, Operator, Outcome, PassedOn, Ruled, Source, Way, FIRST_WRITE_WAIT};
+use crate::operator::{
+    Acting, Answering, Arrival, Arrived, Calling, Desk, Done, FleetDesk, InLine, KeptStarted, LiveJob, Logged, Operator, Outcome, PassedOn, Place, Ruled,
+    Source, Way, FIRST_WRITE_WAIT,
+};
 use crate::{CallFailed, JudgeBudget};
 
 const NOW: &str = "2026-11-04T10:00:00.000Z";
@@ -94,6 +97,7 @@ impl Calling for Answers {
 struct Held {
     ceiling: u32,
     live: Vec<LiveJob>,
+    waiting: Vec<InLine>,
     log: Mutex<Vec<Logged>>,
     acts: Mutex<Vec<String>>,
 }
@@ -112,7 +116,17 @@ impl Held {
                 issues: Vec::new(),
             })
             .collect();
-        Arc::new(Held { ceiling, live, log: Mutex::new(Vec::new()), acts: Mutex::new(Vec::new()) })
+        Arc::new(Held { ceiling, live, waiting: Vec::new(), log: Mutex::new(Vec::new()), acts: Mutex::new(Vec::new()) })
+    }
+
+    /// [`Held::with`], with `waiting` waiting to start in the repository, in that order.
+    fn with_waiting(ceiling: u32, waiting: &[&str]) -> Arc<Held> {
+        let waiting = waiting
+            .iter()
+            .map(|id| InLine { session_id: (*id).into(), title: format!("Job {id}"), manifest_id: "01REPO".into() })
+            .collect();
+        let held = Held::with(ceiling);
+        Arc::new(Held { waiting, ..Arc::into_inner(held).expect("one holder") })
     }
 
     fn acts(&self) -> Vec<String> {
@@ -151,6 +165,10 @@ impl Desk for Held {
     fn keep(&self, row: Logged) -> Done<'_, ()> {
         Box::pin(async move { self.log.lock().expect("not poisoned").push(row) })
     }
+
+    fn waiting(&self) -> Done<'_, Vec<InLine>> {
+        Box::pin(async move { self.waiting.clone() })
+    }
 }
 
 impl Acting for Held {
@@ -169,6 +187,14 @@ impl Acting for Held {
     fn keep_in_touch(&self, one: &str, other: &str, _shared: &[String]) {
         self.acts.lock().expect("not poisoned").push(format!("keep_in_touch {one} {other}"));
     }
+
+    fn place(&self, session: &str, place: &Place) {
+        self.acts.lock().expect("not poisoned").push(format!("place {session} {}", place.word()));
+    }
+
+    fn hold(&self, held: &str, first: &str, _shared: &[String]) {
+        self.acts.lock().expect("not poisoned").push(format!("hold {held} until {first}"));
+    }
 }
 
 fn start(id: &str, ways: &[Way]) -> Arrival {
@@ -184,6 +210,8 @@ fn start(id: &str, ways: &[Way]) -> Arrival {
         issues: Vec::new(),
         group: None,
         ways: ways.to_vec(),
+        answers: Vec::new(),
+        rule: None,
     }
 }
 
@@ -273,6 +301,10 @@ async fn fleet_keeps_the_log_in_its_store_signed_by_the_operator_and_counts_the_
         call: Some("call-1".into()),
         by: Actor::Operator,
         at: at.clone(),
+        place: Some(Place::Behind("01WAITING".into())),
+        first: Some("01OTHER".into()),
+        refused: vec!["a part refused".into()],
+        answer: None,
     };
     desk.keep(row.clone()).await;
 
@@ -298,4 +330,53 @@ async fn the_days_ceiling_counts_from_the_machines_midnight_and_not_utcs() {
     let now = millis(NOW);
     let local = crate::clock::local_day_began(now).await;
     assert!(local <= now && now - local < 86_400_000, "{}", crate::clock::rfc3339_utc(local));
+}
+
+#[tokio::test]
+async fn a_start_where_jobs_wait_to_start_is_placed_among_them_and_one_naming_a_job_not_offered_goes_last() {
+    let call = Answers::of(&[
+        "item: 1\nway: 1\njob: none\nshared: none\nplace: ahead of 01WAITB\nbecause: it is small and the others wait on it",
+        "item: 1\nway: 1\njob: none\nshared: none\nplace: ahead of 01GONE\nbecause: a Job not waiting",
+    ]);
+    let desk = Held::with_waiting(100, &["01WAITA", "01WAITB"]);
+    let operator = Operator::new(call.clone(), desk.clone(), desk.clone());
+
+    // One way left, and still put to a call: others wait, so it has a place to be given.
+    let ruled = operator.ruled(start("a", &[Way::NewJob]), FIRST_WRITE_WAIT).await;
+    assert!(matches!(&ruled, Ruled::Ruled(ruling) if ruling.place == Some(Place::Ahead("01WAITB".into())) && ruling.refused.is_empty()), "{ruled:?}");
+    let asked = call.asked.lock().expect("not poisoned")[0].clone();
+    assert!(asked.contains("Waiting to start in its repository") && asked.contains("1. Job 01WAITA") && asked.contains("2. Job 01WAITB"), "{asked}");
+
+    let ruled = operator.ruled(start("b", &[Way::NewJob]), FIRST_WRITE_WAIT).await;
+    assert!(matches!(&ruled, Ruled::Ruled(ruling) if ruling.way == Way::NewJob && ruling.place == Some(Place::Last)), "the way stands: {ruled:?}");
+    let log = desk.log();
+    assert_eq!((log[0].place.clone(), log[1].place.clone()), (Some(Place::Ahead("01WAITB".into())), Some(Place::Last)));
+    assert!(log[1].refused.iter().any(|one| one.contains("01GONE") && one.contains("last")), "the Log says what was refused: {:?}", log[1].refused);
+    assert_eq!(desk.acts(), ["go_ahead 01THIS", "place 01THIS ahead:01WAITB", "go_ahead 01THIS", "place 01THIS last"]);
+
+    // Nobody waits: no place is asked, and first come, first served stands.
+    let none = Held::with(100);
+    let operator = Operator::new(Answers::of(&[]), none.clone(), none.clone());
+    let ruled = operator.ruled(start("c", &[Way::NewJob]), FIRST_WRITE_WAIT).await;
+    assert!(matches!(&ruled, Ruled::Ruled(ruling) if ruling.place.is_none()), "{ruled:?}");
+}
+
+#[tokio::test]
+async fn of_two_kept_in_touch_the_one_named_first_builds_and_a_first_outside_the_pair_holds_nothing() {
+    let keep = |first: &str| format!("item: 1\nway: 4\njob: 01OTHER\nshared: panes/terminal.tsx\nfirst: {first}\nbecause: one builds the pane the other calls");
+    let call = Answers::of(&[&keep("01OTHER"), &keep("01THIS"), &keep("01GONE"), &keep("none")]);
+    let desk = Held::with(100);
+    let operator = Operator::new(call, desk.clone(), desk.clone());
+
+    for id in ["a", "b", "c", "d"] {
+        let ruled = operator.ruled(start(id, Way::STARTING), FIRST_WRITE_WAIT).await;
+        assert!(matches!(&ruled, Ruled::Ruled(ruling) if ruling.way == Way::KeepInTouch), "the keep in touch stands: {ruled:?}");
+    }
+
+    let acts: Vec<String> = desk.acts().into_iter().filter(|one| one.starts_with("hold")).collect();
+    assert_eq!(acts, ["hold 01THIS until 01OTHER", "hold 01OTHER until 01THIS"], "the other of the two is held, and only for one of the pair");
+    let log = desk.log();
+    assert_eq!(log.iter().map(|row| row.first.as_deref()).collect::<Vec<_>>(), [Some("01OTHER"), Some("01THIS"), None, None]);
+    assert!(log[2].refused.iter().any(|one| one.contains("01GONE") && one.contains("nothing is held")), "{:?}", log[2].refused);
+    assert!(log[3].refused.is_empty(), "none is no refusal: both build at once");
 }
