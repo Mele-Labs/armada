@@ -64,7 +64,6 @@ import {
   useAccount,
   useTerminalDock,
   FILE_SHOWN,
-  mediaKindOf,
 } from "@armada/components";
 import type {
   DebugPayload,
@@ -197,7 +196,7 @@ import {
   wordsOfQuote,
 } from "./teach";
 import type { TeachHere } from "./teach";
-import { readShownMedia } from "./session-media";
+import { openShownVideo, readShownMedia } from "./session-media";
 import { useShownFiles } from "./session-shown-file";
 import { startOf } from "./shared-panel/requests-model";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
@@ -1130,6 +1129,7 @@ export function entriesOf(
   scopes: ProposedScopes = new Map(),
   begin?: BeginChild,
   freeSlot?: (itemId: string, slot: number) => void | Promise<unknown>,
+  openVideo?: (path: string) => boolean,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
   // A recorded plan, a sketch and a document put to him are listed with the rest, as carriers of the review sheet's items; the Needs you card does not list them. A watch that ended not ours is a card in Needs you.
@@ -1532,12 +1532,13 @@ export function entriesOf(
               : one.form === "document" && one.revisions !== undefined
                 ? showLayer(session.id, "document", one.id)
                 : one.form === "file" &&
-                    openInPanel({
-                      kind: "file",
-                      path: one.id,
-                      from: "session",
-                      sessionId: session.id,
-                    })
+                    (openVideo?.(one.id) === true ||
+                      openInPanel({
+                        kind: "file",
+                        path: one.id,
+                        from: "session",
+                        sessionId: session.id,
+                      }))
                   ? undefined
                   : read({
                       kind: "artifact",
@@ -2188,6 +2189,7 @@ export function SessionView({
       draft.freeSlot === undefined
         ? undefined
         : (itemId, slot) => draft.freeSlot?.(id, itemId, slot),
+      (path) => openShownVideo(draft, id, path),
     ),
     ...closedOf(
       session,
@@ -3071,15 +3073,13 @@ export function SessionView({
                             })
                           }
                           onOpenFile={(path) =>
-                            // The Mac's own player: the panel reads a file into memory and would call a video binary.
-                            mediaKindOf(path) === "video"
-                              ? draft.openFile?.(session.id, path)
-                              : void openInPanel({
-                                  kind: "file",
-                                  path,
-                                  from: "session",
-                                  sessionId: session.id,
-                                })
+                            openShownVideo(draft, session.id, path) ||
+                            void openInPanel({
+                              kind: "file",
+                              path,
+                              from: "session",
+                              sessionId: session.id,
+                            })
                           }
                           onReadMedia={(path) => readShownMedia(draft, session.id, path)}
                           {...(draft.answerWaiting === undefined
