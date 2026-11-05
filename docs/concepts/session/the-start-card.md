@@ -28,7 +28,7 @@ A custom Job, and a workflow with no such step, have nothing to settle there.
 | An agent's start, `start_another_session`, and its fork, `fork_this_session` | Yes |
 | A start with `after`, once its wait is met | Yes |
 | A note's Start job on the annotation layer | Yes |
-| A start with `root`, and Helm's | No |
+| A start with `root` | No |
 
 A Job that is not held starts as before and is asked the delivery question at its plan step (*The delivery question*).
 A Job that waits on another is not held while it waits, since it has no first message yet (*A Job that waits on another*).

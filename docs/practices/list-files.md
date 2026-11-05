@@ -17,7 +17,7 @@ conflict where git's union merge would not have.
 
 | List | An entry is | Read by |
 |---|---|---|
-| `crates/ipc/operations/` | `<operation>.toml` holding `[operations.<operation>]`; a dotted event name is the file name, `job.created.toml`. `_header.toml` says what the fields are | `crates/ipc/build.rs`, the protocol rules in `xtask`, and `fleet`'s Helm test |
+| `crates/ipc/operations/` | `<operation>.toml` holding `[operations.<operation>]`; a dotted event name is the file name, `job.created.toml`. `_header.toml` says what the fields are | `crates/ipc/build.rs`, the protocol rules in `xtask`, and `fleet`'s door test |
 | `packages/icons/icons/` | `<glyph>.toml` holding `[icons.<glyph>]` and every `[[icons.<glyph>.usage]]` of it. `_header.toml` says what the fields are | the icon and action rules in `xtask` |
 | `packages/icons/conventions/` | `<rule>.toml` holding `[conventions.<rule>]` | the same |
 | `apps/desktop/src/renderer/src/mock/scenarios/` | A file exporting one `Scenario`; `scenario.ts` reads the directory with `import.meta.glob` | `scenario.ts` |

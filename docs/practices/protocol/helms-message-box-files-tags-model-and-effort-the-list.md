@@ -2,13 +2,15 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
+**A record of what was.** Helm is gone and the Operator took its place; [The Operator takes Helm's place](the-operator-takes-helms-place.md) has the seam as it is now.
+
 **Retired 13 Oct 2026 but for `AskHelm`'s `attachments` and `mentions`, `get_issue` and `TagKind::Issue`.** `tune_helm`, `HelmBoxFacts`, the socket's `facts` message and `get_helm_file` are gone: the box is a Job's, tuned with `tune_session` and fed by `session.hosted`.
 See *Helm is a Job*.
 
-`docs/concepts/helm.md`, *The message box*, and `docs/concepts/session.md`, *What a message names*.
+`docs/concepts/session.md`, *What a message names*.
 **Additive only**: three operations, all `agent_access` `No` and Bridge's, one `TagKind`, and optional fields on existing DTOs.
 Two required fields are new, `HelmOpened.facts` and the `facts` message, which a Bridge from before them cannot read; the ID refuses that pairing, so nothing meets it half built.
-Bridge's half is `packages/protocol/src/helm.ts`, `helm-thread.ts`, `hosted-sessions.ts` and `issues.ts`, written by hand.
+Bridge's half was `helm.ts` and `helm-thread.ts`, since deleted, with `packages/protocol/src/hosted-sessions.ts` and `packages/protocol/src/issues.ts`, written by hand.
 
 | Where | Carries | Notes |
 | --- | --- | --- |

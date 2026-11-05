@@ -3,7 +3,7 @@
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
 `list_sessions` through the agent's door answered 696 KB: every Job ever, each with its whole ledger, and the pull request bodies in it.
-The door cuts at 64 KiB, and a Helm job that read the cut file saw two of nine live Jobs and said only two were live.
+The door cuts at 64 KiB, and an agent that read the cut file saw two of nine live Jobs and said only two were live.
 **Additive only**: one query parameter, three types and one field on the door's answer.
 No operation is added, so nothing is tagged in `commander_reach.rs`.
 There is no number to take: the protocol ID moves with the wire files.

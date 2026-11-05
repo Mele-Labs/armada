@@ -79,7 +79,7 @@ proposal that reintroduces one of them is answering a question already settled.
 |---|---|---|
 | Skills in a repository | Worked, but was not portable to other projects | The Manifest. A repository has its own setup, kept at the place a person chooses, and one Fleet serves every repository a person adds rather than being configured per project |
 | A CLI | Did not surface the information he needed | Bridge, and why it is a board that is scanned rather than output that is read |
-| Orchestrator agents with sub agents | **Having a conversation was not the tool he was looking for** | Dispatch and report is how work gets done, and reading a transcript is not. What a conversation produces is kept as structure — a Studio's nodes, a Job's plan, a Job's branch — never a transcript read as a claim. Helm is a conversation with the tools of a terminal job, and the structure is what survives it |
+| Orchestrator agents with sub agents | **Having a conversation was not the tool he was looking for** | Dispatch and report is how work gets done, and reading a transcript is not. What a conversation produces is kept as structure — a Studio's nodes, a Job's plan, a Job's branch — never a transcript read as a claim. The [Operator](concepts/operator.md) is no conversation with tools: it is one call per arrival that holds none, and what it leaves is a Log of rulings |
 | Armada v1 | Close | This |
 
 **The third one explains more of the design than it looks like.** Evidence is
@@ -110,9 +110,9 @@ It still comes up holding what it was given.
 See [Kit](concepts/kit.md).
 
 **It is an unattended agent's and not a Job's.** A Scout is unattended, and the flag is what
-stops one reaching an operator's accounts with nobody watching. Helm is that
-operator, in a Job of their own, reading the reply as it is written, so a Helm
-job comes up holding what they hold, measured at nineteen servers on this
+stops one reaching an operator's accounts with nobody watching. A person is that
+operator, in a Job of their own, reading the reply as it is written, so a hosted
+Job comes up holding what they hold, measured at nineteen servers on this
 machine in
 [spike 18](spikes/018-what-can-a-helm-session-do-in-each-permission-mode.md).
 The two launches are rendered apart and a test holds them apart.
@@ -134,7 +134,7 @@ not bring it.
 **In such a repository the Checks can have nothing to run.** An empty Check registry expands
 to nothing in `crates/config/src/resolve.rs`, and #847 is what tells a person so.
 
-**A conversation is not a record.** Helm is a hosted Job and holds what a terminal job holds, writing in a slot on a branch like any Job, so it does real work in conversation — and what persists is the Studio's typed graph, the branch, and the Jobs it started.
+**A conversation is not a record.** The Operator holds no tools and runs no Job, so it does no work in conversation. A Job started on your words holds what a terminal job holds, writing in a slot on a branch like any Job — and what persists is the Studio's typed graph, the branch, the Jobs it started and the Operator's Log.
 Nothing downstream reads the thread.
 See the third attempt: what was rejected was reading a transcript as a claim, not talking.
 

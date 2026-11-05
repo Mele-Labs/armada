@@ -38,9 +38,9 @@ contract.
   record carrying `Attestation` must render distinctly from one verified
   mechanically, and its criterion verdicts read `confirmed` / `withheld`
   rather than either mechanical vocabulary.
-- **Actor:** `human`, `Helm`, `Drone`, `Fleet`, `Judge`, `Check`, `Commander`. Audit
+- **Actor:** `human`, `Operator`, `Drone`, `Fleet`, `Judge`, `Check`, `Commander`. Audit
   attribution. Answers who did this, and is what the three-way separation
-  (human / Helm / Drone) depends on at the point a person actually reads it.
+  (human / Operator / Drone) depends on at the point a person actually reads it.
   A Judge and a Check sign the rows their own answer wrote, since protocol
   22.0 (spike 022).
 
@@ -68,7 +68,7 @@ gating lands.*
 
 **3. Fleet emits discrete fields, not rendered strings.**
 
-Bridge, the push alert and Helm each render the same event differently. A
+Bridge and the push alert each render the same event differently. A
 pre-rendered string gives the push truncation rule nothing to truncate
 intelligently.
 

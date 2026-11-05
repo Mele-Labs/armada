@@ -79,7 +79,7 @@ It holds the forge's conversation, the threads on each change and his review; it
 
 **A pending comment names its file, line and code, and a press goes to it in the diff**, opening the diff again where it was folded.
 
-**Submit posts the verdict, its summary and every draft as one review at the commit he read.** Comment, Approve and Request changes are the three verdicts. Helm still asks before it writes.
+**Submit posts the verdict, its summary and every draft as one review at the commit he read.** Comment, Approve and Request changes are the three verdicts.
 
 **A comment with a blank body is refused before the forge**, as a plain comment is.
 

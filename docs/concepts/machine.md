@@ -70,10 +70,10 @@ The binding rules are `../contracts/configuration.md`, *The Machine tier is one 
 - Reduce motion: `features.reduceMotion`, whether Bridge's windows hold still with the Mac's own setting left alone; off ships
 - Pull request links: `features.deepLinks`, whether `armada://pull/<owner>/<name>/<n>` opens that review in Bridge
 - Voice/tone
-- Helm budget soft-warning threshold
-- Helm action authority
+- On your words can act: `features.onYourWordsCanAct`
+- Operator calls a day: `limits.operatorDailyCalls`
 
-**Helm action authority is Machine, not Kit.** Why: what Helm may do is a property of the installation, not of a repo.
+**Whether a Job on your words may act is Machine, not Kit.** Why: what such a Job may do is a property of the installation, not of a repo.
 
 ## Notification routing
 
@@ -85,7 +85,7 @@ An approval means work is waiting to start and will keep.
 
 ## Voice/tone
 
-**Voice governs runtime-generated prose only** — Judge summaries, Helm replies, Job summaries. Static UI chrome is not configurable.
+**Voice governs runtime-generated prose only** — Judge summaries, Job summaries. Static UI chrome is not configurable.
 
 Voice may adjust length and formality.
 It may not override the voice principles, the lexicon or the status grammar: "terse" and "explanatory" are legal values, "playful" is not.
@@ -151,7 +151,7 @@ A model chosen for one Job wins, and a terminal Job reports its own.
 
 ## What a Job is told about this Mac
 
-**Every process of a hosted Job or Helm Session is told what this Mac has.** It is the last section of the Logbook note (`logbook.md`, *Recall*), after the habits and the repository's entries, read from Fleet at each start.
+**Every process of a hosted Job is told what this Mac has.** It is the last section of the Logbook note (`logbook.md`, *Recall*), after the habits and the repository's entries, read from Fleet at each start.
 
 | Line | Where it comes from | Dropped when |
 |---|---|---|

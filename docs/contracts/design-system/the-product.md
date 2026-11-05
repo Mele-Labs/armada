@@ -12,7 +12,7 @@ Alerts, Doctor, Manifest. The count is not a contract: a surface earns a
 place in the window's tabs or System strip where a journey needs one, and the roster lives on
 Bridge. Active Jobs, Reviews and the Activity Feed were retired into the
 Board, which holds every Job with state as a filter. Alerts stays because
-an alert is a condition on a Job rather than a status a Job holds. Helm
+an alert is a condition on a Job rather than a status a Job holds. The Operator
 is not a surface — see Window and layout model, Content area, below.
 
 **The screen's job:** at a glance, tell one person what is running, what

@@ -573,7 +573,7 @@ return to a scenario without editing the address.
 | `empty-store` | One repository and no Job yet |
 | `setting-up` | A set-up repository and a folder nobody set up, over a Fleet that scans, proposes, applies each Setup edit and Write, and adds or clones a repository |
 | `manifest` | This repository's own Manifest, on a Fleet that saves the file, applies the forms' edits, and lists runs, drift and an always-allowed command |
-| `studios` | This repository's Studios, on a Fleet that keeps them and takes the writes Helm makes on one |
+| `studios` | This repository's Studios, on a Fleet that keeps them and takes the writes a Job on your words makes on one |
 | `helm-talking` | Helm pointed at a repository, with an answer given about the Job on the Board and a second ask that never came back — the dock's thread, its composer, *Start fresh* and the record's split button, all reachable without building the state in a test |
 
 **Every Job the mock holds is a Storybook fixture, never data made up for the mock.**

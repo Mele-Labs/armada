@@ -2,7 +2,9 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/helm.md`, `.claude/decisions/2026-10-13-helm-is-a-session.md`.
+**A record of what was.** Helm is gone and the Operator took its place; [The Operator takes Helm's place](the-operator-takes-helms-place.md) has the seam as it is now.
+
+`.claude/decisions/2026-10-13-helm-is-a-session.md`.
 Helm's dock moves off its own host and socket onto the hosted-Session engine.
 Bridge has moved with it: the dock reads the Helm Job through the Jobs pipeline and calls only the routes below.
 

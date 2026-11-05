@@ -14,7 +14,7 @@ const COMMAND_MOST = 300
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.58'
+export const MOD_VERSION = '0.3.59'
 
 /** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
 export type ContextBreakdown = {
@@ -93,7 +93,7 @@ export function answersIn(input: unknown): Record<string, string> {
 /**
  * The web pages a shell line opens in the owner's browser: `open`, `xdg-open` or
  * `python -m webbrowser` with an `http(s)` address. Fleet reads hosted sessions' lines the same way
- * (`pages_opened`, `crates/fleet/src/helm/deciding.rs`).
+ * (`pages_opened`, `crates/fleet/src/auto_gate/folders.rs`).
  */
 export function pagesOpenedIn(command: string): string[] {
   const pages: string[] = []

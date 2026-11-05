@@ -15,7 +15,7 @@ which is an assembled prompt and therefore governed here.
 | **The clarification reprompt** | Evidence arrived but was insufficient | Drafted, not sanctioned |
 | **The force-interrupt directive** | A thrashing verdict | Drafted, not sanctioned |
 | **The refusal reprompt** | A Judge refused a criterion after a mechanical check passed. **It rides a brief and is injected into nothing** — the refusal ends the step, and its Drone with it | Specified |
-| **`redirect_drone`** | A structured instruction from a human, or from Helm at rung 1 | A person writes it |
+| **`redirect_drone`** | A structured instruction from a human, or from a Job on your words at rung 1 | A person writes it |
 | **The Pilot handoff instruction** | Fleet tells the Drone to call `escape_hatch` after a human confirms Pilot | Drafted, not sanctioned |
 | **The hatch-unavailable answer** | A Drone pulled the hatch on a Job Fleet had not marked | Drafted, not sanctioned |
 | **The gate's outcome** | A step passed its gate and its Drone is still there | Drafted, not sanctioned |

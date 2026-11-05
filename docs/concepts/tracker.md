@@ -38,7 +38,9 @@ The credential stays where the forge CLI already keeps it, in the operator's own
 | Run, save, edit and forget a query | On ask from Bridge, a saved one run as one tracker call | `crates/fleet/src/issue_queries.rs`, `crates/store/src/issue_queries.rs` |
 
 **Fleet never comments on, labels or edits an issue or a pull request on the owner's behalf**, unless he presses for it.
-There are two exceptions: a beads backlog, which Fleet syncs and claims in ([Beads](#beads)), and the writes of a rule he saved ([Writes a saved rule makes](#writes-a-saved-rule-makes)).
+There are three exceptions: a beads backlog, which Fleet syncs and claims in ([Beads](#beads)), the writes of a rule he saved ([Writes a saved rule makes](#writes-a-saved-rule-makes)), and the [Operator](operator.md)'s File role, which creates a new issue for a Later item no open issue covers.
+**File only ever creates**: it comments on, labels and closes nothing, and files nothing the person typed himself.
+It files in a repository's beads now, and on a tracker with a forge each new issue needs his yes.
 A review or comment he approves or types and sends from Bridge is his own act. #91 asked for write-back to the issue a Job came from, and it is not built.
 
 ## Rules

@@ -24,7 +24,6 @@ A terminal Job's mod sends that same close, so an ask is read from a terminal re
 The item's text is the sentence that asks.
 It stops standing when the person writes to the Job, when another turn begins by any route and when the Job ends.
 A turn that ended on tools alone, with nothing said, leaves no reply, and a Job whose turn ended before Fleet observed this has none: nothing is read back from old turns.
-A Helm Job has no reply, since its replies are the dock's.
 A `done` outranks a reply.
 
 **A reply that only tells is no item; a reply that asks is one.** The owner, 14 Oct 2026: "When a session replies to me, it shouldn't show up in needs me.
@@ -50,7 +49,7 @@ With the model not loaded nothing is raised, since no rule stands in for it.
 
 **Every stop answers for itself** (the owner, 3 Nov 2026: "Armada is about me not babysitting jobs").
 A stop is named by when its turn ended (`last_turn_at`), so a turn that ended on tools alone counts, and whether it stands is read where the row is built (`session_host/stopping.rs`).
-A stop is excused by facts, never by the agent saying so: a turn, subagent, background command or Check running, a live watch, its own open pull request, a lifecycle holding it other than a ticket, a Job it started that is still running, any item in `waiting_for`, a `done`, a pause, its start card, a limit, a wait on another Job, a Helm Job, or a terminal that is not listening.
+A stop is excused by facts, never by the agent saying so: a turn, subagent, background command or Check running, a live watch, its own open pull request, a lifecycle holding it other than a ticket, a Job it started that is still running, any item in `waiting_for`, a `done`, a pause, its start card, a limit, a wait on another Job, or a terminal that is not listening.
 A minute after a stop nothing excuses (`STOP_AFTER`, unmeasured), Fleet sends one word, `stop_nudge`: to carry on, to name what it waits on with `waiting_for`, or to finish.
 A Job stopped on a step only it can end hears that step's own words instead ([The rail](the-rail.md)).
 **One nudge per stop.** The stop after it reads `stopped`, so a Job can never loop with Fleet.

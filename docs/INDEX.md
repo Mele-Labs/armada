@@ -97,7 +97,7 @@ not override, **spec** is a designed artifact, **reference** is lookup material.
   prompt Armada assembles and puts in front of a model. One file per section,
   under [`contracts/agent-prompt/`](contracts/agent-prompt/).
 - [`contracts/agent-copy.md`](contracts/agent-copy.md) — *contract.* Text
-  written at runtime by Drones, the Judge and Helm. Its sibling, going the
+  written at runtime by Drones and the Judge. Its sibling, going the
   other way.
 - [`contracts/workflow-design-system.md`](contracts/workflow-design-system.md)
   — *spec.* How a workflow is structured and how evidence moves through one.
