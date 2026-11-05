@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { MessageSquare } from "lucide-react";
+import { Bot } from "lucide-react";
 import { useState } from "react";
 import type { ComponentProps } from "react";
 import { expect, fireEvent, fn, waitFor, within } from "storybook/test";
@@ -79,7 +79,7 @@ export const Left: Story = {
 
 /**
  * Over the whole work area, under the title row and held off every edge, with
- * the card's radius and edge: Helm's dock, as a sheet. What the Record's open
+ * the card's radius and edge: the Operator's dock, as a sheet. What the Record's open
  * row takes, where a sheet contained in the content column read as cut off at
  * that column's edge.
  */
@@ -96,7 +96,7 @@ export const Floating: Story = {
 };
 
 /**
- * The head's leading slot. Its one caller is Helm's folded dock (#1320), and
+ * The head's leading slot. Its one caller is the Operator's folded dock (#1320), and
  * what it carries is that dock's own chip — the class below is `TheShell`'s,
  * not this primitive's, since the slot owns where a mark sits and never what
  * the mark is.
@@ -108,19 +108,19 @@ export const Leading: Story = {
   args: {
     kind: "story-sheet",
     open: true,
-    title: "Helm",
+    title: "Operator",
     leading: (
       <span className="armada-shell__dock-chip" aria-hidden>
-        <MessageSquare size={16} strokeWidth={2} />
+        <Bot size={16} strokeWidth={2} />
       </span>
     ),
     closeLabel: "Close",
-    children: "Questions waiting on you, and Helm, will be here.",
+    children: "The Operator panel draws here.",
   },
   play: async ({ canvas }) => {
     await expect(
       canvas.getByRole("dialog", {
-        name: "Helm",
+        name: "Operator",
       }),
     ).toBeVisible();
   },

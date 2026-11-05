@@ -52,7 +52,7 @@ const row = (
 
 const QUEUE: PlaceRow[] = [
   row(1, 2201, "Commander repair onto the Job's branch", "mergeable"),
-  row(2, 2204, "Keep the dispatch bar under Helm", "awaiting_checks"),
+  row(2, 2204, "Keep the dispatch bar under the dock", "awaiting_checks"),
   {
     ...row(3, 2209, "Open pull requests in Armada", "queued"),
     current: true,

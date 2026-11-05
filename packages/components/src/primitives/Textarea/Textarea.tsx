@@ -25,7 +25,7 @@ import { forgetKept, readKept, writeKept } from "../../keep";
  *   anywhere, and a counter would be the first place one was invented.
  *
  * **A text box someone types into keeps what was typed.** `keep` names what
- * the text is about (`helm:armada`, `session:01J…`); leave the panel and come
+ * the text is about (`operator:armada`, `session:01J…`); leave the panel and come
  * back, or reload Bridge, and the text is there with the caret at its end. The
  * text clears when the field's value goes empty, which is what a send does.
  * `keep={false}` is for a field that edits a stored value, whose text lives

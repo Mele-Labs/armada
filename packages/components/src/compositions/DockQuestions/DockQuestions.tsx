@@ -6,7 +6,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { useNow } from "../../clock";
 
 /**
- * Every question waiting on a person, from every repository, in Helm's dock (#935). A card each.
+ * Every call held for a person, from every repository (#935). A card each.
  *
  * **The card names where it came from before what it asks**: a question without its repository is
  * one a person cannot place.
@@ -16,7 +16,7 @@ import { useNow } from "../../clock";
  * tooltip.
  */
 export type DockQuestionsProps = {
-  /** Oldest first. Empty draws nothing, and the dock draws its own quiet line. */
+  /** Oldest first. Empty draws nothing. */
   questions: readonly DockQuestion[];
 };
 
@@ -53,8 +53,6 @@ export type DockQuestion = {
   note?: ReactNode;
   /** Why this card's last answer did not take. Present beside live answers, not only where they are off. */
   refusal?: ReactNode;
-  /** Point Helm at this card's repository. The picker does not move. Absent draws it off. */
-  onDiscuss?: () => void;
 };
 
 export function DockQuestions({ questions }: DockQuestionsProps) {
@@ -83,9 +81,8 @@ function QuestionCard({
   answering,
   note,
   refusal,
-  onDiscuss,
 }: DockQuestion) {
-  const where = `${repository}, helm`;
+  const where = repository;
   // Which of this card's own answers was pressed — `answering` alone says
   // Fleet has not answered, not which control sent it. Cleared once
   // `answering` drops, so a fresh question always starts unpressed. #1117.
@@ -96,14 +93,13 @@ function QuestionCard({
     answering,
   ]);
   const stillWaiting = useStillWaiting(answering === true);
-  // `flat` because the questions zone is a well on the dock's own glass, and a
+  // `flat` because the questions zone is a well on a panel's own glass, and a
   // well is the one ground the card treatment's ancestry cannot see (#1353).
-  // Inside the dock the rule reaches this card anyway; saying it here is what
-  // makes it draw the same off the dock, in its own story.
+  // Saying it here is what makes it draw the same wherever the card is.
   return (
     <Card className="armada-dock-question" flat role="article" aria-label={`${label} — ${where}`}>
       <div className="armada-dock-question__where">
-        <span className="armada-dock-question__place mono">{repository} · helm</span>
+        <span className="armada-dock-question__place mono">{repository}</span>
         {waiting === undefined ? null : typeof waiting === "string" ? (
           <span className="armada-dock-question__waiting mono">{waiting}</span>
         ) : (
@@ -154,16 +150,11 @@ function QuestionCard({
           {STILL_WAITING}
         </p>
       ) : null}
-      <div>
-        <Button variant="ghost" size="sm" disabled={onDiscuss === undefined} onClick={onDiscuss}>
-          Discuss with Helm
-        </Button>
-      </div>
     </Card>
   );
 }
 
-/** The wait, read off the clock here so a tick draws this span and not the dock. */
+/** The wait, read off the clock here so a tick draws this span and not the list. */
 function Waited({ of }: { of: (now: number) => string | undefined }) {
   const waited = of(useNow());
   return waited === undefined ? null : (

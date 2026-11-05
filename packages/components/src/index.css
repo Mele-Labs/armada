@@ -29,7 +29,7 @@
 @import "./primitives/Dialog/Dialog.css";
 @import "./primitives/DropdownMenu/DropdownMenu.css";
 @import "./primitives/Popover/Popover.css";
-/* A dock's leading-edge resize handle, one for Helm's dock and a floating Sheet.
+/* A dock's leading-edge resize handle, one for the Operator's dock and a floating Sheet.
    Ahead of both, so each lays it out over the shared look. */
 @import "./dock-handle.css";
 @import "./primitives/Sheet/Sheet.css";
@@ -175,7 +175,7 @@
 @import "./compositions/RunPage/RunPage.css";
 
 /* Every setting a person can change on a running Job, on a trailing sheet. */
-/* This machine's own settings — Helm's action authority first, read-only. */
+/* This machine's own settings — the Operator's action authority first, read-only. */
 
 /* A step's work, with runs of one tool folded to a line. */
 
@@ -200,26 +200,24 @@
 /* A Plan region's mark — the whole of what carries a task's state. */
 @import "./compositions/TaskMark/TaskMark.css";
 
-/* Helm's dock, beside the shell's panel. */
+/* The Operator's dock, beside the shell's panel. */
 @import "./compositions/TheShell/TheShell.css";
 
 /* Overview's band of readings. */
 @import "./compositions/OverviewSummaryStrip/OverviewSummaryStrip.css";
 
-/* Questions waiting on a person, in Helm's dock. */
+/* Questions waiting on a person, in the Operator's dock. */
 @import "./compositions/DockQuestions/DockQuestions.css";
 
-/* Helm's own conversation, under the dock's questions. */
-@import "./compositions/HelmThread/HelmThread.css";
-@import "./compositions/HelmComposer/HelmComposer.css";
-@import "./compositions/HelmHolds/HelmHolds.css";
+/* The rows of a thread, and where words went. */
+@import "./compositions/SessionThread/ThreadRows.css";
 
 /* Every import stays above the rule below and not after it: an `@import`
    that follows a rule is dropped by the browser. */
 
 /* The card a gaming flag holds a step with. #1079, back for #1672. */
 
-/* The title row — the picker, the search field, Dispatch, Helm's reopen
+/* The title row — the picker, the search field, Dispatch, the Operator's reopen
    control and the logo, in the traffic lights' own bar. #1087. */
 @import "./compositions/TitleBar/TitleBar.css";
 
@@ -267,9 +265,6 @@
 @import "./compositions/KitBrowser/KitBrowser.css";
 @import "./compositions/KitModels/KitModels.css";
 @import "./compositions/SystemSidebar/SystemSidebar.css";
-/* One Helm session as one quotable record, on the layer wide enough to read
-   it. #1367. */
-@import "./compositions/HelmRecord/HelmRecord.css";
 @import "./compositions/DriftSheet/DriftSheet.css";
 @import "./compositions/VerifySheet/VerifySheet.css";
 /* Bridge's chrome above another repository's running web app. #1294. */
@@ -359,29 +354,6 @@
 @import "./compositions/SketchScene/SketchScene.css";
 @import "./compositions/SketchScene/ScreenView.css";
 
-/* The thread and the composer, stacked — Bridge's own wrapper, `TheShell`'s
-   frame is what gives the pair its edges. */
-.armada-helm-dock {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-/* Helm as a Session: the thread scrolls in the room between the chips and the box, as a Session's does. */
-.armada-helm-dock[data-hosted] {
-  flex: 1;
-  min-height: 0;
-}
-
-/* The first write's row in the dock's width: the chips keep their words and the row wraps. */
-.armada-helm-dock .armada-session-lease {
-  flex-wrap: wrap;
-}
-
-.armada-helm-dock .armada-session-lease__chip {
-  white-space: nowrap;
-}
 @import "./compositions/MainHead/MainHead.css";
 @import "./compositions/ModRow/ModRow.css";
 @import "./compositions/ModRules/ModRules.css";
@@ -395,7 +367,6 @@
 @import "./compositions/WalkGuide/WalkGuide.css";
 @import "./compositions/WindowQuestion/WindowQuestion.css";
 @import "./compositions/AutopilotFields/AutopilotFields.css";
-@import "./compositions/ThoughtCard/ThoughtCard.css";
 @import "./compositions/ClashMark/ClashMark.css";
 @import "./compositions/PullRequestPanel/PullRequestPanel.css";
 @import "./compositions/PullRequestPanel/PullRequestTabs.css";

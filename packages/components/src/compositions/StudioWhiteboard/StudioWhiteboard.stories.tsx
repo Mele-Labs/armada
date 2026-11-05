@@ -377,7 +377,7 @@ const edges: StudioWhiteboardEdge[] = [
     target: "cluster",
     kind: "same_as",
     proposed: true,
-    proposer: "Helm proposes",
+    proposer: "A job proposed",
   },
   {
     id: "r3",
@@ -461,7 +461,7 @@ export const EveryKind: Story = {
       "a proposed relation is a dot on its line, which opens to be answered and names who proposed it",
       async () => {
         // **Shut until asked for** — the owner, 2 Oct 2026: the card sat on the Note under its line.
-        const named = /^Helm proposes: Sketch\s+same as /;
+        const named = /^A job proposed: Sketch\s+same as /;
         await expect(
           canvas.queryByRole("group", {
             name: named,

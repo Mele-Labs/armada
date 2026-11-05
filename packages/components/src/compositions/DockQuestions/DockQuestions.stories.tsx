@@ -6,8 +6,7 @@ import { Prose } from "../../primitives/Prose/Prose";
 import { DockQuestions, type DockQuestion } from "./DockQuestions";
 
 /**
- * The questions zone of Helm's dock, drawn at the dock's own width on its sunken ground. A call
- * Helm was held on, with questions from two repositories.
+ * Calls held for a person, drawn on a sunken ground, with questions from two repositories.
  */
 const meta: Meta<typeof DockQuestions> = {
   title: "Compositions/Dock questions",
@@ -28,57 +27,55 @@ export default meta;
 
 type Story = StoryObj<typeof DockQuestions>;
 
-const helmCall: DockQuestion = {
-  id: "helm:helm-1",
+const heldCall: DockQuestion = {
+  id: "call:call-1",
   repository: "armada",
-  label: "Helm needs your permission",
-  asked: <span className="mono">gh issue list --milestone Helm</span>,
+  label: "A job needs your permission",
+  asked: <span className="mono">gh issue list --milestone Release</span>,
   detail: "Your settings would have to allow Bash(gh issue list:*).",
   waiting: "18s",
   answers: [
     {
       id: "allow_once",
       label: "Allow once",
-      consequence: "Helm runs it now. Nothing is written down.",
+      consequence: "Runs it now. Nothing is written down.",
     },
     {
       id: "allow_and_remember",
       label: "Allow and remember",
-      consequence: "Helm runs it now, and the rule goes into this repository's own settings.",
+      consequence: "Runs it now, and the rule goes into this repository's own settings.",
     },
     {
       id: "refuse",
       label: "Refuse",
-      consequence: "Helm is told no, and says what it could not do.",
+      consequence: "The job is told no, and says what it could not do.",
     },
   ],
   onAnswer: fn(),
-  onDiscuss: fn(),
 };
 
 const otherCall: DockQuestion = {
-  ...helmCall,
-  id: "helm:helm-2",
+  ...heldCall,
+  id: "call:call-2",
   repository: "shop-01",
   asked: <span className="mono">cargo nextest run -p store</span>,
   detail: "Your settings would have to allow Bash(cargo nextest run:*).",
   waiting: "4m",
   onAnswer: fn(),
-  onDiscuss: fn(),
 };
 
 /**
- * A call Helm was held on: the card names its repository alone, says which rule would have to
+ * A held call: the card names its repository alone, says which rule would have to
  * allow it, and offers three answers of its own. #1389.
  */
-export const HelmNeedsPermission: Story = {
+export const NeedsPermission: Story = {
   args: {
     questions: [
-      helmCall,
+      heldCall,
     ],
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText(/armada · helm/)).toBeInTheDocument();
+    await expect(canvas.getByText("armada")).toBeInTheDocument();
     await expect(canvas.queryByText(/job /)).not.toBeInTheDocument();
     await expect(
       canvas.getByRole("button", {
@@ -94,7 +91,7 @@ export const InMarkdown: Story = {
   args: {
     questions: [
       {
-        ...helmCall,
+        ...heldCall,
         asked: (
           <Prose
             text={
@@ -116,13 +113,12 @@ export const InMarkdown: Story = {
 };
 
 /**
- * Two repositories. Pressing an answer sends its wire name, and Discuss with Helm names the card
- * it was pressed on.
+ * Two repositories. Pressing an answer sends its wire name from the card it was pressed on.
  */
 export const FromTwoRepositories: Story = {
   args: {
     questions: [
-      helmCall,
+      heldCall,
       otherCall,
     ],
   },
@@ -130,12 +126,12 @@ export const FromTwoRepositories: Story = {
     await expect(canvas.getAllByRole("article")).toHaveLength(2);
     await expect(
       canvas.getByRole("article", {
-        name: /shop-01, helm/,
+        name: /shop-01/,
       }),
     ).toBeVisible();
     await expect(
       canvas.getByRole("article", {
-        name: /armada, helm/,
+        name: /armada/,
       }),
     ).toBeVisible();
 
@@ -146,14 +142,6 @@ export const FromTwoRepositories: Story = {
     );
     await expect(args.questions[1]?.onAnswer).toHaveBeenCalledWith("refuse");
     await expect(args.questions[0]?.onAnswer).not.toHaveBeenCalled();
-
-    await userEvent.click(
-      canvas.getAllByRole("button", {
-        name: "Discuss with Helm",
-      })[1]!,
-    );
-    await expect(args.questions[1]?.onDiscuss).toHaveBeenCalledTimes(1);
-    await expect(args.questions[0]?.onDiscuss).not.toHaveBeenCalled();
   },
 };
 
@@ -161,7 +149,7 @@ export const FromTwoRepositories: Story = {
 export const CardAnswered: Story = {
   args: {
     questions: [
-      helmCall,
+      heldCall,
     ],
   },
   play: async ({ args, canvas, userEvent }) => {
@@ -175,7 +163,7 @@ export const CardAnswered: Story = {
 };
 
 /**
- * Stands in for the dock: a press goes out and `answering` follows on the
+ * Stands in for the window: a press goes out and `answering` follows on the
  * next render, the way `commands.acting` actually arrives.
  */
 function Pressing() {
@@ -184,10 +172,10 @@ function Pressing() {
     <DockQuestions
       questions={[
         {
-          ...helmCall,
+          ...heldCall,
           answering,
           onAnswer: (answer) => {
-            helmCall.onAnswer?.(answer);
+            heldCall.onAnswer?.(answer);
             setAnswering(true);
           },
         },
@@ -231,7 +219,7 @@ export const CardAnsweringElsewhere: Story = {
   args: {
     questions: [
       {
-        ...helmCall,
+        ...heldCall,
         answering: true,
       },
     ],
@@ -255,7 +243,7 @@ export const AlreadyAnswered: Story = {
   args: {
     questions: [
       {
-        ...helmCall,
+        ...heldCall,
         refusal:
           "the call being answered is not the one outstanding. Read the calls again and answer the one it names",
       },
@@ -266,14 +254,13 @@ export const AlreadyAnswered: Story = {
   },
 };
 
-/** Before answering from the dock is wired: the answers are drawn, off, and the card says where to answer. */
+/** Before answering is wired: the answers are drawn, off, and the card says where to answer. */
 export const AnswersNotWiredYet: Story = {
   args: {
     questions: [
       {
-        ...helmCall,
+        ...heldCall,
         onAnswer: undefined,
-        onDiscuss: undefined,
         note: "Open Armada on this machine to answer.",
       },
     ],
@@ -282,11 +269,6 @@ export const AnswersNotWiredYet: Story = {
     await expect(
       canvas.getByRole("button", {
         name: "Allow once",
-      }),
-    ).toBeDisabled();
-    await expect(
-      canvas.getByRole("button", {
-        name: "Discuss with Helm",
       }),
     ).toBeDisabled();
     await expect(canvas.getByRole("note")).toHaveTextContent(

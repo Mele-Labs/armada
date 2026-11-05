@@ -226,7 +226,7 @@ function WithResizableDock(args: ComponentProps<typeof TheShell>) {
   return <TheShell {...args} dock={dock} />;
 }
 
-/** At `--layout-breakpoint` and wider: Helm's dock over the content, on every surface. */
+/** At `--layout-breakpoint` and wider: the Operator's dock over the content, on every surface. */
 export const DockOverTheContent: Story = {
   args: {
     ...shell,
@@ -247,7 +247,7 @@ export const DockOverTheContent: Story = {
 
 /**
  * At `--layout-breakpoint` and wider, closed: no strip, no residue — #1094.
- * The title row's own Helm button is the only way back, and pressing it draws
+ * The title row's own Operator button is the only way back, and pressing it draws
  * the dock over the content. **This is how Bridge opens** (#1583).
  */
 export const DockClosedAtWidth: Story = {
@@ -263,22 +263,22 @@ export const DockClosedAtWidth: Story = {
   play: async ({ canvas, userEvent }) => {
     await expect(
       canvas.queryByRole("complementary", {
-        name: "Helm",
+        name: "Operator",
       }),
     ).not.toBeInTheDocument();
     await expect(
       canvas.queryByRole("button", {
-        name: /Open Helm/,
+        name: /Open Operator/,
       }),
     ).not.toBeInTheDocument();
     await userEvent.click(
       canvas.getByRole("button", {
-        name: "Helm",
+        name: "Operator",
       }),
     );
     await expect(
       canvas.getByRole("complementary", {
-        name: "Helm",
+        name: "Operator",
       }),
     ).toBeVisible();
   },
@@ -286,7 +286,7 @@ export const DockClosedAtWidth: Story = {
 
 /**
  * **The whole of #1583, as an assertion**: the panel measures the same with
- * Helm shut and open. It was 380px narrower with the dock open, and three
+ * the dock shut and open. It was 380px narrower with the dock open, and three
  * screens grew a workaround around that in one day.
  *
  * A geometry claim, which `armada-components` says a `play` does not usually
@@ -312,12 +312,12 @@ export const DockTakesNoWidthFromTheContent: Story = {
     const shut = panel();
     await userEvent.click(
       canvas.getByRole("button", {
-        name: "Helm",
+        name: "Operator",
       }),
     );
     await expect(
       canvas.getByRole("complementary", {
-        name: "Helm",
+        name: "Operator",
       }),
     ).toBeVisible();
     await expect(panel()).toBe(shut);
@@ -330,22 +330,21 @@ export const DockTakesNoWidthFromTheContent: Story = {
   },
 };
 
-/** Questions from two repositories in the dock's questions zone, above where Helm's conversation will sit. */
+/** Questions from two repositories in the dock's questions zone, above where the Operator will sit. */
 export const DockWithQuestions: Story = {
   args: {
     ...shell,
     dock: {
       open: true,
       binding: "⌘J",
-      questions: 2,
       onOpen: () => {},
       children: (
         <DockQuestions
           questions={[
             {
-              id: "b:helm",
+              id: "b:call",
               repository: "shop-01",
-              label: "Helm needs your permission",
+              label: "A job needs your permission",
               asked: <span className="mono">pnpm test --filter checkout</span>,
               detail: "Your settings would have to allow Bash(pnpm test:*).",
               waiting: "22m",
@@ -366,9 +365,9 @@ export const DockWithQuestions: Story = {
               note: "Open Armada on this machine to answer.",
             },
             {
-              id: "a:helm",
+              id: "a:call",
               repository: "armada",
-              label: "Helm needs your permission",
+              label: "A job needs your permission",
               asked: <span className="mono">cargo nextest run -p store</span>,
               detail: "Your settings would have to allow Bash(cargo nextest run:*).",
               waiting: "1m",
@@ -422,7 +421,7 @@ export const DockResizable: Story = {
   ),
   play: async ({ canvas, userEvent }) => {
     const handle = canvas.getByRole("separator", {
-      name: "Resize Helm",
+      name: "Resize Operator",
     });
     await expect(handle).toHaveAttribute("aria-valuenow", "380");
     await userEvent.click(handle);
@@ -436,7 +435,7 @@ export const DockResizable: Story = {
 
 /**
  * Below the breakpoint: no edge strip — the owner dropped it on 30 Sep 2026.
- * The title row's Helm button carries the questions waiting and opens the dock
+ * The title row's Operator button opens the dock
  * as a sheet, the same press as at every other width.
  */
 export const DockFoldedToASheet: Story = {
@@ -445,7 +444,6 @@ export const DockFoldedToASheet: Story = {
     dock: {
       open: false,
       folded: true,
-      questions: 3,
       binding: "⌘J",
       onOpen: () => {},
     },
@@ -465,15 +463,15 @@ export const DockFoldedToASheet: Story = {
   play: async ({ canvas, userEvent }) => {
     await expect(
       canvas.queryByRole("dialog", {
-        name: "Helm",
+        name: "Operator",
       }),
     ).toBeNull();
     await expect(
       canvas.queryByRole("button", {
-        name: /Open Helm/,
+        name: /Open Operator/,
       }),
     ).not.toBeInTheDocument();
-    // At this width the title row is behind its menu, and Helm is in it.
+    // At this width the title row is behind its menu, and the Operator is in it.
     await userEvent.click(
       canvas.getByRole("button", {
         name: "Menu",
@@ -481,12 +479,12 @@ export const DockFoldedToASheet: Story = {
     );
     await userEvent.click(
       canvas.getByRole("button", {
-        name: /^Helm 3/,
+        name: /^Operator/,
       }),
     );
     await expect(
       canvas.getByRole("dialog", {
-        name: "Helm",
+        name: "Operator",
       }),
     ).toBeVisible();
     await userEvent.click(
@@ -496,7 +494,7 @@ export const DockFoldedToASheet: Story = {
     );
     await expect(
       canvas.queryByRole("dialog", {
-        name: "Helm",
+        name: "Operator",
       }),
     ).toBeNull();
   },

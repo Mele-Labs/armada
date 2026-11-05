@@ -169,7 +169,7 @@ export type DropdownMenuProps = {
   plain?: boolean;
   /**
    * What the trigger is called to a screen reader where its text says only the current choice —
-   * Helm's repository switch shows the repository it stands on, and the name says what pressing
+   * A repository switch shows the repository it stands on, and the name says what pressing
    * it does. Absent, the trigger is named by its text.
    */
   triggerAriaLabel?: string;
