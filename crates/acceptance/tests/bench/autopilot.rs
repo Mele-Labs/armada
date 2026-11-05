@@ -62,7 +62,7 @@ pub fn the_backlog() -> FakeTracker {
     FakeTracker::listing(vec![
         FakeTracker::issue(11, "The reader test sleeps 50ms and still flakes"),
         FakeTracker::issue(12, "The Board labels a killed Job as failed"),
-        FakeTracker::issue(13, "Should Helm keep one conversation per repository?"),
+        FakeTracker::issue(13, "Should the Operator keep one conversation per repository?"),
         closed_by_a_pull,
         FakeTracker::issue(15, "The merge line drops a queued entry on restart"),
     ])

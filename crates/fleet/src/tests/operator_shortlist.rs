@@ -1,25 +1,15 @@
-//! Helm reading a thought for where it belongs, over the router: a match, no match, a question,
-//! an id the model invented, a call that fails, and the row the thread keeps once the words were
-//! delivered. `docs/concepts/helm.md`, *Routing a thought*.
+//! Words read for which running Job they are for: a match, no match, a question, an id the model
+//! invented and a call that fails.
 //!
 //! **The model is a script.** A fake answers each call with what the test wrote, so what is held
 //! here is Fleet's half: who is offered to the model, what it is told, and what Fleet makes of an
 //! answer.
 
-use std::sync::Arc;
 use std::time::Duration;
 
-use api::Conversations;
-use ipc::{
-    SessionRecord, SessionRow,
-    ThoughtKind, ThoughtReading, ThoughtSent, ThoughtTarget,
-};
-use testkit::FakeWorkProduct;
+use ipc::{SessionRecord, ThoughtReading};
 
-use crate::daemon::Fleet;
-use crate::helm::routing::{plainly_a_question, reading_of, Candidate, READ_BUDGET};
-use crate::tests::daemon::fittings;
-use crate::tests::tmp::TempDir;
+use crate::operator::shortlist::{plainly_a_question, reading_of, Candidate, READ_BUDGET};
 
 /// A read measured 5.0 to 7.5 seconds on a live Fleet, most of it the CLI starting, and at eight
 /// seconds the slower ones were read as questions. Bridge shows the turning mark for as long as it
@@ -119,45 +109,3 @@ fn only_a_wh_word_and_a_question_mark_together_skip_the_model() {
         assert!(!plainly_a_question(not), "{not}");
     }
 }
-
-/// A Fleet restarted keeps the row: the thread is in the store.
-#[tokio::test]
-async fn the_row_is_still_there_after_a_restart() {
-    let home = TempDir::new();
-    let fleet = Arc::new(Fleet::assembled(fittings(&home, FakeWorkProduct::changed(&[]))));
-    fleet
-        .record_thought_sent(
-            ThoughtSent {
-                text: "back off longer".into(),
-                target: ThoughtTarget {
-                    kind: ThoughtKind::Session,
-                    id: "01SESSAAAAAAAAAAAAAAAAAAAA".into(),
-                    title: "Retry failed invoice charges".into(),
-                    manifest_id: None,
-                    slot: None,
-                },
-                attachments: Vec::new(),
-                mentions: Vec::new(),
-            },
-            None,
-        )
-        .await
-        .expect("recorded");
-    drop(fleet);
-
-    let again = Arc::new(Fleet::assembled(fittings(&home, FakeWorkProduct::changed(&[]))));
-
-    let rows = again
-        .get_helm_session(None)
-        .await
-        .expect("read")
-        .session
-        .expect("the Helm Session outlives the Fleet")
-        .rows;
-    assert!(
-        rows.iter()
-            .any(|row| matches!(row, SessionRow::Sent { text, .. } if text == "back off longer")),
-        "{rows:?}"
-    );
-}
-

@@ -5,7 +5,7 @@ use crate::{decode, encode, SessionState, StartedAct, StartedCommands, StartedJo
 
 #[test]
 fn a_childs_line_flattens_its_summary_and_reads_back_the_same() {
-    let mut record = super::helm::a_helm_record();
+    let mut record = super::session_wire::a_record();
     record.state = SessionState::Ended;
     record.end_reason = Some("closed".into());
     let line = StartedJob::of(&record, None, Some("Moved the reads.".into()));
@@ -19,7 +19,7 @@ fn a_childs_line_flattens_its_summary_and_reads_back_the_same() {
 
 #[test]
 fn a_live_child_has_no_result_and_an_act_is_its_snake_case_word() {
-    let live = StartedJob::of(&super::helm::a_helm_record(), None, Some("not yet".into()));
+    let live = StartedJob::of(&super::session_wire::a_record(), None, Some("not yet".into()));
     assert!(live.result.is_none(), "only an ended Job has one");
 
     let body = r#"{"commands":[{"session_id":"01KID","act":"withdraw"},{"session_id":"01KID","act":"drop"}]}"#;

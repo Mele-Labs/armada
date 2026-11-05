@@ -233,6 +233,7 @@ where
                 after: None,
                 held: false,
                 project_rows: Vec::new(),
+                on_your_words: None,
             })
             .await;
         let Ok(record) = started else { return };

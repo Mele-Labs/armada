@@ -9,10 +9,10 @@ use std::sync::{Arc, Mutex};
 
 use adapter_traits::{NotEmbedded, TextModel, TextReading};
 
-use crate::helm::routing::matching::{clear_match, matched, matched_by, Vectors, LEADS_BY, ROUTES_AT};
-use crate::helm::routing::Candidate;
+use crate::operator::shortlist::matching::{clear_match, matched, matched_by, Vectors, LEADS_BY, ROUTES_AT};
+use crate::operator::shortlist::Candidate;
 use crate::language_model::{wanted_by, LanguageModel};
-use crate::tests::helm_routing::a_live_record;
+use crate::tests::operator_shortlist::a_live_record;
 
 const TOPICS: [&[&str]; 3] = [&["retry", "retries", "charge"], &["clock", "time"], &["page", "list"]];
 
@@ -99,7 +99,7 @@ fn a_thought_between_two_topics_is_no_clear_match() {
 }
 
 /// The model tells what a message is about, not whether it asks, so a question about a Session's
-/// topic is Helm's to answer and not that Session's to be told.
+/// topic is a question and not something that Session is to be told.
 #[test]
 fn a_message_that_ends_in_a_question_mark_is_left_to_claude() {
     assert_eq!(matched(&Topics::new(), &Vectors::default(), "are the retries done?", &three()), None);

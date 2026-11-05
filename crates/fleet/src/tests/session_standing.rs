@@ -24,7 +24,7 @@ const LATER: &str = "2026-10-14T10:00:05.000Z";
 const SAID: &str = "The cap is five.";
 
 fn between() -> Seen<'static> {
-    Seen { helm: false, running: None, subagents: false, held: false, called: false, turn_end: Some((ENDED, SAID)), spoke: None, done: None, dismissed: &[], asks: &crate::session_host::asks::asking_line, extracted: None, tell: None }
+    Seen { running: None, subagents: false, held: false, called: false, turn_end: Some((ENDED, SAID)), spoke: None, done: None, dismissed: &[], asks: &crate::session_host::asks::asking_line, extracted: None, tell: None }
 }
 
 fn kinds(seen: &Seen) -> Vec<(String, WaitingSource, String)> {
@@ -68,7 +68,6 @@ fn a_reply_that_asks_raises_nothing_where_the_agent_already_asked_or_the_turn_is
         Seen { held: true, ..asking() },
         Seen { called: true, ..asking() },
         Seen { subagents: true, ..asking() },
-        Seen { helm: true, ..asking() },
         Seen { spoke: Some(LATER), ..asking() },
     ] {
         assert!(derived(&seen).is_empty(), "{:?}", kinds(&seen));
@@ -155,14 +154,6 @@ fn stuck_is_only_a_running_turn_that_went_quiet() {
     assert_eq!(standing(&running(quiet, true), STUCK_AFTER), SessionStanding::Working, "held on his answer");
     // A turn that ended long ago is a reply, never stuck: the clock does not run between turns.
     assert_eq!(standing(&between(), Duration::from_secs(1)), SessionStanding::Replied);
-}
-
-/// A Helm Session's replies are the dock's: they raise no call.
-#[test]
-fn a_helm_session_never_replies() {
-    let seen = Seen { helm: true, done: Some(LATER), ..between() };
-    assert_eq!(standing(&seen, STUCK_AFTER), SessionStanding::Idle);
-    assert!(derived(&seen).is_empty());
 }
 
 #[test]

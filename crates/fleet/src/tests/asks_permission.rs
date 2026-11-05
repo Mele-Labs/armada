@@ -1,4 +1,4 @@
-//! A call a Helm session's own settings do not cover, put to a person and
+//! A call the person's own settings do not cover, put to a person and
 //! answered: allowed once, allowed and remembered, refused, and left
 //! unanswered. `#1389`.
 //!
@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use api::{Conversations, Next, Subscription};
-use ipc::{AnswerHelmCall, AskingToRun, HelmCallAnswer, HelmCallSettled, RunOrNot};
+use ipc::{AnswerCall, AskingToRun, CallAnswer, CallSettled, RunOrNot};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
@@ -66,9 +66,9 @@ fn held(
 
 /// The one call waiting, once Fleet has put it on the table. Polled rather than
 /// slept on, so a slow machine waits longer rather than failing.
-async fn waiting(fleet: &Arc<Hosted>) -> ipc::HelmCallInFlight {
+async fn waiting(fleet: &Arc<Hosted>) -> ipc::CallInFlight {
     for _ in 0..200 {
-        let listed = fleet.list_helm_calls().await.expect("the list");
+        let listed = fleet.list_calls().await.expect("the list");
         if let Some(first) = listed.waiting.into_iter().next() {
             return first;
         }
@@ -77,9 +77,9 @@ async fn waiting(fleet: &Arc<Hosted>) -> ipc::HelmCallInFlight {
     panic!("nothing was ever put to a person");
 }
 
-async fn answer(fleet: &Arc<Hosted>, call: &str, answer: HelmCallAnswer, note: Option<&str>) {
+async fn answer(fleet: &Arc<Hosted>, call: &str, answer: CallAnswer, note: Option<&str>) {
     fleet
-        .answer_helm_call(AnswerHelmCall {
+        .answer_call(AnswerCall {
             call: String::from(call),
             answer,
             note: note.map(String::from),
@@ -111,22 +111,22 @@ async fn published(watching: &mut Subscription) -> Vec<ipc::Event> {
 async fn a_shell_line_is_put_to_a_person_and_runs_on_their_allow() {
     let home = TempDir::new();
     let fleet = fleet(&home);
-    let sent = shell("git push -u origin helm/some-branch");
+    let sent = shell("git push -u origin topic/some-branch");
     let call = held(&fleet, sent.clone());
 
     let asked = waiting(&fleet).await;
     assert_eq!(asked.tool, "Bash");
-    assert_eq!(asked.detail, "git push -u origin helm/some-branch");
+    assert_eq!(asked.detail, "git push -u origin topic/some-branch");
     assert_eq!(asked.rule, "Bash(git push:*)");
     assert_eq!(
         asked.offers,
         vec![
-            HelmCallAnswer::AllowOnce,
-            HelmCallAnswer::AllowAndRemember,
-            HelmCallAnswer::Refuse,
+            CallAnswer::AllowOnce,
+            CallAnswer::AllowAndRemember,
+            CallAnswer::Refuse,
         ]
     );
-    answer(&fleet, &asked.call, HelmCallAnswer::AllowOnce, None).await;
+    answer(&fleet, &asked.call, CallAnswer::AllowOnce, None).await;
 
     let decided = call.await.expect("the task").expect("an answer");
     assert_eq!(
@@ -137,7 +137,7 @@ async fn a_shell_line_is_put_to_a_person_and_runs_on_their_allow() {
     );
     assert!(
         fleet
-            .list_helm_calls()
+            .list_calls()
             .await
             .expect("the list")
             .waiting
@@ -160,7 +160,7 @@ async fn a_long_command_is_asked_whole_and_a_short_one_only_as_its_line() {
     assert!(asked.truncated, "{} characters are more than a row", long.len());
     assert_eq!(asked.detail.chars().count(), 200);
     assert_eq!(asked.whole.as_deref(), Some(long.as_str()));
-    answer(&fleet, &asked.call, HelmCallAnswer::Refuse, None).await;
+    answer(&fleet, &asked.call, CallAnswer::Refuse, None).await;
     call.await.expect("the task").expect("an answer");
 
     let call = held(&fleet, shell("git push"));
@@ -169,7 +169,7 @@ async fn a_long_command_is_asked_whole_and_a_short_one_only_as_its_line() {
     assert_eq!(asked.whole, None);
     let written = ipc::encode(&asked).expect("the ask encodes");
     assert!(!written.contains("\"whole\""), "{written}");
-    answer(&fleet, &asked.call, HelmCallAnswer::Refuse, None).await;
+    answer(&fleet, &asked.call, CallAnswer::Refuse, None).await;
     call.await.expect("the task").expect("an answer");
 }
 
@@ -185,7 +185,7 @@ async fn a_refusal_carries_the_persons_own_words_to_the_session() {
     answer(
         &fleet,
         &asked.call,
-        HelmCallAnswer::Refuse,
+        CallAnswer::Refuse,
         Some("  we are not deleting that  "),
     )
     .await;
@@ -209,7 +209,7 @@ async fn allow_and_remember_writes_the_rule_a_person_read_and_nothing_else() {
     let call = held(&fleet, shell("gh pr merge 1389 --merge"));
 
     let asked = waiting(&fleet).await;
-    answer(&fleet, &asked.call, HelmCallAnswer::AllowAndRemember, None).await;
+    answer(&fleet, &asked.call, CallAnswer::AllowAndRemember, None).await;
     call.await.expect("the task").expect("an answer");
 
     let at = home.path().join(adapters::PERSONAL_SETTINGS);
@@ -244,7 +244,7 @@ async fn nobody_answering_ends_the_wait_as_a_refusal_and_never_as_an_allow() {
     assert!(message.contains("2 seconds"), "{message}");
     assert!(
         fleet
-            .list_helm_calls()
+            .list_calls()
             .await
             .expect("the list")
             .waiting
@@ -253,7 +253,7 @@ async fn nobody_answering_ends_the_wait_as_a_refusal_and_never_as_an_allow() {
     );
 }
 
-/// A restart while Helm's call waits: **answered with the restart named**, never
+/// A restart while a call waits: **answered with the restart named**, never
 /// left held for graceful shutdown to be killed over. `#2663`.
 #[tokio::test]
 async fn a_call_held_when_fleet_stops_is_refused_with_the_restart_named() {
@@ -275,7 +275,7 @@ async fn a_call_held_when_fleet_stops_is_refused_with_the_restart_named() {
     };
     assert!(message.contains("Armada restarted"), "{message}");
     assert!(
-        fleet.list_helm_calls().await.expect("the list").waiting.is_empty(),
+        fleet.list_calls().await.expect("the list").waiting.is_empty(),
         "the card comes down"
     );
 }
@@ -288,9 +288,9 @@ async fn an_answer_naming_nothing_waiting_is_refused() {
     let fleet = fleet(&home);
 
     match fleet
-        .answer_helm_call(AnswerHelmCall {
-            call: String::from("helm-404"),
-            answer: HelmCallAnswer::AllowOnce,
+        .answer_call(AnswerCall {
+            call: String::from("call-404"),
+            answer: CallAnswer::AllowOnce,
             note: None,
             answers: Vec::new(),
             folder: None,
@@ -299,45 +299,44 @@ async fn an_answer_naming_nothing_waiting_is_refused() {
         .await
     {
         Err(api::Refusal::IllegalMove(error)) => {
-            assert_eq!(error.code, "fleet.helm_call_not_waiting")
+            assert_eq!(error.code, "fleet.call_not_waiting")
         }
         other => panic!("refused, not {other:?}"),
     }
 }
 
-/// Every ask and every answer is on the record — `docs/concepts/helm.md`,
-/// *Audit trail*. A person who finds a command was run reads the second to see
+/// Every ask and every answer is on the record. A person who finds a command was run reads the second to see
 /// that they allowed it.
 #[tokio::test]
-async fn the_ask_and_the_answer_are_each_helms_own_event() {
+async fn the_ask_and_the_answer_are_each_their_own_event() {
     let home = TempDir::new();
     let fleet = fleet(&home);
     let mut watching = fleet.events().subscribe();
     let call = held(&fleet, shell("git push --force"));
 
     let asked = waiting(&fleet).await;
-    answer(&fleet, &asked.call, HelmCallAnswer::AllowOnce, None).await;
+    answer(&fleet, &asked.call, CallAnswer::AllowOnce, None).await;
     call.await.expect("the task").expect("an answer");
 
     let events = published(&mut watching).await;
     let kinds: Vec<String> = events.iter().map(ipc::Event::kind).collect();
     assert!(
-        kinds.contains(&String::from("helm.asking_to_run")),
+        kinds.contains(&String::from("call.asking_to_run")),
         "{kinds:?}"
     );
     assert!(
-        kinds.contains(&String::from("helm.call_answered")),
+        kinds.contains(&String::from("call.answered")),
         "{kinds:?}"
     );
     let answered = events
         .iter()
         .find_map(|event| match event {
-            ipc::Event::HelmCallAnswered(answered) => Some(answered),
+            ipc::Event::CallAnswered(answered) => Some(answered),
             _ => None,
         })
         .expect("the answer is published");
     assert_eq!(answered.call, asked.call);
-    assert_eq!(answered.settled, HelmCallSettled::AllowedOnce);
+    assert_eq!(answered.settled, CallSettled::AllowedOnce);
     assert_eq!(answered.rule, "Bash(git push:*)");
 }
 
@@ -356,7 +355,7 @@ async fn a_tool_that_is_not_a_command_is_its_own_rule() {
     assert_eq!(asked.rule, "mcp__notion__delete_page");
     assert_eq!(asked.detail, "", "a tool with no argument this names");
 
-    answer(&fleet, &asked.call, HelmCallAnswer::AllowOnce, None).await;
+    answer(&fleet, &asked.call, CallAnswer::AllowOnce, None).await;
     call.await.expect("the task").expect("an answer");
 }
 
@@ -381,7 +380,7 @@ async fn a_read_on_armadas_own_door_draws_no_card_at_all_now() {
     assert!(matches!(decided, RunOrNot::Allow { .. }));
     assert!(
         fleet
-            .list_helm_calls()
+            .list_calls()
             .await
             .expect("the list")
             .waiting
@@ -410,7 +409,7 @@ async fn a_call_in_none_of_the_three_classes_runs_without_anybody_being_asked() 
     );
     assert!(
         fleet
-            .list_helm_calls()
+            .list_calls()
             .await
             .expect("the list")
             .waiting
@@ -420,17 +419,17 @@ async fn a_call_in_none_of_the_three_classes_runs_without_anybody_being_asked() 
     let events = published(&mut watching).await;
     let kinds: Vec<String> = events.iter().map(ipc::Event::kind).collect();
     assert!(
-        !kinds.contains(&String::from("helm.asking_to_run")),
+        !kinds.contains(&String::from("call.asking_to_run")),
         "no card was drawn: {kinds:?}"
     );
     let answered = events
         .iter()
         .find_map(|event| match event {
-            ipc::Event::HelmCallAnswered(answered) => Some(answered),
+            ipc::Event::CallAnswered(answered) => Some(answered),
             _ => None,
         })
         .expect("what ran unasked is still on the record");
-    assert_eq!(answered.settled, HelmCallSettled::RanUnasked);
+    assert_eq!(answered.settled, CallSettled::RanUnasked);
     assert_eq!(answered.rule, "Bash(python3:*)");
 }
 
@@ -443,7 +442,7 @@ async fn a_destructive_line_still_waits_for_a_person() {
 
     let asked = waiting(&fleet).await;
     assert_eq!(asked.detail, "rm -rf crates/fleet");
-    answer(&fleet, &asked.call, HelmCallAnswer::Refuse, None).await;
+    answer(&fleet, &asked.call, CallAnswer::Refuse, None).await;
 
     let RunOrNot::Deny { .. } = call.await.expect("the task").expect("an answer") else {
         panic!("a refusal is a deny");

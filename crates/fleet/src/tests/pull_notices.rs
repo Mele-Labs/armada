@@ -134,6 +134,7 @@ impl Rig {
                 after: None,
                 held: false,
                 project_rows: Vec::new(),
+                on_your_words: None,
             })
             .await
             .expect("started")

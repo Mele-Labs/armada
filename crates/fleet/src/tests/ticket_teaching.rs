@@ -175,6 +175,7 @@ async fn a_job_in_a_repository_outside_the_workspace_keeps_its_ticket_as_it_was(
             after: None,
             held: false,
             project_rows: Vec::new(),
+            on_your_words: None,
         })
         .await
         .expect("started")

@@ -25,8 +25,6 @@ pub(crate) const STUCK_AFTER: Duration = Duration::from_secs(10 * 60);
 
 /// The facts a Session's standing is read from.
 pub(crate) struct Seen<'a> {
-    /// A Helm Session: its replies are the dock's, not calls.
-    pub helm: bool,
     /// A turn is running: how long since anything was heard from it. `None` between turns.
     pub running: Option<Duration>,
     /// A subagent of it is still at work, which a turn that ended to wait on it does not say.
@@ -71,7 +69,7 @@ fn millis(at: &str) -> Option<i64> {
 
 /// Whether the last turn left a reply that still stands.
 fn replied(seen: &Seen) -> bool {
-    if seen.helm || seen.running.is_some() {
+    if seen.running.is_some() {
         return false;
     }
     let Some((ended, said)) = seen.turn_end else {
@@ -117,7 +115,7 @@ fn refusing<'a>(seen: &Seen<'a>) -> Option<(String, &'a str, String)> {
 
 /// The done the agent stated, if it still stands: `(item id, since)`.
 fn done<'a>(seen: &Seen<'a>) -> Option<(String, &'a str)> {
-    if seen.helm || seen.running.is_some() {
+    if seen.running.is_some() {
         return None;
     }
     let since = seen.done?;

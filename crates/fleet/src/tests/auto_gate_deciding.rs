@@ -1,4 +1,4 @@
-//! What Fleet puts to a person and what it lets Helm run. `#1525`.
+//! What Fleet puts to a person and what it lets run. `#1525`.
 //!
 //! **The table is the test.** The owner's rule is three sentences and this is
 //! them, case by case: what runs is what he said should run, and what asks is
@@ -7,9 +7,9 @@
 
 use ipc::AskingToRun;
 
-use crate::helm::{because, Because};
+use crate::auto_gate::{because, Because};
 
-/// One ask, **read the way the route reads it** — `helm_permission`'s rule and
+/// One ask, **read the way the route reads it** — `call_permission`'s rule and
 /// its reason: `fleet` reads no JSON of its own, so a fixture here is the CLI's
 /// own bytes rather than a literal.
 fn asking(body: &str) -> AskingToRun {
@@ -55,19 +55,19 @@ fn writing(tool_name: &str, path: &str) -> AskingToRun {
     ))
 }
 
-/// The whole point: a person talking to Helm is not asked about the ordinary
+/// The whole point: a person talking to a Job is not asked about the ordinary
 /// work of answering them. Every line here was one the owner would have had a
 /// card for on 18 Sep 2026.
 #[test]
 fn the_ordinary_work_of_answering_a_question_runs() {
     for line in [
-        // The one from his own screenshot: the door cut a `get_diff` and Helm
+        // The one from his own screenshot: the door cut a `get_diff` and the Job
         // shelled out to read what was cut.
         "python3 - <<'EOF'\nimport json\nEOF",
         "cat /tmp/out.txt",
-        "rg --files-with-matches helm crates",
+        "rg --files-with-matches gate crates",
         "grep -rn AskingToRun crates/fleet",
-        "ls -la crates/fleet/src/helm",
+        "ls -la crates/fleet/src/auto_gate",
         "head -100 armada.yml",
         "git log --oneline -20",
         "git status --porcelain",
@@ -82,7 +82,7 @@ fn the_ordinary_work_of_answering_a_question_runs() {
         "jq .name package.json",
         "curl -s http://localhost:40000/health",
         "cd crates/fleet && cargo check",
-        "wc -l crates/fleet/src/helm/*.rs | sort -n",
+        "wc -l crates/fleet/src/auto_gate/*.rs | sort -n",
     ] {
         assert_eq!(because(&shell(line)), None, "should have run: {line}");
     }
@@ -93,14 +93,14 @@ fn the_ordinary_work_of_answering_a_question_runs() {
 fn a_shell_line_that_removes_or_overwrites_asks() {
     for line in [
         "rm -rf target",
-        "rm crates/fleet/src/helm/deciding.rs",
+        "rm crates/fleet/src/auto_gate.rs",
         "cd crates && rm -rf target",
         "FOO=1 rm -rf /tmp/x",
         "/bin/rm -rf x",
         "git reset --hard origin/main",
         "git clean -fdx",
         "git checkout -- crates/",
-        "git branch -D helm/some-branch",
+        "git branch -D topic/some-branch",
         "git worktree remove --force /tmp/worktrees/x",
         "git stash",
         "sudo launchctl kickstart -k gui/501/com.armada.fleet",
@@ -132,7 +132,7 @@ fn appending_and_redirecting_a_descriptor_are_not_overwriting() {
 #[test]
 fn sending_code_where_other_people_read_it_asks() {
     for line in [
-        "git push -u origin helm/some-branch",
+        "git push -u origin topic/some-branch",
         "git push --force",
         "gh pr merge 1524 --merge",
         "gh release create v1",

@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use adapter_traits::{CallDetail, DroneEvent, Speaker};
 use api::HostedSessions;
-use ipc::{AnswerSessionAsk, AskingToRun, HelmCallAnswer, QuestionAnswer, RunOrNot, SessionId, SessionTurn};
+use ipc::{AnswerSessionAsk, AskingToRun, CallAnswer, QuestionAnswer, RunOrNot, SessionId, SessionTurn};
 
 use super::session_host::{eventually, rig_placing, Rig};
 use crate::session_host::unanswered::{UNANSWERED_QUESTION, UNANSWERED_TURN};
@@ -188,7 +188,7 @@ async fn a_question_after_his_answer_to_one_with_nothing_written_since_is_sent_b
         .answer_session_ask(AnswerSessionAsk {
             session_id: id.clone(),
             call,
-            answer: HelmCallAnswer::AllowOnce,
+            answer: CallAnswer::AllowOnce,
             note: None,
             answers: vec![QuestionAnswer { question: QUESTION_ASKED.into(), chosen: vec!["Remove it".into()] }],
             folder: None,

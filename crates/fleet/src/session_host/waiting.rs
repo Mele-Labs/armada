@@ -53,7 +53,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use ipc::{
-    AllDone, AnswerSessionAsk, AnswerWaiting, ConfirmWaiting, DismissWaiting, ReopenWaiting, HelmCallAnswer, HelmCallInFlight, Instant,
+    AllDone, AnswerSessionAsk, AnswerWaiting, ConfirmWaiting, DismissWaiting, ReopenWaiting, CallAnswer, CallInFlight, Instant,
     QuestionAnswer, SendSessionMessage, SessionRecord, SessionRow, SessionVoice, SetWaitingFor,
     DraftHow, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource, WireError,
 };
@@ -249,15 +249,15 @@ fn source_of(name: &str) -> Option<WaitingSource> {
     ipc::decode("a waiting source", format!("\"{name}\"").as_bytes()).ok()
 }
 
-fn offer_label(offer: &HelmCallAnswer) -> &'static str {
+fn offer_label(offer: &CallAnswer) -> &'static str {
     match offer {
-        HelmCallAnswer::AllowOnce => "Allow once",
-        HelmCallAnswer::AllowAndRemember => "Allow and remember",
-        HelmCallAnswer::Refuse => "Refuse",
-        HelmCallAnswer::AlwaysAllow => "Always allow",
-        HelmCallAnswer::AlwaysBlock => "Always block",
-        HelmCallAnswer::AllowForSession => "Always allow for this job",
-        HelmCallAnswer::AllowLikeThisForSession => "Allow calls like this for this job",
+        CallAnswer::AllowOnce => "Allow once",
+        CallAnswer::AllowAndRemember => "Allow and remember",
+        CallAnswer::Refuse => "Refuse",
+        CallAnswer::AlwaysAllow => "Always allow",
+        CallAnswer::AlwaysBlock => "Always block",
+        CallAnswer::AllowForSession => "Always allow for this job",
+        CallAnswer::AllowLikeThisForSession => "Allow calls like this for this job",
     }
 }
 
@@ -283,7 +283,7 @@ fn act_kind_of(text: &str) -> Option<WaitingActKind> {
 }
 
 /// The open card as an item, if one is open.
-fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
+fn card_item(asked: &CallInFlight) -> WaitingItem {
     let act = Some(WaitingAct {
         kind: WaitingActKind::Answer,
         target: asked.call.clone(),
@@ -348,7 +348,7 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
 /// and so is one that asks him to walk (`walk_asks.rs`), kept before `waiting_for` refused it.
 pub(crate) fn merged(
     kept: Vec<KeptWaiting>,
-    asked: Option<&HelmCallInFlight>,
+    asked: Option<&CallInFlight>,
     windows: &[Window],
     dismissed: &[String],
     ended: bool,
@@ -565,7 +565,7 @@ where
             }
         }
         // What Fleet saw of the turn: running or not, and how the last one ended.
-        let (helm, running) = {
+        let running = {
             let runtime = self.hosts().of(&session.id);
             let state = runtime.state();
             let running = if session.origin == "bridge" {
@@ -573,7 +573,7 @@ where
             } else {
                 self.hosts().terminals().quiet_for(&session.id)
             };
-            (state.helm, running)
+            running
         };
         // Nothing until the model is loaded and has read the reply, which publishes the Session again.
         let refused = |said: &str| {
@@ -588,7 +588,6 @@ where
             Some(if windows.is_empty() { read } else { read.beside_a_walk() })
         };
         let seen = super::standing::Seen {
-            helm,
             running,
             subagents: attachments
                 .iter()
@@ -1074,7 +1073,7 @@ where
                         (Some(chosen), Some(first)) => AnswerSessionAsk {
                             session_id: said.session_id.clone(),
                             call: asked.call.clone(),
-                            answer: HelmCallAnswer::AllowOnce,
+                            answer: CallAnswer::AllowOnce,
                             note: picked.as_ref().and(words).map(str::to_string),
                             answers: vec![QuestionAnswer {
                                 question: first.question.clone(),
@@ -1567,14 +1566,14 @@ where
     fn refusal_of(
         &self,
         session_id: &ipc::SessionId,
-        asked: &HelmCallInFlight,
+        asked: &CallInFlight,
         line: Option<&str>,
         words: Option<&str>,
     ) -> AnswerSessionAsk {
         AnswerSessionAsk {
             session_id: session_id.clone(),
             call: asked.call.clone(),
-            answer: HelmCallAnswer::Refuse,
+            answer: CallAnswer::Refuse,
             note: words.or(line).map(str::to_string),
             answers: Vec::new(),
             folder: None,

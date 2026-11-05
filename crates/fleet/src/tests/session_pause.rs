@@ -228,7 +228,7 @@ async fn a_fleet_notice_leaves_a_paused_job_paused_and_is_asked_again_after_the_
 }
 
 #[tokio::test]
-async fn a_note_from_helm_leaves_a_paused_job_paused() {
+async fn words_told_to_a_paused_job_leave_it_paused() {
     let rig = rig_placing(None);
     let id = paused_job(&rig).await;
     let starts = rig.stand_in.starts().len();

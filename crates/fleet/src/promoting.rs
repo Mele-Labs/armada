@@ -2,7 +2,7 @@
 //! `docs/concepts/studio.md`, *Promotion*.
 //!
 //! **Nothing promotes itself.** Every rung here is a call somebody made — a
-//! person for four of them, and Helm for the two it may take on a person's
+//! person for four of them, and a Job on your words for the two it may take on a person's
 //! ask. A Note nobody wrote up stays a Note.
 //!
 //! **Nothing here reaches outside Armada.** Writing up makes a node; a forge
@@ -22,7 +22,7 @@ use core_model::{
 };
 use ipc::{
     ContradictionSettled, DeferOnStudio, EditStudioDraft, EditStudioLink,
-    GroupStudioNodes, HelmStudioAct, ManifestId, SettleContradiction, WriteUpStudioNode,
+    GroupStudioNodes, StudioJobAct, ManifestId, SettleContradiction, WriteUpStudioNode,
 };
 
 use crate::daemon::Fleet;
@@ -358,10 +358,10 @@ where
                 }
             })
             .await?;
-        self.published_as_helms(
+        self.published_as_jobs(
             by,
             &studio,
-            HelmStudioAct::WroteUp {
+            StudioJobAct::WroteUp {
                 from: writing.node_id,
                 node_id,
             },

@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use api::{HostedSessions, Sessions};
 use ipc::{
-    AnswerWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant, ManifestId, RunOrNot, SessionMode,
+    AnswerWaiting, DismissWaiting, CallAnswer, CallInFlight, Instant, ManifestId, RunOrNot, SessionMode,
     SessionRow, SessionVoice, SetWaitingFor, ShowWindow, TuneSession, WaitingAct, WaitingActKind,
     WaitingInput, WaitingMode, WaitingOption, WaitingSource, WindowFailed, WindowTake,
 };
@@ -25,7 +25,7 @@ fn kept(id: &str, kind: &str, target: &str) -> KeptWaiting {
     }
 }
 
-fn card(call: &str, question: Option<&str>) -> HelmCallInFlight {
+fn card(call: &str, question: Option<&str>) -> CallInFlight {
     let questions = match question {
         Some(question) => ipc::decode(
             "questions",
@@ -38,7 +38,7 @@ fn card(call: &str, question: Option<&str>) -> HelmCallInFlight {
         .unwrap(),
         None => Vec::new(),
     };
-    HelmCallInFlight {
+    CallInFlight {
         call: call.into(),
         manifest_id: ManifestId::carried("armada"),
         asked_at: Instant::carried("2026-10-09T00:01:00Z"),
@@ -48,7 +48,7 @@ fn card(call: &str, question: Option<&str>) -> HelmCallInFlight {
         length: None,
         whole: None,
         rule: "Bash(rm:*)".into(),
-        offers: vec![HelmCallAnswer::AllowOnce, HelmCallAnswer::Refuse],
+        offers: vec![CallAnswer::AllowOnce, CallAnswer::Refuse],
         holding_for_seconds: 600,
         questions,
         reaches: None,

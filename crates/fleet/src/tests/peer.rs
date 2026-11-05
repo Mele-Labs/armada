@@ -160,7 +160,7 @@ fn a_port_nothing_holds_attributes_to_nobody() {
     );
 }
 
-/// **A Helm session's relay is its agent's child**, and the child holds the
+/// **A hosted Job's relay is its agent's child**, and the child holds the
 /// socket. So a call is placed within a session anywhere in the tree the host
 /// started, and nowhere outside it. `#941`.
 #[test]

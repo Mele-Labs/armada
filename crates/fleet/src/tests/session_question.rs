@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use api::HostedSessions;
 use ipc::{
-    AnswerSessionAsk, AskingToRun, HelmCallAnswer, QuestionAnswer, RunOrNot, SessionAskState,
+    AnswerSessionAsk, AskingToRun, CallAnswer, QuestionAnswer, RunOrNot, SessionAskState,
     SessionId, SessionRow, SessionVoice,
 };
 
@@ -33,7 +33,7 @@ fn chosen(question: &str, labels: &[&str]) -> QuestionAnswer {
     }
 }
 
-async fn waiting_on(rig: &Rig, id: &SessionId) -> ipc::HelmCallInFlight {
+async fn waiting_on(rig: &Rig, id: &SessionId) -> ipc::CallInFlight {
     let found = std::sync::Mutex::new(None);
     eventually(|| async {
         let asked = Arc::clone(&rig.fleet)
@@ -56,7 +56,7 @@ async fn answer(
     rig: &Rig,
     id: &SessionId,
     call: &str,
-    answer: HelmCallAnswer,
+    answer: CallAnswer,
     answers: Vec<QuestionAnswer>,
 ) -> Result<(), api::Refusal> {
     Arc::clone(&rig.fleet)
@@ -89,7 +89,7 @@ async fn a_question_waits_for_the_person_in_every_mode_and_its_answers_go_into_t
     assert_eq!(ask.questions[0].options[1].label, "ham");
     assert_eq!(
         ask.offers,
-        vec![HelmCallAnswer::AllowOnce, HelmCallAnswer::Refuse],
+        vec![CallAnswer::AllowOnce, CallAnswer::Refuse],
         "a question is answered or skipped, and no rule is remembered"
     );
 
@@ -98,7 +98,7 @@ async fn a_question_waits_for_the_person_in_every_mode_and_its_answers_go_into_t
         &rig,
         &id,
         &ask.call,
-        HelmCallAnswer::AllowOnce,
+        CallAnswer::AllowOnce,
         vec![chosen("Which toppings?", &["cheese"])],
     )
     .await;
@@ -110,7 +110,7 @@ async fn a_question_waits_for_the_person_in_every_mode_and_its_answers_go_into_t
         &rig,
         &id,
         &ask.call,
-        HelmCallAnswer::AllowOnce,
+        CallAnswer::AllowOnce,
         vec![
             chosen("Which toppings?", &["cheese"]),
             chosen("Which colour?", &["red"]),
@@ -124,7 +124,7 @@ async fn a_question_waits_for_the_person_in_every_mode_and_its_answers_go_into_t
         &rig,
         &id,
         &ask.call,
-        HelmCallAnswer::AllowOnce,
+        CallAnswer::AllowOnce,
         vec![
             chosen("Which toppings?", &["cheese", "ham"]),
             chosen("Which size?", &["Medium, if you have it"]),
@@ -175,7 +175,7 @@ async fn a_skipped_question_tells_the_agent_so() {
     let session = id.as_str().to_string();
     let held = tokio::spawn(async move { fleet.session_permission(&session, asking()).await });
     let ask = waiting_on(&rig, &id).await;
-    answer(&rig, &id, &ask.call, HelmCallAnswer::Refuse, Vec::new())
+    answer(&rig, &id, &ask.call, CallAnswer::Refuse, Vec::new())
         .await
         .unwrap();
     assert!(matches!(

@@ -46,6 +46,7 @@ async fn a_session(fleet: &Arc<Rescued>) -> String {
             after: None,
             held: false,
             project_rows: Vec::new(),
+            on_your_words: None,
         })
         .await
         .expect("started")

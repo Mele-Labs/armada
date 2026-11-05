@@ -1,5 +1,5 @@
 //! A Studio through Fleet: whole after a restart, published after every write,
-//! a Helm session held to what starts proposed, and a door session to its own
+//! a Job on your words held to what starts proposed, and a door session to its own
 //! repository. `#1285`.
 
 use std::time::Duration;
@@ -200,23 +200,23 @@ async fn a_studio_reads_back_whole_after_fleet_restarts() {
     assert_eq!(listed.studios[0].name.as_deref(), Some("Stale counts"));
 }
 
-/// **Helm adds what starts proposed.** A Note from Helm is refused by name, and
+/// **A Job adds what starts proposed.** A Note from it is refused by name, and
 /// a Finding lands `proposed` whoever asked for it.
 #[tokio::test]
-async fn helm_adds_only_a_node_that_starts_proposed() {
+async fn a_job_adds_only_a_node_that_starts_proposed() {
     let home = TempDir::new();
     let fleet = a_fleet(&home);
     let studio = a_studio(&fleet).await;
     let refused = fleet
         .add_studio_node(
             studio.id.clone(),
-            a_note("Helm saw this", 0),
-            Redirector::Helm,
+            a_note("It saw this", 0),
+            Redirector::Job,
             None,
         )
         .await
         .expect_err("a Note is a person's");
-    assert_eq!(code(&refused), "fleet.studio_node_not_helms");
+    assert_eq!(code(&refused), "fleet.studio_node_not_a_jobs");
 
     let finding = AddStudioNode {
         content: StudioNodeContent::finding_asked("what reads the count")
@@ -227,7 +227,7 @@ async fn helm_adds_only_a_node_that_starts_proposed() {
         within: None,
     };
     let added = fleet
-        .add_studio_node(studio.id.clone(), finding, Redirector::Helm, None)
+        .add_studio_node(studio.id.clone(), finding, Redirector::Job, None)
         .await
         .expect("a Finding starts proposed");
     assert_eq!(

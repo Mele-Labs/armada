@@ -16,7 +16,6 @@ use std::sync::{Arc, LazyLock};
 
 use config::settings::{self as keys, Key, Resolved, Supplied, Words};
 
-use crate::helm::Authority;
 
 mod judge;
 
@@ -42,16 +41,10 @@ fn shipped_texts() -> Vec<(Words, String)> {
         (keys::PROMPT_RETRO_ASK, crate::retro::ASK.to_string()),
         (keys::PROMPT_LOGBOOK_DISTIL, crate::logbook::QUESTION.to_string()),
         (keys::PROMPT_TEACHING_READ, crate::teaching::QUESTION.to_string()),
-        (keys::PROMPT_HELM, crate::helm::shipped(Authority::Acting)),
         (
-            keys::PROMPT_HELM_READ_ONLY,
-            crate::helm::shipped(Authority::ReadOnly),
+            keys::PROMPT_THOUGHT_ROUTE,
+            crate::operator::shortlist::QUESTION.to_string(),
         ),
-        (
-            keys::PROMPT_HELM_ROUTE,
-            crate::helm::routing::QUESTION.to_string(),
-        ),
-        (keys::PROMPT_HELM_VOICE, crate::helm::VOICE.to_string()),
         (
             keys::PROMPT_AUTOPILOT_SENTENCE,
             crate::autopilot::sentence::QUESTION.to_string(),
@@ -140,14 +133,6 @@ impl Prompts {
             .fold(verification::Wording::shipped(), |wording, (key, piece)| {
                 wording.with(piece, self.get(key))
             })
-    }
-
-    /// Helm's note for `authority`: one template where it acts, another where it reads.
-    pub(crate) fn helm(&self, authority: Authority) -> &str {
-        match authority {
-            Authority::Acting => self.get(keys::PROMPT_HELM),
-            Authority::ReadOnly => self.get(keys::PROMPT_HELM_READ_ONLY),
-        }
     }
 }
 

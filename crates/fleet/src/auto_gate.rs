@@ -1,31 +1,32 @@
-//! What a Helm call is put to a person for, and what simply runs. `#1525`.
+//! What a call is put to a person for, and what simply runs. `#1525`.
 //!
 //! **Fleet decides this and the person's own settings no longer do**, which
-//! reverses `super::asking`'s old rule. The owner's three classes on 18 Sep
+//! reverses `crate::asks`'s old rule. The owner's three classes on 18 Sep
 //! 2026 are the whole of it: destructive, pushes code to a shared space, writes
-//! off this machine. `docs/concepts/helm.md`, *What Helm asks about*.
+//! off this machine.
 //!
 //! **Their settings still decide what they decide.** The CLI reads them before
 //! Fleet is called; what arrives here is the remainder.
 //!
 //! **Auto *unless*, so an unrecognised command runs.** The safety is in
 //! recognising the risky set, and what runs unasked is on the record as
-//! `HelmCallSettled::RanUnasked` — the audit trail is what catches a rule drawn
+//! `CallSettled::RanUnasked` — the audit trail is what catches a rule drawn
 //! too wide.
 
 use ipc::{AskingToRun, CallKind, ReachesTo};
 
-use super::reading::{
+use self::reading::{
     changes_only_held, command_of, kind_of, queries, reaches_into_owners_files, segment_only_reads, segment_writes, with_variables,
 };
 
 mod folders;
 mod programs;
+mod reading;
 mod shell;
 
 pub use folders::{guarded_in_a_session, pages_opened, Folders, KindAllowed};
-pub(in crate::helm) use folders::{reaches_outside, read_refused};
-pub(in crate::helm) use shell::{truncating_redirect, Slot};
+pub(in crate::auto_gate) use folders::{reaches_outside, read_refused};
+pub(in crate::auto_gate) use shell::{truncating_redirect, Slot};
 use folders::{cd_stays, in_the_slot, inside_the_directory, Listed};
 use programs::{fetching, forge, git, kills_only_its_own, publishing};
 use shell::{shell, shell_guarded};
@@ -242,7 +243,7 @@ fn named(tool: &str) -> Option<Because> {
 /// A write to the checkout, read against the path it names.
 ///
 /// **An overwrite keeps its card and a new file does not.** The owner's 17 Sep
-/// decision — Helm asks before it edits, because there is no undo — and his
+/// decision — a call asks before it edits, because there is no undo — and his
 /// later rule agree on an overwrite and differ only on a file that did not
 /// exist, which takes nothing away. A path Fleet cannot read is an overwrite:
 /// being unable to tell is not a reason to assume the harmless one.

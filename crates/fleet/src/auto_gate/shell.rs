@@ -214,15 +214,15 @@ pub(super) fn word_in(line: &str, word: &str) -> bool {
 /// The slots a session's line may write in, and whether a relative path in it is
 /// still read against one of them.
 #[derive(Clone, Copy)]
-pub(in crate::helm) struct Slot<'a> {
-    pub(in crate::helm) slots: &'a [&'a str],
+pub(in crate::auto_gate) struct Slot<'a> {
+    pub(in crate::auto_gate) slots: &'a [&'a str],
     /// The owner's home, which `$HOME` names. Empty where it is not known.
-    pub(in crate::helm) home: &'a str,
-    pub(in crate::helm) relative: bool,
+    pub(in crate::auto_gate) home: &'a str,
+    pub(in crate::auto_gate) relative: bool,
 }
 
 impl Slot<'_> {
-    pub(in crate::helm) fn holds(&self, word: &str) -> bool {
+    pub(in crate::auto_gate) fn holds(&self, word: &str) -> bool {
         in_the_slot(word, self.slots, self.relative, self.home)
     }
 }
@@ -315,7 +315,7 @@ pub(super) fn segment(said: &str, slot: Option<Slot>, own: Own, covered: &[&str]
 
 /// A `>` that is not `>>` and not `>&`. **It destroys what the file held**,
 /// however ordinary the command in front of it.
-pub(in crate::helm) fn truncating_redirect(said: &str) -> bool {
+pub(in crate::auto_gate) fn truncating_redirect(said: &str) -> bool {
     let written: Vec<char> = said.chars().collect();
     written.iter().enumerate().any(|(at, c)| {
         *c == '>'

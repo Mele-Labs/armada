@@ -28,8 +28,8 @@ where
         marked: Marked,
     ) -> Result<SessionRecord, Refusal> {
         let rooted = start.root.is_some();
-        // Helm and Setup's run as soon as they are told; a fork is held in `forking.rs`.
-        let held = start.held && !rooted && marked != Marked::Helm;
+        // A fork is held in `forking.rs`.
+        let held = start.held && !rooted;
         let (manifest, cwd) = match (marked, start.root.take()) {
             (Marked::ModsFolder, _) => (None, self.mods_dir().to_string_lossy().into_owned()),
             (_, Some(root)) => {
@@ -52,7 +52,7 @@ where
         };
         // A root that has a Manifest by now is a plain start on it, not Setup's.
         let setup = rooted && manifest.is_none();
-        // Only a plain Job in a repository holds lifecycle instances; Helm, a mod and Setup do not.
+        // Only a plain Job in a repository holds lifecycle instances; a mod and Setup do not.
         let holds_lifecycles = marked == Marked::Plain && manifest.is_some();
         let id = new_id();
         let now = self.now().as_str().to_string();
@@ -109,7 +109,7 @@ where
                     lease_slot: None,
                     lease_branch: None,
                     fork_of: None,
-                    helm: marked == Marked::Helm,
+                    on_your_words: start.on_your_words.unwrap_or(false),
                     setup,
                     workflow: None,
                     proposed: String::new(),

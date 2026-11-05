@@ -511,15 +511,15 @@ pub(crate) fn lasted(millis: i64) -> String {
 }
 
 /// What a person's answer to a Session's permission card reads as.
-pub(crate) fn card_answer_says(answer: ipc::HelmCallAnswer) -> String {
+pub(crate) fn card_answer_says(answer: ipc::CallAnswer) -> String {
     match answer {
-        ipc::HelmCallAnswer::AllowOnce => "Answered: allow",
-        ipc::HelmCallAnswer::AllowAndRemember => "Answered: always allow",
-        ipc::HelmCallAnswer::Refuse => "Answered: refuse",
-        ipc::HelmCallAnswer::AlwaysAllow => "Answered: always allow the folder",
-        ipc::HelmCallAnswer::AlwaysBlock => "Answered: always block the folder",
-        ipc::HelmCallAnswer::AllowForSession => "Answered: allow the folder for this job",
-        ipc::HelmCallAnswer::AllowLikeThisForSession => "Answered: allow calls like this for this job",
+        ipc::CallAnswer::AllowOnce => "Answered: allow",
+        ipc::CallAnswer::AllowAndRemember => "Answered: always allow",
+        ipc::CallAnswer::Refuse => "Answered: refuse",
+        ipc::CallAnswer::AlwaysAllow => "Answered: always allow the folder",
+        ipc::CallAnswer::AlwaysBlock => "Answered: always block the folder",
+        ipc::CallAnswer::AllowForSession => "Answered: allow the folder for this job",
+        ipc::CallAnswer::AllowLikeThisForSession => "Answered: allow calls like this for this job",
     }
     .to_string()
 }

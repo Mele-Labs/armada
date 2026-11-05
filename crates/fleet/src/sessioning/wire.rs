@@ -146,7 +146,7 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         held_until: None,
         context_breakdown: None,
         loadout_summary: None,
-        helm: false,
+        on_your_words: false,
         r#mod: false,
         from_job: None,
         from_tab: None,

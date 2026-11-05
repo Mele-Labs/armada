@@ -1,15 +1,20 @@
-//! Every Helm call held open while a person answers it, and the answer going
+//! Every call held open while a person answers it, and the answer going
 //! back inside the call. `#1389`.
 //!
 //! **Fleet decides nothing here.** The person's own settings already allowed
 //! what they allow and refused what they refuse; what reaches this module is
-//! the remainder, and the only thing it does with one is carry it to the dock
+//! the remainder, and the only thing it does with one is carry it to the person
 //! and carry an answer back. There is no policy to read and none to write.
 //!
 //! **Held on the table and written to no column**, for
 //! `crate::permitting::Waiting`'s reason one subject over: what is waiting is
 //! one process inside one tool call, and a Fleet that restarts has lost the
 //! process whose call it was. A restart leaves nothing to resume.
+
+mod permitting;
+mod serving;
+
+pub use permitting::SHIPPED_ASK_HOLD;
 
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -19,24 +24,24 @@ use std::time::Duration;
 use adapter_traits::CallDetail;
 use core_model::Timestamp;
 use ipc::{
-    AnswerHelmCall, AskingToRun, CallKind, HelmCallAnswer, HelmCallInFlight, Instant, ManifestId,
+    AnswerCall, AskingToRun, CallKind, CallAnswer, CallInFlight, Instant, ManifestId,
     QuestionAnswer, ReachesTo, RunOrNot,
 };
 use tokio::sync::oneshot;
 
 /// How long one ask is held open for a person before Fleet answers `deny` for
-/// them. The shipped value is the *Helm ask hold* setting, which the
+/// them. The shipped value is the *Ask held open* setting, which the
 /// composition root resolves and writes out.
 ///
 /// **A fitting rather than a bare constant**, for `PermissionHold`'s reason: a
 /// test can plant a bound it can outlive, where five real minutes is not a wait
 /// any case can make.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct HelmAskHold(Duration);
+pub struct AskHold(Duration);
 
-impl HelmAskHold {
-    pub const fn of(hold: Duration) -> HelmAskHold {
-        HelmAskHold(hold)
+impl AskHold {
+    pub const fn of(hold: Duration) -> AskHold {
+        AskHold(hold)
     }
 
     pub fn duration(&self) -> Duration {
@@ -47,7 +52,7 @@ impl HelmAskHold {
 /// What a person said, as it travels from the route to the call.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Said {
-    pub answer: HelmCallAnswer,
+    pub answer: CallAnswer,
     /// Their words, on a refusal. Trimmed away where they typed nothing.
     pub note: Option<String>,
     /// What was chosen, for a call that asked questions.
@@ -59,7 +64,7 @@ pub struct Said {
 }
 
 impl Said {
-    pub fn of(said: &AnswerHelmCall) -> Said {
+    pub fn of(said: &AnswerCall) -> Said {
         Said {
             answer: said.answer,
             note: said
@@ -106,11 +111,11 @@ pub struct Reach {
 
 /// One ask, and the half of the channel its answer goes down.
 struct Held {
-    in_flight: HelmCallInFlight,
+    in_flight: CallInFlight,
     answer: oneshot::Sender<Said>,
 }
 
-/// Every Helm call waiting on a person right now, across every repository.
+/// Every call waiting on a person right now, across every repository.
 ///
 /// **One table for the machine, not one per conversation.** The dock is
 /// Fleet-wide and a person answers what is waiting on them wherever it came
@@ -118,13 +123,13 @@ struct Held {
 pub struct Asks {
     waiting: Mutex<BTreeMap<String, Held>>,
     minted: AtomicU64,
-    hold: HelmAskHold,
+    hold: AskHold,
     /// Fleet is stopping: every call held is let go, and none is held again.
     stopping: AtomicBool,
 }
 
 impl Asks {
-    pub fn holding_for(hold: HelmAskHold) -> Asks {
+    pub fn holding_for(hold: AskHold) -> Asks {
         Asks {
             waiting: Mutex::new(BTreeMap::new()),
             minted: AtomicU64::new(0),
@@ -152,7 +157,7 @@ impl Asks {
         self.hold.duration()
     }
 
-    pub fn held_for(&self) -> HelmAskHold {
+    pub fn held_for(&self) -> AskHold {
         self.hold
     }
 
@@ -167,7 +172,7 @@ impl Asks {
         manifest_id: &ManifestId,
         asking: &AskingToRun,
         at: &Timestamp,
-    ) -> (HelmCallInFlight, oneshot::Receiver<Said>) {
+    ) -> (CallInFlight, oneshot::Receiver<Said>) {
         self.minted_reaching(manifest_id, asking, at, None)
     }
 
@@ -180,7 +185,7 @@ impl Asks {
         asking: &AskingToRun,
         at: &Timestamp,
         reach: Option<Reach>,
-    ) -> (HelmCallInFlight, oneshot::Receiver<Said>) {
+    ) -> (CallInFlight, oneshot::Receiver<Said>) {
         let reaches = reach.as_ref().and_then(|reach| reach.path.clone());
         let reaches_to = reach.as_ref().map(|reach| reach.to);
         let kind = reach.as_ref().and_then(|reach| reach.kind.clone());
@@ -191,10 +196,10 @@ impl Asks {
             .unwrap_or_default();
         let detail = CallDetail::of(wording.trim());
         let call = format!(
-            "helm-{}",
+            "call-{}",
             self.minted.fetch_add(1, Ordering::SeqCst).wrapping_add(1)
         );
-        let in_flight = HelmCallInFlight {
+        let in_flight = CallInFlight {
             call: call.clone(),
             manifest_id: manifest_id.clone(),
             asked_at: Instant::from(at),
@@ -234,7 +239,7 @@ impl Asks {
     /// A person's answer. **Takes the ask off the table** — a second press
     /// finds nothing waiting, which is what makes it a refusal rather than a
     /// second answer to the same call.
-    pub fn answer(&self, said: &AnswerHelmCall) -> Result<HelmCallInFlight, NotAnswerable> {
+    pub fn answer(&self, said: &AnswerCall) -> Result<CallInFlight, NotAnswerable> {
         let mut waiting = self
             .waiting
             .lock()
@@ -245,19 +250,19 @@ impl Asks {
         if !held.in_flight.offers.contains(&said.answer) {
             return Err(NotAnswerable::NotOffered);
         }
-        if said.answer == HelmCallAnswer::AllowOnce
+        if said.answer == CallAnswer::AllowOnce
             && !answers_every(&held.in_flight, &said.answers)
         {
             return Err(NotAnswerable::Incomplete);
         }
         let always = matches!(
             said.answer,
-            HelmCallAnswer::AlwaysAllow | HelmCallAnswer::AlwaysBlock | HelmCallAnswer::AllowForSession
+            CallAnswer::AlwaysAllow | CallAnswer::AlwaysBlock | CallAnswer::AllowForSession
         );
         if always && !folder_above(said.folder.as_deref(), held.in_flight.reaches.as_deref()) {
             return Err(NotAnswerable::NotAFolderAbove);
         }
-        if said.answer == HelmCallAnswer::AllowLikeThisForSession {
+        if said.answer == CallAnswer::AllowLikeThisForSession {
             if !kind_within(said.kind.as_ref(), held.in_flight.kind.as_ref()) {
                 return Err(NotAnswerable::NotItsKind);
             }
@@ -278,10 +283,10 @@ impl Asks {
 
     /// Put back an ask a restarted Fleet kept, under the id it had. Nothing
     /// waits on its channel: the answer is kept by whoever answers.
-    pub fn restore(&self, in_flight: HelmCallInFlight) {
+    pub fn restore(&self, in_flight: CallInFlight) {
         if let Some(minted) = in_flight
             .call
-            .strip_prefix("helm-")
+            .strip_prefix("call-")
             .and_then(|n| n.parse::<u64>().ok())
         {
             self.minted.fetch_max(minted, Ordering::SeqCst);
@@ -300,17 +305,17 @@ impl Asks {
 
     /// Take one ask off the table without answering it — the hold running out,
     /// or the session going. `None` where a person got there first.
-    pub fn withdraw(&self, call: &str) -> Option<HelmCallInFlight> {
+    pub fn withdraw(&self, call: &str) -> Option<CallInFlight> {
         let mut waiting = self.waiting.lock().ok()?;
         waiting.remove(call).map(|held| held.in_flight)
     }
 
-    /// Every ask waiting, oldest first — what `list_helm_calls` answers.
-    pub fn waiting(&self) -> Vec<HelmCallInFlight> {
+    /// Every ask waiting, oldest first — what `list_calls` answers.
+    pub fn waiting(&self) -> Vec<CallInFlight> {
         let Ok(waiting) = self.waiting.lock() else {
             return Vec::new();
         };
-        let mut asks: Vec<HelmCallInFlight> = waiting
+        let mut asks: Vec<CallInFlight> = waiting
             .values()
             .map(|held| held.in_flight.clone())
             .collect();
@@ -321,21 +326,21 @@ impl Asks {
 
 /// What a card over a reach past a session's slots offers. **No `AllowAndRemember`**: its rule
 /// matches a command, not a folder, and the guard never reads it.
-const REACHING_OFFERS: &[HelmCallAnswer] = &[
-    HelmCallAnswer::AllowOnce,
-    HelmCallAnswer::Refuse,
-    HelmCallAnswer::AlwaysAllow,
-    HelmCallAnswer::AllowForSession,
-    HelmCallAnswer::AlwaysBlock,
+const REACHING_OFFERS: &[CallAnswer] = &[
+    CallAnswer::AllowOnce,
+    CallAnswer::Refuse,
+    CallAnswer::AlwaysAllow,
+    CallAnswer::AllowForSession,
+    CallAnswer::AlwaysBlock,
 ];
 
 /// [`REACHING_OFFERS`], and "Allow calls like this" after the session answer where the card has
 /// a kind to allow.
-fn reaching_offers(kind: bool) -> Vec<HelmCallAnswer> {
+fn reaching_offers(kind: bool) -> Vec<CallAnswer> {
     let mut offers = REACHING_OFFERS.to_vec();
     if kind {
-        let after = offers.iter().position(|one| *one == HelmCallAnswer::AllowForSession).map_or(offers.len(), |at| at + 1);
-        offers.insert(after, HelmCallAnswer::AllowLikeThisForSession);
+        let after = offers.iter().position(|one| *one == CallAnswer::AllowForSession).map_or(offers.len(), |at| at + 1);
+        offers.insert(after, CallAnswer::AllowLikeThisForSession);
     }
     offers
 }
@@ -370,21 +375,21 @@ fn folder_above(folder: Option<&str>, reaches: Option<&str>) -> bool {
 /// writes a settings rule, and a tool whose rule would be its bare name is
 /// still a rule the CLI honours — so every tool offers all three, and the
 /// narrowing that a Drone's `offers` does by policy has no equivalent here.
-fn offers_for(tool: &str) -> Vec<HelmCallAnswer> {
+fn offers_for(tool: &str) -> Vec<CallAnswer> {
     // A question is answered or skipped. There is no rule to remember.
     if tool == ipc::ASKS_A_QUESTION {
-        return vec![HelmCallAnswer::AllowOnce, HelmCallAnswer::Refuse];
+        return vec![CallAnswer::AllowOnce, CallAnswer::Refuse];
     }
     vec![
-        HelmCallAnswer::AllowOnce,
-        HelmCallAnswer::AllowAndRemember,
-        HelmCallAnswer::Refuse,
+        CallAnswer::AllowOnce,
+        CallAnswer::AllowAndRemember,
+        CallAnswer::Refuse,
     ]
 }
 
 /// Whether `answers` has an entry, with something chosen, for each question the
 /// call asked and for no other. A call with no questions takes none.
-fn answers_every(asked: &HelmCallInFlight, answers: &[QuestionAnswer]) -> bool {
+fn answers_every(asked: &CallInFlight, answers: &[QuestionAnswer]) -> bool {
     answers.len() == asked.questions.len()
         && asked.questions.iter().all(|question| {
             answers.iter().any(|one| {
@@ -423,22 +428,22 @@ pub fn rule_for(tool: &str, detail: &str) -> String {
 /// why.
 pub fn answering(asking: &AskingToRun, said: &Said) -> RunOrNot {
     match said.answer {
-        HelmCallAnswer::AllowOnce if asking.tool_name == ipc::ASKS_A_QUESTION => RunOrNot::Allow {
+        CallAnswer::AllowOnce if asking.tool_name == ipc::ASKS_A_QUESTION => RunOrNot::Allow {
             updated_input: asking.answered(&said.answers),
         },
-        HelmCallAnswer::AllowOnce
-        | HelmCallAnswer::AllowAndRemember
-        | HelmCallAnswer::AlwaysAllow
-        | HelmCallAnswer::AllowForSession
-        | HelmCallAnswer::AllowLikeThisForSession => {
+        CallAnswer::AllowOnce
+        | CallAnswer::AllowAndRemember
+        | CallAnswer::AlwaysAllow
+        | CallAnswer::AllowForSession
+        | CallAnswer::AllowLikeThisForSession => {
             RunOrNot::Allow {
                 updated_input: asking.input.clone(),
             }
         }
-        HelmCallAnswer::AlwaysBlock => RunOrNot::Deny {
+        CallAnswer::AlwaysBlock => RunOrNot::Deny {
             message: blocked_folder(said.folder.as_deref().unwrap_or_default()),
         },
-        HelmCallAnswer::Refuse => RunOrNot::Deny {
+        CallAnswer::Refuse => RunOrNot::Deny {
             message: match &said.note {
                 Some(note) => format!("The person refused this: {note}"),
                 None => String::from(

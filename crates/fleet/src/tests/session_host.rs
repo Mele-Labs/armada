@@ -14,7 +14,7 @@ use std::time::Duration;
 use adapter_traits::{CallDetail, DroneEvent, HarnessReading, Speaker};
 use api::{HostedSessions, Sessions};
 use ipc::{
-    AnswerSessionAsk, CloseSession, GateAnswer, HelmCallAnswer, ManifestId, SendSessionMessage,
+    AnswerSessionAsk, CloseSession, GateAnswer, CallAnswer, ManifestId, SendSessionMessage,
     SessionAskState, SessionFact, SessionGate, SessionId, SessionMode, SessionOrigin,
     SessionReport, SessionRow, SessionState, SessionTurn, SessionVoice, StartSession, TuneSession,
 };
@@ -217,6 +217,7 @@ impl Rig {
                 after: None,
                 held,
                 project_rows: Vec::new(),
+                on_your_words: None,
             })
             .await
             .expect("started")
@@ -237,6 +238,7 @@ impl Rig {
                 after: None,
                 held: false,
                 project_rows: Vec::new(),
+                on_your_words: None,
             })
             .await
             .expect("started")
@@ -262,6 +264,7 @@ impl Rig {
             after: None,
             held: false,
             project_rows: Vec::new(),
+            on_your_words: None,
         };
         set(&mut start);
         Arc::clone(&self.fleet)
@@ -808,6 +811,7 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
             after: None,
             held: false,
             project_rows: Vec::new(),
+            on_your_words: None,
         })
         .await
         .unwrap()
@@ -892,7 +896,7 @@ async fn a_guarded_read_in_auto_is_a_card_and_always_allow_lets_the_next_one_run
         .await;
         seen.into_inner().unwrap().unwrap()
     };
-    let answer = |call: &str, answer: HelmCallAnswer, folder: Option<String>| AnswerSessionAsk {
+    let answer = |call: &str, answer: CallAnswer, folder: Option<String>| AnswerSessionAsk {
         session_id: id.clone(),
         call: call.to_string(),
         answer,
@@ -907,21 +911,21 @@ async fn a_guarded_read_in_auto_is_a_card_and_always_allow_lets_the_next_one_run
     assert_eq!(
         ask.offers,
         vec![
-            HelmCallAnswer::AllowOnce,
-            HelmCallAnswer::Refuse,
-            HelmCallAnswer::AlwaysAllow,
-            HelmCallAnswer::AllowForSession,
-            HelmCallAnswer::AlwaysBlock,
+            CallAnswer::AllowOnce,
+            CallAnswer::Refuse,
+            CallAnswer::AlwaysAllow,
+            CallAnswer::AllowForSession,
+            CallAnswer::AlwaysBlock,
         ]
     );
     assert_eq!(ask.reaches, Some(format!("{home}/Documents/notes-2441/x.md")));
     // An "always" answer names a folder that holds the path, or it is refused and the card stays.
     for folder in [None, Some(format!("{home}/Desktop"))] {
-        let refused = rig.fleet.answer_session_ask(answer(&ask.call, HelmCallAnswer::AlwaysAllow, folder)).await;
+        let refused = rig.fleet.answer_session_ask(answer(&ask.call, CallAnswer::AlwaysAllow, folder)).await;
         assert!(matches!(refused, Err(api::Refusal::Unacceptable(_))), "{refused:?}");
     }
     rig.fleet
-        .answer_session_ask(answer(&ask.call, HelmCallAnswer::AlwaysAllow, Some(format!("{home}/Documents"))))
+        .answer_session_ask(answer(&ask.call, CallAnswer::AlwaysAllow, Some(format!("{home}/Documents"))))
         .await
         .unwrap();
     assert!(matches!(waiting.await.unwrap().unwrap(), ipc::RunOrNot::Allow { .. }));
@@ -938,7 +942,7 @@ async fn a_guarded_read_in_auto_is_a_card_and_always_allow_lets_the_next_one_run
     let waiting = card("~/Desktop/a.md");
     let ask = asked().await;
     rig.fleet
-        .answer_session_ask(answer(&ask.call, HelmCallAnswer::AlwaysBlock, Some(format!("{home}/Desktop"))))
+        .answer_session_ask(answer(&ask.call, CallAnswer::AlwaysBlock, Some(format!("{home}/Desktop"))))
         .await
         .unwrap();
     assert!(matches!(waiting.await.unwrap().unwrap(), ipc::RunOrNot::Deny { .. }));
@@ -961,12 +965,12 @@ async fn a_bash_reach_card_names_its_kind_and_offers_to_allow_calls_like_it() {
     assert_eq!(
         ask.offers,
         vec![
-            HelmCallAnswer::AllowOnce,
-            HelmCallAnswer::Refuse,
-            HelmCallAnswer::AlwaysAllow,
-            HelmCallAnswer::AllowForSession,
-            HelmCallAnswer::AllowLikeThisForSession,
-            HelmCallAnswer::AlwaysBlock,
+            CallAnswer::AllowOnce,
+            CallAnswer::Refuse,
+            CallAnswer::AlwaysAllow,
+            CallAnswer::AllowForSession,
+            CallAnswer::AllowLikeThisForSession,
+            CallAnswer::AlwaysBlock,
         ]
     );
 }
@@ -1015,7 +1019,7 @@ fn like_this(id: &SessionId, call: &str, kind: Option<ipc::CallKind>, folder: Op
     AnswerSessionAsk {
         session_id: id.clone(),
         call: call.to_string(),
-        answer: HelmCallAnswer::AllowLikeThisForSession,
+        answer: CallAnswer::AllowLikeThisForSession,
         note: None,
         answers: Vec::new(),
         folder,
@@ -1028,7 +1032,7 @@ fn kind_named(program: &str, script: Option<&str>) -> Option<ipc::CallKind> {
 }
 
 /// The ask a session is waiting on, once it is.
-async fn asked_on(rig: &Rig, id: &SessionId) -> ipc::HelmCallInFlight {
+async fn asked_on(rig: &Rig, id: &SessionId) -> ipc::CallInFlight {
     let seen = Mutex::new(None);
     eventually(|| async {
         let now = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.hosted.unwrap().asked;
@@ -1080,8 +1084,8 @@ async fn a_write_through_a_search_path_offers_the_folder_answers() {
     .await;
     let ask = seen.into_inner().unwrap().unwrap();
     assert_eq!(ask.reaches, Some(format!("{home}/.rbenv/shims")));
-    assert!(ask.offers.contains(&HelmCallAnswer::AlwaysAllow), "{:?}", ask.offers);
-    assert!(ask.offers.contains(&HelmCallAnswer::AllowForSession), "{:?}", ask.offers);
+    assert!(ask.offers.contains(&CallAnswer::AlwaysAllow), "{:?}", ask.offers);
+    assert!(ask.offers.contains(&CallAnswer::AllowForSession), "{:?}", ask.offers);
 }
 
 /// A card says whether the call reads or writes, and "Always allow for this session" lets this
@@ -1115,7 +1119,7 @@ async fn allow_for_the_session_lets_its_next_call_run_and_is_gone_when_it_closes
             seen.into_inner().unwrap().unwrap()
         }
     };
-    let answer = |session: &SessionId, call: &str, answer: HelmCallAnswer, folder: Option<String>| AnswerSessionAsk {
+    let answer = |session: &SessionId, call: &str, answer: CallAnswer, folder: Option<String>| AnswerSessionAsk {
         session_id: session.clone(),
         call: call.to_string(),
         answer,
@@ -1128,9 +1132,9 @@ async fn allow_for_the_session_lets_its_next_call_run_and_is_gone_when_it_closes
     let waiting = card(&id, "~/Music/a-2441.mp3");
     let ask = asked(&id).await;
     assert_eq!(ask.reaches_to, Some(ipc::ReachesTo::Read));
-    assert!(ask.offers.contains(&HelmCallAnswer::AllowForSession), "{:?}", ask.offers);
+    assert!(ask.offers.contains(&CallAnswer::AllowForSession), "{:?}", ask.offers);
     rig.fleet
-        .answer_session_ask(answer(&id, &ask.call, HelmCallAnswer::AllowForSession, Some(format!("{home}/Music"))))
+        .answer_session_ask(answer(&id, &ask.call, CallAnswer::AllowForSession, Some(format!("{home}/Music"))))
         .await
         .unwrap();
     assert!(matches!(waiting.await.unwrap().unwrap(), ipc::RunOrNot::Allow { .. }));
@@ -1146,7 +1150,7 @@ async fn allow_for_the_session_lets_its_next_call_run_and_is_gone_when_it_closes
     // Another session is still asked.
     let theirs = card(&other, "~/Music/b.mp3");
     let ask = asked(&other).await;
-    rig.fleet.answer_session_ask(answer(&other, &ask.call, HelmCallAnswer::Refuse, None)).await.unwrap();
+    rig.fleet.answer_session_ask(answer(&other, &ask.call, CallAnswer::Refuse, None)).await.unwrap();
     assert!(matches!(theirs.await.unwrap().unwrap(), ipc::RunOrNot::Deny { .. }));
 
     Arc::clone(&rig.fleet).close_session(CloseSession { session_id: id.clone() }).await.unwrap();
@@ -1195,7 +1199,7 @@ async fn allow_calls_like_this_lets_its_kind_run_and_is_gone_when_it_closes() {
     let elsewhere = bash_call(&rig, &narrow, "node drive.mjs --out ~/code/shot.png");
     let ask = asked_on(&rig, &narrow).await;
     assert_eq!(ask.reaches, Some(format!("{home}/code/shot.png")));
-    rig.fleet.answer_session_ask(AnswerSessionAsk { answer: HelmCallAnswer::Refuse, ..like_this(&narrow, &ask.call, None, None) }).await.unwrap();
+    rig.fleet.answer_session_ask(AnswerSessionAsk { answer: CallAnswer::Refuse, ..like_this(&narrow, &ask.call, None, None) }).await.unwrap();
     assert!(matches!(elsewhere.await.unwrap().unwrap(), ipc::RunOrNot::Deny { .. }));
 
     Arc::clone(&rig.fleet).close_session(CloseSession { session_id: id.clone() }).await.unwrap();
@@ -1225,12 +1229,12 @@ async fn a_reach_into_the_root_is_asked_once_only() {
     .await;
     let ask = seen.into_inner().unwrap().unwrap();
     assert_eq!(ask.reaches.as_deref(), Some("/"));
-    assert_eq!(ask.offers, vec![HelmCallAnswer::AllowOnce, HelmCallAnswer::Refuse]);
+    assert_eq!(ask.offers, vec![CallAnswer::AllowOnce, CallAnswer::Refuse]);
     rig.fleet
         .answer_session_ask(AnswerSessionAsk {
             session_id: id.clone(),
             call: ask.call.clone(),
-            answer: HelmCallAnswer::Refuse,
+            answer: CallAnswer::Refuse,
             note: None,
             answers: Vec::new(),
             folder: None,
@@ -1310,14 +1314,14 @@ async fn an_ask_is_on_the_threads_own_row_and_the_answer_goes_back_in_the_call()
         }]
     ));
     assert!(
-        rig.fleet.helm().asks().waiting().is_empty(),
-        "Helm's dock does not carry it"
+        rig.fleet.asks().waiting().is_empty(),
+        "the table of unplaced asks does not carry it"
     );
     rig.fleet
         .answer_session_ask(AnswerSessionAsk {
             session_id: id.clone(),
             call: call.into_inner().unwrap(),
-            answer: HelmCallAnswer::Refuse,
+            answer: CallAnswer::Refuse,
             note: Some("not that".into()),
             answers: Vec::new(),
             folder: None,
@@ -1346,21 +1350,21 @@ async fn a_call_on_a_hosted_sessions_connection_is_its_own_ask_and_its_door_offe
     let peer: std::net::SocketAddr = "127.0.0.1:50999".parse().unwrap();
     let caller = api::Caller::at(peer);
     assert!(
-        rig.fleet.helm_at(caller).is_none(),
+        rig.fleet.words_reach_at(caller).is_none(),
         "no process, no session"
     );
 
     rig.send(&id, "hello").await;
     let reach = rig
         .fleet
-        .helm_at(caller)
+        .words_reach_at(caller)
         .expect("a hosted session's connection");
     assert!(reach.is_a_hosted_session());
     assert!(reach.may("ask_the_person"));
     assert!(reach.may("list_sessions") && reach.may("who_owns"));
     assert!(
         !reach.may("change_slot_pool"),
-        "Helm's acts are not offered to it"
+        "a Job on your words' acts are not offered to it"
     );
 
     let asking: ipc::AskingToRun = ipc::decode(
@@ -1373,7 +1377,7 @@ async fn a_call_on_a_hosted_sessions_connection_is_its_own_ask_and_its_door_offe
         .await
         .unwrap();
     assert!(matches!(decided, ipc::RunOrNot::Allow { .. }));
-    assert!(rig.fleet.helm().asks().waiting().is_empty());
+    assert!(rig.fleet.asks().waiting().is_empty());
 }
 
 #[tokio::test]

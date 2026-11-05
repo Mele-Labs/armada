@@ -1,27 +1,26 @@
-//! Helm reading a thought for where it belongs, and keeping where it went.
-//! `docs/concepts/helm.md`, *Routing a thought*.
+//! Words typed for a running Job, read for which Job they are for, and passed on.
 //!
 //! **The local model first, then one model call.** [`matching`] embeds the words and each live
 //! Session's title, and a Session that is a clear match gets the words at once. Otherwise, or while
 //! the local model is not loaded, the words and every live Session in every repository Fleet serves
 //! go to the proposer's model, which answers one line of JSON. What comes back is held to the
 //! candidates: an id that names none of them is no match, and an answer that is not the JSON asked
-//! for is a question. **Whatever goes wrong the words go to Helm**, the one place they cannot be
-//! lost. Nothing is kept by a read but each Session's vector.
+//! for is a question. **Whatever goes wrong the words are a question**, so they are never taken for
+//! a thought about a Job they are not about. Nothing is kept by a read but each Session's vector.
 //!
-//! Bridge delivers with the acts that already exist and then says so (`thought_sent`, in
-//! `session.rs`), which is when the Helm Session's thread gets its row. Helm delivers to a Session
-//! itself (`session_told`), when the words reach it as a request, and keeps the same row.
+//! Bridge delivers with the acts that already exist. A Job on your words delivers to a Job itself
+//! (`session_told`), when the words reach it as a request, and the send is announced as
+//! `operator.words_sent`.
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Ask, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal, Sessions};
-use config::settings::PROMPT_HELM_ROUTE;
+use config::settings::PROMPT_THOUGHT_ROUTE;
 use ipc::{
-    ManifestId, ReadThought, SendSessionMessage, SessionRecord, SessionState, TellSession,
-    ThoughtKind, ThoughtReading, ThoughtSent, ThoughtTarget,
+    Instant, ManifestId, ReadThought, SendSessionMessage, SessionRecord, SessionState, TellSession,
+    ThoughtKind, ThoughtReading, ThoughtTarget, WordsSent,
 };
 use serde::{Deserialize, Serialize};
 
@@ -32,10 +31,10 @@ use crate::prompts::Prompts;
 
 pub(crate) mod matching;
 
-/// How long the call may take. Past it the words go to Helm: a reading a person waits on is
+/// How long the call may take. Past it the words are a question: a reading a person waits on is
 /// worth less than the message it delays. **A call measured 5.0 to 7.5 seconds** on a live Fleet,
-/// most of it the CLI starting, and at eight seconds the slower ones were read as questions and sent
-/// to Helm. Bridge shows the turning mark for as long as the read takes.
+/// most of it the CLI starting, and at eight seconds the slower ones were read as questions.
+/// Bridge shows the turning mark for as long as the read takes.
 pub(crate) const READ_BUDGET: Duration = Duration::from_secs(20);
 
 /// The most Sessions the model is shown. They come most recently seen first, so what is cut is
@@ -49,14 +48,14 @@ const MOST_LINE: usize = 120;
 /// The most ledger lines one candidate shows.
 const MOST_LEDGER: usize = 6;
 
-/// The question as it ships: `prompts.helmRoute`'s default. `{candidates}` is a JSON list and
+/// The question as it ships: `prompts.thoughtRoute`'s default. `{candidates}` is a JSON list and
 /// `{message}` the person's words.
 pub(crate) const QUESTION: &str = "\
-A person typed one message into the message box of Helm, which answers their questions about a \
+A person typed one message into the message box, which answers their questions about a \
 repository. Decide what the message is.
 
-A question is a message for Helm itself: it asks Helm to look something up, explain, check or \
-do something. A thought is a message meant for work that is already running: it tells a running \
+A question is a message for the message box itself: it asks for something to be looked up, \
+explained, checked or done. A thought is a message meant for work that is already running: it tells a running \
 Job something to take into account, such as a wish, a correction, a limit or a new \
 detail about what it is building.
 
@@ -134,8 +133,7 @@ impl Candidate {
     /// anything, and one with no title cannot be named to a person.
     pub(crate) fn session(record: &SessionRecord) -> Option<Candidate> {
         let title = record.title.as_deref().filter(|title| !title.trim().is_empty())?;
-        // Helm's own Session is where a question goes, never a thought for running work.
-        if record.state != SessionState::Live || record.helm {
+        if record.state != SessionState::Live {
             return None;
         }
         let mut ledger = Vec::new();
@@ -168,10 +166,10 @@ impl Candidate {
     }
 }
 
-/// Whether the words plainly ask Helm something, so the call is not worth its three seconds: a
+/// Whether the words plainly ask a question, so the call is not worth its three seconds: a
 /// wh-word opens them and a question mark closes them. **Narrow on purpose.** "Can you make the
 /// spike cover the jobs table?" is a request to a Session in a question's clothes, so only the
-/// two together skip the model, and what slips through is asked of Helm, where it is not lost.
+/// two together skip the model, and what slips through is read as a question, where it is not lost.
 pub(crate) fn plainly_a_question(words: &str) -> bool {
     let words = words.trim();
     let opens = words
@@ -184,11 +182,11 @@ pub(crate) fn plainly_a_question(words: &str) -> bool {
     opens && words.ends_with('?')
 }
 
-/// The question put to the model, in the words of `prompts.helmRoute`.
+/// The question put to the model, in the words of `prompts.thoughtRoute`.
 pub(crate) fn question(prompts: &Prompts, words: &str, candidates: &[Candidate]) -> Option<String> {
     let listed = ipc::encode(&candidates).ok()?;
     Some(prompts.fill(
-        PROMPT_HELM_ROUTE,
+        PROMPT_THOUGHT_ROUTE,
         &[("candidates", &listed), ("message", &cut(words, MOST_WORDS))],
     ))
 }
@@ -265,7 +263,7 @@ where
         read(words, &candidates, &asking).await
     }
 
-    /// Every live Session, across every repository served. **Not scoped to the repository Helm
+    /// Every live Session, across every repository served. **Not scoped to the repository the box
     /// points at**, by the owner's decision of 12 Oct 2026.
     async fn thought_candidates(&self) -> Vec<Candidate> {
         let mut found: Vec<Candidate> = Vec::new();
@@ -281,18 +279,16 @@ where
         found
     }
 
-    /// `tell_session`: Helm passes words to a live Session. **The send is Bridge's own**, so a
-    /// terminal Session that is not listening is refused in the same words, and the row and the
-    /// event are `thought_sent`'s. **A refused send records nothing**: the `?` leaves before either.
+    /// `tell_session`: a Job on your words passes words to a live Job. **The send is Bridge's
+    /// own**, so a terminal Job that is not listening is refused in the same words, and
+    /// `operator.words_sent` is published once it is sent. **A refused send publishes nothing**:
+    /// the `?` leaves before it.
     pub(crate) async fn session_told(
         self: Arc<Self>,
         tell: TellSession,
         manifest_id: Option<ManifestId>,
     ) -> Result<ThoughtTarget, Refusal> {
-        // The repository whose Helm Session keeps the row is looked up first, so words are not
-        // delivered to a Session and then left unrecorded for want of one to keep them in.
-        self.served_named(manifest_id.as_ref())?;
-        let text = tell.text.clone();
+        let served = self.served_named(manifest_id.as_ref())?;
         let record = Arc::clone(&self)
             .send_session_message(SendSessionMessage {
                 session_id: tell.session_id,
@@ -302,16 +298,12 @@ where
             })
             .await?;
         let target = session_target(&record);
-        self.thought_sent(
-            ThoughtSent {
-                text,
-                target: target.clone(),
-                attachments: Vec::new(),
-                mentions: Vec::new(),
-            },
-            manifest_id,
-        )
-        .await?;
+        self.events().publish(ipc::Event::WordsSent(WordsSent {
+            manifest_id: ManifestId::carried(served.manifest().id().as_str()),
+            to: target.kind,
+            id: target.id.clone(),
+            at: Instant::from(&self.now()),
+        }));
         Ok(target)
     }
 }

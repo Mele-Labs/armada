@@ -1,6 +1,5 @@
-//! Helm passing words to a live Session (`tell_session`): the send is the one Bridge's composer
-//! makes, and the Helm Session's `sent` row and `helm.thought_routed` follow it and only it.
-//! `docs/concepts/helm.md`, *Routing a thought*.
+//! A Job on your words passing words to a live Job (`tell_session`): the send is the one Bridge's
+//! composer makes, and `operator.words_sent` follows it and only it.
 //!
 //! **The Session is real and the process behind it is the stand-in**, as `session_host` has it, so
 //! a hosted Session takes its turn and a terminal one is held for a mod that is or is not asking.
@@ -10,7 +9,7 @@ use std::time::Duration;
 
 use api::{Conversations, HostedSessions, Next, Sessions, Subscription};
 use ipc::{
-    ManifestId, SessionFact, SessionId, SessionOrigin, SessionReport, SessionRow, StartSession,
+    ManifestId, SessionFact, SessionId, SessionOrigin, SessionReport, StartSession,
     TakeHeld, TellSession, ThoughtKind,
 };
 
@@ -38,6 +37,7 @@ impl Rig {
                 after: None,
                 held: false,
                 project_rows: Vec::new(),
+                on_your_words: None,
             })
             .await
             .expect("started")
@@ -86,35 +86,23 @@ impl Rig {
             .await
             .map_err(|why| format!("{why:?}"))
     }
-
-    /// The rows of the Helm Session's thread: none where the repository has no Helm Session.
-    async fn thread(&self) -> Vec<SessionRow> {
-        Arc::clone(&self.fleet)
-            .get_helm_session(None)
-            .await
-            .expect("read")
-            .session
-            .map(|thread| thread.rows)
-            .unwrap_or_default()
-    }
 }
 
-async fn routed(watching: &mut Subscription) -> Vec<ipc::HelmThoughtRouted> {
+async fn routed(watching: &mut Subscription) -> Vec<ipc::WordsSent> {
     let mut seen = Vec::new();
     while let Ok(Some(Next::Send(delivered))) =
         tokio::time::timeout(Duration::from_millis(50), watching.next()).await
     {
-        if let ipc::Event::HelmThoughtRouted(one) = delivered.event {
+        if let ipc::Event::WordsSent(one) = delivered.event {
             seen.push(one);
         }
     }
     seen
 }
 
-/// A hosted Session takes the words as a turn, and Helm's thread keeps a row naming it and the
-/// repository, with the event beside it.
+/// A hosted Job takes the words as a turn, and the event names where they went.
 #[tokio::test]
-async fn words_told_to_a_hosted_session_take_a_turn_and_are_a_row_and_an_event() {
+async fn words_told_to_a_hosted_session_take_a_turn_and_are_an_event() {
     let rig = rig_placing(None);
     let id = rig.titled_hosted("Walk variations").await;
     let mut watching = rig.fleet.events().subscribe();
@@ -130,12 +118,6 @@ async fn words_told_to_a_hosted_session_take_a_turn_and_are_a_row_and_an_event()
         rows.iter().any(|row| format!("{row:?}").contains("make the take names shorter")),
         "the Session was sent the words: {rows:?}"
     );
-    let thread = rig.thread().await;
-    let [SessionRow::Sent { text, target: went, .. }] = &thread[..] else {
-        panic!("one sent row and nothing asked of Helm: {thread:?}");
-    };
-    assert_eq!(text, "make the take names shorter");
-    assert_eq!(*went, target);
     let events = routed(&mut watching).await;
     let [event] = events.as_slice() else {
         panic!("one routed event: {events:?}");
@@ -153,13 +135,11 @@ async fn words_told_to_a_listening_terminal_session_are_held_for_its_mod() {
     rig.tells(&id, "group them by pull request").await.expect("told");
 
     assert_eq!(rig.mod_listens().await, vec!["group them by pull request"]);
-    assert!(matches!(&rig.thread().await[..], [SessionRow::Sent { .. }]));
 }
 
-/// **A refused send records nothing**: not the row, not the event, and the refusal is the send's
-/// own, in its own words.
+/// **A refused send announces nothing**, and the refusal is the send's own, in its own words.
 #[tokio::test]
-async fn a_terminal_session_not_listening_is_refused_and_nothing_is_recorded() {
+async fn a_terminal_session_not_listening_is_refused_and_nothing_is_announced() {
     let rig = rig_placing(None);
     let id = rig.terminal("Release notes").await;
     let mut watching = rig.fleet.events().subscribe();
@@ -167,19 +147,17 @@ async fn a_terminal_session_not_listening_is_refused_and_nothing_is_recorded() {
     let refused = rig.tells(&id, "group them by pull request").await.unwrap_err();
 
     assert!(refused.contains("fleet.terminal_session_unreachable"), "{refused}");
-    assert!(rig.thread().await.is_empty(), "no row");
     assert!(routed(&mut watching).await.is_empty(), "no event");
 }
 
-/// A Session that does not exist is the send's refusal too, and records nothing.
+/// A Session that does not exist is the send's refusal too, and announces nothing.
 #[tokio::test]
-async fn a_session_that_does_not_exist_is_refused_and_nothing_is_recorded() {
+async fn a_session_that_does_not_exist_is_refused_and_nothing_is_announced() {
     let rig = rig_placing(None);
     let mut watching = rig.fleet.events().subscribe();
 
     let refused = rig.tells(&SessionId::carried("01NOSUCHSESSION"), "hello").await;
 
     assert!(refused.is_err(), "{refused:?}");
-    assert!(rig.thread().await.is_empty(), "no row");
     assert!(routed(&mut watching).await.is_empty(), "no event");
 }

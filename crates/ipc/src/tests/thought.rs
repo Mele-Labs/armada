@@ -1,11 +1,10 @@
 //! What the wire keeps true about a thought routed: the reading is told apart by `kind`, an absent
 //! field is left out and never `null`, and the audit event is spelled as `operations/` declares it.
-//! The thread's row is `SessionRow::Sent`, held in `helm.rs`. `docs/concepts/helm.md`, *Routing a
-//! thought*.
+//! The `sent` row is `SessionRow::Sent`, held in `session_wire.rs`.
 
 use crate::{
     decode, encode, Event, WordsSent, Instant, ManifestId, ReadThought, ThoughtKind,
-    ThoughtReading, ThoughtSent, ThoughtTarget,
+    ThoughtReading, ThoughtTarget,
 };
 
 fn a_session() -> ThoughtTarget {
@@ -58,17 +57,11 @@ fn a_reading_of_a_kind_nobody_sends_is_refused() {
 }
 
 #[test]
-fn the_words_and_where_they_went_round_trip() {
+fn the_words_read_round_trip() {
     let read = decode::<ReadThought>("words", br#"{"text":"retries should back off"}"#).expect("plain data");
     assert_eq!(read.text, "retries should back off");
-    let sent = ThoughtSent {
-        text: "retries should back off".into(),
-        target: a_session(),
-        attachments: Vec::new(),
-        mentions: Vec::new(),
-    };
-    let json = encode(&sent).expect("plain data");
-    assert_eq!(decode::<ThoughtSent>("sent", json.as_bytes()).expect("round-trips"), sent);
+    let json = encode(&read).expect("plain data");
+    assert_eq!(decode::<ReadThought>("words", json.as_bytes()).expect("round-trips"), read);
 }
 
 /// The audit event carries where and never the words.

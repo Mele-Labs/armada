@@ -1,9 +1,9 @@
-//! What a shell segment names and does, read by [`super::deciding`]: the variables a line set,
+//! What a shell segment names and does, read by [`super`]: the variables a line set,
 //! the files in the owner's home a read may touch, and the verbs that only look.
 
 use ipc::CallKind;
 
-use super::deciding::{reaches_outside, read_refused, truncating_redirect, Slot};
+use super::{reaches_outside, read_refused, truncating_redirect, Slot};
 
 /// The segments with each variable the line assigned put back where it is used. `$$` is a
 /// process id and reads as a number. **A variable the line never set stays a `$`**, which no

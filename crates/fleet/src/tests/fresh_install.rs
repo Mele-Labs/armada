@@ -89,6 +89,7 @@ async fn a_job_in_a_bare_repository(app: &TempDir) -> (Rig, ipc::SessionId, Rout
             after: None,
             held: false,
             project_rows: Vec::new(),
+            on_your_words: None,
         })
         .await
         .expect("started")

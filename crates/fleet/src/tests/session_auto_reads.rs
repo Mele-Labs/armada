@@ -4,7 +4,7 @@
 
 use ipc::AskingToRun;
 
-use crate::helm::{because_in_a_session, guarded_in_a_session, Because, Folders, Guarded, Own};
+use crate::auto_gate::{because_in_a_session, guarded_in_a_session, Because, Folders, Guarded, Own};
 
 const SLOT: &str = "/repo/.armada/slots/slot-3";
 

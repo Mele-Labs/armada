@@ -85,8 +85,8 @@ pub fn fitted_over<V>(
             // fixture pointed at a path nothing can write would exercise the
             // fallback in every case rather than the path that ships.
             mcp_config: home.path().join("mcp.json").to_string_lossy().to_string(),
-            // Never actually run: a fixture that asks Helm anything swaps this
-            // Fleet's host with `hosting_helm_on` first — `crate::tests::helm_conversation`.
+            // Never actually run: a fixture that starts a Job swaps this
+            // Fleet's host with `hosting_sessions_on` first.
             agent_binary: "the-agent".to_string(),
             // A port nothing is listening on. Attribution is planted in these
             // fixtures, so this is the other half of a pair no fake ever
@@ -110,8 +110,6 @@ pub fn fitted_over<V>(
             built_in_mods: crate::mods::BuiltIns::default(),
             // The shipped fifteen minutes; the cases about a reply running out
             // plant their own with `answering_within`.
-            helm_reply_budget: Duration::from_secs(15 * 60),
-            helm_effort: None,
         },
         // Reads no folder: the cases about adding a repository plant their own.
         locating: Arc::new(crate::tests::repositories::Planted::nothing()),
@@ -124,11 +122,11 @@ pub fn fitted_over<V>(
         // for the test.
         run_log_retention: Duration::from_secs(30 * 24 * 60 * 60),
         // The setting's own default. No fixture here asserts on `ReadOnly`.
-        helm_authority: crate::helm::Authority::Acting,
+        action_authority: crate::on_your_words::Authority::Acting,
         // Two seconds, not the shipped five minutes: a case about nobody
-        // answering has to outlive the hold, and `HelmAskHold` is a fitting
+        // answering has to outlive the hold, and `AskHold` is a fitting
         // for exactly that.
-        helm_ask_hold: crate::helm::HelmAskHold::of(Duration::from_secs(2)),
+        ask_hold: crate::asks::AskHold::of(Duration::from_secs(2)),
         // Nothing to place. A fake harness opens no sockets, so a fixture that
         // answered otherwise would be asserting against the machine rather than
         // against Fleet. `crate::tests::peer` plants one where the subject is

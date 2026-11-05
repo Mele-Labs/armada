@@ -82,7 +82,7 @@ pub(crate) fn clear_match(scores: &[f32]) -> Option<usize> {
 ///
 /// **A message that ends in a question mark is not read here.** The model tells what a message is
 /// about, not whether it asks or tells, and "is the walk variations Session done?" is about that
-/// Session and is Helm's to answer.
+/// Session and is a question.
 pub(crate) fn matched(
     model: &dyn TextModel,
     vectors: &Vectors,

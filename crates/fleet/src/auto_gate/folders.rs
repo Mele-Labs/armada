@@ -199,7 +199,7 @@ pub fn pages_opened(line: &str) -> Vec<String> {
 /// volume or the whole disk. **A path that names Armada is let through**: it
 /// is most likely looking for something of Armada's (the owner, 8 Oct 2026).
 /// The system's own folders (`/opt`, `/usr`, `/tmp`) are no one's files.
-pub(in crate::helm) fn reaches_outside(word: &str) -> bool {
+pub(in crate::auto_gate) fn reaches_outside(word: &str) -> bool {
     let word = word.rsplit('=').next().unwrap_or(word);
     let word = word.trim_matches(|c| c == '\'' || c == '"');
     if word.to_lowercase().contains("armada") {
@@ -243,7 +243,7 @@ pub(super) const GUARDED: &[&str] = &[
 /// [`GUARDED`] names, another volume, or a search (`walks`) from the root, `/Users` or the
 /// home, which reaches every one of them. **Every other read outside the slots runs** (the
 /// owner, 16 Oct 2026: "reads are fine, writes are the ones we need to be careful of").
-pub(in crate::helm) fn read_refused(word: &str, walks: bool) -> bool {
+pub(in crate::auto_gate) fn read_refused(word: &str, walks: bool) -> bool {
     let word = word.rsplit('=').next().unwrap_or(word);
     let word = word.trim_matches(|c| c == '\'' || c == '"');
     if word.to_lowercase().contains("armada") {
