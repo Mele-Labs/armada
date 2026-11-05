@@ -6,17 +6,6 @@ import type { SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 const CANNOT_PLAY = "This video cannot play here.";
 
-/** A video goes to the Mac's own player, since the side panel reads a file into memory and would call it binary. Whether it took the path. */
-export function openShownVideo(
-  draft: Pick<SessionsDraft, "openFile">,
-  id: string,
-  path: string,
-): boolean {
-  if (mediaKindOf(path) !== "video") return false;
-  draft.openFile?.(id, path);
-  return true;
-}
-
 export async function readShownMedia(
   draft: Pick<SessionsDraft, "readArtifact" | "videoAddress" | "openFile">,
   id: string,
