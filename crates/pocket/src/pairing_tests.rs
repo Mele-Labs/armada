@@ -30,7 +30,7 @@ pub(crate) fn pairing(now: Arc<AtomicI64>, address: Result<String, String>) -> P
         DIRS.fetch_add(1, Ordering::Relaxed)
     ));
     std::fs::create_dir_all(&dir).unwrap();
-    let store = store::Store::open(&dir.join("armada.db")).unwrap();
+    let store = store::Store::open_migrated_copy(&dir.join("armada.db")).unwrap();
     Pairing::new(
         store,
         Arc::new(move || now.load(Ordering::Relaxed)),
