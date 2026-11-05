@@ -121,7 +121,7 @@ fn an_asks_tuning_is_left_out_when_absent_and_round_trips_when_set() {
     assert_eq!(decode::<AskHelm>("a message to Helm", json.as_bytes()).expect("round-trips"), tuned);
 }
 
-fn a_helm_record() -> SessionRecord {
+pub(super) fn a_helm_record() -> SessionRecord {
     let at = Instant::carried("2026-10-13T09:00:00.000Z");
     SessionRecord {
         id: crate::SessionId::carried("01HELM"),

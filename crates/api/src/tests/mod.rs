@@ -24,6 +24,7 @@ mod issue_queries;
 mod projects;
 mod helm_tells;
 mod hosted_sessions;
+mod started_jobs;
 mod bug_reports;
 mod lifecycle_routes;
 mod time_routes;
