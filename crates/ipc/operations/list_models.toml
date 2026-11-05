@@ -12,5 +12,5 @@ Added with the model picker, and since 20 Oct 2026 the models are the agent's ow
 
 **`default` is `models.default` as it stands when asked, and `session` is `models.session`.** Both are live, so the plan's step down (`docs/concepts/machine.md`, *Quota*), which moves `session`, reaches them without a restart. Each is always a member of `models`. `session` is required.
 
-Helm may reach it for the same reason it may reach the other queries: knowing what a model may be named is not choosing one.
+A Job on your words may reach it for the same reason it may reach the other queries: knowing what a model may be named is not choosing one.
 """

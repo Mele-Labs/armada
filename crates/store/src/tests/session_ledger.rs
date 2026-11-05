@@ -393,7 +393,7 @@ fn only_an_ended_session_that_was_never_anything_is_forgotten_as_blank() {
     }
 }
 
-pub(super) fn hosting(session_id: &str, manifest: &str, helm: bool) -> crate::KeptHosting {
+pub(super) fn hosting(session_id: &str, manifest: &str, on_your_words: bool) -> crate::KeptHosting {
     crate::KeptHosting {
         session_id: session_id.into(),
         manifest_id: manifest.into(),
@@ -404,7 +404,7 @@ pub(super) fn hosting(session_id: &str, manifest: &str, helm: bool) -> crate::Ke
         lease_slot: None,
         lease_branch: None,
         fork_of: None,
-        helm,
+        on_your_words,
         setup: false,
         workflow: None,
         proposed: String::new(),
@@ -438,16 +438,15 @@ fn a_mod_of_a_bay_survives_a_reopen() {
     assert!(!store.hosting("plain").expect("read").expect("hosted").mod_of_bay);
 }
 
-/// A repository's Helm Session is found by its repository, live; an ended one is not live, but is
-/// the latest, so the next starts on what it was tuned to; and an ordinary hosted Session is never
-/// either.
+/// The newest Job started on your words in a repository is found by its repository, ended or
+/// not, and an ordinary Job is never it.
 #[test]
-fn a_repositorys_helm_session_is_found_live_and_the_latest_is_found_ended() {
+fn a_repositorys_newest_job_on_your_words_is_found_and_no_other_job_is() {
     let dir = TempDir::new();
     let mut store = open(&dir);
     for (id, at, state) in [
         ("old", "2026-10-13T09:00:00.000Z", SessionState::Ended),
-        ("new", "2026-10-13T10:00:00.000Z", SessionState::Live),
+        ("new", "2026-10-13T10:00:00.000Z", SessionState::Ended),
         ("plain", "2026-10-13T11:00:00.000Z", SessionState::Live),
         ("other", "2026-10-13T12:00:00.000Z", SessionState::Live),
     ] {
@@ -462,21 +461,11 @@ fn a_repositorys_helm_session_is_found_live_and_the_latest_is_found_ended() {
     store.keep_hosting(&hosting("plain", "armada", false)).expect("kept");
     store.keep_hosting(&hosting("other", "elsewhere", true)).expect("kept");
 
-    let live = store.live_helm_of("armada").expect("read").expect("one is live");
-    assert_eq!(live.session_id, "new");
-    assert!(live.helm);
-    assert_eq!(store.live_helm_of("elsewhere").expect("read").expect("its own").session_id, "other");
-    assert!(store.live_helm_of("nowhere").expect("read").is_none());
-
-    // Ended, it is not live, and it is still the latest.
-    let mut ended = session("new");
-    ended.origin = "bridge".into();
-    ended.started_at = "2026-10-13T10:00:00.000Z".into();
-    ended.state = SessionState::Ended;
-    store.keep_session(&ended).expect("kept");
-    assert!(store.live_helm_of("armada").expect("read").is_none());
-    let latest = store.latest_helm_of("armada").expect("read").expect("the newest");
-    assert_eq!((latest.session_id.as_str(), latest.model.as_deref()), ("new", Some("opus")));
+    let found = store.latest_on_your_words_of("armada").expect("read").expect("the newest");
+    assert_eq!((found.session_id.as_str(), found.model.as_deref()), ("new", Some("opus")));
+    assert!(found.on_your_words);
+    assert_eq!(store.latest_on_your_words_of("elsewhere").expect("read").expect("its own").session_id, "other");
+    assert!(store.latest_on_your_words_of("nowhere").expect("read").is_none());
 }
 
 fn story(store: &Store, holder: &Holder) -> Vec<(String, String, AttachmentState, String)> {

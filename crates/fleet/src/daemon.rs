@@ -83,9 +83,6 @@ pub struct Fleet<H, V, W> {
     /// The agents' account signed out, for every Job at once. In memory. See [`crate::session_host::signed_out`].
     agent_sign_in: crate::session_host::signed_out::Held,
     events: api::Broadcaster,
-    /// Every Helm conversation, one per repository, and the host that carries
-    /// their messages. See [`crate::helm`].
-    helm: crate::helm::Conversations,
     /// The sessions Fleet hosts for Bridge. See [`crate::session_host`].
     sessions: crate::session_host::Hosts,
     /// Shell blocks run from a Session's thread. Never written down — `crate::session_running`.

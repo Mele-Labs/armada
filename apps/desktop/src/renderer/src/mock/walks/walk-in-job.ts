@@ -31,13 +31,19 @@ const walkInJob = walk("walk-in-job", [
   },
   {
     press: deckRow("Tidy the account pages"),
-    say: "The thread is at the left and the walks are tabs at the right",
+    say: "The Job opens as you left it, on the thread. The walks are tabs in its pane, and each pulses until you open it",
+  },
+  {
+    press: tab("Billing", {
+      exact: true,
+    }),
+    say: "A walk has the pane's whole width",
   },
   {
     look: tab("Settings", {
       exact: true,
     }),
-    say: "Billing is in front and has stopped pulsing. Settings still pulses",
+    say: "Billing has stopped pulsing. Settings still pulses",
   },
   {
     press: inside(billing, button("What to look at")),
@@ -87,8 +93,20 @@ const walkInJob = walk("walk-in-job", [
     say: "Capture holds the note on the Job",
   },
   {
+    press: tab("Thread", {
+      exact: true,
+    }),
+    say: "The Thread tab",
+  },
+  {
     look: inside(held, role("listitem", NOTE)),
     say: "The note waits at the end of the thread, naming its walk and take",
+  },
+  {
+    press: tab("Billing", {
+      exact: true,
+    }),
+    say: "Back to the walk",
   },
   {
     look: sendNotes,
@@ -139,8 +157,20 @@ const walkInJob = walk("walk-in-job", [
     say: "Send notes sends what is held as one turn",
   },
   {
+    press: tab("Thread", {
+      exact: true,
+    }),
+    say: "The Thread tab",
+  },
+  {
     look: inside(region("Pane: Thread"), text(/^The plan card needs the renewal date/)),
     say: "The turn is in the thread, and the pending note is gone",
+  },
+  {
+    press: tab("Billing", {
+      exact: true,
+    }),
+    say: "Back to the walk",
   },
   {
     look: inside(billing, button(/^Not ready$/)),

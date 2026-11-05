@@ -317,6 +317,15 @@ it("holds both views as pictures and hides them under a layer of Bridge's own, a
   expect(page.visible && bar.visible).toBe(true);
 });
 
+it("stays on screen when the layer leaves before the pictures are taken", async () => {
+  const shown = walk();
+  shown.show();
+  const freezing = shown.freeze();
+  shown.thaw();
+  expect(await freezing).toBeNull();
+  expect(page.visible && bar.visible).toBe(true);
+});
+
 it.each([
   [
     "page",

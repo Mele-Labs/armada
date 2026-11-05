@@ -1,0 +1,12 @@
+[operations."operator.words_sent"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A person's words were sent to a running Job, and which"
+notes = """
+**A Job on your words acting is its own event type**, the rule `studio.job_acted` follows. A person who finds a message in a Job that they did not type into it reads this to see that words were sent there for them.
+
+Published when `tell_session` has sent, which is after the delivery. It names the repository the call was made in (`manifest_id`), the kind (`to`: `session` or `job`) and the id of the one it went to, and never the words: those are the Job's own message row. Nothing is written to any thread for it.
+
+`manifest_id` is at the top level, so a poll's tally names the repository.
+"""

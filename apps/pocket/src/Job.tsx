@@ -36,7 +36,7 @@ import {
   type DropdownMenuEntry,
 } from "@armada/components";
 import { tokensSaid } from "@armada/components/src/compositions/SessionFrame/ContextFigure";
-import type { HelmCallAnswer, QuestionAnswer, StartCondition, WaitingItem } from "@armada/protocol";
+import type { CallAnswer, QuestionAnswer, StartCondition, WaitingItem } from "@armada/protocol";
 import type { Session, SessionWait, StartWhen } from "@armada/screens/src/draft/sessions";
 import {
   START_WHEN,
@@ -686,7 +686,7 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
           acts.answerAsk({
             session_id: id,
             call,
-            answer: (answer ?? "allow_once") as HelmCallAnswer,
+            answer: (answer ?? "allow_once") as CallAnswer,
             ...(answers === undefined
               ? {}
               : {

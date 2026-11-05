@@ -27,7 +27,7 @@ pub(crate) struct Tuning {
     pub(crate) polling: Polling,
     pub(crate) noticing: Noticing,
     pub(crate) run_log_retention: Duration,
-    pub(crate) helm_authority: crate::helm::Authority,
+    pub(crate) action_authority: crate::on_your_words::Authority,
     /// Whether a Session may follow a workflow: `features.workflows`.
     pub(crate) workflows: bool,
     /// The workflows switched off for the machine and for single repositories: `workflows.off`.
@@ -63,10 +63,10 @@ impl Tuning {
             polling: Polling::every(seconds(keys::RESOURCE_POLL_SECONDS, self.polling.interval())),
             noticing: Noticing::every(seconds(keys::MERGE_NOTICE_SECONDS, self.noticing.interval())),
             run_log_retention: days(keys::RUN_LOG_DAYS, self.run_log_retention),
-            helm_authority: match settings.chosen(keys::HELM_CAN_ACT) {
-                Some(true) => crate::helm::Authority::Acting,
-                Some(false) => crate::helm::Authority::ReadOnly,
-                None => self.helm_authority,
+            action_authority: match settings.chosen(keys::WORDS_CAN_ACT) {
+                Some(true) => crate::on_your_words::Authority::Acting,
+                Some(false) => crate::on_your_words::Authority::ReadOnly,
+                None => self.action_authority,
             },
             workflows: settings.chosen(keys::WORKFLOWS).unwrap_or(self.workflows),
             workflows_off: settings.chosen(keys::WORKFLOWS_OFF).map_or_else(
@@ -112,7 +112,7 @@ impl<H, V, W> crate::daemon::Fittings<H, V, W> {
             polling: self.polling,
             noticing: self.noticing,
             run_log_retention: self.run_log_retention,
-            helm_authority: self.helm_authority,
+            action_authority: self.action_authority,
             workflows: true,
             workflows_off: Default::default(),
             dispute_reviews: false,

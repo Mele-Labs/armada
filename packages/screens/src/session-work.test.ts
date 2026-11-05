@@ -541,17 +541,6 @@ describe("the workflow", () => {
       },
     ]);
   });
-
-  it("is a Helm Session's none", () => {
-    expect(
-      workOf(
-        record({
-          helm: true,
-        }),
-        beside(),
-      ),
-    ).toBeUndefined();
-  });
 });
 
 describe("the plan", () => {

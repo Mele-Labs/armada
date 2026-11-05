@@ -8,7 +8,7 @@ ask, one process, never resumed.
 
 | Block | Action it names | Why it is in the brief |
 | --- | --- | --- |
-| **Opening** | Answer a person's question by reading one repository | A scout is not Helm and holds no Fleet tools; without the block it reads like a conversation it can steer |
+| **Opening** | Answer a person's question by reading one repository | A scout is not a Job on your words and holds no Fleet tools; without the block it reads like a conversation it can steer |
 | **The repository** | Read inside the checkout, as it is on disk | `--restricted` refuses a read outside it, measured in spike 017; the block says so first, so the refusal is not a surprise to work around |
 | **What you may do** | Read, and never write or ask for a tool that would | The launch withholds every write tool. Told why, a model stops reaching for them rather than retrying each |
 | **What you answer with** | End with the answer, naming the files it rests on, and flag inference | Fleet lists every file read and search run from the stream, so the scout does not spend a turn listing them, and a list it wrote would be a claim beside a record |

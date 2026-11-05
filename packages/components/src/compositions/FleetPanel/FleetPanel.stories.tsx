@@ -305,7 +305,7 @@ export const Collapsed: Story = {
 /**
  * The left column at its 48px rail — the whole of Fleet, as one dot. That is
  * every width below `--layout-breakpoint`. It covered a wider band while
- * Helm's dock was taking width off the content; #1583 ended that, so the rail
+ * The Operator's dock was taking width off the content; #1583 ended that, so the rail
  * is the narrow window's reading again rather than a laptop's.
  *
  * What a rendering cannot show: that the dot is not silent. It was — an

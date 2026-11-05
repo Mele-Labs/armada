@@ -110,6 +110,6 @@ nothing.
 
 ## Where the rest lives
 
-`docs/contracts/agent-copy.md` governs every surface a Drone, the Judge or Helm
-writes at runtime — PR bodies, Judge summaries, evidence summaries, Helm
-replies. This skill covers the commit message only.
+`docs/contracts/agent-copy.md` governs every surface a Drone or the Judge
+writes at runtime — PR bodies, Judge summaries, evidence summaries.
+This skill covers the commit message only.

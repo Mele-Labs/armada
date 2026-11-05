@@ -118,6 +118,11 @@ where
         if let Some(answer) = in_the_background(&gate, mode_of(&hosting.mode)) {
             return answer;
         }
+        if let Touch::File(path) = touch(&gate) {
+            if let Some(why) = self.order_holding(&id, &hosting.manifest_id, &absolute(&gate, &path)).await {
+                return GateAnswer::deny(why);
+            }
+        }
         // A Mod Job writes its mods without asking him: the mods folder is outside its directory,
         // so Claude Code would otherwise ask about every file of a mod he asked for.
         if let (true, Touch::File(path)) = (hosting.mod_job, touch(&gate)) {
@@ -354,8 +359,10 @@ where
                     "This job writes only inside a worktree leased for it, and it had none \
                      until this write. Slot {} is leased on branch {} at {}, and Fleet is \
                      moving the job there now. Stop here: make no more writes this turn. Reads \
-                     and Fleet's own tools, such as all_done, still work. You will be told when \
-                     you are in the slot, and then repeat this write there.",
+                     and Fleet's own tools, such as all_done, still work. Agents and background \
+                     tasks still working finish first and the move waits for them, so stop any \
+                     you no longer need. You will be told when you are in the slot, and then \
+                     repeat this write there.",
                     moving.slot, moving.branch, moving.directory
                 ))
             }
@@ -374,7 +381,7 @@ where
         let id = hosting.session_id.as_str();
         let manifest = served.manifest().id().as_str();
         let queue = self.hosts().slot_queue();
-        let unleased = hosting.lease_slot.is_none() && !hosting.helm && mode_of(&hosting.mode) != SessionMode::Plan;
+        let unleased = hosting.lease_slot.is_none() && mode_of(&hosting.mode) != SessionMode::Plan;
         if !unleased {
             return hosting.clone();
         }
@@ -514,6 +521,8 @@ where
             slot,
             branch: branch.clone(),
             directory,
+            // A subagent's write with the agent's own turn over, or a grant to an idle Job.
+            held: matches!(runtime.state().turn, ipc::SessionTurn::Idle),
         };
         runtime.state().moving = Some(moving.clone());
         self.row_put(
@@ -640,6 +649,7 @@ fn queued(ahead: usize, chosen: Option<Choice>) -> String {
 fn waiting_to_move(slot: u32, directory: &str) -> String {
     format!(
         "Slot {slot} is leased for this job at {directory}, and Fleet is moving the job \
-         there. Make no more writes this turn: you will be told when you are in the slot."
+         there once its agents and background tasks have finished. Make no more writes this \
+         turn: you will be told when you are in the slot."
     )
 }

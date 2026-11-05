@@ -75,7 +75,7 @@ export type FleetPanelProps = {
  * rows beside it — the title row at every width, and this panel at the 48px
  * rail. One producer, so the tooltip a person hovers and the name a screen
  * reader speaks cannot become two sentences. The em dash is the title row's
- * own separator, from `Open Helm — ⌘J`.
+ * own separator, from `Open Operator — ⌘J`.
  */
 export function fleetSaid(label: string): string {
   return `Fleet — ${label}`;

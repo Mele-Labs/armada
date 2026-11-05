@@ -49,7 +49,7 @@ These have no trigger, so flip and alignment do not apply to them.
 | --- | --- |
 | Dialog | Centred in the window on both axes |
 | Guide card | Centred in the window on both axes |
-| Sheet | Full height, flush to one side edge, trailing by default. **Floating**: under the title row and held `--space-4` off every edge, rounded and bordered — Helm's dock as a layer. A screen's own reading takes it where a sheet contained in the content column read as cut off (the owner, 29 Sep 2026) |
+| Sheet | Full height, flush to one side edge, trailing by default. **Floating**: under the title row and held `--space-4` off every edge, rounded and bordered — the dock as a layer. A screen's own reading takes it where a sheet contained in the content column read as cut off (the owner, 29 Sep 2026) |
 | Toast | Bottom trailing corner, inset `--space-6` |
 | Command palette | Opens horizontally centred across the window, the field top-anchored at 20% of the viewport's height, and opens where it was last dragged. It does not open on the title row's one bar, which is not centred (the owner, 15 Oct 2026) |
 | Dispatch sheet | Horizontally centred across the window and wider than the palette, its top at 12% of the viewport's height, over a scrim. The one sheet for `n`, the deck's Dispatch tile, New Job and the palette's `⌘↵` |
@@ -76,7 +76,7 @@ not describe this. Reported, not minted here. `dock` is `--w-dock`, where
 Plan's task, group and wave-Job panels open.
 
 **Every sheet resizes, and each kind of sheet remembers its own width** (the
-owner, 2 Oct 2026). Helm's handle sits on a sheet's inner edge, contained or
+owner, 2 Oct 2026). A handle sits on a sheet's inner edge, contained or
 floating, and drags it from `--w-dock-min` to the far edge of the area it is
 drawn in, keeping only the handle's gap and a floating sheet's margin. There is
 no other ceiling: "I should be able to go as far as I want." A width
@@ -86,7 +86,7 @@ so it never passes that one's edge. Each sheet names its kind (`plan-task`, `dro
 and a kind opens at the width it was last dragged to, across a restart: a log
 panel dragged wide leaves Plan's task panel as it was. One shared width and
 none at all were the alternatives, and he chose this over both, at a little
-more to remember. A kind never dragged opens at its size. Helm folded into a
+more to remember. A kind never dragged opens at its size. The dock folded into a
 sheet has no kind: it shares the dock's width, so a drag of either sets both.
 At the floor a sheet is flush to both edges and has no handle.
 
@@ -97,7 +97,7 @@ order is the order a person meets them.
 
 | Token | Layer | Why it sits here |
 | --- | --- | --- |
-| `--z-dock` | Helm's dock, and the workflow canvas's inspector | Over the content, under anything opened from inside it |
+| `--z-dock` | The dock, and the workflow canvas's inspector | Over the content, under anything opened from inside it |
 | `--z-menu` | Dropdown, popover, split-button menu | Opens over the surface |
 | `--z-tooltip` | Tooltip, inspect card | Explains the thing a menu is over |
 | `--z-modal` | Dialog, sheet | Interrupts both |
@@ -119,7 +119,7 @@ issue) takes `Esc` itself.
 
 **`--z-dock` is the layer a person works beside rather than through**, so it is
 the one with no scrim and the only one under `--z-menu`. Two things take it, for
-one reason: Helm's dock over the content, and the workflow canvas's inspector
+one reason: the dock over the content, and the workflow canvas's inspector
 over the canvas — a person reads a node and replies to its Drone, so what is
 under each stays live and one press away. It still needs a token: a card lifts
 itself a step while it is hovered, which is enough to paint over a layer left at

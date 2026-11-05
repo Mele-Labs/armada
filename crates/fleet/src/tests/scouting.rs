@@ -311,7 +311,7 @@ async fn a_scout_stopped_from_its_node_ends_stopped_with_its_cost() {
     assert_eq!(code(&again), "fleet.scout_not_running");
 }
 
-/// **Helm's proposed Finding starts once, and only a Proposed one starts.** A
+/// **A Job's proposed Finding starts once, and only a Proposed one starts.** A
 /// Finding added claiming what its scout would record is refused.
 #[tokio::test]
 async fn a_proposed_finding_starts_once_and_a_claimed_one_is_never_added() {
@@ -329,11 +329,11 @@ async fn a_proposed_finding_starts_once_and_a_claimed_one_is_never_added() {
                 produced_by: None,
                 within: None,
             },
-            Redirector::Helm,
+            Redirector::Job,
             None,
         )
         .await
-        .expect("Helm proposes a Finding");
+        .expect("a Job proposes a Finding");
     let node_id = proposed.nodes[0].id.clone();
     Arc::clone(&fleet)
         .start_scout(

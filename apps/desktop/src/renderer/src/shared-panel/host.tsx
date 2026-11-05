@@ -4,7 +4,7 @@
 import { useMemo } from "react";
 import { ProseRefs } from "@armada/components";
 import type { ProseReferences } from "@armada/components";
-import { refScanner } from "@armada/helm";
+import { refScanner } from "@armada/screens/src/prose-refs";
 
 import { openLink } from "../commands";
 import { OverTheApp } from "../session-view/OverTheApp";

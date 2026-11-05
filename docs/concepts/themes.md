@@ -82,7 +82,7 @@ A scheme has 16 palette colours, a background and a foreground. Colours are mixe
 | `--status-completed-failed`, `-completed-success`, `-awaiting-review`, `-running`, `-rejected` | Palette 1, 2, 3, 4, 5 |
 | `--status-escalated` | Palette 1 and 3, half and half |
 | `--status-not-started`, `--status-killed` | The foreground mixed toward the background |
-| `--helm` | The accent and palette 5, half and half |
+| `--operator` | The accent and palette 5, half and half |
 | `--you` | Palette 3 and 2, seven parts to three, moved in lightness until `--fg-inverse` reads on it |
 | `--tool-look`, `--tool-change`, `--tool-run` | Palette 6, 5, 3 |
 | `--diff-*` | Palette 2 and 1 on a tint of the background |

@@ -7,6 +7,7 @@ import {
   MIN_PANE_W,
   addTab,
   arriveWalk,
+  reopenThread,
   arrive,
   build,
   closePane,
@@ -420,6 +421,80 @@ describe("showing a page", () => {
   });
 });
 
+describe("a closed thread coming back", () => {
+  const closeThread = (arrangement: Arrangement) =>
+    closeTab(arrangement, tabOfKind(arrangement, "thread").id);
+
+  test("into its pane where that pane is still there, in front, with the focus where it was", () => {
+    const arrangement = build({
+      dir: "row",
+      ratio: 0.5,
+      a: [
+        "thread",
+        "files",
+      ],
+      b: [
+        "terminal",
+      ],
+    });
+    const focus = holderOf(arrangement, "terminal")!.id;
+    const pane = holderOf(arrangement, "thread")!.id;
+    const back = reopenThread(
+      closeThread({
+        ...arrangement,
+        focus,
+      }),
+    );
+    expect(holderOf(back, "thread")!.id).toBe(pane);
+    expect(holderOf(back, "thread")!.active).toBe(tabOfKind(back, "thread").id);
+    expect(back.focus).toBe(focus);
+    expect(back.threadWas).toBeUndefined();
+  });
+
+  test("a pane that went with it is made again on the same side, at the same share", () => {
+    const arrangement = build({
+      dir: "row",
+      ratio: 0.3,
+      a: [
+        "thread",
+      ],
+      b: [
+        "terminal",
+      ],
+    });
+    const closed = closeThread(arrangement);
+    expect(panesOf(closed.root)).toHaveLength(1);
+    const back = reopenThread(closed);
+    expect(kindsOf(back)).toEqual([
+      [
+        "thread",
+      ],
+      [
+        "terminal",
+      ],
+    ]);
+    expect(back.root).toMatchObject({
+      type: "split",
+      dir: "row",
+      ratio: 0.3,
+    });
+  });
+
+  test("with its place gone, or never closed, it comes back in the focused pane, and one that stands is left", () => {
+    const arrangement = build([
+      "terminal",
+    ]);
+    const back = reopenThread(arrangement);
+    expect(kindsOf(back)).toEqual([
+      [
+        "terminal",
+        "thread",
+      ],
+    ]);
+    expect(reopenThread(back)).toBe(back);
+  });
+});
+
 describe("a walk arriving", () => {
   const thread = () =>
     build([
@@ -430,26 +505,27 @@ describe("a walk arriving", () => {
       .flatMap((pane) => pane.tabs)
       .filter((tab) => tab.kind === "walk");
 
-  test("the first one splits the thread's pane to its right, named by its page and keeping the page's address, and takes the focus", () => {
-    const arranged = arriveWalk(thread(), "Billing", "http://x/billing", false);
+  test("the first one joins the thread's pane with no split, named by its page and keeping the page's address, and takes the focus", () => {
+    const arrangement = thread();
+    const arranged = arriveWalk(arrangement, "Billing", "http://x/billing", false);
     expect(kindsOf(arranged)).toEqual([
       [
         "thread",
-      ],
-      [
         "walk",
       ],
     ]);
+    expect(arranged.root.type).toBe("pane");
     const tab = walkTabs(arranged)[0]!;
     expect(tab.label).toBe("Billing");
     expect(tab.page).toBe("http://x/billing");
+    expect(holderOf(arranged, "walk")!.active).toBe(tab.id);
     expect(arranged.focus).toBe(holderOf(arranged, "walk")!.id);
   });
 
-  test("a second one joins the pane that holds a walk and comes to the front", () => {
+  test("a second one joins the same pane and comes to the front", () => {
     const first = arriveWalk(thread(), "Billing", "http://x/billing", false);
     const second = arriveWalk(first, "Settings", "http://x/settings", false);
-    expect(panesOf(second.root)).toHaveLength(2);
+    expect(panesOf(second.root)).toHaveLength(1);
     expect(walkTabs(second).map((tab) => tab.label)).toEqual([
       "Billing",
       "Settings",
@@ -458,16 +534,50 @@ describe("a walk arriving", () => {
   });
 
   test("one that arrives behind leaves the tab in front and the focus where they were", () => {
-    const first = arriveWalk(thread(), "Billing", "http://x/billing", false);
-    const focus = holderOf(first, "thread")!.id;
-    const there = {
-      ...first,
-      focus,
-    };
-    const second = arriveWalk(there, "Settings", "http://x/settings", true);
-    expect(walkTabs(second)).toHaveLength(2);
-    expect(holderOf(second, "walk")!.active).toBe(walkTabs(first)[0]!.id);
-    expect(second.focus).toBe(focus);
+    const arrangement = build({
+      dir: "row",
+      ratio: 0.5,
+      a: [
+        "thread",
+      ],
+      b: [
+        "terminal",
+      ],
+    });
+    const holder = holderOf(arrangement, "thread")!;
+    const focus = holderOf(arrangement, "terminal")!.id;
+    const arranged = arriveWalk(
+      {
+        ...arrangement,
+        focus,
+      },
+      "Billing",
+      "http://x/billing",
+      true,
+    );
+    expect(walkTabs(arranged)).toHaveLength(1);
+    expect(holderOf(arranged, "walk")!.id).toBe(holder.id);
+    expect(holderOf(arranged, "walk")!.active).toBe(holder.active);
+    expect(arranged.focus).toBe(focus);
+  });
+
+  test("where he moved walk tabs to another pane, that pane still holds them", () => {
+    const arrangement = build({
+      dir: "row",
+      ratio: 0.5,
+      a: [
+        "thread",
+      ],
+      b: [
+        "walk",
+      ],
+    });
+    const moved = holderOf(arrangement, "walk")!.id;
+    const arranged = arriveWalk(arrangement, "Billing", "http://x/billing", false);
+    expect(panesOf(arranged.root)).toHaveLength(2);
+    expect(holderOf(arranged, "walk")!.id).toBe(moved);
+    expect(walkTabs(arranged)).toHaveLength(2);
+    expect(holderOf(arranged, "thread")!.tabs).toHaveLength(1);
   });
 
   test("with no thread and no walk pane, it opens by the ordinary arrival of a tab, named by its page", () => {
@@ -485,7 +595,7 @@ describe("a walk arriving", () => {
     });
   });
 
-  test("beside a thread that shares a split, it takes the room from the side it shares with, and a walk of that name already open is named apart", () => {
+  test("with a thread that shares a split, the split keeps its share, and a walk of that name already open is named apart", () => {
     const arrangement = build({
       dir: "row",
       ratio: 0.5,
@@ -504,8 +614,8 @@ describe("a walk arriving", () => {
           ratio: number;
         }
       ).ratio,
-    ).toBeGreaterThanOrEqual(0.78);
-    expect(panesOf(arranged.root)).toHaveLength(3);
+    ).toBe(0.5);
+    expect(panesOf(arranged.root)).toHaveLength(2);
     const again = arriveWalk(arranged, "Billing", "http://x/billing2", false);
     const labels = walkTabs(again).map((tab) => tab.label);
     expect(new Set(labels).size).toBe(2);

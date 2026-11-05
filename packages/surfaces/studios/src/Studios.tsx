@@ -8,7 +8,7 @@
 // answers with the Studio whole, and main folds it into `studio`.
 //
 // **The whiteboard's selection is held here, not in `App`.** Clustering is of several nodes, and
-// the one `App` keeps is what Helm's footer names — so this keeps the list and reports its first.
+// the one `App` keeps is a single node, for where Back returns to — so this keeps the list and reports its first.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ExternalLink, Image, Plus, Power, Trash2 } from "lucide-react";
@@ -216,7 +216,7 @@ export type StudiosProps = {
   open: OpenStudio | null;
   /** A live connection. Nothing is sent without one. */
   live: boolean;
-  /** The node selected on the whiteboard, for the acts on it and for Helm. */
+  /** The node selected on the whiteboard, for the acts on it and for where Back returns to. */
   selectedNode: string | null;
   onSelectNode: (nodeId: string | null) => void;
   onOpen: (studioId: string) => void;
@@ -1077,7 +1077,7 @@ function Board(
                     ...ids,
                   ],
             );
-            // Helm is told one node, the first: its footer names what a person is looking at, and
+            // `App` is told one node, the first: it keeps a place for Back to return to, and
             // a cluster of four is not a place.
             onSelectNode(ids[0] ?? null);
           }}

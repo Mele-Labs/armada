@@ -22,7 +22,8 @@ fn nothing_hosted() -> Refusal {
 }
 
 impl HostedSessions for FakeDaemon {
-    async fn start_session(&self, _start: StartSession) -> Result<SessionRecord, Refusal> {
+    async fn start_session(&self, start: StartSession) -> Result<SessionRecord, Refusal> {
+        self.started.lock().expect("not poisoned").push(start);
         Err(nothing_hosted())
     }
 
@@ -78,6 +79,26 @@ impl HostedSessions for FakeDaemon {
     }
 
     async fn move_in_line(self: Arc<Self>, _moved: ipc::MoveInLine) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn talk_to_operator(self: Arc<Self>, _talk: ipc::operator_talk::TalkToOperator) -> Result<ipc::operator_talk::OperatorSaid, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn operator_talk(self: Arc<Self>) -> Result<ipc::operator_talk::OperatorTalk, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn confirm_operator_order(self: Arc<Self>, _confirm: ipc::operator_talk::ConfirmOperatorOrder) -> Result<ipc::operator_talk::OperatorOrders, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn operator_orders(self: Arc<Self>) -> Result<ipc::operator_talk::OperatorOrders, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn remove_operator_order(self: Arc<Self>, _remove: ipc::operator_talk::RemoveOperatorOrder) -> Result<ipc::operator_talk::OperatorOrders, Refusal> {
         Err(nothing_hosted())
     }
 

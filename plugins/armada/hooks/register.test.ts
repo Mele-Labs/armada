@@ -65,7 +65,7 @@ function world(
     if (e.url.endsWith('/sessions/ask/terminal')) {
       const body = JSON.parse(e.init?.body ?? '{}')
       questions.push(body)
-      if (body.kind === 'asks') return { value: { status: 200, ok: true, headers: {}, text: options.asks ?? '{"outcome":"asked","call":"helm-1"}' } }
+      if (body.kind === 'asks') return { value: { status: 200, ok: true, headers: {}, text: options.asks ?? '{"outcome":"asked","call":"call-1"}' } }
       // Each poll takes the next answer the test queued: a string, a poll that never ends, or a failure.
       if (body.kind === 'wait') {
         const poll = options.polls?.shift() ?? new Promise<string>(() => undefined)
@@ -874,7 +874,7 @@ test('a terminal question answered in Bridge is the tool result, and the termina
   expect(out.result).toEqual({ questions: SIZE, answers: { 'Which size?': 'L' } })
   expect(questions).toEqual([
     { kind: 'asks', session_id: 'S1', input: { questions: SIZE } },
-    { kind: 'wait', session_id: 'S1', call: 'helm-1' },
+    { kind: 'wait', session_id: 'S1', call: 'call-1' },
   ])
 })
 

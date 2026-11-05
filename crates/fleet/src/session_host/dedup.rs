@@ -177,41 +177,6 @@ impl Vectors {
         known
     }
 
-    /// The vectors of every one of `texts`, awaited: those kept are read from the store, and the rest
-    /// are embedded in one batch on a blocking thread and kept for the next read. For a reader that
-    /// must have them now, as [`Self::known`] answers later. `None` where the batch failed.
-    pub(crate) async fn embedded(self: &Arc<Self>, model: Arc<dyn TextModel>, texts: Vec<String>) -> Option<HashMap<String, Vec<f32>>> {
-        let vectors = Arc::clone(self);
-        tokio::task::spawn_blocking(move || {
-            let mut known = HashMap::new();
-            let mut missing: Vec<(u64, String)> = Vec::new();
-            {
-                let inner = vectors.inner.lock().expect("never poisoned");
-                for text in texts {
-                    let key = key(&text);
-                    match inner.kept.get(&key) {
-                        Some(vector) => {
-                            known.insert(text, vector.clone());
-                        }
-                        None if !missing.iter().any(|(other, _)| *other == key) => missing.push((key, text)),
-                        None => {}
-                    }
-                }
-            }
-            if missing.is_empty() {
-                return Some(known);
-            }
-            let batch: Vec<&str> = missing.iter().map(|(_, text)| text.as_str()).collect();
-            let embedded = model.embed(&batch).ok().filter(|embedded| embedded.len() == missing.len())?;
-            known.extend(missing.iter().map(|(_, text)| text.clone()).zip(embedded.iter().cloned()));
-            vectors.inner.lock().expect("never poisoned").keep(missing, embedded);
-            Some(known)
-        })
-        .await
-        .ok()
-        .flatten()
-    }
-
     /// The Sessions whose items the model embedded since the last call, once each.
     pub(crate) fn settled(&self) -> Vec<String> {
         let mut settled = std::mem::take(&mut self.inner.lock().expect("never poisoned").settled);

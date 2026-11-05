@@ -492,7 +492,7 @@ The owner approved the mock walk `walkQueue`, 19 Oct 2026.
 > A Run's window and a Studio's window keep their own windows, and a Job's walk
 > opens none.
 > Why: the owner, 19 Oct 2026, chose one window for every walk in place of one
-> OS window per Job, and a Job's walk has since moved to a tab beside its thread.
+> OS window per Job, and a Job's walk has since moved to a tab of the Job.
 
 > **Rule.** The Job walks are read from Fleet's `walk:` waiting items (id `walk:<url>`,
 > with its `since`), one per address a Job showed and the owner has not approved,
@@ -538,12 +538,13 @@ The owner approved the mock walk `walkQueue`, 19 Oct 2026.
 ## A Job's walk is a tab
 
 A Job's `show_window` opens no window.
-The walk is a tab of the Job in the Cockpit, beside the thread and named after its page, drawn by Bridge's own window in the frame the Job's pane reports (`apps/desktop/src/main/capture/job-walks.ts`).
+The walk is a tab of the Job in the Cockpit, in the pane that holds the thread and named after its page, drawn by Bridge's own window in the frame the Job's pane reports (`apps/desktop/src/main/capture/job-walks.ts`).
 The owner approved the mock walk `walk-in-job`.
 
 | What | Holds |
 |---|---|
-| Opening | Nothing is raised and no focus changes. The Job's row and the tab pulse until it has been seen |
+| Opening | Nothing is raised and no focus changes. The tab joins the pane that holds a walk, else the Thread's, behind the tab in front, so a Job opens as the owner left it. The Job's row and the tab pulse until it has been seen, and pressing it brings it forward |
+| A closed Thread | It comes back where it stood when a walk arrives or the owner opens a Job that waits on him, since what waits on him is drawn there |
 | Tabs | One per walk. A Job with several walks has several tabs, and several approvals are several `show_window` calls |
 | Leaving the Job | The page, take, step and notes are kept, so returning to the Job finds the walk as it was |
 | × on a tab | The walk stays owed. The row keeps pulsing, and pressing it brings the tab back |

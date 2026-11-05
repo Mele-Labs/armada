@@ -22,7 +22,7 @@ import type {
   SessionQuick,
   SessionRunMessage,
   AttachmentState,
-  HelmCallInFlight,
+  CallInFlight,
   HubPullRequest,
   MergeLines,
   ProposedField,
@@ -137,7 +137,7 @@ export function terminal(id: string, change: Partial<SessionRecord> = {}): Sessi
 }
 
 /** A call the agent is held on, with the three offers. */
-export function asking(command: string, call = "call-1"): HelmCallInFlight {
+export function asking(command: string, call = "call-1"): CallInFlight {
   return {
     call,
     manifest_id: "armada",
@@ -2110,7 +2110,7 @@ export class FakeSessionsFleet {
   }
 
   /** The agent's call is held on the person, as Fleet holds one: the Session carries the ask and its thread a waiting row for it. */
-  asks(sessionId: string, ask: HelmCallInFlight): void {
+  asks(sessionId: string, ask: CallInFlight): void {
     this.change(sessionId, (one) => ({
       ...one,
       hosted: {

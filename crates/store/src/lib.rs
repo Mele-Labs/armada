@@ -24,10 +24,6 @@ mod build_notice;
 mod devices;
 mod error;
 mod fleet_outages;
-/// The session each Helm conversation resumes, one row per conversation.
-mod helm_sessions;
-/// The model and effort a person chose for a Helm conversation.
-mod helm_tuning;
 /// What a session Fleet hosts keeps beside its ledger row, and its thread.
 mod hosted_sessions;
 mod session_checks;
@@ -102,6 +98,7 @@ mod autopilot;
 mod autopilot_decisions;
 /// The Operator's Log of rulings. `armada-ehhu`.
 mod operator_rulings;
+mod operator_orders;
 mod operator_suggestions;
 /// The pairs of Jobs the Operator keeps in touch. `armada-ehhu`.
 mod operator_in_touch;
@@ -246,6 +243,7 @@ pub use model_downshift::KeptDownshift;
 pub use autopilot::{KeptAutopilot, KeptPick};
 pub use autopilot_decisions::KeptDecision;
 pub use operator_rulings::KeptRuling;
+pub use operator_orders::{KeptOrder, KeptTalk};
 pub use operator_suggestions::KeptSuggestion;
 pub use slot_line::KeptInLine;
 pub use limits::SavedLimits;

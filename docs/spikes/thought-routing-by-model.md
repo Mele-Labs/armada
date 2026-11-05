@@ -6,8 +6,8 @@ instead of 0.9 to 4.4 seconds. The other 16 are asked of Claude exactly as befor
 nothing and a wrong direct route is the only cost; the thresholds are set so that none occurred on
 these reads, with the margin shown below.
 
-Measured on 20 Oct 2026. The code is `crates/fleet/src/helm/routing/matching.rs`; what it feeds is
-`docs/concepts/helm.md`, *Routing a thought*. The model is the one `reply-asks-classifier.md`
+Measured on 20 Oct 2026. The code is `crates/fleet/src/operator/shortlist/matching.rs`; what it feeds is
+`docs/concepts/operator.md`, *Routing a thought*. The model is the one `reply-asks-classifier.md`
 chose, used here as a plain sentence embedder with no fine-tuned head.
 
 ## The reads

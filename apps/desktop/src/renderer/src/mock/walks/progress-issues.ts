@@ -13,7 +13,7 @@ const landing = region("Done", {
 
 const progressIssues = walk("progress-issues", [
   {
-    press: deckRow("Fix Helm after a repository switch"),
+    press: deckRow("Fix the Operator after a repository switch"),
     say: "Two issues, each worked by a group of the plan, and a pull request that closes neither. The pull requests are out, so Done holds them",
   },
   {
@@ -78,7 +78,7 @@ const progressIssues = walk("progress-issues", [
     say: "Esc closes it",
   },
   {
-    press: deckRow("Work three Helm tickets"),
+    press: deckRow("Work three Operator tickets"),
     say: "A plan of three groups, each naming an issue",
   },
   {

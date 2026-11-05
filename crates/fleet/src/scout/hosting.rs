@@ -1,7 +1,7 @@
 //! A scout's process: started for one ask, read to its end, stopped on a
 //! person's press. `#1292`.
 //!
-//! **Beside Helm's host, not a Drone.** No worktree, no slot and no place under
+//! **Beside a hosted Job's host, not a Drone.** No worktree, no slot and no place under
 //! the concurrency cap: a scout reads the checkout on disk, so research and
 //! Jobs never wait on each other. **No budget either**, decided with the owner:
 //! its cost is shown when it ends, and a person ends one with the stop.
@@ -94,7 +94,7 @@ impl ScoutHost {
         }
     }
 
-    /// The CLI and the model Helm's host runs, for `ProcessHost`'s reasons.
+    /// The CLI and the model a hosted Job's host runs, for `ProcessHost`'s reasons.
     pub(crate) fn on_this_machine(host: &Host, width: checks_runner::CheckWidth) -> ScoutHost {
         ScoutHost::new(
             HeadlessAgent::at(host.agent_binary.clone()),

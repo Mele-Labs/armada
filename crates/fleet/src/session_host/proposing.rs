@@ -4,7 +4,7 @@
 //!
 //! **Every Session is read once, at its first message.** A start with a request is read at the start. Any
 //! other is read when its first message is sent (`reading_begun`, called from the send) or, for a Session an
-//! agent started, from the agent's brief at creation. A fork, Helm, Setup, Fleet's own words and a Session's
+//! agent started, from the agent's brief at creation. A fork, Setup, Fleet's own words and a Session's
 //! Fleet-written brief are not read.
 //!
 //! **The press never waits on the call.** `/sessions/start` answers with the Session already
@@ -261,7 +261,7 @@ where
 
     /// A Session's first message, read where the Session was not started with a request: an annotation's
     /// notes, a brief an agent wrote, a lesson, a plan group. **Once**, and only for a Session that has not
-    /// run, is not a fork, is not Helm, Setup's or a Mod Job's (which follows no workflow) and holds no proposal; what it already carries is the
+    /// run, is not a fork, is not Setup's or a Mod Job's (which follows no workflow) and holds no proposal; what it already carries is the
     /// person's (or the agent's) and stands over the answer. `true` where a reading began, and the turn is
     /// held behind it as a dispatch's is. A missing proposer reads nothing and the Session starts as it is.
     pub(crate) fn reading_begun(
@@ -274,7 +274,6 @@ where
         let readable = !brief.is_empty()
             && !hosting.ran
             && hosting.fork_of.is_none()
-            && !hosting.helm
             && !hosting.setup
             && !hosting.mod_job
             && hosting.proposed.is_empty();

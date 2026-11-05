@@ -775,7 +775,7 @@ Named here rather than fixed, because a third reading of an absent key is the th
   It stops being a design decision the day each owning crate declares the keys it reads and this list is generated from them.
 
 That day also closes the one gap it cannot close now.
-A setting nothing reads is visible — `Helm action authority` and `Helm budget soft-warning threshold` carry `unassigned (no crate)`, because Helm has no crate at all, and several Bridge settings carry `bridge (TS)` alone, for which no dependency path in the crate graph resolves config from `armada.yml`/`machine.yml` down to Bridge.
+A setting nothing reads is visible: several Bridge settings carry `bridge (TS)` alone, for which no dependency path in the crate graph resolves config from `armada.yml`/`machine.yml` down to Bridge.
 **A crate listed here that reads nothing is not visible**, and cannot be: it is a claim about code that does not exist.
 Once each owning crate's exhaustive match declares the keys it reads, both directions collapse into one diff.
 
@@ -887,16 +887,10 @@ when_base_moves:
   The value is directionally 2-3 rounds; the exact value is a Kit/Manifest
   config row and needs a shipped default.
 
-- **[helm-budget-warning-threshold]** What is Helm's budget soft-warning
-  threshold value?
-  Helm has a soft-warning threshold and deliberately no hard cap — it is a
-  human-driven tool steered in real time, not autonomous background spend.
-  The config slot exists; the default value does not.
-
 - **[copy-lint-surface-narrowing]** May a Manifest narrow which surfaces the
   Agent Copy Contract's lint covers?
-  Judge summaries are linted by default; evidence summaries and Helm
-  replies are deliberately excluded, and Fleet composes PR descriptions and
+  Judge summaries are linted by default; evidence summaries
+  are deliberately excluded, and Fleet composes PR descriptions and
   commit messages from the record, so no lint reads them.
   The question originally leaned on the config direction rule — narrower or
   off is legal, wider is not — but that rule was withdrawn 22 Aug 2026 (see

@@ -546,7 +546,7 @@ function Surface<N extends Node, E extends Edge>({
         hideAttribution: true,
       }}
     >
-      {/* One corner, because the other one is Helm's dock. */}
+      {/* One corner, because the other one is the Operator's dock. */}
       {noPanel(aside) ? null : (
         <Panel position="top-right" className="armada-graph-canvas__aside">
           {aside}

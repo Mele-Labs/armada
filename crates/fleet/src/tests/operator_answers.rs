@@ -430,6 +430,34 @@ async fn a_repository_stands_apart_from_the_machine_in_either_direction() {
     }
 }
 
+#[tokio::test]
+async fn a_role_off_by_a_standing_order_settles_nothing_until_it_is_removed() {
+    use ipc::operator_positions::OperatorRole;
+    use ipc::operator_talk::OperatorOrderForm;
+    let rig = rig_placing(None);
+    answering(&rig).await;
+    let call = Answers::with(&["item: 1\nway: 1\nanswer: 1\nbecause: a frozen clock is the one the agent recommends"; 2]);
+    assert!(rig.fleet.operator_seated_with(call.clone()));
+    let id = rig.start().await;
+    let manifest_id = rig.fleet.store().lock().await.hosting(id.as_str()).expect("read").expect("hosted").manifest_id;
+    let form = OperatorOrderForm::RoleOff { role: OperatorRole::Answer, manifest_id, today: true };
+    let orders = rig.fleet.operator_order_confirmed(form).await.expect("it stands");
+    assert_eq!(orders.orders.len(), 1);
+    assert!(orders.orders[0].said.starts_with("Answer off in ") && orders.orders[0].said.ends_with(" today"), "{}", orders.orders[0].said);
+    assert!(orders.orders[0].until.is_some(), "today ends");
+
+    planned(&rig, &id, false).await;
+    keep(&rig, &id, &[item("a", ASKED, &["Frozen (Recommended)", "Fake"])]).await;
+    read_and_handed(&rig, &id).await;
+    eventually(|| async { !log_of(&rig).await.is_empty() }).await;
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    assert!(waiting(&rig, &id).await.contains(&"a".to_string()), "the order holds");
+
+    rig.fleet.operator_order_removed(orders.orders[0].id).await.expect("one press");
+    assert!(rig.fleet.operator_orders_wire().await.orders.is_empty());
+    assert_eq!(rig.fleet.operator_position(OperatorRole::Answer, &rig.manifest.as_str().to_string()), ipc::operator_positions::OperatorPosition::On);
+}
+
 /// A call held out until released, which then answers the first option.
 #[derive(Default)]
 struct HeldOut {

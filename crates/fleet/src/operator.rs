@@ -28,15 +28,18 @@ mod candidates;
 mod desk;
 mod handing;
 mod holding;
+mod orders;
 mod placing;
 mod questions;
 mod ruling;
 mod seat;
+pub(crate) mod shortlist;
 mod sources;
 mod sourcing;
 mod stalling;
 mod stalls;
 mod suggesting;
+mod talking;
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -54,6 +57,7 @@ pub use calling::{Answering, Calling, KeptStarted};
 pub use acting::FleetActing;
 pub(crate) use answering::answers;
 pub use desk::FleetDesk;
+pub use orders::{Order, Orders};
 pub(crate) use seat::{Moved, Seat};
 pub use questions::{Choice, Earlier, Group, Kind, Present, Question, ALLOW_ONCE};
 pub use ruling::{Outcome, PassedOn, Place, Ruled, Ruling, Way};
@@ -61,6 +65,7 @@ pub use sources::{Filed, Handed, NewIssue, RedMain, Report, ReviewRequest};
 pub(crate) use sourcing::Sources;
 pub(crate) use stalling::{seen_of, Stalls};
 pub use stalls::{Quiet, Stall};
+pub use talking::{Board, HeldJob, LogRead, NeedsYou, Repository, StoppedJob, TalkFailed, TalkLine, Talked};
 pub(crate) use suggesting::{reads_shown, suggestion_items, SKIP};
 
 /// How long a Job's first write waits for the ruling on its start.
@@ -93,6 +98,14 @@ pub trait Desk: Send + Sync {
     /// answered it first, or the Operator was turned off. `None` where it still can.
     fn settled(&self, _arrival: &Arrival) -> Done<'_, Option<String>> {
         Box::pin(async { None })
+    }
+    /// The standing orders, which [`Operator::pass`] goes by before any call.
+    fn orders(&self) -> Done<'_, Orders> {
+        Box::pin(async { Orders::default() })
+    }
+    /// What the box may answer from.
+    fn board(&self) -> Done<'_, Board> {
+        Box::pin(async { Board::default() })
     }
 }
 
@@ -322,8 +335,14 @@ impl Operator {
             };
             let live = self.desk.live().await;
             let waiting = self.desk.waiting().await;
+            let orders = self.desk.orders().await;
             let mut asked = Vec::new();
             for (token, mut arrival) in taken {
+                if orders.always_raises(arrival.arrived) {
+                    let Some(one) = take(&mut held(&self.queue).out, token) else { continue };
+                    self.settle(one, Ruled::Ruled(Ruling::alone(Way::Raise, "a standing order always raises this")), None).await;
+                    continue;
+                }
                 // A question is answered for its own Job: no other is near it.
                 let near = match arrival.arrived.is_asked() {
                     true => Vec::new(),

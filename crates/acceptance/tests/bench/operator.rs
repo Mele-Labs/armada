@@ -11,11 +11,12 @@ use std::time::Duration;
 
 use core_model::Timestamp;
 use fleet::operator::{
-    Acting, Answering, Arrival, Arrived, Calling, Choice, Desk, Done, Earlier, Filed, Group, Kind, LiveJob, Logged, Operator, Present, Question,
-    Quiet, Ruling, Source, Stall, Way,
+    Acting, Answering, Arrival, Arrived, Board, Calling, Choice, Desk, Done, Earlier, Filed, Group, Kind, LiveJob, LogRead, Logged, Operator, Order, Orders, Present, Question,
+    Quiet, Repository, Ruling, Source, Stall, Way,
 };
 use fleet::CallFailed;
 use ipc::operator_positions::{OperatorPosition, OperatorRole};
+use ipc::operator_talk::OperatorOrderForm;
 
 pub const REPOSITORY: &str = "01ARMADAREPOSITORY";
 pub const NOW: &str = "2026-11-03T15:30:00.000Z";
@@ -182,6 +183,8 @@ pub struct FakeFleet {
     sourced: Mutex<Vec<Sourced>>,
     answer_stands: Mutex<OperatorPosition>,
     suggested: Mutex<Vec<(String, Way)>>,
+    orders: Mutex<Orders>,
+    log_read: Mutex<Vec<LogRead>>,
 }
 
 /// What one ruling on a source did: the arrival, the way, the other Job and the issue it named.
@@ -210,6 +213,8 @@ impl FakeFleet {
             sourced: Mutex::new(Vec::new()),
             answer_stands: Mutex::new(OperatorPosition::On),
             suggested: Mutex::new(Vec::new()),
+            orders: Mutex::new(Orders::default()),
+            log_read: Mutex::new(Vec::new()),
         })
     }
 
@@ -230,6 +235,18 @@ impl FakeFleet {
 
     /// Each item answered as the person's press would: the Job, the item, the option and its label.
     /// Where the Answer role stands from here on. The others stand On.
+    /// A row of the Log the box may cite.
+    pub fn logged_earlier(&self, row: LogRead) {
+        self.log_read.lock().expect("not poisoned").push(row);
+    }
+
+    /// The person pressed: `form` stands, as `fleet`'s `operator_order_confirmed` keeps it.
+    pub fn order_stands(&self, form: OperatorOrderForm) {
+        let mut orders = self.orders.lock().expect("not poisoned");
+        let id = orders.0.len() as i64 + 1;
+        orders.0.push(Order { id, form, until: None });
+    }
+
     pub fn answer_stands(&self, position: OperatorPosition) {
         *self.answer_stands.lock().expect("not poisoned") = position;
     }
@@ -297,6 +314,20 @@ impl Desk for FakeFleet {
         Box::pin(async move { self.live.clone() })
     }
 
+    fn orders(&self) -> Done<'_, Orders> {
+        Box::pin(async move { self.orders.lock().expect("not poisoned").clone() })
+    }
+
+    fn board(&self) -> Done<'_, Board> {
+        Box::pin(async move {
+            Board {
+                log: self.log_read.lock().expect("not poisoned").clone(),
+                repositories: vec![Repository { id: REPOSITORY.to_string(), name: "armada".to_string() }],
+                ..Board::default()
+            }
+        })
+    }
+
     fn daily_calls(&self) -> u32 {
         self.ceiling
     }
@@ -324,7 +355,10 @@ impl Desk for FakeFleet {
 }
 
 impl Acting for FakeFleet {
-    fn position(&self, role: Option<OperatorRole>, _manifest: &str) -> OperatorPosition {
+    fn position(&self, role: Option<OperatorRole>, manifest: &str) -> OperatorPosition {
+        if role.is_some_and(|role| self.orders.lock().expect("not poisoned").role_off(role, manifest, &Timestamp::from_rfc3339(NOW))) {
+            return OperatorPosition::Off;
+        }
         match role {
             Some(OperatorRole::Answer) => *self.answer_stands.lock().expect("not poisoned"),
             _ => OperatorPosition::On,

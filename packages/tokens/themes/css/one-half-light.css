@@ -40,8 +40,8 @@
   --status-rejected: #A321A1;
   --status-killed: #5F6166;
   --status-handed-in: #006C64;
-  /* Helm, you, tools, diff */
-  --helm: #A321A1;
+  /* Operator, you, tools, diff */
+  --operator: #A321A1;
   --you: #8A7300;
   --tool-look: #007590;
   --tool-change: #A626A4;

@@ -415,7 +415,7 @@ active item; in the collapsed rail it is the whole affordance.
 beside status colours that already mean something (teal beside running, pink
 beside failed), and colour in the column means where you are. Never
 status-coloured. The full mapping (Job Board, Alerts, Doctor, Manifest,
-Helm, Worktrees) is `packages/icons/icons/`, group
+Operator, Worktrees) is `packages/icons/icons/`, group
 `Navigation` — `eye` and `file-cog` are shared assignments, carried under
 their own primary groups with a `Navigation` usage entry.
 
@@ -425,9 +425,9 @@ replace. Its two interior dots survive because a rail draws at 16px and rule
 3's interior-detail floor is the 12px badge; they are the reason its row is
 not `12 and 16px`.
 
-**No nautical iconography.** A ship's wheel or compass for Helm is the exact
-failure P1 legislates against — metaphor confined to proper nouns. Helm is a
-name; a wheel is decoration, and decorative iconography is banned outright by
+**No nautical iconography.** A ship's wheel or compass is the exact
+failure P1 legislates against — metaphor confined to proper nouns. A product
+name is a name; a wheel is decoration, and decorative iconography is banned outright by
 the parent document.
 
 ---
@@ -693,7 +693,7 @@ Stated explicitly, because each is somewhere an icon would plausibly be
 reached for.
 
 - **Verification source and actor.** Closed vocabularies of three and four
-  words. "Check", "Judge", "Attestation", "human", "Helm", "Drone", "Fleet"
+  words. "Check", "Judge", "Attestation", "human", "Operator", "Drone", "Fleet"
   are already shorter and more precise as text than any glyph, and P4
   depends on the reader distinguishing them exactly. An icon here trades
   precision for width. This is the source field only — a criterion verdict

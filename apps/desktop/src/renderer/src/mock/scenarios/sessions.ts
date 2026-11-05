@@ -1,5 +1,4 @@
-// Sessions, drawn ahead of Fleet: raw conversations with a hosted agent, beside
-// Helm. Cleanup is the real one over real fixtures; the Sessions themselves are draft
+// Sessions, drawn ahead of Fleet: raw conversations with a hosted agent. Cleanup is the real one over real fixtures; the Sessions themselves are draft
 // data (`packages/screens/src/draft/sessions.ts`) the scenario's script plays moment by
 // moment. The walk `sessions` plays it.
 
@@ -74,10 +73,7 @@ const held = (): WorktreesHeld => ({
   ],
 });
 
-const base = holding(
-  "sessions",
-  "Sessions beside Helm: a blank one, its first write, and what it accumulates",
-);
+const base = holding("sessions", "Sessions: a blank one, its first write, and what it accumulates");
 
 export const s200Sessions: Scenario = {
   ...base,

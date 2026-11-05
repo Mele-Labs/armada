@@ -5,7 +5,7 @@
 
 use core_model::StepEnd;
 use ipc::{
-    AskedChoice, AskedQuestion, DraftHow, DraftSettled, HelmCallAnswer, HelmCallInFlight, Instant, ManifestId,
+    AskedChoice, AskedQuestion, DraftHow, DraftSettled, CallAnswer, CallInFlight, Instant, ManifestId,
     SessionAskState, SessionRow, SessionVoice,
 };
 
@@ -182,7 +182,7 @@ fn ask(call: &str, questions: Vec<AskedQuestion>, state: SessionAskState) -> Ses
     SessionRow::Ask {
         id: format!("ask-{call}-s1"),
         at: at_second(1),
-        ask: HelmCallInFlight {
+        ask: CallInFlight {
             call: call.into(),
             manifest_id: ManifestId::carried("armada"),
             asked_at: at_second(1),
@@ -192,7 +192,7 @@ fn ask(call: &str, questions: Vec<AskedQuestion>, state: SessionAskState) -> Ses
             length: None,
             whole: None,
             rule: ipc::ASKS_A_QUESTION.into(),
-            offers: vec![HelmCallAnswer::AllowOnce, HelmCallAnswer::Refuse],
+            offers: vec![CallAnswer::AllowOnce, CallAnswer::Refuse],
             holding_for_seconds: 600,
             questions,
             reaches: None,

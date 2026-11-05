@@ -58,7 +58,7 @@ pub trait Studios: Send + Sync + 'static {
     ) -> impl Future<Output = Result<Studio, Refusal>> + Send;
 
     /// `rename_studio`. `by` is the transport's word, as on
-    /// [`add_studio_node`](Studios::add_studio_node): Helm's naming is
+    /// [`add_studio_node`](Studios::add_studio_node): a Job's naming is
     /// published as its own act.
     fn rename_studio(
         &self,
@@ -76,7 +76,7 @@ pub trait Studios: Send + Sync + 'static {
     ) -> impl Future<Output = Result<StudioDeleted, Refusal>> + Send;
 
     /// `add_studio_node`. **`by` is placed by the transport**, never claimed by
-    /// the body: a node Helm adds is held to the kinds that start proposed.
+    /// the body: a node a Job on your words adds is held to the kinds that start proposed.
     fn add_studio_node(
         &self,
         studio_id: StudioId,

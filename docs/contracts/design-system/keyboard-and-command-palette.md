@@ -41,7 +41,7 @@ is the back-fill by hand that this section existed to prevent.
 
 ```
 ⌘K       command palette
-⌘J       Helm, toggles the dock on every surface
+⌘J       the Operator's panel, toggles the dock on every surface (`armada-ehhu.10`)
 ⌥⌘C      capture a note onto the open Studio
 ⌘[ ⌘]    back / forward
 ⌘Enter   send the message in the field that has focus
@@ -54,7 +54,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌥E       change the thread's target card: Edit, Suggest, Other
 ⌥R       send back the thread's target card with a note
 ⌥X       no to a card waiting in the Job's thread: Deny, Skip, Dismiss  (confirms)
-⇧⌘Y      open Needs you: the review sheet where the open Job has a plan, sketch, draft, document or walk waiting, else fold its card
+⇧⌘Y      open Needs you: the review sheet where the open Job has a plan, sketch, draft or document waiting, else fold its card
 ⌘1–⌘8    go to a tab: Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects or System, as the bar draws them
 ⌘,       open Settings
 ⌘O       open a file in the side panel
@@ -76,12 +76,12 @@ It puts the caret in the open Job's message box from anywhere in the view, a fie
 The family also holds four keys that answer a card in the Job's thread: `⌥↵` yes, `⌥E` change, `⌥R` send back with a note and `⌥X` no.
 *Keys on a Job's thread cards*, below, says what each means.
 
-**Helm's box and a Session's are one box**: `Enter` sends and `⇧Enter` breaks
+**A Job's message box**: `Enter` sends and `⇧Enter` breaks
 the line, and `⌘Enter` sends there too. In that box a `#` that starts a word
 opens the repository's open issues and pull requests, and a number typed after
 it that is not among them is looked up before it is refused. What the box offers
 is read from Fleet, so a number that resolves to nothing stays text, in the box
-and in Helm's thread alike. `docs/concepts/helm.md`, *The message box*.
+and in the thread alike. `docs/concepts/session/what-a-message-names.md`.
 
 **`⌘[ ⌘]` are the one Global pair a focused field keeps.** In a field they are
 outdent and indent, which is what a person typing meant, so the press passes
@@ -301,7 +301,7 @@ Worktree Slots) took `⌘5` on 2026-09-03, Overview took `⌘1` on 2026-09-13, S
 `⌘7` on 2026-09-14, Studios took `⌘3` on 2026-09-17, and Kit took `⌘8` on 2026-09-18. A
 learned key does not move quietly, and this paragraph is the noise: a person who
 pressed `⌘3` for Studios now presses it for Sessions, and Settings, which draws
-the binding beside every act under Keyboard shortcuts, is where they find out. **Helm moved from `⌘6` to `⌘J`
+the binding beside every act under Keyboard shortcuts, is where they find out. **The dock moved from `⌘6` to `⌘J`
 on 2026-09-13** (#948) and keeps it.
 
 **`1`–`6` and `⌘1`–`⌘6` are different acts on one row of keys.** One is
@@ -651,7 +651,7 @@ makes the box read as a key rather than as a small chip.
   dialog carrying a field. One per dialog, because two would be the
   ambiguity the safety rule above was rewritten to remove.
 - **A control may draw its own Global binding while `⌘` is held**, and
-  never at rest. Helm's reopen button and the Send
+  never at rest. The dock's reopen button and the Send
   button in a message box each do; the badge mounts on the hold and goes
   on release. This is not the rule under the debug payload — that one
   refuses a kbd standing permanently on a button, which is reference

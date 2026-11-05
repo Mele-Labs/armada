@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import type { DragEvent, KeyboardEvent, ReactNode } from "react";
 import { Bot, Check, Clock, LoaderCircle, MessagesSquare } from "lucide-react";
 import { Button, SplitButton, Tooltip } from "@armada/components";
-import { askToCloseHelm } from "@armada/shell";
+import { askToCloseOperator } from "@armada/shell";
 
 import { select } from "../../cockpit/deck/store";
 import { operatorPanes } from "../../job-panes/store";
@@ -22,7 +22,7 @@ const openJob = (id: string) => {
     kind: "session",
     key: `session:${id}`,
   });
-  askToCloseHelm();
+  askToCloseOperator();
 };
 
 /** Discussion in front, so an item brought up there is seen. */

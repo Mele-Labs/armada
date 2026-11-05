@@ -4,8 +4,8 @@
 
 A person can start a job from Bridge. Fleet runs it, keeps its thread, and
 puts it on the same ledger with `origin` `bridge`. It is the person at
-work, in their own configuration. [Helm](../helm.md) is the same
-engine with a note and a few more tools, one per repository.
+work, in their own configuration. A Job started on your words, by the
+[Operator](../operator.md), is the same engine with the door's `On your words` rows.
 
 > **Rule.** A hosted job holds what the person's terminal holds: their
 > servers, plugins, skills and settings, with no `--strict-mcp-config` and no
@@ -17,7 +17,7 @@ engine with a note and a few more tools, one per repository.
 
 > **Rule.** Every process of a hosted job carries Armada's job rules in
 > its system prompt (`--append-system-prompt`), appended to whatever output style
-> the person has. They lead the argument; Helm's note and a fork's or move's note
+> the person has. They lead the argument; a fork's or move's note
 > follow, and the Logbook note comes last ([Logbook](../logbook.md), *Recall*). Where the person's style and the rules conflict on how a need or
 > progress is surfaced, the rules win, and the style keeps tone, length and format.
 > Why: a style that asks for every action in a table leaves `waiting_for`, the task
@@ -38,8 +38,9 @@ engine with a note and a few more tools, one per repository.
           its process starts when the reading lands, see *A Session's proposal*)
  message ─▶ a live process, `--session-id`, the message on its input
  first write ─▶ a hook asks Fleet; Fleet leases a slot and cuts a branch, writes
-                both on the ledger, refuses the write and the turn ends; the
-                process is ended and resumed with the slot as its directory
+                both on the ledger, refuses the write and the turn ends; once no
+                agent of the job is working, the process is ended and resumed
+                with the slot as its directory
  first write, pool full ─▶ the session is queued, told its place, and stops its
                 turn; the owner is asked: wait for a slot, or add one
                 wait ─▶ Fleet leases it the next slot to free and resumes it there
@@ -48,12 +49,13 @@ engine with a note and a few more tools, one per repository.
  later writes ─▶ held to the slot
  the harness's EnterWorktree ─▶ refused, whatever the mode: a resume keeps that
                 worktree over the slot, and the job could then write nowhere
- quiet for a while ─▶ the process is ended; the next message resumes it, leased a
-                slot first if it holds none and the line ahead of it is empty
+ quiet for a while, no agent working ─▶ the process is ended; the next message
+                resumes it, leased a slot first if it holds none and the line
+                ahead of it is empty
  close ─▶ the slot is parked on its own branch, the row ends
 ```
 
-**One live process while it is open**, as Helm's now is (it was one per message), because
+**One live process while it is open** (it was one per message), because
 another job's message wakes an idle one: `SendMessage` to a hosted job's
 address, `s-` and the first eight characters of its id, starts a turn in it. A
 turn that opens with no message of the person's outstanding is a wake, and the
@@ -85,7 +87,7 @@ any write. **Wait** leaves the job where it is in the line: when a slot is given
 back, Fleet leases one for the head of the line, writes the lease as it would for a
 first write and moves the job into it, whether or not its refused turn has ended:
 an idle job is resumed at once, one still finishing the turn is moved as that turn
-ends. **Add** answers at once and makes the slot after: the pool list gains a slot, its
+ends, and either waits for agents still working (below, where a process's agents are working). **Add** answers at once and makes the slot after: the pool list gains a slot, its
 checkout is made holding nothing, and the slot is leased to **that** job, not to the
 head of the line. The repository is marked as making a slot meanwhile, so the grant and
 a newcomer's first write leave the new slot to the job that asked. The call stays, with
@@ -193,7 +195,7 @@ rewrites its own branch, pushes and reaches off the machine unasked. **A read an
 (16 Oct 2026), except of a folder macOS puts a prompt in front of (Desktop, Documents, Downloads,
 Pictures, Movies, Music, iCloud, Mail and the like), his credentials (`~/.ssh`, `~/.aws`,
 `~/.config/gh`), another volume, or a search from `/`, `/Users` or his home
-(`fleet::helm::deciding::GUARDED`). Such a read, a write into his own files, and a `Write` or
+(`fleet::auto_gate::folders::GUARDED`). Such a read, a write into his own files, and a `Write` or
 `Edit` anywhere outside its slots and `/tmp` are put to him on a card in the job's thread.
 **The card says whether the call reads or writes** (the owner, 16 Oct 2026): "Permission to read"
 or "Permission to write", and "Always applies to reads of" or "writes to" over the path.
@@ -208,8 +210,8 @@ in settings.json, shown and edited in Settings, Features): a path in a blocked f
 with no card, one in an allowed folder runs, and the deeper entry wins, a block winning a tie.
 **Always allow for this job lets only that job in**, until it is closed: Fleet holds the
 folder in memory beside the job, writes it nowhere, and Settings does not list it. It is read
-after his list, so a folder he blocked stays blocked, and a Fleet restart drops it. Nobody answering inside the hold is
-a refusal, so a job never hangs while he is away. **A removal is not a reach**: `rm`, `mv`,
+after his list, so a folder he blocked stays blocked, and a Fleet restart drops it. Nobody answering inside the hold (`fleet::asks::AskHold`, set by
+`timeouts.askHoldSeconds`) is a refusal, so a job never hangs while he is away. **A removal is not a reach**: `rm`, `mv`,
 `chmod`, `chown` or a truncating redirect outside the slots and `/tmp` is refused with a reason the
 agent reads and works around, whatever folder he allowed, and `sudo` and `kill -9 -1` stay refused.
 `launchctl print`, `diskutil list`, an awk script's `~` and `$5`, jq's `//`, and a read of another
@@ -246,8 +248,7 @@ repository is added, for any slot the pool holds under the id of a job that
 has ended.
 
 **The person sets the mode, the model and the effort** for each job. `auto`
-is the default and means what it meant for Helm: everything runs except what is
-destructive, pushes code to a shared space or writes off this machine, which
+is the default and means what the Auto gate decides: everything runs except what reaches past the slots, which
 Fleet puts to the person on the job's own thread. The CLI's own auto mode is
 not reachable for a spawned job, so `auto` is `default` with that door.
 Inside the job's own slot, what it writes is its work and does not ask, and a
@@ -288,11 +289,9 @@ a multi-select's labels joined with `, `. [Spike 29](../../spikes/029-why-a-sess
 **What a message names is one line Fleet adds for the agent** and the thread
 keeps the person's words. A thread's rows are the person's messages, the agent's,
 another job's, one line for each tool call, the lease, and each ask with
-where it stands. A Helm Job's thread also has the `sent` row, the person's
+where it stands. A Job's thread may also have the `sent` row (`SessionRow::Sent`), the person's
 words routed on to another Job, with where they went. **An ask is
-the job's own**: it never appears in the old Helm dock's holds and
-`answer_helm_call` does not find it. Helm's own questions are asks of its
-Job, answered in its thread.
+the job's own**, answered in its thread.
 
 ## What a restart does to a job
 
@@ -352,11 +351,27 @@ is going. The keeper's own stderr, the agent's and how the agent exited go to
 `<id>.log` beside the spool; Fleet puts its last lines in the thread's
 "process ended" note, a message in Fleet's voice.
 
+**A process with agents working is not ended between turns.**
+A Job that starts background agents and ends its turn has done what its rules say, so its process stays while a `subagent` row stands whose transcript shows no finished turn, or a `background` row stands.
+A quiet spell waits, and ends the process at the first sweep after they end.
+So does the move into a slot, since a new process cannot carry a subagent and the process cannot change its directory.
+
+While a move waits, the Job's writes stay refused, and those of its agents, which are told to stop writing.
+The turn that stood down ends as any other, so the Job reads as working from its rows, and a turn begun meanwhile is shown as usual.
+The move is made at the end of the first turn with nothing working, or at the next sweep if the agents end with no turn after them.
+A process that dies while a move waits is moved all the same, and told what it lost.
+The wait is in Fleet's memory: a Fleet restart forgets it, and the process reattaches where it was.
+
+**A hung agent stops holding its process after an hour.**
+A subagent counts from its transcript's last line, or from when it started if it has written none.
+A background task counts from when it started, since it writes nowhere Fleet reads, so a server left running gives its process up too.
+What is then cut off is told as below.
+
 **A process Fleet replaces takes its subagents with it.** A subagent runs inside
-its agent's process, so the keeper only carries it across a Fleet restart. A tune,
-a quiet spell, the move into a slot at the first write and a lost keeper each end
-the process, and the one that resumes has never heard of the subagents that were
-working. When Fleet starts a process for a job that has run, every `subagent`
+its agent's process, so the keeper only carries it across a Fleet restart. A tune
+and a lost keeper end the process whatever is working, and so does a quiet spell or
+a move once an agent has hung. The one that resumes has never heard of the subagents
+that were working. When Fleet starts a process for a job that has run, every `subagent`
 row still `standing` whose transcript shows no finished turn was cut off. Fleet
 gives those rows back, keeps their type, description and id in the restart's
 note (so the retro lists them), and puts the same list ahead of the agent's next

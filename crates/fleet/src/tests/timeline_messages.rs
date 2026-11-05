@@ -1,5 +1,5 @@
 //! `session.messaged`: one Job's message delivered to another is one entry naming both, and a
-//! person's or Helm's message is none.
+//! person's message is none.
 
 use std::sync::Arc;
 
@@ -55,28 +55,4 @@ async fn a_message_delivered_between_two_hosted_jobs_is_one_entry_naming_both() 
     assert_eq!(entry.to.as_ref(), Some(&b));
     assert_eq!(entry.title.as_deref(), Some("Reader"));
     assert_eq!(entry.says, "Messaged: please review");
-}
-
-#[tokio::test]
-async fn a_message_from_a_person_or_from_helm_enters_no_message_entry() {
-    let rig = rig_placing(None);
-    crate::timeline::keep_timeline(Arc::clone(&rig.fleet));
-    let b = rig.start().await;
-    rig.send(&b, "hello b").await;
-    rig.stand_in.init(0);
-    rig.stand_in.finishes(0, "b ready");
-    eventually(|| async { rig.turn(&b).await == SessionTurn::Idle }).await;
-
-    let helm = rig.ask("check on the reader").await;
-    assert!(helm.helm);
-    rig.stand_in.init(1);
-    rig.stand_in.says(1, send_message(&b, "status?"));
-    // B's next turn is woken by Helm, which is past where the entry would have been written.
-    rig.stand_in.init(0);
-    eventually(|| async {
-        matches!(rig.turn(&b).await, SessionTurn::Working { woken_by: Some(by) } if by.id == helm.id.as_str())
-    })
-    .await;
-
-    assert!(messaged(&rig).await.is_empty());
 }

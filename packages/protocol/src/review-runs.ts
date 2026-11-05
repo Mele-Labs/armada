@@ -45,7 +45,7 @@ export type ReviewTools = {
   left_out?: ReviewToolLeftOut[];
 };
 
-/** `save_review_tool`'s body (`POST /review_tools/:repository`). Helm only; Bridge's Add sheet is the person's own press. */
+/** `save_review_tool`'s body (`POST /review_tools/:repository`). A job on your words only; Bridge's Add sheet is the person's own press. */
 export type SaveReviewTool = {
   scope: ReviewToolScope;
   kind: ReviewToolKind;

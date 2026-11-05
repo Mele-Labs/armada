@@ -22,6 +22,8 @@ pub mod allowed;
 /// `editing::save`.
 mod amending;
 /// A repository working its own backlog. #2092.
+pub mod asks;
+pub mod auto_gate;
 pub mod autopilot;
 /// Saving a workflow definition, and reading the workflow folders again.
 mod authoring;
@@ -121,7 +123,6 @@ mod following;
 mod framing;
 mod group;
 pub mod headroom;
-pub mod helm;
 pub mod judging;
 /// The Cockpit's flight controls a person arranged, in `~/.armada`. `docs/concepts/kit.md`.
 mod flight_controls;
@@ -175,6 +176,7 @@ mod bay_history;
 pub mod note_locating;
 pub mod notice_loop;
 /// The Operator: who does each piece of work that arrives. `armada-ehhu`.
+pub mod on_your_words;
 pub mod operator;
 /// What a Job may do to the Jobs it started, decided on values.
 pub mod started_jobs;

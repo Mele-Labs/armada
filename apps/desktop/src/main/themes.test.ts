@@ -134,7 +134,7 @@ const DECOYS = [
   "--status-rejected",
   "--status-not-started",
   "--tool-look",
-  "--helm",
+  "--operator",
 ];
 const sheetOf = (declared: Record<string, string>) =>
   `:root {\n${Object.entries(declared)

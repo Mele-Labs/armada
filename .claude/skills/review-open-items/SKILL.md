@@ -9,7 +9,7 @@ description: Walk the owner through everything this job left waiting on him, one
 questions stacked in one message get answered partly, or not at all.
 
 On 17 Sep 2026 a reply about Overview's colour ended with three decisions in a
-callout: which mock, which colour for Helm, and how to colour the rail. He
+callout: which mock, which colour for the dock, and how to colour the rail. He
 answered with one line about something else. All three were still open, and
 nothing in the conversation said so.
 

@@ -62,8 +62,8 @@
   --status-killed: #575F69;
   --status-handed-in: #2C6761;
 
-  /* Helm */
-  --helm: #4048D0;
+  /* Operator */
+  --operator: #4048D0;
 
   /* You. --fg-inverse reads 4.68:1 on it as a band. */
   --you: #8F7000;

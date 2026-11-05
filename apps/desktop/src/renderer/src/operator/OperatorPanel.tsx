@@ -1,4 +1,4 @@
-// The Operator panel, in Helm's dock over the whole work, on the panes a Job's area uses (`job-panes/`): tabs and splits he adds,
+// The Operator panel, in the dock over the whole work, on the panes a Job's area uses (`job-panes/`): tabs and splits he adds,
 // closes, moves and resizes, kept as a Job's layout is. Its tabs are Talk, the Log, Waiting to start and Permissions; it opens on
 // Talk and the Log in one pane. Drawn only where the window has an Operator store (`store.tsx`), which today is the mock's alone.
 
@@ -19,7 +19,7 @@ import {
 } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { DrawnSketch } from "@armada/screens/src/draft/sessions";
-import { askToCloseHelm, jobIdOf } from "@armada/shell";
+import { askToCloseOperator, jobIdOf } from "@armada/shell";
 
 import { select } from "../cockpit/deck/store";
 import { searchFiles } from "../commands";
@@ -87,18 +87,15 @@ function usePickedFilter(): (repository: string | undefined) => boolean {
 }
 
 /** `place` is where the Layout control stands: the dock's head beside Close, since the title bar's slot is the open Job's. */
-export function OperatorPanel({
-  place,
-  picked,
-}: {
-  place: HTMLElement | null;
-  picked: RepositorySummary | null;
-}) {
+export function OperatorPanel({ picked }: { picked: RepositorySummary | null }) {
   const store = useOperator();
+  // Where the Layout control stands: the panel's own bar, since the title bar's slot is the open Job's.
+  const [place, setPlace] = useState<HTMLDivElement | null>(null);
   if (store === null) return null;
   return (
     <Picked.Provider value={picked}>
       <div className="armada-operator">
+      <div className="armada-operator__bar" ref={setPlace} />
       <JobPanes
         jobId={OPERATOR}
         family={operatorPanes}
@@ -186,7 +183,7 @@ const openJob = (id: string) => {
     kind: "session",
     key: `session:${id}`,
   });
-  askToCloseHelm();
+  askToCloseOperator();
 };
 
 /** A Job a row names, as the Job chip that opens it. */

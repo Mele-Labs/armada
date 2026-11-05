@@ -11,7 +11,7 @@
    edge and no shadow, because it is not sitting on the lit canvas and nothing
    inside a card takes a shadow. `glass.css` takes the glass off a card inside
    a Sheet, inside a Dialog, and inside anything already glass — a card in a
-   card, and one of Helm's dock questions. For a ground no selector names, a
+   card, and one of the Operator's dock questions. For a ground no selector names, a
    well, the card carries `data-flat` (`Card`'s `flat` prop) and lands here.
 
    --pad-card rather than the section gap, both ways. The radius is not: a

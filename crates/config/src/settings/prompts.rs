@@ -20,10 +20,7 @@ pub const PROMPT_RETRO_REVIEW: Words = Words("prompts.retroReview");
 pub const PROMPT_RETRO_ASK: Words = Words("prompts.retroAsk");
 pub const PROMPT_LOGBOOK_DISTIL: Words = Words("prompts.logbookDistil");
 pub const PROMPT_TEACHING_READ: Words = Words("prompts.teachingRead");
-pub const PROMPT_HELM: Words = Words("prompts.helm");
-pub const PROMPT_HELM_READ_ONLY: Words = Words("prompts.helmReadOnly");
-pub const PROMPT_HELM_ROUTE: Words = Words("prompts.helmRoute");
-pub const PROMPT_HELM_VOICE: Words = Words("prompts.helmVoice");
+pub const PROMPT_THOUGHT_ROUTE: Words = Words("prompts.thoughtRoute");
 pub const PROMPT_AUTOPILOT_SENTENCE: Words = Words("prompts.autopilotSentence");
 pub const PROMPT_AUTOPILOT_PICKER: Words = Words("prompts.autopilotPicker");
 pub const PROMPT_AUTOPILOT_DECIDER: Words = Words("prompts.autopilotDecider");
@@ -47,7 +44,7 @@ pub enum PromptSection {
     Judge,
     Scouts,
     Autopilot,
-    Helm,
+    Operator,
     Retros,
     TestMap,
     Workflows,
@@ -59,7 +56,7 @@ impl PromptSection {
         PromptSection::Judge,
         PromptSection::Scouts,
         PromptSection::Autopilot,
-        PromptSection::Helm,
+        PromptSection::Operator,
         PromptSection::Retros,
         PromptSection::TestMap,
         PromptSection::Workflows,
@@ -72,7 +69,7 @@ impl PromptSection {
             PromptSection::Judge => 0,
             PromptSection::Scouts => 1,
             PromptSection::Autopilot => 2,
-            PromptSection::Helm => 3,
+            PromptSection::Operator => 3,
             PromptSection::Retros => 4,
             PromptSection::TestMap => 5,
             PromptSection::Workflows => 6,
@@ -85,7 +82,7 @@ impl PromptSection {
             PromptSection::Judge => "Judge",
             PromptSection::Scouts => "Scouts",
             PromptSection::Autopilot => "Autopilot",
-            PromptSection::Helm => "Helm",
+            PromptSection::Operator => "Operator",
             PromptSection::Retros => "Retros",
             PromptSection::TestMap => "Test map",
             PromptSection::Workflows => "Workflows",
@@ -208,27 +205,12 @@ pub(super) const PROMPTS: &[Entry] = &[
         &["source", "may", "words", "message", "said", "reach"],
     ),
     prompt(
-        PromptSection::Helm,
-        PROMPT_HELM,
-        "Helm",
-        "The note appended to the system prompt of a repository's Helm Job, where Helm can act. It says what Helm is and where it is docked; the job otherwise is a Job's. {manifest} and {folder} name the repository and {unasked} the calls on a Studio Helm may make without being asked.",
-        &["manifest", "folder", "unasked"],
-    ),
-    prompt(
-        PromptSection::Helm,
-        PROMPT_HELM_READ_ONLY,
-        "Helm, read only",
-        "The note appended to the system prompt of a repository's Helm Job, where Helm only reads. {manifest} and {folder} name the repository.",
-        &["manifest", "folder"],
-    ),
-    prompt(
-        PromptSection::Helm,
-        PROMPT_HELM_ROUTE,
+        PromptSection::Operator,
+        PROMPT_THOUGHT_ROUTE,
         "Routing a thought",
-        "What the model is asked when a person types into Helm's message box, to decide whether it is a question for Helm or a thought for running work. {candidates} is the live Jobs as a list and {message} the person's words. Its answer is read by field name, so keep the field names.",
+        "What the model is asked when a person types words, to decide whether they are about a running Job and which one. {candidates} is the live Jobs as a list and {message} the person's words. Its answer is read by field name, so keep the field names.",
         &["candidates", "message"],
     ),
-    prompt(PromptSection::Helm, PROMPT_HELM_VOICE, "Voice", "The block Machine Voice is given in. {voice} is the setting.", &["voice"]),
     prompt(
         PromptSection::TestMap,
         PROMPT_TEST_MAP_READING,

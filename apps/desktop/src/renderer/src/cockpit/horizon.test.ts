@@ -210,7 +210,7 @@ describe("the landings as dots", () => {
       },
       {
         place: 4,
-        branch: "fleet/helm-kills-processes",
+        branch: "fleet/loop-kills-processes",
         state: "waiting",
       },
     ]);

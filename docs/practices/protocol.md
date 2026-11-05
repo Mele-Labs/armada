@@ -196,6 +196,7 @@ WebSocket event stream, read this first.
 | [Autopilot's answers: `get_autopilot_decisions`, `review_autopilot_decision`, `override_autopilot_decision`](protocol/autopilot-decisions.md) |
 | [Sleep leaves the wire](protocol/sleep-leaves-the-wire.md) |
 | [A Job's several terminals: `terminal` and `new`, `list_terminals`, `rename_terminal`](protocol/a-jobs-several-terminals.md) |
+| [The Operator takes Helm's place](protocol/the-operator-takes-helms-place.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
@@ -310,16 +311,16 @@ Bridge's half is `packages/protocol/src/session-plan.ts`, written by hand, field
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** `SessionChanged` carries the record, so it carries the field; no new event.
 
-## A cut command is asked whole: `HelmCallInFlight.whole`
+## A cut command is asked whole: `CallInFlight.whole`
 
 Since 19 Oct 2026. `docs/concepts/session/a-job-fleet-hosts.md`.
 **Additive only**: one field on an existing type; no operation, route, event kind or error.
 The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/helm-calls.ts`, written by hand, field for field.
+Bridge's half is `packages/protocol/src/calls.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `HelmCallInFlight` (`helm.asking_to_run`, `list_helm_calls`, `SessionRow::Ask`, `hosted.asked`) | Fleet writes, Bridge reads | Gains `whole`: the argument as the session sent it, set only where `detail` was cut, absent otherwise. `detail`, `truncated` and `length` are unchanged |
+| `CallInFlight` (`SessionRow::Ask`, `hosted.asked`) | Fleet writes, Bridge reads | Gains `whole`: the argument as the session sent it, set only where `detail` was cut, absent otherwise. `detail`, `truncated` and `length` are unchanged |
 
 **Bridge's card draws `whole` where it is present**, so a person allowing a command reads all of it; the Needs you row still reads its first line.
 This serves an ask's argument where *A call's arguments are no longer served* left none: an ask only, never a row of the activity log.
@@ -803,7 +804,7 @@ A `{{name}}` that is not filled is sent as written, and `note` names it.
 **Everything answered and written carries a secret as `{{name}}`**: the answer, the row, the told words and any error.
 A value shorter than six characters is not hidden, as a kept cookie's was not, so a short value is not matched inside ordinary words.
 
-**Who sent it is the door it came through.** A request carrying Bridge's or the phone's caller header is the owner's; the agent's door, Helm's and a request naming nobody are an agent's.
+**Who sent it is the door it came through.** A request carrying Bridge's or the phone's caller header is the owner's; the agent's door and a request naming nobody are an agent's.
 An agent's answer drops `set-cookie` and is cut at 32 KiB, and the agent is not told what it already holds.
 **An agent's whole body is saved**, since 30 Oct 2026: read off the wire to 16 MiB, secrets hidden over all of it, and written to `requests/<row id>.json` or `.txt` under the Job's scratch folder, which goes when the Job ends.
 `saved` names the file, the bytes written and whether the body ran past 16 MiB; a write that fails leaves it out and says why in `note`.
@@ -1470,3 +1471,15 @@ A role of the Operator's at Suggest keeps what On would have done, and it reache
   `OperatorRead` in `apps/desktop/src/renderer/src/operator/model.ts` is the walked proposal for this.
 
 A suggestion on a report with no Job behind it has no list to stand on. It is kept in the store for the panel.
+
+## Talking to the Operator: `talk_to_operator`, `operator_talk` and the standing orders
+
+The box at the foot of the Operator panel, and the orders it turns words into. None of these is an agent's: each is the person's own.
+
+- **`talk_to_operator`** answers `OperatorSaid`, and `operator_talk` reads the conversation back, since Fleet keeps it so the next call can be handed it.
+- **`OperatorSaid.order` stands for nothing** until `confirm_operator_order` sends its `form` back. That press is the only way an order stands.
+- **`OperatorOrderForm` is a closed set**, `role_off`, `hold_paths` and `always_raise`, because an order is a rule Fleet enforces and never prose a call reads.
+  A form this build does not know reads as none in the store, so it stands for nothing.
+- **`operator_orders` lets go** of an order for a day gone by and a hold its Job has released as it reads, so what it answers is what is in force.
+
+Bridge draws none of it yet: the box and the list ride with the panel, armada-ehhu.10.

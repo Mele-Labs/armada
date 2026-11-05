@@ -18,7 +18,7 @@
 //! | That an Issue, a Pull request and an Epic dispatch their address, and that a Link does not | The route is `fleet`'s `promoting`, which drives a real dispatch to a Job at the gate; what Bridge offers off the kind is #1379's and #1394's mock browser tests. What is asserted here is the node each address makes, and the fields it carries on the wire |
 //! | That the proposer picks the right workflow for each of the three | A model's, and this file calls none. `crates/config/tests/shipped.rs` holds the `for_requests` line each has to match on, and `fleet`'s `tests::proposing` measures the request and the catalogue the call is handed |
 //! | Anything a person sees | Nothing here renders. The whiteboard is #1286 and #1287 |
-//! | That Helm keeps to what it is told | A model's. `fleet`'s `helm_studio` drives the door through a stand-in agent |
+//! | That a Job on your words keeps to what it is told | A model's. `fleet`'s `studio_on_your_words` drives the door through a stand-in agent |
 //! | That a scout reads only the checkout, holds no write tool, and shows its cost when stopped | A process's, and nothing here spawns one: `adapters`' tests hold the launch to read tools under `--restricted`, and `fleet`'s run and stop it against a stand-in agent |
 
 // The bench is shared with the other milestones' tests and none of them uses
@@ -26,14 +26,14 @@
 #[allow(dead_code)]
 mod bench;
 
-use ipc::door::{HELM_ONLY, REACHABLE};
-use ipc::{HelmStudioAct, StudioNodeContent};
+use ipc::door::{ON_YOUR_WORDS, REACHABLE};
+use ipc::{StudioJobAct, StudioNodeContent};
 
 use bench::studio::{
     a_capture_sent, a_failed_run, a_long_log, a_server_that_fell_over,
     a_studio_with_a_captured_note, a_studio_with_a_node_of_each_forge_kind,
     a_studio_with_a_run_started_from_a_note, a_studio_with_a_server_started_from_a_note,
-    a_studio_with_an_ended_finding, a_studio_with_sources_read_in, a_studio_with_two_notes, helms_manifest, received_event,
+    a_studio_with_an_ended_finding, a_studio_with_sources_read_in, a_studio_with_two_notes, received_event,
     received_studio, ASKED, A_PAGE, COMMIT, COMPONENT, COST, CUT, DRAFT_TITLE, FIRST_NOTE,
     FRAME_BYTES, FRAME_FILE, LEFT_AT, MARKUP, OWNERS, READ, READ_IN_NOTE, REPOSITORY, SCREEN,
     SECOND_NOTE, SELECTOR, SIDES, SOURCES, STYLES, THE_COMMAND, THE_FAILURE, THE_RUN, THE_SERVE,
@@ -141,10 +141,10 @@ fn a_studio_reads_back_with_every_node_where_it_was_left_and_its_proposal_unacce
         (&studio.nodes[0].id, &studio.nodes[1].id)
     );
     // #1288: who put each thing there reads back off the record, so a client
-    // that missed `studio.helm_acted` still tells Helm's proposal from a
+    // that missed `studio.job_acted` still tells a Job's proposal from a
     // person's Notes.
     let by = |author: Option<ipc::StudioAuthor>| author.map(|a| a.as_wire());
-    assert_eq!(by(edge.added_by), Some("helm"), "Helm proposed the edge");
+    assert_eq!(by(edge.added_by), Some("job"), "a Job proposed the edge");
     assert!(studio
         .nodes
         .iter()
@@ -264,15 +264,15 @@ fn a_captured_note_keeps_where_it_was_pointed_and_no_route_can_rewrite_it() {
 }
 
 /// **Accepting a relation, removing a node and deleting a Studio are a
-/// person's acts**, whatever Helm's authority says: no agent is offered one,
-/// and Helm alone is offered what it may propose. **A scout starts only on a
-/// person's ask**: typing one and pressing its stop are Bridge's, and Helm is
+/// person's acts**, whatever the action authority says: no agent is offered one,
+/// and a Job on your words alone is offered what it may propose. **A scout starts only on a
+/// person's ask**: typing one and pressing its stop are Bridge's, and a Job on your words is
 /// offered only the start of a Finding already proposed, once asked.
 /// `docs/concepts/studio.md`, `docs/concepts/scout.md`.
 #[test]
 fn no_agent_is_offered_a_persons_act_on_a_studio() {
     let offered = |operation: &str| {
-        [REACHABLE, HELM_ONLY]
+        [REACHABLE, ON_YOUR_WORDS]
             .iter()
             .any(|door| door.iter().any(|row| row.operation == operation))
     };
@@ -292,110 +292,87 @@ fn no_agent_is_offered_a_persons_act_on_a_studio() {
         "defer_on_studio",
         "edit_studio_draft",
         "settle_contradiction",
-        // #1378: a Link's line is the person's own words, and Helm rewriting
+        // #1378: a Link's line is the person's own words, and a Job rewriting
         // them is the act `studio.md` guards against.
         "edit_studio_link",
     ] {
         assert!(!offered(persons), "`{persons}` reaches an agent");
     }
-    for helms in ["add_studio_node", "propose_studio_edge", "start_scout"] {
+    for on_words in ["add_studio_node", "propose_studio_edge", "start_scout"] {
         assert!(
-            HELM_ONLY.iter().any(|row| row.operation == helms),
-            "`{helms}`"
+            ON_YOUR_WORDS.iter().any(|row| row.operation == on_words),
+            "`{on_words}`"
         );
         assert!(
-            !REACHABLE.iter().any(|row| row.operation == helms),
-            "`{helms}`"
+            !REACHABLE.iter().any(|row| row.operation == on_words),
+            "`{on_words}`"
         );
     }
     assert!(REACHABLE.iter().any(|row| row.operation == "get_studio"));
 }
 
-/// **Helm proposes on a Studio unasked, acts on one only when asked, and what
-/// it did is its own event.** `docs/concepts/studio.md`, *Helm on a Studio*.
+/// **A Job on your words proposes on a Studio unasked, acts on one only when asked, and what
+/// it did is its own event.** `docs/concepts/studio.md`.
 ///
-/// **The failure this is against is an agent reorganising a person's work.**
-/// The door answers a call the same whether it was asked for, so the line is
-/// the note's: the unasked calls are named, everything else waits for an ask,
-/// and each unasked call is offered to Helm alone. What Helm did then
-/// reaches a client as `studio.helm_acted`, a kind no person's act publishes,
-/// and a run it was asked to start is one it can read back.
+/// **The failure this is against is an agent reorganising a person's work.** The door answers a
+/// call the same whether it was asked for, so the unasked calls are named in
+/// `fleet::on_your_words::UNASKED`, everything else waits for an ask, and each is offered to a Job
+/// on your words alone. What it did then reaches a client as `studio.job_acted`, a kind no
+/// person's act publishes, and a run it was asked to start is one it can read back.
 #[test]
-fn helm_proposes_unasked_acts_on_an_ask_and_its_acts_are_its_own_event() {
-    let note = fleet::helm::brief(&helms_manifest(), fleet::helm::Authority::Acting, None);
-    let (_, studio) = note
-        .as_str()
-        .split_once("On a Studio you may")
-        .expect("Helm is told about Studios");
+fn a_job_on_your_words_proposes_unasked_acts_on_an_ask_and_its_acts_are_its_own_event() {
     for unasked in ["add_studio_node", "propose_studio_edge", "rename_studio"] {
-        assert!(studio.contains(unasked), "`{unasked}` is named as unasked");
         assert!(
-            HELM_ONLY.iter().any(|row| row.operation == unasked)
+            ON_YOUR_WORDS.iter().any(|row| row.operation == unasked)
                 && !REACHABLE.iter().any(|row| row.operation == unasked),
-            "`{unasked}` is offered to Helm alone"
+            "`{unasked}` is offered to a Job on your words alone"
         );
     }
-    // Everything else on a Studio waits for a person's ask: the note says so in one sentence, and
-    // the asked acts are Helm's alone and none of them is in the unasked list.
-    assert!(
-        studio.contains("Every other act on one waits for the person's ask"),
-        "the asked acts are named by what they are not: {studio}"
-    );
-    for asked in [
-        "start_scout",
-        "start_studio_run",
-        "write_up_studio_node",
-    ] {
-        assert!(!studio.contains(asked), "`{asked}` is not among the unasked: {studio}");
-    }
-    for helms in [
-        "start_studio_run",
-        "write_up_studio_node",
-    ] {
+    for asked in ["start_studio_run", "write_up_studio_node"] {
         assert!(
-            HELM_ONLY
+            ON_YOUR_WORDS
                 .iter()
-                .any(|row| row.operation == helms && row.kind == "command")
-                && !REACHABLE.iter().any(|row| row.operation == helms),
-            "`{helms}` is offered to Helm alone"
+                .any(|row| row.operation == asked && row.kind == "command")
+                && !REACHABLE.iter().any(|row| row.operation == asked),
+            "`{asked}` is offered to a Job on your words alone"
         );
     }
     for read in ["list_checkout_runs", "get_checkout_run_output"] {
-        assert!(HELM_ONLY
+        assert!(ON_YOUR_WORDS
             .iter()
             .any(|row| row.operation == read && row.kind == "query"));
     }
 
-    let acted = ipc::Event::StudioHelmActed(ipc::StudioHelmActed {
+    let acted = ipc::Event::StudioJobActed(ipc::StudioJobActed {
         studio_id: ipc::StudioId::carried("01STUDIO"),
         manifest_id: ipc::ManifestId::carried(REPOSITORY),
-        act: HelmStudioAct::AddedNode {
+        act: StudioJobAct::AddedNode {
             node_id: ipc::StudioNodeId::carried("01FINDING"),
         },
         at: ipc::Instant::carried("2026-09-17T09:00:00.000Z"),
     });
     let received = received_event(&acted);
     assert_eq!(received, acted, "nothing lost on the wire");
-    assert_eq!(received.kind(), "studio.helm_acted");
+    assert_eq!(received.kind(), "studio.job_acted");
     assert_eq!(
         received.about(),
         Some(REPOSITORY.to_string()),
         "a poll's tally names the repository"
     );
 
-    // #1291: **every** act Helm takes on a Studio is its own event, not only
+    // #1291: **every** act a Job on your words takes on a Studio is its own event, not only
     // the unasked ones — a write-up and a dispatch it was asked for included.
     for asked in [
-        HelmStudioAct::WroteUp {
+        StudioJobAct::WroteUp {
             from: ipc::StudioNodeId::carried("01CLUSTER"),
             node_id: ipc::StudioNodeId::carried("01DRAFT"),
         },
-        HelmStudioAct::Dispatched {
+        StudioJobAct::Dispatched {
             from: ipc::StudioNodeId::carried("01DRAFT"),
             node_ids: vec![ipc::StudioNodeId::carried("01JOBNODE")],
         },
     ] {
-        let acted = ipc::Event::StudioHelmActed(ipc::StudioHelmActed {
+        let acted = ipc::Event::StudioJobActed(ipc::StudioJobActed {
             studio_id: ipc::StudioId::carried("01STUDIO"),
             manifest_id: ipc::ManifestId::carried(REPOSITORY),
             act: asked,

@@ -491,14 +491,15 @@ where
         let _ = self.store().lock().await.end_slot_waits(id, phase, &at);
     }
 
-    /// Start the move now if the session's turn is over. Decided under the
-    /// state's lock, so a turn that ends between the lease and here takes
-    /// `moving` itself and is not moved twice.
+    /// Start the move now if the session's turn is over and no agent of it is working: one that is
+    /// leaves `moving` for `held_moves_made`. Decided under the state's lock, so a turn that ends
+    /// between the lease and here takes `moving` itself and is not moved twice.
     async fn moved_if_idle(self: &Arc<Self>, id: &str, moving: Move) {
         let runtime = self.hosts().of(id);
+        let working = self.work_beyond_the_turn(id).await;
         let idle = {
             let mut state = runtime.state();
-            let idle = matches!(state.turn, SessionTurn::Idle);
+            let idle = matches!(state.turn, SessionTurn::Idle) && !working;
             if idle {
                 state.moving = None;
             }

@@ -60,7 +60,6 @@ const CHOICES: KitModelChoices = {
   retro: "sonnet",
   secondOpinion: "opus",
   downshift: "sonnet",
-  helmEffort: "high",
 };
 
 export function createMockKitModels(): KitModelsSource {

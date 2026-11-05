@@ -1,0 +1,8 @@
+[operations.remove_operator_order]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The person removes a standing order with one press"
+notes = """
+`POST /operator/orders/remove`, body `RemoveOperatorOrder`: `id`. Answered with `OperatorOrders`. It stops standing at once. 422 `fleet.operator_order_unknown` where it is not standing.
+"""

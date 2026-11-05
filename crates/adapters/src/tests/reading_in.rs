@@ -302,7 +302,7 @@ fn a_session_reduces_to_what_the_person_and_the_agent_said() {
         "why is the rail per repository?\"}}\n",
         "{\"type\":\"assistant\",\"message\":{\"content\":[",
         "{\"type\":\"thinking\",\"thinking\":\"hm\"},",
-        "{\"type\":\"text\",\"text\":\"Because Helm answers for one.\"},",
+        "{\"type\":\"text\",\"text\":\"Because a Job answers for one.\"},",
         "{\"type\":\"tool_use\",\"id\":\"t1\",\"name\":\"Read\",\"input\":{}}]}}\n",
         "{\"type\":\"user\",\"message\":{\"content\":[{\"type\":\"tool_result\",",
         "\"tool_use_id\":\"t1\",\"content\":\"a file\"}]}}\n",
@@ -310,7 +310,7 @@ fn a_session_reduces_to_what_the_person_and_the_agent_said() {
     );
     assert_eq!(
         text_of_a_session(transcript),
-        "The person: why is the rail per repository?\n\nThe agent: Because Helm answers for one."
+        "The person: why is the rail per repository?\n\nThe agent: Because a Job answers for one."
     );
 }
 

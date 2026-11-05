@@ -88,13 +88,9 @@ mod files;
 /// What Fleet can say about its own health, and what it cannot. **Not
 /// Doctor**, whose grid is ten modules and is not built.
 mod health;
-/// One repository's Helm conversation, and the socket its replies come on.
-mod helm;
-/// A call a Helm session made that its person's settings do not cover.
-mod helm_call;
-/// One repository's Helm session as one quotable record. `#1367`.
-mod helm_debug;
-/// Helm reading a thought for where it belongs, and recording where it went.
+/// A call a Job made that its person's settings do not cover.
+mod call;
+/// The Operator's first shortlist of Jobs for words a person typed, and the words sent on.
 mod thought;
 /// What happened across the Fleet and when, for the Cockpit's timeline.
 mod timeline;
@@ -141,6 +137,8 @@ pub mod time_format;
 pub mod reach_folders;
 /// How far each of the Operator's roles goes, for the machine and for one repository. `crates/config/settings.toml`, *Operator positions per repository*.
 pub mod operator_positions;
+/// The box at the foot of the Operator panel, and the standing orders it turns words into. `crates/ipc/operations/talk_to_operator.toml`.
+pub mod operator_talk;
 /// The workflows switched off, for the machine and for one repository. `crates/config/settings.toml`, *Workflows switched off*.
 pub mod workflows_off;
 /// Mods: a directory on this machine that changes how Bridge looks.
@@ -365,14 +363,10 @@ pub use event::{
 pub use files::FilesFound;
 pub use debug_report::DebugReport;
 pub use health::{
-    FleetHealth, HelmActionAuthority, Probe, Unprobed,
-};
-pub use helm::{
-    AskHelm, Blank, Freshness, HelmAsked, HelmContext, HelmFresh, HelmScreen, HelmSession,
-    HelmText, HelmUnanswered,
+    FleetHealth, ActionAuthority, Probe, Unprobed,
 };
 pub use thought::{
-    HelmThoughtRouted, ReadThought, TellSession, ThoughtKind, ThoughtReading, ThoughtSent,
+    WordsSent, ReadThought, TellSession, ThoughtKind, ThoughtReading,
     ThoughtTarget,
 };
 pub use session_system::{
@@ -385,14 +379,10 @@ pub use timeline::{
     FleetTimeline, ServiceCall, TimelineAppended, TimelineAsk, TimelineEvent, TimelineKind,
     TimelineSubject, TimelineTone, DEFAULT_TIMELINE_LIMIT, MOST_TIMELINE_ITEMS, MOST_TIMELINE_LIMIT,
 };
-pub use helm_call::{
-    AnswerHelmCall, AskedChoice, AskedQuestion, AskingToRun, CallKind, HelmAskingToRun, HelmCallAnswer,
-    HelmCallAnswered, HelmCallInFlight, HelmCallSettled, HelmCallsWaiting, QuestionAnswer,
+pub use call::{
+    AskedChoice, AskedQuestion, AskingToRun, CallKind, CallAnswer, CallInFlight, QuestionAnswer,
     ReachesTo, RunOrNot, handoff_figure, ASKS_A_QUESTION, HANDOFF_QUIET, HANDOFF_REMIND, HANDOFF_REMIND_AT,
     HANDOFF_REMIND_QUESTION, HANDOFF_STAY, HANDOFF_YES,
-};
-pub use helm_debug::{
-    HelmDebugInfo, HelmDebugLine, HelmDebugSaid, HelmDebugText,
 };
 pub use holding::{
     ReclaimedSaved, ChangeSlotPool, CommitHome, RescueAct, RescueSlot, SlotAct, SlotCommit,
@@ -732,9 +722,9 @@ pub use slot_found::{
 pub use studio::{
     AddStudioNode, ContradictionSettled, CreateStudio, DecideStudioEdge, DeferOnStudio,
     EditStudioDraft, EditStudioLink, EpicRead, EpicTake, ForgeState, GroupStudioNodes,
-    HelmStudioAct, MoveStudioNode, ProposeStudioEdge, RemoveStudioNodes, RenameStudio,
+    StudioJobAct, MoveStudioNode, ProposeStudioEdge, RemoveStudioNodes, RenameStudio,
     SettleContradiction, StartStudioRun, StartStudioServer, Studio, StudioDeleted, StudioEdge,
-    StudioHelmActed, StudioList, StudioNode, StudioNodeContent, StudioPosition, StudioRunHeld,
+    StudioJobActed, StudioList, StudioNode, StudioNodeContent, StudioPosition, StudioRunHeld,
     StudioRunKept, StudioRunStarted, StudioServerStarted, StudioSummary, WriteUpStudioNode,
 };
 pub use studio_added::{

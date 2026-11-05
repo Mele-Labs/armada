@@ -138,15 +138,15 @@ const one = session("pi-b", "Keep a quiet Session after reload", 14, "Work #2214
 
 /** Two issues, the first with a pull request and the second with none, and a pull request that closes neither. Its plan is approved and under way. */
 const two: Session = {
-  ...session("pi-c", "Fix Helm after a repository switch", 3, "Work #2212 and #2259.", [
-    issue(2212, "Helm answers about the wrong repository after a switch"),
-    issue(2259, "Helm composer keeps the old repository chip", "closed"),
+  ...session("pi-c", "Fix the Operator after a repository switch", 3, "Work #2212 and #2259.", [
+    issue(2212, "A job answers about the wrong repository after a switch"),
+    issue(2259, "The Operator composer keeps the old repository chip", "closed"),
     {
       kind: "branch",
-      name: "helm/clear-on-switch",
+      name: "operator/clear-on-switch",
       slot: 5,
     },
-    pr(2256, "Clear Helm's cache on a repository switch", "helm/clear-on-switch", {
+    pr(2256, "Clear the Operator's cache on a repository switch", "operator/clear-on-switch", {
       checks: {
         state: "failed",
         failing: "test · bridge",
@@ -155,7 +155,7 @@ const two: Session = {
         2212,
       ],
     }),
-    pr(2260, "Name Helm's repository in its header", "helm/header-repository"),
+    pr(2260, "Name the Operator's repository in its header", "operator/header-repository"),
   ]),
   work: {
     proposal: {
@@ -171,7 +171,7 @@ const two: Session = {
         {
           id: "h1",
           agent: "rust-engineer",
-          title: "Clear Helm's cache on a switch",
+          title: "Clear the Operator's cache on a switch",
           paths: [
             "crates/fleet",
           ],
@@ -194,7 +194,7 @@ const two: Session = {
         {
           id: "h2",
           agent: "bridge-engineer",
-          title: "Name the repository in Helm",
+          title: "Name the repository in the Operator",
           paths: [
             "apps/desktop",
           ],
@@ -202,7 +202,7 @@ const two: Session = {
           tasks: [
             {
               id: "H3",
-              text: "Show the repository in Helm's header",
+              text: "Show the repository in the Operator's header",
               state: "done",
               seen: true,
             },
@@ -221,16 +221,16 @@ const two: Session = {
 
 /** A plan of three groups, each naming an issue the Session holds: the first with an open pull request whose Checks run, the second with a merged one, the third with none yet. Every pull request closes its issue. */
 const three: Session = {
-  ...session("pi-d", "Work three Helm tickets", 1, "Work #2271, #2272 and #2273.", [
-    issue(2271, "Helm drops its draft when the window resizes"),
-    issue(2272, "Helm shows the previous answer while a new one loads", "closed"),
-    issue(2273, "Helm cannot be reached by the keyboard from the Cockpit"),
+  ...session("pi-d", "Work three Operator tickets", 1, "Work #2271, #2272 and #2273.", [
+    issue(2271, "The Operator drops its draft when the window resizes"),
+    issue(2272, "The Operator shows the previous answer while a new one loads", "closed"),
+    issue(2273, "The Operator cannot be reached by the keyboard from the Cockpit"),
     {
       kind: "branch",
-      name: "helm/keep-draft-on-resize",
+      name: "operator/keep-draft-on-resize",
       slot: 6,
     },
-    pr(2281, "Keep Helm's draft across a resize", "helm/keep-draft-on-resize", {
+    pr(2281, "Keep the Operator's draft across a resize", "operator/keep-draft-on-resize", {
       checks: {
         state: "pending",
       },
@@ -238,7 +238,7 @@ const three: Session = {
         2271,
       ],
     }),
-    pr(2282, "Clear the old answer when Helm asks again", "helm/clear-old-answer", {
+    pr(2282, "Clear the old answer when the Operator asks again", "operator/clear-old-answer", {
       state: "merged",
       closes: [
         2272,
@@ -304,7 +304,7 @@ const three: Session = {
         {
           id: "t3",
           agent: "bridge-engineer",
-          title: "Reach Helm by keyboard",
+          title: "Reach the Operator by keyboard",
           paths: [
             "apps/desktop",
           ],
@@ -312,7 +312,7 @@ const three: Session = {
           tasks: [
             {
               id: "T5",
-              text: "Give Helm a Cockpit shortcut",
+              text: "Give the Operator a Cockpit shortcut",
               state: "open",
               seen: false,
             },

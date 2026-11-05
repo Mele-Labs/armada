@@ -1,7 +1,7 @@
 [operations.start_checkout_verify]
 kind = "command"
 transport = "HTTP"
-agent_access = "Helm only"
+agent_access = "On your words"
 description = "Run setup and every Check once in the main checkout, one after another - Verify's live dry-run, a rehearsal that records no verdict anywhere"
 notes = """
 **A sequence of ordinary checkout runs, not a record of its own.** Each step is `start_checkout_run`'s run, with its own log, snapshot, diff and Undo, listed by `list_checkout_runs` and followed on `observe_checkout_run`. What Verify adds rides `get_checkout_run_sheet` as `verify`: the order, which step is out, and why a step did not run. It is held in memory, as a run in flight is.
@@ -16,5 +16,5 @@ notes = """
 
 **No Evidence, no Check row, nothing reaches Doctor.** A step's exit code is a fact read beside the code it expects.
 
-`agent_access` is `Helm only`, as `start_checkout_run` is: Helm starts one on a person's ask, and no other agent is offered it because the main checkout is the tree a Drone is confined out of and a Verify runs every Check in it.
+`agent_access` is `On your words`, as `start_checkout_run` is: a Job on your words starts one on a person's ask, and no other agent is offered it because the main checkout is the tree a Drone is confined out of and a Verify runs every Check in it.
 """

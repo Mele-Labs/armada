@@ -410,7 +410,6 @@ export function shipOf(input: Inputs): Ship {
   });
   const subjects: Subject[] = [];
   for (const session of sessions) {
-    if (session.helm === true) continue;
     if (session.dead !== undefined) {
       const root = rootOf(session.manifestId);
       const at = session.lastTurnAt === undefined ? undefined : Date.parse(session.lastTurnAt);

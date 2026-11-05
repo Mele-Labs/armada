@@ -8,7 +8,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use ipc::{
-    AnswerSessionAsk, ForkFrom, HelmCallAnswer, ManifestId, ManifestSummary, QuestionAnswer, SendSessionMessage,
+    AnswerSessionAsk, ForkFrom, CallAnswer, ManifestId, ManifestSummary, QuestionAnswer, SendSessionMessage,
     SessionList, SessionOrigin, SessionRecord, SessionRow, SessionState, SessionThread, SessionVoice, StartSession,
     WireError,
 };
@@ -130,10 +130,10 @@ pub async fn answer(State(gateway): State<Gateway>, body: Bytes) -> Response {
         return refusal(StatusCode::CONFLICT, ASK_MOVED_ON);
     }
     let (decision, answers) = match (answering.answer, held.questions.is_empty()) {
-        (Said::Decision(Decision::AllowOnce), true) => (HelmCallAnswer::AllowOnce, Vec::new()),
-        (Said::Decision(Decision::Refuse), _) => (HelmCallAnswer::Refuse, Vec::new()),
+        (Said::Decision(Decision::AllowOnce), true) => (CallAnswer::AllowOnce, Vec::new()),
+        (Said::Decision(Decision::Refuse), _) => (CallAnswer::Refuse, Vec::new()),
         (Said::Chosen(chosen), false) => (
-            HelmCallAnswer::AllowOnce,
+            CallAnswer::AllowOnce,
             chosen
                 .into_iter()
                 .map(|one| QuestionAnswer { question: one.question, chosen: one.chosen })
@@ -248,6 +248,7 @@ fn starting(manifest_id: ManifestId) -> StartSession {
         after: None,
         held: false,
         project_rows: Vec::new(),
+        on_your_words: None,
     }
 }
 

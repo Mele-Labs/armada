@@ -185,7 +185,6 @@ type Inputs = Pick<
   | "sessionThreadsReading"
   | "holds"
   | "repository"
-  | "helm"
 > & {
   workflowsOff: boolean;
 };
@@ -201,8 +200,6 @@ export class WiredStore {
   private mapped: readonly Session[] = NONE;
   /** Every repository's Sessions: `mapped` itself while the list holds them all. */
   private mappedEverywhere: readonly Session[] = NONE;
-  /** The live Helm Session of the repository the dock answers for, held whatever the rail picked. */
-  private helm: Session | undefined;
   private refusal: string | undefined;
   private readonly listeners = new Set<() => void>();
   private readonly pending = new Map<string, readonly SessionTag[]>();
@@ -299,7 +296,6 @@ export class WiredStore {
       sessionThreadsReading: share(was?.sessionThreadsReading, state.sessionThreadsReading),
       holds: share(was?.holds, state.holds),
       repository: state.repository,
-      helm: share(was?.helm, state.helm),
       workflowsOff: workflowsOffIn(state.settings),
     };
     if (
@@ -310,7 +306,6 @@ export class WiredStore {
       was.sessionThreadsReading === next.sessionThreadsReading &&
       was.holds === next.holds &&
       was.repository === next.repository &&
-      was.helm === next.helm &&
       was.workflowsOff === next.workflowsOff
     ) {
       if (gap) this.readLifecycles();
@@ -334,7 +329,6 @@ export class WiredStore {
       if (
         record.state === "ended" ||
         record.hosted === undefined ||
-        record.helm === true ||
         this.lifecyclesAsked.has(record.id)
       )
         continue;
@@ -423,27 +417,6 @@ export class WiredStore {
       everywhere.some((one, at) => one !== this.mappedEverywhere[at])
     )
       this.mappedEverywhere = everywhere;
-    // Helm answers for the repository the dock points at, which the rail's pick need not be.
-    const aimed = this.inputs?.helm.state === "pointed" ? this.inputs.helm.manifestId : undefined;
-    const record =
-      aimed === undefined || read === undefined || read.state !== "read"
-        ? undefined
-        : read.sessions.find(
-            (one) => one.helm === true && one.state !== "ended" && one.manifest_id === aimed,
-          );
-    this.helm =
-      record === undefined
-        ? undefined
-        : sessionsOfRecords(
-            [
-              record,
-            ],
-            this.inputs!.sessionThreads,
-            this.beside,
-            undefined,
-            this.memo,
-            this.inputs!.sessionThreadsReading,
-          )[0];
     this.memo.keep(new Set(read?.state === "read" ? read.sessions.map((one) => one.id) : []));
     this.listeners.forEach((listener) => listener());
   }
@@ -1334,7 +1307,6 @@ export class WiredStore {
     return {
       get: () => this.mapped,
       everywhere: () => this.mappedEverywhere,
-      helmOf: (manifestId) => (this.helm?.manifestId === manifestId ? this.helm : undefined),
       subscribe: this.subscribe,
       start: (tag, root, request, tuning, after, held, projectRows, toasted) =>
         this.starting(tag, root, request, tuning, after, held, projectRows, toasted),

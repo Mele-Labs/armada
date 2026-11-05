@@ -12,4 +12,4 @@
 > Why: a terminal job is the person's own, and Fleet being down, slow or gone must cost it nothing.
 > A job Fleet hosts is Fleet's to run, so its write waits on Fleet's hook, and what the CLI does with a hook Fleet does not answer was not measured.
 
-Until the ledger Fleet could not see a job a person started. [Helm](../helm.md) is one of these now: Armada's own conversation with Fleet is a hosted job per repository, marked `helm`.
+Until the ledger Fleet could not see a job a person started.

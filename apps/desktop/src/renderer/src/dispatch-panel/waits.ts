@@ -254,9 +254,7 @@ export function taggedIn(
       end: number;
     }
   | undefined {
-  const live = sessions.filter(
-    (one) => one.dead === undefined && one.helm !== true && one.title !== undefined,
-  );
+  const live = sessions.filter((one) => one.dead === undefined && one.title !== undefined);
   for (const session of [
     ...live,
   ].sort((a, b) => b.title!.length - a.title!.length)) {

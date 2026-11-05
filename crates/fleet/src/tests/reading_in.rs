@@ -1,8 +1,8 @@
 //! Reading a Link in, under Fleet. `#1293`.
 //!
 //! **Nothing here reaches a network.** A session is a file this test writes
-//! under the project directory the checkout's own path keys, a Helm thread is
-//! the rows the Helm Session keeps, and the forge is a stand-in `gh` on the PATH
+//! under the project directory the checkout's own path keys, a thread on your words is
+//! the rows a Job on your words keeps, and the forge is a stand-in `gh` on the PATH
 //! Fleet gives every process it spawns — which is the point being held as much
 //! as the fixture: the scout fetches nothing, so a read-in is testable without
 //! one.
@@ -121,10 +121,10 @@ fn reading_answered(home: &TempDir, read: &str) -> Arc<Reading> {
     Arc::new(Fleet::assembled(fittings).scouting_on(host))
 }
 
-/// The repository's Helm Session, with a thread of what was said in it: the person's words and
-/// Helm's, as the rows a Session keeps. **Written to the store as `start_session` and a turn would
+/// The repository's Job on your words, with a thread of what was said in it: the person's words and
+/// the Job's, as the rows a Session keeps. **Written to the store as `start_session` and a turn would
 /// have left them**, which is all a read-in reads.
-async fn a_helm_thread(fleet: &Arc<Reading>, manifest: &str, said: &[(ipc::SessionVoice, &str)]) {
+async fn a_thread_on_your_words(fleet: &Arc<Reading>, manifest: &str, said: &[(ipc::SessionVoice, &str)]) {
     let id = "00000000-0000-4000-8000-0000000000a1";
     let at = "2026-09-17T09:00:00.000Z";
     let mut store = fleet.store().lock().await;
@@ -135,7 +135,7 @@ async fn a_helm_thread(fleet: &Arc<Reading>, manifest: &str, said: &[(ipc::Sessi
             origin: String::from("bridge"),
             manifest_id: Some(manifest.to_string()),
             cwd: String::new(),
-            title: Some(String::from("Helm")),
+            title: Some(String::from("Job on your words")),
             state: store::SessionState::Live,
             started_at: at.to_string(),
             last_seen_at: at.to_string(),
@@ -157,7 +157,7 @@ async fn a_helm_thread(fleet: &Arc<Reading>, manifest: &str, said: &[(ipc::Sessi
             lease_slot: None,
             lease_branch: None,
             fork_of: None,
-            helm: true,
+            on_your_words: true,
             setup: false,
             workflow: None,
             proposed: String::new(),
@@ -362,15 +362,15 @@ fn kind(node: &StudioNode) -> &'static str {
 /// `#1293`'s definition of done, the scout's half: **a source is read in, the
 /// Link survives with its address, and Notes and a Contradiction hang off it.**
 ///
-/// A Helm thread is the source, because it is the one Fleet reads off its own
-/// store — `get_helm_session` refuses every agent, so nothing a scout could call
+/// A thread on your words is the source, because it is the one Fleet reads off its own
+/// store — `get_session` refuses every agent, so nothing a scout could call
 /// reaches one.
 #[tokio::test]
 async fn a_thread_read_in_leaves_the_link_standing_with_notes_and_a_contradiction_off_it() {
     let home = TempDir::new();
     let fleet = reading(&home);
     let (studio, link) = a_link(&fleet, "armada:thread").await;
-    a_helm_thread(
+    a_thread_on_your_words(
         &fleet,
         studio.manifest_id.as_str(),
         &[
@@ -460,7 +460,7 @@ async fn a_cluster_read_in_is_produced_by_each_note_it_names() {
         r#"{\"notes\":[{\"id\":\"n1\",\"said\":\"The rail is unreadable\"},{\"id\":\"n2\",\"said\":\"The legend wraps\"}],\"clusters\":[{\"title\":\"The problem today\",\"of\":[\"n1\",\"n2\",\"n9\"]}]}"#,
     );
     let (studio, link) = a_link(&fleet, "armada:thread").await;
-    a_helm_thread(
+    a_thread_on_your_words(
         &fleet,
         studio.manifest_id.as_str(),
         &[(ipc::SessionVoice::You, "what is wrong?")],
@@ -529,7 +529,7 @@ async fn a_cluster_of_one_note_or_none_lands_no_frame_and_its_note_still_lands()
         r#"{\"notes\":[{\"id\":\"n1\",\"said\":\"The rail is unreadable\"},{\"id\":\"n2\",\"said\":\"The legend wraps\"}],\"clusters\":[{\"title\":\"One\",\"of\":[\"n1\"]},{\"title\":\"None\",\"of\":[\"n9\"]}]}"#,
     );
     let (studio, link) = a_link(&fleet, "armada:thread").await;
-    a_helm_thread(
+    a_thread_on_your_words(
         &fleet,
         studio.manifest_id.as_str(),
         &[(ipc::SessionVoice::You, "what is wrong?")],
@@ -571,7 +571,7 @@ async fn a_read_in_answered_with_nothing_lands_one_note_from_its_finding() {
         r#"{\"clusters\":[{\"title\":\"None\",\"of\":[\"n9\"]}]}"#,
     );
     let (studio, link) = a_link(&fleet, "armada:thread").await;
-    a_helm_thread(
+    a_thread_on_your_words(
         &fleet,
         studio.manifest_id.as_str(),
         &[(ipc::SessionVoice::You, "what is wrong?")],
@@ -631,7 +631,7 @@ async fn a_session_of_this_repository_is_read_in_and_another_repositorys_is_not_
             projects.join(project).join(format!("{id}.jsonl")),
             "{\"type\":\"user\",\"message\":{\"content\":\"why is the rail per repository?\"}}\n\
              {\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"thinking\",\"thinking\":\"hm\"},\
-             {\"type\":\"text\",\"text\":\"because Helm answers for one\"}]}}\n",
+             {\"type\":\"text\",\"text\":\"because the Job answers for one\"}]}}\n",
         )
         .expect("a transcript");
     }
@@ -648,7 +648,7 @@ async fn a_session_of_this_repository_is_read_in_and_another_repositorys_is_not_
         .expect("read in");
     let told = turns(&fleet, &studio, &home).await;
     assert!(told.contains("why is the rail per repository?"), "{told}");
-    assert!(told.contains("because Helm answers for one"), "{told}");
+    assert!(told.contains("because the Job answers for one"), "{told}");
     assert!(
         !told.contains("\"thinking\""),
         "what was argued, not the agent's working: {told}"

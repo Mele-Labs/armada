@@ -3,8 +3,8 @@
 //!
 //! **Two ways to start one, and they are two operations.** `ask_scout` is a
 //! person typing an ask on a Studio, and makes the Finding as it starts it;
-//! `start_scout` starts a Finding already Proposed — the one Helm may add
-//! unasked — and is what Helm calls once a person asks it to.
+//! `start_scout` starts a Finding already Proposed — the one a Job on your words may add
+//! unasked — and is what such a Job calls once a person asks it to.
 
 use serde::{Deserialize, Serialize};
 

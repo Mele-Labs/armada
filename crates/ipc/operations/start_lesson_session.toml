@@ -1,7 +1,7 @@
 [operations.start_lesson_session]
 kind = "command"
 transport = "HTTP"
-agent_access = "Helm only"
+agent_access = "On your words"
 description = "Agree with one retro item by starting a Job on its repository and sending it the item as its first message"
 notes = """
 Since 23.77. `POST /lessons/:lesson_id/session`, no body. `agree_lesson`'s sibling: the same item ids (a Job's or a Session's), the same routing and the same refusals, and a Session where that one proposes a Job. Answers `LessonSessionStarted`: `lesson`, `session_id`, `brief` and `send_failed?`.
@@ -14,5 +14,5 @@ Since 23.77. `POST /lessons/:lesson_id/session`, no body. `agree_lesson`'s sibli
 
 **A first message that is refused** (the agent's process would not start, say) cannot be taken back, since the Job exists. The answer is still 200: the item stays `agreed` with `session_proposed` set, and `send_failed` holds Fleet's words for why, so Bridge can open the Job and the person can send by hand. Pressing again answers 200 with the same Job and does not send again; `send_failed` is kept with the item and set again.
 
-**A person's act.** `agent_access` is `Helm only`, as `agree_lesson` is.
+**A person's act.** `agent_access` is `On your words`, as `agree_lesson` is.
 """

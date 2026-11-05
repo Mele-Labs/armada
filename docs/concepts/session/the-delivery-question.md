@@ -13,7 +13,7 @@ Start keeps it as the answer, so the plan step asks nothing and the question nev
 The usual, the picks it is read from and the Jobs that are held are in that page.
 
 **A Job that is not held is asked at its plan step.**
-A start with `root` and Helm's are not held, and the question below stands for them.
+A start with `root` is not held, and the question below stands for it.
 
 **A step asks, a workflow does not.** The step key is `asks_delivery`, false where absent, and `bug` and `feature` set it on their first step.
 Entering that step is the start: Fleet does not send the step's `instructions` then.

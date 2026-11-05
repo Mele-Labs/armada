@@ -1,10 +1,10 @@
 //! A hosted session's permission door: the call is put to the person on the
 //! session's own thread, and the answer goes back inside the call. Since 23.49.
 //!
-//! **Helm's asking machinery, not a second one**: the same table, the same
+//! **The asking machinery of `crate::asks`, not a second one**: the same table, the same
 //! reading of what is destructive, pushes to a shared space or writes off this
 //! machine, and the same words back to the model. What differs is where the ask
-//! is drawn, which is the thread and never Helm's dock, and which calls reach a
+//! is drawn, which is the thread, and which calls reach a
 //! person: `auto` asks only about those three classes, `ask` and `acceptEdits`
 //! ask about everything the person's own settings do not cover.
 
@@ -14,18 +14,15 @@ use std::time::Duration;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Caller, Refusal, Sessions};
 use ipc::{
-    AskedChoice, AskedQuestion, AskingToRun, HelmCallAnswer, HelmCallInFlight, ManifestId, QuestionAnswer, ReachesTo,
+    AskedChoice, AskedQuestion, AskingToRun, CallAnswer, CallInFlight, ManifestId, QuestionAnswer, ReachesTo,
     RunOrNot, SessionAskState, SessionMode, SessionRow, TerminalAsked,
 };
 
 use super::handoff_answers::HandoffAnswer;
 use super::serving::mode_of;
 use crate::daemon::Fleet;
-use crate::helm::{
-    answering, blocked_folder, guarded_in_a_session, pages_opened, restarted, unanswered, Because, Folders,
-    Guarded, KindAllowed, Own, Reach, Said,
-};
-use crate::helm::question_unanswered;
+use crate::asks::{answering, blocked_folder, question_unanswered, restarted, unanswered, Reach, Said};
+use crate::auto_gate::{guarded_in_a_session, pages_opened, Because, Folders, Guarded, KindAllowed, Own};
 
 /// How long one `Wait` is held. The mod's request must outlast it.
 const POLL_HOLD: Duration = Duration::from_secs(25);
@@ -84,7 +81,7 @@ pub(crate) fn labels_in(line: &str, options: &[AskedChoice]) -> Vec<String> {
 /// allowed it. Nothing where
 /// the call was a permission, which carries no answers, or was refused.
 fn answers_text(said: &Said) -> Option<String> {
-    if said.answer != HelmCallAnswer::AllowOnce || said.answers.is_empty() {
+    if said.answer != CallAnswer::AllowOnce || said.answers.is_empty() {
         return None;
     }
     let lines: Vec<String> = said
@@ -105,32 +102,31 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Every call held for a person, Helm's and every hosted session's, and every Job browser act
+    /// Every hosted session's call held for a person, and every Job browser act
     /// held for Bridge, answered now because Fleet is stopping. **Called the moment a stop is asked
     /// for**, before graceful shutdown waits on connections: a held call would keep it waiting until
     /// the process is killed. `#2663`.
     pub fn asks_ended_for_stop(&self) {
         self.hosts().asks().all_withdrawn();
-        self.helm().asks().all_withdrawn();
         self.job_browser().all_withdrawn();
     }
 
     /// The hosted session whose process holds this call's connection.
-    /// **Placed by the connection**, as Helm's is, never by what the caller says.
+    /// **Placed by the connection**, never by what the caller says.
     pub(crate) fn session_holding(&self, caller: &Caller) -> Option<String> {
         self.session_placed(caller).map(|(id, _)| id)
     }
 
-    /// The hosted session whose process holds this call's connection, and whether it is a
-    /// repository's Helm, whose door is Helm's and not a Session's.
+    /// The hosted session whose process holds this call's connection, and whether it was
+    /// started on your words, whose door is narrowed and not a plain Job's.
     pub(crate) fn session_placed(&self, caller: &Caller) -> Option<(String, bool)> {
         self.hosts().all().into_iter().find_map(|(id, runtime)| {
-            let (pid, helm) = {
+            let (pid, on_your_words) = {
                 let state = runtime.state();
-                (state.process.as_ref().and_then(|p| p.pid())?, state.helm)
+                (state.process.as_ref().and_then(|p| p.pid())?, state.on_your_words)
             };
             crate::peer::held_within(caller, self.host().port, &[pid], self.peers().as_ref())
-                .then_some((id, helm))
+                .then_some((id, on_your_words))
         })
     }
 
@@ -272,17 +268,17 @@ where
         let (mut decided, state) = match tokio::time::timeout(held, answer).await {
             Ok(Ok(said)) => {
                 said_aloud = answers_text(&said);
-                if said.answer == HelmCallAnswer::AllowOnce {
+                if said.answer == CallAnswer::AllowOnce {
                     handoff = HandoffAnswer::of(&said.answers);
                     chosen = said.answers.clone();
                 }
                 let state = match said.answer {
-                    HelmCallAnswer::AllowOnce => SessionAskState::AllowedOnce,
-                    HelmCallAnswer::Refuse => SessionAskState::Refused,
+                    CallAnswer::AllowOnce => SessionAskState::AllowedOnce,
+                    CallAnswer::Refuse => SessionAskState::Refused,
                     // A list that will not be written is not a refusal: the person
                     // answered this call, and the next one asks again.
-                    HelmCallAnswer::AlwaysAllow | HelmCallAnswer::AlwaysBlock => {
-                        let blocked = said.answer == HelmCallAnswer::AlwaysBlock;
+                    CallAnswer::AlwaysAllow | CallAnswer::AlwaysBlock => {
+                        let blocked = said.answer == CallAnswer::AlwaysBlock;
                         if let Some(folder) = &said.folder {
                             let _ = self.reach_folder_kept(folder, blocked).await;
                         }
@@ -292,20 +288,20 @@ where
                         }
                     }
                     // In memory only: it goes when the session is closed, or when Fleet stops.
-                    HelmCallAnswer::AllowForSession => {
+                    CallAnswer::AllowForSession => {
                         if let Some(folder) = &said.folder {
                             self.hosts().of(id).state().allowed_folders.push(folder.clone());
                         }
                         SessionAskState::AllowedForSession
                     }
-                    HelmCallAnswer::AllowLikeThisForSession => {
+                    CallAnswer::AllowLikeThisForSession => {
                         if let Some(kind) = &said.kind {
                             let allowed = KindAllowed { kind: kind.clone(), folder: said.folder.clone() };
                             self.hosts().of(id).state().allowed_kinds.push(allowed);
                         }
                         SessionAskState::AllowedForSession
                     }
-                    HelmCallAnswer::AllowAndRemember => {
+                    CallAnswer::AllowAndRemember => {
                         let at = adapters::personal_settings(&root);
                         // A settings file that will not be written is not a
                         // refusal: the person said yes.
@@ -381,7 +377,7 @@ where
             }
         };
         let state = match &said {
-            Some(said) if said.answer == HelmCallAnswer::AllowOnce => SessionAskState::AllowedOnce,
+            Some(said) if said.answer == CallAnswer::AllowOnce => SessionAskState::AllowedOnce,
             Some(_) => SessionAskState::Refused,
             None => SessionAskState::Unanswered,
         };
@@ -454,7 +450,7 @@ where
         // The channel is not waited on; the answer is kept by whoever gives it.
         let (mut waiting, _) = asks.minted(&manifest, &asking, &self.now());
         // Nothing writes a terminal's rule for it yet, so its permission offers no remembering.
-        waiting.offers.retain(|one| *one != HelmCallAnswer::AllowAndRemember);
+        waiting.offers.retain(|one| *one != CallAnswer::AllowAndRemember);
         let kept = store::KeptTerminalAsk {
             call: waiting.call.clone(),
             asking: self.kept_text(&asking)?,
@@ -529,7 +525,7 @@ where
     pub(crate) async fn terminal_ask_answered(
         &self,
         id: &str,
-        waiting: &HelmCallInFlight,
+        waiting: &CallInFlight,
         said: &Said,
     ) -> Result<(), Refusal> {
         let Some(kept) = self
@@ -580,7 +576,7 @@ where
         let waiting = self.hosts().of(id).state().asked.take();
         let waiting = match waiting {
             Some(waiting) => Some(waiting),
-            None => ipc::decode::<HelmCallInFlight>("a kept call", kept.in_flight.as_bytes()).ok(),
+            None => ipc::decode::<CallInFlight>("a kept call", kept.in_flight.as_bytes()).ok(),
         };
         let _ = self.store().lock().await.drop_terminal_ask(id);
         self.hosts().terminals().forget_polls(&kept.call);
@@ -625,7 +621,7 @@ where
             return;
         }
         if let Ok(waiting) =
-            ipc::decode::<HelmCallInFlight>("a kept call", kept.in_flight.as_bytes())
+            ipc::decode::<CallInFlight>("a kept call", kept.in_flight.as_bytes())
         {
             self.hosts().asks().restore(waiting.clone());
             self.hosts().of(id).state().asked = Some(waiting);
@@ -668,7 +664,7 @@ where
     fn ask_row(
         &self,
         id: &str,
-        waiting: &HelmCallInFlight,
+        waiting: &CallInFlight,
         state: SessionAskState,
         via: Option<ipc::Via>,
     ) -> SessionRow {

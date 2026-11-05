@@ -108,14 +108,14 @@
   /* A faint accent fill for a selection or a match */
   --accent-faint: color-mix(in srgb, var(--accent) 10%, transparent);
 
-  /* Helm. The one hue outside status and accent, so the dock reads as Helm at
+  /* The Operator. The one hue outside status and accent, so its panel reads as the Operator at
      a glance. Indigo sits between --accent and --status-rejected, which is why
-     it never appears on or beside a Job row: it marks Helm's own chrome only.
+     it never appears on or beside a Job row: it marks the Operator's own chrome only.
      6.09:1 as text on --bg-glass under the light. */
-  --helm: #8E95FF;
-  --helm-muted: color-mix(in srgb, var(--helm) 14%, transparent); /* chip and Send fill */
-  --helm-edge: color-mix(in srgb, var(--helm) 38%, transparent);  /* the dock's top edge, Send's border */
-  --helm-faint: color-mix(in srgb, var(--helm) 6%, transparent);  /* a faint Helm tint */
+  --operator: #8E95FF;
+  --operator-muted: color-mix(in srgb, var(--operator) 14%, transparent); /* chip and Send fill */
+  --operator-edge: color-mix(in srgb, var(--operator) 38%, transparent);  /* the dock's top edge, Send's border */
+  --operator-faint: color-mix(in srgb, var(--operator) 6%, transparent);  /* a faint Operator tint */
 
   /* You. The owner's own messages in a Session thread, and nothing else.
      Gold, hue 47: brighter and more yellow than --status-awaiting-review at 39,
@@ -746,7 +746,7 @@
   /* The run column's floor, and the step panel's — the pair that stops one of
      job detail's two columns being crushed by the other. **Neither existed**,
      and that is the whole of the defect the owner hit on a 1280px window with
-     Helm's dock open: the rail, the run column and the dock all held their
+     the Operator's dock open: the rail, the run column and the dock all held their
      widths, the step panel took what was left, and what was left was 192px.
      `Extract selectColumnOrder into its own module` came out one letter a
      line. Measured in the mock on `job/workingAPlan`, not assumed.
@@ -804,7 +804,7 @@
      longest name, `Keyboard shortcuts`, with a match count beside it, and no wider: the category
      chosen is what the screen is for. */
   --w-settings-index: 224px;
-  /* 380px: Helm's dock, over the content on every surface at
+  /* 380px: the Operator's dock, over the content on every surface at
      --layout-breakpoint and wider. Decided with the owner on 13 Sep (#948).
      The same number as --w-run-column and not borrowed from it: that one is a
      region inside job detail, and a dock that moved whenever the run tree was
@@ -844,14 +844,14 @@
      while the dock was a column taking width off it; now the panel is the
      whole window either way and this is what keeps the dock from swallowing
      the thing a person opened it to ask about. `dockWidthRange`
-     (packages/components, `dock-handle.tsx`) is the one reader, for Helm's
+     (packages/components, `dock-handle.tsx`) is the one reader, for the Operator's
      dock and for a floating Sheet that resizes — Plan's task panel, where it
      is what stays uncovered of the work area under the title row. Both
      take --w-dock-min above as their floor. */
   --w-work-min: 380px;
   /* **--window-fold-left is gone, with the dock's claim on the layout** (#1583).
      It was 1280px: the sum of the full-width left column, job detail's two
-     floors and Helm's dock at rest, the width under which the column had to
+     floors and the Operator's dock at rest, the width under which the column had to
      fall back to --sidebar-rail so the dock could keep its 380. The dock is a
      layer over the work now and takes nothing out of the content, so the sum
      has 412px fewer terms in it and the full-width column pays for both floors
@@ -979,7 +979,7 @@
      menu is over; a dialog interrupts both; a toast reports on the dialog you
      just dismissed; the palette is the way out of anything.
 
-     Helm's dock joins the bottom of it (#1583). It is the one layer a person
+     The Operator's dock joins the bottom of it (#1583). It is the one layer a person
      works *beside* rather than through, so it takes no scrim and does not
      interrupt: it has to clear the content — a card lifts itself to `z-index:
      1` while it is hovered (`glass.css`), so `auto` would let one paint over
@@ -1218,8 +1218,8 @@
   --status-killed: #575F69;
   --status-handed-in: #2C6761;
 
-  /* Helm */
-  --helm: #4048D0;
+  /* Operator */
+  --operator: #4048D0;
 
   /* You. --fg-inverse reads 4.68:1 on it as a band. */
   --you: #8F7000;

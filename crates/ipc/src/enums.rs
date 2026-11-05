@@ -89,7 +89,7 @@ wire_enum! {
     StudioRelation, core_model::StudioRelation, "a relation that may be proposed"
 }
 wire_enum! {
-    /// Who put something on a Studio: a person or Helm.
+    /// Who put something on a Studio: a person or a Job.
     StudioAuthor, core_model::StudioAuthor, "who put something on a Studio"
 }
 wire_enum! {
@@ -150,7 +150,7 @@ wire_enum! {
 }
 
 wire_enum! {
-    /// Which door a request that moved a Job came through: `bridge`, `helm`,
+    /// Which door a request that moved a Job came through: `bridge`, `job`,
     /// `door`, `http` or `phone`. Since 23.12. `docs/concepts/retro.md`.
     Via, core_model::Via, "a door a request came through"
 }

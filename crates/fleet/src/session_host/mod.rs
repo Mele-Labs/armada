@@ -1,7 +1,7 @@
 //! The sessions Fleet hosts for Bridge. Since 23.49.
 //! `docs/concepts/session.md`, *A session Fleet hosts*.
 //!
-//! **Beside Helm and changing nothing about it.** A hosted session is a ledger
+//! A hosted session is a ledger
 //! row with `origin` `bridge`, and a live process, a thread and a lease taken
 //! on its first write besides. `serving` is every command, `hearing` turns what
 //! a process says into rows and turns, `gate` is the lease, `activity` is what
@@ -97,7 +97,6 @@ pub(crate) mod clarity;
 pub(crate) mod dedup;
 pub(crate) mod extracting;
 pub(crate) mod tell_refusal;
-pub(crate) mod reply_claims;
 pub(crate) mod unanswered;
 pub(crate) mod plan_asks;
 pub(crate) mod page_replies;
@@ -106,7 +105,7 @@ pub(crate) mod workflow_pick;
 mod standing_tick;
 mod thread_cache;
 pub(crate) use start_card::FIRST_MESSAGE_ITEM;
-pub(crate) use serving::{mode_of, Marked, RunEnd, MESSAGE_EMPTY, NO_SUCH_SESSION};
+pub(crate) use serving::{mode_of, Marked, RunEnd, NO_SUCH_SESSION};
 mod terminal;
 pub(crate) mod uploads;
 pub(crate) mod waiting;
@@ -122,9 +121,9 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use ipc::{HelmCallInFlight, SessionTurn};
+use ipc::{CallInFlight, SessionTurn};
 
-use crate::helm::{Asks, HelmAskHold};
+use crate::asks::{AskHold, Asks};
 
 pub use process::{keepers_dir, Heard, Process, ProcessHost, Processes, Sink, Start};
 pub use terminal::Terminals;
@@ -161,8 +160,6 @@ pub struct Hosts {
     plan: Mutex<ipc::PlanUsage>,
     /// Sessions refused a slot because the pool was full, and waiting for one.
     slot_queue: Arc<queueing::SlotQueue>,
-    /// Held while a repository's Helm Session is looked for and made, so two first messages make one.
-    helm_starting: tokio::sync::Mutex<()>,
     /// The most often a session's row goes out for what it is doing, in milliseconds.
     activity_every: AtomicU64,
     /// The most often a Session's account is written by the model, in milliseconds.
@@ -190,7 +187,7 @@ impl Drop for Settling {
 }
 
 impl Hosts {
-    pub fn hosted_by(processes: Arc<dyn Processes>, quiet: Duration, hold: HelmAskHold) -> Hosts {
+    pub fn hosted_by(processes: Arc<dyn Processes>, quiet: Duration, hold: AskHold) -> Hosts {
         Hosts {
             processes,
             quiet,
@@ -205,7 +202,6 @@ impl Hosts {
             terminals: Terminals::default(),
             plan: Mutex::new(ipc::PlanUsage::default()),
             slot_queue: Arc::default(),
-            helm_starting: tokio::sync::Mutex::new(()),
             activity_every: AtomicU64::new(activity::PUBLISH_EVERY.as_millis() as u64),
             account_every: AtomicU64::new(account::WRITE_EVERY.as_millis() as u64),
             settling: Arc::default(),
@@ -295,10 +291,6 @@ impl Hosts {
 
     pub(crate) fn stops_owed(&self) -> &stopping::Owed {
         &self.stops_owed
-    }
-
-    pub(crate) fn helm_starting(&self) -> &tokio::sync::Mutex<()> {
-        &self.helm_starting
     }
 
     pub(crate) fn slot_queue(&self) -> &Arc<queueing::SlotQueue> {
@@ -425,6 +417,9 @@ pub(crate) struct Move {
     pub slot: u32,
     pub branch: String,
     pub directory: String,
+    /// No turn is standing down for it: it waits on agents still working, so what the Job says
+    /// meanwhile is said to the person.
+    pub held: bool,
 }
 
 /// One session's state that lives only as long as Fleet.
@@ -451,8 +446,8 @@ pub(crate) struct State {
     pub turn: SessionTurn,
     /// Messages Fleet wrote whose turn has not started.
     pub queued: u32,
-    /// The slot the session was leased, waiting for its turn to end so the
-    /// process can be resumed there.
+    /// The slot the session was leased, waiting for its turn to end and its agents to finish so
+    /// the process can be resumed there.
     pub moving: Option<Move>,
     /// Sessions that wrote to this one and whose message has not yet started a
     /// turn.
@@ -460,7 +455,7 @@ pub(crate) struct State {
     /// Fleet's own notices whose turn has not started. A turn one of them begins leaves the agent's
     /// `all_done` standing.
     pub fleet_told: u32,
-    pub asked: Option<HelmCallInFlight>,
+    pub asked: Option<CallInFlight>,
     /// The door the answer to `asked` came through, set by the request that
     /// answers and taken by the ask that was waiting, which is another task.
     pub answered_via: Option<ipc::Via>,
@@ -469,7 +464,7 @@ pub(crate) struct State {
     pub allowed_folders: Vec<String>,
     /// Kinds of call the owner allowed for this session alone, held and cleared as
     /// `allowed_folders` are.
-    pub allowed_kinds: Vec<crate::helm::KindAllowed>,
+    pub allowed_kinds: Vec<crate::auto_gate::KindAllowed>,
     pub last_active: Instant,
     /// A tune arrived while a turn was running: end the process after it.
     pub restart_after_turn: bool,
@@ -502,22 +497,17 @@ pub(crate) struct State {
     /// The last thing the agent said to the person in the turn running now, so the turn's end can say
     /// how it ended. Cleared when a turn starts. In memory.
     pub said: Option<String>,
-    /// The person wrote, and the agent has written him nothing since but a status line. Sent back
-    /// once a message, at its question or its turn's end (`unanswered`). In memory.
+    /// The person wrote, and the agent has written him nothing since. A question asked now is sent
+    /// back once a message (`unanswered`). In memory.
     pub owes_reply: bool,
-    /// The last thing the agent wrote him since his message was a lone line, which is a status line
-    /// if a tool call follows it and his answer if the question or the turn's end does. In memory.
-    pub reply_line: bool,
     /// The call id of the last question the stream showed, so the door reads a question only once
     /// what the agent wrote before it has been heard. In memory.
     pub question_heard: Option<String>,
     /// The calls of the stream that wrote a page of the Job's document, by call id, to be kept once the
     /// tool has answered and the file is on disk. In memory.
     pub pages: HashMap<String, String>,
-    /// This is a repository's Helm Session: its door is Helm's, which places its calls.
-    pub helm: bool,
-    /// What its last `get_events_since` was answered, kept for Helm's debug record. In memory.
-    pub polled: Option<ipc::EventsSince>,
+    /// The Job was started on your words: its door is the placed one, which narrows its calls.
+    pub on_your_words: bool,
     /// What its tool calls show it doing. In memory.
     pub activity: activity::Activity,
     /// Whether the proposer is reading the request it was dispatched with, and the turns that
@@ -578,6 +568,15 @@ impl State {
             && !self.proposal.holds_back()
     }
 
+    /// Whether a move waits on nothing but the agents still working.
+    pub(crate) fn move_due(&self) -> bool {
+        self.moving.is_some()
+            && matches!(self.turn, SessionTurn::Idle)
+            && self.queued == 0
+            && self.unstarted.is_empty()
+            && self.asked.is_none()
+    }
+
     fn new() -> State {
         State {
             process: None,
@@ -604,11 +603,9 @@ impl State {
             turn_began: None,
             said: None,
             owes_reply: false,
-            reply_line: false,
             question_heard: None,
             pages: HashMap::new(),
-            helm: false,
-            polled: None,
+            on_your_words: false,
             activity: activity::Activity::default(),
             proposal: proposing::ProposalState::default(),
             spawns: crate::file_touching::Spawns::default(),

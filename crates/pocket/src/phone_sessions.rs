@@ -8,7 +8,7 @@
 //! and the answer route read it there.
 
 use ipc::{
-    AskedChoice, AskedQuestion, AttachmentState, FleetAway, HeldOpenBy, HelmCallAnswer, HelmCallInFlight, PullRequestWait,
+    AskedChoice, AskedQuestion, AttachmentState, FleetAway, HeldOpenBy, CallAnswer, CallInFlight, PullRequestWait,
     SessionOrigin, SessionRecord, SessionStanding, SessionState, SessionStopped, SessionTurn, SessionWait, StartCondition,
     StopReason, StopRepair, StopRestart, WaitingItem, WaitingSource,
 };
@@ -164,7 +164,7 @@ pub struct PhoneLink {
 /// The ask a Session is held on. **A Terminal Session's counts only while Fleet
 /// still holds it and its mod is listening**: `asked_at` plus `holding_for_seconds`, against `now` in Unix
 /// seconds. After that the question is in the terminal and nowhere else.
-pub fn held_ask(record: &SessionRecord, now: i64) -> Option<&HelmCallInFlight> {
+pub fn held_ask(record: &SessionRecord, now: i64) -> Option<&CallInFlight> {
     match record.origin {
         SessionOrigin::Bridge => record.hosted.as_ref()?.asked.as_ref(),
         SessionOrigin::Terminal => {
@@ -194,7 +194,7 @@ fn choice(offered: &AskedChoice) -> PhoneChoice {
     }
 }
 
-fn ask(held: &HelmCallInFlight) -> PhoneAsk {
+fn ask(held: &CallInFlight) -> PhoneAsk {
     PhoneAsk {
         ask_id: held.call.clone(),
         tool: held.tool.clone(),
@@ -204,14 +204,14 @@ fn ask(held: &HelmCallInFlight) -> PhoneAsk {
             .offers
             .iter()
             .filter_map(|offer| match offer {
-                HelmCallAnswer::AllowOnce => Some("allow_once"),
-                HelmCallAnswer::Refuse => Some("refuse"),
+                CallAnswer::AllowOnce => Some("allow_once"),
+                CallAnswer::Refuse => Some("refuse"),
                 // The phone has no folder picker.
-                HelmCallAnswer::AllowAndRemember
-                | HelmCallAnswer::AlwaysAllow
-                | HelmCallAnswer::AlwaysBlock
-                | HelmCallAnswer::AllowForSession
-                | HelmCallAnswer::AllowLikeThisForSession => None,
+                CallAnswer::AllowAndRemember
+                | CallAnswer::AlwaysAllow
+                | CallAnswer::AlwaysBlock
+                | CallAnswer::AllowForSession
+                | CallAnswer::AllowLikeThisForSession => None,
             })
             .collect(),
     }

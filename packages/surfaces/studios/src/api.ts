@@ -38,8 +38,8 @@ export type StudiosApi = {
   /** Start an untitled Studio in one repository. Answers with it, which also lands on the list. */
   createStudio: (manifestId: string) => Promise<StudioAnswer>;
   /**
-   * Name a Studio, or name it again — #1364. A person's act as much as Helm's,
-   * and the only way an untitled one is named without asking Helm for it.
+   * Name a Studio, or name it again — #1364. A person's act as much as a Job's,
+   * and the only way an untitled one is named without asking a Job for it.
    */
   renameStudio: (studioId: string, name: string) => Promise<Outcome>;
   /**

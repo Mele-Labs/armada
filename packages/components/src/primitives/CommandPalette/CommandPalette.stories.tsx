@@ -55,12 +55,12 @@ const DESTRUCTIVE: PaletteEntry = {
  * own assignment for that surface; the registry's `deck_tabs` row carries
  * none by design, because one glyph standing for all of them is not a thing —
  * which is also why the rail expands into rows here rather than that one row
- * being drawn. Helm is not among them: it is a sibling surface with a registry
+ * being drawn. The Operator is not among them: it is a sibling surface with a registry
  * row of its own, and it arrives through `globalActs`.
  *
  * **This is where the digits are read as a set, and where they moved twice.**
  * `⌘1–⌘6` is bound to Bridge surfaces *in rail order*. Cleanup joined at the
- * end on 2026-09-03 and took `⌘5`; Helm went to `⌘6`. Overview joined first
+ * end on 2026-09-03 and took `⌘5`; the dock went to `⌘6`. Overview joined first
  * rather than last, because it is where Bridge opens (#921), taking `⌘1` and
  * pushing every other surface down one.
  *
@@ -239,7 +239,7 @@ function sections(title: string): PaletteSection[] {
  * Navigation is the rail's destinations plus the global acts the rail is not.
  * `deck_tabs` is one registry row over the tabs, because the
  * rule there is the tab's place rather than the digits — so the roster is what
- * expands it, and Helm arrives from the registry as the digit after the last
+ * expands it, and the Operator arrives from the registry as the digit after the last
  * of them.
  */
 function entriesFor(context: "board" | "detail"): PaletteEntry[] {

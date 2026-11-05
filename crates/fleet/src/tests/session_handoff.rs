@@ -15,7 +15,7 @@ use std::time::Duration;
 
 use api::{HostedSessions, Sessions};
 use ipc::{
-    AnswerSessionAsk, AskingToRun, AttachmentState, HelmCallAnswer, QuestionAnswer, ReleaseSessionHolds, RetryHandoff,
+    AnswerSessionAsk, AskingToRun, AttachmentState, CallAnswer, QuestionAnswer, ReleaseSessionHolds, RetryHandoff,
     RunOrNot, SessionId, SessionState, StartSession, HANDOFF_STAY, HANDOFF_YES,
 };
 use store::{AttachmentState as Kept, Holder, KeptAttachment};
@@ -65,7 +65,7 @@ async fn asked_by(rig: &Rig, id: &SessionId, label: &str, ask: &'static str) -> 
         .answer_session_ask(AnswerSessionAsk {
             session_id: id.clone(),
             call,
-            answer: HelmCallAnswer::AllowOnce,
+            answer: CallAnswer::AllowOnce,
             note: None,
             answers: vec![QuestionAnswer { question: "Carry on in a new Job?".into(), chosen: vec![label.into()] }],
             folder: None,
@@ -336,6 +336,7 @@ async fn left_partway(rig: &Rig, named: bool) -> (SessionId, SessionId) {
             after: None,
             held: false,
             project_rows: Vec::new(),
+            on_your_words: None,
         })
         .await
         .expect("started")
@@ -405,7 +406,7 @@ const ASK_FOUR: &str = r#"{"tool_name":"AskUserQuestion","tool_use_id":"toolu_h"
               {"label":"Stay, don't ask again this Job","description":""},{"label":"Remind me at a higher limit","description":""}]}]}}"#;
 
 /// The card standing on `id` now, once one is raised whose question is `question`.
-async fn card_of(rig: &Rig, id: &SessionId, question: &str) -> ipc::HelmCallInFlight {
+async fn card_of(rig: &Rig, id: &SessionId, question: &str) -> ipc::CallInFlight {
     let found = std::sync::Mutex::new(None);
     eventually(|| async {
         let asked = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.hosted.unwrap().asked;
@@ -425,7 +426,7 @@ async fn pressed(rig: &Rig, id: &SessionId, question: &str, label: &str) {
         .answer_session_ask(AnswerSessionAsk {
             session_id: id.clone(),
             call: card.call,
-            answer: HelmCallAnswer::AllowOnce,
+            answer: CallAnswer::AllowOnce,
             note: None,
             answers: vec![QuestionAnswer { question: question.into(), chosen: vec![label.into()] }],
             folder: None,
@@ -534,6 +535,7 @@ async fn stay_and_do_not_ask_again_is_kept_on_the_ledger_and_the_job_is_never_to
             after: None,
             held: false,
             project_rows: Vec::new(),
+            on_your_words: None,
         })
         .await
         .expect("started")
@@ -801,6 +803,7 @@ async fn a_linked_job_handed_on_passes_its_link_and_the_parent_follows_the_succe
             after: None,
             held: false,
             project_rows: Vec::new(),
+            on_your_words: None,
         })
         .await
         .expect("started")

@@ -92,7 +92,7 @@ function fleetWith(): LayerFleet {
           },
         ],
         not_probed: [],
-        helm_action_authority: "read_only",
+        action_authority: "read_only",
       },
     },
     sessions: {

@@ -262,7 +262,7 @@ export class StudioReads {
     return nodes.length === 0 ? 0 : Math.max(...nodes.map((node) => node.position.y)) + NOTE_APART;
   }
 
-  /** Name a Studio, or name it again. A person's act as much as Helm's — #1364. */
+  /** Name a Studio, or name it again. A person's act as much as a Job's — #1364. */
   async rename(studioId: string, name: string): Promise<Outcome> {
     return this.acted(
       await this.act(member(studioId, "/rename"), {

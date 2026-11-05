@@ -82,8 +82,8 @@ A focused panel lifts its edge and shadow and fills no header. A state is the co
 never a glow. The repository field inside Autopilot is a flat step at the control radius.
 
 **The canvas** is `--bg-base` under a static grid and one radial pool of `--accent-faint`, in a 760 x 480px ellipse on the top
-leading corner, which the title row does not cut off (it has no ground of its own). `--helm-faint` pools on the
-bottom trailing corner behind Helm's dock, only while the dock is open. The radial pools are the only
+leading corner, which the title row does not cut off (it has no ground of its own). `--operator-faint` pools on the
+bottom trailing corner behind the dock, only while the dock is open. The radial pools are the only
 gradients, they are the light the glass shows, and they carry no information.
 
 **The grid** is 1px dots on the shell, under every panel, from `--grid-pitch` and `--grid-line` in `takes.css`:
@@ -167,19 +167,19 @@ down off the accent — to `--accent-muted` for a press, to the pending
 rendering under Button while Fleet has not answered — and the mark reads
 against that.
 
-## Helm
+## Operator
 
 ```
---helm        #8E95FF   Helm's chip icon, Send's text
---helm-muted  14%       chip and Send fill
---helm-edge   38%       the dock's top edge, Send's border
---helm-faint  6%        the dock's wash, the canvas's pool behind it
+--operator        #8E95FF   the Operator's chip icon, Send's text
+--operator-muted  14%       chip and Send fill
+--operator-edge   38%       the dock's top edge, Send's border
+--operator-faint  6%        the dock's wash, the canvas's pool behind it
 ```
 
-Helm answers questions about whatever is on screen, so the dock needs to
-read as Helm at a glance and not as another panel. **Indigo sits between
-`--accent` and `--status-rejected`**, so it appears on Helm's own chrome only,
-never on or beside a Job row. `--helm` reads 6.09:1 on `--bg-glass` and 4.82:1
+The Operator's panel is about whatever is on screen, so the dock needs to
+read as the Operator at a glance and not as another panel. **Indigo sits between
+`--accent` and `--status-rejected`**, so it appears on the Operator's own chrome only,
+never on or beside a Job row. `--operator` reads 6.09:1 on `--bg-glass` and 4.82:1
 on its own chip.
 
 ## You

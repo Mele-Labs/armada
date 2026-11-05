@@ -10,7 +10,7 @@
   min-height: 0;
 }
 
-/* Helm's dock frame (`TheShell.css`: the glass, its wash, the head's edge), without the dock's margin,
+/* The Operator's dock frame (`TheShell.css`: the glass, its wash, the head's edge), without the dock's margin,
    and with the head and the ledger each taking their own padding. */
 .armada-session-panels > .armada-session-frame__aside {
   position: relative;

@@ -56,7 +56,7 @@ import {
   type Mark,
 } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
-import { SURFACE, askToOpenHelm, jobIdOf, manifestLabel, useLayout } from "@armada/shell";
+import { SURFACE, askToOpenOperator, jobIdOf, manifestLabel, useLayout } from "@armada/shell";
 
 import type { Item } from "../../Dashboard";
 import { clashingOf, useWriteClashes } from "../../clashes";
@@ -216,7 +216,7 @@ function OperatorRaisesRow() {
         data-lamp="needs"
         data-tone="ask"
         aria-label="Operator"
-        onClick={() => askToOpenHelm()}
+        onClick={() => askToOpenOperator()}
         title="Operator"
         marks={
           <ListCardMark>
@@ -1151,7 +1151,7 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
   const answered = useDeck((deck) => deck.held);
   const seen = useDeck((deck) => deck.visited);
   // A call no Session's row holds pulses the chip it is about, as a calling row does.
-  const homes = callingHomes(ship.calls, answered, seen, sessions);
+  const homes = callingHomes(ship.calls, answered, seen);
   const sel = useDeck((deck) => deck.sel);
   const panel = usePanel().open;
   const served = viewsOf(props.state);

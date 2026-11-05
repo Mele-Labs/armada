@@ -1,10 +1,8 @@
 //! A repository's Studios, read and written straight through the store, and
 //! published whole after every write. `#1285`.
 //!
-//! **Keyed like Helm.** A Studio belongs to the Manifest id Helm's
-//! conversation is kept under, `crate::helm::ConversationKey::of_repository`'s
-//! one input, so a Studio and the conversation that drives it name the same
-//! repository by the same value.
+//! **Keyed by repository.** A Studio belongs to a Manifest id, the value every other
+//! repository-scoped record is kept under.
 //!
 //! **The door's scope is checked here, against the record.** A member route
 //! names a Studio by id; `within` is set only on a door call, and a Studio of
@@ -20,9 +18,9 @@ use std::sync::Arc;
 
 use ipc::{
     AddStudioNode, AskScout, CaptureStudioNote, CreateStudio, DecideStudioEdge, DeferOnStudio, EditStudioDraft, EditStudioLink, EditStudioSketch, GroupStudioNodes,
-    HelmStudioAct, ManifestId, MoveStudioNode, ProposeStudioEdge, RemoveStudioNodes, RenameStudio,
+    StudioJobAct, ManifestId, MoveStudioNode, ProposeStudioEdge, RemoveStudioNodes, RenameStudio,
     SettleContradiction, StartScout, StartStudioRun, StartStudioServer, StopScout, StudioDeleted,
-    StudioHelmActed, StudioList, StudioNodeAdded, StudioRunStarted, StudioServerStarted,
+    StudioJobActed, StudioList, StudioNodeAdded, StudioRunStarted, StudioServerStarted,
     StudioSummary, WireError, WriteUpStudioNode,
 };
 use store::{ReadError, Store, StudioError};
@@ -47,8 +45,8 @@ const EDGE_NOT_PROPOSED: &str = "fleet.studio_edge_not_proposed";
 pub(crate) const EDGE_TO_ITSELF: &str = "fleet.studio_edge_to_itself";
 /// A node added with a field left blank, naming which. A 422.
 pub(crate) const NODE_BLANK: &str = "fleet.studio_node_blank";
-/// A node Helm added of a kind that does not start proposed. A 422.
-const NODE_NOT_HELMS: &str = "fleet.studio_node_not_helms";
+/// A node a Job on your words added of a kind that does not start proposed. A 422.
+const NODE_NOT_A_JOBS: &str = "fleet.studio_node_not_a_jobs";
 /// A node a person added by hand of a kind only an act mints. A 422.
 const NODE_NOT_A_PERSONS: &str = "fleet.studio_node_not_a_persons";
 /// A Finding added claiming what only a scout records. A 422.
@@ -74,7 +72,7 @@ pub(crate) const MOST_A_FRAME_MAY_WEIGH: u64 = 4 * 1024 * 1024;
 pub(crate) fn author(by: Redirector) -> StudioAuthor {
     match by {
         Redirector::Person => StudioAuthor::Person,
-        Redirector::Helm => StudioAuthor::Helm,
+        Redirector::Job => StudioAuthor::Job,
     }
 }
 
@@ -213,11 +211,11 @@ where
     /// Whether `by` may add a node of `kind` at all, asked before anything is
     /// written — a Picture's file included.
     pub(crate) fn addable_by(&self, kind: StudioNodeKind, by: Redirector) -> Result<(), Refusal> {
-        if by == Redirector::Helm && !kind.starts_proposed() {
+        if by == Redirector::Job && !kind.starts_proposed() {
             return Err(self.studio_unacceptable(
-                NODE_NOT_HELMS,
+                NODE_NOT_A_JOBS,
                 format!(
-                    "Helm adds only a node that starts proposed, and a {} is a person's to add",
+                    "A Job on your words adds only a node that starts proposed, and a {} is a person's to add",
                     kind.as_wire()
                 ),
             ));
@@ -293,21 +291,20 @@ where
         })
     }
 
-    /// Publish `act` as Helm's own, **after** the write's `studio.changed` and
-    /// only where the transport placed the call in a Helm session: a person's
-    /// act on a Studio is `studio.changed` alone. `docs/concepts/helm.md`,
-    /// *Audit trail*.
-    pub(crate) fn published_as_helms(
+    /// Publish `act` as a Job's own, **after** the write's `studio.changed` and
+    /// only where the transport placed the call as a Job on your words: a person's
+    /// act on a Studio is `studio.changed` alone.
+    pub(crate) fn published_as_jobs(
         &self,
         by: Redirector,
         studio: &ipc::Studio,
-        act: HelmStudioAct,
+        act: StudioJobAct,
     ) {
-        if by != Redirector::Helm {
+        if by != Redirector::Job {
             return;
         }
         self.events()
-            .publish(ipc::Event::StudioHelmActed(StudioHelmActed {
+            .publish(ipc::Event::StudioJobActed(StudioJobActed {
                 studio_id: studio.id.clone(),
                 manifest_id: studio.manifest_id.clone(),
                 act,
@@ -464,10 +461,10 @@ where
                 store.rename_studio(id, &name, author(by), &at)
             })
             .await?;
-        let named = HelmStudioAct::Named {
+        let named = StudioJobAct::Named {
             name: name.as_str().to_string(),
         };
-        self.published_as_helms(by, &studio, named);
+        self.published_as_jobs(by, &studio, named);
         Ok(studio)
     }
 
@@ -496,7 +493,7 @@ where
         Ok(deleted)
     }
 
-    /// **Helm adds only what starts proposed**, placed by the transport rather
+    /// **A Job on your words adds only what starts proposed**, placed by the transport rather
     /// than claimed: a Note is what a person pointed at.
     async fn add_studio_node(
         &self,
@@ -586,10 +583,10 @@ where
                 store.add_studio_node(id, &node, produced_by, &at)
             })
             .await?;
-        let added = HelmStudioAct::AddedNode {
+        let added = StudioJobAct::AddedNode {
             node_id: ipc::StudioNodeId::from(node.id()),
         };
-        self.published_as_helms(by, &studio, added);
+        self.published_as_jobs(by, &studio, added);
         Ok(studio)
     }
 
@@ -741,10 +738,10 @@ where
                 store.add_studio_edge(id, &edge, &at)
             })
             .await?;
-        let proposed = HelmStudioAct::ProposedEdge {
+        let proposed = StudioJobAct::ProposedEdge {
             edge_id: ipc::StudioEdgeId::from(edge.id()),
         };
-        self.published_as_helms(by, &studio, proposed);
+        self.published_as_jobs(by, &studio, proposed);
         Ok(studio)
     }
 

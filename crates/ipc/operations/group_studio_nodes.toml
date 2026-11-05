@@ -6,7 +6,7 @@ description = "Accept several nodes on a Studio as one Cluster, or read them in 
 notes = """
 The first rung of `docs/concepts/studio.md`'s *Promotion* that joins nodes rather than adding one. The new node is placed where the request says and the Studio draws a `produced` edge from each node in `from`, **in the order they were given** — an Outline is an ordered reading, and edges read back oldest first, so the order a person picked is the order it keeps.
 
-`agent_access` is `Bridge only`: a Cluster is Notes a person accepted as one thing, and accepting is a person's act whatever Helm's authority setting says.
+`agent_access` is `Bridge only`: a Cluster is Notes a person accepted as one thing, and accepting is a person's act whatever the action authority setting says.
 
 **A Cluster is drawn round its Notes** (since 23.0, #1620): it lands inside the frame they all share, or on the board, at their corner, and each Note goes inside it where it was; `position` places an Outline only. A Note already in a Cluster is refused as `fleet.studio_note_in_a_cluster` — one Cluster at a time, decided with the owner on 2 Oct 2026.
 

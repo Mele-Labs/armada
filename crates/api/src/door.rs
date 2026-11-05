@@ -10,7 +10,7 @@
 //!
 //! Who may open this door is `#698`. What it is scoped to is here: the
 //! Manifest its relay names as `?manifest_id=`, which selects and grants
-//! nothing. So is the one caller it narrows: a Helm session the daemon places
+//! nothing. So is the one caller it narrows: a Job on your words the daemon places
 //! by its connection (`#941`, [`crate::Admitting`]).
 
 use axum::body::Bytes;
@@ -91,13 +91,13 @@ pub fn offered() -> Vec<Shape> {
     shaped(door::REACHABLE.iter())
 }
 
-/// Set on a call the door makes for a Helm session it placed, and by nothing
+/// Set on a call the door makes for a Job on your words it placed, and by nothing
 /// else. **An extension, never a header**: bytes on the wire cannot carry one.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct HelmCalled;
+pub(crate) struct WordsCalled;
 
-/// Set on every call the door makes, Helm's or not, so the move it leads to
-/// says it came through the door. [`HelmCalled`]'s reason for an extension.
+/// Set on every call the door makes, for a Job on your words or not, so the move it leads to
+/// says it came through the door. [`WordsCalled`]'s reason for an extension.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct DoorCalled;
 
@@ -233,7 +233,7 @@ const NAMES_ITS_SCOPE: &[&str] = &[
     "get_manifest_drift",
     "start_server",
     "list_studios",
-    // The main checkout's runs, which a Helm session starts and reads (#1288).
+    // The main checkout's runs, which a Job on your words starts and reads (#1288).
     // Absent a name they answer about the first repository served, so a
     // session standing in another would start and read runs in that one.
     "get_checkout_run_sheet",
@@ -251,7 +251,7 @@ const NAMES_ITS_SCOPE: &[&str] = &[
 ];
 
 /// Set on every call the door makes, so a `:job_id` resolves inside the
-/// session's Manifest. **An extension, never a header**, for [`HelmCalled`]'s
+/// session's Manifest. **An extension, never a header**, for [`WordsCalled`]'s
 /// reason: Bridge's own `/jobs/:job_id` requests cannot carry one.
 #[derive(Clone, Debug)]
 pub(crate) struct Scoped(ManifestId);
@@ -323,7 +323,7 @@ async fn called<D: Queries + Admitting>(
             None => StatusCode::ACCEPTED.into_response(),
         };
     }
-    // **A Helm session reads against everything it could be
+    // **A Job on your words reads against everything it could be
     // offered**, so a call outside its reach is refused by name below rather
     // than answered as a tool that does not exist.
     let shapes = match placed.is_narrowed() {
@@ -446,7 +446,7 @@ fn answering(answered: Answered) -> Response {
 }
 
 /// The tools a caller is listed: every shape for any agent, and only what the
-/// reach decided for a Helm session.
+/// reach decided for a Job on your words.
 fn within(shapes: Vec<Shape>, placed: &Placed) -> Vec<Shape> {
     shapes
         .into_iter()

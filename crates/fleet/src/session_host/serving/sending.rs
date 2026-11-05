@@ -143,7 +143,7 @@ where
     /// A message to a session Fleet hosts, written to its thread as `from` and started as a turn,
     /// with a line of Fleet's own ahead of the words in the turn. **`You` is a person's; Fleet's
     /// own notices come through [`Self::told_by_fleet`].** **The thread's row keeps the words as
-    /// typed**, so the line is the agent's and never drawn: Helm's "where they are" is the one
+    /// typed**, so the line is the agent's and never drawn: a line saying where they are is the one
     /// caller that sets it.
     pub(super) async fn send_hosted_ahead(
         self: Arc<Self>,

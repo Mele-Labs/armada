@@ -3,8 +3,8 @@
 //
 // #1287's is:
 // open Studios from the rail, start one, drag a node, close Bridge, reopen it read-only with the
-// node where it was left, press Continue, and accept a proposed relation, with Helm's footer naming
-// the Studio. `crates/acceptance/tests/studio.rs` lists the read-only reopen as proved here.
+// node where it was left, press Continue, and accept a proposed relation.
+// `crates/acceptance/tests/studio.rs` lists the read-only reopen as proved here.
 
 import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -14,7 +14,6 @@ import {
   type Mounted,
   studying,
   entered,
-  openHelm,
   whenFleet,
   toSystemPage,
 } from "@armada/desktop/mock";
@@ -229,7 +228,7 @@ test("a Studio started, laid out, closed, reopened read-only, continued, and a r
   ).toBeNull();
 
   const [studio] = fleet.studios();
-  fleet.helmProposes(studio!.id);
+  fleet.jobProposes(studio!.id);
   await expect.element(node(/^Note: Drag me somewhere/)).toBeVisible();
   const before = fleet.studios()[0]!.nodes.find((one) => one.kind === "note")!.position;
 
@@ -279,34 +278,6 @@ test("a Studio started, laid out, closed, reopened read-only, continued, and a r
       .query(),
   ).toBeNull();
 
-  // Helm's footer names the Studio, and the node selected on it.
-  await openHelm();
-  await expect
-    .element(
-      page.getByText("Studios · Untitled Studio", {
-        exact: true,
-      }),
-    )
-    .toBeVisible();
-  node(/^Note: Drag me somewhere/)
-    .element()
-    .focus();
-  await userEvent.keyboard("{Enter}");
-  await expect
-    .element(page.getByText("Studios · Untitled Studio · Note Drag me somewhere selected"))
-    .toBeVisible();
-  // Put away, because the dock is drawn over the board's right side and the relation's dot is there.
-  await userEvent.keyboard("{Meta>}j{/Meta}");
-  await expect
-    .poll(() =>
-      page
-        .getByRole("complementary", {
-          name: "Helm",
-        })
-        .query(),
-    )
-    .toBeNull();
-
   await page
     .getByRole("button", {
       name: "Continue",
@@ -350,7 +321,7 @@ test("a Studio started, laid out, closed, reopened read-only, continued, and a r
 /**
  * #1364's definition of done: a person opens a new Studio, names it, types a
  * note onto it, pastes a link beside it, and reloads Bridge to find all three
- * where they left them — without asking Helm for any of it.
+ * where they left them — without asking a Job for any of it.
  */
 test("a Studio named by hand, with a note typed and a link pasted, survives a reload", async () => {
   const fleet = studying([]);
@@ -476,7 +447,7 @@ test("Delete 1 node confirms, with Cancel first, and takes the node's edges with
       }),
     )
     .toBeVisible();
-  fleet.helmProposes(fleet.studios()[0]!.id);
+  fleet.jobProposes(fleet.studios()[0]!.id);
   await expect.element(node(/^Finding: /)).toBeVisible();
 
   node(/^Finding: /)
@@ -1111,7 +1082,7 @@ test("a proposed relation is answered on its own edge, and no queue sits in the 
 
   // The relation's own dot, named by who proposed it and what it says, and the
   // card it opens — shut until the pointer or the focus is on it.
-  const named = /^Helm proposes: Note It wraps at 720 wide same as /;
+  const named = /^A job proposed: Note It wraps at 720 wide same as /;
   const dot = page.getByRole("button", {
     name: named,
   });

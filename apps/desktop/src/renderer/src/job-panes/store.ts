@@ -826,7 +826,7 @@ export const prPanes: PaneFamily = createPaneFamily({
   forAllLabel: "New pull requests open on",
 });
 
-/** The Operator's panes in Helm's dock, one owner, kept apart from the Jobs' and the pull requests'. */
+/** The Operator's panes in its dock, one owner, kept apart from the Jobs' and the pull requests'. */
 export const operatorPanes: PaneFamily = createPaneFamily({
   name: "operator",
   shared: "operator-panes:shared",

@@ -8,9 +8,8 @@ pub const CHECK_SECONDS: Seconds = Seconds("timeouts.checkSeconds");
 pub const JUDGE_SECONDS: Seconds = Seconds("timeouts.judgeSeconds");
 pub const COMMAND_SECONDS: Seconds = Seconds("timeouts.commandSeconds");
 pub const PROPOSER_SECONDS: Seconds = Seconds("timeouts.proposerSeconds");
-pub const HELM_ASK_HOLD_SECONDS: Seconds = Seconds("timeouts.helmAskHoldSeconds");
+pub const ASK_HOLD_SECONDS: Seconds = Seconds("timeouts.askHoldSeconds");
 pub const SESSION_QUIET_SECONDS: Seconds = Seconds("timeouts.sessionQuietSeconds");
-pub const HELM_REPLY_SECONDS: Seconds = Seconds("timeouts.helmReplySeconds");
 pub const MERGE_NOTICE_SECONDS: Seconds = Seconds("timeouts.mergeNoticeSeconds");
 pub const RESOURCE_POLL_SECONDS: Seconds = Seconds("timeouts.resourcePollSeconds");
 pub const BUILD_SWEEP_SECONDS: Seconds = Seconds("timeouts.buildSweepSeconds");
@@ -90,17 +89,17 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         env: None,
         tip: None,
     },
-    // `fleet::helm::SHIPPED_ASK_HOLD` says what the fourteen minutes is measured
+    // `fleet::asks::SHIPPED_ASK_HOLD` says what the fourteen minutes is measured
     // against; the row carries it too.
     Entry {
-        key: HELM_ASK_HOLD_SECONDS.0,
+        key: ASK_HOLD_SECONDS.0,
         section: Section::Timeouts,
-        title: "Helm ask held open",
-        description: "How long one call a Helm job made waits for a person in the dock before Fleet refuses it for them.",
+        title: "Ask held open",
+        description: "How long one call a Job made waits for a person before Fleet refuses it for them.",
         kind: Kind::Seconds { min: 30, max: 3_600 },
         shipped: Shipped::Seconds(840),
         applies: Applies::AtRestart,
-        row: Some("helm-ask-hold"),
+        row: Some("ask-hold"),
         env: None,
         tip: None,
     },
@@ -113,20 +112,6 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         shipped: Shipped::Seconds(600),
         applies: Applies::AtRestart,
         row: Some("session-quiet-timeout"),
-        env: None,
-        tip: None,
-    },
-    // Generous, because a reply that reads a dozen Jobs is a dozen tool calls.
-    // Not an idle timeout: one process per message, closed once written.
-    Entry {
-        key: HELM_REPLY_SECONDS.0,
-        section: Section::Timeouts,
-        title: "Helm reply",
-        description: "How long one Helm reply may take before its process is ended.",
-        kind: Kind::Seconds { min: 60, max: 7_200 },
-        shipped: Shipped::Seconds(900),
-        applies: Applies::AtRestart,
-        row: None,
         env: None,
         tip: None,
     },

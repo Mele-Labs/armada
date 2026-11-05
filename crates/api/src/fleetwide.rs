@@ -4,7 +4,7 @@
 //! **Not under `/jobs`**, for `get_capacity`'s reason — a fact about Fleet
 //! hung off a Job would be a fact about that Job.
 
-use axum::extract::{Extension, Path, Query, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
 use ipc::{Cursor, ManifestId};
@@ -12,7 +12,6 @@ use serde::Deserialize;
 
 use crate::answers::{answer, refused};
 use crate::daemon::{Conversations, Queries};
-use crate::door::HelmCalled;
 use crate::served::Served;
 
 
@@ -87,7 +86,6 @@ pub(crate) async fn get_manifest<D: Queries>(
 pub(crate) async fn get_events_since<D: Queries + Conversations>(
     State(served): State<Served<D>>,
     Query(From { since, manifest_id }): Query<From>,
-    helm: Option<Extension<HelmCalled>>,
 ) -> Response {
     let Some(manifest_id) = manifest_id else {
         let counted = served.events().since(Cursor::at(since));
@@ -107,14 +105,5 @@ pub(crate) async fn get_events_since<D: Queries + Conversations>(
     let counted = served
         .events()
         .since_within(Cursor::at(since), Some(&within));
-    // Kept where a Helm session asked, so `get_helm_debug_info` reports what
-    // the session was actually told rather than a window recounted later —
-    // `#1367`. Every other caller's poll is nobody's record.
-    if helm.is_some() {
-        served
-            .daemon()
-            .helm_polled(ManifestId::carried(manifest_id), counted.clone())
-            .await;
-    }
     answer(StatusCode::OK, &counted, served.run_id())
 }

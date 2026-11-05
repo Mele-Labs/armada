@@ -160,10 +160,10 @@ where
     }
 
     /// How far `role` goes in the repository `manifest`, as settings.json reads now: Off under the
-    /// Operator's own switch, else what the repository sets, else the machine's.
+    /// Operator's own switch or a standing order, else what the repository sets, else the machine's.
     pub(crate) fn operator_position(&self, role: OperatorRole, manifest: &str) -> OperatorPosition {
         let settings = self.machine_settings().now();
-        if !settings.get(keys::OPERATOR) {
+        if !settings.get(keys::OPERATOR) || self.operator_seat().orders().role_off(role, manifest, &self.now()) {
             return OperatorPosition::Off;
         }
         let repositories = settings.get(keys::OPERATOR_REPOSITORIES).map(|value| OperatorRepositories::read(&value.to_json_text())).unwrap_or_default();

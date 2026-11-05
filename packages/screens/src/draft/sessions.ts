@@ -3,8 +3,7 @@
 // carries it yet, so every field here is one Fleet would owe. The owner's ask,
 // 6 Oct 2026.
 //
-// **A Session sits beside Helm and changes nothing about it.** Helm stays the
-// one dock per repository. A Session is a thread of its own that starts with
+// A Session is a thread of its own that starts with
 // no slot and no branch, leases a worktree slot on the agent's first write,
 // and from then on accumulates what it touches.
 
@@ -644,8 +643,8 @@ type SessionRowKinds =
       queued?: true;
     }
   /**
-   * Words typed in Helm's box that went to a Session and never to Helm. Only Helm's own Session
-   * has these: Fleet keeps the row beside the ones the agent wrote, in the thread where it was sent.
+   * Words an old thread sent on to a Session or a Job. Only an ended Job's thread has these: Fleet keeps the row
+   * beside the ones the agent wrote, in the thread where it was sent.
    */
   | {
       id: string;
@@ -1141,12 +1140,6 @@ export type Session = {
   contextBreakdown?: ContextBreakdown;
   /** What its agent knows and was told, counted, and what the latest turn used. Absent until the Session reports one. */
   loadout?: LoadoutSummary;
-  /**
-   * Helm's own Session for a repository: hosted like any other, pinned to Helm's dock, one per
-   * repository. The Sessions list marks it and opening it opens the dock, not a page of its own.
-   * It runs in auto, so `mode` is never offered for it.
-   */
-  helm?: true;
   /** A Mod Job: started from Mod, for modding Armada itself. */
   mod?: true;
   /** A Mod Job that builds a Custom tab: the Job whose panes hold the tab, and the tab's id. It has no row of its own; the tab and its card are where it lives. */
@@ -1597,12 +1590,6 @@ export type SessionsDraft = {
    * where `get` already holds every one, and then `get` is what it reads.
    */
   everywhere?: () => readonly Session[];
-  /**
-   * The live Helm Session of the repository Helm's dock answers for, **whatever the rail picked**: the
-   * list holds the picked repository's Sessions, and Helm may be pointed at another. Absent where the
-   * list holds every Session, and the dock then finds it there.
-   */
-  helmOf?: (manifestId: string) => Session | undefined;
   subscribe: (onChange: () => void) => () => void;
   /**
    * Hands a plan group to a new Session this one follows, and returns its id: **a promise on a real Fleet**, which starts the Session and sends

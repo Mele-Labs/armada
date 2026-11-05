@@ -16,12 +16,18 @@ use crate::served::Served;
 
 pub(crate) async fn start_session<D: HostedSessions>(
     State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
     body: Bytes,
 ) -> Response {
-    let start: ipc::StartSession = match ipc::decode_body("a job to start", &body) {
+    let mut start: ipc::StartSession = match ipc::decode_body("a job to start", &body) {
         Ok(start) => start,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    // A Job on your words may act as the person, so only Bridge may start one: a body that came
+    // through the agent door is read as a plain Job whatever it says.
+    if door.is_some() {
+        start.on_your_words = None;
+    }
     match served.shared().start_session_reading(start).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
@@ -180,6 +186,69 @@ pub(crate) async fn move_in_line<D: HostedSessions>(
     };
     match served.shared().move_in_line(moved).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// One message from the person to the Operator. 200 with what it said; 422 while it is off, at the
+/// day's ceiling, or where the call came back with nothing.
+pub(crate) async fn talk_to_operator<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let talk: ipc::operator_talk::TalkToOperator = match ipc::decode_body("a message to the Operator", &body) {
+        Ok(talk) => talk,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().talk_to_operator(talk).await {
+        Ok(said) => answer(StatusCode::OK, &said, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The conversation with the Operator so far.
+pub(crate) async fn operator_talk<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.shared().operator_talk().await {
+        Ok(talk) => answer(StatusCode::OK, &talk, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The person presses to have an order stand. 200 with the orders; 422 while the Operator is off, or
+/// where the form names what Fleet does not know.
+pub(crate) async fn confirm_operator_order<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let confirm: ipc::operator_talk::ConfirmOperatorOrder = match ipc::decode_body("a standing order", &body) {
+        Ok(confirm) => confirm,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().confirm_operator_order(confirm).await {
+        Ok(orders) => answer(StatusCode::OK, &orders, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The standing orders in force now.
+pub(crate) async fn operator_orders<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.shared().operator_orders().await {
+        Ok(orders) => answer(StatusCode::OK, &orders, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// One press removes an order. 200 with the orders; 422 where it is not standing.
+pub(crate) async fn remove_operator_order<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let remove: ipc::operator_talk::RemoveOperatorOrder = match ipc::decode_body("a standing order's removal", &body) {
+        Ok(remove) => remove,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().remove_operator_order(remove).await {
+        Ok(orders) => answer(StatusCode::OK, &orders, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

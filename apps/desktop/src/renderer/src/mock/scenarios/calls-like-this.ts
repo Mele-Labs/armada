@@ -3,7 +3,7 @@
 // for the script, the agent's next drive.mjs call runs with no card, and once time passes its cleanup.mjs
 // call is held on a new card naming cleanup.mjs. Allowed for every node call, both run. Mock data only.
 
-import type { HelmCallInFlight, RepositorySummary } from "@armada/protocol";
+import type { CallInFlight, RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
@@ -25,7 +25,7 @@ const DRIVING = `node drive.mjs --out ${SHOT}`;
 const BROWSER = "node drive.mjs --browser /Users/user/Library/Caches/ms-playwright/chromium/chrome";
 const CLEANUP = "node cleanup.mjs /Users/user/code/other-repo";
 
-const call = (id: string, command: string, reaches: string, script: string): HelmCallInFlight => ({
+const call = (id: string, command: string, reaches: string, script: string): CallInFlight => ({
   call: id,
   manifest_id: "armada",
   asked_at: AT,
@@ -50,8 +50,8 @@ const call = (id: string, command: string, reaches: string, script: string): Hel
   },
 });
 
-const driving = call("helm-21", DRIVING, SHOT, "drive.mjs");
-const cleaning = call("helm-22", CLEANUP, "/Users/user/code/other-repo", "cleanup.mjs");
+const driving = call("call-21", DRIVING, SHOT, "drive.mjs");
+const cleaning = call("call-22", CLEANUP, "/Users/user/code/other-repo", "cleanup.mjs");
 
 function fleet(): FakeSessionsFleet {
   const records = [

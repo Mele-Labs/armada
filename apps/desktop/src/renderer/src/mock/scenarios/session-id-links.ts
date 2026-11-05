@@ -203,7 +203,7 @@ const walker: Session = {
   ],
 };
 
-// Helm's repository and the one the last Session works in, so an issue named there opens the composer on its own.
+// The first repository and the one the last Session works in, so an issue named there opens the composer on its own.
 const STOREFRONT: RepositorySummary = {
   root: "/Users/user/code/storefront",
   records_root: "/records/storefront",

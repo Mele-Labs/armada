@@ -12,7 +12,7 @@ const HANDLED: readonly Mark[] = [
 
 /**
  * A panel's inner-edge resize handle, and the range it drags in. **One
- * handle for every panel that resizes**: Helm's dock (`TheShell`) and every
+ * handle for every panel that resizes**: the Operator's dock (`TheShell`) and every
  * `Sheet` (the owner's notes of 30 Sep and 2 Oct 2026 — "resize it with the
  * resize handle we have", "every sheet should be resizable") draw this one,
  * so the edges look and answer alike.
@@ -94,7 +94,7 @@ export type DockHandleProps = {
   /** The range, from `dockWidthRange`. */
   min: number;
   max: number;
-  /** What it resizes, for the separator's name — `Resize Helm`. */
+  /** What it resizes, for the separator's name — `Resize Operator`. */
   label: string;
   /**
    * The way a drag widens it. `left` for a panel on its container's trailing

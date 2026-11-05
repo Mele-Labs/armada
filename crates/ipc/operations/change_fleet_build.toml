@@ -12,5 +12,5 @@ notes = """
 
 A second request while one is under way is a 409 `fleet.build_restarting`. A checkout that is not on `main` is refused by the wrapper, which reports it as `failed`. A Fleet with no checkout holding `scripts/restart-build` is a 409 `fleet.build_not_offered`.
 
-`Bridge only`: restarting the Fleet that serves a Helm conversation is a person's act, whatever Helm's authority setting says.
+`Bridge only`: restarting the Fleet that serves a Job on your words is a person's act, whatever the action authority setting says.
 """

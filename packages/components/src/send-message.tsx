@@ -7,7 +7,7 @@ import { useShortcutReveal } from "./shortcut-reveal";
 
 /**
  * `⌘Enter` sends the message box that has focus — the drone message box and
- * Helm's composer, settled together by the owner on 18 Sep 2026.
+ * the Operator's composer, settled together by the owner on 18 Sep 2026.
  *
  * **One binding, honoured in two places and spelled in neither.**
  * `send_message` in `crates/core-model/domain/actions.toml` is the key, and
@@ -35,7 +35,7 @@ export function sendsOn(event: KeyboardEvent<HTMLElement>): boolean {
  * **`aria-hidden`, so Send's accessible name stays "Send"** rather than
  * growing a keycap the moment a modifier goes down.
  *
- * **Mounted on the hold**, as `TitleBar`'s Helm button is and not as the
+ * **Mounted on the hold**, as `TitleBar`'s Operator button is and not as the
  * sidebar's rows are: Send is positioned inside a field one dock wide, and
  * reserving the badge's width at rest would eat the well it sits over.
  *

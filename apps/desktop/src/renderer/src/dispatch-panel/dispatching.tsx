@@ -566,7 +566,7 @@ export function useDispatch({
     const [hand, setHand] = useKept<Hand>(AFTER, {});
     const live = useSessions();
     const offered = live
-      .filter((one) => one.dead === undefined && one.helm !== true && one.title !== undefined)
+      .filter((one) => one.dead === undefined && one.title !== undefined)
       .map((one) => ({
         id: one.id,
         title: one.title!,

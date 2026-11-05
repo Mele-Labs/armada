@@ -159,7 +159,7 @@ As first drawn, dispatch was blocked until Doctor reported green, the one place 
 ## Relationship to Fleet and to Bridge
 
 **Fleet has no engineer-facing surface of its own.** Its own health status is one module among several in Doctor's grid.
-Fleet is infrastructure, and you never go to Fleet the way you go to the Cockpit or Helm.
+Fleet is infrastructure, and you never go to Fleet the way you go to the Cockpit.
 
 On a Fleet crash, auto-restart is attempted first; if that fails, Doctor shows Fleet as fail and an explicit "Restart Fleet" action becomes available as a manual fallback.
 

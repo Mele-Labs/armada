@@ -62,7 +62,7 @@ pub fn runs_from(pid: u32, directories: &[String], peers: &dyn PeerOf) -> bool {
     })
 }
 
-/// How deep and how wide [`held_within`] walks. A Helm session's relay is its
+/// How deep and how wide [`held_within`] walks. A hosted Job's relay is its
 /// agent's child; the bound is there so a runaway tree cannot stall a call.
 const DEEPEST: usize = 6;
 const MOST: usize = 256;
@@ -70,7 +70,7 @@ const MOST: usize = 256;
 /// Whether a call arrived on a connection held by one of `roots` or by a
 /// process one of them started. `#941`.
 ///
-/// **Descendants, because a Helm session reaches the door through a relay its
+/// **Descendants, because a hosted Job reaches the door through a relay its
 /// agent started**, and that relay holds the socket. A process outside the tree
 /// cannot join it: a parent is the kernel's record, not a process's claim.
 pub fn held_within(caller: &Caller, served_on: u16, roots: &[u32], peers: &dyn PeerOf) -> bool {

@@ -65,7 +65,7 @@ pub trait HostedSessions: Send + Sync + 'static {
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
     /// `send_session_message`. **Answers at once**, with the turn taken: the
-    /// reply is the thread's, as Helm's is.
+    /// reply is the thread's.
     fn send_session_message(
         self: Arc<Self>,
         sent: SendSessionMessage,
@@ -125,6 +125,32 @@ pub trait HostedSessions: Send + Sync + 'static {
         self: Arc<Self>,
         moved: ipc::MoveInLine,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `talk_to_operator`: one message in the box. [`Refusal::Unacceptable`] while the Operator is
+    /// off, at the day's ceiling, or where the call came back with nothing.
+    fn talk_to_operator(
+        self: Arc<Self>,
+        talk: ipc::operator_talk::TalkToOperator,
+    ) -> impl Future<Output = Result<ipc::operator_talk::OperatorSaid, Refusal>> + Send;
+
+    /// `operator_talk`: the conversation so far.
+    fn operator_talk(self: Arc<Self>) -> impl Future<Output = Result<ipc::operator_talk::OperatorTalk, Refusal>> + Send;
+
+    /// `confirm_operator_order`: the person presses to have an order stand. [`Refusal::Unacceptable`]
+    /// while the Operator is off, or where the form names what Fleet does not know.
+    fn confirm_operator_order(
+        self: Arc<Self>,
+        confirm: ipc::operator_talk::ConfirmOperatorOrder,
+    ) -> impl Future<Output = Result<ipc::operator_talk::OperatorOrders, Refusal>> + Send;
+
+    /// `operator_orders`: the standing orders in force now.
+    fn operator_orders(self: Arc<Self>) -> impl Future<Output = Result<ipc::operator_talk::OperatorOrders, Refusal>> + Send;
+
+    /// `remove_operator_order`: one press. [`Refusal::Unacceptable`] where it is not standing.
+    fn remove_operator_order(
+        self: Arc<Self>,
+        remove: ipc::operator_talk::RemoveOperatorOrder,
+    ) -> impl Future<Output = Result<ipc::operator_talk::OperatorOrders, Refusal>> + Send;
 
     /// `dismiss_waiting`: the person drops one item for good. [`Refusal::IllegalMove`] where
     /// nothing holds the item.

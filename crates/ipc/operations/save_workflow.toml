@@ -1,7 +1,7 @@
 [operations.save_workflow]
 kind = "command"
 transport = "HTTP"
-agent_access = "Helm only"
+agent_access = "On your words"
 description = "Check one workflow definition against the repository's Checks and this machine's models, and write it in the repository's own folder or in Kit's"
 notes = """
 `POST /workflows/save`, protocol 23.28, with `?manifest_id=` as the other Manifest-scoped routes take it. The body is `SaveWorkflow`: `scope` (`repository` for `<repository>/.armada/workflows/`, `kit` for `~/.armada/workflows/`), `definition` (the whole definition as JSON text) and `overwrite`. The answer is a `WorkflowSaved`: the id, the scope, the file as written, whether it replaced one, and whose definition of that id runs in this repository now.
@@ -12,5 +12,5 @@ notes = """
 
 **Held when it answers.** Fleet reads the three places again before answering, so the workflow is dispatchable at once and `list_workflows` shows it. A file written by hand is read again by the watch on both folders, after the same settle window `armada.yml`'s has. Either way a definition that does not fit is left out with its reason on `list_left_out_workflows` and the rest stand; start does the same, and since 23.29 no longer refuses a repository whose own definition does not fit.
 
-`agent_access` is `Helm only`, `edit_manifest`'s reason: what is written decides what every Job here is gated on. Helm calls it on a person's ask and never unasked. **A save that carries `overwrite: true` is put to the person**, as destructive, and a first save is not, because the call without it cannot replace anything — `fleet::helm::deciding`.
+`agent_access` is `On your words`, `edit_manifest`'s reason: what is written decides what every Job here is gated on. A Job on your words calls it on a person's ask and never unasked. **A save that carries `overwrite: true` is put to the person**, as destructive, and a first save is not, because the call without it cannot replace anything — `fleet::auto_gate`.
 """

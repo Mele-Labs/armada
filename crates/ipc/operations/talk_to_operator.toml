@@ -1,0 +1,14 @@
+[operations.talk_to_operator]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The person says one message to the Operator, in the box at the foot of its panel"
+notes = """
+`POST /operator/talk`, body `TalkToOperator`: `words`. Answered with `OperatorSaid`: `said`, the `cites` it rests on as rows of the Log, the brief of a `job` it offers to start, the Job it `started`, the `order` it read in the words, and every one of the `forms` where they fit none.
+
+**A fresh call for each message**, with no tools, handed the last twenty messages and what Fleet holds: the Log, Needs you, Waiting to start, the Jobs held and the Jobs marked Stopped. It cannot read a repository, so an answer that needs the code offers a Job. A Log row or a Job it was not shown is dropped.
+
+**An order is never made to stand here.** `order` is a form for the person to see; `confirm_operator_order` is his press. **`started` is the one thing it does**, on a Job held that he told it to start, which the Log keeps as his correction.
+
+**Refused**, 422, with nothing kept: `fleet.operator_off` while the Operator is off, `fleet.operator_ceiling` at the day's ceiling, and `fleet.operator_said_nothing` where the call failed or could not be read. Each message counts toward the ceiling.
+"""

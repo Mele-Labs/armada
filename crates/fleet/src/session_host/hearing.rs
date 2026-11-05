@@ -59,8 +59,11 @@ where
                         gone.end();
                     }
                     state.queued = 0;
-                    state.moving = None;
                     let working = matches!(state.turn, SessionTurn::Working { .. });
+                    // A move that waited on agents is still owed between turns, and now waits on nothing.
+                    if working {
+                        state.moving = None;
+                    }
                     state.turn = SessionTurn::Idle;
                     // Lines it never took are not lost with it: once.
                     let lost = match state.retried {
@@ -74,7 +77,9 @@ where
                     (working, complaint, lost)
                 };
                 // The move it was waiting on is not made: `moving` went with the process.
-                self.slot_wait_ended(id, Some("move")).await;
+                if runtime.state().moving.is_none() {
+                    self.slot_wait_ended(id, Some("move")).await;
+                }
                 // Fleet letting a process go changes the generation, so one heard here ended on its own.
                 self.stop_kept(id).await;
                 if working {
@@ -354,9 +359,11 @@ where
                 by: by @ (Speaker::Drone | Speaker::Harness),
             } => {
                 // What is said between the lease and the move is the agent
-                // standing down, and the person is not shown it.
+                // standing down, and the person is not shown it. A later turn, while
+                // the move waits on agents, is said to them.
                 let text = adapters::terminal_thread::agent_said(&text);
-                if runtime.state().moving.is_some() || text.trim().is_empty() {
+                let standing_down = runtime.state().moving.as_ref().is_some_and(|moving| !moving.held);
+                if standing_down || text.trim().is_empty() {
                     return;
                 }
                 // The harness's words are shown but are not the agent's reply, so a turn
@@ -365,7 +372,7 @@ where
                     {
                         let mut state = runtime.state();
                         state.said = Some(text.clone());
-                        super::unanswered::heard(&mut state, &text);
+                        state.owes_reply = false;
                     }
                     self.said_seen(id, &text);
                     self.links_seen(id, &text, LinkedBy::Agent).await;
@@ -388,8 +395,6 @@ where
             DroneEvent::Called { tool, detail, call } => {
                 if tool == ipc::ASKS_A_QUESTION {
                     runtime.state().question_heard = Some(call.clone());
-                } else {
-                    super::unanswered::carried_past(&mut runtime.state());
                 }
                 let shown = detail.whole().unwrap_or(detail.shown()).to_string();
                 if let Some((to, message)) = adapters::sent_message(&tool, &shown) {
@@ -464,10 +469,19 @@ where
                 self.set_up_after_write(&repository);
             }
         }
+        // Ending the process for a move would take them with it, so the move waits and this turn ends as any other.
+        let working = self.work_beyond_the_turn(id).await;
         let (moving, restart, began, said) = {
             let mut state = runtime.state();
             state.last_active = std::time::Instant::now();
-            (state.moving.take(), state.restart_after_turn, state.turn_began.take(), state.said.take())
+            let moving = match state.moving.take() {
+                Some(moving) if working || moving.held => {
+                    state.moving = Some(Move { held: true, ..moving });
+                    None
+                }
+                moving => moving,
+            };
+            (moving, state.restart_after_turn, state.turn_began.take(), state.said.take())
         };
         // What the Job ran this far is remembered, off the turn so the board is not held for a file.
         {
@@ -486,12 +500,6 @@ where
             // A turn held for a slot stays open: the same turn carries on in it.
             self.turn_closed(id).await;
         }
-        // A done or a walk the reply claims without its call. Read here and sent once the turn is
-        // settled below, since a restart after the turn lets the process go with what was written to it.
-        let claim = match &moving {
-            None => self.unbacked_claim(id, &now, said.as_deref()).await,
-            Some(_) => None,
-        };
         // **Once, where the turn ends**, never on the rows between. A turn held for a slot and
         // resumed in it is one turn to the person, so that move's end is not entered.
         if moving.is_none() {
@@ -505,7 +513,8 @@ where
             let mut state = runtime.state();
             state.restart_after_turn = false;
             state.reattached_busy = false;
-            if restart {
+            // A move about to be made or waiting on agents starts on what the Job names itself.
+            if restart && state.moving.is_none() {
                 Self::let_go(&mut state);
             }
             state.turn = if state.queued > 0 {
@@ -513,20 +522,15 @@ where
             } else {
                 SessionTurn::Idle
             };
-            // A slot granted to a queued session while this turn was ending.
+            // A slot granted to a queued session while this turn was ending, or a move whose agents have ended.
             match state.turn {
-                SessionTurn::Idle => state.moving.take(),
+                SessionTurn::Idle if !working => state.moving.take(),
                 _ => None,
             }
         };
         if let Some(late) = late {
             self.moved_into(id, late).await;
             return;
-        }
-        if let Some(claim) = claim {
-            self.claim_reminded(id, claim).await;
-        } else if super::unanswered::turn_unanswered(runtime) {
-            self.unanswered_reminded(id).await;
         }
         let _ = self.published_hosted(id).await;
         if runtime.state().queued > 0 {
@@ -616,15 +620,13 @@ where
     }
 
     /// One session's `SendMessage` to another that Fleet hosts: the receiving
-    /// thread draws it as that session's, the timeline enters it unless Helm sent
-    /// it, and a receiver whose process was ended is started with it, unless it is paused.
+    /// thread draws it as that session's, the timeline enters it, and a receiver whose process was ended is started with it, unless it is paused.
     async fn delivered(self: &Arc<Self>, from: &str, to: &str, message: &str) {
-        let (target, title, named, hosting, from_helm) = {
+        let (target, title, named, hosting) = {
             let store = self.store().lock().await;
             let Ok(hostings) = store.hostings() else {
                 return;
             };
-            let from_helm = hostings.iter().any(|one| one.session_id == from && one.helm);
             let Some(hosting) = hostings
                 .into_iter()
                 .find(|hosting| address_of(&hosting.session_id) == to)
@@ -634,7 +636,7 @@ where
             let sender = store.session(from).ok().flatten();
             let named = sender.map(|session| (session.title, session.manifest_id)).unwrap_or_default();
             let title = named.0.clone().unwrap_or_else(|| address_of(from));
-            (hosting.session_id.clone(), title, named, hosting, from_helm)
+            (hosting.session_id.clone(), title, named, hosting)
         };
         if target == from {
             return;
@@ -650,9 +652,7 @@ where
             ..super::start_card::FirstTurn::said(voice, message)
         };
         if self.turn_kept_while_held(&target, &first).await.unwrap_or(false) {
-            if !from_helm {
-                self.session_messaged(from, named, &target, message);
-            }
+            self.session_messaged(from, named, &target, message);
             let _ = self.published_hosted(&target).await;
             return;
         }
@@ -673,9 +673,7 @@ where
             },
         )
         .await;
-        if !from_helm {
-            self.session_messaged(from, named, &target, message);
-        }
+        self.session_messaged(from, named, &target, message);
         let runtime = self.hosts().of(&target);
         runtime.state().woken_by.push(SessionVoiceNamed {
             id: from.to_string(),

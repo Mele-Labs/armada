@@ -73,8 +73,8 @@ import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { TerminalMark } from "../../primitives/TerminalPane/TerminalPane";
 import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { SentTo } from "../HelmThread/SentTo";
-import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
+import { SentTo } from "./SentTo";
+import type { SentTarget } from "./SentTo";
 import { SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
 import { notedOf } from "../ViewerNotes/compose";
 import { NotedMessage, NotedOpens, type NotedOpen } from "../ViewerNotes/NotedMessage";
@@ -135,8 +135,8 @@ import type { Scene } from "../SketchScene/scene";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
 
 /**
- * A Session's conversation, drawn on Helm's own thread rows
- * (`HelmThread.css`) with the two things Helm's thread has no room for.
+ * A Session's conversation, drawn on its own thread rows
+ * (`ThreadRows.css`) with two things more.
  *
  * **A message another Session wrote is set apart**: its own band, with the
  * Session mark and the sender's title, over the words, and the band is a press
@@ -239,13 +239,13 @@ type SessionThreadKinds =
       /** Several notices Fleet held and sent as one: what the person taught Fleet to batch, named. Each line of `text` is one notice. */
       batch?: string;
     }
-  /** Words typed in Helm's box that went to a Session and never to Helm: Helm's own thread has these, a Session's does not. */
+  /** Words sent to another Session from a box that is not this thread's own. */
   | {
       id: string;
       at: string;
       kind: "sent";
       text: string;
-      target: ThoughtTarget & {
+      target: SentTarget & {
         id: string;
       };
       files?: readonly {
@@ -799,7 +799,7 @@ export type SessionThreadProps = {
    * picture with its region drawn. `root` is the Job's checkout, which a file is shown from. Absent, such a message is words.
    */
   noted?: NotedOpen;
-  /** Opens the Session a row of Helm's sent words went to. Absent, that row's chip is not a press. */
+  /** Opens the Session a row of sent words went to. Absent, that row's chip is not a press. */
   onOpenSent?: (target: { kind: "session"; id: string }) => void;
   /** Opens a Check run the agent made on the Checks page. Absent, its row is not a press. */
   onOpenCheck?: (run: number) => void;
@@ -1027,7 +1027,7 @@ function Sent({
   );
 }
 
-/** Helm's thread draws a sent message the way a Session's does. */
+/** A thread outside this one draws a sent message the way a Session's does. */
 export { Sent as SentWith, placeTags as placeTagsIn };
 
 type CheckRow = Extract<
@@ -1647,7 +1647,7 @@ type YourRow = Pick<
 
 /**
  * The person's own message: the band with its Delivery mark, the words, and a Retry where it did not go.
- * **One row wherever words are sent**: a Session's thread, Helm's, and the box under a Drone's log draw this.
+ * **One row wherever words are sent**: a Session's thread and the box under a Drone's log draw this.
  */
 export function YourMessage({
   row,
@@ -1658,7 +1658,7 @@ export function YourMessage({
   onRetry?: (rowId: string) => void;
   forkable?: boolean;
 }) {
-  // Where the host can open what a chip in a row names (Helm's thread links them), a tag is a link.
+  // Where the host can open what a chip in a row names (a thread that links them), a tag is a link.
   const refs = useContext(ProseRefs);
   const openTag =
     refs === null
@@ -1919,7 +1919,7 @@ function Row({
   onOpenRetro?: (retro: number) => void;
   onOpenSent?: (target: { kind: "session"; id: string }) => void;
 }) {
-  // Where the host can open what a chip in a row names (Helm's thread links them), a tag is a link.
+  // Where the host can open what a chip in a row names (a thread that links them), a tag is a link.
   const refs = useContext(ProseRefs);
   const openTag =
     refs === null
@@ -2277,13 +2277,13 @@ function Row({
   }
   const placed = placeTags(row.text, row.tags ?? [], openTag);
   return (
-    <li className="armada-helm-thread__row" data-actor="helm" data-from={row.from}>
-      <div className="armada-helm-thread__head">
-        <span className="armada-helm-thread__who">{agentName}</span>
-        <RowStamp row={row} className="armada-helm-thread__at" />
+    <li className="armada-thread-row" data-from={row.from}>
+      <div className="armada-thread-row__head">
+        <span className="armada-thread-row__who">{agentName}</span>
+        <RowStamp row={row} className="armada-thread-row__at" />
       </div>
       <div
-        className="armada-helm-thread__message"
+        className="armada-thread-row__message"
         {...(forkable
           ? {
               [FORK_ROW]: row.id,
@@ -3697,7 +3697,7 @@ export function SessionThread({
                     <ProseCommand.Provider value={slash}>
                       <ol
                         ref={rowList}
-                        className="armada-helm-thread__rows"
+                        className="armada-thread-rows"
                         {...(transcript === "unread"
                           ? {
                               "aria-busy": true,

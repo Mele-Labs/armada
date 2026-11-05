@@ -40,7 +40,7 @@ export const PR_TAB_KINDS = [
   "pr-tool",
   "pr-comments",
 ] as const;
-/** The Operator's tabs, in Helm's dock: Talk, its conversation over the Job composer, its Queue, its Log, what waits to start and its Permissions. */
+/** The Operator's tabs, in its dock: Talk, its conversation over the Job composer, its Queue, its Log, what waits to start and its Permissions. */
 export const OPERATOR_TAB_KINDS = [
   "op-talk",
   "op-queue",
@@ -86,12 +86,25 @@ export type Split = {
 };
 export type Node = Pane | Split;
 
+/** Where the thread stood when it was closed: its pane, and where that pane met the node beside it, for a pane that went with it. */
+export type ThreadPlace = {
+  pane: string;
+  beside?: {
+    node: string;
+    dir: Split["dir"];
+    ratio: number;
+    first: boolean;
+  };
+};
+
 export type Arrangement = {
   root: Node;
   /** The pane keys and the menus act on. */
   focus: string;
   /** The next number for an id. */
   next: number;
+  /** Absent: the thread has not been closed. */
+  threadWas?: ThreadPlace;
 };
 
 export type Rect = {
@@ -646,20 +659,105 @@ function detach(arrangement: Arrangement, tabId: string): Arrangement {
   });
 }
 
+/** Where a pane stands in the tree, for the thread to come back to. */
+function placeOf(root: Node, paneId: string): ThreadPlace {
+  const parent = (node: Node): Split | undefined =>
+    node.type === "pane"
+      ? undefined
+      : node.a.id === paneId || node.b.id === paneId
+        ? node
+        : (parent(node.a) ?? parent(node.b));
+  const split = parent(root);
+  if (split === undefined)
+    return {
+      pane: paneId,
+    };
+  const first = split.a.id === paneId;
+  return {
+    pane: paneId,
+    beside: {
+      node: (first ? split.b : split.a).id,
+      dir: split.dir,
+      ratio: split.ratio,
+      first,
+    },
+  };
+}
+
 export function closeTab(arrangement: Arrangement, tabId: string): Arrangement {
-  return detach(arrangement, tabId);
+  const pane = paneOfTab(arrangement, tabId);
+  const closed = detach(arrangement, tabId);
+  return pane?.tabs.some((tab) => tab.id === tabId && tab.kind === "thread") === true
+    ? {
+        ...closed,
+        threadWas: placeOf(arrangement.root, pane.id),
+      }
+    : closed;
 }
 
 /** The pane goes with its tabs, empty or not; the last pane of all stays. */
 export function closePane(arrangement: Arrangement, paneId: string): Arrangement {
-  if (paneById(arrangement, paneId) === undefined) return arrangement;
+  const pane = paneById(arrangement, paneId);
+  if (pane === undefined) return arrangement;
   const root = without(arrangement.root, paneId);
-  return root === undefined
-    ? arrangement
-    : refocus({
-        ...arrangement,
-        root,
-      });
+  if (root === undefined) return arrangement;
+  return refocus({
+    ...arrangement,
+    root,
+    ...(pane.tabs.some((tab) => tab.kind === "thread")
+      ? {
+          threadWas: placeOf(arrangement.root, paneId),
+        }
+      : {}),
+  });
+}
+
+/**
+ * A closed thread back where it stood, in front of its pane, with the focus where it was. Its pane if that is still there; a pane that went with it, made again beside the node it met;
+ * else the focused pane. An arrangement that holds a thread is returned as it is.
+ */
+export function reopenThread(arrangement: Arrangement): Arrangement {
+  if (hasKind(arrangement, "thread")) return arrangement;
+  const { threadWas: was, ...rest } = arrangement;
+  const focus = rest.focus;
+  const inPane = (paneId: string, from: Arrangement) => ({
+    ...addTab(from, paneId, "thread"),
+    focus,
+  });
+  if (was !== undefined && paneById(rest, was.pane) !== undefined) return inPane(was.pane, rest);
+  const beside = was?.beside;
+  const stands = (node: Node, id: string): boolean =>
+    node.id === id || (node.type === "split" && (stands(node.a, id) || stands(node.b, id)));
+  if (beside === undefined || !stands(rest.root, beside.node)) return inPane(focus, rest);
+  const [splitId, afterSplit] = mint(rest, "s");
+  const [fresh, afterPane] = mint(afterSplit, "p");
+  const made: Pane = {
+    type: "pane",
+    id: fresh,
+    tabs: [],
+    active: undefined,
+  };
+  const wrap = (node: Node): Node =>
+    node.id === beside.node
+      ? {
+          type: "split",
+          id: splitId,
+          dir: beside.dir,
+          ratio: beside.ratio,
+          a: beside.first ? made : node,
+          b: beside.first ? node : made,
+        }
+      : node.type === "pane"
+        ? node
+        : {
+            ...node,
+            a: wrap(node.a),
+            b: wrap(node.b),
+          };
+  return inPane(fresh, {
+    ...afterPane,
+    root: wrap(rest.root),
+  });
 }
 
 /** The pane splits, and an empty pane takes the new side: to its right, or below it. Focus goes to the new pane. */
@@ -954,14 +1052,9 @@ export function arrive(
   };
 }
 
-/** The share of a first walk's split that the thread keeps: the walk is the wider side. */
-const WALK_SPLIT = 0.4;
-/** The share of the area the thread and a walk are given between them, so the walk is not squeezed out of the story column's width. */
-const WALK_ROOM = 0.78;
-
 /**
- * A walk the Job opened: its tab joins the pane that holds a walk tab, and the first one opens as a split on the thread's right, the walk the wider
- * side. `behind` leaves the front tab and the focus where they were, for a Job he is in.
+ * A walk the Job opened: its tab joins the pane that holds a walk tab, else the pane that holds the thread, and takes the room that pane has.
+ * `behind` leaves the front tab and the focus where they were, for a Job he is in.
  */
 export function arriveWalk(
   arrangement: Arrangement,
@@ -969,65 +1062,18 @@ export function arriveWalk(
   page: string,
   behind: boolean,
 ): Arrangement {
-  const holder = holderOf(arrangement, "walk");
-  const thread = holderOf(arrangement, "thread");
-  if (holder === undefined && thread === undefined) return arrive(arrangement, "walk", label, page);
-  let arrived: Arrangement;
-  if (holder !== undefined) arrived = addTab(arrangement, holder.id, "walk", label, page);
-  else {
-    const [splitId, afterSplit] = mint(arrangement, "s");
-    const [fresh, afterPane] = mint(afterSplit, "p");
-    const [tabId, next] = mint(afterPane, "t");
-    const made: Pane = {
-      type: "pane",
-      id: fresh,
-      tabs: [
-        tabOf(tabId, "walk", distinct(arrangement, label), page),
-      ],
-      active: tabId,
-    };
-    const split = (node: Node): Node =>
-      node.type === "pane"
-        ? node.id === thread!.id
-          ? {
-              type: "split",
-              id: splitId,
-              dir: "row",
-              ratio: WALK_SPLIT,
-              a: node,
-              b: made,
-            }
-          : node
-        : {
-            ...node,
-            // The thread and the walk take the room between them from the side they share a split with.
-            ratio:
-              node.dir === "row" && panesOf(node.a).some((one) => one.id === thread!.id)
-                ? Math.max(node.ratio, WALK_ROOM)
-                : node.ratio,
-            a: split(node.a),
-            b: split(node.b),
-          };
-    arrived = {
-      ...next,
-      root: split(arrangement.root),
-      focus: fresh,
-    };
-  }
+  const holder = holderOf(arrangement, "walk") ?? holderOf(arrangement, "thread");
+  if (holder === undefined) return arrive(arrangement, "walk", label, page);
+  const arrived = addTab(arrangement, holder.id, "walk", label, page);
   if (!behind) return arrived;
-  const kept = {
+  return {
     ...arrived,
     focus: arrangement.focus,
+    root: mapPane(arrived.root, holder.id, (one) => ({
+      ...(one as Pane),
+      active: holder.active,
+    })),
   };
-  return holder === undefined
-    ? kept
-    : {
-        ...kept,
-        root: mapPane(kept.root, holder.id, (one) => ({
-          ...(one as Pane),
-          active: holder.active,
-        })),
-      };
 }
 
 /** The same arrangement, as a copy no other holds. */

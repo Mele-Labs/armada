@@ -58,7 +58,7 @@ where
         u32::try_from(calls.max(0)).unwrap_or(u32::MAX)
     }
 
-    /// Every hosted Job not ended, Helm's aside, with what Fleet holds of its work: its plan's
+    /// Every hosted Job not ended, with what Fleet holds of its work: its plan's
     /// paths and the files it has written, the issues it holds or its plan works, and its words,
     /// which are its plan where it has one and its first message where it has not.
     fn live(&self) -> Done<'_, Vec<LiveJob>> {
@@ -73,7 +73,7 @@ where
                 }
             };
             let mut live = Vec::new();
-            for hosting in hostings.into_iter().filter(|one| !one.helm) {
+            for hosting in hostings.into_iter() {
                 let Ok(Some(session)) = store.session(&hosting.session_id) else { continue };
                 if session.state == store::SessionState::Ended {
                     continue;
@@ -121,6 +121,19 @@ where
             match self.fleet.upgrade() {
                 Some(fleet) => fleet.answer_settled(&arrival).await,
                 None => Some("Fleet stopped before the ruling came".into()),
+            }
+        })
+    }
+
+    fn orders(&self) -> Done<'_, super::Orders> {
+        Box::pin(async move { self.fleet.upgrade().map(|fleet| fleet.operator_seat().orders()).unwrap_or_default() })
+    }
+
+    fn board(&self) -> Done<'_, super::Board> {
+        Box::pin(async move {
+            match self.fleet.upgrade() {
+                Some(fleet) => fleet.operator_board().await,
+                None => super::Board::default(),
             }
         })
     }

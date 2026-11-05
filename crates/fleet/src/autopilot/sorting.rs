@@ -4,7 +4,7 @@
 //! The kinds are a question with a recommendation, a question without one, a plan, a draft, a
 //! walk, and a permission card read as a read or a write.
 
-use ipc::{AutopilotDecision, HelmCallInFlight, WaitingActKind, WaitingItem, WaitingSource};
+use ipc::{AutopilotDecision, CallInFlight, WaitingActKind, WaitingItem, WaitingSource};
 
 use super::destructive::{destructive, destructive_text, recommended};
 
@@ -19,7 +19,7 @@ const RUN: &str = "Bash";
 
 /// The kind of `item`, or `None` where it waits for a person. `card` is the open permission card,
 /// which a permission item is read from.
-pub(crate) fn sorted(item: &WaitingItem, card: Option<&HelmCallInFlight>) -> Option<AutopilotDecision> {
+pub(crate) fn sorted(item: &WaitingItem, card: Option<&CallInFlight>) -> Option<AutopilotDecision> {
     if destructive(item) {
         return None;
     }
@@ -49,7 +49,7 @@ fn question(item: &WaitingItem) -> Option<AutopilotDecision> {
 
 /// A permission is a read, or a write, and **only where Fleet can read all of it**: a run command
 /// it cannot read waits, and so does a card about a path past the Job's slots.
-fn permission(card: &HelmCallInFlight) -> Option<AutopilotDecision> {
+fn permission(card: &CallInFlight) -> Option<AutopilotDecision> {
     let whole = card.whole.as_deref().unwrap_or(&card.detail);
     if card.reaches.is_some() || destructive_text(&format!("{} {whole}", card.tool)) {
         return None;

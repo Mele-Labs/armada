@@ -35,7 +35,6 @@ mod watches;
 
 pub use accounts::profile;
 pub use app_runs::THE_RUN;
-pub use conversing::SERVED_MANIFEST;
 pub use lifecycles::{THE_KEPT_PIECE, THE_LIFECYCLE_JOB};
 pub use studios::{the_studio, THE_FRAME, THE_STUDIO};
 pub use watches::THE_WATCH;
@@ -91,20 +90,16 @@ pub struct FakeDaemon {
     pub repository_allowed: Mutex<Vec<ipc::AllowedCommandRow>>,
     /// Kit's servers, as the fake's own acts leave them — `#1275`.
     pub kit_servers: Mutex<Vec<ipc::KitServerRow>>,
-    /// Every message `ask_helm` was given, in order. The fake's Helm Session exists once there is
-    /// one, and `start_helm_fresh` forgets them.
-    pub helm_asked: Mutex<Vec<ipc::AskHelm>>,
-    /// What `tell_session` and `record_thought_sent` were given, in order, as the words and where.
-    pub helm_sent: Mutex<Vec<(String, ipc::ThoughtTarget)>>,
+    /// What `tell_session` was given, in order, as the words and where.
+    pub words_sent: Mutex<Vec<(String, ipc::ThoughtTarget)>>,
+    /// Every start `start_session` was handed, as the daemon received it, in order.
+    pub started: Mutex<Vec<ipc::StartSession>>,
     /// Every permission question the door put to this daemon, in order.
     pub asked_to_run: Mutex<Vec<ipc::AskingToRun>>,
-    /// What a Helm session's last poll was answered, as the door told this
-    /// daemon — what `get_helm_debug_info` reports. `#1367`.
-    pub helm_polled: Mutex<Option<ipc::EventsSince>>,
-    /// The peer port a test says a Helm session holds, and what that session
+    /// The peer port a test says a Job on your words holds, and what that Job
     /// may call. **Fleet's placement is `fleet::peer`'s and tested there**;
     /// this is what the door does with the answer.
-    pub helm_on: Mutex<Option<(u16, fn(&ipc::door::Reachable) -> bool)>>,
+    pub words_on: Mutex<Option<(u16, fn(&ipc::door::Reachable) -> bool)>>,
     /// The peer port a test says a session Fleet hosts for Bridge holds.
     pub session_on: Mutex<Option<u16>>,
     /// Every Studio held, starting with [`THE_STUDIO`]. `#1285`.
@@ -140,11 +135,10 @@ impl FakeDaemon {
             accounts: Mutex::new(accounts::signed_out()),
             repository_allowed: Mutex::new(Vec::new()),
             kit_servers: Mutex::new(Vec::new()),
-            helm_asked: Mutex::new(Vec::new()),
-            helm_sent: Mutex::new(Vec::new()),
+            words_sent: Mutex::new(Vec::new()),
+            started: Mutex::new(Vec::new()),
             asked_to_run: Mutex::new(Vec::new()),
-            helm_polled: Mutex::new(None),
-            helm_on: Mutex::new(None),
+            words_on: Mutex::new(None),
             session_on: Mutex::new(None),
             studios: Mutex::new(vec![studios::the_studio()]),
             added_by: Mutex::new(Vec::new()),

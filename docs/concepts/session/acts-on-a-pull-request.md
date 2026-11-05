@@ -37,7 +37,7 @@ A pull request a job holds is a `pr` row, and a person can act on it without lea
 Bridge draws those two as a tinted chip and leaves the Job's row alone; only `failed` puts a Job under Idle with a red mark, and a Job that waits on the person is under Needs you whatever its checks say.
 Fleet refuses a merge on all three.
 
-**The three writes are a person's ask, `pushes to shared`.** The operations are `Helm only`, and Helm calls them on a person's ask.
+**The three writes are a person's ask, `pushes to shared`.** The operations are `On your words`, and a Job on your words calls them on a person's ask.
 Bridge's own buttons are the person's press and reach the routes directly.
 `get_pull_request` is open to any agent.
 
