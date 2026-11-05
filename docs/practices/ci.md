@@ -17,7 +17,7 @@ repository. The owner, as admin, bypasses the ruleset.
 |---|---|---|
 | `pull_request` into `main` | An early warning before the branch joins the queue | Of what `armada covers` names for the diff, the Checks that compile: `build`, `typecheck` and `bridge_build`; the test code of `test` and `acceptance`, compiled and not run; and those the merge queue last failed it on |
 | `merge_group` | The queue's test of a branch merged onto `main` | What `armada covers` names for the group, every one |
-| `push` to `main` | Seeing a red `main` | Every Check in CI, and once a day `test_map`, which is not one of them (*The test map's laps*) |
+| `push` to `main` | Seeing a red `main`, saving the caches pull requests restore, and gating the release | Every Check in CI, unless the merge queue already passed this commit (*A push the queue already passed*), and once a day `test_map`, which is not one of them (*The test map's laps*) |
 | `workflow_dispatch` | Asking for everything by hand | Every Check in CI |
 
 **The suite runs once, in the merge queue.** A pull request's run keeps the Checks in `QUICK` in `.github/ci/plan.py` and names the rest in its job summary as left to the queue; `ci` passes on those.
@@ -57,6 +57,33 @@ A merge group's diff runs from its base commit to its head commit.
 A pull request run is cancelled by the next push to it. A merge group and a push
 to `main` are keyed by their own commit and never cancelled.
 
+## A push the queue already passed
+
+**A push to `main` whose commit passed `ci` in a `merge_group` run runs no Check again, and `ci` passes on that run.**
+The queue merges by moving `main` to the commit it tested, so the push's `headSha` is the queue run's: 3 of 3 pairs checked on 5 Nov 2026 (288a3bd606, 30e0910dc5, ccbf0f43e0).
+Run again, the push spent about 23 jobs and 14 minutes of runner time a landing repeating the queue, on an account that runs 20 jobs at once.
+The plan's step *The queue's run of this commit* asks the API for the `merge_group` runs of `checks` on the sha and reads each one's `ci` job; a read that fails warns and runs every Check.
+The plan then names no Check, so every Check job skips and `ci` passes; the job summary links the queue's run.
+
+**It skips only while `main` holds every cache its Check jobs save.**
+Pull requests and the queue restore `main`'s caches, and only a push's own jobs write them, since a cache written in a pull request or a merge group is seen by no other.
+`.github/actions/main-caches` looks up, without downloading, the entries `build`, `test`, `acceptance`, `xtask_test`, `node_modules` and Playwright would write, under the very keys those jobs compute.
+rust-cache adds the job's id to `key`, so the lookup passes `<key>-<job>` and turns that off.
+One missing, after a change to `Cargo.lock`, `pnpm-lock.yaml` or a new stable `rustc`, and the push runs every Check as before, saving it.
+
+**What still runs on such a push:**
+
+| Job | Why |
+|---|---|
+| `plan` | Decides, and saves `main`'s `armada` when the push changed a crate |
+| `foundations` | Saves `main`'s reading for the next pull request (*Foundations*). Not a Check |
+| `format` | Not a Check, and about a minute |
+| `test_map` | Its daily lap, unchanged |
+| `ci`, then `release` | `ci` passes on the queue's result, so the release follows sooner |
+
+**`main` no longer gets a whole run after every merge.** The queue's run is narrowed by `armada covers` to what the group changed, and that is now the run that stands for the commit.
+A push the queue did not test, such as the owner's bypass, still runs every Check, and `workflow_dispatch` on `main` runs everything by hand.
+
 ## The test map's laps
 
 **`test_map` runs on a push to `main` and nowhere else, at most once a day, and gates nothing.** It builds the workspace again with coverage on, runs every test of the Check `test`, and uploads which files each test reached as the artifact `test-map-<sha>`, kept three days (`armada test-map record`, `docs/practices/rust.md`).
@@ -89,7 +116,7 @@ changed paths ──> armada covers ──> plan.py ──> checks (JSON array o
 **A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `hooks_test`, `preview_test`, `sync_mod_test`, `format_catch_up_test`).
 A workspace Check is `<dir>:<name>` (`bridge_build` of `apps/desktop`, `storybook` of `packages/components`), as `armada covers` prints it and `armada check <key>` takes it.
 
-**The plan job builds `armada` and pipes the changed paths into `armada covers`.**
+**The plan job pipes the changed paths into `armada covers`**, with `main`'s last built `armada` or one it builds (*Only `plan` builds `armada`*).
 It is the same answer the merge line and Fleet's gate ask
 (`git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *Choosing what reruns*), so a path hits the
 same Checks here as there. A change that hits no Check runs none and `ci` passes.
@@ -112,6 +139,20 @@ change touched. Every other Check runs whole. A workspace Check runs as `armada 
 
 **Only `plan` builds `armada`.** `build`, the four `test` jobs and `acceptance` download the binary it uploads, `armada-bin`, and put it ahead on `PATH`.
 Each of those six jobs spent 2.0 minutes building it again, the median of 48 merge queue runs on 30 and 31 Oct 2026.
+
+**`plan` builds it only when the change reaches the code `armada covers` and `armada check` run.**
+Everything else waited on that build: step *Build armada* took 96 to 135 seconds, and the whole job 125 to 182, measured 5 Nov 2026.
+A push to `main` that builds saves the binary and the commit it was built from as the cache entry `armada-bin-v1-<sha>`, and every run restores the newest one.
+
+| Run | Builds when the diff from that commit touches |
+|---|---|
+| Pull request, merge group | `crates/config` (reads `when:` lists), `crates/checks-runner` (runs and narrows Checks), `crates/armada` (the CLI), `crates/core-model`, `Cargo.lock` |
+| Push to `main`, dispatch | Any crate, `Cargo.toml` or `Cargo.lock`, so `main`'s binary never falls behind `main` |
+
+The three verbs also call small helpers in `fleet`, `adapters`, `ipc` and `store`: the kit manifest's path, the settings, the test map's collector.
+A pull request changing only those runs `main`'s binary on its own run, and `main` rebuilds once it lands.
+Watching every crate the binary links would rebuild on 86 of the last 150 merges; the list above, on 33.
+A commit the cached entry names that is not in the checkout, or no entry at all, builds.
 
 ## What `ci` and `desktop_test` are
 
@@ -268,7 +309,7 @@ setup before the step: restoring caches, installing, building `armada`.
 
 | Check | Seconds | Note |
 |---|---|---|
-| `plan` | 70 to 90 for the whole job | Cold cache: 100. Mostly `cargo build -p armada` |
+| `plan` | 70 to 90 for the whole job | Cold cache: 100. Mostly `cargo build -p armada`, which it now skips on most runs (*Only `plan` builds `armada`*) |
 | `build`, `test` | 0 to 55 | Narrowed to what the diff touched |
 | `acceptance` | 24 to 30 | Whole |
 | `typecheck` | 45 to 48 | |
