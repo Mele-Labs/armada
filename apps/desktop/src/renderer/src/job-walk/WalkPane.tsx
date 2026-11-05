@@ -54,15 +54,7 @@ export function WalkPane({ jobId, walkId }: { jobId: string; walkId: string }) {
  * The frame is reported on every frame it moves, as the browser pane's is: a pane resized, zoomed or swept in by a layout moves it and nothing of the frame's own says so.
  * While a layer of Bridge's own lies over it, main hides both views and the pictures it returns are drawn here instead.
  */
-function LiveWalk({
-  jobId,
-  walkId,
-  api,
-}: {
-  jobId: string;
-  walkId: string;
-  api: Live;
-}) {
+function LiveWalk({ jobId, walkId, api }: { jobId: string; walkId: string; api: Live }) {
   const frame = useRef<HTMLDivElement>(null);
   const [held, setHeld] = useState(false);
   const self = useRef({});
