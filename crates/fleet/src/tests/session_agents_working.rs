@@ -130,6 +130,50 @@ async fn a_process_with_a_background_command_running_outlives_a_quiet_spell_and_
     .await;
 }
 
+async fn running(rig: &Rig, id: &SessionId) -> Vec<ipc::RunningWork> {
+    Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("read").session.running
+}
+
+#[tokio::test]
+async fn the_listing_of_a_job_idle_with_a_subagent_working_names_it_and_drops_it_once_it_finishes() {
+    let (rig, _) = quiet_at_once();
+    let id = turn_running(&rig).await;
+    assert!(running(&rig, &id).await.is_empty(), "nothing is running");
+    agent_started(&rig, &id).await;
+    rig.stand_in.finishes(0, "started it");
+    idle(&rig, &id).await;
+
+    let working = running(&rig, &id).await;
+    assert_eq!(working.len(), 1);
+    assert_eq!((working[0].kind, working[0].what.as_str()), (ipc::RunningKind::Subagent, "sweep"));
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("read").session;
+    let line = ipc::SessionSummary::of(&record);
+    assert_eq!(line.turn, Some(ipc::TurnState::Idle));
+    assert_eq!(line.running, working);
+
+    agent_finished(&rig, &id);
+    assert!(running(&rig, &id).await.is_empty(), "it finished");
+}
+
+#[tokio::test]
+async fn a_background_command_is_listed_by_its_title() {
+    let (rig, _) = quiet_at_once();
+    let id = turn_running(&rig).await;
+    rig.stand_in.says(
+        0,
+        vec![
+            DroneEvent::Called { tool: "Bash".into(), call: "toolu_1".into(), detail: CallDetail::of("make") },
+            DroneEvent::TaskStarted { task: "t1".into(), call: "toolu_1".into(), description: "build".into(), backgrounded: true },
+        ],
+    );
+    rig.stand_in.finishes(0, "started it");
+    idle(&rig, &id).await;
+
+    let working = running(&rig, &id).await;
+    assert_eq!(working.len(), 1);
+    assert_eq!((working[0].kind, working[0].what.as_str()), (ipc::RunningKind::BackgroundTask, "build"));
+}
+
 /// A subagent's transcript that never finishes must not hold the process for ever. Each line it writes
 /// counts as work, so only a long silence lets go of it.
 #[tokio::test]

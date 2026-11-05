@@ -285,6 +285,7 @@ fn status_tells_a_mod_that_never_reported_from_one_that_did() {
         pull_requests: Vec::new(),
         mod_version: mod_version.map(str::to_string),
         tools_missing: missing.to_vec(),
+        running: Vec::new(),
     };
     let none = job_lines(&row(None, &[ipc::ToolMissing::Mod])).join("\n");
     assert!(none.contains("no mod has reported") && none.contains("the armada mod did not load"), "{none}");

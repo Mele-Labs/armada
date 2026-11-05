@@ -69,6 +69,7 @@ fn job(id: &str, manifest: &str, words: &str, paths: &[&str], issues: &[&str]) -
         words: words.into(),
         paths: paths.iter().map(|one| one.to_string()).collect(),
         issues: issues.iter().map(|one| one.to_string()).collect(),
+        running: Vec::new(),
     }
 }
 
@@ -142,4 +143,20 @@ async fn work_no_live_job_shares_anything_with_is_a_new_job_without_a_call() {
     let log = desk.log.lock().expect("not poisoned").clone();
     assert_eq!((log.len(), log[0].call.as_deref()), (1, None));
     assert!(log[0].because.contains("no live Job shares"), "{}", log[0].because);
+}
+
+#[tokio::test]
+async fn a_job_with_a_subagent_and_a_task_running_is_shown_with_what_they_are() {
+    let running = vec![
+        ipc::RunningWork { kind: ipc::RunningKind::Subagent, what: "Map the claims".into(), since: ipc::Instant::carried("2026-11-05T10:00:00.000Z") },
+        ipc::RunningWork { kind: ipc::RunningKind::BackgroundTask, what: "dev server".into(), since: ipc::Instant::carried("2026-11-05T10:05:00.000Z") },
+    ];
+    let live = vec![LiveJob { running, ..job("01BUSY", REPO, "", &["apps/panes/"], &[]) }, job("01QUIET", REPO, "", &["apps/panes/"], &[])];
+    let (operator, call, _) = operator(live, &["item: 1\nway: 1\nbecause: new"]);
+
+    let _ = operator.ruled(arriving("Redraw the pane", &["apps/panes/terminal.tsx"], &[]), FIRST_WRITE_WAIT).await;
+
+    let question = call.asked.lock().expect("not poisoned").clone().remove(0);
+    assert!(question.contains("Still running past its turn: subagent \"Map the claims\", background task \"dev server\""), "{question}");
+    assert_eq!(question.matches("Still running past its turn").count(), 1, "the quiet Job says nothing of it:\n{question}");
 }

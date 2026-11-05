@@ -8,6 +8,8 @@ notes = """
 
 A line carries `mod_version` (what the job's mod last reported, absent until one has) and `tools_missing` (what a hosted agent came up without). `armada job status` reads both.
 
+A line carries `running` where a hosted job has a subagent or a background task working past its turn: `{ kind, what, since }` each, `kind` `subagent` or `background_task`, `what` its description or title, `since` when it began. **A `turn` of `idle` with `running` present still has work going**; ending the job's process, restarting Fleet's keeper or moving the job stops it. Absent where nothing is running.
+
 A terminal job carries `mod_out_of_date` (since 23.62) where its mod is older than its repository's, or reported no version.
 
 A job run in a terminal is a first-class row, the same shape a Bridge-hosted one will have.

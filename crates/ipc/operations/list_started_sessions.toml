@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Yes"
 description = "Read every Job you started in one call: for each, its id, title and state, the workflow step it is on, what it waits on and on whom (the same items Needs you shows for it, Fleet's own included), its pull requests, and once it ended its end reason and what it said with all_done"
 notes = """
-`GET /sessions/started`, no query. `StartedSessions` `{ jobs }`, oldest started first, one `StartedJob` for each Job the caller started. A `StartedJob` is the `list_sessions` line (`id`, `title`, `state`, `turn`, `slot`, `branch`, `pull_requests`, ...) with `standing`, `held` (waiting on its start card), `paused`, `step`, `waiting_for`, `waits` and `result` beside it.
+`GET /sessions/started`, no query. `StartedSessions` `{ jobs }`, oldest started first, one `StartedJob` for each Job the caller started. A `StartedJob` is the `list_sessions` line (`id`, `title`, `state`, `turn`, `slot`, `branch`, `pull_requests`, ...) with `standing`, `held` (waiting on its start card), `paused`, `step`, `waiting_for`, `waits` and `result` beside it. The line's `running` (the subagents and background tasks a Job has working past its turn, `{ kind, what, since }` each) comes with it: **a `turn` of `idle` with `running` present still has work going**, so a Job is not safe to restart or stop until it is empty.
 
 **The caller is placed by its connection, as `start_another_session` places it**, and the call names no Job. A call that places no hosted Job is refused with 422 `fleet.started_unplaced`. The Jobs are the ones named by the caller's own `started_to` attachments, which `start_another_session` writes: a Job started by a Job the caller started is not among them, and neither is a fork.
 

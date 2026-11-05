@@ -38,6 +38,7 @@ pub fn live() -> Vec<LiveJob> {
             words: "Give pull request review tabs like tmux: a tab per open review, keys to move between them".into(),
             paths: vec![format!("{PANES}tabs.tsx"), format!("{PANES}pane-host.tsx")],
             issues: Vec::new(),
+            running: Vec::new(),
         },
         LiveJob {
             session_id: TERMINAL.into(),
@@ -46,6 +47,7 @@ pub fn live() -> Vec<LiveJob> {
             words: "The terminal pane loses its scrollback, and open terminals in a new tab".into(),
             paths: vec![format!("{PANES}terminal-pane.tsx"), format!("{PANES}pane-host.tsx")],
             issues: Vec::new(),
+            running: Vec::new(),
         },
         LiveJob {
             session_id: IN_TAB.into(),
@@ -54,6 +56,7 @@ pub fn live() -> Vec<LiveJob> {
             words: "When an agent opens a terminal, open it in a tab of the Job's panes".into(),
             paths: vec![format!("{PANES}terminal-pane.tsx")],
             issues: Vec::new(),
+            running: Vec::new(),
         },
     ]
 }

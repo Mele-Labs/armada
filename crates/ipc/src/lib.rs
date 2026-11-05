@@ -642,7 +642,7 @@ pub use sessions::{
     PullRequestClaimed, NameSession, RenameSession, TakeMainRed, SessionFact, SessionId, SessionList,
     SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionStarted, StepVisit, SessionReport,
     ConfirmLater, DeferLater, LaterDeferred, LaterHow, LaterSettled, SessionLater, SettleLater,
-    SessionStanding, SessionState, SessionStopped, FleetAway, StopReason, StopRepair, StopRestart, ToolMissing, ToolsMissing, SessionRunMessage, SessionRunUnderway, StartSessionRun,
+    SessionStanding, SessionState, SessionStopped, FleetAway, StopReason, StopRepair, StopRestart, ToolMissing, ToolsMissing, RunningKind, RunningWork, SessionRunMessage, SessionRunUnderway, StartSessionRun,
     StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone,
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
     WindowTake, AskInWindow, ProposeDraft, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,

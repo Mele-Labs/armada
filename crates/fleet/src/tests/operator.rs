@@ -114,6 +114,7 @@ impl Held {
                 words: String::new(),
                 paths: vec![path.into()],
                 issues: Vec::new(),
+                running: Vec::new(),
             })
             .collect();
         Arc::new(Held { ceiling, live, waiting: Vec::new(), log: Mutex::new(Vec::new()), acts: Mutex::new(Vec::new()) })

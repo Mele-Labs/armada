@@ -4,7 +4,7 @@
 // Neither call names the Job it is for: Fleet places the caller by its connection. Bridge draws none of
 // this; the types are here so the wire has one spelling on both sides.
 
-import type { SessionOrigin, SessionState, SessionStanding, WaitingItem } from "./sessions";
+import type { RunningWork, SessionOrigin, SessionState, SessionStanding, WaitingItem } from "./sessions";
 import type { SessionWait, StartBase, StartCondition } from "./session-waits";
 import type { WireError } from "./protocol";
 
@@ -35,6 +35,8 @@ export type SessionSummary = {
   pull_requests?: HeldPullRequest[];
   mod_version?: string;
   tools_missing?: Array<"mod" | "door" | "task_tools">;
+  /** What a hosted Job's agent has working past its turn. A `turn` of `idle` with this present still has work going. Absent when none. */
+  running?: RunningWork[];
 };
 
 /** The workflow step a child is on, and what that step waits for. */

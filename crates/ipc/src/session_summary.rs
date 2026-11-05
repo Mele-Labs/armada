@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::hosted_sessions::SessionTurn;
 use crate::ids::{Instant, ManifestId};
 use crate::sessions::{
-    AttachmentState, SessionId, SessionOrigin, SessionRecord, SessionState, ToolMissing,
+    AttachmentState, RunningWork, SessionId, SessionOrigin, SessionRecord, SessionState, ToolMissing,
 };
 
 /// Which row `list_sessions` answers with.
@@ -81,6 +81,10 @@ pub struct SessionSummary {
     /// What a hosted Job's agent came up without, as Fleet read it. Empty where nothing is missing.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tools_missing: Vec<ToolMissing>,
+    /// What a hosted Job's agent has working past its turn. **A `turn` of `idle` with this not
+    /// empty still has work going**; ending its process stops it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub running: Vec<RunningWork>,
 }
 
 /// `list_sessions` with `view=summary`: the most recently seen first.
@@ -129,6 +133,11 @@ impl SessionSummary {
                 .as_ref()
                 .map(|missing| missing.missing.clone())
                 .unwrap_or_default(),
+            running: record
+                .running
+                .iter()
+                .map(|one| RunningWork { what: shortened(&one.what), ..one.clone() })
+                .collect(),
         }
     }
 }
