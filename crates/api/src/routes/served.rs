@@ -594,6 +594,16 @@ const ROUTES: &[Route] = &[
         path: "/operator/talk",
     },
     Route {
+        operation: "get_operator_board",
+        method: "GET",
+        path: "/operator/board",
+    },
+    Route {
+        operation: "move_on_operator_board",
+        method: "POST",
+        path: "/operator/board/move",
+    },
+    Route {
         operation: "confirm_operator_order",
         method: "POST",
         path: "/operator/orders",

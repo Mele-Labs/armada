@@ -1086,15 +1086,16 @@ async fn a_merge_of_another_authors_pull_request_is_not_told() {
     assert!(!sent.iter().any(|line| line.contains("#2 merged into")), "{sent:?}");
 }
 
-/// The person turns auto-merge on: the Session's item asking for the merge is taken off, the notice
-/// says so in Fleet's voice, once, and an item about something else stands.
+/// The person turns auto-merge on: the Session's item whose act approves that pull request is taken off, the notice
+/// says so in Fleet's voice, once, and an item that only names it in words stands.
 #[tokio::test]
-async fn auto_merge_settles_the_sessions_wait_on_that_pull_request_and_tells_it_once() {
+async fn auto_merge_settles_the_sessions_approve_pr_wait_on_that_pull_request_and_tells_it_once() {
     let rig = a_rig();
     let session = rig.a_hosted_session_on(7).await;
-    let item = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: None, options: Vec::new(), steps: Vec::new() };
+    let item = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::ApprovePr, target: "#7".into() }), options: Vec::new(), steps: Vec::new() };
+    let other = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: None, options: Vec::new(), steps: Vec::new() };
     rig.fleet
-        .set_waiting(None, SetWaitingFor { items: vec![item("merge", "Merge #7 when ci is green"), item("restart", "Restart Fleet onto #70")], session_id: Some(SessionId::carried(&session)) })
+        .set_waiting(None, SetWaitingFor { items: vec![item("merge", "Merge #7 when ci is green"), other("restart", "Restart Fleet onto #7")], session_id: Some(SessionId::carried(&session)) })
         .await
         .unwrap();
     rig.fleet.vcs().main_ci.followed_are(Some(vec![FollowedPull { auto_merge: true, ..pull(7, Vec::new()) }]));
@@ -1118,7 +1119,7 @@ async fn auto_merge_settles_the_sessions_wait_on_that_pull_request_and_tells_it_
 async fn a_pull_request_the_queue_holds_settles_the_sessions_wait_without_auto_merge() {
     let rig = a_rig();
     let session = rig.a_hosted_session_on(7).await;
-    let item = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: None, options: Vec::new(), steps: Vec::new() };
+    let item = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::ApprovePr, target: "#7".into() }), options: Vec::new(), steps: Vec::new() };
     rig.fleet
         .set_waiting(None, SetWaitingFor { items: vec![item("queue", "Merge #7 once ci is green")], session_id: Some(SessionId::carried(&session)) })
         .await
@@ -1144,7 +1145,7 @@ async fn a_pull_request_the_queue_holds_settles_the_sessions_wait_without_auto_m
 async fn a_wait_stated_after_the_queue_notice_is_taken_off_at_the_next_reading() {
     let rig = a_rig();
     let session = rig.a_hosted_session_on(7).await;
-    let item = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: None, options: Vec::new(), steps: Vec::new() };
+    let item = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::ApprovePr, target: "#7".into() }), options: Vec::new(), steps: Vec::new() };
     rig.fleet.vcs().main_ci.followed_are(Some(vec![FollowedPull { auto_merge: true, ..pull(7, Vec::new()) }]));
     rig.reads().await;
     assert_eq!(rig.runs_sent_to_the_session().len(), 1, "told once");
@@ -1165,10 +1166,9 @@ async fn a_wait_stated_after_the_queue_notice_is_taken_off_at_the_next_reading()
     assert_eq!(rig.runs_sent_to_the_session().len(), 2, "nothing more to take off, nothing said");
 }
 
-/// A line Fleet read off the reply's close is the person's to answer like the agent's own, and a
-/// merge that is Fleet's to wait for settles it the same.
+/// A line Fleet read off the reply's close names the pull request in words only: the notice takes nothing off.
 #[tokio::test]
-async fn an_ask_read_off_a_reply_naming_the_pull_request_is_taken_off_at_auto_merge() {
+async fn an_ask_read_off_a_reply_naming_the_pull_request_stands_at_auto_merge() {
     let rig = a_rig();
     let session = rig.a_hosted_session_on(7).await;
     let id = SessionId::carried(&session);
@@ -1181,17 +1181,12 @@ async fn an_ask_read_off_a_reply_naming_the_pull_request_is_taken_off_at_auto_me
     rig.stand_in.finishes(0, "The change is in.\n\nWill you merge #7 once ci is green?");
     let asked = || async { Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.waiting_for.iter().any(|one| one.source == WaitingSource::Replied) };
     eventually(asked).await;
-    let sends = rig.runs_sent_to_the_session().len();
 
     rig.fleet.vcs().main_ci.followed_are(Some(vec![FollowedPull { auto_merge: true, ..pull(7, Vec::new()) }]));
     rig.reads().await;
 
     let sent = rig.runs_sent_to_the_session();
-    assert_eq!(sent.len(), sends + 1, "the notice is sent: {sent:?}");
-    let line = sent.last().unwrap();
-    assert!(line.contains("Taken off Needs you: Will you merge #7 once ci is green?"), "{line}");
-    let left = Arc::clone(&rig.fleet).get_session(id).await.unwrap().session.waiting_for;
-    assert!(left.iter().all(|one| one.source != WaitingSource::Replied), "{left:?}");
+    assert!(!sent.is_empty() && sent.iter().all(|line| !line.contains("Taken off Needs you")), "{sent:?}");
 }
 
 /// A report a Job was started on, kept by the Job `reporter`, and the Job `fixer` that holds it.
@@ -1234,7 +1229,7 @@ async fn reports_now(rig: &Rig) -> Vec<ipc::BugReport> {
     rig.fleet.list_bug_reports().await.expect("listed").reports
 }
 
-/// The repository has no backlog here, so `issues_merged` returns at once: a report is fixed all the same.
+/// The repository has no backlog here, so a report is fixed all the same.
 #[tokio::test]
 async fn a_merged_pull_request_marks_fixed_the_report_its_job_held() {
     let rig = a_rig();
@@ -1297,7 +1292,7 @@ async fn a_report_keeps_the_first_pull_request_that_fixed_it() {
     assert_eq!(fix.pull_request, 1);
 }
 
-/// `issues_merged` is for the person's pull requests only, and so is this: one a teammate opened fixes nothing.
+/// A report is fixed for the person's pull requests only: one a teammate opened fixes nothing.
 #[tokio::test]
 async fn a_merge_of_another_authors_pull_request_fixes_no_report() {
     let rig = a_rig();

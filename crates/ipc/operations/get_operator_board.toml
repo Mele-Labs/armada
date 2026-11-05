@@ -1,0 +1,12 @@
+[operations.get_operator_board]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "What the Operator is ruling on, what waits for it and what it settled"
+notes = """
+`GET /operator/board`, answered with `OperatorBoard`: `on` (whether the Operator is on), `now` (the arrival a call is out on, if any), `next` (arrivals not yet ruled on, in the order they will be taken) and `done` (its last twenty rulings, newest first).
+
+An `OperatorBoardItem` is `id` (the arrival's id), `kind` (`start`, `question`, `card`, `stall` or `report`: a plan is a `start`, and an issue, a review request, a red main and a Later item are each a `report`), `session_id`, `title` (the Job's title, or the question's first line), `repository` (its name) and `waits` (how long it has been with the Operator, such as `12s` or `3m`). An `OperatorBoardSettled` has the same without `waits`, and `outcome` written `Kind: what` (`Answered: Keep them in the store`, `Handed over: to Fix the pane`, `Started`, `Passed on`) with the kind of one or two words and the what under about sixty characters, and `at`, RFC 3339.
+
+**`next` is what arrived while a call was out.** A pass takes everything waiting into one call, so what a call has been handed leads `next` and cannot be moved; the rest follows in the order `move_on_operator_board` leaves it. `done` is the Log's rows the Operator signed: a person's correction and Fleet's own lifting of a hold are not rulings. A repository Fleet does not serve is named by no `repository`.
+"""

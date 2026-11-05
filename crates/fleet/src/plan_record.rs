@@ -7,8 +7,8 @@
 //! **Observed decides.** A task's state comes from the agent's own task list, matched to the plan by
 //! text, and from edits Fleet saw under its group's paths. A task the list calls completed with no edit
 //! seen is `handed_in`, claimed and not observed. Nothing here reads a word of the agent's about
-//! progress. **Fleet marks a task itself where it has proof**, a commit naming it, its group's pull
-//! request merged, or edits in its group's files with nothing in progress, and that mark stands until
+//! progress. **Fleet marks a task itself where it has proof**, a commit naming it, or edits in its
+//! group's files with nothing in progress, and that mark stands until
 //! the agent's list changes the task. A task in progress whose work looks to be elsewhere is stale
 //! (`stale_of`). `.claude/decisions/2026-10-27-fleet-keeps-the-task-list-honest.md`.
 
@@ -556,18 +556,6 @@ pub(crate) fn commit_named(plan: &mut KeptPlan, commit: &str, subject: &str, now
     let why = if commit.is_empty() { "a commit names it".to_string() } else { format!("commit {commit} names it") };
     completed_by_fleet(plan, at, why, now);
     true
-}
-
-/// Pull request `number`, opened while task `task` was in progress, merged: every task of that task's
-/// group not yet completed is completed on it. The texts of the tasks it moved.
-pub(crate) fn merge_marked(plan: &mut KeptPlan, task: &str, number: u64, now: &str) -> Vec<String> {
-    let Some(g) = plan.groups.iter().position(|group| group.tasks.iter().any(|one| one.id == task)) else { return Vec::new() };
-    let open: Vec<usize> =
-        (0..plan.groups[g].tasks.len()).filter(|&t| status(&plan.groups[g].tasks[t]) != Some("completed")).collect();
-    for &t in &open {
-        completed_by_fleet(plan, (g, t), format!("#{number} merged"), now);
-    }
-    open.into_iter().map(|t| plan.groups[g].tasks[t].text.clone()).collect()
 }
 
 /// Why the task at `at` looks left behind, if it is in progress and does. **A newer task in progress

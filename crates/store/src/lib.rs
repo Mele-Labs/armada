@@ -73,7 +73,6 @@ mod delivery_picks;
 mod word_asks;
 /// The Jobs a person renamed, which the proposer names later Jobs from.
 mod job_renames;
-mod job_issues;
 /// What a Job holds standing in the states of its lifecycles, and the moves between them.
 mod lifecycle_instances;
 /// The lifecycles and rules a Job started with, and the acts those rules planned for it.
@@ -222,7 +221,6 @@ pub use word_asks::KeptWordAsk;
 pub use job_renames::KeptRename;
 pub use home_kinds::KeptHomeItem;
 pub use home_repositories::KeptHomeRepository;
-pub use job_issues::KeptJobIssue;
 pub use lifecycle_instances::{KeptInstance, KeptMove, KeptRead};
 pub use job_copies::{KeptCopy, KeptPiece, PieceKind};
 pub use job_copy_edits::{KeptCopyMark, KeptWorkflowCopy};

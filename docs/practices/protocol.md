@@ -740,9 +740,9 @@ The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and the
 | `Attachment` of kind `report`, target the report's id, `detail.title` | Fleet writes, Bridge reads | Held by the Job the tag was sent to. Taken only where `bug_reports` has the id, so a tag for a dropped report holds nothing. **Given back** when the Job ends, whether by `all_done`, by Bridge ending it or by discarding it, so a row that is not `given_back` is the Job a report is being worked in |
 | `BugReport.fixed` | Fleet writes, Bridge reads | `{ at, pull_request, title, url }`, absent while the report stands open: when the pull request merged, its number, title and address. Set once, by the first merge of a pull request one of the report's Jobs held; it is not taken back |
 
-**A merged pull request fixes the reports of the Jobs that held it, in any repository.** `merges_told` marks them beside `issues_merged`, which waits on a backlog and this does not.
+**A merged pull request fixes the reports of the Jobs that held it, in any repository.** `merges_told` marks them, with no backlog needed.
 It reads the Jobs that **held** the pull request, standing or given back, and every `report` row each held, so a Job that ended after opening the pull request still fixes its report when the pull request merges later.
-It runs for the pull requests `Mine` owns, as `issues_merged` does: one a Job holds but another account opened fixes nothing.
+It runs for the pull requests `Mine` owns, one a Job holds but another account opened fixes nothing.
 `bug_reports.changed` is published when a report was marked, and only then.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
@@ -1483,3 +1483,14 @@ The box at the foot of the Operator panel, and the orders it turns words into. N
 - **`operator_orders` lets go** of an order for a day gone by and a hold its Job has released as it reads, so what it answers is what is in force.
 
 Bridge draws none of it yet: the box and the list ride with the panel, armada-ehhu.10.
+
+## The Operator's board: `get_operator_board`, `move_on_operator_board` and `operator.board_changed`
+
+The board the Operator page is drawn from: `now`, `next`, `done` and `on`, read whole.
+
+- **`next` is the Operator's own queue**, the arrivals that came while a call was out.
+  What a call has been handed leads it and cannot be moved; `move_on_operator_board` reorders the rest, and a 404 names an id that is not waiting.
+- **`operator.board_changed` carries nothing.** Bridge reads the board again.
+- **`kind` is closed at five**: a plan is a `start`, and an issue, a review request, a red main and a Later item are each a `report`. Bridge renders `outcome` and never branches on it.
+- **`TalkToOperator.about` names a board item or a Needs you item**, and the line keeps it. **`OperatorSaid.moved`** is the item the call put first because the person asked.
+- **The types are in `packages/protocol/src/operator-board.ts`**, since `sessions.ts` is past the line the gate refuses.

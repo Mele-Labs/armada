@@ -11,7 +11,7 @@
 //! a failure is told to no Job. **A recipient that cannot be told now is asked again next
 //! reading**, with nothing kept. Who owns a pull request is `crate::pull_owners`.
 //!
-//! **A pull request that will merge itself settles the Session's waits on it at every reading**, not
+//! **A pull request that will merge itself takes off the Session's `approve_pr` waits that name it at every reading**, not
 //! only the first: auto-merge on or a place in the merge queue, and an item stated after the notice
 //! is taken off the next time. The take-off is its own guard, so a reading that takes nothing says
 //! nothing.
@@ -25,7 +25,6 @@ use adapter_traits::{
 use crate::clock::elapsed;
 use crate::daemon::Fleet;
 use crate::my_pulls::Mine;
-use crate::pull_waits::PullNamed;
 use crate::pull_owners::Owner;
 use crate::repositories::Served;
 
@@ -88,7 +87,6 @@ struct About<'a> {
     branch: &'a str,
     head: &'a str,
     base: &'a str,
-    title: Option<&'a str>,
 }
 
 /// What is said, in bare facts. `detail` is the failing checks and a log's tail.
@@ -274,7 +272,6 @@ where
             branch,
             head,
             base,
-            title: pull.title.as_ref().map(|it| it.as_written()),
         };
         // Auto-merge is told once a pull request, whatever commit it is at when it is turned on.
         // The waits are looked at on every reading: one stated after the notice, or after it
@@ -282,7 +279,6 @@ where
         if pull.auto_merge || pull.queue == PullQueue::Waiting {
             let cause = if pull.auto_merge { Cause::AutoMerge } else { Cause::Queued };
             let once = About { head: "", ..about };
-            let named = PullNamed { number: pull.number, branch, title: once.title };
             for owner in self.holders_told_of(served, pull.number, branch, false).await {
                 // Waiting in the queue is nothing to say by itself: only a wait taken off speaks.
                 if cause == Cause::AutoMerge {
@@ -291,7 +287,7 @@ where
                         .await;
                 }
                 let Owner::Session(id) = &owner;
-                let taken = self.waits_taken_off(id, &named).await;
+                let taken = self.waits_taken_off(id, pull.number).await;
                 if taken.is_empty() {
                     continue;
                 }
@@ -511,9 +507,6 @@ where
             if !mine.owns(one.pull.author.as_ref().map(|it| it.as_written())) {
                 continue;
             }
-            // Marks the issues of the Jobs that held it, however long ago it merged and whether or
-            // not they still stand: this waits on no `bd`, and the backlog's next look closes them.
-            self.issues_merged(served, one.pull.number, one.pull.url.as_written()).await;
             // And the reports they were started on, in any repository, whether or not it has a backlog.
             self.reports_fixed_by_merge(
                 served,
@@ -535,7 +528,6 @@ where
                 branch,
                 head: "",
                 base,
-                title: Some(one.pull.title.as_written()),
             };
             let owners = self.holders_told_of(served, one.pull.number, branch, true).await;
             for owner in owners {
@@ -584,21 +576,11 @@ where
             *read = Some(detail().await);
         }
         let text = said(about, cause, read.as_deref().unwrap_or_default());
-        let named = PullNamed { number: about.number, branch: about.branch, title: about.title };
         let settling = matches!(cause, Cause::Merged | Cause::AutoMerge);
         let done = match owner {
             Owner::Session(id) if settling => {
                 let mut text = text.clone();
-                if cause == Cause::Merged {
-                    let now = self.now();
-                    let marked = crate::plan_keeping::merge_heard(&mut *self.store().lock().await, id, about.number, now.as_str())
-                        .unwrap_or_default();
-                    if !marked.is_empty() {
-                        text.push_str(&marked);
-                        let _ = self.published_hosted(id).await;
-                    }
-                }
-                for taken in self.waits_taken_off(id, &named).await {
+                for taken in self.waits_taken_off(id, about.number).await {
                     text.push_str(&format!("\nTaken off Needs you: {taken}"));
                 }
                 matches!(self.told_news_by_fleet(id, &text, cause.notice()).await, Ok(true))

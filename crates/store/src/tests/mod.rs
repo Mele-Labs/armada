@@ -57,7 +57,6 @@ mod workflow_changes;
 mod notice_mutes;
 mod word_asks;
 mod job_renames;
-mod job_issues;
 mod lifecycle_instances;
 mod job_copy_edits;
 mod job_rules;
