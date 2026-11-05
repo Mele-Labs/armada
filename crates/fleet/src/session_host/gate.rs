@@ -118,6 +118,11 @@ where
         if let Some(answer) = in_the_background(&gate, mode_of(&hosting.mode)) {
             return answer;
         }
+        if let Touch::File(path) = touch(&gate) {
+            if let Some(why) = self.order_holding(&id, &hosting.manifest_id, &absolute(&gate, &path)).await {
+                return GateAnswer::deny(why);
+            }
+        }
         // A Mod Job writes its mods without asking him: the mods folder is outside its directory,
         // so Claude Code would otherwise ask about every file of a mod he asked for.
         if let (true, Touch::File(path)) = (hosting.mod_job, touch(&gate)) {

@@ -81,6 +81,26 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn talk_to_operator(self: Arc<Self>, _talk: ipc::operator_talk::TalkToOperator) -> Result<ipc::operator_talk::OperatorSaid, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn operator_talk(self: Arc<Self>) -> Result<ipc::operator_talk::OperatorTalk, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn confirm_operator_order(self: Arc<Self>, _confirm: ipc::operator_talk::ConfirmOperatorOrder) -> Result<ipc::operator_talk::OperatorOrders, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn operator_orders(self: Arc<Self>) -> Result<ipc::operator_talk::OperatorOrders, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn remove_operator_order(self: Arc<Self>, _remove: ipc::operator_talk::RemoveOperatorOrder) -> Result<ipc::operator_talk::OperatorOrders, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn dismiss_waiting(
         self: Arc<Self>,
         _dismiss: ipc::DismissWaiting,

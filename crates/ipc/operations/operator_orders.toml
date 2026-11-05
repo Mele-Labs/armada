@@ -1,0 +1,8 @@
+[operations.operator_orders]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The standing orders in force now"
+notes = """
+`GET /operator/orders`, answered with `OperatorOrders`: oldest first. An order for a day gone by, and a hold whose Job has released it, are let go as this reads.
+"""
