@@ -1058,6 +1058,46 @@ pub(crate) async fn start_another_session<D: Sessions>(
     }
 }
 
+/// A Job reads the Jobs it started. 200 with `StartedSessions`; 422 for a call that places no hosted Job.
+pub(crate) async fn list_started_sessions<D: Sessions>(State(served): State<Served<D>>) -> Response {
+    match served.shared().list_started_sessions(crate::acting::asking()).await {
+        Ok(started) => answer(StatusCode::OK, &started, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A Job acts on the Jobs it started. 200 with `StartedAnswers`, each command's answer in the order given
+/// and a refused one carrying the refusal a call of its own would have answered; 422 for a call that
+/// places no hosted Job, with no command tried.
+pub(crate) async fn command_started_sessions<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    const EXPECTED: &str = "commands on the jobs you started";
+    let commands: ipc::StartedCommands = match ipc::decode_body(EXPECTED, &body) {
+        Ok(commands) => commands,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    if commands.commands.is_empty() {
+        let why = ipc::Undecodable {
+            expected: EXPECTED,
+            why: "no commands".to_string(),
+            shape: Some(ipc::shape::of::<ipc::StartedCommands>()),
+        };
+        return undecodable(&why.to_string(), served.run_id());
+    }
+    match served.shared().command_started_sessions(crate::acting::asking(), commands.commands).await {
+        Ok(answered) => {
+            let commands = answered
+                .into_iter()
+                .map(|answered| match answered {
+                    Ok(done) => ipc::StartedAnswer { done: Some(done), refused: None },
+                    Err(refusal) => ipc::StartedAnswer { done: None, refused: Some(refusal.error().clone()) },
+                })
+                .collect();
+            answer(StatusCode::OK, &ipc::StartedAnswers { commands }, served.run_id())
+        }
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The agent of a Session, or the person, changes when a waiting Session starts. 200 with `SessionWait`;
 /// 422 for a Session that does not wait on the caller, an unplaced agent or a plan part nothing holds; 409
 /// where it has started.

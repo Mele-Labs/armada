@@ -77,6 +77,7 @@ A custom Job has no kind and keeps none.
 The request is still read, so Workflow and the other fields are filled, and the reading sends nothing.
 A held Job stays in Needs you as *First message* until Start, and Bridge draws it as it draws any Job that calls him.
 Ending the Job settles the item and discards the first message.
+The Job that started it may withdraw it while it is held (*A Job that started Jobs*): it ends with no agent run, and the caller's *Press Start* item leaves.
 Autopilot never answers it: Start is the person's press.
 
 **Until Start, the Job is a draft.** It wears the Draft mark, `message-square-dashed` with the tooltip `Draft`, on its list row, its header and its flight pane, and keeps the needs-you tone.

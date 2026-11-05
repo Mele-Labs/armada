@@ -39,6 +39,7 @@ export const NOTICES = [
   "lifecycle_rule",
   "lifecycles_clear",
   "operator",
+  "started_job_ended",
 ] as const;
 
 export type Notice = (typeof NOTICES)[number];

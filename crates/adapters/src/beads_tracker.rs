@@ -175,6 +175,12 @@ impl<R: Run> Backlog for BeadsTracker<R> {
         }
     }
 
+    fn release(&self, in_repo: &str, reference: &str, actor: &str, note: &str) -> Result<(), NotTracked> {
+        let doing = "handing the issue back";
+        let args = ["unclaim", reference.trim(), "--if-assignee", actor, "--reason", note];
+        self.written(in_repo, &args, doing)
+    }
+
     fn create_child(&self, in_repo: &str, parent: &str, title: &str) -> Result<String, NotTracked> {
         let doing = "filing a task under the issue";
         let made = self.bd(in_repo, &["create", "--title", title, "--parent", parent.trim(), "--silent"], doing)?;

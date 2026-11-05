@@ -9,7 +9,7 @@ A Job's agent may start a Job, or fork its own conversation into one, through tw
 | `start_another_session` | `manifest_id`, `title`, `message`. A new Job in any repository Fleet serves. Or `jobs` alone, a list of those, for several in one call: each starts as its own call would, in order, and the answer gives each one's id or refusal in that order |
 | `fork_this_session` | `title`, `message`, optional `at`. A copy of the caller's own conversation, to the row `at` or to its latest message of its own that the transcript holds. Allowed while the caller is live, since it is a fork at a message |
 | The caller | Placed by the connection of its hosted process, as `show_window` places it. **No call names a Job**, so an agent cannot fork another's conversation, and a call from no hosted Job is refused 422 `fleet.agent_start_unplaced` |
-| Not offered | Tune, close, send and every other hosted-session command stay `agent_access` No |
+| Not offered | Tune, close, send and every other hosted-session command stay `agent_access` No. What a Job may do to the Jobs it started is its own pair of acts (*A Job that started Jobs*) |
 
 > **Rule.** An agent's Job is created and listed at once, held, and nothing runs until the owner presses Start.
 > Why: a Job that started itself is a model spending tokens in a repository nobody chose to open. Holding the message makes the start a proposal he reads and may edit.
@@ -46,5 +46,7 @@ The queue is in memory, as the reading is: a Fleet that restarts mid-reading los
 
 **Both ledgers record it.** A start writes `started_by` on the new Job and `started_to` on the caller; a fork writes the `forked_from` and `forked_to` of *A forked job*, with `at` and `cut`.
 The caller's thread gets a `started` row naming the Job and whether it is a fork, which Bridge draws as the press that opens it.
+
+**The caller reads and commands what it started** with `list_started_jobs` and `command_started_jobs`: where each stands, and withdraw, end, pause, resume, change and drop (*A Job that started Jobs*).
 
 **Nothing bounds how many an agent starts.** Each is held, so none spends anything, but a loop would fill the list. A limit waits for one being seen.

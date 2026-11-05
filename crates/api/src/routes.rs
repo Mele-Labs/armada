@@ -456,6 +456,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/start_another",
             post(crate::sessions::start_another_session::<D>),
         )
+        .route("/sessions/started", get(crate::sessions::list_started_sessions::<D>))
+        .route("/sessions/command_started", post(crate::sessions::command_started_sessions::<D>))
         .route(
             "/sessions/change_waiting",
             post(crate::sessions::change_waiting::<D>),
