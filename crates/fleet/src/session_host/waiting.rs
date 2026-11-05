@@ -1158,7 +1158,11 @@ where
             WaitingSource::SlotChoice => self.slot_chosen(&id, said.choice).await,
             // Fleet's, so the agent is told nothing: Do it carries the act out, Skip records it skipped.
             WaitingSource::RuleAct => self.rule_act_chosen(&id, &item.id, said.choice).await,
-            WaitingSource::OperatorSuggestion => self.suggestion_chosen(&id, &item.id, said.choice).await,
+            // Words with no choice are talk to the Operator about it, and the row stays.
+            WaitingSource::OperatorSuggestion => match (said.choice, words) {
+                (None, Some(words)) => self.suggestion_talked(&id, &item.id, words).await,
+                _ => self.suggestion_chosen(&id, &item.id, said.choice).await,
+            },
             WaitingSource::TaskDone => self.task_done_chosen(&id, &item.id, said.choice).await,
             // Fleet raised it, so Ignore tells the agent nothing; Fix it, or his words, are a message.
             WaitingSource::WatchNotOurs => {

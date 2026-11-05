@@ -339,11 +339,11 @@ pub use job_copy::{
 };
 pub use workflow_changes::{
     AskWorkflowChange, ArmadaProposed, ChangeOrigin, ChangeState, ChangeStep, ProposeNewWorkflow, ProposeToArmada,
-    SendBackWorkflowChange, SuggestWorkflowChange, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges,
+    SendBackWorkflowChange, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges,
     WorkflowSupportBuilding,
 };
 pub use workflow_page::{
-    MarkNotADrift, NotADriftMarked, StepNudge, StepReading, WorkflowCopy, WorkflowCopyDeleted, WorkflowSteps,
+    StepReading, WorkflowCopy, WorkflowCopyDeleted, WorkflowSteps,
 };
 pub use drift::{
     Declaration, Drift, ManifestDrift, PackageScripts, Unfollowed,
@@ -644,7 +644,7 @@ pub use sessions::{
     PullRequestClaimed, NameSession, RenameSession, TakeMainRed, SessionFact, SessionId, SessionList,
     SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionStarted, StepVisit, SessionReport,
     ConfirmLater, DeferLater, LaterDeferred, LaterHow, LaterSettled, SessionLater, SettleLater,
-    SessionStanding, SessionState, SessionStopped, FleetAway, StopReason, StopRepair, StopRestart, ToolMissing, ToolsMissing, SessionRunMessage, SessionRunUnderway, StartSessionRun,
+    SessionStanding, SessionState, SessionStopped, FleetAway, StopReason, StopRepair, StopRestart, ToolMissing, ToolsMissing, RunningKind, RunningWork, SessionRunMessage, SessionRunUnderway, StartSessionRun,
     StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone,
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
     WindowTake, AskInWindow, ProposeDraft, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,

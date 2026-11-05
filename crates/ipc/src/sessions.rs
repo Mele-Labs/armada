@@ -1181,6 +1181,26 @@ pub enum ToolMissing {
     TaskTools,
 }
 
+/// What kind of work a Job's agent left running past its turn.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RunningKind {
+    Subagent,
+    BackgroundTask,
+}
+
+/// One subagent or background task a hosted Job's agent left working past its turn. **A turn
+/// `idle` with one of these is not a Job with nothing running**: ending its process takes the work
+/// with it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RunningWork {
+    pub kind: RunningKind,
+    /// What it is: the subagent's description or the task's own title, else its target.
+    pub what: String,
+    /// When it began.
+    pub since: Instant,
+}
+
 /// What a hosted session's agent lacks of Armada's own, and the CLI version that lacked it. **Never
 /// empty**: a session missing nothing carries none.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1262,6 +1282,10 @@ pub struct SessionRecord {
     /// the session ends. Held in memory: a Fleet that restarts has none until the next turn starts.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tools_missing: Option<ToolsMissing>,
+    /// The subagents and background tasks a hosted session's agent has working past its turn, with a
+    /// live process and inside the hour Fleet gives work that shows nothing. Empty where none is.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub running: Vec<RunningWork>,
     /// What the session waits on the person for: the agent's list with Fleet's own items merged in, the
     /// agent's first. Empty for an ended session.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

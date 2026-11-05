@@ -423,7 +423,7 @@ async fn after_begin_with_a_choice_entering_the_plan_step_asks_nothing_and_auto_
         assert_eq!(card(&rig, &id).await.map(|one| one.asks_delivery), Some(true));
         begin(&rig, &id, Some(choice)).await.expect("begun");
 
-        eventually(|| async { told(&rig, "Record the plan before editing.") == 1 }).await;
+        eventually(|| async { told(&rig, &format!("the owner chose {}", choice.label())) == 1 }).await;
         assert!(question(&rig, &id).await.is_none(), "{choice:?}: no delivery item waits");
         assert_eq!(told(&rig, "choosing how this work is delivered"), 0, "{choice:?}: the agent is not stopped");
         assert!(!rig.fleet.delivery_entered(id.as_str()).await, "{choice:?}: entering the step asks nothing");
@@ -442,7 +442,7 @@ async fn a_landing_the_first_message_names_is_the_cards_and_is_not_said_again_to
         Some(DeliveryPicked { choice: DeliveryChoice::KeepLocal, from: DeliveryPickedFrom::Named })
     );
     begin(&rig, &id, Some(DeliveryChoice::KeepLocal)).await.expect("begun");
-    eventually(|| async { told(&rig, "Record the plan before editing.") == 1 }).await;
+    eventually(|| async { rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Delivery { named: true, .. })) }).await;
     assert_eq!(told(&rig, "the owner chose"), 0, "the message already said it");
     assert!(rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Delivery { named: true, .. })));
 }

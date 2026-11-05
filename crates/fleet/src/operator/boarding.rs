@@ -8,7 +8,9 @@
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::Timestamp;
-use ipc::operator_board::{MoveOnOperatorBoard, OperatorBoard, OperatorBoardItem, OperatorBoardKind, OperatorBoardSettled};
+use ipc::operator_board::{
+    MoveOnOperatorBoard, OperatorBoard, OperatorBoardChanged, OperatorBoardItem, OperatorBoardKind, OperatorBoardOption, OperatorBoardSettled, OperatorBoardSuggestion,
+};
 use store::KeptRuling;
 
 use super::{held, Arrived, Operator};
@@ -149,7 +151,7 @@ fn outcome_of(row: &KeptRuling, title_of: &dyn Fn(&str) -> String) -> String {
         "answer" => said("Answered", row.answer.clone().unwrap_or_default()),
         "raise" => said("Raised", row.because.clone()),
         "new_job" if matches!(Arrived::from_word(&row.arrived), Some(Arrived::Stopped | Arrived::Red)) => said("Started", "the rest as a new Job".to_string()),
-        "new_job" => "Started".to_string(),
+        "new_job" => said("Started", other()),
         "existing_job" => said("Handed over", format!("to {}", other())),
         "merge" => said("Merged", format!("into {}", other())),
         "keep_in_touch" => said("Kept in touch", format!("with {}", other())),
@@ -157,6 +159,7 @@ fn outcome_of(row: &KeptRuling, title_of: &dyn Fn(&str) -> String) -> String {
         "link" => said("Linked", row.issue.clone().unwrap_or_default()),
         "file" => said("Filed", row.issue.clone().unwrap_or_default()),
         "passed_on" => "Passed on".to_string(),
+        "skipped" => "Skipped".to_string(),
         _ => "Settled".to_string(),
     }
 }
@@ -179,6 +182,11 @@ where
         })
     }
 
+    /// The board is not what it was: Bridge reads it again.
+    pub(super) fn operator_board_changed(&self) {
+        self.events().publish(ipc::Event::OperatorBoardChanged(OperatorBoardChanged {}));
+    }
+
     /// `get_operator_board`: read now.
     pub(crate) async fn operator_board_wire(&self) -> Result<OperatorBoard, Refusal> {
         let queued = self.operator_seat().operator().map(|operator| operator.queued()).unwrap_or_default();
@@ -191,11 +199,23 @@ where
             title: first_line(&one.subject),
             id: one.id,
         };
-        let done = {
+        let (suggestions, done) = {
             let store = self.store().lock().await;
+            let suggestions = store
+                .operator_suggestions_of("")
+                .map_err(|why| self.ledger_fault(why))?
+                .into_iter()
+                .map(|one| OperatorBoardSuggestion {
+                    id: format!("suggestion:{}", one.n),
+                    text: one.text,
+                    options: ["Do it", "Skip"].map(|label| OperatorBoardOption { label: label.to_string() }).to_vec(),
+                    at: one.raised_at,
+                })
+                .collect();
             let rows = store.operator_rulings_signed(DONE_SHOWN).map_err(|why| self.ledger_fault(why))?;
             let title_of = |id: &str| store.session(id).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| id.to_string());
-            rows.iter()
+            let done = rows
+                .iter()
                 .map(|row| OperatorBoardSettled {
                     id: row.arrival.clone(),
                     kind: kind_of(Arrived::from_word(&row.arrived).unwrap_or(Arrived::Start)),
@@ -205,9 +225,10 @@ where
                     outcome: outcome_of(row, &title_of),
                     at: row.at.clone(),
                 })
-                .collect()
+                .collect();
+            (suggestions, done)
         };
-        Ok(OperatorBoard { on: self.operator_on(), now: queued.now.map(&item), next: queued.next.into_iter().map(item).collect(), done })
+        Ok(OperatorBoard { on: self.operator_on(), now: queued.now.map(&item), next: queued.next.into_iter().map(item).collect(), suggestions, done })
     }
 
     /// `move_on_operator_board`: one press. **404** where `id`, or the `before` it goes ahead of,

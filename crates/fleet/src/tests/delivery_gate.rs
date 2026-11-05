@@ -88,12 +88,11 @@ async fn a_job_whose_first_message_names_no_delivery_is_stopped_and_asked() {
     assert_eq!(item.text, "How should this work be delivered?");
     let labels: Vec<_> = item.options.iter().map(|one| one.label.as_str()).collect();
     assert_eq!(labels, ["Auto land", "Open PR only", "Keep local"]);
-    assert_eq!(told(&rig, "Record the plan before editing."), 0, "the step's instructions wait for the answer");
     assert_eq!(delivery_of(&rig.rows(&id).await), None, "nothing is chosen yet");
 }
 
 #[tokio::test]
-async fn the_answer_is_kept_on_the_job_and_sent_to_the_agent_with_the_steps_instructions() {
+async fn the_answer_is_kept_on_the_job_and_sent_to_the_agent() {
     let rig = rig();
     let id = on_the_rail(&rig, "the log reader drops the last line of every file").await;
     eventually(|| async { question(&rig, &id).await.is_some() }).await;
@@ -105,7 +104,6 @@ async fn the_answer_is_kept_on_the_job_and_sent_to_the_agent_with_the_steps_inst
     assert!(answered.waiting_for.iter().all(|one| one.source != WaitingSource::Delivery), "the question is gone");
     assert_eq!(delivery_of(&rig.rows(&id).await), Some(DeliveryChoice::OpenPr));
     eventually(|| async { told(&rig, "the owner chose Open PR only") == 1 }).await;
-    assert_eq!(told(&rig, "Record the plan before editing."), 1, "the instructions arrive with the choice");
     assert!(question(&rig, &id).await.is_none(), "and it is not asked again");
 }
 
@@ -113,7 +111,7 @@ async fn the_answer_is_kept_on_the_job_and_sent_to_the_agent_with_the_steps_inst
 async fn a_first_message_that_names_a_delivery_is_not_asked() {
     let rig = rig();
     let id = on_the_rail(&rig, "the log reader drops the last line of every file. Keep it local.").await;
-    eventually(|| async { told(&rig, "Record the plan before editing.") == 1 }).await;
+    eventually(|| async { delivery_of(&rig.rows(&id).await) == Some(DeliveryChoice::KeepLocal) }).await;
 
     assert!(question(&rig, &id).await.is_none());
     assert_eq!(delivery_of(&rig.rows(&id).await), Some(DeliveryChoice::KeepLocal));
@@ -170,7 +168,7 @@ async fn answering_open_pr_only_or_keep_local_leaves_auto_land_off() {
 async fn a_first_message_that_says_land_it_turns_auto_land_on_without_a_question() {
     let rig = rig();
     let id = on_the_rail(&rig, "the log reader drops the last line of every file. Land it.").await;
-    eventually(|| async { told(&rig, "Record the plan before editing.") == 1 }).await;
+    eventually(|| async { delivery_of(&rig.rows(&id).await) == Some(DeliveryChoice::AutoLand) }).await;
     assert!(question(&rig, &id).await.is_none(), "nothing is asked");
     assert_eq!(delivery_of(&rig.rows(&id).await), Some(DeliveryChoice::AutoLand));
     assert!(record(&rig, &id).await.auto_land);

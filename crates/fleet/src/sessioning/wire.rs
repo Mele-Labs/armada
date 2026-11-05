@@ -138,6 +138,7 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         mod_out_of_date: false,
         mod_version: session.mod_version.clone(),
         tools_missing: None,
+        running: Vec::new(),
         waiting_for: Vec::new(),
         done_since: None,
         done_summary: None,

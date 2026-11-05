@@ -85,6 +85,15 @@ export type AttachmentHistory = {
   versions: AttachmentVersion[];
 };
 
+/** One subagent or background task a hosted Job's agent has working past its turn. */
+export type RunningWork = {
+  kind: "subagent" | "background_task";
+  /** The subagent's description or the task's own title, else its target. */
+  what: string;
+  /** When it began. */
+  since: string;
+};
+
 /**
  * A session and everything it holds. `report_session` answers it, `list_sessions`
  * lists it and `session.changed` publishes it whole, so a client replaces the
@@ -132,6 +141,11 @@ export type SessionRecord = {
     harness_version: string;
     missing: Array<"mod" | "door" | "task_tools">;
   };
+  /**
+   * The subagents and background tasks a hosted session's agent has working past its turn, with a live process. Absent when none is.
+   * A turn that is idle with this present still has work going.
+   */
+  running?: RunningWork[];
   /**
    * What the session waits on the person for: the agent's list with Fleet's own items merged in, the
    * agent's first. Absent is nothing, and always absent for an ended session.

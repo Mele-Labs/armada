@@ -2,12 +2,12 @@
 //! *The rail*.
 //!
 //! **Pure.** The steps and the facts are passed in, so each rule is read and tested without a Fleet.
-//! `rail_keeping` takes the facts out of the store and `rail_following` acts on what changed; this is
+//! `rail_keeping` takes the facts out of the store and `rail_following` enters what changed; this is
 //! the rules between the two.
 //!
 //! **The agent's word is never an input.** The step comes from the plan (approved, tasks open), the
 //! build record (first edit, a push, a pull request, a merge) and the Session's own Check runs and
-//! commits. It is soft: nothing here blocks, and a skipped step draws one nudge.
+//! commits. It is soft: nothing here blocks, and Fleet tells the agent nothing of the step it is on.
 //!
 //! **Three anchors are exact, the steps between them are read loosely.** A `records_plan` step is
 //! current until a plan is approved. A `follows_plan` step is current from approval and stays until a
@@ -37,9 +37,8 @@
 
 use config::ResolvedWorkflow;
 use core_model::{EvidenceType, JudgeCriterion, LifecycleEnd, ResolvedCheck, ResolvedStep, StepEnd, StepPhase};
-use ipc::{BuildPhase, BuildStopId, PlanTaskState, SessionRecord, SessionStanding, TouchAct};
+use ipc::{BuildPhase, BuildStopId, PlanTaskState, SessionRecord};
 
-use crate::rail_ends;
 use crate::rail_lifecycle::StepBits;
 
 /// The observable fact a step between anchors fits.
@@ -207,8 +206,6 @@ pub(crate) struct Facts {
     pub draft_approved: bool,
     pub idea_picked: bool,
     pub plan_expects_walk: bool,
-    /// A test file was written or edited.
-    pub test_edited: bool,
     /// The steps the person skipped.
     pub skipped: Skipped,
     /// The steps he wrote on after they began. [`Extra::messaged`].
@@ -258,10 +255,6 @@ impl Facts {
             draft_approved: extra.draft_approved,
             idea_picked: extra.idea_picked,
             plan_expects_walk: extra.plan_expects_walk,
-            test_edited: record
-                .touches
-                .iter()
-                .any(|touch| touch.act != TouchAct::Remove && crate::test_paths::is_test_path(&touch.path)),
             skipped: Skipped::of(&record.skipped_steps),
             messaged: extra.messaged,
             ..Facts::default()
@@ -457,70 +450,6 @@ fn standing(steps: &[RailStep], facts: &Facts) -> usize {
         .unwrap_or(0)
 }
 
-/// Which step was skipped, and how.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Skip {
-    /// Files were edited before the plan was approved.
-    Plan,
-    /// The work was pushed while the plan's tasks were open.
-    Tasks,
-    /// A test file was edited before the walk was approved.
-    Walk,
-    /// In a workflow with a walk step: a test file was edited before the plan was approved.
-    PlanTested,
-    /// In a workflow with a walk step: the work was pushed before the plan was approved.
-    PlanPushed,
-}
-
-impl Skip {
-    /// What happened, as the workflow's page lists it under the step.
-    pub(crate) fn fact(self) -> &'static str {
-        match self {
-            Skip::Plan => "edited before the plan was approved",
-            Skip::Tasks => "pushed with the plan's tasks open",
-            Skip::Walk => "a test before the walk was approved",
-            Skip::PlanTested => "a test before the plan was approved",
-            Skip::PlanPushed => "pushed before the plan was approved",
-        }
-    }
-}
-
-/// The steps the observed facts show skipped. A step is named however often it is skipped; saying so
-/// only once is the caller's.
-pub(crate) fn skipped(steps: &[RailStep], facts: &Facts) -> Vec<(usize, Skip)> {
-    let facts = &facts.waived(steps);
-    // A Job whose pull request merged is past every step it could have skipped, whatever it does next.
-    if facts.landed {
-        return Vec::new();
-    }
-    let mut found = Vec::new();
-    if let Some(at) = steps.iter().position(|step| step.records_plan).filter(|_| !facts.plan_approved) {
-        // Where the workflow walks, a rough mock may be edited while the plan is discussed.
-        let skip = if !steps.iter().any(|step| step.walks) {
-            facts.edited.then_some(Skip::Plan)
-        } else if facts.test_edited {
-            Some(Skip::PlanTested)
-        } else {
-            facts.pushed.then_some(Skip::PlanPushed)
-        };
-        found.extend(skip.map(|skip| (at, skip)));
-    }
-    let delivering = steps.iter().position(|step| step.delivers).unwrap_or(steps.len());
-    if let Some(at) =
-        steps.iter().position(|step| step.follows_plan).filter(|_| facts.tasks_open && pushed_past_walks(steps, delivering, facts))
-    {
-        found.push((at, Skip::Tasks));
-    }
-    if let Some(at) = steps.iter().position(|step| step.walks).filter(|at| {
-        facts.test_edited && facts.plan_approved && facts.walk_expected() && !facts.walk_passed(&steps[*at])
-    }) {
-        found.push((at, Skip::Walk));
-    }
-    // A step the person skipped is his call, not the agent's drift.
-    found.retain(|(at, _)| !facts.skipped.has(*at));
-    found
-}
-
 /// The one message to a Job that has run when the person skips a step of its workflow, or undoes it.
 pub(crate) fn skip_told(workflow: &str, step: &RailStep, skipped: bool) -> String {
     if skipped {
@@ -564,126 +493,6 @@ pub(crate) fn skips_said(workflow: &str, steps: &[RailStep], skipped: &[u32]) ->
             labels.join(", ")
         )),
     }
-}
-
-/// The most of a step's own words a nudge repeats.
-const ABOUT_AT_MOST: usize = 200;
-
-/// The one short message that names the step skipped and what it asks. Nothing is blocked.
-pub(crate) fn nudge(workflow: &str, step: &RailStep, skip: Skip) -> String {
-    let asks = match step.about.as_deref().map(str::trim).filter(|about| !about.is_empty()) {
-        Some(about) => about.chars().take(ABOUT_AT_MOST).collect::<String>(),
-        None => match skip {
-            Skip::Plan | Skip::PlanTested | Skip::PlanPushed => {
-                String::from("a plan recorded with record_plan, and approved by the person")
-            }
-            Skip::Tasks => String::from("the plan's tasks worked and finished before the work goes out"),
-            Skip::Walk => String::from("the work shown as a walk and approved by the person before any test is written"),
-        },
-    };
-    let did = match skip {
-        Skip::Plan => "edited files before",
-        Skip::Tasks => "pushed while tasks were still open in",
-        Skip::Walk => "edited a test before the walk was approved in",
-        Skip::PlanTested => "edited a test before the plan was approved in",
-        Skip::PlanPushed => "pushed before the plan was approved in",
-    };
-    format!(
-        "Fleet: this Job follows the {workflow} workflow, and you {did} its \"{}\" step. That step asks: {asks}. \
-         Nothing is blocked. Take it up now, or say why the work goes on without it.",
-        step.label
-    )
-}
-
-/// The step the Job stopped on, where only its own act ends it: the turn ended on a reply that asks
-/// nothing, nothing waits on the person, and what ends the step is something the Job does. Fleet never
-/// moves such a step, so a Job waiting for the move waits for good. Read from the row, never the words.
-/// **A delivering step with no pull request opened is the Job's too**: the merge that ends it is not, but
-/// nothing reaches the merge until the Job delivers. **So is a walk that follows the plan with nothing to
-/// show**, whose tasks are what end it; `extra` says whether a walk is expected.
-pub(crate) fn stalled(steps: &[RailStep], record: &SessionRecord, extra: Extra) -> Option<(usize, rail_ends::End)> {
-    if record.standing != Some(SessionStanding::Replied) || !record.waiting_for.is_empty() {
-        return None;
-    }
-    let at = record.workflow_step? as usize;
-    let step = steps.get(at)?;
-    if step.delivers {
-        return (!Facts::of(record, Extra::default()).pr_opened).then_some((at, rail_ends::End::Undelivered));
-    }
-    if step.walks && step.follows_plan && !Facts::of(record, extra).walk_expected() {
-        return Some((at, rail_ends::End::TasksDone));
-    }
-    // He approved what it proposed, and the tasks that move it on are the Job's to record.
-    let facts = Facts::of(record, extra);
-    if step.records_plan && !facts.plan_recorded && facts.any_ended(at, &step.ends_on) {
-        return Some((at, rail_ends::End::PlanRecorded));
-    }
-    let end = rail_ends::end_of(steps, at).filter(|end| end.by_the_job())?;
-    Some((at, end))
-}
-
-/// The one message to a Job stopped on a step only it can end.
-pub(crate) fn stall_nudge(workflow: &str, step: &RailStep, end: rail_ends::End) -> String {
-    if end == rail_ends::End::Undelivered {
-        return format!(
-            "Fleet: this Job follows the {workflow} workflow, and your turn ended on its \"{}\" step with no pull \
-             request opened and nothing asked or shown. Deliver now, the way the person chose: with Auto land or \
-             Open PR only, open the pull request; with Keep local, call all_done. If you wait \
-             on the person, name it with waiting_for. A second stop like this one calls the person and marks \
-             this Job Stopped.",
-            step.label
-        );
-    }
-    format!(
-        "Fleet: this Job follows the {workflow} workflow, and your turn ended on its \"{}\" step with nothing \
-         asked or shown. This step ends when {}, and Fleet does not move it for you. Do that now, or ask the \
-         person what is still open. If you wait on the person, name it with waiting_for. A second stop like this \
-         one calls the person and marks this Job Stopped.",
-        step.label,
-        end.for_agent()
-    )
-}
-
-/// What the agent is told on entering step `at`: the step's own instructions, named by its step, and
-/// what ends it. **The end is said because Fleet does not move a step the Job's own act ends**: a Job
-/// left to wait for the move waits for good. `None` where the step wrote none, and nothing is sent.
-pub(crate) fn instructed(workflow: &str, steps: &[RailStep], at: usize) -> Option<String> {
-    let step = steps.get(at)?;
-    let words = step.instructions.as_deref().map(str::trim).filter(|words| !words.is_empty());
-    let gate = rail_ends::gate_said(step);
-    if words.is_none() && gate.is_none() {
-        return None;
-    }
-    let mut said = format!("Fleet: this Job follows the {workflow} workflow, and you are on its \"{}\" step.", step.label);
-    if let Some(words) = words {
-        said.push_str(&format!("\n\n{words}"));
-    }
-    let ends = rail_ends::ends_of(steps, at);
-    if !ends.is_empty() {
-        let each: Vec<_> = ends.iter().map(|end| end.for_agent()).collect();
-        said.push_str(&format!("\n\nThis step ends when {}.", each.join(", or ")));
-        // A Job with nothing to show read the walk's end as already met, and waited to be moved on.
-        if step.walks && step.follows_plan {
-            said.push_str(&format!(" Where nothing would be seen, it ends when {}.", rail_ends::End::TasksDone.for_agent()));
-        }
-        // Fleet moves the Job on by itself, so the agent has nothing to do but stop.
-        if ends.iter().any(rail_ends::End::by_the_world) {
-            said.push_str(" End your turn now: Fleet wakes you with a message when it comes, so do not poll for it.");
-        }
-        // A Job that pushed and stopped, waiting to be told to deliver, sat idle (28 Oct 2026).
-        if let Some(next) = steps.get(at + 1).filter(|next| next.delivers && ends.iter().all(|end| end.by_the_job())) {
-            said.push_str(&format!(
-                " Then carry straight on with its \"{}\" step in the same turn, the way the person chose to deliver: \
-                 do not end your turn to wait for Fleet's message.",
-                next.label
-            ));
-        }
-    }
-    // A delivering step gated by a lifecycle: it is entered as always, and the agent holds the merge.
-    if let Some(gate) = gate {
-        said.push_str(&format!(" {gate}"));
-    }
-    Some(said)
 }
 
 /// How a step reads in the timeline's `says`: its label, `start` before the first and `done` past the

@@ -64,6 +64,31 @@ async fn a_working_sessions_slot_is_refused_and_its_rows_stand() {
     assert_eq!(standing(&rig, &id, "slot").await, vec!["1"]);
 }
 
+/// A subagent left running past the turn lives in the process a release would end.
+#[tokio::test]
+async fn an_idle_sessions_slot_is_refused_while_a_subagent_works_past_its_turn() {
+    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    let report = ipc::SessionReport {
+        harness: adapters::HOSTED_HARNESS.into(),
+        session_id: id.clone(),
+        fact: ipc::SessionFact::Attached {
+            attachment: ipc::AttachmentReport {
+                kind: "subagent".into(),
+                target: "agent-sweep".into(),
+                detail: [("description".to_string(), "sweep".to_string())].into_iter().collect(),
+            },
+        },
+    };
+    api::Sessions::report_session(&*rig.fleet, report).await.expect("kept");
+    idle(&rig, &id).await;
+
+    let refused = release(&rig, &id).await.expect_err("its subagent is working");
+
+    refused_with(refused, "fleet.slot_session_working");
+    assert!(rig.fleet.vcs().parked_slots().is_empty());
+    assert_eq!(standing(&rig, &id, "slot").await, vec!["1"]);
+}
+
 #[tokio::test]
 async fn a_slot_another_holds_since_is_refused_and_the_rows_stand() {
     let (rig, id) = in_its_slot(&Placing::nothing()).await;

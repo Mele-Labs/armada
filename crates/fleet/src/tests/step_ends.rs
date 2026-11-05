@@ -10,7 +10,7 @@ use ipc::{
 };
 
 use super::session_rail::{approved, at, delivers, follows, plan_step, step};
-use crate::rail::{self, Facts, RailStep};
+use crate::rail::{Facts, RailStep};
 use crate::rail_ends::{ends_any, ends_when, End};
 use crate::rail_keeping::thread_facts;
 
@@ -79,18 +79,6 @@ fn every_end_of_a_step_is_said_and_one_alone_is_also_said_as_the_one() {
     for end in [End::AnyWalkApproved, End::SketchApproved, End::DraftApproved, End::IdeaPicked] {
         assert!(!end.by_the_job(), "{end:?} is the person's");
     }
-}
-
-#[test]
-fn the_agent_is_told_every_end_of_its_step() {
-    let said = rail::instructed("explore", &explore(), 0).expect("instructions are sent");
-    assert!(
-        said.ends_with(
-            "This step ends when the person approves a draft you proposed with propose_draft, or the person picks an \
-             option you gave a preview in AskUserQuestion, or the person approves a walk you showed with show_window."
-        ),
-        "{said}"
-    );
 }
 
 // ---- Read off the thread ----

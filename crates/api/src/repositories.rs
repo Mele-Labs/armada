@@ -156,7 +156,7 @@ pub(crate) async fn get_workflow<D: Queries>(
     }
 }
 
-/// One definition step by step: the words, what ends each, and the nudges that still count.
+/// One definition step by step: the words and what ends each.
 /// A 422 where this repository holds none by that id and source.
 pub(crate) async fn get_workflow_steps<D: Queries>(
     State(served): State<Served<D>>,
@@ -204,21 +204,6 @@ pub(crate) async fn reset_workflow_copy<D: Authoring>(
     };
     match served.daemon().reset_workflow_copy(asked, scope.manifest()).await {
         Ok(saved) => answer(StatusCode::OK, &saved, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// Mark one nudge not a drift.
-pub(crate) async fn mark_not_a_drift<D: Authoring>(
-    State(served): State<Served<D>>,
-    body: Bytes,
-) -> Response {
-    let asked: ipc::MarkNotADrift = match ipc::decode_body("a nudge to mark", &body) {
-        Ok(asked) => asked,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    match served.daemon().mark_not_a_drift(asked).await {
-        Ok(marked) => answer(StatusCode::OK, &marked, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
@@ -294,22 +279,6 @@ pub(crate) async fn propose_workflow_change<D: Authoring>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.shared().propose_workflow_change(asked, scope.manifest()).await {
-        Ok(change) => answer(StatusCode::OK, &change, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// Ask for new words for one step.
-pub(crate) async fn suggest_workflow_change<D: Authoring>(
-    State(served): State<Served<D>>,
-    Query(scope): Query<InManifest>,
-    body: Bytes,
-) -> Response {
-    let asked: ipc::SuggestWorkflowChange = match ipc::decode_body("a change to suggest", &body) {
-        Ok(asked) => asked,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    match served.shared().suggest_workflow_change(asked, scope.manifest()).await {
         Ok(change) => answer(StatusCode::OK, &change, served.run_id()),
         Err(refusal) => refused(refusal),
     }

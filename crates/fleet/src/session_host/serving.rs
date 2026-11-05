@@ -292,6 +292,10 @@ where
         self.operator_board_moved(moved).await
     }
 
+    async fn answer_operator_suggestion(self: Arc<Self>, answer: ipc::operator_board::AnswerOperatorSuggestion) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
+        self.suggestion_answered(answer).await
+    }
+
     async fn confirm_operator_order(self: Arc<Self>, confirm: ipc::operator_talk::ConfirmOperatorOrder) -> Result<ipc::operator_talk::OperatorOrders, Refusal> {
         self.operator_order_confirmed(confirm.form).await
     }

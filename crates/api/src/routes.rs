@@ -128,10 +128,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::repositories::reset_workflow_copy::<D>),
         )
         .route(
-            "/workflows/not_a_drift",
-            post(crate::repositories::mark_not_a_drift::<D>),
-        )
-        .route(
             "/workflows/changes",
             get(crate::repositories::list_workflow_changes::<D>),
         )
@@ -146,10 +142,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/workflows/changes/propose",
             post(crate::repositories::propose_workflow_change::<D>),
-        )
-        .route(
-            "/workflows/changes/suggest",
-            post(crate::repositories::suggest_workflow_change::<D>),
         )
         .route(
             "/workflows/changes/approve",
@@ -404,6 +396,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/operator/board/move",
             post(crate::hosted_sessions::move_on_operator_board::<D>),
+        )
+        .route(
+            "/operator/suggestions/answer",
+            post(crate::hosted_sessions::answer_operator_suggestion::<D>),
         )
         .route(
             "/operator/orders",

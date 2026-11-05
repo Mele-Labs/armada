@@ -222,56 +222,6 @@ export const MANAGED_ENDS: Readonly<
   },
 };
 
-/** A Job Fleet nudged at a step of a place's definition, `ago` before the Fleet started. */
-export type MockNudge = {
-  source: "armada" | "repository" | "kit";
-  workflow: string;
-  step: string;
-  job_id: string;
-  job_title: string;
-  fact: string;
-  ago: number;
-};
-
-const HOUR = 3_600_000;
-
-/** The Jobs Fleet nudged. The first two drifted at Walk in the repository's `feature`, and the Suggest a change there is drawn from them. */
-export const MANAGED_NUDGES: readonly MockNudge[] = [
-  {
-    source: "repository",
-    workflow: "feature",
-    step: "walk",
-    job_id: "timeline-rail",
-    job_title: "Cockpit timeline rail",
-    fact: "a test before the walk was approved",
-    ago: 2 * HOUR,
-  },
-  {
-    source: "repository",
-    workflow: "feature",
-    step: "walk",
-    job_id: "pause-mock",
-    job_title: "Pause and resume",
-    fact: "a test file written with the mock",
-    ago: 72 * HOUR,
-  },
-  {
-    source: "repository",
-    workflow: "feature",
-    step: "propose",
-    job_id: "pause-plan",
-    job_title: "Pause and resume",
-    fact: "edited before the plan was approved",
-    ago: 24 * HOUR,
-  },
-];
-
-/** The sentence an agent adds to a step's words when asked for a suggestion there, by step id. */
-export const SUGGESTED_SENTENCE: Readonly<Record<string, string>> = {
-  walk: "Test files wait for the approval too, including fixtures for the mock.",
-  propose: "Edit nothing before approval, including the mock.",
-};
-
 /** What Armada lacks for "Propose should end when a walk, a sketch or a document is approved, or last of all a question is answered". */
 export const CANNOT_YET: readonly string[] = [
   "A step ends on one thing, not on any of several",

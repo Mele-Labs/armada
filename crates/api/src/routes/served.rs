@@ -604,6 +604,11 @@ const ROUTES: &[Route] = &[
         path: "/operator/board/move",
     },
     Route {
+        operation: "answer_operator_suggestion",
+        method: "POST",
+        path: "/operator/suggestions/answer",
+    },
+    Route {
         operation: "confirm_operator_order",
         method: "POST",
         path: "/operator/orders",

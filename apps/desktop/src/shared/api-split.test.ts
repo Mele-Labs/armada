@@ -124,9 +124,7 @@ import type { ProposeToArmada, SendBackWorkflowChange, WorkflowChangeRef } from 
 import type {
   ActingOnWorkflowCopy,
   AskingForWorkflowChange,
-  NotADriftAnswer,
   SavingWorkflow,
-  SuggestingWorkflowChange,
   WorkflowChangeAnswer,
   WorkflowChangeApproveAnswer,
   WorkflowChangesRead,
@@ -394,9 +392,7 @@ type OldBridgeApi = {
   ) => Promise<WorkflowStepsRead>;
   deleteWorkflowCopy: (acting: ActingOnWorkflowCopy) => Promise<WorkflowCopyDeleteAnswer>;
   resetWorkflowCopy: (acting: ActingOnWorkflowCopy) => Promise<WorkflowSaveAnswer>;
-  markNotADrift: (nudge: number) => Promise<NotADriftAnswer>;
   askWorkflowChange: (asking: AskingForWorkflowChange) => Promise<WorkflowChangeAnswer>;
-  suggestWorkflowChange: (suggesting: SuggestingWorkflowChange) => Promise<WorkflowChangeAnswer>;
   readWorkflowChanges: (
     workflowId: string,
     source: string,
@@ -887,9 +883,7 @@ const OLD_CHANNELS = {
   readWorkflowSteps: "bridge:read-workflow-steps",
   deleteWorkflowCopy: "bridge:delete-workflow-copy",
   resetWorkflowCopy: "bridge:reset-workflow-copy",
-  markNotADrift: "bridge:mark-not-a-drift",
   askWorkflowChange: "bridge:ask-workflow-change",
-  suggestWorkflowChange: "bridge:suggest-workflow-change",
   readWorkflowChanges: "bridge:read-workflow-changes",
   approveWorkflowChange: "bridge:approve-workflow-change",
   dismissWorkflowChange: "bridge:dismiss-workflow-change",

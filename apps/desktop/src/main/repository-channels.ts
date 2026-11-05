@@ -13,7 +13,6 @@ import type {
   ActingOnWorkflowCopy,
   AskingForWorkflowChange,
   SavingWorkflow,
-  SuggestingWorkflowChange,
 } from "../shared/workflows";
 import type {
   AddKitServer,
@@ -183,16 +182,8 @@ export function handleRepositories({ ipc, connection, state, windowIdOf }: Hosts
   ipc.handle(CHANNELS.resetWorkflowCopy, (event, acting: ActingOnWorkflowCopy) =>
     connection()?.workflowsFor(windowIdOf(event)).resetCopy(acting.manifestId, acting.copy),
   );
-  ipc.handle(CHANNELS.markNotADrift, (event, nudge: number) =>
-    connection()?.workflowsFor(windowIdOf(event)).notADrift(nudge),
-  );
   ipc.handle(CHANNELS.askWorkflowChange, (event, asking: AskingForWorkflowChange) =>
     connection()?.workflowsFor(windowIdOf(event)).askChange(asking.manifestId, asking.body),
-  );
-  ipc.handle(CHANNELS.suggestWorkflowChange, (event, suggesting: SuggestingWorkflowChange) =>
-    connection()
-      ?.workflowsFor(windowIdOf(event))
-      .suggestChange(suggesting.manifestId, suggesting.body),
   );
   ipc.handle(
     CHANNELS.readWorkflowChanges,

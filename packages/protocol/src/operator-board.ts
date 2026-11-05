@@ -34,6 +34,22 @@ export type OperatorBoardSettled = {
   at: string;
 };
 
+/** One thing a suggestion offers to do: `Do it` (choice 0), then `Skip` (choice 1). */
+export type OperatorBoardOption = {
+  label: string;
+};
+
+/** What the Operator would do with something no Job holds, such as a note, waiting on one press. */
+export type OperatorBoardSuggestion = {
+  /** `suggestion:<n>`, the id the Needs you rows use. `AnswerOperatorSuggestion.id` names it. */
+  id: string;
+  /** What the row says, as it was kept. */
+  text: string;
+  options: OperatorBoardOption[];
+  /** When it was raised, RFC 3339. */
+  at: string;
+};
+
 /**
  * `get_operator_board` (`GET /operator/board`): whether the Operator is on, the arrival a call is out on, those
  * waiting for it in the order they will be taken, and its last twenty rulings, newest first. What a call has been handed
@@ -43,6 +59,8 @@ export type OperatorBoard = {
   on: boolean;
   now?: OperatorBoardItem;
   next: OperatorBoardItem[];
+  /** The unsettled suggestions tied to no Job, oldest first. */
+  suggestions: OperatorBoardSuggestion[];
   done: OperatorBoardSettled[];
 };
 
@@ -53,4 +71,14 @@ export type OperatorBoard = {
 export type MoveOnOperatorBoard = {
   id: string;
   before?: string;
+};
+
+/**
+ * `answer_operator_suggestion` (`POST /operator/suggestions/answer`): one press on a suggestion no Job holds, `choice` 0
+ * for Do it or 1 for Skip. Answers the `OperatorBoard`. 404 `fleet.operator_suggestion_unknown` where `id` is none, or
+ * a Job's own; 409 where it is settled already.
+ */
+export type AnswerOperatorSuggestion = {
+  id: string;
+  choice: number;
 };

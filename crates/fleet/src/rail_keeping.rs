@@ -4,7 +4,7 @@
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::{Ulid, WorkflowId};
 use ipc::{AskedQuestion, DraftHow, Instant, QuestionAnswer, SessionRow, SessionVoice, WaitingSource};
-use store::{Holder, KeptSession, KeptWorkflowNudge, Store, WriteError};
+use store::{Holder, KeptSession, Store, WriteError};
 
 use crate::daemon::Fleet;
 use crate::rail::{self, Extra, Facts, RailStep};
@@ -15,9 +15,6 @@ use crate::session_host::document_answers::approved_on_newest;
 use crate::session_host::handoff_answers::{answered_later, ANSWERED_LATER};
 use crate::session_host::sketching::sketch_approved;
 use crate::session_host::walking::{replaced, walk_approval};
-
-/// How many nudges a step's list holds.
-const RECENT_NUDGES: u32 = 20;
 
 /// What a row's step is derived from.
 #[derive(Default)]
@@ -214,43 +211,6 @@ where
         let held = served.workflows();
         let found = held.get(&WorkflowId::carried(Ulid::carried(workflow)))?;
         Some(rail::steps_of(found))
-    }
-
-    /// Keep a nudge against the step it was sent for, so the workflow's page can list it. A fault is
-    /// the page's loss and not the Job's, so it is said and nothing more. **The place the definition
-    /// came from, where the nudge was new**: a Job drifts from a step in one way once.
-    pub(crate) async fn nudge_kept(
-        &self,
-        manifest: &str,
-        workflow: &str,
-        step: &RailStep,
-        session: &str,
-        skip: rail::Skip,
-    ) -> Option<&'static str> {
-        let source = self.repositories().serving(manifest).and_then(|served| {
-            served.workflows().get(&WorkflowId::carried(Ulid::carried(workflow))).map(|found| found.source().as_wire())
-        })?;
-        let at = self.now().as_str().to_string();
-        let kept = self.store().lock().await.keep_workflow_nudge(workflow, source, &step.id, session, skip.fact(), &at);
-        match kept {
-            Ok(new) => new.then_some(source),
-            Err(why) => {
-                self.session_warned(session, "the nudge was not kept against its step", why);
-                None
-            }
-        }
-    }
-
-    /// The newest nudges sent for one step of a workflow, newest first, those marked not a drift
-    /// included (they do not count). For the workflow's page.
-    pub(crate) async fn step_nudges(&self, workflow: &str, source: &str, step: &str) -> Vec<KeptWorkflowNudge> {
-        self.store().lock().await.workflow_nudges(workflow, source, step, RECENT_NUDGES).unwrap_or_default()
-    }
-
-    /// Mark a nudge not a drift, so it stops counting. Whether there was one.
-    pub(crate) async fn nudge_not_a_drift(&self, id: i64) -> bool {
-        let at = self.now().as_str().to_string();
-        self.store().lock().await.dismiss_workflow_nudge(id, &at).unwrap_or(false)
     }
 
     /// Draw what the rail adds to a hosted Session's row: the step it is on. **A Session that ended has no step.** A step that ends

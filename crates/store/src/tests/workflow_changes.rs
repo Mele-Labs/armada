@@ -14,7 +14,6 @@ fn asked<'a>(manifest: &'a str, source: &'a str) -> NewWorkflowChange<'a> {
         source,
         step_id: None,
         asked: Some("split Refine in two"),
-        nudges: &[],
         before_text: "{before}",
     }
 }
@@ -30,16 +29,6 @@ fn a_change_is_begun_drafting_and_kept_across_reopens() {
     assert_eq!(kept.asked.as_deref(), Some("split Refine in two"));
     assert_eq!((kept.before_text.as_str(), kept.after_text.as_deref()), ("{before}", None));
     assert!(open(&dir).workflow_change(id + 1).unwrap().is_none());
-}
-
-#[test]
-fn a_suggestion_keeps_the_step_and_the_nudges_it_was_drawn_from() {
-    let dir = TempDir::new();
-    let mut store = open(&dir);
-    let new = NewWorkflowChange { step_id: Some("walk"), asked: None, nudges: &[4, 9], ..asked("repo", "repository") };
-    let id = store.begin_workflow_change(&new, AT).unwrap();
-    let kept = store.workflow_change(id).unwrap().unwrap();
-    assert_eq!((kept.step_id.as_deref(), kept.asked.as_deref(), kept.nudges), (Some("walk"), None, vec![4, 9]));
 }
 
 #[test]

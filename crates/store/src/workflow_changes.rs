@@ -30,7 +30,7 @@ pub struct KeptWorkflowChange {
     pub step_id: Option<String>,
     /// The owner's words. Absent on a suggestion.
     pub asked: Option<String>,
-    /// The nudges a suggestion was drawn from.
+    /// The nudges a suggestion was drawn from, from when Fleet drafted them. None is drafted now.
     pub nudges: Vec<i64>,
     pub before_text: String,
     pub after_text: Option<String>,
@@ -60,7 +60,6 @@ pub struct NewWorkflowChange<'a> {
     pub source: &'a str,
     pub step_id: Option<&'a str>,
     pub asked: Option<&'a str>,
-    pub nudges: &'a [i64],
     pub before_text: &'a str,
 }
 
@@ -94,12 +93,11 @@ fn read(row: &Row<'_>) -> rusqlite::Result<KeptWorkflowChange> {
 impl Store {
     /// Begin a change, drafting, at `at`. Its id.
     pub fn begin_workflow_change(&mut self, new: &NewWorkflowChange<'_>, at: &str) -> Result<i64, WriteError> {
-        let nudges = new.nudges.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
         self.conn
             .execute(
-                "INSERT INTO workflow_changes (manifest_id, workflow_id, source, step_id, asked, nudges, before_text, state, created_at, changed_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)",
-                params![new.manifest_id, new.workflow_id, new.source, new.step_id, new.asked, nudges, new.before_text, DRAFTING, at],
+                "INSERT INTO workflow_changes (manifest_id, workflow_id, source, step_id, asked, before_text, state, created_at, changed_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
+                params![new.manifest_id, new.workflow_id, new.source, new.step_id, new.asked, new.before_text, DRAFTING, at],
             )
             .map_err(fault("beginning a workflow change"))
             .map_err(WriteError::Database)?;

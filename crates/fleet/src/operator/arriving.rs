@@ -283,6 +283,8 @@ pub struct LiveJob {
     pub paths: Vec<String>,
     /// The issues it holds or its plan's groups work.
     pub issues: Vec<String>,
+    /// The subagents and background tasks it has working past its turn.
+    pub running: Vec<ipc::RunningWork>,
     /// Who started it, as `(id, title)`, nearest first up to the root. Empty for a Job the person
     /// started. An ended starter is named too.
     pub started_by: Vec<(String, String)>,
@@ -310,6 +312,20 @@ impl LiveJob {
         }
         if !self.issues.is_empty() {
             out.push_str(&format!("    Its issues: {}\n", self.issues.join(", ")));
+        }
+        if !self.running.is_empty() {
+            let each: Vec<String> = self
+                .running
+                .iter()
+                .map(|one| {
+                    let kind = match one.kind {
+                        ipc::RunningKind::Subagent => "subagent",
+                        ipc::RunningKind::BackgroundTask => "background task",
+                    };
+                    format!("{kind} \"{}\"", one_line(&one.what))
+                })
+                .collect();
+            out.push_str(&format!("    Still running past its turn: {}\n", each.join(", ")));
         }
         if !self.started_by.is_empty() {
             out.push_str(&format!("    Started by: {}\n", started_by_shown(&self.started_by)));

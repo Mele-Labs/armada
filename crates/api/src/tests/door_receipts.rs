@@ -81,6 +81,7 @@ fn long_lived() -> SessionRecord {
         mod_out_of_date: false,
         mod_version: None,
         tools_missing: None,
+        running: Vec::new(),
         waiting_for: vec![
             WaitingItem {
                 act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Run, target: "scripts/restart".into() }),
