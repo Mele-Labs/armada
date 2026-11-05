@@ -1,4 +1,4 @@
-// A refusal in words. Kept apart from `dock-questions.tsx`, the Helm dock's, so
+// A refusal in words. Kept apart from `dock-questions.tsx`, so
 // a Job's lessons can say one without importing it.
 
 import type { Outcome } from "@armada/protocol";

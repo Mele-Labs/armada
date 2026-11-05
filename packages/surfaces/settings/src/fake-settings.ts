@@ -396,8 +396,8 @@ export const MOCK_SETTINGS: SettingsList = {
     row(
       "Features",
       "features.onYourWordsCanAct",
-      "Helm can act",
-      "Helm may redirect a job itself. Off, Helm reads one and suggests it.",
+      "Jobs on your words can act",
+      "A Job started on your words may redirect a job itself. Off, it reads one and suggests it.",
       BOOLEAN,
       true,
       {

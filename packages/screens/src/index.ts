@@ -21,7 +21,7 @@ export * from "./merge-line";
 export * from "./AskRepository";
 export * from "./copy";
 export * from "./editing";
-// Every question waiting on a person, from every repository, as Helm's dock draws them.
+// Every call held for a person, from every repository, as cards.
 export * from "./dock-questions";
 export * from "./refusal-words";
 export * from "./outstanding";

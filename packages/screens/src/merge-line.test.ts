@@ -74,7 +74,7 @@ describe("the merge line Fleet serves", () => {
             doing: "pushing the merge onto main",
           },
           {
-            branch: "fleet/helm-kills-processes",
+            branch: "fleet/loop-kills-processes",
             place: 5,
             state: "waiting",
           },
@@ -172,7 +172,7 @@ describe("the merge line Fleet serves", () => {
         "merging",
       ],
       [
-        "fleet/helm-kills-processes",
+        "fleet/loop-kills-processes",
         "waiting",
       ],
       [

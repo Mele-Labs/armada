@@ -1,10 +1,10 @@
-// Every Helm call waiting on a person, as the dock's cards (#935). Main gathers them from every
+// Every call held for a person, as cards (#935). Main gathers them from every
 // repository Fleet serves; this decides what each card says.
 
 import type { DockQuestion } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import { manifestLabel } from "@armada/shell/src/repository-label";
-import { helmOfferedOf } from "./copy";
+import { offeredOf } from "./copy";
 import { span } from "./duration";
 import { outstandingId, type Outstanding } from "./outstanding";
 
@@ -50,11 +50,11 @@ export function dockQuestionsOf(
         id: outstandingId(question),
         repository: manifestLabel(question.call.manifest_id, repositories),
         waiting: waitingOf(question, now),
-        label: "Helm needs your permission",
+        label: "A job needs your permission",
         asked:
-          detail === "" ? `Helm wants to use ${tool}.` : <span className="mono">{detail}</span>,
+          detail === "" ? `A job wants to use ${tool}.` : <span className="mono">{detail}</span>,
         detail: `Your settings would have to allow ${rule}.`,
-        answers: helmOfferedOf(offers).map(({ offer, label, means }) => ({
+        answers: offeredOf(offers).map(({ offer, label, means }) => ({
           id: offer,
           label,
           consequence: means,

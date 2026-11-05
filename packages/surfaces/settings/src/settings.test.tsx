@@ -10,7 +10,6 @@ import {
   mount,
   onBoard,
   onScreen,
-  openHelm,
   timePasses,
   toPageByName,
   toPlace,
@@ -133,8 +132,6 @@ test("the sidebar lists Kit, Fleet, Mods and Bridge entries in order, and an ent
       }),
     )
     .toBeVisible();
-  // The dock is on every surface, System included, and it reaches this one over the content.
-  await openHelm();
 });
 
 test("a saved value is marked Modified, and Reset removes the key so the shipped value is back", async () => {
@@ -567,7 +564,7 @@ test("the Choose act of the plan's offer lands on Kit > Models, on the select th
     .toHaveValue("sonnet");
 });
 
-test("Settings > Keyboard rebinds a key, and the new key is the one that acts", async () => {
+test("Settings > Keyboard rebinds a key, and Reset puts the registry's key back", async () => {
   mount(onBoard(), {
     slices: [
       "core",
@@ -575,51 +572,33 @@ test("Settings > Keyboard rebinds a key, and the new key is the one that acts", 
     ],
   });
   await toSystemPage("Keyboard shortcuts");
-  const helm = page.getByRole("group", {
-    name: "Helm",
+  const operator = page.getByRole("group", {
+    name: "Operator",
     exact: true,
   });
-  await helm
+  await operator
     .getByRole("button", {
-      name: /^Helm: ⌘J$/,
+      name: /^Operator: ⌘J$/,
     })
     .click();
   await userEvent.keyboard("{Meta>}{Shift>}h{/Shift}{/Meta}");
   await expect
     .element(
-      helm.getByRole("button", {
-        name: /^Helm: ⇧⌘H$/,
+      operator.getByRole("button", {
+        name: /^Operator: ⇧⌘H$/,
       }),
     )
     .toBeVisible();
-  // ⌘J no longer opens Helm, and ⇧⌘H does.
-  await userEvent.keyboard("{Meta>}j{/Meta}");
-  await expect
-    .element(
-      page.getByRole("complementary", {
-        name: "Helm",
-      }),
-    )
-    .not.toBeInTheDocument();
-  await userEvent.keyboard("{Meta>}{Shift>}h{/Shift}{/Meta}");
-  await expect
-    .element(
-      page.getByRole("complementary", {
-        name: "Helm",
-      }),
-    )
-    .toBeVisible();
-  await userEvent.keyboard("{Meta>}{Shift>}h{/Shift}{/Meta}");
   // Reset puts the registry's key back.
-  await helm
+  await operator
     .getByRole("button", {
-      name: "Reset Helm",
+      name: "Reset Operator",
     })
     .click();
   await expect
     .element(
-      helm.getByRole("button", {
-        name: /^Helm: ⌘J$/,
+      operator.getByRole("button", {
+        name: /^Operator: ⌘J$/,
       }),
     )
     .toBeVisible();

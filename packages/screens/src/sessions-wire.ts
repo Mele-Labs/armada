@@ -1131,7 +1131,7 @@ export function rowsOfThread(
         });
         break;
       case "sent":
-        // Words Helm's dock sent on to a Session or a Job: the person's own, with the place they went.
+        // Words an old thread sent on to a Session or a Job: the person's own, with the place they went.
         out.push({
           id: row.id,
           at,
@@ -1690,11 +1690,6 @@ export function sessionOfRecord(
     ...(hosted === undefined
       ? {
           terminal: true as const,
-        }
-      : {}),
-    ...(record.helm === true
-      ? {
-          helm: true as const,
         }
       : {}),
     ...(record.mod === true

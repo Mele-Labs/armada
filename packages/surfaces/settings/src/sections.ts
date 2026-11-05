@@ -234,7 +234,7 @@ const SCHEMA_SECTIONS: readonly SettingsSection[] = [
       [
         "Features",
         "switch",
-        "helm",
+        "on your words",
         "draft pull requests",
       ],
     ],

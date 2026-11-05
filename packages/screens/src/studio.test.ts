@@ -109,7 +109,7 @@ const STUDIO: Studio = {
       kind: "answers",
       standing: "proposed",
       created_at: AT,
-      added_by: "helm",
+      added_by: "job",
     },
     {
       id: "e3",
@@ -478,7 +478,7 @@ test("edges keep their standing, and a kind this build does not know is left off
       target: "n5",
       kind: "answers",
       proposed: true,
-      proposer: "Helm proposes",
+      proposer: "A job proposed",
     },
     {
       id: "e3",
@@ -492,7 +492,7 @@ test("edges keep their standing, and a kind this build does not know is left off
 });
 
 // **An edge kept before `added_by` existed names nobody.** Naming nobody is
-// right where the record names nobody; inventing Helm there would put a
+// right where the record names nobody; inventing a Job there would put a
 // proposer on a relation the Studio cannot attribute — the owner asked where
 // `same as` had come from, and a wrong answer is worse than the board's bare
 // "Proposed".
@@ -755,7 +755,7 @@ test("a Finding says what it was handed beyond the checkout, and what was cut", 
   });
   expect(read[0]!.node).toMatchObject({
     facts: [
-      "Read this repository's Helm thread",
+      "Read this repository's thread",
       "Read a page, 12,400 characters cut",
     ],
   });

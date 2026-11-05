@@ -342,7 +342,7 @@ describe("the ledger", () => {
       record("a", {
         attachments: [
           held("issue", "2212", {
-            title: "Helm loses the repository",
+            title: "A job loses the repository",
             state: "closed",
             address: "https://x/issues/2212",
           }),
@@ -353,7 +353,7 @@ describe("the ledger", () => {
     expect(one).toEqual({
       kind: "issue",
       number: "2212",
-      title: "Helm loses the repository",
+      title: "A job loses the repository",
       address: "https://x/issues/2212",
       state: "closed",
     });
@@ -846,7 +846,7 @@ describe("the thread", () => {
     expect(JSON.stringify(drawn[0]).match(/"src"/g)).toHaveLength(1);
   });
 
-  it("draws words Helm sent on as a row of their own, with where they went and the repository's name", () => {
+  it("draws words an old thread sent on as a row of their own, with where they went and the repository's name", () => {
     const sent: SessionRow = {
       kind: "sent",
       id: "7",
@@ -1852,23 +1852,6 @@ describe("a session's lanes", () => {
 });
 
 describe("a session", () => {
-  it("carries Helm's mark from the record", () => {
-    expect(
-      sessionOfRecord(
-        record("01ABCDEFGHJKMNPQRSTVWXYZ01", {
-          helm: true,
-        }),
-        undefined,
-        beside(),
-      ),
-    ).toMatchObject({
-      helm: true,
-    });
-    expect(
-      sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ02"), undefined, beside()).helm,
-    ).toBeUndefined();
-  });
-
   it("carries the Mod mark from the record", () => {
     expect(
       sessionOfRecord(

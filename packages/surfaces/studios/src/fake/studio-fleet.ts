@@ -1,10 +1,10 @@
 // A Fleet keeping this repository's Studios: started, a node moved or removed, a relation decided,
-// each written and published whole the way `studio.changed` carries it — #1287. `helmProposes` is
-// the one write a person does not make, standing in for Helm adding nodes and proposing a relation.
+// each written and published whole the way `studio.changed` carries it — #1287. `jobProposes` is
+// the one write a person does not make, standing in for a Job adding nodes and proposing a relation.
 //
 // **`keeping()` is every scenario's, and `studying()` is one scenario** — #1341. The store answers
 // the Studio reads and writes wherever `fake.ts` puts it, so a scenario that keeps none answers an
-// empty list and the surface draws its empty state; the `studios` scenario adds the Helm write.
+// empty list and the surface draws its empty state; the `studios` scenario adds the Job's write.
 //
 // **Promotion is the same shape** — #1291: each rung adds the node it makes and the `produced`
 // edges the Studio draws, and answers with the Studio whole.
@@ -95,14 +95,14 @@ export type StudioRoutes = Pick<
   | "openStudioNode"
 >;
 
-/** The Studios a mock Fleet keeps, and what Helm writes into one. */
+/** The Studios a mock Fleet keeps, and what a Job writes into one. */
 export type StudioKeeping = {
   /** What this Fleet answers the Studio calls with, over the window it publishes to. */
   routes: (fleet: FleetHandle<StudioHeld>) => StudioRoutes;
   /** Every Studio as Fleet holds it now. */
   studios: () => readonly Studio[];
-  /** Helm adds a Note and a Finding to a Studio, and proposes that the Finding answers the Note. */
-  helmProposes: (studioId: string) => void;
+  /** A Job adds a Note and a Finding to a Studio, and proposes that the Finding answers the Note. */
+  jobProposes: (studioId: string) => void;
   /** Two Notes a person captured, which #1291's rungs are worked from. */
   twoNotes: (studioId: string) => void;
   /** One Contradiction, Reported, which a person ends one of four ways. */
@@ -322,7 +322,7 @@ function legend(): Studio {
         kind: "same_as",
         standing: "proposed",
         created_at: at,
-        added_by: "helm",
+        added_by: "job",
       },
       {
         id: "legend-e3",
@@ -918,7 +918,7 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
           },
         ],
       })),
-    helmProposes: (studioId) =>
+    jobProposes: (studioId) =>
       void write(studioId, (studio) => {
         const now = tick();
         const note: StudioNode = {
@@ -949,7 +949,7 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
           kind: "answers",
           standing: "proposed",
           created_at: now,
-          added_by: "helm",
+          added_by: "job",
         };
         return {
           ...studio,
@@ -1998,7 +1998,7 @@ function readIn(
     noted,
     {
       kind: "note",
-      said: "It names the forge, web pages, jobs and Helm threads as the first sources",
+      said: "It names the forge, web pages, jobs and threads as the first sources",
     },
     [
       nodeId,
@@ -2046,7 +2046,7 @@ function readIn(
         kind: "blocks",
         standing: "proposed",
         created_at: tick(),
-        added_by: "helm",
+        added_by: "job",
       },
     ],
   };

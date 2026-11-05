@@ -39,7 +39,7 @@ const RETRO: Retro = {
     {
       id: "r",
       who: "owner",
-      statement: "Helm acted with curl.",
+      statement: "A job acted with curl.",
       evidence: [
         "restart:2",
         "ask:1",
@@ -70,7 +70,7 @@ const RETRO: Retro = {
       {
         cite: "restart:2",
         at: AT,
-        actor: "helm",
+        actor: "job",
         via: "http",
         moved: "restart",
       },
@@ -135,7 +135,7 @@ describe("a retro's items", () => {
         id: "restart:2",
         name: "restart",
         mono: true,
-        detail: "helm via http",
+        detail: "job via http",
         at: AT,
       },
       {

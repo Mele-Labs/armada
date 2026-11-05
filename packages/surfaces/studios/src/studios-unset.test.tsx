@@ -26,8 +26,7 @@ async function openStudios(): Promise<void> {
 
 /**
  * The ask's own menu button, which is the picker this state must not draw. **Named exactly**:
- * Helm's footer draws a second menu button — named *Point Helm at a repository*, or *at a
- * different repository* once Helm is pointed at one — and it is not this one.
+ * Named in full, so no other menu button on the page matches it.
  */
 const picker = () =>
   page.getByRole("button", {

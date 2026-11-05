@@ -51,13 +51,13 @@ export function said(outcome: Outcome): string {
 }
 
 /**
- * What each answer to a held **helm** call commits to. #1389.
+ * What each answer to a held call commits to. #1389.
  *
  * Its own record beside `COMMAND_ANSWER`, because the two sets are different
  * sets: there is no job to allow for, and `allow_and_remember` writes a rule
  * into the person's own settings rather than into fleet's table.
  */
-export const HELM_CALL_ANSWER: Record<
+export const CALL_ANSWER: Record<
   CallAnswer,
   {
     label: string;
@@ -66,17 +66,17 @@ export const HELM_CALL_ANSWER: Record<
 > = {
   allow_once: {
     label: "Allow once",
-    means: "Helm runs it now. Nothing is written down, and the same call asks again next time.",
+    means: "Runs it now. Nothing is written down, and the same call asks again next time.",
   },
   allow_and_remember: {
     label: "Allow and remember",
     means:
-      "Helm runs it now, and the rule goes into this repository's own personal agent settings " +
+      "Runs it now, and the rule goes into this repository's own personal agent settings " +
       "— so your terminal stops asking too.",
   },
   refuse: {
     label: "Refuse",
-    means: "Helm is told no, and says what it could not do.",
+    means: "The job is told no, and says what it could not do.",
   },
   always_allow: {
     label: "Always allow",
@@ -120,16 +120,16 @@ const REACH_ONCE: Partial<
   },
 };
 
-/** [`helmOfferedOf`] for a card that names the path it reaches: Refuse reads as Reject once. */
-export function reachOfferedOf(offers: readonly CallAnswer[]): OfferedHelmAnswer[] {
-  return helmOfferedOf(offers).map((one) => ({
+/** [`offeredOf`] for a card that names the path it reaches: Refuse reads as Reject once. */
+export function reachOfferedOf(offers: readonly CallAnswer[]): OfferedAnswer[] {
+  return offeredOf(offers).map((one) => ({
     ...one,
     ...REACH_ONCE[one.offer],
   }));
 }
 
-/** What a person may answer about one helm call, worded, in fleet's own order. */
-export function helmOfferedOf(offers: readonly CallAnswer[]): OfferedHelmAnswer[] {
+/** What a person may answer about one held call, worded, in fleet's own order. */
+export function offeredOf(offers: readonly CallAnswer[]): OfferedAnswer[] {
   const known: Partial<
     Record<
       string,
@@ -138,7 +138,7 @@ export function helmOfferedOf(offers: readonly CallAnswer[]): OfferedHelmAnswer[
         means: string;
       }
     >
-  > = HELM_CALL_ANSWER;
+  > = CALL_ANSWER;
   // An answer from a fleet ahead of this build is left out, `offeredOf`'s rule.
   return offers.flatMap((offer) => {
     const said = known[offer];
@@ -153,8 +153,8 @@ export function helmOfferedOf(offers: readonly CallAnswer[]): OfferedHelmAnswer[
   });
 }
 
-/** One helm answer, worded. No rule picker: fleet already derived the one rule. */
-export type OfferedHelmAnswer = {
+/** One answer, worded. No rule picker: fleet already derived the one rule. */
+export type OfferedAnswer = {
   offer: CallAnswer;
   label: string;
   means: string;

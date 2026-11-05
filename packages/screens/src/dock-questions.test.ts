@@ -1,5 +1,5 @@
-// The dock's cards, from what main gathered: each names its repository and offers the answers
-// Helm's call does, in Fleet's order.
+// The cards for held calls, from what main gathered: each names its repository and offers the answers
+// the call does, in Fleet's order.
 
 import { describe, expect, it, vi } from "vitest";
 
@@ -28,15 +28,15 @@ const REPOSITORIES: RepositorySummary[] = [
   },
 ];
 
-// #1389: a card drawn from a helm call names its repository and nothing else.
-const HELM: Outstanding = {
-  kind: "helm",
+// #1389: a card drawn from a held call names its repository and nothing else.
+const HELD: Outstanding = {
+  kind: "call",
   call: {
-    call: "helm-1",
+    call: "call-1",
     manifest_id: "shop-01",
     asked_at: "2026-09-13T10:02:00Z",
     tool: "Bash",
-    detail: "gh issue list --milestone Helm",
+    detail: "gh issue list --milestone Release",
     truncated: false,
     length: 30,
     rule: "Bash(gh issue list:*)",
@@ -50,26 +50,26 @@ const HELM: Outstanding = {
 };
 
 const LATER: Outstanding = {
-  kind: "helm",
+  kind: "call",
   call: {
-    ...HELM.call,
-    call: "helm-2",
+    ...HELD.call,
+    call: "call-2",
     asked_at: "2026-09-13T10:05:00Z",
   },
 };
 
-describe("a helm call in the dock", () => {
+describe("a held call as a card", () => {
   it("names its repository and the rule it would need", () => {
     const [card] = dockQuestionsOf(
       [
-        HELM,
+        HELD,
       ],
       REPOSITORIES,
       Date.parse("2026-09-13T10:03:00Z"),
     );
 
     expect(card?.repository).toBe("shop-01");
-    expect(card?.label).toBe("Helm needs your permission");
+    expect(card?.label).toBe("A job needs your permission");
     expect(card?.detail).toBe("Your settings would have to allow Bash(gh issue list:*).");
     expect(card?.answers.map((answer) => answer.id)).toEqual([
       "allow_once",
@@ -82,15 +82,15 @@ describe("a helm call in the dock", () => {
     const cards = dockQuestionsOf(
       [
         LATER,
-        HELM,
+        HELD,
       ],
       REPOSITORIES,
       Date.now(),
     );
 
     expect(cards.map((card) => card.id)).toEqual([
-      "helm:helm-1",
-      "helm:helm-2",
+      "call:call-1",
+      "call:call-2",
     ]);
   });
 
@@ -98,7 +98,7 @@ describe("a helm call in the dock", () => {
     const onAnswer = vi.fn();
     const [card] = dockQuestionsOf(
       [
-        HELM,
+        HELD,
       ],
       REPOSITORIES,
       Date.now(),
@@ -109,13 +109,13 @@ describe("a helm call in the dock", () => {
 
     card?.onAnswer?.("allow_and_remember");
 
-    expect(onAnswer).toHaveBeenCalledWith(HELM, "allow_and_remember");
+    expect(onAnswer).toHaveBeenCalledWith(HELD, "allow_and_remember");
   });
 
   it("says where to answer until answering is handed in", () => {
     const [card] = dockQuestionsOf(
       [
-        HELM,
+        HELD,
       ],
       REPOSITORIES,
       Date.now(),
