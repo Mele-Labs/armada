@@ -24,10 +24,10 @@ fn edge(id: &str) -> StudioEdgeId {
     StudioEdgeId::carried(Ulid::carried(id))
 }
 
-/// **Helm's acts read back as Helm's after a reopen**: a node it added, the
+/// **A Job's acts read back as a Job's after a reopen**: a node it added, the
 /// `produced` edge that node brought, an edge it proposed, and the name it gave.
 #[test]
-fn helms_node_edge_and_name_read_back_as_helms() {
+fn a_jobs_node_edge_and_name_read_back_as_a_jobs() {
     let dir = TempDir::new();
     let mut store = open(&dir);
     let studio = StudioId::carried(Ulid::carried("01STUDIO"));
@@ -68,7 +68,7 @@ fn helms_node_edge_and_name_read_back_as_helms() {
             Some((&node("01NOTE"), edge("01MADE"))),
             &at(),
         )
-        .expect("Helm's Finding");
+        .expect("a Job's Finding");
     let proposed = StudioEdge::proposed(
         edge("01SAME"),
         node("01FINDING"),
@@ -116,7 +116,7 @@ fn helms_node_edge_and_name_read_back_as_helms() {
     );
 }
 
-/// **A row from before V78 reads back unrecorded**, never as a person's: Helm
+/// **A row from before V78 reads back unrecorded**, never as a person's: a Job
 /// could add one under V77 too.
 #[test]
 fn a_studio_from_before_the_authors_were_kept_reads_back_unrecorded() {

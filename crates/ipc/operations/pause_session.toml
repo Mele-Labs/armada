@@ -8,9 +8,9 @@ notes = """
 
 **The turn is ended as `stop_session` ends it, then the slot's work is committed to the branch the checkout is on as a `WIP:` commit, nothing pushed, and the slot is freed.** A checkout on no branch or on the base gets a `kept/` branch for what there is to keep. The Job stays live in the list; its `slot` ledger row is given back and its `branch` row stays. It is not a state: `state` is `live` and `hosted.turn` is `idle`.
 
-Refused with nothing changed: 409 `fleet.session_not_pausable` for an ended Job, a Helm, and a Job that holds no slot; 409 `fleet.session_already_paused`; 409 `fleet.session_pause_refused` where the pool or git will not take the work (the slot is held by another, or the park failed), carrying the reason; 422 `fleet.session_command_refused` for a terminal Job, whose process Fleet does not host. One exception to "nothing changed": a park that git refuses after the turn was ended leaves the turn ended, as a stop does. A pause of a Job whose resume is waiting for a slot calls the wait off and answers its row.
+Refused with nothing changed: 409 `fleet.session_not_pausable` for an ended Job, a Job on your words, and a Job that holds no slot; 409 `fleet.session_already_paused`; 409 `fleet.session_pause_refused` where the pool or git will not take the work (the slot is held by another, or the park failed), carrying the reason; 422 `fleet.session_command_refused` for a terminal Job, whose process Fleet does not host. One exception to "nothing changed": a park that git refuses after the turn was ended leaves the turn ended, as a stop does. A pause of a Job whose resume is waiting for a slot calls the wait off and answers its row.
 
 **A paused Job halts all of its work.** Its running Checks are force stopped before the slot is parked (up to three seconds; one that does not end is failed), its watches wait and run again after the resume, its process is not started again by a message: the turns written to it are kept, a Fleet notice is not told, and it raises nothing on Needs you. Only `resume_session` lifts the pause.
 
-Publishes `session.changed`. `agent_access` is `On your words`, `park_job`'s: Helm pauses on a person's ask and never on its own reading.
+Publishes `session.changed`. `agent_access` is `On your words`, `park_job`'s: a Job on your words pauses on a person's ask and never on its own reading.
 """

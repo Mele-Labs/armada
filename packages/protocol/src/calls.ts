@@ -1,10 +1,10 @@
-// One call a helm session made that the person's own settings do not cover,
-// held open while they answer it in the dock. `crates/ipc/src/helm_call.rs`,
+// One call made with no job behind it that the person's own settings do not cover,
+// held open while they answer it. `crates/ipc/src/call.rs`,
 // #1389.
 //
 // **A `CommandInFlight` one subject over, and deliberately not that type.**
 // Every field of that one is about a job — `step_id`, `allow_for_job`, a rule
-// written into `armada.yml` on the job's branch — and a helm call has no job.
+// written into `armada.yml` on the job's branch — and such a call has no job.
 // The two sets of answers are different sets, and a shared union would offer a
 // person an answer fleet cannot take.
 //
@@ -12,11 +12,11 @@
 // makes: these closed sets are the seam's own, with no registry behind them.
 
 /**
- * What a person may answer about one helm call. Since protocol 14.18.
+ * What a person may answer about one call. Since protocol 14.18.
  *
  * `allow_once` runs it and writes nothing. `allow_and_remember` runs it and
  * writes `rule` into the repository's own personal agent settings, so the agent
- * CLI allows it without asking again — in helm and in their terminal alike.
+ * CLI allows it without asking again — for the call and in their terminal alike.
  * `refuse` tells the session no.
  *
  * `always_allow` and `always_block` are offered on a card over a session's reach past its
@@ -41,7 +41,7 @@
  * appear on.
  */
 /** Every answer, for a process that checks one before sending it on. */
-export const HELM_CALL_ANSWERS = [
+export const CALL_ANSWERS = [
   "allow_once",
   "allow_and_remember",
   "refuse",
@@ -50,7 +50,7 @@ export const HELM_CALL_ANSWERS = [
   "allow_like_this_for_session",
   "always_block",
 ] as const;
-export type HelmCallAnswer = (typeof HELM_CALL_ANSWERS)[number];
+export type CallAnswer = (typeof CALL_ANSWERS)[number];
 
 /** Whether a call past a session's slots reads what it names, writes to it, or runs something the guard cannot class as either. */
 export type ReachesTo = "read" | "write" | "run";
@@ -62,14 +62,14 @@ export type CallKind = {
 };
 
 /**
- * One call a helm session is waiting on a person to answer, right now. Since
+ * One call waiting on a person to answer, right now. Since
  * protocol 14.18.
  *
  * **Not a status, and no job.** Nothing is queued and no step is running while
  * it waits — what is waiting is one process, inside one tool call, for the
  * length of one reply. `manifest_id` is what names where it came from.
  */
-export type HelmCallInFlight = {
+export type CallInFlight = {
   /** Fleet's id for this ask, and what an answer names. */
   call: string;
   manifest_id: string;
@@ -85,7 +85,7 @@ export type HelmCallInFlight = {
   /** The rule that would have to allow it, in the CLI's settings spelling — `Bash(gh issue list:*)`. */
   rule: string;
   /** In the order to draw them. */
-  offers: HelmCallAnswer[];
+  offers: CallAnswer[];
   /** How long fleet holds the call open, from `asked_at`. Fleet's bound, said rather than derived. */
   holding_for_seconds: number;
   /** The agent's questions, where the call is it asking the person. Absent for every other call. Since protocol 23.71. */
@@ -120,10 +120,10 @@ export type QuestionAnswer = {
   chosen: string[];
 };
 
-/** The request half of `answer_helm_call`. Since protocol 14.18. */
-export type AnswerHelmCall = {
+/** The request half of `answer_call`. Since protocol 14.18. */
+export type AnswerCall = {
   call: string;
-  answer: HelmCallAnswer;
+  answer: CallAnswer;
   /** Why, in the person's own words. **Only a refusal reads it.** */
   note?: string;
   /** One entry per question, for a call that asked some. Since protocol 23.71. */
@@ -134,14 +134,14 @@ export type AnswerHelmCall = {
   kind?: CallKind;
 };
 
-/** What `list_helm_calls` and `answer_helm_call` answer. Since protocol 14.18. */
-export type HelmCallsWaiting = {
-  waiting: HelmCallInFlight[];
+/** What `list_calls` and `answer_call` answer. Since protocol 14.18. */
+export type CallsWaiting = {
+  waiting: CallInFlight[];
 };
 
-/** `helm.asking_to_run`. Since protocol 14.18. */
-export type HelmAskingToRun = {
-  waiting: HelmCallInFlight;
+/** `call.asking_to_run`. Since protocol 14.18. */
+export type CallAskingToRun = {
+  waiting: CallInFlight;
 };
 
 /**
@@ -155,11 +155,11 @@ export type HelmAskingToRun = {
  * `ran_unasked` is a call fleet read as none of the three a person is put in
  * front of — destructive, pushing code to a shared space, writing off this
  * machine — so it ran and no card was ever drawn. **It is the only account of
- * what helm did unasked**, which is why it is published at all. Since protocol
+ * what ran unasked**, which is why it is published at all. Since protocol
  * 17.4.
  *
  */
-export type HelmCallSettled =
+export type CallSettled =
   | "ran_unasked"
   | "allowed_once"
   | "allowed_and_remembered"
@@ -168,14 +168,14 @@ export type HelmCallSettled =
   | "unanswered"
   | "session_gone";
 
-/** `helm.call_answered`. Since protocol 14.18. */
-export type HelmCallAnswered = {
+/** `call.answered`. Since protocol 14.18. */
+export type CallAnswered = {
   call: string;
   manifest_id: string;
   tool: string;
   detail: string;
   rule: string;
-  settled: HelmCallSettled;
+  settled: CallSettled;
   at: string;
 };
 

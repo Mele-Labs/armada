@@ -18,5 +18,5 @@ Fleet compares against **the disk at the moment of the save**, never against its
 
 **Editing during a running Job needs no warning and no lock.** A Job is judged against the Checks and Commands it snapshotted at creation, so an edit here cannot reach it.
 
-`agent_access` is `On your words`. The seven checkout-run operations it follows keep their `No`-turned-`On your words` reasoning for Drone confinement, which does not apply here — Helm reaches this door, never a Drone's. What does still apply: a change to what Checks mean is a person's, and Helm writes this file only where that person just asked it to.
+`agent_access` is `On your words`. The seven checkout-run operations it follows keep their `No`-turned-`On your words` reasoning for Drone confinement, which does not apply here — a Job on your words reaches this door, never a Drone's. What does still apply: a change to what Checks mean is a person's, and a Job on your words writes this file only where that person just asked it to.
 """

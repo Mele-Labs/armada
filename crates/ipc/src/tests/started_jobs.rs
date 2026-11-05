@@ -11,7 +11,7 @@ fn a_childs_line_flattens_its_summary_and_reads_back_the_same() {
     let line = StartedJob::of(&record, None, Some("Moved the reads.".into()));
 
     let json = encode(&line).expect("plain data");
-    assert!(json.contains(r#""id":"01HELM""#) && json.contains(r#""held":false"#), "{json}");
+    assert!(json.contains(r#""id":"01RECORD""#) && json.contains(r#""held":false"#), "{json}");
     assert!(!json.contains(r#""summary":{"id""#), "the summary is not nested: {json}");
     assert_eq!(decode::<StartedJob>("a child", json.as_bytes()).expect("round-trips"), line);
     assert_eq!(line.result, Some(StartedResult { end_reason: Some("closed".into()), summary: Some("Moved the reads.".into()) }));

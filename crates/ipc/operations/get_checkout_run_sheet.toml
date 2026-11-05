@@ -12,5 +12,5 @@ notes = """
 
 Under `/manifest` beside `get_manifest_reading`, for that operation's reason — a Fleet serves one repository, and this reads it before any Job exists to read one from instead.
 
-`agent_access` is `On your words`, `list_checkout_runs`' reason: it is where a Helm session finds what it may be asked to start. No other agent is offered it — `get_run_sheet` is what an agent working a Job needs, and the main checkout is the tree a Drone is confined out of.
+`agent_access` is `On your words`, `list_checkout_runs`' reason: it is where a Job on your words finds what it may be asked to start. No other agent is offered it — `get_run_sheet` is what an agent working a Job needs, and the main checkout is the tree a Drone is confined out of.
 """

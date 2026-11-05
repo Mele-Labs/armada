@@ -10,5 +10,5 @@ Since 23.35. The body is `run`, exactly as `get_kit_inventory`'s `allowlist` row
 
 Refused with a 409 where the allowlist holds no command spelled `run`, so a window left open across a removal is told rather than answered 200.
 
-`agent_access` is `On your words`, `remove_repository_allowed_command`'s reason: what a Drone may run is the owner's decision, and Helm only takes one back when that owner asked it to. There is no read beside it: the list rides `get_kit_inventory`.
+`agent_access` is `On your words`, `remove_repository_allowed_command`'s reason: what a Drone may run is the owner's decision, and a Job on your words only takes one back when that owner asked it to. There is no read beside it: the list rides `get_kit_inventory`.
 """

@@ -8,5 +8,5 @@ notes = """
 
 Every file read and every search run is written to the Finding as each is answered, and each write publishes `studio.changed`, so a whiteboard watches it fill. It freezes however it ends, with `ended` saying `answered`, `stopped` or `failed` and the cost where the agent reported one.
 
-**No budget and no place under the concurrency cap**, decided with the owner: the cost is shown when it ends, and `stop_scout` is how a person ends one. `Bridge only` because it is the person's own ask; Helm acting on an ask adds a Proposed Finding and calls `start_scout`.
+**No budget and no place under the concurrency cap**, decided with the owner: the cost is shown when it ends, and `stop_scout` is how a person ends one. `Bridge only` because it is the person's own ask; a Job on your words acting on an ask adds a Proposed Finding and calls `start_scout`.
 """

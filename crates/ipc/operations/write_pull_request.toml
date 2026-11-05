@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "On your words"
 description = "A person comments on a pull request, approves it or asks for changes"
 notes = """
-`POST /pull_request_writes/:repository`, body `WritePullRequest`: `pull_request` a number, `kind` one of `comment`, `approve` and `request_changes`, `body` Markdown, and `session_id` where a Job pressed it. Since 23.83. Answers `PullRequestPage`, read again after the write. **A write to a shared place**: everyone watching the repository reads it, so Helm asks first (`pushes to shared`).
+`POST /pull_request_writes/:repository`, body `WritePullRequest`: `pull_request` a number, `kind` one of `comment`, `approve` and `request_changes`, `body` Markdown, and `session_id` where a Job pressed it. Since 23.83. Answers `PullRequestPage`, read again after the write. **A write to a shared place**: everyone watching the repository reads it, so a Job on your words asks first (`pushes to shared`).
 
 `body` is required for `comment` and `request_changes` and optional for `approve`, **unless `comments` is set**, when `body` may be empty for all three. It travels to the forge on standard input and never in an argument.
 

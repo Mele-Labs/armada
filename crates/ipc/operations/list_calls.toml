@@ -2,7 +2,7 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "No"
-description = "Every Helm call waiting on a person right now, across every repository Fleet serves"
+description = "Every call waiting on a person right now, across every repository Fleet serves"
 notes = """
 **Read once on a resync, never polled.** `call.asking_to_run` carries each ask as it arrives and `call.answered` says it is over; this is what a Bridge started while one was already waiting reads to draw the dock.
 

@@ -8,5 +8,5 @@ notes = """
 
 `get_run_output`'s shape and its allowlist: `:run_id` names a run the checkout recorded or the one in flight, resolved against its own run directories before anything is opened.
 
-`agent_access` is `On your words`, `list_checkout_runs`' reason: what a run Helm started printed is what it reports back.
+`agent_access` is `On your words`, `list_checkout_runs`' reason: what a run a Job on your words started printed is what it reports back.
 """

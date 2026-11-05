@@ -802,7 +802,7 @@ pub enum SessionRow {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         why: Option<String>,
     },
-    /// Words that went to another Session. **Written in the four old threads Helm left behind
+    /// Words that went to another Session. **Written only in the old threads the Helm Job kept,
     /// and nowhere new**: Fleet sends words on now and keeps no row for them, but a thread that
     /// holds one still reads. The agent was never told of the row. `files` and `tags` are what
     /// went with them, read back with `get_session_file`.

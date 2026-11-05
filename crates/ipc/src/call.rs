@@ -1,15 +1,15 @@
-//! One call a Helm session made that the person's own settings do not cover,
-//! held open while they answer it in the dock. `#1389`.
+//! One call made with no Job behind it that the person's own settings do not cover,
+//! held open while they answer it. `#1389`.
 //!
 //! **A Drone's [`CommandInFlight`](crate::CommandInFlight) one subject over,
 //! and deliberately not that type.** Every field of that one is about a Job —
 //! `step_id`, `AllowForJob`, a rule written into `armada.yml` on the Job's
-//! branch — and a Helm call has no Job. The two sets of answers are different
+//! branch — and such a call has no Job. The two sets of answers are different
 //! sets and a shared enum would offer a person an answer Fleet cannot take.
 //!
 //! **What decides is the person's own configuration, not Armada's.** Fleet
 //! refuses nothing here and allows nothing here; it carries the question to the
-//! dock and carries the answer back inside the call. Spike 19 measured the
+//! person and carries the answer back inside the call. Spike 19 measured the
 //! path, spike 15 measured it first for a Drone.
 
 use serde::{Deserialize, Serialize};
@@ -193,10 +193,10 @@ pub enum RunOrNot {
     },
 }
 
-/// What a person may answer about one Helm call.
+/// What a person may answer about one call.
 ///
 /// **There is no `AllowForJob`** because there is no Job, and no `armada.yml`
-/// to write to: Helm runs in the person's own checkout under the person's own
+/// to write to: the call runs in the person's own checkout under the person's own
 /// settings, so the only place a lasting rule belongs is a settings file of
 /// theirs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -208,7 +208,7 @@ pub enum CallAnswer {
     /// Run it, and write [`CallInFlight::rule`] into the repository's own
     /// personal agent settings — `adapters::PERSONAL_SETTINGS`, which is the
     /// one place that path is spelled — so the CLI allows it without asking,
-    /// in Helm and in the person's terminal alike.
+    /// for the call and in the person's terminal alike.
     ///
     /// **The only thing in Armada that writes a person's settings**, and it
     /// does so on this answer and no other.
@@ -255,7 +255,7 @@ pub struct CallKind {
     pub script: Option<String>,
 }
 
-/// One call a Helm session is waiting on a person to answer, right now.
+/// One call waiting on a person to answer, right now.
 ///
 /// **It is not a status.** No Job moves, nothing is queued, and the wait ends
 /// without either — the same argument
@@ -267,7 +267,7 @@ pub struct CallInFlight {
     /// from a window left open across one is a refusal rather than a
     /// coincidence.
     pub call: String,
-    /// The repository whose Helm session asked. A person sees several.
+    /// The repository the call was made in. A person sees several.
     pub manifest_id: ManifestId,
     /// When Fleet was asked, by Fleet's clock.
     pub asked_at: Instant,
@@ -316,7 +316,7 @@ pub struct CallInFlight {
     pub kind: Option<CallKind>,
 }
 
-/// A person's answer to one Helm call. The request half of `answer_call`.
+/// A person's answer to one call. The request half of `answer_call`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AnswerCall {
     /// [`CallInFlight::call`]. An id naming nothing waiting is a 409.
@@ -353,7 +353,7 @@ pub struct CallAskingToRun {
 /// `call.answered`: what became of one ask, published whoever ended it —
 /// a person, or the bound running out.
 ///
-/// **Helm's act as its own event type**, the rule
+/// **An ask answered is its own event type**, the rule
 /// `studio.job_acted` already follows. A person who finds a command was run
 /// reads this to see that they allowed it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -378,7 +378,7 @@ pub enum CallSettled {
     ///
     /// **Published for a call no card was ever drawn for**, which is why the
     /// record matters more here than anywhere else in this enum: it is the only
-    /// account of what Helm did unasked, and the thing that catches a rule drawn
+    /// account of what ran unasked, and the thing that catches a rule drawn
     /// too wide.
     RanUnasked,
     /// A person allowed it, this once.

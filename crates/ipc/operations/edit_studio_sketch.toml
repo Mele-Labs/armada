@@ -8,5 +8,5 @@ Decided with the owner, 1 Oct 2026: a Studio's Sketch is the dispatch composer's
 
 **A picture is its staged file or nothing.** One carrying `staged` is a new image, which Fleet keeps as `add_studio_node` keeps a Sketch's; one carrying nothing keeps the image this node already holds under that id, and an id it holds none under is `fleet.studio_sketch_picture_not_kept`. A body naming a kept `frame` does not decode. Once the drawing is written, every frame it no longer names is deleted; a write Fleet refuses deletes the frames it had just kept, and nothing else.
 
-`Bridge only`, for the reason `edit_studio_draft` is: a person's drawing is not Helm's to redraw. Any kind but a Sketch is refused as `fleet.studio_not_a_sketch`, and a drawing with nothing on it as `fleet.studio_node_blank` — taking a Sketch off the board is a delete.
+`Bridge only`, for the reason `edit_studio_draft` is: a person's drawing is not a Job's to redraw. Any kind but a Sketch is refused as `fleet.studio_not_a_sketch`, and a drawing with nothing on it as `fleet.studio_node_blank` — taking a Sketch off the board is a delete.
 """

@@ -13,7 +13,7 @@ use ipc::{CloseSession, ManifestId, SendSessionMessage, SessionId, StartSession}
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use super::peer::Placing;
-use super::session_host::{rig_placing, Rig};
+use super::session_host::{eventually, rig_placing, Rig};
 use crate::daemon::Fleet;
 use crate::session_host::{Process, Processes, Sink, Start};
 
@@ -67,13 +67,16 @@ pub(super) async fn with_a_job_on_your_words_running(
     let made = fleet.start_session(start_of(manifest, true)).await.expect("started");
     Arc::clone(&fleet)
         .send_session_message(SendSessionMessage {
-            session_id: made.id,
+            session_id: made.id.clone(),
             text: String::from("hello"),
             attachments: Vec::new(),
             mentions: Vec::new(),
         })
         .await
         .expect("it is running");
+    // A first message is read before its turn begins, and the process starts with the turn.
+    let runtime = fleet.hosts().of(made.id.as_str());
+    eventually(|| async { runtime.state().process.is_some() }).await;
     fleet
 }
 

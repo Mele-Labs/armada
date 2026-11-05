@@ -3,7 +3,7 @@
 //! **Two operations.** `read_thought` takes the words a person typed and answers which running Job
 //! they are for, if any. `tell_session` is a Job on your words passing words to a live Job: Fleet
 //! sends them as Bridge's own send does and publishes `operator.words_sent`. The thread of the Job
-//! that sent them keeps a `sent` row only in the four old threads Helm left behind
+//! that sent them keeps a `sent` row only in the old threads the Helm Job kept
 //! (`SessionRow::Sent`), which stay readable.
 
 use serde::{Deserialize, Serialize};

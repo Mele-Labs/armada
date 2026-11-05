@@ -8,5 +8,5 @@ Put a port, a Check or a Command by name (replacing or adding), set `setup.requi
 
 **A value `config` would refuse is not refused here**, because a proposal is iterated through wrong states; Write is what refuses it. Refused, as a 422, is an edit that cannot apply: a workspace Scan does not find (`fleet.no_such_workspace`), a line that is not there, or a move that would drop `requires` or `destructive`, which the other registry has no key for (`fleet.proposal_not_amended`). After Write it is a 409, `fleet.proposal_written`.
 
-`agent_access` is `On your words`. This row was written before Helm existed, expecting a narrower *Drafts only* reach here and never Write — Nick's later ruling grants both this edit and `write_manifest_proposal` itself, on request: the person's ask is the gate, not a separate tier.
+`agent_access` is `On your words`. This row was written before a Job on your words existed, expecting a narrower *Drafts only* reach here and never Write — Nick's later ruling grants both this edit and `write_manifest_proposal` itself, on request: the person's ask is the gate, not a separate tier.
 """

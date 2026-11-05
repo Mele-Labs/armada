@@ -8,5 +8,5 @@ notes = """
 
 An empty folder already there is used and left in place. Refused with a 422 where `name` is empty, `.`, `..` or holds a `/` (`fleet.project_name_refused`), and where `parent` is relative or not a folder on this machine (`fleet.no_such_folder`); a 409 where the folder exists and is not empty, or one is already being made there (`fleet.destination_occupied`); a 500 where git could not start it (`fleet.project_not_started`), with what this call made removed. After the start, every refusal `add_repository` gives, under its codes.
 
-`agent_access` is `On your words`, as `add_repository`'s is, and Helm asks first.
+`agent_access` is `On your words`, as `add_repository`'s is, and a Job on your words asks first.
 """

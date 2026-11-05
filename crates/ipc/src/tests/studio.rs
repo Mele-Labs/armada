@@ -141,7 +141,7 @@ fn a_studio_round_trips_flat_and_an_untitled_one_sends_no_name() {
     assert!(json.contains(r#""added_by":"person""#), "{json}");
     assert!(
         json.contains(
-            r#""standing":"proposed","created_at":"2026-09-17T09:02:00.000Z","added_by":"helm""#
+            r#""standing":"proposed","created_at":"2026-09-17T09:02:00.000Z","added_by":"job""#
         ),
         "{json}"
     );
@@ -300,10 +300,10 @@ fn a_note_whose_capture_names_a_kept_frame_does_not_decode() {
     crate::StudioNodeAdded::try_from(named).expect_err("a Note naming a frame is no write");
 }
 
-/// **Helm's act is its own kind**, flat: which act beside the ids, and the
+/// **A Job's act is its own kind**, flat: which act beside the ids, and the
 /// repository at the top level where a poll's tally reads it.
 #[test]
-fn helms_act_on_a_studio_is_its_own_kind_and_names_its_repository() {
+fn a_jobs_act_on_a_studio_is_its_own_kind_and_names_its_repository() {
     let acted = Event::StudioJobActed(StudioJobActed {
         studio_id: crate::StudioId::carried("01STUDIO"),
         manifest_id: crate::ManifestId::carried("armada"),

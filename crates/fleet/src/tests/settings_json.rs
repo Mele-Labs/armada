@@ -189,7 +189,7 @@ async fn saving_checks_at_once_resizes_the_machine_check_slots_without_a_restart
 /// A file written before the Helm Job went keeps the owner's two choices under their new names, is
 /// written back so the old names are gone, and is not refused for the keys that left with it.
 #[test]
-fn a_file_holding_the_old_helm_keys_is_carried_over_written_back_and_not_refused() {
+fn a_file_holding_renamed_and_retired_keys_is_carried_over_written_back_and_not_refused() {
     use config::settings as s;
     let home = TempDir::new();
     let path = settings_file_in(&home);

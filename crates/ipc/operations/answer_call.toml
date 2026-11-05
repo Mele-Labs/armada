@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Allow a held Helm call once, allow it and remember the rule, or refuse it"
+description = "Allow a held call once, allow it and remember the rule, or refuse it"
 notes = """
 Named by `call`, which is Fleet's id for the ask and not the harness's: an answer from a window left open across two asks names an id nothing is waiting on and is a 409 rather than an answer to the wrong call.
 

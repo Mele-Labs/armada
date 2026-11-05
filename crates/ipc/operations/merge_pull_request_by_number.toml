@@ -8,5 +8,5 @@ notes = """
 
 **It refuses before it writes when the checks have not passed.** `fleet.merge_checks_not_passed` is a 409 for `pending` and for `failed` alike, with the failing names in the message; the answer to a pending one is `enable_auto_merge`. A draft is `fleet.pull_request_is_a_draft`. A merged one is answered as it stands, not refused: the work is where the press was trying to put it.
 
-The forge's own refusals keep the nine codes `merge_pull_request` has (`fleet.merge_branch_protected`, `fleet.merge_conflicted`, `fleet.merge_not_open`, `fleet.merge_no_tool`, `fleet.merge_refused` and the rest). **A need does not hold this press**: a need is declared by a branch and this names none. `pushes to shared`, so Helm asks first.
+The forge's own refusals keep the nine codes `merge_pull_request` has (`fleet.merge_branch_protected`, `fleet.merge_conflicted`, `fleet.merge_not_open`, `fleet.merge_no_tool`, `fleet.merge_refused` and the rest). **A need does not hold this press**: a need is declared by a branch and this names none. `pushes to shared`, so a Job on your words asks first.
 """
