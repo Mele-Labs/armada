@@ -129,8 +129,12 @@ jobs:
             echo "BIN main's armada, built from $built"
             echo "build=false" >> "$GITHUB_OUTPUT"
           else
-            echo "BIN build: main's armada is ${built:-not cached}, and this changes $reads since"
-            git diff --stat "$built" HEAD -- $reads 2>/dev/null | tail -n 1 || true
+            if [ -n "$built" ]; then
+              echo "BIN build: this changes $reads since main's armada, built from $built"
+              git diff --stat "$built" HEAD -- $reads 2>/dev/null | tail -n 1 || true
+            else
+              echo "BIN build: no cached armada"
+            fi
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
 
