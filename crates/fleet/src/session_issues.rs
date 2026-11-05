@@ -201,8 +201,6 @@ where
         let mut known = BTreeMap::from([(CLAIMED.to_string(), "true".to_string())]);
         if let Some(actor) = claimed_as {
             known.insert(CLAIMED_AS.to_string(), actor);
-            // Kept past the Job's end, so its pull request's merge still closes the issue.
-            let _ = store.keep_job_issue(&id, &manifest, issue.as_str());
         }
         if !claim.pull_requests.is_empty() {
             known.insert(PULL_REQUESTS.to_string(), pull_requests_joined(&claim.pull_requests.iter().copied().collect::<BTreeSet<_>>()));

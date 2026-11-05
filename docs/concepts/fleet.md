@@ -445,8 +445,8 @@ One Job, not every row: a Job that read the pull request from a directory in a s
 A failure or a conflict still goes to one.
 
 **A Job's wait on a merge the forge will do is not the owner's, and Fleet takes it off Needs you.**
-While the queue or auto-merge holds the pull request, every reading takes off each owner Job's `waiting_for` item that names it, and tells the Job only where something came off.
-Fleet knows the pull request by `#N`, "pull request N", "PR N", its link, its branch or its title, and takes off a line it read from a reply as well as the agent's own.
+While the queue or auto-merge holds the pull request, every reading takes off each owner Job's `waiting_for` item whose `approve_pr` act names it, and tells the Job only where something came off.
+Fleet reads the act and never the item's words: a line that only says the number, its link, its branch or its title stays.
 The job note tells agents not to state it.
 
 ### Watches
@@ -527,18 +527,14 @@ Nothing is said while `restart-build.status` says `running`.
 
 | A live job in a served repository | Told |
 |---|---|
-| Waits on the person to run `scripts/preview --restart` or `scripts/restart --main`, and that is the build now running | The build, and for each branch it holds whether it is in it, as the answer to that wait, so it wakes once |
 | Holds a branch the build newly holds, holds newer commits of, or dropped after it was told it was in | The build, and those branches only |
 | Holds a branch the preview left out, named with why in `Armada/preview-left-out` for this commit | The build, and `<branch> is not in it: <why>.`, even when it was never told the branch was in |
-| Anything else: a branch where it was at the last notice, a branch git cannot place in this build, a wait for the other build | Nothing |
+| Anything else: a branch where it was at the last notice, a branch git cannot place in this build | Nothing |
 
 **A rebuild that leaves a job's branches where they were says nothing.** Every branch-holder was told on every rebuild until 15 Oct 2026, and the notice arrives as input, so each job spent a turn answering "no action needed", in other repositories' jobs too.
 What each job was last told of each branch is kept in `build_branch_notices`: the newest commit of it the build held, or `out`.
 
-**The command is read as Bridge reads it**: either script by any path, its own flag, and `--adopt` in any order.
-Anything else, `--dry-run` included, is a shell run and not a restart.
-A wait for the other build than the one now running is left standing.
-A second wait for the same build is answered `Restarted: preview at 1234567`.
+**A wait to run a restart is never settled by the build moving.** Fleet tells the fact, to a job holding a branch of it, and the item stays the person's: reading `scripts/preview --restart` or `scripts/restart --main` as an answer was a guess.
 
 **A branch is in the build, not in it, or in it up to a commit.** Counted from the branch's own commits past `origin/main`, so a newer main merged into it is not counted as its own: all of them in the build, none, or some, naming the newest the build holds and how many since it are not.
 `main` and a branch with nothing of its own are not mentioned.

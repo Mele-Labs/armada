@@ -83,8 +83,8 @@ An edit under a group's paths marks the group worked (`worked_at`); a group that
 
 **Fleet marks a task itself where it has proof, and tells the agent once** (owner, 27 Oct 2026; `.claude/decisions/2026-10-27-fleet-keeps-the-task-list-honest.md`).
 An audit of 70 Jobs found the agents' marks could not be trusted: half the finished tasks were never in progress, and a median of 44 calls went by with no task update.
-The proof is a commit whose first line says a task not yet completed (matched as a list item is), the task's group's pull request merged (the group of the task in progress when the pull request was first kept), or an edit under a group's own paths while nothing is in progress, which puts that group's first open task in progress.
-A mark Fleet set carries its proof as `marked` (`commit 1a2b3c4 names it`, `#12 merged`, `edits in <path>`), and Bridge draws the same mark with the proof in its tooltip.
+The proof is a commit whose first line says a task not yet completed (matched as a list item is), or an edit under a group's own paths while nothing is in progress, which puts that group's first open task in progress.
+A mark Fleet set carries its proof as `marked` (`commit 1a2b3c4 names it`, `edits in <path>`), and Bridge draws the same mark with the proof in its tooltip.
 **Fleet's mark stands until the agent's list changes that task**: a list that still says what it said before leaves it, and one that moves it takes its place.
 A task in progress or completed carries `changed_at`, when it was put there by either.
 
@@ -95,7 +95,7 @@ The calls are counted per plan and kept with it: a hosted Job's from its process
 
 **Each task is told once**, marked or stale, in one `task_marked` notice listing every task not told yet, asking the agent to bring its list into line or change the task if Fleet has it wrong.
 A hosted Job hears it at its next tool call; a terminal Job's mod is handed it.
-A merge's tasks go in the merge's own message instead.
+A merge marks no task: which tasks a pull request finished is a guess.
 
 **A Judge's reading of the plan rides with it.** The owner presses the Judge on a plan waiting for approval, and it comes back as notes pinned to the group or task each is about, with the plan's own task matcher doing the pinning.
 It advises and gates nothing, and recording the plan again marks it out of date rather than dropping it.

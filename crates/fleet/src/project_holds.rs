@@ -169,7 +169,7 @@ where
     }
 
     /// Pull request `number` merged: every Job that held it is asked about its held tasks. **Held, not
-    /// standing**, as `issues_merged` reads it, and idempotent: a task already asked is not asked again.
+    /// standing**, as a merge reads it, and idempotent: a task already asked is not asked again.
     pub(crate) async fn tasks_asked_by_merge(&self, served: &crate::repositories::Served, number: u64) {
         let manifest = served.manifest().id().as_str().to_string();
         let holders: Vec<String> = self

@@ -173,7 +173,7 @@ where
 
     /// Pull request `number`, at `url`, merged at `merged_at`: every report a Job that held it holds or held
     /// is fixed by it. **Held, not standing**: a Job that ended and gave its report back still fixes it, for
-    /// the merge came after. Not gated on a backlog, as [`Self::issues_merged`] is. A report already fixed keeps
+    /// the merge came after. Not gated on a backlog. A report already fixed keeps
     /// its first merge, and Bridge is told only where one was marked.
     pub(crate) async fn reports_fixed_by_merge(&self, served: &Served, number: u64, title: &str, url: &str, merged_at: &str) {
         let manifest = served.manifest().id().as_str().to_string();
