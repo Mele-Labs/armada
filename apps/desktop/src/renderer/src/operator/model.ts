@@ -324,7 +324,11 @@ export function turnLine(turns: readonly OperatorTurn[], at: number): string | u
 }
 
 /** An outcome as its kind and what, from "Kind: what". An outcome that let the item go is drawn quieter. */
-export function outcomeOf(text: string): { label: string; what?: string; letGo: boolean } {
+export function outcomeOf(text: string): {
+  label: string;
+  what?: string;
+  letGo: boolean;
+} {
   const at = text.indexOf(": ");
   const label = at === -1 ? text : text.slice(0, at);
   return {

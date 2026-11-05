@@ -220,12 +220,20 @@ function answered(state: OperatorState, words: string): OperatorState {
 }
 
 /** `id` moved before `before`, or to the end: the list, and where it went from and to. Nothing where it stays put. */
-function movedIn<T extends { id: string }>(
+function movedIn<
+  T extends {
+    id: string;
+  },
+>(
   list: readonly T[],
   id: string,
   before: string | null,
   floor: number,
-): { list: T[]; from: number; to: number } | null {
+): {
+  list: T[];
+  from: number;
+  to: number;
+} | null {
   const from = list.findIndex((one) => one.id === id);
   if (from < floor || id === before) return null;
   const rest = list.filter((one) => one.id !== id);

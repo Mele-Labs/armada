@@ -171,9 +171,7 @@ function Card({
           </span>
         </Tooltip>
         <span className="armada-board__tag">{tag}</span>
-        {repository === undefined ? null : (
-          <span className="armada-board__repo">{repository}</span>
-        )}
+        {repository === undefined ? null : <span className="armada-board__repo">{repository}</span>}
       </span>
       <span className="armada-board__title">{title}</span>
       {line === undefined ? null : <span className="armada-board__line">{line}</span>}
@@ -313,7 +311,15 @@ function Queue({ store }: { store: OperatorStore }) {
   const raiseOf = (turn: OperatorTurn) => raises.find((one) => one.id === turn.raise);
   const waiting = raises.filter((one) => one.settled === undefined && one.toDiscuss !== true);
   // An act he pressed that the Operator does in its turn stays in Up next until done.
-  const pending = new Set(open.flatMap((one) => (one.raise === undefined ? [] : [one.raise])));
+  const pending = new Set(
+    open.flatMap((one) =>
+      one.raise === undefined
+        ? []
+        : [
+            one.raise,
+          ],
+    ),
+  );
   const settled = raises.filter((one) => one.settled !== undefined && !pending.has(one.id));
   const finished = turns.filter((one) => one.done !== undefined);
   const ids = next.map((one) => one.id);
@@ -363,38 +369,37 @@ function Queue({ store }: { store: OperatorStore }) {
   const upNext = (turn: OperatorTurn, live: boolean) => {
     const raise = raiseOf(turn);
     const line = live ? undefined : turnLine(open, open.indexOf(turn));
-    const act =
-      live ? undefined : turn.discuss === true && turn.raise !== undefined ? (
-        <Button
-          size="sm"
-          variant="secondary"
-          aria-label={`Discuss now: ${turn.text}`}
-          onClick={() => {
-            store.act({
-              kind: "discuss",
-              raise: turn.raise!,
-              now: true,
-            });
-            showTalk();
-          }}
-        >
-          Discuss now
-        </Button>
-      ) : turn.start !== undefined ? (
-        <Button
-          size="sm"
-          variant="secondary"
-          aria-label={`Start without waiting: ${turn.text}`}
-          onClick={() =>
-            store.act({
-              kind: "start-turn",
-              turn: turn.id,
-            })
-          }
-        >
-          Start without waiting
-        </Button>
-      ) : undefined;
+    const act = live ? undefined : turn.discuss === true && turn.raise !== undefined ? (
+      <Button
+        size="sm"
+        variant="secondary"
+        aria-label={`Discuss now: ${turn.text}`}
+        onClick={() => {
+          store.act({
+            kind: "discuss",
+            raise: turn.raise!,
+            now: true,
+          });
+          showTalk();
+        }}
+      >
+        Discuss now
+      </Button>
+    ) : turn.start !== undefined ? (
+      <Button
+        size="sm"
+        variant="secondary"
+        aria-label={`Start without waiting: ${turn.text}`}
+        onClick={() =>
+          store.act({
+            kind: "start-turn",
+            turn: turn.id,
+          })
+        }
+      >
+        Start without waiting
+      </Button>
+    ) : undefined;
     const repository = raise?.repository ?? turn.start?.repository ?? turn.repository;
     return (
       <Card
@@ -448,99 +453,99 @@ function Queue({ store }: { store: OperatorStore }) {
 
   return (
     <div className="armada-board__room">
-    <div className="armada-board" ref={slide}>
-      <Lane name="Now" hue="now">
-        {onIt === undefined ? null : upNext(onIt, true)}
-      </Lane>
-      <Lane
-        name="Up next"
-        hue="work"
-        onDrop={(event) => {
-          const dragged = readDrag(event);
-          if (dragged?.kind === "raise") queueTalk(dragged.id);
-          else if (dragged?.kind === "turn") moveTurn(dragged.id, null);
-        }}
-      >
-        {next.map((one) => upNext(one, false))}
-      </Lane>
-      <Lane name="Needs you" hue="you">
-        {waiting.map((one) => {
-          const discussing = state.open === one.id;
-          return (
+      <div className="armada-board" ref={slide}>
+        <Lane name="Now" hue="now">
+          {onIt === undefined ? null : upNext(onIt, true)}
+        </Lane>
+        <Lane
+          name="Up next"
+          hue="work"
+          onDrop={(event) => {
+            const dragged = readDrag(event);
+            if (dragged?.kind === "raise") queueTalk(dragged.id);
+            else if (dragged?.kind === "turn") moveTurn(dragged.id, null);
+          }}
+        >
+          {next.map((one) => upNext(one, false))}
+        </Lane>
+        <Lane name="Needs you" hue="you">
+          {waiting.map((one) => {
+            const discussing = state.open === one.id;
+            return (
+              <Card
+                key={one.id}
+                id={one.id}
+                tag={one.tag ?? "Item"}
+                repository={one.repository}
+                title={one.item}
+                line={discussing ? "In Discussion now" : one.read}
+                glyph={
+                  discussing ? (
+                    <MessagesSquare size={12} strokeWidth={2} aria-hidden />
+                  ) : (
+                    <Bot size={12} strokeWidth={2} aria-hidden />
+                  )
+                }
+                said={discussing ? "Being discussed" : "The Operator's pick is on the button"}
+                {...(discussing
+                  ? {
+                      state: "discussing" as const,
+                    }
+                  : {})}
+                drag={{
+                  kind: "raise",
+                  id: one.id,
+                }}
+                onLift={() => {
+                  lifted.current = null;
+                }}
+                act={<RaiseActs store={store} raise={one} busy={busy} />}
+              />
+            );
+          })}
+        </Lane>
+        <Lane name="Done" hue="done">
+          {settled.map((one) => (
             <Card
               key={one.id}
               id={one.id}
               tag={one.tag ?? "Item"}
               repository={one.repository}
               title={one.item}
-              line={discussing ? "In Discussion now" : one.read}
-              glyph={
-                discussing ? (
-                  <MessagesSquare size={12} strokeWidth={2} aria-hidden />
-                ) : (
-                  <Bot size={12} strokeWidth={2} aria-hidden />
-                )
-              }
-              said={discussing ? "Being discussed" : "The Operator's pick is on the button"}
-              {...(discussing
-                ? {
-                    state: "discussing" as const,
-                  }
-                : {})}
-              drag={{
-                kind: "raise",
-                id: one.id,
-              }}
-              onLift={() => {
-                lifted.current = null;
-              }}
-              act={<RaiseActs store={store} raise={one} busy={busy} />}
+              outcome={one.settled!}
+              glyph={<Check size={12} strokeWidth={2} aria-hidden />}
+              said="Settled"
+              state="done"
+              {...(one.job === undefined
+                ? {}
+                : {
+                    act: (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        aria-label={`Open Job: ${one.job.title}`}
+                        onClick={() => openJob(one.job!.session)}
+                      >
+                        Open Job
+                      </Button>
+                    ),
+                  })}
             />
-          );
-        })}
-      </Lane>
-      <Lane name="Done" hue="done">
-        {settled.map((one) => (
-          <Card
-            key={one.id}
-            id={one.id}
-            tag={one.tag ?? "Item"}
-            repository={one.repository}
-            title={one.item}
-            outcome={one.settled!}
-            glyph={<Check size={12} strokeWidth={2} aria-hidden />}
-            said="Settled"
-            state="done"
-            {...(one.job === undefined
-              ? {}
-              : {
-                  act: (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      aria-label={`Open Job: ${one.job.title}`}
-                      onClick={() => openJob(one.job!.session)}
-                    >
-                      Open Job
-                    </Button>
-                  ),
-                })}
-          />
-        ))}
-        {finished.map((one) => (
-          <Card
-            key={one.id}
-            id={one.id}
-            tag={turnTag(one)}
-            title={one.text}
-            outcome={one.done!}
-            glyph={<Check size={12} strokeWidth={2} aria-hidden />}
-            said="Settled"
-            state="done"
-          />
-        ))}
-      </Lane>
-    </div>
+          ))}
+          {finished.map((one) => (
+            <Card
+              key={one.id}
+              id={one.id}
+              tag={turnTag(one)}
+              title={one.text}
+              outcome={one.done!}
+              glyph={<Check size={12} strokeWidth={2} aria-hidden />}
+              said="Settled"
+              state="done"
+            />
+          ))}
+        </Lane>
+      </div>
     </div>
   );
 }

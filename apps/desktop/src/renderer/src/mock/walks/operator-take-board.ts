@@ -26,7 +26,12 @@ const consoleCard = inside(needsYou, role("listitem", /^Cockpit Console asks/));
 const consoleNext = inside(upNext, role("listitem", /^Cockpit Console asks/));
 const card = inside(discussion, role("group", /^Item: Cockpit Console/));
 const box = inside(discussion, role("textbox", "Message to the Operator"));
-const send = inside(discussion, button("Send", { exact: true }));
+const send = inside(
+  discussion,
+  button("Send", {
+    exact: true,
+  }),
+);
 
 export const operatorTakeBoard = walk("operator-take-board", [
   {
@@ -46,7 +51,10 @@ export const operatorTakeBoard = walk("operator-take-board", [
     say: "It is next",
   },
   {
-    look: inside(inside(now, role("listitem", /^A watch stayed live/)), role("img", "The Operator is on this")),
+    look: inside(
+      inside(now, role("listitem", /^A watch stayed live/)),
+      role("img", "The Operator is on this"),
+    ),
     say: "It finished the card it was on and took yours. Now holds what it is on",
   },
   {

@@ -9,11 +9,17 @@ export type OperatorTake = {
   /** The name in `?take=`. */
   name: string;
   /** Absent keeps the panel's own Discussion. */
-  Talk?: ComponentType<{ store: OperatorStore }>;
-  Queue: ComponentType<{ store: OperatorStore }>;
+  Talk?: ComponentType<{
+    store: OperatorStore;
+  }>;
+  Queue: ComponentType<{
+    store: OperatorStore;
+  }>;
 };
 
-const FILES = import.meta.glob<{ take?: OperatorTake }>("./*.tsx", {
+const FILES = import.meta.glob<{
+  take?: OperatorTake;
+}>("./*.tsx", {
   eager: true,
 });
 

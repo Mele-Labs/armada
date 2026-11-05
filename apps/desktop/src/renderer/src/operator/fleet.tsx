@@ -4,14 +4,27 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import type { OperatorBoard, OperatorBoardItem, OperatorBoardKind, OperatorTalk, Outcome, WaitingItem } from "@armada/protocol";
+import type {
+  OperatorBoard,
+  OperatorBoardItem,
+  OperatorBoardKind,
+  OperatorTalk,
+  Outcome,
+  WaitingItem,
+} from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { useSessionsEverywhere } from "../sessions-draft";
 import { stateOf } from "../state-feed";
 import { saveSetting, useSetting } from "../use-setting";
-import type { OperatorMessage, OperatorPosition, OperatorRaise, OperatorRole, OperatorTurn } from "./model";
+import type {
+  OperatorMessage,
+  OperatorPosition,
+  OperatorRaise,
+  OperatorRole,
+  OperatorTurn,
+} from "./model";
 import { OperatorHeld } from "./store";
 import type { Act, OperatorState } from "./store";
 import { openJob } from "./takes/board";
@@ -55,9 +68,14 @@ function raiseOf(session: Session, item: WaitingItem): OperatorRaise {
   const pick = item.operator_read?.pick;
   const ways =
     labels.length === 0
-      ? [OPEN_JOB]
+      ? [
+          OPEN_JOB,
+        ]
       : pick !== undefined && labels.includes(pick)
-        ? [pick, ...labels.filter((one) => one !== pick)]
+        ? [
+            pick,
+            ...labels.filter((one) => one !== pick),
+          ]
         : labels;
   const title = session.title ?? session.address ?? "Job";
   const suggests = item.source === "operator_suggestion";
@@ -94,7 +112,11 @@ const positionOf = (value: unknown): OperatorPosition =>
 
 /** A refusal in words, for Discussion. */
 function refusedSaid(outcome: Outcome): string {
-  const code = (outcome as { code?: string }).code;
+  const code = (
+    outcome as {
+      code?: string;
+    }
+  ).code;
   if (code === "fleet.operator_off") return "I'm switched off. Switch me on under Settings.";
   if (code === "fleet.operator_ceiling") return "I've used today's calls.";
   if (code === "fleet.operator_said_nothing") return "I had nothing to say to that.";
@@ -181,7 +203,11 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
 
   const state = useMemo((): OperatorState => {
     const turns: OperatorTurn[] = [
-      ...(board?.now === undefined ? [] : [turnOf(board.now)]),
+      ...(board?.now === undefined
+        ? []
+        : [
+            turnOf(board.now),
+          ]),
       ...(board?.next ?? []).map(turnOf),
       ...(board?.done ?? []).map((one) => ({
         ...turnOf(one),

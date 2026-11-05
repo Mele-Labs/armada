@@ -95,20 +95,20 @@ export function OperatorPanel({ picked }: { picked: RepositorySummary | null }) 
   return (
     <Picked.Provider value={picked}>
       <div className="armada-operator">
-      <div className="armada-operator__bar" ref={setPlace} />
-      <JobPanes
-        jobId={OPERATOR}
-        family={operatorPanes}
-        controls={place}
-        body={(tab) => <Body tab={tab} store={store} />}
-        add={{
-          entries: addEntries,
-          onSelect: (id, pane) => {
-            operatorPanes.rearrange(OPERATOR, (now) => addTab(now, pane.id, id as TabKind));
-            focusIn(pane.id);
-          },
-        }}
-      />
+        <div className="armada-operator__bar" ref={setPlace} />
+        <JobPanes
+          jobId={OPERATOR}
+          family={operatorPanes}
+          controls={place}
+          body={(tab) => <Body tab={tab} store={store} />}
+          add={{
+            entries: addEntries,
+            onSelect: (id, pane) => {
+              operatorPanes.rearrange(OPERATOR, (now) => addTab(now, pane.id, id as TabKind));
+              focusIn(pane.id);
+            },
+          }}
+        />
       </div>
     </Picked.Provider>
   );
@@ -138,7 +138,8 @@ function addEntries(): DropdownMenuEntry[] {
 
 function Body({ tab, store }: { tab: Tab; store: OperatorStore }): ReactNode {
   const pickedTake = takeNamed(store.state.take);
-  if (pickedTake?.Talk !== undefined && tab.kind === "op-talk") return <pickedTake.Talk store={store} />;
+  if (pickedTake?.Talk !== undefined && tab.kind === "op-talk")
+    return <pickedTake.Talk store={store} />;
   if (pickedTake !== undefined && tab.kind === "op-queue")
     return (
       <div className="job-pane__scroll armada-operator__scroll">
@@ -246,44 +247,44 @@ function Line({ store }: { store: OperatorStore }) {
     <ol className="armada-operator__line">
       {state.line.map((row, at) =>
         !shown(row.repository) ? null : (
-        <li
-          key={row.id}
-          className="armada-operator__line-row"
-          aria-label={row.title}
-          aria-description={`Waits for ${waitSaid(row.waits)}. Drag, or ⌥↑ and ⌥↓, to move it`}
-          tabIndex={0}
-          draggable
-          data-dragging={dragging === row.id || undefined}
-          onDragStart={(event) => {
-            // The row's own drag, not a tab's: the panes' drop targets keep out of it.
-            event.stopPropagation();
-            event.dataTransfer.setData("text/plain", row.id);
-            setDragging(row.id);
-          }}
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => {
-            event.stopPropagation();
-            drop(event, row.id);
-          }}
-          onDragEnd={() => setDragging(null)}
-          onKeyDown={(event) => key(event, at)}
-        >
-          <LineText row={row} />
-          <Button
-            size="sm"
-            variant="secondary"
-            aria-label={`Start now: ${row.title}`}
-            onClick={() =>
-              act({
-                kind: "start",
-                line: row.id,
-                by: "press",
-              })
-            }
+          <li
+            key={row.id}
+            className="armada-operator__line-row"
+            aria-label={row.title}
+            aria-description={`Waits for ${waitSaid(row.waits)}. Drag, or ⌥↑ and ⌥↓, to move it`}
+            tabIndex={0}
+            draggable
+            data-dragging={dragging === row.id || undefined}
+            onDragStart={(event) => {
+              // The row's own drag, not a tab's: the panes' drop targets keep out of it.
+              event.stopPropagation();
+              event.dataTransfer.setData("text/plain", row.id);
+              setDragging(row.id);
+            }}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.stopPropagation();
+              drop(event, row.id);
+            }}
+            onDragEnd={() => setDragging(null)}
+            onKeyDown={(event) => key(event, at)}
           >
-            Start now
-          </Button>
-        </li>
+            <LineText row={row} />
+            <Button
+              size="sm"
+              variant="secondary"
+              aria-label={`Start now: ${row.title}`}
+              onClick={() =>
+                act({
+                  kind: "start",
+                  line: row.id,
+                  by: "press",
+                })
+              }
+            >
+              Start now
+            </Button>
+          </li>
         ),
       )}
     </ol>
@@ -798,11 +799,13 @@ function useRowDrag(ids: readonly string[], move: (id: string, before: string | 
         setOver(null);
       },
       onKeyDown: (event: KeyboardEvent<HTMLLIElement>) => {
-        if (!movable || !event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+        if (!movable || !event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown"))
+          return;
         event.preventDefault();
         const at = ids.indexOf(id);
         const before = event.key === "ArrowUp" ? ids[at - 1] : (ids[at + 2] ?? null);
-        if (before !== undefined && (event.key === "ArrowUp" || at < ids.length - 1)) move(id, before);
+        if (before !== undefined && (event.key === "ArrowUp" || at < ids.length - 1))
+          move(id, before);
       },
     }),
   };
@@ -929,7 +932,9 @@ function Queue({ store }: { store: OperatorStore }) {
           <h3 className="armada-operator__queue-head">Waiting on you</h3>
           <ol className="armada-operator__queue-rows" data-ways="">
             {raises.map((one) => {
-              const said = one.settled ?? (one.suggests ? "What the Operator would do" : "Raised by the Operator");
+              const said =
+                one.settled ??
+                (one.suggests ? "What the Operator would do" : "Raised by the Operator");
               const Glyph = one.settled === undefined ? Bot : Check;
               return (
                 <li
