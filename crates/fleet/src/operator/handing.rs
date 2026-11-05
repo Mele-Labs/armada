@@ -111,6 +111,7 @@ where
                 ways: Way::STARTING.to_vec(),
                 answers: Vec::new(),
                 rule: None,
+                open: Vec::new(),
             }
         };
         self.operator_seat().hand_start(arrival, FIRST_WRITE_WAIT);
@@ -146,6 +147,7 @@ where
                     ways: Way::STARTING.to_vec(),
                     answers: Vec::new(),
                     rule: None,
+                    open: Vec::new(),
                 },
                 NEEDS_YOU_WAIT,
             );

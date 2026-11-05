@@ -33,6 +33,8 @@ pub(crate) struct Seat {
     places: Mutex<HashMap<String, Place>>,
     /// The questions and cards a read found waiting, and those a call is out on.
     pub(super) questions: super::answering::Questions,
+    /// Reports, issues, review requests and Later items waiting to be handed, and those a call is out on.
+    pub(super) sources: super::Sources,
 }
 
 impl Seat {

@@ -65,6 +65,10 @@ pub trait Backlog {
     /// files a second issue, so a caller keeps what it was answered before it asks again.
     fn create_child(&self, in_repo: &str, parent: &str, title: &str) -> Result<String, NotTracked>;
 
+    /// File `title` with `body` as a task of its own, and its reference. **Not idempotent**, as
+    /// [`create_child`](Backlog::create_child) is not; a caller checks for an open issue first.
+    fn file(&self, in_repo: &str, title: &str, body: &str) -> Result<String, NotTracked>;
+
     /// Give `reference` a new title.
     fn retitle(&self, in_repo: &str, reference: &str, title: &str) -> Result<(), NotTracked>;
 

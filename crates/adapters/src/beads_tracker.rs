@@ -188,6 +188,19 @@ impl<R: Run> Backlog for BeadsTracker<R> {
         }
     }
 
+    fn file(&self, in_repo: &str, title: &str, body: &str) -> Result<String, NotTracked> {
+        let doing = "filing an issue";
+        let made = self.bd(in_repo, &["create", "--title", title, "--description", body, "--type", "task", "--silent"], doing)?;
+        if !made.status.success() {
+            return Err(NotTracked::of(doing, said(&made)));
+        }
+        let reference = last_line(&made);
+        match reference.is_empty() || reference.contains(char::is_whitespace) {
+            true => Err(NotTracked::of(doing, format!("it printed no issue id: {}", said(&made)))),
+            false => Ok(reference),
+        }
+    }
+
     fn retitle(&self, in_repo: &str, reference: &str, title: &str) -> Result<(), NotTracked> {
         self.written(in_repo, &["update", reference.trim(), "--title", title], "renaming the issue")
     }

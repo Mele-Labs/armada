@@ -330,6 +330,13 @@ impl Backlog for FakeBeads {
         Ok(reference)
     }
 
+    fn file(&self, _in_repo: &str, title: &str, _body: &str) -> Result<String, NotTracked> {
+        if self.refusing.load(Ordering::SeqCst) {
+            return Err(NotTracked::of("filing an issue", "the fake bd is switched off"));
+        }
+        Ok(self.create(title))
+    }
+
     fn retitle(&self, _in_repo: &str, reference: &str, title: &str) -> Result<(), NotTracked> {
         self.written("renaming the issue", reference, |issue, at| issue.title = Stamped { value: title.to_string(), at })
     }

@@ -117,3 +117,16 @@ fn fixing_a_missing_bug_report_changes_nothing() {
     assert!(!store.mark_bug_report_fixed("nope", &fix(41)).unwrap());
     assert_eq!(store.bug_report("nope").unwrap(), None);
 }
+
+#[test]
+fn a_report_is_linked_to_one_issue_once_and_reads_none_before() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.keep_bug_report(&report("b1", "2026-10-29T09:00:00.000Z")).unwrap();
+    assert_eq!(store.bug_report_issue("b1").unwrap(), None);
+
+    assert!(store.link_bug_report("b1", "armada-a3f2").unwrap());
+    assert!(!store.link_bug_report("b1", "armada-b71c").unwrap(), "the first link stands");
+    assert!(!store.link_bug_report("b9", "armada-a3f2").unwrap(), "no such report");
+    assert_eq!(store.bug_report_issue("b1").unwrap().as_deref(), Some("armada-a3f2"));
+}

@@ -1,5 +1,7 @@
 //! A red main, fixed by one Job Autopilot starts. **No call**: a red is fixed, and what a person
 //! would check is that it is one Job, once a red commit, and not where another already holds it.
+//! **With the Operator on, the red is its arrival instead**, and it rules a new Job, a live Job
+//! near the red, or a raise; a red a Job already holds never arrives.
 //!
 //! The claim is the one a Job takes with `take_main_red` (`crate::red_claim`), made for the new Job
 //! before it is briefed, so a Fleet on another machine that holds the red refuses this one too.
@@ -8,15 +10,18 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::HostedSessions;
-use ipc::{AutopilotDecision, CloseSession, ManifestId, SessionId, SessionVoice, StartSession};
-use store::TakenHow;
+use ipc::{AutopilotDecision, CloseSession, ManifestId, Notice, SessionId, SessionVoice, StartSession};
+use store::{MainCi, TakenBy, TakenHow};
 
 use super::decisions::Helping;
 use crate::daemon::Fleet;
 use crate::main_fix::brief_of;
+use crate::operator::RedMain;
 use crate::red_claim::Taker;
+use crate::repositories::Served;
 
 const AUTOPILOT: &str = "Autopilot";
+const OPERATOR: &str = "Operator";
 
 fn short(commit: &str) -> &str {
     commit.get(..7).unwrap_or(commit)
@@ -42,15 +47,34 @@ where
         let Ok(served) = self.served_named(Some(&manifest)) else { return 0 };
         let Ok((served, main)) = self.red_of(served.root()).await else { return 0 };
         let id = format!("red:{}:{}", manifest.as_str(), main.red_commit());
-        if self.decision_kept(&id).await || self.taking(&main).await.is_some() {
+        if self.decision_kept(&id).await {
             return 0;
         }
-        if self.red_is_free(&main, false).await.is_err() {
+        if self.operator_on() {
+            let fixing = self.taking(&main).await.map(|TakenBy::Session(job)| job);
+            let red = RedMain { manifest_id: manifest.as_str().to_string(), commit: main.red_commit().to_string(), seen: brief_of(&main), fixing };
+            if let Some(arrival) = red.arrival() {
+                self.hand_once(arrival).await;
+            }
             return 0;
         }
+        if self.taking(&main).await.is_some() {
+            return 0;
+        }
+        let Some(job) = self.red_started(&served, &main, AUTOPILOT).await else { return 0 };
+        let asked = format!("Main is red at {}", short(main.red_commit()));
+        let because = "A red main is fixed by one Job, once for each red commit.".to_string();
+        self.decision_kept_as(helping, &id, Some(&job), "Fix main", AutopilotDecision::Red, asked, "Start a Job to fix it", because).await;
+        1
+    }
+
+    /// A Job titled "Fix main" started on `main`'s red, the red claimed for it and its brief said in
+    /// `by`'s name. **Nothing where the red is not free**, or the Job would not take its brief.
+    pub(crate) async fn red_started(self: &Arc<Self>, served: &Served, main: &MainCi, by: &str) -> Option<String> {
+        self.red_is_free(main, false).await.ok()?;
         let started = self
             .start_session(StartSession {
-                manifest_id: manifest.clone(),
+                manifest_id: ManifestId::carried(served.manifest().id().as_str()),
                 title: Some("Fix main".to_string()),
                 model: None,
                 effort: None,
@@ -63,25 +87,53 @@ where
                 project_rows: Vec::new(),
             })
             .await;
-        let Ok(record) = started else { return 0 };
-        let job = record.id.as_str().to_string();
+        let job = started.ok()?.id.as_str().to_string();
         let close = |job: &str| CloseSession { session_id: SessionId::carried(job) };
-        if self.claim_red(&main, &Taker::Session(job.clone()), false).await.is_err() {
+        if self.claim_red(main, &Taker::Session(job.clone()), false).await.is_err() {
             let _ = self.closed_and_parked(close(&job)).await;
-            return 0;
+            return None;
+        }
+        let facts = self.with_the_log(served, main, brief_of(main)).await;
+        let said = format!("Main went red at {}. {by} has claimed the red for you. Fix it.\n\n{facts}", short(main.red_commit()));
+        let voice = SessionVoice::Session { id: by.to_lowercase(), title: by.to_string() };
+        if self.first_message_from(&job, voice, &said).await.is_err() {
+            self.release_red(main).await;
+            let _ = self.closed_and_parked(close(&job)).await;
+            return None;
+        }
+        self.recorded_session_take(main, &job, TakenHow::Dispatched, None).await;
+        Some(job)
+    }
+
+    /// The red the Operator ruled on, where it is still `commit`'s and no Job holds it.
+    async fn red_still(&self, manifest: &str, commit: &str) -> Option<(Served, MainCi)> {
+        let served = self.served_named(Some(&ManifestId::carried(manifest))).ok()?;
+        let (served, main) = self.red_of(served.root()).await.ok()?;
+        if main.red_commit() != commit || self.taking(&main).await.is_some() {
+            return None;
+        }
+        Some((served, main))
+    }
+
+    /// The Operator ruled a new Job for the red: Autopilot's own start, in the Operator's name.
+    pub(crate) async fn operator_fixed_red(self: &Arc<Self>, manifest: &str, commit: &str) {
+        let Some((served, main)) = self.red_still(manifest, commit).await else { return };
+        self.red_started(&served, &main, OPERATOR).await;
+    }
+
+    /// The Operator ruled the red to live Job `job`, whose work is near it: the red is claimed for
+    /// it, and it is told, as `take_main_red` would have it.
+    pub(crate) async fn operator_gave_red(self: &Arc<Self>, manifest: &str, commit: &str, job: &str) {
+        let Some((served, main)) = self.red_still(manifest, commit).await else { return };
+        if self.red_is_free(&main, false).await.is_err() || self.claim_red(&main, &Taker::Session(job.to_string()), false).await.is_err() {
+            return;
         }
         let facts = self.with_the_log(&served, &main, brief_of(&main)).await;
-        let said = format!("Main went red at {}. Autopilot has claimed the red for you. Fix it.\n\n{facts}", short(main.red_commit()));
-        let voice = SessionVoice::Session { id: AUTOPILOT.to_lowercase(), title: AUTOPILOT.to_string() };
-        if self.first_message_from(&job, voice, &said).await.is_err() {
+        let said = format!("Main went red at {}. The Operator has claimed the red for you, as your work is near it. Fix it.\n\n{facts}", short(main.red_commit()));
+        if !matches!(self.told_by_fleet(job, &said, Notice::Operator).await, Ok(true)) {
             self.release_red(&main).await;
-            let _ = self.closed_and_parked(close(&job)).await;
-            return 0;
+            return;
         }
-        self.recorded_session_take(&main, &job, TakenHow::Dispatched, None).await;
-        let asked = format!("Main is red at {}", short(main.red_commit()));
-        let because = "A red main is fixed by one Job, once for each red commit.".to_string();
-        self.decision_kept_as(helping, &id, Some(&job), "Fix main", AutopilotDecision::Red, asked, "Start a Job to fix it", because).await;
-        1
+        self.recorded_session_take(&main, job, TakenHow::SentBack, None).await;
     }
 }

@@ -241,6 +241,7 @@ where
             first: None,
             refused: Vec::new(),
             answer: Some(answer),
+            issue: None,
         })
     }
 

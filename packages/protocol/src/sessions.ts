@@ -278,8 +278,11 @@ export type SessionLater = {
   confirmed?: boolean;
 };
 
-/** How a follow-up was settled: the work is done, it is an issue now (`issue`), or it will not be done (`reason`). */
-export type LaterHow = "done" | "filed" | "dropped";
+/**
+ * How a follow-up was settled: the work is done, it is an issue now (`issue`), it will not be done (`reason`), or it went to the
+ * Operator, which links it to an open issue or files one.
+ */
+export type LaterHow = "done" | "filed" | "dropped" | "handed";
 
 /**
  * `POST /sessions/settle_later`: one open follow-up is settled, by the agent or by the person. `issue` is the forge's number or a

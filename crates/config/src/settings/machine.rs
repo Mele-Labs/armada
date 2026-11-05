@@ -19,6 +19,8 @@ pub const OPERATOR: Flag = Flag("features.operator");
 pub const OPERATOR_DISPATCH: Flag = Flag("features.operatorDispatch");
 /// The Operator's Answer role: whether Fleet settles the questions and cards it answers, or only logs it.
 pub const OPERATOR_ANSWER: Flag = Flag("features.operatorAnswer");
+/// The Operator's File role: whether Fleet files the Later items it rules filed, or only logs it.
+pub const OPERATOR_FILE: Flag = Flag("features.operatorFile");
 /// Read by Bridge alone: whether a job needing the owner posts a macOS notification.
 pub const NOTIFICATIONS: Flag = Flag("features.notifications");
 /// Read by Bridge alone: whether moves and presses make their quiet sound.
@@ -175,7 +177,7 @@ pub(super) const FEATURES: &[Entry] = &[
         key: OPERATOR_DISPATCH.0,
         section: Section::Features,
         title: "Operator dispatches",
-        description: "Fleet does what the Operator rules: a Job it hands to another, merges or keeps in touch, and a quiet Job it nudges, starts the rest of or raises. Off, each ruling is only in its Log.",
+        description: "Fleet does what the Operator rules: hands work to another Job, merges Jobs or keeps them in touch, and nudges, continues or raises a quiet Job. Off, each ruling is only in its Log.",
         kind: Kind::Boolean,
         shipped: Shipped::Boolean(false),
         applies: Applies::Live,
@@ -193,6 +195,19 @@ pub(super) const FEATURES: &[Entry] = &[
         shipped: Shipped::Boolean(true),
         applies: Applies::Live,
         row: Some("operator-answer"),
+        env: None,
+        tip: None,
+    },
+    // Off as it ships, by the replay of 4 Nov: its filings are logged with what they would have filed.
+    Entry {
+        key: OPERATOR_FILE.0,
+        section: Section::Features,
+        title: "Operator files",
+        description: "Fleet files a Later item a job hands over in the repository's beads, where no open issue covers it. Off, each filing is only in its Log.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(false),
+        applies: Applies::Live,
+        row: Some("operator-file"),
         env: None,
         tip: None,
     },

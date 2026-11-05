@@ -163,6 +163,10 @@ where
             lines.extend(line);
             if let Looked::Synced { moved: true } = looked {
                 self.tracking().forget(served.manifest().id().as_str());
+                // Read again at once, so the Operator meets an issue the sync brought in.
+                if self.operator_on() {
+                    let _ = self.open_issues(&ipc::ManifestId::carried(&manifest)).await;
+                }
             }
             for one in &lost {
                 self.claim_lost_told(&manifest, one).await;
