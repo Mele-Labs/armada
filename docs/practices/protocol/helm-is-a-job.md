@@ -38,7 +38,7 @@ A route typo is a runtime 500 here as everywhere (the accepted cost), so the doc
 | `SessionsDraft.helmOf(manifestId)` | Bridge | The Helm Job of the repository Helm is pointed at, which the Jobs list does not hold when the picker picks another repository |
 | `Session.helm` (`sessions-wire.ts`) | Bridge | Read from `SessionRecord.helm`. The Jobs list draws Helm's mark, and opening that row opens the dock |
 | `rowsOfThread`, kind `sent` | Bridge | Draws `SessionRow::Sent` as the person's words with a "Sent to" chip. `Beside.repository` names the target's repository |
-| `HelmConnection` (`apps/desktop/src/main/helm.ts`) | Bridge | No socket and no thread. `ask_helm` and `record_thought_sent` answer a `SessionRecord`, which main folds into the Jobs host at once. `HelmSocket` is gone |
+| `HelmConnection` (`main/helm.ts`, gone with the dock) | Bridge | No socket and no thread. `ask_helm` and `record_thought_sent` answer a `SessionRecord`, which main folds into the Jobs host at once. `HelmSocket` is gone |
 | `tuneHelm`, `readHelmFile` (preload and `ipc` channels) | Bridge | Removed. `tune_session` and `get_session_file` serve the same acts |
 
 **How the dock reads a thread.** `get_helm_session` once, then `session.row` and `session.changed` on `/events` by the job's id, and `session.hosted` for `commands`, `model`, `effort` and `turn`.

@@ -54,7 +54,6 @@ Add the file. Nothing else lists it.
 | File | Why not | What would make it one |
 |---|---|---|
 | `packages/components/src/index.ts` | A barrel. TypeScript has no glob export, so each component is a line someone writes, and a branch adding one conflicts with another doing the same. 35 conflicts in three weeks | Importing a component by its own path, `@armada/components/<Name>`, which gives up the one curated entry |
-| `packages/components/src/index.css` | Ends with a `.armada-helm-dock` rule, and a later `@import` after it | Move the rule to its own stylesheet and import it, leaving imports only. A visual change, so it waits for a walk |
 | `crates/ipc/src/lib.rs` | `pub use` re-exports are rustfmt-wrapped multi-line statements, not lines, and `#[cfg(test)] mod tests;` sits between the two lists | One `pub use m::*;` a module, which gives up the curated export surface |
 | `packages/protocol/src/pending.ts` | Deletions: two branches deleting different entries conflict, and a directory does not change that | None; it is edited by removing |
 

@@ -316,7 +316,7 @@ Bridge's half is `packages/protocol/src/session-plan.ts`, written by hand, field
 Since 19 Oct 2026. `docs/concepts/session/a-job-fleet-hosts.md`.
 **Additive only**: one field on an existing type; no operation, route, event kind or error.
 The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/helm-calls.ts`, written by hand, field for field.
+Bridge's half is `packages/protocol/src/calls.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |

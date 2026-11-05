@@ -22,7 +22,7 @@ The protocol ID moves with the files below, and there is no number to take: `arm
 
 **Additive.** Three variants on each of two enums, one new enum (`ReachesTo`), four optional fields left out when empty, and one setting.
 No operation, event kind or route is new.
-A Bridge before this draws a reaching card with Allow once and Refuse, since `helmOfferedOf` drops an offer it has no words for, and reads the settled states as words it has none for.
+A Bridge before this draws a reaching card with Allow once and Refuse, since `offeredOf` drops an offer it has no words for, and reads the settled states as words it has none for.
 A Bridge before `reaches_to` draws the card with no read or write word.
 Since 30 Oct 2026, one more variant, `run`; the IDs differ, so a Bridge before it never reads one.
 Since 26 Oct 2026, one more variant, one new type (`CallKind`) and three more optional fields left out when empty; a Bridge before them drops the offer it has no words for.

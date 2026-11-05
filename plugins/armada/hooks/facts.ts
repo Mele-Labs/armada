@@ -638,7 +638,7 @@ const ACT_HEAD = /^(action|what|item|task|step|next step|to ?do|ask|need)s?$/
 const INDEX_HEAD = /^(#|no\.?|n)?$/
 // What owns a row that asks nothing of a person. `me`, `we` and `us` are the agent writing; a
 // kebab-case owner is a subagent type (`rust-engineer`).
-const NOT_A_PERSON = /\b(agent|agents|subagents?|claude|assistant|ai|bot|ci|fleet|drone|judge|helm|armada|bridge|github|automation|system|explore|plan|reviewer|engineer|me|we|us)\b|\w-\w|^(-|—|–|n\/a|none|tbd)?$/
+const NOT_A_PERSON = /\b(agent|agents|subagents?|claude|assistant|ai|bot|ci|fleet|drone|judge|armada|bridge|github|automation|system|explore|plan|reviewer|engineer|me|we|us)\b|\w-\w|^(-|—|–|n\/a|none|tbd)?$/
 const DONE = /^(✅|✔|✓|☑)|\b(done|completed?|merged|closed|resolved|shipped|landed|finished)\b/
 const NOT_DONE = /\b(not|pending|blocked|waiting|open|todo|to do)\b|❌|⏳/
 const NO_QUESTIONS = /^(none|nothing|no (open )?questions?)\b/
