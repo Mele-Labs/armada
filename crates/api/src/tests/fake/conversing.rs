@@ -80,19 +80,4 @@ impl Conversations for FakeDaemon {
             updated_input: asking.input,
         })
     }
-
-    async fn list_calls(&self) -> Result<ipc::CallsWaiting, Refusal> {
-        Ok(ipc::CallsWaiting {
-            waiting: Vec::new(),
-        })
-    }
-
-    async fn answer_call(
-        &self,
-        _said: ipc::AnswerCall,
-    ) -> Result<ipc::CallsWaiting, Refusal> {
-        Ok(ipc::CallsWaiting {
-            waiting: Vec::new(),
-        })
-    }
 }

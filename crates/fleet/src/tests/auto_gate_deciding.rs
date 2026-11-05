@@ -9,9 +9,8 @@ use ipc::AskingToRun;
 
 use crate::auto_gate::{because, Because};
 
-/// One ask, **read the way the route reads it** — `call_permission`'s rule and
-/// its reason: `fleet` reads no JSON of its own, so a fixture here is the CLI's
-/// own bytes rather than a literal.
+/// One ask, **read the way the route reads it**: `fleet` reads no JSON of its own, so a fixture
+/// here is the CLI's own bytes rather than a literal.
 fn asking(body: &str) -> AskingToRun {
     ipc::decode("a permission question", body.as_bytes()).expect("the fixture decodes")
 }

@@ -1,15 +1,13 @@
-//! `api::Conversations`, implemented over a real Fleet: the calls held for a person and the words
-//! passed to a running Job. `#939`.
+//! `api::Conversations`, implemented over a real Fleet: the calls a hosted Job puts to a person and
+//! the words passed to a running Job. `#939`.
 
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Conversations as Surface, Refusal};
-use ipc::{
-    AnswerCall, AskingToRun, CallsWaiting, ManifestId, ReadThought, RunOrNot, TellSession,
-    ThoughtReading, ThoughtTarget,
-};
+use ipc::{AskingToRun, ManifestId, ReadThought, RunOrNot, TellSession, ThoughtReading, ThoughtTarget};
 
+use crate::asks::unplaced;
 use crate::daemon::Fleet;
 
 impl<H, V, W> Surface for Fleet<H, V, W>
@@ -24,30 +22,23 @@ where
 {
     async fn ask_the_person(
         &self,
-        asking: AskingToRun,
-        manifest_id: Option<ManifestId>,
+        _asking: AskingToRun,
+        _manifest_id: Option<ManifestId>,
     ) -> Result<RunOrNot, Refusal> {
-        self.call_permission(asking, manifest_id).await
+        Ok(unplaced())
     }
 
     async fn ask_the_person_at(
         self: Arc<Self>,
         asking: AskingToRun,
-        manifest_id: Option<ManifestId>,
+        _manifest_id: Option<ManifestId>,
         caller: api::Caller,
     ) -> Result<RunOrNot, Refusal> {
         match self.session_holding(&caller) {
             Some(session) => self.session_permission(&session, asking).await,
-            None => self.call_permission(asking, manifest_id).await,
+            // The door offers this to a hosted Job and to no one else, so only a hand-made POST gets here.
+            None => Ok(unplaced()),
         }
-    }
-
-    async fn list_calls(&self) -> Result<CallsWaiting, Refusal> {
-        Ok(self.calls_waiting())
-    }
-
-    async fn answer_call(&self, said: AnswerCall) -> Result<CallsWaiting, Refusal> {
-        self.call_answered(said)
     }
 
     async fn read_thought(&self, read: ReadThought) -> ThoughtReading {

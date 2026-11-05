@@ -10,7 +10,7 @@ use std::time::Duration;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal, Sessions, StoredFile};
 use ipc::{
-    AnswerCall, AnswerSessionAsk, CloseSession, GateAnswer, HostedFacts, ManifestId,
+    AnswerSessionAsk, CloseSession, GateAnswer, HostedFacts, ManifestId,
     MoveSession, RunSessionCommand, SendSessionMessage, SessionGate, SessionId, SessionMode, SessionRecord, SessionRow,
     SessionSubagent, SessionThread, SessionTurn, SessionVoice, StartSession, StopSession, TuneSession,
     WireError,
@@ -217,19 +217,11 @@ where
             return Err(self.ask_not_waiting());
         }
         let said_answer = said.answer;
-        let answer = AnswerCall {
-            call: said.call,
-            answer: said.answer,
-            note: said.note,
-            answers: said.answers,
-            folder: said.folder,
-            kind: said.kind,
-        };
         self.hosts().of(&id).state().answered_via = api::via();
         let waiting = self
             .hosts()
             .asks()
-            .answer(&answer)
+            .answer(&said)
             .map_err(|why| match why {
                 NotAnswerable::Incomplete => Refusal::Unacceptable(WireError::raised(
                     SESSION_ANSWER_INCOMPLETE,
@@ -249,7 +241,7 @@ where
                 _ => self.ask_not_waiting(),
             })?;
         if terminal {
-            self.terminal_ask_answered(&id, &waiting, &crate::asks::Said::of(&answer))
+            self.terminal_ask_answered(&id, &waiting, &crate::asks::Said::of(&said))
                 .await?;
         }
         let record = self.published_hosted(&id).await?;

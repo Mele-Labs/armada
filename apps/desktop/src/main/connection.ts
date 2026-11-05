@@ -38,7 +38,6 @@ import { FollowSocket } from "./following";
 import { LandFollowSocket } from "./land-following";
 import { HeldReader } from "./holding";
 import { OverviewReads } from "./overview";
-import { Questions } from "./questions";
 import { RehearsalConnection } from "./rehearsal";
 import { ManifestFileCommands } from "./editing";
 import { KitCommands } from "./kit";
@@ -134,11 +133,6 @@ export class FleetConnection {
   >();
   /** What Fleet serves and which repository each window picked — see `repositories.ts`. */
   readonly repositories: RepositoryReads;
-  /** Every question waiting on a person, from every repository — see `questions.ts`. */
-  private readonly questions = new Questions({
-    current: () => this.current,
-    publish: (change) => this.publish(change),
-  });
   /** One running Check's log, as it is written — a fourth socket. `following.ts`. */
   private readonly follow: FollowSocket;
   /** One merge line Check's log, running or ended — a socket of its own. `land-following.ts`. */
@@ -374,7 +368,6 @@ export class FleetConnection {
       repositories: this.repositories,
       rehearsal: this.rehearsal,
       overviewAgain: (at) => this.overviewAgainForEveryWindow(at),
-      questions: this.questions,
       studios: this.studios,
       mods: this.mods,
       sessions: this.sessions,
@@ -475,8 +468,6 @@ export class FleetConnection {
     const fleet = this.connected();
     if (fleet !== null) {
       await this.repositories.readHoldings(fleet.port);
-      // Every call held for a person.
-      await this.questions.readCalls(fleet.port);
       // What is held changes when a slot is leased or released and when a sweep runs. A refresh is
       // the cheapest way to be sure about it.
       await this.held.again(fleet.port);

@@ -28,9 +28,7 @@ use axum::Router;
 
 use crate::amending::edit_manifest;
 use crate::commands::{catch_up_checkout, change_slot_pool, checkout_to_pull_request, rescue_slot};
-use crate::conversing::{
-    answer_call, ask_the_person, list_calls, read_thought, tell_session,
-};
+use crate::conversing::{ask_the_person, read_thought, tell_session};
 use crate::daemon::Daemon;
 use crate::editing::{get_manifest_file, save_manifest_file};
 use crate::fleetwide::{get_events_since, get_health, get_manifest};
@@ -877,8 +875,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/operator/read_thought", post(read_thought::<D>))
         .route("/operator/tell_session", post(tell_session::<D>))
         .route("/calls/permission", post(ask_the_person::<D>))
-        .route("/calls", get(list_calls::<D>))
-        .route("/calls/answer", post(answer_call::<D>))
         .route("/studios", get(list_studios::<D>))
         .route("/studios/create", post(create_studio::<D>))
         .route("/studios/:studio_id", get(get_studio::<D>))

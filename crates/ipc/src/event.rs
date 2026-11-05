@@ -13,7 +13,6 @@
 use serde::{Deserialize, Serialize};
 
 use crate::act_failed::ActFailed;
-use crate::call::{CallAskingToRun, CallAnswered};
 use crate::thought::WordsSent;
 use crate::hosted_sessions::SessionRowChanged;
 use crate::merge_line::MergeLines;
@@ -145,13 +144,6 @@ pub enum Event {
     // A person's words were sent to a running Job.
     #[serde(rename = "operator.words_sent")]
     WordsSent(WordsSent),
-    // A Job reached for something the person's own settings do not cover, and is held inside the
-    // call until they answer. `#1389`.
-    #[serde(rename = "call.asking_to_run")]
-    CallAskingToRun(CallAskingToRun),
-    // What became of one such ask, whoever ended it.
-    #[serde(rename = "call.answered")]
-    CallAnswered(CallAnswered),
     // A session after any fact about it, whole, so a client replaces the row it
     // holds. `docs/concepts/session.md`.
     #[serde(rename = "session.changed")]

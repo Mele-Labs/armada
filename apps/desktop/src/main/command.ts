@@ -15,7 +15,6 @@ import type { RescueOutcome } from "@armada/cleanup/api";
 import type { BridgeState } from "../shared/bridge";
 import type { FilesFound, Outcome, SavePreference, SaveSettings } from "@armada/protocol";
 import type { ChangeSlotPool, RescueSlot, SlotPoolChanged, SlotRescued } from "@armada/protocol";
-import type { AnswerCall, CallAnswer } from "@armada/protocol";
 import type { LessonAnswer } from "@armada/protocol";
 import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
 import { ask } from "./request";
@@ -153,41 +152,6 @@ export class Commands {
           rescued: answer.body as SlotRescued,
         }
       : (answer.outcome as RescueOutcome);
-  }
-
-  /**
-   * Answer one held call. #1389.
-   *
-   * **Outside `act` and outside every in-flight set here**, because a held call
-   * has no board row: nothing is re-read, and the answer
-   * lands inside a session's own tool call rather than on a row. Fleet answers
-   * with the calls still waiting, which the window does not need — the event says
-   * the same thing — so only the outcome comes back.
-   */
-  async answerCall(call: string, answer: CallAnswer, note?: string): Promise<Outcome> {
-    const port = this.board.port();
-    if (port === null)
-      return {
-        ok: false,
-        why: "not_connected",
-      };
-    // Nothing rather than an empty string, `answerCommand`'s rule.
-    const said = note?.trim() ?? "";
-    const body: AnswerCall = {
-      call,
-      answer,
-      ...(said === ""
-        ? {}
-        : {
-            note: said,
-          }),
-    };
-    const answered = await ask(port, "POST", "/calls/answer", body);
-    return answered.ok === true
-      ? {
-          ok: true,
-        }
-      : answered.outcome;
   }
 
   /** Agree with one retro item. `lessoning.ts`. */

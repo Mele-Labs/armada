@@ -337,9 +337,6 @@ where
     pub(crate) fn hosts(&self) -> &crate::session_host::Hosts {
         &self.sessions
     }
-    pub(crate) fn asks(&self) -> &crate::asks::Asks {
-        &self.asks
-    }
     pub(crate) fn building(&self) -> &crate::building::Building {
         &self.building
     }

@@ -175,18 +175,6 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
-    // A Job on your words held inside a call the person's own settings do not cover,
-    // and what became of it. `#1389`.
-    Route {
-        operation: "call.asking_to_run",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "call.answered",
-        method: "GET",
-        path: "/events",
-    },
     // A reading sent a person's words to a Job instead of asking.
     Route {
         operation: "operator.words_sent",

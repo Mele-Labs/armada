@@ -178,10 +178,13 @@ pub struct AnswerSessionAsk {
     /// One entry per question, for an ask that carries some. Since 23.71.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub answers: Vec<QuestionAnswer>,
-    /// [`crate::AnswerCall::folder`].
+    /// The folder an "always" or a session answer is for: [`CallInFlight::reaches`](crate::CallInFlight::reaches) or a
+    /// folder above it. Read for those three answers, and one without it is refused; a "like this"
+    /// answer may carry one to narrow its kind to that folder.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub folder: Option<String>,
-    /// [`crate::AnswerCall::kind`].
+    /// The width a "like this" answer allows: the card's own [`CallInFlight::kind`](crate::CallInFlight::kind), or the
+    /// same with no script. Read for that answer only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kind: Option<crate::CallKind>,
 }

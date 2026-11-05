@@ -18,6 +18,19 @@ The older pages that name Helm are records of what was.
 `ThoughtSent`.
 The mirror files `helm.ts` and `helm-debug.ts` in `packages/protocol/src` are gone with them.
 
+## Gone with the dock
+
+The dock was the only place a call from a process Fleet does not host could be answered, and it is gone.
+A hosted Job's call is put to the person on the Job's own thread and answered with `answer_session_ask`.
+A call from any other process is denied at once, so nothing waits for a person who cannot see it.
+
+| Operations and events | Types | Routes | Error codes |
+|---|---|---|---|
+| `list_calls`, `answer_call`, `call.asking_to_run`, `call.answered` | `CallsWaiting`, `CallAskingToRun`, `CallAnswered`, `CallSettled`, `AnswerCall` | `/calls`, `/calls/answer` | `fleet.call_not_waiting`, `fleet.answer_not_offered` |
+
+They were named `list_helm_calls`, `answer_helm_call`, `helm.asking_to_run` and `helm.call_answered` before this page's renames.
+`ask_the_person` and its route `/calls/permission` stay.
+
 ## Renames
 
 Calls, in Fleet's `ipc` and in `packages/protocol/src/calls.ts`, which was `helm-calls.ts`:
@@ -26,19 +39,11 @@ Calls, in Fleet's `ipc` and in `packages/protocol/src/calls.ts`, which was `helm
 |---|---|
 | `HelmCallAnswer` | `CallAnswer` |
 | `HelmCallInFlight` | `CallInFlight` |
-| `HelmCallsWaiting` | `CallsWaiting` |
-| `HelmCallSettled` | `CallSettled` |
-| `HelmCallAnswered` | `CallAnswered` |
-| `HelmAskingToRun` | `CallAskingToRun` |
-| `AnswerHelmCall`, `answer_helm_call` | `AnswerCall`, `answer_call` |
-| `list_helm_calls` | `list_calls` |
 
 Events, sent by Fleet and read by Bridge:
 
 | Was | Is |
 |---|---|
-| `helm.call_answered` | `call.answered` |
-| `helm.asking_to_run` | `call.asking_to_run` |
 | `helm.thought_routed` (`HelmThoughtRouted`) | `operator.words_sent` (`WordsSent`) |
 | `studio.helm_acted` | `studio.job_acted` (`StudioJobActed`) |
 
@@ -66,16 +71,12 @@ Call ids are `call-N`, where they were `helm-N`.
 
 | Was | Is |
 |---|---|
-| `/helm/calls` | `/calls` |
-| `/helm/calls/answer` | `/calls/answer` |
 | `/helm/permission` | `/calls/permission` |
 | `/helm/read_thought` | `/operator/read_thought` |
 | `/helm/tell_session` | `/operator/tell_session` |
 
 ## Error codes
 
-`fleet.helm_call_not_waiting` is `fleet.call_not_waiting`.
-`fleet.helm_answer_not_offered` is `fleet.answer_not_offered`.
 `fleet.studio_node_not_helms` is `fleet.studio_node_not_a_jobs`.
 
 ## Settings

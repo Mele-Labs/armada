@@ -49,7 +49,7 @@ import type {
   RestoreKitPiece,
 } from "@armada/protocol";
 import type { Outcome, OrganizeAction, OrganizeProposal } from "@armada/protocol";
-import type { CallAnswer, StartCheckoutRun } from "@armada/protocol";
+import type { StartCheckoutRun } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand } from "@armada/protocol";
 import type { SendSessionMessage } from "@armada/protocol";
 import type { DropRunFact, SetRunMemoryPlace } from "@armada/protocol";
@@ -333,8 +333,6 @@ export type Sending = {
  */
 export function useCommands(sending: Sending) {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  // Which held call has an answer in flight, by the call id Fleet minted, so its card's controls wait. #1389.
-  const [answering, setAnswering] = useState<string | null>(null);
 
   /**
    * Send main's red to a Session as a message, through the call the Cockpit sends with. **A
@@ -347,22 +345,6 @@ export function useCommands(sending: Sending) {
       text,
     });
     if (!answer.ok) setOutcome(answer.outcome);
-  }
-
-  /** Answer one held call. What draws the card's own controls off while this is out is the call id held here. #1389. */
-  async function answerCall(
-    call: string,
-    chose: CallAnswer,
-    note?: string,
-  ): Promise<Outcome> {
-    setAnswering(call);
-    try {
-      const answered = await window.armada.answerCall(call, chose, note);
-      setOutcome(answered);
-      return answered;
-    } finally {
-      setAnswering((held) => (held === call ? null : held));
-    }
   }
 
   /**
@@ -381,8 +363,6 @@ export function useCommands(sending: Sending) {
     outcome,
     setOutcome,
     sendToSession,
-    answerCall,
-    answering,
     refresh,
   };
 }

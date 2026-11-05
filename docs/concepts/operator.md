@@ -190,7 +190,8 @@ The Operator replaced it.
 A `sent` row, `SessionRow::Sent`, stays in the row set so a thread that holds one still draws.
 The wire names that went with Helm are listed in `../practices/protocol/the-operator-takes-helms-place.md`.
 
-**A call held on a person's answer is read with `list_calls` and answered with `answer_call`**, and what became of it is published as `call.answered`.
+**A hosted Job's call held on a person's answer is answered with `answer_session_ask`**, from its own thread or from Needs you.
+A call from a process Fleet does not host is denied at once.
 Words sent to a Job are published as `operator.words_sent`.
 
 ## Configuration

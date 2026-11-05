@@ -1,6 +1,5 @@
-// One call made with no job behind it that the person's own settings do not cover,
-// held open while they answer it. `crates/ipc/src/call.rs`,
-// #1389.
+// One call a hosted Job makes that the person's own settings do not cover, held open while they
+// answer it. `crates/ipc/src/call.rs`, #1389.
 //
 // **A `CommandInFlight` one subject over, and deliberately not that type.**
 // Every field of that one is about a job — `step_id`, `allow_for_job`, a rule
@@ -8,8 +7,8 @@
 // The two sets of answers are different sets, and a shared union would offer a
 // person an answer fleet cannot take.
 //
-// The header rules in `protocol.ts` hold here, with the exception `Settled`
-// makes: these closed sets are the seam's own, with no registry behind them.
+// The header rules in `protocol.ts` hold here: these closed sets are the seam's own, with no
+// registry behind them.
 
 /**
  * What a person may answer about one call. Since protocol 14.18.
@@ -118,65 +117,6 @@ export type AskedChoice = {
 export type QuestionAnswer = {
   question: string;
   chosen: string[];
-};
-
-/** The request half of `answer_call`. Since protocol 14.18. */
-export type AnswerCall = {
-  call: string;
-  answer: CallAnswer;
-  /** Why, in the person's own words. **Only a refusal reads it.** */
-  note?: string;
-  /** One entry per question, for a call that asked some. Since protocol 23.71. */
-  answers?: QuestionAnswer[];
-  /** The folder an `always_allow`, `always_block` or `allow_for_session` is for: `reaches` or a folder above it. Read for those three only. */
-  folder?: string;
-  /** The width an `allow_like_this_for_session` allows: the card's own `kind`, or the same with no script. Read for that answer only. */
-  kind?: CallKind;
-};
-
-/** What `list_calls` and `answer_call` answer. Since protocol 14.18. */
-export type CallsWaiting = {
-  waiting: CallInFlight[];
-};
-
-/** `call.asking_to_run`. Since protocol 14.18. */
-export type CallAskingToRun = {
-  waiting: CallInFlight;
-};
-
-/**
- * How one ask ended. Since protocol 14.18.
- *
- * `allowed_but_not_remembered` is a person's allow whose rule would not write —
- * **the call still ran**, because the answer was theirs and a settings file is
- * not a reason to refuse them. `unanswered` is fleet's bound running out, which
- * answers deny: silence is not consent.
- *
- * `ran_unasked` is a call fleet read as none of the three a person is put in
- * front of — destructive, pushing code to a shared space, writing off this
- * machine — so it ran and no card was ever drawn. **It is the only account of
- * what ran unasked**, which is why it is published at all. Since protocol
- * 17.4.
- *
- */
-export type CallSettled =
-  | "ran_unasked"
-  | "allowed_once"
-  | "allowed_and_remembered"
-  | "allowed_but_not_remembered"
-  | "refused"
-  | "unanswered"
-  | "session_gone";
-
-/** `call.answered`. Since protocol 14.18. */
-export type CallAnswered = {
-  call: string;
-  manifest_id: string;
-  tool: string;
-  detail: string;
-  rule: string;
-  settled: CallSettled;
-  at: string;
 };
 
 /** The four option labels of the Job's question about carrying on in a new Job (`ipc::HANDOFF_YES`, `ipc::HANDOFF_STAY`, `ipc::HANDOFF_QUIET`, `ipc::HANDOFF_REMIND`). Fleet starts a new Job on the owner's press of the first, and keeps the last two on the Job's ledger. */

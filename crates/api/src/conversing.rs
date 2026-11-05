@@ -1,4 +1,4 @@
-//! The routes for words typed for a running Job, and for the calls a Job puts to a person.
+//! The routes for words typed for a running Job, and for the call a Job puts to a person.
 //! `#939`, `#1367`.
 
 use axum::body::Bytes;
@@ -65,29 +65,6 @@ pub(crate) async fn ask_the_person<D: Conversations>(
         .await
     {
         Ok(decided) => answer(StatusCode::OK, &decided, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// What is waiting on a person right now, Fleet-wide.
-pub(crate) async fn list_calls<D: Conversations>(State(served): State<Served<D>>) -> Response {
-    match served.daemon().list_calls().await {
-        Ok(waiting) => answer(StatusCode::OK, &waiting, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// A person's answer, into the call that is waiting on it.
-pub(crate) async fn answer_call<D: Conversations>(
-    State(served): State<Served<D>>,
-    body: Bytes,
-) -> Response {
-    let said: ipc::AnswerCall = match ipc::decode_body("an answer to a call", &body) {
-        Ok(said) => said,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    match served.daemon().answer_call(said).await {
-        Ok(waiting) => answer(StatusCode::OK, &waiting, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

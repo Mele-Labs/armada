@@ -35,7 +35,6 @@ import type {
   LessonsRead,
   RetroRead,
   RetroSubject,
-  CallAnswer,
   Followed,
   FleetRestart,
   FrameRead,
@@ -146,7 +145,6 @@ import type {
   RepositoryScanRead,
 } from "@armada/screens/src/setup-reads";
 import type { HealthRead } from "@armada/screens/src/overview-reads";
-import type { Outstanding } from "@armada/screens/src/outstanding";
 import type {
   ModSessionStarted,
   StartModSession,
@@ -312,7 +310,6 @@ type OldBridgeState = {
   checkoutRunFollowed: CheckoutRunFollowed;
   manifestDrift: ManifestDriftRead;
   health: HealthRead;
-  questions: Outstanding[];
   studios: StudiosRead;
   studio: StudioRead;
   sessions: SessionsRead;
@@ -337,7 +334,6 @@ type OldBridgeApi = {
   readRequestRepository: (words: string) => Promise<RequestRepositoryRead>;
   changeSlotPool: (manifestId: string, change: ChangeSlotPool) => Promise<Outcome>;
   rescueSlot: (manifestId: string, rescue: RescueSlot) => Promise<RescueOutcome>;
-  answerCall: (call: string, answer: CallAnswer, note?: string) => Promise<Outcome>;
   savePreference: (save: SavePreference) => Promise<Outcome>;
   saveSettings: (changes: SaveSettings["changes"]) => Promise<Outcome>;
   askModels: () => Promise<void>;
@@ -800,7 +796,6 @@ const OLD_NOTHING_YET: OldBridgeState = {
     state: "none",
   },
   located: null,
-  questions: [],
   settings: null,
   limits: null,
   preferences: {
@@ -838,7 +833,6 @@ const OLD_CHANNELS = {
   readRequestRepository: "bridge:read-request-repository",
   changeSlotPool: "bridge:change-slot-pool",
   rescueSlot: "bridge:rescue-slot",
-  answerCall: "bridge:answer-call",
   savePreference: "bridge:save-preference",
   saveSettings: "bridge:save-settings",
   askModels: "bridge:ask-models",

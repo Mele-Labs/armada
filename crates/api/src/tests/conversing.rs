@@ -54,12 +54,3 @@ async fn words_that_ask_for_a_route_come_back_as_a_thought_and_others_as_a_quest
     let reading: ThoughtReading = ipc::decode("a reading", &body).expect("a reading");
     assert_eq!(reading, ThoughtReading::Question);
 }
-
-#[tokio::test]
-async fn the_calls_waiting_are_listed_at_calls() {
-    let (_daemon, app) = wired();
-    let (status, body) = call(&app, "GET", "/calls", "").await;
-    assert_eq!(status, StatusCode::OK);
-    let waiting: ipc::CallsWaiting = ipc::decode("calls", &body).expect("calls");
-    assert!(waiting.waiting.is_empty());
-}

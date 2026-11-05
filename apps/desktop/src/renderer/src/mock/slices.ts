@@ -6,7 +6,6 @@ import type { BridgeState } from "../../../shared/bridge";
 import type { Slice, SliceName } from "./fake-context";
 import { cleanup } from "./slices/cleanup";
 import { core } from "./slices/core";
-import { questions } from "./slices/questions";
 import { checks } from "./slices/checks";
 import { dispatch } from "./slices/dispatch";
 import { lessons } from "./slices/lessons";
@@ -58,7 +57,6 @@ const BY_NAME = {
   manifest,
   setup,
   workflows,
-  questions,
   settings,
   overview,
   cleanup,

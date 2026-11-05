@@ -1,450 +1,50 @@
-//! A call the person's own settings do not cover, put to a person and
-//! answered: allowed once, allowed and remembered, refused, and left
-//! unanswered. `#1389`.
+//! A call put to a person by a process Fleet does not host. `#1389`.
 //!
-//! **Driven through the surface and not through a process.** The permission
-//! path is a route the agent CLI calls and a route a person answers on; what a
-//! session does while it waits is the CLI's own, measured in spike 19. So these
-//! cases hold the two halves of Fleet's part: what a person is shown, and what
-//! goes back inside the call.
-//!
-//! The hold here is the two seconds `crate::tests::daemon::fleets` plants, so
-//! the unanswered case can outlive it.
+//! **Driven through the surface and not through a process.** The door offers `ask_the_person` to a
+//! hosted Job and to no one else, so the only caller Fleet cannot place is a hand-made POST. A
+//! hosted Job's own ask is held on its thread, which `session_host` and `unanswered` cover.
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use api::{Conversations, Next, Subscription};
-use ipc::{AnswerCall, AskingToRun, CallAnswer, CallSettled, RunOrNot};
+use api::Conversations;
+use ipc::{AskingToRun, RunOrNot};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
-
-fn fleet(home: &TempDir) -> Arc<Hosted> {
-    Arc::new(Fleet::assembled(fittings(
-        home,
-        FakeWorkProduct::changed(&[]),
-    )))
-}
-
-/// One ask, **read the way the route reads it**: the CLI's own bytes, decoded.
-/// `fleet` reads no JSON of its own — the gate scopes that to `store` and `ipc`
-/// — so a fixture here is a body rather than a literal, which is what the door
-/// would have handed over anyway.
-fn asking(body: &str) -> AskingToRun {
-    ipc::decode("a permission question", body.as_bytes()).expect("the fixture decodes")
-}
-
-/// One call on a tool that is not a shell line, which is every MCP tool and
-/// every built-in but `Bash`.
-fn tool(named: &str) -> AskingToRun {
-    asking(&format!(
-        "{{\"tool_name\":\"{named}\",\"input\":{{}},\"tool_use_id\":\"toolu_01\"}}"
-    ))
-}
-
-fn shell(command: &str) -> AskingToRun {
-    asking(&format!(
-        "{{\"tool_name\":\"Bash\",\"input\":{{\"command\":\"{command}\",\
-         \"description\":\"what it is for\"}},\"tool_use_id\":\"toolu_01\"}}"
-    ))
-}
-
-/// The call a session is held inside, started and left running. What comes back
-/// is the answer the CLI would act on.
-fn held(
-    fleet: &Arc<Hosted>,
-    asking: AskingToRun,
-) -> tokio::task::JoinHandle<Result<RunOrNot, api::Refusal>> {
-    let fleet = Arc::clone(fleet);
-    tokio::spawn(async move { fleet.ask_the_person(asking, None).await })
-}
-
-/// The one call waiting, once Fleet has put it on the table. Polled rather than
-/// slept on, so a slow machine waits longer rather than failing.
-async fn waiting(fleet: &Arc<Hosted>) -> ipc::CallInFlight {
-    for _ in 0..200 {
-        let listed = fleet.list_calls().await.expect("the list");
-        if let Some(first) = listed.waiting.into_iter().next() {
-            return first;
-        }
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
-    panic!("nothing was ever put to a person");
-}
-
-async fn answer(fleet: &Arc<Hosted>, call: &str, answer: CallAnswer, note: Option<&str>) {
-    fleet
-        .answer_call(AnswerCall {
-            call: String::from(call),
-            answer,
-            note: note.map(String::from),
-            answers: Vec::new(),
-            folder: None,
-            kind: None,
-        })
-        .await
-        .expect("the answer lands");
-}
-
-async fn published(watching: &mut Subscription) -> Vec<ipc::Event> {
-    let mut seen = Vec::new();
-    while let Ok(Some(Next::Send(delivered))) =
-        tokio::time::timeout(Duration::from_millis(50), watching.next()).await
-    {
-        seen.push(delivered.event);
-    }
-    seen
-}
-
-/// The owner's own test, in a case: ask for `gh`, be asked about it, allow it,
-/// and the session runs it.
-///
-/// **`updatedInput` is what the CLI runs**, so it comes back exactly as it was
-/// sent — anything else here would be Armada editing a person's command behind
-/// them.
+/// An unplaced ask is answered `deny` before the hold, which `crate::tests::daemon::fittings` sets
+/// at two seconds, could end it, and nothing is left on a table for a person to find.
 #[tokio::test]
-async fn a_shell_line_is_put_to_a_person_and_runs_on_their_allow() {
+async fn an_unplaced_ask_is_denied_at_once_and_nothing_is_left_waiting() {
     let home = TempDir::new();
-    let fleet = fleet(&home);
-    let sent = shell("git push -u origin topic/some-branch");
-    let call = held(&fleet, sent.clone());
+    let fleet = Arc::new(Fleet::<FakeHarness, FakeVcs, FakeWorkProduct>::assembled(fittings(
+        &home,
+        FakeWorkProduct::changed(&[]),
+    )));
+    let asking: AskingToRun = ipc::decode(
+        "a permission question",
+        br#"{"tool_name":"Bash","input":{"command":"git push"},"tool_use_id":"toolu_01"}"#,
+    )
+    .expect("the fixture decodes");
 
-    let asked = waiting(&fleet).await;
-    assert_eq!(asked.tool, "Bash");
-    assert_eq!(asked.detail, "git push -u origin topic/some-branch");
-    assert_eq!(asked.rule, "Bash(git push:*)");
-    assert_eq!(
-        asked.offers,
-        vec![
-            CallAnswer::AllowOnce,
-            CallAnswer::AllowAndRemember,
-            CallAnswer::Refuse,
-        ]
-    );
-    answer(&fleet, &asked.call, CallAnswer::AllowOnce, None).await;
+    let decided = tokio::time::timeout(
+        Duration::from_millis(500),
+        Arc::clone(&fleet).ask_the_person_at(asking, None, api::Caller::unplaceable()),
+    )
+    .await
+    .expect("answered at once, not held")
+    .expect("an answer");
 
-    let decided = call.await.expect("the task").expect("an answer");
     assert_eq!(
         decided,
-        RunOrNot::Allow {
-            updated_input: sent.input,
+        RunOrNot::Deny {
+            message: String::from(
+                "This call came from outside any job Armada hosts, so nobody could be asked and it was not run"
+            ),
         }
     );
-    assert!(
-        fleet
-            .list_calls()
-            .await
-            .expect("the list")
-            .waiting
-            .is_empty(),
-        "an answered call is off the table"
-    );
-}
-
-/// A command longer than a row is put to a person whole, because they are asked to allow all of
-/// it; one that fits travels once, as `detail`.
-#[tokio::test]
-async fn a_long_command_is_asked_whole_and_a_short_one_only_as_its_line() {
-    let home = TempDir::new();
-    let fleet = fleet(&home);
-    // A push, so it is put to a person; the push is past the cut.
-    let long = format!("{} git push origin the-last-word", "echo ok;".repeat(36));
-    let call = held(&fleet, shell(&long));
-
-    let asked = waiting(&fleet).await;
-    assert!(asked.truncated, "{} characters are more than a row", long.len());
-    assert_eq!(asked.detail.chars().count(), 200);
-    assert_eq!(asked.whole.as_deref(), Some(long.as_str()));
-    answer(&fleet, &asked.call, CallAnswer::Refuse, None).await;
-    call.await.expect("the task").expect("an answer");
-
-    let call = held(&fleet, shell("git push"));
-    let asked = waiting(&fleet).await;
-    assert_eq!(asked.detail, "git push");
-    assert_eq!(asked.whole, None);
-    let written = ipc::encode(&asked).expect("the ask encodes");
-    assert!(!written.contains("\"whole\""), "{written}");
-    answer(&fleet, &asked.call, CallAnswer::Refuse, None).await;
-    call.await.expect("the task").expect("an answer");
-}
-
-/// **Their words reach the model**, because a session told only "no" says
-/// nothing useful about what it could not do.
-#[tokio::test]
-async fn a_refusal_carries_the_persons_own_words_to_the_session() {
-    let home = TempDir::new();
-    let fleet = fleet(&home);
-    let call = held(&fleet, shell("rm -rf /tmp/everything"));
-
-    let asked = waiting(&fleet).await;
-    answer(
-        &fleet,
-        &asked.call,
-        CallAnswer::Refuse,
-        Some("  we are not deleting that  "),
-    )
-    .await;
-
-    let RunOrNot::Deny { message } = call.await.expect("the task").expect("an answer") else {
-        panic!("a refusal is a deny");
-    };
-    assert!(message.contains("we are not deleting that"), "{message}");
-    assert!(
-        !message.contains("  we"),
-        "the whitespace is keystrokes, not their reason: {message}"
-    );
-}
-
-/// `allow_and_remember` is the only thing in Armada that writes a person's
-/// settings, and it writes **one** rule — the one the card showed them.
-#[tokio::test]
-async fn allow_and_remember_writes_the_rule_a_person_read_and_nothing_else() {
-    let home = TempDir::new();
-    let fleet = fleet(&home);
-    let call = held(&fleet, shell("gh pr merge 1389 --merge"));
-
-    let asked = waiting(&fleet).await;
-    answer(&fleet, &asked.call, CallAnswer::AllowAndRemember, None).await;
-    call.await.expect("the task").expect("an answer");
-
-    let at = home.path().join(adapters::PERSONAL_SETTINGS);
-    let written = std::fs::read_to_string(&at).expect("the settings were written");
-    assert!(written.contains("\"Bash(gh pr merge:*)\""), "{written}");
-    assert!(
-        !written.contains("1389"),
-        "the whole command is a rule a person would add again tomorrow: {written}"
-    );
-}
-
-/// **Silence is not consent.** Nobody answers, the hold runs out, and the
-/// session is told how long it waited — rather than a process held open until
-/// the reply budget kills it.
-#[tokio::test]
-async fn nobody_answering_ends_the_wait_as_a_refusal_and_never_as_an_allow() {
-    let home = TempDir::new();
-    let fleet = fleet(&home);
-    let call = held(&fleet, shell("rm -rf /tmp/everything"));
-
-    let asked = waiting(&fleet).await;
-    assert_eq!(asked.holding_for_seconds, 2, "the fixture's own bound");
-
-    let decided = tokio::time::timeout(Duration::from_secs(20), call)
-        .await
-        .expect("the hold ends the wait")
-        .expect("the task")
-        .expect("an answer");
-    let RunOrNot::Deny { message } = decided else {
-        panic!("an unanswered call is a deny, not an allow");
-    };
-    assert!(message.contains("2 seconds"), "{message}");
-    assert!(
-        fleet
-            .list_calls()
-            .await
-            .expect("the list")
-            .waiting
-            .is_empty(),
-        "a card nobody answered comes down"
-    );
-}
-
-/// A restart while a call waits: **answered with the restart named**, never
-/// left held for graceful shutdown to be killed over. `#2663`.
-#[tokio::test]
-async fn a_call_held_when_fleet_stops_is_refused_with_the_restart_named() {
-    let home = TempDir::new();
-    let fleet = fleet(&home);
-    let call = held(&fleet, shell("rm -rf /tmp/everything"));
-    waiting(&fleet).await;
-
-    fleet.asks_ended_for_stop();
-
-    // Inside the fixture's two-second hold, so only the stop can have answered it.
-    let decided = tokio::time::timeout(Duration::from_secs(1), call)
-        .await
-        .expect("a call held when Fleet stops is answered, not left held")
-        .expect("the task")
-        .expect("an answer");
-    let RunOrNot::Deny { message } = decided else {
-        panic!("a call cut short by a restart is a deny, not an allow");
-    };
-    assert!(message.contains("Armada restarted"), "{message}");
-    assert!(
-        fleet.list_calls().await.expect("the list").waiting.is_empty(),
-        "the card comes down"
-    );
-}
-
-/// An answer from a window left open across an ask names an id nothing is
-/// waiting on. **A 409 and not a second answer to the next call.**
-#[tokio::test]
-async fn an_answer_naming_nothing_waiting_is_refused() {
-    let home = TempDir::new();
-    let fleet = fleet(&home);
-
-    match fleet
-        .answer_call(AnswerCall {
-            call: String::from("call-404"),
-            answer: CallAnswer::AllowOnce,
-            note: None,
-            answers: Vec::new(),
-            folder: None,
-            kind: None,
-        })
-        .await
-    {
-        Err(api::Refusal::IllegalMove(error)) => {
-            assert_eq!(error.code, "fleet.call_not_waiting")
-        }
-        other => panic!("refused, not {other:?}"),
-    }
-}
-
-/// Every ask and every answer is on the record. A person who finds a command was run reads the second to see
-/// that they allowed it.
-#[tokio::test]
-async fn the_ask_and_the_answer_are_each_their_own_event() {
-    let home = TempDir::new();
-    let fleet = fleet(&home);
-    let mut watching = fleet.events().subscribe();
-    let call = held(&fleet, shell("git push --force"));
-
-    let asked = waiting(&fleet).await;
-    answer(&fleet, &asked.call, CallAnswer::AllowOnce, None).await;
-    call.await.expect("the task").expect("an answer");
-
-    let events = published(&mut watching).await;
-    let kinds: Vec<String> = events.iter().map(ipc::Event::kind).collect();
-    assert!(
-        kinds.contains(&String::from("call.asking_to_run")),
-        "{kinds:?}"
-    );
-    assert!(
-        kinds.contains(&String::from("call.answered")),
-        "{kinds:?}"
-    );
-    let answered = events
-        .iter()
-        .find_map(|event| match event {
-            ipc::Event::CallAnswered(answered) => Some(answered),
-            _ => None,
-        })
-        .expect("the answer is published");
-    assert_eq!(answered.call, asked.call);
-    assert_eq!(answered.settled, CallSettled::AllowedOnce);
-    assert_eq!(answered.rule, "Bash(git push:*)");
-}
-
-/// A tool that is not a shell line is named by itself, because that is the rule
-/// the CLI's settings would carry for it.
-#[tokio::test]
-async fn a_tool_that_is_not_a_command_is_its_own_rule() {
-    let home = TempDir::new();
-    let fleet = fleet(&home);
-    let call = held(
-        &fleet,
-        asking("{\"tool_name\":\"mcp__notion__delete_page\",\"input\":{}}"),
-    );
-
-    let asked = waiting(&fleet).await;
-    assert_eq!(asked.rule, "mcp__notion__delete_page");
-    assert_eq!(asked.detail, "", "a tool with no argument this names");
-
-    answer(&fleet, &asked.call, CallAnswer::AllowOnce, None).await;
-    call.await.expect("the task").expect("an answer");
-}
-
-/// **`#1518`'s fourth answer is unreachable while Fleet classifies**, and this
-/// is the case that says so rather than a deleted test nobody can find.
-///
-/// `allow_every_read` was offered on a read of Armada's own door. `#1525` made
-/// a door read run without anybody being asked, so no card is drawn over one
-/// and the answer has nothing to appear on. The variant is still on the wire —
-/// removing it is a major bump and a reversal of a decision the owner took an
-/// hour before this landed, which is his to make and not this branch's.
-#[tokio::test]
-async fn a_read_on_armadas_own_door_draws_no_card_at_all_now() {
-    let home = TempDir::new();
-    let fleet = fleet(&home);
-
-    let decided = fleet
-        .ask_the_person(tool("mcp__armada-fleet__get_check_output"), None)
-        .await
-        .expect("an answer");
-
-    assert!(matches!(decided, RunOrNot::Allow { .. }));
-    assert!(
-        fleet
-            .list_calls()
-            .await
-            .expect("the list")
-            .waiting
-            .is_empty(),
-        "a read is not a card, so there is nothing to offer a fourth answer on"
-    );
-}
-
-/// The whole of `#1525` in one case: a call none of the owner's three classes
-/// names **never reaches the dock**. Nothing is put on the table, the session
-/// gets its allow inside the same call, and the record says it ran unasked.
-#[tokio::test]
-async fn a_call_in_none_of_the_three_classes_runs_without_anybody_being_asked() {
-    let home = TempDir::new();
-    let fleet = fleet(&home);
-    let mut watching = fleet.events().subscribe();
-
-    let decided = fleet
-        .ask_the_person(shell("python3 -c print(1)"), None)
-        .await
-        .expect("an answer");
-
-    assert!(
-        matches!(decided, RunOrNot::Allow { .. }),
-        "it runs, and nobody was asked"
-    );
-    assert!(
-        fleet
-            .list_calls()
-            .await
-            .expect("the list")
-            .waiting
-            .is_empty(),
-        "nothing was ever put on the table"
-    );
-    let events = published(&mut watching).await;
-    let kinds: Vec<String> = events.iter().map(ipc::Event::kind).collect();
-    assert!(
-        !kinds.contains(&String::from("call.asking_to_run")),
-        "no card was drawn: {kinds:?}"
-    );
-    let answered = events
-        .iter()
-        .find_map(|event| match event {
-            ipc::Event::CallAnswered(answered) => Some(answered),
-            _ => None,
-        })
-        .expect("what ran unasked is still on the record");
-    assert_eq!(answered.settled, CallSettled::RanUnasked);
-    assert_eq!(answered.rule, "Bash(python3:*)");
-}
-
-/// And the other half: a line in one of the three still waits for a person.
-#[tokio::test]
-async fn a_destructive_line_still_waits_for_a_person() {
-    let home = TempDir::new();
-    let fleet = fleet(&home);
-    let call = held(&fleet, shell("rm -rf crates/fleet"));
-
-    let asked = waiting(&fleet).await;
-    assert_eq!(asked.detail, "rm -rf crates/fleet");
-    answer(&fleet, &asked.call, CallAnswer::Refuse, None).await;
-
-    let RunOrNot::Deny { .. } = call.await.expect("the task").expect("an answer") else {
-        panic!("a refusal is a deny");
-    };
+    assert!(fleet.hosts().asks().waiting().is_empty());
 }

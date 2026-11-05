@@ -20,7 +20,6 @@ import { applyArrival, type ArrivalHost } from "./arrivals";
 import type { RehearsalConnection } from "./rehearsal";
 import type { RepositoryReads } from "./repositories";
 import { Modding } from "./mods";
-import { Questions } from "./questions";
 import { HeldReader } from "./holding";
 
 const FLEET = {
@@ -31,29 +30,18 @@ const FLEET = {
 };
 
 /**
- * A host reaching only what these arms touch: `questions`, real off its own wiring; every other
- * region is never called by the events below, so a cast stands in rather than a working fake of
- * five other classes.
+ * A host reaching only what these arms touch; every other region is never called by the events
+ * below, so a cast stands in rather than a working fake of five other classes.
  */
-function fakeHost(questionsOver: BridgeState["questions"] = []): {
+function fakeHost(): {
   host: ArrivalHost;
-  questions: Questions;
   state: () => BridgeState;
   autopilots: ReturnType<typeof vi.fn>;
 } {
   let state: BridgeState = {
     ...NOTHING_YET,
-    questions: questionsOver,
   };
   const autopilots = vi.fn();
-  const questions = new Questions({
-    current: () => state,
-    publish: (change) =>
-      (state = {
-        ...state,
-        ...change,
-      }),
-  });
   const mods = new Modding(
     (change) =>
       (state = {
@@ -106,7 +94,6 @@ function fakeHost(questionsOver: BridgeState["questions"] = []): {
       autopilotsAgain: async () => {},
     },
     overviewAgain: async () => {},
-    questions,
     studios: {
       again: async () => {},
       changed: () => {},
@@ -142,7 +129,6 @@ function fakeHost(questionsOver: BridgeState["questions"] = []): {
   };
   return {
     host,
-    questions,
     state: () => state,
     autopilots,
   };

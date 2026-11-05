@@ -24,7 +24,7 @@ use std::time::Duration;
 use adapter_traits::CallDetail;
 use core_model::Timestamp;
 use ipc::{
-    AnswerCall, AskingToRun, CallKind, CallAnswer, CallInFlight, Instant, ManifestId,
+    AnswerSessionAsk, AskingToRun, CallKind, CallAnswer, CallInFlight, Instant, ManifestId,
     QuestionAnswer, ReachesTo, RunOrNot,
 };
 use tokio::sync::oneshot;
@@ -64,7 +64,7 @@ pub struct Said {
 }
 
 impl Said {
-    pub fn of(said: &AnswerCall) -> Said {
+    pub fn of(said: &AnswerSessionAsk) -> Said {
         Said {
             answer: said.answer,
             note: said
@@ -115,11 +115,7 @@ struct Held {
     answer: oneshot::Sender<Said>,
 }
 
-/// Every call waiting on a person right now, across every repository.
-///
-/// **One table for the machine, not one per conversation.** The dock is
-/// Fleet-wide and a person answers what is waiting on them wherever it came
-/// from — which is how `#935` already gathers a Job's questions.
+/// Every call a hosted Job has waiting on a person right now.
 pub struct Asks {
     waiting: Mutex<BTreeMap<String, Held>>,
     minted: AtomicU64,
@@ -239,7 +235,7 @@ impl Asks {
     /// A person's answer. **Takes the ask off the table** — a second press
     /// finds nothing waiting, which is what makes it a refusal rather than a
     /// second answer to the same call.
-    pub fn answer(&self, said: &AnswerCall) -> Result<CallInFlight, NotAnswerable> {
+    pub fn answer(&self, said: &AnswerSessionAsk) -> Result<CallInFlight, NotAnswerable> {
         let mut waiting = self
             .waiting
             .lock()
@@ -310,7 +306,7 @@ impl Asks {
         waiting.remove(call).map(|held| held.in_flight)
     }
 
-    /// Every ask waiting, oldest first — what `list_calls` answers.
+    /// Every ask waiting, oldest first.
     pub fn waiting(&self) -> Vec<CallInFlight> {
         let Ok(waiting) = self.waiting.lock() else {
             return Vec::new();
@@ -492,6 +488,16 @@ pub fn restarted() -> RunOrNot {
         message: String::from(
             "Armada restarted before anybody answered this, so it was not run. Ask again: the call \
              waits for Armada to come back",
+        ),
+    }
+}
+
+/// What a call is told where nothing Fleet hosts made it, so nobody could be asked.
+pub fn unplaced() -> RunOrNot {
+    RunOrNot::Deny {
+        message: String::from(
+            "This call came from outside any job Armada hosts, so nobody could be asked and it was \
+             not run",
         ),
     }
 }

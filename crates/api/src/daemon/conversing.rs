@@ -1,17 +1,14 @@
-//! What a client does with the calls a Job puts to a person, and with words typed for a running
+//! What a client does with the call a Job puts to a person, and with words typed for a running
 //! Job. `#939`.
 //!
 //! **A Job on your words is a hosted Session**, so reading its thread, tuning it and fetching what
-//! a message carried are the Sessions' own operations; what is here is the held calls and the two
+//! a message carried are the Sessions' own operations; what is here is the held call and the two
 //! acts on words.
 
 use std::future::Future;
 use std::sync::Arc;
 
-use ipc::{
-    AnswerCall, AskingToRun, CallsWaiting, ManifestId, ReadThought, RunOrNot, TellSession,
-    ThoughtReading, ThoughtTarget,
-};
+use ipc::{AskingToRun, ManifestId, ReadThought, RunOrNot, TellSession, ThoughtReading, ThoughtTarget};
 
 use crate::daemon::Refusal;
 
@@ -57,16 +54,4 @@ pub trait Conversations: Send + Sync + 'static {
     ) -> impl Future<Output = Result<RunOrNot, Refusal>> + Send {
         async move { self.ask_the_person(asking, manifest_id).await }
     }
-
-    /// `list_calls` — every ask waiting on this person right now, across
-    /// every repository. Fleet-wide, because what is waiting on a person is waiting on them wherever it came from.
-    fn list_calls(&self) -> impl Future<Output = Result<CallsWaiting, Refusal>> + Send;
-
-    /// `answer_call` — a person's answer, delivered inside the call that
-    /// is waiting on it. [`Refusal::IllegalMove`] where nothing is waiting
-    /// under that id, or where the answer is not one that call offered.
-    fn answer_call(
-        &self,
-        said: AnswerCall,
-    ) -> impl Future<Output = Result<CallsWaiting, Refusal>> + Send;
 }

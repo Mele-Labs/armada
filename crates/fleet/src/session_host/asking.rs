@@ -102,13 +102,12 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Every call held for a person, every hosted session's, and every Job browser act
+    /// Every hosted session's call held for a person, and every Job browser act
     /// held for Bridge, answered now because Fleet is stopping. **Called the moment a stop is asked
     /// for**, before graceful shutdown waits on connections: a held call would keep it waiting until
     /// the process is killed. `#2663`.
     pub fn asks_ended_for_stop(&self) {
         self.hosts().asks().all_withdrawn();
-        self.asks().all_withdrawn();
         self.job_browser().all_withdrawn();
     }
 

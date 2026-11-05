@@ -21,7 +21,6 @@ import type { FleetBuilds } from "./fleet-build";
 import type { HeldReader } from "./holding";
 import type { IssuesHost } from "./issues";
 import type { Modding } from "./mods";
-import type { Questions } from "./questions";
 import type { RehearsalConnection } from "./rehearsal";
 import { ask, limitsOf, mergeLinesOf, preferencesOf } from "./request";
 import type { RepositoryReads } from "./repositories";
@@ -55,8 +54,6 @@ export interface ArrivalHost {
   readonly rehearsal: RehearsalConnection;
   /** Every open window's own Overview read again — `connection.ts`'s `windowFacades`. */
   overviewAgain(port: number): Promise<void>;
-  /** Calls held open for a person — `questions.ts`. */
-  readonly questions: Pick<Questions, "asking" | "answered" | "readCalls">;
   /** The Studios surface's two reads — `studios.ts`. */
   readonly studios: Pick<StudioReads, "again" | "changed" | "deleted">;
   /** The mods on this machine — `mods.ts`. */
@@ -215,8 +212,6 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
         mergeLines,
       }),
     );
-    // And every call held for a person: events carry only what is asked next.
-    void host.questions.readCalls(fleet.port);
     // And the Studios surface's two reads, where held: a Studio written while the stream was down
     // or lagging published a `studio.changed` this window never folded.
     void host.studios.again();
@@ -245,16 +240,6 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
   const event = message.event;
   const connection: Connection = connectedTo(fleet, message.cursor);
 
-  // A call waits inside one tool call for the length of one reply, so the card goes up on the
-  // ask and comes down on the answer, whoever answered — a person, or fleet's bound running out. #1389.
-  if (event.kind === "call.asking_to_run") {
-    host.questions.asking(event.waiting);
-    return;
-  }
-  if (event.kind === "call.answered") {
-    host.questions.answered(event.call);
-    return;
-  }
   if (event.kind === "manifest.reread") {
     // The whole reading replaces what is held rather than merging into it.
     // A read that took after one that was refused leaves nothing of the

@@ -1313,10 +1313,6 @@ async fn an_ask_is_on_the_threads_own_row_and_the_answer_goes_back_in_the_call()
             ..
         }]
     ));
-    assert!(
-        rig.fleet.asks().waiting().is_empty(),
-        "the table of unplaced asks does not carry it"
-    );
     rig.fleet
         .answer_session_ask(AnswerSessionAsk {
             session_id: id.clone(),
@@ -1377,7 +1373,6 @@ async fn a_call_on_a_hosted_sessions_connection_is_its_own_ask_and_its_door_offe
         .await
         .unwrap();
     assert!(matches!(decided, ipc::RunOrNot::Allow { .. }));
-    assert!(rig.fleet.asks().waiting().is_empty());
 }
 
 #[tokio::test]

@@ -9,9 +9,7 @@
 //! Fleet is called; what arrives here is the remainder.
 //!
 //! **Auto *unless*, so an unrecognised command runs.** The safety is in
-//! recognising the risky set, and what runs unasked is on the record as
-//! `CallSettled::RanUnasked` — the audit trail is what catches a rule drawn
-//! too wide.
+//! recognising the risky set.
 
 use ipc::{AskingToRun, CallKind, ReachesTo};
 

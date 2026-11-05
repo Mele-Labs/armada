@@ -118,22 +118,11 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/operator/read_thought",
     },
-    // The permission path, `#1389`: the door calls the first, a person answers
-    // the third, and the second is what a Bridge started mid-wait reads.
+    // The permission path, `#1389`: the door calls it, and a hosted Job's answer is `answer_session_ask`.
     Route {
         operation: "ask_the_person",
         method: "POST",
         path: "/calls/permission",
-    },
-    Route {
-        operation: "list_calls",
-        method: "GET",
-        path: "/calls",
-    },
-    Route {
-        operation: "answer_call",
-        method: "POST",
-        path: "/calls/answer",
     },
     // A pull request by repository and number, and the acts a Session takes on
     // one. Beside `merge_pull_request`, which is a Job's and not this.

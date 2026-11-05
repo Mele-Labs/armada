@@ -349,7 +349,7 @@ import type {
   ProposalAnswer,
   RepositoryScanRead,
 } from "@armada/screens/src/setup-reads";
-import type { CallAnswer, SavePreference, SaveSettings } from "@armada/protocol";
+import type { SavePreference, SaveSettings } from "@armada/protocol";
 
 // The whole surface the renderer is allowed to see.
 //
@@ -401,10 +401,6 @@ const api: BridgeApi = {
   rescueSlot: (manifestId: string, rescue: RescueSlot): Promise<RescueOutcome> =>
     ipcRenderer.invoke(CHANNELS.rescueSlot, manifestId, rescue),
 
-  // One held call. The note is a person's own words, read only on a
-  // refusal; `undefined` crosses as `undefined`.
-  answerCall: (call: string, answer: CallAnswer, note?: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.answerCall, call, answer, note),
   // A person's Bridge preferences. **Fleet-wide, and no Job id crosses this
   // channel** — the only act on this surface that names none.
   savePreference: (save: SavePreference): Promise<Outcome> =>

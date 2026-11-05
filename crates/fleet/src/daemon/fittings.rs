@@ -293,7 +293,6 @@ where
         // Jobs bound moves it for them at the next start.
         let width = checks_runner::CheckWidth::read(in_force.concurrency.jobs());
         let run = fittings.mint.ulid();
-        let asks = crate::asks::Asks::holding_for(fittings.ask_hold);
         let sign_in = crate::session_host::signed_out::SignInRun::of(&fittings.host);
         let sessions = crate::session_host::Hosts::hosted_by(
             Arc::new(crate::session_host::ProcessHost::on_this_machine(
@@ -359,7 +358,6 @@ where
             downshift: Default::default(),
             agent_sign_in: crate::session_host::signed_out::Held::running(sign_in),
             events: fittings.events,
-            asks,
             sessions,
             session_runs: Default::default(),
             session_check_live: Default::default(),
@@ -421,7 +419,7 @@ where
         processes: Arc<dyn crate::session_host::Processes>,
         quiet: std::time::Duration,
     ) -> Fleet<H, V, W> {
-        self.sessions = crate::session_host::Hosts::hosted_by(processes, quiet, self.asks.held_for());
+        self.sessions = crate::session_host::Hosts::hosted_by(processes, quiet, self.sessions.asks().held_for());
         self
     }
 

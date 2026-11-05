@@ -33,7 +33,6 @@ import type { KeepDraftsChanged } from "./job-copy";
 import type { BrowserAskAnswered, BrowserRequest, JobTerminal, SessionRecord } from "./sessions";
 import type { RepositoryList } from "./setup";
 import type { Studio, StudioDeleted, StudioJobActed } from "./studio";
-import type { CallAskingToRun, CallAnswered } from "./calls";
 import type { ProtocolId } from "./connection";
 
 /** One message from Fleet to a connected client. `crates/ipc/src/event.rs`. */
@@ -122,12 +121,6 @@ export type Event =
   | ({
       kind: "studio.job_acted";
     } & StudioJobActed)
-  | ({
-      kind: "call.asking_to_run";
-    } & CallAskingToRun)
-  | ({
-      kind: "call.answered";
-    } & CallAnswered)
   /** A session after any fact about it, whole. Since 23.43. */
   | ({
       kind: "session.changed";
