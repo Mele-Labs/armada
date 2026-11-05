@@ -215,6 +215,7 @@ mod slot_asking;
 mod slot_choice;
 mod session_retro_row;
 mod session_starts;
+mod started_jobs;
 mod session_waits;
 mod session_summary;
 mod run_memory;
@@ -631,6 +632,10 @@ pub use style_sources::{KeptFont, KeptSheet, KeptStyles, StyleKind, StyleSource,
 pub use session_starts::{
     ForkThisSession, HandToSession, SessionHeld, SessionLink, HeldOrRefused, SessionsHeld, StartAnotherSession,
     StartAnotherSessions, AGENT_START_UNPLACED,
+};
+pub use started_jobs::{
+    StartedAct, StartedAnswer, StartedAnswers, StartedCommand, StartedCommands, StartedJob, StartedResult, StartedSessions, StartedStep,
+    STARTED_UNPLACED,
 };
 pub use session_waits::{
     ChangeWaiting, ReadSessionWait, SessionWait, StartAfter, StartBase, StartCondition,
