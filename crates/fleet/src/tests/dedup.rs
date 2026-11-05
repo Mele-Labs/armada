@@ -25,6 +25,7 @@ fn item(id: &str, text: &str, since: &str, source: WaitingSource, act: bool) -> 
         holders: Vec::new(),
         creating_since: None,
         create_refused: None,
+        operator_read: None,
     }
 }
 

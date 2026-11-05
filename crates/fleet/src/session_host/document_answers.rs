@@ -76,6 +76,7 @@ pub(crate) fn document_items<'a>(attachments: &'a [ipc::Attachment], session: &'
             holders: Vec::new(),
             creating_since: None,
             create_refused: None,
+            operator_read: None,
         })
 }
 

@@ -120,7 +120,7 @@ function waitingRead(session: Session): WaitingItem[] {
  * turn goes on because calling him is all it is for. A `draft`, a `sketch` and a `document` wait on his OK however the turn goes, as a question does. The done
  * ask on his project tasks (`task_done`) calls too: a Job that opened a pull request, or said it was done, may still be at work,
  * and the tasks it holds are waiting on him either way. A `rule_act` is an act a lifecycle rule would do that he has not said yes to: it waits on his
- * word as a draft does, however the turn goes. A `browser_ask` is a page in the Job browser waiting on his answer, whatever the agent is doing.
+ * word as a draft does, however the turn goes, and so does an `operator_suggestion`, what the Operator would do at Suggest. A `browser_ask` is a page in the Job browser waiting on his answer, whatever the agent is doing.
  */
 const BLOCKING = new Set([
   "ask_card",
@@ -136,6 +136,7 @@ const BLOCKING = new Set([
   "document",
   "task_done",
   "rule_act",
+  "operator_suggestion",
 ]);
 
 /** The latest message from the owner on the Session's thread, as an instant; 0 where he has sent none. */

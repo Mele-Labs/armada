@@ -139,6 +139,8 @@ pub mod key_bindings;
 pub mod time_format;
 /// The folders every session may reach past its slots, and the ones it may not. `docs/concepts/session.md`.
 pub mod reach_folders;
+/// How far each of the Operator's roles goes, for the machine and for one repository. `crates/config/settings.toml`, *Operator positions per repository*.
+pub mod operator_positions;
 /// The workflows switched off, for the machine and for one repository. `crates/config/settings.toml`, *Workflows switched off*.
 pub mod workflows_off;
 /// Mods: a directory on this machine that changes how Bridge looks.
@@ -645,7 +647,7 @@ pub use session_summary::{
     HeldPullRequest, SessionSummaries, SessionSummary, SessionView, TurnState,
 };
 pub use sessions::{
-    AnswerWaiting, HeldOpenBy, PullRequestWait, Attachment, AttachmentHistory, AttachmentNamed, AttachmentReport, AttachmentState,
+    AnswerWaiting, OperatorRead, HeldOpenBy, PullRequestWait, Attachment, AttachmentHistory, AttachmentNamed, AttachmentReport, AttachmentState,
     AttachmentVersion, ClosedWaiting, ClosedWaitingList, ConfirmWaiting, DismissWaiting, ReopenWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
     PullRequestClaimed, NameSession, RenameSession, TakeMainRed, SessionFact, SessionId, SessionList,
     SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionStarted, StepVisit, SessionReport,

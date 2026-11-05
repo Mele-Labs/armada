@@ -372,6 +372,7 @@ const CHOICE_ONLY: readonly WaitingSource[] = [
   "slot_choice",
   "task_done",
   "rule_act",
+  "operator_suggestion",
   "browser_ask",
 ];
 /** The sources answered beside the thread. The rest are answered from their own cards, or on the Mac. */
