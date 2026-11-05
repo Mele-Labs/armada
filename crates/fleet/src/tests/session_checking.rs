@@ -176,6 +176,36 @@ async fn each_stop_route_is_answered_to_the_runs_next_chunk_and_force_outranks()
     assert!(fleet.session_check_stopped(999, true).await.is_err());
 }
 
+/// A run killed for its budget is kept and drawn as timed out, never as failed, and no file is blamed for it.
+#[tokio::test]
+async fn a_run_that_timed_out_is_kept_and_drawn_as_timed_out_with_no_blame() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let root = fleet.repositories().first().expect("served").root().to_string();
+    let (slot, run) = a_running_check(&fleet, &root).await;
+    let file = std::path::Path::new(&slot).join("crates/store/src/reads.rs");
+    std::fs::create_dir_all(file.parent().expect("a folder")).expect("its folder");
+    std::fs::write(&file, "").expect("the file");
+    let mut end = call(SessionCheckAct::End, &slot);
+    end.run = Some(run);
+    end.outcome = Some(SessionCheckState::TimedOut);
+    end.log = Some(format!("warning: unused import at {slot}/crates/store/src/reads.rs:3:5\narmada check: components_test ran past its 900s budget and was killed\n"));
+    fleet.session_check_reported(end).await.expect("ends");
+
+    let rows = fleet.rows_of("s1").await.expect("the thread");
+    let (state, blame) = rows
+        .iter()
+        .find_map(|row| match row {
+            ipc::SessionRow::Check { run: at, state, blame, .. } if *at == run => Some((*state, blame.clone())),
+            _ => None,
+        })
+        .expect("a row for the run");
+    assert_eq!(state, SessionCheckState::TimedOut);
+    assert_eq!(blame, None, "a timeout blames no file");
+    let kept = fleet.store().lock().await.session_check(i64::try_from(run).unwrap()).unwrap().expect("kept");
+    assert_eq!(kept.state, "timed_out");
+}
+
 /// A failed run's row carries where its log says it failed, read in the slot as it ends; a passed
 /// run's carries none, though its log names the same file.
 #[tokio::test]

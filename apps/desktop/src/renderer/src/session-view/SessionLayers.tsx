@@ -607,11 +607,13 @@ const CHECK = {
   running: "running",
   passed: "passed",
   failed: "failed",
+  timed_out: "failed",
 } as const;
 const CHECK_SAID = {
   running: "Running",
   passed: "Passed",
   failed: "Failed",
+  timed_out: "Timed out",
 } as const;
 
 /** The Checks the Session ran in its slot, newest first. Each opens its run on the Checks page. */
@@ -652,7 +654,7 @@ export function ChecksLayer({
               <span className="sv-layer__kind">
                 {one.state === "running" ? (
                   <LoaderCircle size={16} strokeWidth={2} aria-hidden data-spinning="" />
-                ) : one.state === "failed" ? (
+                ) : one.state === "failed" || one.state === "timed_out" ? (
                   <CircleX size={16} strokeWidth={2} aria-hidden />
                 ) : (
                   <ShieldCheck size={16} strokeWidth={2} aria-hidden />

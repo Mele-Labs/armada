@@ -597,7 +597,7 @@ export type SessionRow =
       at: string;
       name: string;
       run: number;
-      state: "running" | "passed" | "failed";
+      state: "running" | "passed" | "failed" | "timed_out";
       target?: string;
       blame?: CheckBlame;
     }

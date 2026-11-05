@@ -42,21 +42,19 @@ const named: Record<string, unknown> = {
     ok: false,
     said: "",
   }),
-  // The System tab asks Fleet for the Job's split as it opens.
-  getJobTime: async () => ({
-    ok: false,
-    said: "",
-  }),
-  // The + asks Fleet for the Job's terminals as it opens.
-  listTerminals: async () => ({
-    ok: false,
-    said: "",
-  }),
 };
+// A call no one named answers as Fleet does when it has nothing, `{ ok: false }`. An answer of `undefined` made every read
+// another change added, such as the System tab's split or the + menu's terminals, throw in its caller and fail the whole
+// run on an unhandled rejection, though each pull request passed alone and only the merge of two failed.
 const armada = new Proxy(named, {
   get: (them, name) =>
     them[String(name)] ??
-    (String(name).startsWith("on") ? () => () => undefined : async () => undefined),
+    (String(name).startsWith("on")
+      ? () => () => undefined
+      : async () => ({
+          ok: false,
+          said: "",
+        })),
 });
 const ID = "keys-s1";
 const roots: {

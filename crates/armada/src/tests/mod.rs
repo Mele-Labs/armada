@@ -26,6 +26,7 @@ mod mcp;
 mod reaching;
 mod recording;
 mod reporting;
+mod session_checks;
 mod settings_watch;
 mod setup;
 mod test_map;
