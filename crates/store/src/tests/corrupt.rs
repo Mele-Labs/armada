@@ -17,7 +17,7 @@ use crate::{OpenError, Store, KNOWN_SCHEMA_VERSION};
 #[test]
 fn nothing_at_the_path_is_a_first_run() {
     let dir = TempDir::new();
-    let store = open(&dir);
+    let store = Store::open(&dir.db()).expect("a first run opens");
     assert!(store
         .remembered_repositories()
         .expect("an empty store")
@@ -28,8 +28,8 @@ fn nothing_at_the_path_is_a_first_run() {
 #[test]
 fn opening_twice_migrates_once() {
     let dir = TempDir::new();
-    drop(open(&dir));
-    drop(open(&dir));
+    drop(Store::open(&dir.db()).expect("a first run opens"));
+    drop(Store::open(&dir.db()).expect("it reopens"));
     assert_eq!(version(&dir), KNOWN_SCHEMA_VERSION.to_string());
 }
 

@@ -46,7 +46,7 @@ fn now() -> Timestamp {
 
 /// A store of its own — which is what a Fleet of its own has.
 fn a_store(dir: &TempDir, name: &str) -> Store {
-    Store::open(&dir.path().join(name)).expect("a scratch store opens")
+    Store::open_migrated_copy(&dir.path().join(name)).expect("a scratch store opens")
 }
 
 /// **The port comes from the lease and is written down as a claim.** Nothing
