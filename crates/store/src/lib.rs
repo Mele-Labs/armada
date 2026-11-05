@@ -61,8 +61,6 @@ mod later_misreads;
 mod later_confirmed;
 /// The sentences of a reply a disputed walk or done reminder misread.
 mod claim_misreads;
-/// The nudges Fleet sent about a workflow's steps, kept against the step.
-mod workflow_nudges;
 /// The changes to a workflow an agent drafted for the owner to approve.
 mod workflow_changes;
 /// What this Mac syncs with the shared home.
@@ -210,7 +208,6 @@ pub use session_focus::KeptFocus;
 pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 pub use session_rail::{KeptRail, KeptStarted};
 pub use session_tells::KeptTell;
-pub use workflow_nudges::KeptWorkflowNudge;
 pub use workflow_changes::{
     KeptWorkflowChange, NewWorkflowChange, APPROVED as CHANGE_APPROVED, CANNOT as CHANGE_CANNOT, DISMISSED as CHANGE_DISMISSED, DRAFTING as CHANGE_DRAFTING,
     FAILED as CHANGE_FAILED, READY as CHANGE_READY,

@@ -188,10 +188,11 @@ where
         let now = self.now().epoch_millis().unwrap_or(0);
         for id in self.hosts().stops_owed().ripe(now) {
             // Read again: an excuse may have come since the last read.
-            let Some(record) = self.stop_read_again(&id).await else { continue };
+            if self.stop_read_again(&id).await.is_none() {
+                continue;
+            }
             let Some(stop) = self.hosts().stops_owed().stop_of(&id) else { continue };
-            let said = self.stop_said(&record).await;
-            let told = self.noticed_by_fleet(&id, &said, ipc::Notice::StopNudge).await;
+            let told = self.noticed_by_fleet(&id, NUDGE, ipc::Notice::StopNudge).await;
             let heard = matches!(told, Ok(told) if told.sent());
             let at = self.now().as_str().to_string();
             let _ = self.store().lock().await.keep_stop_told(&id, &stop, &at, !heard);

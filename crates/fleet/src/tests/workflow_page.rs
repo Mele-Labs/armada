@@ -1,6 +1,5 @@
-//! What the Workflows page asks of Fleet beside a definition's text: each step's words, what ends it
-//! and the nudges that still count there; a nudge marked not a drift; and a copy deleted or reset to
-//! Armada's. The decision of 27 Oct 2026, "A feature Job walks before it tests".
+//! What the Workflows page asks of Fleet beside a definition's text: each step's words and what ends it;
+//! and a copy deleted or reset to Armada's. The decision of 27 Oct 2026, "A feature Job walks before it tests".
 //!
 //! What a delete removes and a reset writes is the composition root's and is tested there against real
 //! files (`armada::tests::authoring`). What is Fleet's is which copies it will touch at all, the words of
@@ -10,7 +9,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::http::StatusCode;
-use store::{KeptSession, SessionFigures, SessionState};
 
 use crate::repositories::{Catalogued, SavedWorkflow, WorkflowNotRemoved, WorkflowNotSaved};
 use crate::tests::http::call;
@@ -87,34 +85,6 @@ fn decoded(body: &[u8]) -> ipc::WorkflowSteps {
     ipc::decode("steps", body).expect("a workflow's steps")
 }
 
-pub(super) async fn nudged(fleet: &Fixture, workflow: &str, source: &str, step: &str, job: &str, fact: &str, when: &str) {
-    fleet.store().lock().await.keep_workflow_nudge(workflow, source, step, job, fact, when).expect("a nudge is kept");
-}
-
-async fn titled(fleet: &Fixture, id: &str, title: &str) {
-    fleet
-        .store()
-        .lock()
-        .await
-        .keep_session(&KeptSession {
-            id: id.to_string(),
-            harness: "a-harness".to_string(),
-            origin: "bridge".to_string(),
-            manifest_id: None,
-            cwd: "/slot".to_string(),
-            title: Some(title.to_string()),
-            state: SessionState::Live,
-            started_at: "2026-10-27T09:00:00Z".to_string(),
-            last_seen_at: "2026-10-27T09:00:00Z".to_string(),
-            last_turn_at: None,
-            ended_at: None,
-            end_reason: None,
-            figures: SessionFigures::default(),
-            mod_version: None,
-        })
-        .expect("a session is kept");
-}
-
 /// **Each step is served with its words, what ends it, and when it is passed over**, in the order the
 /// definition gives them, from the rules the rail places a Job by. A fact that is not there is absent
 /// from the body and not null.
@@ -168,63 +138,6 @@ async fn armadas_definition_is_read_beside_the_copy_that_replaces_it() {
     let (status, body) = steps(&app, "workflow_id=nope").await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(code(&body), "fleet.no_such_workflow_definition");
-}
-
-/// **A step lists the nudges that still count, in the place's own definition**, newest first, each with
-/// the Job and its title. One sent from Armada's `staged` is not on the repository's.
-#[tokio::test]
-async fn a_step_lists_the_nudges_that_still_count_with_the_job_and_its_title() {
-    let (_home, _planted, fleet, app) = holding(staged_in_repository()).await;
-    titled(&fleet, "job-a", "Cockpit timeline rail").await;
-    nudged(&fleet, "staged", "repository", "walk", "job-a", "a test before the walk was approved", "2026-10-27T10:00:00Z").await;
-    nudged(&fleet, "staged", "repository", "walk", "job-b", "a test file written with the mock", "2026-10-27T11:00:00Z").await;
-    nudged(&fleet, "staged", "armada", "walk", "job-c", "a test before the walk was approved", "2026-10-27T12:00:00Z").await;
-    nudged(&fleet, "staged", "repository", "plan", "job-a", "edited before the plan was approved", "2026-10-27T09:30:00Z").await;
-
-    let (_, body) = steps(&app, "workflow_id=staged").await;
-
-    let read = decoded(&body);
-    let walk = &read.steps[2];
-    let jobs: Vec<&str> = walk.nudges.iter().map(|one| one.job_id.as_str()).collect();
-    assert_eq!(jobs, ["job-b", "job-a"], "newest first, and not Armada's");
-    assert_eq!(walk.nudges[1].job_title.as_deref(), Some("Cockpit timeline rail"));
-    assert_eq!(walk.nudges[0].job_title, None, "a Job Fleet holds no title for has none");
-    assert_eq!(walk.nudges[1].fact, "a test before the walk was approved");
-    assert_eq!(walk.nudges[1].at.as_str(), "2026-10-27T10:00:00Z");
-    assert_eq!(read.steps[1].nudges.len(), 1);
-    assert!(read.steps[0].nudges.is_empty() && read.steps[3].nudges.is_empty());
-}
-
-/// **Not a drift keeps the nudge and stops it counting.** Marking one twice answers the same and keeps
-/// the first time; one Fleet never kept is a 422.
-#[tokio::test]
-async fn a_nudge_marked_not_a_drift_stops_counting_and_stays_kept() {
-    let (_home, _planted, fleet, app) = holding(staged_in_repository()).await;
-    nudged(&fleet, "staged", "repository", "walk", "job-a", "a test before the walk was approved", "2026-10-27T10:00:00Z").await;
-    nudged(&fleet, "staged", "repository", "walk", "job-b", "a test file written with the mock", "2026-10-27T11:00:00Z").await;
-    let (_, body) = steps(&app, "workflow_id=staged").await;
-    let first = decoded(&body).steps[2].nudges[1].id;
-
-    let (status, body) = call(&app, "POST", "/workflows/not_a_drift", &format!(r#"{{"nudge":{first}}}"#)).await;
-
-    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
-    let marked: ipc::NotADriftMarked = ipc::decode("marked", &body).expect("an answer");
-    assert_eq!(marked.nudge, first);
-    let (_, body) = steps(&app, "workflow_id=staged").await;
-    assert_eq!(decoded(&body).steps[2].nudges.len(), 1, "one still counts");
-    let kept = fleet.store().lock().await.workflow_nudges("staged", "repository", "walk", 20).expect("read");
-    let marked_row = kept.iter().find(|one| one.id == first).expect("the row is kept");
-    let first_time = marked_row.dismissed_at.clone().expect("marked");
-    assert_eq!(kept.len(), 2);
-
-    let (again, _) = call(&app, "POST", "/workflows/not_a_drift", &format!(r#"{{"nudge":{first}}}"#)).await;
-    assert_eq!(again, StatusCode::OK);
-    let kept = fleet.store().lock().await.workflow_nudges("staged", "repository", "walk", 20).expect("read");
-    assert_eq!(kept.iter().find(|one| one.id == first).and_then(|one| one.dismissed_at.clone()), Some(first_time));
-
-    let (status, body) = call(&app, "POST", "/workflows/not_a_drift", r#"{"nudge":9999}"#).await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-    assert_eq!(code(&body), "fleet.no_such_nudge");
 }
 
 /// **A deleted copy is gone from what runs before the answer**, and the answer says whose runs now.

@@ -13,8 +13,6 @@ use crate::open::Store;
 pub struct KeptRail {
     /// The step the Session last stood on, as the timeline was told.
     pub step: Option<u32>,
-    /// Steps Fleet has nudged the agent about.
-    pub nudged: Vec<u32>,
     /// Steps a boundary judge read, back when one did. Kept as it was; nothing adds to it.
     pub judged: Vec<u32>,
     /// Steps Fleet told the agent it had stopped on, where only its own act ends them.
@@ -67,12 +65,11 @@ impl Store {
     pub fn session_rail(&self, session_id: &str) -> Result<KeptRail, WriteError> {
         let found = self
             .conn
-            .query_row("SELECT step, nudged, judged, visits, stalled, skipped FROM session_rail WHERE session_id = ?1", [session_id], |row| {
-                let (nudged, judged, visits, stalled, skipped): (String, String, String, String, String) =
-                    (row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?);
+            .query_row("SELECT step, judged, visits, stalled, skipped FROM session_rail WHERE session_id = ?1", [session_id], |row| {
+                let (judged, visits, stalled, skipped): (String, String, String, String) =
+                    (row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?);
                 Ok(KeptRail {
                     step: row.get(0)?,
-                    nudged: unlisted(&nudged),
                     judged: unlisted(&judged),
                     stalled: unlisted(&stalled),
                     visits: visits_of(&visits),
@@ -87,12 +84,11 @@ impl Store {
     pub fn keep_session_rail(&mut self, session_id: &str, rail: &KeptRail) -> Result<(), WriteError> {
         self.conn
             .execute(
-                "INSERT INTO session_rail (session_id, step, nudged, judged, visits, stalled, skipped) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-                 ON CONFLICT (session_id) DO UPDATE SET step = ?2, nudged = ?3, judged = ?4, visits = ?5, stalled = ?6, skipped = ?7",
+                "INSERT INTO session_rail (session_id, step, judged, visits, stalled, skipped) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                 ON CONFLICT (session_id) DO UPDATE SET step = ?2, judged = ?3, visits = ?4, stalled = ?5, skipped = ?6",
                 params![
                     session_id,
                     rail.step,
-                    listed(&rail.nudged),
                     listed(&rail.judged),
                     visits_text(&rail.visits),
                     listed(&rail.stalled),

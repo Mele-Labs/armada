@@ -1,7 +1,6 @@
 //! The claim, written before the code: **Fleet places a Job on its workflow's steps before the plan
 //! and around a walk from what it saw (a reply, a plan recorded, a window shown, a window approved),
-//! and nudges once when a test is written before the walk is approved. Nothing blocks, and the
-//! agent's word is never an input.** The owner's decision of 27 Oct 2026, "A feature Job walks before it tests".
+//! Nothing blocks, and the agent's word is never an input.** The owner's decision of 27 Oct 2026, "A feature Job walks before it tests".
 //!
 //! The first half is the rules, pure. The second drives a Fleet with a workflow that has a walk step.
 
@@ -13,12 +12,11 @@ use ipc::{Instant, SessionRow, SessionVoice, ShowWindow, SessionId};
 use testkit::FakeJudge;
 
 use super::session_rail::{
-    approved, at, delivers, edit, fitted, follows, on_the_rail, plan_step, record, ruled_on, step, told,
+    approved, at, delivers, fitted, follows, on_the_rail, plan_step, record, ruled_on, step, told,
 };
-use crate::rail::{self, Facts, Fit, RailStep, Skip};
+use crate::rail::{self, Facts, Fit, RailStep};
 use crate::rail_ends::{ends_when, passed_over_when};
 use crate::rail_keeping::thread_facts;
-use crate::test_paths::is_test_path;
 
 // ---- The rules ----
 
@@ -78,9 +76,7 @@ fn a_walk_step_is_current_from_the_plans_approval_until_a_walk_is_approved() {
     assert_eq!(at(&steps, Facts { pushed: true, ..approved_naming_a_walk() }), Some(3), "a push is no Approve");
     let walked = Facts { walk_approved: true, pushed: true, tasks_open: true, ..approved_naming_a_walk() };
     assert_eq!(at(&steps, walked), Some(4), "a push made while he walked does not skip Refine");
-    assert!(rail::skipped(&steps, &walked).is_empty(), "nor is it a push with Refine's tasks open");
     assert_eq!(at(&steps, Facts { pushed_since_walk: true, ..walked }), Some(5), "a push after his Approve delivers");
-    assert_eq!(rail::skipped(&steps, &Facts { pushed_since_walk: true, ..walked }), [(4, Skip::Tasks)]);
 }
 
 #[test]
@@ -114,28 +110,6 @@ fn a_fix_with_nothing_to_show_moves_on_to_tests_once_its_tasks_are_done_with_no_
     );
 }
 
-/// **The agent on Fix is told what ends it with nothing to show, and is nudged if it stops there.** It was
-/// told only "the person approves the walk", which a Job with no walk read as already met.
-#[tokio::test]
-async fn the_agent_on_a_fix_is_told_its_tasks_end_it_with_nothing_to_show_and_is_nudged_when_it_stops() {
-    let mut steps = bug();
-    steps[1].instructions = Some("Make the fix.".into());
-    let said = rail::instructed("bug", &steps, 1).unwrap_or_default();
-    assert!(said.contains("Where nothing would be seen, it ends when you have marked each of the plan's tasks completed"), "{said}");
-    let nudge = rail::stall_nudge("bug", &steps[1], crate::rail_ends::End::TasksDone);
-    assert!(nudge.contains("marked each of the plan's tasks completed with TaskUpdate"), "{nudge}");
-
-    let (rig, id) = walking_rig().await;
-    let mut stopped = record(&rig, &id).await;
-    stopped.workflow_step = Some(1);
-    stopped.standing = Some(ipc::SessionStanding::Replied);
-    stopped.waiting_for.clear();
-    let nothing = rail::Extra::default();
-    assert_eq!(rail::stalled(&steps, &stopped, nothing).map(|(at, _)| at), Some(1), "stopped on Fix, nothing to show");
-    let walking = rail::Extra { plan_expects_walk: true, ..nothing };
-    assert!(rail::stalled(&steps, &stopped, walking).is_none(), "a walk to show is his to approve, not a stall");
-}
-
 #[test]
 fn a_fix_that_walks_is_current_until_he_approves_and_tests_follow_at_once() {
     let steps = bug();
@@ -157,66 +131,16 @@ fn a_walk_he_approved_never_drops_the_job_back_to_the_step_before_it() {
 }
 
 #[test]
-fn a_test_edited_before_the_walk_is_approved_is_a_skip_of_the_walk_step_when_a_walk_was_named_or_shown() {
+fn a_job_whose_pull_request_merged_is_past_the_last_step_however_much_it_does_after() {
     let steps = feature();
-    let tested = Facts { test_edited: true, ..approved_naming_a_walk() };
-    assert_eq!(rail::skipped(&steps, &tested), [(3, Skip::Walk)]);
-    assert!(rail::skipped(&steps, &Facts { walk_approved: true, ..tested }).is_empty(), "approved");
-    let unnamed = Facts { plan_expects_walk: false, ..tested };
-    assert!(rail::skipped(&steps, &unnamed).is_empty(), "no walk named and none shown: tests come at once for a change nobody sees");
-    assert_eq!(rail::skipped(&steps, &Facts { walk_shown: true, ..unnamed }), [(3, Skip::Walk)], "a window shown");
-    let plain = [plan_step(), follows("Implement"), delivers("Hand off")];
-    assert!(rail::skipped(&plain, &tested).is_empty(), "a workflow with no walk step has nothing to skip");
-    assert!(rail::skipped(&steps, &approved_naming_a_walk()).is_empty(), "an edit that is no test is not this skip");
-}
-
-#[test]
-fn a_job_whose_pull_request_merged_skipped_nothing_however_much_it_does_after() {
-    let steps = feature();
-    // Follow-up work after the merge: a window shown that waits, beside a test written in the first piece.
-    let later = Facts { test_edited: true, walk_shown: true, pushed: true, ..approved_naming_a_walk() };
-    assert_eq!(rail::skipped(&steps, &later), [(3, Skip::Walk)], "not merged: the walk skip stands");
-    let landed = Facts { landed: true, ..later };
-    assert!(rail::skipped(&steps, &landed).is_empty(), "merged: the work is past every step it could have skipped");
-    assert_eq!(at(&steps, landed), None, "and past the last step");
+    let later = Facts { walk_shown: true, pushed: true, ..approved_naming_a_walk() };
+    assert_eq!(at(&steps, Facts { landed: true, ..later }), None, "merged: past the last step");
 }
 
 #[test]
 fn the_rail_reads_a_merged_pull_request_off_the_ledger_when_the_build_forgot_it() {
     let extra = rail::Extra { landed: true, ..rail::Extra::default() };
     assert!(rail::landed_by(extra, None), "a merge the ledger holds, and no build left to say so");
-}
-
-#[test]
-fn where_a_workflow_walks_an_edit_before_the_plan_is_approved_is_no_skip_but_a_test_or_a_push_is() {
-    let steps = feature();
-    let drafting = Facts { plan_recorded: true, ..Facts::default() };
-    assert!(rail::skipped(&steps, &Facts { edited: true, ..drafting }).is_empty(), "a rough mock is allowed while discussing");
-    let tested = Facts { edited: true, test_edited: true, ..drafting };
-    assert_eq!(rail::skipped(&steps, &tested), [(2, Skip::PlanTested)], "and the walk skip is not told on top of it");
-    assert_eq!(rail::skipped(&steps, &Facts { walk_shown: true, ..tested }), [(2, Skip::PlanTested)]);
-    assert_eq!(rail::skipped(&steps, &Facts { edited: true, pushed: true, ..drafting }), [(2, Skip::PlanPushed)]);
-    assert!(rail::skipped(&steps, &Facts { test_edited: true, ..approved() }).is_empty(), "approved, and nothing named or shown");
-    let plain = [plan_step(), follows("Implement"), delivers("Hand off")];
-    assert_eq!(rail::skipped(&plain, &Facts { edited: true, ..Facts::default() }), [(0, Skip::Plan)], "without a walk step the edit is still a skip");
-    assert!(rail::skipped(&plain, &Facts { edited: true, pushed: true, ..approved() }).is_empty());
-}
-
-#[test]
-fn the_nudge_for_a_test_before_the_walk_is_worded_as_the_others_are() {
-    let steps = feature();
-    let said = rail::nudge("Feature", &steps[3], Skip::Walk);
-    for part in ["Feature", "\"Walk\"", "edited a test before the walk was approved in", "Nothing is blocked"] {
-        assert!(said.contains(part), "{part}: {said}");
-    }
-    let about = RailStep { about: Some("Show it as a walk.".into()), ..walk() };
-    assert!(rail::nudge("Feature", &about, Skip::Walk).contains("Show it as a walk."), "the step's own words");
-    assert_eq!(Skip::Walk.fact(), "a test before the walk was approved");
-    let plan = rail::nudge("Feature", &steps[2], Skip::PlanTested);
-    assert!(plan.contains("edited a test before the plan was approved in") && plan.contains("record_plan"), "{plan}");
-    assert!(rail::nudge("Feature", &steps[2], Skip::PlanPushed).contains("pushed before the plan was approved in"));
-    assert_eq!(Skip::PlanTested.fact(), "a test before the plan was approved");
-    assert_eq!(Skip::PlanPushed.fact(), "pushed before the plan was approved");
 }
 
 #[test]
@@ -300,22 +224,6 @@ fn a_window_is_shown_by_its_row_and_approved_only_by_his_approve_at_or_after_it(
     assert!(!thread_facts(&[window(1, url), fleet], None).any_walk_approved, "only the person approves");
 }
 
-#[test]
-fn a_test_path_is_one_by_the_conventions_kept_in_one_place() {
-    for path in [
-        "apps/desktop/src/a.test.tsx",
-        "crates/fleet/src/tests/rail.rs",
-        "crates/acceptance/tests/triggers.rs",
-        "packages/screens/src/__tests__/x.ts",
-        "tools/hooks_test.py",
-    ] {
-        assert!(is_test_path(path), "{path}");
-    }
-    for path in ["crates/fleet/src/rail.rs", "docs/practices/rust.md", "apps/desktop/src/testing.ts", "tests", "crates/contest/src/lib.rs", ""] {
-        assert!(!is_test_path(path), "{path}");
-    }
-}
-
 // ---- Through a Fleet ----
 
 fn walking_workflow() -> config::ResolvedWorkflow {
@@ -393,82 +301,4 @@ async fn a_push_while_he_walks_leaves_the_job_on_the_walk_and_counts_toward_deli
 
     pushed(&rig, &id).await;
     super::session_host::eventually(|| async { step_of(&rig, &id).await == Some(4) }).await;
-}
-
-#[tokio::test]
-async fn a_test_edited_before_the_walk_is_approved_draws_one_nudge_kept_against_the_step() {
-    let (rig, id) = walking_rig().await;
-    shown(&rig, &id).await;
-    plan_approved(&rig, &id).await;
-
-    rig.stand_in.says(0, vec![edit("crates/reader/tests/reader.rs")]);
-    super::session_host::eventually(|| async { told(&rig, "edited a test before the walk was approved") == 1 }).await;
-    rig.stand_in.says(0, vec![edit("crates/reader/tests/more.rs")]);
-    rig.fleet.timeline().settled().await;
-    assert_eq!(told(&rig, "edited a test before the walk was approved"), 1, "once for the Job");
-
-    let source = walking_workflow().source().as_wire();
-    super::session_host::eventually(|| async { !rig.fleet.step_nudges("rail", source, "walk").await.is_empty() }).await;
-    let kept = rig.fleet.step_nudges("rail", source, "walk").await;
-    assert_eq!(kept.len(), 1);
-    assert_eq!((kept[0].session_id.as_str(), kept[0].fact.as_str()), (id.as_str(), "a test before the walk was approved"));
-    assert!(kept[0].counts());
-    assert!(rig.fleet.nudge_not_a_drift(kept[0].id).await);
-    assert!(!rig.fleet.step_nudges("rail", source, "walk").await[0].counts(), "marked, it stops counting");
-}
-
-#[tokio::test]
-async fn a_test_is_not_nudged_when_the_walk_was_approved_or_nothing_would_be_seen() {
-    let (rig, id) = walking_rig().await;
-    plan_approved(&rig, &id).await;
-    rig.stand_in.says(0, vec![edit("crates/reader/tests/reader.rs")]);
-    rig.fleet.timeline().settled().await;
-    assert_eq!(told(&rig, "edited a test before"), 0, "no window, none named: nothing to walk");
-
-    let (rig, id) = walking_rig().await;
-    shown(&rig, &id).await;
-    plan_approved(&rig, &id).await;
-    rig.send(&id, &format!("Approved: {PAGE}")).await;
-    rig.stand_in.says(0, vec![edit("crates/reader/tests/reader.rs")]);
-    rig.fleet.timeline().settled().await;
-    assert_eq!(told(&rig, "edited a test before"), 0, "approved");
-}
-
-#[tokio::test]
-async fn before_the_plan_is_approved_a_rough_mock_is_no_skip_but_a_test_and_a_push_are_nudged_once() {
-    let (rig, id) = walking_rig().await;
-    rig.stand_in.says(0, vec![edit("apps/desktop/src/mock/rough.ts")]);
-    rig.fleet.timeline().settled().await;
-    assert_eq!(told(&rig, "before the plan was approved"), 0, "a mock edited while discussing");
-    assert_eq!(told(&rig, "edited files before"), 0);
-
-    rig.stand_in.says(0, vec![edit("crates/reader/tests/reader.rs")]);
-    super::session_host::eventually(|| async { told(&rig, "edited a test before the plan was approved") == 1 }).await;
-    rig.stand_in.says(0, vec![edit("crates/reader/tests/more.rs")]);
-    rig.fleet.timeline().settled().await;
-    assert_eq!(told(&rig, "edited a test before the plan was approved"), 1, "once for the step");
-    assert_eq!(told(&rig, "edited a test before the walk was approved"), 0, "and not the walk's nudge on top of it");
-
-    let (rig, id2) = walking_rig().await;
-    let harness = record(&rig, &id2).await.harness;
-    rig.fleet
-        .report_session(ipc::SessionReport { harness, session_id: id2.clone(), fact: ipc::SessionFact::Pushed { branch: Some("armada/reader".into()) } })
-        .await
-        .expect("kept");
-    super::session_host::eventually(|| async { told(&rig, "pushed before the plan was approved") == 1 }).await;
-    let _ = id;
-}
-
-#[tokio::test]
-async fn a_plan_that_says_seen_expects_a_walk_before_any_window_is_shown_and_one_that_does_not_does_not() {
-    let (rig, id) = walking_rig().await;
-    super::session_rail::approved_plan_saying(&rig, &id, true).await;
-    rig.stand_in.says(0, vec![edit("crates/reader/tests/reader.rs")]);
-    super::session_host::eventually(|| async { told(&rig, "edited a test before the walk was approved") == 1 }).await;
-
-    let (rig, id) = walking_rig().await;
-    super::session_rail::approved_plan_saying(&rig, &id, false).await;
-    rig.stand_in.says(0, vec![edit("crates/reader/tests/reader.rs")]);
-    rig.fleet.timeline().settled().await;
-    assert_eq!(told(&rig, "edited a test before"), 0, "said nothing seen, named no walk, showed none");
 }

@@ -51,13 +51,6 @@ impl Authoring for FakeDaemon {
         })
     }
 
-    async fn mark_not_a_drift(
-        &self,
-        marked: ipc::MarkNotADrift,
-    ) -> Result<ipc::NotADriftMarked, Refusal> {
-        Ok(ipc::NotADriftMarked { nudge: marked.nudge })
-    }
-
     async fn ask_workflow_change(
         self: Arc<Self>,
         asked: ipc::AskWorkflowChange,
@@ -86,14 +79,6 @@ impl Authoring for FakeDaemon {
         change.state = ipc::ChangeState::Ready;
         change.after = Some(proposed.definition);
         Ok(change)
-    }
-
-    async fn suggest_workflow_change(
-        self: Arc<Self>,
-        asked: ipc::SuggestWorkflowChange,
-        _manifest_id: Option<ManifestId>,
-    ) -> Result<ipc::WorkflowChange, Refusal> {
-        Ok(drafting(asked.workflow_id, asked.source, ipc::ChangeOrigin::Drift { nudges: vec![1] }, Some(asked.step_id)))
     }
 
     async fn list_workflow_changes(

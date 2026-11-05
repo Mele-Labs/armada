@@ -8,7 +8,6 @@ import {
   GitCompare,
   GitPullRequestArrow,
   Layers,
-  Link2,
   ListMinus,
   ListPlus,
   LoaderCircle,
@@ -45,12 +44,8 @@ import type { StepRows, WorkspaceEditing } from "./WorkspaceEditor";
 import { STEP_GLYPHS, keyOf } from "./types";
 import type {
   AgentState,
-  Drift,
-  DriftedJob,
   ManagedStep,
   ManagedWorkflow,
-  Suggestion,
-  Suggestions,
   WorkflowActAnswer,
   WorkflowRef,
   SwitchedIn,
@@ -78,7 +73,6 @@ export type WorkflowManagerProps = {
   /** Fleet's sentence for why the workflows could not be read or one's steps were refused, drawn above the list. */
   notice?: string | undefined;
   workflows: readonly ManagedWorkflow[];
-  drift: Drift;
   picked: WorkflowRef | null;
   onPick: (one: WorkflowRef) => void;
   agent: AgentState;
@@ -113,14 +107,7 @@ export type WorkflowManagerProps = {
   >;
   /** The Job a press started, as the shared Job card, once the host holds it. Absent or null, a line says it started. */
   jobFor?: (jobId: string) => ReactNode;
-  /** The suggested changes waiting, and the step one is being drawn up for (`workflow/step`). */
-  suggestions: Suggestions;
-  suggesting: string | null;
   onOpenJob: (one: WorkflowRef, jobId: string) => void;
-  onNotDrift: (one: WorkflowRef, stepId: string, driftId: string) => Promise<WorkflowActAnswer>;
-  onSuggest: (one: WorkflowRef, stepId: string) => Promise<WorkflowActAnswer>;
-  onApproveSuggestion: (one: WorkflowRef, stepId: string) => Promise<WorkflowActAnswer>;
-  onDismissSuggestion: (one: WorkflowRef, stepId: string) => Promise<WorkflowActAnswer>;
   /** New workflow: opens the sheet for a Job that makes one. Absent draws no button. */
   onNew?: () => void;
   /** The Workspace the workflows are edited in: the picked one draws as lanes with rules between them, in place of its column of steps. Absent draws the column. */
@@ -517,10 +504,7 @@ function Detail({
   armada,
   drafts,
   setDrafts,
-  drift,
   agent,
-  suggestions,
-  suggesting,
   actsFor,
   jobFor,
   ...acts
@@ -659,15 +643,6 @@ function Detail({
       onSave={
         rows?.save ?? ((words) => run(() => inCopy((to) => acts.onSaveWords(to, step.id, words))))
       }
-      drifted={drift[workflow.id]?.[step.id] ?? []}
-      suggestion={editable ? suggestions[workflow.id]?.[step.id] : undefined}
-      suggestible={editable}
-      suggesting={suggesting === `${workflow.id}/${step.id}`}
-      onOpenJob={(job) => acts.onOpenJob(ref, job.jobId)}
-      onNotDrift={(driftId) => void run(() => acts.onNotDrift(ref, step.id, driftId))}
-      onSuggest={() => void run(() => acts.onSuggest(ref, step.id))}
-      onApproveSuggestion={() => acts.onApproveSuggestion(ref, step.id)}
-      onDismissSuggestion={() => acts.onDismissSuggestion(ref, step.id)}
       versus={
         comparing && comparable
           ? {
@@ -900,16 +875,6 @@ type StepProps = {
   onDraft: (words: string | undefined) => void;
   /** Whether the save went through, so the words typed are let go only then. */
   onSave: (words: string) => Promise<boolean>;
-  drifted: readonly DriftedJob[];
-  suggestion: Suggestion | undefined;
-  /** A suggestion can be asked for and approved here: only a copy that is edited. */
-  suggestible: boolean;
-  suggesting: boolean;
-  onOpenJob: (job: DriftedJob) => void;
-  onNotDrift: (driftId: string) => void;
-  onSuggest: () => void;
-  onApproveSuggestion: () => Promise<WorkflowActAnswer>;
-  onDismissSuggestion: () => Promise<WorkflowActAnswer>;
   /** Set while comparing: Armada's step of the same id, or none where this copy added it. */
   versus:
     | {
@@ -929,28 +894,11 @@ function Step({
   draft,
   onDraft,
   onSave,
-  drifted,
-  suggestion,
-  suggestible,
-  suggesting,
-  onOpenJob,
-  onNotDrift,
-  onSuggest,
-  onApproveSuggestion,
-  onDismissSuggestion,
   versus,
 }: StepProps) {
   const card = useRef<HTMLDivElement>(null);
   const id = useId();
   const Glyph = step.glyph === undefined ? undefined : STEP_GLYPHS[step.glyph];
-  // Fleet's sentence for a suggestion's Approve or Dismiss it would not take, said on the card.
-  const [refused, setRefused] = useState<string | undefined>(undefined);
-  const settle = async (act: () => Promise<WorkflowActAnswer>) => {
-    setRefused(undefined);
-    const out = await act();
-    setRefused(out);
-    if (out === undefined) card.current?.focus();
-  };
   const changed = draft !== undefined && draft !== step.words;
   const armada = versus?.armada;
   const added = versus !== undefined && armada === undefined;
@@ -1109,152 +1057,6 @@ function Step({
         </dd>
         {rows?.after}
       </dl>
-
-      {suggestion === undefined ? null : (
-        <section
-          role="group"
-          aria-label="Suggested change"
-          className="armada-wm-diff armada-wm-suggest"
-          data-nav-item=""
-          tabIndex={-1}
-          onKeyDown={(event) => {
-            if (
-              event.key === "Enter" &&
-              (event.metaKey || event.ctrlKey) &&
-              suggestion.failed === undefined
-            ) {
-              event.preventDefault();
-              event.stopPropagation();
-              void settle(async () => {
-                const out = await onApproveSuggestion();
-                if (out === undefined) onDraft(undefined);
-                return out;
-              });
-            } else if (event.key === "Escape") {
-              event.preventDefault();
-              event.stopPropagation();
-              void settle(onDismissSuggestion);
-            }
-          }}
-        >
-          <div className="armada-wm-diff__band">Suggested change</div>
-          {suggestion.failed === undefined ? (
-            <div className="armada-wm-suggest__words">
-              <Compared
-                against={step.words}
-                words={suggestion.words}
-                left="Before"
-                right="After"
-                label="Before and after"
-              />
-            </div>
-          ) : (
-            <p className="armada-wm__said" data-refused>
-              {suggestion.failed}
-            </p>
-          )}
-          {refused === undefined ? null : (
-            <p className="armada-wm__said" role="alert" data-refused>
-              {refused}
-            </p>
-          )}
-          <div className="armada-wm-diff__acts">
-            <Button variant="secondary" size="sm" onClick={() => void settle(onDismissSuggestion)}>
-              Dismiss
-            </Button>
-            {suggestion.failed !== undefined ? null : (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() =>
-                  void settle(async () => {
-                    const out = await onApproveSuggestion();
-                    if (out === undefined) onDraft(undefined);
-                    return out;
-                  })
-                }
-              >
-                Approve
-              </Button>
-            )}
-          </div>
-        </section>
-      )}
-
-      {drifted.length === 0 ? null : (
-        <div className="armada-wm-drift">
-          <div className="armada-wm-drift__head">
-            <h4 className="armada-wm__caption">Drifted here</h4>
-            {!suggestible || suggestion !== undefined ? null : suggesting ? (
-              <Tooltip label="The agent is working">
-                <span
-                  className="armada-wm-agent__working"
-                  role="img"
-                  aria-label="The agent is working"
-                >
-                  <LoaderCircle size={14} strokeWidth={2} aria-hidden />
-                </span>
-              </Tooltip>
-            ) : (
-              <Button variant="ghost" size="sm" onClick={onSuggest}>
-                Suggest a change
-              </Button>
-            )}
-          </div>
-          <ul className="armada-wm-drift__rows">
-            {drifted.map((one) => (
-              <li key={one.id}>
-                <div
-                  role="group"
-                  aria-label={`${one.job}, ${one.what}`}
-                  className="armada-wm-drift__row"
-                  data-nav-item=""
-                  data-own-keys="n"
-                  tabIndex={-1}
-                  onKeyDown={(event) => {
-                    if (event.metaKey || event.ctrlKey || event.altKey) return;
-                    const key = event.key.toLowerCase();
-                    if (key === "o") {
-                      event.preventDefault();
-                      onOpenJob(one);
-                    } else if (key === "n") {
-                      event.preventDefault();
-                      onNotDrift(one.id);
-                      card.current?.focus();
-                    }
-                  }}
-                >
-                  <span className="armada-wm-drift__job">{one.job}</span>
-                  <span className="armada-wm-drift__what">{one.what}</span>
-                  <span className="armada-wm-drift__when">{one.when}</span>
-                  <span className="armada-wm-drift__mark">
-                    {suggestion?.failed === undefined && suggestion?.from.includes(one.id) ? (
-                      <Tooltip label="In the suggested change">
-                        <span role="img" aria-label="In the suggested change">
-                          <Link2 size={14} strokeWidth={2} aria-hidden />
-                        </span>
-                      </Tooltip>
-                    ) : null}
-                  </span>
-                  <Button variant="ghost" size="sm" onClick={() => onOpenJob(one)}>
-                    Open Job
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      onNotDrift(one.id);
-                      card.current?.focus();
-                    }}
-                  >
-                    Not a drift
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   );
 }

@@ -17,8 +17,6 @@ use crate::rail_lifecycle::{self, Held};
 pub struct Place {
     /// The step by its index; absent once the last step's end has come.
     pub step: Option<usize>,
-    /// What the agent is told on entering the step.
-    pub told: Option<String>,
     /// Whether ending the step is something the person does, an approval or a reply. **A lifecycle
     /// state is not, nor is a merge.**
     pub waits_on_the_person: bool,
@@ -75,7 +73,6 @@ pub fn place(
     let step = rail::current(&steps, &facts);
     Place {
         step,
-        told: step.and_then(|at| rail::instructed(workflow.name(), &steps, at)),
         waits_on_the_person: step
             .is_some_and(|at| rail_ends::ends_of(&steps, at).iter().any(|end| !end.by_the_world() && !end.by_the_job() && *end != End::Merged)),
     }

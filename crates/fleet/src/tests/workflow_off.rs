@@ -189,7 +189,6 @@ async fn a_job_on_an_off_workflow_has_no_step_nudge_or_boundary_judge_and_switch
     let read = record(&rig, &id).await;
     assert_eq!(read.workflow.as_deref(), Some("rail"), "the Job keeps the workflow it has");
     assert_eq!(read.workflow_step, None, "no current step");
-    assert_eq!(told(&rig, "edited files before"), 0, "no nudge");
     assert_eq!(judge.asked().len(), asked_before, "no boundary judge: {:?}", judge.asked());
 
     saved(&rig, back_on()).await;
@@ -198,7 +197,7 @@ async fn a_job_on_an_off_workflow_has_no_step_nudge_or_boundary_judge_and_switch
 }
 
 #[tokio::test]
-async fn a_job_on_an_off_workflow_is_told_neither_its_steps_nor_its_skips_with_its_first_turn() {
+async fn a_job_on_an_off_workflow_is_not_told_what_it_skipped_with_its_first_turn() {
     let rig = super::session_rail::ruled_on(Arc::new(FakeJudge::with_no_objection()), workflow());
     crate::timeline::keep_timeline(Arc::clone(&rig.fleet));
     crate::rail_following::keep_the_rail(Arc::clone(&rig.fleet));
@@ -219,6 +218,5 @@ async fn a_job_on_an_off_workflow_is_told_neither_its_steps_nor_its_skips_with_i
         .await
         .expect("begun");
     eventually(|| async { rig.stand_in.starts().len() == 1 && told(&rig, REQUEST) == 1 }).await;
-    assert_eq!(told(&rig, "follows the Rail workflow"), 0, "not told its steps");
     assert_eq!(told(&rig, "skipped the"), 0, "and not told what it skipped");
 }

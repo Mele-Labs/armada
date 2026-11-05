@@ -1,6 +1,5 @@
-//! What the Workflows page asks of an agent: a change typed in his words, or new words for a step that
-//! keeps drifting, drafted by one short model run, checked as a save is, and written only when he
-//! approves. The decision of 27 Oct 2026, "A feature Job walks before it tests".
+//! What the Workflows page asks of an agent: a change typed in his words, drafted by one short model
+//! run, checked as a save is, and written only when he approves. The decision of 27 Oct 2026, "A feature Job walks before it tests".
 //!
 //! The model is `testkit::FakeJudge`, which answers in turn and keeps what it was asked. What a save
 //! writes is the composition root's and is `Planted` here, which keeps what it was asked to save.
@@ -19,14 +18,12 @@ use crate::tests::daemon::fitted_with;
 use crate::tests::http::call;
 use crate::tests::repositories::{code, served, Fixture, Planted};
 use crate::tests::tmp::TempDir;
-use crate::tests::workflow_page::{carried_id, nudged, read, staged_in_repository, STAGED};
+use crate::tests::workflow_page::{carried_id, read, staged_in_repository, STAGED};
 
 /// The id the fixture's own `armada.yml` declares.
 const MANIFEST: &str = "01FIXTUREMANIFEST";
-/// A nudge inside the week the fixture clock stands in, and one outside it.
+/// A time inside the week the fixture clock stands in.
 const RECENT: &str = "2026-08-24T10:00:00.000Z";
-const OLD: &str = "2026-08-10T10:00:00.000Z";
-const FACT: &str = "a test before the walk was approved";
 
 struct Rig {
     home: TempDir,
@@ -75,15 +72,6 @@ fn asking(text: &str) -> String {
         .expect("plain data")
 }
 
-fn suggesting(step: &str) -> String {
-    ipc::encode(&ipc::SuggestWorkflowChange {
-        workflow_id: ipc::WorkflowId::carried("staged"),
-        source: "repository".into(),
-        step_id: ipc::StepId::carried(step),
-    })
-    .expect("plain data")
-}
-
 fn change_of(id: i64) -> String {
     ipc::encode(&ipc::WorkflowChangeRef { change: id }).expect("plain data")
 }
@@ -124,16 +112,6 @@ impl Rig {
         panic!("change {id} was still drafting after five seconds");
     }
 
-    async fn drifted(&self, jobs: &[(&str, &str)]) {
-        for (job, when) in jobs {
-            nudged(&self.fleet, "staged", "repository", "walk", job, FACT, when).await;
-        }
-    }
-
-    /// What Fleet does when a nudge is kept against Walk.
-    async fn nudge_kept(&self) {
-        self.fleet.drift_suggested(MANIFEST, "staged", "repository", "walk").await;
-    }
 }
 
 /// **He types a change and gets a draft: the whole new definition, with the one before it.** The
@@ -256,149 +234,6 @@ async fn a_model_call_that_fails_leaves_the_change_failed() {
     assert!(failed.reason.as_deref().is_some_and(|why| why.starts_with("The drafting call ended")), "{failed:?}");
 }
 
-/// **A suggestion may change one step's `instructions` and nothing else**: a draft that moves another
-/// field is unfit, asked for once more, and fails if it still does.
-#[tokio::test]
-async fn a_suggestion_that_changes_more_than_the_steps_words_does_not_fit() {
-    let relabelled = with_walk_worded().replace("label: Walk", "label: Show it");
-    let rig = rig(&[&relabelled, &relabelled]).await;
-    rig.drifted(&[("job-1", RECENT)]).await;
-
-    let (status, body) = rig.post("/workflows/changes/suggest", &suggesting("walk")).await;
-    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
-    let failed = rig.settled(decoded::<WorkflowChange>("change", &body).id).await;
-
-    assert_eq!(failed.state, ChangeState::Failed);
-    assert!(failed.reason.as_deref().is_some_and(|why| why.contains("`instructions` of step `walk` and nothing else")), "{failed:?}");
-    assert!(rig.judge.asked()[1].contains("nothing else"), "the reason went back");
-}
-
-/// **Suggest a change drafts new words for the step from the nudges that count**, naming the Jobs and
-/// what happened, and the card carries the step and the nudges it was drawn from.
-#[tokio::test]
-async fn suggest_a_change_drafts_the_steps_words_from_the_nudges_that_count() {
-    let after = with_walk_worded();
-    let rig = rig(&[&after]).await;
-    rig.drifted(&[("job-1", RECENT), ("job-2", OLD)]).await;
-
-    let (status, body) = rig.post("/workflows/changes/suggest", &suggesting("walk")).await;
-    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
-    let ready = rig.settled(decoded::<WorkflowChange>("change", &body).id).await;
-
-    assert_eq!(ready.state, ChangeState::Ready, "{ready:?}");
-    assert_eq!(ready.step_id.as_ref().map(|one| one.as_str()), Some("walk"));
-    assert!(matches!(&ready.origin, ChangeOrigin::Drift { nudges } if nudges.len() == 1), "{:?}", ready.origin);
-    assert_eq!(ready.after.as_deref(), Some(after.as_str()));
-    let asked = rig.judge.asked();
-    assert!(asked[0].contains(FACT) && asked[0].contains("Show the mock."), "the facts and the step's words:\n{}", asked[0]);
-}
-
-/// **Each refusal of a suggestion**: a step the definition lacks, a step nobody drifted from, Armada's
-/// own, and a step that already has a change waiting.
-#[tokio::test]
-async fn a_suggestion_is_refused_for_a_missing_step_no_drift_armadas_own_and_a_step_with_a_change_waiting() {
-    let rig = rig(&[&with_walk_worded()]).await;
-
-    let (status, body) = rig.post("/workflows/changes/suggest", &suggesting("nowhere")).await;
-    assert_eq!((status, code(&body).as_str()), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.workflow_step_not_here"));
-    let (status, body) = rig.post("/workflows/changes/suggest", &suggesting("walk")).await;
-    assert_eq!((status, code(&body).as_str()), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.workflow_nothing_drifted"));
-    let armadas = ipc::encode(&ipc::SuggestWorkflowChange {
-        workflow_id: ipc::WorkflowId::carried("feature"),
-        source: "armada".into(),
-        step_id: ipc::StepId::carried("walk"),
-    })
-    .unwrap();
-    let (status, body) = rig.post("/workflows/changes/suggest", &armadas).await;
-    assert_eq!((status, code(&body).as_str()), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.workflow_is_armadas"));
-
-    rig.drifted(&[("job-1", RECENT)]).await;
-    let (status, body) = rig.post("/workflows/changes/suggest", &suggesting("walk")).await;
-    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
-    let (status, body) = rig.post("/workflows/changes/suggest", &suggesting("walk")).await;
-    assert_eq!((status, code(&body).as_str()), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.workflow_change_open"));
-}
-
-// ---- Armada drafts one on its own -----------------------------------------------------------------------
-
-/// **One step of one workflow drifting twice in a week is drafted for, with no press.** The second
-/// nudge kept begins it, from the two nudges, once.
-#[tokio::test]
-async fn a_step_that_drifts_twice_in_a_week_is_drafted_for_on_its_own_once() {
-    let rig = rig(&[&with_walk_worded()]).await;
-    rig.drifted(&[("job-1", RECENT)]).await;
-    rig.nudge_kept().await;
-    assert!(rig.open().await.is_empty(), "one drift waits for a second");
-
-    rig.drifted(&[("job-2", RECENT)]).await;
-    rig.nudge_kept().await;
-    let begun = rig.open().await;
-    assert_eq!(begun.len(), 1);
-    let ready = rig.settled(begun[0].id).await;
-    assert_eq!(ready.state, ChangeState::Ready, "{ready:?}");
-    assert!(matches!(&ready.origin, ChangeOrigin::Drift { nudges } if nudges.len() == 2), "{:?}", ready.origin);
-    assert_eq!(ready.step_id.as_ref().map(|one| one.as_str()), Some("walk"));
-
-    rig.drifted(&[("job-3", RECENT)]).await;
-    rig.nudge_kept().await;
-    assert_eq!(rig.open().await.len(), 1, "a step with a change waiting is not drafted for again");
-    assert_eq!(rig.judge.asked().len(), 1);
-}
-
-/// **A nudge he marked not a drift does not count**, nor one older than a week.
-#[tokio::test]
-async fn a_nudge_marked_not_a_drift_or_older_than_a_week_does_not_count_toward_a_suggestion() {
-    let rig = rig(&[&with_walk_worded()]).await;
-    rig.drifted(&[("job-1", RECENT), ("job-2", RECENT)]).await;
-    let first = rig.fleet.store().lock().await.workflow_nudges("staged", "repository", "walk", 10).unwrap()[0].id;
-    let (status, _) = rig.post("/workflows/not_a_drift", &format!(r#"{{"nudge":{first}}}"#)).await;
-    assert_eq!(status, StatusCode::OK);
-
-    rig.nudge_kept().await;
-    assert!(rig.open().await.is_empty(), "one that counts is one");
-
-    rig.drifted(&[("job-3", OLD)]).await;
-    rig.nudge_kept().await;
-    assert!(rig.open().await.is_empty(), "a drift from last month is not this week's");
-    assert!(rig.judge.asked().is_empty());
-
-    rig.drifted(&[("job-4", RECENT)]).await;
-    rig.nudge_kept().await;
-    assert_eq!(rig.open().await.len(), 1, "two that count, one of them new");
-}
-
-/// **A dismissed suggestion lets the next drift draft another**; a step is not suggested for twice at once.
-#[tokio::test]
-async fn a_dismissed_suggestion_is_drafted_again_when_the_step_drifts_again() {
-    let rig = rig(&[&with_walk_worded(), &with_walk_worded()]).await;
-    rig.drifted(&[("job-1", RECENT), ("job-2", RECENT)]).await;
-    rig.nudge_kept().await;
-    let first = rig.settled(rig.open().await[0].id).await;
-    let (status, _) = rig.post("/workflows/changes/dismiss", &change_of(first.id)).await;
-    assert_eq!(status, StatusCode::OK);
-
-    rig.drifted(&[("job-3", RECENT)]).await;
-    rig.nudge_kept().await;
-
-    let second = rig.open().await;
-    assert_eq!(second.len(), 1);
-    assert_ne!(second[0].id, first.id);
-}
-
-/// **Armada's own definitions get none**: they are read-only.
-#[tokio::test]
-async fn armadas_own_definitions_are_never_drafted_for() {
-    let rig = rig(&[&with_walk_worded()]).await;
-    for job in ["job-1", "job-2"] {
-        nudged(&rig.fleet, "feature", "armada", "walk", job, FACT, RECENT).await;
-    }
-    rig.fleet.drift_suggested(MANIFEST, "feature", "armada", "walk").await;
-    assert!(rig.judge.asked().is_empty());
-    let (status, body) = call(&rig.app, "GET", "/workflows/changes?workflow_id=feature&source=armada", "").await;
-    assert_eq!(status, StatusCode::OK);
-    assert!(decoded::<WorkflowChanges>("changes", &body).changes.is_empty());
-}
-
 /// What an agent answers when the fields can't say what was asked: `CAN'T`, then what is missing.
 const CANT: &str = "CAN'T\nA step can't end when a document is approved.\n- A step can't end when a sketch is approved.";
 
@@ -481,7 +316,6 @@ async fn kept_cannot(rig: &crate::tests::session_host::Rig, manifest: &str) -> i
         source: "repository",
         step_id: None,
         asked: Some("Propose should end when a document is approved"),
-        nudges: &[],
         before_text: STAGED,
     };
     let id = kept.begin_workflow_change(&new, RECENT).unwrap();
@@ -667,8 +501,7 @@ async fn a_draft_lost_when_fleet_stopped_is_read_as_failed() {
                 source: "repository",
                 step_id: None,
                 asked: Some("add Refine"),
-                nudges: &[],
-                before_text: STAGED,
+                        before_text: STAGED,
             },
             "2026-08-26T08:00:00.000Z",
         )

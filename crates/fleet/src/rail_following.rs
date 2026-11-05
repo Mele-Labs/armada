@@ -1,30 +1,27 @@
-//! What Fleet does when a Session's step moves or shows a step skipped. `docs/concepts/session.md`,
-//! *The rail*. The rules are `rail`'s; this is the part that acts on them.
+//! What Fleet does when a Session's step moves. `docs/concepts/session.md`, *The rail*. The rules are
+//! `rail`'s; this is the part that acts on them.
 //!
-//! **Two things, neither of which blocks.** The move is entered on the timeline as `session.step`; and a
-//! step skipped draws one short message to the agent, once for each step, and so does a step the Job
-//! stopped on that only its own act ends. The step itself is derived while the row is
-//! drawn (`Fleet::rail_drawn`), so this loop only reacts to a published row and never decides one.
+//! **The move is entered on the timeline as `session.step`**, and the agent is told nothing of it. The
+//! step itself is derived while the row is drawn (`Fleet::rail_drawn`), so this loop only reacts to a
+//! published row and never decides one.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use ipc::{Event, SessionRecord, TimelineKind};
-use store::{KeptHosting, KeptRail, KeptSession};
+use store::{KeptHosting, KeptSession};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use crate::daemon::Fleet;
-use crate::rail::{self, Extra, Facts, RailStep, Skip};
-use crate::rail_keeping::rail_read;
+use crate::rail::{self, RailStep};
 use crate::session_host::delivering::{card_choice, chosen_words, delivery_asked, ASKED};
 
 /// What the loop last acted on for a Session, so a row that moved nothing costs no read.
 #[derive(Clone, PartialEq, Eq)]
 struct Seen {
     step: Option<u32>,
-    skipped: Vec<(usize, Skip)>,
     /// A delivering step's lifecycle end has come and the agent has not been told.
     lifted: bool,
 }
@@ -78,18 +75,6 @@ where
         let Some(steps) = self.job_rail_steps(&id, manifest.as_str(), workflow).await else {
             return;
         };
-        // The walk the nudges read is in the thread, so it is read only for a Job that wrote a test, one that
-        // pushed (without it a push while he walks reads as one past a walk nobody expected), or one that
-        // stopped on a walk with nothing waiting on the person.
-        let mut facts = Facts::of(&record, Default::default());
-        let stopped_on_walk = record.standing == Some(ipc::SessionStanding::Replied)
-            && record.waiting_for.is_empty()
-            && record.workflow_step.and_then(|at| steps.get(at as usize)).is_some_and(|step| step.walks);
-        if (facts.test_edited || facts.pushed || stopped_on_walk) && steps.iter().any(|step| step.walks) {
-            facts = Facts::of(&record, self.rail_extra(&id).await);
-        }
-        // A Job past its last step has none to skip.
-        let skips = if record.workflow_step.is_some() { rail::skipped(&steps, &facts) } else { Vec::new() };
         // A delivering step gated by a lifecycle is not left when its end comes, so the agent is woken here.
         let lifted = match record.workflow_step.map(|at| at as usize).and_then(|at| steps.get(at).map(|step| (at, step))) {
             Some((at, step)) if step.delivers && step.has_lifecycle_end() => {
@@ -98,15 +83,11 @@ where
             }
             _ => None,
         };
-        let now = Seen {
-            step: record.workflow_step,
-            skipped: skips.clone(),
-            lifted: lifted.is_some(),
-        };
+        let now = Seen { step: record.workflow_step, lifted: lifted.is_some() };
         if seen.get(&id) == Some(&now) {
             return;
         }
-        let Some((kept, ran)) = self.rail_acted_on(&id, &steps, &record).await else {
+        let Some(ran) = self.rail_acted_on(&id, &steps, &record).await else {
             return;
         };
         // A Job that has not run is told nothing, and is looked at again once it has.
@@ -117,49 +98,17 @@ where
         if let Some(line) = lifted {
             let _ = self.told_by_fleet(&id, &line, ipc::Notice::RailStep).await;
         }
-        // The nudges go after the rail is kept, one message for each step skipped and never twice.
-        for (at, skip) in skips {
-            if kept.nudged.contains(&(at as u32)) {
-                continue;
-            }
-            let Some(step) = steps.get(at) else { continue };
-            let name = self.workflow_name(manifest.as_str(), workflow);
-            let sent = self.told_by_fleet(&id, &rail::nudge(&name, step, skip), ipc::Notice::RailNudge).await;
-            if matches!(sent, Ok(true)) {
-                self.rail_nudged(&id, at as u32).await;
-                if let Some(source) = self.nudge_kept(manifest.as_str(), workflow, step, &id, skip).await {
-                    self.drift_suggested(manifest.as_str(), workflow, source, &step.id).await;
-                }
-            }
-        }
     }
 
-    /// What a Job told of its stop reads: the step only its own act ends, where it stopped on one.
-    pub(crate) async fn stop_said(self: &Arc<Self>, record: &SessionRecord) -> String {
-        self.stalled_said(record).await.unwrap_or_else(|| crate::session_host::stopping::NUDGE.to_string())
-    }
-
-    async fn stalled_said(self: &Arc<Self>, record: &SessionRecord) -> Option<String> {
-        let id = record.id.as_str();
-        let (manifest, workflow) = (record.manifest_id.as_ref()?, record.workflow.as_deref()?);
-        if !self.workflow_on(manifest.as_str(), workflow) {
-            return None;
-        }
-        let steps = self.job_rail_steps(id, manifest.as_str(), workflow).await?;
-        let extra = if steps.iter().any(|step| step.walks) { self.rail_extra(id).await } else { Extra::default() };
-        let (at, end) = rail::stalled(&steps, record, extra)?;
-        Some(rail::stall_nudge(&self.workflow_name(manifest.as_str(), workflow), steps.get(at)?, end))
-    }
-
-    /// Enter the move on the timeline and keep where the rail stands. Answers the rail as kept, and whether the Job has run: **one that has not is
-    /// told nothing**, since its first turn carries the step (`first_step_kept`) and a word sent now
-    /// would start it ahead of the message it waits for.
+    /// Enter the move on the timeline and keep where the rail stands. Answers whether the Job has run:
+    /// **one that has not is told nothing**, since a word sent now would start it ahead of the message
+    /// it waits for.
     async fn rail_acted_on(
         self: &Arc<Self>,
         id: &str,
         steps: &[RailStep],
         record: &SessionRecord,
-    ) -> Option<(KeptRail, bool)> {
+    ) -> Option<bool> {
         let (session, mut kept, ran) = {
             let store = self.store().lock().await;
             let session = store.session(id).ok().flatten()?;
@@ -168,7 +117,7 @@ where
             (session, kept, ran)
         };
         if record.workflow_step == kept.step {
-            return Some((kept, ran));
+            return Some(ran);
         }
         let from = kept.step.map(|at| at as usize);
         let to = record.workflow_step.map(|at| at as usize);
@@ -190,35 +139,22 @@ where
             return None;
         }
         if !ran {
-            return Some((kept, ran));
+            return Some(ran);
         }
         let manifest = record.manifest_id.as_ref().map_or("", |manifest| manifest.as_str());
         let workflow = record.workflow.as_deref().unwrap_or("");
         let name = self.workflow_name(manifest, workflow);
-        // A step that waited on a lifecycle state and got it wakes the agent with what happened, in
-        // the same message as the next step's instructions.
-        let woken = match from.and_then(|from| steps.get(from)) {
-            Some(left) => self.lifecycle_woken(id, left, &name, manifest).await,
-            None => None,
-        };
-        // The step's own instructions go once on each entry, so a move back is told again.
-        let instructed = match to.and_then(|at| steps.get(at).map(|step| (at, step))) {
-            // A step that asks how the work is delivered holds its instructions until the answer,
-            // which sends them with it.
-            Some((at, step)) => {
-                let held = step.asks_delivery && self.delivery_entered(id).await;
-                rail::instructed(&name, steps, at).filter(|_| !held)
+        // A step that waited on a lifecycle state and got it wakes the agent with what happened.
+        if let Some(left) = from.and_then(|from| steps.get(from)) {
+            if let Some(woken) = self.lifecycle_woken(id, left, &name, manifest).await {
+                let _ = self.told_by_fleet(id, &woken, ipc::Notice::RailStep).await;
             }
-            None => None,
-        };
-        let said = match (woken, instructed) {
-            (Some(woken), Some(words)) => Some(format!("{woken}\n\n{words}")),
-            (woken, words) => woken.or(words),
-        };
-        if let Some(said) = said {
-            let _ = self.told_by_fleet(id, &said, ipc::Notice::RailStep).await;
         }
-        Some((kept, ran))
+        // A step that asks how the work is delivered puts the question on entry.
+        if to.and_then(|at| steps.get(at)).is_some_and(|step| step.asks_delivery) {
+            self.delivery_entered(id).await;
+        }
+        Some(ran)
     }
 
     fn step_noted(&self, session: &KeptSession, steps: &[RailStep], from: Option<usize>, to: Option<usize>) {
@@ -229,11 +165,11 @@ where
         );
     }
 
-    /// The step a Job that has not run begins on, as the words its first turn carries, with the step
-    /// **kept before the process starts** so the rail, seeing the Job run, finds it entered and sends
-    /// nothing. The step's instructions; or, for a step that asks how the work is delivered, the question
-    /// where `text` names no delivery, and the instructions go with the answer. The steps the person
-    /// skipped are said after it. `None` where there is nothing to carry.
+    /// The step a Job that has not run begins on, with the step **kept before the process starts** so
+    /// the rail, seeing the Job run, finds it entered and sends nothing. What its first turn carries: for
+    /// a step that asks how the work is delivered, the question where `text` names no delivery, or the
+    /// choice the start card made. The steps the person skipped are said after it. `None` where there
+    /// is nothing to carry.
     pub(crate) async fn first_step_kept(&self, id: &str, hosting: &KeptHosting, text: &str) -> Option<String> {
         let said = self.first_step_said(id, hosting, text).await;
         if hosting.ran {
@@ -276,41 +212,15 @@ where
             self.step_noted(&session, &steps, from.map(|at| at as usize), Some(to as usize));
         }
         let step = &steps[to as usize];
-        let words = rail::instructed(&self.workflow_name(&hosting.manifest_id, workflow), &steps, to as usize);
         let rows = self.rows_of(id).await.unwrap_or_default();
         let asked = delivery_asked(&rows);
         if step.asks_delivery && !asked && self.delivery_row_kept(id, text).await {
             return Some(ASKED.to_string());
         }
         // A landing the start card answered goes with the first turn, as an answer given later goes with its own.
-        match card_choice(&rows).filter(|_| step.asks_delivery) {
-            Some(choice) => Some(match words {
-                Some(words) => format!("{}\n\n{words}", chosen_words(choice)),
-                None => chosen_words(choice),
-            }),
-            None => words,
-        }
+        card_choice(&rows).filter(|_| step.asks_delivery).map(chosen_words)
     }
 
-    /// What the rail reads beyond the record, for a Session that follows a workflow.
-    async fn rail_extra(&self, id: &str) -> Extra {
-        let store = self.store().lock().await;
-        let Some(session) = store.session(id).ok().flatten() else { return Extra::default() };
-        rail_read(&store, &session, true).map(|read| read.extra).unwrap_or_default()
-    }
-
-    /// Remember that the agent was nudged about step `at`.
-    async fn rail_nudged(&self, id: &str, at: u32) {
-        let mut store = self.store().lock().await;
-        if let Ok(mut kept) = store.session_rail(id) {
-            if !kept.nudged.contains(&at) {
-                kept.nudged.push(at);
-                let _ = store.keep_session_rail(id, &kept);
-            }
-        }
-    }
-
-    /// Remember that the agent was told it had stopped on step `at`.
     pub(crate) fn workflow_name(&self, manifest: &str, workflow: &str) -> String {
         self.repositories()
             .serving(manifest)

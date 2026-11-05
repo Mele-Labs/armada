@@ -43,11 +43,6 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/workflows/reset",
     },
     Route {
-        operation: "mark_not_a_drift",
-        method: "POST",
-        path: "/workflows/not_a_drift",
-    },
-    Route {
         operation: "list_workflow_changes",
         method: "GET",
         path: "/workflows/changes",
@@ -56,11 +51,6 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "ask_workflow_change",
         method: "POST",
         path: "/workflows/changes/ask",
-    },
-    Route {
-        operation: "suggest_workflow_change",
-        method: "POST",
-        path: "/workflows/changes/suggest",
     },
     Route {
         operation: "propose_new_workflow",
