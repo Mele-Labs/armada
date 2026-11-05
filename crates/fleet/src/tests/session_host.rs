@@ -665,7 +665,11 @@ async fn a_message_is_taken_while_the_process_it_needs_is_still_starting() {
     assert_eq!(rig.stand_in.starts().len(), 1, "the start is still held");
     drop(held);
 
-    eventually(|| async { rig.stand_in.starts().len() == 2 }).await;
+    // Delivery follows the start, so the process being there says nothing yet of what it was sent.
+    eventually(|| async {
+        rig.stand_in.starts().len() == 2 && !rig.stand_in.process(1).sent.lock().unwrap().is_empty()
+    })
+    .await;
     let line = rig.stand_in.process(1).sent.lock().unwrap()[0].clone();
     assert!(line.contains("again"), "the message reaches the new process: {line}");
 }
