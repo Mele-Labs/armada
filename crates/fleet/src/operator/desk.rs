@@ -155,7 +155,6 @@ where
     }
 }
 
-/// One Job's paths, issues and words, as [`FleetDesk::live`] reads them. What will not read is left out.
 /// Who started `id`, nearest first and up to the root: `(id, title)` of its starter, then of the
 /// starter's. Read from each Job's own `started_by` attachment, which is the row already read for
 /// its issues, so no new read. An ended starter still counts; a repeat ends the walk.
@@ -175,6 +174,7 @@ pub(super) fn started_by_chain(store: &store::Store, id: &str) -> Vec<(String, S
     chain
 }
 
+/// One Job's paths, issues and words, as [`FleetDesk::live`] reads them. What will not read is left out.
 pub(super) fn held_of(store: &store::Store, id: &str) -> (Vec<String>, Vec<String>, String) {
     let mut paths = BTreeSet::new();
     let mut issues = BTreeSet::new();
