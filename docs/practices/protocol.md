@@ -1463,7 +1463,10 @@ The protocol ID moves with `crates/ipc/src`, the operation files, the route tabl
 
 A role of the Operator's at Suggest keeps what On would have done, and it reaches Bridge in two shapes, neither of them a new route.
 
-- **A row of its own**, `WaitingSource::OperatorSuggestion`: id `suggestion:<n>`, an `answer` act, `Do it` (choice 0) and `Skip` (choice 1), answered with `answer_waiting`. Dismissing it is Skip. It is drawn as any answer item until the panel's look lands, armada-ehhu.10.
-- **On the question it would settle**, `WaitingItem.operator_read`, `{read, pick}`: Bridge selects `pick`, and his press on that option is the press he would make anyway, so there is nothing to route. `OperatorRead` in `apps/desktop/src/renderer/src/operator/model.ts` is the walked proposal for this.
+- **A row of its own**, `WaitingSource::OperatorSuggestion`: id `suggestion:<n>`, an `answer` act, `Do it` (choice 0) and `Skip` (choice 1), answered with `answer_waiting`.
+  Dismissing it is Skip.
+  It is drawn as any answer item until the panel's look lands, armada-ehhu.10.
+- **On the question it would settle**, `WaitingItem.operator_read`, `{read, pick}`: Bridge selects `pick`, and his press on that option is the press he would make anyway, so there is nothing to route.
+  `OperatorRead` in `apps/desktop/src/renderer/src/operator/model.ts` is the walked proposal for this.
 
 A suggestion on a report with no Job behind it has no list to stand on. It is kept in the store for the panel.
