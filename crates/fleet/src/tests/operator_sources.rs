@@ -2,17 +2,20 @@
 //! report linked in the store to the open issue the call names, nothing handed while the Operator
 //! is off, an issue new only after the first read of its tracker, and a Later item handed over that
 //! no open issue covers, filed in the repository's beads with no call while File is on, and only
-//! kept in the Log while it is off.
+//! kept in the Log while it is off. A red main and a review request reach it through the reads that
+//! find them, and a red a Job already holds never does.
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-use adapter_traits::{FromOutside, OpenIssue};
+use adapter_traits::{FromOutside, ListedChecks, ListedPull, OpenIssue, ReviewList, ReviewStanding};
 use api::Sessions;
-use ipc::{LaterHow, ReportBug, SessionId, SettleLater};
+use ipc::{AutopilotDecision, LaterHow, ReportBug, SessionId, SettleLater};
 use testkit::{FakeBeads, FakeBeadsRemote, FakeTracker, FakeTrackers};
 
+use super::autopilot_decisions::{rig_calling, started, SURE_OF_THE_FIRST};
+use super::autopilot_decisions_repository::{jobs_titled, red_main};
 use super::backlog::{machine, manifest};
 use super::session_host::{eventually, rig_fitted, Rig};
 use crate::operator::{Answering, Calling};
@@ -225,4 +228,104 @@ async fn with_file_off_a_later_item_ruled_filed_is_kept_in_the_log_and_nothing_i
     assert_eq!(rig.fleet.store().lock().await.later_handed().expect("read").len(), 1, "still handed");
     let open = rig.fleet.open_issues(&manifest(&rig)).await.expect("read");
     assert!(!open.iter().any(|one| one.title.as_written() == sentence), "{open:#?}");
+}
+
+#[tokio::test]
+async fn a_red_main_autopilot_finds_is_handed_to_the_operator_once_and_a_new_job_is_started_for_it() {
+    let (rig, judge) = rig_calling(SURE_OF_THE_FIRST);
+    switched(&rig, "features.operator", true).await;
+    let call = Answers::with(&["item: 1\nway: 1\nbecause: no Job is near the red"]);
+    assert!(rig.fleet.operator_seated_with(call.clone()));
+    started(&rig, &[AutopilotDecision::Red]).await;
+    let commit = "b".repeat(40);
+    red_main(&rig, &commit).await;
+
+    assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 0, "the Operator has it, not Autopilot's own start");
+    eventually(|| async { jobs_titled(&rig, "Fix main").await == 1 }).await;
+    let asked = call.asked();
+    assert_eq!(asked.len(), 1);
+    for part in ["Main went red, one of Fleet's own", "Main is red at bbbbbbb", "The ways it is offered: 1. new job; 2. raise\n"] {
+        assert!(asked[0].contains(part), "{part}:\n{}", asked[0]);
+    }
+    assert!(judge.asked().is_empty(), "Autopilot makes no call of its own for a red");
+    let log = rulings(&rig).await;
+    assert_eq!(log.len(), 1, "{log:#?}");
+    assert_eq!((log[0].arrival.as_str(), log[0].arrived.as_str(), log[0].outcome.as_str()), (format!("red_main:{}:{commit}", rig.manifest.as_str()).as_str(), "red_main", "new_job"));
+    let main = rig.fleet.store().lock().await.main_ci(&rig.root).unwrap().unwrap();
+    assert!(rig.fleet.taking(&main).await.is_some(), "the red is claimed for the Job it started");
+
+    rig.fleet.decision_pass().await.expect("passed");
+    rig.fleet.decision_pass().await.expect("passed");
+    assert_eq!(call.asked().len(), 1, "once for each red commit");
+    assert_eq!(jobs_titled(&rig, "Fix main").await, 1);
+}
+
+#[tokio::test]
+async fn a_red_main_a_job_already_holds_is_never_handed_to_the_operator() {
+    let (rig, _) = rig_calling(SURE_OF_THE_FIRST);
+    switched(&rig, "features.operator", true).await;
+    let counted = Arc::new(Counting::default());
+    assert!(rig.fleet.operator_seated_with(counted.clone()));
+    let holder = rig.start().await;
+    started(&rig, &[AutopilotDecision::Red]).await;
+    red_main(&rig, &"b".repeat(40)).await;
+    let main = rig.fleet.store().lock().await.main_ci(&rig.root).unwrap().unwrap();
+    rig.fleet.recorded_session_take(&main, holder.as_str(), store::TakenHow::Took, None).await;
+
+    assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 0);
+    rig.fleet.decision_pass().await.expect("passed");
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+    assert_eq!(counted.0.load(Ordering::SeqCst), 0, "no call");
+    assert!(rulings(&rig).await.is_empty(), "nothing in the Log");
+    assert_eq!(jobs_titled(&rig, "Fix main").await, 0);
+}
+
+fn requested(number: u64, slug: &str) -> ListedPull {
+    ListedPull {
+        repository: slug.into(),
+        number,
+        title: format!("Pull request {number}"),
+        branch: format!("branch-{number}"),
+        address: format!("https://forge.invalid/{slug}/pull/{number}"),
+        draft: false,
+        head: "3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e".into(),
+        author: "ada".into(),
+        updated_at: "2026-10-15T09:30:00Z".into(),
+        checks: ListedChecks::Running,
+        review: ReviewStanding::None,
+        team: None,
+    }
+}
+
+#[tokio::test]
+async fn a_review_request_is_read_at_most_every_ten_minutes_and_handed_once_to_be_raised_with_a_read() {
+    let rig = rig_listing();
+    let call = Answers::with(&["item: 1\nway: 1\nbecause: it is for him to review"]);
+    assert!(rig.fleet.operator_seated_with(call.clone()));
+    let slug = rig.fleet.named_repositories().await.first().expect("served").slug.clone();
+    rig.fleet.vcs().main_ci.login_is(Some("NickMele"));
+    rig.fleet.vcs().now_review_list(ReviewList::Requested, vec![requested(8, &slug)]);
+
+    // Off, it reads nothing and does not use up the interval.
+    rig.fleet.review_requests_handed().await;
+    assert!(call.asked().is_empty());
+    switched(&rig, "features.operator", true).await;
+    rig.fleet.review_requests_handed().await;
+
+    eventually(|| async { !rulings(&rig).await.is_empty() }).await;
+    let asked = call.asked();
+    assert_eq!(asked.len(), 1, "{asked:#?}");
+    for part in ["Pull request 8", "Pull request #8 by ada asks for the person's review: https://forge.invalid/", "The ways it is offered: 1. raise\n"] {
+        assert!(asked[0].contains(part), "{part}:\n{}", asked[0]);
+    }
+    let log = rulings(&rig).await;
+    assert_eq!((log[0].arrival.as_str(), log[0].arrived.as_str(), log[0].outcome.as_str()), (format!("review:{}:8", rig.manifest.as_str()).as_str(), "review", "raise"));
+
+    // Inside the ten minutes nothing is read: a request listed since is not handed.
+    rig.fleet.vcs().now_review_list(ReviewList::Requested, vec![requested(8, &slug), requested(9, &slug)]);
+    rig.fleet.review_requests_handed().await;
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    assert_eq!(call.asked().len(), 1);
+    assert_eq!(rulings(&rig).await.len(), 1);
 }

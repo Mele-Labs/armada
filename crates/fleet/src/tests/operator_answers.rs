@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use api::{HostedSessions, Sessions};
 use ipc::{AnswerWaiting, AutopilotDecision, PlanGroupInput, PlanTaskInput, RecordPlan, SessionId};
 
-use super::autopilot_decisions::{item, keep, rig_calling, started, told, waiting, SURE_OF_THE_FIRST};
+use super::autopilot_decisions::{item, keep, permission_asked, rig_calling, started, told, waiting, SURE_OF_THE_FIRST};
 use super::rule_acting::notices_in;
 use super::session_host::{eventually, rig_placing, Rig};
 use super::session_rail::record;
@@ -328,4 +328,31 @@ async fn autopilot_turned_on_while_a_call_on_an_item_is_out_offers_it_once_the_c
         read_and_handed(&rig, &id).await;
     }
     assert_eq!(call.asks.load(Ordering::SeqCst), 2, "offered once in the run, after the call that was out");
+}
+
+#[tokio::test]
+async fn a_permission_card_for_a_read_is_settled_allow_once_as_his_press_would_and_the_job_goes_on() {
+    let rig = rig_placing(None);
+    switched(&rig, "features.operator", true).await;
+    let call = Answers::with(&["item: 1\nway: 1\nanswer: 1\nbecause: it only reads a file in the Job's own slot"]);
+    assert!(rig.fleet.operator_seated_with(call.clone()));
+    let id = rig.start().await;
+    let held = permission_asked(&rig, &id, "Read", r#"{"file_path":"src/lib.rs"}"#).await;
+
+    read_and_handed(&rig, &id).await;
+
+    tokio::time::timeout(std::time::Duration::from_secs(5), held).await.expect("the card is allowed").expect("joined");
+    let asked = call.asked();
+    assert_eq!(asked.len(), 1);
+    for part in ["It asks to use a tool: Read src/lib.rs", "The answers it may give: 1. \"Allow once\""] {
+        assert!(asked[0].contains(part), "{part}:\n{}", asked[0]);
+    }
+    eventually(|| async { said(&rig, &id).await.iter().any(|one| one.contains("The Operator answered \"Allow once\": it only reads")) }).await;
+    let log = log_of(&rig).await;
+    assert_eq!(log.len(), 1, "{log:#?}");
+    assert_eq!((log[0].arrived.as_str(), log[0].outcome.as_str(), log[0].by.as_str(), log[0].answer.as_deref()), ("card", "answer", "operator", Some("Allow once")));
+    for _ in 0..2 {
+        read_and_handed(&rig, &id).await;
+    }
+    assert_eq!(call.asked().len(), 1, "a card arrives once");
 }

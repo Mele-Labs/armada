@@ -472,7 +472,7 @@ fn everything_but_the_kinds_waits_whatever_is_checked() {
 }
 
 /// A permission card held open for `tool`, by a Job on Ask mode.
-async fn permission_asked(rig: &Rig, id: &ipc::SessionId, tool: &str, input: &str) -> tokio::task::JoinHandle<()> {
+pub(super) async fn permission_asked(rig: &Rig, id: &ipc::SessionId, tool: &str, input: &str) -> tokio::task::JoinHandle<()> {
     rig.fleet
         .tune_session(ipc::TuneSession { session_id: id.clone(), model: None, effort: None, mode: ipc::SessionMode::Ask })
         .await
