@@ -82,6 +82,8 @@ flowchart TD
     checks --> cm
     checks --> at
     adapters --> at
+    adapters --> checks
+    adapters --> ipc
     fleet --> cm
     cm["<b>core-model</b><br/><i>no dependencies</i>"]
     at["<b>adapter-traits</b><br/><i>no dependencies</i>"]

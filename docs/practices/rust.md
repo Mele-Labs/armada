@@ -451,7 +451,7 @@ Compilation after a merge cost **around four minutes**, and `nextest` does not
 touch it — v1's own note calls it "a separate problem and this is not a fix for
 it".
 
-**There was no compiler cache.** No `sccache`, no `mold` or `lld`, nothing. The
+**v1 had no compiler cache.** No `sccache`, no `mold` or `lld`, nothing. The
 only build-time measure v1 shipped was:
 
 ```toml
@@ -460,6 +460,9 @@ debug = "line-tables-only"
 ```
 
 which cuts debug info to what a backtrace needs, and shortens linking.
+
+**Today the owner's Mac runs `sccache`**, set in its own `~/.cargo/config.toml` as `build.rustc-wrapper`, so it is machine-local and nothing in this repository sets it.
+CI has no compiler cache of its own: `docs/practices/ci.md`, *Where each Check runs*.
 
 **The cause v1 named was self-inflicted, and it is already gone here.** The cold
 rebuild was triggered by a git hook that ran `cargo install --path crates/helm
