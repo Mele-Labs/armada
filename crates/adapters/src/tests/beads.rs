@@ -186,6 +186,20 @@ fn a_child_is_filed_with_its_parent_and_answers_the_id_bd_printed() {
 }
 
 #[test]
+fn an_issue_is_filed_as_a_task_with_its_body_and_answers_the_id_bd_printed() {
+    let bd = Bd::saying(&[(0, "armada-9qk\n", ""), (0, "", "")]);
+    let tracker = BeadsTracker::with_runner(&bd);
+
+    let made = tracker.file("/repo", "List the shortcuts", "Kept for later by a Job").expect("filed");
+    assert_eq!(made, "armada-9qk");
+    assert!(tracker.file("/repo", "y", "z").expect_err("printed nothing").said.contains("no issue id"));
+    assert_eq!(
+        bd.calls()[0],
+        ["-C", "/repo", "create", "--title", "List the shortcuts", "--description", "Kept for later by a Job", "--type", "task", "--silent"]
+    );
+}
+
+#[test]
 fn a_state_is_an_update_and_a_close_is_forced_past_a_blocker_with_its_reason() {
     let bd = Bd::saying(&[]);
     let tracker = BeadsTracker::with_runner(&bd);

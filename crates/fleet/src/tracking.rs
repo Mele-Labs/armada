@@ -390,6 +390,7 @@ where
                     issues,
                 };
                 self.tracking().keep(manifest_id.as_str(), fresh.clone());
+                self.operator_seat().issues_read(manifest_id.as_str(), &fresh.issues);
                 Ok((fresh, None))
             }
             (Err(not), Some(held)) => {

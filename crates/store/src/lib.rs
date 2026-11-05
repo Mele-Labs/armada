@@ -48,6 +48,7 @@ mod session_turn_usage;
 mod usage_summary;
 mod usage_spent;
 mod usage_rule_trips;
+mod waiting_compactions;
 /// A job's word that a Fleet notice was wrong, and the notices its replies are read against.
 mod fleet_disputes;
 mod bug_reports;
@@ -203,6 +204,7 @@ pub use session_turn_usage::{KeptBackground, KeptOpenCall, KeptReading, KeptTool
 pub use usage_spent::{SpentSplit, SpentWindowRead, UsageSpentRead, SPENT_BY, SPENT_ON, SPENT_WINDOWS};
 pub use usage_summary::{turn_units, DayUsage, Named, PriorUsage, UsageSplit, UsageSummaryRead, TOP_SESSIONS, UNIT_SCALE};
 pub use usage_rule_trips::KeptTrip;
+pub use waiting_compactions::{KeptCompaction, NextRequest};
 pub use fleet_disputes::{KeptDispute, KeptNotice};
 pub use bug_reports::{KeptBugFix, KeptBugReport};
 pub use session_focus::KeptFocus;
@@ -214,7 +216,7 @@ pub use workflow_changes::{
     KeptWorkflowChange, NewWorkflowChange, APPROVED as CHANGE_APPROVED, CANNOT as CHANGE_CANNOT, DISMISSED as CHANGE_DISMISSED, DRAFTING as CHANGE_DRAFTING,
     FAILED as CHANGE_FAILED, READY as CHANGE_READY,
 };
-pub use session_later::KeptLater;
+pub use session_later::{KeptHanded, KeptLater};
 pub use job_shells::KeptJobTerminal;
 pub use watches::{KeptWatch, KeptWatchPart, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, KeptWatchWhole, READINGS_KEPT};
 pub use notice_mutes::LiveMutes;

@@ -143,6 +143,24 @@ impl Store {
             .map_err(failed("marking a bug report fixed"))
     }
 
+    /// Link report `id` to open issue `issue`, on this Mac only. **Set once**: a report already linked
+    /// keeps its first issue. True where this call linked it.
+    pub fn link_bug_report(&mut self, id: &str, issue: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute("UPDATE bug_reports SET issue = ?2 WHERE id = ?1 AND issue IS NULL", params![id, issue])
+            .map(|changed| changed > 0)
+            .map_err(failed("linking a bug report to an issue"))
+    }
+
+    /// The issue report `id` is linked to, where it is.
+    pub fn bug_report_issue(&self, id: &str) -> Result<Option<String>, WriteError> {
+        self.conn
+            .query_row("SELECT issue FROM bug_reports WHERE id = ?1", [id], |row| row.get(0))
+            .optional()
+            .map(Option::flatten)
+            .map_err(failed("reading the issue a bug report is linked to"))
+    }
+
     /// Delete report `id`. False where it names none.
     pub fn drop_bug_report(&mut self, id: &str) -> Result<bool, WriteError> {
         self.conn

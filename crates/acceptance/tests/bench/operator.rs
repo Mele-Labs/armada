@@ -11,8 +11,8 @@ use std::time::Duration;
 
 use core_model::Timestamp;
 use fleet::operator::{
-    Acting, Answering, Arrival, Arrived, Calling, Choice, Desk, Done, Earlier, Group, Kind, LiveJob, Logged, Operator, Present, Question, Quiet,
-    Source, Stall, Way,
+    Acting, Answering, Arrival, Arrived, Calling, Choice, Desk, Done, Earlier, Filed, Group, Kind, LiveJob, Logged, Operator, Present, Question,
+    Quiet, Ruling, Source, Stall, Way,
 };
 use fleet::CallFailed;
 
@@ -73,7 +73,17 @@ pub fn started(session: &str, source: Source) -> Arrival {
         ways: Way::STARTING.to_vec(),
         answers: Vec::new(),
         rule: None,
+        open: Vec::new(),
     }
+}
+
+/// The issues open in [`REPOSITORY`]'s beads as the sources arrive.
+pub const SCROLLBACK_ISSUE: &str = "armada-a3f2";
+pub fn open_issues() -> Vec<Filed> {
+    vec![
+        Filed { reference: SCROLLBACK_ISSUE.into(), title: "Terminal scrollback is lost when the pane redraws".into() },
+        Filed { reference: "armada-b71c".into(), title: "Usage meter shows yesterday's tokens".into() },
+    ]
 }
 
 /// The question the 3 Nov report's Jobs each asked, as an agent's options put it.
@@ -167,6 +177,17 @@ pub struct FakeFleet {
     started_anew: Mutex<Vec<String>>,
     answered: Mutex<Vec<(String, String, u32, String)>>,
     answered_first: Mutex<bool>,
+    went_ahead: Mutex<Vec<String>>,
+    sourced: Mutex<Vec<Sourced>>,
+}
+
+/// What one ruling on a source did: the arrival, the way, the other Job and the issue it named.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Sourced {
+    pub arrival: String,
+    pub way: Way,
+    pub other: Option<String>,
+    pub issue: Option<String>,
 }
 
 impl FakeFleet {
@@ -182,6 +203,8 @@ impl FakeFleet {
             started_anew: Mutex::new(Vec::new()),
             answered: Mutex::new(Vec::new()),
             answered_first: Mutex::new(false),
+            went_ahead: Mutex::new(Vec::new()),
+            sourced: Mutex::new(Vec::new()),
         })
     }
 
@@ -203,6 +226,16 @@ impl FakeFleet {
     /// Each item answered as the person's press would: the Job, the item, the option and its label.
     pub fn answered(&self) -> Vec<(String, String, u32, String)> {
         self.answered.lock().expect("not poisoned").clone()
+    }
+
+    /// Each Job let start as its own.
+    pub fn went_ahead(&self) -> Vec<String> {
+        self.went_ahead.lock().expect("not poisoned").clone()
+    }
+
+    /// What each ruling on a report, an issue, a red main, a review request or a Later item did.
+    pub fn sourced(&self) -> Vec<Sourced> {
+        self.sourced.lock().expect("not poisoned").clone()
     }
 
     /// The person answers every item himself, ahead of any ruling.
@@ -276,7 +309,9 @@ impl Desk for FakeFleet {
 }
 
 impl Acting for FakeFleet {
-    fn go_ahead(&self, _session: &str) {}
+    fn go_ahead(&self, session: &str) {
+        self.went_ahead.lock().expect("not poisoned").push(session.into());
+    }
 
     fn hand_over(&self, session: &str, _group: Option<&str>, into: &str, _shared: &[String]) {
         self.ended.lock().expect("not poisoned").push((session.into(), into.into()));
@@ -304,6 +339,11 @@ impl Acting for FakeFleet {
 
     fn answer(&self, session: &str, item: &str, choice: &Choice, _because: &str) {
         self.answered.lock().expect("not poisoned").push((session.into(), item.into(), choice.at, choice.label.clone()));
+    }
+
+    fn sourced(&self, arrival: &Arrival, ruling: &Ruling) {
+        let done = Sourced { arrival: arrival.id.clone(), way: ruling.way, other: ruling.other.clone(), issue: ruling.issue.clone() };
+        self.sourced.lock().expect("not poisoned").push(done);
     }
 }
 

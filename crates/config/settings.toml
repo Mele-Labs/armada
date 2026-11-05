@@ -1063,6 +1063,25 @@ Chosen 4 Nov 2026: On as it ships, by the design page *Helm becomes the Operator
 Live: read again at every act, so a call already out when it is turned off settles nothing.
 """
 
+[settings.operator-file]
+name = "Operator files"
+scope = "Machine"
+default = "off"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+Chosen 4 Nov 2026: Off as it ships, by the design page *Helm becomes the Operator*, which the owner approved on 4 Nov 2026, whose *What you control* gives each role its own position. The replay of 4 Nov set the starting positions, and File starts Off. It does nothing while `operator` is Off, and it does not wait on `operator-dispatch`.
+
+**File only ever creates.** A Later item a Job hands over is linked where an open issue covers it, and filed in the repository's beads where none does; nothing is commented on, labelled or closed, and nothing the person typed himself is filed. A tracker with a forge is the second milestone's.
+
+**On, Fleet files each Later item the Operator rules filed**, and settles it as filed with the new issue. **Off, nothing is filed:** each item is still ruled, and the ruling is kept in the Operator's Log with what it would have filed, as Dispatch Off keeps a start. A link acts either way, since it writes nothing.
+
+Live: read again at every act, so a call already out when it is turned off files nothing.
+"""
+
 [settings.plan-downshift-line]
 name = "Plan downshift line"
 scope = "Machine"
@@ -1712,6 +1731,21 @@ notes = """
 Whether the call that writes a turn's summary is let think first. Off, summaries kept their quality on 60 measured summaries and their output fell from 210 to 148 tokens. On, the call is asked as the model's own default asks.
 
 **The value lives in settings.json under `tokens.summaryThinking`** (live), read at each turn summary.
+"""
+
+[settings.token-compact-while-waiting]
+name = "Compact a Job waiting on you"
+scope = "Machine"
+default = "off"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+A trial, shipped off. On, Fleet sends `/compact` to a hosted Job that has waited on the owner for most of its prompt cache's hour, when its context is 100,000 tokens or more, once per wait. A Job that waits past its cache starts again from its whole context; compacted first, it starts from a summary.
+
+**The value lives in settings.json under `tokens.compactWhileWaiting`** (live), read at each sweep of quiet Jobs.
 """
 
 [settings.token-skills-off]

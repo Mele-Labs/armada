@@ -34,10 +34,12 @@ pub struct KeptRuling {
     pub refused: Vec<String>,
     /// The answer given to a question or a card, in its option's words.
     pub answer: Option<String>,
+    /// The open issue a bug report or a Later item was linked to.
+    pub issue: Option<String>,
 }
 
 const COLUMNS: &str = "arrival, arrived, source, source_session, session_id, manifest_id, subject, outcome, \
-                       other_session, shared, because, call, by, at, place, first_session, refused, answer";
+                       other_session, shared, because, call, by, at, place, first_session, refused, answer, issue";
 
 fn ruling_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptRuling> {
     let shared: String = row.get(9)?;
@@ -61,6 +63,7 @@ fn ruling_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptRuling> {
         first_session: row.get(15)?,
         refused: refused.lines().filter(|one| !one.is_empty()).map(str::to_string).collect(),
         answer: row.get(17)?,
+        issue: row.get(18)?,
     })
 }
 
@@ -75,7 +78,7 @@ impl Store {
             .execute(
                 &format!(
                     "INSERT INTO operator_rulings ({COLUMNS})
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)"
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)"
                 ),
                 params![
                     one.arrival,
@@ -95,7 +98,8 @@ impl Store {
                     one.place,
                     one.first_session,
                     one.refused.join("\n"),
-                    one.answer
+                    one.answer,
+                    one.issue
                 ],
             )
             .map(|_| ())
