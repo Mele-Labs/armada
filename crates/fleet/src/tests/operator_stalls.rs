@@ -229,6 +229,36 @@ async fn a_red_pull_request_the_job_ended_a_turn_on_with_no_push_arrives_once_ho
 }
 
 #[tokio::test]
+async fn a_red_pull_request_is_not_a_stall_while_a_subagent_is_still_working() {
+    let rig = rig_placing(None);
+    on(&rig).await;
+    let counted = Arc::new(Counting::default());
+    assert!(rig.fleet.operator_seated_with(counted.clone()));
+    let id = stopped_a_while_ago(&rig).await;
+    holds_red(&rig, &id).await;
+    told_red(&rig, &id, "2222222", 60_000).await;
+    turn_ended(&rig, &id, 30_000).await;
+    let at = rig.fleet.now().as_str().to_string();
+    let subagent = KeptAttachment {
+        holder: Holder::session(id.as_str()),
+        kind: "subagent".into(),
+        manifest_id: String::new(),
+        target: "x1".into(),
+        state: AttachmentState::Standing,
+        detail: Default::default(),
+        since: at.clone(),
+        changed_at: at,
+    };
+    rig.fleet.store().lock().await.attach(&subagent, false).expect("attached");
+
+    read_and_handed(&rig, &id).await;
+    read_and_handed(&rig, &id).await;
+    assert!(!record(&rig, &id).await.running.is_empty(), "it is working");
+    assert_eq!(counted.0.load(Ordering::SeqCst), 0, "no call");
+    assert!(rig.fleet.store().lock().await.operator_rulings(10).expect("read").is_empty(), "no ruling");
+}
+
+#[tokio::test]
 async fn with_the_operator_off_a_stopped_job_is_ruled_on_by_nobody_and_no_call_is_made() {
     let rig = rig_placing(None);
     assert!(!rig.fleet.operator_on(), "the Operator ships off");

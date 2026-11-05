@@ -49,6 +49,7 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         mod_out_of_date: false,
         mod_version: None,
         tools_missing: None,
+        running: Vec::new(),
         waiting_for: Vec::new(),
         done_since: None,
         done_summary: None,
@@ -187,4 +188,23 @@ fn a_line_says_which_mod_reported_and_what_the_agent_came_up_without() {
     let line = &SessionSummaries::of(&SessionList { sessions: vec![record] }).sessions[0];
     assert_eq!(line.mod_version.as_deref(), Some("1.4.0"));
     assert_eq!(line.tools_missing, vec![ToolMissing::Mod, ToolMissing::Door]);
+}
+
+#[test]
+fn a_line_carries_what_is_running_past_the_turn_and_leaves_it_out_when_nothing_is() {
+    let mut record = session(Vec::new());
+    let bare = SessionSummaries::of(&SessionList { sessions: vec![record.clone()] });
+    assert!(bare.sessions[0].running.is_empty());
+    assert!(!encode(&bare).expect("a list encodes").contains("running"));
+
+    record.running = vec![crate::RunningWork {
+        kind: crate::RunningKind::BackgroundTask,
+        what: "dev server".to_string(),
+        since: crate::Instant::carried("2026-11-05T10:00:00.000Z"),
+    }];
+    let list = SessionSummaries::of(&SessionList { sessions: vec![record] });
+    let wire = encode(&list).expect("a list encodes");
+    assert!(wire.contains(r#""running":[{"kind":"background_task","what":"dev server","since":"2026-11-05T10:00:00.000Z"}]"#), "{wire}");
+    let back: SessionSummaries = decode("a summary list", wire.as_bytes()).expect("a list decodes");
+    assert_eq!(back, list);
 }

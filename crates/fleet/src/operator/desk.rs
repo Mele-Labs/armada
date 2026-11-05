@@ -82,6 +82,8 @@ where
                     continue;
                 }
                 let (paths, issues, words) = held_of(&store, &session.id);
+                let held = store.attachments_of(&Holder::session(&session.id)).unwrap_or_default();
+                let running = fleet.running_of(&session.id, &held);
                 let started_by = started_by_chain(&store, &session.id);
                 live.push(LiveJob {
                     title: session.title.unwrap_or_else(|| session.id.clone()),
@@ -90,6 +92,7 @@ where
                     words,
                     paths,
                     issues,
+                    running,
                     started_by,
                 });
             }

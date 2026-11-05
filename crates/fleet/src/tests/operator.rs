@@ -114,6 +114,7 @@ impl Held {
                 words: String::new(),
                 paths: vec![path.into()],
                 issues: Vec::new(),
+                running: Vec::new(),
                 started_by: Vec::new(),
             })
             .collect();

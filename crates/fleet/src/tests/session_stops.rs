@@ -276,3 +276,27 @@ async fn a_dead_job_reads_stopped_gets_one_repair_job_nested_under_it_and_no_nud
     let stopped = record(&rig, &id).await.stopped.expect("still stopped");
     assert_eq!((stopped.repair, stopped.gave_up), (Some(StopRepair::Failed), true));
 }
+
+#[tokio::test]
+async fn a_subagent_still_working_excuses_a_stop() {
+    let rig = rig_placing(None);
+    let id = stopped_a_while_ago(&rig).await;
+    assert!(record(&rig, &id).await.stop_told_by.is_some(), "owed before it");
+
+    let at = rig.fleet.now().as_str().to_string();
+    let subagent = store::KeptAttachment {
+        holder: store::Holder::session(id.as_str()),
+        kind: "subagent".into(),
+        manifest_id: String::new(),
+        target: "x1".into(),
+        state: store::AttachmentState::Standing,
+        detail: [("type", "explorer"), ("description", "sweep")].into_iter().map(|(key, value)| (key.to_string(), value.to_string())).collect(),
+        since: at.clone(),
+        changed_at: at,
+    };
+    rig.fleet.store().lock().await.attach(&subagent, false).expect("attached");
+    let row = record(&rig, &id).await;
+    assert!(row.stop_told_by.is_none(), "its turn ended on work running, not on nothing");
+    assert_eq!(row.running.len(), 1);
+    assert_eq!((row.running[0].kind, row.running[0].what.as_str()), (ipc::RunningKind::Subagent, "sweep"));
+}
