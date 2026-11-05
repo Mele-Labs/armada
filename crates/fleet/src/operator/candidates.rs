@@ -7,6 +7,7 @@
 use std::collections::BTreeSet;
 
 use super::arriving::{Arrival, LiveJob};
+use super::sources::Filed;
 
 /// Words this short, or this common in a request, say nothing about what the work is.
 const SHORTEST_WORD: usize = 5;
@@ -18,6 +19,8 @@ const COMMON: &[&str] = &[
 const WORDS_NEAR: usize = 2;
 /// The most shared words a call is shown for one pair.
 const WORDS_SHOWN: usize = 5;
+/// The most open issues one item is offered as ones it may be.
+const ISSUES_SHOWN: usize = 8;
 
 /// One live Job, and what it shares with one item.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -62,6 +65,19 @@ pub(super) fn near(item: &Arrival, live: &[LiveJob]) -> Vec<Near> {
             (!paths.is_empty() || !issues.is_empty() || !words.is_empty()).then(|| Near { job: job.clone(), paths, issues, words })
         })
         .collect()
+}
+
+/// The open issues whose titles share two uncommon words with `text`, those sharing most first.
+/// **An issue sharing fewer is not offered**, so a link can name only one Fleet found near.
+pub(super) fn open_near(text: &str, open: &[Filed]) -> Vec<Filed> {
+    let words = uncommon(text);
+    let mut near: Vec<(usize, &Filed)> = open
+        .iter()
+        .map(|one| (uncommon(&one.title).intersection(&words).count(), one))
+        .filter(|(shared, _)| *shared >= WORDS_NEAR)
+        .collect();
+    near.sort_by(|one, other| other.0.cmp(&one.0));
+    near.into_iter().take(ISSUES_SHOWN).map(|(_, one)| one.clone()).collect()
 }
 
 /// Each of `ours` that meets one of `theirs`, the more exact of the two named.

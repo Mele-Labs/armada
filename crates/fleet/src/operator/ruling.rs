@@ -3,7 +3,8 @@
 //! **A ruling is refused rather than repaired.** A way the item was not offered, another Job it was
 //! not shown as near, or a way between two Jobs that names no shared paths passes the item on untouched,
 //! the way an id Fleet did not offer is refused elsewhere. **A place or a first that names a Job not
-//! offered is refused alone**: the way stands, the start goes last, and nothing is held.
+//! offered is refused alone**: the way stands, the start goes last, and nothing is held. A link to
+//! an issue the item was not offered is refused whole.
 
 use std::fmt;
 use std::time::Duration;
@@ -29,6 +30,10 @@ pub enum Way {
     Nudge,
     /// A question or a permission card is settled as the person's press would.
     Answer,
+    /// A report or a Later item is one of the open issues it was offered, and is linked to it.
+    Link,
+    /// A Later item is filed as a new issue in the repository's beads.
+    File,
 }
 
 impl Way {
@@ -44,6 +49,8 @@ impl Way {
             Way::Raise => "raise",
             Way::Nudge => "nudge",
             Way::Answer => "answer",
+            Way::Link => "link",
+            Way::File => "file",
         }
     }
 
@@ -56,6 +63,8 @@ impl Way {
             Way::Raise => "raise",
             Way::Nudge => "nudge",
             Way::Answer => "answer",
+            Way::Link => "link to an open issue",
+            Way::File => "file a new issue",
         }
     }
 
@@ -137,12 +146,14 @@ pub struct Ruling {
     pub refused: Vec<String>,
     /// The answer an answer gives, one of those the item was offered.
     pub answer: Option<Choice>,
+    /// The open issue a link names, one of those the item was offered.
+    pub issue: Option<String>,
 }
 
 impl Ruling {
     /// A ruling of `way` alone, naming no other Job.
     pub fn alone(way: Way, because: impl Into<String>) -> Ruling {
-        Ruling { way, other: None, shared: Vec::new(), because: because.into(), place: None, first: None, refused: Vec::new(), step: None, answer: None }
+        Ruling { way, other: None, shared: Vec::new(), because: because.into(), place: None, first: None, refused: Vec::new(), step: None, answer: None, issue: None }
     }
 }
 
@@ -243,6 +254,13 @@ fn read_one(block: &[(String, String)], item: &Arrival, near: &[Near]) -> Result
         .ok_or_else(|| PassedOn::Refused(format!("way {named} was not one it was offered")))?;
     if way == Way::Answer {
         return answered(block, item, because);
+    }
+    if way == Way::Link {
+        let issue = said(block, "issue").filter(|issue| !none(issue)).ok_or_else(|| PassedOn::Refused("link named no issue".into()))?;
+        if !item.open.iter().any(|one| one.reference == issue) {
+            return Err(PassedOn::Refused(format!("{issue} is not an open issue it was offered")));
+        }
+        return Ok(Ruling { issue: Some(issue), ..Ruling::alone(way, because) });
     }
     if way == Way::Nudge {
         let step = said(block, "step").filter(|step| !none(step)).ok_or_else(|| PassedOn::Refused("nudge named no next step".into()))?;

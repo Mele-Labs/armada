@@ -32,6 +32,7 @@ mod placing;
 mod questions;
 mod ruling;
 mod seat;
+mod sources;
 mod stalling;
 mod stalls;
 
@@ -53,6 +54,7 @@ pub use desk::FleetDesk;
 pub(crate) use seat::{Moved, Seat};
 pub use questions::{Choice, Earlier, Group, Kind, Present, Question, ALLOW_ONCE};
 pub use ruling::{Outcome, PassedOn, Place, Ruled, Ruling, Way};
+pub use sources::{Filed, Handed, NewIssue, RedMain, Report, ReviewRequest};
 pub(crate) use stalling::{seen_of, Stalls};
 pub use stalls::{Quiet, Stall};
 
@@ -115,6 +117,9 @@ pub trait Acting: Send + Sync {
     /// Item `item` on `session`'s Needs you list is settled as the person's press on `choice`
     /// would, and the Job's thread says so in the answer's words.
     fn answer(&self, _session: &str, _item: &str, _choice: &Choice, _because: &str) {}
+    /// Work from outside a Job's own run is done as `ruling` says: a report linked or handed on, a
+    /// red main fixed, a Later item linked or filed, or any of them raised.
+    fn sourced(&self, _arrival: &Arrival, _ruling: &Ruling) {}
 }
 
 /// One row of the Log.
@@ -142,6 +147,8 @@ pub struct Logged {
     pub refused: Vec<String>,
     /// The answer given, in its option's words: by the Operator, or by the person's own press.
     pub answer: Option<String>,
+    /// The open issue a link named.
+    pub issue: Option<String>,
 }
 
 impl Logged {
@@ -150,11 +157,15 @@ impl Logged {
             Ruled::Ruled(ruling) => (Outcome::Ruled(ruling.way), ruling.other.clone(), ruling.shared.clone(), ruling.because.clone()),
             Ruled::PassedOn(why) => (Outcome::PassedOn, None, Vec::new(), why.to_string()),
         };
-        let (place, first, refused, answer) = match ruled {
-            Ruled::Ruled(ruling) => {
-                (ruling.place.clone(), ruling.first.clone(), ruling.refused.clone(), ruling.answer.as_ref().map(|one| one.label.clone()))
-            }
-            Ruled::PassedOn(_) => (None, None, Vec::new(), None),
+        let (place, first, refused, answer, issue) = match ruled {
+            Ruled::Ruled(ruling) => (
+                ruling.place.clone(),
+                ruling.first.clone(),
+                ruling.refused.clone(),
+                ruling.answer.as_ref().map(|one| one.label.clone()),
+                ruling.issue.clone(),
+            ),
+            Ruled::PassedOn(_) => (None, None, Vec::new(), None, None),
         };
         Logged {
             arrival: arrival.id.clone(),
@@ -174,6 +185,7 @@ impl Logged {
             first,
             refused,
             answer,
+            issue,
         }
     }
 
@@ -198,6 +210,7 @@ impl Logged {
             first_session: self.first.clone(),
             refused: self.refused.clone(),
             answer: self.answer.clone(),
+            issue: self.issue.clone(),
         }
     }
 }
@@ -302,8 +315,9 @@ impl Operator {
                     arrival.ways.retain(|way| !way.names_another());
                 }
                 let line = line_of(&arrival, &waiting);
-                // A start where others wait is put to a call for its place, whatever its ways.
-                if arrival.ways.len() > 1 || !line.is_empty() {
+                // A start where others wait is put to a call for its place, and an issue or a review
+                // request for its read, whatever their ways.
+                if arrival.ways.len() > 1 || !line.is_empty() || arrival.arrived.is_read() {
                     asked.push((token, arrival, Asked { near, line }));
                     continue;
                 }
@@ -388,6 +402,10 @@ impl Operator {
     /// first write waits on this ruling, and a plan is recorded before its building.
     fn act(&self, arrival: &Arrival, ruling: &Ruling) {
         let session = arrival.session_id.as_str();
+        if arrival.arrived.is_sourced() {
+            self.acting.sourced(arrival, ruling);
+            return;
+        }
         if arrival.arrived.is_stall() {
             match (ruling.way, ruling.step.as_deref()) {
                 (Way::Nudge, Some(step)) => self.acting.nudge(session, step),
@@ -410,7 +428,7 @@ impl Operator {
             (Way::Merge, Some(other)) => self.acting.merge(session, other, &ruling.shared),
             (Way::KeepInTouch, Some(other)) => self.acting.keep_in_touch(session, other, &ruling.shared),
             // A way between two that names no other was refused as it was read.
-            (Way::ExistingJob | Way::Merge | Way::KeepInTouch, None) | (Way::Raise | Way::Nudge | Way::Answer, _) => {}
+            (Way::ExistingJob | Way::Merge | Way::KeepInTouch, None) | (Way::Raise | Way::Nudge | Way::Answer | Way::Link | Way::File, _) => {}
         }
         if let (Some(first), Some(other)) = (ruling.first.as_deref(), ruling.other.as_deref()) {
             let held = if first == session { other } else { session };

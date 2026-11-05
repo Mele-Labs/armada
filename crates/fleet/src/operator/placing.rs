@@ -95,6 +95,7 @@ impl Logged {
             first: None,
             refused: Vec::new(),
             answer: None,
+            issue: None,
         }
     }
 }
