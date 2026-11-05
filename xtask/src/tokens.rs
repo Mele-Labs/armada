@@ -201,8 +201,8 @@ pub const THEME: &[(&str, Slot)] = &[
         "--dot-idle",
         Slot::CssOnly("a mix percentage read inside color-mix(), not a colour"),
     ),
-    ("--helm", Slot::Named("color", "helm")),
-    ("--helm-", Slot::NsFull("color")),
+    ("--operator", Slot::Named("color", "operator")),
+    ("--operator-", Slot::NsFull("color")),
     ("--you", Slot::Named("color", "you")),
     ("--you-", Slot::NsFull("color")),
     // An instrument's marks, aliased in status.css below Job level.
