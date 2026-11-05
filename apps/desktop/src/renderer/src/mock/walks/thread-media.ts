@@ -12,7 +12,7 @@ const threadMedia = walk("thread-media", [
     say: "A Job that showed two pictures and two videos",
   },
   {
-    look: button(WIDE, {
+    look: button(`Opened ${WIDE}`, {
       exact: true,
     }),
     say: "Each draws under its line at one height, so the thread does not move as they arrive",
@@ -45,8 +45,15 @@ const threadMedia = walk("thread-media", [
     say: "Close, or Esc. Back in the thread",
   },
   {
+    // Its line first: a row this far up the thread has not read its video until it comes near.
+    look: button("Opened cockpit-recording.mp4", {
+      exact: true,
+    }),
+    say: "Further up, a video",
+  },
+  {
     look: role("group", "cockpit-recording.mp4"),
-    say: "A video has its first frame and its own controls",
+    say: "It has its first frame and its own controls",
   },
   {
     look: button("Open video"),
