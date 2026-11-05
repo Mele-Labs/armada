@@ -64,6 +64,7 @@ import {
   useAccount,
   useTerminalDock,
   FILE_SHOWN,
+  mediaKindOf,
 } from "@armada/components";
 import type {
   DebugPayload,
@@ -3070,12 +3071,15 @@ export function SessionView({
                             })
                           }
                           onOpenFile={(path) =>
-                            void openInPanel({
-                              kind: "file",
-                              path,
-                              from: "session",
-                              sessionId: session.id,
-                            })
+                            // The Mac's own player: the panel reads a file into memory and would call a video binary.
+                            mediaKindOf(path) === "video"
+                              ? draft.openFile?.(session.id, path)
+                              : void openInPanel({
+                                  kind: "file",
+                                  path,
+                                  from: "session",
+                                  sessionId: session.id,
+                                })
                           }
                           onReadMedia={(path) => readShownMedia(draft, session.id, path)}
                           {...(draft.answerWaiting === undefined
