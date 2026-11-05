@@ -29,6 +29,8 @@ Decided by the owner, 17 Oct 2026, keeping the Checks that compile on the pull r
 The job `test_compile` runs `armada check test --changed` and `armada check acceptance` with a `cargo` ahead on `PATH` that adds `--no-run` to `nextest run`, so it compiles the crates the queue's run narrows to and runs no test.
 `plan.py` names the keys in `compile`, the Rust Checks in `COMPILE` that the plan left to the queue; a Check the pull request runs itself, because the queue last failed it, is not compiled twice.
 Its cache is `test`'s, so it starts from what `main` last compiled.
+rust-cache adds the job's id to its key, so the job passes `shared: test-test` to `rust-setup` to restore `ci1-test-test-…`.
+Without it, it looked for `ci1-test-test_compile-…`, which `main` never writes, found none on 5 of the 6 pull requests before 5 Nov 2026, and compiled every third-party crate: 281 to 352 seconds (`docs/spikes/ci-test-compile.md`).
 
 **A pull request the queue dropped runs again, on its own run, the Checks the queue failed.** Without it, a fix for that failure read green on a pull request that never ran the Check, and its first real answer came after another wait in the queue.
 The plan reads the newest queue run for the pull request that passed or failed, from its branch `gh-readonly-queue/main/pr-<n>-…`; a cancelled one says nothing.
@@ -144,6 +146,9 @@ requires for the Checks below. `desktop_test` is to be added.
 | `format` | `ubuntu-latest` | `pnpm format:check`, on every change | node_modules |
 | `foundations` | `ubuntu-latest` | `cargo xtask verify-foundations`, on the candidate and on `main`'s tip, read as a delta | rust-cache, `main`'s reading per commit |
 | `desktop_test` of `apps/desktop/unit` | `ubuntu-latest`, job `desktop_unit` | `vitest run --maxWorkers=$WIDTH --project 'desktop*'`, direct. `armada check` runs the same from the manifest | node_modules, Playwright |
+
+**No compiler cache.** rust-cache keeps the third-party crates, and every Rust job compiles Armada's own crates again (`CARGO_INCREMENTAL=0`).
+A whole `test` compile is 278 seconds, 212 of them `fleet`'s test harness, which sccache cannot cache; sccache and a nextest archive shared by the shards were measured and not taken (`docs/spikes/ci-test-compile.md`).
 
 `$WIDTH` is the runner's core count and stands for armada.yml's `${width}`.
 `run-check` also sets `ARMADA_SOLE_TENANT=1`, so `armada check` resolves `${width}` to every core on a runner and not the half a person's machine gets (`docs/concepts/manifest.md`, *How wide a Check runs*).
