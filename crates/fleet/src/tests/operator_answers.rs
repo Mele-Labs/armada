@@ -60,6 +60,27 @@ impl Calling for Counting {
     }
 }
 
+/// A call whose first ask is held out until released and then says nothing; every later ask answers
+/// the first option.
+#[derive(Default)]
+struct Gated {
+    asks: AtomicUsize,
+    release: tokio::sync::Notify,
+}
+
+impl Calling for Gated {
+    fn ask(&self, _question: String) -> Answering<'_> {
+        let first = self.asks.fetch_add(1, Ordering::SeqCst) == 0;
+        Box::pin(async move {
+            if !first {
+                return Ok("item: 1\nway: 1\nanswer: 1\nbecause: he left it to the recommended option".to_string());
+            }
+            self.release.notified().await;
+            Err(CallFailed::SaidNothing)
+        })
+    }
+}
+
 /// `id`'s plan: one group, "Clock", which the agent marks seen or not.
 async fn planned(rig: &Rig, id: &SessionId, seen: bool) {
     let plan = RecordPlan {
@@ -277,4 +298,34 @@ async fn autopilot_turned_on_offers_what_is_already_waiting_on_him_once_under_it
     assert_eq!(call.asked().len(), 1, "offered once in the run");
     let outcomes: Vec<String> = log_of(&rig).await.into_iter().map(|row| row.outcome).collect();
     assert_eq!(outcomes, ["answer", "raise"], "newest first");
+}
+
+#[tokio::test]
+async fn autopilot_turned_on_while_a_call_on_an_item_is_out_offers_it_once_the_call_is_back() {
+    let rig = rig_placing(None);
+    switched(&rig, "features.operator", true).await;
+    let call = Arc::new(Gated::default());
+    assert!(rig.fleet.operator_seated_with(call.clone()));
+    let id = rig.start().await;
+    planned(&rig, &id, false).await;
+    keep(&rig, &id, &[item("a", ASKED, &["Frozen (Recommended)", "Fake"])]).await;
+    read_and_handed(&rig, &id).await;
+    eventually(|| async { call.asks.load(Ordering::SeqCst) == 1 }).await;
+
+    // The run starts while the call is out, and the call comes back after it.
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    started(&rig, &[AutopilotDecision::Recommended]).await;
+    call.release.notify_one();
+    eventually(|| async { !log_of(&rig).await.is_empty() }).await;
+    assert_eq!(log_of(&rig).await[0].outcome, "passed_on", "the first call ruled nothing, under the rules from before the run");
+
+    eventually(|| async {
+        read_and_handed(&rig, &id).await;
+        !waiting(&rig, &id).await.contains(&"a".to_string())
+    })
+    .await;
+    for _ in 0..3 {
+        read_and_handed(&rig, &id).await;
+    }
+    assert_eq!(call.asks.load(Ordering::SeqCst), 2, "offered once in the run, after the call that was out");
 }

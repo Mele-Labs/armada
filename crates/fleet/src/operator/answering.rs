@@ -108,7 +108,8 @@ where
     }
 
     /// Whether arrival `id` of `session` is to be handed: the Log holds no row for it, or **an
-    /// Autopilot run that covers the Job started after its last**, so what was waiting on him when
+    /// Autopilot run that covers the Job started after it was last handed** (not after its ruling
+    /// came back: a call out at the start is under the old rules), so what was waiting on him when
     /// it turned on is offered once more under its setup.
     async fn unruled(&self, session: &str, id: &str) -> bool {
         let store = self.store().lock().await;
@@ -236,6 +237,7 @@ where
             because: String::new(),
             call: None,
             by: Actor::Human,
+            handed: self.now(),
             at: self.now(),
             place: None,
             first: None,
