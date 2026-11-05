@@ -1,7 +1,8 @@
 //! Work from outside a Job's own run, as Fleet hands it to the Operator and does what it rules: a
 //! report linked in the store to the open issue the call names, nothing handed while the Operator
 //! is off, an issue new only after the first read of its tracker, and a Later item handed over that
-//! no open issue covers, filed in the repository's beads with no call.
+//! no open issue covers, filed in the repository's beads with no call while File is on, and only
+//! kept in the Log while it is off.
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -174,21 +175,29 @@ fn handing(id: &SessionId, which: &str) -> SettleLater {
     SettleLater { id: which.into(), how: LaterHow::Handed, issue: None, reason: None, session_id: Some(id.clone()), misread: false }
 }
 
-#[tokio::test]
-async fn a_later_item_handed_over_is_refused_while_the_operator_is_off_and_filed_in_beads_with_no_call_once_it_is_on() {
+/// A rig over beads with Job "Build the pane", which keeps one Later item, and its id.
+async fn keeping_one(sentence: &str) -> (Rig, SessionId, Arc<Counting>) {
     let remote = FakeBeadsRemote::new();
     let copy = Arc::new(FakeBeads::on(&remote));
     let rig = machine("north", &copy).await;
     let counted = Arc::new(Counting::default());
     assert!(rig.fleet.operator_seated_with(counted.clone()));
     let id = rig.start_titled(Some("Build the pane")).await;
-    let sentence = "I will move the fixture loader into its own crate.";
     assert!(rig.fleet.later_kept(id.as_str(), &[sentence.to_string()], "2026-10-21T10:00:00.000Z").await);
+    (rig, id, counted)
+}
+
+#[tokio::test]
+async fn a_later_item_handed_over_is_refused_while_the_operator_is_off_and_filed_in_beads_with_no_call_by_file_alone() {
+    let sentence = "I will move the fixture loader into its own crate.";
+    let (rig, id, counted) = keeping_one(sentence).await;
 
     let refused = rig.fleet.settle_later(None, handing(&id, "later-1")).await.expect_err("refused");
     assert!(format!("{refused:?}").contains("handed needs the Operator on"), "{refused:?}");
 
-    on(&rig).await;
+    // File is its own switch: Dispatch stays off.
+    switched(&rig, "features.operator", true).await;
+    switched(&rig, "features.operatorFile", true).await;
     rig.fleet.settle_later(None, handing(&id, "later-1")).await.expect("handed");
     rig.fleet.sources_handed().await;
 
@@ -198,4 +207,22 @@ async fn a_later_item_handed_over_is_refused_while_the_operator_is_off_and_filed
     assert_eq!((log[0].arrived.as_str(), log[0].outcome.as_str()), ("later", "file"));
     let open = rig.fleet.open_issues(&manifest(&rig)).await.expect("read");
     assert!(open.iter().any(|one| one.title.as_written() == sentence), "{open:#?}");
+}
+
+#[tokio::test]
+async fn with_file_off_a_later_item_ruled_filed_is_kept_in_the_log_and_nothing_is_filed_whatever_dispatch_says() {
+    let sentence = "I will move the fixture loader into its own crate.";
+    let (rig, id, _) = keeping_one(sentence).await;
+    on(&rig).await;
+
+    rig.fleet.settle_later(None, handing(&id, "later-1")).await.expect("handed");
+    rig.fleet.sources_handed().await;
+
+    eventually(|| async { !rulings(&rig).await.is_empty() }).await;
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    let log = rulings(&rig).await;
+    assert_eq!((log[0].arrived.as_str(), log[0].outcome.as_str()), ("later", "file"));
+    assert_eq!(rig.fleet.store().lock().await.later_handed().expect("read").len(), 1, "still handed");
+    let open = rig.fleet.open_issues(&manifest(&rig)).await.expect("read");
+    assert!(!open.iter().any(|one| one.title.as_written() == sentence), "{open:#?}");
 }

@@ -117,13 +117,17 @@ where
 
     /// **A link, and a red main, act with Dispatch off**: a link is kept on this Mac and starts
     /// nothing, and a red main arrives only from Autopilot's red kind, whose own switch allows the
-    /// start. A delegate, a dispatch and a File wait on Dispatch; a raise is its Log row.
+    /// start. A File waits on its own switch, a delegate and a dispatch on Dispatch; a raise is its
+    /// Log row.
     fn sourced(&self, arrival: &Arrival, ruling: &Ruling) {
         let Some(fleet) = self.fleet.upgrade() else { return };
-        if ruling.way == Way::Raise || !fleet.operator_on() {
-            return;
-        }
-        if !(ruling.way == Way::Link || arrival.arrived == Arrived::RedMain || fleet.operator_dispatches()) {
+        let allowed = match ruling.way {
+            Way::Raise => false,
+            Way::Link => true,
+            Way::File => fleet.operator_filing(),
+            _ => arrival.arrived == Arrived::RedMain || fleet.operator_dispatches(),
+        };
+        if !allowed || !fleet.operator_on() {
             return;
         }
         let (arrival, ruling) = (arrival.clone(), ruling.clone());
@@ -163,6 +167,12 @@ where
     pub(crate) fn operator_answering(&self) -> bool {
         let settings = self.machine_settings().now();
         settings.get(keys::OPERATOR) && settings.get(keys::OPERATOR_ANSWER)
+    }
+
+    /// The Operator's File switch, as settings.json reads now, under its own.
+    pub(crate) fn operator_filing(&self) -> bool {
+        let settings = self.machine_settings().now();
+        settings.get(keys::OPERATOR) && settings.get(keys::OPERATOR_FILE)
     }
 
     /// A Job held on its start card starts as his press would, on the landing the card picked.
