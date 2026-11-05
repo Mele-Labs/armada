@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use store::{AttachmentState, Holder};
 
 use super::tools_missing::Restart;
 use crate::daemon::Fleet;
@@ -71,16 +70,5 @@ where
         if self.restarted_onto_mod(id, &runtime, false, Restart::Moved { to: current }).await {
             let _ = self.published_hosted(id).await;
         }
-    }
-
-    /// Whether the Job has a subagent or a background task working, which a restart takes down with
-    /// the process. The turn is over, so this is work the agent left running.
-    async fn work_beyond_the_turn(&self, id: &str) -> bool {
-        let held = self.store().lock().await.attachments_of(&Holder::session(id)).unwrap_or_default();
-        held.iter().filter(|one| one.state == AttachmentState::Standing).any(|one| match one.kind.as_str() {
-            "subagent" => !adapters::terminal_thread::subagent_ended(&self.host().home, id, &one.target),
-            super::backgrounding::KIND => true,
-            _ => false,
-        })
     }
 }

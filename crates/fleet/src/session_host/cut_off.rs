@@ -1,16 +1,26 @@
-//! Subagents a replaced process took down with it. `docs/concepts/session.md`,
+//! Subagents a process would take down with it, and those a replaced one did. `docs/concepts/session.md`,
 //! *What a restart does to a session*.
 //!
 //! **A subagent lives in its agent's process.** A keeper carries the process across a Fleet
-//! restart, but a process Fleet ends (a tune, a quiet spell, the move into a slot) or loses
-//! (the keeper gone) takes every subagent still working with it, and the one that replaces it
-//! has never heard of them.
+//! restart, and no new process can carry it. So a quiet spell and the move into a slot wait for
+//! what is still working, and a process Fleet ends anyway (a tune) or loses (the keeper gone) takes
+//! every subagent with it, and the one that replaces it has never heard of them.
+
+use std::sync::Arc;
+use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use store::{AttachmentState, Holder};
+use core_model::Timestamp;
+use store::{AttachmentState, Holder, KeptAttachment};
 
 use super::State;
 use crate::daemon::Fleet;
+
+/// How long work may show nothing before it stops holding its process: a subagent since its
+/// transcript's last line, a background task since it started, as it writes nowhere Fleet reads.
+/// **An hour, and nothing measured it.** Longer than any one tool call of a subagent, and a server
+/// left running gives its process up in the end.
+const HUNG_AFTER: Duration = Duration::from_secs(60 * 60);
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -22,6 +32,53 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    /// Whether the Job has a subagent or a background task working, which ending its process takes
+    /// down. The turn is over, so this is work the agent left running. With no process there is
+    /// nothing to take down, whatever its rows still say.
+    pub(super) async fn work_beyond_the_turn(&self, id: &str) -> bool {
+        if self.hosts().of(id).state().process.is_none() {
+            return false;
+        }
+        let held = self.store().lock().await.attachments_of(&Holder::session(id)).unwrap_or_default();
+        held.iter().filter(|one| one.state == AttachmentState::Standing).any(|one| self.still_working(id, one))
+    }
+
+    fn still_working(&self, id: &str, one: &KeptAttachment) -> bool {
+        let home = &self.host().home;
+        let last = match one.kind.as_str() {
+            "subagent" if adapters::terminal_thread::subagent_ended(home, id, &one.target) => return false,
+            "subagent" => adapters::terminal_thread::subagent_working_at(home, id, &one.target).unwrap_or_else(|| one.since.clone()),
+            super::backgrounding::KIND => one.since.clone(),
+            _ => return false,
+        };
+        let now = self.now().epoch_millis();
+        now.zip(Timestamp::from_rfc3339(last).epoch_millis()).is_some_and(|(now, last)| now - last < HUNG_AFTER.as_millis() as i64)
+    }
+
+    /// Make each move that waited on working agents, once they have ended. **Called on the quiet
+    /// sweep's timer, and by a test**, which would not wait for one. A turn's end makes the move
+    /// itself, so this is for agents that end with no turn after them. **Boxed**, as
+    /// `processes_moved_onto_mod` is: the move starts a process, whose start spawns the timer.
+    pub(crate) fn held_moves_made(self: &Arc<Self>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
+        let fleet = Arc::clone(self);
+        Box::pin(async move {
+            for (id, runtime) in fleet.hosts().all() {
+                let due = runtime.state().move_due();
+                if !due || fleet.work_beyond_the_turn(&id).await {
+                    continue;
+                }
+                // Read again under the lock: a turn may have begun since, and its end moves it.
+                let moving = {
+                    let mut state = runtime.state();
+                    if state.move_due() { state.moving.take() } else { None }
+                };
+                if let Some(moving) = moving {
+                    fleet.moved_into(&id, moving).await;
+                }
+            }
+        })
+    }
+
     /// The subagents the session's last process had not finished, one line each. **Called
     /// where a new process starts for a session that has run**, so nothing it names can still be
     /// working. Their ledger rows are given back: they were let go before they were used.

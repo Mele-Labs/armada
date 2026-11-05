@@ -38,8 +38,9 @@ work, in their own configuration. A Job started on your words, by the
           its process starts when the reading lands, see *A Session's proposal*)
  message ─▶ a live process, `--session-id`, the message on its input
  first write ─▶ a hook asks Fleet; Fleet leases a slot and cuts a branch, writes
-                both on the ledger, refuses the write and the turn ends; the
-                process is ended and resumed with the slot as its directory
+                both on the ledger, refuses the write and the turn ends; once no
+                agent of the job is working, the process is ended and resumed
+                with the slot as its directory
  first write, pool full ─▶ the session is queued, told its place, and stops its
                 turn; the owner is asked: wait for a slot, or add one
                 wait ─▶ Fleet leases it the next slot to free and resumes it there
@@ -48,8 +49,9 @@ work, in their own configuration. A Job started on your words, by the
  later writes ─▶ held to the slot
  the harness's EnterWorktree ─▶ refused, whatever the mode: a resume keeps that
                 worktree over the slot, and the job could then write nowhere
- quiet for a while ─▶ the process is ended; the next message resumes it, leased a
-                slot first if it holds none and the line ahead of it is empty
+ quiet for a while, no agent working ─▶ the process is ended; the next message
+                resumes it, leased a slot first if it holds none and the line
+                ahead of it is empty
  close ─▶ the slot is parked on its own branch, the row ends
 ```
 
@@ -85,7 +87,7 @@ any write. **Wait** leaves the job where it is in the line: when a slot is given
 back, Fleet leases one for the head of the line, writes the lease as it would for a
 first write and moves the job into it, whether or not its refused turn has ended:
 an idle job is resumed at once, one still finishing the turn is moved as that turn
-ends. **Add** answers at once and makes the slot after: the pool list gains a slot, its
+ends, and either waits for agents still working (below, where a process's agents are working). **Add** answers at once and makes the slot after: the pool list gains a slot, its
 checkout is made holding nothing, and the slot is leased to **that** job, not to the
 head of the line. The repository is marked as making a slot meanwhile, so the grant and
 a newcomer's first write leave the new slot to the job that asked. The call stays, with
@@ -349,11 +351,27 @@ is going. The keeper's own stderr, the agent's and how the agent exited go to
 `<id>.log` beside the spool; Fleet puts its last lines in the thread's
 "process ended" note, a message in Fleet's voice.
 
+**A process with agents working is not ended between turns.**
+A Job that starts background agents and ends its turn has done what its rules say, so its process stays while a `subagent` row stands whose transcript shows no finished turn, or a `background` row stands.
+A quiet spell waits, and ends the process at the first sweep after they end.
+So does the move into a slot, since a new process cannot carry a subagent and the process cannot change its directory.
+
+While a move waits, the Job's writes stay refused, and those of its agents, which are told to stop writing.
+The turn that stood down ends as any other, so the Job reads as working from its rows, and a turn begun meanwhile is shown as usual.
+The move is made at the end of the first turn with nothing working, or at the next sweep if the agents end with no turn after them.
+A process that dies while a move waits is moved all the same, and told what it lost.
+The wait is in Fleet's memory: a Fleet restart forgets it, and the process reattaches where it was.
+
+**A hung agent stops holding its process after an hour.**
+A subagent counts from its transcript's last line, or from when it started if it has written none.
+A background task counts from when it started, since it writes nowhere Fleet reads, so a server left running gives its process up too.
+What is then cut off is told as below.
+
 **A process Fleet replaces takes its subagents with it.** A subagent runs inside
-its agent's process, so the keeper only carries it across a Fleet restart. A tune,
-a quiet spell, the move into a slot at the first write and a lost keeper each end
-the process, and the one that resumes has never heard of the subagents that were
-working. When Fleet starts a process for a job that has run, every `subagent`
+its agent's process, so the keeper only carries it across a Fleet restart. A tune
+and a lost keeper end the process whatever is working, and so does a quiet spell or
+a move once an agent has hung. The one that resumes has never heard of the subagents
+that were working. When Fleet starts a process for a job that has run, every `subagent`
 row still `standing` whose transcript shows no finished turn was cut off. Fleet
 gives those rows back, keeps their type, description and id in the restart's
 note (so the retro lists them), and puts the same list ahead of the agent's next

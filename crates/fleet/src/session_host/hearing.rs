@@ -59,8 +59,11 @@ where
                         gone.end();
                     }
                     state.queued = 0;
-                    state.moving = None;
                     let working = matches!(state.turn, SessionTurn::Working { .. });
+                    // A move that waited on agents is still owed between turns, and now waits on nothing.
+                    if working {
+                        state.moving = None;
+                    }
                     state.turn = SessionTurn::Idle;
                     // Lines it never took are not lost with it: once.
                     let lost = match state.retried {
@@ -74,7 +77,9 @@ where
                     (working, complaint, lost)
                 };
                 // The move it was waiting on is not made: `moving` went with the process.
-                self.slot_wait_ended(id, Some("move")).await;
+                if runtime.state().moving.is_none() {
+                    self.slot_wait_ended(id, Some("move")).await;
+                }
                 // Fleet letting a process go changes the generation, so one heard here ended on its own.
                 self.stop_kept(id).await;
                 if working {
@@ -354,9 +359,11 @@ where
                 by: by @ (Speaker::Drone | Speaker::Harness),
             } => {
                 // What is said between the lease and the move is the agent
-                // standing down, and the person is not shown it.
+                // standing down, and the person is not shown it. A later turn, while
+                // the move waits on agents, is said to them.
                 let text = adapters::terminal_thread::agent_said(&text);
-                if runtime.state().moving.is_some() || text.trim().is_empty() {
+                let standing_down = runtime.state().moving.as_ref().is_some_and(|moving| !moving.held);
+                if standing_down || text.trim().is_empty() {
                     return;
                 }
                 // The harness's words are shown but are not the agent's reply, so a turn
@@ -464,10 +471,19 @@ where
                 self.set_up_after_write(&repository);
             }
         }
+        // Ending the process for a move would take them with it, so the move waits and this turn ends as any other.
+        let working = self.work_beyond_the_turn(id).await;
         let (moving, restart, began, said) = {
             let mut state = runtime.state();
             state.last_active = std::time::Instant::now();
-            (state.moving.take(), state.restart_after_turn, state.turn_began.take(), state.said.take())
+            let moving = match state.moving.take() {
+                Some(moving) if working || moving.held => {
+                    state.moving = Some(Move { held: true, ..moving });
+                    None
+                }
+                moving => moving,
+            };
+            (moving, state.restart_after_turn, state.turn_began.take(), state.said.take())
         };
         // What the Job ran this far is remembered, off the turn so the board is not held for a file.
         {
@@ -505,7 +521,8 @@ where
             let mut state = runtime.state();
             state.restart_after_turn = false;
             state.reattached_busy = false;
-            if restart {
+            // A move about to be made or waiting on agents starts on what the Job names itself.
+            if restart && state.moving.is_none() {
                 Self::let_go(&mut state);
             }
             state.turn = if state.queued > 0 {
@@ -513,9 +530,9 @@ where
             } else {
                 SessionTurn::Idle
             };
-            // A slot granted to a queued session while this turn was ending.
+            // A slot granted to a queued session while this turn was ending, or a move whose agents have ended.
             match state.turn {
-                SessionTurn::Idle => state.moving.take(),
+                SessionTurn::Idle if !working => state.moving.take(),
                 _ => None,
             }
         };
@@ -523,9 +540,11 @@ where
             self.moved_into(id, late).await;
             return;
         }
+        let move_waits = runtime.state().moving.is_some();
         if let Some(claim) = claim {
             self.claim_reminded(id, claim).await;
-        } else if super::unanswered::turn_unanswered(runtime) {
+        // The turn it stood down in is answered from the slot, as a move made at once is.
+        } else if !move_waits && super::unanswered::turn_unanswered(runtime) {
             self.unanswered_reminded(id).await;
         }
         let _ = self.published_hosted(id).await;
