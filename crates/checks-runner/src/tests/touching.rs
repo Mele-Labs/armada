@@ -191,6 +191,40 @@ fn a_test_only_an_excluded_member_declares_is_refused_with_why() {
     );
 }
 
+/// `tests` is every test file's module, so naming it names the crate's whole
+/// suite: 13 runs of 500 to 3,491 tests came of it. Refused before any member is
+/// read, whether alone, below a module, or among narrow names.
+#[test]
+fn a_name_ending_in_tests_is_refused_as_the_whole_suite() {
+    let workspace = a_workspace();
+    for test in ["tests", "pull_waits::tests", "fleet tests"] {
+        assert_eq!(
+            one_test_in(workspace.path(), RUN, Some(&by_package()), test),
+            Err(OneTestRefused::WholeSuite {
+                test: test.to_string()
+            }),
+            "{test}"
+        );
+    }
+    assert_eq!(
+        tests_in(workspace.path(), RUN, Some(&by_package()), &["stops", "tests"]),
+        Err(OneTestRefused::WholeSuite {
+            test: "tests".to_string()
+        })
+    );
+}
+
+/// A module or test below `tests` is the narrow name the refusal asks for.
+#[test]
+fn a_name_below_tests_is_not_the_whole_suite() {
+    let workspace = a_workspace();
+    assert_eq!(
+        one_test_in(workspace.path(), RUN, Some(&by_package()), "tests::session_stop"),
+        Ok("cargo nextest run -E test(/(^|::)tests::session_stop(::|$)/) -p fleet".to_string())
+    );
+    assert!(one_test_in(workspace.path(), RUN, Some(&by_package()), "tests::session_stop::stops").is_ok());
+}
+
 /// Nothing is run rather than everything: no member declares it.
 #[test]
 fn a_name_nothing_declares_is_refused_and_never_widened() {

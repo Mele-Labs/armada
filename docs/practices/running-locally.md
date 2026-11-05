@@ -747,7 +747,7 @@ It runs in that directory, and `armada covers` prints the keys a change reaches.
 **`armada check <name> <test>` runs one test** through the Check's `one_test`.
 For `test` and `acceptance` the bare function name is enough
 (`a_span_holding_one_taken_port_is_not_free`), a path from any module down
-works too, and a module's name (`tests::servers`) runs every test under it; for a vitest Check, any part of the test's name, quotes and
+works too, and a module's name (`tests::servers`) runs every test under it, except `tests` itself, which every test file of a crate sits under and is refused before a build; for a vitest Check, any part of the test's name, quotes and
 apostrophes included. A name that matched several says how many ran, and one
 that matched nothing exits 1.
 

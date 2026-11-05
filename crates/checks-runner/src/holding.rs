@@ -39,6 +39,12 @@ pub fn holders(root: &Path, under: &str, test: &str) -> Vec<String> {
     held
 }
 
+/// Whether `test` ends in the module `tests`, which every test file of a crate
+/// sits under: the name selects them all, not one.
+pub(crate) fn whole_suite(test: &str) -> bool {
+    leaf(test) == Some("tests")
+}
+
 /// The identifier a name ends in, or [`None`] where it ends in anything else.
 fn leaf(test: &str) -> Option<&str> {
     let word = test.split_whitespace().next_back()?;

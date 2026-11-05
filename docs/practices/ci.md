@@ -17,7 +17,7 @@ repository. The owner, as admin, bypasses the ruleset.
 |---|---|---|
 | `pull_request` into `main` | An early warning before the branch joins the queue | Of what `armada covers` names for the diff, the Checks that compile: `build`, `typecheck` and `bridge_build`; the test code of `test` and `acceptance`, compiled and not run; and those the merge queue last failed it on |
 | `merge_group` | The queue's test of a branch merged onto `main` | What `armada covers` names for the group, every one |
-| `push` to `main` | Seeing a red `main` | Every Check in CI, and once a day `test_map`, which is not one of them (*The test map's laps*) |
+| `push` to `main` | Seeing a red `main`, saving the caches pull requests restore, and gating the release | Every Check in CI, unless the merge queue already passed this commit (*A push the queue already passed*), and once a day `test_map`, which is not one of them (*The test map's laps*) |
 | `workflow_dispatch` | Asking for everything by hand | Every Check in CI |
 
 **The suite runs once, in the merge queue.** A pull request's run keeps the Checks in `QUICK` in `.github/ci/plan.py` and names the rest in its job summary as left to the queue; `ci` passes on those.
@@ -29,6 +29,9 @@ Decided by the owner, 17 Oct 2026, keeping the Checks that compile on the pull r
 The job `test_compile` runs `armada check test --changed` and `armada check acceptance` with a `cargo` ahead on `PATH` that adds `--no-run` to `nextest run`, so it compiles the crates the queue's run narrows to and runs no test.
 `plan.py` names the keys in `compile`, the Rust Checks in `COMPILE` that the plan left to the queue; a Check the pull request runs itself, because the queue last failed it, is not compiled twice.
 Its cache is `test`'s, so it starts from what `main` last compiled.
+rust-cache adds the job's id to its key, so the job passes `shared: test-test` to `rust-setup` to restore `ci1-test-test-…`.
+Without it, it looked for `ci1-test-test_compile-…`, which `main` never writes, found none on 5 of the 6 pull requests before 5 Nov 2026, and compiled every third-party crate: 318 crates against 61 warm.
+It saved no time that was measured: the third-party crates compile beside the long `fleet` test harness, and one runner differs from the next by more (`docs/spikes/ci-test-compile.md`, *After*).
 
 **A pull request the queue dropped runs again, on its own run, the Checks the queue failed.** Without it, a fix for that failure read green on a pull request that never ran the Check, and its first real answer came after another wait in the queue.
 The plan reads the newest queue run for the pull request that passed or failed, from its branch `gh-readonly-queue/main/pr-<n>-…`; a cancelled one says nothing.
@@ -56,6 +59,33 @@ A merge group's diff runs from its base commit to its head commit.
 
 A pull request run is cancelled by the next push to it. A merge group and a push
 to `main` are keyed by their own commit and never cancelled.
+
+## A push the queue already passed
+
+**A push to `main` whose commit passed `ci` in a `merge_group` run runs no Check again, and `ci` passes on that run.**
+The queue merges by moving `main` to the commit it tested, so the push's `headSha` is the queue run's: 3 of 3 pairs checked on 5 Nov 2026 (288a3bd606, 30e0910dc5, ccbf0f43e0).
+Run again, the push spent about 23 jobs and 14 minutes of runner time a landing repeating the queue, on an account that runs 20 jobs at once.
+The plan's step *The queue's run of this commit* asks the API for the `merge_group` runs of `checks` on the sha and reads each one's `ci` job; a read that fails warns and runs every Check.
+The plan then names no Check, so every Check job skips and `ci` passes; the job summary links the queue's run.
+
+**It skips only while `main` holds every cache its Check jobs save.**
+Pull requests and the queue restore `main`'s caches, and only a push's own jobs write them, since a cache written in a pull request or a merge group is seen by no other.
+`.github/actions/main-caches` looks up, without downloading, the entries `build`, `test`, `acceptance`, `xtask_test`, `node_modules` and Playwright would write, under the very keys those jobs compute.
+rust-cache adds the job's id to `key`, so the lookup passes `<key>-<job>` and turns that off.
+One missing, after a change to `Cargo.lock`, `pnpm-lock.yaml` or a new stable `rustc`, and the push runs every Check as before, saving it.
+
+**What still runs on such a push:**
+
+| Job | Why |
+|---|---|
+| `plan` | Decides, and saves `main`'s `armada` when the push changed a crate |
+| `foundations` | Saves `main`'s reading for the next pull request (*Foundations*). Not a Check |
+| `format` | Not a Check, and about a minute |
+| `test_map` | Its daily lap, unchanged |
+| `ci`, then `release` | `ci` passes on the queue's result, so the release follows sooner |
+
+**`main` no longer gets a whole run after every merge.** The queue's run is narrowed by `armada covers` to what the group changed, and that is now the run that stands for the commit.
+A push the queue did not test, such as the owner's bypass, still runs every Check, and `workflow_dispatch` on `main` runs everything by hand.
 
 ## The test map's laps
 
@@ -89,7 +119,7 @@ changed paths ──> armada covers ──> plan.py ──> checks (JSON array o
 **A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `hooks_test`, `preview_test`, `sync_mod_test`, `format_catch_up_test`).
 A workspace Check is `<dir>:<name>` (`bridge_build` of `apps/desktop`, `storybook` of `packages/components`), as `armada covers` prints it and `armada check <key>` takes it.
 
-**The plan job builds `armada` and pipes the changed paths into `armada covers`.**
+**The plan job pipes the changed paths into `armada covers`**, with `main`'s last built `armada` or one it builds (*Only `plan` builds `armada`*).
 It is the same answer the merge line and Fleet's gate ask
 (`git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *Choosing what reruns*), so a path hits the
 same Checks here as there. A change that hits no Check runs none and `ci` passes.
@@ -112,6 +142,20 @@ change touched. Every other Check runs whole. A workspace Check runs as `armada 
 
 **Only `plan` builds `armada`.** `build`, the four `test` jobs and `acceptance` download the binary it uploads, `armada-bin`, and put it ahead on `PATH`.
 Each of those six jobs spent 2.0 minutes building it again, the median of 48 merge queue runs on 30 and 31 Oct 2026.
+
+**`plan` builds it only when the change reaches the code `armada covers` and `armada check` run.**
+Everything else waited on that build: step *Build armada* took 96 to 135 seconds, and the whole job 125 to 182, measured 5 Nov 2026.
+A push to `main` that builds saves the binary and the commit it was built from as the cache entry `armada-bin-v1-<sha>`, and every run restores the newest one.
+
+| Run | Builds when the diff from that commit touches |
+|---|---|
+| Pull request, merge group | `crates/config` (reads `when:` lists), `crates/checks-runner` (runs and narrows Checks), `crates/armada` (the CLI), `crates/core-model`, `Cargo.lock` |
+| Push to `main`, dispatch | Any crate, `Cargo.toml` or `Cargo.lock`, so `main`'s binary never falls behind `main` |
+
+The three verbs also call small helpers in `fleet`, `adapters`, `ipc` and `store`: the kit manifest's path, the settings, the test map's collector.
+A pull request changing only those runs `main`'s binary on its own run, and `main` rebuilds once it lands.
+Watching every crate the binary links would rebuild on 86 of the last 150 merges; the list above, on 33.
+A commit the cached entry names that is not in the checkout, or no entry at all, builds.
 
 ## What `ci` and `desktop_test` are
 
@@ -144,6 +188,9 @@ requires for the Checks below. `desktop_test` is to be added.
 | `format` | `ubuntu-latest` | `pnpm format:check`, on every change | node_modules |
 | `foundations` | `ubuntu-latest` | `cargo xtask verify-foundations`, on the candidate and on `main`'s tip, read as a delta | rust-cache, `main`'s reading per commit |
 | `desktop_test` of `apps/desktop/unit` | `ubuntu-latest`, job `desktop_unit` | `vitest run --maxWorkers=$WIDTH --project 'desktop*'`, direct. `armada check` runs the same from the manifest | node_modules, Playwright |
+
+**No compiler cache.** rust-cache keeps the third-party crates, and every Rust job compiles Armada's own crates again (`CARGO_INCREMENTAL=0`).
+A whole `test` compile is 278 seconds, 212 of them `fleet`'s test harness, which sccache cannot cache; sccache and a nextest archive shared by the shards were measured and not taken (`docs/spikes/ci-test-compile.md`).
 
 `$WIDTH` is the runner's core count and stands for armada.yml's `${width}`.
 `run-check` also sets `ARMADA_SOLE_TENANT=1`, so `armada check` resolves `${width}` to every core on a runner and not the half a person's machine gets (`docs/concepts/manifest.md`, *How wide a Check runs*).
@@ -268,7 +315,7 @@ setup before the step: restoring caches, installing, building `armada`.
 
 | Check | Seconds | Note |
 |---|---|---|
-| `plan` | 70 to 90 for the whole job | Cold cache: 100. Mostly `cargo build -p armada` |
+| `plan` | 70 to 90 for the whole job | Cold cache: 100. Mostly `cargo build -p armada`, which it now skips on most runs (*Only `plan` builds `armada`*) |
 | `build`, `test` | 0 to 55 | Narrowed to what the diff touched |
 | `acceptance` | 24 to 30 | Whole |
 | `typecheck` | 45 to 48 | |
@@ -298,6 +345,8 @@ failure, which was a Linux-only test failing on `main`.
 
 **Every merge to `main` that passes `ci` is published as a GitHub Release**, by the `release` job in `.github/workflows/checks.yml`.
 It runs on a push to `main` once `ci` has passed, and waits on nothing else, so a release is out about ten minutes after the merge.
+Its condition starts with `always()`: without one GitHub adds `success()`, which also reads the jobs `ci` needs, and a push always skips some of them.
+No push released between 31 Oct 2026, when `test_compile` was added and skipped on every push, and 5 Nov 2026.
 A pull request and a merge group never release.
 
 **It does not wait for `test_map`.** It did at first, as a separate workflow that ran once the whole `checks` run had finished, and `test_map` holds that run open for about two and a half hours: 154 minutes on 24 Oct 2026, run 40092571311.

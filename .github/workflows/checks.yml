@@ -1,7 +1,8 @@
 # Runs this repository's Checks on pull requests, in the merge queue and after
-# a merge to main, and reports them as `ci` and `desktop_test`. After a merge it
-# also records the test map's laps, which reports and gates nothing, and
-# publishes the commit as a release once `ci` passes.
+# a merge to main, and reports them as `ci` and `desktop_test`. A merge the
+# queue already passed runs none again. After a merge it also records the test
+# map's laps, which reports and gates nothing, and publishes the commit as a
+# release once `ci` passes.
 # docs/practices/ci.md says what each trigger is for and how a Check is added.
 #
 # This workflow gates nothing by itself: a ruleset that requires `ci` does.
@@ -37,7 +38,8 @@ jobs:
     name: plan
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # `actions: read` lists the merge queue's runs, *What the queue failed*.
+    # `actions: read` lists the merge queue's runs, *What the queue failed* and
+    # *The queue's run of this commit*.
     permissions:
       contents: read
       actions: read
@@ -52,12 +54,110 @@ jobs:
         with:
           fetch-depth: 0
 
+      # A push to main the merge queue already tested is the same commit: the
+      # queue's run on this sha passed `ci`. A read that fails warns and runs
+      # every Check. docs/practices/ci.md, *A push the queue already passed*.
+      - name: The queue's run of this commit
+        id: queued
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/checks.yml/runs?event=merge_group&head_sha=$GITHUB_SHA" \
+              --jq '.workflow_runs[].id'); then
+            echo "::warning::could not read the merge queue's runs, so every Check runs"
+            exit 0
+          fi
+          for run in $runs; do
+            ci=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run/jobs?per_page=100" \
+              --jq '.jobs[] | select(.name == "ci") | .conclusion') || continue
+            if [ "$ci" = success ]; then
+              echo "QUEUE $run passed ci on $GITHUB_SHA"
+              echo "run=$run" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "QUEUE no run passed ci on $GITHUB_SHA"
+
+      # Pull requests restore main's caches, which only the push's own Check
+      # jobs save. Skipping them is safe only while every entry is there.
+      - name: Main's caches
+        id: caches
+        if: steps.queued.outputs.run != ''
+        uses: ./.github/actions/main-caches
+
+      - name: Repeat of the queue
+        id: repeat
+        env:
+          RUN: ${{ steps.queued.outputs.run }}
+          WARM: ${{ steps.caches.outputs.warm }}
+        run: |
+          repeat=false
+          if [ -n "$RUN" ] && [ "$WARM" = true ]; then
+            repeat=true
+            echo "### plan: the merge queue passed this commit in run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$RUN, so no Check runs again" >> "$GITHUB_STEP_SUMMARY"
+          elif [ -n "$RUN" ]; then
+            echo "### plan: the merge queue passed this commit, but main lacks a cache its Check jobs save, so they run" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "REPEAT $repeat"
+          echo "repeat=$repeat" >> "$GITHUB_OUTPUT"
+
+      # `armada covers` and `armada check` read `when:` lists and run Checks
+      # with `config`, `checks-runner` and the CLI, so a pull request or a queue
+      # run that changes none of those since main's last build takes that
+      # build. A push to main rebuilds when any crate changed, so main's own
+      # binary never falls behind main. docs/practices/ci.md, *Only `plan`
+      # builds `armada`*.
+      - name: Main's armada, cached
+        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: armada-bin
+          key: armada-bin-v1-${{ github.sha }}
+          restore-keys: armada-bin-v1-
+
+      - name: Main's armada or a new one
+        id: bin
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          case "$EVENT" in
+            pull_request|merge_group) reads="crates/config crates/checks-runner crates/armada crates/core-model Cargo.lock" ;;
+            *) reads="crates Cargo.toml Cargo.lock" ;;
+          esac
+          built=$(cat armada-bin/sha 2>/dev/null || true)
+          if [ -n "$built" ] && git cat-file -e "$built^{commit}" 2>/dev/null && git diff --quiet "$built" HEAD -- $reads; then
+            echo "BIN main's armada, built from $built"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            if [ -n "$built" ]; then
+              echo "BIN build: this changes $reads since main's armada, built from $built"
+              git diff --stat "$built" HEAD -- $reads 2>/dev/null | tail -n 1 || true
+            else
+              echo "BIN build: no cached armada"
+            fi
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: ./.github/actions/rust-setup
+        if: steps.bin.outputs.build == 'true'
         with:
           key: plan
 
       - name: Build armada
-        run: cargo build -p armada --locked
+        if: steps.bin.outputs.build == 'true'
+        run: |
+          cargo build -p armada --locked
+          rm -rf armada-bin
+          mkdir armada-bin
+          cp target/debug/armada armada-bin/armada
+          git rev-parse HEAD > armada-bin/sha
+
+      - name: Cache this commit's armada as main's
+        if: github.event_name == 'push' && steps.bin.outputs.build == 'true'
+        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: armada-bin
+          key: armada-bin-v1-${{ github.sha }}
 
       # The merge line's rule (git show ecfffb2c1ebd:docs/capabilities/merge-line.md, *Choosing what
       # reruns*): a Check runs when it covers what the branch changed or what
@@ -127,15 +227,20 @@ jobs:
         env:
           WHOLE: ${{ steps.paths.outputs.whole }}
           QUICK: ${{ github.event_name == 'pull_request' && '--quick --rerun plan/queue-failed.txt' || '' }}
+          REPEAT: ${{ steps.repeat.outputs.repeat }}
         run: |
           set -euo pipefail
-          if [ "$WHOLE" = true ]; then
-            git ls-files | ./target/debug/armada covers > plan/covers.txt
-          elif [ -f plan/branch.txt ] && ./target/debug/armada covers < plan/branch.txt > plan/branch-covers.txt && [ ! -s plan/branch-covers.txt ]; then
+          chmod +x armada-bin/armada
+          if [ "$REPEAT" = true ]; then
+            # The queue ran this commit's Checks, so the plan names none.
+            : > plan/covers.txt
+          elif [ "$WHOLE" = true ]; then
+            git ls-files | ./armada-bin/armada covers > plan/covers.txt
+          elif [ -f plan/branch.txt ] && ./armada-bin/armada covers < plan/branch.txt > plan/branch-covers.txt && [ ! -s plan/branch-covers.txt ]; then
             # The branch's own change hits no Check, so main's side is not rerun.
             : > plan/covers.txt
           else
-            ./target/debug/armada covers < plan/changed.txt > plan/covers.txt
+            ./armada-bin/armada covers < plan/changed.txt > plan/covers.txt
           fi
           python3 .github/ci/plan.py $QUICK < plan/covers.txt > plan/plan.json
           checks=$(jq -c .checks plan/plan.json)
@@ -157,7 +262,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: armada-bin
-          path: target/debug/armada
+          path: armada-bin/armada
           retention-days: 1
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -267,9 +372,12 @@ jobs:
         with:
           name: armada-bin
           path: bin
+      # `test`'s own entry on main: under its own id it found none on 5 of
+      # the 6 pull requests before 5 Nov 2026, and compiled every crate.
       - uses: ./.github/actions/rust-setup
         with:
           key: test
+          shared: test-test
           nextest: "true"
       - name: No-run nextest
         run: |
@@ -767,10 +875,14 @@ jobs:
   # One release builds at a time and is never cancelled. GitHub holds one run
   # waiting behind it and a newer merge replaces that one, so two quick merges
   # make one release holding both.
+  #
+  # `always()`: without a status function GitHub adds `success()`, which reads
+  # every job `ci` needs, and a push always skips some. No push released from
+  # 31 Oct, when `test_compile` came, to 5 Nov 2026.
   release:
     name: release
     needs: ci
-    if: needs.ci.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: always() && needs.ci.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     concurrency:
       group: release
       cancel-in-progress: false

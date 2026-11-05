@@ -2,8 +2,9 @@
 //!
 //! **Neither call names the Job it is for.** Fleet places the caller by its connection, as
 //! `start_another_session` does, and a Job's children are the Jobs its `started_to` attachments
-//! name. A call that places no hosted Job is refused, and so is an entry naming a Job the caller did
-//! not start, a grandchild included.
+//! name. **A read answers the whole tree below the caller**, each Job with `started_by`, the Job that
+//! started it; **a command is for a direct child only**, so a call that places no hosted Job is refused,
+//! and so is an entry naming a Job the caller did not start, a grandchild included.
 
 use serde::{Deserialize, Serialize};
 
@@ -38,13 +39,15 @@ pub struct StartedResult {
     pub summary: Option<String>,
 }
 
-/// One Job the caller started, in one answer: where it stands, what it waits on and who for, its
-/// pull requests, and its result once it ended.
+/// One Job below the caller, in one answer: who started it, where it stands, what it waits on and who
+/// for, its pull requests, and its result once it ended.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StartedJob {
     /// Its id, title, state, branch and pull requests, as `list_sessions` gives them.
     #[serde(flatten)]
     pub summary: SessionSummary,
+    /// The Job that started it: the caller for a child, the child for a grandchild.
+    pub started_by: SessionId,
     /// What it is doing. Absent for a Job Fleet has read nothing of.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub standing: Option<SessionStanding>,
@@ -68,12 +71,13 @@ pub struct StartedJob {
 }
 
 impl StartedJob {
-    /// `record` as a child's line. `step` is the label of the step it is on, which the record
+    /// `record` as a line, started by `started_by`. `step` is the label of the step it is on, which the record
     /// carries as an index; `said` is its `all_done` summary, which a record of an ended Job does not.
-    pub fn of(record: &SessionRecord, step: Option<String>, said: Option<String>) -> StartedJob {
+    pub fn of(record: &SessionRecord, started_by: SessionId, step: Option<String>, said: Option<String>) -> StartedJob {
         let ended = record.state == SessionState::Ended;
         StartedJob {
             summary: SessionSummary::of(record),
+            started_by,
             standing: record.standing,
             held: record.hosted.as_ref().is_some_and(|hosted| hosted.start.is_some()),
             paused: record.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some()),
@@ -92,7 +96,8 @@ impl StartedJob {
     }
 }
 
-/// `list_started_sessions`: every Job the caller started, oldest first. Answered with this.
+/// `list_started_sessions`: every Job below the caller, each child followed by its own descendants,
+/// oldest first at each level. Answered with this.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StartedSessions {
     pub jobs: Vec<StartedJob>,

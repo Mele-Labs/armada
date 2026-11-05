@@ -50,6 +50,8 @@ pub(super) struct StandIn {
     started: Mutex<Vec<(Start, Sink, Arc<Standing>)>>,
     /// Held by a test to keep every start waiting, as a slow slot lease or spawn does.
     gate: Mutex<()>,
+    /// Its processes outlive a Fleet, as a keeper's do, and the next one reattaches to them.
+    outlives: AtomicBool,
 }
 
 pub(super) struct Shared(pub(super) Arc<StandIn>);
@@ -65,6 +67,20 @@ impl Processes for Shared {
         });
         started.push((start.clone(), sink, Arc::clone(&process)));
         Ok(process)
+    }
+
+    /// The session's last process still running, now speaking to the Fleet that took it back.
+    fn reattach(&self, session: &str, sink: Sink) -> Option<Arc<dyn Process>> {
+        if !self.0.outlives.load(Ordering::SeqCst) {
+            return None;
+        }
+        let mut started = self.0.started.lock().unwrap();
+        let kept = started.iter_mut().rev().find(|one| one.0.session == session)?;
+        if kept.2.ended.load(Ordering::SeqCst) {
+            return None;
+        }
+        kept.1 = sink;
+        Some(Arc::clone(&kept.2) as Arc<dyn Process>)
     }
 }
 
@@ -168,7 +184,15 @@ pub(super) fn rig_quiet_after(
     quiet: Duration,
     fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>),
 ) -> Rig {
-    let stand_in = Arc::new(StandIn::default());
+    rig_standing_in(home, quiet, Arc::new(StandIn::default()), fit)
+}
+
+fn rig_standing_in(
+    home: TempDir,
+    quiet: Duration,
+    stand_in: Arc<StandIn>,
+    fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>),
+) -> Rig {
     let mut fittings = crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&[]));
     fit(&mut fittings);
     let fleet = Fleet::assembled(fittings).hosting_sessions_on(
@@ -201,6 +225,24 @@ impl Rig {
             fittings.clock = Arc::new(later);
             fit(fittings);
         })
+    }
+
+    /// [`Rig::restarted`] with its processes outliving the Fleet, as a keeper's do, and taken back
+    /// as a booting Fleet takes them.
+    pub(super) async fn restarted_keeping_processes(self) -> Rig {
+        let Rig { fleet, _home: home, stand_in, .. } = self;
+        drop(fleet);
+        stand_in.outlives.store(true, Ordering::SeqCst);
+        let rig = rig_standing_in(home, Duration::from_secs(600), stand_in, |fittings| {
+            let later = crate::tests::planted::Ticking::from_nine();
+            for _ in 0..1000 {
+                crate::clock::Clock::now(&later);
+            }
+            fittings.clock = Arc::new(later);
+        });
+        Arc::clone(&rig.fleet).reattached_sessions().await;
+        rig.fleet.slot_waits_ended_at_boot().await;
+        rig
     }
 
     pub(super) async fn start(&self) -> SessionId {

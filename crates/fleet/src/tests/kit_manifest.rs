@@ -134,7 +134,7 @@ mod placed {
         let label = |kit: &Path| crate::kit_manifest_copy(&file, kit, ROOT, reaching()).label();
         assert_eq!(label(kit.path()), places::kit_manifest(kit.path(), ROOT), "no store file: no choice");
 
-        let mut store = store::Store::open(&file).expect("opened");
+        let mut store = store::Store::open_migrated_copy(&file).expect("opened");
         store.set_run_memory_place(ROOT, "synced", Some(&folder.path().to_string_lossy()), None).expect("chosen");
         assert_eq!(label(kit.path()), places::kit_manifest(folder.path(), ROOT));
     }
