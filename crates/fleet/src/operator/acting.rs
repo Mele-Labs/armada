@@ -12,7 +12,7 @@ use store::KeptPlan;
 
 use super::candidates::shared_paths;
 use super::desk::first_words;
-use super::{Acting, Choice, Place};
+use super::{Acting, Arrival, Arrived, Choice, Place, Ruling, Way};
 use crate::daemon::Fleet;
 
 /// The most of a Job's words one message carries.
@@ -114,6 +114,25 @@ where
         let (session, item, choice, because) = (session.to_string(), item.to_string(), choice.clone(), because.to_string());
         tokio::spawn(async move { fleet.operator_answered(&session, &item, &choice, &because).await });
     }
+
+    /// **A link, and a red main, act with Dispatch off**: a link is kept on this Mac and starts
+    /// nothing, and a red main arrives only from Autopilot's red kind, whose own switch allows the
+    /// start. A File waits on its own switch, a delegate and a dispatch on Dispatch; a raise is its
+    /// Log row.
+    fn sourced(&self, arrival: &Arrival, ruling: &Ruling) {
+        let Some(fleet) = self.fleet.upgrade() else { return };
+        let allowed = match ruling.way {
+            Way::Raise => false,
+            Way::Link => true,
+            Way::File => fleet.operator_filing(),
+            _ => arrival.arrived == Arrived::RedMain || fleet.operator_dispatches(),
+        };
+        if !allowed || !fleet.operator_on() {
+            return;
+        }
+        let (arrival, ruling) = (arrival.clone(), ruling.clone());
+        tokio::spawn(async move { fleet.operator_sourced(&arrival, &ruling).await });
+    }
 }
 
 /// How much of the work a Job has done, which of two to end is read by: a push first, then files.
@@ -148,6 +167,12 @@ where
     pub(crate) fn operator_answering(&self) -> bool {
         let settings = self.machine_settings().now();
         settings.get(keys::OPERATOR) && settings.get(keys::OPERATOR_ANSWER)
+    }
+
+    /// The Operator's File switch, as settings.json reads now, under its own.
+    pub(crate) fn operator_filing(&self) -> bool {
+        let settings = self.machine_settings().now();
+        settings.get(keys::OPERATOR) && settings.get(keys::OPERATOR_FILE)
     }
 
     /// A Job held on its start card starts as his press would, on the landing the card picked.

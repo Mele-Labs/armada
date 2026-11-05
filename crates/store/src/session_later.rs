@@ -21,6 +21,15 @@ pub struct KeptLater {
     pub confirmed: bool,
 }
 
+/// A follow-up a Job handed to the Operator, waiting to be linked or filed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptHanded {
+    pub session_id: String,
+    /// `later-<n>`.
+    pub id: String,
+    pub sentence: String,
+}
+
 fn id_of(n: i64) -> String {
     format!("later-{n}")
 }
@@ -55,7 +64,7 @@ impl Store {
         Ok(rows)
     }
 
-    /// Settle the open follow-up `id` as `how` (`done`, `filed` or `dropped`) with `note`: the issue
+    /// Settle the open follow-up `id` as `how` (`done`, `filed`, `dropped` or `handed`) with `note`: the issue
     /// it was filed as, or the reason it was dropped. The sentence it was, or `None` where `id` names
     /// none open.
     pub fn settle_later(&mut self, session_id: &str, id: &str, how: &str, note: Option<&str>, at: &str) -> Result<Option<String>, WriteError> {
@@ -71,6 +80,37 @@ impl Store {
             )
             .optional()
             .map_err(fault("settling a follow-up a job keeps for itself"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Every follow-up settled as handed and not filed since, oldest first.
+    pub fn later_handed(&self) -> Result<Vec<KeptHanded>, WriteError> {
+        let doing = "reading the follow-ups handed to the Operator";
+        let mut statement = self
+            .conn
+            .prepare("SELECT session_id, n, sentence FROM session_later WHERE how = 'handed' ORDER BY settled_at, session_id, n")
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = statement
+            .query_map([], |row| Ok(KeptHanded { session_id: row.get(0)?, id: id_of(row.get(1)?), sentence: row.get(2)? }))
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        Ok(rows)
+    }
+
+    /// The handed follow-up `id` is filed as `issue`. False where it is not handed, or `id` names none.
+    pub fn later_handed_filed(&mut self, session_id: &str, id: &str, issue: &str, at: &str) -> Result<bool, WriteError> {
+        let Some(n) = id.strip_prefix("later-").and_then(|n| n.parse::<i64>().ok()) else {
+            return Ok(false);
+        };
+        self.conn
+            .execute(
+                "UPDATE session_later SET how = 'filed', note = ?3, settled_at = ?4 WHERE session_id = ?1 AND n = ?2 AND how = 'handed'",
+                params![session_id, n, issue, at],
+            )
+            .map(|changed| changed > 0)
+            .map_err(fault("filing a follow-up handed to the Operator"))
             .map_err(WriteError::Database)
     }
 }

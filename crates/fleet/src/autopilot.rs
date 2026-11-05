@@ -26,6 +26,8 @@ pub(crate) mod sorting;
 mod starting;
 pub(crate) mod wire;
 
+pub(crate) use starting::report_brief;
+
 use std::sync::Arc;
 
 use adapter_traits::{Environment, Model, ModelClient};

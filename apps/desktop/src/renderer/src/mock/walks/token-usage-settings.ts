@@ -1,5 +1,5 @@
 // What a Job costs in tokens, set per repository where it differs by one: a skill's detail in Kit › Skills lists the
-// repositories whose Jobs get it, Fleet › Token use holds three Machine settings, and Fleet › Repository has a
+// repositories whose Jobs get it, Fleet › Token use holds four Machine settings, and Fleet › Repository has a
 // connectors switch per repository. A design review before Fleet serves any of them. Over `token-usage-settings`.
 
 import { button, inside, place, region, role, systemPage, walk } from "../walk";
@@ -42,11 +42,20 @@ const tokenUsageSettings = walk("token-usage-settings", [
     say: "Thinking for turn summaries, off",
   },
   {
+    look: role("switch", /^Compact a Job waiting on you/),
+    say: "Compact a Job waiting on you, off",
+  },
+  {
     press: systemPage("Repository"),
     say: "Connectors, one switch per repository. armada is off from its armada.yml",
   },
   {
     press: role("switch", "Connectors in ledger"),
+    say: "ledger follows its armada.yml, which leaves connectors on. Next turns them off",
+  },
+  // A press is seen only after Next performs it, so the walk ends on the switch it turned off.
+  {
+    look: role("switch", "Connectors in ledger"),
     say: "Off for ledger: its Jobs start without your account's connectors",
   },
 ]);

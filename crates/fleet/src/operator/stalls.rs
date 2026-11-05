@@ -71,6 +71,7 @@ impl Stall {
             ways: self.ways(),
             answers: Vec::new(),
             rule: None,
+            open: Vec::new(),
         }
     }
 

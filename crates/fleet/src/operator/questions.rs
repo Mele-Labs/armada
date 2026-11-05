@@ -132,6 +132,7 @@ impl Question {
             },
             answers,
             rule,
+            open: Vec::new(),
         })
     }
 
