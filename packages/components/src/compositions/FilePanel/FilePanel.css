@@ -105,8 +105,7 @@
   position: relative;
 }
 
-.armada-file-panel__picture img,
-.armada-file-panel__video {
+.armada-file-panel__picture img {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;

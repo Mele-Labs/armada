@@ -20,7 +20,7 @@ import { CodeEditor, type CodeLines, type CodeNoteMark } from "./CodeEditor";
 import { MarkdownPreview } from "./MarkdownPreview";
 
 /**
- * Any file, open in the side panel: text in a code editor where it is edited and saved, a picture just shown, a video played.
+ * Any file, open in the side panel: text in a code editor where it is edited and saved, a picture just shown.
  *
  * **Review and edit are one place.** The head names the file and carries the two acts that leave Bridge for it, and the
  * body is the file. A save that finds the file changed on disk does not write: it draws both and asks which stands, as
@@ -31,14 +31,12 @@ export type FilePanelProps = {
   name: string;
   /** Where it is. Mono: a path is a fact the system reported. */
   path: string;
-  /** `text/…` is edited; `image/…` is shown from `imageSrc`, and `video/…` plays from `videoSrc`. */
+  /** `text/…` is edited; `image/…` is shown from `imageSrc`. */
   type: string;
   /** The text, as edited. */
   text?: string;
   /** A picture's address, a blob the renderer made from the bytes. */
   imageSrc?: string;
-  /** A video's address, which plays as it is: a video is too large to be read into memory. */
-  videoSrc?: string;
   /** The text differs from what was read. */
   dirty: boolean;
   saving?: boolean;
@@ -256,7 +254,6 @@ function FileBody({
   type,
   text,
   imageSrc,
-  videoSrc,
   saving = false,
   onChange,
   moved = null,
@@ -269,18 +266,13 @@ function FileBody({
   marked,
 }: FileBodyProps) {
   const picture = type.startsWith("image/");
-  const video = type.startsWith("video/");
   const well = useRef<HTMLDivElement>(null);
   return (
     <div className="armada-file-panel" onKeyDown={noted?.viewer.onKeyDown}>
       {refused === undefined ? null : (
         <Alert
           tone="escalated"
-          title={
-            text === undefined && imageSrc === undefined && videoSrc === undefined
-              ? "Not opened"
-              : "Not saved"
-          }
+          title={text === undefined && imageSrc === undefined ? "Not opened" : "Not saved"}
         >
           {refused}
         </Alert>
@@ -321,12 +313,6 @@ function FileBody({
             </Button>
           </div>
         </>
-      ) : video ? (
-        videoSrc === undefined ? null : (
-          <div className="armada-file-panel__picture">
-            <video className="armada-file-panel__video" controls playsInline src={videoSrc} aria-label={name} />
-          </div>
-        )
       ) : picture ? (
         imageSrc === undefined ? null : (
           <div className="armada-file-panel__picture">

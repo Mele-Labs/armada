@@ -3,20 +3,12 @@
 // while it was open is reloaded silently when there is no edit, and met at the save when there is one.
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import {
-  FilePanel,
-  FileView,
-  isPressed,
-  mediaKindOf,
-  readKept,
-  useKept,
-} from "@armada/components";
+import { FilePanel, FileView, isPressed, readKept, useKept } from "@armada/components";
 import type { FilePanelProps } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 
 import type { PanelFileItem, PanelFileRead } from "../../../shared/api/files";
 import { openSessionIn } from "../open-session";
-import { useSessionsDraft } from "../sessions-draft";
 import { useBack } from "./panels";
 import {
   closePanel,
@@ -68,22 +60,11 @@ function useFile(item: PanelFileItem): Omit<FilePanelProps, "onClose" | "floor" 
   } | null>(null);
   const [saving, setSaving] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | undefined>(undefined);
-  const [videoSrc, setVideoSrc] = useState<string | undefined>(undefined);
-  const draftOfSessions = useSessionsDraft();
   // The edit, by path. Null is no edit: the text is what was read.
   const [draft, setDraft, clearDraft] = useKept<string | null>(`file:${item.path}`, null);
 
   const read = useCallback(
     async (silently: boolean) => {
-      // A video plays from an address, since reading one into memory would call it binary.
-      if (mediaKindOf(item.path) === "video" && item.sessionId !== undefined) {
-        const asked = await draftOfSessions?.videoAddress?.(item.sessionId, item.path);
-        if (asked?.ok === true) {
-          setRefused(undefined);
-          setVideoSrc(asked.address);
-        } else setRefused(asked?.says ?? NOT_OPENED.unreadable);
-        return;
-      }
       const answer: PanelFileRead = await window.armada.readPanelFile(item);
       if (!answer.ok) {
         setRefused(NOT_OPENED[answer.why]);
@@ -107,7 +88,6 @@ function useFile(item: PanelFileItem): Omit<FilePanelProps, "onClose" | "floor" 
     },
     [
       item,
-      draftOfSessions,
     ],
   );
   useEffect(
@@ -193,12 +173,7 @@ function useFile(item: PanelFileItem): Omit<FilePanelProps, "onClose" | "floor" 
   return {
     name: nameOf(item.path),
     path: item.path,
-    type: videoSrc === undefined ? (loaded?.type ?? "text/plain") : "video/mp4",
-    ...(videoSrc === undefined
-      ? {}
-      : {
-          videoSrc,
-        }),
+    type: loaded?.type ?? "text/plain",
     ...(text === undefined
       ? {}
       : {
