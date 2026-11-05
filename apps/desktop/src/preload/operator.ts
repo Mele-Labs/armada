@@ -10,4 +10,6 @@ export const operatorPreload: OperatorApi = {
   readOperatorTalk: () => ipcRenderer.invoke(CHANNELS.readOperatorTalk),
   talkToOperator: (words, about) => ipcRenderer.invoke(CHANNELS.talkToOperator, words, about),
   moveOnOperatorBoard: (id, before) => ipcRenderer.invoke(CHANNELS.moveOnOperatorBoard, id, before),
+  answerOperatorSuggestion: (id, choice) =>
+    ipcRenderer.invoke(CHANNELS.answerOperatorSuggestion, id, choice),
 };

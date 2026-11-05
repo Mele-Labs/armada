@@ -45,6 +45,8 @@ export type OperatorApi = {
   talkToOperator: (words: string, about?: string) => Promise<OperatorTalked>;
   /** `id` goes before `before` in Up next, last where `before` is absent. Publishes the board it answers. */
   moveOnOperatorBoard: (id: string, before?: string) => Promise<OperatorBoardMoved>;
+  /** Do it (0) or Skip (1) on a suggestion no Job holds. Do it waits for the act. Publishes the board it answers. */
+  answerOperatorSuggestion: (id: string, choice: 0 | 1) => Promise<OperatorBoardMoved>;
 };
 
 export type OperatorState = {
@@ -60,4 +62,5 @@ export const OPERATOR_CHANNELS = {
   readOperatorTalk: "bridge:read-operator-talk",
   talkToOperator: "bridge:talk-to-operator",
   moveOnOperatorBoard: "bridge:move-on-operator-board",
+  answerOperatorSuggestion: "bridge:answer-operator-suggestion",
 } as const;

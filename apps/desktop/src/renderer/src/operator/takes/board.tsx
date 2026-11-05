@@ -171,7 +171,9 @@ function Card({
           </span>
         </Tooltip>
         <span className="armada-board__tag">{tag}</span>
-        {repository === undefined ? null : <span className="armada-board__repo">{repository}</span>}
+        {repository === undefined || repository === "" ? null : (
+          <span className="armada-board__repo">{repository}</span>
+        )}
       </span>
       <span className="armada-board__title">{title}</span>
       {line === undefined ? null : <span className="armada-board__line">{line}</span>}

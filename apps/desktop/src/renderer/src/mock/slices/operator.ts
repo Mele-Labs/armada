@@ -29,5 +29,12 @@ export const operator: Slice<OperatorApi, OperatorState> = {
         why: "not_connected",
       },
     }),
+    answerOperatorSuggestion: async () => ({
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "not_connected",
+      },
+    }),
   }),
 };

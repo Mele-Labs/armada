@@ -43,4 +43,9 @@ export function handleOperator({ ipc, connection }: Hosts): void {
       ? unread
       : (connection()?.operator.move(id, before) ?? unsent),
   );
+  ipc.handle(CHANNELS.answerOperatorSuggestion, (_event, id: unknown, choice: unknown) =>
+    !named(id) || (choice !== 0 && choice !== 1)
+      ? unread
+      : (connection()?.operator.answerSuggestion(id, choice) ?? unsent),
+  );
 }

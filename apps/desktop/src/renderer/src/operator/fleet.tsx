@@ -8,6 +8,7 @@ import type {
   OperatorBoard,
   OperatorBoardItem,
   OperatorBoardKind,
+  OperatorBoardSuggestion,
   OperatorTalk,
   Outcome,
   WaitingItem,
@@ -107,6 +108,21 @@ function raiseOf(session: Session, item: WaitingItem): OperatorRaise {
   };
 }
 
+/** A suggestion no Job holds, such as what to do with his note: Do it or Skip, and no words. */
+function noteOf(suggestion: OperatorBoardSuggestion): OperatorRaise {
+  const at = suggestion.text.indexOf(": ");
+  return {
+    id: suggestion.id,
+    suggests: true,
+    repository: "",
+    item: at === -1 ? suggestion.text : suggestion.text.slice(0, at),
+    read: at === -1 ? "" : suggestion.text.slice(at + 2),
+    ways: suggestion.options.map((one) => one.label),
+    does: "raised",
+    tag: "Suggestion",
+  };
+}
+
 const live = (session: Session) => session.dead === undefined && session.replacedBy === undefined;
 
 const POSITIONS: readonly OperatorPosition[] = [
@@ -140,6 +156,8 @@ type Kept = {
   said: readonly OperatorMessage[];
   /** Cards he settled here, kept in Done after the item leaves its Job's list. */
   settled: readonly OperatorRaise[];
+  /** Suggestions no Job holds that he pressed and Fleet has not answered: their outcome arrives in the board's Done. */
+  pressing: readonly string[];
 };
 
 let made = 0;
@@ -157,6 +175,7 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
     marks: [],
     said: [],
     settled: [],
+    pressing: [],
   });
   const switched = useSetting("features.operator");
   const dispatch = useSetting("features.operatorDispatch");
@@ -199,13 +218,19 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
       .filter(live)
       .flatMap((session) => (session.waitingFor ?? []).map((item) => raiseOf(session, item)));
     const settledIds = new Set(kept.settled.map((one) => one.id));
+    const notes = (board?.suggestions ?? [])
+      .filter((one) => !kept.pressing.includes(one.id))
+      .map(noteOf);
     return [
       ...waiting.filter((one) => !settledIds.has(one.id)),
+      ...notes,
       ...kept.settled,
     ];
   }, [
     sessions,
+    board,
     kept.settled,
+    kept.pressing,
   ]);
 
   const state = useMemo((): OperatorState => {
@@ -314,6 +339,38 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
           return;
         case "raise": {
           const raise = raises.find((each) => each.id === one.raise);
+          if (raise !== undefined && raise.job === undefined) {
+            const choice = raise.ways.indexOf(one.way);
+            if (choice !== 0 && choice !== 1) return;
+            const id = raise.id;
+            setKept((was) => ({
+              ...was,
+              pressing: [
+                ...was.pressing,
+                id,
+              ],
+            }));
+            void window.armada.answerOperatorSuggestion(id, choice).then((answered) => {
+              setKept((was) => ({
+                ...was,
+                pressing: was.pressing.filter((each) => each !== id),
+                ...(answered.ok
+                  ? {}
+                  : {
+                      said: [
+                        ...was.said,
+                        {
+                          id: fresh("refused"),
+                          from: "operator" as const,
+                          text: `${raise.item}: ${refusedSaid(answered.outcome)}`,
+                          at: now(),
+                        },
+                      ],
+                    }),
+              }));
+            });
+            return;
+          }
           if (raise?.job === undefined) return;
           if (one.way === OPEN_JOB) return openJob(raise.job.session);
           const [session, ...rest] = one.raise.split(" ");

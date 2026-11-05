@@ -2,6 +2,7 @@
 // move publishes the board it answers; a message and the read of the box are asked each time.
 
 import type {
+  AnswerOperatorSuggestion,
   MoveOnOperatorBoard,
   OperatorBoard,
   OperatorSaid,
@@ -105,6 +106,34 @@ export class OperatorHost {
           }),
     };
     const answer = await ask(port, "POST", "/operator/board/move", body);
+    if (answer.ok !== true)
+      return {
+        ok: false,
+        outcome: answer.outcome,
+      };
+    const board = answer.body as OperatorBoard;
+    this.publish({
+      operatorBoard: board,
+    });
+    return {
+      ok: true,
+      board,
+    };
+  }
+
+  /** One press on a suggestion no Job holds. Do it waits for the act, a Job's start included. Publishes the board it answers. */
+  async answerSuggestion(id: string, choice: number): Promise<OperatorBoardMoved> {
+    const port = this.port();
+    if (port === null)
+      return {
+        ok: false,
+        outcome: NOT_CONNECTED,
+      };
+    const body: AnswerOperatorSuggestion = {
+      id,
+      choice,
+    };
+    const answer = await ask(port, "POST", "/operator/suggestions/answer", body);
     if (answer.ok !== true)
       return {
         ok: false,
