@@ -1,6 +1,6 @@
-// One sheet for what a Job has to read: a plan, a sketch, a draft, a document and a walk. The Review row on its Needs you card opens it on the oldest item, the plan. ⌘↵ approves
+// One sheet for what a Job has to read: a plan, a sketch, a draft and a document. The Review row on its Needs you card opens it on the oldest item, the plan. ⌘↵ approves
 // that plan alone, and the next open item comes up. ↓ moves to the document, ⌥R sends it back with a note, the draft is approved from the head, where its Approve is named like the rest,
-// and the walk plays in the sheet's pane. The question and the command are answered on the card. Over the `job-review-sheet` scenario.
+// and the walk is not on it. The question, the command and the walk are rows of the card. Over the `job-review-sheet` scenario.
 
 import { button, dialog, inside, region, role, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
@@ -95,14 +95,6 @@ const sheetWalk = walk("job-review-sheet", [
   {
     press: inside(sheet, button(/^Approve/)),
     say: "Approved from its own card",
-  },
-  {
-    press: row(/Backoff table/),
-    say: "The walk",
-  },
-  {
-    look: inside(sheet, button(/^Approve/)),
-    say: "It plays in the sheet's pane",
   },
 ]);
 

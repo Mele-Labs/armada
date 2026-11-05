@@ -147,20 +147,25 @@ test("a real walk the Job shows gets a tab named by its page, and the settled on
   expect(tabs()).toEqual([]);
 });
 
-test("a walk shown while he is in another Job comes to the front of its panes, and in the Job he is in it arrives behind", async () => {
+test("a walk arrives behind the tab in front, in the Job he is in or not, so the Job opens as he left it", async () => {
   sessions = [
     job([
       BILLING,
     ]),
   ];
   await draw();
+  const threadInFront = () => {
+    const pane = panesOf(peek("job").root)[0]!;
+    return pane.tabs.find((tab) => tab.id === pane.active)?.kind;
+  };
+  expect(threadInFront()).toBe("thread");
   await change([
     job([
       BILLING,
       SETTINGS,
     ]),
   ]);
-  expect(front().page).toBe(SETTINGS);
+  expect(threadInFront()).toBe("thread");
   select({
     kind: "session",
     key: "session:job",
@@ -177,10 +182,36 @@ test("a walk shown while he is in another Job comes to the front of its panes, a
     SETTINGS,
     ACCOUNT,
   ]);
-  expect(front().page).toBe(SETTINGS);
+  expect(threadInFront()).toBe("thread");
 });
 
-test("a tab closed with its × is not made again by a change in the walks, and opening the Job brings it back in front", async () => {
+test("opening a Job that waits on him brings back the thread he closed, and the walk still arrives behind it", async () => {
+  sessions = [
+    job([
+      BILLING,
+    ]),
+  ];
+  await draw();
+  const thread = () =>
+    panesOf(peek("job").root)
+      .flatMap((pane) => pane.tabs)
+      .filter((tab) => tab.kind === "thread");
+  rearrange("job", (arrangement) => closeTab(arrangement, thread()[0]!.id));
+  expect(thread()).toEqual([]);
+  select({
+    kind: "session",
+    key: "session:job",
+  });
+  await change([
+    job([
+      BILLING,
+    ]),
+  ]);
+  expect(thread()).toHaveLength(1);
+  expect(tabs()).toHaveLength(1);
+});
+
+test("a tab closed with its × is not made again by a change in the walks, and opening the Job brings it back", async () => {
   sessions = [
     job([
       BILLING,

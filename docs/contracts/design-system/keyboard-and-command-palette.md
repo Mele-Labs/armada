@@ -54,7 +54,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌥E       change the thread's target card: Edit, Suggest, Other
 ⌥R       send back the thread's target card with a note
 ⌥X       no to a card waiting in the Job's thread: Deny, Skip, Dismiss  (confirms)
-⇧⌘Y      open Needs you: the review sheet where the open Job has a plan, sketch, draft, document or walk waiting, else fold its card
+⇧⌘Y      open Needs you: the review sheet where the open Job has a plan, sketch, draft or document waiting, else fold its card
 ⌘1–⌘8    go to a tab: Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects or System, as the bar draws them
 ⌘,       open Settings
 ⌘O       open a file in the side panel

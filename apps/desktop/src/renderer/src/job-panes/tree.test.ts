@@ -7,6 +7,7 @@ import {
   MIN_PANE_W,
   addTab,
   arriveWalk,
+  reopenThread,
   arrive,
   build,
   closePane,
@@ -417,6 +418,80 @@ describe("showing a page", () => {
     expect(tabOfKind(shown, "request").page).toBe("page");
     expect(holderOf(shown, "request")!.active).toBe(request.id);
     expect(showPage(arrangement, "nope", "page")).toBe(arrangement);
+  });
+});
+
+describe("a closed thread coming back", () => {
+  const closeThread = (arrangement: Arrangement) =>
+    closeTab(arrangement, tabOfKind(arrangement, "thread").id);
+
+  test("into its pane where that pane is still there, in front, with the focus where it was", () => {
+    const arrangement = build({
+      dir: "row",
+      ratio: 0.5,
+      a: [
+        "thread",
+        "files",
+      ],
+      b: [
+        "terminal",
+      ],
+    });
+    const focus = holderOf(arrangement, "terminal")!.id;
+    const pane = holderOf(arrangement, "thread")!.id;
+    const back = reopenThread(
+      closeThread({
+        ...arrangement,
+        focus,
+      }),
+    );
+    expect(holderOf(back, "thread")!.id).toBe(pane);
+    expect(holderOf(back, "thread")!.active).toBe(tabOfKind(back, "thread").id);
+    expect(back.focus).toBe(focus);
+    expect(back.threadWas).toBeUndefined();
+  });
+
+  test("a pane that went with it is made again on the same side, at the same share", () => {
+    const arrangement = build({
+      dir: "row",
+      ratio: 0.3,
+      a: [
+        "thread",
+      ],
+      b: [
+        "terminal",
+      ],
+    });
+    const closed = closeThread(arrangement);
+    expect(panesOf(closed.root)).toHaveLength(1);
+    const back = reopenThread(closed);
+    expect(kindsOf(back)).toEqual([
+      [
+        "thread",
+      ],
+      [
+        "terminal",
+      ],
+    ]);
+    expect(back.root).toMatchObject({
+      type: "split",
+      dir: "row",
+      ratio: 0.3,
+    });
+  });
+
+  test("with its place gone, or never closed, it comes back in the focused pane, and one that stands is left", () => {
+    const arrangement = build([
+      "terminal",
+    ]);
+    const back = reopenThread(arrangement);
+    expect(kindsOf(back)).toEqual([
+      [
+        "terminal",
+        "thread",
+      ],
+    ]);
+    expect(reopenThread(back)).toBe(back);
   });
 });
 

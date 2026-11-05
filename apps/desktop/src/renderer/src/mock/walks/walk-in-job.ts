@@ -31,13 +31,19 @@ const walkInJob = walk("walk-in-job", [
   },
   {
     press: deckRow("Tidy the account pages"),
-    say: "The walks are tabs in the thread's pane, and the walk has the pane's whole width",
+    say: "The Job opens as you left it, on the thread. The walks are tabs in its pane, and each pulses until you open it",
+  },
+  {
+    press: tab("Billing", {
+      exact: true,
+    }),
+    say: "A walk has the pane's whole width",
   },
   {
     look: tab("Settings", {
       exact: true,
     }),
-    say: "Billing is in front and has stopped pulsing. Settings still pulses",
+    say: "Billing has stopped pulsing. Settings still pulses",
   },
   {
     press: inside(billing, button("What to look at")),

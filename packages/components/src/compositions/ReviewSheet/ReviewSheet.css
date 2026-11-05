@@ -145,11 +145,6 @@
   list-style: none;
 }
 
-/* A walk has its bar and its page's own margins, so the body gives it the whole of the room. */
-.armada-job-review__body:has(> .armada-job-review__bleed) {
-  padding: 0;
-}
-
 /* The right-press menu is drawn on the body, and the sheet's scrim lies over a menu's own layer. */
 .armada-job-review__menu {
   z-index: calc(var(--z-modal) + 1);

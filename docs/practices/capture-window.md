@@ -543,7 +543,8 @@ The owner approved the mock walk `walk-in-job`.
 
 | What | Holds |
 |---|---|
-| Opening | Nothing is raised and no focus changes. The Job's row and the tab pulse until it has been seen |
+| Opening | Nothing is raised and no focus changes. The tab joins the pane that holds a walk, else the Thread's, behind the tab in front, so a Job opens as the owner left it. The Job's row and the tab pulse until it has been seen, and pressing it brings it forward |
+| A closed Thread | It comes back where it stood when a walk arrives or the owner opens a Job that waits on him, since what waits on him is drawn there |
 | Tabs | One per walk. A Job with several walks has several tabs, and several approvals are several `show_window` calls |
 | Leaving the Job | The page, take, step and notes are kept, so returning to the Job finds the walk as it was |
 | × on a tab | The walk stays owed. The row keeps pulsing, and pressing it brings the tab back |

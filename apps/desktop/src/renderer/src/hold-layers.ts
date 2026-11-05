@@ -36,8 +36,8 @@ const covered = (frame: Element): boolean => {
 };
 
 /**
- * Whether anything of Bridge's lies over a native view now. `frame` is the view's own place: a layer that holds it is the ground it is drawn on, not over it, as the
- * review sheet is for a walk playing inside it. Anything drawn over that layer still holds the view.
+ * Whether anything of Bridge's lies over a native view now. `frame` is the view's own place: a layer that holds it is the ground it is drawn on, not over it.
+ * Anything drawn over that layer still holds the view.
  */
 export const holdLayerUp = (frame?: Element | null): boolean => {
   if (frame === undefined || frame === null) return document.querySelector(HOLD_LAYERS) !== null;

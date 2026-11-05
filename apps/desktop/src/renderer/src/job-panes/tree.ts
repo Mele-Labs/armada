@@ -85,12 +85,25 @@ export type Split = {
 };
 export type Node = Pane | Split;
 
+/** Where the thread stood when it was closed: its pane, and where that pane met the node beside it, for a pane that went with it. */
+export type ThreadPlace = {
+  pane: string;
+  beside?: {
+    node: string;
+    dir: Split["dir"];
+    ratio: number;
+    first: boolean;
+  };
+};
+
 export type Arrangement = {
   root: Node;
   /** The pane keys and the menus act on. */
   focus: string;
   /** The next number for an id. */
   next: number;
+  /** Absent: the thread has not been closed. */
+  threadWas?: ThreadPlace;
 };
 
 export type Rect = {
@@ -645,20 +658,105 @@ function detach(arrangement: Arrangement, tabId: string): Arrangement {
   });
 }
 
+/** Where a pane stands in the tree, for the thread to come back to. */
+function placeOf(root: Node, paneId: string): ThreadPlace {
+  const parent = (node: Node): Split | undefined =>
+    node.type === "pane"
+      ? undefined
+      : node.a.id === paneId || node.b.id === paneId
+        ? node
+        : (parent(node.a) ?? parent(node.b));
+  const split = parent(root);
+  if (split === undefined)
+    return {
+      pane: paneId,
+    };
+  const first = split.a.id === paneId;
+  return {
+    pane: paneId,
+    beside: {
+      node: (first ? split.b : split.a).id,
+      dir: split.dir,
+      ratio: split.ratio,
+      first,
+    },
+  };
+}
+
 export function closeTab(arrangement: Arrangement, tabId: string): Arrangement {
-  return detach(arrangement, tabId);
+  const pane = paneOfTab(arrangement, tabId);
+  const closed = detach(arrangement, tabId);
+  return pane?.tabs.some((tab) => tab.id === tabId && tab.kind === "thread") === true
+    ? {
+        ...closed,
+        threadWas: placeOf(arrangement.root, pane.id),
+      }
+    : closed;
 }
 
 /** The pane goes with its tabs, empty or not; the last pane of all stays. */
 export function closePane(arrangement: Arrangement, paneId: string): Arrangement {
-  if (paneById(arrangement, paneId) === undefined) return arrangement;
+  const pane = paneById(arrangement, paneId);
+  if (pane === undefined) return arrangement;
   const root = without(arrangement.root, paneId);
-  return root === undefined
-    ? arrangement
-    : refocus({
-        ...arrangement,
-        root,
-      });
+  if (root === undefined) return arrangement;
+  return refocus({
+    ...arrangement,
+    root,
+    ...(pane.tabs.some((tab) => tab.kind === "thread")
+      ? {
+          threadWas: placeOf(arrangement.root, paneId),
+        }
+      : {}),
+  });
+}
+
+/**
+ * A closed thread back where it stood, in front of its pane, with the focus where it was. Its pane if that is still there; a pane that went with it, made again beside the node it met;
+ * else the focused pane. An arrangement that holds a thread is returned as it is.
+ */
+export function reopenThread(arrangement: Arrangement): Arrangement {
+  if (hasKind(arrangement, "thread")) return arrangement;
+  const { threadWas: was, ...rest } = arrangement;
+  const focus = rest.focus;
+  const inPane = (paneId: string, from: Arrangement) => ({
+    ...addTab(from, paneId, "thread"),
+    focus,
+  });
+  if (was !== undefined && paneById(rest, was.pane) !== undefined) return inPane(was.pane, rest);
+  const beside = was?.beside;
+  const stands = (node: Node, id: string): boolean =>
+    node.id === id || (node.type === "split" && (stands(node.a, id) || stands(node.b, id)));
+  if (beside === undefined || !stands(rest.root, beside.node)) return inPane(focus, rest);
+  const [splitId, afterSplit] = mint(rest, "s");
+  const [fresh, afterPane] = mint(afterSplit, "p");
+  const made: Pane = {
+    type: "pane",
+    id: fresh,
+    tabs: [],
+    active: undefined,
+  };
+  const wrap = (node: Node): Node =>
+    node.id === beside.node
+      ? {
+          type: "split",
+          id: splitId,
+          dir: beside.dir,
+          ratio: beside.ratio,
+          a: beside.first ? made : node,
+          b: beside.first ? node : made,
+        }
+      : node.type === "pane"
+        ? node
+        : {
+            ...node,
+            a: wrap(node.a),
+            b: wrap(node.b),
+          };
+  return inPane(fresh, {
+    ...afterPane,
+    root: wrap(rest.root),
+  });
 }
 
 /** The pane splits, and an empty pane takes the new side: to its right, or below it. Focus goes to the new pane. */

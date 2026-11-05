@@ -1,4 +1,4 @@
-// What a Job reads before it goes on, on one sheet: a plan, a sketch, a draft, a document and a walk. The Review row on the Needs you band or `⇧⌘Y` opens it: the items oldest first in a list, the selected one
+// What a Job reads before it goes on, on one sheet: a plan, a sketch, a draft and a document. The Review row on the Needs you band or `⇧⌘Y` opens it: the items oldest first in a list, the selected one
 // beside it with its answers, an answer bringing the next open item up and the last closing the sheet. **Nothing here is a second path to Fleet**: each answer calls the
 // handler the same item's card or row calls (`sessions.tsx` hands them in), so an answer given here settles the card in the thread and the reverse.
 // What he answers rather than reads, a question, a command, a pull request, a message and Fleet's own cards, stays on the Needs you card. The band's Review glyphs are this list's, so the two agree.
@@ -9,7 +9,6 @@ import {
   DraftRow,
   REVIEW_MARKS,
   ReviewSheet,
-  waitingMark,
   type DraftThreadRow,
   type LedgerEntry,
   type ReviewItem,
@@ -28,8 +27,6 @@ import { sketchAnswerOf, documentAnswerOf } from "../session-thread-rows";
 import { DocumentBody } from "./DocumentLayer";
 import { OverTheApp } from "./OverTheApp";
 import { SketchBody } from "./SketchBody";
-import { WalkPane } from "../job-walk/WalkPane";
-import { walksOf } from "../job-walk/walks";
 
 /** What the sheet is told of the Job: the handlers its cards and rows already call, and the bodies only `sessions.tsx` can build. */
 export type ReviewParts = {
@@ -262,23 +259,6 @@ export function waitingOf(parts: ReviewParts): Waiting[] {
                 }
               : {}),
           },
-        ),
-      );
-      continue;
-    }
-    const target = one?.source === "walk" && one.act?.kind === "walk" ? one.act.target : undefined;
-    // A walk's pane draws the page and its bar, and the bar's own Approve is the only one.
-    if (
-      target !== undefined &&
-      row.options === undefined &&
-      walksOf(session).some((it) => it.id === target)
-    ) {
-      made.push(
-        named(
-          waitingMark(row),
-          <div className="armada-job-review__fill armada-job-review__bleed">
-            <WalkPane jobId={session.id} walkId={target} front />
-          </div>,
         ),
       );
       continue;

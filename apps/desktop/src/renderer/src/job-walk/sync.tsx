@@ -1,6 +1,7 @@
 // Gives each Job the tabs of the walks it owes him, and takes a tab away once its walk is approved. It runs for every Job, the one he is in or not, so a walk that arrives while he is
 // elsewhere is waiting in its Job's panes when he opens it. **Nothing moves on his screen for a Job he is not in**: the arrangement changes, and no window opens.
 
+import { owesOf } from "@armada/screens/src/draft/sessions";
 import { useEffect } from "react";
 
 import { useSessions } from "../sessions-draft";
@@ -10,16 +11,16 @@ import {
   activate,
   arriveWalk,
   closeTab,
-  hasKind,
   panesOf,
+  reopenThread,
   type Arrangement,
 } from "../job-panes/tree";
 import { arrivedBefore, pressedWalks, settlePressed, useWalksVersion } from "./store";
 import { owedWalks, type JobWalk } from "./walks";
 
 /**
- * `here`: the Cockpit is what is on screen. A walk comes to the front of its pane only for a Job he is not in; in the Job he is in it arrives behind
- * the tab in front, and pulses until he opens it.
+ * `here`: the Cockpit is what is on screen. **A Job opens as he left it**: a walk arrives behind the tab in front and pulses until he opens it, and only pressing it brings it forward.
+ * A thread he closed comes back where it stood when a walk arrives, and when he opens a Job that waits on him, since what waits on him is drawn there.
  */
 export function WalkTabsSync({ here }: { here: boolean }) {
   const sessions = useSessions();
@@ -28,10 +29,7 @@ export function WalkTabsSync({ here }: { here: boolean }) {
   const inJob =
     here && opened?.kind === "session" ? opened.key.replace(/^session:/, "") : undefined;
   const arrange = (id: string, walk: JobWalk, behind: boolean) => {
-    const change = (now: Arrangement) => arriveWalk(now, walk.title, walk.id, behind);
-    // A tab that joins a pane is content, and one that makes a split is arrangement.
-    if (hasKind(peek(id), "walk") || hasKind(peek(id), "thread")) look(id, change);
-    else rearrange(id, change, undefined, true);
+    look(id, (now: Arrangement) => arriveWalk(reopenThread(now), walk.title, walk.id, behind));
   };
   const tabsOf = (id: string) =>
     panesOf(peek(id).root).flatMap((pane) => pane.tabs.filter((tab) => tab.kind === "walk"));
@@ -47,12 +45,11 @@ export function WalkTabsSync({ here }: { here: boolean }) {
       // A walk gets its tab once. One he closed with its × is not opened again by a change in the walks.
       for (const walk of owed)
         if (!tabs.some((tab) => tab.page === walk.id) && !arrivedBefore(session.id, walk.id))
-          arrange(session.id, walk, session.id === inJob);
+          arrange(session.id, walk, true);
     }
   }, [
     sessions,
     walks,
-    inJob,
   ]);
   // A walk pressed open comes to the front, in the pane that holds it or in a tab made for it. It waits here for its Job to be one the sessions hold.
   useEffect(() => {
@@ -71,12 +68,13 @@ export function WalkTabsSync({ here }: { here: boolean }) {
     sessions,
     walks,
   ]);
-  // Pressing the Job's row brings back the tab of a walk he closed and has not approved, in front.
+  // Opening a Job brings back the thread he closed where it waits on him, and the tab of a walk he closed and has not approved, behind what he left in front.
   useEffect(() => {
     const session = sessions.find((one) => one.id === inJob);
     if (session === undefined) return;
+    if (owesOf(session).length > 0) look(session.id, reopenThread);
     for (const walk of owedWalks(session))
-      if (!tabsOf(session.id).some((tab) => tab.page === walk.id)) arrange(session.id, walk, false);
+      if (!tabsOf(session.id).some((tab) => tab.page === walk.id)) arrange(session.id, walk, true);
   }, [
     opened,
   ]);

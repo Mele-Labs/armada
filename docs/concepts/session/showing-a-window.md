@@ -6,6 +6,8 @@
 **No window opens and nothing takes focus.**
 The walk is a tab of the job in the Cockpit, in the pane that holds the thread and taking the room that pane has, named after its page.
 Once the person has moved a walk tab to another pane, that pane holds the walks that follow.
+The walk arrives behind the tab in front, so the job opens as the person left it, and pressing the tab or its row brings it forward.
+A Thread the person closed comes back where it stood when a walk arrives or when they open a job that waits on them.
 The job's row and the tab pulse until it has been seen.
 Each walk has its own tab, so a job with several walks has several tabs, and several things to approve are several `show_window` calls, one each.
 Any `http` or `https` address; any other scheme is refused with its reason.
