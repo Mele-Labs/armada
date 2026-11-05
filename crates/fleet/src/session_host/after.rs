@@ -37,6 +37,8 @@ use crate::daemon::Fleet;
 use crate::judging::watched;
 use crate::session_proposer::{unread_wait, PlanPart, WaitBrief};
 
+mod dropping;
+
 const WAIT_UNKNOWN: &str = "fleet.wait_session_unknown";
 const WAIT_ON_ITSELF: &str = "fleet.wait_on_itself";
 const WAIT_PART_UNKNOWN: &str = "fleet.wait_part_unknown";
@@ -605,14 +607,7 @@ where
         change: ChangeWaiting,
     ) -> Result<SessionWait, Refusal> {
         let waiting = change.waiting_session.as_str().to_string();
-        let kept = self.store().lock().await.wait_of(&waiting).map_err(|why| self.ledger_fault(why))?;
-        let Some(was) = kept.filter(|one| one.started_at.is_none()) else {
-            return Err(Refusal::IllegalMove(ipc::WireError::raised(
-                WAIT_OVER,
-                format!("job {waiting} does not wait: it started already, or never waited"),
-                self.run_id(),
-            )));
-        };
+        let was = self.open_wait_of(&waiting).await?;
         let by = match caller.as_ref() {
             None => WaitBy::You,
             Some(caller) => {
@@ -625,6 +620,33 @@ where
                 WaitBy::Agent
             }
         };
+        self.wait_changed_by(waiting, was, by, None, change).await
+    }
+
+    /// The wait of a Job that has not started, or the refusal that it does not wait.
+    pub(crate) async fn open_wait_of(&self, waiting: &str) -> Result<KeptWait, Refusal> {
+        let kept = self.store().lock().await.wait_of(waiting).map_err(|why| self.ledger_fault(why))?;
+        kept.filter(|one| one.started_at.is_none()).ok_or_else(|| self.wait_over(waiting))
+    }
+
+    fn wait_over(&self, waiting: &str) -> Refusal {
+        Refusal::IllegalMove(ipc::WireError::raised(
+            WAIT_OVER,
+            format!("job {waiting} does not wait: it started already, or never waited"),
+            self.run_id(),
+        ))
+    }
+
+    /// `change` made to the wait `was` of `waiting` by `by`. **`starter` is the Job that started `waiting`
+    /// where it is the one changing it**, which is told to the Job waited on in words, as the person's is.
+    pub(crate) async fn wait_changed_by(
+        self: &Arc<Self>,
+        waiting: String,
+        was: KeptWait,
+        by: WaitBy,
+        starter: Option<&str>,
+        change: ChangeWaiting,
+    ) -> Result<SessionWait, Refusal> {
         let picks = change.held.is_some() || change.workflow.is_some() || change.model.is_some() || change.effort.is_some();
         if picks && by == WaitBy::Agent {
             return Err(self.hosted_refusal(WAIT_NOT_YOURS, &format!("whether job {waiting} starts at once, and what it starts on, are the person's to set")));
@@ -667,8 +689,13 @@ where
         let (waiting_title, on_title) = (self.waiting_title(&now).await, self.session_title(&now.on_session).await);
         let said = (from.clone(), to.clone());
         let for_waited_on = self.changed_row(&now.on_session, &waiting, &waiting_title, WaiterSide::Waited, &said, Some(by));
+        let starter = starter.filter(|one| *one != now.on_session);
         if by == WaitBy::You {
             let text = format!("The person changed when job \"{waiting_title}\" ({waiting}) starts: {from} -> {to}.");
+            self.told_or_kept(&now.on_session, &text, for_waited_on).await;
+        } else if let Some(starter) = starter {
+            let starter_title = self.session_title(starter).await;
+            let text = format!("Job \"{starter_title}\" ({starter}) changed when job \"{waiting_title}\" ({waiting}), which it started, starts: {from} -> {to}.");
             self.told_or_kept(&now.on_session, &text, for_waited_on).await;
         } else {
             self.row_put(&now.on_session, for_waited_on).await;

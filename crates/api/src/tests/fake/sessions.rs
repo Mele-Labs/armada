@@ -319,6 +319,33 @@ impl Sessions for FakeDaemon {
         })
     }
 
+    /// One child, "01KID". A call from no connection is refused as Fleet refuses it.
+    async fn list_started_sessions(&self, caller: Option<crate::Caller>) -> Result<ipc::StartedSessions, Refusal> {
+        self.started_placed(caller.as_ref())?;
+        Ok(ipc::StartedSessions { jobs: vec![self.started_child("01KID").await] })
+    }
+
+    /// Done for every Job but one named "01OTHERS", which the caller did not start.
+    async fn command_started_sessions(
+        self: Arc<Self>,
+        caller: Option<crate::Caller>,
+        commands: Vec<ipc::StartedCommand>,
+    ) -> Result<Vec<Result<ipc::StartedJob, Refusal>>, Refusal> {
+        self.started_placed(caller.as_ref())?;
+        let mut answers = Vec::new();
+        for command in commands {
+            answers.push(match command.session_id.as_str() {
+                "01OTHERS" => Err(Refusal::Unacceptable(ipc::WireError::raised(
+                    "fleet.started_not_yours",
+                    "job 01OTHERS was not started by this job, so it is not yours to end",
+                    crate::tests::shapes::run_id(),
+                ))),
+                id => Ok(self.started_child(id).await),
+            });
+        }
+        Ok(answers)
+    }
+
     async fn change_waiting(
         self: Arc<Self>,
         _caller: Option<crate::Caller>,
@@ -869,5 +896,30 @@ impl Sessions for FakeDaemon {
 
     async fn read_loadout_item(&self, _asked: ipc::LoadoutItemAsked) -> Result<ipc::LoadoutItemBody, Refusal> {
         Ok(ipc::LoadoutItemBody::NotRead { why: String::from("A fake reads nothing.") })
+    }
+}
+
+impl FakeDaemon {
+    fn started_placed(&self, caller: Option<&crate::Caller>) -> Result<(), Refusal> {
+        match caller {
+            Some(_) => Ok(()),
+            None => Err(Refusal::Unacceptable(ipc::WireError::raised(
+                ipc::STARTED_UNPLACED,
+                "only a Job's own agent reads or commands the Jobs it started, and this call comes from none",
+                crate::tests::shapes::run_id(),
+            ))),
+        }
+    }
+
+    async fn started_child(&self, id: &str) -> ipc::StartedJob {
+        let record = self
+            .report_session(SessionReport {
+                harness: "a-harness".into(),
+                session_id: ipc::SessionId::carried(id),
+                fact: ipc::SessionFact::TurnCompleted { said: None },
+            })
+            .await
+            .expect("a record");
+        ipc::StartedJob::of(&record, None, None)
     }
 }

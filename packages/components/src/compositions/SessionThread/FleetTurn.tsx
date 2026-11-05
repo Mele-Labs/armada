@@ -94,6 +94,7 @@ export const NOTICE_NAMES: Record<SessionNotice, string> = {
   lifecycle_rule: "rule",
   lifecycles_clear: "nothing holds it open",
   operator: "operator",
+  started_job_ended: "ended by its starter",
 };
 
 /**

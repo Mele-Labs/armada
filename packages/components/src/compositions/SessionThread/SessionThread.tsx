@@ -185,7 +185,8 @@ export type SessionNotice =
   | "task_marked"
   | "lifecycle_rule"
   | "lifecycles_clear"
-  | "operator";
+  | "operator"
+  | "started_job_ended";
 export type NoticeChoice = "job" | "repo" | "hour";
 
 /** What Teach was pressed on in a row: a tool call, a Fleet notice, a Check, or a draft's words. `at` is when the row was written. */

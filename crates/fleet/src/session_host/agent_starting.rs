@@ -29,7 +29,7 @@ const AGENT_START_EMPTY: &str = "fleet.agent_start_empty";
 
 /// On the new Session, naming the one whose agent started it; and on that one, naming the new.
 pub(crate) const STARTED_BY: &str = "started_by";
-const STARTED_TO: &str = "started_to";
+use crate::started_jobs::STARTED_TO;
 
 /// A Job this one's agent started that still waits on its start card.
 #[derive(Clone)]
