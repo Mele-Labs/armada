@@ -194,7 +194,7 @@ export function MediaFrame({
       },
       {
         root: scrollerOf(held),
-        rootMargin: "100% 0px",
+        rootMargin: "100% 0%",
       },
     );
     watching.observe(held);

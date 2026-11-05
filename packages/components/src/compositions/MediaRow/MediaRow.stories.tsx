@@ -3,7 +3,7 @@ import { useLayoutEffect } from "react";
 import { expect, fireEvent, fn, screen, userEvent, waitFor, within } from "storybook/test";
 
 import { MediaFrame, ShownVideo, type ShownMedia } from "./MediaRow";
-import { SessionThread } from "./SessionThread";
+import { SessionThread } from "../SessionThread/SessionThread";
 // Storybook's plain CSS pipeline drops `index.css`'s @imports after its first rule, this one among them; the app's Tailwind inlines them.
 import "./MediaRow.css";
 

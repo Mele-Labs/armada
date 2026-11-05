@@ -103,7 +103,7 @@ import {
 import { isPressed } from "../../keymap";
 import type { JudgedPlanProps } from "../AdversarialReview/AdversarialReview";
 import { LinkedRow } from "./LinkedRow";
-import { MediaFrame, mediaKindOf, type ShownMedia } from "./MediaRow";
+import { MediaFrame, mediaKindOf, type ShownMedia } from "../MediaRow/MediaRow";
 import { StartFailedRow } from "./StartFailedRow";
 import { DisputedMark, DisputedRow } from "./DisputedRow";
 import { landingsOf, type PlanLandsIn } from "./lands-in";

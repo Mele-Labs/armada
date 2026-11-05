@@ -8,9 +8,9 @@ import type {
   VideoAddress,
 } from "@armada/screens/src/draft/sessions";
 
-import landscape from "../../../../../../pocket/src/fixture/media/landscape.jpg";
-import portrait from "../../../../../../pocket/src/fixture/media/portrait.jpg";
-import recording from "../../../../../../pocket/src/fixture/media/recording.mp4";
+import landscape from "../media/landscape.jpg";
+import portrait from "../media/portrait.jpg";
+import recording from "../media/recording.mp4";
 import type { Scenario } from "../moment";
 import { s200Sessions } from "./sessions";
 

@@ -422,7 +422,7 @@ export * from "./compositions/RegisteredOwner/RegisteredOwner";
 export * from "./compositions/SessionFrame/SessionFrame";
 export * from "./compositions/RunningChecks/RunningChecks";
 export * from "./compositions/SessionThread/SessionThread";
-export { mediaKindOf, ShownVideo, type ShownMedia } from "./compositions/SessionThread/MediaRow";
+export { mediaKindOf, ShownVideo, type ShownMedia } from "./compositions/MediaRow/MediaRow";
 export * from "./compositions/SessionThread/lands-in";
 export * from "./compositions/SessionThread/LandsInChip";
 export { callsLine } from "./compositions/SessionThread/calls-line";
