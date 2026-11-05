@@ -1,5 +1,6 @@
 //! What arrives at the Operator, and the live Jobs it is weighed against.
 
+use super::questions::Choice;
 use super::ruling::Way;
 
 /// What kind of thing arrived, as the Log names it.
@@ -9,6 +10,8 @@ pub enum Arrived {
     Start,
     /// An agent asked the person something.
     Question,
+    /// An agent asked to use a tool, on a permission card.
+    Card,
     /// Fleet marked a Job Stopped.
     Stopped,
     /// A Job ended a turn after Fleet told it its pull request failed, and pushed nothing since.
@@ -22,6 +25,7 @@ impl Arrived {
         match self {
             Arrived::Start => "start",
             Arrived::Question => "question",
+            Arrived::Card => "card",
             Arrived::Stopped => "stopped",
             Arrived::Red => "red",
             Arrived::Plan => "plan",
@@ -33,11 +37,17 @@ impl Arrived {
         matches!(self, Arrived::Stopped | Arrived::Red)
     }
 
+    /// A question or a card, which an answer settles as the person's press would.
+    pub fn is_asked(self) -> bool {
+        matches!(self, Arrived::Question | Arrived::Card)
+    }
+
     /// How the call is told what arrived.
     fn said(self) -> &'static str {
         match self {
             Arrived::Start => "A Job started",
             Arrived::Question => "An agent asked a question",
+            Arrived::Card => "An agent asked to use a tool",
             Arrived::Stopped => "A Job stopped with work left",
             Arrived::Red => "A Job left its pull request red",
             Arrived::Plan => "A Job recorded a plan",
@@ -120,6 +130,10 @@ pub struct Arrival {
     /// The plan group it is, for a plan recorded: ruled group by group.
     pub group: Option<String>,
     pub ways: Vec<Way>,
+    /// The answers an answer may give, for a question or a card.
+    pub answers: Vec<Choice>,
+    /// Fleet's rule that leaves it only to the person, in a line, where one does.
+    pub rule: Option<String>,
 }
 
 impl Arrival {
@@ -144,6 +158,19 @@ impl Arrival {
         }
         if let Some(group) = &self.group {
             out.push_str(&format!("     It is group {group} of that Job's plan\n"));
+        }
+        if !self.answers.is_empty() {
+            out.push_str("     The answers it may give:");
+            for (number, one) in self.answers.iter().enumerate() {
+                out.push_str(&format!(" {}. \"{}\"", number + 1, one.label));
+                if let Some(earlier) = &one.earlier {
+                    out.push_str(&format!(", the person's answer when Job {}, \"{}\", asked the same", earlier.session_id, earlier.title));
+                }
+                if number + 1 < self.answers.len() {
+                    out.push(';');
+                }
+            }
+            out.push('\n');
         }
         out.push_str("     The ways it is offered:");
         for (number, way) in self.ways.iter().enumerate() {

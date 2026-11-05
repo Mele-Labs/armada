@@ -15,6 +15,10 @@
 //! | A ruling that comes back after its item passed on is not acted on and not logged twice | That Fleet finds the candidates from plan paths, files written and claims, and hands over dispatch, Jobs starting Jobs and plans. `fleet`'s `tests::operator_arrivals` |
 //! | A Job stopped twice with tasks left is shown to the call with its plan, what is done and what is left, and is nudged with the next step the call names; one that left its pull request red is raised with the call's read | That the call is the Operator model's, kept started and holding no tools. `fleet`'s `tests::operator` |
 //! | A Job nudged once is not offered a nudge again, and one with nothing left is raised with no call | What a nudge, a new Job for the rest and a raise say. `fleet`'s `tests::operator_stalls` |
+//! | A question with a recommended option, from a Job on a plan group not seen, is answered as his press would, in a Log row naming the answer | That Fleet reads the seen mark per plan group, finds the person's earlier answer and settles the item as his press does, with a row in the Job's thread. `fleet`'s `tests::operator_answers` |
+//! | The same question from a Job on a seen group, or with no plan, is raised with no call | That a question arrives once however often its row is read, and that with the Operator Off no question is handed. `fleet`'s `tests::operator_answers` |
+//! | A second Job asking what a first already asked gets his earlier answer, naming the first Job | That Autopilot's switch widens what Answer may do, and that its pass leaves questions and cards to the Operator. `fleet`'s `tests::operator_answers` |
+//! | With the Operator Off no question arrives, and one he answered while the call was out is not answered again | |
 
 // Shared with the other milestones' tests, and none of them uses all of it.
 #[allow(dead_code)]
@@ -24,9 +28,9 @@ use std::collections::BTreeSet;
 use std::time::Duration;
 
 use core_model::Actor;
-use fleet::operator::{Arrived, Logged, Operator, Outcome, PassedOn, Quiet, Ruled, Source, Way, FIRST_WRITE_WAIT, NEEDS_YOU_WAIT};
+use fleet::operator::{Arrived, Earlier, Group, Logged, Operator, Outcome, PassedOn, Present, Quiet, Ruled, Source, Way, FIRST_WRITE_WAIT, NEEDS_YOU_WAIT};
 
-use bench::operator::{live, operator, stall, started, FakeCall, FakeFleet, Reply, IN_TAB, PANES, TABS, TERMINAL};
+use bench::operator::{asked, live, operator, stall, started, FakeCall, FakeFleet, Reply, ASKED, IN_TAB, PANES, PER_TAB, TABS, TERMINAL};
 
 /// The first call: Tmux-like PR Review Tabs shares nothing with a live Job.
 const TABS_RULED: &str = "item: 1\nway: 1\njob: none\nshared: none\nbecause: nothing live touches the review tabs";
@@ -201,6 +205,109 @@ async fn a_job_nudged_once_is_not_offered_a_nudge_again_and_one_with_nothing_lef
     assert_eq!(call.asked().len(), 1, "a stall Fleet's rules leave one way is ruled with no call");
     assert_eq!(fleet.raised().len(), 1);
     assert_eq!(fleet.log().len(), 2);
+}
+
+// ---------------------------------------------------------------------------
+// Answer
+// ---------------------------------------------------------------------------
+
+/// The group Terminal Bugs is working on, which changes nothing the person sees.
+const NOT_SEEN: &str = "Keep the scrollback through a redraw";
+/// The group of the review tabs he would see.
+const SEEN: &str = "Tabs drawn like tmux";
+
+#[tokio::test(start_paused = true)]
+async fn a_question_with_a_recommended_option_from_a_job_on_a_group_not_seen_is_answered_as_his_press_would() {
+    let answered = "item: 1\nway: 1\nanswer: 1\nbecause: the recommended option keeps what each tab shows, and nothing he sees changes";
+    let call = FakeCall::replying(vec![Reply::Says(answered.into(), Duration::from_secs(3))]);
+    let fleet = FakeFleet::with(live(), 100);
+    let operator = operator(&call, &fleet);
+
+    let question = asked(TERMINAL, Group::Unseen(NOT_SEEN.into()), Present::Here, None).arrival().expect("the Operator is on");
+    assert_eq!(question.arrived, Arrived::Question);
+    assert_eq!(question.ways, vec![Way::Answer, Way::Raise], "Fleet's rules let it answer, and the call may still raise");
+    let ruled = operator.ruled(question, NEEDS_YOU_WAIT).await;
+
+    let asked = call.asked();
+    assert_eq!(asked.len(), 1);
+    for part in ["1. An agent asked a question", ASKED, "The answers it may give: 1. \"Keep it per tab (recommended)\"", "The ways it is offered: 1. answer; 2. raise"] {
+        assert!(asked[0].contains(part), "{part}:\n{}", asked[0]);
+    }
+    assert!(matches!(&ruled, Ruled::Ruled(ruling) if ruling.way == Way::Answer), "{ruled:?}");
+    assert_eq!(fleet.answered(), vec![(TERMINAL.to_string(), "ask:1".to_string(), 0, PER_TAB.to_string())], "settled as his press on the first option");
+
+    let log = fleet.log();
+    assert_eq!(log.len(), 1);
+    assert_eq!((log[0].arrived, log[0].outcome, log[0].by), (Arrived::Question, Outcome::Ruled(Way::Answer), Actor::Operator));
+    assert_eq!((log[0].subject.as_str(), log[0].answer.as_deref()), (ASKED, Some(PER_TAB)), "the row names the question and the answer");
+    assert!(log[0].call.is_some());
+}
+
+#[tokio::test(start_paused = true)]
+async fn the_same_question_from_a_job_on_a_seen_group_or_with_no_plan_is_raised_and_no_call_is_made() {
+    let call = FakeCall::replying(Vec::new());
+    let fleet = FakeFleet::with(live(), 100);
+    let operator = operator(&call, &fleet);
+
+    let seen = asked(TABS, Group::Seen(SEEN.into()), Present::Here, None).arrival().expect("the Operator is on");
+    let unplanned = asked(IN_TAB, Group::NoPlan, Present::Here, None).arrival().expect("the Operator is on");
+    assert_eq!((seen.ways.as_slice(), unplanned.ways.as_slice()), ([Way::Raise].as_slice(), [Way::Raise].as_slice()), "the call cannot answer either");
+    let (seen, unplanned) = tokio::join!(operator.ruled(seen, NEEDS_YOU_WAIT), operator.ruled(unplanned, NEEDS_YOU_WAIT));
+
+    assert!(matches!(&seen, Ruled::Ruled(ruling) if ruling.way == Way::Raise), "{seen:?}");
+    assert!(matches!(&unplanned, Ruled::Ruled(ruling) if ruling.way == Way::Raise), "{unplanned:?}");
+    assert!(call.asked().is_empty(), "Fleet makes no call for an item its rules can only raise");
+    assert!(fleet.answered().is_empty());
+    let log = fleet.log();
+    assert_eq!(log.len(), 2, "{log:#?}");
+    assert!(row(&log, TABS).because.contains(SEEN), "the row names the seen group: {}", row(&log, TABS).because);
+    assert!(row(&log, IN_TAB).because.contains("no plan"), "and the missing plan: {}", row(&log, IN_TAB).because);
+    assert!(log.iter().all(|one| one.call.is_none() && one.outcome == Outcome::Ruled(Way::Raise)));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_second_job_asking_what_a_first_already_asked_gets_the_earlier_answer_naming_the_first_job() {
+    let answered = "item: 1\nway: 1\nanswer: 1\nbecause: the person answered the same question for Terminal Bugs";
+    let call = FakeCall::replying(vec![Reply::Says(answered.into(), Duration::from_secs(2))]);
+    let fleet = FakeFleet::with(live(), 100);
+    let operator = operator(&call, &fleet);
+
+    // He answered Terminal Bugs himself, against the recommendation; Agent Opens Terminal in Tab
+    // has recorded no plan yet, and asks the same.
+    let earlier = Earlier { session_id: TERMINAL.into(), title: "Terminal Bugs".into(), answer: "Share one scrollback".into() };
+    let question = asked(IN_TAB, Group::NoPlan, Present::Here, Some(earlier)).arrival().expect("the Operator is on");
+    assert_eq!(question.ways, vec![Way::Answer, Way::Raise]);
+    assert_eq!(question.answers.len(), 1, "his earlier answer, and nothing else");
+    assert_eq!((question.answers[0].at, question.answers[0].label.as_str()), (1, "Share one scrollback"));
+    let ruled = operator.ruled(question, NEEDS_YOU_WAIT).await;
+
+    assert!(call.asked()[0].contains("the person's answer when Job 01JOBTERMINALBUGS, \"Terminal Bugs\", asked the same"), "{}", call.asked()[0]);
+    assert!(matches!(&ruled, Ruled::Ruled(ruling) if ruling.way == Way::Answer && ruling.other.as_deref() == Some(TERMINAL)), "{ruled:?}");
+    assert_eq!(fleet.answered(), vec![(IN_TAB.to_string(), "ask:1".to_string(), 1, "Share one scrollback".to_string())]);
+    let log = fleet.log();
+    assert_eq!((log[0].other.as_deref(), log[0].answer.as_deref()), (Some(TERMINAL), Some("Share one scrollback")), "the row names the first Job");
+}
+
+#[tokio::test(start_paused = true)]
+async fn with_the_operator_off_nothing_arrives_and_a_question_he_answered_first_is_not_answered_again() {
+    assert!(asked(TERMINAL, Group::Unseen(NOT_SEEN.into()), Present::Off, None).arrival().is_none(), "Off is Fleet as it was: nothing is answered");
+
+    let late = "item: 1\nway: 1\nanswer: 1\nbecause: the recommended option";
+    let call = FakeCall::replying(vec![Reply::Says(late.into(), Duration::from_secs(5))]);
+    let fleet = FakeFleet::with(live(), 100);
+    let operator = operator(&call, &fleet);
+    let question = asked(TERMINAL, Group::Unseen(NOT_SEEN.into()), Present::Here, None).arrival().expect("the Operator is on");
+    let ruled = tokio::spawn({
+        let operator = operator.clone();
+        async move { operator.ruled(question, NEEDS_YOU_WAIT).await }
+    });
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    fleet.answer_first();
+    let ruled = ruled.await.expect("ruled");
+
+    assert!(matches!(&ruled, Ruled::PassedOn(PassedOn::Settled(_))), "his answer wins: {ruled:?}");
+    assert!(fleet.answered().is_empty(), "the ruling is dropped when it returns");
+    assert_eq!(fleet.log()[0].outcome, Outcome::PassedOn);
 }
 
 // ---------------------------------------------------------------------------

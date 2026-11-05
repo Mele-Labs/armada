@@ -20,8 +20,8 @@
 # `Armada/preview-held` the main commit the preview stands on and the branches merged into it.
 #
 # Knobs for tests: `ARMADA_LAND_ARMADA` names the `armada` to ask about
-# slots, and `ARMADA_PREVIEW_RESTART` the
-# restart script `--restart` runs.
+# slots, `ARMADA_PREVIEW_RESTART` the restart script `--restart` runs, and
+# `ARMADA_PREVIEW_INSTALL` the command that reinstalls a refused `armada`.
 
 import argparse
 import json
@@ -70,12 +70,29 @@ def repo_root():
     return os.path.dirname(common.stdout.strip())
 
 
-def armada(root, *args):
+def reinstall_armada(root):
+    """Install `armada` from the checkout whose manifest it refused, whose code reads that manifest."""
+    command = (os.environ.get("ARMADA_PREVIEW_INSTALL")
+               or "cargo install --path crates/armada --profile installed --locked").split()
+    print("preview: the installed armada is older than this manifest; installing it from the checkout", flush=True)
+    try:
+        done = subprocess.run(command, cwd=root)
+    except OSError as why:
+        sys.exit(f"preview: cannot run `{command[0]}` to install armada: {why}")
+    if done.returncode != 0:
+        sys.exit(f"preview: installing armada exited {done.returncode}")
+
+
+def armada(root, *args, may_reinstall=True):
     binary = os.environ.get("ARMADA_LAND_ARMADA") or "armada"
     try:
         done = subprocess.run([binary, *args], cwd=root, capture_output=True, text=True)
     except OSError as why:
         sys.exit(f"preview: cannot run `{binary}` to ask what is in flight: {why}")
+    # A key main just added refuses the binary that only this restart would replace.
+    if done.returncode != 0 and may_reinstall and "is not a key Armada reads" in done.stderr + done.stdout:
+        reinstall_armada(root)
+        return armada(root, *args, may_reinstall=False)
     if done.returncode != 0:
         sys.exit(f"preview: `{binary} {' '.join(args)}` said: "
                  f"{(done.stderr or done.stdout).strip()}")

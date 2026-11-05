@@ -1044,6 +1044,25 @@ Off as it ships, by the design page *Helm becomes the Operator*, which the owner
 Live: read again at every act, so a call already out when it is turned off acts on nothing.
 """
 
+[settings.operator-answer]
+name = "Operator answers"
+scope = "Machine"
+default = "on"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+Chosen 4 Nov 2026: On as it ships, by the design page *Helm becomes the Operator*, which the owner approved on 4 Nov 2026, whose *What you control* gives each role its own position. The replay of 4 Nov set the starting positions, and Answer starts On. It does nothing while `operator` is Off.
+
+**Fleet's rules decide first and only narrow.** A question from a Job on a plan group the person would see, or from a Job with no plan, is raised with no call; a card that runs a command is his while he is here; a card is only ever answered Allow once. A second Job asking what he already answered for a first is offered his answer, naming the first. While Autopilot runs for a Job he is away: its checked kinds widen what may be answered, and what was already waiting on him when it started is offered once more.
+
+**On, Fleet settles each answer** as his press would, and the Job's thread says what was answered and why. **Off, nothing is settled:** each question and card is still ruled, and the ruling is kept in the Operator's Log with the answer it would have given, as Dispatch Off keeps a start; Autopilot answers them as it did before the Operator.
+
+Live: read again at every act, so a call already out when it is turned off settles nothing.
+"""
+
 [settings.plan-downshift-line]
 name = "Plan downshift line"
 scope = "Machine"

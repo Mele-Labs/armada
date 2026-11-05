@@ -94,6 +94,7 @@ impl Logged {
             place: None,
             first: None,
             refused: Vec::new(),
+            answer: None,
         }
     }
 }

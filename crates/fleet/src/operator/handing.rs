@@ -109,6 +109,8 @@ where
                 issues,
                 group: None,
                 ways: Way::STARTING.to_vec(),
+                answers: Vec::new(),
+                rule: None,
             }
         };
         self.operator_seat().hand_start(arrival, FIRST_WRITE_WAIT);
@@ -142,6 +144,8 @@ where
                     issues: group.issue.iter().cloned().collect(),
                     group: Some(group.id.clone()),
                     ways: Way::STARTING.to_vec(),
+                    answers: Vec::new(),
+                    rule: None,
                 },
                 NEEDS_YOU_WAIT,
             );

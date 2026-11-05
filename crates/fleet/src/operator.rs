@@ -20,6 +20,7 @@
 //! ceiling. A ruling that comes back after its item passed on is dropped.
 
 mod acting;
+mod answering;
 mod arriving;
 mod asking;
 mod calling;
@@ -28,6 +29,7 @@ mod desk;
 mod handing;
 mod holding;
 mod placing;
+mod questions;
 mod ruling;
 mod seat;
 mod stalling;
@@ -46,8 +48,10 @@ pub use arriving::{Arrival, Arrived, InLine, LiveJob, Source};
 use candidates::Near;
 pub use calling::{Answering, Calling, KeptStarted};
 pub use acting::FleetActing;
+pub(crate) use answering::answers;
 pub use desk::FleetDesk;
 pub(crate) use seat::{Moved, Seat};
+pub use questions::{Choice, Earlier, Group, Kind, Present, Question, ALLOW_ONCE};
 pub use ruling::{Outcome, PassedOn, Place, Ruled, Ruling, Way};
 pub(crate) use stalling::{seen_of, Stalls};
 pub use stalls::{Quiet, Stall};
@@ -78,6 +82,11 @@ pub trait Desk: Send + Sync {
     fn waiting(&self) -> Done<'_, Vec<InLine>> {
         Box::pin(async { Vec::new() })
     }
+    /// Why an answer to `arrival` can no longer be given, as the call comes back: the person
+    /// answered it first, or the Operator was turned off. `None` where it still can.
+    fn settled(&self, _arrival: &Arrival) -> Done<'_, Option<String>> {
+        Box::pin(async { None })
+    }
 }
 
 /// What Fleet does to Jobs on a ruling, called once it is logged and never for one that came late.
@@ -103,6 +112,9 @@ pub trait Acting: Send + Sync {
     fn place(&self, _session: &str, _place: &Place) {}
     /// Of two kept in touch, `held` waits until `first` pushes, where it has not begun.
     fn hold(&self, _held: &str, _first: &str, _shared: &[String]) {}
+    /// Item `item` on `session`'s Needs you list is settled as the person's press on `choice`
+    /// would, and the Job's thread says so in the answer's words.
+    fn answer(&self, _session: &str, _item: &str, _choice: &Choice, _because: &str) {}
 }
 
 /// One row of the Log.
@@ -128,6 +140,8 @@ pub struct Logged {
     pub first: Option<String>,
     /// Each part of the ruling Fleet refused while the rest stood.
     pub refused: Vec<String>,
+    /// The answer given, in its option's words: by the Operator, or by the person's own press.
+    pub answer: Option<String>,
 }
 
 impl Logged {
@@ -136,9 +150,11 @@ impl Logged {
             Ruled::Ruled(ruling) => (Outcome::Ruled(ruling.way), ruling.other.clone(), ruling.shared.clone(), ruling.because.clone()),
             Ruled::PassedOn(why) => (Outcome::PassedOn, None, Vec::new(), why.to_string()),
         };
-        let (place, first, refused) = match ruled {
-            Ruled::Ruled(ruling) => (ruling.place.clone(), ruling.first.clone(), ruling.refused.clone()),
-            Ruled::PassedOn(_) => (None, None, Vec::new()),
+        let (place, first, refused, answer) = match ruled {
+            Ruled::Ruled(ruling) => {
+                (ruling.place.clone(), ruling.first.clone(), ruling.refused.clone(), ruling.answer.as_ref().map(|one| one.label.clone()))
+            }
+            Ruled::PassedOn(_) => (None, None, Vec::new(), None),
         };
         Logged {
             arrival: arrival.id.clone(),
@@ -157,6 +173,7 @@ impl Logged {
             place,
             first,
             refused,
+            answer,
         }
     }
 
@@ -180,6 +197,7 @@ impl Logged {
             place: self.place.as_ref().map(Place::word),
             first_session: self.first.clone(),
             refused: self.refused.clone(),
+            answer: self.answer.clone(),
         }
     }
 }
@@ -274,7 +292,11 @@ impl Operator {
             let waiting = self.desk.waiting().await;
             let mut asked = Vec::new();
             for (token, mut arrival) in taken {
-                let near = candidates::near(&arrival, &live);
+                // A question is answered for its own Job: no other is near it.
+                let near = match arrival.arrived.is_asked() {
+                    true => Vec::new(),
+                    false => candidates::near(&arrival, &live),
+                };
                 let alone = near.is_empty() && arrival.ways.iter().any(|way| way.names_another());
                 if alone {
                     arrival.ways.retain(|way| !way.names_another());
@@ -286,9 +308,10 @@ impl Operator {
                     continue;
                 }
                 let Some(one) = take(&mut held(&self.queue).out, token) else { continue };
-                let because = match alone {
-                    true => "no live Job shares a path, an issue or its words with it",
-                    false => "it is the only way Fleet's rules leave it",
+                let because = match (alone, arrival.rule.as_deref()) {
+                    (true, _) => "no live Job shares a path, an issue or its words with it",
+                    (false, Some(rule)) => rule,
+                    (false, None) => "it is the only way Fleet's rules leave it",
                 };
                 let ruled = match arrival.ways.first() {
                     Some(way) => Ruled::Ruled(Ruling::alone(*way, because)),
@@ -348,7 +371,12 @@ impl Operator {
         }
     }
 
-    async fn settle(&self, one: Held, ruled: Ruled, call: Option<String>) {
+    async fn settle(&self, one: Held, mut ruled: Ruled, call: Option<String>) {
+        if matches!(&ruled, Ruled::Ruled(ruling) if ruling.way == Way::Answer) {
+            if let Some(why) = self.desk.settled(&one.arrival).await {
+                ruled = Ruled::PassedOn(PassedOn::Settled(why));
+            }
+        }
         self.desk.keep(Logged::of(&one.arrival, &ruled, call, self.desk.now())).await;
         if let Ruled::Ruled(ruling) = &ruled {
             self.act(&one.arrival, ruling);
@@ -369,13 +397,20 @@ impl Operator {
             }
             return;
         }
+        if arrival.arrived.is_asked() {
+            // A raise leaves the item where it is: on his Needs you list, as it was.
+            if let (Way::Answer, Some(choice), Some(item)) = (ruling.way, &ruling.answer, questions::asked_item(arrival)) {
+                self.acting.answer(session, item, choice, &ruling.because);
+            }
+            return;
+        }
         match (ruling.way, ruling.other.as_deref()) {
             (Way::NewJob, _) => self.acting.go_ahead(session),
             (Way::ExistingJob, Some(other)) => self.acting.hand_over(session, arrival.group.as_deref(), other, &ruling.shared),
             (Way::Merge, Some(other)) => self.acting.merge(session, other, &ruling.shared),
             (Way::KeepInTouch, Some(other)) => self.acting.keep_in_touch(session, other, &ruling.shared),
             // A way between two that names no other was refused as it was read.
-            (Way::ExistingJob | Way::Merge | Way::KeepInTouch, None) | (Way::Raise | Way::Nudge, _) => {}
+            (Way::ExistingJob | Way::Merge | Way::KeepInTouch, None) | (Way::Raise | Way::Nudge | Way::Answer, _) => {}
         }
         if let (Some(first), Some(other)) = (ruling.first.as_deref(), ruling.other.as_deref()) {
             let held = if first == session { other } else { session };

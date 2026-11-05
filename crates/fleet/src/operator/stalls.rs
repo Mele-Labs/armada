@@ -69,6 +69,8 @@ impl Stall {
             issues: Vec::new(),
             group: None,
             ways: self.ways(),
+            answers: Vec::new(),
+            rule: None,
         }
     }
 

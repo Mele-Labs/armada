@@ -265,10 +265,18 @@ pub(crate) async fn show_sketch<D: Sessions>(
     }
 }
 
-/// What `record_plan` carries beside [`ipc::RecordPlan`]: the agent's word that the person would see the change. Read
-/// here, off the same body, so it is no field of the wire type. It holds nothing.
+/// What `record_plan` carries beside [`ipc::RecordPlan`]: the agent's word that the person would see the change, for
+/// the plan and for each group. Read here, off the same body, so it is no field of the wire type. It holds nothing.
 #[derive(Deserialize)]
 struct PlanSeen {
+    #[serde(default)]
+    seen: bool,
+    #[serde(default)]
+    groups: Vec<GroupSeen>,
+}
+
+#[derive(Deserialize)]
+struct GroupSeen {
     #[serde(default)]
     seen: bool,
 }
@@ -285,8 +293,10 @@ pub(crate) async fn record_plan<D: Sessions>(
         Ok(plan) => plan,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    let seen = ipc::decode::<PlanSeen>("a plan to record", &body).is_ok_and(|beside| beside.seen);
-    match served.daemon().record_plan(crate::acting::asking(), plan, seen).await {
+    let beside = ipc::decode::<PlanSeen>("a plan to record", &body).ok();
+    let seen = beside.as_ref().is_some_and(|beside| beside.seen);
+    let groups_seen: Vec<bool> = beside.map(|beside| beside.groups.into_iter().map(|group| group.seen).collect()).unwrap_or_default();
+    match served.daemon().record_plan_seen(crate::acting::asking(), plan, seen, groups_seen).await {
         Ok(record) if door.is_some() => answer(StatusCode::OK, &Receipt::plan(&record), served.run_id()),
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
