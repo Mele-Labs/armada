@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use super::arriving::{Arrival, InLine};
 use super::candidates::Near;
+use super::questions::Choice;
 
 /// One way an item can go.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -26,6 +27,8 @@ pub enum Way {
     Raise,
     /// A Job gone quiet is told its next step, and carries on.
     Nudge,
+    /// A question or a permission card is settled as the person's press would.
+    Answer,
 }
 
 impl Way {
@@ -40,6 +43,7 @@ impl Way {
             Way::KeepInTouch => "keep_in_touch",
             Way::Raise => "raise",
             Way::Nudge => "nudge",
+            Way::Answer => "answer",
         }
     }
 
@@ -51,6 +55,7 @@ impl Way {
             Way::KeepInTouch => "keep in touch",
             Way::Raise => "raise",
             Way::Nudge => "nudge",
+            Way::Answer => "answer",
         }
     }
 
@@ -130,12 +135,14 @@ pub struct Ruling {
     pub first: Option<String>,
     /// Each part Fleet refused while the rest stood, in a line.
     pub refused: Vec<String>,
+    /// The answer an answer gives, one of those the item was offered.
+    pub answer: Option<Choice>,
 }
 
 impl Ruling {
     /// A ruling of `way` alone, naming no other Job.
     pub fn alone(way: Way, because: impl Into<String>) -> Ruling {
-        Ruling { way, other: None, shared: Vec::new(), because: because.into(), place: None, first: None, refused: Vec::new(), step: None }
+        Ruling { way, other: None, shared: Vec::new(), because: because.into(), place: None, first: None, refused: Vec::new(), step: None, answer: None }
     }
 }
 
@@ -152,6 +159,8 @@ pub enum PassedOn {
     Refused(String),
     /// The day's calls reached the ceiling, so no call was made.
     Ceiling(u32),
+    /// An answer that could no longer be given, such as to a question the person answered first.
+    Settled(String),
 }
 
 impl fmt::Display for PassedOn {
@@ -162,6 +171,7 @@ impl fmt::Display for PassedOn {
             PassedOn::Unreadable(why) => write!(out, "the answer could not be read: {why}"),
             PassedOn::Refused(why) => write!(out, "the ruling was refused: {why}"),
             PassedOn::Ceiling(calls) => write!(out, "today's ceiling of {calls} calls was reached, so no call was made"),
+            PassedOn::Settled(why) => write!(out, "{why}"),
         }
     }
 }
@@ -184,6 +194,8 @@ pub enum Outcome {
     HoldLifted,
     /// A Job ruled to wait for another's push was already working, or waiting on something else, so nothing was held.
     NotHeld,
+    /// The person answered a question himself, which a second Job asking the same is offered.
+    Answered,
 }
 
 impl Outcome {
@@ -194,6 +206,7 @@ impl Outcome {
             Outcome::Corrected => "corrected",
             Outcome::HoldLifted => "hold_lifted",
             Outcome::NotHeld => "not_held",
+            Outcome::Answered => "answered",
         }
     }
 }
@@ -228,6 +241,9 @@ fn read_one(block: &[(String, String)], item: &Arrival, near: &[Near]) -> Result
         .and_then(|number| number.checked_sub(1))
         .and_then(|at| item.ways.get(at).copied())
         .ok_or_else(|| PassedOn::Refused(format!("way {named} was not one it was offered")))?;
+    if way == Way::Answer {
+        return answered(block, item, because);
+    }
     if way == Way::Nudge {
         let step = said(block, "step").filter(|step| !none(step)).ok_or_else(|| PassedOn::Refused("nudge named no next step".into()))?;
         return Ok(Ruling { step: Some(step), ..Ruling::alone(way, because) });
@@ -256,6 +272,24 @@ fn read_one(block: &[(String, String)], item: &Arrival, near: &[Near]) -> Result
         }
     }
     Ok(ruling)
+}
+
+/// An answer names one of the answers the item was offered, by its number. **One offered alone is
+/// the answer** where the call named none.
+fn answered(block: &[(String, String)], item: &Arrival, because: String) -> Result<Ruling, PassedOn> {
+    let named = said(block, "answer").filter(|answer| !none(answer));
+    let choice = match named {
+        None if item.answers.len() == 1 => item.answers[0].clone(),
+        None => return Err(PassedOn::Refused("answer named no answer".into())),
+        Some(named) => named
+            .parse::<usize>()
+            .ok()
+            .and_then(|number| number.checked_sub(1))
+            .and_then(|at| item.answers.get(at).cloned())
+            .ok_or_else(|| PassedOn::Refused(format!("answer {named} was not one it was offered")))?,
+    };
+    let other = choice.earlier.as_ref().map(|earlier| earlier.session_id.clone());
+    Ok(Ruling { other, answer: Some(choice), ..Ruling::alone(Way::Answer, because) })
 }
 
 /// The ruling with its place in Waiting to start, where Jobs wait there: last where the call named

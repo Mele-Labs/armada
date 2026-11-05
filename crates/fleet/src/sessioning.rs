@@ -772,7 +772,17 @@ where
         record: ipc::RecordPlan,
         seen: bool,
     ) -> Result<SessionRecord, Refusal> {
-        self.plan_recorded(caller, record, seen).await
+        self.plan_recorded(caller, record, seen, &[]).await
+    }
+
+    async fn record_plan_seen(
+        &self,
+        caller: Option<api::Caller>,
+        record: ipc::RecordPlan,
+        seen: bool,
+        groups_seen: Vec<bool>,
+    ) -> Result<SessionRecord, Refusal> {
+        self.plan_recorded(caller, record, seen, &groups_seen).await
     }
 
     async fn approve_plan(self: Arc<Self>, approve: ipc::ApprovePlan) -> Result<SessionRecord, Refusal> {

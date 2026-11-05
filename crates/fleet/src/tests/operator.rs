@@ -210,6 +210,8 @@ fn start(id: &str, ways: &[Way]) -> Arrival {
         issues: Vec::new(),
         group: None,
         ways: ways.to_vec(),
+        answers: Vec::new(),
+        rule: None,
     }
 }
 
@@ -302,6 +304,7 @@ async fn fleet_keeps_the_log_in_its_store_signed_by_the_operator_and_counts_the_
         place: Some(Place::Behind("01WAITING".into())),
         first: Some("01OTHER".into()),
         refused: vec!["a part refused".into()],
+        answer: None,
     };
     desk.keep(row.clone()).await;
 

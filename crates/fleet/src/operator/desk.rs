@@ -115,6 +115,16 @@ where
         })
     }
 
+    fn settled(&self, arrival: &super::Arrival) -> Done<'_, Option<String>> {
+        let arrival = arrival.clone();
+        Box::pin(async move {
+            match self.fleet.upgrade() {
+                Some(fleet) => fleet.answer_settled(&arrival).await,
+                None => Some("Fleet stopped before the ruling came".into()),
+            }
+        })
+    }
+
     fn keep(&self, row: Logged) -> Done<'_, ()> {
         Box::pin(async move {
             // A call out when the Operator was turned off is recorded nowhere, as if it had not been made.
