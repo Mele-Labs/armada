@@ -193,6 +193,10 @@ export type Event =
   | ({
       kind: "timeline.appended";
     } & TimelineAppended)
+  /** The Operator's board is not what it was: read `get_operator_board` again. Carries nothing else. */
+  | {
+      kind: "operator.board_changed";
+    }
   /** A background act failed after its request was answered: the act, what it was for, and the refusal. Not replayed. */
   | ({
       kind: "act.failed";

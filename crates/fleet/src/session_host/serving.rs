@@ -277,11 +277,19 @@ where
     }
 
     async fn talk_to_operator(self: Arc<Self>, talk: ipc::operator_talk::TalkToOperator) -> Result<ipc::operator_talk::OperatorSaid, Refusal> {
-        self.operator_talked(&talk.words).await
+        self.operator_talked(&talk.words, talk.about.as_deref()).await
     }
 
     async fn operator_talk(self: Arc<Self>) -> Result<ipc::operator_talk::OperatorTalk, Refusal> {
         self.operator_talk_wire().await
+    }
+
+    async fn get_operator_board(self: Arc<Self>) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
+        self.operator_board_wire().await
+    }
+
+    async fn move_on_operator_board(self: Arc<Self>, moved: ipc::operator_board::MoveOnOperatorBoard) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
+        self.operator_board_moved(moved).await
     }
 
     async fn confirm_operator_order(self: Arc<Self>, confirm: ipc::operator_talk::ConfirmOperatorOrder) -> Result<ipc::operator_talk::OperatorOrders, Refusal> {

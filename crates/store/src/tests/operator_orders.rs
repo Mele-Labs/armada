@@ -9,7 +9,7 @@ fn order(form: &str) -> KeptOrder {
 }
 
 fn talk(from_person: bool, text: &str, call: Option<&str>, at: &str) -> KeptTalk {
-    KeptTalk { from_person, text: text.to_string(), call: call.map(str::to_string), at: at.to_string() }
+    KeptTalk { from_person, text: text.to_string(), call: call.map(str::to_string), at: at.to_string(), about: None }
 }
 
 #[test]
@@ -42,4 +42,17 @@ fn the_conversation_reads_its_last_messages_in_order_and_its_answers_count_as_ca
     assert!(last[0].from_person && !last[1].from_person);
 
     assert_eq!(store.operator_calls_since("2026-11-05T00:00:00.000Z").expect("counted"), 1, "only today's answer");
+}
+
+#[test]
+fn a_message_keeps_the_item_it_was_about() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let mut about = talk(true, "why was this passed on?", None, "2026-11-05T09:00:00.000Z");
+    about.about = Some("question:01JOB:1".to_string());
+    store.add_operator_talk(&about).expect("kept");
+    store.add_operator_talk(&talk(true, "and in general?", None, "2026-11-05T09:01:00.000Z")).expect("kept");
+
+    let read = store.operator_talk(10).expect("read");
+    assert_eq!(read.iter().map(|one| one.about.as_deref()).collect::<Vec<_>>(), vec![Some("question:01JOB:1"), None]);
 }

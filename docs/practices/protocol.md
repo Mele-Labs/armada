@@ -1484,3 +1484,14 @@ The box at the foot of the Operator panel, and the orders it turns words into. N
 - **`operator_orders` lets go** of an order for a day gone by and a hold its Job has released as it reads, so what it answers is what is in force.
 
 Bridge draws none of it yet: the box and the list ride with the panel, armada-ehhu.10.
+
+## The Operator's board: `get_operator_board`, `move_on_operator_board` and `operator.board_changed`
+
+The board the Operator page is drawn from: `now`, `next`, `done` and `on`, read whole.
+
+- **`next` is the Operator's own queue**, the arrivals that came while a call was out.
+  What a call has been handed leads it and cannot be moved; `move_on_operator_board` reorders the rest, and a 404 names an id that is not waiting.
+- **`operator.board_changed` carries nothing.** Bridge reads the board again.
+- **`kind` is closed at five**: a plan is a `start`, and an issue, a review request, a red main and a Later item are each a `report`. Bridge renders `outcome` and never branches on it.
+- **`TalkToOperator.about` names a board item or a Needs you item**, and the line keeps it. **`OperatorSaid.moved`** is the item the call put first because the person asked.
+- **The types are in `packages/protocol/src/operator-board.ts`**, since `sessions.ts` is past the line the gate refuses.

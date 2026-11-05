@@ -656,6 +656,8 @@ export type RemoveOperatorOrder = {
  */
 export type TalkToOperator = {
   words: string;
+  /** A board item's id or a Needs you item's id: the person is talking about that one. */
+  about?: string;
 };
 
 /** What the Operator said back. `order` stands only once he confirms it, and `forms` lists them where his words fit none. */
@@ -676,6 +678,8 @@ export type OperatorSaid = {
     said: string;
   };
   forms?: string[];
+  /** The board item it put first in `next`, as he asked. */
+  moved?: string;
 };
 
 /** `operator_talk` (`GET /operator/talk`): the last twenty messages, oldest first. */
@@ -684,6 +688,8 @@ export type OperatorTalk = {
     from_person: boolean;
     text: string;
     at: string;
+    /** The item the message was about, where it named one. */
+    about?: string;
   }[];
 };
 
