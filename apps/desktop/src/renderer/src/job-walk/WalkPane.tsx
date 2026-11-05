@@ -1,7 +1,7 @@
-// One walk drawn in whatever holds it: a tab of the Job's panes, or a slot of the review sheet (`front`). It assumes nothing of what is around it. On a real Bridge the walk's page and its bar are
+// One walk drawn in a tab of the Job's panes. It assumes nothing of what is around it. On a real Bridge the walk's page and its bar are
 // views main lays over this frame (`main/capture/job-walks.ts`), so the pane is an empty box that reports where it is; the mock has no such views and draws `WalkView` with a fixture.
 
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { holdLayerUp } from "../hold-layers";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
@@ -34,59 +34,19 @@ const pictureOf = (png: Uint8Array): string =>
     ),
   );
 
-// Main holds one pair of views for a walk, and a walk may be drawn twice: as a tab of the Job and in the review sheet over it. The one in front has the views; the other
-// draws nothing and tells main nothing until it is the only one. `fronts` counts the panes in front of the rest, by walk.
-const fronts = new Map<string, number>();
-const listeners = new Set<() => void>();
 const keyOf = (jobId: string, walkId: string) => `${jobId}\n${walkId}`;
-const changed = () => listeners.forEach((one) => one());
 
-/** Whether another pane is in front of this one for the walk. A pane in front (`front`) says so for as long as it is drawn. */
-function useYielded(jobId: string, walkId: string, front: boolean): boolean {
-  const key = keyOf(jobId, walkId);
-  useLayoutEffect(() => {
-    if (!front) return;
-    fronts.set(key, (fronts.get(key) ?? 0) + 1);
-    changed();
-    return () => {
-      const left = (fronts.get(key) ?? 1) - 1;
-      if (left === 0) fronts.delete(key);
-      else fronts.set(key, left);
-      changed();
-    };
-  }, [
-    front,
-    key,
-  ]);
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener);
-      return () => void listeners.delete(listener);
-    },
-    () => !front && (fronts.get(key) ?? 0) > 0,
-  );
-}
-
-/** Who placed a walk's views last, by walk: a pane's unplace hides the views only while they are still its own, not after the other pane placed them. */
+/** Who placed a walk's views last, by walk: a pane's unplace hides the views only while they are still its own, not after another pane placed them. */
 const placed = new Map<string, object>();
-/** The panes drawing each walk now. A pane that leaves while another draws it does not unplace: the other places, and a hide between would stop a walk that plays by itself. */
+/** The panes drawing each walk now. A tab moved between panes has two panes drawing the walk for a moment: the one that leaves does not unplace, the other places, and a hide between would stop a walk that plays by itself. */
 const drawn = new Map<string, Set<object>>();
 
-export function WalkPane({
-  jobId,
-  walkId,
-  front = false,
-}: {
-  jobId: string;
-  walkId: string;
-  /** Drawn in a layer over the Job (the review sheet): the walk's views are this pane's while it is drawn, and the Job's own tab for it yields. */
-  front?: boolean;
-}) {
+export function WalkPane({ jobId, walkId }: { jobId: string; walkId: string }) {
   const live = window.armada?.jobWalk;
   return live === undefined ? (
     <MockWalk jobId={jobId} walkId={walkId} />
   ) : (
-    <LiveWalk jobId={jobId} walkId={walkId} api={live} front={front} />
+    <LiveWalk jobId={jobId} walkId={walkId} api={live} />
   );
 }
 
@@ -94,20 +54,9 @@ export function WalkPane({
  * The frame is reported on every frame it moves, as the browser pane's is: a pane resized, zoomed or swept in by a layout moves it and nothing of the frame's own says so.
  * While a layer of Bridge's own lies over it, main hides both views and the pictures it returns are drawn here instead.
  */
-function LiveWalk({
-  jobId,
-  walkId,
-  api,
-  front,
-}: {
-  jobId: string;
-  walkId: string;
-  api: Live;
-  front: boolean;
-}) {
+function LiveWalk({ jobId, walkId, api }: { jobId: string; walkId: string; api: Live }) {
   const frame = useRef<HTMLDivElement>(null);
   const [held, setHeld] = useState(false);
-  const yielded = useYielded(jobId, walkId, front);
   const self = useRef({});
   useLayoutEffect(() => {
     const key = keyOf(jobId, walkId);
@@ -122,13 +71,11 @@ function LiveWalk({
     bar?: string;
   }>();
   useEffect(() => {
-    if (yielded) return;
     const key = keyOf(jobId, walkId);
     const me = {};
     let moving = 0;
     let last: Box | undefined;
     const follow = () => {
-      // The sheet a walk plays in is not over it; a menu or dialog over the sheet is.
       setHeld(holdLayerUp(frame.current));
       const box = frame.current?.getBoundingClientRect();
       if (box !== undefined) {
@@ -164,10 +111,9 @@ function LiveWalk({
     api,
     jobId,
     walkId,
-    yielded,
   ]);
   useEffect(() => {
-    if (!held || yielded) return;
+    if (!held) return;
     let shown: {
       page?: string;
       bar?: string;
@@ -200,7 +146,6 @@ function LiveWalk({
     jobId,
     walkId,
     held,
-    yielded,
   ]);
   return (
     <div ref={frame} className="job-walk__live" role="region" aria-label="Walk">

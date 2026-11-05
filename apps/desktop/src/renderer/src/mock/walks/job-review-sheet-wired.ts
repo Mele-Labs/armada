@@ -1,5 +1,5 @@
 // The split the owner decided: what he answers stays on the Needs you card, what he reads is on the sheet. A Job with only a question has the card and no Review row; a Job with both
-// has the question and a Review row on the card, which opens a sheet that lists only the plan, sketch, draft, document and walk, and a walk plays in its pane.
+// has the question and a Review row on the card, which opens a sheet that lists only the plan, sketch, draft and document. A walk is a row of the card that brings its tab forward.
 // Over the `job-review-sheet` scenario.
 
 import { button, dialog, inside, region, role, walk } from "../walk";
@@ -54,7 +54,7 @@ const wired = walk("job-review-sheet", [
   },
   {
     press: inside(jobs, button(/Retry backoff cap/)),
-    say: "A Job with a question, a command and five things to review",
+    say: "A Job with a question, a command, a walk and four things to review",
   },
   {
     look: inside(needs, button(/Open Keep the old fixture/)),
@@ -80,19 +80,15 @@ const wired = walk("job-review-sheet", [
   },
   {
     look: inside(list, button(/Plan v2/)),
-    say: "It lists the plan, sketch, draft, document and walk, and not the question or the command",
-  },
-  {
-    press: inside(list, button(/Backoff table/)),
-    say: "A walk's row",
-  },
-  {
-    look: inside(sheet, button(/^Approve/)),
-    say: "The walk plays in the sheet's pane, with its own Approve",
+    say: "It lists the plan, sketch, draft and document, and not the question, the command or the walk",
   },
   {
     press: inside(sheet, button("Close")),
     say: "Close the sheet",
+  },
+  {
+    look: inside(needs, button(/Open Backoff table/)),
+    say: "The walk is a row of the card, and a press brings its tab forward",
   },
   {
     press: inside(jobs, button(/Draw the retry curve/)),

@@ -1,5 +1,5 @@
 // Two Jobs over the `sessions` scenario. "Retry backoff cap" waits on the person for seven things, one of each kind: a question, a command, a plan, a sketch,
-// a draft, a document and a walk. The question and the command are on its Needs you card; the Review row there, or ⇧⌘Y, opens the sheet with the other five.
+// a draft, a document and a walk. The question, the command and the walk are on its Needs you card; the Review row there, or ⇧⌘Y, opens the sheet with the other four.
 // "Name the cache key" waits on a question and on a Job its agent started, both on the card, and has nothing to review, so its card has no Review row.
 // Draft data, so an answer goes where the thread's own card sends it and nothing reaches Fleet. The walks `job-review-sheet` and `job-review-sheet-wired` play it.
 

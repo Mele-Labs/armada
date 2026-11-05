@@ -1,4 +1,4 @@
-// A walk as its Job's tab draws it: the bar at the top, then the page under it. It takes plain props and assumes nothing of the tab around it, so the review sheet can host it too.
+// A walk as its Job's tab draws it: the bar at the top, then the page under it. It takes plain props and assumes nothing of the tab around it.
 // **The page is a slot.** The mock has no native page view, so it draws a fixture there and rings the step's target in DOM; the real wiring lays Bridge's own page over the same area.
 // **A note is taken as the capture window takes one**: Note arms the page, a press picks what is under it, and a card beside the pick holds the words and Capture. The note is held
 // on the Job, not sent (`docs/practices/capture-window.md`, *Pending notes*).

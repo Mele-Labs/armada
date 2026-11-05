@@ -1,5 +1,5 @@
 // What a browser test needs to reach a Job's review sheet the way a person does. Questions, commands and pull requests are rows of the Needs you card; what he reads
-// (a plan, sketch, draft, document, walk) is one Review row on it, or the band's own press where the Job has nothing else. The sheet lists those items, and a row's press picks
+// (a plan, sketch, draft, document) is one Review row on it, or the band's own press where the Job has nothing else. The sheet lists those items, and a row's press picks
 // the item whose body the right side draws.
 
 import { expect } from "vitest";

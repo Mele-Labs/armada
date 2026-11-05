@@ -1,5 +1,5 @@
 // A Job's Needs you card and review sheet over real Jobs, through `App` on `job-review-sheet`. What he answers (a question, a command, a Job its agent started) is a row of the card and is
-// answered there; what he reads (a plan, sketch, draft, document, walk) is one Review row on it, which opens the sheet. A Job with nothing to review has no such row, a Job with only
+// answered there; what he reads (a plan, sketch, draft, document) is one Review row on it, which opens the sheet. A Job with nothing to review has no such row, a Job with only
 // review items opens the sheet from the band, and one item alone stays where it lives. The walk of the same name draws it; this holds that the presses reach the same code.
 
 import { beforeEach, expect, test } from "vitest";
@@ -32,13 +32,12 @@ const ASK_JOB = "Name the cache key";
 const READ_JOB = "Draw the retry curve";
 const ONE_WALK_JOB = "Check the usage page";
 const ONE_SKETCH_JOB = "Sketch the cap";
-/** What he reads, oldest first. The question and the command are on the card. */
+/** What he reads, oldest first. The question, the command and the walk are on the card. */
 const ORDER = [
   "Plan v2",
   "Backoff curve",
   "Pull request text",
   "Retry design",
-  "Backoff table",
 ];
 const thread = () =>
   page.getByRole("region", {
@@ -76,7 +75,7 @@ test("the card keeps the question and the command as rows and has one Review row
       }),
     )
     .toBeVisible();
-  // A plan, sketch, draft, document and walk are not rows of their own, and the sheet is shut.
+  // A plan, sketch, draft and document are not rows of their own, and the sheet is shut.
   for (const name of ORDER) expect(card(new RegExp(`^Open ${name}`)).query()).toBeNull();
   expect(sheet(JOB).query()).toBeNull();
   // The one row names them all, under its own eyebrow.
@@ -281,7 +280,6 @@ test("Approve names the plan and settles only the plan, and the next open item c
     /Backoff curve/,
     /Pull request text/,
     /Retry design/,
-    /Backoff table/,
   ])
     expect(marked(name, "Approved").query()).toBeNull();
   await expect.element(detail(JOB, "Backoff curve")).toBeVisible();
@@ -518,35 +516,6 @@ test("⌘↵ approves the picked sketch alone, and the arrows move between items
   await expect.element(detail(JOB, "Pull request text")).toBeVisible();
 });
 
-test("a walk plays in the sheet's pane, and the head has no Approve for it", async () => {
-  await open();
-  await openSheet(JOB);
-  await userEvent.click(row(JOB, /Backoff table/));
-  // The walk's own bar holds its Approve and Send back stays off the head: nothing here is the head's to answer.
-  await expect
-    .element(
-      detail(JOB, "Backoff table").getByRole("button", {
-        name: /^Approve/,
-      }),
-    )
-    .toBeVisible();
-  expect(sheet(JOB).element().querySelector(".job-walk")).not.toBeNull();
-  expect(
-    sheet(JOB)
-      .getByRole("button", {
-        name: /^Approve Backoff table/,
-      })
-      .query(),
-  ).toBeNull();
-  expect(
-    sheet(JOB)
-      .getByRole("button", {
-        name: /^Send back/,
-      })
-      .query(),
-  ).toBeNull();
-});
-
 test("Esc closes the sheet and focus goes back to the Review row that opened it", async () => {
   await open();
   await openSheet(JOB);
@@ -568,17 +537,6 @@ test("Esc closes the sheet and focus goes back to the band when ⇧⌘Y opened i
 test("the last answer closes the sheet", async () => {
   await open();
   await openSheet(JOB);
-  // The walk is put away from its menu, so nothing is left waiting on a page.
-  await userEvent.click(row(JOB, /Backoff table/), {
-    button: "right",
-  });
-  await userEvent.click(
-    page.getByRole("menuitem", {
-      name: /^Dismiss/,
-    }),
-  );
-  await expect.element(marked(/Backoff table/, "Dismissed")).toBeVisible();
-
   for (const name of [
     /Plan v2/,
     /Backoff curve/,
@@ -597,4 +555,24 @@ test("the last answer closes the sheet", async () => {
   );
   await expect.element(sheet(JOB)).not.toBeInTheDocument();
   expect(list(JOB).query()).toBeNull();
+});
+
+// Last: pressing the row selects the walk's tab, and the pane layout is kept for the tests after it.
+test("a walk beside things to read is a row of the card, not of the sheet, and its row brings its tab forward", async () => {
+  await open();
+  await expect.element(card("Backoff table")).toBeVisible();
+  await expect.element(reviewRow()).not.toHaveTextContent("Backoff table");
+  await openSheet(JOB);
+  expect(row(JOB, /Backoff table/).query()).toBeNull();
+  expect(sheet(JOB).element().querySelector(".job-walk")).toBeNull();
+  await userEvent.keyboard("{Escape}");
+  await expect.element(sheet(JOB)).not.toBeInTheDocument();
+  await userEvent.click(card("Backoff table"));
+  await expect
+    .element(
+      page.getByRole("tab", {
+        name: "Backoff table",
+      }),
+    )
+    .toHaveAttribute("aria-selected", "true");
 });

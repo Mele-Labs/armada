@@ -220,6 +220,8 @@ export class CaptureWindow {
   private readonly seat: WalkSeat | null;
   /** A pane's walk held still under a layer of Bridge's own: its views are hidden and their pictures are drawn in the pane. */
   private frozen = false;
+  /** A layer of Bridge's own is over the frame, from the moment `freeze` is asked until `thaw`. */
+  private layerOver = false;
   /** Taken out of the walk window: its page is gone, and it answers nothing. */
   private disposed = false;
   /** What the page is pinned to: **the take on screen's**, which moves only to another the Session declared. */
@@ -401,10 +403,13 @@ export class CaptureWindow {
         return null;
       }
     };
+    this.layerOver = true;
     const [page, bar] = await Promise.all([
       picture(this.page.webContents),
       picture(this.bar.webContents),
     ]);
+    // The layer left while the pictures were taken: hiding the views now would leave them hidden with nothing to bring them back.
+    if (!this.layerOver) return null;
     this.frozen = true;
     this.layout();
     this.keyboardToBridge();
@@ -427,6 +432,7 @@ export class CaptureWindow {
   }
 
   thaw(): void {
+    this.layerOver = false;
     if (!this.frozen) return;
     this.frozen = false;
     this.layout();
