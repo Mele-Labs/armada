@@ -9,6 +9,11 @@ inputs:
   cache:
     description: Off for a job that compiles nothing.
     default: "true"
+  shared:
+    description: >-
+      Another job's entry, as `<key>-<job>`, for a job main never runs:
+      rust-cache adds this job's own id to `key`, so it would never find one.
+    default: ""
 runs:
   using: composite
   steps:
@@ -23,7 +28,8 @@ runs:
       uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       with:
         prefix-key: ci1
-        key: ${{ inputs.key }}
+        key: ${{ inputs.shared || inputs.key }}
+        add-job-id-key: ${{ inputs.shared == '' }}
         cache-on-failure: true
 
     - name: cargo-nextest

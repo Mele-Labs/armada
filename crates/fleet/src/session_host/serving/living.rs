@@ -168,6 +168,35 @@ where
         taken
     }
 
+    /// A process reattached with its move into the slot still standing is the one from before the
+    /// move, in the checkout, while its hosting names the slot: a relative write would land in main.
+    /// **The move is owed again**, held until its agents end, as it was (`armada-f7s3`).
+    async fn move_owed_again(&self, id: &str, hosting: &KeptHosting, directory: &str) {
+        let (Some(slot), Some(branch)) = (hosting.lease_slot, hosting.lease_branch.clone()) else {
+            return;
+        };
+        let waits = self.store().lock().await.slot_waits_of(id).unwrap_or_default();
+        if waits.iter().any(|wait| wait.phase == "move" && wait.ended_at.is_none()) {
+            let directory = directory.to_string();
+            self.hosts().of(id).state().moving =
+                Some(crate::session_host::Move { slot, branch, directory, held: true });
+        }
+    }
+
+    /// Every slot wait the last Fleet left standing ended, but the moves owed again: the line is
+    /// read back after, and its waits begin again. Called once, after the reattach at boot.
+    pub(crate) async fn slot_waits_ended_at_boot(&self) {
+        let at = self.now().as_str().to_string();
+        let owed: Vec<String> = self
+            .hosts()
+            .all()
+            .into_iter()
+            .filter(|(_, runtime)| runtime.state().moving.is_some())
+            .map(|(id, _)| id)
+            .collect();
+        let _ = self.store().lock().await.end_all_slot_waits(&at, &owed);
+    }
+
     /// The session's process, reattached or (where `may_start`) started.
     /// Whether it has one.
     pub(super) async fn process_of(
@@ -197,6 +226,7 @@ where
                         .await
                         .unwrap_or_default(),
                 };
+                self.move_owed_again(id, hosting, &directory).await;
                 (process, directory)
             }
             None if !may_start => return Ok(false),

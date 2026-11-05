@@ -924,6 +924,6 @@ impl FakeDaemon {
             })
             .await
             .expect("a record");
-        ipc::StartedJob::of(&record, None, None)
+        ipc::StartedJob::of(&record, ipc::SessionId::carried("a-parent"), None, None)
     }
 }

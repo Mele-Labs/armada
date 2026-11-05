@@ -65,7 +65,7 @@ pub use sources::{Filed, Handed, NewIssue, Note, RedMain, Report, ReviewRequest}
 pub(crate) use sourcing::Sources;
 pub(crate) use stalling::{seen_of, Stalls};
 pub use stalls::{Quiet, Stall};
-pub use talking::{Board, HeldJob, LogRead, NeedsYou, Repository, StoppedJob, TalkFailed, TalkLine, Talked};
+pub use talking::{Board, EndedJob, HeldJob, LogRead, NeedsYou, Repository, StoppedJob, TalkFailed, TalkLine, Talked};
 pub(crate) use suggesting::{reads_shown, suggestion_items, SKIP};
 
 /// How long a Job's first write waits for the ruling on its start.

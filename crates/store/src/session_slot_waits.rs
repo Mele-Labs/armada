@@ -44,11 +44,18 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
-    /// Every standing wait of every Job ended at `at`: Fleet came up, and the line and the moves it
-    /// held in memory are gone.
-    pub fn end_all_slot_waits(&mut self, at: &str) -> Result<usize, WriteError> {
+    /// Every standing wait of every Job ended at `at`, but the `move` of each Job in `owed`: Fleet came
+    /// up, and the line and the moves it held in memory are gone. A move owed to a process a keeper
+    /// carried across is made all the same, so its wait stands.
+    pub fn end_all_slot_waits(&mut self, at: &str, owed: &[String]) -> Result<usize, WriteError> {
+        let marks = vec!["?"; owed.len()].join(", ");
+        let ending = format!(
+            "UPDATE session_slot_waits SET ended_at = ?1
+             WHERE ended_at IS NULL AND NOT (phase = 'move' AND session_id IN ({marks}))"
+        );
+        let values = std::iter::once(at).chain(owed.iter().map(String::as_str));
         self.conn
-            .execute("UPDATE session_slot_waits SET ended_at = ?1 WHERE ended_at IS NULL", params![at])
+            .execute(&ending, rusqlite::params_from_iter(values))
             .map_err(fault("ending the slot waits a restart left standing"))
             .map_err(WriteError::Database)
     }

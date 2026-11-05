@@ -54,7 +54,7 @@ pub fn fitted_over<V>(
 ) -> Fittings<FakeHarness, V, FakeWorkProduct> {
     let root = home.path().to_string_lossy().to_string();
     Fittings {
-        store: Store::open(&home.path().join("armada.db")).expect("a store"),
+        store: Store::open_migrated_copy(&home.path().join("armada.db")).expect("a store"),
         harness,
         vcs,
         work,

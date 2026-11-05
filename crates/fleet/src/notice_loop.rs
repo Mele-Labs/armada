@@ -32,12 +32,12 @@ where
     crate::autopilot::keep_deciding(Arc::clone(&fleet), tick, Arc::clone(&adrift));
     // The Operator rules on what arrives from here on, with one call already started.
     fleet.operator_seated();
-    // The moves into a slot live in memory, so a wait a restart cut off ended with it. The line is
-    // kept, and read back after, so its waits begin again.
+    // The moves into a slot live in memory, so a wait a restart cut off ended with it, but for the
+    // moves owed again to a process reattached in the checkout. The line is kept, and read back
+    // after, so its waits begin again.
     let waits = Arc::clone(&fleet);
     tokio::spawn(async move {
-        let at = waits.now().as_str().to_string();
-        let _ = waits.store().lock().await.end_all_slot_waits(&at);
+        waits.slot_waits_ended_at_boot().await;
         waits.slot_lines_restored().await;
         waits.operator_orders_read().await;
     });

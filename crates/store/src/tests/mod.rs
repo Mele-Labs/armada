@@ -97,7 +97,7 @@ pub fn at(value: &str) -> Timestamp {
 }
 
 pub fn open(dir: &TempDir) -> Store {
-    Store::open(&dir.db()).expect("a fresh store opens")
+    Store::open_migrated_copy(&dir.db()).expect("a fresh store opens")
 }
 mod autopilot_boxes;
 mod autopilot_decisions;

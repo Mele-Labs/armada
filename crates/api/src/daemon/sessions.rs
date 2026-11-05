@@ -471,7 +471,7 @@ pub trait Sessions: Send + Sync + 'static {
         }
     }
 
-    /// `list_started_sessions` — every Job the caller started, each as one line. `caller` places the
+    /// `list_started_sessions` — every Job below the caller, each as one line with the Job that started it. `caller` places the
     /// Job, which the call cannot name. [`Refusal::Unacceptable`] for a call that places no hosted Job.
     fn list_started_sessions(
         &self,
