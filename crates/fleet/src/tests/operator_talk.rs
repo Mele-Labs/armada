@@ -162,3 +162,51 @@ async fn orders_stand_over_a_restart() {
     rig.fleet.operator_orders_read().await;
     assert!(rig.fleet.operator_seat().orders().always_raises(crate::operator::Arrived::Review));
 }
+
+#[tokio::test]
+async fn a_job_that_ended_today_is_shown_to_the_box_with_what_it_said_and_who_started_it() {
+    let rig = rig_placing(None);
+    let first = reply("none", "Nothing else.");
+    let call = seated(&rig, &[&first]).await;
+    let starter = asked(&rig, "Evaluate the architecture").await;
+    let ended = asked(&rig, "Compare the editors").await;
+    let still_live = asked(&rig, "Tidy the cockpit").await;
+    let (starter_title, ended_title) = {
+        let store = rig.fleet.store().lock().await;
+        (
+            store.session(starter.as_str()).expect("read").expect("kept").title.expect("titled"),
+            store.session(ended.as_str()).expect("read").expect("kept").title.expect("titled"),
+        )
+    };
+    {
+        let mut store = rig.fleet.store().lock().await;
+        let at = rig.fleet.now().as_str().to_string();
+        let link = store::KeptAttachment {
+            holder: store::Holder::session(ended.as_str()),
+            kind: "started_by".into(),
+            manifest_id: rig.manifest.as_str().to_string(),
+            target: starter.as_str().into(),
+            state: store::AttachmentState::Spent,
+            detail: Default::default(),
+            since: at.clone(),
+            changed_at: at.clone(),
+        };
+        store.attach(&link, false).expect("kept");
+        store.keep_done(ended.as_str(), &at, Some("Chose the\nsecond editor.")).expect("said");
+    }
+    close(&rig, &ended).await;
+
+    rig.fleet.operator_talked("what ended today?").await.expect("answered");
+
+    let asked = call.asked();
+    let section = asked[0].split("\nEnded today:\n").nth(1).expect("a section of its own").split("\n\n").next().expect("a section");
+    assert_eq!(
+        section,
+        format!("  Job {} \"{ended_title}\": Chose the second editor. (started by Job {} \"{starter_title}\")", ended.as_str(), starter.as_str()),
+        "{}",
+        asked[0]
+    );
+    assert!(!section.contains(still_live.as_str()), "a Job still live did not end: {section}");
+    let board = rig.fleet.operator_board().await;
+    assert_eq!(board.ended.len(), 1, "{:?}", board.ended);
+}

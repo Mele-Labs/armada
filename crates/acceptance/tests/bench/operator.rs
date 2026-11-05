@@ -39,6 +39,7 @@ pub fn live() -> Vec<LiveJob> {
             paths: vec![format!("{PANES}tabs.tsx"), format!("{PANES}pane-host.tsx")],
             issues: Vec::new(),
             running: Vec::new(),
+            started_by: Vec::new(),
         },
         LiveJob {
             session_id: TERMINAL.into(),
@@ -48,6 +49,7 @@ pub fn live() -> Vec<LiveJob> {
             paths: vec![format!("{PANES}terminal-pane.tsx"), format!("{PANES}pane-host.tsx")],
             issues: Vec::new(),
             running: Vec::new(),
+            started_by: Vec::new(),
         },
         LiveJob {
             session_id: IN_TAB.into(),
@@ -57,6 +59,7 @@ pub fn live() -> Vec<LiveJob> {
             paths: vec![format!("{PANES}terminal-pane.tsx")],
             issues: Vec::new(),
             running: Vec::new(),
+            started_by: Vec::new(),
         },
     ]
 }

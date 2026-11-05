@@ -115,6 +115,7 @@ impl Held {
                 paths: vec![path.into()],
                 issues: Vec::new(),
                 running: Vec::new(),
+                started_by: Vec::new(),
             })
             .collect();
         Arc::new(Held { ceiling, live, waiting: Vec::new(), log: Mutex::new(Vec::new()), acts: Mutex::new(Vec::new()) })

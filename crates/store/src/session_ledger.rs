@@ -332,6 +332,22 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// Sessions that ended at or after `since`, an RFC3339 instant, the latest end first, at most `limit`.
+    pub fn sessions_ended_since(&self, since: &str, limit: u32) -> Result<Vec<KeptSession>, WriteError> {
+        let doing = "reading the sessions that ended";
+        let mut statement = self
+            .conn
+            .prepare(&format!(
+                "SELECT {SESSION_COLUMNS} FROM sessions
+                 WHERE state = 'ended' AND ended_at >= ?1
+                 ORDER BY ended_at DESC, id LIMIT ?2"
+            ))
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = statement.query_map(params![since, limit], kept_session).map_err(fault(doing)).map_err(WriteError::Database)?;
+        rows.collect::<Result<_, _>>().map_err(fault(doing)).map_err(WriteError::Database)
+    }
+
     /// Everything `holder` has taken or done, oldest first.
     pub fn attachments_of(&self, holder: &Holder) -> Result<Vec<KeptAttachment>, WriteError> {
         self.attachments_where(

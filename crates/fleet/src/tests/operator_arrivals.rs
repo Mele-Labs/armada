@@ -70,6 +70,7 @@ fn job(id: &str, manifest: &str, words: &str, paths: &[&str], issues: &[&str]) -
         paths: paths.iter().map(|one| one.to_string()).collect(),
         issues: issues.iter().map(|one| one.to_string()).collect(),
         running: Vec::new(),
+        started_by: Vec::new(),
     }
 }
 
@@ -129,6 +130,28 @@ async fn the_call_is_shown_only_the_jobs_that_share_a_path_an_issue_or_words_and
     assert!(question.contains("With item 1: issues armada-a3f2"), "{question}");
     assert!(question.contains("With item 1: words redraw, scrollback, terminal"), "{question}");
     assert!(matches!(&ruled, Ruled::PassedOn(PassedOn::Refused(why)) if why.contains("01NOTHING")), "a Job not shown cannot be named: {ruled:?}");
+}
+
+#[tokio::test]
+async fn a_live_job_is_shown_with_who_started_it_up_to_the_root_and_a_job_the_person_started_with_no_line() {
+    let mut grandchild = job("01GRAND", REPO, "", &["apps/panes/terminal.tsx"], &[]);
+    grandchild.started_by = vec![("01CHILD".into(), "Evaluate T3 Architecture".into()), ("01ROOT".into(), "Compare editors".into())];
+    let mut child = job("01CHILD", REPO, "", &["apps/panes/terminal.tsx"], &[]);
+    child.started_by = vec![("01ROOT".into(), "Compare editors".into())];
+    let by_hand = job("01HAND", REPO, "", &["apps/panes/terminal.tsx"], &[]);
+    let reply = "item: 1\nway: 3\njob: 01HAND\nshared: apps/panes/terminal.tsx\nbecause: not offered";
+    let (operator, call, _) = operator(vec![grandchild, child, by_hand], &[reply]);
+
+    operator.ruled(arriving("Fix the terminal pane", &["apps/panes/terminal.tsx"], &[]), FIRST_WRITE_WAIT).await;
+
+    let asked = call.asked.lock().expect("not poisoned").clone();
+    let question = &asked[0];
+    assert!(
+        question.contains("    Started by: Job 01CHILD \"Evaluate T3 Architecture\", which Job 01ROOT \"Compare editors\" started\n"),
+        "the chain, nearest first:\n{question}"
+    );
+    assert!(question.contains("    Started by: Job 01ROOT \"Compare editors\"\n"), "a child names its starter alone:\n{question}");
+    assert_eq!(question.matches("Started by:").count(), 2, "the person's own Job has no line:\n{question}");
 }
 
 #[tokio::test]

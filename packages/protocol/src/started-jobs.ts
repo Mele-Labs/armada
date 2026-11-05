@@ -54,8 +54,10 @@ export type StartedResult = {
   summary?: string;
 };
 
-/** One Job the caller started: its summary with these beside it. */
+/** One Job below the caller: its summary with these beside it. */
 export type StartedJob = SessionSummary & {
+  /** The Job that started it: the caller for a child, the child for a grandchild. */
+  started_by: string;
   standing?: SessionStanding;
   /** It waits on its start card for the person to press Start. */
   held: boolean;
@@ -70,7 +72,7 @@ export type StartedJob = SessionSummary & {
   result?: StartedResult;
 };
 
-/** `list_started_sessions`: every Job the caller started, oldest first. */
+/** `list_started_sessions`: every Job below the caller, each child followed by its own descendants, oldest first at each level. */
 export type StartedSessions = {
   jobs: StartedJob[];
 };
