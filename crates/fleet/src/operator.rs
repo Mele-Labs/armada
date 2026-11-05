@@ -61,7 +61,7 @@ pub use orders::{Order, Orders};
 pub(crate) use seat::{Moved, Seat};
 pub use questions::{Choice, Earlier, Group, Kind, Present, Question, ALLOW_ONCE};
 pub use ruling::{Outcome, PassedOn, Place, Ruled, Ruling, Way};
-pub use sources::{Filed, Handed, NewIssue, RedMain, Report, ReviewRequest};
+pub use sources::{Filed, Handed, NewIssue, Note, RedMain, Report, ReviewRequest};
 pub(crate) use sourcing::Sources;
 pub(crate) use stalling::{seen_of, Stalls};
 pub use stalls::{Quiet, Stall};
@@ -436,10 +436,14 @@ impl Operator {
         let _ = one.tell.send(ruled);
     }
 
-    /// What Fleet does on `ruling`, by the position of the role it falls to.
+    /// What Fleet does on `ruling`, by the position of the role it falls to. **A note's ruling, but
+    /// a raise, is kept as a suggestion whatever the role stands at**, short of Off.
     fn act(&self, arrival: &Arrival, ruling: &Ruling) {
         match self.acting.position(role_of(arrival.arrived, ruling.way), &arrival.manifest_id) {
             OperatorPosition::Off => {}
+            // A note is the person's own idea, so Fleet only proposes what to do with it, and a
+            // raise is already a row on his list.
+            OperatorPosition::On if arrival.arrived == Arrived::Note && ruling.way != Way::Raise => self.acting.suggest(arrival, ruling),
             OperatorPosition::On => self.acted(arrival, ruling),
             OperatorPosition::Suggest => match ruling.way {
                 // A raise is already a row on his list.
