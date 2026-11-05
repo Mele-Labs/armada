@@ -44,3 +44,22 @@ fn a_settled_item_leaves_the_list_and_the_sentence_is_not_kept_again() {
     assert_eq!(store.settle_later("s2", "later-2", "done", None, SETTLED).unwrap(), None, "another session's item");
     assert_eq!(open_ones(&store, "s1").len(), 1);
 }
+
+#[test]
+fn a_handed_follow_up_leaves_the_open_ones_and_is_filed_once() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.keep_later("s1", SLOW, FIRST).unwrap();
+    store.keep_later("s1", DOCS, FIRST).unwrap();
+    store.settle_later("s1", "later-1", "handed", None, SETTLED).unwrap();
+    store.settle_later("s1", "later-2", "done", None, SETTLED).unwrap();
+
+    assert_eq!(store.later_of("s1").unwrap(), Vec::new(), "handed is settled for the Job");
+    let handed: Vec<(String, String)> = store.later_handed().unwrap().into_iter().map(|one| (one.session_id, one.id)).collect();
+    assert_eq!(handed, vec![("s1".to_string(), "later-1".to_string())], "a done one is not handed");
+
+    assert!(!store.later_handed_filed("s1", "later-2", "armada-a3f2", SECOND).unwrap(), "only a handed one is filed");
+    assert!(store.later_handed_filed("s1", "later-1", "armada-a3f2", SECOND).unwrap());
+    assert!(!store.later_handed_filed("s1", "later-1", "armada-b71c", SECOND).unwrap(), "filed once");
+    assert!(store.later_handed().unwrap().is_empty());
+}
