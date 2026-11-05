@@ -27,11 +27,13 @@ const REFUSED = `${ROOT}/full-run.mov`;
 
 // The mock has no Mac player: the note stands where it would open, so a walk can see the video was handed to it.
 const inPlayer = (path: string) => {
+  document.querySelectorAll("[data-mock-player-note]").forEach((one) => one.remove());
   const note = document.createElement("div");
+  note.dataset.mockPlayerNote = "";
   note.setAttribute("role", "status");
   note.textContent = `Opened in your Mac's player: ${path.slice(path.lastIndexOf("/") + 1)}`;
   note.style.cssText =
-    "position:fixed;left:50%;bottom:24px;transform:translateX(-50%);padding:8px 12px;border-radius:6px;background:#1b2330;color:#e6edf3;font:13px system-ui;z-index:9999";
+    "position:fixed;left:24px;bottom:24px;padding:8px 12px;border-radius:6px;background:#1b2330;color:#e6edf3;font:13px system-ui;z-index:9999";
   document.body.append(note);
   setTimeout(() => note.remove(), 8000);
 };
