@@ -2,10 +2,11 @@
 //! slot held, and the grant that serves it when one frees.
 //! `docs/concepts/session.md`, *A session Fleet hosts*.
 //!
-//! **Memory only, one line per repository, first come first served.** A session
-//! is in it once, and leaves when it is leased a slot, however that came about,
-//! or when it ends. A Fleet that restarts forgets the line: the session's next
-//! write joins it again.
+//! **One line per repository, in the Line's order.** A session is in it once, at
+//! its place, and leaves when it is leased a slot, however that came about, or
+//! when it ends. A newcomer goes behind everyone, which is first come first
+//! served until something places one. The line is kept in the store
+//! (`line_keeping`), so a Fleet that restarts serves it in the same order.
 //!
 //! **The person is asked, once per stay in the line** (`WaitingSource::SlotChoice`): wait for the
 //! next slot to free, free a slot a Job Fleet hosts holds (`slot_holders`), or have Fleet add one.
@@ -90,6 +91,8 @@ pub(crate) enum Choice {
 /// One session in a line.
 pub(super) struct Entry {
     pub(super) manifest: String,
+    /// Where it stands in its line, lowest served first.
+    pub(super) place: i64,
     pub(super) choice: Choice,
     pub(super) since: Instant,
     /// The slots a Job Fleet hosts holds, as the call lists them. Read by `slot_holders`.
@@ -111,7 +114,7 @@ pub(crate) enum Begun {
 
 #[derive(Default)]
 pub(super) struct Lines {
-    by_manifest: HashMap<String, VecDeque<String>>,
+    pub(super) by_manifest: HashMap<String, VecDeque<String>>,
     pub(super) entries: HashMap<String, Entry>,
     /// Sessions whose `armada worktree lease` is asking, see [`super::slot_asking`].
     pub(super) wants: HashMap<String, super::slot_asking::Want>,
@@ -130,30 +133,41 @@ pub(crate) struct SlotQueue {
 }
 
 impl SlotQueue {
-    /// Put the session at the back of the repository's line unless it is in it,
-    /// and say how many are ahead of it, and whether it was not in the line before.
-    pub(crate) fn join(&self, manifest: &str, session: &str, now: &Instant) -> (usize, bool) {
+    /// Put the session at the back of the repository's line unless it is in it, and say how many
+    /// are ahead of it, and the place it took where it was not in the line before.
+    pub(crate) fn join(&self, manifest: &str, session: &str, now: &Instant) -> (usize, Option<i64>) {
+        self.joined(manifest, session, None, now)
+    }
+
+    /// [`Self::join`] at `place`, ahead of everyone placed after it: a line read back from the store.
+    pub(crate) fn join_at(&self, manifest: &str, session: &str, place: i64, since: &Instant) -> usize {
+        self.joined(manifest, session, Some(place), since).0
+    }
+
+    fn joined(&self, manifest: &str, session: &str, place: Option<i64>, since: &Instant) -> (usize, Option<i64>) {
         let mut waiting = self.waiting.lock().expect("the line is not held across a panic");
-        let line = waiting.by_manifest.entry(manifest.to_string()).or_default();
-        match line.iter().position(|one| one == session) {
-            Some(at) => (at, false),
-            None => {
-                line.push_back(session.to_string());
-                let ahead = line.len() - 1;
-                waiting.entries.insert(
-                    session.to_string(),
-                    Entry {
-                        manifest: manifest.to_string(),
-                        choice: Choice::Pending,
-                        since: now.clone(),
-                        holders: Vec::new(),
-                        creating_since: None,
-                        create_refused: None,
-                    },
-                );
-                (ahead, true)
-            }
+        let Lines { by_manifest, entries, .. } = &mut *waiting;
+        let line = by_manifest.entry(manifest.to_string()).or_default();
+        if let Some(at) = line.iter().position(|one| one == session) {
+            return (at, None);
         }
+        let placed = |one: &String| entries.get(one).map_or(0, |entry| entry.place);
+        let place = place.unwrap_or_else(|| line.back().map_or(0, |last| placed(last) + 1));
+        let at = line.iter().position(|one| placed(one) > place).unwrap_or(line.len());
+        line.insert(at, session.to_string());
+        entries.insert(
+            session.to_string(),
+            Entry {
+                manifest: manifest.to_string(),
+                place,
+                choice: Choice::Pending,
+                since: since.clone(),
+                holders: Vec::new(),
+                creating_since: None,
+                create_refused: None,
+            },
+        );
+        (at, Some(place))
     }
 
     /// How many are ahead of the session: its place if it waits, and everyone
@@ -449,7 +463,9 @@ where
 
     /// Out of the line, and the call taken off his list if it was still there.
     pub(crate) async fn line_left(&self, id: &str) {
-        if self.hosts().slot_queue().leave(id) {
+        let had_a_call = self.hosts().slot_queue().leave(id);
+        self.line_let_go(id).await;
+        if had_a_call {
             self.slot_wait_ended(id, Some("line")).await;
             let _ = self.published_hosted(id).await;
         }

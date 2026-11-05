@@ -1185,7 +1185,7 @@ export type Session = {
   /** What the agent is held on, while it is. */
   asked?: SessionAsk;
   /**
-   * The last question the agent asked that nobody answered in time, while the person has said nothing since.
+   * The questions the agent asked that nobody answered in time and are still open.
    * `id` is the ask's row. Not `asked`: that is a live call the agent is held on.
    */
   lapsed?: {

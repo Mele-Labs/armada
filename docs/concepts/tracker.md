@@ -219,7 +219,7 @@ Fleet does nothing else to make it: making the database and its remote on a new 
 |---|---|---|
 | List, search, read | As for every tracker | `bd --readonly query` or `show`, `--json`, through `jq`. Open is `status=open OR status=in_progress OR status=blocked`. Assigned to me is `status=in_progress`, since beads has no word for whoever is asking |
 | Sync after a write | Within 2 seconds of anything writing to this machine's copy | `bd sync --no-adopt`. A write is the root hash in each Dolt store's `noms/manifest` moving: a `--readonly` read moves the files' times, so they cannot tell |
-| Sync on a timer | Every 30 seconds while Fleet runs, for each repository whose tracker is beads | The same. With every machine doing it, an issue filed on one shows on another within about a minute |
+| Sync on a timer | Every 5 minutes while Fleet runs, for each repository whose tracker is beads | The same. With every machine doing it, an issue filed on one shows on another within about ten minutes. Not 30 seconds: one sync forks about a hundred `git` processes |
 | Claim | `claim_issue` from a Job | Sync, `bd update <id> --claim --actor <machine>/<job id start>`, sync, read the assignee back |
 
 **A claim is sync, claim, sync, read back.** Only the copy after a sync names the winner.

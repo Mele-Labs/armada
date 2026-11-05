@@ -237,6 +237,11 @@ const ROUTES: &[Route] = &[
         path: "/usage/summary",
     },
     Route {
+        operation: "get_usage_spent",
+        method: "GET",
+        path: "/usage/spent",
+    },
+    Route {
         operation: "get_usage_time",
         method: "GET",
         path: "/usage/time",
@@ -612,6 +617,11 @@ const ROUTES: &[Route] = &[
         operation: "free_slot",
         method: "POST",
         path: "/sessions/slot_choice/free",
+    },
+    Route {
+        operation: "move_in_line",
+        method: "POST",
+        path: "/sessions/line/move",
     },
     Route {
         operation: "dismiss_waiting",

@@ -15,6 +15,7 @@
 //! Helm's note that says what Helm is (`noting`) where there is one, then a fork's note that says
 //! whose work the copied conversation describes.
 
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
 
@@ -50,6 +51,22 @@ const MCP_STARTUP_WAIT: (&str, &str) = ("CLAUDE_CODE_MCP_STARTUP_WAIT_MS", "0");
 /// Each server's connect timeout, raised so a person's slow server still connects behind the first
 /// turn rather than failing at 30 seconds. Spike 34.
 const MCP_CONNECT_TIMEOUT: (&str, &str) = ("MCP_TIMEOUT", "120000");
+
+/// Keeps the CLI from fetching the person's claude.ai connectors; servers named in the repository's
+/// own `.mcp.json` still load. Measured on a real run: 18 servers and 263 tools unset, none with it.
+const NO_CONNECTORS: (&str, &str) = ("ENABLE_CLAUDEAI_MCP_SERVERS", "false");
+
+/// How many tokens the conversation reaches before the CLI compacts it. The CLI reads 100,000 to
+/// 1,000,000 and ignores a value outside them, so a value is held to them here.
+const COMPACT_WINDOW: &str = "CLAUDE_CODE_AUTO_COMPACT_WINDOW";
+const COMPACT_WINDOW_RANGE: (u32, u32) = (100_000, 1_000_000);
+
+/// A skill the person switched off for a repository: hidden from the model's list, and still the
+/// person's own `/name`. The CLI's spelling in `skillOverrides`.
+const SKILL_HIDDEN: &str = "user-invocable-only";
+
+/// The plugin whose skills a Job is never started without: Armada's own.
+const OWN_SKILLS: &str = "armada:";
 
 /// Armada's rules for how a hosted session surfaces what it needs and how far it has got. Compiled
 /// in and appended to every process whatever output style the person has; no setting reaches it.
@@ -91,6 +108,12 @@ pub struct HostedLaunch {
     plugin: Option<String>,
     /// The models this process and its subagents may run on. Empty is no limit.
     models: Vec<String>,
+    /// Whether the process may fetch the connectors on the person's claude.ai account.
+    connectors: bool,
+    /// Tokens at which the CLI compacts the conversation. Absent leaves the CLI's own.
+    compaction_window: Option<u32>,
+    /// The skills hidden from the model's list in this process.
+    skills_off: Vec<String>,
 }
 
 impl HostedLaunch {
@@ -154,6 +177,9 @@ impl HostedLaunch {
             readable,
             plugin: None,
             models: Vec::new(),
+            connectors: true,
+            compaction_window: None,
+            skills_off: Vec::new(),
         })
     }
 }
@@ -210,6 +236,27 @@ impl HostedLaunch {
         self
     }
 
+    /// Keep the connectors on the person's claude.ai account out of this process, as the
+    /// repository's `connectors: false` asks. Servers the repository names itself still load.
+    pub fn without_connectors(mut self) -> HostedLaunch {
+        self.connectors = false;
+        self
+    }
+
+    /// Have the CLI compact the conversation at `tokens`, held to the range it reads.
+    pub fn compacting_at(mut self, tokens: i64) -> HostedLaunch {
+        let (least, most) = COMPACT_WINDOW_RANGE;
+        self.compaction_window = Some(u32::try_from(tokens.clamp(i64::from(least), i64::from(most))).unwrap_or(least));
+        self
+    }
+
+    /// Hide these skills from the model, as `user-invocable-only`, so the person's `/name` still
+    /// works. **Armada's own are never hidden**, whatever is named: a Job needs them.
+    pub fn without_skills(mut self, names: &[String]) -> HostedLaunch {
+        self.skills_off = names.iter().filter(|name| !name.starts_with(OWN_SKILLS)).cloned().collect();
+        self
+    }
+
     /// End the copy at the transcript line `uuid` of the session forked from,
     /// included. Hidden in the CLI's help; `docs/spikes/030-*`. Read only
     /// where the launch forks.
@@ -242,6 +289,8 @@ struct Settings<'a> {
     available_models: &'a [String],
     #[serde(rename = "enforceAvailableModels", skip_serializing_if = "std::ops::Not::not")]
     enforce_available_models: bool,
+    #[serde(rename = "skillOverrides", skip_serializing_if = "BTreeMap::is_empty")]
+    skill_overrides: BTreeMap<&'a str, &'static str>,
     hooks: Hooks<'a>,
 }
 
@@ -288,6 +337,7 @@ impl HeadlessAgent {
             cross_session_inbound: "accept",
             available_models: &hosted.models,
             enforce_available_models: !hosted.models.is_empty(),
+            skill_overrides: hosted.skills_off.iter().map(|name| (name.as_str(), SKILL_HIDDEN)).collect(),
             hooks: Hooks {
                 pre_tool_use: [Matched {
                     matcher: GATED_TOOLS,
@@ -374,6 +424,14 @@ impl HeadlessAgent {
                     .and(crate::conversing::TASK_TOOLS, "1")
                     .and_then(|env| env.and(MCP_STARTUP_WAIT.0, MCP_STARTUP_WAIT.1))
                     .and_then(|env| env.and(MCP_CONNECT_TIMEOUT.0, MCP_CONNECT_TIMEOUT.1))
+                    .and_then(|env| match hosted.compaction_window {
+                        Some(tokens) => env.and(COMPACT_WINDOW, &tokens.to_string()),
+                        None => Ok(env),
+                    })
+                    .and_then(|env| match hosted.connectors {
+                        true => Ok(env),
+                        false => env.and(NO_CONNECTORS.0, NO_CONNECTORS.1),
+                    })
                     .map_err(HostedRefused::Unassembled)?,
                 crate::browser_shell::found().as_deref(),
             )

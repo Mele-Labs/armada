@@ -1504,7 +1504,7 @@ export class SessionsHost {
     });
   }
 
-  /** Auto land on or off. A forge's refusal is a 409 after the flag changed, and the record follows by `session.changed`; a 200 answers the record. */
+  /** Auto land on or off. Fleet answers the record once the flag is kept and asks the forge after; a pull request the forge refuses reaches the Job as an `auto_land_refused` notice. */
   async setAutoLand(sessionId: string, on: boolean): Promise<SessionActed> {
     return await this.act("POST", "/sessions/auto_land", {
       id: sessionId,

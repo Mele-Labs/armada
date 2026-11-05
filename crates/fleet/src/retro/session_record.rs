@@ -115,7 +115,7 @@ fn asks(from: &SessionSources<'_>) -> Vec<RecordAsked> {
             SessionAskState::AllowedForSession => Some("allowed, and its folder allowed for the job"),
             SessionAskState::Refused => Some("refused"),
             SessionAskState::Unanswered => Some("nobody answered, so it was refused"),
-            SessionAskState::Kept => Some("kept for him to answer after his walk"),
+            SessionAskState::Kept => Some("kept for him to answer later"),
             SessionAskState::SessionGone => Some("the process ended first"),
         };
         if *state == SessionAskState::RanUnasked {

@@ -1,4 +1,4 @@
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { BoardEmptyState } from "../BoardEmptyState/BoardEmptyState";
 import { FleetPanel, type FleetPanelProps } from "../FleetPanel/FleetPanel";
@@ -100,6 +100,11 @@ export type TheShellDock = {
    * own `controls` slot — folding the dock must not take an act away.
    */
   action?: ReactNode;
+  /** What the dock and its title-row button are called, and their glyph. Absent is Helm and `message-square`. */
+  title?: string;
+  icon?: LucideIcon;
+  /** `full` lays the dock over the whole work, edge to edge, with no handle: the Operator's second take. Absent is the dock at its width. */
+  span?: "full";
   /** Absent draws one quiet line until the questions (#935) and the conversation (#944) arrive. */
   children?: ReactNode;
 };
@@ -252,6 +257,9 @@ function Dock({
   onResize,
   onOpen,
   action,
+  title = DOCK_TITLE,
+  icon: Glyph = MessageSquare,
+  span,
   children,
 }: TheShellDock) {
   const availableWidth = useWindowWidth();
@@ -273,20 +281,20 @@ function Dock({
     // content would move by that much on every open — the same defect as the
     // dock's own 380, one order of magnitude down and harder to see.
     return (
-      <div ref={docked} className="armada-shell__dock-layer">
-        {onResize === undefined ? null : (
+      <div ref={docked} className="armada-shell__dock-layer" data-span={span}>
+        {onResize === undefined || span === "full" ? null : (
           <DockHandle
             width={restingWidth}
             {...dockWidthBounds(availableWidth)}
-            label={DOCK_TITLE}
+            label={title}
             onResize={onResize}
           />
         )}
         <aside
           className="armada-shell__dock armada-glass"
-          aria-label={DOCK_TITLE}
+          aria-label={title}
           style={
-            width === undefined
+            width === undefined || span === "full"
               ? undefined
               : {
                   width: `${restingWidth}px`,
@@ -295,9 +303,9 @@ function Dock({
         >
           <div className="armada-shell__dock-head">
             <span className="armada-shell__dock-chip" aria-hidden>
-              <MessageSquare size={16} strokeWidth={2} />
+              <Glyph size={16} strokeWidth={2} />
             </span>
-            <h2 className="armada-shell__dock-title">{DOCK_TITLE}</h2>
+            <h2 className="armada-shell__dock-title">{title}</h2>
             {action}
             <Button variant="secondary" size="sm" ground="card" onClick={() => onOpen(false)}>
               Close
@@ -316,7 +324,7 @@ function Dock({
   return (
     <HelmSheet
       open={open && folded}
-      title={DOCK_TITLE}
+      title={title}
       binding={binding}
       controls={action}
       width={width}
@@ -341,6 +349,8 @@ function helmButtonOf(dock: TheShellDock | undefined):
       questions: number;
       calling?: boolean;
       binding?: string;
+      title?: string;
+      icon?: LucideIcon;
       onOpen: () => void;
     }
   | undefined {
@@ -357,6 +367,16 @@ function helmButtonOf(dock: TheShellDock | undefined):
       ? {}
       : {
           binding: dock.binding,
+        }),
+    ...(dock.title === undefined
+      ? {}
+      : {
+          title: dock.title,
+        }),
+    ...(dock.icon === undefined
+      ? {}
+      : {
+          icon: dock.icon,
         }),
     onOpen: () => dock.onOpen(true),
   };

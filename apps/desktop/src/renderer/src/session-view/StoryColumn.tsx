@@ -39,8 +39,7 @@ import { useModsMade } from "../mods-made";
 import { stateOf as jobStateOf, stoppedSaid } from "../session-state";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { draftPanelOf } from "../shared-panel/rule";
-import { openDraftCard } from "../job-panes/focus";
-import { showLayer } from "./layers";
+import { openDraftCard, openOwedDocument } from "../job-panes/focus";
 import { AgentTasks } from "./AgentTasks";
 import { detectedOf } from "./detected";
 import { artifactsOf } from "./artifacts";
@@ -222,7 +221,7 @@ export function StoryColumn({
     freshestOf(a) === freshestOf(b) ? 0 : freshestOf(b) > freshestOf(a) ? 1 : -1,
   );
   const upcoming = by("upcoming");
-  // An issue still open and a pull request not merged stand in Now; one a group still to finish works stands under that group.
+  // An issue still open and a pull request not merged stand in Open; one a group still to finish works stands under that group.
   const unlanded = unlandedOf(
     session,
     groups.filter((group) => !finished.includes(group)),
@@ -516,7 +515,7 @@ export function StoryColumn({
             card !== undefined
               ? () => openDraftCard(session, card)
               : page !== undefined
-                ? () => showLayer(session.id, "document", page)
+                ? () => openOwedDocument(session, page)
                 : undefined;
           return (
             <AskBeat
@@ -552,11 +551,6 @@ export function StoryColumn({
         {underway.map((step) => (
           <RouteBeat key={step.key} step={step} />
         ))}
-        {unlanded.length === 0 ? null : (
-          <li className="sv-beat sv-beat--made">
-            <MadeList session={session} list={unlanded} label="Not landed" />
-          </li>
-        )}
         {checking.map((one) =>
           one.kind === "check" ? (
             <WorkBeat key={one.id} mark={<Mark state="working" />} name={one.name} system />
@@ -694,7 +688,20 @@ export function StoryColumn({
         ))}
       </ol>
     );
-  const hasNext = upcoming.length > 0 || (!alone && aheadList !== null) || comingList !== null;
+  // An issue not closed and a pull request not merged are open, so they stand here until they land.
+  const unlandedList =
+    unlanded.length === 0 ? null : (
+      <ul className="sv-beats">
+        <li className="sv-beat sv-beat--made">
+          <MadeList session={session} list={unlanded} label="Not landed" />
+        </li>
+      </ul>
+    );
+  const hasNext =
+    upcoming.length > 0 ||
+    (!alone && aheadList !== null) ||
+    unlandedList !== null ||
+    comingList !== null;
   const next = (
     <SvPanel
       label="Open"
@@ -718,6 +725,7 @@ export function StoryColumn({
               onOpenSession={onOpenSession}
             />
           )}
+          {unlandedList}
           {alone ? null : aheadList}
           {comingList}
         </div>
@@ -783,9 +791,11 @@ export function StoryColumn({
       )
       .map((group) => group.id),
   );
-  const openMade = made.filter(
-    (one) => stillOpen(one) && !(one.group !== undefined && drawnByGroup.has(one.group)),
-  );
+  // `madeOf` drops an open pull request and an unclosed issue, so they come from `unlanded`, which holds them.
+  const openMade = [
+    ...made,
+    ...unlanded,
+  ].filter((one) => stillOpen(one) && !(one.group !== undefined && drawnByGroup.has(one.group)));
   // The follow-ups kept for later stand in their own zone, so Open lists only what is open.
   const deferredPanel = (
     <SvPanel

@@ -420,7 +420,7 @@ const ticket = (number: string, title: string, state: "open" | "closed") => ({
   state,
 });
 
-test("a draft pull request and an open ticket stand in Now, and Done holds only the merged and the closed", () => {
+test("a draft pull request and an open ticket stand in Open, and Done holds only the merged and the closed", () => {
   const holding = {
     ...session("idle"),
     attachments: [
@@ -436,10 +436,13 @@ test("a draft pull request and an open ticket stand in Now, and Done holds only 
   expect(done).not.toContain("Default rate is missing from the stack");
   expect(done).toContain("Read the par rate from the stack");
   expect(done).toContain("Rate picker shows a stale par rate");
+  const open = zoneOf(host, "Open")?.textContent ?? "";
+  expect(open).toContain("Let leverage options submit a below-par rate");
+  expect(open).toContain("Default rate is missing from the stack");
+  expect(open).not.toContain("Read the par rate from the stack");
   const now = zoneOf(host, "Now")?.textContent ?? "";
-  expect(now).toContain("Let leverage options submit a below-par rate");
-  expect(now).toContain("Default rate is missing from the stack");
-  expect(now).not.toContain("Read the par rate from the stack");
+  expect(now).not.toContain("Let leverage options submit a below-par rate");
+  expect(now).not.toContain("Default rate is missing from the stack");
 });
 
 test("the Waiting on you line for a plain draft opens its card as a tab on the Job, and pressing it again opens no second", () => {
@@ -626,4 +629,37 @@ test("a finished step in a pane of its own keeps its mark in the row beside its 
     'section[aria-label="Propose"] [role="img"][aria-label="Done"]',
   )!;
   expect(getComputedStyle(online).position).toBe("absolute");
+});
+
+test("on a workflow, Open lists an open ticket and a draft pull request until they land", () => {
+  const { one, own } = onFlow();
+  const withOpen = {
+    ...one,
+    attachments: [
+      ...one.attachments,
+      {
+        kind: "issue",
+        number: "2936",
+        title: "Document the audit log rotation",
+        address: "https://git.example/armada/issues/2936",
+        state: "open",
+      },
+      {
+        kind: "pull_request",
+        number: 2940,
+        title: "Keep the rotation window in the config",
+        branch: "armada/audit-rotation-window",
+        address: "https://git.example/armada/pull/2940",
+        checks: {
+          state: "running",
+        },
+        state: "draft",
+        auto: false,
+        closes: [],
+      },
+    ],
+  } as unknown as Session;
+  const open = mount(withOpen, own, "next");
+  expect(open.textContent).toContain("Document the audit log rotation");
+  expect(open.textContent).toContain("Keep the rotation window in the config");
 });

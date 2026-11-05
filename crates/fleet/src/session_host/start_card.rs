@@ -159,6 +159,13 @@ pub(super) fn first_turn_of(body: &str) -> Option<FirstTurn> {
     ipc::decode::<FirstTurn>("a held job's first turn", body.as_bytes()).ok()
 }
 
+impl StartReads {
+    /// The first turn the card holds, as it reads.
+    pub(crate) fn first_said(&self) -> Option<String> {
+        self.first.as_ref().map(|first| first.reads().to_string())
+    }
+}
+
 /// The held Job's first turn and the usual landing for its workflow.
 pub(crate) fn start_read(store: &Store, hosting: &KeptHosting) -> Result<StartReads, store::WriteError> {
     let first = store.held_first_turn(&hosting.session_id)?.as_deref().and_then(first_turn_of);
@@ -212,7 +219,7 @@ where
     }
 
     /// The landing the card shows as picked now, `start.picked`: what a press that named none takes.
-    async fn card_picked(&self, id: &str) -> Option<DeliveryChoice> {
+    pub(crate) async fn card_picked(&self, id: &str) -> Option<DeliveryChoice> {
         let (hosting, reads) = {
             let store = self.store().lock().await;
             let hosting = store.hosting(id).ok().flatten()?;

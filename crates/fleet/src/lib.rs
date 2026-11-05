@@ -83,6 +83,8 @@ mod building;
 mod builds_run;
 /// The hours, builds and Jobs the Usage page reads time from.
 mod time_reading;
+/// What a repository runs in its checkout when the base moves there.
+mod base_moves;
 /// How long a Check may run.
 mod budget;
 /// The served checkout caught up whenever main moves.
@@ -172,6 +174,8 @@ mod bay_history;
 /// The lines of code a pinned note's spot was drawn from, found by the words on screen.
 pub mod note_locating;
 pub mod notice_loop;
+/// The Operator: who does each piece of work that arrives. `armada-ehhu`.
+pub mod operator;
 pub mod noticing;
 /// Drone groups whose Fleet is gone, found by the mark Fleet put on them.
 pub mod orphans;

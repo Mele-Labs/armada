@@ -28,6 +28,7 @@ export const JOB_TAB_KINDS = [
   "custom",
   "draft",
   "walk",
+  "document",
 ] as const;
 /** A pull request's tabs on the Reviews page. A tool's tab names its tool by id in `page`, an explanation's too. */
 export const PR_TAB_KINDS = [
@@ -39,9 +40,17 @@ export const PR_TAB_KINDS = [
   "pr-tool",
   "pr-comments",
 ] as const;
+/** The Operator's tabs, in Helm's dock: its Log, what waits to start, its Permissions, and Talk, its conversation over the Job composer. */
+export const OPERATOR_TAB_KINDS = [
+  "op-talk",
+  "op-log",
+  "op-waiting",
+  "op-permissions",
+] as const;
 export const TAB_KINDS = [
   ...JOB_TAB_KINDS,
   ...PR_TAB_KINDS,
+  ...OPERATOR_TAB_KINDS,
 ] as const;
 export type TabKind = (typeof TAB_KINDS)[number];
 

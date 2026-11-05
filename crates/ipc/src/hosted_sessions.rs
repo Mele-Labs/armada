@@ -280,7 +280,7 @@ pub struct PauseSession {
 
 /// `set_session_auto_land`: turn Auto land on or off for a Session. On, Fleet enables auto-merge on
 /// each open pull request the Session holds and on each that attaches later; off, it disables it
-/// on the open ones. The flag changes even where the forge refuses a pull request.
+/// on the open ones, after answering. A pull request the forge refuses is a notice to the Job.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SetSessionAutoLand {
     pub id: SessionId,
@@ -478,8 +478,9 @@ pub enum SessionAskState {
     Refused,
     /// Nobody answered inside the hold, so it was refused.
     Unanswered,
-    /// Refused to the agent because its session's walk was open, and kept whole for the person to
-    /// answer after it. His notes and his Approve do not clear it.
+    /// A question refused to the agent because its session's walk was open, or because nobody
+    /// answered inside the hold, and kept whole for the person to answer later. His notes, his
+    /// Approve and his other messages do not clear it.
     Kept,
     /// The process went before the answer did.
     SessionGone,

@@ -1,5 +1,5 @@
 // A document the Job wrote asks for his Approve as a sketch does: its row needs him, the page is a card in the thread with Approve
-// and Send back, it stands in Now until approved, and the page read over the Job carries the same keys. Approve there takes the
+// and Send back, it stands in Now until approved, and the page, the only thing the Job owes, opens as a tab of the Job with the same keys. Approve there takes the
 // keys away and leaves the page open, as a sketch's panel does, and the script stands under Done. Over
 // `document-waits-in-needs-you`; `document-asks-again` holds revision 2 asking after revision 1 was approved.
 
@@ -11,9 +11,7 @@ const card = role("article", "Document: Video script, Revision 1", {
 const now = region("Now", {
   exact: true,
 });
-const layer = region("Document", {
-  exact: true,
-});
+const page = role("tabpanel", /Video script/);
 const done = region("Done", {
   exact: true,
 });
@@ -39,21 +37,16 @@ const documentWaitsInNeedsYou = walk("document-waits-in-needs-you", [
         exact: true,
       }),
     ),
-    say: "Its card in the thread names the revision, with Approve and Send back. Open reads the page over the Job",
+    say: "Its card in the thread names the revision, with Approve and Send back. Open reads the page in a tab of the Job",
   },
   {
     press: inside(
-      layer,
+      page,
       button("Approve", {
         exact: true,
       }),
     ),
     say: "The page carries the same Approve and Send back",
-  },
-  {
-    key: "Escape",
-    on: layer,
-    say: "Esc gives the Job back",
   },
   {
     press: inside(done, button(/^Done/)),

@@ -872,7 +872,9 @@ where
             .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job to set it for"))
     }
 
-    /// `all_done`: the agent has nothing left to work on. A second call keeps the first instant.
+    /// `all_done`: the agent has nothing left to work on. **It gives back what `finish_up` gives back
+    /// first**, so one call finishes a Job, and where it is refused it names every reason at once.
+    /// A second call keeps the first instant.
     pub(crate) async fn say_done(
         &self,
         caller: Option<api::Caller>,
@@ -880,6 +882,20 @@ where
     ) -> Result<SessionRecord, Refusal> {
         let id = self.waiting_session(caller, done.session_id.as_ref())?;
         let now = self.clock().now().as_str().to_string();
+        {
+            let mut store = self.store().lock().await;
+            let session = store
+                .session(&id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
+            if session.state == store::SessionState::Ended {
+                return Err(self.closed(&id));
+            }
+            self.done_holds(&mut store, &id)?;
+        }
+        // A job in a terminal holds no hosting, so there is nothing to give back and the call says so
+        // by failing; what stays is named by `finish_up`.
+        let _ = self.finished_up(None, ipc::FinishUp { session_id: Some(ipc::SessionId::carried(&id)) }).await;
         let asked;
         let record = {
             let mut store = self.store().lock().await;
@@ -890,8 +906,6 @@ where
             if session.state == store::SessionState::Ended {
                 return Err(self.closed(&id));
             }
-            self.later_holds_done(&store, &id)?;
-            self.lifecycles_hold(&mut store, &id, "all_done")?;
             let summary = done.summary.as_deref().map(str::trim).filter(|said| !said.is_empty());
             store
                 .keep_done(&id, &now, summary)
@@ -905,6 +919,21 @@ where
             self.projects_published().await;
         }
         Ok(record)
+    }
+
+    /// Every reason `all_done` is refused, in one answer: open follow-ups, then what the Job holds in
+    /// flight. One reason keeps its own code; with both the answer carries the in-flight code.
+    fn done_holds(&self, store: &mut store::Store, id: &str) -> Result<(), Refusal> {
+        let later = self.later_open_text(store, id)?;
+        let flying = self.lifecycles_hold_text(store, id);
+        let code = match (&later, &flying) {
+            (None, None) => return Ok(()),
+            (Some(_), None) => super::later::LATER_OPEN,
+            _ => crate::lifecycles::ending::IN_FLIGHT,
+        };
+        let reasons: Vec<String> = [later, flying].into_iter().flatten().collect();
+        let said = format!("all_done refused. {}", reasons.join("\n\n"));
+        Err(Refusal::IllegalMove(ipc::WireError::raised(code, said, self.run_id())))
     }
 
     /// The agent's word that it was done no longer stands. Whether it had stood.

@@ -41,6 +41,7 @@ mod usage_rule_trips;
 mod fleet_disputes;
 mod bug_reports;
 mod usage_summary;
+mod usage_spent;
 mod session_plan;
 mod session_focus;
 mod session_rail;
@@ -101,4 +102,7 @@ pub fn open(dir: &TempDir) -> Store {
 }
 mod autopilot_boxes;
 mod autopilot_decisions;
+mod operator_rulings;
+mod operator_in_touch;
+mod slot_line;
 mod sleep_folded;

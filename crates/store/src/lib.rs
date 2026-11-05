@@ -46,6 +46,7 @@ mod session_slot_waits;
 mod time_summary;
 mod session_turn_usage;
 mod usage_summary;
+mod usage_spent;
 mod usage_rule_trips;
 /// A job's word that a Fleet notice was wrong, and the notices its replies are read against.
 mod fleet_disputes;
@@ -98,6 +99,12 @@ mod session_waiting;
 /// A repository's Autopilot and what it picked. #2092.
 mod autopilot;
 mod autopilot_decisions;
+/// The Operator's Log of rulings. `armada-ehhu`.
+mod operator_rulings;
+/// The pairs of Jobs the Operator keeps in touch. `armada-ehhu`.
+mod operator_in_touch;
+/// The line for a slot, kept across a restart. `armada-ehhu`.
+mod slot_line;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
 mod kit;
 /// The 113 migrations the numbered list held, frozen.
@@ -192,7 +199,8 @@ pub use fleet_builds::{KeptFleetBuild, KeptBuildSplit, KeptPullRequestWait, NewB
 pub use job_times::{KeptCheckSpan, KeptJobTime, KeptTurnTimed};
 pub use session_slot_waits::KeptSlotWait;
 pub use time_summary::{BuildFigures, HourFigures, HoursRead, Medians, SlowJob, SplitMs, TimeRead, Usual, DEFAULT_HOURS, DEFAULT_SLOWEST, OWNER_ASKING_TOOLS};
-pub use session_turn_usage::{KeptOpenCall, KeptReading, KeptToolResult, KeptTurnTimes, KeptTurnUsage};
+pub use session_turn_usage::{KeptBackground, KeptOpenCall, KeptReading, KeptToolResult, KeptTurnSpent, KeptTurnTimes, KeptTurnUsage};
+pub use usage_spent::{SpentSplit, SpentWindowRead, UsageSpentRead, SPENT_BY, SPENT_ON, SPENT_WINDOWS};
 pub use usage_summary::{turn_units, DayUsage, Named, PriorUsage, UsageSplit, UsageSummaryRead, TOP_SESSIONS, UNIT_SCALE};
 pub use usage_rule_trips::KeptTrip;
 pub use fleet_disputes::{KeptDispute, KeptNotice};
@@ -234,6 +242,8 @@ pub use test_map::{StaleTest, TestsReaching};
 pub use model_downshift::KeptDownshift;
 pub use autopilot::{KeptAutopilot, KeptPick};
 pub use autopilot_decisions::KeptDecision;
+pub use operator_rulings::KeptRuling;
+pub use slot_line::KeptInLine;
 pub use limits::SavedLimits;
 pub use main_ci::{MainCi, MainFailedJob, MainMerge, MainState};
 pub use main_fix::{MainFix, TakenBy, TakenHow};

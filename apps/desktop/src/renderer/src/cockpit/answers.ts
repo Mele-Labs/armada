@@ -29,6 +29,8 @@ import { useDispatching } from "../dispatch-panel/dispatching";
 import { openInPanel } from "../shared-panel/store";
 import { viewsOf } from "../merge-line";
 import { runnerOf, waitingRunKey } from "../session-runner";
+import { focusDocument, soleDocument } from "../job-panes/focus";
+import { documentOf } from "../session-view/document-state";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { attachPr } from "./claims";
 import { answerWaiting } from "./answer-waiting";
@@ -605,7 +607,13 @@ export function useAnswering(
       // A sketch or a document is approved on its card in the Job's thread, so the key goes there.
       if (given.source === "sketch" || given.source === "document")
         return [
-          oneTap("Open the Job", () => hosts.onOpenSession(waiting.sessionId)),
+          oneTap("Open the Job", () => {
+            hosts.onOpenSession(waiting.sessionId);
+            // A page that is all the Job waits on is read in a tab of the Job, so the press lands on it.
+            const page = home === undefined ? undefined : soleDocument(home);
+            if (home !== undefined && page !== undefined)
+              focusDocument(home.id, page, documentOf(home, page)?.title ?? "Document");
+          }),
         ];
       return [];
     }

@@ -6,6 +6,7 @@
 //! what the owner pressed. The Context rule (`usage_following.rs`) reads the ledger back: a Job's own
 //! answer wins over the setting for that Job.
 
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
@@ -62,29 +63,38 @@ pub(crate) fn answered_later(questions: &[AskedQuestion], text: &str) -> Vec<Que
         .collect()
 }
 
-/// The last ask with questions that nobody answered in time, that was skipped, or that was kept for a
-/// walk, while nothing the person said and no newer question came after it. A kept one outlasts what
-/// he says; a message answering it clears it. Bridge's `lapsedOf` (`packages/screens/src/sessions-wire.ts`)
-/// is the same rule: keep the two in step.
+/// The questions of every ask that nobody answered in time, that was skipped, or that was kept
+/// (for a walk, or because nobody answered inside the hold), oldest first. A kept one outlasts what
+/// the person says; a skipped one is cleared by anything he says after it; a message answering them
+/// clears all. A question asked again later is left to the later ask. Bridge's `lapsedOf`
+/// (`packages/screens/src/sessions-wire.ts`) is the same rule: keep the two in step.
 pub(crate) fn lapsed_question(rows: &[SessionRow]) -> Option<Vec<AskedQuestion>> {
     let mut said = false;
+    let mut later = BTreeSet::new();
+    let mut lapsed: Vec<AskedQuestion> = Vec::new();
     for row in rows.iter().rev() {
         match row {
             SessionRow::Message { from: SessionVoice::You, text, .. } => {
                 if text.starts_with(ANSWERED_LATER) {
-                    return None;
+                    break;
                 }
                 said = true;
             }
             SessionRow::Ask { ask, state, .. } if !ask.questions.is_empty() => {
-                let lapsed = *state == SessionAskState::Kept
+                let kept = *state == SessionAskState::Kept
                     || (!said && matches!(state, SessionAskState::Unanswered | SessionAskState::Refused));
-                return lapsed.then(|| ask.questions.clone());
+                for asked in &ask.questions {
+                    if kept && !later.contains(&asked.question) {
+                        lapsed.push(asked.clone());
+                    }
+                    later.insert(asked.question.clone());
+                }
             }
             _ => {}
         }
     }
-    None
+    lapsed.reverse();
+    (!lapsed.is_empty()).then_some(lapsed)
 }
 
 /// What the Context rule does for one Job whose context is over the line.

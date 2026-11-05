@@ -2,11 +2,15 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"
-description = "Say you have nothing left to work on and it is safe to end this job, so Bridge offers to end it. Clear waiting_for first, and call it only when nothing is running or owed. Give a summary: one or two plain sentences on what the job achieved for its brief, not how, bare facts"
+description = "Finish this job in one call: give back its slots, merged branches and servers as finish_up does, then say you have nothing left to work on, so Bridge offers to end it. A refusal names every reason at once. Clear waiting_for first, and call it only when nothing is running or owed. Give a summary: one or two plain sentences on what the job achieved for its brief, not how, bare facts"
 notes = """
 `POST /sessions/done`, body `AllDone`: an optional `session_id` and an optional `summary`, one or two plain sentences on what the Job achieved for its brief, not how. Fleet trims it, drops an empty one, and keeps it with the done mark as `SessionRecord.done_summary`; a later non-empty summary on a standing done replaces it. Answered with the `SessionRecord`, whose `done_since` is the instant Fleet stamped; **through the agent's door, a receipt** of `session_id`, `done` and `done_since`, because the row grows with every attachment and an agent keeps each answer.
 
 **The job is the one whose process holds the connection** when Fleet hosts it, whatever the body says; `session_id` is read only for a job in a terminal, as `waiting_for`'s is. Calling it again while it stands keeps the first `done_since`. An ended job is refused: there is nothing to end.
+
+**It gives back what `finish_up` gives back first**, once nothing refuses it, so one call finishes a Job: a terminal job holds nothing to give back, and what `finish_up` would keep stays, as it did. `finish_up` stays an act for a Job that wants to give things back early.
+
+**A refusal names every reason at once**, one block each, open follow-ups first and then what the Job holds in flight, and stamps and releases nothing. With both the code is `fleet.lifecycles_in_flight`.
 
 **It is refused while a follow-up is open.** The refusal is 409 `fleet.later_open`, names each open item of `SessionRecord.later` by id and sentence, and says how to settle it with `settle_later`: done, filed with an issue number, or dropped with a reason. Nothing is stamped. The person's End job is `close_session` and is never refused for one.
 
@@ -18,3 +22,4 @@ notes = """
 
 `agent_access` is `Yes`: the agent is the one that knows nothing is running or owed.
 """
+always_loaded = true

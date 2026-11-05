@@ -30,7 +30,7 @@ pub(crate) const OUTAGE_SECONDS: i64 = 90;
 
 /// The word to a Job stopped with no step of its own to finish.
 pub(crate) const NUDGE: &str = "Fleet: your turn ended with nothing running and nothing asked. Carry on now. If you wait on the person, \
-     name it with waiting_for. If nothing is left, call finish_up and then all_done. A second stop like this one calls the \
+     name it with waiting_for. If nothing is left, call all_done. A second stop like this one calls the \
      person and marks this Job Stopped.";
 
 /// Where a Job with no excuse stands.
@@ -259,7 +259,7 @@ where
         let brief = format!(
             "Job {id}, \"{title}\", lost its process during a turn, and Fleet's one restart did not bring it back. Find why from \
              its log and what its process last said, fix what stopped it, then send it a message so it carries on. If it cannot \
-             be brought back, name what it needs with waiting_for. Then call finish_up and all_done."
+             be brought back, name what it needs with waiting_for. Then call all_done."
         );
         Arc::clone(self)
             .send_session_message(ipc::SendSessionMessage { session_id: made.id.clone(), text: brief, attachments: Vec::new(), mentions: Vec::new() })

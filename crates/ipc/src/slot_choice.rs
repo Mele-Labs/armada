@@ -39,6 +39,23 @@ pub struct SlotHolder {
     pub keeps: Option<SlotKeeps>,
 }
 
+/// Where a Job goes in Waiting to start, against another Job waiting there.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum LinePlace {
+    Ahead { session_id: SessionId },
+    Behind { session_id: SessionId },
+    Last,
+}
+
+/// `move_in_line`: the person drags a Job waiting to start to another place, over the Operator's
+/// order. Kept in the Operator's Log as a correction.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MoveInLine {
+    pub session_id: SessionId,
+    pub place: LinePlace,
+}
+
 /// `free_slot`: the person gives back the slot a waiting Job's call lists, to that Job. `session_id`
 /// is the waiting Job and `item_id` its `slot_choice` item.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

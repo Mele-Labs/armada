@@ -574,7 +574,7 @@ fn the_terminal_tools_arguments_say_what_they_do() {
 #[test]
 fn a_tool_marked_always_loaded_carries_the_harness_key_and_no_other_does() {
     let both = vec![
-        Shape { operation: "start_watch", method: "POST", path: "/watches/start", query: &[] },
+        Shape { operation: "waiting_for", method: "POST", path: "/sessions/waiting", query: &[] },
         Shape { operation: "get_health", method: "GET", path: "/health", query: &[] },
     ];
     let listed = |always_loads| -> Value {
@@ -586,7 +586,12 @@ fn a_tool_marked_always_loaded_carries_the_harness_key_and_no_other_does() {
     assert!(marked["result"]["tools"][1].get("_meta").is_none());
     assert!(listed(None)["result"]["tools"][0].get("_meta").is_none());
     let always: Vec<&str> = crate::door::REACHABLE.iter().filter(|row| row.always_loaded).map(|row| row.operation).collect();
-    for operation in ["waiting_for", "start_watch", "try_watch", "list_watches", "list_watch_recipes", "weigh_watch", "stop_watch", "delete_watch"] {
+    // Called by most Jobs, and each definition is under 1k tokens: 63%, 88% and 87% of 459 Job
+    // threads on one Mac, 21 Oct to 4 Nov.
+    for operation in ["waiting_for", "all_done", "finish_up"] {
         assert!(always.contains(&operation), "{operation} is not marked: {always:?}");
+    }
+    for operation in ["start_watch", "try_watch", "list_watches", "list_watch_recipes", "weigh_watch", "stop_watch", "delete_watch"] {
+        assert!(!always.contains(&operation), "{operation} is marked, and few Jobs call it: {always:?}");
     }
 }

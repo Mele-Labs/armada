@@ -118,6 +118,14 @@ pub trait HostedSessions: Send + Sync + 'static {
         free: ipc::FreeSlot,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `move_in_line`: the person moves a Job waiting to start, over the Operator's order.
+    /// [`Refusal::Unacceptable`] while the Operator is off, where the Job is not waiting, or where
+    /// the place names a Job not waiting in its line.
+    fn move_in_line(
+        self: Arc<Self>,
+        moved: ipc::MoveInLine,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `dismiss_waiting`: the person drops one item for good. [`Refusal::IllegalMove`] where
     /// nothing holds the item.
     fn dismiss_waiting(
@@ -214,10 +222,10 @@ pub trait HostedSessions: Send + Sync + 'static {
         asked: ipc::PauseSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
-    /// `set_session_auto_land`: turns Auto land on or off and answers the Session. The flag changes
-    /// before the forge is asked, so a pull request the forge refuses is a refusal with the flag set.
+    /// `set_session_auto_land`: turns Auto land on or off and answers the Session. The forge is asked
+    /// after the answer, so a pull request it refuses is a notice to the Job, not a refusal here.
     fn set_session_auto_land(
-        &self,
+        self: std::sync::Arc<Self>,
         asked: ipc::SetSessionAutoLand,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 

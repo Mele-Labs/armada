@@ -23,7 +23,7 @@
 //
 // A screen's own controls sit at the top of its content; `App.tsx` is where that moved.
 
-import { FileCog } from "lucide-react";
+import { FileCog, type LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   isPressed,
@@ -133,6 +133,11 @@ export type ShellProps = {
    * app's to know, not the shell's.
    */
   helmAction?: ReactNode;
+  /** The dock under another name and glyph, over the whole work: the Operator's walk. Absent is Helm's dock as it is. */
+  dockAs?: {
+    title: string;
+    icon: LucideIcon;
+  };
   children: ReactNode;
 };
 
@@ -163,6 +168,7 @@ export function Shell({
   helmCalling = false,
   helm,
   helmAction,
+  dockAs,
   children,
 }: ShellProps) {
   // The chrome draws keys, Helm's among them, so it redraws when Settings → Keyboard moves one.
@@ -232,8 +238,16 @@ export function Shell({
               calling: true,
             }
           : {}),
-        width: dockWidth,
-        onResize: resizeDock,
+        ...(dockAs === undefined
+          ? {
+              width: dockWidth,
+              onResize: resizeDock,
+            }
+          : {
+              title: dockAs.title,
+              icon: dockAs.icon,
+              span: "full" as const,
+            }),
         action: helmAction,
         children: <>{helm}</>,
       }}
@@ -314,10 +328,16 @@ const SETTINGS_SURFACE = SURFACES.find((one) => one.id === SURFACE.settings);
 const MANIFEST_SAID = `Open the ${MANIFEST_SURFACE?.label ?? "Manifest"}`;
 
 const OPEN_HELM = "armada:open-helm";
+const CLOSE_HELM = "armada:close-helm";
 
 /** Opens Helm's dock from anywhere in the window. A window event, since the dock's open state is the shell's own. */
 export function askToOpenHelm(): void {
   window.dispatchEvent(new Event(OPEN_HELM));
+}
+
+/** Shuts the dock from inside it, as a Job opened from the Operator's panel does so the Job is not under it. */
+export function askToCloseHelm(): void {
+  window.dispatchEvent(new Event(CLOSE_HELM));
 }
 
 /**
@@ -352,8 +372,13 @@ function useDock(folded: boolean): {
   opens.current = onOpen;
   useEffect(() => {
     const heard = (): void => opens.current(true);
+    const shut = (): void => opens.current(false);
     window.addEventListener(OPEN_HELM, heard);
-    return () => window.removeEventListener(OPEN_HELM, heard);
+    window.addEventListener(CLOSE_HELM, shut);
+    return () => {
+      window.removeEventListener(OPEN_HELM, heard);
+      window.removeEventListener(CLOSE_HELM, shut);
+    };
   }, []);
 
   useEffect(() => {

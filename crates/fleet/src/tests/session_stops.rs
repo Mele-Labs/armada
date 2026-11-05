@@ -76,7 +76,7 @@ async fn record(rig: &Rig, id: &SessionId) -> SessionRecord {
 }
 
 /// A Job whose turn ended on a reply, far enough back that its minute is up.
-async fn stopped_a_while_ago(rig: &Rig) -> SessionId {
+pub(super) async fn stopped_a_while_ago(rig: &Rig) -> SessionId {
     let id = rig.start().await;
     rig.send(&id, "go").await;
     rig.stand_in.init(0);
@@ -87,7 +87,7 @@ async fn stopped_a_while_ago(rig: &Rig) -> SessionId {
 }
 
 /// Its last turn ended, and the person last wrote, long ago: the row is moved by hand as `session_slot_choice` does.
-async fn aged(rig: &Rig, id: &SessionId) {
+pub(super) async fn aged(rig: &Rig, id: &SessionId) {
     let long_ago = crate::clock::rfc3339_utc(rig.fleet.now().epoch_millis().unwrap() - 120_000);
     {
         let mut store = rig.fleet.store().lock().await;
@@ -102,7 +102,7 @@ fn nudges(rows: &[SessionRow]) -> usize {
 }
 
 /// The spoken message is younger than the minute, so the first read owes nothing until the minute is up from it too.
-async fn tell_ripe(rig: &Rig, id: &SessionId) {
+pub(super) async fn tell_ripe(rig: &Rig, id: &SessionId) {
     let _ = record(rig, id).await;
     let stop = rig.fleet.store().lock().await.session(id.as_str()).unwrap().unwrap().last_turn_at.unwrap();
     rig.fleet.hosts().stops_owed().noted(id.as_str(), Some((&stop, 0)));
@@ -119,7 +119,7 @@ async fn a_job_that_stops_is_told_once_and_stopping_again_reads_stopped_with_no_
     rig.fleet.stops_told().await;
     assert_eq!(nudges(&rig.rows(&id).await), 1, "and not again for the same stop");
     let said = rig.stand_in.process(0).sent.lock().unwrap().iter().find(|line| line.contains("your turn ended")).cloned().unwrap();
-    for part in ["Carry on now", "waiting_for", "finish_up", "A second stop"] {
+    for part in ["Carry on now", "waiting_for", "all_done", "A second stop"] {
         assert!(said.contains(part), "{part}: {said}");
     }
 

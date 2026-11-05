@@ -35,6 +35,7 @@ mod rule_applying;
 mod samples;
 mod scope;
 mod settings;
+mod settings_tokens;
 mod watch_recipes;
 mod workflow;
 mod workspace;

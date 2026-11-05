@@ -65,6 +65,11 @@ const PROPOSER_MODEL: &str = "haiku";
 /// `crates/config/settings.toml`'s `retro-model` row.
 const RETRO_MODEL: &str = "sonnet";
 
+/// The model the Operator rules on. **Named rather than derived**, and held to the roster by a
+/// test: the replay of 4 Nov 2026 found the cheap tier's rulings refused by Fleet's rules 14 times
+/// in 120 against this one's 4. It is `crates/config/settings.toml`'s `operator-model` row.
+const OPERATOR_MODEL: &str = "sonnet";
+
 /// The model a judged gaming flag is read a second time on. **Named rather than
 /// derived**, and held to the roster by a test: stronger than the first look's,
 /// and paid only where a flag was raised.
@@ -134,7 +139,7 @@ impl HeadlessAgent {
     }
 
     /// The model a Session's account of itself is written on: **the Judge's**, the cheapest on the
-    /// roster, since it is a few short lines written again every few seconds a Session is at work.
+    /// roster, since it is a few short lines written again every half minute a Session is at work.
     pub fn account_model() -> &'static str {
         HeadlessAgent::judge_model()
     }
@@ -150,6 +155,11 @@ impl HeadlessAgent {
         RETRO_MODEL
     }
 
+    /// The model the Operator rules on what arrives.
+    pub fn operator_model() -> &'static str {
+        OPERATOR_MODEL
+    }
+
     /// The model a judged gaming flag is read a second time on.
     pub fn second_opinion_model() -> &'static str {
         SECOND_OPINION_MODEL
@@ -161,9 +171,40 @@ impl HeadlessAgent {
     }
 }
 
+/// The variable that sets how long the CLI asks for its prompt prefix to be kept, and its shortest
+/// value. Measured on one real call: `5m` moved every written token of the prefix from the hour
+/// bucket to the five-minute one, which is billed at 1.25 times the input price and not 2.
+const PROMPT_CACHE_TTL: (&str, &str) = ("CLAUDE_CODE_PROMPT_CACHE_TTL", "5m");
+
+/// The two variables that turn the CLI's thinking off, set together: either alone leaves some of
+/// it on. Measured on 60 real turn summaries: quality unchanged, every reply still parsed, and
+/// mean output fell from 210 to 148 tokens. One call in 30 still thought with both set.
+const NO_THINKING: [(&str, &str); 2] = [
+    ("MAX_THINKING_TOKENS", "0"),
+    ("CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING", "1"),
+];
+
+/// The call as rendered, with the cache lifetime an ask for a brief one gets and the thinking an
+/// ask for none loses.
+fn shaped(ask: &Ask, call: JudgeCall) -> JudgeCall {
+    let call = match ask.is_kept_briefly() {
+        true => call.with_variable(PROMPT_CACHE_TTL.0, PROMPT_CACHE_TTL.1),
+        false => call,
+    };
+    match ask.is_unthinking() {
+        true => NO_THINKING
+            .iter()
+            .fold(call, |call, (name, value)| call.with_variable(name, value)),
+        false => call,
+    }
+}
+
 impl ModelClient for HeadlessAgent {
     fn render(&self, ask: &Ask) -> JudgeCall {
-        JudgeCall::rendered(ask, self.program(), asking(ask, Watched::No)).unattended()
+        shaped(
+            ask,
+            JudgeCall::rendered(ask, self.program(), asking(ask, Watched::No)).unattended(),
+        )
     }
 
     /// The same call, printing what it is doing while it does it.
@@ -174,7 +215,10 @@ impl ModelClient for HeadlessAgent {
     /// shared builder below is what makes that true by construction rather than
     /// by two lists agreeing.
     fn render_watched(&self, ask: &Ask) -> JudgeCall {
-        JudgeCall::rendered(ask, self.program(), asking(ask, Watched::Yes)).unattended()
+        shaped(
+            ask,
+            JudgeCall::rendered(ask, self.program(), asking(ask, Watched::Yes)).unattended(),
+        )
     }
 
     /// Read one line of what [`render_watched`](ModelClient::render_watched)
@@ -248,6 +292,10 @@ fn fenced(args: &mut Vec<String>) {
         // rather than merely denying each use of one. `#1047`.
         "--tools".into(),
         String::new(),
+        // No transcript on disk. Session accounts alone made about 1,800 a day,
+        // and every one was another file the turn reader walks past each pass.
+        // The cost is read off the call's own output, not a transcript.
+        "--no-session-persistence".into(),
     ]);
 }
 

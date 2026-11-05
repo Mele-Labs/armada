@@ -22,7 +22,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
 use adapter_traits::TextModel;
-use ipc::{WaitingItem, WaitingSource};
+use ipc::{WaitingActKind, WaitingItem, WaitingSource};
 
 /// Whether this reader is in force, and so folds with the model. It is: on the 150 held-out pairs
 /// the threshold below folded 6 of the 44 that were one ask and merged 1 of the 106 that were not,
@@ -62,8 +62,14 @@ pub(crate) fn folded(items: Vec<WaitingItem>, vector: impl Fn(&str) -> Option<Ve
     order.sort_by(|&a, &b| precedence(&items[a]).cmp(&precedence(&items[b])).then_with(|| items[a].since.as_str().cmp(items[b].since.as_str())));
     let mut kept: Vec<usize> = Vec::with_capacity(items.len());
     for at_item in order {
-        // One command listed twice is one ask whatever each says around it.
-        let same_act = |other: usize| items[at_item].act.as_ref().is_some_and(|own| items[other].act.as_ref().is_some_and(|theirs| own.kind == theirs.kind && own.target == theirs.target && !own.target.is_empty()));
+        // One command listed twice is one ask whatever each says around it. **Not a message**: it only
+        // opens the Job, so two pages, a page and a sketch, or a plan and a page are two asks.
+        let same_act = |other: usize| {
+            items[at_item].act.as_ref().is_some_and(|own| {
+                own.kind != WaitingActKind::Message
+                    && items[other].act.as_ref().is_some_and(|theirs| own.kind == theirs.kind && own.target == theirs.target && !own.target.is_empty())
+            })
+        };
         let folds = kept.iter().any(|&other| same_act(other))
             || match &vectors[at_item] {
                 Some(own) => kept.iter().any(|&other| vectors[other].as_ref().is_some_and(|theirs| cosine(own, theirs) >= at)),

@@ -254,7 +254,12 @@ import type {
   ProcessTarget,
   SessionSystemRead,
 } from "../shared/api/session-system";
-import type { UsageRulesRead, UsageSummaryRead, UsageWindow } from "../shared/api/usage-summary";
+import type {
+  UsageRulesRead,
+  UsageSpentRead,
+  UsageSummaryRead,
+  UsageWindow,
+} from "../shared/api/usage-summary";
 import type { JobTimeRead, UsageHoursRead, UsageTimeRead } from "../shared/api/usage-time";
 import type { ArmadaReportRun, DebugReportRead } from "../shared/api/debug-report";
 import type {
@@ -817,6 +822,7 @@ const api: BridgeApi = {
   getUsageSummary: (tzOffsetMinutes: number, window?: UsageWindow): Promise<UsageSummaryRead> =>
     ipcRenderer.invoke(CHANNELS.getUsageSummary, tzOffsetMinutes, window),
   getUsageRules: (): Promise<UsageRulesRead> => ipcRenderer.invoke(CHANNELS.getUsageRules),
+  getUsageSpent: (): Promise<UsageSpentRead> => ipcRenderer.invoke(CHANNELS.getUsageSpent),
   getUsageTime: (): Promise<UsageTimeRead> => ipcRenderer.invoke(CHANNELS.getUsageTime),
   getUsageHours: (): Promise<UsageHoursRead> => ipcRenderer.invoke(CHANNELS.getUsageHours),
   getJobTime: (sessionId: string): Promise<JobTimeRead> =>

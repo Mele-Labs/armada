@@ -104,7 +104,8 @@ where
         let home = self.host().home.clone();
         let ids: Vec<String> = live.into_iter().map(|one| one.id).collect();
         let Ok(files) = tokio::task::spawn_blocking(move || {
-            ids.iter().flat_map(|id| turn_lines::transcripts_of(&home, id)).collect::<Vec<_>>()
+            let ids: Vec<&str> = ids.iter().map(String::as_str).collect();
+            turn_lines::transcripts_of_each(&home, &ids)
         })
         .await
         else {
@@ -126,11 +127,18 @@ where
         let key = file.path.to_string_lossy().to_string();
         let (mut changed, mut first) = (0, true);
         loop {
-            let (from, input_at) = if from_start && first {
-                (0, None)
+            let (from, input_at, carried) = if from_start && first {
+                (0, None, None)
             } else {
                 let store = self.store().lock().await;
-                (store.transcript_offset(&key).ok().flatten().unwrap_or(0), store.transcript_input_at(&key).ok().flatten())
+                let carried = store.transcript_carried(&key).ok().flatten();
+                // An offset kept before `carried` existed carries nothing: read from the top, so
+                // old turns gain their shares. A read always keeps a carry, so this is once.
+                if carried.is_none() {
+                    (0, None, None)
+                } else {
+                    (store.transcript_offset(&key).ok().flatten().unwrap_or(0), store.transcript_input_at(&key).ok().flatten(), carried)
+                }
             };
             first = false;
             if !from_start && from == file.size {
@@ -138,8 +146,10 @@ where
             }
             let path = file.path.clone();
             let subagent = file.subagent;
-            let Ok(Ok(read)) =
-                tokio::task::spawn_blocking(move || turn_lines::read_turns(&path, from, subagent, CHUNK, input_at)).await
+            let Ok(Ok(read)) = tokio::task::spawn_blocking(move || {
+                turn_lines::read_turns(&path, from, subagent, CHUNK, input_at, turn_lines::Carry::resumed(carried.as_deref()))
+            })
+            .await
             else {
                 return changed;
             };

@@ -20,9 +20,11 @@ use adapter_traits::{Backlog, CopyMark, NotTracked, Tracker};
 /// How often each copy's mark is read for a write: a file read, no process.
 pub const LOOK_EVERY: Duration = Duration::from_secs(2);
 
-/// The longest a copy goes without a sync, so another machine's write is seen within about a
-/// minute: its own sync, then this one.
-pub const SYNC_EVERY: Duration = Duration::from_secs(30);
+/// The longest a copy goes without a sync, so another machine's write is seen within about ten
+/// minutes: its own sync, then this one. **Not 30 seconds**: a sync forks a hundred `git`
+/// processes, and every 30 seconds that was a fifth of all the processes the owner's Mac started
+/// (4 Nov 2026). A claim syncs first whatever the timer says, so it never acts on an old copy.
+pub const SYNC_EVERY: Duration = Duration::from_secs(5 * 60);
 
 /// What Fleet holds of one repository's copy between looks. `now` throughout is time since any
 /// fixed moment, the same one for every call.

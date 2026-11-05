@@ -808,6 +808,44 @@ test_map:
   shared: true
 ```
 
+## Whether a hosted Job reaches the person's connectors
+
+Added 4 November 2026, with `connectors`.
+
+| field | type | required | default | meaning |
+|---|---|---|---|---|
+| `connectors` | boolean | no | `true` | `false` starts every hosted Job in the repository without the connectors on the person's claude.ai account |
+
+`concepts/manifest.md`, *Connectors*, states the rule.
+`false` puts `ENABLE_CLAUDEAI_MCP_SERVERS=false` in the agent's environment; absent or `true` adds nothing.
+Servers the repository names itself, in its own `.mcp.json`, are untouched.
+The machine setting `tokens.connectorsOff` overrides it per repository: a map of Manifest id to `true` for off and `false` for on, read when each Job starts.
+A repository with no entry follows `connectors`.
+The root's to say: a workspace's file that names `connectors` is refused.
+It is not `Live`: it is read from the Manifest Fleet started with, and a save that changes it is reported as frozen.
+
+```yaml
+connectors: false
+```
+
+## What runs when the base moves
+
+Added 4 November 2026, with `when_base_moves`.
+
+| field | type | required | default | meaning |
+|---|---|---|---|---|
+| `when_base_moves` | list of Command names | no | none | Commands Fleet runs, in order, in the repository's own checkout each time it stands at a new commit of the base |
+
+`concepts/manifest.md`, *When the base moves*, states the rule.
+Each name resolves against `commands:` as a `setup.requires` entry does: an undeclared, destructive or server name is refused, and so is an empty list.
+The root's to say: a workspace's file that names `when_base_moves` is refused.
+It is not `Live`: it is read from the Manifest Fleet started with, and a save that changes it is reported as frozen.
+
+```yaml
+when_base_moves:
+  - code_graph
+```
+
 ## Open questions
 
 - **[foundations-as-a-job-gate]** What gates a Job against `verify-foundations`,

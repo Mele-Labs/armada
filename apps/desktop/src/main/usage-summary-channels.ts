@@ -54,4 +54,5 @@ export function handleUsageSummary({ ipc, connection }: Hosts): void {
       : (connection()?.usageSummary.get(offset, asked) ?? unsent);
   });
   ipc.handle(CHANNELS.getUsageRules, () => connection()?.usageSummary.rules() ?? unsent);
+  ipc.handle(CHANNELS.getUsageSpent, () => connection()?.usageSummary.spent() ?? unsent);
 }

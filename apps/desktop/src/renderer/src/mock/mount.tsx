@@ -27,6 +27,7 @@ import { forgetFirsts } from "../run-book";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
 import { AreasFrom } from "../cockpit/deck/areas-source";
+import { SpentFrom } from "../usage-spent-source";
 import { forgetAnswers } from "../cockpit/deck/AutopilotAnswers";
 import { forgetArm } from "../cockpit/deck/AutopilotArm";
 import { forgetTimeline } from "../cockpit/deck/ConsoleTimeline";
@@ -88,6 +89,7 @@ import { PaletteFixturesFrom } from "../palette-fixtures";
 import { DebugReportFrom } from "../debug-report/debug-report";
 import { readingsAsReader } from "./debug-report-reader";
 import { ThreadLookFrom } from "../thread-look-here";
+import { OperatorFrom } from "../operator/store";
 import { seedPaletteMemory } from "../palette-memory";
 
 /** What was mounted: the fake the window is talking to, and how to take it down. */
@@ -307,41 +309,53 @@ export function mountApp(
                                             <PaletteFixturesFrom fixtures={chosen.draft?.palette}>
                                               <DebugReportFrom read={debugRead}>
                                                 <ThreadLookFrom seed={chosen.draft?.threadLook}>
-                                                  <AccountFrom account={chosen.draft?.account}>
-                                                    <SharedHomeFrom home={chosen.draft?.sharedHome}>
-                                                      <PrOwnersFrom owners={chosen.draft?.prOwners}>
-                                                        <ReviewsFrom store={reviews}>
-                                                          <IssuesFrom store={issues}>
-                                                            <ProjectsFrom store={projects}>
-                                                              {panelReads === undefined ? (
-                                                                <SharedPanelOver
-                                                                  api={withState(api)}
-                                                                  testsReaching={
-                                                                    chosen.draft?.testsReaching
-                                                                  }
+                                                  <OperatorFrom seed={chosen.draft?.operator}>
+                                                    <AccountFrom account={chosen.draft?.account}>
+                                                      <SharedHomeFrom
+                                                        home={chosen.draft?.sharedHome}
+                                                      >
+                                                        <PrOwnersFrom
+                                                          owners={chosen.draft?.prOwners}
+                                                        >
+                                                          <ReviewsFrom store={reviews}>
+                                                            <IssuesFrom store={issues}>
+                                                              <ProjectsFrom store={projects}>
+                                                                <SpentFrom
+                                                                  spent={chosen.draft?.usageSpent}
                                                                 >
-                                                                  <App />
-                                                                  <WalkJobPanel />
-                                                                  <TerminalWindows api={api} />
-                                                                  <JobBrowserWindows />
-                                                                  <TweaksApplied />
-                                                                </SharedPanelOver>
-                                                              ) : (
-                                                                <SharedPanelFrom reads={panelReads}>
-                                                                  <App />
-                                                                  <WalkJobPanel />
-                                                                  <TerminalWindows api={api} />
-                                                                  <JobBrowserWindows />
-                                                                  <TweaksApplied />
-                                                                  <SharedPanelHost />
-                                                                </SharedPanelFrom>
-                                                              )}
-                                                            </ProjectsFrom>
-                                                          </IssuesFrom>
-                                                        </ReviewsFrom>
-                                                      </PrOwnersFrom>
-                                                    </SharedHomeFrom>
-                                                  </AccountFrom>
+                                                                  {panelReads === undefined ? (
+                                                                    <SharedPanelOver
+                                                                      api={withState(api)}
+                                                                      testsReaching={
+                                                                        chosen.draft?.testsReaching
+                                                                      }
+                                                                    >
+                                                                      <App />
+                                                                      <WalkJobPanel />
+                                                                      <TerminalWindows api={api} />
+                                                                      <JobBrowserWindows />
+                                                                      <TweaksApplied />
+                                                                    </SharedPanelOver>
+                                                                  ) : (
+                                                                    <SharedPanelFrom
+                                                                      reads={panelReads}
+                                                                    >
+                                                                      <App />
+                                                                      <WalkJobPanel />
+                                                                      <TerminalWindows api={api} />
+                                                                      <JobBrowserWindows />
+                                                                      <TweaksApplied />
+                                                                      <SharedPanelHost />
+                                                                    </SharedPanelFrom>
+                                                                  )}
+                                                                </SpentFrom>
+                                                              </ProjectsFrom>
+                                                            </IssuesFrom>
+                                                          </ReviewsFrom>
+                                                        </PrOwnersFrom>
+                                                      </SharedHomeFrom>
+                                                    </AccountFrom>
+                                                  </OperatorFrom>
                                                 </ThreadLookFrom>
                                               </DebugReportFrom>
                                             </PaletteFixturesFrom>

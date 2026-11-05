@@ -45,5 +45,6 @@ adapters = { path = "../adapters" }
 testkit = { path = "../testkit" }
 # `fleet::rule_on` is async because a Manifest Check is a process. This test
 # declares no Manifest Check, so the future it awaits never reaches one — but
-# it is still a future and still needs somewhere to run.
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+# it is still a future and still needs somewhere to run. `test-util` is the Operator's: its late
+# call is late on a paused clock, so the claim waits no real 20 seconds.
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "test-util"] }

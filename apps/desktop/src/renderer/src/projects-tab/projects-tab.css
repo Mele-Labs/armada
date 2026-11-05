@@ -659,13 +659,6 @@ button.projects-row__mark:hover {
   width: var(--space-3);
   height: var(--space-3);
 }
-.projects-row__job-title {
-  min-width: 0;
-  overflow: hidden;
-  font-weight: var(--weight-medium);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 /* The acts, always drawn, each in a column of its own. */
 .projects-row__acts {

@@ -13,7 +13,7 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; tasksOnDisk?: Record<string, string>; env?: Record<string, string>; pullRequest?: string; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown; logbook?: 'down' | 'slow' | 'refused' | string; prePr?: 'passed' | 'failed' | 'down' | 'slow' | 'refused' } = {},
+  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; tasksOnDisk?: Record<string, string>; env?: Record<string, string>; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown; logbook?: 'down' | 'slow' | 'refused' | string; prePr?: 'passed' | 'failed' | 'down' | 'slow' | 'refused' } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
@@ -108,7 +108,6 @@ function world(
     if (e.argv[0] === 'git') {
       return { value: { exitCode: 0, stdout: 'fleet/session-ledger\n', stderr: '' } }
     }
-    if (options.pullRequest !== undefined) return { value: { exitCode: 0, stdout: options.pullRequest, stderr: '' } }
     return { value: { exitCode: 1, stdout: '', stderr: 'no pull requests found' } }
   })
   on('session.id', () => ({ value: 'S1' }))
@@ -200,8 +199,8 @@ test('a Drone, Judge call or scout is not told to Fleet', async ($, on) => {
   expect(posts).toEqual([])
 })
 
-test('a pull request a session opens is attached from the address gh printed', async ($, on) => {
-  const { posts, clock } = world(on)
+test('a pull request a session opens is attached from the address gh printed, and gh is asked nothing', async ($, on) => {
+  const { posts, processes, clock } = world(on)
   on('tool.call', { tool: 'Bash' }, () => ({
     result: { stdout: URL, stderr: '', interrupted: false },
     text: URL,
@@ -212,8 +211,9 @@ test('a pull request a session opens is attached from the address gh printed', a
 
   expect(facts(posts)).toContainEqual({
     kind: 'attached',
-    attachment: { kind: 'pr', target: '1853', detail: { url: URL, created: 'true' } },
+    attachment: { kind: 'pr', target: '1853', detail: { url: URL, address: URL, created: 'true' } },
   })
+  expect(processes.filter(one => one.argv[0] === 'gh')).toEqual([])
 })
 
 test('an issue a session files is attached from the address gh printed', async ($, on) => {
@@ -230,47 +230,6 @@ test('an issue a session files is attached from the address gh printed', async (
 
   const told = facts(posts).filter(one => one.kind === 'attached' && one.attachment.kind === 'issue')
   expect(told).toEqual([{ kind: 'attached', attachment: { kind: 'issue', target: '2214', detail: { address: ISSUE } } }])
-})
-
-test('a pull request a session opens is read by its address, so it carries its title from any slot', async ($, on) => {
-  const { posts, processes, clock } = world(on, {
-    cwd: () => '/repos/armada/.armada/slots/slot-2',
-    pullRequest: JSON.stringify({ number: 1853, url: URL, state: 'OPEN', title: 'Pin the store clock', headRefName: 'fix/store-clock' }),
-  })
-  on('tool.call', { tool: 'Bash' }, () => ({
-    result: { stdout: URL, stderr: '', interrupted: false },
-    text: URL,
-  }))
-  await $.session.start({ cwd: '/repos/armada/.armada/slots/slot-2', surface: null, isInteractive: false })
-  await $.tool.call({ tool: 'Bash', command: 'cd /repos/armada/.armada/slots/slot-4 && gh pr create --base main' })
-  await clock.settle()
-
-  expect(processes.some(one => one.argv.join(' ').includes(`gh pr view ${URL}`))).toBe(true)
-  expect(facts(posts)).toContainEqual({
-    kind: 'attached',
-    attachment: {
-      kind: 'pr',
-      target: '1853',
-      detail: { url: URL, address: URL, state: 'open', title: 'Pin the store clock', branch: 'fix/store-clock', created: 'true' },
-    },
-  })
-})
-
-test('a pull request read off the branch carries its title, branch and address', async ($, on) => {
-  const { posts, clock } = world(on, {
-    pullRequest: JSON.stringify({ number: 1853, url: URL, state: 'OPEN', title: 'Pin the store clock', headRefName: 'fix/store-clock', isDraft: true }),
-  })
-  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
-  await clock.settle()
-
-  expect(facts(posts)).toContainEqual({
-    kind: 'attached',
-    attachment: {
-      kind: 'pr',
-      target: '1853',
-      detail: { url: URL, address: URL, state: 'draft', title: 'Pin the store clock', branch: 'fix/store-clock' },
-    },
-  })
 })
 
 test('a subagent is attached by its agent id and names the call that started it', async ($, on) => {
@@ -734,28 +693,29 @@ test('a file read and a command run are told as a path and a first line, and not
   expect(JSON.stringify(posts)).not.toContain('second line')
 })
 
-test('the model is told its Armada job id, and a Drone is not', async ($, on) => {
+test('the model is told its Armada job id once, at the start', async ($, on) => {
   world(on)
-  const out = await $.prompt.context({ blocks: [] })
-  expect(out.blocks.map(one => one.name)).toEqual(['armadaSession'])
-  expect(out.blocks[0].text).toContain('S1')
-  expect(out.blocks[0].text).toContain('waiting_for')
-  expect(out.blocks[0].text).not.toContain('AskUserQuestion is refused')
-  expect(out.blocks[0].text).toContain('Pass brief, a line or two on what changed')
-  expect(out.blocks[0].text).toContain('already waits on him by itself, so never put it in waiting_for')
-  expect(out.blocks[0].text).not.toContain('a page to look at')
-  expect(out.blocks[0].text).toContain('call all_done')
-  expect(out.blocks[0].text).toContain('call finish_up')
-  expect(out.blocks[0].text).toContain('A pull request in the merge queue or with auto-merge on is not done')
-  expect(out.blocks[0].text).toContain('never put a wait on it in waiting_for')
-  expect(out.blocks[0].text).toContain('passes steps, a list of short lines')
-  expect(out.blocks[0].text).toContain('never in an Actions table')
-  expect(out.blocks[0].text).toContain('one way only')
-  expect(out.blocks[0].text).toContain('fenced block tagged bash')
+  const out = await $.classic.SessionStart({ source: 'startup' })
+  expect(out.additionalContext).toHaveLength(1)
+  const note = out.additionalContext?.[0] ?? ''
+  expect(note).toContain('S1')
+  expect(note).toContain('waiting_for')
+  expect(note).not.toContain('AskUserQuestion is refused')
+  expect(note).toContain('Pass brief, a line or two on what changed')
+  expect(note).toContain('already waits on him by itself, so never put it in waiting_for')
+  expect(note).not.toContain('a page to look at')
+  expect(note).toContain('call all_done')
+  expect(note).not.toContain('call finish_up')
+  expect(note).toContain('A pull request in the merge queue or with auto-merge on is not done')
+  expect(note).toContain('never put a wait on it in waiting_for')
+  expect(note).toContain('passes steps, a list of short lines')
+  expect(note).toContain('never in an Actions table')
+  expect(note).toContain('one way only')
+  expect(note).toContain('fenced block tagged bash')
 })
 
-test('a Drone is told no session id', async ($, on) => {
-  world(on, { env: { ARMADA_DRONE: '1' } })
+test('no prompt block carries the note, so a subagent does not', async ($, on) => {
+  world(on)
   const out = await $.prompt.context({ blocks: [] })
   expect(out.blocks).toEqual([])
 })
@@ -795,6 +755,12 @@ test('a Drone is told no session id at a start', async ($, on) => {
   world(on, { env: { ARMADA_DRONE: '1' } })
   const out = await $.classic.SessionStart({ source: 'startup' })
   expect(out.additionalContext ?? []).toEqual([])
+})
+
+test('a session Fleet hosts is told only its id at a start, since its rules carry the rest', async ($, on) => {
+  world(on, { env: { ARMADA_SESSION: 'S1' } })
+  const out = await $.classic.SessionStart({ source: 'startup' })
+  expect(out.additionalContext).toEqual(['Your Armada job id is S1. Pass it as session_id where an act or a tool takes one.'])
 })
 
 test('an open of web pages is shown through Fleet and denied, not run', async ($, on) => {

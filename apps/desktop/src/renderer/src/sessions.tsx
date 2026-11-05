@@ -3,6 +3,7 @@
 // What is drawn is `@armada/components`'; this reads the draft
 // (`packages/screens/src/draft/sessions.ts`) into it.
 
+import { HeldNotice, useOperatorRead } from "./operator/marks";
 import {
   JobActsSlot,
   actEntries,
@@ -108,6 +109,7 @@ import { drawnAsScene, SketchBody } from "./session-view/SketchBody";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress, type PictureMarked } from "./session-artifact";
 import { linkEntry, useStartedBy } from "./session-started";
 import {
+  newestAskedSketch,
   readingOfSketch,
   useSketchRevisions,
   withRevisionScenes,
@@ -127,7 +129,7 @@ import { SubagentThread, useSubagentRead } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { useWriteClashes } from "./clashes";
 import { openDocumentAt } from "./session-view/document-state";
-import { showLayer } from "./session-view/layers";
+import { inPanes, showLayer } from "./session-view/layers";
 import { childrenOf } from "./session-view/linked";
 import { cardIssueOf } from "./session-view/ChildJob";
 import { issueOfGroup } from "./session-view/IssuesBlock";
@@ -184,7 +186,7 @@ import { SessionRefs } from "./helm-refs";
 import { openSavedRequest } from "./job-panes/store";
 import { openInPanel } from "./shared-panel/store";
 import { draftPanelOf } from "./shared-panel/rule";
-import { openDraftCard } from "./job-panes/focus";
+import { openDraftCard, openOwedDocument, soleDocument } from "./job-panes/focus";
 import {
   TeachHereContext,
   batchNotices,
@@ -2018,6 +2020,8 @@ export function SessionView({
   }, [
     session.id,
   ]);
+  // What the Operator made of its question, where this window has an Operator.
+  const operatorRead = useOperatorRead(session.id);
   if (draft === undefined) return null;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   // Folded below the breakpoint, a press on a row closes the ledger's sheet first, so what it opens is not drawn over it.
@@ -2284,9 +2288,26 @@ export function SessionView({
                     asked,
                     keep: `${session.id}:${session.asked?.call ?? asked.command}`,
                   })}
-              onAnswer={(answer, answers, folder, kind) =>
-                draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder, kind)
-              }
+              onAnswer={(answer, answers, folder, kind) => {
+                operatorRead?.answered();
+                return draft.answer(
+                  session.id,
+                  answer as SessionAnswer | undefined,
+                  answers,
+                  folder,
+                  kind,
+                );
+              }}
+              {...(operatorRead === undefined
+                ? {}
+                : {
+                    detail: operatorRead.detail,
+                    ...(operatorRead.pick === undefined
+                      ? {}
+                      : {
+                          pick: operatorRead.pick,
+                        }),
+                  })}
               {...(lapsed === undefined
                 ? {}
                 : {
@@ -2364,13 +2385,15 @@ export function SessionView({
     draft.work?.setAside === undefined ? undefined : () => draft.work?.setAside?.(session.id);
   // A Job that opens pull requests draws the one each group lands in, even a plan of one; Keep local with none opened draws none.
   const opensPrs = opensPullRequests(session);
-  // A sketch put to him and not yet answered is pinned after the plan, where the plan waits. The ledger is newest first, so the first is the latest drawn.
+  // The newest sketch put to him is pinned after the plan, where the plan waits, until he answers it. Only the newest drawn: an older one left open behind it was replaced, and never waits again (Fleet's `sketch_items`).
+  const newest = newestAskedSketch(attachmentsOf(session, "sketch"));
   const put = withRevisionScenes(
-    draft.answerSketch === undefined
+    draft.answerSketch === undefined ||
+      newest === undefined ||
+      newest.withdrawn === true ||
+      newest.settled !== undefined
       ? undefined
-      : attachmentsOf(session, "sketch").find(
-          (one) => one.asked === true && one.withdrawn !== true && one.settled === undefined,
-        ),
+      : newest,
     sketchRevisions,
   );
   const sketching =
@@ -2576,7 +2599,9 @@ export function SessionView({
   };
   const reviewAll = waitingOf(reviewParts);
   // One thing to read has no use for a sheet, and stays where it lives. A sheet already open keeps its last item, so it is told them all.
-  const reviewWaiting = reviewAll.length > 1 ? reviewAll : [];
+  // A page that is all he owes the Job is the exception: the band is drawn for it and opens its tab, so it is not missed above the composer.
+  const lonePage = inPanes(session.id) ? soleDocument(session) : undefined;
+  const reviewWaiting = reviewAll.length > 1 || lonePage !== undefined ? reviewAll : [];
   const sheetOpen = reviewSheetFor === session.id;
   // The card keeps the rest: whatever the sheet did not build, and never a plan, sketch or document, which the thread's card or the sheet reads.
   const needs = cardRowsOf(session, waitingRows, reviewWaiting);
@@ -2732,6 +2757,7 @@ export function SessionView({
               state={state}
               said={said}
               id={session.id}
+              notice={<HeldNotice session={session.id} />}
               {...(session.address === undefined
                 ? {}
                 : {
@@ -3074,7 +3100,7 @@ export function SessionView({
                                 onWithdrawSketch: (sketch: string) =>
                                   void dismissWaiting(session.id, sketch),
                               })}
-                          onOpenDocument={(page) => showLayer(session.id, "document", page)}
+                          onOpenDocument={(page) => openOwedDocument(session, page)}
                           {...(draft.answerDocument === undefined
                             ? {}
                             : {
@@ -3184,7 +3210,11 @@ export function SessionView({
                             Glyph: one.mark.Glyph,
                             said: one.said,
                           }))}
-                          onReview={() => setReviewSheetFor(session.id)}
+                          onReview={() =>
+                            lonePage === undefined
+                              ? setReviewSheetFor(session.id)
+                              : openOwedDocument(session, lonePage)
+                          }
                         />
                         {failedShown ? (
                           <HandoffBand
