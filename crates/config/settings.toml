@@ -1063,6 +1063,25 @@ Chosen 4 Nov 2026: On as it ships, by the design page *Helm becomes the Operator
 Live: read again at every act, so a call already out when it is turned off settles nothing.
 """
 
+[settings.operator-file]
+name = "Operator files"
+scope = "Machine"
+default = "off"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+Chosen 4 Nov 2026: Off as it ships, by the design page *Helm becomes the Operator*, which the owner approved on 4 Nov 2026, whose *What you control* gives each role its own position. The replay of 4 Nov set the starting positions, and File starts Off. It does nothing while `operator` is Off, and it does not wait on `operator-dispatch`.
+
+**File only ever creates.** A Later item a Job hands over is linked where an open issue covers it, and filed in the repository's beads where none does; nothing is commented on, labelled or closed, and nothing the person typed himself is filed. A tracker with a forge is the second milestone's.
+
+**On, Fleet files each Later item the Operator rules filed**, and settles it as filed with the new issue. **Off, nothing is filed:** each item is still ruled, and the ruling is kept in the Operator's Log with what it would have filed, as Dispatch Off keeps a start. A link acts either way, since it writes nothing.
+
+Live: read again at every act, so a call already out when it is turned off files nothing.
+"""
+
 [settings.plan-downshift-line]
 name = "Plan downshift line"
 scope = "Machine"

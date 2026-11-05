@@ -112,7 +112,7 @@ where
         Ok(LaterDeferred { id: kept, sentence: sentence.to_string(), open: record.later })
     }
 
-    /// `settle_later`: one open follow-up is done, filed or dropped. **A job's own call must say
+    /// `settle_later`: one open follow-up is done, filed, dropped or handed to the Operator. **A job's own call must say
     /// enough**: an issue it can name for a filed, a reason for a drop. The person's Drop is a call
     /// no connection places, and says nothing more.
     pub(crate) async fn later_settled(&self, caller: Option<api::Caller>, settle: SettleLater) -> Result<LaterSettled, Refusal> {
@@ -136,6 +136,11 @@ where
                 }
                 ("dropped", reason.map(str::to_string))
             }
+            // Handed on with nothing to take it would never be settled.
+            LaterHow::Handed if !self.operator_on() => {
+                return Err(self.hosted_refusal(NOT_SETTLEABLE, "handed needs the Operator on; settle it as done, filed or dropped"));
+            }
+            LaterHow::Handed => ("handed", None),
         };
         let now = self.clock().now().as_str().to_string();
         let (settled, record) = {

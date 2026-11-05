@@ -960,6 +960,9 @@ pub enum LaterHow {
     Filed,
     /// It will not be done: `reason` says why.
     Dropped,
+    /// It goes to the Operator, which links it to an open issue or files one. Refused while the
+    /// Operator is off.
+    Handed,
 }
 
 /// `settle_later`: one open follow-up is settled, by the agent or by the person. Answered with

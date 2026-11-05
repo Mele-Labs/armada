@@ -88,15 +88,18 @@ fn tagging(report: &KeptBugReport) -> SessionTag {
 // ---- What is offered ----
 
 #[tokio::test]
-async fn an_open_report_is_offered_kept_or_not_and_a_fixed_or_held_one_is_not() {
+async fn an_open_report_is_offered_kept_or_not_and_a_fixed_held_or_linked_one_is_not() {
     let (rig, judge, _) = rig_picking(NOTHING, true);
     let (open, kept, fixed) = (a_report("01R00000000000000000AAAAAA", "Open one"), a_report("01R00000000000000000BBBBBB", "Kept one"), a_report("01R00000000000000000CCCCCC", "Fixed one"));
     let (held, ended, other) = (a_report("01R00000000000000000DDDDDD", "Held one"), a_report("01R00000000000000000EEEEEE", "Ended one"), a_report("01R00000000000000000FFFFFF", "Other one"));
+    let linked = a_report("01R00000000000000000GGGGGG", "Linked one");
     let fixed = KeptBugReport { fixed: Some(store::KeptBugFix { at: "2026-11-02T00:00:00Z".into(), pull_request: 3, title: "Fix".into(), url: "u".into() }), ..fixed };
     let kept = KeptBugReport { kept: Some("2026-11-03T08:30:00.000Z".into()), ..kept };
-    for one in [&open, &kept, &fixed, &held, &ended, &other] {
+    for one in [&open, &kept, &fixed, &held, &ended, &other, &linked] {
         keep(&rig, one.clone()).await;
     }
+    // The Operator linked it to issue #5, which is offered in its place.
+    assert!(rig.fleet.store().lock().await.link_bug_report(&linked.id, "#5").expect("linked"));
     let manifest = rig.manifest.as_str().to_string();
     let live = rig.start().await;
     rig.fleet.reports_named(live.as_str(), &manifest, &[tagging(&held)]).await;
@@ -111,7 +114,7 @@ async fn an_open_report_is_offered_kept_or_not_and_a_fixed_or_held_one_is_not() 
     for offered in ["R-AAAAAA Open one", "R-BBBBBB Kept one", "R-EEEEEE Ended one", "R-FFFFFF Other one"] {
         assert!(asked.contains(offered), "{offered} is offered: {asked}");
     }
-    for left in ["R-CCCCCC", "R-DDDDDD"] {
+    for left in ["R-CCCCCC", "R-DDDDDD", "R-GGGGGG"] {
         assert!(!asked.contains(left), "{left} is not offered: {asked}");
     }
     assert!(asked.contains("labels: reported bug") && asked.contains("It broke."), "a report is told from an issue, and read: {asked}");

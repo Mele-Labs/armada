@@ -512,6 +512,7 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
           "done",
           "filed",
           "dropped",
+          "handed",
         ] as const
       ).includes(settle.how)
     )

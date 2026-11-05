@@ -24,6 +24,7 @@ fn ruled(arrival: &str, call: Option<&str>, at: &str) -> KeptRuling {
         first_session: None,
         refused: Vec::new(),
         answer: None,
+        issue: None,
     }
 }
 

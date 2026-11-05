@@ -188,6 +188,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::OPERATOR,
         s::OPERATOR_DISPATCH,
         s::OPERATOR_ANSWER,
+        s::OPERATOR_FILE,
         s::NOTIFICATIONS,
         s::UI_SOUNDS,
         s::REDUCE_MOTION,

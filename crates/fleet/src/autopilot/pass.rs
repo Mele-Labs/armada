@@ -228,8 +228,9 @@ where
         Ok(made)
     }
 
-    /// The open reports nothing holds: not one a live Job holds, nor one of `taken`. **A Job that has
-    /// ended holds none**, so a report it did not get fixed is offered again.
+    /// The open reports nothing holds: not one a live Job holds, nor one of `taken`, nor one the
+    /// Operator linked to an issue, which is offered in its place. **A Job that has ended holds
+    /// none**, so a report it did not get fixed is offered again.
     async fn reports_offered(&self, manifest_id: &ipc::ManifestId, taken: &BTreeSet<String>) -> Result<Vec<Candidate>, String> {
         let store = self.store().lock().await;
         let mut taken = taken.clone();
@@ -246,7 +247,8 @@ where
                         .flatten()
                         .is_some_and(|session| session.state == store::SessionState::Live)
             });
-            if held {
+            let linked = store.bug_report_issue(&report.id).map_err(|why| format!("{why:?}"))?.is_some();
+            if held || linked {
                 taken.insert(format!("{REPORT_URL}{}", report.id));
             }
         }

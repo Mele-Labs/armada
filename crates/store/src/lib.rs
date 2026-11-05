@@ -216,7 +216,7 @@ pub use workflow_changes::{
     KeptWorkflowChange, NewWorkflowChange, APPROVED as CHANGE_APPROVED, CANNOT as CHANGE_CANNOT, DISMISSED as CHANGE_DISMISSED, DRAFTING as CHANGE_DRAFTING,
     FAILED as CHANGE_FAILED, READY as CHANGE_READY,
 };
-pub use session_later::KeptLater;
+pub use session_later::{KeptHanded, KeptLater};
 pub use job_shells::KeptJobTerminal;
 pub use watches::{KeptWatch, KeptWatchPart, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, KeptWatchWhole, READINGS_KEPT};
 pub use notice_mutes::LiveMutes;

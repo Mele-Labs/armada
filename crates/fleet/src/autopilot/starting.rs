@@ -123,7 +123,7 @@ fn foot(body: String, because: Option<&str>) -> String {
 
 /// A report as a brief, the parts Bridge's own brief of one has: the title, what happened, then the
 /// steps numbered, the errors and the logs, each left out where empty.
-fn report_brief(report: &KeptBugReport) -> String {
+pub(crate) fn report_brief(report: &KeptBugReport) -> String {
     let mut brief = format!("{}\n\n{}", report.title, report.what);
     let mut part = |name: &str, lines: Vec<String>| {
         if !lines.is_empty() {
