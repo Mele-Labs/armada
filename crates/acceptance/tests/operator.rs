@@ -449,7 +449,7 @@ async fn a_review_request_is_raised_with_a_read_and_no_review_starts() {
         number: 3290,
         title: "Notarize the app in the release workflow".into(),
         author: "a-teammate".into(),
-        url: "https://github.com/example/app/pull/3290".into(),
+        url: "https://forge.example/app/pull/3290".into(),
     };
     let arrival = request.arrival();
     assert_eq!((arrival.arrived, arrival.ways.as_slice()), (Arrived::Review, [Way::Raise].as_slice()), "agent review stays on his press");
