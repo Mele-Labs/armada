@@ -329,8 +329,13 @@ a Job that Fleet reports as killed, failed, rejected or superseded, or as
 running with no Drone. It comes back when the Job is restarted. A slot held by a
 live Job or a Job waiting on a person keeps its
 branch in. Where Fleet does not answer, a Job's slot counts as live. An open
-pull request is not read. It needs git and an `armada` on `PATH`, builds nothing, and
+pull request is not read. It needs git and an `armada` on `PATH`, and
 `ARMADA_LAND_ARMADA` names another `armada`.
+
+**It builds nothing, unless the installed `armada` is too old to read the manifest.**
+An `armada` that says a manifest key is not one it reads is installed again from the main checkout, once, and asked again.
+Without this, a new key on `main` refuses the binary that only a restart would replace.
+Even a `--dry-run` does this, since it has to ask what is in flight.
 
 **It runs no Checks.** Nothing in a preview was gated, so it can be red where
 every branch in it was green, and the reverse.
