@@ -344,6 +344,8 @@ failure, which was a Linux-only test failing on `main`.
 
 **Every merge to `main` that passes `ci` is published as a GitHub Release**, by the `release` job in `.github/workflows/checks.yml`.
 It runs on a push to `main` once `ci` has passed, and waits on nothing else, so a release is out about ten minutes after the merge.
+Its condition starts with `always()`: without one GitHub adds `success()`, which also reads the jobs `ci` needs, and a push always skips some of them.
+No push released between 31 Oct 2026, when `test_compile` was added and skipped on every push, and 5 Nov 2026.
 A pull request and a merge group never release.
 
 **It does not wait for `test_map`.** It did at first, as a separate workflow that ran once the whole `checks` run had finished, and `test_map` holds that run open for about two and a half hours: 154 minutes on 24 Oct 2026, run 40092571311.
