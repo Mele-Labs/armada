@@ -14,6 +14,9 @@ pub enum SessionCheckState {
     Running,
     Passed,
     Failed,
+    /// Killed for running past its budget. **Not a failure of any test**: the run says nothing of the code, so a reader must not
+    /// go looking for a failing test in its log.
+    TimedOut,
 }
 
 impl SessionCheckState {
@@ -22,6 +25,7 @@ impl SessionCheckState {
             SessionCheckState::Running => "running",
             SessionCheckState::Passed => "passed",
             SessionCheckState::Failed => "failed",
+            SessionCheckState::TimedOut => "timed_out",
         }
     }
 }

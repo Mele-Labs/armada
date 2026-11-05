@@ -125,7 +125,7 @@ where
             return Err(self.session_check_refusal(UNNAMED, "the end of a Check run needs its run and how it ended"));
         };
         if outcome == SessionCheckState::Running {
-            return Err(self.session_check_refusal(UNNAMED, "a Check run ends as passed or failed"));
+            return Err(self.session_check_refusal(UNNAMED, "a Check run ends as passed, failed or timed out"));
         }
         let target = call.target.as_deref().map(str::trim).filter(|target| !target.is_empty());
         let at = self.clock().now().as_str().to_string();

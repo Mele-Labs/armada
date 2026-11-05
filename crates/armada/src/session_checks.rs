@@ -13,7 +13,9 @@ use checks_runner::{Attempt, Priority, Stop, Writing};
 use fleet::runtime;
 use ipc::{SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckState, SessionCheckStop};
 
-use crate::declared::Ran;
+use verification::Exit;
+
+use crate::declared::{Ended, Ran};
 use crate::loopback::Loopback;
 
 const ROUTE: &str = "/sessions/checks";
@@ -67,6 +69,25 @@ pub fn begin(cwd: &Path, name: &str, filter: Option<&str>) -> Option<Told> {
         live: std::env::temp_dir().join(format!("armada-check-{}-{run}.log", std::process::id())),
         told: AtomicU64::new(0),
     })
+}
+
+/// How a finished run is told to Fleet: its outcome, and the log kept on its row.
+pub(crate) fn ending(ran: &Ran) -> (SessionCheckState, String) {
+    let output = &ran.attempt.output;
+    let mut log = format!("$ {}\n{}{}", ran.command, output.stdout, output.stderr);
+    let outcome = match ran.attempt.exit {
+        Exit::TimedOut { .. } => {
+            // What printed before the kill is often only a warning; the line below is what a reader needs.
+            if !log.ends_with('\n') {
+                log.push('\n');
+            }
+            log.push_str(&format!("armada check: {} {}\n", ran.name, Ended(&ran.attempt.exit)));
+            SessionCheckState::TimedOut
+        }
+        _ if ran.status() == 0 => SessionCheckState::Passed,
+        _ => SessionCheckState::Failed,
+    };
+    (outcome, log)
 }
 
 impl Told {
@@ -145,17 +166,16 @@ impl Told {
 
     /// Tell Fleet how it ended, with what it printed.
     pub fn end(self, ran: &Ran, took: Duration) {
-        let output = &ran.attempt.output;
-        let log = format!("$ {}\n{}{}", ran.command, output.stdout, output.stderr);
-        self.ended(ran.status() == 0, took, log, ran.target.clone());
+        let (outcome, log) = ending(ran);
+        self.ended(outcome, took, log, ran.target.clone());
     }
 
     /// The Check could not be run at all, and Fleet is told that, so the row does not stay out.
     pub fn refused(self, why: &str, took: Duration) {
-        self.ended(false, took, why.to_string(), None);
+        self.ended(SessionCheckState::Failed, took, why.to_string(), None);
     }
 
-    fn ended(self, passed: bool, took: Duration, log: String, target: Option<String>) {
+    fn ended(self, outcome: SessionCheckState, took: Duration, log: String, target: Option<String>) {
         // The last of what printed, so a viewer still following reads to the end.
         self.chunk();
         let _ = std::fs::remove_file(&self.live);
@@ -165,10 +185,7 @@ impl Told {
             name: self.name,
             target,
             run: Some(self.run),
-            outcome: Some(match passed {
-                true => SessionCheckState::Passed,
-                false => SessionCheckState::Failed,
-            }),
+            outcome: Some(outcome),
             took_ms: Some(u64::try_from(took.as_millis()).unwrap_or(u64::MAX)),
             log: Some(log),
         };

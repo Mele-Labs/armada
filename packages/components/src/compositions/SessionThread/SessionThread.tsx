@@ -578,12 +578,21 @@ export type WorkingTodo = {
 };
 
 /** Where a Check the agent ran stands. */
-export type CheckRunState = "running" | "passed" | "failed";
+export type CheckRunState = "running" | "passed" | "failed" | "timed_out";
 
 const CHECK_MARK: Record<CheckRunState, StepActivity> = {
   running: "running",
   passed: "advanced",
   failed: "failed",
+  timed_out: "failed",
+};
+
+/** A run killed for its budget says so: it is not a failed test, and a reader must not look for one. */
+const CHECK_WORD: Record<CheckRunState, string> = {
+  running: "running",
+  passed: "passed",
+  failed: "failed",
+  timed_out: "timed out",
 };
 
 /** One answer an ask will take: what the press hands back, the word on it and what it commits to. */
@@ -1282,15 +1291,15 @@ function CheckMark({ row }: { row: CheckRow }) {
   return (
     <StepActivityMark
       activity={CHECK_MARK[row.state]}
-      label={row.state}
-      says={row.state}
+      label={CHECK_WORD[row.state]}
+      says={CHECK_WORD[row.state]}
       pulsing={row.state === "running"}
     />
   );
 }
 
 const checkSaid = (row: CheckRow) =>
-  `Check ${row.name}${row.target === undefined ? "" : ` ${row.target}`}, ${row.state}`;
+  `Check ${row.name}${row.target === undefined ? "" : ` ${row.target}`}, ${CHECK_WORD[row.state]}`;
 
 /**
  * **Runs of one Check that sat side by side are one row, closed.** It shows the latest run's mark and the
