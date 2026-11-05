@@ -1538,21 +1538,21 @@ export function entriesOf(
                   id: one.id,
                 })
               : one.form === "window"
-              ? openWindow(one.id)
-              : one.form === "document" && one.revisions !== undefined
-                ? showLayer(session.id, "document", one.id)
-                : one.form === "file" &&
-                    openInPanel({
-                      kind: "file",
-                      path: one.id,
-                      from: "session",
-                      sessionId: session.id,
-                    })
-                  ? undefined
-                  : read({
-                      kind: "artifact",
-                      id: one.id,
-                    }),
+                ? openWindow(one.id)
+                : one.form === "document" && one.revisions !== undefined
+                  ? showLayer(session.id, "document", one.id)
+                  : one.form === "file" &&
+                      openInPanel({
+                        kind: "file",
+                        path: one.id,
+                        from: "session",
+                        sessionId: session.id,
+                      })
+                    ? undefined
+                    : read({
+                        kind: "artifact",
+                        id: one.id,
+                      }),
         };
       case "subagent":
         return {

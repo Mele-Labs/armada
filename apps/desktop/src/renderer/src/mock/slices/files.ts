@@ -31,7 +31,9 @@ export const files: Slice<FilesApi, Record<string, never>> = {
         };
         // A file a scenario's ledger names that this disk was not given reads as its own name, and a picture as the disk's picture.
         if (!disk.has(item.path)) {
-          const picture = /\.(png|jpe?g|gif|webp)$/i.test(item.path) ? disk.get(PICTURE_PATH) : undefined;
+          const picture = /\.(png|jpe?g|gif|webp)$/i.test(item.path)
+            ? disk.get(PICTURE_PATH)
+            : undefined;
           disk.set(
             item.path,
             picture === undefined
