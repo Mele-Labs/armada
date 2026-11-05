@@ -10,7 +10,7 @@ notes = """
 
 | Act | Does | Refused |
 |---|---|---|
-| `withdraw` | Ends a child that has not begun: still held on its start card, or still waiting on another Job. No agent ever ran, and its `start:<id>` item leaves the caller's Needs you. | 409 `fleet.started_begun` for one that has begun |
+| `withdraw` | Ends a child that has not begun: still held on its start card, or still waiting on another Job. No agent ever ran, and its `start:<id>` item leaves the caller's Needs you. | 409 `fleet.started_begun` for one that has begun, 409 `fleet.started_ended` for one that has ended |
 | `end` | Needs `why`. Fleet tells the child why (a `started_job_ended` notice), then ends it as Bridge's End does: its slot goes back and its work stays on its branch, committed and not pushed. A beads issue it claimed through Fleet is handed back with a note naming the Job that ended it. Allowed for a child that has pushed, since closing loses no work. | 422 `fleet.started_needs_why` without a `why` |
 | `pause`, `resume` | Pause and resume as `pause_session` and `resume_session` do: a paused child gives up its slot and keeps its context. Those two operations stay Bridge's. | As those two refuse |
 | `change` | Changes `condition` or `base` of a child that waits on another Job, **whichever Job it waits on, one that is ending included**. The Job waited on is told, as `change_waiting` tells it. `held`, `workflow`, `model` and `effort` stay the person's. | 409 `fleet.wait_over` for a child that does not wait; 422 `fleet.started_needs_change` with neither `condition` nor `base` |
