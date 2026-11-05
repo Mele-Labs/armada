@@ -19,7 +19,7 @@ use store::KeptOrder;
 use super::{Arrived, LiveJob, Logged, Outcome, Repository};
 use crate::daemon::Fleet;
 
-const OPERATOR_OFF: &str = "fleet.operator_off";
+pub(super) const OPERATOR_OFF: &str = "fleet.operator_off";
 const ORDER_UNKNOWN: &str = "fleet.operator_order_unknown";
 const ORDER_NOT_A_FORM: &str = "fleet.operator_order_not_a_form";
 

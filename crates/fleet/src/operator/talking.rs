@@ -18,11 +18,10 @@ use ipc::operator_talk::{OperatorCite, OperatorHoldUntil, OperatorOrderForm, Ope
 use ipc::SessionId;
 use store::KeptTalk;
 
-use super::orders::{checked, said_of};
+use super::orders::{checked, said_of, OPERATOR_OFF};
 use super::{Arrived, InLine, LiveJob, Logged, Operator, Outcome};
 use crate::daemon::Fleet;
 
-const OPERATOR_OFF: &str = "fleet.operator_off";
 const OPERATOR_CEILING: &str = "fleet.operator_ceiling";
 const OPERATOR_SAID_NOTHING: &str = "fleet.operator_said_nothing";
 
