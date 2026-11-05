@@ -123,6 +123,17 @@ impl Store {
         rows.collect::<Result<_, _>>().map_err(failed(doing))
     }
 
+    /// The latest rows the Operator itself signed, newest first: its rulings, and no person's correction.
+    pub fn operator_rulings_signed(&self, limit: u32) -> Result<Vec<KeptRuling>, WriteError> {
+        let doing = "reading the Operator's rulings";
+        let mut statement = self
+            .conn
+            .prepare(&format!("SELECT {COLUMNS} FROM operator_rulings WHERE by = 'operator' ORDER BY position DESC LIMIT ?1"))
+            .map_err(failed(doing))?;
+        let rows = statement.query_map([limit], ruling_of).map_err(failed(doing))?;
+        rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
     /// Every row of the Log about `session`, oldest first.
     pub fn operator_rulings_of(&self, session: &str) -> Result<Vec<KeptRuling>, WriteError> {
         let doing = "reading a Job's rows of the Operator's Log";

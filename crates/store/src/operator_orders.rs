@@ -27,6 +27,8 @@ pub struct KeptTalk {
     /// The call that answered it, on the Operator's own message.
     pub call: Option<String>,
     pub at: String,
+    /// The board item or Needs you item it was about.
+    pub about: Option<String>,
 }
 
 fn failed(doing: &'static str) -> impl FnOnce(rusqlite::Error) -> WriteError {
@@ -73,8 +75,8 @@ impl Store {
     pub fn add_operator_talk(&mut self, one: &KeptTalk) -> Result<(), WriteError> {
         self.conn
             .execute(
-                "INSERT INTO operator_talk (from_person, text, call, at) VALUES (?1, ?2, ?3, ?4)",
-                params![one.from_person, one.text, one.call, one.at],
+                "INSERT INTO operator_talk (from_person, text, call, at, about) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![one.from_person, one.text, one.call, one.at, one.about],
             )
             .map(|_| ())
             .map_err(failed("keeping a message to the Operator"))
@@ -85,10 +87,10 @@ impl Store {
         let doing = "reading the conversation with the Operator";
         let mut statement = self
             .conn
-            .prepare("SELECT from_person, text, call, at FROM (SELECT * FROM operator_talk ORDER BY n DESC LIMIT ?1) ORDER BY n")
+            .prepare("SELECT from_person, text, call, at, about FROM (SELECT * FROM operator_talk ORDER BY n DESC LIMIT ?1) ORDER BY n")
             .map_err(failed(doing))?;
         let rows = statement
-            .query_map([limit], |row| Ok(KeptTalk { from_person: row.get(0)?, text: row.get(1)?, call: row.get(2)?, at: row.get(3)? }))
+            .query_map([limit], |row| Ok(KeptTalk { from_person: row.get(0)?, text: row.get(1)?, call: row.get(2)?, at: row.get(3)?, about: row.get(4)? }))
             .map_err(failed(doing))?;
         rows.collect::<Result<_, _>>().map_err(failed(doing))
     }

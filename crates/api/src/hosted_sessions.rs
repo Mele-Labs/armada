@@ -214,6 +214,29 @@ pub(crate) async fn operator_talk<D: HostedSessions>(State(served): State<Served
     }
 }
 
+/// What the Operator is ruling on, what waits for it and what it settled.
+pub(crate) async fn get_operator_board<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.shared().get_operator_board().await {
+        Ok(board) => answer(StatusCode::OK, &board, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// One press moves an item among those waiting. 200 with the board; 404 where it is not waiting.
+pub(crate) async fn move_on_operator_board<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let moved: ipc::operator_board::MoveOnOperatorBoard = match ipc::decode_body("a move on the Operator's board", &body) {
+        Ok(moved) => moved,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().move_on_operator_board(moved).await {
+        Ok(board) => answer(StatusCode::OK, &board, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The person presses to have an order stand. 200 with the orders; 422 while the Operator is off, or
 /// where the form names what Fleet does not know.
 pub(crate) async fn confirm_operator_order<D: HostedSessions>(

@@ -4,7 +4,9 @@ transport = "HTTP"
 agent_access = "No"
 description = "The person says one message to the Operator, in the box at the foot of its panel"
 notes = """
-`POST /operator/talk`, body `TalkToOperator`: `words`. Answered with `OperatorSaid`: `said`, the `cites` it rests on as rows of the Log, the brief of a `job` it offers to start, the Job it `started`, the `order` it read in the words, and every one of the `forms` where they fit none.
+`POST /operator/talk`, body `TalkToOperator`: `words`, and `about` where the person is talking about one card (a board item's id, or a Needs you item's id). Answered with `OperatorSaid`: `said`, the `cites` it rests on as rows of the Log, the brief of a `job` it offers to start, the Job it `started`, the `order` it read in the words, every one of the `forms` where they fit none, and `moved`, the item of the board's `next` it put first where the words asked for that.
+
+**`about` is handed to the call** with the item's title and text, and kept on both lines of the exchange, so a thread groups by item. **`moved` is the call naming an item it was shown as waiting its turn**; an id it was not shown is dropped. It is applied as `move_on_operator_board` would, to the front, and publishes `operator.board_changed`.
 
 **A fresh call for each message**, with no tools, handed the last twenty messages and what Fleet holds: the Log, Needs you, Waiting to start, the Jobs held and the Jobs marked Stopped. It cannot read a repository, so an answer that needs the code offers a Job. A Log row or a Job it was not shown is dropped.
 

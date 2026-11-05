@@ -81,6 +81,9 @@ pub struct RemoveOperatorOrder {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TalkToOperator {
     pub words: String,
+    /// A board item's id or a Needs you item's id: the person is talking about that one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub about: Option<String>,
 }
 
 /// The Log row an answer rests on.
@@ -119,6 +122,9 @@ pub struct OperatorSaid {
     /// Every form there is, where he asked for an order that fits none.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub forms: Vec<String>,
+    /// The board item it put first in `next`, as he asked.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub moved: Option<String>,
 }
 
 /// One message of the conversation.
@@ -127,6 +133,9 @@ pub struct OperatorTalkLine {
     pub from_person: bool,
     pub text: String,
     pub at: String,
+    /// The item the message was about, where it named one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub about: Option<String>,
 }
 
 /// `operator_talk`: the conversation so far, oldest first.

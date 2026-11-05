@@ -138,6 +138,12 @@ where
         })
     }
 
+    fn board_changed(&self) {
+        if let Some(fleet) = self.fleet.upgrade() {
+            fleet.events().publish(ipc::Event::OperatorBoardChanged(ipc::operator_board::OperatorBoardChanged {}));
+        }
+    }
+
     fn keep(&self, row: Logged) -> Done<'_, ()> {
         Box::pin(async move {
             // A call out when the Operator was turned off is recorded nowhere, as if it had not been made.

@@ -304,14 +304,14 @@ async fn why_did_you_hold_x_cites_its_log_row_and_dont_answer_in_a_repository_to
     fleet.logged_earlier(held.clone());
 
     let asking = "why did you hold Open terminals in a tab?";
-    let talked = operator.talk(asking, &[]).await.expect("answered");
+    let talked = operator.talk(asking, &[], None).await.expect("answered");
     assert_eq!(talked.cites, vec![held.clone()], "the answer rests on the row Fleet showed it");
     assert!(talked.said.contains("tab host") && talked.order.is_none());
     assert!(call.asked()[0].contains(&held.because) && call.asked()[0].contains(asking));
 
     let so_far = [TalkLine { from_person: true, text: asking.into() }, TalkLine { from_person: false, text: talked.said.clone() }];
     let words = "don't answer anything in armada today";
-    let talked = operator.talk(words, &so_far).await.expect("answered");
+    let talked = operator.talk(words, &so_far, None).await.expect("answered");
     assert!(call.asked()[1].contains(&format!("You: {}", so_far[1].text)), "the next call is handed the conversation:\n{}", call.asked()[1]);
     let (form, said) = talked.order.expect("the form he will see");
     assert_eq!(form, OperatorOrderForm::RoleOff { role: OperatorRole::Answer, manifest_id: REPOSITORY.into(), today: true });
