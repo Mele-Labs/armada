@@ -82,7 +82,7 @@ pub struct StudioNode {
     /// origin where it is in none. Since 23.0, where it was always the board's.
     pub position: StudioPosition,
     pub created_at: Instant,
-    /// A person or Helm. Absent only on a node added before it was kept.
+    /// A person or a Job. Absent only on a node added before it was kept.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub added_by: Option<StudioAuthor>,
 }
@@ -416,7 +416,7 @@ pub struct StudioEdge {
     pub kind: StudioEdgeKind,
     pub standing: StudioEdgeStanding,
     pub created_at: Instant,
-    /// A person or Helm. Absent only on an edge kept before it was.
+    /// A person or a Job. Absent only on an edge kept before it was.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub added_by: Option<StudioAuthor>,
 }
@@ -428,30 +428,28 @@ pub struct StudioDeleted {
     pub manifest_id: ManifestId,
 }
 
-/// `studio.helm_acted`: one act Helm took on a Studio. **Helm's act as its own
-/// event type** — `docs/concepts/helm.md`, *Audit trail*. The write publishes
-/// `studio.changed` as any write does, and this besides only where the door
-/// placed the call in a Helm session, so a person's act and Helm's are told
+/// `studio.job_acted`: one act a Job on your words took on a Studio. **A Job's act as its own
+/// event type.** The write publishes `studio.changed` as any write does, and this besides only
+/// where the door placed the call in a Job on your words, so a person's act and a Job's are told
 /// apart by kind.
 ///
 /// **Ids, not the Studio.** What the Studio holds now is `studio.changed`'s to
 /// carry; this says who did which part of it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct StudioHelmActed {
+pub struct StudioJobActed {
     pub studio_id: StudioId,
     pub manifest_id: ManifestId,
     #[serde(flatten)]
-    pub act: HelmStudioAct,
+    pub act: StudioJobAct,
     pub at: Instant,
 }
 
-/// Which act on a Studio Helm took. **Every act Helm takes, not only the
-/// unasked ones** — `docs/concepts/studio.md`, *Helm on a Studio*: the three
-/// `fleet::helm::reach::UNASKED` calls, and the two it takes on a person's
-/// ask.
+/// Which act on a Studio a Job on your words took. **Every act it takes, not only the
+/// unasked ones**: the three `fleet::on_your_words::UNASKED` calls, and the two it takes on a
+/// person's ask.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "act", rename_all = "snake_case")]
-pub enum HelmStudioAct {
+pub enum StudioJobAct {
     /// A node that starts proposed, by the id it was given.
     AddedNode { node_id: StudioNodeId },
     /// An edge, proposed, by the id it was given.
@@ -476,7 +474,7 @@ pub enum HelmStudioAct {
     },
 }
 
-/// `create_studio`. **A name is not required**: `studio.md` has Helm name an
+/// `create_studio`. **A name is not required**: `studio.md` has a Job on your words name an
 /// untitled Studio.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CreateStudio {
@@ -555,7 +553,7 @@ pub struct GroupStudioNodes {
 }
 
 /// `defer_on_studio`: something raised on a node, put off. **Only a person
-/// defers**, whatever Helm is asked.
+/// defers**, whatever a Job on your words is asked.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeferOnStudio {
     /// What is being put off, in the person's words.

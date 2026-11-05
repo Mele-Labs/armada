@@ -112,57 +112,28 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/fleet/build/change",
     },
-    // One repository's Helm Session, named by `?manifest_id=`.
-    Route {
-        operation: "get_helm_session",
-        method: "GET",
-        path: "/helm/session",
-    },
-    Route {
-        operation: "ask_helm",
-        method: "POST",
-        path: "/helm/ask",
-    },
-    // The session as one record, `#1367`. Beside the Session it reports
-    // on, not under `/debug`: there is no such surface, and the subject is the
-    // Session.
-    Route {
-        operation: "get_helm_debug_info",
-        method: "GET",
-        path: "/helm/debug",
-    },
-    Route {
-        operation: "start_helm_fresh",
-        method: "POST",
-        path: "/helm/start_fresh",
-    },
-    // A thought typed into Helm's box, read for where it belongs and then recorded where it went.
+    // Words typed for a running Job, read for which Job they are for.
     Route {
         operation: "read_thought",
         method: "POST",
-        path: "/helm/read_thought",
-    },
-    Route {
-        operation: "record_thought_sent",
-        method: "POST",
-        path: "/helm/thought_sent",
+        path: "/operator/read_thought",
     },
     // The permission path, `#1389`: the door calls the first, a person answers
     // the third, and the second is what a Bridge started mid-wait reads.
     Route {
         operation: "ask_the_person",
         method: "POST",
-        path: "/helm/permission",
+        path: "/calls/permission",
     },
     Route {
-        operation: "list_helm_calls",
+        operation: "list_calls",
         method: "GET",
-        path: "/helm/calls",
+        path: "/calls",
     },
     Route {
-        operation: "answer_helm_call",
+        operation: "answer_call",
         method: "POST",
-        path: "/helm/calls/answer",
+        path: "/calls/answer",
     },
     // A pull request by repository and number, and the acts a Session takes on
     // one. Beside `merge_pull_request`, which is a Job's and not this.

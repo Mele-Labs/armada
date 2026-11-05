@@ -59,7 +59,7 @@ fn helms_node_edge_and_name_read_back_as_helms() {
         StudioNodeContent::Finding(core_model::StudioFinding::asked("what reads it")),
         StudioPosition { x: 0, y: 200 },
         at(),
-        StudioAuthor::Helm,
+        StudioAuthor::Job,
     );
     store
         .add_studio_node(
@@ -75,7 +75,7 @@ fn helms_node_edge_and_name_read_back_as_helms() {
         node("01NOTE"),
         StudioRelation::Answers,
         at(),
-        StudioAuthor::Helm,
+        StudioAuthor::Job,
     )
     .expect("two nodes");
     store
@@ -83,12 +83,12 @@ fn helms_node_edge_and_name_read_back_as_helms() {
         .expect("proposed");
     let name = StudioName::named("Stale counts").expect("a name");
     store
-        .rename_studio(&studio, &name, StudioAuthor::Helm, &at())
+        .rename_studio(&studio, &name, StudioAuthor::Job, &at())
         .expect("named");
     drop(store);
 
     let graph = open(&dir).studio(&studio).expect("reads");
-    assert_eq!(graph.studio.named_by, Some(StudioAuthor::Helm));
+    assert_eq!(graph.studio.named_by, Some(StudioAuthor::Job));
     let nodes: Vec<_> = graph
         .nodes
         .iter()
@@ -97,7 +97,7 @@ fn helms_node_edge_and_name_read_back_as_helms() {
     assert_eq!(
         nodes,
         [
-            ("01FINDING", Some(StudioAuthor::Helm)),
+            ("01FINDING", Some(StudioAuthor::Job)),
             ("01NOTE", Some(StudioAuthor::Person))
         ]
     );
@@ -109,8 +109,8 @@ fn helms_node_edge_and_name_read_back_as_helms() {
     assert_eq!(
         edges,
         [
-            ("01MADE", Some(StudioAuthor::Helm)),
-            ("01SAME", Some(StudioAuthor::Helm))
+            ("01MADE", Some(StudioAuthor::Job)),
+            ("01SAME", Some(StudioAuthor::Job))
         ],
         "the edge a node brings is its adder's"
     );

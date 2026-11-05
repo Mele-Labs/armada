@@ -213,3 +213,31 @@ async fn a_batch_from_no_hosted_job_is_refused_as_one_job_is() {
     let alone: ipc::WireError = ipc::decode("a refusal", one.as_bytes()).expect("a WireError");
     assert_eq!((refused.code.as_str(), alone.code.as_str()), (ipc::AGENT_START_UNPLACED, ipc::AGENT_START_UNPLACED));
 }
+
+/// A Job on your words may act as the person, so the flag is Bridge's alone to set: a start that
+/// came through the agent door is a plain Job whatever its body says.
+#[tokio::test]
+async fn a_start_through_the_door_is_a_plain_job_and_one_from_bridge_keeps_its_words() {
+    let events = Broadcaster::new();
+    let daemon = std::sync::Arc::new(FakeDaemon::new(events.clone()));
+    let app = router(Served::sharing(std::sync::Arc::clone(&daemon), run_id(), events));
+    let start = |through_the_door: bool| {
+        let mut request = Request::builder()
+            .method("POST")
+            .uri("/sessions/start")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"manifest_id":"armada","on_your_words":true}"#))
+            .expect("a well-formed request");
+        if through_the_door {
+            request.extensions_mut().insert(crate::door::DoorCalled);
+        }
+        request
+    };
+    app.clone().oneshot(start(true)).await.expect("an answer");
+    app.oneshot(start(false)).await.expect("an answer");
+
+    let started = daemon.started.lock().expect("not poisoned");
+    assert_eq!(started.len(), 2, "both reached the daemon");
+    assert_eq!(started[0].on_your_words, None, "the door's start is a plain Job");
+    assert_eq!(started[1].on_your_words, Some(true), "Bridge's start keeps the flag");
+}

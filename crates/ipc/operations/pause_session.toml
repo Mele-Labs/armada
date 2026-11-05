@@ -1,7 +1,7 @@
 [operations.pause_session]
 kind = "command"
 transport = "HTTP"
-agent_access = "Helm only"
+agent_access = "On your words"
 description = "Pauses a hosted Job: its turn ends, its slot's work is committed to its branch and the slot goes back to the pool"
 notes = """
 `POST /sessions/pause`, body `PauseSession`: `session_id`. Since 23.92. Answers the `SessionRecord` with `hosted.paused` set (`at`, `resuming`). `docs/concepts/session.md`, *Pausing a Job*.
@@ -12,5 +12,5 @@ Refused with nothing changed: 409 `fleet.session_not_pausable` for an ended Job,
 
 **A paused Job halts all of its work.** Its running Checks are force stopped before the slot is parked (up to three seconds; one that does not end is failed), its watches wait and run again after the resume, its process is not started again by a message: the turns written to it are kept, a Fleet notice is not told, and it raises nothing on Needs you. Only `resume_session` lifts the pause.
 
-Publishes `session.changed`. `agent_access` is `Helm only`, `park_job`'s: Helm pauses on a person's ask and never on its own reading.
+Publishes `session.changed`. `agent_access` is `On your words`, `park_job`'s: Helm pauses on a person's ask and never on its own reading.
 """

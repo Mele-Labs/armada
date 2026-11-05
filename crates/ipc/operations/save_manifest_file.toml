@@ -1,7 +1,7 @@
 [operations.save_manifest_file]
 kind = "command"
 transport = "HTTP"
-agent_access = "Helm only"
+agent_access = "On your words"
 description = "Write a corrected armada.yml to disk, and stop there"
 notes = """
 **Save writes the file and stops.** No staging, no commit, no formatting and no reserialisation — the bytes the caller sends are the bytes on disk. The file is tracked, so the edit appears in the working tree and is committed along with everything else; Armada committing to git on a person's behalf would be a surprise in the one place a person is most sensitive to one. Journey 9, *Editing*.
@@ -18,5 +18,5 @@ Fleet compares against **the disk at the moment of the save**, never against its
 
 **Editing during a running Job needs no warning and no lock.** A Job is judged against the Checks and Commands it snapshotted at creation, so an edit here cannot reach it.
 
-`agent_access` is `Helm only`. The seven checkout-run operations it follows keep their `No`-turned-`Helm only` reasoning for Drone confinement, which does not apply here — Helm reaches this door, never a Drone's. What does still apply: a change to what Checks mean is a person's, and Helm writes this file only where that person just asked it to.
+`agent_access` is `On your words`. The seven checkout-run operations it follows keep their `No`-turned-`On your words` reasoning for Drone confinement, which does not apply here — Helm reaches this door, never a Drone's. What does still apply: a change to what Checks mean is a person's, and Helm writes this file only where that person just asked it to.
 """

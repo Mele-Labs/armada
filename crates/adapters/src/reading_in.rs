@@ -31,7 +31,7 @@ pub const FORGE_HOST: &str = "github.com/";
 pub const SESSIONS: &str = ".claude/projects";
 
 /// The scheme Armada answers for itself, for the two sources with no address
-/// anywhere else: its own Helm thread, and an agent session by id.
+/// anywhere else: the newest Job on your words in this repository, and an agent session by id.
 const OURS: &str = "armada:";
 const A_SESSION: &str = "armada:session/";
 
@@ -81,7 +81,7 @@ pub enum Source {
     Page { url: String },
     /// An agent session, as the transcript file to read.
     Session { file: PathBuf },
-    /// This repository's Helm thread. Fleet knows where that is kept.
+    /// The newest Job on your words in this repository. Fleet knows where that is kept.
     Thread,
 }
 
@@ -128,7 +128,7 @@ impl Source {
             Source::Session { .. } => {
                 "an earlier agent job in this repository, as what was said in it".to_string()
             }
-            Source::Thread => "this repository's own Helm thread".to_string(),
+            Source::Thread => "the newest Job on your words in this repository".to_string(),
         }
     }
 }
@@ -324,7 +324,7 @@ pub enum Fetch {
     Calls(Vec<LookupCall>),
     /// Read this file.
     File(PathBuf),
-    /// Fleet's own: this repository's Helm thread, wherever Fleet keeps it.
+    /// Fleet's own: the newest Job on your words in this repository, wherever Fleet keeps it.
     Thread,
 }
 

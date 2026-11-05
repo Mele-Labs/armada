@@ -29,8 +29,7 @@ use axum::Router;
 use crate::amending::edit_manifest;
 use crate::commands::{catch_up_checkout, change_slot_pool, checkout_to_pull_request, rescue_slot};
 use crate::conversing::{
-    answer_helm_call, ask_helm, ask_the_person, get_helm_debug_info, get_helm_session,
-    list_helm_calls, read_thought, record_thought_sent, start_helm_fresh, tell_session,
+    answer_call, ask_the_person, list_calls, read_thought, tell_session,
 };
 use crate::daemon::Daemon;
 use crate::editing::{get_manifest_file, save_manifest_file};
@@ -863,16 +862,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/worktrees", get(list_worktrees::<D>))
         .route("/worktrees/slots", post(change_slot_pool::<D>))
         .route("/worktrees/slots/rescue", post(rescue_slot::<D>))
-        .route("/helm/session", get(get_helm_session::<D>))
-        .route("/helm/ask", post(ask_helm::<D>))
-        .route("/helm/debug", get(get_helm_debug_info::<D>))
-        .route("/helm/start_fresh", post(start_helm_fresh::<D>))
-        .route("/helm/read_thought", post(read_thought::<D>))
-        .route("/helm/thought_sent", post(record_thought_sent::<D>))
-        .route("/helm/tell_session", post(tell_session::<D>))
-        .route("/helm/permission", post(ask_the_person::<D>))
-        .route("/helm/calls", get(list_helm_calls::<D>))
-        .route("/helm/calls/answer", post(answer_helm_call::<D>))
+        .route("/operator/read_thought", post(read_thought::<D>))
+        .route("/operator/tell_session", post(tell_session::<D>))
+        .route("/calls/permission", post(ask_the_person::<D>))
+        .route("/calls", get(list_calls::<D>))
+        .route("/calls/answer", post(answer_call::<D>))
         .route("/studios", get(list_studios::<D>))
         .route("/studios/create", post(create_studio::<D>))
         .route("/studios/:studio_id", get(get_studio::<D>))

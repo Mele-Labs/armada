@@ -1,7 +1,7 @@
 [operations.merge_pull_request_by_number]
 kind = "command"
 transport = "HTTP"
-agent_access = "Helm only"
+agent_access = "On your words"
 description = "A person merges a pull request by repository and number, once the forge's checks have passed"
 notes = """
 `POST /pull_requests/:repository/:number/merge`. Since 23.48. **`merge_pull_request`'s sibling for a pull request that is nobody's Job**: that one is a Job's press at its gate and records the landing on the Job, and this one has no Job to record on, so it merges through the same forge call and answers the pull request afterwards. A Session's `pr` row is settled `spent`.

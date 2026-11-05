@@ -1,6 +1,5 @@
-//! Helm's message box over the routes: one issue read by number. What it is, is Fleet's
-//! (`fleet::tests::helm_box`); this holds the route and the wire. The box's model, effort and files
-//! are a Session's (`tune_session`, `get_session_file`).
+//! One issue read by number over the routes. What it is, is Fleet's; this holds the route and the
+//! wire.
 
 use std::sync::Arc;
 

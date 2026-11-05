@@ -178,29 +178,27 @@ fn naming() -> String {
     format!("Your Armada job id is {ID}. `armada job` passes it itself, and where an act takes a `session_id`, this is it.")
 }
 
-/// Armada's rules ride every launch, plain, noted, forked or resuming, and with the Job's id are
+/// Armada's rules ride every launch, plain, forked or resuming, and with the Job's id are
 /// the whole of a plain one.
 #[test]
 fn every_launch_carries_the_session_rules_once() {
     for resuming in [false, true] {
         let plain = rendered(&launching(resuming, SessionMode::Auto));
         assert_eq!(appended(&plain), format!("{}\n\n{}", rules(), naming()), "resuming: {resuming}");
-        let noted = rendered(&launching(resuming, SessionMode::Auto).noting("You are Helm."));
-        assert_eq!(appended(&noted).matches(rules()).count(), 1, "resuming: {resuming}");
         let forked = rendered(&launching(resuming, SessionMode::Auto).forking(OLD, NOTE).expect("portable"));
         assert_eq!(appended(&forked).matches(rules()).count(), 1, "resuming: {resuming}");
     }
 }
 
 /// The id is Fleet's own start argument, so it is told once to every kind of launch and comes
-/// before a note, which adds to it.
+/// before a fork's note, which adds to it.
 #[test]
 fn every_launch_tells_the_job_its_id_once_after_the_rules() {
     for resuming in [false, true] {
-        let noted = appended(&rendered(&launching(resuming, SessionMode::Auto).noting("You are Helm.")));
-        assert_eq!(noted.matches(&naming()).count(), 1, "resuming: {resuming}");
-        let rules_end = noted.find(rules()).expect("the rules") + rules().len();
-        assert!(noted[rules_end..].starts_with(&format!("\n\n{}\n\nYou are Helm.", naming())), "resuming: {resuming}");
+        let plain = appended(&rendered(&launching(resuming, SessionMode::Auto)));
+        assert_eq!(plain.matches(&naming()).count(), 1, "resuming: {resuming}");
+        let rules_end = plain.find(rules()).expect("the rules") + rules().len();
+        assert!(plain[rules_end..].starts_with(&format!("\n\n{}", naming())), "resuming: {resuming}");
         let forked = appended(&rendered(&launching(resuming, SessionMode::Auto).forking(OLD, NOTE).expect("portable")));
         assert_eq!(forked.matches(&naming()).count(), 1, "resuming: {resuming}");
     }
@@ -356,31 +354,6 @@ fn the_rules_teach_armada_job_and_keep_the_one_line_that_loads_the_task_tools() 
     assert!(tools.contains(&format!("`{prefix}<act>`")), "the MCP tools are named as the alternative");
     let line = tools.split('`').find(|quoted| quoted.starts_with("select:")).expect("a select: line in backticks");
     assert_eq!(line, "select:TaskCreate,TaskUpdate", "only the harness's own tools are loaded by search");
-}
-
-/// Helm's note is appended to every process of its Session after the rules, and a blank one is
-/// none at all.
-#[test]
-fn helms_note_is_appended_to_every_process_of_its_session() {
-    let note = "You are Helm, docked in Armada over repository armada.";
-    for resuming in [false, true] {
-        let args = rendered(&launching(resuming, SessionMode::Auto).noting(note));
-        assert_eq!(appended(&args), format!("{}\n\n{}\n\n{note}", rules(), naming()), "resuming: {resuming}");
-    }
-    let blank = rendered(&launching(false, SessionMode::Auto).noting("  \n "));
-    assert_eq!(appended(&blank), format!("{}\n\n{}", rules(), naming()));
-}
-
-/// A fork of a Session that has a note is told both, in one argument and not two, which the CLI
-/// would read as the last of them.
-#[test]
-fn a_note_and_a_forks_note_are_one_appended_prompt() {
-    let launch = launching(false, SessionMode::Auto)
-        .forking(OLD, NOTE)
-        .expect("portable")
-        .noting("You are Helm.");
-    let args = rendered(&launch);
-    assert_eq!(appended(&args), format!("{}\n\n{}\n\nYou are Helm.\n\n{NOTE}", rules(), naming()));
 }
 
 #[test]

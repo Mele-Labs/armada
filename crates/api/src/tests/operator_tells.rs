@@ -1,7 +1,7 @@
-//! Helm passing words to a live Session, through the agent door: `tell_session` is offered to a
-//! Helm session alone, and a call reaches the route Fleet keeps the Helm Session's row behind.
+//! A Job on your words passing words to a live Session, through the agent door: `tell_session` is offered to a
+//! Job on your words alone, and a call reaches the route Fleet sends from.
 //!
-//! **What a send is, is Fleet's** (`fleet::tests::helm_telling`): the fake here keeps the words, so
+//! **What a send is, is Fleet's** (`fleet::tests::operator_telling`): the fake here keeps the words, so
 //! this holds who is offered the tool and that a call arrives where it should.
 
 use std::net::SocketAddr;
@@ -18,8 +18,8 @@ use crate::tests::fake::FakeDaemon;
 use crate::tests::shapes::run_id;
 use crate::{router, Broadcaster, Served, DOOR_PATH};
 
-/// The port a planted Helm session calls from, and one nobody placed.
-const HELM: u16 = 52000;
+/// The port a planted Job on your words calls from, and one nobody placed.
+const WORDS: u16 = 52000;
 const ANYONE: u16 = 52001;
 
 const LISTING: &str = r#"{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"#;
@@ -33,9 +33,9 @@ fn only_reading(row: &Reachable) -> bool {
     row.kind == "query"
 }
 
-fn helm_on(may: fn(&Reachable) -> bool) -> (Arc<FakeDaemon>, Router) {
+fn words_on(may: fn(&Reachable) -> bool) -> (Arc<FakeDaemon>, Router) {
     let daemon = FakeDaemon::new(Broadcaster::new());
-    *daemon.helm_on.lock().expect("not poisoned") = Some((HELM, may));
+    *daemon.words_on.lock().expect("not poisoned") = Some((WORDS, may));
     let daemon = Arc::new(daemon);
     let app = router(Served::sharing(
         Arc::clone(&daemon),
@@ -65,31 +65,31 @@ async fn posted(app: &Router, uri: &str, port: u16, body: &str) -> String {
 }
 
 #[tokio::test]
-async fn helm_is_offered_the_tool_and_no_other_agent_is() {
-    let (_, app) = helm_on(acting);
-    let helm = posted(&app, DOOR_PATH, HELM, LISTING).await;
+async fn a_job_on_your_words_is_offered_the_tool_and_no_other_agent_is() {
+    let (_, app) = words_on(acting);
+    let on_words = posted(&app, DOOR_PATH, WORDS, LISTING).await;
     let anyone = posted(&app, DOOR_PATH, ANYONE, LISTING).await;
 
     let named = "\"name\":\"tell_session\"";
-    assert!(helm.contains(named), "Helm is offered `tell_session`: {helm}");
+    assert!(on_words.contains(named), "a Job on your words is offered `tell_session`: {on_words}");
     assert!(!anyone.contains(named), "another agent is offered it");
 }
 
 #[tokio::test]
-async fn helms_call_reaches_the_route_and_leaves_a_row_and_anyone_elses_is_refused() {
-    let (daemon, app) = helm_on(acting);
+async fn a_jobs_call_reaches_the_route_and_anyone_elses_is_refused() {
+    let (daemon, app) = words_on(acting);
 
     let refused = posted(&app, DOOR_PATH, ANYONE, TELLING).await;
     assert!(refused.contains("is not a tool this Fleet offers"), "{refused}");
     assert!(
-        daemon.helm_sent.lock().expect("not poisoned").is_empty(),
+        daemon.words_sent.lock().expect("not poisoned").is_empty(),
         "another agent's call reached nothing"
     );
 
-    let told = posted(&app, DOOR_PATH, HELM, TELLING).await;
+    let told = posted(&app, DOOR_PATH, WORDS, TELLING).await;
     assert!(told.contains("\"isError\":false"), "{told}");
     assert!(told.contains("01SESSION000000000000000001"), "it says where the words went: {told}");
-    let sent = daemon.helm_sent.lock().expect("not poisoned").clone();
+    let sent = daemon.words_sent.lock().expect("not poisoned").clone();
     let [(text, target)] = sent.as_slice() else {
         panic!("the call reached the route once: {sent:?}");
     };
@@ -98,12 +98,12 @@ async fn helms_call_reaches_the_route_and_leaves_a_row_and_anyone_elses_is_refus
 }
 
 #[tokio::test]
-async fn a_read_only_helm_is_not_offered_it_and_is_refused_by_name() {
-    let (_, app) = helm_on(only_reading);
+async fn a_read_only_job_is_not_offered_it_and_is_refused_by_name() {
+    let (_, app) = words_on(only_reading);
 
-    let listed = posted(&app, DOOR_PATH, HELM, LISTING).await;
+    let listed = posted(&app, DOOR_PATH, WORDS, LISTING).await;
     assert!(!listed.contains("\"name\":\"tell_session\""), "{listed}");
 
-    let refused = posted(&app, DOOR_PATH, HELM, TELLING).await;
-    assert!(refused.contains("`tell_session` is not Helm's to call"), "{refused}");
+    let refused = posted(&app, DOOR_PATH, WORDS, TELLING).await;
+    assert!(refused.contains("`tell_session` is not this Job's to call"), "{refused}");
 }

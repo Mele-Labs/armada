@@ -201,11 +201,11 @@ pub enum RunOrNot {
 /// theirs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum HelmCallAnswer {
+pub enum CallAnswer {
     /// Run it, this once. Nothing is written anywhere, and the same call asks
     /// again next time.
     AllowOnce,
-    /// Run it, and write [`HelmCallInFlight::rule`] into the repository's own
+    /// Run it, and write [`CallInFlight::rule`] into the repository's own
     /// personal agent settings — `adapters::PERSONAL_SETTINGS`, which is the
     /// one place that path is spelled — so the CLI allows it without asking,
     /// in Helm and in the person's terminal alike.
@@ -218,7 +218,7 @@ pub enum HelmCallAnswer {
     /// Run it, and let every session reach the folder the answer names, and everything under it,
     /// with no card. **Armada's folder list, never the agent CLI's rule**: the rule matches a command,
     /// and the guard that drew the card runs before the CLI's settings are read. Offered only on
-    /// a call that names [`HelmCallInFlight::reaches`].
+    /// a call that names [`CallInFlight::reaches`].
     AlwaysAllow,
     /// Do not run it, and refuse every session the folder the answer names, with no card.
     AlwaysBlock,
@@ -262,7 +262,7 @@ pub struct CallKind {
 /// [`CommandInFlight`](crate::CommandInFlight) makes for a Drone. What is
 /// waiting is one process, inside one tool call, for the length of one reply.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HelmCallInFlight {
+pub struct CallInFlight {
     /// Fleet's own id for this ask. **What an answer names**, so an answer
     /// from a window left open across one is a refusal rather than a
     /// coincidence.
@@ -276,7 +276,7 @@ pub struct HelmCallInFlight {
     /// The command, or the argument, bounded to one line. **Empty is a tool
     /// whose argument this vocabulary has no name for**, never an invented one.
     pub detail: String,
-    /// Whether [`detail`](HelmCallInFlight::detail) is less than what was sent.
+    /// Whether [`detail`](CallInFlight::detail) is less than what was sent.
     pub truncated: bool,
     /// How many characters the argument had before anything was cut.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -287,12 +287,12 @@ pub struct HelmCallInFlight {
     pub whole: Option<String>,
     /// **The rule that would have to allow it**, in the CLI's own settings
     /// spelling — `Bash(gh issue list:*)`, `Edit`. What
-    /// [`HelmCallAnswer::AllowAndRemember`] writes, and what a person reads
+    /// [`CallAnswer::AllowAndRemember`] writes, and what a person reads
     /// before choosing it.
     pub rule: String,
     /// What a person may answer, in the order a surface draws them. An answer
     /// that is not here is refused.
-    pub offers: Vec<HelmCallAnswer>,
+    pub offers: Vec<CallAnswer>,
     /// How long Fleet will hold the call open, in seconds, from `asked_at`. A
     /// surface says it rather than deriving it: the bound is Fleet's.
     pub holding_for_seconds: u64,
@@ -301,7 +301,7 @@ pub struct HelmCallInFlight {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub questions: Vec<AskedQuestion>,
     /// The path past the session's slots that the guard asked about, absolute, and what a folder
-    /// for [`HelmCallAnswer::AlwaysAllow`] or [`HelmCallAnswer::AlwaysBlock`] must contain. Left out
+    /// for [`CallAnswer::AlwaysAllow`] or [`CallAnswer::AlwaysBlock`] must contain. Left out
     /// for a call that reaches nowhere.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reaches: Option<String>,
@@ -311,18 +311,18 @@ pub struct HelmCallInFlight {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reaches_to: Option<ReachesTo>,
     /// The program and script of the Bash segment whose reach the card is about, and what
-    /// [`HelmCallAnswer::AllowLikeThisForSession`] matches. Set only on a Bash reach card.
+    /// [`CallAnswer::AllowLikeThisForSession`] matches. Set only on a Bash reach card.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kind: Option<CallKind>,
 }
 
-/// A person's answer to one Helm call. The request half of `answer_helm_call`.
+/// A person's answer to one Helm call. The request half of `answer_call`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AnswerHelmCall {
-    /// [`HelmCallInFlight::call`]. An id naming nothing waiting is a 409.
+pub struct AnswerCall {
+    /// [`CallInFlight::call`]. An id naming nothing waiting is a 409.
     pub call: String,
     /// One of that call's offers. Anything else is a 409.
-    pub answer: HelmCallAnswer,
+    pub answer: CallAnswer,
     /// Why, in the person's own words, carried to the session inside the
     /// refusal. **Only a refusal reads it** — `AnswerCommand::note`'s rule and
     /// its reason: the reason is in mind at the moment of refusing.
@@ -331,47 +331,47 @@ pub struct AnswerHelmCall {
     /// One entry per question, for a call that asked some. Since 23.71.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub answers: Vec<QuestionAnswer>,
-    /// The folder an "always" or a session answer is for: [`HelmCallInFlight::reaches`] or a
+    /// The folder an "always" or a session answer is for: [`CallInFlight::reaches`] or a
     /// folder above it. Read for those three answers, and one without it is refused; a "like this"
     /// answer may carry one to narrow its kind to that folder.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub folder: Option<String>,
-    /// The width a "like this" answer allows: the card's own [`HelmCallInFlight::kind`], or the same
+    /// The width a "like this" answer allows: the card's own [`CallInFlight::kind`], or the same
     /// with no script. Read for that answer only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kind: Option<CallKind>,
 }
 
-/// `helm.asking_to_run`: a call is waiting on a person. **Absent from
-/// [`HelmCallsWaiting`] is the answer having landed**, which is how
+/// `call.asking_to_run`: a call is waiting on a person. **Absent from
+/// [`CallsWaiting`] is the answer having landed**, which is how
 /// `job.command_waiting` says the same thing.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HelmAskingToRun {
-    pub waiting: HelmCallInFlight,
+pub struct CallAskingToRun {
+    pub waiting: CallInFlight,
 }
 
-/// `helm.call_answered`: what became of one ask, published whoever ended it —
+/// `call.answered`: what became of one ask, published whoever ended it —
 /// a person, or the bound running out.
 ///
 /// **Helm's act as its own event type**, the rule
-/// `studio.helm_acted` already follows. A person who finds a command was run
+/// `studio.job_acted` already follows. A person who finds a command was run
 /// reads this to see that they allowed it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HelmCallAnswered {
+pub struct CallAnswered {
     pub call: String,
     pub manifest_id: ManifestId,
     /// The tool and the one-line detail again, so the record reads on its own.
     pub tool: String,
     pub detail: String,
     pub rule: String,
-    pub settled: HelmCallSettled,
+    pub settled: CallSettled,
     pub at: Instant,
 }
 
 /// How one ask ended.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum HelmCallSettled {
+pub enum CallSettled {
     /// Nobody was asked. Fleet read the call as none of the three a person is
     /// put in front of — destructive, pushing code to a shared space, writing
     /// off this machine — and it ran. `#1525`.
@@ -398,12 +398,12 @@ pub enum HelmCallSettled {
     SessionGone,
 }
 
-/// What `list_helm_calls` answers: every ask waiting on this person right now,
+/// What `list_calls` answers: every ask waiting on this person right now,
 /// across every repository Fleet serves.
 ///
 /// **Read on a resync and never polled.** The events above carry each ask as it
 /// arrives; this is what a Bridge that started mid-wait reads once.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HelmCallsWaiting {
-    pub waiting: Vec<HelmCallInFlight>,
+pub struct CallsWaiting {
+    pub waiting: Vec<CallInFlight>,
 }

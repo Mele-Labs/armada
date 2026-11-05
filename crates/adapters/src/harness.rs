@@ -170,7 +170,7 @@ impl AgentHarness for HeadlessAgent {
 }
 
 /// `--effort` and its word where one is set: absent is the CLI's own default.
-/// **One spelling for every call** — a Drone, a Judge, Helm.
+/// **One spelling for every call** — a Drone, a Judge, a Job.
 pub(crate) fn thinking(args: &mut Vec<String>, effort: Option<Effort>) {
     if let Some(effort) = effort {
         args.push("--effort".into());

@@ -61,7 +61,7 @@ status_colour = false
 added_by_hand = true
 dispatches = false
 not_called = ["Observation"]
-notes = "Observation is the one flagged inference Helm may add to an answer."
+notes = "Observation is the one flagged inference a Job on your words may add to an answer."
 
 [nodes.cluster]
 name = "Cluster"
@@ -91,7 +91,7 @@ status_colour = false
 added_by_hand = false
 dispatches = false
 not_called = []
-notes = "The one kind that starts `proposed`, which is what Helm may add unasked. **Ended, it holds no state**: how its scout ended is its own field, and `gathering` would say a scout still reads. It was `frozen` until the owner, 1 Oct 2026: *\"I hate this frozen shit. Its overcomplicating it.\"* Store V86 cleared it."
+notes = "The one kind that starts `proposed`, which is what a Job on your words may add unasked. **Ended, it holds no state**: how its scout ended is its own field, and `gathering` would say a scout still reads. It was `frozen` until the owner, 1 Oct 2026: *\"I hate this frozen shit. Its overcomplicating it.\"* Store V86 cleared it."
 
 [nodes.contradiction]
 name = "Contradiction"
@@ -247,7 +247,7 @@ means = "Armada's own unfiled text, a person's to edit and nobody else's"
 #   means    - what the edge says about the two nodes
 #   drawn_by - who draws it. `the Studio` or `a person accepts`, and no third
 #              answer: an agent reorganising a person's work is what separates
-#              a drawing surface from a record of decisions. Helm and a scout
+#              a drawing surface from a record of decisions. a Job on your words and a scout
 #              may propose one, drawn dashed until accepted
 #   notes    - the reasoning the kind carries, where it carries any
 
@@ -320,7 +320,7 @@ means = "Only what the forge says is open"
 #   rung - what the act is called
 #   from - what it starts from. Node kinds, `any`, or `outside`
 #   to   - what it makes. Node kinds, always
-#   who  - who acts, from the closed set `person`, `helm_on_ask`,
+#   who  - who acts, from the closed set `person`, `job_on_ask`,
 #          `scout_on_ask`, `fleet`
 #   acts - the same in a person's words, where the set alone would mislead
 
@@ -328,8 +328,8 @@ means = "Only what the forge says is open"
 rung = "Run"
 from = ["any"]
 to = ["run"]
-who = ["person", "helm_on_ask"]
-acts = "A person, or Helm on their ask. Started from a node or from nothing, and by no other act — what a node says about a run is read off the run"
+who = ["person", "job_on_ask"]
+acts = "A person, or a Job on your words, on their ask. Started from a node or from nothing, and by no other act — what a node says about a run is read off the run"
 
 [[promotions]]
 rung = "Read in"
@@ -371,11 +371,11 @@ rung = "Defer"
 from = ["any"]
 to = ["deferral"]
 who = ["person"]
-acts = "A person, only, whatever Helm's authority setting says"
+acts = "A person, only, whatever the action authority setting says"
 
 [[promotions]]
 rung = "Write up"
 from = ["note", "cluster", "contradiction", "outline"]
 to = ["issue_draft"]
-who = ["person", "helm_on_ask"]
-acts = "A person, or Helm on their ask. One ask may cover writing up and dispatching when it names both; \"write it up\" alone never dispatches"
+who = ["person", "job_on_ask"]
+acts = "A person, or a Job on your words, on their ask. One ask may cover writing up and dispatching when it names both; \"write it up\" alone never dispatches"

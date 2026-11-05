@@ -25,15 +25,15 @@
 # Fields:
 #   kind        - query | command | event
 #   transport   - HTTP | WebSocket
-#   agent_access - Yes | No | Bridge only | Helm only. What an
-#                 agent may reach directly — Helm inside Bridge, or any agent
-#                 working on the machine, on one shared set. `Helm only` is a
-#                 command Helm may call when a person asks it to in
-#                 conversation; the person's ask is the gate, not a further
-#                 tier. On a query it is a read offered to a Helm session
-#                 alone — the checkout's runs, which only Helm can start.
-#                 What stays `No` for Helm
-#                 too is named, not implied — `fleet::helm::reach::RESERVED`
+#   agent_access - Yes | No | Bridge only | On your words. What an
+#                 agent may reach directly: any agent working on the machine, on
+#                 one shared set. `On your words` is offered only to a Job a
+#                 person started on your words, and a command there is one that
+#                 Job may call when a person asks it to in conversation; the
+#                 person's ask is the gate, not a further tier. On a query it is
+#                 a read offered to such a Job alone, such as the checkout's
+#                 runs. What stays `No` for such a Job too is named, not
+#                 implied: `fleet::on_your_words::RESERVED`
 #   description - what the operation returns or does, in one line
 #   unbuilt     - an event declared here and not yet sent, naming the issue
 #                 that will send it. Absent means the event is sent. The

@@ -204,7 +204,7 @@ impl Studios for FakeDaemon {
         Ok(deleted)
     }
 
-    /// Helm is held to a Finding, the one kind that starts proposed.
+    /// a Job on your words is held to a Finding, the one kind that starts proposed.
     async fn add_studio_node(
         &self,
         studio_id: StudioId,
@@ -213,15 +213,15 @@ impl Studios for FakeDaemon {
         within: Option<ManifestId>,
     ) -> Result<Studio, Refusal> {
         self.added_by.lock().expect("not poisoned").push(by);
-        let helms = matches!(
+        let proposed = matches!(
             &add.content,
             StudioNodeAdded::Content(content)
                 if matches!(content.clone().into(), StudioNodeContent::Finding { .. })
         );
-        if by == Redirector::Helm && !helms {
+        if by == Redirector::Job && !proposed {
             return Err(Refusal::Unacceptable(refused(
-                "fake.studio_node_not_helms",
-                "Helm adds only a node that starts proposed".to_string(),
+                "fake.studio_node_not_a_jobs",
+                "a Job on your words adds only a node that starts proposed".to_string(),
             )));
         }
         self.changing(&studio_id, within, |studio| {
@@ -470,7 +470,7 @@ impl Studios for FakeDaemon {
 
     /// The run is `THE_RUN`, started and not finished, and the node references
     /// it. **Who acted is recorded, as on every other write here**, so the
-    /// door's word for a Helm call is what the route carries.
+    /// door's word for a Job on your words call is what the route carries.
     async fn start_studio_run(
         self: std::sync::Arc<Self>,
         studio_id: StudioId,

@@ -59,7 +59,7 @@ pub enum TimelineKind {
     #[serde(rename = "session.spawned")]
     SessionSpawned,
     /// A Session's message was delivered to another Session's thread. The subject sent it and `to` received
-    /// it; `says` is `Messaged: {text}`, cut. Written where Fleet delivers it, and never for a person's or Helm's.
+    /// it; `says` is `Messaged: {text}`, cut. Written where Fleet delivers it, and never for a person's.
     #[serde(rename = "session.messaged")]
     SessionMessaged,
     /// A Session showed the person a walk. `detail` is the page's title. Written when the page is shown,

@@ -4,7 +4,7 @@
 //! thought*.
 
 use crate::{
-    decode, encode, Event, HelmThoughtRouted, Instant, ManifestId, ReadThought, ThoughtKind,
+    decode, encode, Event, WordsSent, Instant, ManifestId, ReadThought, ThoughtKind,
     ThoughtReading, ThoughtSent, ThoughtTarget,
 };
 
@@ -74,15 +74,15 @@ fn the_words_and_where_they_went_round_trip() {
 /// The audit event carries where and never the words.
 #[test]
 fn the_audit_event_is_spelled_as_declared_and_names_no_words() {
-    let routed = Event::HelmThoughtRouted(HelmThoughtRouted {
+    let routed = Event::WordsSent(WordsSent {
         manifest_id: ManifestId::carried("armada"),
         to: ThoughtKind::Session,
         id: "01SESSION".into(),
         at: Instant::carried("2026-10-12T09:00:00.000Z"),
     });
-    assert_eq!(routed.kind(), "helm.thought_routed");
+    assert_eq!(routed.kind(), "operator.words_sent");
     let json = encode(&routed).expect("plain data");
-    assert!(json.contains(r#""kind":"helm.thought_routed""#), "{json}");
+    assert!(json.contains(r#""kind":"operator.words_sent""#), "{json}");
     assert!(json.contains(r#""to":"session""#), "{json}");
     assert!(!json.contains("text"), "{json}");
 }

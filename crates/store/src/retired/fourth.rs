@@ -459,6 +459,18 @@ CREATE TABLE job_review_dismissals (
 ) STRICT;
 "#;
 
+/// Version 64 — one resumable session per Helm conversation. `on_your_words` drops the table.
+///
+/// **No foreign key**, `manifest_allowed_commands`' reason: a conversation
+/// outlived every Job, so `forget_job` had nothing to delete here.
+pub(crate) const V64: &str = r#"
+CREATE TABLE helm_sessions (
+    conversation TEXT PRIMARY KEY,
+    session_id   TEXT NOT NULL,
+    kept_at      TEXT NOT NULL
+) STRICT;
+"#;
+
 /// Version 29 — what the repository's Checks said about one commit.
 ///
 /// Beside the change it makes, like [`V21`](crate::delivery::V21): `schema.rs`

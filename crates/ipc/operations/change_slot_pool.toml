@@ -1,7 +1,7 @@
 [operations.change_slot_pool]
 kind = "command"
 transport = "HTTP"
-agent_access = "Helm only"
+agent_access = "On your words"
 description = "Adds a slot to a repository's worktree pool, removes one, or closes or reopens one, on this machine only"
 notes = """
 `POST /worktrees/slots?manifest_id=`, body `ChangeSlotPool`: `act` is `add`, `remove`, `close` or `open`, and `slot` names the slot for all but `add`. Since 23.17. The answer, `SlotPoolChanged`, names the slot changed, the new one for `add`.
@@ -18,5 +18,5 @@ notes = """
 
 **`close` lasts until `open`**, across restarts. No lease takes a closed slot; a holder keeps one closed under it until its lease ends, and it stays closed after.
 
-`Helm only` for `reclaim_worktree`'s reason: it changes what this machine holds, and a person asks for it.
+`On your words` for `reclaim_worktree`'s reason: it changes what this machine holds, and a person asks for it.
 """

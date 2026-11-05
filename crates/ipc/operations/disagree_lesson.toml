@@ -1,7 +1,7 @@
 [operations.disagree_lesson]
 kind = "command"
 transport = "HTTP"
-agent_access = "Helm only"
+agent_access = "On your words"
 description = "Disagree with one retro item: its state becomes discarded and the row stays"
 notes = """
 Since 23.26. `POST /lessons/:lesson_id/disagree`, no body. Answers with the `Lesson` as it now stands.

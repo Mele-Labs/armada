@@ -163,9 +163,8 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::JUDGE_SECONDS,
         s::COMMAND_SECONDS,
         s::PROPOSER_SECONDS,
-        s::HELM_ASK_HOLD_SECONDS,
+        s::ASK_HOLD_SECONDS,
         s::SESSION_QUIET_SECONDS,
-        s::HELM_REPLY_SECONDS,
         s::MERGE_NOTICE_SECONDS,
         s::RESOURCE_POLL_SECONDS,
         s::BUILD_SWEEP_SECONDS,
@@ -180,7 +179,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         );
     }
     for key in [
-        s::HELM_CAN_ACT,
+        s::WORDS_CAN_ACT,
         s::DRAFT_PULL_REQUESTS,
         s::OPEN_GUIDES_FIRST_TIME,
         s::WORKFLOWS,
@@ -221,7 +220,6 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::EFFORT_DEFAULT,
         s::EFFORT_JUDGE,
         s::EFFORT_PROPOSER,
-        s::EFFORT_HELM,
         s::EDITOR_COMMAND,
         s::TERMINAL_APP,
         s::TERMINAL_COMMAND,
@@ -278,7 +276,7 @@ fn a_document_of_known_keys_in_range_is_taken_whole() {
     let pairs = [
         ("limits.dronesAtOnce", SettingValue::Integer(3)),
         ("timeouts.checkSeconds", SettingValue::Integer(600)),
-        ("features.helmCanAct", SettingValue::Bool(false)),
+        ("features.onYourWordsCanAct", SettingValue::Bool(false)),
         ("models.judge", SettingValue::Text("middle".into())),
         ("terminal.app", SettingValue::Text("Ghostty".into())),
         (
@@ -351,7 +349,7 @@ fn a_value_out_of_range_or_of_another_kind_is_refused_by_its_key() {
         Some("limits.dronesAtOnce")
     );
     assert!(
-        refusal(&[("features.helmCanAct", SettingValue::Text("yes".into()))])
+        refusal(&[("features.onYourWordsCanAct", SettingValue::Text("yes".into()))])
             .1
             .contains("true or false")
     );
@@ -370,7 +368,7 @@ fn a_value_out_of_range_or_of_another_kind_is_refused_by_its_key() {
 /// The effort settings take every level the agent CLI does, and nothing else.
 #[test]
 fn an_effort_setting_takes_the_cli_levels_up_to_max_and_refuses_the_rest() {
-    for key in ["effort.default", "effort.judge", "effort.proposer", "effort.helm"] {
+    for key in ["effort.default", "effort.judge", "effort.proposer"] {
         for level in ["harness default", "low", "medium", "high", "xhigh", "max"] {
             let pairs = [(key, SettingValue::Text(level.into()))];
             assert!(
@@ -601,4 +599,44 @@ fn every_prompt_title_is_a_readable_name_and_not_its_key() {
             entry.section.title()
         );
     }
+}
+
+/// A file written before the Helm Job went still carries its values: each old key is moved under
+/// its new name, and a key that no longer has a setting is no fault.
+#[test]
+fn a_key_renamed_when_the_helm_job_went_keeps_its_value_under_the_new_name() {
+    let mut old = document(&[
+        ("features.helmCanAct", SettingValue::Bool(false)),
+        ("timeouts.helmAskHoldSeconds", SettingValue::Integer(300)),
+        ("prompts.helmRoute", SettingValue::Text("Words {message} among {candidates}".into())),
+        ("effort.helm", SettingValue::Text("low".into())),
+        ("prompts.helm", SettingValue::Text("a note".into())),
+    ]);
+    assert!(crate::settings::carried_over(&mut old));
+    assert_eq!(old.get("features.onYourWordsCanAct"), Some(&SettingValue::Bool(false)));
+    assert_eq!(old.get("timeouts.askHoldSeconds"), Some(&SettingValue::Integer(300)));
+    assert_eq!(
+        old.get("prompts.thoughtRoute"),
+        Some(&SettingValue::Text("Words {message} among {candidates}".into()))
+    );
+    assert!(old.get("features.helmCanAct").is_none());
+    assert!(old.get("timeouts.helmAskHoldSeconds").is_none());
+    assert!(old.get("prompts.helmRoute").is_none());
+    assert!(
+        checked(&old, &supplied(), &Env::none()).is_ok(),
+        "a retired key left in the file must not make a load refuse"
+    );
+    assert!(!crate::settings::carried_over(&mut old), "the second read moves nothing");
+}
+
+/// A value already under the new name stands over the old one.
+#[test]
+fn a_value_under_the_new_name_stands_over_the_old_key() {
+    let mut both = document(&[
+        ("features.helmCanAct", SettingValue::Bool(false)),
+        ("features.onYourWordsCanAct", SettingValue::Bool(true)),
+    ]);
+    assert!(crate::settings::carried_over(&mut both));
+    assert_eq!(both.get("features.onYourWordsCanAct"), Some(&SettingValue::Bool(true)));
+    assert!(both.get("features.helmCanAct").is_none());
 }

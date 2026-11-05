@@ -1,7 +1,7 @@
 [operations.clone_repository]
 kind = "command"
 transport = "HTTP"
-agent_access = "Helm only"
+agent_access = "On your words"
 description = "Clone a repository from a URL into a new folder under one a person chose, and serve it"
 notes = """
 Locate, by URL — `docs/journeys/set-up-a-project-manifest.md`, *Getting in*. The body is `url` and `parent`, absolute. The new folder is named from the URL as `git clone` names it, and git on the machine runs the clone with whatever credentials it already has. Answers 201 with the repository as `add_repository` answers it, which it then is.

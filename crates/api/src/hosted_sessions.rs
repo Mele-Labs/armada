@@ -16,12 +16,18 @@ use crate::served::Served;
 
 pub(crate) async fn start_session<D: HostedSessions>(
     State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
     body: Bytes,
 ) -> Response {
-    let start: ipc::StartSession = match ipc::decode_body("a job to start", &body) {
+    let mut start: ipc::StartSession = match ipc::decode_body("a job to start", &body) {
         Ok(start) => start,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    // A Job on your words may act as the person, so only Bridge may start one: a body that came
+    // through the agent door is read as a plain Job whatever it says.
+    if door.is_some() {
+        start.on_your_words = None;
+    }
     match served.shared().start_session_reading(start).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),

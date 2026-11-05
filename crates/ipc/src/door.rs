@@ -6,8 +6,8 @@
 //!
 //! The tool set is [`REACHABLE`], emitted by `build.rs` from the inventory's
 //! own `agent_access` column. A list written by hand is how a tool gets added
-//! to the file and stays unreachable. [`HELM_ONLY`] is the `Helm only` rows,
-//! offered to a Helm session alone for everything a person may ask it to do
+//! to the file and stays unreachable. [`ON_YOUR_WORDS`] is the `On your words` rows,
+//! offered to a Job on your words alone for everything a person may ask it to do
 //! (`#1150`). Neither reaches a plain agent door session.
 
 use serde::{Deserialize, Serialize};
@@ -46,7 +46,7 @@ include!(concat!(env!("OUT_DIR"), "/reachable.rs"));
 pub const SERVER: &str = "armada-fleet";
 
 /// The one tool on this door the CLI calls rather than the model:
-/// `--permission-prompt-tool`, which every call a Helm session's own settings
+/// `--permission-prompt-tool`, which every call a Job's own settings
 /// do not cover is put to. `#1389`.
 ///
 /// **Its arguments are the harness's, not this inventory's.** Every other tool
@@ -545,7 +545,7 @@ fn listed(shapes: &[Shape], always_loads: Option<&str>) -> Vec<Value> {
 fn tool(shape: &Shape, always_loads: Option<&str>) -> Value {
     let row = REACHABLE
         .iter()
-        .chain(HELM_ONLY.iter())
+        .chain(ON_YOUR_WORDS.iter())
         .find(|row| row.operation == shape.operation);
     let described = row.map(|row| row.description).unwrap_or_default();
     let mut properties = Map::new();

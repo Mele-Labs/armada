@@ -889,7 +889,7 @@ fn declaring_nothing_is_not_the_same_row_as_never_declaring() {
     assert_ne!(detail, &CallDetail::none());
 }
 
-/// `#1041`. `HelmThread` folds this call's row into a card by the Job it
+/// `#1041`. The thread folds this call's row into a card by the Job it
 /// names, and the id is the whole of what the row has to say.
 #[test]
 fn an_approval_ask_names_the_job_it_is_for() {
@@ -905,13 +905,13 @@ fn an_approval_ask_names_the_job_it_is_for() {
     assert_eq!(detail.shown(), "01JOB9");
 }
 
-/// **A Helm session's own tools arrive prefixed by the MCP server**, never
+/// **A Job on your words has its own tools arrive prefixed by the MCP server**, never
 /// bare — `mcp__armada-fleet__ask_person_to_approve`, `ipc::door::SERVER`
 /// named. `detail` reads `input` alone, so the prefix on `name` changes
-/// nothing about what this decodes; `packages/screens/src/helm-thread.ts` is
-/// where the prefix has to be read, and this is the row it reads.
+/// nothing about what this decodes; the thread is where the prefix has to be read, and this is the
+/// row it reads.
 #[test]
-fn an_approval_ask_names_the_job_it_is_for_prefixed_by_helms_own_server_too() {
+fn an_approval_ask_names_the_job_it_is_for_prefixed_by_the_door_server_too() {
     let read = read(
         r#"{"type":"assistant","message":{"content":[
              {"type":"tool_use","id":"a","name":"mcp__armada-fleet__ask_person_to_approve",

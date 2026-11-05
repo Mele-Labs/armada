@@ -276,8 +276,8 @@ fn a_question_option_keeps_its_preview() {
     assert_eq!(decode::<crate::AskedQuestion>("a question", json.as_bytes()).expect("round-trips"), asked);
 }
 
-fn a_reach_card(kind: Option<crate::CallKind>) -> crate::HelmCallInFlight {
-    crate::HelmCallInFlight {
+fn a_reach_card(kind: Option<crate::CallKind>) -> crate::CallInFlight {
+    crate::CallInFlight {
         call: "helm-1".into(),
         manifest_id: ManifestId::carried("armada"),
         asked_at: Instant::carried("2026-10-26T10:00:00Z"),
@@ -287,7 +287,7 @@ fn a_reach_card(kind: Option<crate::CallKind>) -> crate::HelmCallInFlight {
         length: None,
         whole: None,
         rule: "Bash(node drive.mjs:*)".into(),
-        offers: vec![crate::HelmCallAnswer::AllowOnce, crate::HelmCallAnswer::AllowLikeThisForSession],
+        offers: vec![crate::CallAnswer::AllowOnce, crate::CallAnswer::AllowLikeThisForSession],
         holding_for_seconds: 600,
         questions: Vec::new(),
         reaches: Some("/Users/user/Desktop/shot.png".into()),
@@ -304,7 +304,7 @@ fn a_reach_cards_kind_is_sent_when_set_and_left_out_when_not() {
     let card = a_reach_card(Some(kind));
     let json = encode(&card).expect("plain data");
     assert!(json.contains(r#""kind":{"program":"node","script":"drive.mjs"}"#), "{json}");
-    assert_eq!(decode::<crate::HelmCallInFlight>("a card", json.as_bytes()).expect("round-trips"), card);
+    assert_eq!(decode::<crate::CallInFlight>("a card", json.as_bytes()).expect("round-trips"), card);
 
     let json = encode(&a_reach_card(None)).expect("plain data");
     assert!(!json.contains(r#""kind""#), "{json}");
@@ -313,8 +313,8 @@ fn a_reach_cards_kind_is_sent_when_set_and_left_out_when_not() {
 /// The answer that allows calls of a kind travels under its own word, with the width chosen.
 #[test]
 fn allowing_calls_like_this_round_trips_with_its_kind() {
-    let answer = decode::<crate::HelmCallAnswer>("an answer", br#""allow_like_this_for_session""#).expect("a word");
-    assert_eq!(answer, crate::HelmCallAnswer::AllowLikeThisForSession);
+    let answer = decode::<crate::CallAnswer>("an answer", br#""allow_like_this_for_session""#).expect("a word");
+    assert_eq!(answer, crate::CallAnswer::AllowLikeThisForSession);
     assert_eq!(encode(&answer).expect("plain data"), r#""allow_like_this_for_session""#);
 
     let said = crate::AnswerSessionAsk {

@@ -13,8 +13,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::act_failed::ActFailed;
-use crate::helm_call::{HelmAskingToRun, HelmCallAnswered};
-use crate::thought::HelmThoughtRouted;
+use crate::call::{CallAskingToRun, CallAnswered};
+use crate::thought::WordsSent;
 use crate::hosted_sessions::SessionRowChanged;
 use crate::merge_line::MergeLines;
 use crate::mods::ModList;
@@ -38,7 +38,7 @@ use crate::bug_reports::BugReports;
 use crate::job_copy::KeepDraftsChanged;
 use crate::lifecycles::JobLifecycles;
 use crate::sessions::SessionRecord;
-use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
+use crate::studio::{Studio, StudioDeleted, StudioJobActed};
 use crate::terminals::JobTerminal;
 use crate::job_browser::{BrowserAskAnswered, BrowserRequest};
 
@@ -138,20 +138,20 @@ pub enum Event {
     StudioChanged(Studio),
     #[serde(rename = "studio.deleted")]
     StudioDeleted(StudioDeleted),
-    // Helm's act on a Studio, as its own kind beside the `studio.changed` the
+    // A Job on your words acting on a Studio, as its own kind beside the `studio.changed` the
     // same write publishes. `#1288`.
-    #[serde(rename = "studio.helm_acted")]
-    StudioHelmActed(StudioHelmActed),
-    // Helm's reading sent a person's words to a Session instead of to Helm.
-    #[serde(rename = "helm.thought_routed")]
-    HelmThoughtRouted(HelmThoughtRouted),
-    // A Helm session reached for something the person's own settings do not
-    // cover, and is held inside the call until they answer. `#1389`.
-    #[serde(rename = "helm.asking_to_run")]
-    HelmAskingToRun(HelmAskingToRun),
+    #[serde(rename = "studio.job_acted")]
+    StudioJobActed(StudioJobActed),
+    // A person's words were sent to a running Job.
+    #[serde(rename = "operator.words_sent")]
+    WordsSent(WordsSent),
+    // A Job reached for something the person's own settings do not cover, and is held inside the
+    // call until they answer. `#1389`.
+    #[serde(rename = "call.asking_to_run")]
+    CallAskingToRun(CallAskingToRun),
     // What became of one such ask, whoever ended it.
-    #[serde(rename = "helm.call_answered")]
-    HelmCallAnswered(HelmCallAnswered),
+    #[serde(rename = "call.answered")]
+    CallAnswered(CallAnswered),
     // A session after any fact about it, whole, so a client replaces the row it
     // holds. `docs/concepts/session.md`.
     #[serde(rename = "session.changed")]

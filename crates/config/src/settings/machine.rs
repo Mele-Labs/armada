@@ -8,7 +8,7 @@ pub const HARNESS_AGENT: Words = Words("harness.agent");
 pub const HARNESS_BINARY_PATH: Words = Words("harness.binaryPath");
 pub const HARNESS_DRONE_PATH: List = List("harness.dronePath");
 
-pub const HELM_CAN_ACT: Flag = Flag("features.helmCanAct");
+pub const WORDS_CAN_ACT: Flag = Flag("features.onYourWordsCanAct");
 pub const DRAFT_PULL_REQUESTS: Flag = Flag("features.draftPullRequests");
 pub const OPEN_GUIDES_FIRST_TIME: Flag = Flag("features.openGuidesFirstTime");
 pub const WORKFLOWS: Flag = Flag("features.workflows");
@@ -69,7 +69,7 @@ pub(super) const HARNESS: &[Entry] = &[
         key: HARNESS_AGENT.0,
         section: Section::Harness,
         title: "Agent",
-        description: "Which agent CLI Drones, the Judge and Helm run as.",
+        description: "Which agent CLI Drones, the Judge and Jobs run as.",
         kind: Kind::Choice(Options::Harnesses),
         shipped: Shipped::Supplied,
         applies: Applies::AtRestart,
@@ -118,14 +118,14 @@ pub(super) const HARNESS: &[Entry] = &[
 pub(super) const FEATURES: &[Entry] = &[
     // Enabled: resolved once like every other Machine setting — `#943`.
     Entry {
-        key: HELM_CAN_ACT.0,
+        key: WORDS_CAN_ACT.0,
         section: Section::Features,
-        title: "Helm can act",
-        description: "Helm may change things when you ask it to, such as dispatching a Job or answering a call. Off, Helm only reads.",
+        title: "Jobs on your words can act",
+        description: "A Job started on your words may change things when you ask it to, such as dispatching a Job or answering a call. Off, it only reads.",
         kind: Kind::Boolean,
         shipped: Shipped::Boolean(true),
         applies: Applies::Live,
-        row: Some("helm-action-authority-tier-1-redirect-enabled-vs-read-only"),
+        row: Some("action-authority-tier-1-redirect-enabled-vs-read-only"),
         env: None,
         tip: None,
     },

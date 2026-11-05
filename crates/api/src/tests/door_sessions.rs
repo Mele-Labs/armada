@@ -1,7 +1,7 @@
 //! What an agent is told when it lists Sessions, against a Fleet whose ledgers are long.
 //!
 //! The case that made these: 9 live Sessions answered 168 KB and every Session ever 696 KB,
-//! the door cut both at 64 KiB, and Helm reasoned from the two Sessions it could see.
+//! the door cut both at 64 KiB, and a Job on your words reasoned from the two Sessions it could see.
 
 use std::collections::BTreeMap;
 
@@ -95,7 +95,7 @@ fn lived_in(number: usize, history: usize, state: SessionState, title: String) -
         held_until: None,
         context_breakdown: None,
         loadout_summary: None,
-        helm: false,
+        on_your_words: false,
         r#mod: false,
         from_job: None,
         from_tab: None,
