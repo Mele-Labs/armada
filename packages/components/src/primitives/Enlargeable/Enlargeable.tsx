@@ -69,7 +69,9 @@ export function Enlargeable({
     if (!open) return;
     layer.current?.focus();
     const keys = (event: KeyboardEvent) => {
-      if (event.key === "Tab" && zooms) return keepTabInside(layer, event);
+      // A note open on the picture is portalled out of the dialog and keeps its own keys.
+      if (event.key === "Tab" && layer.current?.querySelector("[data-viewer-notes-open]") == null)
+        return keepTabInside(layer, event);
       if (event.key !== "Escape") return;
       if (
         layer.current?.querySelector(
@@ -86,7 +88,6 @@ export function Enlargeable({
     return () => window.removeEventListener("keydown", keys, true);
   }, [
     open,
-    zooms,
   ]);
 
   return (

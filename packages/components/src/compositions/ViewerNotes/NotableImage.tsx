@@ -198,6 +198,8 @@ export function NotableImage({
   const down = (event: ReactPointerEvent<HTMLImageElement>) => {
     if (event.button !== 0) return;
     event.preventDefault();
+    // The default just stopped would have focused it, and Esc lets go of a region through this element's own keys.
+    event.currentTarget.focus();
     event.currentTarget.setPointerCapture?.(event.pointerId);
     drag.current = at(event);
   };
