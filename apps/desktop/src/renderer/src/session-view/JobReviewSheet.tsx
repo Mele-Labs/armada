@@ -276,7 +276,7 @@ export function waitingOf(parts: ReviewParts): Waiting[] {
       made.push(
         named(
           waitingMark(row),
-          <div className="armada-job-review__fill">
+          <div className="armada-job-review__fill armada-job-review__bleed">
             <WalkPane jobId={session.id} walkId={target} front />
           </div>,
         ),
