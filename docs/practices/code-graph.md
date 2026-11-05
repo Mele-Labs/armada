@@ -50,7 +50,7 @@ dirname "$(git rev-parse --path-format=absolute --git-common-dir)"
 - **Pass that path as `repo`** on every tool call, as `gitnexus-guide`'s *Bind the repository first* says.
 - **Pass your slot as `worktree` to `detect_changes`**, so the diff it reads is yours and not the main checkout's.
 - **The index is main's, not your branch's.** A symbol your branch added is not in it, so read an empty answer about one with a text search.
-- **An index of its own in a slot is a stale copy.** It answers for the commit the slot had when it was built, so delete it with `node .gitnexus/run.cjs clean` in that slot rather than rebuilding it.
+- **An index of its own in a slot is a stale copy.** It answers for the commit the slot had when it was built, so delete it with `node .gitnexus/run.cjs clean --force` in that slot rather than rebuilding it; a bare `clean` only asks to confirm.
 
 **What it needs:** Node and pnpm, and a network the first time — `pnpm dlx`
 fetches the pinned version. Nothing else, and no global install.
