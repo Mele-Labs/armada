@@ -372,9 +372,12 @@ jobs:
         with:
           name: armada-bin
           path: bin
+      # `test`'s own entry on main: under its own id it found none on 5 of
+      # the 6 pull requests before 5 Nov 2026, and compiled every crate.
       - uses: ./.github/actions/rust-setup
         with:
           key: test
+          shared: test-test
           nextest: "true"
       - name: No-run nextest
         run: |

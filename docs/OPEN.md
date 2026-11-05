@@ -176,3 +176,7 @@ on purpose and makes the gate name what was waiting.
 ## docs/practices/writing-an-issue.md
 
 - **Nothing gates the opening paragraph.** A lint can catch the shape and not the substance, and the substance is the rule. Whether the first-line-is-not-a- heading check is worth a `verify-foundations` line is unsettled.
+
+## docs/scope.md
+
+- **[fleet-mod-hook]** How a Fleet mod hooks into how a Job and its agents run. Workflows are the first case, and today they live in Fleet: a soft rail in the agent's prompt, steps Fleet detects, nudges when one is skipped. Shapes on the table: a declared file Fleet reads at fixed moments in a Job, as `fleet.toml` and Triggers are; a program Fleet calls at those moments with a cap, as tracker mods are; a long-lived process Fleet talks to over a stable protocol, as a Job talks to an MCP server; a WebAssembly module Fleet loads in a sandbox; or code linked into Fleet. He said it is not designed yet, and asked for ideas: what another tool's plugins cannot do is no limit on Armada's. On 5 Nov he chose the direction: one protocol. A Fleet mod is a long-lived process Fleet talks to over a stable protocol, and a built-in mod reads simple file mods and speaks it for them, so Fleet knows one hook. The protocol itself, its moments and what Fleet may ask a mod are what is still open.
