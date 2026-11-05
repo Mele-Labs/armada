@@ -196,6 +196,7 @@ WebSocket event stream, read this first.
 | [Autopilot's answers: `get_autopilot_decisions`, `review_autopilot_decision`, `override_autopilot_decision`](protocol/autopilot-decisions.md) |
 | [Sleep leaves the wire](protocol/sleep-leaves-the-wire.md) |
 | [A Job's several terminals: `terminal` and `new`, `list_terminals`, `rename_terminal`](protocol/a-jobs-several-terminals.md) |
+| [The Operator takes Helm's place](protocol/the-operator-takes-helms-place.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
