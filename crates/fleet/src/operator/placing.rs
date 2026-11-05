@@ -1,6 +1,6 @@
 //! The Operator's order of Waiting to start, and the person's correction of it. A start ruled a
 //! place takes it as it joins its repository's line, or at once where it waits there already;
-//! **only while Dispatch is on**, so with it off, or the Operator off, the line is first come, first
+//! **only where Dispatch is on**, so anywhere else, or with the Operator off, the line is first come, first
 //! served. A person's drag moves a Job whatever the Operator ruled, and is kept in its Log as a
 //! correction, which the next call reads.
 

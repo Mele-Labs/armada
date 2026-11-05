@@ -15,6 +15,7 @@ use fleet::operator::{
     Quiet, Ruling, Source, Stall, Way,
 };
 use fleet::CallFailed;
+use ipc::operator_positions::{OperatorPosition, OperatorRole};
 
 pub const REPOSITORY: &str = "01ARMADAREPOSITORY";
 pub const NOW: &str = "2026-11-03T15:30:00.000Z";
@@ -179,6 +180,8 @@ pub struct FakeFleet {
     answered_first: Mutex<bool>,
     went_ahead: Mutex<Vec<String>>,
     sourced: Mutex<Vec<Sourced>>,
+    answer_stands: Mutex<OperatorPosition>,
+    suggested: Mutex<Vec<(String, Way)>>,
 }
 
 /// What one ruling on a source did: the arrival, the way, the other Job and the issue it named.
@@ -205,6 +208,8 @@ impl FakeFleet {
             answered_first: Mutex::new(false),
             went_ahead: Mutex::new(Vec::new()),
             sourced: Mutex::new(Vec::new()),
+            answer_stands: Mutex::new(OperatorPosition::On),
+            suggested: Mutex::new(Vec::new()),
         })
     }
 
@@ -224,6 +229,16 @@ impl FakeFleet {
     }
 
     /// Each item answered as the person's press would: the Job, the item, the option and its label.
+    /// Where the Answer role stands from here on. The others stand On.
+    pub fn answer_stands(&self, position: OperatorPosition) {
+        *self.answer_stands.lock().expect("not poisoned") = position;
+    }
+
+    /// What a role at Suggest would do: the Job and the way.
+    pub fn suggested(&self) -> Vec<(String, Way)> {
+        self.suggested.lock().expect("not poisoned").clone()
+    }
+
     pub fn answered(&self) -> Vec<(String, String, u32, String)> {
         self.answered.lock().expect("not poisoned").clone()
     }
@@ -309,6 +324,17 @@ impl Desk for FakeFleet {
 }
 
 impl Acting for FakeFleet {
+    fn position(&self, role: Option<OperatorRole>, _manifest: &str) -> OperatorPosition {
+        match role {
+            Some(OperatorRole::Answer) => *self.answer_stands.lock().expect("not poisoned"),
+            _ => OperatorPosition::On,
+        }
+    }
+
+    fn suggest(&self, arrival: &Arrival, ruling: &Ruling) {
+        self.suggested.lock().expect("not poisoned").push((arrival.session_id.clone(), ruling.way));
+    }
+
     fn go_ahead(&self, session: &str) {
         self.went_ahead.lock().expect("not poisoned").push(session.into());
     }

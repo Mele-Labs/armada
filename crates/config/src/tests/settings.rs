@@ -186,9 +186,6 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::WORKFLOWS,
         s::DISPUTE_REVIEWS,
         s::OPERATOR,
-        s::OPERATOR_DISPATCH,
-        s::OPERATOR_ANSWER,
-        s::OPERATOR_FILE,
         s::NOTIFICATIONS,
         s::UI_SOUNDS,
         s::REDUCE_MOTION,
@@ -241,6 +238,9 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
+    for key in [s::OPERATOR_DISPATCH, s::OPERATOR_DELEGATE, s::OPERATOR_ANSWER, s::OPERATOR_FILE] {
+        assert!(matches!(kinds(key.name()), Kind::Choice(_)), "{}", key.name());
+    }
     for key in [s::HARNESS_DRONE_PATH, s::MODELS_ROSTER] {
         assert_eq!(kinds(key.name()), Kind::TextList, "{}", key.name());
     }
@@ -252,6 +252,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::THREAD_LOOK,
         s::REACH_FOLDERS,
         s::WORKFLOWS_OFF,
+        s::OPERATOR_REPOSITORIES,
         s::SKILLS_OFF,
         s::CONNECTORS_OFF,
     ] {
@@ -264,7 +265,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 23 + 13 + 22 + 28 + 2 + 9 + s::prompt_keys().count();
+    let handles = 20 + 13 + 22 + 28 + 4 + 2 + 10 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

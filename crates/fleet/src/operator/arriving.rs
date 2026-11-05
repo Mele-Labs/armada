@@ -48,6 +48,25 @@ impl Arrived {
         }
     }
 
+    /// What a word from the store names.
+    pub(super) fn from_word(word: &str) -> Option<Arrived> {
+        [
+            Arrived::Start,
+            Arrived::Question,
+            Arrived::Card,
+            Arrived::Stopped,
+            Arrived::Red,
+            Arrived::Plan,
+            Arrived::Report,
+            Arrived::Issue,
+            Arrived::RedMain,
+            Arrived::Review,
+            Arrived::Later,
+        ]
+        .into_iter()
+        .find(|arrived| arrived.word() == word)
+    }
+
     /// A Job gone quiet with work left, which is nudged, started anew or raised.
     pub fn is_stall(self) -> bool {
         matches!(self, Arrived::Stopped | Arrived::Red)

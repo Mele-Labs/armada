@@ -415,6 +415,7 @@ fn page_ask_item(ask: PageAsk) -> ipc::WaitingItem {
         holders: Vec::new(),
         creating_since: None,
         create_refused: None,
+        operator_read: None,
     }
 }
 

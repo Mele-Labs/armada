@@ -17,7 +17,11 @@ use crate::operator::{Acting, Answering, Calling, FleetActing, Source};
 use crate::CallFailed;
 
 async fn switched(rig: &Rig, key: &str, on: bool) {
-    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(ipc::SettingValue::Bool(on)))]) };
+    let value = match key {
+        "features.operator" => ipc::SettingValue::Bool(on),
+        _ => ipc::SettingValue::Text(if on { "on" } else { "off" }.to_string()),
+    };
+    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(value))]) };
     api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
 }
 
@@ -25,6 +29,7 @@ async fn switched(rig: &Rig, key: &str, on: bool) {
 pub(super) async fn dispatch(rig: &Rig, on: bool) {
     switched(rig, "features.operator", true).await;
     switched(rig, "features.operatorDispatch", on).await;
+    switched(rig, "features.operatorDelegate", on).await;
 }
 
 async fn told(rig: &Rig, id: &SessionId) -> Vec<String> {
@@ -87,20 +92,25 @@ pub(super) fn shared() -> Vec<String> {
 }
 
 #[tokio::test]
-async fn with_dispatch_off_a_ruling_tells_and_ends_no_job() {
+async fn with_dispatch_off_a_ruling_is_logged_and_tells_and_ends_no_job() {
     let rig = rig_placing(None);
     dispatch(&rig, false).await;
-    let (one, other) = (asked(&rig, "Keep the scrollback").await, asked(&rig, "Open terminals in tabs").await);
-    let acting = FleetActing::on(&rig.fleet);
+    let other = asked(&rig, "Keep the terminal scrollback when the pane redraws").await;
+    let one = asked(&rig, "The terminal scrollback is lost on redraw").await;
+    let reply = format!("item: 1\nway: 3\njob: {}\nshared: terminal scrollback\nbecause: the same fix", other.as_str());
+    assert!(rig.fleet.operator_seated_with(Arc::new(Saying(Mutex::new(Some(reply))))));
 
-    acting.merge(one.as_str(), other.as_str(), &shared());
-    acting.keep_in_touch(one.as_str(), other.as_str(), &shared());
-    acting.hand_over(one.as_str(), None, other.as_str(), &shared());
+    rig.fleet.start_handed(one.as_str(), Source::Dispatch, "The terminal scrollback is lost on redraw").await;
+    let fleet = Arc::clone(&rig.fleet);
+    eventually(|| {
+        let fleet = Arc::clone(&fleet);
+        async move { fleet.store().lock().await.operator_rulings(10).expect("read").iter().any(|ruling| ruling.outcome == "merge") }
+    })
+    .await;
     tokio::time::sleep(Duration::from_millis(200)).await;
 
     assert!(!ended(&rig, &one).await, "Dispatch ships off");
     assert!(told(&rig, &one).await.is_empty() && told(&rig, &other).await.is_empty());
-    assert!(rig.fleet.store().lock().await.operator_in_touch(one.as_str()).expect("read").is_empty());
 }
 
 #[tokio::test]
@@ -302,4 +312,27 @@ async fn the_call_is_kept_started_only_while_the_operator_is_on() {
     switched(&rig, "features.operator", false).await;
     rig.fleet.operator_kept_in_step().await;
     assert!(!call.is_waiting().await, "turned off live: the one waiting is stopped");
+}
+
+#[tokio::test]
+async fn every_role_ships_off_and_a_switch_saved_with_two_positions_carries_across() {
+    use ipc::operator_positions::{OperatorPosition as Position, OperatorRole as Role};
+    let rig = rig_placing(None);
+    switched(&rig, "features.operator", true).await;
+    for role in [Role::Dispatch, Role::Delegate, Role::Answer, Role::File] {
+        assert_eq!(rig.fleet.operator_position(role, "a repository"), Position::Off, "{role:?}");
+    }
+
+    // Saved before a role had three positions; Dispatch's switch held Delegate too.
+    let saved = [("features.operatorDispatch", true), ("features.operatorAnswer", false), ("features.operatorFile", true)];
+    let save = ipc::SaveSettings {
+        changes: saved.into_iter().map(|(key, on)| (key.to_string(), Some(ipc::SettingValue::Bool(on)))).collect(),
+    };
+    api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("a saved switch is still read");
+
+    for (role, position) in [(Role::Dispatch, Position::On), (Role::Delegate, Position::On), (Role::Answer, Position::Off), (Role::File, Position::On)] {
+        assert_eq!(rig.fleet.operator_position(role, "a repository"), position, "{role:?}");
+    }
+    switched(&rig, "features.operatorDelegate", false).await;
+    assert_eq!(rig.fleet.operator_position(Role::Delegate, "a repository"), Position::Off, "its own value wins once he sets one");
 }

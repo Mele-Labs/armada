@@ -394,6 +394,8 @@ export type WaitingAct = {
  * the Job's browser asking him for a permission, which Bridge raised with `raise_browser_ask`. Fleet holds it in memory only. Answering with a `choice`
  * publishes `browser.ask_answered` with that index and removes it, and dismissing publishes it with `choice: null`. The agent is told nothing and is not
  * woken. Words alone are refused. It goes when `end_browser_ask` names it, when Fleet restarts, and when no client holds `/events` open.
+ * `operator_suggestion` (id `suggestion:<n>`, text what the Operator would do and why, act `answer`) is a role of the Operator's standing at Suggest: `Do it` (choice 0) does what On would
+ * have, `Skip` (choice 1) leaves it, and dismissing it is Skip.
  * `document` (id `document:<path>`, the page's path, text its title, act `message` whose `target` is the Job's own id) is the newest revision of a
  * page the Job wrote under `.armada/documents/` that he has not approved or sent back: a document artifact with `detail.asked` and no
  * `detail.settled`. Its press opens the document. `answer_document` answers it.
@@ -419,6 +421,7 @@ export type WaitingSource =
   | "held_child"
   | "preview_offer"
   | "rule_act"
+  | "operator_suggestion"
   | "sketch"
   | "document";
 
@@ -527,6 +530,12 @@ export type ProposeDraft = {
  * present only on an item that has choices, and `answer_waiting`'s `choice` indexes it. `place` is
  * present only on a `window_ask` item, whose `act` is a walk of the window it was asked in.
  */
+/** What the Operator made of a question it would answer. `crates/ipc/src/sessions.rs`. */
+export type OperatorRead = {
+  read: string;
+  pick: string;
+};
+
 export type WaitingItem = {
   id: string;
   text: string;
@@ -545,6 +554,8 @@ export type WaitingItem = {
   creating_since?: string;
   /** On a `slot_choice` item only: why the last slot Fleet tried to make was not made. Gone the next time Add is answered. */
   create_refused?: string;
+  /** On a question or a card, where the Answer role stands at Suggest: what the Operator read and the option it would pick. His press on that option is the one press. */
+  operator_read?: OperatorRead;
 };
 
 /** One slot a Job Fleet hosts holds, offered on a `slot_choice` call. `keeps` is why Free is off: its turn is running, or its checkout holds files no commit has. Fleet decides it. */

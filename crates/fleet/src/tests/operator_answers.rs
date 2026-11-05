@@ -20,8 +20,22 @@ use crate::CallFailed;
 const ASKED: &str = "Which clock do the tests use?";
 
 async fn switched(rig: &Rig, key: &str, on: bool) {
-    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(ipc::SettingValue::Bool(on)))]) };
+    let value = match key {
+        "features.operator" => ipc::SettingValue::Bool(on),
+        _ => ipc::SettingValue::Text(if on { "on" } else { "off" }.to_string()),
+    };
+    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(value))]) };
     api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
+}
+
+async fn positioned(rig: &Rig, key: &str, position: &str) {
+    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(ipc::SettingValue::Text(position.to_string())))]) };
+    api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
+}
+
+async fn answering(rig: &Rig) {
+    switched(rig, "features.operator", true).await;
+    switched(rig, "features.operatorAnswer", true).await;
 }
 
 /// A call that answers each question with the next of its answers, and keeps what it was asked.
@@ -123,7 +137,7 @@ async fn log_of(rig: &Rig) -> Vec<store::KeptRuling> {
 async fn a_question_from_a_job_on_a_group_not_seen_is_answered_as_his_press_would_with_a_row_in_its_thread() {
     let rig = rig_placing(None);
     // Answer is the Operator's own: Dispatch stays off.
-    switched(&rig, "features.operator", true).await;
+    answering(&rig).await;
     let call = Answers::with(&["item: 1\nway: 1\nanswer: 1\nbecause: a frozen clock is the one the agent recommends"]);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     let id = rig.start().await;
@@ -149,7 +163,7 @@ async fn a_question_from_a_job_on_a_group_not_seen_is_answered_as_his_press_woul
 #[tokio::test]
 async fn a_question_from_a_job_on_a_seen_group_is_raised_with_no_call_and_arrives_once_however_often_its_row_is_read() {
     let rig = rig_placing(None);
-    switched(&rig, "features.operator", true).await;
+    answering(&rig).await;
     let counted = Arc::new(Counting::default());
     assert!(rig.fleet.operator_seated_with(counted.clone()));
     let id = rig.start().await;
@@ -175,7 +189,7 @@ async fn a_question_from_a_job_on_a_seen_group_is_raised_with_no_call_and_arrive
 #[tokio::test]
 async fn his_own_answer_is_kept_and_a_second_job_asking_the_same_is_offered_it_naming_the_first() {
     let rig = rig_placing(None);
-    switched(&rig, "features.operator", true).await;
+    answering(&rig).await;
     let call = Answers::with(&["item: 1\nway: 1\nanswer: 1\nbecause: he answered the same"]);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     let first = rig.start().await;
@@ -223,7 +237,7 @@ async fn with_the_operator_off_no_question_is_handed_and_his_press_is_not_kept()
     assert!(!left.contains(&"a".to_string()) && left.contains(&"b".to_string()), "only his press settled anything: {left:?}");
 
     // The same item with the Operator on is handed, so the silence above is the switch's.
-    switched(&rig, "features.operator", true).await;
+    answering(&rig).await;
     read_and_handed(&rig, &id).await;
     eventually(|| async { counted.0.load(Ordering::SeqCst) == 1 }).await;
 }
@@ -234,7 +248,7 @@ async fn while_autopilot_runs_he_is_away_its_setup_widens_answer_and_its_pass_le
     let id = rig.start().await;
     started(&rig, &[AutopilotDecision::Recommended]).await;
     keep(&rig, &id, &[item("a", ASKED, &["Frozen (Recommended)", "Fake"])]).await;
-    switched(&rig, "features.operator", true).await;
+    answering(&rig).await;
 
     assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 0, "the Operator answers it");
     assert!(judge.asked().is_empty(), "and Autopilot's own call is not made");
@@ -256,8 +270,7 @@ async fn while_autopilot_runs_he_is_away_its_setup_widens_answer_and_its_pass_le
 async fn with_answer_off_a_question_is_ruled_into_the_log_and_left_on_his_list_as_dispatch_off_leaves_a_start() {
     let rig = rig_placing(None);
     switched(&rig, "features.operator", true).await;
-    assert!(rig.fleet.operator_answering(), "Answer ships On under the Operator");
-    switched(&rig, "features.operatorAnswer", false).await;
+    assert!(!rig.fleet.operator_answering("any repository"), "Answer ships Off under the Operator");
     let call = Answers::with(&["item: 1\nway: 1\nanswer: 1\nbecause: a frozen clock is the one the agent recommends"]);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     let id = rig.start().await;
@@ -277,7 +290,7 @@ async fn with_answer_off_a_question_is_ruled_into_the_log_and_left_on_his_list_a
 #[tokio::test]
 async fn autopilot_turned_on_offers_what_is_already_waiting_on_him_once_under_its_setup() {
     let rig = rig_placing(None);
-    switched(&rig, "features.operator", true).await;
+    answering(&rig).await;
     let call = Answers::with(&["item: 1\nway: 1\nanswer: 1\nbecause: he left it to the recommended option"]);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     let id = rig.start().await;
@@ -303,7 +316,7 @@ async fn autopilot_turned_on_offers_what_is_already_waiting_on_him_once_under_it
 #[tokio::test]
 async fn autopilot_turned_on_while_a_call_on_an_item_is_out_offers_it_once_the_call_is_back() {
     let rig = rig_placing(None);
-    switched(&rig, "features.operator", true).await;
+    answering(&rig).await;
     let call = Arc::new(Gated::default());
     assert!(rig.fleet.operator_seated_with(call.clone()));
     let id = rig.start().await;
@@ -333,7 +346,7 @@ async fn autopilot_turned_on_while_a_call_on_an_item_is_out_offers_it_once_the_c
 #[tokio::test]
 async fn a_permission_card_for_a_read_is_settled_allow_once_as_his_press_would_and_the_job_goes_on() {
     let rig = rig_placing(None);
-    switched(&rig, "features.operator", true).await;
+    answering(&rig).await;
     let call = Answers::with(&["item: 1\nway: 1\nanswer: 1\nbecause: it only reads a file in the Job's own slot"]);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     let id = rig.start().await;
@@ -355,4 +368,100 @@ async fn a_permission_card_for_a_read_is_settled_allow_once_as_his_press_would_a
         read_and_handed(&rig, &id).await;
     }
     assert_eq!(call.asked().len(), 1, "a card arrives once");
+}
+
+/// What the Operator made of question `a`, as his list reads it.
+async fn read_on_a(rig: &Rig, id: &SessionId) -> Option<ipc::OperatorRead> {
+    let read = Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("read");
+    read.session.waiting_for.into_iter().find(|one| one.id == "a").and_then(|one| one.operator_read)
+}
+
+#[tokio::test]
+async fn with_answer_at_suggest_a_question_shows_the_read_and_the_pick_and_his_press_is_the_one_press() {
+    let rig = rig_placing(None);
+    switched(&rig, "features.operator", true).await;
+    positioned(&rig, "features.operatorAnswer", "suggest").await;
+    let call = Answers::with(&["item: 1\nway: 1\nanswer: 1\nbecause: a frozen clock is the one the agent recommends"]);
+    assert!(rig.fleet.operator_seated_with(call.clone()));
+    let id = rig.start().await;
+    planned(&rig, &id, false).await;
+    keep(&rig, &id, &[item("a", ASKED, &["Frozen (Recommended)", "Fake"])]).await;
+
+    read_and_handed(&rig, &id).await;
+    eventually(|| async { read_on_a(&rig, &id).await.is_some() }).await;
+
+    let read = read_on_a(&rig, &id).await.expect("a read");
+    assert_eq!((read.pick.as_str(), read.read.as_str()), ("Frozen (Recommended)", "a frozen clock is the one the agent recommends"));
+    assert!(!said(&rig, &id).await.iter().any(|one| one.contains("The Operator answered")), "nothing is settled");
+    let said_to = AnswerWaiting { session_id: id.clone(), item_id: "a".into(), choice: Some(0), text: None, mode: None, fixed: None };
+    Arc::clone(&rig.fleet).settle_waiting(said_to).await.expect("his press");
+    assert!(!waiting(&rig, &id).await.contains(&"a".to_string()));
+}
+
+#[tokio::test]
+async fn a_repository_stands_apart_from_the_machine_in_either_direction() {
+    for (machine, repository, settled) in [("on", "off", false), ("off", "on", true), ("off", "suggest", false)] {
+        let rig = rig_placing(None);
+        switched(&rig, "features.operator", true).await;
+        positioned(&rig, "features.operatorAnswer", machine).await;
+        let call = Answers::with(&["item: 1\nway: 1\nanswer: 1\nbecause: a frozen clock is the one the agent recommends"]);
+        assert!(rig.fleet.operator_seated_with(call.clone()));
+        let id = rig.start().await;
+        let manifest = rig.fleet.store().lock().await.hosting(id.as_str()).expect("read").expect("hosted").manifest_id;
+        let value = ipc::SettingValue::Map(std::collections::BTreeMap::from([(
+            manifest,
+            ipc::SettingValue::Map(std::collections::BTreeMap::from([("answer".to_string(), ipc::SettingValue::Text(repository.to_string()))])),
+        )]));
+        let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([("features.operatorRepositories".to_string(), Some(value))]) };
+        api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
+        planned(&rig, &id, false).await;
+        keep(&rig, &id, &[item("a", ASKED, &["Frozen (Recommended)", "Fake"])]).await;
+
+        read_and_handed(&rig, &id).await;
+        eventually(|| async { !log_of(&rig).await.is_empty() }).await;
+        match settled {
+            true => eventually(|| async { !waiting(&rig, &id).await.contains(&"a".to_string()) }).await,
+            false => {
+                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                assert!(waiting(&rig, &id).await.contains(&"a".to_string()), "{machine} then {repository}");
+            }
+        }
+        assert_eq!(read_on_a(&rig, &id).await.is_some(), repository == "suggest", "{machine} then {repository}");
+    }
+}
+
+/// A call held out until released, which then answers the first option.
+#[derive(Default)]
+struct HeldOut {
+    asks: AtomicUsize,
+    release: tokio::sync::Notify,
+}
+
+impl Calling for HeldOut {
+    fn ask(&self, _question: String) -> Answering<'_> {
+        self.asks.fetch_add(1, Ordering::SeqCst);
+        Box::pin(async move {
+            self.release.notified().await;
+            Ok("item: 1\nway: 1\nanswer: 1\nbecause: a frozen clock is the one the agent recommends".to_string())
+        })
+    }
+}
+
+#[tokio::test]
+async fn a_call_out_when_a_role_moves_goes_by_the_new_position_as_it_comes_back() {
+    let rig = rig_placing(None);
+    answering(&rig).await;
+    let call = Arc::new(HeldOut::default());
+    assert!(rig.fleet.operator_seated_with(call.clone()));
+    let id = rig.start().await;
+    planned(&rig, &id, false).await;
+    keep(&rig, &id, &[item("a", ASKED, &["Frozen (Recommended)", "Fake"])]).await;
+    read_and_handed(&rig, &id).await;
+    eventually(|| async { call.asks.load(Ordering::SeqCst) == 1 }).await;
+
+    positioned(&rig, "features.operatorAnswer", "suggest").await;
+    call.release.notify_one();
+
+    eventually(|| async { read_on_a(&rig, &id).await.is_some() }).await;
+    assert!(waiting(&rig, &id).await.contains(&"a".to_string()), "On was out of date: nothing is settled");
 }
